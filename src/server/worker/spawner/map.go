@@ -1,31 +1,40 @@
 package spawner
 
-func (s *Spawner) runMap(pachClient *client.APIClient) error {
-	logger := logs.NewMasterLogger(a.pipelineInfo)
-	// Listen for new commits, and create jobs when they arrive
-	commitIter, err := pachClient.SubscribeCommit(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "", pfs.CommitState_READY)
+// forEachCommit listens for each READY output commit in the pipeline, and calls
+// the given callback once for each such commit, synchronously.
+func forEachCommit(
+	pachClient *client.APIClient,
+	pipelineInfo *pps.PipelineInfo,
+	cb func(*pfs.CommitInfo) error,
+) error {
+	commitIter, err := pachClient.SubscribeCommit(a.pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch, "", pfs.CommitState_READY)
 	if err != nil {
 		return err
 	}
 	defer commitIter.Close()
-	for {
-		commitInfo, err := commitIter.Next()
-		if err != nil {
-			return err
-		}
-		if commitInfo.Finished != nil {
-			continue
-		}
-		// Inspect the commit and check again if it has been finished (it may have
-		// been closed since it was queued, e.g. by StopPipeline or StopJob)
-		commitInfo, err = pachClient.InspectCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
-		if err != nil {
-			return err
-		}
-		if commitInfo.Finished != nil {
-			continue // commit finished after queueing
-		}
 
+	for {
+		if commitInfo, err := commitIter.Next(); err != nil {
+			return err
+		} else if commitInfo.Finished == nil {
+			// Inspect the commit and check again if it has been finished (it may have
+			// been closed since it was queued, e.g. by StopPipeline or StopJob)
+			if commitInfo, err = pachClient.InspectCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID); err != nil {
+				return err
+			} else if commitInfo.Finished == nil {
+				cb(commitInfo)
+			}
+		}
+	}
+}
+
+func runMap(
+	pachClient *client.APIClient,
+	pipelineInfo *pps.PipelineInfo,
+	logger logs.TaggedLogger,
+	utils common.Utils,
+) error {
+	return forEachCommit(pachClient, pipelineInfo, func(commitInfo) error {
 		// Check if a job was previously created for this commit. If not, make one
 		var jobInfo *pps.JobInfo // job for commitInfo (new or old)
 		jobInfos, err := pachClient.ListJob("", nil, commitInfo.Commit, -1, true)
@@ -35,7 +44,7 @@ func (s *Spawner) runMap(pachClient *client.APIClient) error {
 		if len(jobInfos) > 1 {
 			return fmt.Errorf("multiple jobs found for commit: %s/%s", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
 		} else if len(jobInfos) < 1 {
-			job, err := pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit)
+			job, err := pachClient.CreateJob(pipelineInfo.Pipeline.Name, commitInfo.Commit)
 			if err != nil {
 				return err
 			}
@@ -67,36 +76,36 @@ func (s *Spawner) runMap(pachClient *client.APIClient) error {
 			}
 			// ignore finished jobs (e.g. old pipeline & already killed)
 			continue
-		case jobInfo.PipelineVersion < a.pipelineInfo.Version:
+		case jobInfo.PipelineVersion < pipelineInfo.Version:
 			// kill unfinished jobs from old pipelines (should generally be cleaned
 			// up by PPS master, but the PPS master can fail, and if these jobs
 			// aren't killed, future jobs will hang indefinitely waiting for their
 			// parents to finish)
-			if err := a.updateJobState(pachClient.Ctx(), jobInfo, nil,
+			if err := utils.UpdateJobState(pachClient.Ctx(), jobInfo.Job.ID, nil,
 				pps.JobState_JOB_KILLED, "pipeline has been updated"); err != nil {
 				return fmt.Errorf("could not kill stale job: %v", err)
 			}
 			continue
-		case jobInfo.PipelineVersion > a.pipelineInfo.Version:
+		case jobInfo.PipelineVersion > pipelineInfo.Version:
 			return fmt.Errorf("job %s's version (%d) greater than pipeline's "+
 				"version (%d), this should automatically resolve when the worker "+
-				"is updated", jobInfo.Job.ID, jobInfo.PipelineVersion, a.pipelineInfo.Version)
+				"is updated", jobInfo.Job.ID, jobInfo.PipelineVersion, pipelineInfo.Version)
 			continue
 		}
 
 		// Now that the jobInfo is persisted, wait until all input commits are
 		// ready, split the input datums into chunks and merge the results of
 		// chunks as they're processed
-		if err := a.waitJob(pachClient, jobInfo, logger); err != nil {
+		if err := waitJob(pachClient, jobInfo, logger); err != nil {
 			return err
 		}
-	}
+	})
 }
 
 // waitJob waits for the job in 'jobInfo' to finish, and then it collects the
 // output from the job's workers and merges it into a commit (and may merge
 // stats into a commit in the stats branch as well)
-func (s *Spawner) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, logger logs.TaggedLogger) (retErr error) {
+func waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, logger logs.TaggedLogger) (retErr error) {
 	logger.Logf("waiting on job %q (pipeline version: %d, state: %s)", jobInfo.Job.ID, jobInfo.PipelineVersion, jobInfo.State)
 	ctx, cancel := context.WithCancel(pachClient.Ctx())
 	pachClient = pachClient.WithCtx(ctx)
@@ -138,6 +147,7 @@ func (s *Spawner) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, lo
 					if err := a.jobs.ReadWrite(stm).Get(jobInfo.Job.ID, jobPtr); err != nil {
 						return err
 					}
+					// TODO: this should just be part of UpdateJobState
 					if !ppsutil.IsTerminal(jobPtr.State) {
 						return ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, pps.JobState_JOB_KILLED, "")
 					}
@@ -212,7 +222,7 @@ func (s *Spawner) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, lo
 					return err
 				}
 			}
-			if err := a.updateJobState(ctx, jobInfo, statsCommit, pps.JobState_JOB_FAILURE, reason); err != nil {
+			if err := utils.UpdateJobState(ctx, jobInfo.Job.ID, statsCommit, pps.JobState_JOB_FAILURE, reason); err != nil {
 				return err
 			}
 			if _, err := pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
@@ -301,7 +311,7 @@ func (s *Spawner) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, lo
 				return err
 			}
 		}
-		if err := a.updateJobState(ctx, jobInfo, nil, pps.JobState_JOB_MERGING, ""); err != nil {
+		if err := utils.UpdateJobState(ctx, jobInfo.Job.ID, nil, pps.JobState_JOB_MERGING, ""); err != nil {
 			return err
 		}
 		var trees []*pfs.Object
@@ -348,7 +358,7 @@ func (s *Spawner) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, lo
 		// killed.
 		if failedDatumID != "" {
 			reason := fmt.Sprintf("failed to process datum: %v", failedDatumID)
-			if err := a.updateJobState(ctx, jobInfo, statsCommit, pps.JobState_JOB_FAILURE, reason); err != nil {
+			if err := utils.UpdateJobState(ctx, jobInfo.Job.ID, statsCommit, pps.JobState_JOB_FAILURE, reason); err != nil {
 				return err
 			}
 			if _, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
@@ -392,9 +402,9 @@ func (s *Spawner) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, lo
 		// Handle egress
 		if err := a.egress(pachClient, logger, jobInfo); err != nil {
 			reason := fmt.Sprintf("egress error: %v", err)
-			return a.updateJobState(ctx, jobInfo, statsCommit, pps.JobState_JOB_FAILURE, reason)
+			return utils.UpdateJobState(ctx, jobInfo.Job.ID, statsCommit, pps.JobState_JOB_FAILURE, reason)
 		}
-		return a.updateJobState(ctx, jobInfo, statsCommit, pps.JobState_JOB_SUCCESS, "")
+		return utils.UpdateJobState(ctx, jobInfo.Job.ID, statsCommit, pps.JobState_JOB_SUCCESS, "")
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		logger.Logf("error in waitJob %v, retrying in %v", err, d)
 		select {
@@ -414,49 +424,14 @@ func (s *Spawner) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, lo
 			return jobs.Put(jobID, jobPtr)
 		})
 		if err != nil {
-			logger.Logf("error incrementing job %s's restart count", jobInfo.Job.ID)
+			logger.Logf("error incrementing restart count for job (%s)", jobInfo.Job.ID)
 		}
 		return nil
 	})
 	return nil
 }
 
-func (s *Spawner) updateJobState(ctx context.Context, info *pps.JobInfo, statsCommit *pfs.Commit, state pps.JobState, reason string) error {
-	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		jobs := a.jobs.ReadWrite(stm)
-		jobID := info.Job.ID
-		jobPtr := &pps.EtcdJobInfo{}
-		if err := jobs.Get(jobID, jobPtr); err != nil {
-			return err
-		}
-		if jobPtr.StatsCommit == nil {
-			jobPtr.StatsCommit = statsCommit
-		}
-		return ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, state, reason)
-	})
-	return err
-}
-
-// deleteJob is identical to updateJobState, except that jobPtr points to a job
-// that should be deleted rather than marked failed. Jobs may be deleted if
-// their output commit is deleted.
-func (s *Spawner) deleteJob(stm col.STM, jobPtr *pps.EtcdJobInfo) error {
-	pipelinePtr := &pps.EtcdPipelineInfo{}
-	if err := a.pipelines.ReadWrite(stm).Update(jobPtr.Pipeline.Name, pipelinePtr, func() error {
-		if pipelinePtr.JobCounts == nil {
-			pipelinePtr.JobCounts = make(map[int32]int32)
-		}
-		if pipelinePtr.JobCounts[int32(jobPtr.State)] != 0 {
-			pipelinePtr.JobCounts[int32(jobPtr.State)]--
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-	return a.jobs.ReadWrite(stm).Delete(jobPtr.Job.ID)
-}
-
-func (s *Spawner) egress(pachClient *client.APIClient, logger logs.TaggedLogger, jobInfo *pps.JobInfo) error {
+func egress(pachClient *client.APIClient, logger logs.TaggedLogger, jobInfo *pps.JobInfo) error {
 	// copy the pach client (preserving auth info) so we can set a different
 	// number of concurrent streams
 	pachClient = pachClient.WithCtx(pachClient.Ctx())
@@ -490,7 +465,7 @@ func (s *Spawner) egress(pachClient *client.APIClient, logger logs.TaggedLogger,
 	})
 }
 
-func (s *Spawner) failedInputs(ctx context.Context, jobInfo *pps.JobInfo) ([]string, error) {
+func failedInputs(ctx context.Context, jobInfo *pps.JobInfo) ([]string, error) {
 	var failedInputs []string
 	var vistErr error
 	blockCommit := func(name string, commit *pfs.Commit) {

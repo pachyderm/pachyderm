@@ -48,6 +48,8 @@ const (
 
 func (a *APIServer) master(masterType string, spawner func(*client.APIClient) error) {
 	logger := logs.NewMasterLogger(a.pipelineInfo)
+	utils := common.NewUtils()
+
 	masterLock := dlock.NewDLock(a.etcdClient, path.Join(a.etcdPrefix, masterLockPath, a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt))
 	b := backoff.NewInfiniteBackOff()
 	// Setting a high backoff so that when this master fails, the other
@@ -69,8 +71,9 @@ func (a *APIServer) master(masterType string, spawner func(*client.APIClient) er
 			return err
 		}
 		defer masterLock.Unlock(ctx)
-		return spawner.Run()
-		return spawner(pachClient)
+
+		utils = common.NewUtils(pachClient, a.etcdClient)
+		return spawner.Run(pachClient, a.pipelineInfo, logger, utils)
 	}, b, func(err error, d time.Duration) error {
 		if auth.IsErrNotAuthorized(err) {
 			logger.Logf("failing %q due to auth rejection", a.pipelineInfo.Pipeline.Name)

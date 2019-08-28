@@ -12,7 +12,7 @@ func forLatestCommit(
 	pipelineInfo *pps.PipelineInfo,
 	cb func(context.Context, *pfs.CommitInfo) error,
 ) error {
-	ctx := pachClient.Context()
+	ctx := pachClient.Ctx()
 
 	commitIter, err := pachClient.SubscribeCommit(pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch, "", pfs.CommitState_READY)
 	if err != nil {
@@ -52,9 +52,7 @@ func forLatestCommit(
 	}
 }
 
-func RunService(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, utils common.Utils, logger logs.TemplateLogger) error {
-	ctx := pachClient.Context()
-
+func runService(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, utils common.Utils, logger logs.TemplateLogger) error {
 	// The serviceCtx is only used for canceling user code (due to a new output
 	// commit being ready)
 	return forLatestCommit(pachClient, pipelineInfo, func(serviceCtx context.Context, commitInfo *pfs.CommitInfo) error {
@@ -77,12 +75,13 @@ func RunService(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, ut
 		logger = logger.WithData(data)
 
 		return utils.WithProvisionedNode(pachClient, data, logger, func() error {
-			if err := utils.UpdateJobState(ctx, job.ID, pps.JobState_JOB_RUNNING); err != nil {
+			ctx := pachClient.Ctx()
+
+			if err := utils.UpdateJobState(ctx, job.ID, pps.JobState_JOB_RUNNING, ""); err != nil {
 				logger.Logf("error updating job state: %+v", err)
 			}
 
 			eg, serviceCtx := errgroup.Group{}.WithContext(serviceCtx)
-
 			eg.Go(runUserCode(serviceCtx, logger))
 			if pipelineInfo.Spout != nil {
 				eg.Go(receiveSpout(serviceCtx, pachClient, pipelineInfo, logger))
@@ -93,15 +92,13 @@ func RunService(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, ut
 			}
 
 			// Only want to update this stuff if we were canceled due to a new commit
-			select {
-			case <-serviceCtx.Done():
-				if err := utils.UpdateJobState(ctx, job.ID, pps.JobState_JOB_SUCCESS); err != nil {
+			if common.IsDone(serviceCtx) {
+				if err := utils.UpdateJobState(ctx, job.ID, pps.JobState_JOB_SUCCESS, ""); err != nil {
 					logger.Logf("error updating job progress: %+v", err)
 				}
 				if err := pachClient.FinishCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID); err != nil {
 					logger.Logf("could not finish output commit: %v", err)
 				}
-			default:
 			}
 		})
 	})

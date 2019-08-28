@@ -1,6 +1,6 @@
 package spawner
 
-func (s *Spawner) runSpout(
+func runSpout(
 	pachClient *client.APIClient,
 	pipelineInfo *pps.PipelineInfo,
 	logger logs.TaggedLogger,

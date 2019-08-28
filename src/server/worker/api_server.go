@@ -324,38 +324,6 @@ func (a *APIServer) downloadGitData(pachClient *client.APIClient, dir string, in
 	return nil
 }
 
-func (a *APIServer) reportDownloadSizeStats(downSize float64, logger logs.TaggedLogger) {
-	if a.exportStats {
-		if hist, err := datumDownloadSize.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID); err != nil {
-			logger.Logf("failed to get histogram w labels: pipeline (%v) job (%v) with error %v", a.pipelineInfo.ID, a.jobID, err)
-		} else {
-			hist.Observe(downSize)
-		}
-		if counter, err := datumDownloadBytesCount.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID); err != nil {
-			logger.Logf("failed to get counter w labels: pipeline (%v) job (%v) with error %v", a.pipelineInfo.ID, a.jobID, err)
-		} else {
-			counter.Add(downSize)
-		}
-	}
-}
-
-func (a *APIServer) reportDownloadTimeStats(start time.Time, stats *pps.ProcessStats, logger logs.TaggedLogger) {
-	duration := time.Since(start)
-	stats.DownloadTime = types.DurationProto(duration)
-	if a.exportStats {
-		if hist, err := datumDownloadTime.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID); err != nil {
-			logger.Logf("failed to get histogram w labels: pipeline (%v) job (%v) with error %v", a.pipelineInfo.ID, a.jobID, err)
-		} else {
-			hist.Observe(duration.Seconds())
-		}
-		if counter, err := datumDownloadSecondsCount.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID); err != nil {
-			logger.Logf("failed to get counter w labels: pipeline (%v) job (%v) with error %v", a.pipelineInfo.ID, a.jobID, err)
-		} else {
-			counter.Add(duration.Seconds())
-		}
-	}
-}
-
 func (a *APIServer) downloadData(pachClient *client.APIClient, logger logs.TaggedLogger, inputs []*common.Input, puller *filesync.Puller, stats *pps.ProcessStats, statsTree *hashtree.Ordered) (_ string, retErr error) {
 	defer a.reportDownloadTimeStats(time.Now(), stats, logger)
 	logger.Logf("starting to download data")
@@ -1622,7 +1590,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger logs.Tagg
 				logger.Logf("skipping datum")
 				return nil
 			}
-			subStats := &pps.ProcessStats{}
+			var subStats *pps.ProcessStats
 			var inputTree, outputTree *hashtree.Ordered
 			var statsTree *hashtree.Unordered
 			if a.pipelineInfo.EnableStats {
@@ -1660,31 +1628,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger logs.Tagg
 				if common.isDone(ctx) {
 					return ctx.Err() // timeout or cancelled job--don't run datum
 				}
-				// Download input data
-				puller := filesync.NewPuller()
-				// TODO parent tag shouldn't be nil
-				var err error
-				dir, err = a.downloadData(pachClient, logger, data, puller, subStats, inputTree)
-				// We run these cleanup functions no matter what, so that if
-				// downloadData partially succeeded, we still clean up the resources.
-				defer func() {
-					if err := os.RemoveAll(dir); err != nil && retErr == nil {
-						retErr = err
-					}
-				}()
-				// It's important that we run puller.CleanUp before os.RemoveAll,
-				// because otherwise puller.Cleanup might try tp open pipes that have
-				// been deleted.
-				defer func() {
-					if _, err := puller.CleanUp(); err != nil && retErr == nil {
-						retErr = err
-					}
-				}()
-				if err != nil {
-					return fmt.Errorf("error downloadData: %v", err)
-				}
-				a.runMu.Lock()
-				defer a.runMu.Unlock()
+
 				// shadow ctx and pachClient for the context of processing this one datum
 				ctx, cancel := context.WithCancel(ctx)
 				pachClient := pachClient.WithCtx(ctx)
@@ -1697,49 +1641,24 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger logs.Tagg
 					a.cancel = cancel
 					a.stats = stats
 				}()
-				if err := os.MkdirAll(client.PPSInputPrefix, 0777); err != nil {
-					return err
-				}
-				if err := a.linkData(data, dir); err != nil {
-					return fmt.Errorf("error linkData: %v", err)
-				}
-				defer func() {
-					if err := a.unlinkData(data); err != nil && retErr == nil {
-						retErr = fmt.Errorf("error unlinkData: %v", err)
-					}
-				}()
-				// If the pipeline spec set a custom user to execute the
-				// process, make sure `/pfs` and its content are owned by it
-				if a.uid != nil && a.gid != nil {
-					filepath.Walk("/pfs", func(name string, info os.FileInfo, err error) error {
-						if err == nil {
-							err = os.Chown(name, int(*a.uid), int(*a.gid))
+
+				subStats, err := utils.WithProvisionedNode(, func(subStats *pps.ProcessStats) error {
+					a.runMu.Lock()
+					defer a.runMu.Unlock()
+					if err := a.runUserCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
+						if a.pipelineInfo.Transform.ErrCmd != nil && failures == jobInfo.DatumTries-1 {
+							if err = a.runUserErrorHandlingCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
+								return fmt.Errorf("error runUserErrorHandlingCode: %v", err)
+							}
+							return errDatumRecovered
 						}
 						return err
-					})
-				}
-				if err := a.runUserCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
-					if a.pipelineInfo.Transform.ErrCmd != nil && failures == jobInfo.DatumTries-1 {
-						if err = a.runUserErrorHandlingCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
-							return fmt.Errorf("error runUserErrorHandlingCode: %v", err)
-						}
-						return errDatumRecovered
 					}
-					return fmt.Errorf("error runUserCode: %v", err)
-				}
-				// CleanUp is idempotent so we can call it however many times we want.
-				// The reason we are calling it here is that the puller could've
-				// encountered an error as it was lazily loading files, in which case
-				// the output might be invalid since as far as the user's code is
-				// concerned, they might've just seen an empty or partially completed
-				// file.
-				downSize, err := puller.CleanUp()
+				})
 				if err != nil {
-					logger.Logf("puller encountered an error while cleaning up: %+v", err)
 					return err
 				}
-				atomic.AddUint64(&subStats.DownloadBytes, uint64(downSize))
-				a.reportDownloadSizeStats(float64(downSize), logger)
+
 				return a.uploadOutput(pachClient, dir, tag, logger, data, subStats, outputTree, datumIdx)
 			}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
 				if common.isDone(ctx) {

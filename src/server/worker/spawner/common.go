@@ -31,12 +31,10 @@ func runUserCode(
 
 func runUntil(ctx context.Context, name string, cb func() error) error {
 	return backoff.RetryNotify(cb, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		select {
-		case <-ctx.Done():
+		if common.IsDone(ctx) {
 			return err
-		default:
-			logger.Logf("error in %s: %+v, retrying in: %+v", name, err, d)
-			return nil
 		}
+		logger.Logf("error in %s: %+v, retrying in: %+v", name, err, d)
+		return nil
 	})
 }
