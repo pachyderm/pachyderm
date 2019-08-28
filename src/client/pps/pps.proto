@@ -72,7 +72,7 @@ message PFSInput {
   string branch = 3;
   string commit = 4;
   string glob = 5;
-  string match_on = 8;
+  string join_on = 8;
   bool lazy = 6;
   // EmptyFiles, if true, will cause files from this PFS input to be
   // presented as empty files. This is useful in shuffle pipelines where you
@@ -327,7 +327,7 @@ message PipelineInput {
   pfs.Repo repo = 1;
   string branch = 2;
   string glob = 3;
-  string match_on = 7;
+  string join_on = 7;
   bool lazy = 4;
   pfs.Commit from = 6;
 }

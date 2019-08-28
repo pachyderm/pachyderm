@@ -53,10 +53,10 @@ func newPFSDatumIterator(pachClient *client.APIClient, input *pps.PFSInput) (Dat
 			return nil, err
 		}
 		g := glob.MustCompile(input.Glob, '/')
-		matchOn := g.Replace(fileInfo.File.Path, input.MatchOn)
+		joinOn := g.Replace(fileInfo.File.Path, input.JoinOn)
 		result.inputs = append(result.inputs, &Input{
 			FileInfo:   fileInfo,
-			MatchOn:    matchOn,
+			JoinOn:     joinOn,
 			Name:       input.Name,
 			Lazy:       input.Lazy,
 			Branch:     input.Branch,
@@ -267,7 +267,7 @@ func newJoinDatumIterator(pachClient *client.APIClient, join []*pps.Input) (Datu
 		tuple := cross.Datum()
 		count := make(map[string]int)
 		for _, input := range tuple {
-			count[input.MatchOn]++
+			count[input.JoinOn]++
 		}
 		if len(count) == 1 {
 			result.datums = append(result.datums, tuple)
