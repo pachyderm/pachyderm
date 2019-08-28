@@ -23,6 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 )
 
 var objHashRE = regexp.MustCompile("[0-9a-f]{128}")
@@ -197,7 +198,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		}
 		pis = sortPipelineInfos(pis)
 		for _, pi := range pis {
-			cPR := pipelineInfoToRequest(pi)
+			cPR := ppsutil.PipelineReqFromInfo(pi)
 			cPR.SpecCommit = pi.SpecCommit
 			if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{Pipeline: cPR}}); err != nil {
 				return err
@@ -234,7 +235,7 @@ func (a *apiServer) ExtractPipeline(ctx context.Context, request *admin.ExtractP
 	if err != nil {
 		return nil, err
 	}
-	return &admin.Op{Op1_9: &admin.Op1_9{Pipeline: pipelineInfoToRequest(pi)}}, nil
+	return &admin.Op{Op1_9: &admin.Op1_9{Pipeline: ppsutil.PipelineReqFromInfo(pi)}}, nil
 }
 
 func buildCommitRequests(cis []*pfs.CommitInfo, bis []*pfs.BranchInfo) []*pfs.BuildCommitRequest {
@@ -319,31 +320,6 @@ func sortPipelineInfos(pis []*pps.PipelineInfo) []*pps.PipelineInfo {
 		add(pi.Pipeline.Name)
 	}
 	return result
-}
-
-func pipelineInfoToRequest(pi *pps.PipelineInfo) *pps.CreatePipelineRequest {
-	return &pps.CreatePipelineRequest{
-		Pipeline:           pi.Pipeline,
-		Transform:          pi.Transform,
-		ParallelismSpec:    pi.ParallelismSpec,
-		Egress:             pi.Egress,
-		OutputBranch:       pi.OutputBranch,
-		ScaleDownThreshold: pi.ScaleDownThreshold,
-		ResourceRequests:   pi.ResourceRequests,
-		ResourceLimits:     pi.ResourceLimits,
-		Input:              pi.Input,
-		Description:        pi.Description,
-		CacheSize:          pi.CacheSize,
-		EnableStats:        pi.EnableStats,
-		Batch:              pi.Batch,
-		MaxQueueSize:       pi.MaxQueueSize,
-		Service:            pi.Service,
-		ChunkSpec:          pi.ChunkSpec,
-		DatumTimeout:       pi.DatumTimeout,
-		JobTimeout:         pi.JobTimeout,
-		PodPatch:           pi.PodPatch,
-		PodSpec:            pi.PodSpec,
-	}
 }
 
 func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error) {
