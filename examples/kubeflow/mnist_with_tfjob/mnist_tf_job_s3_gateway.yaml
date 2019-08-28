@@ -1,7 +1,7 @@
 apiVersion: "kubeflow.org/v1beta2"
 kind: "TFJob"
 metadata:
-  name: "mnist-pach-s3-gateway-example"
+  name: "mnist-pach-s3-gateway-example3"
   namespace: kubeflow 
 spec:
   cleanPodPolicy: None 
@@ -13,7 +13,8 @@ spec:
         spec:
           containers:
             - name: tensorflow
-              image: pachyderm/mnist_klflow_example:v1.3
+              #image: pachyderm/mnist_klflow_example:v1.3
+              image: nickharvey/pach_kflow_example:v1.7
               env:
                 # This endpoint assumes that the pachd service was deployed
                 # in the namespace pachyderm.

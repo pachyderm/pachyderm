@@ -26,7 +26,7 @@ To make it simple, we created a simple [bash script](github.com/pachyderm/pachyd
 ## Step 2 - Checking in your data 
 With everything configured and working, we're going to grab our data and then check it in to Pachyderm. To do so, you need to download a mnist.npz dataset to your local machine, create a Pachyderm repo, and then upload the dataset to the Pachyderm repo.
 
-1. Download the mnist.npz file to a black directory on your local machine:  
+1. Download the `mnist.npz` file to a blank directory on your local machine:  
 
 `➜ curl -O https://storage.googleapis.com/tensorflow/tf-keras-datasets/mnist.npz`
 
@@ -37,17 +37,16 @@ With everything configured and working, we're going to grab our data and then ch
 3. Add `mnist.npz` to `inputrepo`:  
 `pachctl put file inputrepo@master:/data/mnist.npz -f mnist.npz`  
 
-This command copies the minst dataset from your local machine to your Pachyderm repo inputrepo. This operation automatically generates a commit ID. Congratulations! Your data now has a HEAD commit, and Pachyderm has begun version-controlling the data!
+This command copies the minst dataset from your local machine to your Pachyderm repo `inputrepo` and Pachyderm will assign it a commit ID. Congratulations! Your data now has a HEAD commit, and Pachyderm has begun version-controlling the data!
 
-4. Verify your configuration by running the following command:  
+4. Confirm that the data is checked-in running the following command:  
 ```
-➜ pachctl list file inputrepo@master:/data/ --history all
-COMMIT                           NAME            TYPE COMMITTED    SIZE     
-a1a45ecc348a4e41bfddb2ce32df1475 /data/mnist.npz file 1 minute ago 10.96MiB
+➜ pachctl list file inputrepo@master:/data/
+NAME            TYPE SIZE     
+/data/mnist.npz file 10.96MiB
 ```  
-the `--history` flag tells pachyderm to show the commit information
 
-5. Lastly, we create a master branch on the outputrepo, so it's visible via the S3 Gateway
+5. Next, we create a master branch on the outputrepo, so it's visible via the S3 Gateway
 
 `pachctl create branch outputrepo@master`
 
@@ -93,7 +92,7 @@ We're copying mnist.npz from our Pachyderm repo `inputrepo@master` via the [S3 G
 
 #### Mnist. Mnist. Mnist.  
 
-Once our code trains the model, it needs to save it somewhere. Just like we copied data into the container we can copy it back out again, all the while still maintaining some provenance. If you take a look at the `tfjob_mist.py` and scroll towards the bottom you'll see that the code is just copying the `my_model.h5` to the Pachyderm S3 Gateway `outputrepo` via `url:s3://<pachyderminstance>/master.outputrepo:/data/`
+Once our code trains the model, it needs to save it somewhere. Just like we copied data into the container we can copy it back out again. And thanks to Pachyderm, we can maintain some sense of lineage. If you take a look at the `tfjob_mist.py` and scroll towards the bottom you'll see that the code is just copying the `my_model.h5` to the Pachyderm S3 Gateway `outputrepo` via `url:s3://<pachyderminstance>/master.outputrepo:/data/`
 
 ```
 # Save entire model to a HDF5 file
@@ -105,7 +104,7 @@ Once our code trains the model, it needs to save it somewhere. Just like we copi
   file_io.copy(model_file, output_uri, True)
 ```
 
-Next, let's move onto how we deploy our code. Start by taking a look at the `tf_job_s3_gateway.yaml`:
+That takes care of the code. Next, let's move onto how we'll use Kubeflow to deploy our code. Start by taking a look at the `tf_job_s3_gateway.yaml`:
 
 ```
 apiVersion: "kubeflow.org/v1beta2"
@@ -170,29 +169,56 @@ We can check on things by going to the and click on TFJob Dasboard. If you deplo
 ![tfjob-dashboard](tfjob-dashboard.png)
 
 ## Step 4 - Trust but verify
-You know the old saying, always trust but verify too. Let's confirm that we actually  trained our model and that we maintained data provenance as we worked our way down the pipeline. 
+You know the old saying,  “always trust but verify”. Let's confirm that you actually trained your model and that data provenance was maintained as the data worked its way through.
 
 ```
-➜ pachctl list file outputrepo@master:/data/ --history all
-COMMIT                           NAME              TYPE COMMITTED   SIZE     
-a0f654c7a65f42f69e8bddd1a2035a7e /data/mnist.npz   file 7 hours ago 10.96MiB 
-eb7e51147b4d42cfbcd555c84be778d2 /data/my_model.h5 file 7 hours ago 4.684MiB 
+➜ pachctl list file outputrepo@master
+NAME         TYPE SIZE     
+/my_model.h5 file 4.684MiB 
 ```
-Perfect, the data is exactly where wanted it to go. Now, lets see how Pachyderm can show us where it came from before it got moved. Simply run the following:
+Perfect, the data is exactly where it should be. Now, let’s take a mental snap-shot of how things look from a Pachyderm perspective, because things are about to get really interesting. Simply run the following:
 
 ```
-➜ pachctl inspect commit outputrepo@eb7e51147b4d42cfbcd555c84be778d2
-Commit: outputrepo@eb7e51147b4d42cfbcd555c84be778d2
-Original Branch: master
-Parent: a0f654c7a65f42f69e8bddd1a2035a7e
-Started: 7 hours ago
-Finished: 7 hours ago
-Size: 15.64MiB
+➜ pachctl list file inputrepo@master --history 1
+COMMIT                           NAME  TYPE COMMITTED         SIZE     
+3fa46b65d4ce4ff8b9d50068a3bc2ada /data dir  2 minutes ago     10.96MiB
+``` 
+
+```
+➜ pachctl list file outputrepo@master --history 1
+COMMIT                           NAME         TYPE COMMITTED         SIZE     
+5977593e8c604f158f4d80f42c8233ef /my_model.h5 file 2 minutes ago     4.684MiB
 ```
 
-How cool is that? Our `my_model.h5` (commit: eb7e51147b4d42cfbcd555c84be778d2) has a _parent_ of `a0f654c7a65f42f69e8bddd1a2035a7e` which is the commit id of `mnist.npz` file we checked in earlier.  
+## Step 5 - A working example of basic data lineage
+To demonstrate data lineage, we need to create two versions of something. For the sake of time, and the fact that there's only one handwriting mnist dataset, you're just going to reupload the `mnist.npz`. You and I are just going to pretend that it's a new batch of handwriting data and that the model needs to be retrained. 
 
-Now when anyone asks "What data was used to train that model?" you can tell them with just one command.
+1. Rename the tfjob in our `mnist_tf_job_s3_gateway.yaml` with something like:
+`name: "mnist-pach-s3-gateway-example2"`
+
+2. Repeat checking in the `mnist.npz` dataset from step 2 and start a new job
+
+`pachctl put file inputrepo@master:/data/mnist.npz -f mnist.npz && kubectl create -f mnist_tf_job_s3_gateway.yaml`
+
+Once that's complete (should be pretty quick), you can then take a look at the lineage by running:
+
+```
+➜ pachctl list commit inputrepo@master 
+REPO      BRANCH COMMIT                           PARENT                           STARTED     DURATION           SIZE     
+inputrepo master 35080bc2a2504878a48f81e43117711c 3fa46b65d4ce4ff8b9d50068a3bc2ada 2 hours ago Less than a second 10.96MiB 
+inputrepo master 3fa46b65d4ce4ff8b9d50068a3bc2ada <none>                           2 hours ago Less than a second 10.96MiB
+```
+and  
+```
+➜ pachctl list commit outputrepo@master
+REPO       BRANCH COMMIT                           PARENT                           STARTED     DURATION           SIZE     
+outputrepo master 5977593e8c604f158f4d80f42c8233ef c02cccded8ae434c840f25c5835dc535 2 hours ago Less than a second 4.684MiB 
+outputrepo master c02cccded8ae434c840f25c5835dc535 <none>                           2 hours ago Less than a second 4.684MiB 
+```
+
+When you re-trained your model after _receiving new mnist data_ (remember we're pretending), the new model got copied to the `outputrepo` via the S3 Gateway, and Pachyderm assigned it a new commit-id whos `PARENT` is the previous commit. You can feel free to repeat this step as many times as you'd like, but the end-result will always be the same: version-controlled data.    
+
+Now when anyone asks "What data was used to train that model?" you can tell them with just one command. And for when that auditor asks, "what data was used to train that model 3 months ago?" Well, that's just one command away too.  
 
 ### And that's a wrap! 
 Great work! You started down the road to better data control and laid the groundwork for mastering data lineage.  
