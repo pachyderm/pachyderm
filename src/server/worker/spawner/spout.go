@@ -25,7 +25,7 @@ func receiveSpout(
 	pipelineInfo *pps.PipelineInfo,
 	logger logs.TaggedLogger,
 ) error {
-	return runUntil(ctx, "receiveSpout", func() error {
+	return runUntilCancel(ctx, "receiveSpout", func() error {
 		repo := pipelineInfo.Pipeline.Name
 		for {
 			// this extra closure is so that we can scope the defer

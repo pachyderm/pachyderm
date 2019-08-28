@@ -3,9 +3,7 @@ syntax = "proto3";
 package worker;
 option go_package = "github.com/pachyderm/pachyderm/src/server/worker";
 
-import "client/pfs/pfs.proto";
 import "client/pps/pps.proto";
-import "server/worker/common/common.proto";
 import "gogoproto/gogo.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/wrappers.proto";
@@ -29,27 +27,6 @@ message GetChunkRequest {
   int64 id = 1;
   int64 shard = 2;
   bool stats = 3;
-}
-
-enum State {
-  RUNNING = 0;
-  COMPLETE = 1;
-  FAILED = 3;
-}
-
-message ChunkState {
-  State state = 1;
-  string datum_id = 2 [(gogoproto.customname) = "DatumID"];
-  // The IP address of the worker who processed this chunk
-  string address = 3;
-}
-
-message MergeState {
-  State state = 1;
-  pfs.Object tree = 2;
-  uint64 size_bytes = 3;
-  pfs.Object stats_tree = 4;
-  uint64 stats_size_bytes = 5;
 }
 
 message ShardInfo {}

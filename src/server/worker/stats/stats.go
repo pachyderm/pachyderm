@@ -1,4 +1,4 @@
-package worker
+package stats
 
 import (
 	"fmt"
@@ -15,7 +15,7 @@ const (
 )
 
 var (
-	datumCount = prometheus.NewCounterVec(
+	DatumCount = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "pachyderm",
 			Subsystem: "worker",
@@ -31,7 +31,7 @@ var (
 
 	bucketFactor  = 2.0
 	bucketCount   = 20 // Which makes the max bucket 2^20 seconds or ~12 days in size
-	datumProcTime = prometheus.NewHistogramVec(
+	DatumProcTime = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "pachyderm",
 			Subsystem: "worker",
@@ -45,7 +45,7 @@ var (
 			"state", // Since both finished and errored datums can have proc times
 		},
 	)
-	datumProcSecondsCount = prometheus.NewCounterVec(
+	DatumProcSecondsCount = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "pachyderm",
 			Subsystem: "worker",
@@ -58,7 +58,7 @@ var (
 		},
 	)
 
-	datumDownloadTime = prometheus.NewHistogramVec(
+	DatumDownloadTime = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "pachyderm",
 			Subsystem: "worker",
@@ -71,7 +71,7 @@ var (
 			"job",
 		},
 	)
-	datumDownloadSecondsCount = prometheus.NewCounterVec(
+	DatumDownloadSecondsCount = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "pachyderm",
 			Subsystem: "worker",
@@ -84,7 +84,7 @@ var (
 		},
 	)
 
-	datumUploadTime = prometheus.NewHistogramVec(
+	DatumUploadTime = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "pachyderm",
 			Subsystem: "worker",
@@ -97,7 +97,7 @@ var (
 			"job",
 		},
 	)
-	datumUploadSecondsCount = prometheus.NewCounterVec(
+	DatumUploadSecondsCount = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "pachyderm",
 			Subsystem: "worker",
@@ -110,7 +110,7 @@ var (
 		},
 	)
 
-	datumDownloadSize = prometheus.NewHistogramVec(
+	DatumDownloadSize = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "pachyderm",
 			Subsystem: "worker",
@@ -123,7 +123,7 @@ var (
 			"job",
 		},
 	)
-	datumDownloadBytesCount = prometheus.NewCounterVec(
+	DatumDownloadBytesCount = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "pachyderm",
 			Subsystem: "worker",
@@ -136,7 +136,7 @@ var (
 		},
 	)
 
-	datumUploadSize = prometheus.NewHistogramVec(
+	DatumUploadSize = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "pachyderm",
 			Subsystem: "worker",
@@ -149,7 +149,7 @@ var (
 			"job",
 		},
 	)
-	datumUploadBytesCount = prometheus.NewCounterVec(
+	DatumUploadBytesCount = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "pachyderm",
 			Subsystem: "worker",
@@ -165,17 +165,17 @@ var (
 
 func initPrometheus() {
 	metrics := []prometheus.Collector{
-		datumCount,
-		datumProcTime,
-		datumProcSecondsCount,
-		datumDownloadTime,
-		datumDownloadSecondsCount,
-		datumUploadTime,
-		datumUploadSecondsCount,
-		datumDownloadSize,
-		datumDownloadBytesCount,
-		datumUploadSize,
-		datumUploadBytesCount,
+		DatumCount,
+		DatumProcTime,
+		DatumProcSecondsCount,
+		DatumDownloadTime,
+		DatumDownloadSecondsCount,
+		DatumUploadTime,
+		DatumUploadSecondsCount,
+		DatumDownloadSize,
+		DatumDownloadBytesCount,
+		DatumUploadSize,
+		DatumUploadBytesCount,
 	}
 	for _, metric := range metrics {
 		if err := prometheus.Register(metric); err != nil {

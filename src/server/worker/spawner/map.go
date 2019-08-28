@@ -139,6 +139,7 @@ func waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, logger logs.Tag
 			}
 			if commitInfo.Trees == nil {
 				defer cancel() // whether job state update succeeds or not, job is done
+				if err := utils.UpdateJobState(jobInfo.Job.ID
 				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 					// Read an up to date version of the jobInfo so that we
 					// don't overwrite changes that have happened since this

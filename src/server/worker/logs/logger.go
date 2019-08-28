@@ -44,6 +44,8 @@ type TaggedLogger interface {
 	WithData(data []*common.Input) TaggedLogger
 	WithUserCode() TaggedLogger
 
+	JobID() string
+
 	// Close will flush any writes to object storage and return information about
 	// where log statements were stored in object storage.
 	Close() (*pfs.Object, int64, error)
@@ -200,6 +202,11 @@ func (logger *taggedLogger) Logf(formatString string, args ...interface{}) {
 	if logger.putObjClient != nil {
 		logger.msgCh <- msg + "\n"
 	}
+}
+
+// JobID returns the current job that the logger is configured with.
+func (logger *taggedLogger) JobID() string {
+	return logger.template.JobID
 }
 
 // Errf writes the given line to the stderr of the worker process.  This does

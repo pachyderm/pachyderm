@@ -24,6 +24,34 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
+type State int32
+
+const (
+	State_RUNNING  State = 0
+	State_COMPLETE State = 1
+	State_FAILED   State = 3
+)
+
+var State_name = map[int32]string{
+	0: "RUNNING",
+	1: "COMPLETE",
+	3: "FAILED",
+}
+
+var State_value = map[string]int32{
+	"RUNNING":  0,
+	"COMPLETE": 1,
+	"FAILED":   3,
+}
+
+func (x State) String() string {
+	return proto.EnumName(State_name, int32(x))
+}
+
+func (State) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_91fb6c79ddd9db74, []int{0}
+}
+
 type Input struct {
 	FileInfo             *pfs.FileInfo `protobuf:"bytes,1,opt,name=file_info,json=fileInfo,proto3" json:"file_info,omitempty"`
 	ParentCommit         *pfs.Commit   `protobuf:"bytes,5,opt,name=parent_commit,json=parentCommit,proto3" json:"parent_commit,omitempty"`
@@ -119,34 +147,192 @@ func (m *Input) GetEmptyFiles() bool {
 	return false
 }
 
+type ChunkState struct {
+	State   State  `protobuf:"varint,1,opt,name=state,proto3,enum=common.State" json:"state,omitempty"`
+	DatumID string `protobuf:"bytes,2,opt,name=datum_id,json=datumId,proto3" json:"datum_id,omitempty"`
+	// The IP address of the worker who processed this chunk
+	Address              string   `protobuf:"bytes,3,opt,name=address,proto3" json:"address,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ChunkState) Reset()         { *m = ChunkState{} }
+func (m *ChunkState) String() string { return proto.CompactTextString(m) }
+func (*ChunkState) ProtoMessage()    {}
+func (*ChunkState) Descriptor() ([]byte, []int) {
+	return fileDescriptor_91fb6c79ddd9db74, []int{1}
+}
+func (m *ChunkState) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ChunkState) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ChunkState.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ChunkState) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ChunkState.Merge(m, src)
+}
+func (m *ChunkState) XXX_Size() int {
+	return m.Size()
+}
+func (m *ChunkState) XXX_DiscardUnknown() {
+	xxx_messageInfo_ChunkState.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ChunkState proto.InternalMessageInfo
+
+func (m *ChunkState) GetState() State {
+	if m != nil {
+		return m.State
+	}
+	return State_RUNNING
+}
+
+func (m *ChunkState) GetDatumID() string {
+	if m != nil {
+		return m.DatumID
+	}
+	return ""
+}
+
+func (m *ChunkState) GetAddress() string {
+	if m != nil {
+		return m.Address
+	}
+	return ""
+}
+
+type MergeState struct {
+	State                State       `protobuf:"varint,1,opt,name=state,proto3,enum=common.State" json:"state,omitempty"`
+	Tree                 *pfs.Object `protobuf:"bytes,2,opt,name=tree,proto3" json:"tree,omitempty"`
+	SizeBytes            uint64      `protobuf:"varint,3,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	StatsTree            *pfs.Object `protobuf:"bytes,4,opt,name=stats_tree,json=statsTree,proto3" json:"stats_tree,omitempty"`
+	StatsSizeBytes       uint64      `protobuf:"varint,5,opt,name=stats_size_bytes,json=statsSizeBytes,proto3" json:"stats_size_bytes,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
+	XXX_unrecognized     []byte      `json:"-"`
+	XXX_sizecache        int32       `json:"-"`
+}
+
+func (m *MergeState) Reset()         { *m = MergeState{} }
+func (m *MergeState) String() string { return proto.CompactTextString(m) }
+func (*MergeState) ProtoMessage()    {}
+func (*MergeState) Descriptor() ([]byte, []int) {
+	return fileDescriptor_91fb6c79ddd9db74, []int{2}
+}
+func (m *MergeState) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MergeState) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MergeState.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MergeState) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MergeState.Merge(m, src)
+}
+func (m *MergeState) XXX_Size() int {
+	return m.Size()
+}
+func (m *MergeState) XXX_DiscardUnknown() {
+	xxx_messageInfo_MergeState.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MergeState proto.InternalMessageInfo
+
+func (m *MergeState) GetState() State {
+	if m != nil {
+		return m.State
+	}
+	return State_RUNNING
+}
+
+func (m *MergeState) GetTree() *pfs.Object {
+	if m != nil {
+		return m.Tree
+	}
+	return nil
+}
+
+func (m *MergeState) GetSizeBytes() uint64 {
+	if m != nil {
+		return m.SizeBytes
+	}
+	return 0
+}
+
+func (m *MergeState) GetStatsTree() *pfs.Object {
+	if m != nil {
+		return m.StatsTree
+	}
+	return nil
+}
+
+func (m *MergeState) GetStatsSizeBytes() uint64 {
+	if m != nil {
+		return m.StatsSizeBytes
+	}
+	return 0
+}
+
 func init() {
+	proto.RegisterEnum("common.State", State_name, State_value)
 	proto.RegisterType((*Input)(nil), "common.Input")
+	proto.RegisterType((*ChunkState)(nil), "common.ChunkState")
+	proto.RegisterType((*MergeState)(nil), "common.MergeState")
 }
 
 func init() { proto.RegisterFile("server/worker/common/common.proto", fileDescriptor_91fb6c79ddd9db74) }
 
 var fileDescriptor_91fb6c79ddd9db74 = []byte{
-	// 314 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x90, 0xbf, 0x4e, 0xf3, 0x30,
-	0x14, 0xc5, 0x3f, 0x7f, 0xb4, 0x6e, 0xeb, 0xd2, 0xc5, 0xaa, 0x90, 0xd5, 0x21, 0x2d, 0xb0, 0x54,
-	0x0c, 0x35, 0x82, 0x81, 0xbd, 0x48, 0xa0, 0x4a, 0x4c, 0x96, 0xba, 0xb0, 0x44, 0xa9, 0x71, 0x52,
-	0x0b, 0xc7, 0xb6, 0x1c, 0x17, 0x54, 0x9e, 0x84, 0x47, 0x62, 0xe4, 0x09, 0x10, 0x0a, 0x23, 0x2f,
-	0x81, 0xec, 0x64, 0x60, 0x60, 0xb0, 0xfc, 0x3b, 0xe7, 0x1e, 0xff, 0xb9, 0x17, 0x1d, 0x57, 0xc2,
-	0x3d, 0x09, 0x47, 0x9f, 0x8d, 0x7b, 0x14, 0x8e, 0x72, 0x53, 0x96, 0x46, 0xb7, 0xdb, 0xc2, 0x3a,
-	0xe3, 0x0d, 0x86, 0x8d, 0x9a, 0x8c, 0xb9, 0x92, 0x42, 0x7b, 0x6a, 0xf3, 0x2a, 0xac, 0xa6, 0x3a,
-	0x19, 0x17, 0xa6, 0x30, 0x11, 0x69, 0xa0, 0xc6, 0x3d, 0xf9, 0x06, 0xa8, 0xbb, 0xd2, 0x76, 0xe7,
-	0xf1, 0x19, 0x1a, 0xe4, 0x52, 0x89, 0x54, 0xea, 0xdc, 0x10, 0x30, 0x03, 0xf3, 0xe1, 0xc5, 0x68,
-	0x11, 0x8e, 0xdf, 0x48, 0x25, 0x56, 0x3a, 0x37, 0xac, 0x9f, 0xb7, 0x84, 0xcf, 0xd1, 0xc8, 0x66,
-	0x4e, 0x68, 0x9f, 0x86, 0x27, 0xa5, 0x27, 0xdd, 0x98, 0x1f, 0xc6, 0xfc, 0x75, 0xb4, 0xd8, 0x61,
-	0x93, 0x68, 0x14, 0xc6, 0xa8, 0xa3, 0xb3, 0x52, 0x90, 0xff, 0x33, 0x30, 0x1f, 0xb0, 0xc8, 0xc1,
-	0x53, 0xd9, 0xcb, 0x9e, 0x1c, 0xcc, 0xc0, 0xbc, 0xcf, 0x22, 0xe3, 0x23, 0x04, 0x37, 0x2e, 0xd3,
-	0x7c, 0x4b, 0x3a, 0x31, 0xd9, 0x2a, 0x7c, 0x8a, 0x7a, 0x85, 0xf4, 0xe9, 0xce, 0x29, 0x02, 0x43,
-	0x61, 0x89, 0xea, 0x8f, 0x29, 0xbc, 0x95, 0x7e, 0xcd, 0xee, 0x18, 0x2c, 0xa4, 0x5f, 0x3b, 0x85,
-	0xa7, 0x68, 0x28, 0x4a, 0xeb, 0xf7, 0x69, 0xf8, 0x68, 0x45, 0x7a, 0xf1, 0x5e, 0x14, 0xad, 0xd0,
-	0x44, 0xb5, 0x5c, 0xbd, 0xd5, 0x09, 0x78, 0xaf, 0x13, 0xf0, 0x59, 0x27, 0xe0, 0xf5, 0x2b, 0xf9,
-	0x77, 0x7f, 0x55, 0x48, 0xbf, 0xdd, 0x6d, 0x16, 0xdc, 0x94, 0xd4, 0x66, 0x7c, 0xbb, 0x7f, 0x10,
-	0xee, 0x37, 0x55, 0x8e, 0xd3, 0xbf, 0x26, 0xbf, 0x81, 0x71, 0x7e, 0x97, 0x3f, 0x01, 0x00, 0x00,
-	0xff, 0xff, 0x8b, 0x48, 0x4d, 0x3c, 0x98, 0x01, 0x00, 0x00,
+	// 500 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x52, 0xcd, 0x6a, 0xdb, 0x4c,
+	0x14, 0xcd, 0x7c, 0xb1, 0x25, 0xfb, 0x3a, 0x0e, 0x66, 0x08, 0x1f, 0x22, 0x50, 0xdb, 0x75, 0xa0,
+	0x18, 0x2f, 0xac, 0x92, 0x2e, 0xba, 0xae, 0x7f, 0x12, 0x04, 0x8e, 0x53, 0x26, 0xf1, 0xa6, 0x1b,
+	0x21, 0x4b, 0x63, 0x79, 0x1a, 0xfd, 0x31, 0x33, 0x6a, 0x71, 0x9e, 0xa4, 0x6f, 0xd4, 0x2e, 0xfb,
+	0x04, 0xa1, 0xa8, 0xcb, 0xbe, 0x44, 0x99, 0x19, 0x1b, 0x02, 0xed, 0xa6, 0x0b, 0xa1, 0x73, 0xcf,
+	0xb9, 0x73, 0xee, 0x9c, 0xcb, 0xc0, 0x4b, 0x41, 0xf9, 0x27, 0xca, 0xdd, 0xcf, 0x39, 0x7f, 0xa0,
+	0xdc, 0x0d, 0xf3, 0x34, 0xcd, 0xb3, 0xfd, 0x6f, 0x5c, 0xf0, 0x5c, 0xe6, 0xd8, 0x32, 0xd5, 0xf9,
+	0x59, 0x98, 0x30, 0x9a, 0x49, 0xb7, 0xd8, 0x08, 0xf5, 0x19, 0xf5, 0xfc, 0x2c, 0xce, 0xe3, 0x5c,
+	0x43, 0x57, 0x21, 0xc3, 0x0e, 0x7e, 0x21, 0xa8, 0x7b, 0x59, 0x51, 0x4a, 0x3c, 0x82, 0xe6, 0x86,
+	0x25, 0xd4, 0x67, 0xd9, 0x26, 0x77, 0x50, 0x1f, 0x0d, 0x5b, 0x97, 0xed, 0xb1, 0x3a, 0x7e, 0xc5,
+	0x12, 0xea, 0x65, 0x9b, 0x9c, 0x34, 0x36, 0x7b, 0x84, 0x5f, 0x43, 0xbb, 0x08, 0x38, 0xcd, 0xa4,
+	0xaf, 0x46, 0x32, 0xe9, 0xd4, 0x75, 0x7f, 0x4b, 0xf7, 0x4f, 0x35, 0x45, 0x4e, 0x4c, 0x87, 0xa9,
+	0x30, 0x86, 0x5a, 0x16, 0xa4, 0xd4, 0xf9, 0xaf, 0x8f, 0x86, 0x4d, 0xa2, 0xb1, 0xe2, 0x92, 0xe0,
+	0x71, 0xe7, 0x1c, 0xf7, 0xd1, 0xb0, 0x41, 0x34, 0xc6, 0xff, 0x83, 0xb5, 0xe6, 0x41, 0x16, 0x6e,
+	0x9d, 0x9a, 0xee, 0xdc, 0x57, 0xf8, 0x02, 0xec, 0x98, 0x49, 0xbf, 0xe4, 0x89, 0x63, 0x29, 0x61,
+	0x02, 0xd5, 0x53, 0xcf, 0xba, 0x66, 0x72, 0x45, 0x16, 0xc4, 0x8a, 0x99, 0x5c, 0xf1, 0x04, 0xf7,
+	0xa0, 0x45, 0xd3, 0x42, 0xee, 0x7c, 0x75, 0x51, 0xe1, 0xd8, 0xda, 0x17, 0x34, 0xa5, 0x42, 0x88,
+	0x81, 0x00, 0x98, 0x6e, 0xcb, 0xec, 0xe1, 0x4e, 0x06, 0x92, 0xe2, 0x0b, 0xa8, 0x0b, 0x05, 0x74,
+	0xda, 0xd3, 0xcb, 0xf6, 0x78, 0xbf, 0x4d, 0xad, 0x12, 0xa3, 0xe1, 0x57, 0xd0, 0x88, 0x02, 0x59,
+	0xa6, 0x3e, 0x8b, 0xcc, 0xe5, 0x27, 0xad, 0xea, 0xa9, 0x67, 0xcf, 0x14, 0xe7, 0xcd, 0x88, 0xad,
+	0x45, 0x2f, 0xc2, 0x0e, 0xd8, 0x41, 0x14, 0x71, 0x2a, 0x84, 0xce, 0xd3, 0x24, 0x87, 0x72, 0xf0,
+	0x15, 0x01, 0xdc, 0x50, 0x1e, 0xd3, 0x7f, 0x98, 0xda, 0x83, 0x9a, 0xe4, 0xd4, 0xac, 0xeb, 0xb0,
+	0xd7, 0xdb, 0xf5, 0x47, 0x1a, 0x4a, 0xa2, 0x05, 0xfc, 0x02, 0x40, 0xb0, 0x47, 0xea, 0xaf, 0x77,
+	0x92, 0x9a, 0x89, 0x35, 0xd2, 0x54, 0xcc, 0x44, 0x11, 0x78, 0x04, 0xa0, 0x8c, 0x84, 0xaf, 0x5d,
+	0x6a, 0x7f, 0xba, 0x34, 0xb5, 0x7c, 0xaf, 0xac, 0x86, 0xd0, 0x31, 0xbd, 0xcf, 0x0c, 0xeb, 0xda,
+	0xf0, 0x54, 0xf3, 0x77, 0x07, 0xd7, 0xd1, 0x18, 0xea, 0x26, 0x43, 0x0b, 0x6c, 0xb2, 0x5a, 0x2e,
+	0xbd, 0xe5, 0x75, 0xe7, 0x08, 0x9f, 0x40, 0x63, 0x7a, 0x7b, 0xf3, 0x7e, 0x31, 0xbf, 0x9f, 0x77,
+	0x10, 0x06, 0xb0, 0xae, 0xde, 0x79, 0x8b, 0xf9, 0xac, 0x73, 0x3c, 0xf1, 0xbe, 0x55, 0x5d, 0xf4,
+	0xbd, 0xea, 0xa2, 0x1f, 0x55, 0x17, 0x7d, 0xf9, 0xd9, 0x3d, 0xfa, 0xf0, 0x36, 0x66, 0x72, 0x5b,
+	0xae, 0x55, 0x66, 0xb7, 0x08, 0xc2, 0xed, 0x2e, 0xa2, 0xfc, 0x39, 0x12, 0x3c, 0x74, 0xff, 0xf6,
+	0xd0, 0xd7, 0x96, 0x7e, 0xae, 0x6f, 0x7e, 0x07, 0x00, 0x00, 0xff, 0xff, 0x42, 0x04, 0xac, 0xc9,
+	0x07, 0x03, 0x00, 0x00,
 }
 
 func (m *Input) Marshal() (dAtA []byte, err error) {
@@ -241,6 +427,118 @@ func (m *Input) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *ChunkState) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ChunkState) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ChunkState) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Address) > 0 {
+		i -= len(m.Address)
+		copy(dAtA[i:], m.Address)
+		i = encodeVarintCommon(dAtA, i, uint64(len(m.Address)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.DatumID) > 0 {
+		i -= len(m.DatumID)
+		copy(dAtA[i:], m.DatumID)
+		i = encodeVarintCommon(dAtA, i, uint64(len(m.DatumID)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.State != 0 {
+		i = encodeVarintCommon(dAtA, i, uint64(m.State))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MergeState) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MergeState) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MergeState) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.StatsSizeBytes != 0 {
+		i = encodeVarintCommon(dAtA, i, uint64(m.StatsSizeBytes))
+		i--
+		dAtA[i] = 0x28
+	}
+	if m.StatsTree != nil {
+		{
+			size, err := m.StatsTree.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintCommon(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x22
+	}
+	if m.SizeBytes != 0 {
+		i = encodeVarintCommon(dAtA, i, uint64(m.SizeBytes))
+		i--
+		dAtA[i] = 0x18
+	}
+	if m.Tree != nil {
+		{
+			size, err := m.Tree.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintCommon(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.State != 0 {
+		i = encodeVarintCommon(dAtA, i, uint64(m.State))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintCommon(dAtA []byte, offset int, v uint64) int {
 	offset -= sovCommon(v)
 	base := offset
@@ -283,6 +581,58 @@ func (m *Input) Size() (n int) {
 	}
 	if m.EmptyFiles {
 		n += 2
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *ChunkState) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.State != 0 {
+		n += 1 + sovCommon(uint64(m.State))
+	}
+	l = len(m.DatumID)
+	if l > 0 {
+		n += 1 + l + sovCommon(uint64(l))
+	}
+	l = len(m.Address)
+	if l > 0 {
+		n += 1 + l + sovCommon(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *MergeState) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.State != 0 {
+		n += 1 + sovCommon(uint64(m.State))
+	}
+	if m.Tree != nil {
+		l = m.Tree.Size()
+		n += 1 + l + sovCommon(uint64(l))
+	}
+	if m.SizeBytes != 0 {
+		n += 1 + sovCommon(uint64(m.SizeBytes))
+	}
+	if m.StatsTree != nil {
+		l = m.StatsTree.Size()
+		n += 1 + l + sovCommon(uint64(l))
+	}
+	if m.StatsSizeBytes != 0 {
+		n += 1 + sovCommon(uint64(m.StatsSizeBytes))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -533,6 +883,326 @@ func (m *Input) Unmarshal(dAtA []byte) error {
 				}
 			}
 			m.EmptyFiles = bool(v != 0)
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCommon(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthCommon
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthCommon
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ChunkState) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCommon
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ChunkState: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ChunkState: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field State", wireType)
+			}
+			m.State = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCommon
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.State |= State(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DatumID", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCommon
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthCommon
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthCommon
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.DatumID = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Address", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCommon
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthCommon
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthCommon
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Address = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCommon(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthCommon
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthCommon
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MergeState) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCommon
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MergeState: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MergeState: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field State", wireType)
+			}
+			m.State = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCommon
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.State |= State(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Tree", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCommon
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCommon
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthCommon
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Tree == nil {
+				m.Tree = &pfs.Object{}
+			}
+			if err := m.Tree.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SizeBytes", wireType)
+			}
+			m.SizeBytes = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCommon
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.SizeBytes |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field StatsTree", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCommon
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCommon
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthCommon
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.StatsTree == nil {
+				m.StatsTree = &pfs.Object{}
+			}
+			if err := m.StatsTree.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 5:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field StatsSizeBytes", wireType)
+			}
+			m.StatsSizeBytes = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCommon
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.StatsSizeBytes |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipCommon(dAtA[iNdEx:])

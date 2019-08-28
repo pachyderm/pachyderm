@@ -1,36 +1,18 @@
 package worker
 
 import (
-	"archive/tar"
-	"bytes"
 	"context"
-	"fmt"
-	"io"
-	"os"
 	"path"
-	"strings"
 	"time"
-
-	"github.com/gogo/protobuf/types"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
-	"github.com/pachyderm/pachyderm/src/client/pps"
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
-	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
-	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
-	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
-	pfs_sync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
-	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
+	"github.com/pachyderm/pachyderm/src/server/worker/utils"
 )
 
 const (
@@ -48,7 +30,6 @@ const (
 
 func (a *APIServer) master(masterType string, spawner func(*client.APIClient) error) {
 	logger := logs.NewMasterLogger(a.pipelineInfo)
-	utils := common.NewUtils()
 
 	masterLock := dlock.NewDLock(a.etcdClient, path.Join(a.etcdPrefix, masterLockPath, a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt))
 	b := backoff.NewInfiniteBackOff()
@@ -72,7 +53,7 @@ func (a *APIServer) master(masterType string, spawner func(*client.APIClient) er
 		}
 		defer masterLock.Unlock(ctx)
 
-		utils = common.NewUtils(pachClient, a.etcdClient)
+		utils := utils.NewUtils(pachClient, a.etcdClient)
 		return spawner.Run(pachClient, a.pipelineInfo, logger, utils)
 	}, b, func(err error, d time.Duration) error {
 		if auth.IsErrNotAuthorized(err) {

@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -9,7 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 )
 
-func isDone(ctx context.Context) bool {
+func IsDone(ctx context.Context) bool {
 	select {
 	case <-ctx.Done():
 		return true

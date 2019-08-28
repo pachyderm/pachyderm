@@ -24,12 +24,14 @@ func runUserCode(
 	ctx context.Context,
 	logger logs.TaggedLogger,
 ) error {
-	return runUntil(ctx, "runUserCode", func() error {
-		return s.utils.runUserCode(ctx, logger, nil, &pps.ProcessStats{}, nil)
+	return runUntilCancel(ctx, "runUserCode", func() error {
+		// TODO: shouldn't this set up env like the worker does?
+		// TODO: what about the user error handling code?
+		return s.utils.RunUserCode(ctx, logger, nil, &pps.ProcessStats{}, nil)
 	})
 }
 
-func runUntil(ctx context.Context, name string, cb func() error) error {
+func runUntilCancel(ctx context.Context, name string, cb func() error) error {
 	return backoff.RetryNotify(cb, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		if common.IsDone(ctx) {
 			return err

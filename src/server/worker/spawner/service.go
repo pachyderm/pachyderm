@@ -77,7 +77,7 @@ func runService(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, ut
 		return utils.WithProvisionedNode(pachClient, data, logger, func() error {
 			ctx := pachClient.Ctx()
 
-			if err := utils.UpdateJobState(ctx, job.ID, pps.JobState_JOB_RUNNING, ""); err != nil {
+			if err := utils.UpdateJobState(ctx, job.ID, nil, pps.JobState_JOB_RUNNING, ""); err != nil {
 				logger.Logf("error updating job state: %+v", err)
 			}
 
@@ -93,7 +93,7 @@ func runService(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, ut
 
 			// Only want to update this stuff if we were canceled due to a new commit
 			if common.IsDone(serviceCtx) {
-				if err := utils.UpdateJobState(ctx, job.ID, pps.JobState_JOB_SUCCESS, ""); err != nil {
+				if err := utils.UpdateJobState(ctx, job.ID, nil, pps.JobState_JOB_SUCCESS, ""); err != nil {
 					logger.Logf("error updating job progress: %+v", err)
 				}
 				if err := pachClient.FinishCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID); err != nil {
