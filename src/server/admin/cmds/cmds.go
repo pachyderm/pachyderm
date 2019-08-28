@@ -110,9 +110,10 @@ $ {{alias}} -u s3://bucket/backup`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			reader := pbutil.NewReader(snappy.NewReader(os.Stdin))
 			out := pbutil.NewWriter(snappy.NewWriter(os.Stdout))
-			op := &admin.Op{}
+			var ops []*admin.Op
 			pipelines := make(map[string]bool)
 			for {
+				op := &admin.Op{}
 				if err := reader.Read(op); err != nil {
 					if err == io.EOF {
 						break
@@ -121,6 +122,14 @@ $ {{alias}} -u s3://bucket/backup`,
 				}
 				if op.Op1_8.Pipeline != nil {
 					pipelines[op.Op1_8.Pipeline.Pipeline.Name] = true
+				}
+				ops = append(ops, op)
+			}
+			for _, op := range ops {
+				if op.Op1_8.Repo != nil {
+					if pipelines[op.Op1_8.Repo.Repo.Name] {
+						continue
+					}
 				}
 				if op.Op1_8.Commit != nil {
 					if pipelines[op.Op1_8.Commit.Parent.Repo.Name] {
