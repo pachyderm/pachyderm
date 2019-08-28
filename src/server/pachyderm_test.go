@@ -4974,9 +4974,8 @@ func TestJoinInput(t *testing.T) {
 		false,
 	))
 
-	commitIter, err := c.FlushCommit(commits, []*pfs.Repo{client.NewRepo(pipeline)})
+	commitInfos, err := c.FlushCommitAll(commits, []*pfs.Repo{client.NewRepo(pipeline)})
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 1, len(commitInfos))
 	outCommit := commitInfos[0].Commit
 	fileInfos, err := c.ListFile(outCommit.Repo.Name, outCommit.ID, "")

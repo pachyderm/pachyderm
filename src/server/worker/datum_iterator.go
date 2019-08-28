@@ -140,7 +140,6 @@ func (d *unionDatumIterator) Len() int {
 }
 
 func (d *unionDatumIterator) Next() bool {
-	// fmt.Println(d.location, d.Len())
 	if d.unionIdx >= len(d.iterators) {
 		return false
 	}
@@ -302,12 +301,7 @@ func (d *joinDatumIterator) Datum() []*Input {
 }
 
 func (d *joinDatumIterator) DatumN(n int) []*Input {
-	if n < d.location {
-		d.Reset()
-	}
-	for d.location != n {
-		d.Next()
-	}
+	d.location = n
 	return d.Datum()
 }
 
