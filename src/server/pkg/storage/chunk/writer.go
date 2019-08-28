@@ -19,6 +19,8 @@ const (
 	WindowSize = 64
 )
 
+// initialWindow is the set of bytes used to initialize the window
+// of the rolling hash function.
 var initialWindow = make([]byte, WindowSize)
 
 // WriterFunc is a callback that returns a data reference to the next chunk and the annotations within the chunk.
@@ -27,15 +29,15 @@ type WriterFunc func(*DataRef, []*Annotation) error
 // Writer splits a byte stream into content defined chunks that are hashed and deduplicated/uploaded to object storage.
 // Chunk split points are determined by a bit pattern in a rolling hash function (buzhash64 at https://github.com/chmduquesne/rollinghash).
 type Writer struct {
-	ctx            context.Context
-	objC           obj.Client
-	buf            *bytes.Buffer
-	hash           *buzhash64.Buzhash64
-	splitMask      uint64
-	f              WriterFunc
-	annotations    []*Annotation
-	chunkCount     int64
-	annotationSize int64
+	ctx                context.Context
+	objC               obj.Client
+	buf                *bytes.Buffer
+	hash               *buzhash64.Buzhash64
+	splitMask          uint64
+	f                  WriterFunc
+	annotations        []*Annotation
+	chunkCount         int64
+	annotatedBytesSize int64
 }
 
 // newWriter creates a new Writer.
@@ -68,14 +70,14 @@ func (w *Writer) Annotate(a *Annotation) {
 		w.annotations = nil
 	}
 	w.annotations = append(w.annotations, a)
-	w.annotationSize = 0
+	w.annotatedBytesSize = 0
 	// Reset hash between annotations.
 	w.resetHash()
 }
 
-// AnnotationSize returns the size of the current annotation.
-func (w *Writer) AnnotationSize() int64 {
-	return w.annotationSize
+// AnnotatedBytesSize returns the size of the bytes for the current annotation.
+func (w *Writer) AnnotatedBytesSize() int64 {
+	return w.annotatedBytesSize
 }
 
 // ChunkCount returns a count of the number of chunks created/referenced by
@@ -106,7 +108,7 @@ func (w *Writer) Write(data []byte) (int, error) {
 		}
 	}
 	w.buf.Write(data[offset:])
-	w.annotationSize += int64(len(data))
+	w.annotatedBytesSize += int64(len(data))
 	return len(data), nil
 }
 
@@ -185,7 +187,7 @@ func (w *Writer) atSplit() bool {
 
 func (w *Writer) writeChunk(chunkRef *DataRef) error {
 	w.chunkCount++
-	w.annotationSize += chunkRef.SizeBytes
+	w.annotatedBytesSize += chunkRef.SizeBytes
 	return w.executeFunc(chunkRef)
 }
 

@@ -117,7 +117,7 @@ func (r *Reader) next(level int) (*Header, error) {
 			return nil, err
 		}
 		// Skip to the starting header.
-		if strings.Compare(fullHdr.Idx.Range.LastPath, r.prefix) < 0 {
+		if fullHdr.Idx.Range.LastPath < r.prefix {
 			continue
 		}
 		return fullHdr, nil

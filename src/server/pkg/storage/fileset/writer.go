@@ -65,7 +65,7 @@ func (w *Writer) WriteHeader(hdr *index.Header) error {
 		return err
 	}
 	// Setup first tag for header.
-	w.hdr.Idx.DataOp.Tags = []*index.Tag{&index.Tag{Id: headerTag, SizeBytes: w.cw.AnnotationSize()}}
+	w.hdr.Idx.DataOp.Tags = []*index.Tag{&index.Tag{Id: headerTag, SizeBytes: w.cw.AnnotatedBytesSize()}}
 	return nil
 }
 

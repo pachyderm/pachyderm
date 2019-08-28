@@ -3,7 +3,6 @@ package fileset
 import (
 	"context"
 	"io"
-	"strings"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
@@ -122,7 +121,7 @@ func (r *Reader) WriteToFiles(w *Writer, pathBound ...string) error {
 			}
 			return err
 		}
-		if len(pathBound) > 0 && strings.Compare(hdr.Hdr.Name, pathBound[0]) >= 0 {
+		if len(pathBound) > 0 && hdr.Hdr.Name >= pathBound[0] {
 			return nil
 		}
 		if _, err := r.Next(); err != nil {
@@ -147,7 +146,7 @@ func (r *Reader) WriteToTags(w *Writer, tagBound ...string) error {
 	var idx int
 	var numBytes int64
 	for i, tag := range r.tags {
-		if len(tagBound) > 0 && strings.Compare(tag.Id, tagBound[0]) > 0 {
+		if len(tagBound) > 0 && tag.Id > tagBound[0] {
 			break
 		}
 		idx = i + 1
