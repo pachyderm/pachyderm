@@ -73,7 +73,7 @@ func isAuthActive(tb testing.TB, checkConfig bool) bool {
 	default:
 		panic(fmt.Sprintf("could not determine if auth is activated: %v", err))
 	}
-	return active
+	return false
 }
 
 // getPachClientInternal is a helper function called by getPachClient. It
