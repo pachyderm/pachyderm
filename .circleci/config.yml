@@ -22,7 +22,7 @@ jobs: # basic units of work in a run
       - checkout
 
       - run:
-          name: Waiting for Postgres to be ready
+          name: Waiting for etcd to be ready
           command: |
             for i in `seq 1 10`;
             do
