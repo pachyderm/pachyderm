@@ -288,6 +288,11 @@ func TestConfig(t *testing.T) {
 		{
 		  "live_config_version": 1,
 		  "id_providers": [{
+			"name": "github",
+			"description": "oauth-based authentication with github.com",
+			"github":{}
+		  },
+		  {
 		    "name": "idp",
 		    "description": "fake ID provider for testing",
 		    "saml": {

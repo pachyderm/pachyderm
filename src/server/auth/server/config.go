@@ -37,11 +37,14 @@ type canonicalSAMLIDP struct {
 	GroupAttribute string
 }
 
+type canonicalGitHubIDP struct{}
+
 type canonicalIDPConfig struct {
 	Name        string
 	Description string
 
-	SAML *canonicalSAMLIDP
+	SAML   *canonicalSAMLIDP
+	GitHub *canonicalGitHubIDP
 }
 
 type canonicalSAMLSvcConfig struct {
@@ -80,25 +83,33 @@ func (c *canonicalConfig) ToProto() (*auth.AuthConfig, error) {
 
 	var idpProtos []*auth.IDProvider
 	for _, idp := range c.IDPs {
-		if idp.SAML == nil {
-			return nil, fmt.Errorf("could not marshal non-SAML ID provider %q", idp.Name)
+		if idp.GitHub != nil {
+			githubIDP := &auth.IDProvider{
+				Name:        idp.Name,
+				Description: idp.Description,
+				GitHub:      &auth.IDProvider_GitHubOptions{},
+			}
+			idpProtos = append(idpProtos, githubIDP)
+		} else if idp.SAML != nil {
+			metadataBytes, err := xml.MarshalIndent(idp.SAML.Metadata, "", "  ")
+			if err != nil {
+				return nil, fmt.Errorf("could not marshal ID provider metadata: %v", err)
+			}
+			samlIDP := &auth.IDProvider{
+				Name:        idp.Name,
+				Description: idp.Description,
+				SAML: &auth.IDProvider_SAMLOptions{
+					MetadataXML:    metadataBytes,
+					GroupAttribute: idp.SAML.GroupAttribute,
+				},
+			}
+			if idp.SAML.MetadataURL != nil {
+				samlIDP.SAML.MetadataURL = idp.SAML.MetadataURL.String()
+			}
+			idpProtos = append(idpProtos, samlIDP)
+		} else {
+			return nil, fmt.Errorf("could not marshal non-SAML, non-GitHub ID provider %q", idp.Name)
 		}
-		metadataBytes, err := xml.MarshalIndent(idp.SAML.Metadata, "", "  ")
-		if err != nil {
-			return nil, fmt.Errorf("could not marshal ID provider metadata: %v", err)
-		}
-		samlIDP := &auth.IDProvider{
-			Name:        idp.Name,
-			Description: idp.Description,
-			SAML: &auth.IDProvider_SAMLOptions{
-				MetadataXML:    metadataBytes,
-				GroupAttribute: idp.SAML.GroupAttribute,
-			},
-		}
-		if idp.SAML.MetadataURL != nil {
-			samlIDP.SAML.MetadataURL = idp.SAML.MetadataURL.String()
-		}
-		idpProtos = append(idpProtos, samlIDP)
 	}
 
 	var svcCfgProto *auth.AuthConfig_SAMLServiceOptions
@@ -181,9 +192,6 @@ func validateIDP(idp *auth.IDProvider, src configSource) (*canonicalIDPConfig, e
 	// TODO(msteffen): make sure we don't have to extend this every time we add
 	// a new built-in backend.
 	switch idp.Name + ":" {
-	case auth.GitHubPrefix:
-		return nil, errors.New("cannot configure ID provider with reserved prefix " +
-			auth.GitHubPrefix)
 	case auth.RobotPrefix:
 		return nil, errors.New("cannot configure ID provider with reserved prefix " +
 			auth.RobotPrefix)
@@ -192,8 +200,8 @@ func validateIDP(idp *auth.IDProvider, src configSource) (*canonicalIDPConfig, e
 			auth.PipelinePrefix)
 	}
 
-	// Check if the IDP is a known type (right now the only type of IDP is SAML)
-	if idp.SAML == nil {
+	// Check if the IDP is a known type (right now the only types of IDPs are SAML and GitHub)
+	if idp.SAML == nil && idp.GitHub == nil {
 		// render ID provider as json for error message
 		idpConfigAsJSON, err := json.MarshalIndent(idp, "", "  ")
 		idpConfigMsg := string(idpConfigAsJSON)
@@ -205,6 +213,13 @@ func validateIDP(idp *auth.IDProvider, src configSource) (*canonicalIDPConfig, e
 	newIDP := &canonicalIDPConfig{}
 	newIDP.Name = idp.Name
 	newIDP.Description = idp.Description
+	if idp.SAML != nil && idp.GitHub != nil {
+		return nil, errors.New("cannot configure ID provider for both SAML and GitHub")
+	}
+	if idp.GitHub != nil {
+		newIDP.GitHub = &canonicalGitHubIDP{}
+		return newIDP, nil
+	}
 	newIDP.SAML = &canonicalSAMLIDP{
 		GroupAttribute: idp.SAML.GroupAttribute,
 	}
@@ -438,7 +453,11 @@ func (a *apiServer) getCacheConfig() *canonicalConfig {
 	a.configMu.Lock()
 	defer a.configMu.Unlock()
 	if a.configCache == nil {
-		return nil
+		defaultCononicalConfig, err := validateConfig(&defaultAuthConfig, internal)
+		if err != nil {
+			panic("could not convert default auth config")
+		}
+		return defaultCononicalConfig
 	}
 	// copy config to avoid data races
 	newConfig := *a.configCache
