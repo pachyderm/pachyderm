@@ -4,7 +4,7 @@ build:
   local:
     useBuildkit: true
   artifacts:
-    - image: pach
+    - image: pachyderm/pachd
       context: .
       docker:
         dockerfile: Dockerfile-pachd-skaffold
