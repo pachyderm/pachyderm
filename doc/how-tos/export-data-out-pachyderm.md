@@ -1,6 +1,6 @@
 # Export Your Data From Pachyderm
 
-After you build a pipeline, you most probably want to see the
+After you build a pipeline, you probably want to see the
 results that the pipeline has produced. Every commit into an
 input repository results in a corresponding commit into an
 output repository.
@@ -9,20 +9,23 @@ To access the results of
 a pipeline, you can use one of the following methods:
 
 * By running the `pachctl get file` command. This
-icommand returns the contents of the specified file.<br>
+command returns the contents of the specified file.<br>
+To get the list of files in a repo, you should first
+run the `pachctl list file` command.
 See [Export Your Data with `pachctl`](#export-your-data-with-pachctl).<br>
 
-* By configuring the pipeline. You can configure the following
+* By configuring the pipeline. A pipeline can push or expose
+output data to external sources. You can configure the following
 data exporting methods in a Pachyderm pipeline:
 
-  * An `egress` property in the `output_branch` field that enables you
-  to export your data to an external datastore, such as Amazon S3,
+  * An `egress` property enables you to export your data to
+  an external datastore, such as Amazon S3,
   Google Cloud Storage, and others.<br>
   See [Export data by using `egress`](#export-your-data-with-egress).<br>
 
   * A service. A Pachyderm service exposes the results of the
   pipeline processing on a specific port in the form of a dashboard
-  or similar.<br>
+  or similar endpoint.<br>
   See [Service](../concepts/pipeline-concepts/pipeline/service.html).<br>
 
 * By using the S3 gateway. Pachyderm Enterprise users can reuse
@@ -41,30 +44,28 @@ To export your data with pachctl:
 1. Get the list of files in the repository:
 
    ```bash
-   $ pachctl list file <repo>@<branch-or-commit>
+   $ pachctl list file <repo>@<branch>
    ```
 
    **Example:**
 
    ```bash
-   $ pachctl list commit images@d20c41595f804cb090ea2e79e432af15
+   $ pachctl list commit data@master
    REPO   BRANCH COMMIT                           PARENT                           STARTED           DURATION           SIZE
-   images master d20c41595f804cb090ea2e79e432af15 91cde2c8ef0a47c5ab19c0251c1f9e59 About an hour ago Less than a second 115.3KiB
-   images master 91cde2c8ef0a47c5ab19c0251c1f9e59 265a73951fe94bf4a5a46d4f92f0d17e About an hour ago Less than a second 114.9KiB
-   images master 265a73951fe94bf4a5a46d4f92f0d17e 2e24cfca41d0459f85061221146a3ce2 About an hour ago Less than a second 57.64KiB
-   images master 2e24cfca41d0459f85061221146a3ce2 <none>                           2 hours ago       Less than a second 57.27KiB
+   data master 230103d3c6bd45b483ab6d0b7ae858d5 f82b76f463ca4799817717a49ab74fac 2 seconds ago  Less than a second 750B
+   data master f82b76f463ca4799817717a49ab74fac <none>                           40 seconds ago Less than a second 375B
    ```
 
 1. Get the contents of a specific file:
 
    ```bash
-   pachctl get file <repo>@<branch-or-commit>:<path/to/file>
+   pachctl get file <repo>@<branch>:<path/to/file>
    ```
 
    **Example:**
 
    ```bash
-   $ pachctl get file images@master:user_data.csv
+   $ pachctl get file data@master:user_data.csv
    1,cyukhtin0@stumbleupon.com,144.155.176.12
    2,csisneros1@over-blog.com,26.119.26.5
    3,jeye2@instagram.com,13.165.230.106
@@ -83,21 +84,44 @@ To export your data with pachctl:
 
    * To view a parent of a commit:
 
-     ```bash
-     $ pachctl get file <repo>@<branch-or-commit>^:<path/to/file>
-     ```
+     1. List files in the parent commit:
+
+        ```bash
+        $ pachctl list commit <repo>@<branch-or-commit>^:<path/to/file>
+        ```
+
+     1. Get the contents of a file:
+
+        ```bash
+        $ pachctl get file <repo>@<branch-or-commit>^:<path/to/file>
+        ```
 
    * To view an `<n>` parent of a commit:
 
-     ```bash
-     $ pachctl get file <repo>@<branch-or-commit>^<n>:<path/to/file>
-     ```
+     1. List files in the parent commit:
 
-     **Example:**
+        ```bash
+        $ pachctl list commit <repo>@<branch-or-commit>^<n>:<path/to/file>
+        ```
 
-     ```bash
-     $ pachctl get file images@master^4:user_data.csv
-     ```
+        **Example:**
+
+        ```bash
+        NAME           TYPE SIZE
+        /user_data.csv file 375B
+        ```
+
+     1. Get the contents of a file:
+
+        ```bash
+        $ pachctl get file <repo>@<branch-or-commit>^<n>:<path/to/file>
+        ```
+
+        **Example:**
+
+        ```bash
+        $ pachctl get file datas@master^4:user_data.csv
+        ```
 
      You can specify any number in the `^<n>` notation. If the file
      exists in that commit, Pachyderm returns it. If the file
@@ -133,8 +157,7 @@ to view full descriptions and syntax.
 **Example:**
 
 ```
-"output_branch": string,
- "egress": {
-    "URL": "s3://bucket/dir"
- },
+"egress": {
+   "URL": "s3://bucket/dir"
+},
 ```

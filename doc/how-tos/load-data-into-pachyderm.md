@@ -9,7 +9,7 @@ choice, such as Amazon S3, MinIO, Google Cloud Storage, or other. Pachyderm
 records the cryptographic hash (`SHA`) of each portion of your data and stores
 it as a commit with a unique identifier (ID). Although the data is
 stored as an unstructured blob, Pachyderm enables you to interact
-with versioned data as you typically do in a standard disk file system.
+with versioned data as you typically do in a standard file system.
 
 Pachyderm stores versioned data in repositories which can contain one or
 multiple files, as well as files arranged in directories. Regardless of the
@@ -161,8 +161,8 @@ in your filepath:
   you need to first deploy a Kubernetes `Secret` for the selected object
   store.
 
-* Add multiple files at once by using the `-i` option or multiple `-f` flags. In
-the case of `-i`, the target file must be a list of files, paths, or URLs
+* Add multiple files at once by using the `-i` option or multiple `-f` flags.
+In the case of `-i`, the target file must be a list of files, paths, or URLs
 that you want to input all at once:
 
   ```sh
