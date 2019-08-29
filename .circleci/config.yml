@@ -11,12 +11,8 @@ jobs: # basic units of work in a run
       # Specify service dependencies here if necessary
       # CircleCI maintains a library of pre-built images
       # documented at https://circleci.com/docs/2.0/circleci-images/
-      - image: quay.io/coreos/etcd:v3.3.5
+      - image: jumanjiman/etcd:3.3.12-r0_20190420T2025_git_214166f 11 MB
         name: etcd
-        command:
-          - etcd
-          - --listen-client-urls=http://0.0.0.0:2379
-          - --advertise-client-urls=http://0.0.0.0:2379
 
     steps:
       - checkout
