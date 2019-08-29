@@ -4,7 +4,7 @@ go 1.12
 
 require (
 	cloud.google.com/go v0.40.0
-	github.com/Azure/azure-sdk-for-go v5.0.0-beta+incompatible
+	github.com/Azure/azure-sdk-for-go v32.4.0+incompatible
 	github.com/Azure/go-autorest/autorest v0.2.0 // indirect
 	github.com/LK4D4/joincontext v0.0.0-20171026170139-1724345da6d5
 	github.com/Microsoft/hcsshim v0.8.6 // indirect
