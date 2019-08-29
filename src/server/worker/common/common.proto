@@ -18,7 +18,7 @@ message Input {
 
 enum State {
   RUNNING = 0;
-  COMPLETE = 1;
+  SUCCESS = 1;
   FAILED = 3;
 }
 

@@ -20,6 +20,7 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/types"
+	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/go-playground/webhooks.v5/github"
 	"gopkg.in/src-d/go-git.v4"
 	gitPlumbing "gopkg.in/src-d/go-git.v4/plumbing"
@@ -27,6 +28,7 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/exec"
@@ -54,12 +56,15 @@ type Utils interface {
 	Chunks(jobID string) col.Collection
 	Merges(jobID string) col.Collection
 
-	WithProvisionedNode(context.Context, logs.TaggedLogger, func(*pps.ProcessStats) error, []*common.Input, *hashtree.Ordered) (*pps.ProcessStats, error)
+	WithProvisionedNode(context.Context, []*common.Input, *hashtree.Ordered, logs.TaggedLogger, func(*pps.ProcessStats) error) (*pps.ProcessStats, error)
 	RunUserCode(context.Context, logs.TaggedLogger, []string, *pps.ProcessStats, *types.Duration) error
 	RunUserErrorHandlingCode(context.Context, logs.TaggedLogger, []string, *pps.ProcessStats, *types.Duration) error
 
 	DeleteJob(col.STM, *pps.EtcdJobInfo) error
 	UpdateJobState(context.Context, string, *pfs.Commit, pps.JobState, string) error
+
+	// TODO: figure out how to not expose this
+	ReportUploadStats(time.Time, *pps.ProcessStats, logs.TaggedLogger)
 }
 
 type utils struct {
@@ -72,6 +77,9 @@ type utils struct {
 
 	uid *uint32
 	gid *uint32
+
+	// We only export application statistics if enterprise is enabled
+	exportStats bool
 }
 
 func NewUtils(pipelineInfo *pps.PipelineInfo, pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix string) (Utils, error) {
@@ -105,6 +113,12 @@ func NewUtils(pipelineInfo *pps.PipelineInfo, pachClient *client.APIClient, etcd
 			gid32 := uint32(gid)
 			result.gid = &gid32
 		}
+	}
+
+	if resp, err := pachClient.Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{}); err != nil {
+		logs.NewStatlessLogger(pipelineInfo).Logf("failed to get enterprise state with error: %v\n", err)
+	} else {
+		result.exportStats = resp.State == enterprise.State_ACTIVE
 	}
 
 	return result, nil
@@ -219,10 +233,10 @@ func (u *utils) Merges(jobID string) col.Collection {
 
 func (u *utils) WithProvisionedNode(
 	ctx context.Context,
-	logger logs.TaggedLogger,
-	cb func(*pps.ProcessStats) error,
 	data []*common.Input,
 	inputTree *hashtree.Ordered,
+	logger logs.TaggedLogger,
+	cb func(*pps.ProcessStats) error,
 ) (retStats *pps.ProcessStats, retErr error) {
 	puller := filesync.NewPuller()
 	stats := &pps.ProcessStats{}
@@ -265,7 +279,7 @@ func (u *utils) WithProvisionedNode(
 			if err == nil {
 				err = os.Chown(name, int(*u.uid), int(*u.gid))
 			}
-			return nil, err
+			return err
 		})
 	}
 
@@ -406,42 +420,6 @@ func (u *utils) unlinkData(inputs []*common.Input) error {
 		}
 	}
 	return nil
-}
-
-func (u *utils) reportUserCodeStats(logger logs.TaggedLogger) {
-	if u.exportStats {
-		if counter, err := stats.DatumCount.GetMetricWithLabelValues(u.pipelineInfo.ID, logger.JobID(), "started"); err != nil {
-			logger.Logf("failed to get histogram w labels: pipeline (%v) error %v", u.pipelineInfo.ID, err)
-		} else {
-			counter.Add(1)
-		}
-	}
-}
-
-func (u *utils) reportDeferredUserCodeStats(err error, start time.Time, procStats *pps.ProcessStats, logger logs.TaggedLogger) {
-	duration := time.Since(start)
-	procStats.ProcessTime = types.DurationProto(duration)
-	if u.exportStats {
-		state := "errored"
-		if err == nil {
-			state = "finished"
-		}
-		if counter, err := stats.DatumCount.GetMetricWithLabelValues(u.pipelineInfo.ID, logger.JobID(), state); err != nil {
-			logger.Logf("failed to get counter w labels: pipeline (%v) state (%v) with error %v", u.pipelineInfo.ID, state, err)
-		} else {
-			counter.Add(1)
-		}
-		if hist, err := stats.DatumProcTime.GetMetricWithLabelValues(u.pipelineInfo.ID, logger.JobID(), state); err != nil {
-			logger.Logf("failed to get counter w labels: pipeline (%v) state (%v) with error %v", u.pipelineInfo.ID, state, err)
-		} else {
-			hist.Observe(duration.Seconds())
-		}
-		if counter, err := stats.DatumProcSecondsCount.GetMetricWithLabelValues(u.pipelineInfo.ID, logger.JobID()); err != nil {
-			logger.Logf("failed to get counter w labels: pipeline (%v) with error %v", u.pipelineInfo.ID, err)
-		} else {
-			counter.Add(duration.Seconds())
-		}
-	}
 }
 
 // Run user code and return the combined output of stdout and stderr.
@@ -629,34 +607,111 @@ func (u *utils) DeleteJob(stm col.STM, jobPtr *pps.EtcdJobInfo) error {
 	return u.jobs.ReadWrite(stm).Delete(jobPtr.Job.ID)
 }
 
+func (u *utils) updateCounter(
+	stat *prometheus.CounterVec,
+	logger logs.TaggedLogger,
+	state string,
+	cb func(prometheus.Counter),
+) {
+	labels := []string{u.pipelineInfo.ID, logger.JobID()}
+	if state != "" {
+		labels = append(labels, state)
+	}
+	if counter, err := stat.GetMetricWithLabelValues(labels...); err != nil {
+		logger.Logf("failed to get counter with labels (%v): %v", labels, err)
+	} else {
+		cb(counter)
+	}
+}
+
+func (u *utils) updateHistogram(
+	stat *prometheus.HistogramVec,
+	logger logs.TaggedLogger,
+	state string,
+	cb func(prometheus.Observer),
+) {
+	labels := []string{u.pipelineInfo.ID, logger.JobID()}
+	if state != "" {
+		labels = append(labels, state)
+	}
+	if hist, err := stat.GetMetricWithLabelValues(labels...); err != nil {
+		logger.Logf("failed to get histogram with labels (%v): %v", labels, err)
+	} else {
+		cb(hist)
+	}
+}
+
+func (u *utils) reportUserCodeStats(logger logs.TaggedLogger) {
+	if u.exportStats {
+		u.updateCounter(stats.DatumCount, logger, "started", func(counter prometheus.Counter) {
+			counter.Add(1)
+		})
+	}
+}
+
+func (u *utils) reportDeferredUserCodeStats(err error, start time.Time, procStats *pps.ProcessStats, logger logs.TaggedLogger) {
+	if u.exportStats {
+		duration := time.Since(start)
+		procStats.ProcessTime = types.DurationProto(duration)
+
+		state := "errored"
+		if err == nil {
+			state = "finished"
+		}
+
+		u.updateCounter(stats.DatumCount, logger, state, func(counter prometheus.Counter) {
+			counter.Add(1)
+		})
+		u.updateHistogram(stats.DatumProcTime, logger, state, func(hist prometheus.Observer) {
+			hist.Observe(duration.Seconds())
+		})
+		u.updateCounter(stats.DatumProcSecondsCount, logger, "", func(counter prometheus.Counter) {
+			counter.Add(duration.Seconds())
+		})
+	}
+}
+
+func (u *utils) ReportUploadStats(start time.Time, procStats *pps.ProcessStats, logger logs.TaggedLogger) {
+	if u.exportStats {
+		duration := time.Since(start)
+		procStats.UploadTime = types.DurationProto(duration)
+
+		u.updateHistogram(stats.DatumUploadTime, logger, "", func(hist prometheus.Observer) {
+			hist.Observe(duration.Seconds())
+		})
+		u.updateCounter(stats.DatumUploadSecondsCount, logger, "", func(counter prometheus.Counter) {
+			counter.Add(duration.Seconds())
+		})
+		u.updateHistogram(stats.DatumUploadSize, logger, "", func(hist prometheus.Observer) {
+			hist.Observe(float64(procStats.UploadBytes))
+		})
+		u.updateCounter(stats.DatumUploadBytesCount, logger, "", func(counter prometheus.Counter) {
+			counter.Add(float64(procStats.UploadBytes))
+		})
+	}
+}
+
 func (u *utils) reportDownloadSizeStats(downSize float64, logger logs.TaggedLogger) {
 	if u.exportStats {
-		if hist, err := stats.DatumDownloadSize.GetMetricWithLabelValues(u.pipelineInfo.ID, logger.JobID()); err != nil {
-			logger.Logf("failed to get histogram w labels: pipeline (%v) with error %v", u.pipelineInfo.ID, err)
-		} else {
+		u.updateHistogram(stats.DatumDownloadSize, logger, "", func(hist prometheus.Observer) {
 			hist.Observe(downSize)
-		}
-		if counter, err := stats.DatumDownloadBytesCount.GetMetricWithLabelValues(u.pipelineInfo.ID, logger.JobID()); err != nil {
-			logger.Logf("failed to get counter w labels: pipeline (%v) with error %v", u.pipelineInfo.ID, err)
-		} else {
+		})
+		u.updateCounter(stats.DatumDownloadBytesCount, logger, "", func(counter prometheus.Counter) {
 			counter.Add(downSize)
-		}
+		})
 	}
 }
 
 func (u *utils) reportDownloadTimeStats(start time.Time, procStats *pps.ProcessStats, logger logs.TaggedLogger) {
-	duration := time.Since(start)
-	procStats.DownloadTime = types.DurationProto(duration)
 	if u.exportStats {
-		if hist, err := stats.DatumDownloadTime.GetMetricWithLabelValues(u.pipelineInfo.ID, logger.JobID()); err != nil {
-			logger.Logf("failed to get histogram w labels: pipeline (%v) with error %v", u.pipelineInfo.ID, err)
-		} else {
+		duration := time.Since(start)
+		procStats.DownloadTime = types.DurationProto(duration)
+
+		u.updateHistogram(stats.DatumDownloadTime, logger, "", func(hist prometheus.Observer) {
 			hist.Observe(duration.Seconds())
-		}
-		if counter, err := stats.DatumDownloadSecondsCount.GetMetricWithLabelValues(u.pipelineInfo.ID, logger.JobID()); err != nil {
-			logger.Logf("failed to get counter w labels: pipeline (%v) with error %v", u.pipelineInfo.ID, err)
-		} else {
+		})
+		u.updateCounter(stats.DatumDownloadSecondsCount, logger, "", func(counter prometheus.Counter) {
 			counter.Add(duration.Seconds())
-		}
+		})
 	}
 }

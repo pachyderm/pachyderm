@@ -5,13 +5,12 @@ import (
 	"path"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
-	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
+	"github.com/pachyderm/pachyderm/src/server/worker/spawner"
 	"github.com/pachyderm/pachyderm/src/server/worker/utils"
 )
 
@@ -28,7 +27,7 @@ const (
 	ttl = int64(30)
 )
 
-func (a *APIServer) master(masterType string, spawner func(*client.APIClient) error) {
+func (a *APIServer) master() {
 	logger := logs.NewMasterLogger(a.pipelineInfo)
 
 	masterLock := dlock.NewDLock(a.etcdClient, path.Join(a.etcdPrefix, masterLockPath, a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt))
@@ -53,7 +52,12 @@ func (a *APIServer) master(masterType string, spawner func(*client.APIClient) er
 		}
 		defer masterLock.Unlock(ctx)
 
-		utils := utils.NewUtils(pachClient, a.etcdClient)
+		// Create a new utils that uses our new cancelable pachClient
+		utils, err := utils.NewUtils(a.pipelineInfo, pachClient, a.etcdClient, a.etcdPrefix)
+		if err != nil {
+			return err
+		}
+
 		return spawner.Run(pachClient, a.pipelineInfo, logger, utils)
 	}, b, func(err error, d time.Duration) error {
 		if auth.IsErrNotAuthorized(err) {
@@ -62,7 +66,7 @@ func (a *APIServer) master(masterType string, spawner func(*client.APIClient) er
 				a.pipelineInfo.Pipeline.Name, "worker master could not access output "+
 					"repo to watch for new commits")
 		}
-		logger.Logf("master: error running the %v master process: %v; retrying in %v", masterType, err, d)
+		logger.Logf("master: error running the master process, retrying in %v: %v", d, err)
 		return nil
 	})
 }

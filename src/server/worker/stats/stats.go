@@ -163,7 +163,7 @@ var (
 	)
 )
 
-func initPrometheus() {
+func InitPrometheus() {
 	metrics := []prometheus.Collector{
 		DatumCount,
 		DatumProcTime,

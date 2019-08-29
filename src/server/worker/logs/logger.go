@@ -53,7 +53,7 @@ type TaggedLogger interface {
 
 type taggedLogger struct {
 	template  pps.LogMessage
-	stderrLog log.Logger
+	stderrLog *log.Logger
 	marshaler *jsonpb.Marshaler
 
 	// Used for mirroring log statements to object storage
@@ -65,20 +65,16 @@ type taggedLogger struct {
 }
 
 func newLogger(pipelineInfo *pps.PipelineInfo) *taggedLogger {
-	result := &taggedLogger{
+	return &taggedLogger{
 		template: pps.LogMessage{
 			PipelineName: pipelineInfo.Pipeline.Name,
 			WorkerID:     os.Getenv(client.PPSPodNameEnv),
 		},
 		// TODO: use log.New
-		stderrLog: log.Logger{},
+		stderrLog: log.New(os.Stderr, "", log.LstdFlags|log.Llongfile),
 		marshaler: &jsonpb.Marshaler{},
 		msgCh:     make(chan string, logBuffer),
 	}
-	result.stderrLog.SetOutput(os.Stderr)
-	result.stderrLog.SetFlags(log.LstdFlags | log.Llongfile) // Log file/line
-
-	return result
 }
 
 // NewLogger constructs a TaggedLogger for the given pipeline, optionally
@@ -172,9 +168,8 @@ func (logger *taggedLogger) WithUserCode() TaggedLogger {
 
 func (logger *taggedLogger) clone() *taggedLogger {
 	return &taggedLogger{
-		template: logger.template, // Copy struct
-		// TODO: copy logger's stderrLog (should be goro-safe)
-		stderrLog:    log.Logger{},
+		template:     logger.template,  // Copy struct
+		stderrLog:    logger.stderrLog, // logger should be goroutine-safe
 		marshaler:    &jsonpb.Marshaler{},
 		putObjClient: logger.putObjClient,
 		msgCh:        logger.msgCh,
