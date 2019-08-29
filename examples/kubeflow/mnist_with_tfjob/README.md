@@ -40,24 +40,25 @@ With everything configured and working, we're going to grab our data and then ch
 This command copies the minst dataset from your local machine to your Pachyderm repo `inputrepo` and Pachyderm will assign it a commit ID. Congratulations! Your data now has a HEAD commit, and Pachyderm has begun version-controlling the data!
 
 4. Confirm that the data is checked-in running the following command:  
-```
+```sh
 ➜ pachctl list file inputrepo@master:/data/
 NAME            TYPE SIZE     
 /data/mnist.npz file 10.96MiB
 ```  
 
 5. Next, we create a master branch on the outputrepo, so it's visible via the S3 Gateway
-
-`pachctl create branch outputrepo@master`
+```sh
+pachctl create branch outputrepo@master
+```
 
 ## Step 3 - Deploying code to work with MNIST
-Now that our data is checked in, it's time to deploy some code. In the same directory run the following:
+Now that our data is checked in, it's time to deploy some code. 
+Before we actually deploy it,
+let's take a look at how things are working under the hood. 
+### Understanding the code
+Below is a snippet of `tfjob.py`
 
-`git clone https://github.com/pachyderm/pachyderm.git && cd pachyderm/examples/kubeflow/mnist-tfjob`
-
-Next, let's take a look at how things are working under the hood. Below is a snippet of `tfjob.py`
-
-```
+```python
 # this is the Pachyderm repo & branch we'll copy files from
 input_bucket = os.getenv('INPUT_BUCKET', 'master.inputrepo')
 # this is the Pachyderm repo & branch  we'll copy the files to
@@ -86,15 +87,21 @@ def main(_):
 
   <<<< .... MNIST example below ..... >>>>
 ```
-The comments in the code provide a pretty good description of what's going on line by line. However a quick breakdown is this:  
+The comments in the code provide a pretty good description of what's going on line by line. 
+However, a quick breakdown is this:
 
-We're copying mnist.npz from our Pachyderm repo `inputrepo@master` via the [S3 Gateway](http://docs.pachyderm.com/en/latest/enterprise/s3gateway.html#using-the-s3-gateway) into a local directory in the container (`/tmp/data/`). Then we tell [TensorFlow](https://www.tensorflow.org/) to load that data and start training. 
-
-#### Mnist. Mnist. Mnist.  
-
-Once our code trains the model, it needs to save it somewhere. Just like we copied data into the container we can copy it back out again. And thanks to Pachyderm, we can maintain some sense of lineage. If you take a look at the `tfjob_mist.py` and scroll towards the bottom you'll see that the code is just copying the `my_model.h5` to the Pachyderm S3 Gateway `outputrepo` via `url:s3://<pachyderminstance>/master.outputrepo:/data/`
-
-```
+1. We're copying mnist.npz from our Pachyderm repo `inputrepo@master` via the [S3 Gateway](http://docs.pachyderm.com/en/latest/enterprise/s3gateway.html#using-the-s3-gateway) into a local directory in the container (`/tmp/data/`). 
+2. Then we tell [TensorFlow](https://www.tensorflow.org/) to load that data and start training. 
+3. Saving the trained model back to Pachyderm.
+Once our code trains the model, it needs to save it somewhere. 
+Just like we copied data into the container,
+we can copy it back out again. 
+And, 
+thanks to Pachyderm, 
+we can maintain some sense of lineage. 
+If you take a look at the `tfjob_mist.py`and scroll towards the bottom,
+you'll see that the code is just copying the `my_model.h5` to the Pachyderm S3 Gateway `outputrepo` via `url:s3://<pachyderminstance>/master.outputrepo:/data/`
+```python
 # Save entire model to a HDF5 file
   model_file =  os.path.join(args.datadir,args.modelfile)
   model.save(model_file)
@@ -104,9 +111,22 @@ Once our code trains the model, it needs to save it somewhere. Just like we copi
   file_io.copy(model_file, output_uri, True)
 ```
 
-That takes care of the code. Next, let's move onto how we'll use Kubeflow to deploy our code. Start by taking a look at the `tf_job_s3_gateway.yaml`:
+That takes care of the code. 
 
+### Deploying the code
+To deploy the code, we first download the manifest that will run it in Kubeflow and then deploy that manifest.
+Before we deploy, 
+we'll look at the manifest so you can understand what it's doing.
+
+1. In the same directory as [step 2, above](#step-2---checking-in-your-data) run the following:
+```sh
+git clone https://github.com/pachyderm/pachyderm.git && cd pachyderm/examples/kubeflow/mnist-tfjob
 ```
+
+2. Next, let's move onto how we'll use Kubeflow to deploy our code. 
+Start by taking a look at the `tf_job_s3_gateway.yaml`:
+
+```yaml
 apiVersion: "kubeflow.org/v1beta2"
 kind: "TFJob"
 metadata:
@@ -157,18 +177,23 @@ spec:
                 - "-m"
                 - "my_model.h5"
 ```
-The 'mnist_tf_job_s3_gateway.yaml' is our spec file that [Kubeflow](https://www.kubeflow.org/) and [Kubernetes](https://kubernetes.io/) will use to deploy our code. You can find out everything you need to know about this spec file in the [Kubeflow TFjobs Docs](https://www.kubeflow.org/docs/components/training/tftraining/). Notice the Pachyderm repos, branches, and data/model locations are being declared at the bottom.  
+The `mnist_tf_job_s3_gateway.yaml` is our spec file 
+that [Kubeflow](https://www.kubeflow.org/) and [Kubernetes](https://kubernetes.io/) will use to deploy our code. 
+You can find out everything you need to know about this spec file in the [Kubeflow TFjobs Docs](https://www.kubeflow.org/docs/components/training/tftraining/). 
+Notice the Pachyderm repos, branches, and data/model locations are being declared at the bottom.
 
-To deploy just run the following:
-`kubectl create -f mnist_tf_job_s3_gateway.yaml`
+3. To deploy just run the following:
+```sh
+kubectl create -f mnist_tf_job_s3_gateway.yaml
+```
 
-#### A few moments later...  
+## Step 4 - Monitoring our TFJob
 
 We can check on things by going to the and click on TFJob Dasboard. If you deployed Pachyderm and Kubeflow from our sample deployment script, you can run `open $KF_URL` from macOS or `xdg_open $KF_URL` from Linux to get to the Kubeflow dashboard. You should see something like:
 
 ![tfjob-dashboard](tfjob-dashboard.png)
 
-## Step 4 - Trust but verify
+## Step 5 - Trust but verify: data versioning in Kubeflow with Pachyderm
 You know the old saying,  “always trust but verify”. Let's confirm that you actually trained your model and that data provenance was maintained as the data worked its way through.
 
 ```
@@ -190,7 +215,7 @@ COMMIT                           NAME         TYPE COMMITTED         SIZE
 5977593e8c604f158f4d80f42c8233ef /my_model.h5 file 2 minutes ago     4.684MiB
 ```
 
-## Step 5 - A working example of basic data lineage
+## Step 6 - Adding lineage: a basic model for using Pachyderm's data lineage in Kubeflow
 To demonstrate data lineage, we need to create two versions of something. For the sake of time, and the fact that there's only one handwriting mnist dataset, you're just going to reupload the `mnist.npz`. You and I are just going to pretend that it's a new batch of handwriting data and that the model needs to be retrained. 
 
 1. Rename the tfjob in our `mnist_tf_job_s3_gateway.yaml` with something like:
@@ -200,7 +225,7 @@ To demonstrate data lineage, we need to create two versions of something. For th
 
 `pachctl put file inputrepo@master:/data/mnist.npz -f mnist.npz && kubectl create -f mnist_tf_job_s3_gateway.yaml`
 
-Once that's complete (should be pretty quick), you can then take a look at the lineage by running:
+3. Once that's complete (should be pretty quick), you can then take a look at the lineage by running:
 
 ```
 ➜ pachctl list commit inputrepo@master 
@@ -216,11 +241,20 @@ outputrepo master 5977593e8c604f158f4d80f42c8233ef c02cccded8ae434c840f25c5835dc
 outputrepo master c02cccded8ae434c840f25c5835dc535 <none>                           2 hours ago Less than a second 4.684MiB 
 ```
 
-When you re-trained your model after _receiving new mnist data_ (remember we're pretending), the new model got copied to the `outputrepo` via the S3 Gateway, and Pachyderm assigned it a new commit-id whos `PARENT` is the previous commit. You can feel free to repeat this step as many times as you'd like, but the end-result will always be the same: version-controlled data.    
+When you re-trained your model after _receiving new mnist data_ (remember we're pretending), 
+the new model, `my_model.h5`, got copied to the `outputrepo` via the S3 Gateway, 
+and Pachyderm assigned it a new commit-id
+whose `PARENT` is the previous commit. 
+You can feel free to repeat this step as many times as you'd like,
+but the end-result will always be the same: version-controlled data.
 
-Now when anyone asks "What data was used to train that model?" you can tell them with just one command. And for when that auditor asks, "what data was used to train that model 3 months ago?" Well, that's just one command away too.  
+Now when anyone asks "What data was used to train that model?",
+you can tell them with just one command. 
+And for when that auditor asks, 
+"What data was used to train that model 3 months ago?"
+Well, that's just one command away too.
 
-### And that's a wrap! 
+### Going further with data lineage and data provenance
 Great work! You started down the road to better data control and laid the groundwork for mastering data lineage.  
 
 Of course, that’s just the start, there's more work to be done. A [true data lineage](https://www.pachyderm.io/dsbor.html) solution gives users a complete understanding of the entire journey of data, model, and code from top to bottom. Everything gets versioned and tracked as it changes, including the relationships between all three of those key pieces of every data science project.  
