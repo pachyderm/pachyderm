@@ -11,7 +11,7 @@ jobs: # basic units of work in a run
       # Specify service dependencies here if necessary
       # CircleCI maintains a library of pre-built images
       # documented at https://circleci.com/docs/2.0/circleci-images/
-      - image: jumanjiman/etcd:3.3.12-r0_20190420T2025_git_214166f 11 MB
+      - image: jumanjiman/etcd:3.3.12-r0_20190420T2025_git_214166f
         name: etcd
 
     steps:
