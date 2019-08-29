@@ -20,7 +20,7 @@ jobs: # basic units of work in a run
       - run:
           name: Waiting for etcd to be ready
           command: |
-            for i in `seq 1 10`;
+            while true;
             do
               curl --output /dev/null --silent --head --fail http://localhost:2379/health && echo Success && exit 0
               echo -n .
