@@ -27,25 +27,24 @@ func forEachCommit(
 	pipelineInfo *pps.PipelineInfo,
 	cb func(*pfs.CommitInfo) error,
 ) error {
-	commitIter, err := pachClient.SubscribeCommit(pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch, "", pfs.CommitState_READY)
-	if err != nil {
-		return err
-	}
-	defer commitIter.Close()
-
-	for {
-		if commitInfo, err := commitIter.Next(); err != nil {
-			return err
-		} else if commitInfo.Finished == nil {
-			// Inspect the commit and check again if it has been finished (it may have
-			// been closed since it was queued, e.g. by StopPipeline or StopJob)
-			if commitInfo, err = pachClient.InspectCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID); err != nil {
-				return err
-			} else if commitInfo.Finished == nil {
-				cb(commitInfo)
+	return pachClient.SubscribeCommitF(
+		pipelineInfo.Pipeline.Name,
+		pipelineInfo.OutputBranch,
+		"",
+		pfs.CommitState_READY,
+		func(ci *pfs.CommitInfo) error {
+			if ci.Finished == nil {
+				// Inspect the commit and check again if it has been finished (it may have
+				// been closed since it was queued, e.g. by StopPipeline or StopJob)
+				if ci, err := pachClient.InspectCommit(ci.Commit.Repo.Name, ci.Commit.ID); err != nil {
+					return err
+				} else if ci.Finished == nil {
+					return cb(ci)
+				}
 			}
-		}
-	}
+			return nil
+		},
+	)
 }
 
 func runMap(

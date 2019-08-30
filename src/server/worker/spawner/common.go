@@ -7,7 +7,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
-	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
 	"github.com/pachyderm/pachyderm/src/server/worker/utils"
 )
@@ -42,19 +41,12 @@ func runUserCode(
 	utils utils.Utils,
 	logger logs.TaggedLogger,
 ) error {
-	return runUntilCancel(ctx, logger, "runUserCode", func() error {
+	return backoff.RetryUntilCancel(ctx, func() error {
 		// TODO: shouldn't this set up env like the worker does?
 		// TODO: what about the user error handling code?
 		return utils.RunUserCode(ctx, logger, nil, &pps.ProcessStats{}, nil)
-	})
-}
-
-func runUntilCancel(ctx context.Context, logger logs.TaggedLogger, name string, cb func() error) error {
-	return backoff.RetryNotify(cb, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		if common.IsDone(ctx) {
-			return err
-		}
-		logger.Logf("error in %s: %+v, retrying in: %+v", name, err, d)
+	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		logger.Logf("error in runUserCode: %+v, retrying in: %+v", err, d)
 		return nil
 	})
 }

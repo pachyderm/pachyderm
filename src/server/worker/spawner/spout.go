@@ -35,7 +35,7 @@ func receiveSpout(
 	pipelineInfo *pps.PipelineInfo,
 	logger logs.TaggedLogger,
 ) error {
-	return runUntilCancel(ctx, logger, "receiveSpout", func() error {
+	return backoff.RetryUntilCancel(ctx, func() error {
 		repo := pipelineInfo.Pipeline.Name
 		for {
 			// this extra closure is so that we can scope the defer
@@ -98,5 +98,8 @@ func receiveSpout(
 				return err
 			}
 		}
+	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		logger.Logf("error in receiveSpout: %+v, retrying in: %+v", err, d)
+		return nil
 	})
 }

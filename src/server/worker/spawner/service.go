@@ -56,6 +56,7 @@ func forLatestCommit(
 		if commitInfo, err := commitIter.Next(); err != nil {
 			return err
 		} else if commitInfo.Finished == nil {
+			// TODO: all wrong
 			cancel()
 			serviceCtx, serviceCancel = context.WithCancel(ctx)
 			itemChan <- serviceItem{serviceCtx, commitInfo}
