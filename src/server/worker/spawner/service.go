@@ -2,10 +2,14 @@ package spawner
 
 import (
 	"context"
+	"fmt"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/datum"
 	"github.com/pachyderm/pachyderm/src/server/worker/driver"
@@ -49,7 +53,7 @@ func forLatestCommit(
 	// and non-concurrently with itself.
 	go func() {
 		for item := range itemChan {
-			cb(item.ctx, item.commitInfo)
+			cb(item.serviceCtx, item.commitInfo)
 		}
 	}()
 
@@ -87,17 +91,18 @@ func runService(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, lo
 		data := df.Datum(0)
 		logger = logger.WithData(data)
 
-		return driver.WithProvisionedNode(pachClient, data, logger, func() error {
-			ctx := pachClient.Ctx()
+		ctx := pachClient.Ctx()
 
+		// TODO: do something with stats? - this isn't an output repo so there's nowhere to put them
+		_, err = driver.WithProvisionedNode(ctx, data, nil, logger, func(*pps.ProcessStats) error {
 			if err := driver.UpdateJobState(ctx, job.ID, nil, pps.JobState_JOB_RUNNING, ""); err != nil {
 				logger.Logf("error updating job state: %+v", err)
 			}
 
-			eg, serviceCtx := errgroup.Group{}.WithContext(serviceCtx)
-			eg.Go(runUserCode(serviceCtx, logger))
+			eg, serviceCtx := errgroup.WithContext(serviceCtx)
+			eg.Go(func() error { return runUserCode(serviceCtx, driver, logger) })
 			if pipelineInfo.Spout != nil {
-				eg.Go(receiveSpout(serviceCtx, pachClient, pipelineInfo, logger))
+				eg.Go(func() error { return receiveSpout(serviceCtx, pachClient, pipelineInfo, logger) })
 			}
 
 			if err := eg.Wait(); err != nil {
@@ -113,6 +118,8 @@ func runService(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, lo
 					logger.Logf("could not finish output commit: %v", err)
 				}
 			}
+			return nil
 		})
+		return err
 	})
 }

@@ -48,11 +48,13 @@ const (
 
 	chunkPrefix = "/chunk"
 	mergePrefix = "/merge"
+	planPrefix  = "/plan"
 )
 
 type Driver interface {
 	Jobs() col.Collection
 	Pipelines() col.Collection
+	Plans() col.Collection
 	Chunks(jobID string) col.Collection
 	Merges(jobID string) col.Collection
 
@@ -74,6 +76,7 @@ type driver struct {
 	etcdPrefix   string
 	jobs         col.Collection
 	pipelines    col.Collection
+	plans        col.Collection
 
 	uid *uint32
 	gid *uint32
@@ -90,6 +93,7 @@ func NewDriver(pipelineInfo *pps.PipelineInfo, pachClient *client.APIClient, etc
 		etcdPrefix:   etcdPrefix,
 		jobs:         ppsdb.Jobs(etcdClient, etcdPrefix),
 		pipelines:    ppsdb.Pipelines(etcdClient, etcdPrefix),
+		plans:        col.NewCollection(etcdClient, path.Join(etcdPrefix, planPrefix), nil, &common.Plan{}, nil, nil),
 	}
 
 	if pipelineInfo.Transform.User != "" {
@@ -206,6 +210,10 @@ func (u *driver) Jobs() col.Collection {
 
 func (u *driver) Pipelines() col.Collection {
 	return u.pipelines
+}
+
+func (u *driver) Plans() col.Collection {
+	return u.plans
 }
 
 func (u *driver) Chunks(jobID string) col.Collection {

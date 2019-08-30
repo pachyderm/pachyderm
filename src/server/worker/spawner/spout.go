@@ -1,11 +1,19 @@
 package spawner
 
 import (
+	"archive/tar"
 	"context"
+	"io"
+	"os"
+	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
 )
@@ -18,12 +26,14 @@ func runSpout(
 ) error {
 	logger = logger.WithJob("spout")
 
-	return driver.WithProvisionedNode(pachClient, nil, logger, func() error {
-		eg, serviceCtx := errgroup.Group{}.WithContext(pachClient.Context())
-		eg.Go(runUserCode(serviceCtx, logger))
-		eg.Go(receiveSpout(serviceCtx, pachClient, pipelineInfo, logger))
+	// TODO: do something with stats?
+	_, err := driver.WithProvisionedNode(pachClient.Ctx(), nil, nil, logger, func(*pps.ProcessStats) error {
+		eg, serviceCtx := errgroup.WithContext(pachClient.Ctx())
+		eg.Go(func() error { return runUserCode(serviceCtx, driver, logger) })
+		eg.Go(func() error { return receiveSpout(serviceCtx, pachClient, pipelineInfo, logger) })
 		return eg.Wait()
 	})
+	return err
 }
 
 // ctx is separate from pachClient because services may call this, and they use

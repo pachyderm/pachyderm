@@ -52,7 +52,6 @@ import (
 )
 
 const (
-	planPrefix        = "/plan"
 	shardPrefix       = "/shard"
 	shardTTL          = 30
 	noShard           = int64(-1)
@@ -175,7 +174,6 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		workerName:      workerName,
 		namespace:       namespace,
 		jobs:            ppsdb.Jobs(etcdClient, etcdPrefix),
-		plans:           col.NewCollection(etcdClient, path.Join(etcdPrefix, planPrefix), nil, &common.Plan{}, nil, nil),
 		shards:          col.NewCollection(etcdClient, path.Join(etcdPrefix, shardPrefix, pipelineInfo.Pipeline.Name), nil, &ShardInfo{}, nil, nil),
 		pipelines:       ppsdb.Pipelines(etcdClient, etcdPrefix),
 		hashtreeStorage: hashtreeStorage,
@@ -1175,7 +1173,7 @@ func (a *APIServer) worker() {
 
 			// Read the chunks laid out by the master and create the datum factory
 			plan := &common.Plan{}
-			if err := a.plans.ReadOnly(jobCtx).GetBlock(jobInfo.Job.ID, plan); err != nil {
+			if err := a.driver.Plans().ReadOnly(jobCtx).GetBlock(jobInfo.Job.ID, plan); err != nil {
 				return fmt.Errorf("error reading job chunks: %v", err)
 			}
 			df, err := datum.NewDatumFactory(pachClient, jobInfo.Input)
