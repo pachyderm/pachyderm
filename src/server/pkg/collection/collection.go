@@ -256,7 +256,6 @@ func (c *readWriteCollection) TTL(key string) (int64, error) {
 
 func (c *readWriteCollection) PutTTL(key string, val proto.Message, ttl int64) error {
 	if strings.Contains(key, indexIdentifier) {
-		fmt.Printf("Illegal key: %s\n", key)
 		return fmt.Errorf("cannot put key %q which contains reserved string %q", key, indexIdentifier)
 	}
 	if err := watch.CheckType(c.template, val); err != nil {
