@@ -1,5 +1,16 @@
 package spawner
 
+import (
+	"context"
+
+	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/worker/common"
+	"github.com/pachyderm/pachyderm/src/server/worker/logs"
+	"github.com/pachyderm/pachyderm/src/server/worker/utils"
+)
+
 type serviceItem struct {
 	serviceCtx context.Context
 	commitInfo *pfs.CommitInfo
@@ -39,7 +50,7 @@ func forLatestCommit(
 		for item := range itemChan {
 			cb(item.ctx, item.commitInfo)
 		}
-	}
+	}()
 
 	for {
 		if commitInfo, err := commitIter.Next(); err != nil {
@@ -52,7 +63,7 @@ func forLatestCommit(
 	}
 }
 
-func runService(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, utils common.Utils, logger logs.TemplateLogger) error {
+func runService(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, logger logs.TaggedLogger, utils utils.Utils) error {
 	// The serviceCtx is only used for canceling user code (due to a new output
 	// commit being ready)
 	return forLatestCommit(pachClient, pipelineInfo, func(serviceCtx context.Context, commitInfo *pfs.CommitInfo) error {

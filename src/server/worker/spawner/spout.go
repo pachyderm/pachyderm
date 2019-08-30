@@ -1,10 +1,20 @@
 package spawner
 
+import (
+	"context"
+
+	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/worker/logs"
+	"github.com/pachyderm/pachyderm/src/server/worker/utils"
+)
+
 func runSpout(
 	pachClient *client.APIClient,
 	pipelineInfo *pps.PipelineInfo,
 	logger logs.TaggedLogger,
-	utils common.Utils,
+	utils utils.Utils,
 ) error {
 	logger = logger.WithJob("spout")
 
@@ -25,7 +35,7 @@ func receiveSpout(
 	pipelineInfo *pps.PipelineInfo,
 	logger logs.TaggedLogger,
 ) error {
-	return runUntilCancel(ctx, "receiveSpout", func() error {
+	return runUntilCancel(ctx, logger, "receiveSpout", func() error {
 		repo := pipelineInfo.Pipeline.Name
 		for {
 			// this extra closure is so that we can scope the defer

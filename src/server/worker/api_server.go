@@ -174,7 +174,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		workerName:      workerName,
 		namespace:       namespace,
 		jobs:            ppsdb.Jobs(etcdClient, etcdPrefix),
-		plans:           col.NewCollection(etcdClient, path.Join(etcdPrefix, planPrefix), nil, &Plan{}, nil, nil),
+		plans:           col.NewCollection(etcdClient, path.Join(etcdPrefix, planPrefix), nil, &common.Plan{}, nil, nil),
 		shards:          col.NewCollection(etcdClient, path.Join(etcdPrefix, shardPrefix, pipelineInfo.Pipeline.Name), nil, &ShardInfo{}, nil, nil),
 		pipelines:       ppsdb.Pipelines(etcdClient, etcdPrefix),
 		hashtreeStorage: hashtreeStorage,
@@ -533,7 +533,7 @@ type processResult struct {
 
 type processFunc func(low, high int64) (*processResult, error)
 
-func (a *APIServer) acquireDatums(ctx context.Context, jobID string, plan *Plan, logger logs.TaggedLogger, process processFunc) error {
+func (a *APIServer) acquireDatums(ctx context.Context, jobID string, plan *common.Plan, logger logs.TaggedLogger, process processFunc) error {
 	chunks := a.utils.Chunks(jobID)
 	watcher, err := chunks.ReadOnly(ctx).Watch(watch.WithFilterPut())
 	if err != nil {
@@ -607,7 +607,7 @@ func (a *APIServer) processChunk(ctx context.Context, jobID string, low, high in
 	return nil
 }
 
-func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APIClient, jobInfo *pps.JobInfo, jobID string, plan *Plan, logger logs.TaggedLogger, df DatumFactory, skip map[string]struct{}, useParentHashTree bool) (retErr error) {
+func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APIClient, jobInfo *pps.JobInfo, jobID string, plan *common.Plan, logger logs.TaggedLogger, df DatumFactory, skip map[string]struct{}, useParentHashTree bool) (retErr error) {
 	for {
 		if err := func() error {
 			// if this worker is not responsible for a shard, it waits to be assigned one or for the job to finish
@@ -1173,7 +1173,7 @@ func (a *APIServer) worker() {
 			logger.Logf("processing job %v", jobID)
 
 			// Read the chunks laid out by the master and create the datum factory
-			plan := &Plan{}
+			plan := &common.Plan{}
 			if err := a.plans.ReadOnly(jobCtx).GetBlock(jobInfo.Job.ID, plan); err != nil {
 				return fmt.Errorf("error reading job chunks: %v", err)
 			}

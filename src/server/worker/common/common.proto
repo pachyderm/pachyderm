@@ -36,3 +36,8 @@ message MergeState {
   pfs.Object stats_tree = 4;
   uint64 stats_size_bytes = 5;
 }
+
+message Plan {
+  repeated int64 chunks = 1;
+  int64 merges = 2;
+}

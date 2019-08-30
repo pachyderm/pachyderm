@@ -19,6 +19,7 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
 )
 
@@ -31,15 +32,15 @@ func TestAcquireDatums(t *testing.T) {
 	c := getPachClient(t)
 	etcdClient := getEtcdClient(t)
 
-	plans := col.NewCollection(etcdClient, path.Join("", planPrefix), nil, &Plan{}, nil, nil)
+	plans := col.NewCollection(etcdClient, path.Join("", planPrefix), nil, &common.Plan{}, nil, nil)
 	for nChunks := 1; nChunks < 200; nChunks += 50 {
 		for nWorkers := 1; nWorkers < 40; nWorkers += 10 {
 			jobInfo := &pps.JobInfo{
 				Job: client.NewJob(uuid.New()),
 			}
-			var plan *Plan
+			var plan *common.Plan
 			_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-				plan = &Plan{}
+				plan = &common.Plan{}
 				for i := 1; i <= nChunks; i++ {
 					plan.Chunks = append(plan.Chunks, int64(i))
 				}
@@ -114,6 +115,6 @@ func newTestAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etc
 		etcdPrefix: etcdPrefix,
 		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
 		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
-		plans:      col.NewCollection(etcdClient, path.Join(etcdPrefix, planPrefix), nil, &Plan{}, nil, nil),
+		plans:      col.NewCollection(etcdClient, path.Join(etcdPrefix, planPrefix), nil, &common.Plan{}, nil, nil),
 	}
 }
