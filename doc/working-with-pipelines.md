@@ -1,9 +1,9 @@
 # Working with Pipelines
 
 A typical Pachyderm workflow involves multiple iterations of
-experimenting with code and pipeline specs.
+experimenting with your code and pipeline specs.
 
-Before you start working on this section, make sure that you
+Before you read this section, make sure that you
 understand basic Pachyderm concepts described in
 [Concepts](../concepts/index.rst).
 

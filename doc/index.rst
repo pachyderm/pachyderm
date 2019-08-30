@@ -28,7 +28,6 @@ email at support@pachyderm.io.
 
    getting_started/index.rst
    fundamentals/index.rst
-   create-analysis-pipeline.md
 
 .. toctree::
    :maxdepth: 2
