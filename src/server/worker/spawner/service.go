@@ -7,8 +7,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
+	"github.com/pachyderm/pachyderm/src/server/worker/datum"
+	"github.com/pachyderm/pachyderm/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
-	"github.com/pachyderm/pachyderm/src/server/worker/utils"
 )
 
 type serviceItem struct {
@@ -64,7 +65,7 @@ func forLatestCommit(
 	}
 }
 
-func runService(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, logger logs.TaggedLogger, utils utils.Utils) error {
+func runService(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, logger logs.TaggedLogger, driver driver.Driver) error {
 	// The serviceCtx is only used for canceling user code (due to a new output
 	// commit being ready)
 	return forLatestCommit(pachClient, pipelineInfo, func(serviceCtx context.Context, commitInfo *pfs.CommitInfo) error {
@@ -76,7 +77,7 @@ func runService(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, lo
 		}
 		logger := logger.WithJob(job.ID)
 
-		df, err := NewDatumFactory(pachClient, jobInput)
+		df, err := datum.NewDatumFactory(pachClient, jobInput)
 		if err != nil {
 			return err
 		}
@@ -86,10 +87,10 @@ func runService(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, lo
 		data := df.Datum(0)
 		logger = logger.WithData(data)
 
-		return utils.WithProvisionedNode(pachClient, data, logger, func() error {
+		return driver.WithProvisionedNode(pachClient, data, logger, func() error {
 			ctx := pachClient.Ctx()
 
-			if err := utils.UpdateJobState(ctx, job.ID, nil, pps.JobState_JOB_RUNNING, ""); err != nil {
+			if err := driver.UpdateJobState(ctx, job.ID, nil, pps.JobState_JOB_RUNNING, ""); err != nil {
 				logger.Logf("error updating job state: %+v", err)
 			}
 
@@ -105,7 +106,7 @@ func runService(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, lo
 
 			// Only want to update this stuff if we were canceled due to a new commit
 			if common.IsDone(serviceCtx) {
-				if err := utils.UpdateJobState(ctx, job.ID, nil, pps.JobState_JOB_SUCCESS, ""); err != nil {
+				if err := driver.UpdateJobState(ctx, job.ID, nil, pps.JobState_JOB_SUCCESS, ""); err != nil {
 					logger.Logf("error updating job progress: %+v", err)
 				}
 				if err := pachClient.FinishCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID); err != nil {

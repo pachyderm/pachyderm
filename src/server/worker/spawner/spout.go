@@ -6,19 +6,19 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
-	"github.com/pachyderm/pachyderm/src/server/worker/utils"
 )
 
 func runSpout(
 	pachClient *client.APIClient,
 	pipelineInfo *pps.PipelineInfo,
 	logger logs.TaggedLogger,
-	utils utils.Utils,
+	driver driver.Driver,
 ) error {
 	logger = logger.WithJob("spout")
 
-	return utils.WithProvisionedNode(pachClient, nil, logger, func() error {
+	return driver.WithProvisionedNode(pachClient, nil, logger, func() error {
 		eg, serviceCtx := errgroup.Group{}.WithContext(pachClient.Context())
 		eg.Go(runUserCode(serviceCtx, logger))
 		eg.Go(receiveSpout(serviceCtx, pachClient, pipelineInfo, logger))

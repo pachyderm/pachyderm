@@ -16,8 +16,9 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
+	"github.com/pachyderm/pachyderm/src/server/worker/datum"
+	"github.com/pachyderm/pachyderm/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
-	"github.com/pachyderm/pachyderm/src/server/worker/utils"
 )
 
 // forEachCommit listens for each READY output commit in the pipeline, and calls
@@ -51,7 +52,7 @@ func runMap(
 	pachClient *client.APIClient,
 	pipelineInfo *pps.PipelineInfo,
 	logger logs.TaggedLogger,
-	utils utils.Utils,
+	driver driver.Driver,
 ) error {
 	return forEachCommit(pachClient, pipelineInfo, func(commitInfo *pfs.CommitInfo) error {
 		// Check if a job was previously created for this commit. If not, make one
@@ -100,7 +101,7 @@ func runMap(
 			// up by PPS master, but the PPS master can fail, and if these jobs
 			// aren't killed, future jobs will hang indefinitely waiting for their
 			// parents to finish)
-			if err := utils.UpdateJobState(pachClient.Ctx(), jobInfo.Job.ID, nil,
+			if err := driver.UpdateJobState(pachClient.Ctx(), jobInfo.Job.ID, nil,
 				pps.JobState_JOB_KILLED, "pipeline has been updated"); err != nil {
 				return fmt.Errorf("could not kill stale job: %v", err)
 			}
@@ -114,7 +115,7 @@ func runMap(
 		// Now that the jobInfo is persisted, wait until all input commits are
 		// ready, split the input datums into chunks and merge the results of
 		// chunks as they're processed
-		if err := waitJob(pachClient, jobInfo, logger, utils); err != nil {
+		if err := waitJob(pachClient, jobInfo, logger, driver); err != nil {
 			return err
 		}
 	})
@@ -123,7 +124,7 @@ func runMap(
 // waitJob waits for the job in 'jobInfo' to finish, and then it collects the
 // output from the job's workers and merges it into a commit (and may merge
 // stats into a commit in the stats branch as well)
-func waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, logger logs.TaggedLogger, utils utils.Utils) (retErr error) {
+func waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, logger logs.TaggedLogger, driver driver.Driver) (retErr error) {
 	logger.Logf("waiting on job %q (pipeline version: %d, state: %s)", jobInfo.Job.ID, jobInfo.PipelineVersion, jobInfo.State)
 	ctx, cancel := context.WithCancel(pachClient.Ctx())
 	pachClient = pachClient.WithCtx(ctx)
@@ -240,7 +241,7 @@ func waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, logger logs.Tag
 					return err
 				}
 			}
-			if err := utils.UpdateJobState(ctx, jobInfo.Job.ID, statsCommit, pps.JobState_JOB_FAILURE, reason); err != nil {
+			if err := driver.UpdateJobState(ctx, jobInfo.Job.ID, statsCommit, pps.JobState_JOB_FAILURE, reason); err != nil {
 				return err
 			}
 			if _, err := pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
@@ -253,7 +254,7 @@ func waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, logger logs.Tag
 		}
 		// Create a datum factory pointing at the job's inputs and split up the
 		// input data into chunks
-		df, err := NewDatumFactory(pachClient, jobInfo.Input)
+		df, err := datum.NewDatumFactory(pachClient, jobInfo.Input)
 		if err != nil {
 			return err
 		}
@@ -329,7 +330,7 @@ func waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, logger logs.Tag
 				return err
 			}
 		}
-		if err := utils.UpdateJobState(ctx, jobInfo.Job.ID, nil, pps.JobState_JOB_MERGING, ""); err != nil {
+		if err := driver.UpdateJobState(ctx, jobInfo.Job.ID, nil, pps.JobState_JOB_MERGING, ""); err != nil {
 			return err
 		}
 		var trees []*pfs.Object
@@ -376,7 +377,7 @@ func waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, logger logs.Tag
 		// killed.
 		if failedDatumID != "" {
 			reason := fmt.Sprintf("failed to process datum: %v", failedDatumID)
-			if err := utils.UpdateJobState(ctx, jobInfo.Job.ID, statsCommit, pps.JobState_JOB_FAILURE, reason); err != nil {
+			if err := driver.UpdateJobState(ctx, jobInfo.Job.ID, statsCommit, pps.JobState_JOB_FAILURE, reason); err != nil {
 				return err
 			}
 			if _, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
@@ -420,9 +421,9 @@ func waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, logger logs.Tag
 		// Handle egress
 		if err := a.egress(pachClient, logger, jobInfo); err != nil {
 			reason := fmt.Sprintf("egress error: %v", err)
-			return utils.UpdateJobState(ctx, jobInfo.Job.ID, statsCommit, pps.JobState_JOB_FAILURE, reason)
+			return driver.UpdateJobState(ctx, jobInfo.Job.ID, statsCommit, pps.JobState_JOB_FAILURE, reason)
 		}
-		return utils.UpdateJobState(ctx, jobInfo.Job.ID, statsCommit, pps.JobState_JOB_SUCCESS, "")
+		return driver.UpdateJobState(ctx, jobInfo.Job.ID, statsCommit, pps.JobState_JOB_SUCCESS, "")
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		logger.Logf("error in waitJob %v, retrying in %v", err, d)
 		select {
@@ -515,7 +516,7 @@ func failedInputs(ctx context.Context, jobInfo *pps.JobInfo) ([]string, error) {
 	return failed, vistErr
 }
 
-func newPlan(df DatumFactory, spec *pps.ChunkSpec, parallelism int, numHashtrees int64) *common.Plan {
+func newPlan(df datum.DatumFactory, spec *pps.ChunkSpec, parallelism int, numHashtrees int64) *common.Plan {
 	if spec == nil {
 		spec = &pps.ChunkSpec{}
 	}

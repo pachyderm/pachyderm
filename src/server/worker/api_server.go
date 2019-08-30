@@ -45,9 +45,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
+	"github.com/pachyderm/pachyderm/src/server/worker/datum"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
 	"github.com/pachyderm/pachyderm/src/server/worker/stats"
-	"github.com/pachyderm/pachyderm/src/server/worker/utils"
+	"github.com/pachyderm/pachyderm/src/server/worker/driver"
 )
 
 const (
@@ -78,7 +79,7 @@ type APIServer struct {
 	etcdPrefix string
 
 	// Provides common functions used by worker code
-	utils utils.Utils
+	driver driver.Driver
 
 	// Information needed to process input data and upload output
 	pipelineInfo *pps.PipelineInfo
@@ -151,7 +152,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	}
 	defer tracing.FinishAnySpan(span)
 
-	utils, err := utils.NewUtils(pipelineInfo, oldPachClient, etcdClient, etcdPrefix)
+	driver, err := driver.NewDriver(pipelineInfo, oldPachClient, etcdClient, etcdPrefix)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +170,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		kubeClient:      kubeClient,
 		etcdClient:      etcdClient,
 		etcdPrefix:      etcdPrefix,
-		utils:           utils,
+		driver:           driver,
 		pipelineInfo:    pipelineInfo,
 		workerName:      workerName,
 		namespace:       namespace,
@@ -241,7 +242,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 }
 
 func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag string, logger logs.TaggedLogger, inputs []*common.Input, stats *pps.ProcessStats, statsTree *hashtree.Ordered, datumIdx int64) (retErr error) {
-	defer a.utils.ReportUploadStats(time.Now(), stats, logger)
+	defer a.driver.ReportUploadStats(time.Now(), stats, logger)
 	logger.Logf("starting to upload output")
 	defer func(start time.Time) {
 		if retErr != nil {
@@ -534,7 +535,7 @@ type processResult struct {
 type processFunc func(low, high int64) (*processResult, error)
 
 func (a *APIServer) acquireDatums(ctx context.Context, jobID string, plan *common.Plan, logger logs.TaggedLogger, process processFunc) error {
-	chunks := a.utils.Chunks(jobID)
+	chunks := a.driver.Chunks(jobID)
 	watcher, err := chunks.ReadOnly(ctx).Watch(watch.WithFilterPut())
 	if err != nil {
 		return fmt.Errorf("error creating chunk watcher: %v", err)
@@ -589,7 +590,7 @@ func (a *APIServer) processChunk(ctx context.Context, jobID string, low, high in
 		}); err != nil {
 			return err
 		}
-		chunks := a.utils.Chunks(jobID).ReadWrite(stm)
+		chunks := a.driver.Chunks(jobID).ReadWrite(stm)
 		if processResult.failedDatumID != "" {
 			return chunks.Put(fmt.Sprint(high), &common.ChunkState{
 				State:   common.State_FAILED,
@@ -607,7 +608,7 @@ func (a *APIServer) processChunk(ctx context.Context, jobID string, low, high in
 	return nil
 }
 
-func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APIClient, jobInfo *pps.JobInfo, jobID string, plan *common.Plan, logger logs.TaggedLogger, df DatumFactory, skip map[string]struct{}, useParentHashTree bool) (retErr error) {
+func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APIClient, jobInfo *pps.JobInfo, jobID string, plan *common.Plan, logger logs.TaggedLogger, df datum.DatumFactory, skip map[string]struct{}, useParentHashTree bool) (retErr error) {
 	for {
 		if err := func() error {
 			// if this worker is not responsible for a shard, it waits to be assigned one or for the job to finish
@@ -626,7 +627,7 @@ func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APICl
 			}
 			// collect hashtrees from chunks as they complete
 			low := int64(0)
-			chunks := a.utils.Chunks(jobInfo.Job.ID).ReadOnly(ctx)
+			chunks := a.driver.Chunks(jobInfo.Job.ID).ReadOnly(ctx)
 			var failed bool
 			for _, high := range plan.Chunks {
 				chunkState := &common.ChunkState{}
@@ -720,7 +721,7 @@ func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APICl
 			}
 			// mark merge as complete
 			_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-				merges := a.utils.Merges(jobID).ReadWrite(stm)
+				merges := a.driver.Merges(jobID).ReadWrite(stm)
 				mergeState := &common.MergeState{
 					State:          common.State_COMPLETE,
 					Tree:           tree,
@@ -793,7 +794,7 @@ func (a *APIServer) getChunk(ctx context.Context, id int64, address string, fail
 	return nil
 }
 
-func (a *APIServer) computeTags(df DatumFactory, low, high int64, skip map[string]struct{}, useParentHashTree bool) []*pfs.Tag {
+func (a *APIServer) computeTags(df datum.DatumFactory, low, high int64, skip map[string]struct{}, useParentHashTree bool) []*pfs.Tag {
 	var tags []*pfs.Tag
 	for i := low; i < high; i++ {
 		files := df.Datum(int(i))
@@ -1177,7 +1178,7 @@ func (a *APIServer) worker() {
 			if err := a.plans.ReadOnly(jobCtx).GetBlock(jobInfo.Job.ID, plan); err != nil {
 				return fmt.Errorf("error reading job chunks: %v", err)
 			}
-			df, err := NewDatumFactory(pachClient, jobInfo.Input)
+			df, err := datum.NewDatumFactory(pachClient, jobInfo.Input)
 			if err != nil {
 				return fmt.Errorf("error from NewDatumFactory: %v", err)
 			}
@@ -1284,8 +1285,14 @@ func (a *APIServer) claimShard(ctx context.Context) {
 // processDatums processes datums from low to high in df, if a datum fails it
 // returns the id of the failed datum it also may return a variety of errors
 // such as network errors.
-func (a *APIServer) processDatums(pachClient *client.APIClient, logger logs.TaggedLogger, jobInfo *pps.JobInfo,
-	df DatumFactory, low, high int64, skip map[string]struct{}, useParentHashTree bool) (result *processResult, retErr error) {
+func (a *APIServer) processDatums(
+	pachClient *client.APIClient,
+	logger logs.TaggedLogger,
+	jobInfo *pps.JobInfo,
+	df datum.DatumFactory,
+	low, high int64,
+	skip map[string]struct{}, useParentHashTree bool
+) (result *processResult, retErr error) {
 	defer func() {
 		if err := a.datumCache.Clear(); err != nil && retErr == nil {
 			logger.Logf("error clearing datum cache: %v", err)
@@ -1391,13 +1398,13 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger logs.Tagg
 					a.stats = stats
 				}()
 
-				subStats, err := a.utils.WithProvisionedNode(ctx, data, inputTree, logger, func(subStats *pps.ProcessStats) error {
+				subStats, err := a.driver.WithProvisionedNode(ctx, data, inputTree, logger, func(subStats *pps.ProcessStats) error {
 					env := userCodeEnv(jobInfo.Job.ID, jobInfo.OutputCommit.ID, data)
 					a.runMu.Lock()
 					defer a.runMu.Unlock()
-					if err := a.utils.RunUserCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
+					if err := a.driver.RunUserCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
 						if a.pipelineInfo.Transform.ErrCmd != nil && failures == jobInfo.DatumTries-1 {
-							if err = a.utils.RunUserErrorHandlingCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
+							if err = a.driver.RunUserErrorHandlingCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
 								return fmt.Errorf("error runUserErrorHandlingCode: %v", err)
 							}
 							return errDatumRecovered

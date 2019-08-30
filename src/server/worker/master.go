@@ -9,9 +9,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
+	"github.com/pachyderm/pachyderm/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
 	"github.com/pachyderm/pachyderm/src/server/worker/spawner"
-	"github.com/pachyderm/pachyderm/src/server/worker/utils"
 )
 
 const (
@@ -52,13 +52,13 @@ func (a *APIServer) master() {
 		}
 		defer masterLock.Unlock(ctx)
 
-		// Create a new utils that uses our new cancelable pachClient
-		utils, err := utils.NewUtils(a.pipelineInfo, pachClient, a.etcdClient, a.etcdPrefix)
+		// Create a new driver that uses our new cancelable pachClient
+		driver, err := driver.NewDriver(a.pipelineInfo, pachClient, a.etcdClient, a.etcdPrefix)
 		if err != nil {
 			return err
 		}
 
-		return spawner.Run(pachClient, a.pipelineInfo, logger, utils)
+		return spawner.Run(pachClient, a.pipelineInfo, logger, driver)
 	}, b, func(err error, d time.Duration) error {
 		if auth.IsErrNotAuthorized(err) {
 			logger.Logf("failing %q due to auth rejection", a.pipelineInfo.Pipeline.Name)

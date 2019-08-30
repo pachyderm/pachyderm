@@ -1,4 +1,4 @@
-package utils
+package driver
 
 import (
 	"bufio"
@@ -50,7 +50,7 @@ const (
 	mergePrefix = "/merge"
 )
 
-type Utils interface {
+type Driver interface {
 	Jobs() col.Collection
 	Pipelines() col.Collection
 	Chunks(jobID string) col.Collection
@@ -67,7 +67,7 @@ type Utils interface {
 	ReportUploadStats(time.Time, *pps.ProcessStats, logs.TaggedLogger)
 }
 
-type utils struct {
+type driver struct {
 	pipelineInfo *pps.PipelineInfo
 	pachClient   *client.APIClient
 	etcdClient   *etcd.Client
@@ -82,8 +82,8 @@ type utils struct {
 	exportStats bool
 }
 
-func NewUtils(pipelineInfo *pps.PipelineInfo, pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix string) (Utils, error) {
-	result := &utils{
+func NewDriver(pipelineInfo *pps.PipelineInfo, pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix string) (Driver, error) {
+	result := &driver{
 		pipelineInfo: pipelineInfo,
 		pachClient:   pachClient,
 		etcdClient:   etcdClient,
@@ -200,19 +200,19 @@ func lookupGroup(group string) (_ *user.Group, retErr error) {
 	return nil, fmt.Errorf("group %s not found", group)
 }
 
-func (u *utils) Jobs() col.Collection {
+func (u *driver) Jobs() col.Collection {
 	return u.jobs
 }
 
-func (u *utils) Pipelines() col.Collection {
+func (u *driver) Pipelines() col.Collection {
 	return u.pipelines
 }
 
-func (u *utils) Chunks(jobID string) col.Collection {
+func (u *driver) Chunks(jobID string) col.Collection {
 	return col.NewCollection(u.etcdClient, path.Join(u.etcdPrefix, chunkPrefix, jobID), nil, &common.ChunkState{}, nil, nil)
 }
 
-func (u *utils) Merges(jobID string) col.Collection {
+func (u *driver) Merges(jobID string) col.Collection {
 	return col.NewCollection(u.etcdClient, path.Join(u.etcdPrefix, mergePrefix, jobID), nil, &common.MergeState{}, nil, nil)
 }
 
@@ -231,7 +231,7 @@ func (u *utils) Merges(jobID string) col.Collection {
 // report stats
 // uploadOutput
 
-func (u *utils) WithProvisionedNode(
+func (u *driver) WithProvisionedNode(
 	ctx context.Context,
 	data []*common.Input,
 	inputTree *hashtree.Ordered,
@@ -304,7 +304,7 @@ func (u *utils) WithProvisionedNode(
 	return stats, nil
 }
 
-func (u *utils) downloadData(pachClient *client.APIClient, logger logs.TaggedLogger, inputs []*common.Input, puller *filesync.Puller, stats *pps.ProcessStats, statsTree *hashtree.Ordered) (_ string, retErr error) {
+func (u *driver) downloadData(pachClient *client.APIClient, logger logs.TaggedLogger, inputs []*common.Input, puller *filesync.Puller, stats *pps.ProcessStats, statsTree *hashtree.Ordered) (_ string, retErr error) {
 	defer u.reportDownloadTimeStats(time.Now(), stats, logger)
 	logger.Logf("starting to download data")
 	defer func(start time.Time) {
@@ -352,7 +352,7 @@ func (u *utils) downloadData(pachClient *client.APIClient, logger logs.TaggedLog
 	return dir, nil
 }
 
-func (u *utils) downloadGitData(pachClient *client.APIClient, dir string, input *common.Input) error {
+func (u *driver) downloadGitData(pachClient *client.APIClient, dir string, input *common.Input) error {
 	file := input.FileInfo.File
 	pachydermRepoName := input.Name
 	var rawJSON bytes.Buffer
@@ -391,7 +391,7 @@ func (u *utils) downloadGitData(pachClient *client.APIClient, dir string, input 
 	return nil
 }
 
-func (u *utils) linkData(inputs []*common.Input, dir string) error {
+func (u *driver) linkData(inputs []*common.Input, dir string) error {
 	// Make sure that previously symlinked outputs are removed.
 	if err := u.unlinkData(inputs); err != nil {
 		return err
@@ -406,7 +406,7 @@ func (u *utils) linkData(inputs []*common.Input, dir string) error {
 	return os.Symlink(filepath.Join(dir, "out"), filepath.Join(client.PPSInputPrefix, "out"))
 }
 
-func (u *utils) unlinkData(inputs []*common.Input) error {
+func (u *driver) unlinkData(inputs []*common.Input) error {
 	dirs, err := ioutil.ReadDir(client.PPSInputPrefix)
 	if err != nil {
 		return fmt.Errorf("ioutil.ReadDir: %v", err)
@@ -423,7 +423,7 @@ func (u *utils) unlinkData(inputs []*common.Input) error {
 }
 
 // Run user code and return the combined output of stdout and stderr.
-func (u *utils) RunUserCode(ctx context.Context, logger logs.TaggedLogger, environ []string, procStats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
+func (u *driver) RunUserCode(ctx context.Context, logger logs.TaggedLogger, environ []string, procStats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
 	u.reportUserCodeStats(logger)
 	defer func(start time.Time) { u.reportDeferredUserCodeStats(retErr, start, procStats, logger) }(time.Now())
 	logger.Logf("beginning to run user code")
@@ -504,7 +504,7 @@ func (u *utils) RunUserCode(ctx context.Context, logger logs.TaggedLogger, envir
 }
 
 // Run user error code and return the combined output of stdout and stderr.
-func (u *utils) RunUserErrorHandlingCode(ctx context.Context, logger logs.TaggedLogger, environ []string, procStats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
+func (u *driver) RunUserErrorHandlingCode(ctx context.Context, logger logs.TaggedLogger, environ []string, procStats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
 	logger.Logf("beginning to run user error handling code")
 	defer func(start time.Time) {
 		if retErr != nil {
@@ -571,7 +571,7 @@ func (u *utils) RunUserErrorHandlingCode(ctx context.Context, logger logs.Tagged
 	return nil
 }
 
-func (u *utils) UpdateJobState(ctx context.Context, jobID string, statsCommit *pfs.Commit, state pps.JobState, reason string) error {
+func (u *driver) UpdateJobState(ctx context.Context, jobID string, statsCommit *pfs.Commit, state pps.JobState, reason string) error {
 	_, err := col.NewSTM(ctx, u.etcdClient, func(stm col.STM) error {
 		jobs := u.jobs.ReadWrite(stm)
 		jobPtr := &pps.EtcdJobInfo{}
@@ -591,7 +591,7 @@ func (u *utils) UpdateJobState(ctx context.Context, jobID string, statsCommit *p
 // DeleteJob is identical to updateJobState, except that jobPtr points to a job
 // that should be deleted rather than marked failed. Jobs may be deleted if
 // their output commit is deleted.
-func (u *utils) DeleteJob(stm col.STM, jobPtr *pps.EtcdJobInfo) error {
+func (u *driver) DeleteJob(stm col.STM, jobPtr *pps.EtcdJobInfo) error {
 	pipelinePtr := &pps.EtcdPipelineInfo{}
 	if err := u.pipelines.ReadWrite(stm).Update(jobPtr.Pipeline.Name, pipelinePtr, func() error {
 		if pipelinePtr.JobCounts == nil {
@@ -607,7 +607,7 @@ func (u *utils) DeleteJob(stm col.STM, jobPtr *pps.EtcdJobInfo) error {
 	return u.jobs.ReadWrite(stm).Delete(jobPtr.Job.ID)
 }
 
-func (u *utils) updateCounter(
+func (u *driver) updateCounter(
 	stat *prometheus.CounterVec,
 	logger logs.TaggedLogger,
 	state string,
@@ -624,7 +624,7 @@ func (u *utils) updateCounter(
 	}
 }
 
-func (u *utils) updateHistogram(
+func (u *driver) updateHistogram(
 	stat *prometheus.HistogramVec,
 	logger logs.TaggedLogger,
 	state string,
@@ -641,7 +641,7 @@ func (u *utils) updateHistogram(
 	}
 }
 
-func (u *utils) reportUserCodeStats(logger logs.TaggedLogger) {
+func (u *driver) reportUserCodeStats(logger logs.TaggedLogger) {
 	if u.exportStats {
 		u.updateCounter(stats.DatumCount, logger, "started", func(counter prometheus.Counter) {
 			counter.Add(1)
@@ -649,7 +649,7 @@ func (u *utils) reportUserCodeStats(logger logs.TaggedLogger) {
 	}
 }
 
-func (u *utils) reportDeferredUserCodeStats(err error, start time.Time, procStats *pps.ProcessStats, logger logs.TaggedLogger) {
+func (u *driver) reportDeferredUserCodeStats(err error, start time.Time, procStats *pps.ProcessStats, logger logs.TaggedLogger) {
 	if u.exportStats {
 		duration := time.Since(start)
 		procStats.ProcessTime = types.DurationProto(duration)
@@ -671,7 +671,7 @@ func (u *utils) reportDeferredUserCodeStats(err error, start time.Time, procStat
 	}
 }
 
-func (u *utils) ReportUploadStats(start time.Time, procStats *pps.ProcessStats, logger logs.TaggedLogger) {
+func (u *driver) ReportUploadStats(start time.Time, procStats *pps.ProcessStats, logger logs.TaggedLogger) {
 	if u.exportStats {
 		duration := time.Since(start)
 		procStats.UploadTime = types.DurationProto(duration)
@@ -691,7 +691,7 @@ func (u *utils) ReportUploadStats(start time.Time, procStats *pps.ProcessStats, 
 	}
 }
 
-func (u *utils) reportDownloadSizeStats(downSize float64, logger logs.TaggedLogger) {
+func (u *driver) reportDownloadSizeStats(downSize float64, logger logs.TaggedLogger) {
 	if u.exportStats {
 		u.updateHistogram(stats.DatumDownloadSize, logger, "", func(hist prometheus.Observer) {
 			hist.Observe(downSize)
@@ -702,7 +702,7 @@ func (u *utils) reportDownloadSizeStats(downSize float64, logger logs.TaggedLogg
 	}
 }
 
-func (u *utils) reportDownloadTimeStats(start time.Time, procStats *pps.ProcessStats, logger logs.TaggedLogger) {
+func (u *driver) reportDownloadTimeStats(start time.Time, procStats *pps.ProcessStats, logger logs.TaggedLogger) {
 	if u.exportStats {
 		duration := time.Since(start)
 		procStats.DownloadTime = types.DurationProto(duration)
