@@ -46,9 +46,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/datum"
+	"github.com/pachyderm/pachyderm/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
 	"github.com/pachyderm/pachyderm/src/server/worker/stats"
-	"github.com/pachyderm/pachyderm/src/server/worker/driver"
 )
 
 const (
@@ -101,8 +101,6 @@ type APIServer struct {
 	// queueSize is the number of items enqueued
 	queueSize int64
 
-	// The total number of workers for this pipeline
-	numWorkers int
 	// The namespace in which pachyderm is deployed
 	namespace string
 	// The jobs collection
@@ -151,25 +149,27 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	}
 	defer tracing.FinishAnySpan(span)
 
-	driver, err := driver.NewDriver(pipelineInfo, oldPachClient, etcdClient, etcdPrefix)
-	if err != nil {
-		return nil, err
-	}
-
 	cfg, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, err
 	}
+
 	kubeClient, err := kube.NewForConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
+
+	driver, err := driver.NewDriver(pipelineInfo, oldPachClient, kubeClient, etcdClient, etcdPrefix)
+	if err != nil {
+		return nil, err
+	}
+
 	server := &APIServer{
 		pachClient:      oldPachClient,
 		kubeClient:      kubeClient,
 		etcdClient:      etcdClient,
 		etcdPrefix:      etcdPrefix,
-		driver:           driver,
+		driver:          driver,
 		pipelineInfo:    pipelineInfo,
 		workerName:      workerName,
 		namespace:       namespace,
@@ -183,12 +183,6 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	}
 	logger := logs.NewStatlessLogger(pipelineInfo)
 
-	numWorkers, err := ppsutil.GetExpectedNumWorkers(kubeClient, pipelineInfo.ParallelismSpec)
-	if err != nil {
-		logger.Logf("error getting number of workers, default to 1 worker: %v", err)
-		numWorkers = 1
-	}
-	server.numWorkers = numWorkers
 	numShards, err := ppsutil.GetExpectedNumHashtrees(pipelineInfo.HashtreeSpec)
 	if err != nil {
 		logger.Logf("error getting number of shards, default to 1 shard: %v", err)
@@ -597,7 +591,7 @@ func (a *APIServer) processChunk(ctx context.Context, jobID string, low, high in
 			})
 		}
 		return chunks.Put(fmt.Sprint(high), &common.ChunkState{
-			State:   common.State_COMPLETE,
+			State:   common.State_SUCCESS,
 			Address: os.Getenv(client.PPSWorkerIPEnv),
 		})
 	}); err != nil {
@@ -645,7 +639,7 @@ func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APICl
 					case common.State_FAILED:
 						failed = true
 						fallthrough
-					case common.State_COMPLETE:
+					case common.State_SUCCESS:
 						if err := a.getChunk(ctx, high, chunkState.Address, failed); err != nil {
 							logger.Logf("error downloading chunk %v from worker at %v (%v), falling back on object storage", high, chunkState.Address, err)
 							tags := a.computeTags(df, low, high, skip, useParentHashTree)
@@ -721,7 +715,7 @@ func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APICl
 			_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 				merges := a.driver.Merges(jobID).ReadWrite(stm)
 				mergeState := &common.MergeState{
-					State:          common.State_COMPLETE,
+					State:          common.State_SUCCESS,
 					Tree:           tree,
 					SizeBytes:      size,
 					StatsTree:      statsTree,
@@ -1289,7 +1283,8 @@ func (a *APIServer) processDatums(
 	jobInfo *pps.JobInfo,
 	df datum.DatumFactory,
 	low, high int64,
-	skip map[string]struct{}, useParentHashTree bool
+	skip map[string]struct{},
+	useParentHashTree bool,
 ) (result *processResult, retErr error) {
 	defer func() {
 		if err := a.datumCache.Clear(); err != nil && retErr == nil {

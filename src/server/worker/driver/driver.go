@@ -24,13 +24,13 @@ import (
 	"gopkg.in/go-playground/webhooks.v5/github"
 	"gopkg.in/src-d/go-git.v4"
 	gitPlumbing "gopkg.in/src-d/go-git.v4/plumbing"
-
-	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	kube "k8s.io/client-go/kubernetes"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/exec"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
@@ -58,6 +58,8 @@ type Driver interface {
 	Chunks(jobID string) col.Collection
 	Merges(jobID string) col.Collection
 
+	GetExpectedNumWorkers() (int, error)
+
 	WithProvisionedNode(context.Context, []*common.Input, *hashtree.Ordered, logs.TaggedLogger, func(*pps.ProcessStats) error) (*pps.ProcessStats, error)
 	RunUserCode(context.Context, logs.TaggedLogger, []string, *pps.ProcessStats, *types.Duration) error
 	RunUserErrorHandlingCode(context.Context, logs.TaggedLogger, []string, *pps.ProcessStats, *types.Duration) error
@@ -67,11 +69,16 @@ type Driver interface {
 
 	// TODO: figure out how to not expose this
 	ReportUploadStats(time.Time, *pps.ProcessStats, logs.TaggedLogger)
+
+	// TODO: figure out how to not expose this - currenly only used for a few
+	// operations in the map spawner
+	NewSTM(context.Context, func(col.STM) error) (*etcd.TxnResponse, error)
 }
 
 type driver struct {
 	pipelineInfo *pps.PipelineInfo
 	pachClient   *client.APIClient
+	kubeClient   *kube.Clientset
 	etcdClient   *etcd.Client
 	etcdPrefix   string
 	jobs         col.Collection
@@ -85,10 +92,17 @@ type driver struct {
 	exportStats bool
 }
 
-func NewDriver(pipelineInfo *pps.PipelineInfo, pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix string) (Driver, error) {
+func NewDriver(
+	pipelineInfo *pps.PipelineInfo,
+	pachClient *client.APIClient,
+	kubeClient *kube.Clientset,
+	etcdClient *etcd.Client,
+	etcdPrefix string,
+) (Driver, error) {
 	result := &driver{
 		pipelineInfo: pipelineInfo,
 		pachClient:   pachClient,
+		kubeClient:   kubeClient,
 		etcdClient:   etcdClient,
 		etcdPrefix:   etcdPrefix,
 		jobs:         ppsdb.Jobs(etcdClient, etcdPrefix),
@@ -222,6 +236,14 @@ func (u *driver) Chunks(jobID string) col.Collection {
 
 func (u *driver) Merges(jobID string) col.Collection {
 	return col.NewCollection(u.etcdClient, path.Join(u.etcdPrefix, mergePrefix, jobID), nil, &common.MergeState{}, nil, nil)
+}
+
+func (u *driver) GetExpectedNumWorkers() (int, error) {
+	return ppsutil.GetExpectedNumWorkers(u.kubeClient, u.pipelineInfo.ParallelismSpec)
+}
+
+func (u *driver) NewSTM(ctx context.Context, cb func(col.STM) error) (*etcd.TxnResponse, error) {
+	return col.NewSTM(ctx, u.etcdClient, cb)
 }
 
 // Create puller *

@@ -53,7 +53,7 @@ func (a *APIServer) master() {
 		defer masterLock.Unlock(ctx)
 
 		// Create a new driver that uses our new cancelable pachClient
-		driver, err := driver.NewDriver(a.pipelineInfo, pachClient, a.etcdClient, a.etcdPrefix)
+		driver, err := driver.NewDriver(a.pipelineInfo, pachClient, a.kubeClient, a.etcdClient, a.etcdPrefix)
 		if err != nil {
 			return err
 		}

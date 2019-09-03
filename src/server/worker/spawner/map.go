@@ -152,7 +152,7 @@ func waitJob(
 				if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
 					defer cancel() // whether we return error or nil, job is done
 					// Output commit was deleted. Delete job as well
-					if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+					if _, err := driver.NewSTM(ctx, func(stm col.STM) error {
 						// Delete the job if no other worker has deleted it yet
 						jobPtr := &pps.EtcdJobInfo{}
 						if err := driver.Jobs().ReadWrite(stm).Get(jobInfo.Job.ID, jobPtr); err != nil {
@@ -168,7 +168,7 @@ func waitJob(
 			}
 			if commitInfo.Trees == nil {
 				defer cancel() // whether job state update succeeds or not, job is done
-				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+				if _, err := driver.NewSTM(ctx, func(stm col.STM) error {
 					// Read an up to date version of the jobInfo so that we
 					// don't overwrite changes that have happened since this
 					// function started.
@@ -265,7 +265,7 @@ func waitJob(
 		if err != nil {
 			return err
 		}
-		parallelism, err := ppsutil.GetExpectedNumWorkers(a.kubeClient, pipelineInfo.ParallelismSpec)
+		parallelism, err := driver.GetExpectedNumWorkers()
 		if err != nil {
 			return fmt.Errorf("error from GetExpectedNumWorkers: %v", err)
 		}
@@ -278,7 +278,7 @@ func waitJob(
 		// crash) or mark it running. Also write the input chunks calculated above
 		// into plansCol
 		jobID := jobInfo.Job.ID
-		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		if _, err := driver.NewSTM(ctx, func(stm col.STM) error {
 			jobs := driver.Jobs().ReadWrite(stm)
 			jobPtr := &pps.EtcdJobInfo{}
 			if err := jobs.Get(jobID, jobPtr); err != nil {
@@ -303,7 +303,7 @@ func waitJob(
 		}
 		defer func() {
 			if retErr == nil {
-				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+				if _, err := driver.NewSTM(ctx, func(stm col.STM) error {
 					chunksCol := driver.Chunks(jobID).ReadWrite(stm)
 					chunksCol.DeleteAll()
 					plansCol := driver.Plans().ReadWrite(stm)
@@ -439,7 +439,7 @@ func waitJob(
 		default:
 		}
 		// Increment the job's restart count
-		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		_, err = driver.NewSTM(ctx, func(stm col.STM) error {
 			jobs := driver.Jobs().ReadWrite(stm)
 			jobID := jobInfo.Job.ID
 			jobPtr := &pps.EtcdJobInfo{}
