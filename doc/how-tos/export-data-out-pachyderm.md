@@ -28,6 +28,12 @@ data exporting methods in a Pachyderm pipeline:
   or similar endpoint.<br>
   See [Service](../concepts/pipeline-concepts/pipeline/service.html).<br>
 
+  * Configure your code to connect to an external data source.
+  Because a pipeline is a Docker container that runs your code,
+  you can egress your data to any data source, even to those that the
+  `egress` field does not support, by connecting to that source from
+  within your code.
+
 * By using the S3 gateway. Pachyderm Enterprise users can reuse
   their existing tools and libraries that work with object store
   to export their data with the S3 gateway.<br>
