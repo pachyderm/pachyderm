@@ -65,10 +65,19 @@ type Driver interface {
 
 	GetExpectedNumWorkers() (int, error)
 
+	// WithProvisionedNode prepares the current node the code is running on to run
+	// a piece of user code by downloading the specified data, and cleans up
+	// afterwards.
 	WithProvisionedNode(context.Context, []*common.Input, *hashtree.Ordered, logs.TaggedLogger, func(*pps.ProcessStats) error) (*pps.ProcessStats, error)
+
+	// RunUserCode runs the pipeline's configured code
 	RunUserCode(context.Context, logs.TaggedLogger, []string, *pps.ProcessStats, *types.Duration) error
+
+	// RunUserErrorHandlingCode runs the pipeline's configured error handling code
 	RunUserErrorHandlingCode(context.Context, logs.TaggedLogger, []string, *pps.ProcessStats, *types.Duration) error
 
+	// TODO: provide a more generic interface for modifying jobs/plans/etc, and
+	// some quality-of-life functions for common operations.
 	DeleteJob(col.STM, *pps.EtcdJobInfo) error
 	UpdateJobState(context.Context, string, *pfs.Commit, pps.JobState, string) error
 
@@ -254,21 +263,6 @@ func (u *driver) GetExpectedNumWorkers() (int, error) {
 func (u *driver) NewSTM(ctx context.Context, cb func(col.STM) error) (*etcd.TxnResponse, error) {
 	return col.NewSTM(ctx, u.etcdClient, cb)
 }
-
-// Create puller *
-// downloadData *
-// defer removeAll *
-// defer puller.Cleanup
-// lock runMutex
-// lock status mutex, set some dumb values
-// mkdir
-// linkData *
-// defer unlinkData
-// walk pfs and chown
-// run user code and user error handling code
-// puller.Cleanup
-// report stats
-// uploadOutput
 
 func (u *driver) WithProvisionedNode(
 	ctx context.Context,

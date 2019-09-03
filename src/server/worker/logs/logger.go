@@ -70,7 +70,6 @@ func newLogger(pipelineInfo *pps.PipelineInfo) *taggedLogger {
 			PipelineName: pipelineInfo.Pipeline.Name,
 			WorkerID:     os.Getenv(client.PPSPodNameEnv),
 		},
-		// TODO: use log.New
 		stderrLog: log.New(os.Stderr, "", log.LstdFlags|log.Llongfile),
 		marshaler: &jsonpb.Marshaler{},
 		msgCh:     make(chan string, logBuffer),
