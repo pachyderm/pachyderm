@@ -15,3 +15,29 @@ message Input {
   string git_url = 6 [(gogoproto.customname) = "GitURL"];
   bool empty_files = 7;
 }
+
+enum State {
+  RUNNING = 0;
+  COMPLETE = 1;
+  FAILED = 3;
+}
+
+message ChunkState {
+  State state = 1;
+  string datum_id = 2 [(gogoproto.customname) = "DatumID"];
+  // The IP address of the worker who processed this chunk
+  string address = 3;
+}
+
+message MergeState {
+  State state = 1;
+  pfs.Object tree = 2;
+  uint64 size_bytes = 3;
+  pfs.Object stats_tree = 4;
+  uint64 stats_size_bytes = 5;
+}
+
+message Plan {
+  repeated int64 chunks = 1;
+  int64 merges = 2;
+}

@@ -82,11 +82,3 @@ func (a *APIServer) master(masterType string, spawner func(*client.APIClient) er
 		return nil
 	})
 }
-
-func (a *APIServer) chunks(jobID string) col.Collection {
-	return col.NewCollection(a.etcdClient, path.Join(a.etcdPrefix, chunkPrefix, jobID), nil, &ChunkState{}, nil, nil)
-}
-
-func (a *APIServer) merges(jobID string) col.Collection {
-	return col.NewCollection(a.etcdClient, path.Join(a.etcdPrefix, mergePrefix, jobID), nil, &MergeState{}, nil, nil)
-}

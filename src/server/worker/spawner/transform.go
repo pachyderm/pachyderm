@@ -421,41 +421,6 @@ func (s *Spawner) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, lo
 	return nil
 }
 
-func (s *Spawner) updateJobState(ctx context.Context, info *pps.JobInfo, statsCommit *pfs.Commit, state pps.JobState, reason string) error {
-	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		jobs := a.jobs.ReadWrite(stm)
-		jobID := info.Job.ID
-		jobPtr := &pps.EtcdJobInfo{}
-		if err := jobs.Get(jobID, jobPtr); err != nil {
-			return err
-		}
-		if jobPtr.StatsCommit == nil {
-			jobPtr.StatsCommit = statsCommit
-		}
-		return ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, state, reason)
-	})
-	return err
-}
-
-// deleteJob is identical to updateJobState, except that jobPtr points to a job
-// that should be deleted rather than marked failed. Jobs may be deleted if
-// their output commit is deleted.
-func (s *Spawner) deleteJob(stm col.STM, jobPtr *pps.EtcdJobInfo) error {
-	pipelinePtr := &pps.EtcdPipelineInfo{}
-	if err := a.pipelines.ReadWrite(stm).Update(jobPtr.Pipeline.Name, pipelinePtr, func() error {
-		if pipelinePtr.JobCounts == nil {
-			pipelinePtr.JobCounts = make(map[int32]int32)
-		}
-		if pipelinePtr.JobCounts[int32(jobPtr.State)] != 0 {
-			pipelinePtr.JobCounts[int32(jobPtr.State)]--
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-	return a.jobs.ReadWrite(stm).Delete(jobPtr.Job.ID)
-}
-
 func (s *Spawner) egress(pachClient *client.APIClient, logger logs.TaggedLogger, jobInfo *pps.JobInfo) error {
 	// copy the pach client (preserving auth info) so we can set a different
 	// number of concurrent streams
