@@ -447,10 +447,9 @@ func TestExtractRestorePipelineUpdate(t *testing.T) {
 		"",
 		false,
 	))
-
 	_, err := c.PutFile(input1, "master", "file", strings.NewReader("file"))
 	require.NoError(t, err)
-	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(input1, "master")}, nil)
+	cis, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(input1, "master")}, nil)
 	require.NoError(t, err)
 
 	input2 := tu.UniqueString("TestExtractRestorePipelineUpdate_data")
@@ -473,13 +472,23 @@ func TestExtractRestorePipelineUpdate(t *testing.T) {
 
 	_, err = c.PutFile(input2, "master", "file", strings.NewReader("file"))
 	require.NoError(t, err)
-	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(input2, "master")}, nil)
+	_cis, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(input2, "master")}, nil)
 	require.NoError(t, err)
+
+	cis = append(_cis, cis...)
 
 	ops, err := c.ExtractAll(false)
 	require.NoError(t, err)
 	require.NoError(t, c.DeleteAll())
 	require.NoError(t, c.Restore(ops))
+
+	postRestoreCis, err := c.ListCommit(pipeline, "", "", 0)
+	require.NoError(t, err)
+	for i, ci := range cis {
+		postCi := postRestoreCis[i]
+		require.Equal(t, ci.Commit.ID, postCi.Commit.ID)
+		require.Equal(t, ci.Provenance, postCi.Provenance)
+	}
 }
 
 func TestExtractRestoreDeferredProcessing(t *testing.T) {
