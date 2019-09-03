@@ -24,5 +24,10 @@ that shows interoperability among the three frameworks.
 Rather than use a complicated Tensorflow/Kubeflow example that shows distributed training,
 this example will focus on the minimum needed to work with Pachyderm's S3 Gateway from a Kubeflow TFJob.
 
+## mnist with TFJob and Pachyderm
+
+[This example](https://github.com/pachyderm/pachyderm/tree/master/examples/kubeflow/mnist_with_tfjob) 
+uses the canonical mnist dataset, Kubeflow, TFJobs, and Pachyderm to demonstrate an end-to-end machine learning workflow with data provenance.
+
 
 
