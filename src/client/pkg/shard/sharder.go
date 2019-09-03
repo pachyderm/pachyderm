@@ -546,25 +546,6 @@ func decodeServerRole(encodedServerRole string) (*ServerRole, error) {
 	return &serverRole, nil
 }
 
-func (a *sharder) getServerRoles() (map[string]map[int64]*ServerRole, error) {
-	encodedServerRoles, err := a.discoveryClient.GetAll(a.serverRoleDir())
-	if err != nil {
-		return nil, err
-	}
-	result := make(map[string]map[int64]*ServerRole)
-	for _, encodedServerRole := range encodedServerRoles {
-		serverRole, err := decodeServerRole(encodedServerRole)
-		if err != nil {
-			return nil, err
-		}
-		if _, ok := result[serverRole.Address]; !ok {
-			result[serverRole.Address] = make(map[int64]*ServerRole)
-		}
-		result[serverRole.Address][serverRole.Version] = serverRole
-	}
-	return result, nil
-}
-
 func (a *sharder) getServerRole(address string) (map[int64]*ServerRole, error) {
 	encodedServerRoles, err := a.discoveryClient.GetAll(a.serverRoleKey(address))
 	if err != nil {

@@ -174,42 +174,6 @@ func nodeToMap(node *etcd.Node, out map[string]string) bool {
 	return changed
 }
 
-func (c *etcdClient) watchWithoutRetry(key string, cancel chan bool, callBack func(string) error) error {
-	var waitIndex uint64 = 1
-	// First get the starting value of the key
-	response, err := c.client.Get(key, false, false)
-	if err != nil {
-		if strings.HasPrefix(err.Error(), "100: Key not found") {
-			err = callBack("")
-			if err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
-	} else {
-		err = callBack(response.Node.Value)
-		if err != nil {
-			return err
-		}
-		waitIndex = response.Node.ModifiedIndex + 1
-	}
-	for {
-		response, err := c.client.Watch(key, waitIndex, false, nil, cancel)
-		if err != nil {
-			if err == etcd.ErrWatchStoppedByUser {
-				return ErrCancelled
-			}
-			return err
-		}
-		err = callBack(response.Node.Value)
-		if err != nil {
-			return err
-		}
-		waitIndex = response.Node.ModifiedIndex + 1
-	}
-}
-
 func (c *etcdClient) watchAllWithoutRetry(key string, cancel chan bool, callBack func(map[string]string) error) error {
 	var waitIndex uint64 = 1
 	value := make(map[string]string)
