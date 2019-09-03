@@ -11,24 +11,24 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 )
 
-// DatumIterator is an interface which allows you to iterate through the datums
+// Iterator is an interface which allows you to iterate through the datums
 // for a job. A datum iterator keeps track of which datum it is on, which can be Reset()
 // The intended use is by using this pattern `for di.Next() { ... datum := di.Datum() ... }`
 // Note that since you start the loop by a call to Next(), the datum iterator's location starts at -1
-type DatumIterator interface {
+type Iterator interface {
 	Reset()
 	Len() int
 	Next() bool
 	Datum() []*common.Input
 }
 
-type pfsDatumIterator struct {
+type pfsIterator struct {
 	inputs   []*common.Input
 	location int
 }
 
-func newPFSDatumIterator(pachClient *client.APIClient, input *pps.PFSInput) (DatumIterator, error) {
-	result := &pfsDatumIterator{}
+func newPFSIterator(pachClient *client.APIClient, input *pps.PFSInput) (Iterator, error) {
+	result := &pfsIterator{}
 	// make sure it gets initialized properly
 	result.Reset()
 	if input.Commit == "" {
@@ -72,33 +72,33 @@ func newPFSDatumIterator(pachClient *client.APIClient, input *pps.PFSInput) (Dat
 	return result, nil
 }
 
-func (d *pfsDatumIterator) Reset() {
+func (d *pfsIterator) Reset() {
 	d.location = -1
 }
 
-func (d *pfsDatumIterator) Len() int {
+func (d *pfsIterator) Len() int {
 	return len(d.inputs)
 }
 
-func (d *pfsDatumIterator) Datum() []*common.Input {
+func (d *pfsIterator) Datum() []*common.Input {
 	return []*common.Input{d.inputs[d.location]}
 }
 
-func (d *pfsDatumIterator) Next() bool {
+func (d *pfsIterator) Next() bool {
 	d.location++
 	return d.location < len(d.inputs)
 }
 
-type unionDatumIterator struct {
-	iterators []DatumIterator
+type unionIterator struct {
+	iterators []Iterator
 	unionIdx  int
 }
 
-func newUnionDatumIterator(pachClient *client.APIClient, union []*pps.Input) (DatumIterator, error) {
-	result := &unionDatumIterator{}
+func newUnionIterator(pachClient *client.APIClient, union []*pps.Input) (Iterator, error) {
+	result := &unionIterator{}
 	defer result.Reset()
 	for _, input := range union {
-		datumIterator, err := NewDatumIterator(pachClient, input)
+		datumIterator, err := NewIterator(pachClient, input)
 		if err != nil {
 			return nil, err
 		}
@@ -107,14 +107,14 @@ func newUnionDatumIterator(pachClient *client.APIClient, union []*pps.Input) (Da
 	return result, nil
 }
 
-func (d *unionDatumIterator) Reset() {
+func (d *unionIterator) Reset() {
 	for _, input := range d.iterators {
 		input.Reset()
 	}
 	d.unionIdx = 0
 }
 
-func (d *unionDatumIterator) Len() int {
+func (d *unionIterator) Len() int {
 	result := 0
 	for _, datumIterator := range d.iterators {
 		result += datumIterator.Len()
@@ -122,7 +122,7 @@ func (d *unionDatumIterator) Len() int {
 	return result
 }
 
-func (d *unionDatumIterator) Next() bool {
+func (d *unionIterator) Next() bool {
 	if d.unionIdx >= len(d.iterators) {
 		return false
 	}
@@ -133,20 +133,20 @@ func (d *unionDatumIterator) Next() bool {
 	return true
 }
 
-func (d *unionDatumIterator) Datum() []*common.Input {
+func (d *unionIterator) Datum() []*common.Input {
 	return d.iterators[d.unionIdx].Datum()
 }
 
-type crossDatumIterator struct {
-	iterators []DatumIterator
+type crossIterator struct {
+	iterators []Iterator
 	started   bool
 }
 
-func newCrossDatumIterator(pachClient *client.APIClient, cross []*pps.Input) (DatumIterator, error) {
-	result := &crossDatumIterator{}
+func newCrossIterator(pachClient *client.APIClient, cross []*pps.Input) (Iterator, error) {
+	result := &crossIterator{}
 	defer result.Reset()
 	for _, iterator := range cross {
-		datumIterator, err := NewDatumIterator(pachClient, iterator)
+		datumIterator, err := NewIterator(pachClient, iterator)
 		if err != nil {
 			return nil, err
 		}
@@ -155,7 +155,7 @@ func newCrossDatumIterator(pachClient *client.APIClient, cross []*pps.Input) (Da
 	return result, nil
 }
 
-func (d *crossDatumIterator) Reset() {
+func (d *crossIterator) Reset() {
 	inhabited := len(d.iterators) > 0
 	for _, iterators := range d.iterators {
 		iterators.Reset()
@@ -169,7 +169,7 @@ func (d *crossDatumIterator) Reset() {
 	d.started = !inhabited
 }
 
-func (d *crossDatumIterator) Len() int {
+func (d *crossIterator) Len() int {
 	if len(d.iterators) == 0 {
 		return 0
 	}
@@ -180,7 +180,7 @@ func (d *crossDatumIterator) Len() int {
 	return result
 }
 
-func (d *crossDatumIterator) Next() bool {
+func (d *crossIterator) Next() bool {
 	if !d.started {
 		d.started = true
 		return true
@@ -200,7 +200,7 @@ func (d *crossDatumIterator) Next() bool {
 	return false
 }
 
-func (d *crossDatumIterator) Datum() []*common.Input {
+func (d *crossIterator) Datum() []*common.Input {
 	var result []*common.Input
 	for _, datumIterator := range d.iterators {
 		result = append(result, datumIterator.Datum()...)
@@ -209,13 +209,13 @@ func (d *crossDatumIterator) Datum() []*common.Input {
 	return result
 }
 
-type gitDatumIterator struct {
+type gitIterator struct {
 	inputs   []*common.Input
 	location int
 }
 
-func newGitDatumIterator(pachClient *client.APIClient, input *pps.GitInput) (DatumIterator, error) {
-	result := &gitDatumIterator{}
+func newGitIterator(pachClient *client.APIClient, input *pps.GitInput) (Iterator, error) {
+	result := &gitIterator{}
 	defer result.Reset()
 	if input.Commit == "" {
 		// this can happen if a pipeline with multiple inputs has been triggered
@@ -238,25 +238,25 @@ func newGitDatumIterator(pachClient *client.APIClient, input *pps.GitInput) (Dat
 	return result, nil
 }
 
-func (d *gitDatumIterator) Reset() {
+func (d *gitIterator) Reset() {
 	d.location = -1
 }
 
-func (d *gitDatumIterator) Len() int {
+func (d *gitIterator) Len() int {
 	return len(d.inputs)
 }
 
-func (d *gitDatumIterator) Datum() []*common.Input {
+func (d *gitIterator) Datum() []*common.Input {
 	return []*common.Input{d.inputs[d.location]}
 }
 
-func (d *gitDatumIterator) Next() bool {
+func (d *gitIterator) Next() bool {
 	d.location++
 	return d.location < len(d.inputs)
 }
 
-func newCronDatumIterator(pachClient *client.APIClient, input *pps.CronInput) (DatumIterator, error) {
-	return newPFSDatumIterator(pachClient, &pps.PFSInput{
+func newCronIterator(pachClient *client.APIClient, input *pps.CronInput) (Iterator, error) {
+	return newPFSIterator(pachClient, &pps.PFSInput{
 		Name:   input.Name,
 		Repo:   input.Repo,
 		Branch: "master",
@@ -265,19 +265,19 @@ func newCronDatumIterator(pachClient *client.APIClient, input *pps.CronInput) (D
 	})
 }
 
-// NewDatumIterator creates a datumIterator for an input.
-func NewDatumIterator(pachClient *client.APIClient, input *pps.Input) (DatumIterator, error) {
+// NewIterator creates a datumIterator for an input.
+func NewIterator(pachClient *client.APIClient, input *pps.Input) (Iterator, error) {
 	switch {
 	case input.Pfs != nil:
-		return newPFSDatumIterator(pachClient, input.Pfs)
+		return newPFSIterator(pachClient, input.Pfs)
 	case input.Union != nil:
-		return newUnionDatumIterator(pachClient, input.Union)
+		return newUnionIterator(pachClient, input.Union)
 	case input.Cross != nil:
-		return newCrossDatumIterator(pachClient, input.Cross)
+		return newCrossIterator(pachClient, input.Cross)
 	case input.Cron != nil:
-		return newCronDatumIterator(pachClient, input.Cron)
+		return newCronIterator(pachClient, input.Cron)
 	case input.Git != nil:
-		return newGitDatumIterator(pachClient, input.Git)
+		return newGitIterator(pachClient, input.Git)
 	}
 	return nil, fmt.Errorf("unrecognized input type")
 }

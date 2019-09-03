@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 )
 
+// IsDone returns true if the given context has been canceled, or false otherwise
 func IsDone(ctx context.Context) bool {
 	select {
 	case <-ctx.Done():

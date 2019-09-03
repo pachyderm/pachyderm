@@ -13,6 +13,9 @@ import (
 
 type spawnerFunc func(*client.APIClient, *pps.PipelineInfo, logs.TaggedLogger, driver.Driver) error
 
+// Run runs the spawner for a given pipeline.  This switches between several
+// underlying functions based on the configuration in pipelineInfo (e.g. if
+// it is a service, a spout, or a transform pipeline).
 func Run(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, logger logs.TaggedLogger, driver driver.Driver) error {
 	pipelineType, runFn := func() (string, spawnerFunc) {
 		switch {
@@ -21,7 +24,7 @@ func Run(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, logger lo
 		case pipelineInfo.Spout != nil:
 			return "spout", runSpout
 		default:
-			return "pipeline", runMap
+			return "pipeline", runTransform
 		}
 	}()
 

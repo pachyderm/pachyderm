@@ -54,7 +54,7 @@ func forEachCommit(
 	)
 }
 
-func runMap(
+func runTransform(
 	pachClient *client.APIClient,
 	pipelineInfo *pps.PipelineInfo,
 	logger logs.TaggedLogger,
@@ -261,7 +261,7 @@ func waitJob(
 		}
 		// Create a datum factory pointing at the job's inputs and split up the
 		// input data into chunks
-		df, err := datum.NewDatumFactory(pachClient, jobInfo.Input)
+		df, err := datum.NewFactory(pachClient, jobInfo.Input)
 		if err != nil {
 			return err
 		}
@@ -523,7 +523,7 @@ func failedInputs(pachClient *client.APIClient, jobInfo *pps.JobInfo) ([]string,
 	return failed, vistErr
 }
 
-func newPlan(df datum.DatumFactory, spec *pps.ChunkSpec, parallelism int, numHashtrees int64) *common.Plan {
+func newPlan(df datum.Factory, spec *pps.ChunkSpec, parallelism int, numHashtrees int64) *common.Plan {
 	if spec == nil {
 		spec = &pps.ChunkSpec{}
 	}

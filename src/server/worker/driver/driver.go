@@ -51,6 +51,11 @@ const (
 	planPrefix  = "/plan"
 )
 
+// Driver provides an interface for common functions needed by worker code, and
+// captures the relevant objects necessary to provide these functions so that
+// users do not need to keep track of as many variables.  In addition, this
+// interface can be used to mock out external calls to make unit-testing
+// simpler.
 type Driver interface {
 	Jobs() col.Collection
 	Pipelines() col.Collection
@@ -92,6 +97,10 @@ type driver struct {
 	exportStats bool
 }
 
+// NewDriver constructs a Driver object using the given clients and pipeline
+// settings.  It makes blocking calls to determine the user/group to use with
+// the user code on the current worker node, as well as determining if
+// enterprise features are activated (for exporting stats).
 func NewDriver(
 	pipelineInfo *pps.PipelineInfo,
 	pachClient *client.APIClient,

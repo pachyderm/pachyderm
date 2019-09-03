@@ -81,7 +81,7 @@ func runService(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, lo
 		}
 		logger := logger.WithJob(job.ID)
 
-		df, err := datum.NewDatumFactory(pachClient, jobInput)
+		df, err := datum.NewFactory(pachClient, jobInput)
 		if err != nil {
 			return err
 		}

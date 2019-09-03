@@ -989,7 +989,7 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, page, 
 		return 0, 0, goerr.New("getPageBounds: unreachable code")
 	}
 
-	df, err := datum.NewDatumFactory(pachClient, jobInfo.Input)
+	df, err := datum.NewFactory(pachClient, jobInfo.Input)
 	if err != nil {
 		return nil, err
 	}
@@ -1156,7 +1156,7 @@ func (a *apiServer) ListDatumStream(req *pps.ListDatumRequest, resp pps.API_List
 	return nil
 }
 
-func (a *apiServer) getDatum(pachClient *client.APIClient, repo string, commit *pfs.Commit, jobID string, datumID string, df datum.DatumFactory) (datumInfo *pps.DatumInfo, retErr error) {
+func (a *apiServer) getDatum(pachClient *client.APIClient, repo string, commit *pfs.Commit, jobID string, datumID string, df datum.Factory) (datumInfo *pps.DatumInfo, retErr error) {
 	datumInfo = &pps.DatumInfo{
 		Datum: &pps.Datum{
 			ID:  datumID,
@@ -1249,7 +1249,7 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 	if jobInfo.StatsCommit == nil {
 		return nil, fmt.Errorf("job not finished, no stats output yet")
 	}
-	df, err := datum.NewDatumFactory(pachClient, jobInfo.Input)
+	df, err := datum.NewFactory(pachClient, jobInfo.Input)
 	if err != nil {
 		return nil, err
 	}

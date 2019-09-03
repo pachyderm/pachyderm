@@ -600,7 +600,7 @@ func (a *APIServer) processChunk(ctx context.Context, jobID string, low, high in
 	return nil
 }
 
-func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APIClient, jobInfo *pps.JobInfo, jobID string, plan *common.Plan, logger logs.TaggedLogger, df datum.DatumFactory, skip map[string]struct{}, useParentHashTree bool) (retErr error) {
+func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APIClient, jobInfo *pps.JobInfo, jobID string, plan *common.Plan, logger logs.TaggedLogger, df datum.Factory, skip map[string]struct{}, useParentHashTree bool) (retErr error) {
 	for {
 		if err := func() error {
 			// if this worker is not responsible for a shard, it waits to be assigned one or for the job to finish
@@ -786,7 +786,7 @@ func (a *APIServer) getChunk(ctx context.Context, id int64, address string, fail
 	return nil
 }
 
-func (a *APIServer) computeTags(df datum.DatumFactory, low, high int64, skip map[string]struct{}, useParentHashTree bool) []*pfs.Tag {
+func (a *APIServer) computeTags(df datum.Factory, low, high int64, skip map[string]struct{}, useParentHashTree bool) []*pfs.Tag {
 	var tags []*pfs.Tag
 	for i := low; i < high; i++ {
 		files := df.Datum(int(i))
@@ -1170,9 +1170,9 @@ func (a *APIServer) worker() {
 			if err := a.driver.Plans().ReadOnly(jobCtx).GetBlock(jobInfo.Job.ID, plan); err != nil {
 				return fmt.Errorf("error reading job chunks: %v", err)
 			}
-			df, err := datum.NewDatumFactory(pachClient, jobInfo.Input)
+			df, err := datum.NewFactory(pachClient, jobInfo.Input)
 			if err != nil {
-				return fmt.Errorf("error from NewDatumFactory: %v", err)
+				return fmt.Errorf("error from datum.NewFactory: %v", err)
 			}
 
 			// Compute the datums to skip
@@ -1281,7 +1281,7 @@ func (a *APIServer) processDatums(
 	pachClient *client.APIClient,
 	logger logs.TaggedLogger,
 	jobInfo *pps.JobInfo,
-	df datum.DatumFactory,
+	df datum.Factory,
 	low, high int64,
 	skip map[string]struct{},
 	useParentHashTree bool,

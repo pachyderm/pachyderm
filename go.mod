@@ -124,13 +124,13 @@ require (
 	go.uber.org/atomic v1.4.0 // indirect
 	go.uber.org/multierr v1.1.0 // indirect
 	go.uber.org/zap v1.10.0 // indirect
-	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
-	golang.org/x/net v0.0.0-20190813141303-74dc4d7220e7
+	golang.org/x/crypto v0.0.0-20190829043050-9756ffdc2472
+	golang.org/x/net v0.0.0-20190827160401-ba9fcec4b297
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
-	golang.org/x/sys v0.0.0-20190813064441-fde4db37ae7a // indirect
+	golang.org/x/sys v0.0.0-20190902133755-9109b7679e13 // indirect
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
-	golang.org/x/tools v0.0.0-20190815212832-922a4ee32d1a // indirect
+	golang.org/x/tools v0.0.0-20190903163617-be0da057c5e3 // indirect
 	google.golang.org/api v0.6.0
 	google.golang.org/grpc v1.21.1
 	gopkg.in/go-playground/webhooks.v5 v5.11.0
