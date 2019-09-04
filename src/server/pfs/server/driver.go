@@ -3150,8 +3150,8 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 	if err != nil {
 		return nil, err
 	}
-	// Handle commits to input repos
-	if !provenantOnInput(commitInfo.Provenance) {
+	// Handle commits that use the old hashtree format.
+	if !provenantOnInput(commitInfo.Provenance) || commitInfo.Tree != nil {
 		tree, err := d.getTreeForFile(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, ""))
 		if err != nil {
 			return nil, err
@@ -3231,7 +3231,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 		}
 		return grpcutil.NewStreamingBytesReader(getObjectsClient, nil), nil
 	}
-	// Handle commits to output repos
+	// Handle commits that use the newer hashtree format.
 	if commitInfo.Finished == nil {
 		return nil, fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
 	}
@@ -3376,8 +3376,8 @@ func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (fi *
 	if err != nil {
 		return nil, err
 	}
-	// Handle commits to input repos
-	if !provenantOnInput(commitInfo.Provenance) {
+	// Handle commits that use the old hashtree format.
+	if !provenantOnInput(commitInfo.Provenance) || commitInfo.Tree != nil {
 		tree, err := d.getTreeForFile(pachClient, file)
 		if err != nil {
 			return nil, err
@@ -3388,7 +3388,7 @@ func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (fi *
 		}
 		return nodeToFileInfoHeaderFooter(commitInfo, file.Path, node, tree, true)
 	}
-	// Handle commits to output repos
+	// Handle commits that use the newer hashtree format.
 	if commitInfo.Finished == nil {
 		return nil, fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
 	}
@@ -3427,8 +3427,8 @@ func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full boo
 		return err
 	}
 
-	// Handle commits to input repos and spouts
-	if !provenantOnInput(commitInfo.Provenance) {
+	// Handle commits that use the old hashtree format.
+	if !provenantOnInput(commitInfo.Provenance) || commitInfo.Tree != nil {
 		tree, err := d.getTreeForFile(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, ""))
 		if err != nil {
 			return err
@@ -3461,7 +3461,7 @@ func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full boo
 			})
 		})
 	}
-	// Handle commits to output repos
+	// Handle commits that use the newer hashtree format.
 	if commitInfo.Finished == nil {
 		return fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
 	}
@@ -3530,8 +3530,8 @@ func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, f func(*
 	if err != nil {
 		return err
 	}
-	// Handle commits to input repos
-	if !provenantOnInput(commitInfo.Provenance) {
+	// Handle commits that use the old hashtree format.
+	if !provenantOnInput(commitInfo.Provenance) || commitInfo.Tree != nil {
 		tree, err := d.getTreeForFile(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, file.Path))
 		if err != nil {
 			return err
@@ -3544,7 +3544,7 @@ func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, f func(*
 			return f(fi)
 		})
 	}
-	// Handle commits to output repos
+	// Handle commits that use the newer hashtree format.
 	if commitInfo.Finished == nil {
 		return fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
 	}
@@ -3575,8 +3575,8 @@ func (d *driver) globFile(pachClient *client.APIClient, commit *pfs.Commit, patt
 	if err != nil {
 		return err
 	}
-	// Handle commits to input repos
-	if !provenantOnInput(commitInfo.Provenance) {
+	// Handle commits that use the old hashtree format.
+	if !provenantOnInput(commitInfo.Provenance) || commitInfo.Tree != nil {
 		tree, err := d.getTreeForFile(pachClient, client.NewFile(commit.Repo.Name, commit.ID, ""))
 		if err != nil {
 			return err
@@ -3594,7 +3594,7 @@ func (d *driver) globFile(pachClient *client.APIClient, commit *pfs.Commit, patt
 		}
 		return globErr
 	}
-	// Handle commits to output repos
+	// Handle commits that use the newer hashtree format.
 	if commitInfo.Finished == nil {
 		return fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
 	}

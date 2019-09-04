@@ -4949,6 +4949,25 @@ func TestPutFilesObjURL(t *testing.T) {
 	}
 }
 
+func TestPutFileOutputRepo(t *testing.T) {
+	client := GetPachClient(t)
+	inputRepo, outputRepo := "input", "output"
+	require.NoError(t, client.CreateRepo(inputRepo))
+	require.NoError(t, client.CreateRepo(outputRepo))
+	require.NoError(t, client.CreateBranch(outputRepo, "master", "", []*pfs.Branch{pclient.NewBranch(inputRepo, "master")}))
+	_, err := client.PutFile(inputRepo, "master", "foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	_, err = client.PutFile(outputRepo, "master", "bar", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(outputRepo, "master"))
+	fileInfos, err := client.ListFile(outputRepo, "master", "")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(fileInfos))
+	buf := &bytes.Buffer{}
+	require.NoError(t, client.GetFile(outputRepo, "master", "bar", 0, 0, buf))
+	require.Equal(t, "bar\n", string(buf.Bytes()))
+}
+
 func TestFileHistory(t *testing.T) {
 	client := GetPachClient(t)
 	var err error
