@@ -146,9 +146,8 @@ func (w *Writer) callback(level int) chunk.WriterFunc {
 		hdr.Idx.DataOp = &DataOp{DataRefs: []*chunk.DataRef{chunkRef}}
 		hdr.Idx.LastPathChunk = lw.lastHdr.Idx.LastPathChunk
 		// Set the root header when the writer is closed and we are at the top level index.
-		if w.closed && lw.cw.ChunkCount() == 1 {
+		if w.closed {
 			w.root = hdr
-			return nil
 		}
 		// Create next index level if it does not exist.
 		if level == len(w.levels)-1 {
@@ -180,6 +179,9 @@ func (w *Writer) WriteCopyFunc(f func() (*Copy, error)) error {
 		if c.level > 0 {
 			lw := w.levels[c.level-1]
 			lw.tw = tar.NewWriter(lw.cw)
+			if err := lw.cw.Flush(); err != nil {
+				return err
+			}
 			lw.cw.Reset()
 		}
 		// Write the raw bytes first (handles bytes hanging over at the end)
@@ -207,11 +209,14 @@ func (w *Writer) Close() error {
 	// writer has been closed and the number of ranges it has is one.
 	for i := 0; i < len(w.levels); i++ {
 		l := w.levels[i]
-		if err := l.tw.Close(); err != nil {
+		if err := l.tw.Flush(); err != nil {
 			return err
 		}
 		if err := l.cw.Close(); err != nil {
 			return err
+		}
+		if l.cw.ChunkCount() == 1 {
+			break
 		}
 	}
 	// Write the final index level to the path.

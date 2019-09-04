@@ -151,7 +151,9 @@ func (w *Writer) CopyFiles(r *Reader, pathBound ...string) error {
 		}
 		// Copy the index level(s).
 		if c.indexCopyF != nil {
-			// (bryce) need to block on chunk storage here.
+			if err := w.cw.Flush(); err != nil {
+				return err
+			}
 			w.finishFile()
 			if err := w.iw.WriteCopyFunc(c.indexCopyF); err != nil {
 				return err
@@ -188,12 +190,12 @@ func (w *Writer) Close() error {
 	if err := w.tw.Flush(); err != nil {
 		return err
 	}
+	// Close the chunk writer.
+	if err := w.cw.Close(); err != nil {
+		return err
+	}
 	// Write out the last header.
 	if w.lastHdr != nil {
-		// Close the chunk writer.
-		if err := w.cw.Close(); err != nil {
-			return err
-		}
 		if err := w.iw.WriteHeaders([]*index.Header{w.lastHdr}); err != nil {
 			return err
 		}

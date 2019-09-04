@@ -151,7 +151,7 @@ func (w *worker) put() error {
 		SizeBytes: int64(w.buf.Len()),
 	}
 	// Update the annotations for the current chunk.
-	w.updateAnnotations(chunkRef)
+	updateAnnotations(chunkRef, w.buf.Bytes(), w.annotations)
 	annotations := w.annotations
 	w.fs = append(w.fs, func() error {
 		return w.f(chunkRef, annotations)
@@ -159,20 +159,21 @@ func (w *worker) put() error {
 	return nil
 }
 
-func (w *worker) updateAnnotations(chunkRef *DataRef) {
+func updateAnnotations(chunkRef *DataRef, buf []byte, annotations []*Annotation) {
+	// (bryce) add check for no buf and greater than one annotation.
 	// Fast path for next data reference being full chunk.
-	if len(w.annotations) == 1 && w.annotations[0].NextDataRef != nil {
-		w.annotations[0].NextDataRef = chunkRef
+	if len(annotations) == 1 && annotations[0].NextDataRef != nil {
+		annotations[0].NextDataRef = chunkRef
 	}
-	for i, a := range w.annotations {
+	for i, a := range annotations {
 		// (bryce) probably a better way to communicate whether to compute datarefs for an annotation.
 		if a.NextDataRef != nil {
 			a.NextDataRef.Chunk = chunkRef.Chunk
 			var data []byte
-			if i == len(w.annotations)-1 {
-				data = w.buf.Bytes()[a.Offset:w.buf.Len()]
+			if i == len(annotations)-1 {
+				data = buf[a.Offset:len(buf)]
 			} else {
-				data = w.buf.Bytes()[a.Offset:w.annotations[i+1].Offset]
+				data = buf[a.Offset:annotations[i+1].Offset]
 			}
 			a.NextDataRef.Hash = hash.EncodeHash(hash.Sum(data))
 			a.NextDataRef.OffsetBytes = a.Offset
@@ -252,6 +253,7 @@ type Writer struct {
 	eg            *errgroup.Group
 	newWorkerFunc func(*chanSet, *chanSet) *worker
 	prev          *chanSet
+	f             WriterFunc
 	stats         *stats
 }
 
@@ -280,6 +282,7 @@ func newWriter(ctx context.Context, objC obj.Client, memoryLimiter *semaphore.We
 		memoryLimiter: memoryLimiter,
 		eg:            eg,
 		newWorkerFunc: newWorkerFunc,
+		f:             f,
 		stats:         stats,
 	}
 	return w
@@ -300,10 +303,19 @@ func (w *Writer) AnnotationSize() int64 {
 	return w.stats.annotationSize
 }
 
+// Flush flushes the buffered data.
 func (w *Writer) Flush() error {
-	// (bryce) should wait for outstanding work.
-	// might need to treat buffering differently here.
-	return nil
+	// Write out the last buffer.
+	if w.buf.Len() > 0 {
+		w.writeByteSet()
+	}
+	// Signal to the last worker that it is last.
+	if w.prev != nil {
+		close(w.prev.bytes)
+		w.prev = nil
+	}
+	// Wait for the workers to finish.
+	return w.eg.Wait()
 }
 
 // Reset resets the buffer and annotations.
@@ -376,23 +388,15 @@ func (w *Writer) WriteCopy(c *Copy) error {
 		w.stats.chunkCount++
 		// (bryce) might want to double check if this is correct.
 		w.stats.annotationSize += chunkRef.SizeBytes
-		//if err := w.executeFunc(chunkRef); err != nil {
-		//	return err
-		//}
+		updateAnnotations(chunkRef, nil, w.annotations)
+		if err := w.f(chunkRef, w.annotations); err != nil {
+			return err
+		}
 	}
 	_, err := io.Copy(w, c.after)
 	return err
 }
 
 func (w *Writer) Close() error {
-	// Write out the last buffer.
-	if w.buf.Len() > 0 {
-		w.writeByteSet()
-	}
-	// Signal to the last worker that it is last.
-	if w.prev != nil {
-		close(w.prev.bytes)
-	}
-	// Wait for the workers to finish.
-	return w.eg.Wait()
+	return w.Flush()
 }
