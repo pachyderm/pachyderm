@@ -23,6 +23,8 @@ type meta struct {
 // Writer writes the serialized format of a fileset.
 // The serialized format of a fileset consists of indexes and content which are both realized as compressed tar stream chunks.
 type Writer struct {
+	ctx                   context.Context
+	chunks                *chunk.Storage
 	tw                    *tar.Writer
 	cw                    *chunk.Writer
 	iw                    *index.Writer
@@ -31,7 +33,11 @@ type Writer struct {
 }
 
 func newWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path string) *Writer {
-	w := &Writer{iw: index.NewWriter(ctx, objC, chunks, path)}
+	w := &Writer{
+		ctx:    ctx,
+		chunks: chunks,
+		iw:     index.NewWriter(ctx, objC, chunks, path),
+	}
 	cw := chunks.NewWriter(ctx, averageBits, w.callback(), math.MaxInt64)
 	w.cw = cw
 	w.tw = tar.NewWriter(cw)
@@ -151,10 +157,9 @@ func (w *Writer) CopyFiles(r *Reader, pathBound ...string) error {
 		}
 		// Copy the index level(s).
 		if c.indexCopyF != nil {
-			if err := w.cw.Flush(); err != nil {
+			if err := w.finishFile(); err != nil {
 				return err
 			}
-			w.finishFile()
 			if err := w.iw.WriteCopyFunc(c.indexCopyF); err != nil {
 				return err
 			}
@@ -162,9 +167,17 @@ func (w *Writer) CopyFiles(r *Reader, pathBound ...string) error {
 	}
 }
 
-func (w *Writer) finishFile() {
+func (w *Writer) finishFile() error {
 	// Pull the last data reference and the corresponding last path in the last chunk from the copy header.
 	// (bryce) this needs more work. It does not handle the start/end of copying correctly.
+	if err := w.cw.Flush(); err != nil {
+		return err
+	}
+	// We need to delete the last chunk after the flush because it will be contained within the copied chunks.
+	if err := w.chunks.Delete(w.ctx, w.lastHdr.Idx.DataOp.DataRefs[len(w.lastHdr.Idx.DataOp.DataRefs)-1].Chunk.Hash); err != nil {
+		return err
+	}
+	w.lastHdr.Idx.DataOp.DataRefs = w.lastHdr.Idx.DataOp.DataRefs[:len(w.lastHdr.Idx.DataOp.DataRefs)-1]
 	dataRefs := w.lastHdr.Idx.DataOp.DataRefs
 	copyDataRefs := w.copyHdr.Idx.DataOp.DataRefs
 	if len(dataRefs) == 0 || dataRefs[len(dataRefs)-1].Chunk.Hash != copyDataRefs[len(copyDataRefs)-1].Chunk.Hash {
@@ -176,6 +189,7 @@ func (w *Writer) finishFile() {
 	w.lastHdr = nil
 	w.tw = tar.NewWriter(w.cw)
 	w.cw.Reset()
+	return nil
 }
 
 // Close closes the writer.

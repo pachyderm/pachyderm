@@ -2,6 +2,7 @@ package chunk
 
 import (
 	"context"
+	"path"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"golang.org/x/sync/semaphore"
@@ -60,4 +61,9 @@ func (s *Storage) DeleteAll(ctx context.Context) error {
 	return s.objC.Walk(ctx, prefix, func(hash string) error {
 		return s.objC.Delete(ctx, hash)
 	})
+}
+
+// Delete deletes a chunk in object storage.
+func (s *Storage) Delete(ctx context.Context, hash string) error {
+	return s.objC.Delete(ctx, path.Join(prefix, hash))
 }
