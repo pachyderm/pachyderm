@@ -456,7 +456,8 @@ message FsckRequest {
 }
 
 message FsckResponse {
-  string error = 1;
+  string fix = 1;
+  string error = 2;
 }
 
 service API {
