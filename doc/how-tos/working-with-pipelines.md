@@ -12,7 +12,7 @@ understand basic Pachyderm concepts described in
 Working with Pachyderm includes multiple iterations of the
 following steps:
 
-![Developer workflow](images/d_steps_analysis_pipeline.svg)
+![Developer workflow](../images/d_steps_analysis_pipeline.svg)
 
 ## Step 1: Write Your Analysis Code
 
