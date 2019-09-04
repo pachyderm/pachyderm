@@ -1,7 +1,6 @@
 package worker
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"sync"
@@ -16,7 +15,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/driver"
@@ -29,7 +27,7 @@ var (
 
 func TestAcquireDatums(t *testing.T) {
 	// t.Skip()
-	c := getPachClient(t)
+	pachClient := getPachClient(t)
 	etcdClient := getEtcdClient(t)
 	driver := driver.NewDummyDriver(etcdClient, &driver.DummyOptions{})
 
@@ -39,7 +37,7 @@ func TestAcquireDatums(t *testing.T) {
 				Job: client.NewJob(uuid.New()),
 			}
 			var plan *common.Plan
-			_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
+			_, err := col.NewSTM(pachClient.Ctx(), etcdClient, func(stm col.STM) error {
 				plan = &common.Plan{}
 				for i := 1; i <= nChunks; i++ {
 					plan.Chunks = append(plan.Chunks, int64(i))
@@ -51,10 +49,10 @@ func TestAcquireDatums(t *testing.T) {
 			var chunksMu sync.Mutex
 			var eg errgroup.Group
 			for i := 0; i < nWorkers; i++ {
-				server := newTestAPIServer(c, etcdClient, "", t)
+				server := newTestAPIServer(pachClient, etcdClient, "", driver, t)
 				logger := &logs.DummyLogger{}
 				eg.Go(func() error {
-					return server.acquireDatums(context.Background(), jobInfo.Job.ID, plan, logger, func(low, high int64) (*processResult, error) {
+					return server.acquireDatums(pachClient.Ctx(), jobInfo.Job.ID, plan, logger, func(low, high int64) (*processResult, error) {
 						chunksMu.Lock()
 						defer chunksMu.Unlock()
 						seenChunks = append(seenChunks, high)
@@ -108,11 +106,11 @@ func getPachClient(t testing.TB) *client.APIClient {
 	return pachClient
 }
 
-func newTestAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, d driver.Driver, t *testing.T) *APIServer {
+func newTestAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix string, d driver.Driver, t *testing.T) *APIServer {
 	return &APIServer{
 		pachClient: pachClient,
 		etcdClient: etcdClient,
-		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
+		etcdPrefix: etcdPrefix,
 		driver:     d,
 	}
 }
