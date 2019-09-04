@@ -154,11 +154,11 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 	func() { a.Log(request, nil, nil, 0) }()
 	sent := 0
 	defer func(start time.Time) {
-		a.Log(request, fmt.Sprintf("stream containing %d commits", sent), retErr, time.Since(start))
+		a.Log(request, fmt.Sprintf("stream containing %d messages", sent), retErr, time.Since(start))
 	}(time.Now())
-	if err := a.driver.fsck(a.env.GetPachClient(fsckServer.Context()), request.Fix, func(err error) error {
+	if err := a.driver.fsck(a.env.GetPachClient(fsckServer.Context()), request.Fix, func(resp *pfs.FsckResponse) error {
 		sent++
-		return fsckServer.Send(&pfs.FsckResponse{Error: err.Error()})
+		return fsckServer.Send(resp)
 	}); err != nil {
 		return err
 	}

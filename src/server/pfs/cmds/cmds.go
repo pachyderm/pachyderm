@@ -1230,9 +1230,13 @@ Tags are a low-level resource and should not be accessed directly by most users.
 			}
 			defer c.Close()
 			errors := false
-			if err = c.Fsck(fix, func(err string) error {
-				errors = true
-				fmt.Println(err)
+			if err = c.Fsck(fix, func(resp *pfsclient.FsckResponse) error {
+				if resp.Error != "" {
+					errors = true
+					fmt.Printf("Error: %s\n", resp.Error)
+				} else {
+					fmt.Printf("Fix applied: %v", resp.Fix)
+				}
 				return nil
 			}); err != nil {
 				return err

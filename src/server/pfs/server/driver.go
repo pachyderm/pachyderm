@@ -534,10 +534,13 @@ func (e ErrProvenanceOfSubvenance) Error() string {
 // 3. Commit provenance is transitive
 // 4. Commit provenance and commit subvenance are dual relations
 // If fix is true it will attempt to fix as many of these issues as it can.
-func (d *driver) fsck(pachClient *client.APIClient, fix bool, onError func(error) error) error {
+func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckResponse) error) error {
 	ctx := pachClient.Ctx()
 	repos := d.repos.ReadOnly(ctx)
 	key := path.Join
+
+	onError := func(err error) error { return cb(&pfs.FsckResponse{Error: err.Error()}) }
+	onFix := func(fix string) error { return cb(&pfs.FsckResponse{Fix: fix}) }
 
 	// collect all the info for the branches and commits in pfs
 	branchInfos := make(map[string]*pfs.BranchInfo)
@@ -621,6 +624,13 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, onError func(error
 						}
 						commitInfos[key(bi.Head.Repo.Name, bi.Head.ID)] = headCommitInfo
 						newCommitInfos[key(bi.Head.Repo.Name, bi.Head.ID)] = headCommitInfo
+						if err := onFix(fmt.Sprintf(
+							"creating commit %s@%s which was missing, but referenced by %s@%s",
+							bi.Head.Repo.Name, bi.Head.ID,
+							bi.Branch.Repo.Name, bi.Branch.Name),
+						); err != nil {
+							return err
+						}
 					}
 					// If this commit was created on an output branch, then we don't expect it to satisfy this invariant
 					// due to the nature of the RunPipeline functionality.
@@ -681,6 +691,13 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, onError func(error
 				}
 				commitInfos[key(prov.Commit.Repo.Name, prov.Commit.ID)] = provCommitInfo
 				newCommitInfos[key(prov.Commit.Repo.Name, prov.Commit.ID)] = provCommitInfo
+				if err := onFix(fmt.Sprintf(
+					"creating commit %s@%s which was missing, but referenced by %s@%s",
+					prov.Commit.Repo.Name, prov.Commit.ID,
+					ci.Commit.Repo.Name, ci.Commit.ID),
+				); err != nil {
+					return err
+				}
 			}
 			for _, provProv := range provCommitInfo.Provenance {
 				transitiveProvenance = append(transitiveProvenance, provProv.Commit)
@@ -723,6 +740,13 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, onError func(error
 				}
 				commitInfos[key(prov.Commit.Repo.Name, prov.Commit.ID)] = provCommitInfo
 				newCommitInfos[key(prov.Commit.Repo.Name, prov.Commit.ID)] = provCommitInfo
+				if err := onFix(fmt.Sprintf(
+					"creating commit %s@%s which was missing, but referenced by %s@%s",
+					prov.Commit.Repo.Name, prov.Commit.ID,
+					ci.Commit.Repo.Name, ci.Commit.ID),
+				); err != nil {
+					return err
+				}
 			}
 			for _, subvRange := range provCommitInfo.Subvenance {
 				subvCommit := subvRange.Upper
@@ -754,6 +778,13 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, onError func(error
 						}
 						commitInfos[key(subvCommit.Repo.Name, subvCommit.ID)] = subvCommitInfo
 						newCommitInfos[key(subvCommit.Repo.Name, subvCommit.ID)] = subvCommitInfo
+						if err := onFix(fmt.Sprintf(
+							"creating commit %s@%s which was missing, but referenced by %s@%s",
+							subvCommit.Repo.Name, subvCommit.ID,
+							ci.Commit.Repo.Name, ci.Commit.ID),
+						); err != nil {
+							return err
+						}
 					}
 					if ci.Commit.ID == subvCommit.ID {
 						contains = true
@@ -806,6 +837,13 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, onError func(error
 					}
 					commitInfos[key(subvCommit.Repo.Name, subvCommit.ID)] = subvCommitInfo
 					newCommitInfos[key(subvCommit.Repo.Name, subvCommit.ID)] = subvCommitInfo
+					if err := onFix(fmt.Sprintf(
+						"creating commit %s@%s which was missing, but referenced by %s@%s",
+						subvCommit.Repo.Name, subvCommit.ID,
+						ci.Commit.Repo.Name, ci.Commit.ID),
+					); err != nil {
+						return err
+					}
 				}
 				if ci.Commit.ID == subvCommit.ID {
 					contains = true

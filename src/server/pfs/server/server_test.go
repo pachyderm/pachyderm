@@ -5258,7 +5258,10 @@ func TestFsckFix(t *testing.T) {
 	// Deleting both repos should error, because they were broken by deleting the upstream repo.
 	require.YesError(t, client.DeleteRepo(output2, false))
 	require.YesError(t, client.DeleteRepo(output1, false))
-	require.NoError(t, client.Fsck(true, func(string) error { return nil }))
+	require.NoError(t, client.Fsck(true, func(resp *pfs.FsckResponse) error {
+		fmt.Println(resp)
+		return nil
+	}))
 	// Deleting should now work due to fixing, must delete 2 before 1 though.
 	require.NoError(t, client.DeleteRepo(output2, false))
 	require.NoError(t, client.DeleteRepo(output1, false))

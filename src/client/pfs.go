@@ -1315,7 +1315,7 @@ type putFileWriteCloser struct {
 // onError. These aren't errors in the traditional sense, in that they don't
 // prevent the completion of fsck. Errors that do prevent completion will be
 // returned from the function.
-func (c APIClient) Fsck(fix bool, onError func(err string) error) error {
+func (c APIClient) Fsck(fix bool, cb func(*pfs.FsckResponse) error) error {
 	fsckClient, err := c.PfsAPIClient.Fsck(c.Ctx(), &pfs.FsckRequest{Fix: fix})
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
@@ -1328,7 +1328,7 @@ func (c APIClient) Fsck(fix bool, onError func(err string) error) error {
 			}
 			return grpcutil.ScrubGRPC(err)
 		}
-		if err := onError(resp.Error); err != nil {
+		if err := cb(resp); err != nil {
 			if err == errutil.ErrBreak {
 				break
 			}
@@ -1347,14 +1347,18 @@ func (c APIClient) FsckFastExit() error {
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}
-	resp, err := fsckClient.Recv()
-	if err != nil {
-		if err == io.EOF {
-			return nil
+	for {
+		resp, err := fsckClient.Recv()
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return grpcutil.ScrubGRPC(err)
 		}
-		return grpcutil.ScrubGRPC(err)
+		if resp.Error != "" {
+			return fmt.Errorf(resp.Error)
+		}
 	}
-	return fmt.Errorf(resp.Error)
 }
 
 func (c *putFileClient) newPutFileWriteCloser(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, headerRecords int64, overwriteIndex *pfs.OverwriteIndex) (*putFileWriteCloser, error) {
