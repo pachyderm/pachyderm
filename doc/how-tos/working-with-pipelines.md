@@ -4,8 +4,8 @@ A typical Pachyderm workflow involves multiple iterations of
 experimenting with your code and pipeline specs.
 
 Before you read this section, make sure that you
-understand basic Pachyderm concepts described in
-[Concepts](../concepts/index.rst).
+understand basic Pachyderm pipeline concepts described in
+[Concepts](../concepts/pipeline-concepts/index.html).
 
 ## How it works
 
@@ -75,14 +75,14 @@ a public or private image registry, such as
 Alternatively, you can use the Pachyderm's built-in functionality to
 tag, build, and push images by running the `pachctl update pipeline` command
 with the `--build` and `--push-images` flags. For more information, see
-[updating pipelines](updating_pipelines.html).
+[updating pipelines](../fundamentals/updating_pipelines.html).
 
 To build a Docker image, complete the following steps:
 
 1. If you do not have a registry, create one with a preferred provider.
 If you decide to use DockerHub, follow the [Docker Hub Quickstart](https://docs.docker.com/docker-hub/) to
 create a repository for your project.
-1. Create a `Dockerfile` for your project. [Example](https://github.com/pachyderm/pachyderm/blob/master/examples/opencv/Dockerfile).
+1. Create a `Dockerfile` for your project. See the [OpenCV example](https://github.com/pachyderm/pachyderm/blob/master/examples/opencv/Dockerfile).
 
    **Note:** The above `Dockerfile` example is provided for your reference
    only. Your `Dockerfile` might look completely different.
