@@ -19,7 +19,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/types"
 	"github.com/hanwen/go-fuse/fuse/nodefs"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
@@ -1219,6 +1218,7 @@ Tags are a low-level resource and should not be accessed directly by most users.
 	}
 	commands = append(commands, cmdutil.CreateAlias(getTag, "get tag"))
 
+	var fix bool
 	fsck := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Run a file system consistency check on pfs.",
@@ -1229,18 +1229,21 @@ Tags are a low-level resource and should not be accessed directly by most users.
 				return err
 			}
 			defer c.Close()
-			_, err = c.PfsAPIClient.Fsck(
-				c.Ctx(),
-				&types.Empty{},
-			)
-			if err != nil {
-				fmt.Println(grpcutil.ScrubGRPC(err))
+			errors := false
+			if err = c.Fsck(fix, func(err string) error {
+				errors = true
+				fmt.Println(err)
 				return nil
+			}); err != nil {
+				return err
 			}
-			fmt.Println("No errors found.")
+			if !errors {
+				fmt.Println("No errors found.")
+			}
 			return nil
 		}),
 	}
+	fsck.Flags().BoolVarP(&fix, "fix", "f", false, "Attempt to fix as many issues as possible.")
 	commands = append(commands, cmdutil.CreateAlias(fsck, "fsck"))
 
 	var debug bool

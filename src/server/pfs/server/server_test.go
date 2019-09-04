@@ -535,8 +535,7 @@ func TestDeleteRepoProvenance(t *testing.T) {
 	require.NoError(t, client.DeleteRepo("B", false))
 
 	// Should be in a consistent state after B is deleted
-	_, err = client.Fsck(client.Ctx(), &types.Empty{})
-	require.NoError(t, err)
+	require.NoError(t, client.FsckFastExit())
 
 	require.NoError(t, client.DeleteRepo("A", false))
 
@@ -557,9 +556,7 @@ func TestDeleteRepoProvenance(t *testing.T) {
 	require.Equal(t, 1, len(repoInfos))
 
 	// Everything should be consistent
-	_, err = client.Fsck(client.Ctx(), &types.Empty{})
-	require.NoError(t, err)
-
+	require.NoError(t, client.FsckFastExit())
 }
 
 func TestInspectCommit(t *testing.T) {
@@ -5239,6 +5236,34 @@ func TestMonkeyObjectStorage(t *testing.T) {
 	}
 }
 
+func TestFsckFix(t *testing.T) {
+	client := GetPachClient(t)
+	input := "input"
+	output1 := "output1"
+	output2 := "output2"
+	require.NoError(t, client.CreateRepo(input))
+	require.NoError(t, client.CreateRepo(output1))
+	require.NoError(t, client.CreateRepo(output2))
+	require.NoError(t, client.CreateBranch(output1, "master", "", []*pfs.Branch{pclient.NewBranch(input, "master")}))
+	require.NoError(t, client.CreateBranch(output2, "master", "", []*pfs.Branch{pclient.NewBranch(output1, "master")}))
+	numCommits := 10
+	for i := 0; i < numCommits; i++ {
+		_, err := client.PutFile(input, "master", "file", strings.NewReader("1"))
+		require.NoError(t, err)
+	}
+	require.NoError(t, client.DeleteRepo(input, true))
+	require.NoError(t, client.CreateRepo(input))
+	require.NoError(t, client.CreateBranch(input, "master", "", nil))
+	require.YesError(t, client.FsckFastExit())
+	// Deleting both repos should error, because they were broken by deleting the upstream repo.
+	require.YesError(t, client.DeleteRepo(output2, false))
+	require.YesError(t, client.DeleteRepo(output1, false))
+	require.NoError(t, client.Fsck(true, func(string) error { return nil }))
+	// Deleting should now work due to fixing, must delete 2 before 1 though.
+	require.NoError(t, client.DeleteRepo(output2, false))
+	require.NoError(t, client.DeleteRepo(output1, false))
+}
+
 const (
 	inputRepo          = iota // create a new input repo
 	inputBranch               // create a new branch on an existing input repo
@@ -5404,7 +5429,6 @@ OpLoop:
 				require.NoError(t, err)
 			}
 		}
-		_, err = client.Fsck(client.Ctx(), &types.Empty{})
-		require.NoError(t, err)
+		require.NoError(t, client.FsckFastExit())
 	}
 }
