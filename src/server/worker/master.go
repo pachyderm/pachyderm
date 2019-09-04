@@ -9,22 +9,12 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
-	"github.com/pachyderm/pachyderm/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
 	"github.com/pachyderm/pachyderm/src/server/worker/spawner"
 )
 
 const (
-	// maximumRetriesPerDatum is the maximum number of times each datum
-	// can failed to be processed before we declare that the job has failed.
-	maximumRetriesPerDatum = 3
-
 	masterLockPath = "_master_worker_lock"
-
-	// The number of datums the master caches
-	numCachedDatums = 1000000
-
-	ttl = int64(30)
 )
 
 func (a *APIServer) master() {
@@ -53,16 +43,11 @@ func (a *APIServer) master() {
 		defer masterLock.Unlock(ctx)
 
 		// Create a new driver that uses our new cancelable pachClient
-		driver, err := driver.NewDriver(a.pipelineInfo, pachClient, a.kubeClient, a.etcdClient, a.etcdPrefix)
-		if err != nil {
-			return err
-		}
-
-		return spawner.Run(pachClient, a.pipelineInfo, logger, driver)
+		return spawner.Run(pachClient, a.pipelineInfo, logger, a.driver.WithCtx(ctx))
 	}, b, func(err error, d time.Duration) error {
 		if auth.IsErrNotAuthorized(err) {
 			logger.Logf("failing %q due to auth rejection", a.pipelineInfo.Pipeline.Name)
-			return ppsutil.FailPipeline(a.pachClient.Ctx(), a.etcdClient, a.pipelines,
+			return ppsutil.FailPipeline(a.pachClient.Ctx(), a.etcdClient, a.driver.Pipelines(),
 				a.pipelineInfo.Pipeline.Name, "worker master could not access output "+
 					"repo to watch for new commits")
 		}

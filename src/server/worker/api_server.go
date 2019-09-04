@@ -52,7 +52,6 @@ import (
 )
 
 const (
-	shardPrefix       = "/shard"
 	shardTTL          = 30
 	noShard           = int64(-1)
 	parentTreeBufSize = 50 * (1 << (10 * 2))
@@ -103,16 +102,6 @@ type APIServer struct {
 
 	// The namespace in which pachyderm is deployed
 	namespace string
-	// The jobs collection
-	jobs col.Collection
-	// The plans collection
-	// Stores chunk layout and merges
-	plans col.Collection
-	// The shards collection
-	// Stores available filesystem shards for a pipeline, workers will claim these
-	shards col.Collection
-
-	pipelines col.Collection
 
 	// Only one datum can be running at a time because they need to be
 	// accessing /pfs, runMu enforces this
@@ -173,9 +162,6 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		pipelineInfo:    pipelineInfo,
 		workerName:      workerName,
 		namespace:       namespace,
-		jobs:            ppsdb.Jobs(etcdClient, etcdPrefix),
-		shards:          col.NewCollection(etcdClient, path.Join(etcdPrefix, shardPrefix, pipelineInfo.Pipeline.Name), nil, &ShardInfo{}, nil, nil),
-		pipelines:       ppsdb.Pipelines(etcdClient, etcdPrefix),
 		hashtreeStorage: hashtreeStorage,
 		claimedShard:    make(chan context.Context, 1),
 		shard:           noShard,
@@ -221,7 +207,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		}
 		if server.pipelineInfo.Transform.Cmd == nil {
 			if len(image.Config.Entrypoint) == 0 {
-				ppsutil.FailPipeline(ctx, etcdClient, ppsdb.Pipelines(etcdClient, etcdPrefix),
+				ppsutil.FailPipeline(ctx, etcdClient, driver.Pipelines(),
 					pipelineInfo.Pipeline.Name,
 					"nothing to run: no transform.cmd and no entrypoint")
 			}
@@ -571,7 +557,7 @@ func (a *APIServer) processChunk(ctx context.Context, jobID string, low, high in
 		return err
 	}
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		jobs := a.jobs.ReadWrite(stm)
+		jobs := a.driver.Jobs().ReadWrite(stm)
 		jobPtr := &pps.EtcdJobInfo{}
 		if err := jobs.Update(jobID, jobPtr, func() error {
 			jobPtr.DataProcessed += processResult.datumsProcessed
@@ -1037,7 +1023,7 @@ func (a *APIServer) cancelCtxIfJobFails(jobCtx context.Context, jobCancel func()
 		}
 
 		// Start watching for job state changes
-		watcher, err := a.jobs.ReadOnly(jobCtx).WatchOne(jobID)
+		watcher, err := a.driver.Jobs().ReadOnly(jobCtx).WatchOne(jobID)
 		if err != nil {
 			if col.IsErrNotFound(err) {
 				jobCancel() // job deleted before we started--cancel the job ctx
@@ -1097,7 +1083,7 @@ func (a *APIServer) worker() {
 	backoff.RetryNotify(func() (retErr error) {
 		retryCtx, retryCancel := context.WithCancel(a.pachClient.Ctx())
 		defer retryCancel()
-		watcher, err := a.jobs.ReadOnly(retryCtx).WatchByIndex(ppsdb.JobsPipelineIndex, a.pipelineInfo.Pipeline)
+		watcher, err := a.driver.Jobs().ReadOnly(retryCtx).WatchByIndex(ppsdb.JobsPipelineIndex, a.pipelineInfo.Pipeline)
 		if err != nil {
 			return fmt.Errorf("error creating watch: %v", err)
 		}
@@ -1241,7 +1227,7 @@ func (a *APIServer) worker() {
 }
 
 func (a *APIServer) claimShard(ctx context.Context) {
-	watcher, err := a.shards.ReadOnly(ctx).Watch(watch.WithFilterPut())
+	watcher, err := a.driver.Shards().ReadOnly(ctx).Watch(watch.WithFilterPut())
 	if err != nil {
 		log.Printf("error creating shard watcher: %v", err)
 		return
@@ -1249,8 +1235,8 @@ func (a *APIServer) claimShard(ctx context.Context) {
 	for {
 		// Attempt to claim a shard
 		for shard := int64(0); shard < a.numShards; shard++ {
-			var shardInfo ShardInfo
-			err := a.shards.Claim(ctx, fmt.Sprint(shard), &shardInfo, func(ctx context.Context) error {
+			var shardInfo common.ShardInfo
+			err := a.driver.Shards().Claim(ctx, fmt.Sprint(shard), &shardInfo, func(ctx context.Context) error {
 				ctx = context.WithValue(ctx, shardKey, shard)
 				a.claimedShard <- ctx
 				<-ctx.Done()
@@ -1458,7 +1444,7 @@ func (a *APIServer) processDatums(
 		return nil, err
 	}
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		jobs := a.jobs.ReadWrite(stm)
+		jobs := a.driver.Jobs().ReadWrite(stm)
 		jobID := jobInfo.Job.ID
 		jobPtr := &pps.EtcdJobInfo{}
 		if err := jobs.Get(jobID, jobPtr); err != nil {

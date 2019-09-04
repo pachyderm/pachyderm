@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path"
 	"sync"
 	"testing"
 
@@ -20,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
+	"github.com/pachyderm/pachyderm/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
 )
 
@@ -28,11 +28,11 @@ var (
 )
 
 func TestAcquireDatums(t *testing.T) {
-	t.Skip()
+	// t.Skip()
 	c := getPachClient(t)
 	etcdClient := getEtcdClient(t)
+	driver := driver.NewDummyDriver(etcdClient, &driver.DummyOptions{})
 
-	plans := col.NewCollection(etcdClient, path.Join("", planPrefix), nil, &common.Plan{}, nil, nil)
 	for nChunks := 1; nChunks < 200; nChunks += 50 {
 		for nWorkers := 1; nWorkers < 40; nWorkers += 10 {
 			jobInfo := &pps.JobInfo{
@@ -44,7 +44,7 @@ func TestAcquireDatums(t *testing.T) {
 				for i := 1; i <= nChunks; i++ {
 					plan.Chunks = append(plan.Chunks, int64(i))
 				}
-				return plans.ReadWrite(stm).Create(jobInfo.Job.ID, plan)
+				return driver.Plans().ReadWrite(stm).Create(jobInfo.Job.ID, plan)
 			})
 			require.NoError(t, err)
 			var seenChunks []int64
@@ -52,7 +52,7 @@ func TestAcquireDatums(t *testing.T) {
 			var eg errgroup.Group
 			for i := 0; i < nWorkers; i++ {
 				server := newTestAPIServer(c, etcdClient, "", t)
-				logger := logs.NewMasterLogger(&pps.PipelineInfo{})
+				logger := &logs.DummyLogger{}
 				eg.Go(func() error {
 					return server.acquireDatums(context.Background(), jobInfo.Job.ID, plan, logger, func(low, high int64) (*processResult, error) {
 						chunksMu.Lock()
@@ -108,13 +108,11 @@ func getPachClient(t testing.TB) *client.APIClient {
 	return pachClient
 }
 
-func newTestAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix string, t *testing.T) *APIServer {
+func newTestAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, d driver.Driver, t *testing.T) *APIServer {
 	return &APIServer{
 		pachClient: pachClient,
 		etcdClient: etcdClient,
-		etcdPrefix: etcdPrefix,
 		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
-		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
-		plans:      col.NewCollection(etcdClient, path.Join(etcdPrefix, planPrefix), nil, &common.Plan{}, nil, nil),
+		driver:     d,
 	}
 }

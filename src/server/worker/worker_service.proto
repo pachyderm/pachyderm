@@ -28,5 +28,3 @@ message GetChunkRequest {
   int64 shard = 2;
   bool stats = 3;
 }
-
-message ShardInfo {}

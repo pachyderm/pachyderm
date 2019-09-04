@@ -49,6 +49,7 @@ const (
 	chunkPrefix = "/chunk"
 	mergePrefix = "/merge"
 	planPrefix  = "/plan"
+	shardPrefix = "/shard"
 )
 
 // Driver provides an interface for common functions needed by worker code, and
@@ -60,10 +61,14 @@ type Driver interface {
 	Jobs() col.Collection
 	Pipelines() col.Collection
 	Plans() col.Collection
+	Shards() col.Collection
 	Chunks(jobID string) col.Collection
 	Merges(jobID string) col.Collection
 
 	GetExpectedNumWorkers() (int, error)
+
+	// WithCtx clones the current driver and applies the context to its pachClient
+	WithCtx(context.Context) Driver
 
 	// WithProvisionedNode prepares the current node the code is running on to run
 	// a piece of user code by downloading the specified data, and cleans up
@@ -95,10 +100,17 @@ type driver struct {
 	kubeClient   *kube.Clientset
 	etcdClient   *etcd.Client
 	etcdPrefix   string
-	jobs         col.Collection
-	pipelines    col.Collection
-	plans        col.Collection
 
+	jobs col.Collection
+
+	pipelines col.Collection
+
+	plans col.Collection
+
+	// Stores available filesystem shards for a pipeline, workers will claim these
+	shards col.Collection
+
+	// User and group IDs used for running user code, determined in the constructor
 	uid *uint32
 	gid *uint32
 
@@ -125,6 +137,7 @@ func NewDriver(
 		etcdPrefix:   etcdPrefix,
 		jobs:         ppsdb.Jobs(etcdClient, etcdPrefix),
 		pipelines:    ppsdb.Pipelines(etcdClient, etcdPrefix),
+		shards:       col.NewCollection(etcdClient, path.Join(etcdPrefix, shardPrefix, pipelineInfo.Pipeline.Name), nil, &common.ShardInfo{}, nil, nil),
 		plans:        col.NewCollection(etcdClient, path.Join(etcdPrefix, planPrefix), nil, &common.Plan{}, nil, nil),
 	}
 
@@ -236,35 +249,46 @@ func lookupGroup(group string) (_ *user.Group, retErr error) {
 	return nil, fmt.Errorf("group %s not found", group)
 }
 
-func (u *driver) Jobs() col.Collection {
-	return u.jobs
+func (d *driver) WithCtx(ctx context.Context) Driver {
+	result := &driver{}
+	*result = *d
+	result.pachClient = result.pachClient.WithCtx(ctx)
+	return result
 }
 
-func (u *driver) Pipelines() col.Collection {
-	return u.pipelines
+func (d *driver) Jobs() col.Collection {
+	return d.jobs
 }
 
-func (u *driver) Plans() col.Collection {
-	return u.plans
+func (d *driver) Pipelines() col.Collection {
+	return d.pipelines
 }
 
-func (u *driver) Chunks(jobID string) col.Collection {
-	return col.NewCollection(u.etcdClient, path.Join(u.etcdPrefix, chunkPrefix, jobID), nil, &common.ChunkState{}, nil, nil)
+func (d *driver) Plans() col.Collection {
+	return d.plans
 }
 
-func (u *driver) Merges(jobID string) col.Collection {
-	return col.NewCollection(u.etcdClient, path.Join(u.etcdPrefix, mergePrefix, jobID), nil, &common.MergeState{}, nil, nil)
+func (d *driver) Shards() col.Collection {
+	return d.shards
 }
 
-func (u *driver) GetExpectedNumWorkers() (int, error) {
-	return ppsutil.GetExpectedNumWorkers(u.kubeClient, u.pipelineInfo.ParallelismSpec)
+func (d *driver) Chunks(jobID string) col.Collection {
+	return col.NewCollection(d.etcdClient, path.Join(d.etcdPrefix, chunkPrefix, jobID), nil, &common.ChunkState{}, nil, nil)
 }
 
-func (u *driver) NewSTM(ctx context.Context, cb func(col.STM) error) (*etcd.TxnResponse, error) {
-	return col.NewSTM(ctx, u.etcdClient, cb)
+func (d *driver) Merges(jobID string) col.Collection {
+	return col.NewCollection(d.etcdClient, path.Join(d.etcdPrefix, mergePrefix, jobID), nil, &common.MergeState{}, nil, nil)
 }
 
-func (u *driver) WithProvisionedNode(
+func (d *driver) GetExpectedNumWorkers() (int, error) {
+	return ppsutil.GetExpectedNumWorkers(d.kubeClient, d.pipelineInfo.ParallelismSpec)
+}
+
+func (d *driver) NewSTM(ctx context.Context, cb func(col.STM) error) (*etcd.TxnResponse, error) {
+	return col.NewSTM(ctx, d.etcdClient, cb)
+}
+
+func (d *driver) WithProvisionedNode(
 	ctx context.Context,
 	data []*common.Input,
 	inputTree *hashtree.Ordered,
@@ -275,7 +299,8 @@ func (u *driver) WithProvisionedNode(
 	stats := &pps.ProcessStats{}
 
 	// Download input data
-	dir, err := u.downloadData(u.pachClient, logger, data, puller, stats, inputTree)
+	// TODO: pass down ctx and use it for interruption
+	dir, err := d.downloadData(d.pachClient, logger, data, puller, stats, inputTree)
 	// We run these cleanup functions no matter what, so that if
 	// downloadData partially succeeded, we still clean up the resources.
 	defer func() {
@@ -297,20 +322,20 @@ func (u *driver) WithProvisionedNode(
 	if err := os.MkdirAll(client.PPSInputPrefix, 0777); err != nil {
 		return nil, err
 	}
-	if err := u.linkData(data, dir); err != nil {
+	if err := d.linkData(data, dir); err != nil {
 		return nil, fmt.Errorf("error linkData: %v", err)
 	}
 	defer func() {
-		if err := u.unlinkData(data); err != nil && retErr == nil {
+		if err := d.unlinkData(data); err != nil && retErr == nil {
 			retErr = fmt.Errorf("error unlinkData: %v", err)
 		}
 	}()
 	// If the pipeline spec set a custom user to execute the
 	// process, make sure `/pfs` and its content are owned by it
-	if u.uid != nil && u.gid != nil {
+	if d.uid != nil && d.gid != nil {
 		filepath.Walk("/pfs", func(name string, info os.FileInfo, err error) error {
 			if err == nil {
-				err = os.Chown(name, int(*u.uid), int(*u.gid))
+				err = os.Chown(name, int(*d.uid), int(*d.gid))
 			}
 			return err
 		})
@@ -333,12 +358,19 @@ func (u *driver) WithProvisionedNode(
 	}
 
 	atomic.AddUint64(&stats.DownloadBytes, uint64(downSize))
-	u.reportDownloadSizeStats(float64(downSize), logger)
+	d.reportDownloadSizeStats(float64(downSize), logger)
 	return stats, nil
 }
 
-func (u *driver) downloadData(pachClient *client.APIClient, logger logs.TaggedLogger, inputs []*common.Input, puller *filesync.Puller, stats *pps.ProcessStats, statsTree *hashtree.Ordered) (_ string, retErr error) {
-	defer u.reportDownloadTimeStats(time.Now(), stats, logger)
+func (d *driver) downloadData(
+	pachClient *client.APIClient,
+	logger logs.TaggedLogger,
+	inputs []*common.Input,
+	puller *filesync.Puller,
+	stats *pps.ProcessStats,
+	statsTree *hashtree.Ordered,
+) (_ string, retErr error) {
+	defer d.reportDownloadTimeStats(time.Now(), stats, logger)
 	logger.Logf("starting to download data")
 	defer func(start time.Time) {
 		if retErr != nil {
@@ -347,10 +379,11 @@ func (u *driver) downloadData(pachClient *client.APIClient, logger logs.TaggedLo
 			logger.Logf("finished downloading data after %v", time.Since(start))
 		}
 	}(time.Now())
+
 	dir := filepath.Join(client.PPSInputPrefix, client.PPSScratchSpace, uuid.NewWithoutDashes())
 	// Create output directory (currently /pfs/out)
 	outPath := filepath.Join(dir, "out")
-	if u.pipelineInfo.Spout != nil {
+	if d.pipelineInfo.Spout != nil {
 		// Spouts need to create a named pipe at /pfs/out
 		if err := os.MkdirAll(filepath.Dir(outPath), 0700); err != nil {
 			return "", fmt.Errorf("mkdirall :%v", err)
@@ -365,7 +398,7 @@ func (u *driver) downloadData(pachClient *client.APIClient, logger logs.TaggedLo
 	}
 	for _, input := range inputs {
 		if input.GitURL != "" {
-			if err := u.downloadGitData(pachClient, dir, input); err != nil {
+			if err := d.downloadGitData(pachClient, dir, input); err != nil {
 				return "", err
 			}
 			continue
@@ -385,7 +418,7 @@ func (u *driver) downloadData(pachClient *client.APIClient, logger logs.TaggedLo
 	return dir, nil
 }
 
-func (u *driver) downloadGitData(pachClient *client.APIClient, dir string, input *common.Input) error {
+func (d *driver) downloadGitData(pachClient *client.APIClient, dir string, input *common.Input) error {
 	file := input.FileInfo.File
 	pachydermRepoName := input.Name
 	var rawJSON bytes.Buffer
@@ -424,9 +457,9 @@ func (u *driver) downloadGitData(pachClient *client.APIClient, dir string, input
 	return nil
 }
 
-func (u *driver) linkData(inputs []*common.Input, dir string) error {
+func (d *driver) linkData(inputs []*common.Input, dir string) error {
 	// Make sure that previously symlinked outputs are removed.
-	if err := u.unlinkData(inputs); err != nil {
+	if err := d.unlinkData(inputs); err != nil {
 		return err
 	}
 	for _, input := range inputs {
@@ -439,7 +472,7 @@ func (u *driver) linkData(inputs []*common.Input, dir string) error {
 	return os.Symlink(filepath.Join(dir, "out"), filepath.Join(client.PPSInputPrefix, "out"))
 }
 
-func (u *driver) unlinkData(inputs []*common.Input) error {
+func (d *driver) unlinkData(inputs []*common.Input) error {
 	dirs, err := ioutil.ReadDir(client.PPSInputPrefix)
 	if err != nil {
 		return fmt.Errorf("ioutil.ReadDir: %v", err)
@@ -456,9 +489,9 @@ func (u *driver) unlinkData(inputs []*common.Input) error {
 }
 
 // Run user code and return the combined output of stdout and stderr.
-func (u *driver) RunUserCode(ctx context.Context, logger logs.TaggedLogger, environ []string, procStats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
-	u.reportUserCodeStats(logger)
-	defer func(start time.Time) { u.reportDeferredUserCodeStats(retErr, start, procStats, logger) }(time.Now())
+func (d *driver) RunUserCode(ctx context.Context, logger logs.TaggedLogger, environ []string, procStats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
+	d.reportUserCodeStats(logger)
+	defer func(start time.Time) { d.reportDeferredUserCodeStats(retErr, start, procStats, logger) }(time.Now())
 	logger.Logf("beginning to run user code")
 	defer func(start time.Time) {
 		if retErr != nil {
@@ -478,22 +511,22 @@ func (u *driver) RunUserCode(ctx context.Context, logger logs.TaggedLogger, envi
 	}
 
 	// Run user code
-	cmd := exec.CommandContext(ctx, u.pipelineInfo.Transform.Cmd[0], u.pipelineInfo.Transform.Cmd[1:]...)
-	if u.pipelineInfo.Transform.Stdin != nil {
-		cmd.Stdin = strings.NewReader(strings.Join(u.pipelineInfo.Transform.Stdin, "\n") + "\n")
+	cmd := exec.CommandContext(ctx, d.pipelineInfo.Transform.Cmd[0], d.pipelineInfo.Transform.Cmd[1:]...)
+	if d.pipelineInfo.Transform.Stdin != nil {
+		cmd.Stdin = strings.NewReader(strings.Join(d.pipelineInfo.Transform.Stdin, "\n") + "\n")
 	}
 	cmd.Stdout = logger.WithUserCode()
 	cmd.Stderr = logger.WithUserCode()
 	cmd.Env = environ
-	if u.uid != nil && u.gid != nil {
+	if d.uid != nil && d.gid != nil {
 		cmd.SysProcAttr = &syscall.SysProcAttr{
 			Credential: &syscall.Credential{
-				Uid: *u.uid,
-				Gid: *u.gid,
+				Uid: *d.uid,
+				Gid: *d.gid,
 			},
 		}
 	}
-	cmd.Dir = u.pipelineInfo.Transform.WorkingDir
+	cmd.Dir = d.pipelineInfo.Transform.WorkingDir
 	err := cmd.Start()
 	if err != nil {
 		return fmt.Errorf("error cmd.Start: %v", err)
@@ -524,7 +557,7 @@ func (u *driver) RunUserCode(ctx context.Context, logger logs.TaggedLogger, envi
 		// (if err is an acceptable return code, don't return err)
 		if exiterr, ok := err.(*exec.ExitError); ok {
 			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-				for _, returnCode := range u.pipelineInfo.Transform.AcceptReturnCode {
+				for _, returnCode := range d.pipelineInfo.Transform.AcceptReturnCode {
 					if int(returnCode) == status.ExitStatus() {
 						return nil
 					}
@@ -537,7 +570,7 @@ func (u *driver) RunUserCode(ctx context.Context, logger logs.TaggedLogger, envi
 }
 
 // Run user error code and return the combined output of stdout and stderr.
-func (u *driver) RunUserErrorHandlingCode(ctx context.Context, logger logs.TaggedLogger, environ []string, procStats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
+func (d *driver) RunUserErrorHandlingCode(ctx context.Context, logger logs.TaggedLogger, environ []string, procStats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
 	logger.Logf("beginning to run user error handling code")
 	defer func(start time.Time) {
 		if retErr != nil {
@@ -547,22 +580,22 @@ func (u *driver) RunUserErrorHandlingCode(ctx context.Context, logger logs.Tagge
 		}
 	}(time.Now())
 
-	cmd := exec.CommandContext(ctx, u.pipelineInfo.Transform.ErrCmd[0], u.pipelineInfo.Transform.ErrCmd[1:]...)
-	if u.pipelineInfo.Transform.ErrStdin != nil {
-		cmd.Stdin = strings.NewReader(strings.Join(u.pipelineInfo.Transform.ErrStdin, "\n") + "\n")
+	cmd := exec.CommandContext(ctx, d.pipelineInfo.Transform.ErrCmd[0], d.pipelineInfo.Transform.ErrCmd[1:]...)
+	if d.pipelineInfo.Transform.ErrStdin != nil {
+		cmd.Stdin = strings.NewReader(strings.Join(d.pipelineInfo.Transform.ErrStdin, "\n") + "\n")
 	}
 	cmd.Stdout = logger.WithUserCode()
 	cmd.Stderr = logger.WithUserCode()
 	cmd.Env = environ
-	if u.uid != nil && u.gid != nil {
+	if d.uid != nil && d.gid != nil {
 		cmd.SysProcAttr = &syscall.SysProcAttr{
 			Credential: &syscall.Credential{
-				Uid: *u.uid,
-				Gid: *u.gid,
+				Uid: *d.uid,
+				Gid: *d.gid,
 			},
 		}
 	}
-	cmd.Dir = u.pipelineInfo.Transform.WorkingDir
+	cmd.Dir = d.pipelineInfo.Transform.WorkingDir
 	err := cmd.Start()
 	if err != nil {
 		return fmt.Errorf("error cmd.Start: %v", err)
@@ -592,7 +625,7 @@ func (u *driver) RunUserErrorHandlingCode(ctx context.Context, logger logs.Tagge
 		// (if err is an acceptable return code, don't return err)
 		if exiterr, ok := err.(*exec.ExitError); ok {
 			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-				for _, returnCode := range u.pipelineInfo.Transform.AcceptReturnCode {
+				for _, returnCode := range d.pipelineInfo.Transform.AcceptReturnCode {
 					if int(returnCode) == status.ExitStatus() {
 						return nil
 					}
@@ -604,11 +637,10 @@ func (u *driver) RunUserErrorHandlingCode(ctx context.Context, logger logs.Tagge
 	return nil
 }
 
-func (u *driver) UpdateJobState(ctx context.Context, jobID string, statsCommit *pfs.Commit, state pps.JobState, reason string) error {
-	_, err := col.NewSTM(ctx, u.etcdClient, func(stm col.STM) error {
-		jobs := u.jobs.ReadWrite(stm)
+func (d *driver) UpdateJobState(ctx context.Context, jobID string, statsCommit *pfs.Commit, state pps.JobState, reason string) error {
+	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		jobPtr := &pps.EtcdJobInfo{}
-		if err := jobs.Get(jobID, jobPtr); err != nil {
+		if err := d.jobs.ReadWrite(stm).Get(jobID, jobPtr); err != nil {
 			return err
 		}
 		// TODO: move this out
@@ -616,7 +648,7 @@ func (u *driver) UpdateJobState(ctx context.Context, jobID string, statsCommit *
 			jobPtr.StatsCommit = statsCommit
 		}
 
-		return ppsutil.UpdateJobState(u.pipelines.ReadWrite(stm), u.jobs.ReadWrite(stm), jobPtr, state, reason)
+		return ppsutil.UpdateJobState(d.pipelines.ReadWrite(stm), d.jobs.ReadWrite(stm), jobPtr, state, reason)
 	})
 	return err
 }
@@ -624,9 +656,9 @@ func (u *driver) UpdateJobState(ctx context.Context, jobID string, statsCommit *
 // DeleteJob is identical to updateJobState, except that jobPtr points to a job
 // that should be deleted rather than marked failed. Jobs may be deleted if
 // their output commit is deleted.
-func (u *driver) DeleteJob(stm col.STM, jobPtr *pps.EtcdJobInfo) error {
+func (d *driver) DeleteJob(stm col.STM, jobPtr *pps.EtcdJobInfo) error {
 	pipelinePtr := &pps.EtcdPipelineInfo{}
-	if err := u.pipelines.ReadWrite(stm).Update(jobPtr.Pipeline.Name, pipelinePtr, func() error {
+	if err := d.pipelines.ReadWrite(stm).Update(jobPtr.Pipeline.Name, pipelinePtr, func() error {
 		if pipelinePtr.JobCounts == nil {
 			pipelinePtr.JobCounts = make(map[int32]int32)
 		}
@@ -637,16 +669,16 @@ func (u *driver) DeleteJob(stm col.STM, jobPtr *pps.EtcdJobInfo) error {
 	}); err != nil {
 		return err
 	}
-	return u.jobs.ReadWrite(stm).Delete(jobPtr.Job.ID)
+	return d.jobs.ReadWrite(stm).Delete(jobPtr.Job.ID)
 }
 
-func (u *driver) updateCounter(
+func (d *driver) updateCounter(
 	stat *prometheus.CounterVec,
 	logger logs.TaggedLogger,
 	state string,
 	cb func(prometheus.Counter),
 ) {
-	labels := []string{u.pipelineInfo.ID, logger.JobID()}
+	labels := []string{d.pipelineInfo.ID, logger.JobID()}
 	if state != "" {
 		labels = append(labels, state)
 	}
@@ -657,13 +689,13 @@ func (u *driver) updateCounter(
 	}
 }
 
-func (u *driver) updateHistogram(
+func (d *driver) updateHistogram(
 	stat *prometheus.HistogramVec,
 	logger logs.TaggedLogger,
 	state string,
 	cb func(prometheus.Observer),
 ) {
-	labels := []string{u.pipelineInfo.ID, logger.JobID()}
+	labels := []string{d.pipelineInfo.ID, logger.JobID()}
 	if state != "" {
 		labels = append(labels, state)
 	}
@@ -674,16 +706,16 @@ func (u *driver) updateHistogram(
 	}
 }
 
-func (u *driver) reportUserCodeStats(logger logs.TaggedLogger) {
-	if u.exportStats {
-		u.updateCounter(stats.DatumCount, logger, "started", func(counter prometheus.Counter) {
+func (d *driver) reportUserCodeStats(logger logs.TaggedLogger) {
+	if d.exportStats {
+		d.updateCounter(stats.DatumCount, logger, "started", func(counter prometheus.Counter) {
 			counter.Add(1)
 		})
 	}
 }
 
-func (u *driver) reportDeferredUserCodeStats(err error, start time.Time, procStats *pps.ProcessStats, logger logs.TaggedLogger) {
-	if u.exportStats {
+func (d *driver) reportDeferredUserCodeStats(err error, start time.Time, procStats *pps.ProcessStats, logger logs.TaggedLogger) {
+	if d.exportStats {
 		duration := time.Since(start)
 		procStats.ProcessTime = types.DurationProto(duration)
 
@@ -692,58 +724,58 @@ func (u *driver) reportDeferredUserCodeStats(err error, start time.Time, procSta
 			state = "finished"
 		}
 
-		u.updateCounter(stats.DatumCount, logger, state, func(counter prometheus.Counter) {
+		d.updateCounter(stats.DatumCount, logger, state, func(counter prometheus.Counter) {
 			counter.Add(1)
 		})
-		u.updateHistogram(stats.DatumProcTime, logger, state, func(hist prometheus.Observer) {
+		d.updateHistogram(stats.DatumProcTime, logger, state, func(hist prometheus.Observer) {
 			hist.Observe(duration.Seconds())
 		})
-		u.updateCounter(stats.DatumProcSecondsCount, logger, "", func(counter prometheus.Counter) {
+		d.updateCounter(stats.DatumProcSecondsCount, logger, "", func(counter prometheus.Counter) {
 			counter.Add(duration.Seconds())
 		})
 	}
 }
 
-func (u *driver) ReportUploadStats(start time.Time, procStats *pps.ProcessStats, logger logs.TaggedLogger) {
-	if u.exportStats {
+func (d *driver) ReportUploadStats(start time.Time, procStats *pps.ProcessStats, logger logs.TaggedLogger) {
+	if d.exportStats {
 		duration := time.Since(start)
 		procStats.UploadTime = types.DurationProto(duration)
 
-		u.updateHistogram(stats.DatumUploadTime, logger, "", func(hist prometheus.Observer) {
+		d.updateHistogram(stats.DatumUploadTime, logger, "", func(hist prometheus.Observer) {
 			hist.Observe(duration.Seconds())
 		})
-		u.updateCounter(stats.DatumUploadSecondsCount, logger, "", func(counter prometheus.Counter) {
+		d.updateCounter(stats.DatumUploadSecondsCount, logger, "", func(counter prometheus.Counter) {
 			counter.Add(duration.Seconds())
 		})
-		u.updateHistogram(stats.DatumUploadSize, logger, "", func(hist prometheus.Observer) {
+		d.updateHistogram(stats.DatumUploadSize, logger, "", func(hist prometheus.Observer) {
 			hist.Observe(float64(procStats.UploadBytes))
 		})
-		u.updateCounter(stats.DatumUploadBytesCount, logger, "", func(counter prometheus.Counter) {
+		d.updateCounter(stats.DatumUploadBytesCount, logger, "", func(counter prometheus.Counter) {
 			counter.Add(float64(procStats.UploadBytes))
 		})
 	}
 }
 
-func (u *driver) reportDownloadSizeStats(downSize float64, logger logs.TaggedLogger) {
-	if u.exportStats {
-		u.updateHistogram(stats.DatumDownloadSize, logger, "", func(hist prometheus.Observer) {
+func (d *driver) reportDownloadSizeStats(downSize float64, logger logs.TaggedLogger) {
+	if d.exportStats {
+		d.updateHistogram(stats.DatumDownloadSize, logger, "", func(hist prometheus.Observer) {
 			hist.Observe(downSize)
 		})
-		u.updateCounter(stats.DatumDownloadBytesCount, logger, "", func(counter prometheus.Counter) {
+		d.updateCounter(stats.DatumDownloadBytesCount, logger, "", func(counter prometheus.Counter) {
 			counter.Add(downSize)
 		})
 	}
 }
 
-func (u *driver) reportDownloadTimeStats(start time.Time, procStats *pps.ProcessStats, logger logs.TaggedLogger) {
-	if u.exportStats {
+func (d *driver) reportDownloadTimeStats(start time.Time, procStats *pps.ProcessStats, logger logs.TaggedLogger) {
+	if d.exportStats {
 		duration := time.Since(start)
 		procStats.DownloadTime = types.DurationProto(duration)
 
-		u.updateHistogram(stats.DatumDownloadTime, logger, "", func(hist prometheus.Observer) {
+		d.updateHistogram(stats.DatumDownloadTime, logger, "", func(hist prometheus.Observer) {
 			hist.Observe(duration.Seconds())
 		})
-		u.updateCounter(stats.DatumDownloadSecondsCount, logger, "", func(counter prometheus.Counter) {
+		d.updateCounter(stats.DatumDownloadSecondsCount, logger, "", func(counter prometheus.Counter) {
 			counter.Add(duration.Seconds())
 		})
 	}
