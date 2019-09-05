@@ -36,7 +36,7 @@ When you delete a bad commit, Pachyderm performs the following actions:
 
 - Deletes the commit metadata.
 - Changes HEADs of all the branches that had the bad commit as their
-  HEAD to the bad commit parent. If the bad commit does not have
+  HEAD to the bad commit's parent. If the bad commit does not have
   a parent, Pachyderm sets the branch's HEAD to `nil`.
 - If the bad commit has children, sets their parents to the deleted commit
   parent. If the deleted commit does not have a parent, then the
@@ -65,36 +65,32 @@ behavior is that the semantics of revert can get ambiguous
 when the files that are being reverted have been
 otherwise modified. Because Pachyderm is a centralized system
 and the volume of data that you typically store in Pachyderm is
-large, the concept of merge conflicts that you might run into when
-you work with Git is irrelevant.
+large, merge conflicts can quickly become untenable. Therefore,
+Pachyderm prevents merge conflicts entirely.
 
 To resolve issues with the commits that are not at the tip of the
 branch, you can try to delete the children commits. However,
 those commits might also have the data that you might want to
 keep.
 
-**Warning:** The `pachctl delete file` command is irreversible. The
-files that you delete cannot be restored. If you are not sure
-about deleting a file, store a copy of it outside of Pachyderm.
-
 To delete a file in an older commit, complete the following steps:
 
 1. Start a new commit:
 
    ```bash
-   $ pachctl start commit
+   $ pachctl start commit <repo>@<branch>
    ```
 
 1. Delete all corrupted files from the newly opened commit:
 
    ```bash
-   $ pachctl delete file
+   $ pachctl delete file <repo>@<branch or commitID>:/path/to/files
    ```
 
 1. Finish the commit:
 
    ```bash
-   $ pachctl finish commit
+   $ pachctl finish commit <repo>@<branch>
    ```
 
 4. Delete the initial bad commit and all its children up to
@@ -122,7 +118,7 @@ following steps:
 1. Delete all the references to data as described in
 [Delete Old Commits](delete-old-commits).
 
-1. Run the `garbage-collect` script:
+1. Run `garbage-collect`:
 
    ```bash
    $ pachctl garbage-collect
