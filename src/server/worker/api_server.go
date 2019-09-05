@@ -570,7 +570,7 @@ func (a *APIServer) processChunk(ctx context.Context, jobID string, low, high in
 			chunks := a.driver.Chunks(jobID).ReadWrite(stm)
 			if processResult.failedDatumID != "" {
 				return chunks.Put(fmt.Sprint(high), &common.ChunkState{
-					State:   common.State_FAILED,
+					State:   common.State_FAILURE,
 					DatumID: processResult.failedDatumID,
 					Address: os.Getenv(client.PPSWorkerIPEnv),
 				})
@@ -620,7 +620,7 @@ func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APICl
 						return nil
 					}
 					switch chunkState.State {
-					case common.State_FAILED:
+					case common.State_FAILURE:
 						failed = true
 						fallthrough
 					case common.State_SUCCESS:
@@ -1009,7 +1009,7 @@ func writeIndex(pachClient *client.APIClient, objClient obj.Client, tree *pfs.Ob
 }
 
 // cancelCtxIfJobFails watches jobID's JobPtr, and if its state is changed to a
-// terminal state (KILLED, FAILED, or SUCCESS) cancel the jobCtx so we kill any
+// terminal state (KILLED, FAILURE, or SUCCESS) cancel the jobCtx so we kill any
 // user processes
 func (a *APIServer) cancelCtxIfJobFails(jobCtx context.Context, jobCancel func(), jobID string) {
 	logger := logs.NewStatlessLogger(a.pipelineInfo)
@@ -1125,7 +1125,7 @@ func (a *APIServer) worker() {
 			pachClient := a.pachClient.WithCtx(jobCtx)
 
 			//  Watch for any changes to EtcdJobInfo corresponding to jobID; if
-			// the EtcdJobInfo is marked 'FAILED', call jobCancel().
+			// the EtcdJobInfo is marked 'FAILURE', call jobCancel().
 			// ('watcher' above can't detect job state changes--it's watching
 			// an index and so only emits when jobs are created or deleted).
 			go a.cancelCtxIfJobFails(jobCtx, jobCancel, jobID)

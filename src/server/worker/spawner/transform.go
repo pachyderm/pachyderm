@@ -139,7 +139,7 @@ func waitJob(
 	ctx, cancel := context.WithCancel(pachClient.Ctx())
 	pachClient = pachClient.WithCtx(ctx)
 
-	// Watch the output commit to see if it's terminated (KILLED, FAILED, or
+	// Watch the output commit to see if it's terminated (KILLED, FAILURE, or
 	// SUCCESS) and if so, cancel the current context
 	go func() {
 		backoff.RetryUntilCancel(ctx, func() error {
@@ -327,7 +327,7 @@ func waitJob(
 					return nil
 				}
 				if chunkState.State != common.State_RUNNING {
-					if chunkState.State == common.State_FAILED {
+					if chunkState.State == common.State_FAILURE {
 						failedDatumID = chunkState.DatumID
 					}
 					return errutil.ErrBreak

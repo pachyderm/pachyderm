@@ -19,7 +19,7 @@ message Input {
 enum State {
   RUNNING = 0;
   SUCCESS = 1;
-  FAILED = 3;
+  FAILURE = 3;
 }
 
 message ChunkState {
