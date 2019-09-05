@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	fmt "fmt"
+	"fmt"
 	"io"
 	"math"
 	"path"
@@ -142,6 +142,8 @@ func (r *Reader) executeAtSplitFunc() {
 
 // Copy is the basic data structure to represent a copy of data from
 // a reader to a writer.
+// before/after are the raw bytes that precede/follow full chunks
+// in the set of bytes represented by the copy.
 type Copy struct {
 	before, after *bytes.Buffer
 	chunkRefs     []*DataRef
