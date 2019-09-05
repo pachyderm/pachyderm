@@ -70,10 +70,9 @@ type Driver interface {
 	// WithCtx clones the current driver and applies the context to its pachClient
 	WithCtx(context.Context) Driver
 
-	// WithProvisionedNode prepares the current node the code is running on to run
-	// a piece of user code by downloading the specified data, and cleans up
-	// afterwards.
-	WithProvisionedNode(context.Context, []*common.Input, *hashtree.Ordered, logs.TaggedLogger, func(*pps.ProcessStats) error) (*pps.ProcessStats, error)
+	// WithData prepares the current node the code is running on to run a piece
+	// of user code by downloading the specified data, and cleans up afterwards.
+	WithData(context.Context, []*common.Input, *hashtree.Ordered, logs.TaggedLogger, func(*pps.ProcessStats) error) (*pps.ProcessStats, error)
 
 	// RunUserCode runs the pipeline's configured code
 	RunUserCode(context.Context, logs.TaggedLogger, []string, *pps.ProcessStats, *types.Duration) error
@@ -288,7 +287,7 @@ func (d *driver) NewSTM(ctx context.Context, cb func(col.STM) error) (*etcd.TxnR
 	return col.NewSTM(ctx, d.etcdClient, cb)
 }
 
-func (d *driver) WithProvisionedNode(
+func (d *driver) WithData(
 	ctx context.Context,
 	data []*common.Input,
 	inputTree *hashtree.Ordered,

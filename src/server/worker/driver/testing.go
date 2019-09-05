@@ -73,7 +73,7 @@ func (dd *MockDriver) GetExpectedNumWorkers() (int, error) {
 	return dd.options.NumWorkers, nil
 }
 
-func (dd *MockDriver) WithProvisionedNode(ctx context.Context, data []*common.Input, inputTree *hashtree.Ordered, logger logs.TaggedLogger, cb func(*pps.ProcessStats) error) (*pps.ProcessStats, error) {
+func (dd *MockDriver) WithData(ctx context.Context, data []*common.Input, inputTree *hashtree.Ordered, logger logs.TaggedLogger, cb func(*pps.ProcessStats) error) (*pps.ProcessStats, error) {
 	stats := &pps.ProcessStats{}
 	err := cb(stats)
 	return stats, err

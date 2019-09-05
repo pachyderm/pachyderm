@@ -94,7 +94,7 @@ func runService(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, lo
 		ctx := pachClient.Ctx()
 
 		// TODO: do something with stats? - this isn't an output repo so there's nowhere to put them
-		_, err = driver.WithProvisionedNode(ctx, data, nil, logger, func(*pps.ProcessStats) error {
+		_, err = driver.WithData(ctx, data, nil, logger, func(*pps.ProcessStats) error {
 			if err := driver.UpdateJobState(ctx, job.ID, nil, pps.JobState_JOB_RUNNING, ""); err != nil {
 				logger.Logf("error updating job state: %+v", err)
 			}

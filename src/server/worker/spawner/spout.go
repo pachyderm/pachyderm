@@ -27,7 +27,7 @@ func runSpout(
 	logger = logger.WithJob("spout")
 
 	// TODO: do something with stats?
-	_, err := driver.WithProvisionedNode(pachClient.Ctx(), nil, nil, logger, func(*pps.ProcessStats) error {
+	_, err := driver.WithData(pachClient.Ctx(), nil, nil, logger, func(*pps.ProcessStats) error {
 		eg, serviceCtx := errgroup.WithContext(pachClient.Ctx())
 		eg.Go(func() error { return runUserCode(serviceCtx, driver, logger) })
 		eg.Go(func() error { return receiveSpout(serviceCtx, pachClient, pipelineInfo, logger) })

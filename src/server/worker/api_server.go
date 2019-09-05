@@ -1375,7 +1375,7 @@ func (a *APIServer) processDatums(
 					a.stats = stats
 				}()
 
-				subStats, err := a.driver.WithProvisionedNode(ctx, data, inputTree, logger, func(subStats *pps.ProcessStats) error {
+				subStats, err := a.driver.WithData(ctx, data, inputTree, logger, func(subStats *pps.ProcessStats) error {
 					env := userCodeEnv(jobInfo.Job.ID, jobInfo.OutputCommit.ID, data)
 					a.runMu.Lock()
 					defer a.runMu.Unlock()
