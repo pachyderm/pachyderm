@@ -9,6 +9,8 @@ data operations in Pachyderm, including the following topics:
 .. toctree::
    :maxdepth: 1
 
+   working-with-pipelines.md
    load-data-into-pachyderm.md
    export-data-out-pachyderm.md
+   removing_data_from_pachyderm.md
 
