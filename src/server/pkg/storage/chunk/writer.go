@@ -397,6 +397,7 @@ func (w *Writer) WriteCopy(c *Copy) error {
 	return err
 }
 
+// Close closes the writer.
 func (w *Writer) Close() error {
 	return w.Flush()
 }
