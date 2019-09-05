@@ -30,7 +30,7 @@ func TestAcquireDatums(t *testing.T) {
 	t.Skip()
 	pachClient := getPachClient(t)
 	etcdClient := getEtcdClient(t)
-	driver := driver.NewDummyDriver(etcdClient, &driver.DummyOptions{})
+	driver := driver.NewMockDriver(etcdClient, &driver.MockOptions{})
 	pipeline := &pps.Pipeline{Name: "testPipeline"}
 
 	for nChunks := 1; nChunks < 200; nChunks += 50 {
@@ -59,7 +59,7 @@ func TestAcquireDatums(t *testing.T) {
 			var eg errgroup.Group
 			for i := 0; i < nWorkers; i++ {
 				server := newTestAPIServer(pachClient, etcdClient, "", driver, t)
-				logger := &logs.DummyLogger{}
+				logger := &logs.MockLogger{}
 				eg.Go(func() error {
 					return server.acquireDatums(pachClient.Ctx(), jobInfo.Job.ID, plan, logger, func(low, high int64) (*processResult, error) {
 						chunksMu.Lock()

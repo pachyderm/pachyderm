@@ -8,7 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 )
 
-type DummyLogger struct {
+type MockLogger struct {
 	// These fields are exposed so that tests can fuck around with them or make assertions
 	Writer   io.Writer
 	Job      string
@@ -16,66 +16,64 @@ type DummyLogger struct {
 	UserCode bool
 }
 
-// Not used - forces a compile-time error in this file if DummyLogger does not
+// Not used - forces a compile-time error in this file if MockLogger does not
 // implement TaggedLogger
-func ensureInterface() TaggedLogger {
-	return &DummyLogger{}
+var _ TaggedLogger = &MockLogger{}
+
+func NewMockLogger() *MockLogger {
+	return &MockLogger{}
 }
 
-func NewDummyLogger() *DummyLogger {
-	return &DummyLogger{}
-}
-
-func (dl *DummyLogger) Write(p []byte) (_ int, retErr error) {
+func (dl *MockLogger) Write(p []byte) (_ int, retErr error) {
 	if dl.Writer != nil {
 		return dl.Writer.Write(p)
 	}
 	return len(p), nil
 }
 
-func (dl *DummyLogger) Logf(formatString string, args ...interface{}) {
+func (dl *MockLogger) Logf(formatString string, args ...interface{}) {
 	if dl.Writer != nil {
 		str := fmt.Sprintf(formatString, args...)
 		dl.Writer.Write([]byte(str))
 	}
 }
 
-func (dl *DummyLogger) Errf(formatString string, args ...interface{}) {
+func (dl *MockLogger) Errf(formatString string, args ...interface{}) {
 	if dl.Writer != nil {
 		str := fmt.Sprintf(formatString, args...)
 		dl.Writer.Write([]byte(str))
 	}
 }
 
-func (dl *DummyLogger) clone() *DummyLogger {
-	result := &DummyLogger{}
+func (dl *MockLogger) clone() *MockLogger {
+	result := &MockLogger{}
 	*result = *dl
 	return result
 }
 
-func (dl *DummyLogger) WithJob(jobID string) TaggedLogger {
+func (dl *MockLogger) WithJob(jobID string) TaggedLogger {
 	result := dl.clone()
 	result.Job = jobID
 	return result
 }
 
-func (dl *DummyLogger) WithData(data []*common.Input) TaggedLogger {
+func (dl *MockLogger) WithData(data []*common.Input) TaggedLogger {
 	result := dl.clone()
 	result.Data = data
 	return result
 }
 
-func (dl *DummyLogger) WithUserCode() TaggedLogger {
+func (dl *MockLogger) WithUserCode() TaggedLogger {
 	result := dl.clone()
 	result.UserCode = true
 	return result
 }
 
-func (dl *DummyLogger) JobID() string {
+func (dl *MockLogger) JobID() string {
 	return dl.Job
 }
 
-func (dl *DummyLogger) Close() (*pfs.Object, int64, error) {
+func (dl *MockLogger) Close() (*pfs.Object, int64, error) {
 	// If you need an actual pfs.Object here, inherit and shadow this function
 	return nil, 0, nil
 }
