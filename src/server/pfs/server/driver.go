@@ -4115,6 +4115,8 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 					resp, err := http.Get(req.Url)
 					if err != nil {
 						return false, "", "", err
+					} else if resp.StatusCode >= 400 {
+						return false, "", "", fmt.Errorf("error retrieving content from %q: %s", req.Url, resp.Status)
 					}
 					eg.Go(func() (retErr error) {
 						defer limiter.Release()
