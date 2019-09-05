@@ -640,7 +640,7 @@ func (d *driver) RunUserErrorHandlingCode(ctx context.Context, logger logs.Tagge
 func (d *driver) UpdateJobState(ctx context.Context, jobID string, statsCommit *pfs.Commit, state pps.JobState, reason string) error {
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		jobPtr := &pps.EtcdJobInfo{}
-		if err := d.jobs.ReadWrite(stm).Get(jobID, jobPtr); err != nil {
+		if err := d.Jobs().ReadWrite(stm).Get(jobID, jobPtr); err != nil {
 			return err
 		}
 		// TODO: move this out
@@ -648,7 +648,7 @@ func (d *driver) UpdateJobState(ctx context.Context, jobID string, statsCommit *
 			jobPtr.StatsCommit = statsCommit
 		}
 
-		return ppsutil.UpdateJobState(d.pipelines.ReadWrite(stm), d.jobs.ReadWrite(stm), jobPtr, state, reason)
+		return ppsutil.UpdateJobState(d.Pipelines().ReadWrite(stm), d.Jobs().ReadWrite(stm), jobPtr, state, reason)
 	})
 	return err
 }
@@ -658,7 +658,7 @@ func (d *driver) UpdateJobState(ctx context.Context, jobID string, statsCommit *
 // their output commit is deleted.
 func (d *driver) DeleteJob(stm col.STM, jobPtr *pps.EtcdJobInfo) error {
 	pipelinePtr := &pps.EtcdPipelineInfo{}
-	if err := d.pipelines.ReadWrite(stm).Update(jobPtr.Pipeline.Name, pipelinePtr, func() error {
+	if err := d.Pipelines().ReadWrite(stm).Update(jobPtr.Pipeline.Name, pipelinePtr, func() error {
 		if pipelinePtr.JobCounts == nil {
 			pipelinePtr.JobCounts = make(map[int32]int32)
 		}
@@ -669,7 +669,7 @@ func (d *driver) DeleteJob(stm col.STM, jobPtr *pps.EtcdJobInfo) error {
 	}); err != nil {
 		return err
 	}
-	return d.jobs.ReadWrite(stm).Delete(jobPtr.Job.ID)
+	return d.Jobs().ReadWrite(stm).Delete(jobPtr.Job.ID)
 }
 
 func (d *driver) updateCounter(

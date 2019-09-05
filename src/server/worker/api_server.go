@@ -552,38 +552,36 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, plan *commo
 }
 
 func (a *APIServer) processChunk(ctx context.Context, jobID string, low, high int64, process processFunc) error {
-	processResult, err := process(low, high)
-	if err != nil {
+	if processResult, err := process(low, high); err != nil {
 		return err
-	}
-	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		jobs := a.driver.Jobs().ReadWrite(stm)
-		jobPtr := &pps.EtcdJobInfo{}
-		if err := jobs.Update(jobID, jobPtr, func() error {
-			jobPtr.DataProcessed += processResult.datumsProcessed
-			jobPtr.DataSkipped += processResult.datumsSkipped
-			jobPtr.DataRecovered += processResult.datumsRecovered
-			jobPtr.DataFailed += processResult.datumsFailed
-			return nil
-		}); err != nil {
-			return err
-		}
-		chunks := a.driver.Chunks(jobID).ReadWrite(stm)
-		if processResult.failedDatumID != "" {
+	} else {
+		_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			jobs := a.driver.Jobs().ReadWrite(stm)
+			jobPtr := &pps.EtcdJobInfo{}
+			if err := jobs.Update(jobID, jobPtr, func() error {
+				jobPtr.DataProcessed += processResult.datumsProcessed
+				jobPtr.DataSkipped += processResult.datumsSkipped
+				jobPtr.DataRecovered += processResult.datumsRecovered
+				jobPtr.DataFailed += processResult.datumsFailed
+				return nil
+			}); err != nil {
+				return err
+			}
+			chunks := a.driver.Chunks(jobID).ReadWrite(stm)
+			if processResult.failedDatumID != "" {
+				return chunks.Put(fmt.Sprint(high), &common.ChunkState{
+					State:   common.State_FAILED,
+					DatumID: processResult.failedDatumID,
+					Address: os.Getenv(client.PPSWorkerIPEnv),
+				})
+			}
 			return chunks.Put(fmt.Sprint(high), &common.ChunkState{
-				State:   common.State_FAILED,
-				DatumID: processResult.failedDatumID,
+				State:   common.State_SUCCESS,
 				Address: os.Getenv(client.PPSWorkerIPEnv),
 			})
-		}
-		return chunks.Put(fmt.Sprint(high), &common.ChunkState{
-			State:   common.State_SUCCESS,
-			Address: os.Getenv(client.PPSWorkerIPEnv),
 		})
-	}); err != nil {
 		return err
 	}
-	return nil
 }
 
 func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APIClient, jobInfo *pps.JobInfo, jobID string, plan *common.Plan, logger logs.TaggedLogger, df datum.Factory, skip map[string]struct{}, useParentHashTree bool) (retErr error) {

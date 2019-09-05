@@ -10,7 +10,6 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/pachyderm/pachyderm/src/client"
-	pclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -26,18 +25,27 @@ var (
 )
 
 func TestAcquireDatums(t *testing.T) {
-	// t.Skip()
+	// TODO: this test is very out of date and doesn't indicate completion to
+	// terminate acquireDatums by setting the job context to done
+	t.Skip()
 	pachClient := getPachClient(t)
 	etcdClient := getEtcdClient(t)
 	driver := driver.NewDummyDriver(etcdClient, &driver.DummyOptions{})
+	pipeline := &pps.Pipeline{Name: "testPipeline"}
 
 	for nChunks := 1; nChunks < 200; nChunks += 50 {
 		for nWorkers := 1; nWorkers < 40; nWorkers += 10 {
-			jobInfo := &pps.JobInfo{
-				Job: client.NewJob(uuid.New()),
-			}
 			var plan *common.Plan
+			// acquireDatums requires the job to exist to update counters, make a barebones placeholder
+			job := client.NewJob(uuid.NewWithoutDashes())
+			outputCommit := client.NewCommit("testRepo", uuid.NewWithoutDashes())
+			jobInfo := &pps.EtcdJobInfo{Job: job, Pipeline: pipeline, OutputCommit: outputCommit}
+
 			_, err := col.NewSTM(pachClient.Ctx(), etcdClient, func(stm col.STM) error {
+				if err := driver.Jobs().ReadWrite(stm).Put(jobInfo.Job.ID, jobInfo); err != nil {
+					return err
+				}
+
 				plan = &common.Plan{}
 				for i := 1; i <= nChunks; i++ {
 					plan.Chunks = append(plan.Chunks, int64(i))
@@ -45,6 +53,7 @@ func TestAcquireDatums(t *testing.T) {
 				return driver.Plans().ReadWrite(stm).Create(jobInfo.Job.ID, plan)
 			})
 			require.NoError(t, err)
+
 			var seenChunks []int64
 			var chunksMu sync.Mutex
 			var eg errgroup.Group
@@ -79,7 +88,7 @@ func getEtcdClient(t *testing.T) *etcd.Client {
 			var err error
 			etcdClient, err = etcd.New(etcd.Config{
 				Endpoints:   []string{etcdAddress},
-				DialOptions: pclient.DefaultDialOptions(),
+				DialOptions: client.DefaultDialOptions(),
 			})
 			if err != nil {
 				return fmt.Errorf("could not connect to etcd: %s", err.Error())
