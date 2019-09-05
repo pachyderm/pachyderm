@@ -79,6 +79,7 @@ func TestValidateConfigMultipleSAMLIdPs(t *testing.T) {
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
 	requireConfigsEqual(t, &defaultAuthConfig, configResp.Configuration)
+	deleteAll(t)
 }
 
 // TestValidateConfigErrMissingSAMLConfig tests that SetConfig rejects configs
@@ -110,6 +111,7 @@ func TestValidateConfigErrMissingSAMLConfig(t *testing.T) {
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
 	requireConfigsEqual(t, &defaultAuthConfig, configResp.Configuration)
+	deleteAll(t)
 }
 
 func TestSAMLBasic(t *testing.T) {
@@ -182,7 +184,7 @@ func TestSAMLBasic(t *testing.T) {
 
 	otp := redirectLocation.Query()["auth_code"][0]
 	require.NotEqual(t, "", otp)
-	newClient := getPachClient(t, "")
+	newClient := getPachClientConfigAgnostic(t, "")
 	authResp, err := newClient.Authenticate(newClient.Ctx(), &auth.AuthenticateRequest{
 		OneTimePassword: otp,
 	})
@@ -191,6 +193,7 @@ func TestSAMLBasic(t *testing.T) {
 	whoAmIResp, err := newClient.WhoAmI(newClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, "idp_1:jane.doe@example.com", whoAmIResp.Username)
+	deleteAll(t)
 }
 
 func TestGroupsBasic(t *testing.T) {
@@ -233,7 +236,7 @@ func TestGroupsBasic(t *testing.T) {
 	require.NoError(t, err)
 
 	alice, group := tu.UniqueString("alice"), tu.UniqueString("group")
-	aliceClient := getPachClient(t, "") // empty string b/c want anon client
+	aliceClient := getPachClientConfigAgnostic(t, "") // empty string b/c want anon client
 	tu.AuthenticateWithSAMLResponse(t, aliceClient, testIDP.NewSAMLResponse(alice, group))
 
 	// alice should be able to see her groups
@@ -257,4 +260,5 @@ func TestGroupsBasic(t *testing.T) {
 	require.NoError(t, aliceClient.GetFile(dataRepo, "master", "/data", 0, 0, &buf))
 	require.NoError(t, err)
 	require.Equal(t, "file contents", buf.String())
+	deleteAll(t)
 }

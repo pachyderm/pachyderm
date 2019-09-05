@@ -319,6 +319,8 @@ func pipelineInfoToRequest(pi *pps.PipelineInfo) *pps.CreatePipelineRequest {
 		ChunkSpec:          pi.ChunkSpec,
 		DatumTimeout:       pi.DatumTimeout,
 		JobTimeout:         pi.JobTimeout,
+		PodPatch:           pi.PodPatch,
+		PodSpec:            pi.PodSpec,
 	}
 }
 

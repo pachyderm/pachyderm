@@ -75,6 +75,13 @@ const (
 
 var defaultAuthConfig = auth.AuthConfig{
 	LiveConfigVersion: 1,
+	IDProviders: []*auth.IDProvider{
+		&auth.IDProvider{
+			Name:        "GitHub",
+			Description: "oauth-based authentication with github.com",
+			GitHub:      &auth.IDProvider_GitHubOptions{},
+		},
+	},
 }
 
 // githubTokenRegex is used when pachd is deployed in "dev mode" (i.e. when
@@ -380,6 +387,17 @@ func (a *apiServer) getEnterpriseTokenState() (enterpriseclient.State, error) {
 	return resp.State, nil
 }
 
+func (a *apiServer) githubEnabled() bool {
+	githubEnabled := false
+	config := a.getCacheConfig()
+	for _, idp := range config.IDPs {
+		if idp.GitHub != nil {
+			githubEnabled = true
+		}
+	}
+	return githubEnabled
+}
+
 // Activate implements the protobuf auth.Activate RPC
 func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (resp *auth.ActivateResponse, retErr error) {
 	pachClient := a.env.GetPachClient(ctx)
@@ -424,6 +442,9 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 	case req.Subject == "":
 		fallthrough
 	case strings.HasPrefix(req.Subject, auth.GitHubPrefix):
+		if !a.githubEnabled() {
+			return nil, errors.New("GitHub auth is not enabled on this cluster")
+		}
 		username, err := GitHubTokenToUsername(ctx, req.GitHubToken)
 		if err != nil {
 			return nil, err
@@ -570,6 +591,9 @@ func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest)
 		return nil, err
 	}
 
+	// clear the cache
+	a.configCache = nil
+
 	// wait until watchAdmins has deactivated auth, so that Deactivate() is less
 	// likely to race with subsequent calls that expect auth to be deactivated.
 	// TODO this is a bit hacky (checking repeatedly in a spin loop) but
@@ -625,6 +649,8 @@ func (a *apiServer) GetAdmins(ctx context.Context, req *auth.GetAdminsRequest) (
 	switch a.activationState() {
 	case none:
 		return nil, auth.ErrNotActivated
+	case partial:
+		return nil, auth.ErrPartiallyActivated
 	case full:
 		// Get calling user. There is no auth check to see the list of cluster
 		// admins, other than that the user must log in. Otherwise how will users
@@ -800,6 +826,9 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 	var pachToken string
 	switch {
 	case req.GitHubToken != "":
+		if !a.githubEnabled() {
+			return nil, errors.New("GitHub auth is not enabled on this cluster")
+		}
 		// Determine caller's Pachyderm/GitHub username
 		username, err := GitHubTokenToUsername(ctx, req.GitHubToken)
 		if err != nil {

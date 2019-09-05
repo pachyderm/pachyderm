@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	minio "github.com/minio/minio-go"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
@@ -25,8 +27,9 @@ import (
 
 const (
 	// admin is the sole cluster admin after getPachClient is called in each test
-	admin = auth.GitHubPrefix + "admin"
-	carol = auth.GitHubPrefix + "carol"
+	admin          = auth.RobotPrefix + "admin"
+	carol          = auth.GitHubPrefix + "carol"
+	adminTokenFile = "/tmp/pach-auth-test_admin-token"
 )
 
 var (
@@ -35,17 +38,42 @@ var (
 	seedClient  *client.APIClient
 )
 
-func isAuthActive(tb testing.TB) bool {
+// isAuthActive is a helper that checks if auth is currently active in the
+// target cluster
+//
+// Caller must hold tokenMapMut. Currently only called by getPachClient(),
+// activateAuth (which is only called by getPachClient()) and deleteAll()
+func isAuthActive(tb testing.TB, checkConfig bool) bool {
 	_, err := seedClient.GetAdmins(context.Background(),
 		&auth.GetAdminsRequest{})
 	switch {
 	case auth.IsErrNotSignedIn(err):
+		adminClient := getPachClientInternal(tb, admin)
+		if checkConfig {
+			if err := backoff.Retry(func() error {
+				resp, err := adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
+				if err != nil {
+					return fmt.Errorf("could not get config: %v", err)
+				}
+				cfg := resp.GetConfiguration()
+				if cfg.SAMLServiceOptions != nil {
+					return fmt.Errorf("SAML config in fresh cluster: %+v", cfg)
+				}
+				if len(cfg.IDProviders) != 1 || cfg.IDProviders[0].SAML != nil || cfg.IDProviders[0].GitHub == nil || cfg.IDProviders[0].Name != "GitHub" {
+					return fmt.Errorf("problem with ID providers in config in fresh cluster: %+v", cfg)
+				}
+				return nil
+			}, backoff.NewTestingBackOff()); err != nil {
+				panic(err)
+			}
+		}
 		return true
-	case auth.IsErrNotActivated(err):
+	case auth.IsErrNotActivated(err), auth.IsErrPartiallyActivated(err):
 		return false
 	default:
 		panic(fmt.Sprintf("could not determine if auth is activated: %v", err))
 	}
+	return false
 }
 
 // getPachClientInternal is a helper function called by getPachClient. It
@@ -53,16 +81,42 @@ func isAuthActive(tb testing.TB) bool {
 // do any any checks to confirm that auth is activated and the cluster is
 // configured correctly (those are done by getPachClient). If subject has no
 // prefix, they are assumed to be a GitHub user.
+//
+// Caller must hold tokenMapMut. Currently only called by getPachClient()
 func getPachClientInternal(tb testing.TB, subject string) *client.APIClient {
 	// copy seed, so caller can safely modify result
 	resultClient := seedClient.WithCtx(context.Background())
 	if subject == "" {
 		return resultClient // anonymous client
 	}
+	if token, ok := tokenMap[subject]; ok {
+		resultClient.SetAuthToken(token)
+		return resultClient
+	}
+	if subject == admin {
+		bytes, err := ioutil.ReadFile(adminTokenFile)
+		if err == nil {
+			tb.Logf("couldn't find admin token in cache, reading from %q", adminTokenFile)
+			resultClient.SetAuthToken(string(bytes))
+			return resultClient
+		}
+		tb.Fatalf("couldn't get admin client from cache or %q, no way to reset "+
+			"cluster. Please deactivate auth or redeploy Pachyderm", adminTokenFile)
+	}
 	if strings.Index(subject, ":") < 0 {
 		subject = auth.GitHubPrefix + subject
 	}
-	if _, ok := tokenMap[subject]; !ok {
+	colonIdx := strings.Index(subject, ":")
+	prefix := subject[:colonIdx+1]
+	switch prefix {
+	case auth.RobotPrefix:
+		adminClient := getPachClientInternal(tb, admin)
+		resp, err := adminClient.GetAuthToken(adminClient.Ctx(), &auth.GetAuthTokenRequest{
+			Subject: subject,
+		})
+		require.NoError(tb, err)
+		tokenMap[subject] = resp.Token
+	case auth.GitHubPrefix:
 		resp, err := seedClient.Authenticate(context.Background(),
 			&auth.AuthenticateRequest{
 				// When Pachyderm is deployed locally, GitHubToken automatically
@@ -72,28 +126,40 @@ func getPachClientInternal(tb testing.TB, subject string) *client.APIClient {
 			})
 		require.NoError(tb, err)
 		tokenMap[subject] = resp.PachToken
+	default:
+		tb.Fatalf("can't give you a client of type %s", prefix)
 	}
 	resultClient.SetAuthToken(tokenMap[subject])
 	return resultClient
 }
 
 // activateAuth activates the auth service in the test cluster
+//
+// Caller must hold tokenMapMut. Currently only called by getPachClient()
 func activateAuth(tb testing.TB) {
-	if _, err := seedClient.AuthAPIClient.Activate(context.Background(),
-		&auth.ActivateRequest{GitHubToken: "admin"},
-	); err != nil && !strings.HasSuffix(err.Error(), "already activated") {
+	resp, err := seedClient.AuthAPIClient.Activate(context.Background(),
+		&auth.ActivateRequest{Subject: admin},
+	)
+	if err != nil && !strings.HasSuffix(err.Error(), "already activated") {
 		tb.Fatalf("could not activate auth service: %v", err.Error())
 	}
+	tokenMap[admin] = resp.PachToken
+	ioutil.WriteFile(adminTokenFile, []byte(resp.PachToken), 0644)
 
 	// Wait for the Pachyderm Auth system to activate
 	require.NoError(tb, backoff.Retry(func() error {
-		if isAuthActive(tb) {
+		if isAuthActive(tb, true) {
 			return nil
 		}
 		return fmt.Errorf("auth not active yet")
 	}, backoff.NewTestingBackOff()))
 }
 
+// initSeedClient is a helper function called by getPachClient that initializes
+// the 'seedClient' global variable.
+//
+// Caller must hold tokenMapMut. Currently only called by getPachClient() and
+// deleteAll()
 func initSeedClient(tb testing.TB) {
 	tb.Helper()
 	var err error
@@ -109,9 +175,21 @@ func initSeedClient(tb testing.TB) {
 	seedClient.SetAuthToken("")
 }
 
+// getPachClientConfigAgnostic does not check that the auth config is in the default state.
+// i.e. it can be used to retrieve the pach client even after the auth config has been manipulated
+func getPachClientConfigAgnostic(tb testing.TB, subject string) *client.APIClient {
+	return getPachClientP(tb, subject, false)
+}
+
+// getPachClient explicitly checks that the auth config is set to the default,
+// and will fail otherwise.
+func getPachClient(tb testing.TB, subject string) *client.APIClient {
+	return getPachClientP(tb, subject, true)
+}
+
 // getPachClient creates a seed client with a grpc connection to a pachyderm
 // cluster, and then enable the auth service in that cluster
-func getPachClient(tb testing.TB, subject string) *client.APIClient {
+func getPachClientP(tb testing.TB, subject string, checkConfig bool) *client.APIClient {
 	tb.Helper()
 	tokenMapMut.Lock()
 	defer tokenMapMut.Unlock()
@@ -146,7 +224,7 @@ func getPachClient(tb testing.TB, subject string) *client.APIClient {
 	//    (=> reset cluster admins to "admin")
 	// 4) Auth is on, client tokens are valid, and the only admin is "admin" (do
 	//    nothing)
-	if !isAuthActive(tb) {
+	if !isAuthActive(tb, checkConfig) {
 		// Case 1: auth is off. Activate auth & return a new client
 		tokenMap = make(map[string]string)
 		activateAuth(tb)
@@ -232,6 +310,8 @@ func getPachClient(tb testing.TB, subject string) *client.APIClient {
 // clients have been created or after they're done being used).
 func deleteAll(tb testing.TB) {
 	tb.Helper()
+	var anonClient *client.APIClient
+	var useAdminClient bool
 	func() {
 		tokenMapMut.Lock() // May initialize the seed client
 		defer tokenMapMut.Unlock()
@@ -239,12 +319,19 @@ func deleteAll(tb testing.TB) {
 		if seedClient == nil {
 			initSeedClient(tb)
 		}
-		if !isAuthActive(tb) {
-			require.NoError(tb, seedClient.DeleteAll())
-		}
+		anonClient = seedClient.WithCtx(context.Background())
+
+		// config might be nil if this is
+		// called after a test that changed
+		// the config
+		useAdminClient = isAuthActive(tb, false)
 	}() // release tokenMapMut before getPachClient
-	adminClient := getPachClient(tb, "admin")
-	require.NoError(tb, adminClient.DeleteAll(), "initial DeleteAll()")
+	if useAdminClient {
+		adminClient := getPachClientConfigAgnostic(tb, admin)
+		require.NoError(tb, adminClient.DeleteAll(), "initial DeleteAll()")
+	} else {
+		require.NoError(tb, anonClient.DeleteAll())
+	}
 }
 
 // aclEntry mirrors auth.ACLEntry, but without XXX_fields, which make
@@ -468,6 +555,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.ElementsEqual(t,
 		entries(alice, "owner", bob, "owner", "carol", "reader"),
 		getACL(t, aliceClient, dataRepo))
+	deleteAll(t)
 }
 
 // TestGetSetReverse creates two users, alice and bob, and gives bob gradually
@@ -632,6 +720,7 @@ func TestGetSetReverse(t *testing.T) {
 	// check that ACL wasn't updated)
 	require.ElementsEqual(t,
 		entries(alice, "owner"), getACL(t, aliceClient, dataRepo))
+	deleteAll(t)
 }
 
 func TestCreateAndUpdatePipeline(t *testing.T) {
@@ -827,6 +916,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		_, err := iter.Next()
 		return err
 	})
+	deleteAll(t)
 }
 
 func TestPipelineMultipleInputs(t *testing.T) {
@@ -1017,6 +1107,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	}))
 	require.OneOfEquals(t, bobUnionPipeline, PipelineNames(t, aliceClient))
 
+	deleteAll(t)
 }
 
 // TestPipelineRevoke tests revoking the privileges of a pipeline's creator as
@@ -1196,6 +1287,7 @@ func TestPipelineRevoke(t *testing.T) {
 		}
 		return nil
 	})
+	deleteAll(t)
 }
 
 func TestStopAndDeletePipeline(t *testing.T) {
@@ -1356,6 +1448,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	require.NoError(t, err)
 	err = bobClient.DeletePipeline(pipeline, false)
 	require.NoError(t, err)
+	deleteAll(t)
 }
 
 // Test ListRepo checks that the auth information returned by ListRepo and
@@ -1428,6 +1521,7 @@ func TestListAndInspectRepo(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, expectedAccess[name], inspectResp.AuthInfo.AccessLevel)
 	}
+	deleteAll(t)
 }
 
 func TestUnprivilegedUserCannotMakeSelfOwner(t *testing.T) {
@@ -1453,6 +1547,7 @@ func TestUnprivilegedUserCannotMakeSelfOwner(t *testing.T) {
 	require.YesError(t, err)
 	// make sure ACL wasn't updated
 	require.ElementsEqual(t, entries(alice, "owner"), getACL(t, aliceClient, repo))
+	deleteAll(t)
 }
 
 func TestGetScopeRequiresReader(t *testing.T) {
@@ -1484,6 +1579,7 @@ func TestGetScopeRequiresReader(t *testing.T) {
 		})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
+	deleteAll(t)
 }
 
 // TestListRepoNotLoggedInError makes sure that if a user isn't logged in, and
@@ -1507,6 +1603,7 @@ func TestListRepoNotLoggedInError(t *testing.T) {
 		&pfs.ListRepoRequest{})
 	require.YesError(t, err)
 	require.Matches(t, "no authentication token", err.Error())
+	deleteAll(t)
 }
 
 // TestListRepoNoAuthInfoIfDeactivated tests that if auth isn't activated, then
@@ -1520,7 +1617,7 @@ func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
 	// globally, so any tests running concurrently will fail
 	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
-	adminClient := getPachClient(t, "admin")
+	adminClient := getPachClient(t, admin)
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
@@ -1552,6 +1649,7 @@ func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
 	for _, info := range infos {
 		require.Nil(t, info.AuthInfo)
 	}
+	deleteAll(t)
 }
 
 // TestCreateRepoAlreadyExistsError tests that creating a repo that already
@@ -1574,6 +1672,7 @@ func TestCreateRepoAlreadyExistsError(t *testing.T) {
 	err := bobClient.CreateRepo(repo)
 	require.YesError(t, err)
 	require.Matches(t, "already exists", err.Error())
+	deleteAll(t)
 }
 
 // TestCreateRepoNotLoggedInError makes sure that if a user isn't logged in, and
@@ -1590,6 +1689,7 @@ func TestCreateRepoNotLoggedInError(t *testing.T) {
 	err := anonClient.CreateRepo(repo)
 	require.YesError(t, err)
 	require.Matches(t, "no authentication token", err.Error())
+	deleteAll(t)
 }
 
 // Creating a pipeline when the output repo already exists gives you an error to
@@ -1628,6 +1728,7 @@ func TestCreatePipelineRepoAlreadyExistsError(t *testing.T) {
 	)
 	require.YesError(t, err)
 	require.Matches(t, "cannot overwrite repo", err.Error())
+	deleteAll(t)
 }
 
 // TestAuthorizedNoneRole tests that Authorized(user, repo, NONE) yields 'true',
@@ -1637,7 +1738,7 @@ func TestAuthorizedNoneRole(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
-	adminClient := getPachClient(t, "admin")
+	adminClient := getPachClient(t, admin)
 
 	// Deactivate auth
 	_, err := adminClient.Deactivate(adminClient.Ctx(), &auth.DeactivateRequest{})
@@ -1658,7 +1759,7 @@ func TestAuthorizedNoneRole(t *testing.T) {
 
 	// Get new pach clients, re-activating auth
 	alice := tu.UniqueString("alice")
-	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, "admin")
+	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
 
 	// Check that the repo has no ACL
 	require.ElementsEqual(t, entries(), getACL(t, adminClient, repo))
@@ -1670,6 +1771,7 @@ func TestAuthorizedNoneRole(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.True(t, resp.Authorized)
+	deleteAll(t)
 }
 
 // TestDeleteAll tests that you must be a cluster admin to call DeleteAll
@@ -1679,7 +1781,7 @@ func TestDeleteAll(t *testing.T) {
 	}
 	deleteAll(t)
 	alice := tu.UniqueString("alice")
-	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, "admin")
+	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
@@ -1692,6 +1794,7 @@ func TestDeleteAll(t *testing.T) {
 
 	// admin calls DeleteAll and succeeds
 	require.NoError(t, adminClient.DeleteAll())
+	deleteAll(t)
 }
 
 // TestListDatum tests that you must have READER access to all of job's
@@ -1810,6 +1913,7 @@ func TestListDatum(t *testing.T) {
 		"file1": struct{}{},
 		"file2": struct{}{},
 	}, files)
+	deleteAll(t)
 }
 
 // TestListJob tests that you must have READER access to a pipeline's output
@@ -1905,6 +2009,7 @@ func TestListJob(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 	require.Equal(t, jobID, jobs[0].Job.ID)
+	deleteAll(t)
 }
 
 // TestInspectDatum tests InspectDatum runs even when auth is activated
@@ -1967,6 +2072,7 @@ func TestInspectDatum(t *testing.T) {
 		}
 		return nil
 	})
+	deleteAll(t)
 }
 
 // TestGetLogs tests that you must have READER access to all of a job's input
@@ -2063,6 +2169,7 @@ func TestGetLogs(t *testing.T) {
 	iter = bobClient.GetLogs(pipeline, "", nil, "", true, false, 0)
 	iter.Next()
 	require.NoError(t, iter.Err())
+	deleteAll(t)
 }
 
 // TestGetLogsFromStats tests that GetLogs still works even when stats are
@@ -2119,6 +2226,7 @@ func TestGetLogsFromStats(t *testing.T) {
 	iter = aliceClient.GetLogs("", jobID, nil, "", true, false, 0)
 	iter.Next()
 	require.NoError(t, iter.Err())
+	deleteAll(t)
 }
 
 func TestPipelineNewInput(t *testing.T) {
@@ -2210,6 +2318,7 @@ func TestPipelineNewInput(t *testing.T) {
 		_, err := iter.Next()
 		return err
 	})
+	deleteAll(t)
 }
 
 func TestModifyMembers(t *testing.T) {
@@ -2335,6 +2444,7 @@ func TestModifyMembers(t *testing.T) {
 			}
 		})
 	}
+	deleteAll(t)
 }
 
 func TestSetGroupsForUser(t *testing.T) {
@@ -2425,6 +2535,7 @@ func TestSetGroupsForUser(t *testing.T) {
 		require.NoError(t, err)
 		require.OneOfEquals(t, gh(alice), users.Usernames)
 	}
+	deleteAll(t)
 }
 
 func TestGetGroupsEmpty(t *testing.T) {
@@ -2454,6 +2565,7 @@ func TestGetGroupsEmpty(t *testing.T) {
 	groups, err = adminClient.GetGroups(adminClient.Ctx(), &auth.GetGroupsRequest{})
 	require.NoError(t, err)
 	require.Equal(t, 0, len(groups.Groups))
+	deleteAll(t)
 }
 
 // TestGetJobsBugFix tests the fix for https://github.com/pachyderm/pachyderm/issues/2879
@@ -2510,6 +2622,7 @@ func TestGetJobsBugFix(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs2))
 	require.Equal(t, jobs[0].Job.ID, jobs2[0].Job.ID)
+	deleteAll(t)
 }
 
 func TestOneTimePassword(t *testing.T) {
@@ -2532,6 +2645,7 @@ func TestOneTimePassword(t *testing.T) {
 	whoAmIResp, err := anonClient.WhoAmI(anonClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, auth.GitHubPrefix+alice, whoAmIResp.Username)
+	deleteAll(t)
 }
 
 func TestOneTimePasswordOtherUserError(t *testing.T) {
@@ -2548,6 +2662,7 @@ func TestOneTimePasswordOtherUserError(t *testing.T) {
 		})
 	require.YesError(t, err)
 	require.Matches(t, "GetOneTimePassword", err.Error())
+	deleteAll(t)
 }
 
 func TestOneTimePasswordExpires(t *testing.T) {
@@ -2568,6 +2683,48 @@ func TestOneTimePasswordExpires(t *testing.T) {
 	})
 	require.YesError(t, err)
 	require.Nil(t, authResp)
+	deleteAll(t)
+}
+
+func TestS3GatewayAuthRequests(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	// generate auth credentials
+	alice := tu.UniqueString("alice")
+	aliceClient, anonClient := getPachClient(t, alice), getPachClient(t, "")
+	codeResp, err := aliceClient.GetOneTimePassword(aliceClient.Ctx(), &auth.GetOneTimePasswordRequest{})
+	require.NoError(t, err)
+	authResp, err := anonClient.Authenticate(anonClient.Ctx(), &auth.AuthenticateRequest{
+		OneTimePassword: codeResp.Code,
+	})
+	require.NoError(t, err)
+	authToken := authResp.PachToken
+
+	// anon login via V2 - should fail
+	minioClientV2, err := minio.NewV2("127.0.0.1:30600", "", "", false)
+	require.NoError(t, err)
+	_, err = minioClientV2.ListBuckets()
+	require.YesError(t, err)
+
+	// anon login via V4 - should fail
+	minioClientV4, err := minio.NewV4("127.0.0.1:30600", "", "", false)
+	require.NoError(t, err)
+	_, err = minioClientV4.ListBuckets()
+	require.YesError(t, err)
+
+	// proper login via V2 - should succeed
+	minioClientV2, err = minio.NewV2("127.0.0.1:30600", authToken, authToken, false)
+	require.NoError(t, err)
+	_, err = minioClientV2.ListBuckets()
+	require.NoError(t, err)
+
+	// proper login via V4 - should succeed
+	minioClientV2, err = minio.NewV4("127.0.0.1:30600", authToken, authToken, false)
+	require.NoError(t, err)
+	_, err = minioClientV2.ListBuckets()
+	require.NoError(t, err)
 }
 
 // TestDeleteFailedPipeline creates a pipeline with an invalid image and then
@@ -2612,6 +2769,7 @@ func TestDeleteFailedPipeline(t *testing.T) {
 		}
 		return nil
 	})
+	deleteAll(t)
 }
 
 // TestDeletePipelineMissingRepos creates a pipeline, force-deletes its input
@@ -2661,4 +2819,67 @@ func TestDeletePipelineMissingRepos(t *testing.T) {
 		}
 		return nil
 	})
+	deleteAll(t)
+}
+
+func TestDisableGitHubAuth(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+
+	// activate auth with initial admin robot:hub
+	adminClient := getPachClient(t, admin)
+
+	// confirm config is set to default config
+	cfg, err := adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	requireConfigsEqual(t, &defaultAuthConfig, cfg.GetConfiguration())
+
+	// confirm GH auth works by default
+	_, err = adminClient.Authenticate(adminClient.Ctx(), &auth.AuthenticateRequest{
+		GitHubToken: "alice",
+	})
+	require.NoError(t, err)
+
+	// set config to no GH, confirm it gets set
+	configNoGitHub := &auth.AuthConfig{
+		LiveConfigVersion: 1,
+	}
+	_, err = adminClient.SetConfiguration(adminClient.Ctx(), &auth.SetConfigurationRequest{
+		Configuration: configNoGitHub,
+	})
+	require.NoError(t, err)
+
+	cfg, err = adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	configNoGitHub.LiveConfigVersion = 2
+	requireConfigsEqual(t, configNoGitHub, cfg.GetConfiguration())
+
+	// confirm GH auth doesn't work
+	_, err = adminClient.Authenticate(adminClient.Ctx(), &auth.AuthenticateRequest{
+		GitHubToken: "bob",
+	})
+	require.YesError(t, err)
+	require.Equal(t, "rpc error: code = Unknown desc = GitHub auth is not enabled on this cluster", err.Error())
+
+	// set conifg to allow GH auth again
+	newerDefaultAuth := defaultAuthConfig
+	newerDefaultAuth.LiveConfigVersion = 2
+	_, err = adminClient.SetConfiguration(adminClient.Ctx(), &auth.SetConfigurationRequest{
+		Configuration: &newerDefaultAuth,
+	})
+	cfg, err = adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	newerDefaultAuth.LiveConfigVersion = 3
+	requireConfigsEqual(t, &newerDefaultAuth, cfg.GetConfiguration())
+
+	// confirm GH works again
+	_, err = adminClient.Authenticate(adminClient.Ctx(), &auth.AuthenticateRequest{
+		GitHubToken: "carol",
+	})
+	require.NoError(t, err)
+
+	// clean up
+	deleteAll(t)
 }

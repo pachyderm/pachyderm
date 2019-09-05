@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tls"
 	auth "github.com/pachyderm/pachyderm/src/server/auth/server"
 	pfs "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
@@ -486,7 +486,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 		})
 		volumeMounts = append(volumeMounts, v1.VolumeMount{
 			Name:      tlsVolumeName,
-			MountPath: grpcutil.TLSVolumePath,
+			MountPath: tls.VolumePath,
 		})
 	}
 	resourceRequirements := v1.ResourceRequirements{
@@ -1456,8 +1456,8 @@ func WriteTLSSecret(encoder Encoder, opts *AssetOpts) error {
 		},
 		ObjectMeta: objectMeta(tlsSecretName, labels(tlsSecretName), nil, opts.Namespace),
 		Data: map[string][]byte{
-			grpcutil.TLSCertFile: certBytes,
-			grpcutil.TLSKeyFile:  keyBytes,
+			tls.CertFile: certBytes,
+			tls.KeyFile:  keyBytes,
 		},
 	}
 	return encoder.Encode(secret)

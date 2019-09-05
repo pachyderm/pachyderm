@@ -27,6 +27,7 @@ import (
 	_metrics "github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 
 	"github.com/ghodss/yaml"
+	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
 )
 
@@ -139,22 +140,28 @@ func contextCreate(contextPrefix string) error {
 		return err
 	}
 
-	contextName := contextPrefix
-	for i := 0; i < 10000; i++ {
-		if i > 0 {
-			contextName = fmt.Sprintf("%s-%d", contextPrefix, i)
-		}
-		if _, ok := cfg.V2.Contexts[contextName]; !ok {
-			break
-		}
-	}
-
-	cfg.V2.Contexts[contextName] = &config.Context{
+	newContext := &config.Context{
 		Source: config.ContextSource_NONE,
 	}
-	cfg.V2.ActiveContext = contextName
 
-	return cfg.Write()
+	_, activeContext, err := cfg.ActiveContext()
+	if err != nil || !proto.Equal(newContext, activeContext) {
+		newContextName := contextPrefix
+		for i := 0; i < 10000; i++ {
+			if i > 0 {
+				newContextName = fmt.Sprintf("%s-%d", contextPrefix, i)
+			}
+			if _, ok := cfg.V2.Contexts[newContextName]; !ok {
+				break
+			}
+		}
+
+		cfg.V2.Contexts[newContextName] = newContext
+		cfg.V2.ActiveContext = newContextName
+		return cfg.Write()
+	}
+
+	return nil
 }
 
 // containsEmpty is a helper function used for validation (particularly for

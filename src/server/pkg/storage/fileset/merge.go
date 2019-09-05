@@ -3,7 +3,6 @@ package fileset
 import (
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
@@ -14,7 +13,10 @@ type stream interface {
 	key() string
 }
 
-type mergeFunc func([]stream, ...string) error
+// mergeFunc is a function that merges one or more streams.
+// ss is the set of streams that are at the same key in the merge process.
+// next is the next key that will be merged.
+type mergeFunc func(ss []stream, next ...string) error
 
 type fileStream struct {
 	r   *Reader
@@ -132,7 +134,7 @@ func (mq *mergePriorityQueue) insert(s stream) error {
 	// Propagate insert up the queue
 	i := mq.size
 	for i > 1 {
-		if strings.Compare(mq.key(i/2), mq.key(i)) <= 0 {
+		if mq.key(i/2) <= mq.key(i) {
 			break
 		}
 		mq.swap(i/2, i)
@@ -145,7 +147,7 @@ func (mq *mergePriorityQueue) next() []stream {
 	ss := []stream{mq.queue[1]}
 	mq.fill()
 	// Keep popping streams off the queue if they have the same key.
-	for mq.queue[1] != nil && strings.Compare(mq.key(1), ss[0].key()) == 0 {
+	for mq.queue[1] != nil && mq.key(1) == ss[0].key() {
 		ss = append(ss, mq.queue[1])
 		mq.fill()
 	}
@@ -168,12 +170,12 @@ func (mq *mergePriorityQueue) fill() {
 		left, right := i*2, i*2+1
 		if left > mq.size {
 			break
-		} else if right > mq.size || strings.Compare(mq.key(left), mq.key(right)) <= 0 {
+		} else if right > mq.size || mq.key(left) <= mq.key(right) {
 			next = left
 		} else {
 			next = right
 		}
-		if strings.Compare(mq.key(i), mq.key(next)) <= 0 {
+		if mq.key(i) <= mq.key(next) {
 			break
 		}
 		mq.swap(i, next)

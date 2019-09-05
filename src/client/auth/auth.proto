@@ -92,6 +92,11 @@ message IDProvider {
     string group_attribute = 3;
   }
   SAMLOptions saml = 3 [(gogoproto.customname) = "SAML"];
+
+  // GitHubOptions is an empty protobuf message whose presence in the IDProvider
+  // of an AuthConfig indicates that GitHub auth should be enabled.
+  message GitHubOptions{}
+  GitHubOptions github = 4 [(gogoproto.customname) = "GitHub"];
 }
 
 // Configure Pachyderm's auth system (particularly authentication backends

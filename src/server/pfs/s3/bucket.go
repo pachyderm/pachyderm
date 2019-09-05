@@ -6,13 +6,13 @@ import (
 	"strings"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/ohmyglob"
-	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/gorilla/mux"
+	glob "github.com/pachyderm/ohmyglob"
 	pfsClient "github.com/pachyderm/pachyderm/src/client/pfs"
 	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/s2"
-	"github.com/sirupsen/logrus"
 )
 
 func newContents(fileInfo *pfsClient.FileInfo) (s2.Contents, error) {
@@ -26,7 +26,7 @@ func newContents(fileInfo *pfsClient.FileInfo) (s2.Contents, error) {
 		LastModified: t,
 		ETag:         fmt.Sprintf("%x", fileInfo.Hash),
 		Size:         fileInfo.SizeBytes,
-		StorageClass: storageClass,
+		StorageClass: globalStorageClass,
 		Owner:        defaultUser,
 	}, nil
 }
@@ -38,55 +38,64 @@ func newCommonPrefixes(dir string) s2.CommonPrefixes {
 	}
 }
 
-type bucketController struct {
-	pc     *client.APIClient
-	logger *logrus.Entry
-}
-
-func (c bucketController) GetLocation(r *http.Request, bucket string, result *s2.LocationConstraint) error {
+func (c controller) GetLocation(r *http.Request, bucket string) (string, error) {
+	vars := mux.Vars(r)
+	pc, err := c.pachClient(vars["authAccessKey"])
+	if err != nil {
+		return "", err
+	}
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	_, err = c.pc.InspectBranch(repo, branch)
+	_, err = pc.InspectBranch(repo, branch)
 	if err != nil {
-		return maybeNotFoundError(r, err)
+		return "", maybeNotFoundError(r, err)
 	}
 
-	result.Location = "PACHYDERM"
-	return nil
+	return globalLocation, nil
 }
 
-func (c bucketController) List(r *http.Request, bucket string, result *s2.ListBucketResult) error {
+func (c controller) ListObjects(r *http.Request, bucket, prefix, marker, delimiter string, maxKeys int) (*s2.ListObjectsResult, error) {
+	vars := mux.Vars(r)
+	pc, err := c.pachClient(vars["authAccessKey"])
+	if err != nil {
+		return nil, err
+	}
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if result.Delimiter != "" && result.Delimiter != "/" {
-		return invalidDelimiterError(r)
+	if delimiter != "" && delimiter != "/" {
+		return nil, invalidDelimiterError(r)
+	}
+
+	result := s2.ListObjectsResult{
+		Contents:       []s2.Contents{},
+		CommonPrefixes: []s2.CommonPrefixes{},
 	}
 
 	// ensure the branch exists and has a head
-	branchInfo, err := c.pc.InspectBranch(repo, branch)
+	branchInfo, err := pc.InspectBranch(repo, branch)
 	if err != nil {
-		return maybeNotFoundError(r, err)
+		return nil, maybeNotFoundError(r, err)
 	}
 	if branchInfo.Head == nil {
 		// if there's no head commit, just print an empty list of files
-		return nil
+		return &result, nil
 	}
 
-	recursive := result.Delimiter == ""
+	recursive := delimiter == ""
 	var pattern string
 	if recursive {
-		pattern = fmt.Sprintf("%s**", glob.QuoteMeta(result.Prefix))
+		pattern = fmt.Sprintf("%s**", glob.QuoteMeta(prefix))
 	} else {
-		pattern = fmt.Sprintf("%s*", glob.QuoteMeta(result.Prefix))
+		pattern = fmt.Sprintf("%s*", glob.QuoteMeta(prefix))
 	}
 
-	if err = c.pc.GlobFileF(repo, branch, pattern, func(fileInfo *pfsClient.FileInfo) error {
+	err = pc.GlobFileF(repo, branch, pattern, func(fileInfo *pfsClient.FileInfo) error {
 		if fileInfo.FileType == pfsClient.FileType_DIR {
 			if fileInfo.File.Path == "/" {
 				// skip the root directory
@@ -103,68 +112,54 @@ func (c bucketController) List(r *http.Request, bucket string, result *s2.ListBu
 
 		fileInfo.File.Path = fileInfo.File.Path[1:] // strip leading slash
 
-		if !strings.HasPrefix(fileInfo.File.Path, result.Prefix) {
+		if !strings.HasPrefix(fileInfo.File.Path, prefix) {
 			return nil
 		}
-		if fileInfo.File.Path <= result.Marker {
+		if fileInfo.File.Path <= marker {
 			return nil
 		}
 
-		if result.IsFull() {
-			if result.MaxKeys > 0 {
+		if len(result.Contents)+len(result.CommonPrefixes) >= maxKeys {
+			if maxKeys > 0 {
 				result.IsTruncated = true
 			}
 			return errutil.ErrBreak
 		}
 		if fileInfo.FileType == pfsClient.FileType_FILE {
-			contents, err := newContents(fileInfo)
+			c, err := newContents(fileInfo)
 			if err != nil {
 				return err
 			}
 
-			result.Contents = append(result.Contents, contents)
+			result.Contents = append(result.Contents, c)
 		} else {
 			result.CommonPrefixes = append(result.CommonPrefixes, newCommonPrefixes(fileInfo.File.Path))
 		}
 
 		return nil
-	}); err != nil {
-		return s2.InternalError(r, err)
-	}
+	})
 
-	if result.IsTruncated {
-		if len(result.Contents) > 0 && len(result.CommonPrefixes) == 0 {
-			result.NextMarker = result.Contents[len(result.Contents)-1].Key
-		} else if len(result.Contents) == 0 && len(result.CommonPrefixes) > 0 {
-			result.NextMarker = result.CommonPrefixes[len(result.CommonPrefixes)-1].Prefix
-		} else if len(result.Contents) > 0 && len(result.CommonPrefixes) > 0 {
-			lastContents := result.Contents[len(result.Contents)-1].Key
-			lastCommonPrefixes := result.CommonPrefixes[len(result.CommonPrefixes)-1].Prefix
-
-			if lastContents > lastCommonPrefixes {
-				result.NextMarker = lastContents
-			} else {
-				result.NextMarker = lastCommonPrefixes
-			}
-		}
-	}
-
-	return nil
+	return &result, err
 }
 
-func (c bucketController) Create(r *http.Request, bucket string) error {
+func (c controller) CreateBucket(r *http.Request, bucket string) error {
+	vars := mux.Vars(r)
+	pc, err := c.pachClient(vars["authAccessKey"])
+	if err != nil {
+		return err
+	}
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
 		return err
 	}
 
-	err = c.pc.CreateRepo(repo)
+	err = pc.CreateRepo(repo)
 	if err != nil {
 		if errutil.IsAlreadyExistError(err) {
 			// Bucket already exists - this is not an error so long as the
 			// branch being created is new. Verify if that is the case now,
 			// since PFS' `CreateBranch` won't error out.
-			_, err := c.pc.InspectBranch(repo, branch)
+			_, err := pc.InspectBranch(repo, branch)
 			if err != nil {
 				if !pfsServer.IsBranchNotFoundErr(err) {
 					return s2.InternalError(r, err)
@@ -172,20 +167,30 @@ func (c bucketController) Create(r *http.Request, bucket string) error {
 			} else {
 				return s2.BucketAlreadyOwnedByYouError(r)
 			}
+		} else if ancestry.IsInvalidNameError(err) {
+			return s2.InvalidBucketNameError(r)
 		} else {
 			return s2.InternalError(r, err)
 		}
 	}
 
-	err = c.pc.CreateBranch(repo, branch, "", nil)
+	err = pc.CreateBranch(repo, branch, "", nil)
 	if err != nil {
+		if ancestry.IsInvalidNameError(err) {
+			return s2.InvalidBucketNameError(r)
+		}
 		return s2.InternalError(r, err)
 	}
 
 	return nil
 }
 
-func (c bucketController) Delete(r *http.Request, bucket string) error {
+func (c controller) DeleteBucket(r *http.Request, bucket string) error {
+	vars := mux.Vars(r)
+	pc, err := c.pachClient(vars["authAccessKey"])
+	if err != nil {
+		return err
+	}
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
 		return err
@@ -194,14 +199,14 @@ func (c bucketController) Delete(r *http.Request, bucket string) error {
 	// `DeleteBranch` does not return an error if a non-existing branch is
 	// deleting. So first, we verify that the branch exists so we can
 	// otherwise return a 404.
-	branchInfo, err := c.pc.InspectBranch(repo, branch)
+	branchInfo, err := pc.InspectBranch(repo, branch)
 	if err != nil {
 		return maybeNotFoundError(r, err)
 	}
 
 	if branchInfo.Head != nil {
 		hasFiles := false
-		err = c.pc.Walk(branchInfo.Branch.Repo.Name, branchInfo.Head.ID, "", func(fileInfo *pfsClient.FileInfo) error {
+		err = pc.Walk(branchInfo.Branch.Repo.Name, branchInfo.Head.ID, "", func(fileInfo *pfsClient.FileInfo) error {
 			if fileInfo.FileType == pfsClient.FileType_FILE {
 				hasFiles = true
 				return errutil.ErrBreak
@@ -217,23 +222,35 @@ func (c bucketController) Delete(r *http.Request, bucket string) error {
 		}
 	}
 
-	err = c.pc.DeleteBranch(repo, branch, false)
+	err = pc.DeleteBranch(repo, branch, false)
 	if err != nil {
 		return s2.InternalError(r, err)
 	}
 
-	repoInfo, err := c.pc.InspectRepo(repo)
+	repoInfo, err := pc.InspectRepo(repo)
 	if err != nil {
 		return s2.InternalError(r, err)
 	}
 
 	// delete the repo if this was the last branch
 	if len(repoInfo.Branches) == 0 {
-		err = c.pc.DeleteRepo(repo, false)
+		err = pc.DeleteRepo(repo, false)
 		if err != nil {
 			return s2.InternalError(r, err)
 		}
 	}
 
 	return nil
+}
+
+func (c *controller) ListObjectVersions(r *http.Request, repo, prefix, keyMarker, versionIDMarker string, delimiter string, maxKeys int) (*s2.ListObjectVersionsResult, error) {
+	return nil, s2.NotImplementedError(r)
+}
+
+func (c *controller) GetBucketVersioning(r *http.Request, repo string) (string, error) {
+	return s2.VersioningEnabled, nil
+}
+
+func (c *controller) SetBucketVersioning(r *http.Request, repo, status string) error {
+	return s2.NotImplementedError(r)
 }

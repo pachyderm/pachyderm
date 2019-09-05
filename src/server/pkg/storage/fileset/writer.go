@@ -75,7 +75,7 @@ func (w *Writer) WriteHeader(hdr *index.Header) error {
 		return err
 	}
 	// Setup first tag for header.
-	w.hdr.Idx.DataOp.Tags = []*index.Tag{&index.Tag{Id: headerTag, SizeBytes: w.cw.AnnotationSize()}}
+	w.hdr.Idx.DataOp.Tags = []*index.Tag{&index.Tag{Id: headerTag, SizeBytes: w.cw.AnnotatedBytesSize()}}
 	return nil
 }
 
@@ -127,12 +127,12 @@ func (w *Writer) CopyTags(r *Reader, tagBound ...string) error {
 }
 
 func (w *Writer) writeCopyTags(c *copyTags) error {
-	beforeSize := w.cw.AnnotationSize()
+	beforeSize := w.cw.AnnotatedBytesSize()
 	if err := w.cw.WriteCopy(c.content); err != nil {
 		return err
 	}
 	w.hdr.Idx.DataOp.Tags = append(w.hdr.Idx.DataOp.Tags, c.tags...)
-	return w.tw.Skip(w.cw.AnnotationSize() - beforeSize)
+	return w.tw.Skip(w.cw.AnnotatedBytesSize() - beforeSize)
 }
 
 // CopyFiles does a cheap copy of files from a reader to a writer.

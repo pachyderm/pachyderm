@@ -23,6 +23,8 @@ const (
 	bufSize = 50 * MB
 )
 
+// initialWindow is the set of bytes used to initialize the window
+// of the rolling hash function.
 var initialWindow = make([]byte, WindowSize)
 
 // WriterFunc is a callback that returns a data reference to the next chunk and the annotations within the chunk.
@@ -239,8 +241,8 @@ func (w *worker) executeFuncs() error {
 }
 
 type stats struct {
-	chunkCount     int64
-	annotationSize int64
+	chunkCount         int64
+	annotatedBytesSize int64
 }
 
 // Writer splits a byte stream into content defined chunks that are hashed and deduplicated/uploaded to object storage.
@@ -295,12 +297,12 @@ func (w *Writer) Annotate(a *Annotation) {
 		w.annotations = nil
 	}
 	w.annotations = append(w.annotations, a)
-	w.stats.annotationSize = 0
+	w.stats.annotatedBytesSize = 0
 }
 
-// AnnotationSize returns the size of the current annotation.
-func (w *Writer) AnnotationSize() int64 {
-	return w.stats.annotationSize
+// AnnotatedBytesSize returns the size of the bytes for the current annotation.
+func (w *Writer) AnnotatedBytesSize() int64 {
+	return w.stats.annotatedBytesSize
 }
 
 // Flush flushes the buffered data.
@@ -323,7 +325,7 @@ func (w *Writer) Reset() {
 	// (bryce) should cancel all workers.
 	w.buf = &bytes.Buffer{}
 	w.annotations = nil
-	w.stats.annotationSize = 0
+	w.stats.annotatedBytesSize = 0
 }
 
 // ChunkCount returns a count of the number of chunks created/referenced by
@@ -346,7 +348,7 @@ func (w *Writer) Write(data []byte) (int, error) {
 	}
 	w.buf.Write(data)
 	written += len(data)
-	w.stats.annotationSize += int64(written)
+	w.stats.annotatedBytesSize += int64(written)
 	return written, nil
 }
 
@@ -387,7 +389,7 @@ func (w *Writer) WriteCopy(c *Copy) error {
 	for _, chunkRef := range c.chunkRefs {
 		w.stats.chunkCount++
 		// (bryce) might want to double check if this is correct.
-		w.stats.annotationSize += chunkRef.SizeBytes
+		w.stats.annotatedBytesSize += chunkRef.SizeBytes
 		updateAnnotations(chunkRef, nil, w.annotations)
 		if err := w.f(chunkRef, w.annotations); err != nil {
 			return err
