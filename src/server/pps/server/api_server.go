@@ -2603,6 +2603,15 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	key := path.Join
 	requestProv := make(map[string]*pfs.CommitProvenance)
 	for _, prov := range request.Provenance {
+		if prov == nil {
+			return nil, fmt.Errorf("request should not contain nil provenance")
+		}
+		if prov.Branch == nil {
+			return nil, fmt.Errorf("request provenance cannot have a nil branch")
+		}
+		if prov.Branch.Repo == nil {
+			return nil, fmt.Errorf("request provenance branch must have a non nil repo")
+		}
 		requestProv[key(prov.Branch.Repo.Name, prov.Branch.Name)] = prov
 	}
 	for _, branchProv := range append(branch.Provenance, branch.Branch) {
