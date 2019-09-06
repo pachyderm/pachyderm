@@ -573,3 +573,42 @@ func TestExtractRestoreDeferredProcessing(t *testing.T) {
 	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 }
+
+func TestExtractRestoreStats(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestExtractRestoreStats_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	_, err := c.PutFile(dataRepo, "master", "file", strings.NewReader("file"))
+	require.NoError(t, err)
+
+	pipeline := tu.UniqueString("TestExtractRestoreStats")
+	_, err = c.PpsAPIClient.CreatePipeline(
+		c.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					"echo foo",
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+				},
+			},
+			Input:       client.NewPFSInput(dataRepo, "/*"),
+			EnableStats: true,
+		})
+
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+
+	ops, err := c.ExtractAll(false)
+	require.NoError(t, err)
+	require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.Restore(ops))
+}
