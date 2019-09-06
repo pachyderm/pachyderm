@@ -11,7 +11,6 @@ func KubeConfig(context *Context) clientcmd.ClientConfig {
 
 	overrides := &clientcmd.ConfigOverrides{}
 	if context != nil {
-		overrides.CurrentContext = "pachyderm"
 		overrides.Context = api.Context{
 			LocationOfOrigin: "pachyderm",
 			Cluster:          context.ClusterName,
