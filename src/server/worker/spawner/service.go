@@ -28,45 +28,31 @@ func forLatestCommit(
 	pipelineInfo *pps.PipelineInfo,
 	cb func(context.Context, *pfs.CommitInfo) error,
 ) error {
-	ctx := pachClient.Ctx()
+	// These are used to cancel the existing service and wait for it to finish
+	var cancel func()
+	var eg *errgroup.Group
 
-	commitIter, err := pachClient.SubscribeCommit(pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch, "", pfs.CommitState_READY)
-	if err != nil {
-		return err
-	}
+	return pachClient.SubscribeCommitF(
+		pipelineInfo.Pipeline.Name,
+		pipelineInfo.OutputBranch,
+		"",
+		pfs.CommitState_READY,
+		func(ci *pfs.CommitInfo) error {
+			if cancel != nil {
+				cancel()
+				if err := eg.Wait(); err != nil {
+					return err
+				}
+			}
 
-	var serviceCtx context.Context
-	var serviceCancel func()
+			var ctx context.Context
+			ctx, cancel = context.WithCancel(pachClient.Ctx())
+			eg, ctx = errgroup.WithContext(ctx)
+			eg.Go(func() error { return cb(ctx, ci) })
 
-	itemChan := make(chan serviceItem)
-
-	cancel := func() {
-		close(itemChan)
-		if serviceCancel != nil {
-			serviceCancel()
-		}
-	}
-
-	defer cancel()
-
-	// Run the callback in a single goroutine so we can ensure it runs in order
-	// and non-concurrently with itself.
-	go func() {
-		for item := range itemChan {
-			cb(item.serviceCtx, item.commitInfo)
-		}
-	}()
-
-	for {
-		if commitInfo, err := commitIter.Next(); err != nil {
-			return err
-		} else if commitInfo.Finished == nil {
-			// TODO: all wrong
-			cancel()
-			serviceCtx, serviceCancel = context.WithCancel(ctx)
-			itemChan <- serviceItem{serviceCtx, commitInfo}
-		}
-	}
+			return nil
+		},
+	)
 }
 
 func runService(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, logger logs.TaggedLogger, driver driver.Driver) error {
