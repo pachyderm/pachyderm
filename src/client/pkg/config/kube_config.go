@@ -2,23 +2,23 @@ package config
 
 import (
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/clientcmd/api"
 )
 
 // KubeConfig gets the kubernetes config
-func KubeConfig() clientcmd.ClientConfig {
+func KubeConfig(context *Context) clientcmd.ClientConfig {
 	rules := clientcmd.NewDefaultClientConfigLoadingRules()
-	overrides := &clientcmd.ConfigOverrides{}
-	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, overrides)
-}
 
-// KubeNamespace gets the default namespace for the active context
-func KubeNamespace(kubeConfig clientcmd.ClientConfig) (string, error) {
-	namespace, _, err := kubeConfig.Namespace()
-	if err != nil {
-		return "", err
+	overrides := &clientcmd.ConfigOverrides{}
+	if context != nil {
+		overrides.CurrentContext = "pachyderm"
+		overrides.Context = api.Context{
+			LocationOfOrigin: "pachyderm",
+			Cluster:          context.ClusterName,
+			AuthInfo:         context.AuthInfo,
+			Namespace:        context.Namespace,
+		}
 	}
-	if namespace == "" {
-		return "default", nil
-	}
-	return namespace, nil
+
+	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, overrides)
 }

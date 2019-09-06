@@ -75,6 +75,15 @@ message Context {
     // This can be set or cleared via many of the `pachctl * transaction` commands.
     // This is the ID of the transaction object stored in the pachyderm etcd.
     string active_transaction = 5;
+
+    // The k8s cluster name - used to construct a k8s context
+    string cluster_name = 6;
+
+    // The k8s auth info - used to construct a k8s context
+    string auth_info = 7;
+
+    // The k8s namespace - used to construct a k8s context
+    string namespace = 8;
 }
 
 enum ContextSource {
