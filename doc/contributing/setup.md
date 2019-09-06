@@ -1,4 +1,4 @@
-# Setup For contributors
+# Setup for contributors
 
 ## General requirements
 
@@ -27,7 +27,7 @@ And you'll stay up to date!
 
 ## Special macOS configuration
 
-### File Descriptor Limit
+### File descriptor limit
 
 If you're running tests locally, you'll need to up your file descriptor limit. To do this, first setup a LaunchDaemon to up the limit with sudo privileges:
 
