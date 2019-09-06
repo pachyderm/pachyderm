@@ -9,25 +9,6 @@ First, go through the general local installation instructions [here](http://docs
 - [jq](https://stedolan.github.io/jq/)
 - [pv](http://ivarch.com/programs/pv.shtml)
 
-## Testing
-
-In order to run some tests locally, you will need the AWS CLI installed and
-configured to access Pachyderm S3 buckets.  In order to set this up:
-
-1. Message an owner of the Pachyderm AWS account (@jdoliner) to get AWS credentials
-2. Get back a login link and initial username/password - log in
-3. Configure your own password
-4. Go to your account settings => My Security Credentials
-5. In "Access keys for CLI [...]", click "Create Access Key"
-6. On the command-line, run `sudo apt install awscli` (or equivalent for your platform)
-7. Run `aws configure` and fill in these fields:
-  * `AWS Access Key ID` - the ID for the new Access Key you created
-  * `AWS Secret Access Key` - the secret for the new Access Key you created
-  * `Default region name` - `us-west-1` might be a good choice
-  * `Default output format` - `json` because why not?
-8. Test that you can access a Pachyderm S3 bucket:
-  * `aws s3 ls s3://pachyderm-engineering/`
-
 ## Bash helpers
 
 To stay up to date, we recommend doing the following.
