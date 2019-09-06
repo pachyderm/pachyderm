@@ -69,7 +69,7 @@ And then make sure to prepend the following to your path:
 
 Now launch the dev cluster: `make launch-dev-vm`.
 
-And check it's status: `kubectl get all`
+And check it's status: `kubectl get all`.
 
 ## pachctl
 
@@ -80,3 +80,24 @@ This will install the dev version of `pachctl`:
     pachctl version
 
 And make sure that `$GOPATH/bin` is on your `$PATH` somewhere
+
+## Fully resetting
+
+Instead of running the makefile targets to re-compile `pachctl` and redeploy
+a dev cluster, we have a script that you can use to fully reset your pachyderm
+environment:
+
+1) All existing cluster data is deleted
+2) If possible, the virtual machine that the cluster is running on is wiped
+out
+3) `pachctl` is recompiled
+4) The dev cluster is re-deployed
+
+This reset is a bit more time consuming than running one-off Makefile targets,
+but comprehensively ensures that the cluster is in its expected state, and is
+especially helpful when you're first getting started with contributions and
+don't yet have a complete intuition on the various ways a cluster may get in
+an unexpected state. It's been tested on docker for mac and minikube, but
+likely works in other kubernetes environments as well.
+
+To run it, simply call `./etc/reset.py` from the pachyderm repo root.
