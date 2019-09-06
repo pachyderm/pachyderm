@@ -40,7 +40,7 @@ func forLatestCommit(
 		func(ci *pfs.CommitInfo) error {
 			if cancel != nil {
 				cancel()
-				if err := eg.Wait(); err != nil {
+				if err := eg.Wait(); err != nil && err != context.Canceled {
 					return err
 				}
 			}

@@ -308,7 +308,7 @@ func (d *driver) WithData(
 		}
 	}()
 	// It's important that we run puller.CleanUp before os.RemoveAll,
-	// because otherwise puller.Cleanup might try tp open pipes that have
+	// because otherwise puller.Cleanup might try to open pipes that have
 	// been deleted.
 	defer func() {
 		if _, err := puller.CleanUp(); err != nil && retErr == nil {
@@ -350,6 +350,7 @@ func (d *driver) WithData(
 	// the output might be invalid since as far as the user's code is
 	// concerned, they might've just seen an empty or partially completed
 	// file.
+	// TODO: do we really need two puller.CleanUps?
 	downSize, err := puller.CleanUp()
 	if err != nil {
 		logger.Logf("puller encountered an error while cleaning up: %+v", err)
