@@ -44,6 +44,8 @@ type TaggedLogger interface {
 	WithData(data []*common.Input) TaggedLogger
 	WithUserCode() TaggedLogger
 
+	JobID() string
+
 	// Close will flush any writes to object storage and return information about
 	// where log statements were stored in object storage.
 	Close() (*pfs.Object, int64, error)
@@ -51,7 +53,7 @@ type TaggedLogger interface {
 
 type taggedLogger struct {
 	template  pps.LogMessage
-	stderrLog log.Logger
+	stderrLog *log.Logger
 	marshaler *jsonpb.Marshaler
 
 	// Used for mirroring log statements to object storage
@@ -63,20 +65,15 @@ type taggedLogger struct {
 }
 
 func newLogger(pipelineInfo *pps.PipelineInfo) *taggedLogger {
-	result := &taggedLogger{
+	return &taggedLogger{
 		template: pps.LogMessage{
 			PipelineName: pipelineInfo.Pipeline.Name,
 			WorkerID:     os.Getenv(client.PPSPodNameEnv),
 		},
-		// TODO: use log.New
-		stderrLog: log.Logger{},
+		stderrLog: log.New(os.Stderr, "", log.LstdFlags|log.Llongfile),
 		marshaler: &jsonpb.Marshaler{},
 		msgCh:     make(chan string, logBuffer),
 	}
-	result.stderrLog.SetOutput(os.Stderr)
-	result.stderrLog.SetFlags(log.LstdFlags | log.Llongfile) // Log file/line
-
-	return result
 }
 
 // NewLogger constructs a TaggedLogger for the given pipeline, optionally
@@ -170,9 +167,8 @@ func (logger *taggedLogger) WithUserCode() TaggedLogger {
 
 func (logger *taggedLogger) clone() *taggedLogger {
 	return &taggedLogger{
-		template: logger.template, // Copy struct
-		// TODO: copy logger's stderrLog (should be goro-safe)
-		stderrLog:    log.Logger{},
+		template:     logger.template,  // Copy struct
+		stderrLog:    logger.stderrLog, // logger should be goroutine-safe
 		marshaler:    &jsonpb.Marshaler{},
 		putObjClient: logger.putObjClient,
 		msgCh:        logger.msgCh,
@@ -200,6 +196,11 @@ func (logger *taggedLogger) Logf(formatString string, args ...interface{}) {
 	if logger.putObjClient != nil {
 		logger.msgCh <- msg + "\n"
 	}
+}
+
+// JobID returns the current job that the logger is configured with.
+func (logger *taggedLogger) JobID() string {
+	return logger.template.JobID
 }
 
 // Errf writes the given line to the stderr of the worker process.  This does

@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -8,6 +9,16 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 )
+
+// IsDone returns true if the given context has been canceled, or false otherwise
+func IsDone(ctx context.Context) bool {
+	select {
+	case <-ctx.Done():
+		return true
+	default:
+		return false
+	}
+}
 
 // DatumID computes the id for a datum, this value is used in ListDatum and
 // InspectDatum.

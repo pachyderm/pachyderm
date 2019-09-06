@@ -1,4 +1,4 @@
-package worker
+package datum
 
 import (
 	"fmt"
@@ -11,19 +11,19 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 )
 
-// DatumFactory is an interface which allows you to iterate through the datums
+// Factory is an interface which allows you to iterate through the datums
 // for a job.
-type DatumFactory interface {
+type Factory interface {
 	Len() int
 	Datum(i int) []*common.Input
 }
 
-type pfsDatumFactory struct {
+type pfsFactory struct {
 	inputs []*common.Input
 }
 
-func newPFSDatumFactory(pachClient *client.APIClient, input *pps.PFSInput) (DatumFactory, error) {
-	result := &pfsDatumFactory{}
+func newPFSFactory(pachClient *client.APIClient, input *pps.PFSInput) (Factory, error) {
+	result := &pfsFactory{}
 	if input.Commit == "" {
 		// this can happen if a pipeline with multiple inputs has been triggered
 		// before all commits have inputs
@@ -65,22 +65,22 @@ func newPFSDatumFactory(pachClient *client.APIClient, input *pps.PFSInput) (Datu
 	return result, nil
 }
 
-func (d *pfsDatumFactory) Len() int {
+func (d *pfsFactory) Len() int {
 	return len(d.inputs)
 }
 
-func (d *pfsDatumFactory) Datum(i int) []*common.Input {
+func (d *pfsFactory) Datum(i int) []*common.Input {
 	return []*common.Input{d.inputs[i]}
 }
 
-type unionDatumFactory struct {
-	inputs []DatumFactory
+type unionFactory struct {
+	inputs []Factory
 }
 
-func newUnionDatumFactory(pachClient *client.APIClient, union []*pps.Input) (DatumFactory, error) {
-	result := &unionDatumFactory{}
+func newUnionFactory(pachClient *client.APIClient, union []*pps.Input) (Factory, error) {
+	result := &unionFactory{}
 	for _, input := range union {
-		datumFactory, err := NewDatumFactory(pachClient, input)
+		datumFactory, err := NewFactory(pachClient, input)
 		if err != nil {
 			return nil, err
 		}
@@ -89,7 +89,7 @@ func newUnionDatumFactory(pachClient *client.APIClient, union []*pps.Input) (Dat
 	return result, nil
 }
 
-func (d *unionDatumFactory) Len() int {
+func (d *unionFactory) Len() int {
 	result := 0
 	for _, datumFactory := range d.inputs {
 		result += datumFactory.Len()
@@ -97,7 +97,7 @@ func (d *unionDatumFactory) Len() int {
 	return result
 }
 
-func (d *unionDatumFactory) Datum(i int) []*common.Input {
+func (d *unionFactory) Datum(i int) []*common.Input {
 	for _, datumFactory := range d.inputs {
 		if i < datumFactory.Len() {
 			return datumFactory.Datum(i)
@@ -107,11 +107,11 @@ func (d *unionDatumFactory) Datum(i int) []*common.Input {
 	panic("index out of bounds")
 }
 
-type crossDatumFactory struct {
-	inputs []DatumFactory
+type crossFactory struct {
+	inputs []Factory
 }
 
-func (d *crossDatumFactory) Len() int {
+func (d *crossFactory) Len() int {
 	if len(d.inputs) == 0 {
 		return 0
 	}
@@ -122,7 +122,7 @@ func (d *crossDatumFactory) Len() int {
 	return result
 }
 
-func (d *crossDatumFactory) Datum(i int) []*common.Input {
+func (d *crossFactory) Datum(i int) []*common.Input {
 	if i >= d.Len() {
 		panic("index out of bounds")
 	}
@@ -135,12 +135,12 @@ func (d *crossDatumFactory) Datum(i int) []*common.Input {
 	return result
 }
 
-type gitDatumFactory struct {
+type gitFactory struct {
 	inputs []*common.Input
 }
 
-func newGitDatumFactory(pachClient *client.APIClient, input *pps.GitInput) (DatumFactory, error) {
-	result := &gitDatumFactory{}
+func newGitFactory(pachClient *client.APIClient, input *pps.GitInput) (Factory, error) {
+	result := &gitFactory{}
 	if input.Commit == "" {
 		// this can happen if a pipeline with multiple inputs has been triggered
 		// before all commits have inputs
@@ -162,18 +162,18 @@ func newGitDatumFactory(pachClient *client.APIClient, input *pps.GitInput) (Datu
 	return result, nil
 }
 
-func (d *gitDatumFactory) Len() int {
+func (d *gitFactory) Len() int {
 	return len(d.inputs)
 }
 
-func (d *gitDatumFactory) Datum(i int) []*common.Input {
+func (d *gitFactory) Datum(i int) []*common.Input {
 	return []*common.Input{d.inputs[i]}
 }
 
-func newCrossDatumFactory(pachClient *client.APIClient, cross []*pps.Input) (DatumFactory, error) {
-	result := &crossDatumFactory{}
+func newCrossFactory(pachClient *client.APIClient, cross []*pps.Input) (Factory, error) {
+	result := &crossFactory{}
 	for _, input := range cross {
-		datumFactory, err := NewDatumFactory(pachClient, input)
+		datumFactory, err := NewFactory(pachClient, input)
 		if err != nil {
 			return nil, err
 		}
@@ -182,8 +182,8 @@ func newCrossDatumFactory(pachClient *client.APIClient, cross []*pps.Input) (Dat
 	return result, nil
 }
 
-func newCronDatumFactory(pachClient *client.APIClient, input *pps.CronInput) (DatumFactory, error) {
-	return newPFSDatumFactory(pachClient, &pps.PFSInput{
+func newCronFactory(pachClient *client.APIClient, input *pps.CronInput) (Factory, error) {
+	return newPFSFactory(pachClient, &pps.PFSInput{
 		Name:   input.Name,
 		Repo:   input.Repo,
 		Branch: "master",
@@ -192,19 +192,19 @@ func newCronDatumFactory(pachClient *client.APIClient, input *pps.CronInput) (Da
 	})
 }
 
-// NewDatumFactory creates a datumFactory for an input.
-func NewDatumFactory(pachClient *client.APIClient, input *pps.Input) (DatumFactory, error) {
+// NewFactory creates a datumFactory for an input.
+func NewFactory(pachClient *client.APIClient, input *pps.Input) (Factory, error) {
 	switch {
 	case input.Pfs != nil:
-		return newPFSDatumFactory(pachClient, input.Pfs)
+		return newPFSFactory(pachClient, input.Pfs)
 	case input.Union != nil:
-		return newUnionDatumFactory(pachClient, input.Union)
+		return newUnionFactory(pachClient, input.Union)
 	case input.Cross != nil:
-		return newCrossDatumFactory(pachClient, input.Cross)
+		return newCrossFactory(pachClient, input.Cross)
 	case input.Cron != nil:
-		return newCronDatumFactory(pachClient, input.Cron)
+		return newCronFactory(pachClient, input.Cron)
 	case input.Git != nil:
-		return newGitDatumFactory(pachClient, input.Git)
+		return newGitFactory(pachClient, input.Git)
 	}
 	return nil, fmt.Errorf("unrecognized input type")
 }
