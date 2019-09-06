@@ -166,53 +166,66 @@ func benchmarkDatumIterators(j int, b *testing.B) {
 		pfs2, err := NewDatumIterator(c, in2)
 		require.NoError(b, err)
 
-		in3 := client.NewUnionInput(in1, in2)
-		union1, err := NewDatumIterator(c, in3)
-		require.NoError(b, err)
-
-		in4 := client.NewCrossInput(in1, in2)
-		cross1, err := NewDatumIterator(c, in4)
-		require.NoError(b, err)
-
-		in5 := client.NewCrossInput(in3, in4)
-		cross2, err := NewDatumIterator(c, in5)
-		require.NoError(b, err)
-
-		// cross with a zero datum input should also be zero
-		in6 := client.NewCrossInput(in3, in0, in2, in4)
-		cross3, err := NewDatumIterator(c, in6)
-		require.NoError(b, err)
-
-		// zero cross inside a cross should also be zero
-		in7 := client.NewCrossInput(in6, in1)
-		cross4, err := NewDatumIterator(c, in7)
-		require.NoError(b, err)
-
-		in8 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)*", "$1$2", false)
-		in8.Pfs.Commit = commit.ID
-		in9 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)*", "$2$1", false)
-		in9.Pfs.Commit = commit.ID
-
-		join1, err := newJoinDatumIterator(c, []*pps.Input{in8, in9})
-
 		validateDI(b, pfs0)
 		validateDI(b, pfs1)
 		validateDI(b, pfs2)
-		validateDI(b, cross1)
-		validateDI(b, cross2)
-		validateDI(b, cross3)
-		validateDI(b, cross4)
-		validateDI(b, union1)
-		validateDI(b, join1)
+
+		b.Run("union", func(b *testing.B) {
+			in3 := client.NewUnionInput(in1, in2)
+			union1, err := NewDatumIterator(c, in3)
+			require.NoError(b, err)
+			validateDI(b, union1)
+		})
+
+		b.Run("cross", func(b *testing.B) {
+			in4 := client.NewCrossInput(in1, in2)
+			cross1, err := NewDatumIterator(c, in4)
+			require.NoError(b, err)
+			validateDI(b, cross1)
+		})
+
+		b.Run("join", func(b *testing.B) {
+			in8 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)*", "$1$2", false)
+			in8.Pfs.Commit = commit.ID
+			in9 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)*", "$2$1", false)
+			in9.Pfs.Commit = commit.ID
+			join1, err := newJoinDatumIterator(c, []*pps.Input{in8, in9})
+			require.NoError(b, err)
+			validateDI(b, join1)
+		})
+
+		b.Run("iterated", func(b *testing.B) {
+			in3 := client.NewUnionInput(in1, in2)
+			in4 := client.NewCrossInput(in1, in2)
+
+			in5 := client.NewCrossInput(in3, in4)
+			cross2, err := NewDatumIterator(c, in5)
+			require.NoError(b, err)
+
+			// cross with a zero datum input should also be zero
+			in6 := client.NewCrossInput(in3, in0, in2, in4)
+			cross3, err := NewDatumIterator(c, in6)
+			require.NoError(b, err)
+
+			// zero cross inside a cross should also be zero
+			in7 := client.NewCrossInput(in6, in1)
+			cross4, err := NewDatumIterator(c, in7)
+			require.NoError(b, err)
+
+			validateDI(b, cross2)
+			validateDI(b, cross3)
+			validateDI(b, cross4)
+
+		})
 	}
 }
 
 func BenchmarkDI1(b *testing.B)  { benchmarkDatumIterators(1, b) }
-func BenchmarkDI5(b *testing.B)  { benchmarkDatumIterators(5, b) }
-func BenchmarkDI10(b *testing.B) { benchmarkDatumIterators(10, b) }
-func BenchmarkDI15(b *testing.B) { benchmarkDatumIterators(15, b) }
-func BenchmarkDI20(b *testing.B) { benchmarkDatumIterators(20, b) }
-func BenchmarkD25(b *testing.B)  { benchmarkDatumIterators(25, b) }
+func BenchmarkDI2(b *testing.B)  { benchmarkDatumIterators(2, b) }
+func BenchmarkDI4(b *testing.B)  { benchmarkDatumIterators(4, b) }
+func BenchmarkDI8(b *testing.B)  { benchmarkDatumIterators(8, b) }
+func BenchmarkDI16(b *testing.B) { benchmarkDatumIterators(16, b) }
+func BenchmarkDI32(b *testing.B) { benchmarkDatumIterators(32, b) }
 
 func validateDI(t testing.TB, di DatumIterator, datums ...string) {
 	i := 0
@@ -224,14 +237,19 @@ func validateDI(t testing.TB, di DatumIterator, datums ...string) {
 		}
 
 		key2 := ""
+		clone.DatumN(0)
 		for _, file := range clone.DatumN(i) {
 			key2 += file.FileInfo.File.Path
 		}
 
-		// require.Equal(t, datums[i], key)
+		if len(datums) > 0 {
+			require.Equal(t, datums[i], key)
+		}
 		require.Equal(t, key2, key)
 		i++
 	}
-	// require.Equal(t, di.Len(), len(datums))
+	if len(datums) > 0 {
+		require.Equal(t, di.Len(), len(datums))
+	}
 	require.Equal(t, di.Len(), i)
 }

@@ -90,13 +90,7 @@ func (d *pfsDatumIterator) Datum() []*Input {
 }
 
 func (d *pfsDatumIterator) DatumN(n int) []*Input {
-	if n < d.location {
-		d.Reset()
-	}
-	for d.location != n {
-		d.Next()
-	}
-	return d.Datum()
+	return []*Input{d.inputs[n]}
 }
 
 func (d *pfsDatumIterator) Next() bool {
@@ -156,13 +150,13 @@ func (d *unionDatumIterator) Datum() []*Input {
 }
 
 func (d *unionDatumIterator) DatumN(n int) []*Input {
-	if n < d.location {
-		d.Reset()
+	for _, datumIterator := range d.iterators {
+		if n < datumIterator.Len() {
+			return datumIterator.DatumN(n)
+		}
+		n -= datumIterator.Len()
 	}
-	for d.location != n {
-		d.Next()
-	}
-	return d.Datum()
+	panic("index out of bounds")
 }
 
 type crossDatumIterator struct {
@@ -243,13 +237,16 @@ func (d *crossDatumIterator) Datum() []*Input {
 }
 
 func (d *crossDatumIterator) DatumN(n int) []*Input {
-	if n < d.location {
-		d.Reset()
+	if n >= d.Len() {
+		panic("index out of bounds")
 	}
-	for d.location != n {
-		d.Next()
+	var result []*Input
+	for _, datumIterator := range d.iterators {
+		result = append(result, datumIterator.DatumN(n%datumIterator.Len())...)
+		n /= datumIterator.Len()
 	}
-	return d.Datum()
+	sortInputs(result)
+	return result
 }
 
 type joinDatumIterator struct {
@@ -278,7 +275,6 @@ func newJoinDatumIterator(pachClient *client.APIClient, join []*pps.Input) (Datu
 }
 
 func (d *joinDatumIterator) Reset() {
-
 	d.location = -1
 }
 
