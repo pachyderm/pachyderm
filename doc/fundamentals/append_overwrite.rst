@@ -1,571 +1,364 @@
-Appending vs Overwriting Files
-==============================
+# Adjusting Data Processing by Splitting the Data
 
-Introduction
-------------
+Before you read this section, make sure that you understand
+the concepts described in [File](../concepts/data-concepts/file.html),
+[Glob Pattern](concepts/pipeline-concepts/datum/glob-pattern.html),
+[Pipeline Specification](../reference/pipeline_spec.html), and
+[Working with Pipelines](how-tos/working-with-pipelines.html).
 
-Pachyderm is designed to work with pipelined data processing in a
-containerized environment. The Pachyderm File System (pfs) is a
-file-based system that is distributed and supports data of all types of
-files (binary, csv, json, images, etc) from many sources and users. That
-data is processed in parallel across many different jobs and pipelines
-using the Pachyderm Pipeline System (pps). The Pachyderm File System
-(pfs) and Pachyderm Pipeline System (pps) are designed to work together
-to get the right version of the right data to the right container at the
-right time.
+Unlike source code version-control systems, such as Git, that mostly
+store and version text files, Pachyderm does not perform intra-file
+diffing. This means that if you have a 10,000 lines CSV file and
+change a single line in that file, a pipeline that is subscribed
+to the repository where that file is located processes the whole file.
+You can adjust this behavior by splitting your file upon loading
+into chunks.
 
-Among the many complexities you must consider are these:
+Pachyderm applies diffing at per file level.
+Therefore, if one bit of a file changes,
+Pachyderm identifies that change as a new file.
+Similar, Pachyderm can only distribute computation
+at the level of a single file. If your data is stored in
+one large file, it can only be processed by a single worker, which
+might affect performance.
 
--  Files can be put into pfs in “append” or “overwrite” mode.
--  `Pipeline definitions <../reference/pipeline_spec.html>`__ use `glob
-   patterns <../reference/pipeline_spec.html#the-input-glob-pattern>`__
-   to filter a view of `input
-   repositories <../getting_data_into_pachyderm.html#data-repositories>`__.
--  The Pachyderm Pipeline System must merge data from what may be
-   multiple containers running the same pipeline code, at the same time.
+To optimize performance and processing time, you might want to
+break up large files into smaller chunks while Pachyderm uploads
+data to an input repository. For simple data types, you can
+run the `pachctl put file` command with the `--split` flag. For
+more complex splitting pattern, such as when you work with `.avro`
+or other binary formats, you need to manually split your data
+either at ingest or by configuring splitting in a Pachyderm
+pipeline.
 
-When you add in the ability to do “cross” and “union” operators on
-multiple input repositories to those three considerations, it can be a
-little confusing to understand what’s actually happening with your
-files!
-
-This document will take you through some of the advanced details, best
-practices, and conventions for the following. If you’re unfamiliar with
-the topic, each link below will take you to the basics.
-
--  `loading data into Pachyderm <../reference/pipeline_spec.html>`__,
--  using `glob
-   patterns <../reference/pipeline_spec.html#the-input-glob-pattern>`__
-   to filter the data to your pipelines, and
--  `processing data with your
-   pipelines <../fundamentals/creating_analysis_pipelines.html>`__ and
-   placing it in output repos.
-
-Loading data into Pachyderm
----------------------------
-
-Appending to files
-~~~~~~~~~~~~~~~~~~
-
-When putting files into a pfs repo via Pachyderm’s ``pachctl`` utility
-or via the Pachyderm APIs, it’s vital to know about the default
-behaviors of the ``put file`` command. The following commands create the
-repo “voterData” and place a local file called “OHVoterData.csv” into
-it.
-
-::
-
-   $ pachctl create repo voterData
-   $ pachctl put file voterData@master -f OHVoterData.csv
-
-The file will, by default, be placed into the top-level directory of
-voterData with the name “OHVoterData.csv”. If the file were 153.8KiB,
-running the command to list files in that repo would result in
-
-::
-
-   $ pachctl list file voterData@master
-   COMMIT                           NAME             TYPE COMMITTED    SIZE
-   8560235e7d854eae80aa03a33f8927eb /OHVoterData.csv file 1 second ago 153.8KiB
-
-If you were to re-run the ``put file`` command above, by default, the
-file would be appended to itself and listing the repo would look like
-this:
-
-::
-
-   $ pachctl list file voterData@master
-   COMMIT                           NAME             TYPE COMMITTED     SIZE
-   105aab526f064b58a351fe0783686c54 /OHVoterData.csv file 2 seconds ago 307.6KiB
-
-In this case, any pipelines that use this repo for input will see an
-updated file that has double the data in it. It may also have an
-intermediate header row. (See `Specifying
-Header/Footer <../cookbook/splitting.html?highlight=header#specifying-header-footer>`__
-for details on headers and footers in files.) This is Pachyderm’s
-default behavior. What if you want to overwrite the files?
-
-Overwriting files
-~~~~~~~~~~~~~~~~~
-
-This is where the ``-o`` (or ``--overwrite``) flag comes in handy. It
-will, as you’ve probably guessed, overwrite the file, rather than append
-it.
-
-::
-
-   $ pachctl put file voterData@master -f OHVoterData.csv --overwrite
-   $ pachctl list file voterData@master
-   COMMIT                           NAME             TYPE COMMITTED    SIZE
-   8560235e7d854eae80aa03a33f8927eb /OHVoterData.csv file 1 second ago 153.8KiB
-   $ pachctl put file voterData@master -f OHVoterData.csv --overwrite
-   $ pachctl list file voterData@master
-   COMMIT                           NAME             TYPE COMMITTED    SIZE
-   4876f99951cc4ea9929a6a213554ced8 /OHVoterData.csv file 1 second ago 153.8KiB
-
-Deduplication
-~~~~~~~~~~~~~
-
-Pachyderm will deduplicate data loaded into input repositories. If you
-were to load another file that hashed identically to “OHVoterData.csv”,
-there would be one copy of the data in Pachyderm with two files’
-metadata pointing to it. This works even when using the append behavior
-above. If you were to put a file named OHVoterData2004.csv that was
-identical to that first ``put file`` of OHVoterData.csv, and then update
-OHVoterData.csv as shown above, there would be two sets of bits in
-Pachyderm:
-
--  a set of bits that would be returned when asking for the old branch
-   of OHVoterData.csv & OHVoterData2004.csv and
--  a set of bits that would be appended to that first set to assemble
-   the new, master branch of OHVoterData.csv.
-
-This deduping happens with each file as it’s added to Pachyderm. We
-don’t do deduping within the file (“intrafile deduplication”) because
-this system is built to work with any file type.
-
-.. important::  Pachyderm is smart about keeping the minimum set of bits in the object store and
-                assembling the version of the file you (or your code!) have asked for.
-
-Use cases for large datasets in single files
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Splitting large files in Pachyderm
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Unlike a system like Git,
-which expects almost all of your files to be text,
-Pachyderm does not do intra-file diffing
-because we work with any file type:
-
-* text
-* JSON
-* images
-* video
-* binary
-* and so on…
-
-Pachyderm diffs content at the per-file level.
-Therefore,
-if one bit in content of a file changes,
-Pachyderm sees that as a new file.
-Similarly,
-Pachyderm can only distribute computation at the level of a single file;
-if your data is only one large file,
-it can only be processed by a single worker.
-
-Because of these reasons, it’s pretty common to break up large files
-into smaller chunks. For simple data types, Pachyderm provides the
-``--split`` flag to ``put file`` to automatically do this for you. For
-more complex splitting patterns (e.g. ``avro`` or other binary formats),
-you’ll need to manually split your data either at ingest or with a
-Pachyderm pipeline.
-
-Split and target-file flags
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+## Using Split and Target-File Flags
 
 For common file types that are often used in data science, such as CSV,
-line-delimited text files, JavaScript Object Notation (json) files,
-Pachyderm includes the powerful ``--split``, ``--target-file-bytes`` and
-``--target-file-datums`` flags.
+line-delimited text files, JavaScript Object Notation (JSON) files,
+Pachyderm includes the `--split`, `--target-file-bytes`, and
+`--target-file-datums` flags.
 
-``--split`` will divide those files into chunks based on what a “record”
-is. In line-delimited files, it’s a line. In json files, it’s an object.
-``--split`` takes one argument: ``line``, ``json`` or
-``sql``.
+**Note:** In this section, a chunk of data is called a *split-file*.
 
-.. note:: See the `Splitting Data for Distributed Processing <../cookbook/splitting.html#pg-dump-sql-support>`__  cookbook for more details on SQL support.
+| Flag              | Description                                           |
+| ----------------- | ----------------------------------------------------- |
+| `--split`         | Divides a file into chunks based on a *record*. In <br>line-delimited files, it is a line. In JSON files, <br>it is an object. The `--split` flag takes one argument, such as `line`, <br> `json`, or `sql`. This argument defines how to split the file into <br>chunks. For example, if you use `--split line`, Pachyderm divides <br>your file on new line boundaries and not in the middle of a line. |
+| `--target-file-bytes` |  This flag must be used with the `--split` <br> flag. The `--target-file-bytes` fills each of the split-files with data up to <br> the specified number of bytes, splitting on the nearest <br>record boundary. For example, you have a line-delimited file <br>of 50 lines, with each line having about 20 bytes. If you run the <br> `--split lines --target-file-bytes 100` command, you see the input <br>file split into about 10 files and each file has about 5 lines. Each <br>split-file’s size hovers above the target value of 100 bytes, <br>not going below 100 bytes until the last split-file, which might <br>be less than 100 bytes. |
+| `--target-file-datums` | This flag must be used with the `--split` <br> flag. The `--target-file-datums` attempts to fill each split-file <br>with the specified number of datums. If you run `--split lines --target-file-datums 2` on the line-delimited 50-line file mentioned above, you see the file split into 50 split-files and each file has 2 lines. |
 
-This argument tells Pachyderm how you want the file split into chunks. For
-example, if you use ``--split line``, Pachyderm will only divide your
-file on newline boundaries, never in the middle of a line. Along with
-the ``--split`` flag, it’s common to use additional “target” flags to
-get better control over the details of the split.
 
-.. note:: We’ll call each of the chunks a “split-file” in this document.
+If you specify both `--target-file-datums` and `--target-file-bytes` flags,
+Pachyderm creates split-files until it hits one of the
+constraints. Pachyderm splits the file and
+then fills the first target split-file with line-based records
+until it hits the record limit. If Pachyderm passes the target byte
+number with just one record, it moves to the next split-file. If Pachyderm
+hits the target datum number after adding another line, it moves to the
+next split-file. If you run `pachctl put file` with
+`--split lines --target-file-datums 2 --target-file-bytes 100` flags
+on the example file in the table above, you get the same result as
+`--target-file-datums 2`, since that is the most compact constraint,
+and file sizes hover around 40 bytes.
 
--  ``--target-file-bytes`` will fill each of the split-files with data
-   up to the number of bytes you specify, splitting on the nearest
-   record boundary. Let’s say you have a line-delimited file of 50
-   lines, with each line having about 20 bytes. If you use the flags
-   ``--split lines --target-file-bytes 100``, you’ll see the input file
-   split into about 10 files or so, each of which will have 5 or so
-   lines. Each split-file’s size will hover above the target value of
-   100 bytes, not going below 100 bytes until the last split-file, which
-   may be less than 100 bytes.
+**See also:**
 
--  ``--target-file-datums`` will attempt to fill each split-file with
-   the number of datums you specify. Going back to that same
-   line-delimited 50-line file above, if you use
-   ``--split lines --target-file-datums 2``, you’ll see the file split
-   into 50 split-files, each of which will have 2 lines.
+- `Splitting Data for Distributed Processing <../cookbook/splitting.html#pg-dump-sql-support>`__
 
--  Specifying both flags, ``--target-file-datums`` and
-   ``--target-file-bytes``, will result in each split-file containing just
-   enough data to satisfy whichever constraint is hit first. Pachyderm
-   will split the file and then fill the first target split-file with
-   line-based records until it hits the record limit. If it passes the
-   target byte number with just one record, it will move on to the next
-   split-file. If it hits the target datum number after adding another
-   line, it will move on to the next split-file. Using the example
-   above, if the flags supplied to ``put file`` are
-   ``--split lines --target-file-datums 2 --target-file-bytes 100``, it
-   will have the same result as ``--target-file-datums 2``, since that’s
-   the most compact constraint, and file sizes will hover around 40
-   bytes.
+### Example: Splitting a File
 
-What split data looks like in a Pachyderm repository
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+In this example, you have a 50-line file called `my-data.txt`.
+You create a repository named `line-data` and load
+`my-data.txt` into that repository. Then, you can analyze
+how the data is split in the repository.
 
-Going back to our 50-line file example, let’s say that file is named
-“my-data.txt”. We’ll create a repo named “line-data” and load
-my-data.txt into Pachyderm with the following commands:
+To complete this example, perform the following steps:
 
-::
-   
+1. Create a file with fifty lines named `my-data.txt`. You can
+   add random lines, such as numbers from one to fifty, or US states,
+   or anything else..
+
+   **Examples:**
+
+   ```bash
+   One
+   Two
+   Three
+   ...
+   Fifty
+   ```
+
+1. Create a repository called `line-data`:
+
+   ```bash
    $ pachctl create repo line-data
    $ pachctl put file line-data@master -f my-data.txt --split line
+   ```
 
-After ``put file`` is complete, list the files in the repo.
+1. List the filesystem objects in the repository:
 
-::
-   
+   ```bash
    $ pachctl list file line-data@master
-   COMMIT                           NAME         TYPE COMMITTED          SIZE
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt dir  About a minute ago 1.071KiB
+   NAME         TYPE  SIZE
+   /my-data.txt dir   1.071KiB
+   ```
 
-.. important:: The ``list file`` command indicates that the line-oriented file we uploaded, “my-data.txt”, is actually a directory.
+   **Important:** The `pachctl list file` command shows
+   that the line-oriented file `my-data.txt`
+   that was uploaded has been transformed into a
+   directory that includes the chunks of the original
+   `my-data.txt` file. Each chunk is put into a split-file
+   and given a 16-character filename, left-padded with 0.
+   Pachyderm numbers each filename sequentially in hexadecimal. We
+   modify the command to list the contents of “my-data.txt”, and the output
+   reveals the naming structure.
 
-This file *looks* like a directory because
-the ``--split`` flag has instructed Pachyderm to split the file up, and
-it has created a directory with all the chunks in it. And, as you can
-see below, each chunk will be put into a file. Those are the
-split-files. Each split-file will be given a 16-character filename,
-left-padded with 0.
+1. List the files in the `my-data.txt` directory:
 
-.. note:: ``--split`` does not currently allow you to define more sophisticated file names.
-         This is a set of features we'll add in future releases.
-         (See `Issue 3568 <https://github.com/pachyderm/pachyderm/issues/3568>`__, for example).
-
-Each filename will be numbered sequentially in hexadecimal. We
-modify the command to list the contents of “my-data.txt”, and the output
-reveals the naming structure used:
-
-::
-
+   ```bash
    $ pachctl list file line-data@master my-data.txt
-   COMMIT                           NAME                          TYPE COMMITTED          SIZE
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000000 file About a minute ago 21B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000001 file About a minute ago 22B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000002 file About a minute ago 24B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000003 file About a minute ago 21B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000004 file About a minute ago 22B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000005 file About a minute ago 24B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000006 file About a minute ago 21B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000007 file About a minute ago 22B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000008 file About a minute ago 23B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000009 file About a minute ago 24B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/000000000000000a file About a minute ago 24B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/000000000000000b file About a minute ago 24B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/000000000000000c file About a minute ago 21B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/000000000000000d file About a minute ago 23B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/000000000000000e file About a minute ago 21B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/000000000000000f file About a minute ago 21B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000010 file About a minute ago 21B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000011 file About a minute ago 22B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000012 file About a minute ago 21B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000013 file About a minute ago 23B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000014 file About a minute ago 21B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000015 file About a minute ago 21B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000016 file About a minute ago 24B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000017 file About a minute ago 22B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000018 file About a minute ago 23B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000019 file About a minute ago 21B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/000000000000001a file About a minute ago 21B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/000000000000001b file About a minute ago 22B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/000000000000001c file About a minute ago 22B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/000000000000001d file About a minute ago 21B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/000000000000001e file About a minute ago 22B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/000000000000001f file About a minute ago 21B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000020 file About a minute ago 21B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000021 file About a minute ago 21B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000022 file About a minute ago 21B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000023 file About a minute ago 22B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000024 file About a minute ago 21B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000025 file About a minute ago 23B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000026 file About a minute ago 21B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000027 file About a minute ago 21B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000028 file About a minute ago 24B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000029 file About a minute ago 22B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/000000000000002a file About a minute ago 23B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/000000000000002b file About a minute ago 21B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/000000000000002c file About a minute ago 21B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/000000000000002d file About a minute ago 22B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/000000000000002e file About a minute ago 22B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/000000000000002f file About a minute ago 21B
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000030 file About a minute ago 22B
-   COMMIT                           NAME                          TYPE COMMITTED          SIZE
-   8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000031 file About a minute ago 22B
+   NAME                          TYPE  SIZE
+   /my-data.txt/0000000000000000 file  21B
+   /my-data.txt/0000000000000001 file  22B
+   /my-data.txt/0000000000000002 file  24B
+   /my-data.txt/0000000000000003 file  21B
+   ...
+   NAME                          TYPE  SIZE
+   /my-data.txt/0000000000000031 file  22B
+   ```
 
-Appending to files with –split
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+## Example: Appending to files with `-–split`
 
-Combining ``--split`` with the default “append” behavior of
-``pachctl put file`` allows flexible and scalable processing of
-record-oriented file data from external, legacy systems. Each of the
-split-files will be deduplicated. You would have to ensure that
-``put file`` commands always have the ``--split`` flag.
+Combining `--split` with the default *append* behavior of
+`pachctl put file` enables flexible and scalable processing of
+record-oriented file data from external, legacy systems.
 
-``pachctl`` will reject the command if ``--split`` is not specified to
-append a file that it was previously specified with an error like this
+Pachyderm ensures that only the newly added data gets processed when
+you append to an existing file by using `--split`. Pachyderm
+optimizes storage utilization by automatically deduplicating each
+split-file. If you split a large file
+with many duplicate lines or objects with identical hashes
+might use less space in PFS than it does as
+a single file outside of PFS.
 
-::
-   
-   could not put file at "/my-data.txt"; a file of type directory is already there
 
-Pachyderm will ensure that only the added data will get reprocessed when
-you append to a file using ``--split``. Each of the split-files is
-subject to deduplication, so storage will be optimized. A large file
-with many duplicate lines (or objects that hash identically) which you
-with ``--split`` may actually take up less space in pfs than it does as
-a single file outside of pfs.
+```bash
+One
+Two
+Three
+Four
+Five
+```
 
-Appending files can make for efficient processing in downstream
-pipelines. For example, let’s say you have a file named “count.txt”
-consisting of 5 lines
+To complete this example, follow these steps:
 
-::
-   
+1. Create a file `count.txt` with the following lines:
+
+   ```bash
    One
    Two
    Three
    Four
    Five
+   ```
 
-Loading that local file into Pachyderm using ``--split`` with a command
-like
+1. Put the `count.txt` file into a Pachyderm repository called `raw_data`:
 
-::
-   
-   pachctl put file line-data@master:count.txt -f ./count.txt --split line
+   ```bash
+   $ pachctl put file -f count.txt raw_data@master --split line
+   ```
 
-will result in five files in a directory named “count.txt” in the input
-repo, each of which will have the following contents
+   This command splits the `count.txt` file by line and creates
+   a separate file with one line in each file. Also, this operation
+   creates five datums that are processed by the
+   pipelines that use this repository as input.
 
-::
-   
-   count.txt/0000000000000000: One
-   count.txt/0000000000000001: Two
-   count.txt/0000000000000002: Three
-   count.txt/0000000000000003: Four
-   count.txt/0000000000000004: Five
+1. View the repository contents:
 
-This would result in five datums being processed in any pipelines that
-use this repo.
+   $ pachctl list file raw_data@master
+   NAME       TYPE SIZE
+   /count.txt dir  24B
 
-Now, take a one-line file containing
+   Pachyderm created a directory called `count.txt`.
 
-::
-   
+1. View the contents of the `count.txt` directory:
+
+   ```bash
+   $ pachctl list file raw_data@master:count.txt
+   NAME                        TYPE SIZE
+   /count.txt/0000000000000000 file 4B
+   /count.txt/0000000000000001 file 4B
+   /count.txt/0000000000000002 file 6B
+   /count.txt/0000000000000003 file 5B
+   /count.txt/0000000000000004 file 5B
+
+   In the output above, you can see that Pachyderm created five split-files
+   from the original `count.txt` file. Each file has one line from the
+   original `count.txt`. You can check the contents of each file by
+   running the `pachctl get file` command. For example, to get
+   the contents of `count.txt/0000000000000000`, run the following
+   command:
+
+   ```bash
+   $ pachctl get file raw_data@master:count.txt/0000000000000000
+   One
+   ```
+
+   This operation creates five datums that are processed by the
+   pipelines that use this repository as input.
+
+1. Create a one-line file called `more-count.txt` with the
+   following content:
+
+   ```bash
    Six
+   ```
 
-and load it into Pachyderm appending it to the count.txt file. If that
-file were named, “more-count.txt”, the command might look like
+1. Load this file into Pachyderm by appending it to the `count.txt` file:
 
-::
+   ```bash
+   $ pachctl put file raw_data@master:count.txt -f more-count.txt --split line
+   ```
 
-   pachctl put file line-data@master:my-data.txt -f more-count.txt --split line
+   **Note:**
+   If you do not specify `--split` flag while appending to
+   a file that was previously split, Pachyderm displays the following
+   error message:
 
-That will result in six files in the directory named “count.txt” in the
-input repo, each of which will have the following contents
+   ```bash
+   could not put file at "/count.txt"; a file of type directory is already there
+   ```
 
-::
+1. Verify that another file was added:
 
-   count.txt/0000000000000000: One
-   count.txt/0000000000000001: Two
-   count.txt/0000000000000002: Three
-   count.txt/0000000000000003: Four
-   count.txt/0000000000000004: Five
-   count.txt/0000000000000005: Six
+   ```bash
+   $ pachctl list file raw_data@master:count.txt
+   NAME                        TYPE SIZE
+   /count.txt/0000000000000000 file 4B
+   /count.txt/0000000000000001 file 4B
+   /count.txt/0000000000000002 file 6B
+   /count.txt/0000000000000003 file 5B
+   /count.txt/0000000000000004 file 5B
+   /count.txt/0000000000000005 file 4B
 
-This would result in one datum being processed in any pipelines that use
-this repo: the new file ``count.txt/0000000000000005``.
+   The `/count.txt/0000000000000005` file was added to the input
+   repository. Pachyderm considers
+   this new file as a separate datum. Therefore, pipelines process
+   only that datum instead of all the chunks of `count.txt`.
 
-Overwriting files with –split
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+1. Get the contents of the `/count.txt/0000000000000005` file:
+
+   ```
+   $ pachctl get file raw_data@master:count.txt/0000000000000005
+   Six
+   ```
+
+## Example: Overwriting Files with `–-split`
 
 The behavior of Pachyderm when a file loaded with ``--split`` is
 overwritten is simple to explain but subtle in its implications.
-Remember that the loaded file will be split into those
-sequentially-named files, as shown above. If any of those resulting
-split-files hashes differently than the one it’s replacing, that will
-cause the Pachyderm Pipeline System to process that data.
+The loaded file is split into those sequentially-named files,
+as shown above. If any of those resulting
+split-files hashes differently than the one it is replacing, it
+causes the Pachyderm Pipeline System to process that data.
+This can have significant consequences for downstream processing.
 
-This can have important consequences for downstream processing. For
-example, let’s say you have that same file named “count.txt” consisting
-of 5 lines that we used in the previous example
+To complete this example, follow these steps:
 
-::
+1. Create a file `count.txt` with the following lines:
 
+   ```bash
    One
    Two
    Three
    Four
    Five
+   ```
 
-As discussed prior, loading that file into Pachyderm using ``--split``
-will result in five files in a directory named “count.txt” in the input
-repo, each of which will have the following contents
+1. Put the file into a Pachyderm repository called `raw_data`:
 
-::
+   ```bash
+   $ pachctl put file -f count.txt raw_data@master --split line
+   ```
 
-   count.txt/0000000000000000: One
-   count.txt/0000000000000001: Two
-   count.txt/0000000000000002: Three
-   count.txt/0000000000000003: Four
-   count.txt/0000000000000004: Five
+   This command splits the `count.txt` file by line and creates
+   a separate file with one line in each file. Also, this operation
+   creates five datums that are processed by the
+   pipelines that use this repository as input.
 
-This would result in five datums being processed in any pipelines that
-use this repo.
+1. View the repository contents:
 
-Now, modify that file by inserting the word “Zero” on the first line.
+   $ pachctl list file raw_data@master
+   NAME       TYPE SIZE
+   /count.txt dir  24B
 
-::
+   Pachyderm created a directory called `count.txt`.
 
+1. View the contents of the `count.txt` directory:
+
+   ```bash
+   $ pachctl list file raw_data@master:count.txt
+   NAME                        TYPE SIZE
+   /count.txt/0000000000000000 file 4B
+   /count.txt/0000000000000001 file 4B
+   /count.txt/0000000000000002 file 6B
+   /count.txt/0000000000000003 file 5B
+   /count.txt/0000000000000004 file 5B
+
+   In the output above, you can see that Pachyderm created five split-files
+   from the original `count.txt` file. Each file has one line from the
+   original `count.txt` file. You can check the contents of each file by
+   running the `pachctl get file` command. For example, to get
+   the contents of `count.txt/0000000000000000`, run the following
+   command:
+
+   ```bash
+   $ pachctl get file raw_data@master:count.txt/0000000000000000
+   One
+   ```
+
+1. In your local directory, modify the original `count.txt` file by
+   inserting the word *Zero* on the first line:
+
+   ```bash
    Zero
    One
    Two
    Three
    Four
    Five
+   ```
 
-Let’s upload it to Pachyderm using ``--split`` and ``--overwrite``.
+1. Upload the updated `count.txt` file into the raw_data repository
+   by using the `--split` and `--overwrite` flags:
 
-::
+   ```bash
+   $ pachctl put file -f count.txt raw_data@master:count.txt --split line --overwrite
+   ```
 
-   pachctl put file line-data@master:count.txt -f ./count.txt --split line --overwrite
+   Because Pachyderm takes the file name into account when hashing
+   data for a pipeline, it considers every single split-file as new,
+   and the pipelines that use this repository as input process all
+   six datums.
 
-The input repo will now look like this
+1. List the directory:
 
-::
+   $ pachctl list file raw_data@master:count.txt
+   NAME                        TYPE SIZE
+   /count.txt/0000000000000000 file 5B
+   /count.txt/0000000000000001 file 4B
+   /count.txt/0000000000000002 file 4B
+   /count.txt/0000000000000003 file 6B
+   /count.txt/0000000000000004 file 5B
+   /count.txt/0000000000000005 file 5B
 
-   count.txt/0000000000000000: Zero
-   count.txt/0000000000000001: One
-   count.txt/0000000000000002: Two
-   count.txt/0000000000000003: Three
-   count.txt/0000000000000004: Four
-   count.txt/0000000000000005: Five
+   The `/count.txt/0000000000000000` file now has the newly added `Zero` line.
+   To verify the contents of the file, run:
 
-As far as Pachyderm is concerned,
-every single file existing has changed,
-and a new file has been added.
-This is because the filename is taken into account when hashing the data for the pipeline.
-While only one new piece of content is being stored,
-``Zero``,
-all six datums would be processed by a downstream pipeline.
+   ```bash
+   $ pachctl get file raw_data@master:count.txt/0000000000000000
+   Zero
+   ```
 
-It’s important to remember that what looks like a simple upsert can be a
-kind of a `fencepost
-error <https://en.wikipedia.org/wiki/Off-by-one_error#Fencepost_error>`__.
-Being “off by one line” in your data can be expensive, consuming
-processing resources you didn’t intend to spend.
+**See also:**
 
-Datums in Pachyderm pipelines
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The “datum” is the fundamental unit of data processing in Pachyderm
-pipelines. It is defined at the file level and filtered by the “globs”
-you specify in your pipelines. *What* makes a datum is defined by you.
-How do you do that?
-
-When creating a pipeline, you can specify one or more input repos.
-Each of these will contain files.
-Those files are filtered by the "glob" you specify in the pipeline's definition,
-along with the input operators you use.
-That determines how the datums you want your pipeline to process appear in the pipeline:
-globs and input operators,
-along with other pipeline configuration operators,
-specify how you would like those datums orchestrated across your processing containers.
-Pachyderm Pipeline System (pps) processes each datum individually in containers in pods,
-using Pachyderm File System (pfs) to get the right data to the right code at the right time and merge the results.
-
-To summarize:
-
--  **repos** contain *files* in pfs
--  **pipelines** filter and organize those files into *datums* for
-   processing through *globs* and *input repo operators*
--  pps will use available resources to process each datum, using pfs to
-   assign datums to containers and merge results in the pipeline’s
-   output repo.
-
-Let’s start with one of the simplest pipelines. The pipeline has a
-single input repo, ``my-data``. All it does is copy data from its input
-to its output.
-
-::
-
-   {
-     "pipeline": {
-       "name": "my-pipeline"
-     },
-     "input": {
-       "pfs": {
-         "glob": "/*",
-         "repo": "my-data"
-       }
-     },
-     "transform": {
-         "cmd": ["sh"],
-         "stdin": ["/bin/cp -r /pfs/my-data/\* /pfs/out/"],
-       "image": "ubuntu:14.04"
-     }
-   }
-
-With this configuration, the ``my-pipeline`` repo will always be a copy
-of the ``my-data`` repo. Where it gets interesting is in the view of
-jobs processed. Let’s say you have two data files and
-you use the ``put file`` command to load both of those into my-data
-
-::
-
-   $ pachctl put file my-data@master -f my-data-file-1.txt -f my-data-file-2.txt
-
-Listing jobs will show that the job had 2 input datums, something like
-this:
-
-::
-   
-   $ pachctl list job
-   ID                               PIPELINE    STARTED        DURATION           RESTART PROGRESS  DL       UL       STATE
-   0517ff33742a4fada32d8d43d7adb108 my-pipeline 20 seconds ago Less than a second 0       2 + 0 / 2 3.218KiB 3.218KiB success
-
-What if you had defined the pipeline to use the “/” glob, instead? That
-``list job`` output would’ve showed one datum, because it treats the
-entire input directory as one datum.
-
-::
-   
-   $ pachctl list job
-   ID                               PIPELINE    STARTED        DURATION           RESTART PROGRESS  DL       UL       STATE
-   aa436dbb53ba4cee9baaf84a1cc6717a my-pipeline 19 seconds ago Less than a second 0       1 + 0 / 1 3.218KiB 3.218KiB success
-
-If we had written that pipeline to have a ``parallelism_spec`` of
-greater than 1, there would have still been only one pod used to process
-that data. You can find more detailed information on how to use
-Pachyderm Pipeline System and globs to do sophisticated configurations
-in the `Distributed
-Computing <http://docs.pachyderm.io/en/latest/fundamentals/distributed_computing.html>`__
-section of our documentation.
-
-When you have loaded data via a ``--split`` flag, as discussed above,
-you can use the glob to select the split-files to be sent to a pipeline.
-A detailed discussion of this is available in the Pachyderm cookbook
-section `Splitting Data for Distributed
-Processing <http://docs.pachyderm.io/en/latest/cookbook/splitting.html#splitting-data-for-distributed-processing>`__.
-
-Summary
-~~~~~~~
-
-Pachyderm provides powerful operators for combining and merging your
-data through input operations and the glob operator. Each of these have
-subtleties that are worth working through with concrete examples.
+- [Splitting Data](splitting.html)
