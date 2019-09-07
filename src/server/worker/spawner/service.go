@@ -42,6 +42,8 @@ func forLatestCommit(
 				cancel()
 				if err := eg.Wait(); err != nil && err != context.Canceled {
 					return err
+				} else if common.IsDone(pachClient.Ctx()) {
+					return pachClient.Ctx().Err()
 				}
 			}
 
