@@ -112,10 +112,10 @@ type isConfig_Config interface {
 }
 
 type Config_V1 struct {
-	V1 *ConfigV1 `protobuf:"bytes,2,opt,name=v1,proto3,oneof"`
+	V1 *ConfigV1 `protobuf:"bytes,2,opt,name=v1,proto3,oneof" json:"v1,omitempty"`
 }
 type Config_V2 struct {
-	V2 *ConfigV2 `protobuf:"bytes,3,opt,name=v2,proto3,oneof"`
+	V2 *ConfigV2 `protobuf:"bytes,3,opt,name=v2,proto3,oneof" json:"v2,omitempty"`
 }
 
 func (*Config_V1) isConfig_Config() {}
