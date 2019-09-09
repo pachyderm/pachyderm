@@ -38,16 +38,16 @@ const badJSON1 = `
 }
 `
 
-const badJSON2 = `
+const badJSON2 = `{
 {
     "a": 1,
     "b": [23,4,4,64,56,36,7456,7],
-    "c": {a,f,g,h,j,j},
+    "c": {"e,f,g,h,j,j},
     "d": 3452.36456,
 }
 `
 
-func TestJSONSyntaxErrorsReportedCreatePipeline(t *testing.T) {
+func TestSyntaxErrorsReportedCreatePipeline(t *testing.T) {
 	require.NoError(t, tu.BashCmd(`
 		echo -n '{{.badJSON1}}' \
 		  | ( pachctl create pipeline -f - 2>&1 || true ) \
@@ -62,7 +62,7 @@ func TestJSONSyntaxErrorsReportedCreatePipeline(t *testing.T) {
 	).Run())
 }
 
-func TestJSONSyntaxErrorsReportedUpdatePipeline(t *testing.T) {
+func TestSyntaxErrorsReportedUpdatePipeline(t *testing.T) {
 	require.NoError(t, tu.BashCmd(`
 		echo -n '{{.badJSON1}}' \
 		  | ( pachctl update pipeline -f - 2>&1 || true ) \
@@ -96,9 +96,11 @@ func TestRawFullPipelineInfo(t *testing.T) {
 			  },
 			  "transform": {
 			    "cmd": ["bash"],
-					"stdin": ["cp /pfs/data/file /pfs/out"]
+			    "stdin": ["cp /pfs/data/file /pfs/out"]
 			  }
-			}`+"\nEOF\n",
+			}
+		EOF
+		`,
 		"pipeline", tu.UniqueString("p-")).Run())
 	require.NoError(t, tu.BashCmd(`
 		pachctl flush commit data@master
@@ -107,6 +109,109 @@ func TestRawFullPipelineInfo(t *testing.T) {
 		pachctl list job --raw --history=all \
 			| match "pipeline_version"
 		`).Run())
+}
+
+// TestJSONMultiplePipelines tests that pipeline specs with multiple pipelines
+// in them continue to be accepted by 'pachctl create pipeline'. We may want to
+// stop supporting this behavior eventually, but Pachyderm has supported it
+// historically, so we should continue to support it until we formally deprecate
+// it.
+func TestJSONMultiplePipelines(t *testing.T) {
+	require.NoError(t, tu.BashCmd(`
+		yes | pachctl delete all
+		pachctl create repo input
+		pachctl create pipeline -f - <<EOF
+		{
+		  "pipeline": {
+		    "name": "first"
+		  },
+		  "input": {
+		    "pfs": {
+		      "glob": "/*",
+		      "repo": "input"
+		    }
+		  },
+		  "transform": {
+		    "cmd": [ "/bin/bash" ],
+		    "stdin": [
+		      "cp /pfs/input/* /pfs/out"
+		    ]
+		  }
+		}
+		{
+		  "pipeline": {
+		    "name": "second"
+		  },
+		  "input": {
+		    "pfs": {
+		      "glob": "/*",
+		      "repo": "first"
+		    }
+		  },
+		  "transform": {
+		    "cmd": [ "/bin/bash" ],
+		    "stdin": [
+		      "cp /pfs/first/* /pfs/out"
+		    ]
+		  }
+		}
+		EOF
+
+		pachctl start commit input@master
+		echo foo | pachctl put file input@master:/foo
+		echo bar | pachctl put file input@master:/bar
+		echo baz | pachctl put file input@master:/baz
+		pachctl finish commit input@master
+		pachctl flush commit input@master
+		pachctl get file second@master:/foo | match foo
+		pachctl get file second@master:/bar | match bar
+		pachctl get file second@master:/baz | match baz
+		`,
+	).Run())
+	require.NoError(t, tu.BashCmd(`pachctl list pipeline`).Run())
+}
+
+// TestYAMLPipelineSpec tests creating a pipeline with a YAML pipeline spec
+func TestYAMLPipelineSpec(t *testing.T) {
+	// Note that BashCmd dedents all lines below including the YAML (which
+	// wouldn't parse otherwise)
+	require.NoError(t, tu.BashCmd(`
+		yes | pachctl delete all
+		pachctl create repo input
+		pachctl create pipeline -f - <<EOF
+		pipeline:
+		  name: first
+		input:
+		  pfs:
+		    glob: /*
+		    repo: input
+		transform:
+		  cmd: [ /bin/bash ]
+		  stdin:
+		    - "cp /pfs/input/* /pfs/out"
+		---
+		pipeline:
+		  name: second
+		input:
+		  pfs:
+		    glob: /*
+		    repo: first
+		transform:
+		  cmd: [ /bin/bash ]
+		  stdin:
+		    - "cp /pfs/first/* /pfs/out"
+		EOF
+		pachctl start commit input@master
+		echo foo | pachctl put file input@master:/foo
+		echo bar | pachctl put file input@master:/bar
+		echo baz | pachctl put file input@master:/baz
+		pachctl finish commit input@master
+		pachctl flush commit input@master
+		pachctl get file second@master:/foo | match foo
+		pachctl get file second@master:/bar | match bar
+		pachctl get file second@master:/baz | match baz
+		`,
+	).Run())
 }
 
 // func TestPushImages(t *testing.T) {

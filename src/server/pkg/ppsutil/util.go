@@ -28,7 +28,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
@@ -41,6 +40,7 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
+	"gopkg.in/yaml.v3"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -259,20 +259,41 @@ func PipelineReqFromInfo(pipelineInfo *ppsclient.PipelineInfo) *ppsclient.Create
 	}
 }
 
+type pipelineDecoder interface {
+	Decode(v interface{}) error
+}
+
+// NoParseErr is returned when no parser in PipelineManifestReader is able to
+// parse a pipeline spec.
+var NoParseErr = errors.New("no decoders are able to parse pipeline spec")
+
 // PipelineManifestReader helps with unmarshalling pipeline configs from JSON. It's used by
 // 'create pipeline' and 'update pipeline'
+//
+// Note that Go's json decoder is able to parse text that gopkg.in/yaml.v3
+// cannot (multiple json documents) so we currently attempt to parse a pipeline
+// with both parsers concurrently and keep whichever parse succeeds. Hopefully
+// multi-document support is added to our yaml parser and we can remove the json
+// parser.
 type PipelineManifestReader struct {
-	buf     bytes.Buffer
-	decoder *json.Decoder
+	ds []pipelineDecoder
 }
 
 // NewPipelineManifestReader creates a new manifest reader from a path.
+//
+// Note: PipelineManifestReader uses enconding/json as the decoder for pipeline
+// specs, instead of gogo's protobuf/jsonpb package. While the doc for that pkg
+// (https://godoc.org/github.com/gogo/protobuf/jsonpb) warns that it produces
+// different output than encoding/json for protobufs, I believe both packages
+// should be able to parse JSON *into* protobufs equally well. If we need to
+// switch to gogo's jsonpb parser, we'll have to write a wrapper for it that
+// implements the pipelineDecoder interface.
 func NewPipelineManifestReader(path string) (result *PipelineManifestReader, retErr error) {
-	result = &PipelineManifestReader{}
-	var pipelineReader io.Reader
+	var pipelineBytes []byte
+	var err error
 	if path == "-" {
-		pipelineReader = io.TeeReader(os.Stdin, &result.buf)
 		fmt.Print("Reading from stdin.\n")
+		pipelineBytes, err = ioutil.ReadAll(os.Stdin)
 	} else if url, err := url.Parse(path); err == nil && url.Scheme != "" {
 		resp, err := http.Get(url.String())
 		if err != nil {
@@ -283,31 +304,57 @@ func NewPipelineManifestReader(path string) (result *PipelineManifestReader, ret
 				retErr = err
 			}
 		}()
-		rawBytes, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-		pipelineReader = io.TeeReader(strings.NewReader(string(rawBytes)), &result.buf)
+		pipelineBytes, err = ioutil.ReadAll(resp.Body)
 	} else {
-		rawBytes, err := ioutil.ReadFile(path)
-		if err != nil {
-			return nil, err
-		}
-
-		pipelineReader = io.TeeReader(strings.NewReader(string(rawBytes)), &result.buf)
+		pipelineBytes, err = ioutil.ReadFile(path)
 	}
-	result.decoder = json.NewDecoder(pipelineReader)
+	if err != nil {
+		return nil, err
+	}
+	result = &PipelineManifestReader{
+		ds: []pipelineDecoder{
+			// create two independent readers for the two decoders so that one decoder
+			// reading doesn't affect the other one.
+			yaml.NewDecoder(bytes.NewReader(pipelineBytes)),
+			json.NewDecoder(bytes.NewReader(pipelineBytes)),
+		},
+	}
 	return result, nil
 }
 
 // NextCreatePipelineRequest gets the next request from the manifest reader.
 func (r *PipelineManifestReader) NextCreatePipelineRequest() (*ppsclient.CreatePipelineRequest, error) {
 	var result ppsclient.CreatePipelineRequest
-	if err := jsonpb.UnmarshalNext(r.decoder, &result); err != nil {
-		if err == io.EOF {
-			return nil, err
+	retErr := NoParseErr // set to nil on 1st successful parse
+	dest := interface{}(&result)
+	// Call Decode() on every d.ds. After the first success, continue calling
+	// decode on other decoders (to keep them in sync) but throw other results
+	// away.
+	for i := 0; i < len(r.ds); {
+		// loop invariant: either i gets incremented or d.ds gets shrunk
+		if err := r.ds[i].Decode(dest); err != nil {
+			if retErr == NoParseErr {
+				// neither error nor success so far--set retErr to first err
+				retErr = err
+			}
+			// drop ds[i] from list of parsers
+			if i+1 <= len(r.ds) {
+				copy(r.ds[i:], r.ds[i+1:])
+			}
+			r.ds = r.ds[:len(r.ds)-1]
+		} else {
+			if retErr != nil {
+				// first success--future parses go in this garbage map
+				dest = &map[string]interface{}{}
+			}
+			retErr = nil
+			i++
 		}
-		return nil, fmt.Errorf("malformed pipeline spec: %s", err)
+	}
+	if retErr == io.EOF {
+		return nil, retErr
+	} else if retErr != nil {
+		return nil, fmt.Errorf("malformed pipeline spec: %s", retErr)
 	}
 	return &result, nil
 }
