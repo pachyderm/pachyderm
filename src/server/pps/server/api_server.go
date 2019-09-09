@@ -2368,7 +2368,7 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 // so, deletes the orphaned branch.
 func (a *apiServer) cleanUpSpecBranch(pachClient *client.APIClient, pipeline string) error {
 	specBranchInfo, err := pachClient.InspectBranch(ppsconsts.SpecRepo, pipeline)
-	if err != nil && specBranchInfo.Head != nil {
+	if err != nil && (specBranchInfo != nil && specBranchInfo.Head != nil) {
 		// No spec branch (and no etcd pointer) => the pipeline doesn't exist
 		return fmt.Errorf("pipeline %v was not found: %v", pipeline, err)
 	}
