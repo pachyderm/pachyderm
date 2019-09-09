@@ -31,6 +31,11 @@ email at support@pachyderm.io.
 
 .. toctree::
    :maxdepth: 2
+
+   concepts/index.rst
+
+.. toctree::
+   :maxdepth: 2
    :caption: Enterprise Edition
 
    enterprise/index.rst
@@ -44,8 +49,9 @@ email at support@pachyderm.io.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Cookbook and How-Tos
+   :caption: How-Tos
 
+   how-tos/index.rst
    cookbook/index.rst
 
 .. toctree::

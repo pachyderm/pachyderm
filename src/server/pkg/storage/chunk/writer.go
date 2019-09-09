@@ -15,42 +15,45 @@ import (
 const (
 	// MB is Megabytes.
 	MB = 1024 * 1024
-	// AverageBits determines the average chunk size (2^AverageBits).
-	AverageBits = 23
 	// WindowSize is the size of the rolling hash window.
 	WindowSize = 64
 )
 
+// initialWindow is the set of bytes used to initialize the window
+// of the rolling hash function.
 var initialWindow = make([]byte, WindowSize)
+
+// WriterFunc is a callback that returns a data reference to the next chunk and the annotations within the chunk.
+type WriterFunc func(*DataRef, []*Annotation) error
 
 // Writer splits a byte stream into content defined chunks that are hashed and deduplicated/uploaded to object storage.
 // Chunk split points are determined by a bit pattern in a rolling hash function (buzhash64 at https://github.com/chmduquesne/rollinghash).
 type Writer struct {
-	ctx        context.Context
-	objC       obj.Client
-	cbs        []func([]*DataRef) error
-	buf        *bytes.Buffer
-	hash       *buzhash64.Buzhash64
-	splitMask  uint64
-	dataRefs   []*DataRef
-	done       [][]*DataRef
-	rangeSize  int64
-	rangeCount int64
+	ctx                context.Context
+	objC               obj.Client
+	buf                *bytes.Buffer
+	hash               *buzhash64.Buzhash64
+	splitMask          uint64
+	f                  WriterFunc
+	annotations        []*Annotation
+	chunkCount         int64
+	annotatedBytesSize int64
 }
 
 // newWriter creates a new Writer.
-func newWriter(ctx context.Context, objC obj.Client) *Writer {
+func newWriter(ctx context.Context, objC obj.Client, averageBits int, f WriterFunc) *Writer {
 	// Initialize buzhash64 with WindowSize window.
 	hash := buzhash64.New()
-	hash.Write(initialWindow)
-	return &Writer{
+	w := &Writer{
 		ctx:       ctx,
 		objC:      objC,
-		cbs:       []func([]*DataRef) error{},
 		buf:       &bytes.Buffer{},
 		hash:      hash,
-		splitMask: (1 << uint64(AverageBits)) - 1,
+		splitMask: (1 << uint64(averageBits)) - 1,
+		f:         f,
 	}
+	w.resetHash()
+	return w
 }
 
 func (w *Writer) resetHash() {
@@ -58,40 +61,29 @@ func (w *Writer) resetHash() {
 	w.hash.Write(initialWindow)
 }
 
-// StartRange specifies the start of a range within the byte stream that is meaningful to the caller.
-// When this range has ended (by calling StartRange again or Close) and all of the necessary chunks are written, the
-// callback given during initialization will be called with DataRefs that can be used for accessing that range.
-func (w *Writer) StartRange(cb func([]*DataRef) error) {
-	// Finish prior range.
-	if w.dataRefs != nil {
-		w.finishRange()
+// Annotate associates an annotation with the next set of bytes that are written.
+func (w *Writer) Annotate(a *Annotation) {
+	a.Offset = int64(w.buf.Len())
+	// Handle the edge case when the last annotation from the prior chunk
+	// should not carry over into the next.
+	if a.Offset == 0 {
+		w.annotations = nil
 	}
-	// Start new range.
-	w.cbs = append(w.cbs, cb)
-	w.dataRefs = []*DataRef{&DataRef{OffsetBytes: int64(w.buf.Len())}}
-	w.rangeSize = 0
-	w.rangeCount++
-}
-
-func (w *Writer) finishRange() {
-	lastDataRef := w.dataRefs[len(w.dataRefs)-1]
-	lastDataRef.SizeBytes = int64(w.buf.Len()) - lastDataRef.OffsetBytes
-	data := w.buf.Bytes()[lastDataRef.OffsetBytes:w.buf.Len()]
-	lastDataRef.Hash = hash.EncodeHash(hash.Sum(data))
-	w.done = append(w.done, w.dataRefs)
-	// Reset hash between ranges.
+	w.annotations = append(w.annotations, a)
+	w.annotatedBytesSize = 0
+	// Reset hash between annotations.
 	w.resetHash()
 }
 
-// RangeSize returns the size of the current range.
-func (w *Writer) RangeSize() int64 {
-	return w.rangeSize
+// AnnotatedBytesSize returns the size of the bytes for the current annotation.
+func (w *Writer) AnnotatedBytesSize() int64 {
+	return w.annotatedBytesSize
 }
 
-// RangeCount returns a count of the number of ranges associated with
+// ChunkCount returns a count of the number of chunks created/referenced by
 // the writer.
-func (w *Writer) RangeCount() int64 {
-	return w.rangeCount
+func (w *Writer) ChunkCount() int64 {
+	return w.chunkCount
 }
 
 // Write rolls through the data written, calling c.f when a chunk is found.
@@ -116,64 +108,91 @@ func (w *Writer) Write(data []byte) (int, error) {
 		}
 	}
 	w.buf.Write(data[offset:])
-	w.rangeSize += int64(len(data))
+	w.annotatedBytesSize += int64(len(data))
 	return len(data), nil
 }
 
 func (w *Writer) put() error {
 	chunk := &Chunk{Hash: hash.EncodeHash(hash.Sum(w.buf.Bytes()))}
 	path := path.Join(prefix, chunk.Hash)
-	// If it does not exist, compress and write it.
+	// If the chunk does not exist, upload it.
 	if !w.objC.Exists(w.ctx, path) {
-		objW, err := w.objC.Writer(w.ctx, path)
-		if err != nil {
-			return err
-		}
-		defer objW.Close()
-		gzipW := gzip.NewWriter(objW)
-		defer gzipW.Close()
-		// (bryce) Encrypt?
-		if _, err := io.Copy(gzipW, bytes.NewReader(w.buf.Bytes())); err != nil {
+		if err := w.upload(path); err != nil {
 			return err
 		}
 	}
-	// Update chunk and run callback for ranges within the current chunk.
-	for _, dataRefs := range w.done {
-		lastDataRef := dataRefs[len(dataRefs)-1]
-		// Handle edge case where DataRef is size zero.
-		if lastDataRef.SizeBytes == 0 {
-			dataRefs = dataRefs[:len(dataRefs)-1]
-		} else {
-			// Set chunk for last DataRef (from current chunk).
-			lastDataRef.Chunk = chunk
-		}
-		if err := w.cbs[0](dataRefs); err != nil {
-			return err
-		}
-		w.cbs = w.cbs[1:]
+	w.chunkCount++
+	chunkRef := &DataRef{
+		Chunk:     chunk,
+		SizeBytes: int64(len(w.buf.Bytes())),
 	}
-	w.done = nil
-	// Update chunk and hash (if at first DataRef in range)
-	// in last DataRef for current range.
-	lastDataRef := w.dataRefs[len(w.dataRefs)-1]
-	lastDataRef.Chunk = chunk
-	if lastDataRef.OffsetBytes > 0 {
-		data := w.buf.Bytes()[lastDataRef.OffsetBytes:w.buf.Len()]
-		lastDataRef.Hash = hash.EncodeHash(hash.Sum(data))
+	return w.executeFunc(chunkRef)
+}
+
+func (w *Writer) upload(path string) error {
+	objW, err := w.objC.Writer(w.ctx, path)
+	if err != nil {
+		return err
 	}
-	lastDataRef.SizeBytes = int64(w.buf.Len()) - lastDataRef.OffsetBytes
-	// Setup DataRef for next chunk.
-	w.dataRefs = append(w.dataRefs, &DataRef{})
+	defer objW.Close()
+	gzipW := gzip.NewWriter(objW)
+	defer gzipW.Close()
+	// (bryce) Encrypt?
+	_, err = io.Copy(gzipW, bytes.NewReader(w.buf.Bytes()))
+	return err
+}
+
+func (w *Writer) executeFunc(chunkRef *DataRef) error {
+	// Update the annotations for the current chunk.
+	w.updateAnnotations(chunkRef)
+	// Execute the chunk callback.
+	if err := w.f(chunkRef, w.annotations); err != nil {
+		return err
+	}
+	// Keep the last annotation because it may span into the next chunk.
+	lastA := w.annotations[len(w.annotations)-1]
+	a := &Annotation{Meta: lastA.Meta}
+	if lastA.NextDataRef != nil {
+		a.NextDataRef = &DataRef{}
+	}
+	w.annotations = []*Annotation{a}
 	return nil
+}
+
+func (w *Writer) updateAnnotations(chunkRef *DataRef) {
+	// Fast path for next data reference being full chunk.
+	if len(w.annotations) == 1 && w.annotations[0].NextDataRef != nil {
+		w.annotations[0].NextDataRef = chunkRef
+	}
+	for i, a := range w.annotations {
+		// (bryce) probably a better way to communicate whether to compute datarefs for an annotation.
+		if a.NextDataRef != nil {
+			a.NextDataRef.Chunk = chunkRef.Chunk
+			data := w.buf.Bytes()
+			if i == len(w.annotations)-1 {
+				data = data[a.Offset:w.buf.Len()]
+			} else {
+				data = data[a.Offset:w.annotations[i+1].Offset]
+			}
+			a.NextDataRef.Hash = hash.EncodeHash(hash.Sum(data))
+			a.NextDataRef.OffsetBytes = a.Offset
+			a.NextDataRef.SizeBytes = int64(len(data))
+		}
+	}
+}
+
+func (w *Writer) atSplit() bool {
+	return w.buf.Len() == 0
+}
+
+func (w *Writer) writeChunk(chunkRef *DataRef) error {
+	w.chunkCount++
+	w.annotatedBytesSize += chunkRef.SizeBytes
+	return w.executeFunc(chunkRef)
 }
 
 // Close closes the writer and flushes the remaining bytes to a chunk and finishes
 // the final range.
 func (w *Writer) Close() error {
-	// No range created / data written.
-	if w.dataRefs == nil {
-		return nil
-	}
-	w.finishRange()
 	return w.put()
 }

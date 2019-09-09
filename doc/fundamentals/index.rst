@@ -9,14 +9,8 @@ operations.
 .. toctree::
    :maxdepth: 2
 
-   getting_data_into_pachyderm.md
-   creating_analysis_pipelines.md
-   getting_data_out_of_pachyderm.md
-   removing_data_from_pachyderm.md
-   append_overwrite.md
-   lifecycle_of_a_datum.md
-   updating_pipelines.md
    distributed_computing.md
-   incrementality.md
-   spouts.md
+   append_overwrite.md
+   updating_pipelines.md
+   run_pipeline.md
    history.md

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.9.4
+
+- Fixes a a bug (#4053) which made it impossible to read files written to output commits with `put file`. (#4055)
+- Adds a flag `--fix` to `pachctl fsck` which will fix some of the issues that it detects. (#4052)
+- Fixes a bug (#3879) which caused `pachctl debug dump` to hit max message size issues. (#4015)
+- The Microsoft Azure Blob Storage client has been upgraded to the most recent version. (#4000)
+- Extract now correctly extracts the `pod_patch` and `pod_spec` for pipelines. (#3964, thanks to @mrene)
+- S3Gateway now has support for multi-part uploads. (#3903)
+- S3Gateway now has support for multi-deletes. (#4004)
+- S3Geteway now has support for auth. (#3937)
+
 ## 1.9.3
 
 - Fixes a bug that caused the Azure driver to lock up when there were too many active requests. (#3970)

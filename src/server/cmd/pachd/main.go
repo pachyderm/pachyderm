@@ -281,7 +281,7 @@ func doFullMode(config interface{}) (retErr error) {
 		env.Namespace,
 	)
 	go func() {
-		if err := sharder.AssignRoles(address, nil); err != nil {
+		if err := sharder.AssignRoles(address); err != nil {
 			log.Printf("error from sharder.AssignRoles: %s", grpcutil.ScrubGRPC(err))
 		}
 	}()
@@ -470,12 +470,12 @@ func doFullMode(config interface{}) (retErr error) {
 					txnEnv := &txnenv.TransactionEnv{}
 					cacheServer := cache_server.NewCacheServer(router, env.NumShards)
 					go func() {
-						if err := sharder.RegisterFrontends(nil, address, []shard.Frontend{cacheServer}); err != nil {
+						if err := sharder.RegisterFrontends(address, []shard.Frontend{cacheServer}); err != nil {
 							log.Printf("error from sharder.RegisterFrontend %s", grpcutil.ScrubGRPC(err))
 						}
 					}()
 					go func() {
-						if err := sharder.Register(nil, address, []shard.Server{cacheServer}); err != nil {
+						if err := sharder.Register(address, []shard.Server{cacheServer}); err != nil {
 							log.Printf("error from sharder.Register %s", grpcutil.ScrubGRPC(err))
 						}
 					}()
