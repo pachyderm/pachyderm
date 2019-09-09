@@ -125,10 +125,6 @@ func (c *Config) initV2() error {
 // Write writes the configuration in 'c' to this machine's Pachyderm config
 // file.
 func (c *Config) Write() error {
-	if c.V1 != nil {
-		panic("config V1 included (this is a bug)")
-	}
-
 	rawConfig, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
 		return err
