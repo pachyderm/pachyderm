@@ -35,15 +35,17 @@ var _ = math.Inf
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 type Op1_7 struct {
-	Object               *pfs.PutObjectRequest      `protobuf:"bytes,2,opt,name=object,proto3" json:"object,omitempty"`
-	Tag                  *pfs.TagObjectRequest      `protobuf:"bytes,3,opt,name=tag,proto3" json:"tag,omitempty"`
-	Repo                 *pfs.CreateRepoRequest     `protobuf:"bytes,4,opt,name=repo,proto3" json:"repo,omitempty"`
-	Commit               *pfs.BuildCommitRequest    `protobuf:"bytes,5,opt,name=commit,proto3" json:"commit,omitempty"`
-	Branch               *pfs.CreateBranchRequest   `protobuf:"bytes,6,opt,name=branch,proto3" json:"branch,omitempty"`
-	Pipeline             *pps.CreatePipelineRequest `protobuf:"bytes,7,opt,name=pipeline,proto3" json:"pipeline,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
-	XXX_unrecognized     []byte                     `json:"-"`
-	XXX_sizecache        int32                      `json:"-"`
+	// Types that are valid to be assigned to Op1_7:
+	//	*Op1_7_Object
+	//	*Op1_7_Tag
+	//	*Op1_7_Repo
+	//	*Op1_7_Commit
+	//	*Op1_7_Branch
+	//	*Op1_7_Pipeline
+	Op1_7                isOp1_7_Op1_7 `protobuf_oneof:"op1_7"`
+	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
+	XXX_unrecognized     []byte        `json:"-"`
+	XXX_sizecache        int32         `json:"-"`
 }
 
 func (m *Op1_7) Reset()         { *m = Op1_7{} }
@@ -79,58 +81,249 @@ func (m *Op1_7) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_Op1_7 proto.InternalMessageInfo
 
-func (m *Op1_7) GetObject() *pfs.PutObjectRequest {
+type isOp1_7_Op1_7 interface {
+	isOp1_7_Op1_7()
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type Op1_7_Object struct {
+	Object *pfs.PutObjectRequest `protobuf:"bytes,2,opt,name=object,proto3,oneof"`
+}
+type Op1_7_Tag struct {
+	Tag *pfs.TagObjectRequest `protobuf:"bytes,3,opt,name=tag,proto3,oneof"`
+}
+type Op1_7_Repo struct {
+	Repo *pfs.CreateRepoRequest `protobuf:"bytes,4,opt,name=repo,proto3,oneof"`
+}
+type Op1_7_Commit struct {
+	Commit *pfs.BuildCommitRequest `protobuf:"bytes,5,opt,name=commit,proto3,oneof"`
+}
+type Op1_7_Branch struct {
+	Branch *pfs.CreateBranchRequest `protobuf:"bytes,6,opt,name=branch,proto3,oneof"`
+}
+type Op1_7_Pipeline struct {
+	Pipeline *pps.CreatePipelineRequest `protobuf:"bytes,7,opt,name=pipeline,proto3,oneof"`
+}
+
+func (*Op1_7_Object) isOp1_7_Op1_7()   {}
+func (*Op1_7_Tag) isOp1_7_Op1_7()      {}
+func (*Op1_7_Repo) isOp1_7_Op1_7()     {}
+func (*Op1_7_Commit) isOp1_7_Op1_7()   {}
+func (*Op1_7_Branch) isOp1_7_Op1_7()   {}
+func (*Op1_7_Pipeline) isOp1_7_Op1_7() {}
+
+func (m *Op1_7) GetOp1_7() isOp1_7_Op1_7 {
 	if m != nil {
-		return m.Object
+		return m.Op1_7
+	}
+	return nil
+}
+
+func (m *Op1_7) GetObject() *pfs.PutObjectRequest {
+	if x, ok := m.GetOp1_7().(*Op1_7_Object); ok {
+		return x.Object
 	}
 	return nil
 }
 
 func (m *Op1_7) GetTag() *pfs.TagObjectRequest {
-	if m != nil {
-		return m.Tag
+	if x, ok := m.GetOp1_7().(*Op1_7_Tag); ok {
+		return x.Tag
 	}
 	return nil
 }
 
 func (m *Op1_7) GetRepo() *pfs.CreateRepoRequest {
-	if m != nil {
-		return m.Repo
+	if x, ok := m.GetOp1_7().(*Op1_7_Repo); ok {
+		return x.Repo
 	}
 	return nil
 }
 
 func (m *Op1_7) GetCommit() *pfs.BuildCommitRequest {
-	if m != nil {
-		return m.Commit
+	if x, ok := m.GetOp1_7().(*Op1_7_Commit); ok {
+		return x.Commit
 	}
 	return nil
 }
 
 func (m *Op1_7) GetBranch() *pfs.CreateBranchRequest {
-	if m != nil {
-		return m.Branch
+	if x, ok := m.GetOp1_7().(*Op1_7_Branch); ok {
+		return x.Branch
 	}
 	return nil
 }
 
 func (m *Op1_7) GetPipeline() *pps.CreatePipelineRequest {
-	if m != nil {
-		return m.Pipeline
+	if x, ok := m.GetOp1_7().(*Op1_7_Pipeline); ok {
+		return x.Pipeline
 	}
 	return nil
 }
 
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*Op1_7) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _Op1_7_OneofMarshaler, _Op1_7_OneofUnmarshaler, _Op1_7_OneofSizer, []interface{}{
+		(*Op1_7_Object)(nil),
+		(*Op1_7_Tag)(nil),
+		(*Op1_7_Repo)(nil),
+		(*Op1_7_Commit)(nil),
+		(*Op1_7_Branch)(nil),
+		(*Op1_7_Pipeline)(nil),
+	}
+}
+
+func _Op1_7_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*Op1_7)
+	// op1_7
+	switch x := m.Op1_7.(type) {
+	case *Op1_7_Object:
+		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Object); err != nil {
+			return err
+		}
+	case *Op1_7_Tag:
+		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Tag); err != nil {
+			return err
+		}
+	case *Op1_7_Repo:
+		_ = b.EncodeVarint(4<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Repo); err != nil {
+			return err
+		}
+	case *Op1_7_Commit:
+		_ = b.EncodeVarint(5<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Commit); err != nil {
+			return err
+		}
+	case *Op1_7_Branch:
+		_ = b.EncodeVarint(6<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Branch); err != nil {
+			return err
+		}
+	case *Op1_7_Pipeline:
+		_ = b.EncodeVarint(7<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Pipeline); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("Op1_7.Op1_7 has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _Op1_7_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*Op1_7)
+	switch tag {
+	case 2: // op1_7.object
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(pfs.PutObjectRequest)
+		err := b.DecodeMessage(msg)
+		m.Op1_7 = &Op1_7_Object{msg}
+		return true, err
+	case 3: // op1_7.tag
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(pfs.TagObjectRequest)
+		err := b.DecodeMessage(msg)
+		m.Op1_7 = &Op1_7_Tag{msg}
+		return true, err
+	case 4: // op1_7.repo
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(pfs.CreateRepoRequest)
+		err := b.DecodeMessage(msg)
+		m.Op1_7 = &Op1_7_Repo{msg}
+		return true, err
+	case 5: // op1_7.commit
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(pfs.BuildCommitRequest)
+		err := b.DecodeMessage(msg)
+		m.Op1_7 = &Op1_7_Commit{msg}
+		return true, err
+	case 6: // op1_7.branch
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(pfs.CreateBranchRequest)
+		err := b.DecodeMessage(msg)
+		m.Op1_7 = &Op1_7_Branch{msg}
+		return true, err
+	case 7: // op1_7.pipeline
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(pps.CreatePipelineRequest)
+		err := b.DecodeMessage(msg)
+		m.Op1_7 = &Op1_7_Pipeline{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _Op1_7_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*Op1_7)
+	// op1_7
+	switch x := m.Op1_7.(type) {
+	case *Op1_7_Object:
+		s := proto.Size(x.Object)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Op1_7_Tag:
+		s := proto.Size(x.Tag)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Op1_7_Repo:
+		s := proto.Size(x.Repo)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Op1_7_Commit:
+		s := proto.Size(x.Commit)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Op1_7_Branch:
+		s := proto.Size(x.Branch)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Op1_7_Pipeline:
+		s := proto.Size(x.Pipeline)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
+}
+
 type Op1_8 struct {
-	Object               *pfs1.PutObjectRequest      `protobuf:"bytes,2,opt,name=object,proto3" json:"object,omitempty"`
-	Tag                  *pfs1.TagObjectRequest      `protobuf:"bytes,3,opt,name=tag,proto3" json:"tag,omitempty"`
-	Repo                 *pfs1.CreateRepoRequest     `protobuf:"bytes,4,opt,name=repo,proto3" json:"repo,omitempty"`
-	Commit               *pfs1.BuildCommitRequest    `protobuf:"bytes,5,opt,name=commit,proto3" json:"commit,omitempty"`
-	Branch               *pfs1.CreateBranchRequest   `protobuf:"bytes,6,opt,name=branch,proto3" json:"branch,omitempty"`
-	Pipeline             *pps1.CreatePipelineRequest `protobuf:"bytes,7,opt,name=pipeline,proto3" json:"pipeline,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                    `json:"-"`
-	XXX_unrecognized     []byte                      `json:"-"`
-	XXX_sizecache        int32                       `json:"-"`
+	// Types that are valid to be assigned to Op1_8:
+	//	*Op1_8_Object
+	//	*Op1_8_Tag
+	//	*Op1_8_Repo
+	//	*Op1_8_Commit
+	//	*Op1_8_Branch
+	//	*Op1_8_Pipeline
+	Op1_8                isOp1_8_Op1_8 `protobuf_oneof:"op1_8"`
+	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
+	XXX_unrecognized     []byte        `json:"-"`
+	XXX_sizecache        int32         `json:"-"`
 }
 
 func (m *Op1_8) Reset()         { *m = Op1_8{} }
@@ -166,58 +359,249 @@ func (m *Op1_8) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_Op1_8 proto.InternalMessageInfo
 
-func (m *Op1_8) GetObject() *pfs1.PutObjectRequest {
+type isOp1_8_Op1_8 interface {
+	isOp1_8_Op1_8()
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type Op1_8_Object struct {
+	Object *pfs1.PutObjectRequest `protobuf:"bytes,2,opt,name=object,proto3,oneof"`
+}
+type Op1_8_Tag struct {
+	Tag *pfs1.TagObjectRequest `protobuf:"bytes,3,opt,name=tag,proto3,oneof"`
+}
+type Op1_8_Repo struct {
+	Repo *pfs1.CreateRepoRequest `protobuf:"bytes,4,opt,name=repo,proto3,oneof"`
+}
+type Op1_8_Commit struct {
+	Commit *pfs1.BuildCommitRequest `protobuf:"bytes,5,opt,name=commit,proto3,oneof"`
+}
+type Op1_8_Branch struct {
+	Branch *pfs1.CreateBranchRequest `protobuf:"bytes,6,opt,name=branch,proto3,oneof"`
+}
+type Op1_8_Pipeline struct {
+	Pipeline *pps1.CreatePipelineRequest `protobuf:"bytes,7,opt,name=pipeline,proto3,oneof"`
+}
+
+func (*Op1_8_Object) isOp1_8_Op1_8()   {}
+func (*Op1_8_Tag) isOp1_8_Op1_8()      {}
+func (*Op1_8_Repo) isOp1_8_Op1_8()     {}
+func (*Op1_8_Commit) isOp1_8_Op1_8()   {}
+func (*Op1_8_Branch) isOp1_8_Op1_8()   {}
+func (*Op1_8_Pipeline) isOp1_8_Op1_8() {}
+
+func (m *Op1_8) GetOp1_8() isOp1_8_Op1_8 {
 	if m != nil {
-		return m.Object
+		return m.Op1_8
+	}
+	return nil
+}
+
+func (m *Op1_8) GetObject() *pfs1.PutObjectRequest {
+	if x, ok := m.GetOp1_8().(*Op1_8_Object); ok {
+		return x.Object
 	}
 	return nil
 }
 
 func (m *Op1_8) GetTag() *pfs1.TagObjectRequest {
-	if m != nil {
-		return m.Tag
+	if x, ok := m.GetOp1_8().(*Op1_8_Tag); ok {
+		return x.Tag
 	}
 	return nil
 }
 
 func (m *Op1_8) GetRepo() *pfs1.CreateRepoRequest {
-	if m != nil {
-		return m.Repo
+	if x, ok := m.GetOp1_8().(*Op1_8_Repo); ok {
+		return x.Repo
 	}
 	return nil
 }
 
 func (m *Op1_8) GetCommit() *pfs1.BuildCommitRequest {
-	if m != nil {
-		return m.Commit
+	if x, ok := m.GetOp1_8().(*Op1_8_Commit); ok {
+		return x.Commit
 	}
 	return nil
 }
 
 func (m *Op1_8) GetBranch() *pfs1.CreateBranchRequest {
-	if m != nil {
-		return m.Branch
+	if x, ok := m.GetOp1_8().(*Op1_8_Branch); ok {
+		return x.Branch
 	}
 	return nil
 }
 
 func (m *Op1_8) GetPipeline() *pps1.CreatePipelineRequest {
-	if m != nil {
-		return m.Pipeline
+	if x, ok := m.GetOp1_8().(*Op1_8_Pipeline); ok {
+		return x.Pipeline
 	}
 	return nil
 }
 
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*Op1_8) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _Op1_8_OneofMarshaler, _Op1_8_OneofUnmarshaler, _Op1_8_OneofSizer, []interface{}{
+		(*Op1_8_Object)(nil),
+		(*Op1_8_Tag)(nil),
+		(*Op1_8_Repo)(nil),
+		(*Op1_8_Commit)(nil),
+		(*Op1_8_Branch)(nil),
+		(*Op1_8_Pipeline)(nil),
+	}
+}
+
+func _Op1_8_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*Op1_8)
+	// op1_8
+	switch x := m.Op1_8.(type) {
+	case *Op1_8_Object:
+		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Object); err != nil {
+			return err
+		}
+	case *Op1_8_Tag:
+		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Tag); err != nil {
+			return err
+		}
+	case *Op1_8_Repo:
+		_ = b.EncodeVarint(4<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Repo); err != nil {
+			return err
+		}
+	case *Op1_8_Commit:
+		_ = b.EncodeVarint(5<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Commit); err != nil {
+			return err
+		}
+	case *Op1_8_Branch:
+		_ = b.EncodeVarint(6<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Branch); err != nil {
+			return err
+		}
+	case *Op1_8_Pipeline:
+		_ = b.EncodeVarint(7<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Pipeline); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("Op1_8.Op1_8 has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _Op1_8_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*Op1_8)
+	switch tag {
+	case 2: // op1_8.object
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(pfs1.PutObjectRequest)
+		err := b.DecodeMessage(msg)
+		m.Op1_8 = &Op1_8_Object{msg}
+		return true, err
+	case 3: // op1_8.tag
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(pfs1.TagObjectRequest)
+		err := b.DecodeMessage(msg)
+		m.Op1_8 = &Op1_8_Tag{msg}
+		return true, err
+	case 4: // op1_8.repo
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(pfs1.CreateRepoRequest)
+		err := b.DecodeMessage(msg)
+		m.Op1_8 = &Op1_8_Repo{msg}
+		return true, err
+	case 5: // op1_8.commit
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(pfs1.BuildCommitRequest)
+		err := b.DecodeMessage(msg)
+		m.Op1_8 = &Op1_8_Commit{msg}
+		return true, err
+	case 6: // op1_8.branch
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(pfs1.CreateBranchRequest)
+		err := b.DecodeMessage(msg)
+		m.Op1_8 = &Op1_8_Branch{msg}
+		return true, err
+	case 7: // op1_8.pipeline
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(pps1.CreatePipelineRequest)
+		err := b.DecodeMessage(msg)
+		m.Op1_8 = &Op1_8_Pipeline{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _Op1_8_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*Op1_8)
+	// op1_8
+	switch x := m.Op1_8.(type) {
+	case *Op1_8_Object:
+		s := proto.Size(x.Object)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Op1_8_Tag:
+		s := proto.Size(x.Tag)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Op1_8_Repo:
+		s := proto.Size(x.Repo)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Op1_8_Commit:
+		s := proto.Size(x.Commit)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Op1_8_Branch:
+		s := proto.Size(x.Branch)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Op1_8_Pipeline:
+		s := proto.Size(x.Pipeline)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
+}
+
 type Op1_9 struct {
-	Object               *pfs2.PutObjectRequest      `protobuf:"bytes,2,opt,name=object,proto3" json:"object,omitempty"`
-	Tag                  *pfs2.TagObjectRequest      `protobuf:"bytes,3,opt,name=tag,proto3" json:"tag,omitempty"`
-	Repo                 *pfs2.CreateRepoRequest     `protobuf:"bytes,4,opt,name=repo,proto3" json:"repo,omitempty"`
-	Commit               *pfs2.BuildCommitRequest    `protobuf:"bytes,5,opt,name=commit,proto3" json:"commit,omitempty"`
-	Branch               *pfs2.CreateBranchRequest   `protobuf:"bytes,6,opt,name=branch,proto3" json:"branch,omitempty"`
-	Pipeline             *pps2.CreatePipelineRequest `protobuf:"bytes,7,opt,name=pipeline,proto3" json:"pipeline,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                    `json:"-"`
-	XXX_unrecognized     []byte                      `json:"-"`
-	XXX_sizecache        int32                       `json:"-"`
+	// Types that are valid to be assigned to Op1_9:
+	//	*Op1_9_Object
+	//	*Op1_9_Tag
+	//	*Op1_9_Repo
+	//	*Op1_9_Commit
+	//	*Op1_9_Branch
+	//	*Op1_9_Pipeline
+	Op1_9                isOp1_9_Op1_9 `protobuf_oneof:"op1_9"`
+	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
+	XXX_unrecognized     []byte        `json:"-"`
+	XXX_sizecache        int32         `json:"-"`
 }
 
 func (m *Op1_9) Reset()         { *m = Op1_9{} }
@@ -253,52 +637,243 @@ func (m *Op1_9) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_Op1_9 proto.InternalMessageInfo
 
-func (m *Op1_9) GetObject() *pfs2.PutObjectRequest {
+type isOp1_9_Op1_9 interface {
+	isOp1_9_Op1_9()
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type Op1_9_Object struct {
+	Object *pfs2.PutObjectRequest `protobuf:"bytes,2,opt,name=object,proto3,oneof"`
+}
+type Op1_9_Tag struct {
+	Tag *pfs2.TagObjectRequest `protobuf:"bytes,3,opt,name=tag,proto3,oneof"`
+}
+type Op1_9_Repo struct {
+	Repo *pfs2.CreateRepoRequest `protobuf:"bytes,4,opt,name=repo,proto3,oneof"`
+}
+type Op1_9_Commit struct {
+	Commit *pfs2.BuildCommitRequest `protobuf:"bytes,5,opt,name=commit,proto3,oneof"`
+}
+type Op1_9_Branch struct {
+	Branch *pfs2.CreateBranchRequest `protobuf:"bytes,6,opt,name=branch,proto3,oneof"`
+}
+type Op1_9_Pipeline struct {
+	Pipeline *pps2.CreatePipelineRequest `protobuf:"bytes,7,opt,name=pipeline,proto3,oneof"`
+}
+
+func (*Op1_9_Object) isOp1_9_Op1_9()   {}
+func (*Op1_9_Tag) isOp1_9_Op1_9()      {}
+func (*Op1_9_Repo) isOp1_9_Op1_9()     {}
+func (*Op1_9_Commit) isOp1_9_Op1_9()   {}
+func (*Op1_9_Branch) isOp1_9_Op1_9()   {}
+func (*Op1_9_Pipeline) isOp1_9_Op1_9() {}
+
+func (m *Op1_9) GetOp1_9() isOp1_9_Op1_9 {
 	if m != nil {
-		return m.Object
+		return m.Op1_9
+	}
+	return nil
+}
+
+func (m *Op1_9) GetObject() *pfs2.PutObjectRequest {
+	if x, ok := m.GetOp1_9().(*Op1_9_Object); ok {
+		return x.Object
 	}
 	return nil
 }
 
 func (m *Op1_9) GetTag() *pfs2.TagObjectRequest {
-	if m != nil {
-		return m.Tag
+	if x, ok := m.GetOp1_9().(*Op1_9_Tag); ok {
+		return x.Tag
 	}
 	return nil
 }
 
 func (m *Op1_9) GetRepo() *pfs2.CreateRepoRequest {
-	if m != nil {
-		return m.Repo
+	if x, ok := m.GetOp1_9().(*Op1_9_Repo); ok {
+		return x.Repo
 	}
 	return nil
 }
 
 func (m *Op1_9) GetCommit() *pfs2.BuildCommitRequest {
-	if m != nil {
-		return m.Commit
+	if x, ok := m.GetOp1_9().(*Op1_9_Commit); ok {
+		return x.Commit
 	}
 	return nil
 }
 
 func (m *Op1_9) GetBranch() *pfs2.CreateBranchRequest {
-	if m != nil {
-		return m.Branch
+	if x, ok := m.GetOp1_9().(*Op1_9_Branch); ok {
+		return x.Branch
 	}
 	return nil
 }
 
 func (m *Op1_9) GetPipeline() *pps2.CreatePipelineRequest {
-	if m != nil {
-		return m.Pipeline
+	if x, ok := m.GetOp1_9().(*Op1_9_Pipeline); ok {
+		return x.Pipeline
 	}
 	return nil
 }
 
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*Op1_9) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _Op1_9_OneofMarshaler, _Op1_9_OneofUnmarshaler, _Op1_9_OneofSizer, []interface{}{
+		(*Op1_9_Object)(nil),
+		(*Op1_9_Tag)(nil),
+		(*Op1_9_Repo)(nil),
+		(*Op1_9_Commit)(nil),
+		(*Op1_9_Branch)(nil),
+		(*Op1_9_Pipeline)(nil),
+	}
+}
+
+func _Op1_9_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*Op1_9)
+	// op1_9
+	switch x := m.Op1_9.(type) {
+	case *Op1_9_Object:
+		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Object); err != nil {
+			return err
+		}
+	case *Op1_9_Tag:
+		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Tag); err != nil {
+			return err
+		}
+	case *Op1_9_Repo:
+		_ = b.EncodeVarint(4<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Repo); err != nil {
+			return err
+		}
+	case *Op1_9_Commit:
+		_ = b.EncodeVarint(5<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Commit); err != nil {
+			return err
+		}
+	case *Op1_9_Branch:
+		_ = b.EncodeVarint(6<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Branch); err != nil {
+			return err
+		}
+	case *Op1_9_Pipeline:
+		_ = b.EncodeVarint(7<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Pipeline); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("Op1_9.Op1_9 has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _Op1_9_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*Op1_9)
+	switch tag {
+	case 2: // op1_9.object
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(pfs2.PutObjectRequest)
+		err := b.DecodeMessage(msg)
+		m.Op1_9 = &Op1_9_Object{msg}
+		return true, err
+	case 3: // op1_9.tag
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(pfs2.TagObjectRequest)
+		err := b.DecodeMessage(msg)
+		m.Op1_9 = &Op1_9_Tag{msg}
+		return true, err
+	case 4: // op1_9.repo
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(pfs2.CreateRepoRequest)
+		err := b.DecodeMessage(msg)
+		m.Op1_9 = &Op1_9_Repo{msg}
+		return true, err
+	case 5: // op1_9.commit
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(pfs2.BuildCommitRequest)
+		err := b.DecodeMessage(msg)
+		m.Op1_9 = &Op1_9_Commit{msg}
+		return true, err
+	case 6: // op1_9.branch
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(pfs2.CreateBranchRequest)
+		err := b.DecodeMessage(msg)
+		m.Op1_9 = &Op1_9_Branch{msg}
+		return true, err
+	case 7: // op1_9.pipeline
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(pps2.CreatePipelineRequest)
+		err := b.DecodeMessage(msg)
+		m.Op1_9 = &Op1_9_Pipeline{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _Op1_9_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*Op1_9)
+	// op1_9
+	switch x := m.Op1_9.(type) {
+	case *Op1_9_Object:
+		s := proto.Size(x.Object)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Op1_9_Tag:
+		s := proto.Size(x.Tag)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Op1_9_Repo:
+		s := proto.Size(x.Repo)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Op1_9_Commit:
+		s := proto.Size(x.Commit)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Op1_9_Branch:
+		s := proto.Size(x.Branch)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Op1_9_Pipeline:
+		s := proto.Size(x.Pipeline)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
+}
+
 type Op struct {
-	Op1_7                *Op1_7   `protobuf:"bytes,1,opt,name=op1_7,json=op17,proto3" json:"op1_7,omitempty"`
-	Op1_8                *Op1_8   `protobuf:"bytes,2,opt,name=op1_8,json=op18,proto3" json:"op1_8,omitempty"`
-	Op1_9                *Op1_9   `protobuf:"bytes,3,opt,name=op1_9,json=op19,proto3" json:"op1_9,omitempty"`
+	// Types that are valid to be assigned to Op:
+	//	*Op_Op1_7
+	//	*Op_Op1_8
+	//	*Op_Op1_9
+	Op                   isOp_Op  `protobuf_oneof:"op"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -337,25 +912,145 @@ func (m *Op) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_Op proto.InternalMessageInfo
 
-func (m *Op) GetOp1_7() *Op1_7 {
+type isOp_Op interface {
+	isOp_Op()
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type Op_Op1_7 struct {
+	Op1_7 *Op1_7 `protobuf:"bytes,1,opt,name=op1_7,json=op17,proto3,oneof"`
+}
+type Op_Op1_8 struct {
+	Op1_8 *Op1_8 `protobuf:"bytes,2,opt,name=op1_8,json=op18,proto3,oneof"`
+}
+type Op_Op1_9 struct {
+	Op1_9 *Op1_9 `protobuf:"bytes,3,opt,name=op1_9,json=op19,proto3,oneof"`
+}
+
+func (*Op_Op1_7) isOp_Op() {}
+func (*Op_Op1_8) isOp_Op() {}
+func (*Op_Op1_9) isOp_Op() {}
+
+func (m *Op) GetOp() isOp_Op {
 	if m != nil {
-		return m.Op1_7
+		return m.Op
+	}
+	return nil
+}
+
+func (m *Op) GetOp1_7() *Op1_7 {
+	if x, ok := m.GetOp().(*Op_Op1_7); ok {
+		return x.Op1_7
 	}
 	return nil
 }
 
 func (m *Op) GetOp1_8() *Op1_8 {
-	if m != nil {
-		return m.Op1_8
+	if x, ok := m.GetOp().(*Op_Op1_8); ok {
+		return x.Op1_8
 	}
 	return nil
 }
 
 func (m *Op) GetOp1_9() *Op1_9 {
-	if m != nil {
-		return m.Op1_9
+	if x, ok := m.GetOp().(*Op_Op1_9); ok {
+		return x.Op1_9
 	}
 	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*Op) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _Op_OneofMarshaler, _Op_OneofUnmarshaler, _Op_OneofSizer, []interface{}{
+		(*Op_Op1_7)(nil),
+		(*Op_Op1_8)(nil),
+		(*Op_Op1_9)(nil),
+	}
+}
+
+func _Op_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*Op)
+	// op
+	switch x := m.Op.(type) {
+	case *Op_Op1_7:
+		_ = b.EncodeVarint(1<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Op1_7); err != nil {
+			return err
+		}
+	case *Op_Op1_8:
+		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Op1_8); err != nil {
+			return err
+		}
+	case *Op_Op1_9:
+		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Op1_9); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("Op.Op has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _Op_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*Op)
+	switch tag {
+	case 1: // op.op1_7
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(Op1_7)
+		err := b.DecodeMessage(msg)
+		m.Op = &Op_Op1_7{msg}
+		return true, err
+	case 2: // op.op1_8
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(Op1_8)
+		err := b.DecodeMessage(msg)
+		m.Op = &Op_Op1_8{msg}
+		return true, err
+	case 3: // op.op1_9
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(Op1_9)
+		err := b.DecodeMessage(msg)
+		m.Op = &Op_Op1_9{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _Op_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*Op)
+	// op
+	switch x := m.Op.(type) {
+	case *Op_Op1_7:
+		s := proto.Size(x.Op1_7)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Op_Op1_8:
+		s := proto.Size(x.Op1_8)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Op_Op1_9:
+		s := proto.Size(x.Op1_9)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
 }
 
 type ExtractRequest struct {
@@ -599,52 +1294,53 @@ func init() {
 func init() { proto.RegisterFile("client/admin/admin.proto", fileDescriptor_6597bb2f2302afbd) }
 
 var fileDescriptor_6597bb2f2302afbd = []byte{
-	// 715 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x95, 0x4f, 0x6e, 0xd3, 0x40,
-	0x14, 0x87, 0x63, 0xa7, 0xf9, 0xd3, 0x69, 0x29, 0x68, 0xd4, 0x06, 0xd7, 0xa5, 0x29, 0xb5, 0x84,
-	0x28, 0x20, 0xec, 0xa6, 0x45, 0xc4, 0x41, 0x14, 0xa9, 0x09, 0x5d, 0x44, 0x42, 0x6a, 0x65, 0xc1,
-	0x86, 0x8d, 0xe5, 0x38, 0x13, 0xd7, 0x28, 0xf1, 0x0c, 0x9e, 0x09, 0xa2, 0x2b, 0xae, 0xc1, 0x09,
-	0x38, 0x06, 0x6b, 0x96, 0x9c, 0x00, 0xa1, 0x70, 0x04, 0x2e, 0x80, 0x3c, 0x1e, 0xbb, 0xb6, 0x69,
-	0x5a, 0xb5, 0x0b, 0x57, 0x53, 0xcf, 0xf7, 0x7b, 0xcf, 0xef, 0xb3, 0x9c, 0x01, 0x8a, 0x3b, 0xf6,
-	0x51, 0xc0, 0x0c, 0x67, 0x38, 0xf1, 0x83, 0xf8, 0xaf, 0x4e, 0x42, 0xcc, 0x30, 0xac, 0xf0, 0x7f,
-	0xd4, 0x0d, 0x0f, 0x63, 0x6f, 0x8c, 0x0c, 0x7e, 0x73, 0x30, 0x1d, 0x19, 0x68, 0x42, 0xd8, 0x59,
-	0xcc, 0xa8, 0xab, 0x1e, 0xf6, 0x30, 0x5f, 0x1a, 0xd1, 0x4a, 0xdc, 0xdd, 0xca, 0xd5, 0xfc, 0xd4,
-	0xb2, 0xdb, 0x06, 0x19, 0xd1, 0xe8, 0xba, 0x04, 0x20, 0x34, 0xba, 0xe6, 0x01, 0xe6, 0x55, 0x15,
-	0xcc, 0x42, 0x85, 0x55, 0x01, 0xe4, 0x63, 0xe9, 0xdd, 0x2c, 0xab, 0x7d, 0x97, 0x41, 0xe5, 0x98,
-	0xb4, 0xec, 0x36, 0x6c, 0x81, 0x2a, 0x1e, 0x7c, 0x40, 0x2e, 0x53, 0xe4, 0xfb, 0xd2, 0xce, 0xd2,
-	0xde, 0xba, 0x4e, 0x46, 0xd4, 0x6e, 0xd9, 0x6d, 0xfd, 0x64, 0xca, 0x8e, 0xf9, 0x8e, 0x85, 0x3e,
-	0x4e, 0x11, 0x65, 0x96, 0x00, 0xe1, 0x13, 0x50, 0x66, 0x8e, 0xa7, 0x94, 0x0b, 0xfc, 0x5b, 0xc7,
-	0xcb, 0xf3, 0x11, 0x05, 0x75, 0xb0, 0x10, 0x22, 0x82, 0x95, 0x05, 0x4e, 0xab, 0x29, 0xdd, 0x0b,
-	0x91, 0xc3, 0x90, 0x85, 0x08, 0x4e, 0x70, 0xce, 0xc1, 0x7d, 0x50, 0x75, 0xf1, 0x64, 0xe2, 0x33,
-	0xa5, 0xc2, 0x13, 0x1b, 0x69, 0xa2, 0x3b, 0xf5, 0xc7, 0xc3, 0x1e, 0xdf, 0x4b, 0x9f, 0x28, 0x46,
-	0xe1, 0x33, 0x50, 0x1d, 0x84, 0x4e, 0xe0, 0x9e, 0x2a, 0x55, 0x1e, 0xba, 0x57, 0x68, 0xd3, 0xe5,
-	0x9b, 0x69, 0x2a, 0x66, 0xe1, 0x0b, 0x50, 0x27, 0x3e, 0x41, 0x63, 0x3f, 0x40, 0x4a, 0x8d, 0xe7,
-	0x9a, 0x3a, 0x21, 0xd9, 0xdc, 0x89, 0xd8, 0x4e, 0x92, 0x29, 0x9f, 0x0a, 0x34, 0xe7, 0x0a, 0x34,
-	0xaf, 0x29, 0xd0, 0xbc, 0x96, 0x40, 0xf3, 0xda, 0x02, 0xcd, 0x9b, 0x08, 0x34, 0x6f, 0x28, 0xd0,
-	0xbc, 0x52, 0xe0, 0x37, 0x21, 0xb0, 0x03, 0x9f, 0x16, 0x04, 0xae, 0x45, 0xbd, 0xe7, 0xcb, 0x7b,
-	0x98, 0x95, 0x17, 0xb3, 0x17, 0x8b, 0x7b, 0x9c, 0x13, 0xd7, 0xe0, 0xe4, 0x3c, 0x69, 0x46, 0x41,
-	0xda, 0x5d, 0x4e, 0x5f, 0x22, 0x6c, 0xb7, 0x20, 0x4c, 0xc9, 0x94, 0xbf, 0x58, 0xd6, 0xf3, 0xff,
-	0x64, 0xa9, 0x91, 0xac, 0x2b, 0x45, 0x4d, 0x80, 0x7c, 0x4c, 0xe0, 0x36, 0xa8, 0xe0, 0xe8, 0x7b,
-	0x55, 0x24, 0x1e, 0x5d, 0xd6, 0xe3, 0xdf, 0x2d, 0xfe, 0x0d, 0x5b, 0x0b, 0x98, 0xb4, 0xda, 0x09,
-	0x62, 0x0a, 0x8d, 0x59, 0xc4, 0xe4, 0x88, 0x99, 0x20, 0x1d, 0x61, 0x2f, 0x8b, 0x74, 0x38, 0xd2,
-	0xd1, 0xbe, 0x80, 0x95, 0xa3, 0xcf, 0x2c, 0x74, 0x52, 0x99, 0xf0, 0x0e, 0x28, 0xbf, 0xb3, 0xde,
-	0xf0, 0xc6, 0x8b, 0x56, 0xb4, 0x84, 0x9b, 0x00, 0x04, 0xd8, 0x8e, 0xdf, 0x07, 0xe5, 0xed, 0xea,
-	0xd6, 0x62, 0x80, 0xe3, 0x77, 0x40, 0xe1, 0x3a, 0xa8, 0x07, 0xd8, 0x8e, 0xbc, 0x52, 0xde, 0xa8,
-	0x6e, 0xd5, 0x02, 0x1c, 0x39, 0xa7, 0x70, 0x1b, 0x2c, 0x07, 0xd8, 0x4e, 0x66, 0xa3, 0xfc, 0xdd,
-	0xd4, 0xad, 0xa5, 0x00, 0x27, 0xf3, 0x53, 0xad, 0x07, 0x1a, 0xe2, 0x01, 0x0a, 0x4e, 0xe0, 0xa3,
-	0x8c, 0xc1, 0x58, 0xc3, 0x2d, 0x6e, 0x30, 0xe5, 0xce, 0xa5, 0x1d, 0x80, 0x15, 0x0b, 0x51, 0x86,
-	0xc3, 0x34, 0xbc, 0x0e, 0x64, 0x4c, 0x44, 0x6c, 0x31, 0x9d, 0xdb, 0x92, 0x31, 0x49, 0x06, 0x94,
-	0xd3, 0x01, 0xb5, 0x07, 0x60, 0xa9, 0x37, 0x9e, 0x52, 0x86, 0xc2, 0x7e, 0x30, 0xc2, 0xb0, 0x01,
-	0x64, 0x7f, 0x18, 0x0b, 0xe8, 0x56, 0x67, 0xbf, 0xb6, 0xe4, 0xfe, 0x6b, 0x4b, 0xf6, 0x87, 0x7b,
-	0x7f, 0x25, 0x50, 0x3e, 0x3c, 0xe9, 0x43, 0x03, 0xd4, 0xc4, 0x23, 0xc3, 0x35, 0x51, 0x3a, 0xef,
-	0x50, 0x3d, 0xef, 0xa8, 0x95, 0x76, 0x25, 0x78, 0x00, 0x6e, 0x17, 0x66, 0x84, 0x9b, 0xf9, 0x60,
-	0x61, 0xf6, 0x5c, 0x01, 0xf8, 0x12, 0xd4, 0xc4, 0x74, 0x69, 0xbf, 0xfc, 0xb4, 0x6a, 0x43, 0x8f,
-	0xcf, 0x30, 0x3d, 0x39, 0xc3, 0xf4, 0xa3, 0xe8, 0x0c, 0xd3, 0x4a, 0x3b, 0x12, 0x7c, 0x05, 0x56,
-	0xfa, 0x01, 0x25, 0xc8, 0x65, 0x62, 0x46, 0x38, 0x87, 0x56, 0xa1, 0x28, 0x9e, 0x71, 0xa1, 0x95,
-	0xba, 0x87, 0x3f, 0x66, 0x4d, 0xe9, 0xe7, 0xac, 0x29, 0xfd, 0x9e, 0x35, 0xa5, 0xaf, 0x7f, 0x9a,
-	0xa5, 0xf7, 0x86, 0xe7, 0xb3, 0xd3, 0xe9, 0x40, 0x77, 0xf1, 0xc4, 0x20, 0x8e, 0x7b, 0x7a, 0x36,
-	0x44, 0x61, 0x76, 0x45, 0x43, 0xd7, 0xc8, 0x9e, 0x5e, 0x83, 0x2a, 0x6f, 0xb4, 0xff, 0x2f, 0x00,
-	0x00, 0xff, 0xff, 0xd5, 0x2e, 0x39, 0xc1, 0x8b, 0x07, 0x00, 0x00,
+	// 734 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x95, 0xdf, 0x6e, 0xd3, 0x3a,
+	0x1c, 0xc7, 0x9b, 0x74, 0xfd, 0x33, 0x6f, 0x67, 0xe7, 0xc8, 0xda, 0x7a, 0xb2, 0xec, 0xac, 0x3b,
+	0x04, 0x21, 0x6d, 0x12, 0x24, 0xeb, 0x26, 0xa8, 0x2b, 0x6d, 0x48, 0x6b, 0x99, 0x44, 0x25, 0xa4,
+	0x4d, 0x11, 0xdc, 0x70, 0x13, 0xa5, 0xa9, 0x9b, 0x05, 0xb5, 0xb1, 0x89, 0x5d, 0xc4, 0xae, 0x78,
+	0x0d, 0xde, 0x85, 0x17, 0xe0, 0x12, 0x89, 0x7b, 0x84, 0xca, 0x23, 0xf0, 0x02, 0x28, 0x8e, 0x9b,
+	0x25, 0x41, 0x1d, 0xdb, 0x2e, 0x52, 0xb9, 0xf6, 0xf7, 0xfb, 0xfb, 0xf9, 0xfb, 0x71, 0x14, 0x03,
+	0xcd, 0x1b, 0x07, 0x38, 0xe4, 0x96, 0x3b, 0x9c, 0x04, 0x61, 0xf2, 0x6b, 0xd2, 0x88, 0x70, 0x02,
+	0x2b, 0xe2, 0x8f, 0xbe, 0xe5, 0x13, 0xe2, 0x8f, 0xb1, 0x25, 0x26, 0x07, 0xd3, 0x91, 0x85, 0x27,
+	0x94, 0x5f, 0x26, 0x1a, 0x7d, 0xdd, 0x27, 0x3e, 0x11, 0x43, 0x2b, 0x1e, 0xc9, 0xd9, 0x9d, 0x5c,
+	0xcd, 0x77, 0x2d, 0xa7, 0x6d, 0xd1, 0x11, 0x8b, 0x9f, 0x6b, 0x04, 0x94, 0xc5, 0xcf, 0x22, 0x01,
+	0xfa, 0x53, 0x05, 0x54, 0xa8, 0xb0, 0x2e, 0x05, 0x79, 0x5b, 0x3a, 0x9b, 0xd5, 0x1a, 0x5f, 0x55,
+	0x50, 0x39, 0xa3, 0x2d, 0xa7, 0x0d, 0x0f, 0x41, 0x95, 0x0c, 0xde, 0x60, 0x8f, 0x6b, 0xea, 0xff,
+	0xca, 0xee, 0xca, 0xc1, 0xa6, 0x49, 0x47, 0xcc, 0x69, 0x39, 0x6d, 0xf3, 0x7c, 0xca, 0xcf, 0xc4,
+	0x8a, 0x8d, 0xdf, 0x4e, 0x31, 0xe3, 0xcf, 0x4b, 0xb6, 0x94, 0xc2, 0x47, 0xa0, 0xcc, 0x5d, 0x5f,
+	0x2b, 0x17, 0x1c, 0x2f, 0x5d, 0xbf, 0xe8, 0x88, 0x75, 0x70, 0x1f, 0x2c, 0x45, 0x98, 0x12, 0x6d,
+	0x49, 0xe8, 0xf5, 0x54, 0xdf, 0x8b, 0xb0, 0xcb, 0xb1, 0x8d, 0x29, 0xb9, 0x32, 0x08, 0x25, 0x7c,
+	0x0c, 0xaa, 0x1e, 0x99, 0x4c, 0x02, 0xae, 0x55, 0x84, 0x67, 0x2b, 0xf5, 0x74, 0xa7, 0xc1, 0x78,
+	0xd8, 0x13, 0x6b, 0x99, 0x7d, 0x25, 0x62, 0xf8, 0x04, 0x54, 0x07, 0x91, 0x1b, 0x7a, 0x17, 0x5a,
+	0x55, 0xd8, 0xfe, 0x2b, 0xb4, 0xea, 0x8a, 0xc5, 0x8c, 0x2f, 0x51, 0xc3, 0x23, 0x50, 0xa7, 0x01,
+	0xc5, 0xe3, 0x20, 0xc4, 0x5a, 0x4d, 0x38, 0x9b, 0x26, 0xa5, 0x59, 0xe7, 0xb9, 0x5c, 0xbe, 0xf2,
+	0xa6, 0x8e, 0x6e, 0x0d, 0x54, 0x48, 0xcc, 0x32, 0xa5, 0x8a, 0x16, 0x52, 0x45, 0xb7, 0xa6, 0x8a,
+	0x6e, 0x49, 0x15, 0xdd, 0x81, 0x2a, 0xba, 0x1b, 0x55, 0x74, 0x67, 0xaa, 0xe8, 0xe6, 0x54, 0x91,
+	0xf1, 0x49, 0x52, 0xed, 0x40, 0xab, 0x40, 0x75, 0x23, 0xde, 0xc8, 0x75, 0x44, 0xf7, 0xb2, 0x44,
+	0x13, 0xf5, 0x22, 0x9a, 0x0f, 0x73, 0x34, 0x1b, 0x42, 0xbb, 0x98, 0x64, 0xab, 0x40, 0xf2, 0x5f,
+	0xa1, 0xbf, 0x96, 0xe2, 0x41, 0x81, 0xa2, 0x96, 0x69, 0xb1, 0x88, 0x20, 0xfa, 0x8d, 0xa0, 0x1e,
+	0x13, 0xbc, 0x39, 0xbd, 0x8e, 0x71, 0x09, 0xd4, 0x33, 0x0a, 0xef, 0xcb, 0x57, 0x54, 0x53, 0x44,
+	0x95, 0x55, 0x33, 0xf9, 0xec, 0x89, 0x4f, 0x40, 0x1c, 0x8a, 0xd0, 0x56, 0x7b, 0x2e, 0x42, 0x92,
+	0x6e, 0x56, 0x84, 0xa4, 0x08, 0xcd, 0x45, 0x1d, 0x09, 0x35, 0x2b, 0xea, 0x48, 0x51, 0xa7, 0xbb,
+	0x04, 0x54, 0x42, 0x8d, 0x0f, 0x60, 0xed, 0xf4, 0x3d, 0x8f, 0xdc, 0x94, 0x35, 0xfc, 0x07, 0x94,
+	0x5f, 0xd9, 0x2f, 0xc4, 0x26, 0x96, 0xed, 0x78, 0x08, 0xb7, 0x01, 0x08, 0x89, 0x93, 0x1c, 0x17,
+	0x13, 0x8d, 0xeb, 0xf6, 0x72, 0x48, 0x92, 0x23, 0x62, 0x70, 0x13, 0xd4, 0x43, 0xe2, 0xc4, 0xc8,
+	0x99, 0x68, 0x58, 0xb7, 0x6b, 0x21, 0x89, 0x0f, 0x84, 0xc1, 0x7b, 0x60, 0x35, 0x24, 0xce, 0x3c,
+	0x30, 0x13, 0x07, 0x57, 0xb7, 0x57, 0x42, 0x32, 0xc7, 0xc2, 0x8c, 0x1e, 0x68, 0xc8, 0x0d, 0x14,
+	0x50, 0xc1, 0xbd, 0x0c, 0xd8, 0x04, 0xc9, 0x5f, 0x02, 0x6c, 0xaa, 0x4b, 0x97, 0x8d, 0x63, 0xb0,
+	0x66, 0x63, 0xc6, 0x49, 0x94, 0x9a, 0x37, 0xe3, 0x74, 0xd2, 0xb6, 0x9c, 0xe6, 0xb7, 0x55, 0x42,
+	0xe7, 0x01, 0xd5, 0x34, 0xa0, 0xf1, 0x00, 0xac, 0xf4, 0xc6, 0x53, 0xc6, 0x71, 0xd4, 0x0f, 0x47,
+	0x04, 0x36, 0x80, 0x1a, 0x0c, 0x13, 0x00, 0xdd, 0xea, 0xec, 0xdb, 0x8e, 0xda, 0x7f, 0x66, 0xab,
+	0xc1, 0xf0, 0xe0, 0xa7, 0x02, 0xca, 0x27, 0xe7, 0x7d, 0x68, 0x81, 0x9a, 0xdc, 0x32, 0xdc, 0x90,
+	0xa5, 0xf3, 0x0c, 0xf5, 0xab, 0x8e, 0x46, 0x69, 0x5f, 0x81, 0xc7, 0xe0, 0xef, 0x42, 0x46, 0xb8,
+	0x9d, 0x37, 0x16, 0xb2, 0xe7, 0x0a, 0xc0, 0x23, 0x50, 0x93, 0xe9, 0xd2, 0x7e, 0xf9, 0xb4, 0x7a,
+	0xc3, 0x4c, 0xae, 0x43, 0x73, 0x7e, 0x1d, 0x9a, 0xa7, 0xf1, 0x75, 0x68, 0x94, 0x76, 0x15, 0xf8,
+	0x14, 0xac, 0xf5, 0x43, 0x46, 0xb1, 0xc7, 0x65, 0x46, 0xb8, 0x40, 0xad, 0x43, 0x59, 0x3c, 0xc3,
+	0xc2, 0x28, 0x75, 0x4f, 0x3e, 0xcf, 0x9a, 0xca, 0x97, 0x59, 0x53, 0xf9, 0x3e, 0x6b, 0x2a, 0x1f,
+	0x7f, 0x34, 0x4b, 0xaf, 0x2d, 0x3f, 0xe0, 0x17, 0xd3, 0x81, 0xe9, 0x91, 0x89, 0x45, 0x5d, 0xef,
+	0xe2, 0x72, 0x88, 0xa3, 0xec, 0x88, 0x45, 0x9e, 0x95, 0xbd, 0x08, 0x07, 0x55, 0xd1, 0xe8, 0xf0,
+	0x57, 0x00, 0x00, 0x00, 0xff, 0xff, 0x24, 0x6f, 0x87, 0xa9, 0xd6, 0x07, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -921,66 +1617,24 @@ func (m *Op1_7) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.Pipeline != nil {
+	if m.Op1_7 != nil {
 		{
-			size, err := m.Pipeline.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
+			size := m.Op1_7.Size()
+			i -= size
+			if _, err := m.Op1_7.MarshalTo(dAtA[i:]); err != nil {
 				return 0, err
 			}
-			i -= size
-			i = encodeVarintAdmin(dAtA, i, uint64(size))
 		}
-		i--
-		dAtA[i] = 0x3a
 	}
-	if m.Branch != nil {
-		{
-			size, err := m.Branch.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintAdmin(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x32
-	}
-	if m.Commit != nil {
-		{
-			size, err := m.Commit.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintAdmin(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x2a
-	}
-	if m.Repo != nil {
-		{
-			size, err := m.Repo.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintAdmin(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x22
-	}
-	if m.Tag != nil {
-		{
-			size, err := m.Tag.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintAdmin(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x1a
-	}
+	return len(dAtA) - i, nil
+}
+
+func (m *Op1_7_Object) MarshalTo(dAtA []byte) (int, error) {
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Op1_7_Object) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	if m.Object != nil {
 		{
 			size, err := m.Object.MarshalToSizedBuffer(dAtA[:i])
@@ -995,7 +1649,106 @@ func (m *Op1_7) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	}
 	return len(dAtA) - i, nil
 }
+func (m *Op1_7_Tag) MarshalTo(dAtA []byte) (int, error) {
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
 
+func (m *Op1_7_Tag) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.Tag != nil {
+		{
+			size, err := m.Tag.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAdmin(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
+	}
+	return len(dAtA) - i, nil
+}
+func (m *Op1_7_Repo) MarshalTo(dAtA []byte) (int, error) {
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Op1_7_Repo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.Repo != nil {
+		{
+			size, err := m.Repo.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAdmin(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x22
+	}
+	return len(dAtA) - i, nil
+}
+func (m *Op1_7_Commit) MarshalTo(dAtA []byte) (int, error) {
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Op1_7_Commit) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.Commit != nil {
+		{
+			size, err := m.Commit.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAdmin(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x2a
+	}
+	return len(dAtA) - i, nil
+}
+func (m *Op1_7_Branch) MarshalTo(dAtA []byte) (int, error) {
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Op1_7_Branch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.Branch != nil {
+		{
+			size, err := m.Branch.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAdmin(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x32
+	}
+	return len(dAtA) - i, nil
+}
+func (m *Op1_7_Pipeline) MarshalTo(dAtA []byte) (int, error) {
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Op1_7_Pipeline) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.Pipeline != nil {
+		{
+			size, err := m.Pipeline.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAdmin(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x3a
+	}
+	return len(dAtA) - i, nil
+}
 func (m *Op1_8) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -1020,66 +1773,24 @@ func (m *Op1_8) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.Pipeline != nil {
+	if m.Op1_8 != nil {
 		{
-			size, err := m.Pipeline.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
+			size := m.Op1_8.Size()
+			i -= size
+			if _, err := m.Op1_8.MarshalTo(dAtA[i:]); err != nil {
 				return 0, err
 			}
-			i -= size
-			i = encodeVarintAdmin(dAtA, i, uint64(size))
 		}
-		i--
-		dAtA[i] = 0x3a
 	}
-	if m.Branch != nil {
-		{
-			size, err := m.Branch.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintAdmin(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x32
-	}
-	if m.Commit != nil {
-		{
-			size, err := m.Commit.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintAdmin(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x2a
-	}
-	if m.Repo != nil {
-		{
-			size, err := m.Repo.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintAdmin(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x22
-	}
-	if m.Tag != nil {
-		{
-			size, err := m.Tag.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintAdmin(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x1a
-	}
+	return len(dAtA) - i, nil
+}
+
+func (m *Op1_8_Object) MarshalTo(dAtA []byte) (int, error) {
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Op1_8_Object) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	if m.Object != nil {
 		{
 			size, err := m.Object.MarshalToSizedBuffer(dAtA[:i])
@@ -1094,7 +1805,106 @@ func (m *Op1_8) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	}
 	return len(dAtA) - i, nil
 }
+func (m *Op1_8_Tag) MarshalTo(dAtA []byte) (int, error) {
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
 
+func (m *Op1_8_Tag) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.Tag != nil {
+		{
+			size, err := m.Tag.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAdmin(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
+	}
+	return len(dAtA) - i, nil
+}
+func (m *Op1_8_Repo) MarshalTo(dAtA []byte) (int, error) {
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Op1_8_Repo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.Repo != nil {
+		{
+			size, err := m.Repo.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAdmin(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x22
+	}
+	return len(dAtA) - i, nil
+}
+func (m *Op1_8_Commit) MarshalTo(dAtA []byte) (int, error) {
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Op1_8_Commit) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.Commit != nil {
+		{
+			size, err := m.Commit.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAdmin(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x2a
+	}
+	return len(dAtA) - i, nil
+}
+func (m *Op1_8_Branch) MarshalTo(dAtA []byte) (int, error) {
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Op1_8_Branch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.Branch != nil {
+		{
+			size, err := m.Branch.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAdmin(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x32
+	}
+	return len(dAtA) - i, nil
+}
+func (m *Op1_8_Pipeline) MarshalTo(dAtA []byte) (int, error) {
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Op1_8_Pipeline) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.Pipeline != nil {
+		{
+			size, err := m.Pipeline.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAdmin(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x3a
+	}
+	return len(dAtA) - i, nil
+}
 func (m *Op1_9) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -1119,66 +1929,24 @@ func (m *Op1_9) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.Pipeline != nil {
+	if m.Op1_9 != nil {
 		{
-			size, err := m.Pipeline.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
+			size := m.Op1_9.Size()
+			i -= size
+			if _, err := m.Op1_9.MarshalTo(dAtA[i:]); err != nil {
 				return 0, err
 			}
-			i -= size
-			i = encodeVarintAdmin(dAtA, i, uint64(size))
 		}
-		i--
-		dAtA[i] = 0x3a
 	}
-	if m.Branch != nil {
-		{
-			size, err := m.Branch.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintAdmin(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x32
-	}
-	if m.Commit != nil {
-		{
-			size, err := m.Commit.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintAdmin(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x2a
-	}
-	if m.Repo != nil {
-		{
-			size, err := m.Repo.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintAdmin(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x22
-	}
-	if m.Tag != nil {
-		{
-			size, err := m.Tag.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintAdmin(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x1a
-	}
+	return len(dAtA) - i, nil
+}
+
+func (m *Op1_9_Object) MarshalTo(dAtA []byte) (int, error) {
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Op1_9_Object) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	if m.Object != nil {
 		{
 			size, err := m.Object.MarshalToSizedBuffer(dAtA[:i])
@@ -1193,7 +1961,106 @@ func (m *Op1_9) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	}
 	return len(dAtA) - i, nil
 }
+func (m *Op1_9_Tag) MarshalTo(dAtA []byte) (int, error) {
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
 
+func (m *Op1_9_Tag) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.Tag != nil {
+		{
+			size, err := m.Tag.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAdmin(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
+	}
+	return len(dAtA) - i, nil
+}
+func (m *Op1_9_Repo) MarshalTo(dAtA []byte) (int, error) {
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Op1_9_Repo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.Repo != nil {
+		{
+			size, err := m.Repo.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAdmin(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x22
+	}
+	return len(dAtA) - i, nil
+}
+func (m *Op1_9_Commit) MarshalTo(dAtA []byte) (int, error) {
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Op1_9_Commit) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.Commit != nil {
+		{
+			size, err := m.Commit.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAdmin(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x2a
+	}
+	return len(dAtA) - i, nil
+}
+func (m *Op1_9_Branch) MarshalTo(dAtA []byte) (int, error) {
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Op1_9_Branch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.Branch != nil {
+		{
+			size, err := m.Branch.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAdmin(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x32
+	}
+	return len(dAtA) - i, nil
+}
+func (m *Op1_9_Pipeline) MarshalTo(dAtA []byte) (int, error) {
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Op1_9_Pipeline) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.Pipeline != nil {
+		{
+			size, err := m.Pipeline.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAdmin(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x3a
+	}
+	return len(dAtA) - i, nil
+}
 func (m *Op) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -1218,30 +2085,24 @@ func (m *Op) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.Op1_9 != nil {
+	if m.Op != nil {
 		{
-			size, err := m.Op1_9.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
+			size := m.Op.Size()
+			i -= size
+			if _, err := m.Op.MarshalTo(dAtA[i:]); err != nil {
 				return 0, err
 			}
-			i -= size
-			i = encodeVarintAdmin(dAtA, i, uint64(size))
 		}
-		i--
-		dAtA[i] = 0x1a
 	}
-	if m.Op1_8 != nil {
-		{
-			size, err := m.Op1_8.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintAdmin(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x12
-	}
+	return len(dAtA) - i, nil
+}
+
+func (m *Op_Op1_7) MarshalTo(dAtA []byte) (int, error) {
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Op_Op1_7) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	if m.Op1_7 != nil {
 		{
 			size, err := m.Op1_7.MarshalToSizedBuffer(dAtA[:i])
@@ -1256,7 +2117,46 @@ func (m *Op) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	}
 	return len(dAtA) - i, nil
 }
+func (m *Op_Op1_8) MarshalTo(dAtA []byte) (int, error) {
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
 
+func (m *Op_Op1_8) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.Op1_8 != nil {
+		{
+			size, err := m.Op1_8.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAdmin(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	return len(dAtA) - i, nil
+}
+func (m *Op_Op1_9) MarshalTo(dAtA []byte) (int, error) {
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Op_Op1_9) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.Op1_9 != nil {
+		{
+			size, err := m.Op1_9.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAdmin(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
+	}
+	return len(dAtA) - i, nil
+}
 func (m *ExtractRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -1457,29 +2357,8 @@ func (m *Op1_7) Size() (n int) {
 	}
 	var l int
 	_ = l
-	if m.Object != nil {
-		l = m.Object.Size()
-		n += 1 + l + sovAdmin(uint64(l))
-	}
-	if m.Tag != nil {
-		l = m.Tag.Size()
-		n += 1 + l + sovAdmin(uint64(l))
-	}
-	if m.Repo != nil {
-		l = m.Repo.Size()
-		n += 1 + l + sovAdmin(uint64(l))
-	}
-	if m.Commit != nil {
-		l = m.Commit.Size()
-		n += 1 + l + sovAdmin(uint64(l))
-	}
-	if m.Branch != nil {
-		l = m.Branch.Size()
-		n += 1 + l + sovAdmin(uint64(l))
-	}
-	if m.Pipeline != nil {
-		l = m.Pipeline.Size()
-		n += 1 + l + sovAdmin(uint64(l))
+	if m.Op1_7 != nil {
+		n += m.Op1_7.Size()
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -1487,35 +2366,86 @@ func (m *Op1_7) Size() (n int) {
 	return n
 }
 
+func (m *Op1_7_Object) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Object != nil {
+		l = m.Object.Size()
+		n += 1 + l + sovAdmin(uint64(l))
+	}
+	return n
+}
+func (m *Op1_7_Tag) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Tag != nil {
+		l = m.Tag.Size()
+		n += 1 + l + sovAdmin(uint64(l))
+	}
+	return n
+}
+func (m *Op1_7_Repo) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Repo != nil {
+		l = m.Repo.Size()
+		n += 1 + l + sovAdmin(uint64(l))
+	}
+	return n
+}
+func (m *Op1_7_Commit) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Commit != nil {
+		l = m.Commit.Size()
+		n += 1 + l + sovAdmin(uint64(l))
+	}
+	return n
+}
+func (m *Op1_7_Branch) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Branch != nil {
+		l = m.Branch.Size()
+		n += 1 + l + sovAdmin(uint64(l))
+	}
+	return n
+}
+func (m *Op1_7_Pipeline) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Pipeline != nil {
+		l = m.Pipeline.Size()
+		n += 1 + l + sovAdmin(uint64(l))
+	}
+	return n
+}
 func (m *Op1_8) Size() (n int) {
 	if m == nil {
 		return 0
 	}
 	var l int
 	_ = l
-	if m.Object != nil {
-		l = m.Object.Size()
-		n += 1 + l + sovAdmin(uint64(l))
-	}
-	if m.Tag != nil {
-		l = m.Tag.Size()
-		n += 1 + l + sovAdmin(uint64(l))
-	}
-	if m.Repo != nil {
-		l = m.Repo.Size()
-		n += 1 + l + sovAdmin(uint64(l))
-	}
-	if m.Commit != nil {
-		l = m.Commit.Size()
-		n += 1 + l + sovAdmin(uint64(l))
-	}
-	if m.Branch != nil {
-		l = m.Branch.Size()
-		n += 1 + l + sovAdmin(uint64(l))
-	}
-	if m.Pipeline != nil {
-		l = m.Pipeline.Size()
-		n += 1 + l + sovAdmin(uint64(l))
+	if m.Op1_8 != nil {
+		n += m.Op1_8.Size()
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -1523,7 +2453,7 @@ func (m *Op1_8) Size() (n int) {
 	return n
 }
 
-func (m *Op1_9) Size() (n int) {
+func (m *Op1_8_Object) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -1533,25 +2463,76 @@ func (m *Op1_9) Size() (n int) {
 		l = m.Object.Size()
 		n += 1 + l + sovAdmin(uint64(l))
 	}
+	return n
+}
+func (m *Op1_8_Tag) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
 	if m.Tag != nil {
 		l = m.Tag.Size()
 		n += 1 + l + sovAdmin(uint64(l))
 	}
+	return n
+}
+func (m *Op1_8_Repo) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
 	if m.Repo != nil {
 		l = m.Repo.Size()
 		n += 1 + l + sovAdmin(uint64(l))
 	}
+	return n
+}
+func (m *Op1_8_Commit) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
 	if m.Commit != nil {
 		l = m.Commit.Size()
 		n += 1 + l + sovAdmin(uint64(l))
 	}
+	return n
+}
+func (m *Op1_8_Branch) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
 	if m.Branch != nil {
 		l = m.Branch.Size()
 		n += 1 + l + sovAdmin(uint64(l))
 	}
+	return n
+}
+func (m *Op1_8_Pipeline) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
 	if m.Pipeline != nil {
 		l = m.Pipeline.Size()
 		n += 1 + l + sovAdmin(uint64(l))
+	}
+	return n
+}
+func (m *Op1_9) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Op1_9 != nil {
+		n += m.Op1_9.Size()
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -1559,7 +2540,94 @@ func (m *Op1_9) Size() (n int) {
 	return n
 }
 
+func (m *Op1_9_Object) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Object != nil {
+		l = m.Object.Size()
+		n += 1 + l + sovAdmin(uint64(l))
+	}
+	return n
+}
+func (m *Op1_9_Tag) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Tag != nil {
+		l = m.Tag.Size()
+		n += 1 + l + sovAdmin(uint64(l))
+	}
+	return n
+}
+func (m *Op1_9_Repo) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Repo != nil {
+		l = m.Repo.Size()
+		n += 1 + l + sovAdmin(uint64(l))
+	}
+	return n
+}
+func (m *Op1_9_Commit) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Commit != nil {
+		l = m.Commit.Size()
+		n += 1 + l + sovAdmin(uint64(l))
+	}
+	return n
+}
+func (m *Op1_9_Branch) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Branch != nil {
+		l = m.Branch.Size()
+		n += 1 + l + sovAdmin(uint64(l))
+	}
+	return n
+}
+func (m *Op1_9_Pipeline) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Pipeline != nil {
+		l = m.Pipeline.Size()
+		n += 1 + l + sovAdmin(uint64(l))
+	}
+	return n
+}
 func (m *Op) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Op != nil {
+		n += m.Op.Size()
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *Op_Op1_7) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -1569,20 +2637,32 @@ func (m *Op) Size() (n int) {
 		l = m.Op1_7.Size()
 		n += 1 + l + sovAdmin(uint64(l))
 	}
+	return n
+}
+func (m *Op_Op1_8) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
 	if m.Op1_8 != nil {
 		l = m.Op1_8.Size()
 		n += 1 + l + sovAdmin(uint64(l))
 	}
+	return n
+}
+func (m *Op_Op1_9) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
 	if m.Op1_9 != nil {
 		l = m.Op1_9.Size()
 		n += 1 + l + sovAdmin(uint64(l))
 	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
 	return n
 }
-
 func (m *ExtractRequest) Size() (n int) {
 	if m == nil {
 		return 0
@@ -1724,12 +2804,11 @@ func (m *Op1_7) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Object == nil {
-				m.Object = &pfs.PutObjectRequest{}
-			}
-			if err := m.Object.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			v := &pfs.PutObjectRequest{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			m.Op1_7 = &Op1_7_Object{v}
 			iNdEx = postIndex
 		case 3:
 			if wireType != 2 {
@@ -1760,12 +2839,11 @@ func (m *Op1_7) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Tag == nil {
-				m.Tag = &pfs.TagObjectRequest{}
-			}
-			if err := m.Tag.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			v := &pfs.TagObjectRequest{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			m.Op1_7 = &Op1_7_Tag{v}
 			iNdEx = postIndex
 		case 4:
 			if wireType != 2 {
@@ -1796,12 +2874,11 @@ func (m *Op1_7) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Repo == nil {
-				m.Repo = &pfs.CreateRepoRequest{}
-			}
-			if err := m.Repo.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			v := &pfs.CreateRepoRequest{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			m.Op1_7 = &Op1_7_Repo{v}
 			iNdEx = postIndex
 		case 5:
 			if wireType != 2 {
@@ -1832,12 +2909,11 @@ func (m *Op1_7) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Commit == nil {
-				m.Commit = &pfs.BuildCommitRequest{}
-			}
-			if err := m.Commit.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			v := &pfs.BuildCommitRequest{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			m.Op1_7 = &Op1_7_Commit{v}
 			iNdEx = postIndex
 		case 6:
 			if wireType != 2 {
@@ -1868,12 +2944,11 @@ func (m *Op1_7) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Branch == nil {
-				m.Branch = &pfs.CreateBranchRequest{}
-			}
-			if err := m.Branch.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			v := &pfs.CreateBranchRequest{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			m.Op1_7 = &Op1_7_Branch{v}
 			iNdEx = postIndex
 		case 7:
 			if wireType != 2 {
@@ -1904,12 +2979,11 @@ func (m *Op1_7) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Pipeline == nil {
-				m.Pipeline = &pps.CreatePipelineRequest{}
-			}
-			if err := m.Pipeline.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			v := &pps.CreatePipelineRequest{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			m.Op1_7 = &Op1_7_Pipeline{v}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -1994,12 +3068,11 @@ func (m *Op1_8) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Object == nil {
-				m.Object = &pfs1.PutObjectRequest{}
-			}
-			if err := m.Object.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			v := &pfs1.PutObjectRequest{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			m.Op1_8 = &Op1_8_Object{v}
 			iNdEx = postIndex
 		case 3:
 			if wireType != 2 {
@@ -2030,12 +3103,11 @@ func (m *Op1_8) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Tag == nil {
-				m.Tag = &pfs1.TagObjectRequest{}
-			}
-			if err := m.Tag.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			v := &pfs1.TagObjectRequest{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			m.Op1_8 = &Op1_8_Tag{v}
 			iNdEx = postIndex
 		case 4:
 			if wireType != 2 {
@@ -2066,12 +3138,11 @@ func (m *Op1_8) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Repo == nil {
-				m.Repo = &pfs1.CreateRepoRequest{}
-			}
-			if err := m.Repo.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			v := &pfs1.CreateRepoRequest{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			m.Op1_8 = &Op1_8_Repo{v}
 			iNdEx = postIndex
 		case 5:
 			if wireType != 2 {
@@ -2102,12 +3173,11 @@ func (m *Op1_8) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Commit == nil {
-				m.Commit = &pfs1.BuildCommitRequest{}
-			}
-			if err := m.Commit.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			v := &pfs1.BuildCommitRequest{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			m.Op1_8 = &Op1_8_Commit{v}
 			iNdEx = postIndex
 		case 6:
 			if wireType != 2 {
@@ -2138,12 +3208,11 @@ func (m *Op1_8) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Branch == nil {
-				m.Branch = &pfs1.CreateBranchRequest{}
-			}
-			if err := m.Branch.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			v := &pfs1.CreateBranchRequest{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			m.Op1_8 = &Op1_8_Branch{v}
 			iNdEx = postIndex
 		case 7:
 			if wireType != 2 {
@@ -2174,12 +3243,11 @@ func (m *Op1_8) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Pipeline == nil {
-				m.Pipeline = &pps1.CreatePipelineRequest{}
-			}
-			if err := m.Pipeline.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			v := &pps1.CreatePipelineRequest{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			m.Op1_8 = &Op1_8_Pipeline{v}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -2264,12 +3332,11 @@ func (m *Op1_9) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Object == nil {
-				m.Object = &pfs2.PutObjectRequest{}
-			}
-			if err := m.Object.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			v := &pfs2.PutObjectRequest{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			m.Op1_9 = &Op1_9_Object{v}
 			iNdEx = postIndex
 		case 3:
 			if wireType != 2 {
@@ -2300,12 +3367,11 @@ func (m *Op1_9) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Tag == nil {
-				m.Tag = &pfs2.TagObjectRequest{}
-			}
-			if err := m.Tag.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			v := &pfs2.TagObjectRequest{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			m.Op1_9 = &Op1_9_Tag{v}
 			iNdEx = postIndex
 		case 4:
 			if wireType != 2 {
@@ -2336,12 +3402,11 @@ func (m *Op1_9) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Repo == nil {
-				m.Repo = &pfs2.CreateRepoRequest{}
-			}
-			if err := m.Repo.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			v := &pfs2.CreateRepoRequest{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			m.Op1_9 = &Op1_9_Repo{v}
 			iNdEx = postIndex
 		case 5:
 			if wireType != 2 {
@@ -2372,12 +3437,11 @@ func (m *Op1_9) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Commit == nil {
-				m.Commit = &pfs2.BuildCommitRequest{}
-			}
-			if err := m.Commit.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			v := &pfs2.BuildCommitRequest{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			m.Op1_9 = &Op1_9_Commit{v}
 			iNdEx = postIndex
 		case 6:
 			if wireType != 2 {
@@ -2408,12 +3472,11 @@ func (m *Op1_9) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Branch == nil {
-				m.Branch = &pfs2.CreateBranchRequest{}
-			}
-			if err := m.Branch.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			v := &pfs2.CreateBranchRequest{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			m.Op1_9 = &Op1_9_Branch{v}
 			iNdEx = postIndex
 		case 7:
 			if wireType != 2 {
@@ -2444,12 +3507,11 @@ func (m *Op1_9) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Pipeline == nil {
-				m.Pipeline = &pps2.CreatePipelineRequest{}
-			}
-			if err := m.Pipeline.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			v := &pps2.CreatePipelineRequest{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			m.Op1_9 = &Op1_9_Pipeline{v}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -2534,12 +3596,11 @@ func (m *Op) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Op1_7 == nil {
-				m.Op1_7 = &Op1_7{}
-			}
-			if err := m.Op1_7.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			v := &Op1_7{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			m.Op = &Op_Op1_7{v}
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
@@ -2570,12 +3631,11 @@ func (m *Op) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Op1_8 == nil {
-				m.Op1_8 = &Op1_8{}
-			}
-			if err := m.Op1_8.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			v := &Op1_8{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			m.Op = &Op_Op1_8{v}
 			iNdEx = postIndex
 		case 3:
 			if wireType != 2 {
@@ -2606,12 +3666,11 @@ func (m *Op) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Op1_9 == nil {
-				m.Op1_9 = &Op1_9{}
-			}
-			if err := m.Op1_9.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			v := &Op1_9{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			m.Op = &Op_Op1_9{v}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex

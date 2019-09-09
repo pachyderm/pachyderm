@@ -13,36 +13,47 @@ import "client/pfs/pfs.proto";
 import "client/pps/pps.proto";
 
 message Op1_7 {
-  pfs_1_7.PutObjectRequest object = 2;
-  pfs_1_7.TagObjectRequest tag = 3;
-  pfs_1_7.CreateRepoRequest repo = 4;
-  pfs_1_7.BuildCommitRequest commit = 5;
-  pfs_1_7.CreateBranchRequest branch = 6;
-  pps_1_7.CreatePipelineRequest pipeline = 7;
+  oneof op1_7 {
+    pfs_1_7.PutObjectRequest object = 2;
+    pfs_1_7.TagObjectRequest tag = 3;
+    pfs_1_7.CreateRepoRequest repo = 4;
+    pfs_1_7.BuildCommitRequest commit = 5;
+    pfs_1_7.CreateBranchRequest branch = 6;
+    pps_1_7.CreatePipelineRequest pipeline = 7;
+  }
 }
 
 message Op1_8 {
-  pfs_1_8.PutObjectRequest object = 2;
-  pfs_1_8.TagObjectRequest tag = 3;
-  pfs_1_8.CreateRepoRequest repo = 4;
-  pfs_1_8.BuildCommitRequest commit = 5;
-  pfs_1_8.CreateBranchRequest branch = 6;
-  pps_1_8.CreatePipelineRequest pipeline = 7;
+  oneof op1_8 {
+    pfs_1_8.PutObjectRequest object = 2;
+    pfs_1_8.TagObjectRequest tag = 3;
+    pfs_1_8.CreateRepoRequest repo = 4;
+    pfs_1_8.BuildCommitRequest commit = 5;
+    pfs_1_8.CreateBranchRequest branch = 6;
+    pps_1_8.CreatePipelineRequest pipeline = 7;
+  }
 }
 
 message Op1_9 {
-  pfs.PutObjectRequest object = 2;
-  pfs.TagObjectRequest tag = 3;
-  pfs.CreateRepoRequest repo = 4;
-  pfs.BuildCommitRequest commit = 5;
-  pfs.CreateBranchRequest branch = 6;
-  pps.CreatePipelineRequest pipeline = 7;
+  oneof op1_9 {
+    pfs.PutObjectRequest object = 2;
+    pfs.TagObjectRequest tag = 3;
+    pfs.CreateRepoRequest repo = 4;
+    pfs.BuildCommitRequest commit = 5;
+    pfs.CreateBranchRequest branch = 6;
+    pps.CreatePipelineRequest pipeline = 7;
+  }
 }
 
+// NOTE: any future messages for versioned operations (e.g. `Op1_10`) should
+// use oneof: https://github.com/pachyderm/pachyderm/issues/3859
+
 message Op {
-  Op1_7 op1_7 = 1;
-  Op1_8 op1_8 = 2;
-  Op1_9 op1_9 = 3;
+  oneof op {
+    Op1_7 op1_7 = 1;
+    Op1_8 op1_8 = 2;
+    Op1_9 op1_9 = 3;
+  }
 }
 
 message ExtractRequest {
