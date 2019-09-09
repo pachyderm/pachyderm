@@ -33,6 +33,7 @@ type WriterFunc func(*DataRef, []*Annotation) error
 type byteSet struct {
 	data        []byte
 	annotations []*Annotation
+	nextByteSet chan *byteSet
 }
 
 type chanSet struct {
@@ -60,20 +61,36 @@ func (w *worker) run(byteSet *byteSet) error {
 	if err := w.rollByteSet(byteSet); err != nil {
 		return err
 	}
-	// Wait for the next byte set to roll.
-	select {
-	case byteSet, more := <-w.next.bytes:
-		// The next bytes channel is closed for the last worker,
-		// so it uploads the last buffer as a chunk.
-		if !more {
-			if err := w.put(); err != nil {
-				return err
-			}
-		} else if err := w.rollByteSet(byteSet); err != nil {
-			return err
+	// No split point found.
+	if w.prev != nil && w.first {
+		byteSet.nextByteSet = w.next.bytes
+		select {
+		case w.prev.bytes <- byteSet:
+		case <-w.ctx.Done():
+			return w.ctx.Err()
 		}
-	case <-w.ctx.Done():
-		return w.ctx.Err()
+	} else {
+		// Wait for the next byte set to roll.
+		nextByteSet := w.next.bytes
+		for nextByteSet != nil {
+			select {
+			case byteSet, more := <-nextByteSet:
+				// The next bytes channel is closed for the last worker,
+				// so it uploads the last buffer as a chunk.
+				if !more {
+					if err := w.put(); err != nil {
+						return err
+					}
+					nextByteSet = nil
+					break
+				} else if err := w.rollByteSet(byteSet); err != nil {
+					return err
+				}
+				nextByteSet = byteSet.nextByteSet
+			case <-w.ctx.Done():
+				return w.ctx.Err()
+			}
+		}
 	}
 	// Execute the writer function for the chunks that were found.
 	return w.executeFuncs()
