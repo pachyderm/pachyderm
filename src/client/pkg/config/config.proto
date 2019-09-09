@@ -20,8 +20,10 @@ message Config {
 
     // Configuration options. Exactly one of these fields should be set
     // (depending on which version of the config is being used)
-    ConfigV1 v1 = 2;
-    ConfigV2 v2 = 3;
+    oneof config {
+        ConfigV1 v1 = 2;
+        ConfigV2 v2 = 3;
+    }
 }
 
 // ConfigV1 specifies v1 of the pachyderm config (June 30 2017 - June 2019)
