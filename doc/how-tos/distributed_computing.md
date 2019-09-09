@@ -1,4 +1,4 @@
-# Distributed Computing
+# Configure Distributed Computing
 
 Distributing your computations across multiple workers
 is a fundamental part of any big data processing.
@@ -6,7 +6,7 @@ When you build production-scale pipelines, you need
 to adjust the number of workers and resources that are
 allocated to each job to optimize throughput.
 
-## Pachyderm Workers
+## Adjust the Number of Pachyderm Workers
 
 A Pachyderm worker is an identical Kubernetes pod that runs
 the Docker image that you specified in the
@@ -34,8 +34,6 @@ each worker can download a datum, process a datum, and upload a
 completed datum all in parallel. May or may not want to show
 this, but wouldn't be too hard. We can draw this out in TOH.-->
 
-## Controlling the Number of Workers
-
 You can control the number of worker pods that Pachyderm runs in a
 pipeline by defining the `parallelism` parameter in the
 [pipeline specification](../reference/pipeline_spec.html).
@@ -60,5 +58,5 @@ that it spawns one worker per Kubernetes node for this pipeline.
 
 **See also:**
 
-* [Glob Pattern](../datum/glob-pattern)
-* [Pipeline Specification](../../reference/pipeline_spec)
+* [Glob Pattern](../concepts/pipeline-concepts/datum/glob-pattern.html)
+* [Pipeline Specification](../reference/pipeline_spec.html)

@@ -1,4 +1,4 @@
-# Running pipelines on passed commits
+# Run a Pipeline on a Specific Commit
 
 Sometimes you need to see the result of merging different commits
 to analyze and identify correct combinations and potential flows in
@@ -21,7 +21,8 @@ Your branches have the following commit history:
 * Branch `C` has commits `C1`, `C2`, and `C3`.
 
 For example, you need to see the result of the
-pipeline with the combination of data after `A4`, `B1`, and `C2` were committed.
+pipeline with the combination of data after `A4`, `B1`, and `C2` were
+committed.
 But none of the output commits were triggered on this particular combination.
 
 To get the result of this combination, you can run the `pachctl run pipeline
@@ -30,7 +31,7 @@ cross-pipe` command.
 **Example:**
 
 ```bash
-pachctl run pipeline cross-pipe A4 B1 C2
+$ pachctl run pipeline cross-pipe A4 B1 C2
 ```
 
 This command triggers a new job that creates a commit on the
@@ -40,7 +41,7 @@ Because `A4` is the head of branch `A`, you can also omit the `A4` commit
 in the command and specify only the `C2` and `B1` commits:
 
 ```
-pachctl run pipeline cross-pipe C2 B1
+$ pachctl run pipeline cross-pipe C2 B1
 ```
 
 Pachyderm automatically uses the head for any branch that did not have a
@@ -53,7 +54,7 @@ name.
 **Example:**
 
 ```
-pachctl run pipeline cross-pipe A B1 C2
+$ pachctl run pipeline cross-pipe A B1 C2
 ```
 
 This behaviour implies  that if you want to re-run the pipeline on the
