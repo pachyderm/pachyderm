@@ -55,7 +55,6 @@ type worker struct {
 	stats       *stats
 }
 
-// (bryce) edge case where no split point was found, or found before window size bytes.
 func (w *worker) run(byteSet *byteSet) error {
 	// Roll through the assigned byte set.
 	if err := w.rollByteSet(byteSet); err != nil {

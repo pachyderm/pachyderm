@@ -169,7 +169,6 @@ func (w *Writer) CopyFiles(r *Reader, pathBound ...string) error {
 
 func (w *Writer) finishFile() error {
 	// Pull the last data reference and the corresponding last path in the last chunk from the copy header.
-	// (bryce) this needs more work. It does not handle the start/end of copying correctly.
 	if err := w.cw.Flush(); err != nil {
 		return err
 	}
