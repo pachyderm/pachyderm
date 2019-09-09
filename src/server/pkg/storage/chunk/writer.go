@@ -264,23 +264,22 @@ type stats struct {
 // Writer splits a byte stream into content defined chunks that are hashed and deduplicated/uploaded to object storage.
 // Chunk split points are determined by a bit pattern in a rolling hash function (buzhash64 at https://github.com/chmduquesne/rollinghash).
 type Writer struct {
-	ctx           context.Context
-	buf           *bytes.Buffer
-	annotations   []*Annotation
-	memoryLimiter *semaphore.Weighted
-	eg            *errgroup.Group
-	newWorkerFunc func(*chanSet, *chanSet) *worker
-	prev          *chanSet
-	f             WriterFunc
-	stats         *stats
+	ctx, cancelCtx context.Context
+	buf            *bytes.Buffer
+	annotations    []*Annotation
+	memoryLimiter  *semaphore.Weighted
+	eg             *errgroup.Group
+	newWorkerFunc  func(context.Context, *chanSet, *chanSet) *worker
+	prev           *chanSet
+	f              WriterFunc
+	stats          *stats
 }
 
 func newWriter(ctx context.Context, objC obj.Client, memoryLimiter *semaphore.Weighted, averageBits int, f WriterFunc, seed int64) *Writer {
-	eg, cancelCtx := errgroup.WithContext(ctx)
 	stats := &stats{}
-	newWorkerFunc := func(prev, next *chanSet) *worker {
+	newWorkerFunc := func(ctx context.Context, prev, next *chanSet) *worker {
 		w := &worker{
-			ctx:       cancelCtx,
+			ctx:       ctx,
 			objC:      objC,
 			hash:      buzhash64.NewFromUint64Array(buzhash64.GenerateHashes(seed)),
 			splitMask: (1 << uint64(averageBits)) - 1,
@@ -294,8 +293,10 @@ func newWriter(ctx context.Context, objC obj.Client, memoryLimiter *semaphore.We
 		w.resetHash()
 		return w
 	}
+	eg, cancelCtx := errgroup.WithContext(ctx)
 	w := &Writer{
-		ctx:           cancelCtx,
+		ctx:           ctx,
+		cancelCtx:     cancelCtx,
 		buf:           &bytes.Buffer{},
 		memoryLimiter: memoryLimiter,
 		eg:            eg,
@@ -333,7 +334,11 @@ func (w *Writer) Flush() error {
 		w.prev = nil
 	}
 	// Wait for the workers to finish.
-	return w.eg.Wait()
+	if err := w.eg.Wait(); err != nil {
+		return err
+	}
+	w.eg, w.cancelCtx = errgroup.WithContext(w.ctx)
+	return nil
 }
 
 // Reset resets the buffer and annotations.
@@ -381,7 +386,7 @@ func (w *Writer) writeByteSet() {
 	}
 	w.eg.Go(func() error {
 		defer w.memoryLimiter.Release(bufSize)
-		return w.newWorkerFunc(prev, next).run(byteSet)
+		return w.newWorkerFunc(w.cancelCtx, prev, next).run(byteSet)
 	})
 	w.prev = next
 	w.buf = &bytes.Buffer{}
