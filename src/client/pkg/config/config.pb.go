@@ -21,7 +21,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type ContextSource int32
 
@@ -149,78 +149,12 @@ func (m *Config) GetV2() *ConfigV2 {
 	return nil
 }
 
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*Config) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _Config_OneofMarshaler, _Config_OneofUnmarshaler, _Config_OneofSizer, []interface{}{
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*Config) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
 		(*Config_V1)(nil),
 		(*Config_V2)(nil),
 	}
-}
-
-func _Config_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*Config)
-	// config
-	switch x := m.Config.(type) {
-	case *Config_V1:
-		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.V1); err != nil {
-			return err
-		}
-	case *Config_V2:
-		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.V2); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("Config.Config has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _Config_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*Config)
-	switch tag {
-	case 2: // config.v1
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(ConfigV1)
-		err := b.DecodeMessage(msg)
-		m.Config = &Config_V1{msg}
-		return true, err
-	case 3: // config.v2
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(ConfigV2)
-		err := b.DecodeMessage(msg)
-		m.Config = &Config_V2{msg}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _Config_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*Config)
-	// config
-	switch x := m.Config.(type) {
-	case *Config_V1:
-		s := proto.Size(x.V1)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *Config_V2:
-		s := proto.Size(x.V2)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
 }
 
 // ConfigV1 specifies v1 of the pachyderm config (June 30 2017 - June 2019)
@@ -551,7 +485,8 @@ func (m *Config) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 }
 
 func (m *Config_V1) MarshalTo(dAtA []byte) (int, error) {
-	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
 func (m *Config_V1) MarshalToSizedBuffer(dAtA []byte) (int, error) {
@@ -571,7 +506,8 @@ func (m *Config_V1) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 func (m *Config_V2) MarshalTo(dAtA []byte) (int, error) {
-	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
 func (m *Config_V2) MarshalToSizedBuffer(dAtA []byte) (int, error) {

@@ -32,7 +32,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type Op1_7 struct {
 	// Types that are valid to be assigned to Op1_7:
@@ -162,9 +162,9 @@ func (m *Op1_7) GetPipeline() *pps.CreatePipelineRequest {
 	return nil
 }
 
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*Op1_7) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _Op1_7_OneofMarshaler, _Op1_7_OneofUnmarshaler, _Op1_7_OneofSizer, []interface{}{
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*Op1_7) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
 		(*Op1_7_Object)(nil),
 		(*Op1_7_Tag)(nil),
 		(*Op1_7_Repo)(nil),
@@ -172,144 +172,6 @@ func (*Op1_7) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, 
 		(*Op1_7_Branch)(nil),
 		(*Op1_7_Pipeline)(nil),
 	}
-}
-
-func _Op1_7_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*Op1_7)
-	// op1_7
-	switch x := m.Op1_7.(type) {
-	case *Op1_7_Object:
-		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Object); err != nil {
-			return err
-		}
-	case *Op1_7_Tag:
-		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Tag); err != nil {
-			return err
-		}
-	case *Op1_7_Repo:
-		_ = b.EncodeVarint(4<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Repo); err != nil {
-			return err
-		}
-	case *Op1_7_Commit:
-		_ = b.EncodeVarint(5<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Commit); err != nil {
-			return err
-		}
-	case *Op1_7_Branch:
-		_ = b.EncodeVarint(6<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Branch); err != nil {
-			return err
-		}
-	case *Op1_7_Pipeline:
-		_ = b.EncodeVarint(7<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Pipeline); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("Op1_7.Op1_7 has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _Op1_7_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*Op1_7)
-	switch tag {
-	case 2: // op1_7.object
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(pfs.PutObjectRequest)
-		err := b.DecodeMessage(msg)
-		m.Op1_7 = &Op1_7_Object{msg}
-		return true, err
-	case 3: // op1_7.tag
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(pfs.TagObjectRequest)
-		err := b.DecodeMessage(msg)
-		m.Op1_7 = &Op1_7_Tag{msg}
-		return true, err
-	case 4: // op1_7.repo
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(pfs.CreateRepoRequest)
-		err := b.DecodeMessage(msg)
-		m.Op1_7 = &Op1_7_Repo{msg}
-		return true, err
-	case 5: // op1_7.commit
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(pfs.BuildCommitRequest)
-		err := b.DecodeMessage(msg)
-		m.Op1_7 = &Op1_7_Commit{msg}
-		return true, err
-	case 6: // op1_7.branch
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(pfs.CreateBranchRequest)
-		err := b.DecodeMessage(msg)
-		m.Op1_7 = &Op1_7_Branch{msg}
-		return true, err
-	case 7: // op1_7.pipeline
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(pps.CreatePipelineRequest)
-		err := b.DecodeMessage(msg)
-		m.Op1_7 = &Op1_7_Pipeline{msg}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _Op1_7_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*Op1_7)
-	// op1_7
-	switch x := m.Op1_7.(type) {
-	case *Op1_7_Object:
-		s := proto.Size(x.Object)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *Op1_7_Tag:
-		s := proto.Size(x.Tag)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *Op1_7_Repo:
-		s := proto.Size(x.Repo)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *Op1_7_Commit:
-		s := proto.Size(x.Commit)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *Op1_7_Branch:
-		s := proto.Size(x.Branch)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *Op1_7_Pipeline:
-		s := proto.Size(x.Pipeline)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
 }
 
 type Op1_8 struct {
@@ -440,9 +302,9 @@ func (m *Op1_8) GetPipeline() *pps1.CreatePipelineRequest {
 	return nil
 }
 
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*Op1_8) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _Op1_8_OneofMarshaler, _Op1_8_OneofUnmarshaler, _Op1_8_OneofSizer, []interface{}{
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*Op1_8) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
 		(*Op1_8_Object)(nil),
 		(*Op1_8_Tag)(nil),
 		(*Op1_8_Repo)(nil),
@@ -450,144 +312,6 @@ func (*Op1_8) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, 
 		(*Op1_8_Branch)(nil),
 		(*Op1_8_Pipeline)(nil),
 	}
-}
-
-func _Op1_8_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*Op1_8)
-	// op1_8
-	switch x := m.Op1_8.(type) {
-	case *Op1_8_Object:
-		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Object); err != nil {
-			return err
-		}
-	case *Op1_8_Tag:
-		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Tag); err != nil {
-			return err
-		}
-	case *Op1_8_Repo:
-		_ = b.EncodeVarint(4<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Repo); err != nil {
-			return err
-		}
-	case *Op1_8_Commit:
-		_ = b.EncodeVarint(5<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Commit); err != nil {
-			return err
-		}
-	case *Op1_8_Branch:
-		_ = b.EncodeVarint(6<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Branch); err != nil {
-			return err
-		}
-	case *Op1_8_Pipeline:
-		_ = b.EncodeVarint(7<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Pipeline); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("Op1_8.Op1_8 has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _Op1_8_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*Op1_8)
-	switch tag {
-	case 2: // op1_8.object
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(pfs1.PutObjectRequest)
-		err := b.DecodeMessage(msg)
-		m.Op1_8 = &Op1_8_Object{msg}
-		return true, err
-	case 3: // op1_8.tag
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(pfs1.TagObjectRequest)
-		err := b.DecodeMessage(msg)
-		m.Op1_8 = &Op1_8_Tag{msg}
-		return true, err
-	case 4: // op1_8.repo
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(pfs1.CreateRepoRequest)
-		err := b.DecodeMessage(msg)
-		m.Op1_8 = &Op1_8_Repo{msg}
-		return true, err
-	case 5: // op1_8.commit
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(pfs1.BuildCommitRequest)
-		err := b.DecodeMessage(msg)
-		m.Op1_8 = &Op1_8_Commit{msg}
-		return true, err
-	case 6: // op1_8.branch
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(pfs1.CreateBranchRequest)
-		err := b.DecodeMessage(msg)
-		m.Op1_8 = &Op1_8_Branch{msg}
-		return true, err
-	case 7: // op1_8.pipeline
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(pps1.CreatePipelineRequest)
-		err := b.DecodeMessage(msg)
-		m.Op1_8 = &Op1_8_Pipeline{msg}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _Op1_8_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*Op1_8)
-	// op1_8
-	switch x := m.Op1_8.(type) {
-	case *Op1_8_Object:
-		s := proto.Size(x.Object)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *Op1_8_Tag:
-		s := proto.Size(x.Tag)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *Op1_8_Repo:
-		s := proto.Size(x.Repo)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *Op1_8_Commit:
-		s := proto.Size(x.Commit)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *Op1_8_Branch:
-		s := proto.Size(x.Branch)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *Op1_8_Pipeline:
-		s := proto.Size(x.Pipeline)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
 }
 
 type Op1_9 struct {
@@ -718,9 +442,9 @@ func (m *Op1_9) GetPipeline() *pps2.CreatePipelineRequest {
 	return nil
 }
 
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*Op1_9) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _Op1_9_OneofMarshaler, _Op1_9_OneofUnmarshaler, _Op1_9_OneofSizer, []interface{}{
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*Op1_9) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
 		(*Op1_9_Object)(nil),
 		(*Op1_9_Tag)(nil),
 		(*Op1_9_Repo)(nil),
@@ -728,144 +452,6 @@ func (*Op1_9) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, 
 		(*Op1_9_Branch)(nil),
 		(*Op1_9_Pipeline)(nil),
 	}
-}
-
-func _Op1_9_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*Op1_9)
-	// op1_9
-	switch x := m.Op1_9.(type) {
-	case *Op1_9_Object:
-		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Object); err != nil {
-			return err
-		}
-	case *Op1_9_Tag:
-		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Tag); err != nil {
-			return err
-		}
-	case *Op1_9_Repo:
-		_ = b.EncodeVarint(4<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Repo); err != nil {
-			return err
-		}
-	case *Op1_9_Commit:
-		_ = b.EncodeVarint(5<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Commit); err != nil {
-			return err
-		}
-	case *Op1_9_Branch:
-		_ = b.EncodeVarint(6<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Branch); err != nil {
-			return err
-		}
-	case *Op1_9_Pipeline:
-		_ = b.EncodeVarint(7<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Pipeline); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("Op1_9.Op1_9 has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _Op1_9_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*Op1_9)
-	switch tag {
-	case 2: // op1_9.object
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(pfs2.PutObjectRequest)
-		err := b.DecodeMessage(msg)
-		m.Op1_9 = &Op1_9_Object{msg}
-		return true, err
-	case 3: // op1_9.tag
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(pfs2.TagObjectRequest)
-		err := b.DecodeMessage(msg)
-		m.Op1_9 = &Op1_9_Tag{msg}
-		return true, err
-	case 4: // op1_9.repo
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(pfs2.CreateRepoRequest)
-		err := b.DecodeMessage(msg)
-		m.Op1_9 = &Op1_9_Repo{msg}
-		return true, err
-	case 5: // op1_9.commit
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(pfs2.BuildCommitRequest)
-		err := b.DecodeMessage(msg)
-		m.Op1_9 = &Op1_9_Commit{msg}
-		return true, err
-	case 6: // op1_9.branch
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(pfs2.CreateBranchRequest)
-		err := b.DecodeMessage(msg)
-		m.Op1_9 = &Op1_9_Branch{msg}
-		return true, err
-	case 7: // op1_9.pipeline
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(pps2.CreatePipelineRequest)
-		err := b.DecodeMessage(msg)
-		m.Op1_9 = &Op1_9_Pipeline{msg}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _Op1_9_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*Op1_9)
-	// op1_9
-	switch x := m.Op1_9.(type) {
-	case *Op1_9_Object:
-		s := proto.Size(x.Object)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *Op1_9_Tag:
-		s := proto.Size(x.Tag)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *Op1_9_Repo:
-		s := proto.Size(x.Repo)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *Op1_9_Commit:
-		s := proto.Size(x.Commit)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *Op1_9_Branch:
-		s := proto.Size(x.Branch)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *Op1_9_Pipeline:
-		s := proto.Size(x.Pipeline)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
 }
 
 type Op struct {
@@ -960,97 +546,13 @@ func (m *Op) GetOp1_9() *Op1_9 {
 	return nil
 }
 
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*Op) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _Op_OneofMarshaler, _Op_OneofUnmarshaler, _Op_OneofSizer, []interface{}{
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*Op) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
 		(*Op_Op1_7)(nil),
 		(*Op_Op1_8)(nil),
 		(*Op_Op1_9)(nil),
 	}
-}
-
-func _Op_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*Op)
-	// op
-	switch x := m.Op.(type) {
-	case *Op_Op1_7:
-		_ = b.EncodeVarint(1<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Op1_7); err != nil {
-			return err
-		}
-	case *Op_Op1_8:
-		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Op1_8); err != nil {
-			return err
-		}
-	case *Op_Op1_9:
-		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Op1_9); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("Op.Op has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _Op_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*Op)
-	switch tag {
-	case 1: // op.op1_7
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(Op1_7)
-		err := b.DecodeMessage(msg)
-		m.Op = &Op_Op1_7{msg}
-		return true, err
-	case 2: // op.op1_8
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(Op1_8)
-		err := b.DecodeMessage(msg)
-		m.Op = &Op_Op1_8{msg}
-		return true, err
-	case 3: // op.op1_9
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(Op1_9)
-		err := b.DecodeMessage(msg)
-		m.Op = &Op_Op1_9{msg}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _Op_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*Op)
-	// op
-	switch x := m.Op.(type) {
-	case *Op_Op1_7:
-		s := proto.Size(x.Op1_7)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *Op_Op1_8:
-		s := proto.Size(x.Op1_8)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *Op_Op1_9:
-		s := proto.Size(x.Op1_9)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
 }
 
 type ExtractRequest struct {
@@ -1630,7 +1132,8 @@ func (m *Op1_7) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 }
 
 func (m *Op1_7_Object) MarshalTo(dAtA []byte) (int, error) {
-	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
 func (m *Op1_7_Object) MarshalToSizedBuffer(dAtA []byte) (int, error) {
@@ -1650,7 +1153,8 @@ func (m *Op1_7_Object) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 func (m *Op1_7_Tag) MarshalTo(dAtA []byte) (int, error) {
-	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
 func (m *Op1_7_Tag) MarshalToSizedBuffer(dAtA []byte) (int, error) {
@@ -1670,7 +1174,8 @@ func (m *Op1_7_Tag) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 func (m *Op1_7_Repo) MarshalTo(dAtA []byte) (int, error) {
-	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
 func (m *Op1_7_Repo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
@@ -1690,7 +1195,8 @@ func (m *Op1_7_Repo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 func (m *Op1_7_Commit) MarshalTo(dAtA []byte) (int, error) {
-	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
 func (m *Op1_7_Commit) MarshalToSizedBuffer(dAtA []byte) (int, error) {
@@ -1710,7 +1216,8 @@ func (m *Op1_7_Commit) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 func (m *Op1_7_Branch) MarshalTo(dAtA []byte) (int, error) {
-	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
 func (m *Op1_7_Branch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
@@ -1730,7 +1237,8 @@ func (m *Op1_7_Branch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 func (m *Op1_7_Pipeline) MarshalTo(dAtA []byte) (int, error) {
-	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
 func (m *Op1_7_Pipeline) MarshalToSizedBuffer(dAtA []byte) (int, error) {
@@ -1786,7 +1294,8 @@ func (m *Op1_8) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 }
 
 func (m *Op1_8_Object) MarshalTo(dAtA []byte) (int, error) {
-	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
 func (m *Op1_8_Object) MarshalToSizedBuffer(dAtA []byte) (int, error) {
@@ -1806,7 +1315,8 @@ func (m *Op1_8_Object) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 func (m *Op1_8_Tag) MarshalTo(dAtA []byte) (int, error) {
-	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
 func (m *Op1_8_Tag) MarshalToSizedBuffer(dAtA []byte) (int, error) {
@@ -1826,7 +1336,8 @@ func (m *Op1_8_Tag) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 func (m *Op1_8_Repo) MarshalTo(dAtA []byte) (int, error) {
-	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
 func (m *Op1_8_Repo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
@@ -1846,7 +1357,8 @@ func (m *Op1_8_Repo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 func (m *Op1_8_Commit) MarshalTo(dAtA []byte) (int, error) {
-	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
 func (m *Op1_8_Commit) MarshalToSizedBuffer(dAtA []byte) (int, error) {
@@ -1866,7 +1378,8 @@ func (m *Op1_8_Commit) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 func (m *Op1_8_Branch) MarshalTo(dAtA []byte) (int, error) {
-	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
 func (m *Op1_8_Branch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
@@ -1886,7 +1399,8 @@ func (m *Op1_8_Branch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 func (m *Op1_8_Pipeline) MarshalTo(dAtA []byte) (int, error) {
-	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
 func (m *Op1_8_Pipeline) MarshalToSizedBuffer(dAtA []byte) (int, error) {
@@ -1942,7 +1456,8 @@ func (m *Op1_9) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 }
 
 func (m *Op1_9_Object) MarshalTo(dAtA []byte) (int, error) {
-	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
 func (m *Op1_9_Object) MarshalToSizedBuffer(dAtA []byte) (int, error) {
@@ -1962,7 +1477,8 @@ func (m *Op1_9_Object) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 func (m *Op1_9_Tag) MarshalTo(dAtA []byte) (int, error) {
-	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
 func (m *Op1_9_Tag) MarshalToSizedBuffer(dAtA []byte) (int, error) {
@@ -1982,7 +1498,8 @@ func (m *Op1_9_Tag) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 func (m *Op1_9_Repo) MarshalTo(dAtA []byte) (int, error) {
-	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
 func (m *Op1_9_Repo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
@@ -2002,7 +1519,8 @@ func (m *Op1_9_Repo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 func (m *Op1_9_Commit) MarshalTo(dAtA []byte) (int, error) {
-	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
 func (m *Op1_9_Commit) MarshalToSizedBuffer(dAtA []byte) (int, error) {
@@ -2022,7 +1540,8 @@ func (m *Op1_9_Commit) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 func (m *Op1_9_Branch) MarshalTo(dAtA []byte) (int, error) {
-	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
 func (m *Op1_9_Branch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
@@ -2042,7 +1561,8 @@ func (m *Op1_9_Branch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 func (m *Op1_9_Pipeline) MarshalTo(dAtA []byte) (int, error) {
-	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
 func (m *Op1_9_Pipeline) MarshalToSizedBuffer(dAtA []byte) (int, error) {
@@ -2098,7 +1618,8 @@ func (m *Op) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 }
 
 func (m *Op_Op1_7) MarshalTo(dAtA []byte) (int, error) {
-	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
 func (m *Op_Op1_7) MarshalToSizedBuffer(dAtA []byte) (int, error) {
@@ -2118,7 +1639,8 @@ func (m *Op_Op1_7) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 func (m *Op_Op1_8) MarshalTo(dAtA []byte) (int, error) {
-	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
 func (m *Op_Op1_8) MarshalToSizedBuffer(dAtA []byte) (int, error) {
@@ -2138,7 +1660,8 @@ func (m *Op_Op1_8) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 func (m *Op_Op1_9) MarshalTo(dAtA []byte) (int, error) {
-	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
 func (m *Op_Op1_9) MarshalToSizedBuffer(dAtA []byte) (int, error) {
