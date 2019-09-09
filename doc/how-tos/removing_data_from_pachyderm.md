@@ -1,4 +1,4 @@
-# Deleting Data
+# Delete Data
 
 If *bad* data was committed into a Pachyderm input repository, your
 pipeline might result in an error. In this case, you might need to
@@ -6,18 +6,18 @@ delete this data to resolve the issue. Depending on the nature of
 the bad data and whether or not the bad data is in the HEAD of
 the branch, you can perform one of the following actions:
 
-- [Delete the HEAD of a Branch](#deleting-the-head-of-a-branch).
+- [Delete the HEAD of a Branch](#delete-the-head-of-a-branch).
 If the incorrect data was added in the latest commit and no additional
 data was committed since then, follow the steps in this section to fix
 the HEAD of the corrupted branch.
 - [Delete non-HEAD Commits](#deleting-non-head-commits). If after
 committing the incorrect data, you have added more data to the same
 branch, follow the steps in this section to delete corrupted files.
-- [Deleting sensitive data](#deleting-sensitive-data). If the bad
+- [Delete sensitive data](#delete-sensitive-data). If the bad
 commit included sensitive data that you need immediately and completely
 erase from Pachyderm, follow the steps in this section to purge data.
 
-## Deleting the HEAD of a Branch
+## Delete the HEAD of a Branch
 
 If you have just committed incorrect, corrupt, or otherwise bad
 data to a branch in a Pachyderm repository, the HEAD of your branch,
@@ -103,7 +103,7 @@ To delete a file in an older commit, complete the following steps:
    commit history and ensures that the errant data is not
    available when non-HEAD versions of the data is read.
 
-## Deleting Sensitive Data
+## Delete Sensitive Data
 
 When you delete data as described in [Delete Old Commits](delete-old-commits),
 Pachyderm does not immediately delete it from the physical disk. Instead,

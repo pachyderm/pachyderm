@@ -12,5 +12,7 @@ data operations in Pachyderm, including the following topics:
    working-with-pipelines.md
    load-data-into-pachyderm.md
    export-data-out-pachyderm.md
+   splitting-data/index.rst
+   updating_pipelines.md
    removing_data_from_pachyderm.md
 

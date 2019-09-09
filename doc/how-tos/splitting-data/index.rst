@@ -1,9 +1,9 @@
 .. _splitting-data:
 
-Splitting Data
-==============
+Split Data
+==========
 
-Pachyderm provides a functionality to split
+Pachyderm provides functionality that enables you to split
 your data while it is being loaded into a Pachyderm input
 repository which helps to optimize pipeline processing
 time and resource utilization.

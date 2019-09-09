@@ -1,14 +1,14 @@
 # Update a Pipeline
 
-During development, you often need to modify an existing
-pipeline by experimenting with your transformation code or pipeline
+While working with your data, you often need to modify an existing
+pipeline with new transformation code or pipeline
 parameters.
-For example, when you develop a machine learning model you might need
+For example, when you develop a machine learning model, you might need
 to try different versions of your model while your training data
 stays relatively constant. To make changes to a pipeline, you need to use
 the `pachctl update pipeline` command.
 
-## Updating Your Pipeline Specification
+## Update Your Pipeline Specification
 
 If you need to update your
 [pipeline specification](../reference/pipeline_spec.html), such as change the
@@ -18,7 +18,7 @@ By default, when you update your code, the new pipeline specification
 does not reprocess the data that has already been processed. Instead,
 it processes only the new data that you submit to the input repo.
 If you want to run the changes in your pipeline against the data in
-the HEAD commit of your input repo, use the `--reprocess` flag.
+the `HEAD` commit of your input repo, use the `--reprocess` flag.
 After that, the updated pipeline continues to process new input data.
 Previous results remain accessible through the corresponding commit IDs.
 
@@ -26,29 +26,28 @@ To update a pipeline specification, complete the following steps:
 
 1. Make the changes in your pipeline specification JSON file.
 
-1. Update the pipeline with that new configuration:
+1. Update the pipeline with the new configuration:
 
    ```bash
    $ pachctl update pipeline -f pipeline.json
    ```
 
 Similar to `create pipeline`, `update pipeline` with the `-f` flag can also
-take a URL if your JSON manifest is hosted on GitHub or elsewhere.
+take a URL if your JSON manifest is hosted on GitHub or other
+remote location.
 
-## Updating the Code in a Pipeline
+## Update the Code in a Pipeline
 
 The `pachctl update pipeline` updates the code that you use in one or
 more of your pipelines. To apply your code changes, you need to
-build a new Docker image and push to your Docker image registry.
+build a new Docker image and push it to your Docker image registry.
 
 You can either use your registry instructions to build and push your
 new image or push the new image by using the flags built into
-the `pachctl update pipeline`. Both procedures achieve the same goal
-and it is entirely a matter of personal preference which one of them
+the `pachctl update pipeline` command. Both procedures achieve the same goal,
+and it is entirely a matter of a personal preference which one of them
 to follow. If you do not have a build-push process that you
-already follow, you might prefer to use Pachyderm built-in procedure
-so that you do not have to switch
-between the documentation websites for instructions.
+already follow, you might prefer to use Pachyderm's built-in functionality.
 
 To create a new image by using the Pachyderm commands, you need
 to use the `--build` flag with the `pachctl update pipeline`
@@ -59,8 +58,8 @@ tag to your new image.
 
 If you use a private registry or any other registry that is different
 from the default value, use the `--registry` flag to specify it.
-Make sure that you specify the private registry in the pipeline
-specification.
+Make sure that you specify the private registry in the [pipeline
+specification](../reference/pipeline_spec.html).
 
 For example, if you want to push a `pachyderm/opencv` image to a
 registry located at `localhost:5000`, you need to add this in
@@ -71,14 +70,14 @@ your pipeline spec:
  ```
 
 Also, to be able to build and push images, you need to make sure that
-Docker daemon is running. Depending on your operating system and
+the Docker daemon is running. Depending on your operating system and
 the Docker distribution that you use, steps for enabling it might
 vary.
 
 To update the code in your pipeline, complete the following steps:
 
 1. Make the code changes.
-1. Verify that Docker daemon is running:
+1. Verify that the Docker daemon is running:
 
    ```bash
    $ docker ps
@@ -90,7 +89,7 @@ To update the code in your pipeline, complete the following steps:
      Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?
      ```
 
-     you need to enable the Docker daemon. To enable the Docker daemon,
+     enable the Docker daemon. To enable the Docker daemon,
      see the Docker documentation for your operating system and platform.
      For example, if you use `minikube` on  macOS, run the following
      command:

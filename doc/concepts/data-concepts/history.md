@@ -1,32 +1,34 @@
-# Access Historical Data
+# History
 
 Pachyderm implements rich version-control and history semantics. This section
 describes the core concepts and architecture of Pachyderm's version control
 and the various ways to use the system to access historical data.
 
-## Commits
+The following abstractions store the history of your data:
 
-In Pachyderm, commits are the core version-control primitive that is
-similar to Git commits. Commits represent an immutable snapshot of a
-filesystem and can be accessed with an ID. Commits have a parentage
-structure, where new commits inherit content from their parents.
-You can think of this parentage structure as of a linked list or *a chain of
-commits*. Commit IDs are useful if you want to have a static pointer to
-a snapshot of a filesystem. However, because they are static, their use is
-limited. Instead, you mostly work with branches.
+* **Commits**
 
-## Branches
+  In Pachyderm, commits are the core version-control primitive that is
+  similar to Git commits. Commits represent an immutable snapshot of a
+  filesystem and can be accessed with an ID. Commits have a parentage
+  structure, where new commits inherit content from their parents.
+  You can think of this parentage structure as of a linked list or *a chain of
+  commits*. Commit IDs are useful if you want to have a static pointer to
+  a snapshot of a filesystem. However, because they are static, their use is
+  limited. Instead, you mostly work with branches.
 
-Branches are pointers to commits that are similar to Git branches. Typically,
-Branches have semantically meaningful names such as `master` and `staging`.
-Branches are mutable, and they move along a growing chain of commits as you commit
-to the branch, and can even be reassigned to any commit within the repo by
-using the `pachctl create branch` command. The commit that a branch points
-to is referred to as the branches *head*, and the head's ancestors are
-referred to as *on the branch*. Branches can be substituted for commits
-in Pachyderm's API and behave as if the head of the branch were passed.
-This allows you to deal with semantically meaningful names for commits that
-can be updated, rather than static opaque identifiers.
+* **Branches**
+
+  Branches are pointers to commits that are similar to Git branches. Typically,
+  Branches have semantically meaningful names such as `master` and `staging`.
+  Branches are mutable, and they move along a growing chain of commits as you
+  commit to the branch, and can even be reassigned to any commit within the
+  repo by using the `pachctl create branch` command. The commit that a
+  branch points to is referred to as the branches *head*, and the head's
+  ancestors are referred to as *on the branch*. Branches can be substituted
+  for commits in Pachyderm's API and behave as if the head of the branch
+  were passed. This allows you to deal with semantically meaningful names
+  for commits that can be updated, rather than static opaque identifiers.
 
 ## Ancestry Syntax
 
@@ -56,7 +58,7 @@ If you plan to repeatedly access an ancestor, you might want to resolve that
 ancestor to a static commit ID with `pachctl inspect commit` and use
 that ID for future accesses.
 
-## View Filesystem Object History
+## View the Filesystem Object History
 
 Pachyderm enables you to view the history of filesystem objects by using
 the `--history` flag with the `pachctl list file` command. This flag
@@ -88,7 +90,7 @@ COMMIT                           NAME         TYPE COMMITTED    SIZE
 ff479f3a639344daa9474e729619d258 /liberty.png file 23 hours ago 22.22KiB
 ```
 
-## View Pipeline History
+## View the Pipeline History
 
 Pipelines are the main processing primitive in Pachyderm. However, they
 expose version-control and history semantics similar to filesystem
@@ -119,7 +121,7 @@ To revert a pipeline to a previous version, run the following command:
 $ pachctl extract pipeline pipeline^ | pachctl create pipeline
 ```
 
-## Viewing Job History
+## View the Job History
 
 Jobs do not have versioning semantics associated with them.
 However, they are strongly associated with the pipelines that
