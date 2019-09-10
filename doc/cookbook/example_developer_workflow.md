@@ -1,25 +1,47 @@
 # Example Developer Workflow
 
-## Introduction
-
-Pachyderm is a powerful system for providing data provenance and scalable processing to data scientists and engineers.  You can make it even more powerful by integrating it with your existing continuous integration and continuous deployment workflows. If your organization is fielding a new, production data science application, this workflow can help you by making it the foundation of new CI/CD processes you establish within your data science and engineering groups. In this document, we'll discuss this basic workflow you can use as the basis for your own workflows.
-
-
+Pachyderm is a powerful system for providing data
+provenance and scalable processing to data
+scientists and engineers. You can make it even
+more powerful by integrating it with your existing
+continuous integration and continuous deployment
+workflows. If your organization is fielding a new,
+production data science application, the workflow
+described in this section can help you establish
+new Continuous Integration and Continuous Deployment
+(CI/CD) processes within your data science
+and engineering groups.
 
 ## Basic workflow
 
 ![alt tag](developer_workflow.png)
 
-As you write code, you test it in containers and notebooks against sample data in Pachyderm repos.  You can also run your code in development pipelines in Pachyderm.  Pachyderm provides facilities to help with day-to-day development practices, including the ``--build`` and ``--push-images`` flags to the ``update pipeline`` command, which can build & push or just push images to a docker registry.
+As you write code, you test it in containers and
+notebooks against sample data in Pachyderm repos.
+Also, you can run your code in development pipelines
+in Pachyderm. Pachyderm provides capabilities that
+assist with day-to-day development practices, including
+the `--build` and `--push-images` flags to the
+`update pipeline` command, which enable you to
+build and push or just push images to a Docker
+registry.
 
-There are a couple of things to note about the files shown in git, in the left-hand side of the diagram above.  The pipeline.json template file, in addition to being used for CI/CD as noted below,  could be used with local build targets in a makefile for development purposes: the local build uses DOCKERFILE and creates a pipeline.json for use in development pipelines.  This is optional, of course, but may fit in with some workflows.
+The following diagram demonstrates basic Pachyderm
+development workflow:
+
+![alt tag](developer_workflow.png)
+
+
+There are a couple of things to note about the
+files shown in Git, in the left-hand side of the diagram above.  The pipeline.json template file, in addition to being used for CI/CD as noted below,  could be used with local build targets in a makefile for development purposes: the local build uses DOCKERFILE and creates a pipeline.json for use in development pipelines.  This is optional, of course, but may fit in with some workflows.
 
 Once your code is ready to commit to your git repo, here are the steps that can form the basis of a production workflow.
 
 ### 1. Git commit hook
 
-A [commit hook in git](https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks) for your kicks off the
-Continous Integration/Continuous Deployment process.  It should  use the information present in a template for your Pachyderm pipelines for subsequent steps.
+A [commit hook in git](https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks)
+for your repository triggers the
+CI/CDeployment process.  It should  use the information present in a template for your Pachyderm pipelines for subsequent steps.
 
 ### 2. Build image
 
