@@ -384,7 +384,7 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 	}
 	// make sure there isn't an unfinished commit on the branch
 	commitInfo, err := pachClient.InspectCommit(in.Cron.Repo, "master")
-	if err != nil && !pfsServer.IsNoHeadError(err) {
+	if err != nil && !pfsServer.IsNoHeadErr(err) {
 		return err
 	} else if commitInfo != nil && commitInfo.Finished == nil {
 		// and if there is, delete it
@@ -395,7 +395,7 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 
 	var latestTime time.Time
 	files, err := pachClient.ListFile(in.Cron.Repo, "master", "")
-	if err != nil && !pfsServer.IsNoHeadError(err) {
+	if err != nil && !pfsServer.IsNoHeadErr(err) {
 		return err
 	} else if err != nil || len(files) == 0 {
 		// File not found, this happens the first time the pipeline is run
@@ -435,7 +435,7 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 		if in.Cron.Overwrite {
 			// If we want to "overwrite" the file, we need to delete the file with the previous time
 			err := pachClient.DeleteFile(in.Cron.Repo, "master", latestTime.Format(time.RFC3339))
-			if err != nil && !isNotFoundErr(err) && !pfsServer.IsNoHeadError(err) {
+			if err != nil && !isNotFoundErr(err) && !pfsServer.IsNoHeadErr(err) {
 				return fmt.Errorf("delete error %v", err)
 			}
 		}

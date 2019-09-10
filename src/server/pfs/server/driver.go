@@ -3360,7 +3360,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 	}
 	// Handle commits that use the newer hashtree format.
 	if commitInfo.Finished == nil {
-		return nil, fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
+		return nil, pfsserver.ErrOutputCommitNotFinished{commitInfo.Commit}
 	}
 	if commitInfo.Trees == nil {
 		return nil, pfsserver.ErrFileNotFound{file}
@@ -3517,7 +3517,7 @@ func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (fi *
 	}
 	// Handle commits that use the newer hashtree format.
 	if commitInfo.Finished == nil {
-		return nil, fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
+		return nil, pfsserver.ErrOutputCommitNotFinished{commitInfo.Commit}
 	}
 	if commitInfo.Trees == nil {
 		return nil, pfsserver.ErrFileNotFound{file}
@@ -3590,7 +3590,7 @@ func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full boo
 	}
 	// Handle commits that use the newer hashtree format.
 	if commitInfo.Finished == nil {
-		return fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
+		return pfsserver.ErrOutputCommitNotFinished{commitInfo.Commit}
 	}
 	if commitInfo.Trees == nil {
 		return nil
@@ -3673,7 +3673,7 @@ func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, f func(*
 	}
 	// Handle commits that use the newer hashtree format.
 	if commitInfo.Finished == nil {
-		return fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
+		return pfsserver.ErrOutputCommitNotFinished{commitInfo.Commit}
 	}
 	if commitInfo.Trees == nil {
 		return nil
@@ -3723,7 +3723,7 @@ func (d *driver) globFile(pachClient *client.APIClient, commit *pfs.Commit, patt
 	}
 	// Handle commits that use the newer hashtree format.
 	if commitInfo.Finished == nil {
-		return fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
+		return pfsserver.ErrOutputCommitNotFinished{commitInfo.Commit}
 	}
 	if commitInfo.Trees == nil {
 		return nil

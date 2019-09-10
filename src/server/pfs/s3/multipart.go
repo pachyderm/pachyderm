@@ -233,7 +233,7 @@ func (c *controller) CompleteMultipart(r *http.Request, bucket, key, uploadID st
 
 	// check if the destination file already exists, and if so, delete it
 	_, err = pc.InspectFile(repo, branch, key)
-	if err != nil && !pfsServer.IsFileNotFoundErr(err) && !pfsServer.IsNoHeadError(err) {
+	if err != nil && !pfsServer.IsFileNotFoundErr(err) && !pfsServer.IsNoHeadErr(err) {
 		return nil, err
 	} else if err == nil {
 		err = pc.DeleteFile(repo, branch, key)
@@ -285,15 +285,16 @@ func (c *controller) CompleteMultipart(r *http.Request, bucket, key, uploadID st
 	}
 
 	fileInfo, err := pc.InspectFile(repo, branch, key)
-	if err != nil {
+	if err != nil && !pfsServer.IsOutputCommitNotFinishedErr(err) {
 		return nil, err
 	}
 
-	result := s2.CompleteMultipartResult{
-		Location: globalLocation,
-		ETag:     fmt.Sprintf("%x", fileInfo.Hash),
-		Version:  fileInfo.File.Commit.ID,
+	result := s2.CompleteMultipartResult{Location: globalLocation}
+	if fileInfo != nil {
+		result.ETag = fmt.Sprintf("%x", fileInfo.Hash)
+		result.Version = fileInfo.File.Commit.ID
 	}
+
 	return &result, nil
 }
 
