@@ -8,11 +8,11 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/admin"
-	hashtree1_7 "github.com/pachyderm/pachyderm/src/client/admin/1_7/hashtree"
-	pfs1_7 "github.com/pachyderm/pachyderm/src/client/admin/1_7/pfs"
-	pps1_7 "github.com/pachyderm/pachyderm/src/client/admin/1_7/pps"
-	pfs1_8 "github.com/pachyderm/pachyderm/src/client/admin/1_8/pfs"
-	pps1_8 "github.com/pachyderm/pachyderm/src/client/admin/1_8/pps"
+	hashtree1_7 "github.com/pachyderm/pachyderm/src/client/admin/v1_7/hashtree"
+	pfs1_7 "github.com/pachyderm/pachyderm/src/client/admin/v1_7/pfs"
+	pps1_7 "github.com/pachyderm/pachyderm/src/client/admin/v1_7/pps"
+	pfs1_8 "github.com/pachyderm/pachyderm/src/client/admin/v1_8/pfs"
+	pps1_8 "github.com/pachyderm/pachyderm/src/client/admin/v1_8/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 )
 

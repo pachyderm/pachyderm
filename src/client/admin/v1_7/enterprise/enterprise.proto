@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package enterprise_1_7;
-option go_package = "github.com/pachyderm/pachyderm/src/client/admin/1_7/enterprise";
+option go_package = "github.com/pachyderm/pachyderm/src/client/admin/v1_7/enterprise";
 
 import "google/protobuf/timestamp.proto";
 
