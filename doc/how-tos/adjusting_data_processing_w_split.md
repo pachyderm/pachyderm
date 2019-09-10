@@ -1,4 +1,4 @@
-# Adjusting Data Processing by Splitting the Data
+# Adjusting Data Processing by Splitting Data
 
 Before you read this section, make sure that you understand
 the concepts described in [File](../concepts/data-concepts/file.html),

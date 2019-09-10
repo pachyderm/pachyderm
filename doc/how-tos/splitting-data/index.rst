@@ -33,5 +33,4 @@ This section includes the following topics:
    :maxdepth: 2
 
    splitting.md
-   apped_overwrite.md - will be renamed 
-
+   adjusting_data_processing_w_split.md
