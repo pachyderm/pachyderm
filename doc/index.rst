@@ -65,3 +65,11 @@ email at support@pachyderm.io.
    pachctl/index.rst
    examples/examples.md
 
+.. toctree::
+   :maxdepth: 1
+   :caption: Contributing
+
+   contributing/setup.md
+   contributing/gcloud-setup.md
+   contributing/repo-layout.md
+   contributing/coding-conventions.md
