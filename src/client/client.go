@@ -145,17 +145,33 @@ type clientSettings struct {
 }
 
 // NewFromAddress constructs a new APIClient for the server at addr.
+// TODO(kdelga): current
 func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
 	// Apply creation options
 	settings := clientSettings{
 		maxConcurrentStreams: DefaultMaxConcurrentStreams,
 		dialTimeout:          DefaultDialTimeout,
 	}
+	// TODO(kdelga): Q: Why do we do it like this?
+	// wouldn't it be easier to just pass the settings directly?
+	// It looks like every option in the options array could potentially overwrite the settings.
 	for _, option := range options {
 		if err := option(&settings); err != nil {
 			return nil, err
 		}
 	}
+	// TODO(kdelga): maybe we could check config here for whether or not to use system certs,
+	// but I think that should already be set in settings.caCerts, thus we need to pass
+	// options to this function that already contain the system certs.
+	// The problem is this function (NewFromAddress()) is public and called from all over the place
+	// so we need to figure out where calling it with system certs would be relevant.
+	// Update, it appears, options are only ever passed to this function in a few places in this file
+	// (all others don't pass any options): NewForTest, NewOnUserMachine, NewInCluster.
+	// The former two gets its options from getUserMachineAddrAndOpts(),
+	//
+	//
+	// Also we need to figure outh how to pass system certs as part of the options... arg.
+	// (see current UseSystemCerts proposal)
 	c := &APIClient{
 		addr:    addr,
 		caCerts: settings.caCerts,
@@ -168,6 +184,7 @@ func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
 }
 
 // Option is a client creation option that may be passed to NewOnUserMachine(), or NewInCluster()
+// TODO(kdelga): Q: what is difference between NewOnUserMachine and NewInCluster?
 type Option func(*clientSettings) error
 
 // WithMaxConcurrentStreams instructs the New* functions to create client that
@@ -214,6 +231,17 @@ func WithAdditionalRootCAs(pemBytes []byte) Option {
 		}
 		return nil
 	}
+}
+
+// WithSystemCAs uses the system certs for client creatin.
+// TODO(kdelga): Q: What is the difference between system certs and root certs?
+func WithSystemCAs(settings *clientSettings) error {
+	certs, err := x509.SystemCertPool()
+	if err != nil {
+		return fmt.Errorf("could not retrieve system cert pool: %v", err)
+	}
+	settings.caCerts = certs
+	return nil
 }
 
 // WithDialTimeout instructs the New* functions to use 't' as the deadline to
@@ -274,11 +302,16 @@ func getCertOptionsFromEnv() ([]Option, error) {
 // getUserMachineAddrAndOpts is a helper for NewOnUserMachine that uses
 // environment variables, config files, etc to figure out which address a user
 // running a command should connect to.
+// TODO(kdelga): current thinking is that this is where we need to config check for whether or not to use system certs.
 func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error) {
+	options := []Option{}
 	// 1) PACHD_ADDRESS environment variable (shell-local) overrides global config
 	if envAddr, ok := os.LookupEnv("PACHD_ADDRESS"); ok {
+		if strings.HasPrefix(envAddr, "grpcs") {
+			options = append(options, WithSystemCAs)
+		}
 		if !strings.Contains(envAddr, ":") {
-			envAddr = fmt.Sprintf("%s:%s", envAddr, DefaultPachdNodePort)
+			envAddr = fmt.Sprintf("%s:%s", envAddr, DefaultPachdNodePort) // append port
 		}
 		options, err := getCertOptionsFromEnv()
 		if err != nil {
@@ -289,6 +322,9 @@ func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error
 
 	// 2) Get target address from global config if possible
 	if context != nil && context.PachdAddress != "" {
+		if strings.HasPrefix(context.PachdAddress, "grpcs") || context.UseSystemCAs {
+			options = append(options, WithSystemCAs)
+		}
 		// Also get cert info from config (if set)
 		if context.ServerCAs != "" {
 			pemBytes, err := base64.StdEncoding.DecodeString(context.ServerCAs)
@@ -335,6 +371,7 @@ func portForwarder() *PortForwarder {
 }
 
 // NewForTest constructs a new APIClient for tests.
+// TODO(kdelga): For testing system certs, don't use thishyd
 func NewForTest() (*APIClient, error) {
 	// create new pachctl client
 	addr, cfgOptions, err := getUserMachineAddrAndOpts(nil)
@@ -518,6 +555,15 @@ func (c *APIClient) connect(timeout time.Duration) error {
 	dialOptions := append(DefaultDialOptions(), keepaliveOpt)
 	if c.caCerts == nil {
 		dialOptions = append(dialOptions, grpc.WithInsecure())
+		// // TODO(kdelga): One option is to check the config here for if we should use system certs, but I think a better way is to do it higher up
+		// // at the caller of connect(), NewFromAddress()
+		// } else if config_says_use_system_certs {
+		// 	systemCerts, err := x509.SystemCertPool()
+		// 	if err != nil {
+		// 		return err
+		// 	}
+		// 	tlsCreds := credentials.NewClientTLSFromCert(systemCerts, "")
+		// 	dialOptions = append(dialOptions, grpc.WithTransportCredentials(tlsCreds))
 	} else {
 		tlsCreds := credentials.NewClientTLSFromCert(c.caCerts, "")
 		dialOptions = append(dialOptions, grpc.WithTransportCredentials(tlsCreds))
