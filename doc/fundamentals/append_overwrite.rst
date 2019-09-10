@@ -17,7 +17,7 @@ into chunks.
 Pachyderm applies diffing at per file level.
 Therefore, if one bit of a file changes,
 Pachyderm identifies that change as a new file.
-Similar, Pachyderm can only distribute computation
+Similarly, Pachyderm can only distribute computation
 at the level of a single file. If your data is stored in
 one large file, it can only be processed by a single worker, which
 might affect performance.
@@ -42,23 +42,14 @@ Pachyderm includes the `--split`, `--target-file-bytes`, and
 
 | Flag              | Description                                           |
 | ----------------- | ----------------------------------------------------- |
-| `--split`         | Divides a file into chunks based on a *record*. In <br>line-delimited files, it is a line. In JSON files, <br>it is an object. The `--split` flag takes one argument, such as `line`, <br> `json`, or `sql`. This argument defines how to split the file into <br>chunks. For example, if you use `--split line`, Pachyderm divides <br>your file on new line boundaries and not in the middle of a line. |
-| `--target-file-bytes` |  This flag must be used with the `--split` <br> flag. The `--target-file-bytes` fills each of the split-files with data up to <br> the specified number of bytes, splitting on the nearest <br>record boundary. For example, you have a line-delimited file <br>of 50 lines, with each line having about 20 bytes. If you run the <br> `--split lines --target-file-bytes 100` command, you see the input <br>file split into about 10 files and each file has about 5 lines. Each <br>split-file’s size hovers above the target value of 100 bytes, <br>not going below 100 bytes until the last split-file, which might <br>be less than 100 bytes. |
-| `--target-file-datums` | This flag must be used with the `--split` <br> flag. The `--target-file-datums` attempts to fill each split-file <br>with the specified number of datums. If you run `--split lines --target-file-datums 2` on the line-delimited 50-line file mentioned above, you see the file split into 50 split-files and each file has 2 lines. |
+| `--split`         | Divides a file into chunks based on a *record*, such as newlines <br> in a line-delimited files or by JSON object for JSON files. <br> The `--split` flag takes one of the following arguments— `line`, <br> `json`, or `sql`. For example, `--split line` ensures that Pachyderm <br> only breaks up a file on a newline boundaries and not in the <br> middle of a line. |
+| `--target-file-bytes` |  This flag must be used with the `--split` <br> flag. The `--target-file-bytes` flag fills each of the split-files with data up to <br> the specified number of bytes, splitting on the nearest <br>record boundary. For example, you have a line-delimited file <br>of 50 lines, with each line having about 20 bytes. If you run the <br> `--split lines --target-file-bytes 100` command, you see the input <br>file split into about 10 files and each file has about 5 lines. Each <br>split-file’s size hovers above the target value of 100 bytes, <br>not going below 100 bytes until the last split-file, which might <br>be less than 100 bytes. |
+| `--target-file-datums` | This flag must be used with the `--split` <br> flag. The `--target-file-datums` attempts to fill each split-file <br>with the specified number of datums. If you run `--split lines --target-file-datums 2` on the line-delimited 100-line file mentioned above, you see the file split into 50 split-files and each file has 2 lines. |
 
 
 If you specify both `--target-file-datums` and `--target-file-bytes` flags,
 Pachyderm creates split-files until it hits one of the
-constraints. Pachyderm splits the file and
-then fills the first target split-file with line-based records
-until it hits the record limit. If Pachyderm passes the target byte
-number with just one record, it moves to the next split-file. If Pachyderm
-hits the target datum number after adding another line, it moves to the
-next split-file. If you run `pachctl put file` with
-`--split lines --target-file-datums 2 --target-file-bytes 100` flags
-on the example file in the table above, you get the same result as
-`--target-file-datums 2`, since that is the most compact constraint,
-and file sizes hover around 40 bytes.
+constraints.
 
 **See also:**
 
@@ -75,11 +66,12 @@ To complete this example, perform the following steps:
 
 1. Create a file with fifty lines named `my-data.txt`. You can
    add random lines, such as numbers from one to fifty, or US states,
-   or anything else..
+   or anything else.
 
    **Examples:**
 
    ```bash
+   Zero
    One
    Two
    Three
@@ -140,25 +132,16 @@ with many duplicate lines or objects with identical hashes
 might use less space in PFS than it does as
 a single file outside of PFS.
 
-
-```bash
-One
-Two
-Three
-Four
-Five
-```
-
 To complete this example, follow these steps:
 
 1. Create a file `count.txt` with the following lines:
 
    ```bash
+   Zero
    One
    Two
    Three
    Four
-   Five
    ```
 
 1. Put the `count.txt` file into a Pachyderm repository called `raw_data`:
@@ -200,7 +183,7 @@ To complete this example, follow these steps:
 
    ```bash
    $ pachctl get file raw_data@master:count.txt/0000000000000000
-   One
+   Zero
    ```
 
    This operation creates five datums that are processed by the
@@ -210,7 +193,7 @@ To complete this example, follow these steps:
    following content:
 
    ```bash
-   Six
+   Five
    ```
 
 1. Load this file into Pachyderm by appending it to the `count.txt` file:
@@ -249,13 +232,15 @@ To complete this example, follow these steps:
 
    ```
    $ pachctl get file raw_data@master:count.txt/0000000000000005
-   Six
+   Five
    ```
 
 ## Example: Overwriting Files with `–-split`
 
 The behavior of Pachyderm when a file loaded with ``--split`` is
 overwritten is simple to explain but subtle in its implications.
+Most importantly, it can have major implications when new rows
+are inserted within the file as opposed to just being appended to the end.
 The loaded file is split into those sequentially-named files,
 as shown above. If any of those resulting
 split-files hashes differently than the one it is replacing, it

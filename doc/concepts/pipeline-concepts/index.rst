@@ -22,7 +22,7 @@ Pipeline
  Cron
   A cron input enables you to trigger the pipeline code
   at a specific interval. This type of pipeline is useful
-  for such tasks as website scraping, database querying, and
+  for such tasks as web scraping, querying a database, and
   other similar operations where you do not want to wait
   for new data, but instead trigger the pipeline periodically.
 
