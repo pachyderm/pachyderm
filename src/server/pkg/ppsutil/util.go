@@ -263,10 +263,6 @@ type pipelineDecoder interface {
 	Decode(v interface{}) error
 }
 
-// NoParseErr is returned when no parser in PipelineManifestReader is able to
-// parse a pipeline spec.
-var NoParseErr = errors.New("no decoders are able to parse pipeline spec")
-
 // PipelineManifestReader helps with unmarshalling pipeline configs from JSON. It's used by
 // 'create pipeline' and 'update pipeline'
 //
@@ -276,7 +272,7 @@ var NoParseErr = errors.New("no decoders are able to parse pipeline spec")
 // multi-document support is added to our yaml parser and we can remove the json
 // parser.
 type PipelineManifestReader struct {
-	ds []pipelineDecoder
+	decoders []pipelineDecoder
 }
 
 // NewPipelineManifestReader creates a new manifest reader from a path.
@@ -312,7 +308,7 @@ func NewPipelineManifestReader(path string) (result *PipelineManifestReader, ret
 		return nil, err
 	}
 	result = &PipelineManifestReader{
-		ds: []pipelineDecoder{
+		decoders: []pipelineDecoder{
 			// create two independent readers for the two decoders so that one decoder
 			// reading doesn't affect the other one.
 			yaml.NewDecoder(bytes.NewReader(pipelineBytes)),
@@ -325,38 +321,24 @@ func NewPipelineManifestReader(path string) (result *PipelineManifestReader, ret
 // NextCreatePipelineRequest gets the next request from the manifest reader.
 func (r *PipelineManifestReader) NextCreatePipelineRequest() (*ppsclient.CreatePipelineRequest, error) {
 	var result ppsclient.CreatePipelineRequest
-	retErr := NoParseErr // set to nil on 1st successful parse
+	retErr := errors.New("no decoders are able to parse pipeline spec")
 	dest := interface{}(&result)
-	// Call Decode() on every d.ds. After the first success, continue calling
-	// decode on other decoders (to keep them in sync) but throw other results
-	// away.
-	for i := 0; i < len(r.ds); {
-		// loop invariant: either i gets incremented or d.ds gets shrunk
-		if err := r.ds[i].Decode(dest); err != nil {
-			if retErr == NoParseErr {
-				// neither error nor success so far--set retErr to first err
-				retErr = err
+	// Call Decode() on every decoder in d.decoders (to keep them in sync)
+	for i := 0; i < len(r.decoders); /* incr. i OR shrink d.decoders below */ {
+		if err := r.decoders[i].Decode(dest); err != nil {
+			if len(r.decoders) == 1 {
+				if err == io.EOF {
+					return nil, err
+				}
+				return nil, fmt.Errorf("malformed pipeline spec: %s", err)
 			}
-			// drop ds[i] from list of parsers
-			if i+1 <= len(r.ds) {
-				copy(r.ds[i:], r.ds[i+1:])
-			}
-			r.ds = r.ds[:len(r.ds)-1]
+			r.decoders = r.decoders[1-i : 2-i] // drop decoders[i] (requires len == 2)
 		} else {
-			if retErr != nil {
-				// first success--future parses go in this garbage map
-				dest = &map[string]interface{}{}
-			}
-			retErr = nil
+			retErr, dest = nil, &map[string]interface{}{} // discard future parses
 			i++
 		}
 	}
-	if retErr == io.EOF {
-		return nil, retErr
-	} else if retErr != nil {
-		return nil, fmt.Errorf("malformed pipeline spec: %s", retErr)
-	}
-	return &result, nil
+	return &result, retErr
 }
 
 // DescribeSyntaxError describes a syntax error encountered parsing json.
