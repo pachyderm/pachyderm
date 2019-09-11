@@ -6,8 +6,6 @@ When you build production-scale pipelines, you need
 to adjust the number of workers and resources that are
 allocated to each job to optimize throughput.
 
-## Adjust the Number of Pachyderm Workers
-
 A Pachyderm worker is an identical Kubernetes pod that runs
 the Docker image that you specified in the
 [pipeline spec](../reference/pipeline_spec.html). Your analysis code
@@ -23,16 +21,40 @@ schedule workers for every new job.
 
 For each job, all the datums are queued up and then distributed
 across the available workers. When a worker finishes processing
-its datum, it grabs a new datum from the queue until all datums
+its datum, it grabs a new datum from the queue until all the datums
 complete processing. If a worker pod crashes, its datums are
 redistributed to other workers for maximum fault tolerance.
 
-<!-- The following diagram shows how distributed computing works in
-Pachyderm - TBA Possibly could be a gif. :) Show queue of
-datums and 3 workers running things in parallel. Technically,
-each worker can download a datum, process a datum, and upload a
-completed datum all in parallel. May or may not want to show
-this, but wouldn't be too hard. We can draw this out in TOH.-->
+The following animation shows how distributed computing works:
+
+![Distributed computing basics](../images/distributed_computing101.gif)
+
+In the diagram above, you have three Pachyderm worker pods that
+process your computations. When a pod finishes processing a datum,
+it automatically takes another datum from the queue to process it.
+Datums might be different in size and, therefore, some of them might be
+processed faster than others.
+
+Each datum goes through the following processing phases inside a Pachyderm
+worker pod:
+
+| Phase       | Description |
+| ----------- | ----------- |
+| Downloading | The Pachyderm worker pod downloads the datum contents <br>into Pachyderm. In some cases, this stage takes longer <br>than processing, which might mean that you should rebalance your <br> workload among a larger number of Pachyderm worker pods. |
+| Processing  | The Pachyderm worker pod runs the contents of the datum <br>against your code. |
+| Uploading   | The Pachyderm worker pod uploads the results of processing <br>into an output repository. |
+
+When a datum completes a phase, the Pachyderm worker moves it to the next
+one while another datum from the queue takes its place in the
+processing sequence.
+
+The following animation displays what happens inside a pod during
+the datum processing:
+
+![Distributed processing internals](../images/distributed_computing102.gif)
+
+<!--TBA: the chunk_size property explanation article. Probably in a separate
+How-to, but need to add a link to it here-->
 
 You can control the number of worker pods that Pachyderm runs in a
 pipeline by defining the `parallelism` parameter in the
