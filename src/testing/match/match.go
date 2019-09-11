@@ -63,7 +63,7 @@ func main() {
 	}
 	if matchFound || *invert {
 		// Success--dump inputBuf (with guaranteed newline @ end)
-		// Deliberately ignore errors here--os.Stdout might be closed if a
+		// Note: we must ignore errors here--os.Stdout might be closed if a
 		// downstream cmd has already finished, but we don't want to cause a test to
 		// fail because of that
 		io.Copy(os.Stdout, strings.NewReader(strings.TrimSuffix(inputBuf.String(), "\n")))

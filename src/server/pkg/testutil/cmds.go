@@ -87,7 +87,6 @@ func BashCmd(cmd string, subs ...string) *exec.Cmd {
 	// Warn users that they must install 'match' if they want to run tests with
 	// this library, and enable 'pipefail' so that if any 'match' in a chain
 	// fails, the whole command fails.
-	// Note that to avoid SIGPIPE errors from derailing entire scripts, we
 	buf := &bytes.Buffer{}
 	buf.WriteString(`
 set -e -o pipefail
