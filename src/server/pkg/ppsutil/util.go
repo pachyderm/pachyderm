@@ -325,16 +325,16 @@ func (r *PipelineManifestReader) NextCreatePipelineRequest() (*ppsclient.CreateP
 	dest := interface{}(&result)
 	// Call Decode() on every decoder in d.decoders (to keep them in sync)
 	for i := 0; i < len(r.decoders); /* incr. i OR shrink d.decoders below */ {
-		if err := r.decoders[i].Decode(dest); err != nil {
-			if len(r.decoders) == 1 {
-				if err == io.EOF {
-					return nil, err
-				}
-				return nil, fmt.Errorf("malformed pipeline spec: %s", err)
+		switch err := r.decoders[i].Decode(dest); {
+		case err != nil && len(r.decoders) == 1: // no working parser--give up
+			if err == io.EOF {
+				return nil, err
 			}
-			r.decoders = r.decoders[1-i : 2-i] // drop decoders[i] (requires len == 2)
-		} else {
-			retErr, dest = nil, &map[string]interface{}{} // discard future parses
+			return nil, fmt.Errorf("malformed pipeline spec: %s", err)
+		case err != nil && len(r.decoders) == 2: // drop decoders[i] & continue
+			r.decoders = r.decoders[1-i : 2-i]
+		default: // success--discard future parses
+			retErr, dest = nil, &map[string]interface{}{}
 			i++
 		}
 	}
