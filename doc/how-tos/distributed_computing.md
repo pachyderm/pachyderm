@@ -30,7 +30,7 @@ The following animation shows how distributed computing works:
 ![Distributed computing basics](../images/distributed_computing101.gif)
 
 In the diagram above, you have three Pachyderm worker pods that
-process your computations. When a pod finishes processing a datum,
+process your data. When a pod finishes processing a datum,
 it automatically takes another datum from the queue to process it.
 Datums might be different in size and, therefore, some of them might be
 processed faster than others.
@@ -40,7 +40,7 @@ worker pod:
 
 | Phase       | Description |
 | ----------- | ----------- |
-| Downloading | The Pachyderm worker pod downloads the datum contents <br>into Pachyderm. In some cases, this stage takes longer <br>than processing, which might mean that you should rebalance your <br> workload among a larger number of Pachyderm worker pods. |
+| Downloading | The Pachyderm worker pod downloads the datum contents <br>into Pachyderm. |
 | Processing  | The Pachyderm worker pod runs the contents of the datum <br>against your code. |
 | Uploading   | The Pachyderm worker pod uploads the results of processing <br>into an output repository. |
 
