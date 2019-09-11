@@ -2615,6 +2615,26 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	key := path.Join
 	requestProv := make(map[string]*pfs.CommitProvenance)
 	for _, prov := range request.Provenance {
+		if prov == nil {
+			return nil, fmt.Errorf("request should not contain nil provenance")
+		}
+		branch := prov.Branch
+		if branch == nil {
+			if prov.Commit == nil {
+				return nil, fmt.Errorf("request provenance cannot have both a nil commit and nil branch")
+			}
+			provCommit, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+				Commit: prov.Commit,
+			})
+			if err != nil {
+				return nil, err
+			}
+			branch = provCommit.Branch
+		}
+
+		if prov.Branch.Repo == nil {
+			return nil, fmt.Errorf("request provenance branch must have a non nil repo")
+		}
 		requestProv[key(prov.Branch.Repo.Name, prov.Branch.Name)] = prov
 	}
 	for _, branchProv := range append(branch.Provenance, branch.Branch) {
