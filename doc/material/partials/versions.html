@@ -1,0 +1,25 @@
+ <div class="version-dropdown">
+     <div class="md-flex__ellipsis md-header-nav__title" data-md-component="title">
+         <div class="row">
+             <div class="col-md-6">
+                 <form class="" action="">
+                     <div class="form-group">
+                         <div class="input-group">
+                             <div class="input-group-prepend">
+                                 <span class="input-group-text" id="">{{ title }}</span>
+                             </div>
+                             <select class="form-control b_form__select custom-select"
+                                     onchange="if (this.value) { let pathParts = window.location.pathname.split('/'); pathParts[0] = this.value; window.location.pathname = pathParts.join('/');}">
+                                 <option value= "latest">latest</option>
+                                 <option value="1.9.3">1.9.3</option>
+                                 <option value="1.9.2">1.9.2</option>
+                                 <option value="1.9.0">1.9.0</option>
+                             </select>
+                         </div>
+                     </div>
+                 </form>
+             </div>
+         </div>
+     </div>
+ </div>
+
