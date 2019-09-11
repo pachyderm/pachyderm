@@ -171,6 +171,56 @@ func TestJSONMultiplePipelines(t *testing.T) {
 	require.NoError(t, tu.BashCmd(`pachctl list pipeline`).Run())
 }
 
+// TestJSONMultiplePipelinesError tests that when creating multiple pipelines
+// (which only the encoding/json parser can parse) you get an error indicating
+// the problem in the JSON, rather than an error complaining about multiple
+// documents.
+func TestJSONMultiplePipelinesError(t *testing.T) {
+	// pipeline spec has no quotes around "name" in second pipeline
+	require.NoError(t, tu.BashCmd(`
+		yes | pachctl delete all
+		pachctl create repo input
+		( pachctl create pipeline -f - 2>&1 <<EOF || true
+		{
+		  "pipeline": {
+		    "name": "first"
+		  },
+		  "input": {
+		    "pfs": {
+		      "glob": "/*",
+		      "repo": "input"
+		    }
+		  },
+		  "transform": {
+		    "cmd": [ "/bin/bash" ],
+		    "stdin": [
+		      "cp /pfs/input/* /pfs/out"
+		    ]
+		  }
+		}
+		{
+		  "pipeline": {
+		    name: "second"
+		  },
+		  "input": {
+		    "pfs": {
+		      "glob": "/*",
+		      "repo": "first"
+		    }
+		  },
+		  "transform": {
+		    "cmd": [ "/bin/bash" ],
+		    "stdin": [
+		      "cp /pfs/first/* /pfs/out"
+		    ]
+		  }
+		}
+		EOF
+		) | match "invalid character 'n' looking for beginning of object key string"
+		`,
+	).Run())
+}
+
 // TestYAMLPipelineSpec tests creating a pipeline with a YAML pipeline spec
 func TestYAMLPipelineSpec(t *testing.T) {
 	// Note that BashCmd dedents all lines below including the YAML (which
@@ -210,6 +260,31 @@ func TestYAMLPipelineSpec(t *testing.T) {
 		pachctl get file second@master:/foo | match foo
 		pachctl get file second@master:/bar | match bar
 		pachctl get file second@master:/baz | match baz
+		`,
+	).Run())
+}
+
+// TestYAMLError tests that when creating pipelines using a YAML spec with an
+// error, you get an error indicating the problem in the YAML, rather than an
+// error complaining about multiple documents.
+func TestYAMLError(t *testing.T) {
+	// "cmd" should be a list, instead of a string
+	require.NoError(t, tu.BashCmd(`
+		yes | pachctl delete all
+		pachctl create repo input
+		( pachctl create pipeline -f - 2>&1 <<EOF || true
+		pipeline:
+		  name: first
+		input:
+		  pfs:
+		    glob: /*
+		    repo: input
+		transform:
+		  cmd: /bin/bash # should be list, instead of string
+		  stdin:
+		    - "cp /pfs/input/* /pfs/out"
+		EOF
+		) | match "cannot unmarshal !!str ./bin/bash. into \[\]string"
 		`,
 	).Run())
 }

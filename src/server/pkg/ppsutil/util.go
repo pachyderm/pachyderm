@@ -311,8 +311,8 @@ func NewPipelineManifestReader(path string) (result *PipelineManifestReader, ret
 		decoders: []pipelineDecoder{
 			// create two independent readers for the two decoders so that one decoder
 			// reading doesn't affect the other one.
-			yaml.NewDecoder(bytes.NewReader(pipelineBytes)),
 			json.NewDecoder(bytes.NewReader(pipelineBytes)),
+			yaml.NewDecoder(bytes.NewReader(pipelineBytes)),
 		},
 	}
 	return result, nil
