@@ -45,6 +45,7 @@ func activateEnterprise(c *client.APIClient) error {
 }
 
 func TestPrometheusStats(t *testing.T) {
+	t.Skip("prometheus disabled in 1.8.x as deployment manifest is out of date")
 	c := getPachClient(t)
 	defer require.NoError(t, c.DeleteAll())
 	require.NoError(t, activateEnterprise(c))
@@ -272,7 +273,7 @@ func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 		&pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipeline),
 			Transform: &pps.Transform{
-				Cmd: []string{"bash"},
+				Cmd:   []string{"bash"},
 				Stdin: []string{"sleep 1"},
 			},
 			Input:        client.NewPFSInput(dataRepo, "/*"),
@@ -291,7 +292,7 @@ func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 	// timeout
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
-	
+
 	for {
 		_, err := commitIter.Next()
 		if err == io.EOF {
