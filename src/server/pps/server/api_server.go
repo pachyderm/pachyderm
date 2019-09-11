@@ -1942,7 +1942,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		provenance = append(branchProvenance(pipelineInfo.Input),
 			client.NewBranch(ppsconsts.SpecRepo, pipelineName))
 		outputBranch     = client.NewBranch(pipelineName, pipelineInfo.OutputBranch)
+		statsBranch      = client.NewBranch(pipelineName, "stats")
 		outputBranchHead *pfs.Commit
+		statsBranchHead  *pfs.Commit
 	)
 	if update {
 		// Help user fix inconsistency if previous UpdatePipeline call failed
@@ -2012,7 +2014,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		}
 
 		if !request.Reprocess {
-			// don't branch the output commit chain from the old pipeline (re-use old branch HEAD)
+			// don't branch the output/stats commit chain from the old pipeline (re-use old branch HEAD)
 			// However it's valid to set request.Update == true even if no pipeline exists, so only
 			// set outputBranchHead if there's an old pipeline to update
 			_, err := pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: outputBranch})
@@ -2020,6 +2022,13 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				return nil, err
 			} else if err == nil {
 				outputBranchHead = client.NewCommit(pipelineName, pipelineInfo.OutputBranch)
+			}
+
+			_, err = pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: statsBranch})
+			if err != nil && !isNotFoundErr(err) {
+				return nil, err
+			} else if err == nil {
+				statsBranchHead = client.NewCommit(pipelineName, "stats")
 			}
 		}
 
@@ -2045,8 +2054,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			}
 			// It does, so we use that as the spec commit, rather than making a new one
 			commit = commitInfo.Commit
-			// We also use the existing head for the branch, rather than making a new one.
+			// We also use the existing head for the branches, rather than making a new one.
 			outputBranchHead = client.NewCommit(pipelineName, pipelineInfo.OutputBranch)
+			statsBranchHead = client.NewCommit(pipelineName, "stats")
 		} else {
 			var err error
 			commit, err = a.makePipelineInfoCommit(pachClient, pipelineInfo)
@@ -2115,6 +2125,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		if _, err := pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
 			Branch:     client.NewBranch(pipelineName, "stats"),
 			Provenance: []*pfs.Branch{outputBranch},
+			Head:       statsBranchHead,
 		}); err != nil {
 			return nil, fmt.Errorf("could not create/update stats branch: %v", err)
 		}

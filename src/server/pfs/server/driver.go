@@ -1809,6 +1809,7 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 		}
 		lastRev := int64(-1)
 		if err := commits.ListRev(ci, &opts, func(commitID string, createRev int64) error {
+			// TODO this should be !=
 			if createRev > lastRev {
 				if err := sendCis(); err != nil {
 					return err
@@ -2332,8 +2333,20 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 			if err != nil {
 				return err
 			}
+			var fullProvenance branchSet
+			for _, provBranch := range provenance {
+				fullProvenance.add(provBranch)
+				provBranchInfo := &pfs.BranchInfo{}
+				if err := d.branches(provBranch.Repo.Name).ReadWrite(txnCtx.Stm).Get(provBranch.Name, provBranchInfo); err != nil {
+					return err
+				}
+				for _, provProvBranch := range provBranchInfo.Provenance {
+					fullProvenance.add(provProvBranch)
+				}
+			}
 			for _, provC := range ci.Provenance {
-				if !branchContains(provenance, provC.Branch) {
+				// TODO need to check this against transitive closure of prov, not just prov
+				if !branchContains(fullProvenance, provC.Branch) {
 					return fmt.Errorf("cannot create branch %q with commit %q as head because commit has provenance from branch \"%s/%s\" but that branch is not in provenance", branch.Name, commit.ID, provC.Branch.Repo.Name, provC.Branch.Name)
 				}
 				bi := &pfs.BranchInfo{}
@@ -2473,12 +2486,26 @@ func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo) ([]*pf
 	var result []*pfs.BranchInfo
 	branchInfo := &pfs.BranchInfo{}
 	branches := d.branches(repo.Name).ReadOnly(pachClient.Ctx())
-	if err := branches.List(branchInfo, col.DefaultOptions, func(string) error {
-		result = append(result, proto.Clone(branchInfo).(*pfs.BranchInfo))
+	opts := *col.DefaultOptions // Note we dereference here so as to make a copy
+	opts.Order = etcd.SortAscend
+	var bis []*pfs.BranchInfo
+	sendBis := func() {
+		sort.Slice(bis, func(i, j int) bool { return len(bis[i].Provenance) > len(bis[j].Provenance) })
+		result = append(result, bis...)
+		bis = nil
+	}
+	lastRev := int64(-1)
+	if err := branches.ListRev(branchInfo, &opts, func(branch string, createRev int64) error {
+		if createRev != lastRev {
+			sendBis()
+			lastRev = createRev
+		}
+		bis = append(bis, proto.Clone(branchInfo).(*pfs.BranchInfo))
 		return nil
 	}); err != nil {
 		return nil, err
 	}
+	sendBis()
 	return result, nil
 }
 

@@ -611,4 +611,8 @@ func TestExtractRestoreStats(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.DeleteAll())
 	require.NoError(t, c.Restore(ops))
+
+	cis, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(cis))
 }

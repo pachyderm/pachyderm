@@ -181,10 +181,12 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			return err
 		}
 		for _, bi := range bis {
+			fmt.Printf("Bi: %+v\n", bi)
 			if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{
 				Branch: &pfs.CreateBranchRequest{
-					Head:   bi.Head,
-					Branch: bi.Branch,
+					Head:       bi.Head,
+					Branch:     bi.Branch,
+					Provenance: bi.DirectProvenance,
 				},
 			}}); err != nil {
 				return err
