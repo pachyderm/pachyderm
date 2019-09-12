@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/pachyderm/pachyderm/src/client/admin"
-	pfs1_8 "github.com/pachyderm/pachyderm/src/client/admin/1_8/pfs"
-	pps1_8 "github.com/pachyderm/pachyderm/src/client/admin/1_8/pps"
+	pfs1_8 "github.com/pachyderm/pachyderm/src/client/admin/v1_8/pfs"
+	pps1_8 "github.com/pachyderm/pachyderm/src/client/admin/v1_8/pps"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 )
