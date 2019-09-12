@@ -27,7 +27,7 @@ email at support@pachyderm.io.
    :caption: QuickStart
 
    getting_started/index.rst
-   fundamentals/index.rst
+   concepts/index.rst
 
 .. toctree::
    :maxdepth: 2
@@ -44,8 +44,9 @@ email at support@pachyderm.io.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Cookbook and How-Tos
+   :caption: How-Tos
 
+   how-tos/index.rst
    cookbook/index.rst
 
 .. toctree::
@@ -59,3 +60,11 @@ email at support@pachyderm.io.
    pachctl/index.rst
    examples/examples.md
 
+.. toctree::
+   :maxdepth: 1
+   :caption: Contributing
+
+   contributing/setup.md
+   contributing/gcloud-setup.md
+   contributing/repo-layout.md
+   contributing/coding-conventions.md

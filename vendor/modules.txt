@@ -8,8 +8,9 @@ cloud.google.com/go/internal/version
 cloud.google.com/go/compute/metadata
 # contrib.go.opencensus.io/exporter/ocagent v0.4.12
 contrib.go.opencensus.io/exporter/ocagent
-# github.com/Azure/azure-sdk-for-go v5.0.0-beta+incompatible
+# github.com/Azure/azure-sdk-for-go v32.4.0+incompatible
 github.com/Azure/azure-sdk-for-go/storage
+github.com/Azure/azure-sdk-for-go/version
 # github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78
 github.com/Azure/go-ansiterm/winterm
 github.com/Azure/go-ansiterm

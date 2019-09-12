@@ -137,6 +137,7 @@ func TestWriteThenRead(t *testing.T) {
 		for _, fileName := range fileNames {
 			checkNextFile(t, r, files[fileName], msg)
 		}
+		require.NoError(t, r.Close(), msg)
 		// Change one random file
 		for fileName := range files {
 			data := chunk.RandSeq(rand.Intn(max))
@@ -150,10 +151,7 @@ func TestWriteThenRead(t *testing.T) {
 	}
 }
 
-// (bryce) there is a lot of common functionality between this and
-// the WriteThenRead test. This common functionality should get refactored
-// into helper functions.
-func TestCopyN(t *testing.T) {
+func TestWriteTo(t *testing.T) {
 	objC, chunks := chunk.LocalStorage(t)
 	defer func() {
 		chunk.Cleanup(objC, chunks)
@@ -163,6 +161,7 @@ func TestCopyN(t *testing.T) {
 	}()
 	fileSets := NewStorage(objC, chunks)
 	fileNames := index.Generate("abc")
+	files := make(map[string]*file)
 	seed := time.Now().UTC().UnixNano()
 	rand.Seed(seed)
 	msg := seedStr(seed)
@@ -170,15 +169,11 @@ func TestCopyN(t *testing.T) {
 	w := fileSets.NewWriter(context.Background(), testPath)
 	for _, fileName := range fileNames {
 		data := chunk.RandSeq(rand.Intn(max))
-		hdr := &index.Header{
-			Hdr: &tar.Header{
-				Name: fileName,
-				Size: int64(len(data)),
-			},
+		files[fileName] = &file{
+			data: data,
+			tags: generateTags(len(data)),
 		}
-		require.NoError(t, w.WriteHeader(hdr), msg)
-		_, err := w.Write(data)
-		require.NoError(t, err, msg)
+		writeFile(t, w, fileName, files[fileName], msg)
 	}
 	require.NoError(t, w.Close(), msg)
 	var initialChunkCount int64
@@ -190,33 +185,15 @@ func TestCopyN(t *testing.T) {
 	testPathCopy := testPath + "Copy"
 	r := fileSets.NewReader(context.Background(), testPath, "")
 	wCopy := fileSets.NewWriter(context.Background(), testPathCopy)
-	for range fileNames {
-		hdr, err := r.Next()
-		require.NoError(t, err, msg)
-		require.NoError(t, wCopy.WriteHeader(hdr), msg)
-		mid := hdr.Hdr.Size / 2
-		require.NoError(t, CopyN(wCopy, r, mid), msg)
-		require.NoError(t, CopyN(wCopy, r, hdr.Hdr.Size-mid), msg)
-	}
+	require.NoError(t, r.WriteToFiles(wCopy), msg)
 	require.NoError(t, wCopy.Close(), msg)
+	require.NoError(t, r.Close(), msg)
 	// Compare initial file set and copy file set.
-	r = fileSets.NewReader(context.Background(), testPath, "")
 	rCopy := fileSets.NewReader(context.Background(), testPathCopy, "")
 	for _, fileName := range fileNames {
-		hdr, err := r.Next()
-		require.NoError(t, err, msg)
-		require.Equal(t, fileName, hdr.Hdr.Name, msg)
-		hdrCopy, err := rCopy.Next()
-		require.NoError(t, err, msg)
-		require.Equal(t, hdr.Hdr, hdrCopy.Hdr, msg)
-		rData := &bytes.Buffer{}
-		_, err = io.Copy(rData, r)
-		require.NoError(t, err, msg)
-		rDataCopy := &bytes.Buffer{}
-		_, err = io.Copy(rDataCopy, rCopy)
-		require.NoError(t, err, msg)
-		require.Equal(t, rData.Bytes(), rDataCopy.Bytes(), msg)
+		checkNextFile(t, rCopy, files[fileName], msg)
 	}
+	require.NoError(t, rCopy.Close(), msg)
 	// No new chunks should get created by the copy.
 	var finalChunkCount int64
 	require.NoError(t, chunks.List(context.Background(), func(_ string) error {
@@ -299,9 +276,13 @@ func TestMerge(t *testing.T) {
 	w := fileSets.NewWriter(context.Background(), testPath)
 	require.NoError(t, merge(fileStreams, contentMergeFunc(w)), msg)
 	require.NoError(t, w.Close(), msg)
+	for _, r := range rs {
+		require.NoError(t, r.Close(), msg)
+	}
 	// Check the results of the merge against the files.
 	r := fileSets.NewReader(context.Background(), testPath, "")
 	for _, fileName := range fileNames {
 		checkNextFile(t, r, files[fileName], msg)
 	}
+	require.NoError(t, r.Close(), msg)
 }
