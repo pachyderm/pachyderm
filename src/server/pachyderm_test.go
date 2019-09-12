@@ -1089,6 +1089,9 @@ func TestRunPipeline(t *testing.T) {
 			return nil
 		}, backoff.NewTestingBackOff()))
 
+		// Shouldn't error if you try to delete an already deleted pipeline
+		require.NoError(t, c.DeletePipeline(pipeline, false))
+		require.NoError(t, c.DeletePipeline(pipeline, false))
 	})
 
 }
