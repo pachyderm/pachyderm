@@ -3,6 +3,7 @@ package client
 import (
 	"crypto/x509"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -145,38 +146,27 @@ type clientSettings struct {
 }
 
 // NewFromAddress constructs a new APIClient for the server at addr.
-// TODO(kdelga): current
 func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
+	// Validate address
+	if strings.Contains(addr, "://") {
+		return nil, fmt.Errorf("address shouldn't contain protocol (\"://\"), but is: %q", addr)
+	}
 	// Apply creation options
 	settings := clientSettings{
 		maxConcurrentStreams: DefaultMaxConcurrentStreams,
 		dialTimeout:          DefaultDialTimeout,
 	}
-	// TODO(kdelga): Q: Why do we do it like this?
-	// wouldn't it be easier to just pass the settings directly?
-	// It looks like every option in the options array could potentially overwrite the settings.
 	for _, option := range options {
 		if err := option(&settings); err != nil {
 			return nil, err
 		}
 	}
-	// TODO(kdelga): maybe we could check config here for whether or not to use system certs,
-	// but I think that should already be set in settings.caCerts, thus we need to pass
-	// options to this function that already contain the system certs.
-	// The problem is this function (NewFromAddress()) is public and called from all over the place
-	// so we need to figure out where calling it with system certs would be relevant.
-	// Update, it appears, options are only ever passed to this function in a few places in this file
-	// (all others don't pass any options): NewForTest, NewOnUserMachine, NewInCluster.
-	// The former two gets its options from getUserMachineAddrAndOpts(),
-	//
-	//
-	// Also we need to figure outh how to pass system certs as part of the options... arg.
-	// (see current UseSystemCerts proposal)
 	c := &APIClient{
 		addr:    addr,
 		caCerts: settings.caCerts,
 		limiter: limit.New(settings.maxConcurrentStreams),
 	}
+	fmt.Printf("options: %v\n", options)
 	if err := c.connect(settings.dialTimeout); err != nil {
 		return nil, err
 	}
@@ -184,7 +174,6 @@ func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
 }
 
 // Option is a client creation option that may be passed to NewOnUserMachine(), or NewInCluster()
-// TODO(kdelga): Q: what is difference between NewOnUserMachine and NewInCluster?
 type Option func(*clientSettings) error
 
 // WithMaxConcurrentStreams instructs the New* functions to create client that
@@ -234,7 +223,6 @@ func WithAdditionalRootCAs(pemBytes []byte) Option {
 }
 
 // WithSystemCAs uses the system certs for client creatin.
-// TODO(kdelga): Q: What is the difference between system certs and root certs?
 func WithSystemCAs(settings *clientSettings) error {
 	certs, err := x509.SystemCertPool()
 	if err != nil {
@@ -273,6 +261,9 @@ func WithAdditionalPachdCert() Option {
 func getCertOptionsFromEnv() ([]Option, error) {
 	var options []Option
 	if certPaths, ok := os.LookupEnv("PACH_CA_CERTS"); ok {
+		if pachdAddress, ok := os.LookupEnv("PACHD_ADDRESS"); !ok || !strings.HasPrefix(pachdAddress, "grpcs") {
+			return nil, errors.New("cannot set PACH_CA_CERTS without setting PACHD_ADDRESS to grpcs://... ")
+		}
 		paths := strings.Split(certPaths, ",")
 		for _, p := range paths {
 			// Try to read all certs under 'p'--skip any that we can't read/stat
@@ -304,11 +295,18 @@ func getCertOptionsFromEnv() ([]Option, error) {
 // running a command should connect to.
 // TODO(kdelga): current thinking is that this is where we need to config check for whether or not to use system certs.
 func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error) {
-	options := []Option{}
+	var options []Option
+
+	fmt.Printf("gum addr: %v\n", context.PachdAddress)
+	defer func() {
+		fmt.Printf("gum options: %v\n", options)
+	}()
 	// 1) PACHD_ADDRESS environment variable (shell-local) overrides global config
 	if envAddr, ok := os.LookupEnv("PACHD_ADDRESS"); ok {
-		if strings.HasPrefix(envAddr, "grpcs") {
+		fmt.Println("gum 1")
+		if strings.HasPrefix(envAddr, "grpcs://") {
 			options = append(options, WithSystemCAs)
+			envAddr = strings.TrimPrefix(envAddr, "grpcs://")
 		}
 		if !strings.Contains(envAddr, ":") {
 			envAddr = fmt.Sprintf("%s:%s", envAddr, DefaultPachdNodePort) // append port
@@ -321,9 +319,16 @@ func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error
 	}
 
 	// 2) Get target address from global config if possible
-	if context != nil && context.PachdAddress != "" {
-		if strings.HasPrefix(context.PachdAddress, "grpcs") || context.UseSystemCAs {
+	if context != nil && (context.ServerCAs != "" || context.PachdAddress != "") {
+		fmt.Println("gum 2")
+		// Proactively return an error in this case, instead of falling back to the default address below
+		if context.ServerCAs != "" && !strings.HasPrefix(context.PachdAddress, "grpcs") {
+			return "", nil, fmt.Errorf("must set pachd_address to grpcs://... if server_cas is set")
+		}
+
+		if strings.HasPrefix(context.PachdAddress, "grpcs") {
 			options = append(options, WithSystemCAs)
+			context.PachdAddress = strings.TrimPrefix(context.PachdAddress, "grpcs://")
 		}
 		// Also get cert info from config (if set)
 		if context.ServerCAs != "" {
@@ -333,10 +338,11 @@ func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error
 			}
 			return context.PachdAddress, []Option{WithAdditionalRootCAs(pemBytes)}, nil
 		}
-		return context.PachdAddress, nil, nil
+		return context.PachdAddress, options, nil
 	}
 
 	// 3) Use default address (broadcast) if nothing else works
+	fmt.Println("gum 3")
 	options, err := getCertOptionsFromEnv()
 	if err != nil {
 		return "", nil, err
@@ -371,7 +377,7 @@ func portForwarder() *PortForwarder {
 }
 
 // NewForTest constructs a new APIClient for tests.
-// TODO(kdelga): For testing system certs, don't use thishyd
+// TODO(kdelga): For testing system certs, don't use this (use modified NewFromAddress instead)
 func NewForTest() (*APIClient, error) {
 	// create new pachctl client
 	addr, cfgOptions, err := getUserMachineAddrAndOpts(nil)
@@ -547,6 +553,7 @@ func DefaultDialOptions() []grpc.DialOption {
 }
 
 func (c *APIClient) connect(timeout time.Duration) error {
+	// fmt.Printf("caCerts: %v\n", c.caCerts)
 	keepaliveOpt := grpc.WithKeepaliveParams(keepalive.ClientParameters{
 		Time:                20 * time.Second, // if 20s since last msg (any kind), ping
 		Timeout:             20 * time.Second, // if no response to ping for 20s, reset
@@ -555,15 +562,6 @@ func (c *APIClient) connect(timeout time.Duration) error {
 	dialOptions := append(DefaultDialOptions(), keepaliveOpt)
 	if c.caCerts == nil {
 		dialOptions = append(dialOptions, grpc.WithInsecure())
-		// // TODO(kdelga): One option is to check the config here for if we should use system certs, but I think a better way is to do it higher up
-		// // at the caller of connect(), NewFromAddress()
-		// } else if config_says_use_system_certs {
-		// 	systemCerts, err := x509.SystemCertPool()
-		// 	if err != nil {
-		// 		return err
-		// 	}
-		// 	tlsCreds := credentials.NewClientTLSFromCert(systemCerts, "")
-		// 	dialOptions = append(dialOptions, grpc.WithTransportCredentials(tlsCreds))
 	} else {
 		tlsCreds := credentials.NewClientTLSFromCert(c.caCerts, "")
 		dialOptions = append(dialOptions, grpc.WithTransportCredentials(tlsCreds))

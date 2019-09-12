@@ -12,6 +12,7 @@ else
 fi
 
 eval "set -- $( getopt -l "dns:,ip:,port:" -o "o:" "--" "${0}" "${@:-}" )"
+echo "${@}"
 output_prefix=pachd
 while true; do
   case "${1}" in
@@ -35,9 +36,15 @@ while true; do
       shift
       break
       ;;
-    *)
-      cat <<EOF
-Unrecognized arg "${1}". Usage:
+  esac
+done
+
+# Validate flags
+if [[ -z "${dns}" ]] && [[ -z "${ip}" ]]; then
+  cat <<EOF >/dev/fd/2
+Error: You must set either --dns or --ip
+
+Usage:
 Generate a self-signed TLS certificate for Pachyderm
 
 Args:
@@ -52,12 +59,6 @@ Args:
         This script generates a public TLS cert at <prefix>.pem and <prefix>.key
         Setting this arg determines the output file names.
 EOF
-  esac
-done
-
-# Validate flags
-if [[ -z "${dns}" ]] && [[ -z "${ip}" ]]; then
-  echo "You must set either --dns or --ip" >/dev/fd/2
   exit 1
 fi
 if [[ -z "${port}" ]]; then
