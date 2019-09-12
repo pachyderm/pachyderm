@@ -17,6 +17,29 @@ Pipeline
  and process the data. Each of these executions is
  called a job.
 
+ Pachyderm has the following special types of pipelines:
+
+ Cron
+  A cron input enables you to trigger the pipeline code
+  at a specific interval. This type of pipeline is useful
+  for such tasks as web scraping, querying a database, and
+  other similar operations where you do not want to wait
+  for new data, but instead trigger the pipeline periodically.
+
+ Service
+  A service is a special type of pipeline that
+  instead of executing jobs and then waiting, permanently runs
+  a serving data through an endpoint. For example, you can be
+  serving an ML model or a REST API that can be queried. A
+  service reads data from Pachyderm but does not have an
+  output repo.
+
+ Spout
+  A spout is a special type of pipeline for ingesting data
+  from a data stream. A spout can subscribe to a message
+  stream, such as Kafka or Amazon SQS, and ingest data when
+  it receives a message. A spout does not have an input repo.
+
 Job
  A job is an individual execution of a pipeline. A job
  can succeed or fail. Within a job, data and processing
@@ -26,20 +49,6 @@ Datum
  A datum is the smallest indivisible unit of work within
  a job. Different datums can be processed in parallel
  within a job.
-
-Service
- A service is a special type of pipeline that
- instead of executing jobs and then waiting, permanently runs
- a serving data through an endpoint. For example, you can be
- serving an ML model or a REST API that can be queried. A
- service reads data from Pachyderm but does not have an
- output repo.
-
-Spout
- A spout is a special type of pipeline for ingesting data
- from a data stream. A spout can subscribe to a message
- stream, such as Kafka or Amazon SQS, and ingest data when
- it receives a message. A spout does not have an input repo.
 
 Read the sections below to learn more about these concepts:
 

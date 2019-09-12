@@ -317,7 +317,7 @@ Next Steps
 Pachyderm is now running locally with data and a pipeline! To play with Pachyderm locally, you can use what you've learned to build on or change this pipeline. You can also dig in and learn more details about:
 
 - `Deploying Pachyderm to the cloud or on prem <http://pachyderm.readthedocs.io/en/latest/deployment/deploy_intro.html>`_
-- :doc:`../fundamentals/getting_data_into_pachyderm`
-- :doc:`../fundamentals/creating_analysis_pipelines`
+- :doc:`../how-tos/load-data-into-pachyderm`
+- :doc:`../how-tos/working-with-pipelines`
 
 We'd love to help and see what you come up with, so submit any issues/questions you come across on `GitHub <https://github.com/pachyderm/pachyderm>`_ , `Slack <http://slack.pachyderm.io>`_, or email at support@pachyderm.io if you want to show off anything nifty you've created!

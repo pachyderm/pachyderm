@@ -21,7 +21,7 @@ When you add a file by using the `pachctl put file` command,
 Pachyderm can either append the file to the already existing file
 or overwrite the existing file.
 
-Appending files
+**Appending files**
  By default, when you put a file into a Pachyderm repository, and a
  file by the same name already exists in the repo, Pachyderm appends
  the new data to the existing file.
@@ -54,7 +54,7 @@ Appending files
    /A.csv file 516B
    ```
 
-Overwriting files
+**Overwriting files**
  When you enable the overwrite mode by using the `--overwrite`
  flag or `-o`, the file replaces the existing file instead of appending to
  it. For example, you have an `A.csv` file in the `images` repository.

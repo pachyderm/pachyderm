@@ -27,11 +27,6 @@ email at support@pachyderm.io.
    :caption: QuickStart
 
    getting_started/index.rst
-   fundamentals/index.rst
-
-.. toctree::
-   :maxdepth: 2
-
    concepts/index.rst
 
 .. toctree::
