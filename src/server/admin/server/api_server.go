@@ -8,9 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/snappy"
-	"golang.org/x/net/context"
-
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/admin"
@@ -22,6 +19,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+
+	"github.com/gogo/protobuf/proto"
+	"github.com/golang/snappy"
+	"golang.org/x/net/context"
 )
 
 var objHashRE = regexp.MustCompile("[0-9a-f]{128}")
@@ -81,7 +82,32 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 	pachClient := a.getPachClient().WithCtx(ctx)
 	writeOp := func(op *admin.Op) error {
 		err := extractServer.Send(op)
-		fmt.Printf(">>> send(%+v) -> %v\n", op, err)
+		if op.Op1_7.Object != nil {
+			l := len(op.Op1_7.Object.Value)
+			if l <= 12 {
+				op.Op1_7.Object = fmt.Sprintf("%s", string(op.Op1_7.Object.Value))
+			} else {
+				op.Op1_7.Object = fmt.Sprintf("%s...(%d bytes total)...%s", string(op.Op1_7.Object.Value[:6]), l, string(op.Op1_7.Object.Value[l-6:l]))
+			}
+		}
+		if op.Op1_8.Object != nil {
+			l := len(op.Op1_8.Object.Value)
+			if l <= 12 {
+				op.Op1_8.Object = fmt.Sprintf("%s", string(op.Op1_8.Object.Value))
+			} else {
+				op.Op1_8.Object = fmt.Sprintf("%s...(%d bytes total)...%s", string(op.Op1_8.Object.Value[:6]), l, string(op.Op1_8.Object.Value[l-6:l]))
+			}
+		}
+		if op.Op1_9.Object != nil {
+			l := len(op.Op1_9.Object.Value)
+			if l <= 12 {
+				op.Op1_9.Object = fmt.Sprintf("%s", string(op.Op1_9.Object.Value))
+			} else {
+				op.Op1_9.Object = fmt.Sprintf("%s...(%d bytes total)...%s", string(op.Op1_9.Object.Value[:6]), l, string(op.Op1_9.Object.Value[l-6:l]))
+			}
+		}
+		op.Op1_8.Object != nil || op.Op1_9.Object != nil ||
+			fmt.Printf(">>> send(%+v) -> %v\n", op, err)
 		return err
 	}
 	if request.URL != "" {
