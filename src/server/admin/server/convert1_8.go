@@ -385,7 +385,7 @@ func convert1_8Op(op *admin.Op1_8) (*admin.Op1_9, error) {
 				DatumTries:         op.Pipeline.DatumTries,
 				SchedulingSpec:     convert1_8SchedulingSpec(op.Pipeline.SchedulingSpec),
 				PodSpec:            op.Pipeline.PodSpec,
-				// Note - don't set Salt, so we don't re-use old datum hashtrees
+				Salt:               op.Pipeline.Salt,
 			},
 		}, nil
 	default:
