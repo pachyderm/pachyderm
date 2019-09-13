@@ -12,7 +12,9 @@ import (
 const (
 	prefix    = "pfs"
 	headerTag = ""
-	// (bryce) explain this somewhere.
+	// fullMergeSuffix is appended to a prefix to create a path to be used for referencing
+	// the full merge of that prefix. The full merge of a prefix means that every
+	// path with the prefix has been merged into the referenced object.
 	fullMergeSuffix = "~"
 )
 
