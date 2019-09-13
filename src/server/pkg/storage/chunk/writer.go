@@ -262,7 +262,7 @@ func (w *worker) executeFuncs() error {
 		}
 	}
 	// Signal to the next worker in the chain that this worker is done.
-	w.next.done <- struct{}{}
+	close(w.next.done)
 	return nil
 }
 
@@ -391,7 +391,7 @@ func (w *Writer) writeByteSet() {
 	prev := w.prev
 	next := &chanSet{
 		bytes: make(chan *byteSet, 1),
-		done:  make(chan struct{}, 1),
+		done:  make(chan struct{}),
 	}
 	byteSet := &byteSet{
 		data:        w.buf.Bytes(),
