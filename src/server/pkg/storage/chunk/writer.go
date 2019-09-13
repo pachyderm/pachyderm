@@ -30,12 +30,22 @@ var initialWindow = make([]byte, WindowSize)
 // WriterFunc is a callback that returns a data reference to the next chunk and the annotations within the chunk.
 type WriterFunc func(*DataRef, []*Annotation) error
 
+// byteSet is a unit of work for the workers.
+// A worker will roll the rolling hash function across the bytes
+// while processing the associated annotations.
 type byteSet struct {
 	data        []byte
 	annotations []*Annotation
-	nextByteSet chan *byteSet
+	// nextBytes is used for the edge case where no split point is found in an assigned byte set.
+	// A worker that did not find a chunk in its assigned byte set will pass it to the prior
+	// worker in the chain with nextBytes set to the next worker's bytes channel. This allows shuffling
+	// of byte sets between workers until a split point is found.
+	nextBytes chan *byteSet
 }
 
+// chanSet is a group of channels used to setup the daisy chain and shuffle data between the workers.
+// How these channels are used by a worker depends on whether they are associated with
+// the previous or next worker in the chain.
 type chanSet struct {
 	bytes chan *byteSet
 	done  chan struct{}
@@ -62,7 +72,7 @@ func (w *worker) run(byteSet *byteSet) error {
 	}
 	// No split point found.
 	if w.prev != nil && w.first {
-		byteSet.nextByteSet = w.next.bytes
+		byteSet.nextBytes = w.next.bytes
 		select {
 		case w.prev.bytes <- byteSet:
 		case <-w.ctx.Done():
@@ -70,22 +80,22 @@ func (w *worker) run(byteSet *byteSet) error {
 		}
 	} else {
 		// Wait for the next byte set to roll.
-		nextByteSet := w.next.bytes
-		for nextByteSet != nil {
+		nextBytes := w.next.bytes
+		for nextBytes != nil {
 			select {
-			case byteSet, more := <-nextByteSet:
+			case byteSet, more := <-nextBytes:
 				// The next bytes channel is closed for the last worker,
 				// so it uploads the last buffer as a chunk.
 				if !more {
 					if err := w.put(); err != nil {
 						return err
 					}
-					nextByteSet = nil
+					nextBytes = nil
 					break
 				} else if err := w.rollByteSet(byteSet); err != nil {
 					return err
 				}
-				nextByteSet = byteSet.nextByteSet
+				nextBytes = byteSet.nextBytes
 			case <-w.ctx.Done():
 				return w.ctx.Err()
 			}
@@ -263,6 +273,9 @@ type stats struct {
 
 // Writer splits a byte stream into content defined chunks that are hashed and deduplicated/uploaded to object storage.
 // Chunk split points are determined by a bit pattern in a rolling hash function (buzhash64 at https://github.com/chmduquesne/rollinghash).
+// The byte stream is split into byte sets for parallel processing. Workers roll the rolling hash function and perform the execution
+// of the writer function on these byte sets. The workers are daisy chained such that split points across byte sets can be resolved by shuffling
+// bytes between workers in the chain and the writer function is executed on the sequential ordering of the chunks in the byte stream.
 type Writer struct {
 	ctx, cancelCtx context.Context
 	buf            *bytes.Buffer
