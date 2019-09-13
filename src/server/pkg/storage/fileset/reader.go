@@ -110,58 +110,95 @@ func (r *Reader) setupReader() error {
 	return nil
 }
 
-// WriteToFiles does an efficient copy of files from a file set reader to writer.
-// The optional pathBound specifies the upper bound (exclusive) for files to copy.
-func (r *Reader) WriteToFiles(w *Writer, pathBound ...string) error {
-	for {
-		hdr, err := r.Peek()
-		if err != nil {
-			if err == io.EOF {
-				return nil
+type copyFiles struct {
+	indexCopyF func() (*index.Copy, error)
+	files      []*copyTags
+}
+
+func (r *Reader) readCopyFiles(pathBound ...string) func() (*copyFiles, error) {
+	var done bool
+	return func() (*copyFiles, error) {
+		if done {
+			return nil, io.EOF
+		}
+		c := &copyFiles{}
+		// Setup index copying callback at the first split point where
+		// the next chunk will be copied.
+		var hdr *index.Header
+		r.cr.OnSplit(func() {
+			if hdr != nil && index.BeforeBound(hdr.Idx.LastPathChunk, pathBound...) {
+				c.indexCopyF = r.ir.ReadCopyFunc(pathBound...)
 			}
-			return err
+		})
+		for {
+			var err error
+			hdr, err = r.Peek()
+			if err != nil {
+				if err == io.EOF {
+					done = true
+					break
+				}
+				return nil, err
+			}
+			// If the header is past the path bound, then we are done.
+			if !index.BeforeBound(hdr.Hdr.Name, pathBound...) {
+				done = true
+				break
+			}
+			if _, err := r.Next(); err != nil {
+				return nil, err
+			}
+			file, err := r.readCopyTags()
+			if err != nil {
+				return nil, err
+			}
+			c.files = append(c.files, file)
+			// Return copy information for content level, and callback
+			// for index level copying.
+			if c.indexCopyF != nil {
+				break
+			}
 		}
-		if len(pathBound) > 0 && hdr.Hdr.Name >= pathBound[0] {
-			return nil
-		}
-		if _, err := r.Next(); err != nil {
-			return err
-		}
-		if err := w.WriteHeader(hdr); err != nil {
-			return err
-		}
-		if err := r.WriteToTags(w); err != nil {
-			return err
-		}
+		return c, nil
 	}
 }
 
-// WriteToTags does an efficient copy of tagged content in the current file from a file set reader to writer.
-// The optional tagBound specifies the upper bound (inclusive, but duplicate tags should not exist) for tags to copy.
-func (r *Reader) WriteToTags(w *Writer, tagBound ...string) error {
+type copyTags struct {
+	hdr     *index.Header
+	content *chunk.Copy
+	tags    []*index.Tag
+}
+
+func (r *Reader) readCopyTags(tagBound ...string) (*copyTags, error) {
 	// Lazily setup reader for underlying file.
 	if err := r.setupReader(); err != nil {
-		return err
+		return nil, err
 	}
+	// Determine the tags and number of bytes to copy.
 	var idx int
 	var numBytes int64
 	for i, tag := range r.tags {
-		if len(tagBound) > 0 && tag.Id > tagBound[0] {
+		if !index.BeforeBound(tag.Id, tagBound...) {
 			break
 		}
 		idx = i + 1
 		numBytes += tag.SizeBytes
 
 	}
-	err := r.cr.WriteToN(w.cw, numBytes)
+	// Setup copy struct.
+	c := &copyTags{hdr: r.hdr}
+	var err error
+	c.content, err = r.cr.ReadCopy(numBytes)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if err := w.writeTags(r.tags[:idx]); err != nil {
-		return err
-	}
+	c.tags = r.tags[:idx]
+	// Update reader state.
 	r.tags = r.tags[idx:]
-	return r.tr.Skip(numBytes)
+	if err := r.tr.Skip(numBytes); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 // Close closes the reader.

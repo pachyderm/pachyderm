@@ -2,6 +2,7 @@ package index
 
 import (
 	"context"
+	"io"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
@@ -58,30 +59,42 @@ func NewWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path
 	}
 }
 
-// WriteHeader writes a Header to the index.
-func (w *Writer) WriteHeader(hdr *Header) error {
+// WriteHeaders writes a set of Header to the index.
+func (w *Writer) WriteHeaders(hdrs []*Header) error {
+	w.setupLevels()
+	for _, hdr := range hdrs {
+		hdr.Hdr.Typeflag = indexType
+	}
+	return w.writeHeaders(hdrs, 0)
+}
+
+func (w *Writer) setupLevels() {
 	// Setup the first level.
 	if w.levels == nil {
-		cw := w.chunks.NewWriter(w.ctx, averageBits, w.callback(0))
+		cw := w.chunks.NewWriter(w.ctx, averageBits, w.callback(0), 0)
 		w.levels = append(w.levels, &levelWriter{
 			cw: cw,
 			tw: tar.NewWriter(cw),
 		})
 	}
-	hdr.Hdr.Typeflag = indexType
-	return w.writeHeader(hdr, 0)
 }
 
-func (w *Writer) writeHeader(hdr *Header, level int) error {
+func (w *Writer) writeHeaders(hdrs []*Header, level int) error {
 	l := w.levels[level]
-	l.cw.Annotate(&chunk.Annotation{
-		RefDataRefs: hdr.Idx.DataOp.DataRefs,
-		Meta: &meta{
-			hdr:   hdr,
-			level: level,
-		},
-	})
-	return w.serialize(l.tw, hdr)
+	for _, hdr := range hdrs {
+		// Create an annotation for each header.
+		l.cw.Annotate(&chunk.Annotation{
+			RefDataRefs: hdr.Idx.DataOp.DataRefs,
+			Meta: &meta{
+				hdr:   hdr,
+				level: level,
+			},
+		})
+		if err := w.serialize(l.tw, hdr); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (w *Writer) serialize(tw *tar.Writer, hdr *Header) error {
@@ -102,6 +115,9 @@ func (w *Writer) serialize(tw *tar.Writer, hdr *Header) error {
 
 func (w *Writer) callback(level int) chunk.WriterFunc {
 	return func(chunkRef *chunk.DataRef, annotations []*chunk.Annotation) error {
+		if len(annotations) == 0 {
+			return nil
+		}
 		lw := w.levels[level]
 		// Extract first and last header and setup file range.
 		hdr := annotations[0].Meta.(*meta).hdr
@@ -128,21 +144,58 @@ func (w *Writer) callback(level int) chunk.WriterFunc {
 			LastPath: lastPath,
 		}
 		hdr.Idx.DataOp = &DataOp{DataRefs: []*chunk.DataRef{chunkRef}}
+		hdr.Idx.LastPathChunk = lw.lastHdr.Idx.LastPathChunk
 		// Set the root header when the writer is closed and we are at the top level index.
-		if w.closed && lw.cw.ChunkCount() == 1 {
+		if w.closed {
 			w.root = hdr
-			return nil
 		}
 		// Create next index level if it does not exist.
 		if level == len(w.levels)-1 {
-			cw := w.chunks.NewWriter(w.ctx, averageBits, w.callback(level+1))
+			cw := w.chunks.NewWriter(w.ctx, averageBits, w.callback(level+1), int64(level+1))
 			w.levels = append(w.levels, &levelWriter{
 				cw: cw,
 				tw: tar.NewWriter(cw),
 			})
 		}
 		// Write index entry in next level index.
-		return w.writeHeader(hdr, level+1)
+		return w.writeHeaders([]*Header{hdr}, level+1)
+	}
+}
+
+// WriteCopyFunc executes a function for copying data to the writer.
+func (w *Writer) WriteCopyFunc(f func() (*Copy, error)) error {
+	w.setupLevels()
+	for {
+		c, err := f()
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return err
+		}
+		// Finish level below.
+		// (bryce) this is going to run twice during the copy process (going up the levels, then back down).
+		// This is probably fine, but may be worth noting.
+		if c.level > 0 {
+			lw := w.levels[c.level-1]
+			lw.tw = tar.NewWriter(lw.cw)
+			if err := lw.cw.Flush(); err != nil {
+				return err
+			}
+			lw.cw.Reset()
+		}
+		// Write the raw bytes first (handles bytes hanging over at the end)
+		if c.raw != nil {
+			if err := w.levels[c.level].cw.WriteCopy(c.raw); err != nil {
+				return err
+			}
+		}
+		// Write the headers to be copied.
+		if c.hdrs != nil {
+			if err := w.writeHeaders(c.hdrs, c.level); err != nil {
+				return err
+			}
+		}
 	}
 }
 
@@ -156,11 +209,14 @@ func (w *Writer) Close() error {
 	// writer has been closed and the number of ranges it has is one.
 	for i := 0; i < len(w.levels); i++ {
 		l := w.levels[i]
-		if err := l.tw.Close(); err != nil {
+		if err := l.tw.Flush(); err != nil {
 			return err
 		}
 		if err := l.cw.Close(); err != nil {
 			return err
+		}
+		if l.cw.ChunkCount() == 1 {
+			break
 		}
 	}
 	// Write the final index level to the path.

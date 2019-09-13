@@ -17,7 +17,7 @@ func LocalStorage(tb testing.TB) (obj.Client, *Storage) {
 	require.NoError(tb, err)
 	objC, err := obj.NewLocalClient(wd)
 	require.NoError(tb, err)
-	return objC, NewStorage(objC)
+	return objC, NewStorage(objC, 200*MB)
 }
 
 // Cleanup cleans up a local chunk storage instance.
@@ -35,4 +35,12 @@ func RandSeq(n int) []byte {
 		b[i] = letters[rand.Intn(len(letters))]
 	}
 	return []byte(string(b))
+}
+
+// Min is a minimum function for int64.
+func Min(x, y int64) int64 {
+	if x <= y {
+		return x
+	}
+	return y
 }

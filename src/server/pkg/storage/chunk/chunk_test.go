@@ -24,7 +24,7 @@ func Write(t *testing.T, chunks *Storage, n, rangeSize int) ([]*DataRef, []byte)
 			}
 			return nil
 		}
-		w := chunks.NewWriter(context.Background(), averageBits, f)
+		w := chunks.NewWriter(context.Background(), averageBits, f, 0)
 		seq = RandSeq(n * MB)
 		for i := 0; i < n/rangeSize; i++ {
 			w.Annotate(&Annotation{
@@ -73,7 +73,7 @@ func BenchmarkWriter(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		f := func(_ *DataRef, _ []*Annotation) error { return nil }
-		w := chunks.NewWriter(context.Background(), averageBits, f)
+		w := chunks.NewWriter(context.Background(), averageBits, f, 0)
 		for i := 0; i < 100; i++ {
 			w.Annotate(&Annotation{
 				NextDataRef: &DataRef{},
@@ -102,7 +102,7 @@ func BenchmarkRollingHash(b *testing.B) {
 	}
 }
 
-func TestWriteToN(t *testing.T) {
+func TestCopy(t *testing.T) {
 	objC, chunks := LocalStorage(t)
 	defer Cleanup(objC, chunks)
 	// Write the initial data and count the chunks.
@@ -121,7 +121,7 @@ func TestWriteToN(t *testing.T) {
 		}
 		return nil
 	}
-	w := chunks.NewWriter(context.Background(), averageBits, f)
+	w := chunks.NewWriter(context.Background(), averageBits, f, 0)
 	r1 := chunks.NewReader(context.Background())
 	r1.NextRange(dataRefs1)
 	r2 := chunks.NewReader(context.Background())
@@ -130,11 +130,11 @@ func TestWriteToN(t *testing.T) {
 		NextDataRef: &DataRef{},
 	})
 	mid := r1.Len() / 2
-	require.NoError(t, r1.WriteToN(w, r1.Len()-mid))
-	require.NoError(t, r1.WriteToN(w, mid))
+	require.NoError(t, w.Copy(r1, r1.Len()-mid))
+	require.NoError(t, w.Copy(r1, mid))
 	mid = r2.Len() / 2
-	require.NoError(t, r2.WriteToN(w, r2.Len()-mid))
-	require.NoError(t, r2.WriteToN(w, mid))
+	require.NoError(t, w.Copy(r2, r2.Len()-mid))
+	require.NoError(t, w.Copy(r2, mid))
 	require.NoError(t, w.Close())
 	// Check that the initial data equals the final data.
 	buf := &bytes.Buffer{}
