@@ -12,7 +12,6 @@ would typically execute while processing your data in Pachyderm.
    splitting.md
    combining.md
    example_developer_workflow.md
-   cron.md
    ml.md
    time_windows.md
    ingressing_from_diff_cloud.md
