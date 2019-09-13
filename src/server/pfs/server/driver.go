@@ -1978,6 +1978,9 @@ func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, b
 			if err := event.Unmarshal(&commitID, commitInfo); err != nil {
 				return fmt.Errorf("Unmarshal: %v", err)
 			}
+			if commitInfo == nil {
+				return fmt.Errorf("Commit info is empty for id: %v", commitID)
+			}
 
 			// if provenance is provided, ensure that the returned commits have the commit in their provenance
 			if prov != nil {
@@ -1994,9 +1997,18 @@ func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, b
 				}
 			}
 
-			// if branch is provided, make sure the commit was created on that branch
-			if branch != "" && commitInfo.Branch.Name != branch {
-				continue
+			if commitInfo.Branch != nil {
+				// For now, we don't want stats branches to have jobs triggered on them
+				// and this is the simplest way to achieve that. Once we have labels,
+				// we'll use those instead for a more principled approach.
+				if commitInfo.Branch.Name == "stats" {
+					continue
+				}
+
+				// if branch is provided, make sure the commit was created on that branch
+				if branch != "" && commitInfo.Branch.Name != branch {
+					continue
+				}
 			}
 
 			// We don't want to include the `from` commit itself
