@@ -70,6 +70,7 @@ func RepoInfoToName(repoInfo interface{}) interface{} {
 // testExtractRestored effectively implements both TestExtractRestoreObjects
 // TestExtractRestoreNoObjects, as their logic is mostly the same
 func testExtractRestore(t *testing.T, testObjects bool) {
+	fmt.Printf(">>> TestExtractRestore(objects=%t)\n", testObjects)
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -81,6 +82,7 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	// Create input data
+	fmt.Printf(">>> Create input data\n")
 	nCommits := 2
 	r := rand.New(rand.NewSource(45))
 	fileHashes := make([]string, 0, nCommits)
@@ -94,6 +96,7 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 	}
 
 	// Create test pipelines
+	fmt.Printf(">>> Create test pipelines\n")
 	numPipelines := 3
 	var input, pipeline string
 	input = dataRepo
@@ -145,21 +148,26 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 	})
 
 	// Extract existing cluster state
+	fmt.Printf(">>> Extract existing cluster state\n")
 	ops, err := c.ExtractAll(testObjects)
 	require.NoError(t, err)
 
 	// Delete existing metadata
+	fmt.Printf(">>> Delete existing metadata\n")
 	require.NoError(t, c.DeleteAll())
 
 	if testObjects {
 		// Delete existing objects
+		fmt.Printf(">>> Delete existing objects\n")
 		require.NoError(t, c.GarbageCollect(10000))
 	}
 
 	// Restore metadata and possibly objects
+	fmt.Printf(">>> Restore metadata and possibly objects\n")
 	require.NoError(t, c.Restore(ops))
 
 	// Make sure all commits got re-created
+	fmt.Printf(">>> Make sure all commits got re-created\n")
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
 		commitInfos, err := c.ListCommit(dataRepo, "", "", 0)
 		if err != nil {
@@ -173,13 +181,16 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 	})
 
 	// Wait for re-created pipelines to process recreated input data
+	fmt.Printf(">>> Wait for re-created pipelines to process recreated input data\n")
 	commitIter, err = c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 	commitInfos = collectCommitInfos(t, commitIter)
 	require.Equal(t, numPipelines, len(commitInfos))
 
 	// Confirm all the recreated jobs passed
+	fmt.Printf(">>> Confirm all the recreated jobs passed\n")
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		fmt.Printf(">>> Calling ListJob\n")
 		jobInfos, err := c.ListJob("", nil, nil, -1, false) // make sure jobs all succeeded
 		if err != nil {
 			return err
@@ -202,11 +213,13 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 	})
 
 	// Make sure all branches were recreated
+	fmt.Printf(">>> Make sure all branches were recreated\n")
 	bis, err := c.ListBranch(dataRepo)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(bis))
 
 	// Check input data
+	fmt.Printf(">>> Check input data\n")
 	// This check uses a backoff because sometimes GetFile causes pachd to OOM
 	var restoredFileHashes []string
 	require.NoError(t, backoff.Retry(func() error {
@@ -224,6 +237,7 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 	require.ElementsEqual(t, fileHashes, restoredFileHashes)
 
 	// Check output data
+	fmt.Printf(">>> Check output data\n")
 	// This check uses a backoff because sometimes GetFile causes pachd to OOM
 	require.NoError(t, backoff.Retry(func() error {
 		restoredFileHashes = make([]string, 0, nCommits)

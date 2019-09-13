@@ -76,9 +76,14 @@ func version(op *admin.Op) opVersion {
 func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.API_ExtractServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	fmt.Printf(">>> Beginning Extract()\n")
 	ctx := extractServer.Context()
 	pachClient := a.getPachClient().WithCtx(ctx)
-	writeOp := extractServer.Send
+	writeOp := func(op *admin.Op) error {
+		err := extractServer.Send(op)
+		fmt.Printf(">>> send(%+v) -> %v\n", op, err)
+		return err
+	}
 	if request.URL != "" {
 		url, err := obj.ParseURL(request.URL)
 		if err != nil {
@@ -114,15 +119,18 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 	}
 	if !request.NoObjects {
 		w := extractObjectWriter(writeOp)
+		fmt.Printf(">>> about to list objects\n")
 		if err := pachClient.ListObject(func(object *pfs.Object) error {
 			if err := pachClient.GetObject(object.Hash, w); err != nil {
 				return err
 			}
 			// empty PutObjectRequest to indicate EOF
+			fmt.Printf(">>> writing op for object:%q\n", object.Hash)
 			return writeOp(&admin.Op{Op1_9: &admin.Op1_9{Object: &pfs.PutObjectRequest{}}})
 		}); err != nil {
 			return err
 		}
+		fmt.Printf(">>> About to call ListTag\n")
 		if err := pachClient.ListTag(func(resp *pfs.ListTagsResponse) error {
 			return writeOp(&admin.Op{Op1_9: &admin.Op1_9{
 				Tag: &pfs.TagObjectRequest{
@@ -136,12 +144,14 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 	}
 	var repos []*pfs.Repo
 	if !request.NoRepos {
+		fmt.Printf(">>> About to call ListRepo\n")
 		ris, err := pachClient.ListRepo()
 		if err != nil {
 			return err
 		}
 	repos:
 		for _, ri := range ris {
+			fmt.Printf(">>> About to call ListBranch(%q)\n", ri.Repo.Name)
 			bis, err := pachClient.ListBranch(ri.Repo.Name)
 			if err != nil {
 				return err
@@ -163,6 +173,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		}
 	}
 	if !request.NoPipelines {
+		fmt.Printf(">>> About to call ListPipeline\n")
 		pis, err := pachClient.ListPipeline()
 		if err != nil {
 			return err
@@ -177,10 +188,12 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 	// We send the actual commits last, that way pipelines will have already
 	// been created and will recreate output commits for historical outputs.
 	for _, repo := range repos {
+		fmt.Printf(">>> About to call ListCommit(%q)\n", repo.Name)
 		cis, err := pachClient.ListCommit(repo.Name, "", "", 0)
 		if err != nil {
 			return err
 		}
+		fmt.Printf(">>> About to call ListBranch(%q)\n", repo.Name)
 		bis, err := pachClient.ListBranch(repo.Name)
 		if err != nil {
 			return err
@@ -208,6 +221,7 @@ func (a *apiServer) ExtractPipeline(ctx context.Context, request *admin.ExtractP
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.getPachClient().WithCtx(ctx)
+	fmt.Printf(">>> About to call InspectPipeline(%q)\n", request.Pipeline.Name)
 	pi, err := pachClient.InspectPipeline(request.Pipeline.Name)
 	if err != nil {
 		return nil, err
@@ -512,7 +526,11 @@ func (a *apiServer) getPachClient() *client.APIClient {
 
 type extractObjectWriter func(*admin.Op) error
 
-func (w extractObjectWriter) Write(p []byte) (int, error) {
+func (w extractObjectWriter) Write(p []byte) (retSz int, retErr error) {
+	fmt.Printf(">>> extractObjectWriter.Write(%d bytes)\n", len(p))
+	defer func() {
+		fmt.Printf(">>> extractObjectWriter.Write(%d bytes) -> (%d, %v)\n", len(p), retSz, retErr)
+	}()
 	chunkSize := grpcutil.MaxMsgSize / 2
 	var n int
 	for i := 0; i*(chunkSize) < len(p); i++ {
@@ -520,6 +538,7 @@ func (w extractObjectWriter) Write(p []byte) (int, error) {
 		if len(value) > chunkSize {
 			value = value[:chunkSize]
 		}
+		fmt.Printf(">>> extractObjectWriter.Write(bytes %d-%d of %d)\n", i*chunkSize, (i*chunkSize)+len(value), len(p))
 		if err := w(&admin.Op{Op1_9: &admin.Op1_9{Object: &pfs.PutObjectRequest{Value: value}}}); err != nil {
 			return n, err
 		}
