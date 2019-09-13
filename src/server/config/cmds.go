@@ -171,6 +171,9 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, cmdutil.CreateAlias(setContext, "config set context"))
 
 	var pachdAddress string
+	var clusterName string
+	var authInfo string
+	var namespace string
 	updateContext := &cobra.Command{
 		Short: "Updates a context.",
 		Long:  "Updates an existing context config from a given name.",
@@ -185,18 +188,30 @@ func Cmds() []*cobra.Command {
 				return fmt.Errorf("context does not exist: %s", args[0])
 			}
 
+			// Use this method since we want to differentiate between no
+			// flag being set (the value shouldn't be changed) vs the flag
+			// being an empty string (meaning we want to set the value to an
+			// empty string)
 			if cmd.Flags().Changed("pachd-address") {
-				// Use this method since we want to differentiate between no
-				// `pachd-address` flag being set (the value shouldn't be
-				// changed) vs the flag being an empty string (meaning we want
-				// to set the value to an empty string)
 				context.PachdAddress = pachdAddress
+			}
+			if cmd.Flags().Changed("cluster-name") {
+				context.ClusterName = clusterName
+			}
+			if cmd.Flags().Changed("auth-info") {
+				context.AuthInfo = authInfo
+			}
+			if cmd.Flags().Changed("namespace") {
+				context.Namespace = namespace
 			}
 
 			return cfg.Write()
 		}),
 	}
 	updateContext.Flags().StringVar(&pachdAddress, "pachd-address", "", "Set a new name pachd address.")
+	updateContext.Flags().StringVar(&clusterName, "cluster-name", "", "Set a new cluster name.")
+	updateContext.Flags().StringVar(&authInfo, "auth-info", "", "Set a new auth info.")
+	updateContext.Flags().StringVar(&namespace, "namespace", "", "Set a new namespace.")
 	commands = append(commands, cmdutil.CreateAlias(updateContext, "config update context"))
 
 	deleteContext := &cobra.Command{
