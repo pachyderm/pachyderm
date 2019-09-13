@@ -69,21 +69,21 @@ if [[ "$BUCKET" == "MISC" ]]; then
         echo "Running the full misc test suite because secret env vars exist"
         make lint
         make enterprise-code-checkin-test
-        make test-pfs-server
-        make test-pfs-cmds
-        make test-pfs-storage
-        make test-deploy-cmds
-        make test-libs
-        make test-vault
-        make test-auth
-        make test-enterprise
-        make test-worker
+        # make test-pfs-server
+        # make test-pfs-cmds
+        # make test-pfs-storage
+        # make test-deploy-cmds
+        # make test-libs
+        # make test-vault
+        # make test-auth
+        # make test-enterprise
+        # make test-worker
         make test-admin
-        make test-s3gateway-integration
-        make test-proto-static
-        make test-transaction
-        make test-config
-        make test-cli
+        # make test-s3gateway-integration
+        # make test-proto-static
+        # make test-transaction
+        # make test-config
+        # make test-cli
     else
         echo "Running the misc test suite with some tests disabled because secret env vars have not been set"
         make lint
