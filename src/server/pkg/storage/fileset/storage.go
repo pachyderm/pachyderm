@@ -49,5 +49,5 @@ func (s *Storage) NewIndexWriter(ctx context.Context, fileSet string) *index.Wri
 // NewIndexReader creates a new index.Reader.
 func (s *Storage) NewIndexReader(ctx context.Context, fileSet, idxPrefix string) *index.Reader {
 	fileSet = path.Join(prefix, fileSet)
-	return index.NewReader(ctx, s.objC, s.chunks, fileSet, idxPrefix)
+	return index.NewReader(ctx, s.objC, s.chunks, fileSet, index.WithPrefix(idxPrefix))
 }
