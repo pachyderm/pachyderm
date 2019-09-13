@@ -125,7 +125,7 @@ func (r *Reader) readCopyFiles(pathBound ...string) func() (*copyFiles, error) {
 		// Setup index copying callback at the first split point where
 		// the next chunk will be copied.
 		var hdr *index.Header
-		r.cr.AtSplit(func() {
+		r.cr.OnSplit(func() {
 			if hdr != nil && index.BeforeBound(hdr.Idx.LastPathChunk, pathBound...) {
 				c.indexCopyF = r.ir.ReadCopyFunc(pathBound...)
 			}

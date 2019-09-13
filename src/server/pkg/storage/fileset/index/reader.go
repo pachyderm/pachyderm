@@ -216,7 +216,7 @@ func (r *Reader) ReadCopyFunc(pathBound ...string) func() (*Copy, error) {
 		}
 		// While not past a split point, get index entries to copy.
 		pastSplit := false
-		cr.AtSplit(func() { pastSplit = true })
+		cr.OnSplit(func() { pastSplit = true })
 		for !pastSplit {
 			hdr, err := r.peek(level)
 			if err != nil {

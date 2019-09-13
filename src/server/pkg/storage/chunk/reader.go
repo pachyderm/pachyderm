@@ -27,7 +27,7 @@ type Reader struct {
 	r                *bytes.Reader
 	len              int64
 	f                ReaderFunc
-	atSplit          func()
+	onSplit          func()
 	bytesBeforeSplit int64
 }
 
@@ -93,7 +93,7 @@ func (r *Reader) nextDataRef() error {
 	}
 	// Get next chunk if necessary.
 	if r.curr == nil || r.curr.Chunk.Hash != r.dataRefs[0].Chunk.Hash {
-		r.executeAtSplitFunc()
+		r.executeOnSplitFunc()
 		if err := r.readChunk(r.dataRefs[0].Chunk); err != nil {
 			return err
 		}
@@ -124,19 +124,19 @@ func (r *Reader) readChunk(chunk *Chunk) error {
 	return nil
 }
 
-// AtSplit registers a callback for when a chunk split point is encountered.
+// OnSplit registers a callback for when a chunk split point is encountered.
 // The callback is only executed at a split point found after reading WindowSize bytes.
 // The reason for this is to guarantee that the same split point will appear in the writer
 // the data is being written to.
-func (r *Reader) AtSplit(f func()) {
+func (r *Reader) OnSplit(f func()) {
 	r.bytesBeforeSplit = 0
-	r.atSplit = f
+	r.onSplit = f
 }
 
-func (r *Reader) executeAtSplitFunc() {
-	if r.atSplit != nil && r.bytesBeforeSplit > WindowSize {
-		r.atSplit()
-		r.atSplit = nil
+func (r *Reader) executeOnSplitFunc() {
+	if r.onSplit != nil && r.bytesBeforeSplit > WindowSize {
+		r.onSplit()
+		r.onSplit = nil
 	}
 }
 
@@ -184,7 +184,7 @@ func (r *Reader) ReadCopy(n ...int64) (*Copy, error) {
 	// Copy the in between chunk references.
 	// (bryce) is there an edge case with a size zero chunk?
 	for len(r.dataRefs) > 0 && r.dataRefs[0].Hash == "" && totalLeft >= r.dataRefs[0].SizeBytes {
-		r.executeAtSplitFunc()
+		r.executeOnSplitFunc()
 		c.chunkRefs = append(c.chunkRefs, r.dataRefs[0])
 		totalLeft -= r.dataRefs[0].SizeBytes
 		r.len -= r.dataRefs[0].SizeBytes
