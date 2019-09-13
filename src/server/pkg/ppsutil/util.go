@@ -27,6 +27,7 @@ import (
 	"path"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -272,7 +273,7 @@ type pipelineDecoder interface {
 // multi-document support is added to our yaml parser and we can remove the json
 // parser.
 type PipelineManifestReader struct {
-	decoders []pipelineDecoder
+	decoder pipelineDecoder
 }
 
 // NewPipelineManifestReader creates a new manifest reader from a path.
@@ -307,38 +308,29 @@ func NewPipelineManifestReader(path string) (result *PipelineManifestReader, ret
 	if err != nil {
 		return nil, err
 	}
-	result = &PipelineManifestReader{
-		decoders: []pipelineDecoder{
-			// create two independent readers for the two decoders so that one decoder
-			// reading doesn't affect the other one.
-			json.NewDecoder(bytes.NewReader(pipelineBytes)),
-			yaml.NewDecoder(bytes.NewReader(pipelineBytes)),
-		},
+	idx := bytes.IndexFunc(pipelineBytes, func(r rune) bool {
+		return !unicode.IsSpace(r)
+	})
+	if idx >= 0 && pipelineBytes[idx] == '{' {
+		return &PipelineManifestReader{
+			decoder: json.NewDecoder(bytes.NewReader(pipelineBytes)),
+		}, nil
 	}
-	return result, nil
+	return &PipelineManifestReader{
+		decoder: yaml.NewDecoder(bytes.NewReader(pipelineBytes)),
+	}, nil
 }
 
 // NextCreatePipelineRequest gets the next request from the manifest reader.
 func (r *PipelineManifestReader) NextCreatePipelineRequest() (*ppsclient.CreatePipelineRequest, error) {
 	var result ppsclient.CreatePipelineRequest
-	retErr := errors.New("no decoders are able to parse pipeline spec")
-	dest := interface{}(&result)
-	// Call Decode() on every decoder in d.decoders (to keep them in sync)
-	for i := 0; i < len(r.decoders); /* incr. i OR shrink d.decoders below */ {
-		switch err := r.decoders[i].Decode(dest); {
-		case err != nil && len(r.decoders) == 1: // no working parser--give up
-			if err == io.EOF {
-				return nil, err
-			}
-			return nil, fmt.Errorf("malformed pipeline spec: %s", err)
-		case err != nil && len(r.decoders) == 2: // drop decoders[i] & continue
-			r.decoders = r.decoders[1-i : 2-i]
-		default: // success--discard future parses
-			retErr, dest = nil, &map[string]interface{}{}
-			i++
+	if err := r.decoder.Decode(&result); err != nil {
+		if err == io.EOF {
+			return nil, err
 		}
+		return nil, fmt.Errorf("malformed pipeline spec: %s", err)
 	}
-	return &result, retErr
+	return &result, nil
 }
 
 // DescribeSyntaxError describes a syntax error encountered parsing json.

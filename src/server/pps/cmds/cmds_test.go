@@ -176,14 +176,14 @@ func TestJSONMultiplePipelines(t *testing.T) {
 // the problem in the JSON, rather than an error complaining about multiple
 // documents.
 func TestJSONMultiplePipelinesError(t *testing.T) {
-	// pipeline spec has no quotes around "name" in second pipeline
+	// pipeline spec has no quotes around "name" in first pipeline
 	require.NoError(t, tu.BashCmd(`
 		yes | pachctl delete all
 		pachctl create repo input
 		( pachctl create pipeline -f - 2>&1 <<EOF || true
 		{
 		  "pipeline": {
-		    "name": "first"
+		    name: "first"
 		  },
 		  "input": {
 		    "pfs": {
@@ -200,7 +200,7 @@ func TestJSONMultiplePipelinesError(t *testing.T) {
 		}
 		{
 		  "pipeline": {
-		    name: "second"
+		    "name": "second"
 		  },
 		  "input": {
 		    "pfs": {
