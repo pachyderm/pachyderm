@@ -3,68 +3,55 @@
 Pachyderm Enterprise includes an S3 gateway that enables you to interact
 with PFS storage through an HTTP application programming interface (API)
 that imitates the Amazon S3 Storage API. Therefore, with Pachyderm S3
-gateway, you can enable tools or applications that are designed
-to work with object stores, such as [MinIO™](https://min.io/) and
-[Boto3](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html),
-to interact with Pachyderm.
+gateway, you can interact with Pachyderm through tools and libraries designed
+to work with object stores; to name a few that we've tested against:
+
+* [MinIO](https://docs.min.io/docs/minio-client-complete-guide)
+* [boto3](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html)
+* [S3cmd](https://s3tools.org/usage)
 
 When you deploy `pachd`, the S3 gateway starts automatically. However, the
 S3 gateway is an enterprise feature that is only available to paid customers or
-during the free trial evaluation. You can confirm that the S3 gateway is running
-by pointing your browser to the following URL:
+during the free trial evaluation.
 
-```bash
-http://localhost:30600/
-```
+The S3 gateway does have some limitations outlined below. If you need richer
+access, use the PFS gRPC interface instead, or one of our
+[client drivers](https://github.com/pachyderm/python-pachyderm).
 
-Through the S3 gateway, you can only interact with the `HEAD` commits of
-your Pachyderm branches that do not require authorization. If you need
-to have a more granular access to branches and commits, use the PFS
-gRPC Remote Procedure Call (gRPC) interface instead.
+## Authentication
 
-You can use any S3 compliant client, such as [MinIO](https://docs.min.io/docs/minio-client-complete-guide),
-[AWS CLI S3](https://docs.aws.amazon.com/cli/latest/reference/s3/index.html), or
-[S3cmd](https://s3tools.org/usage) to interact with the Pachyderm S3 gateway.
+If auth is enabled on the Pachyderm cluster, credentials must be passed with
+each s3 gateway endpoint using AWS' signature v2 or v4 methods. Object store
+tools and libraries will have built-in support for these methods, but they do
+not work in the browser. When using authentication, the access and secret key
+should be set to the same value; they are both the Pachyderm auth token used
+to issue the relevant PFS calls.
 
-## Viewing the List of S3 Buckets
+If auth is not enabled on the Pachyderm cluster, no credentials need to be
+passed to s3gateway requests.
+
+## Buckets
 
 The S3 gateway presents each branch from every Pachyderm repository as
 an S3 bucket.
 For example, if you have a `master` branch in the `images` repository,
 an S3 tool sees `images@master` as the `master.images` S3 bucket.
 
-To view the list of S3 buckets, complete the following steps:
+## Versioning
 
-1. If you have not done so already, forward Pachyderm ports to
-enable access to the Pachyderm UI and the S3 gateway:
+Most operations act on the HEAD of the given branch. However, if your object
+store library or tool supports versioning, you can get objects in non-HEAD
+commits by using the commit ID as the version.
 
-   ```bash
-   pachctl port-forward
-   ```
+## Port Forwarding
 
-1. Point your browser to `http://<cluster-ip>:30600/`. A list of
-S3 buckets appears. Example:
+If you do not have direct access to the kubernetes cluster, you can use port
+forwarding instead. Simply run `pachctl port-forward`, which will allow you
+to access the s3 gateway through `localhost:30600`.
 
-   ![S3 buckets](../_images/s_list_of_buckets.png)
-
-1. Alternatively, you can use `curl`:
-
-   ```
-   $ curl http://localhost:30600
-   <ListAllMyBucketsResult><Owner><ID>00000000000000000000000000000000</ID><DisplayName>pachyderm</DisplayName></Owner><Buckets><Bucket><Name>master. train</Name><CreationDate>2019-07-12T22:09:50.274391271Z</CreationDate></Bucket><Bucket><Name>master.pre_process</Name><CreationDate>2019-07-12T21:   58:50.930608352z</CreationDate></Bucket><Bucket><Name>master.split</Name><CreationDate>2019-07-12T21:58:09.074523275Z</CreationDate></                Bucket><Bucket><Name>stats.split</Name><CreationDate>2019-07-12T21:58:09.074523275Z</CreationDate></Bucket><Bucket><Name>master.raw_data</Name><CreationDate>2019-07-12T21:36:27.975670319Z</CreationDate></Bucket></Buckets></ListAllMyBucketsResult>
-   ```
-
-   You can specify `localhost` instead of the cluster IP
-   address to access the Pachyderm Dashboard and the S3 gateway.
-   For this to work, enable
-   port forwarding by running the `pachctl port-forward` command.
-
-   However, Pachyderm does not recommend to heavily rely on port forwarding.
-   Because Kubernetes' port forwarder incurs overhead, it might
-   not recover well from broken connections. Therefore, using
-   Pachyderm contexts or connecting to the S3 gateway directly
-   through the cluster IP address are more reliable and preferred
-   options.
+However, note that kubernetes' port forwarder incurs substantial overhead and
+does not recover well from broken connections. Connecting to the cluster
+directly is therefore faster and more reliable.
 
 ## Configure the S3 client
 
@@ -74,13 +61,13 @@ correspond to your S3 client.
 
 ### Configure MinIO
 
-If you are using AWS CLI or S3cmd, skip this section.
+If you are not using the MinIO client, skip this section.
 
 To install and configure MinIO, complete the following steps:
 
 1. Install the MinIO client on your platform as
 described on the [MinIO download page](https://min.io/download#/macos).
-1. Verify that MinIO components are successfully installed by running
+2. Verify that MinIO components are successfully installed by running
 the following command:
 
    ```bash
@@ -91,7 +78,7 @@ the following command:
    Commit-id: 31e5ac02bdbdbaf20a87683925041f406307cfb9
    ```
 
-1. Set up the MinIO configuration file to use the `30600` port for your host:
+3. Set up the MinIO configuration file to use the `30600` port for your host:
 
    ```bash
    vi ~/.mc/config.json
@@ -105,46 +92,51 @@ the following command:
      ```bash
      "local": {
                "url": "http://localhost:30600",
-               "accessKey": "",
-               "secretKey": "",
+               "accessKey": "YOUR-PACHYDERM-AUTH-TOKEN",
+               "secretKey": "YOUR-PACHYDERM-AUTH-TOKEN",
                "api": "S3v4",
                "lookup": "auto"
            },
      ```
 
+     Note that both the access key and secret key should be set to your
+     Pachyderm auth token. If auth is not enabled on the cluster, both should
+     be empty strings.
+
 ### Configure the AWS CLI
 
-If you are using the MinIO client or S3cmd, skip this section.
+If you are not using the AWS CLI, skip this section.
 
 If you have not done so already, you need to install and
-configure the AWS CLI client on your machine. You need to
-provide the AWS Access Key ID and the AWS Secret Access Keys
-for the account that has access to the S3 bucket that you want
-to use with Pachyderm.
-To configure the AWS CLI, complete the following steps:
+configure the AWS CLI client on your machine. To configure the AWS CLI,
+complete the following steps:
 
 1. Install the AWS CLI for your operating system as described
 in the [AWS documentation](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html).
 
-1. Verify that the AWS CLI is installed:
+2. Verify that the AWS CLI is installed:
 
    ```bash
    $ aws --version aws-cli/1.16.204 Python/2.7.16 Darwin/17.7.0 botocore/1.12.194
    ```
 
-1. Configure AWS CLI:
+3. Configure AWS CLI:
 
    ```bash
    $ aws configure
-   AWS Access Key ID:
-   AWS Secret Access Key:
+   AWS Access Key ID: YOUR-PACHYDERM-AUTH-TOKEN
+   AWS Secret Access Key: YOUR-PACHYDERM-AUTH-TOKEN
    Default region name:
    Default output format [None]:
    ```
 
+   Note that both the access key and secret key should be set to your
+   Pachyderm auth token. If auth is not enabled on the cluster, both should
+   be empty strings.
+
 ### Configure S3cmd
 
-If you are using AWS CLI or MinIO, skip this section.
+If you are not using S3cmd, skip this section.
 
 S3cmd is an open-source command line client that enables you
 to access S3 object store buckets. To configure S3cmd, complete
@@ -158,29 +150,29 @@ For example, in macOS, run:
    $ brew install s3cmd
    ```
 
-1. Verify that S3cmd is installed:
+2. Verify that S3cmd is installed:
 
    ```bash
    $ s3cmd --version
    s3cmd version 2.0.2
    ```
 
-1. Configure S3cmd to use Pachyderm:
+3. Configure S3cmd to use Pachyderm:
 
    ```bash
    $ s3cmd --configure
      ...
    ```
 
-1. Fill all fields and specify the following settings for Pachyderm.
+4. Fill all fields and specify the following settings for Pachyderm.
 
    **Example:**
 
    ```bash
 
    New settings:
-     Access Key: ""
-     Secret Key: ""
+     Access Key: "YOUR-PACHYDERM-AUTH-TOKEN"
+     Secret Key: "YOUR-PACHYDERM-AUTH-TOKEN"
      Default Region: US
      S3 Endpoint: localhost:30600
      DNS-style bucket+hostname:port template for accessing a bucket: localhost:30600/%(bucket)
@@ -191,20 +183,21 @@ For example, in macOS, run:
      HTTP Proxy server port: 0
    ```
 
-## Examples of Command-Line Operations
+   Note that both the access key and secret key should be set to your
+   Pachyderm auth token. If auth is not enabled on the cluster, both should
+   be empty strings.
+
+## Supported Operations
 
 The Pachyderm S3 gateway supports the following operations:
 
 * Create buckets: Creates a repo and branch.
 * Delete buckets: Deletes a branch or a repo with all branches.
 * List buckets: Lists all branches on all repos as S3 buckets.
-* Write objects: Atomically overwrites a file on the HEAD of a branch.
-* Remove objects: Atomically removes a file on the HEAD of a branch.
+* Write objects: Atomically overwrites a file on a branch.
+* Remove objects: Atomically removes a file on a branch.
 * List objects: Lists the files in the HEAD of a branch.
-* Get objects: Gets file contents on the HEAD of a branch.
-
-You can use any S3 compatible tool, such as MinIO, AWS CLI, or
-S3cmd to interact with the Pachyderm S3 gateway.
+* Get objects: Gets file contents on a branch.
 
 ### List Filesystem Objects
 
@@ -249,7 +242,7 @@ To list filesystem objects, complete the following steps:
      2019-07-12 14:36 master.raw_data
      ```
 
-1. List the contents of a repository:
+2. List the contents of a repository:
 
    * If you are using MinIO, type:
 
@@ -305,7 +298,7 @@ S3 bucket, which is a repository with a branch in Pachyderm.
 
    This command creates the `test` repository with the `master` branch.
 
-1. Verify that the S3 bucket has been successfully created:
+2. Verify that the S3 bucket has been successfully created:
 
    * If you are using MinIO, type:
 
@@ -423,7 +416,7 @@ To add a file to a repository, complete the following steps:
    These commands add the `test.csv` file to the `master` branch in
    the `raw_data` repository. `raw_data` is an input repository.
 
-1. Check that the file was added:
+2. Check that the file was added:
 
    * If you are using MinIO, type:
 
@@ -449,7 +442,7 @@ To add a file to a repository, complete the following steps:
      2019-07-19 12:11       62 test.csv
      ```
 
-1. Download a file from MinIO to the
+3. Download a file from MinIO to the
 current directory by running the following commands:
 
    * If you are using MinIO, type:
@@ -503,9 +496,7 @@ MinIO command-line interface:
       2019-07-19 12:11         62 test.csv
       ```
 
-1. Delete a file from a repository. Example:
-
-   <!--- AFAIU, this is supposed to work, but it does not.-->
+2. Delete a file from a repository. Example:
 
    * If you are using MinIO, type:
 
@@ -529,9 +520,9 @@ MinIO command-line interface:
 
 ## Unsupported operations
 
-Some of the S3 functionalities are not yet supported by Pachyderm..
+Some of the S3 functionalities are not yet supported by Pachyderm.
 If you run any of these operations, Pachyderm returns a standard
-`NotImplemented` error.
+S3 `NotImplemented` error.
 
 The S3 Gateway does not support the following S3 operations:
 
@@ -557,9 +548,3 @@ The S3 Gateway does not support the following S3 operations:
 * Tagging
 * Torrents
 * Website configuration
-
-In addition, the Pachyderm S3 gateway has the following limitations:
-
-* No support for authentication or ACLs.
-* As per PFS rules, you cannot write to an output repo. At the
-moment, Pachyderm returns a 500 error code.
