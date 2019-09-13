@@ -5,6 +5,8 @@ import (
 	"io"
 	"sort"
 
+	glob "github.com/pachyderm/ohmyglob"
+
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -19,6 +21,7 @@ type DatumIterator interface {
 	Len() int
 	Next() bool
 	Datum() []*Input
+	DatumN(int) []*Input
 }
 
 type pfsDatumIterator struct {
@@ -49,8 +52,11 @@ func newPFSDatumIterator(pachClient *client.APIClient, input *pps.PFSInput) (Dat
 		} else if err != nil {
 			return nil, err
 		}
+		g := glob.MustCompile(input.Glob, '/')
+		joinOn := g.Replace(fileInfo.File.Path, input.JoinOn)
 		result.inputs = append(result.inputs, &Input{
 			FileInfo:   fileInfo,
+			JoinOn:     joinOn,
 			Name:       input.Name,
 			Lazy:       input.Lazy,
 			Branch:     input.Branch,
@@ -83,6 +89,10 @@ func (d *pfsDatumIterator) Datum() []*Input {
 	return []*Input{d.inputs[d.location]}
 }
 
+func (d *pfsDatumIterator) DatumN(n int) []*Input {
+	return []*Input{d.inputs[n]}
+}
+
 func (d *pfsDatumIterator) Next() bool {
 	d.location++
 	return d.location < len(d.inputs)
@@ -91,6 +101,7 @@ func (d *pfsDatumIterator) Next() bool {
 type unionDatumIterator struct {
 	iterators []DatumIterator
 	unionIdx  int
+	location  int
 }
 
 func newUnionDatumIterator(pachClient *client.APIClient, union []*pps.Input) (DatumIterator, error) {
@@ -111,6 +122,7 @@ func (d *unionDatumIterator) Reset() {
 		input.Reset()
 	}
 	d.unionIdx = 0
+	d.location = -1
 }
 
 func (d *unionDatumIterator) Len() int {
@@ -129,6 +141,7 @@ func (d *unionDatumIterator) Next() bool {
 		d.unionIdx++
 		return d.Next()
 	}
+	d.location++
 	return true
 }
 
@@ -136,9 +149,20 @@ func (d *unionDatumIterator) Datum() []*Input {
 	return d.iterators[d.unionIdx].Datum()
 }
 
+func (d *unionDatumIterator) DatumN(n int) []*Input {
+	for _, datumIterator := range d.iterators {
+		if n < datumIterator.Len() {
+			return datumIterator.DatumN(n)
+		}
+		n -= datumIterator.Len()
+	}
+	panic("index out of bounds")
+}
+
 type crossDatumIterator struct {
 	iterators []DatumIterator
 	started   bool
+	location  int
 }
 
 func newCrossDatumIterator(pachClient *client.APIClient, cross []*pps.Input) (DatumIterator, error) {
@@ -151,6 +175,7 @@ func newCrossDatumIterator(pachClient *client.APIClient, cross []*pps.Input) (Da
 		}
 		result.iterators = append(result.iterators, datumIterator)
 	}
+	result.location = -1
 	return result, nil
 }
 
@@ -165,6 +190,7 @@ func (d *crossDatumIterator) Reset() {
 	if !inhabited {
 		d.iterators = nil
 	}
+	d.location = -1
 	d.started = !inhabited
 }
 
@@ -182,6 +208,7 @@ func (d *crossDatumIterator) Len() int {
 func (d *crossDatumIterator) Next() bool {
 	if !d.started {
 		d.started = true
+		d.location++
 		return true
 	}
 	for _, input := range d.iterators {
@@ -193,6 +220,7 @@ func (d *crossDatumIterator) Next() bool {
 			input.Next()
 			// after resetting this "row", start iterating through the next "row"
 		} else {
+			d.location++
 			return true
 		}
 	}
@@ -206,6 +234,71 @@ func (d *crossDatumIterator) Datum() []*Input {
 	}
 	sortInputs(result)
 	return result
+}
+
+func (d *crossDatumIterator) DatumN(n int) []*Input {
+	if n >= d.Len() {
+		panic("index out of bounds")
+	}
+	var result []*Input
+	for _, datumIterator := range d.iterators {
+		result = append(result, datumIterator.DatumN(n%datumIterator.Len())...)
+		n /= datumIterator.Len()
+	}
+	sortInputs(result)
+	return result
+}
+
+type joinDatumIterator struct {
+	datums   [][]*Input
+	location int
+}
+
+func newJoinDatumIterator(pachClient *client.APIClient, join []*pps.Input) (DatumIterator, error) {
+	cross, err := newCrossDatumIterator(pachClient, join)
+	if err != nil {
+		return nil, err
+	}
+	result := &joinDatumIterator{}
+	for cross.Next() {
+		tuple := cross.Datum()
+		count := make(map[string]int)
+		for _, input := range tuple {
+			count[input.JoinOn]++
+		}
+		if len(count) == 1 {
+			result.datums = append(result.datums, tuple)
+		}
+	}
+	result.location = -1
+	return result, nil
+}
+
+func (d *joinDatumIterator) Reset() {
+	d.location = -1
+}
+
+func (d *joinDatumIterator) Len() int {
+	return len(d.datums)
+}
+
+func (d *joinDatumIterator) Next() bool {
+	d.location++
+	return d.location < len(d.datums)
+}
+
+func (d *joinDatumIterator) Datum() []*Input {
+	var result []*Input
+	for _, datum := range d.datums[d.location] {
+		result = append(result, datum)
+	}
+	sortInputs(result)
+	return result
+}
+
+func (d *joinDatumIterator) DatumN(n int) []*Input {
+	d.location = n
+	return d.Datum()
 }
 
 type gitDatumIterator struct {
@@ -254,6 +347,16 @@ func (d *gitDatumIterator) Next() bool {
 	return d.location < len(d.inputs)
 }
 
+func (d *gitDatumIterator) DatumN(n int) []*Input {
+	if n < d.location {
+		d.Reset()
+	}
+	for d.location != n {
+		d.Next()
+	}
+	return d.Datum()
+}
+
 func newCronDatumIterator(pachClient *client.APIClient, input *pps.CronInput) (DatumIterator, error) {
 	return newPFSDatumIterator(pachClient, &pps.PFSInput{
 		Name:   input.Name,
@@ -273,6 +376,8 @@ func NewDatumIterator(pachClient *client.APIClient, input *pps.Input) (DatumIter
 		return newUnionDatumIterator(pachClient, input.Union)
 	case input.Cross != nil:
 		return newCrossDatumIterator(pachClient, input.Cross)
+	case input.Join != nil:
+		return newJoinDatumIterator(pachClient, input.Join)
 	case input.Cron != nil:
 		return newCronDatumIterator(pachClient, input.Cron)
 	case input.Git != nil:

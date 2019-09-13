@@ -58,3 +58,4 @@ Learn more about Pachyderm data concepts in the following sections:
    branch.md
    file.md
    provenance.md
+   history.md

@@ -181,6 +181,12 @@ func validateNames(names map[string]bool, input *pps.Input) error {
 				return err
 			}
 		}
+	case input.Join != nil:
+		for _, input := range input.Join {
+			if err := validateNames(names, input); err != nil {
+				return err
+			}
+		}
 	case input.Git != nil:
 		if names[input.Git.Name] == true {
 			return fmt.Errorf(`name "%s" was used more than once`, input.Git.Name)
@@ -228,6 +234,12 @@ func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName str
 				}
 			}
 			if input.Cross != nil {
+				if set {
+					return fmt.Errorf("multiple input types set")
+				}
+				set = true
+			}
+			if input.Join != nil {
 				if set {
 					return fmt.Errorf("multiple input types set")
 				}
@@ -987,7 +999,7 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, page, 
 		return 0, 0, goerr.New("getPageBounds: unreachable code")
 	}
 
-	df, err := workerpkg.NewDatumFactory(pachClient, jobInfo.Input)
+	df, err := workerpkg.NewDatumIterator(pachClient, jobInfo.Input)
 	if err != nil {
 		return nil, err
 	}
@@ -1006,7 +1018,7 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, page, 
 		}
 		var datumInfos []*pps.DatumInfo
 		for i := start; i < end; i++ {
-			datum := df.Datum(i) // flattened slice of *worker.Input to job
+			datum := df.DatumN(i) // flattened slice of *worker.Input to job
 			id := workerpkg.HashDatum(jobInfo.Pipeline.Name, jobInfo.Salt, datum)
 			datumInfo := &pps.DatumInfo{
 				Datum: &pps.Datum{
@@ -1154,7 +1166,7 @@ func (a *apiServer) ListDatumStream(req *pps.ListDatumRequest, resp pps.API_List
 	return nil
 }
 
-func (a *apiServer) getDatum(pachClient *client.APIClient, repo string, commit *pfs.Commit, jobID string, datumID string, df workerpkg.DatumFactory) (datumInfo *pps.DatumInfo, retErr error) {
+func (a *apiServer) getDatum(pachClient *client.APIClient, repo string, commit *pfs.Commit, jobID string, datumID string, df workerpkg.DatumIterator) (datumInfo *pps.DatumInfo, retErr error) {
 	datumInfo = &pps.DatumInfo{
 		Datum: &pps.Datum{
 			ID:  datumID,
@@ -1211,7 +1223,7 @@ func (a *apiServer) getDatum(pachClient *client.APIClient, repo string, commit *
 	if i >= df.Len() {
 		return nil, fmt.Errorf("index %d out of range", i)
 	}
-	inputs := df.Datum(i)
+	inputs := df.DatumN(i)
 	for _, input := range inputs {
 		datumInfo.Data = append(datumInfo.Data, input.FileInfo)
 	}
@@ -1247,7 +1259,7 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 	if jobInfo.StatsCommit == nil {
 		return nil, fmt.Errorf("job not finished, no stats output yet")
 	}
-	df, err := workerpkg.NewDatumFactory(pachClient, jobInfo.Input)
+	df, err := workerpkg.NewDatumIterator(pachClient, jobInfo.Input)
 	if err != nil {
 		return nil, err
 	}
@@ -2356,7 +2368,7 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 // so, deletes the orphaned branch.
 func (a *apiServer) cleanUpSpecBranch(pachClient *client.APIClient, pipeline string) error {
 	specBranchInfo, err := pachClient.InspectBranch(ppsconsts.SpecRepo, pipeline)
-	if err != nil && specBranchInfo.Head != nil {
+	if err != nil && (specBranchInfo != nil && specBranchInfo.Head != nil) {
 		// No spec branch (and no etcd pointer) => the pipeline doesn't exist
 		return fmt.Errorf("pipeline %v was not found: %v", pipeline, err)
 	}
@@ -2578,6 +2590,32 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	ctx = pachClient.Ctx() // pachClient will propagate auth info
 	pfsClient := pachClient.PfsAPIClient
 
+	// validate and organize request provenance
+	key := path.Join
+	requestProv := make(map[string]*pfs.CommitProvenance)
+	for _, prov := range request.Provenance {
+		if prov == nil {
+			return nil, fmt.Errorf("request should not contain nil provenance")
+		}
+		branch := prov.Branch
+		if branch == nil {
+			if prov.Commit == nil {
+				return nil, fmt.Errorf("request provenance cannot have both a nil commit and nil branch")
+			}
+			provCommit, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+				Commit: prov.Commit,
+			})
+			if err != nil {
+				return nil, err
+			}
+			branch = provCommit.Branch
+		}
+		if branch.Repo == nil {
+			return nil, fmt.Errorf("request provenance branch must have a non nil repo")
+		}
+		requestProv[key(prov.Branch.Repo.Name, prov.Branch.Name)] = prov
+	}
+
 	pipelineInfo, err := a.inspectPipeline(pachClient, request.Pipeline.Name)
 	if err != nil {
 		return nil, err
@@ -2600,11 +2638,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	if err != nil {
 		return nil, err
 	}
-	key := path.Join
-	requestProv := make(map[string]*pfs.CommitProvenance)
-	for _, prov := range request.Provenance {
-		requestProv[key(prov.Branch.Repo.Name, prov.Branch.Name)] = prov
-	}
+
 	for _, branchProv := range append(branch.Provenance, branch.Branch) {
 		if _, ok := requestProv[key(branchProv.Repo.Name, branchProv.Name)]; !ok {
 			branchInfo, err := pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{
