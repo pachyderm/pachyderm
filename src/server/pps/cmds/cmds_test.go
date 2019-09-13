@@ -171,6 +171,50 @@ func TestJSONMultiplePipelines(t *testing.T) {
 	require.NoError(t, tu.BashCmd(`pachctl list pipeline`).Run())
 }
 
+// TestJSONStringifiedNumberstests that JSON pipelines may use strings to
+// specify numeric values such as a pipeline's parallelism (a feature of gogo's
+// JSON parser).
+func TestJSONStringifiedNumbers(t *testing.T) {
+	require.NoError(t, tu.BashCmd(`
+		yes | pachctl delete all
+		pachctl create repo input
+		pachctl create pipeline -f - <<EOF
+		{
+		  "pipeline": {
+		    "name": "first"
+		  },
+		  "input": {
+		    "pfs": {
+		      "glob": "/*",
+		      "repo": "input"
+		    }
+		  },
+			"parallelism_spec": {
+				"constant": "1"
+			},
+		  "transform": {
+		    "cmd": [ "/bin/bash" ],
+		    "stdin": [
+		      "cp /pfs/input/* /pfs/out"
+		    ]
+		  }
+		}
+		EOF
+
+		pachctl start commit input@master
+		echo foo | pachctl put file input@master:/foo
+		echo bar | pachctl put file input@master:/bar
+		echo baz | pachctl put file input@master:/baz
+		pachctl finish commit input@master
+		pachctl flush commit input@master
+		pachctl get file first@master:/foo | match foo
+		pachctl get file first@master:/bar | match bar
+		pachctl get file first@master:/baz | match baz
+		`,
+	).Run())
+	require.NoError(t, tu.BashCmd(`pachctl list pipeline`).Run())
+}
+
 // TestJSONMultiplePipelinesError tests that when creating multiple pipelines
 // (which only the encoding/json parser can parse) you get an error indicating
 // the problem in the JSON, rather than an error complaining about multiple

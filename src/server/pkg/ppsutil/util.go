@@ -29,6 +29,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
@@ -264,27 +265,39 @@ type pipelineDecoder interface {
 	Decode(v interface{}) error
 }
 
+type jsonpbDecoder struct {
+	decoder *json.Decoder
+}
+
+func newJSONPBDecoder(r io.Reader) *jsonpbDecoder {
+	return &jsonpbDecoder{
+		decoder: json.NewDecoder(r),
+	}
+}
+
+func (d *jsonpbDecoder) Decode(v interface{}) error {
+	msg, ok := v.(proto.Message)
+	if ok {
+		return jsonpb.UnmarshalNext(d.decoder, msg)
+	}
+	return d.decoder.Decode(v)
+}
+
 // PipelineManifestReader helps with unmarshalling pipeline configs from JSON. It's used by
 // 'create pipeline' and 'update pipeline'
 //
-// Note that Go's json decoder is able to parse text that gopkg.in/yaml.v3
-// cannot (multiple json documents) so we currently attempt to parse a pipeline
-// with both parsers concurrently and keep whichever parse succeeds. Hopefully
-// multi-document support is added to our yaml parser and we can remove the json
-// parser.
+// Note that the json decoder is able to parse text that gopkg.in/yaml.v3 cannot
+// (multiple json documents) so we currently guess whether the document is JSON
+// or not by looking at the first non-space character and seeing if it's '{' (we
+// originally tried parsing the pipeline spec with both parsers, but that
+// approach made it hard to return sensible errors). We may fail to parse valid
+// YAML documents this way, so hopefully the yaml parser gains multi-document
+// support and we can rely on it fully.
 type PipelineManifestReader struct {
 	decoder pipelineDecoder
 }
 
 // NewPipelineManifestReader creates a new manifest reader from a path.
-//
-// Note: PipelineManifestReader uses enconding/json as the decoder for pipeline
-// specs, instead of gogo's protobuf/jsonpb package. While the doc for that pkg
-// (https://godoc.org/github.com/gogo/protobuf/jsonpb) warns that it produces
-// different output than encoding/json for protobufs, I believe both packages
-// should be able to parse JSON *into* protobufs equally well. If we need to
-// switch to gogo's jsonpb parser, we'll have to write a wrapper for it that
-// implements the pipelineDecoder interface.
 func NewPipelineManifestReader(path string) (result *PipelineManifestReader, retErr error) {
 	var pipelineBytes []byte
 	var err error
@@ -313,7 +326,7 @@ func NewPipelineManifestReader(path string) (result *PipelineManifestReader, ret
 	})
 	if idx >= 0 && pipelineBytes[idx] == '{' {
 		return &PipelineManifestReader{
-			decoder: json.NewDecoder(bytes.NewReader(pipelineBytes)),
+			decoder: newJSONPBDecoder(bytes.NewReader(pipelineBytes)),
 		}, nil
 	}
 	return &PipelineManifestReader{
