@@ -1322,7 +1322,13 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		// If the job had stats enabled, we use the logs from the stats
 		// commit since that's likely to yield better results.
 		if statsCommit != nil {
-			return a.getLogsFromStats(pachClient, request, apiGetLogsServer, statsCommit)
+			ci, err := pachClient.InspectCommit(statsCommit.Repo.Name, statsCommit.ID)
+			if err != nil {
+				return err
+			}
+			if ci.Finished != nil {
+				return a.getLogsFromStats(pachClient, request, apiGetLogsServer, statsCommit)
+			}
 		}
 
 		// 3) Get rcName for this pipeline
