@@ -1,21 +1,69 @@
-# Ingressing From a Separate Object Store
+# Ingress and Egress Data from an External Object Store
 
-Occasionally, you might find yourself needing to ingress data from or egress data (with the `put file` command or `egress` field in the pipeline spec) to/from an object store that runs in a different cloud. For instance, you might be running a Pachyderm cluster in Azure, but you need to ingress files from a S3 bucket.
+Occasionally, you might need to download data from or upload data
+to an object store that runs in a different cloud platform. For example,
+you might be running a Pachyderm cluster in Microsoft Azure, but
+you need to ingress files from an S3 bucket that resides on Amazon AWS.
 
-Fortunately, Pachyderm can be configured to ingress/egress from any number of supported cloud object stores, which currently include S3, Azure, and GCS.  In general, all you need to do is to provide Pachyderm with the credentials it needs to communicate with the cloud provider.
+You can configure Pachyderm to work with an external object
+store by using the following methods:
 
-To provide Pachyderm with the credentials, you use the `pachctl deploy storage` command:
+* Ingress data from an external object store by using the
+  `pachtl put file` with a URL to the S3 bucket. Example:
 
-```bash
-$ pachctl deploy storage <backend> ...
-```
+  ```
+  $ pachctl put file repo@branch -f <s3://my_bucket/file>
+  ```
 
-Here, `<backend>` can be one of `aws`, `google`, and `azure`, and the different backends take different parameters. Execute `pachctl deploy storage <backend>` to view detailed usage information.
+* Egress data to an external object store by configuring the
+  `egress` files in the pipeline specification. Example:
 
-For example, here's how you would deploy credentials for a S3 bucket:
+  ```bash
+  # pipeline.json
+  "egress": {
+    "URL": "s3://bucket/dir"
+  ```
 
-```bash
-$ pachctl deploy storage aws <region> <bucket-name> <access key id> <secret access key>
-```
+## Configure Credentials
 
-Credentials are stored in a [Kubernetes secret](https://kubernetes.io/docs/concepts/configuration/secret/) and therefore share the same security properties.
+You can configure Pachyderm to ingress and egress from and to any
+number of supported cloud object stores, including Amazon S3,
+Microsoft Azure Blob storage, and Google Cloud Storage. You need
+to provide Pachyderm with the credentials to communicate with
+the selected cloud provider.
+
+The credentials are stored in a
+[Kubernetes secret](https://kubernetes.io/docs/concepts/configuration/secret/)
+and share the same security properties.
+
+**Note:** For each cloud provider, parameters and configuration steps
+might vary.
+
+To provide Pachyderm with the object store credentials, complete
+the following steps:
+
+1. Deploy object storage:
+
+   ```bash
+   $ pachctl deploy storage <storage-provider> ...
+   ```
+
+1. In the command above, specify `aws`, `google`, or `azure` as
+   a storage provider.
+
+1. Depending on the storage provider, configure the required
+   parameters. Run `pachctl deploy storage <backend> --help` for more
+   information.
+
+   For example, if you select `aws`, you need to specify the following
+   parameters:
+
+   ```bash
+   $ pachctl deploy storage aws <region> <bucket-name> <access key id> <secret access key>
+   ```
+
+**See also:**
+
+- [Custom Object Store](../deployment/custom_object_stores.html)
+- [Create a Custom Pachyderm Deployment](../deployment/deploy_custom/index.html)
+- [Pipeline Specification](../reference/pipeline_spec.html)

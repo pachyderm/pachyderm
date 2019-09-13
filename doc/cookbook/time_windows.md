@@ -1,73 +1,127 @@
 # Processing Time-Windowed Data
 
-If you are analyzing data that is changing over time, chances are that you will want to perform some sort of analysis on "the last two weeks of data," "January's data," or some other moving or static time window of data.  There are a few different ways of doing these types of analyses in Pachyderm, depending on your use case.  We recommend one of the following patterns for:
+Before you read this section, make sure that you understand the concepts
+described in the following sections:
 
-1. [Fixed time windows](#fixed-time-windows) - for rigid, fixed time windows, such as months (Jan, Feb, etc.) or days (01-01-17, 01-02-17, etc.).
+- [Datum](../concepts/pipeline-concepts/datum/index.html)
+- [Distributed Computing](how-tos/distributed_computing.html)
+- [Individual Developer Worflow](html/how-tos/individual-developer-workflow.html)
 
-2. [Moving or rolling time windows](#moving-or-rolling-time-windows) - for rolling time windows of data, such as three day windows or two week windows. 
+If you are analyzing data that is changing over time, you might
+need to analyze historical data. For example, you might need to
+examine *the last two weeks of data*, *January's data*, or some
+other moving or static time window of data.
 
-## Fixed time windows
+Pachyderm provides the following approaches to this task:
 
-As further discussed in [Creating Analysis Pipelines](http://docs.pachyderm.io/en/latest/fundamentals/creating_analysis_pipelines.html) and [Distributed Computing](http://docs.pachyderm.io/en/latest/fundamentals/distributed_computing.html), the basic unit of data partitioning in Pachyderm is a "datum" which is defined by a glob pattern. When analyzing data within fixed time windows (e.g., corresponding to fixed calendar times/dates), we recommend organizing your data repositories such that each of the time windows that you are going to analyze corresponds to a separate files or directories in your repository. By doing this, you will be able to:
+1. [Fixed time windows](#fixed-time-windows) - for rigid, fixed
+time windows, such as months (Jan, Feb, and so on) or days—01-01-17,
+01-02-17, and so on).
+
+2. [Moving time windows](#moving-time-windows)
+- for rolling time windows of data, such as three-day windows or
+two-week windows.
+
+## Fixed Time Windows
+
+[Datum](../concepts/pipeline-concepts/datum/index.html) is the basic
+unit of data partitioning in Pachyderm. The glob pattern property
+in the pipeline specification defines a datum. When you analyze data
+within fixed time windows, such as the data that corresponds to
+fixed calendar dates, Pachyderm recommends that you organize your
+data repositories so that each of the time windows that you plan
+to analyze corresponds to a separate file or directory in your
+repository, and therefore, Pachyderm processes it as a separate
+datum.
+
+Organizing your repository as described above, enables you to do the
+following:
 
 - Analyze each time window in parallel.
-- Only re-process data within a time window when that data, or a corresponding data pipeline, changes.
+- Only re-process data within a time window when that data, or a
+  corresponding data pipeline, changes.
 
-For example, if you have monthly time windows of JSON sales data that need to be analyzed, you could create a `sales` data repository and structure it like:
+For example, if you have monthly time windows of sales data stored
+in JSON format that needs to be analyzed, you can create a `sales`
+data repository with the following data:
 
 ```
 sales
 ├── January
 |   ├── 01-01-17.json
 |   ├── 01-02-17.json
-|   └── etc...
+|   └── ...
 ├── February
 |   ├── 01-01-17.json
 |   ├── 01-02-17.json
-|   └── etc...
+|   └── ...
 └── March
     ├── 01-01-17.json
     ├── 01-02-17.json
-    └── etc...
+    └── ...
 ```
 
-When you run a pipeline with an input repo of `sales` having a glob pattern of `/*`, each month's worth of sales data is processed in parallel (if possible). Further, when you add new data into a subset of the months or add data into a new month (e.g., May), only those updated datums will be re-processed.
+When you run a pipeline with `sales` as an input repository and a glob
+pattern of `/*`, Pachyderm processes each month's worth of sales data
+in parallel if workers are available. When you add new data into a
+subset of the months or add data into a new month, for example, May,
+Pachyderm processes only these updated datums.
 
-More generally, this structure allows you to create:
+More generally, this structure enables you to create the following
+types of pipelines:
 
-- Pipelines that aggregate, or otherwise process, daily data on a monthly basis via a `/*` glob pattern.
-- Pipelines that only analyze a certain month's data via, e.g., a `/January/*` or `/January/` glob pattern.
-- Pipelines that process data on a daily basis via a `/*/*` glob pattern.
+- Pipelines that aggregate or otherwise process daily data on a
+  monthly basis by using the `/*` glob pattern.
+- Pipelines that only analyze a particular month's data by using a `/subdir/*`
+  or `/subdir/` glob pattern. For example, `/January/*` or `/January/`.
+- Pipelines that process data on daily by using the `/*/*` glob
+  pattern.
 - Any combination of the above.
 
-## Moving or rolling time windows
+## Moving or Rolling Time Windows
 
-In certain use cases, you need to run analyses for moving or rolling time windows, even when those don't correspond to certain calendar months, days, etc.  For example, you may need to analyze the last three days of data, the three days of data prior to that, the three days of data prior to that, etc.  In other words, you need to run an analysis for every rolling length of time.
+In some cases, you need to run analyses for moving or rolling time
+windows that do not correspond to certain calendar months or days.
+For example, you might need to analyze the last three days of data,
+the three days of data before that, or similar.
+In other words, you need to run an analysis for every rolling length
+of time.
 
-For rolling or moving time windows, there are a couple of recommended patterns:
+For rolling or moving time windows, there are a couple of recommended
+patterns:
 
-1. Bin your data in repository folders for each of the rolling/moving time windows.
+1. Bin your data in repository folders for each of the moving time windows.
 
-2. Maintain a time windowed set of data corresponding to the latest of the rolling/moving time windows.
+2. Maintain a time-windowed set of data that corresponds to the latest of the
+   moving time windows.
 
-### Binning data into rolling/moving time windows
+### Bin Data into Moving Time Windows
 
-In this method of processing rolling time windows, we'll use a two-pipeline [DAG](http://docs.pachyderm.io/en/latest/fundamentals/creating_analysis_pipelines.html) to analyze time windows efficiently:
+In this method of processing rolling time windows, you create the following
+two-pipeline DAGs to analyze time windows efficiently:
 
-- *Pipeline 1* - Read in data, determine which bins the data corresponds to, and write the data into those bins   
+| Pipeline | Description |
+| -------- | ----------- |
+| Pipeline 1 | Reads in data, determines to which bins the data <br>corresponds, and writes the data into those bins. |
+| Pipeline 2 | Read in and analyze the binned data. |
 
-- *Pipeline 2* - Read in and analyze the binned data. 
+By splitting this analysis into two pipelines, you can benefit from using
+parallelism at the file level. In other words, *Pipeline 1* can be easily
+parallelized for each file, and *Pipeline 2* can be parallelized per bin.
+This structure enables easy pipeline scaling as the number of
+files increases.
 
-By splitting this analysis into two pipelines we can benefit from parallelism at the file level.  In other words, *Pipeline 1* can be easily parallelized for each file, and *Pipeline 2* can be parallelized per bin. Now we can scale the pipelines easily as the number of files increases.
-
-Let's take the three day rolling time windows as an example, and let's say that we want to analyze three day rolling windows of sales data.  In a first repo, called `sales`, a first day's worth of sales data is committed:
+For example, you have three-day moving time windows, and you
+want to analyze three-day moving windows of sales data. In the first repo,
+called `sales`, you commit data for the first day of sales:
 
 ```
 sales
 └── 01-01-17.json
 ```
 
-We then create a first pipeline to bin this into a repository directory corresponding to our first rolling time window from 01-01-17 to 01-03-17:
+In the first pipeline, you specify to bin this data into a directory that
+corresponds to the first rolling time window from 01-01-17 to 01-03-17:
 
 ```
 binned_sales
@@ -75,7 +129,8 @@ binned_sales
     └── 01-01-17.json
 ```
 
-When our next day's worth of sales is committed,
+When the next day's worth of sales is committed, that data lands
+in the `sales` repository:
 
 ```
 sales
@@ -83,7 +138,11 @@ sales
 └── 01-02-17.json
 ```
 
-the first pipeline executes again to bin the 01-02-17 data into any relevant bins.  In this case, we would put it in the previously created bin for 01-01-17 to 01-03-17, but we would also put it into a bin starting on 01-02-17:
+Then, the first pipeline executes again to bin the `01-02-17` data into
+relevant bins. In this case, the data is placed in the previously
+created bin named `01-01-17 to 01-03-17`. However, the data also
+goes to the bin that stores the data that is received starting
+on `01-02-17`:
 
 ```
 binned_sales
@@ -94,7 +153,8 @@ binned_sales
     └── 01-02-17.json
 ```
 
-As more and more daily data is added, you will end up with a directory structure that looks like:
+As more and more daily data is added, your repository structure
+starting to looks as follows:
 
 ```
 binned_sales
@@ -110,30 +170,49 @@ binned_sales
 |   ├── 01-03-17.json
 |   ├── 01-04-17.json
 |   └── 01-05-17.json
-└── etc...
+└── ...
 ```
 
-and is maintained over time as new data is committed:
+The following diagram describes how data accumulates in the repository
+over time:
 
-![alt tag](time_windows.png)
+![Data Accumulation](../images/d_time_window.svg)
 
-Your second pipeline can then process these bins in parallel, via a glob pattern of `/*`, or in any other relevant way as discussed further in the ["Fixed time windows" section](#fixed-time-window-directory-structures).  Both your first and second pipelines can be easily parallelized.
+Your second pipeline can then process these bins in parallel according to the
+glob pattern of `/*` or as described further. Both pipelines can be easily
+parallelized.
 
-**Note** - When looking at the above directory structure, it may seem like there is an unnecessary duplication of the data.  However, under the hood Pachyderm deduplicates all of these files and maintains a space efficient representation of your data.  The binning of the data is merely a structural re-arrangement to allow you to process these types of rolling time windows.  
+In the above directory structure, it might seem that data is
+duplicated. However, under the hood, Pachyderm deduplicates all of these
+files and maintains a space-efficient representation of your data.
+The binning of the data is merely a structural re-arrangement to enable
+you process these types of moving time windows.
 
-**Note** - It might also seem as if there is unnecessary data transfers over the network to perform the above binning.  Pachyderm can ensure that performing these types of "shuffles" doesn't actually require transferring data over the network. Read more about that [here](../managing_pachyderm/data_management.html#shuffling-files). 
+It might also seem as if Pachyderm performs unnecessary data transfers
+over the network to bin files. However, Pachyderm ensures that these data
+operations do not require transferring data over the network.
 
-### Maintaining a single time-windowed data set
+### Maintaining a Single Time-Windowed Data Set
 
-The advantage of the binning pattern above is that any of the rolling time windows are available for processing.  They can be compared, aggregated, combined, etc. in any way, and any results or aggregations are kept in sync with updates to the bins.  However, you do need to put in some logic to maintain the binning directory structure.  
+The advantage of the binning pattern above is that any of the moving
+time windows are available for processing. They can be compared,
+aggregated, and combined in any way, and any results or
+aggregations are kept in sync with updates to the bins. However, you
+do need to create a process to maintain the binning directory structure.
 
-There is another pattern for moving time windows that avoids the binning of the above approach and maintains an up-to-date version of a moving time-windowed data set.  It also involves two pipelines:
+There is another pattern for moving time windows that avoids the
+binning of the above approach and maintains an up-to-date version of a
+moving time-windowed data set. This approach
+involves the creation of the following pipelines:
 
-- *Pipeline 1* - Read in data, determine which files belong in your moving time window, and write the relevant files into an updated version of the moving time-windowed data set.  
+| Pipeline     | Description |
+| ------------ | ----------- |
+| Pipeline 1 | Reads in data, determines which files belong in your moving <br> time window, and writes the relevant files into an updated<br> version of the moving time-windowed data set. |
+| Pipeline 2 | Reads in and analyzes the moving time-windowed data set. |
 
-- *Pipeline 2* - Read in and analyze the moving time-windowed data set.
-
-Let's utilize our sales example again to see how this would work.  In the example, we want to keep a moving time window of the last three days worth of data.  Now say that our daily `sales` repo looks like the following:
+For example, you have three-day moving time windows, and you
+want to analyze three-day moving windows of sales data. The input data
+is stored in the `sales` repository:
 
 ```
 sales
@@ -143,7 +222,9 @@ sales
 └── 01-04-17.json
 ```
 
-When the January 4th file, `01-04-17.json`, is committed, our first pipeline pulls out the last three days of data and arranges it like so:
+When the January 4th file, `01-04-17.json`, is committed, the first
+pipeline pulls out the last three days of data and arranges it in the
+following order:
 
 ```
 last_three_days
@@ -152,7 +233,8 @@ last_three_days
 └── 01-04-17.json
 ```
 
-Think of this as a "shuffle" step.  Then, when the January 5th file, `01-05-17.json`, is committed,  
+When the January 5th file, `01-05-17.json`, is committed into the
+`sales` repository:
 
 ```
 sales
@@ -163,7 +245,7 @@ sales
 └── 01-05-17.json
 ```
 
-the first pipeline would again update the moving window:
+the first pipeline updates the moving window:
 
 ```
 last_three_days
@@ -172,6 +254,13 @@ last_three_days
 └── 01-05-17.json
 ```
 
-Whatever analysis we need to run on the moving windowed data set in `moving_sales_window` can use a glob pattern of `/` or `/*` (depending on whether we need to process all of the time windowed files together or they can be processed in parallel).
+The analysis that you need to run on the moving windowed dataset
+in `moving_sales_window` can use the `/` or `/*` glob pattern, depending
+on whether you need to process all of the time-windowed files together
+or if they can be processed in parallel.
 
-**Warning** - When creating this type of moving time-windowed data set, the concept of "now" or "today" is relative.  It is important that you make a sound choice for how to define time based on your use case (e.g., by defaulting to UTC). You should not use a function such as `time.now()` to figure out a current day. The actual time at which this analysis is run may vary. If you have further questions about this issue, please do not hesitate to reach out to us via [Slack](http://slack.pachyderm.io/) or at support@pachyderm.io.
+**Warning** - When you create this type of moving time-windowed data set,
+the concept of *now* or *today* is relative. You must define the time
+based on your use case. For example, by configuring to use `UTC`. Do not use
+functions such as `time.now()` to determine the current time. The actual
+time when this pipeline runs might vary.
