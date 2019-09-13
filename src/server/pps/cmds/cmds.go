@@ -614,11 +614,11 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			}, editor, f.Name()); err != nil {
 				return err
 			}
-			cfgReader, err := ppsutil.NewPipelineManifestReader(f.Name())
+			pipelineReader, err := ppsutil.NewPipelineManifestReader(f.Name())
 			if err != nil {
 				return err
 			}
-			request, err := cfgReader.NextCreatePipelineRequest()
+			request, err := pipelineReader.NextCreatePipelineRequest()
 			if err != nil {
 				return err
 			}
@@ -813,7 +813,7 @@ you can increase the amount of memory used for the bloom filters with the
 }
 
 func pipelineHelper(reprocess bool, build bool, pushImages bool, registry string, username string, pipelinePath string, update bool) error {
-	cfgReader, err := ppsutil.NewPipelineManifestReader(pipelinePath)
+	pipelineReader, err := ppsutil.NewPipelineManifestReader(pipelinePath)
 	if err != nil {
 		return err
 	}
@@ -823,7 +823,7 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry string
 	}
 	defer client.Close()
 	for {
-		request, err := cfgReader.NextCreatePipelineRequest()
+		request, err := pipelineReader.NextCreatePipelineRequest()
 		if err == io.EOF {
 			break
 		} else if err != nil {
