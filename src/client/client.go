@@ -292,7 +292,6 @@ func getCertOptionsFromEnv() ([]Option, error) {
 // getUserMachineAddrAndOpts is a helper for NewOnUserMachine that uses
 // environment variables, config files, etc to figure out which address a user
 // running a command should connect to.
-// TODO(kdelga): current thinking is that this is where we need to config check for whether or not to use system certs.
 func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error) {
 	var options []Option
 
@@ -369,7 +368,6 @@ func portForwarder() *PortForwarder {
 }
 
 // NewForTest constructs a new APIClient for tests.
-// TODO(kdelga): For testing system certs, don't use this (use modified NewFromAddress instead)
 func NewForTest() (*APIClient, error) {
 	// create new pachctl client
 	addr, cfgOptions, err := getUserMachineAddrAndOpts(nil)
