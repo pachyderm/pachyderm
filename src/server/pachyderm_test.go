@@ -9948,15 +9948,6 @@ func TestNoCmd(t *testing.T) {
 	})
 }
 
-func TestTLSSystemCAs(t testing.T) {
-	// create new net.Conn connected to pach (with a buffer that we can check afterwards)
-	// wrap this net.Conn in a logging conn (that writes to the buffer)
-	// pass logging conn to client.go via NewFromAddress
-	// modify NewFromAddress to add a config option to let us pass logging conn
-	// use client from NewFromAddress to send data
-	// check the buffer to see that the data is encrypted
-}
-
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
 	pipelineInfos, err := pachClient.ListPipeline()
 	require.NoError(t, err)

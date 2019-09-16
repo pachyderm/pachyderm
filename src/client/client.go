@@ -166,7 +166,6 @@ func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
 		caCerts: settings.caCerts,
 		limiter: limit.New(settings.maxConcurrentStreams),
 	}
-	fmt.Printf("options: %v\n", options)
 	if err := c.connect(settings.dialTimeout); err != nil {
 		return nil, err
 	}
@@ -297,13 +296,8 @@ func getCertOptionsFromEnv() ([]Option, error) {
 func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error) {
 	var options []Option
 
-	fmt.Printf("gum addr: %v\n", context.PachdAddress)
-	defer func() {
-		fmt.Printf("gum options: %v\n", options)
-	}()
 	// 1) PACHD_ADDRESS environment variable (shell-local) overrides global config
 	if envAddr, ok := os.LookupEnv("PACHD_ADDRESS"); ok {
-		fmt.Println("gum 1")
 		if strings.HasPrefix(envAddr, "grpcs://") {
 			options = append(options, WithSystemCAs)
 			envAddr = strings.TrimPrefix(envAddr, "grpcs://")
@@ -320,7 +314,6 @@ func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error
 
 	// 2) Get target address from global config if possible
 	if context != nil && (context.ServerCAs != "" || context.PachdAddress != "") {
-		fmt.Println("gum 2")
 		// Proactively return an error in this case, instead of falling back to the default address below
 		if context.ServerCAs != "" && !strings.HasPrefix(context.PachdAddress, "grpcs") {
 			return "", nil, fmt.Errorf("must set pachd_address to grpcs://... if server_cas is set")
@@ -342,7 +335,6 @@ func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error
 	}
 
 	// 3) Use default address (broadcast) if nothing else works
-	fmt.Println("gum 3")
 	options, err := getCertOptionsFromEnv()
 	if err != nil {
 		return "", nil, err
@@ -553,7 +545,6 @@ func DefaultDialOptions() []grpc.DialOption {
 }
 
 func (c *APIClient) connect(timeout time.Duration) error {
-	// fmt.Printf("caCerts: %v\n", c.caCerts)
 	keepaliveOpt := grpc.WithKeepaliveParams(keepalive.ClientParameters{
 		Time:                20 * time.Second, // if 20s since last msg (any kind), ping
 		Timeout:             20 * time.Second, // if no response to ping for 20s, reset
