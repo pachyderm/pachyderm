@@ -4,7 +4,7 @@ Pachyderm Enterprise includes an S3 gateway that enables you to interact
 with PFS storage through an HTTP application programming interface (API)
 that imitates the Amazon S3 Storage API. Therefore, with Pachyderm S3
 gateway, you can interact with Pachyderm through tools and libraries designed
-to work with object stores; to name a few that we've tested against:
+to work with object stores. For example, you can use these tools:
 
 * [MinIO](https://docs.min.io/docs/minio-client-complete-guide)
 * [boto3](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html)
@@ -14,17 +14,17 @@ When you deploy `pachd`, the S3 gateway starts automatically. However, the
 S3 gateway is an enterprise feature that is only available to paid customers or
 during the free trial evaluation.
 
-The S3 gateway does have some limitations outlined below. If you need richer
-access, use the PFS gRPC interface instead, or one of our
+The S3 gateway has some limitations that are outlined below. If you need richer
+access, use the PFS gRPC interface instead, or one of the
 [client drivers](https://github.com/pachyderm/python-pachyderm).
 
 ## Authentication
 
 If auth is enabled on the Pachyderm cluster, credentials must be passed with
 each s3 gateway endpoint using AWS' signature v2 or v4 methods. Object store
-tools and libraries will have built-in support for these methods, but they do
-not work in the browser. When using authentication, the access and secret key
-should be set to the same value; they are both the Pachyderm auth token used
+tools and libraries provide built-in support for these methods, but they do
+not work in the browser. When you use authentication, set the access and secret key
+to the same value; they are both the Pachyderm auth token used
 to issue the relevant PFS calls.
 
 If auth is not enabled on the Pachyderm cluster, no credentials need to be
@@ -99,7 +99,7 @@ the following command:
            },
      ```
 
-     Note that both the access key and secret key should be set to your
+     Set both the access key and secret key to your
      Pachyderm auth token. If auth is not enabled on the cluster, both should
      be empty strings.
 
@@ -183,7 +183,7 @@ For example, in macOS, run:
      HTTP Proxy server port: 0
    ```
 
-   Note that both the access key and secret key should be set to your
+   Set both the access key and secret key to your
    Pachyderm auth token. If auth is not enabled on the cluster, both should
    be empty strings.
 

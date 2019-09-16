@@ -10,9 +10,9 @@ working knowledge of S3 and HTTP is assumed.
 
 ### Authentication
 
-If authentication is not enabled on the Pachyderm cluster, s3 gateway endpoints can be hit without passing auth credentials.
+If authentication is not enabled on the Pachyderm cluster, S3 gateway endpoints can be hit without passing auth credentials.
 
-If authentication is enabled, credentials must be passed using AWS' [signature v2](https://docs.aws.amazon.com/AmazonS3/latest/dev/RESTAuthentication.html) or [signature v4](https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-authenticating-requests.html) methods. For both methods, the AWS access key and secret key should be set to the same value; they are both the Pachyderm auth token used to issue the relevant PFS calls. Note that one or both signature methods are built into all s3 tools and libraries already, so you don't need to hand-roll these methods.
+If authentication is enabled, credentials must be passed using AWS' [signature v2](https://docs.aws.amazon.com/AmazonS3/latest/dev/RESTAuthentication.html) or [signature v4](https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-authenticating-requests.html) methods. For both methods, set the AWS access key and secret key to the same value. Both values are the Pachyderm auth token that is used to issue the relevant PFS calls. One or both signature methods are built into most s3 tools and libraries already, so you do not need to configure these methods manually.
 
 ### Operations on the Service
 
@@ -126,7 +126,7 @@ Aborts an in-progress multipart upload.
 
 Route: `POST /<branch>.<repo>?uploadId=<uploadId>`
 
-Completes a multipart upload. Note that if ETags are included in the request payload, they must be of the same format as returned by s3 gateway when the multipart chunks are included. If they are md5 hashes (or any other hash algorithm), they will be ignored.
+Completes a multipart upload. If ETags are included in the request payload, they must be of the same format as returned by the s3 gateway when the multipart chunks are included. If they are `md5` hashes or any other hash algorithm, they are ignored.
 
 #### Initiate Multipart Upload
 
