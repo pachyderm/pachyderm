@@ -45,11 +45,11 @@ commits by using the commit ID as the version.
 
 ## Port Forwarding
 
-If you do not have direct access to the kubernetes cluster, you can use port
+If you do not have direct access to the Kubernetes cluster, you can use port
 forwarding instead. Simply run `pachctl port-forward`, which will allow you
 to access the s3 gateway through `localhost:30600`.
 
-However, note that kubernetes' port forwarder incurs substantial overhead and
+However, the Kubernetes port forwarder incurs substantial overhead and
 does not recover well from broken connections. Connecting to the cluster
 directly is therefore faster and more reliable.
 
