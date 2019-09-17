@@ -67,7 +67,7 @@ To install and configure MinIO, complete the following steps:
 
 1. Install the MinIO client on your platform as
 described on the [MinIO download page](https://min.io/download#/macos).
-2. Verify that MinIO components are successfully installed by running
+1. Verify that MinIO components are successfully installed by running
 the following command:
 
    ```bash
@@ -78,7 +78,7 @@ the following command:
    Commit-id: 31e5ac02bdbdbaf20a87683925041f406307cfb9
    ```
 
-3. Set up the MinIO configuration file to use the `30600` port for your host:
+1. Set up the MinIO configuration file to use the `30600` port for your host:
 
    ```bash
    vi ~/.mc/config.json
@@ -114,13 +114,13 @@ complete the following steps:
 1. Install the AWS CLI for your operating system as described
 in the [AWS documentation](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html).
 
-2. Verify that the AWS CLI is installed:
+1. Verify that the AWS CLI is installed:
 
    ```bash
    $ aws --version aws-cli/1.16.204 Python/2.7.16 Darwin/17.7.0 botocore/1.12.194
    ```
 
-3. Configure AWS CLI:
+1. Configure AWS CLI:
 
    ```bash
    $ aws configure
@@ -150,21 +150,21 @@ For example, in macOS, run:
    $ brew install s3cmd
    ```
 
-2. Verify that S3cmd is installed:
+1. Verify that S3cmd is installed:
 
    ```bash
    $ s3cmd --version
    s3cmd version 2.0.2
    ```
 
-3. Configure S3cmd to use Pachyderm:
+1. Configure S3cmd to use Pachyderm:
 
    ```bash
    $ s3cmd --configure
      ...
    ```
 
-4. Fill all fields and specify the following settings for Pachyderm.
+1. Fill all fields and specify the following settings for Pachyderm.
 
    **Example:**
 
@@ -242,7 +242,7 @@ To list filesystem objects, complete the following steps:
      2019-07-12 14:36 master.raw_data
      ```
 
-2. List the contents of a repository:
+1. List the contents of a repository:
 
    * If you are using MinIO, type:
 
@@ -298,7 +298,7 @@ S3 bucket, which is a repository with a branch in Pachyderm.
 
    This command creates the `test` repository with the `master` branch.
 
-2. Verify that the S3 bucket has been successfully created:
+1. Verify that the S3 bucket has been successfully created:
 
    * If you are using MinIO, type:
 
@@ -416,7 +416,7 @@ To add a file to a repository, complete the following steps:
    These commands add the `test.csv` file to the `master` branch in
    the `raw_data` repository. `raw_data` is an input repository.
 
-2. Check that the file was added:
+1. Check that the file was added:
 
    * If you are using MinIO, type:
 
@@ -442,7 +442,7 @@ To add a file to a repository, complete the following steps:
      2019-07-19 12:11       62 test.csv
      ```
 
-3. Download a file from MinIO to the
+1. Download a file from MinIO to the
 current directory by running the following commands:
 
    * If you are using MinIO, type:
@@ -496,7 +496,7 @@ MinIO command-line interface:
       2019-07-19 12:11         62 test.csv
       ```
 
-2. Delete a file from a repository. Example:
+1. Delete a file from a repository. Example:
 
    * If you are using MinIO, type:
 
