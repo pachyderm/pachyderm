@@ -788,7 +788,6 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 		result.Input = ppsutil.JobInput(pipelineInfo, commitInfo)
 		result.EnableStats = pipelineInfo.EnableStats
 		result.Salt = pipelineInfo.Salt
-		result.Batch = pipelineInfo.Batch
 		result.ChunkSpec = pipelineInfo.ChunkSpec
 		result.DatumTimeout = pipelineInfo.DatumTimeout
 		result.JobTimeout = pipelineInfo.JobTimeout
@@ -1888,7 +1887,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		CacheSize:        request.CacheSize,
 		EnableStats:      request.EnableStats,
 		Salt:             request.Salt,
-		Batch:            request.Batch,
 		MaxQueueSize:     request.MaxQueueSize,
 		Service:          request.Service,
 		Spout:            request.Spout,
