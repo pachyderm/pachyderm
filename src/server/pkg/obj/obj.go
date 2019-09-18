@@ -84,8 +84,11 @@ const (
 )
 
 const (
-	DefaultRetries   = 10
-	DefaultTimeout   = "5m"
+	// DefaultRetries is the default number of retries for object storage requests.
+	DefaultRetries = 10
+	// DefaultTimeout is the default timeout for object storage requests.
+	DefaultTimeout = "5m"
+	// DefaultUploadACL is the default upload ACL for object storage uploads.
 	DefaultUploadACL = "bucket-owner-full-control"
 )
 
