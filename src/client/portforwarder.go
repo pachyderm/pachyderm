@@ -46,7 +46,7 @@ type PortForwarder struct {
 }
 
 // NewPortForwarder creates a new port forwarder
-func NewPortForwarder() (*PortForwarder, error) {
+func NewPortForwarder(namespace string) (*PortForwarder, error) {
 	cfg, err := config.Read()
 	if err != nil {
 		return nil, fmt.Errorf("could not read config: %v", err)
@@ -54,6 +54,10 @@ func NewPortForwarder() (*PortForwarder, error) {
 	_, context, err := cfg.ActiveContext()
 	if err != nil {
 		return nil, fmt.Errorf("could not get active context: %v", err)
+	}
+
+	if namespace == "" {
+		namespace = context.Namespace
 	}
 
 	kubeConfig := config.KubeConfig(context)
@@ -74,7 +78,7 @@ func NewPortForwarder() (*PortForwarder, error) {
 		core:          core,
 		client:        core.RESTClient(),
 		config:        kubeClientConfig,
-		namespace:     context.Namespace,
+		namespace:     namespace,
 		logger:        log.StandardLogger().Writer(),
 		stopChansLock: &sync.Mutex{},
 		stopChans:     []chan struct{}{},
