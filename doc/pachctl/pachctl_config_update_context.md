@@ -14,6 +14,9 @@ pachctl config update context
 ### Options
 
 ```
+      --auth-info string       Set a new auth info.
+      --cluster-name string    Set a new cluster name.
+      --namespace string       Set a new namespace.
       --pachd-address string   Set a new name pachd address.
 ```
 
