@@ -1,11 +1,10 @@
-# Setup For contributors
+# Setup for contributors
 
 ## General requirements
 
 First, go through the general local installation instructions [here](http://docs.pachyderm.io/en/latest/getting_started/local_installation.html). Additionally, make sure you have the following installed:
 
-- etcd
-- golang 1.11+
+- golang 1.12+
 - docker
 - [jq](https://stedolan.github.io/jq/)
 - [pv](http://ivarch.com/programs/pv.shtml)
@@ -15,25 +14,24 @@ First, go through the general local installation instructions [here](http://docs
 To stay up to date, we recommend doing the following.
 
 First clone the code:
+(Note, as of 07/11/19 pachyderm is using go modules and recommends cloning the code outside of the $GOPATH, we use the location ~/workspace as an example, but the code can live anywhere)
 
-    cd $GOPATH/src
-    mkdir -p github.com/pachyderm
-    cd github.com/pachyderm
+    cd ~/workspace
     git clone git@github.com:pachyderm/pachyderm
 
 Then update your `~/.bash_profile` by adding the line:
 
-    source $GOPATH/src/github.com/pachyderm/pachyderm/etc/contributing/bash_helpers
+    source ~/workspace/pachyderm/etc/contributing/bash_helpers
 
 And you'll stay up to date!
 
 ## Special macOS configuration
 
-### File Descriptor Limit
+### File descriptor limit
 
 If you're running tests locally, you'll need to up your file descriptor limit. To do this, first setup a LaunchDaemon to up the limit with sudo privileges:
 
-    sudo cp $GOPATH/src/github.com/pachyderm/pachyderm/etc/contributing/com.apple.launchd.limit.plist /Library/LaunchDaemons/
+    sudo cp ~/workspace/pachyderm/etc/contributing/com.apple.launchd.limit.plist /Library/LaunchDaemons/
 
 Once you restart, this will take effect. To see the limits, run:
 
@@ -71,14 +69,35 @@ And then make sure to prepend the following to your path:
 
 Now launch the dev cluster: `make launch-dev-vm`.
 
-And check it's status: `kubectl get all`
+And check it's status: `kubectl get all`.
 
 ## pachctl
 
 This will install the dev version of `pachctl`:
 
-    cd $GOPATH/src/github.com/pachyderm/pachyderm
+    cd ~/workspace/pachyderm
     make install
     pachctl version
 
 And make sure that `$GOPATH/bin` is on your `$PATH` somewhere
+
+## Fully resetting
+
+Instead of running the makefile targets to re-compile `pachctl` and redeploy
+a dev cluster, we have a script that you can use to fully reset your pachyderm
+environment:
+
+1) All existing cluster data is deleted
+2) If possible, the virtual machine that the cluster is running on is wiped
+out
+3) `pachctl` is recompiled
+4) The dev cluster is re-deployed
+
+This reset is a bit more time consuming than running one-off Makefile targets,
+but comprehensively ensures that the cluster is in its expected state, and is
+especially helpful when you're first getting started with contributions and
+don't yet have a complete intuition on the various ways a cluster may get in
+an unexpected state. It's been tested on docker for mac and minikube, but
+likely works in other kubernetes environments as well.
+
+To run it, simply call `./etc/reset.py` from the pachyderm repo root.

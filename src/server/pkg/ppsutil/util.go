@@ -27,6 +27,7 @@ import (
 	"path"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -41,6 +42,7 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
+	"gopkg.in/yaml.v3"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -169,16 +171,14 @@ func GetExpectedNumHashtrees(spec *ppsclient.HashtreeSpec) (int64, error) {
 
 // GetPipelineInfo retrieves and returns a valid PipelineInfo from PFS. It does
 // the PFS read/unmarshalling of bytes as well as filling in missing fields
-func GetPipelineInfo(pachClient *client.APIClient, ptr *pps.EtcdPipelineInfo, full bool) (*pps.PipelineInfo, error) {
+func GetPipelineInfo(pachClient *client.APIClient, ptr *pps.EtcdPipelineInfo) (*pps.PipelineInfo, error) {
 	result := &pps.PipelineInfo{}
-	if full {
-		buf := bytes.Buffer{}
-		if err := pachClient.GetFile(ppsconsts.SpecRepo, ptr.SpecCommit.ID, ppsconsts.SpecFile, 0, 0, &buf); err != nil {
-			return nil, fmt.Errorf("could not read existing PipelineInfo from PFS: %v", err)
-		}
-		if err := result.Unmarshal(buf.Bytes()); err != nil {
-			return nil, fmt.Errorf("could not unmarshal PipelineInfo bytes from PFS: %v", err)
-		}
+	buf := bytes.Buffer{}
+	if err := pachClient.GetFile(ppsconsts.SpecRepo, ptr.SpecCommit.ID, ppsconsts.SpecFile, 0, 0, &buf); err != nil {
+		return nil, fmt.Errorf("could not read existing PipelineInfo from PFS: %v", err)
+	}
+	if err := result.Unmarshal(buf.Bytes()); err != nil {
+		return nil, fmt.Errorf("could not unmarshal PipelineInfo bytes from PFS: %v", err)
 	}
 	result.State = ptr.State
 	result.Reason = ptr.Reason
@@ -209,16 +209,11 @@ func JobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.CommitInfo) 
 	// branchToCommit maps strings of the form "<repo>/<branch>" to PFS commits
 	branchToCommit := make(map[string]*pfs.Commit)
 	key := path.Join
-	for i, provCommit := range outputCommitInfo.Provenance {
-		branchToCommit[key(provCommit.Repo.Name, outputCommitInfo.BranchProvenance[i].Name)] = provCommit
+	for _, prov := range outputCommitInfo.Provenance {
+		branchToCommit[key(prov.Commit.Repo.Name, prov.Branch.Name)] = prov.Commit
 	}
 	jobInput := proto.Clone(pipelineInfo.Input).(*pps.Input)
 	pps.VisitInput(jobInput, func(input *pps.Input) {
-		if input.Atom != nil {
-			if commit, ok := branchToCommit[key(input.Atom.Repo, input.Atom.Branch)]; ok {
-				input.Atom.Commit = commit.ID
-			}
-		}
 		if input.Pfs != nil {
 			if commit, ok := branchToCommit[key(input.Pfs.Repo, input.Pfs.Branch)]; ok {
 				input.Pfs.Commit = commit.ID
@@ -261,23 +256,54 @@ func PipelineReqFromInfo(pipelineInfo *ppsclient.PipelineInfo) *ppsclient.Create
 		DatumTimeout:       pipelineInfo.DatumTimeout,
 		JobTimeout:         pipelineInfo.JobTimeout,
 		Salt:               pipelineInfo.Salt,
+		PodSpec:            pipelineInfo.PodSpec,
+		PodPatch:           pipelineInfo.PodPatch,
 	}
 }
 
-// PipelineManifestReader helps with unmarshalling pipeline configs from JSON. It's used by
-// create-pipeline and update-pipeline
-type PipelineManifestReader struct {
-	buf     bytes.Buffer
+type pipelineDecoder interface {
+	Decode(v interface{}) error
+}
+
+type jsonpbDecoder struct {
 	decoder *json.Decoder
+}
+
+func newJSONPBDecoder(r io.Reader) *jsonpbDecoder {
+	return &jsonpbDecoder{
+		decoder: json.NewDecoder(r),
+	}
+}
+
+func (d *jsonpbDecoder) Decode(v interface{}) error {
+	msg, ok := v.(proto.Message)
+	if ok {
+		return jsonpb.UnmarshalNext(d.decoder, msg)
+	}
+	return d.decoder.Decode(v)
+}
+
+// PipelineManifestReader helps with unmarshalling pipeline configs from JSON. It's used by
+// 'create pipeline' and 'update pipeline'
+//
+// Note that the json decoder is able to parse text that gopkg.in/yaml.v3 cannot
+// (multiple json documents) so we currently guess whether the document is JSON
+// or not by looking at the first non-space character and seeing if it's '{' (we
+// originally tried parsing the pipeline spec with both parsers, but that
+// approach made it hard to return sensible errors). We may fail to parse valid
+// YAML documents this way, so hopefully the yaml parser gains multi-document
+// support and we can rely on it fully.
+type PipelineManifestReader struct {
+	decoder pipelineDecoder
 }
 
 // NewPipelineManifestReader creates a new manifest reader from a path.
 func NewPipelineManifestReader(path string) (result *PipelineManifestReader, retErr error) {
-	result = &PipelineManifestReader{}
-	var pipelineReader io.Reader
+	var pipelineBytes []byte
+	var err error
 	if path == "-" {
-		pipelineReader = io.TeeReader(os.Stdin, &result.buf)
 		fmt.Print("Reading from stdin.\n")
+		pipelineBytes, err = ioutil.ReadAll(os.Stdin)
 	} else if url, err := url.Parse(path); err == nil && url.Scheme != "" {
 		resp, err := http.Get(url.String())
 		if err != nil {
@@ -288,27 +314,30 @@ func NewPipelineManifestReader(path string) (result *PipelineManifestReader, ret
 				retErr = err
 			}
 		}()
-		rawBytes, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-		pipelineReader = io.TeeReader(strings.NewReader(string(rawBytes)), &result.buf)
+		pipelineBytes, err = ioutil.ReadAll(resp.Body)
 	} else {
-		rawBytes, err := ioutil.ReadFile(path)
-		if err != nil {
-			return nil, err
-		}
-
-		pipelineReader = io.TeeReader(strings.NewReader(string(rawBytes)), &result.buf)
+		pipelineBytes, err = ioutil.ReadFile(path)
 	}
-	result.decoder = json.NewDecoder(pipelineReader)
-	return result, nil
+	if err != nil {
+		return nil, err
+	}
+	idx := bytes.IndexFunc(pipelineBytes, func(r rune) bool {
+		return !unicode.IsSpace(r)
+	})
+	if idx >= 0 && pipelineBytes[idx] == '{' {
+		return &PipelineManifestReader{
+			decoder: newJSONPBDecoder(bytes.NewReader(pipelineBytes)),
+		}, nil
+	}
+	return &PipelineManifestReader{
+		decoder: yaml.NewDecoder(bytes.NewReader(pipelineBytes)),
+	}, nil
 }
 
 // NextCreatePipelineRequest gets the next request from the manifest reader.
 func (r *PipelineManifestReader) NextCreatePipelineRequest() (*ppsclient.CreatePipelineRequest, error) {
 	var result ppsclient.CreatePipelineRequest
-	if err := jsonpb.UnmarshalNext(r.decoder, &result); err != nil {
+	if err := r.decoder.Decode(&result); err != nil {
 		if err == io.EOF {
 			return nil, err
 		}

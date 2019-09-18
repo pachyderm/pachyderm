@@ -18,7 +18,7 @@ Pachyderm Enterprise Edition includes a full UI for visualizing pipelines and ex
 
 ## Access Controls
 
-![alt tag](auth_dash5.png)
+![alt tag](auth/auth_dash5.png)
 
 Enterprise-scale deployments require access controls and multitenancy.  Pachyderm Enterprise Edition gives teams the ability to control access to production pipelines, data, and configuration.  Administrators can silo data, prevent unintended modifications to production pipelines, and support multiple data scientists or even multiple data science groups.
 
@@ -32,3 +32,6 @@ Pachyderm Enterprise Edition gives data scientists advanced insights into their 
 
 With Pachyderm Enterprise, cluster admins don't have to rely solely on command line tools and language libraries to configure and control Pachyderm. With new versions of our UI you can control, scale, and configure Pachyderm interactively.
 
+## S3Gateway
+
+Pachyderm Enterprise Edition includes the s3gateway, an S3-like API for interacting with PFS content. With it, you can interact with PFS content with tools and libraries built to work with S3.

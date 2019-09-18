@@ -9,8 +9,11 @@ import (
 	types "github.com/gogo/protobuf/types"
 	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -22,7 +25,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type Version struct {
 	Major                uint32   `protobuf:"varint,1,opt,name=major,proto3" json:"major,omitempty"`
@@ -48,7 +51,7 @@ func (m *Version) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Version.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -159,6 +162,14 @@ type APIServer interface {
 	GetVersion(context.Context, *types.Empty) (*Version, error)
 }
 
+// UnimplementedAPIServer can be embedded to have forward compatible implementations.
+type UnimplementedAPIServer struct {
+}
+
+func (*UnimplementedAPIServer) GetVersion(ctx context.Context, req *types.Empty) (*Version, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetVersion not implemented")
+}
+
 func RegisterAPIServer(s *grpc.Server, srv APIServer) {
 	s.RegisterService(&_API_serviceDesc, srv)
 }
@@ -197,7 +208,7 @@ var _API_serviceDesc = grpc.ServiceDesc{
 func (m *Version) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -205,45 +216,54 @@ func (m *Version) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Version) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Version) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Major != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintVersion(dAtA, i, uint64(m.Major))
-	}
-	if m.Minor != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintVersion(dAtA, i, uint64(m.Minor))
-	}
-	if m.Micro != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintVersion(dAtA, i, uint64(m.Micro))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Additional) > 0 {
-		dAtA[i] = 0x22
-		i++
+		i -= len(m.Additional)
+		copy(dAtA[i:], m.Additional)
 		i = encodeVarintVersion(dAtA, i, uint64(len(m.Additional)))
-		i += copy(dAtA[i:], m.Additional)
+		i--
+		dAtA[i] = 0x22
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Micro != 0 {
+		i = encodeVarintVersion(dAtA, i, uint64(m.Micro))
+		i--
+		dAtA[i] = 0x18
 	}
-	return i, nil
+	if m.Minor != 0 {
+		i = encodeVarintVersion(dAtA, i, uint64(m.Minor))
+		i--
+		dAtA[i] = 0x10
+	}
+	if m.Major != 0 {
+		i = encodeVarintVersion(dAtA, i, uint64(m.Major))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintVersion(dAtA []byte, offset int, v uint64) int {
+	offset -= sovVersion(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *Version) Size() (n int) {
 	if m == nil {
@@ -271,14 +291,7 @@ func (m *Version) Size() (n int) {
 }
 
 func sovVersion(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozVersion(x uint64) (n int) {
 	return sovVersion(uint64((x << 1) ^ uint64((int64(x) >> 63))))

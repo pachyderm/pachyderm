@@ -37,8 +37,8 @@ Thus, our “Model training and export” stage can be split into a training sta
 
 We can deploy this part of the pipeline in two quick steps:
 
-1. Create the initial “training” data repository with `pachctl create-repo training`.
-2. Supply Pachyderm with a JSON specification, `training_and_export.json`, telling Pachyderm to: (i) run Chris’s `pix2pix.py` script in “train” mode on the data in the “training” repository outputting a checkpoint to the “checkpoint” repository, and (ii) run the `pix2pix.py` script in “export” mode on the data in the “checkpoint” repository outputting a persisted model to the “model” repository. This can be done by running `pachctl create-pipeline -f training_and_export.json`.
+1. Create the initial “training” data repository with `pachctl create repo training`.
+2. Supply Pachyderm with a JSON specification, `training_and_export.json`, telling Pachyderm to: (i) run Chris’s `pix2pix.py` script in “train” mode on the data in the “training” repository outputting a checkpoint to the “checkpoint” repository, and (ii) run the `pix2pix.py` script in “export” mode on the data in the “checkpoint” repository outputting a persisted model to the “model” repository. This can be done by running `pachctl create pipeline -f training_and_export.json`.
 
 **Note** - Training could take 15+ minutes depending on how many images are supplied in the training set and the exact setting of the `pix2pix.py` script.
 
@@ -54,8 +54,8 @@ To actually perform our image-to-image translation, we need to use a `process_lo
 
 Again, we can deploy this part of the pipeline in two quick steps:
 
-1. Create the initial “input_images” data repository with `pachctl create-repo input_images`. 
-2. Supply Pachyderm with another JSON specification, `pre-processing_and_generation.json`, telling Pachyderm to: (i) run the `process.py` script in on the data in the “input_images” repository outputting to the “preprocess_images” repository, and (ii) run the `process_local.py` with the model in the “model” repository and the images in the “preprocess_images” repository as input. This can be done by running `pachctl create-pipeline -f pre-processing_and_generation.json`.
+1. Create the initial “input_images” data repository with `pachctl create repo input_images`. 
+2. Supply Pachyderm with another JSON specification, `pre-processing_and_generation.json`, telling Pachyderm to: (i) run the `process.py` script in on the data in the “input_images” repository outputting to the “preprocess_images” repository, and (ii) run the `process_local.py` with the model in the “model” repository and the images in the “preprocess_images” repository as input. This can be done by running `pachctl create pipeline -f pre-processing_and_generation.json`.
 
 ## Putting it all together, generating images
 Now that we have created our input data repositories (“input_images” and “training”) and we have told Pachyderm about all of our processing stages, our production-ready deep learning pipeline will run automatically when we put data into “training” and “input_images.”  It’s just works.

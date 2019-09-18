@@ -1,4 +1,4 @@
-## ./pachctl garbage-collect
+## pachctl garbage-collect
 
 Garbage collect unused data.
 
@@ -16,7 +16,7 @@ To actually remove the data, you will need to manually invoke garbage
 collection with "pachctl garbage-collect".
 
 Currently "pachctl garbage-collect" can only be started when there are no
-pipelines running.  You also need to ensure that there's no ongoing "put-file".
+pipelines running.  You also need to ensure that there's no ongoing "put file".
 Garbage collection puts the cluster into a readonly mode where no new jobs can
 be created and no data can be added.
 
@@ -30,7 +30,7 @@ you can increase the amount of memory used for the bloom filters with the
 
 
 ```
-./pachctl garbage-collect
+pachctl garbage-collect
 ```
 
 ### Options
@@ -42,8 +42,7 @@ you can increase the amount of memory used for the bloom filters with the
 ### Options inherited from parent commands
 
 ```
-      --no-metrics           Don't report user metrics for this command
-      --no-port-forwarding   Disable implicit port forwarding
-  -v, --verbose              Output verbose logs
+      --no-color   Turn off colors.
+  -v, --verbose    Output verbose logs
 ```
 

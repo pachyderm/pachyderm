@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -53,38 +54,25 @@ func TestActivate(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	deleteAll(t)
 	// Get anonymous client (this will activate auth, which is about to be
 	// deactivated, but it also activates Pacyderm enterprise, which is needed for
 	// this test to pass)
-	c := getPachClient(t, "")
-
-	// Deactivate auth (if it's activated)
-	require.NoError(t, func() error {
-		adminClient := &client.APIClient{}
-		*adminClient = *c
-		resp, err := adminClient.Authenticate(adminClient.Ctx(),
-			&auth.AuthenticateRequest{GitHubToken: "admin"})
-		if err != nil {
-			if auth.IsErrNotActivated(err) {
-				return nil
-			}
-			return err
-		}
-		adminClient.SetAuthToken(resp.PachToken)
-		_, err = adminClient.Deactivate(adminClient.Ctx(), &auth.DeactivateRequest{})
-		return err
-	}())
-
-	// Activate auth
-	resp, err := c.AuthAPIClient.Activate(c.Ctx(), &auth.ActivateRequest{GitHubToken: "admin"})
+	adminClient := getPachClient(t, admin)
+	_, err := adminClient.Deactivate(adminClient.Ctx(), &auth.DeactivateRequest{})
 	require.NoError(t, err)
-	c.SetAuthToken(resp.PachToken)
+	resp, err := adminClient.AuthAPIClient.Activate(context.Background(),
+		&auth.ActivateRequest{Subject: admin})
+	require.NoError(t, err)
+	tokenMap[admin] = resp.PachToken
+	adminClient.SetAuthToken(resp.PachToken)
 
 	// Check that the token 'c' received from PachD authenticates them as "admin"
-	who, err := c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+	who, err := adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.True(t, who.IsAdmin)
 	require.Equal(t, admin, who.Username)
+	deleteAll(t)
 }
 
 // TestAdminRWO tests adding and removing cluster admins, as well as admins
@@ -209,6 +197,7 @@ func TestAdminRWO(t *testing.T) {
 	// check that ACL wasn't updated
 	require.ElementsEqual(t,
 		entries(alice, "owner", "carol", "reader"), getACL(t, aliceClient, repo))
+	deleteAll(t)
 }
 
 // TestAdminFixBrokenRepo tests that an admin can modify the ACL of a repo even
@@ -263,6 +252,7 @@ func TestAdminFixBrokenRepo(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(repo, commit.ID))
 	require.Equal(t, 1, CommitCnt(t, adminClient, repo)) // check that a new commit was created
+	deleteAll(t)
 }
 
 // TestModifyAdminsErrorMissingAdmin tests that trying to remove a nonexistant
@@ -301,6 +291,7 @@ func TestModifyAdminsErrorMissingAdmin(t *testing.T) {
 		require.NoError(t, err)
 		return require.ElementsEqualOrErr([]string{admin}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
+	deleteAll(t)
 }
 
 // TestCannotRemoveAllClusterAdmins tests that trying to remove all of a
@@ -321,7 +312,7 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 	// admin cannot remove themselves from the list of cluster admins (otherwise
 	// there would be no admins)
 	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
-		&auth.ModifyAdminsRequest{Remove: []string{"admin"}})
+		&auth.ModifyAdminsRequest{Remove: []string{admin}})
 	require.YesError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
@@ -343,7 +334,7 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 
 	// Now admin can remove themselves as a cluster admin
 	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
-		&auth.ModifyAdminsRequest{Remove: []string{"admin"}})
+		&auth.ModifyAdminsRequest{Remove: []string{admin}})
 	require.NoError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
@@ -365,7 +356,7 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 	// alice *can* swap herself and "admin"
 	_, err = aliceClient.ModifyAdmins(aliceClient.Ctx(),
 		&auth.ModifyAdminsRequest{
-			Add:    []string{"admin"},
+			Add:    []string{admin},
 			Remove: []string{alice},
 		})
 	require.NoError(t, err)
@@ -374,6 +365,7 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 		require.NoError(t, err)
 		return require.ElementsEqualOrErr([]string{admin}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
+	deleteAll(t)
 }
 
 // TestModifyClusterAdminsAllowRobotOnlyAdmin tests the fix to
@@ -405,7 +397,7 @@ func TestModifyClusterAdminsAllowRobotOnlyAdmin(t *testing.T) {
 	robotClient.SetAuthToken(tokenResp.Token)
 	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
 		&auth.ModifyAdminsRequest{
-			Remove: []string{"admin"},
+			Remove: []string{admin},
 			Add:    []string{"robot:rob"},
 		})
 	require.NoError(t, err)
@@ -418,7 +410,7 @@ func TestModifyClusterAdminsAllowRobotOnlyAdmin(t *testing.T) {
 	// The robot user adds admin back as a cluster admin
 	_, err = robotClient.ModifyAdmins(robotClient.Ctx(),
 		&auth.ModifyAdminsRequest{
-			Add:    []string{"admin"},
+			Add:    []string{admin},
 			Remove: []string{"robot:rob"},
 		})
 	require.NoError(t, err)
@@ -427,6 +419,7 @@ func TestModifyClusterAdminsAllowRobotOnlyAdmin(t *testing.T) {
 		require.NoError(t, err)
 		return require.ElementsEqualOrErr([]string{admin}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
+	deleteAll(t)
 }
 
 func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
@@ -484,27 +477,20 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	})
 
 	// activate auth
-	_, err = adminClient.Activate(adminClient.Ctx(), &auth.ActivateRequest{
-		GitHubToken: "admin",
+	resp, err := adminClient.Activate(adminClient.Ctx(), &auth.ActivateRequest{
+		Subject: admin,
 	})
 	require.NoError(t, err)
+	tokenMap[admin] = resp.PachToken
+	adminClient.SetAuthToken(resp.PachToken)
 
 	// re-authenticate, as old tokens were deleted
-	require.NoError(t, backoff.Retry(func() error {
-		for i := 0; i < 2; i++ {
-			client := []*client.APIClient{adminClient, aliceClient}[i]
-			username := []string{"admin", alice}[i]
-			resp, err := client.Authenticate(context.Background(),
-				&auth.AuthenticateRequest{
-					GitHubToken: username,
-				})
-			if err != nil {
-				return err
-			}
-			client.SetAuthToken(resp.PachToken)
-		}
-		return nil
-	}, backoff.NewTestingBackOff()))
+	aliceResp, err := aliceClient.Authenticate(context.Background(), &auth.AuthenticateRequest{
+		GitHubToken: alice,
+	})
+	require.NoError(t, err)
+	tokenMap[alice] = aliceResp.PachToken
+	aliceClient.SetAuthToken(aliceResp.PachToken)
 
 	// Make sure alice cannot read the input repo (i.e. if the pipeline runs as
 	// alice, it will fail)
@@ -530,6 +516,7 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 		_, err := iter.Next()
 		return err
 	})
+	deleteAll(t)
 }
 
 func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
@@ -623,12 +610,6 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	require.ElementsEqual(t,
 		entries(alice, "owner", "carol", "reader"), getACL(t, adminClient, repo))
 
-	// admin can re-authenticate
-	resp, err := adminClient.Authenticate(context.Background(),
-		&auth.AuthenticateRequest{GitHubToken: "admin"})
-	require.NoError(t, err)
-	adminClient.SetAuthToken(resp.PachToken)
-
 	// Re-enable enterprise
 	year := 365 * 24 * time.Hour
 	adminClient.Enterprise.Activate(adminClient.Ctx(),
@@ -651,7 +632,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// alice can now re-authenticate
-	resp, err = aliceClient.Authenticate(context.Background(),
+	resp, err := aliceClient.Authenticate(context.Background(),
 		&auth.AuthenticateRequest{GitHubToken: alice})
 	require.NoError(t, err)
 	aliceClient.SetAuthToken(resp.PachToken)
@@ -679,6 +660,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	// check that ACL was updated
 	require.ElementsEqual(t,
 		entries(alice, "owner", "carol", "writer"), getACL(t, adminClient, repo))
+	deleteAll(t)
 }
 
 func TestPipelinesRunAfterExpiration(t *testing.T) {
@@ -763,6 +745,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 		_, err := iter.Next()
 		return err
 	})
+	deleteAll(t)
 }
 
 // Tests that GetAcl, SetAcl, GetScope, and SetScope all respect expired
@@ -879,6 +862,7 @@ func TestGetSetScopeAndAclWithExpiredToken(t *testing.T) {
 	require.NoError(t, err)
 	require.ElementsEqual(t,
 		entries(alice, "owner", "carol", "writer"), getACL(t, adminClient, repo))
+	deleteAll(t)
 }
 
 // TestAdminWhoAmI tests that when an admin calls WhoAmI(), the IsAdmin field
@@ -901,6 +885,7 @@ func TestAdminWhoAmI(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, admin, resp.Username)
 	require.True(t, resp.IsAdmin)
+	deleteAll(t)
 }
 
 // TestListRepoAdminIsOwnerOfAllRepos tests that when an admin calls ListRepo,
@@ -910,10 +895,11 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
+	deleteAll(t)
+	// t.Parallel()
+	adminClient := getPachClient(t, admin)
 	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
-	adminClient := getPachClient(t, "admin")
 
 	// alice creates a repo
 	repoWriter := tu.UniqueString("TestListRepoAdminIsOwnerOfAllRepos")
@@ -932,6 +918,7 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 	for _, info := range infos {
 		require.Equal(t, auth.Scope_OWNER, info.AuthInfo.AccessLevel)
 	}
+	deleteAll(t)
 }
 
 // TestGetAuthToken tests that an admin can manufacture auth credentials for
@@ -1022,6 +1009,7 @@ func TestGetAuthToken(t *testing.T) {
 		_, err := iter.Next()
 		return err
 	})
+	deleteAll(t)
 }
 
 // TestRobotUserWhoAmI tests that robot users can call WhoAmI and get a response
@@ -1047,6 +1035,7 @@ func TestRobotUserWhoAmI(t *testing.T) {
 	require.Equal(t, robotUser, whoAmIResp.Username)
 	require.True(t, strings.HasPrefix(whoAmIResp.Username, auth.RobotPrefix))
 	require.False(t, whoAmIResp.IsAdmin)
+	deleteAll(t)
 }
 
 // TestRobotUserACL tests that a robot user can create a repo, add github users
@@ -1100,6 +1089,7 @@ func TestRobotUserACL(t *testing.T) {
 	commit, err = robotClient.StartCommit(repo2, "master")
 	require.NoError(t, err)
 	require.NoError(t, robotClient.FinishCommit(repo2, commit.ID))
+	deleteAll(t)
 }
 
 // TestRobotUserAdmin tests that robot users can
@@ -1113,7 +1103,8 @@ func TestRobotUserAdmin(t *testing.T) {
 	}
 	deleteAll(t)
 	alice := tu.UniqueString("alice")
-	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
+	adminClient := getPachClient(t, admin)
+	aliceClient := getPachClient(t, alice)
 
 	// Generate a robot user auth credential, and create a client for that user
 	robotUser := auth.RobotPrefix + tu.UniqueString("bender")
@@ -1167,6 +1158,16 @@ func TestRobotUserAdmin(t *testing.T) {
 	commit, err = aliceClient.StartCommit(repo, "master")
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(repo, commit.ID))
+
+	robotClient.Deactivate(robotClient.Ctx(), &auth.DeactivateRequest{})
+	require.NoError(t, err)
+
+	deactivateResp, err := robotClient.AuthAPIClient.Activate(context.Background(),
+		&auth.ActivateRequest{Subject: admin})
+	require.NoError(t, err)
+	tokenMap[admin] = deactivateResp.PachToken
+	robotClient.SetAuthToken(deactivateResp.PachToken)
+	deleteAll(t)
 }
 
 // TestTokenTTL tests that an admin can create a token with a TTL for a user,
@@ -1205,6 +1206,7 @@ func TestTokenTTL(t *testing.T) {
 		require.Equal(t, 0, len(repos))
 		return nil
 	}, backoff.NewTestingBackOff()))
+	deleteAll(t)
 }
 
 // TestTokenTTLExtend tests that after creating a token, the admin can extend
@@ -1268,6 +1270,7 @@ func TestTokenTTLExtend(t *testing.T) {
 	repos, err = aliceClient.ListRepo()
 	require.True(t, auth.IsErrBadToken(err), err.Error())
 	require.Equal(t, 0, len(repos))
+	deleteAll(t)
 }
 
 // TestTokenRevoke tests that an admin can revoke that token and it no longer works
@@ -1305,6 +1308,7 @@ func TestTokenRevoke(t *testing.T) {
 	repos, err = aliceClient.ListRepo()
 	require.True(t, auth.IsErrBadToken(err), err.Error())
 	require.Equal(t, 0, len(repos))
+	deleteAll(t)
 }
 
 // TestGetAuthTokenErrorNonAdminUser tests that non-admin users can't call
@@ -1323,6 +1327,7 @@ func TestGetAuthTokenErrorNonAdminUser(t *testing.T) {
 	require.Nil(t, resp)
 	require.YesError(t, err)
 	require.Matches(t, "must be an admin", err.Error())
+	deleteAll(t)
 }
 
 // TestActivateAsRobotUser tests that Pachyderm can be activated such that the
@@ -1346,11 +1351,14 @@ func TestActivateAsRobotUser(t *testing.T) {
 	// Make sure the robot token has no TTL
 	require.Equal(t, int64(-1), whoAmI.TTL)
 
-	// Make "admin" an admin, so that auth can be deactivated
-	client.ModifyAdmins(client.Ctx(), &auth.ModifyAdminsRequest{
-		Add:    []string{"admin"},
-		Remove: []string{"robot:deckard"},
-	})
+	client.Deactivate(client.Ctx(), &auth.DeactivateRequest{})
+	require.NoError(t, err)
+
+	resp, err = client.AuthAPIClient.Activate(context.Background(),
+		&auth.ActivateRequest{Subject: admin})
+	require.NoError(t, err)
+	tokenMap[admin] = resp.PachToken
+	deleteAll(t)
 }
 
 func TestActivateMismatchedUsernames(t *testing.T) {
@@ -1367,6 +1375,7 @@ func TestActivateMismatchedUsernames(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "github:alice", err.Error())
 	require.Matches(t, "github:bob", err.Error())
+	deleteAll(t)
 }
 
 // TestDeleteAllAfterDeactivate tests that deleting repos and (particularly)
@@ -1431,4 +1440,270 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 
 	// Make sure DeleteAll() succeeds
 	require.NoError(t, aliceClient.DeleteAll())
+	deleteAll(t)
+}
+
+// TestDeleteRCInStandby creates a pipeline, waits for it to enter standby, and
+// then deletes its RC. This should not crash the PPS master, and the
+// flush-commit run on an input commit should eventually return (though the
+// pipeline may fail rather than processing anything in this state)
+//
+// Note: Like 'TestNoOutputRepoDoesntCrashPPSMaster', this test doesn't use the
+// admin client at all, but it uses the kubernetes client, so out of prudence it
+// shouldn't be run in parallel with any other test
+func TestDeleteRCInStandby(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	alice := tu.UniqueString("alice")
+	c := getPachClient(t, alice)
+
+	// Create input repo w/ initial commit
+	repo := tu.UniqueString(t.Name())
+	require.NoError(t, c.CreateRepo(repo))
+	_, err := c.PutFile(repo, "master", "/file.1", strings.NewReader("1"))
+	require.NoError(t, err)
+
+	// Create pipeline
+	pipeline := tu.UniqueString("pipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Image: "ubuntu:16.04",
+				Cmd:   []string{"bash"},
+				Stdin: []string{"cp /pfs/*/* /pfs/out"},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
+			Input:           client.NewPFSInput(repo, "/*"),
+			Standby:         true,
+		})
+	require.NoError(t, err)
+
+	// Wait for pipeline to process input commit & go into standby
+	iter, err := c.FlushCommit(
+		[]*pfs.Commit{client.NewCommit(repo, "master")},
+		[]*pfs.Repo{client.NewRepo(pipeline)})
+	require.NoError(t, err)
+	require.NoErrorWithinT(t, 30*time.Second, func() error {
+		_, err := iter.Next()
+		return err
+	})
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		pi, err := c.InspectPipeline(pipeline)
+		if err != nil {
+			return err
+		}
+		if pi.State != pps.PipelineState_PIPELINE_STANDBY {
+			return fmt.Errorf("pipeline should be in standby, but is in %s", pi.State.String())
+		}
+		return nil
+	})
+
+	// delete pipeline RC
+	tu.DeletePipelineRC(t, pipeline)
+
+	// Create new input commit (to force pipeline out of standby) & make sure
+	// flush-commit returns (pipeline either fails or restarts RC & finishes)
+	_, err = c.PutFile(repo, "master", "/file.2", strings.NewReader("1"))
+	require.NoError(t, err)
+	iter, err = c.FlushCommit(
+		[]*pfs.Commit{client.NewCommit(repo, "master")},
+		[]*pfs.Repo{client.NewRepo(pipeline)})
+	require.NoError(t, err)
+	require.NoErrorWithinT(t, 60*time.Second, func() error {
+		_, err := iter.Next()
+		return err
+	})
+	deleteAll(t)
+}
+
+// TestNoOutputRepoDoesntCrashPPSMaster creates a pipeline, then deletes its
+// output repo while it's running (failing the pipeline and preventing the PPS
+// master from finishing the pipeline's output commit) and makes sure new
+// pipelines can be created (i.e. that the PPS master doesn't crashloop due to
+// the missing output repo). This test also exists in pachyderm_test.go, but
+// duplicating it here ensures that Pachyderm handles this case correctly even
+// when the missing output repo yields "access denied" instead of "not found"
+// errors.
+//
+// Note: arguably deleting the output repo of a pipeline, even one that's
+// stopped, should be prevented. However, the way that PPS currently uses PFS
+// (stopping a pipeline = removing output branch subvenance) we have no way to
+// prevent that. Thus, this test at least makes sure that doing such a thing
+// doesn't break the PPS master.
+//
+// Note: This test actually doesn't use the admin client or admin privileges
+// anywhere. However, it restarts pachd, so it shouldn't be run in parallel with
+// any other test (which is expected of tests in auth_test.go)
+func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	alice := tu.UniqueString("alice")
+	aliceClient := getPachClient(t, alice)
+
+	// Create input repo w/ initial commit
+	repo := tu.UniqueString(t.Name())
+	require.NoError(t, aliceClient.CreateRepo(repo))
+	_, err := aliceClient.PutFile(repo, "master", "/file.1", strings.NewReader("1"))
+	require.NoError(t, err)
+
+	// Create pipeline
+	pipeline := tu.UniqueString("pipeline")
+	require.NoError(t, aliceClient.CreatePipeline(
+		pipeline,
+		"", // default image: ubuntu:16.04
+		[]string{"bash"},
+		[]string{
+			"sleep 10",
+			"cp /pfs/*/* /pfs/out/",
+		},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewPFSInput(repo, "/*"),
+		"", // default output branch: master
+		false,
+	))
+
+	// force-delete output repo while 'sleep 10' is running, failing the pipeline
+	require.NoError(t, aliceClient.DeleteRepo(pipeline, true))
+
+	// make sure the pipeline is failed
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		pi, err := aliceClient.InspectPipeline(pipeline)
+		if err != nil {
+			return err
+		}
+		if pi.State == pps.PipelineState_PIPELINE_FAILURE {
+			return fmt.Errorf("%q should be in state FAILURE but is in %q", pipeline, pi.State.String())
+		}
+		return nil
+	})
+
+	// Delete the pachd pod, so that it restarts and the PPS master has to process
+	// the failed pipeline
+	tu.DeletePachdPod(t) // delete the pachd pod
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		_, err := aliceClient.Version() // wait for pachd to come back
+		return err
+	})
+
+	// Create a new input commit, and flush its output to 'pipeline', to make sure
+	// the pipeline either restarts the RC and recreates the output repo, or fails
+	_, err = aliceClient.PutFile(repo, "master", "/file.2", strings.NewReader("2"))
+	require.NoError(t, err)
+	iter, err := aliceClient.FlushCommit(
+		[]*pfs.Commit{client.NewCommit(repo, "master")},
+		[]*pfs.Repo{client.NewRepo(pipeline)})
+	require.NoError(t, err)
+	require.NoErrorWithinT(t, 30*time.Second, func() error {
+		_, err := iter.Next()
+		// TODO(msteffen): While not currently possible, PFS could return
+		// CommitDeleted here. This should detect that error, but first:
+		// - src/server/pfs/pfs.go should be moved to src/client/pfs (w/ other err
+		//   handling code)
+		// - packages depending on that code should be migrated
+		// Then this could add "|| pfs.IsCommitDeletedErr(err)" and satisfy the todo
+		if err == io.EOF {
+			return nil // expected--with no output repo, FlushCommit can't return anything
+		}
+		return fmt.Errorf("unexpected error value: %v", err)
+	})
+
+	// Create a new pipeline, make sure FlushCommit eventually returns, and check
+	// pipeline output (i.e. the PPS master does not crashloop--pipeline2
+	// eventually starts successfully)
+	pipeline2 := tu.UniqueString("pipeline")
+	require.NoError(t, aliceClient.CreatePipeline(
+		pipeline2,
+		"", // default image: ubuntu:16.04
+		[]string{"bash"},
+		[]string{"cp /pfs/*/* /pfs/out/"},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewPFSInput(repo, "/*"),
+		"", // default output branch: master
+		false,
+	))
+	iter, err = aliceClient.FlushCommit(
+		[]*pfs.Commit{client.NewCommit(repo, "master")},
+		[]*pfs.Repo{client.NewRepo(pipeline2)})
+	require.NoError(t, err)
+	require.NoErrorWithinT(t, 30*time.Second, func() error {
+		_, err := iter.Next()
+		return err
+	})
+	buf := &bytes.Buffer{}
+	require.NoError(t, aliceClient.GetFile(pipeline2, "master", "/file.1", 0, 0, buf))
+	require.Equal(t, "1", buf.String())
+	buf.Reset()
+	require.NoError(t, aliceClient.GetFile(pipeline2, "master", "/file.2", 0, 0, buf))
+	require.Equal(t, "2", buf.String())
+	deleteAll(t)
+}
+
+// TestPipelineFailingWithOpenCommit creates a pipeline, then revokes its access
+// to its output repo while it's running, causing it to fail. Then it makes sure
+// that FlushCommit still works and that the pipeline's output commit was
+// successfully finished (though as an empty commit)
+//
+// Note: This test actually doesn't use the admin client or admin privileges
+// anywhere. However, it restarts pachd, so it shouldn't be run in parallel with
+// any other test
+func TestPipelineFailingWithOpenCommit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	alice := tu.UniqueString("alice")
+	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
+
+	// Create input repo w/ initial commit
+	repo := tu.UniqueString(t.Name())
+	require.NoError(t, aliceClient.CreateRepo(repo))
+	_, err := aliceClient.PutFile(repo, "master", "/file.1", strings.NewReader("1"))
+	require.NoError(t, err)
+
+	// Create pipeline
+	pipeline := tu.UniqueString("pipeline")
+	require.NoError(t, aliceClient.CreatePipeline(
+		pipeline,
+		"", // default image: ubuntu:16.04
+		[]string{"bash"},
+		[]string{
+			"sleep 10",
+			"cp /pfs/*/* /pfs/out/",
+		},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewPFSInput(repo, "/*"),
+		"", // default output branch: master
+		false,
+	))
+
+	// Revoke pipeline's access to output repo while 'sleep 10' is running (so
+	// that it fails)
+	_, err = adminClient.SetScope(adminClient.Ctx(), &auth.SetScopeRequest{
+		Username: fmt.Sprintf("pipeline:%s", pipeline),
+		Repo:     pipeline,
+		Scope:    auth.Scope_NONE,
+	})
+	require.NoError(t, err)
+
+	// make sure flush-commit returns (pipeline either
+	// fails or restarts RC & finishes)
+	iter, err := aliceClient.FlushCommit(
+		[]*pfs.Commit{client.NewCommit(repo, "master")},
+		[]*pfs.Repo{client.NewRepo(pipeline)})
+	require.NoError(t, err)
+	require.NoErrorWithinT(t, 30*time.Second, func() error {
+		_, err := iter.Next()
+		return err
+	})
+
+	// make sure the pipeline is failed
+	pi, err := adminClient.InspectPipeline(pipeline)
+	require.NoError(t, err)
+	require.Equal(t, pps.PipelineState_PIPELINE_FAILURE, pi.State)
+	deleteAll(t)
 }

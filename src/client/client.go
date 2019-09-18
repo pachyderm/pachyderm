@@ -24,15 +24,16 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/admin"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/debug"
-	"github.com/pachyderm/pachyderm/src/client/deploy"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/health"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tls"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/client/transaction"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 )
 
@@ -64,14 +65,14 @@ type ObjectAPIClient pfs.ObjectAPIClient
 // AuthAPIClient is an alias of auth.APIClient
 type AuthAPIClient auth.APIClient
 
-// DeployAPIClient is an alias of auth.APIClient
-type DeployAPIClient deploy.APIClient
-
 // VersionAPIClient is an alias of versionpb.APIClient
 type VersionAPIClient versionpb.APIClient
 
 // AdminAPIClient is an alias of admin.APIClient
 type AdminAPIClient admin.APIClient
+
+// TransactionAPIClient is an alias of transaction.APIClient
+type TransactionAPIClient transaction.APIClient
 
 // DebugClient is an alias of debug.DebugClient
 type DebugClient debug.DebugClient
@@ -82,9 +83,9 @@ type APIClient struct {
 	PpsAPIClient
 	ObjectAPIClient
 	AuthAPIClient
-	DeployAPIClient
 	VersionAPIClient
 	AdminAPIClient
+	TransactionAPIClient
 	DebugClient
 	Enterprise enterprise.APIClient // not embedded--method name conflicts with AuthAPIClient
 
@@ -231,11 +232,11 @@ func WithDialTimeout(t time.Duration) Option {
 // will connect to itself over an insecure connection)
 func WithAdditionalPachdCert() Option {
 	return func(settings *clientSettings) error {
-		if _, err := os.Stat(grpcutil.TLSVolumePath); err == nil {
+		if _, err := os.Stat(tls.VolumePath); err == nil {
 			if settings.caCerts == nil {
 				settings.caCerts = x509.NewCertPool()
 			}
-			return addCertFromFile(settings.caCerts, path.Join(grpcutil.TLSVolumePath, grpcutil.TLSCertFile))
+			return addCertFromFile(settings.caCerts, path.Join(tls.VolumePath, tls.CertFile))
 		}
 		return nil
 	}
@@ -273,7 +274,7 @@ func getCertOptionsFromEnv() ([]Option, error) {
 // getUserMachineAddrAndOpts is a helper for NewOnUserMachine that uses
 // environment variables, config files, etc to figure out which address a user
 // running a command should connect to.
-func getUserMachineAddrAndOpts(cfg *config.Config) (string, []Option, error) {
+func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error) {
 	// 1) PACHD_ADDRESS environment variable (shell-local) overrides global config
 	if envAddr, ok := os.LookupEnv("PACHD_ADDRESS"); ok {
 		if !strings.Contains(envAddr, ":") {
@@ -285,34 +286,21 @@ func getUserMachineAddrAndOpts(cfg *config.Config) (string, []Option, error) {
 		}
 		return envAddr, options, nil
 	}
-	// 2) ADDRESS environment variable (now renamed to PACHD_ADDRESS)
-	// TODO(ys): remove this eventually
-	if envAddr, ok := os.LookupEnv("ADDRESS"); ok {
-		log.Warnf("the `ADDRESS` environment variable is deprecated; please use `PACHD_ADDRESS`")
-		if !strings.Contains(envAddr, ":") {
-			envAddr = fmt.Sprintf("%s:%s", envAddr, DefaultPachdNodePort)
-		}
-		options, err := getCertOptionsFromEnv()
-		if err != nil {
-			return "", nil, err
-		}
-		return envAddr, options, nil
-	}
 
-	// 3) Get target address from global config if possible
-	if cfg != nil && cfg.V1 != nil && cfg.V1.PachdAddress != "" {
+	// 2) Get target address from global config if possible
+	if context != nil && context.PachdAddress != "" {
 		// Also get cert info from config (if set)
-		if cfg.V1.ServerCAs != "" {
-			pemBytes, err := base64.StdEncoding.DecodeString(cfg.V1.ServerCAs)
+		if context.ServerCAs != "" {
+			pemBytes, err := base64.StdEncoding.DecodeString(context.ServerCAs)
 			if err != nil {
 				return "", nil, fmt.Errorf("could not decode server CA certs in config: %v", err)
 			}
-			return cfg.V1.PachdAddress, []Option{WithAdditionalRootCAs(pemBytes)}, nil
+			return context.PachdAddress, []Option{WithAdditionalRootCAs(pemBytes)}, nil
 		}
-		return cfg.V1.PachdAddress, nil, nil
+		return context.PachdAddress, nil, nil
 	}
 
-	// 4) Use default address (broadcast) if nothing else works
+	// 3) Use default address (broadcast) if nothing else works
 	options, err := getCertOptionsFromEnv()
 	if err != nil {
 		return "", nil, err
@@ -326,7 +314,7 @@ func portForwarder() *PortForwarder {
 	// NOTE: this will always use the default namespace; if a custom
 	// namespace is required with port forwarding,
 	// `pachctl port-forward` should be explicitly called.
-	fw, err := NewPortForwarder("")
+	fw, err := NewPortForwarder()
 	if err != nil {
 		log.Infof("Implicit port forwarding was not enabled because the kubernetes config could not be read: %v", err)
 		return nil
@@ -346,34 +334,50 @@ func portForwarder() *PortForwarder {
 	return fw
 }
 
-// NewOnUserMachine constructs a new APIClient using env vars that may be set
-// on a user's machine (i.e. PACHD_ADDRESS), as well as
-// $HOME/.pachyderm/config if it  exists. This is primarily intended to be
-// used with the pachctl binary, but may also be useful in tests.
-//
-// TODO(msteffen) this logic is fairly linux/unix specific, and makes the
-// pachyderm client library incompatible with Windows. We may want to move this
-// (and similar) logic into src/server and have it call a NewFromOptions()
-// constructor.
-func NewOnUserMachine(reportMetrics bool, portForward bool, prefix string, options ...Option) (*APIClient, error) {
-	cfg, err := config.Read()
-	if err != nil {
-		// metrics errors are non fatal
-		log.Warningf("error loading user config from ~/.pachyderm/config: %v", err)
-	}
-
+// NewForTest constructs a new APIClient for tests.
+func NewForTest() (*APIClient, error) {
 	// create new pachctl client
-	var fw *PortForwarder
-	addr, cfgOptions, err := getUserMachineAddrAndOpts(cfg)
+	addr, cfgOptions, err := getUserMachineAddrAndOpts(nil)
 	if err != nil {
 		return nil, err
 	}
 	if addr == "" {
 		addr = fmt.Sprintf("0.0.0.0:%s", DefaultPachdNodePort)
+	}
 
-		if portForward {
-			fw = portForwarder()
-		}
+	client, err := NewFromAddress(addr, cfgOptions...)
+	if err != nil {
+		return nil, fmt.Errorf("could not connect to pachd at %q: %v", addr, err)
+	}
+	return client, nil
+}
+
+// NewOnUserMachine constructs a new APIClient using $HOME/.pachyderm/config
+// if it exists. This is intended to be used in the pachctl binary.
+//
+// TODO(msteffen) this logic is fairly linux/unix specific, and makes the
+// pachyderm client library incompatible with Windows. We may want to move this
+// (and similar) logic into src/server and have it call a NewFromOptions()
+// constructor.
+func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
+	cfg, err := config.Read()
+	if err != nil {
+		return nil, fmt.Errorf("could not read config: %v", err)
+	}
+	_, context, err := cfg.ActiveContext()
+	if err != nil {
+		return nil, fmt.Errorf("could not get active context: %v", err)
+	}
+
+	// create new pachctl client
+	var fw *PortForwarder
+	addr, cfgOptions, err := getUserMachineAddrAndOpts(context)
+	if err != nil {
+		return nil, err
+	}
+	if addr == "" {
+		addr = fmt.Sprintf("0.0.0.0:%s", DefaultPachdNodePort)
+		fw = portForwarder()
 	}
 
 	client, err := NewFromAddress(addr, append(options, cfgOptions...)...)
@@ -390,10 +394,8 @@ func NewOnUserMachine(reportMetrics bool, portForward bool, prefix string, optio
 				return nil, fmt.Errorf("could not connect (note: port is usually "+
 					"%s or %s, but is currently set to %q--is this right?): %v", DefaultPachdNodePort, DefaultPachdPort, port, err)
 			}
-			if strings.HasPrefix(addr, "0.0.0.0") ||
-				strings.HasPrefix(addr, "127.0.0.1") ||
-				strings.HasPrefix(addr, "[::1]") ||
-				strings.HasPrefix(addr, "localhost") {
+			isLoopback := strings.HasPrefix(addr, "0.0.0.0") || strings.HasPrefix(addr, "127.0.0.1") || strings.HasPrefix(addr, "[::1]") || strings.HasPrefix(addr, "localhost")
+			if fw == nil && isLoopback {
 				return nil, fmt.Errorf("could not connect (note: address %q looks "+
 					"like loopback, check that 'pachctl port-forward' is running): %v",
 					addr, err)
@@ -408,11 +410,11 @@ func NewOnUserMachine(reportMetrics bool, portForward bool, prefix string, optio
 
 	// Add metrics info & authentication token
 	client.metricsPrefix = prefix
-	if cfg != nil && cfg.UserID != "" && reportMetrics {
+	if cfg.UserID != "" && cfg.V2.Metrics {
 		client.metricsUserID = cfg.UserID
 	}
-	if cfg != nil && cfg.V1 != nil && cfg.V1.SessionToken != "" {
-		client.authenticationToken = cfg.V1.SessionToken
+	if context.SessionToken != "" {
+		client.authenticationToken = context.SessionToken
 	}
 
 	// Add port forwarding. This will set it to nil if port forwarding is
@@ -453,6 +455,7 @@ func (c *APIClient) Close() error {
 
 // DeleteAll deletes everything in the cluster.
 // Use with caution, there is no undo.
+// TODO: rewrite this to use transactions
 func (c APIClient) DeleteAll() error {
 	if _, err := c.AuthAPIClient.Deactivate(
 		c.Ctx(),
@@ -469,6 +472,12 @@ func (c APIClient) DeleteAll() error {
 	if _, err := c.PfsAPIClient.DeleteAll(
 		c.Ctx(),
 		&types.Empty{},
+	); err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	if _, err := c.TransactionAPIClient.DeleteAll(
+		c.Ctx(),
+		&transaction.DeleteAllRequest{},
 	); err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}
@@ -532,9 +541,9 @@ func (c *APIClient) connect(timeout time.Duration) error {
 	c.ObjectAPIClient = pfs.NewObjectAPIClient(clientConn)
 	c.AuthAPIClient = auth.NewAPIClient(clientConn)
 	c.Enterprise = enterprise.NewAPIClient(clientConn)
-	c.DeployAPIClient = deploy.NewAPIClient(clientConn)
 	c.VersionAPIClient = versionpb.NewAPIClient(clientConn)
 	c.AdminAPIClient = admin.NewAPIClient(clientConn)
+	c.TransactionAPIClient = transaction.NewAPIClient(clientConn)
 	c.DebugClient = debug.NewDebugClient(clientConn)
 	c.clientConn = clientConn
 	c.healthClient = health.NewHealthClient(clientConn)

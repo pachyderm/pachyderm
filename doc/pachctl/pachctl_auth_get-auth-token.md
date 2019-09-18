@@ -1,4 +1,4 @@
-## ./pachctl auth get-auth-token
+## pachctl auth get-auth-token
 
 Get an auth token that authenticates the holder as "username"
 
@@ -8,7 +8,7 @@ Get an auth token that authenticates the holder as "username"
 Get an auth token that authenticates the holder as "username"; this can only be called by cluster admins
 
 ```
-./pachctl auth get-auth-token username
+pachctl auth get-auth-token <username>
 ```
 
 ### Options
@@ -20,8 +20,7 @@ Get an auth token that authenticates the holder as "username"; this can only be 
 ### Options inherited from parent commands
 
 ```
-      --no-metrics           Don't report user metrics for this command
-      --no-port-forwarding   Disable implicit port forwarding
-  -v, --verbose              Output verbose logs
+      --no-color   Turn off colors.
+  -v, --verbose    Output verbose logs
 ```
 

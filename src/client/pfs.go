@@ -34,6 +34,14 @@ func NewCommit(repoName string, commitID string) *pfs.Commit {
 	}
 }
 
+// NewCommitProvenance creates a pfs.CommitProvenance.
+func NewCommitProvenance(repoName string, branchName string, commitID string) *pfs.CommitProvenance {
+	return &pfs.CommitProvenance{
+		Commit: NewCommit(repoName, commitID),
+		Branch: NewBranch(repoName, branchName),
+	}
+}
+
 // NewFile creates a pfs.File.
 func NewFile(repoName string, commitID string, path string) *pfs.File {
 	return &pfs.File{
@@ -72,6 +80,18 @@ func (c APIClient) CreateRepo(repoName string) error {
 		c.Ctx(),
 		&pfs.CreateRepoRequest{
 			Repo: NewRepo(repoName),
+		},
+	)
+	return grpcutil.ScrubGRPC(err)
+}
+
+// UpdateRepo upserts a repo with the given name.
+func (c APIClient) UpdateRepo(repoName string) error {
+	_, err := c.PfsAPIClient.CreateRepo(
+		c.Ctx(),
+		&pfs.CreateRepoRequest{
+			Repo:   NewRepo(repoName),
+			Update: true,
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
@@ -368,7 +388,6 @@ func (c APIClient) DeleteBranch(repoName string, branch string, force bool) erro
 }
 
 // DeleteCommit deletes a commit.
-// Note it is currently not implemented.
 func (c APIClient) DeleteCommit(repoName string, commitID string) error {
 	_, err := c.PfsAPIClient.DeleteCommit(
 		c.Ctx(),
@@ -415,7 +434,7 @@ func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo) (Comm
 // will be considered, otherwise all repos are considered.
 //
 // Note that it's never necessary to call FlushCommit to run jobs, they'll run
-// no matter what, FlushCommit just allows you to wait for them to complete and
+// no matter what, FlushCommitF just allows you to wait for them to complete and
 // see their output once they do.
 func (c APIClient) FlushCommitF(commits []*pfs.Commit, toRepos []*pfs.Repo, f func(*pfs.CommitInfo) error) error {
 	stream, err := c.PfsAPIClient.FlushCommit(
@@ -440,6 +459,28 @@ func (c APIClient) FlushCommitF(commits []*pfs.Commit, toRepos []*pfs.Repo, f fu
 			return err
 		}
 	}
+}
+
+// FlushCommitAll returns commits that have the specified `commits` as
+// provenance. Note that it can block if jobs have not successfully
+// completed. This in effect waits for all of the jobs that are triggered by a
+// set of commits to complete.
+//
+// If toRepos is not nil then only the commits up to and including those repos
+// will be considered, otherwise all repos are considered.
+//
+// Note that it's never necessary to call FlushCommit to run jobs, they'll run
+// no matter what, FlushCommitAll just allows you to wait for them to complete and
+// see their output once they do.
+func (c APIClient) FlushCommitAll(commits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error) {
+	var result []*pfs.CommitInfo
+	if err := c.FlushCommitF(commits, toRepos, func(ci *pfs.CommitInfo) error {
+		result = append(result, ci)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 // CommitInfoIterator wraps a stream of commits and makes them easy to iterate.
@@ -1163,6 +1204,36 @@ func (c APIClient) GlobFile(repoName string, commitID string, pattern string) ([
 	return result, nil
 }
 
+// GlobFileF returns files that match a given glob pattern in a given commit,
+// calling f with each FileInfo. The pattern is documented here:
+// https://golang.org/pkg/path/filepath/#Match
+func (c APIClient) GlobFileF(repoName string, commitID string, pattern string, f func(fi *pfs.FileInfo) error) error {
+	fs, err := c.PfsAPIClient.GlobFileStream(
+		c.Ctx(),
+		&pfs.GlobFileRequest{
+			Commit:  NewCommit(repoName, commitID),
+			Pattern: pattern,
+		},
+	)
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	for {
+		fi, err := fs.Recv()
+		if err == io.EOF {
+			return nil
+		} else if err != nil {
+			return grpcutil.ScrubGRPC(err)
+		}
+		if err := f(fi); err != nil {
+			if err == errutil.ErrBreak {
+				return nil
+			}
+			return err
+		}
+	}
+}
+
 // DiffFile returns the difference between 2 paths, old path may be omitted in
 // which case the parent of the new path will be used. DiffFile return 2 values
 // (unless it returns an error) the first value is files present under new
@@ -1194,7 +1265,8 @@ func (c APIClient) DiffFile(newRepoName, newCommitID, newPath, oldRepoName,
 type WalkFn func(*pfs.FileInfo) error
 
 // Walk walks the pfs filesystem rooted at path. walkFn will be called for each
-// file found under path, this includes both regular files and directories.
+// file found under path in lexicographical order. This includes both regular
+// files and directories.
 func (c APIClient) Walk(repoName string, commitID string, path string, f WalkFn) error {
 	fs, err := c.PfsAPIClient.WalkFile(
 		c.Ctx(),
@@ -1230,13 +1302,63 @@ func (c APIClient) DeleteFile(repoName string, commitID string, path string) err
 			File: NewFile(repoName, commitID, path),
 		},
 	)
-	return err
+	return grpcutil.ScrubGRPC(err)
 }
 
 type putFileWriteCloser struct {
 	request *pfs.PutFileRequest
 	sent    bool
 	c       *putFileClient
+}
+
+// Fsck performs checks on pfs. Errors that are encountered will be passed
+// onError. These aren't errors in the traditional sense, in that they don't
+// prevent the completion of fsck. Errors that do prevent completion will be
+// returned from the function.
+func (c APIClient) Fsck(fix bool, cb func(*pfs.FsckResponse) error) error {
+	fsckClient, err := c.PfsAPIClient.Fsck(c.Ctx(), &pfs.FsckRequest{Fix: fix})
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	for {
+		resp, err := fsckClient.Recv()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return grpcutil.ScrubGRPC(err)
+		}
+		if err := cb(resp); err != nil {
+			if err == errutil.ErrBreak {
+				break
+			}
+			return err
+		}
+	}
+	return nil
+}
+
+// FsckFastExit performs checks on pfs, similar to Fsck, except that it returns the
+// first fsck error it encounters and exits.
+func (c APIClient) FsckFastExit() error {
+	ctx, cancel := context.WithCancel(c.Ctx())
+	defer cancel()
+	fsckClient, err := c.PfsAPIClient.Fsck(ctx, &pfs.FsckRequest{})
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	for {
+		resp, err := fsckClient.Recv()
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return grpcutil.ScrubGRPC(err)
+		}
+		if resp.Error != "" {
+			return fmt.Errorf(resp.Error)
+		}
+	}
 }
 
 func (c *putFileClient) newPutFileWriteCloser(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, headerRecords int64, overwriteIndex *pfs.OverwriteIndex) (*putFileWriteCloser, error) {
@@ -1381,24 +1503,29 @@ func (c APIClient) newPutObjectWriteCloserAsync(tags []*pfs.Tag) (*PutObjectWrit
 
 // Write performs a write.
 func (w *PutObjectWriteCloserAsync) Write(p []byte) (int, error) {
-	select {
-	case err := <-w.errChan:
-		if err != nil {
-			return 0, grpcutil.ScrubGRPC(err)
+	var written int
+	for len(w.buf)+len(p) > cap(w.buf) {
+		// Write the bytes that fit into w.buf, then
+		// remove those bytes from p.
+		i := cap(w.buf) - len(w.buf)
+		w.buf = append(w.buf, p[:i]...)
+		if err := w.writeBuf(); err != nil {
+			return 0, err
 		}
-	default:
-		if len(w.buf)+len(p) > cap(w.buf) {
-			w.writeChan <- w.buf
-			w.buf = grpcutil.GetBuffer()[:0]
-		}
-		w.buf = append(w.buf, p...)
+		written += i
+		p = p[i:]
+		w.buf = grpcutil.GetBuffer()[:0]
 	}
-	return len(p), nil
+	w.buf = append(w.buf, p...)
+	written += len(p)
+	return written, nil
 }
 
 // Close closes the writer.
 func (w *PutObjectWriteCloserAsync) Close() error {
-	w.writeChan <- w.buf
+	if err := w.writeBuf(); err != nil {
+		return err
+	}
 	close(w.writeChan)
 	err := <-w.errChan
 	if err != nil {
@@ -1406,6 +1533,17 @@ func (w *PutObjectWriteCloserAsync) Close() error {
 	}
 	w.object, err = w.client.CloseAndRecv()
 	return grpcutil.ScrubGRPC(err)
+}
+
+func (w *PutObjectWriteCloserAsync) writeBuf() error {
+	select {
+	case err := <-w.errChan:
+		if err != nil {
+			return grpcutil.ScrubGRPC(err)
+		}
+	case w.writeChan <- w.buf:
+	}
+	return nil
 }
 
 // Object gets the pfs object for this writer.

@@ -42,7 +42,7 @@ const (
 	PPSInputPrefix = "/pfs"
 	// PPSScratchSpace is where pps workers store data while it's waiting to be
 	// processed.
-	PPSScratchSpace = "/pfs/.scratch"
+	PPSScratchSpace = ".scratch"
 	// PPSWorkerPortEnv is environment variable name for the port that workers
 	// use for their gRPC server
 	PPSWorkerPortEnv = "PPS_WORKER_GRPC_PORT"
@@ -86,35 +86,6 @@ func DatumTagPrefix(salt string) string {
 	return hex.EncodeToString(h.Sum(nil))[:4]
 }
 
-// NewAtomInput returns a new atom input. It only includes required options.
-//
-// Deprecated: Atom inputs have been renamed to PFS inputs. Use `NewPFSInput`
-// instead.
-func NewAtomInput(repo string, glob string) *pps.Input {
-	return &pps.Input{
-		Atom: &pps.AtomInput{
-			Repo: repo,
-			Glob: glob,
-		},
-	}
-}
-
-// NewAtomInputOpts returns a new atom input. It includes all options.
-//
-// Deprecated: Atom inputs have been renamed to PFS inputs. Use
-// `NewPFSInputOpts` instead.
-func NewAtomInputOpts(name string, repo string, branch string, glob string, lazy bool) *pps.Input {
-	return &pps.Input{
-		Atom: &pps.AtomInput{
-			Name:   name,
-			Repo:   repo,
-			Branch: branch,
-			Glob:   glob,
-			Lazy:   lazy,
-		},
-	}
-}
-
 // NewPFSInput returns a new PFS input. It only includes required options.
 func NewPFSInput(repo string, glob string) *pps.Input {
 	return &pps.Input{
@@ -126,13 +97,14 @@ func NewPFSInput(repo string, glob string) *pps.Input {
 }
 
 // NewPFSInputOpts returns a new PFS input. It includes all options.
-func NewPFSInputOpts(name string, repo string, branch string, glob string, lazy bool) *pps.Input {
+func NewPFSInputOpts(name string, repo string, branch string, glob string, joinOn string, lazy bool) *pps.Input {
 	return &pps.Input{
 		Pfs: &pps.PFSInput{
 			Name:   name,
 			Repo:   repo,
 			Branch: branch,
 			Glob:   glob,
+			JoinOn: joinOn,
 			Lazy:   lazy,
 		},
 	}
@@ -144,6 +116,15 @@ func NewPFSInputOpts(name string, repo string, branch string, glob string, lazy 
 func NewCrossInput(input ...*pps.Input) *pps.Input {
 	return &pps.Input{
 		Cross: input,
+	}
+}
+
+// NewJoinInput returns an input which is the join of other inputs.
+// That means that all combination of datums which match on `joinOn` will be seen by the job /
+// pipeline.
+func NewJoinInput(input ...*pps.Input) *pps.Input {
+	return &pps.Input{
+		Join: input,
 	}
 }
 
@@ -233,12 +214,21 @@ func (c APIClient) InspectJobOutputCommit(repoName, commitID string, blockState 
 // If inputCommit is non-nil then only jobs which took the specific commits as inputs will be returned.
 // The order of the inputCommits doesn't matter.
 // If outputCommit is non-nil then only the job which created that commit as output will be returned.
-func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outputCommit *pfs.Commit) ([]*pps.JobInfo, error) {
+// 'history' controls whether jobs from historical versions of pipelines are returned, it has the following semantics:
+// 0: Return jobs from the current version of the pipeline or pipelines.
+// 1: Return the above and jobs from the next most recent version
+// 2: etc.
+//-1: Return jobs from all historical versions.
+// 'includePipelineInfo' controls whether the JobInfo passed to 'f' includes
+// details fromt the pipeline spec (e.g. the transform). Leaving this 'false'
+// can improve performance.
+func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outputCommit *pfs.Commit, history int64, includePipelineInfo bool) ([]*pps.JobInfo, error) {
 	var result []*pps.JobInfo
-	if err := c.ListJobF(pipelineName, inputCommit, outputCommit, func(ji *pps.JobInfo) error {
-		result = append(result, ji)
-		return nil
-	}); err != nil {
+	if err := c.ListJobF(pipelineName, inputCommit, outputCommit, history,
+		includePipelineInfo, func(ji *pps.JobInfo) error {
+			result = append(result, ji)
+			return nil
+		}); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -252,7 +242,17 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outpu
 // If inputCommit is non-nil then only jobs which took the specific commits as inputs will be returned.
 // The order of the inputCommits doesn't matter.
 // If outputCommit is non-nil then only the job which created that commit as output will be returned.
-func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit, outputCommit *pfs.Commit, f func(*pps.JobInfo) error) error {
+// 'history' controls whether jobs from historical versions of pipelines are returned, it has the following semantics:
+// 0: Return jobs from the current version of the pipeline or pipelines.
+// 1: Return the above and jobs from the next most recent version
+// 2: etc.
+//-1: Return jobs from all historical versions.
+// 'includePipelineInfo' controls whether the JobInfo passed to 'f' includes
+// details fromt the pipeline spec--setting this to 'false' can improve
+// performance.
+func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit,
+	outputCommit *pfs.Commit, history int64, includePipelineInfo bool,
+	f func(*pps.JobInfo) error) error {
 	var pipeline *pps.Pipeline
 	if pipelineName != "" {
 		pipeline = NewPipeline(pipelineName)
@@ -263,6 +263,8 @@ func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit, outp
 			Pipeline:     pipeline,
 			InputCommit:  inputCommit,
 			OutputCommit: outputCommit,
+			History:      history,
+			Full:         includePipelineInfo,
 		})
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
@@ -582,6 +584,33 @@ func (c APIClient) ListPipeline() ([]*pps.PipelineInfo, error) {
 	return pipelineInfos.PipelineInfo, nil
 }
 
+// ListPipelineHistory returns historical information about pipelines.
+// `pipeline` specifies which pipeline to return history about, if it's equal
+// to "" then ListPipelineHistory returns historical information about all
+// pipelines.
+// `history` specifies how many historical revisions to return:
+// 0: Return the current version of the pipeline or pipelines.
+// 1: Return the above and the next most recent version
+// 2: etc.
+//-1: Return all historical versions.
+func (c APIClient) ListPipelineHistory(pipeline string, history int64) ([]*pps.PipelineInfo, error) {
+	var _pipeline *pps.Pipeline
+	if pipeline != "" {
+		_pipeline = NewPipeline(pipeline)
+	}
+	pipelineInfos, err := c.PpsAPIClient.ListPipeline(
+		c.Ctx(),
+		&pps.ListPipelineRequest{
+			Pipeline: _pipeline,
+			History:  history,
+		},
+	)
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	return pipelineInfos.PipelineInfo, nil
+}
+
 // DeletePipeline deletes a pipeline along with its output Repo.
 func (c APIClient) DeletePipeline(name string, force bool) error {
 	_, err := c.PpsAPIClient.DeletePipeline(
@@ -617,17 +646,14 @@ func (c APIClient) StopPipeline(name string) error {
 	return grpcutil.ScrubGRPC(err)
 }
 
-// RerunPipeline reruns a pipeline over a given set of commits. Exclude and
-// include are filters that either include or exclude the ancestors of the
-// given commits.  A commit is considered the ancestor of itself. The behavior
-// is the same as that of ListCommit.
-func (c APIClient) RerunPipeline(name string, include []*pfs.Commit, exclude []*pfs.Commit) error {
-	_, err := c.PpsAPIClient.RerunPipeline(
+// RunPipeline runs a pipeline. It can be passed a list of commit provenance.
+// This will trigger a new job provenant on those commits, effectively running the pipeline on the data in those commits.
+func (c APIClient) RunPipeline(name string, provenance []*pfs.CommitProvenance) error {
+	_, err := c.PpsAPIClient.RunPipeline(
 		c.Ctx(),
-		&pps.RerunPipelineRequest{
-			Pipeline: NewPipeline(name),
-			Include:  include,
-			Exclude:  exclude,
+		&pps.RunPipelineRequest{
+			Pipeline:   NewPipeline(name),
+			Provenance: provenance,
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
@@ -644,6 +670,7 @@ func (c APIClient) CreatePipelineService(
 	update bool,
 	internalPort int32,
 	externalPort int32,
+	annotations map[string]string,
 ) error {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
@@ -660,6 +687,7 @@ func (c APIClient) CreatePipelineService(
 			Service: &pps.Service{
 				InternalPort: internalPort,
 				ExternalPort: externalPort,
+				Annotations:  annotations,
 			},
 		},
 	)

@@ -6,7 +6,6 @@ import (
 
 	"cloud.google.com/go/storage"
 	"golang.org/x/net/context"
-	"golang.org/x/oauth2/google"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
@@ -16,14 +15,8 @@ type googleClient struct {
 	bucket *storage.BucketHandle
 }
 
-func newGoogleClient(bucket string, credFile string) (*googleClient, error) {
-	opts := []option.ClientOption{option.WithScopes(storage.ScopeFullControl)}
-	if credFile == "" {
-		opts = append(opts, option.WithTokenSource(google.ComputeTokenSource("")))
-	} else {
-		opts = append(opts, option.WithCredentialsFile(credFile))
-	}
-	// Use context.Background() b/c newGoogleClient only called at pachd startup
+func newGoogleClient(bucket string, opts []option.ClientOption) (*googleClient, error) {
+	opts = append(opts, option.WithScopes(storage.ScopeFullControl))
 	client, err := storage.NewClient(context.Background(), opts...)
 	if err != nil {
 		return nil, err

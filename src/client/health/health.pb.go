@@ -9,6 +9,8 @@ import (
 	types "github.com/gogo/protobuf/types"
 	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	math "math"
 )
 
@@ -21,7 +23,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 func init() { proto.RegisterFile("client/health/health.proto", fileDescriptor_6a4830d93d85d5ea) }
 
@@ -74,6 +76,14 @@ func (c *healthClient) Health(ctx context.Context, in *types.Empty, opts ...grpc
 // HealthServer is the server API for Health service.
 type HealthServer interface {
 	Health(context.Context, *types.Empty) (*types.Empty, error)
+}
+
+// UnimplementedHealthServer can be embedded to have forward compatible implementations.
+type UnimplementedHealthServer struct {
+}
+
+func (*UnimplementedHealthServer) Health(ctx context.Context, req *types.Empty) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Health not implemented")
 }
 
 func RegisterHealthServer(s *grpc.Server, srv HealthServer) {

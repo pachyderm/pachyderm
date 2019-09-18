@@ -1,4 +1,4 @@
-## ./pachctl auth modify-admins
+## pachctl auth modify-admins
 
 Modify the current cluster admins
 
@@ -8,7 +8,7 @@ Modify the current cluster admins
 Modify the current cluster admins. --add accepts a comma-separated list of users to grant admin status, and --remove accepts a comma-separated list of users to revoke admin status
 
 ```
-./pachctl auth modify-admins
+pachctl auth modify-admins
 ```
 
 ### Options
@@ -21,8 +21,7 @@ Modify the current cluster admins. --add accepts a comma-separated list of users
 ### Options inherited from parent commands
 
 ```
-      --no-metrics           Don't report user metrics for this command
-      --no-port-forwarding   Disable implicit port forwarding
-  -v, --verbose              Output verbose logs
+      --no-color   Turn off colors.
+  -v, --verbose    Output verbose logs
 ```
 

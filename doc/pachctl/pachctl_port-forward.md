@@ -1,4 +1,4 @@
-## ./pachctl port-forward
+## pachctl port-forward
 
 Forward a port on the local machine to pachd. This command blocks.
 
@@ -8,26 +8,26 @@ Forward a port on the local machine to pachd. This command blocks.
 Forward a port on the local machine to pachd. This command blocks.
 
 ```
-./pachctl port-forward
+pachctl port-forward
 ```
 
 ### Options
 
 ```
-      --namespace string     Kubernetes namespace Pachyderm is deployed in. (default "default")
-  -f, --pfs-port uint16      The local port to bind PFS over HTTP to. (default 30652)
-  -p, --port uint16          The local port to bind pachd to. (default 30650)
-  -x, --proxy-port uint16    The local port to bind Pachyderm's dash proxy service to. (default 30081)
-      --remote-port uint16   The remote port that pachd is bound to in the cluster. (default 650)
-      --saml-port uint16     The local port to bind pachd's SAML ACS to. (default 30654)
-  -u, --ui-port uint16       The local port to bind Pachyderm's dash service to. (default 30080)
+      --namespace string        Kubernetes namespace Pachyderm is deployed in. (default "default")
+  -f, --pfs-port uint16         The local port to bind PFS over HTTP to. (default 30652)
+  -p, --port uint16             The local port to bind pachd to. (default 30650)
+  -x, --proxy-port uint16       The local port to bind Pachyderm's dash proxy service to. (default 30081)
+      --remote-port uint16      The remote port that pachd is bound to in the cluster. (default 650)
+  -s, --s3gateway-port uint16   The local port to bind the s3gateway to. (default 30600)
+      --saml-port uint16        The local port to bind pachd's SAML ACS to. (default 30654)
+  -u, --ui-port uint16          The local port to bind Pachyderm's dash service to. (default 30080)
 ```
 
 ### Options inherited from parent commands
 
 ```
-      --no-metrics           Don't report user metrics for this command
-      --no-port-forwarding   Disable implicit port forwarding
-  -v, --verbose              Output verbose logs
+      --no-color   Turn off colors.
+  -v, --verbose    Output verbose logs
 ```
 

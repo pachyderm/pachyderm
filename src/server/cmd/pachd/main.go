@@ -16,7 +16,6 @@ import (
 	adminclient "github.com/pachyderm/pachyderm/src/client/admin"
 	authclient "github.com/pachyderm/pachyderm/src/client/auth"
 	debugclient "github.com/pachyderm/pachyderm/src/client/debug"
-	deployclient "github.com/pachyderm/pachyderm/src/client/deploy"
 	eprsclient "github.com/pachyderm/pachyderm/src/client/enterprise"
 	healthclient "github.com/pachyderm/pachyderm/src/client/health"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
@@ -25,15 +24,16 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
+	transactionclient "github.com/pachyderm/pachyderm/src/client/transaction"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	adminserver "github.com/pachyderm/pachyderm/src/server/admin/server"
 	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
 	debugserver "github.com/pachyderm/pachyderm/src/server/debug/server"
-	deployserver "github.com/pachyderm/pachyderm/src/server/deploy"
 	eprsserver "github.com/pachyderm/pachyderm/src/server/enterprise/server"
 	"github.com/pachyderm/pachyderm/src/server/health"
 	pach_http "github.com/pachyderm/pachyderm/src/server/http"
+	"github.com/pachyderm/pachyderm/src/server/pfs/s3"
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	cache_pb "github.com/pachyderm/pachyderm/src/server/pkg/cache/groupcachepb"
 	cache_server "github.com/pachyderm/pachyderm/src/server/pkg/cache/server"
@@ -45,10 +45,13 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/netutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
+	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
+	txnserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/tls"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
@@ -123,7 +126,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 	}
 	var reporter *metrics.Reporter
 	if env.Metrics {
-		reporter = metrics.NewReporter(clusterID, env.GetKubeClient())
+		reporter = metrics.NewReporter(clusterID, env)
 	}
 
 	pfsCacheSize, err := strconv.Atoi(env.PFSCacheSize)
@@ -145,6 +148,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 			Port:       env.PeerPort,
 			MaxMsgSize: grpcutil.MaxMsgSize,
 			RegisterFunc: func(s *grpc.Server) error {
+				txnEnv := &txnenv.TransactionEnv{}
 				blockCacheBytes, err := units.RAMInBytes(env.BlockCacheBytes)
 				if err != nil {
 					return fmt.Errorf("units.RAMInBytes: %v", err)
@@ -159,7 +163,14 @@ func doSidecarMode(config interface{}) (retErr error) {
 				if err != nil {
 					return err
 				}
-				pfsAPIServer, err := pfs_server.NewAPIServer(env, path.Join(env.EtcdPrefix, env.PFSEtcdPrefix), treeCache, env.StorageRoot, memoryRequestBytes)
+				pfsAPIServer, err := pfs_server.NewAPIServer(
+					env,
+					txnEnv,
+					path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
+					treeCache,
+					env.StorageRoot,
+					memoryRequestBytes,
+				)
 				if err != nil {
 					return fmt.Errorf("pfs.NewAPIServer: %v", err)
 				}
@@ -181,11 +192,25 @@ func doSidecarMode(config interface{}) (retErr error) {
 				ppsclient.RegisterAPIServer(s, ppsAPIServer)
 
 				authAPIServer, err := authserver.NewAuthServer(
-					env, path.Join(env.EtcdPrefix, env.AuthEtcdPrefix), false)
+					env,
+					txnEnv,
+					path.Join(env.EtcdPrefix, env.AuthEtcdPrefix),
+					false,
+				)
 				if err != nil {
 					return fmt.Errorf("NewAuthServer: %v", err)
 				}
 				authclient.RegisterAPIServer(s, authAPIServer)
+
+				transactionAPIServer, err := txnserver.NewAPIServer(
+					env,
+					txnEnv,
+					path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
+				)
+				if err != nil {
+					return fmt.Errorf("transaction.NewAPIServer: %v", err)
+				}
+				transactionclient.RegisterAPIServer(s, transactionAPIServer)
 
 				enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
 					env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))
@@ -201,6 +226,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 					path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
 					env.PPSWorkerPort,
 				))
+				txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer)
 				return nil
 			},
 		},
@@ -239,7 +265,7 @@ func doFullMode(config interface{}) (retErr error) {
 	}
 	var reporter *metrics.Reporter
 	if env.Metrics {
-		reporter = metrics.NewReporter(clusterID, env.GetKubeClient())
+		reporter = metrics.NewReporter(clusterID, env)
 	}
 	// (bryce) Do we have to use etcd client v2 here for sharder? Might want to re-visit this later.
 	etcdAddress := fmt.Sprintf("http://%s", net.JoinHostPort(env.EtcdHost, env.EtcdPort))
@@ -255,7 +281,7 @@ func doFullMode(config interface{}) (retErr error) {
 		env.Namespace,
 	)
 	go func() {
-		if err := sharder.AssignRoles(address, nil); err != nil {
+		if err := sharder.AssignRoles(address); err != nil {
 			log.Printf("error from sharder.AssignRoles: %s", grpcutil.ScrubGRPC(err))
 		}
 	}()
@@ -304,6 +330,24 @@ func doFullMode(config interface{}) (retErr error) {
 		return fmt.Errorf("RunGitHookServer: %v", err)
 	})
 	eg.Go(func() error {
+		server, err := s3.Server(env.S3GatewayPort, env.Port)
+		if err != nil {
+			return fmt.Errorf("s3gateway server: %v", err)
+		}
+		certPath, keyPath, err := tls.GetCertPaths()
+		if err != nil {
+			log.Warnf("s3gateway TLS disabled: %v", err)
+			if err := server.ListenAndServe(); err != http.ErrServerClosed {
+				return fmt.Errorf("s3gateway listen: %v", err)
+			}
+		} else {
+			if err := server.ListenAndServeTLS(certPath, keyPath); err != http.ErrServerClosed {
+				return fmt.Errorf("s3gateway listen: %v", err)
+			}
+		}
+		return nil
+	})
+	eg.Go(func() error {
 		http.Handle("/metrics", promhttp.Handler())
 		err := http.ListenAndServe(fmt.Sprintf(":%v", assets.PrometheusPort), nil)
 		if err != nil {
@@ -318,11 +362,12 @@ func doFullMode(config interface{}) (retErr error) {
 				MaxMsgSize:           grpcutil.MaxMsgSize,
 				PublicPortTLSAllowed: true,
 				RegisterFunc: func(s *grpc.Server) error {
+					txnEnv := &txnenv.TransactionEnv{}
 					memoryRequestBytes, err := units.RAMInBytes(env.MemoryRequest)
 					if err != nil {
 						return err
 					}
-					pfsAPIServer, err := pfs_server.NewAPIServer(env, path.Join(env.EtcdPrefix, env.PFSEtcdPrefix), treeCache, env.StorageRoot, memoryRequestBytes)
+					pfsAPIServer, err := pfs_server.NewAPIServer(env, txnEnv, path.Join(env.EtcdPrefix, env.PFSEtcdPrefix), treeCache, env.StorageRoot, memoryRequestBytes)
 					if err != nil {
 						return fmt.Errorf("pfs.NewAPIServer: %v", err)
 					}
@@ -330,6 +375,7 @@ func doFullMode(config interface{}) (retErr error) {
 
 					ppsAPIServer, err := pps_server.NewAPIServer(
 						env,
+						txnEnv,
 						path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
 						kubeNamespace,
 						env.WorkerImage,
@@ -368,11 +414,21 @@ func doFullMode(config interface{}) (retErr error) {
 					}
 
 					authAPIServer, err := authserver.NewAuthServer(
-						env, path.Join(env.EtcdPrefix, env.AuthEtcdPrefix), true)
+						env, txnEnv, path.Join(env.EtcdPrefix, env.AuthEtcdPrefix), true)
 					if err != nil {
 						return fmt.Errorf("NewAuthServer: %v", err)
 					}
 					authclient.RegisterAPIServer(s, authAPIServer)
+
+					transactionAPIServer, err := txnserver.NewAPIServer(
+						env,
+						txnEnv,
+						path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
+					)
+					if err != nil {
+						return fmt.Errorf("transaction.NewAPIServer: %v", err)
+					}
+					transactionclient.RegisterAPIServer(s, transactionAPIServer)
 
 					enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
 						env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))
@@ -381,7 +437,6 @@ func doFullMode(config interface{}) (retErr error) {
 					}
 					eprsclient.RegisterAPIServer(s, enterpriseAPIServer)
 
-					deployclient.RegisterAPIServer(s, deployserver.NewDeployServer(env.GetKubeClient(), kubeNamespace))
 					adminclient.RegisterAPIServer(s, adminserver.NewAPIServer(address, env.StorageRoot, &adminclient.ClusterInfo{ID: clusterID}))
 					healthclient.RegisterHealthServer(s, publicHealthServer)
 					versionpb.RegisterAPIServer(s, version.NewAPIServer(version.Version, version.APIServerOptions{}))
@@ -391,6 +446,7 @@ func doFullMode(config interface{}) (retErr error) {
 						path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
 						env.PPSWorkerPort,
 					))
+					txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer)
 					return nil
 				},
 			},
@@ -411,14 +467,15 @@ func doFullMode(config interface{}) (retErr error) {
 				Port:       env.PeerPort,
 				MaxMsgSize: grpcutil.MaxMsgSize,
 				RegisterFunc: func(s *grpc.Server) error {
+					txnEnv := &txnenv.TransactionEnv{}
 					cacheServer := cache_server.NewCacheServer(router, env.NumShards)
 					go func() {
-						if err := sharder.RegisterFrontends(nil, address, []shard.Frontend{cacheServer}); err != nil {
+						if err := sharder.RegisterFrontends(address, []shard.Frontend{cacheServer}); err != nil {
 							log.Printf("error from sharder.RegisterFrontend %s", grpcutil.ScrubGRPC(err))
 						}
 					}()
 					go func() {
-						if err := sharder.Register(nil, address, []shard.Server{cacheServer}); err != nil {
+						if err := sharder.Register(address, []shard.Server{cacheServer}); err != nil {
 							log.Printf("error from sharder.Register %s", grpcutil.ScrubGRPC(err))
 						}
 					}()
@@ -440,7 +497,13 @@ func doFullMode(config interface{}) (retErr error) {
 						return err
 					}
 					pfsAPIServer, err := pfs_server.NewAPIServer(
-						env, path.Join(env.EtcdPrefix, env.PFSEtcdPrefix), treeCache, env.StorageRoot, memoryRequestBytes)
+						env,
+						txnEnv,
+						path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
+						treeCache,
+						env.StorageRoot,
+						memoryRequestBytes,
+					)
 					if err != nil {
 						return fmt.Errorf("pfs.NewAPIServer: %v", err)
 					}
@@ -448,6 +511,7 @@ func doFullMode(config interface{}) (retErr error) {
 
 					ppsAPIServer, err := pps_server.NewAPIServer(
 						env,
+						txnEnv,
 						path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
 						kubeNamespace,
 						env.WorkerImage,
@@ -473,12 +537,25 @@ func doFullMode(config interface{}) (retErr error) {
 					ppsclient.RegisterAPIServer(s, ppsAPIServer)
 
 					authAPIServer, err := authserver.NewAuthServer(
-						env, path.Join(env.EtcdPrefix, env.AuthEtcdPrefix),
-						false)
+						env,
+						txnEnv,
+						path.Join(env.EtcdPrefix, env.AuthEtcdPrefix),
+						false,
+					)
 					if err != nil {
 						return fmt.Errorf("NewAuthServer: %v", err)
 					}
 					authclient.RegisterAPIServer(s, authAPIServer)
+
+					transactionAPIServer, err := txnserver.NewAPIServer(
+						env,
+						txnEnv,
+						path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
+					)
+					if err != nil {
+						return fmt.Errorf("transaction.NewAPIServer: %v", err)
+					}
+					transactionclient.RegisterAPIServer(s, transactionAPIServer)
 
 					enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
 						env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))
@@ -487,10 +564,10 @@ func doFullMode(config interface{}) (retErr error) {
 					}
 					eprsclient.RegisterAPIServer(s, enterpriseAPIServer)
 
-					deployclient.RegisterAPIServer(s, deployserver.NewDeployServer(env.GetKubeClient(), kubeNamespace))
 					healthclient.RegisterHealthServer(s, peerHealthServer)
 					versionpb.RegisterAPIServer(s, version.NewAPIServer(version.Version, version.APIServerOptions{}))
 					adminclient.RegisterAPIServer(s, adminserver.NewAPIServer(address, env.StorageRoot, &adminclient.ClusterInfo{ID: clusterID}))
+					txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer)
 					return nil
 				},
 			},

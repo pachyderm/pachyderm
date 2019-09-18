@@ -22,8 +22,8 @@ For this demo, we'll simply create a repo called ``images`` to hold the data we 
 
 .. code-block:: shell
 
-  $ pachctl create-repo images
-  $ pachctl list-repo
+  $ pachctl create repo images
+  $ pachctl list repo
   NAME   CREATED       SIZE (MASTER) 
   images 7 seconds ago 0B
 
@@ -36,34 +36,34 @@ Now that we've created a repo it's time to add some data. In Pachyderm, you writ
 
 Let's start by just adding a file, in this case an image, to a new commit. We've provided some sample images for you that we host on Imgur. 
 
-We'll use the ``put-file`` command along with the ``-f`` flag. ``-f`` can take either a local file, a URL, or a object storage bucket which it'll automatically scrape. In our case, we'll simply pass the URL.
+We'll use the ``put file`` command along with the ``-f`` flag. ``-f`` can take either a local file, a URL, or a object storage bucket which it'll automatically scrape. In our case, we'll simply pass the URL.
 
-Unlike Git, commits in Pachyderm must be explicitly started and finished as they can contain huge amounts of data and we don't want that much "dirty" data hanging around in an unpersisted state. `Put-file` automatically starts and finishes a commit for you so you can add files more easily. If you want to add many files over a period of time, you can do `start-commit` and `finish-commit` yourself.
+Unlike Git, commits in Pachyderm must be explicitly started and finished as they can contain huge amounts of data and we don't want that much "dirty" data hanging around in an unpersisted state. ``put file`` automatically starts and finishes a commit for you so you can add files more easily. If you want to add many files over a period of time, you can do ``start commit`` and ``finish commit`` yourself.
 
 We also specify the repo name "images", the branch name "master", and the file name: "liberty.png".
 
-Here's an example atomic commit of the file `liberty.png` to the `images` repo's `master` branch:
+Here's an example atomic commit of the file ``liberty.png`` to the ``images`` repo's ``master`` branch:
 
 .. code-block:: shell
 
-	$ pachctl put-file images master liberty.png -f http://imgur.com/46Q8nDz.png
+	$ pachctl put file images@master:liberty.png -f http://imgur.com/46Q8nDz.png
 
 We can check to make sure the data we just added is in Pachyderm.
 
 .. code-block:: shell
 
   # If we list the repos, we can see that there is now data
-  $ pachctl list-repo
+  $ pachctl list repo
   NAME   CREATED            SIZE (MASTER)
   images About a minute ago 57.27KiB
 
   # We can view the commit we just created
-  $ pachctl list-commit images
+  $ pachctl list commit images
   REPO   COMMIT                           PARENT STARTED        DURATION           SIZE
   images d89758a7496a4c56920b0eaa7d7d3255 <none> 29 seconds ago Less than a second 57.27KiB
   
   # And view the file in that commit
-  $ pachctl list-file images master
+  $ pachctl list file images@master
   COMMIT                           NAME         TYPE COMMITTED          SIZE     
   d89758a7496a4c56920b0eaa7d7d3255 /liberty.png file About a minute ago 57.27KiB
 
@@ -72,10 +72,10 @@ We can also view the file we just added to Pachyderm. Since this is an image, we
 .. code-block:: shell
  
   # on macOS
-  $ pachctl get-file images master liberty.png | open -f -a /Applications/Preview.app
+  $ pachctl get file images@master:liberty.png | open -f -a /Applications/Preview.app
 
   # on Linux
-  $ pachctl get-file images master liberty.png | display
+  $ pachctl get file images@master:liberty.png | display
 
 Create a Pipeline
 ^^^^^^^^^^^^^^^^^
@@ -144,7 +144,7 @@ Now let's create the pipeline in Pachyderm:
 
 .. code-block:: shell
 
-  $ pachctl create-pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json
+  $ pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json
 
 
 
@@ -159,7 +159,7 @@ You can view the job with:
 
 .. code-block:: shell
 
-  $ pachctl list-job
+  $ pachctl list job
   ID                               PIPELINE STARTED        DURATION           RESTART PROGRESS  DL       UL       STATE            
   0f6a53829eeb4ca193bb7944fe693700 edges    16 seconds ago Less than a second 0       1 + 0 / 1 57.27KiB 22.22KiB success
 
@@ -167,7 +167,7 @@ Yay! Our pipeline succeeded! Pachyderm creates a corresponding output repo for e
 
 .. code-block:: shell
 
-  $ pachctl list-repo
+  $ pachctl list repo
   NAME   CREATED       SIZE (MASTER)
   edges  2 minutes ago 22.22KiB
   images 5 minutes ago 57.27KiB
@@ -181,10 +181,10 @@ We can view the output data from the "edges" repo in the same fashion that we vi
 .. code-block:: shell
  
   # on macOS
-  $ pachctl get-file edges master liberty.png | open -f -a /Applications/Preview.app
+  $ pachctl get file edges@master:liberty.png | open -f -a /Applications/Preview.app
 
   # on Linux
-  $ pachctl get-file edges master liberty.png | display
+  $ pachctl get file edges@master:liberty.png | display
 
 The output should look similar to:
 
@@ -195,20 +195,20 @@ Processing More Data
 
 Pipelines will also automatically process the data from new commits as they are created. Think of pipelines as being subscribed to any new commits on their input repo(s). Also similar to Git, commits have a parental structure that tracks which files have changed. In this case we're going to be adding more images.
 
-Let's create two new commits in a parental structure. To do this we will simply do two more ``put-file`` commands and by specifying ``master`` as the branch, it'll automatically parent our commits onto each other. Branch names are just references to a particular HEAD commit.
+Let's create two new commits in a parental structure. To do this we will simply do two more ``put file`` commands and by specifying ``master`` as the branch, it'll automatically parent our commits onto each other. Branch names are just references to a particular HEAD commit.
 
 .. code-block:: shell
 
-  $ pachctl put-file images master AT-AT.png -f http://imgur.com/8MN9Kg0.png
+  $ pachctl put file images@master:AT-AT.png -f http://imgur.com/8MN9Kg0.png
 
-  $ pachctl put-file images master kitten.png -f http://imgur.com/g2QnNqa.png
+  $ pachctl put file images@master:kitten.png -f http://imgur.com/g2QnNqa.png
 
 Adding a new commit of data will automatically trigger the pipeline to run on the new data we've added. We'll see corresponding jobs get started and commits to the output "edges" repo. Let's also view our new outputs. 
 
 .. code-block:: shell
 
   # view the jobs that were kicked off
-  $ pachctl list-job
+  $ pachctl list job
   ID                                STARTED        DURATION           RESTART PROGRESS  DL       UL       STATE
   81ae47a802f14038b95f8f248cddbed2  7 seconds ago  Less than a second 0       1 + 2 / 3 102.4KiB 74.21KiB success
   ce448c12d0dd4410b3a5ae0c0f07e1f9  16 seconds ago Less than a second 0       1 + 1 / 2 78.7KiB  37.15KiB success
@@ -219,14 +219,14 @@ Adding a new commit of data will automatically trigger the pipeline to run on th
   # View the output data
 
   # on macOS
-  $ pachctl get-file edges master AT-AT.png | open -f -a /Applications/Preview.app
+  $ pachctl get file edges@master:AT-AT.png | open -f -a /Applications/Preview.app
 
-  $ pachctl get-file edges master kitten.png | open -f -a /Applications/Preview.app
+  $ pachctl get file edges@master:kitten.png | open -f -a /Applications/Preview.app
 
   # on Linux
-  $ pachctl get-file edges master AT-AT.png | display
+  $ pachctl get file edges@master:AT-AT.png | display
 
-  $ pachctl get-file edges master kitten.png | display
+  $ pachctl get file edges@master:kitten.png | display
 
 Adding Another Pipeline
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -265,21 +265,21 @@ Below is the pipeline spec for this new pipeline:
     }
   }
 
-This ``montage`` pipeline spec is similar to our ``edges`` pipeline except for three differences: (1) we are using a different Docker image that has imagemagick installed, (2) we are executing a ``sh`` command with ``stdin`` instead of a python script, and (3) we have multiple input data repositories.  
+This ``montage`` pipeline spec is similar to our ``edges`` pipeline except for three differences: (1) we are using a different Docker image that has imagemagick installed, (2) we are executing a ``sh`` command with ``stdin`` instead of a python script, and (3) we have multiple input data repositories.
 
-In the ``montage`` pipeline we are combining our multiple input data repositories using a ``cross`` pattern. This ``cross`` pattern creates a single pairing of our input images with our edge detected images. There are several interesting ways to combine data in Pachyderm, which are discussed `here <http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html#input-required>`_ and `here <http://pachyderm.readthedocs.io/en/latest/cookbook/combining.html>`_.
+In the ``montage`` pipeline we are combining our multiple input data repositories using a ``cross`` pattern. This ``cross`` pattern creates a single pairing of our input images with our edge detected images. There are several interesting ways to combine data in Pachyderm, which are discussed `here <http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html#input-required>`__ and `here <http://pachyderm.readthedocs.io/en/latest/cookbook/combining.html>`__.
 
 We create the ``montage`` pipeline as before, with ``pachctl``:
 
 .. code-block:: shell
 
-  $ pachctl create-pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/montage.json
+  $ pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/montage.json
 
 Pipeline creating triggers a job that generates a montage for all the current HEAD commits of the input repos:
 
 .. code-block:: shell
 
-  $ pachctl list-job
+  $ pachctl list job
   ID                                  STARTED        DURATION           RESTART PROGRESS  DL       UL       STATE
   92cecc40c3144fd5b4e07603bb24b104    45 seconds ago 6 seconds          0       1 + 0 / 1 371.9KiB 1.284MiB success
   81ae47a802f14038b95f8f248cddbed2    2 minutes ago  Less than a second 0       1 + 2 / 3 102.4KiB 74.21KiB success
@@ -291,15 +291,15 @@ And you can view the generated montage image via:
 .. code-block:: shell
 
   # on macOS
-  $ pachctl get-file montage master montage.png | open -f -a /Applications/Preview.app
+  $ pachctl get file montage@master:montage.png | open -f -a /Applications/Preview.app
 
   # on Linux
-  $ pachctl get-file montage master montage.png | display
+  $ pachctl get file montage@master:montage.png | display
 
 .. image:: montage-screenshot.png
 
 Exploring your DAG in the Pachyderm dashboard
---------------------------------------------
+---------------------------------------------
 
 When you deployed Pachyderm locally, the Pachyderm Enterprise dashboard was also deployed by default. This dashboard will let you interactively explore your pipeline, visualize the structure of the pipeline, explore your data, debug jobs, etc. To access the dashboard visit ``localhost:30080`` in an Internet browser (e.g., Google Chrome). You should see something similar to this:
 
@@ -317,7 +317,7 @@ Next Steps
 Pachyderm is now running locally with data and a pipeline! To play with Pachyderm locally, you can use what you've learned to build on or change this pipeline. You can also dig in and learn more details about:
 
 - `Deploying Pachyderm to the cloud or on prem <http://pachyderm.readthedocs.io/en/latest/deployment/deploy_intro.html>`_
-- :doc:`../fundamentals/getting_data_into_pachyderm`
-- :doc:`../fundamentals/creating_analysis_pipelines`
+- :doc:`../how-tos/load-data-into-pachyderm`
+- :doc:`../how-tos/working-with-pipelines`
 
 We'd love to help and see what you come up with, so submit any issues/questions you come across on `GitHub <https://github.com/pachyderm/pachyderm>`_ , `Slack <http://slack.pachyderm.io>`_, or email at support@pachyderm.io if you want to show off anything nifty you've created!

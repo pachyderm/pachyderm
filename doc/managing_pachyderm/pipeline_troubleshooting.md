@@ -21,7 +21,7 @@ At the bottom of the document, we'll provide specific troubleshooting steps for 
 
 ### Determining the kind of failure
 
-First off, you can see the status of Pachyderm's jobs with `pachctl list-job`, which will show you the status of all jobs.  For a failed job, use `pachctl inspect-job <job-id>` to find out more about the failure.  The different categories of failures are addressed below.
+First off, you can see the status of Pachyderm's jobs with `pachctl list job`, which will show you the status of all jobs.  For a failed job, use `pachctl inspect job <job-id>` to find out more about the failure.  The different categories of failures are addressed below.
 
 ### User Code Failures
 
@@ -31,7 +31,7 @@ When there’s an error in user code, the typical error message you’ll see is
 failed to process datum <UUID> with error: <user code error>
 ```
 
-This means pachyderm successfully got to the point where it was running user code, but that code exited with a non-zero error code. If any datum in a pipeline fails, the entire job will be marked as failed, but datums that did not fail will not need to be reprocessed on future jobs.   You can use `pachctl inspect-datum <job-id> <datum-id>` or `pachctl get-logs` with the `--pipeline`, `--job` or `--datum` flags to get more details.
+This means pachyderm successfully got to the point where it was running user code, but that code exited with a non-zero error code. If any datum in a pipeline fails, the entire job will be marked as failed, but datums that did not fail will not need to be reprocessed on future jobs.   You can use `pachctl inspect datum <job-id> <datum-id>` or `pachctl logs` with the `--pipeline`, `--job` or `--datum` flags to get more details.
 
 There are some cases where users may want mark a datum as successful even for a non-zero error code by setting the `transform.accept_return_code` field in the pipeline config .
 
@@ -39,9 +39,9 @@ There are some cases where users may want mark a datum as successful even for a 
 Pachyderm will automatically retry user code three (3) times before marking the datum as failed. This mitigates datums failing for transient connection reasons.
 
 #### Triage
-`pachctl get-logs --job=<job_ID>` or `pachctl get-logs --pipeline=<pipeline_name>` will print out any logs from your user code to help you triage the issue. Kubernetes will rotate logs occasionally so if nothing is being returned, you’ll need to make sure that you have a persistent log collection tool running in your cluster. If you set `enable_stats:true` in your pachyderm pipeline, pachyderm will persist the user logs for you. 
+`pachctl logs --job=<job_ID>` or `pachctl logs --pipeline=<pipeline_name>` will print out any logs from your user code to help you triage the issue. Kubernetes will rotate logs occasionally so if nothing is being returned, you’ll need to make sure that you have a persistent log collection tool running in your cluster. If you set `enable_stats:true` in your pachyderm pipeline, pachyderm will persist the user logs for you. 
 
-In cases where user code is failing, changes first need to be made to the code and followed by updating the pachyderm pipeline. This involves building a new docker container with the corrected code, modifying the pachyderm pipeline config to use the new image, and then calling `pachctl update-pipeline -f updated_pipeline_config.json`. Depending on the issue/error, user may or may not want to also include the `--reprocess` flag with `update-pipeline`. 
+In cases where user code is failing, changes first need to be made to the code and followed by updating the pachyderm pipeline. This involves building a new docker container with the corrected code, modifying the pachyderm pipeline config to use the new image, and then calling `pachctl update pipeline -f updated_pipeline_config.json`. Depending on the issue/error, user may or may not want to also include the `--reprocess` flag with `update pipeline`. 
 
 ### Data Failures
 
@@ -63,13 +63,13 @@ In some cases, where malformed datums are expected to happen occasionally, they 
 
 Pachyderm's engineering team is working on changes to the Pachyderm Pipeline System in a future release that may make implementation of design patterns like this easier.   [Take a look at the pipeline design changes for pachyderm 1.9](https://github.com/pachyderm/pachyderm/issues/3345)
 
-If a few files as part of the input commit are causing the failure, they can simply be removed from the HEAD commit with `start-commit`, `delete-file`, `finish-commit`. The files can also be corrected in this manner as well. This method is similar to a revert in Git -- the “bad” data will still live in the older commits in Pachyderm, but will not be part of the HEAD commit and therefore not processed by the pipeline.
+If a few files as part of the input commit are causing the failure, they can simply be removed from the HEAD commit with `start commit`, `delete file`, `finish commit`. The files can also be corrected in this manner as well. This method is similar to a revert in Git -- the “bad” data will still live in the older commits in Pachyderm, but will not be part of the HEAD commit and therefore not processed by the pipeline.
 
-If the entire commit is bad and you just want to remove it forever as if it never happened, `delete-commit` will both remove that commit and all downstream commits and jobs that were created as downstream effects of that input data. 
+If the entire commit is bad and you just want to remove it forever as if it never happened, `delete commit` will both remove that commit and all downstream commits and jobs that were created as downstream effects of that input data. 
 
 ### System-level Failures
 
-System-level failures are the most varied and often hardest to debug. We’ll outline a few common patterns and triage steps. Generally, you’ll need to look at deeper logs to find these errors using `pachctl get-logs --pipeline=<pipeline_name> --raw` and/or `--master` and `kubectl logs pod <pod_name>`.
+System-level failures are the most varied and often hardest to debug. We’ll outline a few common patterns and triage steps. Generally, you’ll need to look at deeper logs to find these errors using `pachctl logs --pipeline=<pipeline_name> --raw` and/or `--master` and `kubectl logs pod <pod_name>`.
 
 Here are some of the most common system-level failures:
 
@@ -123,19 +123,19 @@ In this case we would recommend 250GB to be safe. If your root volume size is le
 You can see the pipeline via:
 
 ```
-$ pachctl list-pipeline
+$ pachctl list pipeline
 ```
 
 But if you look at the job via:
 
 ```
-$ pachctl list-job
+$ pachctl list job
 ```
 
 It's marked as running with `0/0` datums having been processed.  If you inspect the job via:
 
 ```
-$ pachctl inspect-job
+$ pachctl inspect job
 ```
 
 You don't see any worker set. E.g:
@@ -156,7 +156,7 @@ But it's state is `Pending` or `CrashLoopBackoff`.
 
 #### Recourse
 
-First make sure that there is no parent job still running. Do `pachctl list-job | grep yourPipelineName` to see if there are pending jobs on this pipeline that were kicked off prior to your job. A parent job is the job that corresponds to the parent output commit of this pipeline. A job will block until all parent jobs complete.
+First make sure that there is no parent job still running. Do `pachctl list job | grep yourPipelineName` to see if there are pending jobs on this pipeline that were kicked off prior to your job. A parent job is the job that corresponds to the parent output commit of this pipeline. A job will block until all parent jobs complete.
 
 If there are no parent jobs that are still running, then continue debugging:
 

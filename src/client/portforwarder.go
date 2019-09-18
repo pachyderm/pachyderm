@@ -10,15 +10,15 @@ import (
 	"path"
 	"sync"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/config"
+
 	"github.com/facebookgo/pidfile"
 	log "github.com/sirupsen/logrus"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // enables support for configs with auth
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
 )
@@ -30,6 +30,7 @@ const (
 	dashUILocalPort        = 30080
 	dashWebSocketLocalPort = 30081
 	pfsLocalPort           = 30652
+	s3gatewayLocalPort     = 30600
 )
 
 // PortForwarder handles proxying local traffic to a kubernetes pod
@@ -45,20 +46,24 @@ type PortForwarder struct {
 }
 
 // NewPortForwarder creates a new port forwarder
-func NewPortForwarder(namespace string) (*PortForwarder, error) {
-	if namespace == "" {
-		namespace = "default"
+func NewPortForwarder() (*PortForwarder, error) {
+	cfg, err := config.Read()
+	if err != nil {
+		return nil, fmt.Errorf("could not read config: %v", err)
+	}
+	_, context, err := cfg.ActiveContext()
+	if err != nil {
+		return nil, fmt.Errorf("could not get active context: %v", err)
 	}
 
-	rules := clientcmd.NewDefaultClientConfigLoadingRules()
-	overrides := &clientcmd.ConfigOverrides{}
-	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, overrides)
-	config, err := kubeConfig.ClientConfig()
+	kubeConfig := config.KubeConfig(context)
+
+	kubeClientConfig, err := kubeConfig.ClientConfig()
 	if err != nil {
 		return nil, err
 	}
 
-	client, err := kubernetes.NewForConfig(config)
+	client, err := kubernetes.NewForConfig(kubeClientConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -68,8 +73,8 @@ func NewPortForwarder(namespace string) (*PortForwarder, error) {
 	return &PortForwarder{
 		core:          core,
 		client:        core.RESTClient(),
-		config:        config,
-		namespace:     namespace,
+		config:        kubeClientConfig,
+		namespace:     context.Namespace,
 		logger:        log.StandardLogger().Writer(),
 		stopChansLock: &sync.Mutex{},
 		stopChans:     []chan struct{}{},
@@ -186,6 +191,14 @@ func (f *PortForwarder) RunForPFS(localPort uint16) error {
 		localPort = pfsLocalPort
 	}
 	return f.Run("pachd", localPort, 30652)
+}
+
+// RunForS3Gateway creates a port forwarder for the s3gateway.
+func (f *PortForwarder) RunForS3Gateway(localPort uint16) error {
+	if localPort == 0 {
+		localPort = s3gatewayLocalPort
+	}
+	return f.Run("pachd", localPort, 600)
 }
 
 // Lock uses pidfiles to ensure that only one port forwarder is running across

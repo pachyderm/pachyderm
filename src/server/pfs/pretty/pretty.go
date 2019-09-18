@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/docker/go-units"
+	"github.com/fatih/color"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
 )
@@ -17,21 +18,16 @@ const (
 	// RepoAuthHeader is the header for repos with auth information attached.
 	RepoAuthHeader = "NAME\tCREATED\tSIZE (MASTER)\tACCESS LEVEL\t\n"
 	// CommitHeader is the header for commits.
-	CommitHeader = "REPO\tCOMMIT\tPARENT\tSTARTED\tDURATION\tSIZE\t\n"
+	CommitHeader = "REPO\tBRANCH\tCOMMIT\tPARENT\tSTARTED\tDURATION\tSIZE\t\n"
 	// BranchHeader is the header for branches.
 	BranchHeader = "BRANCH\tHEAD\t\n"
 	// FileHeader is the header for files.
-	FileHeader = "COMMIT\tNAME\tTYPE\tCOMMITTED\tSIZE\t\n"
+	FileHeader = "NAME\tTYPE\tSIZE\t\n"
+	// FileHeaderWithCommit is the header for files that includes a commit field.
+	FileHeaderWithCommit = "COMMIT\tNAME\tTYPE\tCOMMITTED\tSIZE\t\n"
+	// DiffFileHeader is the header for files produced by diff file.
+	DiffFileHeader = "OP\t" + FileHeader
 )
-
-// PrintRepoHeader prints a repo header.
-func PrintRepoHeader(w io.Writer, printAuth bool) {
-	if printAuth {
-		fmt.Fprint(w, RepoAuthHeader)
-		return
-	}
-	fmt.Fprint(w, RepoHeader)
-}
 
 // PrintRepoInfo pretty-prints repo info.
 func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo, fullTimestamps bool) {
@@ -82,11 +78,6 @@ Access level: {{ .AuthInfo.AccessLevel.String }}{{end}}
 	return nil
 }
 
-// PrintBranchHeader prints a branch header.
-func PrintBranchHeader(w io.Writer) {
-	fmt.Fprint(w, BranchHeader)
-}
-
 // PrintBranch pretty-prints a Branch.
 func PrintBranch(w io.Writer, branchInfo *pfs.BranchInfo) {
 	fmt.Fprintf(w, "%s\t", branchInfo.Branch.Name)
@@ -97,14 +88,14 @@ func PrintBranch(w io.Writer, branchInfo *pfs.BranchInfo) {
 	}
 }
 
-// PrintCommitInfoHeader prints a commit info header.
-func PrintCommitInfoHeader(w io.Writer) {
-	fmt.Fprint(w, CommitHeader)
-}
-
 // PrintCommitInfo pretty-prints commit info.
 func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Repo.Name)
+	if commitInfo.Branch != nil {
+		fmt.Fprintf(w, "%s\t", commitInfo.Branch.Name)
+	} else {
+		fmt.Fprintf(w, "<none>\t")
+	}
 	fmt.Fprintf(w, "%s\t", commitInfo.Commit.ID)
 	if commitInfo.ParentCommit != nil {
 		fmt.Fprintf(w, "%s\t", commitInfo.ParentCommit.ID)
@@ -143,7 +134,8 @@ func NewPrintableCommitInfo(ci *pfs.CommitInfo) *PrintableCommitInfo {
 // PrintDetailedCommitInfo pretty-prints detailed commit info.
 func PrintDetailedCommitInfo(commitInfo *PrintableCommitInfo) error {
 	template, err := template.New("CommitInfo").Funcs(funcMap).Parse(
-		`Commit: {{.Commit.Repo.Name}}/{{.Commit.ID}}{{if .Description}}
+		`Commit: {{.Commit.Repo.Name}}@{{.Commit.ID}}{{if .Branch}}
+Original Branch: {{.Branch.Name}}{{end}}{{if .Description}}
 Description: {{.Description}}{{end}}{{if .ParentCommit}}
 Parent: {{.ParentCommit.ID}}{{end}}{{if .FullTimestamps}}
 Started: {{.Started}}{{else}}
@@ -151,7 +143,7 @@ Started: {{prettyAgo .Started}}{{end}}{{if .Finished}}{{if .FullTimestamps}}
 Finished: {{.Finished}}{{else}}
 Finished: {{prettyAgo .Finished}}{{end}}{{end}}
 Size: {{prettySize .SizeBytes}}{{if .Provenance}}
-Provenance: {{range .Provenance}} {{.Repo.Name}}/{{.ID}} {{end}} {{end}}
+Provenance: {{range .Provenance}} {{.Commit.Repo.Name}}@{{.Commit.ID}} ({{.Branch.Name}}) {{end}} {{end}}
 `)
 	if err != nil {
 		return err
@@ -163,30 +155,39 @@ Provenance: {{range .Provenance}} {{.Repo.Name}}/{{.ID}} {{end}} {{end}}
 	return nil
 }
 
-// PrintFileInfoHeader prints a file info header.
-func PrintFileInfoHeader(w io.Writer) {
-	fmt.Fprint(w, FileHeader)
-}
-
 // PrintFileInfo pretty-prints file info.
 // If recurse is false and directory size is 0, display "-" instead
 // If fast is true and file size is 0, display "-" instead
-func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, fullTimestamps bool) {
-	fmt.Fprintf(w, "%s\t", fileInfo.File.Commit.ID)
+func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, fullTimestamps, withCommit bool) {
+	if withCommit {
+		fmt.Fprintf(w, "%s\t", fileInfo.File.Commit.ID)
+	}
 	fmt.Fprintf(w, "%s\t", fileInfo.File.Path)
 	if fileInfo.FileType == pfs.FileType_FILE {
 		fmt.Fprint(w, "file\t")
 	} else {
 		fmt.Fprint(w, "dir\t")
 	}
-	if fileInfo.Committed == nil {
-		fmt.Fprintf(w, "-\t")
-	} else if fullTimestamps {
-		fmt.Fprintf(w, "%s\t", fileInfo.Committed.String())
-	} else {
-		fmt.Fprintf(w, "%s\t", pretty.Ago(fileInfo.Committed))
+	if withCommit {
+		if fileInfo.Committed == nil {
+			fmt.Fprintf(w, "-\t")
+		} else if fullTimestamps {
+			fmt.Fprintf(w, "%s\t", fileInfo.Committed.String())
+		} else {
+			fmt.Fprintf(w, "%s\t", pretty.Ago(fileInfo.Committed))
+		}
 	}
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(fileInfo.SizeBytes)))
+}
+
+// PrintDiffFileInfo pretty-prints a file info from diff file.
+func PrintDiffFileInfo(w io.Writer, added bool, fileInfo *pfs.FileInfo, fullTimestamps bool) {
+	if added {
+		fmt.Fprintf(w, color.GreenString("+\t"))
+	} else {
+		fmt.Fprintf(w, color.RedString("-\t"))
+	}
+	PrintFileInfo(w, fileInfo, fullTimestamps, false)
 }
 
 // PrintDetailedFileInfo pretty-prints detailed file info.

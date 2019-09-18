@@ -24,19 +24,19 @@ Please paste your Pachyderm auth token:
 You are "robot:admin"
 You are an administrator of this Pachyderm cluster
 
-(admin)$ pachctl create-repo images
-(admin)$ pachctl create-pipeline -f examples/opencv/edges.json
-(admin)$ pachctl create-pipeline -f examples/opencv/montage.json
-(admin)$ pachctl put-file images master -i examples/opencv/images.txt
-(admin)$ pachctl put-file images master -i examples/opencv/images2.txt
+(admin)$ pachctl create repo images
+(admin)$ pachctl create pipeline -f examples/opencv/edges.json
+(admin)$ pachctl create pipeline -f examples/opencv/montage.json
+(admin)$ pachctl put file images@master -i examples/opencv/images.txt
+(admin)$ pachctl put file images@master -i examples/opencv/images2.txt
 
-(admin)$ pachctl list-repo
+(admin)$ pachctl list repo
 NAME    CREATED       SIZE (MASTER) ACCESS LEVEL
 montage 2 minutes ago 1.653MiB      OWNER
 edges   2 minutes ago 133.6KiB      OWNER
 images  2 minutes ago 238.3KiB      OWNER
 
-(admin)$ pachctl list-job
+(admin)$ pachctl list job
 ID                               OUTPUT COMMIT                            STARTED       DURATION  RESTART PROGRESS  DL       UL       STATE
 023a478b16e849b4996c19632fee6782 montage/e3dd7e9cacc5450c92e0e62ab844bd26 2 minutes ago 8 seconds 0       1 + 0 / 1 371.9KiB 1.283MiB success
 fe8b409e0db54f96bbb757d4d0679186 edges/9cc634a63f794a14a78e931bea47fa73   2 minutes ago 5 seconds 0       2 + 1 / 3 181.1KiB 111.4KiB success

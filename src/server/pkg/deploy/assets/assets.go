@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tls"
 	auth "github.com/pachyderm/pachyderm/src/server/auth/server"
 	pfs "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
@@ -30,7 +30,7 @@ var (
 	// that hasn't been released, and which has been manually applied
 	// to the official v3.2.7 release.
 	etcdImage      = "quay.io/coreos/etcd:v3.3.5"
-	grpcProxyImage = "pachyderm/grpc-proxy:0.4.2"
+	grpcProxyImage = "pachyderm/grpc-proxy:0.4.6"
 	dashName       = "dash"
 	workerImage    = "pachyderm/worker"
 	pauseImage     = "gcr.io/google_containers/pause-amd64:3.0"
@@ -252,7 +252,7 @@ func fillDefaultResourceRequests(opts *AssetOpts, persistentDiskBackend backend)
 		}
 
 		if opts.EtcdMemRequest == "" {
-			opts.EtcdMemRequest = "256M"
+			opts.EtcdMemRequest = "512M"
 		}
 		if opts.EtcdCPURequest == "" {
 			opts.EtcdCPURequest = "0.25"
@@ -486,7 +486,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 		})
 		volumeMounts = append(volumeMounts, v1.VolumeMount{
 			Name:      tlsVolumeName,
-			MountPath: grpcutil.TLSVolumePath,
+			MountPath: tls.VolumePath,
 		})
 	}
 	resourceRequirements := v1.ResourceRequirements{
@@ -627,6 +627,8 @@ func PachdService(opts *AssetOpts) *v1.Service {
 				"app": pachdName,
 			},
 			Ports: []v1.ServicePort{
+				// NOTE: do not put any new ports before `api-grpc-port`, as
+				// it'll change k8s SERVICE_PORT env var values
 				{
 					Port:     650, // also set in cmd/pachd/main.go
 					Name:     "api-grpc-port",
@@ -651,6 +653,11 @@ func PachdService(opts *AssetOpts) *v1.Service {
 					Port:     githook.GitHookPort,
 					Name:     "api-git-port",
 					NodePort: githook.NodePort(),
+				},
+				{
+					Port:     600, // also set in cmd/pachd/main.go
+					Name:     "s3gateway-port",
+					NodePort: 30600,
 				},
 			},
 		},
@@ -1230,7 +1237,8 @@ func LocalSecret() map[string][]byte {
 //   secret       - AWS secret access key
 //   token        - AWS access token
 //   distribution - cloudfront distribution
-func AmazonSecret(region, bucket, id, secret, token, distribution string) map[string][]byte {
+//   endpoint     - Custom endpoint (generally used for S3 compatible object stores)
+func AmazonSecret(region, bucket, id, secret, token, distribution, endpoint string) map[string][]byte {
 	return map[string][]byte{
 		"amazon-region":       []byte(region),
 		"amazon-bucket":       []byte(bucket),
@@ -1238,6 +1246,7 @@ func AmazonSecret(region, bucket, id, secret, token, distribution string) map[st
 		"amazon-secret":       []byte(secret),
 		"amazon-token":        []byte(token),
 		"amazon-distribution": []byte(distribution),
+		"custom-endpoint":     []byte(endpoint),
 	}
 }
 
@@ -1447,8 +1456,8 @@ func WriteTLSSecret(encoder Encoder, opts *AssetOpts) error {
 		},
 		ObjectMeta: objectMeta(tlsSecretName, labels(tlsSecretName), nil, opts.Namespace),
 		Data: map[string][]byte{
-			grpcutil.TLSCertFile: certBytes,
-			grpcutil.TLSKeyFile:  keyBytes,
+			tls.CertFile: certBytes,
+			tls.KeyFile:  keyBytes,
 		},
 	}
 	return encoder.Encode(secret)
@@ -1477,23 +1486,36 @@ func WriteCustomAssets(encoder Encoder, opts *AssetOpts, args []string, objectSt
 		if err != nil {
 			return fmt.Errorf("volume size needs to be an integer; instead got %v", args[1])
 		}
+		objectStoreBackend := amazonBackend
+		// (bryce) use minio if we need v2 signing enabled.
+		if isS3V2 {
+			objectStoreBackend = minioBackend
+		}
 		switch persistentDiskBackend {
 		case "aws":
-			if err := WriteAssets(encoder, opts, minioBackend, amazonBackend, volumeSize, ""); err != nil {
+			if err := WriteAssets(encoder, opts, objectStoreBackend, amazonBackend, volumeSize, ""); err != nil {
 				return err
 			}
 		case "google":
-			if err := WriteAssets(encoder, opts, minioBackend, googleBackend, volumeSize, ""); err != nil {
+			if err := WriteAssets(encoder, opts, objectStoreBackend, googleBackend, volumeSize, ""); err != nil {
 				return err
 			}
 		case "azure":
-			if err := WriteAssets(encoder, opts, minioBackend, microsoftBackend, volumeSize, ""); err != nil {
+			if err := WriteAssets(encoder, opts, objectStoreBackend, microsoftBackend, volumeSize, ""); err != nil {
 				return err
 			}
 		default:
 			return fmt.Errorf("Did not recognize the choice of persistent-disk")
 		}
-		return WriteSecret(encoder, MinioSecret(args[2], args[3], args[4], args[5], secure, isS3V2), opts)
+		bucket := args[2]
+		id := args[3]
+		secret := args[4]
+		endpoint := args[5]
+		if objectStoreBackend == minioBackend {
+			return WriteSecret(encoder, MinioSecret(bucket, id, secret, endpoint, secure, isS3V2), opts)
+		}
+		// (bryce) hardcode region?
+		return WriteSecret(encoder, AmazonSecret("us-east-1", bucket, id, secret, "", "", endpoint), opts)
 	default:
 		return fmt.Errorf("Did not recognize the choice of object-store")
 	}
@@ -1523,7 +1545,7 @@ func WriteAmazonAssets(encoder Encoder, opts *AssetOpts, region string, bucket s
 	if creds == nil {
 		secret = AmazonIAMRoleSecret(region, bucket, cloudfrontDistro)
 	} else if creds.ID != "" {
-		secret = AmazonSecret(region, bucket, creds.ID, creds.Secret, creds.Token, cloudfrontDistro)
+		secret = AmazonSecret(region, bucket, creds.ID, creds.Secret, creds.Token, cloudfrontDistro, "")
 	} else if creds.VaultAddress != "" {
 		secret = AmazonVaultSecret(region, bucket, creds.VaultAddress, creds.VaultRole, creds.VaultToken, cloudfrontDistro)
 	}

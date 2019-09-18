@@ -35,13 +35,15 @@ import (
 	kube "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"github.com/fsouza/go-dockerclient"
+	docker "github.com/fsouza/go-dockerclient"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
@@ -77,8 +79,9 @@ const (
 )
 
 var (
-	errSpecialFile = errors.New("cannot upload special file")
-	statsTagSuffix = "_stats"
+	errSpecialFile    = errors.New("cannot upload special file")
+	errDatumRecovered = errors.New("the datum errored, and the error was handled successfully")
+	statsTagSuffix    = "_stats"
 )
 
 // APIServer implements the worker API
@@ -312,6 +315,15 @@ func (logger *taggedLogger) userLogger() *taggedLogger {
 // NewAPIServer creates an APIServer for a given pipeline
 func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix string, pipelineInfo *pps.PipelineInfo, workerName string, namespace string, hashtreeStorage string) (*APIServer, error) {
 	initPrometheus()
+
+	span, ctx := extended.AddPipelineSpanToAnyTrace(pachClient.Ctx(),
+		etcdClient, pipelineInfo.Pipeline.Name, "/worker/Start")
+	oldPachClient := pachClient // don't use tracing in apiServer.pachClient
+	if span != nil {
+		pachClient = pachClient.WithCtx(ctx)
+	}
+	defer tracing.FinishAnySpan(span)
+
 	cfg, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, err
@@ -321,7 +333,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		return nil, err
 	}
 	server := &APIServer{
-		pachClient:   pachClient,
+		pachClient:   oldPachClient,
 		kubeClient:   kubeClient,
 		etcdClient:   etcdClient,
 		etcdPrefix:   etcdPrefix,
@@ -394,6 +406,11 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 			pipelineInfo.Transform.WorkingDir = image.Config.WorkingDir
 		}
 		if server.pipelineInfo.Transform.Cmd == nil {
+			if len(image.Config.Entrypoint) == 0 {
+				ppsutil.FailPipeline(ctx, etcdClient, server.pipelines,
+					pipelineInfo.Pipeline.Name,
+					"nothing to run: no transform.cmd and no entrypoint")
+			}
 			server.pipelineInfo.Transform.Cmd = image.Config.Entrypoint
 		}
 	}
@@ -513,7 +530,7 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 			logger.Logf("finished downloading data after %v", time.Since(start))
 		}
 	}(time.Now())
-	dir := filepath.Join(client.PPSScratchSpace, uuid.NewWithoutDashes())
+	dir := filepath.Join(client.PPSInputPrefix, client.PPSScratchSpace, uuid.NewWithoutDashes())
 	// Create output directory (currently /pfs/out)
 	outPath := filepath.Join(dir, "out")
 	if a.pipelineInfo.Spout != nil {
@@ -552,6 +569,10 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 }
 
 func (a *APIServer) linkData(inputs []*Input, dir string) error {
+	// Make sure that previously symlinked outputs are removed.
+	if err := a.unlinkData(inputs); err != nil {
+		return err
+	}
 	for _, input := range inputs {
 		src := filepath.Join(dir, input.Name)
 		dst := filepath.Join(client.PPSInputPrefix, input.Name)
@@ -563,12 +584,19 @@ func (a *APIServer) linkData(inputs []*Input, dir string) error {
 }
 
 func (a *APIServer) unlinkData(inputs []*Input) error {
-	for _, input := range inputs {
-		if err := os.RemoveAll(filepath.Join(client.PPSInputPrefix, input.Name)); err != nil {
+	dirs, err := ioutil.ReadDir(client.PPSInputPrefix)
+	if err != nil {
+		return fmt.Errorf("ioutil.ReadDir: %v", err)
+	}
+	for _, d := range dirs {
+		if d.Name() == client.PPSScratchSpace {
+			continue // don't delete scratch space
+		}
+		if err := os.RemoveAll(filepath.Join(client.PPSInputPrefix, d.Name())); err != nil {
 			return err
 		}
 	}
-	return os.RemoveAll(filepath.Join(client.PPSInputPrefix, "out"))
+	return nil
 }
 
 func (a *APIServer) reportUserCodeStats(logger *taggedLogger) {
@@ -662,6 +690,74 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 		}
 	}
 
+	// Because of this issue: https://github.com/golang/go/issues/18874
+	// We forked os/exec so that we can call just the part of cmd.Wait() that
+	// happens after blocking on the process. Unfortunately calling
+	// cmd.Process.Wait() then cmd.Wait() will produce an error. So instead we
+	// close the IO using this helper
+	err = cmd.WaitIO(state, err)
+	// We ignore broken pipe errors, these occur very occasionally if a user
+	// specifies Stdin but their process doesn't actually read everything from
+	// Stdin. This is a fairly common thing to do, bash by default ignores
+	// broken pipe errors.
+	if err != nil && !strings.Contains(err.Error(), "broken pipe") {
+		// (if err is an acceptable return code, don't return err)
+		if exiterr, ok := err.(*exec.ExitError); ok {
+			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
+				for _, returnCode := range a.pipelineInfo.Transform.AcceptReturnCode {
+					if int(returnCode) == status.ExitStatus() {
+						return nil
+					}
+				}
+			}
+		}
+		return fmt.Errorf("error cmd.WaitIO: %v", err)
+	}
+	return nil
+}
+
+// Run user error code and return the combined output of stdout and stderr.
+func (a *APIServer) runUserErrorHandlingCode(ctx context.Context, logger *taggedLogger, environ []string, stats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
+	logger.Logf("beginning to run user error handling code")
+	defer func(start time.Time) {
+		if retErr != nil {
+			logger.Logf("errored running user error handling code after %v: %v", time.Since(start), retErr)
+		} else {
+			logger.Logf("finished running user error handling code after %v", time.Since(start))
+		}
+	}(time.Now())
+
+	cmd := exec.CommandContext(ctx, a.pipelineInfo.Transform.ErrCmd[0], a.pipelineInfo.Transform.ErrCmd[1:]...)
+	if a.pipelineInfo.Transform.ErrStdin != nil {
+		cmd.Stdin = strings.NewReader(strings.Join(a.pipelineInfo.Transform.ErrStdin, "\n") + "\n")
+	}
+	cmd.Stdout = logger.userLogger()
+	cmd.Stderr = logger.userLogger()
+	cmd.Env = environ
+	if a.uid != nil && a.gid != nil {
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			Credential: &syscall.Credential{
+				Uid: *a.uid,
+				Gid: *a.gid,
+			},
+		}
+	}
+	cmd.Dir = a.pipelineInfo.Transform.WorkingDir
+	err := cmd.Start()
+	if err != nil {
+		return fmt.Errorf("error cmd.Start: %v", err)
+	}
+	// A context w a deadline will successfully cancel/kill
+	// the running process (minus zombies)
+	state, err := cmd.Process.Wait()
+	if err != nil {
+		return fmt.Errorf("error cmd.Wait: %v", err)
+	}
+	if isDone(ctx) {
+		if err = ctx.Err(); err != nil {
+			return err
+		}
+	}
 	// Because of this issue: https://github.com/golang/go/issues/18874
 	// We forked os/exec so that we can call just the part of cmd.Wait() that
 	// happens after blocking on the process. Unfortunately calling
@@ -904,7 +1000,7 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 	}); err != nil {
 		return fmt.Errorf("error walking output: %v", err)
 	}
-	if err := putObjsClient.CloseSend(); err != nil {
+	if _, err := putObjsClient.CloseAndRecv(); err != nil && err != io.EOF {
 		return err
 	}
 	// Serialize datum hashtree
@@ -1048,6 +1144,7 @@ type processResult struct {
 	failedDatumID   string
 	datumsProcessed int64
 	datumsSkipped   int64
+	datumsRecovered int64
 	datumsFailed    int64
 }
 
@@ -1085,7 +1182,6 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, plan *Plan,
 			if e.Type == watch.EventError {
 				return fmt.Errorf("chunk watch error: %v", e.Err)
 			}
-			return nil
 		case <-ctx.Done():
 			return ctx.Err()
 		}
@@ -1104,6 +1200,7 @@ func (a *APIServer) processChunk(ctx context.Context, jobID string, low, high in
 		if err := jobs.Update(jobID, jobPtr, func() error {
 			jobPtr.DataProcessed += processResult.datumsProcessed
 			jobPtr.DataSkipped += processResult.datumsSkipped
+			jobPtr.DataRecovered += processResult.datumsRecovered
 			jobPtr.DataFailed += processResult.datumsFailed
 			return nil
 		}); err != nil {
@@ -1127,7 +1224,8 @@ func (a *APIServer) processChunk(ctx context.Context, jobID string, low, high in
 	return nil
 }
 
-func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APIClient, jobInfo *pps.JobInfo, jobID string, plan *Plan, logger *taggedLogger, df DatumFactory, skip map[string]struct{}, useParentHashTree bool) (retErr error) {
+func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APIClient, jobInfo *pps.JobInfo, jobID string,
+	plan *Plan, logger *taggedLogger, df DatumIterator, skip map[string]struct{}, useParentHashTree bool) (retErr error) {
 	for {
 		if err := func() error {
 			// if this worker is not responsible for a shard, it waits to be assigned one or for the job to finish
@@ -1140,7 +1238,7 @@ func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APICl
 				}
 			}
 			ctx, _ := joincontext.Join(jobCtx, a.shardCtx)
-			objClient, err := obj.NewClientFromEnv(a.hashtreeStorage)
+			objClient, err := obj.NewClientFromSecret(a.hashtreeStorage)
 			if err != nil {
 				return err
 			}
@@ -1306,10 +1404,10 @@ func (a *APIServer) getChunk(ctx context.Context, id int64, address string, fail
 	return nil
 }
 
-func (a *APIServer) computeTags(df DatumFactory, low, high int64, skip map[string]struct{}, useParentHashTree bool) []*pfs.Tag {
+func (a *APIServer) computeTags(df DatumIterator, low, high int64, skip map[string]struct{}, useParentHashTree bool) []*pfs.Tag {
 	var tags []*pfs.Tag
 	for i := low; i < high; i++ {
-		files := df.Datum(int(i))
+		files := df.DatumN(int(i))
 		datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
 		// Skip datum if it is in the parent hashtree and the parent hashtree is being used in the merge
 		if _, ok := skip[datumHash]; ok && useParentHashTree {
@@ -1397,6 +1495,7 @@ func (a *APIServer) merge(pachClient *client.APIClient, objClient obj.Client, st
 }
 
 func (a *APIServer) getParentCommitInfo(ctx context.Context, pachClient *client.APIClient, commit *pfs.Commit) (*pfs.CommitInfo, error) {
+	outputCommitID := commit.ID
 	commitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
 		&pfs.InspectCommitRequest{
 			Commit: commit,
@@ -1405,6 +1504,8 @@ func (a *APIServer) getParentCommitInfo(ctx context.Context, pachClient *client.
 		return nil, err
 	}
 	for commitInfo.ParentCommit != nil {
+		a.getWorkerLogger().Logf("blocking on parent commit %q before writing to output commit %q",
+			commitInfo.ParentCommit.ID, outputCommitID)
 		parentCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
 			&pfs.InspectCommitRequest{
 				Commit:     commitInfo.ParentCommit,
@@ -1503,6 +1604,9 @@ func (a *APIServer) getParentHashTree(ctx context.Context, pachClient *client.AP
 	if err != nil {
 		return nil, err
 	}
+	if parentCommitInfo == nil {
+		return ioutil.NopCloser(&bytes.Buffer{}), nil
+	}
 	info, err := pachClient.InspectObject(parentCommitInfo.Trees[merge].Hash)
 	if err != nil {
 		return nil, err
@@ -1579,9 +1683,11 @@ func (a *APIServer) cancelCtxIfJobFails(jobCtx context.Context, jobCancel func()
 						return fmt.Errorf("worker: error unmarshalling while watching job state (%v)", err)
 					}
 					if ppsutil.IsTerminal(jobPtr.State) {
+						logger.Logf("job %q put in terminal state %q; cancelling", jobID, jobPtr.State)
 						jobCancel() // cancel the job
 					}
 				case watch.EventDelete:
+					logger.Logf("job %q deleted; cancelling", jobID)
 					jobCancel() // cancel the job
 				case watch.EventError:
 					return fmt.Errorf("job state watch error: %v", e.Err)
@@ -1674,6 +1780,7 @@ func (a *APIServer) worker() {
 				return fmt.Errorf("error from InspectJob(%v): %+v", jobID, err)
 			}
 			if jobInfo.PipelineVersion < a.pipelineInfo.Version {
+				logger.Logf("skipping job %v as it uses old pipeline version %d", jobID, jobInfo.PipelineVersion)
 				continue
 			}
 			if jobInfo.PipelineVersion > a.pipelineInfo.Version {
@@ -1681,13 +1788,14 @@ func (a *APIServer) worker() {
 					"version (%d), this should automatically resolve when the worker "+
 					"is updated", jobID, jobInfo.PipelineVersion, a.pipelineInfo.Version)
 			}
+			logger.Logf("processing job %v", jobID)
 
 			// Read the chunks laid out by the master and create the datum factory
 			plan := &Plan{}
 			if err := a.plans.ReadOnly(jobCtx).GetBlock(jobInfo.Job.ID, plan); err != nil {
-				return err
+				return fmt.Errorf("error reading job chunks: %v", err)
 			}
-			df, err := NewDatumFactory(pachClient, jobInfo.Input)
+			df, err := NewDatumIterator(pachClient, jobInfo.Input)
 			if err != nil {
 				return fmt.Errorf("error from NewDatumFactory: %v", err)
 			}
@@ -1707,7 +1815,7 @@ func (a *APIServer) worker() {
 				}
 				var count int
 				for i := 0; i < df.Len(); i++ {
-					files := df.Datum(i)
+					files := df.DatumN(i)
 					datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
 					if _, ok := skip[datumHash]; ok {
 						count++
@@ -1794,7 +1902,8 @@ func (a *APIServer) claimShard(ctx context.Context) {
 // processDatums processes datums from low to high in df, if a datum fails it
 // returns the id of the failed datum it also may return a variety of errors
 // such as network errors.
-func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo, df DatumFactory, low, high int64, skip map[string]struct{}, useParentHashTree bool) (result *processResult, retErr error) {
+func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo,
+	df DatumIterator, low, high int64, skip map[string]struct{}, useParentHashTree bool) (result *processResult, retErr error) {
 	defer func() {
 		if err := a.datumCache.Clear(); err != nil && retErr == nil {
 			logger.Logf("error clearing datum cache: %v", err)
@@ -1804,7 +1913,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 		}
 	}()
 	ctx := pachClient.Ctx()
-	objClient, err := obj.NewClientFromEnv(a.hashtreeStorage)
+	objClient, err := obj.NewClientFromSecret(a.hashtreeStorage)
 	if err != nil {
 		return nil, err
 	}
@@ -1822,7 +1931,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 			defer limiter.Release()
 			defer atomic.AddInt64(&a.queueSize, -1)
 
-			data := df.Datum(int(datumIdx))
+			data := df.DatumN(int(datumIdx))
 			logger, err := a.getTaggedLogger(pachClient, jobInfo.Job.ID, data, a.pipelineInfo.EnableStats)
 			if err != nil {
 				return err
@@ -1944,6 +2053,12 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 					})
 				}
 				if err := a.runUserCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
+					if a.pipelineInfo.Transform.ErrCmd != nil && failures == jobInfo.DatumTries-1 {
+						if err = a.runUserErrorHandlingCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
+							return fmt.Errorf("error runUserErrorHandlingCode: %v", err)
+						}
+						return errDatumRecovered
+					}
 					return fmt.Errorf("error runUserCode: %v", err)
 				}
 				// CleanUp is idempotent so we can call it however many times we want.
@@ -1987,7 +2102,10 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				}
 				logger.Logf("failed processing datum: %v, retrying in %v", err, d)
 				return nil
-			}); err != nil {
+			}); err == errDatumRecovered {
+				atomic.AddInt64(&result.datumsRecovered, 1)
+				return nil
+			} else if err != nil {
 				result.failedDatumID = a.DatumID(data)
 				atomic.AddInt64(&result.datumsFailed, 1)
 				return nil
@@ -2020,7 +2138,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 	}); err != nil {
 		return nil, err
 	}
-	result.datumsProcessed = high - low - result.datumsSkipped - result.datumsFailed
+	result.datumsProcessed = high - low - result.datumsSkipped - result.datumsFailed - result.datumsRecovered
 	// Merge datum hashtrees into a chunk hashtree, then cache it.
 	if err := a.mergeChunk(logger, high, result); err != nil {
 		return nil, err
@@ -2039,7 +2157,10 @@ func (a *APIServer) cacheHashtree(pachClient *client.APIClient, tag string, datu
 	if a.pipelineInfo.EnableStats {
 		buf.Reset()
 		if err := pachClient.GetTag(tag+statsTagSuffix, buf); err != nil {
-			return err
+			// We are okay with not finding the stats hashtree.
+			// This allows users to enable stats on a pipeline
+			// with pre-existing jobs.
+			return nil
 		}
 		return a.datumStatsCache.Put(datumIdx, buf)
 	}

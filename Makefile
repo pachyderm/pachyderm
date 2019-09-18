@@ -3,24 +3,21 @@
 # DOCKER_OPTS: docker-compose options for run, test, launch-*
 # TESTPKGS: packages for test, default ./src/...
 # TESTFLAGS: flags for test
-# VENDOR_ALL: do not ignore some vendors when updating vendor directory
-# VENDOR_IGNORE_DIRS: ignore vendor dirs
 # KUBECTLFLAGS: flags for kubectl
+# DOCKER_BUILD_FLAGS: flags for 'docker build'
 ####
 
 ifndef TESTPKGS
 	TESTPKGS = ./src/...
-endif
-ifdef VENDOR_ALL
-	VENDOR_IGNORE_DIRS =
 endif
 
 COMPILE_RUN_ARGS = -d -v /var/run/docker.sock:/var/run/docker.sock --privileged=true
 # Label it w the go version we bundle in:
 COMPILE_IMAGE = "pachyderm/compile:$(shell cat etc/compile/GO_VERSION)"
 export VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
-LD_FLAGS = -X github.com/pachyderm/pachyderm/src/server/vendor/github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
+LD_FLAGS = -X github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
 GC_FLAGS = "all=-trimpath=${PWD}"
+export DOCKER_BUILD_FLAGS
 
 CLUSTER_NAME?=pachyderm
 CLUSTER_MACHINE_TYPE?=n1-standard-4
@@ -53,23 +50,13 @@ version:
 	go run /tmp/pachyderm_version.go
 
 deps:
-	GO15VENDOREXPERIMENT=0 go get -d -v ./src/... ./.
+	go get -d -v ./src/... ./.
 
-update-deps:
-	GO15VENDOREXPERIMENT=0 go get -d -v -u -f ./src/... ./.
-
-test-deps:
-	GO15VENDOREXPERIMENT=0 go get -d -v -t ./src/... ./.
-
-update-test-deps:
-	GO15VENDOREXPERIMENT=0 go get -d -v -t -u -f ./src/... ./.
-
-build-clean-vendored-client:
-	rm -rf src/server/vendor/github.com/pachyderm/pachyderm/src/client
+update-deps: 
+	go get -d -v -u ./src/... ./.
 
 build:
-	GO15VENDOREXPERIMENT=1 go build $$(go list ./src/client/... | grep -v '/src/client$$')
-	GO15VENDOREXPERIMENT=1 go build $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server$$')
+	GO111MODULE=on go build -mod vendor $$(go list ./src/client/... | grep -v '/src/client$$')
 
 pachd:
 	go build ./src/server/cmd/pachd
@@ -79,11 +66,11 @@ worker:
 
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
-	GO15VENDOREXPERIMENT=1 go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
+	GO111MODULE=on go install -mod vendor -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
 
 install-mac:
 	# Result will be in $GOPATH/bin/darwin_amd64/pachctl (if building on linux)
-	GO15VENDOREXPERIMENT=1 GOOS=darwin GOARCH=amd64 go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
+	GO111MODULE=on GOOS=darwin GOARCH=amd64 go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
 
 install-clean:
 	@# Need to blow away pachctl binary if its already there
@@ -91,7 +78,7 @@ install-clean:
 	@make install
 
 install-doc:
-	GO15VENDOREXPERIMENT=1 go install -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl-doc
+	GO111MODULE=on go install -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl-doc
 
 check-docker-version:
 	# The latest docker client requires server api version >= 1.24.
@@ -150,7 +137,7 @@ release-worker:
 	@VERSION="$(shell cat VERSION)" ./etc/build/release_worker
 
 docker-build-compile:
-	docker build -t pachyderm_compile .
+	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_compile .
 
 # To bump this, update the etc/compile/GO_VERSION file
 publish-compile: docker-build-compile
@@ -163,9 +150,11 @@ docker-clean-worker:
 
 docker-build-worker: docker-clean-worker
 	docker run \
-		-v $$GOPATH/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
+		-v $(PWD):/go/src/github.com/pachyderm/pachyderm \
+		-v $$GOPATH/pkg:/go/pkg \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
 		--name worker_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh worker "$(LD_FLAGS)"
+
 
 docker-wait-worker:
 	etc/compile/wait.sh worker_compile
@@ -176,7 +165,8 @@ docker-clean-pachd:
 
 docker-build-pachd: docker-clean-pachd
 	docker run  \
-		-v $$GOPATH/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
+		-v $(PWD):/go/src/github.com/pachyderm/pachyderm \
+		-v $$GOPATH/pkg:/go/pkg \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
 		--name pachd_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh pachd "$(LD_FLAGS)"
 
@@ -219,14 +209,19 @@ docker-build:
 	make docker-build-helper
 
 docker-build-proto:
-	docker build -t pachyderm_proto etc/proto
+	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_proto etc/proto
 
 docker-build-netcat:
-	docker build -t pachyderm_netcat etc/netcat
+	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_netcat etc/netcat
 
 docker-build-gpu:
-	docker build -t pachyderm_nvidia_driver_install etc/deploy/gpu
+	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_nvidia_driver_install etc/deploy/gpu
 	docker tag pachyderm_nvidia_driver_install pachyderm/nvidia_driver_install
+
+docker-build-kafka:
+	cp -R vendor/github.com/segmentio/kafka-go etc/testing/kafka
+	docker build -t kafka-demo etc/testing/kafka || { rm -r etc/testing/kafka/kafka-go; exit 1; }
+	rm -r etc/testing/kafka/kafka-go
 
 docker-push-gpu:
 	docker push pachyderm/nvidia_driver_install
@@ -241,7 +236,7 @@ docker-gpu: docker-build-gpu docker-push-gpu
 docker-gpu-dev: docker-build-gpu docker-push-gpu-dev
 
 docker-build-test-entrypoint:
-	docker build -t pachyderm_entrypoint etc/testing/entrypoint
+	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_entrypoint etc/testing/entrypoint
 
 check-kubectl:
 	@# check that kubectl is installed
@@ -324,7 +319,7 @@ delete-all-launch-bench:
 bench: clean-launch-bench build-bench-images push-bench-images launch-bench run-bench clean-launch-bench
 
 launch-kube: check-kubectl
-	etc/kube/start-minikube.sh -r
+	etc/kube/start-minikube.sh
 
 launch-dev-vm: check-kubectl
 	@# Make sure the caller sets address to avoid confusion later
@@ -416,12 +411,11 @@ clean-pps-storage: check-kubectl
 integration-tests:
 	CGOENABLED=0 go test -v ./src/server $(TESTFLAGS) -timeout $(TIMEOUT)
 
-example-tests:
-	CGOENABLED=0 go test -v ./src/server/examples $(TESTFLAGS) -timeout $(TIMEOUT)
+test-proto-static:
+	./etc/proto/test_no_changes.sh
 
 proto: docker-build-proto
 	find src -regex ".*\.proto" \
-	| grep -v vendor \
 	| xargs tar cf - \
 	| docker run -i pachyderm_proto \
 	| tar xf -
@@ -434,7 +428,6 @@ pachd-profiling-binary: docker-clean-pachd docker-build-compile
 
 pretest:
 	go get -v github.com/kisielk/errcheck
-	rm -rf src/server/vendor
 	go vet -n ./src/... | while read line; do \
 		modified=$$(echo $$line | sed "s/ [a-z0-9_/]*\.pb\.gw\.go//g"); \
 		$$modified; \
@@ -442,7 +435,6 @@ pretest:
 		exit 1; \
 		fi; \
 		done
-	git checkout src/server/vendor
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
 local-test: docker-build launch-dev test-pfs clean-launch-dev
@@ -467,27 +459,33 @@ test-pfs-cmds:
 	@# Unlike test-pfs-server, this target requires a running cluster
 	go test ./src/server/pfs/cmds -count 1 -timeout $(TIMEOUT)
 
+test-pfs-storage:
+	go test ./src/server/pkg/storage/chunk -count 1 -timeout $(TIMEOUT)
+	go test ./src/server/pkg/storage/fileset/index -count 1 -timeout $(TIMEOUT)
+	go test ./src/server/pkg/storage/fileset -count 1 -timeout $(TIMEOUT)
+
 test-deploy-cmds:
 	go test ./src/server/pkg/deploy/cmds -count 1 -timeout $(TIMEOUT)
+
+test-config:
+	go test ./src/server/config -count 1 -timeout $(TIMEOUT)
 
 test-pps:
 	@# Travis uses the helper directly because it needs to specify a
 	@# subset of the tests using the run flag
 	@make RUN= test-pps-helper
 
-test-pps-helper: launch-stats docker-build-test-entrypoint
+test-pps-helper: launch-stats launch-kafka docker-build-test-entrypoint
 	# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
 	  go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT) $(RUN) && \
-	  go test ./src/server/pps/cmds -count 1 -timeout $(TIMEOUT)
+	  go test -v ./src/server/pps/cmds -count 1 -timeout $(TIMEOUT)
+
+test-transaction:
+	go test ./src/server/transaction/server -count 1 -timeout $(TIMEOUT)
 
 test-client:
-	rm -rf src/client/vendor
-	rm -rf src/server/vendor/github.com/pachyderm
-	cp -R src/server/vendor src/client/
-	GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/client/... | grep -v vendor)
-	rm -rf src/client/vendor
-	git checkout src/server/vendor/github.com/pachyderm
+	GO111MODULE=on go test -cover $$(go list ./src/client/...)
 
 test-libs:
 	go test ./src/server/pkg/collection -timeout $(TIMEOUT) -vet=off
@@ -502,17 +500,25 @@ test-vault:
 	@# Dont cache these results as they require the pachd cluster
 	go test -v -count 1 ./src/plugin/vault -timeout $(TIMEOUT)
 
-test-s3:
-	go test -v ./src/server/pfs/s3 -timeout $(TIMEOUT)
+test-s3gateway-conformance:
+	pachctl enterprise activate $$(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -) && echo
+	$(CONFORMANCE_SCRIPT_PATH) --s3tests-config=etc/testing/s3gateway/s3tests.conf --ignore-config=etc/testing/s3gateway/ignore.conf --runs-dir=etc/testing/s3gateway/runs
+
+test-s3gateway-integration:
+	pachctl enterprise activate $$(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -) && echo
+	GO111MODULE=on go test -v -mod=vendor ./src/server/pfs/s3 -timeout $(TIMEOUT) -count 1
 
 test-fuse:
-	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep '/src/server/pfs/fuse')
+	CGOENABLED=0 GO111MODULE=on go test -cover $$(go list ./src/server/... | grep '/src/server/pfs/fuse')
 
 test-local:
-	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT)
+	CGOENABLED=0 GO111MODULE=on go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT)
+
+test-cli:
+	CGOENABLED=0 GO111MODULE=on go test -mod=vendor -v ./src/server/cmd/pachctl/cmd
 
 test-auth:
-	yes | pachctl delete-all
+	yes | pachctl delete all
 	@# Dont cache these results as they require the pachd cluster
 	go test -v ./src/server/auth/server -count 1 -timeout $(TIMEOUT)
 	go test -v ./src/server/auth/cmds -count 1 -timeout $(TIMEOUT)
@@ -557,12 +563,18 @@ doc-custom: install-doc release-version
 doc:
 	@make VERSION_ADDITIONAL= doc-custom
 
+clean-launch-kafka:
+	kubectl delete -f etc/kubernetes-kafka -R
+	
+launch-kafka:
+	kubectl apply -f etc/kubernetes-kafka -R
+	until timeout 10s ./etc/kube/check_ready.sh app=kafka kafka; do sleep 10; done
 
 clean-launch-stats:
-	kubectl delete --filename https://raw.githubusercontent.com/giantswarm/kubernetes-prometheus/f7d1e34c9e8065554921f80fc6166b1d23b524f7/manifests-all.yaml
+	kubectl delete --filename etc/kubernetes-prometheus -R
 
 launch-stats:
-	kubectl apply --filename https://raw.githubusercontent.com/giantswarm/kubernetes-prometheus/f7d1e34c9e8065554921f80fc6166b1d23b524f7/manifests-all.yaml
+	kubectl apply --filename etc/kubernetes-prometheus -R
 
 clean-launch-monitoring:
 	kubectl delete --ignore-not-found -f ./etc/plugin/monitoring
@@ -661,13 +673,7 @@ install-go-bindata:
 	go get -u github.com/jteeuwen/go-bindata/...
 
 lint:
-	@go get -u golang.org/x/lint/golint
-	@for file in $$(find "./src" -name '*.go' | grep -v '/vendor/' | grep -v '\.pb\.go'); do \
-	  golint $$file; \
-	  if [ -n "$$(golint $$file)" ]; then \
-	    echo "golint errors!" && echo && exit 1; \
-	  fi; \
-	done;
+	etc/testing/lint.sh
 
 spellcheck:
 	@mdspell doc/*.md doc/**/*.md *.md --en-us --ignore-numbers --ignore-acronyms --report --no-suggestions
@@ -694,11 +700,7 @@ goxc-build:
 .PHONY: all \
 	version \
 	deps \
-	deps-client \
 	update-deps \
-	test-deps \
-	update-test-deps \
-	build-clean-vendored-client \
 	build \
 	install \
 	install-clean \
@@ -733,9 +735,11 @@ goxc-build:
 	pretest \
 	test \
 	test-client \
-	test-s3 \
+	test-s3gateway-conformance \
+	test-s3gateway-integration \
 	test-fuse \
 	test-local \
+	test-cli \
 	clean \
 	doc \
 	grep-data \

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -24,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
@@ -114,8 +116,10 @@ func (s *objBlockAPIServer) watchGC(etcdAddress string) {
 	b := backoff.NewInfiniteBackOff()
 	backoff.RetryNotify(func() error {
 		etcdClient, err := etcd.New(etcd.Config{
-			Endpoints:   []string{etcdAddress},
-			DialOptions: client.DefaultDialOptions(),
+			Endpoints:          []string{etcdAddress},
+			DialOptions:        client.DefaultDialOptions(),
+			MaxCallSendMsgSize: math.MaxInt32,
+			MaxCallRecvMsgSize: math.MaxInt32,
 		})
 		if err != nil {
 			return fmt.Errorf("error instantiating etcd client: %v", err)
@@ -203,12 +207,19 @@ func newLocalBlockAPIServer(dir string, cacheBytes int64, etcdAddress string) (*
 
 func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer) (retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) {
+		tracing.TagAnySpan(server.Context(), "err", retErr)
+		s.Log(nil, nil, retErr, time.Since(start))
+	}(time.Now())
 	defer drainObjectServer(server)
 	putObjectReader := &putObjectReader{
 		server: server,
 	}
-	object, err := s.putObject(server.Context(), putObjectReader, false)
+	object, err := s.putObject(server.Context(), putObjectReader, func(w io.Writer, r io.Reader) (int64, error) {
+		buf := grpcutil.GetBuffer()
+		defer grpcutil.PutBuffer(buf)
+		return io.CopyBuffer(w, r, buf)
+	})
 	if err != nil {
 		return err
 	}
@@ -228,35 +239,40 @@ func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer
 
 func (s *objBlockAPIServer) PutObjectSplit(server pfsclient.ObjectAPI_PutObjectSplitServer) (retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) {
+		tracing.TagAnySpan(server.Context(), "err", retErr)
+		s.Log(nil, nil, retErr, time.Since(start))
+	}(time.Now())
 	defer drainObjectServer(server)
 	var objects []*pfsclient.Object
 	putObjectReader := &putObjectReader{
 		server: server,
 	}
-	for {
-		object, err := s.putObject(server.Context(), putObjectReader, true)
-		if object != nil {
-			objects = append(objects, object)
-		}
-		if err != nil {
+	var done bool
+	for !done {
+		object, err := s.putObject(server.Context(), putObjectReader, func(w io.Writer, r io.Reader) (int64, error) {
+			size, err := io.CopyN(w, r, pfsclient.ChunkSize)
 			if err == io.EOF {
-				break
+				done = true
+				return size, nil
 			}
+			return size, err
+		})
+		if err != nil {
 			return err
 		}
+		objects = append(objects, object)
 	}
 	return server.SendAndClose(&pfsclient.Objects{Objects: objects})
 }
 
-func (s *objBlockAPIServer) putObject(ctx context.Context, dataReader io.Reader, split bool) (_ *pfsclient.Object, retErr error) {
+func (s *objBlockAPIServer) putObject(ctx context.Context, dataReader io.Reader, f func(io.Writer, io.Reader) (int64, error)) (_ *pfsclient.Object, retErr error) {
 	hash := pfsclient.NewHash()
 	r := io.TeeReader(dataReader, hash)
 	block := &pfsclient.Block{Hash: uuid.NewWithoutDashes()}
 	var size int64
 	if err := func() (retErr error) {
-		blockPath := s.blockPath(block)
-		w, err := s.objClient.Writer(ctx, blockPath)
+		w, err := s.objClient.Writer(ctx, s.blockPath(block))
 		if err != nil {
 			return err
 		}
@@ -265,30 +281,14 @@ func (s *objBlockAPIServer) putObject(ctx context.Context, dataReader io.Reader,
 				retErr = err
 			}
 		}()
-		if split {
-			size, err = io.CopyN(w, r, pfsclient.ChunkSize)
-		} else {
-			buf := grpcutil.GetBuffer()
-			defer grpcutil.PutBuffer(buf)
-			size, err = io.CopyBuffer(w, r, buf)
-		}
-		if err != nil {
-			if err != io.EOF {
-				s.objClient.Delete(ctx, blockPath)
-			}
-			return err
-		}
-		return nil
+		size, err = f(w, r)
+		return err
 	}(); err != nil {
-		if err == io.EOF {
-			defer func() {
-				if retErr == nil {
-					retErr = io.EOF
-				}
-			}()
-		} else {
-			return nil, err
-		}
+		// We throw away the delete error state here because the original error is what should be communicated
+		// back and we do not know the cause of the original error. This is just an attempt to clean up
+		// unused storage in the case that the block was actually written to object storage.
+		s.objClient.Delete(ctx, s.blockPath(block))
+		return nil, err
 	}
 	object := &pfsclient.Object{Hash: pfsclient.EncodeHash(hash.Sum(nil))}
 	// Now that we have a hash of the object we can check if it already exists.
@@ -353,7 +353,10 @@ func (s *objBlockAPIServer) PutObjects(server pfsclient.ObjectAPI_PutObjectsServ
 
 func (s *objBlockAPIServer) GetObject(request *pfsclient.Object, getObjectServer pfsclient.ObjectAPI_GetObjectServer) (retErr error) {
 	func() { s.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) {
+		tracing.TagAnySpan(getObjectServer.Context(), "object", request.Hash, "err", retErr)
+		s.Log(request, nil, retErr, time.Since(start))
+	}(time.Now())
 	// First we inspect the object to see how big it is.
 	objectInfo, err := s.InspectObject(getObjectServer.Context(), request)
 	if err != nil {
@@ -395,7 +398,10 @@ func (s *objBlockAPIServer) GetObject(request *pfsclient.Object, getObjectServer
 
 func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, getObjectsServer pfsclient.ObjectAPI_GetObjectsServer) (retErr error) {
 	func() { s.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) {
+		tracing.TagAnySpan(getObjectsServer.Context(), "err", retErr)
+		s.Log(request, nil, retErr, time.Since(start))
+	}(time.Now())
 	offset := request.OffsetBytes
 	size := request.SizeBytes
 	for _, object := range request.Objects {
@@ -871,7 +877,7 @@ func (s *objBlockAPIServer) writeProto(ctx context.Context, path string, pb prot
 	return backoff.RetryNotify(func() error {
 		return s.writeInternal(ctx, path, data)
 	}, b, func(err error, duration time.Duration) error {
-		logrus.Errorf("coult not write proto: %v, retrying in %v", err, duration)
+		logrus.Errorf("could not write proto: %v, retrying in %v", err, duration)
 		return nil
 	})
 }

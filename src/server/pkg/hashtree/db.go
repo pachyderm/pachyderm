@@ -17,7 +17,7 @@ import (
 
 	"github.com/OneOfOne/xxhash"
 	bolt "github.com/coreos/bbolt"
-	globlib "github.com/gobwas/glob"
+	globlib "github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"

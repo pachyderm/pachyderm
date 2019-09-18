@@ -210,15 +210,24 @@ func (l *logger) LogAtLevel(entry *logrus.Entry, level logrus.Level, args ...int
 }
 
 func (l *logger) LogAtLevelFromDepth(request interface{}, response interface{}, err error, duration time.Duration, level logrus.Level, depth int) {
-	pc := make([]uintptr, depth)
+	// We're only interested in 1 stack frame, however due to weirdness with
+	// inlining sometimes you need to get more than 1 caller so that
+	// CallersFrames can resolve the first function. 2 seems to be enough be
+	// we've set it to 5 to insulate us more, because this at one point broke
+	// due to some compile optimization changes.
+	pc := make([]uintptr, 5)
 	runtime.Callers(depth, pc)
-	split := strings.Split(runtime.FuncForPC(pc[0]).Name(), ".")
-	method := split[len(split)-1]
-
-	fields := logrus.Fields{
-		"method":  method,
-		"request": request,
+	frames := runtime.CallersFrames(pc)
+	frame, ok := frames.Next()
+	fields := logrus.Fields{}
+	if ok {
+		split := strings.Split(frame.Function, ".")
+		method := split[len(split)-1]
+		fields["method"] = method
+	} else {
+		fields["warn"] = "failed to resolve method"
 	}
+	fields["request"] = request
 	if response != nil {
 		fields["response"] = response
 	}
@@ -255,7 +264,7 @@ func Pretty(entry *logrus.Entry) ([]byte, error) {
 	serialized := []byte(
 		fmt.Sprintf(
 			"%v %v ",
-			entry.Time.Format(logrus.DefaultTimestampFormat),
+			entry.Time.Format(time.RFC3339),
 			strings.ToUpper(entry.Level.String()),
 		),
 	)

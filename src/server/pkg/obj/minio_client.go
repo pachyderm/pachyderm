@@ -55,7 +55,10 @@ func newMinioWriter(ctx context.Context, client *minioClient, name string) *mini
 		pipe:    writer,
 	}
 	go func() {
-		_, err := client.PutObject(client.bucket, name, reader, "application/octet-stream")
+		opts := minio.PutObjectOptions{
+			ContentType: "application/octet-stream",
+		}
+		_, err := client.PutObject(client.bucket, name, reader, -1, opts)
 		if err != nil {
 			reader.CloseWithError(err)
 		}
@@ -65,14 +68,14 @@ func newMinioWriter(ctx context.Context, client *minioClient, name string) *mini
 }
 
 func (w *minioWriter) Write(p []byte) (int, error) {
-	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "minioWriter.Write")
+	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/minioWriter/Write")
 	defer tracing.FinishAnySpan(span)
 	return w.pipe.Write(p)
 }
 
 // This will block till upload is done
 func (w *minioWriter) Close() error {
-	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "minioWriter.Close")
+	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/minioWriter/Close")
 	defer tracing.FinishAnySpan(span)
 	if err := w.pipe.Close(); err != nil {
 		return err
@@ -113,13 +116,13 @@ func (l *limitReadCloser) Close() (err error) {
 }
 
 func (l *limitReadCloser) Read(p []byte) (int, error) {
-	span, _ := tracing.AddSpanToAnyExisting(l.ctx, "minioReader.Read")
+	span, _ := tracing.AddSpanToAnyExisting(l.ctx, "/minioReader/Read")
 	defer tracing.FinishAnySpan(span)
 	return l.Reader.Read(p)
 }
 
 func (c *minioClient) Reader(ctx context.Context, name string, offset uint64, size uint64) (io.ReadCloser, error) {
-	obj, err := c.GetObject(c.bucket, name)
+	obj, err := c.GetObject(c.bucket, name, minio.GetObjectOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +147,7 @@ func (c *minioClient) Delete(_ context.Context, name string) error {
 }
 
 func (c *minioClient) Exists(_ context.Context, name string) bool {
-	_, err := c.StatObject(c.bucket, name)
+	_, err := c.StatObject(c.bucket, name, minio.StatObjectOptions{})
 	return err == nil
 }
 

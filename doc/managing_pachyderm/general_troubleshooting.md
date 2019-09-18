@@ -16,11 +16,9 @@ Here are some common issues by symptom along with steps to resolve them.
 
 #### Symptom
 
-You may be using the environment variable `PACHD_ADDRESS` to specify how `pachctl` talks to your Pachyderm cluster, or you may be forwarding the pachyderm port.  In any event, you might see something similar to:
+You may be using the pachd address config value or environment variable to specify how `pachctl` talks to your Pachyderm cluster, or you may be forwarding the pachyderm port.  In any event, you might see something similar to:
 
 ```
-$ echo $PACHD_ADDRESS
-1.2.3.4:30650
 $ pachctl version
 COMPONENT           VERSION                                          
 pachctl             1.4.8   
@@ -64,9 +62,9 @@ gke_my-org_us-east1-b_my-cluster-name-dev
 
 #### Symptom
 
-Any `pachctl put-file` or `pachctl get-file` commands are slow.
+Any `pachctl put file` or `pachctl get file` commands are slow.
 
 #### Recourse
 
-If you do not explicitly set the `PACHD_ADDRESS` environment variable, `pachctl` will default to using port forwarding, which throttles traffic to ~1MB/s. If you need to do large downloads/uploads you should consider using the `PACHD_ADDRESS` variable instead to connect directly to your k8s master node. You'll also want to make sure you've allowed ingress access through any firewalls to your k8s cluster.
+If you do not explicitly set the pachd address config value, `pachctl` will default to using port forwarding, which throttles traffic to ~1MB/s. If you need to do large downloads/uploads you should consider using pachd address config value. You'll also want to make sure you've allowed ingress access through any firewalls to your k8s cluster.
 

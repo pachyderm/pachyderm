@@ -272,7 +272,7 @@ func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 		&pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipeline),
 			Transform: &pps.Transform{
-				Cmd: []string{"bash"},
+				Cmd:   []string{"bash"},
 				Stdin: []string{"sleep 1"},
 			},
 			Input:        client.NewPFSInput(dataRepo, "/*"),
@@ -291,7 +291,7 @@ func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 	// timeout
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
-	
+
 	for {
 		_, err := commitIter.Next()
 		if err == io.EOF {
@@ -301,7 +301,7 @@ func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 	}
 
 	// Make sure the job succeeded as well
-	jobs, err := c.ListJob(pipeline, nil, nil)
+	jobs, err := c.ListJob(pipeline, nil, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 	jobInfo, err := c.InspectJob(jobs[0].Job.ID, true)

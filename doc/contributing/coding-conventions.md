@@ -45,20 +45,34 @@ following Go conventions - `stateLock`, `mapLock` etc.
 - Avoid waiting for asynchronous things to happen (e.g. waiting 10 seconds and
 assuming that a service will be afterward). Instead you try, wait, retry, etc.
 with a limited number of tries. If possible use a method of waiting directly
-(e.g. flush-commit is much better than repeatedly trying to read from a
+(e.g. 'flush commit' is much better than repeatedly trying to read from a
 commit).
 
-### Third-party Code
+### Go Modules/Third-Party Code
 
-- Go dependencies are managed with govendor. See
-[src/server/README.md](/src/server/README.md)
+- Go dependencies are managed with go modules (as of 07/11/2019).
+- To add a new package or update a package. Do:
+  - `go get foo`
+    or for a more specific version
+    `go get foo@v1.2.3`, `go get foo@master`, `go get foo@e3702bed2`
+  - import foo package to you go code as needed.
+  - Run `go mod vendor`
+- Note: Go modules requires you clone the repo outside of the `$GOPATH` or you must pass the `GO111MODULE=on` flag to any go commands. See wiki page on [activating module support](https://github.com/golang/go/wiki/Modules#how-to-install-and-activate-module-support)
+
+- See
+[The official go modules wiki](https://github.com/golang/go/wiki/Modules)
 for more info.
 
 ### Docs
 
-- PRs for code should update docs to make them reflect the code that's being merged in
-rather than be done in separate PRs.
+- PRs for code must include documentation updates that reflect the changes
+that the code introduces.
 
-- Docs-only PRs (such as typos) of course a great place to start and we welcome your help!
+- When writing documentation, follow the [Style Guide](docs-style-guide.md)
+conventions.
 
-- For most docs PRs, you'll need to `make assets` and push the new assets.go file as well. 
+- PRs that have only documentation changes, such as typos, is a great place
+to start and we welcome your help!
+
+- For most documentation  PRs, you need to `make assets` and push the new
+`assets.go` file as well.

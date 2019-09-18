@@ -4,7 +4,7 @@ Setup
 
 - Run `./setup-demo.sh`
 - You'll want to do that, and run through this script before any demo (to cache the opencv image)
-- Then do a `pachctl delete-all` and re-create the images repo
+- Then do a `pachctl delete all` and re-create the images repo
 
 Demo
 ----
@@ -18,7 +18,7 @@ Local setup
 kubectl get all
     - running all on my machine
     - from a VM
-pachctl list-repo
+pachctl list repo
     - see images repo
     - version control data
     - all terms from git
@@ -26,7 +26,7 @@ pachctl list-repo
 ## Step 1 -- Add a file
 
 ```shell
-pachctl put-file images master -i examples/opencv/images.txt
+pachctl put file images@master -i examples/opencv/images.txt
 ```
 
     - show them the mount
@@ -39,7 +39,7 @@ pachctl put-file images master -i examples/opencv/images.txt
 ## Step 2 -- Add new images
    
 ```shell
-pachctl put-file images master -i examples/opencv/images2.txt
+pachctl put file images@master -i examples/opencv/images2.txt
 ```
 
     - refresh
@@ -51,8 +51,8 @@ pachctl put-file images master -i examples/opencv/images2.txt
 ## Step 3 -- Run a pipeline
 
 ```shell
-pachctl create-pipeline -f edges.json
-pachctl list-job
+pachctl create pipeline -f edges.json
+pachctl list job
 ```
 
     - the pipeline uses openCV
@@ -66,14 +66,14 @@ pachctl list-job
         - just pull in a library as a processing step
         - plug and play different approaches / steps of analysis
     - NOTE!!! create pipeline will take 5 min now if you haven't cached the opencv image
-        - so do it once before, then do delete-all
+        - so do it once before, then do delete all
     - see output of pipeline
     - output commits correspond to input structure
 
 ## Step 4 -- add more data
 
 ```shell
-pachctl put-file images master -c -i examples/opencv/images3.txt
+pachctl put file images@master -c -i examples/opencv/images3.txt
 ```
     - kicks off the pipeline
     - see new commit in the edges repo

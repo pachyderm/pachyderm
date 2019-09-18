@@ -1,4 +1,4 @@
-## ./pachctl completion
+## pachctl completion
 
 Print or install the bash completion code.
 
@@ -8,7 +8,7 @@ Print or install the bash completion code.
 Print or install the bash completion code. This should be placed as the file `pachctl` in the bash completion directory (by default this is `/etc/bash_completion.d`. If bash-completion was installed via homebrew, this would be `$(brew --prefix)/etc/bash_completion.d`.)
 
 ```
-./pachctl completion
+pachctl completion
 ```
 
 ### Options
@@ -21,8 +21,7 @@ Print or install the bash completion code. This should be placed as the file `pa
 ### Options inherited from parent commands
 
 ```
-      --no-metrics           Don't report user metrics for this command
-      --no-port-forwarding   Disable implicit port forwarding
-  -v, --verbose              Output verbose logs
+      --no-color   Turn off colors.
+  -v, --verbose    Output verbose logs
 ```
 

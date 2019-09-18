@@ -1,4 +1,4 @@
-## ./pachctl auth set-config
+## pachctl auth set-config
 
 Set Pachyderm's current auth configuration
 
@@ -8,7 +8,7 @@ Set Pachyderm's current auth configuration
 Set Pachyderm's current auth configuration
 
 ```
-./pachctl auth set-config
+pachctl auth set-config
 ```
 
 ### Options
@@ -20,8 +20,7 @@ Set Pachyderm's current auth configuration
 ### Options inherited from parent commands
 
 ```
-      --no-metrics           Don't report user metrics for this command
-      --no-port-forwarding   Disable implicit port forwarding
-  -v, --verbose              Output verbose logs
+      --no-color   Turn off colors.
+  -v, --verbose    Output verbose logs
 ```
 

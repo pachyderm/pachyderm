@@ -1,4 +1,4 @@
-## ./pachctl extract
+## pachctl extract
 
 Extract Pachyderm state to stdout or an object store bucket.
 
@@ -6,17 +6,20 @@ Extract Pachyderm state to stdout or an object store bucket.
 
 
 Extract Pachyderm state to stdout or an object store bucket.
-```sh
+
+```
+pachctl extract
+```
+
+### Examples
+
+```
 
 # Extract into a local file:
-pachctl extract >backup
+$ pachctl extract > backup
 
 # Extract to s3:
-pachctl extract -u s3://bucket/backup
-```
-
-```
-./pachctl extract
+$ pachctl extract -u s3://bucket/backup
 ```
 
 ### Options
@@ -29,8 +32,7 @@ pachctl extract -u s3://bucket/backup
 ### Options inherited from parent commands
 
 ```
-      --no-metrics           Don't report user metrics for this command
-      --no-port-forwarding   Disable implicit port forwarding
-  -v, --verbose              Output verbose logs
+      --no-color   Turn off colors.
+  -v, --verbose    Output verbose logs
 ```
 

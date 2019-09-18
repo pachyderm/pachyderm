@@ -6,14 +6,20 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sync"
 
-	"github.com/satori/go.uuid"
+	uuid "github.com/satori/go.uuid"
 )
 
 const configEnvVar = "PACH_CONFIG"
+const contextEnvVar = "PACH_CONTEXT"
 
 var defaultConfigDir = filepath.Join(os.Getenv("HOME"), ".pachyderm")
 var defaultConfigPath = filepath.Join(defaultConfigDir, "config.json")
+
+var readerOnce sync.Once
+var value *Config
+var readErr error
 
 func configPath() string {
 	if env, ok := os.LookupEnv(configEnvVar); ok {
@@ -22,44 +28,107 @@ func configPath() string {
 	return defaultConfigPath
 }
 
+// ActiveContext gets the active context in the config
+func (c *Config) ActiveContext() (string, *Context, error) {
+	if env, ok := os.LookupEnv(contextEnvVar); ok {
+		context := c.V2.Contexts[env]
+		if context == nil {
+			return "", nil, fmt.Errorf("`%s` refers to a context that does not exist", contextEnvVar)
+		}
+		return env, context, nil
+	}
+	context := c.V2.Contexts[c.V2.ActiveContext]
+	if context == nil {
+		return "", nil, fmt.Errorf("the active context references one that does exist; set the active context first like so: pachctl config set active-context [value]")
+	}
+	return c.V2.ActiveContext, context, nil
+}
+
 // Read loads the Pachyderm config on this machine.
 // If an existing configuration cannot be found, it sets up the defaults. Read
 // returns a nil Config if and only if it returns a non-nil error.
 func Read() (*Config, error) {
-	var c *Config
+	readerOnce.Do(func() {
+		// Read json file
+		p := configPath()
+		if raw, err := ioutil.ReadFile(p); err == nil {
+			err = json.Unmarshal(raw, &value)
+			if err != nil {
+				readErr = err
+				return
+			}
+		} else if os.IsNotExist(err) {
+			// File doesn't exist, so create a new config
+			fmt.Fprintf(os.Stderr, "No config detected at %q. Generating new config...\n", p)
+			value = &Config{}
+		} else {
+			readErr = fmt.Errorf("fatal: could not read config at %q: %v", p, err)
+			return
+		}
 
-	// Read json file
-	p := configPath()
-	if raw, err := ioutil.ReadFile(p); err == nil {
-		err = json.Unmarshal(raw, &c)
-		if err != nil {
-			return nil, err
+		updated := false
+
+		if value.UserID == "" {
+			updated = true
+			fmt.Fprintln(os.Stderr, "No UserID present in config - generating new one.")
+			uuid := uuid.NewV4()
+			value.UserID = uuid.String()
 		}
-	} else if os.IsNotExist(err) {
-		// File doesn't exist, so create a new config
-		fmt.Println("no config detected at %q. Generating new config...", p)
-		c = &Config{}
+
+		if value.V2 == nil {
+			updated = true
+			fmt.Fprintln(os.Stderr, "No config V2 present in config - generating a new one.")
+			if err := value.initV2(); err != nil {
+				readErr = err
+				return
+			}
+		}
+
+		if updated {
+			fmt.Fprintf(os.Stderr, "Rewriting config at %q.\n", p)
+
+			if err := value.Write(); err != nil {
+				readErr = fmt.Errorf("could not rewrite config at %q: %v", p, err)
+				return
+			}
+		}
+	})
+
+	return value, readErr
+}
+
+func (c *Config) initV2() error {
+	c.V2 = &ConfigV2{
+		ActiveContext: "default",
+		Contexts:      map[string]*Context{},
+		Metrics:       true,
+	}
+
+	if c.V1 != nil {
+		c.V2.Contexts["default"] = &Context{
+			Source:            ContextSource_CONFIG_V1,
+			PachdAddress:      c.V1.PachdAddress,
+			ServerCAs:         c.V1.ServerCAs,
+			SessionToken:      c.V1.SessionToken,
+			ActiveTransaction: c.V1.ActiveTransaction,
+		}
+
+		c.V1 = nil
 	} else {
-		return nil, fmt.Errorf("fatal: could not read config at %q: %v", p, err)
-	}
-	if c.UserID == "" {
-		fmt.Printf("No UserID present in config. Generating new UserID and "+
-			"updating config at %s\n", p)
-		uuid, err := uuid.NewV4()
-		if err != nil {
-			return nil, err
-		}
-		c.UserID = uuid.String()
-		if err := c.Write(); err != nil {
-			return nil, err
+		c.V2.Contexts["default"] = &Context{
+			Source: ContextSource_NONE,
 		}
 	}
-	return c, nil
+	return nil
 }
 
 // Write writes the configuration in 'c' to this machine's Pachyderm config
 // file.
 func (c *Config) Write() error {
+	if c.V1 != nil {
+		panic("config V1 included (this is a bug)")
+	}
+
 	rawConfig, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
 		return err
