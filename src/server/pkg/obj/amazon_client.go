@@ -30,14 +30,6 @@ import (
 
 const oneDayInSeconds = 60 * 60 * 24
 const twoDaysInSeconds = 60 * 60 * 48
-const maxRetries = 10
-
-var (
-	// By default, objects uploaded to a bucket are only accessible to the
-	// uploader, and not the owner of the bucket.  We want to ensure that
-	// the owner of the bucket can access the buckets as well.
-	uploadACL = "bucket-owner-full-control"
-)
 
 type amazonClient struct {
 	bucket                 string
@@ -53,7 +45,8 @@ type amazonClient struct {
 	// be written around the same time, and overloading S3. Reversing the
 	// order of keys gives an easy way to spread out S3 assets and
 	// substantially speed up block writing.
-	reversed bool
+	reversed       bool
+	advancedConfig *AmazonAdvancedConfiguration
 }
 
 type vaultCredentialsProvider struct {
@@ -166,12 +159,17 @@ type AmazonCreds struct {
 	VaultToken   string
 }
 
-func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistribution string, endpoint string, reversed ...bool) (*amazonClient, error) {
+func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistribution string, endpoint string, advancedConfig *AmazonAdvancedConfiguration, reversed ...bool) (*amazonClient, error) {
 	// set up aws config, including credentials (if neither creds.ID nor
 	// creds.VaultAddress are set, then this will use the EC2 metadata service
+	timeout, err := time.ParseDuration(advancedConfig.Timeout)
+	if err != nil {
+		return nil, err
+	}
 	awsConfig := &aws.Config{
 		Region:     aws.String(region),
-		MaxRetries: aws.Int(maxRetries),
+		MaxRetries: aws.Int(advancedConfig.Retries),
+		HTTPClient: &http.Client{Timeout: timeout},
 	}
 	if creds.ID != "" {
 		awsConfig.Credentials = credentials.NewStaticCredentials(creds.ID, creds.Secret, creds.Token)
@@ -203,10 +201,11 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 		r = true
 	}
 	awsClient := &amazonClient{
-		bucket:   bucket,
-		s3:       s3.New(session),
-		uploader: s3manager.NewUploader(session),
-		reversed: r,
+		bucket:         bucket,
+		s3:             s3.New(session),
+		uploader:       s3manager.NewUploader(session),
+		reversed:       r,
+		advancedConfig: advancedConfig,
 	}
 
 	// Set awsClient.cloudfrontURLSigner and cloudfrontDistribution (if Pachd is
@@ -424,7 +423,7 @@ func newWriter(ctx context.Context, client *amazonClient, name string) *amazonWr
 	}
 	go func() {
 		_, err := client.uploader.Upload(&s3manager.UploadInput{
-			ACL:             &uploadACL,
+			ACL:             aws.String(client.advancedConfig.UploadACL),
 			Body:            reader,
 			Bucket:          aws.String(client.bucket),
 			Key:             aws.String(name),

@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/oauth2/google"
@@ -75,6 +76,29 @@ const (
 	CustomEndpointEnvVar     = "CUSTOM_ENDPOINT"
 )
 
+// Advanced configuration environment variables
+const (
+	RetriesEnvVar   = "RETRIES"
+	TimeoutEnvVar   = "TIMEOUT"
+	UploadACLEnvVar = "UPLOAD_ACL"
+)
+
+const (
+	DefaultRetries   = 10
+	DefaultTimeout   = "5m"
+	DefaultUploadACL = "bucket-owner-full-control"
+)
+
+// AmazonAdvancedConfiguration contains the advanced configuration for the amazon client.
+type AmazonAdvancedConfiguration struct {
+	Retries int    `env:"RETRIES, default=10"`
+	Timeout string `env:"TIMEOUT, default=5m"`
+	// By default, objects uploaded to a bucket are only accessible to the
+	// uploader, and not the owner of the bucket. Using the default ensures that
+	// the owner of the bucket can access the objects as well.
+	UploadACL string `env:"UPLOAD_ACL, default=bucket-owner-full-control"`
+}
+
 // EnvVarToSecretKey is an environment variable name to secret key mapping
 // This is being used to temporarily bridge the gap as we transition to a model
 // where object storage access in the workers is based on environment variables
@@ -102,6 +126,9 @@ var EnvVarToSecretKey = map[string]string{
 	AmazonVaultTokenEnvVar:   "amazon-vault-token",
 	AmazonDistributionEnvVar: "amazon-distribution",
 	CustomEndpointEnvVar:     "custom-endpoint",
+	RetriesEnvVar:            "retries",
+	TimeoutEnvVar:            "timeout",
+	UploadACLEnvVar:          "upload-acl",
 }
 
 // StorageRootFromEnv gets the storage root based on environment variables.
@@ -287,7 +314,11 @@ func NewMinioClient(endpoint, bucket, id, secret string, secure, isS3V2 bool) (C
 //   region - AWS region
 //   endpoint - Custom endpoint (generally used for S3 compatible object stores)
 func NewAmazonClient(region, bucket string, creds *AmazonCreds, distribution string, endpoint string, reversed ...bool) (Client, error) {
-	return newAmazonClient(region, bucket, creds, distribution, endpoint, reversed...)
+	advancedConfig := &AmazonAdvancedConfiguration{}
+	if err := cmdutil.Populate(advancedConfig); err != nil {
+		return nil, err
+	}
+	return newAmazonClient(region, bucket, creds, distribution, endpoint, advancedConfig, reversed...)
 }
 
 // NewMinioClientFromSecret constructs an s3 compatible client by reading
