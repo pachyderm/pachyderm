@@ -12,7 +12,6 @@ else
 fi
 
 eval "set -- $( getopt -l "dns:,ip:,port:" -o "o:" "--" "${0}" "${@:-}" )"
-echo "${@}"
 output_prefix=pachd
 while true; do
   case "${1}" in

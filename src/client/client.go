@@ -3,7 +3,6 @@ package client
 import (
 	"crypto/x509"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -52,6 +51,9 @@ const (
 	// DefaultPachdPort is the pachd kubernetes service's default
 	// Port (often used with Pachyderm ELBs)
 	DefaultPachdPort = "650"
+
+	// grpcs is the prefix of the grpcs protocol.
+	grpcs = "grpcs://"
 )
 
 // PfsAPIClient is an alias for pfs.APIClient.
@@ -260,8 +262,8 @@ func WithAdditionalPachdCert() Option {
 func getCertOptionsFromEnv() ([]Option, error) {
 	var options []Option
 	if certPaths, ok := os.LookupEnv("PACH_CA_CERTS"); ok {
-		if pachdAddress, ok := os.LookupEnv("PACHD_ADDRESS"); !ok || !strings.HasPrefix(pachdAddress, "grpcs") {
-			return nil, errors.New("cannot set PACH_CA_CERTS without setting PACHD_ADDRESS to grpcs://... ")
+		if pachdAddress, ok := os.LookupEnv("PACHD_ADDRESS"); !ok || !strings.HasPrefix(pachdAddress, grpcs) {
+			return nil, fmt.Errorf("cannot set PACH_CA_CERTS without setting PACHD_ADDRESS to %s... ", grpcs)
 		}
 		paths := strings.Split(certPaths, ",")
 		for _, p := range paths {
@@ -297,9 +299,9 @@ func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error
 
 	// 1) PACHD_ADDRESS environment variable (shell-local) overrides global config
 	if envAddr, ok := os.LookupEnv("PACHD_ADDRESS"); ok {
-		if strings.HasPrefix(envAddr, "grpcs://") {
+		if strings.HasPrefix(envAddr, grpcs) {
 			options = append(options, WithSystemCAs)
-			envAddr = strings.TrimPrefix(envAddr, "grpcs://")
+			envAddr = strings.TrimPrefix(envAddr, grpcs)
 		}
 		if !strings.Contains(envAddr, ":") {
 			envAddr = fmt.Sprintf("%s:%s", envAddr, DefaultPachdNodePort) // append port
@@ -314,13 +316,13 @@ func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error
 	// 2) Get target address from global config if possible
 	if context != nil && (context.ServerCAs != "" || context.PachdAddress != "") {
 		// Proactively return an error in this case, instead of falling back to the default address below
-		if context.ServerCAs != "" && !strings.HasPrefix(context.PachdAddress, "grpcs") {
-			return "", nil, fmt.Errorf("must set pachd_address to grpcs://... if server_cas is set")
+		if context.ServerCAs != "" && !strings.HasPrefix(context.PachdAddress, grpcs) {
+			return "", nil, fmt.Errorf("must set pachd_address to %s... if server_cas is set", grpcs)
 		}
 
-		if strings.HasPrefix(context.PachdAddress, "grpcs") {
+		if strings.HasPrefix(context.PachdAddress, grpcs) {
 			options = append(options, WithSystemCAs)
-			context.PachdAddress = strings.TrimPrefix(context.PachdAddress, "grpcs://")
+			context.PachdAddress = strings.TrimPrefix(context.PachdAddress, grpcs)
 		}
 		// Also get cert info from config (if set)
 		if context.ServerCAs != "" {
