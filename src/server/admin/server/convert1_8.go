@@ -375,7 +375,6 @@ func convert1_8Op(op *admin.Op1_8) (*admin.Op1_9, error) {
 				CacheSize:          op.Pipeline.CacheSize,
 				EnableStats:        op.Pipeline.EnableStats,
 				Reprocess:          op.Pipeline.Reprocess,
-				Batch:              op.Pipeline.Batch,
 				MaxQueueSize:       op.Pipeline.MaxQueueSize,
 				Service:            convert1_8Service(op.Pipeline.Service),
 				ChunkSpec:          convert1_8ChunkSpec(op.Pipeline.ChunkSpec),

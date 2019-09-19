@@ -313,7 +313,6 @@ func pipelineInfoToRequest(pi *pps.PipelineInfo) *pps.CreatePipelineRequest {
 		Description:        pi.Description,
 		CacheSize:          pi.CacheSize,
 		EnableStats:        pi.EnableStats,
-		Batch:              pi.Batch,
 		MaxQueueSize:       pi.MaxQueueSize,
 		Service:            pi.Service,
 		ChunkSpec:          pi.ChunkSpec,
