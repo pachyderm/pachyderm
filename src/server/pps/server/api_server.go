@@ -2615,13 +2615,17 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 				return nil, err
 			}
 			branch = provCommit.Branch
+			prov.Commit = provCommit.Commit
 		}
 		if branch.Repo == nil {
 			return nil, fmt.Errorf("request provenance branch must have a non nil repo")
 		}
-		requestProv[key(prov.Branch.Repo.Name, prov.Branch.Name)] = prov
+		_, err := pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{Repo: branch.Repo})
+		if err != nil {
+			return nil, err
+		}
+		requestProv[key(branch.Repo.Name, branch.Name)] = prov
 	}
-
 	pipelineInfo, err := a.inspectPipeline(pachClient, request.Pipeline.Name)
 	if err != nil {
 		return nil, err
@@ -2669,7 +2673,6 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 			}
 		}
 	}
-
 	// we need to include the spec commit in the provenance, so that the new job is represented by the correct spec commit
 	specProvenance := client.NewCommitProvenance(ppsconsts.SpecRepo, request.Pipeline.Name, specCommit.Commit.ID)
 
@@ -2685,7 +2688,6 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	if err != nil {
 		return nil, err
 	}
-
 	return &types.Empty{}, nil
 }
 
