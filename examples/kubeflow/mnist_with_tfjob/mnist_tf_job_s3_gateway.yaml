@@ -1,7 +1,7 @@
 apiVersion: "kubeflow.org/v1beta2"
 kind: "TFJob"
 metadata:
-  name: "mnist-pach-s3-gateway-example3"
+  name: "mnist-pach-s3-gateway-example"
   namespace: kubeflow 
 spec:
   cleanPodPolicy: None 
@@ -13,7 +13,8 @@ spec:
         spec:
           containers:
             - name: tensorflow
-              image: pachyderm/mnist_klflow_example:1.9.3
+              #image: pachyderm/mnist_klflow_example:1.9.3
+              image: nickharvey/pach_kflow_example:v2.9
               env:
                 # This endpoint assumes that the pachd service was deployed
                 # in the namespace pachyderm.
@@ -23,7 +24,7 @@ spec:
                 # hard code in the pachd CLUSTER-IP address you obtain from
                 # kubectl get services -n <namespace>
                 - name: S3_ENDPOINT
-                  value: "pachd.pachyderm:600"
+                  value: "pachd.kubeflow:600"
                 - name: S3_USE_HTTPS
                   value: "0"
                 - name: S3_VERIFY_SSL
@@ -38,9 +39,9 @@ spec:
                 - "python3"
                 - "/app/tfjob.py"
                 - "-i"
-                - "master.inputrepo"
+                - "master.input"
                 - "-o"
-                - "master.outputrepo"
+                - "master.output"
                 - "-d"
                 - "/tmp/data/"
                 - "-t"

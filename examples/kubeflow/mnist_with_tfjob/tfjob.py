@@ -8,6 +8,7 @@ from tensorflow import keras
 import time
 import numpy as np
 import zipfile
+import python_pachyderm
 from tensorflow.python.lib.io import file_io
 from tensorflow.python.keras.utils.data_utils import get_file
 
@@ -25,6 +26,8 @@ data_dir  = os.getenv('DATA_DIR', "/data")
 training_data = os.getenv('TRAINING_DATA', "mninst.npz")
 # this is the name of model file in the output repo
 model_file = os.getenv('MODEL_FILE', "my_model.h5")
+
+client = python_pachyderm.PfsClient(host=os.getenv('PACHD_SERVICE_HOST'), port=os.getenv('PACHD_SERVICE_PORT'))
 
 def main(_):
   input_url = 's3://' + args.inputbucket + "/"
@@ -75,6 +78,8 @@ def main(_):
   output_uri = os.path.join(output_url,args.modelfile)
   print("copying {} to {}".format(model_file, output_uri))
   file_io.copy(model_file, output_uri, True)
+
+  client.finish_commit(('output', 'master'))
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='Copy data from an S3 input bucket, operate on it, and copy the data to a different S3 bucket.')

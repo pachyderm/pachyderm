@@ -3,8 +3,8 @@
 # execute correctly in all environments.  Try
 # setting all the environment variables here and
 # executing the commands one-by-one to debug issues.
-export CLUSTER_NAME="<insert a name here>"
-export GCP_ZONE="<your gcp zone>"
+export CLUSTER_NAME="breakthrough"
+export GCP_ZONE="us-east1-b"
 export MACHINE_TYPE="n1-standard-8" 
 
 # For the persistent disk, 10GB is a good size to start with. 
