@@ -8,7 +8,6 @@ import (
 // KubeConfig gets the kubernetes config
 func KubeConfig(context *Context) clientcmd.ClientConfig {
 	rules := clientcmd.NewDefaultClientConfigLoadingRules()
-
 	overrides := &clientcmd.ConfigOverrides{}
 	if context != nil {
 		overrides.Context = api.Context{

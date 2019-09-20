@@ -349,7 +349,7 @@ func portForwarder() *PortForwarder {
 	// NOTE: this will always use the default namespace; if a custom
 	// namespace is required with port forwarding,
 	// `pachctl port-forward` should be explicitly called.
-	fw, err := NewPortForwarder()
+	fw, err := NewPortForwarder("")
 	if err != nil {
 		log.Infof("Implicit port forwarding was not enabled because the kubernetes config could not be read: %v", err)
 		return nil
