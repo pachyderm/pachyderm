@@ -207,15 +207,25 @@ func newLocalBlockAPIServer(dir string, cacheBytes int64, etcdAddress string) (*
 
 func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer) (retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) {
-		tracing.TagAnySpan(server.Context(), "err", retErr)
-		s.Log(nil, nil, retErr, time.Since(start))
-	}(time.Now())
-	defer drainObjectServer(server)
+	var object *pfsclient.Object
 	putObjectReader := &putObjectReader{
 		server: server,
 	}
-	object, err := s.putObject(server.Context(), putObjectReader, func(w io.Writer, r io.Reader) (int64, error) {
+	defer func(start time.Time) {
+		hash := "nil"
+		if object != nil {
+			hash = object.Hash
+		}
+		tracing.TagAnySpan(server.Context(), "err", retErr)
+		s.Log(nil,
+			fmt.Sprintf("PutObjectResponse{ Hash: %q, Size: %d }",
+				hash,
+				putObjectReader.BytesRead,
+			), retErr, time.Since(start))
+	}(time.Now())
+	defer drainObjectServer(server)
+	var err error
+	object, err = s.putObject(server.Context(), putObjectReader, func(w io.Writer, r io.Reader) (int64, error) {
 		buf := grpcutil.GetBuffer()
 		defer grpcutil.PutBuffer(buf)
 		return io.CopyBuffer(w, r, buf)
@@ -576,7 +586,10 @@ func (s *objBlockAPIServer) ListObjects(request *pfsclient.ListObjectsRequest, l
 
 func (s *objBlockAPIServer) ListTags(request *pfsclient.ListTagsRequest, server pfsclient.ObjectAPI_ListTagsServer) (retErr error) {
 	func() { s.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	respCount := 0
+	defer func(start time.Time) {
+		s.Log(request, fmt.Sprintf("stream containing %d tags", respCount), retErr, time.Since(start))
+	}(time.Now())
 
 	var eg errgroup.Group
 	limiter := limit.New(100)
@@ -588,19 +601,21 @@ func (s *objBlockAPIServer) ListTags(request *pfsclient.ListTagsRequest, server 
 				defer limiter.Release()
 				tagObjectIndex := &pfsclient.ObjectIndex{}
 				if err := s.readProto(server.Context(), key, tagObjectIndex); err != nil {
-					return err
+					return fmt.Errorf("error in s.readProto: %v", err)
 				}
 				for _, object := range tagObjectIndex.Tags {
+					respCount++
 					if err := server.Send(&pfsclient.ListTagsResponse{
 						Tag:    &pfsclient.Tag{Name: tag},
 						Object: object,
 					}); err != nil {
-						return err
+						return fmt.Errorf("error in ListTagsServer.Send: %v", err)
 					}
 				}
 				return nil
 			})
 		} else {
+			respCount++
 			if err := server.Send(&pfsclient.ListTagsResponse{
 				Tag: &pfsclient.Tag{Name: tag},
 			}); err != nil {
@@ -689,8 +704,8 @@ func (s *objBlockAPIServer) DeleteObjects(ctx context.Context, request *pfsclien
 
 func (s *objBlockAPIServer) GetTag(request *pfsclient.Tag, getTagServer pfsclient.ObjectAPI_GetTagServer) (retErr error) {
 	func() { s.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	object := &pfsclient.Object{}
+	defer func(start time.Time) { s.Log(request, object, retErr, time.Since(start)) }(time.Now())
 	sink := groupcache.ProtoSink(object)
 	if err := s.tagCache.Get(getTagServer.Context(), s.splitKey(request.Name), sink); err != nil {
 		return err
@@ -1187,9 +1202,10 @@ type putObjectServer interface {
 }
 
 type putObjectReader struct {
-	server putObjectServer
-	buffer bytes.Buffer
-	tags   []*pfsclient.Tag
+	server    putObjectServer
+	buffer    bytes.Buffer
+	tags      []*pfsclient.Tag
+	BytesRead int
 }
 
 func (r *putObjectReader) Read(p []byte) (int, error) {
@@ -1200,7 +1216,8 @@ func (r *putObjectReader) Read(p []byte) (int, error) {
 		}
 		r.buffer.Reset()
 		// buffer.Write cannot error
-		r.buffer.Write(request.Value)
+		n, _ := r.buffer.Write(request.Value)
+		r.BytesRead += n
 		r.tags = append(r.tags, request.Tags...)
 	}
 	return r.buffer.Read(p)
