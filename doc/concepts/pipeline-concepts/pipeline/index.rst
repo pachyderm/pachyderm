@@ -73,6 +73,7 @@ You can configure the following special types of pipelines:
    :maxdepth: 2
 
    cron.md
+   join.md
    service.md
    spout.md
 
