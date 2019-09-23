@@ -2662,13 +2662,6 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 		if err != nil {
 			return nil, err
 		}
-
-		// ensure the commit provenance is consistent with the branch provenance
-		if len(branchProvMap) != 0 {
-			if branch.Repo.Name != ppsconsts.SpecRepo && !branchProvMap[key(branch.Repo.Name, branch.Name)] {
-				return nil, fmt.Errorf("the commit provenance contains a branch which the pipeline's branch is not provenant on")
-			}
-		}
 		requestProv[key(branch.Repo.Name, branch.Name)] = prov
 	}
 

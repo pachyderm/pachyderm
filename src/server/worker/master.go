@@ -128,6 +128,12 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 		if err != nil {
 			return err
 		}
+		// For now, we don't want stats branches to have jobs triggered on them
+		// and this is the simplest way to achieve that. Once we have labels,
+		// we'll use those instead for a more principled approach.
+		if commitInfo.Branch.Name == "stats" {
+			continue
+		}
 		if commitInfo.Finished != nil {
 			continue
 		}

@@ -5616,7 +5616,6 @@ func TestPipelineWithStatsToggle(t *testing.T) {
 	// Enable stats
 	require.NoError(t, updatePipeline(true))
 	updateFiles()
-	fmt.Println("flushing")
 	jobs, err = c.FlushJobAll([]*pfs.Commit{commits[len(commits)-1]}, nil)
 	require.NoError(t, err)
 	// Check stats.
