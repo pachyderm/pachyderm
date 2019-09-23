@@ -176,6 +176,9 @@ func (r *Reader) atEnd(name string) bool {
 	if r.filter.pathRange != nil {
 		return name > r.filter.pathRange.Upper
 	}
+	// Name is past a prefix when the first len(prefix) bytes are greater than the prefix
+	// (use len(name) bytes for comparison when len(name) < len(prefix)).
+	// Cannot use a simple greater than check (for paths a, ab, abc, and b, prefix a should return a, ab, abc).
 	cmpSize := int64(math.Min(float64(len(name)), float64(len(r.filter.prefix))))
 	return name[:cmpSize] > r.filter.prefix[:cmpSize]
 }
