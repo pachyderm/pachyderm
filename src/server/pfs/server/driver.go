@@ -1954,7 +1954,7 @@ func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, b
 	}
 
 	commits := d.commits(repo.Name).ReadOnly(pachClient.Ctx())
-	newCommitWatcher, err := commits.Watch()
+	newCommitWatcher, err := commits.Watch(watch.WithSort(etcd.SortByCreateRevision, etcd.SortAscend))
 	if err != nil {
 		return err
 	}
@@ -1986,11 +1986,7 @@ func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, b
 			if prov != nil {
 				valid := false
 				for _, cProv := range commitInfo.Provenance {
-					if cProv.Commit.Repo.Name == prov.Commit.Repo.Name &&
-						cProv.Commit.ID == prov.Commit.ID &&
-						cProv.Branch.Name == prov.Branch.Name {
-						valid = true
-					}
+					valid = valid || proto.Equal(cProv, prov)
 				}
 				if !valid {
 					continue

@@ -22,7 +22,6 @@ func Transactions(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 		path.Join(etcdPrefix, transactionsPrefix),
 		nil,
 		&transaction.TransactionInfo{},
-		etcd.SortByModRevision,
 		nil,
 		nil,
 	)

@@ -49,8 +49,6 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	etcd "github.com/coreos/etcd/clientv3"
-
 	opentracing "github.com/opentracing/opentracing-go"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -1673,7 +1671,7 @@ func (a *apiServer) sudo(pachClient *client.APIClient, f func(*client.APIClient)
 		b.MaxElapsedTime = 60 * time.Second
 		b.MaxInterval = 5 * time.Second
 		if err := backoff.Retry(func() error {
-			superUserTokenCol := col.NewCollection(a.env.GetEtcdClient(), ppsconsts.PPSTokenKey, nil, &types.StringValue{}, etcd.SortByModRevision, nil, nil).ReadOnly(pachClient.Ctx())
+			superUserTokenCol := col.NewCollection(a.env.GetEtcdClient(), ppsconsts.PPSTokenKey, nil, &types.StringValue{}, nil, nil).ReadOnly(pachClient.Ctx())
 			var result types.StringValue
 			if err := superUserTokenCol.Get("", &result); err != nil {
 				return err
@@ -2672,28 +2670,6 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 			}
 		}
 		requestProv[key(branch.Repo.Name, branch.Name)] = prov
-	}
-	pipelineInfo, err := a.inspectPipeline(pachClient, request.Pipeline.Name)
-	if err != nil {
-		return nil, err
-	}
-	// make sure the user isn't trying to run pipeline on an empty branch
-	branch, err := pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{
-		Branch: client.NewBranch(request.Pipeline.Name, pipelineInfo.OutputBranch),
-	})
-	if err != nil {
-		return nil, err
-	}
-	if branch.Head == nil {
-		return nil, fmt.Errorf("run pipeline needs a pipeline with existing data to run\nnew commits will trigger the pipeline automatically, so this only needs to be used if you need to run the pipeline on an old version of the data, or to rerun an job")
-	}
-
-	// we need to inspect the commit in order to resolve the commit ID, which may have an ancestry tag
-	specCommit, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
-		Commit: pipelineInfo.SpecCommit,
-	})
-	if err != nil {
-		return nil, err
 	}
 
 	for _, branchProv := range append(branch.Provenance, branch.Branch) {
