@@ -264,7 +264,7 @@ func (op *pipelineOp) getRC(expectation rcExpectation) (retErr error) {
 		}
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		if expectation == noRCExpected && err == errRCNotFound {
-			return err
+			return err // rc has come down successfully--no need to keep looking
 		}
 		switch err {
 		case errRCNotFound:
@@ -274,18 +274,19 @@ func (op *pipelineOp) getRC(expectation rcExpectation) (retErr error) {
 		case errTooManyRCs:
 			tooManyErrCount++
 		case errStaleRC:
-			staleErrCount++
+			staleErrCount++ // don't return immediately b/c RC might be changing
 		default:
 			otherErrCount++
 		}
 		errCount := max(notFoundErrCount, unexpectedErrCount, staleErrCount,
 			tooManyErrCount, otherErrCount)
 		if errCount >= maxErrCount {
-			if expectation == rcExpected {
+			missingExpectedRC := expectation == rcExpected && err == errRCNotFound
+			invalidRCState := err == errTooManyRCs || err == errStaleRC
+			if missingExpectedRC || invalidRCState {
 				return op.restartPipeline(fmt.Sprintf("could not get RC after %d attempts: %v", errCount, err))
-			} else {
-				return err
 			}
+			return err //return whatever the most recent error was
 		}
 		log.Errorf("PPS master: error retrieving RC for %q: %v; retrying in %v", op.name, err, d)
 		return nil
