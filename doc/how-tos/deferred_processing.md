@@ -18,8 +18,8 @@ what gets processed.
 Pachyderm controls what is being processed by using the _filesystem_,
 rather than at the pipeline level. Although pipelines are inflexible,
 they are simple and always try to process the data at the heads of
-their input branches. In contrast, the filesystem gives you the
-ability to commit data in different places and then efficiently
+their input branches. In contrast, the filesystem is very flexible and
+gives you the ability to commit data in different places and then efficiently
 move and rename the data so that it gets processed when you want.
 
 ## Configure a Staging Branch in an Input repository
@@ -111,7 +111,9 @@ To configure a staging branch, complete the following steps:
 1. Verify that the pipeline has new jobs:
 
    ```bash
-   $ pachctl list job
+   $ pachctl list job 
+   ID                               PIPELINE STARTED        DURATION           RESTART PROGRESS  DL   UL  STATE
+   061b0ef8f44f41bab5247420b4e62ca2 test     32 seconds ago Less than a second 0       6 + 0 / 6 108B 24B success
    ```
 
    You should see one job that Pachyderm created for all the changes you
@@ -122,7 +124,7 @@ To configure a staging branch, complete the following steps:
    because commits in Pachyderm are generally additive, so processing
    the HEAD commit also processes data from previous commits.
 
-![deffered processing](deferred_processing.gif)
+![deffered processing](../images/deferred_processing.gif)
 
 ## Process Specific Commits
 
@@ -140,7 +142,7 @@ $ pachctl create branch data@master --head staging
 ```
 
 When you run the commands above, Pachyderm creates a job for each
-of the command one after another. Therefore, when one job is completed,
+of the commands one after another. Therefore, when one job is completed,
 Pachyderm starts the next one. To verify
 that Pachyderm created jobs for these commands, run `pachctl list job`.
 
