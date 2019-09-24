@@ -16,19 +16,25 @@ const (
 	testPath = "test"
 )
 
-func Write(tb testing.TB, objC obj.Client, chunks *chunk.Storage, rangeSize int64, fileNames []string) {
-	iw := NewWriter(context.Background(), objC, chunks, testPath, rangeSize)
+func Write(tb testing.TB, objC obj.Client, chunks *chunk.Storage, fileNames []string) {
+	iw := NewWriter(context.Background(), objC, chunks, testPath)
 	for _, fileName := range fileNames {
 		hdr := &Header{
 			Hdr: &tar.Header{Name: fileName},
+			Idx: &Index{
+				DataOp: &DataOp{},
+			},
 		}
-		require.NoError(tb, iw.WriteHeader(hdr))
+		require.NoError(tb, iw.WriteHeaders([]*Header{hdr}))
 	}
 	require.NoError(tb, iw.Close())
 }
 
 func Actual(tb testing.TB, objC obj.Client, chunks *chunk.Storage, prefix string) []string {
 	ir := NewReader(context.Background(), objC, chunks, testPath, prefix)
+	defer func() {
+		require.NoError(tb, ir.Close())
+	}()
 	result := []string{}
 	for {
 		hdr, err := ir.Next()
@@ -57,7 +63,8 @@ func Check(t *testing.T, permString string) {
 		objC.Delete(context.Background(), testPath)
 	}()
 	fileNames := Generate(permString)
-	Write(t, objC, chunks, 10000, fileNames)
+	averageBits = 12
+	Write(t, objC, chunks, fileNames)
 	t.Run("Full", func(t *testing.T) {
 		prefix := ""
 		expected := fileNames

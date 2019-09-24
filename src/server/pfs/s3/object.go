@@ -9,6 +9,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/gorilla/mux"
 	pfsClient "github.com/pachyderm/pachyderm/src/client/pfs"
+	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/s2"
 )
@@ -102,13 +103,14 @@ func (c *controller) PutObject(r *http.Request, bucket, file string, reader io.R
 	}
 
 	fileInfo, err := pc.InspectFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file)
-	if err != nil {
+	if err != nil && !pfsServer.IsOutputCommitNotFinishedErr(err) {
 		return nil, err
 	}
 
-	result := s2.PutObjectResult{
-		ETag:    fmt.Sprintf("%x", fileInfo.Hash),
-		Version: fileInfo.File.Commit.ID,
+	result := s2.PutObjectResult{}
+	if fileInfo != nil {
+		result.ETag = fmt.Sprintf("%x", fileInfo.Hash)
+		result.Version = fileInfo.File.Commit.ID
 	}
 
 	return &result, nil

@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
-
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
@@ -134,22 +133,38 @@ func kubectlCreate(dryRun bool, manifest BytesEncoder, opts *assets.AssetOpts) e
 	return nil
 }
 
-func contextCreate(contextPrefix string) error {
+func contextCreate(namePrefix, namespace string) error {
+	clusterName := ""
+	authInfo := ""
+	kubeConfig := config.KubeConfig(nil)
+	kubeRawConfig, err := kubeConfig.RawConfig()
+	if err != nil {
+		return fmt.Errorf("could not read raw kube config: %v", err)
+	}
+	kubeContext := kubeRawConfig.Contexts[kubeRawConfig.CurrentContext]
+	if kubeContext != nil {
+		clusterName = kubeContext.Cluster
+		authInfo = kubeContext.AuthInfo
+	}
+
 	cfg, err := config.Read()
 	if err != nil {
 		return err
 	}
 
 	newContext := &config.Context{
-		Source: config.ContextSource_NONE,
+		Source:      config.ContextSource_NONE,
+		ClusterName: clusterName,
+		AuthInfo:    authInfo,
+		Namespace:   namespace,
 	}
 
 	_, activeContext, err := cfg.ActiveContext()
 	if err != nil || !proto.Equal(newContext, activeContext) {
-		newContextName := contextPrefix
+		newContextName := namePrefix
 		for i := 0; i < 10000; i++ {
 			if i > 0 {
-				newContextName = fmt.Sprintf("%s-%d", contextPrefix, i)
+				newContextName = fmt.Sprintf("%s-%d", namePrefix, i)
 			}
 			if _, ok := cfg.V2.Contexts[newContextName]; !ok {
 				break
@@ -183,9 +198,10 @@ func deployCmds() []*cobra.Command {
 	var dryRun bool
 	var outputFormat string
 	var contextName string
-
 	var dev bool
 	var hostPath string
+	var namespace string
+
 	deployLocal := &cobra.Command{
 		Short: "Deploy a single-node Pachyderm cluster with local metadata storage.",
 		Long:  "Deploy a single-node Pachyderm cluster with local metadata storage.",
@@ -225,7 +241,7 @@ func deployCmds() []*cobra.Command {
 				if contextName == "" {
 					contextName = "local"
 				}
-				if err := contextCreate(contextName); err != nil {
+				if err := contextCreate(contextName, namespace); err != nil {
 					return err
 				}
 			}
@@ -276,7 +292,7 @@ func deployCmds() []*cobra.Command {
 				if contextName == "" {
 					contextName = "gcs"
 				}
-				if err := contextCreate(contextName); err != nil {
+				if err := contextCreate(contextName, namespace); err != nil {
 					return err
 				}
 			}
@@ -315,7 +331,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				if contextName == "" {
 					contextName = "custom"
 				}
-				if err := contextCreate(contextName); err != nil {
+				if err := contextCreate(contextName, namespace); err != nil {
 					return err
 				}
 			}
@@ -429,7 +445,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				if contextName == "" {
 					contextName = "aws"
 				}
-				if err := contextCreate(contextName); err != nil {
+				if err := contextCreate(contextName, namespace); err != nil {
 					return err
 				}
 			}
@@ -486,7 +502,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				if contextName == "" {
 					contextName = "azure"
 				}
-				if err := contextCreate(contextName); err != nil {
+				if err := contextCreate(contextName, namespace); err != nil {
 					return err
 				}
 			}
@@ -636,7 +652,6 @@ If <object store backend> is \"s3\", then the arguments are:
 	var imagePullSecret string
 	var localRoles bool
 	var logLevel string
-	var namespace string
 	var newHashTree bool
 	var noDash bool
 	var noExposeDockerSocket bool
@@ -657,8 +672,8 @@ If <object store backend> is \"s3\", then the arguments are:
 			}
 
 			if namespace == "" {
-				kubeConfig := config.KubeConfig()
-				namespace, err = config.KubeNamespace(kubeConfig)
+				kubeConfig := config.KubeConfig(nil)
+				namespace, _, err = kubeConfig.Namespace()
 				if err != nil {
 					return err
 				}
@@ -792,8 +807,8 @@ underlying volume will not be removed.
 			}
 			if bytes[0] == 'y' || bytes[0] == 'Y' {
 				if namespace == "" {
-					kubeConfig := config.KubeConfig()
-					namespace, err = config.KubeNamespace(kubeConfig)
+					kubeConfig := config.KubeConfig(nil)
+					namespace, _, err = kubeConfig.Namespace()
 					if err != nil {
 						return err
 					}

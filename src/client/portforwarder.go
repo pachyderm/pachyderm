@@ -47,14 +47,20 @@ type PortForwarder struct {
 
 // NewPortForwarder creates a new port forwarder
 func NewPortForwarder(namespace string) (*PortForwarder, error) {
-	kubeConfig := config.KubeConfig()
-	if namespace == "" {
-		var err error
-		namespace, err = config.KubeNamespace(kubeConfig)
-		if err != nil {
-			return nil, err
-		}
+	cfg, err := config.Read()
+	if err != nil {
+		return nil, fmt.Errorf("could not read config: %v", err)
 	}
+	_, context, err := cfg.ActiveContext()
+	if err != nil {
+		return nil, fmt.Errorf("could not get active context: %v", err)
+	}
+
+	if namespace == "" {
+		namespace = context.Namespace
+	}
+
+	kubeConfig := config.KubeConfig(context)
 
 	kubeClientConfig, err := kubeConfig.ClientConfig()
 	if err != nil {

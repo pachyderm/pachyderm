@@ -431,7 +431,7 @@ func newWriter(ctx context.Context, client *amazonClient, name string) *amazonWr
 			ContentEncoding: aws.String("application/octet-stream"),
 		})
 		if err != nil {
-			w.pipe.CloseWithError(err)
+			reader.CloseWithError(err)
 		}
 		w.errChan <- err
 	}()

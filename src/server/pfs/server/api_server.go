@@ -149,15 +149,20 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) Fsck(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
+// Fsckimplements the protobuf pfs.Fsck RPC
+func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-
-	err := a.driver.fsck(a.env.GetPachClient(ctx))
-	if err != nil {
-		return nil, err
+	sent := 0
+	defer func(start time.Time) {
+		a.Log(request, fmt.Sprintf("stream containing %d messages", sent), retErr, time.Since(start))
+	}(time.Now())
+	if err := a.driver.fsck(a.env.GetPachClient(fsckServer.Context()), request.Fix, func(resp *pfs.FsckResponse) error {
+		sent++
+		return fsckServer.Send(resp)
+	}); err != nil {
+		return err
 	}
-	return &types.Empty{}, nil
+	return nil
 }
 
 // StartCommitInTransaction is identical to StartCommit except that it can run

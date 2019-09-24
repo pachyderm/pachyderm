@@ -95,22 +95,6 @@ func (c *etcdClient) GetAll(key string) (map[string]string, error) {
 	return result, nil
 }
 
-func (c *etcdClient) Watch(key string, cancel chan bool, callBack func(string) error) error {
-	// This retry is needed for when the etcd cluster gets overloaded.
-	for {
-		if err := c.watchWithoutRetry(key, cancel, callBack); err != nil {
-			etcdErr, ok := err.(*etcd.EtcdError)
-			if ok && etcdErr.ErrorCode == 401 {
-				continue
-			}
-			if ok && etcdErr.ErrorCode == 501 {
-				continue
-			}
-			return err
-		}
-	}
-}
-
 func (c *etcdClient) WatchAll(key string, cancel chan bool, callBack func(map[string]string) error) error {
 	for {
 		if err := c.watchAllWithoutRetry(key, cancel, callBack); err != nil {
@@ -142,24 +126,8 @@ func (c *etcdClient) Create(key string, value string, ttl uint64) error {
 	return nil
 }
 
-func (c *etcdClient) CreateInDir(dir string, value string, ttl uint64) error {
-	_, err := c.client.CreateInOrder(dir, value, ttl)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func (c *etcdClient) Delete(key string) error {
 	_, err := c.client.Delete(key, false)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (c *etcdClient) CheckAndDelete(key string, oldValue string) error {
-	_, err := c.client.CompareAndDelete(key, oldValue, 0)
 	if err != nil {
 		return err
 	}
@@ -204,42 +172,6 @@ func nodeToMap(node *etcd.Node, out map[string]string) bool {
 		changed = nodeToMap(node, out) || changed
 	}
 	return changed
-}
-
-func (c *etcdClient) watchWithoutRetry(key string, cancel chan bool, callBack func(string) error) error {
-	var waitIndex uint64 = 1
-	// First get the starting value of the key
-	response, err := c.client.Get(key, false, false)
-	if err != nil {
-		if strings.HasPrefix(err.Error(), "100: Key not found") {
-			err = callBack("")
-			if err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
-	} else {
-		err = callBack(response.Node.Value)
-		if err != nil {
-			return err
-		}
-		waitIndex = response.Node.ModifiedIndex + 1
-	}
-	for {
-		response, err := c.client.Watch(key, waitIndex, false, nil, cancel)
-		if err != nil {
-			if err == etcd.ErrWatchStoppedByUser {
-				return ErrCancelled
-			}
-			return err
-		}
-		err = callBack(response.Node.Value)
-		if err != nil {
-			return err
-		}
-		waitIndex = response.Node.ModifiedIndex + 1
-	}
 }
 
 func (c *etcdClient) watchAllWithoutRetry(key string, cancel chan bool, callBack func(map[string]string) error) error {

@@ -14,8 +14,10 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"regexp"
+	"strings"
 )
 
 var invert = flag.Bool("v", false, "If set, match returns an error if the "+
@@ -35,40 +37,46 @@ func main() {
 	}
 	re := regexp.MustCompile(flag.Args()[0])
 
-	// Read through input looking for match
-	s := bufio.NewScanner(os.Stdin)
-	exit := -1
+	// Read through input looking for match && copying input to inputBuf (which is
+	// written to stdout at the end)
+	inputBuf := &strings.Builder{}
+	matchFound := false
+	s := bufio.NewScanner(io.TeeReader(os.Stdin, inputBuf))
 	for s.Scan() {
-		os.Stdout.Write(s.Bytes())
-		os.Stdout.Write([]byte{'\n'})
-		if exit >= 0 {
-			continue
-		}
 		switch {
-		case !re.Match(s.Bytes()): // No match, continue
-		case *invert: // Failure -- matched with -v
+		case matchFound:
+			continue // match was found in the past--just copy input to inputBuf
+		case !re.Match(s.Bytes()):
+			continue // no match--keep copying and looking
+		case *invert:
+			// Failure: matched with -v
 			fmt.Fprintf(
 				os.Stderr,
-				"did not expect to find\n  \"%s\"\nbut matched\n  \"%s\"\nin the text:\n",
+				"match for forbidden regex\n  \"%s\"\nin the text:\n  \"%s\"\n",
 				flag.Args()[0],
 				s.Text(),
 			)
-			exit = 1
-		default: // Success, match -- copy input to output
-			exit = 0
+			os.Exit(1)
+		default:
+			matchFound = true // match found on this line
 		}
 	}
-	if exit >= 0 {
+	if matchFound || *invert {
+		// Success--dump inputBuf (with guaranteed newline @ end)
+		// Note: we must ignore errors here--os.Stdout might be closed if a
+		// downstream cmd has already finished, but we don't want to cause a test to
+		// fail because of that
+		io.Copy(os.Stdout, strings.NewReader(strings.TrimSuffix(inputBuf.String(), "\n")))
+		os.Stdout.Write([]byte{'\n'})
 		os.Exit(0)
-	}
-	if !*invert {
-		// Failure -- no match
+	} else if !*invert {
+		// Failure: match expected, no match found
 		fmt.Fprintf(
 			os.Stderr,
-			"failed to find\n  \"%s\"\nin the text:\n",
+			"failed to find\n  \"%s\"\nin the text:\n  \"\"\"\n%s\n  \"\"\"\n",
 			flag.Args()[0],
+			strings.TrimSuffix(inputBuf.String(), "\n"),
 		)
 		os.Exit(1)
 	}
-	// Success -- no match with -v
 }
