@@ -186,9 +186,12 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 	// Create new session using awsConfig
 	session := session.New(awsConfig)
 	awsClient := &amazonClient{
-		bucket:         bucket,
-		s3:             s3.New(session),
-		uploader:       s3manager.NewUploader(session),
+		bucket: bucket,
+		s3:     s3.New(session),
+		uploader: s3manager.NewUploader(session, func(u *s3manager.Uploader) {
+			u.PartSize = advancedConfig.PartSize
+			u.MaxUploadParts = advancedConfig.MaxUploadParts
+		}),
 		advancedConfig: advancedConfig,
 	}
 

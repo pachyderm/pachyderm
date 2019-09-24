@@ -1282,6 +1282,8 @@ func amazonBasicSecret(region, bucket, distribution string, advancedConfig *obj.
 		"timeout":             []byte(advancedConfig.Timeout),
 		"upload-acl":          []byte(advancedConfig.UploadACL),
 		"reverse":             []byte(strconv.FormatBool(advancedConfig.Reverse)),
+		"part-size":           []byte(strconv.FormatInt(advancedConfig.PartSize, 10)),
+		"max-upload-parts":    []byte(strconv.Itoa(advancedConfig.MaxUploadParts)),
 	}
 }
 

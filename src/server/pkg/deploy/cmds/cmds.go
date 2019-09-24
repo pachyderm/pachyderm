@@ -310,6 +310,8 @@ func deployCmds() []*cobra.Command {
 	var timeout string
 	var uploadACL string
 	var reverse bool
+	var partSize int64
+	var maxUploadParts int
 	deployCustom := &cobra.Command{
 		Use:   "{{alias}} --persistent-disk <persistent disk backend> --object-store <object store backend> <persistent disk args> <object store args>",
 		Short: "Deploy a custom Pachyderm cluster configuration",
@@ -326,10 +328,12 @@ If <object store backend> is \"s3\", then the arguments are:
 			}()
 			// Setup advanced configuration.
 			advancedConfig := &obj.AmazonAdvancedConfiguration{
-				Retries:   retries,
-				Timeout:   timeout,
-				UploadACL: uploadACL,
-				Reverse:   reverse,
+				Retries:        retries,
+				Timeout:        timeout,
+				UploadACL:      uploadACL,
+				Reverse:        reverse,
+				PartSize:       partSize,
+				MaxUploadParts: maxUploadParts,
 			}
 			// Generate manifest and write assets.
 			manifest := getEncoder(outputFormat)
@@ -363,6 +367,8 @@ If <object store backend> is \"s3\", then the arguments are:
 	deployCustom.Flags().StringVar(&timeout, "timeout", obj.DefaultTimeout, "(rarely set / S3V2 incompatible) Set a custom timeout for object storage requests.")
 	deployCustom.Flags().StringVar(&uploadACL, "upload-acl", obj.DefaultUploadACL, "(rarely set / S3V2 incompatible) Set a custom upload ACL for object storage uploads.")
 	deployCustom.Flags().BoolVar(&reverse, "reverse", obj.DefaultReverse, "(rarely set) Reverse object storage paths.")
+	deployCustom.Flags().Int64Var(&partSize, "part-size", obj.DefaultPartSize, "(rarely set / S3V2 incompatible) Set a custom part size for object storage uploads.")
+	deployCustom.Flags().IntVar(&maxUploadParts, "max-upload-parts", obj.DefaultMaxUploadParts, "(rarely set / S3V2 incompatible) Set a custom maximum number of upload parts.")
 	commands = append(commands, cmdutil.CreateAlias(deployCustom, "deploy custom"))
 
 	var cloudfrontDistribution string
@@ -451,10 +457,12 @@ If <object store backend> is \"s3\", then the arguments are:
 			}
 			// Setup advanced configuration.
 			advancedConfig := &obj.AmazonAdvancedConfiguration{
-				Retries:   retries,
-				Timeout:   timeout,
-				UploadACL: uploadACL,
-				Reverse:   reverse,
+				Retries:        retries,
+				Timeout:        timeout,
+				UploadACL:      uploadACL,
+				Reverse:        reverse,
+				PartSize:       partSize,
+				MaxUploadParts: maxUploadParts,
 			}
 			// Generate manifest and write assets.
 			manifest := getEncoder(outputFormat)
@@ -486,6 +494,8 @@ If <object store backend> is \"s3\", then the arguments are:
 	deployAmazon.Flags().StringVar(&timeout, "timeout", obj.DefaultTimeout, "(rarely set) Set a custom timeout for object storage requests.")
 	deployAmazon.Flags().StringVar(&uploadACL, "upload-acl", obj.DefaultUploadACL, "(rarely set) Set a custom upload ACL for object storage uploads.")
 	deployAmazon.Flags().BoolVar(&reverse, "reverse", obj.DefaultReverse, "(rarely set) Reverse object storage paths.")
+	deployAmazon.Flags().Int64Var(&partSize, "part-size", obj.DefaultPartSize, "(rarely set) Set a custom part size for object storage uploads.")
+	deployAmazon.Flags().IntVar(&maxUploadParts, "max-upload-parts", obj.DefaultMaxUploadParts, "(rarely set) Set a custom maximum number of upload parts.")
 	commands = append(commands, cmdutil.CreateAlias(deployAmazon, "deploy amazon"))
 
 	deployMicrosoft := &cobra.Command{
@@ -584,10 +594,12 @@ If <object store backend> is \"s3\", then the arguments are:
 			}
 			// Setup advanced configuration.
 			advancedConfig := &obj.AmazonAdvancedConfiguration{
-				Retries:   retries,
-				Timeout:   timeout,
-				UploadACL: uploadACL,
-				Reverse:   reverse,
+				Retries:        retries,
+				Timeout:        timeout,
+				UploadACL:      uploadACL,
+				Reverse:        reverse,
+				PartSize:       partSize,
+				MaxUploadParts: maxUploadParts,
 			}
 			return deployStorageSecrets(assets.AmazonSecret(args[0], "", args[1], args[2], token, "", "", advancedConfig))
 		}),
@@ -596,6 +608,8 @@ If <object store backend> is \"s3\", then the arguments are:
 	deployStorageAmazon.Flags().StringVar(&timeout, "timeout", obj.DefaultTimeout, "(rarely set) Set a custom timeout for object storage requests.")
 	deployStorageAmazon.Flags().StringVar(&uploadACL, "upload-acl", obj.DefaultUploadACL, "(rarely set) Set a custom upload ACL for object storage uploads.")
 	deployStorageAmazon.Flags().BoolVar(&reverse, "reverse", obj.DefaultReverse, "(rarely set) Reverse object storage paths.")
+	deployStorageAmazon.Flags().Int64Var(&partSize, "part-size", obj.DefaultPartSize, "(rarely set) Set a custom part size for object storage uploads.")
+	deployStorageAmazon.Flags().IntVar(&maxUploadParts, "max-upload-parts", obj.DefaultMaxUploadParts, "(rarely set) Set a custom maximum number of upload parts.")
 	commands = append(commands, cmdutil.CreateAlias(deployStorageAmazon, "deploy storage amazon"))
 
 	deployStorageGoogle := &cobra.Command{

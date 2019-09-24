@@ -78,9 +78,12 @@ const (
 
 // Advanced configuration environment variables
 const (
-	RetriesEnvVar   = "RETRIES"
-	TimeoutEnvVar   = "TIMEOUT"
-	UploadACLEnvVar = "UPLOAD_ACL"
+	RetriesEnvVar        = "RETRIES"
+	TimeoutEnvVar        = "TIMEOUT"
+	UploadACLEnvVar      = "UPLOAD_ACL"
+	ReverseEnvVar        = "REVERSE"
+	PartSizeEnvVar       = "PART_SIZE"
+	MaxUploadPartsEnvVar = "MAX_UPLOAD_PARTS"
 )
 
 const (
@@ -92,6 +95,10 @@ const (
 	DefaultUploadACL = "bucket-owner-full-control"
 	// DefaultReverse is the default for whether to reverse object storage paths or not.
 	DefaultReverse = true
+	// DefaultPartSize is the default part size for object storage uploads.
+	DefaultPartSize = 5242880
+	// DefaultMaxUploadParts is the default maximum number of upload parts.
+	DefaultMaxUploadParts = 10000
 )
 
 // AmazonAdvancedConfiguration contains the advanced configuration for the amazon client.
@@ -101,8 +108,10 @@ type AmazonAdvancedConfiguration struct {
 	// By default, objects uploaded to a bucket are only accessible to the
 	// uploader, and not the owner of the bucket. Using the default ensures that
 	// the owner of the bucket can access the objects as well.
-	UploadACL string `env:"UPLOAD_ACL, default=bucket-owner-full-control"`
-	Reverse   bool   `env:"REVERSE, default=true"`
+	UploadACL      string `env:"UPLOAD_ACL, default=bucket-owner-full-control"`
+	Reverse        bool   `env:"REVERSE, default=true"`
+	PartSize       int64  `env:"PART_SIZE, default=5242880"`
+	MaxUploadParts int    `env:"MAX_UPLOAD_PARTS, default=10000"`
 }
 
 // EnvVarToSecretKey is an environment variable name to secret key mapping
@@ -135,6 +144,9 @@ var EnvVarToSecretKey = map[string]string{
 	RetriesEnvVar:            "retries",
 	TimeoutEnvVar:            "timeout",
 	UploadACLEnvVar:          "upload-acl",
+	ReverseEnvVar:            "reverse",
+	PartSizeEnvVar:           "part-size",
+	MaxUploadPartsEnvVar:     "max-upload-parts",
 }
 
 // StorageRootFromEnv gets the storage root based on environment variables.
