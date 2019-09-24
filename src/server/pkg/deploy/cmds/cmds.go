@@ -309,6 +309,7 @@ func deployCmds() []*cobra.Command {
 	var retries int
 	var timeout string
 	var uploadACL string
+	var reverse bool
 	deployCustom := &cobra.Command{
 		Use:   "{{alias}} --persistent-disk <persistent disk backend> --object-store <object store backend> <persistent disk args> <object store args>",
 		Short: "Deploy a custom Pachyderm cluster configuration",
@@ -328,6 +329,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				Retries:   retries,
 				Timeout:   timeout,
 				UploadACL: uploadACL,
+				Reverse:   reverse,
 			}
 			// Generate manifest and write assets.
 			manifest := getEncoder(outputFormat)
@@ -360,6 +362,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	deployCustom.Flags().IntVar(&retries, "retries", obj.DefaultRetries, "(rarely set / S3V2 incompatible) Set a custom number of retries for object storage requests.")
 	deployCustom.Flags().StringVar(&timeout, "timeout", obj.DefaultTimeout, "(rarely set / S3V2 incompatible) Set a custom timeout for object storage requests.")
 	deployCustom.Flags().StringVar(&uploadACL, "upload-acl", obj.DefaultUploadACL, "(rarely set / S3V2 incompatible) Set a custom upload ACL for object storage uploads.")
+	deployCustom.Flags().BoolVar(&reverse, "reverse", obj.DefaultReverse, "(rarely set) Reverse object storage paths.")
 	commands = append(commands, cmdutil.CreateAlias(deployCustom, "deploy custom"))
 
 	var cloudfrontDistribution string
@@ -451,6 +454,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				Retries:   retries,
 				Timeout:   timeout,
 				UploadACL: uploadACL,
+				Reverse:   reverse,
 			}
 			// Generate manifest and write assets.
 			manifest := getEncoder(outputFormat)
@@ -481,6 +485,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	deployAmazon.Flags().IntVar(&retries, "retries", obj.DefaultRetries, "(rarely set) Set a custom number of retries for object storage requests.")
 	deployAmazon.Flags().StringVar(&timeout, "timeout", obj.DefaultTimeout, "(rarely set) Set a custom timeout for object storage requests.")
 	deployAmazon.Flags().StringVar(&uploadACL, "upload-acl", obj.DefaultUploadACL, "(rarely set) Set a custom upload ACL for object storage uploads.")
+	deployAmazon.Flags().BoolVar(&reverse, "reverse", obj.DefaultReverse, "(rarely set) Reverse object storage paths.")
 	commands = append(commands, cmdutil.CreateAlias(deployAmazon, "deploy amazon"))
 
 	deployMicrosoft := &cobra.Command{
@@ -582,6 +587,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				Retries:   retries,
 				Timeout:   timeout,
 				UploadACL: uploadACL,
+				Reverse:   reverse,
 			}
 			return deployStorageSecrets(assets.AmazonSecret(args[0], "", args[1], args[2], token, "", "", advancedConfig))
 		}),
@@ -589,6 +595,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	deployStorageAmazon.Flags().IntVar(&retries, "retries", obj.DefaultRetries, "(rarely set) Set a custom number of retries for object storage requests.")
 	deployStorageAmazon.Flags().StringVar(&timeout, "timeout", obj.DefaultTimeout, "(rarely set) Set a custom timeout for object storage requests.")
 	deployStorageAmazon.Flags().StringVar(&uploadACL, "upload-acl", obj.DefaultUploadACL, "(rarely set) Set a custom upload ACL for object storage uploads.")
+	deployStorageAmazon.Flags().BoolVar(&reverse, "reverse", obj.DefaultReverse, "(rarely set) Reverse object storage paths.")
 	commands = append(commands, cmdutil.CreateAlias(deployStorageAmazon, "deploy storage amazon"))
 
 	deployStorageGoogle := &cobra.Command{

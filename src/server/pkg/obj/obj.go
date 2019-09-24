@@ -90,6 +90,8 @@ const (
 	DefaultTimeout = "5m"
 	// DefaultUploadACL is the default upload ACL for object storage uploads.
 	DefaultUploadACL = "bucket-owner-full-control"
+	// DefaultReverse is the default for whether to reverse object storage paths or not.
+	DefaultReverse = true
 )
 
 // AmazonAdvancedConfiguration contains the advanced configuration for the amazon client.
@@ -100,6 +102,7 @@ type AmazonAdvancedConfiguration struct {
 	// uploader, and not the owner of the bucket. Using the default ensures that
 	// the owner of the bucket can access the objects as well.
 	UploadACL string `env:"UPLOAD_ACL, default=bucket-owner-full-control"`
+	Reverse   bool   `env:"REVERSE, default=true"`
 }
 
 // EnvVarToSecretKey is an environment variable name to secret key mapping
@@ -316,12 +319,16 @@ func NewMinioClient(endpoint, bucket, id, secret string, secure, isS3V2 bool) (C
 //   token  - AWS access token
 //   region - AWS region
 //   endpoint - Custom endpoint (generally used for S3 compatible object stores)
-func NewAmazonClient(region, bucket string, creds *AmazonCreds, distribution string, endpoint string, reversed ...bool) (Client, error) {
+//   reverse - Reverse object storage paths (overwrites configured value)
+func NewAmazonClient(region, bucket string, creds *AmazonCreds, distribution string, endpoint string, reverse ...bool) (Client, error) {
 	advancedConfig := &AmazonAdvancedConfiguration{}
 	if err := cmdutil.Populate(advancedConfig); err != nil {
 		return nil, err
 	}
-	return newAmazonClient(region, bucket, creds, distribution, endpoint, advancedConfig, reversed...)
+	if len(reverse) > 0 {
+		advancedConfig.Reverse = reverse[0]
+	}
+	return newAmazonClient(region, bucket, creds, distribution, endpoint, advancedConfig)
 }
 
 // NewMinioClientFromSecret constructs an s3 compatible client by reading
@@ -390,7 +397,7 @@ func NewMinioClientFromEnv() (Client, error) {
 // NewAmazonClientFromSecret constructs an amazon client by reading credentials
 // from a mounted AmazonSecret. You may pass "" for bucket in which case it
 // will read the bucket from the secret.
-func NewAmazonClientFromSecret(bucket string, reversed ...bool) (Client, error) {
+func NewAmazonClientFromSecret(bucket string, reverse ...bool) (Client, error) {
 	// Get AWS region (required for constructing an AWS client)
 	region, err := readSecretFile("/amazon-region")
 	if err != nil {
@@ -437,7 +444,7 @@ func NewAmazonClientFromSecret(bucket string, reversed ...bool) (Client, error) 
 	distribution, err := readSecretFile("/amazon-distribution")
 	// Get endpoint for custom deployment (optional).
 	endpoint, err := readSecretFile("/custom-endpoint")
-	return NewAmazonClient(region, bucket, &creds, distribution, endpoint, reversed...)
+	return NewAmazonClient(region, bucket, &creds, distribution, endpoint, reverse...)
 }
 
 // NewAmazonClientFromEnv creates a Amazon client based on environment variables.
@@ -467,10 +474,10 @@ func NewAmazonClientFromEnv() (Client, error) {
 
 // NewClientFromURLAndSecret constructs a client by parsing `URL` and then
 // constructing the correct client for that URL using secrets.
-func NewClientFromURLAndSecret(url *ObjectStoreURL, reversed ...bool) (c Client, err error) {
+func NewClientFromURLAndSecret(url *ObjectStoreURL, reverse ...bool) (c Client, err error) {
 	switch url.Store {
 	case "s3":
-		c, err = NewAmazonClientFromSecret(url.Bucket, reversed...)
+		c, err = NewAmazonClientFromSecret(url.Bucket, reverse...)
 	case "gcs":
 		fallthrough
 	case "gs":

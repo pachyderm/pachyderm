@@ -37,16 +37,7 @@ type amazonClient struct {
 	cloudfrontURLSigner    *sign.URLSigner
 	s3                     *s3.S3
 	uploader               *s3manager.Uploader
-	// When true, keys are stored in reversed order; e.g. the key "ABCD" is
-	// rewritten to "DCBA". This is because, as of 12/2018, if a lot of assets
-	// have the same prefix, the same S3 servers will be hit. This comes into
-	// conflict with Pachyderm, which prefixes the keys of blocks with where
-	// the blocks came from, causing a lot of blocks with the same prefix to
-	// be written around the same time, and overloading S3. Reversing the
-	// order of keys gives an easy way to spread out S3 assets and
-	// substantially speed up block writing.
-	reversed       bool
-	advancedConfig *AmazonAdvancedConfiguration
+	advancedConfig         *AmazonAdvancedConfiguration
 }
 
 type vaultCredentialsProvider struct {
@@ -159,7 +150,7 @@ type AmazonCreds struct {
 	VaultToken   string
 }
 
-func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistribution string, endpoint string, advancedConfig *AmazonAdvancedConfiguration, reversed ...bool) (*amazonClient, error) {
+func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistribution string, endpoint string, advancedConfig *AmazonAdvancedConfiguration) (*amazonClient, error) {
 	// set up aws config, including credentials (if neither creds.ID nor
 	// creds.VaultAddress are set, then this will use the EC2 metadata service
 	timeout, err := time.ParseDuration(advancedConfig.Timeout)
@@ -194,17 +185,10 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 
 	// Create new session using awsConfig
 	session := session.New(awsConfig)
-	var r bool
-	if len(reversed) > 0 {
-		r = reversed[0]
-	} else {
-		r = true
-	}
 	awsClient := &amazonClient{
 		bucket:         bucket,
 		s3:             s3.New(session),
 		uploader:       s3manager.NewUploader(session),
-		reversed:       r,
 		advancedConfig: advancedConfig,
 	}
 
@@ -235,7 +219,7 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 }
 
 func (c *amazonClient) Writer(ctx context.Context, name string) (io.WriteCloser, error) {
-	if c.reversed {
+	if c.advancedConfig.Reverse {
 		name = reverse(name)
 	}
 	return newBackoffWriteCloser(ctx, c, newWriter(ctx, c, name)), nil
@@ -245,7 +229,7 @@ func (c *amazonClient) Walk(_ context.Context, name string, fn func(name string)
 	var fnErr error
 	var prefix *string
 
-	if c.reversed {
+	if c.advancedConfig.Reverse {
 		prefix = nil
 	} else {
 		prefix = &name
@@ -259,7 +243,7 @@ func (c *amazonClient) Walk(_ context.Context, name string, fn func(name string)
 		func(listObjectsOutput *s3.ListObjectsOutput, lastPage bool) bool {
 			for _, object := range listObjectsOutput.Contents {
 				key := *object.Key
-				if c.reversed {
+				if c.advancedConfig.Reverse {
 					key = reverse(key)
 				}
 				if strings.HasPrefix(key, name) {
@@ -278,7 +262,7 @@ func (c *amazonClient) Walk(_ context.Context, name string, fn func(name string)
 }
 
 func (c *amazonClient) Reader(ctx context.Context, name string, offset uint64, size uint64) (io.ReadCloser, error) {
-	if c.reversed {
+	if c.advancedConfig.Reverse {
 		name = reverse(name)
 	}
 	byteRange := byteRange(offset, size)
@@ -342,7 +326,7 @@ func (c *amazonClient) Reader(ctx context.Context, name string, offset uint64, s
 }
 
 func (c *amazonClient) Delete(_ context.Context, name string) error {
-	if c.reversed {
+	if c.advancedConfig.Reverse {
 		name = reverse(name)
 	}
 	_, err := c.s3.DeleteObject(&s3.DeleteObjectInput{
@@ -353,7 +337,7 @@ func (c *amazonClient) Delete(_ context.Context, name string) error {
 }
 
 func (c *amazonClient) Exists(_ context.Context, name string) bool {
-	if c.reversed {
+	if c.advancedConfig.Reverse {
 		name = reverse(name)
 	}
 	_, err := c.s3.HeadObject(&s3.HeadObjectInput{
