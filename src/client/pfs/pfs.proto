@@ -287,6 +287,7 @@ message InspectBranchRequest {
 
 message ListBranchRequest {
   Repo repo = 1;
+  bool reverse = 2; // Returns branches oldest to newest
 }
 
 message DeleteBranchRequest {
