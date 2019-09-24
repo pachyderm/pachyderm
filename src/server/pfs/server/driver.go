@@ -1998,6 +1998,12 @@ func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, b
 				if branch != "" && commitInfo.Branch.Name != branch {
 					continue
 				}
+				// For now, we don't want stats branches to have jobs triggered on them
+				// and this is the simplest way to achieve that. Once we have labels,
+				// we'll use those instead for a more principled approach.
+				if commitInfo.Branch.Name == "stats" {
+					continue
+				}
 			}
 
 			// We don't want to include the `from` commit itself
