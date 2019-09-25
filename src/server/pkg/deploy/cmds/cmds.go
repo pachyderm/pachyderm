@@ -224,6 +224,13 @@ func deployCmds() []*cobra.Command {
 				// is set by deploy.PersistentPreRun, below.
 				opts.Metrics = false
 
+				// set GOMAXPROCS to one, which increases the amount of contention
+				// between goroutines, and (ironically) increases the likelihood of
+				// catching races. Because we run all tests seriallly, and typically
+				// test against Minikube (minikube writes all data to an in-memory
+				// filesystem) this doesn't change our test performance much
+				opts.GoMaxProcs = 1
+
 				// Disable authentication, for tests
 				opts.DisableAuthentication = true
 

@@ -212,6 +212,12 @@ type AssetOpts struct {
 	// placed into a Kubernetes secret and used by pachd nodes to authenticate
 	// during TLS
 	TLS *TLSOpts
+
+	// GoMaxProcs sets the environment variable GOMAXPROCS in the pachd container.
+	// Adjusting this value can be useful for testing (lowering it, so that
+	// goroutines have to compete for a small number of system threads, can force
+	// interleaving and help expose race conditions)
+	GoMaxProcs int
 }
 
 // Encoder is the interface for writing out assets. This is assumed to wrap an output writer.
@@ -500,6 +506,14 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 			v1.ResourceMemory: mem,
 		}
 	}
+
+	envVars := GetSecretEnvVars("")
+	if opts.GoMaxProcs > 0 {
+		envVars = append(envVars, v1.EnvVar{
+			Name:  "GOMAXPROCS",
+			Value: strconv.Itoa(opts.GoMaxProcs),
+		})
+	}
 	return &apps.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
@@ -555,7 +569,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 									},
 								},
 								{Name: "EXPOSE_OBJECT_API", Value: strconv.FormatBool(opts.ExposeObjectAPI)},
-							}, GetSecretEnvVars("")...),
+							}, envVars...),
 							Ports: []v1.ContainerPort{
 								{
 									ContainerPort: opts.PachdPort, // also set in cmd/pachd/main.go
