@@ -40,7 +40,7 @@ type byteSet struct {
 	// A worker that did not find a chunk in its assigned byte set will pass it to the prior
 	// worker in the chain with nextBytes set to the next worker's bytes channel. This allows shuffling
 	// of byte sets between workers until a split point is found.
-	nextBytes chan *byteSet
+	nextBytes <-chan *byteSet
 }
 
 // chanSet is a group of channels used to setup the daisy chain and shuffle data between the workers.
@@ -49,6 +49,35 @@ type byteSet struct {
 type chanSet struct {
 	bytes chan *byteSet
 	done  chan struct{}
+}
+
+// The following chanSet types enforce the directionality of the channels at compile time
+// to help prevent potentially tricky bugs now and in the future with the daisy chain.
+type prevChanSet struct {
+	bytes chan<- *byteSet
+	done  <-chan struct{}
+}
+
+func newPrevChanSet(c *chanSet) *prevChanSet {
+	if c == nil {
+		return nil
+	}
+	return &prevChanSet{
+		bytes: c.bytes,
+		done:  c.done,
+	}
+}
+
+type nextChanSet struct {
+	bytes <-chan *byteSet
+	done  chan<- struct{}
+}
+
+func newNextChanSet(c *chanSet) *nextChanSet {
+	return &nextChanSet{
+		bytes: c.bytes,
+		done:  c.done,
+	}
 }
 
 type worker struct {
@@ -61,7 +90,8 @@ type worker struct {
 	annotations []*Annotation
 	f           WriterFunc
 	fs          []func() error
-	prev, next  *chanSet
+	prev        *prevChanSet
+	next        *nextChanSet
 	stats       *stats
 }
 
@@ -282,7 +312,7 @@ type Writer struct {
 	annotations    []*Annotation
 	memoryLimiter  *semaphore.Weighted
 	eg             *errgroup.Group
-	newWorkerFunc  func(context.Context, *chanSet, *chanSet) *worker
+	newWorkerFunc  func(context.Context, *prevChanSet, *nextChanSet) *worker
 	prev           *chanSet
 	f              WriterFunc
 	stats          *stats
@@ -290,7 +320,7 @@ type Writer struct {
 
 func newWriter(ctx context.Context, objC obj.Client, memoryLimiter *semaphore.Weighted, averageBits int, f WriterFunc, seed int64) *Writer {
 	stats := &stats{}
-	newWorkerFunc := func(ctx context.Context, prev, next *chanSet) *worker {
+	newWorkerFunc := func(ctx context.Context, prev *prevChanSet, next *nextChanSet) *worker {
 		w := &worker{
 			ctx:       ctx,
 			objC:      objC,
@@ -399,7 +429,7 @@ func (w *Writer) writeByteSet() {
 	}
 	w.eg.Go(func() error {
 		defer w.memoryLimiter.Release(bufSize)
-		return w.newWorkerFunc(w.cancelCtx, prev, next).run(byteSet)
+		return w.newWorkerFunc(w.cancelCtx, newPrevChanSet(prev), newNextChanSet(next)).run(byteSet)
 	})
 	w.prev = next
 	w.buf = &bytes.Buffer{}
