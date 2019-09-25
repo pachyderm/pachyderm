@@ -7,6 +7,7 @@ import (
 	"io"
 	"math/rand"
 	"path"
+	"sort"
 	"strconv"
 	"testing"
 	"time"
@@ -123,8 +124,6 @@ func TestWriteThenRead(t *testing.T) {
 	}
 	// Write out ten filesets where each subsequent fileset has the content of one random file changed.
 	// Confirm that all of the content and hashes other than the changed file remain the same.
-	// (bryce) we are going to want a dedupe test somewhere, not sure if it makes sense here or in the chunk
-	// storage layer (probably in the chunk storage layer).
 	for i := 0; i < 10; i++ {
 		// Write files to file set.
 		w := fileSets.NewWriter(context.Background(), testPath)
@@ -281,6 +280,75 @@ func TestMerge(t *testing.T) {
 	}
 	// Check the results of the merge against the files.
 	r := fileSets.NewReader(context.Background(), testPath, "")
+	for _, fileName := range fileNames {
+		checkNextFile(t, r, files[fileName], msg)
+	}
+	require.NoError(t, r.Close(), msg)
+}
+
+// (bryce) This test will be expanded upon to include testing across a chain of filesets (basically commits)
+// and various sequences of operations across this chain.
+func TestFull(t *testing.T) {
+	objC, chunks := chunk.LocalStorage(t)
+	defer func() {
+		chunk.Cleanup(objC, chunks)
+		objC.Walk(context.Background(), path.Join(prefix, testPath), func(name string) error {
+			return objC.Delete(context.Background(), name)
+		})
+		objC.Delete(context.Background(), path.Join(prefix, testPath))
+		objC.Delete(context.Background(), prefix)
+	}()
+	fileSets := NewStorage(objC, chunks)
+	fileNames := index.Generate("abc")
+	files := make(map[string]*file)
+	seed := time.Now().UTC().UnixNano()
+	rand.Seed(seed)
+	msg := seedStr(seed)
+	for _, fileName := range fileNames {
+		data := chunk.RandSeq(rand.Intn(max))
+		files[fileName] = &file{
+			data: data,
+			tags: []*index.Tag{
+				&index.Tag{
+					Id:        strconv.Itoa(0),
+					SizeBytes: int64(len(data)),
+				},
+			},
+		}
+	}
+	options := []Option{WithMemThreshold(1024 * chunk.MB)}
+	fs := fileSets.New(context.Background(), testPath, options...)
+	// Write the files in random order.
+	rand.Shuffle(len(fileNames), func(i, j int) {
+		fileNames[i], fileNames[j] = fileNames[j], fileNames[i]
+	})
+	for _, fileName := range fileNames {
+		f := files[fileName]
+		hdr := &tar.Header{
+			Name: fileName,
+			Size: int64(len(f.data)),
+		}
+		fs.StartTag(f.tags[0].Id)
+		require.NoError(t, fs.WriteHeader(hdr), msg)
+		_, err := fs.Write(f.data)
+		require.NoError(t, err, msg)
+	}
+	// Delete each file with a certain probability.
+	for i := 0; i < len(fileNames); i++ {
+		if rand.Float64() < 0.25 {
+			fs.Delete(fileNames[i])
+			delete(files, fileNames[i])
+			fileNames = append(fileNames[:i], fileNames[i+1:]...)
+			i--
+		}
+	}
+	require.NoError(t, fs.Close(), msg)
+	// Read files from file set, checking against recorded files.
+	r := fileSets.NewReader(context.Background(), path.Join(testPath, fullMergeSuffix), "")
+	// Skip root directory.
+	_, err := r.Next()
+	require.NoError(t, err, msg)
+	sort.Strings(fileNames)
 	for _, fileName := range fileNames {
 		checkNextFile(t, r, files[fileName], msg)
 	}

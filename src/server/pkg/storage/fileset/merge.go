@@ -65,6 +65,7 @@ func contentMergeFunc(w *Writer) mergeFunc {
 			if err != nil {
 				return err
 			}
+			// (bryce) need to handle delete operations.
 			tagStreams = append(tagStreams, &tagStream{r: fs.r})
 			size += hdr.Idx.SizeBytes
 		}
