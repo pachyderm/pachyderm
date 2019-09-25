@@ -592,6 +592,15 @@ func (s *objBlockAPIServer) ListTags(request *pfsclient.ListTagsRequest, server 
 	}(time.Now())
 
 	var eg errgroup.Group
+	var streamMu sync.Mutex // protects 'server'
+	send := func(tag string, object *pfsclient.Object) error {
+		streamMu.Lock()
+		defer streamMu.Unlock()
+		return server.Send(&pfsclient.ListTagsResponse{
+			Tag:    &pfsclient.Tag{Name: tag},
+			Object: object,
+		})
+	}
 	limiter := limit.New(100)
 	s.objClient.Walk(server.Context(), path.Join(s.tagDir(), request.Prefix), func(key string) error {
 		tag := filepath.Base(key)
@@ -605,10 +614,7 @@ func (s *objBlockAPIServer) ListTags(request *pfsclient.ListTagsRequest, server 
 				}
 				for _, object := range tagObjectIndex.Tags {
 					respCount++
-					if err := server.Send(&pfsclient.ListTagsResponse{
-						Tag:    &pfsclient.Tag{Name: tag},
-						Object: object,
-					}); err != nil {
+					if err := send(tag, object); err != nil {
 						return fmt.Errorf("error in ListTagsServer.Send: %v", err)
 					}
 				}
@@ -616,9 +622,7 @@ func (s *objBlockAPIServer) ListTags(request *pfsclient.ListTagsRequest, server 
 			})
 		} else {
 			respCount++
-			if err := server.Send(&pfsclient.ListTagsResponse{
-				Tag: &pfsclient.Tag{Name: tag},
-			}); err != nil {
+			if err := send(tag, nil); err != nil {
 				return err
 			}
 		}
