@@ -47,7 +47,6 @@ email at support@pachyderm.io.
    :caption: How-Tos
 
    how-tos/index.rst
-   cookbook/index.rst
 
 .. toctree::
    :maxdepth: 1

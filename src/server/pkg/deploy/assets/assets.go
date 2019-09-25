@@ -78,8 +78,6 @@ var (
 	// tlsVolumeName)
 	tlsSecretName = "pachd-tls-cert"
 
-	// 8 GiB, the max for etcd backend bytes.
-	etcdBackendBytes = 8 * 1024 * 1024 * 1024
 	// Cmd used to launch etcd
 	etcdCmd = []string{
 		"/usr/local/bin/etcd",
@@ -88,8 +86,8 @@ var (
 		"--data-dir=/var/data/etcd",
 		"--auto-compaction-retention=1",
 		"--max-txn-ops=10000",
-		"--max-request-bytes=15000000",
-		fmt.Sprintf("--quota-backend-bytes=%d", etcdBackendBytes),
+		"--max-request-bytes=52428800",     //50mb
+		"--quota-backend-bytes=8589934592", //8gb
 	}
 
 	// IAMAnnotation is the annotation used for the IAM role, this can work

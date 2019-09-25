@@ -1,4 +1,4 @@
-# Working with Pipelines
+# Individual Developer Workflow
 
 A typical Pachyderm workflow involves multiple iterations of
 experimenting with your code and pipeline specs.
