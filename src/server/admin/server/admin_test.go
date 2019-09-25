@@ -18,7 +18,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -167,8 +166,7 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 	// Restore metadata and possibly objects
 	require.NoError(t, c.Restore(ops))
 	// Do a fsck just in case.
-	_, err = c.PfsAPIClient.Fsck(c.Ctx(), &types.Empty{})
-	require.NoError(t, err)
+	require.NoError(t, c.FsckFastExit())
 
 	risAfter, err := c.ListRepo()
 	require.NoError(t, err)
@@ -305,8 +303,7 @@ func TestExtractRestoreHeadlessBranches(t *testing.T) {
 	require.NoError(t, c.DeleteAll())
 	require.NoError(t, c.Restore(ops))
 	// Do a fsck just in case.
-	_, err = c.PfsAPIClient.Fsck(c.Ctx(), &types.Empty{})
-	require.NoError(t, err)
+	require.NoError(t, c.FsckFastExit())
 
 	bis, err := c.ListBranch(dataRepo)
 	require.NoError(t, err)
@@ -489,8 +486,7 @@ func TestExtractRestorePipelineUpdate(t *testing.T) {
 	require.NoError(t, c.DeleteAll())
 	require.NoError(t, c.Restore(ops))
 	// Do a fsck just in case.
-	_, err = c.PfsAPIClient.Fsck(c.Ctx(), &types.Empty{})
-	require.NoError(t, err)
+	require.NoError(t, c.FsckFastExit())
 
 	// Check that commits still have the right provenance
 	postRestoreCis, err := c.ListCommit(pipeline, "", "", 0)
@@ -559,8 +555,7 @@ func TestExtractRestoreDeferredProcessing(t *testing.T) {
 	require.NoError(t, c.DeleteAll())
 	require.NoError(t, c.Restore(ops))
 	// Do a fsck just in case.
-	_, err = c.PfsAPIClient.Fsck(c.Ctx(), &types.Empty{})
-	require.NoError(t, err)
+	require.NoError(t, c.FsckFastExit())
 
 	_, err = c.PutFile(dataRepo, "staging", "file2", strings.NewReader("file"))
 	require.NoError(t, err)

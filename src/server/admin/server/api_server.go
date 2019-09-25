@@ -176,12 +176,16 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		}); err != nil {
 			return err
 		}
-		bis, err := pachClient.ListBranch("")
+		bis, err := pachClient.PfsAPIClient.ListBranch(pachClient.Ctx(),
+			&pfs.ListBranchRequest{
+				Repo:    client.NewRepo(""),
+				Reverse: true,
+			},
+		)
 		if err != nil {
 			return err
 		}
-		for _, bi := range bis {
-			fmt.Printf("Bi: %+v\n", bi)
+		for _, bi := range bis.BranchInfo {
 			if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{
 				Branch: &pfs.CreateBranchRequest{
 					Head:       bi.Head,

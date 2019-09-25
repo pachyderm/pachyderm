@@ -2606,7 +2606,7 @@ func (d *driver) inspectBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Br
 	return result, nil
 }
 
-func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo) ([]*pfs.BranchInfo, error) {
+func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo, reverse bool) ([]*pfs.BranchInfo, error) {
 	if err := d.checkIsAuthorized(pachClient, repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
@@ -2614,10 +2614,16 @@ func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo) ([]*pf
 	branchInfo := &pfs.BranchInfo{}
 	branches := d.branches(repo.Name).ReadOnly(pachClient.Ctx())
 	opts := *col.DefaultOptions // Note we dereference here so as to make a copy
-	opts.Order = etcd.SortAscend
+	if reverse {
+		opts.Order = etcd.SortAscend
+	}
 	var bis []*pfs.BranchInfo
 	sendBis := func() {
-		sort.Slice(bis, func(i, j int) bool { return len(bis[i].Provenance) > len(bis[j].Provenance) })
+		if !reverse {
+			sort.Slice(bis, func(i, j int) bool { return len(bis[i].Provenance) < len(bis[j].Provenance) })
+		} else {
+			sort.Slice(bis, func(i, j int) bool { return len(bis[i].Provenance) > len(bis[j].Provenance) })
+		}
 		result = append(result, bis...)
 		bis = nil
 	}

@@ -313,7 +313,7 @@ func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchReque
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	branches, err := a.driver.listBranch(a.env.GetPachClient(ctx), request.Repo)
+	branches, err := a.driver.listBranch(a.env.GetPachClient(ctx), request.Repo, request.Reverse)
 	if err != nil {
 		return nil, err
 	}
