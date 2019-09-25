@@ -96,6 +96,7 @@ require (
 	github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90 // indirect
 	github.com/prometheus/common v0.2.0
 	github.com/prometheus/procfs v0.0.2 // indirect
+	github.com/remyoudompheng/bigfft v0.0.0-20190728182440-6a916e37a237 // indirect
 	github.com/robfig/cron v1.2.0
 	github.com/russellhaering/goxmldsig v0.0.0-20180430223755-7acd5e4a6ef7 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
@@ -139,5 +140,6 @@ require (
 	k8s.io/apimachinery v0.0.0-20181128191346-49ce2735e507
 	k8s.io/client-go v0.0.0-20181213230135-6924ba6dfc02
 	k8s.io/klog v0.3.1 // indirect
+	modernc.org/mathutil v1.0.0
 	sigs.k8s.io/yaml v1.1.0 // indirect
 )
