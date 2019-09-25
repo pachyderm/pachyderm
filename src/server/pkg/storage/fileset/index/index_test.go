@@ -16,7 +16,7 @@ const (
 	testPath = "test"
 )
 
-func Write(tb testing.TB, objC obj.Client, chunks *chunk.Storage, fileNames []string) {
+func write(tb testing.TB, objC obj.Client, chunks *chunk.Storage, fileNames []string) {
 	iw := NewWriter(context.Background(), objC, chunks, testPath)
 	for _, fileName := range fileNames {
 		hdr := &Header{
@@ -30,8 +30,8 @@ func Write(tb testing.TB, objC obj.Client, chunks *chunk.Storage, fileNames []st
 	require.NoError(tb, iw.Close())
 }
 
-func Actual(tb testing.TB, objC obj.Client, chunks *chunk.Storage, prefix string) []string {
-	ir := NewReader(context.Background(), objC, chunks, testPath, prefix)
+func actualFiles(tb testing.TB, objC obj.Client, chunks *chunk.Storage, opts ...Option) []string {
+	ir := NewReader(context.Background(), objC, chunks, testPath, opts...)
 	defer func() {
 		require.NoError(tb, ir.Close())
 	}()
@@ -46,7 +46,7 @@ func Actual(tb testing.TB, objC obj.Client, chunks *chunk.Storage, prefix string
 	}
 }
 
-func Expected(fileNames []string, prefix string) []string {
+func expectedFiles(fileNames []string, prefix string) []string {
 	result := []string{}
 	for _, fileName := range fileNames {
 		if strings.HasPrefix(fileName, prefix) {
@@ -54,6 +54,13 @@ func Expected(fileNames []string, prefix string) []string {
 		}
 	}
 	return result
+}
+
+func pathRange(fileNames []string) *PathRange {
+	return &PathRange{
+		Lower: fileNames[0],
+		Upper: fileNames[len(fileNames)-1],
+	}
 }
 
 func Check(t *testing.T, permString string) {
@@ -64,47 +71,58 @@ func Check(t *testing.T, permString string) {
 	}()
 	fileNames := Generate(permString)
 	averageBits = 12
-	Write(t, objC, chunks, fileNames)
+	write(t, objC, chunks, fileNames)
 	t.Run("Full", func(t *testing.T) {
-		prefix := ""
 		expected := fileNames
-		actual := Actual(t, objC, chunks, prefix)
+		actual := actualFiles(t, objC, chunks)
 		require.Equal(t, expected, actual)
 	})
 	t.Run("FirstFile", func(t *testing.T) {
 		prefix := fileNames[0]
 		expected := []string{prefix}
-		actual := Actual(t, objC, chunks, prefix)
+		actual := actualFiles(t, objC, chunks, WithPrefix(prefix))
+		require.Equal(t, expected, actual)
+		actual = actualFiles(t, objC, chunks, WithRange(pathRange(expected)))
 		require.Equal(t, expected, actual)
 	})
 	t.Run("FirstRange", func(t *testing.T) {
 		prefix := string(fileNames[0][0])
-		expected := Expected(fileNames, prefix)
-		actual := Actual(t, objC, chunks, prefix)
+		expected := expectedFiles(fileNames, prefix)
+		actual := actualFiles(t, objC, chunks, WithPrefix(prefix))
+		require.Equal(t, expected, actual)
+		actual = actualFiles(t, objC, chunks, WithRange(pathRange(expected)))
 		require.Equal(t, expected, actual)
 	})
 	t.Run("MiddleFile", func(t *testing.T) {
 		prefix := fileNames[len(fileNames)/2]
 		expected := []string{prefix}
-		actual := Actual(t, objC, chunks, prefix)
+		actual := actualFiles(t, objC, chunks, WithPrefix(prefix))
+		require.Equal(t, expected, actual)
+		actual = actualFiles(t, objC, chunks, WithRange(pathRange(expected)))
 		require.Equal(t, expected, actual)
 	})
 	t.Run("MiddleRange", func(t *testing.T) {
 		prefix := string(fileNames[len(fileNames)/2][0])
-		expected := Expected(fileNames, prefix)
-		actual := Actual(t, objC, chunks, prefix)
+		expected := expectedFiles(fileNames, prefix)
+		actual := actualFiles(t, objC, chunks, WithPrefix(prefix))
+		require.Equal(t, expected, actual)
+		actual = actualFiles(t, objC, chunks, WithRange(pathRange(expected)))
 		require.Equal(t, expected, actual)
 	})
 	t.Run("LastFile", func(t *testing.T) {
 		prefix := fileNames[len(fileNames)-1]
 		expected := []string{prefix}
-		actual := Actual(t, objC, chunks, prefix)
+		actual := actualFiles(t, objC, chunks, WithPrefix(prefix))
+		require.Equal(t, expected, actual)
+		actual = actualFiles(t, objC, chunks, WithRange(pathRange(expected)))
 		require.Equal(t, expected, actual)
 	})
 	t.Run("LastRange", func(t *testing.T) {
 		prefix := string(fileNames[len(fileNames)-1][0])
-		expected := Expected(fileNames, prefix)
-		actual := Actual(t, objC, chunks, prefix)
+		expected := expectedFiles(fileNames, prefix)
+		actual := actualFiles(t, objC, chunks, WithPrefix(prefix))
+		require.Equal(t, expected, actual)
+		actual = actualFiles(t, objC, chunks, WithRange(pathRange(expected)))
 		require.Equal(t, expected, actual)
 	})
 }
