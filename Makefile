@@ -11,6 +11,7 @@ ifndef TESTPKGS
 	TESTPKGS = ./src/...
 endif
 
+RUN= # used by go tests to decide which tests to run (i.e. passed to -run)
 COMPILE_RUN_ARGS = -d -v /var/run/docker.sock:/var/run/docker.sock --privileged=true
 # Label it w the go version we bundle in:
 COMPILE_IMAGE = "pachyderm/compile:$(shell cat etc/compile/GO_VERSION)"
@@ -440,7 +441,7 @@ pretest:
 local-test: docker-build launch-dev test-pfs clean-launch-dev
 
 # Run all the tests. Note! This is no longer the test entrypoint for travis
-test: clean-launch-dev launch-dev lint enterprise-code-checkin-test docker-build test-pfs-server test-pfs-cmds test-deploy-cmds test-libs test-vault test-auth test-enterprise test-worker test-admin test-pps
+test: clean-launch-dev launch-dev lint enterprise-code-checkin-test docker-build test-pfs-server test-cmds test-libs test-vault test-auth test-enterprise test-worker test-admin test-pps
 
 enterprise-code-checkin-test:
 	@which ag || { printf "'ag' not found. Run:\n  sudo apt-get install -y silversearcher-ag\n  brew install the_silver_searcher\nto install it\n\n"; exit 1; }
@@ -455,31 +456,26 @@ enterprise-code-checkin-test:
 test-pfs-server:
 	./etc/testing/pfs_server.sh $(ETCD_IMAGE) $(TIMEOUT)
 
-test-pfs-cmds:
-	@# Unlike test-pfs-server, this target requires a running cluster
-	go test ./src/server/pfs/cmds -count 1 -timeout $(TIMEOUT)
-
 test-pfs-storage:
 	go test ./src/server/pkg/storage/chunk -count 1 -timeout $(TIMEOUT)
 	go test ./src/server/pkg/storage/fileset/index -count 1 -timeout $(TIMEOUT)
 	go test ./src/server/pkg/storage/fileset -count 1 -timeout $(TIMEOUT)
 
-test-deploy-cmds:
-	go test ./src/server/pkg/deploy/cmds -count 1 -timeout $(TIMEOUT)
-
 test-config:
 	go test ./src/server/config -count 1 -timeout $(TIMEOUT)
 
-test-pps:
-	@# Travis uses the helper directly because it needs to specify a
-	@# subset of the tests using the run flag
-	@make RUN= test-pps-helper
-
-test-pps-helper: launch-stats launch-kafka docker-build-test-entrypoint
-	# Use the count flag to disable test caching for this test suite.
+test-pps: launch-stats launch-kafka docker-build-test-entrypoint
+	@# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
-	  go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT) $(RUN) && \
-	  go test -v ./src/server/pps/cmds -count 1 -timeout $(TIMEOUT)
+	  go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT) $(RUN)
+
+test-cmds:
+	go install -v ./src/testing/match
+	go test -v ./src/server/pkg/deploy/cmds -count 1 -timeout $(TIMEOUT)
+	go test -v ./src/server/pfs/cmds -count 1 -timeout $(TIMEOUT)
+	go test -v ./src/server/pps/cmds -count 1 -timeout $(TIMEOUT)
+	@# TODO(msteffen) does this test leave auth active? If so it must run last
+	go test -v ./src/server/auth/cmds -count 1 -timeout $(TIMEOUT) 
 
 test-transaction:
 	go test ./src/server/transaction/server -count 1 -timeout $(TIMEOUT)
@@ -497,7 +493,6 @@ test-vault:
 	kill $$(cat /tmp/vault.pid) || true
 	./src/plugin/vault/etc/start-vault.sh
 	./src/plugin/vault/etc/setup-vault.sh
-	@# Dont cache these results as they require the pachd cluster
 	go test -v -count 1 ./src/plugin/vault -timeout $(TIMEOUT)
 
 test-s3gateway-conformance:
@@ -519,16 +514,12 @@ test-cli:
 
 test-auth:
 	yes | pachctl delete all
-	@# Dont cache these results as they require the pachd cluster
-	go test -v ./src/server/auth/server -count 1 -timeout $(TIMEOUT)
-	go test -v ./src/server/auth/cmds -count 1 -timeout $(TIMEOUT)
+	go test -v ./src/server/auth/server -count 1 -timeout $(TIMEOUT) $(RUN)
 
 test-admin:
-	@# Dont cache these results as they require the pachd cluster
 	go test -v ./src/server/admin/server -count 1 -timeout $(TIMEOUT)
 
 test-enterprise:
-	@# Dont cache these results as they require the pachd cluster
 	go test -v ./src/server/enterprise/server -count 1 -timeout $(TIMEOUT)
 
 # TODO This is not very robust -- it doesn't work when the PACHD_ADDRESS host isn't an IPv4 address
@@ -551,7 +542,6 @@ test-tls:
 test-worker: launch-stats test-worker-helper
 
 test-worker-helper:
-	@# Dont cache these results as they require the pachd cluster
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
 	  go test -v ./src/server/worker/ -timeout $(TIMEOUT) -count 1
 

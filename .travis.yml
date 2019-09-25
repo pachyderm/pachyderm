@@ -14,11 +14,14 @@ env:
     - PATH=$HOME/cached-deps:$PATH
   matrix:
     - BUCKET=MISC
+    - BUCKET=AUTH1
+    - BUCKET=AUTH2
     # If you want to update the number of PPS workers, you'll also need to update
     # the value in ./etc/build/PPS_BUILD_BUCKET_COUNT
     - BUCKET=PPS1
     - BUCKET=PPS2
     - BUCKET=PPS3
+    - BUCKET=PPS4
     - BUCKET=EXAMPLES
 before_install:
 - sudo etc/testing/travis_before_install.sh
