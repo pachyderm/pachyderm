@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"math"
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
@@ -12,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
+	"modernc.org/mathutil"
 )
 
 type levelReader struct {
@@ -179,7 +179,7 @@ func (r *Reader) atEnd(name string) bool {
 	// Name is past a prefix when the first len(prefix) bytes are greater than the prefix
 	// (use len(name) bytes for comparison when len(name) < len(prefix)).
 	// Cannot use a simple greater than check (for paths a, ab, abc, and b, prefix a should return a, ab, abc).
-	cmpSize := int64(math.Min(float64(len(name)), float64(len(r.filter.prefix))))
+	cmpSize := mathutil.Min(len(name), len(r.filter.prefix))
 	return name[:cmpSize] > r.filter.prefix[:cmpSize]
 }
 
