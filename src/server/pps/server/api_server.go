@@ -1510,14 +1510,17 @@ func (a *apiServer) getLogsFromStats(pachClient *client.APIClient, request *pps.
 }
 
 func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) error {
-	if pipelineInfo.Pipeline == nil {
+	if pipelineInfo.Pipeline == nil || len(pipelineInfo.Pipeline.Name) < 1 {
 		return fmt.Errorf("pipeline has no name")
 	}
 	if err := ancestry.ValidateName(pipelineInfo.Pipeline.Name); err != nil {
-		return fmt.Errorf("Invalid pipeline name: %v", err)
+		return fmt.Errorf("invalid pipeline name: %v", err)
 	}
-	if len(pipelineInfo.Pipeline.Name) > 63 {
-		return fmt.Errorf("Pipeline name is longer than 63 characters: ", len(pipelineInfo.Pipeline.Name))
+	if pipelineInfo.Pipeline.Name[0] == '-' {
+		return fmt.Errorf("pipeline names cannot start with a '-'")
+	}
+	if len(pipelineInfo.Pipeline.Name) > 37 {
+		return fmt.Errorf("pipeline name is longer than 37 characters: ", len(pipelineInfo.Pipeline.Name))
 	}
 	if err := a.validateInput(pachClient, pipelineInfo.Pipeline.Name, pipelineInfo.Input, false); err != nil {
 		return err
