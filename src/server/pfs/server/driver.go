@@ -1936,8 +1936,7 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 		}
 		lastRev := int64(-1)
 		if err := commits.ListRev(ci, &opts, func(commitID string, createRev int64) error {
-			// TODO this should be !=
-			if createRev > lastRev {
+			if createRev != lastRev {
 				if err := sendCis(); err != nil {
 					return err
 				}
