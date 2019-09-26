@@ -248,6 +248,9 @@ func (r *Reader) ReadCopyFunc(pathBound ...string) func() (*Copy, error) {
 	}
 }
 
+// wLevel converts a reader level to the corresponding writer level.
+// The reason this is necessary is because the corresponding writer level is the inverse of the reader level.
+// The reader levels start at the top level index entry while the writer levels start at the content level.
 func (r *Reader) wLevel(rLevel int) int {
 	return len(r.levels) - 1 - rLevel
 }
