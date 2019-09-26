@@ -2452,11 +2452,12 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	// The request must do exactly one of:
 	// 1) updating 'branch's provenance (commit is nil OR commit == branch)
 	// 2) re-pointing 'branch' at a new commit
+	var ci *pfs.CommitInfo
 	if commit != nil {
 		// Determine if this is a provenance update
 		sameTarget := branch.Repo.Name == commit.Repo.Name && branch.Name == commit.ID
 		if !sameTarget && provenance != nil {
-			ci, err := d.inspectCommit(txnCtx.Client, commit, pfs.CommitState_STARTED)
+			ci, err = d.inspectCommit(txnCtx.Client, commit, pfs.CommitState_STARTED)
 			if err != nil {
 				return err
 			}
@@ -2465,6 +2466,10 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 				fullProvenance.add(provBranch)
 				provBranchInfo := &pfs.BranchInfo{}
 				if err := d.branches(provBranch.Repo.Name).ReadWrite(txnCtx.Stm).Get(provBranch.Name, provBranchInfo); err != nil {
+					// If the branch doesn't exist no need to count it in provenance
+					if col.IsErrNotFound(err) {
+						continue
+					}
 					return err
 				}
 				for _, provProvBranch := range provBranchInfo.Provenance {
@@ -2472,12 +2477,14 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 				}
 			}
 			for _, provC := range ci.Provenance {
-				// TODO need to check this against transitive closure of prov, not just prov
 				if !branchContains(fullProvenance, provC.Branch) {
 					return fmt.Errorf("cannot create branch %q with commit %q as head because commit has provenance from branch \"%s/%s\" but that branch is not in provenance", branch.Name, commit.ID, provC.Branch.Repo.Name, provC.Branch.Name)
 				}
 				bi := &pfs.BranchInfo{}
 				if err := d.branches(provC.Branch.Repo.Name).ReadWrite(txnCtx.Stm).Get(provC.Branch.Name, bi); err != nil {
+					if col.IsErrNotFound(err) {
+						continue
+					}
 					return err
 				}
 				if bi.Head.ID != provC.Commit.ID {
@@ -2561,13 +2568,21 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 			}
 			provBranchInfo := &pfs.BranchInfo{}
 			if err := d.branches(provBranch.Repo.Name).ReadWrite(txnCtx.Stm).Get(provBranch.Name, provBranchInfo); err != nil {
-				return err
+				return fmt.Errorf("error getting prov branch: %v", err)
 			}
 			for _, provBranch := range provBranchInfo.Provenance {
 				// add provBranch to branchInfo.Provenance, and branchInfo.Branch to
 				// provBranch subvenance
 				if err := d.addBranchProvenance(branchInfo, provBranch, txnCtx.Stm); err != nil {
 					return err
+				}
+			}
+		}
+		// If we have a commit use it to set head of this branch info
+		if ci != nil {
+			for _, provC := range ci.Provenance {
+				if proto.Equal(provC.Branch, branchInfo.Branch) {
+					branchInfo.Head = provC.Commit
 				}
 			}
 		}
