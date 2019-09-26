@@ -179,6 +179,27 @@ message ObjectInfo {
   BlockRef block_ref = 2;
 }
 
+enum State {
+  RUNNING = 0;
+  COMPLETE = 1;
+  FAILED = 2;
+}
+
+message MergeState {
+  State state = 1;
+  int64 shards = 2;
+}
+
+message PathRange {
+  string lower = 1;
+  string upper = 2;
+}
+
+message ShardState {
+  State state = 1;
+  PathRange range = 2;
+}
+
 // PFS API
 
 message CreateRepoRequest {
@@ -248,6 +269,10 @@ message FinishCommitRequest {
   // If set, 'commit' will be closed (its 'finished' field will be set to the
   // current time) but its 'tree' will be left nil.
   bool empty = 4;
+}
+
+message MergeRequest {
+  string prefix = 1;
 }
 
 message InspectCommitRequest {

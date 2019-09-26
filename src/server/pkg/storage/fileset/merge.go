@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
 )
@@ -31,13 +32,6 @@ func (fs *fileStream) next() error {
 
 func (fs *fileStream) key() string {
 	return fs.hdr.Hdr.Name
-}
-
-func idxMergeFunc(w *Writer) mergeFunc {
-	return func(ss []stream, next ...string) error {
-		// (bryce) this will implement an index merge, which will be used by the distributed merge process.
-		return nil
-	}
 }
 
 func contentMergeFunc(w *Writer) mergeFunc {
@@ -109,6 +103,43 @@ func tagMergeFunc(w *Writer) mergeFunc {
 		tagStream := ss[0].(*tagStream)
 		// Copy tagged data to writer.
 		return w.CopyTags(tagStream.r, next...)
+	}
+}
+
+const (
+	// (bryce) this will be configurable at some point.
+	threshold = 1024 * chunk.MB
+)
+
+func shardMergeFunc(f func(r *index.PathRange) error) mergeFunc {
+	pathRange := &index.PathRange{}
+	var size int64
+	return func(ss []stream, next ...string) error {
+		// Convert generic streams to file streams.
+		var fileStreams []*fileStream
+		for _, s := range ss {
+			fileStreams = append(fileStreams, s.(*fileStream))
+		}
+		for _, fs := range fileStreams {
+			hdr, err := fs.r.Next()
+			if err != nil {
+				return err
+			}
+			if pathRange.Lower == "" {
+				pathRange.Lower = hdr.Hdr.Name
+			}
+			size += hdr.Idx.SizeBytes
+			if size > threshold {
+				pathRange.Upper = hdr.Hdr.Name
+				if err := f(pathRange); err != nil {
+					return err
+				}
+				pathRange = &index.PathRange{}
+				size = 0
+				return nil
+			}
+		}
+		return nil
 	}
 }
 

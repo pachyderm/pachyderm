@@ -235,6 +235,18 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 	return &types.Empty{}, nil
 }
 
+// (bryce) transaction?
+func (a *apiServer) Merge(ctx context.Context, request *pfs.MergeRequest) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	// (bryce) might want to have a more structured way of enabling/disabling and reporting functionality
+	// behind feature flags.
+	if !a.env.NewStorageLayer {
+		return fmt.Errorf("new storage layer disabled")
+	}
+	return a.driver.merge(ctx, request.Prefix)
+}
+
 // InspectCommit implements the protobuf pfs.InspectCommit RPC
 func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (response *pfs.CommitInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()

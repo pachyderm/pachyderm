@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"math"
 	"net/http"
 	"net/url"
@@ -40,6 +41,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sql"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
@@ -60,6 +64,8 @@ const (
 
 	// maxInt is the maximum value for 'int' (system-dependent). Not in 'math'!
 	maxInt = int(^uint(0) >> 1)
+	// tmpPrefix is for temporary object paths that store merged shards.
+	tmpPrefix = "tmp"
 )
 
 var (
@@ -108,6 +114,10 @@ type driver struct {
 
 	// memory limiter (useful for limiting operations that could use a lot of memory)
 	memoryLimiter *semaphore.Weighted
+
+	// New storage layer
+	storage *fileset.Storage
+	merges  col.Collection
 }
 
 // newDriver is used to create a new Driver instance
@@ -155,7 +165,93 @@ func newDriver(
 	}); err != nil && !col.IsErrExists(err) {
 		return nil, err
 	}
+	if env.NewStorageLayer {
+		// Setup merge worker.
+		objC, err := obj.NewClientFromEnv(storageRoot)
+		if err != nil {
+			return nil, err
+		}
+		// (bryce) storage layer configuration should eventually be setup here.
+		d.storage = fileset.NewStorage(objC, chunk.NewStorage(objC, 1024*chunk.MB))
+		d.merges = pfsdb.Merges(etcdClient, etcdPrefix)
+		go d.mergeWorker()
+	}
 	return d, nil
+}
+
+// (bryce) it might potentially make sense to exit if an error occurs in this function
+// because each pachd instance that errors here will lose its merge worker without an obvious
+// notification for the user (outside of the log message).
+func (d *driver) mergeWorker() {
+	if err := d.merges.ReadOnly(context.Background()).WatchF(func(e *watch.Event) (retErr error) {
+		var prefix string
+		mergeState := &pfs.MergeState{}
+		if err := e.Unmarshal(&prefix, mergeState); err != nil {
+			return err
+		}
+		if mergeState.State == pfs.State_RUNNING {
+			var eg errgroup.Group
+			ctx, cancel := context.WithCancel(context.Background())
+			// Watch for merge termination.
+			// This will handle completion, failure, and cancellation.
+			eg.Go(func() error {
+				return d.merges.ReadOnly(ctx).WatchOneF(prefix, func(e *watch.Event) error {
+					cancel()
+					return errutil.ErrBreak
+				})
+			})
+			shards := pfsdb.Shards(d.etcdClient, d.prefix)
+			// Cleanup all shard keys when the merge terminates.
+			defer func() {
+				if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+					shards.ReadWrite(stm).DeleteAll()
+					return nil
+				}); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			// Attempt to claim and merge shards.
+			eg.Go(func() error {
+				if err := d.mergeShards(ctx, shards, prefix, mergeState); err != nil {
+					return err
+				}
+				// Wait for a deletion event (ttl expired) before attempting to merge shards again.
+				return shards.ReadOnly(ctx).WatchF(func(e *watch.Event) error {
+					return d.mergeShards(ctx, shards, prefix, mergeState)
+				}, watch.WithFilterPut())
+			})
+			return eg.Wait()
+		}
+		return nil
+	}); err != nil {
+		log.Printf("error in merge worker: %v", err)
+		return
+	}
+}
+
+func (d *driver) mergeShards(ctx context.Context, shards col.Collection, prefix string, mergeState *pfs.MergeState) error {
+	for shard := int64(0); shard < mergeState.Shards; shard++ {
+		shardPath := path.Join(prefix, strconv.FormatInt(shard, 10))
+		shardState := &pfs.ShardState{}
+		if err := shards.Claim(ctx, shardPath, shardState, func(ctx context.Context) error {
+			outputPath := path.Join(tmpPrefix, shardPath)
+			pathRange := &index.PathRange{
+				Lower: shardState.Range.Lower,
+				Upper: shardState.Range.Upper,
+			}
+			if err := d.storage.Merge(ctx, outputPath, prefix, index.WithRange(pathRange)); err != nil {
+				return err
+			}
+			shardState.State = pfs.State_COMPLETE
+			_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+				return shards.ReadWrite(stm).Put(shardPath, shardState)
+			})
+			return err
+		}); err != nil && err != col.ErrNotClaimed {
+			return err
+		}
+	}
+	return nil
 }
 
 // checkIsAuthorizedInTransaction is identicalto checkIsAuthorized except that
@@ -1709,6 +1805,78 @@ nextSubvBI:
 		}
 	}
 	return nil
+}
+
+func (d *driver) merge(ctx context.Context, prefix string) error {
+	// (bryce) need to add a resiliency measure for existing incomplete merge for the prefix (master crashed).
+	// Setup shards.
+	shards := pfsdb.Shards(d.etcdClient, d.prefix)
+	var numShards int64
+	if err := d.storage.Shard(ctx, prefix, func(pathRange *index.PathRange) error {
+		shardPath := path.Join(prefix, strconv.FormatInt(numShards, 10))
+		if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+			return shards.ReadWrite(stm).Put(shardPath, &pfs.ShardState{
+				Range: &pfs.PathRange{
+					Lower: pathRange.Lower,
+					Upper: pathRange.Upper,
+				},
+			})
+		}); err != nil {
+			return err
+		}
+		numShards++
+		return nil
+	}); err != nil {
+		return err
+	}
+	if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		return d.merges.ReadWrite(stm).Put(prefix, &pfs.MergeState{Shards: numShards})
+	}); err != nil {
+		return err
+	}
+	// Collect and merge shards.
+	for i := int64(0); i < numShards; i++ {
+		shardPath := path.Join(prefix, strconv.FormatInt(i, 10))
+		if err := shards.ReadOnly(ctx).WatchOneF(shardPath, func(e *watch.Event) error {
+			if e.Type == watch.EventError {
+				return e.Err
+			}
+			// Unmarshal and check that full key matched.
+			var key string
+			shardState := &pfs.ShardState{}
+			if err := e.Unmarshal(&key, shardState); err != nil {
+				return err
+			}
+			if key != strconv.FormatInt(i, 10) {
+				return nil
+			}
+			// (bryce) need to handle failure case.
+			switch shardState.State {
+			case pfs.State_COMPLETE:
+				return errutil.ErrBreak
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	if err := d.updateMergeState(ctx, prefix, pfs.State_COMPLETE); err != nil {
+		return err
+	}
+	outputPath := path.Join(prefix, fileset.FullMergeSuffix)
+	inputPrefix := path.Join(tmpPrefix, prefix)
+	return d.storage.Merge(ctx, outputPath, inputPrefix)
+}
+
+func (d *driver) updateMergeState(ctx context.Context, prefix string, state pfs.State) error {
+	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		mergeState := &pfs.MergeState{}
+		return d.merges.ReadWrite(stm).Update(prefix, mergeState, func() error {
+			mergeState.State = state
+			return nil
+		})
+	})
+	return err
 }
 
 // inspectCommit takes a Commit and returns the corresponding CommitInfo.

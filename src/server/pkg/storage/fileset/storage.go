@@ -12,11 +12,14 @@ import (
 const (
 	prefix    = "pfs"
 	headerTag = ""
-	// fullMergeSuffix is appended to a prefix to create a path to be used for referencing
+	// FullMergeSuffix is appended to a prefix to create a path to be used for referencing
 	// the full merge of that prefix. The full merge of a prefix means that every
 	// path with the prefix has been merged into the referenced object.
-	fullMergeSuffix = "~"
+	FullMergeSuffix = "~"
 )
+
+// ShardFunc is a callback that returns a PathRange for each shard.
+type ShardFunc func(*index.PathRange) error
 
 // Storage is the abstraction that manages fileset storage.
 type Storage struct {
@@ -44,9 +47,9 @@ func (s *Storage) NewWriter(ctx context.Context, fileSet string) *Writer {
 }
 
 // NewReader creates a new Reader.
-func (s *Storage) NewReader(ctx context.Context, fileSet, idxPrefix string) *Reader {
+func (s *Storage) NewReader(ctx context.Context, fileSet string, opts ...index.Option) *Reader {
 	fileSet = path.Join(prefix, fileSet)
-	return newReader(ctx, s.objC, s.chunks, fileSet, idxPrefix)
+	return newReader(ctx, s.objC, s.chunks, fileSet, opts...)
 }
 
 // NewIndexWriter creates a new index.Writer.
@@ -56,7 +59,32 @@ func (s *Storage) NewIndexWriter(ctx context.Context, fileSet string) *index.Wri
 }
 
 // NewIndexReader creates a new index.Reader.
-func (s *Storage) NewIndexReader(ctx context.Context, fileSet, idxPrefix string) *index.Reader {
+func (s *Storage) NewIndexReader(ctx context.Context, fileSet string, opts ...index.Option) *index.Reader {
 	fileSet = path.Join(prefix, fileSet)
-	return index.NewReader(ctx, s.objC, s.chunks, fileSet, index.WithPrefix(idxPrefix))
+	return index.NewReader(ctx, s.objC, s.chunks, fileSet, opts...)
+}
+
+// Shard shards the merge of the file sets with the passed in prefix into file ranges.
+// (bryce) this should be extended to be more configurable (different criteria
+// for creating shards).
+func (s *Storage) Shard(ctx context.Context, prefix string, shardFunc ShardFunc) error {
+	return s.merge(ctx, prefix, shardMergeFunc(shardFunc))
+}
+
+// Merge merges the file sets with the passed in prefix.
+func (s *Storage) Merge(ctx context.Context, outputPath, prefix string, opts ...index.Option) error {
+	return s.merge(ctx, prefix, contentMergeFunc(s.NewWriter(ctx, outputPath)), opts...)
+}
+
+func (s *Storage) merge(ctx context.Context, prefix string, f mergeFunc, opts ...index.Option) error {
+	var rs []*Reader
+	return s.objC.Walk(ctx, prefix, func(name string) error {
+		rs = append(rs, s.NewReader(ctx, name, opts...))
+		return nil
+	})
+	var fileStreams []stream
+	for _, r := range rs {
+		fileStreams = append(fileStreams, &fileStream{r: r})
+	}
+	return merge(fileStreams, f)
 }

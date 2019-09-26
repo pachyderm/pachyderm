@@ -164,16 +164,16 @@ func (f *FileSet) Close() error {
 	// Setup parent stream.
 	if f.parentName != "" {
 		fileStreams = append(fileStreams, &fileStream{
-			r: f.storage.NewReader(f.ctx, f.parentName, ""),
+			r: f.storage.NewReader(f.ctx, f.parentName),
 		})
 	}
 	// Setup part streams.
 	for i := 0; i < f.part; i++ {
 		fileStreams = append(fileStreams, &fileStream{
-			r: f.storage.NewReader(f.ctx, path.Join(f.name, strconv.Itoa(i)), ""),
+			r: f.storage.NewReader(f.ctx, path.Join(f.name, strconv.Itoa(i))),
 		})
 	}
-	w := f.storage.NewWriter(f.ctx, path.Join(f.name, fullMergeSuffix))
+	w := f.storage.NewWriter(f.ctx, path.Join(f.name, FullMergeSuffix))
 	if err := merge(fileStreams, contentMergeFunc(w)); err != nil {
 		return err
 	}

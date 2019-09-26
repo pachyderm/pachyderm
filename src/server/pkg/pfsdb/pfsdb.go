@@ -17,6 +17,8 @@ const (
 	commitsPrefix        = "/commits"
 	branchesPrefix       = "/branches"
 	openCommitsPrefix    = "/openCommits"
+	mergesPrefix         = "/merges"
+	shardsPrefix         = "/shards"
 )
 
 var (
@@ -84,6 +86,30 @@ func OpenCommits(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 		path.Join(etcdPrefix, openCommitsPrefix),
 		nil,
 		&pfs.Commit{},
+		nil,
+		nil,
+	)
+}
+
+// Merges returns a collection of merges.
+func Merges(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
+	return col.NewCollection(
+		etcdClient,
+		path.Join(etcdPrefix, mergesPrefix),
+		nil,
+		&pfs.MergeState{},
+		nil,
+		nil,
+	)
+}
+
+// Shards returns a collection of shards.
+func Shards(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
+	return col.NewCollection(
+		etcdClient,
+		path.Join(etcdPrefix, shardsPrefix),
+		nil,
+		&pfs.ShardState{},
 		nil,
 		nil,
 	)
