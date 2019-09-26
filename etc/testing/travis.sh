@@ -71,7 +71,7 @@ function test_bucket {
     fi
 
     echo "Running bucket $bucket of $num_buckets"
-    tests=( $(go test -v  ./src/server/ -list ".*" | grep -v ok | grep -v Benchmark) )
+    tests=( $(go test -v  "${package}" -list ".*" | grep -v ok | grep -v Benchmark) )
     total_tests="${#tests[@]}"
     # Determine the offset and length of the sub-array of tests we want to run
     # The last bucket may have a few extra tests, to accommodate rounding errors from bucketing:
@@ -125,13 +125,11 @@ case "${BUCKET}" in
  PPS?)
     make docker-build-kafka
     bucket_num="${BUCKET#PPS}"
-    total_buckets=4
-    test_bucket "./src/server" test-pps "${bucket_num}" "${total_buckets}"
+    test_bucket "./src/server" test-pps "${bucket_num}" "${PPS_BUCKETS}"
     ;;
  AUTH?)
     bucket_num="${BUCKET#AUTH}"
-    total_buckets=2
-    test_bucket "./src/server/auth/server" test-auth "${bucket_num}" "${total_buckets}"
+    test_bucket "./src/server/auth/server" test-auth "${bucket_num}" "${AUTH_BUCKETS}"
     set +x
     ;;
  *)
