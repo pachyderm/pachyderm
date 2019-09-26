@@ -461,9 +461,6 @@ test-pfs-storage:
 	go test ./src/server/pkg/storage/fileset/index -count 1 -timeout $(TIMEOUT)
 	go test ./src/server/pkg/storage/fileset -count 1 -timeout $(TIMEOUT)
 
-test-config:
-	go test ./src/server/config -count 1 -timeout $(TIMEOUT)
-
 test-pps: launch-stats launch-kafka docker-build-test-entrypoint
 	@# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
@@ -474,6 +471,7 @@ test-cmds:
 	go test -v ./src/server/pkg/deploy/cmds -count 1 -timeout $(TIMEOUT)
 	go test -v ./src/server/pfs/cmds -count 1 -timeout $(TIMEOUT)
 	go test -v ./src/server/pps/cmds -count 1 -timeout $(TIMEOUT)
+	go test -v ./src/server/config -count 1 -timeout $(TIMEOUT)
 	@# TODO(msteffen) does this test leave auth active? If so it must run last
 	go test -v ./src/server/auth/cmds -count 1 -timeout $(TIMEOUT) 
 
