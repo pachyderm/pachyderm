@@ -468,6 +468,7 @@ test-pps: launch-stats launch-kafka docker-build-test-entrypoint
 
 test-cmds:
 	go install -v ./src/testing/match
+	CGOENABLED=0 GO111MODULE=on go test -mod=vendor -v ./src/server/cmd/pachctl/cmd
 	go test -v ./src/server/pkg/deploy/cmds -count 1 -timeout $(TIMEOUT)
 	go test -v ./src/server/pfs/cmds -count 1 -timeout $(TIMEOUT)
 	go test -v ./src/server/pps/cmds -count 1 -timeout $(TIMEOUT)
@@ -506,9 +507,6 @@ test-fuse:
 
 test-local:
 	CGOENABLED=0 GO111MODULE=on go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT)
-
-test-cli:
-	CGOENABLED=0 GO111MODULE=on go test -mod=vendor -v ./src/server/cmd/pachctl/cmd
 
 test-auth:
 	yes | pachctl delete all
@@ -727,7 +725,6 @@ goxc-build:
 	test-s3gateway-integration \
 	test-fuse \
 	test-local \
-	test-cli \
 	clean \
 	doc \
 	grep-data \
