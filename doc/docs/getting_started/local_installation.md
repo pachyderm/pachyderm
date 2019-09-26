@@ -53,7 +53,7 @@ by following these steps:
 
 1. In the Docker Desktop settings, verify that Kubernetes is enabled:
 
-   ![Docker Desktop Enable K8s](Docker_Desktop_Enable_k8s.png)
+   ![Docker Desktop Enable K8s](../assets/images/Docker_Desktop_Enable_k8s.png)
 
 1. From the command prompt, confirm that Kubernetes is running:
 
@@ -197,7 +197,7 @@ the Minikube instance:
 After you install and configure Pachyderm,
 continue exploring Pachyderm:
 
-* Complete the [Beginner Tutorial](./beginner_tutorial.html)
+* Complete the [Beginner Tutorial](./beginner_tutorial.md)
 to learn the basics of Pachyderm, such as adding data and building
 analysis pipelines.
 
@@ -211,4 +211,4 @@ by running `pachctl port-forward`, and then point your browser to
 
 **See Also:**
 
-- [General Troubleshooting](../managing_pachyderm/general_troubleshooting.html)
+- [General Troubleshooting](../managing_pachyderm/general_troubleshooting.md)

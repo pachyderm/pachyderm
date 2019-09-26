@@ -1,7 +1,4 @@
-.. _concepts:
-
-Concepts
-========
+# Concepts
 
 Pachyderm is an enterprise-grade, open-source data science platform that
 makes explainable, repeatable, and scalable Machine Learning (ML) and
@@ -24,9 +21,6 @@ complicated challenges.
 
 This section describes the following Pachyderm concepts:
 
-.. toctree::
-   :maxdepth: 2
-
-   data-concepts/index.rst
-   pipeline-concepts/index.rst
+[Version Data Concepts](data-concepts/index)
+[Pipeline Concepts](pipeline-concepts/index)
 

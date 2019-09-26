@@ -58,10 +58,10 @@ markdown_extensions:
   - markdown.extensions.def_list
   - markdown.extensions.footnotes
   - markdown.extensions.meta
-  - markdown_include.include:
-      base_path: docs
   - markdown.extensions.toc:
       permalink: true
+  - mdx_truly_sane_lists:
+      nested_indent: 2
   - pymdownx.arithmatex
   - pymdownx.betterem:
       smart_enable: all
@@ -84,9 +84,8 @@ markdown_extensions:
 nav:
     - Home: index.md
     - Getting Started:
-        - Welcome: getting-started/index.md
-        - Install Pachyderm Locally: getting-started/local_installation.md
-        - Beginner Tutorial: getting-started/beginner_tutorial.md
+        - getting_started/local_installation.md
+        - getting_started/beginner_tutorial.md
     - Concepts:
         - Versioned Data Concepts:
             - Overview: concepts/data-concepts/index.md
@@ -109,23 +108,68 @@ nav:
             - Service: concepts/pipeline-concepts/service.md
             - Spout: concepts/pipeline-concepts/spout.md
     - How-Tos:
-        - Getting Your Data into Pachyderm: cookbook/getting_data_into_pachyderm.md
-        - Getting Your Data out of Pachyderm: cookbook/getting_data_out_of_pachyderm.md
-        - Creating Analysis Pipelines: cookbook/creating_analysis_pipelines.md
-    - Admin:
-        - Overview: admin/index.md
-        - Autoscale your Cluster: admin/autoscaling.md
-        - Backup and Restore: admin/backup_restore.md
-        - Manage your Data: admin/data_management.md
-        - Sharing GPU Resources: admin/sharing_gpu_resources.md
-        - Migrate to a Major Version: admin/migrations.md
-        - Upgrade your Cluster: admin/upgrades.md
+        - Individual Developer Workflow: how-tos/individual-developer-workflow.md
+        - Team Developer Workflow: how-tos/team-developer-workflow.md
+        - Load Your Data Into Pachyderm: how-tos/load-data-into-pachyderm.md
+        - Export Your Data From Pachyderm: how-tos/export-data-out-pachyderm.md
+        - Split Data:
+            - Overview: how-tos/splitting-data/index.md
+            - Splitting Data for Distributed Processing: how-tos/splitting-data/splitting.md
+            - Adjusting Data Processing by Splitting Data: how-tos/splitting-data/adjusting_data_processing_w_split.md
+        - Combine, Merge, and Join Data: how-tos/combining.md
+        - Create a Machine Learning Workflow: how-tos/create-ml-workflow.md
+        - Run a Pipeline on a Specific Commit: how-tos/run_pipeline.md
+        - Update a Pipeline: how-tos/updating_pipelines.md
+        - Processing Time-Windowed Data: how-tos/time_windows.md
+        - Delete Data: how-tos/removing_data_from_pachyderm.md
+        - Configure Distributed Computing: how-tos/distributed_computing.md
+        - Deferred Processing of Data: how-tos/deferred_processing.md
+        - Ingress and Egress Data from an External Object Store: how-tos/ingressing_from_diff_cloud.md
+    - Deploy and Manage:
+        - Deploy Pachyderm:
+            - Deploy on GKE: deploy-manage/deploy/google_cloud_platform.md
+            - Deploy on AWS:
+                - Overview: deploy-manage/deploy/amazon_web_services/index.md
+                - Deploy Pachyderm on Amazon EKS: deploy-manage/deploy/amazon_web_services/deploy-eks.md
+                - Deploy Kubernetes with kops: deploy-manage/deploy/amazon_web_services/aws-deploy-kubernetes-kops.md
+                - Deploy Pachyderm on AWS: deploy-manage/deploy/amazon_web_services/aws-deploy-pachyderm.md
+                - Deploy a Pachyderm Cluster with CloudFront: deploy-manage/deploy/amazon_web_services/aws_cloudfront.md
+            - Deploy on Azure: deploy-manage/deploy/azure.md
+            - Deploy on OpenShift: deploy-manage/deploy/openshift.md
+            - Deploy On-Premises: deploy-manage/deploy/on_premises.md
+            - Create a Custom Deployment:
+                - Overview: deploy-manage/deploy/deploy_custom/index.rst
+                - Before You Begin: deploy-manage/deploy/deploy_custom/deploy_custom_before_you_begin.md
+                - Pachyderm Deployment Manifest: deploy-manage/deploy/deploy_custom/deploy_custom_pachyderm_deployment_manifest.md
+                - Configuring Persistent Disk Parameters: deploy-manage/deploy/deploy_custom/deploy_custom_configuring_persistent_disk_parameters.md
+                - Configuring Object Store: deploy-manage/deploy/deploy_custom/deploy_custom_configuring_object_store.md
+                - Create a Complete Configuration: deploy-manage/deploy/deploy_custom/deploy_custom_complete_example_invocation.md
+                - Additional flags: deploy-manage/deploy/deploy_custom/deploy_custom_additional_flags.md
+                - Other Customizations:
+                    - Deploy in a Custom Namespace: deploy-manage/deploy/namespaces.md
+                    - Deploy a Custom Object Store: deploy-manage/deploy/non-cloud-object-stores.md
+                    - Configure RBAC: deploy-manage/deploy/rbac.md
+            - Configure Tracing with Jaeger: deploy-manage/deploy/tracing.md
+            - Connect to a Pachyderm cluster: deploy-manage/deploy/connect-to-cluster.md
+        - Manage Pachyderm:
+            - Manage Cluster Access: deploy-manage/manage/cluster-access.md
+            - Autoscale your Cluster: deploy-manage/manage/autoscaling.md
+            - Batching Pachyderm with Transactions: deploy-manage/manage/batching_pachyderm_with_transactions.md
+            - Backup and Restore: deploy-manage/manage/backup_restore.md
+            - Storage Use Optimization: deploy-manage/manage/data_management.md
+            - Use GPUs: deploy-manage/manage/gpus.md
+            - Sharing GPU Resources: deploy-manage/manage/sharing_gpu_resources.md
+            - Migrate to a Major Version: deploy-manage/manage/migrations.md
+            - Upgrade your Cluster: deploy-manage/manage/upgrades.md
+            - Configure Vault Secret Engine: deploy-manage/manage/vault.md
+            - Disable Usage Metrics: deploy-manage/manage/disable-metrics.md
     - Reference:
         - Pipeline Specification: reference/pipeline_spec.md
         - Pachyderm Config Specification: reference/config_spec.md
         - Pachyderm Language Clients: reference/clients.md
         - S3 Gateway API Reference: reference/s3gateway_api.md
         - Pachctl Reference: reference/pachctl/index.md
+        - Examples: examples/examples.md
     - Enterprise:
         - Overview: enterprise/overview.md
         - Deploy Enterprise Edition: enterprise/deployment.md
