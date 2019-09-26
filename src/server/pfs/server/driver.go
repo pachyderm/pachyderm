@@ -2461,9 +2461,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 			if err != nil {
 				return err
 			}
-			var fullProvenance branchSet
 			for _, provBranch := range provenance {
-				fullProvenance.add(provBranch)
 				provBranchInfo := &pfs.BranchInfo{}
 				if err := d.branches(provBranch.Repo.Name).ReadWrite(txnCtx.Stm).Get(provBranch.Name, provBranchInfo); err != nil {
 					// If the branch doesn't exist no need to count it in provenance
@@ -2472,23 +2470,10 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 					}
 					return err
 				}
-				for _, provProvBranch := range provBranchInfo.Provenance {
-					fullProvenance.add(provProvBranch)
-				}
-			}
-			for _, provC := range ci.Provenance {
-				if !branchContains(fullProvenance, provC.Branch) {
-					return fmt.Errorf("cannot create branch %q with commit %q as head because commit has provenance from branch \"%s/%s\" but that branch is not in provenance", branch.Name, commit.ID, provC.Branch.Repo.Name, provC.Branch.Name)
-				}
-				bi := &pfs.BranchInfo{}
-				if err := d.branches(provC.Branch.Repo.Name).ReadWrite(txnCtx.Stm).Get(provC.Branch.Name, bi); err != nil {
-					if col.IsErrNotFound(err) {
-						continue
+				for _, provC := range ci.Provenance {
+					if proto.Equal(provBranch, provC.Branch) && !proto.Equal(provBranchInfo.Head, provC.Commit) {
+						return fmt.Errorf("cannot create branch %q with commit %q as head because commit has \"%s/%s\" as provenance but that commit is not the head of branch \"%s/%s\"", branch.Name, commit.ID, provC.Commit.Repo.Name, provC.Commit.ID, provC.Branch.Repo.Name, provC.Branch.Name)
 					}
-					return err
-				}
-				if bi.Head.ID != provC.Commit.ID {
-					return fmt.Errorf("cannot create branch %q with commit %q as head because commit has \"%s/%s\" as provenance but that commit is not the head of branch \"%s/%s\"", branch.Name, commit.ID, provC.Commit.Repo.Name, provC.Commit.ID, provC.Branch.Repo.Name, provC.Branch.Name)
 				}
 			}
 		}
