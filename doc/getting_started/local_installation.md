@@ -97,12 +97,12 @@ to have pachctl installed on your machine by following these steps:
      $ curl -o /tmp/pachctl.tar.gz -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.5/pachctl_1.9.5_linux_amd64.tar.gz && tar -xvf /tmp/pachctl.tar.gz -C /tmp && sudo cp /tmp/pachctl_1.9.5_linux_amd64/pachctl /usr/local/bin
      ```
 
-1. Verify that installation was successful by running `pachctl version`:
+1. Verify that installation was successful by running `pachctl version --client-only`:
 
    ```
-   $ pachctl version
+   $ pachctl version --client-only
    COMPONENT           VERSION
-   pachctl             1.9.1
+   pachctl             1.9.5
    ```
 
 ## Deploy Pachyderm
@@ -161,8 +161,8 @@ Kubernetes restarted those pods. You can safely ignore that message.
    ```shell
    $ pachctl version
    COMPONENT           VERSION
-   pachctl             1.9.1
-   pachd               1.9.1
+   pachctl             1.9.5
+   pachd               1.9.5
    ```
 
 
@@ -172,7 +172,7 @@ Kubernetes restarted those pods. You can safely ignore that message.
 1. Use port forwarding to access the Pachyderm dashboard.
 
    ```
-   pachctl port-forward
+   $ pachctl port-forward
    ```
 
    This command runs continuosly and does not exit unless you interrupt it.
@@ -188,8 +188,8 @@ the Minikube instance:
 
    1. Configure Pachyderm to connect directly to the Minikube instance:
 
-      ```
-      pachctl config update context `pachctl config get active-context` --pachd-address=`minikube ip`:30650
+      ```bash
+     $ pachctl config update context `pachctl config get active-context` --pachd-address=`minikube ip`:30650
       ```
 
 ## Next Steps
