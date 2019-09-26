@@ -57,7 +57,7 @@ update-deps:
 	go get -d -v -u ./src/... ./.
 
 build:
-	GO111MODULE=on go build -mod vendor $$(go list ./src/client/... | grep -v '/src/client$$')
+	go build $$(go list ./src/client/... | grep -v '/src/client$$')
 
 pachd:
 	go build ./src/server/cmd/pachd
@@ -67,11 +67,11 @@ worker:
 
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
-	GO111MODULE=on go install -mod vendor -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
+	go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
 
 install-mac:
 	# Result will be in $GOPATH/bin/darwin_amd64/pachctl (if building on linux)
-	GO111MODULE=on GOOS=darwin GOARCH=amd64 go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
+	GOOS=darwin GOARCH=amd64 go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
 
 install-clean:
 	@# Need to blow away pachctl binary if its already there
@@ -79,7 +79,7 @@ install-clean:
 	@make install
 
 install-doc:
-	GO111MODULE=on go install -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl-doc
+	go install -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl-doc
 
 check-docker-version:
 	# The latest docker client requires server api version >= 1.24.
@@ -468,7 +468,7 @@ test-pps: launch-stats launch-kafka docker-build-test-entrypoint
 
 test-cmds:
 	go install -v ./src/testing/match
-	CGOENABLED=0 GO111MODULE=on go test -mod=vendor -v ./src/server/cmd/pachctl/cmd
+	CGOENABLED=0 go test -v ./src/server/cmd/pachctl/cmd
 	go test -v ./src/server/pkg/deploy/cmds -count 1 -timeout $(TIMEOUT)
 	go test -v ./src/server/pfs/cmds -count 1 -timeout $(TIMEOUT)
 	go test -v ./src/server/pps/cmds -count 1 -timeout $(TIMEOUT)
@@ -480,7 +480,7 @@ test-transaction:
 	go test ./src/server/transaction/server -count 1 -timeout $(TIMEOUT)
 
 test-client:
-	GO111MODULE=on go test -cover $$(go list ./src/client/...)
+	go test -cover $$(go list ./src/client/...)
 
 test-libs:
 	go test ./src/server/pkg/collection -timeout $(TIMEOUT) -vet=off
@@ -500,13 +500,13 @@ test-s3gateway-conformance:
 
 test-s3gateway-integration:
 	pachctl enterprise activate $$(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -) && echo
-	GO111MODULE=on go test -v -mod=vendor ./src/server/pfs/s3 -timeout $(TIMEOUT) -count 1
+	go test -v ./src/server/pfs/s3 -timeout $(TIMEOUT) -count 1
 
 test-fuse:
-	CGOENABLED=0 GO111MODULE=on go test -cover $$(go list ./src/server/... | grep '/src/server/pfs/fuse')
+	CGOENABLED=0 go test -cover $$(go list ./src/server/... | grep '/src/server/pfs/fuse')
 
 test-local:
-	CGOENABLED=0 GO111MODULE=on go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT)
+	CGOENABLED=0 go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT)
 
 test-auth:
 	yes | pachctl delete all
