@@ -76,7 +76,7 @@ type WorkerSpecificConfiguration struct {
 
 // FeatureFlags contains the configuration for feature flags.
 type FeatureFlags struct {
-	NewHashTree bool `env:"NEW_HASH_TREE,default=false"`
+	NewStorageLayer bool `env:"NEW_STORAGE_LAYER,default=false"`
 }
 
 // NewConfiguration creates a generic configuration from a specific type of configuration.

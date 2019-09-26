@@ -116,8 +116,8 @@ type TLSOpts struct {
 
 // FeatureFlags are flags for experimental features.
 type FeatureFlags struct {
-	// NewHashTree, if true, will make Pachyderm use 1.9 hash trees.
-	NewHashTree bool
+	// NewStorageLayer, if true, will make Pachyderm use the new storage layer.
+	NewStorageLayer bool
 }
 
 // AssetOpts are options that are applicable to all the asset types.
