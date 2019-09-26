@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
@@ -1510,14 +1511,18 @@ func (a *apiServer) getLogsFromStats(pachClient *client.APIClient, request *pps.
 }
 
 func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) error {
-	if pipelineInfo.Pipeline == nil {
+	if pipelineInfo.Pipeline == nil || pipelineInfo.Pipeline.Name == "" {
 		return fmt.Errorf("pipeline has no name")
 	}
 	if err := ancestry.ValidateName(pipelineInfo.Pipeline.Name); err != nil {
-		return fmt.Errorf("Invalid pipeline name: %v", err)
+		return fmt.Errorf("invalid pipeline name: %v", err)
+	}
+	first := rune(pipelineInfo.Pipeline.Name[0])
+	if !unicode.IsLetter(first) && !unicode.IsDigit(first) {
+		return fmt.Errorf("pipeline names must start with an alphanumeric character")
 	}
 	if len(pipelineInfo.Pipeline.Name) > 63 {
-		return fmt.Errorf("Pipeline name is longer than 63 characters: ", len(pipelineInfo.Pipeline.Name))
+		return fmt.Errorf("pipeline name is longer than 63 characters: ", len(pipelineInfo.Pipeline.Name))
 	}
 	if err := a.validateInput(pachClient, pipelineInfo.Pipeline.Name, pipelineInfo.Input, false); err != nil {
 		return err
