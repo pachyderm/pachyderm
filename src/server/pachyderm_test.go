@@ -10010,6 +10010,44 @@ func TestNoCmd(t *testing.T) {
 	})
 }
 
+func TestListTag(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.GarbageCollect(0)) // makes ListTags faster
+
+	// Create a large number of objects w/ tags
+	numTags := 1000
+	for i := 0; i < numTags; i++ {
+		w, err := c.PutObjectAsync([]*pfs.Tag{{Name: fmt.Sprintf("tag%d", i)}})
+		require.NoError(t, err)
+		_, err = w.Write([]byte(fmt.Sprintf("Object %d", i)))
+		require.NoError(t, err)
+		require.NoError(t, w.Close())
+	}
+
+	// List tags & make sure all expected tags are present
+	respTags := make(map[string]struct{})
+	require.NoError(t, c.ListTag(func(r *pfs.ListTagsResponse) error {
+		respTags[r.Tag.Name] = struct{}{}
+		require.NotEqual(t, "", r.Object.Hash)
+		return nil
+	}))
+	require.Equal(t, numTags, len(respTags))
+	for i := 0; i < numTags; i++ {
+		_, ok := respTags[fmt.Sprintf("tag%d", i)]
+		require.True(t, ok)
+	}
+
+	// Check actual results of at least one write.
+	actual := &bytes.Buffer{}
+	require.NoError(t, c.GetTag("tag0", actual))
+	require.Equal(t, "Object 0", actual.String())
+}
+
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
 	pipelineInfos, err := pachClient.ListPipeline()
 	require.NoError(t, err)
