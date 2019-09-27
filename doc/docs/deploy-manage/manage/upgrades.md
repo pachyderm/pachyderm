@@ -2,7 +2,7 @@
 
 If you need to upgrade Pachyderm from one major version
 to another, such as from `1.8.x` to `1.9.x`, follow the
-instructions in the [Migrate between major versions]((./migrations.md).
+instructions in the [Migrate between major versions](./migrations.md).
 
 Upgrades from one minor version to another, such as from version `1.9.0` to
 version `1.9.2` do not introduce breaking changes. Therefore, the upgrade
