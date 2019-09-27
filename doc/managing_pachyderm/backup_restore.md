@@ -76,7 +76,7 @@ Alternatively, you can use the following commands to stop all data loading into 
 # while 'extract' is running will not interfere with the process
 #
 # Backup the Pachyderm service spec, in case you need to restore it quickly
-$ kubectl get svc/pach -o json >pach_service_backup_30650.json
+$ kubectl get svc/pachd -o json >pach_service_backup_30650.json
 
 # Modify the service to accept traffic on port 30649
 # Note that you'll likely also need to modify your cloud provider's firewall
