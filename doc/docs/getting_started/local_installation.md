@@ -19,8 +19,8 @@ components installed in addition to the ones listed above:
 
 - [Windows Subsystem for Linux (WSL)](https://docs.microsoft.com/en-us/windows/wsl/install-win10)
 
-**Note:** For a Windows installation, use Minikube.
-
+!!! note
+    For a Windows installation, use Minikube.
 
 ### Using Minikube
 
@@ -36,17 +36,18 @@ To configure Minikube, follow these steps:
 1. [Install `kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/).
 1. Start `minikube`:
 
-   ```shell
+   ```bash
    minikube start
    ```
 
-   **Note:** Any time you want to stop and restart Pachyderm, run `minikube delete`
-   and `minikube start`. Minikube is not meant to be a production environment
-   and does not handle being restarted well without a full wipe.
+!!! note
+    Any time you want to stop and restart Pachyderm, run `minikube delete`
+    and `minikube start`. Minikube is not meant to be a production environment
+    and does not handle being restarted well without a full wipe.
 
 ### Docker Desktop
 
-If you use Minikube, skip this section and proceed to [Install pachctl](#install-pachctl)
+If you are using Minikube, skip this section and proceed to [Install pachctl](#install-pachctl)
 
 You can use Docker Desktop instead of Minikube on macOS or Linux
 by following these steps:
@@ -57,7 +58,7 @@ by following these steps:
 
 1. From the command prompt, confirm that Kubernetes is running:
 
-   ```
+   ```bash
    $ kubectl get all
    NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
    service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   56d
@@ -66,7 +67,7 @@ by following these steps:
    * To reset your Kubernetes cluster that runs on Docker Desktop, click
    the **Reset** button in the **Preferences** sub-menu.
 
-   ![Reset K8s](DFD_Reset_K8s.png)
+   ![Reset K8s](../assets/images/DFD_Reset_K8s.png)
 
 ### Install `pachctl`
 
@@ -80,30 +81,33 @@ to have pachctl installed on your machine by following these steps:
 
    * For macOS, run:
 
-     ```shell
+     ```bash
      $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.9
      ```
 
    * For a Debian-based Linux 64-bit or Windows 10 or later running on
    WSL:
 
-     ```
+     ```bash
      $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.5/pachctl_1.9.5_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
      ```
 
    * For all other Linux flavors:
 
-     ```
+     ```bash
      $ curl -o /tmp/pachctl.tar.gz -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.5/pachctl_1.9.5_linux_amd64.tar.gz && tar -xvf /tmp/pachctl.tar.gz -C /tmp && sudo cp /tmp/pachctl_1.9.5_linux_amd64/pachctl /usr/local/bin
      ```
 
 1. Verify that installation was successful by running `pachctl version`:
 
-   ```
-   $ pachctl version
+   ```bash
+   $ pachctl version --client-only
    COMPONENT           VERSION
-   pachctl             1.9.1
+   pachctl             1.9.5
    ```
+
+   If you run `pachctl version` without `--client-only`, the command times
+    out. This is expected behavior because `pachd` is not yet running.
 
 ## Deploy Pachyderm
 
@@ -112,7 +116,7 @@ deploy Pachyderm by following these steps:
 
 * For macOS or Linux, run:
 
-   ```sh
+   ```bash
    $ pachctl deploy local
    ```
 
@@ -124,14 +128,14 @@ deploy Pachyderm by following these steps:
   1. Start WSL.
   1. In WSL, run:
 
-     ```sh
+     ```bash
      $ pachctl deploy local --dry-run > pachyderm.json
      ```
 
   1. Copy the `pachyderm.json` file into your Pachyderm directory.
   1. From the same directory, run:
 
-     ```
+     ```bash
      kubectl create -f .\pachyderm.json
      ```
 
@@ -144,7 +148,7 @@ running `kubectl get pods`. When Pachyderm is ready for use,
 all Pachyderm pods must be in the **Running** status.
 
 
-   ```sh
+   ```bash
    $ kubectl get pods
    NAME                     READY     STATUS    RESTARTS   AGE
    dash-6c9dc97d9c-vb972    2/2       Running   0          6m
@@ -152,26 +156,24 @@ all Pachyderm pods must be in the **Running** status.
    pachd-6c878bbc4c-f2h2c   1/1       Running   0          6m
    ```
 
-**Note:** If you see a few restarts on the `pachd` nodes, that means that
-Kubernetes tried to bring up those pods before `etcd` was ready. Therefore,
-Kubernetes restarted those pods. You can safely ignore that message.
+   If you see a few restarts on the `pachd` nodes, that means that
+   Kubernetes tried to bring up those pods before `etcd` was ready. Therefore,
+   Kubernetes restarted those pods. You can safely ignore that message.
 
 1. Run `pachctl version` to verify that `pachd` has been deployed.
 
-   ```shell
+   ```bash
    $ pachctl version
    COMPONENT           VERSION
-   pachctl             1.9.1
-   pachd               1.9.1
+   pachctl             1.9.5
+   pachd               1.9.5
    ```
-
-
 
 1. Open a new terminal window.
 
 1. Use port forwarding to access the Pachyderm dashboard.
 
-   ```
+   ```bash
    pachctl port-forward
    ```
 
@@ -188,7 +190,7 @@ the Minikube instance:
 
    1. Configure Pachyderm to connect directly to the Minikube instance:
 
-      ```
+      ```bash
       pachctl config update context `pachctl config get active-context` --pachd-address=`minikube ip`:30650
       ```
 
@@ -209,6 +211,5 @@ Alternatively, if you cannot connect directly, enable port forwarding
 by running `pachctl port-forward`, and then point your browser to
 `localhost:30080`.
 
-**See Also:**
-
-- [General Troubleshooting](../managing_pachyderm/general_troubleshooting.md)
+!!! note "See also:"
+    [General Troubleshooting](../troubleshooting/general_troubleshooting.md)

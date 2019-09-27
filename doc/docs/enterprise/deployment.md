@@ -1,23 +1,33 @@
-# Deploying Enterprise Edition
+# Deploy Enterprise Edition
 
-To deploy and use Pachyderm's Enterprise Edition, you simply need to follow [one of our guides to deploy Pachyderm](./deploy_intro.html) and then [activate the Enterprise Edition](#activating-pachyderm-enterprise-edition).
+To deploy and use Pachyderm's Enterprise Edition, follow
+[the deployment instructions](../deploy-manage/deploy/google_cloud_platform.md) for your platform
+and then [activate the Enterprise Edition](#activate-pachyderm-enterprise-edition).
+Pachyderm provides a FREE evaluation token for the Enterprise Edition on the landing
+page of the Enterprise dashboard.
 
-**Note** - Pachyderm's Enterprise dashboard is now deployed by default with Pachyderm. If you wish to deploy without the dashboard please use `pachctl deploy [command] --no-dashboard`
+!!! note
+    Pachyderm automatically deploys the Enterprise dashboard. If you want
+    to deploy without the dashboard, run
+    `pachctl deploy [command] --no-dashboard`.
 
-**Note** - You can get a FREE evaluation token for the enterprise edition on the landing page of the Enterprise dashboard.
-
-## Activating Pachyderm Enterprise Edition
+## Activate Pachyderm Enterprise Edition
 
 There are two ways to activate Pachyderm's enterprise features::
 
-- [Activate Pachyderm Enterprise via the `pachctl` CLI](#activate-via-the-pachctl-cli)
-- [Activate Pachyderm Enterprise via the dashboard](#activate-via-the-dashboard)
+- [Activate Pachyderm Enterprise by Using the `pachctl` CLI](#activate-by-using-the-pachctl-cli)
+- [Activate Pachyderm Enterprise by Using the Dashboard](#activate-by-using-the-dashboard)
 
-For either method, you will need to have your Pachyderm Enterprise activation code available.  You should have received this from Pachyderm sales/support when registering for the Enterprise Edition.  If you are a new user evaluating Pachyderm, you can receive a FREE evaluation code on the landing page of the dashboard. Please contact [support@pachyderm.io](mailto:support@pachyderm.io) if you are having trouble locating your activation code. 
+For either method, you need to have your Pachyderm Enterprise activation code
+available. You should have received this from the Pachyderm sales team when
+registering for the Enterprise Edition. If you are a new user evaluating Pachyderm,
+you can request a FREE evaluation code on the landing page of the dashboard.
+If you are having trouble locating your activation code, contact [support@pachyderm.io](mailto:support@pachyderm.io).
 
-### Activate via the `pachctl` CLI
+### Activate by Using the `pachctl` CLI
 
-Assuming you followed one of our [deploy guides](http://pachyderm.readthedocs.io/en/latest/deployment/deploy_intro.html) and you have a Pachyderm cluster running, you should see that the state of your Pachyderm cluster is similar to the following:
+When you have Pachyderm up and running, the `kubectl get pods` must return a similar
+output:
 
 ```
 $ kubectl get pods
@@ -31,38 +41,55 @@ You should also be able to connect to the Pachyderm cluster via the `pachctl` CL
 
 ```
 $ pachctl version
-COMPONENT           VERSION             
-pachctl             1.6.8           
-pachd               1.6.8
+COMPONENT           VERSION
+pachctl             1.9.5
+pachd               1.9.5
 ```
 
-Activating the Enterprise features of Pachyderm is then as easy as:
+To activate the Pachyderm Enterprise Edition, complete the following steps::
 
-```
-$ pachctl enterprise activate <activation-code>
-```
+1. Activate the Enterprise Edition by running:
 
-If this command returns no error, then the activation was successful. The state of the Enterprise activation can also be retrieved at any time via:
+   ```bash
+   $ pachctl enterprise activate <activation-code>
+   ```
 
-```
-$ pachctl enterprise get-state   
-ACTIVE
-```  
+   If this command does not return any error, then the activation was
+   successful.
 
-### Activate via the dashboard
+1. Verify the status of the enterprise activation:
 
-You can active Enterprise Edition directly in the dashboard. There's two ways to access the dashboard:
+   ```bash
+   $ pachctl enterprise get-state
+   ACTIVE
+   ```
 
-1. If you can directly connect, simply point your browser to port 30080 on your kubernetes cluster's IP address.
-2. You can enable port forwarding by calling `pachctl port-forward`, then point your browser to `localhost:30080`.
+### Activate by Using the Dashboard
 
-When you first visit the dashboard, it will prompt you for your activation code:
+You can activate Enterprise Edition directly in the dashboard.
 
-![alt tag](token.png)
+To active Enterprise Edition in the Dashboard, complete the following steps:
 
-Once you enter your activation code, you should have full access to the Enterprise dashboard and your cluster will be an active Enterprise Edition cluster.  This could be confirmed with:
+1. Connect to the dashboard by using one of the following methods:
 
-```
-$ pachctl enterprise get-state   
-ACTIVE
-```
+   * If you can connect directly, point your browser to port
+   `30080` on your Kubernetes cluster's IP address.
+
+   * Enable port forwarding by running `pachctl port-forward` in a separate terminal
+   window and then, point your browser to `localhost:30080`.
+
+   When you first access the dashboard, you are prompted to enter your activation code.
+
+1. Enter the promo code:
+
+   ![alt tag](../assets/images/token.png)
+
+   After you enter your activation code, you have full access to the Enterprise
+   dashboard, and your cluster has an active Enterprise Edition license.
+
+1. Confirm that your cluster has an active Enterprise Edition license:
+
+   ```bash
+   $ pachctl enterprise get-state
+   ACTIVE
+   ```

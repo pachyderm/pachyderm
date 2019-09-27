@@ -9,17 +9,14 @@ Here are some common issues by symptom related to certain deploys.
     - [The one shot deploy script, `aws.sh`, never completes](#one-shot-script-never-completes)
     - [VPC limit exceeded](#vpc-limit-exceeded)
     - [GPU node never appears](#gpu-node-never-appears)
-  - Google - coming soon...
-  - Azure - coming soon...
 
-
----
+<!--  - Google - coming soon...
+  - Azure - coming soon...-->
 
 ## General Pachyderm cluster deployment
 
 - [Pod stuck in `CrashLoopBackoff`](#pod-stuck-in-crashloopbackoff)
 - [Pod stuck in `CrashLoopBackoff` - with error attaching volume](#pod-stuck-in-crashloopbackoff-with-error-attaching-volume)
-- [
 
 ### Pod stuck in `CrashLoopBackoff`
 

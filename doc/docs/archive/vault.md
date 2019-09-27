@@ -2,49 +2,53 @@
 
 Pachyderm supports integration with Hashicorp™ Vault by providing a Vault Secret Engine.
 
-## Deployment
+## Deploy Vault
 
-Vault instructions for the admin deploying/configuring/managing vault
+Follow the steps below to install Vault instructions to deploy, configure, manage
+Vault. In this instructions, you download Vault to `/tmp/vault-plugins/pachyderm`.
 
-1) Get plugin binary
+To deploy Vault, complete the following steps:
 
-- Navigate to the Pachyderm Repo [on github]()
-    - Go to the latest release page
-    - Download the `vault` asset
+1. Get the plugin binary:
 
-2) Download / Install that binary on your vault server instance
+   1. Go to the latest release page in the [Pachyderm GitHub repo](https://github.com/pachyderm/pachyderm/releases).
+   1. Go to the latest release page.
+   1. Download the `vault` asset.
 
-On your vault server:
+1. Download and install the binary on your Vault server instance.
 
-```
-# Assuming the binary was downloaded to /tmp/vault-plugins/pachyderm
-export SHASUM=$(shasum -a 256 "/tmp/vault-plugins/pachyderm" | cut -d " " -f1)
-echo $SHASUM
-vault write sys/plugins/catalog/pachyderm sha_256="$SHASUM" command="pachyderm"
-vault secrets enable -path=pachyderm -plugin-name=pachyderm plugin
-```
+1. Connect to your Vault server.
+1. Run the following commands:
 
-**Note**: You may need to enable memory locking on the pachyderm plugin (see
-[https://www.vaultproject.io/docs/configuration/#disable_mlock]). That will look
-like:
-```
-sudo setcap cap_ipc_lock=+ep $(readlink -f /tmp/vault-plugins/pachyderm)
-```
+   ```bash
+   export SHASUM=$(shasum -a 256 "/tmp/vault-plugins/pachyderm" | cut -d " " -f1)
+   echo $SHASUM
+   vault write sys/plugins/catalog/pachyderm sha_256="$SHASUM" command="pachyderm"
+   vault secrets enable -path=pachyderm -plugin-name=pachyderm plugin
+   ```
 
-3) Configure the plugin
+   You might need to enable memory locking on the pachyderm plugin. For more information
+   see the [Vault Documentation](https://www.vaultproject.io/docs/configuration/#disable_mlock).
 
-We'll need to gather and provide this information to the plugin for it to work:
+   **Example:**
 
-- `admin_token` : is the (machine user) pachyderm token the plugin will use to cut new credentials on behalf of users
-- `pachd_address` : is the URL where the pachyderm cluster can be accessed
-- `ttl` : is the max TTL a token can be issued
+   ```bash
+   sudo setcap cap_ipc_lock=+ep $(readlink -f /tmp/vault-plugins/pachyderm)
+   ```
+
+3. Configure the plugin by providing the following information:
+
+   - `admin_token` : is the (machine user) pachyderm token the plugin will use to cut new credentials on behalf of users
+   - `pachd_address` : is the URL where the pachyderm cluster can be accessed
+   - `ttl` : is the max TTL a token can be issued
 
 
 ## Admin Token
 
-To get a machine user `admin_token` from pachyderm:
 
-###### If auth is not activated
+To get a machine user `admin_token` from Pachyderm:
+
+* If auth is not activated, follow these instructions:
 (this activates auth with a robot user. It's also possible to activate auth with a github user. Also, the choice of `robot:admin` is arbitrary. You could name this admin `robot:<any string>`)
 ```
 $ pachctl auth activate --initial-admin=robot:admin
@@ -57,6 +61,8 @@ Pachyderm token for "robot:admin":
 $ ADMIN_TOKEN=34cffc9254df40f0a277ee23e9fb005d
 $ echo "${ADMIN_TOKEN}" | pachctl auth use-auth-token # authenticates you as the cluster admin
 ```
+
+This activates auth with a robot user. It's also possible to activate auth with a github user. Also, the choice of `robot:admin` is arbitrary. You could name this admin `robot:<any string>`)
 
 ###### If auth *is* already activated
 ```
