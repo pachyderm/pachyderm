@@ -491,8 +491,10 @@ test-libs:
 test-vault:
 	kill $$(cat /tmp/vault.pid) || true
 	./src/plugin/vault/etc/start-vault.sh
+	./src/plugin/vault/etc/pach-auth.sh --activate
 	./src/plugin/vault/etc/setup-vault.sh
 	go test -v -count 1 ./src/plugin/vault -timeout $(TIMEOUT)
+	./src/plugin/vault/etc/pach-auth.sh --delete-all
 
 test-s3gateway-conformance:
 	pachctl enterprise activate $$(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -) && echo
