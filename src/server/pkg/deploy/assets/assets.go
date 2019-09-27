@@ -451,7 +451,6 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 			MountPath: "/pach",
 		},
 	}
-
 	// Set up storage options
 	var backendEnvVar string
 	var storageHostPath string
@@ -513,7 +512,11 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 			},
 			Template: v1.PodTemplateSpec{
 				ObjectMeta: objectMeta(pachdName, labels(pachdName),
-					map[string]string{IAMAnnotation: opts.IAMRole}, opts.Namespace),
+					map[string]string{
+						IAMAnnotation:          opts.IAMRole,
+						"prometheus.io/scrape": "true",
+						"prometheus.io/port":   strconv.Itoa(PrometheusPort),
+					}, opts.Namespace),
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
@@ -610,16 +613,12 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 
 // PachdService returns a pachd service.
 func PachdService(opts *AssetOpts) *v1.Service {
-	prometheusAnnotations := map[string]string{
-		"prometheus.io/scrape": "true",
-		"prometheus.io/port":   strconv.Itoa(PrometheusPort),
-	}
 	return &v1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Service",
 			APIVersion: "v1",
 		},
-		ObjectMeta: objectMeta(pachdName, labels(pachdName), prometheusAnnotations, opts.Namespace),
+		ObjectMeta: objectMeta(pachdName, labels(pachdName), nil, opts.Namespace),
 		Spec: v1.ServiceSpec{
 			Type: v1.ServiceTypeNodePort,
 			Selector: map[string]string{
