@@ -494,9 +494,11 @@ func TestExtractRestorePipelineUpdate(t *testing.T) {
 	for i, ci := range cis {
 		postCi := postRestoreCis[i]
 		require.Equal(t, ci.Commit.ID, postCi.Commit.ID)
+		// Must sort provenance field to guarantee it matches
+		sort.Slice(ci.Provenance, func(i, j int) bool { return ci.Provenance[i].Commit.ID < ci.Provenance[j].Commit.ID })
+		sort.Slice(postCi.Provenance, func(i, j int) bool { return postCi.Provenance[i].Commit.ID < postCi.Provenance[j].Commit.ID })
 		require.Equal(t, ci.Provenance, postCi.Provenance)
 	}
-
 }
 
 func TestExtractRestoreDeferredProcessing(t *testing.T) {
