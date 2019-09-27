@@ -3,7 +3,7 @@
 Pachyderm has the ability to trace requests using Jaeger. This
 can be useful when diagnosing slow clusters.
 
-![Successful Trace](../assets/images/healthy.png)
+![Successful Trace](../../assets/images/healthy.png)
 
 # Collecting Traces
 
@@ -64,7 +64,8 @@ $ kubectl port-forward svc/jaeger-query 16686:80 & # UI service
 then connect to `localhost:16686` in your browser, and you should see all
 collected traces.
 
-[1] https://kubernetes.io/docs/concepts/services-networking/service/#environment-variables
+!!! note "See also:"
+    [Kubernetes Service Environment Variables](https://kubernetes.io/docs/concepts/services-networking/service/#environment-variables)
 
 ## Troubleshooting
 
@@ -75,7 +76,7 @@ collected traces.
 
 2. If you see a trace appear in Jaeger with no subtraces, like so:
 
-    ![Trace with no children](images/no-traces.png)
+    ![Trace with no children](../../assets/images/no-traces.png)
 
     ...this likely means that `pachd` has not connected to Jaeger, but
     `pachctl` has. Make sure to restart the `pachd` pods *after* creating the

@@ -2,18 +2,19 @@
 
 If you need to upgrade Pachyderm from one major version
 to another, such as from `1.8.x` to `1.9.x`, follow the
-instructions in the [Migrate between major versions]((./migrations.html).
+instructions in the [Migrate between major versions]((./migrations.md).
 
 Upgrades from one minor version to another, such as from version `1.9.0` to
 version `1.9.2` do not introduce breaking changes. Therefore, the upgrade
 procedure is simple and requires little to no downtime.
 
-**Warning:** Do not use these steps to upgrade between major versions because
-it might result in data corruption.
+!!! warning
+    Do not use these steps to upgrade between major versions because
+    it might result in data corruption.
 
 To upgrade Pachyderm to a minor version, complete the following steps:
 
-1. Back up your cluster as described in the [Backup and Restore](./backup_restore.html#general-backup-procedure)
+1. Back up your cluster as described in the [Backup and Restore](./backup_restore#general-backup-procedure)
 section.
 
 1. Destroy your Pachyderm cluster:
@@ -110,7 +111,7 @@ Thus, the `--dynamic-etcd-nodes` flag to `pachctl deploy` is used to deploy Pach
 
 It is recommended that you deploy Pachyderm using StatefulSets when possible. 
 All of the instructions for cloud provider deployments do this by default.
-We also provide [instructions for on-premises deployments using StatefulSets](http://docs.pachyderm.io/en/latest/deployment/on_premises.html#statefulsets).
+We also provide [instructions for on-premises deployments using StatefulSets](../deploy/on_premises#statefulsets).
 
 If you have deployed Pachyderm using StatefulSets, 
 you can still use the *same* deploy command to re-deploy Pachyderm. 

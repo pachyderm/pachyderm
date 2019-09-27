@@ -138,7 +138,7 @@ nav:
             - Deploy on OpenShift: deploy-manage/deploy/openshift.md
             - Deploy On-Premises: deploy-manage/deploy/on_premises.md
             - Create a Custom Deployment:
-                - Overview: deploy-manage/deploy/deploy_custom/index.rst
+                - Overview: deploy-manage/deploy/deploy_custom/index.md
                 - Before You Begin: deploy-manage/deploy/deploy_custom/deploy_custom_before_you_begin.md
                 - Pachyderm Deployment Manifest: deploy-manage/deploy/deploy_custom/deploy_custom_pachyderm_deployment_manifest.md
                 - Configuring Persistent Disk Parameters: deploy-manage/deploy/deploy_custom/deploy_custom_configuring_persistent_disk_parameters.md

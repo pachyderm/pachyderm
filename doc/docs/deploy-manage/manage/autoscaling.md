@@ -7,15 +7,15 @@ There are 2 levels of autoscaling in Pachyderm:
 
 ## Pachyderm Autoscaling of Workers
 
-[Refer to the scaleDownThreshold](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html#scale-down-threshold-optional) field in the pipeline specification. This allows you to specify a time window after which idle workers are removed. If new inputs come in on the pipeline corresponding to those deleted workers, they get scaled back up.
+You can configure autoscaling for workers by setting the [standby](../../../reference/pipeline_spec#standby-optional) field in the pipeline specification. This parameter enables you suspend your pipeline pods when no data is available to process. If new inputs come in on the pipeline corresponding to the suspended workers, Kubernetes automatically resumes them.
 
 ## Cloud Provider Autoscaling
 
 Out of the box, autoscaling at the cloud provider layer doesn't work well with Pachyderm. However, if configure it properly, cloud provider autoscaling can complement Pachyderm autoscaling of workers.
 
-### Default Behavior with Cloud Autoscaling 
+### Default Behavior with Cloud Autoscaling
 
-Normally when you create a pipeline, Pachyderm asks the k8s cluster how many nodes are available. Pachyderm then uses that number as the default value for the pipeline's parallelism. (To read more about parallelism, [refer to the distributed processing docs](http://docs.pachyderm.io/en/latest/how-tos/distributed_computing.html)).
+Normally when you create a pipeline, Pachyderm asks the k8s cluster how many nodes are available. Pachyderm then uses that number as the default value for the pipeline's parallelism. (To read more about parallelism, [refer to the distributed processing docs](../../how-tos/distributed_computing.md)).
 
 If you have cloud provider autoscaling activated, it is possible that your number of nodes will be scaled down to a few or maybe even a single node.  A pipeline created on this cluster would have a default parallelism will be set to this low value (e.g., 1 or 2). Then, once the autoscale group notices that more nodes are needed, the parallelism of the pipeline won't increase, and you won't actually make effective use of those new nodes.
 
@@ -33,11 +33,11 @@ The goals of Pachyderm worker autoscaling are:
 Thus, to accomplish both of these goals, we recommend:
 
 - Setting a `constant`, high level of parallelism.  Specifically, setting the constant parallelism to the number of workers you will need when your pipeline is active.
-- Setting the `cpu` and/or `mem` resource requirements [in the `resource_requests` field on your pipeline](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html#resource-requests-optional). 
+- Setting the `cpu` and/or `mem` resource requirements [in the `resource_requests` field on your pipeline](../../../reference/pipeline_spec#resource-requests-optional).
 
 To determine the right values for `cpu` / `mem`, first set these values rather high.  Then use the monitoring tools that come with your cloud provider (or [try out our monitoring deployment](https://github.com/pachyderm/pachyderm/blob/master/Makefile#L330)) so you can see the actual CPU/mem utilization per pod.
 
-### Example Scenario 
+### Example Scenario
 
 Let's say you have a certain pipeline with a constant parallelism set to 16.  Let's also assume that you've set `cpu` to `1.0` and your instance type has 4 cores.
 

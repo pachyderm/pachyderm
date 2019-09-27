@@ -15,7 +15,7 @@ To deploy Pachyderm cluster with CloudFront,
 complete the following steps:
 
 1. [Create a CloudFront Distribution](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/GettingStarted.html#GettingStartedCreateDistribution)
-1. [Deploy Pachyderm with an IAM role](aws-deploy-pachyderm.html)
+1. [Deploy Pachyderm with an IAM role](aws-deploy-pachyderm.md)
 1. [Apply the CloudFront Key Pair](#apply-the-cloudfront-key-pair)
 
 ## Apply the CloudFront Key Pair
@@ -44,11 +44,12 @@ pk-APKAXXXXXXXXXXXXXXXX.pem
 The key-pair ID is `APKAXXXXXXXXXXXXXXXX`. The other file is
 the private key, which looks similar to the following text:
 
-```
-$ cat pk-APKAXXXXXXXXXXXX.pem
------BEGIN RSA PRIVATE KEY-----
-...
-```
+!!! example
+    ```bash
+    $ cat pk-APKAXXXXXXXXXXXX.pem
+    -----BEGIN RSA PRIVATE KEY-----
+    ...
+    ```
 
 To apply this key pair to your CloudFront distribution, complete
 the following steps:
@@ -78,7 +79,7 @@ deployment and the CloudFront distribution ID.
 1. Restart the `pachd` pod for the
 changes to take effect:
 
-   ```
+   ```bash
    $ kubectl scale --replicas=0 deployment/pachd && kubectl scale --replicas=1 deployment/pachd && kubectl get pod
    ```
 

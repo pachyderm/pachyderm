@@ -73,8 +73,6 @@ that overrides the active context.
 export PACH_CONTEXT=local1
 ```
 
-<!-- bug: https://github.com/pachyderm/pachyderm/issues/3991-->
-
 ## Create a New Context
 
 When you deploy a new Pachyderm cluster, a new context
@@ -84,6 +82,9 @@ In addition, you can create a new context by providing your parameters
 through the standard input stream (`stdin`) in your terminal.
 Specify the parameters as a comma-separated list enclosed in
 curly brackets.
+
+!!! note
+    By default, the `pachd` port is `30650`.
 
 To create a new context with specific parameters, complete
 the following steps:
@@ -95,8 +96,6 @@ and a client certificate:
    $ echo '{"pachd_address":"10.10.10.130:650", "server_cas":"key.pem"}' | pachctl config set context new-local
    Reading from stdin
    ```
-
-   **Note:** By default, the `pachd` port is `30650`.
 
 1. Verify your configuration by running the following command:
 
@@ -112,7 +111,7 @@ and a client certificate:
 
 You can update an existing context with new parameters, such
 as a Pachyderm IP address, certificate authority (CA), and others.
-For the list of parameters, see [Pachyderm Config Specification](../reference/config_spec.html).
+For the list of parameters, see [Pachyderm Config Specification](../../reference/config_spec.md).
 
 To update the Active Context, run the following commands:
 
@@ -122,7 +121,7 @@ To update the Active Context, run the following commands:
    $ pachctl config update context local-1 --pachd-address 10.10.10.131
    ```
 
-   **Note:** The `pachctl config update` command supports the `--pachd-address`
+   The `pachctl config update` command supports the `--pachd-address`
    flag only.
 
 1. Verify that the context has been updated:
@@ -136,8 +135,6 @@ To update the Active Context, run the following commands:
 
 1. Alternatively, you can update multiple properties by using
 an `echo` script:
-
-   **Example:**
 
    ```bash
    $ echo '{"pachd_address":"10.10.10.132", "server_cas":"key.pem"}' | pachctl config set context local-1 --overwrite

@@ -70,17 +70,23 @@ It requires certain prerequisites, just as [jq](https://github.com/stedolan/jq) 
 This script may be useful as a basis for automating redeploys of Pachyderm as needed. 
 
 ### Best practices: Infrastructure as code
+
 We highly encourage you to apply the best practices used in developing software to managing the deployment process.
+
 1. Create scripts that automate as much of your processes as possible and keep them under version control.
 1. Keep copies of all artifacts, such as manifests, produced by those scripts and keep those under version control.
 1. Document your practices in the code and outside it.
 
 ## Preparing to deploy Pachyderm
+
 Things you'll need
 1. Your PV.  It can be created separately.
-1. Your object store information
-1. Your project in OpenShift
-1. A text editor for editing your deployment manifest
+
+1. Your object store information.
+
+1. Your project in OpenShift.
+
+1. A text editor for editing your deployment manifest.
 ## Deploying Pachyderm
 ### 1. Setting up PV and object stores
 How you deploy Pachyderm on OpenShift is largely going to depend on where OpenShift is deployed. 

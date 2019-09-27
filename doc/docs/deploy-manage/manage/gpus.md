@@ -2,7 +2,7 @@
 
 Pachyderm currently supports GPUs through Kubernetes device plugins. If you
 already have a GPU enabled Kubernetes cluster through device plugins,
-skip to [Using GPUs in Pipelines](#using-gpus-in-pipelines).
+skip to [Configure GPUs in Pipelines](#configure-gpus-in-pipelines).
 
 ## Set up a GPU-enabled Kubernetes Cluster
 

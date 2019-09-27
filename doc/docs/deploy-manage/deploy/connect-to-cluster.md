@@ -25,7 +25,7 @@ access both `pachd` and the Pachyderm dashboard.
 By default, Pachyderm enables port-forwarding from `pachctl` to `pachd`.
 If you do not want to use port-forwarding for `pachctl` operations,
 configure a `pachd_address` as described in
-[Connect by using a Pachyderm context](#connect-by-using-a-pachyderm-context.html).
+[Connect by using a Pachyderm context](#connect-by-using-a-pachyderm-context).
 
 To connect to the Pachyderm dashboard, you can either use port-forwarding,
 or the IP address of the virtual machine on which your Kubernetes cluster
@@ -70,7 +70,7 @@ Since a Pachyderm cluster
 deployed on a cloud platform is more likely to become
 a production deployment, configuring a `pachd_address`
 as described in
-[Connect by using a Pachyderm context](#connect-by-using-a-pachyderm-context.html)
+[Connect by using a Pachyderm context](#connect-by-using-a-pachyderm-context)
 is the preferred way.
 
 ## Connect by using a Pachyderm context
@@ -102,7 +102,7 @@ if you place the data that is consumed by your pipeline in object
 store buckets located in the same region.
 
 For more information about Pachyderm contexts, see
-[Manage Cluster Access](../managing_pachyderm/cluster-access.html).
+[Manage Cluster Access](../manage/cluster-access.md).
 
 To connect by using a Pachyderm context, complete the following
 steps:

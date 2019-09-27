@@ -64,5 +64,5 @@ To deploy an EKS cluster, complete the following steps:
    service/kubernetes   ClusterIP   10.100.0.1   <none>        443/TCP   7m9s
    ```
 
-1. Deploy Pachyderm as described in [Deploy Pachyderm on AWS](aws-deploy-pachyderm.html).
+1. Deploy Pachyderm as described in [Deploy Pachyderm on AWS](aws-deploy-pachyderm.md).
 

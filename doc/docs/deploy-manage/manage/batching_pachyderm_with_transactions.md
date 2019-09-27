@@ -9,17 +9,18 @@ This is useful in particular for pipelines with multiple inputs. If you need to 
 ## Pachctl
 In pachctl, a transaction can be initiated through the start transaction command. This will generate a transaction object in the cluster and save its ID into the local pachyderm config (`~/.pachyderm/config.json` by default).
 
-While there is a transaction object in the config file, all transactionally-supported API requests will append the request to the transaction instead of running directly. These commands (as of v1.9.0) are:
+While there is a transaction object in the config file, all transactionally-supported API requests will append the request to the transaction instead of running directly. These commands include:
 
-```
-create repo
-delete repo
-start commit
-finish commit
-delete commit
-create branch
-delete branch
-```
+!!! example
+    ```bash
+    create repo
+    delete repo
+    start commit
+    finish commit
+    delete commit
+    create branch
+    delete branch
+    ```
 
 Each time a command is added to a transaction, the transaction is dry-run against the current state of the cluster metadata to make sure it is still valid and to obtain any return values (important for commands like `start commit`). If the dry-run fails for any reason, the operation will not be added to the transaction. If the transaction has been invalidated by changing cluster state, the transaction will need to be deleted and started over, taking into account the new state of the cluster.
 

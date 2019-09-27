@@ -1,4 +1,10 @@
-# Migration 
+# Migration
+
+!!! info
+    If you need to upgrade Pachyderm from one minor version
+    to another, such as from 1.9.4 to 1.9.5, see
+    [Upgrade Pachyderm](upgrades.md).
+
 - [Introduction](#introduction)
 - [Note about 1.7 to 1.8 migrations](#note-about-1-7-to-1-8-migrations]
 - [General migration procedure](#general-migration-procedure)
@@ -15,13 +21,13 @@
     - [9. Reconfigure new cluster as necessary](#reconfigure-new-cluster-as-necessary)
 
 ## Introduction
+
 As new versions of Pachyderm are released, you may need to update your cluster to get access to bug fixes and new features. 
 These updates fall into two categories, upgrades and migrations.
 
 An upgrade is moving between point releases within the same major release, 
 like 1.7.2 to 1.7.3.
 Upgrades are typically a simple process that require little to no downtime.
-They're covered in a [separate document](./upgrades.html).
 
 Migrations involve moving between major releases, 
 like 1.8.6 to 1.9.0.
@@ -36,8 +42,7 @@ and an object store bucket
 (something like AWS S3, MinIO, or Azure Blob Storage).
 
 In a migration, 
-the data structures stored in those locations need to be read, transformed, and rewritten, 
-so the process involves:
+the data structures stored in those locations need to be read, transformed, and rewritten, so the process involves:
 
 1. bringing up a new Pachyderm cluster adjacent to the old pachyderm cluster
 1. exporting the old Pachdyerm cluster's repos, pipelines, and input commits
@@ -63,7 +68,7 @@ You may wish to keep your original 1.7 cluster around in a suspended state, reac
 
 ### Before you start: backups
 
-Please refer to [the documentation on backing up your cluster](./backup_restore.html#general-backup-procedure).
+Please refer to [the documentation on backing up your cluster](./backup_restorel#general-backup-procedure).
 
 ### Migration steps
 #### 1. Pause all pipeline and data loading operations
@@ -165,7 +170,7 @@ and [Azure blob storage](https://docs.microsoft.com/en-us/azure/storage/common/s
 Once the backup and clone operations are complete,
 restart all paused pipelines and data loading operations,
 setting a checkpoint for the started operations that you can use in step [7. Load transactional data from checkpoint into new cluster](#load-transactional-data-from-checkpoint-into-new-cluster), below.
-See [Loading data from other sources into pachyderm](./backup_restore.html#loading-data-from-other-sources-into-pachyderm) to understand why designing this checkpoint into your data loading systems is important.
+See [Loading data from other sources into pachyderm](./backup_restore#loading-data-from-other-sources-into-pachyderm) to understand why designing this checkpoint into your data loading systems is important.
 
 From the directed acyclic graphs (DAG) that define your pachyderm cluster,
 start each pipeline.
@@ -222,7 +227,7 @@ pachd               1.7.11
 ```
 
 Your old pachyderm cluster can operate while you're creating a migrated one.
-It's important that your data loading operations are designed to use the "[Loading data from other sources into pachyderm](./backup_restore.html#loading-data-from-other-sources-into-pachyderm)" design criteria below for this to work.
+It's important that your data loading operations are designed to use the "[Loading data from other sources into pachyderm](./backup_restore#loading-data-from-other-sources-into-pachyderm)" design criteria below for this to work.
 
 ### 5. Deploy a 1.X Pachyderm cluster with cloned bucket
 
@@ -245,7 +250,9 @@ _Important: Use the_ `kubectl config current-config` _command to confirm you're 
 
 Using the Pachyderm cluster you deployed in the previous step, [5. Deploy a 1.X pachyderm cluster with cloned bucket](#deploy-a-1.X-pachyderm-cluster-with-cloned-bucket), run `pachctl restore` with the backup you created in [2. Extract a pachyderm backup with the --no-objects flag](#extract-a-pachyderm-backup-with-the-no-objects-flag).
 
-_Important: Use the_ `kubectl config current-config` _command to confirm you're talking to the correct kubernetes cluster configuration_
+!!! note "Important"
+    Use the_ `kubectl config current-config` _command to confirm you're
+    talking to the correct kubernetes cluster configuration_.
 
 `pachctl restore < path/to/your/backup/file`
 
@@ -276,15 +283,3 @@ You may also need to reconfigure
 
 - data loading operations from Pachyderm to processes outside of it to work as expected
 - Kubernetes ingress and port changes taken to avoid conflicts with the old cluster
-
-
-
-
-
-
-
-
-
-
-
-

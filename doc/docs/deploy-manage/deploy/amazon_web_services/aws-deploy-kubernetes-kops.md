@@ -11,12 +11,12 @@ a supported cloud platform.
 Before you can deploy Pachyderm on Amazon AWS with
 `kops`, you must have the following components configured:
 
-  - Install [AWS CLI](https://aws.amazon.com/cli/)
-  - Install [kubectl](https://kubernetes.io/docs/user-guide/prereqs/)
-  - Install [kops](https://github.com/kubernetes/kops/blob/master/docs/install.md)
-  - Install [pachctl](../../getting_started/local_installation.html#pachctl)
-  - Install [jq](https://stedolan.github.io/jq/download/)
-  - Install [uuid](http://man7.org/linux/man-pages/man1/uuidgen.1.html)
+- Install [AWS CLI](https://aws.amazon.com/cli/)
+- Install [kubectl](https://kubernetes.io/docs/user-guide/prereqs/)
+- Install [kops](https://github.com/kubernetes/kops/blob/master/docs/install.md)
+- Install [pachctl](../../getting_started/local_installation.md#pachctl)
+- Install [jq](https://stedolan.github.io/jq/download/)
+- Install [uuid](http://man7.org/linux/man-pages/man1/uuidgen.1.html)
 
 ## Configure `kops`
 
@@ -112,20 +112,20 @@ cluster as variables.
 
    ```bash
    $ kops validate cluster
-     Using cluster from kubectl context: test-pachyderm.k8s.local
+   Using cluster from kubectl context: test-pachyderm.k8s.local
 
-     Validating cluster svetkars.k8s.local
+   Validating cluster svetkars.k8s.local
 
-     INSTANCE          GROUPS
-     NAME              ROLE     MACHINETYPE MIN MAX SUBNETS
-     master-us-west-2a Master   m3.medium   1   1   us-west-2a
-     nodes             Node     t2.medium   2   2   us-west-2a
+   INSTANCE          GROUPS
+   NAME              ROLE     MACHINETYPE MIN MAX SUBNETS
+   master-us-west-2a Master   m3.medium   1   1   us-west-2a
+   nodes             Node     t2.medium   2   2   us-west-2a
 
-     NODE STATUS
-     NAME                                           ROLE    READY
-     ip-172-20-45-231.us-west-2.compute.internal    node    True
-     ip-172-20-50-8.us-west-2.compute.internal      master  True
-     ip-172-20-58-132.us-west-2.compute.internal    node    True
-    ```
+   NODE                                                   STATUS
+   NAME                                           ROLE    READY
+   ip-172-20-45-231.us-west-2.compute.internal    node    True
+   ip-172-20-50-8.us-west-2.compute.internal      master  True
+   ip-172-20-58-132.us-west-2.compute.internal    node    True
+   ```
 
-1. Proceed to [Deploy Pachyderm on AWS](aws-deploy-pachyderm.html).
+1. Proceed to [Deploy Pachyderm on AWS](aws-deploy-pachyderm.md).

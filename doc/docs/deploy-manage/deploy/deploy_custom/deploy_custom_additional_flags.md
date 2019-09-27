@@ -1,4 +1,4 @@
-# Additional flags
+# Additional Flags
 
 This section describes all the additional flags that you can use
 to configure your custom deployment:

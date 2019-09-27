@@ -8,7 +8,7 @@ Extract and restore commands are currently used to migrate between minor and maj
 
 In this document, we'll take you through the steps to backup and restore a cluster, migrate an existing cluster to a newer minor or major release, and elaborate on some of those design and operations considerations.
 
-## Backup & restore concepts
+## Backup and restore concepts
 Backing up Pachyderm involves the persistent volume (PV) that `etcd` uses for administrative data
 and the object store bucket that holds Pachyderm's actual data. 
 Restoring involves populating that PV and object store with data to recreate a Pachyderm cluster.
@@ -43,6 +43,7 @@ It's also a useful practice, for simple to moderately complex deployments, to ke
 You may need to install the `watch` and `kubectl` commands on your system, and configure `kubectl` to point at the cluster that Pachyderm is running in.
 
 #### Pausing data loading operations
+
 **Input repositories** or **input repos** in pachyderm are repositories created with the `pachctl create repo` command.  They're designed to be the repos at the top of a directed acyclic graph of pipelines. Pipelines have their own output repos associated with them, and are not considered input repos. If there are any processes external to pachyderm that put data into input repos using any method (the Pachyderm APIs, `pachctl put file`, etc.), they need to be paused.  See [Loading data from other sources into pachyderm](#loading-data-from-other-sources-into-pachyderm) below for design considerations for those processes that will minimize downtime during a restore or migration.
 
 Alternatively, you can use the following commands to stop all data loading into Pachyderm from outside processes.
