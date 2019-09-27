@@ -27,7 +27,7 @@ func newReader(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path
 	return &Reader{
 		ctx:    ctx,
 		chunks: chunks,
-		ir:     index.NewReader(ctx, objC, chunks, path, prefix),
+		ir:     index.NewReader(ctx, objC, chunks, path, index.WithPrefix(prefix)),
 		cr:     cr,
 	}
 }

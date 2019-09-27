@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"math"
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
@@ -12,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
+	"modernc.org/mathutil"
 )
 
 type levelReader struct {
@@ -20,26 +20,34 @@ type levelReader struct {
 	currHdr, peekHdr *Header
 }
 
+type pathFilter struct {
+	pathRange *PathRange
+	prefix    string
+}
+
 // Reader is used for reading a multi-level index.
 type Reader struct {
 	ctx    context.Context
 	objC   obj.Client
 	chunks *chunk.Storage
 	path   string
-	prefix string
+	filter *pathFilter
 	levels []*levelReader
 	done   bool
 }
 
 // NewReader create a new Reader.
-func NewReader(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path, prefix string) *Reader {
-	return &Reader{
+func NewReader(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path string, opts ...Option) *Reader {
+	r := &Reader{
 		ctx:    ctx,
 		objC:   objC,
 		chunks: chunks,
 		path:   path,
-		prefix: prefix,
 	}
+	for _, opt := range opts {
+		opt(r)
+	}
+	return r
 }
 
 // Next gets the next header in the index.
@@ -125,16 +133,15 @@ func (r *Reader) next(level int) (*Header, error) {
 		if err != nil {
 			return nil, err
 		}
+		// Return if done.
+		if r.atEnd(hdr.Name) {
+			r.done = true
+			return nil, io.EOF
+		}
 		// Handle lowest level index.
 		if hdr.Typeflag == indexType {
-			cmpSize := int64(math.Min(float64(len(hdr.Name)), float64(len(r.prefix))))
-			cmp := strings.Compare(hdr.Name[:cmpSize], r.prefix[:cmpSize])
-			// If a header with the prefix cannot show up after the current header,
-			// then we are done.
-			if cmp > 0 {
-				r.done = true
-				return nil, io.EOF
-			} else if cmp != 0 {
+			// Skip to the starting header.
+			if !r.atStart(hdr.Name) {
 				continue
 			}
 			return deserialize(l.tr, hdr)
@@ -145,11 +152,43 @@ func (r *Reader) next(level int) (*Header, error) {
 			return nil, err
 		}
 		// Skip to the starting header.
-		if fullHdr.Idx.Range.LastPath < r.prefix {
+		if !r.atStart(fullHdr.Idx.Range.LastPath) {
 			continue
 		}
 		return fullHdr, nil
 	}
+}
+
+// atStart returns true when the name is in the valid range for a filter (always true if no filter is set).
+// For a range filter, this means the name is >= to the lower bound.
+// For a prefix filter, this means the name is >= to the prefix.
+func (r *Reader) atStart(name string) bool {
+	if r.filter == nil {
+		return true
+	}
+	if r.filter.pathRange != nil {
+		return name >= r.filter.pathRange.Lower
+	}
+	return name >= r.filter.prefix
+}
+
+// atEnd returns true when the name is past the valid range for a filter (always false if no filter is set).
+// For a range filter, this means the name is > than the upper bound.
+// For a prefix filter, this means the name does not have the prefix and a name with the prefix cannot show up after it.
+func (r *Reader) atEnd(name string) bool {
+	if r.filter == nil {
+		return false
+	}
+	if r.filter.pathRange != nil {
+		return name > r.filter.pathRange.Upper
+	}
+	// Name is past a prefix when the first len(prefix) bytes are greater than the prefix
+	// (use len(name) bytes for comparison when len(name) < len(prefix)).
+	// A simple greater than check would not suffice here for the prefix filter functionality
+	// (for example, if the index consisted of the paths "a", "ab", "abc", and "b", then a
+	// reader with the prefix filter set to "a" would end at the "ab" path rather than the "b" path).
+	cmpSize := mathutil.Min(len(name), len(r.filter.prefix))
+	return name[:cmpSize] > r.filter.prefix[:cmpSize]
 }
 
 // Peek peeks ahead in the index.

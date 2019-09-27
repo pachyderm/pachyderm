@@ -11,6 +11,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"modernc.org/mathutil"
 )
 
 // ReaderFunc is a callback that returns the next set of data references
@@ -172,12 +173,12 @@ func (r *Reader) ReadCopy(n ...int64) (*Copy, error) {
 	// Copy the first WindowSize bytes raw to be sure that
 	// the chunks we will copy will exist in the writer that
 	// this data is being copied to.
-	if err := rawCopy(c.before, Min(WindowSize, totalLeft)); err != nil {
+	if err := rawCopy(c.before, mathutil.MinInt64(WindowSize, totalLeft)); err != nil {
 		return nil, err
 	}
 	// Copy the bytes left in the current chunk (if any)
 	if r.r.Len() > 0 {
-		if err := rawCopy(c.before, Min(int64(r.r.Len()), totalLeft)); err != nil {
+		if err := rawCopy(c.before, mathutil.MinInt64(int64(r.r.Len()), totalLeft)); err != nil {
 			return nil, err
 		}
 	}
