@@ -105,6 +105,9 @@ to have pachctl installed on your machine by following these steps:
    pachctl             1.9.5
    ```
 
+   If you run `pachctl version` without `--client-only`, the command times
+   out. This is expected behavior because `pachd` is not yet running.
+
 ## Deploy Pachyderm
 
 After you configure all the [Prerequisites](#prerequisites),
