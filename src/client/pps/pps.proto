@@ -426,6 +426,25 @@ message CreateJobRequest {
   reserved 3, 4, 1, 10, 7, 9, 8, 12, 11, 13, 14, 21, 15, 16, 17, 18, 19, 20, 22, 23, 24;
   Pipeline pipeline = 2;
   pfs.Commit output_commit = 25;
+
+  // Fields below should only be set when restoring an extracted job.
+  uint64 restart = 26;
+
+  // Counts of how many times we processed or skipped a datum
+  int64 data_processed = 27;
+  int64 data_skipped = 28;
+  int64 data_total = 29;
+  int64 data_failed = 30;
+  int64 data_recovered = 31;
+
+  // Download/process/upload time and download/upload bytes
+  ProcessStats stats = 32;
+
+  pfs.Commit stats_commit = 33;
+  JobState state = 34;
+  string reason = 35;
+  google.protobuf.Timestamp started = 36;
+  google.protobuf.Timestamp finished = 37;
 }
 
 message InspectJobRequest {
@@ -603,6 +622,7 @@ message CreatePipelineRequest {
   SchedulingSpec scheduling_spec = 29;
   string pod_spec = 30; // deprecated, use pod_patch below
   string pod_patch = 32; // a json patch will be applied to the pipeline's pod_spec before it's created;
+  pfs.Commit spec_commit = 34;
 }
 
 message InspectPipelineRequest {

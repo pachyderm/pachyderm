@@ -231,8 +231,11 @@ message BuildCommitRequest {
   string branch = 4;
   repeated CommitProvenance provenance = 6;
   Object tree = 3;
+  repeated Object trees = 7;
+  Object datums = 8;
   // ID sets the ID of the created commit.
   string ID = 5;
+  uint64 size_bytes = 9;
 }
 
 message FinishCommitRequest {
@@ -261,6 +264,7 @@ message ListCommitRequest {
   Commit from = 2;
   Commit to = 3;
   uint64 number = 4;
+  bool reverse = 5;  // Return commits oldest to newest
 }
 
 message CommitInfos {
@@ -283,6 +287,7 @@ message InspectBranchRequest {
 
 message ListBranchRequest {
   Repo repo = 1;
+  bool reverse = 2; // Returns branches oldest to newest
 }
 
 message DeleteBranchRequest {
@@ -545,6 +550,11 @@ message PutObjectRequest {
   Block block = 3;
 }
 
+message CreateObjectRequest {
+  Object object = 1;
+  BlockRef block_ref = 2;
+}
+
 message GetObjectsRequest {
   repeated Object objects = 1;
   uint64 offset_bytes = 2;
@@ -554,6 +564,15 @@ message GetObjectsRequest {
   // entirely accurate or if it's unknown (in which case it'd be set to 0).
   // It's used primarily as a hint for cache eviction.
   uint64 total_size = 4;
+}
+
+message PutBlockRequest {
+  Block block = 1;
+  bytes value = 2;
+}
+
+message GetBlockRequest {
+  Block block = 1;
 }
 
 message GetBlocksRequest {
@@ -566,6 +585,8 @@ message GetBlocksRequest {
   // It's used primarily as a hint for cache eviction.
   uint64 total_size = 4;
 }
+
+message ListBlockRequest {}
 
 message TagObjectRequest {
   Object object = 1;
@@ -612,15 +633,19 @@ service ObjectAPI {
   rpc PutObject(stream PutObjectRequest) returns (Object) {}
   rpc PutObjectSplit(stream PutObjectRequest) returns (Objects) {}
   rpc PutObjects(stream PutObjectRequest) returns (google.protobuf.Empty) {}
+  rpc CreateObject(CreateObjectRequest) returns (google.protobuf.Empty) {}
   rpc GetObject(Object) returns (stream google.protobuf.BytesValue) {}
   rpc GetObjects(GetObjectsRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc PutBlock(stream PutBlockRequest) returns (google.protobuf.Empty) {}
+  rpc GetBlock(GetBlockRequest) returns (stream google.protobuf.BytesValue) {}
   rpc GetBlocks(GetBlocksRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc ListBlock(ListBlockRequest) returns (stream Block) {}
   rpc TagObject(TagObjectRequest) returns (google.protobuf.Empty) {}
   rpc InspectObject(Object) returns (ObjectInfo) {}
   // CheckObject checks if an object exists in the blob store without
   // actually reading the object.
   rpc CheckObject(CheckObjectRequest) returns (CheckObjectResponse) {}
-  rpc ListObjects(ListObjectsRequest) returns (stream Object) {}
+  rpc ListObjects(ListObjectsRequest) returns (stream ObjectInfo) {}
   rpc DeleteObjects(DeleteObjectsRequest) returns (DeleteObjectsResponse) {}
   rpc GetTag(Tag) returns (stream google.protobuf.BytesValue) {}
   rpc InspectTag(Tag) returns (ObjectInfo) {}

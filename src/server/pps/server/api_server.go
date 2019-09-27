@@ -509,14 +509,26 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	}
 
 	job := client.NewJob(uuid.NewWithoutDashes())
+	if request.Stats == nil {
+		request.Stats = &pps.ProcessStats{}
+	}
 	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		jobPtr := &pps.EtcdJobInfo{
-			Job:          job,
-			OutputCommit: request.OutputCommit,
-			Pipeline:     request.Pipeline,
-			Stats:        &pps.ProcessStats{},
+			Job:           job,
+			OutputCommit:  request.OutputCommit,
+			Pipeline:      request.Pipeline,
+			Stats:         request.Stats,
+			Restart:       request.Restart,
+			DataProcessed: request.DataProcessed,
+			DataSkipped:   request.DataSkipped,
+			DataTotal:     request.DataTotal,
+			DataFailed:    request.DataFailed,
+			DataRecovered: request.DataRecovered,
+			StatsCommit:   request.StatsCommit,
+			Started:       request.Started,
+			Finished:      request.Finished,
 		}
-		return ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, pps.JobState_JOB_STARTING, "")
+		return ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, request.State, request.Reason)
 	})
 	if err != nil {
 		return nil, err
@@ -1951,7 +1963,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		provenance = append(branchProvenance(pipelineInfo.Input),
 			client.NewBranch(ppsconsts.SpecRepo, pipelineName))
 		outputBranch     = client.NewBranch(pipelineName, pipelineInfo.OutputBranch)
+		statsBranch      = client.NewBranch(pipelineName, "stats")
 		outputBranchHead *pfs.Commit
+		statsBranchHead  *pfs.Commit
 	)
 	if update {
 		// Help user fix inconsistency if previous UpdatePipeline call failed
@@ -2021,7 +2035,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		}
 
 		if !request.Reprocess {
-			// don't branch the output commit chain from the old pipeline (re-use old branch HEAD)
+			// don't branch the output/stats commit chain from the old pipeline (re-use old branch HEAD)
 			// However it's valid to set request.Update == true even if no pipeline exists, so only
 			// set outputBranchHead if there's an old pipeline to update
 			_, err := pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: outputBranch})
@@ -2029,6 +2043,13 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				return nil, err
 			} else if err == nil {
 				outputBranchHead = client.NewCommit(pipelineName, pipelineInfo.OutputBranch)
+			}
+
+			_, err = pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: statsBranch})
+			if err != nil && !isNotFoundErr(err) {
+				return nil, err
+			} else if err == nil {
+				statsBranchHead = client.NewCommit(pipelineName, "stats")
 			}
 		}
 
@@ -2045,9 +2066,24 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 		// Must create spec commit before restoring output branch provenance, so
 		// that no commits are created with a missing spec commit
-		commit, err := a.makePipelineInfoCommit(pachClient, pipelineInfo)
-		if err != nil {
-			return nil, err
+		var commit *pfs.Commit
+		if request.SpecCommit != nil {
+			// Make sure that the spec commit actually exists
+			commitInfo, err := pachClient.InspectCommit(request.SpecCommit.Repo.Name, request.SpecCommit.ID)
+			if err != nil {
+				return nil, fmt.Errorf("error inspecting commit: \"%s/%s\": %v", request.SpecCommit.Repo.Name, request.SpecCommit.ID, err)
+			}
+			// It does, so we use that as the spec commit, rather than making a new one
+			commit = commitInfo.Commit
+			// We also use the existing head for the branches, rather than making a new one.
+			outputBranchHead = client.NewCommit(pipelineName, pipelineInfo.OutputBranch)
+			statsBranchHead = client.NewCommit(pipelineName, "stats")
+		} else {
+			var err error
+			commit, err = a.makePipelineInfoCommit(pachClient, pipelineInfo)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		// pipelinePtr will be written to etcd, pointing at 'commit'. May include an
@@ -2076,8 +2112,8 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		}
 
 		// Put a pointer to the new PipelineInfo commit into etcd
-		if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-			err = a.pipelines.ReadWrite(stm).Create(pipelineName, pipelinePtr)
+		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+			err := a.pipelines.ReadWrite(stm).Create(pipelineName, pipelinePtr)
 			if isAlreadyExistsErr(err) {
 				if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
 					return superUserClient.DeleteCommit(ppsconsts.SpecRepo, commit.ID)
@@ -2110,6 +2146,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		if _, err := pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
 			Branch:     client.NewBranch(pipelineName, "stats"),
 			Provenance: []*pfs.Branch{outputBranch},
+			Head:       statsBranchHead,
 		}); err != nil {
 			return nil, fmt.Errorf("could not create/update stats branch: %v", err)
 		}
@@ -2936,12 +2973,12 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 		}
 		return nil
 	}
-	for object, err := objects.Recv(); err != io.EOF; object, err = objects.Recv() {
+	for oi, err := objects.Recv(); err != io.EOF; oi, err = objects.Recv() {
 		if err != nil {
 			return nil, fmt.Errorf("error receiving objects from ListObjects: %v", err)
 		}
-		if !activeStat.Objects.TestString(object.Hash) {
-			objectsToDelete = append(objectsToDelete, object)
+		if !activeStat.Objects.TestString(oi.Object.Hash) {
+			objectsToDelete = append(objectsToDelete, oi.Object)
 		}
 		// Delete objects in batches
 		if err := deleteObjectsIfMoreThan(100); err != nil {

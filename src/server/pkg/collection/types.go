@@ -106,6 +106,7 @@ type ReadonlyCollection interface {
 	// collection, or '0' if 'key' will remain in the collection indefinitely
 	TTL(key string) (int64, error)
 	List(val proto.Message, opts *Options, f func(key string) error) error
+	ListRev(val proto.Message, opts *Options, f func(key string, createRev int64) error) error
 	ListPrefix(prefix string, val proto.Message, opts *Options, f func(string) error) error
 	Count() (int64, error)
 	Watch(opts ...watch.OpOption) (watch.Watcher, error)
