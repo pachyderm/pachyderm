@@ -21,9 +21,11 @@ You may be using the pachd address config value or environment variable to speci
 ```
 $ pachctl version
 COMPONENT           VERSION                                          
-pachctl             1.4.8   
+pachctl             1.9.5   
 context deadline exceeded
 ```
+
+Also, you might get this message if `pachd` is not running.
 
 #### Recourse
 
