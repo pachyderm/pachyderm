@@ -2075,7 +2075,7 @@ func TestSubscribeCommit(t *testing.T) {
 		commits = append(commits, commit)
 	}
 
-	commitIter, err := client.SubscribeCommit(repo, "master", "", pfs.CommitState_STARTED)
+	commitIter, err := client.SubscribeCommit(repo, "master", nil, "", pfs.CommitState_STARTED)
 	require.NoError(t, err)
 	for i := 0; i < numCommits; i++ {
 		commitInfo, err := commitIter.Next()
@@ -4680,13 +4680,13 @@ func TestSubscribeStates(t *testing.T) {
 
 	var readyCommits int64
 	go func() {
-		c.SubscribeCommitF("B", "master", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
+		c.SubscribeCommitF("B", "master", nil, "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
 			atomic.AddInt64(&readyCommits, 1)
 			return nil
 		})
 	}()
 	go func() {
-		c.SubscribeCommitF("C", "master", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
+		c.SubscribeCommitF("C", "master", nil, "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
 			atomic.AddInt64(&readyCommits, 1)
 			return nil
 		})

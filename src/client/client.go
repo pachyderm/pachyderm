@@ -51,6 +51,9 @@ const (
 	// DefaultPachdPort is the pachd kubernetes service's default
 	// Port (often used with Pachyderm ELBs)
 	DefaultPachdPort = "650"
+
+	// grpcs is the prefix of the grpcs protocol.
+	grpcs = "grpcs://"
 )
 
 // PfsAPIClient is an alias for pfs.APIClient.
@@ -146,6 +149,10 @@ type clientSettings struct {
 
 // NewFromAddress constructs a new APIClient for the server at addr.
 func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
+	// Validate address
+	if strings.Contains(addr, "://") {
+		return nil, fmt.Errorf("address shouldn't contain protocol (\"://\"), but is: %q", addr)
+	}
 	// Apply creation options
 	settings := clientSettings{
 		maxConcurrentStreams: DefaultMaxConcurrentStreams,
@@ -216,6 +223,16 @@ func WithAdditionalRootCAs(pemBytes []byte) Option {
 	}
 }
 
+// WithSystemCAs uses the system certs for client creatin.
+func WithSystemCAs(settings *clientSettings) error {
+	certs, err := x509.SystemCertPool()
+	if err != nil {
+		return fmt.Errorf("could not retrieve system cert pool: %v", err)
+	}
+	settings.caCerts = certs
+	return nil
+}
+
 // WithDialTimeout instructs the New* functions to use 't' as the deadline to
 // connect to pachd
 func WithDialTimeout(t time.Duration) Option {
@@ -245,6 +262,9 @@ func WithAdditionalPachdCert() Option {
 func getCertOptionsFromEnv() ([]Option, error) {
 	var options []Option
 	if certPaths, ok := os.LookupEnv("PACH_CA_CERTS"); ok {
+		if pachdAddress, ok := os.LookupEnv("PACHD_ADDRESS"); !ok || !strings.HasPrefix(pachdAddress, grpcs) {
+			return nil, fmt.Errorf("cannot set PACH_CA_CERTS without setting PACHD_ADDRESS to %s... ", grpcs)
+		}
 		paths := strings.Split(certPaths, ",")
 		for _, p := range paths {
 			// Try to read all certs under 'p'--skip any that we can't read/stat
@@ -275,10 +295,16 @@ func getCertOptionsFromEnv() ([]Option, error) {
 // environment variables, config files, etc to figure out which address a user
 // running a command should connect to.
 func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error) {
+	var options []Option
+
 	// 1) PACHD_ADDRESS environment variable (shell-local) overrides global config
 	if envAddr, ok := os.LookupEnv("PACHD_ADDRESS"); ok {
+		if strings.HasPrefix(envAddr, grpcs) {
+			options = append(options, WithSystemCAs)
+			envAddr = strings.TrimPrefix(envAddr, grpcs)
+		}
 		if !strings.Contains(envAddr, ":") {
-			envAddr = fmt.Sprintf("%s:%s", envAddr, DefaultPachdNodePort)
+			envAddr = fmt.Sprintf("%s:%s", envAddr, DefaultPachdNodePort) // append port
 		}
 		options, err := getCertOptionsFromEnv()
 		if err != nil {
@@ -288,7 +314,16 @@ func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error
 	}
 
 	// 2) Get target address from global config if possible
-	if context != nil && context.PachdAddress != "" {
+	if context != nil && (context.ServerCAs != "" || context.PachdAddress != "") {
+		// Proactively return an error in this case, instead of falling back to the default address below
+		if context.ServerCAs != "" && !strings.HasPrefix(context.PachdAddress, grpcs) {
+			return "", nil, fmt.Errorf("must set pachd_address to %s... if server_cas is set", grpcs)
+		}
+
+		if strings.HasPrefix(context.PachdAddress, grpcs) {
+			options = append(options, WithSystemCAs)
+			context.PachdAddress = strings.TrimPrefix(context.PachdAddress, grpcs)
+		}
 		// Also get cert info from config (if set)
 		if context.ServerCAs != "" {
 			pemBytes, err := base64.StdEncoding.DecodeString(context.ServerCAs)
@@ -297,7 +332,7 @@ func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error
 			}
 			return context.PachdAddress, []Option{WithAdditionalRootCAs(pemBytes)}, nil
 		}
-		return context.PachdAddress, nil, nil
+		return context.PachdAddress, options, nil
 	}
 
 	// 3) Use default address (broadcast) if nothing else works
@@ -314,7 +349,7 @@ func portForwarder() *PortForwarder {
 	// NOTE: this will always use the default namespace; if a custom
 	// namespace is required with port forwarding,
 	// `pachctl port-forward` should be explicitly called.
-	fw, err := NewPortForwarder()
+	fw, err := NewPortForwarder("")
 	if err != nil {
 		log.Infof("Implicit port forwarding was not enabled because the kubernetes config could not be read: %v", err)
 		return nil

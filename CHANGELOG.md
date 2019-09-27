@@ -1,8 +1,15 @@
 # Changelog
 
+## 1.9.5
+
+- Fixes a bug that caused the Salt field to be stripped from restored pipelines. (#4086)
+- Fixes a bug that caused datums to fail with `io: read/write on closed pipe`. (#4085)
+- Fixes a bug that prevented reading logs from running jobs with stats enabled. (#4083)
+- Fixes a bug that prevented putting files into output commits via s3gateway. (#4076)
+
 ## 1.9.4
 
-- Fixes a a bug (#4053) which made it impossible to read files written to output commits with `put file`. (#4055)
+- Fixes a bug (#4053) which made it impossible to read files written to output commits with `put file`. (#4055)
 - Adds a flag `--fix` to `pachctl fsck` which will fix some of the issues that it detects. (#4052)
 - Fixes a bug (#3879) which caused `pachctl debug dump` to hit max message size issues. (#4015)
 - The Microsoft Azure Blob Storage client has been upgraded to the most recent version. (#4000)

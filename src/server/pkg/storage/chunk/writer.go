@@ -30,15 +30,54 @@ var initialWindow = make([]byte, WindowSize)
 // WriterFunc is a callback that returns a data reference to the next chunk and the annotations within the chunk.
 type WriterFunc func(*DataRef, []*Annotation) error
 
+// byteSet is a unit of work for the workers.
+// A worker will roll the rolling hash function across the bytes
+// while processing the associated annotations.
 type byteSet struct {
 	data        []byte
 	annotations []*Annotation
-	nextByteSet chan *byteSet
+	// nextBytes is used for the edge case where no split point is found in an assigned byte set.
+	// A worker that did not find a chunk in its assigned byte set will pass it to the prior
+	// worker in the chain with nextBytes set to the next worker's bytes channel. This allows shuffling
+	// of byte sets between workers until a split point is found.
+	nextBytes <-chan *byteSet
 }
 
+// chanSet is a group of channels used to setup the daisy chain and shuffle data between the workers.
+// How these channels are used by a worker depends on whether they are associated with
+// the previous or next worker in the chain.
 type chanSet struct {
 	bytes chan *byteSet
 	done  chan struct{}
+}
+
+// The following chanSet types enforce the directionality of the channels at compile time
+// to help prevent potentially tricky bugs now and in the future with the daisy chain.
+type prevChanSet struct {
+	bytes chan<- *byteSet
+	done  <-chan struct{}
+}
+
+func newPrevChanSet(c *chanSet) *prevChanSet {
+	if c == nil {
+		return nil
+	}
+	return &prevChanSet{
+		bytes: c.bytes,
+		done:  c.done,
+	}
+}
+
+type nextChanSet struct {
+	bytes <-chan *byteSet
+	done  chan<- struct{}
+}
+
+func newNextChanSet(c *chanSet) *nextChanSet {
+	return &nextChanSet{
+		bytes: c.bytes,
+		done:  c.done,
+	}
 }
 
 type worker struct {
@@ -51,7 +90,8 @@ type worker struct {
 	annotations []*Annotation
 	f           WriterFunc
 	fs          []func() error
-	prev, next  *chanSet
+	prev        *prevChanSet
+	next        *nextChanSet
 	stats       *stats
 }
 
@@ -62,7 +102,7 @@ func (w *worker) run(byteSet *byteSet) error {
 	}
 	// No split point found.
 	if w.prev != nil && w.first {
-		byteSet.nextByteSet = w.next.bytes
+		byteSet.nextBytes = w.next.bytes
 		select {
 		case w.prev.bytes <- byteSet:
 		case <-w.ctx.Done():
@@ -70,22 +110,22 @@ func (w *worker) run(byteSet *byteSet) error {
 		}
 	} else {
 		// Wait for the next byte set to roll.
-		nextByteSet := w.next.bytes
-		for nextByteSet != nil {
+		nextBytes := w.next.bytes
+		for nextBytes != nil {
 			select {
-			case byteSet, more := <-nextByteSet:
+			case byteSet, more := <-nextBytes:
 				// The next bytes channel is closed for the last worker,
 				// so it uploads the last buffer as a chunk.
 				if !more {
 					if err := w.put(); err != nil {
 						return err
 					}
-					nextByteSet = nil
+					nextBytes = nil
 					break
 				} else if err := w.rollByteSet(byteSet); err != nil {
 					return err
 				}
-				nextByteSet = byteSet.nextByteSet
+				nextBytes = byteSet.nextBytes
 			case <-w.ctx.Done():
 				return w.ctx.Err()
 			}
@@ -252,7 +292,7 @@ func (w *worker) executeFuncs() error {
 		}
 	}
 	// Signal to the next worker in the chain that this worker is done.
-	w.next.done <- struct{}{}
+	close(w.next.done)
 	return nil
 }
 
@@ -263,13 +303,16 @@ type stats struct {
 
 // Writer splits a byte stream into content defined chunks that are hashed and deduplicated/uploaded to object storage.
 // Chunk split points are determined by a bit pattern in a rolling hash function (buzhash64 at https://github.com/chmduquesne/rollinghash).
+// The byte stream is split into byte sets for parallel processing. Workers roll the rolling hash function and perform the execution
+// of the writer function on these byte sets. The workers are daisy chained such that split points across byte sets can be resolved by shuffling
+// bytes between workers in the chain and the writer function is executed on the sequential ordering of the chunks in the byte stream.
 type Writer struct {
 	ctx, cancelCtx context.Context
 	buf            *bytes.Buffer
 	annotations    []*Annotation
 	memoryLimiter  *semaphore.Weighted
 	eg             *errgroup.Group
-	newWorkerFunc  func(context.Context, *chanSet, *chanSet) *worker
+	newWorkerFunc  func(context.Context, *prevChanSet, *nextChanSet) *worker
 	prev           *chanSet
 	f              WriterFunc
 	stats          *stats
@@ -277,7 +320,7 @@ type Writer struct {
 
 func newWriter(ctx context.Context, objC obj.Client, memoryLimiter *semaphore.Weighted, averageBits int, f WriterFunc, seed int64) *Writer {
 	stats := &stats{}
-	newWorkerFunc := func(ctx context.Context, prev, next *chanSet) *worker {
+	newWorkerFunc := func(ctx context.Context, prev *prevChanSet, next *nextChanSet) *worker {
 		w := &worker{
 			ctx:       ctx,
 			objC:      objC,
@@ -378,7 +421,7 @@ func (w *Writer) writeByteSet() {
 	prev := w.prev
 	next := &chanSet{
 		bytes: make(chan *byteSet, 1),
-		done:  make(chan struct{}, 1),
+		done:  make(chan struct{}),
 	}
 	byteSet := &byteSet{
 		data:        w.buf.Bytes(),
@@ -386,7 +429,7 @@ func (w *Writer) writeByteSet() {
 	}
 	w.eg.Go(func() error {
 		defer w.memoryLimiter.Release(bufSize)
-		return w.newWorkerFunc(w.cancelCtx, prev, next).run(byteSet)
+		return w.newWorkerFunc(w.cancelCtx, newPrevChanSet(prev), newNextChanSet(next)).run(byteSet)
 	})
 	w.prev = next
 	w.buf = &bytes.Buffer{}
