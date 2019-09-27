@@ -26,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 )
@@ -284,10 +285,12 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 		ciChan := make(chan *pfs.CommitInfo, 1)
 		eg.Go(func() error {
 			return backoff.RetryNotify(func() error {
-				return pachClient.SubscribeCommitF(pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch, "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
-					ciChan <- ci
-					return nil
-				})
+				return pachClient.SubscribeCommitF(pipelineInfo.Pipeline.Name, "",
+					client.NewCommitProvenance(ppsconsts.SpecRepo, pipelineInfo.Pipeline.Name, pipelineInfo.SpecCommit.ID),
+					"", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
+						ciChan <- ci
+						return nil
+					})
 			}, backoff.NewInfiniteBackOff(), notifyCtx(pachClient.Ctx(), "SubscribeCommit"))
 		})
 		eg.Go(func() error {

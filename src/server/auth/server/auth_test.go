@@ -2210,7 +2210,7 @@ func TestGetLogsFromStats(t *testing.T) {
 		[]*pfs.Repo{client.NewRepo(pipeline)},
 	)
 	require.NoError(t, err)
-	require.NoErrorWithinT(t, 60*time.Second, func() error {
+	require.NoErrorWithinT(t, 3*time.Minute, func() error {
 		_, err := commitItr.Next()
 		return err
 	})

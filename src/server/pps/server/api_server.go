@@ -2599,8 +2599,48 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	ctx = pachClient.Ctx() // pachClient will propagate auth info
 	pfsClient := pachClient.PfsAPIClient
 
-	// validate and organize request provenance
+	pipelineInfo, err := a.inspectPipeline(pachClient, request.Pipeline.Name)
+	if err != nil {
+		return nil, err
+	}
+	// make sure the user isn't trying to run pipeline on an empty branch
+	branch, err := pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{
+		Branch: client.NewBranch(request.Pipeline.Name, pipelineInfo.OutputBranch),
+	})
+	if err != nil {
+		return nil, err
+	}
+	if branch.Head == nil {
+		return nil, fmt.Errorf("run pipeline needs a pipeline with existing data to run\nnew commits will trigger the pipeline automatically, so this only needs to be used if you need to run the pipeline on an old version of the data, or to rerun an job")
+	}
+
 	key := path.Join
+	branchProvMap := make(map[string]bool)
+
+	// include the branch and its provenance in the branch provenance map
+	branchProvMap[key(branch.Branch.Repo.Name, branch.Name)] = true
+	for _, b := range branch.Provenance {
+		branchProvMap[key(b.Repo.Name, b.Name)] = true
+	}
+	if branch.Head != nil {
+		headCommitInfo, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+			Commit: client.NewCommit(branch.Branch.Repo.Name, branch.Head.ID),
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, prov := range headCommitInfo.Provenance {
+			branchProvMap[key(prov.Branch.Repo.Name, prov.Branch.Name)] = true
+		}
+	}
+
+	// we need to inspect the commit in order to resolve the commit ID, which may have an ancestry tag
+	specCommit, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+		Commit: pipelineInfo.SpecCommit,
+	})
+	if err != nil {
+		return nil, err
+	}
 	requestProv := make(map[string]*pfs.CommitProvenance)
 	for _, prov := range request.Provenance {
 		if prov == nil {
@@ -2627,29 +2667,14 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 		if err != nil {
 			return nil, err
 		}
-		requestProv[key(branch.Repo.Name, branch.Name)] = prov
-	}
-	pipelineInfo, err := a.inspectPipeline(pachClient, request.Pipeline.Name)
-	if err != nil {
-		return nil, err
-	}
-	// make sure the user isn't trying to run pipeline on an empty branch
-	branch, err := pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{
-		Branch: client.NewBranch(request.Pipeline.Name, pipelineInfo.OutputBranch),
-	})
-	if err != nil {
-		return nil, err
-	}
-	if branch.Head == nil {
-		return nil, fmt.Errorf("run pipeline needs a pipeline with existing data to run\nnew commits will trigger the pipeline automatically, so this only needs to be used if you need to run the pipeline on an old version of the data, or to rerun an job")
-	}
 
-	// we need to inspect the commit in order to resolve the commit ID, which may have an ancestry tag
-	specCommit, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
-		Commit: pipelineInfo.SpecCommit,
-	})
-	if err != nil {
-		return nil, err
+		// ensure the commit provenance is consistent with the branch provenance
+		if len(branchProvMap) != 0 {
+			if branch.Repo.Name != ppsconsts.SpecRepo && !branchProvMap[key(branch.Repo.Name, branch.Name)] {
+				return nil, fmt.Errorf("the commit provenance contains a branch which the pipeline's branch is not provenant on")
+			}
+		}
+		requestProv[key(branch.Repo.Name, branch.Name)] = prov
 	}
 
 	for _, branchProv := range append(branch.Provenance, branch.Branch) {
@@ -2678,14 +2703,12 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	}
 	// we need to include the spec commit in the provenance, so that the new job is represented by the correct spec commit
 	specProvenance := client.NewCommitProvenance(ppsconsts.SpecRepo, request.Pipeline.Name, specCommit.Commit.ID)
-
 	_, err = pfsClient.StartCommit(ctx, &pfs.StartCommitRequest{
 		Parent: &pfs.Commit{
 			Repo: &pfs.Repo{
 				Name: request.Pipeline.Name,
 			},
 		},
-		Branch:     pipelineInfo.OutputBranch,
 		Provenance: append(request.Provenance, specProvenance),
 	})
 	if err != nil {

@@ -5,7 +5,7 @@ go 1.12
 require (
 	cloud.google.com/go v0.40.0
 	github.com/Azure/azure-sdk-for-go v32.4.0+incompatible
-	github.com/Azure/go-autorest/autorest v0.2.0 // indirect
+	github.com/Azure/go-autorest/autorest/to v0.3.0 // indirect
 	github.com/LK4D4/joincontext v0.0.0-20171026170139-1724345da6d5
 	github.com/Microsoft/hcsshim v0.8.6 // indirect
 	github.com/OneOfOne/xxhash v1.2.5
@@ -26,6 +26,7 @@ require (
 	github.com/cpuguy83/go-md2man v1.0.10 // indirect
 	github.com/crewjam/saml v0.0.0-20190521120225-344d075952c9
 	github.com/dlclark/regexp2 v1.2.0 // indirect
+	github.com/dnaeon/go-vcr v1.0.1 // indirect
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v0.7.3-0.20190621081258-52c16677b22d // indirect
 	github.com/docker/go-units v0.4.0
@@ -57,6 +58,7 @@ require (
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 // indirect
+	github.com/grpc-ecosystem/grpc-gateway v1.8.5 // indirect
 	github.com/hanwen/go-fuse v0.0.0-20180522155540-291273cb8ce0
 	github.com/hashicorp/go-cleanhttp v0.5.1 // indirect
 	github.com/hashicorp/go-hclog v0.8.0 // indirect
