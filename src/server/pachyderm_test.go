@@ -9438,6 +9438,13 @@ func TestSpout(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, buf.String(), "foo")
 	})
+
+	require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
+		if resp.Error != "" {
+			return fmt.Errorf("%v", resp.Error)
+		}
+		return nil
+	}))
 }
 
 func TestKafka(t *testing.T) {
