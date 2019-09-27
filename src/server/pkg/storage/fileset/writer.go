@@ -136,6 +136,7 @@ func (w *Writer) writeCopyTags(c *copyTags) error {
 }
 
 // CopyFiles does a cheap copy of files from a reader to a writer.
+// (bryce) need to handle delete operations.
 func (w *Writer) CopyFiles(r *Reader, pathBound ...string) error {
 	f := r.readCopyFiles(pathBound...)
 	for {

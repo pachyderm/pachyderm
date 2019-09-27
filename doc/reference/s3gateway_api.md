@@ -1,12 +1,18 @@
-# S3Gateway API
+# S3 Gateway API
 
-This outlines the HTTP API exposed by the s3gateway and any peculiarities
+This outlines the HTTP API exposed by the s3 gateway and any peculiarities
 relative to S3. The operations largely mirror those documented in S3's
 [official docs](https://docs.aws.amazon.com/AmazonS3/latest/API/Welcome.html).
 
 Generally, you would not call these endpoints directly, but rather use a
 tool or library designed to work with S3-like APIs. Because of that, some
 working knowledge of S3 and HTTP is assumed.
+
+### Authentication
+
+If authentication is not enabled on the Pachyderm cluster, S3 gateway endpoints can be hit without passing auth credentials.
+
+If authentication is enabled, credentials must be passed using AWS' [signature v2](https://docs.aws.amazon.com/AmazonS3/latest/dev/RESTAuthentication.html) or [signature v4](https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-authenticating-requests.html) methods. For both methods, set the AWS access key and secret key to the same value. Both values are the Pachyderm auth token that is used to issue the relevant PFS calls. One or both signature methods are built into most s3 tools and libraries already, so you do not need to configure these methods manually.
 
 ### Operations on the Service
 
@@ -120,7 +126,7 @@ Aborts an in-progress multipart upload.
 
 Route: `POST /<branch>.<repo>?uploadId=<uploadId>`
 
-Completes a multipart upload. Note that if ETags are included in the request payload, they must be of the same format as returned by s3gateway when the multipart chunks are included. If they are md5 hashes (or any other hash algorithm), they will be ignored.
+Completes a multipart upload. If ETags are included in the request payload, they must be of the same format as returned by the s3 gateway when the multipart chunks are included. If they are `md5` hashes or any other hash algorithm, they are ignored.
 
 #### Initiate Multipart Upload
 

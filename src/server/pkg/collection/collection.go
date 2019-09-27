@@ -43,6 +43,8 @@ type collection struct {
 	// The limit used when listing the collection. This gets automatically
 	// tuned when requests fail so it's stored per collection.
 	limit int64
+	// Which sort to use for the collection
+	sortBy etcd.SortTarget
 	// We need this to figure out the concrete type of the objects
 	// that this collection is storing. It's pretty retarded, but
 	// not sure what else we can do since types in Go are not first-class

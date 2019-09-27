@@ -36,11 +36,3 @@ func RandSeq(n int) []byte {
 	}
 	return []byte(string(b))
 }
-
-// Min is a minimum function for int64.
-func Min(x, y int64) int64 {
-	if x <= y {
-		return x
-	}
-	return y
-}

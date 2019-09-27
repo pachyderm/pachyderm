@@ -16,6 +16,8 @@ import (
 	gosync "sync"
 	"syscall"
 
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
+
 	"golang.org/x/sync/errgroup"
 
 	"github.com/gogo/protobuf/jsonpb"
@@ -489,6 +491,7 @@ $ {{alias}} foo@XXX -r bar -r baz`,
 	commands = append(commands, cmdutil.CreateAlias(flushCommit, "flush commit"))
 
 	var newCommits bool
+	var pipeline string
 	subscribeCommit := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch>",
 		Short: "Print commits as they are created (finished).",
@@ -521,7 +524,16 @@ $ {{alias}} test@master --new`,
 				from = branch.Name
 			}
 
-			commitIter, err := c.SubscribeCommit(branch.Repo.Name, branch.Name, from, pfsclient.CommitState_STARTED)
+			var prov *pfsclient.CommitProvenance
+			if pipeline != "" {
+				pipelineInfo, err := c.InspectPipeline(pipeline)
+				if err != nil {
+					return err
+				}
+				prov = client.NewCommitProvenance(ppsconsts.SpecRepo, pipeline, pipelineInfo.SpecCommit.ID)
+			}
+
+			commitIter, err := c.SubscribeCommit(branch.Repo.Name, branch.Name, prov, from, pfsclient.CommitState_STARTED)
 			if err != nil {
 				return err
 			}
@@ -530,6 +542,7 @@ $ {{alias}} test@master --new`,
 		}),
 	}
 	subscribeCommit.Flags().StringVar(&from, "from", "", "subscribe to all commits since this commit")
+	subscribeCommit.Flags().StringVar(&pipeline, "pipeline", "", "subscribe to all commits created by this pipeline")
 	subscribeCommit.MarkFlagCustom("from", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
 	subscribeCommit.Flags().BoolVar(&newCommits, "new", false, "subscribe to only new commits created from now on")
 	subscribeCommit.Flags().AddFlagSet(rawFlags)
