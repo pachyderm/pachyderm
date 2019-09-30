@@ -1,4 +1,4 @@
 [build]
-base = "doc/"
-command = "bash netlify-docs.sh"
+base = "doc"
+command = "mkdocs build"
 publish = "doc/site"
