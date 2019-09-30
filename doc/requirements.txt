@@ -1,7 +1,0 @@
-Markdown==3.1.1
-mdx-truly-sane-lists==1.2
-mkdocs==1.0.4
-mkdocs-material==4.4.2
-mkdocs-minify-plugin==0.2.1
-mkversion==0.1.6
-pymdown-extensions==6.1
