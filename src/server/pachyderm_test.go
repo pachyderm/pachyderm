@@ -9290,7 +9290,7 @@ func TestSpout(t *testing.T) {
 		pipelineInfo, err := c.InspectPipeline(pipeline)
 		require.NoError(t, err)
 		iter, err := c.SubscribeCommit(pipeline, "",
-			client.NewCommitProvenance(ppsconsts.SpecRepo, "master", pipelineInfo.SpecCommit.ID),
+			client.NewCommitProvenance(ppsconsts.SpecRepo, pipeline, pipelineInfo.SpecCommit.ID),
 			"", pfs.CommitState_FINISHED)
 		require.NoError(t, err)
 		// and we want to make sure that these commits all have the same provenance
@@ -9332,7 +9332,7 @@ func TestSpout(t *testing.T) {
 		pipelineInfo, err = c.InspectPipeline(pipeline)
 		require.NoError(t, err)
 		iter, err = c.SubscribeCommit(pipeline, "",
-			client.NewCommitProvenance(ppsconsts.SpecRepo, "master", pipelineInfo.SpecCommit.ID),
+			client.NewCommitProvenance(ppsconsts.SpecRepo, pipeline, pipelineInfo.SpecCommit.ID),
 			"", pfs.CommitState_FINISHED)
 		require.NoError(t, err)
 
@@ -9438,6 +9438,13 @@ func TestSpout(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, buf.String(), "foo")
 	})
+
+	require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
+		if resp.Error != "" {
+			return fmt.Errorf("%v", resp.Error)
+		}
+		return nil
+	}))
 }
 
 func TestKafka(t *testing.T) {
