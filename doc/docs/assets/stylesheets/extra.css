@@ -1,0 +1,43 @@
+/* Float two columns side by side */
+.column {
+  float: left;
+  width: 33%;
+  padding: 0px 10px;
+  margin-bottom: 20px;
+}
+
+/* Remove extra left and right margins, due to padding in columns */
+.row {margin: 0 -5px;}
+
+/* Clear floats after the columns */
+.row:after {
+  content: "";
+  display: table;
+  clear: both;
+}
+
+/* Responsive columns - one column layout (vertical) on small screens */
+@media screen and (max-width: 600px) {
+  .column {
+    width: 100%;
+    display: block;
+    margin-bottom: 20px;
+  }
+}
+
+.demo-card-square.mdl-card {
+  width: 240px;
+  height: 260px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+}
+.demo-card-square > .mdl-card__title {
+  color: #fff;
+  background: #4B2A5C;
+  padding-left: 10px;
+}
+
+.mdl-card__actions {
+  line-height: 1.4;
+}

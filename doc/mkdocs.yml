@@ -50,7 +50,7 @@ extra:
       link: https://www.linkedin.com/company/pachyderm-inc-
 
 extra_css:
-    - 'stylesheets/extra.css'
+    - 'assets/stylesheets/extra.css'
 
 # Extensions
 markdown_extensions:
