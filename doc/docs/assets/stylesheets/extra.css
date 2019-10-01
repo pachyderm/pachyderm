@@ -7,7 +7,11 @@
 }
 
 /* Remove extra left and right margins, due to padding in columns */
-.row {margin: 0 -5px;}
+.row {
+  margin: 0 -5px;
+  border-bottom: 20px;
+}
+
 
 /* Clear floats after the columns */
 .row:after {
@@ -25,14 +29,14 @@
   }
 }
 
-.demo-card-square.mdl-card {
-  width: 240px;
+.card-square.mdl-card {
+  width: 220px;
   height: 260px;
   font-family: 'Montserrat', sans-serif;
   font-size: 16px;
   line-height: 1.6;
 }
-.demo-card-square > .mdl-card__title {
+.card-square > .mdl-card__title {
   color: #fff;
   background: #4B2A5C;
   padding-left: 10px;

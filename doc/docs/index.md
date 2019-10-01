@@ -1,3 +1,9 @@
+title: Pachyderm Documentation
+description: A website for the Pachyderm Data Science platform documentation.
+date: "10-01-2019"
+robots: index
+image: assets/images/android-chrome-256x256.png
+
 # Welcome
 
 Welcome to the Pachyderm documentation portal!
@@ -13,7 +19,7 @@ email at support@pachyderm.io.
 
 <div class="row">
   <div class="column">
-    <div class="demo-card-square mdl-card mdl-shadow--2dp">
+    <div class="card-square mdl-card mdl-shadow--2dp">
       <div class="mdl-card__title mdl-card--expand">
         <h4 class="mdl-card__title-text">Getting Started &nbsp;&nbsp;&nbsp;<i class="fas fa-rocket"></i></h4>
       </div>
@@ -36,7 +42,7 @@ email at support@pachyderm.io.
     </div>
   </div>
   <div class="column">
-    <div class="demo-card-square mdl-card mdl-shadow--2dp">
+    <div class="card-square mdl-card mdl-shadow--2dp">
       <div class="mdl-card__title mdl-card--expand">
         <h4 class="mdl-card__title-text">Concepts &nbsp;&nbsp;&nbsp;<i class="fas fa-book"></i></h4>
       </div>
@@ -58,7 +64,7 @@ email at support@pachyderm.io.
     </div>
   </div>
   <div class="column">
-    <div class="demo-card-square mdl-card mdl-shadow--2dp">
+    <div class="card-square mdl-card mdl-shadow--2dp">
       <div class="mdl-card__title mdl-card--expand">
         <h4 class="mdl-card__title-text">Examples &nbsp;&nbsp;&nbsp;<i class="fas fa-laptop-code"></i></h4>
       </div>
@@ -74,8 +80,8 @@ email at support@pachyderm.io.
            <li><a href="https://github.com/pachyderm/pachyderm/tree/master/examples/gatk" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
            Variant Discovery with GATK
            </a>
-          </li>
-          <li><a href="reference/examples" class="mdl-button mdl-button--colored mdl-js-button mdl- js-ripple-effect">
+           </li>
+           <li><a href="reference/examples" class="mdl-button mdl-button--colored mdl-js-button mdl- js-ripple-effect">
            More Examples
            </a>
           </li>
@@ -86,7 +92,7 @@ email at support@pachyderm.io.
 </div>
 <div class="row">
    <div class="column">
-     <div class="demo-card-square mdl-card mdl-shadow--2dp">
+     <div class="card-square mdl-card mdl-shadow--2dp">
        <div class="mdl-card__title mdl-card--expand">
          <h4 class="mdl-card__title-text">Data Operations &nbsp;&nbsp;&nbsp;<i class="fas fa-calculator"></i></h4>
        </div>
@@ -112,13 +118,12 @@ email at support@pachyderm.io.
      </div>
    </div>
    <div class="column">
-     <div class="demo-card-square mdl-card mdl-shadow--2dp">
+     <div class="card-square mdl-card mdl-shadow--2dp">
        <div class="mdl-card__title mdl-card--expand">
          <h4 class="mdl-card__title-text">Advanced Setup &nbsp;&nbsp;&nbsp; <i class="fas fa-graduation-cap"></i></h4>
        </div>
        <div class="mdl-card__supporting-text">
-       Try some of the advanced data operations for more
-       experienced Pachyderm users.
+       Try data operations for experienced Pachyderm users.
        </div>
        <div class="mdl-card__actions mdl-card--border">
          <ul>
@@ -138,4 +143,4 @@ email at support@pachyderm.io.
        </div>
      </div>
    </div>
- </div>
+</div>
