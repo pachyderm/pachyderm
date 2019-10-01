@@ -5347,6 +5347,7 @@ const (
 	outputRepo                // create a new output repo, with master branch subscribed to random other branches
 	outputBranch              // create a new output branch on an existing output repo
 	deleteOutputBranch        // delete an output branch
+	updateOutputBranch        // change the provenance of an output branch
 )
 
 func TestFuzzProvenance(t *testing.T) {
@@ -5357,7 +5358,7 @@ func TestFuzzProvenance(t *testing.T) {
 	client := GetPachClient(t)
 	_, err := client.PfsAPIClient.DeleteAll(client.Ctx(), &types.Empty{})
 	require.NoError(t, err)
-	nOps := 300
+	nOps := 10000
 	opShares := []int{
 		1, // inputRepo
 		1, // inputBranch
@@ -5367,6 +5368,7 @@ func TestFuzzProvenance(t *testing.T) {
 		1, // outputRepo
 		2, // outputBranch
 		1, // deleteOutputBranch
+		1, // updateOutputBranch
 	}
 	total := 0
 	for _, v := range opShares {
@@ -5502,6 +5504,40 @@ OpLoop:
 			if err != nil && !strings.Contains(err.Error(), "break") {
 				require.NoError(t, err)
 			}
+		case updateOutputBranch:
+			println("updateOutputBranch")
+			if len(outputBranches) == 0 {
+				continue OpLoop
+			}
+			if len(inputBranches) == 0 {
+				continue OpLoop
+			}
+			i := r.Intn(len(outputBranches))
+			branch := outputBranches[i]
+			var provBranches []*pfs.Branch
+			if r.Intn(2) == 0 {
+				// add branches to provBranches, skipping this clears the
+				// provenance, which simulates stopping a pipeline
+				for num, j := range r.Perm(len(inputBranches))[:r.Intn(len(inputBranches))] {
+					provBranches = append(provBranches, inputBranches[j])
+					if num > 1 {
+						break
+					}
+				}
+
+				if len(outputBranches) > 0 {
+					for num, j := range r.Perm(len(outputBranches))[:r.Intn(len(outputBranches))] {
+						if j >= i {
+							continue // don't put it in its own provenance
+						}
+						provBranches = append(provBranches, outputBranches[j])
+						if num > 1 {
+							break
+						}
+					}
+				}
+			}
+			require.NoError(t, client.CreateBranch(branch.Repo.Name, branch.Name, branch.Name, provBranches))
 		}
 		require.NoError(t, client.FsckFastExit())
 	}
