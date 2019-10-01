@@ -1,36 +1,35 @@
 # Join
 
-A join is a special type of pipeline input that enables you
-to combine files that reside in separate Pachyderm repositories
-and match a particular naming pattern. The join operator must
-be used in combination with a glob pattern that reflects a
-specific naming convention.
+A join is a special type of pipeline input that enables you to combine files that reside in separate Pachyderm repositories and match a particular naming pattern. The join operator must be used in combination with a glob pattern that reflects a specific naming convention.
 
-A Pachyderm join is similar to a database equi-join operation that
-combines columns from one or more tables into its own dataset
-if the column names match.
+By analogy, a Pachyderm join is similar to a database equi-join (aka: inner left join) operation, but it's matching on file paths only, not the contents of the files.
 
-Similarly, joins help you consolidate results with matching names from
-multiple repositories in a single dataset. For example, you collect
-data from multiple sources and need to consolidate the results
-that match a specific parameter. These results can be readings
-from a sensor, a geographical location, or something similar.
+Unlike `cross` (LINK) which creates datums from every combination of files in each input repository, joins will only create datums where there is a "match". This can be incredibly useful for combining data from different repositories or ensuring that only specific files from each repo are processed together.
 
-When you configure a join input, you must specify a glob pattern
-that defines a capture group. A capture group is the group of
-files selected for further processing. In the glob parameter,
-a capturing glob must be enclosed in parenthesis. For example,
-if you have a file named `test`, you could configure the
-following globs for it:
+When you configure a join input, you must specify a glob pattern that also includes a capture group. The capture group defines the specific string in the file path that is used to match against files in the other joined repos. Capture groups work analagously to [regex capture group](https://www.regular-expressions.info/refcapture.html) -- you define the capture group with parenthesis. Capture groups are numbered from left to right and can also be nested within each other (numbering for nested capture groups are based on their opening parenthesis).
 
-* `(t..t)`, `join_on = $1$2` translates to `es`.
-* `(t..t)`, `join_on = $2$1` translates to `se`.
+Here are a few examples of applying a glob pattern with a capture group to file path:
 
-If Pachyderm does not find matching files, this pipeline run
-results in a zero-datum job.
+```
+sample file path:
+/foo/bar-123/ABC.txt
 
-To test your glob pattern, use the `pachctl glob file` command
-as described in [Glob Pattern](../datum/glob-pattern.html#test-glob-patterns.html).
+/(*)                --> c1="foo"
+
+/*/bar-(*)          --> c1="123"
+
+/(*)/*/(??)*.txt    --> c1="foo", c2="AB"
+
+/*/(bar-(123))/*    --> c1="bar-123", c2="123"
+```
+
+Joins also require a `join_on` parameter, also called [replacement group](https://www.regular-expressions.info/replacebackref.html) to define which capture groups you want to try to match.  
+
+For example, `$1` would indicate that you want pachyderm to match based on capture group 1. `$2` would similarly mean match capture group 2. `$1$2` would mean that it must match both capture groups 1 and 2.
+
+If Pachyderm does not find any matching files, you will get a zero-datum job.
+
+You can test your glob pattern and capture groups using the `pachctl glob file` command as described in [Glob Pattern](../datum/glob-pattern.html#test-glob-patterns.html).
 
 ## Example
 
@@ -38,7 +37,7 @@ For example, you have two repositories. One with sensor readings
 and the other with parameters. The repositories have the following
 structures:
 
-* `readings`:
+* `readings` repo:
 
    ```bash
    ├── ID1234
@@ -49,7 +48,7 @@ structures:
        ├── file5.txt
    ```
 
-* `parameters`:
+* `parameters` repo:
 
    ```bash
    ├── file1.txt
@@ -62,10 +61,7 @@ structures:
    ├── file8.txt
    ```
 
-Pachyderm runs your code on the files that match the
-glob pattern. For example, your code can multiply lines in matching files to
-create a joined file with the product of both files or perform other
-operations as needed.
+Pachyderm runs your code on only the pairs of files that match the glob pattern and capture groups.
 
 The following example shows how you can use joins to group
 matching IDs:
@@ -106,6 +102,6 @@ The glob pattern for the `readings` repository, `/*/(*)`, indicates all
 matching files in the `ID` sub-directory. In the `parameters` repository,
 the glob pattern `/(*)` selects all the matching files in the root directory.
 All files with indices from `1` to `5` match. The files
-with indices from `6` to `8` do not match.
+with indices from `6` to `8` do not match. Therefore, you will only get 5 datums for this job.
 
-For more information, see the [Joins example](https://github.com/pachyderm/pachyderm/tree/master/examples/join).
+To experiment further, see the full [joins example](https://github.com/pachyderm/pachyderm/tree/master/examples/join).
