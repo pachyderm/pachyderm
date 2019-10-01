@@ -166,9 +166,6 @@
                 {% if not "\x3ch1" in page.content %}
                   <h1>{{ page.title | default(config.site_name, true)}}</h1>
                 {% endif %}
-                {% if page.meta.revision_date %}
-                <p><small><br><i>Updated {{ page.meta.revision_date }}</i></small><p>
-                {% endif %}
                 {{ page.content }}
                 {% block source %}
                   {% if page and page.meta and page.meta.source %}
