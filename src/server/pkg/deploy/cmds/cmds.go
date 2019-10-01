@@ -135,14 +135,14 @@ func kubectlCreate(dryRun bool, manifest BytesEncoder, opts *assets.AssetOpts) e
 }
 
 func contextCreate(namePrefix, namespace string) error {
+	kubeConfig, err := config.RawKubeConfig()
+	if err != nil {
+		return err
+	}
+	kubeContext := kubeConfig.Contexts[kubeConfig.CurrentContext]
+
 	clusterName := ""
 	authInfo := ""
-	kubeConfig := config.KubeConfig(nil)
-	kubeRawConfig, err := kubeConfig.RawConfig()
-	if err != nil {
-		return fmt.Errorf("could not read raw kube config: %v", err)
-	}
-	kubeContext := kubeRawConfig.Contexts[kubeRawConfig.CurrentContext]
 	if kubeContext != nil {
 		clusterName = kubeContext.Cluster
 		authInfo = kubeContext.AuthInfo

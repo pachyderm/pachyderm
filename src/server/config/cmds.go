@@ -170,6 +170,39 @@ func Cmds() []*cobra.Command {
 	setContext.Flags().BoolVar(&overwrite, "overwrite", false, "Overwrite a context if it already exists.")
 	commands = append(commands, cmdutil.CreateAlias(setContext, "config set context"))
 
+	importContext := &cobra.Command{
+		Short: "Imports a context.",
+		Long:  "Imports a kubernetes context into an existing Pachyderm context.",
+		Run: cmdutil.RunFixedArgs(2, func(args []string) (retErr error) {
+			kubeConfig, err := config.RawKubeConfig()
+			if err != nil {
+				return err
+			}
+
+			kubeContext := kubeConfig.Contexts[args[0]]
+			if kubeContext == nil {
+				return fmt.Errorf("kubernetes context does not exist: %s", args[0])
+			}
+
+			cfg, err := config.Read()
+			if err != nil {
+				return err
+			}
+
+			context, ok := cfg.V2.Contexts[args[1]]
+			if !ok {
+				return fmt.Errorf("pachyderm context does not exist: %s", args[1])
+			}
+
+			context.ClusterName = kubeContext.Cluster
+			context.AuthInfo = kubeContext.AuthInfo
+			context.Namespace = kubeContext.Namespace
+
+			return cfg.Write()
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(importContext, "config import context"))
+
 	var pachdAddress string
 	var clusterName string
 	var authInfo string
@@ -286,6 +319,12 @@ func Cmds() []*cobra.Command {
 		Long:  "Commands for setting pachyderm config values",
 	}
 	commands = append(commands, cmdutil.CreateAlias(configSetRoot, "config set"))
+
+	configImportRoot := &cobra.Command{
+		Short: "Commands for importing pachyderm config values",
+		Long:  "Commands for importing pachyderm config values",
+	}
+	commands = append(commands, cmdutil.CreateAlias(configImportRoot, "config import"))
 
 	configUpdateRoot := &cobra.Command{
 		Short: "Commands for updating pachyderm config values",
