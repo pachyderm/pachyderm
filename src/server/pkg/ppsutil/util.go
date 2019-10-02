@@ -92,7 +92,7 @@ func getResourceListFromSpec(resources *pps.ResourceSpec, cacheSize string) (*v1
 		if err != nil {
 			log.Warnf("error parsing disk string: %s: %+v", resources.Disk, err)
 		} else {
-			result[v1.ResourceStorage] = diskQuantity
+			result[v1.ResourceEphemeralStorage] = diskQuantity
 		}
 	}
 

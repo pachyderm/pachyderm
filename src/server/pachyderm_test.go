@@ -4461,8 +4461,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 			ResourceRequests: &pps.ResourceSpec{
 				Memory: "100M",
 				Cpu:    0.5,
-				// TODO reenable this once we test against kube 1.12
-				// Disk:   "10M",
+				Disk:   "10M",
 			},
 			Input: &pps.Input{
 				Pfs: &pps.PFSInput{
@@ -4505,10 +4504,9 @@ func TestPipelineResourceRequest(t *testing.T) {
 	mem, ok := container.Resources.Requests[v1.ResourceMemory]
 	require.True(t, ok)
 	require.Equal(t, "100M", mem.String())
-	// TODO reenable this once we test against kube 1.12
-	// disk, ok := container.Resources.Requests[v1.ResourceStorage]
-	// require.True(t, ok)
-	// require.Equal(t, "10M", disk.String())
+	disk, ok := container.Resources.Requests[v1.ResourceEphemeralStorage]
+	require.True(t, ok)
+	require.Equal(t, "10M", disk.String())
 }
 
 func TestPipelineResourceLimit(t *testing.T) {
