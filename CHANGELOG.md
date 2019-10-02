@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.9.6
+
+- Fixes a bug which would cause jobs to report success despite datum failures. (#4158)
+- Fixes a bug which prevent Disk resource requests in pipelines from working. (#4157)
+- Fixes a bug which caused `pachctl fsck --fix` to exit with an error and not complete the fix. (#4155)
+- Pachctl contexts now have support for importing Kubernetes contexts. (#4152)
+- Fixes a bug which caused Spouts to create invalid provenance. (#4145)
+- Fixes a bug which allowed creation, but not deletion, of pipelines with invalid names. (#4133)
+- Fixes a bug which caused ListTag to fail with WriteHeader already called. (#4132)
+- Increases the max transaction operations and max request bytes values for etcd's deployment. (#4121)
+- Fixes a bug that caused `run pipeline` to crash pachd. (#4109)
+- Pachctl deploy amazon now exposes several new s3 connection options. (#4107)
+- Readds the `--namespace` flag to `port forward`. (#4105)
+- Removes and unused field `Batch` from the pipeline spec. (#4104)
+
 ## 1.9.5
 
 - Fixes a bug that caused the Salt field to be stripped from restored pipelines. (#4086)
