@@ -9,3 +9,8 @@ type OpOption etcd.OpOption
 func WithFilterPut() OpOption {
 	return OpOption(etcd.WithFilterPut())
 }
+
+// WithFilterDelete discards DELETE events from the watcher.
+func WithFilterDelete() OpOption {
+	return OpOption(etcd.WithFilterDelete())
+}
