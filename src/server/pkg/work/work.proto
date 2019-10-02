@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package work;
+option go_package = "github.com/pachyderm/pachyderm/src/server/pkg/work";
+
+// import "google/protobuf/any.proto";
+
+enum State {
+  RUNNING = 0;
+  COMPLETE = 1;
+  FAILED = 2;
+}
+
+message Work {
+  string id = 1;
+  // google.protobuf.Any meta = 2;
+  repeated Shard shards = 3;
+}
+
+message WorkInfo {
+  Work work = 1;
+  State state = 2;
+}
+
+message Shard {
+  string id = 1;
+  // google.protobuf.Any meta = 2;
+}
+
+message ShardInfo {
+  Shard shard = 1;
+  State state = 2;
+}
