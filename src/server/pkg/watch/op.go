@@ -20,5 +20,5 @@ func WithSort(sortBy etcd.SortTarget, sortOrder etcd.SortOrder) OpOption {
 
 // WithFilterDelete discards DELETE events from the watcher.
 func WithFilterDelete() OpOption {
-	return OpOption(etcd.WithFilterDelete())
+	return OpOption{Watch: etcd.WithFilterDelete()}
 }
