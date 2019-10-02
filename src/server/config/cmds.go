@@ -20,24 +20,6 @@ const (
 	listContextHeader = "ACTIVE\tNAME"
 )
 
-func readContext() (*config.Context, error) {
-	var buf bytes.Buffer
-	var decoder *json.Decoder
-	var result config.Context
-
-	contextReader := io.TeeReader(os.Stdin, &buf)
-	fmt.Println("Reading from stdin.")
-	decoder = json.NewDecoder(contextReader)
-
-	if err := jsonpb.UnmarshalNext(decoder, &result); err != nil {
-		if err == io.EOF {
-			return nil, err
-		}
-		return nil, fmt.Errorf("malformed context: %s", err)
-	}
-	return &result, nil
-}
-
 // Cmds returns a slice containing admin commands.
 func Cmds() []*cobra.Command {
 	marshaller := &jsonpb.Marshaler{
@@ -143,65 +125,66 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, cmdutil.CreateAlias(getContext, "config get context"))
 
 	var overwrite bool
+	var kubeContextName string
 	setContext := &cobra.Command{
 		Short: "Set a context.",
-		Long:  "Set a context config from a given name and JSON stdin.",
+		Long:  "Set a context config from a given name and either JSON stdin, or a given kubernetes context.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			cfg, err := config.Read()
-			if err != nil {
-				return err
-			}
+			name := args[0]
 
-			context, err := readContext()
+			cfg, err := config.Read()
 			if err != nil {
 				return err
 			}
 
 			if !overwrite {
-				if _, ok := cfg.V2.Contexts[args[0]]; ok {
+				if _, ok := cfg.V2.Contexts[name]; ok {
 					return fmt.Errorf("context '%s' already exists, use `--overwrite` if you wish to replace it", args[0])
 				}
 			}
 
-			cfg.V2.Contexts[args[0]] = context
+			var context config.Context
+			if kubeContextName != "" {
+				kubeConfig, err := config.RawKubeConfig()
+				if err != nil {
+					return err
+				}
+
+				kubeContext := kubeConfig.Contexts[kubeContextName]
+				if kubeContext == nil {
+					return fmt.Errorf("kubernetes context does not exist: %s", kubeContextName)
+				}
+
+				context = config.Context{
+					Source:      config.ContextSource_IMPORTED,
+					ClusterName: kubeContext.Cluster,
+					AuthInfo:    kubeContext.AuthInfo,
+					Namespace:   kubeContext.Namespace,
+				}
+			} else {
+				fmt.Println("Reading from stdin.")
+
+				var buf bytes.Buffer
+				var decoder *json.Decoder
+
+				contextReader := io.TeeReader(os.Stdin, &buf)
+				decoder = json.NewDecoder(contextReader)
+
+				if err := jsonpb.UnmarshalNext(decoder, &context); err != nil {
+					if err == io.EOF {
+						return errors.New("unexpected EOF")
+					}
+					return fmt.Errorf("malformed context: %s", err)
+				}
+			}
+
+			cfg.V2.Contexts[name] = &context
 			return cfg.Write()
 		}),
 	}
 	setContext.Flags().BoolVar(&overwrite, "overwrite", false, "Overwrite a context if it already exists.")
+	setContext.Flags().StringVarP(&kubeContextName, "kubernetes", "k", "", "Import a given kubernetes context's values into the Pachyderm context.")
 	commands = append(commands, cmdutil.CreateAlias(setContext, "config set context"))
-
-	importContext := &cobra.Command{
-		Short: "Imports a context.",
-		Long:  "Imports a kubernetes context into an existing Pachyderm context.",
-		Run: cmdutil.RunFixedArgs(2, func(args []string) (retErr error) {
-			kubeConfig, err := config.RawKubeConfig()
-			if err != nil {
-				return err
-			}
-
-			kubeContext := kubeConfig.Contexts[args[0]]
-			if kubeContext == nil {
-				return fmt.Errorf("kubernetes context does not exist: %s", args[0])
-			}
-
-			cfg, err := config.Read()
-			if err != nil {
-				return err
-			}
-
-			context, ok := cfg.V2.Contexts[args[1]]
-			if !ok {
-				return fmt.Errorf("pachyderm context does not exist: %s", args[1])
-			}
-
-			context.ClusterName = kubeContext.Cluster
-			context.AuthInfo = kubeContext.AuthInfo
-			context.Namespace = kubeContext.Namespace
-
-			return cfg.Write()
-		}),
-	}
-	commands = append(commands, cmdutil.CreateAlias(importContext, "config import context"))
 
 	var pachdAddress string
 	var clusterName string
@@ -319,12 +302,6 @@ func Cmds() []*cobra.Command {
 		Long:  "Commands for setting pachyderm config values",
 	}
 	commands = append(commands, cmdutil.CreateAlias(configSetRoot, "config set"))
-
-	configImportRoot := &cobra.Command{
-		Short: "Commands for importing pachyderm config values",
-		Long:  "Commands for importing pachyderm config values",
-	}
-	commands = append(commands, cmdutil.CreateAlias(configImportRoot, "config import"))
 
 	configUpdateRoot := &cobra.Command{
 		Short: "Commands for updating pachyderm config values",

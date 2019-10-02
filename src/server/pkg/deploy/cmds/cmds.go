@@ -154,7 +154,7 @@ func contextCreate(namePrefix, namespace string) error {
 	}
 
 	newContext := &config.Context{
-		Source:      config.ContextSource_NONE,
+		Source:      config.ContextSource_IMPORTED,
 		ClusterName: clusterName,
 		AuthInfo:    authInfo,
 		Namespace:   namespace,
