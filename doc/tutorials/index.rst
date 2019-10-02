@@ -8,5 +8,3 @@ assist in understanding Pachyderm concepts and operations.
 
 .. toctree::
    :maxdepth: 1
-
-   screencast-opencv.md
