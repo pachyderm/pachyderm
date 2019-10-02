@@ -31,6 +31,7 @@ $ pachctl subscribe commit test@master --new
       --from string       subscribe to all commits since this commit
       --full-timestamps   Return absolute timestamps (as opposed to the default, relative timestamps).
       --new               subscribe to only new commits created from now on
+      --pipeline string   subscribe to all commits created by this pipeline
       --raw               disable pretty printing, print raw json
 ```
 

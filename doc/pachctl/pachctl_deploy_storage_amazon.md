@@ -11,6 +11,17 @@ Deploy credentials for the Amazon S3 storage provider, so that Pachyderm can ing
 pachctl deploy storage amazon <region> <access-key-id> <secret-access-key> [<session-token>]
 ```
 
+### Options
+
+```
+      --max-upload-parts int   (rarely set) Set a custom maximum number of upload parts. (default 10000)
+      --part-size int          (rarely set) Set a custom part size for object storage uploads. (default 5242880)
+      --retries int            (rarely set) Set a custom number of retries for object storage requests. (default 10)
+      --reverse                (rarely set) Reverse object storage paths. (default true)
+      --timeout string         (rarely set) Set a custom timeout for object storage requests. (default "5m")
+      --upload-acl string      (rarely set) Set a custom upload ACL for object storage uploads. (default "bucket-owner-full-control")
+```
+
 ### Options inherited from parent commands
 
 ```

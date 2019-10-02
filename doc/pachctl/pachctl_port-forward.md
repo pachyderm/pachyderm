@@ -14,6 +14,7 @@ pachctl port-forward
 ### Options
 
 ```
+      --namespace string        Kubernetes namespace Pachyderm is deployed in.
   -f, --pfs-port uint16         The local port to bind PFS over HTTP to. (default 30652)
   -p, --port uint16             The local port to bind pachd to. (default 30650)
   -x, --proxy-port uint16       The local port to bind Pachyderm's dash proxy service to. (default 30081)
