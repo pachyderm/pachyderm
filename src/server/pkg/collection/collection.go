@@ -760,14 +760,14 @@ func (c *readonlyCollection) WatchByIndex(index *Index, val interface{}) (watch.
 
 // WatchOne watches a given item.  The first value returned from the watch
 // will be the current value of the item.
-func (c *readonlyCollection) WatchOne(key string) (watch.Watcher, error) {
-	return watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.Path(key), c.template)
+func (c *readonlyCollection) WatchOne(key string, opts ...watch.OpOption) (watch.Watcher, error) {
+	return watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.Path(key), c.template, opts...)
 }
 
 // WatchOneF watches a given item and executes a callback function each time an event occurs.
 // The first value returned from the watch will be the current value of the item.
-func (c *readonlyCollection) WatchOneF(key string, f func(e *watch.Event) error) error {
-	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.Path(key), c.template)
+func (c *readonlyCollection) WatchOneF(key string, f func(e *watch.Event) error, opts ...watch.OpOption) error {
+	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.Path(key), c.template, opts...)
 	if err != nil {
 		return err
 	}
