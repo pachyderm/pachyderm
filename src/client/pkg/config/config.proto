@@ -90,4 +90,5 @@ enum ContextSource {
     NONE = 0;
     CONFIG_V1 = 1;
     HUB = 2;
+    IMPORTED = 3;
 }
