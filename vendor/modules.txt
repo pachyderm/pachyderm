@@ -186,7 +186,7 @@ github.com/golang/groupcache/groupcachepb
 github.com/golang/groupcache/consistenthash
 github.com/golang/groupcache/lru
 github.com/golang/groupcache/singleflight
-# github.com/golang/protobuf v1.3.1
+# github.com/golang/protobuf v1.3.2
 github.com/golang/protobuf/proto
 github.com/golang/protobuf/jsonpb
 github.com/golang/protobuf/ptypes
