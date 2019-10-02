@@ -24,8 +24,9 @@ import (
 // defaultLimit was experimentally determined to be the highest value that could work
 // (It gets scaled down for specific collections if they trip the max-message size.)
 const (
-	defaultLimit  int64  = 262144
-	DefaultPrefix string = "pachyderm/1.7.0"
+	defaultLimit    int64  = 262144
+	DefaultPrefix   string = "pachyderm/1.7.0"
+	indexIdentifier string = "__index_"
 )
 
 var (
@@ -42,6 +43,8 @@ type collection struct {
 	// The limit used when listing the collection. This gets automatically
 	// tuned when requests fail so it's stored per collection.
 	limit int64
+	// Which sort to use for the collection
+	sortBy etcd.SortTarget
 	// We need this to figure out the concrete type of the objects
 	// that this collection is storing. It's pretty retarded, but
 	// not sure what else we can do since types in Go are not first-class
@@ -151,8 +154,8 @@ func (c *collection) Path(key string) string {
 
 func (c *collection) indexRoot(index *Index) string {
 	// remove trailing slash from c.prefix
-	return fmt.Sprintf("%s__index_%s/",
-		strings.TrimRight(c.prefix, "/"), index.Field)
+	return fmt.Sprintf("%s%s%s/",
+		strings.TrimRight(c.prefix, "/"), indexIdentifier, index.Field)
 }
 
 // See the documentation for `Index` for details.
@@ -254,6 +257,9 @@ func (c *readWriteCollection) TTL(key string) (int64, error) {
 }
 
 func (c *readWriteCollection) PutTTL(key string, val proto.Message, ttl int64) error {
+	if strings.Contains(key, indexIdentifier) {
+		return fmt.Errorf("cannot put key %q which contains reserved string %q", key, indexIdentifier)
+	}
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
@@ -378,8 +384,7 @@ func (c *readWriteCollection) Create(key string, val proto.Message) error {
 	if err == nil {
 		return ErrExists{c.prefix, key}
 	}
-	c.Put(key, val)
-	return nil
+	return c.Put(key, val)
 }
 
 func (c *readWriteCollection) Delete(key string) error {
@@ -604,7 +609,7 @@ func (c *readonlyCollection) ListPrefix(prefix string, val proto.Message, opts *
 // corresponding value. Val is not an argument to f because that would require
 // f to perform a cast before it could be used.
 // You can break out of iteration by returning errutil.ErrBreak.
-func (c *readonlyCollection) List(val proto.Message, opts *Options, f func(string) error) error {
+func (c *readonlyCollection) List(val proto.Message, opts *Options, f func(key string) error) error {
 	span, _ := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/List", "col", c.prefix)
 	defer tracing.FinishAnySpan(span)
 	if err := watch.CheckType(c.template, val); err != nil {
@@ -615,6 +620,25 @@ func (c *readonlyCollection) List(val proto.Message, opts *Options, f func(strin
 			return err
 		}
 		return f(strings.TrimPrefix(string(kv.Key), c.prefix))
+	})
+}
+
+// ListRev returns objects sorted based on the options passed in. f will be called
+// with each key and the create-revision of the key, val will contain the
+// corresponding value. Val is not an argument to f because that would require
+// f to perform a cast before it could be used.  You can break out of iteration
+// by returning errutil.ErrBreak.
+func (c *readonlyCollection) ListRev(val proto.Message, opts *Options, f func(key string, createRev int64) error) error {
+	span, _ := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/List", "col", c.prefix)
+	defer tracing.FinishAnySpan(span)
+	if err := watch.CheckType(c.template, val); err != nil {
+		return err
+	}
+	return c.list(c.prefix, &c.limit, opts, func(kv *mvccpb.KeyValue) error {
+		if err := proto.Unmarshal(kv.Value, val); err != nil {
+			return err
+		}
+		return f(strings.TrimPrefix(string(kv.Key), c.prefix), kv.CreateRevision)
 	})
 }
 

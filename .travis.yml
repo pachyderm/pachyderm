@@ -8,17 +8,29 @@ cache:
     - $HOME/cached-deps
 language: go
 go:
-- "1.12.6"
+- "1.13.1"
 env:
   global:
     - PATH=$HOME/cached-deps:$PATH
+    - PPS_BUCKETS=6
+    - AUTH_BUCKETS=2
+    # Disable Go modules: we use go mod to track deps but keep everything in
+    # the top-level 'vendor' directory rather than 'go-get'ing all modules
+    # every time
+    - GO111MODULE=off 
   matrix:
     - BUCKET=MISC
-    # If you want to update the number of PPS workers, you'll also need to update
-    # the value in ./etc/build/PPS_BUILD_BUCKET_COUNT
+    # If you want to update the number of PPS or auth buckets, you'll neet to
+    # update the value of PPS_BUCKETS or AUTH_BUCKETS above
+    - BUCKET=ADMIN
+    - BUCKET=AUTH1
+    - BUCKET=AUTH2
     - BUCKET=PPS1
     - BUCKET=PPS2
     - BUCKET=PPS3
+    - BUCKET=PPS4
+    - BUCKET=PPS5
+    - BUCKET=PPS6
     - BUCKET=EXAMPLES
 before_install:
 - sudo etc/testing/travis_before_install.sh

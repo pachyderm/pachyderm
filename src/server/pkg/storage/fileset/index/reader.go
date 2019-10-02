@@ -159,6 +159,9 @@ func (r *Reader) next(level int) (*Header, error) {
 	}
 }
 
+// atStart returns true when the name is in the valid range for a filter (always true if no filter is set).
+// For a range filter, this means the name is >= to the lower bound.
+// For a prefix filter, this means the name is >= to the prefix.
 func (r *Reader) atStart(name string) bool {
 	if r.filter == nil {
 		return true
@@ -169,6 +172,9 @@ func (r *Reader) atStart(name string) bool {
 	return name >= r.filter.prefix
 }
 
+// atEnd returns true when the name is past the valid range for a filter (always false if no filter is set).
+// For a range filter, this means the name is > than the upper bound.
+// For a prefix filter, this means the name does not have the prefix and a name with the prefix cannot show up after it.
 func (r *Reader) atEnd(name string) bool {
 	if r.filter == nil {
 		return false
@@ -178,7 +184,9 @@ func (r *Reader) atEnd(name string) bool {
 	}
 	// Name is past a prefix when the first len(prefix) bytes are greater than the prefix
 	// (use len(name) bytes for comparison when len(name) < len(prefix)).
-	// Cannot use a simple greater than check (for paths a, ab, abc, and b, prefix a should return a, ab, abc).
+	// A simple greater than check would not suffice here for the prefix filter functionality
+	// (for example, if the index consisted of the paths "a", "ab", "abc", and "b", then a
+	// reader with the prefix filter set to "a" would end at the "ab" path rather than the "b" path).
 	cmpSize := mathutil.Min(len(name), len(r.filter.prefix))
 	return name[:cmpSize] > r.filter.prefix[:cmpSize]
 }

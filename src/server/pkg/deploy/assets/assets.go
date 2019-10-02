@@ -15,7 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	apps "k8s.io/api/apps/v1beta1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1230,52 +1230,59 @@ func LocalSecret() map[string][]byte {
 }
 
 // AmazonSecret creates an amazon secret with the following parameters:
-//   region       - AWS region
-//   bucket       - S3 bucket name
-//   id           - AWS access key id
-//   secret       - AWS secret access key
-//   token        - AWS access token
-//   distribution - cloudfront distribution
-//   endpoint     - Custom endpoint (generally used for S3 compatible object stores)
-func AmazonSecret(region, bucket, id, secret, token, distribution, endpoint string) map[string][]byte {
-	return map[string][]byte{
-		"amazon-region":       []byte(region),
-		"amazon-bucket":       []byte(bucket),
-		"amazon-id":           []byte(id),
-		"amazon-secret":       []byte(secret),
-		"amazon-token":        []byte(token),
-		"amazon-distribution": []byte(distribution),
-		"custom-endpoint":     []byte(endpoint),
-	}
+//   region         - AWS region
+//   bucket         - S3 bucket name
+//   id             - AWS access key id
+//   secret         - AWS secret access key
+//   token          - AWS access token
+//   distribution   - cloudfront distribution
+//   endpoint       - Custom endpoint (generally used for S3 compatible object stores)
+//   advancedConfig - advanced configuration
+func AmazonSecret(region, bucket, id, secret, token, distribution, endpoint string, advancedConfig *obj.AmazonAdvancedConfiguration) map[string][]byte {
+	s := amazonBasicSecret(region, bucket, distribution, advancedConfig)
+	s["amazon-id"] = []byte(id)
+	s["amazon-secret"] = []byte(secret)
+	s["amazon-token"] = []byte(token)
+	s["custom-endpoint"] = []byte(endpoint)
+	return s
 }
 
 // AmazonVaultSecret creates an amazon secret with the following parameters:
-//   region       - AWS region
-//   bucket       - S3 bucket name
-//   vaultAddress - address/hostport of vault
-//   vaultRole    - pachd's role in vault
-//   vaultToken   - pachd's vault token
-//   distribution - cloudfront distribution
-func AmazonVaultSecret(region, bucket, vaultAddress, vaultRole, vaultToken, distribution string) map[string][]byte {
-	return map[string][]byte{
-		"amazon-region":       []byte(region),
-		"amazon-bucket":       []byte(bucket),
-		"amazon-vault-addr":   []byte(vaultAddress),
-		"amazon-vault-role":   []byte(vaultRole),
-		"amazon-vault-token":  []byte(vaultToken),
-		"amazon-distribution": []byte(distribution),
-	}
+//   region         - AWS region
+//   bucket         - S3 bucket name
+//   vaultAddress   - address/hostport of vault
+//   vaultRole      - pachd's role in vault
+//   vaultToken     - pachd's vault token
+//   distribution   - cloudfront distribution
+//   advancedConfig - advanced configuration
+func AmazonVaultSecret(region, bucket, vaultAddress, vaultRole, vaultToken, distribution string, advancedConfig *obj.AmazonAdvancedConfiguration) map[string][]byte {
+	s := amazonBasicSecret(region, bucket, distribution, advancedConfig)
+	s["amazon-vault-addr"] = []byte(vaultAddress)
+	s["amazon-vault-role"] = []byte(vaultRole)
+	s["amazon-vault-token"] = []byte(vaultToken)
+	return s
 }
 
 // AmazonIAMRoleSecret creates an amazon secret with the following parameters:
-//   region       - AWS region
-//   bucket       - S3 bucket name
-//   distribution - cloudfront distribution
-func AmazonIAMRoleSecret(region, bucket, distribution string) map[string][]byte {
+//   region         - AWS region
+//   bucket         - S3 bucket name
+//   distribution   - cloudfront distribution
+//   advancedConfig - advanced configuration
+func AmazonIAMRoleSecret(region, bucket, distribution string, advancedConfig *obj.AmazonAdvancedConfiguration) map[string][]byte {
+	return amazonBasicSecret(region, bucket, distribution, advancedConfig)
+}
+
+func amazonBasicSecret(region, bucket, distribution string, advancedConfig *obj.AmazonAdvancedConfiguration) map[string][]byte {
 	return map[string][]byte{
 		"amazon-region":       []byte(region),
 		"amazon-bucket":       []byte(bucket),
 		"amazon-distribution": []byte(distribution),
+		"retries":             []byte(strconv.Itoa(advancedConfig.Retries)),
+		"timeout":             []byte(advancedConfig.Timeout),
+		"upload-acl":          []byte(advancedConfig.UploadACL),
+		"reverse":             []byte(strconv.FormatBool(advancedConfig.Reverse)),
+		"part-size":           []byte(strconv.FormatInt(advancedConfig.PartSize, 10)),
+		"max-upload-parts":    []byte(strconv.Itoa(advancedConfig.MaxUploadParts)),
 	}
 }
 
@@ -1475,7 +1482,7 @@ func WriteLocalAssets(encoder Encoder, opts *AssetOpts, hostPath string) error {
 
 // WriteCustomAssets writes assets to a custom combination of object-store and persistent disk.
 func WriteCustomAssets(encoder Encoder, opts *AssetOpts, args []string, objectStoreBackend string,
-	persistentDiskBackend string, secure, isS3V2 bool) error {
+	persistentDiskBackend string, secure, isS3V2 bool, advancedConfig *obj.AmazonAdvancedConfiguration) error {
 	switch objectStoreBackend {
 	case "s3":
 		if len(args) != s3CustomArgs {
@@ -1514,7 +1521,7 @@ func WriteCustomAssets(encoder Encoder, opts *AssetOpts, args []string, objectSt
 			return WriteSecret(encoder, MinioSecret(bucket, id, secret, endpoint, secure, isS3V2), opts)
 		}
 		// (bryce) hardcode region?
-		return WriteSecret(encoder, AmazonSecret("us-east-1", bucket, id, secret, "", "", endpoint), opts)
+		return WriteSecret(encoder, AmazonSecret("us-east-1", bucket, id, secret, "", "", endpoint, advancedConfig), opts)
 	default:
 		return fmt.Errorf("Did not recognize the choice of object-store")
 	}
@@ -1536,17 +1543,17 @@ type AmazonCreds struct {
 }
 
 // WriteAmazonAssets writes assets to an amazon backend.
-func WriteAmazonAssets(encoder Encoder, opts *AssetOpts, region string, bucket string, volumeSize int, creds *AmazonCreds, cloudfrontDistro string) error {
+func WriteAmazonAssets(encoder Encoder, opts *AssetOpts, region string, bucket string, volumeSize int, creds *AmazonCreds, cloudfrontDistro string, advancedConfig *obj.AmazonAdvancedConfiguration) error {
 	if err := WriteAssets(encoder, opts, amazonBackend, amazonBackend, volumeSize, ""); err != nil {
 		return err
 	}
 	var secret map[string][]byte
 	if creds == nil {
-		secret = AmazonIAMRoleSecret(region, bucket, cloudfrontDistro)
+		secret = AmazonIAMRoleSecret(region, bucket, cloudfrontDistro, advancedConfig)
 	} else if creds.ID != "" {
-		secret = AmazonSecret(region, bucket, creds.ID, creds.Secret, creds.Token, cloudfrontDistro, "")
+		secret = AmazonSecret(region, bucket, creds.ID, creds.Secret, creds.Token, cloudfrontDistro, "", advancedConfig)
 	} else if creds.VaultAddress != "" {
-		secret = AmazonVaultSecret(region, bucket, creds.VaultAddress, creds.VaultRole, creds.VaultToken, cloudfrontDistro)
+		secret = AmazonVaultSecret(region, bucket, creds.VaultAddress, creds.VaultRole, creds.VaultToken, cloudfrontDistro, advancedConfig)
 	}
 	return WriteSecret(encoder, secret, opts)
 }

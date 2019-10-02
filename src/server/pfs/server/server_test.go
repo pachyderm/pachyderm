@@ -255,6 +255,23 @@ func TestToggleBranchProvenance(t *testing.T) {
 	}
 }
 
+func TestRecreateBranchProvenance(t *testing.T) {
+	c := GetPachClient(t)
+	require.NoError(t, c.CreateRepo("in"))
+	require.NoError(t, c.CreateRepo("out"))
+	require.NoError(t, c.CreateBranch("out", "master", "", []*pfs.Branch{pclient.NewBranch("in", "master")}))
+	_, err := c.PutFile("in", "master", "foo", strings.NewReader("foo"))
+	require.NoError(t, err)
+	cis, err := c.ListCommit("out", "", "", 0)
+	id := cis[0].Commit.ID
+	require.Equal(t, 1, len(cis))
+	require.NoError(t, c.DeleteBranch("out", "master", false))
+	require.NoError(t, c.CreateBranch("out", "master", id, []*pfs.Branch{pclient.NewBranch("in", "master")}))
+	cis, err = c.ListCommit("out", "", "", 0)
+	require.Equal(t, 1, len(cis))
+	require.Equal(t, id, cis[0].Commit.ID)
+}
+
 func TestCreateAndInspectRepo(t *testing.T) {
 	client := GetPachClient(t)
 
@@ -1975,6 +1992,16 @@ func TestListCommit(t *testing.T) {
 	for i := 0; i < len(commitInfos)-1; i++ {
 		require.Equal(t, commitInfos[i].ParentCommit, commitInfos[i+1].Commit)
 	}
+
+	// Try listing the commits in reverse order
+	commitInfos = nil
+	require.NoError(t, client.ListCommitF(repo, "", "", 0, true, func(ci *pfs.CommitInfo) error {
+		commitInfos = append(commitInfos, ci)
+		return nil
+	}))
+	for i := 1; i < len(commitInfos); i++ {
+		require.Equal(t, commitInfos[i].ParentCommit, commitInfos[i-1].Commit)
+	}
 }
 
 func TestOffsetRead(t *testing.T) {
@@ -2075,7 +2102,7 @@ func TestSubscribeCommit(t *testing.T) {
 		commits = append(commits, commit)
 	}
 
-	commitIter, err := client.SubscribeCommit(repo, "master", "", pfs.CommitState_STARTED)
+	commitIter, err := client.SubscribeCommit(repo, "master", nil, "", pfs.CommitState_STARTED)
 	require.NoError(t, err)
 	for i := 0; i < numCommits; i++ {
 		commitInfo, err := commitIter.Next()
@@ -3558,7 +3585,7 @@ func TestBuildCommit(t *testing.T) {
 	require.NoError(t, tree1.PutFile("foo", []*pfs.Object{fooObj}, fooSize))
 	require.NoError(t, tree1.Hash())
 	tree1Obj, err := hashtree.PutHashTree(c, tree1)
-	_, err = c.BuildCommit(repo, "master", "", tree1Obj.Hash)
+	_, err = c.BuildCommit(repo, "master", "", tree1Obj.Hash, uint64(fooSize))
 	require.NoError(t, err)
 	repoInfo, err := c.InspectRepo(repo)
 	require.NoError(t, err)
@@ -3572,7 +3599,7 @@ func TestBuildCommit(t *testing.T) {
 	require.NoError(t, tree1.PutFile("bar", []*pfs.Object{barObj}, barSize))
 	require.NoError(t, tree1.Hash())
 	tree2Obj, err := hashtree.PutHashTree(c, tree1)
-	_, err = c.BuildCommit(repo, "master", "", tree2Obj.Hash)
+	_, err = c.BuildCommit(repo, "master", "", tree2Obj.Hash, uint64(fooSize+barSize))
 	require.NoError(t, err)
 	repoInfo, err = c.InspectRepo(repo)
 	require.NoError(t, err)
@@ -4680,13 +4707,13 @@ func TestSubscribeStates(t *testing.T) {
 
 	var readyCommits int64
 	go func() {
-		c.SubscribeCommitF("B", "master", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
+		c.SubscribeCommitF("B", "master", nil, "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
 			atomic.AddInt64(&readyCommits, 1)
 			return nil
 		})
 	}()
 	go func() {
-		c.SubscribeCommitF("C", "master", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
+		c.SubscribeCommitF("C", "master", nil, "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
 			atomic.AddInt64(&readyCommits, 1)
 			return nil
 		})
@@ -5179,6 +5206,34 @@ func TestMultiInputWithDeferredProcessing(t *testing.T) {
 	for _, c := range ci.Provenance {
 		require.True(t, expectedProv[path.Join(c.Commit.Repo.Name, c.Commit.ID)])
 	}
+}
+
+func TestListAll(t *testing.T) {
+	client := GetPachClient(t)
+	require.NoError(t, client.CreateRepo("repo1"))
+	require.NoError(t, client.CreateRepo("repo2"))
+	_, err := client.PutFile("repo1", "master", "file1", strings.NewReader("1"))
+	require.NoError(t, err)
+	_, err = client.PutFile("repo2", "master", "file2", strings.NewReader("2"))
+	require.NoError(t, err)
+	_, err = client.PutFile("repo1", "master", "file3", strings.NewReader("3"))
+	require.NoError(t, err)
+	_, err = client.PutFile("repo2", "master", "file4", strings.NewReader("4"))
+	require.NoError(t, err)
+
+	cis, err := client.ListCommit("", "", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 4, len(cis))
+
+	bis, err := client.ListBranch("")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(bis))
+}
+
+func TestPutBlock(t *testing.T) {
+	client := GetPachClient(t)
+	_, err := client.PutBlock("test", strings.NewReader("foo"))
+	require.NoError(t, err)
 }
 
 func seedStr(seed int64) string {

@@ -39,7 +39,7 @@ This guide assumes that you already have a Pachyderm cluster running and have co
    Confirm the values in these files are what you expect.
 ```sh
 $ echo -n '<your-password>' > IMAP_PASSWORD
-$ echo -n '<account-name>` > IMAP_LOGIN
+$ echo -n '<account-name>' > IMAP_LOGIN
 $ kubectl create secret generic imap-credentials --from-file=./IMAP_LOGIN --from-file=./IMAP_PASSWORD
 ```
 4. Confirm that the secrets got set correctly.

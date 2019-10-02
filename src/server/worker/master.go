@@ -116,7 +116,9 @@ func (a *APIServer) master(masterType string, spawner func(*client.APIClient) er
 func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 	logger := a.getMasterLogger()
 	// Listen for new commits, and create jobs when they arrive
-	commitIter, err := pachClient.SubscribeCommit(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "", pfs.CommitState_READY)
+	commitIter, err := pachClient.SubscribeCommit(a.pipelineInfo.Pipeline.Name, "",
+		client.NewCommitProvenance(ppsconsts.SpecRepo, a.pipelineInfo.Pipeline.Name, a.pipelineInfo.SpecCommit.ID),
+		"", pfs.CommitState_READY)
 	if err != nil {
 		return err
 	}
@@ -240,7 +242,9 @@ func (a *APIServer) spoutSpawner(pachClient *client.APIClient) error {
 
 func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
 	ctx := pachClient.Ctx()
-	commitIter, err := pachClient.SubscribeCommit(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "", pfs.CommitState_READY)
+	commitIter, err := pachClient.SubscribeCommit(a.pipelineInfo.Pipeline.Name, "",
+		client.NewCommitProvenance(ppsconsts.SpecRepo, a.pipelineInfo.Pipeline.Name, a.pipelineInfo.SpecCommit.ID),
+		"", pfs.CommitState_READY)
 	if err != nil {
 		return err
 	}
@@ -845,7 +849,7 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 				commit, err := a.pachClient.PfsAPIClient.StartCommit(a.pachClient.Ctx(), &pfs.StartCommitRequest{
 					Parent:     client.NewCommit(repo, ""),
 					Branch:     a.pipelineInfo.OutputBranch,
-					Provenance: []*pfs.CommitProvenance{client.NewCommitProvenance(ppsconsts.SpecRepo, a.pipelineInfo.OutputBranch, a.pipelineInfo.SpecCommit.ID)},
+					Provenance: []*pfs.CommitProvenance{client.NewCommitProvenance(ppsconsts.SpecRepo, repo, a.pipelineInfo.SpecCommit.ID)},
 				})
 				if err != nil {
 					return err

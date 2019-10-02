@@ -6,24 +6,22 @@ cloud.google.com/go/internal/optional
 cloud.google.com/go/internal/trace
 cloud.google.com/go/internal/version
 cloud.google.com/go/compute/metadata
-# contrib.go.opencensus.io/exporter/ocagent v0.4.12
-contrib.go.opencensus.io/exporter/ocagent
 # github.com/Azure/azure-sdk-for-go v32.4.0+incompatible
 github.com/Azure/azure-sdk-for-go/storage
 github.com/Azure/azure-sdk-for-go/version
 # github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78
 github.com/Azure/go-ansiterm/winterm
 github.com/Azure/go-ansiterm
-# github.com/Azure/go-autorest/autorest v0.2.0
+# github.com/Azure/go-autorest/autorest v0.9.0
 github.com/Azure/go-autorest/autorest
 github.com/Azure/go-autorest/autorest/azure
-# github.com/Azure/go-autorest/autorest/adal v0.1.0
+# github.com/Azure/go-autorest/autorest/adal v0.5.0
 github.com/Azure/go-autorest/autorest/adal
 # github.com/Azure/go-autorest/autorest/date v0.1.0
 github.com/Azure/go-autorest/autorest/date
 # github.com/Azure/go-autorest/logger v0.1.0
 github.com/Azure/go-autorest/logger
-# github.com/Azure/go-autorest/tracing v0.1.0
+# github.com/Azure/go-autorest/tracing v0.5.0
 github.com/Azure/go-autorest/tracing
 # github.com/LK4D4/joincontext v0.0.0-20171026170139-1724345da6d5
 github.com/LK4D4/joincontext
@@ -85,13 +83,6 @@ github.com/aws/aws-sdk-go/private/protocol/query/queryutil
 github.com/beevik/etree
 # github.com/beorn7/perks v1.0.0
 github.com/beorn7/perks/quantile
-# github.com/census-instrumentation/opencensus-proto v0.2.0
-github.com/census-instrumentation/opencensus-proto/gen-go/agent/common/v1
-github.com/census-instrumentation/opencensus-proto/gen-go/agent/metrics/v1
-github.com/census-instrumentation/opencensus-proto/gen-go/agent/trace/v1
-github.com/census-instrumentation/opencensus-proto/gen-go/metrics/v1
-github.com/census-instrumentation/opencensus-proto/gen-go/resource/v1
-github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1
 # github.com/chmduquesne/rollinghash v4.0.0+incompatible
 github.com/chmduquesne/rollinghash/buzhash64
 github.com/chmduquesne/rollinghash
@@ -204,10 +195,6 @@ github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
 github.com/golang/protobuf/protoc-gen-go/descriptor
-github.com/golang/protobuf/ptypes/wrappers
-github.com/golang/protobuf/protoc-gen-go/generator
-github.com/golang/protobuf/protoc-gen-go/generator/internal/remap
-github.com/golang/protobuf/protoc-gen-go/plugin
 # github.com/golang/snappy v0.0.1
 github.com/golang/snappy
 # github.com/google/btree v0.0.0-20180813153112-4030bb1f1f0c
@@ -237,10 +224,6 @@ github.com/gorilla/mux
 # github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
 github.com/gregjones/httpcache
 github.com/gregjones/httpcache/diskcache
-# github.com/grpc-ecosystem/grpc-gateway v1.8.5
-github.com/grpc-ecosystem/grpc-gateway/runtime
-github.com/grpc-ecosystem/grpc-gateway/utilities
-github.com/grpc-ecosystem/grpc-gateway/internal
 # github.com/hanwen/go-fuse v0.0.0-20180522155540-291273cb8ce0
 github.com/hanwen/go-fuse/fuse/nodefs
 github.com/hanwen/go-fuse/fuse
@@ -490,13 +473,11 @@ go.opencensus.io/stats
 go.opencensus.io/stats/view
 go.opencensus.io/tag
 go.opencensus.io/trace/propagation
-go.opencensus.io/plugin/ochttp/propagation/tracecontext
 go.opencensus.io
 go.opencensus.io/metric/metricdata
 go.opencensus.io/stats/internal
 go.opencensus.io/internal/tagencoding
 go.opencensus.io/metric/metricproducer
-go.opencensus.io/plugin/ocgrpc
 go.opencensus.io/resource
 # golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
 golang.org/x/crypto/ssh/terminal
@@ -563,7 +544,6 @@ google.golang.org/api/internal
 google.golang.org/api/gensupport
 google.golang.org/api/googleapi/transport
 google.golang.org/api/transport/http/internal/propagation
-google.golang.org/api/support/bundler
 # google.golang.org/appengine v1.5.0
 google.golang.org/appengine
 google.golang.org/appengine/urlfetch
@@ -581,8 +561,6 @@ google.golang.org/genproto/googleapis/iam/v1
 google.golang.org/genproto/googleapis/rpc/code
 google.golang.org/genproto/googleapis/api/annotations
 google.golang.org/genproto/googleapis/type/expr
-google.golang.org/genproto/googleapis/api/httpbody
-google.golang.org/genproto/protobuf/field_mask
 # google.golang.org/grpc v1.21.1
 google.golang.org/grpc
 google.golang.org/grpc/credentials

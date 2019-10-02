@@ -5,7 +5,7 @@ go 1.12
 require (
 	cloud.google.com/go v0.40.0
 	github.com/Azure/azure-sdk-for-go v32.4.0+incompatible
-	github.com/Azure/go-autorest/autorest v0.2.0 // indirect
+	github.com/Azure/go-autorest/autorest/to v0.3.0 // indirect
 	github.com/LK4D4/joincontext v0.0.0-20171026170139-1724345da6d5
 	github.com/Microsoft/hcsshim v0.8.6 // indirect
 	github.com/OneOfOne/xxhash v1.2.5
@@ -26,6 +26,7 @@ require (
 	github.com/cpuguy83/go-md2man v1.0.10 // indirect
 	github.com/crewjam/saml v0.0.0-20190521120225-344d075952c9
 	github.com/dlclark/regexp2 v1.2.0 // indirect
+	github.com/dnaeon/go-vcr v1.0.1 // indirect
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v0.7.3-0.20190621081258-52c16677b22d // indirect
 	github.com/docker/go-units v0.4.0
@@ -41,7 +42,6 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-ini/ini v1.42.0 // indirect
 	github.com/go-test/deep v1.0.1 // indirect
-	github.com/go-yaml/yaml v2.1.0+incompatible // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gogo/protobuf v1.2.2-0.20190730201129-28a6bbf47e48
 	github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef
@@ -57,6 +57,7 @@ require (
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 // indirect
+	github.com/grpc-ecosystem/grpc-gateway v1.8.5 // indirect
 	github.com/hanwen/go-fuse v0.0.0-20180522155540-291273cb8ce0
 	github.com/hashicorp/go-cleanhttp v0.5.1 // indirect
 	github.com/hashicorp/go-hclog v0.8.0 // indirect
@@ -124,7 +125,7 @@ require (
 	go.uber.org/atomic v1.4.0 // indirect
 	go.uber.org/multierr v1.1.0 // indirect
 	go.uber.org/zap v1.10.0 // indirect
-	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
+	golang.org/x/crypto v0.0.0-20190820162420-60c769a6c586
 	golang.org/x/net v0.0.0-20190813141303-74dc4d7220e7
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
