@@ -110,7 +110,7 @@ type ReadonlyCollection interface {
 	Count() (int64, error)
 	Watch(opts ...watch.OpOption) (watch.Watcher, error)
 	WatchF(f func(*watch.Event) error, opts ...watch.OpOption) error
-	WatchOne(key string) (watch.Watcher, error)
-	WatchOneF(key string, f func(*watch.Event) error) error
+	WatchOne(key string, opts ...watch.OpOption) (watch.Watcher, error)
+	WatchOneF(key string, f func(*watch.Event) error, opts ...watch.OpOption) error
 	WatchByIndex(index *Index, val interface{}) (watch.Watcher, error)
 }
