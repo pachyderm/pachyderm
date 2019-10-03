@@ -38,6 +38,8 @@ before_script:
 - docker version
 script:
 - etc/testing/travis.sh
+after_success:
+- etc/testing/travis_after_success.sh
 after_failure:
 - kubectl version
 - kubectl get all
