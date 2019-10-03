@@ -44,6 +44,29 @@ email at support@pachyderm.io.
   <div class="column">
     <div class="card-square mdl-card mdl-shadow--2dp">
       <div class="mdl-card__title mdl-card--expand">
+        <h4 class="mdl-card__title-text">Deploy and Manage &nbsp;&nbsp;&nbsp;<i class="fas fa-rocket"></i></h4>
+      </div>
+      <div class="mdl-card__supporting-text">
+        Deploy Pachyderm on a cloud platform of your choice
+        and manage its lifecycle.
+      </div>
+      <div class="mdl-card__actions mdl-card--border">
+        <ul>
+          <li><a href="deploy-manage/deploy/google_cloud_platform/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          Deploy Pachyderm
+          </a>
+          </li>
+          <li><a href="deploy-manage/manage/cluster-access/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          Manage Operations
+          </a>
+          </li>
+        </ul>
+       </div>
+     </div>
+  </div>
+  <div class="column">
+    <div class="card-square mdl-card mdl-shadow--2dp">
+      <div class="mdl-card__title mdl-card--expand">
         <h4 class="mdl-card__title-text">Concepts &nbsp;&nbsp;&nbsp;<i class="fas fa-book"></i></h4>
       </div>
       <div class="mdl-card__supporting-text">
@@ -63,6 +86,8 @@ email at support@pachyderm.io.
       </div>
     </div>
   </div>
+</div>
+<div class="row">
   <div class="column">
     <div class="card-square mdl-card mdl-shadow--2dp">
       <div class="mdl-card__title mdl-card--expand">
@@ -89,33 +114,31 @@ email at support@pachyderm.io.
       </div>
     </div>
   </div>
-</div>
-<div class="row">
-   <div class="column">
-     <div class="card-square mdl-card mdl-shadow--2dp">
-       <div class="mdl-card__title mdl-card--expand">
-         <h4 class="mdl-card__title-text">Data Operations &nbsp;&nbsp;&nbsp;<i class="fas fa-calculator"></i></h4>
-       </div>
-       <div class="mdl-card__supporting-text">
-       Learn the most common data operations in Pachyderm.
-       </div>
-       <div class="mdl-card__actions mdl-card--border">
-         <ul>
-           <li><a href="how-tos/load-data-into-pachyderm" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
-           Load Your Data Into Pachyderm
-           </a>
-           </li>
-           <li><a href="how-tos/export-data-out-pachyderm" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
-           Export Your Data From Pachyderm
-           </a>
-           </li>
-           <li><a href="how-tos/individual-developer-workflow" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
-           Individual Developer Workflow
-           </a>
-           </li>
-         </ul>
-       </div>
-     </div>
+  <div class="column">
+    <div class="card-square mdl-card mdl-shadow--2dp">
+      <div class="mdl-card__title mdl-card--expand">
+        <h4 class="mdl-card__title-text">Data Operations &nbsp;&nbsp;&nbsp;<i class="fas fa-calculator"></i></h4>
+      </div>
+      <div class="mdl-card__supporting-text">
+      Learn the most common data operations in Pachyderm.
+      </div>
+      <div class="mdl-card__actions mdl-card--border">
+        <ul>
+          <li><a href="how-tos/load-data-into-pachyderm" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          Load Your Data Into Pachyderm
+          </a>
+          </li>
+          <li><a href="how-tos/export-data-out-pachyderm" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          Export Your Data From Pachyderm
+          </a>
+          </li>
+          <li><a href="how-tos/individual-developer-workflow" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          Individual Developer Workflow
+          </a>
+          </li>
+        </ul>
+      </div>
+    </div>
    </div>
    <div class="column">
      <div class="card-square mdl-card mdl-shadow--2dp">
