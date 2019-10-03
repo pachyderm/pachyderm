@@ -12,12 +12,16 @@ and can get started using Pachyderm right away.
 <!--Follow the steps below to configure your first Pachyderm pipeline or
 watch the 2-minute [Getting Started Screencast](../tutorials/screencast-opencv.html).-->
 
-**Note:** Pachyderm Hub enables you to preview Pachyderm functionality
+Pachyderm Hub enables you to preview Pachyderm functionality
 free of charge by removing the burden of deploying Pachyderm locally
 or in a third-party cloud platform. Currently, Pachyderm Hub is in beta
 so clusters cannot be turned into production clusters and should only
 be used for easy development and testing. Production-grade functionality
 will be supported in later releases.
+
+**Note:** We'd like to hear your feedback! Let us know what you think
+about Pachyderm Hub and help us make it better.
+Join our [Slack channel](slack.pachyderm.io).
 
 ## How it Works
 
@@ -133,7 +137,7 @@ To connect to your cluster, complete the following steps:
       **Example:**
 
       ```bash
-      $ echo '{"pachd_address": "35.222.12.28:30650"}' | pachctl config set context s123
+      $ echo '{"pachd_address": "grpcs://grpc-fo0b4ar-clustername.clusters.pachyderm.io:31400"}' | pachctl config set context s123
       ```
 
       You can set the `<context-name>` to any descriptive name. It does not need to match
@@ -162,15 +166,16 @@ To connect to your cluster, complete the following steps:
 1. Log in to your Pachyderm cluster:
 
    1. Go to the Pachyderm Hub UI.
-   1. In the list of clusters, click **Dashboard**.
-      Pachyderm Hub opens the Dashboard in a new window.
-   1. Click **Settings**.
-   1. Click **Generate New One-Time Password Now**.
+   1. In the list of clusters, click **Details**.
+   1. Click **>**.
    1. Copy the authentication code:
 
       ```
       auth_code:<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx>
       ```
+
+      Make sure you prepend the authentication token with
+      the `auth_code:` as shown above.
 
    1. In your terminal window, run the `pachctl auth login` command:
 
