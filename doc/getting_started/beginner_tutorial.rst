@@ -18,7 +18,7 @@ Prerequisites
 ^^^^^^^^^^^^^
 
 You must already have Pachyderm running locally, on a cloud platform
-of choice, or in Pachyderm Hub.
+of your choice, or in Pachyderm Hub.
 
 If you have not yet installed Pachyderm, follow the instructions in one
 of these sections:

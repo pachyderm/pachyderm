@@ -1,22 +1,23 @@
 # Getting Started with Pachyderm Hub
 
-Pachyderm Hub is a platform for data scientists where you can run
-your analysis pipelines, control versions, and
-track provenance of your data.
+Pachyderm Hub is a platform for data scientists where you can
+version-control your data, build analysis pipelines, and
+track the provenance of your data science workflow.
 
 This section walks you through
 the steps of creating a cluster in Pachyderm Hub so that
 you do not need to worry about the underlying infrastructure
-and get started using Pachyderm right away.
+and can get started using Pachyderm right away.
 
 <!--Follow the steps below to configure your first Pachyderm pipeline or
 watch the 2-minute [Getting Started Screencast](../tutorials/screencast-opencv.html).-->
 
 **Note:** Pachyderm Hub enables you to preview Pachyderm functionality
 free of charge by removing the burden of deploying Pachyderm locally
-or in a third-party cloud platform. Currently, Pachyderm Hub clusters
-cannot be turned into production clusters. This functionality might be
-supported in later releases.
+or in a third-party cloud platform. Currently, Pachyderm Hub is in beta
+so clusters cannot be turned into production clusters and should only
+be used for easy development and testing. Production-grade functionality
+will be supported in later releases.
 
 ## How it Works
 
@@ -34,7 +35,7 @@ in [Join GitHub](https://github.com/join).
 
 To log in to Pachyderm Hub, complete the following steps:
 
-1. Go to [hub.pachyderm.io.com](https://hub.pachyderm.io).
+1. Go to [hub.pachyderm.com](https://hub.pachyderm.com).
 1. Click **Try for free**.
 1. Authorize Pachyderm Hub with your GitHub account by typing your
    GitHub user name and password.
@@ -58,17 +59,22 @@ To create a Pachyderm cluster, complete the following steps:
 
    ![Pachub cluster](../images/s_pachub_cluster.png)
 
+   **Note:** Pachyderm has a set number of pre-warmed clusters.
+   If you see your cluster is in a *starting* state, you might
+   have to wait a few minutes for it to be ready.
+
 1. Proceed to [Step 2](#step-2-connect-to-your-cluster).
 
 ## Step 2 - Connect to Your Cluster
 
 Pachyderm Hub enables you to access your cluster through a command-line
 interface (CLI) called `pachctl` and the web interface called the Dashboard.
-Although you can try simple configurations in the dashboard, `pachctl`
-provides extended functionality. The Pachyderm team
+Although you can perform most simple actions directly in the dashboard,
+`pachctl` provides full functionality. Most likely, you will use
+`pachctl` for any operation beyound the most basic workflow.
 recommends that you use `pachctl` for all data operations and
-the dashboard to view graphical representations of your Direct Acyclic
-Graph (DAG).
+the dashboard to view your data and graphical representation of your
+pipelines.
 
 After you create a cluster, you need to go to the terminal on your computer
 and configure your CLI to connect to your cluster by installing `pachctl`
@@ -76,11 +82,11 @@ and configuring your Pachyderm context. For more information about
 Pachyderm contexts, see [Connect by using a Pachyderm Context](https://docs.pachyderm.io/en/latest/deployment/connect-to-cluster.html#connect-by-using-a-pachyderm-context).
 
 Your `pachctl` version must match the version of the Pachyderm cluster that
-you deployed on Pachyderm Hub. For example, if you deployed Pachyderm version
-`1.9.5`, your `pachctl` version must be `1.9.5` as well.
+you deployed on Pachyderm Hub. Pachyderm Hub uses the latest release
+of Pachyderm so we recommend that you use the same version for `pachctl`.
 
 To set the correct Pachyderm context, you need to use the IP address
-of your cluster that is available in the Pachyderm Hub UI.
+of your cluster that is available in the Pachyderm Hub UI under **Details**.
 
 **Note:** `kubectl` commands are not supported for the clusters deployed
 on Pachyderm Hub.
@@ -116,12 +122,12 @@ To connect to your cluster, complete the following steps:
 1. Configure a Pachyderm context:
 
    1. In the Pachyderm Hub UI, click **Details** next to your cluster.
-   1. Copy the IP address and protocol of your cluster.
+   1. Copy the IP address and port number of your cluster.
    1. In your terminal window, create a new Pachyderm context with the
       IP address of your cluster:
 
       ```bash
-      $ echo '{"pachd_address": "cluster-ip"}' | pachctl config set context <cluster-name>
+      $ echo '{"pachd_address": "<cluster-ip>"}' | pachctl config set context <context-name>
       ```
 
       **Example:**
@@ -129,6 +135,10 @@ To connect to your cluster, complete the following steps:
       ```bash
       $ echo '{"pachd_address": "35.222.12.28:30650"}' | pachctl config set context s123
       ```
+
+      You can set the `<context-name>` to any descriptive name. It does not need to match
+      the name of your cluster deployed on Pachyderm Hub. If the context already exists,
+      you can use the `--overwrite` flag to update it with the new value.
 
    1. Set the active context to the context you have configured in
       the previous step:
@@ -154,7 +164,7 @@ To connect to your cluster, complete the following steps:
    1. Go to the Pachyderm Hub UI.
    1. In the list of clusters, click **Dashboard**.
       Pachyderm Hub opens the Dashboard in a new window.
-
+   1. Click **Settings**.
    1. Click **Generate New One-Time Password Now**.
    1. Copy the authentication code:
 
