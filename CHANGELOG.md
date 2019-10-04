@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.9.7
+
+- Fixes a bug that prevent pachctl from connecting to clusters with TLS enabled. (#4167)
+
 ## 1.9.6
 
 - Fixes a bug which would cause jobs to report success despite datum failures. (#4158)
