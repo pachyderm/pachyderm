@@ -323,15 +323,6 @@ launch-kube: check-kubectl
 	etc/kube/start-minikube.sh
 
 launch-dev-vm: check-kubectl
-	@# Make sure the caller sets address to avoid confusion later
-	@if [ -z "${PACHD_ADDRESS}" ]; then \
-		$$( which echo ) -e "Must set PACHD_ADDRESS\nRun:\nexport PACHD_ADDRESS=192.168.99.100:30650"; \
-	  exit 1; \
-	fi
-	@if [ -n "${PACH_CA_CERTS}" ]; then \
-		$$( which echo ) -e "Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS"; \
-	  exit 1; \
-	fi
 	# Making sure minikube isn't still up from a previous run...
 	@if minikube ip 2>/dev/null || sudo minikube ip 2>/dev/null; \
 	then \
@@ -344,15 +335,6 @@ launch-dev-vm: check-kubectl
 # version of pachd associated with the current pachctl (useful if you want to start a VM with a
 # point-release version of pachd, instead of whatever's in the current branch)
 launch-release-vm:
-	@# Make sure the caller sets address to avoid confusion later
-	@if [ -z "${PACHD_ADDRESS}" ]; then \
-		$$( which echo ) -e "Must set PACHD_ADDRESS\nRun:\nexport PACHD_ADDRESS=192.168.99.100:30650"; \
-	  exit 1; \
-	fi
-	@if [ -n "${PACH_CA_CERTS}" ]; then \
-		$$( which echo ) -e "Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS"; \
-	  exit 1; \
-	fi
 	# Making sure minikube isn't still up from a previous run...
 	@if minikube ip 2>/dev/null || sudo minikube ip 2>/dev/null; \
 	then \
