@@ -170,7 +170,8 @@ func (c *Config) write() error {
 	}
 	err = ioutil.WriteFile(p, rawConfig, 0644)
 	if err == nil {
-		value = c // essentially short-cuts reading the new config back from disk
+		// essentially short-cuts reading the new config back from disk
+		value = proto.Clone(c).(*Config)
 	}
 	return err
 }
