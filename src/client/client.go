@@ -262,6 +262,8 @@ func WithAdditionalPachdCert() Option {
 func getCertOptionsFromEnv() ([]Option, error) {
 	var options []Option
 	if certPaths, ok := os.LookupEnv("PACH_CA_CERTS"); ok {
+		fmt.Fprintln(os.Stderr, "WARNING: 'PACH_CA_CERTS' is deprecated and will be removed in a future release, use Pachyderm contexts instead.")
+
 		if pachdAddress, ok := os.LookupEnv("PACHD_ADDRESS"); !ok || !strings.HasPrefix(pachdAddress, grpcs) {
 			return nil, fmt.Errorf("cannot set PACH_CA_CERTS without setting PACHD_ADDRESS to %s... ", grpcs)
 		}
@@ -299,6 +301,8 @@ func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error
 
 	// 1) PACHD_ADDRESS environment variable (shell-local) overrides global config
 	if envAddr, ok := os.LookupEnv("PACHD_ADDRESS"); ok {
+		fmt.Fprintln(os.Stderr, "WARNING: 'PACHD_ADDRESS' is deprecated and will be removed in a future release, use Pachyderm contexts instead.")
+
 		if strings.HasPrefix(envAddr, grpcs) {
 			options = append(options, WithSystemCAs)
 			envAddr = strings.TrimPrefix(envAddr, grpcs)
