@@ -121,14 +121,24 @@ tls_opts=(
 # Generate self-signed cert
 openssl req "${tls_opts[@]}" -config <(echo "${tls_config}")
 
-# Copy pachd public key to pachyderm config
+# Print instructions for using new cert and key
 host="${dns}"
 if [[ -n "${ip}" ]]; then
   host="${ip}"
 fi
-echo "Backing up Pachyderm config to \$HOME/.pachyderm/config.json.backup"
-echo "New config with address and cert is at \$HOME/.pachyderm/config.json"
-cp ~/.pachyderm/config.json ~/.pachyderm/config.json.backup
-pachctl config update context \
-  --pachd-address="grpcs://${host}:${port}" \
-  --server-cas="$(cat ./pachd.pem | base64)"
+echo "New cert and key are in '${output_prefix}.pem' and '${output_prefix}.key'"
+echo "Deploy pachd to present the new self-signed cert and key by running:"
+echo ""
+echo "  pachctl undeploy # remove any existing cluster"
+echo "  pachctl deploy <destination> --tls=\"${output_prefix}.pem,${output_prefix}.key\""
+echo ""
+echo "Configure pachctl to trust the new self-signed cert by running:"
+echo ""
+echo "  export PACHD_ADDRESS=\"grpcs://${host}:${port}\""
+echo "  export PACH_CA_CERTS=${output_prefix}.pem"
+echo ""
+echo "--- OR ---"
+echo ""
+echo "  pachctl config update context \\"
+echo "    --pachd-address=\"grpcs://${host}:${port}\" \\"
+echo "    --server-cas=\"\$(cat ./${output_prefix}.pem | base64)\""

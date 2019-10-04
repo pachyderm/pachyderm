@@ -10,10 +10,30 @@ set -x
 
 # Split PACHD_ADDRESS into host and port
 IFS=: read -a addr_parts <<<"${PACHD_ADDRESS:-0.0.0.0:30650}"
-unset PACHD_ADDRESS # use config value set by gen_pachd_tls.sh
+host="${addr_parts[0]}"
+port="${addr_parts[1]}"
 
-# Generate certs and store a new address and trusted CA in the pachyderm config
-etc/deploy/gen_pachd_tls.sh --ip="${addr_parts[0]}" --port="${addr_parts[1]}"
+# Validate the host (that it doesn't start with a protocol)
+if [[ "${host}" =~ :// ]]; then
+  echo "${PACHD_ADDRESS} should not start with <protocol>://" >/dev/stderr
+  exit 1
+fi
+
+# Generate self-signed cert and private key
+if [[ "${host}" =~ [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+  etc/deploy/gen_pachd_tls.sh --ip="${host}" --port="${port}"
+else
+  etc/deploy/gen_pachd_tls.sh --dns="${host}" --port="${port}"
+fi
+
+# Use new cert in pachctl
+unset PACHD_ADDRESS # use config value set by gen_pachd_tls.sh
+echo "Backing up Pachyderm config to \$HOME/.pachyderm/config.json.backup"
+echo "New config with address and cert is at \$HOME/.pachyderm/config.json"
+cp ~/.pachyderm/config.json ~/.pachyderm/config.json.backup
+pachctl config update context \
+  --pachd-address="grpcs://${host}:${port}" \
+  --server-cas="$(cat ./pachd.pem | base64)"
 
 # Restart pachyderm with the given certs
 etc/deploy/restart_with_tls.sh --key=${PWD}/pachd.key --cert=${PWD}/pachd.pem

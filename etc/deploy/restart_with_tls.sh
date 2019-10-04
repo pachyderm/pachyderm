@@ -21,17 +21,13 @@ done
 # Turn down old pachd deployment, so that new (TLS-enabled) pachd doesn't try to connect to old, non-TLS pods
 # I'm not sure why this is necessary -- pachd should communicate with itself via an unencrypted, internal port
 # Empirically, though, the new pachd pod crashloops if I don't do this (2018/6/22)
-kubectl get deploy/pachd -o json | jq '.spec.replicas = 0' | kubectl apply -f -
+pachctl undeploy
 
 # Re-deploy pachd with new mount containing TLS key
 pachctl deploy local -d --tls="${PACH_CA_CERTS},${PACH_TLS_KEY}" --dry-run | kubectl apply -f -
 
-echo "######################################"
-echo -e "Update your Pachyderm config or run:\nexport PACH_CA_CERTS=${PACH_CA_CERTS}\nto talk to the new tls-enabled pachd cluster"
-echo "######################################"
+
 # Wait for new pachd pod to start
-
-
 echo "Waiting for old pachd to go down..."
 WHEEL='\|/-'
 retries=5
@@ -51,11 +47,3 @@ until pachctl version &>/dev/null || (( retries-- == 0 )); do
   sleep 3
 done
 echo
-
-# Delete old replicasets with no replicas (which kubernetes doesn't for some reason)
-set -x
-old_rses=( $(kubectl get rs -l app=pachd,suite=pachyderm -o json | jq -r '.items[] | select(.spec.replicas == 0) | .metadata.name') )
-echo "old replicasets: ${old_rs[@]}"
-for rs in "${old_rses[@]}"; do
-  kubectl delete "rs/${rs}"
-done
