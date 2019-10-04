@@ -44,8 +44,6 @@ deploy:
   all_branches: true
   on:
     repo: pachyderm/pachyderm
-after_success:
-- etc/testing/travis_after_success.sh
 after_failure:
 - kubectl version
 - kubectl get all
