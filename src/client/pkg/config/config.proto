@@ -28,9 +28,7 @@ message Config {
 // DO NOT change or remove field numbers from this proto, as if you do, v1 user
 // configs will become unparseable.
 message ConfigV1 {
-    // A host:port pointing pachd at a pachyderm cluster. Similar to the
-    // PACHD_ADDRESS environment variable, though PACHD_ADDRESS overrides
-    // this.
+    // A host:port pointing pachd at a pachyderm cluster.
     string pachd_address = 2;
 
     // Trusted root certificates (overrides installed certificates), formatted
