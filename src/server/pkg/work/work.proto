@@ -7,8 +7,8 @@ option go_package = "github.com/pachyderm/pachyderm/src/server/pkg/work";
 
 enum State {
   RUNNING = 0;
-  COMPLETE = 1;
-  FAILED = 2;
+  SUCCESS = 1;
+  FAILURE = 2;
 }
 
 message Work {

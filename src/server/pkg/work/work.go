@@ -69,10 +69,10 @@ func (m *Master) Run(ctx context.Context, work *Work) (retErr error) {
 		return err
 	}
 	defer func() {
-		workInfo.State = State_COMPLETE
+		workInfo.State = State_SUCCESS
 		// (bryce) might also want a killed state.
 		if retErr != nil {
-			workInfo.State = State_FAILED
+			workInfo.State = State_FAILURE
 		}
 		if err := m.updateWorkInfo(ctx, workInfo); err != nil && retErr != nil {
 			retErr = err
@@ -99,7 +99,7 @@ func (m *Master) Run(ctx context.Context, work *Work) (retErr error) {
 				return nil
 			}
 			// (bryce) need to figure out error propagation if shard fails.
-			// if shardInfo.State == State_FAILED {}
+			// if shardInfo.State == State_FAILURE {}
 			if err := m.collectFunc(ctx, shardInfo.Shard); err != nil {
 				return err
 			}
@@ -220,7 +220,7 @@ func (w *Worker) processShards(ctx context.Context, work *Work) error {
 				return err
 			}
 			shardInfo.Shard = shard
-			shardInfo.State = State_COMPLETE
+			shardInfo.State = State_SUCCESS
 			_, err := col.NewSTM(ctx, w.etcdClient, func(stm col.STM) error {
 				return w.shardCol.ReadWrite(stm).Put(shardKey, shardInfo)
 			})
