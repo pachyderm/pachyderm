@@ -41,6 +41,7 @@ script:
 deploy:
   provider: script
   script: bash etc/deploy/travis_deploy.sh
+  all_branches: true
   on:
     repo: pachyderm/pachyderm
 after_success:
