@@ -194,7 +194,7 @@ func Cmds() []*cobra.Command {
 	var updateContext *cobra.Command // standalone declaration so Run() can refer
 	updateContext = &cobra.Command{
 		Short: "Updates a context.",
-		Long: "Updates an existing context config from a given name, or the " +
+		Long: "Updates an existing context config from a given name (or the " +
 			"currently-active context, if no name is given).",
 		Use: "context [context]",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
