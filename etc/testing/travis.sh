@@ -95,6 +95,7 @@ case "${BUCKET}" in
         make test-pfs-storage
         make test-cmds
         make test-libs
+        make test-tls
         make test-vault
         make test-enterprise
         make test-worker
@@ -109,6 +110,7 @@ case "${BUCKET}" in
         make test-pfs-storage
         make test-cmds
         make test-libs
+        make test-tls
     fi
     ;;
  ADMIN)
