@@ -38,6 +38,11 @@ before_script:
 - docker version
 script:
 - etc/testing/travis.sh
+deploy:
+  provider: script
+  script: bash etc/deploy/travis_deploy.sh
+  on:
+    repo: pachyderm/pachyderm
 after_success:
 - etc/testing/travis_after_success.sh
 after_failure:
