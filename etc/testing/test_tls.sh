@@ -2,12 +2,6 @@
 
 set -euo pipefail
 
-pachctl version
-# Don't log our activation code when running this script in Travis
-pachctl enterprise activate "$(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -)" && echo
-
-set -x
-
 # Split PACHD_ADDRESS into host and port
 IFS=: read -a addr_parts <<<"${PACHD_ADDRESS:-0.0.0.0:30650}"
 host="${addr_parts[0]}"
@@ -26,6 +20,9 @@ else
   etc/deploy/gen_pachd_tls.sh --dns="${host}" --port="${port}"
 fi
 
+# Restart pachyderm with the given certs
+etc/deploy/restart_with_tls.sh --key=${PWD}/pachd.key --cert=${PWD}/pachd.pem
+
 # Use new cert in pachctl
 unset PACHD_ADDRESS # use config value set by gen_pachd_tls.sh
 echo "Backing up Pachyderm config to \$HOME/.pachyderm/config.json.backup"
@@ -35,8 +32,10 @@ pachctl config update context \
   --pachd-address="grpcs://${host}:${port}" \
   --server-cas="$(cat ./pachd.pem | base64)"
 
-# Restart pachyderm with the given certs
-etc/deploy/restart_with_tls.sh --key=${PWD}/pachd.key --cert=${PWD}/pachd.pem
+set +x
+# Don't log our activation code when running this script in Travis
+pachctl enterprise activate "$(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -)" && echo
+set -x
 
 # Make sure the pachyderm client can connect, write data, and create pipelines
 go test -v ./src/server -run TestPipelineWithParallelism
@@ -50,4 +49,5 @@ pachctl auth whoami | grep -q admin # will fail if pachctl can't connect
 echo yes | pachctl auth deactivate
 
 # Undeploy TLS
+yes | pachctl undeploy || true
 pachctl deploy local -d

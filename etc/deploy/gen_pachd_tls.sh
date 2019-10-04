@@ -1,16 +1,6 @@
 #!/bin/bash
 # This script generates a self-signed TLS cert to be used by pachd in tests
 
-if [[ -n "${PACHD_ADDRESS}" ]]; then
-  echo "must run 'unset PACHD_ADDRESS' to use this script's cert. These" >/dev/fd/2
-  echo "variables prevent pachctl from trusting the cert that this script" >/dev/fd/2
-  echo "generates" >/dev/fd/2
-  exit 1
-else
-  echo "Note that \$PACHD_ADDRESS prevents pachctl from trusting the cert that"
-  echo "this script generates--do not set it"
-fi
-
 eval "set -- $( getopt -l "dns:,ip:,port:" -o "o:" "--" "${0}" "${@:-}" )"
 output_prefix=pachd
 while true; do
@@ -139,6 +129,8 @@ echo "  export PACH_CA_CERTS=${output_prefix}.pem"
 echo ""
 echo "--- OR ---"
 echo ""
+echo "  unset PACHD_ADDRESS # tell pachctl to use config for address and cert"
 echo "  pachctl config update context \\"
 echo "    --pachd-address=\"grpcs://${host}:${port}\" \\"
 echo "    --server-cas=\"\$(cat ./${output_prefix}.pem | base64)\""
+echo ""
