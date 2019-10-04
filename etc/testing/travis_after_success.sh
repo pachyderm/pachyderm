@@ -2,7 +2,7 @@
 
 set -ex
 
-if [[ "$TRAVIS_PULL_REQUEST" = "true" && "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
+if [[ "$TRAVIS_PULL_REQUEST" != "false" && "$TRAVIS_SECURE_ENV_VARS" == "true" && "$BUCKET" == "admin" ]]; then
     if [[ -z "${DOCKER_USERNAME}" || -z "${DOCKER_PASSWORD}" ]]; then
         echo 'the docker login-related environment variables ($DOCKER_USERNAME and $DOCKER_PASSWORD) were not found; skipping push.'
         exit 0
