@@ -122,7 +122,13 @@ tls_opts=(
 openssl req "${tls_opts[@]}" -config <(echo "${tls_config}")
 
 # Copy pachd public key to pachyderm config
+host="${dns}"
+if [[ -n "${ip}" ]]; then
+  host="${ip}"
+fi
 echo "Backing up Pachyderm config to \$HOME/.pachyderm/config.json.backup"
 echo "New config with address and cert is at \$HOME/.pachyderm/config.json"
 cp ~/.pachyderm/config.json ~/.pachyderm/config.json.backup
-jq ".v1.pachd_address = \"${dns:-$ip}:${port}\" | .v1.server_cas = \"$(cat ./pachd.pem | base64)\"" ~/.pachyderm/config.json.backup >~/.pachyderm/config.json
+pachctl config update context \
+  --pachd-address="grpcs://${host}:${port}" \
+  --server-cas="$(cat ./pachd.pem | base64)"

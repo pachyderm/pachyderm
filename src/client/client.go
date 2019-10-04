@@ -371,8 +371,17 @@ func portForwarder() *PortForwarder {
 
 // NewForTest constructs a new APIClient for tests.
 func NewForTest() (*APIClient, error) {
+	cfg, err := config.Read()
+	if err != nil {
+		return nil, fmt.Errorf("could not read config: %v", err)
+	}
+	_, context, err := cfg.ActiveContext()
+	if err != nil {
+		return nil, fmt.Errorf("could not get active context: %v", err)
+	}
+
 	// create new pachctl client
-	addr, cfgOptions, err := getUserMachineAddrAndOpts(nil)
+	addr, cfgOptions, err := getUserMachineAddrAndOpts(context)
 	if err != nil {
 		return nil, err
 	}

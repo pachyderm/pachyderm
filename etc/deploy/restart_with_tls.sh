@@ -27,13 +27,13 @@ kubectl get deploy/pachd -o json | jq '.spec.replicas = 0' | kubectl apply -f -
 pachctl deploy local -d --tls="${PACH_CA_CERTS},${PACH_TLS_KEY}" --dry-run | kubectl apply -f -
 
 echo "######################################"
-echo -e "Run:\nexport PACH_CA_CERTS=${PACH_CA_CERTS}\nto talk to the new tls-enabled pachd cluster"
+echo -e "Update your Pachyderm config or run:\nexport PACH_CA_CERTS=${PACH_CA_CERTS}\nto talk to the new tls-enabled pachd cluster"
 echo "######################################"
 # Wait for new pachd pod to start
 
 
 echo "Waiting for old pachd to go down..."
-WHEEL="\|/-"
+WHEEL='\|/-'
 retries=5
 while pachctl version &>/dev/null && (( retries-- > 0 )); do
   echo -en "\e[G${WHEEL::1} (retries: ${retries})"
@@ -42,19 +42,20 @@ while pachctl version &>/dev/null && (( retries-- > 0 )); do
 done
 echo
 
+# Wait one minute for pachd to come up
 echo "Waiting for new pachd to come up..."
-retries=10
+retries=20
 until pachctl version &>/dev/null || (( retries-- == 0 )); do
   echo -en "\e[G${WHEEL::1} (retries: ${retries})"
   WHEEL="${WHEEL:1}${WHEEL::1}"
-  sleep 1
+  sleep 3
 done
 echo
 
-# Delete old replicaset with no replicas (which kubernetes doesn't for some reason)
+# Delete old replicasets with no replicas (which kubernetes doesn't for some reason)
 set -x
-old_rs=$(kubectl get rs -l app=pachd,suite=pachyderm -o json | jq -r '.items[] | select(.spec.replicas == 0) | .metadata.name')
-echo "old replicaset: ${old_rs}"
-if [[ -n "${old_rs}" ]]; then
-  kubectl delete rs/${old_rs}
-fi
+old_rses=( $(kubectl get rs -l app=pachd,suite=pachyderm -o json | jq -r '.items[] | select(.spec.replicas == 0) | .metadata.name') )
+echo "old replicasets: ${old_rs[@]}"
+for rs in "${old_rses[@]}"; do
+  kubectl delete "rs/${rs}"
+done

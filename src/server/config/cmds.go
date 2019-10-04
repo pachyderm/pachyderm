@@ -189,35 +189,54 @@ func Cmds() []*cobra.Command {
 	var pachdAddress string
 	var clusterName string
 	var authInfo string
+	var serverCAs string
 	var namespace string
-	updateContext := &cobra.Command{
+	var updateContext *cobra.Command // standalone declaration so Run() can refer
+	updateContext = &cobra.Command{
 		Short: "Updates a context.",
-		Long:  "Updates an existing context config from a given name.",
-		Run: cmdutil.RunCmdFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
+		Long: "Updates an existing context config from a given name, or the " +
+			"currently-active context, if no name is given).",
+		Use: "context [context]",
+		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
 			cfg, err := config.Read()
 			if err != nil {
 				return err
 			}
 
-			context, ok := cfg.V2.Contexts[args[0]]
-			if !ok {
-				return fmt.Errorf("context does not exist: %s", args[0])
+			var context *config.Context
+			if len(args) > 0 {
+				var ok bool
+				context, ok = cfg.V2.Contexts[args[0]]
+				if !ok {
+					return fmt.Errorf("context does not exist: %s", args[0])
+				}
+			} else {
+				var name string
+				var err error
+				name, context, err = cfg.ActiveContext()
+				if err != nil {
+					return err
+				}
+				fmt.Printf("editing the currently active context %q\n", name)
 			}
 
 			// Use this method since we want to differentiate between no
 			// flag being set (the value shouldn't be changed) vs the flag
 			// being an empty string (meaning we want to set the value to an
 			// empty string)
-			if cmd.Flags().Changed("pachd-address") {
+			if updateContext.Flags().Changed("pachd-address") {
 				context.PachdAddress = pachdAddress
 			}
-			if cmd.Flags().Changed("cluster-name") {
+			if updateContext.Flags().Changed("cluster-name") {
 				context.ClusterName = clusterName
 			}
-			if cmd.Flags().Changed("auth-info") {
+			if updateContext.Flags().Changed("auth-info") {
 				context.AuthInfo = authInfo
 			}
-			if cmd.Flags().Changed("namespace") {
+			if updateContext.Flags().Changed("server-cas") {
+				context.ServerCAs = serverCAs
+			}
+			if updateContext.Flags().Changed("namespace") {
 				context.Namespace = namespace
 			}
 
@@ -226,7 +245,8 @@ func Cmds() []*cobra.Command {
 	}
 	updateContext.Flags().StringVar(&pachdAddress, "pachd-address", "", "Set a new name pachd address.")
 	updateContext.Flags().StringVar(&clusterName, "cluster-name", "", "Set a new cluster name.")
-	updateContext.Flags().StringVar(&authInfo, "auth-info", "", "Set a new auth info.")
+	updateContext.Flags().StringVar(&authInfo, "auth-info", "", "Set a new k8s auth info.")
+	updateContext.Flags().StringVar(&serverCAs, "server-cas", "", "Set new trusted CA certs")
 	updateContext.Flags().StringVar(&namespace, "namespace", "", "Set a new namespace.")
 	commands = append(commands, cmdutil.CreateAlias(updateContext, "config update context"))
 

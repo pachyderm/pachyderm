@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/golang/protobuf/proto"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -17,7 +18,7 @@ const contextEnvVar = "PACH_CONTEXT"
 var defaultConfigDir = filepath.Join(os.Getenv("HOME"), ".pachyderm")
 var defaultConfigPath = filepath.Join(defaultConfigDir, "config.json")
 
-var readerOnce sync.Once
+var configMu sync.Mutex
 var value *Config
 var readErr error
 
@@ -30,16 +31,23 @@ func configPath() string {
 
 // ActiveContext gets the active context in the config
 func (c *Config) ActiveContext() (string, *Context, error) {
-	if env, ok := os.LookupEnv(contextEnvVar); ok {
-		context := c.V2.Contexts[env]
+	if c.V2 == nil {
+		return "", nil, fmt.Errorf("cannot get active context from non-v2 config")
+	}
+	if envContext, ok := os.LookupEnv(contextEnvVar); ok {
+		context := c.V2.Contexts[envContext]
 		if context == nil {
-			return "", nil, fmt.Errorf("`%s` refers to a context that does not exist", contextEnvVar)
+			return "", nil, fmt.Errorf("`%s` refers to a context (%q) that does not exist", contextEnvVar, envContext)
 		}
-		return env, context, nil
+		return envContext, context, nil
 	}
 	context := c.V2.Contexts[c.V2.ActiveContext]
 	if context == nil {
-		return "", nil, fmt.Errorf("the active context references one that does exist; set the active context first like so: pachctl config set active-context [value]")
+		return "", nil, fmt.Errorf("pachctl config error: pachctl's active "+
+			"context is %q, but no context named %q has been configured.\n\nYou can fix "+
+			"your config by setting the active context like so: pachctl config set "+
+			"active-context <context>",
+			c.V2.ActiveContext, c.V2.ActiveContext)
 	}
 	return c.V2.ActiveContext, context, nil
 }
@@ -48,22 +56,23 @@ func (c *Config) ActiveContext() (string, *Context, error) {
 // If an existing configuration cannot be found, it sets up the defaults. Read
 // returns a nil Config if and only if it returns a non-nil error.
 func Read() (*Config, error) {
-	readerOnce.Do(func() {
+	configMu.Lock()
+	defer configMu.Unlock()
+
+	if value == nil {
 		// Read json file
 		p := configPath()
 		if raw, err := ioutil.ReadFile(p); err == nil {
 			err = json.Unmarshal(raw, &value)
 			if err != nil {
-				readErr = err
-				return
+				return nil, err
 			}
 		} else if os.IsNotExist(err) {
 			// File doesn't exist, so create a new config
 			fmt.Fprintf(os.Stderr, "No config detected at %q. Generating new config...\n", p)
 			value = &Config{}
 		} else {
-			readErr = fmt.Errorf("fatal: could not read config at %q: %v", p, err)
-			return
+			return nil, fmt.Errorf("fatal: could not read config at %q: %v", p, err)
 		}
 
 		updated := false
@@ -79,22 +88,20 @@ func Read() (*Config, error) {
 			updated = true
 			fmt.Fprintln(os.Stderr, "No config V2 present in config - generating a new one.")
 			if err := value.initV2(); err != nil {
-				readErr = err
-				return
+				return nil, err
 			}
 		}
 
 		if updated {
 			fmt.Fprintf(os.Stderr, "Rewriting config at %q.\n", p)
 
-			if err := value.Write(); err != nil {
-				readErr = fmt.Errorf("could not rewrite config at %q: %v", p, err)
-				return
+			if err := value.write(); err != nil {
+				return nil, fmt.Errorf("could not rewrite config at %q: %v", p, err)
 			}
 		}
-	})
+	}
 
-	return value, readErr
+	return proto.Clone(value).(*Config), nil
 }
 
 func (c *Config) initV2() error {
@@ -125,6 +132,15 @@ func (c *Config) initV2() error {
 // Write writes the configuration in 'c' to this machine's Pachyderm config
 // file.
 func (c *Config) Write() error {
+	configMu.Lock()
+	defer configMu.Unlock()
+	return c.write()
+}
+
+// write() is a helper for Write() that assumes the caller has already locked
+// configMu. Because Go mutexes are not reentrant, this is safe to call from
+// inside Read()
+func (c *Config) write() error {
 	if c.V1 != nil {
 		panic("config V1 included (this is a bug)")
 	}
@@ -134,10 +150,13 @@ func (c *Config) Write() error {
 		return err
 	}
 
-	// If we're not using a custom config path, create the default config path
 	p := configPath()
+	// Because we're writing the config back to disk, we'll also need to make sure
+	// that the directory we're writing the config into exists. The approach we
+	// use for doing this depends on whether PACH_CONFIG is set.
 	if _, ok := os.LookupEnv(configEnvVar); ok {
-		// using overridden config path -- just make sure the parent dir exists
+		// using overridden config path: check that the parent dir exists, but don't
+		// create any new directories
 		d := filepath.Dir(p)
 		if _, err := os.Stat(d); err != nil {
 			return fmt.Errorf("cannot use config at %s: could not stat parent directory (%v)", p, err)
@@ -149,5 +168,9 @@ func (c *Config) Write() error {
 			return err
 		}
 	}
-	return ioutil.WriteFile(p, rawConfig, 0644)
+	err = ioutil.WriteFile(p, rawConfig, 0644)
+	if err == nil {
+		value = c // essentially short-cuts reading the new config back from disk
+	}
+	return err
 }
