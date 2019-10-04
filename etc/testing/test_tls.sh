@@ -9,7 +9,7 @@ pachctl enterprise activate "$(aws s3 cp s3://pachyderm-engineering/test_enterpr
 set -x
 
 # Split PACHD_ADDRESS into host and port
-IFS=: read -a addr_parts <<<"${PACHD_ADDRESS}"
+IFS=: read -a addr_parts <<<"${PACHD_ADDRESS:-0.0.0.0:30650}"
 unset PACHD_ADDRESS # use config value set by gen_pachd_tls.sh
 
 # Generate certs and store a new address and trusted CA in the pachyderm config

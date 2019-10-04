@@ -336,7 +336,7 @@ func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error
 	}
 
 	// 3) Use default address (broadcast) if nothing else works
-	options, err := getCertOptionsFromEnv()
+	options, err := getCertOptionsFromEnv() // error if PACH_CA_CERTS is set
 	if err != nil {
 		return "", nil, err
 	}
