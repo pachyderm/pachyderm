@@ -246,7 +246,7 @@ func Cmds() []*cobra.Command {
 	updateContext.Flags().StringVar(&pachdAddress, "pachd-address", "", "Set a new name pachd address.")
 	updateContext.Flags().StringVar(&clusterName, "cluster-name", "", "Set a new cluster name.")
 	updateContext.Flags().StringVar(&authInfo, "auth-info", "", "Set a new k8s auth info.")
-	updateContext.Flags().StringVar(&serverCAs, "server-cas", "", "Set new trusted CA certs")
+	updateContext.Flags().StringVar(&serverCAs, "server-cas", "", "Set new trusted CA certs.")
 	updateContext.Flags().StringVar(&namespace, "namespace", "", "Set a new namespace.")
 	commands = append(commands, cmdutil.CreateAlias(updateContext, "config update context"))
 
