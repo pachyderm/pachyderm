@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/docker/go-units"
+	"github.com/fatih/color"
 	"github.com/gogo/protobuf/types"
 )
 
@@ -43,4 +44,21 @@ func Duration(d *types.Duration) string {
 // Size pretty-prints size amount of bytes as a human readable string.
 func Size(size uint64) string {
 	return units.BytesSize(float64(size))
+}
+
+// Progress pretty prints a progress bar with given width and green, yellow and red segments.
+func ProgressBar(width, green, yellow, red int) string {
+	total := green + yellow + red
+	var sb strings.Builder
+	for i := 0; i < width; i++ {
+		switch {
+		case i*total < green*width:
+			sb.WriteString(color.GreenString("█"))
+		case i*total < (green+yellow)*width:
+			sb.WriteString(color.YellowString("█"))
+		default:
+			sb.WriteString(color.RedString("█"))
+		}
+	}
+	return sb.String()
 }
