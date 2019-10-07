@@ -17,6 +17,19 @@ not mentioned here, we'd love to hear from you either on
 [Users Slack channel](http://slack.pachyderm.io/), or by
 email at support@pachyderm.io.
 
+<div class="mdc-components">
+  <div class="mdc-components__section">
+    <div class="mdc-components__column">
+      <div>
+        <div class="mdc-component mdc-component__buttons">
+            <button type="button" class="mdc-button mdc-button--raised">
+                <a href="http://slack.pachyderm.io/">Join Pachyderm Slack</a>
+            </button>
+        </div>
+     <div>
+<div>
+
+
 <div class="row">
   <div class="column">
     <div class="card-square mdl-card mdl-shadow--2dp">
@@ -44,7 +57,7 @@ email at support@pachyderm.io.
   <div class="column">
     <div class="card-square mdl-card mdl-shadow--2dp">
       <div class="mdl-card__title mdl-card--expand">
-        <h4 class="mdl-card__title-text">Deploy and Manage &nbsp;&nbsp;&nbsp;<i class="fas fa-rocket"></i></h4>
+        <h4 class="mdl-card__title-text">Deploy and Manage &nbsp;&nbsp;&nbsp;<i class="fas fa-cog"></i></h4>
       </div>
       <div class="mdl-card__supporting-text">
         Deploy Pachyderm on a cloud platform of your choice
