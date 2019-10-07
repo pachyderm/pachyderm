@@ -36,7 +36,7 @@ sources that you want to merge.
 !!! tip
     If your data is not split into separate files for
     each record, you can split it automatically as described in
-    [Splitting Data for Distributed Processing](splitting.md).
+    [Splitting Data for Distributed Processing](splitting-data/splitting.md).
 
 ## Group Matching Records
 

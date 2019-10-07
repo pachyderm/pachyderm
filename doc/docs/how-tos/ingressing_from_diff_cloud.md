@@ -64,6 +64,6 @@ the following steps:
    ```
 
 !!! note "See also:"
-    - [Custom Object Store](../deploy-manage/deployment/custom_object_stores.md)
-    - [Create a Custom Pachyderm Deployment](../deploy-manage/deployment/deploy_custom/index.md)
+    - [Custom Object Store](../deploy-manage/deploy/custom_object_stores.md)
+    - [Create a Custom Pachyderm Deployment](../deploy-manage/deploy/deploy_custom/index.md)
     - [Pipeline Specification](../reference/pipeline_spec.md)

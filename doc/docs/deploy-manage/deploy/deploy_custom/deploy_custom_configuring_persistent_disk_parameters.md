@@ -1,7 +1,7 @@
 # Configuring Persistent Disk Parameters
 
 Before reading this section, complete the steps in [Before You
-Begin](./deploy_custom_before_you_begin.html).
+Begin](./deploy_custom_before_you_begin.md).
 
 To create a custom deployment, you need to configure
 persistent storage that Pachyderm will use to store metadata.
@@ -28,7 +28,7 @@ the following flags you define:
 
 * `--dynamic-etcd-nodes`. The `--dynamic-etcd-nodes` flag is
 used when your Kubernetes installation is configured to use
-[StatefulSets](../on_premises.html#statefulsets).
+[StatefulSets](../on_premises#statefulsets).
 Many Kubernetes deployments use StatefulSets as a reliable solution that
 ensures the persistence of pod storage. Your on-premises
 Kubernetes installation might also be configured to use StatefulSets.
@@ -85,4 +85,4 @@ in gigabytes (GB), that Pachyderm requests for the `etcd` disk.
 A good value for most deployments is 10.
 
 After completing the steps described in this section, proceed to
-[Configuring Object Store](./deploy_custom_configuring_object_store.html).
+[Configuring Object Store](./deploy_custom_configuring_object_store.md).

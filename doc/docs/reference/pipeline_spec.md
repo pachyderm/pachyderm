@@ -2,7 +2,7 @@
 
 This document discusses each of the fields present in a pipeline specification.
 To see how to use a pipeline spec to create a pipeline, refer to the [pachctl
-create pipeline](../pachctl/pachctl_create_pipeline.html) doc.
+create pipeline](pachctl/pachctl_create_pipeline.md) section.
 
 ## JSON Manifest Format
 
@@ -600,7 +600,7 @@ store such as s3, Google Cloud Storage or Azure Storage. Data will be pushed
 after the user code has finished running but before the job is marked as
 successful.
 
-For more information, see [Exporting Data by using egress](../fundamentals/getting_data_out_of_pachyderm.html#exporting-data-by-using-egress)
+For more information, see [Exporting Data by using egress](../how-tos/export-data-out-pachyderm#exporting-data-by-using-egress)
 
 ### Standby (optional)
 
@@ -664,7 +664,7 @@ specifying it as a field in the `spout` spec. Then, Kubernetes creates
 a service endpoint that you can expose externally. You can get the information
 about the service by running `kubectl get services`.
 
-For more information, see [Spouts](../fundamentals/spouts.html).
+For more information, see [Spouts](../concepts/pipeline-concepts/spout.md).
 
 ### Max Queue Size (optional)
 `max_queue_size` specifies that maximum number of datums that a worker should
@@ -731,7 +731,7 @@ formatted patch by diffing the two pod specs.
 
 ## The Input Glob Pattern
 
-Each PFS input needs to specify a [glob pattern](../fundamentals/distributed_computing.html).
+Each PFS input needs to specify a [glob pattern](../concepts/pipeline-concepts/distributed_computing.md).
 
 Pachyderm uses the glob pattern to determine how many "datums" an input
 consists of.  Datums are the unit of parallelism in Pachyderm.  That is,

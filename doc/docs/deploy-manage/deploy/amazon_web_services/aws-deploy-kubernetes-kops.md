@@ -14,7 +14,7 @@ Before you can deploy Pachyderm on Amazon AWS with
 - Install [AWS CLI](https://aws.amazon.com/cli/)
 - Install [kubectl](https://kubernetes.io/docs/user-guide/prereqs/)
 - Install [kops](https://github.com/kubernetes/kops/blob/master/docs/install.md)
-- Install [pachctl](../../getting_started/local_installation.md#pachctl)
+- Install [pachctl](../../../getting_started/local_installation.md#pachctl)
 - Install [jq](https://stedolan.github.io/jq/download/)
 - Install [uuid](http://man7.org/linux/man-pages/man1/uuidgen.1.html)
 

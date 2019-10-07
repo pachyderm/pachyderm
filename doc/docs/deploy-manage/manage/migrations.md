@@ -52,14 +52,14 @@ the data structures stored in those locations need to be read, transformed, and 
 *You must perform a migration to move between major releases*,
 such as 1.8.7 to 1.9.0.
 
-Whether you're doing an upgrade or migration, it is recommended you [backup Pachyderm](./backup_restore.html#general-backup-procedure) prior. 
-That will guarantee you can restore your cluster to its previous, good state. 
+Whether you're doing an upgrade or migration, it is recommended you [backup Pachyderm](./backup_restore#general-backup-procedure) prior.
+That will guarantee you can restore your cluster to its previous, good state.
 
 ## Note about 1.7 to 1.8 migrations
 
 In Pachyderm 1.8,
-we rearchitected core parts of the platform to [improve speed and scalability](http://www.pachyderm.io/2018/11/15/performance-improvements.html). 
-Migrating from 1.7.x to 1.8.x using the procedure below can a fairly lengthy process. 
+we rearchitected core parts of the platform to [improve speed and scalability](http://www.pachyderm.io/2018/11/15/performance-improvements.html).
+Migrating from 1.7.x to 1.8.x using the procedure below can a fairly lengthy process.
 If your requirements fit, it may be easier to create a new 1.8 or greater cluster and reload your latest source data into your input repositories.
 
 You may wish to keep your original 1.7 cluster around in a suspended state, reactivating it in case you need access to that provenance data.
