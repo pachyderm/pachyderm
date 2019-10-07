@@ -131,6 +131,16 @@ To connect to your cluster, complete the following steps:
       These commands create  a new Pachyderm context with your cluster
       details on your machine.
 
+      **Note:** If you get the following error, that means that your authentication
+      token has expired:
+
+      ```bash
+      error authenticating with Pachyderm cluster: /pachyderm_auth/auth-codes/ e14ccfafb35d4768f4a73b2dc9238b365492b88e98b76929d82ef0c6079e0027 not found
+      ```
+
+      To get a new token, refresh the page. Then, use
+      the new token to authenticate.
+
    1. Verify that you have set the correct context:
 
       ```bash
