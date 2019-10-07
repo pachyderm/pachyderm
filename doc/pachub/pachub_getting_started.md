@@ -166,6 +166,9 @@ To connect to your cluster, complete the following steps:
    1. Go to the dashboard and verify that you can see the repo in the
       dashboard:
 
+      1. In the Pachyderm Hub UI, click **Dashboard** next to your cluster.
+      The dashboard opens in a new window.
+
       ![repo_ready](../images/s_pachub_ready.png)
 
 ## Next Steps
