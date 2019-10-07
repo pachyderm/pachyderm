@@ -1,10 +1,18 @@
 # Join
 
-A join is a special type of pipeline input that enables you to combine files that reside in separate Pachyderm repositories and match a particular naming pattern. The join operator must be used in combination with a glob pattern that reflects a specific naming convention.
+A join is a special type of pipeline input that enables you to combine
+files that reside in separate Pachyderm repositories and match a
+particular naming pattern. The join operator must be used in combination
+with a glob pattern that reflects a specific naming convention.
 
-By analogy, a Pachyderm join is similar to a database equi-join (aka: inner left join) operation, but it's matching on file paths only, not the contents of the files.
+By analogy, a Pachyderm join is similar to a database *equi-join*,
+or *inner left join* operation, but it matches on file paths
+only, not the contents of the files.
 
-Unlike `cross` (LINK) which creates datums from every combination of files in each input repository, joins will only create datums where there is a "match". This can be incredibly useful for combining data from different repositories or ensuring that only specific files from each repo are processed together.
+Unlike the [cross input](cross-input.md) which creates datums from every
+combination of files in each input repository, joins only create datums
+where there is a *match*. This can be incredibly useful for combining
+data from different repositories or ensuring that only specific files from each repo are processed together.
 
 When you configure a join input, you must specify a glob pattern that also includes a capture group. The capture group defines the specific string in the file path that is used to match against files in the other joined repos. Capture groups work analagously to [regex capture group](https://www.regular-expressions.info/refcapture.html) -- you define the capture group with parenthesis. Capture groups are numbered from left to right and can also be nested within each other (numbering for nested capture groups are based on their opening parenthesis).
 
