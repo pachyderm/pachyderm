@@ -2,19 +2,25 @@ package cmd
 
 import (
 	"bytes"
+	"encoding/json"
 	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	uuid "github.com/satori/go.uuid"
 
 	"github.com/spf13/cobra"
 )
 
 func TestPortForwardError(t *testing.T) {
-	os.Setenv("PACHD_ADDRESS", "localhost:30650")
+	cfgFile := testConfig(t, "localhost:30650")
+	defer os.Remove(cfgFile.Name())
+	os.Setenv("PACH_CONFIG", cfgFile.Name())
+
 	c := tu.Cmd("pachctl", "version", "--timeout=1ns")
 	var errMsg bytes.Buffer
 	c.Stdout = ioutil.Discard
@@ -25,7 +31,10 @@ func TestPortForwardError(t *testing.T) {
 }
 
 func TestNoPort(t *testing.T) {
-	os.Setenv("PACHD_ADDRESS", "localhost")
+	cfgFile := testConfig(t, "localhost")
+	defer os.Remove(cfgFile.Name())
+	os.Setenv("PACH_CONFIG", cfgFile.Name())
+
 	c := tu.Cmd("pachctl", "version", "--timeout=1ns")
 	var errMsg bytes.Buffer
 	c.Stdout = ioutil.Discard
@@ -36,7 +45,10 @@ func TestNoPort(t *testing.T) {
 }
 
 func TestWeirdPortError(t *testing.T) {
-	os.Setenv("PACHD_ADDRESS", "localhost:30560")
+	cfgFile := testConfig(t, "localhost:30560")
+	defer os.Remove(cfgFile.Name())
+	os.Setenv("PACH_CONFIG", cfgFile.Name())
+
 	c := tu.Cmd("pachctl", "version", "--timeout=1ns")
 	var errMsg bytes.Buffer
 	c.Stdout = ioutil.Discard
@@ -98,4 +110,31 @@ func TestCommandAliases(t *testing.T) {
 	}
 
 	walk(pachctlCmd)
+}
+
+func testConfig(t *testing.T, pachdAddress string) *os.File {
+	t.Helper()
+
+	cfgFile, err := ioutil.TempFile("", "")
+	require.NoError(t, err)
+
+	cfg := &config.Config{
+		UserID: uuid.NewV4().String(),
+		V2: &config.ConfigV2{
+			ActiveContext: "test",
+			Contexts: map[string]*config.Context{
+				"test": &config.Context{
+					PachdAddress: pachdAddress,
+				},
+			},
+			Metrics: false,
+		},
+	}
+
+	j, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	_, err = cfgFile.Write(j)
+	require.NoError(t, err)
+	require.NoError(t, cfgFile.Close())
+	return cfgFile
 }
