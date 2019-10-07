@@ -36,6 +36,9 @@ theme:
 # Plugins
 plugins:
   - search
+  - exclude:
+      glob:
+        - archive/*
   - minify:
       minify_html: true
 
