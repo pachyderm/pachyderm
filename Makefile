@@ -506,17 +506,7 @@ PACHD_HOST := $(minikube ip)
 PACHD_PORT := 30650
 
 test-tls:
-	# Pachyderm must be running when this target is called
-	pachctl version
-	# TLS is an enterprise pachyderm feature
-	pachctl enterprise activate $$(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -) && echo
-	# Generate TLS key and re-deploy pachyderm with TLS enabled
-	etc/deploy/gen_pachd_tls.sh --ip=$(PACHD_HOST) --port=$(PACHD_PORT)
-	# Restart pachd with new cert
-	etc/deploy/restart_with_tls.sh --key=$(PWD)/pachd.key --cert=$(PWD)/pachd.pem
-	# If we can run a pipeline, TLS probably works
-	@# TODO actually monitor traffic with tcpdump
-	PACH_CA_CERTS=${PWD}/pachd.pem go test -v ./src/server -run TestPipelineWithParallelism
+	./etc/testing/test_tls.sh
 
 test-worker: launch-stats test-worker-helper
 
