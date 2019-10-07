@@ -139,6 +139,7 @@ nav:
         - Deferred Processing of Data: how-tos/deferred_processing.md
         - Ingress and Egress Data from an External Object Store: how-tos/ingressing_from_diff_cloud.md
     - Deploy and Manage:
+        - Overview: deploy-manage/deploy/index.md
         - Deploy Pachyderm:
             - Deploy on GKE: deploy-manage/deploy/google_cloud_platform.md
             - Deploy on AWS:
