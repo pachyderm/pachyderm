@@ -502,11 +502,8 @@ test-admin:
 test-enterprise:
 	go test -v ./src/server/enterprise/server -count 1 -timeout $(TIMEOUT)
 
-PACHD_HOST := $(minikube ip)
-PACHD_PORT := 30650
-
 test-tls:
-	./etc/testing/test_tls.sh
+	./etc/testing/test_tls.sh --host=$(PACHD_HOST) --port=$(PACHD_PORT)
 
 test-worker: launch-stats test-worker-helper
 
