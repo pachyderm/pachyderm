@@ -502,9 +502,8 @@ test-admin:
 test-enterprise:
 	go test -v ./src/server/enterprise/server -count 1 -timeout $(TIMEOUT)
 
-# TODO This is not very robust -- it doesn't work when the PACHD_ADDRESS host isn't an IPv4 address
-PACHD_HOST := $(word 1,$(subst :, ,$(PACHD_ADDRESS)))
-PACHD_PORT := $(word 2,$(subst :, ,$(PACHD_ADDRESS)))
+PACHD_HOST := $(minikube ip)
+PACHD_PORT := 30650
 
 test-tls:
 	# Pachyderm must be running when this target is called
