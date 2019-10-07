@@ -41,9 +41,9 @@ script:
 deploy:
   provider: script
   script: bash etc/deploy/travis_deploy.sh
-  all_branches: true
   on:
     repo: pachyderm/pachyderm
+    all_branches: true
 after_failure:
 - kubectl version
 - kubectl get all
