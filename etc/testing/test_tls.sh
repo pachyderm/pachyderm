@@ -2,22 +2,17 @@
 
 set -euo pipefail
 
-# Split PACHD_ADDRESS into host and port
-IFS=: read -a addr_parts <<<"${PACHD_ADDRESS:-0.0.0.0:30650}"
-host="${addr_parts[0]}"
-port="${addr_parts[1]}"
-
 # Validate the host (that it doesn't start with a protocol)
-if [[ "${host}" =~ :// ]]; then
-  echo "${PACHD_ADDRESS} should not start with <protocol>://" >/dev/stderr
+if [[ "${PACHD_HOST}" =~ :// ]]; then
+  echo "${PACHD_HOST} should not start with <protocol>://" >/dev/stderr
   exit 1
 fi
 
 # Generate self-signed cert and private key
-if [[ "${host}" =~ [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+ ]]; then
-  etc/deploy/gen_pachd_tls.sh --ip="${host}" --port="${port}"
+if [[ "${PACHD_HOST}" =~ [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+  etc/deploy/gen_pachd_tls.sh --ip="${PACHD_HOST}" --port="${PACHD_PORT}"
 else
-  etc/deploy/gen_pachd_tls.sh --dns="${host}" --port="${port}"
+  etc/deploy/gen_pachd_tls.sh --dns="${PACHD_HOST}" --port="${PACHD_PORT}"
 fi
 
 # Restart pachyderm with the given certs
@@ -29,7 +24,7 @@ echo "Backing up Pachyderm config to \$HOME/.pachyderm/config.json.backup"
 echo "New config with address and cert is at \$HOME/.pachyderm/config.json"
 cp ~/.pachyderm/config.json ~/.pachyderm/config.json.backup
 pachctl config update context \
-  --pachd-address="grpcs://${host}:${port}" \
+  --pachd-address="grpcs://${PACHD_HOST}:${PACHD_PORT}" \
   --server-cas="$(cat ./pachd.pem | base64)"
 
 set +x
