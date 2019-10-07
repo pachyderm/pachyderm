@@ -89,7 +89,7 @@ Your `pachctl` version must match the version of the Pachyderm cluster that
 you deployed on Pachyderm Hub. Pachyderm Hub uses the latest release
 of Pachyderm so we recommend that you use the same version for `pachctl`.
 
-To set the correct Pachyderm context, you need to use the IP address
+To set the correct Pachyderm context, you need to use the hostname
 of your cluster that is available in the Pachyderm Hub UI under **Connect**.
 
 **Note:** `kubectl` commands are not supported for the clusters deployed
