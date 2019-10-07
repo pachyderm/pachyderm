@@ -89,8 +89,8 @@ Your `pachctl` version must match the version of the Pachyderm cluster that
 you deployed on Pachyderm Hub. Pachyderm Hub uses the latest release
 of Pachyderm so we recommend that you use the same version for `pachctl`.
 
-To set the correct Pachyderm context, you need to use the IP address
-of your cluster that is available in the Pachyderm Hub UI under **Details**.
+To set the correct Pachyderm context, you need to use the hostname
+of your cluster that is available in the Pachyderm Hub UI under **Connect**.
 
 **Note:** `kubectl` commands are not supported for the clusters deployed
 on Pachyderm Hub.
@@ -120,42 +120,26 @@ To connect to your cluster, complete the following steps:
 
    ```bash
    $ pachctl version --client-only
-   1.9.5
+   1.9.7
    ```
 
-1. Configure a Pachyderm context:
+1. Configure a Pachyderm context and log in to your
+   cluster by using a one-time authentication token:
 
-   1. In the Pachyderm Hub UI, click **Details** next to your cluster.
-   1. Copy the IP address and port number of your cluster.
-   1. In your terminal window, create a new Pachyderm context with the
-      IP address of your cluster:
+   1. In the Pachyderm Hub UI, click **Connect** next to your cluster.
+   1. Copy, paste, and run the commands in the instructions in your terminal.
+      These commands create  a new Pachyderm context with your cluster
+      details on your machine.
 
-      ```bash
-      $ echo '{"pachd_address": "<cluster-ip>"}' | pachctl config set context <context-name>
-      ```
-
-      **Example:**
+      **Note:** If you get the following error, that means that your authentication
+      token has expired:
 
       ```bash
-      $ echo '{"pachd_address": "grpcs://grpc-fo0b4ar-clustername.clusters.pachyderm.io:31400"}' | pachctl config set context s123
+      error authenticating with Pachyderm cluster: /pachyderm_auth/auth-codes/ e14ccfafb35d4768f4a73b2dc9238b365492b88e98b76929d82ef0c6079e0027 not found
       ```
 
-      You can set the `<context-name>` to any descriptive name. It does not need to match
-      the name of your cluster deployed on Pachyderm Hub. If the context already exists,
-      you can use the `--overwrite` flag to update it with the new value.
-
-   1. Set the active context to the context you have configured in
-      the previous step:
-
-      ```bash
-      $ pachctl config set active-context <context-name>
-      ```
-
-      **Example:**
-
-      ```bash
-      $ pachctl config set active-context s123
-      ```
+      To get a new token, refresh the page. Then, use
+      the new token to authenticate.
 
    1. Verify that you have set the correct context:
 
@@ -163,40 +147,7 @@ To connect to your cluster, complete the following steps:
       $ pachctl config get active-context
       ```
 
-1. Log in to your Pachyderm cluster:
-
-   1. Go to the Pachyderm Hub UI.
-   1. In the list of clusters, click **Details**.
-   1. Click **>**.
-   1. Copy the authentication code:
-
-      ```
-      auth_code:<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx>
-      ```
-
-      Make sure you prepend the authentication token with
-      the `auth_code:` as shown above.
-
-   1. In your terminal window, run the `pachctl auth login` command:
-
-      ```bash
-      $ pachctl auth login --one-time-password
-      Please enter your Pachyderm One-Time Password:
-      ```
-
-   1. Paste the auth token:
-
-      ```bash
-      auth_code:<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx>
-      ```
-
-      **Example:**
-
-      ```bash
-      auth_code:3b8c208f24204a1fb2205af5c24e5edd
-      ```
-
-1. Verify that you can run `pachctl` commands for your cluster:
+1. Verify that you can run `pachctl` commands on your cluster:
 
    1. Create a repo called `test`:
 
