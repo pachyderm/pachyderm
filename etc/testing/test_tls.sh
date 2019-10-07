@@ -20,6 +20,8 @@ while true; do
   esac
 done
 
+echo "testing TLS against host=${host}, port=${port}"
+
 # Validate the host (that it doesn't start with a protocol)
 if [[ "${host}" =~ :// ]]; then
   echo "${host} should not start with <protocol>://" >/dev/stderr
