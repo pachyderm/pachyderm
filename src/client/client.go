@@ -328,6 +328,10 @@ func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error
 			options = append(options, WithSystemCAs)
 			context.PachdAddress = strings.TrimPrefix(context.PachdAddress, grpcs)
 		}
+		pachdAddress := context.PachdAddress
+		if pachdAddress != "" && !strings.Contains(pachdAddress, ":") {
+			pachdAddress = fmt.Sprintf("%s:%s", pachdAddress, DefaultPachdNodePort) // append port
+		}
 		// Also get cert info from config (if set)
 		if context.ServerCAs != "" {
 			pemBytes, err := base64.StdEncoding.DecodeString(context.ServerCAs)
@@ -336,7 +340,7 @@ func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error
 			}
 			return context.PachdAddress, []Option{WithAdditionalRootCAs(pemBytes)}, nil
 		}
-		return context.PachdAddress, options, nil
+		return pachdAddress, options, nil
 	}
 
 	// 3) Use default address (broadcast) if nothing else works
