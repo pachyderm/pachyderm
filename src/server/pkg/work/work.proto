@@ -3,7 +3,7 @@ syntax = "proto3";
 package work;
 option go_package = "github.com/pachyderm/pachyderm/src/server/pkg/work";
 
-// import "google/protobuf/any.proto";
+import "google/protobuf/any.proto";
 
 enum State {
   RUNNING = 0;
@@ -13,7 +13,7 @@ enum State {
 
 message Work {
   string id = 1;
-  // google.protobuf.Any meta = 2;
+  google.protobuf.Any meta = 2;
   repeated Shard shards = 3;
 }
 
@@ -24,7 +24,7 @@ message WorkInfo {
 
 message Shard {
   string id = 1;
-  // google.protobuf.Any meta = 2;
+  google.protobuf.Any meta = 2;
 }
 
 message ShardInfo {
