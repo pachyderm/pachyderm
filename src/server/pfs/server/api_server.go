@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"io"
 	"sync"
 	"time"
 
@@ -410,6 +411,9 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 		}
 	}()
 	pachClient := a.env.GetPachClient(s.Context())
+	if a.env.NewStorageLayer {
+		return a.driver.putFilesNewStorageLayer(pachClient, s)
+	}
 	return a.driver.putFiles(pachClient, s)
 }
 
@@ -433,7 +437,13 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.AP
 		a.Log(request, nil, retErr, time.Since(start))
 	}(time.Now())
 
-	file, err := a.driver.getFile(a.env.GetPachClient(apiGetFileServer.Context()), request.File, request.OffsetBytes, request.SizeBytes)
+	var file io.Reader
+	var err error
+	if a.env.NewStorageLayer {
+		file, err = a.driver.getFileNewStorageLayer(a.env.GetPachClient(apiGetFileServer.Context()), request.File)
+	} else {
+		file, err = a.driver.getFile(a.env.GetPachClient(apiGetFileServer.Context()), request.File, request.OffsetBytes, request.SizeBytes)
+	}
 	if err != nil {
 		return err
 	}

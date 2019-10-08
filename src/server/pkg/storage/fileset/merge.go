@@ -106,9 +106,10 @@ func tagMergeFunc(w *Writer) mergeFunc {
 	}
 }
 
-const (
+var (
+	// ShardThreshold the size threshold for shard creation.
 	// (bryce) this will be configurable at some point.
-	threshold = 1024 * chunk.MB
+	ShardThreshold int64 = 1024 * chunk.MB
 )
 
 func shardMergeFunc(f func(r *index.PathRange) error) mergeFunc {
@@ -129,7 +130,7 @@ func shardMergeFunc(f func(r *index.PathRange) error) mergeFunc {
 				pathRange.Lower = hdr.Hdr.Name
 			}
 			size += hdr.Idx.SizeBytes
-			if size > threshold {
+			if size > ShardThreshold || len(next) == 0 {
 				pathRange.Upper = hdr.Hdr.Name
 				if err := f(pathRange); err != nil {
 					return err
