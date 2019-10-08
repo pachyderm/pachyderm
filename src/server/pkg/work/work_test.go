@@ -34,7 +34,7 @@ func generateRandomString(n int) string {
 
 func TestWork(t *testing.T) {
 	etcdPrefix := generateRandomString(32)
-	workId := "work"
+	workID := "work"
 	numShards := 10
 	numWorkers := 5
 	// Setup etcd client and cleanup previous runs.
@@ -83,7 +83,7 @@ func TestWork(t *testing.T) {
 		shardsCreated[id] = true
 	}
 	work := &Work{
-		Id:     workId,
+		Id:     workID,
 		Shards: shards,
 	}
 	require.NoError(t, m.Run(context.Background(), work))
