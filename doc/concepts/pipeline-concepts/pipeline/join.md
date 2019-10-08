@@ -40,13 +40,19 @@ The following regular expressions, create the following capture groups:
 | `/*/(bar-(123))/*`  | Capture group 1: `bar-123`, capture group 2: `123`. |
 
 
-Also, joins require a `join_on` parameter, or [replacement group](https://www.regular-expressions.info/replacebackref.html) to define which capture groups you want to try to match.  
+Also, joins require you to specify a [replacement group](https://www.regular-expressions.info/replacebackref.html)
+in the  a `join_on`` parameter to define which capture groups you want to try
+to match.
 
-For example, `$1` would indicate that you want pachyderm to match based on capture group 1. `$2` would similarly mean match capture group 2. `$1$2` would mean that it must match both capture groups 1 and 2.
+For example, `$1` indicates that you want Pachyderm to match based on
+capture group 1. Similarly, `$2` matches the capture group 2.
+`$1$2` means that it must match both capture groups 1 and 2.
 
-If Pachyderm does not find any matching files, you will get a zero-datum job.
+If Pachyderm does not find any matching files, you get a zero-datum job.
 
-You can test your glob pattern and capture groups using the `pachctl glob file` command as described in [Glob Pattern](../datum/glob-pattern.html#test-glob-patterns.html).
+You can test your glob pattern and capture groups by using the
+`pachctl glob file` command as described in
+[Glob Pattern](../datum/glob-pattern.html#test-glob-patterns.html).
 
 ## Example
 
@@ -119,6 +125,6 @@ The glob pattern for the `readings` repository, `/*/(*)`, indicates all
 matching files in the `ID` sub-directory. In the `parameters` repository,
 the glob pattern `/(*)` selects all the matching files in the root directory.
 All files with indices from `1` to `5` match. The files
-with indices from `6` to `8` do not match. Therefore, you will only get 5 datums for this job.
+with indices from `6` to `8` do not match. Therefore, you only get five datums for this job.
 
 To experiment further, see the full [joins example](https://github.com/pachyderm/pachyderm/tree/master/examples/join).

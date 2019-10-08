@@ -603,8 +603,7 @@ to work properly. A join can combine multiple PFS inputs.
 You can specify the following parameters for the `join` input.
 
 * `input.pfs.name` — the name of the PFS input that appears in the
-`INPUT` field when you run the `pachctl list job` command. Although this
-parameter is optional, you might want to add it to
+`INPUT` field when you run the `pachctl list job` command.
 If an input name is not specified, it defaults to the name of the repo.
 
 * `input.pfs.repo` — see the description in [PFS Input](#pfs-input).
@@ -625,9 +624,10 @@ you want to join with other data.
   groups, including the following:
 
   * `?` — matches a single character in a filepath. For example, you
-  have files named `file000.txt`, `file001`, file002, and so on.  You can
-  set the glob pattern to `/file(?)(?)(?)` and the `join_on` key to `$2`,
-  so that Pachyderm matches only the files that have same second character.
+  have files named `file000.txt`, `file001.txt`, `file002.txt`, and so on.
+  You can set the glob pattern to `/file(?)(?)(?)` and the `join_on` key to
+  `$2`, so that Pachyderm matches only the files that have same second
+  character.
 
 * `*` — any number of characters in the filepath. For example, if you set
   your capture group to `/(*)`, Pachyderm matches all files in the root

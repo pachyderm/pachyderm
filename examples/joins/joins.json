@@ -8,7 +8,7 @@
         "pfs": {
           "repo": "readings",
           "branch": "master",
-          "glob": "*/(*).txt",
+          "glob": "/*/(*).txt",
           "join_on": "$1"
         }
       },
@@ -16,7 +16,7 @@
        "pfs": {
          "repo": "parameters",
          "branch": "master",
-         "glob": "(*).txt",
+         "glob": "/(*).txt",
          "join_on": "$1"
        }
      }
