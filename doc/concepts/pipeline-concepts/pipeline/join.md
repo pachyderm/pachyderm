@@ -6,32 +6,41 @@ particular naming pattern. The join operator must be used in combination
 with a glob pattern that reflects a specific naming convention.
 
 By analogy, a Pachyderm join is similar to a database *equi-join*,
-or *inner left join* operation, but it matches on file paths
+or *inner join* operation, but it matches on file paths
 only, not the contents of the files.
 
-Unlike the [cross input](cross-input.md) which creates datums from every
+Unlike the [cross input](cross-input.md), which creates datums from every
 combination of files in each input repository, joins only create datums
-where there is a *match*. This can be incredibly useful for combining
-data from different repositories or ensuring that only specific files from each repo are processed together.
+where there is a *match*. You can use joins to combine data from different
+Pachyderm repositories and ensure that only specific files from each repo
+are processed together.
 
-When you configure a join input, you must specify a glob pattern that also includes a capture group. The capture group defines the specific string in the file path that is used to match against files in the other joined repos. Capture groups work analagously to [regex capture group](https://www.regular-expressions.info/refcapture.html) -- you define the capture group with parenthesis. Capture groups are numbered from left to right and can also be nested within each other (numbering for nested capture groups are based on their opening parenthesis).
+When you configure a join input, you must specify a glob pattern that
+includes a capture group. The capture group defines the specific string in
+the file path that is used to match files in the other joined repos.
+Capture groups work analagously to the [regex capture group](https://www.regular-expressions.info/refcapture.html).
+You define the capture group inside parenthesis. Capture groups are numbered
+from left to right and can also be nested within each other. Numbering for
+nested capture groups is based on their opening parenthesis.
 
-Here are a few examples of applying a glob pattern with a capture group to file path:
+Below you can find a few examples of applying a glob pattern with a capture
+group to a file path. For example, if you have the following file path:
 
-```
-sample file path:
+```bash
 /foo/bar-123/ABC.txt
-
-/(*)                --> c1="foo"
-
-/*/bar-(*)          --> c1="123"
-
-/(*)/*/(??)*.txt    --> c1="foo", c2="AB"
-
-/*/(bar-(123))/*    --> c1="bar-123", c2="123"
 ```
 
-Joins also require a `join_on` parameter, also called [replacement group](https://www.regular-expressions.info/replacebackref.html) to define which capture groups you want to try to match.  
+The following regular expressions, create the following capture groups:
+
+| Regular expression  | Capture groups           |
+| ------------------- | ------------------------ |
+| `/(*)`              | `foo`                    |
+| `/*/bar-(*)`        | `123`                    |
+| `/(*)/*/(??)*.txt`  | Capture group 1: `foo`, capture group 2: `AB`. |
+| `/*/(bar-(123))/*`  | Capture group 1: `bar-123`, capture group 2: `123`. |
+
+
+Also, joins require a `join_on` parameter, or [replacement group](https://www.regular-expressions.info/replacebackref.html) to define which capture groups you want to try to match.  
 
 For example, `$1` would indicate that you want pachyderm to match based on capture group 1. `$2` would similarly mean match capture group 2. `$1$2` would mean that it must match both capture groups 1 and 2.
 
