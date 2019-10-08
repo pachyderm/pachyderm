@@ -57,9 +57,12 @@ func (f *FileSet) WriteHeader(hdr *tar.Header) error {
 	// Create entry for path if it does not exist.
 	if _, ok := f.fs[hdr.Name]; !ok {
 		f.createParent(hdr.Name)
-		f.fs[hdr.Name] = &node{data: &bytes.Buffer{}}
+		hdr.Size = 0
+		f.fs[hdr.Name] = &node{
+			hdr:  hdr,
+			data: &bytes.Buffer{},
+		}
 	}
-	f.fs[hdr.Name].hdr = hdr
 	// (bryce) should make a note about the implication of this
 	// a file in a file set being written can only have one tag.
 	// multiple come into play when merging.
@@ -88,12 +91,14 @@ func (f *FileSet) createParent(path string) {
 func (f *FileSet) Write(data []byte) (int, error) {
 	for int64(len(data)) > f.memAvailable {
 		n, _ := f.curr.data.Write(data[:int(f.memAvailable)])
+		f.curr.hdr.Size += int64(n)
 		data = data[n:]
 		if err := f.serialize(); err != nil {
 			return 0, err
 		}
 	}
 	n, _ := f.curr.data.Write(data)
+	f.curr.hdr.Size += int64(n)
 	f.memAvailable -= int64(n)
 	return n, nil
 }
@@ -157,25 +162,5 @@ func (f *FileSet) serialize() error {
 
 // Close closes the file set.
 func (f *FileSet) Close() error {
-	if err := f.serialize(); err != nil {
-		return err
-	}
-	var fileStreams []stream
-	// Setup parent stream.
-	if f.parentName != "" {
-		fileStreams = append(fileStreams, &fileStream{
-			r: f.storage.NewReader(f.ctx, f.parentName),
-		})
-	}
-	// Setup part streams.
-	for i := 0; i < f.part; i++ {
-		fileStreams = append(fileStreams, &fileStream{
-			r: f.storage.NewReader(f.ctx, path.Join(f.name, strconv.Itoa(i))),
-		})
-	}
-	w := f.storage.NewWriter(f.ctx, path.Join(f.name, FullMergeSuffix))
-	if err := merge(fileStreams, contentMergeFunc(w)); err != nil {
-		return err
-	}
-	return w.Close()
+	return f.serialize()
 }
