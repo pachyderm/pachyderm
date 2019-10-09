@@ -373,12 +373,13 @@ func (a *apiServer) validateKube() {
 	}
 }
 
-func checkLoggedIn(pachClient *client.APIClient) error {
-	_, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{})
+func checkLoggedIn(pachClient *client.APIClient) (context.Context, error) {
+	ctx := pachClient.Ctx() // pachClient propagates auth info
+	_, err := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{})
 	if err != nil && !auth.IsErrNotActivated(err) {
-		return err
+		return nil, err
 	}
-	return nil
+	return ctx, nil
 }
 
 // authorizing a pipeline operation varies slightly depending on whether the
@@ -503,8 +504,8 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	ctx = pachClient.Ctx() // pachClient will propagate auth info
-	if err := checkLoggedIn(pachClient); err != nil {
+	ctx, err := checkLoggedIn(pachClient)
+	if err != nil {
 		return nil, err
 	}
 
@@ -512,7 +513,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	if request.Stats == nil {
 		request.Stats = &pps.ProcessStats{}
 	}
-	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+	_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		jobPtr := &pps.EtcdJobInfo{
 			Job:           job,
 			OutputCommit:  request.OutputCommit,
@@ -541,7 +542,8 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	if err := checkLoggedIn(pachClient); err != nil {
+	ctx, err := checkLoggedIn(pachClient)
+	if err != nil {
 		return nil, err
 	}
 	if request.Job == nil && request.OutputCommit == nil {
@@ -824,6 +826,7 @@ func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (r
 		}
 	}(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
+	ctx = pachClient.Ctx() // pachClient will propagate auth info
 	var jobInfos []*pps.JobInfo
 	if err := a.listJob(pachClient, request.Pipeline, request.OutputCommit, request.InputCommit, request.History, request.Full, func(ji *pps.JobInfo) error {
 		jobInfos = append(jobInfos, ji)
@@ -859,7 +862,8 @@ func (a *apiServer) FlushJob(request *pps.FlushJobRequest, resp pps.API_FlushJob
 		a.Log(request, fmt.Sprintf("stream containing %d JobInfos", sent), retErr, time.Since(start))
 	}(time.Now())
 	pachClient := a.env.GetPachClient(resp.Context())
-	if err := checkLoggedIn(pachClient); err != nil {
+	ctx, err := checkLoggedIn(pachClient)
+	if err != nil {
 		return err
 	}
 	var toRepos []*pfs.Repo
@@ -889,7 +893,7 @@ func (a *apiServer) FlushJob(request *pps.FlushJobRequest, resp pps.API_FlushJob
 		}
 		// Even though the commit has been finished the job isn't necessarily
 		// finished yet, so we block on its state as well.
-		ji, err := a.InspectJob(resp.Context(), &pps.InspectJobRequest{Job: jis[0].Job, BlockState: true})
+		ji, err := a.InspectJob(ctx, &pps.InspectJobRequest{Job: jis[0].Job, BlockState: true})
 		if err != nil {
 			return err
 		}
@@ -902,11 +906,13 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	if err := checkLoggedIn(pachClient); err != nil {
+	ctx = pachClient.Ctx() // pachClient will propagate auth info
+	ctx, err := checkLoggedIn(pachClient)
+	if err != nil {
 		return nil, err
 	}
 
-	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+	_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		return a.jobs.ReadWrite(stm).Delete(request.Job.ID)
 	})
 	if err != nil {
@@ -920,9 +926,11 @@ func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (r
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	if err := checkLoggedIn(pachClient); err != nil {
+	ctx, err := checkLoggedIn(pachClient)
+	if err != nil {
 		return nil, err
 	}
+	ctx = pachClient.Ctx() // pachClient will propagate auth info
 
 	// Lookup jobInfo
 	jobPtr := &pps.EtcdJobInfo{}
@@ -946,9 +954,11 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	if err := checkLoggedIn(pachClient); err != nil {
+	ctx, err := checkLoggedIn(pachClient)
+	if err != nil {
 		return nil, err
 	}
+	ctx = pachClient.Ctx() // pachClient will propagate auth info
 
 	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
 		Job: request.Job,
@@ -967,7 +977,7 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 // between ListDatum and ListDatumStream. When ListDatum is removed, this should
 // be inlined into ListDatumStream
 func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, page, pageSize int64) (response *pps.ListDatumResponse, retErr error) {
-	if err := checkLoggedIn(pachClient); err != nil {
+	if _, err := checkLoggedIn(pachClient); err != nil {
 		return nil, err
 	}
 	response = &pps.ListDatumResponse{}
@@ -1145,8 +1155,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 			a.Log(request, response, retErr, time.Since(start))
 		}
 	}(time.Now())
-	pachClient := a.env.GetPachClient(ctx)
-	return a.listDatum(pachClient, request.Job, request.Page, request.PageSize)
+	return a.listDatum(a.env.GetPachClient(ctx), request.Job, request.Page, request.PageSize)
 }
 
 // ListDatumStream implements the protobuf pps.ListDatumStream RPC
@@ -1156,8 +1165,7 @@ func (a *apiServer) ListDatumStream(req *pps.ListDatumRequest, resp pps.API_List
 	defer func(start time.Time) {
 		a.Log(req, fmt.Sprintf("stream containing %d DatumInfos", sent), retErr, time.Since(start))
 	}(time.Now())
-	pachClient := a.env.GetPachClient(resp.Context())
-	ldr, err := a.listDatum(pachClient, req.Job, req.Page, req.PageSize)
+	ldr, err := a.listDatum(a.env.GetPachClient(resp.Context()), req.Job, req.Page, req.PageSize)
 	if err != nil {
 		return err
 	}
@@ -1252,7 +1260,8 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	if err := checkLoggedIn(pachClient); err != nil {
+	ctx, err := checkLoggedIn(pachClient)
+	if err != nil {
 		return nil, err
 	}
 	ctx = pachClient.Ctx() // pachClient will propagate auth info
@@ -2236,7 +2245,7 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 // Many functions (GetLogs, ListPipeline, CreateJob) need to inspect a pipeline,
 // so they call this instead of making an RPC
 func (a *apiServer) inspectPipeline(pachClient *client.APIClient, name string) (*pps.PipelineInfo, error) {
-	if err := checkLoggedIn(pachClient); err != nil {
+	if _, err := checkLoggedIn(pachClient); err != nil {
 		return nil, err
 	}
 	kubeClient := a.env.GetKubeClient()
@@ -2314,7 +2323,8 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 		}
 	}(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	if err := checkLoggedIn(pachClient); err != nil {
+	ctx, err := checkLoggedIn(pachClient)
+	if err != nil {
 		return nil, err
 	}
 	pipelineInfos := &pps.PipelineInfos{}
@@ -2385,7 +2395,8 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	if err := checkLoggedIn(pachClient); err != nil {
+	ctx, err := checkLoggedIn(pachClient)
+	if err != nil {
 		return nil, err
 	}
 
@@ -2916,7 +2927,8 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	if err := checkLoggedIn(pachClient); err != nil {
+	ctx, err := checkLoggedIn(pachClient)
+	if err != nil {
 		return nil, err
 	}
 	pipelineInfos, err := a.ListPipeline(ctx, &pps.ListPipelineRequest{})
@@ -3033,8 +3045,8 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthReque
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	ctx = pachClient.Ctx() // pachClient will propagate auth infothis list
-	if err := checkLoggedIn(pachClient); err != nil {
+	ctx, err := checkLoggedIn(pachClient)
+	if err != nil {
 		return nil, err
 	}
 
