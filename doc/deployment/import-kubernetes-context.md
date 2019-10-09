@@ -2,13 +2,13 @@
 
 **Note:** The steps in this section apply to your configuration only
 if you deployed Pachyderm from a manifest created by the `pachctl deploy`
-with the `--dry-run` flag. If you did not use the `--dry-run` flag, skip this
-section.
+command with the `--dry-run` flag. If you did not use the `--dry-run` flag,
+skip this section.
 
-When you run the `pachctl deploy` command with `--dry-run` flag for any
-underlying infrastructure, such as GKE, Amazon, local, or any other, you do
-not create an actual Pachyderm cluster, Instead you create a Kubernetes
-deployment manifest that you can later use to deploy a Pachyderm cluster.
+When you run the `pachctl deploy` command with `--dry-run` flag, instead of
+immediately deploying a cluster, the command creates a Kubernetes
+deployment manifest that you can further edit and later use to deploy a
+Pachyderm cluster.
 
 You can use that manifest with a standard `kubectl apply` command to deploy
 Pachyderm. For example, if you have created a manifest called
@@ -67,12 +67,6 @@ To import a Kubernetes context, complete the following steps:
    $ pachctl config set context <new-pachyderm-context> -k `kubectl config current-context`
    ```
 
-   **Example:**
-
-   ```bash
-   $ pachctl config set context test-context -k `kubectl config current-context`
-   ```
-
 1. Verify that the context was successfully created and view the context parameters:
 
    **Example:**
@@ -92,23 +86,8 @@ To import a Kubernetes context, complete the following steps:
    $ pachctl config set active-context <new-pachyderm-context>
    ```
 
-   **Example:**
-
-   ```bash
-   $ pachctl config set active-context test-context
-   ```
-
 1. Verify that the new context has been activated:
 
    ```bash
    $ pachctl config get active-context
    ```
-
-   **Example:**
-
-   ```bash
-   $ pachctl config get active-context
-   test-context
-   ```
-
-
