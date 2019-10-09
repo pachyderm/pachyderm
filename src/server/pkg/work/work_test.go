@@ -34,29 +34,29 @@ func generateRandomString(n int) string {
 
 func TestWork(t *testing.T) {
 	etcdPrefix := generateRandomString(32)
-	workId := "work"
-	numShards := 10
+	taskID := "task"
+	numSubtasks := 10
 	numWorkers := 5
 	// Setup etcd client and cleanup previous runs.
 	etcdClient, err := getEtcdClient()
 	require.NoError(t, err)
 	// Setup maps for checking creation, processing, and collection.
-	shardsCreated := make(map[string]bool)
-	shardsProcessed := make(map[string]bool)
+	subtasksCreated := make(map[string]bool)
+	subtasksProcessed := make(map[string]bool)
 	var processMu sync.Mutex
-	shardsCollected := make(map[string]bool)
+	subtasksCollected := make(map[string]bool)
 	// Setup workers.
 	failProb := 0.25
 	for i := 0; i < numWorkers; i++ {
 		go func() {
 			for {
 				ctx, cancel := context.WithCancel(context.Background())
-				w := NewWorker(etcdClient, etcdPrefix, func(_ context.Context, work *Work, shard *Shard) error {
+				w := NewWorker(etcdClient, etcdPrefix, func(_ context.Context, task, subtask *Task) error {
 					if rand.Float64() < failProb {
 						cancel()
 					} else {
 						processMu.Lock()
-						shardsProcessed[shard.Id] = true
+						subtasksProcessed[subtask.Id] = true
 						processMu.Unlock()
 					}
 					return nil
@@ -71,23 +71,23 @@ func TestWork(t *testing.T) {
 		}()
 	}
 	// Setup master.
-	m := NewMaster(etcdClient, etcdPrefix, func(_ context.Context, shard *Shard) error {
-		shardsCollected[shard.Id] = true
+	m := NewMaster(etcdClient, etcdPrefix, func(_ context.Context, subtask *Task) error {
+		subtasksCollected[subtask.Id] = true
 		return nil
 	})
-	// Create work.
-	var shards []*Shard
-	for i := 0; i < numShards; i++ {
+	// Create task.
+	var subtasks []*Task
+	for i := 0; i < numSubtasks; i++ {
 		id := strconv.Itoa(i)
-		shards = append(shards, &Shard{Id: id})
-		shardsCreated[id] = true
+		subtasks = append(subtasks, &Task{Id: id})
+		subtasksCreated[id] = true
 	}
-	work := &Work{
-		Id:     workId,
-		Shards: shards,
+	task := &Task{
+		Id:       taskID,
+		Subtasks: subtasks,
 	}
-	require.NoError(t, m.Run(context.Background(), work))
-	require.Equal(t, shardsCreated, shardsProcessed, shardsCollected)
+	require.NoError(t, m.Run(context.Background(), task))
+	require.Equal(t, subtasksCreated, subtasksProcessed, subtasksCollected)
 }
 
 func getEtcdClient() (*etcd.Client, error) {
