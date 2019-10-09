@@ -5,6 +5,10 @@ on macOS®, Linux®, or Windows®. Local installation helps you to learn
 some of the Pachyderm basics and is not designed to be a production
 environment.
 
+**Note:** Pachyderm supports the Docker runtime only. If you want to
+deploy Pachyderm on a system that uses another container runtime,
+ask for advice in our [Slack channel](http://slack.pachyderm.io/).
+
 ## Prerequisites
 
 Before you can deploy Pachyderm, make sure you have the following
