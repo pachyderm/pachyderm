@@ -19,6 +19,7 @@ on a supported cloud platform of your choice.
    deploy_custom/index.rst
    connect-to-cluster.md
    custom_object_stores.md
+   import-kubernetes-context.md
    namespaces.md
    rbac.md
    deploy_troubleshooting.md
