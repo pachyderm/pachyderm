@@ -36,11 +36,11 @@ func TestParsePachdAddress(t *testing.T) {
 		Port:    80,
 	}, p)
 
-	p, err = ParsePachdAddress("grpcs://pachyderm.com:80")
+	p, err = ParsePachdAddress("grpcs://[::1]:80")
 	require.NoError(t, err)
 	require.Equal(t, PachdAddress{
 		Secured: true,
-		Host:    "pachyderm.com",
+		Host:    "[::1]",
 		Port:    80,
 	}, p)
 

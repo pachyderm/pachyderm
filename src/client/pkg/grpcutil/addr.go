@@ -19,7 +19,12 @@ const (
 )
 
 var (
-	ErrNoPachdAddress   = errors.New("no pachd address specified")
+	// ErrNoPachdAddress is returned by ParsePachdAddress when the input is an
+	// empty string
+	ErrNoPachdAddress = errors.New("no pachd address specified")
+	// DefaultPachdAddress is the default PachdAddress that should be used
+	// if none is otherwise specified. It's a loopback that should rely on
+	// port forwarding.
 	DefaultPachdAddress = PachdAddress{
 		Secured: false,
 		Host:    "0.0.0.0",
@@ -27,12 +32,18 @@ var (
 	}
 )
 
+// PachdAddress represents a parsed pachd address value
 type PachdAddress struct {
+	// Secured specifies whether grpcs should be used
 	Secured bool
-	Host    string
-	Port    uint16
+	// Host specifies the pachd address host without the port
+	Host string
+	// Port specifies the pachd port
+	Port uint16
 }
 
+// ParsePachdAddress parses a string into a pachd address, or returns an error
+// if it's invalid
 func ParsePachdAddress(value string) (PachdAddress, error) {
 	// allow no specification of a pachd address
 	if value == "" {
@@ -86,6 +97,7 @@ func ParsePachdAddress(value string) (PachdAddress, error) {
 	}, nil
 }
 
+// Qualified returns the "fully qualified" address, including the scheme
 func (p PachdAddress) Qualified() string {
 	if p.Secured {
 		return fmt.Sprintf("grpcs://%s:%d", p.Host, p.Port)
@@ -94,14 +106,20 @@ func (p PachdAddress) Qualified() string {
 	}
 }
 
+// Hostname returns the host:port combination of the pachd address, without
+// the scheme
 func (p PachdAddress) Hostname() string {
 	return fmt.Sprintf("%s:%d", p.Host, p.Port)
 }
 
+// IsUnusualPort returns true if the pachd address port is not one of the
+// usual values
 func (p PachdAddress) IsUnusualPort() bool {
 	return p.Port != DefaultPachdNodePort && p.Port != DefaultPachdPort
 }
 
+// IsLoopback returns whether the pachd address is referencing the loopback
+// hostname
 func (p PachdAddress) IsLoopback() bool {
 	return p.Host == "0.0.0.0" || p.Host == "127.0.0.1" || p.Host == "[::1]" || p.Host == "localhost"
 }
