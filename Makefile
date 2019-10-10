@@ -450,7 +450,7 @@ test-pps: launch-stats launch-kafka docker-build-test-entrypoint
 
 test-cmds:
 	go install -v ./src/testing/match
-	CGOENABLED=0 go test -v ./src/server/cmd/pachctl/cmd
+	go test -v ./src/server/cmd/pachctl/cmd -count 1 -timeout $(TIMEOUT)
 	go test -v ./src/server/pkg/deploy/cmds -count 1 -timeout $(TIMEOUT)
 	go test -v ./src/server/pfs/cmds -count 1 -timeout $(TIMEOUT)
 	go test -v ./src/server/pps/cmds -count 1 -timeout $(TIMEOUT)
