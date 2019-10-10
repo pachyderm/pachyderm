@@ -1595,7 +1595,7 @@ func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo 
 		}
 
 		if !validServiceTypes[v1.ServiceType(pipelineInfo.Service.Type)] {
-			return fmt.Errorf("the following service type % is not allowed", pipelineInfo.Service.Type)
+			return fmt.Errorf("the following service type %s is not allowed", pipelineInfo.Service.Type)
 		}
 	}
 	return nil
