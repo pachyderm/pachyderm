@@ -8,7 +8,7 @@ import (
 
 func TestParsePachdAddress(t *testing.T) {
 	_, err := ParsePachdAddress("")
-	require.Equal(t, err, ErrNoAddress)
+	require.Equal(t, err, ErrNoPachdAddress)
 
 	_, err = ParsePachdAddress("http://pachyderm.com:80")
 	require.YesError(t, err)

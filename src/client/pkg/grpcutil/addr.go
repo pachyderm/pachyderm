@@ -19,7 +19,7 @@ const (
 )
 
 var (
-	ErrNoAddress        = errors.New("no pachd address specified")
+	ErrNoPachdAddress   = errors.New("no pachd address specified")
 	DefaultPachdAddress = PachdAddress{
 		Secured: false,
 		Host:    "0.0.0.0",
@@ -36,7 +36,7 @@ type PachdAddress struct {
 func ParsePachdAddress(value string) (PachdAddress, error) {
 	// allow no specification of a pachd address
 	if value == "" {
-		return PachdAddress{}, ErrNoAddress
+		return PachdAddress{}, ErrNoPachdAddress
 	}
 
 	// parse

@@ -115,7 +115,7 @@ func (c *Config) initV2() error {
 	pachdAddressStr := ""
 	pachdAddress, err := grpcutil.ParsePachdAddress(c.V1.PachdAddress)
 	if err != nil {
-		if err != grpcutil.ErrNoAddress {
+		if err != grpcutil.ErrNoPachdAddress {
 			return err
 		}
 	} else {

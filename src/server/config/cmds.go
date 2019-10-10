@@ -180,7 +180,7 @@ func Cmds() []*cobra.Command {
 
 				pachdAddress, err := grpcutil.ParsePachdAddress(context.PachdAddress)
 				if err != nil {
-					if err != grpcutil.ErrNoAddress {
+					if err != grpcutil.ErrNoPachdAddress {
 						return err
 					}
 				} else {
@@ -237,7 +237,7 @@ func Cmds() []*cobra.Command {
 			if updateContext.Flags().Changed("pachd-address") {
 				parsedPachdAddress, err := grpcutil.ParsePachdAddress(pachdAddress)
 				if err != nil {
-					if err == grpcutil.ErrNoAddress {
+					if err == grpcutil.ErrNoPachdAddress {
 						context.PachdAddress = ""
 					} else {
 						return err
