@@ -10111,6 +10111,9 @@ func TestExtractPipeline(t *testing.T) {
 	// Extract it and see if we get the same thing
 	extractedRequest, err := c.ExtractPipeline(request.Pipeline.Name)
 	require.NoError(t, err)
+	// When this check fails it most likely means that you've added field to
+	// pipelines and not set it up to be extract. PipelineReqFromInfo is the
+	// function you'll need to add it to.
 	if !proto.Equal(request, extractedRequest) {
 		marshaller := &jsonpb.Marshaler{
 			Indent:   "  ",
