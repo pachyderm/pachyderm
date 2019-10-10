@@ -22,7 +22,7 @@ a comma, and without a space.
 After you deploy Pachyderm, to connect through `pachctl` by using a
 trusted certificate, you need to configure the `pachd_address` in the
 Pachyderm context with the cluster IP address that starts with `grpcs://`.
-You can do so by running the following script:
+You can do so by running the following command:
 
 **Example:**
 

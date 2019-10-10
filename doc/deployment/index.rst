@@ -18,6 +18,7 @@ on a supported cloud platform of your choice.
    on_premises.md
    deploy_custom/index.rst
    connect-to-cluster.md
+   deploy_w_tls.md
    custom_object_stores.md
    namespaces.md
    rbac.md
