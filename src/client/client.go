@@ -3,6 +3,7 @@ package client
 import (
 	"crypto/x509"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -43,17 +44,6 @@ const (
 	// StorageSecretName is the name of the Kubernetes secret in which
 	// storage credentials are stored.
 	StorageSecretName = "pachyderm-storage-secret"
-
-	// DefaultPachdNodePort is the pachd kubernetes service's default
-	// NodePort.Port setting.
-	DefaultPachdNodePort = "30650"
-
-	// DefaultPachdPort is the pachd kubernetes service's default
-	// Port (often used with Pachyderm ELBs)
-	DefaultPachdPort = "650"
-
-	// grpcs is the prefix of the grpcs protocol.
-	grpcs = "grpcs://"
 )
 
 // PfsAPIClient is an alias for pfs.APIClient.
@@ -264,9 +254,10 @@ func getCertOptionsFromEnv() ([]Option, error) {
 	if certPaths, ok := os.LookupEnv("PACH_CA_CERTS"); ok {
 		fmt.Fprintln(os.Stderr, "WARNING: 'PACH_CA_CERTS' is deprecated and will be removed in a future release, use Pachyderm contexts instead.")
 
-		if pachdAddress, ok := os.LookupEnv("PACHD_ADDRESS"); !ok || !strings.HasPrefix(pachdAddress, grpcs) {
-			return nil, fmt.Errorf("cannot set PACH_CA_CERTS without setting PACHD_ADDRESS to %s... ", grpcs)
+		if pachdAddress, ok := os.LookupEnv("PACHD_ADDRESS"); !ok || !grpcutil.IsTLSPachdAddress(pachdAddress) {
+			return nil, errors.New("cannot set PACH_CA_CERTS without setting PACHD_ADDRESS to grpcs://... ")
 		}
+
 		paths := strings.Split(certPaths, ",")
 		for _, p := range paths {
 			// Try to read all certs under 'p'--skip any that we can't read/stat
@@ -303,34 +294,34 @@ func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error
 	if envAddr, ok := os.LookupEnv("PACHD_ADDRESS"); ok {
 		fmt.Fprintln(os.Stderr, "WARNING: 'PACHD_ADDRESS' is deprecated and will be removed in a future release, use Pachyderm contexts instead.")
 
-		if strings.HasPrefix(envAddr, grpcs) {
+		sanitizedEnvAddr, err := grpcutil.SanitizePachAddress(envAddr)
+		if err != nil {
+			return "", nil, fmt.Errorf("could not parse `PACHD_ADDRESS`: %v", err)
+		}
+
+		if grpcutil.IsTLSPachdAddress(sanitizedEnvAddr) {
 			options = append(options, WithSystemCAs)
-			envAddr = strings.TrimPrefix(envAddr, grpcs)
 		}
-		if !strings.Contains(envAddr, ":") {
-			envAddr = fmt.Sprintf("%s:%s", envAddr, DefaultPachdNodePort) // append port
-		}
+
 		options, err := getCertOptionsFromEnv()
 		if err != nil {
 			return "", nil, err
 		}
-		return envAddr, options, nil
+
+		return sanitizedEnvAddr, options, nil
 	}
 
 	// 2) Get target address from global config if possible
 	if context != nil && (context.ServerCAs != "" || context.PachdAddress != "") {
+		isTLSEnabled := grpcutil.IsTLSPachdAddress(context.PachdAddress)
+
 		// Proactively return an error in this case, instead of falling back to the default address below
-		if context.ServerCAs != "" && !strings.HasPrefix(context.PachdAddress, grpcs) {
-			return "", nil, fmt.Errorf("must set pachd_address to %s... if server_cas is set", grpcs)
+		if context.ServerCAs != "" && !isTLSEnabled {
+			return "", nil, errors.New("must set pachd_address to grpc://... if server_cas is set")
 		}
 
-		if strings.HasPrefix(context.PachdAddress, grpcs) {
+		if isTLSEnabled {
 			options = append(options, WithSystemCAs)
-			context.PachdAddress = strings.TrimPrefix(context.PachdAddress, grpcs)
-		}
-		pachdAddress := context.PachdAddress
-		if pachdAddress != "" && !strings.Contains(pachdAddress, ":") {
-			pachdAddress = fmt.Sprintf("%s:%s", pachdAddress, DefaultPachdNodePort) // append port
 		}
 		// Also get cert info from config (if set)
 		if context.ServerCAs != "" {
@@ -340,7 +331,7 @@ func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error
 			}
 			return context.PachdAddress, []Option{WithAdditionalRootCAs(pemBytes)}, nil
 		}
-		return pachdAddress, options, nil
+		return context.PachdAddress, options, nil
 	}
 
 	// 3) Use default address (broadcast) if nothing else works
@@ -394,7 +385,7 @@ func NewForTest() (*APIClient, error) {
 		return nil, err
 	}
 	if addr == "" {
-		addr = fmt.Sprintf("0.0.0.0:%s", DefaultPachdNodePort)
+		addr = fmt.Sprintf("0.0.0.0:%s", grpcutil.DefaultPachdNodePort)
 	}
 
 	client, err := NewFromAddress(addr, cfgOptions...)
@@ -428,7 +419,7 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 		return nil, err
 	}
 	if addr == "" {
-		addr = fmt.Sprintf("0.0.0.0:%s", DefaultPachdNodePort)
+		addr = fmt.Sprintf("0.0.0.0:%s", grpcutil.DefaultPachdNodePort)
 		fw = portForwarder()
 	}
 
@@ -442,9 +433,9 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 				port = addr[colonIdx+1:]
 			}
 			// Check for errors in approximate order of helpfulness
-			if port != "" && port != DefaultPachdPort && port != DefaultPachdNodePort {
+			if port != "" && port != grpcutil.DefaultPachdPort && port != grpcutil.DefaultPachdNodePort {
 				return nil, fmt.Errorf("could not connect (note: port is usually "+
-					"%s or %s, but is currently set to %q--is this right?): %v", DefaultPachdNodePort, DefaultPachdPort, port, err)
+					"%s or %s, but is currently set to %q--is this right?): %v", grpcutil.DefaultPachdNodePort, grpcutil.DefaultPachdPort, port, err)
 			}
 			isLoopback := strings.HasPrefix(addr, "0.0.0.0") || strings.HasPrefix(addr, "127.0.0.1") || strings.HasPrefix(addr, "[::1]") || strings.HasPrefix(addr, "localhost")
 			if fw == nil && isLoopback {

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	uuid "github.com/satori/go.uuid"
@@ -102,6 +103,9 @@ func testConfig(t *testing.T, pachdAddress string) *os.File {
 	t.Helper()
 
 	cfgFile, err := ioutil.TempFile("", "")
+	require.NoError(t, err)
+
+	pachdAddress, err = grpcutil.SanitizePachAddress(pachdAddress)
 	require.NoError(t, err)
 
 	cfg := &config.Config{

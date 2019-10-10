@@ -10,6 +10,7 @@ import (
 	"sort"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 
 	"github.com/gogo/protobuf/jsonpb"
@@ -176,6 +177,11 @@ func Cmds() []*cobra.Command {
 					}
 					return fmt.Errorf("malformed context: %s", err)
 				}
+
+				context.PachdAddress, err = grpcutil.SanitizePachAddress(context.PachdAddress)
+				if err != nil {
+					return err
+				}
 			}
 
 			cfg.V2.Contexts[name] = &context
@@ -225,6 +231,10 @@ func Cmds() []*cobra.Command {
 			// being an empty string (meaning we want to set the value to an
 			// empty string)
 			if updateContext.Flags().Changed("pachd-address") {
+				pachdAddress, err = grpcutil.SanitizePachAddress(pachdAddress)
+				if err != nil {
+					return err
+				}
 				context.PachdAddress = pachdAddress
 			}
 			if updateContext.Flags().Changed("cluster-name") {

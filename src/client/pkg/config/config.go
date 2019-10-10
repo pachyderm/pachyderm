@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -111,10 +112,15 @@ func (c *Config) initV2() error {
 		Metrics:       true,
 	}
 
+	pachdAddress, err := grpcutil.SanitizePachAddress(c.V1.PachdAddress)
+	if err != nil {
+		return err
+	}
+
 	if c.V1 != nil {
 		c.V2.Contexts["default"] = &Context{
 			Source:            ContextSource_CONFIG_V1,
-			PachdAddress:      c.V1.PachdAddress,
+			PachdAddress:      pachdAddress,
 			ServerCAs:         c.V1.ServerCAs,
 			SessionToken:      c.V1.SessionToken,
 			ActiveTransaction: c.V1.ActiveTransaction,
