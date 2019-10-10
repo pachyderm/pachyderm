@@ -503,7 +503,7 @@ test-enterprise:
 	go test -v ./src/server/enterprise/server -count 1 -timeout $(TIMEOUT)
 
 test-tls:
-	./etc/testing/test_tls.sh --host=$(PACHD_HOST) --port=$(PACHD_PORT)
+	./etc/testing/test_tls.sh
 
 test-worker: launch-stats test-worker-helper
 

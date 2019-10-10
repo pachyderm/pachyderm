@@ -2,24 +2,17 @@
 
 set -euo pipefail
 
-eval "set -- $( getopt -l "host:,port:" "--" "${0}" "${@}" )"
-while true; do
-  case "${1}" in
-    --host)
-      host="${2}"
-      shift 2
-      ;;
-    --port)
-      port="${2}"
-      shift 2
-      ;;
-    --)
-      shift
-      break
-      ;;
-  esac
-done
+active_context=`pachctl config get active-context`
+address=`pachctl config get context $active_context | jq -r .pachd_address`
 
+if [[ "${address}" = "null" ]]; then
+  echo "pachd_address must be set on the active context"
+  exit 1
+fi
+
+IFS=':' read -ra parts <<< "$address"
+host=${parts[0]}
+port=${parts[1]:-30650}
 echo "testing TLS against host=${host}, port=${port}"
 
 # Validate the host (that it doesn't start with a protocol)
