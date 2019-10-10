@@ -22,6 +22,7 @@ ask for advice in our `Slack channel <http://slack.pachyderm.io/>`__.
    on_premises.md
    deploy_custom/index.rst
    connect-to-cluster.md
+   deploy_w_tls.md
    custom_object_stores.md
    namespaces.md
    rbac.md
