@@ -59,6 +59,8 @@ for i in $(seq 3); do
     sleep 10
 done
 
+pachctl config update context `pachctl config get active-context` --pachd-address=$(minikube ip):30650
+
 function test_bucket {
     set +x
     package="${1}"
@@ -87,8 +89,6 @@ function test_bucket {
 
 case "${BUCKET}" in
  MISC)
-    pachctl config set context `pachctl config get active-context` --pachd-address=$(minikube ip):30650
-
     if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
         echo "Running the full misc test suite because secret env vars exist"
         make lint
