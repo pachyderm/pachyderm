@@ -664,7 +664,7 @@ specifying it as a field in the `spout` spec. Then, Kubernetes creates
 a service endpoint that you can expose externally. You can get the information
 about the service by running `kubectl get services`.
 
-For more information, see [Spouts](../concepts/pipeline-concepts/spout.md).
+For more information, see [Spouts](../concepts/pipeline-concepts/pipeline/spout.md).
 
 ### Max Queue Size (optional)
 `max_queue_size` specifies that maximum number of datums that a worker should

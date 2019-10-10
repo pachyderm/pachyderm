@@ -47,7 +47,7 @@ you can define a different glob pattern for each input
 repo. You can combine the datums from each input repo
 by using either the `cross` or `union` operator to
 create the final datums that your code processes.
-For more information, see [Cross and Union](../pipeline/cross-union.md).
+For more information, see [Cross and Union](cross-union.md).
 
 ## Example of Defining Datums
 

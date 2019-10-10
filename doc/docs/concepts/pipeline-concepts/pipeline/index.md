@@ -30,7 +30,7 @@ A minimum pipeline specification must include the following parameters:
 - `input` — A location of the data that you want to process, such as a
   Pachyderm repository. You can specify multiple input
   repositories and set up the data to be combined in various ways.
-  For more information, see [Cross and Union](cross-union.md).
+  For more information, see [Cross and Union](../datum/cross-union.md).
 
   One very important property that is defined in the `input` field
   is the `glob` pattern that defines how Pachyderm breaks the data into
