@@ -112,15 +112,20 @@ func (c *Config) initV2() error {
 		Metrics:       true,
 	}
 
+	pachdAddressStr := ""
 	pachdAddress, err := grpcutil.ParsePachdAddress(c.V1.PachdAddress)
 	if err != nil {
-		return err
+		if err != grpcutil.ErrNoAddress {
+			return err
+		}
+	} else {
+		pachdAddressStr = pachdAddress.Qualified()
 	}
 
 	if c.V1 != nil {
 		c.V2.Contexts["default"] = &Context{
 			Source:            ContextSource_CONFIG_V1,
-			PachdAddress:      pachdAddress.Qualified(),
+			PachdAddress:      pachdAddressStr,
 			ServerCAs:         c.V1.ServerCAs,
 			SessionToken:      c.V1.SessionToken,
 			ActiveTransaction: c.V1.ActiveTransaction,

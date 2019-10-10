@@ -180,9 +180,12 @@ func Cmds() []*cobra.Command {
 
 				pachdAddress, err := grpcutil.ParsePachdAddress(context.PachdAddress)
 				if err != nil {
-					return err
+					if err != grpcutil.ErrNoAddress {
+						return err
+					}
+				} else {
+					context.PachdAddress = pachdAddress.Qualified()
 				}
-				context.PachdAddress = pachdAddress.Qualified()
 			}
 
 			cfg.V2.Contexts[name] = &context
@@ -234,9 +237,14 @@ func Cmds() []*cobra.Command {
 			if updateContext.Flags().Changed("pachd-address") {
 				parsedPachdAddress, err := grpcutil.ParsePachdAddress(pachdAddress)
 				if err != nil {
-					return err
+					if err == grpcutil.ErrNoAddress {
+						context.PachdAddress = ""
+					} else {
+						return err
+					}
+				} else {
+					context.PachdAddress = parsedPachdAddress.Qualified()
 				}
-				context.PachdAddress = parsedPachdAddress.Qualified()
 			}
 			if updateContext.Flags().Changed("cluster-name") {
 				context.ClusterName = clusterName
