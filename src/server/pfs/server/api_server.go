@@ -180,6 +180,9 @@ func (a *apiServer) StartCommitInTransaction(
 	if commit != nil {
 		id = commit.ID
 	}
+	if a.env.NewStorageLayer {
+		return a.driver.startCommitNewStorageLayer(txnCtx, id, request.Parent, request.Branch, request.Provenance, request.Description)
+	}
 	return a.driver.startCommit(txnCtx, id, request.Parent, request.Branch, request.Provenance, request.Description)
 }
 
@@ -217,6 +220,9 @@ func (a *apiServer) FinishCommitInTransaction(
 	txnCtx *txnenv.TransactionContext,
 	request *pfs.FinishCommitRequest,
 ) error {
+	if a.env.NewStorageLayer {
+		return a.driver.finishCommitNewStorageLayer(txnCtx, request.Commit, request.Description)
+	}
 	if request.Trees != nil {
 		return a.driver.finishOutputCommit(txnCtx, request.Commit, request.Trees, request.Datums, request.SizeBytes)
 	}
@@ -245,7 +251,8 @@ func (a *apiServer) Merge(ctx context.Context, request *pfs.MergeRequest) (retEr
 	if !a.env.NewStorageLayer {
 		return fmt.Errorf("new storage layer disabled")
 	}
-	return a.driver.merge(ctx, request.Prefix)
+	// (bryce) no-op for now. Unclear what exposed merge means for delayed compaction.
+	return nil
 }
 
 // InspectCommit implements the protobuf pfs.InspectCommit RPC

@@ -2,7 +2,6 @@ package fileset
 
 import (
 	"context"
-	"path"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
@@ -46,12 +45,6 @@ func (s *Storage) NewWriter(ctx context.Context, fileSet string) *Writer {
 
 // NewReader creates a new Reader for a full file set.
 func (s *Storage) NewReader(ctx context.Context, fileSet string, opts ...index.Option) *Reader {
-	// (bryce) lazy merge logic here?
-	fileSet = path.Join(fileSet, FullMergeSuffix)
-	return s.newReader(ctx, fileSet, opts...)
-}
-
-func (s *Storage) newReader(ctx context.Context, fileSet string, opts ...index.Option) *Reader {
 	return newReader(ctx, s.objC, s.chunks, fileSet, opts...)
 }
 
@@ -68,26 +61,28 @@ func (s *Storage) NewIndexReader(ctx context.Context, fileSet string, opts ...in
 // Shard shards the merge of the file sets with the passed in prefix into file ranges.
 // (bryce) this should be extended to be more configurable (different criteria
 // for creating shards).
-func (s *Storage) Shard(ctx context.Context, fileSet string, shardFunc ShardFunc) error {
-	return s.merge(ctx, fileSet, shardMergeFunc(shardFunc))
+func (s *Storage) Shard(ctx context.Context, fileSets []string, shardFunc ShardFunc) error {
+	return s.merge(ctx, fileSets, shardMergeFunc(shardFunc))
 }
 
 // Merge merges the file sets with the passed in prefix.
-func (s *Storage) Merge(ctx context.Context, outputFileSet, inputFileSet string, opts ...index.Option) error {
+func (s *Storage) Merge(ctx context.Context, outputFileSet string, inputFileSets []string, opts ...index.Option) error {
 	w := s.NewWriter(ctx, outputFileSet)
-	if err := s.merge(ctx, inputFileSet, contentMergeFunc(w), opts...); err != nil {
+	if err := s.merge(ctx, inputFileSets, contentMergeFunc(w), opts...); err != nil {
 		return err
 	}
 	return w.Close()
 }
 
-func (s *Storage) merge(ctx context.Context, fileSet string, f mergeFunc, opts ...index.Option) error {
+func (s *Storage) merge(ctx context.Context, fileSets []string, f mergeFunc, opts ...index.Option) error {
 	var rs []*Reader
-	if err := s.objC.Walk(ctx, fileSet, func(name string) error {
-		rs = append(rs, s.newReader(ctx, name, opts...))
-		return nil
-	}); err != nil {
-		return err
+	for _, fileSet := range fileSets {
+		if err := s.objC.Walk(ctx, fileSet, func(name string) error {
+			rs = append(rs, s.NewReader(ctx, name, opts...))
+			return nil
+		}); err != nil {
+			return err
+		}
 	}
 	var fileStreams []stream
 	for _, r := range rs {

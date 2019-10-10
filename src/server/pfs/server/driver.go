@@ -115,6 +115,7 @@ type driver struct {
 
 	// New storage layer.
 	storage *fileset.Storage
+	fs      *fileset.FileSet
 }
 
 // newDriver is used to create a new Driver instance

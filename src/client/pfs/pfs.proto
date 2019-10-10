@@ -179,7 +179,9 @@ message ObjectInfo {
   BlockRef block_ref = 2;
 }
 
-message Merge {}
+message Merge {
+  repeated string prefixes = 1;
+}
 
 message Shard {
   PathRange range = 1;
