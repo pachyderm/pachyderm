@@ -254,8 +254,18 @@ func getCertOptionsFromEnv() ([]Option, error) {
 	if certPaths, ok := os.LookupEnv("PACH_CA_CERTS"); ok {
 		fmt.Fprintln(os.Stderr, "WARNING: 'PACH_CA_CERTS' is deprecated and will be removed in a future release, use Pachyderm contexts instead.")
 
-		if pachdAddress, ok := os.LookupEnv("PACHD_ADDRESS"); !ok || !grpcutil.IsTLSPachdAddress(pachdAddress) {
-			return nil, errors.New("cannot set PACH_CA_CERTS without setting PACHD_ADDRESS to grpcs://... ")
+		pachdAddressStr, ok := os.LookupEnv("PACHD_ADDRESS")
+		if !ok {
+			return nil, errors.New("cannot set PACH_CA_CERTS without setting PACHD_ADDRESS")
+		}
+
+		pachdAddress, err := grpcutil.ParsePachdAddress(pachdAddressStr)
+		if err != nil {
+			return nil, fmt.Errorf("could not parse `PACHD_ADDRESS`: %v", err)
+		}
+
+		if !pachdAddress.Secured {
+			return nil, fmt.Errorf("cannot set `PACH_CA_CERTS` if `PACHD_ADDRESS` is not using grpcs")
 		}
 
 		paths := strings.Split(certPaths, ",")
@@ -287,59 +297,62 @@ func getCertOptionsFromEnv() ([]Option, error) {
 // getUserMachineAddrAndOpts is a helper for NewOnUserMachine that uses
 // environment variables, config files, etc to figure out which address a user
 // running a command should connect to.
-func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error) {
+func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress, []Option, error) {
 	var options []Option
 
 	// 1) PACHD_ADDRESS environment variable (shell-local) overrides global config
-	if envAddr, ok := os.LookupEnv("PACHD_ADDRESS"); ok {
+	if envAddrStr, ok := os.LookupEnv("PACHD_ADDRESS"); ok {
 		fmt.Fprintln(os.Stderr, "WARNING: 'PACHD_ADDRESS' is deprecated and will be removed in a future release, use Pachyderm contexts instead.")
 
-		sanitizedEnvAddr, err := grpcutil.SanitizePachAddress(envAddr)
+		envAddr, err := grpcutil.ParsePachdAddress(envAddrStr)
 		if err != nil {
-			return "", nil, fmt.Errorf("could not parse `PACHD_ADDRESS`: %v", err)
+			return nil, nil, fmt.Errorf("could not parse `PACHD_ADDRESS`: %v", err)
 		}
 
-		if grpcutil.IsTLSPachdAddress(sanitizedEnvAddr) {
+		if envAddr.Secured {
 			options = append(options, WithSystemCAs)
 		}
 
 		options, err := getCertOptionsFromEnv()
 		if err != nil {
-			return "", nil, err
+			return nil, nil, err
 		}
 
-		return sanitizedEnvAddr, options, nil
+		return &envAddr, options, nil
 	}
 
 	// 2) Get target address from global config if possible
 	if context != nil && (context.ServerCAs != "" || context.PachdAddress != "") {
-		isTLSEnabled := grpcutil.IsTLSPachdAddress(context.PachdAddress)
-
-		// Proactively return an error in this case, instead of falling back to the default address below
-		if context.ServerCAs != "" && !isTLSEnabled {
-			return "", nil, errors.New("must set pachd_address to grpc://... if server_cas is set")
+		pachdAddress, err := grpcutil.ParsePachdAddress(context.PachdAddress)
+		if err != nil {
+			return nil, nil, fmt.Errorf("could not parse the active context's pachd address: %v", err)
 		}
 
-		if isTLSEnabled {
+		// Proactively return an error in this case, instead of falling back to the default address below
+		if context.ServerCAs != "" && !pachdAddress.Secured {
+			return nil, nil, errors.New("must set pachd_address to grpc://... if server_cas is set")
+		}
+
+		if pachdAddress.Secured {
 			options = append(options, WithSystemCAs)
 		}
 		// Also get cert info from config (if set)
 		if context.ServerCAs != "" {
 			pemBytes, err := base64.StdEncoding.DecodeString(context.ServerCAs)
 			if err != nil {
-				return "", nil, fmt.Errorf("could not decode server CA certs in config: %v", err)
+				return nil, nil, fmt.Errorf("could not decode server CA certs in config: %v", err)
 			}
-			return context.PachdAddress, []Option{WithAdditionalRootCAs(pemBytes)}, nil
+			return &pachdAddress, []Option{WithAdditionalRootCAs(pemBytes)}, nil
 		}
-		return context.PachdAddress, options, nil
+		return &pachdAddress, options, nil
 	}
 
 	// 3) Use default address (broadcast) if nothing else works
 	options, err := getCertOptionsFromEnv() // error if PACH_CA_CERTS is set
 	if err != nil {
-		return "", nil, err
+		return nil, nil, err
 	}
-	return "", options, nil
+	return nil, options, nil
 }
 
 func portForwarder() *PortForwarder {
@@ -380,17 +393,18 @@ func NewForTest() (*APIClient, error) {
 	}
 
 	// create new pachctl client
-	addr, cfgOptions, err := getUserMachineAddrAndOpts(context)
+	pachdAddress, cfgOptions, err := getUserMachineAddrAndOpts(context)
 	if err != nil {
 		return nil, err
 	}
-	if addr == "" {
-		addr = fmt.Sprintf("0.0.0.0:%s", grpcutil.DefaultPachdNodePort)
+
+	if pachdAddress == nil {
+		pachdAddress = &grpcutil.DefaultPachdAddress
 	}
 
-	client, err := NewFromAddress(addr, cfgOptions...)
+	client, err := NewFromAddress(pachdAddress.Hostname(), cfgOptions...)
 	if err != nil {
-		return nil, fmt.Errorf("could not connect to pachd at %q: %v", addr, err)
+		return nil, fmt.Errorf("could not connect to pachd at %s: %v", pachdAddress.Qualified(), err)
 	}
 	return client, nil
 }
@@ -414,41 +428,29 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 
 	// create new pachctl client
 	var fw *PortForwarder
-	addr, cfgOptions, err := getUserMachineAddrAndOpts(context)
+	pachdAddress, cfgOptions, err := getUserMachineAddrAndOpts(context)
 	if err != nil {
 		return nil, err
 	}
-	if addr == "" {
-		addr = fmt.Sprintf("0.0.0.0:%s", grpcutil.DefaultPachdNodePort)
+	if pachdAddress == nil {
+		pachdAddress = &grpcutil.DefaultPachdAddress
 		fw = portForwarder()
 	}
 
-	client, err := NewFromAddress(addr, append(options, cfgOptions...)...)
+	client, err := NewFromAddress(pachdAddress.Hostname(), append(options, cfgOptions...)...)
 	if err != nil {
 		if strings.Contains(err.Error(), "context deadline exceeded") {
-			// port always starts after last colon, but net.SplitHostPort returns an
-			// error on a hostport without a colon, which this might be
-			port := ""
-			if colonIdx := strings.LastIndexByte(addr, ':'); colonIdx >= 0 {
-				port = addr[colonIdx+1:]
-			}
 			// Check for errors in approximate order of helpfulness
-			if port != "" && port != grpcutil.DefaultPachdPort && port != grpcutil.DefaultPachdNodePort {
+			if pachdAddress.IsUnusualPort() {
 				return nil, fmt.Errorf("could not connect (note: port is usually "+
-					"%s or %s, but is currently set to %q--is this right?): %v", grpcutil.DefaultPachdNodePort, grpcutil.DefaultPachdPort, port, err)
-			}
-			isLoopback := strings.HasPrefix(addr, "0.0.0.0") || strings.HasPrefix(addr, "127.0.0.1") || strings.HasPrefix(addr, "[::1]") || strings.HasPrefix(addr, "localhost")
-			if fw == nil && isLoopback {
-				return nil, fmt.Errorf("could not connect (note: address %q looks "+
-					"like loopback, check that 'pachctl port-forward' is running): %v",
-					addr, err)
-			}
-			if port == "" {
-				return nil, fmt.Errorf("could not connect (note: address %q does not "+
-					"seem to be host:port): %v", addr, err)
+					"%s or %s, but is currently set to %q--is this right?): %v", grpcutil.DefaultPachdNodePort, grpcutil.DefaultPachdPort, pachdAddress.Port, err)
+			} else if fw == nil && pachdAddress.IsLoopback() {
+				return nil, fmt.Errorf("could not connect (note: address %s looks "+
+					"like loopback, try unsetting it): %v",
+					pachdAddress.Qualified(), err)
 			}
 		}
-		return nil, fmt.Errorf("could not connect to pachd at %q: %v", addr, err)
+		return nil, fmt.Errorf("could not connect to pachd at %s: %v", pachdAddress.Qualified(), err)
 	}
 
 	// Add metrics info & authentication token

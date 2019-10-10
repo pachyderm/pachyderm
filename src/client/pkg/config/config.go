@@ -112,7 +112,7 @@ func (c *Config) initV2() error {
 		Metrics:       true,
 	}
 
-	pachdAddress, err := grpcutil.SanitizePachAddress(c.V1.PachdAddress)
+	pachdAddress, err := grpcutil.ParsePachdAddress(c.V1.PachdAddress)
 	if err != nil {
 		return err
 	}
@@ -120,7 +120,7 @@ func (c *Config) initV2() error {
 	if c.V1 != nil {
 		c.V2.Contexts["default"] = &Context{
 			Source:            ContextSource_CONFIG_V1,
-			PachdAddress:      pachdAddress,
+			PachdAddress:      pachdAddress.Qualified(),
 			ServerCAs:         c.V1.ServerCAs,
 			SessionToken:      c.V1.SessionToken,
 			ActiveTransaction: c.V1.ActiveTransaction,
