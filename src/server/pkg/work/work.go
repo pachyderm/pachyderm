@@ -12,95 +12,84 @@ import (
 )
 
 const (
-	workPrefix  = "/work"
-	shardPrefix = "/shard"
+	taskPrefix    = "/task"
+	subtaskPrefix = "/subtask"
 )
 
 // CollectFunc is a callback that is used for collecting the results
-// from a shard that has been processed.
-type CollectFunc func(context.Context, *Shard) error
+// from a subtask that has been processed.
+type CollectFunc func(context.Context, *Task) error
 
-// Master is the master for a unit of work.
-// The master will layout the shards for the work in etcd and collect
+// Master is the master for a task.
+// The master will layout the subtasks for the task in etcd and collect
 // them upon completion. The collectFunc callback will be called for
-// each shard that is collected.
+// each subtask that is collected.
 type Master struct {
-	etcdClient        *etcd.Client
-	workCol, shardCol col.Collection
-	collectFunc       CollectFunc
+	etcdClient          *etcd.Client
+	taskCol, subtaskCol col.Collection
+	collectFunc         CollectFunc
 }
 
 // NewMaster creates a new master.
 func NewMaster(etcdClient *etcd.Client, etcdPrefix string, collectFunc CollectFunc) *Master {
 	return &Master{
 		etcdClient:  etcdClient,
-		workCol:     workCollection(etcdClient, etcdPrefix),
-		shardCol:    shardCollection(etcdClient, etcdPrefix),
+		taskCol:     collection(etcdClient, path.Join(etcdPrefix, taskPrefix)),
+		subtaskCol:  collection(etcdClient, path.Join(etcdPrefix, subtaskPrefix)),
 		collectFunc: collectFunc,
 	}
 }
 
-func workCollection(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
+func collection(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 	return col.NewCollection(
 		etcdClient,
-		path.Join(etcdPrefix, workPrefix),
+		etcdPrefix,
 		nil,
-		&WorkInfo{},
+		&TaskInfo{},
 		nil,
 		nil,
 	)
 }
 
-func shardCollection(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
-	return col.NewCollection(
-		etcdClient,
-		path.Join(etcdPrefix, shardPrefix),
-		nil,
-		&ShardInfo{},
-		nil,
-		nil,
-	)
-}
-
-// Run runs the master with a given context and unit of work.
-func (m *Master) Run(ctx context.Context, work *Work) (retErr error) {
-	workInfo := &WorkInfo{Work: work}
-	if err := m.updateWorkInfo(ctx, workInfo); err != nil {
+// Run runs the master with a given context and task.
+func (m *Master) Run(ctx context.Context, task *Task) (retErr error) {
+	taskInfo := &TaskInfo{Task: task}
+	if err := m.updateTaskInfo(ctx, taskInfo); err != nil {
 		return err
 	}
 	defer func() {
-		workInfo.State = State_COMPLETE
+		taskInfo.State = State_SUCCESS
 		// (bryce) might also want a killed state.
 		if retErr != nil {
-			workInfo.State = State_FAILED
+			taskInfo.State = State_FAILURE
 		}
-		if err := m.updateWorkInfo(ctx, workInfo); err != nil && retErr != nil {
+		if err := m.updateTaskInfo(ctx, taskInfo); err != nil && retErr != nil {
 			retErr = err
 		}
 		// (bryce) what should the work etcd entry cleanup look like?
 		// Need all of the workers to receive the termination signal
 		// before it can be cleaned up.
 	}()
-	// Collect the results from the processing of the shards.
-	for _, shard := range work.Shards {
-		shardKey := path.Join(work.Id, shard.Id)
-		if err := m.shardCol.ReadOnly(ctx).WatchOneF(shardKey, func(e *watch.Event) error {
+	// Collect the results from the processing of the subtasks.
+	for _, subtask := range task.Subtasks {
+		subtaskKey := path.Join(task.Id, subtask.Id)
+		if err := m.subtaskCol.ReadOnly(ctx).WatchOneF(subtaskKey, func(e *watch.Event) error {
 			var key string
-			shardInfo := &ShardInfo{}
-			if err := e.Unmarshal(&key, shardInfo); err != nil {
+			subtaskInfo := &TaskInfo{}
+			if err := e.Unmarshal(&key, subtaskInfo); err != nil {
 				return err
 			}
-			// Check that the shard state is terminal.
-			if shardInfo.State == State_RUNNING {
+			// Check that the subtask state is terminal.
+			if subtaskInfo.State == State_RUNNING {
 				return nil
 			}
-			// Check that the full key matched the shard key.
-			if key != shardKey {
+			// Check that the full key matched the subtask key.
+			if key != subtaskKey {
 				return nil
 			}
-			// (bryce) need to figure out error propagation if shard fails.
-			// if shardInfo.State == State_FAILED {}
-			if err := m.collectFunc(ctx, shardInfo.Shard); err != nil {
+			// (bryce) need to figure out error propagation if subtask fails.
+			// if subtaskInfo.State == State_FAILURE {}
+			if err := m.collectFunc(ctx, subtaskInfo.Task); err != nil {
 				return err
 			}
 			return errutil.ErrBreak
@@ -111,94 +100,94 @@ func (m *Master) Run(ctx context.Context, work *Work) (retErr error) {
 	return nil
 }
 
-func (m *Master) updateWorkInfo(ctx context.Context, workInfo *WorkInfo) error {
+func (m *Master) updateTaskInfo(ctx context.Context, taskInfo *TaskInfo) error {
 	_, err := col.NewSTM(ctx, m.etcdClient, func(stm col.STM) error {
-		return m.workCol.ReadWrite(stm).Put(workInfo.Work.Id, workInfo)
+		return m.taskCol.ReadWrite(stm).Put(taskInfo.Task.Id, taskInfo)
 	})
 	return err
 }
 
-// ProcessFunc is a callback that is used for processing a shard in a unit of work.
-type ProcessFunc func(context.Context, *Work, *Shard) error
+// ProcessFunc is a callback that is used for processing a subtask in a task.
+type ProcessFunc func(context.Context, *Task, *Task) error
 
-// Worker is a worker that will process shards in a unit of work.
-// The worker will watch the work collection for units of work added by a master.
-// When a unit of work is added, the worker will claim and process shards associated
-// with that unit of work.
-// The processFunc callback will be called for each shard that needs to be processed
-// in the unit of work.
+// Worker is a worker that will process subtasks in a task.
+// The worker will watch the task collection for tasks added by a master.
+// When a task is added, the worker will claim and process subtasks associated
+// with that task.
+// The processFunc callback will be called for each subtask that needs to be processed
+// in the task.
 type Worker struct {
-	etcdClient        *etcd.Client
-	workCol, shardCol col.Collection
-	processFunc       ProcessFunc
+	etcdClient          *etcd.Client
+	taskCol, subtaskCol col.Collection
+	processFunc         ProcessFunc
 }
 
 // NewWorker creates a new worker.
 func NewWorker(etcdClient *etcd.Client, etcdPrefix string, processFunc ProcessFunc) *Worker {
 	return &Worker{
 		etcdClient:  etcdClient,
-		workCol:     workCollection(etcdClient, etcdPrefix),
-		shardCol:    shardCollection(etcdClient, etcdPrefix),
+		taskCol:     collection(etcdClient, path.Join(etcdPrefix, taskPrefix)),
+		subtaskCol:  collection(etcdClient, path.Join(etcdPrefix, subtaskPrefix)),
 		processFunc: processFunc,
 	}
 }
 
 // Run runs the worker with the given context.
-// The worker will continue to watch the work collection until the context is cancelled.
+// The worker will continue to watch the task collection until the context is cancelled.
 func (w *Worker) Run(ctx context.Context) error {
-	return w.workCol.ReadOnly(ctx).WatchF(func(e *watch.Event) (retErr error) {
+	return w.taskCol.ReadOnly(ctx).WatchF(func(e *watch.Event) (retErr error) {
 		var id string
-		workInfo := &WorkInfo{}
-		if err := e.Unmarshal(&id, workInfo); err != nil {
+		taskInfo := &TaskInfo{}
+		if err := e.Unmarshal(&id, taskInfo); err != nil {
 			return err
 		}
-		if workInfo.State == State_RUNNING {
-			return w.processWork(ctx, workInfo.Work)
+		if taskInfo.State == State_RUNNING {
+			return w.processTask(ctx, taskInfo.Task)
 		}
 		return nil
 	})
 }
 
-func (w *Worker) processWork(ctx context.Context, work *Work) error {
+func (w *Worker) processTask(ctx context.Context, task *Task) error {
 	var eg errgroup.Group
 	ctx, cancel := context.WithCancel(ctx)
-	// Watch for work termination.
+	// Watch for task termination.
 	// This will handle completion, failure, and cancellation.
 	eg.Go(func() error {
-		return w.workCol.ReadOnly(ctx).WatchOneF(work.Id, func(e *watch.Event) error {
+		return w.taskCol.ReadOnly(ctx).WatchOneF(task.Id, func(e *watch.Event) error {
 			var id string
-			workInfo := &WorkInfo{}
-			if err := e.Unmarshal(&id, workInfo); err != nil {
+			taskInfo := &TaskInfo{}
+			if err := e.Unmarshal(&id, taskInfo); err != nil {
 				return err
 			}
-			if workInfo.State != State_RUNNING {
+			if taskInfo.State != State_RUNNING {
 				cancel()
 				return errutil.ErrBreak
 			}
 			return nil
 		})
 	})
-	// Process the shards.
+	// Process the subtasks.
 	eg.Go(func() (retErr error) {
-		// (bryce) cleanup of shards needs to be re-thought.
-		// Cannot cleanup in this manner, because it messes up shard claims when a worker errors.
+		// (bryce) cleanup of subtasks needs to be re-thought.
+		// Cannot cleanup in this manner, because it messes up subtasks claims when a worker errors.
 		// Cleaning up in the master results with a race condition with workers
-		// waiting on work termination signal and shard claims to expire.
+		// waiting on work termination signal and subtask claims to expire.
 		//defer func() {
-		//	// Attempt to cleanup shard entries.
+		//	// Attempt to cleanup subtask entries.
 		//	if _, err := col.NewSTM(context.Background(), w.etcdClient, func(stm col.STM) error {
-		//		w.shardCol.ReadWrite(stm).DeleteAllPrefix(work.Id)
+		//		w.subtaskCol.ReadWrite(stm).DeleteAllPrefix(work.Id)
 		//		return nil
 		//	}); err != nil && retErr == nil {
 		//		retErr = err
 		//	}
 		//}()
-		if err := w.processShards(ctx, work); err != nil {
+		if err := w.processSubtasks(ctx, task); err != nil {
 			return err
 		}
-		// Wait for a deletion event (ttl expired) before attempting to process the shards again.
-		return w.shardCol.ReadOnly(ctx).WatchOneF(work.Id, func(e *watch.Event) error {
-			return w.processShards(ctx, work)
+		// Wait for a deletion event (ttl expired) before attempting to process the subtasks again.
+		return w.subtaskCol.ReadOnly(ctx).WatchOneF(task.Id, func(e *watch.Event) error {
+			return w.processSubtasks(ctx, task)
 		}, watch.WithFilterPut())
 	})
 	if err := eg.Wait(); err != nil {
@@ -211,18 +200,18 @@ func (w *Worker) processWork(ctx context.Context, work *Work) error {
 	return nil
 }
 
-func (w *Worker) processShards(ctx context.Context, work *Work) error {
-	for _, shard := range work.Shards {
-		shardKey := path.Join(work.Id, shard.Id)
-		shardInfo := &ShardInfo{}
-		if err := w.shardCol.Claim(ctx, shardKey, shardInfo, func(ctx context.Context) error {
-			if err := w.processFunc(ctx, work, shard); err != nil {
+func (w *Worker) processSubtasks(ctx context.Context, task *Task) error {
+	for _, subtask := range task.Subtasks {
+		subtaskKey := path.Join(task.Id, subtask.Id)
+		subtaskInfo := &TaskInfo{}
+		if err := w.subtaskCol.Claim(ctx, subtaskKey, subtaskInfo, func(ctx context.Context) error {
+			if err := w.processFunc(ctx, task, subtask); err != nil {
 				return err
 			}
-			shardInfo.Shard = shard
-			shardInfo.State = State_COMPLETE
+			subtaskInfo.Task = subtask
+			subtaskInfo.State = State_SUCCESS
 			_, err := col.NewSTM(ctx, w.etcdClient, func(stm col.STM) error {
-				return w.shardCol.ReadWrite(stm).Put(shardKey, shardInfo)
+				return w.subtaskCol.ReadWrite(stm).Put(subtaskKey, subtaskInfo)
 			})
 			return err
 		}); err != nil && err != col.ErrNotClaimed {

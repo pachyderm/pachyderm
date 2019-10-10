@@ -10,6 +10,7 @@ on a supported cloud platform of your choice.
    :maxdepth: 2
 
    deploy_intro.md
+   ../pachub/pachub_getting_started.md
    google_cloud_platform.md
    amazon_web_services/index.rst
    azure.md

@@ -1,16 +1,6 @@
 #!/bin/bash
 # This script generates a self-signed TLS cert to be used by pachd in tests
 
-if [[ -n "${PACHD_ADDRESS}" ]]; then
-  echo "must run 'unset PACHD_ADDRESS' to use this script's cert. These" >/dev/fd/2
-  echo "variables prevent pachctl from trusting the cert that this script" >/dev/fd/2
-  echo "generates" >/dev/fd/2
-  exit 1
-else
-  echo "Note that \$PACHD_ADDRESS prevents pachctl from trusting the cert that"
-  echo "this script generates--do not set it"
-fi
-
 eval "set -- $( getopt -l "dns:,ip:,port:" -o "o:" "--" "${0}" "${@:-}" )"
 output_prefix=pachd
 while true; do
@@ -121,8 +111,26 @@ tls_opts=(
 # Generate self-signed cert
 openssl req "${tls_opts[@]}" -config <(echo "${tls_config}")
 
-# Copy pachd public key to pachyderm config
-echo "Backing up Pachyderm config to \$HOME/.pachyderm/config.json.backup"
-echo "New config with address and cert is at \$HOME/.pachyderm/config.json"
-cp ~/.pachyderm/config.json ~/.pachyderm/config.json.backup
-jq ".v1.pachd_address = \"${dns:-$ip}:${port}\" | .v1.server_cas = \"$(cat ./pachd.pem | base64)\"" ~/.pachyderm/config.json.backup >~/.pachyderm/config.json
+# Print instructions for using new cert and key
+host="${dns}"
+if [[ -n "${ip}" ]]; then
+  host="${ip}"
+fi
+echo "New cert and key are in '${output_prefix}.pem' and '${output_prefix}.key'"
+echo "Deploy pachd to present the new self-signed cert and key by running:"
+echo ""
+echo "  pachctl undeploy # remove any existing cluster"
+echo "  pachctl deploy <destination> --tls=\"${output_prefix}.pem,${output_prefix}.key\""
+echo ""
+echo "Configure pachctl to trust the new self-signed cert by running:"
+echo ""
+echo "  export PACHD_ADDRESS=\"grpcs://${host}:${port}\""
+echo "  export PACH_CA_CERTS=${output_prefix}.pem"
+echo ""
+echo "--- OR ---"
+echo ""
+echo "  unset PACHD_ADDRESS # tell pachctl to use config for address and cert"
+echo "  pachctl config update context \\"
+echo "    --pachd-address=\"grpcs://${host}:${port}\" \\"
+echo "    --server-cas=\"\$(cat ./${output_prefix}.pem | base64)\""
+echo ""

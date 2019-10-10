@@ -26,21 +26,21 @@ const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 type State int32
 
 const (
-	State_RUNNING  State = 0
-	State_COMPLETE State = 1
-	State_FAILED   State = 2
+	State_RUNNING State = 0
+	State_SUCCESS State = 1
+	State_FAILURE State = 2
 )
 
 var State_name = map[int32]string{
 	0: "RUNNING",
-	1: "COMPLETE",
-	2: "FAILED",
+	1: "SUCCESS",
+	2: "FAILURE",
 }
 
 var State_value = map[string]int32{
-	"RUNNING":  0,
-	"COMPLETE": 1,
-	"FAILED":   2,
+	"RUNNING": 0,
+	"SUCCESS": 1,
+	"FAILURE": 2,
 }
 
 func (x State) String() string {
@@ -51,27 +51,27 @@ func (State) EnumDescriptor() ([]byte, []int) {
 	return fileDescriptor_58a68e4647f78187, []int{0}
 }
 
-type Work struct {
+type Task struct {
 	Id                   string     `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Meta                 *types.Any `protobuf:"bytes,2,opt,name=meta,proto3" json:"meta,omitempty"`
-	Shards               []*Shard   `protobuf:"bytes,3,rep,name=shards,proto3" json:"shards,omitempty"`
+	Data                 *types.Any `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
+	Subtasks             []*Task    `protobuf:"bytes,3,rep,name=subtasks,proto3" json:"subtasks,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
 	XXX_unrecognized     []byte     `json:"-"`
 	XXX_sizecache        int32      `json:"-"`
 }
 
-func (m *Work) Reset()         { *m = Work{} }
-func (m *Work) String() string { return proto.CompactTextString(m) }
-func (*Work) ProtoMessage()    {}
-func (*Work) Descriptor() ([]byte, []int) {
+func (m *Task) Reset()         { *m = Task{} }
+func (m *Task) String() string { return proto.CompactTextString(m) }
+func (*Task) ProtoMessage()    {}
+func (*Task) Descriptor() ([]byte, []int) {
 	return fileDescriptor_58a68e4647f78187, []int{0}
 }
-func (m *Work) XXX_Unmarshal(b []byte) error {
+func (m *Task) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *Work) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *Task) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_Work.Marshal(b, m, deterministic)
+		return xxx_messageInfo_Task.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -81,59 +81,59 @@ func (m *Work) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return b[:n], nil
 	}
 }
-func (m *Work) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Work.Merge(m, src)
+func (m *Task) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Task.Merge(m, src)
 }
-func (m *Work) XXX_Size() int {
+func (m *Task) XXX_Size() int {
 	return m.Size()
 }
-func (m *Work) XXX_DiscardUnknown() {
-	xxx_messageInfo_Work.DiscardUnknown(m)
+func (m *Task) XXX_DiscardUnknown() {
+	xxx_messageInfo_Task.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_Work proto.InternalMessageInfo
+var xxx_messageInfo_Task proto.InternalMessageInfo
 
-func (m *Work) GetId() string {
+func (m *Task) GetId() string {
 	if m != nil {
 		return m.Id
 	}
 	return ""
 }
 
-func (m *Work) GetMeta() *types.Any {
+func (m *Task) GetData() *types.Any {
 	if m != nil {
-		return m.Meta
+		return m.Data
 	}
 	return nil
 }
 
-func (m *Work) GetShards() []*Shard {
+func (m *Task) GetSubtasks() []*Task {
 	if m != nil {
-		return m.Shards
+		return m.Subtasks
 	}
 	return nil
 }
 
-type WorkInfo struct {
-	Work                 *Work    `protobuf:"bytes,1,opt,name=work,proto3" json:"work,omitempty"`
+type TaskInfo struct {
+	Task                 *Task    `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
 	State                State    `protobuf:"varint,2,opt,name=state,proto3,enum=work.State" json:"state,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *WorkInfo) Reset()         { *m = WorkInfo{} }
-func (m *WorkInfo) String() string { return proto.CompactTextString(m) }
-func (*WorkInfo) ProtoMessage()    {}
-func (*WorkInfo) Descriptor() ([]byte, []int) {
+func (m *TaskInfo) Reset()         { *m = TaskInfo{} }
+func (m *TaskInfo) String() string { return proto.CompactTextString(m) }
+func (*TaskInfo) ProtoMessage()    {}
+func (*TaskInfo) Descriptor() ([]byte, []int) {
 	return fileDescriptor_58a68e4647f78187, []int{1}
 }
-func (m *WorkInfo) XXX_Unmarshal(b []byte) error {
+func (m *TaskInfo) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *WorkInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *TaskInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_WorkInfo.Marshal(b, m, deterministic)
+		return xxx_messageInfo_TaskInfo.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -143,136 +143,26 @@ func (m *WorkInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return b[:n], nil
 	}
 }
-func (m *WorkInfo) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_WorkInfo.Merge(m, src)
+func (m *TaskInfo) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TaskInfo.Merge(m, src)
 }
-func (m *WorkInfo) XXX_Size() int {
+func (m *TaskInfo) XXX_Size() int {
 	return m.Size()
 }
-func (m *WorkInfo) XXX_DiscardUnknown() {
-	xxx_messageInfo_WorkInfo.DiscardUnknown(m)
+func (m *TaskInfo) XXX_DiscardUnknown() {
+	xxx_messageInfo_TaskInfo.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_WorkInfo proto.InternalMessageInfo
+var xxx_messageInfo_TaskInfo proto.InternalMessageInfo
 
-func (m *WorkInfo) GetWork() *Work {
+func (m *TaskInfo) GetTask() *Task {
 	if m != nil {
-		return m.Work
+		return m.Task
 	}
 	return nil
 }
 
-func (m *WorkInfo) GetState() State {
-	if m != nil {
-		return m.State
-	}
-	return State_RUNNING
-}
-
-type Shard struct {
-	Id                   string     `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Meta                 *types.Any `protobuf:"bytes,2,opt,name=meta,proto3" json:"meta,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
-	XXX_unrecognized     []byte     `json:"-"`
-	XXX_sizecache        int32      `json:"-"`
-}
-
-func (m *Shard) Reset()         { *m = Shard{} }
-func (m *Shard) String() string { return proto.CompactTextString(m) }
-func (*Shard) ProtoMessage()    {}
-func (*Shard) Descriptor() ([]byte, []int) {
-	return fileDescriptor_58a68e4647f78187, []int{2}
-}
-func (m *Shard) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *Shard) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_Shard.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *Shard) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Shard.Merge(m, src)
-}
-func (m *Shard) XXX_Size() int {
-	return m.Size()
-}
-func (m *Shard) XXX_DiscardUnknown() {
-	xxx_messageInfo_Shard.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_Shard proto.InternalMessageInfo
-
-func (m *Shard) GetId() string {
-	if m != nil {
-		return m.Id
-	}
-	return ""
-}
-
-func (m *Shard) GetMeta() *types.Any {
-	if m != nil {
-		return m.Meta
-	}
-	return nil
-}
-
-type ShardInfo struct {
-	Shard                *Shard   `protobuf:"bytes,1,opt,name=shard,proto3" json:"shard,omitempty"`
-	State                State    `protobuf:"varint,2,opt,name=state,proto3,enum=work.State" json:"state,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *ShardInfo) Reset()         { *m = ShardInfo{} }
-func (m *ShardInfo) String() string { return proto.CompactTextString(m) }
-func (*ShardInfo) ProtoMessage()    {}
-func (*ShardInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_58a68e4647f78187, []int{3}
-}
-func (m *ShardInfo) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *ShardInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_ShardInfo.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *ShardInfo) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ShardInfo.Merge(m, src)
-}
-func (m *ShardInfo) XXX_Size() int {
-	return m.Size()
-}
-func (m *ShardInfo) XXX_DiscardUnknown() {
-	xxx_messageInfo_ShardInfo.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_ShardInfo proto.InternalMessageInfo
-
-func (m *ShardInfo) GetShard() *Shard {
-	if m != nil {
-		return m.Shard
-	}
-	return nil
-}
-
-func (m *ShardInfo) GetState() State {
+func (m *TaskInfo) GetState() State {
 	if m != nil {
 		return m.State
 	}
@@ -281,40 +171,36 @@ func (m *ShardInfo) GetState() State {
 
 func init() {
 	proto.RegisterEnum("work.State", State_name, State_value)
-	proto.RegisterType((*Work)(nil), "work.Work")
-	proto.RegisterType((*WorkInfo)(nil), "work.WorkInfo")
-	proto.RegisterType((*Shard)(nil), "work.Shard")
-	proto.RegisterType((*ShardInfo)(nil), "work.ShardInfo")
+	proto.RegisterType((*Task)(nil), "work.Task")
+	proto.RegisterType((*TaskInfo)(nil), "work.TaskInfo")
 }
 
 func init() { proto.RegisterFile("server/pkg/work/work.proto", fileDescriptor_58a68e4647f78187) }
 
 var fileDescriptor_58a68e4647f78187 = []byte{
-	// 325 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x51, 0xcd, 0x4e, 0xc2, 0x40,
-	0x18, 0x64, 0xcb, 0x8f, 0xf0, 0xd5, 0x10, 0xb2, 0xf1, 0x80, 0x1c, 0x1a, 0xac, 0x97, 0xc6, 0xc3,
-	0x6e, 0x52, 0x9f, 0x00, 0x05, 0x0d, 0x09, 0xa0, 0xae, 0x1a, 0x13, 0x6f, 0x85, 0x2e, 0x85, 0x20,
-	0x2c, 0xd9, 0x16, 0x4d, 0xdf, 0xc4, 0x47, 0xf2, 0xe8, 0x23, 0x98, 0xfa, 0x22, 0x66, 0xbf, 0xa2,
-	0x51, 0x4f, 0xc6, 0xcb, 0xe6, 0xfb, 0x66, 0x26, 0x33, 0xf3, 0x65, 0xa1, 0x15, 0x4b, 0xfd, 0x28,
-	0x35, 0x5f, 0x2f, 0x22, 0xfe, 0xa4, 0xf4, 0x02, 0x1f, 0xb6, 0xd6, 0x2a, 0x51, 0xb4, 0x64, 0xe6,
-	0xd6, 0x7e, 0xa4, 0x54, 0xf4, 0x20, 0x39, 0x62, 0xe3, 0xcd, 0x94, 0x07, 0xab, 0x34, 0x17, 0xb8,
-	0x12, 0x4a, 0x77, 0x4a, 0x2f, 0x68, 0x1d, 0xac, 0x79, 0xd8, 0x24, 0x6d, 0xe2, 0xd5, 0x84, 0x35,
-	0x0f, 0xa9, 0x07, 0xa5, 0xa5, 0x4c, 0x82, 0xa6, 0xd5, 0x26, 0x9e, 0xed, 0xef, 0xb1, 0xdc, 0x81,
-	0x7d, 0x3a, 0xb0, 0xce, 0x2a, 0x15, 0xa8, 0xa0, 0x87, 0x50, 0x89, 0x67, 0x81, 0x0e, 0xe3, 0x66,
-	0xb1, 0x5d, 0xf4, 0x6c, 0xdf, 0x66, 0x98, 0x7f, 0x6d, 0x30, 0xb1, 0xa5, 0xdc, 0x21, 0x54, 0x4d,
-	0x4c, 0x7f, 0x35, 0x55, 0xd4, 0x01, 0x6c, 0x85, 0x61, 0xb6, 0x0f, 0xb9, 0xdc, 0xb0, 0x02, 0x71,
-	0x7a, 0x00, 0xe5, 0x38, 0x09, 0x12, 0x89, 0xd9, 0xf5, 0x2f, 0x3f, 0x03, 0x89, 0x9c, 0x71, 0x3b,
-	0x50, 0x46, 0xff, 0xff, 0xd7, 0x76, 0xaf, 0xa0, 0x86, 0x16, 0x58, 0xc9, 0x44, 0x9a, 0x65, 0xdb,
-	0xe9, 0xc7, 0x09, 0x39, 0xf3, 0x87, 0x56, 0x47, 0x0c, 0xca, 0xb8, 0x53, 0x1b, 0x76, 0xc4, 0xed,
-	0x68, 0xd4, 0x1f, 0x9d, 0x37, 0x0a, 0x74, 0x17, 0xaa, 0xa7, 0x17, 0xc3, 0xcb, 0x41, 0xef, 0xa6,
-	0xd7, 0x20, 0x14, 0xa0, 0x72, 0xd6, 0xe9, 0x0f, 0x7a, 0xdd, 0x86, 0x75, 0xd2, 0x7d, 0xc9, 0x1c,
-	0xf2, 0x9a, 0x39, 0xe4, 0x2d, 0x73, 0xc8, 0xf3, 0xbb, 0x53, 0xb8, 0xf7, 0xa3, 0x79, 0x32, 0xdb,
-	0x8c, 0xd9, 0x44, 0x2d, 0xf9, 0x3a, 0x98, 0xcc, 0xd2, 0x50, 0xea, 0xef, 0x53, 0xac, 0x27, 0xfc,
-	0xd7, 0x6f, 0x8f, 0x2b, 0x78, 0xdc, 0xf1, 0x47, 0x00, 0x00, 0x00, 0xff, 0xff, 0x48, 0x11, 0x71,
-	0xb6, 0x07, 0x02, 0x00, 0x00,
+	// 292 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0x2a, 0x4e, 0x2d, 0x2a,
+	0x4b, 0x2d, 0xd2, 0x2f, 0xc8, 0x4e, 0xd7, 0x2f, 0xcf, 0x2f, 0xca, 0x06, 0x13, 0x7a, 0x05, 0x45,
+	0xf9, 0x25, 0xf9, 0x42, 0x2c, 0x20, 0xb6, 0x94, 0x64, 0x7a, 0x7e, 0x7e, 0x7a, 0x4e, 0xaa, 0x3e,
+	0x58, 0x2c, 0xa9, 0x34, 0x4d, 0x3f, 0x31, 0xaf, 0x12, 0xa2, 0x40, 0x29, 0x83, 0x8b, 0x25, 0x24,
+	0xb1, 0x38, 0x5b, 0x88, 0x8f, 0x8b, 0x29, 0x33, 0x45, 0x82, 0x51, 0x81, 0x51, 0x83, 0x33, 0x88,
+	0x29, 0x33, 0x45, 0x48, 0x83, 0x8b, 0x25, 0x25, 0xb1, 0x24, 0x51, 0x82, 0x49, 0x81, 0x51, 0x83,
+	0xdb, 0x48, 0x44, 0x0f, 0x62, 0x82, 0x1e, 0xcc, 0x04, 0x3d, 0xc7, 0xbc, 0xca, 0x20, 0xb0, 0x0a,
+	0x21, 0x35, 0x2e, 0x8e, 0xe2, 0xd2, 0xa4, 0x92, 0xc4, 0xe2, 0xec, 0x62, 0x09, 0x66, 0x05, 0x66,
+	0x0d, 0x6e, 0x23, 0x2e, 0x3d, 0xb0, 0x0b, 0x40, 0xe6, 0x06, 0xc1, 0xe5, 0x94, 0x7c, 0xb9, 0x38,
+	0x40, 0x22, 0x9e, 0x79, 0x69, 0xf9, 0x42, 0x72, 0x5c, 0x2c, 0x20, 0x41, 0xb0, 0x7d, 0xa8, 0xea,
+	0xc1, 0xe2, 0x42, 0x8a, 0x5c, 0xac, 0xc5, 0x25, 0x89, 0x25, 0xa9, 0x60, 0xeb, 0xf9, 0x8c, 0xb8,
+	0x21, 0x0a, 0x82, 0x41, 0x42, 0x41, 0x10, 0x19, 0x2d, 0x3d, 0x2e, 0x56, 0x30, 0x5f, 0x88, 0x9b,
+	0x8b, 0x3d, 0x28, 0xd4, 0xcf, 0xcf, 0xd3, 0xcf, 0x5d, 0x80, 0x01, 0xc4, 0x09, 0x0e, 0x75, 0x76,
+	0x76, 0x0d, 0x0e, 0x16, 0x60, 0x04, 0x71, 0xdc, 0x1c, 0x3d, 0x7d, 0x42, 0x83, 0x5c, 0x05, 0x98,
+	0x9c, 0x5c, 0x4e, 0x3c, 0x92, 0x63, 0xbc, 0xf0, 0x48, 0x8e, 0xf1, 0xc1, 0x23, 0x39, 0xc6, 0x19,
+	0x8f, 0xe5, 0x18, 0xa2, 0x8c, 0xd2, 0x33, 0x4b, 0x32, 0x4a, 0x93, 0xf4, 0x92, 0xf3, 0x73, 0xf5,
+	0x0b, 0x12, 0x93, 0x33, 0x2a, 0x53, 0x52, 0x8b, 0x90, 0x59, 0xc5, 0x45, 0xc9, 0xfa, 0x68, 0x41,
+	0x9b, 0xc4, 0x06, 0x0e, 0x00, 0x63, 0x40, 0x00, 0x00, 0x00, 0xff, 0xff, 0xd1, 0x3f, 0xf8, 0xa6,
+	0x74, 0x01, 0x00, 0x00,
 }
 
-func (m *Work) Marshal() (dAtA []byte, err error) {
+func (m *Task) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -324,12 +210,12 @@ func (m *Work) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *Work) MarshalTo(dAtA []byte) (int, error) {
+func (m *Task) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *Work) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *Task) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -338,10 +224,10 @@ func (m *Work) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if len(m.Shards) > 0 {
-		for iNdEx := len(m.Shards) - 1; iNdEx >= 0; iNdEx-- {
+	if len(m.Subtasks) > 0 {
+		for iNdEx := len(m.Subtasks) - 1; iNdEx >= 0; iNdEx-- {
 			{
-				size, err := m.Shards[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				size, err := m.Subtasks[iNdEx].MarshalToSizedBuffer(dAtA[:i])
 				if err != nil {
 					return 0, err
 				}
@@ -352,9 +238,9 @@ func (m *Work) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			dAtA[i] = 0x1a
 		}
 	}
-	if m.Meta != nil {
+	if m.Data != nil {
 		{
-			size, err := m.Meta.MarshalToSizedBuffer(dAtA[:i])
+			size, err := m.Data.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -374,7 +260,7 @@ func (m *Work) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *WorkInfo) Marshal() (dAtA []byte, err error) {
+func (m *TaskInfo) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -384,12 +270,12 @@ func (m *WorkInfo) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *WorkInfo) MarshalTo(dAtA []byte) (int, error) {
+func (m *TaskInfo) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *WorkInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *TaskInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -403,99 +289,9 @@ func (m *WorkInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i--
 		dAtA[i] = 0x10
 	}
-	if m.Work != nil {
+	if m.Task != nil {
 		{
-			size, err := m.Work.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintWork(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0xa
-	}
-	return len(dAtA) - i, nil
-}
-
-func (m *Shard) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *Shard) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *Shard) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	if m.XXX_unrecognized != nil {
-		i -= len(m.XXX_unrecognized)
-		copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	if m.Meta != nil {
-		{
-			size, err := m.Meta.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintWork(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x12
-	}
-	if len(m.Id) > 0 {
-		i -= len(m.Id)
-		copy(dAtA[i:], m.Id)
-		i = encodeVarintWork(dAtA, i, uint64(len(m.Id)))
-		i--
-		dAtA[i] = 0xa
-	}
-	return len(dAtA) - i, nil
-}
-
-func (m *ShardInfo) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *ShardInfo) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *ShardInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	if m.XXX_unrecognized != nil {
-		i -= len(m.XXX_unrecognized)
-		copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	if m.State != 0 {
-		i = encodeVarintWork(dAtA, i, uint64(m.State))
-		i--
-		dAtA[i] = 0x10
-	}
-	if m.Shard != nil {
-		{
-			size, err := m.Shard.MarshalToSizedBuffer(dAtA[:i])
+			size, err := m.Task.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -519,7 +315,7 @@ func encodeVarintWork(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return base
 }
-func (m *Work) Size() (n int) {
+func (m *Task) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -529,12 +325,12 @@ func (m *Work) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovWork(uint64(l))
 	}
-	if m.Meta != nil {
-		l = m.Meta.Size()
+	if m.Data != nil {
+		l = m.Data.Size()
 		n += 1 + l + sovWork(uint64(l))
 	}
-	if len(m.Shards) > 0 {
-		for _, e := range m.Shards {
+	if len(m.Subtasks) > 0 {
+		for _, e := range m.Subtasks {
 			l = e.Size()
 			n += 1 + l + sovWork(uint64(l))
 		}
@@ -545,53 +341,14 @@ func (m *Work) Size() (n int) {
 	return n
 }
 
-func (m *WorkInfo) Size() (n int) {
+func (m *TaskInfo) Size() (n int) {
 	if m == nil {
 		return 0
 	}
 	var l int
 	_ = l
-	if m.Work != nil {
-		l = m.Work.Size()
-		n += 1 + l + sovWork(uint64(l))
-	}
-	if m.State != 0 {
-		n += 1 + sovWork(uint64(m.State))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
-func (m *Shard) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	l = len(m.Id)
-	if l > 0 {
-		n += 1 + l + sovWork(uint64(l))
-	}
-	if m.Meta != nil {
-		l = m.Meta.Size()
-		n += 1 + l + sovWork(uint64(l))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
-func (m *ShardInfo) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if m.Shard != nil {
-		l = m.Shard.Size()
+	if m.Task != nil {
+		l = m.Task.Size()
 		n += 1 + l + sovWork(uint64(l))
 	}
 	if m.State != 0 {
@@ -609,7 +366,7 @@ func sovWork(x uint64) (n int) {
 func sozWork(x uint64) (n int) {
 	return sovWork(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
-func (m *Work) Unmarshal(dAtA []byte) error {
+func (m *Task) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -632,10 +389,10 @@ func (m *Work) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: Work: wiretype end group for non-group")
+			return fmt.Errorf("proto: Task: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: Work: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: Task: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -672,7 +429,7 @@ func (m *Work) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Meta", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Data", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -699,16 +456,16 @@ func (m *Work) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Meta == nil {
-				m.Meta = &types.Any{}
+			if m.Data == nil {
+				m.Data = &types.Any{}
 			}
-			if err := m.Meta.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			if err := m.Data.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
 		case 3:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Shards", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Subtasks", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -735,8 +492,8 @@ func (m *Work) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Shards = append(m.Shards, &Shard{})
-			if err := m.Shards[len(m.Shards)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			m.Subtasks = append(m.Subtasks, &Task{})
+			if err := m.Subtasks[len(m.Subtasks)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -765,7 +522,7 @@ func (m *Work) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *WorkInfo) Unmarshal(dAtA []byte) error {
+func (m *TaskInfo) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -788,15 +545,15 @@ func (m *WorkInfo) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: WorkInfo: wiretype end group for non-group")
+			return fmt.Errorf("proto: TaskInfo: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: WorkInfo: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: TaskInfo: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Work", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Task", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -823,241 +580,10 @@ func (m *WorkInfo) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Work == nil {
-				m.Work = &Work{}
+			if m.Task == nil {
+				m.Task = &Task{}
 			}
-			if err := m.Work.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 2:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field State", wireType)
-			}
-			m.State = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowWork
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.State |= State(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		default:
-			iNdEx = preIndex
-			skippy, err := skipWork(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthWork
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthWork
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *Shard) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowWork
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: Shard: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: Shard: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Id", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowWork
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthWork
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthWork
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Id = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Meta", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowWork
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthWork
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthWork
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.Meta == nil {
-				m.Meta = &types.Any{}
-			}
-			if err := m.Meta.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipWork(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthWork
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthWork
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *ShardInfo) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowWork
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: ShardInfo: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ShardInfo: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Shard", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowWork
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthWork
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthWork
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.Shard == nil {
-				m.Shard = &Shard{}
-			}
-			if err := m.Shard.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			if err := m.Task.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex

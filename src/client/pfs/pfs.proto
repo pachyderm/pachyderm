@@ -179,11 +179,9 @@ message ObjectInfo {
   BlockRef block_ref = 2;
 }
 
-message WorkMeta {
-  string prefix = 1;
-}
+message Merge {}
 
-message ShardMeta {
+message Shard {
   PathRange range = 1;
 }
 

@@ -692,6 +692,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 			}); err != nil && !pfsserver.IsCommitFinishedErr(err) {
 				return err
 			}
+			return nil
 		}
 		// Write out the datums processed/skipped and merged for this job
 		buf := &bytes.Buffer{}

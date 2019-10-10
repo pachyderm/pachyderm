@@ -893,7 +893,10 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 	if fix {
 		_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 			for _, ci := range newCommitInfos {
-				if err := d.commits(ci.Commit.Repo.Name).ReadWrite(stm).Create(ci.Commit.ID, ci); err != nil {
+				// We've observed users getting ErrExists from this create,
+				// which doesn't make a lot of sense, but we insulate against
+				// it anyways so it doesn't prevent the command from working.
+				if err := d.commits(ci.Commit.Repo.Name).ReadWrite(stm).Create(ci.Commit.ID, ci); err != nil && !col.IsErrExists(err) {
 					return err
 				}
 			}

@@ -1,6 +1,8 @@
 package config
 
 import (
+	"fmt"
+
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 )
@@ -19,4 +21,14 @@ func KubeConfig(context *Context) clientcmd.ClientConfig {
 	}
 
 	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, overrides)
+}
+
+// RawKubeConfig gets the "raw" kube config, e.g. without overrides
+func RawKubeConfig() (api.Config, error) {
+	kubeConfig := KubeConfig(nil)
+	kubeRawConfig, err := kubeConfig.RawConfig()
+	if err != nil {
+		return api.Config{}, fmt.Errorf("could not read raw kube config: %v", err)
+	}
+	return kubeRawConfig, nil
 }

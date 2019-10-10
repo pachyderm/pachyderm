@@ -111,7 +111,11 @@ func GetPachClient(t testing.TB) *client.APIClient {
 	config.PeerPort = uint16(pfsPort)
 	config.NewStorageLayer = newStorageLayer
 	env := serviceenv.InitServiceEnv(config)
-	blockAPIServer, err := newLocalBlockAPIServer(root, localBlockServerCacheBytes, net.JoinHostPort(etcdHost, etcdPort))
+	blockAPIServer, err := newLocalBlockAPIServer(
+		root,
+		localBlockServerCacheBytes,
+		net.JoinHostPort(etcdHost, etcdPort),
+		true /* duplicate--see comment in newObjBlockAPIServer */)
 	require.NoError(t, err)
 	etcdPrefix := generateRandomString(32)
 	treeCache, err := hashtree.NewCache(testingTreeCacheSize)

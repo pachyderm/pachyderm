@@ -92,7 +92,7 @@ func getResourceListFromSpec(resources *pps.ResourceSpec, cacheSize string) (*v1
 		if err != nil {
 			log.Warnf("error parsing disk string: %s: %+v", resources.Disk, err)
 		} else {
-			result[v1.ResourceStorage] = diskQuantity
+			result[v1.ResourceEphemeralStorage] = diskQuantity
 		}
 	}
 
@@ -390,6 +390,10 @@ func IsTerminal(state pps.JobState) bool {
 
 // UpdateJobState performs the operations involved with a job state transition.
 func UpdateJobState(pipelines col.ReadWriteCollection, jobs col.ReadWriteCollection, jobPtr *pps.EtcdJobInfo, state pps.JobState, reason string) error {
+	if jobPtr.State == pps.JobState_JOB_FAILURE {
+		return fmt.Errorf("cannot put %q in state %s as it's already in state JOB_FAILURE", jobPtr.Job.ID, state.String())
+	}
+
 	// Update pipeline
 	pipelinePtr := &pps.EtcdPipelineInfo{}
 	if err := pipelines.Get(jobPtr.Pipeline.Name, pipelinePtr); err != nil {

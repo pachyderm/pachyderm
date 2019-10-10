@@ -7,27 +7,17 @@ import "google/protobuf/any.proto";
 
 enum State {
   RUNNING = 0;
-  COMPLETE = 1;
-  FAILED = 2;
+  SUCCESS = 1;
+  FAILURE = 2;
 }
 
-message Work {
+message Task {
   string id = 1;
-  google.protobuf.Any meta = 2;
-  repeated Shard shards = 3;
+  google.protobuf.Any data = 2;
+  repeated Task subtasks = 3;
 }
 
-message WorkInfo {
-  Work work = 1;
-  State state = 2;
-}
-
-message Shard {
-  string id = 1;
-  google.protobuf.Any meta = 2;
-}
-
-message ShardInfo {
-  Shard shard = 1;
+message TaskInfo {
+  Task task = 1;
   State state = 2;
 }

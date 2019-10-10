@@ -26,25 +26,25 @@ func init() {
 	// the types that can be embedded in an Any type with the gogoproto
 	// proto package because building the protos just registers them with the
 	// normal proto package.
-	proto.RegisterType((*pfs.WorkMeta)(nil), "pfs.WorkMeta")
-	proto.RegisterType((*pfs.ShardMeta)(nil), "pfs.ShardMeta")
+	proto.RegisterType((*pfs.Merge)(nil), "pfs.Merge")
+	proto.RegisterType((*pfs.Shard)(nil), "pfs.Shard")
 }
 
 // (bryce) it might potentially make sense to exit if an error occurs in this function
 // because each pachd instance that errors here will lose its merge worker without an obvious
 // notification for the user (outside of the log message).
 func (d *driver) mergeWorker() {
-	w := work.NewWorker(d.etcdClient, d.prefix, func(ctx context.Context, work *work.Work, shard *work.Shard) (retErr error) {
-		workMeta, shardMeta, err := deserializeMetas(work.Meta, shard.Meta)
+	w := work.NewWorker(d.etcdClient, d.prefix, func(ctx context.Context, task, subtask *work.Task) (retErr error) {
+		_, shard, err := deserialize(task.Data, subtask.Data)
 		if err != nil {
 			return err
 		}
-		outputPath := path.Join(tmpPrefix, workMeta.Prefix, shard.Id)
+		outputPath := path.Join(tmpPrefix, task.Id, subtask.Id)
 		pathRange := &index.PathRange{
-			Lower: shardMeta.Range.Lower,
-			Upper: shardMeta.Range.Upper,
+			Lower: shard.Range.Lower,
+			Upper: shard.Range.Upper,
 		}
-		return d.storage.Merge(ctx, outputPath, workMeta.Prefix, index.WithRange(pathRange))
+		return d.storage.Merge(ctx, outputPath, task.Id, index.WithRange(pathRange))
 	})
 	if err := w.Run(context.Background()); err != nil {
 		log.Printf("error in merge worker: %v", err)
@@ -99,14 +99,15 @@ func (d *driver) getFileNewStorageLayer(pachClient *client.APIClient, file *pfs.
 
 func (d *driver) merge(ctx context.Context, prefix string) error {
 	// (bryce) need to add a resiliency measure for existing incomplete merge for the prefix (master crashed).
-	// Setup shards.
-	workMeta, err := serializeWorkMeta(&pfs.WorkMeta{Prefix: prefix})
+	// Setup task.
+	task := &work.Task{Id: prefix}
+	var err error
+	task.Data, err = serializeMerge(&pfs.Merge{})
 	if err != nil {
 		return err
 	}
-	var shards []*work.Shard
 	if err := d.storage.Shard(ctx, prefix, func(pathRange *index.PathRange) error {
-		shardMeta, err := serializeShardMeta(&pfs.ShardMeta{
+		shard, err := serializeShard(&pfs.Shard{
 			Range: &pfs.PathRange{
 				Lower: pathRange.Lower,
 				Upper: pathRange.Upper,
@@ -115,20 +116,17 @@ func (d *driver) merge(ctx context.Context, prefix string) error {
 		if err != nil {
 			return err
 		}
-		shards = append(shards, &work.Shard{
-			Id:   strconv.Itoa(len(shards)),
-			Meta: shardMeta,
+		task.Subtasks = append(task.Subtasks, &work.Task{
+			Id:   strconv.Itoa(len(task.Subtasks)),
+			Data: shard,
 		})
 		return nil
 	}); err != nil {
 		return err
 	}
-	m := work.NewMaster(d.etcdClient, d.prefix, func(_ context.Context, _ *work.Shard) error { return nil })
-	if err := m.Run(ctx, &work.Work{
-		Id:     prefix,
-		Meta:   workMeta,
-		Shards: shards,
-	}); err != nil {
+	// Setup and run master.
+	m := work.NewMaster(d.etcdClient, d.prefix, func(_ context.Context, _ *work.Task) error { return nil })
+	if err := m.Run(ctx, task); err != nil {
 		return err
 	}
 	outputPath := path.Join(prefix, fileset.FullMergeSuffix)
@@ -136,36 +134,36 @@ func (d *driver) merge(ctx context.Context, prefix string) error {
 	return d.storage.Merge(ctx, outputPath, inputPrefix)
 }
 
-func serializeWorkMeta(meta *pfs.WorkMeta) (*types.Any, error) {
-	serializedMeta, err := proto.Marshal(meta)
+func serializeMerge(merge *pfs.Merge) (*types.Any, error) {
+	serializedMerge, err := proto.Marshal(merge)
 	if err != nil {
 		return nil, err
 	}
 	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(meta),
-		Value:   serializedMeta,
+		TypeUrl: "/" + proto.MessageName(merge),
+		Value:   serializedMerge,
 	}, nil
 }
 
-func serializeShardMeta(meta *pfs.ShardMeta) (*types.Any, error) {
-	serializedMeta, err := proto.Marshal(meta)
+func serializeShard(shard *pfs.Shard) (*types.Any, error) {
+	serializedShard, err := proto.Marshal(shard)
 	if err != nil {
 		return nil, err
 	}
 	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(meta),
-		Value:   serializedMeta,
+		TypeUrl: "/" + proto.MessageName(shard),
+		Value:   serializedShard,
 	}, nil
 }
 
-func deserializeMetas(work, shard *types.Any) (*pfs.WorkMeta, *pfs.ShardMeta, error) {
-	workMeta := &pfs.WorkMeta{}
-	if err := types.UnmarshalAny(work, workMeta); err != nil {
+func deserialize(mergeAny, shardAny *types.Any) (*pfs.Merge, *pfs.Shard, error) {
+	merge := &pfs.Merge{}
+	if err := types.UnmarshalAny(mergeAny, merge); err != nil {
 		return nil, nil, err
 	}
-	shardMeta := &pfs.ShardMeta{}
-	if err := types.UnmarshalAny(shard, shardMeta); err != nil {
+	shard := &pfs.Shard{}
+	if err := types.UnmarshalAny(shardAny, shard); err != nil {
 		return nil, nil, err
 	}
-	return workMeta, shardMeta, nil
+	return merge, shard, nil
 }
