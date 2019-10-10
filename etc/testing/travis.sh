@@ -87,8 +87,7 @@ function test_bucket {
 
 case "${BUCKET}" in
  MISC)
-    export PACHD_HOST=$(minikube ip)
-    export PACHD_PORT=30650
+    pachctl config set context `pachctl config get active-context` --pachd-address=$(minikube ip):30650
 
     if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
         echo "Running the full misc test suite because secret env vars exist"
