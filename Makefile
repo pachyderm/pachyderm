@@ -487,6 +487,7 @@ test-libs:
 	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
 	go test ./src/server/pkg/cert -timeout $(TIMEOUT)
 	go test ./src/server/pkg/localcache -timeout $(TIMEOUT)
+	go test ./src/server/pkg/work -timeout $(TIMEOUT)
 
 test-vault:
 	kill $$(cat /tmp/vault.pid) || true
