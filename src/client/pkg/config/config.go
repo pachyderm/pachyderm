@@ -112,17 +112,17 @@ func (c *Config) initV2() error {
 		Metrics:       true,
 	}
 
-	pachdAddressStr := ""
-	pachdAddress, err := grpcutil.ParsePachdAddress(c.V1.PachdAddress)
-	if err != nil {
-		if err != grpcutil.ErrNoPachdAddress {
-			return err
-		}
-	} else {
-		pachdAddressStr = pachdAddress.Qualified()
-	}
-
 	if c.V1 != nil {
+		pachdAddressStr := ""
+		pachdAddress, err := grpcutil.ParsePachdAddress(c.V1.PachdAddress)
+		if err != nil {
+			if err != grpcutil.ErrNoPachdAddress {
+				return err
+			}
+		} else {
+			pachdAddressStr = pachdAddress.Qualified()
+		}
+
 		c.V2.Contexts["default"] = &Context{
 			Source:            ContextSource_CONFIG_V1,
 			PachdAddress:      pachdAddressStr,
