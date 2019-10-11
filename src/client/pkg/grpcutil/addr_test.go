@@ -51,6 +51,38 @@ func TestParsePachdAddress(t *testing.T) {
 		Host:    "pachyderm.com",
 		Port:    DefaultPachdNodePort,
 	}, p)
+
+	p, err = ParsePachdAddress("127.0.0.1")
+	require.NoError(t, err)
+	require.Equal(t, PachdAddress{
+		Secured: false,
+		Host:    "127.0.0.1",
+		Port:    DefaultPachdNodePort,
+	}, p)
+
+	p, err = ParsePachdAddress("127.0.0.1:80")
+	require.NoError(t, err)
+	require.Equal(t, PachdAddress{
+		Secured: false,
+		Host:    "127.0.0.1",
+		Port:    80,
+	}, p)
+
+	p, err = ParsePachdAddress("[::1]")
+	require.NoError(t, err)
+	require.Equal(t, PachdAddress{
+		Secured: false,
+		Host:    "[::1]",
+		Port:    DefaultPachdNodePort,
+	}, p)
+
+	p, err = ParsePachdAddress("[::1]:80")
+	require.NoError(t, err)
+	require.Equal(t, PachdAddress{
+		Secured: false,
+		Host:    "[::1]",
+		Port:    80,
+	}, p)
 }
 
 func TestPachdAddressQualified(t *testing.T) {
