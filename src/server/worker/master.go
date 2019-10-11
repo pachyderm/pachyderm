@@ -138,6 +138,23 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 			return err
 		}
 		if commitInfo.Finished != nil {
+			// Make sure that the job has been correctly finished as the commit has.
+			ji, err := pachClient.InspectJobOutputCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, true)
+			if err != nil {
+				return err
+			}
+			if !ppsutil.IsTerminal(ji.State) {
+				if len(commitInfo.Trees) == 0 {
+					if err := a.updateJobState(pachClient.Ctx(), ji, nil,
+						pps.JobState_JOB_KILLED, "output commit is finished without data, but job state has not been updated"); err != nil {
+						return fmt.Errorf("could not kill job with finished output commit: %v", err)
+					}
+				} else {
+					if err := a.updateJobState(pachClient.Ctx(), ji, nil, pps.JobState_JOB_SUCCESS, ""); err != nil {
+						return fmt.Errorf("could not kill job with finished output commit: %v", err)
+					}
+				}
+			}
 			continue // commit finished after queueing
 		}
 
