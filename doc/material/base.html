@@ -1,6 +1,8 @@
 {#-
   This file was automatically generated - do not edit
 -#}
+<link rel="stylesheet" href="https://kit-free.fontawesome.com/releases/latest/css/free.min.css" media="all">
+<script src="https://kit.fontawesome.com/3f3616f4df.js" crossorigin="anonymous"></script>
 {% import "partials/language.html" as lang with context %}
 {% set feature = config.theme.feature %}
 {% set palette = config.theme.palette %}
@@ -58,7 +60,7 @@
     {% block styles %}
       <link rel="stylesheet" href="{{ 'assets/stylesheets/application.8446686d.css' | url }}">
       {% if palette.primary or palette.accent %}
-        <link rel="stylesheet" href="{{ 'assets/stylesheets/application-palette.e59c09d4.css' | url }}">
+        <link rel="stylesheet" href="{{ 'assets/stylesheets/application-palette.da41b4c0.css' | url }}">
       {% endif %}
       {% if palette.primary %}
         {% import "partials/palette.html" as map %}
@@ -193,7 +195,7 @@
       {% endblock %}
     </div>
     {% block scripts %}
-      <script src="{{ 'assets/javascripts/application.5c157f21.js' | url }}"></script>
+      <script src="{{ 'assets/javascripts/application.4e2c7c41.js' | url }}"></script>
       {% if lang.t("search.language") != "en" %}
         {% set languages = lang.t("search.language").split(",") %}
         {% if languages | length and languages[0] != "" %}

@@ -46,23 +46,6 @@
   line-height: 1.4;
 }
 
-.slack-button {
-  padding: 15px 32px;
-  background-color: #ffffff;
-  color: #4B2A5C;
-  position: relative;
-  border: 2 px solid #4B2A5C;
-  text-decoration: none;
-  font-size: 16px;
-}
-
-.slack-button:hover {
-  padding: 15px 32px;
-  background-color: #4B2A5C;
-     text-decoration: none;
-  color: white;
-}
-
 .mdc-components {
   box-sizing: border-box;
   display: flex;
