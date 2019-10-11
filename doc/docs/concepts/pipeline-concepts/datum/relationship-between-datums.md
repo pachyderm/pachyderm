@@ -58,7 +58,7 @@ repo. Therefore, the size of the file `foo` doubles and
 becomes 200 KB. Pachyderm enables you to overwrite files as
 well by using the `--overwrite` flag. The order of processing
 is not guaranteed, and all datums are processed randomly.
-For more information, see [File](file.html).
+For more information, see [File](../../data-concepts/file.md).
 
 When new data comes in, a Pachyderm pipeline automatically
 starts a new job. Each Pachyderm job consists of the

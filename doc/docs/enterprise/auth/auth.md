@@ -41,7 +41,7 @@ without ACLs.
 
 Before you enable access controls, make sure that
 you have activated Pachyderm Enterprise Edition
-as described in [Deploy Enterprise Edition](./deployment.md).
+as described in [Deploy Enterprise Edition](../deployment.md).
 
 To enable access controls, complete the following steps:
 

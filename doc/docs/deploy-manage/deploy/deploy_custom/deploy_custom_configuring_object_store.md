@@ -1,7 +1,7 @@
 # Configuring Object Store
 
 Before reading this section, complete the steps in
-[Configuring Persistent Disk Parameters](./deploy_custom_configuring_persistent_disk_parameters.html).
+[Configuring Persistent Disk Parameters](./deploy_custom_configuring_persistent_disk_parameters.md).
 
 You can use the `--object-store` flag to configure Pachyderm to use an
 s3 storage protocol to access the configured object store.
@@ -28,7 +28,7 @@ You may also manually edit the `pachyderm-storage-secret` Kubernetes manifest.
 
 The `--object-store` flag takes four required  configuration arguments.
 Place these arguments immediately after
-[the persistent disk parameters](deploy_custom_configuring_persistent_disk_parameters.html):
+[the persistent disk parameters](deploy_custom_configuring_persistent_disk_parameters.md):
 
 - `bucket-name`: The name of the bucket, without the `s3://`
 prefix or a trailing forward slash (`/`).
@@ -68,7 +68,7 @@ Those are enclosed in single-quotes.
 **Note**: Because the `deploy custom` command ignores the first
 configuration argument for the `--persistent-disk` flag,
 you can specify any string. For more information,
-see [Configuring Persistent Disk Parameters](./deploy_custom_configuring_persistent_disk_parameters.html)
+see [Configuring Persistent Disk Parameters](./deploy_custom_configuring_persistent_disk_parameters.md)
 
 After completing the steps described in this section, proceed to
-[Create a Complete Configuration](./deploy_custom_complete_example_invocation.html).
+[Create a Complete Configuration](./deploy_custom_complete_example_invocation.md).

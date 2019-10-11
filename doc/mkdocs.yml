@@ -1,7 +1,7 @@
 site_name: Pachyderm Documentation
 site_description: Pachyderm Documention
 site_author: Pachyderm Team
-site_url: https://docs.pachyderm.io
+site_url: https://docs.pachyderm.com
 
 repo_name: pachyderm/pachyderm
 repo_url: https://github.com/pachyderm/pachyderm
@@ -36,6 +36,9 @@ theme:
 # Plugins
 plugins:
   - search
+  - exclude:
+      glob:
+        - archive/*
   - minify:
       minify_html: true
 
@@ -50,7 +53,7 @@ extra:
       link: https://www.linkedin.com/company/pachyderm-inc-
 
 extra_css:
-    - 'stylesheets/extra.css'
+    - 'assets/stylesheets/extra.css'
 
 # Extensions
 markdown_extensions:
@@ -88,7 +91,7 @@ nav:
     - Home:
         - Welcome: index.md
         - Contributing:
-            - Setup for Contributors: contributing/coding-conventions.md
+            - Setup for Contributors: contributing/setup.md
             - Gcloud Cluster Setup: contributing/gcloud-setup.md
             - Repo Layout: contributing/repo-layout.md
             - Coding Conventions: contributing/coding-conventions.md
@@ -104,19 +107,23 @@ nav:
             - Branch: concepts/data-concepts/branch.md
             - File: concepts/data-concepts/file.md
             - Provenance: concepts/data-concepts/provenance.md
+            - History: concepts/data-concepts/history.md
         - Pipeline Concepts:
             - Overview: concepts/pipeline-concepts/index.md
             - Pipeline:
                 - Overview: concepts/pipeline-concepts/pipeline/index.md
-                - Cross and Union: concepts/pipeline-concepts/pipeline/cross-union.md
                 - Cron: concepts/pipeline-concepts/pipeline/cron.md
+                - Service: concepts/pipeline-concepts/pipeline/service.md
+                - Spout: concepts/pipeline-concepts/pipeline/spout.md
             - Job: concepts/pipeline-concepts/job.md
             - Datum:
                 - Overview: concepts/pipeline-concepts/datum/index.md
                 - Glob Patterns: concepts/pipeline-concepts/datum/glob-pattern.md
                 - Datum Processing: concepts/pipeline-concepts/datum/relationship-between-datums.md
-            - Service: concepts/pipeline-concepts/service.md
-            - Spout: concepts/pipeline-concepts/spout.md
+                - Cross and Union Inputs: concepts/pipeline-concepts/datum/cross-union.md
+        - Advanced Concepts:
+            Distributed Computing: concepts/pipeline-concepts/distributed_computing.md
+
     - How-Tos:
         - Individual Developer Workflow: how-tos/individual-developer-workflow.md
         - Team Developer Workflow: how-tos/team-developer-workflow.md
@@ -137,6 +144,8 @@ nav:
         - Ingress and Egress Data from an External Object Store: how-tos/ingressing_from_diff_cloud.md
     - Deploy and Manage:
         - Deploy Pachyderm:
+            - Overview: deploy-manage/deploy/index.md
+            - Getting Started with Pachyderm Hub: pachub/pachub_getting_started.md
             - Deploy on GKE: deploy-manage/deploy/google_cloud_platform.md
             - Deploy on AWS:
                 - Overview: deploy-manage/deploy/amazon_web_services/index.md
@@ -169,8 +178,10 @@ nav:
             - Storage Use Optimization: deploy-manage/manage/data_management.md
             - Use GPUs: deploy-manage/manage/gpus.md
             - Sharing GPU Resources: deploy-manage/manage/sharing_gpu_resources.md
-            - Migrate to a Major Version: deploy-manage/manage/migrations.md
-            - Upgrade your Cluster: deploy-manage/manage/upgrades.md
+            - Upgrades and Migrations:
+                - Overview: deploy-manage/manage/upgrades_migrations.md
+                - Migrate to a Major Version: deploy-manage/manage/migrations.md
+                - Upgrade your Cluster: deploy-manage/manage/upgrades.md
             - Disable Usage Metrics: deploy-manage/manage/disable-metrics.md
     - Reference:
         - Pipeline Specification: reference/pipeline_spec.md

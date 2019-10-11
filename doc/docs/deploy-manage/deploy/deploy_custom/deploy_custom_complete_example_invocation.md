@@ -1,7 +1,7 @@
 # Create a Complete Configuration
 
 Before reading this section, complete the steps in
-[Configuring Object Store](deploy_custom_configuring_object_store.html).
+[Configuring Object Store](deploy_custom_configuring_object_store.md).
 
 The following is a complete deploy command example of a
 custom deployment. The command generates the manifest
@@ -21,7 +21,7 @@ pachctl deploy custom --persistent-disk aws --object-store s3 \
 ```
 
 For more information about the contents of the `custom_deploy.yaml` file,
-see [Pachyderm Deployment Manifest](deploy_custom_pachyderm_deployment_manifest.html).
+see [Pachyderm Deployment Manifest](deploy_custom_pachyderm_deployment_manifest.md).
 
 ## Deploy Your Cluster
 

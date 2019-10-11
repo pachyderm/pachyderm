@@ -49,7 +49,7 @@ It's important that bandwidth to your storage deployment meet the guidelines of 
 ### Software you will need 
     
 1. [kubectl](https://kubernetes.io/docs/user-guide/prereqs/)
-2. [pachctl](../../geting_started/local_installation.md#install-pachctl)
+2. [pachctl](../../geting_started/local_installation#install-pachctl)
 
 ## Setting up to deploy on-premises
 
@@ -144,7 +144,7 @@ The object store you use must be accessible via a low-latency, high-bandwidth co
 
 For an on-premises deployment, 
 it's not advisable to use a cloud-based storage mechanism.
-Don't deploy an on-premises Pachyderm cluster against cloud-based object stores such as S3 from [AWS](amazon_web_services.md), GCS from [Google Cloud Platform](google_cloud_platform.md), Azure Blob Storage from [Azure](azure.md).
+Don't deploy an on-premises Pachyderm cluster against cloud-based object stores such as S3 from [AWS](amazon_web_services/index.md), GCS from [Google Cloud Platform](google_cloud_platform.md), Azure Blob Storage from [Azure](azure.md).
 
 #### Object store prerequisites
 

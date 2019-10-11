@@ -5,7 +5,7 @@ you can deploy Pachyderm on top of that cluster.
 
 You need to complete the following steps to deploy Pachyderm:
 
-1. Install `pachctl` as described in [Install pachctl](../../getting_started/local_installation.html#install-pachctl).
+1. Install `pachctl` as described in [Install pachctl](../../../../getting_started/local_installation#install-pachctl).
 1. Add stateful storage for Pachyderm as described in [Add Stateful Storage](#add-stateful-storage).
 1. Deploy Pachyderm by using an [IAM role](#deploy-pachyderm-with-an-iam-role)
 (recommended) or [an access key](#deploy-pachyderm-with-an-access-key).
@@ -179,8 +179,8 @@ To deploy Pachyderm with an IAM role, complete the following steps:
    $ pachctl version
 
    COMPONENT           VERSION
-   pachctl             1.9.1
-   pachd               1.9.1
+   pachctl             1.9.7
+   pachd               1.9.7
    ```
 
    * If you want to access the Pachyderm UI or use the S3 gateway, you need to
@@ -240,8 +240,8 @@ steps:
    $ pachctl version
 
    COMPONENT           VERSION
-   pachctl             1.9.1
-   pachd               1.9.1
+   pachctl             1.9.7
+   pachd               1.9.7
    ```
 
    * If you want to access the Pachyderm UI or use S3 gateway, you need to

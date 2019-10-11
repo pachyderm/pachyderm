@@ -364,9 +364,9 @@ repositories using a `cross` pattern. This `cross` pattern creates a
 single pairing of our input images with our edge detected images. There
 are several interesting ways to combine data in Pachyderm, which are
 discussed
-[here](http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html#input-required)
+[here](../reference/pipeline_spec#input-required)
 and
-[here](http://pachyderm.readthedocs.io/en/latest/cookbook/combining.html).
+[here](../how-tos/combining.md).
 
 We create the `montage` pipeline as before, with `pachctl`:
 
@@ -426,7 +426,7 @@ Pachyderm is now running locally with data and a pipeline! To play with
 Pachyderm locally, you can use what you've learned to build on or
 change this pipeline. You can also dig in and learn more details about:
 
--   [Deploying Pachyderm to the cloud or on prem](../deployment/deploy_intro.html)
+-   [Deploying Pachyderm to the cloud or on prem](../deploy-manage/deploy/index.md)
 -   [Load Your Data into Pachyderm](../how-tos/load-data-into-pachyderm.md)
 -   [Individual Developer Workflow](../how-tos/individual-developer-workflow.md)
 

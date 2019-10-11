@@ -25,7 +25,7 @@ two-week windows.
 
 ## Fixed Time Windows
 
-[Datum](../concepts/pipeline-concepts/datum/index.html) is the basic
+[Datum](../concepts/pipeline-concepts/datum/index.md) is the basic
 unit of data partitioning in Pachyderm. The glob pattern property
 in the pipeline specification defines a datum. When you analyze data
 within fixed time windows, such as the data that corresponds to
