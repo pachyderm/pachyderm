@@ -25,7 +25,7 @@ type FileSet struct {
 	storage                    *Storage
 	root                       string
 	memAvailable, memThreshold int64
-	name, parentName           string
+	name                       string
 	fs                         map[string]*node
 	curr                       *node
 	tag                        string
