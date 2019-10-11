@@ -1451,6 +1451,67 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	deleteAll(t)
 }
 
+// TestStopJob just confirms that the StopJob API works when auth is on
+func TestStopJob(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	alice := tu.UniqueString("alice")
+	aliceClient := getPachClient(t, alice)
+
+	// alice creates a repo
+	repo := tu.UniqueString(t.Name())
+	require.NoError(t, aliceClient.CreateRepo(repo))
+	require.ElementsEqual(t, entries(alice, "owner"), getACL(t, aliceClient, repo))
+	_, err := aliceClient.PutFile(repo, "master", "/file", strings.NewReader("test"))
+	require.NoError(t, err)
+
+	// alice creates a pipeline
+	pipeline := tu.UniqueString("alice-pipeline")
+	require.NoError(t, aliceClient.CreatePipeline(
+		pipeline,
+		"", // default image: ubuntu:16.04
+		[]string{"bash"},
+		[]string{"sleep 600"},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewPFSInput(repo, "/*"),
+		"", // default output branch: master
+		false,
+	))
+	// Make sure the input and output repos have non-empty ACLs
+	require.ElementsEqual(t,
+		entries(alice, "owner", pl(pipeline), "reader"), getACL(t, aliceClient, repo))
+	require.ElementsEqual(t,
+		entries(alice, "owner", pl(pipeline), "writer"), getACL(t, aliceClient, pipeline))
+
+	// Stop the first job in 'pipeline'
+	var jobID string
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		jobs, err := aliceClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/, -1 /*history*/, true /* full */)
+		if err != nil {
+			return err
+		}
+		if len(jobs) != 1 {
+			return fmt.Errorf("expected one job but got %d", len(jobs))
+		}
+		jobID = jobs[0].Job.ID
+		return nil
+	})
+
+	require.NoError(t, aliceClient.StopJob(jobID))
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		ji, err := aliceClient.InspectJob(jobID, false)
+		if err != nil {
+			return fmt.Errorf("could not inspect job %q: %v", jobID, err)
+		}
+		if ji.State != pps.JobState_JOB_KILLED {
+			return fmt.Errorf("expected job %q to be in JOB_KILLED but was in %s", jobID, ji.State.String())
+		}
+		return nil
+	})
+}
+
 // Test ListRepo checks that the auth information returned by ListRepo and
 // InspectRepo is correct.
 // TODO(msteffen): This should maybe go in pachyderm_test, since ListRepo isn't

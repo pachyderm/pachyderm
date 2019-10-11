@@ -81,7 +81,7 @@ Pachyderm.
   You need to set a system variable `IAM_ROLE` to the name
   of the IAM role that you will use to deploy the cluster.
   This role is different from the Role ARN or the Instance
-  Profile ARN of the role. It iss the actual role name.
+  Profile ARN of the role. It is the actual role name.
 
 To deploy Pachyderm with an IAM role, complete the following steps:
 
