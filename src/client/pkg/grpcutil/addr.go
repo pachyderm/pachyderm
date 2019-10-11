@@ -104,9 +104,8 @@ func ParsePachdAddress(value string) (PachdAddress, error) {
 func (p PachdAddress) Qualified() string {
 	if p.Secured {
 		return fmt.Sprintf("grpcs://%s:%d", p.Host, p.Port)
-	} else {
-		return fmt.Sprintf("grpc://%s:%d", p.Host, p.Port)
 	}
+	return fmt.Sprintf("grpc://%s:%d", p.Host, p.Port)
 }
 
 // Hostname returns the host:port combination of the pachd address, without
