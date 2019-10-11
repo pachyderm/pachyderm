@@ -2,14 +2,22 @@
 
 set -euo pipefail
 
-# Split PACHD_ADDRESS into host and port
-IFS=: read -a addr_parts <<<"${PACHD_ADDRESS:-0.0.0.0:30650}"
-host="${addr_parts[0]}"
-port="${addr_parts[1]}"
+active_context=`pachctl config get active-context`
+address=`pachctl config get context $active_context | jq -r .pachd_address`
+
+if [[ "${address}" = "null" ]]; then
+  echo "pachd_address must be set on the active context"
+  exit 1
+fi
+
+IFS=':' read -ra parts <<< "$address"
+host=${parts[0]}
+port=${parts[1]:-30650}
+echo "testing TLS against host=${host}, port=${port}"
 
 # Validate the host (that it doesn't start with a protocol)
 if [[ "${host}" =~ :// ]]; then
-  echo "${PACHD_ADDRESS} should not start with <protocol>://" >/dev/stderr
+  echo "${host} should not start with <protocol>://" >/dev/stderr
   exit 1
 fi
 
@@ -24,7 +32,6 @@ fi
 etc/deploy/restart_with_tls.sh --key=${PWD}/pachd.key --cert=${PWD}/pachd.pem
 
 # Use new cert in pachctl
-unset PACHD_ADDRESS # use config value set by gen_pachd_tls.sh
 echo "Backing up Pachyderm config to \$HOME/.pachyderm/config.json.backup"
 echo "New config with address and cert is at \$HOME/.pachyderm/config.json"
 cp ~/.pachyderm/config.json ~/.pachyderm/config.json.backup

@@ -59,6 +59,8 @@ for i in $(seq 3); do
     sleep 10
 done
 
+pachctl config update context `pachctl config get active-context` --pachd-address=$(minikube ip):30650
+
 function test_bucket {
     set +x
     package="${1}"
