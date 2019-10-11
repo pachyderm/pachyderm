@@ -28,7 +28,7 @@ func TestPortForwardError(t *testing.T) {
 	c.Stderr = &errMsg
 	err := c.Run()
 	require.YesError(t, err) // 1ns should prevent even local connections
-	require.Matches(t, "port-forward", errMsg.String())
+	require.Matches(t, "looks like loopback", errMsg.String())
 }
 
 func TestWeirdPortError(t *testing.T) {
@@ -105,7 +105,7 @@ func testConfig(t *testing.T, pachdAddressStr string) *os.File {
 	cfgFile, err := ioutil.TempFile("", "")
 	require.NoError(t, err)
 
-	pachdAddress, err = grpcutil.ParsePachdAddress(pachdAddressStr)
+	pachdAddress, err := grpcutil.ParsePachdAddress(pachdAddressStr)
 	require.NoError(t, err)
 
 	cfg := &config.Config{
