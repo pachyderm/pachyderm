@@ -48,16 +48,6 @@ func (s *Storage) NewReader(ctx context.Context, fileSet string, opts ...index.O
 	return newReader(ctx, s.objC, s.chunks, fileSet, opts...)
 }
 
-// NewIndexWriter creates a new index.Writer.
-func (s *Storage) NewIndexWriter(ctx context.Context, fileSet string) *index.Writer {
-	return index.NewWriter(ctx, s.objC, s.chunks, fileSet)
-}
-
-// NewIndexReader creates a new index.Reader.
-func (s *Storage) NewIndexReader(ctx context.Context, fileSet string, opts ...index.Option) *index.Reader {
-	return index.NewReader(ctx, s.objC, s.chunks, fileSet, opts...)
-}
-
 // Shard shards the merge of the file sets with the passed in prefix into file ranges.
 // (bryce) this should be extended to be more configurable (different criteria
 // for creating shards).
