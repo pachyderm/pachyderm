@@ -25,20 +25,22 @@ type ShardFunc func(*index.PathRange) error
 type Storage struct {
 	objC   obj.Client
 	chunks *chunk.Storage
+	opts   []Option
 }
 
 // NewStorage creates a new Storage.
-func NewStorage(objC obj.Client, chunks *chunk.Storage) *Storage {
+func NewStorage(objC obj.Client, chunks *chunk.Storage, opts ...Option) *Storage {
 	return &Storage{
 		objC:   objC,
 		chunks: chunks,
+		opts:   opts,
 	}
 }
 
 // New creates a new in-memory fileset.
 func (s *Storage) New(ctx context.Context, fileSet string, opts ...Option) *FileSet {
 	fileSet = applyPrefix(fileSet)
-	return newFileSet(ctx, s, fileSet, opts...)
+	return newFileSet(ctx, s, fileSet, append(s.opts, opts...)...)
 }
 
 // NewWriter creates a new Writer.

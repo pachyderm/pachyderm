@@ -344,7 +344,7 @@ func TestFull(t *testing.T) {
 	}
 	require.NoError(t, fs.Close(), msg)
 	// Read files from file set, checking against recorded files.
-	r := fileSets.NewReader(context.Background(), path.Join(testPath, fullMergeSuffix))
+	r := fileSets.NewReader(context.Background(), testPath)
 	// Skip root directory.
 	_, err := r.Next()
 	require.NoError(t, err, msg)
