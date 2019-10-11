@@ -8,7 +8,6 @@ mkdocs-minify-plugin = ">=0.2"
 mkdocs-exclude = "*"
 pymdown-extensions = ">=4.11"
 markdown-include = "*"
-mkdocs-exclude = "*"
 Pygments = ">=2.2"
 mdx_truly_sane_lists = ">=1.2"
 
