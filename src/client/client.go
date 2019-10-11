@@ -256,16 +256,16 @@ func getCertOptionsFromEnv() ([]Option, error) {
 
 		pachdAddressStr, ok := os.LookupEnv("PACHD_ADDRESS")
 		if !ok {
-			return nil, errors.New("cannot set PACH_CA_CERTS without setting PACHD_ADDRESS")
+			return nil, errors.New("cannot set 'PACH_CA_CERTS' without setting 'PACHD_ADDRESS'")
 		}
 
 		pachdAddress, err := grpcutil.ParsePachdAddress(pachdAddressStr)
 		if err != nil {
-			return nil, fmt.Errorf("could not parse `PACHD_ADDRESS`: %v", err)
+			return nil, fmt.Errorf("could not parse 'PACHD_ADDRESS': %v", err)
 		}
 
 		if !pachdAddress.Secured {
-			return nil, fmt.Errorf("cannot set `PACH_CA_CERTS` if `PACHD_ADDRESS` is not using grpcs")
+			return nil, fmt.Errorf("cannot set 'PACH_CA_CERTS' if 'PACHD_ADDRESS' is not using grpcs")
 		}
 
 		paths := strings.Split(certPaths, ",")
@@ -306,7 +306,7 @@ func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress,
 
 		envAddr, err := grpcutil.ParsePachdAddress(envAddrStr)
 		if err != nil {
-			return nil, nil, fmt.Errorf("could not parse `PACHD_ADDRESS`: %v", err)
+			return nil, nil, fmt.Errorf("could not parse 'PACHD_ADDRESS': %v", err)
 		}
 
 		if envAddr.Secured {
