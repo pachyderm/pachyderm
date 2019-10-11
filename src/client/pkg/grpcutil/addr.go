@@ -45,55 +45,58 @@ type PachdAddress struct {
 // ParsePachdAddress parses a string into a pachd address, or returns an error
 // if it's invalid
 func ParsePachdAddress(value string) (PachdAddress, error) {
-	// allow no specification of a pachd address
 	if value == "" {
 		return PachdAddress{}, ErrNoPachdAddress
 	}
 
-	// parse
-	u, err := url.Parse(value)
-	if err != nil {
-		return PachdAddress{}, fmt.Errorf("could not parse pachd address: %v", err)
+	secured := false
+
+	if strings.Contains(value, "://") {
+		// only parse the url if it contains a scheme, as net/url doesn't
+		// appropriately handle values without one
+
+		u, err := url.Parse(value)
+		if err != nil {
+			return PachdAddress{}, fmt.Errorf("could not parse pachd address: %v", err)
+		}
+
+		if u.Scheme != "grpc" && u.Scheme != "grpcs" {
+			return PachdAddress{}, fmt.Errorf("unrecognized scheme in pachd address: %s", u.Scheme)
+		}
+		if u.User != nil {
+			return PachdAddress{}, errors.New("pachd address should not include login credentials")
+		}
+		if u.RawQuery != "" {
+			return PachdAddress{}, errors.New("pachd address should not include a query string")
+		}
+		if u.Fragment != "" {
+			return PachdAddress{}, errors.New("pachd address should not include a fragment")
+		}
+		if u.Path != "" {
+			return PachdAddress{}, errors.New("pachd address should not include a path")
+		}
+
+		value = u.Host
+		secured = u.Scheme == "grpcs"
 	}
 
-	// validate
-	if u.Scheme != "" && u.Scheme != "grpc" && u.Scheme != "grpcs" {
-		return PachdAddress{}, fmt.Errorf("unrecognized scheme in pachd address: %s", u.Scheme)
-	}
-	if u.User != nil {
-		return PachdAddress{}, errors.New("pachd address should not include login credentials")
-	}
-	if u.Path != "" {
-		return PachdAddress{}, errors.New("pachd address should not include a path")
-	}
-	if u.RawQuery != "" {
-		return PachdAddress{}, errors.New("pachd address should not include a query string")
-	}
-	if u.Fragment != "" {
-		return PachdAddress{}, errors.New("pachd address should not include a fragment")
-	}
-
-	// sanitize
 	// port always starts after last colon, but net.SplitHostPort returns an
 	// error on a hostport without a colon, which this might be
-	host := u.Host
-	port := ""
-	if colonIdx := strings.LastIndexByte(u.Host, ':'); colonIdx >= 0 {
-		host = u.Host[:colonIdx]
-		port = u.Host[colonIdx+1:]
-	}
-	var portInt uint64 = DefaultPachdNodePort
-	if port != "" {
-		portInt, err = strconv.ParseUint(port, 10, 16)
-		if err != nil {
-			return PachdAddress{}, fmt.Errorf("could not parse port of the pachd address: %v", err)
+	colonIdx := strings.LastIndexByte(value, ':')
+	host := value
+	port := uint16(DefaultPachdNodePort)
+	if colonIdx >= 0 {
+		maybePort, err := strconv.ParseUint(value[colonIdx+1:], 10, 16)
+		if err == nil {
+			host = value[:colonIdx]
+			port = uint16(maybePort)
 		}
 	}
 
 	return PachdAddress{
-		Secured: u.Scheme == "grpcs",
+		Secured: secured,
 		Host:    host,
-		Port:    uint16(portInt),
+		Port:    port,
 	}, nil
 }
 
