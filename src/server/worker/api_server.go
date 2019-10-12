@@ -541,6 +541,12 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 		if err := syscall.Mkfifo(outPath, 0666); err != nil {
 			return "", fmt.Errorf("mkfifo :%v", err)
 		}
+		_, err := pachClient.InspectFile(a.pipelineInfo.Pipeline.Name, "master", "marker")
+		if err == nil {
+			if err := puller.Pull(pachClient, filepath.Join(dir, "marker"), a.pipelineInfo.Pipeline.Name, "master", "/marker", false, false, concurrency, nil, ""); err != nil {
+				return "", err
+			}
+		}
 	} else {
 		if err := os.MkdirAll(outPath, 0777); err != nil {
 			return "", err
@@ -570,7 +576,8 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 
 func (a *APIServer) linkData(inputs []*Input, dir string) error {
 	// Make sure that previously symlinked outputs are removed.
-	if err := a.unlinkData(inputs); err != nil {
+	err := a.unlinkData(inputs)
+	if err != nil {
 		return err
 	}
 	for _, input := range inputs {
@@ -580,6 +587,12 @@ func (a *APIServer) linkData(inputs []*Input, dir string) error {
 			return err
 		}
 	}
+
+	err = os.Symlink(filepath.Join(dir, "marker"), filepath.Join(client.PPSInputPrefix, "marker"))
+	if err != nil {
+		return err
+	}
+
 	return os.Symlink(filepath.Join(dir, "out"), filepath.Join(client.PPSInputPrefix, "out"))
 }
 

@@ -9515,6 +9515,85 @@ func TestSpout(t *testing.T) {
 		require.Equal(t, buf.String(), "foo")
 	})
 
+	t.Run("SpoutMarker", func(t *testing.T) {
+		dataRepo := tu.UniqueString("TestSpoutMarker_data")
+		require.NoError(t, c.CreateRepo(dataRepo))
+
+		// create a spout pipeline
+		pipeline := "pipelinespoutmarker"
+		_, err := c.PpsAPIClient.CreatePipeline(
+			c.Ctx(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd: []string{"/bin/sh"},
+					Stdin: []string{
+						"cp /pfs/marker ./marker",
+						"while [ : ]",
+						"do",
+						"sleep 1",
+						"echo $(tail -1 marker)x >> marker",
+						"tar -cvf /pfs/out ./marker*",
+						"done"},
+				},
+				Spout: &pps.Spout{}, // this needs to be non-nil to make it a spout
+			})
+		require.NoError(t, err)
+		fmt.Println("first pipeline")
+		// get 5 succesive commits, and ensure that the file size increases each time
+		// since the spout should be appending to that file on each commit
+		iter, err := c.SubscribeCommit(pipeline, "master", "", pfs.CommitState_FINISHED)
+		require.NoError(t, err)
+
+		var prevLength uint64
+		for i := 0; i < 5; i++ {
+			commitInfo, err := iter.Next()
+			require.NoError(t, err)
+			files, err := c.ListFile(pipeline, commitInfo.Commit.ID, "")
+			require.NoError(t, err)
+			require.Equal(t, 1, len(files))
+
+			fileLength := files[0].SizeBytes
+			if fileLength <= prevLength {
+				t.Errorf("File length was expected to increase. Prev: %v, Cur: %v", prevLength, fileLength)
+			}
+			prevLength = fileLength
+		}
+
+		_, err = c.PpsAPIClient.CreatePipeline(
+			c.Ctx(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd: []string{"/bin/sh"},
+					Stdin: []string{
+						"cp /pfs/marker ./marker",
+						"while [ : ]",
+						"do",
+						"sleep 1",
+						"echo $(tail -1 marker). >> marker",
+						"tar -cvf /pfs/out ./marker*",
+						"done"},
+				},
+				Spout:  &pps.Spout{}, // this needs to be non-nil to make it a spout
+				Update: true,
+			})
+		require.NoError(t, err)
+		fmt.Println("second pipeline")
+		for i := 0; i < 5; i++ {
+			commitInfo, err := iter.Next()
+			require.NoError(t, err)
+			files, err := c.ListFile(pipeline, commitInfo.Commit.ID, "")
+			require.NoError(t, err)
+			require.Equal(t, 1, len(files))
+
+			fileLength := files[0].SizeBytes
+			if fileLength <= prevLength {
+				t.Errorf("File length was expected to increase. Prev: %v, Cur: %v", prevLength, fileLength)
+			}
+			prevLength = fileLength
+		}
+	})
 	require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
 		if resp.Error != "" {
 			return fmt.Errorf("%v", resp.Error)
