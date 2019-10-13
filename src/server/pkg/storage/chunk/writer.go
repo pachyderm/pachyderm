@@ -297,6 +297,7 @@ func (w *worker) executeFuncs() error {
 
 type stats struct {
 	chunkCount         int64
+	annotationCount    int64
 	annotatedBytesSize int64
 }
 
@@ -354,7 +355,14 @@ func (w *Writer) Annotate(a *Annotation) {
 		w.annotations = nil
 	}
 	w.annotations = append(w.annotations, a)
+	w.stats.annotationCount++
 	w.stats.annotatedBytesSize = 0
+}
+
+// AnnotationCount returns a count of the number of annotations created/referenced by
+// the writer.
+func (w *Writer) AnnotationCount() int64 {
+	return w.stats.annotationCount
 }
 
 // AnnotatedBytesSize returns the size of the bytes for the current annotation.
