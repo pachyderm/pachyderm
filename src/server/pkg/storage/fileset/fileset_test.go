@@ -316,8 +316,7 @@ func TestFull(t *testing.T) {
 			},
 		}
 	}
-	options := []Option{WithMemThreshold(1024 * chunk.MB)}
-	fs := fileSets.New(context.Background(), testPath, options...)
+	fs := fileSets.New(context.Background(), testPath)
 	// Write the files in random order.
 	rand.Shuffle(len(fileNames), func(i, j int) {
 		fileNames[i], fileNames[j] = fileNames[j], fileNames[i]
@@ -344,7 +343,8 @@ func TestFull(t *testing.T) {
 	}
 	require.NoError(t, fs.Close(), msg)
 	// Read files from file set, checking against recorded files.
-	r := fileSets.NewReader(context.Background(), testPath)
+	require.NoError(t, fileSets.Merge(context.Background(), path.Join(testPath, Compacted), []string{testPath}))
+	r := fileSets.NewReader(context.Background(), path.Join(testPath, Compacted))
 	// Skip root directory.
 	_, err := r.Next()
 	require.NoError(t, err, msg)

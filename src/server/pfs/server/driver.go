@@ -171,8 +171,8 @@ func newDriver(
 		if err != nil {
 			return nil, err
 		}
-		// (bryce) storage layer configuration should eventually be setup here.
-		d.storage = fileset.NewStorage(objC, chunk.NewStorage(objC, 1024*chunk.MB))
+		chunkStorage := chunk.NewStorage(objC, chunk.ServiceEnvToOptions(env)...)
+		d.storage = fileset.NewStorage(objC, chunkStorage, fileset.ServiceEnvToOptions(env)...)
 		go d.mergeWorker()
 	}
 	return d, nil

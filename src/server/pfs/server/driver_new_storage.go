@@ -13,17 +13,12 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 	"golang.org/x/net/context"
-)
-
-const (
-	compacted = "compacted"
 )
 
 func init() {
@@ -36,17 +31,12 @@ func init() {
 	proto.RegisterType((*pfs.Shard)(nil), "pfs.Shard")
 }
 
-var (
-	// (bryce) need to expose as configuration.
-	memThreshold int64 = 1024 * chunk.MB
-)
-
 func (d *driver) startCommitNewStorageLayer(txnCtx *txnenv.TransactionContext, id string, parent *pfs.Commit, branch string, provenance []*pfs.CommitProvenance, description string) (*pfs.Commit, error) {
 	commit, err := d.startCommit(txnCtx, id, parent, branch, provenance, description)
 	if err != nil {
 		return nil, err
 	}
-	d.fs = d.storage.New(context.Background(), commit.ID, fileset.WithMemThreshold(memThreshold))
+	d.fs = d.storage.New(context.Background(), commit.ID)
 	return commit, nil
 }
 
@@ -84,9 +74,9 @@ func (d *driver) finishCommitNewStorageLayer(txnCtx *txnenv.TransactionContext, 
 		if err != nil {
 			return err
 		}
-		fileSets = append(fileSets, path.Join(parentCommitInfo.Commit.ID, compacted))
+		fileSets = append(fileSets, path.Join(parentCommitInfo.Commit.ID, fileset.Compacted))
 	}
-	if err := d.merge(context.Background(), path.Join(commitInfo.Commit.ID, compacted), fileSets); err != nil {
+	if err := d.merge(context.Background(), path.Join(commitInfo.Commit.ID, fileset.Compacted), fileSets); err != nil {
 		return err
 	}
 	// (bryce) need size.
@@ -112,7 +102,7 @@ func (d *driver) putFilesNewStorageLayer(pachClient *client.APIClient, server *p
 func (d *driver) getFileNewStorageLayer(pachClient *client.APIClient, file *pfs.File) (io.Reader, error) {
 	// (bryce) path should be cleaned in option function
 	fileSet := file.Commit.ID
-	r := d.storage.NewReader(context.Background(), path.Join(fileSet, compacted), index.WithPrefix(file.Path))
+	r := d.storage.NewReader(context.Background(), path.Join(fileSet, fileset.Compacted), index.WithPrefix(file.Path))
 	hdr, err := r.Next()
 	if err != nil {
 		if err == io.EOF {

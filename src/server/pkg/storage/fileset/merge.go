@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
 )
@@ -106,39 +105,42 @@ func tagMergeFunc(w *Writer) mergeFunc {
 	}
 }
 
-var (
-	// ShardThreshold the size threshold for shard creation.
-	// (bryce) this will be configurable at some point.
-	ShardThreshold int64 = 1024 * chunk.MB
-)
-
-func shardMergeFunc(f func(r *index.PathRange) error) mergeFunc {
-	pathRange := &index.PathRange{}
+func shardMergeFunc(shardThreshold int64, f func(r *index.PathRange) error) mergeFunc {
 	var size int64
+	pathRange := &index.PathRange{}
 	return func(ss []stream, next ...string) error {
 		// Convert generic streams to file streams.
 		var fileStreams []*fileStream
 		for _, s := range ss {
 			fileStreams = append(fileStreams, s.(*fileStream))
 		}
+		var hdr *index.Header
+		var err error
+		last := true
 		for _, fs := range fileStreams {
-			hdr, err := fs.r.Next()
+			hdr, err = fs.r.Next()
 			if err != nil {
 				return err
 			}
-			if pathRange.Lower == "" {
-				pathRange.Lower = hdr.Hdr.Name
-			}
 			size += hdr.Idx.SizeBytes
-			if size > ShardThreshold || len(next) == 0 {
-				pathRange.Upper = hdr.Hdr.Name
-				if err := f(pathRange); err != nil {
-					return err
-				}
-				pathRange = &index.PathRange{}
-				size = 0
-				return nil
+			if _, err = fs.r.Peek(); err != io.EOF {
+				last = false
 			}
+		}
+		if pathRange.Lower == "" {
+			pathRange.Lower = hdr.Hdr.Name
+		}
+		// A shard is created when we have encountered more than shardThreshold content bytes.
+		// The last shard is created when there are no more streams in the queue and the
+		// streams being handled in this call are all io.EOF.
+		if size > shardThreshold || len(next) == 0 && last {
+			pathRange.Upper = hdr.Hdr.Name
+			if err := f(pathRange); err != nil {
+				return err
+			}
+			size = 0
+			pathRange = &index.PathRange{}
+			return nil
 		}
 		return nil
 	}

@@ -30,6 +30,7 @@ type PachdFullConfiguration struct {
 
 // PachdSpecificConfiguration contains the pachd specific configuration.
 type PachdSpecificConfiguration struct {
+	StorageConfiguration
 	NumShards             uint64 `env:"NUM_SHARDS,default=32"`
 	StorageBackend        string `env:"STORAGE_BACKEND,default="`
 	StorageHostPath       string `env:"STORAGE_HOST_PATH,default="`
@@ -53,6 +54,11 @@ type PachdSpecificConfiguration struct {
 	MemoryRequest         string `env:"PACHD_MEMORY_REQUEST,default=1T"`
 	WorkerUsesRoot        bool   `env:"WORKER_USES_ROOT,default=true"`
 	S3GatewayPort         uint16 `env:"S3GATEWAY_PORT,default=600"`
+}
+
+type StorageConfiguration struct {
+	StorageMemoryThreshold int64 `env:"STORAGE_MEMORY_THRESHOLD"`
+	StorageShardThreshold  int64 `env:"STORAGE_SHARD_THRESHOLD"`
 }
 
 // WorkerFullConfiguration contains the full worker configuration.

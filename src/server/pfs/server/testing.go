@@ -36,9 +36,8 @@ const (
 )
 
 var (
-	port            int32     = 30655 // Initial port on which pachd server processes will serve
-	checkEtcdOnce   sync.Once         // ensure we only test the etcd connection once
-	newStorageLayer bool
+	port          int32     = 30655 // Initial port on which pachd server processes will serve
+	checkEtcdOnce sync.Once         // ensure we only test the etcd connection once
 )
 
 // generateRandomString is a helper function for getPachClient
@@ -109,7 +108,6 @@ func GetPachClient(t testing.TB) *client.APIClient {
 	config.EtcdHost = etcdHost
 	config.EtcdPort = etcdPort
 	config.PeerPort = uint16(pfsPort)
-	config.NewStorageLayer = newStorageLayer
 	env := serviceenv.InitServiceEnv(config)
 	blockAPIServer, err := newLocalBlockAPIServer(
 		root,
