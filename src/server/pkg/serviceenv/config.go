@@ -56,6 +56,7 @@ type PachdSpecificConfiguration struct {
 	S3GatewayPort         uint16 `env:"S3GATEWAY_PORT,default=600"`
 }
 
+// StorageConfiguration contains the storage configuration.
 type StorageConfiguration struct {
 	StorageMemoryThreshold int64 `env:"STORAGE_MEMORY_THRESHOLD"`
 	StorageShardThreshold  int64 `env:"STORAGE_SHARD_THRESHOLD"`

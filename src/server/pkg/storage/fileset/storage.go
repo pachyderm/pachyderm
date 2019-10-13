@@ -10,11 +10,16 @@ import (
 )
 
 const (
-	headerTag              = ""
-	prefix                 = "pfs"
+	headerTag = ""
+	prefix    = "pfs"
+	// DefaultMemoryThreshold is the default for the memory threshold that must
+	// be met before a file set part is serialized (excluding close).
 	DefaultMemoryThreshold = 1024 * chunk.MB
-	DefaultShardThreshold  = 1024 * chunk.MB
-	Compacted              = "compacted"
+	// DefaultShardThreshold is the default for the size threshold that must
+	// be met before a shard is created by the shard function.
+	DefaultShardThreshold = 1024 * chunk.MB
+	// Compacted is the suffix of a path that points to the compaction of the prefix.
+	Compacted = "compacted"
 )
 
 // ShardFunc is a callback that returns a PathRange for each shard.
@@ -42,7 +47,7 @@ func NewStorage(objC obj.Client, chunks *chunk.Storage, opts ...StorageOption) *
 }
 
 // New creates a new in-memory fileset.
-func (s *Storage) New(ctx context.Context, fileSet string, opts ...FileSetOption) *FileSet {
+func (s *Storage) New(ctx context.Context, fileSet string, opts ...Option) *FileSet {
 	fileSet = applyPrefix(fileSet)
 	return newFileSet(ctx, s, fileSet, s.memThreshold, opts...)
 }

@@ -14,23 +14,25 @@ func WithMemoryThreshold(threshold int64) StorageOption {
 }
 
 // WithShardThreshold sets the size threshold that must
-// be met before a shard is created by the distributed merge.
+// be met before a shard is created by the shard function.
 func WithShardThreshold(threshold int64) StorageOption {
 	return func(s *Storage) {
 		s.shardThreshold = threshold
 	}
 }
 
-// FileSetOption configures a file set.
-type FileSetOption func(f *FileSet)
+// Option configures a file set.
+type Option func(f *FileSet)
 
 // WithRoot sets the root path of the file set.
-func WithRoot(root string) FileSetOption {
+func WithRoot(root string) Option {
 	return func(f *FileSet) {
 		f.root = root
 	}
 }
 
+// ServiceEnvToOptions converts a service environment configuration (specifically
+// the storage configuration) to a set of storage options.
 func ServiceEnvToOptions(env *serviceenv.ServiceEnv) []StorageOption {
 	var opts []StorageOption
 	if env.StorageMemoryThreshold > 0 {

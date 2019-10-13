@@ -32,7 +32,7 @@ type FileSet struct {
 	part                       int
 }
 
-func newFileSet(ctx context.Context, storage *Storage, name string, memThreshold int64, opts ...FileSetOption) *FileSet {
+func newFileSet(ctx context.Context, storage *Storage, name string, memThreshold int64, opts ...Option) *FileSet {
 	f := &FileSet{
 		ctx:          ctx,
 		storage:      storage,
