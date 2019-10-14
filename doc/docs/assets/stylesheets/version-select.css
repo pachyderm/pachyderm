@@ -1,0 +1,12 @@
+#version-selector {
+  float: left;
+  display: flex;
+  align-items: center;
+  margin: 0 10px;
+}
+
+#version-selector > select {
+  width: auto;
+  height: auto;
+  padding: 1px;
+}
