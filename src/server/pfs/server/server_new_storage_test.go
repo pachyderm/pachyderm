@@ -11,6 +11,7 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	authtesting "github.com/pachyderm/pachyderm/src/server/auth/testing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -22,7 +23,7 @@ import (
 )
 
 func TestMerge(t *testing.T) {
-	config := GetBasicConfig()
+	config := GetBasicConfigNew()
 	config.NewStorageLayer = true
 	config.StorageMemoryThreshold = 20
 	config.StorageShardThreshold = 20
@@ -30,17 +31,21 @@ func TestMerge(t *testing.T) {
 	repo := "test"
 	branch := "master"
 	require.NoError(t, c.CreateRepo(repo))
-	commit, err := c.StartCommit(repo, branch)
-	require.NoError(t, err)
-	pfc, err := c.NewPutFileClient()
-	require.NoError(t, err)
-	for i := 0; i < 100; i++ {
-		s := strconv.Itoa(i)
-		_, err := pfc.PutFile(repo, commit.ID, "/file"+s, strings.NewReader(s))
+	var commit *pfs.Commit
+	var err error
+	for i := 0; i < 10; i++ {
+		commit, err = c.StartCommit(repo, branch)
 		require.NoError(t, err)
+		pfc, err := c.NewPutFileClient()
+		require.NoError(t, err)
+		for j := 0; j < 10; j++ {
+			s := strconv.Itoa(i*10 + j)
+			_, err := pfc.PutFile(repo, commit.ID, "/file"+s, strings.NewReader(s))
+			require.NoError(t, err)
+		}
+		require.NoError(t, pfc.Close())
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
 	}
-	require.NoError(t, pfc.Close())
-	require.NoError(t, c.FinishCommit(repo, commit.ID))
 	buf := &bytes.Buffer{}
 	require.NoError(t, c.GetFile(repo, commit.ID, "/file0", 0, 0, buf))
 	require.Equal(t, "0", string(buf.Bytes()))
@@ -52,7 +57,7 @@ func TestMerge(t *testing.T) {
 	require.Equal(t, "99", string(buf.Bytes()))
 }
 
-func GetBasicConfig() *serviceenv.Configuration {
+func GetBasicConfigNew() *serviceenv.Configuration {
 	config := serviceenv.NewConfiguration(&serviceenv.PachdFullConfiguration{})
 	config.EtcdHost = etcdHost
 	config.EtcdPort = etcdPort

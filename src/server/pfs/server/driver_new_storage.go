@@ -192,7 +192,7 @@ func deserialize(mergeAny, shardAny *types.Any) (*pfs.Merge, *pfs.Shard, error) 
 // notification for the user (outside of the log message).
 func (d *driver) mergeWorker() {
 	w := work.NewWorker(d.etcdClient, d.prefix, func(ctx context.Context, task, subtask *work.Task) (retErr error) {
-		_, shard, err := deserialize(task.Data, subtask.Data)
+		merge, shard, err := deserialize(task.Data, subtask.Data)
 		if err != nil {
 			return err
 		}
@@ -201,7 +201,7 @@ func (d *driver) mergeWorker() {
 			Lower: shard.Range.Lower,
 			Upper: shard.Range.Upper,
 		}
-		return d.storage.Merge(ctx, outputPath, []string{task.Id}, index.WithRange(pathRange))
+		return d.storage.Merge(ctx, outputPath, merge.Prefixes, index.WithRange(pathRange))
 	})
 	if err := w.Run(context.Background()); err != nil {
 		log.Printf("error in merge worker: %v", err)
