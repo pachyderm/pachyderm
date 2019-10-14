@@ -93,6 +93,21 @@ func Read() (*Config, error) {
 			}
 		}
 
+		for contextName, context := range value.V2.Contexts {
+			pachdAddress, err := grpcutil.ParsePachdAddress(context.PachdAddress)
+			if err != nil {
+				if err != grpcutil.ErrNoPachdAddress {
+					return nil, fmt.Errorf("could not parse pachd address for context '%s': %v", contextName, err)
+				}
+			} else {
+				if qualifiedPachdAddress := pachdAddress.Qualified(); qualifiedPachdAddress != context.PachdAddress {
+					fmt.Fprintf(os.Stderr, "Non-qualified pachd address set for context '%s' - fixing.\n", contextName)
+					context.PachdAddress = qualifiedPachdAddress
+					updated = true
+				}
+			}
+		}
+
 		if updated {
 			fmt.Fprintf(os.Stderr, "Rewriting config at %q.\n", p)
 
@@ -113,19 +128,9 @@ func (c *Config) initV2() error {
 	}
 
 	if c.V1 != nil {
-		pachdAddressStr := ""
-		pachdAddress, err := grpcutil.ParsePachdAddress(c.V1.PachdAddress)
-		if err != nil {
-			if err != grpcutil.ErrNoPachdAddress {
-				return err
-			}
-		} else {
-			pachdAddressStr = pachdAddress.Qualified()
-		}
-
 		c.V2.Contexts["default"] = &Context{
 			Source:            ContextSource_CONFIG_V1,
-			PachdAddress:      pachdAddressStr,
+			PachdAddress:      c.V1.PachdAddress,
 			ServerCAs:         c.V1.ServerCAs,
 			SessionToken:      c.V1.SessionToken,
 			ActiveTransaction: c.V1.ActiveTransaction,
