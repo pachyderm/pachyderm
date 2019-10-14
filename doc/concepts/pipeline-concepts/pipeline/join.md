@@ -30,7 +30,8 @@ group to a file path. For example, if you have the following file path:
 /foo/bar-123/ABC.txt
 ```
 
-The following regular expressions, create the following capture groups:
+The following glob patterns in a joint input create the
+following capture groups:
 
 | Regular expression  | Capture groups           |
 | ------------------- | ------------------------ |
@@ -41,7 +42,7 @@ The following regular expressions, create the following capture groups:
 
 
 Also, joins require you to specify a [replacement group](https://www.regular-expressions.info/replacebackref.html)
-in the  a `join_on`` parameter to define which capture groups you want to try
+in the  a `join_on` parameter to define which capture groups you want to try
 to match.
 
 For example, `$1` indicates that you want Pachyderm to match based on

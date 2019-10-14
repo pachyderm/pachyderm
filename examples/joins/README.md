@@ -81,7 +81,7 @@ To set up your environment, complete the following steps:
 
 ## Step 2 - Set up the Pachyderm Repositories
 
-You need to configure the `readings` and `parameters` repositories
+You need to create the `readings` and `parameters` repositories
 in Pachyderm and upload the dummy data that you have generated
 in the previous step into those repositories.
 
@@ -113,7 +113,7 @@ To set up the Pachyderm repositories, complete the following steps:
     /file6.txt file 9B
     ```
 
-1. From the `readings directory, run the following command to upload
+1. From the `readings` directory, run the following command to upload
    the test files to the `readings` repository:
 
    ```bash
