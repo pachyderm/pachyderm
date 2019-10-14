@@ -13,8 +13,9 @@ type stream interface {
 	key() string
 }
 
-// mergeFunc is a function that merges one or more streams.
-// ss is the set of streams that are at the same key in the merge process.
+// mergeFunc is a function that merges one or more file set streams.
+// ss is the set of file set streams that are at the same key
+// in the merge process.
 // next is the next key that will be merged.
 type mergeFunc func(ss []stream, next ...string) error
 
@@ -33,6 +34,11 @@ func (fs *fileStream) key() string {
 	return fs.hdr.Hdr.Name
 }
 
+// contentMergeFunc merges a file's content that shows up across
+// multiple file set streams.
+// A file's content is ordered based on the lexicographical order of
+// the tagged content, so the output file content is produced by
+// performing a merge of the tagged content.
 func contentMergeFunc(w *Writer) mergeFunc {
 	return func(ss []stream, next ...string) error {
 		// Convert generic streams to file streams.
@@ -92,6 +98,9 @@ func (ts *tagStream) key() string {
 	return ts.tag.Id
 }
 
+// tageMergeFunc merges the tagged content in a file.
+// Tags in a file should be unique across file sets being merged,
+// so the operation is a simple copy.
 func tagMergeFunc(w *Writer) mergeFunc {
 	return func(ss []stream, next ...string) error {
 		// (bryce) this should be an Internal error type.
@@ -105,6 +114,10 @@ func tagMergeFunc(w *Writer) mergeFunc {
 	}
 }
 
+// shardMergeFunc creates shards (path ranges) from the file set streams being merged.
+// A shard is created when the size of the content for a path range is greater than
+// the passed in shard threshold.
+// For each shard, the callback is called with the path range for the shard.
 func shardMergeFunc(shardThreshold int64, f func(r *index.PathRange) error) mergeFunc {
 	var size int64
 	pathRange := &index.PathRange{}
