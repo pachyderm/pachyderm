@@ -2,8 +2,3 @@
 base = "doc"
 command = "mkdocs build"
 publish = "doc/site"
-
-[[redirects]]
-  from = "https://mkdocs-1-1--pachyderm-docs.netlify.com"
-  to = "docs-staging.pachyderm.com/1.1/"
-
