@@ -21,7 +21,7 @@ email at support@pachyderm.io.
   <div class="column">
     <div class="card-square mdl-card mdl-shadow--2dp">
       <div class="mdl-card__title mdl-card--expand">
-        <h4 class="mdl-card__title-text">Getting Started &nbsp;&nbsp;&nbsp;<i class="fas fa-rocket"></i></h4>
+        <h4 class="mdl-card__title-text">Getting Started &nbsp;&nbsp;&nbsp;<i class="fa fa-rocket"></i></h4>
       </div>
       <div class="mdl-card__supporting-text">
         Get started by deploying Pachyderm locally and
@@ -44,7 +44,7 @@ email at support@pachyderm.io.
   <div class="column">
     <div class="card-square mdl-card mdl-shadow--2dp">
       <div class="mdl-card__title mdl-card--expand">
-        <h4 class="mdl-card__title-text">Deploy and Manage &nbsp;&nbsp;&nbsp;<i class="fas fa-cog"></i></h4>
+        <h4 class="mdl-card__title-text">Deploy and Manage &nbsp;&nbsp;&nbsp;<i class="fa fa-cogs"></i></h4>
       </div>
       <div class="mdl-card__supporting-text">
         Deploy Pachyderm on a cloud platform of your choice
@@ -67,7 +67,7 @@ email at support@pachyderm.io.
   <div class="column">
     <div class="card-square mdl-card mdl-shadow--2dp">
       <div class="mdl-card__title mdl-card--expand">
-        <h4 class="mdl-card__title-text">Concepts &nbsp;&nbsp;&nbsp;<i class="fas fa-book"></i></h4>
+        <h4 class="mdl-card__title-text">Concepts &nbsp;&nbsp;&nbsp;<i class="fa fa-book"></i></h4>
       </div>
       <div class="mdl-card__supporting-text">
         Learn the basics.
@@ -91,7 +91,7 @@ email at support@pachyderm.io.
   <div class="column">
     <div class="card-square mdl-card mdl-shadow--2dp">
       <div class="mdl-card__title mdl-card--expand">
-        <h4 class="mdl-card__title-text">Examples &nbsp;&nbsp;&nbsp;<i class="fas fa-laptop-code"></i></h4>
+        <h4 class="mdl-card__title-text">Examples &nbsp;&nbsp;&nbsp;<i class="fa fa-flask"></i></h4>
       </div>
       <div class="mdl-card__supporting-text">
         Try Pachyderm examples.
@@ -117,7 +117,7 @@ email at support@pachyderm.io.
   <div class="column">
     <div class="card-square mdl-card mdl-shadow--2dp">
       <div class="mdl-card__title mdl-card--expand">
-        <h4 class="mdl-card__title-text">Data Operations &nbsp;&nbsp;&nbsp;<i class="fas fa-calculator"></i></h4>
+        <h4 class="mdl-card__title-text">Data Operations &nbsp;&nbsp;&nbsp;<i class="fa fa-calculator"></i></h4>
       </div>
       <div class="mdl-card__supporting-text">
       Learn the most common data operations in Pachyderm.
@@ -143,7 +143,7 @@ email at support@pachyderm.io.
    <div class="column">
      <div class="card-square mdl-card mdl-shadow--2dp">
        <div class="mdl-card__title mdl-card--expand">
-         <h4 class="mdl-card__title-text">Advanced Operations &nbsp; <i class="fas fa-graduation-cap"></i></h4>
+         <h4 class="mdl-card__title-text">Advanced Operations &nbsp; <i class="fa fa-graduation-cap"></i></h4>
        </div>
        <div class="mdl-card__supporting-text">
        Try data operations for experienced Pachyderm users.
