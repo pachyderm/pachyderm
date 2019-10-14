@@ -530,19 +530,6 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 			return nil // retry again
 		})
 	}()
-	// Get the stats commit.
-	var statsCommit *pfs.Commit
-	if jobInfo.EnableStats {
-		ci, err := pachClient.InspectCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
-		if err != nil {
-			return err
-		}
-		for _, commitRange := range ci.Subvenance {
-			if commitRange.Lower.Repo.Name == jobInfo.OutputRepo.Name && commitRange.Upper.Repo.Name == jobInfo.OutputRepo.Name {
-				statsCommit = commitRange.Lower
-			}
-		}
-	}
 	if jobInfo.JobTimeout != nil {
 		startTime, err := types.TimestampFromProto(jobInfo.Started)
 		if err != nil {
@@ -557,7 +544,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		timer := time.AfterFunc(afterTime, func() {
 			if jobInfo.EnableStats {
 				if _, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
-					Commit: statsCommit,
+					Commit: jobInfo.StatsCommit,
 					Empty:  true,
 				}); err != nil {
 					logger.Logf("error from FinishCommit for stats while timing out job: %+v", err)
@@ -582,13 +569,13 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 			reason := fmt.Sprintf("inputs %s failed", strings.Join(failedInputs, ", "))
 			if jobInfo.EnableStats {
 				if _, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
-					Commit: statsCommit,
+					Commit: jobInfo.StatsCommit,
 					Empty:  true,
 				}); err != nil && !pfsserver.IsCommitFinishedErr(err) {
 					return err
 				}
 			}
-			if err := a.updateJobState(ctx, jobInfo, statsCommit, pps.JobState_JOB_FAILURE, reason); err != nil {
+			if err := a.updateJobState(ctx, jobInfo, jobInfo.StatsCommit, pps.JobState_JOB_FAILURE, reason); err != nil {
 				return err
 			}
 			if _, err := pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
@@ -628,7 +615,6 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 				return nil
 			}
 			jobPtr.DataTotal = int64(df.Len())
-			jobPtr.StatsCommit = statsCommit
 			if err := ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, pps.JobState_JOB_RUNNING, ""); err != nil {
 				return err
 			}
@@ -712,7 +698,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		}
 		if jobInfo.EnableStats {
 			if _, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
-				Commit:    statsCommit,
+				Commit:    jobInfo.StatsCommit,
 				Trees:     statsTrees,
 				SizeBytes: statsSize,
 			}); err != nil && !pfsserver.IsCommitFinishedErr(err) {
@@ -724,7 +710,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		// killed.
 		if failedDatumID != "" {
 			reason := fmt.Sprintf("failed to process datum: %v", failedDatumID)
-			if err := a.updateJobState(ctx, jobInfo, statsCommit, pps.JobState_JOB_FAILURE, reason); err != nil {
+			if err := a.updateJobState(ctx, jobInfo, jobInfo.StatsCommit, pps.JobState_JOB_FAILURE, reason); err != nil {
 				return err
 			}
 			if _, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
@@ -769,9 +755,9 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		// Handle egress
 		if err := a.egress(pachClient, logger, jobInfo); err != nil {
 			reason := fmt.Sprintf("egress error: %v", err)
-			return a.updateJobState(ctx, jobInfo, statsCommit, pps.JobState_JOB_FAILURE, reason)
+			return a.updateJobState(ctx, jobInfo, jobInfo.StatsCommit, pps.JobState_JOB_FAILURE, reason)
 		}
-		return a.updateJobState(ctx, jobInfo, statsCommit, pps.JobState_JOB_SUCCESS, "")
+		return a.updateJobState(ctx, jobInfo, jobInfo.StatsCommit, pps.JobState_JOB_SUCCESS, "")
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		logger.Logf("error in waitJob %v, retrying in %v", err, d)
 		select {
