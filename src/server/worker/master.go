@@ -167,7 +167,15 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 		if len(jobInfos) > 1 {
 			return fmt.Errorf("multiple jobs found for commit: %s/%s", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
 		} else if len(jobInfos) < 1 {
-			job, err := pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit)
+			var statsCommit *pfs.Commit
+			if a.pipelineInfo.EnableStats {
+				for _, commitRange := range commitInfo.Subvenance {
+					if commitRange.Lower.Repo.Name == a.pipelineInfo.Pipeline.Name && commitRange.Upper.Repo.Name == a.pipelineInfo.Pipeline.Name {
+						statsCommit = commitRange.Lower
+					}
+				}
+			}
+			job, err := pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit, statsCommit)
 			if err != nil {
 				return err
 			}
@@ -191,6 +199,14 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 
 		switch {
 		case ppsutil.IsTerminal(jobInfo.State):
+			if jobInfo.StatsCommit != nil {
+				if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
+					Commit: jobInfo.StatsCommit,
+					Empty:  true,
+				}); err != nil && !pfsserver.IsCommitFinishedErr(err) {
+					return err
+				}
+			}
 			if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
 				Commit: jobInfo.OutputCommit,
 				Empty:  true,
@@ -280,7 +296,7 @@ func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
 
 		// Create a job document matching the service's output commit
 		jobInput := ppsutil.JobInput(a.pipelineInfo, commitInfo)
-		job, err := pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit)
+		job, err := pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit, nil)
 		if err != nil {
 			return err
 		}
@@ -489,6 +505,14 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 					jobPtr := &pps.EtcdJobInfo{}
 					if err := a.jobs.ReadWrite(stm).Get(jobInfo.Job.ID, jobPtr); err != nil {
 						return err
+					}
+					if jobInfo.EnableStats {
+						if _, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+							Commit: jobInfo.StatsCommit,
+							Empty:  true,
+						}); err != nil {
+							logger.Logf("error from FinishCommit for stats while timing out job: %+v", err)
+						}
 					}
 					if !ppsutil.IsTerminal(jobPtr.State) {
 						return ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, pps.JobState_JOB_KILLED, "")
