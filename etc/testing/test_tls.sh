@@ -10,16 +10,13 @@ if [[ "${address}" = "null" ]]; then
   exit 1
 fi
 
-IFS=':' read -ra parts <<< "$address"
-host=${parts[0]}
-port=${parts[1]:-30650}
-echo "testing TLS against host=${host}, port=${port}"
+proto="$(echo $address | grep :// | sed -e's,^\(.*://\).*,\1,g')"
+url="$(echo ${address/$proto/})"
+hostport="$(echo ${url/$user@/} | cut -d/ -f1)"
+host="$(echo $hostport | sed -e 's,:.*,,g')"
+port="$(echo $hostport | sed -e 's,^.*:,:,g' -e 's,.*:\([0-9]*\).*,\1,g' -e 's,[^0-9],,g')"
 
-# Validate the host (that it doesn't start with a protocol)
-if [[ "${host}" =~ :// ]]; then
-  echo "${host} should not start with <protocol>://" >/dev/stderr
-  exit 1
-fi
+echo "Testing TLS with host=$host, port=$port"
 
 # Generate self-signed cert and private key
 if [[ "${host}" =~ [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+ ]]; then
