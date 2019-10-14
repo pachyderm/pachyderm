@@ -24,7 +24,7 @@ func BenchmarkManyObjects(b *testing.B) {
 			var eg errgroup.Group
 			for i := 0; i < clients; i++ {
 				i := i
-				c := GetPachClient(b)
+				c := GetPachClient(b, GetBasicConfig())
 				rand := rand.New(rand.NewSource(int64(i)))
 				eg.Go(func() error {
 					for j := 0; j < objectsPerClient; j++ {
@@ -51,7 +51,7 @@ func BenchmarkManyObjects(b *testing.B) {
 			var eg errgroup.Group
 			for i := 0; i < clients; i++ {
 				i := i
-				c := GetPachClient(b)
+				c := GetPachClient(b, GetBasicConfig())
 				eg.Go(func() error {
 					for j := 0; j < objectsPerClient; j++ {
 						err := c.GetTag(fmt.Sprintf("%d.%d", i, j), ioutil.Discard)
@@ -71,7 +71,7 @@ func BenchmarkManyObjects(b *testing.B) {
 			var eg errgroup.Group
 			for i := 0; i < clients; i++ {
 				i := i
-				c := GetPachClient(b)
+				c := GetPachClient(b, GetBasicConfig())
 				eg.Go(func() error {
 					for j := 0; j < objectsPerClient; j++ {
 						err := c.GetTag(fmt.Sprintf("%d.%d", i, j), ioutil.Discard)
