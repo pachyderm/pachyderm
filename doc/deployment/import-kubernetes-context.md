@@ -76,7 +76,8 @@ To import a Kubernetes context, complete the following steps:
    {
      "source": "IMPORTED",
      "cluster_name": "minikube",
-     "auth_info": "minikube"
+     "auth_info": "minikube",
+     "namespace": "default"
    }
    ```
 
