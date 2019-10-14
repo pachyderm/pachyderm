@@ -145,12 +145,12 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 			}
 			if !ppsutil.IsTerminal(ji.State) {
 				if len(commitInfo.Trees) == 0 {
-					if err := a.updateJobState(pachClient.Ctx(), ji, nil,
+					if err := a.updateJobState(pachClient.Ctx(), ji,
 						pps.JobState_JOB_KILLED, "output commit is finished without data, but job state has not been updated"); err != nil {
 						return fmt.Errorf("could not kill job with finished output commit: %v", err)
 					}
 				} else {
-					if err := a.updateJobState(pachClient.Ctx(), ji, nil, pps.JobState_JOB_SUCCESS, ""); err != nil {
+					if err := a.updateJobState(pachClient.Ctx(), ji, pps.JobState_JOB_SUCCESS, ""); err != nil {
 						return fmt.Errorf("could not kill job with finished output commit: %v", err)
 					}
 				}
@@ -220,7 +220,7 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 			// up by PPS master, but the PPS master can fail, and if these jobs
 			// aren't killed, future jobs will hang indefinitely waiting for their
 			// parents to finish)
-			if err := a.updateJobState(pachClient.Ctx(), jobInfo, nil,
+			if err := a.updateJobState(pachClient.Ctx(), jobInfo,
 				pps.JobState_JOB_KILLED, "pipeline has been updated"); err != nil {
 				return fmt.Errorf("could not kill stale job: %v", err)
 			}
@@ -575,7 +575,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 					return err
 				}
 			}
-			if err := a.updateJobState(ctx, jobInfo, jobInfo.StatsCommit, pps.JobState_JOB_FAILURE, reason); err != nil {
+			if err := a.updateJobState(ctx, jobInfo, pps.JobState_JOB_FAILURE, reason); err != nil {
 				return err
 			}
 			if _, err := pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
@@ -663,7 +663,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 				return err
 			}
 		}
-		if err := a.updateJobState(ctx, jobInfo, nil, pps.JobState_JOB_MERGING, ""); err != nil {
+		if err := a.updateJobState(ctx, jobInfo, pps.JobState_JOB_MERGING, ""); err != nil {
 			return err
 		}
 		var trees []*pfs.Object
@@ -710,7 +710,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		// killed.
 		if failedDatumID != "" {
 			reason := fmt.Sprintf("failed to process datum: %v", failedDatumID)
-			if err := a.updateJobState(ctx, jobInfo, jobInfo.StatsCommit, pps.JobState_JOB_FAILURE, reason); err != nil {
+			if err := a.updateJobState(ctx, jobInfo, pps.JobState_JOB_FAILURE, reason); err != nil {
 				return err
 			}
 			if _, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
@@ -755,9 +755,9 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		// Handle egress
 		if err := a.egress(pachClient, logger, jobInfo); err != nil {
 			reason := fmt.Sprintf("egress error: %v", err)
-			return a.updateJobState(ctx, jobInfo, jobInfo.StatsCommit, pps.JobState_JOB_FAILURE, reason)
+			return a.updateJobState(ctx, jobInfo, pps.JobState_JOB_FAILURE, reason)
 		}
-		return a.updateJobState(ctx, jobInfo, jobInfo.StatsCommit, pps.JobState_JOB_SUCCESS, "")
+		return a.updateJobState(ctx, jobInfo, pps.JobState_JOB_SUCCESS, "")
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		logger.Logf("error in waitJob %v, retrying in %v", err, d)
 		select {
@@ -784,16 +784,13 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 	return nil
 }
 
-func (a *APIServer) updateJobState(ctx context.Context, info *pps.JobInfo, statsCommit *pfs.Commit, state pps.JobState, reason string) error {
+func (a *APIServer) updateJobState(ctx context.Context, info *pps.JobInfo, state pps.JobState, reason string) error {
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		jobs := a.jobs.ReadWrite(stm)
 		jobID := info.Job.ID
 		jobPtr := &pps.EtcdJobInfo{}
 		if err := jobs.Get(jobID, jobPtr); err != nil {
 			return err
-		}
-		if jobPtr.StatsCommit == nil {
-			jobPtr.StatsCommit = statsCommit
 		}
 		return ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, state, reason)
 	})
