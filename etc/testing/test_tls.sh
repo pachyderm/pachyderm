@@ -11,8 +11,7 @@ if [[ "${address}" = "null" ]]; then
 fi
 
 proto="$(echo $address | grep :// | sed -e's,^\(.*://\).*,\1,g')"
-url="$(echo ${address/$proto/})"
-hostport="$(echo ${url/$user@/} | cut -d/ -f1)"
+hostport="$(echo ${address/$proto/})"
 host="$(echo $hostport | sed -e 's,:.*,,g')"
 port="$(echo $hostport | sed -e 's,^.*:,:,g' -e 's,.*:\([0-9]*\).*,\1,g' -e 's,[^0-9],,g')"
 
