@@ -67,7 +67,7 @@ func TestActivate(t *testing.T) {
 	tokenMap[admin] = resp.PachToken
 	adminClient.SetAuthToken(resp.PachToken)
 
-	// Check that the token 'c' received from PachD authenticates them as "admin"
+	// Check that the token 'c' received from pachd authenticates them as "admin"
 	who, err := adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.True(t, who.IsAdmin)
@@ -1312,7 +1312,7 @@ func TestTokenRevoke(t *testing.T) {
 }
 
 // TestGetAuthTokenErrorNonAdminUser tests that non-admin users can't call
-// GetAuthToken
+// GetAuthToken on behalf of another user
 func TestGetAuthTokenErrorNonAdminUser(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
