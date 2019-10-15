@@ -2696,16 +2696,33 @@ func TestOneTimePassword(t *testing.T) {
 
 	alice := tu.UniqueString("alice")
 	aliceClient, anonClient := getPachClient(t, alice), getPachClient(t, "")
-	codeResp, err := aliceClient.GetOneTimePassword(aliceClient.Ctx(),
+
+	// Get GetOTP with no subject
+	otpResp, err := aliceClient.GetOneTimePassword(aliceClient.Ctx(),
 		&auth.GetOneTimePasswordRequest{})
 	require.NoError(t, err)
 
 	authResp, err := anonClient.Authenticate(anonClient.Ctx(), &auth.AuthenticateRequest{
-		OneTimePassword: codeResp.Code,
+		OneTimePassword: otpResp.Code,
 	})
 	require.NoError(t, err)
 	anonClient.SetAuthToken(authResp.PachToken)
 	whoAmIResp, err := anonClient.WhoAmI(anonClient.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, auth.GitHubPrefix+alice, whoAmIResp.Username)
+
+	// Get GetOTP with subject equal to the caller
+	otpResp, err = aliceClient.GetOneTimePassword(aliceClient.Ctx(),
+		&auth.GetOneTimePasswordRequest{Subject: alice})
+	require.NoError(t, err)
+
+	anonClient.SetAuthToken("")
+	authResp, err = anonClient.Authenticate(anonClient.Ctx(), &auth.AuthenticateRequest{
+		OneTimePassword: otpResp.Code,
+	})
+	require.NoError(t, err)
+	anonClient.SetAuthToken(authResp.PachToken)
+	whoAmIResp, err = anonClient.WhoAmI(anonClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, auth.GitHubPrefix+alice, whoAmIResp.Username)
 }
