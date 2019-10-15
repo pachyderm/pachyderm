@@ -4,8 +4,8 @@ go 1.12
 
 require (
 	cloud.google.com/go v0.40.0
-	github.com/Azure/azure-sdk-for-go v5.0.0-beta+incompatible
-	github.com/Azure/go-autorest/autorest v0.2.0 // indirect
+	github.com/Azure/azure-sdk-for-go v32.4.0+incompatible
+	github.com/Azure/go-autorest/autorest/to v0.3.0 // indirect
 	github.com/LK4D4/joincontext v0.0.0-20171026170139-1724345da6d5
 	github.com/Microsoft/hcsshim v0.8.6 // indirect
 	github.com/OneOfOne/xxhash v1.2.5
@@ -26,10 +26,10 @@ require (
 	github.com/cpuguy83/go-md2man v1.0.10 // indirect
 	github.com/crewjam/saml v0.0.0-20190521120225-344d075952c9
 	github.com/dlclark/regexp2 v1.2.0 // indirect
+	github.com/dnaeon/go-vcr v1.0.1 // indirect
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v0.7.3-0.20190621081258-52c16677b22d // indirect
 	github.com/docker/go-units v0.4.0
-	github.com/docker/libnetwork v0.8.0-dev.2.0.20190604154631-fc5a7d91d54c // indirect
 	github.com/docker/spdystream v0.0.0-20160310174837-449fdfce4d96 // indirect
 	github.com/elazarl/goproxy v0.0.0-20170405201442-c4fc26588b6e // indirect
 	github.com/evanphx/json-patch v4.5.0+incompatible
@@ -45,17 +45,19 @@ require (
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gogo/protobuf v1.2.2-0.20190730201129-28a6bbf47e48
 	github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef
-	github.com/golang/protobuf v1.3.1
+	github.com/golang/protobuf v1.3.2
 	github.com/golang/snappy v0.0.1
 	github.com/google/go-github v17.0.0+incompatible
 	github.com/google/go-querystring v1.0.0 // indirect
 	github.com/google/gofuzz v1.0.0 // indirect
 	github.com/googleapis/gnostic v0.2.0 // indirect
 	github.com/gophercloud/gophercloud v0.2.0 // indirect
+	github.com/gorilla/mux v1.7.3
 	github.com/gorilla/websocket v1.4.0 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 // indirect
+	github.com/grpc-ecosystem/grpc-gateway v1.8.5 // indirect
 	github.com/hanwen/go-fuse v0.0.0-20180522155540-291273cb8ce0
 	github.com/hashicorp/go-cleanhttp v0.5.1 // indirect
 	github.com/hashicorp/go-hclog v0.8.0 // indirect
@@ -76,6 +78,7 @@ require (
 	github.com/json-iterator/go v1.1.6 // indirect
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
 	github.com/julienschmidt/httprouter v1.2.0
+	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/lunixbochs/vtclean v1.0.0 // indirect
 	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b // indirect
 	github.com/minio/minio-go v6.0.14+incompatible
@@ -88,14 +91,20 @@ require (
 	github.com/onsi/gomega v1.4.3 // indirect
 	github.com/opentracing-contrib/go-grpc v0.0.0-20180928155321-4b5a12d3ff02
 	github.com/opentracing/opentracing-go v1.1.0
+<<<<<<< HEAD
 	github.com/pachyderm/glob v0.0.0-20190626005209-0fc448624fad
 	github.com/pachyderm/ohmyglob v0.0.0-20190713004043-630e5c15d4e4
 	github.com/pachyderm/s2 v0.0.0-20190708210605-9ba42cb3cead
+=======
+	github.com/pachyderm/ohmyglob v0.0.0-20190713004043-630e5c15d4e4
+	github.com/pachyderm/s2 v0.0.0-20190816193705-b8b3b86077e2
+>>>>>>> master
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829
 	github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90 // indirect
 	github.com/prometheus/common v0.2.0
 	github.com/prometheus/procfs v0.0.2 // indirect
+	github.com/remyoudompheng/bigfft v0.0.0-20190728182440-6a916e37a237 // indirect
 	github.com/robfig/cron v1.2.0
 	github.com/russellhaering/goxmldsig v0.0.0-20180430223755-7acd5e4a6ef7 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
@@ -103,7 +112,7 @@ require (
 	github.com/segmentio/analytics-go v0.0.0-20160426181448-2d840d861c32
 	github.com/segmentio/backo-go v0.0.0-20160424052352-204274ad699c // indirect
 	github.com/segmentio/kafka-go v0.2.4
-	github.com/sirupsen/logrus v1.3.0
+	github.com/sirupsen/logrus v1.4.2
 	github.com/smartystreets/goconvey v0.0.0-20190330032615-68dc04aab96a // indirect
 	github.com/soheilhy/cmux v0.1.4 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
@@ -113,8 +122,6 @@ require (
 	github.com/uber-go/atomic v1.4.0 // indirect
 	github.com/uber/jaeger-client-go v2.16.0+incompatible
 	github.com/uber/jaeger-lib v2.0.0+incompatible // indirect
-	github.com/vishvananda/netlink v0.0.0-20171020171820-b2de5d10e38e // indirect
-	github.com/vishvananda/netns v0.0.0-20180720170159-13995c7128cc // indirect
 	github.com/willf/bitset v1.1.10 // indirect
 	github.com/willf/bloom v2.0.3+incompatible
 	github.com/x-cray/logrus-prefixed-formatter v0.5.2
@@ -124,6 +131,7 @@ require (
 	go.uber.org/atomic v1.4.0 // indirect
 	go.uber.org/multierr v1.1.0 // indirect
 	go.uber.org/zap v1.10.0 // indirect
+<<<<<<< HEAD
 	golang.org/x/crypto v0.0.0-20190829043050-9756ffdc2472
 	golang.org/x/net v0.0.0-20190827160401-ba9fcec4b297
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
@@ -131,6 +139,14 @@ require (
 	golang.org/x/sys v0.0.0-20190904154756-749cb33beabd // indirect
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
 	golang.org/x/tools v0.0.0-20190906181117-04840ef8f354 // indirect
+=======
+	golang.org/x/crypto v0.0.0-20190820162420-60c769a6c586
+	golang.org/x/net v0.0.0-20190813141303-74dc4d7220e7
+	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
+	golang.org/x/sync v0.0.0-20190423024810-112230192c58
+	golang.org/x/sys v0.0.0-20190813064441-fde4db37ae7a // indirect
+	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
+>>>>>>> master
 	google.golang.org/api v0.6.0
 	google.golang.org/grpc v1.21.1
 	gopkg.in/go-playground/webhooks.v5 v5.11.0
@@ -138,9 +154,11 @@ require (
 	gopkg.in/ini.v1 v1.42.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.3.1 // indirect
 	gopkg.in/src-d/go-git.v4 v4.12.0
+	gopkg.in/yaml.v3 v3.0.0-20190905181640-827449938966
 	k8s.io/api v0.0.0-20181130031204-d04500c8c3dd
 	k8s.io/apimachinery v0.0.0-20181128191346-49ce2735e507
 	k8s.io/client-go v0.0.0-20181213230135-6924ba6dfc02
 	k8s.io/klog v0.3.1 // indirect
+	modernc.org/mathutil v1.0.0
 	sigs.k8s.io/yaml v1.1.0 // indirect
 )

@@ -533,14 +533,19 @@ func (e ErrProvenanceOfSubvenance) Error() string {
 // 2. Head commit provenance has heads of branch's branch provenance
 // 3. Commit provenance is transitive
 // 4. Commit provenance and commit subvenance are dual relations
-func (d *driver) fsck(pachClient *client.APIClient) error {
+// If fix is true it will attempt to fix as many of these issues as it can.
+func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckResponse) error) error {
 	ctx := pachClient.Ctx()
 	repos := d.repos.ReadOnly(ctx)
 	key := path.Join
 
+	onError := func(err error) error { return cb(&pfs.FsckResponse{Error: err.Error()}) }
+	onFix := func(fix string) error { return cb(&pfs.FsckResponse{Fix: fix}) }
+
 	// collect all the info for the branches and commits in pfs
 	branchInfos := make(map[string]*pfs.BranchInfo)
 	commitInfos := make(map[string]*pfs.CommitInfo)
+	newCommitInfos := make(map[string]*pfs.CommitInfo)
 	repoInfo := &pfs.RepoInfo{}
 	if err := repos.List(repoInfo, col.DefaultOptions, func(repoName string) error {
 		commits := d.commits(repoName).ReadOnly(ctx)
@@ -579,9 +584,11 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 		}
 
 		if !equalBranches(append(bi.Provenance, bi.Branch), union) {
-			return ErrBranchProvenanceTransitivity{
+			if err := onError(ErrBranchProvenanceTransitivity{
 				BranchInfo:     bi,
 				FullProvenance: union,
+			}); err != nil {
+				return err
 			}
 		}
 
@@ -593,15 +600,36 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 			for _, provBranch := range bi.Provenance {
 				provBranchInfo, ok := branchInfos[key(provBranch.Repo.Name, provBranch.Name)]
 				if !ok {
-					return ErrBranchInfoNotFound{Branch: provBranch}
+					if err := onError(ErrBranchInfoNotFound{Branch: provBranch}); err != nil {
+						return err
+					}
+					continue
 				}
 				if provBranchInfo.Head != nil {
 					// in this case, the headCommit Provenance should contain provBranch.Head
 					headCommitInfo, ok := commitInfos[key(bi.Head.Repo.Name, bi.Head.ID)]
 					if !ok {
-						return ErrCommitInfoNotFound{
-							Location: "head commit provenance (=>)",
-							Commit:   bi.Head,
+						if !fix {
+							if err := onError(ErrCommitInfoNotFound{
+								Location: "head commit provenance (=>)",
+								Commit:   bi.Head,
+							}); err != nil {
+								return err
+							}
+							continue
+						}
+						headCommitInfo = &pfs.CommitInfo{
+							Commit: bi.Head,
+							Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_FSCK},
+						}
+						commitInfos[key(bi.Head.Repo.Name, bi.Head.ID)] = headCommitInfo
+						newCommitInfos[key(bi.Head.Repo.Name, bi.Head.ID)] = headCommitInfo
+						if err := onFix(fmt.Sprintf(
+							"creating commit %s@%s which was missing, but referenced by %s@%s",
+							bi.Head.Repo.Name, bi.Head.ID,
+							bi.Branch.Repo.Name, bi.Branch.Name),
+						); err != nil {
+							return err
 						}
 					}
 					// If this commit was created on an output branch, then we don't expect it to satisfy this invariant
@@ -619,10 +647,12 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 						}
 					}
 					if !contains {
-						return ErrHeadProvenanceInconsistentWithBranch{
+						if err := onError(ErrHeadProvenanceInconsistentWithBranch{
 							BranchInfo:     bi,
 							ProvBranchInfo: provBranchInfo,
 							HeadCommitInfo: headCommitInfo,
+						}); err != nil {
+							return err
 						}
 					}
 				}
@@ -638,15 +668,35 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 		for _, prov := range ci.Provenance {
 			// not part of the above invariant, but we want to make sure provenance is self-consistent
 			if prov.Commit.Repo.Name != prov.Branch.Repo.Name {
-				return ErrInconsistentCommitProvenance{CommitProvenance: prov}
+				if err := onError(ErrInconsistentCommitProvenance{CommitProvenance: prov}); err != nil {
+					return err
+				}
 			}
 			directProvenance = append(directProvenance, prov.Commit)
 			transitiveProvenance = append(transitiveProvenance, prov.Commit)
 			provCommitInfo, ok := commitInfos[key(prov.Commit.Repo.Name, prov.Commit.ID)]
 			if !ok {
-				return ErrCommitInfoNotFound{
-					Location: "provenance transitivity",
-					Commit:   prov.Commit,
+				if !fix {
+					if err := onError(ErrCommitInfoNotFound{
+						Location: "provenance transitivity",
+						Commit:   prov.Commit,
+					}); err != nil {
+						return err
+					}
+					continue
+				}
+				provCommitInfo = &pfs.CommitInfo{
+					Commit: prov.Commit,
+					Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_FSCK},
+				}
+				commitInfos[key(prov.Commit.Repo.Name, prov.Commit.ID)] = provCommitInfo
+				newCommitInfos[key(prov.Commit.Repo.Name, prov.Commit.ID)] = provCommitInfo
+				if err := onFix(fmt.Sprintf(
+					"creating commit %s@%s which was missing, but referenced by %s@%s",
+					prov.Commit.Repo.Name, prov.Commit.ID,
+					ci.Commit.Repo.Name, ci.Commit.ID),
+				); err != nil {
+					return err
 				}
 			}
 			for _, provProv := range provCommitInfo.Provenance {
@@ -654,9 +704,11 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 			}
 		}
 		if !equalCommits(directProvenance, transitiveProvenance) {
-			return ErrProvenanceTransitivity{
+			if err := onError(ErrProvenanceTransitivity{
 				CommitInfo:     ci,
 				FullProvenance: transitiveProvenance,
+			}); err != nil {
+				return err
 			}
 		}
 	}
@@ -673,9 +725,27 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 			contains := false
 			provCommitInfo, ok := commitInfos[key(prov.Commit.Repo.Name, prov.Commit.ID)]
 			if !ok {
-				return ErrCommitInfoNotFound{
-					Location: "provenance for provenance-subvenance duality (=>)",
-					Commit:   prov.Commit,
+				if !fix {
+					if err := onError(ErrCommitInfoNotFound{
+						Location: "provenance for provenance-subvenance duality (=>)",
+						Commit:   prov.Commit,
+					}); err != nil {
+						return err
+					}
+					continue
+				}
+				provCommitInfo = &pfs.CommitInfo{
+					Commit: prov.Commit,
+					Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_FSCK},
+				}
+				commitInfos[key(prov.Commit.Repo.Name, prov.Commit.ID)] = provCommitInfo
+				newCommitInfos[key(prov.Commit.Repo.Name, prov.Commit.ID)] = provCommitInfo
+				if err := onFix(fmt.Sprintf(
+					"creating commit %s@%s which was missing, but referenced by %s@%s",
+					prov.Commit.Repo.Name, prov.Commit.ID,
+					ci.Commit.Repo.Name, ci.Commit.ID),
+				); err != nil {
+					return err
 				}
 			}
 			for _, subvRange := range provCommitInfo.Subvenance {
@@ -683,16 +753,37 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 				// loop through the subvenance range
 				for {
 					if subvCommit == nil {
-						return ErrNilCommitInSubvenance{
+						if err := onError(ErrNilCommitInSubvenance{
 							CommitInfo:      provCommitInfo,
 							SubvenanceRange: subvRange,
+						}); err != nil {
+							return err
 						}
+						break // can't continue loop now that subvCommit is nil
 					}
 					subvCommitInfo, ok := commitInfos[key(subvCommit.Repo.Name, subvCommit.ID)]
 					if !ok {
-						return ErrCommitInfoNotFound{
-							Location: "subvenance for provenance-subvenance duality (=>)",
-							Commit:   subvCommit,
+						if !fix {
+							if err := onError(ErrCommitInfoNotFound{
+								Location: "subvenance for provenance-subvenance duality (=>)",
+								Commit:   subvCommit,
+							}); err != nil {
+								return err
+							}
+							break // can't continue loop if we can't find this commit
+						}
+						subvCommitInfo = &pfs.CommitInfo{
+							Commit: subvCommit,
+							Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_FSCK},
+						}
+						commitInfos[key(subvCommit.Repo.Name, subvCommit.ID)] = subvCommitInfo
+						newCommitInfos[key(subvCommit.Repo.Name, subvCommit.ID)] = subvCommitInfo
+						if err := onFix(fmt.Sprintf(
+							"creating commit %s@%s which was missing, but referenced by %s@%s",
+							subvCommit.Repo.Name, subvCommit.ID,
+							ci.Commit.Repo.Name, ci.Commit.ID),
+						); err != nil {
+							return err
 						}
 					}
 					if ci.Commit.ID == subvCommit.ID {
@@ -706,9 +797,11 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 				}
 			}
 			if !contains {
-				return ErrSubvenanceOfProvenance{
+				if err := onError(ErrSubvenanceOfProvenance{
 					CommitInfo:     ci,
 					ProvCommitInfo: provCommitInfo,
+				}); err != nil {
+					return err
 				}
 			}
 		}
@@ -719,16 +812,37 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 			for {
 				contains := false
 				if subvCommit == nil {
-					return ErrNilCommitInSubvenance{
+					if err := onError(ErrNilCommitInSubvenance{
 						CommitInfo:      ci,
 						SubvenanceRange: subvRange,
+					}); err != nil {
+						return err
 					}
+					break // can't continue loop now that subvCommit is nil
 				}
 				subvCommitInfo, ok := commitInfos[key(subvCommit.Repo.Name, subvCommit.ID)]
 				if !ok {
-					return ErrCommitInfoNotFound{
-						Location: "subvenance for provenance-subvenance duality (<=)",
-						Commit:   subvCommit,
+					if !fix {
+						if err := onError(ErrCommitInfoNotFound{
+							Location: "subvenance for provenance-subvenance duality (<=)",
+							Commit:   subvCommit,
+						}); err != nil {
+							return err
+						}
+						break // can't continue loop if we can't find this commit
+					}
+					subvCommitInfo = &pfs.CommitInfo{
+						Commit: subvCommit,
+						Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_FSCK},
+					}
+					commitInfos[key(subvCommit.Repo.Name, subvCommit.ID)] = subvCommitInfo
+					newCommitInfos[key(subvCommit.Repo.Name, subvCommit.ID)] = subvCommitInfo
+					if err := onFix(fmt.Sprintf(
+						"creating commit %s@%s which was missing, but referenced by %s@%s",
+						subvCommit.Repo.Name, subvCommit.ID,
+						ci.Commit.Repo.Name, ci.Commit.ID),
+					); err != nil {
+						return err
 					}
 				}
 				if ci.Commit.ID == subvCommit.ID {
@@ -742,9 +856,11 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 				}
 
 				if !contains {
-					return ErrProvenanceOfSubvenance{
+					if err := onError(ErrProvenanceOfSubvenance{
 						CommitInfo:     ci,
 						SubvCommitInfo: subvCommitInfo,
+					}); err != nil {
+						return err
 					}
 				}
 
@@ -754,6 +870,20 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 				subvCommit = subvCommitInfo.ParentCommit
 			}
 		}
+	}
+	if fix {
+		_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+			for _, ci := range newCommitInfos {
+				// We've observed users getting ErrExists from this create,
+				// which doesn't make a lot of sense, but we insulate against
+				// it anyways so it doesn't prevent the command from working.
+				if err := d.commits(ci.Commit.Repo.Name).ReadWrite(stm).Create(ci.Commit.ID, ci); err != nil && !col.IsErrExists(err) {
+					return err
+				}
+			}
+			return nil
+		})
+		return err
 	}
 	return nil
 }
@@ -950,14 +1080,16 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 // ID can be passed in for transactions, which need to ensure the ID doesn't
 // change after the commit ID has been reported to a client.
 func (d *driver) startCommit(txnCtx *txnenv.TransactionContext, ID string, parent *pfs.Commit, branch string, provenance []*pfs.CommitProvenance, description string) (*pfs.Commit, error) {
-	return d.makeCommit(txnCtx, ID, parent, branch, provenance, nil, nil, nil, description)
+	return d.makeCommit(txnCtx, ID, parent, branch, provenance, nil, nil, nil, nil, nil, description, 0)
 }
 
-func (d *driver) buildCommit(ctx context.Context, ID string, parent *pfs.Commit, branch string, provenance []*pfs.CommitProvenance, tree *pfs.Object) (*pfs.Commit, error) {
+func (d *driver) buildCommit(ctx context.Context, ID string, parent *pfs.Commit,
+	branch string, provenance []*pfs.CommitProvenance,
+	tree *pfs.Object, trees []*pfs.Object, datums *pfs.Object, sizeBytes uint64) (*pfs.Commit, error) {
 	commit := &pfs.Commit{}
 	err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		var err error
-		commit, err = d.makeCommit(txnCtx, ID, parent, branch, provenance, tree, nil, nil, "")
+		commit, err = d.makeCommit(txnCtx, ID, parent, branch, provenance, tree, trees, datums, nil, nil, "", sizeBytes)
 		return err
 	})
 	return commit, err
@@ -982,9 +1114,12 @@ func (d *driver) makeCommit(
 	branch string,
 	provenance []*pfs.CommitProvenance,
 	treeRef *pfs.Object,
+	treesRefs []*pfs.Object,
+	datumsRef *pfs.Object,
 	recordFiles []string,
 	records []*pfs.PutFileRecords,
 	description string,
+	sizeBytes uint64,
 ) (*pfs.Commit, error) {
 	// Validate arguments:
 	if parent == nil {
@@ -1010,28 +1145,6 @@ func (d *driver) makeCommit(
 		Started:     now(),
 		Description: description,
 	}
-
-	// FinishCommit case. We need to create AND finish 'newCommit' in two cases:
-	// 1. PutFile has been called on a finished commit (records != nil), and
-	//    we want to apply 'records' to the parentCommit's HashTree, use that new
-	//    HashTree for this commit's filesystem, and then finish this commit
-	// 2. BuildCommit has been called by migration (treeRef != nil) and we
-	//    want a new, finished commit with the given treeRef
-	// - In either case, store this commit's HashTree in 'tree', so we have its
-	//   size, and store a pointer to the tree (in object store) in 'treeRef', to
-	//   put in newCommitInfo.Tree.
-	// - We also don't want to resolve 'branch' or 'parent.ID' (if it's a branch)
-	//   outside the txn below, so the 'PutFile' case is handled (by computing
-	//   'tree' and 'treeRef') below as well
-	var tree hashtree.HashTree
-	if treeRef != nil {
-		var err error
-		tree, err = hashtree.GetHashTreeObject(txnCtx.Client, d.storageRoot, treeRef)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	if branch != "" {
 		if err := ancestry.ValidateName(branch); err != nil {
 			return nil, err
@@ -1117,13 +1230,13 @@ func (d *driver) makeCommit(
 	// 1. Write 'newCommit' to 'openCommits' collection OR
 	// 2. Finish 'newCommit' (if treeRef != nil or records != nil); see
 	//    "FinishCommit case" above)
-	if treeRef != nil || records != nil {
+	if treeRef != nil || treesRefs != nil || records != nil {
 		if records != nil {
 			parentTree, err := d.getTreeForCommit(txnCtx, parent)
 			if err != nil {
 				return nil, err
 			}
-			tree, err = parentTree.Copy()
+			tree, err := parentTree.Copy()
 			if err != nil {
 				return nil, err
 			}
@@ -1139,11 +1252,14 @@ func (d *driver) makeCommit(
 			if err != nil {
 				return nil, err
 			}
+			sizeBytes = uint64(tree.FSSize())
 		}
 
 		// now 'treeRef' is guaranteed to be set
 		newCommitInfo.Tree = treeRef
-		newCommitInfo.SizeBytes = uint64(tree.FSSize())
+		newCommitInfo.Trees = treesRefs
+		newCommitInfo.Datums = datumsRef
+		newCommitInfo.SizeBytes = sizeBytes
 		newCommitInfo.Finished = now()
 
 		// If we're updating the master branch, also update the repo size (see
@@ -1171,7 +1287,7 @@ func (d *driver) makeCommit(
 		newCommitProv[prov.Commit.ID] = prov
 		provCommitInfo := &pfs.CommitInfo{}
 		if err := d.commits(prov.Commit.Repo.Name).ReadWrite(txnCtx.Stm).Get(prov.Commit.ID, provCommitInfo); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("cannot access commit \"%s/%s\" in provenance: %v", prov.Commit.Repo.Name, prov.Commit.ID, err)
 		}
 		for _, c := range provCommitInfo.Provenance {
 			newCommitProv[c.Commit.ID] = c
@@ -1733,9 +1849,10 @@ func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.Commit
 	return commitInfo, nil
 }
 
-func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pfs.Commit, from *pfs.Commit, number uint64) ([]*pfs.CommitInfo, error) {
+func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo,
+	to *pfs.Commit, from *pfs.Commit, number uint64, reverse bool) ([]*pfs.CommitInfo, error) {
 	var result []*pfs.CommitInfo
-	if err := d.listCommitF(pachClient, repo, to, from, number, func(ci *pfs.CommitInfo) error {
+	if err := d.listCommitF(pachClient, repo, to, from, number, reverse, func(ci *pfs.CommitInfo) error {
 		result = append(result, ci)
 		return nil
 	}); err != nil {
@@ -1744,7 +1861,8 @@ func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pf
 	return result, nil
 }
 
-func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo, to *pfs.Commit, from *pfs.Commit, number uint64, f func(*pfs.CommitInfo) error) error {
+func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
+	to *pfs.Commit, from *pfs.Commit, number uint64, reverse bool, f func(*pfs.CommitInfo) error) error {
 	ctx := pachClient.Ctx()
 	if err := d.checkIsAuthorized(pachClient, repo, auth.Scope_READER); err != nil {
 		return err
@@ -1754,23 +1872,25 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo, to *p
 	}
 
 	// Make sure that the repo exists
-	err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-		_, err := d.inspectRepo(txnCtx, repo, !includeAuth)
-		return err
-	})
-	if err != nil {
-		return err
+	if repo.Name != "" {
+		err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+			_, err := d.inspectRepo(txnCtx, repo, !includeAuth)
+			return err
+		})
+		if err != nil {
+			return err
+		}
 	}
 
 	// Make sure that both from and to are valid commits
 	if from != nil {
-		_, err = d.inspectCommit(pachClient, from, pfs.CommitState_STARTED)
+		_, err := d.inspectCommit(pachClient, from, pfs.CommitState_STARTED)
 		if err != nil {
 			return err
 		}
 	}
 	if to != nil {
-		_, err = d.inspectCommit(pachClient, to, pfs.CommitState_STARTED)
+		_, err := d.inspectCommit(pachClient, to, pfs.CommitState_STARTED)
 		if err != nil {
 			if isNoHeadErr(err) {
 				return nil
@@ -1790,17 +1910,54 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo, to *p
 		return fmt.Errorf("cannot use `from` commit without `to` commit")
 	} else if from == nil && to == nil {
 		// if neither from and to is given, we list all commits in
-		// the repo, sorted by revision timestamp
-		if err := commits.List(ci, col.DefaultOptions, func(commitID string) error {
-			if number <= 0 {
-				return errutil.ErrBreak
+		// the repo, sorted by revision timestamp (or reversed if so requested.)
+		opts := *col.DefaultOptions // Note we dereference here so as to make a copy
+		if reverse {
+			opts.Order = etcd.SortAscend
+		}
+		// we hold onto a revisions worth of cis so that we can sort them by provenance
+		var cis []*pfs.CommitInfo
+		// sendCis sorts cis and passes them to f
+		sendCis := func() error {
+			// Sort in reverse provenance order, i.e. commits come before their provenance
+			sort.Slice(cis, func(i, j int) bool { return len(cis[i].Provenance) > len(cis[j].Provenance) })
+			for i, ci := range cis {
+				if number <= 0 {
+					return errutil.ErrBreak
+				}
+				number--
+
+				if reverse {
+					ci = cis[len(cis)-1-i]
+				}
+				if err := f(ci); err != nil {
+					return err
+				}
 			}
-			number--
-			return f(proto.Clone(ci).(*pfs.CommitInfo))
+			cis = nil
+			return nil
+		}
+		lastRev := int64(-1)
+		if err := commits.ListRev(ci, &opts, func(commitID string, createRev int64) error {
+			if createRev != lastRev {
+				if err := sendCis(); err != nil {
+					return err
+				}
+				lastRev = createRev
+			}
+			cis = append(cis, proto.Clone(ci).(*pfs.CommitInfo))
+			return nil
 		}); err != nil {
 			return err
 		}
+		// Call sendCis one last time to send whatever's pending in 'cis'
+		if err := sendCis(); err != nil {
+			return err
+		}
 	} else {
+		if reverse {
+			return fmt.Errorf("cannot use 'Reverse' while also using 'From' or 'To'")
+		}
 		cursor := to
 		for number != 0 && cursor != nil && (from == nil || cursor.ID != from.ID) {
 			var commitInfo pfs.CommitInfo
@@ -1820,46 +1977,23 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo, to *p
 	return nil
 }
 
-func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, branch string, from *pfs.Commit, state pfs.CommitState, f func(*pfs.CommitInfo) error) error {
+func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, branch string, prov *pfs.CommitProvenance,
+	from *pfs.Commit, state pfs.CommitState, f func(*pfs.CommitInfo) error) error {
 	if from != nil && from.Repo.Name != repo.Name {
 		return fmt.Errorf("the `from` commit needs to be from repo %s", repo.Name)
 	}
 
-	branches := d.branches(repo.Name).ReadOnly(pachClient.Ctx())
-	newCommitWatcher, err := branches.WatchOne(branch)
+	commits := d.commits(repo.Name).ReadOnly(pachClient.Ctx())
+	newCommitWatcher, err := commits.Watch(watch.WithSort(etcd.SortByCreateRevision, etcd.SortAscend))
 	if err != nil {
 		return err
 	}
 	defer newCommitWatcher.Close()
 	// keep track of the commits that have been sent
 	seen := make(map[string]bool)
-	// include all commits that are currently on the given branch,
-	commitInfos, err := d.listCommit(pachClient, repo, client.NewCommit(repo.Name, branch), from, 0)
-	if err != nil {
-		// We skip NotFound error because it's ok if the branch
-		// doesn't exist yet, in which case ListCommit returns
-		// a NotFound error.
-		if !isNotFoundErr(err) {
-			return err
-		}
-	}
-	// ListCommit returns commits in newest-first order,
-	// but SubscribeCommit should return commit in oldest-first
-	// order, so we reverse the order.
-	for i := range commitInfos {
-		commitInfo := commitInfos[len(commitInfos)-i-1]
-		commitInfo, err := d.inspectCommit(pachClient, commitInfo.Commit, state)
-		if err != nil {
-			return err
-		}
-		if err := f(commitInfo); err != nil {
-			return err
-		}
-		seen[commitInfo.Commit.ID] = true
-	}
 	for {
-		var branchName string
-		branchInfo := &pfs.BranchInfo{}
+		var commitID string
+		commitInfo := &pfs.CommitInfo{}
 		var event *watch.Event
 		var ok bool
 		event, ok = <-newCommitWatcher.Watch()
@@ -1870,22 +2004,40 @@ func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, b
 		case watch.EventError:
 			return event.Err
 		case watch.EventPut:
-			if err := event.Unmarshal(&branchName, branchInfo); err != nil {
+			if err := event.Unmarshal(&commitID, commitInfo); err != nil {
 				return fmt.Errorf("Unmarshal: %v", err)
 			}
-			if branchInfo.Head == nil {
-				continue // put event == new branch was created. No commits yet though
+			if commitInfo == nil {
+				return fmt.Errorf("Commit info is empty for id: %v", commitID)
 			}
 
-			// TODO we check the branchName because right now WatchOne, like all
-			// collection watch commands, returns all events matching a given prefix,
-			// which means we'll get back events associated with `master-v1` if we're
-			// watching `master`.  Once this is changed we should remove the
-			// comparison between branchName and branch.
+			// if provenance is provided, ensure that the returned commits have the commit in their provenance
+			if prov != nil {
+				valid := false
+				for _, cProv := range commitInfo.Provenance {
+					valid = valid || proto.Equal(cProv, prov)
+				}
+				if !valid {
+					continue
+				}
+			}
+
+			if commitInfo.Branch != nil {
+				// if branch is provided, make sure the commit was created on that branch
+				if branch != "" && commitInfo.Branch.Name != branch {
+					continue
+				}
+				// For now, we don't want stats branches to have jobs triggered on them
+				// and this is the simplest way to achieve that. Once we have labels,
+				// we'll use those instead for a more principled approach.
+				if commitInfo.Branch.Name == "stats" {
+					continue
+				}
+			}
 
 			// We don't want to include the `from` commit itself
-			if branchName == branch && (!(seen[branchInfo.Head.ID] || (from != nil && from.ID == branchInfo.Head.ID))) {
-				commitInfo, err := d.inspectCommit(pachClient, branchInfo.Head, state)
+			if !(seen[commitID] || (from != nil && from.ID == commitID)) {
+				commitInfo, err := d.inspectCommit(pachClient, client.NewCommit(repo.Name, commitID), state)
 				if err != nil {
 					return err
 				}
@@ -2297,12 +2449,30 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	// The request must do exactly one of:
 	// 1) updating 'branch's provenance (commit is nil OR commit == branch)
 	// 2) re-pointing 'branch' at a new commit
+	var ci *pfs.CommitInfo
 	if commit != nil {
 		// Determine if this is a provenance update
 		sameTarget := branch.Repo.Name == commit.Repo.Name && branch.Name == commit.ID
 		if !sameTarget && provenance != nil {
-			return fmt.Errorf("cannot point branch \"%s\" at target commit \"%s/%s\" without clearing its provenance",
-				branch.Name, commit.Repo.Name, commit.ID)
+			ci, err = d.inspectCommit(txnCtx.Client, commit, pfs.CommitState_STARTED)
+			if err != nil {
+				return err
+			}
+			for _, provBranch := range provenance {
+				provBranchInfo := &pfs.BranchInfo{}
+				if err := d.branches(provBranch.Repo.Name).ReadWrite(txnCtx.Stm).Get(provBranch.Name, provBranchInfo); err != nil {
+					// If the branch doesn't exist no need to count it in provenance
+					if col.IsErrNotFound(err) {
+						continue
+					}
+					return err
+				}
+				for _, provC := range ci.Provenance {
+					if proto.Equal(provBranch, provC.Branch) && !proto.Equal(provBranchInfo.Head, provC.Commit) {
+						return fmt.Errorf("cannot create branch %q with commit %q as head because commit has \"%s/%s\" as provenance but that commit is not the head of branch \"%s/%s\"", branch.Name, commit.ID, provC.Commit.Repo.Name, provC.Commit.ID, provC.Branch.Repo.Name, provC.Branch.Name)
+					}
+				}
+			}
 		}
 	}
 
@@ -2341,6 +2511,13 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	repoInfo := &pfs.RepoInfo{}
 	if err := repos.Update(branch.Repo.Name, repoInfo, func() error {
 		add(&repoInfo.Branches, branch)
+		if branch.Name == "master" && commit != nil {
+			ci, err := d.inspectCommit(txnCtx.Client, commit, pfs.CommitState_STARTED)
+			if err != nil {
+				return err
+			}
+			repoInfo.SizeBytes = ci.SizeBytes
+		}
 		return nil
 	}); err != nil {
 		return err
@@ -2373,13 +2550,21 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 			}
 			provBranchInfo := &pfs.BranchInfo{}
 			if err := d.branches(provBranch.Repo.Name).ReadWrite(txnCtx.Stm).Get(provBranch.Name, provBranchInfo); err != nil {
-				return err
+				return fmt.Errorf("error getting prov branch: %v", err)
 			}
 			for _, provBranch := range provBranchInfo.Provenance {
 				// add provBranch to branchInfo.Provenance, and branchInfo.Branch to
 				// provBranch subvenance
 				if err := d.addBranchProvenance(branchInfo, provBranch, txnCtx.Stm); err != nil {
 					return err
+				}
+			}
+		}
+		// If we have a commit use it to set head of this branch info
+		if ci != nil {
+			for _, provC := range ci.Provenance {
+				if proto.Equal(provC.Branch, branchInfo.Branch) {
+					branchInfo.Head = provC.Commit
 				}
 			}
 		}
@@ -2418,19 +2603,39 @@ func (d *driver) inspectBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Br
 	return result, nil
 }
 
-func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo) ([]*pfs.BranchInfo, error) {
+func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo, reverse bool) ([]*pfs.BranchInfo, error) {
 	if err := d.checkIsAuthorized(pachClient, repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
 	var result []*pfs.BranchInfo
 	branchInfo := &pfs.BranchInfo{}
 	branches := d.branches(repo.Name).ReadOnly(pachClient.Ctx())
-	if err := branches.List(branchInfo, col.DefaultOptions, func(string) error {
-		result = append(result, proto.Clone(branchInfo).(*pfs.BranchInfo))
+	opts := *col.DefaultOptions // Note we dereference here so as to make a copy
+	if reverse {
+		opts.Order = etcd.SortAscend
+	}
+	var bis []*pfs.BranchInfo
+	sendBis := func() {
+		if !reverse {
+			sort.Slice(bis, func(i, j int) bool { return len(bis[i].Provenance) < len(bis[j].Provenance) })
+		} else {
+			sort.Slice(bis, func(i, j int) bool { return len(bis[i].Provenance) > len(bis[j].Provenance) })
+		}
+		result = append(result, bis...)
+		bis = nil
+	}
+	lastRev := int64(-1)
+	if err := branches.ListRev(branchInfo, &opts, func(branch string, createRev int64) error {
+		if createRev != lastRev {
+			sendBis()
+			lastRev = createRev
+		}
+		bis = append(bis, proto.Clone(branchInfo).(*pfs.BranchInfo))
 		return nil
 	}); err != nil {
 		return nil, err
 	}
+	sendBis()
 	return result, nil
 }
 
@@ -2531,7 +2736,7 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 		// a commit with no ID, that ID will be filled in with the head of
 		// branch (if it exists).
 		return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-			_, err := d.makeCommit(txnCtx, "", client.NewCommit(repo, ""), branch, nil, nil, putFilePaths, putFileRecords, "")
+			_, err := d.makeCommit(txnCtx, "", client.NewCommit(repo, ""), branch, nil, nil, nil, nil, putFilePaths, putFileRecords, "", 0)
 			return err
 		})
 	}
@@ -2913,7 +3118,7 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 	// dst is finished => all PutFileRecords are in 'records'--put in a new commit
 	if !dstIsOpenCommit {
 		return d.txnEnv.WithWriteContext(pachClient.Ctx(), func(txnCtx *txnenv.TransactionContext) error {
-			_, err = d.makeCommit(txnCtx, "", client.NewCommit(dst.Commit.Repo.Name, ""), branch, nil, nil, paths, records, "")
+			_, err = d.makeCommit(txnCtx, "", client.NewCommit(dst.Commit.Repo.Name, ""), branch, nil, nil, nil, nil, paths, records, "", 0)
 			return err
 		})
 	}
@@ -3150,8 +3355,8 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 	if err != nil {
 		return nil, err
 	}
-	// Handle commits to input repos
-	if !provenantOnInput(commitInfo.Provenance) {
+	// Handle commits that use the old hashtree format.
+	if !provenantOnInput(commitInfo.Provenance) || commitInfo.Tree != nil {
 		tree, err := d.getTreeForFile(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, ""))
 		if err != nil {
 			return nil, err
@@ -3231,9 +3436,9 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 		}
 		return grpcutil.NewStreamingBytesReader(getObjectsClient, nil), nil
 	}
-	// Handle commits to output repos
+	// Handle commits that use the newer hashtree format.
 	if commitInfo.Finished == nil {
-		return nil, fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
+		return nil, pfsserver.ErrOutputCommitNotFinished{commitInfo.Commit}
 	}
 	if commitInfo.Trees == nil {
 		return nil, pfsserver.ErrFileNotFound{file}
@@ -3376,8 +3581,8 @@ func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (fi *
 	if err != nil {
 		return nil, err
 	}
-	// Handle commits to input repos
-	if !provenantOnInput(commitInfo.Provenance) {
+	// Handle commits that use the old hashtree format.
+	if !provenantOnInput(commitInfo.Provenance) || commitInfo.Tree != nil {
 		tree, err := d.getTreeForFile(pachClient, file)
 		if err != nil {
 			return nil, err
@@ -3388,9 +3593,9 @@ func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (fi *
 		}
 		return nodeToFileInfoHeaderFooter(commitInfo, file.Path, node, tree, true)
 	}
-	// Handle commits to output repos
+	// Handle commits that use the newer hashtree format.
 	if commitInfo.Finished == nil {
-		return nil, fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
+		return nil, pfsserver.ErrOutputCommitNotFinished{commitInfo.Commit}
 	}
 	if commitInfo.Trees == nil {
 		return nil, pfsserver.ErrFileNotFound{file}
@@ -3427,8 +3632,8 @@ func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full boo
 		return err
 	}
 
-	// Handle commits to input repos and spouts
-	if !provenantOnInput(commitInfo.Provenance) {
+	// Handle commits that use the old hashtree format.
+	if !provenantOnInput(commitInfo.Provenance) || commitInfo.Tree != nil {
 		tree, err := d.getTreeForFile(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, ""))
 		if err != nil {
 			return err
@@ -3461,9 +3666,9 @@ func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full boo
 			})
 		})
 	}
-	// Handle commits to output repos
+	// Handle commits that use the newer hashtree format.
 	if commitInfo.Finished == nil {
-		return fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
+		return pfsserver.ErrOutputCommitNotFinished{commitInfo.Commit}
 	}
 	if commitInfo.Trees == nil {
 		return nil
@@ -3530,8 +3735,8 @@ func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, f func(*
 	if err != nil {
 		return err
 	}
-	// Handle commits to input repos
-	if !provenantOnInput(commitInfo.Provenance) {
+	// Handle commits that use the old hashtree format.
+	if !provenantOnInput(commitInfo.Provenance) || commitInfo.Tree != nil {
 		tree, err := d.getTreeForFile(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, file.Path))
 		if err != nil {
 			return err
@@ -3544,9 +3749,9 @@ func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, f func(*
 			return f(fi)
 		})
 	}
-	// Handle commits to output repos
+	// Handle commits that use the newer hashtree format.
 	if commitInfo.Finished == nil {
-		return fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
+		return pfsserver.ErrOutputCommitNotFinished{commitInfo.Commit}
 	}
 	if commitInfo.Trees == nil {
 		return nil
@@ -3575,8 +3780,8 @@ func (d *driver) globFile(pachClient *client.APIClient, commit *pfs.Commit, patt
 	if err != nil {
 		return err
 	}
-	// Handle commits to input repos
-	if !provenantOnInput(commitInfo.Provenance) {
+	// Handle commits that use the old hashtree format.
+	if !provenantOnInput(commitInfo.Provenance) || commitInfo.Tree != nil {
 		tree, err := d.getTreeForFile(pachClient, client.NewFile(commit.Repo.Name, commit.ID, ""))
 		if err != nil {
 			return err
@@ -3594,9 +3799,9 @@ func (d *driver) globFile(pachClient *client.APIClient, commit *pfs.Commit, patt
 		}
 		return globErr
 	}
-	// Handle commits to output repos
+	// Handle commits that use the newer hashtree format.
 	if commitInfo.Finished == nil {
-		return fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
+		return pfsserver.ErrOutputCommitNotFinished{commitInfo.Commit}
 	}
 	if commitInfo.Trees == nil {
 		return nil
@@ -3710,7 +3915,7 @@ func (d *driver) deleteFile(pachClient *client.APIClient, file *pfs.File) error 
 			return pfsserver.ErrCommitFinished{file.Commit}
 		}
 		return d.txnEnv.WithWriteContext(pachClient.Ctx(), func(txnCtx *txnenv.TransactionContext) error {
-			_, err := d.makeCommit(txnCtx, "", client.NewCommit(file.Commit.Repo.Name, ""), branch, nil, nil, []string{file.Path}, []*pfs.PutFileRecords{&pfs.PutFileRecords{Tombstone: true}}, "")
+			_, err := d.makeCommit(txnCtx, "", client.NewCommit(file.Commit.Repo.Name, ""), branch, nil, nil, nil, nil, []string{file.Path}, []*pfs.PutFileRecords{&pfs.PutFileRecords{Tombstone: true}}, "", 0)
 			return err
 		})
 	}
@@ -4115,6 +4320,8 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 					resp, err := http.Get(req.Url)
 					if err != nil {
 						return false, "", "", err
+					} else if resp.StatusCode >= 400 {
+						return false, "", "", fmt.Errorf("error retrieving content from %q: %s", req.Url, resp.Status)
 					}
 					eg.Go(func() (retErr error) {
 						defer limiter.Release()
@@ -4213,4 +4420,13 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 	}
 	err = eg.Wait()
 	return oneOff, repo, branch, err
+}
+
+func branchContains(bs []*pfs.Branch, b *pfs.Branch) bool {
+	for _, _b := range bs {
+		if proto.Equal(_b, b) {
+			return true
+		}
+	}
+	return false
 }

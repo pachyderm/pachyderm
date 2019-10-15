@@ -11,6 +11,12 @@ Run a file system consistency check on the pachyderm file system, ensuring the c
 pachctl fsck
 ```
 
+### Options
+
+```
+  -f, --fix   Attempt to fix as many issues as possible.
+```
+
 ### Options inherited from parent commands
 
 ```

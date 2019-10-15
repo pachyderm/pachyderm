@@ -5,6 +5,10 @@ on macOS®, Linux®, or Windows®. Local installation helps you to learn
 some of the Pachyderm basics and is not designed to be a production
 environment.
 
+**Note:** Pachyderm supports the Docker runtime only. If you want to
+deploy Pachyderm on a system that uses another container runtime,
+ask for advice in our [Slack channel](http://slack.pachyderm.io/).
+
 ## Prerequisites
 
 Before you can deploy Pachyderm, make sure you have the following
@@ -88,22 +92,25 @@ to have pachctl installed on your machine by following these steps:
    WSL:
 
      ```
-     $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.3/pachctl_1.9.3_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+     $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.7/pachctl_1.9.7_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
      ```
 
    * For all other Linux flavors:
 
      ```
-     $ curl -o /tmp/pachctl.tar.gz -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.3/pachctl_1.9.3_linux_amd64.tar.gz && tar -xvf /tmp/pachctl.tar.gz -C /tmp && sudo cp /tmp/pachctl_1.9.3_linux_amd64/pachctl /usr/local/bin
+     $ curl -o /tmp/pachctl.tar.gz -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.7/pachctl_1.9.7_linux_amd64.tar.gz && tar -xvf /tmp/pachctl.tar.gz -C /tmp && sudo cp /tmp/pachctl_1.9.7_linux_amd64/pachctl /usr/local/bin
      ```
 
-1. Verify that installation was successful by running `pachctl version`:
+1. Verify that installation was successful by running `pachctl version --client-only`:
 
    ```
-   $ pachctl version
+   $ pachctl version --client-only
    COMPONENT           VERSION
-   pachctl             1.9.1
+   pachctl             1.9.5
    ```
+
+   If you run `pachctl version` without `--client-only`, the command times
+   out. This is expected behavior because `pachd` is not yet running.
 
 ## Deploy Pachyderm
 
@@ -161,8 +168,8 @@ Kubernetes restarted those pods. You can safely ignore that message.
    ```shell
    $ pachctl version
    COMPONENT           VERSION
-   pachctl             1.9.1
-   pachd               1.9.1
+   pachctl             1.9.5
+   pachd               1.9.5
    ```
 
 
@@ -172,7 +179,7 @@ Kubernetes restarted those pods. You can safely ignore that message.
 1. Use port forwarding to access the Pachyderm dashboard.
 
    ```
-   pachctl port-forward
+   $ pachctl port-forward
    ```
 
    This command runs continuosly and does not exit unless you interrupt it.
@@ -188,8 +195,8 @@ the Minikube instance:
 
    1. Configure Pachyderm to connect directly to the Minikube instance:
 
-      ```
-      pachctl config update context `pachctl config get active-context` --pachd-address=`minikube ip`:30650
+      ```bash
+     $ pachctl config update context `pachctl config get active-context` --pachd-address=`minikube ip`:30650
       ```
 
 ## Next Steps

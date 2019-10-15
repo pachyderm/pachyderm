@@ -64,6 +64,14 @@ func NewBlock(hash string) *pfs.Block {
 	}
 }
 
+// NewBlockRef creates a pfs.BlockRef.
+func NewBlockRef(hash string, lower, upper uint64) *pfs.BlockRef {
+	return &pfs.BlockRef{
+		Block: NewBlock(hash),
+		Range: &pfs.ByteRange{Lower: lower, Upper: upper},
+	}
+}
+
 // NewTag creates a pfs.Tag.
 func NewTag(name string) *pfs.Tag {
 	return &pfs.Tag{
@@ -80,6 +88,18 @@ func (c APIClient) CreateRepo(repoName string) error {
 		c.Ctx(),
 		&pfs.CreateRepoRequest{
 			Repo: NewRepo(repoName),
+		},
+	)
+	return grpcutil.ScrubGRPC(err)
+}
+
+// UpdateRepo upserts a repo with the given name.
+func (c APIClient) UpdateRepo(repoName string) error {
+	_, err := c.PfsAPIClient.CreateRepo(
+		c.Ctx(),
+		&pfs.CreateRepoRequest{
+			Repo:   NewRepo(repoName),
+			Update: true,
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
@@ -163,13 +183,14 @@ func (c APIClient) StartCommit(repoName string, branch string) (*pfs.Commit, err
 // BuildCommit builds a commit in a single call from an existing HashTree that
 // has already been written to the object store. Note this is a more advanced
 // pattern for creating commits that's mostly used internally.
-func (c APIClient) BuildCommit(repoName string, branch string, parent string, treeObject string) (*pfs.Commit, error) {
+func (c APIClient) BuildCommit(repoName string, branch string, parent string, treeObject string, sizeBytes uint64) (*pfs.Commit, error) {
 	commit, err := c.PfsAPIClient.BuildCommit(
 		c.Ctx(),
 		&pfs.BuildCommitRequest{
-			Parent: NewCommit(repoName, parent),
-			Branch: branch,
-			Tree:   &pfs.Object{Hash: treeObject},
+			Parent:    NewCommit(repoName, parent),
+			Branch:    branch,
+			Tree:      &pfs.Object{Hash: treeObject},
+			SizeBytes: sizeBytes,
 		},
 	)
 	if err != nil {
@@ -259,7 +280,7 @@ func (c APIClient) inspectCommit(repoName string, commitID string, blockState pf
 // all commits that match the aforementioned criteria are returned.
 func (c APIClient) ListCommit(repoName string, to string, from string, number uint64) ([]*pfs.CommitInfo, error) {
 	var result []*pfs.CommitInfo
-	if err := c.ListCommitF(repoName, to, from, number, func(ci *pfs.CommitInfo) error {
+	if err := c.ListCommitF(repoName, to, from, number, false, func(ci *pfs.CommitInfo) error {
 		result = append(result, ci)
 		return nil
 	}); err != nil {
@@ -275,11 +296,13 @@ func (c APIClient) ListCommit(repoName string, to string, from string, number ui
 // If `from` is given, only the descendents of `from`, including `from`
 // itself, are considered.
 // `number` determines how many commits are returned.  If `number` is 0,
-// all commits that match the aforementioned criteria are returned.
-func (c APIClient) ListCommitF(repoName string, to string, from string, number uint64, f func(*pfs.CommitInfo) error) error {
+// `reverse` lists the commits from oldest to newest, rather than newest to oldest
+// all commits that match the aforementioned criteria are passed to f.
+func (c APIClient) ListCommitF(repoName string, to string, from string, number uint64, reverse bool, f func(*pfs.CommitInfo) error) error {
 	req := &pfs.ListCommitRequest{
-		Repo:   NewRepo(repoName),
-		Number: number,
+		Repo:    NewRepo(repoName),
+		Number:  number,
+		Reverse: reverse,
 	}
 	if from != "" {
 		req.From = NewCommit(repoName, from)
@@ -356,7 +379,7 @@ func (c APIClient) ListBranch(repoName string) ([]*pfs.BranchInfo, error) {
 }
 
 // SetBranch sets a commit and its ancestors as a branch.
-// SetBranch is deprecated in favor of CommitBranch.
+// SetBranch is deprecated in favor of CreateBranch.
 func (c APIClient) SetBranch(repoName string, commit string, branch string) error {
 	return c.CreateBranch(repoName, branch, commit, nil)
 }
@@ -500,11 +523,12 @@ func (c *commitInfoIterator) Close() {
 
 // SubscribeCommit is like ListCommit but it keeps listening for commits as
 // they come in.
-func (c APIClient) SubscribeCommit(repo string, branch string, from string, state pfs.CommitState) (CommitInfoIterator, error) {
+func (c APIClient) SubscribeCommit(repo, branch string, prov *pfs.CommitProvenance, from string, state pfs.CommitState) (CommitInfoIterator, error) {
 	ctx, cancel := context.WithCancel(c.Ctx())
 	req := &pfs.SubscribeCommitRequest{
 		Repo:   NewRepo(repo),
 		Branch: branch,
+		Prov:   prov,
 		State:  state,
 	}
 	if from != "" {
@@ -520,10 +544,11 @@ func (c APIClient) SubscribeCommit(repo string, branch string, from string, stat
 
 // SubscribeCommitF is like ListCommit but it calls a callback function with
 // the results rather than returning an iterator.
-func (c APIClient) SubscribeCommitF(repo, branch, from string, state pfs.CommitState, f func(*pfs.CommitInfo) error) error {
+func (c APIClient) SubscribeCommitF(repo, branch string, prov *pfs.CommitProvenance, from string, state pfs.CommitState, f func(*pfs.CommitInfo) error) error {
 	req := &pfs.SubscribeCommitRequest{
 		Repo:   NewRepo(repo),
 		Branch: branch,
+		Prov:   prov,
 		State:  state,
 	}
 	if from != "" {
@@ -603,6 +628,16 @@ func (c APIClient) PutObjectSplit(_r io.Reader) (objects []*pfs.Object, _ int64,
 	}
 	// return value set by deferred function
 	return nil, written, nil
+}
+
+// CreateObject creates an object with hash, referencing the range
+// [lower,upper] in block. The block should already exist.
+func (c APIClient) CreateObject(hash, block string, lower, upper uint64) error {
+	_, err := c.ObjectAPIClient.CreateObject(c.Ctx(), &pfs.CreateObjectRequest{
+		Object:   NewObject(hash),
+		BlockRef: NewBlockRef(block, lower, upper),
+	})
+	return grpcutil.ScrubGRPC(err)
 }
 
 // GetObject gets an object out of the object store by hash.
@@ -694,20 +729,20 @@ func (c APIClient) TagObject(hash string, tags ...string) error {
 }
 
 // ListObject lists objects stored in pfs.
-func (c APIClient) ListObject(f func(*pfs.Object) error) error {
+func (c APIClient) ListObject(f func(*pfs.ObjectInfo) error) error {
 	listObjectClient, err := c.ObjectAPIClient.ListObjects(c.Ctx(), &pfs.ListObjectsRequest{})
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}
 	for {
-		object, err := listObjectClient.Recv()
+		oi, err := listObjectClient.Recv()
 		if err != nil {
 			if err == io.EOF {
 				return nil
 			}
 			return grpcutil.ScrubGRPC(err)
 		}
-		if err := f(object); err != nil {
+		if err := f(oi); err != nil {
 			return err
 		}
 	}
@@ -777,9 +812,73 @@ func (c APIClient) ListTag(f func(*pfs.ListTagsResponse) error) error {
 			return grpcutil.ScrubGRPC(err)
 		}
 		if err := f(listTagResponse); err != nil {
+			if err == errutil.ErrBreak {
+				return nil
+			}
 			return err
 		}
 	}
+}
+
+// ListBlock lists blocks stored in pfs.
+func (c APIClient) ListBlock(f func(*pfs.Block) error) error {
+	listBlocksClient, err := c.ObjectAPIClient.ListBlock(c.Ctx(), &pfs.ListBlockRequest{})
+	if err != nil {
+		return err
+	}
+	for {
+		block, err := listBlocksClient.Recv()
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return grpcutil.ScrubGRPC(err)
+		}
+		if err := f(block); err != nil {
+			if err == errutil.ErrBreak {
+				return nil
+			}
+			return err
+		}
+	}
+	return nil
+}
+
+// GetBlock gets the content of a block.
+func (c APIClient) GetBlock(hash string, w io.Writer) error {
+	getBlockClient, err := c.ObjectAPIClient.GetBlock(
+		c.Ctx(),
+		&pfs.GetBlockRequest{Block: NewBlock(hash)},
+	)
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	if err := grpcutil.WriteFromStreamingBytesClient(getBlockClient, w); err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	return nil
+}
+
+// PutBlock puts a block.
+func (c APIClient) PutBlock(hash string, _r io.Reader) (_ int64, retErr error) {
+	r := grpcutil.ReaderWrapper{_r}
+	w, err := c.newPutBlockWriteCloser(hash)
+	if err != nil {
+		return 0, err
+	}
+	defer func() {
+		if err := w.Close(); err != nil && retErr == nil {
+			retErr = fmt.Errorf("Close: %v", grpcutil.ScrubGRPC(err))
+		}
+	}()
+	buf := grpcutil.GetBuffer()
+	defer grpcutil.PutBuffer(buf)
+	written, err := io.CopyBuffer(w, r, buf)
+	if err != nil {
+		return written, fmt.Errorf("CopyBuffer: %v", grpcutil.ScrubGRPC(err))
+	}
+	// return value set by deferred function
+	return written, nil
 }
 
 // Compact forces compaction of objects.
@@ -1290,13 +1389,63 @@ func (c APIClient) DeleteFile(repoName string, commitID string, path string) err
 			File: NewFile(repoName, commitID, path),
 		},
 	)
-	return err
+	return grpcutil.ScrubGRPC(err)
 }
 
 type putFileWriteCloser struct {
 	request *pfs.PutFileRequest
 	sent    bool
 	c       *putFileClient
+}
+
+// Fsck performs checks on pfs. Errors that are encountered will be passed
+// onError. These aren't errors in the traditional sense, in that they don't
+// prevent the completion of fsck. Errors that do prevent completion will be
+// returned from the function.
+func (c APIClient) Fsck(fix bool, cb func(*pfs.FsckResponse) error) error {
+	fsckClient, err := c.PfsAPIClient.Fsck(c.Ctx(), &pfs.FsckRequest{Fix: fix})
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	for {
+		resp, err := fsckClient.Recv()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return grpcutil.ScrubGRPC(err)
+		}
+		if err := cb(resp); err != nil {
+			if err == errutil.ErrBreak {
+				break
+			}
+			return err
+		}
+	}
+	return nil
+}
+
+// FsckFastExit performs checks on pfs, similar to Fsck, except that it returns the
+// first fsck error it encounters and exits.
+func (c APIClient) FsckFastExit() error {
+	ctx, cancel := context.WithCancel(c.Ctx())
+	defer cancel()
+	fsckClient, err := c.PfsAPIClient.Fsck(ctx, &pfs.FsckRequest{})
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	for {
+		resp, err := fsckClient.Recv()
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return grpcutil.ScrubGRPC(err)
+		}
+		if resp.Error != "" {
+			return fmt.Errorf(resp.Error)
+		}
+	}
 }
 
 func (c *putFileClient) newPutFileWriteCloser(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, headerRecords int64, overwriteIndex *pfs.OverwriteIndex) (*putFileWriteCloser, error) {
@@ -1569,4 +1718,41 @@ func (r *getFileReadSeeker) Seek(offset int64, whence int) (int64, error) {
 		r.Reader = reader
 	}
 	return r.offset, nil
+}
+
+type putBlockWriteCloser struct {
+	request *pfs.PutBlockRequest
+	client  pfs.ObjectAPI_PutBlockClient
+}
+
+func (c APIClient) newPutBlockWriteCloser(hash string) (*putBlockWriteCloser, error) {
+	client, err := c.ObjectAPIClient.PutBlock(c.Ctx())
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	return &putBlockWriteCloser{
+		request: &pfs.PutBlockRequest{Block: NewBlock(hash)},
+		client:  client,
+	}, nil
+}
+
+func (w *putBlockWriteCloser) Write(p []byte) (int, error) {
+	w.request.Value = p
+	if err := w.client.Send(w.request); err != nil {
+		return 0, grpcutil.ScrubGRPC(err)
+	}
+	w.request.Block = nil
+	return len(p), nil
+}
+
+func (w *putBlockWriteCloser) Close() error {
+	if w.request.Block != nil {
+		// This happens if the block is empty in which case Write was never
+		// called, so we need to send an empty request to identify the block.
+		if err := w.client.Send(w.request); err != nil {
+			return grpcutil.ScrubGRPC(err)
+		}
+	}
+	_, err := w.client.CloseAndRecv()
+	return grpcutil.ScrubGRPC(err)
 }

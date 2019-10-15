@@ -5,10 +5,10 @@ option go_package = "github.com/pachyderm/pachyderm/src/client/admin";
 
 import "google/protobuf/empty.proto";
 import "gogoproto/gogo.proto";
-import "client/admin/1_7/pfs/pfs.proto";
-import "client/admin/1_7/pps/pps.proto";
-import "client/admin/1_8/pfs/pfs.proto";
-import "client/admin/1_8/pps/pps.proto";
+import "client/admin/v1_7/pfs/pfs.proto";
+import "client/admin/v1_7/pps/pps.proto";
+import "client/admin/v1_8/pfs/pfs.proto";
+import "client/admin/v1_8/pps/pps.proto";
 import "client/pfs/pfs.proto";
 import "client/pps/pps.proto";
 
@@ -32,11 +32,14 @@ message Op1_8 {
 
 message Op1_9 {
   pfs.PutObjectRequest object = 2;
+  pfs.CreateObjectRequest create_object = 9;
   pfs.TagObjectRequest tag = 3;
+  pfs.PutBlockRequest block = 10;
   pfs.CreateRepoRequest repo = 4;
   pfs.BuildCommitRequest commit = 5;
   pfs.CreateBranchRequest branch = 6;
   pps.CreatePipelineRequest pipeline = 7;
+  pps.CreateJobRequest job = 8;
 }
 
 message Op {

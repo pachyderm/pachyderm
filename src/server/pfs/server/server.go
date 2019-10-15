@@ -41,14 +41,16 @@ func NewAPIServer(
 
 // NewBlockAPIServer creates a BlockAPIServer using the credentials it finds in
 // the environment
-func NewBlockAPIServer(dir string, cacheBytes int64, backend string, etcdAddress string) (BlockAPIServer, error) {
+// TODO(msteffen) accept serviceenv.ServiceEnv instead of 'dir', 'backend', and
+// 'duplicate'?
+func NewBlockAPIServer(dir string, cacheBytes int64, backend string, etcdAddress string, duplicate bool) (BlockAPIServer, error) {
 	switch backend {
 	case MinioBackendEnvVar:
 		// S3 compatible doesn't like leading slashes
 		if len(dir) > 0 && dir[0] == '/' {
 			dir = dir[1:]
 		}
-		blockAPIServer, err := newMinioBlockAPIServer(dir, cacheBytes, etcdAddress)
+		blockAPIServer, err := newMinioBlockAPIServer(dir, cacheBytes, etcdAddress, duplicate)
 		if err != nil {
 			return nil, err
 		}
@@ -58,20 +60,20 @@ func NewBlockAPIServer(dir string, cacheBytes int64, backend string, etcdAddress
 		if len(dir) > 0 && dir[0] == '/' {
 			dir = dir[1:]
 		}
-		blockAPIServer, err := newAmazonBlockAPIServer(dir, cacheBytes, etcdAddress)
+		blockAPIServer, err := newAmazonBlockAPIServer(dir, cacheBytes, etcdAddress, duplicate)
 		if err != nil {
 			return nil, err
 		}
 		return blockAPIServer, nil
 	case GoogleBackendEnvVar:
 		// TODO figure out if google likes leading slashses
-		blockAPIServer, err := newGoogleBlockAPIServer(dir, cacheBytes, etcdAddress)
+		blockAPIServer, err := newGoogleBlockAPIServer(dir, cacheBytes, etcdAddress, duplicate)
 		if err != nil {
 			return nil, err
 		}
 		return blockAPIServer, nil
 	case MicrosoftBackendEnvVar:
-		blockAPIServer, err := newMicrosoftBlockAPIServer(dir, cacheBytes, etcdAddress)
+		blockAPIServer, err := newMicrosoftBlockAPIServer(dir, cacheBytes, etcdAddress, duplicate)
 		if err != nil {
 			return nil, err
 		}
@@ -79,7 +81,7 @@ func NewBlockAPIServer(dir string, cacheBytes int64, backend string, etcdAddress
 	case LocalBackendEnvVar:
 		fallthrough
 	default:
-		blockAPIServer, err := newLocalBlockAPIServer(dir, cacheBytes, etcdAddress)
+		blockAPIServer, err := newLocalBlockAPIServer(dir, cacheBytes, etcdAddress, duplicate)
 		if err != nil {
 			return nil, err
 		}

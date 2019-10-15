@@ -49,6 +49,54 @@ func ChunkReader(r io.Reader, f func([]byte) error) (int, error) {
 	}
 }
 
+// ChunkWriteCloser is a utility for buffering writes into buffers obtained from a buffer pool.
+// The ChunkWriteCloser will buffer up to the capacity of a buffer obtained from a buffer pool,
+// then execute a callback that will receive the buffered data. The ChunkWriteCloser will get
+// a new buffer from the pool for subsequent writes, so it is expected that the callback will
+// return the buffer to the pool.
+type ChunkWriteCloser struct {
+	bufPool *BufPool
+	buf     []byte
+	f       func([]byte) error
+}
+
+// NewChunkWriteCloser creates a new ChunkWriteCloser.
+func NewChunkWriteCloser(bufPool *BufPool, f func(chunk []byte) error) *ChunkWriteCloser {
+	return &ChunkWriteCloser{
+		bufPool: bufPool,
+		buf:     bufPool.GetBuffer()[:0],
+		f:       f,
+	}
+}
+
+// Write performs a write.
+func (w *ChunkWriteCloser) Write(data []byte) (int, error) {
+	var written int
+	for len(w.buf)+len(data) > cap(w.buf) {
+		// Write the bytes that fit into w.buf, then
+		// remove those bytes from data.
+		i := cap(w.buf) - len(w.buf)
+		w.buf = append(w.buf, data[:i]...)
+		if err := w.f(w.buf); err != nil {
+			return 0, err
+		}
+		w.buf = bufPool.GetBuffer()[:0]
+		written += i
+		data = data[i:]
+	}
+	w.buf = append(w.buf, data...)
+	written += len(data)
+	return written, nil
+}
+
+// Close closes the writer.
+func (w *ChunkWriteCloser) Close() error {
+	if len(w.buf) == 0 {
+		return nil
+	}
+	return w.f(w.buf)
+}
+
 // StreamingBytesServer represents a server for an rpc method of the form:
 //   rpc Foo(Bar) returns (stream google.protobuf.BytesValue) {}
 type StreamingBytesServer interface {

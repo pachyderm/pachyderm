@@ -7,97 +7,151 @@ import (
 	"strings"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/gorilla/mux"
+	pfsClient "github.com/pachyderm/pachyderm/src/client/pfs"
+	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/s2"
-	"github.com/sirupsen/logrus"
 )
 
-type objectController struct {
-	pc     *client.APIClient
-	logger *logrus.Entry
-}
-
-func (c objectController) Get(r *http.Request, bucket, file string, result *s2.GetObjectResult) error {
+func (c *controller) GetObject(r *http.Request, bucket, file, version string) (*s2.GetObjectResult, error) {
+	vars := mux.Vars(r)
+	pc, err := c.pachClient(vars["authAccessKey"])
+	if err != nil {
+		return nil, err
+	}
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	branchInfo, err := c.pc.InspectBranch(repo, branch)
+	branchInfo, err := pc.InspectBranch(repo, branch)
 	if err != nil {
-		return maybeNotFoundError(r, err)
+		return nil, maybeNotFoundError(r, err)
 	}
 	if branchInfo.Head == nil {
-		return s2.NoSuchKeyError(r)
+		return nil, s2.NoSuchKeyError(r)
 	}
 	if strings.HasSuffix(file, "/") {
-		return invalidFilePathError(r)
+		return nil, invalidFilePathError(r)
 	}
 
-	fileInfo, err := c.pc.InspectFile(branchInfo.Branch.Repo.Name, branchInfo.Head.ID, file)
+	var commitInfo *pfsClient.CommitInfo
+	commitID := branch
+	if version != "" {
+		commitInfo, err = pc.InspectCommit(repo, version)
+		if err != nil {
+			return nil, maybeNotFoundError(r, err)
+		}
+		if commitInfo.Branch.Name != branch {
+			return nil, s2.NoSuchVersionError(r)
+		}
+		commitID = commitInfo.Commit.ID
+	}
+
+	fileInfo, err := pc.InspectFile(branchInfo.Branch.Repo.Name, commitID, file)
 	if err != nil {
-		return maybeNotFoundError(r, err)
+		return nil, maybeNotFoundError(r, err)
 	}
 
-	timestamp, err := types.TimestampFromProto(fileInfo.Committed)
+	modTime, err := types.TimestampFromProto(fileInfo.Committed)
 	if err != nil {
-		return s2.InternalError(r, err)
+		return nil, err
 	}
 
-	reader, err := c.pc.GetFileReadSeeker(branchInfo.Branch.Repo.Name, branchInfo.Head.ID, file)
+	content, err := pc.GetFileReadSeeker(branchInfo.Branch.Repo.Name, commitID, file)
 	if err != nil {
-		return s2.InternalError(r, err)
+		return nil, err
 	}
 
-	result.Name = file
-	result.ETag = fmt.Sprintf("%x", fileInfo.Hash)
-	result.ModTime = timestamp
-	result.Content = reader
-	return nil
+	result := s2.GetObjectResult{
+		ModTime:      modTime,
+		Content:      content,
+		ETag:         fmt.Sprintf("%x", fileInfo.Hash),
+		Version:      commitID,
+		DeleteMarker: false,
+	}
+
+	return &result, nil
 }
 
-func (c objectController) Put(r *http.Request, bucket, file string, reader io.Reader) error {
+func (c *controller) PutObject(r *http.Request, bucket, file string, reader io.Reader) (*s2.PutObjectResult, error) {
+	vars := mux.Vars(r)
+	pc, err := c.pachClient(vars["authAccessKey"])
+	if err != nil {
+		return nil, err
+	}
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	branchInfo, err := c.pc.InspectBranch(repo, branch)
+	branchInfo, err := pc.InspectBranch(repo, branch)
 	if err != nil {
-		return maybeNotFoundError(r, err)
+		return nil, maybeNotFoundError(r, err)
 	}
 	if strings.HasSuffix(file, "/") {
-		return invalidFilePathError(r)
+		return nil, invalidFilePathError(r)
 	}
 
-	_, err = c.pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file, reader, 0)
+	_, err = pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file, reader, 0)
 	if err != nil {
-		return s2.InternalError(r, err)
+		if errutil.IsWriteToOutputBranchError(err) {
+			return nil, writeToOutputBranchError(r)
+		}
+		return nil, err
 	}
 
-	return nil
+	fileInfo, err := pc.InspectFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file)
+	if err != nil && !pfsServer.IsOutputCommitNotFinishedErr(err) {
+		return nil, err
+	}
+
+	result := s2.PutObjectResult{}
+	if fileInfo != nil {
+		result.ETag = fmt.Sprintf("%x", fileInfo.Hash)
+		result.Version = fileInfo.File.Commit.ID
+	}
+
+	return &result, nil
 }
 
-func (c objectController) Del(r *http.Request, bucket, key string) error {
+func (c *controller) DeleteObject(r *http.Request, bucket, file, version string) (*s2.DeleteObjectResult, error) {
+	vars := mux.Vars(r)
+	pc, err := c.pachClient(vars["authAccessKey"])
+	if err != nil {
+		return nil, err
+	}
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	branchInfo, err := c.pc.InspectBranch(repo, branch)
+	branchInfo, err := pc.InspectBranch(repo, branch)
 	if err != nil {
-		return maybeNotFoundError(r, err)
+		return nil, maybeNotFoundError(r, err)
 	}
 	if branchInfo.Head == nil {
-		return s2.NoSuchKeyError(r)
+		return nil, s2.NoSuchKeyError(r)
 	}
-	if strings.HasSuffix(key, "/") {
-		return invalidFilePathError(r)
+	if strings.HasSuffix(file, "/") {
+		return nil, invalidFilePathError(r)
+	}
+	if version != "" {
+		return nil, s2.NotImplementedError(r)
 	}
 
-	if err := c.pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, key); err != nil {
-		return maybeNotFoundError(r, err)
+	if err = pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file); err != nil {
+		if errutil.IsWriteToOutputBranchError(err) {
+			return nil, writeToOutputBranchError(r)
+		}
+		return nil, maybeNotFoundError(r, err)
 	}
 
-	return nil
+	result := s2.DeleteObjectResult{
+		Version:      "",
+		DeleteMarker: false,
+	}
+
+	return &result, nil
 }

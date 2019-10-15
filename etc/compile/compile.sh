@@ -19,8 +19,7 @@ mkdir -p _tmp
 # docker-build'). See https://github.com/pachyderm/pachyderm/issues/3845
 TMP=docker_build_${BINARY}.tmpdir
 mkdir -p "${TMP}"
-CGO_ENABLED=0 GOOS=linux GO111MODULE=on go build \
-  -mod=vendor \
+CGO_ENABLED=0 GOOS=linux go build \
   -installsuffix netgo \
   -tags netgo \
   -o ${TMP}/${BINARY} \

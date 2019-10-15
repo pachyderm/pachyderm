@@ -1,23 +1,69 @@
+// This is a library that provides some path-cleaning and path manipulation
+// functions for file sets. The functions it defines are very similar to the
+// functions in go's "path" library.
+
+// In both, a canonicalized path has a leading slash and no trailing slash in
+// general. The difference is:
+//
+// - In this library, the canonical version of "/" is "" (i.e. preserve "no
+//   trailing slash" invariant, at the cost of the "always have a leading slash"
+//   invariant), whereas
+//
+// - in go's "path" library, the canonical version of "/" is "/" and "" becomes
+//   ".".
+//
+// We prefer our canonicalizion because it gives us globbing behavior we like:
+// "/" and ""   (canonicalize to: "")   match "/" ("") but not "/foo"
+// "*" and "/*" (canonicalize to: "/*") match "/foo"   but not "/" ("")
+
 package fileset
 
-import "github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
+import (
+	"path"
+	"strings"
+)
 
-// CopyN copies n bytes from a file set reader to a file set writer.
-// The bytes copied correspond to the current file being read / written respectively.
-func CopyN(w *Writer, r *Reader, n int64) error {
-	// Lazily setup reader for underlying file.
-	if r.tr == nil {
-		if err := r.setupReader(); err != nil {
-			return err
-		}
+// internalDefault overrides the internal defaults of many functions in the
+// "path" library.  Specifically, the top-level dir "/" and the special string
+// "." (which is what most "path" functions return for the empty string) both
+// map to the empty string here, so that we get the globbing behavior we want
+// (see top).
+func internalDefault(s string) string {
+	if s == "/" || s == "." {
+		return ""
 	}
-	if err := chunk.CopyN(w.cw, r.cr, n); err != nil {
-		return err
+	return s
+}
+
+func externalDefault(s string) string {
+	if s == "" {
+		return "/"
 	}
-	w.hdr.Idx.SizeBytes += n
-	w.hdr.Idx.DataOp.Tags[len(w.hdr.Idx.DataOp.Tags)-1].SizeBytes += n
-	if err := r.tr.Skip(n); err != nil {
-		return err
+	return s
+}
+
+// clean canonicalizes 'path' for internal use: leading slash and no trailing
+// slash. Also, clean the result with internalDefault.
+func clean(p string) string {
+	if !strings.HasPrefix(p, "/") {
+		p = "/" + p
 	}
-	return w.tw.Skip(n)
+	return internalDefault(path.Clean(p))
+}
+
+// base is like path.Base, but uses this library's defaults for canonical paths
+func base(p string) string {
+	return internalDefault(path.Base(p))
+}
+
+// split is like path.Split, but uses this library's defaults for canonical
+// paths
+func split(p string) (string, string) {
+	return clean(path.Dir(p)), base(p)
+}
+
+// join is like path.Join, but uses our version of 'clean()' instead of
+// path.Clean()
+func join(ps ...string) string {
+	return clean(path.Join(ps...))
 }

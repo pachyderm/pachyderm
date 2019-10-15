@@ -17,9 +17,15 @@ pachctl deploy custom --persistent-disk <persistent disk backend> --object-store
 
 ```
       --isS3V2                   Enable S3V2 client
+      --max-upload-parts int     (rarely set / S3V2 incompatible) Set a custom maximum number of upload parts. (default 10000)
       --object-store string      (required) Backend providing an object-storage API to pachyderm. One of: s3, gcs, or azure-blob. (default "s3")
+      --part-size int            (rarely set / S3V2 incompatible) Set a custom part size for object storage uploads. (default 5242880)
       --persistent-disk string   (required) Backend providing persistent local volumes to stateful pods. One of: aws, google, or azure. (default "aws")
+      --retries int              (rarely set / S3V2 incompatible) Set a custom number of retries for object storage requests. (default 10)
+      --reverse                  (rarely set) Reverse object storage paths. (default true)
   -s, --secure                   Enable secure access to a Minio server.
+      --timeout string           (rarely set / S3V2 incompatible) Set a custom timeout for object storage requests. (default "5m")
+      --upload-acl string        (rarely set / S3V2 incompatible) Set a custom upload ACL for object storage uploads. (default "bucket-owner-full-control")
 ```
 
 ### Options inherited from parent commands

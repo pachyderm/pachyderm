@@ -3,7 +3,6 @@ package fileset
 import (
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
@@ -14,7 +13,10 @@ type stream interface {
 	key() string
 }
 
-type mergeFunc func([]stream) error
+// mergeFunc is a function that merges one or more streams.
+// ss is the set of streams that are at the same key in the merge process.
+// next is the next key that will be merged.
+type mergeFunc func(ss []stream, next ...string) error
 
 type fileStream struct {
 	r   *Reader
@@ -23,7 +25,7 @@ type fileStream struct {
 
 func (fs *fileStream) next() error {
 	var err error
-	fs.hdr, err = fs.r.Next()
+	fs.hdr, err = fs.r.Peek()
 	return err
 }
 
@@ -32,29 +34,40 @@ func (fs *fileStream) key() string {
 }
 
 func idxMergeFunc(w *Writer) mergeFunc {
-	return func(ss []stream) error {
+	return func(ss []stream, next ...string) error {
 		// (bryce) this will implement an index merge, which will be used by the distributed merge process.
 		return nil
 	}
 }
 
 func contentMergeFunc(w *Writer) mergeFunc {
-	return func(ss []stream) error {
+	return func(ss []stream, next ...string) error {
 		// Convert generic streams to file streams.
 		var fileStreams []*fileStream
 		for _, s := range ss {
 			fileStreams = append(fileStreams, s.(*fileStream))
 		}
+		// Fast path for copying files from one stream.
+		if len(fileStreams) == 1 {
+			if err := w.CopyFiles(fileStreams[0].r, next...); err != nil {
+				if err == io.EOF {
+					return nil
+				}
+				return err
+			}
+			return nil
+		}
 		// Setup tag streams for tag merge.
 		var tagStreams []stream
 		var size int64
 		for _, fs := range fileStreams {
-			tagStreams = append(tagStreams, &tagStream{
-				r: fs.r,
-				// (bryce) header tag removed by first next call.
-				tags: fs.hdr.Idx.DataOp.Tags,
-			})
-			size += fs.hdr.Idx.SizeBytes
+			hdr, err := fs.r.Next()
+			if err != nil {
+				return err
+			}
+			// (bryce) need to handle delete operations.
+			tagStreams = append(tagStreams, &tagStream{r: fs.r})
+			size += hdr.Idx.SizeBytes
 		}
 		// Write header for file.
 		hdr := &index.Header{
@@ -72,24 +85,22 @@ func contentMergeFunc(w *Writer) mergeFunc {
 }
 
 type tagStream struct {
-	r    *Reader
-	tags []*index.Tag
+	r   *Reader
+	tag *index.Tag
 }
 
 func (ts *tagStream) next() error {
-	ts.tags = ts.tags[1:]
-	if len(ts.tags) == 0 {
-		return io.EOF
-	}
-	return nil
+	var err error
+	ts.tag, err = ts.r.PeekTag()
+	return err
 }
 
 func (ts *tagStream) key() string {
-	return ts.tags[0].Id
+	return ts.tag.Id
 }
 
 func tagMergeFunc(w *Writer) mergeFunc {
-	return func(ss []stream) error {
+	return func(ss []stream, next ...string) error {
 		// (bryce) this should be an Internal error type.
 		if len(ss) > 1 {
 			return fmt.Errorf("tags should be distinct within a file")
@@ -97,8 +108,7 @@ func tagMergeFunc(w *Writer) mergeFunc {
 		// Convert generic stream to tag stream.
 		tagStream := ss[0].(*tagStream)
 		// Copy tagged data to writer.
-		w.StartTag(tagStream.tags[0].Id)
-		return CopyN(w, tagStream.r, tagStream.tags[0].SizeBytes)
+		return w.CopyTags(tagStream.r, next...)
 	}
 }
 
@@ -125,7 +135,7 @@ func (mq *mergePriorityQueue) insert(s stream) error {
 	// Propagate insert up the queue
 	i := mq.size
 	for i > 1 {
-		if strings.Compare(mq.key(i/2), mq.key(i)) <= 0 {
+		if mq.key(i/2) <= mq.key(i) {
 			break
 		}
 		mq.swap(i/2, i)
@@ -138,11 +148,15 @@ func (mq *mergePriorityQueue) next() []stream {
 	ss := []stream{mq.queue[1]}
 	mq.fill()
 	// Keep popping streams off the queue if they have the same key.
-	for mq.queue[1] != nil && strings.Compare(mq.key(1), ss[0].key()) == 0 {
+	for mq.queue[1] != nil && mq.key(1) == ss[0].key() {
 		ss = append(ss, mq.queue[1])
 		mq.fill()
 	}
 	return ss
+}
+
+func (mq *mergePriorityQueue) peek() string {
+	return mq.queue[1].key()
 }
 
 func (mq *mergePriorityQueue) fill() {
@@ -157,12 +171,12 @@ func (mq *mergePriorityQueue) fill() {
 		left, right := i*2, i*2+1
 		if left > mq.size {
 			break
-		} else if right > mq.size || strings.Compare(mq.key(left), mq.key(right)) <= 0 {
+		} else if right > mq.size || mq.key(left) <= mq.key(right) {
 			next = left
 		} else {
 			next = right
 		}
-		if strings.Compare(mq.key(i), mq.key(next)) <= 0 {
+		if mq.key(i) <= mq.key(next) {
 			break
 		}
 		mq.swap(i, next)
@@ -174,7 +188,7 @@ func (mq *mergePriorityQueue) swap(i, j int) {
 	mq.queue[i], mq.queue[j] = mq.queue[j], mq.queue[i]
 }
 
-func merge(ss []stream, f func([]stream) error) error {
+func merge(ss []stream, f mergeFunc) error {
 	if len(ss) == 0 {
 		return nil
 	}
@@ -188,7 +202,11 @@ func merge(ss []stream, f func([]stream) error) error {
 	for mq.queue[1] != nil {
 		// Get next streams and merge them.
 		ss := mq.next()
-		if err := f(ss); err != nil {
+		var next []string
+		if mq.queue[1] != nil {
+			next = append(next, mq.peek())
+		}
+		if err := f(ss, next...); err != nil {
 			return err
 		}
 		// Re-insert streams

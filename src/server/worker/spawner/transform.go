@@ -18,6 +18,7 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
@@ -36,7 +37,8 @@ func forEachCommit(
 ) error {
 	return pachClient.SubscribeCommitF(
 		pipelineInfo.Pipeline.Name,
-		pipelineInfo.OutputBranch,
+		"",
+		client.NewCommitProvenance(ppsconsts.SpecRepo, pipelineInfo.Pipeline.Name, pipelineInfo.SpecCommit.ID),
 		"",
 		pfs.CommitState_READY,
 		func(ci *pfs.CommitInfo) error {
@@ -261,7 +263,7 @@ func waitJob(
 		}
 		// Create a datum factory pointing at the job's inputs and split up the
 		// input data into chunks
-		df, err := datum.NewFactory(pachClient, jobInfo.Input)
+		dit, err := datum.NewIterator(pachClient, jobInfo.Input)
 		if err != nil {
 			return err
 		}
@@ -287,7 +289,7 @@ func waitJob(
 			if jobPtr.State == pps.JobState_JOB_KILLED {
 				return nil
 			}
-			jobPtr.DataTotal = int64(df.Len())
+			jobPtr.DataTotal = int64(dit.Len())
 			jobPtr.StatsCommit = statsCommit
 			if err := ppsutil.UpdateJobState(driver.Pipelines().ReadWrite(stm), driver.Jobs().ReadWrite(stm), jobPtr, pps.JobState_JOB_RUNNING, ""); err != nil {
 				return err
@@ -296,7 +298,7 @@ func waitJob(
 			if err := plansCol.Get(jobID, plan); err == nil {
 				return nil
 			}
-			plan = newPlan(df, jobInfo.ChunkSpec, parallelism, numHashtrees)
+			plan = newPlan(dit, jobInfo.ChunkSpec, parallelism, numHashtrees)
 			return plansCol.Put(jobID, plan)
 		}); err != nil {
 			return err
@@ -393,12 +395,13 @@ func waitJob(
 			}); err != nil && !pfsserver.IsCommitFinishedErr(err) {
 				return err
 			}
+			return nil
 		}
 		// Write out the datums processed/skipped and merged for this job
 		buf := &bytes.Buffer{}
 		pbw := pbutil.NewWriter(buf)
-		for i := 0; i < df.Len(); i++ {
-			files := df.Datum(i)
+		for i := 0; i < dit.Len(); i++ {
+			files := dit.DatumN(i)
 			datumHash := common.HashDatum(pipelineInfo.Pipeline.Name, pipelineInfo.Salt, files)
 			if _, err := pbw.WriteBytes([]byte(datumHash)); err != nil {
 				return err
@@ -523,25 +526,25 @@ func failedInputs(pachClient *client.APIClient, jobInfo *pps.JobInfo) ([]string,
 	return failed, vistErr
 }
 
-func newPlan(df datum.Factory, spec *pps.ChunkSpec, parallelism int, numHashtrees int64) *common.Plan {
+func newPlan(dit datum.Iterator, spec *pps.ChunkSpec, parallelism int, numHashtrees int64) *common.Plan {
 	if spec == nil {
 		spec = &pps.ChunkSpec{}
 	}
 	if spec.Number == 0 && spec.SizeBytes == 0 {
-		spec.Number = int64(df.Len() / (parallelism * 10))
+		spec.Number = int64(dit.Len() / (parallelism * 10))
 		if spec.Number == 0 {
 			spec.Number = 1
 		}
 	}
 	plan := &common.Plan{}
 	if spec.Number != 0 {
-		for i := spec.Number; i < int64(df.Len()); i += spec.Number {
+		for i := spec.Number; i < int64(dit.Len()); i += spec.Number {
 			plan.Chunks = append(plan.Chunks, int64(i))
 		}
 	} else {
 		size := int64(0)
-		for i := 0; i < df.Len(); i++ {
-			for _, input := range df.Datum(i) {
+		for i := 0; i < dit.Len(); i++ {
+			for _, input := range dit.DatumN(i) {
 				size += int64(input.FileInfo.SizeBytes)
 			}
 			if size > spec.SizeBytes {
@@ -549,7 +552,7 @@ func newPlan(df datum.Factory, spec *pps.ChunkSpec, parallelism int, numHashtree
 			}
 		}
 	}
-	plan.Chunks = append(plan.Chunks, int64(df.Len()))
+	plan.Chunks = append(plan.Chunks, int64(dit.Len()))
 	plan.Merges = numHashtrees
 	return plan
 }

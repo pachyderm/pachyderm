@@ -6,14 +6,9 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"syscall"
 	"text/template"
 	"unicode"
 )
-
-// TestCmd aliases 'exec.Cmd' so that we can add
-// func (c *TestCmd) Run(t *testing.T)
-type TestCmd exec.Cmd
 
 // dedent is a helper function that trims repeated, leading spaces from several
 // lines of text. This is useful for long, inline commands that are indented to
@@ -40,15 +35,14 @@ func dedent(cmd string) string {
 		return !unicode.IsSpace(r)
 	}
 
-	// Ignore leading space-only lines
-	var prefix string
+	prefix := "-" // non-space character indicates no prefix has been established
 	s := bufio.NewScanner(strings.NewReader(cmd))
 	var dedentedCmd bytes.Buffer
 	for s.Scan() {
 		i := strings.IndexFunc(s.Text(), notSpace)
 		if i == -1 {
-			continue // blank line -- ignore completely
-		} else if prefix == "" {
+			continue // blank line (or spaces-only line)--ignore completely
+		} else if prefix == "-" {
 			prefix = s.Text()[:i] // first non-blank line, set prefix
 			dedentedCmd.WriteString(s.Text()[i:])
 			dedentedCmd.WriteRune('\n')
@@ -79,7 +73,7 @@ func Cmd(name string, args ...string) *exec.Cmd {
 // BashCmd is a convenience function that:
 // 1. Performs a Go template substitution on 'cmd' using the strings in 'subs'
 // 2. Returns a command that runs the result string from 1 as a Bash script
-func BashCmd(cmd string, subs ...string) *TestCmd {
+func BashCmd(cmd string, subs ...string) *exec.Cmd {
 	if len(subs)%2 == 1 {
 		panic("some variable does not have a corresponding value")
 	}
@@ -96,6 +90,19 @@ func BashCmd(cmd string, subs ...string) *TestCmd {
 	buf := &bytes.Buffer{}
 	buf.WriteString(`
 set -e -o pipefail
+
+# Try to ignore pipefail errors (encountered when writing to a closed pipe).
+# Processes like 'yes' are essentially guaranteed to hit this, and because of
+# -e -o pipefail they will crash the whole script. We need these options,
+# though, for 'match' to work, so for now we work around pipefail errors on a
+# cmd-by-cmd basis. See "The Infamous SIGPIPE Signal"
+# http://www.tldp.org/LDP/lpg/node20.html
+pipeerr=141 # typical error code returned by unix utils when SIGPIPE is raised
+function yes {
+	/usr/bin/yes || test "$?" -eq "${pipeerr}"
+}
+export -f yes # use in subshells too
+
 which match >/dev/null || {
 	echo "You must have 'match' installed to run these tests. Please run:" >&2
 	echo "  cd ${GOPATH}/src/github.com/pachyderm/pachyderm/ && go install ./src/testing/match" >&2
@@ -105,27 +112,11 @@ which match >/dev/null || {
 
 	// do the substitution
 	template.Must(template.New("").Parse(dedent(cmd))).Execute(buf, subsMap)
-	res := exec.Command("bash", "-c", buf.String())
+	res := exec.Command("/bin/bash")
 	res.Stderr = os.Stderr
-	res.Stdin = strings.NewReader("\n")
+	// useful for debugging, but makes travis too noisy:
+	// res.Stdout = os.Stdout
+	res.Stdin = buf
 	res.Env = os.Environ()
-	return (*TestCmd)(res)
-}
-
-// Run wraps (*exec.Cmd).Run(), though in the particular case that the command
-// is run on Linux and fails with a SIGPIPE error (which often happens because
-// TestCmd is created by BashCmd() above, which needs to set -o pipefail), this
-// throws away the error. See "The Infamous SIGPIPE Signal"
-// http://www.tldp.org/LDP/lpg/node20.html
-func (c *TestCmd) Run() error {
-	cmd := (*exec.Cmd)(c)
-	err := cmd.Run()
-	if err != nil {
-		if exiterr, ok := err.(*exec.ExitError); ok {
-			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok && status.ExitStatus() == 141 {
-				return nil
-			}
-		}
-	}
-	return err
+	return res
 }
