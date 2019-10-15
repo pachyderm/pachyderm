@@ -13,7 +13,7 @@ copyright: 'Copyright Pachyderm Inc, 2019'
 # Configuration
 theme:
   name: null
-  custom_dir: material
+  custom_dir: docs/material
 
   # 404 page
   static_templates:
