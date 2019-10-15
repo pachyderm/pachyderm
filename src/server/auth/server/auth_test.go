@@ -104,7 +104,7 @@ func getPachClientInternal(tb testing.TB, subject string) *client.APIClient {
 			"cluster. Please deactivate auth or redeploy Pachyderm", adminTokenFile)
 	}
 	if strings.Index(subject, ":") < 0 {
-		subject = auth.GitHubPrefix + subject
+		subject = gh(subject)
 	}
 	colonIdx := strings.Index(subject, ":")
 	prefix := subject[:colonIdx+1]
