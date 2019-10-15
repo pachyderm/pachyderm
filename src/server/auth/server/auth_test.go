@@ -2773,15 +2773,10 @@ func TestS3GatewayAuthRequests(t *testing.T) {
 	}
 
 	// generate auth credentials
-	alice := tu.UniqueString("alice")
-	aliceClient, anonClient := getPachClient(t, alice), getPachClient(t, "")
-	codeResp, err := aliceClient.GetOneTimePassword(aliceClient.Ctx(), &auth.GetOneTimePasswordRequest{})
+	aliceClient := getPachClient(t, tu.UniqueString("alice"))
+	authResp, err := aliceClient.GetAuthToken(aliceClient.Ctx(), &auth.GetAuthTokenRequest{})
 	require.NoError(t, err)
-	authResp, err := anonClient.Authenticate(anonClient.Ctx(), &auth.AuthenticateRequest{
-		OneTimePassword: codeResp.Code,
-	})
-	require.NoError(t, err)
-	authToken := authResp.PachToken
+	authToken := authResp.Token
 
 	// anon login via V2 - should fail
 	minioClientV2, err := minio.NewV2("127.0.0.1:30600", "", "", false)
