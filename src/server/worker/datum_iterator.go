@@ -268,6 +268,17 @@ func newJoinDatumIterator(pachClient *client.APIClient, join []*pps.Input) (Datu
 		}
 		if len(count) == 1 {
 			result.datums = append(result.datums, tuple)
+			fmt.Printf("joined: ")
+			for _, input := range tuple {
+				fmt.Printf("%s, ", input.JoinOn)
+			}
+			fmt.Println()
+		} else {
+			fmt.Printf("not joined: ")
+			for _, input := range tuple {
+				fmt.Printf("%s, ", input.JoinOn)
+			}
+			fmt.Println()
 		}
 	}
 	result.location = -1
