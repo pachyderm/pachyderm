@@ -2,3 +2,10 @@
 base = "doc"
 command = "mkdocs build"
 publish = "doc/site"
+
+[[redirects]]
+  from = "https://mkdocs-1-1.docs-staging.pachyderm.com/"
+  to = "https://docs-staging.pachyderm.com/1.1/*"
+  status = 200
+  force = false
+  query = {path = ":path"}
