@@ -83,6 +83,9 @@ github.com/aws/aws-sdk-go/private/protocol/query/queryutil
 github.com/beevik/etree
 # github.com/beorn7/perks v1.0.0
 github.com/beorn7/perks/quantile
+# github.com/brianvoe/gofakeit v3.18.0+incompatible
+github.com/brianvoe/gofakeit
+github.com/brianvoe/gofakeit/data
 # github.com/chmduquesne/rollinghash v4.0.0+incompatible
 github.com/chmduquesne/rollinghash/buzhash64
 github.com/chmduquesne/rollinghash
@@ -479,7 +482,7 @@ go.opencensus.io/stats/internal
 go.opencensus.io/internal/tagencoding
 go.opencensus.io/metric/metricproducer
 go.opencensus.io/resource
-# golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
+# golang.org/x/crypto v0.0.0-20190820162420-60c769a6c586
 golang.org/x/crypto/ssh/terminal
 golang.org/x/crypto/openpgp
 golang.org/x/crypto/openpgp/armor
