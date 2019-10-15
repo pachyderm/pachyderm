@@ -1035,11 +1035,11 @@ func TestRobotUserWhoAmI(t *testing.T) {
 	robotClient := adminClient.WithCtx(context.Background())
 	robotClient.SetAuthToken(resp.Token)
 
-	whoAmIResp, err := robotClient.WhoAmI(robotClient.Ctx(), &auth.WhoAmIRequest{})
+	who, err := robotClient.WhoAmI(robotClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
-	require.Equal(t, robotUser, whoAmIResp.Username)
-	require.True(t, strings.HasPrefix(whoAmIResp.Username, auth.RobotPrefix))
-	require.False(t, whoAmIResp.IsAdmin)
+	require.Equal(t, robotUser, who.Username)
+	require.True(t, strings.HasPrefix(who.Username, auth.RobotPrefix))
+	require.False(t, who.IsAdmin)
 }
 
 // TestRobotUserACL tests that a robot user can create a repo, add github users
@@ -1348,12 +1348,12 @@ func TestActivateAsRobotUser(t *testing.T) {
 	})
 	require.NoError(t, err)
 	client.SetAuthToken(resp.PachToken)
-	whoAmI, err := client.WhoAmI(client.Ctx(), &auth.WhoAmIRequest{})
+	who, err := client.WhoAmI(client.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
-	require.Equal(t, robot("deckard"), whoAmI.Username)
+	require.Equal(t, robot("deckard"), who.Username)
 
 	// Make sure the robot token has no TTL
-	require.Equal(t, int64(-1), whoAmI.TTL)
+	require.Equal(t, int64(-1), who.TTL)
 
 	client.Deactivate(client.Ctx(), &auth.DeactivateRequest{})
 	require.NoError(t, err)

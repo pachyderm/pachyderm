@@ -2707,9 +2707,9 @@ func TestOneTimePassword(t *testing.T) {
 	})
 	require.NoError(t, err)
 	anonClient.SetAuthToken(authResp.PachToken)
-	whoAmIResp, err := anonClient.WhoAmI(anonClient.Ctx(), &auth.WhoAmIRequest{})
+	who, err := anonClient.WhoAmI(anonClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
-	require.Equal(t, auth.GitHubPrefix+alice, whoAmIResp.Username)
+	require.Equal(t, auth.GitHubPrefix+alice, who.Username)
 
 	// Get GetOTP with subject equal to the caller
 	otpResp, err = aliceClient.GetOneTimePassword(aliceClient.Ctx(),
@@ -2722,9 +2722,9 @@ func TestOneTimePassword(t *testing.T) {
 	})
 	require.NoError(t, err)
 	anonClient.SetAuthToken(authResp.PachToken)
-	whoAmIResp, err = anonClient.WhoAmI(anonClient.Ctx(), &auth.WhoAmIRequest{})
+	who, err = anonClient.WhoAmI(anonClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
-	require.Equal(t, auth.GitHubPrefix+alice, whoAmIResp.Username)
+	require.Equal(t, auth.GitHubPrefix+alice, who.Username)
 }
 
 // TestOneTimePasswordOtherUserError tests that if a non-admin tries to
