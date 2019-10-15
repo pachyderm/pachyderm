@@ -1050,7 +1050,7 @@ func (a *apiServer) getOneTimePassword(ctx context.Context, username string, ses
 	}
 
 	// Generate and store new OTP
-	code = "auth_code:" + uuid.NewWithoutDashes()
+	code = "otp/" + uuid.NewWithoutDashes()
 	if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		return a.authenticationCodes.ReadWrite(stm).PutTTL(hashToken(code),
 			otpInfo, defaultOTPTTLSecs)
