@@ -151,7 +151,7 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 					}
 				} else {
 					if err := a.updateJobState(pachClient.Ctx(), ji, pps.JobState_JOB_SUCCESS, ""); err != nil {
-						return fmt.Errorf("could not kill job with finished output commit: %v", err)
+						return fmt.Errorf("could not mark job with finished output commit as successful: %v", err)
 					}
 				}
 			}
@@ -510,8 +510,8 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 						if _, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
 							Commit: jobInfo.StatsCommit,
 							Empty:  true,
-						}); err != nil {
-							logger.Logf("error from FinishCommit for stats while timing out job: %+v", err)
+						}); err != nil && !pfsserver.IsCommitFinishedErr(err) {
+							logger.Logf("error from FinishCommit for stats while cleaning up job: %+v", err)
 						}
 					}
 					if !ppsutil.IsTerminal(jobPtr.State) {
