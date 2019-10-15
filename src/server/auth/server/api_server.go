@@ -938,7 +938,7 @@ func (a *apiServer) GetOneTimePassword(ctx context.Context, req *auth.GetOneTime
 		return nil, auth.ErrPartiallyActivated
 	}
 	if req.Subject == magicUser {
-		return nil, fmt.Errorf("GetAuthTokenRequest.Subject is invalid")
+		return nil, fmt.Errorf("GetOneTimePassword.Subject is invalid")
 	}
 
 	// Get current caller and check if they're authorized if req.Subject is set
@@ -999,8 +999,8 @@ func (a *apiServer) GetOneTimePassword(ctx context.Context, req *auth.GetOneTime
 	if ttl > 0 {
 		if ttl <= 10 {
 			// session is too short to be meaningful -- return an error
-			return nil, fmt.Errorf("session expires too soon to get an " +
-				"authentication code")
+			return nil, fmt.Errorf("session expires too soon to get a " +
+				"one-time password")
 		}
 		expiration = time.Now().Add(time.Duration(ttl-1) * time.Second)
 	}
@@ -1694,7 +1694,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 		if !isAdmin && req.Subject != callerInfo.Subject {
 			return nil, &auth.ErrNotAuthorized{
 				Subject: callerInfo.Subject,
-				AdminOp: "GetOneTimePassword on behalf of another user",
+				AdminOp: "GetAuthToken on behalf of another user",
 			}
 		}
 	}
