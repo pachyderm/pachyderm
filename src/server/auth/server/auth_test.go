@@ -2686,8 +2686,31 @@ func TestGetJobsBugFix(t *testing.T) {
 	require.Equal(t, jobs[0].Job.ID, jobs2[0].Job.ID)
 }
 
-// TestOneTimePasswords tests the GetOneTimePassword -> Authenticate auth flow
-func TestOneTimePassword(t *testing.T) {
+// TestGetAuthTokenNoSubject tests that calling GetAuthToken without the subject
+// explicitly set to the calling user works, even if the caller isn't an admin.
+func TestGetAuthTokenNoSubject(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	defer deleteAll(t)
+
+	alice := tu.UniqueString("alice")
+	aliceClient, anonClient := getPachClient(t, alice), getPachClient(t, "")
+
+	// Get GetOTP with no subject
+	resp, err := aliceClient.GetAuthToken(aliceClient.Ctx(), &auth.GetAuthTokenRequest{})
+	require.NoError(t, err)
+	anonClient.SetAuthToken(resp.Token)
+	who, err := anonClient.WhoAmI(anonClient.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, gh(alice), who.Username)
+}
+
+// TestGetOneTimePasswordNoSubject tests that calling GetOneTimePassword without
+// the subject explicitly set to the calling user works, even if the caller
+// isn't an admin.
+func TestOneTimePasswordNoSubject(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2709,22 +2732,34 @@ func TestOneTimePassword(t *testing.T) {
 	anonClient.SetAuthToken(authResp.PachToken)
 	who, err := anonClient.WhoAmI(anonClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
-	require.Equal(t, auth.GitHubPrefix+alice, who.Username)
+	require.Equal(t, gh(alice), who.Username)
+}
+
+// TestOneTimePassword tests the GetOneTimePassword -> Authenticate auth flow
+func TestGetOneTimePassword(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	defer deleteAll(t)
+
+	alice := tu.UniqueString("alice")
+	aliceClient, anonClient := getPachClient(t, alice), getPachClient(t, "")
 
 	// Get GetOTP with subject equal to the caller
-	otpResp, err = aliceClient.GetOneTimePassword(aliceClient.Ctx(),
+	otpResp, err := aliceClient.GetOneTimePassword(aliceClient.Ctx(),
 		&auth.GetOneTimePasswordRequest{Subject: alice})
 	require.NoError(t, err)
 
 	anonClient.SetAuthToken("")
-	authResp, err = anonClient.Authenticate(anonClient.Ctx(), &auth.AuthenticateRequest{
+	authResp, err := anonClient.Authenticate(anonClient.Ctx(), &auth.AuthenticateRequest{
 		OneTimePassword: otpResp.Code,
 	})
 	require.NoError(t, err)
 	anonClient.SetAuthToken(authResp.PachToken)
-	who, err = anonClient.WhoAmI(anonClient.Ctx(), &auth.WhoAmIRequest{})
+	who, err := anonClient.WhoAmI(anonClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
-	require.Equal(t, auth.GitHubPrefix+alice, who.Username)
+	require.Equal(t, gh(alice), who.Username)
 }
 
 // TestOneTimePasswordOtherUserError tests that if a non-admin tries to

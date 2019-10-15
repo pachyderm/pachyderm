@@ -33,7 +33,6 @@ func activateEnterprise(t *testing.T) {
 		require.NoError(t,
 			tu.Cmd("pachctl", "enterprise", "activate", tu.GetTestEnterpriseCode()).Run())
 	}
-
 }
 
 func activateAuth(t *testing.T) {
@@ -312,6 +311,43 @@ func TestConfig(t *testing.T) {
 		  | match '"metadata_url": "http://www.example.com"' \
 		  | match '}'
 		`).Run())
+}
+
+// TestGetAuthTokenNoSubject tests that 'pachctl get-auth-token' infers the
+// subject from the currently logged-in user if none is specified on the command
+// line
+func TestGetAuthTokenNoSubject(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	activateAuth(t)
+	defer deactivateAuth(t)
+	require.NoError(t, tu.BashCmd(`
+		echo "{{.alice}}" | pachctl auth login
+		pachctl auth get-auth-token -q | pachctl auth use-auth-token
+		pachctl auth whoami | match {{.alice}}
+		`,
+		"alice", tu.UniqueString("alice"),
+	).Run())
+}
+
+// TestGetOneTimePasswordNoSubject tests that 'pachctl get-otp' infers the
+// subject from the currently logged-in user if none is specified on the command
+// line
+func TestGetOneTimePasswordNoSubject(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	activateAuth(t)
+	defer deactivateAuth(t)
+	require.NoError(t, tu.BashCmd(`
+		echo "{{.alice}}" | pachctl auth login
+		otp="$(pachctl auth get-otp)"
+		echo "${otp}" | pachctl auth login --otp
+		pachctl auth whoami | match {{.alice}}
+		`,
+		"alice", tu.UniqueString("alice"),
+	).Run())
 }
 
 func TestMain(m *testing.M) {

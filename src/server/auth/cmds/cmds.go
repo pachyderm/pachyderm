@@ -438,20 +438,24 @@ func ModifyAdminsCmd() *cobra.Command {
 func GetAuthTokenCmd() *cobra.Command {
 	var quiet bool
 	getAuthToken := &cobra.Command{
-		Use:   "{{alias}} <username>",
-		Short: "Get an auth token that authenticates the holder as \"username\"",
+		Use: "{{alias}} [username]",
+		Short: "Get an auth token that authenticates the holder as \"username\", " +
+			"or the currently signed-in user, if no 'username' is provided",
 		Long: "Get an auth token that authenticates the holder as \"username\"; " +
-			"this can only be called by cluster admins",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			subject := args[0]
+			"or the currently signed-in user, if no 'username' is provided. Only " +
+			"cluster admins can obtain an auth token on behalf of another user.",
+		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}
 			defer c.Close()
-			resp, err := c.GetAuthToken(c.Ctx(), &auth.GetAuthTokenRequest{
-				Subject: subject,
-			})
+
+			req := &auth.GetAuthTokenRequest{}
+			if len(args) == 1 {
+				req.Subject = args[0]
+			}
+			resp, err := c.GetAuthToken(c.Ctx(), req)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -493,19 +497,26 @@ func UseAuthTokenCmd() *cobra.Command {
 // GetOneTimePasswordCmd returns a cobra command that lets a user get an OTP.
 func GetOneTimePasswordCmd() *cobra.Command {
 	getOneTimePassword := &cobra.Command{
-		Use:   "{{alias}} <username>",
-		Short: "Get a one-time password that authenticates the holder as \"username\"",
-		Long:  "Get a one-time password that authenticates the holder as \"username\"",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			subject := args[0]
+		Use: "{{alias}} <username>",
+		Short: "Get a one-time password that authenticates the holder as " +
+			"\"username\", or the currently signed in user if no 'username' is " +
+			"specified",
+		Long: "Get a one-time password that authenticates the holder as " +
+			"\"username\", or the currently signed in user if no 'username' is " +
+			"specified. Only cluster admins may obtain a one-time password on " +
+			"behalf of another user.",
+		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}
 			defer c.Close()
-			resp, err := c.GetOneTimePassword(c.Ctx(), &auth.GetOneTimePasswordRequest{
-				Subject: subject,
-			})
+
+			req := &auth.GetOneTimePasswordRequest{}
+			if len(args) == 1 {
+				req.Subject = args[0]
+			}
+			resp, err := c.GetOneTimePassword(c.Ctx(), req)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}

@@ -1667,10 +1667,9 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if a.activationState() == none {
+		// GetAuthToken must work in the partially-activated state so that PPS can
+		// get tokens for all existing pipelines during activation
 		return nil, auth.ErrNotActivated
-	}
-	if req.Subject == "" {
-		return nil, fmt.Errorf("must set GetAuthTokenRequest.Subject")
 	}
 	if req.Subject == magicUser {
 		return nil, fmt.Errorf("GetAuthTokenRequest.Subject is invalid")
