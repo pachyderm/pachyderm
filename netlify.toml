@@ -1,7 +1,7 @@
 [build]
 base = "doc"
 command = "mkdocs build"
-publish = "doc/site"
+publish = "doc/site/1.1"
 
 [[redirects]]
   from = "https://mkdocs-1-1.docs-staging.pachyderm.com/*"
