@@ -979,10 +979,22 @@ func (a *apiServer) GetOneTimePassword(ctx context.Context, req *auth.GetOneTime
 		}
 	}
 
-	// Compute TTL for new token that the user will get once OTP is exchanged
-	// Note: Admins always use default TTL (30 days currently), which means they
-	// can extend their session by getting an OTP and exchanging it for a new
-	// token with a later expiration than their curren token
+	// Compute TTL for new token that the user will get once OTP is exchanged.
+	// For non-admin users (getting an OTP for themselves), the new token's TTL
+	// will be the same as their current token's TTL, or 30 days (whichever is
+	// shorter).
+	//
+	// This prevents a non-admin attacker from extending their session
+	// indefinitely by repeatedly getting an OTP and authenticating with it.
+	// Eventually the user must re-authenticate, or have an admin create an auth
+	// token for them (in the case of robot users)
+	//
+	// When admins get OTPs for other users, the new token will have the default
+	// token TTL. Moreover, because admins can add other users as admins, get an
+	// OTP for that other user, and then get a new OTP for themselves *as* that
+	// other user, there is no additional security provided by preventing admins
+	// from extending their own sessions by getting OTPs for themselves, so even
+	// in that case, the new token has the default token TTL.
 	var ttl = int64(defaultTokenTTLSecs)
 	if !isAdmin {
 		// Caller is getting OTP for themselves--use TTL of their current token
@@ -1702,7 +1714,8 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 	// Compute TTL for new token that the user will get once OTP is exchanged
 	// Note: Admins always use default TTL (30 days currently), which means they
 	// can extend their session by getting an OTP and exchanging it for a new
-	// token with a later expiration than their curren token
+	// token with a later expiration than their curren token. See duplicate code
+	// in GetOneTimePassword for an explanation
 	var ttl = int64(defaultTokenTTLSecs)
 	if !isAdmin {
 		// Caller is getting OTP for themselves--use TTL of their current token
