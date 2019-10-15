@@ -437,6 +437,7 @@ func ModifyAdminsCmd() *cobra.Command {
 // token on behalf of themselves or another user
 func GetAuthTokenCmd() *cobra.Command {
 	var quiet bool
+	var ttl string
 	getAuthToken := &cobra.Command{
 		Use: "{{alias}} [username]",
 		Short: "Get an auth token that authenticates the holder as \"username\", " +
@@ -452,6 +453,13 @@ func GetAuthTokenCmd() *cobra.Command {
 			defer c.Close()
 
 			req := &auth.GetAuthTokenRequest{}
+			if ttl != "" {
+				d, err := time.ParseDuration(ttl)
+				if err != nil {
+					return fmt.Errorf("could not parse duration %q: %v", ttl, err)
+				}
+				req.TTL = int64(d.Seconds())
+			}
 			if len(args) == 1 {
 				req.Subject = args[0]
 			}
@@ -470,6 +478,10 @@ func GetAuthTokenCmd() *cobra.Command {
 	getAuthToken.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "if "+
 		"set, only print the resulting token (if successful). This is useful for "+
 		"scripting, as the output can be piped to use-auth-token")
+	getAuthToken.PersistentFlags().StringVar(&ttl, "ttl", "", "if set, the "+
+		"resulting auth token will have the given lifetime (or the lifetime"+
+		"of the caller's current session, whichever is shorter). This flag shoul "+
+		"be a golang duration (e.g. \"30s\" or \"1d2h3m4s\")")
 	return cmdutil.CreateAlias(getAuthToken, "auth get-auth-token")
 }
 
@@ -496,6 +508,7 @@ func UseAuthTokenCmd() *cobra.Command {
 
 // GetOneTimePasswordCmd returns a cobra command that lets a user get an OTP.
 func GetOneTimePasswordCmd() *cobra.Command {
+	var ttl string
 	getOneTimePassword := &cobra.Command{
 		Use: "{{alias}} <username>",
 		Short: "Get a one-time password that authenticates the holder as " +
@@ -513,6 +526,13 @@ func GetOneTimePasswordCmd() *cobra.Command {
 			defer c.Close()
 
 			req := &auth.GetOneTimePasswordRequest{}
+			if ttl != "" {
+				d, err := time.ParseDuration(ttl)
+				if err != nil {
+					return fmt.Errorf("could not parse duration %q: %v", ttl, err)
+				}
+				req.TTL = int64(d.Seconds())
+			}
 			if len(args) == 1 {
 				req.Subject = args[0]
 			}
@@ -524,6 +544,10 @@ func GetOneTimePasswordCmd() *cobra.Command {
 			return nil
 		}),
 	}
+	getOneTimePassword.PersistentFlags().StringVar(&ttl, "ttl", "", "if set, "+
+		"the resulting one-time password will have the given lifetime (or the "+
+		"lifetime of the caller's current session, whichever is shorter). This "+
+		"flag should be a golang duration (e.g. \"30s\" or \"1d2h3m4s\")")
 	return cmdutil.CreateAlias(getOneTimePassword, "auth get-otp")
 }
 

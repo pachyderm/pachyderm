@@ -331,6 +331,37 @@ func TestGetAuthTokenNoSubject(t *testing.T) {
 	).Run())
 }
 
+// TestGetAuthTokenTTL tests that the --ttl argument to 'pachctl get-auth-token'
+// correctly limits the lifetime of the returned token
+func TestGetAuthTokenTTL(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	activateAuth(t)
+	defer deactivateAuth(t)
+
+	alice := tu.UniqueString("alice")
+	require.NoError(t, tu.BashCmd(`echo "{{.alice}}" | pachctl auth login `,
+		"alice", alice,
+	).Run())
+
+	var tokenBuf bytes.Buffer
+	tokenCmd := tu.BashCmd(`pachctl auth get-auth-token --ttl=5s -q`)
+	tokenCmd.Stdout = &tokenBuf
+	require.NoError(t, tokenCmd.Run())
+	token := strings.TrimSpace(tokenBuf.String())
+
+	time.Sleep(6 * time.Second)
+	var errMsg bytes.Buffer
+	login := tu.BashCmd(`
+		echo {{.token}} | pachctl auth use-auth-token
+		pachctl auth whoami
+	`, "token", token)
+	login.Stderr = &errMsg
+	require.YesError(t, login.Run())
+	require.Matches(t, errMsg.String(), "try logging in")
+}
+
 // TestGetOneTimePasswordNoSubject tests that 'pachctl get-otp' infers the
 // subject from the currently logged-in user if none is specified on the command
 // line
@@ -348,6 +379,36 @@ func TestGetOneTimePasswordNoSubject(t *testing.T) {
 		`,
 		"alice", tu.UniqueString("alice"),
 	).Run())
+}
+
+// TestGetOneTimePasswordTTL tests that the --ttl argument to 'pachctl get-otp'
+// correctly limits the lifetime of the returned token
+func TestGetOneTimePasswordTTL(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	activateAuth(t)
+	defer deactivateAuth(t)
+
+	alice := tu.UniqueString("alice")
+	require.NoError(t, tu.BashCmd(`echo "{{.alice}}" | pachctl auth login`,
+		"alice", alice,
+	).Run())
+
+	var otpBuf bytes.Buffer
+	otpCmd := tu.BashCmd(`pachctl auth get-otp --ttl=5s"`)
+	otpCmd.Stdout = &otpBuf
+	require.NoError(t, otpCmd.Run())
+	otp := strings.TrimSpace(otpBuf.String())
+
+	time.Sleep(6 * time.Second)
+	var errMsg bytes.Buffer
+	login := tu.BashCmd(`
+		echo {{.otp}} | pachctl auth login --otp
+	`, "otp", token)
+	login.Stderr = &errMsg
+	require.YesError(t, login.Run())
+	require.Matches(t, errMsg.String(), "try logging in")
 }
 
 func TestMain(m *testing.M) {
