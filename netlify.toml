@@ -2,9 +2,3 @@
 base = "doc"
 command = "mkdocs build"
 publish = "doc/site"
-
-[[redirects]]
-  from = "https://mkdocs-1-1.docs-staging.pachyderm.com/*"
-  to = "https://docs-staging.pachyderm.com/1.1/:splat"
-  status = 301
-  force = true
