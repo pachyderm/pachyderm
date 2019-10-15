@@ -42,7 +42,9 @@ func (ml *MockLogger) Write(p []byte) (_ int, retErr error) {
 // Logf optionally logs a statement using string formatting
 func (ml *MockLogger) Logf(formatString string, args ...interface{}) {
 	if ml.Writer != nil {
-		str := fmt.Sprintf("Logf: "+formatString, args...)
+		params := []interface{}{ml.Job, ml.Data, ml.UserCode}
+		params = append(params, args...)
+		str := fmt.Sprintf("Logf (%v, %v, %v): "+formatString, params...)
 		ml.Writer.Write([]byte(str))
 	}
 }
@@ -50,7 +52,9 @@ func (ml *MockLogger) Logf(formatString string, args ...interface{}) {
 // Errf optionally logs an error statement using string formatting
 func (ml *MockLogger) Errf(formatString string, args ...interface{}) {
 	if ml.Writer != nil {
-		str := fmt.Sprintf("Errf: "+formatString, args...)
+		params := []interface{}{ml.Job, ml.Data, ml.UserCode}
+		params = append(params, args...)
+		str := fmt.Sprintf("Errf (%v, %v, %v): "+formatString, params...)
 		ml.Writer.Write([]byte(str))
 	}
 }

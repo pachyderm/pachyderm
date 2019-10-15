@@ -115,6 +115,10 @@ type driver struct {
 
 	// We only export application statistics if enterprise is enabled
 	exportStats bool
+
+	// The directory to store input data - this is typically static but can be
+	// overridden by tests
+	inputDir string
 }
 
 // NewDriver constructs a Driver object using the given clients and pipeline
@@ -138,6 +142,7 @@ func NewDriver(
 		pipelines:    ppsdb.Pipelines(etcdClient, etcdPrefix),
 		shards:       col.NewCollection(etcdClient, path.Join(etcdPrefix, shardPrefix, pipelineInfo.Pipeline.Name), nil, &common.ShardInfo{}, nil, nil),
 		plans:        col.NewCollection(etcdClient, path.Join(etcdPrefix, planPrefix), nil, &common.Plan{}, nil, nil),
+		inputDir:     client.PPSInputPrefix,
 	}
 
 	if pipelineInfo.Transform.User != "" {
@@ -297,7 +302,7 @@ func (d *driver) WithData(
 	puller := filesync.NewPuller()
 	stats := &pps.ProcessStats{}
 
-	// Download input data
+	// Download input data into a temporary directory
 	// TODO: pass down ctx and use it for interruption
 	dir, err := d.downloadData(d.pachClient, logger, data, puller, stats, inputTree)
 	// We run these cleanup functions no matter what, so that if
@@ -318,7 +323,7 @@ func (d *driver) WithData(
 	if err != nil {
 		return nil, fmt.Errorf("error downloadData: %v", err)
 	}
-	if err := os.MkdirAll(client.PPSInputPrefix, 0777); err != nil {
+	if err := os.MkdirAll(d.inputDir, 0777); err != nil {
 		return nil, err
 	}
 	if err := d.linkData(data, dir); err != nil {
@@ -329,10 +334,10 @@ func (d *driver) WithData(
 			retErr = fmt.Errorf("error unlinkData: %v", err)
 		}
 	}()
-	// If the pipeline spec set a custom user to execute the
-	// process, make sure `/pfs` and its content are owned by it
+	// If the pipeline spec set a custom user to execute the process, make sure
+	// the input directory and its content are owned by it
 	if d.uid != nil && d.gid != nil {
-		filepath.Walk("/pfs", func(name string, info os.FileInfo, err error) error {
+		filepath.Walk(d.inputDir, func(name string, info os.FileInfo, err error) error {
 			if err == nil {
 				err = os.Chown(name, int(*d.uid), int(*d.gid))
 			}
@@ -380,7 +385,7 @@ func (d *driver) downloadData(
 		}
 	}(time.Now())
 
-	dir := filepath.Join(client.PPSInputPrefix, client.PPSScratchSpace, uuid.NewWithoutDashes())
+	dir := filepath.Join(d.inputDir, client.PPSScratchSpace, uuid.NewWithoutDashes())
 	// Create output directory (currently /pfs/out)
 	outPath := filepath.Join(dir, "out")
 	if d.pipelineInfo.Spout != nil {
@@ -464,12 +469,12 @@ func (d *driver) linkData(inputs []*common.Input, dir string) error {
 	}
 	for _, input := range inputs {
 		src := filepath.Join(dir, input.Name)
-		dst := filepath.Join(client.PPSInputPrefix, input.Name)
+		dst := filepath.Join(d.inputDir, input.Name)
 		if err := os.Symlink(src, dst); err != nil {
 			return err
 		}
 	}
-	return os.Symlink(filepath.Join(dir, "out"), filepath.Join(client.PPSInputPrefix, "out"))
+	return os.Symlink(filepath.Join(dir, "out"), filepath.Join(d.inputDir, "out"))
 }
 
 func (d *driver) unlinkData(inputs []*common.Input) error {
