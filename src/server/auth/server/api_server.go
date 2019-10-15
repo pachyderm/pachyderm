@@ -996,30 +996,33 @@ func (a *apiServer) GetOneTimePassword(ctx context.Context, req *auth.GetOneTime
 	// other user, there is no additional security provided by preventing admins
 	// from extending their own sessions by getting OTPs for themselves, so even
 	// in that case, the new token has the default token TTL.
-	var ttl = int64(defaultSessionTTLSecs)
+	var sessionTTL int64 = defaultSessionTTLSecs
 	if !isAdmin {
 		// Caller is getting OTP for themselves--use TTL of their current token
-		ttl, err = a.getCallerTTL(ctx)
+		callerCurrentSessionTTL, err := a.getCallerTTL(ctx)
 		if err != nil {
 			return nil, err
+		}
+		if sessionTTL > callerCurrentSessionTTL {
+			sessionTTL = callerCurrentSessionTTL
 		}
 	}
 
 	// Convert TTL to expiration time
-	// Note: ttl <= 0 means that the user's session will not expire (e.g. because
+	// Note: sessionTTL <= 0 means that the user's session will not expire (e.g. because
 	// they are a robot user)
-	var expiration time.Time
-	if ttl > 0 {
-		if ttl <= 10 {
+	var sessionExpiration time.Time
+	if sessionTTL > 0 {
+		if sessionTTL <= 10 {
 			// session is too short to be meaningful -- return an error
 			return nil, fmt.Errorf("session expires too soon to get a " +
 				"one-time password")
 		}
-		expiration = time.Now().Add(time.Duration(ttl-1) * time.Second)
+		sessionExpiration = time.Now().Add(time.Duration(sessionTTL-1) * time.Second)
 	}
 
 	// Generate authentication code with same (or slightly shorter) expiration
-	code, err := a.getOneTimePassword(ctx, req.Subject, expiration)
+	code, err := a.getOneTimePassword(ctx, req.Subject, sessionExpiration)
 	if err != nil {
 		return nil, err
 	}
