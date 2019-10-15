@@ -46,6 +46,10 @@ func pl(pipeline string) string {
 	return auth.PipelinePrefix + pipeline
 }
 
+func robot(robot string) string {
+	return auth.RobotPrefix + robot
+}
+
 // TestActivate tests the Activate API (in particular, verifying
 // that Activate() also authenticates). Even though GetClient also activates
 // auth, this makes sure the code path is exercised (as auth may already be
@@ -389,7 +393,7 @@ func TestModifyClusterAdminsAllowRobotOnlyAdmin(t *testing.T) {
 	// so that the only cluster administrator is the robot user
 	tokenResp, err := adminClient.GetAuthToken(adminClient.Ctx(),
 		&auth.GetAuthTokenRequest{
-			Subject: "robot:rob",
+			Subject: robot("rob"),
 			TTL:     3600,
 		})
 	require.NoError(t, err)
@@ -399,20 +403,20 @@ func TestModifyClusterAdminsAllowRobotOnlyAdmin(t *testing.T) {
 	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
 		&auth.ModifyAdminsRequest{
 			Remove: []string{admin},
-			Add:    []string{"robot:rob"},
+			Add:    []string{robot("rob")},
 		})
 	require.NoError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
-		return require.ElementsEqualOrErr([]string{"robot:rob"}, resp.Admins)
+		return require.ElementsEqualOrErr([]string{robot("rob")}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
 
 	// The robot user adds admin back as a cluster admin
 	_, err = robotClient.ModifyAdmins(robotClient.Ctx(),
 		&auth.ModifyAdminsRequest{
 			Add:    []string{admin},
-			Remove: []string{"robot:rob"},
+			Remove: []string{robot("rob")},
 		})
 	require.NoError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
@@ -932,7 +936,7 @@ func TestGetAuthToken(t *testing.T) {
 	adminClient := getPachClient(t, admin)
 
 	// Generate two auth credentials, and give them to two separate clients
-	robotUser := auth.RobotPrefix + tu.UniqueString("optimus_prime")
+	robotUser := robot(tu.UniqueString("optimus_prime"))
 	resp, err := adminClient.GetAuthToken(adminClient.Ctx(),
 		&auth.GetAuthTokenRequest{Subject: robotUser})
 	require.NoError(t, err)
@@ -1023,7 +1027,7 @@ func TestRobotUserWhoAmI(t *testing.T) {
 	adminClient := getPachClient(t, admin)
 
 	// Generate a robot user auth credential, and create a client for that user
-	robotUser := auth.RobotPrefix + tu.UniqueString("r2d2")
+	robotUser := robot(tu.UniqueString("r2d2"))
 	resp, err := adminClient.GetAuthToken(adminClient.Ctx(),
 		&auth.GetAuthTokenRequest{Subject: robotUser})
 	require.NoError(t, err)
@@ -1048,7 +1052,7 @@ func TestRobotUserACL(t *testing.T) {
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
 
 	// Generate a robot user auth credential, and create a client for that user
-	robotUser := auth.RobotPrefix + tu.UniqueString("voltron")
+	robotUser := robot(tu.UniqueString("voltron"))
 	resp, err := adminClient.GetAuthToken(adminClient.Ctx(),
 		&auth.GetAuthTokenRequest{Subject: robotUser})
 	require.NoError(t, err)
@@ -1107,7 +1111,7 @@ func TestRobotUserAdmin(t *testing.T) {
 	aliceClient := getPachClient(t, alice)
 
 	// Generate a robot user auth credential, and create a client for that user
-	robotUser := auth.RobotPrefix + tu.UniqueString("bender")
+	robotUser := robot(tu.UniqueString("bender"))
 	resp, err := adminClient.GetAuthToken(adminClient.Ctx(),
 		&auth.GetAuthTokenRequest{Subject: robotUser})
 	require.NoError(t, err)
@@ -1128,7 +1132,7 @@ func TestRobotUserAdmin(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// robotUser mints a token for robotUser2
-	robotUser2 := auth.RobotPrefix + tu.UniqueString("robocop")
+	robotUser2 := robot(tu.UniqueString("robocop"))
 	resp, err = robotClient.GetAuthToken(robotClient.Ctx(), &auth.GetAuthTokenRequest{
 		Subject: robotUser2,
 	})
@@ -1340,13 +1344,13 @@ func TestActivateAsRobotUser(t *testing.T) {
 
 	client := seedClient.WithCtx(context.Background())
 	resp, err := client.Activate(client.Ctx(), &auth.ActivateRequest{
-		Subject: "robot:deckard",
+		Subject: robot("deckard"),
 	})
 	require.NoError(t, err)
 	client.SetAuthToken(resp.PachToken)
 	whoAmI, err := client.WhoAmI(client.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
-	require.Equal(t, "robot:deckard", whoAmI.Username)
+	require.Equal(t, robot("deckard"), whoAmI.Username)
 
 	// Make sure the robot token has no TTL
 	require.Equal(t, int64(-1), whoAmI.TTL)
