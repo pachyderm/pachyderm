@@ -28,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
@@ -1719,16 +1720,20 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 	// can extend their session by getting an OTP and exchanging it for a new
 	// token with a later expiration than their curren token. See duplicate code
 	// in GetOneTimePassword for an explanation
-	var ttl = int64(defaultSessionTTLSecs)
 	if !isAdmin {
 		// Caller is getting OTP for themselves--use TTL of their current token
-		ttl, err = a.getCallerTTL(ctx)
+		ttl, err := a.getCallerTTL(ctx)
 		if err != nil {
 			return nil, err
 		}
-		if req.TTL == 0 || req.TTL > ttl {
+		if req.TTL <= 0 || req.TTL > ttl {
 			req.TTL = ttl
 		}
+	} else if version.IsAtLeast(1, 10) && req.TTL == 0 || req.TTL > defaultSessionTTLSecs {
+		// To create a token with no TTL, an admin can call GetAuthToken and set TTL
+		// to -1, but the default behavior (TTL == 0) is use the default token
+		// lifetime.
+		req.TTL = defaultSessionTTLSecs
 	}
 	tokenInfo := auth.TokenInfo{
 		Source:  auth.TokenInfo_GET_TOKEN,

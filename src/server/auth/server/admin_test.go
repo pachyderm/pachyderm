@@ -22,9 +22,12 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
+
+const secsInYear = 365 * 24 * 60 * 60
 
 func RepoInfoToName(repoInfo interface{}) interface{} {
 	return repoInfo.(*pfs.RepoInfo).Repo.Name
@@ -935,23 +938,46 @@ func TestGetAuthToken(t *testing.T) {
 	defer deleteAll(t)
 	adminClient := getPachClient(t, admin)
 
-	// Generate two auth credentials, and give them to two separate clients
+	// Generate first set of auth credentials
 	robotUser := robot(tu.UniqueString("optimus_prime"))
 	resp, err := adminClient.GetAuthToken(adminClient.Ctx(),
 		&auth.GetAuthTokenRequest{Subject: robotUser})
 	require.NoError(t, err)
-	// copy client & use resp token
-	robotClient1 := adminClient.WithCtx(context.Background())
-	robotClient1.SetAuthToken(resp.Token)
-
 	token1 := resp.Token
+	robotClient1 := getPachClient(t, "")
+	robotClient1.SetAuthToken(token1)
+
+	// Confirm identity tied to 'token1'
+	who, err := robotClient1.WhoAmI(robotClient1.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, robotUser, who.Username)
+	require.False(t, who.IsAdmin)
+	if version.IsAtLeast(1, 10) {
+		require.True(t, who.TTL >= 0 && who.TTL < secsInYear)
+	} else {
+		require.Equal(t, -1, who.TTL)
+	}
+
+	// Generate a second set of auth credentials--confirm that a unique token is
+	// generated, but that the identity tied to it is the same
 	resp, err = adminClient.GetAuthToken(adminClient.Ctx(),
 		&auth.GetAuthTokenRequest{Subject: robotUser})
 	require.NoError(t, err)
-	require.NotEqual(t, token1, resp.Token)
-	// copy client & use resp token
-	robotClient2 := adminClient.WithCtx(context.Background())
-	robotClient2.SetAuthToken(resp.Token)
+	token2 := resp.Token
+	require.NotEqual(t, token1, token2)
+	robotClient2 := getPachClient(t, "")
+	robotClient2.SetAuthToken(token2)
+
+	// Confirm identity tied to 'token1'
+	who, err = robotClient2.WhoAmI(robotClient2.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, robotUser, who.Username)
+	require.False(t, who.IsAdmin)
+	if version.IsAtLeast(1, 10) {
+		require.True(t, who.TTL >= 0 && who.TTL < secsInYear)
+	} else {
+		require.Equal(t, -1, who.TTL)
+	}
 
 	// robotClient1 creates a repo
 	repo := tu.UniqueString("TestPipelinesRunAfterExpiration")
