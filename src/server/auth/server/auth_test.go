@@ -2727,6 +2727,8 @@ func TestOneTimePassword(t *testing.T) {
 	require.Equal(t, auth.GitHubPrefix+alice, whoAmIResp.Username)
 }
 
+// TestOneTimePasswordOtherUserError tests that if a non-admin tries to
+// generate an OTP on behalf of another user, they'll get an error
 func TestOneTimePasswordOtherUserError(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
