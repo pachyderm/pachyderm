@@ -55,6 +55,7 @@ func TestActivate(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	// Get anonymous client (this will activate auth, which is about to be
 	// deactivated, but it also activates Pacyderm enterprise, which is needed for
 	// this test to pass)
@@ -72,7 +73,6 @@ func TestActivate(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, who.IsAdmin)
 	require.Equal(t, admin, who.Username)
-	deleteAll(t)
 }
 
 // TestAdminRWO tests adding and removing cluster admins, as well as admins
@@ -82,6 +82,7 @@ func TestAdminRWO(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 	adminClient := getPachClient(t, admin)
@@ -197,7 +198,6 @@ func TestAdminRWO(t *testing.T) {
 	// check that ACL wasn't updated
 	require.ElementsEqual(t,
 		entries(alice, "owner", "carol", "reader"), getACL(t, aliceClient, repo))
-	deleteAll(t)
 }
 
 // TestAdminFixBrokenRepo tests that an admin can modify the ACL of a repo even
@@ -208,6 +208,7 @@ func TestAdminFixBrokenRepo(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice := tu.UniqueString("alice")
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
 
@@ -252,7 +253,6 @@ func TestAdminFixBrokenRepo(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(repo, commit.ID))
 	require.Equal(t, 1, CommitCnt(t, adminClient, repo)) // check that a new commit was created
-	deleteAll(t)
 }
 
 // TestModifyAdminsErrorMissingAdmin tests that trying to remove a nonexistant
@@ -262,6 +262,7 @@ func TestModifyAdminsErrorMissingAdmin(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice := tu.UniqueString("alice")
 	adminClient := getPachClient(t, admin)
 
@@ -291,7 +292,6 @@ func TestModifyAdminsErrorMissingAdmin(t *testing.T) {
 		require.NoError(t, err)
 		return require.ElementsEqualOrErr([]string{admin}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
-	deleteAll(t)
 }
 
 // TestCannotRemoveAllClusterAdmins tests that trying to remove all of a
@@ -301,6 +301,7 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice := tu.UniqueString("alice")
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
 
@@ -365,7 +366,6 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 		require.NoError(t, err)
 		return require.ElementsEqualOrErr([]string{admin}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
-	deleteAll(t)
 }
 
 // TestModifyClusterAdminsAllowRobotOnlyAdmin tests the fix to
@@ -377,6 +377,7 @@ func TestModifyClusterAdminsAllowRobotOnlyAdmin(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	adminClient := getPachClient(t, admin)
 
 	// Check that the initial set of admins is just "admin"
@@ -419,7 +420,6 @@ func TestModifyClusterAdminsAllowRobotOnlyAdmin(t *testing.T) {
 		require.NoError(t, err)
 		return require.ElementsEqualOrErr([]string{admin}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
-	deleteAll(t)
 }
 
 func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
@@ -427,6 +427,7 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice := tu.UniqueString("alice")
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
 
@@ -516,7 +517,6 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 		_, err := iter.Next()
 		return err
 	})
-	deleteAll(t)
 }
 
 func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
@@ -524,6 +524,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice := tu.UniqueString("alice")
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
 
@@ -660,7 +661,6 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	// check that ACL was updated
 	require.ElementsEqual(t,
 		entries(alice, "owner", "carol", "writer"), getACL(t, adminClient, repo))
-	deleteAll(t)
 }
 
 func TestPipelinesRunAfterExpiration(t *testing.T) {
@@ -668,6 +668,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice := tu.UniqueString("alice")
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
 
@@ -745,7 +746,6 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 		_, err := iter.Next()
 		return err
 	})
-	deleteAll(t)
 }
 
 // Tests that GetAcl, SetAcl, GetScope, and SetScope all respect expired
@@ -756,6 +756,7 @@ func TestGetSetScopeAndAclWithExpiredToken(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice := tu.UniqueString("alice")
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
 
@@ -862,7 +863,6 @@ func TestGetSetScopeAndAclWithExpiredToken(t *testing.T) {
 	require.NoError(t, err)
 	require.ElementsEqual(t,
 		entries(alice, "owner", "carol", "writer"), getACL(t, adminClient, repo))
-	deleteAll(t)
 }
 
 // TestAdminWhoAmI tests that when an admin calls WhoAmI(), the IsAdmin field
@@ -872,6 +872,7 @@ func TestAdminWhoAmI(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice := tu.UniqueString("alice")
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
 
@@ -885,7 +886,6 @@ func TestAdminWhoAmI(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, admin, resp.Username)
 	require.True(t, resp.IsAdmin)
-	deleteAll(t)
 }
 
 // TestListRepoAdminIsOwnerOfAllRepos tests that when an admin calls ListRepo,
@@ -896,6 +896,7 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	// t.Parallel()
 	adminClient := getPachClient(t, admin)
 	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
@@ -918,7 +919,6 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 	for _, info := range infos {
 		require.Equal(t, auth.Scope_OWNER, info.AuthInfo.AccessLevel)
 	}
-	deleteAll(t)
 }
 
 // TestGetAuthToken tests that an admin can manufacture auth credentials for
@@ -928,6 +928,7 @@ func TestGetAuthToken(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	adminClient := getPachClient(t, admin)
 
 	// Generate two auth credentials, and give them to two separate clients
@@ -1009,7 +1010,6 @@ func TestGetAuthToken(t *testing.T) {
 		_, err := iter.Next()
 		return err
 	})
-	deleteAll(t)
 }
 
 // TestRobotUserWhoAmI tests that robot users can call WhoAmI and get a response
@@ -1019,6 +1019,7 @@ func TestRobotUserWhoAmI(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	adminClient := getPachClient(t, admin)
 
 	// Generate a robot user auth credential, and create a client for that user
@@ -1035,7 +1036,6 @@ func TestRobotUserWhoAmI(t *testing.T) {
 	require.Equal(t, robotUser, whoAmIResp.Username)
 	require.True(t, strings.HasPrefix(whoAmIResp.Username, auth.RobotPrefix))
 	require.False(t, whoAmIResp.IsAdmin)
-	deleteAll(t)
 }
 
 // TestRobotUserACL tests that a robot user can create a repo, add github users
@@ -1089,7 +1089,6 @@ func TestRobotUserACL(t *testing.T) {
 	commit, err = robotClient.StartCommit(repo2, "master")
 	require.NoError(t, err)
 	require.NoError(t, robotClient.FinishCommit(repo2, commit.ID))
-	deleteAll(t)
 }
 
 // TestRobotUserAdmin tests that robot users can
@@ -1102,6 +1101,7 @@ func TestRobotUserAdmin(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice := tu.UniqueString("alice")
 	adminClient := getPachClient(t, admin)
 	aliceClient := getPachClient(t, alice)
@@ -1167,7 +1167,6 @@ func TestRobotUserAdmin(t *testing.T) {
 	require.NoError(t, err)
 	tokenMap[admin] = deactivateResp.PachToken
 	robotClient.SetAuthToken(deactivateResp.PachToken)
-	deleteAll(t)
 }
 
 // TestTokenTTL tests that an admin can create a token with a TTL for a user,
@@ -1177,6 +1176,7 @@ func TestTokenTTL(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	adminClient := getPachClient(t, admin)
 
 	// Create repo (so alice has something to list)
@@ -1206,7 +1206,6 @@ func TestTokenTTL(t *testing.T) {
 		require.Equal(t, 0, len(repos))
 		return nil
 	}, backoff.NewTestingBackOff()))
-	deleteAll(t)
 }
 
 // TestTokenTTLExtend tests that after creating a token, the admin can extend
@@ -1216,6 +1215,7 @@ func TestTokenTTLExtend(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	adminClient := getPachClient(t, admin)
 
 	// Create repo (so alice has something to list)
@@ -1270,7 +1270,6 @@ func TestTokenTTLExtend(t *testing.T) {
 	repos, err = aliceClient.ListRepo()
 	require.True(t, auth.IsErrBadToken(err), err.Error())
 	require.Equal(t, 0, len(repos))
-	deleteAll(t)
 }
 
 // TestTokenRevoke tests that an admin can revoke that token and it no longer works
@@ -1279,6 +1278,7 @@ func TestTokenRevoke(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	adminClient := getPachClient(t, admin)
 
 	// Create repo (so alice has something to list)
@@ -1308,7 +1308,6 @@ func TestTokenRevoke(t *testing.T) {
 	repos, err = aliceClient.ListRepo()
 	require.True(t, auth.IsErrBadToken(err), err.Error())
 	require.Equal(t, 0, len(repos))
-	deleteAll(t)
 }
 
 // TestGetAuthTokenErrorNonAdminUser tests that non-admin users can't call
@@ -1318,6 +1317,7 @@ func TestGetAuthTokenErrorNonAdminUser(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 
 	alice := tu.UniqueString("alice")
 	aliceClient := getPachClient(t, alice)
@@ -1327,7 +1327,6 @@ func TestGetAuthTokenErrorNonAdminUser(t *testing.T) {
 	require.Nil(t, resp)
 	require.YesError(t, err)
 	require.Matches(t, "must be an admin", err.Error())
-	deleteAll(t)
 }
 
 // TestActivateAsRobotUser tests that Pachyderm can be activated such that the
@@ -1337,6 +1336,7 @@ func TestActivateAsRobotUser(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 
 	client := seedClient.WithCtx(context.Background())
 	resp, err := client.Activate(client.Ctx(), &auth.ActivateRequest{
@@ -1358,7 +1358,6 @@ func TestActivateAsRobotUser(t *testing.T) {
 		&auth.ActivateRequest{Subject: admin})
 	require.NoError(t, err)
 	tokenMap[admin] = resp.PachToken
-	deleteAll(t)
 }
 
 func TestActivateMismatchedUsernames(t *testing.T) {
@@ -1366,6 +1365,7 @@ func TestActivateMismatchedUsernames(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 
 	client := seedClient.WithCtx(context.Background())
 	_, err := client.Activate(client.Ctx(), &auth.ActivateRequest{
@@ -1375,7 +1375,6 @@ func TestActivateMismatchedUsernames(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "github:alice", err.Error())
 	require.Matches(t, "github:bob", err.Error())
-	deleteAll(t)
 }
 
 // TestDeleteAllAfterDeactivate tests that deleting repos and (particularly)
@@ -1388,6 +1387,7 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 
 	alice := tu.UniqueString("alice")
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
@@ -1440,7 +1440,6 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 
 	// Make sure DeleteAll() succeeds
 	require.NoError(t, aliceClient.DeleteAll())
-	deleteAll(t)
 }
 
 // TestDeleteRCInStandby creates a pipeline, waits for it to enter standby, and
@@ -1456,6 +1455,7 @@ func TestDeleteRCInStandby(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice := tu.UniqueString("alice")
 	c := getPachClient(t, alice)
 
@@ -1516,7 +1516,6 @@ func TestDeleteRCInStandby(t *testing.T) {
 		_, err := iter.Next()
 		return err
 	})
-	deleteAll(t)
 }
 
 // TestNoOutputRepoDoesntCrashPPSMaster creates a pipeline, then deletes its
@@ -1542,6 +1541,7 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice := tu.UniqueString("alice")
 	aliceClient := getPachClient(t, alice)
 
@@ -1640,7 +1640,6 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 	buf.Reset()
 	require.NoError(t, aliceClient.GetFile(pipeline2, "master", "/file.2", 0, 0, buf))
 	require.Equal(t, "2", buf.String())
-	deleteAll(t)
 }
 
 // TestPipelineFailingWithOpenCommit creates a pipeline, then revokes its access
@@ -1656,6 +1655,7 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice := tu.UniqueString("alice")
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
 
