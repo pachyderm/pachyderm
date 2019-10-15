@@ -52,12 +52,13 @@ const (
 	groupsPrefix              = "/groups"
 	configPrefix              = "/config"
 
-	defaultTokenTTLSecs = 30 * 24 * 60 * 60 // 30 days
-	defaultSAMLTTLSecs  = 24 * 60 * 60      // 24 hours
+	defaultSessionTTLSecs = 30 * 24 * 60 * 60 // 30 days
+	defaultSAMLTTLSecs    = 24 * 60 * 60      // 24 hours
 
-	// defaultAuthCodeTTLSecs is the lifetime of an Authentication Code from
+	// defaultOTPTTLSecs is the lifetime of an One-Time Password from
 	// GetOneTimePassword
-	defaultAuthCodeTTLSecs = 120
+	defaultOTPTTLSecs = 60 * 5            // 5 minutes
+	maxOTPTTLSecs     = 30 * 24 * 60 * 60 // 30 days
 
 	// magicUser is a special, unrevokable cluster administrator. It's not
 	// possible to log in as magicUser, but pipelines with no owner are run as
@@ -426,11 +427,11 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 	}
 
 	// The Pachyderm token that Activate() returns will have the TTL
-	// - 'defaultTokenTTLSecs' if the initial admin is a GitHub user (who can get
-	//   a new token by re-authenticating via GitHub after this token expires)
+	// - 'defaultSessionTTLSecs' if the initial admin is a GitHub user (who can
+	//   get a new token by re-authenticating via GitHub after this token expires)
 	// - 0 (no TTL, indefinite lifetime) if the initial admin is a robot user
 	//   (who has no way to acquire a new token once this token expires)
-	ttlSecs := int64(defaultTokenTTLSecs)
+	ttlSecs := int64(defaultSessionTTLSecs)
 	// Authenticate the caller (or generate a new auth token if req.Subject is a
 	// robot user)
 	if req.Subject != "" {
@@ -850,7 +851,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 					Subject: username,
 					Source:  auth.TokenInfo_AUTHENTICATE,
 				},
-				defaultTokenTTLSecs)
+				defaultSessionTTLSecs)
 		}); err != nil {
 			return nil, fmt.Errorf("error storing auth token for user \"%s\": %v", username, err)
 		}
@@ -872,7 +873,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 			}
 
 			// Determine new token's TTL
-			ttl := int64(defaultTokenTTLSecs)
+			ttl := int64(defaultSessionTTLSecs)
 			if otpInfo.SessionExpiration != nil {
 				expiration, err := types.TimestampFromProto(otpInfo.SessionExpiration)
 				if err != nil {
@@ -995,7 +996,7 @@ func (a *apiServer) GetOneTimePassword(ctx context.Context, req *auth.GetOneTime
 	// other user, there is no additional security provided by preventing admins
 	// from extending their own sessions by getting OTPs for themselves, so even
 	// in that case, the new token has the default token TTL.
-	var ttl = int64(defaultTokenTTLSecs)
+	var ttl = int64(defaultSessionTTLSecs)
 	if !isAdmin {
 		// Caller is getting OTP for themselves--use TTL of their current token
 		ttl, err = a.getCallerTTL(ctx)
@@ -1031,25 +1032,25 @@ func (a *apiServer) GetOneTimePassword(ctx context.Context, req *auth.GetOneTime
 // but is also called directly by handleSAMLREsponse. It generates a
 // short-lived authentication code for 'username', writes it to
 // a.authenticationCodes, and returns it
-func (a *apiServer) getOneTimePassword(ctx context.Context, username string, expiration time.Time) (code string, err error) {
+func (a *apiServer) getOneTimePassword(ctx context.Context, username string, sessionExpiration time.Time) (code string, err error) {
 	// Create OTPInfo that will be stored
 	otpInfo := &auth.OTPInfo{
 		Subject: username,
 	}
-	if !expiration.IsZero() {
-		expirationProto, err := types.TimestampProto(expiration)
+	if !sessionExpiration.IsZero() {
+		sessionExpirationProto, err := types.TimestampProto(sessionExpiration)
 		if err != nil {
-			return "", fmt.Errorf("could not create OTP with expiration time %s: %v",
-				expiration.String(), err)
+			return "", fmt.Errorf("could not create OTP with session expiration time %s: %v",
+				sessionExpiration.String(), err)
 		}
-		otpInfo.SessionExpiration = expirationProto
+		otpInfo.SessionExpiration = sessionExpirationProto
 	}
 
 	// Generate and store new OTP
 	code = "auth_code:" + uuid.NewWithoutDashes()
 	if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		return a.authenticationCodes.ReadWrite(stm).PutTTL(hashToken(code),
-			otpInfo, defaultAuthCodeTTLSecs)
+			otpInfo, defaultOTPTTLSecs)
 	}); err != nil {
 		return "", err
 	}
@@ -1716,7 +1717,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 	// can extend their session by getting an OTP and exchanging it for a new
 	// token with a later expiration than their curren token. See duplicate code
 	// in GetOneTimePassword for an explanation
-	var ttl = int64(defaultTokenTTLSecs)
+	var ttl = int64(defaultSessionTTLSecs)
 	if !isAdmin {
 		// Caller is getting OTP for themselves--use TTL of their current token
 		ttl, err = a.getCallerTTL(ctx)
@@ -1777,8 +1778,8 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *auth.ExtendAuthTok
 
 	// Only let people extend tokens by up to 30 days (the equivalent of logging
 	// in again)
-	if req.TTL > defaultTokenTTLSecs {
-		return nil, fmt.Errorf("can only extend tokens by at most %d seconds", defaultTokenTTLSecs)
+	if req.TTL > defaultSessionTTLSecs {
+		return nil, fmt.Errorf("can only extend tokens by at most %d seconds", defaultSessionTTLSecs)
 	}
 
 	// The token must already exist. If a token has been revoked, it can't be
