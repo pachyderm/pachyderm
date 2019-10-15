@@ -1042,6 +1042,36 @@ func TestGetAuthToken(t *testing.T) {
 	})
 }
 
+// TestGetIndefiniteAuthToken tests that an admin can generate an auth token that never
+// times out if explicitly requested (e.g. for a daemon)
+func TestGetIndefiniteAuthToken(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	defer deleteAll(t)
+	adminClient := getPachClient(t, admin)
+
+	// Generate auth credentials
+	robotUser := robot(tu.UniqueString("rock-em-sock-em"))
+	resp, err := adminClient.GetAuthToken(adminClient.Ctx(),
+		&auth.GetAuthTokenRequest{
+			Subject: robotUser,
+			TTL:     -1,
+		})
+	require.NoError(t, err)
+	token1 := resp.Token
+	robotClient1 := getPachClient(t, "")
+	robotClient1.SetAuthToken(token1)
+
+	// Confirm identity tied to 'token1'
+	who, err := robotClient1.WhoAmI(robotClient1.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, robotUser, who.Username)
+	require.False(t, who.IsAdmin)
+	require.Equal(t, -1, who.TTL)
+}
+
 // TestRobotUserWhoAmI tests that robot users can call WhoAmI and get a response
 // with the right prefix
 func TestRobotUserWhoAmI(t *testing.T) {
