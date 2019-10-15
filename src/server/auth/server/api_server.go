@@ -981,6 +981,15 @@ func (a *apiServer) GetOneTimePassword(ctx context.Context, req *auth.GetOneTime
 		}
 	}
 
+	// compute the TTL for the OTP itself (default: 5m). This cannot be longer
+	// than the TTL for the token that the user will get once the OTP is exchanged
+	// (see below) or 30 days, whichever is shorter.
+	if req.TTL <= 0 {
+		req.TTL = defaultOTPTTLSecs
+	} else if req.TTL > maxOTPTTLSecs {
+		req.TTL = maxOTPTTLSecs
+	}
+
 	// Compute TTL for new token that the user will get once OTP is exchanged.
 	// For non-admin users (getting an OTP for themselves), the new token's TTL
 	// will be the same as their current token's TTL, or 30 days (whichever is
@@ -1020,15 +1029,28 @@ func (a *apiServer) GetOneTimePassword(ctx context.Context, req *auth.GetOneTime
 				"one-time password")
 		}
 		sessionExpiration = time.Now().Add(time.Duration(sessionTTL-1) * time.Second)
+
+		if req.TTL >= sessionTTL {
+			req.TTL = sessionTTL
+		}
 	}
 
 	// Generate authentication code with same (or slightly shorter) expiration
-	code, err := a.getOneTimePassword(ctx, req.Subject, sessionExpiration)
+	code, err := a.getOneTimePassword(ctx, req.Subject, req.TTL, sessionExpiration)
 	if err != nil {
 		return nil, err
 	}
+
+	// compute OTP expiration (used by dash)
+	otpExpiration := time.Now().Add(time.Duration(req.TTL-1) * time.Second)
+	otpExpirationProto, err := types.TimestampProto(otpExpiration)
+	if err != nil {
+		return nil, fmt.Errorf("could not create OTP with expiration time %s: %v",
+			otpExpiration.String(), err)
+	}
 	return &auth.GetOneTimePasswordResponse{
-		Code: code,
+		Code:          code,
+		OTPExpiration: otpExpirationProto,
 	}, nil
 }
 
@@ -1036,7 +1058,7 @@ func (a *apiServer) GetOneTimePassword(ctx context.Context, req *auth.GetOneTime
 // but is also called directly by handleSAMLREsponse. It generates a
 // short-lived authentication code for 'username', writes it to
 // a.authenticationCodes, and returns it
-func (a *apiServer) getOneTimePassword(ctx context.Context, username string, sessionExpiration time.Time) (code string, err error) {
+func (a *apiServer) getOneTimePassword(ctx context.Context, username string, otpTTL int64, sessionExpiration time.Time) (code string, err error) {
 	// Create OTPInfo that will be stored
 	otpInfo := &auth.OTPInfo{
 		Subject: username,
@@ -1054,7 +1076,7 @@ func (a *apiServer) getOneTimePassword(ctx context.Context, username string, ses
 	code = "otp/" + uuid.NewWithoutDashes()
 	if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		return a.authenticationCodes.ReadWrite(stm).PutTTL(hashToken(code),
-			otpInfo, defaultOTPTTLSecs)
+			otpInfo, otpTTL)
 	}); err != nil {
 		return "", err
 	}
@@ -1674,6 +1696,9 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 	}
 	if req.Subject == magicUser {
 		return nil, fmt.Errorf("GetAuthTokenRequest.Subject is invalid")
+	}
+	if req.TTL < 0 {
+		return nil, fmt.Errorf("GetAuthTokenRequest.TTL must be >= 0")
 	}
 
 	// Get current caller and authorize them if req.Subject is set to a different

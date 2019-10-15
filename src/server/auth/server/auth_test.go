@@ -2786,20 +2786,70 @@ func TestOneTimePasswordExpires(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 
+	var authCodeTTL int64 = 10 // seconds
 	alice := tu.UniqueString("alice")
 	aliceClient, anonClient := getPachClient(t, alice), getPachClient(t, "")
-	codeResp, err := aliceClient.GetOneTimePassword(aliceClient.Ctx(),
-		&auth.GetOneTimePasswordRequest{})
+	otpResp, err := aliceClient.GetOneTimePassword(aliceClient.Ctx(),
+		&auth.GetOneTimePasswordRequest{
+			TTL: authCodeTTL,
+		})
 	require.NoError(t, err)
 
-	time.Sleep(time.Duration(defaultAuthCodeTTLSecs+1) * time.Second)
+	time.Sleep(time.Duration(authCodeTTL+1) * time.Second)
 	authResp, err := anonClient.Authenticate(anonClient.Ctx(), &auth.AuthenticateRequest{
-		OneTimePassword: codeResp.Code,
+		OneTimePassword: otpResp.Code,
 	})
 	require.YesError(t, err)
 	require.Nil(t, authResp)
+}
+
+// TestOTPTimeoutShorterThanSessionTimeout tests that GetOneTimePassword
+// returns an OTP that cannot live longer than the session of the user
+// that created it (in other words, you cannot extend your session by
+// requesting and OTP and using it--only by re-authenticating or having an
+// admin generate a token for you
+func TestOTPTimeoutShorterThanSessionTimeout(t *testing.T) {
+	// TODO(msteffen) test not written yet
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	deleteAll(t)
+	defer deleteAll(t)
+	alice := tu.UniqueString("alice")
+	aliceClient := getPachClient(t, alice)
+
+	// Change aliceClient to use a short-lived token
+	resp, err := aliceClient.GetAuthToken(aliceClient.Ctx(), &auth.GetAuthTokenRequest{
+		TTL: 5, // seconds
+	})
+	require.NoError(t, err)
+	token1 := resp.Token
+	aliceClient.SetAuthToken(token1)
+
+	// Get a one-time password using the short-lived token
+	otpResp, err := aliceClient.GetOneTimePassword(aliceClient.Ctx(),
+		&auth.GetOneTimePasswordRequest{})
+	require.NoError(t, err)
+	authResp, err := aliceClient.Authenticate(aliceClient.Ctx(), &auth.AuthenticateRequest{
+		OneTimePassword: otpResp.Code,
+	})
+	require.NoError(t, err)
+	token2 := authResp.PachToken
+	require.NotEqual(t, token1, token2) // OTP-based token is new
+	aliceClient.SetAuthToken(token2)
+
+	// The new token (from the OTP) works initially...
+	who, err := aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, gh(alice), who.Username)
+
+	// ...but stops working after the original token expires
+	time.Sleep(6 * time.Second)
+	who, err = aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
+	require.YesError(t, err)
+	require.True(t, auth.IsErrBadToken(err), err.Error())
 }
 
 func TestS3GatewayAuthRequests(t *testing.T) {

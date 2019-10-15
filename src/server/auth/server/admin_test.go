@@ -1382,11 +1382,49 @@ func TestGetAuthTokenErrorNonAdminUser(t *testing.T) {
 	alice := tu.UniqueString("alice")
 	aliceClient := getPachClient(t, alice)
 	resp, err := aliceClient.GetAuthToken(aliceClient.Ctx(), &auth.GetAuthTokenRequest{
-		Subject: auth.RobotPrefix + tu.UniqueString("terminator"),
+		Subject: robot(tu.UniqueString("t-1000")),
 	})
 	require.Nil(t, resp)
 	require.YesError(t, err)
 	require.Matches(t, "must be an admin", err.Error())
+}
+
+// TestGetAuthTokenDefaultTTL tests the default TTL of a token returned from
+// GetAuthToken
+func TestGetAuthTokenDefaultTTL(t *testing.T) {
+	// if testing.Short() {
+	// 	t.Skip("Skipping integration tests in short mode")
+	// }
+	// deleteAll(t)
+	// defer deleteAll(t)
+
+	// alice := tu.UniqueString("alice")
+	// aliceClient := getPachClient(t, alice)
+	// resp, err := aliceClient.GetAuthToken(aliceClient.Ctx(), &auth.GetAuthTokenRequest{
+	// 	Subject: robot(tu.UniqueString("t-1000")),
+	// })
+	// require.Nil(t, resp)
+	// require.YesError(t, err)
+	// require.Matches(t, "must be an admin", err.Error())
+}
+
+// TestGetAuthTokenPermanent tests the TTL of a token returned from GetAuthToken
+// when request.TTL is -1 (i.e. a permanent token)
+func TestGetAuthTokenPermanent(t *testing.T) {
+	// if testing.Short() {
+	// 	t.Skip("Skipping integration tests in short mode")
+	// }
+	// deleteAll(t)
+	// defer deleteAll(t)
+
+	// alice := tu.UniqueString("alice")
+	// aliceClient := getPachClient(t, alice)
+	// resp, err := aliceClient.GetAuthToken(aliceClient.Ctx(), &auth.GetAuthTokenRequest{
+	// 	Subject: robot(tu.UniqueString("t-1000")),
+	// })
+	// require.Nil(t, resp)
+	// require.YesError(t, err)
+	// require.Matches(t, "must be an admin", err.Error())
 }
 
 // TestActivateAsRobotUser tests that Pachyderm can be activated such that the
@@ -1765,5 +1803,68 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 	pi, err := adminClient.InspectPipeline(pipeline)
 	require.NoError(t, err)
 	require.Equal(t, pps.PipelineState_PIPELINE_FAILURE, pi.State)
+}
+
+// TestOneTimePasswordOtherUser tests that it's possible for an admin to
+// generate an OTP on behalf of another user (similar to how an admin can
+// generate a Pachyderm token for another user).
+func TestOneTimePasswordOtherUser(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	deleteAll(t)
+
+	adminClient, anonClient := getPachClient(t, admin), getPachClient(t, "")
+	otpResp, err := adminClient.GetOneTimePassword(adminClient.Ctx(),
+		&auth.GetOneTimePasswordRequest{
+			Subject: gh("alice"),
+		})
+	require.NoError(t, err)
+
+	authResp, err := anonClient.Authenticate(anonClient.Ctx(),
+		&auth.AuthenticateRequest{
+			OneTimePassword: otpResp.Code,
+		})
+	require.NoError(t, err)
+	anonClient.SetAuthToken(authResp.PachToken)
+	who, err := anonClient.WhoAmI(anonClient.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.False(t, who.IsAdmin)
+	require.Equal(t, gh("alice"), who.Username)
+	require.True(t, who.TTL > 0)
+}
+
+// TestInitialRobotUserGetOTP tests that Pachyderm can be activated with a robot
+// user, which will have no session expiration, and that when this user gets an
+// OTP, the token associated with their OTP will expire
+func TestInitialRobotUserGetOTP(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	// adminClient will use 'admin's initial Pachyderm token, which does not
+	// expire
+	adminClient := getPachClient(t, admin)
+	// make sure the admin client is a robot user initial admin
+	who, err := adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.True(t, who.IsAdmin)
+	require.True(t, strings.HasPrefix(who.Username, auth.RobotPrefix))
+	require.Equal(t, int64(-1), who.TTL)
+
+	// Get an OTP as the initial admin
+	otpResp, err := adminClient.GetOneTimePassword(adminClient.Ctx(),
+		&auth.GetOneTimePasswordRequest{})
+	require.NoError(t, err)
+
+	authResp, err := adminClient.Authenticate(adminClient.Ctx(), &auth.AuthenticateRequest{
+		OneTimePassword: otpResp.Code,
+	})
+	require.NoError(t, err)
+	adminClient.SetAuthToken(authResp.PachToken)
+	who, err = adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.True(t, who.IsAdmin)
+	require.True(t, strings.HasPrefix(who.Username, auth.RobotPrefix))
+	require.True(t, who.TTL > 0)
 }
