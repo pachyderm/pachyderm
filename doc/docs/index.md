@@ -17,6 +17,9 @@ not mentioned here, we'd love to hear from you either on
 [Users Slack channel](http://slack.pachyderm.io/), or by
 email at support@pachyderm.io.
 
+Pick a version:
+* [1.1](https://mkdocs-1-1.docs-staging.pachyderm.com/)
+
 <div class="row">
   <div class="column">
     <div class="card-square mdl-card mdl-shadow--2dp">
