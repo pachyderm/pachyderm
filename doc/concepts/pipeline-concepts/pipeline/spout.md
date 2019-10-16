@@ -71,11 +71,11 @@ source of the Kafka host.
   "transform": {
     "cmd": [ "go", "run", "./main.go" ],
     "image": "myaccount/myimage:0.1"
-  },
-  "env": {
-    "HOST": "kafkahost",
-    "TOPIC": "mytopic",
-    "PORT": "9092"
+    "env": {
+        "HOST": "kafkahost",
+        "TOPIC": "mytopic",
+        "PORT": "9092"
+    },
   },
   "spout": {
     "overwrite": false
