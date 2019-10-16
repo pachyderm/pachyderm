@@ -18,7 +18,8 @@ not mentioned here, we'd love to hear from you either on
 email at support@pachyderm.io.
 
 Pick a version:
-* [1.1](https://mkdocs-1-1.docs-staging.pachyderm.com/)
+
+* [1.1](https://docs-staging.pachyderm.com/1.1)
 
 <div class="row">
   <div class="column">
