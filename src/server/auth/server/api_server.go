@@ -53,11 +53,19 @@ const (
 	groupsPrefix              = "/groups"
 	configPrefix              = "/config"
 
+	// defaultSessionTTLSecs is the lifetime of an auth token from Authenticate,
+	// and the default lifetime of an auth token from GetAuthToken.
+	//
+	// Note: if 'defaultSessionTTLSecs' is changed, then the description of
+	// '--ttl' in 'pachctl get-auth-token' must also be changed
 	defaultSessionTTLSecs = 30 * 24 * 60 * 60 // 30 days
 	defaultSAMLTTLSecs    = 24 * 60 * 60      // 24 hours
 
 	// defaultOTPTTLSecs is the lifetime of an One-Time Password from
 	// GetOneTimePassword
+	//
+	// Note: if 'defaultOTPTTLSecs' is changed, then the description of
+	// '--ttl' in 'pachctl get-otp' must also be changed
 	defaultOTPTTLSecs = 60 * 5            // 5 minutes
 	maxOTPTTLSecs     = 30 * 24 * 60 * 60 // 30 days
 

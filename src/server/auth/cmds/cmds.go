@@ -481,7 +481,8 @@ func GetAuthTokenCmd() *cobra.Command {
 	getAuthToken.PersistentFlags().StringVar(&ttl, "ttl", "", "if set, the "+
 		"resulting auth token will have the given lifetime (or the lifetime"+
 		"of the caller's current session, whichever is shorter). This flag should "+
-		"be a golang duration (e.g. \"30s\" or \"1d2h3m4s\")")
+		"be a golang duration (e.g. \"30s\" or \"1h2m3s\"). If unset, tokens will "+
+		"have a lifetime of 30 days.")
 	return cmdutil.CreateAlias(getAuthToken, "auth get-auth-token")
 }
 
@@ -547,7 +548,8 @@ func GetOneTimePasswordCmd() *cobra.Command {
 	getOneTimePassword.PersistentFlags().StringVar(&ttl, "ttl", "", "if set, "+
 		"the resulting one-time password will have the given lifetime (or the "+
 		"lifetime of the caller's current session, whichever is shorter). This "+
-		"flag should be a golang duration (e.g. \"30s\" or \"1d2h3m4s\")")
+		"flag should be a golang duration (e.g. \"30s\" or \"1h2m3s\"). If unset, "+
+		"one-time passwords will have a lifetime of 5 minutes")
 	return cmdutil.CreateAlias(getOneTimePassword, "auth get-otp")
 }
 
