@@ -16,10 +16,11 @@ import (
 	gosync "sync"
 	"syscall"
 
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
+
 	"golang.org/x/sync/errgroup"
 
 	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/types"
 	"github.com/hanwen/go-fuse/fuse/nodefs"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
@@ -397,12 +398,12 @@ $ {{alias}} foo@master --from XXX`,
 			}
 
 			if raw {
-				return c.ListCommitF(branch.Repo.Name, branch.Name, from, uint64(number), func(ci *pfsclient.CommitInfo) error {
+				return c.ListCommitF(branch.Repo.Name, branch.Name, from, uint64(number), false, func(ci *pfsclient.CommitInfo) error {
 					return marshaller.Marshal(os.Stdout, ci)
 				})
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
-			if err := c.ListCommitF(branch.Repo.Name, branch.Name, from, uint64(number), func(ci *pfsclient.CommitInfo) error {
+			if err := c.ListCommitF(branch.Repo.Name, branch.Name, from, uint64(number), false, func(ci *pfsclient.CommitInfo) error {
 				pretty.PrintCommitInfo(writer, ci, fullTimestamps)
 				return nil
 			}); err != nil {
@@ -490,6 +491,7 @@ $ {{alias}} foo@XXX -r bar -r baz`,
 	commands = append(commands, cmdutil.CreateAlias(flushCommit, "flush commit"))
 
 	var newCommits bool
+	var pipeline string
 	subscribeCommit := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch>",
 		Short: "Print commits as they are created (finished).",
@@ -522,7 +524,16 @@ $ {{alias}} test@master --new`,
 				from = branch.Name
 			}
 
-			commitIter, err := c.SubscribeCommit(branch.Repo.Name, branch.Name, from, pfsclient.CommitState_STARTED)
+			var prov *pfsclient.CommitProvenance
+			if pipeline != "" {
+				pipelineInfo, err := c.InspectPipeline(pipeline)
+				if err != nil {
+					return err
+				}
+				prov = client.NewCommitProvenance(ppsconsts.SpecRepo, pipeline, pipelineInfo.SpecCommit.ID)
+			}
+
+			commitIter, err := c.SubscribeCommit(branch.Repo.Name, branch.Name, prov, from, pfsclient.CommitState_STARTED)
 			if err != nil {
 				return err
 			}
@@ -531,6 +542,7 @@ $ {{alias}} test@master --new`,
 		}),
 	}
 	subscribeCommit.Flags().StringVar(&from, "from", "", "subscribe to all commits since this commit")
+	subscribeCommit.Flags().StringVar(&pipeline, "pipeline", "", "subscribe to all commits created by this pipeline")
 	subscribeCommit.MarkFlagCustom("from", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
 	subscribeCommit.Flags().BoolVar(&newCommits, "new", false, "subscribe to only new commits created from now on")
 	subscribeCommit.Flags().AddFlagSet(rawFlags)
@@ -1219,6 +1231,7 @@ Tags are a low-level resource and should not be accessed directly by most users.
 	}
 	commands = append(commands, cmdutil.CreateAlias(getTag, "get tag"))
 
+	var fix bool
 	fsck := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Run a file system consistency check on pfs.",
@@ -1229,18 +1242,25 @@ Tags are a low-level resource and should not be accessed directly by most users.
 				return err
 			}
 			defer c.Close()
-			_, err = c.PfsAPIClient.Fsck(
-				c.Ctx(),
-				&types.Empty{},
-			)
-			if err != nil {
-				fmt.Println(grpcutil.ScrubGRPC(err))
+			errors := false
+			if err = c.Fsck(fix, func(resp *pfsclient.FsckResponse) error {
+				if resp.Error != "" {
+					errors = true
+					fmt.Printf("Error: %s\n", resp.Error)
+				} else {
+					fmt.Printf("Fix applied: %v", resp.Fix)
+				}
 				return nil
+			}); err != nil {
+				return err
 			}
-			fmt.Println("No errors found.")
+			if !errors {
+				fmt.Println("No errors found.")
+			}
 			return nil
 		}),
 	}
+	fsck.Flags().BoolVarP(&fix, "fix", "f", false, "Attempt to fix as many issues as possible.")
 	commands = append(commands, cmdutil.CreateAlias(fsck, "fsck"))
 
 	var debug bool

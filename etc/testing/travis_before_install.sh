@@ -37,7 +37,7 @@ fi
 
 # Install vault
 if [ ! -f ~/cached-deps/vault ] ; then
-    curl -Lo vault.zip https://releases.hashicorp.com/vault/0.9.5/vault_0.9.5_linux_amd64.zip && \
+    curl -Lo vault.zip https://releases.hashicorp.com/vault/1.2.3/vault_1.2.3_linux_amd64.zip && \
         unzip vault.zip && \
         mv ./vault ~/cached-deps/vault
 fi

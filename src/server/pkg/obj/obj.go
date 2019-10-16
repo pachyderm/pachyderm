@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/oauth2/google"
@@ -75,6 +76,44 @@ const (
 	CustomEndpointEnvVar     = "CUSTOM_ENDPOINT"
 )
 
+// Advanced configuration environment variables
+const (
+	RetriesEnvVar        = "RETRIES"
+	TimeoutEnvVar        = "TIMEOUT"
+	UploadACLEnvVar      = "UPLOAD_ACL"
+	ReverseEnvVar        = "REVERSE"
+	PartSizeEnvVar       = "PART_SIZE"
+	MaxUploadPartsEnvVar = "MAX_UPLOAD_PARTS"
+)
+
+const (
+	// DefaultRetries is the default number of retries for object storage requests.
+	DefaultRetries = 10
+	// DefaultTimeout is the default timeout for object storage requests.
+	DefaultTimeout = "5m"
+	// DefaultUploadACL is the default upload ACL for object storage uploads.
+	DefaultUploadACL = "bucket-owner-full-control"
+	// DefaultReverse is the default for whether to reverse object storage paths or not.
+	DefaultReverse = true
+	// DefaultPartSize is the default part size for object storage uploads.
+	DefaultPartSize = 5242880
+	// DefaultMaxUploadParts is the default maximum number of upload parts.
+	DefaultMaxUploadParts = 10000
+)
+
+// AmazonAdvancedConfiguration contains the advanced configuration for the amazon client.
+type AmazonAdvancedConfiguration struct {
+	Retries int    `env:"RETRIES, default=10"`
+	Timeout string `env:"TIMEOUT, default=5m"`
+	// By default, objects uploaded to a bucket are only accessible to the
+	// uploader, and not the owner of the bucket. Using the default ensures that
+	// the owner of the bucket can access the objects as well.
+	UploadACL      string `env:"UPLOAD_ACL, default=bucket-owner-full-control"`
+	Reverse        bool   `env:"REVERSE, default=true"`
+	PartSize       int64  `env:"PART_SIZE, default=5242880"`
+	MaxUploadParts int    `env:"MAX_UPLOAD_PARTS, default=10000"`
+}
+
 // EnvVarToSecretKey is an environment variable name to secret key mapping
 // This is being used to temporarily bridge the gap as we transition to a model
 // where object storage access in the workers is based on environment variables
@@ -102,6 +141,12 @@ var EnvVarToSecretKey = map[string]string{
 	AmazonVaultTokenEnvVar:   "amazon-vault-token",
 	AmazonDistributionEnvVar: "amazon-distribution",
 	CustomEndpointEnvVar:     "custom-endpoint",
+	RetriesEnvVar:            "retries",
+	TimeoutEnvVar:            "timeout",
+	UploadACLEnvVar:          "upload-acl",
+	ReverseEnvVar:            "reverse",
+	PartSizeEnvVar:           "part-size",
+	MaxUploadPartsEnvVar:     "max-upload-parts",
 }
 
 // StorageRootFromEnv gets the storage root based on environment variables.
@@ -286,8 +331,16 @@ func NewMinioClient(endpoint, bucket, id, secret string, secure, isS3V2 bool) (C
 //   token  - AWS access token
 //   region - AWS region
 //   endpoint - Custom endpoint (generally used for S3 compatible object stores)
-func NewAmazonClient(region, bucket string, creds *AmazonCreds, distribution string, endpoint string, reversed ...bool) (Client, error) {
-	return newAmazonClient(region, bucket, creds, distribution, endpoint, reversed...)
+//   reverse - Reverse object storage paths (overwrites configured value)
+func NewAmazonClient(region, bucket string, creds *AmazonCreds, distribution string, endpoint string, reverse ...bool) (Client, error) {
+	advancedConfig := &AmazonAdvancedConfiguration{}
+	if err := cmdutil.Populate(advancedConfig); err != nil {
+		return nil, err
+	}
+	if len(reverse) > 0 {
+		advancedConfig.Reverse = reverse[0]
+	}
+	return newAmazonClient(region, bucket, creds, distribution, endpoint, advancedConfig)
 }
 
 // NewMinioClientFromSecret constructs an s3 compatible client by reading
@@ -356,7 +409,7 @@ func NewMinioClientFromEnv() (Client, error) {
 // NewAmazonClientFromSecret constructs an amazon client by reading credentials
 // from a mounted AmazonSecret. You may pass "" for bucket in which case it
 // will read the bucket from the secret.
-func NewAmazonClientFromSecret(bucket string, reversed ...bool) (Client, error) {
+func NewAmazonClientFromSecret(bucket string, reverse ...bool) (Client, error) {
 	// Get AWS region (required for constructing an AWS client)
 	region, err := readSecretFile("/amazon-region")
 	if err != nil {
@@ -403,7 +456,7 @@ func NewAmazonClientFromSecret(bucket string, reversed ...bool) (Client, error) 
 	distribution, err := readSecretFile("/amazon-distribution")
 	// Get endpoint for custom deployment (optional).
 	endpoint, err := readSecretFile("/custom-endpoint")
-	return NewAmazonClient(region, bucket, &creds, distribution, endpoint, reversed...)
+	return NewAmazonClient(region, bucket, &creds, distribution, endpoint, reverse...)
 }
 
 // NewAmazonClientFromEnv creates a Amazon client based on environment variables.
@@ -433,10 +486,10 @@ func NewAmazonClientFromEnv() (Client, error) {
 
 // NewClientFromURLAndSecret constructs a client by parsing `URL` and then
 // constructing the correct client for that URL using secrets.
-func NewClientFromURLAndSecret(url *ObjectStoreURL, reversed ...bool) (c Client, err error) {
+func NewClientFromURLAndSecret(url *ObjectStoreURL, reverse ...bool) (c Client, err error) {
 	switch url.Store {
 	case "s3":
-		c, err = NewAmazonClientFromSecret(url.Bucket, reversed...)
+		c, err = NewAmazonClientFromSecret(url.Bucket, reverse...)
 	case "gcs":
 		fallthrough
 	case "gs":

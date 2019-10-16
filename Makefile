@@ -11,6 +11,7 @@ ifndef TESTPKGS
 	TESTPKGS = ./src/...
 endif
 
+RUN= # used by go tests to decide which tests to run (i.e. passed to -run)
 COMPILE_RUN_ARGS = -d -v /var/run/docker.sock:/var/run/docker.sock --privileged=true
 # Label it w the go version we bundle in:
 COMPILE_IMAGE = "pachyderm/compile:$(shell cat etc/compile/GO_VERSION)"
@@ -56,7 +57,7 @@ update-deps:
 	go get -d -v -u ./src/... ./.
 
 build:
-	GO111MODULE=on go build -mod vendor $$(go list ./src/client/... | grep -v '/src/client$$')
+	go build $$(go list ./src/client/... | grep -v '/src/client$$')
 
 pachd:
 	go build ./src/server/cmd/pachd
@@ -66,11 +67,11 @@ worker:
 
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
-	GO111MODULE=on go install -mod vendor -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
+	go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
 
 install-mac:
 	# Result will be in $GOPATH/bin/darwin_amd64/pachctl (if building on linux)
-	GO111MODULE=on GOOS=darwin GOARCH=amd64 go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
+	GOOS=darwin GOARCH=amd64 go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
 
 install-clean:
 	@# Need to blow away pachctl binary if its already there
@@ -78,7 +79,7 @@ install-clean:
 	@make install
 
 install-doc:
-	GO111MODULE=on go install -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl-doc
+	go install -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl-doc
 
 check-docker-version:
 	# The latest docker client requires server api version >= 1.24.
@@ -322,15 +323,6 @@ launch-kube: check-kubectl
 	etc/kube/start-minikube.sh
 
 launch-dev-vm: check-kubectl
-	@# Make sure the caller sets address to avoid confusion later
-	@if [ -z "${PACHD_ADDRESS}" ]; then \
-		$$( which echo ) -e "Must set PACHD_ADDRESS\nRun:\nexport PACHD_ADDRESS=192.168.99.100:30650"; \
-	  exit 1; \
-	fi
-	@if [ -n "${PACH_CA_CERTS}" ]; then \
-		$$( which echo ) -e "Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS"; \
-	  exit 1; \
-	fi
 	# Making sure minikube isn't still up from a previous run...
 	@if minikube ip 2>/dev/null || sudo minikube ip 2>/dev/null; \
 	then \
@@ -343,15 +335,6 @@ launch-dev-vm: check-kubectl
 # version of pachd associated with the current pachctl (useful if you want to start a VM with a
 # point-release version of pachd, instead of whatever's in the current branch)
 launch-release-vm:
-	@# Make sure the caller sets address to avoid confusion later
-	@if [ -z "${PACHD_ADDRESS}" ]; then \
-		$$( which echo ) -e "Must set PACHD_ADDRESS\nRun:\nexport PACHD_ADDRESS=192.168.99.100:30650"; \
-	  exit 1; \
-	fi
-	@if [ -n "${PACH_CA_CERTS}" ]; then \
-		$$( which echo ) -e "Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS"; \
-	  exit 1; \
-	fi
 	# Making sure minikube isn't still up from a previous run...
 	@if minikube ip 2>/dev/null || sudo minikube ip 2>/dev/null; \
 	then \
@@ -440,7 +423,7 @@ pretest:
 local-test: docker-build launch-dev test-pfs clean-launch-dev
 
 # Run all the tests. Note! This is no longer the test entrypoint for travis
-test: clean-launch-dev launch-dev lint enterprise-code-checkin-test docker-build test-pfs-server test-pfs-cmds test-deploy-cmds test-libs test-vault test-auth test-enterprise test-worker test-admin test-pps
+test: clean-launch-dev launch-dev lint enterprise-code-checkin-test docker-build test-pfs-server test-cmds test-libs test-vault test-auth test-enterprise test-worker test-admin test-pps
 
 enterprise-code-checkin-test:
 	@which ag || { printf "'ag' not found. Run:\n  sudo apt-get install -y silversearcher-ag\n  brew install the_silver_searcher\nto install it\n\n"; exit 1; }
@@ -455,104 +438,77 @@ enterprise-code-checkin-test:
 test-pfs-server:
 	./etc/testing/pfs_server.sh $(ETCD_IMAGE) $(TIMEOUT)
 
-test-pfs-cmds:
-	@# Unlike test-pfs-server, this target requires a running cluster
-	go test ./src/server/pfs/cmds -count 1 -timeout $(TIMEOUT)
-
 test-pfs-storage:
 	go test ./src/server/pkg/storage/chunk -count 1 -timeout $(TIMEOUT)
 	go test ./src/server/pkg/storage/fileset/index -count 1 -timeout $(TIMEOUT)
 	go test ./src/server/pkg/storage/fileset -count 1 -timeout $(TIMEOUT)
 
-test-deploy-cmds:
-	go test ./src/server/pkg/deploy/cmds -count 1 -timeout $(TIMEOUT)
-
-test-config:
-	go test ./src/server/config -count 1 -timeout $(TIMEOUT)
-
-test-pps:
-	@# Travis uses the helper directly because it needs to specify a
-	@# subset of the tests using the run flag
-	@make RUN= test-pps-helper
-
-test-pps-helper: launch-stats launch-kafka docker-build-test-entrypoint
-	# Use the count flag to disable test caching for this test suite.
+test-pps: launch-stats launch-kafka docker-build-test-entrypoint
+	@# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
-	  go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT) $(RUN) && \
-	  go test -v ./src/server/pps/cmds -count 1 -timeout $(TIMEOUT)
+	  go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT) $(RUN)
+
+test-cmds:
+	go install -v ./src/testing/match
+	CGOENABLED=0 go test -v ./src/server/cmd/pachctl/cmd
+	go test -v ./src/server/pkg/deploy/cmds -count 1 -timeout $(TIMEOUT)
+	go test -v ./src/server/pfs/cmds -count 1 -timeout $(TIMEOUT)
+	go test -v ./src/server/pps/cmds -count 1 -timeout $(TIMEOUT)
+	go test -v ./src/server/config -count 1 -timeout $(TIMEOUT)
+	@# TODO(msteffen) does this test leave auth active? If so it must run last
+	go test -v ./src/server/auth/cmds -count 1 -timeout $(TIMEOUT) 
 
 test-transaction:
 	go test ./src/server/transaction/server -count 1 -timeout $(TIMEOUT)
 
 test-client:
-	GO111MODULE=on go test -cover $$(go list ./src/client/...)
+	go test -cover $$(go list ./src/client/...)
 
 test-libs:
 	go test ./src/server/pkg/collection -timeout $(TIMEOUT) -vet=off
 	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
 	go test ./src/server/pkg/cert -timeout $(TIMEOUT)
 	go test ./src/server/pkg/localcache -timeout $(TIMEOUT)
+	go test ./src/server/pkg/work -timeout $(TIMEOUT)
 
 test-vault:
 	kill $$(cat /tmp/vault.pid) || true
 	./src/plugin/vault/etc/start-vault.sh
+	./src/plugin/vault/etc/pach-auth.sh --activate
 	./src/plugin/vault/etc/setup-vault.sh
-	@# Dont cache these results as they require the pachd cluster
 	go test -v -count 1 ./src/plugin/vault -timeout $(TIMEOUT)
+	./src/plugin/vault/etc/pach-auth.sh --delete-all
 
 test-s3gateway-conformance:
-	go get github.com/pachyderm/s2
 	pachctl enterprise activate $$(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -) && echo
-	$(GOPATH)/src/github.com/pachyderm/s2/conformance/conformance.py --s3tests-config=etc/testing/s3gateway/s3tests.yaml --ignore-config=etc/testing/s3gateway/ignore.conf --runs-dir=etc/testing/s3gateway/runs
+	$(CONFORMANCE_SCRIPT_PATH) --s3tests-config=etc/testing/s3gateway/s3tests.conf --ignore-config=etc/testing/s3gateway/ignore.conf --runs-dir=etc/testing/s3gateway/runs
 
 test-s3gateway-integration:
 	pachctl enterprise activate $$(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -) && echo
 	go test -v ./src/server/pfs/s3 -timeout $(TIMEOUT) -count 1
 
 test-fuse:
-	CGOENABLED=0 GO111MODULE=on go test -cover $$(go list ./src/server/... | grep '/src/server/pfs/fuse')
+	CGOENABLED=0 go test -cover $$(go list ./src/server/... | grep '/src/server/pfs/fuse')
 
 test-local:
-	CGOENABLED=0 GO111MODULE=on go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT)
-
-test-cli:
-	CGOENABLED=0 GO111MODULE=on go test -mod=vendor -v ./src/server/cmd/pachctl/cmd
+	CGOENABLED=0 go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT)
 
 test-auth:
 	yes | pachctl delete all
-	@# Dont cache these results as they require the pachd cluster
-	go test -v ./src/server/auth/server -count 1 -timeout $(TIMEOUT)
-	go test -v ./src/server/auth/cmds -count 1 -timeout $(TIMEOUT)
+	go test -v ./src/server/auth/server -count 1 -timeout $(TIMEOUT) $(RUN)
 
 test-admin:
-	@# Dont cache these results as they require the pachd cluster
 	go test -v ./src/server/admin/server -count 1 -timeout $(TIMEOUT)
 
 test-enterprise:
-	@# Dont cache these results as they require the pachd cluster
 	go test -v ./src/server/enterprise/server -count 1 -timeout $(TIMEOUT)
 
-# TODO This is not very robust -- it doesn't work when the PACHD_ADDRESS host isn't an IPv4 address
-PACHD_HOST := $(word 1,$(subst :, ,$(PACHD_ADDRESS)))
-PACHD_PORT := $(word 2,$(subst :, ,$(PACHD_ADDRESS)))
-
 test-tls:
-	# Pachyderm must be running when this target is called
-	pachctl version
-	# TLS is an enterprise pachyderm feature
-	pachctl enterprise activate $$(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -) && echo
-	# Generate TLS key and re-deploy pachyderm with TLS enabled
-	etc/deploy/gen_pachd_tls.sh --ip=$(PACHD_HOST) --port=$(PACHD_PORT)
-	# Restart pachd with new cert
-	etc/deploy/restart_with_tls.sh --key=$(PWD)/pachd.key --cert=$(PWD)/pachd.pem
-	# If we can run a pipeline, TLS probably works
-	@# TODO actually monitor traffic with tcpdump
-	PACH_CA_CERTS=${PWD}/pachd.pem go test -v ./src/server -run TestPipelineWithParallelism
+	./etc/testing/test_tls.sh
 
 test-worker: launch-stats test-worker-helper
 
 test-worker-helper:
-	@# Dont cache these results as they require the pachd cluster
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
 	  go test -v ./src/server/worker/ -timeout $(TIMEOUT) -count 1
 
@@ -740,7 +696,6 @@ goxc-build:
 	test-s3gateway-integration \
 	test-fuse \
 	test-local \
-	test-cli \
 	clean \
 	doc \
 	grep-data \

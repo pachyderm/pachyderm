@@ -56,6 +56,12 @@ type ErrParentCommitNotFound struct {
 	Commit *pfs.Commit
 }
 
+// ErrOutputCommitNotFinished represents an error where the commit has not
+// been finished
+type ErrOutputCommitNotFinished struct {
+	Commit *pfs.Commit
+}
+
 func (e ErrFileNotFound) Error() string {
 	return fmt.Sprintf("file %v not found in repo %v at commit %v", e.File.Path, e.File.Commit.Repo.Name, e.File.Commit.ID)
 }
@@ -93,18 +99,24 @@ func (e ErrParentCommitNotFound) Error() string {
 	return fmt.Sprintf("parent commit %v not found in repo %v", e.Commit.ID, e.Commit.Repo.Name)
 }
 
+func (e ErrOutputCommitNotFinished) Error() string {
+	return fmt.Sprintf("output commit %v not finished", e.Commit.ID)
+}
+
 // ByteRangeSize returns byteRange.Upper - byteRange.Lower.
 func ByteRangeSize(byteRange *pfs.ByteRange) uint64 {
 	return byteRange.Upper - byteRange.Lower
 }
 
 var (
-	commitNotFoundRe = regexp.MustCompile("commit [^ ]+ not found in repo [^ ]+")
-	commitDeletedRe  = regexp.MustCompile("commit [^ ]+/[^ ]+ was deleted")
-	commitFinishedRe = regexp.MustCompile("commit [^ ]+ in repo [^ ]+ has already finished")
-	repoNotFoundRe   = regexp.MustCompile(`repos/ ?[a-zA-Z0-9.\-_]{1,255} not found`)
-	branchNotFoundRe = regexp.MustCompile(`branches/[a-zA-Z0-9.\-_]{1,255}/ [^ ]+ not found`)
-	fileNotFoundRe   = regexp.MustCompile(`file .+ not found`)
+	commitNotFoundRe          = regexp.MustCompile("commit [^ ]+ not found in repo [^ ]+")
+	commitDeletedRe           = regexp.MustCompile("commit [^ ]+/[^ ]+ was deleted")
+	commitFinishedRe          = regexp.MustCompile("commit [^ ]+ in repo [^ ]+ has already finished")
+	repoNotFoundRe            = regexp.MustCompile(`repos/ ?[a-zA-Z0-9.\-_]{1,255} not found`)
+	branchNotFoundRe          = regexp.MustCompile(`branches/[a-zA-Z0-9.\-_]{1,255}/ [^ ]+ not found`)
+	fileNotFoundRe            = regexp.MustCompile(`file .+ not found`)
+	hasNoHeadRe               = regexp.MustCompile(`the branch .+ has no head \(create one with 'start commit'\)`)
+	outputCommitNotFinishedRe = regexp.MustCompile("output commit .+ not finished")
 )
 
 // IsCommitNotFoundErr returns true if 'err' has an error message that matches
@@ -159,4 +171,22 @@ func IsFileNotFoundErr(err error) bool {
 		return false
 	}
 	return fileNotFoundRe.MatchString(err.Error())
+}
+
+// IsNoHeadErr returns true if the err is due to an operation that cannot be
+// performed on a headless branch
+func IsNoHeadErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return hasNoHeadRe.MatchString(err.Error())
+}
+
+// IsOutputCommitNotFinishedErr returns true if the err is due to an operation
+// that cannot be performed on an unfinished output commit
+func IsOutputCommitNotFinishedErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return outputCommitNotFinishedRe.MatchString(err.Error())
 }

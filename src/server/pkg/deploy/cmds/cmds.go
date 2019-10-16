@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
-
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
@@ -25,8 +24,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/images"
 	_metrics "github.com/pachyderm/pachyderm/src/server/pkg/metrics"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
 	"github.com/ghodss/yaml"
+	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
 )
 
@@ -133,28 +134,50 @@ func kubectlCreate(dryRun bool, manifest BytesEncoder, opts *assets.AssetOpts) e
 	return nil
 }
 
-func contextCreate(contextPrefix string) error {
+func contextCreate(namePrefix, namespace string) error {
+	kubeConfig, err := config.RawKubeConfig()
+	if err != nil {
+		return err
+	}
+	kubeContext := kubeConfig.Contexts[kubeConfig.CurrentContext]
+
+	clusterName := ""
+	authInfo := ""
+	if kubeContext != nil {
+		clusterName = kubeContext.Cluster
+		authInfo = kubeContext.AuthInfo
+	}
+
 	cfg, err := config.Read()
 	if err != nil {
 		return err
 	}
 
-	contextName := contextPrefix
-	for i := 0; i < 10000; i++ {
-		if i > 0 {
-			contextName = fmt.Sprintf("%s-%d", contextPrefix, i)
-		}
-		if _, ok := cfg.V2.Contexts[contextName]; !ok {
-			break
-		}
+	newContext := &config.Context{
+		Source:      config.ContextSource_IMPORTED,
+		ClusterName: clusterName,
+		AuthInfo:    authInfo,
+		Namespace:   namespace,
 	}
 
-	cfg.V2.Contexts[contextName] = &config.Context{
-		Source: config.ContextSource_NONE,
-	}
-	cfg.V2.ActiveContext = contextName
+	_, activeContext, err := cfg.ActiveContext()
+	if err != nil || !proto.Equal(newContext, activeContext) {
+		newContextName := namePrefix
+		for i := 0; i < 10000; i++ {
+			if i > 0 {
+				newContextName = fmt.Sprintf("%s-%d", namePrefix, i)
+			}
+			if _, ok := cfg.V2.Contexts[newContextName]; !ok {
+				break
+			}
+		}
 
-	return cfg.Write()
+		cfg.V2.Contexts[newContextName] = newContext
+		cfg.V2.ActiveContext = newContextName
+		return cfg.Write()
+	}
+
+	return nil
 }
 
 // containsEmpty is a helper function used for validation (particularly for
@@ -176,9 +199,10 @@ func deployCmds() []*cobra.Command {
 	var dryRun bool
 	var outputFormat string
 	var contextName string
-
 	var dev bool
 	var hostPath string
+	var namespace string
+
 	deployLocal := &cobra.Command{
 		Short: "Deploy a single-node Pachyderm cluster with local metadata storage.",
 		Long:  "Deploy a single-node Pachyderm cluster with local metadata storage.",
@@ -218,7 +242,7 @@ func deployCmds() []*cobra.Command {
 				if contextName == "" {
 					contextName = "local"
 				}
-				if err := contextCreate(contextName); err != nil {
+				if err := contextCreate(contextName, namespace); err != nil {
 					return err
 				}
 			}
@@ -269,7 +293,7 @@ func deployCmds() []*cobra.Command {
 				if contextName == "" {
 					contextName = "gcs"
 				}
-				if err := contextCreate(contextName); err != nil {
+				if err := contextCreate(contextName, namespace); err != nil {
 					return err
 				}
 			}
@@ -282,6 +306,12 @@ func deployCmds() []*cobra.Command {
 	var persistentDiskBackend string
 	var secure bool
 	var isS3V2 bool
+	var retries int
+	var timeout string
+	var uploadACL string
+	var reverse bool
+	var partSize int64
+	var maxUploadParts int
 	deployCustom := &cobra.Command{
 		Use:   "{{alias}} --persistent-disk <persistent disk backend> --object-store <object store backend> <persistent disk args> <object store args>",
 		Short: "Deploy a custom Pachyderm cluster configuration",
@@ -296,8 +326,18 @@ If <object store backend> is \"s3\", then the arguments are:
 				finishMetricsWait := _metrics.FinishReportAndFlushUserAction("Deploy", retErr, start)
 				finishMetricsWait()
 			}()
+			// Setup advanced configuration.
+			advancedConfig := &obj.AmazonAdvancedConfiguration{
+				Retries:        retries,
+				Timeout:        timeout,
+				UploadACL:      uploadACL,
+				Reverse:        reverse,
+				PartSize:       partSize,
+				MaxUploadParts: maxUploadParts,
+			}
+			// Generate manifest and write assets.
 			manifest := getEncoder(outputFormat)
-			err := assets.WriteCustomAssets(manifest, opts, args, objectStoreBackend, persistentDiskBackend, secure, isS3V2)
+			err := assets.WriteCustomAssets(manifest, opts, args, objectStoreBackend, persistentDiskBackend, secure, isS3V2, advancedConfig)
 			if err != nil {
 				return err
 			}
@@ -308,7 +348,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				if contextName == "" {
 					contextName = "custom"
 				}
-				if err := contextCreate(contextName); err != nil {
+				if err := contextCreate(contextName, namespace); err != nil {
 					return err
 				}
 			}
@@ -323,6 +363,12 @@ If <object store backend> is \"s3\", then the arguments are:
 		"(required) Backend providing an object-storage API to pachyderm. One of: "+
 			"s3, gcs, or azure-blob.")
 	deployCustom.Flags().BoolVar(&isS3V2, "isS3V2", false, "Enable S3V2 client")
+	deployCustom.Flags().IntVar(&retries, "retries", obj.DefaultRetries, "(rarely set / S3V2 incompatible) Set a custom number of retries for object storage requests.")
+	deployCustom.Flags().StringVar(&timeout, "timeout", obj.DefaultTimeout, "(rarely set / S3V2 incompatible) Set a custom timeout for object storage requests.")
+	deployCustom.Flags().StringVar(&uploadACL, "upload-acl", obj.DefaultUploadACL, "(rarely set / S3V2 incompatible) Set a custom upload ACL for object storage uploads.")
+	deployCustom.Flags().BoolVar(&reverse, "reverse", obj.DefaultReverse, "(rarely set) Reverse object storage paths.")
+	deployCustom.Flags().Int64Var(&partSize, "part-size", obj.DefaultPartSize, "(rarely set / S3V2 incompatible) Set a custom part size for object storage uploads.")
+	deployCustom.Flags().IntVar(&maxUploadParts, "max-upload-parts", obj.DefaultMaxUploadParts, "(rarely set / S3V2 incompatible) Set a custom maximum number of upload parts.")
 	commands = append(commands, cmdutil.CreateAlias(deployCustom, "deploy custom"))
 
 	var cloudfrontDistribution string
@@ -409,10 +455,18 @@ If <object store backend> is \"s3\", then the arguments are:
 					os.Exit(1)
 				}
 			}
-
-			// generate manifest and write assets
+			// Setup advanced configuration.
+			advancedConfig := &obj.AmazonAdvancedConfiguration{
+				Retries:        retries,
+				Timeout:        timeout,
+				UploadACL:      uploadACL,
+				Reverse:        reverse,
+				PartSize:       partSize,
+				MaxUploadParts: maxUploadParts,
+			}
+			// Generate manifest and write assets.
 			manifest := getEncoder(outputFormat)
-			if err = assets.WriteAmazonAssets(manifest, opts, region, bucket, volumeSize, amazonCreds, cloudfrontDistribution); err != nil {
+			if err = assets.WriteAmazonAssets(manifest, opts, region, bucket, volumeSize, amazonCreds, cloudfrontDistribution, advancedConfig); err != nil {
 				return err
 			}
 			if err := kubectlCreate(dryRun, manifest, opts); err != nil {
@@ -422,7 +476,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				if contextName == "" {
 					contextName = "aws"
 				}
-				if err := contextCreate(contextName); err != nil {
+				if err := contextCreate(contextName, namespace); err != nil {
 					return err
 				}
 			}
@@ -436,6 +490,12 @@ If <object store backend> is \"s3\", then the arguments are:
 	deployAmazon.Flags().StringVar(&creds, "credentials", "", "Use the format \"<id>,<secret>[,<token>]\". You can get a token by running \"aws sts get-session-token\".")
 	deployAmazon.Flags().StringVar(&vault, "vault", "", "Use the format \"<address/hostport>,<role>,<token>\".")
 	deployAmazon.Flags().StringVar(&iamRole, "iam-role", "", fmt.Sprintf("Use the given IAM role for authorization, as opposed to using static credentials. The given role will be applied as the annotation %s, this used with a Kubernetes IAM role management system such as kube2iam allows you to give pachd credentials in a more secure way.", assets.IAMAnnotation))
+	deployAmazon.Flags().IntVar(&retries, "retries", obj.DefaultRetries, "(rarely set) Set a custom number of retries for object storage requests.")
+	deployAmazon.Flags().StringVar(&timeout, "timeout", obj.DefaultTimeout, "(rarely set) Set a custom timeout for object storage requests.")
+	deployAmazon.Flags().StringVar(&uploadACL, "upload-acl", obj.DefaultUploadACL, "(rarely set) Set a custom upload ACL for object storage uploads.")
+	deployAmazon.Flags().BoolVar(&reverse, "reverse", obj.DefaultReverse, "(rarely set) Reverse object storage paths.")
+	deployAmazon.Flags().Int64Var(&partSize, "part-size", obj.DefaultPartSize, "(rarely set) Set a custom part size for object storage uploads.")
+	deployAmazon.Flags().IntVar(&maxUploadParts, "max-upload-parts", obj.DefaultMaxUploadParts, "(rarely set) Set a custom maximum number of upload parts.")
 	commands = append(commands, cmdutil.CreateAlias(deployAmazon, "deploy amazon"))
 
 	deployMicrosoft := &cobra.Command{
@@ -479,7 +539,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				if contextName == "" {
 					contextName = "azure"
 				}
-				if err := contextCreate(contextName); err != nil {
+				if err := contextCreate(contextName, namespace); err != nil {
 					return err
 				}
 			}
@@ -532,9 +592,24 @@ If <object store backend> is \"s3\", then the arguments are:
 			if len(args) == 4 {
 				token = args[3]
 			}
-			return deployStorageSecrets(assets.AmazonSecret(args[0], "", args[1], args[2], token, "", ""))
+			// Setup advanced configuration.
+			advancedConfig := &obj.AmazonAdvancedConfiguration{
+				Retries:        retries,
+				Timeout:        timeout,
+				UploadACL:      uploadACL,
+				Reverse:        reverse,
+				PartSize:       partSize,
+				MaxUploadParts: maxUploadParts,
+			}
+			return deployStorageSecrets(assets.AmazonSecret(args[0], "", args[1], args[2], token, "", "", advancedConfig))
 		}),
 	}
+	deployStorageAmazon.Flags().IntVar(&retries, "retries", obj.DefaultRetries, "(rarely set) Set a custom number of retries for object storage requests.")
+	deployStorageAmazon.Flags().StringVar(&timeout, "timeout", obj.DefaultTimeout, "(rarely set) Set a custom timeout for object storage requests.")
+	deployStorageAmazon.Flags().StringVar(&uploadACL, "upload-acl", obj.DefaultUploadACL, "(rarely set) Set a custom upload ACL for object storage uploads.")
+	deployStorageAmazon.Flags().BoolVar(&reverse, "reverse", obj.DefaultReverse, "(rarely set) Reverse object storage paths.")
+	deployStorageAmazon.Flags().Int64Var(&partSize, "part-size", obj.DefaultPartSize, "(rarely set) Set a custom part size for object storage uploads.")
+	deployStorageAmazon.Flags().IntVar(&maxUploadParts, "max-upload-parts", obj.DefaultMaxUploadParts, "(rarely set) Set a custom maximum number of upload parts.")
 	commands = append(commands, cmdutil.CreateAlias(deployStorageAmazon, "deploy storage amazon"))
 
 	deployStorageGoogle := &cobra.Command{
@@ -629,7 +704,6 @@ If <object store backend> is \"s3\", then the arguments are:
 	var imagePullSecret string
 	var localRoles bool
 	var logLevel string
-	var namespace string
 	var newHashTree bool
 	var noDash bool
 	var noExposeDockerSocket bool
@@ -650,8 +724,8 @@ If <object store backend> is \"s3\", then the arguments are:
 			}
 
 			if namespace == "" {
-				kubeConfig := config.KubeConfig()
-				namespace, err = config.KubeNamespace(kubeConfig)
+				kubeConfig := config.KubeConfig(nil)
+				namespace, _, err = kubeConfig.Namespace()
 				if err != nil {
 					return err
 				}
@@ -785,8 +859,8 @@ underlying volume will not be removed.
 			}
 			if bytes[0] == 'y' || bytes[0] == 'Y' {
 				if namespace == "" {
-					kubeConfig := config.KubeConfig()
-					namespace, err = config.KubeNamespace(kubeConfig)
+					kubeConfig := config.KubeConfig(nil)
+					namespace, _, err = kubeConfig.Namespace()
 					if err != nil {
 						return err
 					}

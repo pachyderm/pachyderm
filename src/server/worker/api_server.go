@@ -585,7 +585,7 @@ func (a *APIServer) processChunk(ctx context.Context, jobID string, low, high in
 	return err
 }
 
-func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APIClient, jobInfo *pps.JobInfo, jobID string, plan *common.Plan, logger logs.TaggedLogger, df datum.Factory, skip map[string]struct{}, useParentHashTree bool) (retErr error) {
+func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APIClient, jobInfo *pps.JobInfo, jobID string, plan *common.Plan, logger logs.TaggedLogger, dit datum.Iterator, skip map[string]struct{}, useParentHashTree bool) (retErr error) {
 	for {
 		if err := func() error {
 			// if this worker is not responsible for a shard, it waits to be assigned one or for the job to finish
@@ -627,7 +627,7 @@ func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APICl
 					case common.State_SUCCESS:
 						if err := a.getChunk(ctx, high, chunkState.Address, failed); err != nil {
 							logger.Logf("error downloading chunk %v from worker at %v (%v), falling back on object storage", high, chunkState.Address, err)
-							tags := a.computeTags(df, low, high, skip, useParentHashTree)
+							tags := a.computeTags(dit, low, high, skip, useParentHashTree)
 							// Download datum hashtrees from object storage if we run into an error getting them from the worker
 							if err := a.getChunkFromObjectStorage(ctx, pachClient, objClient, tags, high, failed); err != nil {
 								return err
@@ -771,10 +771,10 @@ func (a *APIServer) getChunk(ctx context.Context, id int64, address string, fail
 	return nil
 }
 
-func (a *APIServer) computeTags(df datum.Factory, low, high int64, skip map[string]struct{}, useParentHashTree bool) []*pfs.Tag {
+func (a *APIServer) computeTags(dit datum.Iterator, low, high int64, skip map[string]struct{}, useParentHashTree bool) []*pfs.Tag {
 	var tags []*pfs.Tag
 	for i := low; i < high; i++ {
-		files := df.Datum(int(i))
+		files := dit.DatumN(int(i))
 		datumHash := common.HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
 		// Skip datum if it is in the parent hashtree and the parent hashtree is being used in the merge
 		if _, ok := skip[datumHash]; ok && useParentHashTree {
@@ -1155,7 +1155,7 @@ func (a *APIServer) worker() {
 			if err := a.driver.Plans().ReadOnly(jobCtx).GetBlock(jobInfo.Job.ID, plan); err != nil {
 				return fmt.Errorf("error reading job chunks: %v", err)
 			}
-			df, err := datum.NewFactory(pachClient, jobInfo.Input)
+			dit, err := datum.NewIterator(pachClient, jobInfo.Input)
 			if err != nil {
 				return fmt.Errorf("error from datum.NewFactory: %v", err)
 			}
@@ -1174,8 +1174,8 @@ func (a *APIServer) worker() {
 					return err
 				}
 				var count int
-				for i := 0; i < df.Len(); i++ {
-					files := df.Datum(i)
+				for i := 0; i < dit.Len(); i++ {
+					files := dit.DatumN(i)
 					datumHash := common.HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
 					if _, ok := skip[datumHash]; ok {
 						count++
@@ -1200,7 +1200,7 @@ func (a *APIServer) worker() {
 				return a.acquireDatums(
 					ctx, jobID, plan, logger,
 					func(low, high int64) (*processResult, error) {
-						processResult, err := a.processDatums(pachClient, logger, jobInfo, df, low, high, skip, useParentHashTree)
+						processResult, err := a.processDatums(pachClient, logger, jobInfo, dit, low, high, skip, useParentHashTree)
 						if err != nil {
 							return nil, err
 						}
@@ -1209,7 +1209,7 @@ func (a *APIServer) worker() {
 				)
 			})
 			eg.Go(func() error {
-				return a.mergeDatums(ctx, pachClient, jobInfo, jobID, plan, logger, df, skip, useParentHashTree)
+				return a.mergeDatums(ctx, pachClient, jobInfo, jobID, plan, logger, dit, skip, useParentHashTree)
 			})
 			if err := eg.Wait(); err != nil {
 				if jobCtx.Err() == context.Canceled {
@@ -1259,14 +1259,14 @@ func (a *APIServer) claimShard(ctx context.Context) {
 	}
 }
 
-// processDatums processes datums from low to high in df, if a datum fails it
+// processDatums processes datums from low to high in dit, if a datum fails it
 // returns the id of the failed datum it also may return a variety of errors
 // such as network errors.
 func (a *APIServer) processDatums(
 	pachClient *client.APIClient,
 	logger logs.TaggedLogger,
 	jobInfo *pps.JobInfo,
-	df datum.Factory,
+	dit datum.Iterator,
 	low, high int64,
 	skip map[string]struct{},
 	useParentHashTree bool,
@@ -1298,7 +1298,7 @@ func (a *APIServer) processDatums(
 			defer limiter.Release()
 			defer atomic.AddInt64(&a.queueSize, -1)
 
-			data := df.Datum(int(datumIdx))
+			data := dit.DatumN(int(datumIdx))
 			logger, err := logs.NewLogger(a.pipelineInfo, pachClient)
 			if err != nil {
 				return err

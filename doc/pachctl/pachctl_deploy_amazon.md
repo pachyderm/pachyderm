@@ -20,6 +20,12 @@ pachctl deploy amazon <bucket-name> <region> <disk-size>
       --cloudfront-distribution string   Deploying on AWS with cloudfront is currently an alpha feature. No security restrictions have beenapplied to cloudfront, making all data public (obscured but not secured)
       --credentials string               Use the format "<id>,<secret>[,<token>]". You can get a token by running "aws sts get-session-token".
       --iam-role string                  Use the given IAM role for authorization, as opposed to using static credentials. The given role will be applied as the annotation iam.amazonaws.com/role, this used with a Kubernetes IAM role management system such as kube2iam allows you to give pachd credentials in a more secure way.
+      --max-upload-parts int             (rarely set) Set a custom maximum number of upload parts. (default 10000)
+      --part-size int                    (rarely set) Set a custom part size for object storage uploads. (default 5242880)
+      --retries int                      (rarely set) Set a custom number of retries for object storage requests. (default 10)
+      --reverse                          (rarely set) Reverse object storage paths. (default true)
+      --timeout string                   (rarely set) Set a custom timeout for object storage requests. (default "5m")
+      --upload-acl string                (rarely set) Set a custom upload ACL for object storage uploads. (default "bucket-owner-full-control")
       --vault string                     Use the format "<address/hostport>,<role>,<token>".
 ```
 

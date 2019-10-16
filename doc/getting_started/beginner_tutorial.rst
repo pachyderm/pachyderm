@@ -1,17 +1,31 @@
 Beginner Tutorial
 =================
-Welcome to the beginner tutorial for Pachyderm! If you've already got Pachyderm installed, this guide should take about 15 minutes, and it will introduce you to the basic concepts of Pachyderm.
+Welcome to the beginner tutorial for Pachyderm! This tutorial
+takes about 15 minutes, and introduces you to the basic
+concepts of Pachyderm.
 
 Image processing with OpenCV
 ----------------------------
 
-This guide will walk you through the deployment of a Pachyderm pipeline to do some simple `edge detection <https://en.wikipedia.org/wiki/Edge_detection>`_ on a few images. Thanks to Pachyderm's built-in processing primitives, we'll be able to keep our code simple but still run the pipeline in a distributed, streaming fashion. Moreover, as new data is added, the pipeline will automatically process it and output the results.
+This tutorial walks you through the deployment of a
+Pachyderm pipeline to do simple
+`edge detection <https://en.wikipedia.org/wiki/Edge_detection>`_
+on a few images. Thanks to Pachyderm's built-in processing primitives, we'll be able to keep our code simple but still run the pipeline in a distributed, streaming fashion. Moreover, as new data is added, the pipeline will automatically process it and output the results.
 
 If you hit any errors not covered in this guide, get help in our `public community Slack <http://slack.pachyderm.io>`_, submit an issue on `GitHub <https://github.com/pachyderm/pachyderm>`_, or email us at `support@pachyderm.io <mailto:support@pachyderm.io>`_. We are more than happy to help!
 
 Prerequisites
 ^^^^^^^^^^^^^
-This guide assumes that you already have Pachyderm running locally. Check out our :doc:`local_installation` instructions if haven't done that yet and then come back here to continue.
+
+You must already have Pachyderm running locally, on a cloud platform
+of your choice, or in Pachyderm Hub.
+
+If you have not yet installed Pachyderm, follow the instructions in one
+of these sections:
+
+* `Getting Started with Pachyderm Hub <../pachub/pachub_getting_started.html>`__
+* `Deploy Pachyderm Locally <../getting_started/local_installation.html>`__
+* `Deploy Pachyderm in a Cloud Platform <../deployment/index.html>`__
 
 Create a Repo
 ^^^^^^^^^^^^^
@@ -317,7 +331,7 @@ Next Steps
 Pachyderm is now running locally with data and a pipeline! To play with Pachyderm locally, you can use what you've learned to build on or change this pipeline. You can also dig in and learn more details about:
 
 - `Deploying Pachyderm to the cloud or on prem <http://pachyderm.readthedocs.io/en/latest/deployment/deploy_intro.html>`_
-- :doc:`../fundamentals/getting_data_into_pachyderm`
-- :doc:`../fundamentals/creating_analysis_pipelines`
+- :doc:`../how-tos/load-data-into-pachyderm`
+- :doc:`../how-tos/working-with-pipelines`
 
 We'd love to help and see what you come up with, so submit any issues/questions you come across on `GitHub <https://github.com/pachyderm/pachyderm>`_ , `Slack <http://slack.pachyderm.io>`_, or email at support@pachyderm.io if you want to show off anything nifty you've created!

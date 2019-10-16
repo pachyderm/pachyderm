@@ -114,7 +114,7 @@ Alternatively, you can use the following commands to stop all data loading into 
 # while 'extract' is running will not interfere with the process
 #
 # Backup the Pachyderm service spec, in case you need to restore it quickly
-$ kubectl get svc/pach -o json >pach_service_backup_30650.json
+$ kubectl get svc/pachd -o json >pach_service_backup_30650.json
 
 # Modify the service to accept traffic on port 30649
 # Note that you'll likely also need to modify your cloud provider's firewall
@@ -125,10 +125,10 @@ $ kubectl get svc/pachd -o json | sed 's/30650/30649/g' | kc apply -f -
 $ pachctl config update context `pachctl config get active-context` --pachd-address=<cluster ip>:30649
 
 # Make sure you can talk to pachd (if not, firewall rules are a common culprit)
-$ pc version
+$ pachctl version
 COMPONENT           VERSION
-pachctl             1.7.11
-pachd               1.7.11
+pachctl             1.9.7
+pachd               1.9.7
 ```
 
 ### 2. Extract a pachyderm backup with the --no-objects flag

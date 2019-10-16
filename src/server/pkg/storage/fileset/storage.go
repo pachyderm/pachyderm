@@ -12,6 +12,10 @@ import (
 const (
 	prefix    = "pfs"
 	headerTag = ""
+	// fullMergeSuffix is appended to a prefix to create a path to be used for referencing
+	// the full merge of that prefix. The full merge of a prefix means that every
+	// path with the prefix has been merged into the referenced object.
+	fullMergeSuffix = "~"
 )
 
 // Storage is the abstraction that manages fileset storage.
@@ -26,6 +30,11 @@ func NewStorage(objC obj.Client, chunks *chunk.Storage) *Storage {
 		objC:   objC,
 		chunks: chunks,
 	}
+}
+
+// New creates a new in-memory fileset.
+func (s *Storage) New(ctx context.Context, name string, opts ...Option) *FileSet {
+	return newFileSet(ctx, s, name, opts...)
 }
 
 // NewWriter creates a new Writer.
@@ -49,5 +58,5 @@ func (s *Storage) NewIndexWriter(ctx context.Context, fileSet string) *index.Wri
 // NewIndexReader creates a new index.Reader.
 func (s *Storage) NewIndexReader(ctx context.Context, fileSet, idxPrefix string) *index.Reader {
 	fileSet = path.Join(prefix, fileSet)
-	return index.NewReader(ctx, s.objC, s.chunks, fileSet, idxPrefix)
+	return index.NewReader(ctx, s.objC, s.chunks, fileSet, index.WithPrefix(idxPrefix))
 }

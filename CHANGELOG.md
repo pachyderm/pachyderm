@@ -1,5 +1,42 @@
 # Changelog
 
+## 1.9.7
+
+- Fixes a bug that prevent pachctl from connecting to clusters with TLS enabled. (#4167)
+
+## 1.9.6
+
+- Fixes a bug which would cause jobs to report success despite datum failures. (#4158)
+- Fixes a bug which prevent Disk resource requests in pipelines from working. (#4157)
+- Fixes a bug which caused `pachctl fsck --fix` to exit with an error and not complete the fix. (#4155)
+- Pachctl contexts now have support for importing Kubernetes contexts. (#4152)
+- Fixes a bug which caused Spouts to create invalid provenance. (#4145)
+- Fixes a bug which allowed creation, but not deletion, of pipelines with invalid names. (#4133)
+- Fixes a bug which caused ListTag to fail with WriteHeader already called. (#4132)
+- Increases the max transaction operations and max request bytes values for etcd's deployment. (#4121)
+- Fixes a bug that caused `run pipeline` to crash pachd. (#4109)
+- Pachctl deploy amazon now exposes several new s3 connection options. (#4107)
+- Readds the `--namespace` flag to `port forward`. (#4105)
+- Removes and unused field `Batch` from the pipeline spec. (#4104)
+
+## 1.9.5
+
+- Fixes a bug that caused the Salt field to be stripped from restored pipelines. (#4086)
+- Fixes a bug that caused datums to fail with `io: read/write on closed pipe`. (#4085)
+- Fixes a bug that prevented reading logs from running jobs with stats enabled. (#4083)
+- Fixes a bug that prevented putting files into output commits via s3gateway. (#4076)
+
+## 1.9.4
+
+- Fixes a bug (#4053) which made it impossible to read files written to output commits with `put file`. (#4055)
+- Adds a flag `--fix` to `pachctl fsck` which will fix some of the issues that it detects. (#4052)
+- Fixes a bug (#3879) which caused `pachctl debug dump` to hit max message size issues. (#4015)
+- The Microsoft Azure Blob Storage client has been upgraded to the most recent version. (#4000)
+- Extract now correctly extracts the `pod_patch` and `pod_spec` for pipelines. (#3964, thanks to @mrene)
+- S3Gateway now has support for multi-part uploads. (#3903)
+- S3Gateway now has support for multi-deletes. (#4004)
+- S3Geteway now has support for auth. (#3937)
+
 ## 1.9.3
 
 - Fixes a bug that caused the Azure driver to lock up when there were too many active requests. (#3970)

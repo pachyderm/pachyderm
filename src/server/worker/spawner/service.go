@@ -9,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/datum"
@@ -34,7 +35,8 @@ func forLatestCommit(
 
 	return pachClient.SubscribeCommitF(
 		pipelineInfo.Pipeline.Name,
-		pipelineInfo.OutputBranch,
+		"",
+		client.NewCommitProvenance(ppsconsts.SpecRepo, pipelineInfo.Pipeline.Name, pipelineInfo.SpecCommit.ID),
 		"",
 		pfs.CommitState_READY,
 		func(ci *pfs.CommitInfo) error {
@@ -69,14 +71,14 @@ func runService(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, lo
 		}
 		logger := logger.WithJob(job.ID)
 
-		df, err := datum.NewFactory(pachClient, jobInput)
+		dit, err := datum.NewIterator(pachClient, jobInput)
 		if err != nil {
 			return err
 		}
-		if df.Len() != 1 {
+		if dit.Len() != 1 {
 			return fmt.Errorf("services must have a single datum")
 		}
-		data := df.Datum(0)
+		data := dit.DatumN(0)
 		logger = logger.WithData(data)
 
 		ctx := pachClient.Ctx()

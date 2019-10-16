@@ -1,33 +1,13 @@
-# Setup For contributors
+# Setup for contributors
 
 ## General requirements
 
 First, go through the general local installation instructions [here](http://docs.pachyderm.io/en/latest/getting_started/local_installation.html). Additionally, make sure you have the following installed:
 
-- etcd
 - golang 1.12+
 - docker
 - [jq](https://stedolan.github.io/jq/)
 - [pv](http://ivarch.com/programs/pv.shtml)
-
-## Testing
-
-In order to run some tests locally, you will need the AWS CLI installed and
-configured to access Pachyderm S3 buckets.  In order to set this up:
-
-1. Message an owner of the Pachyderm AWS account (@jdoliner) to get AWS credentials
-2. Get back a login link and initial username/password - log in
-3. Configure your own password
-4. Go to your account settings => My Security Credentials
-5. In "Access keys for CLI [...]", click "Create Access Key"
-6. On the command-line, run `sudo apt install awscli` (or equivalent for your platform)
-7. Run `aws configure` and fill in these fields:
-  * `AWS Access Key ID` - the ID for the new Access Key you created
-  * `AWS Secret Access Key` - the secret for the new Access Key you created
-  * `Default region name` - `us-west-1` might be a good choice
-  * `Default output format` - `json` because why not?
-8. Test that you can access a Pachyderm S3 bucket:
-  * `aws s3 ls s3://pachyderm-engineering/`
 
 ## Bash helpers
 
@@ -47,7 +27,7 @@ And you'll stay up to date!
 
 ## Special macOS configuration
 
-### File Descriptor Limit
+### File descriptor limit
 
 If you're running tests locally, you'll need to up your file descriptor limit. To do this, first setup a LaunchDaemon to up the limit with sudo privileges:
 
@@ -89,7 +69,7 @@ And then make sure to prepend the following to your path:
 
 Now launch the dev cluster: `make launch-dev-vm`.
 
-And check it's status: `kubectl get all`
+And check it's status: `kubectl get all`.
 
 ## pachctl
 
@@ -100,3 +80,24 @@ This will install the dev version of `pachctl`:
     pachctl version
 
 And make sure that `$GOPATH/bin` is on your `$PATH` somewhere
+
+## Fully resetting
+
+Instead of running the makefile targets to re-compile `pachctl` and redeploy
+a dev cluster, we have a script that you can use to fully reset your pachyderm
+environment:
+
+1) All existing cluster data is deleted
+2) If possible, the virtual machine that the cluster is running on is wiped
+out
+3) `pachctl` is recompiled
+4) The dev cluster is re-deployed
+
+This reset is a bit more time consuming than running one-off Makefile targets,
+but comprehensively ensures that the cluster is in its expected state, and is
+especially helpful when you're first getting started with contributions and
+don't yet have a complete intuition on the various ways a cluster may get in
+an unexpected state. It's been tested on docker for mac and minikube, but
+likely works in other kubernetes environments as well.
+
+To run it, simply call `./etc/reset.py` from the pachyderm repo root.

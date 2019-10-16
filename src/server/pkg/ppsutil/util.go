@@ -27,6 +27,7 @@ import (
 	"path"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -41,6 +42,7 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
+	"gopkg.in/yaml.v3"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -90,7 +92,7 @@ func getResourceListFromSpec(resources *pps.ResourceSpec, cacheSize string) (*v1
 		if err != nil {
 			log.Warnf("error parsing disk string: %s: %+v", resources.Disk, err)
 		} else {
-			result[v1.ResourceStorage] = diskQuantity
+			result[v1.ResourceEphemeralStorage] = diskQuantity
 		}
 	}
 
@@ -247,30 +249,60 @@ func PipelineReqFromInfo(pipelineInfo *ppsclient.PipelineInfo) *ppsclient.Create
 		Description:        pipelineInfo.Description,
 		CacheSize:          pipelineInfo.CacheSize,
 		EnableStats:        pipelineInfo.EnableStats,
-		Batch:              pipelineInfo.Batch,
 		MaxQueueSize:       pipelineInfo.MaxQueueSize,
 		Service:            pipelineInfo.Service,
 		ChunkSpec:          pipelineInfo.ChunkSpec,
 		DatumTimeout:       pipelineInfo.DatumTimeout,
 		JobTimeout:         pipelineInfo.JobTimeout,
 		Salt:               pipelineInfo.Salt,
+		PodSpec:            pipelineInfo.PodSpec,
+		PodPatch:           pipelineInfo.PodPatch,
 	}
+}
+
+type pipelineDecoder interface {
+	Decode(v interface{}) error
+}
+
+type jsonpbDecoder struct {
+	decoder *json.Decoder
+}
+
+func newJSONPBDecoder(r io.Reader) *jsonpbDecoder {
+	return &jsonpbDecoder{
+		decoder: json.NewDecoder(r),
+	}
+}
+
+func (d *jsonpbDecoder) Decode(v interface{}) error {
+	msg, ok := v.(proto.Message)
+	if ok {
+		return jsonpb.UnmarshalNext(d.decoder, msg)
+	}
+	return d.decoder.Decode(v)
 }
 
 // PipelineManifestReader helps with unmarshalling pipeline configs from JSON. It's used by
 // 'create pipeline' and 'update pipeline'
+//
+// Note that the json decoder is able to parse text that gopkg.in/yaml.v3 cannot
+// (multiple json documents) so we currently guess whether the document is JSON
+// or not by looking at the first non-space character and seeing if it's '{' (we
+// originally tried parsing the pipeline spec with both parsers, but that
+// approach made it hard to return sensible errors). We may fail to parse valid
+// YAML documents this way, so hopefully the yaml parser gains multi-document
+// support and we can rely on it fully.
 type PipelineManifestReader struct {
-	buf     bytes.Buffer
-	decoder *json.Decoder
+	decoder pipelineDecoder
 }
 
 // NewPipelineManifestReader creates a new manifest reader from a path.
 func NewPipelineManifestReader(path string) (result *PipelineManifestReader, retErr error) {
-	result = &PipelineManifestReader{}
-	var pipelineReader io.Reader
+	var pipelineBytes []byte
+	var err error
 	if path == "-" {
-		pipelineReader = io.TeeReader(os.Stdin, &result.buf)
 		fmt.Print("Reading from stdin.\n")
+		pipelineBytes, err = ioutil.ReadAll(os.Stdin)
 	} else if url, err := url.Parse(path); err == nil && url.Scheme != "" {
 		resp, err := http.Get(url.String())
 		if err != nil {
@@ -281,27 +313,30 @@ func NewPipelineManifestReader(path string) (result *PipelineManifestReader, ret
 				retErr = err
 			}
 		}()
-		rawBytes, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-		pipelineReader = io.TeeReader(strings.NewReader(string(rawBytes)), &result.buf)
+		pipelineBytes, err = ioutil.ReadAll(resp.Body)
 	} else {
-		rawBytes, err := ioutil.ReadFile(path)
-		if err != nil {
-			return nil, err
-		}
-
-		pipelineReader = io.TeeReader(strings.NewReader(string(rawBytes)), &result.buf)
+		pipelineBytes, err = ioutil.ReadFile(path)
 	}
-	result.decoder = json.NewDecoder(pipelineReader)
-	return result, nil
+	if err != nil {
+		return nil, err
+	}
+	idx := bytes.IndexFunc(pipelineBytes, func(r rune) bool {
+		return !unicode.IsSpace(r)
+	})
+	if idx >= 0 && pipelineBytes[idx] == '{' {
+		return &PipelineManifestReader{
+			decoder: newJSONPBDecoder(bytes.NewReader(pipelineBytes)),
+		}, nil
+	}
+	return &PipelineManifestReader{
+		decoder: yaml.NewDecoder(bytes.NewReader(pipelineBytes)),
+	}, nil
 }
 
 // NextCreatePipelineRequest gets the next request from the manifest reader.
 func (r *PipelineManifestReader) NextCreatePipelineRequest() (*ppsclient.CreatePipelineRequest, error) {
 	var result ppsclient.CreatePipelineRequest
-	if err := jsonpb.UnmarshalNext(r.decoder, &result); err != nil {
+	if err := r.decoder.Decode(&result); err != nil {
 		if err == io.EOF {
 			return nil, err
 		}
@@ -355,6 +390,10 @@ func IsTerminal(state pps.JobState) bool {
 
 // UpdateJobState performs the operations involved with a job state transition.
 func UpdateJobState(pipelines col.ReadWriteCollection, jobs col.ReadWriteCollection, jobPtr *pps.EtcdJobInfo, state pps.JobState, reason string) error {
+	if jobPtr.State == pps.JobState_JOB_FAILURE {
+		return fmt.Errorf("cannot put %q in state %s as it's already in state JOB_FAILURE", jobPtr.Job.ID, state.String())
+	}
+
 	// Update pipeline
 	pipelinePtr := &pps.EtcdPipelineInfo{}
 	if err := pipelines.Get(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
