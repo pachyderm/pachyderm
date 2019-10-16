@@ -2,7 +2,10 @@
   This file was automatically generated - do not edit
 -#}
 <div class="mdl-selectfield">
-     <select class="mdl-selectfield__select" onchange="window.location=this.value">
+     <select class="mdl-selectfield__select"
+         var url = "https://docs-staging.pachyderm.com";
+         var urlParts = url.split( '/' );
+         onchange="window.location.href=this.value + urlParts">
               <option style="" selected value="">latest</option>
               <option style="mkdocs-1.1">mkdocs-1.1</option>
      </select>
