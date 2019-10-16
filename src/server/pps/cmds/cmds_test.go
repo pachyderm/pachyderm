@@ -333,6 +333,42 @@ func TestYAMLError(t *testing.T) {
 	).Run())
 }
 
+// TestYAMLSecret tests creating a YAML pipeline with a secret (i.e. the fix for
+// https://github.com/pachyderm/pachyderm/issues/4119)
+func TestYAMLSecret(t *testing.T) {
+	// Note that BashCmd dedents all lines below including the YAML (which
+	// wouldn't parse otherwise)
+	require.NoError(t, tu.BashCmd(`
+		yes | pachctl delete all
+
+		# kubectl get secrets >&2
+		kubectl delete secrets/test-yaml-secret || true
+		kubectl create secret generic test-yaml-secret --from-literal=my-key=my-value
+
+		pachctl create repo input
+		pachctl put file input@master:/foo <<<"foo"
+		pachctl create pipeline -f - <<EOF
+		  pipeline:
+		    name: pipeline
+		  input:
+		    pfs:
+		      glob: /*
+		      repo: input
+		  transform:
+		    cmd: [ /bin/bash ]
+		    stdin:
+		      - "env | grep MY_SECRET >/pfs/out/vars"
+		    secrets:
+		      - name: test-yaml-secret
+		        env_var: MY_SECRET
+		        key: my-key
+		EOF
+		pachctl flush commit input@master
+		pachctl get file pipeline@master:/vars | match MY_SECRET=my-value
+		`,
+	).Run())
+}
+
 // func TestPushImages(t *testing.T) {
 // 	if testing.Short() {
 // 		t.Skip("Skipping integration tests in short mode")

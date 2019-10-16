@@ -42,7 +42,7 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
-	"gopkg.in/yaml.v3"
+	"gopkg.in/pachyderm/yaml.v3"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -285,13 +285,13 @@ func (d *jsonpbDecoder) Decode(v interface{}) error {
 // PipelineManifestReader helps with unmarshalling pipeline configs from JSON. It's used by
 // 'create pipeline' and 'update pipeline'
 //
-// Note that the json decoder is able to parse text that gopkg.in/yaml.v3 cannot
-// (multiple json documents) so we currently guess whether the document is JSON
-// or not by looking at the first non-space character and seeing if it's '{' (we
-// originally tried parsing the pipeline spec with both parsers, but that
-// approach made it hard to return sensible errors). We may fail to parse valid
-// YAML documents this way, so hopefully the yaml parser gains multi-document
-// support and we can rely on it fully.
+// Note that the json decoder is able to parse text that
+// gopkg.in/pachyderm/yaml.v3 cannot (multiple json documents) so we currently
+// guess whether the document is JSON or not by looking at the first non-space
+// character and seeing if it's '{' (we originally tried parsing the pipeline
+// spec with both parsers, but that approach made it hard to return sensible
+// errors). We may fail to parse valid YAML documents this way, so hopefully the
+// yaml parser gains multi-document support and we can rely on it fully.
 type PipelineManifestReader struct {
 	decoder pipelineDecoder
 }

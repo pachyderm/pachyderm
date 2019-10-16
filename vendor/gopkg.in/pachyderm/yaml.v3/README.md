@@ -1,5 +1,23 @@
 # YAML support for the Go language
 
+**Note**: This package is a fork of https://github.com/go-yaml/yaml (v3). That
+library was missing a few features that
+[Pachyderm](https://github.com/pachyderm/pachyderm) needs when handling YAML,
+including the ability to rely on `json` struct tags during marshalling and
+unmarshalling. We also hope to finish adding multi-document support (so that
+multiple JSON documents, of form `{ d1 }{ d2 }...` can be parsed).
+
+Issues and pull requests are welcome, though we recommend, when possible,
+sending issues and PRs to the [original repo](https://github.com/go-yaml/yaml).
+
+We will try to keep this repo up-to-date with the `v3` branch of that repo, and
+we hope to migrate [Pachyderm](https://github.com/pachyderm/pachyderm) to it
+fully (and deprecate this repo). We will once they (or gogoproto) add features
+that will allow us to marshal and unmarshal generated protobuf structs to and
+from YAML faithfully.
+
+--------------------------------------------------------------------------------
+
 Introduction
 ------------
 
@@ -36,16 +54,17 @@ supported since they're a poor design and are gone in YAML 1.2.
 Installation and usage
 ----------------------
 
-The import path for the package is *gopkg.in/yaml.v3*.
+The import path for the package is *gopkg.in/pachyderm/yaml.v3*.
 
 To install it, run:
 
-    go get gopkg.in/yaml.v3
+    go get gopkg.in/pachyderm/yaml.v3
 
 API documentation
 -----------------
 
-If opened in a browser, the import path itself leads to the API documentation:
+This repository is a fork of github.com/go-yaml/yaml. To view the documentation
+of the original package, visit the following link in your browser:
 
   - [https://gopkg.in/yaml.v3](https://gopkg.in/yaml.v3)
 
@@ -72,7 +91,7 @@ import (
         "fmt"
         "log"
 
-        "gopkg.in/yaml.v3"
+        "gopkg.in/pachyderm/yaml.v3"
 )
 
 var data = `

@@ -598,6 +598,8 @@ google.golang.org/grpc/tap
 gopkg.in/go-playground/webhooks.v5/github
 # gopkg.in/inf.v0 v0.9.1
 gopkg.in/inf.v0
+# gopkg.in/pachyderm/yaml.v3 v3.0.0-20191017015716-76e7a8e4bde1
+gopkg.in/pachyderm/yaml.v3
 # gopkg.in/square/go-jose.v2 v2.3.1
 gopkg.in/square/go-jose.v2
 gopkg.in/square/go-jose.v2/cipher
@@ -655,8 +657,6 @@ gopkg.in/src-d/go-git.v4/utils/merkletrie/noder
 gopkg.in/warnings.v0
 # gopkg.in/yaml.v2 v2.2.2
 gopkg.in/yaml.v2
-# gopkg.in/yaml.v3 v3.0.0-20190905181640-827449938966
-gopkg.in/yaml.v3
 # k8s.io/api v0.0.0-20181130031204-d04500c8c3dd
 k8s.io/api/admissionregistration/v1alpha1
 k8s.io/api/admissionregistration/v1beta1

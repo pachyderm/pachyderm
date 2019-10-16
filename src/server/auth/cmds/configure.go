@@ -11,8 +11,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
+	"gopkg.in/pachyderm/yaml.v3"
 
-	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
 )
 
@@ -37,17 +37,17 @@ func GetConfigCmd() *cobra.Command {
 				fmt.Println("no auth config set")
 				return nil
 			}
-			output, err := json.MarshalIndent(resp.Configuration, "", "  ")
-			if err != nil {
-				return fmt.Errorf("could not marshal response:\n%v\ndue to: %v", resp.Configuration, err)
-			}
+			var output []byte
 			switch format {
 			case "json":
-				// already done
-			case "yaml":
-				output, err = yaml.JSONToYAML(output)
+				output, err = json.MarshalIndent(resp.Configuration, "", "  ")
 				if err != nil {
-					return fmt.Errorf("could not convert json to yaml: %v", err)
+					return fmt.Errorf("could not marshal response:\n%v\ndue to: %v", resp.Configuration, err)
+				}
+			case "yaml":
+				output, err = yaml.Marshal(resp.Configuration)
+				if err != nil {
+					return fmt.Errorf("could not marshal response:\n%v\ndue to: %v", resp.Configuration, err)
 				}
 			default:
 				return fmt.Errorf("invalid output format: %v", format)
