@@ -5,6 +5,7 @@ import (
 	"io"
 	"sort"
 
+	"github.com/gogo/protobuf/jsonpb"
 	glob "github.com/pachyderm/ohmyglob"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -29,6 +30,10 @@ type pfsDatumIterator struct {
 	location int
 }
 
+var (
+	marshaller = &jsonpb.Marshaler{Indent: "  "}
+)
+
 func newPFSDatumIterator(pachClient *client.APIClient, input *pps.PFSInput) (DatumIterator, error) {
 	result := &pfsDatumIterator{}
 	// make sure it gets initialized properly
@@ -52,8 +57,11 @@ func newPFSDatumIterator(pachClient *client.APIClient, input *pps.PFSInput) (Dat
 		} else if err != nil {
 			return nil, err
 		}
+		fiString, _ := marshaller.MarshalToString(fileInfo)
+		fmt.Printf("fileInfo from Glob: %s\n", fiString)
 		g := glob.MustCompile(input.Glob, '/')
 		joinOn := g.Replace(fileInfo.File.Path, input.JoinOn)
+		fmt.Printf("Replace: s/%s/%s  %s -> %s\n", input.Glob, input.JoinOn, fileInfo.File.Path, joinOn)
 		result.inputs = append(result.inputs, &Input{
 			FileInfo:   fileInfo,
 			JoinOn:     joinOn,
@@ -268,15 +276,17 @@ func newJoinDatumIterator(pachClient *client.APIClient, join []*pps.Input) (Datu
 		}
 		if len(count) == 1 {
 			result.datums = append(result.datums, tuple)
-			fmt.Printf("joined: ")
+			fmt.Printf("joined:\n")
 			for _, input := range tuple {
-				fmt.Printf("%s, ", input.JoinOn)
+				inputString, _ := marshaller.MarshalToString(input)
+				fmt.Printf("%s\n", inputString)
 			}
 			fmt.Println()
 		} else {
-			fmt.Printf("not joined: ")
+			fmt.Printf("not joined:\n")
 			for _, input := range tuple {
-				fmt.Printf("%s, ", input.JoinOn)
+				inputString, _ := marshaller.MarshalToString(input)
+				fmt.Printf("%s\n", inputString)
 			}
 			fmt.Println()
 		}
