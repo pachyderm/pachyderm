@@ -428,6 +428,33 @@ func TestYAMLSecret(t *testing.T) {
 	).Run())
 }
 
+// TestYAMLTimestamp tests creating a YAML pipeline with a timestamp (i.e. the
+// fix for https://github.com/pachyderm/pachyderm/issues/4209)
+func TestYAMLTimestamp(t *testing.T) {
+	// Note that BashCmd dedents all lines below including the YAML (which
+	// wouldn't parse otherwise)
+	require.NoError(t, tu.BashCmd(`
+		yes | pachctl delete all
+
+		# If the pipeline comes up without error, then the YAML parsed
+		pachctl create pipeline -f - <<EOF
+		  pipeline:
+		    name: pipeline
+		  input:
+		    cron:
+		      name: in
+		      start: "2019-10-10T22:30:05Z"
+		      spec: "@yearly"
+		  transform:
+		    cmd: [ /bin/bash ]
+		    stdin:
+		      - "cp /pfs/in/* /pfs/out"
+		EOF
+		pachctl list pipeline | match 'pipeline'
+		`,
+	).Run())
+}
+
 // func TestPushImages(t *testing.T) {
 // 	if testing.Short() {
 // 		t.Skip("Skipping integration tests in short mode")

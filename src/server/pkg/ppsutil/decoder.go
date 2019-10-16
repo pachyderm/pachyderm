@@ -24,13 +24,6 @@ type pipelineDecoder interface {
 	// Decode parses the next CreatePipelineRequest in the pipelineDecoder's input
 	// stream into 'v'
 	Decode(v interface{}) error
-
-	// ToRequest marshals 'v' into whatever textual representation this decoder
-	// uses (either YAML or JSON) and then parses that stream as a
-	// CreatePipelineReqeust. This allows us to parse free-form YAML and JSON
-	// (including e.g. full TFJob specs) into a map, canonicalize the request as a
-	// map, and then convert the map to a CreatePipelineRequest struct
-	ToRequest(v interface{}) (*ppsclient.CreatePipelineRequest, error)
 }
 
 // jsonpbDecoder implements the 'pipelineDecoder' interface to decode
@@ -54,18 +47,6 @@ func (d *jsonpbDecoder) Decode(v interface{}) error {
 	return d.decoder.Decode(v)
 }
 
-func (d *jsonpbDecoder) ToRequest(v interface{}) (*ppsclient.CreatePipelineRequest, error) {
-	requestText, err := json.Marshal(v)
-	if err != nil {
-		return nil, fmt.Errorf("marshalling error while canonicalizing JSON request: %v", err)
-	}
-	var result ppsclient.CreatePipelineRequest
-	if err := jsonpb.UnmarshalNext(json.NewDecoder(bytes.NewReader(requestText)), &result); err != nil {
-		return nil, fmt.Errorf("parsing error while canonicalizing JSON request: %v", err)
-	}
-	return &result, nil
-}
-
 // yamlDecoder implements the 'pipelineDecoder' interface to decode
 // YAML-encoded pipelines
 type yamlDecoder struct {
@@ -74,18 +55,6 @@ type yamlDecoder struct {
 
 func newYAMLDecoder(r io.Reader) *yamlDecoder {
 	return &yamlDecoder{*yaml.NewDecoder(r)}
-}
-
-func (d *yamlDecoder) ToRequest(v interface{}) (*ppsclient.CreatePipelineRequest, error) {
-	requestText, err := yaml.Marshal(v)
-	if err != nil {
-		return nil, fmt.Errorf("marshalling error while canonicalizing YAML request: %v", err)
-	}
-	var result ppsclient.CreatePipelineRequest
-	if err := yaml.Unmarshal(requestText, &result); err != nil {
-		return nil, fmt.Errorf("parsing error while canonicalizing YAML request: %v", err)
-	}
-	return &result, nil
 }
 
 // PipelineManifestReader helps with unmarshalling pipeline configs from JSON. It's used by
@@ -161,7 +130,6 @@ func (r *PipelineManifestReader) NextCreatePipelineRequest() (*ppsclient.CreateP
 		return nil, fmt.Errorf("malformed pipeline spec: %s", err)
 	}
 
-	// Tranform any embedded TFJob to a serialized JSON field
 	var key string
 	var ok bool
 	var tfjob interface{}
@@ -193,10 +161,18 @@ func (r *PipelineManifestReader) NextCreatePipelineRequest() (*ppsclient.CreateP
 		}
 	}
 
-	// serialize 'holder' to text, then parse again into a CreatePipelineRequest
-	// return r.decoder.ToRequest(holder)
-	req, err := r.decoder.ToRequest(holder)
-	return req, err
+	// serialize 'holder' to json, then parse again into a CreatePipelineRequest
+	// using jsonpb (which has special handling for timestamps and other types)
+	pipelineRequestBytes, err := json.Marshal(holder)
+	if err != nil {
+		return nil, fmt.Errorf("serialization error while canonicalizing CreatePipelineRequest: %v", err)
+	}
+	decoder := json.NewDecoder(bytes.NewReader(pipelineRequestBytes))
+	var result ppsclient.CreatePipelineRequest
+	if err := jsonpb.UnmarshalNext(decoder, &result); err != nil {
+		return nil, fmt.Errorf("parse error while canonicalizing CreatePipelineRequest: %v", err)
+	}
+	return &result, nil
 }
 
 // DescribeSyntaxError describes a syntax error encountered parsing json.
