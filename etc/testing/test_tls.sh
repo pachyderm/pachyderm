@@ -2,38 +2,18 @@
 
 set -euo pipefail
 
-active_context=`pachctl config get active-context`
-address=`pachctl config get context $active_context | jq -r .pachd_address`
-
+address=$(pachctl config get context `pachctl config get active-context` | jq -r .pachd_address)
 if [[ "${address}" = "null" ]]; then
   echo "pachd_address must be set on the active context"
   exit 1
 fi
-
-proto="$(echo $address | grep :// | sed -e's,^\(.*://\).*,\1,g')"
-hostport="$(echo ${address/$proto/})"
-host="$(echo $hostport | sed -e 's,:.*,,g')"
-port="$(echo $hostport | sed -e 's,^.*:,:,g' -e 's,.*:\([0-9]*\).*,\1,g' -e 's,[^0-9],,g')"
-
-echo "Testing TLS with host=$host, port=$port"
+hostport=$(echo $address | sed -e 's/grpcs:\/\///g' -e 's/grpc:\/\///g')
 
 # Generate self-signed cert and private key
-if [[ "${host}" =~ [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+ ]]; then
-  etc/deploy/gen_pachd_tls.sh --ip="${host}" --port="${port}"
-else
-  etc/deploy/gen_pachd_tls.sh --dns="${host}" --port="${port}"
-fi
+etc/deploy/gen_pachd_tls.sh $hostport ""
 
 # Restart pachyderm with the given certs
-etc/deploy/restart_with_tls.sh --key=${PWD}/pachd.key --cert=${PWD}/pachd.pem
-
-# Use new cert in pachctl
-echo "Backing up Pachyderm config to \$HOME/.pachyderm/config.json.backup"
-echo "New config with address and cert is at \$HOME/.pachyderm/config.json"
-cp ~/.pachyderm/config.json ~/.pachyderm/config.json.backup
-pachctl config update context \
-  --pachd-address="grpcs://${host}:${port}" \
-  --server-cas="$(cat ./pachd.pem | base64)"
+etc/deploy/restart_with_tls.sh $hostport ${PWD}/pachd.pem ${PWD}/pachd.key
 
 set +x
 # Don't log our activation code when running this script in Travis
