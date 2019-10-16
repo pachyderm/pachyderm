@@ -9528,12 +9528,14 @@ func TestSpout(t *testing.T) {
 				Transform: &pps.Transform{
 					Cmd: []string{"/bin/sh"},
 					Stdin: []string{
-						"cp /pfs/marker ./marker",
+						"cp /pfs/marker/test ./test",
 						"while [ : ]",
 						"do",
 						"sleep 1",
-						"echo $(tail -1 marker)x >> marker",
-						"tar -cvf /pfs/out ./marker*",
+						"echo $(tail -1 test)x >> test",
+						"mkdir marker",
+						"cp test marker/test",
+						"tar -cvf /pfs/out ./marker/test*",
 						"done"},
 				},
 				Spout: &pps.Spout{}, // this needs to be non-nil to make it a spout
@@ -9542,7 +9544,7 @@ func TestSpout(t *testing.T) {
 		fmt.Println("first pipeline")
 		// get 5 succesive commits, and ensure that the file size increases each time
 		// since the spout should be appending to that file on each commit
-		iter, err := c.SubscribeCommit(pipeline, "master", "", pfs.CommitState_FINISHED)
+		iter, err := c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED)
 		require.NoError(t, err)
 
 		var prevLength uint64
@@ -9567,12 +9569,14 @@ func TestSpout(t *testing.T) {
 				Transform: &pps.Transform{
 					Cmd: []string{"/bin/sh"},
 					Stdin: []string{
-						"cp /pfs/marker ./marker",
+						"cp /pfs/marker/test ./test",
 						"while [ : ]",
 						"do",
 						"sleep 1",
-						"echo $(tail -1 marker). >> marker",
-						"tar -cvf /pfs/out ./marker*",
+						"echo $(tail -1 test). >> test",
+						"mkdir marker",
+						"cp test marker/test",
+						"tar -cvf /pfs/out ./marker/test*",
 						"done"},
 				},
 				Spout:  &pps.Spout{}, // this needs to be non-nil to make it a spout
@@ -9587,11 +9591,35 @@ func TestSpout(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, 1, len(files))
 
-			fileLength := files[0].SizeBytes
-			if fileLength <= prevLength {
-				t.Errorf("File length was expected to increase. Prev: %v, Cur: %v", prevLength, fileLength)
+		}
+
+		// we want to check that the marker/test file looks like this:
+		// x
+		// xx
+		// xxx
+		// xxxx
+		// xxxxx
+		// xxxxx.
+		// xxxxx..
+		// xxxxx...
+		// xxxxx....
+		// xxxxx.....
+		var buf bytes.Buffer
+		err = c.GetFile(pipeline, "master", "marker/test", 0, 0, &buf)
+		if err != nil {
+			t.Errorf("Could not get file %v", err)
+		}
+		xs := 0
+		for err != io.EOF {
+			line := ""
+			line, err = buf.ReadString('\n')
+
+			if len(line) > 1 && line[len(line)-2:] == "x\n" {
+				xs = len(line) - 1
 			}
-			prevLength = fileLength
+			if len(line) > 1 && line != strings.Repeat("x", xs)+strings.Repeat(".", len(line)-xs-1)+"\n" {
+				t.Errorf("line did not have the expected form")
+			}
 		}
 	})
 	require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {

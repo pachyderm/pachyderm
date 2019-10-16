@@ -541,9 +541,9 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 		if err := syscall.Mkfifo(outPath, 0666); err != nil {
 			return "", fmt.Errorf("mkfifo :%v", err)
 		}
-		_, err := pachClient.InspectFile(a.pipelineInfo.Pipeline.Name, "master", "marker")
+		_, err := pachClient.InspectFile(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "marker")
 		if err == nil {
-			if err := puller.Pull(pachClient, filepath.Join(dir, "marker"), a.pipelineInfo.Pipeline.Name, "master", "/marker", false, false, concurrency, nil, ""); err != nil {
+			if err := puller.Pull(pachClient, filepath.Join(dir, "marker"), a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "/marker", false, false, concurrency, nil, ""); err != nil {
 				return "", err
 			}
 		}
