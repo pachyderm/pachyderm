@@ -311,6 +311,12 @@ func TestYAMLPipelineSpec(t *testing.T) {
 // TestYAMLError tests that when creating pipelines using a YAML spec with an
 // error, you get an error indicating the problem in the YAML, rather than an
 // error complaining about multiple documents.
+//
+// Note that with the new parsing method added to support free-form fields like
+// TFJob, this YAML is parsed, serialized and then re-parsed, so the error will
+// refer to "json" (the format used for the canonicalized pipeline), but the
+// issue referenced by the error (use of a string instead of an array for 'cmd')
+// is the main problem below
 func TestYAMLError(t *testing.T) {
 	// "cmd" should be a list, instead of a string
 	require.NoError(t, tu.BashCmd(`
@@ -328,7 +334,60 @@ func TestYAMLError(t *testing.T) {
 		  stdin:
 		    - "cp /pfs/input/* /pfs/out"
 		EOF
-		) | match "cannot unmarshal !!str ./bin/bash. into \[\]string"
+		) | match "cannot unmarshal string into Go value of type \[\]json.RawMessage"
+		`,
+	).Run())
+}
+
+func TestTFJobBasic(t *testing.T) {
+	require.NoError(t, tu.BashCmd(`
+		yes | pachctl delete all
+		pachctl create repo input
+		( pachctl create pipeline -f - 2>&1 <<EOF || true
+		pipeline:
+		  name: first
+		input:
+		  pfs:
+		    glob: /*
+		    repo: input
+		tf_job:
+		  apiVersion: kubeflow.org/v1
+		  kind: TFJob
+		  metadata:
+		    generateName: tfjob
+		    namespace: kubeflow
+		  spec:
+		    tfReplicaSpecs:
+		      PS:
+		        replicas: 1
+		        restartPolicy: OnFailure
+		        template:
+		          spec:
+		            containers:
+		            - name: tensorflow
+		              image: gcr.io/your-project/your-image
+		              command:
+		                - python
+		                - -m
+		                - trainer.task
+		                - --batch_size=32
+		                - --training_steps=1000
+		      Worker:
+		        replicas: 3
+		        restartPolicy: OnFailure
+		        template:
+		          spec:
+		            containers:
+		            - name: tensorflow
+		              image: gcr.io/your-project/your-image
+		              command:
+		                - python
+		                - -m
+		                - trainer.task
+		                - --batch_size=32
+		                - --training_steps=1000
+		EOF
+		) | match "not supported yet"
 		`,
 	).Run())
 }

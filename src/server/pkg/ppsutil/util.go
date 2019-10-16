@@ -15,21 +15,12 @@ package ppsutil
 
 import (
 	"bytes"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"math"
-	"net/http"
-	"net/url"
-	"os"
 	"path"
 	"strings"
 	"time"
-	"unicode"
 
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
@@ -42,7 +33,6 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
-	"gopkg.in/pachyderm/yaml.v3"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -258,120 +248,6 @@ func PipelineReqFromInfo(pipelineInfo *ppsclient.PipelineInfo) *ppsclient.Create
 		PodSpec:            pipelineInfo.PodSpec,
 		PodPatch:           pipelineInfo.PodPatch,
 	}
-}
-
-type pipelineDecoder interface {
-	Decode(v interface{}) error
-}
-
-type jsonpbDecoder struct {
-	decoder *json.Decoder
-}
-
-func newJSONPBDecoder(r io.Reader) *jsonpbDecoder {
-	return &jsonpbDecoder{
-		decoder: json.NewDecoder(r),
-	}
-}
-
-func (d *jsonpbDecoder) Decode(v interface{}) error {
-	msg, ok := v.(proto.Message)
-	if ok {
-		return jsonpb.UnmarshalNext(d.decoder, msg)
-	}
-	return d.decoder.Decode(v)
-}
-
-// PipelineManifestReader helps with unmarshalling pipeline configs from JSON. It's used by
-// 'create pipeline' and 'update pipeline'
-//
-// Note that the json decoder is able to parse text that
-// gopkg.in/pachyderm/yaml.v3 cannot (multiple json documents) so we currently
-// guess whether the document is JSON or not by looking at the first non-space
-// character and seeing if it's '{' (we originally tried parsing the pipeline
-// spec with both parsers, but that approach made it hard to return sensible
-// errors). We may fail to parse valid YAML documents this way, so hopefully the
-// yaml parser gains multi-document support and we can rely on it fully.
-type PipelineManifestReader struct {
-	decoder pipelineDecoder
-}
-
-// NewPipelineManifestReader creates a new manifest reader from a path.
-func NewPipelineManifestReader(path string) (result *PipelineManifestReader, retErr error) {
-	var pipelineBytes []byte
-	var err error
-	if path == "-" {
-		fmt.Print("Reading from stdin.\n")
-		pipelineBytes, err = ioutil.ReadAll(os.Stdin)
-	} else if url, err := url.Parse(path); err == nil && url.Scheme != "" {
-		resp, err := http.Get(url.String())
-		if err != nil {
-			return nil, err
-		}
-		defer func() {
-			if err := resp.Body.Close(); err != nil && retErr == nil {
-				retErr = err
-			}
-		}()
-		pipelineBytes, err = ioutil.ReadAll(resp.Body)
-	} else {
-		pipelineBytes, err = ioutil.ReadFile(path)
-	}
-	if err != nil {
-		return nil, err
-	}
-	idx := bytes.IndexFunc(pipelineBytes, func(r rune) bool {
-		return !unicode.IsSpace(r)
-	})
-	if idx >= 0 && pipelineBytes[idx] == '{' {
-		return &PipelineManifestReader{
-			decoder: newJSONPBDecoder(bytes.NewReader(pipelineBytes)),
-		}, nil
-	}
-	return &PipelineManifestReader{
-		decoder: yaml.NewDecoder(bytes.NewReader(pipelineBytes)),
-	}, nil
-}
-
-// NextCreatePipelineRequest gets the next request from the manifest reader.
-func (r *PipelineManifestReader) NextCreatePipelineRequest() (*ppsclient.CreatePipelineRequest, error) {
-	var result ppsclient.CreatePipelineRequest
-	if err := r.decoder.Decode(&result); err != nil {
-		if err == io.EOF {
-			return nil, err
-		}
-		return nil, fmt.Errorf("malformed pipeline spec: %s", err)
-	}
-	return &result, nil
-}
-
-// DescribeSyntaxError describes a syntax error encountered parsing json.
-func DescribeSyntaxError(originalErr error, parsedBuffer bytes.Buffer) error {
-
-	sErr, ok := originalErr.(*json.SyntaxError)
-	if !ok {
-		return originalErr
-	}
-
-	buffer := make([]byte, sErr.Offset)
-	parsedBuffer.Read(buffer)
-
-	lineOffset := strings.LastIndex(string(buffer[:len(buffer)-1]), "\n")
-	if lineOffset == -1 {
-		lineOffset = 0
-	}
-
-	lines := strings.Split(string(buffer[:len(buffer)-1]), "\n")
-	lineNumber := len(lines)
-
-	descriptiveErrorString := fmt.Sprintf("Syntax Error on line %v:\n%v\n%v^\n%v\n",
-		lineNumber,
-		string(buffer[lineOffset:]),
-		strings.Repeat(" ", int(sErr.Offset)-2-lineOffset),
-		originalErr,
-	)
-
-	return errors.New(descriptiveErrorString)
 }
 
 // IsTerminal returns 'true' if 'state' indicates that the job is done (i.e.
