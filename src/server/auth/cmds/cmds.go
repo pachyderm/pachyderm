@@ -480,7 +480,7 @@ func GetAuthTokenCmd() *cobra.Command {
 		"scripting, as the output can be piped to use-auth-token")
 	getAuthToken.PersistentFlags().StringVar(&ttl, "ttl", "", "if set, the "+
 		"resulting auth token will have the given lifetime (or the lifetime"+
-		"of the caller's current session, whichever is shorter). This flag shoul "+
+		"of the caller's current session, whichever is shorter). This flag should "+
 		"be a golang duration (e.g. \"30s\" or \"1d2h3m4s\")")
 	return cmdutil.CreateAlias(getAuthToken, "auth get-auth-token")
 }
