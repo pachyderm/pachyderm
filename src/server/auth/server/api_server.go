@@ -1022,26 +1022,23 @@ func (a *apiServer) GetOneTimePassword(ctx context.Context, req *auth.GetOneTime
 		if err != nil {
 			return nil, err
 		}
-		if sessionTTL > callerCurrentSessionTTL {
+		// Can't currently happen, but if the caller has an indefinite token, then
+		// the new token should have the default session TTL rather than being
+		// indefinite as well
+		if callerCurrentSessionTTL > 0 && sessionTTL > callerCurrentSessionTTL {
 			sessionTTL = callerCurrentSessionTTL
 		}
-	}
-
-	// Convert TTL to expiration time
-	// Note: sessionTTL <= 0 means that the user's session will not expire (e.g. because
-	// they are a robot user)
-	var sessionExpiration time.Time
-	if sessionTTL > 0 {
 		if sessionTTL <= 10 {
 			// session is too short to be meaningful -- return an error
 			return nil, fmt.Errorf("session expires too soon to get a " +
 				"one-time password")
 		}
-		sessionExpiration = time.Now().Add(time.Duration(sessionTTL-1) * time.Second)
+	}
+	sessionExpiration := time.Now().Add(time.Duration(sessionTTL-1) * time.Second)
 
-		if req.TTL >= sessionTTL {
-			req.TTL = sessionTTL
-		}
+	// Cap OTP TTL at session TTL (so OTPs don't convert to expired tokens)
+	if req.TTL >= sessionTTL {
+		req.TTL = (sessionTTL - 1)
 	}
 
 	// Generate authentication code with same (or slightly shorter) expiration
