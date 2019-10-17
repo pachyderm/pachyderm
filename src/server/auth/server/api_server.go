@@ -69,11 +69,12 @@ const (
 	defaultOTPTTLSecs = 60 * 5            // 5 minutes
 	maxOTPTTLSecs     = 30 * 24 * 60 * 60 // 30 days
 
-	// magicUser is a special, unrevokable cluster administrator. It's not
-	// possible to log in as magicUser, but pipelines with no owner are run as
-	// magicUser when auth is activated. This string is not secret, but is long
-	// and random to avoid collisions with real usernames
-	magicUser = `magic:GZD4jKDGcirJyWQt6HtK4hhRD6faOofP1mng34xNZsI`
+	// ppsUser is a special, unrevokable cluster administrator account used by PPS
+	// to create pipeline tokens, close commits, and do other necessary PPS work.
+	// It's not possible to authenticate as ppsUser (pps reads the auth token for
+	// this user directly from etcd). This string is not secret, but is long and
+	// random to avoid collisions with real usernames
+	ppsUser = `magic:GZD4jKDGcirJyWQt6HtK4hhRD6faOofP1mng34xNZsI`
 
 	// configKey is a key (in etcd, in the config collection) that maps to the
 	// auth configuration. This is the only key in that collection (due to
@@ -294,7 +295,7 @@ func (a *apiServer) activationState() activationState {
 	if len(a.adminCache) == 0 {
 		return none
 	}
-	if _, magicUserIsAdmin := a.adminCache[magicUser]; magicUserIsAdmin {
+	if _, ppsUserIsAdmin := a.adminCache[ppsUser]; ppsUserIsAdmin {
 		return partial
 	}
 	return full
@@ -430,7 +431,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 	// Activating an already activated auth service should fail, because
 	// otherwise anyone can just activate the service again and set
 	// themselves as an admin. If activation failed in PFS, calling auth.Activate
-	// again should work (in this state, the only admin will be 'magicUser')
+	// again should work (in this state, the only admin will be 'ppsUser')
 	if a.activationState() == full {
 		return nil, fmt.Errorf("already activated")
 	}
@@ -472,12 +473,12 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 		return nil, fmt.Errorf("invalid subject in request (must be a GitHub user or robot): \"%s\"", req.Subject)
 	}
 
-	// Hack: set the cluster admins to just {magicUser}. This puts the auth system
+	// Hack: set the cluster admins to just {ppsUser}. This puts the auth system
 	// in the "partial" activation state. Users cannot authenticate, but auth
 	// checks are now enforced, which means no pipelines or repos can be created
 	// while ACLs are being added to every repo for the existing pipelines
 	if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		return a.admins.ReadWrite(stm).Put(magicUser, epsilon)
+		return a.admins.ReadWrite(stm).Put(ppsUser, epsilon)
 	}); err != nil {
 		return nil, err
 	}
@@ -508,7 +509,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 	if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		admins := a.admins.ReadWrite(stm)
 		tokens := a.tokens.ReadWrite(stm)
-		if err := admins.Delete(magicUser); err != nil {
+		if err := admins.Delete(ppsUser); err != nil {
 			return err
 		}
 		if err := admins.Put(req.Subject, epsilon); err != nil {
@@ -556,13 +557,13 @@ func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest)
 
 	// Check if the cluster is in a partially-activated state. If so, allow it to
 	// be completely deactivated so that it returns to normal
-	var magicUserIsAdmin bool
+	var ppsUserIsAdmin bool
 	func() {
 		a.adminMu.Lock()
 		defer a.adminMu.Unlock()
-		_, magicUserIsAdmin = a.adminCache[magicUser]
+		_, ppsUserIsAdmin = a.adminCache[ppsUser]
 	}()
-	if magicUserIsAdmin {
+	if ppsUserIsAdmin {
 		_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 			a.admins.ReadWrite(stm).DeleteAll() // watchAdmins() will see the write
 			return nil
@@ -947,7 +948,7 @@ func (a *apiServer) GetOneTimePassword(ctx context.Context, req *auth.GetOneTime
 	case partial:
 		return nil, auth.ErrPartiallyActivated
 	}
-	if req.Subject == magicUser {
+	if req.Subject == ppsUser {
 		return nil, fmt.Errorf("GetOneTimePassword.Subject is invalid")
 	}
 
@@ -968,8 +969,8 @@ func (a *apiServer) GetOneTimePassword(ctx context.Context, req *auth.GetOneTime
 		// Canonicalization: callerInfo.Subject is already canonical.
 		// Authorization: Getting an OTP for yourself is always authorized
 		// TTL: Use caller's current token if non-admin, default OTP TTL otherwise
-		// NOTE: After this point, req.Subject may be magicUser (even though we
-		// reject magicUser when set explicitly
+		// NOTE: After this point, req.Subject may be ppsUser (even though we
+		// reject ppsUser when set explicitly
 		req.Subject = callerInfo.Subject
 	} else {
 		// [Harder case] explicit req.Subject
@@ -1189,7 +1190,7 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 
 	// Get TTL of user's token
 	ttl := int64(-1) // value returned by etcd for keys w/ no lease (no TTL)
-	if callerInfo.Subject != magicUser {
+	if callerInfo.Subject != ppsUser {
 		token, err := getAuthToken(ctx)
 		if err != nil {
 			return nil, err
@@ -1219,7 +1220,7 @@ func validateSetScopeRequest(ctx context.Context, req *auth.SetScopeRequest) err
 }
 
 func (a *apiServer) isAdmin(ctx context.Context, subject string) (bool, error) {
-	if subject == magicUser {
+	if subject == ppsUser {
 		return true, nil
 	}
 	a.adminMu.Lock()
@@ -1578,7 +1579,7 @@ func (a *apiServer) SetACLInTransaction(
 	}
 	for _, entry := range req.Entries {
 		user, scope := entry.Username, entry.Scope
-		if user == magicUser {
+		if user == ppsUser {
 			continue
 		}
 		eg.Go(func() error {
@@ -1702,7 +1703,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 		// get tokens for all existing pipelines during activation
 		return nil, auth.ErrNotActivated
 	}
-	if req.Subject == magicUser {
+	if req.Subject == ppsUser {
 		return nil, fmt.Errorf("GetAuthTokenRequest.Subject is invalid")
 	}
 	if req.TTL < 0 {
@@ -1778,7 +1779,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		return a.tokens.ReadWrite(stm).PutTTL(hashToken(token), &tokenInfo, req.TTL)
 	}); err != nil {
-		if tokenInfo.Subject != magicUser {
+		if tokenInfo.Subject != ppsUser {
 			return nil, fmt.Errorf("error storing token for user \"%s\": %v", tokenInfo.Subject, err)
 		}
 		return nil, fmt.Errorf("error storing token: %v", err)
@@ -2235,10 +2236,10 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, 
 	}
 	if token == a.ppsToken {
 		// TODO(msteffen): This is a hack. The idea is that there is a logical user
-		// entry mapping ppsToken to magicUser. Soon, magicUser will go away and
+		// entry mapping ppsToken to ppsUser. Soon, ppsUser will go away and
 		// this check should happen in authorize
 		return &auth.TokenInfo{
-			Subject: magicUser,
+			Subject: ppsUser,
 			Source:  auth.TokenInfo_GET_TOKEN,
 		}, nil
 	}
