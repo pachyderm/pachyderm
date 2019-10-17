@@ -1762,7 +1762,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 		if req.TTL <= 0 || req.TTL > ttl {
 			req.TTL = ttl
 		}
-	} else if version.IsAtLeast(1, 10) && req.TTL == 0 || req.TTL > defaultSessionTTLSecs {
+	} else if version.IsAtLeast(1, 10) && (req.TTL == 0 || req.TTL > defaultSessionTTLSecs) {
 		// To create a token with no TTL, an admin can call GetAuthToken and set TTL
 		// to -1, but the default behavior (TTL == 0) is use the default token
 		// lifetime.
