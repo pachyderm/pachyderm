@@ -1697,8 +1697,15 @@ func (a *apiServer) SetACL(ctx context.Context, req *auth.SetACLRequest) (resp *
 	return response, nil
 }
 
-// authorizeNewToken is a helper for GetAuthToken and GetOTP. The code isn't too
-// long or complex, but centralizing it keeps the two API endpoints syncronized
+// authorizeNewToken is a helper for GetAuthToken and GetOTP that checks if
+// the caller ('callerInfo') is authorized to get a Pachyderm token or OTP for
+// 'targetUser', or for themselves if 'targetUser' is empty (a convention use by
+// both API endpoints). It returns a canonicalized version of 'targetSubject'
+// (or the caller if 'targetSubject' is empty) xor an error, e.g. if the caller
+// isn't authorized.
+//
+// The code isn't too long or complex, but centralizing it keeps the two API
+// endpoints syncronized
 func (a *apiServer) authorizeNewToken(ctx context.Context, callerInfo *auth.TokenInfo, isAdmin bool, targetSubject string) (string, error) {
 	if targetSubject == "" {
 		// [Simple case] caller wants an implicit OTP for themselves
