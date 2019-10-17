@@ -52,6 +52,7 @@ go test -v ./src/server -run TestPipelineWithParallelism
 echo admin | pachctl auth activate
 otp="$(pachctl auth get-otp admin)"
 echo "${otp}" | pachctl auth login --one-time-password
+pachctl auth whoami
 pachctl auth whoami | grep -q admin # will fail if pachctl can't connect
 echo yes | pachctl auth deactivate
 
