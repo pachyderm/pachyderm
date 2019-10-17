@@ -878,6 +878,9 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 			key := hashToken(req.OneTimePassword)
 			var otpInfo auth.OTPInfo
 			if err := otps.Get(key, &otpInfo); err != nil {
+				if col.IsErrNotFound(err) {
+					return fmt.Errorf("otp is invalid or has expired")
+				}
 				return err
 			}
 			otps.Delete(key)
