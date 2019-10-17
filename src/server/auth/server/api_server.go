@@ -1705,7 +1705,7 @@ func (a *apiServer) authorizeNewToken(ctx context.Context, callerInfo *auth.Toke
 		// Canonicalization: callerInfo.Subject is already canonical.
 		// Authorization: Getting a token/OTP for yourself is always authorized.
 		// NOTE: After this point, req.Subject is permitted to be ppsUser (even
-		// though we reject ppsUser when set explicitly
+		// though we reject ppsUser when set explicitly.)
 		targetSubject = callerInfo.Subject
 	} else {
 		// [Harder case] explicit req.Subject
