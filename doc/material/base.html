@@ -56,7 +56,7 @@
       {% endif %}
     {% endblock %}
     {% block styles %}
-      <link rel="stylesheet" href="{{ 'assets/stylesheets/application.87b3805a.css' | url }}">
+      <link rel="stylesheet" href="{{ 'assets/stylesheets/application.fe6fb372.css' | url }}">
       {% if palette.primary or palette.accent %}
         <link rel="stylesheet" href="{{ 'assets/stylesheets/application-palette.da41b4c0.css' | url }}">
       {% endif %}
@@ -157,6 +157,11 @@
             {% endif %}
           {% endblock %}
           <div class="md-content">
+            <div class="md-flex md-flex__cell--stretch">
+              {% block banner %}
+                {% include "partials/banner.html" %}
+              {% endblock %}
+            </div>
             <article class="md-content__inner md-typeset">
               {% block content %}
                 {% if page.edit_url %}
@@ -193,7 +198,7 @@
       {% endblock %}
     </div>
     {% block scripts %}
-      <script src="{{ 'assets/javascripts/application.cb24b6c0.js' | url }}"></script>
+      <script src="{{ 'assets/javascripts/application.30d8a07d.js' | url }}"></script>
       {% if lang.t("search.language") != "en" %}
         {% set languages = lang.t("search.language").split(",") %}
         {% if languages | length and languages[0] != "" %}
