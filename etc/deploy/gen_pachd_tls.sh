@@ -22,9 +22,9 @@ x509_extensions    = exn    # Since we're making self-signed certs. For CSRs, us
 EOF
 
 if [[ "${is_ip}" = "false" ]]; then
-  # TODO(msteffen) better default domain name
   tls_config+=$'\n'"CN = ${host}"
 else
+  # TODO(msteffen) better default domain name
   tls_config+=$'\n'"CN = localhost"
 fi
 
