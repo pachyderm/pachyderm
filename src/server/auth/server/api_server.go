@@ -59,7 +59,11 @@ const (
 	// Note: if 'defaultSessionTTLSecs' is changed, then the description of
 	// '--ttl' in 'pachctl get-auth-token' must also be changed
 	defaultSessionTTLSecs = 30 * 24 * 60 * 60 // 30 days
-	defaultSAMLTTLSecs    = 24 * 60 * 60      // 24 hours
+	// defaultSAMLTTLSecs is the default session TTL for SAML-authenticated tokens
+	// This is shorter than defaultSessionTTLSecs because group membership
+	// information is passed during SAML authentication, so a short TTL ensures
+	// that group membership information is updated somewhat regularly.
+	defaultSAMLTTLSecs = 24 * 60 * 60 // 24 hours
 
 	// defaultOTPTTLSecs is the lifetime of an One-Time Password from
 	// GetOneTimePassword
@@ -847,7 +851,8 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 			return nil, err
 		}
 
-		// If the cluster's enterprise token is expired, only admins may log in
+		// If the cluster's enterprise token is expired, only admins may log in.
+		// Check if 'username' is an admin
 		if err := a.expiredClusterAdminCheck(ctx, username); err != nil {
 			return nil, err
 		}
@@ -878,6 +883,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 			otps.Delete(key)
 
 			// If the cluster's enterprise token is expired, only admins may log in
+			// Check if 'otpInfo.Subject' is an admin
 			if err := a.expiredClusterAdminCheck(ctx, otpInfo.Subject); err != nil {
 				return err
 			}
@@ -1064,9 +1070,15 @@ func (a *apiServer) GetOneTimePassword(ctx context.Context, req *auth.GetOneTime
 }
 
 // getOneTimePassword contains the implementation of GetOneTimePassword,
-// but is also called directly by handleSAMLREsponse. It generates a
-// short-lived authentication code for 'username', writes it to
-// a.authenticationCodes, and returns it
+// but is also called directly by handleSAMLResponse. It generates a
+// short-lived one-time password for 'username', writes it to
+// a.oneTimePasswords, and returns it
+//
+// Note: if sessionExpiration is 0, then Authenticate() will give the caller the
+// default session TTL, rather than an indefinite token, so this is relatively
+// safe. 'sessionExpiration' should typically be set, though, so that expiration
+// time is measured from when the OTP is issued, rather than from when it's
+// converted.
 func (a *apiServer) getOneTimePassword(ctx context.Context, username string, otpTTL int64, sessionExpiration time.Time) (code string, err error) {
 	// Create OTPInfo that will be stored
 	otpInfo := &auth.OTPInfo{
@@ -1750,10 +1762,20 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 	}
 
 	// Compute TTL for new token that the user will get once OTP is exchanged
-	// Note: Admins always use default TTL (30 days currently), which means they
-	// can extend their session by getting an OTP and exchanging it for a new
-	// token with a later expiration than their curren token. See duplicate code
-	// in GetOneTimePassword for an explanation
+	// Note: For Pachyderm <1.10, admin tokens always come with an indefinite
+	// session, unless a limit is requested. For Pachyderm >=1.10, Admins always
+	// use default TTL (30 days currently), unless they explicitly request an
+	// indefinite TTL.
+	//
+	// TODO(msteffen): Either way, admins can can extend their session by getting
+	// a new token for themselves. I don't know if allowing users to do this is
+	// bad security practice (it might be). However, preventing admins from
+	// extending their own session here wouldn't improve security: admins can
+	// currently manufacture a buddy account, promote it to admin, and then extend
+	// their session indefinitely with the buddy account. Pachyderm cannot prevent
+	// this with the information is currently stores, so preventing admins from
+	// extending their session indefinitely would require larger changes to the
+	// auth model.
 	if !isAdmin {
 		// Caller is getting OTP for themselves--use TTL of their current token
 		ttl, err := a.getCallerTTL(ctx)
