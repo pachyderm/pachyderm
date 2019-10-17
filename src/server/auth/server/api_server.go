@@ -977,31 +977,17 @@ func (a *apiServer) GetOneTimePassword(ctx context.Context, req *auth.GetOneTime
 		return nil, err
 	}
 
-	// Canonicalize req.Subject, authorize caller
-	if req.Subject == "" {
-		// [Simple case] caller wants an implicit OTP for themselves
-		// Canonicalization: callerInfo.Subject is already canonical.
-		// Authorization: Getting an OTP for yourself is always authorized
-		// TTL: Use caller's current token if non-admin, default OTP TTL otherwise
-		// NOTE: After this point, req.Subject may be ppsUser (even though we
-		// reject ppsUser when set explicitly
-		req.Subject = callerInfo.Subject
-	} else {
-		// [Harder case] explicit req.Subject
-		// canonicalize req.Subject
-		subject, err := a.canonicalizeSubject(ctx, req.Subject)
-		if err != nil {
-			return nil, err
-		}
-		req.Subject = subject
-
-		// Authorization: caller must be admin to get OTP for another user
-		if !isAdmin && req.Subject != callerInfo.Subject {
+	// check if this request is auhorized
+	req.Subject, err = a.authorizeNewToken(ctx, callerInfo, isAdmin, req.Subject)
+	if err != nil {
+		if _, ok := err.(*auth.ErrNotAuthorized); ok {
+			// return more descriptive error
 			return nil, &auth.ErrNotAuthorized{
 				Subject: callerInfo.Subject,
 				AdminOp: "GetOneTimePassword on behalf of another user",
 			}
 		}
+		return nil, err
 	}
 
 	// compute the TTL for the OTP itself (default: 5m). This cannot be longer
@@ -1714,6 +1700,35 @@ func (a *apiServer) SetACL(ctx context.Context, req *auth.SetACLRequest) (resp *
 	return response, nil
 }
 
+// authorizeNewToken is a helper for GetAuthToken and GetOTP. The code isn't too
+// long or complex, but centralizing it keeps the two API endpoints syncronized
+func (a *apiServer) authorizeNewToken(ctx context.Context, callerInfo *auth.TokenInfo, isAdmin bool, targetSubject string) (string, error) {
+	if targetSubject == "" {
+		// [Simple case] caller wants an implicit OTP for themselves
+		// Canonicalization: callerInfo.Subject is already canonical.
+		// Authorization: Getting a token/OTP for yourself is always authorized.
+		// NOTE: After this point, req.Subject is permitted to be ppsUser (even
+		// though we reject ppsUser when set explicitly
+		targetSubject = callerInfo.Subject
+	} else {
+		// [Harder case] explicit req.Subject
+		var err error
+		targetSubject, err = a.canonicalizeSubject(ctx, targetSubject)
+		if err != nil {
+			return "", err
+		}
+
+		// Authorization: caller must be admin to get OTP for another user
+		if !isAdmin && targetSubject != callerInfo.Subject {
+			return "", &auth.ErrNotAuthorized{
+				Subject: callerInfo.Subject,
+				AdminOp: "get token on behalf of another user",
+			}
+		}
+	}
+	return targetSubject, nil
+}
+
 // GetAuthToken implements the protobuf auth.GetAuthToken RPC
 func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequest) (resp *auth.GetAuthTokenResponse, retErr error) {
 	a.LogReq(req)
@@ -1741,32 +1756,17 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 		return nil, err
 	}
 
-	// TODO(msteffen): This code is duplicated here and in GetOneTimePassword.
-	// These two RPC handlers should probably be unified
-	// Canonicalize req.Subject, authorize caller
-	if req.Subject == "" {
-		// [Simple case] caller wants an implicit OTP for themselves
-		// Canonicalization: callerInfo.Subject is already canonical.
-		// Authorization: Getting an OTP for yourself is always authorized
-		// TTL: Use caller's current token if non-admin, default OTP TTL otherwise
-		// NOTE: After this point, req.Subject may be magicUser (even though we
-		// reject magicUser when set explicitly
-		req.Subject = callerInfo.Subject
-	} else {
-		// [Harder case] explicit req.Subject
-		// canonicalize req.Subject
-		req.Subject, err = a.canonicalizeSubject(ctx, req.Subject)
-		if err != nil {
-			return nil, err
-		}
-
-		// Authorization: caller must be admin to get OTP for another user
-		if !isAdmin && req.Subject != callerInfo.Subject {
+	// check if this request is auhorized
+	req.Subject, err = a.authorizeNewToken(ctx, callerInfo, isAdmin, req.Subject)
+	if err != nil {
+		if _, ok := err.(*auth.ErrNotAuthorized); ok {
+			// return more descriptive error
 			return nil, &auth.ErrNotAuthorized{
 				Subject: callerInfo.Subject,
 				AdminOp: "GetAuthToken on behalf of another user",
 			}
 		}
+		return nil, err
 	}
 
 	// Compute TTL for new token that the user will get once OTP is exchanged
