@@ -140,7 +140,7 @@ func (r *PipelineManifestReader) NextCreatePipelineRequest() (*ppsclient.CreateP
 	}
 	if key != "" {
 		var err error
-		var tfjob_text []byte
+		var tfjobText []byte
 		if tfjob, ok := tfjob.(map[string]interface{}); ok {
 			// tiny validation--make sure "kind" is "TFJob" (or is unset)
 			if tfjob["kind"] == "" {
@@ -148,7 +148,7 @@ func (r *PipelineManifestReader) NextCreatePipelineRequest() (*ppsclient.CreateP
 			} else if tfjob["kind"] != "TFJob" {
 				return nil, errors.New("tf_job must contain a kubernetes manifest for a Kubeflow TFJob")
 			}
-			tfjob_text, err = json.Marshal(tfjob)
+			tfjobText, err = json.Marshal(tfjob)
 		} else {
 			err = fmt.Errorf("jsonpb parses TFJob as unexpected type %T", tfjob)
 		}
@@ -157,7 +157,7 @@ func (r *PipelineManifestReader) NextCreatePipelineRequest() (*ppsclient.CreateP
 		}
 		delete(holder, key)
 		holder["tf_job"] = map[string]interface{}{
-			"tf_job": string(tfjob_text),
+			"tf_job": string(tfjobText),
 		}
 	}
 
