@@ -444,7 +444,8 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 			// Check for errors in approximate order of helpfulness
 			if port != "" && port != DefaultPachdPort && port != DefaultPachdNodePort {
 				return nil, fmt.Errorf("could not connect (note: port is usually "+
-					"%s or %s, but is currently set to %q--is this right?): %v", DefaultPachdNodePort, DefaultPachdPort, port, err)
+					"%d or %d, but is currently set to \"%d\"--is this right?): %v",
+					DefaultPachdNodePort, DefaultPachdPort, port, err)
 			}
 			isLoopback := strings.HasPrefix(addr, "0.0.0.0") || strings.HasPrefix(addr, "127.0.0.1") || strings.HasPrefix(addr, "[::1]") || strings.HasPrefix(addr, "localhost")
 			if fw == nil && isLoopback {
