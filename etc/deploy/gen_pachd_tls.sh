@@ -4,6 +4,11 @@
 hostport=$1
 output_prefix=${2:-pachd}
 host="$(echo $hostport | sed -e 's,:.*,,g')"
+if [[ "${host}" =~ [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+  is_ip=true
+else
+  is_ip=false
+fi
 
 # Define a minimal openssl config for our micro-CA
 read -d '' -r tls_config <<EOF
@@ -14,13 +19,19 @@ distinguished_name = dn
 x509_extensions    = exn    # Since we're making self-signed certs. For CSRs, use req_extensions
 
 [ dn ]
-CN = localhost # TODO(msteffen) better default domain name
-
-[ exn ]
 EOF
 
-if [[ "${host}" =~ [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+ ]]; then
-  tls_config+=$'\n'"subjectAltName = IP:${host}"
+if [[ "${is_ip}" = "false" ]]; then
+  # TODO(msteffen) better default domain name
+  tls_config+=$'\n'"CN = ${host}"
+else
+  tls_config+=$'\n'"CN = localhost"
+fi
+
+tls_config+=$'\n'$'\n'"[ exn ]"$'\n'
+
+if [[ "${is_ip}" = "true" ]]; then
+  tls_config+="subjectAltName = IP:${host}"
 fi
 
 echo "${tls_config}"
