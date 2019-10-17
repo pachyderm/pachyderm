@@ -2,7 +2,6 @@ package index
 
 import (
 	"context"
-	"io"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
@@ -159,43 +158,6 @@ func (w *Writer) callback(level int) chunk.WriterFunc {
 		}
 		// Write index entry in next level index.
 		return w.writeHeaders([]*Header{hdr}, level+1)
-	}
-}
-
-// WriteCopyFunc executes a function for copying data to the writer.
-func (w *Writer) WriteCopyFunc(f func() (*Copy, error)) error {
-	w.setupLevels()
-	for {
-		c, err := f()
-		if err != nil {
-			if err == io.EOF {
-				return nil
-			}
-			return err
-		}
-		// Finish level below.
-		// (bryce) this is going to run twice during the copy process (going up the levels, then back down).
-		// This is probably fine, but may be worth noting.
-		if c.level > 0 {
-			lw := w.levels[c.level-1]
-			lw.tw = tar.NewWriter(lw.cw)
-			if err := lw.cw.Flush(); err != nil {
-				return err
-			}
-			lw.cw.Reset()
-		}
-		// Write the raw bytes first (handles bytes hanging over at the end)
-		if c.raw != nil {
-			if err := w.levels[c.level].cw.WriteCopy(c.raw); err != nil {
-				return err
-			}
-		}
-		// Write the headers to be copied.
-		if c.hdrs != nil {
-			if err := w.writeHeaders(c.hdrs, c.level); err != nil {
-				return err
-			}
-		}
 	}
 }
 

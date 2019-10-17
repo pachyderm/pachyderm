@@ -44,8 +44,8 @@ func (r *Reader) Next() (*index.Header, error) {
 			return nil, err
 		}
 	}
-	// Store header and reset reader for if a read is attempted.
 	r.hdr = hdr
+	r.cr.NextRange(r.hdr.Idx.DataOp.DataRefs)
 	r.tr = nil
 	r.tags = hdr.Idx.DataOp.Tags[1:]
 	return hdr, nil
@@ -100,7 +100,6 @@ func (r *Reader) Read(data []byte) (int, error) {
 
 func (r *Reader) setupReader() error {
 	if r.tr == nil {
-		r.cr.NextRange(r.hdr.Idx.DataOp.DataRefs)
 		r.tr = tar.NewReader(r.cr)
 		// Remove tar header from content stream.
 		if _, err := r.tr.Next(); err != nil {
@@ -110,57 +109,8 @@ func (r *Reader) setupReader() error {
 	return nil
 }
 
-type copyFiles struct {
-	indexCopyF func() (*index.Copy, error)
-	files      []*copyTags
-}
-
-func (r *Reader) readCopyFiles(pathBound ...string) func() (*copyFiles, error) {
-	var done bool
-	return func() (*copyFiles, error) {
-		if done {
-			return nil, io.EOF
-		}
-		c := &copyFiles{}
-		// Setup index copying callback at the first split point where
-		// the next chunk will be copied.
-		var hdr *index.Header
-		r.cr.OnSplit(func() {
-			if hdr != nil && index.BeforeBound(hdr.Idx.LastPathChunk, pathBound...) {
-				c.indexCopyF = r.ir.ReadCopyFunc(pathBound...)
-			}
-		})
-		for {
-			var err error
-			hdr, err = r.Peek()
-			if err != nil {
-				if err == io.EOF {
-					done = true
-					break
-				}
-				return nil, err
-			}
-			// If the header is past the path bound, then we are done.
-			if !index.BeforeBound(hdr.Hdr.Name, pathBound...) {
-				done = true
-				break
-			}
-			if _, err := r.Next(); err != nil {
-				return nil, err
-			}
-			file, err := r.readCopyTags()
-			if err != nil {
-				return nil, err
-			}
-			c.files = append(c.files, file)
-			// Return copy information for content level, and callback
-			// for index level copying.
-			if c.indexCopyF != nil {
-				break
-			}
-		}
-		return c, nil
-	}
+func (r *Reader) newSplitLimitReader() *chunk.SplitLimitReader {
+	return r.cr.NewSplitLimitReader()
 }
 
 type copyTags struct {

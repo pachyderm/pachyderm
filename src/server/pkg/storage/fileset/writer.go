@@ -17,19 +17,19 @@ var (
 )
 
 type meta struct {
-	hdr, copyHdr *index.Header
+	hdr *index.Header
 }
 
 // Writer writes the serialized format of a fileset.
 // The serialized format of a fileset consists of indexes and content which are both realized as compressed tar stream chunks.
 type Writer struct {
-	ctx                   context.Context
-	chunks                *chunk.Storage
-	tw                    *tar.Writer
-	cw                    *chunk.Writer
-	iw                    *index.Writer
-	hdr, copyHdr, lastHdr *index.Header
-	closed                bool
+	ctx          context.Context
+	chunks       *chunk.Storage
+	tw           *tar.Writer
+	cw           *chunk.Writer
+	iw           *index.Writer
+	hdr, lastHdr *index.Header
+	closed       bool
 }
 
 func newWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path string) *Writer {
@@ -50,31 +50,29 @@ func (w *Writer) WriteHeader(hdr *index.Header) error {
 	if err := w.tw.Flush(); err != nil {
 		return err
 	}
-	// Setup index header for next file.
-	if hdr.Idx == nil {
-		hdr.Idx = &index.Index{}
-	}
-	w.hdr = &index.Header{
-		Hdr: hdr.Hdr,
-		Idx: proto.Clone(hdr.Idx).(*index.Index),
-	}
+	// (bryce) need a deep copy library for this.
+	w.hdr = &index.Header{Hdr: hdr.Hdr}
+	// Setup annotation in chunk writer.
 	w.cw.Annotate(&chunk.Annotation{
 		NextDataRef: &chunk.DataRef{},
 		Meta: &meta{
 			hdr: w.hdr,
 		},
 	})
-	// The DataOp should only be non-nil when copying.
-	if w.hdr.Idx.DataOp == nil {
-		w.hdr.Idx.DataOp = &index.DataOp{}
-	} else {
+	// The index should only be non-nil when cheap copying.
+	if hdr.Idx != nil {
+		w.hdr.Idx = proto.Clone(hdr.Idx).(*index.Index)
+		// Data references will be set by the callback.
 		w.hdr.Idx.DataOp.DataRefs = nil
-		w.copyHdr = hdr
+		return nil
 	}
+	// Write content header.
 	if err := w.tw.WriteHeader(w.hdr.Hdr); err != nil {
 		return err
 	}
-	// Setup first tag for header.
+	// Setup index header for the file.
+	w.hdr.Idx = &index.Index{DataOp: &index.DataOp{}}
+	// Setup header tag for the file.
 	w.hdr.Idx.DataOp.Tags = []*index.Tag{&index.Tag{Id: headerTag, SizeBytes: w.cw.AnnotatedBytesSize()}}
 	return nil
 }
@@ -137,58 +135,78 @@ func (w *Writer) writeCopyTags(c *copyTags) error {
 
 // CopyFiles does a cheap copy of files from a reader to a writer.
 // (bryce) need to handle delete operations.
-func (w *Writer) CopyFiles(r *Reader, pathBound ...string) error {
-	f := r.readCopyFiles(pathBound...)
+func (w *Writer) CopyFiles(r *Reader, pathBound ...string) (retErr error) {
+	var cheapCopy bool
+	slr := r.newSplitLimitReader()
 	for {
-		c, err := f()
+		hdr, err := r.Peek()
 		if err != nil {
 			if err == io.EOF {
 				return nil
 			}
 			return err
 		}
-		// Copy the content level.
-		for _, file := range c.files {
-			if err := w.WriteHeader(file.hdr); err != nil {
-				return err
-			}
-			if err := w.writeCopyTags(file); err != nil {
-				return err
-			}
+		// If the header is past the path bound, then we are done.
+		if !index.BeforeBound(hdr.Hdr.Name, pathBound...) {
+			return nil
 		}
-		// Copy the index level(s).
-		if c.indexCopyF != nil {
-			if err := w.finishFile(); err != nil {
+		if _, err = r.Next(); err != nil {
+			return err
+		}
+		// If the last path in a referenced chunk is past the path bound,
+		// then we are done cheap copying index entries.
+		if !index.BeforeBound(hdr.Idx.LastPathChunk, pathBound...) {
+			cheapCopy = false
+		}
+		if cheapCopy {
+			if err := w.iw.WriteHeaders([]*index.Header{hdr}); err != nil {
 				return err
 			}
-			if err := w.iw.WriteCopyFunc(c.indexCopyF); err != nil {
+			continue
+		}
+		if err := w.WriteHeader(hdr); err != nil {
+			return err
+		}
+		if _, err := io.Copy(w.cw, slr); err != nil && err != io.EOF {
+			return err
+		}
+		if slr.AtSplit() {
+			if err := w.finishFile(hdr); err != nil {
 				return err
 			}
+			slr.Reset()
+			cheapCopy = true
 		}
 	}
 }
 
-func (w *Writer) finishFile() error {
-	// Pull the last data reference and the corresponding last path in the last chunk from the copy header.
+func (w *Writer) finishFile(hdr *index.Header) error {
+	// Flush the current file's content.
 	if err := w.cw.Flush(); err != nil {
 		return err
 	}
-	// We need to delete the last chunk after the flush because it will be contained within the copied chunks.
-	if err := w.chunks.Delete(w.ctx, w.lastHdr.Idx.DataOp.DataRefs[len(w.lastHdr.Idx.DataOp.DataRefs)-1].Chunk.Hash); err != nil {
+	// Update the current file's index entry with the pre-copy data references.
+	hdr.Idx.DataOp.DataRefs = updateDataRefs(hdr.Idx.DataOp.DataRefs, w.lastHdr.Idx.DataOp.DataRefs)
+	if err := w.iw.WriteHeaders([]*index.Header{hdr}); err != nil {
 		return err
 	}
-	w.lastHdr.Idx.DataOp.DataRefs = w.lastHdr.Idx.DataOp.DataRefs[:len(w.lastHdr.Idx.DataOp.DataRefs)-1]
-	dataRefs := w.lastHdr.Idx.DataOp.DataRefs
-	copyDataRefs := w.copyHdr.Idx.DataOp.DataRefs
-	if len(dataRefs) == 0 || dataRefs[len(dataRefs)-1].Chunk.Hash != copyDataRefs[len(copyDataRefs)-1].Chunk.Hash {
-		w.lastHdr.Idx.DataOp.DataRefs = append(w.lastHdr.Idx.DataOp.DataRefs, copyDataRefs[len(copyDataRefs)-1])
-	}
-	w.lastHdr.Idx.LastPathChunk = w.copyHdr.Idx.LastPathChunk
-	// Write the last hdr and clear the content level writers.
-	w.iw.WriteHeaders([]*index.Header{w.lastHdr})
-	w.lastHdr = nil
 	w.tw = tar.NewWriter(w.cw)
-	w.cw.Reset()
+	w.lastHdr = nil
+	return nil
+}
+
+func updateDataRefs(dataRefs, updateDataRefs []*chunk.DataRef) []*chunk.DataRef {
+	var updateSize int64
+	for _, dataRef := range updateDataRefs {
+		updateSize += dataRef.SizeBytes
+	}
+	var size int64
+	for i, dataRef := range dataRefs {
+		size += dataRef.SizeBytes
+		if size == updateSize {
+			return append(updateDataRefs, dataRefs[i+1:]...)
+		}
+	}
 	return nil
 }
 

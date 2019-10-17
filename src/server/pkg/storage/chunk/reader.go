@@ -20,16 +20,14 @@ type ReaderFunc func() ([]*DataRef, error)
 
 // Reader reads a set of DataRefs from chunk storage.
 type Reader struct {
-	ctx              context.Context
-	objC             obj.Client
-	dataRefs         []*DataRef
-	curr             *DataRef
-	buf              *bytes.Buffer
-	r                *bytes.Reader
-	len              int64
-	f                ReaderFunc
-	onSplit          func()
-	bytesBeforeSplit int64
+	ctx      context.Context
+	objC     obj.Client
+	dataRefs []*DataRef
+	curr     *DataRef
+	buf      *bytes.Buffer
+	r        *bytes.Reader
+	len      int64
+	f        ReaderFunc
 }
 
 func newReader(ctx context.Context, objC obj.Client, f ...ReaderFunc) *Reader {
@@ -59,12 +57,17 @@ func (r *Reader) Len() int64 {
 	return r.len
 }
 
+// LenChunk returns the number of bytes left
+// in the current chunk.
+func (r *Reader) LenChunk() int {
+	return r.r.Len()
+}
+
 // Read reads from the byte stream produced by the set of DataRefs.
 func (r *Reader) Read(data []byte) (int, error) {
 	var totalRead int
 	defer func() {
 		r.len -= int64(totalRead)
-		r.bytesBeforeSplit += int64(totalRead)
 	}()
 	for len(data) > 0 {
 		n, err := r.r.Read(data)
@@ -94,7 +97,6 @@ func (r *Reader) nextDataRef() error {
 	}
 	// Get next chunk if necessary.
 	if r.curr == nil || r.curr.Chunk.Hash != r.dataRefs[0].Chunk.Hash {
-		r.executeOnSplitFunc()
 		if err := r.readChunk(r.dataRefs[0].Chunk); err != nil {
 			return err
 		}
@@ -125,20 +127,55 @@ func (r *Reader) readChunk(chunk *Chunk) error {
 	return nil
 }
 
-// OnSplit registers a callback for when a chunk split point is encountered.
-// The callback is only executed at a split point found after reading WindowSize bytes.
-// The reason for this is to guarantee that the same split point will appear in the writer
-// the data is being written to.
-func (r *Reader) OnSplit(f func()) {
-	r.bytesBeforeSplit = 0
-	r.onSplit = f
+type SplitLimitReader struct {
+	r                *Reader
+	bytesBeforeSplit int
+	atSplit          bool
 }
 
-func (r *Reader) executeOnSplitFunc() {
-	if r.onSplit != nil && r.bytesBeforeSplit > WindowSize {
-		r.onSplit()
-		r.onSplit = nil
+func (r *Reader) NewSplitLimitReader() *SplitLimitReader {
+	return &SplitLimitReader{r: r}
+}
+
+func (r *SplitLimitReader) Read(data []byte) (int, error) {
+	if r.atSplit {
+		return 0, io.EOF
 	}
+	var totalBytesRead int
+	readFunc := func(n int) error {
+		bytesRead, err := r.r.Read(data[:n])
+		if err != nil {
+			return err
+		}
+		data = data[bytesRead:]
+		totalBytesRead += bytesRead
+		r.bytesBeforeSplit += bytesRead
+		return nil
+	}
+	if r.bytesBeforeSplit < WindowSize {
+		if err := readFunc(mathutil.Min(WindowSize-r.bytesBeforeSplit, len(data))); err != nil {
+			return totalBytesRead, err
+		}
+	}
+	if r.r.LenChunk() > 0 {
+		if err := readFunc(mathutil.Min(r.r.LenChunk(), len(data))); err != nil {
+			return totalBytesRead, err
+		}
+	}
+	if r.bytesBeforeSplit >= WindowSize && r.r.LenChunk() == 0 {
+		r.atSplit = true
+		return totalBytesRead, io.EOF
+	}
+	return totalBytesRead, nil
+}
+
+func (r *SplitLimitReader) AtSplit() bool {
+	return r.atSplit
+}
+
+func (r *SplitLimitReader) Reset() {
+	r.bytesBeforeSplit = 0
+	r.atSplit = false
 }
 
 // Copy is the basic data structure to represent a copy of data from
@@ -185,7 +222,6 @@ func (r *Reader) ReadCopy(n ...int64) (*Copy, error) {
 	// Copy the in between chunk references.
 	// (bryce) is there an edge case with a size zero chunk?
 	for len(r.dataRefs) > 0 && r.dataRefs[0].Hash == "" && totalLeft >= r.dataRefs[0].SizeBytes {
-		r.executeOnSplitFunc()
 		c.chunkRefs = append(c.chunkRefs, r.dataRefs[0])
 		totalLeft -= r.dataRefs[0].SizeBytes
 		r.len -= r.dataRefs[0].SizeBytes
