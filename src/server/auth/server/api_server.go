@@ -64,6 +64,9 @@ const (
 	// information is passed during SAML authentication, so a short TTL ensures
 	// that group membership information is updated somewhat regularly.
 	defaultSAMLTTLSecs = 24 * 60 * 60 // 24 hours
+	// minSessionTTL is the shortest session TTL that Authenticate() will attach
+	// to a new token. This avoids confusing behavior with stale OTPs and such.
+	minSessionTTL = 10 * time.Second // 30 days
 
 	// defaultOTPTTLSecs is the lifetime of an One-Time Password from
 	// GetOneTimePassword
@@ -899,13 +902,15 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 					return fmt.Errorf("invalid timestamp in OTPInfo, could not " +
 						"authenticate (try obtaining a new OTP)")
 				}
-				if !expiration.IsZero() {
-					// divide instead of calling Seconds() to avoid float-based rounding
-					// errors
-					newTTL := int64(expiration.Sub(time.Now()) / time.Second)
-					if newTTL < ttl {
-						ttl = newTTL
-					}
+				tokenTTLDuration := expiration.Sub(time.Now())
+				if tokenTTLDuration < minSessionTTL {
+					return fmt.Errorf("otp is invalid or has expired")
+				}
+				// divide instead of calling Seconds() to avoid float-based rounding
+				// errors
+				newTTL := int64(tokenTTLDuration / time.Second)
+				if newTTL < ttl {
+					ttl = newTTL
 				}
 			}
 
