@@ -2821,8 +2821,9 @@ func TestOTPTimeoutShorterThanSessionTimeout(t *testing.T) {
 	aliceClient := getPachClient(t, alice)
 
 	// Change aliceClient to use a short-lived token
+	var tokenLifetime int64 = 15 // seconds (must be >10 per check in api_server)
 	resp, err := aliceClient.GetAuthToken(aliceClient.Ctx(), &auth.GetAuthTokenRequest{
-		TTL: 5, // seconds
+		TTL: tokenLifetime,
 	})
 	require.NoError(t, err)
 	token1 := resp.Token
@@ -2846,7 +2847,7 @@ func TestOTPTimeoutShorterThanSessionTimeout(t *testing.T) {
 	require.Equal(t, gh(alice), who.Username)
 
 	// ...but stops working after the original token expires
-	time.Sleep(6 * time.Second)
+	time.Sleep(time.Duration(tokenLifetime+1) * time.Second)
 	who, err = aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
 	require.YesError(t, err)
 	require.True(t, auth.IsErrBadToken(err), err.Error())
