@@ -128,4 +128,4 @@ the glob pattern `/(*)` selects all the matching files in the root directory.
 All files with indices from `1` to `5` match. The files
 with indices from `6` to `8` do not match. Therefore, you only get five datums for this job.
 
-To experiment further, see the full [joins example](https://github.com/pachyderm/pachyderm/tree/master/examples/join).
+To experiment further, see the full [joins example](https://github.com/pachyderm/pachyderm/tree/master/examples/joins).
