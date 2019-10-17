@@ -45,13 +45,13 @@ const (
 	// pachyderm token for any username in the AuthenticateRequest.GitHubToken field
 	DisableAuthenticationEnvVar = "PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING"
 
-	tokensPrefix              = "/tokens"
-	authenticationCodesPrefix = "/auth-codes"
-	aclsPrefix                = "/acls"
-	adminsPrefix              = "/admins"
-	membersPrefix             = "/members"
-	groupsPrefix              = "/groups"
-	configPrefix              = "/config"
+	tokensPrefix           = "/tokens"
+	oneTimePasswordsPrefix = "/auth-codes"
+	aclsPrefix             = "/acls"
+	adminsPrefix           = "/admins"
+	membersPrefix          = "/members"
+	groupsPrefix           = "/groups"
+	configPrefix           = "/config"
 
 	// defaultSessionTTLSecs is the lifetime of an auth token from Authenticate,
 	// and the default lifetime of an auth token from GetAuthToken.
@@ -139,10 +139,10 @@ type apiServer struct {
 	// tokens is a collection of hashedToken -> TokenInfo mappings. These tokens are
 	// returned to users by Authenticate()
 	tokens col.Collection
-	// authenticationCodes is a collection of hash(code) -> TokenInfo mappings.
+	// oneTimePasswords is a collection of hash(code) -> TokenInfo mappings.
 	// These codes are generated internally, and converted to regular tokens by
 	// Authenticate()
-	authenticationCodes col.Collection
+	oneTimePasswords col.Collection
 	// acls is a collection of repoName -> ACL mappings.
 	acls col.Collection
 	// admins is a collection of username -> Empty mappings (keys indicate which
@@ -210,9 +210,9 @@ func NewAuthServer(
 			nil,
 			nil,
 		),
-		authenticationCodes: col.NewCollection(
+		oneTimePasswords: col.NewCollection(
 			env.GetEtcdClient(),
-			path.Join(etcdPrefix, authenticationCodesPrefix),
+			path.Join(etcdPrefix, oneTimePasswordsPrefix),
 			nil,
 			&auth.OTPInfo{},
 			nil,
@@ -868,13 +868,13 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 	case req.OneTimePassword != "":
 		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 			// read short-lived authentication code (and delete it if found)
-			codes := a.authenticationCodes.ReadWrite(stm)
+			otps := a.oneTimePasswords.ReadWrite(stm)
 			key := hashToken(req.OneTimePassword)
 			var otpInfo auth.OTPInfo
-			if err := codes.Get(key, &otpInfo); err != nil {
+			if err := otps.Get(key, &otpInfo); err != nil {
 				return err
 			}
-			codes.Delete(key)
+			otps.Delete(key)
 
 			// If the cluster's enterprise token is expired, only admins may log in
 			if err := a.expiredClusterAdminCheck(ctx, otpInfo.Subject); err != nil {
@@ -1083,7 +1083,7 @@ func (a *apiServer) getOneTimePassword(ctx context.Context, username string, otp
 	// Generate and store new OTP
 	code = "otp/" + uuid.NewWithoutDashes()
 	if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		return a.authenticationCodes.ReadWrite(stm).PutTTL(hashToken(code),
+		return a.oneTimePasswords.ReadWrite(stm).PutTTL(hashToken(code),
 			otpInfo, otpTTL)
 	}); err != nil {
 		return "", err
