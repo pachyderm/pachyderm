@@ -280,7 +280,9 @@ func glob(tx *bolt.Tx, pattern string, f func(string, *NodeProto) error) error {
 	}
 	c := fs(tx).Cursor()
 	for k, v := c.First(); k != nil; k, v = c.Next() {
+		fmt.Printf("k: %s, pattern: %s\n", s(k), pattern)
 		if g.Match(s(k)) {
+			fmt.Println("match")
 			node := &NodeProto{}
 			if node.Unmarshal(v); err != nil {
 				return err
@@ -291,6 +293,8 @@ func glob(tx *bolt.Tx, pattern string, f func(string, *NodeProto) error) error {
 				}
 				return err
 			}
+		} else {
+			fmt.Println("no match")
 		}
 	}
 	return nil
@@ -312,9 +316,12 @@ func Glob(rs []io.ReadCloser, pattern string, f func(string, *NodeProto) error) 
 		return errorf(MalformedGlob, err.Error())
 	}
 	return nodes(rs, func(path string, node *NodeProto) error {
+		fmt.Printf("path: %s node.Name: %s pattern: %s\n", path, node.Name, pattern)
 		if g.Match(path) {
+			fmt.Println("match")
 			return f(externalDefault(path), node)
 		}
+		fmt.Println("no match")
 		return nil
 	})
 }
