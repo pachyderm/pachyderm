@@ -359,7 +359,7 @@ func TestGetAuthTokenTTL(t *testing.T) {
 	`, "token", token)
 	login.Stderr = &errMsg
 	require.YesError(t, login.Run())
-	require.Matches(t, errMsg.String(), "try logging in")
+	require.Matches(t, "try logging in", errMsg.String())
 }
 
 // TestGetOneTimePasswordNoSubject tests that 'pachctl get-otp' infers the
@@ -374,7 +374,7 @@ func TestGetOneTimePasswordNoSubject(t *testing.T) {
 	require.NoError(t, tu.BashCmd(`
 		echo "{{.alice}}" | pachctl auth login
 		otp="$(pachctl auth get-otp)"
-		echo "${otp}" | pachctl auth login --otp
+		echo "${otp}" | pachctl auth login --one-time-password
 		pachctl auth whoami | match {{.alice}}
 		`,
 		"alice", tu.UniqueString("alice"),
@@ -396,19 +396,20 @@ func TestGetOneTimePasswordTTL(t *testing.T) {
 	).Run())
 
 	var otpBuf bytes.Buffer
-	otpCmd := tu.BashCmd(`pachctl auth get-otp --ttl=5s"`)
+	otpCmd := tu.BashCmd(`pachctl auth get-otp --ttl=5s`)
 	otpCmd.Stdout = &otpBuf
 	require.NoError(t, otpCmd.Run())
 	otp := strings.TrimSpace(otpBuf.String())
 
+	// wait for OTP to expire
 	time.Sleep(6 * time.Second)
 	var errMsg bytes.Buffer
 	login := tu.BashCmd(`
-		echo {{.otp}} | pachctl auth login --otp
-	`, "otp", token)
+		echo {{.otp}} | pachctl auth login --one-time-password
+	`, "otp", otp)
 	login.Stderr = &errMsg
 	require.YesError(t, login.Run())
-	require.Matches(t, errMsg.String(), "try logging in")
+	require.Matches(t, "otp is invalid or has expired", errMsg.String())
 }
 
 func TestMain(m *testing.M) {
