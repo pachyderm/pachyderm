@@ -42,8 +42,8 @@ func PrettyPrintVersion(version *pb.Version) string {
 	return result
 }
 
-// This returns true if Pachyderm is at least at the given version. This allows
-// us to gate backwards-incompatible features on release boundaries.
+// IsAtLeast returns true if Pachyderm is at least at the given version. This
+// allows us to gate backwards-incompatible features on release boundaries.
 func IsAtLeast(major, minor int) bool {
 	return MajorVersion > major || (MajorVersion == major && MinorVersion >= minor)
 }
