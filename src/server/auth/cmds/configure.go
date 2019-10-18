@@ -1,6 +1,7 @@
 package cmds
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"gopkg.in/pachyderm/yaml.v3"
 
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/spf13/cobra"
 )
 
@@ -74,16 +76,16 @@ func SetConfigCmd() *cobra.Command {
 				return fmt.Errorf("could not connect: %v", err)
 			}
 			defer c.Close()
-			var configBytes []byte
+			var rawConfigBytes []byte
 			if file == "-" {
 				var err error
-				configBytes, err = ioutil.ReadAll(os.Stdin)
+				rawConfigBytes, err = ioutil.ReadAll(os.Stdin)
 				if err != nil {
 					return fmt.Errorf("could not read config from stdin: %v", err)
 				}
 			} else if file != "" {
 				var err error
-				configBytes, err = ioutil.ReadFile(file)
+				rawConfigBytes, err = ioutil.ReadFile(file)
 				if err != nil {
 					return fmt.Errorf("could not read config from %q: %v", file, err)
 				}
@@ -91,10 +93,26 @@ func SetConfigCmd() *cobra.Command {
 				return errors.New("must set input file (use \"-\" to read from stdin)")
 			}
 
-			// Try to parse config as YAML (JSON is a subset of YAML)
+			// Parse config as YAML into an unstructured document (JSON is a subset of
+			// YAML, so this will allow us to convert both JSON configs and YAML
+			// configs to JSON), and then re-parse the JSON using jsonpb, which has
+			// special support for reading timestamps and such into proto-generated
+			// structs
 			var config auth.AuthConfig
-			if err := yaml.Unmarshal(configBytes, &config); err != nil {
+			holder := map[string]interface{}{}
+			// deserialize yaml/json into 'holder'
+			if err := yaml.Unmarshal(rawConfigBytes, &holder); err != nil {
 				return fmt.Errorf("could not parse config: %v", err)
+			}
+			// serialize 'holder' to json
+			jsonConfigBytes, err := json.Marshal(holder)
+			if err != nil {
+				return fmt.Errorf("serialization error while canonicalizing auth config: %v", err)
+			}
+			// parse again into an AuthConfig, with special parser
+			decoder := json.NewDecoder(bytes.NewReader(jsonConfigBytes))
+			if err := jsonpb.UnmarshalNext(decoder, &config); err != nil {
+				return fmt.Errorf("parse error while canonicalizing auth config: %v", err)
 			}
 			// TODO(msteffen): try to handle empty config?
 			_, err = c.SetConfiguration(c.Ctx(), &auth.SetConfigurationRequest{
