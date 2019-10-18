@@ -1,6 +1,6 @@
 title: Pachyderm Documentation
 description: A website for the Pachyderm Data Science platform documentation.
-date: "10-01-2019"
+date: "10-18-2019"
 robots: index
 image: assets/images/android-chrome-256x256.png
 
