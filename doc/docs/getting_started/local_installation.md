@@ -10,9 +10,9 @@ environment.
 Before you can deploy Pachyderm, make sure you have the following
 programs installed on your computer:
 
-- [Minikube](#minikube)
+- [Minikube](#using-minikube)
 - Oracle® VirtualBox™ or [Docker Desktop (v18.06+)](#docker-desktop)
-- [Pachyderm Command Line Interface](#pachctl)
+- [Pachyderm Command Line Interface](#install-pachctl)
 
 If you install Pachyderm on Windows 10 or later, you must have the following
 components installed in addition to the ones listed above:

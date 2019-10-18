@@ -99,7 +99,7 @@ To deploy Pachyderm we will need to:
 
 1. [Create storage resources](#set-up-the-storage-resources), 
 2. [Install the Pachyderm CLI tool, `pachctl`](#install-pachctl), and
-3. [Deploy Pachyderm on the Kubernetes cluster](#deploy-pachyderm-on-the-k8s-cluster)
+3. [Deploy Pachyderm on the Kubernetes cluster](#deploy-pachyderm-on-the-kubernetes-cluster)
 
 ### Set up the Storage Resources
 

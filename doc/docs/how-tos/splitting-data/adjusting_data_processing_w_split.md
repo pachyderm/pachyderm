@@ -54,7 +54,7 @@ Pachyderm creates split-files until it hits one of the
 constraints.
 
 !!! note "See also:"
-    [Splitting Data for Distributed Processing](splitting.md#pg-dump-sql-support)
+    [Splitting Data for Distributed Processing](../splitting/#ingesting-postgressql-data)
 
 ### Example: Splitting a File
 

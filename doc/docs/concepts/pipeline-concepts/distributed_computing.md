@@ -61,4 +61,4 @@ that it spawns one worker per Kubernetes node for this pipeline.
 **See also:**
 
 * [Glob Pattern](../datum/glob-pattern)
-* [Pipeline Specification](../../reference/pipeline_spec)
+* [Pipeline Specification](../../reference/pipeline_spec.md)

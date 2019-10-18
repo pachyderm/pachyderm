@@ -10,15 +10,15 @@
 - [General migration procedure](#general-migration-procedure)
   - [Before you start: backups](#before-you-start-backups)
   - [Migration steps](#migration-steps)
-    - [1. Pause all pipeline and data loading operations](#pause-all-pipeline-and-data-loading-operations)
-    - [2. Extract a pachyderm backup with the --no-objects flag](#extract-a-pachyderm-backup-with-the-no-objects-flag)
-    - [3. Clone your object store bucket](#clone-your-object-store-bucket)
-    - [4. Restart all pipeline and data loading ops](#restart-all-pipeline-and-data-loading-ops)
-    - [5. Deploy a 1.X Pachyderm cluster with cloned bucket](#deploy-a-1-x-pachyderm-cluster-with-cloned-bucket)
-    - [6. Restore the new 1.X Pachyderm cluster from your backup](#restore-the-new-1-y-pachyderm-cluster-from-your-backup)
-    - [7. Load transactional data from checkpoint into new cluster](#load-transactional-data-from-checkpoint-into-new-cluster)
-    - [8. Disable the old cluster](#disable-the-old-cluster)
-    - [9. Reconfigure new cluster as necessary](#reconfigure-new-cluster-as-necessary)
+    - [1. Pause all pipeline and data loading operations](#1-pause-all-pipeline-and-data-loading-operations)
+    - [2. Extract a pachyderm backup with the --no-objects flag](#2-extract-a-pachyderm-backup-with-the-no-objects-flag)
+    - [3. Clone your object store bucket](#3-clone-your-object-store-bucket)
+    - [4. Restart all pipeline and data loading ops](#4-restart-all-pipeline-and-data-loading-ops)
+    - [5. Deploy a 1.X Pachyderm cluster with cloned bucket](#5-deploy-a-1x-pachyderm-cluster-with-cloned-bucket)
+    - [6. Restore the new 1.X Pachyderm cluster from your backup](#6-restore-the-new-1x-pachyderm-cluster-from-your-backup)
+    - [7. Load transactional data from checkpoint into new cluster](#7-load-transactional-data-from-checkpoint-into-new-cluster)
+    - [8. Disable the old cluster](#8-disable-the-old-cluster)
+    - [9. Reconfigure new cluster as necessary](#9-reconfigure-new-cluster-as-necessary)
 
 ## Introduction
 
@@ -52,7 +52,7 @@ the data structures stored in those locations need to be read, transformed, and 
 *You must perform a migration to move between major releases*,
 such as 1.8.7 to 1.9.0.
 
-Whether you're doing an upgrade or migration, it is recommended you [backup Pachyderm](./backup_restore#general-backup-procedure) prior.
+Whether you're doing an upgrade or migration, it is recommended you [backup Pachyderm](../backup_restore/#general-backup-procedure) prior.
 That will guarantee you can restore your cluster to its previous, good state.
 
 ## Note about 1.7 to 1.8 migrations
@@ -68,7 +68,7 @@ You may wish to keep your original 1.7 cluster around in a suspended state, reac
 
 ### Before you start: backups
 
-Please refer to [the documentation on backing up your cluster](./backup_restorel#general-backup-procedure).
+Please refer to [the documentation on backing up your cluster](../backup_restore/#general-backup-procedure).
 
 ### Migration steps
 #### 1. Pause all pipeline and data loading operations
@@ -102,7 +102,7 @@ Pipelines have their own output repos associated with them, and are not consider
 If there are any processes external to pachyderm that put data into input repos using any method
 (the Pachyderm APIs, `pachctl put file`, etc.), 
 they need to be paused.  
-See [Loading data from other sources into pachyderm](#loading-data-from-other-sources-into-pachyderm) below for design considerations for those processes that will minimize downtime during a restore or migration.
+See [Loading data from other sources into pachyderm](../backup_restore/#loading-data-from-other-sources-into-pachyderm) below for design considerations for those processes that will minimize downtime during a restore or migration.
 
 Alternatively, you can use the following commands to stop all data loading into Pachyderm from outside processes.
 
@@ -138,7 +138,7 @@ pachd               1.7.11
 
 ### 2. Extract a pachyderm backup with the --no-objects flag
 
-This step and the following step, [3. Clone your object store bucket](#clone-your-object-store-bucket), can be run simultaneously.
+This step and the following step, [3. Clone your object store bucket](#3-clone-your-object-store-bucket), can be run simultaneously.
 
 Using the `pachctl extract` command, create the backup you need.
 
@@ -154,7 +154,7 @@ This is merely a bucket you allocated to hold the pachyderm backup without objec
 ### 3. Clone your object store bucket
 
 This step and the prior step,
-[2. Extract a pachyderm backup with the --no-objects flag](#extract-a-pachyderm-backup-with-the-no-objects-flag),
+[2. Extract a pachyderm backup with the --no-objects flag](#2-extract-a-pachyderm-backup-with-the-no-objects-flag),
 can be run simultaneously.
 Run the command that will clone a bucket in your object store.
 
@@ -169,8 +169,8 @@ and [Azure blob storage](https://docs.microsoft.com/en-us/azure/storage/common/s
 
 Once the backup and clone operations are complete,
 restart all paused pipelines and data loading operations,
-setting a checkpoint for the started operations that you can use in step [7. Load transactional data from checkpoint into new cluster](#load-transactional-data-from-checkpoint-into-new-cluster), below.
-See [Loading data from other sources into pachyderm](./backup_restore#loading-data-from-other-sources-into-pachyderm) to understand why designing this checkpoint into your data loading systems is important.
+setting a checkpoint for the started operations that you can use in step [7. Load transactional data from checkpoint into new cluster](#7-load-transactional-data-from-checkpoint-into-new-cluster), below.
+See [Loading data from other sources into pachyderm](../backup_restore/#loading-data-from-other-sources-into-pachyderm) to understand why designing this checkpoint into your data loading systems is important.
 
 From the directed acyclic graphs (DAG) that define your pachyderm cluster,
 start each pipeline.
@@ -196,7 +196,7 @@ pachctl list pipeline --raw \
 ```
 
 If you used the port-changing technique,
-[above](#pause-all-pipeline-and-data-loading-operations),
+[above](#1-pause-all-pipeline-and-data-loading-operations),
 to stop all data loading into Pachyderm from outside processes,
 you should change the ports back.
 
@@ -227,17 +227,17 @@ pachd               1.7.11
 ```
 
 Your old pachyderm cluster can operate while you're creating a migrated one.
-It's important that your data loading operations are designed to use the "[Loading data from other sources into pachyderm](./backup_restore#loading-data-from-other-sources-into-pachyderm)" design criteria below for this to work.
+It's important that your data loading operations are designed to use the "[Loading data from other sources into pachyderm](../backup_restore/#loading-data-from-other-sources-into-pachyderm)" design criteria below for this to work.
 
 ### 5. Deploy a 1.X Pachyderm cluster with cloned bucket
 
-Create a pachyderm cluster using the bucket you cloned in [3. Clone your object store bucket](#clone-your-object-store-bucket). 
+Create a pachyderm cluster using the bucket you cloned in [3. Clone your object store bucket](#3-clone-your-object-store-bucket). 
 
 You'll want to bring up this new pachyderm cluster in a different namespace.
 You'll check at the steps below 
 to see if there was some kind of problem with the extracted data 
-and steps [2](#extract-a-pachyderm-backup-with-the-no-objects-flag) and
-[3](#clone-your-object-store-bucket) need to be run again. 
+and steps [2](#2-extract-a-pachyderm-backup-with-the-no-objects-flag) and
+[3](#3-clone-your-object-store-bucket) need to be run again. 
 Once your new cluster is up and you're connected to it, go on to the next step.
 
 Note that there may be modifications needed to Kubernetes ingress to Pachyderm deployment in the new namespace to avoid port conflicts in the same cluster.
@@ -248,7 +248,7 @@ _Important: Use the_ `kubectl config current-config` _command to confirm you're 
 
 ### 6. Restore the new 1.X Pachyderm cluster from your backup
 
-Using the Pachyderm cluster you deployed in the previous step, [5. Deploy a 1.X pachyderm cluster with cloned bucket](#deploy-a-1.X-pachyderm-cluster-with-cloned-bucket), run `pachctl restore` with the backup you created in [2. Extract a pachyderm backup with the --no-objects flag](#extract-a-pachyderm-backup-with-the-no-objects-flag).
+Using the Pachyderm cluster you deployed in the previous step, [5. Deploy a 1.x Pachyderm cluster with cloned bucket](#5-deploy-a-1x-pachyderm-cluster-with-cloned-bucket), run `pachctl restore` with the backup you created in [2. Extract a pachyderm backup with the --no-objects flag](#2-extract-a-pachyderm-backup-with-the-no-objects-flag).
 
 !!! note "Important"
     Use the_ `kubectl config current-config` _command to confirm you're
@@ -266,7 +266,7 @@ This is merely a bucket you allocated to hold the Pachyderm backup without objec
 ### 7. Load transactional data from checkpoint into new cluster
 
 Configure an instance of your data loading systems to point at the new, upgraded pachyderm cluster
-and play back transactions from the checkpoint you established in [4. Restart all pipeline and data loading operations](#restart-all-pipeline-and-data-loading-operations). 
+and play back transactions from the checkpoint you established in [4. Restart all pipeline and data loading operations](#4-restart-all-pipeline-and-data-loading-ops).
 
 Perform any reconfiguration to data loading or unloading operations.
 

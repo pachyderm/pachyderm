@@ -14,7 +14,7 @@ procedure is simple and requires little to no downtime.
 
 To upgrade Pachyderm to a minor version, complete the following steps:
 
-1. Back up your cluster as described in the [Backup and Restore](./backup_restore#general-backup-procedure)
+1. Back up your cluster as described in the [Backup and Restore](../backup_restore/#general-backup-procedure)
 section.
 
 1. Destroy your Pachyderm cluster:
@@ -111,7 +111,7 @@ Thus, the `--dynamic-etcd-nodes` flag to `pachctl deploy` is used to deploy Pach
 
 It is recommended that you deploy Pachyderm using StatefulSets when possible. 
 All of the instructions for cloud provider deployments do this by default.
-We also provide [instructions for on-premises deployments using StatefulSets](../deploy/on_premises#statefulsets).
+We also provide [instructions for on-premises deployments using StatefulSets](../../deploy/on_premises/#statefulsets).
 
 If you have deployed Pachyderm using StatefulSets, 
 you can still use the *same* deploy command to re-deploy Pachyderm. 

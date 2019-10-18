@@ -29,11 +29,11 @@ email at support@pachyderm.io.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="getting_started/local_installation.html" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="getting_started/local_installation/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
           Install Pachyderm on Your Computer
           </a>
           </li>
-          <li><a href="getting_started/beginner_tutorial/.html" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="getting_started/beginner_tutorial/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
           Beginner Tutorial
           </a>
         </li>
@@ -106,7 +106,7 @@ email at support@pachyderm.io.
            Variant Discovery with GATK
            </a>
            </li>
-           <li><a href="reference/examples" class="mdl-button mdl-button--colored mdl-js-button mdl- js-ripple-effect">
+           <li><a href="examples/examples/" class="mdl-button mdl-button--colored mdl-js-button mdl- js-ripple-effect">
            More Examples
            </a>
           </li>

@@ -38,4 +38,4 @@ The service section specifies the following parameters:
 
 **See Also**
 
-- [Service](../../reference/pipeline_spec#service-alpha-feature-optional)
+- [Service](../../../../reference/pipeline_spec/#service-alpha-feature-optional)

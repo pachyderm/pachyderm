@@ -83,7 +83,7 @@ pipelines.
 After you create a cluster, you need to go to the terminal on your computer
 and configure your CLI to connect to your cluster by installing `pachctl`
 and configuring your Pachyderm context. For more information about
-Pachyderm contexts, see [Connect by using a Pachyderm Context](../deploy-manage/deploy/connect-to-cluster#connect-by-using-a-pachyderm-context).
+Pachyderm contexts, see [Connect by using a Pachyderm Context](../../deploy-manage/deploy/connect-to-cluster/#connect-by-using-a-pachyderm-context).
 
 Your `pachctl` version must match the version of the Pachyderm cluster that
 you deployed on Pachyderm Hub. Pachyderm Hub uses the latest release
@@ -106,7 +106,7 @@ To connect to your cluster, complete the following steps:
    ```
 
    If you are using another operating system, see
-   [Install `pachctl`](../getting_started/local_installation#install-pachctl).
+   [Install `pachctl`](../../getting_started/local_installation/#install-pachctl).
 
    * If you already have `pachctl` installed, skip this step, or you
    might need to update your version of `pachctl`. For example, if you use

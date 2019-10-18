@@ -132,7 +132,7 @@ already created the pipeline for you and you can find the [code on
 GitHub](https://github.com/pachyderm/pachyderm/blob/master/examples/opencv).
 
 When you want to create your own pipelines later, you can refer to the
-full [Pipeline Specification](../reference/pipeline_spec) to use
+full [Pipeline Specification](../../reference/pipeline_spec) to use
 more advanced options. Options include building your own code into a
 container instead of the pre-built Docker image that we are
 using in this tutorial.
@@ -364,7 +364,7 @@ repositories using a `cross` pattern. This `cross` pattern creates a
 single pairing of our input images with our edge detected images. There
 are several interesting ways to combine data in Pachyderm, which are
 discussed
-[here](../reference/pipeline_spec#input-required)
+[here](../../reference/pipeline_spec/#input-required)
 and
 [here](../how-tos/combining.md).
 

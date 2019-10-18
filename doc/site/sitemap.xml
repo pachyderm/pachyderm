@@ -2,1142 +2,1142 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
      <loc>https://docs.pachyderm.com/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/contributing/setup/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/contributing/gcloud-setup/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/contributing/repo-layout/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/contributing/coding-conventions/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/contributing/docs-style-guide/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/getting_started/local_installation/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/getting_started/beginner_tutorial/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/concepts/data-concepts/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/concepts/data-concepts/repo/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/concepts/data-concepts/commit/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/concepts/data-concepts/branch/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/concepts/data-concepts/file/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/concepts/data-concepts/provenance/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/concepts/data-concepts/history/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/concepts/pipeline-concepts/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/concepts/pipeline-concepts/pipeline/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/concepts/pipeline-concepts/pipeline/cron/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/concepts/pipeline-concepts/pipeline/service/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/concepts/pipeline-concepts/pipeline/spout/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/concepts/pipeline-concepts/job/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/concepts/pipeline-concepts/datum/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/concepts/pipeline-concepts/datum/glob-pattern/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/concepts/pipeline-concepts/datum/relationship-between-datums/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/concepts/pipeline-concepts/datum/cross-union/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/concepts/pipeline-concepts/distributed_computing/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/how-tos/individual-developer-workflow/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/how-tos/team-developer-workflow/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/how-tos/load-data-into-pachyderm/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/how-tos/export-data-out-pachyderm/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/how-tos/splitting-data/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/how-tos/splitting-data/splitting/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/how-tos/splitting-data/adjusting_data_processing_w_split/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/how-tos/combining/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/how-tos/create-ml-workflow/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/how-tos/run_pipeline/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/how-tos/updating_pipelines/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/how-tos/time_windows/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/how-tos/removing_data_from_pachyderm/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/how-tos/distributed_computing/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/how-tos/deferred_processing/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/how-tos/ingressing_from_diff_cloud/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/deploy/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/pachub/pachub_getting_started/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/deploy/google_cloud_platform/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/deploy/amazon_web_services/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/deploy/amazon_web_services/deploy-eks/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/deploy/amazon_web_services/aws-deploy-kubernetes-kops/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/deploy/amazon_web_services/aws-deploy-pachyderm/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/deploy/amazon_web_services/aws_cloudfront/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/deploy/azure/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/deploy/openshift/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/deploy/on_premises/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/deploy/deploy_custom/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/deploy/deploy_custom/deploy_custom_before_you_begin/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/deploy/deploy_custom/deploy_custom_pachyderm_deployment_manifest/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/deploy/deploy_custom/deploy_custom_configuring_persistent_disk_parameters/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/deploy/deploy_custom/deploy_custom_configuring_object_store/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/deploy/deploy_custom/deploy_custom_complete_example_invocation/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/deploy/deploy_custom/deploy_custom_additional_flags/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/deploy/namespaces/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/deploy/non-cloud-object-stores/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/deploy/rbac/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/deploy/tracing/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/deploy/connect-to-cluster/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/manage/cluster-access/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/manage/autoscaling/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/manage/batching_pachyderm_with_transactions/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/manage/backup_restore/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/manage/data_management/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/manage/gpus/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/manage/sharing_gpu_resources/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/manage/upgrades_migrations/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/manage/migrations/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/manage/upgrades/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/deploy-manage/manage/disable-metrics/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pipeline_spec/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/config_spec/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/clients/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/s3gateway_api/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_auth/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_auth_activate/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_auth_check/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_auth_deactivate/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_auth_get-auth-token/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_auth_get-config/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_auth_get-otp/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_auth_get/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_auth_list-admins/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_auth_login/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_auth_logout/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_auth_modify-admins/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_auth_set-config/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_auth_set/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_auth_use-auth-token/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_auth_whoami/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_completion/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_config/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_config_delete/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_config_delete_context/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_config_get/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_config_get_active-context/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_config_get_context/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_config_get_metrics/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_config_list/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_config_list_context/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_config_set/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_config_set_active-context/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_config_set_context/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_config_set_metrics/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_config_update/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_config_update_context/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_copy/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_copy_file/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_create/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_create_branch/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_create_pipeline/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_create_repo/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_debug/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_debug_binary/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_debug_dump/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_debug_pprof/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_debug_profile/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_delete/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_delete_all/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_delete_branch/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_delete_commit/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_delete_file/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_delete_job/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_delete_pipeline/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_delete_repo/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_delete_transaction/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_deploy/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_deploy_amazon/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_deploy_custom/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_deploy_export-images/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_deploy_google/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_deploy_import-images/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_deploy_list-images/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_deploy_local/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_deploy_microsoft/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_deploy_storage/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_deploy_storage_amazon/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_deploy_storage_google/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_deploy_storage_microsoft/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_diff/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_diff_file/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_edit/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_edit_pipeline/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_enterprise/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_enterprise_activate/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_enterprise_get-state/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_extract/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_extract_pipeline/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_finish/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_finish_commit/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_finish_transaction/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_flush/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_flush_commit/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_flush_job/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_fsck/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_garbage-collect/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_get/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_get_file/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_get_object/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_get_tag/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_glob/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_glob_file/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_inspect/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_inspect_cluster/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_inspect_commit/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_inspect_datum/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_inspect_file/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_inspect_job/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_inspect_pipeline/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_inspect_repo/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_inspect_transaction/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_list/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_list_branch/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_list_commit/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_list_datum/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_list_file/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_list_job/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_list_pipeline/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_list_repo/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_list_transaction/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_logs/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_mount/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_port-forward/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_put/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_put_file/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_restart/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_restart_datum/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_restore/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_resume/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_resume_transaction/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_run/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_run_pipeline/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_start/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_start_commit/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_start_pipeline/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_start_transaction/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_stop/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_stop_job/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_stop_pipeline/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_stop_transaction/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_subscribe/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_subscribe_commit/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_undeploy/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_unmount/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_update-dash/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_update/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_update_pipeline/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_update_repo/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/reference/pachctl/pachctl_version/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/examples/examples/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/enterprise/overview/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/enterprise/deployment/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/enterprise/auth/auth/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/enterprise/stats/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/enterprise/s3gateway/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/enterprise/saml/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/enterprise/saml_setup/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/enterprise/saml_usage/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/troubleshooting/general_troubleshooting/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/troubleshooting/deploy_troubleshooting/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
      <loc>https://docs.pachyderm.com/troubleshooting/pipeline_troubleshooting/</loc>
-     <lastmod>2019-10-15</lastmod>
+     <lastmod>2019-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
 </urlset>

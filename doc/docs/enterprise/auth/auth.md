@@ -57,8 +57,8 @@ To enable access controls, complete the following steps:
 1. Activate the Enterprise access control features by completing
    the steps in one of these sections:
 
-   * [Activating Access Control with the Dashboard](#activating-access-controls-with-the-dashboard)
-   * [Activating Access Control with pachctl](#activating-access-controls-with-pachctl)
+   * [Activate Access Control by Using the Dashboard](#activate-access-controls-by-using-the-dashboard)
+   * [Activate Access Control with pachctl](#activate-access-controls-with-pachctl)
 
 ### Activate Access Controls by Using the Dashboard
 

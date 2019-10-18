@@ -5,7 +5,7 @@ This document, when complete, will discuss common configurations for on-premises
 
 ## General information on non-cloud object stores
 
-Please see [the on-premises introduction to object stores](../on-premises/#deploying-an-object-store) for some general information on object stores and how they're used with Pachyderm.
+Please see [the on-premises introduction to object stores](../on_premises/#deploying-an-object-store) for some general information on object stores and how they're used with Pachyderm.
 
 ### EMC ECS
 Coming soon.

@@ -5,7 +5,7 @@ Here are some common issues by symptom along with steps to resolve them.
 - [Connecting to a Pachyderm cluster](#connecting-to-a-pachyderm-cluster)
   - [Cannot connect via `pachctl` - context deadline exceeded](#cannot-connect-via-pachctl-context-deadline-exceeded)
   - [Certificate error when using `kubectl`](#certificate-error-when-using-kubectl)
-  - [Uploads/downloads are slow](#uploads-downloads-are-slow)
+  - [Uploads and Downloads are slow](#uploads-and-downloads-are-slow)
 
 
 ---
@@ -60,7 +60,7 @@ $ kubectl config current-context
 gke_my-org_us-east1-b_my-cluster-name-dev
 ```
 
-### Uploads/Downloads are Slow
+### Uploads and Downloads are Slow
 
 #### Symptom
 

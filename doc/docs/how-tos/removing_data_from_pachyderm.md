@@ -52,7 +52,7 @@ When you delete a bad commit, Pachyderm performs the following actions:
 
 If you have committed more data to the branch after the bad data
 was added, you can try to delete the commit as described in
-[Deleting the HEAD of a Branch](#deleting-the-head-of-a-branch).
+[Delete the HEAD of a Branch](#delete-the-head-of-a-branch).
 However, unless the subsequent commits overwrote or deleted the
 bad data, the bad data might still be present in the
 children commits. Deleting a commit does not modify its children.
