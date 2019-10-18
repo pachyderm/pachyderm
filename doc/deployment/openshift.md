@@ -242,7 +242,7 @@ Those must be modified to match the port numbers you set above for each port.
 ```
 {
 	"kind": "Deployment",
-	"apiVersion": "apps/v1beta1",
+	"apiVersion": "apps/v1",
 	"metadata": {
 		"name": "pachd",
 		"namespace": "default",
