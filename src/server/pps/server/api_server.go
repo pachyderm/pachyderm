@@ -1931,6 +1931,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	pachClient := a.env.GetPachClient(ctx)
 	ctx = pachClient.Ctx() // GetPachClient propagates auth info to inner ctx
 	pfsClient := pachClient.PfsAPIClient
+	if request.Salt == "" {
+		request.Salt = uuid.NewWithoutDashes()
+	}
 	pipelineInfo := &pps.PipelineInfo{
 		Pipeline:         request.Pipeline,
 		Version:          1,
@@ -2204,9 +2207,6 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
 	now := time.Now()
 	if pipelineInfo.Transform.Image == "" {
 		pipelineInfo.Transform.Image = DefaultUserImage
-	}
-	if pipelineInfo.Salt == "" {
-		pipelineInfo.Salt = uuid.NewWithoutDashes()
 	}
 	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
 		if input.Pfs != nil {
