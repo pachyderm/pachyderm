@@ -56,7 +56,7 @@
       {% endif %}
     {% endblock %}
     {% block styles %}
-      <link rel="stylesheet" href="{{ 'assets/stylesheets/application.fe6fb372.css' | url }}">
+      <link rel="stylesheet" href="{{ 'assets/stylesheets/application.09561c5e.css' | url }}">
       {% if palette.primary or palette.accent %}
         <link rel="stylesheet" href="{{ 'assets/stylesheets/application-palette.da41b4c0.css' | url }}">
       {% endif %}
@@ -94,8 +94,6 @@
       {% endif %}
     {% endblock %}
     {% block extrahead %}{% endblock %}
-
-    <meta name="google-site-verification" content="2dR4Z3tPUkh0ulaPwy4yU_BJyfXzSfzMsMvv7Vcdmg8" />
   </head>
   {% if palette.primary or palette.accent %}
     {% set primary = palette.primary | replace(" ", "-") | lower %}
@@ -136,7 +134,12 @@
       {% if feature.tabs %}
         {% include "partials/tabs.html" %}
       {% endif %}
-      <main class="md-main">
+      <div class="md-banner-container md-banner">
+          {% block banner %}
+            {% include "partials/banner.html" %}
+          {% endblock %}
+      </div>
+      <main class="md-main" role="main">
         <div class="md-main__inner md-grid" data-md-component="container">
           {% block site_nav %}
             {% if nav %}
@@ -159,11 +162,6 @@
             {% endif %}
           {% endblock %}
           <div class="md-content">
-            <div class="md-flex md-flex__cell--stretch">
-              {% block banner %}
-                {% include "partials/banner.html" %}
-              {% endblock %}
-            </div>
             <article class="md-content__inner md-typeset">
               {% block content %}
                 {% if page.edit_url %}
@@ -200,7 +198,7 @@
       {% endblock %}
     </div>
     {% block scripts %}
-      <script src="{{ 'assets/javascripts/application.30d8a07d.js' | url }}"></script>
+      <script src="{{ 'assets/javascripts/application.9683018d.js' | url }}"></script>
       {% if lang.t("search.language") != "en" %}
         {% set languages = lang.t("search.language").split(",") %}
         {% if languages | length and languages[0] != "" %}
