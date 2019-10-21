@@ -443,7 +443,7 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 			// Check for errors in approximate order of helpfulness
 			if pachdAddress.IsUnusualPort() {
 				return nil, fmt.Errorf("could not connect (note: port is usually "+
-					"%s or %s, but is currently set to %q--is this right?): %v", grpcutil.DefaultPachdNodePort, grpcutil.DefaultPachdPort, pachdAddress.Port, err)
+					"%d or %d, but is currently set to %d - is this right?): %v", grpcutil.DefaultPachdNodePort, grpcutil.DefaultPachdPort, pachdAddress.Port, err)
 			} else if fw == nil && pachdAddress.IsLoopback() {
 				return nil, fmt.Errorf("could not connect (note: address %s looks "+
 					"like loopback, try unsetting it): %v",
