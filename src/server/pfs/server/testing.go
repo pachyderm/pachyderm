@@ -79,6 +79,7 @@ func runServers(
 	<-ready
 }
 
+// GetBasicConfig gets a basic service environment configuration for testing pachd.
 func GetBasicConfig() *serviceenv.Configuration {
 	config := serviceenv.NewConfiguration(&serviceenv.PachdFullConfiguration{})
 	config.EtcdHost = etcdHost
