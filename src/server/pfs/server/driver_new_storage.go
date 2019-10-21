@@ -88,6 +88,7 @@ func (d *driver) finishCommitNewStorageLayer(txnCtx *txnenv.TransactionContext, 
 // (bryce) should have a context going through here.
 func (d *driver) putFilesNewStorageLayer(pachClient *client.APIClient, server *putFileServer) error {
 	// (bryce) how to handle no commit started?
+	// (bryce) this will not work for large files with the current implementation.
 	for req, err := server.Recv(); err == nil; req, err = server.Recv() {
 		if err := d.fs.WriteHeader(&tar.Header{Name: req.File.Path}); err != nil {
 			return err
