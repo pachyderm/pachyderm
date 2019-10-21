@@ -7,7 +7,7 @@ This document is broken down into the following sections, available at the links
 - [Single-node Pachyderm deployment](./single-node.md) is the document you should read when deploying Pachyderm for personal, low-volume usage.
 - [Registries](./docker_registries.md) takes you through on-premises, private Docker registry configuration.
 - [Ingress](./configuring_k8s_ingress.md) details the Kubernetes ingress configuration you'd need for using `pachctl` and the dashboard outside of the Kubernetes cluster
-- [Non-cloud object stores](./non-cloud-object-stores.md) discusses common configurations for on-premises object stores.
+- [Non-cloud object stores](./various_customizations/non-cloud-object-stores.md) discusses common configurations for on-premises object stores.
 
 Need information on a particular flavor of Kubernetes or object store?  Check out the [see also](#see-also) section.
 
@@ -179,8 +179,8 @@ Once you have Kubernetes deployed, your persistent volume created, and your obje
 ### Kubernetes variants
 - [OpenShift](./openshift.md)
 ### Object storage variants
-- [EMC ECS](./non-cloud-object-stores.md#emc-ecs)
-- [MinIO](./non-cloud-object-stores.md#minio)
-- [SwiftStack](./non-cloud-object-stores.md#swiftstack)
+- [EMC ECS](./various_customizations/non-cloud-object-stores.md#emc-ecs)
+- [MinIO](./various_customizations/non-cloud-object-stores.md#minio)
+- [SwiftStack](./various_customizations/non-cloud-object-stores.md#swiftstack)
 
 

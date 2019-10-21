@@ -174,7 +174,7 @@ Once launched, access the dashboard by running "pachctl port-forward"
 
 !!! note "Important"
     If RBAC authorization is a requirement or you run into any RBAC
-    errors see [Configure RBAC](rbac.md).
+    errors see [Configure RBAC](various_customizations/rbac.md).
 
 It may take a few minutes for the pachd nodes to be running because Pachyderm
 pulls containers from DockerHub. You can see the cluster status with

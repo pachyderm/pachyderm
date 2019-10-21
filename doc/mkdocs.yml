@@ -112,6 +112,7 @@ nav:
             - Overview: concepts/pipeline-concepts/index.md
             - Pipeline:
                 - Overview: concepts/pipeline-concepts/pipeline/index.md
+                - Join: concepts/pipeline-concepts/pipeline/join.md
                 - Cron: concepts/pipeline-concepts/pipeline/cron.md
                 - Service: concepts/pipeline-concepts/pipeline/service.md
                 - Spout: concepts/pipeline-concepts/pipeline/spout.md
@@ -164,10 +165,13 @@ nav:
                 - Configuring Object Store: deploy-manage/deploy/deploy_custom/deploy_custom_configuring_object_store.md
                 - Create a Complete Configuration: deploy-manage/deploy/deploy_custom/deploy_custom_complete_example_invocation.md
                 - Additional flags: deploy-manage/deploy/deploy_custom/deploy_custom_additional_flags.md
-            - Additional Customizations:
-                - Deploy in a Custom Namespace: deploy-manage/deploy/namespaces.md
-                - Deploy a Custom Object Store: deploy-manage/deploy/non-cloud-object-stores.md
-                - Configure RBAC: deploy-manage/deploy/rbac.md
+            - Various Customizations:
+                - Overview: deploy-manage/deploy/various_customizations/index.md
+                - Import a Kubernetes Context: deploy-manage/deploy/various_customizations/import-kubernetes-context.md
+                - Deploy Pachyderm with TLS: deploy-manage/deploy/various_customizations/deploy_w_tls.md
+                - Deploy in a Custom Namespace: deploy-manage/deploy/various_customizations/namespaces.md
+                - Deploy a Custom Object Store: deploy-manage/deploy/various_customizations/non-cloud-object-stores.md
+                - Configure RBAC: deploy-manage/deploy/various_customizations/rbac.md
             - Configure Tracing with Jaeger: deploy-manage/deploy/tracing.md
             - Connect to a Pachyderm cluster: deploy-manage/deploy/connect-to-cluster.md
         - Manage Pachyderm:
