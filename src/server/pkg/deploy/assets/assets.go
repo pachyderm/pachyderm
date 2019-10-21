@@ -382,15 +382,15 @@ func GetSecretEnvVars(storageBackend string) []v1.EnvVar {
 		})
 	}
 	trueVal := true
-	for envVar, secretKey := range obj.EnvVarToSecretKey {
+	for _, e := range obj.EnvVarToSecretKey {
 		envVars = append(envVars, v1.EnvVar{
-			Name: envVar,
+			Name: e.Key,
 			ValueFrom: &v1.EnvVarSource{
 				SecretKeyRef: &v1.SecretKeySelector{
 					LocalObjectReference: v1.LocalObjectReference{
 						Name: client.StorageSecretName,
 					},
-					Key:      secretKey,
+					Key:      e.Value,
 					Optional: &trueVal,
 				},
 			},
