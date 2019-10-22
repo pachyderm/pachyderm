@@ -6,12 +6,17 @@ minikube
 
 vscode extensions:
 go
+docker
 
 vscode settings:
 configure shell to use 'git bash'
 
 git clone https://github.com/pachyderm/pachyderm
 
+run docker quickstart terminal
+
+after restart, docker commands hang:
+ * run docker quickstart terminal after every restart
 
 
 personal options:

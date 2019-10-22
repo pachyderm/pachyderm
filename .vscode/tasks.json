@@ -4,50 +4,27 @@
     {
       "label": "docker-build",
       "dependsOrder": "sequence",
-      "dependsOn": ["docker-build-pull", "docker-build-tasks"]
+      "dependsOn": ["docker-build-pull", "docker-build-all"]
     },
     {
       "label": "docker-build-pull",
       "type": "shell",
-      "command": "docker pull ${env:compile_image}"
+      // TODO: need to get this from the etc/compile/GO_VERSION file
+      "command": "docker pull pachyderm/compile:go1.12.1",
     },
     {
-      "label": "docker-build-tasks",
-      "dependsOn": ["docker-build-worker-wait", "docker-build-pachd-wait"]
-    },
-    {
-      "label": "docker-build-worker-wait",
-      "type": "shell",
-      "command": "./etc/compile/wait.sh worker_compile",
-      "dependsOn": ["docker-build-worker"]
+      "label": "docker-build-all",
+      "dependsOn": ["docker-build-worker", "docker-build-pachd"]
     },
     {
       "label": "docker-build-worker",
       "type": "shell",
       "command": "./etc/compile/vscode_compile_task.sh worker",
-      "dependsOn": ["docker-clean-worker"]
-    },
-    {
-      "label": "docker-clean-worker",
-      "type": "shell",
-      "command": "docker stop worker_compile && docker rm worker_compile"
-    },
-    {
-      "label": "docker-build-pachd-wait",
-      "type": "shell",
-      "command": "etc/compile/wait.sh pachd_compile",
-      "dependsOn": ["docker-build-pachd"]
     },
     {
       "label": "docker-build-pachd",
       "type": "shell",
       "command": "./etc/compile/vscode_compile_task.sh pachd",
-      "dependsOn": ["docker-clean-pachd"]
-    },
-    {
-      "label": "docker-clean-pachd",
-      "type": "shell",
-      "command": "docker stop pachd_compile && docker rm pachd_compile"
     }
   ]
 }
