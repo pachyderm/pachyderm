@@ -77,7 +77,7 @@ interface (CLI) called `pachctl` and the web interface called the Dashboard.
 Although you can perform most simple actions directly in the dashboard,
 `pachctl` provides full functionality. Most likely, you will use
 `pachctl` for any operation beyond the most basic workflow.
-We recommend that you use `pachctl` for all data operations and
+Pachyderm recommends that you use `pachctl` for all data operations and
 the dashboard to view your data and graphical representation of your
 pipelines.
 
@@ -94,7 +94,7 @@ on Pachyderm Hub.
 
 To connect to your cluster, complete the following steps:
 
-1. [Install or upgrade `pachctl`](http://docs.pachyderm.com/en/latest/getting_started/local_installation.html#install-pachctl).
+1. Install or upgrade `pachctl` as described in [Install pachctl](http://docs.pachyderm.com/en/latest/getting_started/local_installation.html#install-pachctl).
 
 1. Configure a Pachyderm context and log in to your
    cluster by using a one-time authentication token:
