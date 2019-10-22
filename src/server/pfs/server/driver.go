@@ -3188,6 +3188,7 @@ func (d *driver) getTree(pachClient *client.APIClient, commitInfo *pfs.CommitInf
 
 func (d *driver) getTrees(pachClient *client.APIClient, commitInfo *pfs.CommitInfo, pattern string) (rs []io.ReadCloser, retErr error) {
 	prefix := hashtree.GlobLiteralPrefix(pattern)
+	fmt.Printf("getTrees prefix: %s, pattern: %s\n", prefix, pattern)
 	limiter := limit.New(hashtree.DefaultMergeConcurrency)
 	var eg errgroup.Group
 	var mu sync.Mutex
