@@ -6,7 +6,7 @@ To use it
 
 1. Create an S3 Bucket.
 2. Create an SQS topic that subscribes to all create-object events in the bucket.
-3. Create a Pachyderm spout with appropriate environment variables or parameters to access the bucket and topic
+3. Create a Pachyderm spout with appropriate environment variables or parameters to access the bucket and topic.
 
 
 Usage:
