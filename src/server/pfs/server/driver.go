@@ -3806,13 +3806,7 @@ func (d *driver) globFile(pachClient *client.APIClient, commit *pfs.Commit, patt
 	if commitInfo.Trees == nil {
 		return nil
 	}
-	var rs []io.ReadCloser
-	// Handles the case when looking for a specific file/directory
-	if !hashtree.IsGlob(pattern) {
-		rs, err = d.getTree(pachClient, commitInfo, pattern)
-	} else {
-		rs, err = d.getTrees(pachClient, commitInfo, pattern)
-	}
+	rs, err := d.getTrees(pachClient, commitInfo, pattern)
 	if err != nil {
 		return err
 	}
