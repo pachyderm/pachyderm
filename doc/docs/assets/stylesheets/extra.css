@@ -6,6 +6,13 @@
   margin-bottom: 20px;
 }
 
+.column-2 {
+   float: left;
+   width: 50%;
+   padding: 0px 10px;
+   margin-bottom: 20px;
+ }
+
 /* Remove extra left and right margins, due to padding in columns */
 .row {
   margin: 0 -5px;
@@ -30,7 +37,7 @@
 }
 
 .card-square.mdl-card {
-  width: 220px;
+  width: auto;
   height: 260px;
   font-family: 'Montserrat', sans-serif;
   font-size: 16px;
@@ -55,12 +62,6 @@
 }
 .mdc-components__section {
   display: flex;
-}
-.mdc-components__column {
-  display: flex;
-  height: 664px;
-  flex-direction: column;
-  margin: 0 8px;
 }
 .mdc-components .flex {
   flex: 1;

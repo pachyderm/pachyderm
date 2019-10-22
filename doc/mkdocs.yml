@@ -97,9 +97,11 @@ nav:
             - Coding Conventions: contributing/coding-conventions.md
             - Documentation Style Guide: contributing/docs-style-guide.md
     - Getting Started:
+        - Overview: getting_started/index.md
         - getting_started/local_installation.md
         - getting_started/beginner_tutorial.md
     - Concepts:
+        - Overview: concepts/index.md
         - Versioned Data Concepts:
             - Overview: concepts/data-concepts/index.md
             - Repository: concepts/data-concepts/repo.md
@@ -125,6 +127,7 @@ nav:
             Distributed Computing: concepts/pipeline-concepts/distributed_computing.md
 
     - How-Tos:
+        - Overview: how-tos/index.md
         - Individual Developer Workflow: how-tos/individual-developer-workflow.md
         - Team Developer Workflow: how-tos/team-developer-workflow.md
         - Load Your Data Into Pachyderm: how-tos/load-data-into-pachyderm.md
