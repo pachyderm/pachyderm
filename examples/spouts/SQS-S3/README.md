@@ -1,6 +1,6 @@
 # Amazon SQS-S3 Spout
 
-This is a simple spout that listens for "object added" notifications on an SQS topic, grabs the files and places them in its output repo.
+This is a simple spout that listens for "object added" notifications on an SQS topic, grabs the files, and places them in its output repo.
 
 To use it
 
