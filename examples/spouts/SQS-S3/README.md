@@ -2,7 +2,7 @@
 
 This is a simple spout that listens for "object added" notifications on an SQS topic, grabs the files, and places them in its output repo.
 
-To use it
+To use the SQS spout, complete the following steps:
 
 1. Create an S3 Bucket.
 2. Create an SQS topic that subscribes to all create-object events in the bucket.
