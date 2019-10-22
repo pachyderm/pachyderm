@@ -22,12 +22,12 @@ type Reader struct {
 	tags    []*index.Tag
 }
 
-func newReader(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path, prefix string) *Reader {
+func newReader(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path string, opts ...index.Option) *Reader {
 	cr := chunks.NewReader(ctx)
 	return &Reader{
 		ctx:    ctx,
 		chunks: chunks,
-		ir:     index.NewReader(ctx, objC, chunks, path, index.WithPrefix(prefix)),
+		ir:     index.NewReader(ctx, objC, chunks, path, opts...),
 		cr:     cr,
 	}
 }

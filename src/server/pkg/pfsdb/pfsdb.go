@@ -17,6 +17,8 @@ const (
 	commitsPrefix        = "/commits"
 	branchesPrefix       = "/branches"
 	openCommitsPrefix    = "/openCommits"
+	mergesPrefix         = "/merges"
+	shardsPrefix         = "/shards"
 )
 
 var (

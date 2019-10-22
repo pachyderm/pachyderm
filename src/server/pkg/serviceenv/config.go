@@ -30,6 +30,7 @@ type PachdFullConfiguration struct {
 
 // PachdSpecificConfiguration contains the pachd specific configuration.
 type PachdSpecificConfiguration struct {
+	StorageConfiguration
 	NumShards             uint64 `env:"NUM_SHARDS,default=32"`
 	StorageBackend        string `env:"STORAGE_BACKEND,default="`
 	StorageHostPath       string `env:"STORAGE_HOST_PATH,default="`
@@ -55,6 +56,12 @@ type PachdSpecificConfiguration struct {
 	S3GatewayPort         uint16 `env:"S3GATEWAY_PORT,default=600"`
 }
 
+// StorageConfiguration contains the storage configuration.
+type StorageConfiguration struct {
+	StorageMemoryThreshold int64 `env:"STORAGE_MEMORY_THRESHOLD"`
+	StorageShardThreshold  int64 `env:"STORAGE_SHARD_THRESHOLD"`
+}
+
 // WorkerFullConfiguration contains the full worker configuration.
 type WorkerFullConfiguration struct {
 	GlobalConfiguration
@@ -76,7 +83,7 @@ type WorkerSpecificConfiguration struct {
 
 // FeatureFlags contains the configuration for feature flags.
 type FeatureFlags struct {
-	NewHashTree bool `env:"NEW_HASH_TREE,default=false"`
+	NewStorageLayer bool `env:"NEW_STORAGE_LAYER,default=false"`
 }
 
 // NewConfiguration creates a generic configuration from a specific type of configuration.
