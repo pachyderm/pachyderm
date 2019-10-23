@@ -7,6 +7,7 @@ cache:
     # If any directories are added here, they must also be added to
     # etc/testing/travis_setup_cached_dirs and 'before_cache:' below
     - ${HOME}/.cache/go-build
+    - ${HOME}/.cache/pip
     - ${HOME}/cached-deps
 language: go
 go:
@@ -46,6 +47,7 @@ script:
 before_cache:
   # Travis can't cache files that aren't readable by all
   - chmod a+r -R ${HOME}/.cache
+  - chmod a+r -R ${HOME}/.cache/pip
   - chmod a+r -R ${HOME}/cached-deps
 after_failure:
   - kubectl version

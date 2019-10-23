@@ -4,9 +4,14 @@ set -ex
 
 echo 'DOCKER_OPTS="-H unix:///var/run/docker.sock -s devicemapper"' | sudo tee /etc/default/docker > /dev/null
 
-# Install jq and ag
+# Install deps
 sudo apt-get update -y
-sudo apt-get install jq silversearcher-ag
+sudo apt-get install -y \
+  jq \
+  silversearcher-ag \
+  python3 \
+  python3-pip \
+  python3-setuptools
 
 # Install fuse
 sudo apt-get install -qq pkg-config fuse
@@ -14,6 +19,9 @@ sudo modprobe fuse
 sudo chmod 666 /dev/fuse
 sudo cp etc/build/fuse.conf /etc/fuse.conf
 sudo chown root:root /etc/fuse.conf
+
+# Install aws CLI (for TLS test)
+pip3 install --upgrade --user awscli
 
 # Install kubectl
 # To get the latest kubectl version:
