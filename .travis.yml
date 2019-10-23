@@ -1,14 +1,14 @@
 dist: xenial
 sudo: required
 services:
-- docker
+  - docker
 cache:
   directories:
     - ${HOME}/.cache/go-build
     - ${HOME}/cached-deps
 language: go
 go:
-- "1.13.1"
+  - "1.13.1"
 env:
   global:
     - PATH=${HOME}/cached-deps:${PATH}
@@ -17,7 +17,7 @@ env:
     # Disable Go modules: we use go mod to track deps but keep everything in
     # the top-level 'vendor' directory rather than 'go-get'ing all modules
     # every time
-    - GO111MODULE=off 
+    - GO111MODULE=off
   matrix:
     - BUCKET=MISC
     # If you want to update the number of PPS or auth buckets, you'll neet to
@@ -33,17 +33,17 @@ env:
     - BUCKET=PPS6
     - BUCKET=EXAMPLES
 before_install:
-- sudo etc/testing/travis_before_install.sh
+  - sudo etc/testing/travis_before_install.sh
 before_script:
-- docker version
+  - docker version
 script:
-- etc/testing/travis.sh
+  - etc/testing/travis.sh
 after_failure:
-- kubectl version
-- kubectl get all
-- kubectl get all --namespace kafka
-- kubectl describe pod -l app=pachd
-- kubectl describe pod -l suite=pachyderm,app=etcd
-- kubectl logs -l app=pachd | tail -n 100
+  - kubectl version
+  - kubectl get all
+  - kubectl get all --namespace kafka
+  - kubectl describe pod -l app=pachd
+  - kubectl describe pod -l suite=pachyderm,app=etcd
+  - kubectl logs -l app=pachd | tail -n 100
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
