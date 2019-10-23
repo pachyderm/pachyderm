@@ -4,14 +4,14 @@ services:
 - docker
 cache:
   directories:
-    - $HOME/.cache/go-build
-    - $HOME/cached-deps
+    - ${HOME}/.cache/go-build
+    - ${HOME}/cached-deps
 language: go
 go:
 - "1.13.1"
 env:
   global:
-    - PATH=$HOME/cached-deps:$PATH
+    - PATH=${HOME}/cached-deps:${PATH}
     - PPS_BUCKETS=6
     - AUTH_BUCKETS=2
     # Disable Go modules: we use go mod to track deps but keep everything in
