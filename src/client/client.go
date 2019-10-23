@@ -330,7 +330,7 @@ func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress,
 
 		// Proactively return an error in this case, instead of falling back to the default address below
 		if context.ServerCAs != "" && !pachdAddress.Secured {
-			return nil, nil, errors.New("must set pachd_address to grpc://... if server_cas is set")
+			return nil, nil, errors.New("must set pachd_address to grpcs://... if server_cas is set")
 		}
 
 		if pachdAddress.Secured {
