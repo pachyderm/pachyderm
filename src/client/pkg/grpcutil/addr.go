@@ -44,9 +44,9 @@ type PachdAddress struct {
 
 // ParsePachdAddress parses a string into a pachd address, or returns an error
 // if it's invalid
-func ParsePachdAddress(value string) (PachdAddress, error) {
+func ParsePachdAddress(value string) (*PachdAddress, error) {
 	if value == "" {
-		return PachdAddress{}, ErrNoPachdAddress
+		return nil, ErrNoPachdAddress
 	}
 
 	secured := false
@@ -57,23 +57,23 @@ func ParsePachdAddress(value string) (PachdAddress, error) {
 
 		u, err := url.Parse(value)
 		if err != nil {
-			return PachdAddress{}, fmt.Errorf("could not parse pachd address: %v", err)
+			return nil, fmt.Errorf("could not parse pachd address: %v", err)
 		}
 
 		if u.Scheme != "grpc" && u.Scheme != "grpcs" {
-			return PachdAddress{}, fmt.Errorf("unrecognized scheme in pachd address: %s", u.Scheme)
+			return nil, fmt.Errorf("unrecognized scheme in pachd address: %s", u.Scheme)
 		}
 		if u.User != nil {
-			return PachdAddress{}, errors.New("pachd address should not include login credentials")
+			return nil, errors.New("pachd address should not include login credentials")
 		}
 		if u.RawQuery != "" {
-			return PachdAddress{}, errors.New("pachd address should not include a query string")
+			return nil, errors.New("pachd address should not include a query string")
 		}
 		if u.Fragment != "" {
-			return PachdAddress{}, errors.New("pachd address should not include a fragment")
+			return nil, errors.New("pachd address should not include a fragment")
 		}
 		if u.Path != "" {
-			return PachdAddress{}, errors.New("pachd address should not include a path")
+			return nil, errors.New("pachd address should not include a path")
 		}
 
 		value = u.Host
@@ -93,7 +93,7 @@ func ParsePachdAddress(value string) (PachdAddress, error) {
 		}
 	}
 
-	return PachdAddress{
+	return &PachdAddress{
 		Secured: secured,
 		Host:    host,
 		Port:    port,
@@ -101,7 +101,7 @@ func ParsePachdAddress(value string) (PachdAddress, error) {
 }
 
 // Qualified returns the "fully qualified" address, including the scheme
-func (p PachdAddress) Qualified() string {
+func (p *PachdAddress) Qualified() string {
 	if p.Secured {
 		return fmt.Sprintf("grpcs://%s:%d", p.Host, p.Port)
 	}
@@ -110,18 +110,18 @@ func (p PachdAddress) Qualified() string {
 
 // Hostname returns the host:port combination of the pachd address, without
 // the scheme
-func (p PachdAddress) Hostname() string {
+func (p *PachdAddress) Hostname() string {
 	return fmt.Sprintf("%s:%d", p.Host, p.Port)
 }
 
 // IsUnusualPort returns true if the pachd address port is not one of the
 // usual values
-func (p PachdAddress) IsUnusualPort() bool {
+func (p *PachdAddress) IsUnusualPort() bool {
 	return p.Port != DefaultPachdNodePort && p.Port != DefaultPachdPort
 }
 
 // IsLoopback returns whether the pachd address is referencing the loopback
 // hostname
-func (p PachdAddress) IsLoopback() bool {
+func (p *PachdAddress) IsLoopback() bool {
 	return p.Host == "0.0.0.0" || p.Host == "127.0.0.1" || p.Host == "[::1]" || p.Host == "localhost"
 }

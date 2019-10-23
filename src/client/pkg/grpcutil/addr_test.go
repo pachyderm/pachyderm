@@ -30,7 +30,7 @@ func TestParsePachdAddress(t *testing.T) {
 
 	p, err := ParsePachdAddress("grpc://pachyderm.com:80")
 	require.NoError(t, err)
-	require.Equal(t, PachdAddress{
+	require.Equal(t, &PachdAddress{
 		Secured: false,
 		Host:    "pachyderm.com",
 		Port:    80,
@@ -38,7 +38,7 @@ func TestParsePachdAddress(t *testing.T) {
 
 	p, err = ParsePachdAddress("grpcs://[::1]:80")
 	require.NoError(t, err)
-	require.Equal(t, PachdAddress{
+	require.Equal(t, &PachdAddress{
 		Secured: true,
 		Host:    "[::1]",
 		Port:    80,
@@ -46,7 +46,7 @@ func TestParsePachdAddress(t *testing.T) {
 
 	p, err = ParsePachdAddress("grpc://pachyderm.com")
 	require.NoError(t, err)
-	require.Equal(t, PachdAddress{
+	require.Equal(t, &PachdAddress{
 		Secured: false,
 		Host:    "pachyderm.com",
 		Port:    DefaultPachdNodePort,
@@ -54,7 +54,7 @@ func TestParsePachdAddress(t *testing.T) {
 
 	p, err = ParsePachdAddress("127.0.0.1")
 	require.NoError(t, err)
-	require.Equal(t, PachdAddress{
+	require.Equal(t, &PachdAddress{
 		Secured: false,
 		Host:    "127.0.0.1",
 		Port:    DefaultPachdNodePort,
@@ -62,7 +62,7 @@ func TestParsePachdAddress(t *testing.T) {
 
 	p, err = ParsePachdAddress("127.0.0.1:80")
 	require.NoError(t, err)
-	require.Equal(t, PachdAddress{
+	require.Equal(t, &PachdAddress{
 		Secured: false,
 		Host:    "127.0.0.1",
 		Port:    80,
@@ -70,7 +70,7 @@ func TestParsePachdAddress(t *testing.T) {
 
 	p, err = ParsePachdAddress("[::1]")
 	require.NoError(t, err)
-	require.Equal(t, PachdAddress{
+	require.Equal(t, &PachdAddress{
 		Secured: false,
 		Host:    "[::1]",
 		Port:    DefaultPachdNodePort,
@@ -78,7 +78,7 @@ func TestParsePachdAddress(t *testing.T) {
 
 	p, err = ParsePachdAddress("[::1]:80")
 	require.NoError(t, err)
-	require.Equal(t, PachdAddress{
+	require.Equal(t, &PachdAddress{
 		Secured: false,
 		Host:    "[::1]",
 		Port:    80,
@@ -86,14 +86,14 @@ func TestParsePachdAddress(t *testing.T) {
 }
 
 func TestPachdAddressQualified(t *testing.T) {
-	p := PachdAddress{
+	p := &PachdAddress{
 		Secured: false,
 		Host:    "pachyderm.com",
 		Port:    DefaultPachdNodePort,
 	}
 
 	require.Equal(t, "grpc://pachyderm.com:30650", p.Qualified())
-	p = PachdAddress{
+	p = &PachdAddress{
 		Secured: true,
 		Host:    "pachyderm.com",
 		Port:    DefaultPachdNodePort,
@@ -102,14 +102,14 @@ func TestPachdAddressQualified(t *testing.T) {
 }
 
 func TestPachdAddressHostname(t *testing.T) {
-	p := PachdAddress{
+	p := &PachdAddress{
 		Secured: false,
 		Host:    "pachyderm.com",
 		Port:    DefaultPachdNodePort,
 	}
 	require.Equal(t, "pachyderm.com:30650", p.Hostname())
 
-	p = PachdAddress{
+	p = &PachdAddress{
 		Secured: true,
 		Host:    "pachyderm.com",
 		Port:    DefaultPachdNodePort,
@@ -118,21 +118,21 @@ func TestPachdAddressHostname(t *testing.T) {
 }
 
 func TestPachdAddressIsUnusualPort(t *testing.T) {
-	p := PachdAddress{
+	p := &PachdAddress{
 		Secured: false,
 		Host:    "pachyderm.com",
 		Port:    DefaultPachdNodePort,
 	}
 	require.False(t, p.IsUnusualPort())
 
-	p = PachdAddress{
+	p = &PachdAddress{
 		Secured: true,
 		Host:    "pachyderm.com",
 		Port:    DefaultPachdPort,
 	}
 	require.False(t, p.IsUnusualPort())
 
-	p = PachdAddress{
+	p = &PachdAddress{
 		Secured: true,
 		Host:    "pachyderm.com",
 		Port:    80,
@@ -141,14 +141,14 @@ func TestPachdAddressIsUnusualPort(t *testing.T) {
 }
 
 func TestPachdAddressIsLoopback(t *testing.T) {
-	p := PachdAddress{
+	p := &PachdAddress{
 		Secured: true,
 		Host:    "localhost",
 		Port:    DefaultPachdPort,
 	}
 	require.True(t, p.IsLoopback())
 
-	p = PachdAddress{
+	p = &PachdAddress{
 		Secured: true,
 		Host:    "pachyderm.com",
 		Port:    DefaultPachdPort,

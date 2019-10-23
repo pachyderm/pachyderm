@@ -318,7 +318,7 @@ func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress,
 			return nil, nil, err
 		}
 
-		return &envAddr, options, nil
+		return envAddr, options, nil
 	}
 
 	// 2) Get target address from global config if possible
@@ -342,9 +342,9 @@ func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress,
 			if err != nil {
 				return nil, nil, fmt.Errorf("could not decode server CA certs in config: %v", err)
 			}
-			return &pachdAddress, []Option{WithAdditionalRootCAs(pemBytes)}, nil
+			return pachdAddress, []Option{WithAdditionalRootCAs(pemBytes)}, nil
 		}
-		return &pachdAddress, options, nil
+		return pachdAddress, options, nil
 	}
 
 	// 3) Use default address (broadcast) if nothing else works
