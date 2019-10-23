@@ -83,8 +83,6 @@ case "${BUCKET}" in
         echo "Running the full misc test suite because secret env vars exist"
         make lint
         make enterprise-code-checkin-test
-        make test-pfs-server
-        make test-pfs-storage
         make test-cmds
         make test-libs
         make test-tls
@@ -98,8 +96,6 @@ case "${BUCKET}" in
         echo "Running the misc test suite with some tests disabled because secret env vars have not been set"
         make lint
         make enterprise-code-checkin-test
-        make test-pfs-server
-        make test-pfs-storage
         make test-cmds
         make test-libs
         make test-tls
@@ -111,6 +107,10 @@ case "${BUCKET}" in
  EXAMPLES)
     echo "Running the example test suite"
     ./etc/testing/examples.sh
+    ;;
+ PFS)
+    make test-pfs-server
+    make test-pfs-storage
     ;;
  PPS?)
     make docker-build-kafka
