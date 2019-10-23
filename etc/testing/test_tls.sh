@@ -27,10 +27,10 @@ pachctl enterprise activate "$(aws s3 cp s3://pachyderm-engineering/test_enterpr
 set -x
 
 # Make sure the pachyderm client can connect, write data, and create pipelines
-go test -v ./src/server -run TestPipelineWithParallelism
+go test -v ./src/server -run TestSimplePipeline
 
-# Make sure that config's pachd_address isn't disfigured by pachctl cmds (bug
-# fix)
+# Make sure that config's pachd_address isn't disfigured by pachctl cmds that
+# modify the pachctl config (bug fix)
 echo admin | pachctl auth activate
 otp="$(pachctl auth get-otp admin)"
 echo "${otp}" | pachctl auth login --one-time-password
