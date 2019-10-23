@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	uuid "github.com/satori/go.uuid"
@@ -27,7 +28,7 @@ func TestPortForwardError(t *testing.T) {
 	c.Stderr = &errMsg
 	err := c.Run()
 	require.YesError(t, err) // 1ns should prevent even local connections
-	require.Matches(t, "port-forward", errMsg.String())
+	require.Matches(t, "looks like loopback", errMsg.String())
 }
 
 func TestWeirdPortError(t *testing.T) {
@@ -98,10 +99,13 @@ func TestCommandAliases(t *testing.T) {
 	walk(pachctlCmd)
 }
 
-func testConfig(t *testing.T, pachdAddress string) *os.File {
+func testConfig(t *testing.T, pachdAddressStr string) *os.File {
 	t.Helper()
 
 	cfgFile, err := ioutil.TempFile("", "")
+	require.NoError(t, err)
+
+	pachdAddress, err := grpcutil.ParsePachdAddress(pachdAddressStr)
 	require.NoError(t, err)
 
 	cfg := &config.Config{
@@ -110,7 +114,7 @@ func testConfig(t *testing.T, pachdAddress string) *os.File {
 			ActiveContext: "test",
 			Contexts: map[string]*config.Context{
 				"test": &config.Context{
-					PachdAddress: pachdAddress,
+					PachdAddress: pachdAddress.Qualified(),
 				},
 			},
 			Metrics: false,

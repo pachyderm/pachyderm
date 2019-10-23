@@ -465,6 +465,7 @@ test-client:
 	go test -cover $$(go list ./src/client/...)
 
 test-libs:
+	go test ./src/client/pkg/grpcutil -timeout $(TIMEOUT)
 	go test ./src/server/pkg/collection -timeout $(TIMEOUT) -vet=off
 	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
 	go test ./src/server/pkg/cert -timeout $(TIMEOUT)
