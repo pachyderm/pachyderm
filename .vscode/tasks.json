@@ -25,6 +25,54 @@
       "label": "docker-build-pachd",
       "type": "shell",
       "command": "./etc/compile/vscode_compile_task.sh pachd",
-    }
+    },
+    {
+      "label": "launch-dev",
+      "type": "shell",
+      "command": "pachctl deploy local -d --no-guaranteed --dry-run | kubectl apply -f -",
+      "dependsOn": ["install", "deploy-dev", "wait-dev"]
+    },
+    {
+      "label": "install",
+      "type": "shell",
+      "command": "./etc/build/vscode_install_task.sh"
+    },
+    {
+      "label": "deploy-dev",
+      "type": "shell",
+      "command": ""
+    },
+    {
+      "label": "wait-dev",
+      "type": "shell",
+      "command": "until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done"
+    },
   ]
 }
+
+/*
+launch-dev: check-kubectl check-kubectl-connection install
+	$(eval STARTTIME := $(shell date +%s))
+	pachctl deploy local --no-guaranteed -d --dry-run $(LAUNCH_DEV_ARGS) | kubectl $(KUBECTLFLAGS) apply -f -
+	# wait for the pachyderm to come up
+	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
+  @echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
+
+check-kubectl:
+	@# check that kubectl is installed
+	@which kubectl >/dev/null || { \
+		echo "error: kubectl not found"; \
+		exit 1; \
+  }
+
+check-kubectl-connection:
+  kubectl $(KUBECTLFLAGS) get all > /dev/null
+
+install:
+	# GOPATH/bin must be on your PATH to access these binaries:
+  go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
+
+LD_FLAGS = -X github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
+GC_FLAGS = "all=-trimpath=${PWD}"
+
+*/
