@@ -450,7 +450,7 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 					pachdAddress.Qualified(), err)
 			}
 		}
-		return nil, fmt.Errorf("could not connect to pachd at %s: %v", pachdAddress.Qualified(), err)
+		return nil, fmt.Errorf("could not connect to pachd at %q: %v", pachdAddress.Qualified(), err)
 	}
 
 	// Add metrics info & authentication token
