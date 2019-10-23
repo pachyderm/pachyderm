@@ -4,6 +4,8 @@ services:
   - docker
 cache:
   directories:
+    # If any directories are added here, they must also be added to
+    # etc/testing/travis_setup_cached_dirs and 'before_cache:' below
     - ${HOME}/.cache/go-build
     - ${HOME}/cached-deps
 language: go
@@ -33,11 +35,17 @@ env:
     - BUCKET=PPS6
     - BUCKET=EXAMPLES
 before_install:
+  # Make sure cache dirs exist and are writable
+  - etc/testing/travis_setup_cached_dirs.sh
   - sudo etc/testing/travis_before_install.sh
 before_script:
   - docker version
 script:
   - etc/testing/travis.sh
+before_cache:
+  # Travis can't cache files that aren't readable by all
+  - chmod a+r -R ${HOME}/.cache
+  - chmod a+r -R ${HOME}/cached-deps
 after_failure:
   - kubectl version
   - kubectl get all

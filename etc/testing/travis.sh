@@ -2,22 +2,12 @@
 
 set -ex
 
-# Make sure cache dirs exist and are writable
-# Note that this script executes as the user `travis`, vs the pre-install
-# script which executes as `root`. Without `chown`ing `~/cached-deps` (where
-# we store cacheable binaries), any calls to those binaries would fail because
-# they're otherwised owned by `root`.
-#
-# To further complicate things, we update the `PATH` to include
+# Note that we update the `PATH` to include
 # `~/cached-deps` in `.travis.yml`, but this doesn't update the PATH for
 # calls using `sudo`. If you need to make a `sudo` call to a binary in
 # `~/cached-deps`, you'll need to explicitly set the path like so:
 #
 #     sudo env "PATH=$PATH" minikube foo
-
-mkdir -p ~/.cache/go-build
-sudo chown -R `whoami` ~/.cache/go-build
-sudo chown -R `whoami` ~/cached-deps
 
 kubectl version --client
 etcdctl --version
