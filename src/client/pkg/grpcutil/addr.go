@@ -60,7 +60,7 @@ func ParsePachdAddress(value string) (*PachdAddress, error) {
 			return nil, fmt.Errorf("could not parse pachd address: %v", err)
 		}
 
-		if u.Scheme != "grpc" && u.Scheme != "grpcs" {
+		if u.Scheme != "grpc" && u.Scheme != "grpcs" && u.Scheme != "http" && u.Scheme != "https" {
 			return nil, fmt.Errorf("unrecognized scheme in pachd address: %s", u.Scheme)
 		}
 		if u.User != nil {
@@ -77,7 +77,7 @@ func ParsePachdAddress(value string) (*PachdAddress, error) {
 		}
 
 		value = u.Host
-		secured = u.Scheme == "grpcs"
+		secured = u.Scheme == "grpcs" || u.Scheme == "https"
 	}
 
 	// port always starts after last colon, but net.SplitHostPort returns an

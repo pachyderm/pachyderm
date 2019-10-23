@@ -10,9 +10,6 @@ func TestParsePachdAddress(t *testing.T) {
 	_, err := ParsePachdAddress("")
 	require.Equal(t, err, ErrNoPachdAddress)
 
-	_, err = ParsePachdAddress("http://pachyderm.com:80")
-	require.YesError(t, err)
-
 	_, err = ParsePachdAddress("grpc://user@pachyderm.com:80")
 	require.YesError(t, err)
 
@@ -28,7 +25,23 @@ func TestParsePachdAddress(t *testing.T) {
 	_, err = ParsePachdAddress("grpc://pachyderm.com:80/#foo")
 	require.YesError(t, err)
 
-	p, err := ParsePachdAddress("grpc://pachyderm.com:80")
+	p, err := ParsePachdAddress("http://pachyderm.com:80")
+	require.NoError(t, err)
+	require.Equal(t, &PachdAddress{
+		Secured: false,
+		Host:    "pachyderm.com",
+		Port:    80,
+	}, p)
+
+	p, err = ParsePachdAddress("https://pachyderm.com:80")
+	require.NoError(t, err)
+	require.Equal(t, &PachdAddress{
+		Secured: true,
+		Host:    "pachyderm.com",
+		Port:    80,
+	}, p)
+
+	p, err = ParsePachdAddress("grpc://pachyderm.com:80")
 	require.NoError(t, err)
 	require.Equal(t, &PachdAddress{
 		Secured: false,
