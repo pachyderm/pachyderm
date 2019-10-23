@@ -10245,7 +10245,7 @@ func scalePachdN(t testing.TB, n int) {
 	// k8s will accept it if we're talking to a 1.7 cluster
 	pachdDeployment := pachdDeployment(t)
 	*pachdDeployment.Spec.Replicas = int32(n)
-	pachdDeployment.TypeMeta.APIVersion = "apps/v1beta1"
+	pachdDeployment.TypeMeta.APIVersion = "apps/v1"
 	_, err := k.Apps().Deployments(v1.NamespaceDefault).Update(pachdDeployment)
 	require.NoError(t, err)
 	waitForReadiness(t)
