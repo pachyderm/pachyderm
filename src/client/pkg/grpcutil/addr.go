@@ -60,19 +60,20 @@ func ParsePachdAddress(value string) (*PachdAddress, error) {
 			return nil, fmt.Errorf("could not parse pachd address: %v", err)
 		}
 
-		if u.Scheme != "grpc" && u.Scheme != "grpcs" && u.Scheme != "http" && u.Scheme != "https" {
+		switch u.Scheme {
+		case "grpc", "grpcs", "http", "https":
+		default:
 			return nil, fmt.Errorf("unrecognized scheme in pachd address: %s", u.Scheme)
 		}
-		if u.User != nil {
+
+		switch {
+		case u.User != nil:
 			return nil, errors.New("pachd address should not include login credentials")
-		}
-		if u.RawQuery != "" {
+		case u.RawQuery != "":
 			return nil, errors.New("pachd address should not include a query string")
-		}
-		if u.Fragment != "" {
+		case u.Fragment != "":
 			return nil, errors.New("pachd address should not include a fragment")
-		}
-		if u.Path != "" {
+		case u.Path != "":
 			return nil, errors.New("pachd address should not include a path")
 		}
 
