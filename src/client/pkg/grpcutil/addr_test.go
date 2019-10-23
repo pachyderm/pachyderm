@@ -53,7 +53,7 @@ func TestParsePachdAddress(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, &PachdAddress{
 		Secured: true,
-		Host:    "[::1]",
+		Host:    "::1",
 		Port:    80,
 	}, p)
 
@@ -85,7 +85,7 @@ func TestParsePachdAddress(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, &PachdAddress{
 		Secured: false,
-		Host:    "[::1]",
+		Host:    "::1",
 		Port:    DefaultPachdNodePort,
 	}, p)
 
@@ -93,7 +93,7 @@ func TestParsePachdAddress(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, &PachdAddress{
 		Secured: false,
-		Host:    "[::1]",
+		Host:    "::1",
 		Port:    80,
 	}, p)
 }

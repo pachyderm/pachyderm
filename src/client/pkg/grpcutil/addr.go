@@ -49,54 +49,46 @@ func ParsePachdAddress(value string) (*PachdAddress, error) {
 		return nil, ErrNoPachdAddress
 	}
 
-	secured := false
-
-	if strings.Contains(value, "://") {
-		// only parse the url if it contains a scheme, as net/url doesn't
-		// appropriately handle values without one
-
-		u, err := url.Parse(value)
-		if err != nil {
-			return nil, fmt.Errorf("could not parse pachd address: %v", err)
-		}
-
-		switch u.Scheme {
-		case "grpc", "grpcs", "http", "https":
-		default:
-			return nil, fmt.Errorf("unrecognized scheme in pachd address: %s", u.Scheme)
-		}
-
-		switch {
-		case u.User != nil:
-			return nil, errors.New("pachd address should not include login credentials")
-		case u.RawQuery != "":
-			return nil, errors.New("pachd address should not include a query string")
-		case u.Fragment != "":
-			return nil, errors.New("pachd address should not include a fragment")
-		case u.Path != "":
-			return nil, errors.New("pachd address should not include a path")
-		}
-
-		value = u.Host
-		secured = u.Scheme == "grpcs" || u.Scheme == "https"
+	if !strings.Contains(value, "://") {
+		// append a default scheme if one does not exist, as `url.Parse`
+		// doesn't appropriately handle values without one
+		value = "grpc://" + value
 	}
 
-	// port always starts after last colon, but net.SplitHostPort returns an
-	// error on a hostport without a colon, which this might be
-	colonIdx := strings.LastIndexByte(value, ':')
-	host := value
+	u, err := url.Parse(value)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse pachd address: %v", err)
+	}
+
+	switch u.Scheme {
+	case "grpc", "grpcs", "http", "https":
+	default:
+		return nil, fmt.Errorf("unrecognized scheme in pachd address: %s", u.Scheme)
+	}
+
+	switch {
+	case u.User != nil:
+		return nil, errors.New("pachd address should not include login credentials")
+	case u.RawQuery != "":
+		return nil, errors.New("pachd address should not include a query string")
+	case u.Fragment != "":
+		return nil, errors.New("pachd address should not include a fragment")
+	case u.Path != "":
+		return nil, errors.New("pachd address should not include a path")
+	}
+
 	port := uint16(DefaultPachdNodePort)
-	if colonIdx >= 0 {
-		maybePort, err := strconv.ParseUint(value[colonIdx+1:], 10, 16)
-		if err == nil {
-			host = value[:colonIdx]
-			port = uint16(maybePort)
+	if strport := u.Port(); strport != "" {
+		maybePort, err := strconv.ParseUint(strport, 10, 16)
+		if err != nil {
+			return nil, fmt.Errorf("could not parse port in address: %v", err)
 		}
+		port = uint16(maybePort)
 	}
 
 	return &PachdAddress{
-		Secured: secured,
-		Host:    host,
+		Secured: u.Scheme == "grpcs" || u.Scheme == "https",
+		Host:    u.Hostname(),
 		Port:    port,
 	}, nil
 }
