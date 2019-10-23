@@ -326,3 +326,25 @@ func deserialize(tr *tar.Reader, hdr *tar.Header) (*Header, error) {
 		Idx: idx,
 	}, nil
 }
+
+// GetTopLevelIndex gets the top level index entry for a file set, which contains metadata
+// for the file set.
+func GetTopLevelIndex(ctx context.Context, objC obj.Client, path string) (*Header, error) {
+	objR, err := objC.Reader(ctx, path, 0, 0)
+	if err != nil {
+		return nil, err
+	}
+	buf := &bytes.Buffer{}
+	if _, err := io.Copy(buf, objR); err != nil {
+		return nil, err
+	}
+	if err := objR.Close(); err != nil {
+		return nil, err
+	}
+	tr := tar.NewReader(buf)
+	hdr, err := tr.Next()
+	if err != nil {
+		return nil, err
+	}
+	return deserialize(tr, hdr)
+}

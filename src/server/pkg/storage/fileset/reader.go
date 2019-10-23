@@ -10,7 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
 )
 
-// Reader reads the serialized format of a fileset.
+// Reader reads the serialized format of a file set.
 type Reader struct {
 	ctx     context.Context
 	chunks  *chunk.Storage
@@ -80,6 +80,26 @@ func (r *Reader) PeekTag() (*index.Tag, error) {
 		return nil, io.EOF
 	}
 	return r.tags[0], nil
+}
+
+func (r *Reader) LimitReader(tagBound ...string) (io.Reader, error) {
+	// Lazily setup reader for underlying file.
+	if err := r.setupReader(); err != nil {
+		return nil, err
+	}
+	// Determine the tags and number of bytes to limit.
+	var idx int
+	var numBytes int64
+	for i, tag := range r.tags {
+		if !index.BeforeBound(tag.Id, tagBound...) {
+			break
+		}
+		idx = i + 1
+		numBytes += tag.SizeBytes
+
+	}
+	r.tags = r.tags[idx:]
+	return io.LimitReader(r, numBytes), nil
 }
 
 func indexToContentHeader(idx *index.Header) {
@@ -199,12 +219,4 @@ func (r *Reader) readCopyTags(tagBound ...string) (*copyTags, error) {
 		return nil, err
 	}
 	return c, nil
-}
-
-// Close closes the reader.
-func (r *Reader) Close() error {
-	if err := r.cr.Close(); err != nil {
-		return err
-	}
-	return r.ir.Close()
 }

@@ -2,7 +2,11 @@ package fileset
 
 import (
 	"context"
+	"io"
+	"math"
 	"path"
+	"strconv"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
@@ -18,6 +22,14 @@ const (
 	// DefaultShardThreshold is the default for the size threshold that must
 	// be met before a shard is created by the shard function.
 	DefaultShardThreshold = 1024 * chunk.MB
+	// DefaultLevelZeroSize is the default size for level zero in the compacted
+	// representation of a file set.
+	DefaultLevelZeroSize = 1 * chunk.MB
+	// DefaultLevelSizeBase is the default base for the exponential growth function
+	// for level sizes in the compacted representation of a file set.
+	DefaultLevelSizeBase = 10
+	// Diff is the suffix of a path that points to the diff of the prefix.
+	Diff = "diff"
 	// Compacted is the suffix of a path that points to the compaction of the prefix.
 	Compacted = "compacted"
 )
@@ -30,6 +42,8 @@ type Storage struct {
 	objC                         obj.Client
 	chunks                       *chunk.Storage
 	memThreshold, shardThreshold int64
+	levelZeroSize                int64
+	levelSizeBase                int
 }
 
 // NewStorage creates a new Storage.
@@ -39,6 +53,8 @@ func NewStorage(objC obj.Client, chunks *chunk.Storage, opts ...StorageOption) *
 		chunks:         chunks,
 		memThreshold:   DefaultMemoryThreshold,
 		shardThreshold: DefaultShardThreshold,
+		levelZeroSize:  DefaultLevelZeroSize,
+		levelSizeBase:  DefaultLevelSizeBase,
 	}
 	for _, opt := range opts {
 		opt(s)
@@ -74,6 +90,11 @@ func (s *Storage) newReader(ctx context.Context, fileSet string, opts ...index.O
 	return newReader(ctx, s.objC, s.chunks, fileSet, opts...)
 }
 
+func (s *Storage) NewMergeReader(ctx context.Context, fileSet string, opts ...index.Option) *MergeReader {
+	fileSet = applyPrefix(fileSet)
+	return s.newMergeReader(ctx, []string{path.Join(fileSet, Compacted)}, opts...)
+}
+
 // Shard shards the merge of the file sets with the passed in prefix into file ranges.
 // (bryce) this should be extended to be more configurable (different criteria
 // for creating shards).
@@ -91,6 +112,68 @@ func (s *Storage) Merge(ctx context.Context, outputFileSet string, inputFileSets
 		return err
 	}
 	return w.Close()
+}
+
+type CompactSpec struct {
+	Output string
+	Input  []string
+}
+
+func (s *Storage) Compact(ctx context.Context, fileSet, compactedFileSet string) (*CompactSpec, error) {
+	fileSet = applyPrefix(fileSet)
+	compactedFileSet = applyPrefix(compactedFileSet)
+	hdr, err := index.GetTopLevelIndex(ctx, s.objC, path.Join(fileSet, Diff))
+	if err != nil {
+		return nil, err
+	}
+	var level int
+	size := hdr.Idx.SizeBytes
+	spec := &CompactSpec{
+		Input: []string{path.Join(fileSet, Diff)},
+	}
+	if err := s.objC.Walk(ctx, path.Join(compactedFileSet, Compacted), func(name string) error {
+		nextLevel, err := strconv.Atoi(path.Base(name))
+		if err != nil {
+			return err
+		}
+		// Handle levels that are non-empty.
+		if nextLevel == level {
+			hdr, err := index.GetTopLevelIndex(ctx, s.objC, name)
+			if err != nil {
+				return err
+			}
+			size += hdr.Idx.SizeBytes
+			// If the output level has not been determined yet, then the current level will be an input
+			// to the compaction.
+			// If the output level has been determined, then the current level will be copied.
+			// The copied levels are above the output level.
+			if spec.Output == "" {
+				spec.Input = append(spec.Input, name)
+			} else {
+				w, err := s.objC.Writer(ctx, path.Join(fileSet, Compacted, strconv.Itoa(level)))
+				if err != nil {
+					return err
+				}
+				r, err := s.objC.Reader(ctx, name, 0, 0)
+				if err != nil {
+					return err
+				}
+				if _, err := io.Copy(w, r); err != nil {
+					return err
+				}
+			}
+		}
+		// If the output level has not been determined yet and the compaction size is less than the threshold for
+		// the current level, then the current level becomes the output level.
+		if spec.Output == "" && size < s.levelZeroSize*int64(math.Pow(float64(s.levelSizeBase), float64(level))) {
+			spec.Output = path.Join(fileSet, Compacted, strconv.Itoa(level))
+		}
+		level++
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return spec, nil
 }
 
 func (s *Storage) merge(ctx context.Context, fileSets []string, f mergeFunc, opts ...index.Option) error {
@@ -111,13 +194,16 @@ func (s *Storage) merge(ctx context.Context, fileSets []string, f mergeFunc, opt
 }
 
 func applyPrefix(fileSet string) string {
+	if strings.HasPrefix(fileSet, prefix) {
+		return fileSet
+	}
 	return path.Join(prefix, fileSet)
 }
 
 func applyPrefixes(fileSets []string) []string {
 	var prefixedFileSets []string
 	for _, fileSet := range fileSets {
-		prefixedFileSets = append(prefixedFileSets, path.Join(prefix, fileSet))
+		prefixedFileSets = append(prefixedFileSets, applyPrefix(fileSet))
 	}
 	return prefixedFileSets
 }

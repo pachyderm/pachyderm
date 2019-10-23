@@ -63,21 +63,23 @@ func (d *driver) finishCommitNewStorageLayer(txnCtx *txnenv.TransactionContext, 
 			d.fs = nil
 		}
 	}()
-	// Merge the commit with its parent.
-	// (bryce) this should be where the level based compaction scheme is used.
-	// right now we are eagerly compacting at every commit.
-	fileSets := []string{commitInfo.Commit.ID}
+	// Compact the commit changes into a diff file set.
+	commitPath := path.Join(commit.Repo.Name, commit.ID)
+	if err := d.merge(context.Background(), path.Join(commitPath, fileset.Diff), []string{commitPath}); err != nil {
+		return err
+	}
+	// Compact the commit changes (diff file set) into the total changes in the commit's ancestry.
 	parentCommit := commitInfo.ParentCommit
 	if parentCommit != nil {
 		// (bryce) how to handle parent commit that is not closed?
-		parentCommitInfo, err := d.resolveCommit(txnCtx.Stm, parentCommit)
+		parentCommitPath := path.Join(parentCommit.Repo.Name, parentCommit.ID)
+		compactSpec, err := d.storage.Compact(context.Background(), commitPath, parentCommitPath)
 		if err != nil {
 			return err
 		}
-		fileSets = append(fileSets, path.Join(parentCommitInfo.Commit.ID, fileset.Compacted))
-	}
-	if err := d.merge(context.Background(), path.Join(commitInfo.Commit.ID, fileset.Compacted), fileSets); err != nil {
-		return err
+		if err := d.merge(context.Background(), compactSpec.Output, compactSpec.Input); err != nil {
+			return err
+		}
 	}
 	// (bryce) need size.
 	commitInfo.SizeBytes = uint64(0)
@@ -103,7 +105,7 @@ func (d *driver) putFilesNewStorageLayer(pachClient *client.APIClient, server *p
 func (d *driver) getFileNewStorageLayer(pachClient *client.APIClient, file *pfs.File) (io.Reader, error) {
 	// (bryce) path should be cleaned in option function
 	fileSet := file.Commit.ID
-	r := d.storage.NewReader(context.Background(), path.Join(fileSet, fileset.Compacted), index.WithPrefix(file.Path))
+	r := d.storage.NewMergeReader(context.Background(), fileSet, index.WithPrefix(file.Path))
 	hdr, err := r.Next()
 	if err != nil {
 		if err == io.EOF {

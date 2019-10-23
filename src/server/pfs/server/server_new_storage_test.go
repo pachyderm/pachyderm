@@ -15,6 +15,7 @@ func TestMerge(t *testing.T) {
 	config.NewStorageLayer = true
 	config.StorageMemoryThreshold = 20
 	config.StorageShardThreshold = 20
+	config.StorageLevelZeroSize = 10
 	c := GetPachClient(t, config)
 	repo := "test"
 	branch := "master"

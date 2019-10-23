@@ -1,6 +1,8 @@
 package fileset
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"io"
 
@@ -264,4 +266,139 @@ func merge(ss []stream, f mergeFunc) error {
 		}
 	}
 	return nil
+}
+
+type file struct {
+	hdr   *index.Header
+	rChan chan io.Reader
+}
+
+// MergeReader reads the merge of the serialized format of multiple file sets.
+// Each file must be read in full when using this abstraction.
+type MergeReader struct {
+	ctx      context.Context
+	fileChan chan *file
+	file     *file
+	r        io.Reader
+	errChan  chan error
+}
+
+func (s *Storage) newMergeReader(ctx context.Context, fileSets []string, opts ...index.Option) *MergeReader {
+	r := &MergeReader{
+		ctx:      ctx,
+		fileChan: make(chan *file),
+		r:        &bytes.Buffer{},
+		errChan:  make(chan error, 1),
+	}
+	go func() {
+		if err := s.merge(ctx, fileSets, func(ss []stream, next ...string) error {
+			// Convert generic streams to file streams.
+			var fileStreams []*fileStream
+			for _, s := range ss {
+				fileStreams = append(fileStreams, s.(*fileStream))
+			}
+			// Setup tag streams for tag merge.
+			var tagStreams []stream
+			var size int64
+			for _, fs := range fileStreams {
+				hdr, err := fs.r.Next()
+				if err != nil {
+					return err
+				}
+				// (bryce) need to handle delete operations.
+				tagStreams = append(tagStreams, &tagStream{r: fs.r})
+				size += hdr.Idx.SizeBytes
+			}
+			// Setup header for file.
+			hdr := &index.Header{
+				Hdr: &tar.Header{
+					Name: fileStreams[0].hdr.Hdr.Name,
+					Size: size,
+				},
+			}
+			// Setup file for reading.
+			file := &file{
+				hdr:   hdr,
+				rChan: make(chan io.Reader),
+			}
+			select {
+			case r.fileChan <- file:
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+			// Merge file content.
+			if err := merge(tagStreams, func(ss []stream, next ...string) error {
+				// Convert generic stream to tag stream.
+				tagStream := ss[0].(*tagStream)
+				// Setup tagged data for reading.
+				nextR, err := tagStream.r.LimitReader(next...)
+				if err != nil {
+					return err
+				}
+				select {
+				case file.rChan <- nextR:
+					return nil
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			}); err != nil {
+				return err
+			}
+			close(file.rChan)
+			return nil
+		}, opts...); err != nil {
+			r.errChan <- err
+			return
+		}
+		close(r.fileChan)
+	}()
+	return r
+}
+
+func (r *MergeReader) Next() (*index.Header, error) {
+	select {
+	case file, more := <-r.fileChan:
+		if !more {
+			return nil, io.EOF
+		}
+		r.file = file
+		return file.hdr, nil
+	case err := <-r.errChan:
+		return nil, err
+	case <-r.ctx.Done():
+		return nil, r.ctx.Err()
+	}
+}
+
+func (r *MergeReader) Read(data []byte) (int, error) {
+	var totalBytesRead int
+	for len(data) > 0 {
+		bytesRead, err := r.r.Read(data)
+		data = data[bytesRead:]
+		totalBytesRead += bytesRead
+		if err != nil {
+			if err != io.EOF {
+				return totalBytesRead, err
+			}
+			if err := r.nextReader(); err != nil {
+				return totalBytesRead, err
+			}
+		}
+	}
+	return totalBytesRead, nil
+}
+
+func (r *MergeReader) nextReader() error {
+	select {
+	case nextR, more := <-r.file.rChan:
+		if !more {
+			return io.EOF
+		}
+		r.r = nextR
+		return nil
+	case err := <-r.errChan:
+		return err
+	case <-r.ctx.Done():
+		return r.ctx.Err()
+	}
 }
