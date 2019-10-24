@@ -146,6 +146,7 @@ nav:
         - Deferred Processing of Data: how-tos/deferred_processing.md
         - Ingress and Egress Data from an External Object Store: how-tos/ingressing_from_diff_cloud.md
     - Deploy and Manage:
+        - Overview: deploy-manage/index.md
         - Deploy Pachyderm:
             - Overview: deploy-manage/deploy/index.md
             - Getting Started with Pachyderm Hub: pachub/pachub_getting_started.md
@@ -174,6 +175,7 @@ nav:
             - Configure Tracing with Jaeger: deploy-manage/deploy/tracing.md
             - Connect to a Pachyderm cluster: deploy-manage/deploy/connect-to-cluster.md
         - Manage Pachyderm:
+            - Overview: deploy-manage/manage/index.md
             - Manage Cluster Access: deploy-manage/manage/cluster-access.md
             - Autoscale your Cluster: deploy-manage/manage/autoscaling.md
             - Batching Pachyderm with Transactions: deploy-manage/manage/batching_pachyderm_with_transactions.md
