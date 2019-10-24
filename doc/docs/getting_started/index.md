@@ -1,15 +1,8 @@
 # Getting Started
 
-Pachyderm provides multiple options to set up and run a Pachyderm cluster
-that different requirements. Pachyderm runs on Kubernetes and supports
-various Kubernetes engines. You can deploy a Pachyderm cluster on your
-computer in a Minikube virtual machine, in a supported cloud platform,
-or in PacHub, a hosted Pachyderm service. If you just want to get a
-quick preview of basic Pachyderm features, we recommend that you start
-by deploying your Pachyderm cluster in PacHub and trying our beginner
-tutorial.
-
-Pick an option that works best for you.
+Pachyderm provides multiple easy ways to get up and running quickly.
+You can deploy Pachyderm on you local machine, in you favorite cloud
+provider, or in our fully managed service, Pachyderm Hub.
 
 <div class="row">
   <div class="column-2">
