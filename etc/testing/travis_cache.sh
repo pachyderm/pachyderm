@@ -4,7 +4,7 @@
 # permissions enough that our build process is guaranteed to be able to write
 # to them and Travis's caching process is guaranteed to be able to read them.
 # (Travis caching requires that all cached files be readable, and, I surmise,
-# that cached directores be executable, to be traversed).
+# that cached directories be executable, to be traversed).
 
 set -ex
 
