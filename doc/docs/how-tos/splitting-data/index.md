@@ -1,7 +1,4 @@
-.. _splitting-data:
-
-Split Data
-==========
+# Split Data
 
 Pachyderm provides functionality that enables you to split
 your data while it is being loaded into a Pachyderm input
@@ -23,14 +20,6 @@ Splitting data helps you to address the following use cases:
   changed in that file. Breaking up the file to smaller chunks addresses
   this issue.
 
-This section provides examples of how you can use the ``--split``
+This section provides examples of how you can use the `--split`
 command that breaks up your data into smaller chunks, called
 *split-files* and what happens when you update your data.
-
-This section includes the following topics:
-
-.. toctree::
-   :maxdepth: 2
-
-   splitting.md
-   adjusting_data_processing_w_split.md
