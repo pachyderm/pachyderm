@@ -1385,7 +1385,9 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 	if description != "" {
 		commitInfo.Description = description
 	}
-
+	// might wind up finished multiple commits, and it's nicer to have them all
+	// have the same finished timestamp
+	finished := now()
 	var parentTree, finishedTree hashtree.HashTree
 	if !empty {
 		// Retrieve the parent commit's tree (to apply writes from etcd or just
@@ -1430,9 +1432,25 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 		}
 
 		commitInfo.SizeBytes = uint64(finishedTree.FSSize())
+	} else {
+		// we're closing this commit empty (because there was an error)
+		// downstream commits also get closed because of this.
+		for _, subv := range commitInfo.Subvenance {
+			commit := subv.Upper
+			for commit != nil {
+				commitInfo, err := d.resolveCommit(txnCtx.Stm, commit)
+				if err != nil {
+					return err
+				}
+				commitInfo.Finished = finished
+				if err := d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo); err != nil {
+					return err
+				}
+			}
+		}
 	}
 
-	commitInfo.Finished = now()
+	commitInfo.Finished = finished
 	return d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo)
 }
 
