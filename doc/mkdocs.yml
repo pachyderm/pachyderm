@@ -189,6 +189,7 @@ nav:
                 - Upgrade your Cluster: deploy-manage/manage/upgrades.md
             - Disable Usage Metrics: deploy-manage/manage/disable-metrics.md
     - Reference:
+        - Overview: reference/index.md
         - Pipeline Specification: reference/pipeline_spec.md
         - Pachyderm Config Specification: reference/config_spec.md
         - Pachyderm Language Clients: reference/clients.md
