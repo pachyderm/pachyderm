@@ -9,7 +9,7 @@ multiple data repositories to process, join, or aggregate data. For
 example, you might need to process together multiple records that
 correspond to a certain user, experiment, or device.
 
-In these cases, you can create to pipelines that perform the following
+In these cases, you can create two pipelines that perform the following
 steps:
 
 ![Steps](../assets/images/d_steps_combine_pipelines.svg)
@@ -76,7 +76,7 @@ If you want to process `A/1.json` with `B/1.json` to merge
 their contents or otherwise process them together, you need to
 group each set of JSON records into respective datums that
 the pipelines that you create in
-[Process grouped records](#process-grouped-records)
+[Process Grouped Records](#process-grouped-records)
 can process together.
 
 The grouping pipeline takes a union of `A` and `B` as inputs,
