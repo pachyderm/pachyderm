@@ -28,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
@@ -44,26 +45,43 @@ const (
 	// pachyderm token for any username in the AuthenticateRequest.GitHubToken field
 	DisableAuthenticationEnvVar = "PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING"
 
-	tokensPrefix              = "/tokens"
-	authenticationCodesPrefix = "/auth-codes"
-	aclsPrefix                = "/acls"
-	adminsPrefix              = "/admins"
-	membersPrefix             = "/members"
-	groupsPrefix              = "/groups"
-	configPrefix              = "/config"
+	tokensPrefix           = "/tokens"
+	oneTimePasswordsPrefix = "/auth-codes"
+	aclsPrefix             = "/acls"
+	adminsPrefix           = "/admins"
+	membersPrefix          = "/members"
+	groupsPrefix           = "/groups"
+	configPrefix           = "/config"
 
-	defaultTokenTTLSecs = 30 * 24 * 60 * 60 // 30 days
-	defaultSAMLTTLSecs  = 24 * 60 * 60      // 24 hours
+	// defaultSessionTTLSecs is the lifetime of an auth token from Authenticate,
+	// and the default lifetime of an auth token from GetAuthToken.
+	//
+	// Note: if 'defaultSessionTTLSecs' is changed, then the description of
+	// '--ttl' in 'pachctl get-auth-token' must also be changed
+	defaultSessionTTLSecs = 30 * 24 * 60 * 60 // 30 days
+	// defaultSAMLTTLSecs is the default session TTL for SAML-authenticated tokens
+	// This is shorter than defaultSessionTTLSecs because group membership
+	// information is passed during SAML authentication, so a short TTL ensures
+	// that group membership information is updated somewhat regularly.
+	defaultSAMLTTLSecs = 24 * 60 * 60 // 24 hours
+	// minSessionTTL is the shortest session TTL that Authenticate() will attach
+	// to a new token. This avoids confusing behavior with stale OTPs and such.
+	minSessionTTL = 10 * time.Second // 30 days
 
-	// defaultAuthCodeTTLSecs is the lifetime of an Authentication Code from
+	// defaultOTPTTLSecs is the lifetime of an One-Time Password from
 	// GetOneTimePassword
-	defaultAuthCodeTTLSecs = 120
+	//
+	// Note: if 'defaultOTPTTLSecs' is changed, then the description of
+	// '--ttl' in 'pachctl get-otp' must also be changed
+	defaultOTPTTLSecs = 60 * 5            // 5 minutes
+	maxOTPTTLSecs     = 30 * 24 * 60 * 60 // 30 days
 
-	// magicUser is a special, unrevokable cluster administrator. It's not
-	// possible to log in as magicUser, but pipelines with no owner are run as
-	// magicUser when auth is activated. This string is not secret, but is long
-	// and random to avoid collisions with real usernames
-	magicUser = `magic:GZD4jKDGcirJyWQt6HtK4hhRD6faOofP1mng34xNZsI`
+	// ppsUser is a special, unrevokable cluster administrator account used by PPS
+	// to create pipeline tokens, close commits, and do other necessary PPS work.
+	// It's not possible to authenticate as ppsUser (pps reads the auth token for
+	// this user directly from etcd). This string is not secret, but is long and
+	// random to avoid collisions with real usernames
+	ppsUser = `magic:GZD4jKDGcirJyWQt6HtK4hhRD6faOofP1mng34xNZsI`
 
 	// configKey is a key (in etcd, in the config collection) that maps to the
 	// auth configuration. This is the only key in that collection (due to
@@ -129,10 +147,10 @@ type apiServer struct {
 	// tokens is a collection of hashedToken -> TokenInfo mappings. These tokens are
 	// returned to users by Authenticate()
 	tokens col.Collection
-	// authenticationCodes is a collection of hash(code) -> TokenInfo mappings.
+	// oneTimePasswords is a collection of hash(code) -> TokenInfo mappings.
 	// These codes are generated internally, and converted to regular tokens by
 	// Authenticate()
-	authenticationCodes col.Collection
+	oneTimePasswords col.Collection
 	// acls is a collection of repoName -> ACL mappings.
 	acls col.Collection
 	// admins is a collection of username -> Empty mappings (keys indicate which
@@ -200,9 +218,9 @@ func NewAuthServer(
 			nil,
 			nil,
 		),
-		authenticationCodes: col.NewCollection(
+		oneTimePasswords: col.NewCollection(
 			env.GetEtcdClient(),
-			path.Join(etcdPrefix, authenticationCodesPrefix),
+			path.Join(etcdPrefix, oneTimePasswordsPrefix),
 			nil,
 			&auth.OTPInfo{},
 			nil,
@@ -284,7 +302,7 @@ func (a *apiServer) activationState() activationState {
 	if len(a.adminCache) == 0 {
 		return none
 	}
-	if _, magicUserIsAdmin := a.adminCache[magicUser]; magicUserIsAdmin {
+	if _, ppsUserIsAdmin := a.adminCache[ppsUser]; ppsUserIsAdmin {
 		return partial
 	}
 	return full
@@ -420,17 +438,17 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 	// Activating an already activated auth service should fail, because
 	// otherwise anyone can just activate the service again and set
 	// themselves as an admin. If activation failed in PFS, calling auth.Activate
-	// again should work (in this state, the only admin will be 'magicUser')
+	// again should work (in this state, the only admin will be 'ppsUser')
 	if a.activationState() == full {
 		return nil, fmt.Errorf("already activated")
 	}
 
 	// The Pachyderm token that Activate() returns will have the TTL
-	// - 'defaultTokenTTLSecs' if the initial admin is a GitHub user (who can get
-	//   a new token by re-authenticating via GitHub after this token expires)
+	// - 'defaultSessionTTLSecs' if the initial admin is a GitHub user (who can
+	//   get a new token by re-authenticating via GitHub after this token expires)
 	// - 0 (no TTL, indefinite lifetime) if the initial admin is a robot user
 	//   (who has no way to acquire a new token once this token expires)
-	ttlSecs := int64(defaultTokenTTLSecs)
+	ttlSecs := int64(defaultSessionTTLSecs)
 	// Authenticate the caller (or generate a new auth token if req.Subject is a
 	// robot user)
 	if req.Subject != "" {
@@ -462,12 +480,12 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 		return nil, fmt.Errorf("invalid subject in request (must be a GitHub user or robot): \"%s\"", req.Subject)
 	}
 
-	// Hack: set the cluster admins to just {magicUser}. This puts the auth system
+	// Hack: set the cluster admins to just {ppsUser}. This puts the auth system
 	// in the "partial" activation state. Users cannot authenticate, but auth
 	// checks are now enforced, which means no pipelines or repos can be created
 	// while ACLs are being added to every repo for the existing pipelines
 	if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		return a.admins.ReadWrite(stm).Put(magicUser, epsilon)
+		return a.admins.ReadWrite(stm).Put(ppsUser, epsilon)
 	}); err != nil {
 		return nil, err
 	}
@@ -498,7 +516,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 	if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		admins := a.admins.ReadWrite(stm)
 		tokens := a.tokens.ReadWrite(stm)
-		if err := admins.Delete(magicUser); err != nil {
+		if err := admins.Delete(ppsUser); err != nil {
 			return err
 		}
 		if err := admins.Put(req.Subject, epsilon); err != nil {
@@ -546,13 +564,13 @@ func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest)
 
 	// Check if the cluster is in a partially-activated state. If so, allow it to
 	// be completely deactivated so that it returns to normal
-	var magicUserIsAdmin bool
+	var ppsUserIsAdmin bool
 	func() {
 		a.adminMu.Lock()
 		defer a.adminMu.Unlock()
-		_, magicUserIsAdmin = a.adminCache[magicUser]
+		_, ppsUserIsAdmin = a.adminCache[ppsUser]
 	}()
-	if magicUserIsAdmin {
+	if ppsUserIsAdmin {
 		_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 			a.admins.ReadWrite(stm).DeleteAll() // watchAdmins() will see the write
 			return nil
@@ -836,7 +854,8 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 			return nil, err
 		}
 
-		// If the cluster's enterprise token is expired, only admins may log in
+		// If the cluster's enterprise token is expired, only admins may log in.
+		// Check if 'username' is an admin
 		if err := a.expiredClusterAdminCheck(ctx, username); err != nil {
 			return nil, err
 		}
@@ -850,7 +869,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 					Subject: username,
 					Source:  auth.TokenInfo_AUTHENTICATE,
 				},
-				defaultTokenTTLSecs)
+				defaultSessionTTLSecs)
 		}); err != nil {
 			return nil, fmt.Errorf("error storing auth token for user \"%s\": %v", username, err)
 		}
@@ -858,34 +877,40 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 	case req.OneTimePassword != "":
 		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 			// read short-lived authentication code (and delete it if found)
-			codes := a.authenticationCodes.ReadWrite(stm)
+			otps := a.oneTimePasswords.ReadWrite(stm)
 			key := hashToken(req.OneTimePassword)
 			var otpInfo auth.OTPInfo
-			if err := codes.Get(key, &otpInfo); err != nil {
+			if err := otps.Get(key, &otpInfo); err != nil {
+				if col.IsErrNotFound(err) {
+					return fmt.Errorf("otp is invalid or has expired")
+				}
 				return err
 			}
-			codes.Delete(key)
+			otps.Delete(key)
 
 			// If the cluster's enterprise token is expired, only admins may log in
+			// Check if 'otpInfo.Subject' is an admin
 			if err := a.expiredClusterAdminCheck(ctx, otpInfo.Subject); err != nil {
 				return err
 			}
 
 			// Determine new token's TTL
-			ttl := int64(defaultTokenTTLSecs)
+			ttl := int64(defaultSessionTTLSecs)
 			if otpInfo.SessionExpiration != nil {
 				expiration, err := types.TimestampFromProto(otpInfo.SessionExpiration)
 				if err != nil {
 					return fmt.Errorf("invalid timestamp in OTPInfo, could not " +
 						"authenticate (try obtaining a new OTP)")
 				}
-				if !expiration.IsZero() {
-					// divide instead of calling Seconds() to avoid float-based rounding
-					// errors
-					newTTL := int64(expiration.Sub(time.Now()) / time.Second)
-					if newTTL < ttl {
-						ttl = newTTL
-					}
+				tokenTTLDuration := expiration.Sub(time.Now())
+				if tokenTTLDuration < minSessionTTL {
+					return fmt.Errorf("otp is invalid or has expired")
+				}
+				// divide instead of calling Seconds() to avoid float-based rounding
+				// errors
+				newTTL := int64(tokenTTLDuration / time.Second)
+				if newTTL < ttl {
+					ttl = newTTL
 				}
 			}
 
@@ -937,8 +962,8 @@ func (a *apiServer) GetOneTimePassword(ctx context.Context, req *auth.GetOneTime
 	case partial:
 		return nil, auth.ErrPartiallyActivated
 	}
-	if req.Subject == magicUser {
-		return nil, fmt.Errorf("GetAuthTokenRequest.Subject is invalid")
+	if req.Subject == ppsUser {
+		return nil, fmt.Errorf("GetOneTimePassword.Subject is invalid")
 	}
 
 	// Get current caller and check if they're authorized if req.Subject is set
@@ -952,92 +977,118 @@ func (a *apiServer) GetOneTimePassword(ctx context.Context, req *auth.GetOneTime
 		return nil, err
 	}
 
-	// Canonicalize req.Subject, authorize caller
-	if req.Subject == "" {
-		// [Simple case] caller wants an implicit OTP for themselves
-		// Canonicalization: callerInfo.Subject is already canonical.
-		// Authorization: Getting an OTP for yourself is always authorized
-		// TTL: Use caller's current token if non-admin, default OTP TTL otherwise
-		// NOTE: After this point, req.Subject may be magicUser (even though we
-		// reject magicUser when set explicitly
-		req.Subject = callerInfo.Subject
-	} else {
-		// [Harder case] explicit req.Subject
-		// canonicalize req.Subject
-		subject, err := a.canonicalizeSubject(ctx, req.Subject)
-		if err != nil {
-			return nil, err
-		}
-		req.Subject = subject
-
-		// Authorization: caller must be admin to get OTP for another user
-		if !isAdmin && req.Subject != callerInfo.Subject {
+	// check if this request is auhorized
+	req.Subject, err = a.authorizeNewToken(ctx, callerInfo, isAdmin, req.Subject)
+	if err != nil {
+		if _, ok := err.(*auth.ErrNotAuthorized); ok {
+			// return more descriptive error
 			return nil, &auth.ErrNotAuthorized{
 				Subject: callerInfo.Subject,
 				AdminOp: "GetOneTimePassword on behalf of another user",
 			}
 		}
+		return nil, err
 	}
 
-	// Compute TTL for new token that the user will get once OTP is exchanged
-	// Note: Admins always use default TTL (30 days currently), which means they
-	// can extend their session by getting an OTP and exchanging it for a new
-	// token with a later expiration than their curren token
-	var ttl = int64(defaultTokenTTLSecs)
+	// compute the TTL for the OTP itself (default: 5m). This cannot be longer
+	// than the TTL for the token that the user will get once the OTP is exchanged
+	// (see below) or 30 days, whichever is shorter.
+	if req.TTL <= 0 {
+		req.TTL = defaultOTPTTLSecs
+	} else if req.TTL > maxOTPTTLSecs {
+		req.TTL = maxOTPTTLSecs
+	}
+
+	// Compute TTL for new token that the user will get once OTP is exchanged.
+	// For non-admin users (getting an OTP for themselves), the new token's TTL
+	// will be the same as their current token's TTL, or 30 days (whichever is
+	// shorter).
+	//
+	// This prevents a non-admin attacker from extending their session
+	// indefinitely by repeatedly getting an OTP and authenticating with it.
+	// Eventually the user must re-authenticate, or have an admin create an auth
+	// token for them (in the case of robot users)
+	//
+	// When admins get OTPs for other users, the new token will have the default
+	// token TTL. Moreover, because admins can add other users as admins, get an
+	// OTP for that other user, and then get a new OTP for themselves *as* that
+	// other user, there is no additional security provided by preventing admins
+	// from extending their own sessions by getting OTPs for themselves, so even
+	// in that case, the new token has the default token TTL.
+	var sessionTTL int64 = defaultSessionTTLSecs
 	if !isAdmin {
 		// Caller is getting OTP for themselves--use TTL of their current token
-		ttl, err = a.getCallerTTL(ctx)
+		callerCurrentSessionTTL, err := a.getCallerTTL(ctx)
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	// Convert TTL to expiration time
-	// Note: ttl <= 0 means that the user's session will not expire (e.g. because
-	// they are a robot user)
-	var expiration time.Time
-	if ttl > 0 {
-		if ttl <= 10 {
-			// session is too short to be meaningful -- return an error
-			return nil, fmt.Errorf("session expires too soon to get an " +
-				"authentication code")
+		// Can't currently happen, but if the caller has an indefinite token, then
+		// the new token should have the default session TTL rather than being
+		// indefinite as well
+		if callerCurrentSessionTTL > 0 && sessionTTL > callerCurrentSessionTTL {
+			sessionTTL = callerCurrentSessionTTL
 		}
-		expiration = time.Now().Add(time.Duration(ttl-1) * time.Second)
+		if sessionTTL <= 10 {
+			// session is too short to be meaningful -- return an error
+			return nil, fmt.Errorf("session expires too soon to get a " +
+				"one-time password")
+		}
+	}
+	sessionExpiration := time.Now().Add(time.Duration(sessionTTL-1) * time.Second)
+
+	// Cap OTP TTL at session TTL (so OTPs don't convert to expired tokens)
+	if req.TTL >= sessionTTL {
+		req.TTL = (sessionTTL - 1)
 	}
 
 	// Generate authentication code with same (or slightly shorter) expiration
-	code, err := a.getOneTimePassword(ctx, req.Subject, expiration)
+	code, err := a.getOneTimePassword(ctx, req.Subject, req.TTL, sessionExpiration)
 	if err != nil {
 		return nil, err
 	}
+
+	// compute OTP expiration (used by dash)
+	otpExpiration := time.Now().Add(time.Duration(req.TTL-1) * time.Second)
+	otpExpirationProto, err := types.TimestampProto(otpExpiration)
+	if err != nil {
+		return nil, fmt.Errorf("could not create OTP with expiration time %s: %v",
+			otpExpiration.String(), err)
+	}
 	return &auth.GetOneTimePasswordResponse{
-		Code: code,
+		Code:          code,
+		OTPExpiration: otpExpirationProto,
 	}, nil
 }
 
 // getOneTimePassword contains the implementation of GetOneTimePassword,
-// but is also called directly by handleSAMLREsponse. It generates a
-// short-lived authentication code for 'username', writes it to
-// a.authenticationCodes, and returns it
-func (a *apiServer) getOneTimePassword(ctx context.Context, username string, expiration time.Time) (code string, err error) {
+// but is also called directly by handleSAMLResponse. It generates a
+// short-lived one-time password for 'username', writes it to
+// a.oneTimePasswords, and returns it
+//
+// Note: if sessionExpiration is 0, then Authenticate() will give the caller the
+// default session TTL, rather than an indefinite token, so this is relatively
+// safe. 'sessionExpiration' should typically be set, though, so that expiration
+// time is measured from when the OTP is issued, rather than from when it's
+// converted.
+func (a *apiServer) getOneTimePassword(ctx context.Context, username string, otpTTL int64, sessionExpiration time.Time) (code string, err error) {
 	// Create OTPInfo that will be stored
 	otpInfo := &auth.OTPInfo{
 		Subject: username,
 	}
-	if !expiration.IsZero() {
-		expirationProto, err := types.TimestampProto(expiration)
+	if !sessionExpiration.IsZero() {
+		sessionExpirationProto, err := types.TimestampProto(sessionExpiration)
 		if err != nil {
-			return "", fmt.Errorf("could not create OTP with expiration time %s: %v",
-				expiration.String(), err)
+			return "", fmt.Errorf("could not create OTP with session expiration time %s: %v",
+				sessionExpiration.String(), err)
 		}
-		otpInfo.SessionExpiration = expirationProto
+		otpInfo.SessionExpiration = sessionExpirationProto
 	}
 
 	// Generate and store new OTP
-	code = "auth_code:" + uuid.NewWithoutDashes()
+	code = "otp/" + uuid.NewWithoutDashes()
 	if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		return a.authenticationCodes.ReadWrite(stm).PutTTL(hashToken(code),
-			otpInfo, defaultAuthCodeTTLSecs)
+		return a.oneTimePasswords.ReadWrite(stm).PutTTL(hashToken(code),
+			otpInfo, otpTTL)
 	}); err != nil {
 		return "", err
 	}
@@ -1142,7 +1193,7 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 
 	// Get TTL of user's token
 	ttl := int64(-1) // value returned by etcd for keys w/ no lease (no TTL)
-	if callerInfo.Subject != magicUser {
+	if callerInfo.Subject != ppsUser {
 		token, err := getAuthToken(ctx)
 		if err != nil {
 			return nil, err
@@ -1172,7 +1223,7 @@ func validateSetScopeRequest(ctx context.Context, req *auth.SetScopeRequest) err
 }
 
 func (a *apiServer) isAdmin(ctx context.Context, subject string) (bool, error) {
-	if subject == magicUser {
+	if subject == ppsUser {
 		return true, nil
 	}
 	a.adminMu.Lock()
@@ -1531,7 +1582,7 @@ func (a *apiServer) SetACLInTransaction(
 	}
 	for _, entry := range req.Entries {
 		user, scope := entry.Username, entry.Scope
-		if user == magicUser {
+		if user == ppsUser {
 			continue
 		}
 		eg.Go(func() error {
@@ -1646,18 +1697,56 @@ func (a *apiServer) SetACL(ctx context.Context, req *auth.SetACLRequest) (resp *
 	return response, nil
 }
 
+// authorizeNewToken is a helper for GetAuthToken and GetOTP that checks if
+// the caller ('callerInfo') is authorized to get a Pachyderm token or OTP for
+// 'targetUser', or for themselves if 'targetUser' is empty (a convention use by
+// both API endpoints). It returns a canonicalized version of 'targetSubject'
+// (or the caller if 'targetSubject' is empty) xor an error, e.g. if the caller
+// isn't authorized.
+//
+// The code isn't too long or complex, but centralizing it keeps the two API
+// endpoints syncronized
+func (a *apiServer) authorizeNewToken(ctx context.Context, callerInfo *auth.TokenInfo, isAdmin bool, targetSubject string) (string, error) {
+	if targetSubject == "" {
+		// [Simple case] caller wants an implicit OTP for themselves
+		// Canonicalization: callerInfo.Subject is already canonical.
+		// Authorization: Getting a token/OTP for yourself is always authorized.
+		// NOTE: After this point, req.Subject is permitted to be ppsUser (even
+		// though we reject ppsUser when set explicitly.)
+		targetSubject = callerInfo.Subject
+	} else {
+		// [Harder case] explicit req.Subject
+		var err error
+		targetSubject, err = a.canonicalizeSubject(ctx, targetSubject)
+		if err != nil {
+			return "", err
+		}
+
+		// Authorization: caller must be admin to get OTP for another user
+		if !isAdmin && targetSubject != callerInfo.Subject {
+			return "", &auth.ErrNotAuthorized{
+				Subject: callerInfo.Subject,
+				AdminOp: "get token on behalf of another user",
+			}
+		}
+	}
+	return targetSubject, nil
+}
+
 // GetAuthToken implements the protobuf auth.GetAuthToken RPC
 func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequest) (resp *auth.GetAuthTokenResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if a.activationState() == none {
+		// GetAuthToken must work in the partially-activated state so that PPS can
+		// get tokens for all existing pipelines during activation
 		return nil, auth.ErrNotActivated
 	}
-	if req.Subject == "" {
-		return nil, fmt.Errorf("must set GetAuthTokenRequest.Subject")
-	}
-	if req.Subject == magicUser {
+	if req.Subject == ppsUser {
 		return nil, fmt.Errorf("GetAuthTokenRequest.Subject is invalid")
+	}
+	if req.TTL < 0 {
+		return nil, fmt.Errorf("GetAuthTokenRequest.TTL must be >= 0")
 	}
 
 	// Get current caller and authorize them if req.Subject is set to a different
@@ -1671,48 +1760,48 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 		return nil, err
 	}
 
-	// TODO(msteffen): This code is duplicated here and in GetOneTimePassword.
-	// These two RPC handlers should probably be unified
-	// Canonicalize req.Subject, authorize caller
-	if req.Subject == "" {
-		// [Simple case] caller wants an implicit OTP for themselves
-		// Canonicalization: callerInfo.Subject is already canonical.
-		// Authorization: Getting an OTP for yourself is always authorized
-		// TTL: Use caller's current token if non-admin, default OTP TTL otherwise
-		// NOTE: After this point, req.Subject may be magicUser (even though we
-		// reject magicUser when set explicitly
-		req.Subject = callerInfo.Subject
-	} else {
-		// [Harder case] explicit req.Subject
-		// canonicalize req.Subject
-		req.Subject, err = a.canonicalizeSubject(ctx, req.Subject)
-		if err != nil {
-			return nil, err
-		}
-
-		// Authorization: caller must be admin to get OTP for another user
-		if !isAdmin && req.Subject != callerInfo.Subject {
+	// check if this request is auhorized
+	req.Subject, err = a.authorizeNewToken(ctx, callerInfo, isAdmin, req.Subject)
+	if err != nil {
+		if _, ok := err.(*auth.ErrNotAuthorized); ok {
+			// return more descriptive error
 			return nil, &auth.ErrNotAuthorized{
 				Subject: callerInfo.Subject,
-				AdminOp: "GetOneTimePassword on behalf of another user",
+				AdminOp: "GetAuthToken on behalf of another user",
 			}
 		}
+		return nil, err
 	}
 
 	// Compute TTL for new token that the user will get once OTP is exchanged
-	// Note: Admins always use default TTL (30 days currently), which means they
-	// can extend their session by getting an OTP and exchanging it for a new
-	// token with a later expiration than their curren token
-	var ttl = int64(defaultTokenTTLSecs)
+	// Note: For Pachyderm <1.10, admin tokens always come with an indefinite
+	// session, unless a limit is requested. For Pachyderm >=1.10, Admins always
+	// use default TTL (30 days currently), unless they explicitly request an
+	// indefinite TTL.
+	//
+	// TODO(msteffen): Either way, admins can can extend their session by getting
+	// a new token for themselves. I don't know if allowing users to do this is
+	// bad security practice (it might be). However, preventing admins from
+	// extending their own session here wouldn't improve security: admins can
+	// currently manufacture a buddy account, promote it to admin, and then extend
+	// their session indefinitely with the buddy account. Pachyderm cannot prevent
+	// this with the information is currently stores, so preventing admins from
+	// extending their session indefinitely would require larger changes to the
+	// auth model.
 	if !isAdmin {
 		// Caller is getting OTP for themselves--use TTL of their current token
-		ttl, err = a.getCallerTTL(ctx)
+		ttl, err := a.getCallerTTL(ctx)
 		if err != nil {
 			return nil, err
 		}
-		if req.TTL == 0 || req.TTL > ttl {
+		if req.TTL <= 0 || req.TTL > ttl {
 			req.TTL = ttl
 		}
+	} else if version.IsAtLeast(1, 10) && (req.TTL == 0 || req.TTL > defaultSessionTTLSecs) {
+		// To create a token with no TTL, an admin can call GetAuthToken and set TTL
+		// to -1, but the default behavior (TTL == 0) is use the default token
+		// lifetime.
+		req.TTL = defaultSessionTTLSecs
 	}
 	tokenInfo := auth.TokenInfo{
 		Source:  auth.TokenInfo_GET_TOKEN,
@@ -1724,7 +1813,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		return a.tokens.ReadWrite(stm).PutTTL(hashToken(token), &tokenInfo, req.TTL)
 	}); err != nil {
-		if tokenInfo.Subject != magicUser {
+		if tokenInfo.Subject != ppsUser {
 			return nil, fmt.Errorf("error storing token for user \"%s\": %v", tokenInfo.Subject, err)
 		}
 		return nil, fmt.Errorf("error storing token: %v", err)
@@ -1764,8 +1853,8 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *auth.ExtendAuthTok
 
 	// Only let people extend tokens by up to 30 days (the equivalent of logging
 	// in again)
-	if req.TTL > defaultTokenTTLSecs {
-		return nil, fmt.Errorf("can only extend tokens by at most %d seconds", defaultTokenTTLSecs)
+	if req.TTL > defaultSessionTTLSecs {
+		return nil, fmt.Errorf("can only extend tokens by at most %d seconds", defaultSessionTTLSecs)
 	}
 
 	// The token must already exist. If a token has been revoked, it can't be
@@ -2181,10 +2270,10 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, 
 	}
 	if token == a.ppsToken {
 		// TODO(msteffen): This is a hack. The idea is that there is a logical user
-		// entry mapping ppsToken to magicUser. Soon, magicUser will go away and
+		// entry mapping ppsToken to ppsUser. Soon, ppsUser will go away and
 		// this check should happen in authorize
 		return &auth.TokenInfo{
-			Subject: magicUser,
+			Subject: ppsUser,
 			Source:  auth.TokenInfo_GET_TOKEN,
 		}, nil
 	}
