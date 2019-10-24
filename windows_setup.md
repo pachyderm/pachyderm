@@ -19,11 +19,21 @@ run docker quickstart terminal
 after restart, docker commands hang:
  * run docker quickstart terminal after every restart
 
-minikube start
+ compile containers don't have enough memory?  get signal: killed
 
-kubectl is missing apps/v1beta1 version...
- * apps/v1 should probably work?
+debugging CreateContainerError:
+ * use `minikube logs`
+ * problem is that generated kube deploy file contains paths like '\var\pachyderm\pachd' which is an invalid path I guess
+
+debugging CrashLoopBackOff in etcd pod
+ * `kubectl logs -p <pod>` - gets logs from previous attempt
+ * problem is that shared volumes with the host cannot be mmapped?
+ * if we remove the volume, the pod launches (but data won't persist?)
 
 personal options:
 settings.json - all vscode settings
 ~/.inputrc - disable bash terminal bell
+
+minikube delete
+minikube start --memory=8192mb
+eval $(minikube docker-env --shell bash)

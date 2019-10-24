@@ -19,9 +19,6 @@ norm_path () {
 TYPE=$1
 NAME=${TYPE}_compile
 
-docker stop ${NAME}
-docker rm ${NAME}
-
 DOCKER_OPTS=()
 # TODO: this is probably needed for the Makefile build to run worker/pachd in parallel
 # DOCKER_OPTS+=("-d")
@@ -34,6 +31,7 @@ if [[ "${OS}" == "Windows_NT" ]]; then
   DOCKER_OPTS+=("-v $(norm_path ${GOPATH})/pkg:/go/pkg")
 
   # On windows, we need to copy over the environment variables for connecting to docker
+  eval $(minikube docker-env --shell bash)
   DOCKER_OPTS+=("--env DOCKER_HOST=${DOCKER_HOST}")
 
   if [[ "${DOCKER_TLS_VERIFY}" -eq "1" ]]; then
@@ -41,11 +39,17 @@ if [[ "${OS}" == "Windows_NT" ]]; then
     DOCKER_OPTS+=("-v $(norm_path ${DOCKER_CERT_PATH}):/mnt/docker-certs")
     DOCKER_OPTS+=("--env DOCKER_CERT_PATH=/mnt/docker-certs")
   fi
+
+  # On windows, containers have a default 1GB memory limit, bump it because that is not enough
+  DOCKER_OPTS+=("--memory 3gb")
 else
   # On linux we can just expose the docker socket
   DOCKER_OPTS+=("-v /var/run/docker.sock:/var/run/docker.sock")
   DOCKER_OPTS+=("-v ${GOPATH}/pkg:/go/pkg")
 fi
+
+docker stop ${NAME} > /dev/null
+docker rm ${NAME} > /dev/null
 
 MSYS_NO_PATHCONV=1 docker run ${DOCKER_OPTS[@]} ${COMPILE_IMAGE} \
   /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh ${TYPE} "${LD_FLAGS}"
