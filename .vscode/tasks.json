@@ -7,7 +7,8 @@
       "dependsOn": [
         "docker-build-pull",
         "docker-build-all"
-      ]
+      ],
+      "problemMatcher": []
     },
     {
       "label": "docker-build-pull",
@@ -51,7 +52,7 @@
     {
       "label": "deploy-dev",
       "type": "shell",
-      "command": "pachctl deploy local --no-guaranteed -d --dry-run | kubectl apply -f -"
+      "command": "pachctl deploy local --no-guaranteed -d --dry-run | kubectl apply -f - && kubectl rollout restart deployment.apps"
     },
     {
       "label": "wait-dev",
