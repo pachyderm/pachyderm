@@ -5,9 +5,8 @@ services:
 cache:
   directories:
     # If any directories are added here, they must also be added to
-    # etc/testing/travis_setup_cached_dirs and 'before_cache:' below
-    - ${HOME}/.cache/go-build
-    - ${HOME}/.cache/pip
+    # etc/testing/travis_cache.sh
+    - ${HOME}/.cache
     - ${HOME}/cached-deps
 language: go
 go:
@@ -38,7 +37,7 @@ env:
     - BUCKET=EXAMPLES
 before_install:
   # Make sure cache dirs exist and are writable
-  - etc/testing/travis_setup_cached_dirs.sh
+  - etc/testing/travis_cache.sh
 install:
   - etc/testing/travis_install.sh
 before_script:
@@ -46,10 +45,9 @@ before_script:
 script:
   - etc/testing/travis.sh
 before_cache:
-  # Travis can't cache files that aren't readable by all
-  - chmod a+r -R ${HOME}/.cache
-  - chmod a+r -R ${HOME}/.cache/pip
-  - chmod a+r -R ${HOME}/cached-deps
+  # Make sure cache dirs have the necessary permissions for Travis to traverse
+  # & copy them all elsewhere
+  - etc/testing/travis_cache.sh
 after_failure:
   - kubectl version
   - kubectl get all
