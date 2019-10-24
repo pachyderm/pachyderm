@@ -5381,7 +5381,6 @@ func TestFuzzProvenance(t *testing.T) {
 	)
 OpLoop:
 	for i := 0; i < nOps; i++ {
-		println("\niter", i)
 		roll := r.Intn(total)
 		if i < 0 {
 			roll = inputRepo
@@ -5396,14 +5395,12 @@ OpLoop:
 		}
 		switch op {
 		case inputRepo:
-			println("inputRepo")
 			repo := tu.UniqueString("repo")
 			require.NoError(t, client.CreateRepo(repo))
 			inputRepos = append(inputRepos, repo)
 			require.NoError(t, client.CreateBranch(repo, "master", "", nil))
 			inputBranches = append(inputBranches, pclient.NewBranch(repo, "master"))
 		case inputBranch:
-			println("inputBranch")
 			if len(inputRepos) == 0 {
 				continue OpLoop
 			}
@@ -5412,7 +5409,6 @@ OpLoop:
 			require.NoError(t, client.CreateBranch(repo, branch, "", nil))
 			inputBranches = append(inputBranches, pclient.NewBranch(repo, branch))
 		case deleteInputBranch:
-			println("deleteInputBranch")
 			if len(inputBranches) == 0 {
 				continue OpLoop
 			}
@@ -5425,7 +5421,6 @@ OpLoop:
 				require.NoError(t, err)
 			}
 		case commit:
-			println("commit")
 			if len(inputBranches) == 0 {
 				continue OpLoop
 			}
@@ -5435,7 +5430,6 @@ OpLoop:
 			require.NoError(t, client.FinishCommit(branch.Repo.Name, branch.Name))
 			commits = append(commits, commit)
 		case deleteCommit:
-			println("deleteCommit")
 			if len(commits) == 0 {
 				continue OpLoop
 			}
@@ -5444,7 +5438,6 @@ OpLoop:
 			commits = append(commits[:i], commits[i+1:]...)
 			require.NoError(t, client.DeleteCommit(commit.Repo.Name, commit.ID))
 		case outputRepo:
-			println("outputRepo")
 			if len(inputBranches) == 0 {
 				continue OpLoop
 			}
@@ -5462,7 +5455,6 @@ OpLoop:
 			require.NoError(t, client.CreateBranch(repo, "master", "", provBranches))
 			outputBranches = append(outputBranches, pclient.NewBranch(repo, "master"))
 		case outputBranch:
-			println("outputBranch")
 			if len(outputRepos) == 0 {
 				continue OpLoop
 			}
@@ -5490,7 +5482,6 @@ OpLoop:
 			require.NoError(t, client.CreateBranch(repo, branch, "", provBranches))
 			outputBranches = append(outputBranches, pclient.NewBranch(repo, branch))
 		case deleteOutputBranch:
-			println("deleteOutputBranch")
 			if len(outputBranches) == 0 {
 				continue OpLoop
 			}

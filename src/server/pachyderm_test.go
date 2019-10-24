@@ -9793,7 +9793,7 @@ func TestFileHistory(t *testing.T) {
 	dataRepo2 := tu.UniqueString("TestFileHistory_data2")
 	require.NoError(t, c.CreateRepo(dataRepo2))
 
-	pipeline := tu.UniqueString("TestSimplePipeline")
+	pipeline := tu.UniqueString("TestFileHistory")
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
 		"",

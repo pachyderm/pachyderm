@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e -o pipefail
+set -euxo pipefail
 
 export ETCD_IMAGE=$1
 export TIMEOUT=$2
