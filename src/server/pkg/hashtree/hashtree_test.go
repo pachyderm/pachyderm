@@ -424,6 +424,22 @@ func TestIsGlob(t *testing.T) {
 	require.False(t, IsGlob(`path/to_test-a/file.txt`))
 }
 
+func TestGlobPrefix(t *testing.T) {
+	require.Equal(t, `/`, GlobLiteralPrefix(`*`))
+	require.Equal(t, `/`, GlobLiteralPrefix(`**`))
+	require.Equal(t, `/dir/`, GlobLiteralPrefix(`dir/*`))
+	require.Equal(t, `/dir/`, GlobLiteralPrefix(`dir/**`))
+	require.Equal(t, `/dir/`, GlobLiteralPrefix(`dir/(*)`))
+	require.Equal(t, `/di`, GlobLiteralPrefix(`di?/(*)`))
+	require.Equal(t, `/di`, GlobLiteralPrefix(`di?[rg]`))
+	require.Equal(t, `/dir/`, GlobLiteralPrefix(`dir/@(a)`))
+	require.Equal(t, `/dir/`, GlobLiteralPrefix(`dir/+(a)`))
+	require.Equal(t, `/dir/`, GlobLiteralPrefix(`dir/{foo,bar}`))
+	require.Equal(t, `/dir/`, GlobLiteralPrefix(`dir/(a|b)`))
+	require.Equal(t, `/dir/`, GlobLiteralPrefix(`dir/^[a-z]`))
+	require.Equal(t, `/dir/`, GlobLiteralPrefix(`dir/[!abc]`))
+}
+
 func TestGlobFile(t *testing.T) {
 	h := newHashTree(t)
 	require.NoError(t, h.PutFile("/foo", obj(`hash:"20c27"`), 1))
