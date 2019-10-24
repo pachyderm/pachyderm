@@ -27,7 +27,7 @@ pachctl enterprise activate "$(aws s3 cp s3://pachyderm-engineering/test_enterpr
 set -x
 
 # Make sure the pachyderm client can connect, write data, and create pipelines
-go test -v ./src/server -run TestSimplePipeline
+go test -v -count=1 ./src/server -run TestSimplePipeline
 
 # Make sure that config's pachd_address isn't disfigured by pachctl cmds that
 # modify the pachctl config (bug fix)
