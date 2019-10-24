@@ -3,7 +3,7 @@
 # execute correctly in all environments.  Try
 # setting all the environment variables here and
 # executing the commands one-by-one to debug issues.
-export CLUSTER_NAME="breakthrough"
+export CLUSTER_NAME="data-lineage-example2"
 export GCP_ZONE="us-east1-b"
 export MACHINE_TYPE="n1-standard-8" 
 
@@ -72,8 +72,8 @@ pachctl deploy google ${BUCKET_NAME} ${STORAGE_SIZE} --dynamic-etcd-nodes=1 --na
 #kfctl init ${KFAPP} --platform gcp --project ${PROJECT}
 # Alternatively, use this command if you want to use basic authentication:
 #kfctl init ${KFAPP} --platform gcp --project ${PROJECT} --use_basic_auth -V
-
-kfctl init ${KFAPP} --platform gcp --project ${PROJECT} --skip-init-gcp-project --use_basic_auth -V
+export CONFIG_URI="https://raw.githubusercontent.com/kubeflow/manifests/v0.7-branch/kfdef/kfctl_gcp_basic_auth.0.7.0.yaml"
+kfctl init ${KFAPP} --platform gcp --project ${PROJECT} --config=${CONFIG} --skip-init-gcp-project --use_basic_auth -V
 
 cd ${KFAPP}
 kfctl generate all -V --zone ${GCP_ZONE}
