@@ -9947,9 +9947,38 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 	require.Equal(t, "2", buf.String())
 }
 
-// TestNoTransform tests that sending a CreatePipeline request to pachd with no
-// 'transform' field doesn't kill pachd
-func TestNoTransform(t *testing.T) {
+// TestCreatePipelineErrorNoTransform tests that sending a CreatePipeline
+// requests to pachd with no 'pipeline' field doesn't kill pachd
+func TestCreatePipelineErrorNoPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	// Create input repo
+	dataRepo := tu.UniqueString(t.Name() + "-data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	// Create pipeline w/ no pipeline field--make sure we get a response
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: nil,
+			Transform: &pps.Transform{
+				Cmd:   []string{"/bin/bash"},
+				Stdin: []string{`cat foo >/pfs/out/file`},
+			},
+			Input: client.NewPFSInput(dataRepo, "/*"),
+		})
+	require.YesError(t, err)
+	require.Matches(t, "pipeline", err.Error())
+}
+
+// TestCreatePipelineErrorNoTransform tests that sending a CreatePipeline
+// requests to pachd with no 'transform' or 'pipeline' field doesn't kill pachd
+func TestCreatePipelineError(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -9975,9 +10004,9 @@ func TestNoTransform(t *testing.T) {
 	require.Matches(t, "transform", err.Error())
 }
 
-// TestNoCmd tests that sending a CreatePipeline request to pachd with no
-// 'transform.cmd' field doesn't kill pachd
-func TestNoCmd(t *testing.T) {
+// TestCreatePipelineErrorNoCmd tests that sending a CreatePipeline request to
+// pachd with no 'transform.cmd' field doesn't kill pachd
+func TestCreatePipelineErrorNoCmd(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
