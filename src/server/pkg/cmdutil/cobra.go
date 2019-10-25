@@ -149,6 +149,64 @@ func ParseBranches(args []string) ([]*pfs.Branch, error) {
 	return results, nil
 }
 
+// ParseCommitProvenance takes an argument of the form "repo@branch=commit" and
+// returns the corresponding *pfs.CommitProvenance.
+func ParseCommitProvenance(arg string) (*pfs.CommitProvenance, error) {
+	repoAndRest := strings.SplitN(arg, "@", 2)
+	if repoAndRest[0] == "" {
+		return nil, fmt.Errorf("invalid format \"%s\": repo cannot be empty", arg)
+	}
+	if len(repoAndRest) != 2 {
+		return nil, fmt.Errorf("invalid format \"%s\": a branch name or branch and commit id must be given", arg)
+	}
+
+	branchAndCommit := strings.SplitN(repoAndRest[1], "=", 2)
+	if len(branchAndCommit) < 1 {
+		return nil, fmt.Errorf("invalid format \"%s\": a branch name or branch and commit id must be given", arg)
+	}
+	branch := branchAndCommit[0]
+	commit := branch
+	if len(branchAndCommit) == 2 {
+		commit = branchAndCommit[1]
+	}
+	if branch == "" {
+		return nil, fmt.Errorf("invalid format \"%s\": branch cannot be empty", arg)
+	}
+	if commit == "" {
+		return nil, fmt.Errorf("invalid format \"%s\": commit cannot be empty", arg)
+	}
+
+	prov := &pfs.CommitProvenance{
+		Branch: &pfs.Branch{
+			Repo: &pfs.Repo{
+				Name: repoAndRest[0],
+			},
+			Name: branch,
+		},
+		Commit: &pfs.Commit{
+			Repo: &pfs.Repo{
+				Name: repoAndRest[0],
+			},
+			ID: commit,
+		},
+	}
+	return prov, nil
+}
+
+// ParseCommitProvenances converts all arguments to *pfs.CommitProvenance structs using the
+// semantics of ParseCommitProvenance
+func ParseCommitProvenances(args []string) ([]*pfs.CommitProvenance, error) {
+	var results []*pfs.CommitProvenance
+	for _, arg := range args {
+		prov, err := ParseCommitProvenance(arg)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, prov)
+	}
+	return results, nil
+}
+
 // ParseFile takes an argument of the form "repo[@branch-or-commit[:path]]", and
 // returns the corresponding *pfs.File.
 func ParseFile(arg string) (*pfs.File, error) {
