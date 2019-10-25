@@ -187,7 +187,6 @@ inputs cannot have the same name. This could cause file system collisions.
 
 - [Cross Input](../../../../reference/pipeline_spec/#cross-input)
 - [Union Input](../../../../reference/pipeline_spec/#union-input)
-- [Combining/Merging/Joining Data](../../../how-tos/combining.md)
 - [Distributed hyperparameter tuning](https://github.com/pachyderm/pachyderm/tree/master/examples/ml/hyperparameter)
 
 <!-- Add a link to an interactive tutorial when it's ready-->

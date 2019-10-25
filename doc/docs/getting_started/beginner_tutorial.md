@@ -366,18 +366,18 @@ are several interesting ways to combine data in Pachyderm, which are
 discussed
 [here](../../reference/pipeline_spec/#input-required)
 and
-[here](../how-tos/combining.md).
+[here](../concepts/pipeline-concepts/pipeline/join.md).
 
 We create the `montage` pipeline as before, with `pachctl`:
 
-``` bash
+```bash
 $ pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/montage.json
 ```
 
 Pipeline creating triggers a job that generates a montage for all the
 current HEAD commits of the input repos:
 
-``` bash
+```bash
 $ pachctl list job
 ID                                  STARTED        DURATION           RESTART PROGRESS  DL       UL       STATE
 92cecc40c3144fd5b4e07603bb24b104    45 seconds ago 6 seconds          0       1 + 0 / 1 371.9KiB 1.284MiB success
