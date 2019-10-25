@@ -82,11 +82,21 @@ func (r *Reader) PeekTag() (*index.Tag, error) {
 	return r.tags[0], nil
 }
 
-func (r *Reader) LimitReader(tagBound ...string) (io.Reader, error) {
-	// Lazily setup reader for underlying file.
-	if err := r.setupReader(); err != nil {
-		return nil, err
-	}
+type TagReader struct {
+	r    io.Reader
+	tags []*index.Tag
+}
+
+// (bryce) might want some notion of iterating through the tags.
+func (r *TagReader) Tags() []*index.Tag {
+	return r.tags
+}
+
+func (r *TagReader) Read(data []byte) (int, error) {
+	return r.r.Read(data)
+}
+
+func (r *Reader) TagReader(tagBound ...string) (*TagReader, error) {
 	// Determine the tags and number of bytes to limit.
 	var idx int
 	var numBytes int64
@@ -98,8 +108,12 @@ func (r *Reader) LimitReader(tagBound ...string) (io.Reader, error) {
 		numBytes += tag.SizeBytes
 
 	}
+	tr := &TagReader{
+		tags: r.tags[:idx],
+		r:    io.LimitReader(r, numBytes),
+	}
 	r.tags = r.tags[idx:]
-	return io.LimitReader(r, numBytes), nil
+	return tr, nil
 }
 
 func indexToContentHeader(idx *index.Header) {

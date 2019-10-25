@@ -92,7 +92,16 @@ func (s *Storage) newReader(ctx context.Context, fileSet string, opts ...index.O
 
 func (s *Storage) NewMergeReader(ctx context.Context, fileSet string, opts ...index.Option) *MergeReader {
 	fileSet = applyPrefix(fileSet)
-	return s.newMergeReader(ctx, []string{path.Join(fileSet, Compacted)}, opts...)
+	var rs []*Reader
+	for _, fileSet := range fileSets {
+		if err := s.objC.Walk(ctx, path.Join(fileSet, Compacted), func(name string) error {
+			rs = append(rs, s.newReader(ctx, name, opts...))
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	return s.newMergeReader(ctx, rs)
 }
 
 // Shard shards the merge of the file sets with the passed in prefix into file ranges.
@@ -103,8 +112,7 @@ func (s *Storage) Shard(ctx context.Context, fileSets []string, shardFunc ShardF
 	return s.merge(ctx, fileSets, shardMergeFunc(s.shardThreshold, shardFunc))
 }
 
-// Merge merges the file sets with the passed in prefix.
-func (s *Storage) Merge(ctx context.Context, outputFileSet string, inputFileSets []string, opts ...index.Option) error {
+func (s *Storage) Compact(ctx context.Context, outputFileSet string, inputFileSets []string, opts ...index.Option) error {
 	outputFileSet = applyPrefix(outputFileSet)
 	inputFileSets = applyPrefixes(inputFileSets)
 	w := s.newWriter(ctx, outputFileSet)
@@ -119,7 +127,7 @@ type CompactSpec struct {
 	Input  []string
 }
 
-func (s *Storage) Compact(ctx context.Context, fileSet, compactedFileSet string) (*CompactSpec, error) {
+func (s *Storage) CompactSpec(ctx context.Context, fileSet, compactedFileSet string) (*CompactSpec, error) {
 	fileSet = applyPrefix(fileSet)
 	compactedFileSet = applyPrefix(compactedFileSet)
 	hdr, err := index.GetTopLevelIndex(ctx, s.objC, path.Join(fileSet, Diff))
