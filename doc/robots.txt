@@ -1,6 +1,3 @@
 User-agent: *
 Disallow: /
 Disallow: *.pdf
-
-Sitemap: https://docs-archive.pachyderm.com/sitemap.xml
-
