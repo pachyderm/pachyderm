@@ -412,6 +412,24 @@ func TestGetOneTimePasswordTTL(t *testing.T) {
 	require.Matches(t, "otp is invalid or has expired", errMsg.String())
 }
 
+func TestYAMLConfig(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	activateAuth(t)
+	defer deactivateAuth(t)
+
+	require.NoError(t, tu.BashCmd(`
+		echo "admin" | pachctl auth login
+		pachctl auth get-config -o yaml \
+		  | match 'live_config_version: 1' \
+		  | match 'id_providers:' \
+		  | match '  - name: GitHub' \
+		  | match '    description: oauth-based authentication with github.com' \
+		  | match '    github: {}'
+		`).Run())
+}
+
 func TestMain(m *testing.M) {
 	// Preemptively deactivate Pachyderm auth (to avoid errors in early tests)
 	if err := tu.BashCmd("echo 'admin' | pachctl auth login &>/dev/null").Run(); err == nil {

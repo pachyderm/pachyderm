@@ -4480,7 +4480,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 	var container v1.Container
 	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := tu.GetKubeClient(t)
-	err = backoff.Retry(func() error {
+	require.NoError(t, backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
@@ -4495,8 +4495,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 		}
 		container = podList.Items[0].Spec.Containers[0]
 		return nil // no more retries
-	}, backoff.NewTestingBackOff())
-	require.NoError(t, err)
+	}, backoff.NewTestingBackOff()))
 	// Make sure a CPU and Memory request are both set
 	cpu, ok := container.Resources.Requests[v1.ResourceCPU]
 	require.True(t, ok)
@@ -9948,9 +9947,38 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 	require.Equal(t, "2", buf.String())
 }
 
-// TestNoTransform tests that sending a CreatePipeline request to pachd with no
-// 'transform' field doesn't kill pachd
-func TestNoTransform(t *testing.T) {
+// TestCreatePipelineErrorNoTransform tests that sending a CreatePipeline
+// requests to pachd with no 'pipeline' field doesn't kill pachd
+func TestCreatePipelineErrorNoPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	// Create input repo
+	dataRepo := tu.UniqueString(t.Name() + "-data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	// Create pipeline w/ no pipeline field--make sure we get a response
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: nil,
+			Transform: &pps.Transform{
+				Cmd:   []string{"/bin/bash"},
+				Stdin: []string{`cat foo >/pfs/out/file`},
+			},
+			Input: client.NewPFSInput(dataRepo, "/*"),
+		})
+	require.YesError(t, err)
+	require.Matches(t, "pipeline", err.Error())
+}
+
+// TestCreatePipelineErrorNoTransform tests that sending a CreatePipeline
+// requests to pachd with no 'transform' or 'pipeline' field doesn't kill pachd
+func TestCreatePipelineError(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -9976,9 +10004,9 @@ func TestNoTransform(t *testing.T) {
 	require.Matches(t, "transform", err.Error())
 }
 
-// TestNoCmd tests that sending a CreatePipeline request to pachd with no
-// 'transform.cmd' field doesn't kill pachd
-func TestNoCmd(t *testing.T) {
+// TestCreatePipelineErrorNoCmd tests that sending a CreatePipeline request to
+// pachd with no 'transform.cmd' field doesn't kill pachd
+func TestCreatePipelineErrorNoCmd(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -10055,6 +10083,89 @@ func TestListTag(t *testing.T) {
 	actual := &bytes.Buffer{}
 	require.NoError(t, c.GetTag("tag0", actual))
 	require.Equal(t, "Object 0", actual.String())
+}
+
+// TestPodPatchUnmarshalling tests the fix for issues #3483, by adding a
+// PodPatch to a pipeline spec and making sure it's applied correctly
+func TestPodPatchUnmarshalling(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	// Create input data
+	dataRepo := tu.UniqueString(t.Name() + "-data-")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	_, err := c.PutFile(dataRepo, "master", "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	// create pipeline
+	pipeline := tu.UniqueString("pod-patch-")
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd:   []string{"bash"},
+				Stdin: []string{"cp /pfs/in/* /pfs/out"},
+			},
+			Input: &pps.Input{Pfs: &pps.PFSInput{
+				Name: "in", Repo: dataRepo, Glob: "/*",
+			}},
+			PodPatch: `[
+				{
+				  "op": "add",
+				  "path": "/volumes/0",
+				  "value": {
+				    "name": "vol0",
+				    "hostPath": {
+				      "path": "/volumePath"
+				}}}]`,
+		})
+	require.NoError(t, err)
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
+	require.Equal(t, "foo", buf.String())
+
+	pipelineInfo, err := c.InspectPipeline(pipeline)
+	require.NoError(t, err)
+
+	// make sure 'vol0' is correct in the pod spec
+	var volumes []v1.Volume
+	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	kubeClient := tu.GetKubeClient(t)
+	require.NoError(t, backoff.Retry(func() error {
+		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(
+			metav1.ListOptions{
+				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
+					map[string]string{"app": rcName},
+				)),
+			})
+		if err != nil {
+			return err // retry
+		}
+		if len(podList.Items) != 1 || len(podList.Items[0].Spec.Volumes) == 0 {
+			return fmt.Errorf("could not find volumes for pipeline %s", pipelineInfo.Pipeline.Name)
+		}
+		volumes = podList.Items[0].Spec.Volumes
+		return nil // no more retries
+	}, backoff.NewTestingBackOff()))
+	// Make sure a CPU and Memory request are both set
+	for _, vol := range volumes {
+		require.True(t,
+			vol.VolumeSource.HostPath == nil || vol.VolumeSource.EmptyDir == nil)
+		if vol.Name == "vol0" {
+			require.True(t, vol.VolumeSource.HostPath.Path == "/volumePath")
+		}
+	}
 }
 
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
