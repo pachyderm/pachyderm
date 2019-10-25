@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -229,7 +230,11 @@ func replicas(r int32) *int32 {
 
 // Kubernetes doesn't work well with windows path separators
 func kubeFilepathJoin(paths ...string) string {
-	return strings.ReplaceAll(filepath.Join(paths...), "\\", "/")
+	joined := filepath.Join(paths...)
+	if runtime.GOOS != "windows" {
+		return joined
+	}
+	return strings.ReplaceAll(joined, "\\", "/")
 }
 
 // fillDefaultResourceRequests sets any of:

@@ -3,7 +3,10 @@
 package cmds
 
 import (
+	"bufio"
 	"bytes"
+	"fmt"
+	"os"
 	"strings"
 	"syscall"
 
@@ -48,6 +51,7 @@ func mountCmds() []*cobra.Command {
 	mount.MarkFlagCustom("commits", "__pachctl_get_repo_branch")
 	commands = append(commands, cmdutil.CreateAlias(mount, "mount"))
 
+	var all bool
 	unmount := &cobra.Command{
 		Use:   "{{alias}} <path/to/mount/point>",
 		Short: "Unmount pfs.",
