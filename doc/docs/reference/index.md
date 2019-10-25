@@ -12,7 +12,7 @@ your favorite programming language.
       </div>
       <div class="mdl-card__supporting-text">
         Read about all the options that you can
-        specify in the pipeline specification
+        define in the pipeline specification
         and view the examples of use.
       </div>
       <div class="mdl-card__actions mdl-card--border">
@@ -31,8 +31,8 @@ your favorite programming language.
         <h4 class="mdl-card__title-text">Pachyderm Config Specification &nbsp;&nbsp;&nbsp;<i class="fa fa-file-text-o"></i></h4>
       </div>
       <div class="mdl-card__supporting-text">
-        Learn how you can modify your cluster by setting
-        your Pachyderm configuration file.
+        Learn how you can modify your cluster by setting up
+        the Pachyderm configuration file.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
@@ -52,7 +52,7 @@ your favorite programming language.
         <h4 class="mdl-card__title-text">Pachyderm Language Clients &nbsp;&nbsp;&nbsp;<i class="fa fa-terminal"></i></h4>
       </div>
       <div class="mdl-card__supporting-text">
-        Set up a langugage client of your choice
+        Set up a language client of your choice
         to interact with the Pachyderm API.
       </div>
       <div class="mdl-card__actions mdl-card--border">
@@ -72,7 +72,7 @@ your favorite programming language.
       </div>
       <div class="mdl-card__supporting-text">
         Learn how you can set up the S3 gateway and
-        perform basic operation with S3 buckets.
+        perform basic operations with S3 buckets.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
@@ -95,7 +95,7 @@ your favorite programming language.
         interact with Pachyderm. Read the <code>pachctl</code>
         reference to learn how to perform operations
         with repositories, pipelines, and other
-        Pachyderm objects.
+        Pachyderm objects and primitives.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
@@ -113,7 +113,7 @@ your favorite programming language.
          <h4 class="mdl-card__title-text">Examples &nbsp;&nbsp;&nbsp;<i class="fa fa-flask"></i></h4>
        </div>
        <div class="mdl-card__supporting-text">
-         Try out our examples
+         Try out our example pipelines.
        </div>
        <div class="mdl-card__actions mdl-card--border">
          <ul>

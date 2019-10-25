@@ -33,7 +33,7 @@ throughout the lifetime of your cluster.
          <h4 class="mdl-card__title-text">Upgrades and Migrations &nbsp;&nbsp;&nbsp;<i class="fa fa-level-up"></i></h4>
        </div>
        <div class="mdl-card__supporting-text">
-         Learn how to back up, restore, upgrade and
+         Learn how to back up, restore, upgrade, and
          migrate your cluster to new versions.
        </div>
        <div class="mdl-card__actions mdl-card--border">

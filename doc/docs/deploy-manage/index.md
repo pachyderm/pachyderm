@@ -4,7 +4,7 @@ This section describes how you can deploy Pachyderm
 in a production environment.
 Also, you can find information about basic Pachyderm operations,
 including upgrading to minor and major versions, autoscaling,
-and other.
+and others.
 
 <div class="row">
   <div class="column-2">
@@ -14,7 +14,7 @@ and other.
       </div>
       <div class="mdl-card__supporting-text">
         Learn how to deploy Pachyderm in your
-        cloud environment, locally, or in Pachyderm,
+        cloud environment, locally, or in Pachyderm
         Hub.
       </div>
       <div class="mdl-card__actions mdl-card--border">
