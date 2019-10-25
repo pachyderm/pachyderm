@@ -13,7 +13,7 @@
 
 Add any VSCode extensions you may need for development, like `go` and `docker`.
 
-Configure your terminal (opened via `ctrl+\``) to use `git bash` instead of `cmd`.  Add the following to your `settings.json` (depending on where your `git bash` actually exists):
+Configure your terminal (opened via `` ctrl+` ``) to use `git bash` instead of `cmd`.  Add the following to your `settings.json` (depending on where your `git bash` actually exists):
 ```
   "terminal.integrated.shell.windows": "C:\\Program Files\\Git\\bin\\bash.exe",
 ```
