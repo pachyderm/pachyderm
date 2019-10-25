@@ -6,15 +6,16 @@ echo 'DOCKER_OPTS="-H unix:///var/run/docker.sock -s devicemapper"' | sudo tee /
 
 # Install deps
 sudo apt-get update -y
-sudo apt-get install -y \
+sudo apt-get install -y -qq \
   jq \
   silversearcher-ag \
   python3 \
   python3-pip \
-  python3-setuptools
+  python3-setuptools \
+  pkg-config \
+  fuse
 
 # Install fuse
-sudo apt-get install -qq pkg-config fuse
 sudo modprobe fuse
 sudo chmod 666 /dev/fuse
 sudo cp etc/build/fuse.conf /etc/fuse.conf

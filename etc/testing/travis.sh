@@ -77,6 +77,9 @@ function test_bucket {
     set -x
 }
 
+# Clean cached test results
+go clean -testcache
+
 case "${BUCKET}" in
  MISC)
     if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
