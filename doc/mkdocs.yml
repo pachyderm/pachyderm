@@ -136,7 +136,6 @@ nav:
             - Overview: how-tos/splitting-data/index.md
             - Splitting Data for Distributed Processing: how-tos/splitting-data/splitting.md
             - Adjusting Data Processing by Splitting Data: how-tos/splitting-data/adjusting_data_processing_w_split.md
-        - Combine, Merge, and Join Data: how-tos/combining.md
         - Create a Machine Learning Workflow: how-tos/create-ml-workflow.md
         - Run a Pipeline on a Specific Commit: how-tos/run_pipeline.md
         - Update a Pipeline: how-tos/updating_pipelines.md

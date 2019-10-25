@@ -99,10 +99,6 @@ data operations in Pachyderm.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-           <li><a href="combining/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
-           Combine, Merge, and Join
-           </a>
-           </li>
            <li><a href="splitting-data/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
            Split Data
            </a>

@@ -57,8 +57,8 @@ issues:
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="deploy_troubleshooting//" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
-          Troubleshoot Deployments
+          <li><a href="deploy_troubleshooting/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+            Troubleshoot Deployments
           </a>
           </li>
         </ul>
@@ -86,32 +86,4 @@ issues:
       </div>
     </div>
   </div>
-<div class="row">
-  <div class="column-2">
-    <div class="card-square mdl-card mdl-shadow--2dp">
-      <div class="mdl-card__title mdl-card--expand">
-        <h4 class="mdl-card__title-text">Advanced Data Operations &nbsp;&nbsp;&nbsp;<i class="fa fa-flask"></i></h4>
-      </div>
-      <div class="mdl-card__supporting-text">
-        Learn more advanced Pachyderm data operations,
-        such as splitting, joininig, and merging your data.
-      </div>
-      <div class="mdl-card__actions mdl-card--border">
-        <ul>
-           <li><a href="combining/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
-           Combine, Merge, and Join
-           </a>
-           </li>
-           <li><a href="splitting-data/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
-           Split Data
-           </a>
-           </li>
-           <li><a href="time_windows/" class="mdl-button mdl-button--colored mdl-js-button mdl- js-ripple-effect">
-           Processing Time-Windowed Data
-           </a>
-          </li>
-        </ul>
-      </div>
-    </div>
-  </div>
-</div>
+<div>
