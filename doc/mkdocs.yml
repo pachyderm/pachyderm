@@ -333,7 +333,8 @@ nav:
             - reference/pachctl/pachctl_version.md
         - Examples: examples/examples.md
     - Enterprise:
-        - Overview: enterprise/overview.md
+        - Overview: enterprise/index.md
+        - Features: enterprise/overview.md
         - Deploy Enterprise Edition: enterprise/deployment.md
         - Configure Access Controls: enterprise/auth/auth.md
         - Advanced Statistics: enterprise/stats.md
@@ -343,6 +344,7 @@ nav:
             - Configure SAML: enterprise/saml_setup.md
             - Use SAML: enterprise/saml_usage.md
     - Troubleshooting:
+        - Overview: troubleshooting/index.md
         - General Troubleshooting: troubleshooting/general_troubleshooting.md
         - Deployment Troubleshootin: troubleshooting/deploy_troubleshooting.md
         - Pipeline Troubleshooting: troubleshooting/pipeline_troubleshooting.md
