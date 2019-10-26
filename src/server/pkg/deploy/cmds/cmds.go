@@ -25,8 +25,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/images"
 	_metrics "github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"gopkg.in/pachyderm/yaml.v3"
 
-	"github.com/ghodss/yaml"
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
 )

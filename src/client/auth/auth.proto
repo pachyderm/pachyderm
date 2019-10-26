@@ -367,7 +367,8 @@ message GetAuthTokenRequest {
   // subject
   string subject = 1;
 
-  // ttl indicates the approximate remaining lifetime of this token, in seconds
+  // ttl indicates the requested (approximate) remaining lifetime of this token,
+  // in seconds
   int64 ttl = 2 [(gogoproto.customname) = "TTL"];
 }
 
@@ -437,10 +438,20 @@ message GetOneTimePasswordRequest {
   // authentication code for the caller if username is unset or set to the
   // caller's username (and will return an error otherwise)
   string subject = 1;
+
+  // ttl indicates the requested (approximate) remaining lifetime of this token,
+  // in seconds
+  int64 ttl = 2 [(gogoproto.customname) = "TTL"];
 }
 
 message GetOneTimePasswordResponse {
+  // 'code' is the string that must be presented in
+  // AuthenticateRequest.one_time_password to login as
+  // GetOneTimePasswordRequest.subject
   string code = 1;
+
+  // expiration is the time at which the token in 'code' will expire
+  google.protobuf.Timestamp otp_expiration = 2 [(gogoproto.customname) = "OTPExpiration"];
 }
 
 service API {

@@ -31,6 +31,13 @@ import (
 	"unicode/utf8"
 )
 
+// Pachyderm parses .yaml files into protobuf-generated structs. The protobuf
+// compiler annotates generated structs with 'json' tags indicating permissible
+// munging of each field name, but there is no way to coax the protobuf compiler
+// to annotate fields with identical 'yaml' tags as well. Therefore we direct
+// the yaml parser to obey the existing 'json' tags.
+const YAML_TAG = "json"
+
 // The Unmarshaler interface may be implemented by types to customize their
 // behavior when being unmarshaled from a YAML document.
 type Unmarshaler interface {
@@ -51,27 +58,25 @@ type Marshaler interface {
 	MarshalYAML() (interface{}, error)
 }
 
-// Unmarshal decodes the first document found within the in byte slice
-// and assigns decoded values into the out value.
+// Unmarshal decodes the first document found within the in byte slice and
+// assigns decoded values into the out value.
 //
-// Maps and pointers (to a struct, string, int, etc) are accepted as out
-// values. If an internal pointer within a struct is not initialized,
-// the yaml package will initialize it if necessary for unmarshalling
-// the provided data. The out parameter must not be nil.
+// Maps and pointers (to a struct, string, int, etc) are accepted as out values.
+// If an internal pointer within a struct is not initialized, the yaml package
+// will initialize it if necessary for unmarshalling the provided data. The out
+// parameter must not be nil.
 //
 // The type of the decoded values should be compatible with the respective
 // values in out. If one or more values cannot be decoded due to a type
-// mismatches, decoding continues partially until the end of the YAML
-// content, and a *yaml.TypeError is returned with details for all
-// missed values.
+// mismatches, decoding continues partially until the end of the YAML content,
+// and a *yaml.TypeError is returned with details for all missed values.
 //
-// Struct fields are only unmarshalled if they are exported (have an
-// upper case first letter), and are unmarshalled using the field name
-// lowercased as the default key. Custom keys may be defined via the
-// "yaml" name in the field tag: the content preceding the first comma
-// is used as the key, and the following comma-separated options are
-// used to tweak the marshalling process (see Marshal).
-// Conflicting names result in a runtime error.
+// Struct fields are only unmarshalled if they are exported (have an upper case
+// first letter), and are unmarshalled using the field name lowercased as the
+// default key. Custom keys may be defined via field tags whose name is the same
+// as YAML_TAG: the content preceding the first comma is used as the key, and
+// the following comma-separated options are used to tweak the marshalling
+// process (see Marshal).  Conflicting names result in a runtime error.
 //
 // For example:
 //
@@ -172,16 +177,16 @@ func unmarshal(in []byte, out interface{}, strict bool) (err error) {
 	return nil
 }
 
-// Marshal serializes the value provided into a YAML document. The structure
-// of the generated document will reflect the structure of the value itself.
-// Maps and pointers (to struct, string, int, etc) are accepted as the in value.
+// Marshal serializes the value provided into a YAML document. The structure of
+// the generated document will reflect the structure of the value itself.  Maps
+// and pointers (to struct, string, int, etc) are accepted as the in value.
 //
 // Struct fields are only marshalled if they are exported (have an upper case
 // first letter), and are marshalled using the field name lowercased as the
-// default key. Custom keys may be defined via the "yaml" name in the field
-// tag: the content preceding the first comma is used as the key, and the
-// following comma-separated options are used to tweak the marshalling process.
-// Conflicting names result in a runtime error.
+// default key. Custom keys may be defined via field tags whose name is the name
+// in YAML_TAG tag: the content preceding the first comma is used as the key,
+// and the following comma-separated options are used to tweak the marshalling
+// process.  Conflicting names result in a runtime error.
 //
 // The field tag format accepted is:
 //
@@ -339,7 +344,7 @@ const (
 //             Address yaml.Node
 //     }
 //     err := yaml.Unmarshal(data, &person)
-// 
+//
 // Or by itself:
 //
 //     var person Node
@@ -349,7 +354,7 @@ type Node struct {
 	// Kind defines whether the node is a document, a mapping, a sequence,
 	// a scalar value, or an alias to another node. The specific data type of
 	// scalar nodes may be obtained via the ShortTag and LongTag methods.
-	Kind  Kind
+	Kind Kind
 
 	// Style allows customizing the apperance of the node in the tree.
 	Style Style
@@ -509,7 +514,7 @@ func getStructInfo(st reflect.Type) (*structInfo, error) {
 
 		info := fieldInfo{Num: i}
 
-		tag := field.Tag.Get("yaml")
+		tag := field.Tag.Get(YAML_TAG)
 		if tag == "" && strings.Index(string(field.Tag), ":") < 0 {
 			tag = string(field.Tag)
 		}
