@@ -498,7 +498,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		$ {{alias}} filter
 
 		# Process the pipeline "filter" on the data from commit-branch pairs "repo1@A=a23e4" and "repo2@B=bf363"
-		$ {{alias}} filter repo1@a23e4 repo2@bf363
+		$ {{alias}} filter repo1@A=a23e4 repo2@B=bf363
 
 		# Run the pipeline "filter" on the data from commit "167af5" on the "staging" branch on repo "repo1"
 		$ {{alias}} filter repo1@staging=167af5`,
