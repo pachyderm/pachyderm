@@ -285,6 +285,9 @@ func validateTransform(transform *pps.Transform) error {
 	if transform == nil {
 		return fmt.Errorf("pipeline must specify a transform")
 	}
+	if transform.Image == "" {
+		return fmt.Errorf("pipeline transform must contain an image")
+	}
 	return nil
 }
 
@@ -373,12 +376,13 @@ func (a *apiServer) validateKube() {
 	}
 }
 
-func checkLoggedIn(pachClient *client.APIClient) error {
-	_, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{})
+func checkLoggedIn(pachClient *client.APIClient) (context.Context, error) {
+	ctx := pachClient.Ctx() // pachClient propagates auth info
+	_, err := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{})
 	if err != nil && !auth.IsErrNotActivated(err) {
-		return err
+		return nil, err
 	}
-	return nil
+	return ctx, nil
 }
 
 // authorizing a pipeline operation varies slightly depending on whether the
@@ -503,8 +507,8 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	ctx = pachClient.Ctx() // pachClient will propagate auth info
-	if err := checkLoggedIn(pachClient); err != nil {
+	ctx, err := checkLoggedIn(pachClient)
+	if err != nil {
 		return nil, err
 	}
 
@@ -512,7 +516,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	if request.Stats == nil {
 		request.Stats = &pps.ProcessStats{}
 	}
-	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+	_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		jobPtr := &pps.EtcdJobInfo{
 			Job:           job,
 			OutputCommit:  request.OutputCommit,
@@ -541,7 +545,8 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	if err := checkLoggedIn(pachClient); err != nil {
+	ctx, err := checkLoggedIn(pachClient)
+	if err != nil {
 		return nil, err
 	}
 	if request.Job == nil && request.OutputCommit == nil {
@@ -824,6 +829,7 @@ func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (r
 		}
 	}(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
+	ctx = pachClient.Ctx() // pachClient will propagate auth info
 	var jobInfos []*pps.JobInfo
 	if err := a.listJob(pachClient, request.Pipeline, request.OutputCommit, request.InputCommit, request.History, request.Full, func(ji *pps.JobInfo) error {
 		jobInfos = append(jobInfos, ji)
@@ -859,7 +865,8 @@ func (a *apiServer) FlushJob(request *pps.FlushJobRequest, resp pps.API_FlushJob
 		a.Log(request, fmt.Sprintf("stream containing %d JobInfos", sent), retErr, time.Since(start))
 	}(time.Now())
 	pachClient := a.env.GetPachClient(resp.Context())
-	if err := checkLoggedIn(pachClient); err != nil {
+	ctx, err := checkLoggedIn(pachClient)
+	if err != nil {
 		return err
 	}
 	var toRepos []*pfs.Repo
@@ -889,7 +896,7 @@ func (a *apiServer) FlushJob(request *pps.FlushJobRequest, resp pps.API_FlushJob
 		}
 		// Even though the commit has been finished the job isn't necessarily
 		// finished yet, so we block on its state as well.
-		ji, err := a.InspectJob(resp.Context(), &pps.InspectJobRequest{Job: jis[0].Job, BlockState: true})
+		ji, err := a.InspectJob(ctx, &pps.InspectJobRequest{Job: jis[0].Job, BlockState: true})
 		if err != nil {
 			return err
 		}
@@ -902,11 +909,13 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	if err := checkLoggedIn(pachClient); err != nil {
+	ctx = pachClient.Ctx() // pachClient will propagate auth info
+	ctx, err := checkLoggedIn(pachClient)
+	if err != nil {
 		return nil, err
 	}
 
-	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+	_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		return a.jobs.ReadWrite(stm).Delete(request.Job.ID)
 	})
 	if err != nil {
@@ -920,9 +929,11 @@ func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (r
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	if err := checkLoggedIn(pachClient); err != nil {
+	ctx, err := checkLoggedIn(pachClient)
+	if err != nil {
 		return nil, err
 	}
+	ctx = pachClient.Ctx() // pachClient will propagate auth info
 
 	// Lookup jobInfo
 	jobPtr := &pps.EtcdJobInfo{}
@@ -946,9 +957,11 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	if err := checkLoggedIn(pachClient); err != nil {
+	ctx, err := checkLoggedIn(pachClient)
+	if err != nil {
 		return nil, err
 	}
+	ctx = pachClient.Ctx() // pachClient will propagate auth info
 
 	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
 		Job: request.Job,
@@ -967,7 +980,7 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 // between ListDatum and ListDatumStream. When ListDatum is removed, this should
 // be inlined into ListDatumStream
 func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, page, pageSize int64) (response *pps.ListDatumResponse, retErr error) {
-	if err := checkLoggedIn(pachClient); err != nil {
+	if _, err := checkLoggedIn(pachClient); err != nil {
 		return nil, err
 	}
 	response = &pps.ListDatumResponse{}
@@ -1145,8 +1158,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 			a.Log(request, response, retErr, time.Since(start))
 		}
 	}(time.Now())
-	pachClient := a.env.GetPachClient(ctx)
-	return a.listDatum(pachClient, request.Job, request.Page, request.PageSize)
+	return a.listDatum(a.env.GetPachClient(ctx), request.Job, request.Page, request.PageSize)
 }
 
 // ListDatumStream implements the protobuf pps.ListDatumStream RPC
@@ -1156,8 +1168,7 @@ func (a *apiServer) ListDatumStream(req *pps.ListDatumRequest, resp pps.API_List
 	defer func(start time.Time) {
 		a.Log(req, fmt.Sprintf("stream containing %d DatumInfos", sent), retErr, time.Since(start))
 	}(time.Now())
-	pachClient := a.env.GetPachClient(resp.Context())
-	ldr, err := a.listDatum(pachClient, req.Job, req.Page, req.PageSize)
+	ldr, err := a.listDatum(a.env.GetPachClient(resp.Context()), req.Job, req.Page, req.PageSize)
 	if err != nil {
 		return err
 	}
@@ -1252,7 +1263,8 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	if err := checkLoggedIn(pachClient); err != nil {
+	ctx, err := checkLoggedIn(pachClient)
+	if err != nil {
 		return nil, err
 	}
 	ctx = pachClient.Ctx() // pachClient will propagate auth info
@@ -1522,9 +1534,37 @@ func (a *apiServer) getLogsFromStats(pachClient *client.APIClient, request *pps.
 	return eg.Wait()
 }
 
+func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) error {
+	if request.Pipeline == nil {
+		return goerr.New("invalid pipeline spec: request.Pipeline cannot be nil")
+	}
+	if request.Pipeline.Name == "" {
+		return goerr.New("invalid pipeline spec: request.Pipeline.Name cannot be empty")
+	}
+	if err := ancestry.ValidateName(request.Pipeline.Name); err != nil {
+		return fmt.Errorf("invalid pipeline name: %v", err)
+	}
+	if len(request.Pipeline.Name) > 63 {
+		return fmt.Errorf("pipeline name is %d characters long, but must have at most 63: %q",
+			len(request.Pipeline.Name), request.Pipeline.Name)
+	}
+	// TODO(msteffen) eventually TFJob and Transform will be alternatives, but
+	// currently TFJob isn't supported
+	if request.TFJob != nil {
+		return goerr.New("embedding TFJobs in pipelines is not supported yet")
+	}
+	if request.Transform == nil {
+		return fmt.Errorf("pipeline must specify a transform")
+	}
+	return nil
+}
+
 func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) error {
-	if pipelineInfo.Pipeline == nil || pipelineInfo.Pipeline.Name == "" {
-		return fmt.Errorf("pipeline has no name")
+	if pipelineInfo.Pipeline == nil {
+		return goerr.New("invalid pipeline spec: Pipeline field cannot be nil")
+	}
+	if pipelineInfo.Pipeline.Name == "" {
+		return goerr.New("invalid pipeline spec: Pipeline.Name cannot be empty")
 	}
 	if err := ancestry.ValidateName(pipelineInfo.Pipeline.Name); err != nil {
 		return fmt.Errorf("invalid pipeline name: %v", err)
@@ -1534,37 +1574,38 @@ func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo 
 		return fmt.Errorf("pipeline names must start with an alphanumeric character")
 	}
 	if len(pipelineInfo.Pipeline.Name) > 63 {
-		return fmt.Errorf("pipeline name is longer than 63 characters: ", len(pipelineInfo.Pipeline.Name))
-	}
-	if err := a.validateInput(pachClient, pipelineInfo.Pipeline.Name, pipelineInfo.Input, false); err != nil {
-		return err
+		return fmt.Errorf("pipeline name is %d characters long, but must have at most 63: %q",
+			len(pipelineInfo.Pipeline.Name), pipelineInfo.Pipeline.Name)
 	}
 	if err := validateTransform(pipelineInfo.Transform); err != nil {
 		return fmt.Errorf("invalid transform: %v", err)
 	}
+	if err := a.validateInput(pachClient, pipelineInfo.Pipeline.Name, pipelineInfo.Input, false); err != nil {
+		return err
+	}
 	if pipelineInfo.ParallelismSpec != nil {
 		if pipelineInfo.ParallelismSpec.Constant < 0 {
-			return fmt.Errorf("ParallelismSpec.Constant must be > 0")
+			return goerr.New("ParallelismSpec.Constant cannot be negative")
 		}
 		if pipelineInfo.ParallelismSpec.Coefficient < 0 {
-			return fmt.Errorf("ParallelismSpec.Coefficient must be > 0")
+			return goerr.New("ParallelismSpec.Coefficient cannot be negative")
 		}
 		if pipelineInfo.ParallelismSpec.Constant != 0 &&
 			pipelineInfo.ParallelismSpec.Coefficient != 0 {
-			return fmt.Errorf("contradictory parallelism strategies: must set at " +
+			return goerr.New("contradictory parallelism strategies: must set at " +
 				"most one of ParallelismSpec.Constant and ParallelismSpec.Coefficient")
 		}
 		if pipelineInfo.Service != nil && pipelineInfo.ParallelismSpec.Constant != 1 {
-			return fmt.Errorf("services can only be run with a constant parallelism of 1")
+			return goerr.New("services can only be run with a constant parallelism of 1")
 		}
 	}
 	if pipelineInfo.HashtreeSpec != nil {
 		if pipelineInfo.HashtreeSpec.Constant <= 0 {
-			return fmt.Errorf("HashtreeSpec.Constant must be > 0")
+			return goerr.New("invalid pipeline spec: HashtreeSpec.Constant must be > 0")
 		}
 	}
 	if pipelineInfo.OutputBranch == "" {
-		return fmt.Errorf("pipeline needs to specify an output branch")
+		return goerr.New("pipeline needs to specify an output branch")
 	}
 	if _, err := resource.ParseQuantity(pipelineInfo.CacheSize); err != nil {
 		return fmt.Errorf("could not parse cacheSize '%s': %v", pipelineInfo.CacheSize, err)
@@ -1873,6 +1914,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
+	// Validate request
+	if err := a.validatePipelineRequest(request); err != nil {
+		return nil, err
+	}
+
 	// Annotate current span with pipeline name
 	span := opentracing.SpanFromContext(ctx)
 	tracing.TagAnySpan(span, "pipeline", request.Pipeline.Name)
@@ -1892,6 +1938,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Pipeline:         request.Pipeline,
 		Version:          1,
 		Transform:        request.Transform,
+		TFJob:            request.TFJob,
 		ParallelismSpec:  request.ParallelismSpec,
 		HashtreeSpec:     request.HashtreeSpec,
 		Input:            request.Input,
@@ -1919,11 +1966,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
 		return nil, err
 	}
-
-	// Validate new pipeline
+	// Validate final PipelineInfo (now that defaults have been populated)
 	if err := a.validatePipeline(pachClient, pipelineInfo); err != nil {
 		return nil, err
 	}
+
 	var visitErr error
 	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
 		if input.Cron != nil {
@@ -2157,10 +2204,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 // setPipelineDefaults sets the default values for a pipeline info
 func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
-	if pipelineInfo.Transform == nil {
-		return fmt.Errorf("pipeline spec is missing transform: %v", pipelineInfo)
-	}
-
 	now := time.Now()
 	if pipelineInfo.Transform.Image == "" {
 		pipelineInfo.Transform.Image = DefaultUserImage
@@ -2236,7 +2279,7 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 // Many functions (GetLogs, ListPipeline, CreateJob) need to inspect a pipeline,
 // so they call this instead of making an RPC
 func (a *apiServer) inspectPipeline(pachClient *client.APIClient, name string) (*pps.PipelineInfo, error) {
-	if err := checkLoggedIn(pachClient); err != nil {
+	if _, err := checkLoggedIn(pachClient); err != nil {
 		return nil, err
 	}
 	kubeClient := a.env.GetKubeClient()
@@ -2314,7 +2357,8 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 		}
 	}(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	if err := checkLoggedIn(pachClient); err != nil {
+	ctx, err := checkLoggedIn(pachClient)
+	if err != nil {
 		return nil, err
 	}
 	pipelineInfos := &pps.PipelineInfos{}
@@ -2385,7 +2429,8 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	if err := checkLoggedIn(pachClient); err != nil {
+	ctx, err := checkLoggedIn(pachClient)
+	if err != nil {
 		return nil, err
 	}
 
@@ -2916,7 +2961,8 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	if err := checkLoggedIn(pachClient); err != nil {
+	ctx, err := checkLoggedIn(pachClient)
+	if err != nil {
 		return nil, err
 	}
 	pipelineInfos, err := a.ListPipeline(ctx, &pps.ListPipelineRequest{})
@@ -3033,8 +3079,8 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthReque
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	ctx = pachClient.Ctx() // pachClient will propagate auth infothis list
-	if err := checkLoggedIn(pachClient); err != nil {
+	ctx, err := checkLoggedIn(pachClient)
+	if err != nil {
 		return nil, err
 	}
 

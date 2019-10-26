@@ -215,7 +215,9 @@ func (w *Writer) Close() error {
 		if err := l.cw.Close(); err != nil {
 			return err
 		}
-		if l.cw.ChunkCount() == 1 {
+		// (bryce) this method of terminating the index can create garbage (level
+		// above the final level).
+		if l.cw.AnnotationCount() == 1 && l.cw.ChunkCount() == 1 {
 			break
 		}
 	}

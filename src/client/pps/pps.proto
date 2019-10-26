@@ -36,6 +36,13 @@ message Transform {
   string dockerfile = 12;
 }
 
+message TFJob {
+  // tf_job  is a serialized Kubeflow TFJob spec. Pachyderm sends this directly
+  // to a kubernetes cluster on which kubeflow has been installed, instead of
+  // creating a pipeline ReplicationController as it normally would.
+  string tf_job = 1 [(gogoproto.customname) = "TFJob"];
+}
+
 message Egress {
   string URL = 1;
 }
@@ -371,6 +378,10 @@ message PipelineInfo {
   Pipeline pipeline = 1;
   uint64 version = 11;
   Transform transform = 2;
+  // tf_job encodes a Kubeflow TFJob spec. Pachyderm uses this to create TFJobs
+  // when running in a kubernetes cluster on which kubeflow has been installed.
+  // Exactly one of 'tf_job' and 'transform' should be set
+  TFJob tf_job = 46 [(gogoproto.customname) = "TFJob"];
   ParallelismSpec parallelism_spec = 10;
   HashtreeSpec hashtree_spec = 42;
   Egress egress = 15;
@@ -593,6 +604,10 @@ message SchedulingSpec {
 message CreatePipelineRequest {
   reserved 3, 4, 11, 15, 19;
   Pipeline pipeline = 1;
+  // tf_job encodes a Kubeflow TFJob spec. Pachyderm uses this to create TFJobs
+  // when running in a kubernetes cluster on which kubeflow has been installed.
+  // Exactly one of 'tf_job' and 'transform' should be set
+  TFJob tf_job = 35 [(gogoproto.customname) = "TFJob"];
   Transform transform = 2;
   ParallelismSpec parallelism_spec = 7;
   HashtreeSpec hashtree_spec = 31;

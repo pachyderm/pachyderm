@@ -75,7 +75,7 @@ func FileInfoToPath(fileInfo interface{}) interface{} {
 }
 
 func TestInvalidRepo(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 	require.YesError(t, client.CreateRepo("/repo"))
 
 	require.NoError(t, client.CreateRepo("lenny"))
@@ -90,7 +90,7 @@ func TestInvalidRepo(t *testing.T) {
 }
 
 func TestCreateSameRepoInParallel(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	numGoros := 1000
 	errCh := make(chan error)
@@ -115,7 +115,7 @@ func TestCreateSameRepoInParallel(t *testing.T) {
 }
 
 func TestCreateDifferentRepoInParallel(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	numGoros := 1000
 	errCh := make(chan error)
@@ -140,7 +140,7 @@ func TestCreateDifferentRepoInParallel(t *testing.T) {
 }
 
 func TestCreateRepoDeleteRepoRace(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	for i := 0; i < 100; i++ {
 		require.NoError(t, client.CreateRepo("foo"))
@@ -164,7 +164,7 @@ func TestCreateRepoDeleteRepoRace(t *testing.T) {
 }
 
 func TestBranch(t *testing.T) {
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 
 	repo := "repo"
 	require.NoError(t, c.CreateRepo(repo))
@@ -184,7 +184,7 @@ func TestBranch(t *testing.T) {
 }
 
 func TestToggleBranchProvenance(t *testing.T) {
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 
 	require.NoError(t, c.CreateRepo("in"))
 	require.NoError(t, c.CreateRepo("out"))
@@ -256,7 +256,7 @@ func TestToggleBranchProvenance(t *testing.T) {
 }
 
 func TestRecreateBranchProvenance(t *testing.T) {
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	require.NoError(t, c.CreateRepo("in"))
 	require.NoError(t, c.CreateRepo("out"))
 	require.NoError(t, c.CreateBranch("out", "master", "", []*pfs.Branch{pclient.NewBranch("in", "master")}))
@@ -273,7 +273,7 @@ func TestRecreateBranchProvenance(t *testing.T) {
 }
 
 func TestCreateAndInspectRepo(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "repo"
 	require.NoError(t, client.CreateRepo(repo))
@@ -295,7 +295,7 @@ func TestCreateAndInspectRepo(t *testing.T) {
 }
 
 func TestListRepo(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	numRepos := 10
 	var repoNames []string
@@ -312,7 +312,7 @@ func TestListRepo(t *testing.T) {
 
 // Make sure that commits of deleted repos do not resurface
 func TestCreateDeletedRepo(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "repo"
 	require.NoError(t, client.CreateRepo(repo))
@@ -350,7 +350,7 @@ func TestCreateDeletedRepo(t *testing.T) {
 //   /    \
 // d1      d2
 func TestUpdateProvenance(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	prov1 := "prov1"
 	require.NoError(t, client.CreateRepo(prov1))
@@ -392,7 +392,7 @@ func TestUpdateProvenance(t *testing.T) {
 }
 
 func TestPutFileIntoOpenCommit(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -419,7 +419,7 @@ func TestPutFileIntoOpenCommit(t *testing.T) {
 // Regression test: putting multiple files on an open commit would error out.
 // See here for more details: https://github.com/pachyderm/pachyderm/pull/3346
 func TestRegressionPutFileIntoOpenCommit(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 	require.NoError(t, client.CreateRepo("repo"))
 
 	_, err := client.StartCommit("repo", "master")
@@ -447,7 +447,7 @@ func TestRegressionPutFileIntoOpenCommit(t *testing.T) {
 
 func TestPutFileDirectoryTraversal(t *testing.T) {
 	var fileInfos []*pfs.FileInfo
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 	require.NoError(t, client.CreateRepo("repo"))
 
 	_, err := client.StartCommit("repo", "master")
@@ -492,7 +492,7 @@ func TestPutFileDirectoryTraversal(t *testing.T) {
 
 func TestCreateInvalidBranchName(t *testing.T) {
 
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -503,7 +503,7 @@ func TestCreateInvalidBranchName(t *testing.T) {
 }
 
 func TestDeleteRepo(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	numRepos := 10
 	repoNames := make(map[string]bool)
@@ -534,7 +534,7 @@ func TestDeleteRepo(t *testing.T) {
 }
 
 func TestDeleteRepoProvenance(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	// Create two repos, one as another's provenance
 	require.NoError(t, client.CreateRepo("A"))
@@ -577,7 +577,7 @@ func TestDeleteRepoProvenance(t *testing.T) {
 }
 
 func TestInspectCommit(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -623,7 +623,7 @@ func TestInspectCommit(t *testing.T) {
 }
 
 func TestInspectCommitBlock(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "TestInspectCommitBlock"
 	require.NoError(t, client.CreateRepo(repo))
@@ -641,7 +641,7 @@ func TestInspectCommitBlock(t *testing.T) {
 }
 
 func TestDeleteCommit(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -675,7 +675,7 @@ func TestDeleteCommit(t *testing.T) {
 }
 
 func TestDeleteCommitOnlyCommitInBranch(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -700,7 +700,7 @@ func TestDeleteCommitOnlyCommitInBranch(t *testing.T) {
 }
 
 func TestDeleteCommitFinished(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -726,7 +726,7 @@ func TestDeleteCommitFinished(t *testing.T) {
 }
 
 func TestCleanPath(t *testing.T) {
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	repo := "TestCleanPath"
 	require.NoError(t, c.CreateRepo(repo))
 	commit, err := c.StartCommit(repo, "master")
@@ -739,7 +739,7 @@ func TestCleanPath(t *testing.T) {
 }
 
 func TestBasicFile(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "repo"
 	require.NoError(t, client.CreateRepo(repo))
@@ -763,7 +763,7 @@ func TestBasicFile(t *testing.T) {
 }
 
 func TestSimpleFile(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -803,7 +803,7 @@ func TestSimpleFile(t *testing.T) {
 }
 
 func TestStartCommitWithUnfinishedParent(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -820,7 +820,7 @@ func TestStartCommitWithUnfinishedParent(t *testing.T) {
 }
 
 func TestAncestrySyntax(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -948,7 +948,7 @@ func TestAncestrySyntax(t *testing.T) {
 //  E ────────╯
 
 func TestProvenance(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	require.NoError(t, client.CreateRepo("A"))
 	require.NoError(t, client.CreateRepo("B"))
@@ -991,7 +991,7 @@ func TestProvenance(t *testing.T) {
 }
 
 func TestCommitBranch(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	require.NoError(t, client.CreateRepo("repo"))
 	// Make two branches provenant on the master branch
@@ -1019,7 +1019,7 @@ func TestCommitBranch(t *testing.T) {
 }
 
 func TestCommitOnTwoBranchesProvenance(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	require.NoError(t, client.CreateRepo("repo"))
 
@@ -1066,7 +1066,7 @@ func TestCommitOnTwoBranchesProvenance(t *testing.T) {
 }
 
 func TestSimple(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1096,7 +1096,7 @@ func TestSimple(t *testing.T) {
 }
 
 func TestBranch1(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1137,7 +1137,7 @@ func TestBranch1(t *testing.T) {
 }
 
 func TestPutFileBig(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1163,7 +1163,7 @@ func TestPutFileBig(t *testing.T) {
 }
 
 func TestPutFile(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1224,7 +1224,7 @@ func TestPutFile(t *testing.T) {
 }
 
 func TestPutFile2(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1277,7 +1277,7 @@ func TestPutFile2(t *testing.T) {
 }
 
 func TestPutFileLongName(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1295,7 +1295,7 @@ func TestPutFileLongName(t *testing.T) {
 }
 
 func TestPutSameFileInParallel(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1318,7 +1318,7 @@ func TestPutSameFileInParallel(t *testing.T) {
 }
 
 func TestInspectFile(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1377,7 +1377,7 @@ func TestInspectFile(t *testing.T) {
 }
 
 func TestInspectFile2(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1422,7 +1422,7 @@ func TestInspectFile2(t *testing.T) {
 }
 
 func TestInspectDir(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1458,7 +1458,7 @@ func TestInspectDir(t *testing.T) {
 }
 
 func TestInspectDir2(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1507,7 +1507,7 @@ func TestInspectDir2(t *testing.T) {
 }
 
 func TestListFileTwoCommits(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1552,7 +1552,7 @@ func TestListFileTwoCommits(t *testing.T) {
 }
 
 func TestListFile(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1584,7 +1584,7 @@ func TestListFile(t *testing.T) {
 }
 
 func TestListFile2(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1630,7 +1630,7 @@ func TestListFile2(t *testing.T) {
 }
 
 func TestListFile3(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1685,7 +1685,7 @@ func TestListFile3(t *testing.T) {
 }
 
 func TestPutFileTypeConflict(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1706,7 +1706,7 @@ func TestPutFileTypeConflict(t *testing.T) {
 }
 
 func TestRootDirectory(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1730,7 +1730,7 @@ func TestRootDirectory(t *testing.T) {
 }
 
 func TestDeleteFile(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1810,7 +1810,7 @@ func TestDeleteFile(t *testing.T) {
 }
 
 func TestDeleteDir(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1894,7 +1894,7 @@ func TestDeleteDir(t *testing.T) {
 }
 
 func TestDeleteFile2(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1935,7 +1935,7 @@ func TestDeleteFile2(t *testing.T) {
 }
 
 func TestListCommit(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -2005,7 +2005,7 @@ func TestListCommit(t *testing.T) {
 }
 
 func TestOffsetRead(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "TestOffsetRead"
 	require.NoError(t, client.CreateRepo(repo))
@@ -2029,7 +2029,7 @@ func TestOffsetRead(t *testing.T) {
 }
 
 func TestBranch2(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -2071,7 +2071,7 @@ func TestBranch2(t *testing.T) {
 	require.Equal(t, commit2, branches[1].Head)
 }
 func TestDeleteNonexistentBranch(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "TestDeleteNonexistentBranch"
 	require.NoError(t, client.CreateRepo(repo))
@@ -2079,7 +2079,7 @@ func TestDeleteNonexistentBranch(t *testing.T) {
 }
 
 func TestSubscribeCommit(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -2129,7 +2129,7 @@ func TestSubscribeCommit(t *testing.T) {
 }
 
 func TestInspectRepoSimple(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -2155,7 +2155,7 @@ func TestInspectRepoSimple(t *testing.T) {
 }
 
 func TestInspectRepoComplex(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -2195,7 +2195,7 @@ func TestInspectRepoComplex(t *testing.T) {
 }
 
 func TestCreate(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -2210,7 +2210,7 @@ func TestCreate(t *testing.T) {
 }
 
 func TestGetFile(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 	repo := tu.UniqueString("test")
 	require.NoError(t, client.CreateRepo(repo))
 	commit, err := client.StartCommit(repo, "")
@@ -2237,7 +2237,7 @@ func TestManyPutsSingleFileSingleCommit(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping long tests in short mode")
 	}
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -2280,7 +2280,7 @@ func TestManyPutsSingleFileSingleCommit(t *testing.T) {
 }
 
 func TestPutFileValidCharacters(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -2317,7 +2317,7 @@ func TestPutFileURL(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 
 	repo := "TestPutFileURL"
 	require.NoError(t, c.CreateRepo(repo))
@@ -2331,7 +2331,7 @@ func TestPutFileURL(t *testing.T) {
 }
 
 func TestBigListFile(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "TestBigListFile"
 	require.NoError(t, client.CreateRepo(repo))
@@ -2358,7 +2358,7 @@ func TestBigListFile(t *testing.T) {
 }
 
 func TestStartCommitLatestOnBranch(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -2381,7 +2381,7 @@ func TestStartCommitLatestOnBranch(t *testing.T) {
 }
 
 func TestSetBranchTwice(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -2405,7 +2405,7 @@ func TestSetBranchTwice(t *testing.T) {
 }
 
 func TestSyncPullPush(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo1 := "repo1"
 	require.NoError(t, client.CreateRepo(repo1))
@@ -2482,7 +2482,7 @@ func TestSyncPullPush(t *testing.T) {
 }
 
 func TestSyncFile(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "repo"
 	require.NoError(t, client.CreateRepo(repo))
@@ -2531,7 +2531,7 @@ func TestSyncFile(t *testing.T) {
 }
 
 func TestSyncEmptyDir(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 
 	repo := "repo"
 	require.NoError(t, client.CreateRepo(repo))
@@ -2556,7 +2556,7 @@ func TestSyncEmptyDir(t *testing.T) {
 }
 
 func TestFlush(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 	require.NoError(t, client.CreateRepo("A"))
 	require.NoError(t, client.CreateRepo("B"))
 	require.NoError(t, client.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
@@ -2574,7 +2574,7 @@ func TestFlush(t *testing.T) {
 // TestFlush2 implements the following DAG:
 // A ─▶ B ─▶ C ─▶ D
 func TestFlush2(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 	require.NoError(t, client.CreateRepo("A"))
 	require.NoError(t, client.CreateRepo("B"))
 	require.NoError(t, client.CreateRepo("C"))
@@ -2618,7 +2618,7 @@ func TestFlush2(t *testing.T) {
 //  ╱
 // B
 func TestFlush3(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 	require.NoError(t, client.CreateRepo("A"))
 	require.NoError(t, client.CreateRepo("B"))
 	require.NoError(t, client.CreateRepo("C"))
@@ -2649,7 +2649,7 @@ func TestFlush3(t *testing.T) {
 }
 
 func TestFlushRedundant(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 	require.NoError(t, client.CreateRepo("A"))
 	ACommit, err := client.StartCommit("A", "master")
 	require.NoError(t, err)
@@ -2662,7 +2662,7 @@ func TestFlushRedundant(t *testing.T) {
 }
 
 func TestFlushCommitWithNoDownstreamRepos(t *testing.T) {
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	repo := "test"
 	require.NoError(t, c.CreateRepo(repo))
 	commit, err := c.StartCommit(repo, "master")
@@ -2677,7 +2677,7 @@ func TestFlushCommitWithNoDownstreamRepos(t *testing.T) {
 
 func TestFlushOpenCommit(t *testing.T) {
 
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 	require.NoError(t, client.CreateRepo("A"))
 	require.NoError(t, client.CreateRepo("B"))
 	require.NoError(t, client.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
@@ -2701,7 +2701,7 @@ func TestFlushOpenCommit(t *testing.T) {
 
 func TestEmptyFlush(t *testing.T) {
 
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 	commitIter, err := client.FlushCommit(nil, nil)
 	require.NoError(t, err)
 	_, err = collectCommitInfos(commitIter)
@@ -2710,7 +2710,7 @@ func TestEmptyFlush(t *testing.T) {
 
 func TestFlushNonExistentCommit(t *testing.T) {
 
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	iter, err := c.FlushCommit([]*pfs.Commit{pclient.NewCommit("fake-repo", "fake-commit")}, nil)
 	require.NoError(t, err)
 	_, err = collectCommitInfos(iter)
@@ -2728,7 +2728,7 @@ func TestPutFileSplit(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	// create repos
 	repo := tu.UniqueString("TestPutFileSplit")
 	require.NoError(t, c.CreateRepo(repo))
@@ -2834,7 +2834,7 @@ func TestPutFileSplitBig(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	// create repos
 	repo := tu.UniqueString("TestPutFileSplitBig")
 	require.NoError(t, c.CreateRepo(repo))
@@ -2857,7 +2857,7 @@ func TestPutFileSplitBig(t *testing.T) {
 }
 
 func TestPutFileSplitCSV(t *testing.T) {
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	// create repos
 	repo := tu.UniqueString("TestPutFileSplitCSV")
 	require.NoError(t, c.CreateRepo(repo))
@@ -2878,7 +2878,7 @@ func TestPutFileSplitCSV(t *testing.T) {
 }
 
 func TestPutFileSplitSQL(t *testing.T) {
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	// create repos
 	repo := tu.UniqueString("TestPutFileSplitSQL")
 	require.NoError(t, c.CreateRepo(repo))
@@ -2940,7 +2940,7 @@ func TestPutFileSplitSQL(t *testing.T) {
 }
 
 func TestPutFileHeaderRecordsBasic(t *testing.T) {
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	// create repos
 	repo := tu.UniqueString("TestPutFileHeaderRecordsBasic")
 	require.NoError(t, c.CreateRepo(repo))
@@ -3022,7 +3022,7 @@ func TestPutFileHeaderRecordsBasic(t *testing.T) {
 // GetFile("/*/*"). We expect the data to come back
 // a_header + a/1 + ... + a/N + a_footer + b_header + b/1 + ... + b/N + b_footer
 func TestGetFileGlobMultipleHeaders(t *testing.T) {
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	// create repos
 	repo := tu.UniqueString("TestGetFileGlobMultipleHeaders")
 	require.NoError(t, c.CreateRepo(repo))
@@ -3068,7 +3068,7 @@ func TestDiff(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	repo := tu.UniqueString("TestDiff")
 	require.NoError(t, c.CreateRepo(repo))
 
@@ -3202,7 +3202,7 @@ func TestGlobFile(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	repo := tu.UniqueString("TestGlobFile")
 	require.NoError(t, c.CreateRepo(repo))
 
@@ -3340,7 +3340,7 @@ func TestGlobFileF(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	repo := tu.UniqueString("TestGlobFileF")
 	require.NoError(t, c.CreateRepo(repo))
 
@@ -3375,7 +3375,7 @@ func TestGlobFileF(t *testing.T) {
 // form file1 + file2 + .. + fileN, where file1 is the lexicographically lowest
 // file matching 'glob', file2 is the next lowest, etc.
 func TestGetFileGlobOrder(t *testing.T) {
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	// create repos
 	repo := tu.UniqueString("TestGetFileGlobOrder")
 	require.NoError(t, c.CreateRepo(repo))
@@ -3400,7 +3400,7 @@ func TestApplyWriteOrder(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	repo := tu.UniqueString("TestApplyWriteOrder")
 	require.NoError(t, c.CreateRepo(repo))
 
@@ -3423,7 +3423,7 @@ func TestOverwrite(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	repo := tu.UniqueString("TestGlob")
 	require.NoError(t, c.CreateRepo(repo))
 
@@ -3466,7 +3466,7 @@ func TestCopyFile(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	repo := tu.UniqueString("TestCopyFile")
 	require.NoError(t, c.CreateRepo(repo))
 	_, err := c.StartCommit(repo, "master")
@@ -3503,7 +3503,7 @@ func TestCopyFileHeaderFooter(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	repo := tu.UniqueString("TestCopyFileHeaderFooterOne")
 	require.NoError(t, c.CreateRepo(repo))
 	_, err := c.PutFileSplit(repo, "master", "/data", pfs.Delimiter_CSV, 0, 0, 1, false,
@@ -3574,7 +3574,7 @@ func TestBuildCommit(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	repo := tu.UniqueString("TestBuildCommit")
 	require.NoError(t, c.CreateRepo(repo))
 
@@ -3610,7 +3610,7 @@ func TestBuildCommit(t *testing.T) {
 }
 
 func TestPropagateCommit(t *testing.T) {
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	repo1 := tu.UniqueString("TestPropagateCommit1")
 	require.NoError(t, c.CreateRepo(repo1))
 	repo2 := tu.UniqueString("TestPropagateCommit2")
@@ -3634,7 +3634,7 @@ func TestPropagateCommit(t *testing.T) {
 // 	╱   ◀
 // B ──▶ D
 func TestBackfillBranch(t *testing.T) {
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	require.NoError(t, c.CreateRepo("A"))
 	require.NoError(t, c.CreateRepo("B"))
 	require.NoError(t, c.CreateRepo("C"))
@@ -3670,7 +3670,7 @@ func TestBackfillBranch(t *testing.T) {
 // D ───╯
 //
 func TestUpdateBranch(t *testing.T) {
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	require.NoError(t, c.CreateRepo("A"))
 	require.NoError(t, c.CreateRepo("B"))
 	require.NoError(t, c.CreateRepo("C"))
@@ -3696,7 +3696,7 @@ func TestUpdateBranch(t *testing.T) {
 }
 
 func TestBranchProvenance(t *testing.T) {
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	tests := [][]struct {
 		name       string
 		directProv []string
@@ -3847,7 +3847,7 @@ func TestBranchProvenance(t *testing.T) {
 }
 
 func TestChildCommits(t *testing.T) {
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	require.NoError(t, c.CreateRepo("A"))
 	require.NoError(t, c.CreateBranch("A", "master", "", nil))
 
@@ -3941,7 +3941,7 @@ func TestChildCommits(t *testing.T) {
 }
 
 func TestStartCommitFork(t *testing.T) {
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	require.NoError(t, c.CreateRepo("A"))
 	require.NoError(t, c.CreateBranch("A", "master", "", nil))
 	commit, err := c.StartCommit("A", "master")
@@ -3970,7 +3970,7 @@ func TestStartCommitFork(t *testing.T) {
 //
 // C should create a new output commit to process its unprocessed inputs in B
 func TestUpdateBranchNewOutputCommit(t *testing.T) {
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	require.NoError(t, c.CreateRepo("A"))
 	require.NoError(t, c.CreateRepo("B"))
 	require.NoError(t, c.CreateRepo("C"))
@@ -4016,7 +4016,7 @@ func TestUpdateBranchNewOutputCommit(t *testing.T) {
 // 3. Delete branch HEAD   -> output branch rewritten to point to nil
 // 4. Delete parent commit -> child rewritten to point to nil
 func TestDeleteCommitBigSubvenance(t *testing.T) {
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 
 	// two input repos, one with many commits (logs), and one with few (schema)
 	require.NoError(t, c.CreateRepo("logs"))
@@ -4203,7 +4203,7 @@ func TestDeleteCommitBigSubvenance(t *testing.T) {
 //  ↘ ↙
 //   a
 func TestDeleteCommitMultipleChildrenSingleCommit(t *testing.T) {
-	cli := GetPachClient(t)
+	cli := GetPachClient(t, GetBasicConfig())
 	require.NoError(t, cli.CreateRepo("repo"))
 	require.NoError(t, cli.CreateBranch("repo", "master", "", nil))
 
@@ -4281,7 +4281,7 @@ func TestDeleteCommitMultipleChildrenSingleCommit(t *testing.T) {
 //  ↘↓↙
 //  nil
 func TestDeleteCommitMultiLevelChildrenNilParent(t *testing.T) {
-	cli := GetPachClient(t)
+	cli := GetPachClient(t, GetBasicConfig())
 	require.NoError(t, cli.CreateRepo("upstream1"))
 	require.NoError(t, cli.CreateRepo("upstream2"))
 	// commit to both inputs
@@ -4417,7 +4417,7 @@ func TestDeleteCommitMultiLevelChildrenNilParent(t *testing.T) {
 // This makes sure that multiple live children are re-pointed at a live parent
 // if appropriate
 func TestDeleteCommitMultiLevelChildren(t *testing.T) {
-	cli := GetPachClient(t)
+	cli := GetPachClient(t, GetBasicConfig())
 	require.NoError(t, cli.CreateRepo("upstream1"))
 	require.NoError(t, cli.CreateRepo("upstream2"))
 	// commit to both inputs
@@ -4560,7 +4560,7 @@ func TestDeleteCommitMultiLevelChildren(t *testing.T) {
 // 3. Subvenance is not affected, because the deleted commit is between "Lower" and "Upper"
 // 4. The entire subvenance range is deleted
 func TestDeleteCommitShrinkSubvRange(t *testing.T) {
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 
 	// two input repos, one with many commits (logs), and one with few (schema)
 	require.NoError(t, c.CreateRepo("logs"))
@@ -4647,7 +4647,7 @@ func TestDeleteCommitShrinkSubvRange(t *testing.T) {
 }
 
 func TestCommitState(t *testing.T) {
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 
 	// two input repos, one with many commits (logs), and one with few (schema)
 	require.NoError(t, c.CreateRepo("A"))
@@ -4692,7 +4692,7 @@ func TestCommitState(t *testing.T) {
 }
 
 func TestSubscribeStates(t *testing.T) {
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 
 	require.NoError(t, c.CreateRepo("A"))
 	require.NoError(t, c.CreateRepo("B"))
@@ -4740,7 +4740,7 @@ func TestSubscribeStates(t *testing.T) {
 }
 
 func TestPutFileCommit(t *testing.T) {
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 
 	numFiles := 25
 	repo := "repo"
@@ -4795,7 +4795,7 @@ func TestPutFileCommit(t *testing.T) {
 }
 
 func TestPutFileCommitNilBranch(t *testing.T) {
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	repo := "repo"
 	require.NoError(t, c.CreateRepo(repo))
 	require.NoError(t, c.CreateBranch(repo, "master", "", nil))
@@ -4805,7 +4805,7 @@ func TestPutFileCommitNilBranch(t *testing.T) {
 }
 
 func TestPutFileCommitOverwrite(t *testing.T) {
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 
 	numFiles := 5
 	repo := "repo"
@@ -4822,7 +4822,7 @@ func TestPutFileCommitOverwrite(t *testing.T) {
 }
 
 func TestStartCommitOutputBranch(t *testing.T) {
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	require.NoError(t, c.CreateRepo("in"))
 	require.NoError(t, c.CreateRepo("out"))
 	require.NoError(t, c.CreateBranch("out", "master", "", []*pfs.Branch{pclient.NewBranch("in", "master")}))
@@ -4831,7 +4831,7 @@ func TestStartCommitOutputBranch(t *testing.T) {
 }
 
 func TestWalk(t *testing.T) {
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	repo := "repo"
 	require.NoError(t, c.CreateRepo(repo))
 	_, err := c.PutFile(repo, "master", "dir/bar", strings.NewReader("bar"))
@@ -4852,7 +4852,7 @@ func TestWalk(t *testing.T) {
 }
 
 func TestReadSizeLimited(t *testing.T) {
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	require.NoError(t, c.CreateRepo("test"))
 	_, err := c.PutFile("test", "master", "file", strings.NewReader(strings.Repeat("a", 100*MB)))
 	require.NoError(t, err)
@@ -4867,7 +4867,7 @@ func TestReadSizeLimited(t *testing.T) {
 }
 
 func TestPutFiles(t *testing.T) {
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	require.NoError(t, c.CreateRepo("repo"))
 	pfclient, err := c.PfsAPIClient.PutFile(context.Background())
 	require.NoError(t, err)
@@ -4892,7 +4892,7 @@ func TestPutFiles(t *testing.T) {
 }
 
 func TestPutFilesURL(t *testing.T) {
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	require.NoError(t, c.CreateRepo("repo"))
 	pfclient, err := c.PfsAPIClient.PutFile(context.Background())
 	require.NoError(t, err)
@@ -4942,7 +4942,7 @@ func TestPutFilesObjURL(t *testing.T) {
 		}
 	}()
 
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	require.NoError(t, c.CreateRepo("repo"))
 	pfclient, err := c.PfsAPIClient.PutFile(context.Background())
 	require.NoError(t, err)
@@ -4974,7 +4974,7 @@ func TestPutFilesObjURL(t *testing.T) {
 }
 
 func TestPutFileOutputRepo(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 	inputRepo, outputRepo := "input", "output"
 	require.NoError(t, client.CreateRepo(inputRepo))
 	require.NoError(t, client.CreateRepo(outputRepo))
@@ -4993,7 +4993,7 @@ func TestPutFileOutputRepo(t *testing.T) {
 }
 
 func TestFileHistory(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 	var err error
 
 	repo := "test"
@@ -5033,7 +5033,7 @@ func TestFileHistory(t *testing.T) {
 
 func TestUpdateRepo(t *testing.T) {
 	var err error
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 	repo := "test"
 	_, err = client.PfsAPIClient.CreateRepo(
 		client.Ctx(),
@@ -5065,7 +5065,7 @@ func TestUpdateRepo(t *testing.T) {
 }
 
 func TestPutObjectAsync(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 	// Write and tag an object greater than grpc max message size.
 	tag := &pfs.Tag{Name: "tag"}
 	w, err := client.PutObjectAsync([]*pfs.Tag{tag})
@@ -5082,7 +5082,7 @@ func TestPutObjectAsync(t *testing.T) {
 }
 
 func TestDeferredProcessing(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 	require.NoError(t, client.CreateRepo("input"))
 	require.NoError(t, client.CreateRepo("output1"))
 	require.NoError(t, client.CreateRepo("output2"))
@@ -5118,7 +5118,7 @@ func TestDeferredProcessing(t *testing.T) {
 // the provenance of 'deferred-output', *even if 'deferred-output@master' isn't
 // the branch being propagated*
 func TestMultiInputWithDeferredProcessing(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 	require.NoError(t, client.CreateRepo("input1"))
 	require.NoError(t, client.CreateRepo("deferred-output"))
 	require.NoError(t, client.CreateRepo("input2"))
@@ -5209,7 +5209,7 @@ func TestMultiInputWithDeferredProcessing(t *testing.T) {
 }
 
 func TestListAll(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 	require.NoError(t, client.CreateRepo("repo1"))
 	require.NoError(t, client.CreateRepo("repo2"))
 	_, err := client.PutFile("repo1", "master", "file1", strings.NewReader("1"))
@@ -5231,7 +5231,7 @@ func TestListAll(t *testing.T) {
 }
 
 func TestPutBlock(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 	_, err := client.PutBlock("test", strings.NewReader("foo"))
 	require.NoError(t, err)
 }
@@ -5253,7 +5253,7 @@ func monkeyRetry(t *testing.T, f func() error, errMsg string) {
 func TestMonkeyObjectStorage(t *testing.T) {
 	seed := time.Now().UTC().UnixNano()
 	obj.InitMonkeyTest(seed)
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 	iterations := 25
 	repo := "input"
 	require.NoError(t, client.CreateRepo(repo), seedStr(seed))
@@ -5311,7 +5311,7 @@ func TestMonkeyObjectStorage(t *testing.T) {
 }
 
 func TestFsckFix(t *testing.T) {
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 	input := "input"
 	output1 := "output1"
 	output2 := "output2"
@@ -5354,7 +5354,7 @@ func TestFuzzProvenance(t *testing.T) {
 	t.Log("Random seed is", seed)
 	r := rand.New(rand.NewSource(seed))
 
-	client := GetPachClient(t)
+	client := GetPachClient(t, GetBasicConfig())
 	_, err := client.PfsAPIClient.DeleteAll(client.Ctx(), &types.Empty{})
 	require.NoError(t, err)
 	nOps := 300
@@ -5381,7 +5381,6 @@ func TestFuzzProvenance(t *testing.T) {
 	)
 OpLoop:
 	for i := 0; i < nOps; i++ {
-		println("\niter", i)
 		roll := r.Intn(total)
 		if i < 0 {
 			roll = inputRepo
@@ -5396,14 +5395,12 @@ OpLoop:
 		}
 		switch op {
 		case inputRepo:
-			println("inputRepo")
 			repo := tu.UniqueString("repo")
 			require.NoError(t, client.CreateRepo(repo))
 			inputRepos = append(inputRepos, repo)
 			require.NoError(t, client.CreateBranch(repo, "master", "", nil))
 			inputBranches = append(inputBranches, pclient.NewBranch(repo, "master"))
 		case inputBranch:
-			println("inputBranch")
 			if len(inputRepos) == 0 {
 				continue OpLoop
 			}
@@ -5412,7 +5409,6 @@ OpLoop:
 			require.NoError(t, client.CreateBranch(repo, branch, "", nil))
 			inputBranches = append(inputBranches, pclient.NewBranch(repo, branch))
 		case deleteInputBranch:
-			println("deleteInputBranch")
 			if len(inputBranches) == 0 {
 				continue OpLoop
 			}
@@ -5425,7 +5421,6 @@ OpLoop:
 				require.NoError(t, err)
 			}
 		case commit:
-			println("commit")
 			if len(inputBranches) == 0 {
 				continue OpLoop
 			}
@@ -5435,7 +5430,6 @@ OpLoop:
 			require.NoError(t, client.FinishCommit(branch.Repo.Name, branch.Name))
 			commits = append(commits, commit)
 		case deleteCommit:
-			println("deleteCommit")
 			if len(commits) == 0 {
 				continue OpLoop
 			}
@@ -5444,7 +5438,6 @@ OpLoop:
 			commits = append(commits[:i], commits[i+1:]...)
 			require.NoError(t, client.DeleteCommit(commit.Repo.Name, commit.ID))
 		case outputRepo:
-			println("outputRepo")
 			if len(inputBranches) == 0 {
 				continue OpLoop
 			}
@@ -5462,7 +5455,6 @@ OpLoop:
 			require.NoError(t, client.CreateBranch(repo, "master", "", provBranches))
 			outputBranches = append(outputBranches, pclient.NewBranch(repo, "master"))
 		case outputBranch:
-			println("outputBranch")
 			if len(outputRepos) == 0 {
 				continue OpLoop
 			}
@@ -5490,7 +5482,6 @@ OpLoop:
 			require.NoError(t, client.CreateBranch(repo, branch, "", provBranches))
 			outputBranches = append(outputBranches, pclient.NewBranch(repo, branch))
 		case deleteOutputBranch:
-			println("deleteOutputBranch")
 			if len(outputBranches) == 0 {
 				continue OpLoop
 			}

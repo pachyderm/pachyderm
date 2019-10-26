@@ -137,7 +137,7 @@ create pipeline](../pachctl/pachctl_create_pipeline.html) doc.
       "empty_files": bool
     }
   }
-  etc...
+  ...
 ]
 
 
@@ -153,6 +153,35 @@ create pipeline](../pachctl/pachctl_create_pipeline.html) doc.
     "start": time,
     "overwrite": bool
 }
+
+------------------------------------
+"join" input
+------------------------------------
+
+"join": [
+  {
+    "pfs": {
+      "name": string,
+      "repo": string,
+      "branch": string,
+      "glob": string,
+      "join_on": string
+      "lazy": bool
+      "empty_files": bool
+    }
+  },
+  {
+    "pfs": {
+       "name": string,
+       "repo": string,
+       "branch": string,
+       "glob": string,
+       "join_on": string
+       "lazy": bool
+       "empty_files": bool
+    }
+  }
+]
 
 ------------------------------------
 "git" input
@@ -421,18 +450,20 @@ at a time. Overlapping the names of combined inputs allows
 you to write simpler code since you no longer need to consider which
 input directory a particular datum comes from. If an input's name is not
 specified, it defaults to the name of the repo. Therefore, if you have two
-crossed inputs from the same repo, you must give at least one of them a unique name.
+crossed inputs from the same repo, you must give at least one of them a
+unique name.
 
-`input.pfs.repo` is the `repo` to be used for the input.
+`input.pfs.repo` is the name of the Pachyderm repository with the data that
+you want to join with other data.
 
 `input.pfs.branch` is the `branch` to watch for commits. If left blank,
-`master` is used by default.
+Pachyderm sets this value to `master`.
 
 `input.pfs.glob` is a glob pattern that is used to determine how the
-input data is partitioned. It is explained in detail in the next section.
+input data is partitioned.
 
-`input.pfs.lazy` controls how the data is exposed to jobs. The default is `false`
-which means the job eagerly downloads the data it needs to process and
+`input.pfs.lazy` controls how the data is exposed to jobs. The default is
+`false` which means the job eagerly downloads the data it needs to process and
 exposes it as normal files on disk. If lazy is set to `true`, data is
 exposed as named pipes instead, and no data is downloaded until the job
 opens the pipe and reads it. If the pipe is never opened, then no data is
@@ -562,6 +593,52 @@ and combines that data with the data from the previous ticks. If `"overwrite"`
 is set to `true`, it expects the full dataset to be written out for each tick and
 replaces previous outputs with the new data written out.
 
+#### Join Input
+
+A join input enables you to join files that are stored in separate
+Pachyderm repositories and that match a configured glob
+pattern. A join input must have the `glob` and `join_on` parameters configured
+to work properly. A join can combine multiple PFS inputs.
+
+You can specify the following parameters for the `join` input.
+
+* `input.pfs.name` — the name of the PFS input that appears in the
+`INPUT` field when you run the `pachctl list job` command.
+If an input name is not specified, it defaults to the name of the repo.
+
+* `input.pfs.repo` — see the description in [PFS Input](#pfs-input).
+the name of the Pachyderm repository with the data that
+you want to join with other data.
+
+* `input.pfs.branch` — see the description in [PFS Input](#pfs-input).
+
+* `input.pfs.glob` — a wildcard pattern that defines how a dataset is broken
+  up into datums for further processing. When you use a glob pattern in joins,
+  it creates a naming convention that Pachyderm uses to join files. In other
+  words, Pachyderm joins the files that are named according to the glob
+  pattern and skips those that are not.
+
+  You can specify the glob pattern for joins in a parenthesis to create
+  one or multiple capture groups. A capture group can include one or multiple
+  characters. Use standard UNIX globbing characters to create capture,
+  groups, including the following:
+
+  * `?` — matches a single character in a filepath. For example, you
+  have files named `file000.txt`, `file001.txt`, `file002.txt`, and so on.
+  You can set the glob pattern to `/file(?)(?)(?)` and the `join_on` key to
+  `$2`, so that Pachyderm matches only the files that have same second
+  character.
+
+* `*` — any number of characters in the filepath. For example, if you set
+  your capture group to `/(*)`, Pachyderm matches all files in the root
+  directory.
+
+  If you do not specify a correct `glob` pattern, Pachyderm performs the
+  `cross` input operation instead of `join`.
+
+* `input.pfs.lazy` — see the description in [PFS Input](#pfs-input).
+* `input.pfs.empty_files` — see the description in [PFS Input](#pfs-input).
+
 #### Git Input (alpha feature)
 
 Git inputs allow you to pull code from a public git URL and execute that code as part of your pipeline. A pipeline with a Git Input will get triggered (i.e. will see a new input commit and will spawn a job) whenever you commit to your git repository.
@@ -573,7 +650,7 @@ Git inputs allow you to pull code from a public git URL and execute that code as
 `input.git.name` is the name for the input, its semantics are similar to
 those of `input.pfs.name`. It is optional.
 
-`input.git.branch` is the name of the git branch to use as input
+`input.git.branch` is the name of the git branch to use as input.
 
 Git inputs also require some additional configuration. In order for new commits on your git repository to correspond to new commits on the Pachyderm Git Input repo, we need to setup a git webhook. At the moment, only GitHub is supported. (Though if you ask nicely, we can add support for GitLab or BitBucket).
 
