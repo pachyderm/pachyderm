@@ -115,6 +115,7 @@ nav:
             - Pipeline:
                 - Overview: concepts/pipeline-concepts/pipeline/index.md
                 - Cron: concepts/pipeline-concepts/pipeline/cron.md
+                - Join: concepts/pipeline-concepts/pipeline/join.md
                 - Service: concepts/pipeline-concepts/pipeline/service.md
                 - Spout: concepts/pipeline-concepts/pipeline/spout.md
             - Job: concepts/pipeline-concepts/job.md
