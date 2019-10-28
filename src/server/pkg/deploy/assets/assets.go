@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -225,6 +226,15 @@ type Encoder interface {
 // helpful because the Replicas field of many specs expectes an *int32
 func replicas(r int32) *int32 {
 	return &r
+}
+
+// Kubernetes doesn't work well with windows path separators
+func kubeFilepathJoin(paths ...string) string {
+	joined := filepath.Join(paths...)
+	if runtime.GOOS != "windows" {
+		return joined
+	}
+	return strings.ReplaceAll(joined, "\\", "/")
 }
 
 // fillDefaultResourceRequests sets any of:
@@ -457,9 +467,11 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 	var storageHostPath string
 	switch objectStoreBackend {
 	case localBackend:
-		storageHostPath = filepath.Join(hostPath, "pachd")
+		storageHostPath = kubeFilepathJoin(hostPath, "pachd")
+		pathType := v1.HostPathDirectoryOrCreate
 		volumes[0].HostPath = &v1.HostPathVolumeSource{
 			Path: storageHostPath,
+			Type: &pathType,
 		}
 		backendEnvVar = pfs.LocalBackendEnvVar
 	case minioBackend:
@@ -705,12 +717,14 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 			},
 		}
 	} else {
+		pathType := v1.HostPathDirectoryOrCreate
 		volumes = []v1.Volume{
 			{
 				Name: "etcd-storage",
 				VolumeSource: v1.VolumeSource{
 					HostPath: &v1.HostPathVolumeSource{
-						Path: filepath.Join(hostPath, "etcd"),
+						Path: kubeFilepathJoin(hostPath, "etcd"),
+						Type: &pathType,
 					},
 				},
 			},
@@ -859,9 +873,11 @@ func EtcdVolume(persistentDiskBackend backend, opts *AssetOpts,
 	case minioBackend:
 		fallthrough
 	case localBackend:
+		pathType := v1.HostPathDirectoryOrCreate
 		spec.Spec.PersistentVolumeSource = v1.PersistentVolumeSource{
 			HostPath: &v1.HostPathVolumeSource{
-				Path: filepath.Join(hostPath, "etcd"),
+				Path: kubeFilepathJoin(hostPath, "etcd"),
+				Type: &pathType,
 			},
 		}
 	default:

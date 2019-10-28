@@ -2,7 +2,9 @@
 
 CONTAINER="${1}"
 
-RET=`docker wait "$CONTAINER"`
+docker wait "$CONTAINER" 2>/dev/null 1>/dev/null
+RET=$?
+
 if [ "$RET" -ne 0 ]
 then
 	docker logs "$CONTAINER"
