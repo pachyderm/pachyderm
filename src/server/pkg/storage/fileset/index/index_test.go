@@ -2,7 +2,6 @@ package index
 
 import (
 	"context"
-	"io"
 	"strings"
 	"testing"
 
@@ -33,14 +32,11 @@ func actualFiles(tb testing.TB, objC obj.Client, chunks *chunk.Storage, opts ...
 		require.NoError(tb, ir.Close())
 	}()
 	result := []string{}
-	for {
-		idx, err := ir.Next()
-		if err == io.EOF {
-			return result
-		}
-		require.NoError(tb, err)
+	require.NoError(tb, ir.Iterate(func(idx *Index) error {
 		result = append(result, idx.Path)
-	}
+		return nil
+	}))
+	return result
 }
 
 func expectedFiles(fileNames []string, prefix string) []string {

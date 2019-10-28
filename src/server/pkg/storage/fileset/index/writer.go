@@ -125,6 +125,35 @@ func (w *Writer) callback(level int) chunk.WriterFunc {
 	}
 }
 
+// Close finishes the index, and returns the serialized top index level.
+func (w *Writer) Close() error {
+	w.closed = true
+	// Note: new levels can be created while closing, so the number of iterations
+	// necessary can increase as the levels are being closed. Levels stop getting
+	// created when the top level chunk writer has been closed and the number of
+	// annotations and chunks it has is one (one annotation in one chunk).
+	for i := 0; i < len(w.levels); i++ {
+		l := w.levels[i]
+		if err := l.cw.Close(); err != nil {
+			return err
+		}
+		// (bryce) this method of terminating the index can create garbage (level
+		// above the final level).
+		if l.cw.AnnotationCount() == 1 && l.cw.ChunkCount() == 1 {
+			break
+		}
+	}
+	// Write the final index level to the path.
+	objW, err := w.objC.Writer(w.ctx, w.path)
+	if err != nil {
+		return err
+	}
+	if _, err := pbutil.NewWriter(objW).Write(w.root); err != nil {
+		return err
+	}
+	return objW.Close()
+}
+
 // WriteCopyFunc executes a function for copying data to the writer.
 //func (w *Writer) WriteCopyFunc(f func() (*Copy, error)) error {
 //	w.setupLevels()
@@ -161,32 +190,3 @@ func (w *Writer) callback(level int) chunk.WriterFunc {
 //		}
 //	}
 //}
-
-// Close finishes the index, and returns the serialized top index level.
-func (w *Writer) Close() error {
-	w.closed = true
-	// Note: new levels can be created while closing, so the number of iterations
-	// necessary can increase as the levels are being closed. Levels stop getting
-	// created when the top level chunk writer has been closed and the number of
-	// annotations and chunks it has is one (one annotation in one chunk).
-	for i := 0; i < len(w.levels); i++ {
-		l := w.levels[i]
-		if err := l.cw.Close(); err != nil {
-			return err
-		}
-		// (bryce) this method of terminating the index can create garbage (level
-		// above the final level).
-		if l.cw.AnnotationCount() == 1 && l.cw.ChunkCount() == 1 {
-			break
-		}
-	}
-	// Write the final index level to the path.
-	objW, err := w.objC.Writer(w.ctx, w.path)
-	if err != nil {
-		return err
-	}
-	if _, err := pbutil.NewWriter(objW).Write(w.root); err != nil {
-		return err
-	}
-	return objW.Close()
-}
