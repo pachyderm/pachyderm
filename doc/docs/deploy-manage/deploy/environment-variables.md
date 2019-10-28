@@ -12,13 +12,10 @@ Pachyderm daemon container.
 * Pachyderm worker environment variables that define parameters
 on the Kubernetes pods that run your pipeline code.
 
-You can configure environment variables as you typically do
-in a Linux environment. For example, to configure a `PACH_JOB_ID`
-in bash, run:
-
-```bash
-$ export PACH_JOB_ID=<ID>
-```
+You can refer environment variables in your code. For example,
+if your code writes data to an external system and you want
+to know the current job ID, you can use the `PACH_JOB_ID`
+environment variable to refer to the current job ID.
 
 You can access all the variables in the Pachyderm manifest that
 is generated when you run `pachctl deploy` with the --dry-run`
@@ -52,7 +49,6 @@ environment variables.
 | `PEER_PORT`             | `653`             | The port for pachd-to-pachd communication. |
 | `PPS_ETCD_PREFIX`        | `pachyderm_pps`   | ???  |
 | `NAMESPACE`            | `deafult`         | The namespace in which Pachyderm is deployed. |
-| `PACH_ROOT`          | `/pach`           | ??? |
 
 **pachd Configuration**
 
@@ -61,15 +57,9 @@ environment variables.
 | `NUM_SHARDS`           | `32`              | The max number of `pachd` pods that can run in a single cluster. |
 | `STORAGE_BACKEND`      | `"`               | The storage backend defined for the Pachyderm cluster. By default, local storage is configured. |
 | `STORAGE_HOST_PATH`    | `"`               | The host path to storage.                    |
-| `ETCD_PREFIX`          | `"`               | A prefix for the etcd cluster.  |???
-| `PFS_ETCD_PREFIX`      | `pachyderm_pfs`   | The ???  - Should we expose this in the docs
-| `PACHYDERM_AUTH_ETCD_PREFIX` | `pachyderm_auth` |   ???? Should we expose this in the docs?
-| `PACHYDERM_ENTERPRISE_ETCD_PREFIX` | `pachyderm_enterprise` | ???? should we expose in the docs
-| `KUBERNETES_PORT_443_TCP_ADDR` | N/A   | A Kubernetes TCP address. |
+| `KUBERNETES_PORT_443_TCP_ADDR` | N/A   | An IP address that Kubernetes exports automatically for your code to communicate with the Kubernetes API. Read access only. Most variables that have use the `PORT_ADDRESS_TCP_ADDR` pattern are Kubernetes environment variables. For more information, see [Kubernetes environment variables](https://kubernetes.io/docs/concepts/services-networking/service/#environment-variables). |
 | `METRICS`              | `true`         | Defines whether anonymous Pachyderm metrics are being collected or not. |
-| `INIT`                 | `false`           | ???
 | `BLOCK_CACHE_BYTES`    | `1G`              | The size of the block cache in `pachd`.  |
-| `PFS_CACHE_SIZE`       | `0`               | The size of the PFS cache for PFS objects.  |
 | `WORKER_IMAGE`         | `"`               | The base Docker image that is used to run your pipeline. |
 | `WORKER_SIDECAR_IMAGE` | `"`               | The `pachd` image that is used as a worker sidecar. |
 | `WORKER_IMAGE_PULL_POLICY` | `"`           | The pull policy that defines how Docker images are pulled. The default value is `IfNotPresent`. You can set a Kubernetes image pull policy as needed. |
@@ -140,11 +130,10 @@ particularly useful:
 
 | Environment Variable       | Description |
 | -------------------------- | --------------------------------------------- |
-| `PPS_WORKER_IP`            | The IP address of the worker pod. For example, `PPS_WORKER_IP=172.17.0.7`.             |
 | `PACH_JOB_ID`              | The ID of the current job. For example, `PACH_JOB_ID=8991d6e811554b2a8eccaff10ebfb341`. |
 | `PACH_OUTPUT_COMMIT_ID`    | The ID of the commit in the output repo for the current job. For example, `PACH_OUTPUT_COMMIT_ID=a974991ad44d4d37ba5cf33b9ff77394`. |
 | `PPS_NAMESPACE`            | The PPS namespace. For example, `PPS_NAMESPACE=default`. |
-| `PPS_SPEC_COMMIT`          | The hash of the pipeline specification commit. For example, `PPS_SPEC_COMMIT=3596627865b24c4caea9565fcde29e7d`. |
+| `PPS_SPEC_COMMIT`          | The hash of the pipeline specification commit. This value is tied to the pipeline version. Therefore, jobs that use the same version of the same pipeline have the same spec commit. For example, `PPS_SPEC_COMMIT=3596627865b24c4caea9565fcde29e7d`. |
 | `PPS_POD_NAME`             | The name of the pipeline pod. For example, `pipeline-env-v1-zbwm2`. |
 | `PPS_PIPELINE_NAME`        | The name of the pipeline that this pod runs. For example, `env`. |
 | `PIPELINE_SERVICE_PORT_PROMETHEUS_METRICS` | The port that you can use to exposed metrics to Prometheus from within your pipeline. The default value is 9090. |
