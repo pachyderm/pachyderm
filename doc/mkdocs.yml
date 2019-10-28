@@ -146,6 +146,7 @@ nav:
         - Deferred Processing of Data: how-tos/deferred_processing.md
         - Ingress and Egress Data from an External Object Store: how-tos/ingressing_from_diff_cloud.md
     - Deploy and Manage:
+        - Overview: deploy-manage/index.md
         - Deploy Pachyderm:
             - Overview: deploy-manage/deploy/index.md
             - Getting Started with Pachyderm Hub: pachub/pachub_getting_started.md
@@ -174,6 +175,7 @@ nav:
             - Configure Tracing with Jaeger: deploy-manage/deploy/tracing.md
             - Connect to a Pachyderm cluster: deploy-manage/deploy/connect-to-cluster.md
         - Manage Pachyderm:
+            - Overview: deploy-manage/manage/index.md
             - Manage Cluster Access: deploy-manage/manage/cluster-access.md
             - Autoscale your Cluster: deploy-manage/manage/autoscaling.md
             - Batching Pachyderm with Transactions: deploy-manage/manage/batching_pachyderm_with_transactions.md
@@ -187,6 +189,7 @@ nav:
                 - Upgrade your Cluster: deploy-manage/manage/upgrades.md
             - Disable Usage Metrics: deploy-manage/manage/disable-metrics.md
     - Reference:
+        - Overview: reference/index.md
         - Pipeline Specification: reference/pipeline_spec.md
         - Pachyderm Config Specification: reference/config_spec.md
         - Pachyderm Language Clients: reference/clients.md
@@ -330,7 +333,8 @@ nav:
             - reference/pachctl/pachctl_version.md
         - Examples: examples/examples.md
     - Enterprise:
-        - Overview: enterprise/overview.md
+        - Overview: enterprise/index.md
+        - Features: enterprise/overview.md
         - Deploy Enterprise Edition: enterprise/deployment.md
         - Configure Access Controls: enterprise/auth/auth.md
         - Advanced Statistics: enterprise/stats.md
@@ -340,6 +344,7 @@ nav:
             - Configure SAML: enterprise/saml_setup.md
             - Use SAML: enterprise/saml_usage.md
     - Troubleshooting:
+        - Overview: troubleshooting/index.md
         - General Troubleshooting: troubleshooting/general_troubleshooting.md
         - Deployment Troubleshootin: troubleshooting/deploy_troubleshooting.md
         - Pipeline Troubleshooting: troubleshooting/pipeline_troubleshooting.md

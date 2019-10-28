@@ -76,6 +76,7 @@ If you want to process `A/1.json` with `B/1.json` to merge
 their contents or otherwise process them together, you need to
 group each set of JSON records into respective datums that
 the pipelines that you create in
+
 [Process Grouped Records](#process-grouped-records)
 can process together.
 
