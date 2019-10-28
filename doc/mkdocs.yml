@@ -113,6 +113,7 @@ nav:
             - Pipeline:
                 - Overview: concepts/pipeline-concepts/pipeline/index.md
                 - Cron: concepts/pipeline-concepts/pipeline/cron.md
+                - Join: concepts/pipeline-concepts/pipeline/join.md
                 - Service: concepts/pipeline-concepts/pipeline/service.md
                 - Spout: concepts/pipeline-concepts/pipeline/spout.md
             - Job: concepts/pipeline-concepts/job.md
@@ -133,7 +134,6 @@ nav:
             - Overview: how-tos/splitting-data/index.md
             - Splitting Data for Distributed Processing: how-tos/splitting-data/splitting.md
             - Adjusting Data Processing by Splitting Data: how-tos/splitting-data/adjusting_data_processing_w_split.md
-        - Combine, Merge, and Join Data: how-tos/combining.md
         - Create a Machine Learning Workflow: how-tos/create-ml-workflow.md
         - Run a Pipeline on a Specific Commit: how-tos/run_pipeline.md
         - Update a Pipeline: how-tos/updating_pipelines.md
