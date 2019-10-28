@@ -12,7 +12,7 @@ Pachyderm daemon container.
 * Pachyderm worker environment variables that define parameters
 on the Kubernetes pods that run your pipeline code.
 
-You can refer environment variables in your code. For example,
+You can reference environment variables in your code. For example,
 if your code writes data to an external system and you want
 to know the current job ID, you can use the `PACH_JOB_ID`
 environment variable to refer to the current job ID.

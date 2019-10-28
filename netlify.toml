@@ -2,3 +2,27 @@
 base = "doc"
 command = "mkdocs build"
 publish = "doc/site"
+
+[[redirects]]
+  from = "/en/*"
+  to = "/:splat"
+  status = 301
+  force = false
+
+[[redirects]]
+   from = "/deployment/*"
+   to = "/deploy-manage/deploy/:splat"
+   status = 301
+   force = false
+
+ [[redirects]]
+   from = "/managing_pachyderm/*"
+   to = "/deploy-manage/manage/:splat"
+   status = 301
+   force = false
+
+[[redirects]]
+   from = "https://docs.pachyderm.io/*"
+   to = "https://docs.pachyderm.com/:splat"
+   status = 301
+   force = false
