@@ -366,7 +366,7 @@ are several interesting ways to combine data in Pachyderm, which are
 discussed
 [here](../../reference/pipeline_spec/#input-required)
 and
-[here](../how-tos/combining.md).
+[here](../concepts/pipeline-concepts/pipeline/join.md).
 
 We create the `montage` pipeline as before, with `pachctl`:
 

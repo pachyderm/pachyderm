@@ -17,6 +17,35 @@ In Pachyderm, a Pipeline is an individual execution step. You can
 chain multiple pipelines together to create a directed acyclic
 graph (DAG).
 
+Pachyderm has the following special types of pipelines:
+
+**Cron**
+:   A cron input enables you to trigger the pipeline code at
+    a specific interval. This type of pipeline is useful for
+    such tasks as web scraping, querying a database, and other
+    similar operations where you do not want to wait for new
+    data, but instead trigger the pipeline periodically.
+
+**Join**
+:   A join pipeline enables you to join files that are stored
+    in different Pachyderm repositories and match a particular
+    file path pattern. Conceptually, joins are similar to the
+    database’s inner join operations, although they only match
+    on file paths, not the actual file content.
+
+**Service**
+:   A service is a special type of pipeline that instead of
+    executing jobs and then waiting, permanently runs a serving
+    data through an endpoint. For example, you can be serving
+    an ML model or a REST API that can be queried. A service
+    reads data from Pachyderm but does not have an output repo.
+
+**Spout**
+:   A spout is a special type of pipeline for ingesting data from
+    a data stream. A spout can subscribe to a message stream, such
+    as Kafka or Amazon SQS, and ingest data when it receives a
+    message. A spout does not have an input repo.
+
 A minimum pipeline specification must include the following parameters:
 
 - `name` — The name of your data pipeline. Set a meaningful name for
