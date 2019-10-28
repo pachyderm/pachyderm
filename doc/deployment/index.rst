@@ -24,6 +24,7 @@ ask for advice in our `Slack channel <http://slack.pachyderm.io/>`__.
    connect-to-cluster.md
    deploy_w_tls.md
    custom_object_stores.md
+   import-kubernetes-context.md
    namespaces.md
    rbac.md
    deploy_troubleshooting.md
