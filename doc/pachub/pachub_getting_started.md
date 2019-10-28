@@ -55,7 +55,7 @@ a limited time.
 To create a Pachyderm cluster, complete the following steps:
 
 1. If you have not yet done so, log in to Pachyderm Hub.
-1. Click **Create**.
+1. Click **Create cluster**.
 1. Type a name for your cluster. For example, `test1`.
 1. Click **Create**.
 
@@ -63,9 +63,10 @@ To create a Pachyderm cluster, complete the following steps:
 
    ![Pachub cluster](../images/s_pachub_cluster.png)
 
-   **Note:** Pachyderm has a set number of pre-warmed clusters.
-   If you see your cluster is in a *starting* state, you might
-   have to wait a few minutes for it to be ready.
+   **Note:** While Pachyderm maintains a few clusters that are instantly
+   available, none may be available during periods of high traffic. If
+   you see your cluster is in a *starting* state, you might have to wait a few
+   minutes for it to be ready.
 
 1. Proceed to [Step 2](#step-2-connect-to-your-cluster).
 
@@ -75,8 +76,8 @@ Pachyderm Hub enables you to access your cluster through a command-line
 interface (CLI) called `pachctl` and the web interface called the Dashboard.
 Although you can perform most simple actions directly in the dashboard,
 `pachctl` provides full functionality. Most likely, you will use
-`pachctl` for any operation beyound the most basic workflow.
-recommends that you use `pachctl` for all data operations and
+`pachctl` for any operation beyond the most basic workflow.
+Pachyderm recommends that you use `pachctl` for all data operations and
 the dashboard to view your data and graphical representation of your
 pipelines.
 
@@ -84,10 +85,6 @@ After you create a cluster, you need to go to the terminal on your computer
 and configure your CLI to connect to your cluster by installing `pachctl`
 and configuring your Pachyderm context. For more information about
 Pachyderm contexts, see [Connect by using a Pachyderm Context](https://docs.pachyderm.io/en/latest/deployment/connect-to-cluster.html#connect-by-using-a-pachyderm-context).
-
-Your `pachctl` version must match the version of the Pachyderm cluster that
-you deployed on Pachyderm Hub. Pachyderm Hub uses the latest release
-of Pachyderm so we recommend that you use the same version for `pachctl`.
 
 To set the correct Pachyderm context, you need to use the hostname
 of your cluster that is available in the Pachyderm Hub UI under **Connect**.
@@ -97,31 +94,7 @@ on Pachyderm Hub.
 
 To connect to your cluster, complete the following steps:
 
-1. On your local computer, open a terminal window.
-1. Install `pachctl` for your platform. For example, if you are using
-   macOS, run:
-
-   ```bash
-   $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.9
-   ```
-
-   If you are using another operating system, see
-   [Install `pachctl`](../getting_started/local_installation.html#install-pachctl).
-
-   * If you already have `pachctl` installed, skip this step, or you
-   might need to update your version of `pachctl`. For example, if you use
-   macOS and `brew`, run:
-
-   ```bash
-   $ brew upgrade pachyderm/tap/pachctl@1.9
-   ```
-
-1. Verify your `pachctl` version:
-
-   ```bash
-   $ pachctl version --client-only
-   1.9.7
-   ```
+1. Install or upgrade `pachctl` as described in [Install pachctl](http://docs.pachyderm.com/en/latest/getting_started/local_installation.html#install-pachctl).
 
 1. Configure a Pachyderm context and log in to your
    cluster by using a one-time authentication token:

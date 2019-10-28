@@ -11,7 +11,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/hash"
 	"golang.org/x/sync/errgroup"
-	"golang.org/x/sync/semaphore"
 )
 
 const (
@@ -298,6 +297,7 @@ func (w *worker) executeFuncs() error {
 
 type stats struct {
 	chunkCount         int64
+	annotationCount    int64
 	annotatedBytesSize int64
 }
 
@@ -310,7 +310,6 @@ type Writer struct {
 	ctx, cancelCtx context.Context
 	buf            *bytes.Buffer
 	annotations    []*Annotation
-	memoryLimiter  *semaphore.Weighted
 	eg             *errgroup.Group
 	newWorkerFunc  func(context.Context, *prevChanSet, *nextChanSet) *worker
 	prev           *chanSet
@@ -318,7 +317,7 @@ type Writer struct {
 	stats          *stats
 }
 
-func newWriter(ctx context.Context, objC obj.Client, memoryLimiter *semaphore.Weighted, averageBits int, f WriterFunc, seed int64) *Writer {
+func newWriter(ctx context.Context, objC obj.Client, averageBits int, f WriterFunc, seed int64) *Writer {
 	stats := &stats{}
 	newWorkerFunc := func(ctx context.Context, prev *prevChanSet, next *nextChanSet) *worker {
 		w := &worker{
@@ -341,7 +340,6 @@ func newWriter(ctx context.Context, objC obj.Client, memoryLimiter *semaphore.We
 		ctx:           ctx,
 		cancelCtx:     cancelCtx,
 		buf:           &bytes.Buffer{},
-		memoryLimiter: memoryLimiter,
 		eg:            eg,
 		newWorkerFunc: newWorkerFunc,
 		f:             f,
@@ -357,7 +355,14 @@ func (w *Writer) Annotate(a *Annotation) {
 		w.annotations = nil
 	}
 	w.annotations = append(w.annotations, a)
+	w.stats.annotationCount++
 	w.stats.annotatedBytesSize = 0
+}
+
+// AnnotationCount returns a count of the number of annotations created/referenced by
+// the writer.
+func (w *Writer) AnnotationCount() int64 {
+	return w.stats.annotationCount
 }
 
 // AnnotatedBytesSize returns the size of the bytes for the current annotation.
@@ -417,7 +422,6 @@ func (w *Writer) Write(data []byte) (int, error) {
 }
 
 func (w *Writer) writeByteSet() {
-	w.memoryLimiter.Acquire(w.ctx, bufSize)
 	prev := w.prev
 	next := &chanSet{
 		bytes: make(chan *byteSet, 1),
@@ -428,7 +432,6 @@ func (w *Writer) writeByteSet() {
 		annotations: w.annotations,
 	}
 	w.eg.Go(func() error {
-		defer w.memoryLimiter.Release(bufSize)
 		return w.newWorkerFunc(w.cancelCtx, newPrevChanSet(prev), newNextChanSet(next)).run(byteSet)
 	})
 	w.prev = next

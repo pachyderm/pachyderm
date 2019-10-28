@@ -25,19 +25,21 @@ type FileSet struct {
 	storage                    *Storage
 	root                       string
 	memAvailable, memThreshold int64
-	name, parentName           string
+	name                       string
 	fs                         map[string]*node
 	curr                       *node
 	tag                        string
 	part                       int
 }
 
-func newFileSet(ctx context.Context, storage *Storage, name string, opts ...Option) *FileSet {
+func newFileSet(ctx context.Context, storage *Storage, name string, memThreshold int64, opts ...Option) *FileSet {
 	f := &FileSet{
-		ctx:     ctx,
-		storage: storage,
-		name:    name,
-		fs:      make(map[string]*node),
+		ctx:          ctx,
+		storage:      storage,
+		memAvailable: memThreshold,
+		memThreshold: memThreshold,
+		name:         name,
+		fs:           make(map[string]*node),
 	}
 	for _, opt := range opts {
 		opt(f)
@@ -53,13 +55,16 @@ func (f *FileSet) StartTag(tag string) {
 // WriteHeader writes a tar header and prepares to accept the file's contents.
 // (bryce) should we prevent directories from being written here?
 func (f *FileSet) WriteHeader(hdr *tar.Header) error {
-	hdr.Name = join(f.root, hdr.Name)
+	hdr.Name = path.Join(f.root, hdr.Name)
 	// Create entry for path if it does not exist.
 	if _, ok := f.fs[hdr.Name]; !ok {
 		f.createParent(hdr.Name)
-		f.fs[hdr.Name] = &node{data: &bytes.Buffer{}}
+		hdr.Size = 0
+		f.fs[hdr.Name] = &node{
+			hdr:  hdr,
+			data: &bytes.Buffer{},
+		}
 	}
-	f.fs[hdr.Name].hdr = hdr
 	// (bryce) should make a note about the implication of this
 	// a file in a file set being written can only have one tag.
 	// multiple come into play when merging.
@@ -68,68 +73,68 @@ func (f *FileSet) WriteHeader(hdr *tar.Header) error {
 	return nil
 }
 
-func (f *FileSet) createParent(path string) {
-	if path != "" {
-		path, _ = split(path)
-		if _, ok := f.fs[path]; ok {
-			return
-		}
-		f.fs[path] = &node{
-			hdr: &tar.Header{
-				Typeflag: tar.TypeDir,
-				Name:     path,
-			},
-		}
-		f.createParent(path)
+func (f *FileSet) createParent(name string) {
+	name, _ = path.Split(name)
+	if _, ok := f.fs[name]; ok {
+		return
 	}
+	f.fs[name] = &node{
+		hdr: &tar.Header{
+			Typeflag: tar.TypeDir,
+			Name:     name,
+		},
+	}
+	f.createParent(name)
 }
 
 // Write writes to the current file in the tar stream.
 func (f *FileSet) Write(data []byte) (int, error) {
 	for int64(len(data)) > f.memAvailable {
 		n, _ := f.curr.data.Write(data[:int(f.memAvailable)])
+		f.curr.hdr.Size += int64(n)
 		data = data[n:]
 		if err := f.serialize(); err != nil {
 			return 0, err
 		}
 	}
 	n, _ := f.curr.data.Write(data)
+	f.curr.hdr.Size += int64(n)
 	f.memAvailable -= int64(n)
 	return n, nil
 }
 
 // Delete deletes a file from the file set.
 // (bryce) might need to delete ancestor directories in certain cases.
-func (f *FileSet) Delete(path string) {
-	path = join(f.root, path)
-	if _, ok := f.fs[path]; !ok {
-		f.fs[path] = &node{
+func (f *FileSet) Delete(name string) {
+	name = path.Join(f.root, name)
+	if _, ok := f.fs[name]; !ok {
+		f.fs[name] = &node{
 			hdr: &tar.Header{
-				Name: path,
+				Name: name,
 			},
 		}
 	}
-	f.fs[path].hdr.Size = 0
-	f.fs[path].op = index.Op_DELETE
-	f.fs[path].data = nil
+	f.fs[name].hdr.Size = 0
+	f.fs[name].op = index.Op_DELETE
+	f.fs[name].data = nil
 	f.curr = nil
 }
 
 // serialize will be called whenever the in-memory file set is past the memory threshold.
 // A new in-memory file set will be created for the following operations.
 func (f *FileSet) serialize() error {
-	// Sort paths.
-	paths := make([]string, len(f.fs))
+	// Sort names.
+	names := make([]string, len(f.fs))
 	i := 0
-	for path := range f.fs {
-		paths[i] = path
+	for name := range f.fs {
+		names[i] = name
 		i++
 	}
-	sort.Strings(paths)
+	sort.Strings(names)
 	// Serialize file set.
-	w := f.storage.NewWriter(f.ctx, path.Join(f.name, strconv.Itoa(f.part)))
-	for _, path := range paths {
-		n := f.fs[path]
+	w := f.storage.newWriter(f.ctx, path.Join(f.name, strconv.Itoa(f.part)))
+	for _, name := range names {
+		n := f.fs[name]
 		// (bryce) skipping serialization of deletion operations for the time being.
 		// only testing against basic interface without multiple parts.
 		if n.op == index.Op_DELETE {
@@ -157,25 +162,5 @@ func (f *FileSet) serialize() error {
 
 // Close closes the file set.
 func (f *FileSet) Close() error {
-	if err := f.serialize(); err != nil {
-		return err
-	}
-	var fileStreams []stream
-	// Setup parent stream.
-	if f.parentName != "" {
-		fileStreams = append(fileStreams, &fileStream{
-			r: f.storage.NewReader(f.ctx, f.parentName, ""),
-		})
-	}
-	// Setup part streams.
-	for i := 0; i < f.part; i++ {
-		fileStreams = append(fileStreams, &fileStream{
-			r: f.storage.NewReader(f.ctx, path.Join(f.name, strconv.Itoa(i)), ""),
-		})
-	}
-	w := f.storage.NewWriter(f.ctx, path.Join(f.name, fullMergeSuffix))
-	if err := merge(fileStreams, contentMergeFunc(w)); err != nil {
-		return err
-	}
-	return w.Close()
+	return f.serialize()
 }
