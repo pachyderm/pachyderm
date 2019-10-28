@@ -1468,7 +1468,7 @@ func nop(*NodeProto, string, string) error {
 	return nil
 }
 
-var globRegex = regexp.MustCompile(`[*?\[\]\{\}!]`)
+var globRegex = regexp.MustCompile(`[*?[\]{}!()@+^]`)
 
 // IsGlob checks if the pattern contains a glob character
 func IsGlob(pattern string) bool {
