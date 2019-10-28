@@ -153,7 +153,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 				if err != nil {
 					return fmt.Errorf("units.RAMInBytes: %v", err)
 				}
-				blockAPIServer, err := pfs_server.NewBlockAPIServer(env.StorageRoot, blockCacheBytes, env.StorageBackend, net.JoinHostPort(env.EtcdHost, env.EtcdPort))
+				blockAPIServer, err := pfs_server.NewBlockAPIServer(env.StorageRoot, blockCacheBytes, env.StorageBackend, net.JoinHostPort(env.EtcdHost, env.EtcdPort), false)
 				if err != nil {
 					return fmt.Errorf("pfs.NewBlockAPIServer: %v", err)
 				}
@@ -406,7 +406,8 @@ func doFullMode(config interface{}) (retErr error) {
 						blockAPIServer, err := pfs_server.NewBlockAPIServer(
 							env.StorageRoot,
 							0 /* = blockCacheBytes (disable cache) */, env.StorageBackend,
-							etcdAddress)
+							etcdAddress,
+							true /* duplicate */)
 						if err != nil {
 							return fmt.Errorf("pfs.NewBlockAPIServer: %v", err)
 						}
@@ -486,7 +487,7 @@ func doFullMode(config interface{}) (retErr error) {
 						return fmt.Errorf("units.RAMInBytes: %v", err)
 					}
 					blockAPIServer, err := pfs_server.NewBlockAPIServer(
-						env.StorageRoot, blockCacheBytes, env.StorageBackend, etcdAddress)
+						env.StorageRoot, blockCacheBytes, env.StorageBackend, etcdAddress, false)
 					if err != nil {
 						return fmt.Errorf("pfs.NewBlockAPIServer: %v", err)
 					}

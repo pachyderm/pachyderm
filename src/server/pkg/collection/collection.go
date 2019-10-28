@@ -664,6 +664,33 @@ func (c *readonlyCollection) Watch(opts ...watch.OpOption) (watch.Watcher, error
 	return watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.prefix, c.template, opts...)
 }
 
+// WatchF watches a collection and executes a callback function each time an event occurs.
+func (c *readonlyCollection) WatchF(f func(e *watch.Event) error, opts ...watch.OpOption) error {
+	watcher, err := c.Watch(opts...)
+	if err != nil {
+		return err
+	}
+	defer watcher.Close()
+	return c.watchF(watcher, f)
+}
+
+func (c *readonlyCollection) watchF(watcher watch.Watcher, f func(e *watch.Event) error) error {
+	for {
+		select {
+		// (bryce) should the check for error events be here?
+		case e := <-watcher.Watch():
+			if err := f(e); err != nil {
+				if err == errutil.ErrBreak {
+					return nil
+				}
+				return err
+			}
+		case <-c.ctx.Done():
+			return c.ctx.Err()
+		}
+	}
+}
+
 // WatchByIndex watches items in a collection that match a particular index
 func (c *readonlyCollection) WatchByIndex(index *Index, val interface{}) (watch.Watcher, error) {
 	eventCh := make(chan *watch.Event)
@@ -733,29 +760,17 @@ func (c *readonlyCollection) WatchByIndex(index *Index, val interface{}) (watch.
 
 // WatchOne watches a given item.  The first value returned from the watch
 // will be the current value of the item.
-func (c *readonlyCollection) WatchOne(key string) (watch.Watcher, error) {
-	return watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.Path(key), c.template)
+func (c *readonlyCollection) WatchOne(key string, opts ...watch.OpOption) (watch.Watcher, error) {
+	return watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.Path(key), c.template, opts...)
 }
 
 // WatchOneF watches a given item and executes a callback function each time an event occurs.
 // The first value returned from the watch will be the current value of the item.
-func (c *readonlyCollection) WatchOneF(key string, f func(e *watch.Event) error) error {
-	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.Path(key), c.template)
+func (c *readonlyCollection) WatchOneF(key string, f func(e *watch.Event) error, opts ...watch.OpOption) error {
+	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.Path(key), c.template, opts...)
 	if err != nil {
 		return err
 	}
 	defer watcher.Close()
-	for {
-		select {
-		case e := <-watcher.Watch():
-			if err := f(e); err != nil {
-				if err == errutil.ErrBreak {
-					return nil
-				}
-				return err
-			}
-		case <-c.ctx.Done():
-			return c.ctx.Err()
-		}
-	}
+	return c.watchF(watcher, f)
 }

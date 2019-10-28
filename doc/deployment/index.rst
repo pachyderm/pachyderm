@@ -6,6 +6,10 @@ Deploy Pachyderm
 This section descirbes how to deploy Pachyderm on premises or
 on a supported cloud platform of your choice.
 
+**Note:** Pachyderm supports the Docker runtime only. If you want to
+deploy Pachyderm on a system that uses another container runtime,
+ask for advice in our `Slack channel <http://slack.pachyderm.io/>`__.
+
 .. toctree::
    :maxdepth: 2
 
@@ -18,7 +22,9 @@ on a supported cloud platform of your choice.
    on_premises.md
    deploy_custom/index.rst
    connect-to-cluster.md
+   deploy_w_tls.md
    custom_object_stores.md
+   import-kubernetes-context.md
    namespaces.md
    rbac.md
    deploy_troubleshooting.md

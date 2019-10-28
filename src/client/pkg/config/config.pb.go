@@ -133,9 +133,7 @@ func (m *Config) GetV2() *ConfigV2 {
 // DO NOT change or remove field numbers from this proto, as if you do, v1 user
 // configs will become unparseable.
 type ConfigV1 struct {
-	// A host:port pointing pachd at a pachyderm cluster. Similar to the
-	// PACHD_ADDRESS environment variable, though PACHD_ADDRESS overrides
-	// this.
+	// A host:port pointing pachd at a pachyderm cluster.
 	PachdAddress string `protobuf:"bytes,2,opt,name=pachd_address,json=pachdAddress,proto3" json:"pachd_address,omitempty"`
 	// Trusted root certificates (overrides installed certificates), formatted
 	// as base64-encoded PEM

@@ -13,8 +13,9 @@ type stream interface {
 	key() string
 }
 
-// mergeFunc is a function that merges one or more streams.
-// ss is the set of streams that are at the same key in the merge process.
+// mergeFunc is a function that merges one or more file set streams.
+// ss is the set of file set streams that are at the same key
+// in the merge process.
 // next is the next key that will be merged.
 type mergeFunc func(ss []stream, next ...string) error
 
@@ -33,13 +34,11 @@ func (fs *fileStream) key() string {
 	return fs.hdr.Hdr.Name
 }
 
-func idxMergeFunc(w *Writer) mergeFunc {
-	return func(ss []stream, next ...string) error {
-		// (bryce) this will implement an index merge, which will be used by the distributed merge process.
-		return nil
-	}
-}
-
+// contentMergeFunc merges a file's content that shows up across
+// multiple file set streams.
+// A file's content is ordered based on the lexicographical order of
+// the tagged content, so the output file content is produced by
+// performing a merge of the tagged content.
 func contentMergeFunc(w *Writer) mergeFunc {
 	return func(ss []stream, next ...string) error {
 		// Convert generic streams to file streams.
@@ -99,6 +98,9 @@ func (ts *tagStream) key() string {
 	return ts.tag.Id
 }
 
+// tageMergeFunc merges the tagged content in a file.
+// Tags in a file should be unique across file sets being merged,
+// so the operation is a simple copy.
 func tagMergeFunc(w *Writer) mergeFunc {
 	return func(ss []stream, next ...string) error {
 		// (bryce) this should be an Internal error type.
@@ -109,6 +111,51 @@ func tagMergeFunc(w *Writer) mergeFunc {
 		tagStream := ss[0].(*tagStream)
 		// Copy tagged data to writer.
 		return w.CopyTags(tagStream.r, next...)
+	}
+}
+
+// shardMergeFunc creates shards (path ranges) from the file set streams being merged.
+// A shard is created when the size of the content for a path range is greater than
+// the passed in shard threshold.
+// For each shard, the callback is called with the path range for the shard.
+func shardMergeFunc(shardThreshold int64, f func(r *index.PathRange) error) mergeFunc {
+	var size int64
+	pathRange := &index.PathRange{}
+	return func(ss []stream, next ...string) error {
+		// Convert generic streams to file streams.
+		var fileStreams []*fileStream
+		for _, s := range ss {
+			fileStreams = append(fileStreams, s.(*fileStream))
+		}
+		var hdr *index.Header
+		var err error
+		last := true
+		for _, fs := range fileStreams {
+			hdr, err = fs.r.Next()
+			if err != nil {
+				return err
+			}
+			size += hdr.Idx.SizeBytes
+			if _, err = fs.r.Peek(); err != io.EOF {
+				last = false
+			}
+		}
+		if pathRange.Lower == "" {
+			pathRange.Lower = hdr.Hdr.Name
+		}
+		// A shard is created when we have encountered more than shardThreshold content bytes.
+		// The last shard is created when there are no more streams in the queue and the
+		// streams being handled in this call are all io.EOF.
+		if size > shardThreshold || len(next) == 0 && last {
+			pathRange.Upper = hdr.Hdr.Name
+			if err := f(pathRange); err != nil {
+				return err
+			}
+			size = 0
+			pathRange = &index.PathRange{}
+			return nil
+		}
+		return nil
 	}
 }
 

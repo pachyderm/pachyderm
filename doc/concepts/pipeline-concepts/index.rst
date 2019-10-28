@@ -26,6 +26,13 @@ Pipeline
   other similar operations where you do not want to wait
   for new data, but instead trigger the pipeline periodically.
 
+ Join
+  A join pipeline enables you to join files that are stored in
+  different Pachyderm repositories and match a particular
+  file path pattern. Conceptually, joins are similar to
+  the database's inner join operations, although they
+  only match on file paths, not the actual file content.
+
  Service
   A service is a special type of pipeline that
   instead of executing jobs and then waiting, permanently runs

@@ -323,15 +323,6 @@ launch-kube: check-kubectl
 	etc/kube/start-minikube.sh
 
 launch-dev-vm: check-kubectl
-	@# Make sure the caller sets address to avoid confusion later
-	@if [ -z "${PACHD_ADDRESS}" ]; then \
-		$$( which echo ) -e "Must set PACHD_ADDRESS\nRun:\nexport PACHD_ADDRESS=192.168.99.100:30650"; \
-	  exit 1; \
-	fi
-	@if [ -n "${PACH_CA_CERTS}" ]; then \
-		$$( which echo ) -e "Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS"; \
-	  exit 1; \
-	fi
 	# Making sure minikube isn't still up from a previous run...
 	@if minikube ip 2>/dev/null || sudo minikube ip 2>/dev/null; \
 	then \
@@ -344,15 +335,6 @@ launch-dev-vm: check-kubectl
 # version of pachd associated with the current pachctl (useful if you want to start a VM with a
 # point-release version of pachd, instead of whatever's in the current branch)
 launch-release-vm:
-	@# Make sure the caller sets address to avoid confusion later
-	@if [ -z "${PACHD_ADDRESS}" ]; then \
-		$$( which echo ) -e "Must set PACHD_ADDRESS\nRun:\nexport PACHD_ADDRESS=192.168.99.100:30650"; \
-	  exit 1; \
-	fi
-	@if [ -n "${PACH_CA_CERTS}" ]; then \
-		$$( which echo ) -e "Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS"; \
-	  exit 1; \
-	fi
 	# Making sure minikube isn't still up from a previous run...
 	@if minikube ip 2>/dev/null || sudo minikube ip 2>/dev/null; \
 	then \
@@ -410,7 +392,7 @@ clean-pps-storage: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete pv rethink-volume
 
 integration-tests:
-	CGOENABLED=0 go test -v ./src/server $(TESTFLAGS) -timeout $(TIMEOUT)
+	CGOENABLED=0 go test -v -count=1 ./src/server $(TESTFLAGS) -timeout $(TIMEOUT)
 
 test-proto-static:
 	./etc/proto/test_no_changes.sh
@@ -423,7 +405,7 @@ proto: docker-build-proto
 
 # Use this to grab a binary for profiling purposes
 pachd-profiling-binary: docker-clean-pachd docker-build-compile
-	docker run -i  $(COMPILE_IMAGE) sh etc/compile/compile.sh pachd "$(LD_FLAGS)" PROFILE \
+	docker run -i $(COMPILE_IMAGE) sh etc/compile/compile.sh pachd "$(LD_FLAGS)" PROFILE \
 	| tar xf -
 	# Binary emitted to ./pachd
 
@@ -457,43 +439,45 @@ test-pfs-server:
 	./etc/testing/pfs_server.sh $(ETCD_IMAGE) $(TIMEOUT)
 
 test-pfs-storage:
-	go test ./src/server/pkg/storage/chunk -count 1 -timeout $(TIMEOUT)
-	go test ./src/server/pkg/storage/fileset/index -count 1 -timeout $(TIMEOUT)
-	go test ./src/server/pkg/storage/fileset -count 1 -timeout $(TIMEOUT)
+	go test  -count=1 ./src/server/pkg/storage/chunk -timeout $(TIMEOUT)
+	go test  -count=1 ./src/server/pkg/storage/fileset/index -timeout $(TIMEOUT)
+	go test  -count=1 ./src/server/pkg/storage/fileset -timeout $(TIMEOUT)
 
 test-pps: launch-stats launch-kafka docker-build-test-entrypoint
 	@# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
-	  go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT) $(RUN)
+	  go test -v -count=1 ./src/server -parallel 1 -timeout $(TIMEOUT) $(RUN)
 
 test-cmds:
 	go install -v ./src/testing/match
-	CGOENABLED=0 go test -v ./src/server/cmd/pachctl/cmd
-	go test -v ./src/server/pkg/deploy/cmds -count 1 -timeout $(TIMEOUT)
-	go test -v ./src/server/pfs/cmds -count 1 -timeout $(TIMEOUT)
-	go test -v ./src/server/pps/cmds -count 1 -timeout $(TIMEOUT)
-	go test -v ./src/server/config -count 1 -timeout $(TIMEOUT)
+	CGOENABLED=0 go test -v -count=1 ./src/server/cmd/pachctl/cmd
+	go test -v -count=1 ./src/server/pkg/deploy/cmds -timeout $(TIMEOUT)
+	go test -v -count=1 ./src/server/pfs/cmds -timeout $(TIMEOUT)
+	go test -v -count=1 ./src/server/pps/cmds -timeout $(TIMEOUT)
+	go test -v -count=1 ./src/server/config -timeout $(TIMEOUT)
 	@# TODO(msteffen) does this test leave auth active? If so it must run last
-	go test -v ./src/server/auth/cmds -count 1 -timeout $(TIMEOUT) 
+	go test -v -count=1 ./src/server/auth/cmds -timeout $(TIMEOUT)
 
 test-transaction:
-	go test ./src/server/transaction/server -count 1 -timeout $(TIMEOUT)
+	go test -count=1 ./src/server/transaction/server -timeout $(TIMEOUT)
 
 test-client:
-	go test -cover $$(go list ./src/client/...)
+	go test -count=1 -cover $$(go list ./src/client/...)
 
 test-libs:
-	go test ./src/server/pkg/collection -timeout $(TIMEOUT) -vet=off
-	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
-	go test ./src/server/pkg/cert -timeout $(TIMEOUT)
-	go test ./src/server/pkg/localcache -timeout $(TIMEOUT)
+	go test -count=1 ./src/client/pkg/grpcutil -timeout $(TIMEOUT)
+	go test -count=1 ./src/server/pkg/collection -timeout $(TIMEOUT) -vet=off
+	go test -count=1 ./src/server/pkg/hashtree -timeout $(TIMEOUT)
+	go test -count=1 ./src/server/pkg/cert -timeout $(TIMEOUT)
+	go test -count=1 ./src/server/pkg/localcache -timeout $(TIMEOUT)
+	go test -count=1 ./src/server/pkg/work -timeout $(TIMEOUT)
 
 test-vault:
 	kill $$(cat /tmp/vault.pid) || true
 	./src/plugin/vault/etc/start-vault.sh
 	./src/plugin/vault/etc/pach-auth.sh --activate
 	./src/plugin/vault/etc/setup-vault.sh
-	go test -v -count 1 ./src/plugin/vault -timeout $(TIMEOUT)
+	go test -v -count=1 ./src/plugin/vault -timeout $(TIMEOUT)
 	./src/plugin/vault/etc/pach-auth.sh --delete-all
 
 test-s3gateway-conformance:
@@ -502,27 +486,23 @@ test-s3gateway-conformance:
 
 test-s3gateway-integration:
 	pachctl enterprise activate $$(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -) && echo
-	go test -v ./src/server/pfs/s3 -timeout $(TIMEOUT) -count 1
+	go test -v -count=1 ./src/server/pfs/s3 -timeout $(TIMEOUT)
 
 test-fuse:
-	CGOENABLED=0 go test -cover $$(go list ./src/server/... | grep '/src/server/pfs/fuse')
+	CGOENABLED=0 go test -count=1 -cover $$(go list ./src/server/... | grep '/src/server/pfs/fuse')
 
 test-local:
-	CGOENABLED=0 go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT)
+	CGOENABLED=0 go test -count=1 -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT)
 
 test-auth:
 	yes | pachctl delete all
-	go test -v ./src/server/auth/server -count 1 -timeout $(TIMEOUT) $(RUN)
+	go test -v -count=1 ./src/server/auth/server -timeout $(TIMEOUT) $(RUN)
 
 test-admin:
-	go test -v ./src/server/admin/server -count 1 -timeout $(TIMEOUT)
+	go test -v -count=1 ./src/server/admin/server -timeout $(TIMEOUT)
 
 test-enterprise:
-	go test -v ./src/server/enterprise/server -count 1 -timeout $(TIMEOUT)
-
-# TODO This is not very robust -- it doesn't work when the PACHD_ADDRESS host isn't an IPv4 address
-PACHD_HOST := $(word 1,$(subst :, ,$(PACHD_ADDRESS)))
-PACHD_PORT := $(word 2,$(subst :, ,$(PACHD_ADDRESS)))
+	go test -v -count=1 ./src/server/enterprise/server -timeout $(TIMEOUT)
 
 test-tls:
 	./etc/testing/test_tls.sh
@@ -531,7 +511,7 @@ test-worker: launch-stats test-worker-helper
 
 test-worker-helper:
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
-	  go test -v ./src/server/worker/ -timeout $(TIMEOUT) -count 1
+	  go test -v -count=1 ./src/server/worker/ -timeout $(TIMEOUT)
 
 clean: clean-launch clean-launch-kube
 
@@ -543,7 +523,7 @@ doc:
 
 clean-launch-kafka:
 	kubectl delete -f etc/kubernetes-kafka -R
-	
+
 launch-kafka:
 	kubectl apply -f etc/kubernetes-kafka -R
 	until timeout 10s ./etc/kube/check_ready.sh app=kafka kafka; do sleep 10; done

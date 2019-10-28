@@ -65,10 +65,21 @@ type objBlockAPIServer struct {
 	objectIndexesLock sync.RWMutex
 }
 
-// In test mode, we use unique names for cache groups, since we might want
-// to run multiple block servers locally, which would conflict if groups
-// had the same name. We also do not report stats to prometheus
-func newObjBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, objClient obj.Client, test bool) (*objBlockAPIServer, error) {
+// newObjBlockAPIServer creates a new struct for handling Pachyderm Object API
+// reqquests.
+//
+// 'duplicate' indicates that this ObjBlockAPIServer is running alongside
+// another ObjBlockAPIServer and prevents collisions in their groupcache groups
+// and cache stats. Each process may have at most one ObjBlockAPIServer with
+// 'duplicate' set to false, but may have zero. Currently (2019-10-7) there are
+// two situations where a single process may run multiple ObjBlockAPIServers:
+// 1. Pachd, with EXPOSE_OBJECT_API=true (i.e. integration testing). In this
+//    case, the 'hidden' ObjBlockAPIServer will have duplicate=false and the
+//    'exposed' ObjBlockAPIServer (which would not exist in production) will
+//    have duplicate=true, and not use the cache or export cache stats
+// 2. PFS storage tests, which create several local ObjBlockAPIServers (none of
+//    which are primary but cannot collide)
+func newObjBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, objClient obj.Client, duplicate bool) (*objBlockAPIServer, error) {
 	// defensive measure to make sure storage is working and error early if it's not
 	// this is where we'll find out if the credentials have been misconfigured
 	if err := obj.TestStorage(context.Background(), objClient); err != nil {
@@ -88,7 +99,7 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, objC
 	objectInfoGroupName := "objectInfo"
 	blockGroupName := "block"
 
-	if test {
+	if duplicate {
 		uuid := uuid.New()
 		objectGroupName += uuid
 		tagGroupName += uuid
@@ -101,7 +112,7 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, objC
 	s.objectInfoCache = groupcache.NewGroup(objectInfoGroupName, oneCacheShare*objectInfoCacheShares, groupcache.GetterFunc(s.objectInfoGetter))
 	s.blockCache = groupcache.NewGroup(blockGroupName, oneCacheShare*blockCacheShares, groupcache.GetterFunc(s.blockGetter))
 
-	if !test {
+	if !duplicate {
 		RegisterCacheStats("tag", &s.tagCache.Stats)
 		RegisterCacheStats("object", &s.objectCache.Stats)
 		RegisterCacheStats("object_info", &s.objectInfoCache.Stats)
@@ -165,44 +176,44 @@ func (s *objBlockAPIServer) getGeneration() int {
 	return s.generation
 }
 
-func newMinioBlockAPIServer(dir string, cacheBytes int64, etcdAddress string) (*objBlockAPIServer, error) {
+func newMinioBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, duplicate bool) (*objBlockAPIServer, error) {
 	objClient, err := obj.NewMinioClientFromSecret("")
 	if err != nil {
 		return nil, err
 	}
-	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient, false)
+	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient, duplicate)
 }
 
-func newAmazonBlockAPIServer(dir string, cacheBytes int64, etcdAddress string) (*objBlockAPIServer, error) {
+func newAmazonBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, duplicate bool) (*objBlockAPIServer, error) {
 	objClient, err := obj.NewAmazonClientFromSecret("")
 	if err != nil {
 		return nil, err
 	}
-	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient, false)
+	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient, duplicate)
 }
 
-func newGoogleBlockAPIServer(dir string, cacheBytes int64, etcdAddress string) (*objBlockAPIServer, error) {
+func newGoogleBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, duplicate bool) (*objBlockAPIServer, error) {
 	objClient, err := obj.NewGoogleClientFromSecret("")
 	if err != nil {
 		return nil, err
 	}
-	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient, false)
+	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient, duplicate)
 }
 
-func newMicrosoftBlockAPIServer(dir string, cacheBytes int64, etcdAddress string) (*objBlockAPIServer, error) {
+func newMicrosoftBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, duplicate bool) (*objBlockAPIServer, error) {
 	objClient, err := obj.NewMicrosoftClientFromSecret("")
 	if err != nil {
 		return nil, err
 	}
-	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient, false)
+	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient, duplicate)
 }
 
-func newLocalBlockAPIServer(dir string, cacheBytes int64, etcdAddress string) (*objBlockAPIServer, error) {
+func newLocalBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, duplicate bool) (*objBlockAPIServer, error) {
 	objClient, err := obj.NewLocalClient(dir)
 	if err != nil {
 		return nil, err
 	}
-	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient, true)
+	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient, duplicate)
 }
 
 func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer) (retErr error) {

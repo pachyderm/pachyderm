@@ -39,13 +39,12 @@ require (
 	github.com/fatih/color v1.7.0
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/fsouza/go-dockerclient v1.4.1
-	github.com/ghodss/yaml v1.0.0
 	github.com/go-ini/ini v1.42.0 // indirect
 	github.com/go-test/deep v1.0.1 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gogo/protobuf v1.2.2-0.20190730201129-28a6bbf47e48
 	github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef
-	github.com/golang/protobuf v1.3.1
+	github.com/golang/protobuf v1.3.2
 	github.com/golang/snappy v0.0.1
 	github.com/google/go-github v17.0.0+incompatible
 	github.com/google/go-querystring v1.0.0 // indirect
@@ -87,8 +86,8 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/montanaflynn/stats v0.5.0
-	github.com/onsi/ginkgo v1.7.0 // indirect
-	github.com/onsi/gomega v1.4.3 // indirect
+	github.com/onsi/ginkgo v1.10.2 // indirect
+	github.com/onsi/gomega v1.7.0 // indirect
 	github.com/opentracing-contrib/go-grpc v0.0.0-20180928155321-4b5a12d3ff02
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/pachyderm/ohmyglob v0.0.0-20190713004043-630e5c15d4e4
@@ -133,12 +132,13 @@ require (
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
 	google.golang.org/api v0.6.0
 	google.golang.org/grpc v1.21.1
+	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 	gopkg.in/go-playground/webhooks.v5 v5.11.0
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.42.0 // indirect
+	gopkg.in/pachyderm/yaml.v3 v3.0.0-20191017015716-76e7a8e4bde1
 	gopkg.in/square/go-jose.v2 v2.3.1 // indirect
 	gopkg.in/src-d/go-git.v4 v4.12.0
-	gopkg.in/yaml.v3 v3.0.0-20190905181640-827449938966
 	k8s.io/api v0.0.0-20181130031204-d04500c8c3dd
 	k8s.io/apimachinery v0.0.0-20181128191346-49ce2735e507
 	k8s.io/client-go v0.0.0-20181213230135-6924ba6dfc02

@@ -25,8 +25,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/images"
 	_metrics "github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"gopkg.in/pachyderm/yaml.v3"
 
-	"github.com/ghodss/yaml"
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
 )
@@ -704,7 +704,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	var imagePullSecret string
 	var localRoles bool
 	var logLevel string
-	var newHashTree bool
+	var newStorageLayer bool
 	var noDash bool
 	var noExposeDockerSocket bool
 	var noGuaranteed bool
@@ -734,7 +734,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			dashImage = getDefaultOrLatestDashImage(dashImage, dryRun)
 			opts = &assets.AssetOpts{
 				FeatureFlags: assets.FeatureFlags{
-					NewHashTree: newHashTree,
+					NewStorageLayer: newStorageLayer,
 				},
 				PachdShards:             uint64(pachdShards),
 				Version:                 version.PrettyPrintVersion(version.Version),
@@ -794,7 +794,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	deploy.PersistentFlags().BoolVar(&noExposeDockerSocket, "no-expose-docker-socket", false, "Don't expose the Docker socket to worker containers. This limits the privileges of workers which prevents them from automatically setting the container's working dir and user.")
 	deploy.PersistentFlags().BoolVar(&exposeObjectAPI, "expose-object-api", false, "If set, instruct pachd to serve its object/block API on its public port (not safe with auth enabled, do not set in production).")
 	deploy.PersistentFlags().StringVar(&tlsCertKey, "tls", "", "string of the form \"<cert path>,<key path>\" of the signed TLS certificate and private key that Pachd should use for TLS authentication (enables TLS-encrypted communication with Pachd)")
-	deploy.PersistentFlags().BoolVar(&newHashTree, "new-hash-tree-flag", false, "(feature flag) Do not set, used for testing")
+	deploy.PersistentFlags().BoolVar(&newStorageLayer, "new-storage-layer", false, "(feature flag) Do not set, used for testing.")
 	deploy.PersistentFlags().StringVarP(&contextName, "context", "c", "", "Name of the context to add to the pachyderm config.")
 
 	// Flags for setting pachd resource requests. These should rarely be set --
