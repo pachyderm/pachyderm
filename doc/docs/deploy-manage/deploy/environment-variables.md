@@ -68,7 +68,6 @@ environment variables.
 | `IMAGE_PULL_SECRET`  | `"`                 | The Kubernetes secret for image pull credentials. |
 | `NO_EXPOSE_DOCKER_SOCKET` | `false`        | Controls whether you can build images using the `--build` command. |
 | `EXPOSE_OBJECT_API`  | `false`             | Controls access to internal Pachyderm API. |
-| `PACHD_MEMORY_REQUEST` | `1T`              | ??? |
 | `WORKER_USES_ROOT`   | `true`              | Controls root access in the worker container. |
 | `S3GATEWAY_PORT`     | `600`               | The S3 gateway port number. |
 
@@ -138,9 +137,7 @@ particularly useful:
 | `PPS_PIPELINE_NAME`        | The name of the pipeline that this pod runs. For example, `env`. |
 | `PIPELINE_SERVICE_PORT_PROMETHEUS_METRICS` | The port that you can use to exposed metrics to Prometheus from within your pipeline. The default value is 9090. |
 | `HOME`                     | The path to the home directory. The default value is `/root` |
-| `<input-repo>=<path/to/input/repo>` | The path to the filesystem that is defined in the `input` in your pipeline specification. Pachyderm defines such a variable for each
-input. The path is defined by the `glob` pattern in the spec. For example, if you have an input `images` and a glob pattern of `/`, Pachyderm defines the `images=/pfs/images`
-variable. If you have a glob pattern of `/*`, Pachyderm matches the files in the `images` repository and, therefore, the path is `images=/pfs/images/liberty.png`. |
+| `<input-repo>=<path/to/input/repo>` | The path to the filesystem that is defined in the `input` in your pipeline specification. Pachyderm defines such a variable for each input. The path is defined by the `glob` pattern in the spec. For example, if you have an input `images` and a glob pattern of `/`, Pachyderm defines the `images=/pfs/images` variable. If you have a glob pattern of `/*`, Pachyderm matches the files in the `images` repository and, therefore, the path is `images=/pfs/images/liberty.png`. |
 | `input_COMMIT`             | The ID of the commit that is used for the input. For example, `images_COMMIT=fa765b5454e3475f902eadebf83eac34`. |
 
 In addition to these environment variables, Kubernetes injects others for
