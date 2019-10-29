@@ -187,7 +187,7 @@ html_static_path = ['custom_theme/static']
 # .htaccess) here, relative to this directory. These files are copied
 # directly to the root of the documentation.
 #
-# html_extra_path = []
+html_extra_path = ['robots.txt']
 
 # If not None, a 'Last updated on:' timestamp is inserted at every page
 # bottom, using the given strftime format.
