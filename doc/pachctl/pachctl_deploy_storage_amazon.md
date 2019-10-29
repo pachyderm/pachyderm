@@ -39,7 +39,7 @@ pachctl deploy storage amazon <region> <access-key-id> <secret-access-key> [<ses
       --local-roles                   Use namespace-local roles instead of cluster roles. Ignored if --no-rbac is set.
       --log-level string              The level of log messages to print options are, from least to most verbose: "error", "info", "debug". (default "info")
       --namespace string              Kubernetes namespace to deploy Pachyderm to.
-      --new-hash-tree-flag            (feature flag) Do not set, used for testing
+      --new-storage-layer             (feature flag) Do not set, used for testing.
       --no-color                      Turn off colors.
       --no-dashboard                  Don't deploy the Pachyderm UI alongside Pachyderm (experimental).
       --no-expose-docker-socket       Don't expose the Docker socket to worker containers. This limits the privileges of workers which prevents them from automatically setting the container's working dir and user.
