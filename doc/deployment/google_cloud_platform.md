@@ -43,7 +43,7 @@ $ gcloud container clusters create ${CLUSTER_NAME} --scopes storage-rw --machine
 # pachyderm serviceaccount needs.
 $ kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value account)
 ```
-**Important Note: You must create the Kubernetes cluster via the gcloud command-line tool rather than the Google Cloud Console, as it's currently only possible to grant the `storage-rw` scope via the command-line tool**. Also note, you should deploy a 1.8.x cluster if possible to take full advantage of Pachyderm's latest features.
+**Important Note: You must create the Kubernetes cluster via the gcloud command-line tool rather than the Google Cloud Console, as it's currently only possible to grant the `storage-rw` scope via the command-line tool**. Also note, you should deploy a 1.9.x cluster if possible to take full advantage of Pachyderm's latest features.
 
 This may take a few minutes to start up. You can check the status on the [GCP Console](https://console.cloud.google.com/compute/instances).  A `kubeconfig` entry will automatically be generated and set as the current context.  As a sanity check, make sure your cluster is up and running via `kubectl`:
 
@@ -121,7 +121,7 @@ You can then run `pachctl version --client-only` to check that the installation 
 
 ```sh
 $ pachctl version --client-only
-1.8.0
+1.9.7
 ```
 
 #### Deploy Pachyderm on the k8s cluster
@@ -174,8 +174,8 @@ And you're done! You can test to make sure the cluster is working by trying `pac
 
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.8.0
-pachd               1.8.0
+pachctl             1.9.7
+pachd               1.9.7
 ```
 
 ### Additional Tips for Performance Improvements
