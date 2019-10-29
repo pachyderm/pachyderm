@@ -9,7 +9,7 @@ By analogy, a Pachyderm join is similar to a database *equi-join*,
 or *inner join* operation, but it matches on file paths
 only, not the contents of the files.
 
-Unlike the [cross input](cross-input.md), which creates datums from every
+Unlike the [cross input](../datum/cross-union.md), which creates datums from every
 combination of files in each input repository, joins only create datums
 where there is a *match*. You can use joins to combine data from different
 Pachyderm repositories and ensure that only specific files from each repo
