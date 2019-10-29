@@ -174,6 +174,7 @@ nav:
                 - Configure RBAC: deploy-manage/deploy/rbac.md
             - Configure Tracing with Jaeger: deploy-manage/deploy/tracing.md
             - Connect to a Pachyderm cluster: deploy-manage/deploy/connect-to-cluster.md
+            - Configure Environment Variables: deploy-manage/deploy/environment-variables.md
         - Manage Pachyderm:
             - Overview: deploy-manage/manage/index.md
             - Manage Cluster Access: deploy-manage/manage/cluster-access.md
@@ -346,7 +347,7 @@ nav:
     - Troubleshooting:
         - Overview: troubleshooting/index.md
         - General Troubleshooting: troubleshooting/general_troubleshooting.md
-        - Deployment Troubleshootin: troubleshooting/deploy_troubleshooting.md
+        - Deployment Troubleshooting: troubleshooting/deploy_troubleshooting.md
         - Pipeline Troubleshooting: troubleshooting/pipeline_troubleshooting.md
 
 # Google Analytics
