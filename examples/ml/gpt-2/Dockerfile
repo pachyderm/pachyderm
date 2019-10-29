@@ -1,4 +1,4 @@
-FROM tensorflow/tensorflow:latest-gpu-py3
+FROM tensorflow/tensorflow:1.14.0-gpu-py3
 
 RUN pip install twitterscraper tensorflow-gpu gpt_2_simple
 

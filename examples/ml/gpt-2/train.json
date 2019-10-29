@@ -3,7 +3,7 @@
         "name": "train"
     },
     "transform": {
-        "image": "pachyderm/gpt-2-example",
+        "image": "pachyderm/gpt-2-example:v5",
         "cmd": ["/train.py"]
     },
     "input": {
