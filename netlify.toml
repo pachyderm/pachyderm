@@ -4,7 +4,13 @@ command = "mkdocs build"
 publish = "doc/site"
 
 [[redirects]]
-  from = "docs.pachyderm.io/*"
+  from = "https://docs.pachyderm.io/*"
+  to = "https://docs.pachyderm.com/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/en/latest/*"
   to = "/:splat"
   status = 301
   force = true
