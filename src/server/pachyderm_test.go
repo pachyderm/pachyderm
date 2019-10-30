@@ -892,6 +892,16 @@ func TestRunPipeline(t *testing.T) {
 		jobInfos, err = c.FlushJobAll([]*pfs.Commit{commitA}, []string{downstreamPipeline})
 		require.NoError(t, err)
 		require.Equal(t, 1, len(jobInfos))
+
+		// now rerun the one job that we saw
+		require.NoError(t, backoff.Retry(func() error {
+			return c.RunPipeline(downstreamPipeline, nil, jobInfos[0].Job.ID)
+		}, backoff.NewTestingBackOff()))
+
+		// we should now have two jobs
+		jobInfos, err = c.FlushJobAll([]*pfs.Commit{commitA}, []string{downstreamPipeline})
+		require.NoError(t, err)
+		require.Equal(t, 2, len(jobInfos))
 	})
 
 	// Test with a downstream pipeline who's upstream has no datum, but where the downstream still needs to succeed
