@@ -674,6 +674,7 @@ message RunPipelineRequest {
   reserved 3;
   Pipeline pipeline = 1;
   repeated pfs.CommitProvenance provenance = 2;
+  string job_id = 4 [(gogoproto.customname) = "JobID"];
 }
 
 message GarbageCollectRequest {
