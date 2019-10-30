@@ -33,4 +33,4 @@ You can do so by running the following command:
 
 !!! note "See also"
 
-- [Connect by using a Pachyderm context](connect-to-cluster.md#connect-by-using-a-pachyderm-context)
+- [Connect by using a Pachyderm context](../connect-to-cluster/#connect-by-using-a-pachyderm-context)
