@@ -3,6 +3,13 @@ base = "doc"
 command = "mkdocs build"
 publish = "doc/site"
 
+
+[[redirects]]
+  from = "/en/latest/"
+  to = "/"
+  status = 301
+  force = true
+
 [[redirects]]
   from = "/en/latest/getting_started/"
   to = "/getting_started/"
