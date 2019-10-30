@@ -1,4 +1,0 @@
-User-agent: *
-Disallow:
-
-Sitemap: https://docs.pachyderm.com/sitemap1.xml
