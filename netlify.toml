@@ -40,6 +40,12 @@ publish = "doc/site"
   force = true
 
 [[redirects]]
+  from = "/managing_pachyderm/gpus.html*"
+  to = "/deploy-manage/manage/gpus/"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/en/latest/getting_started/local_installation.html"
   to = "https://docs.pachyderm.com/getting_started/local_installation/"
   status = 301
