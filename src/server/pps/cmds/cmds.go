@@ -510,18 +510,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if err != nil {
 				return err
 			}
-			if jobID != "" {
-				ji, err := client.InspectJob(jobID, false)
-				if err != nil {
-					return err
-				}
-				jci, err := client.InspectCommit(ji.OutputCommit.Repo.Name, ji.OutputCommit.ID)
-				if err != nil {
-					return err
-				}
-				prov = append(prov, jci.Provenance...)
-			}
-			err = client.RunPipeline(args[0], prov)
+			err = client.RunPipeline(args[0], prov, jobID)
 			if err != nil {
 				return err
 			}
