@@ -15,22 +15,22 @@ providing a path to your CA certificate and your private key by using the
 $ pachctl deploy <platform> --tls "<path/to/cert>,<path/to/key>"
 ```
 
-**Note:** The paths to the certificate and to the key must be specified
-exactly as shown in the example above — in double quotes, separated by
-a comma, and without a space.
+!!! note
+    The paths to the certificate and to the key must be specified
+    exactly as shown in the example above — in double quotes, separated by
+    a comma, and without a space.
 
 After you deploy Pachyderm, to connect through `pachctl` by using a
 trusted certificate, you need to configure the `pachd_address` in the
 Pachyderm context with the cluster IP address that starts with `grpcs://`.
 You can do so by running the following command:
 
-**Example:**
+!!! example
+    ```bash
+    echo '{"pachd_address": "grpcs://<cluster-ip>:31400"}' | pachctl config
+    pachctl config update context `p config get active-context` --pachd_address "grpcs://<cluster-ip>:31400"
+    ```
 
-```bash
-echo '{"pachd_address": "grpcs://<cluster-ip>:31400"}' | pachctl config
-pachctl config update context `p config get active-context` --pachd_address "grpcs://<cluster-ip>:31400"
-```
+!!! note "See also"
 
-**See Also:**
-
-- [Connect by using a Pachyderm context](connect-to-cluster.html#connect-by-using-a-pachyderm-context)
+- [Connect by using a Pachyderm context](../connect-to-cluster/#connect-by-using-a-pachyderm-context)
