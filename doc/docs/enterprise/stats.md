@@ -75,7 +75,7 @@ branch called `stats`:
     ...
     ```
 
-## Accessing Stats Through the Sashboard
+## Accessing Stats Through the Dashboard
 
 If you have deployed and activated the Pachyderm Enterprise
 dashboard, you can explore advanced statistics. For example, if you
