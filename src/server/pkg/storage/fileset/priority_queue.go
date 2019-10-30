@@ -10,17 +10,33 @@ type stream interface {
 type priorityQueue struct {
 	queue []stream
 	size  int
+	ss    []stream
 }
 
-func newPriorityQueue(ss []stream) *priorityQueue {
-	q := make([]stream, len(ss)+1)
+func newPriorityQueue(ss []stream) (*priorityQueue, error) {
+	pq := &priorityQueue{queue: make([]stream, len(ss)+1)}
 	// Insert streams.
 	for _, s := range ss {
-		if err := q.insert(s); err != nil {
+		if err := pq.insert(s); err != nil {
+			return nil, err
+		}
+	}
+	return pq, nil
+}
+
+func (pq *priorityQueue) iterate(f func([]stream, string) error) error {
+	for {
+		ss, err := pq.next()
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return err
+		}
+		if err := f(ss, pq.peek()); err != nil {
 			return err
 		}
 	}
-	return &priorityQueue{queue: q}
 }
 
 func (pq *priorityQueue) key(i int) string {
@@ -56,9 +72,9 @@ func (pq *priorityQueue) insert(s stream) error {
 func (pq *priorityQueue) next() ([]stream, error) {
 	// Re-insert streams
 	if pq.ss != nil {
-		for _, s := range ss {
+		for _, s := range pq.ss {
 			if err := pq.insert(s); err != nil {
-				return err
+				return nil, err
 			}
 		}
 	}
@@ -73,7 +89,7 @@ func (pq *priorityQueue) next() ([]stream, error) {
 		pq.fill()
 	}
 	pq.ss = ss
-	return ss
+	return ss, nil
 }
 
 func (pq *priorityQueue) peek() string {
