@@ -3,6 +3,43 @@ base = "doc"
 command = "mkdocs build"
 publish = "doc/site"
 
+
+[[redirects]]
+  from = "/en/latest/"
+  to = "/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/en/latest/getting_started/"
+  to = "/getting_started/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/en/latest/how-tos/"
+  to = "/how-tos/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/en/latest/concepts/"
+  to = "/concepts/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/en/latest/deployment/"
+  to = "/deploy-manage/deploy/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/en/latest/managing_pachyderm/"
+  to = "/deploy-manage/manage/"
+  status = 301
+  force = true
+
 [[redirects]]
   from = "https://docs.pachyderm.io/*"
   to = "https://docs.pachyderm.com/:splat"
@@ -10,7 +47,7 @@ publish = "doc/site"
   force = true
 
 [[redirects]]
-  from = "/en/latest/index.html"
+  from = "/en/latest/"
   to = "/"
   status = 301
   force = true
