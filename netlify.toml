@@ -34,12 +34,6 @@ publish = "doc/site"
   force = true
 
 [[redirects]]
-  from = "/en/latest/"
-  to = "/deploy-manage/manage/"
-  status = 301
-  force = true
-
-[[redirects]]
   from = "https://docs.pachyderm.io/*"
   to = "https://docs.pachyderm.com/:splat"
   status = 301
