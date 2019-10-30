@@ -4,8 +4,14 @@ command = "mkdocs build"
 publish = "doc/site"
 
 [[redirects]]
-  from = "docs.pachyderm.io/*"
-  to = "/:splat"
+  from = "https://docs.pachyderm.io/*"
+  to = "https://docs.pachyderm.com/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/en/latest/index.html"
+  to = "/"
   status = 301
   force = true
 
@@ -32,6 +38,30 @@ publish = "doc/site"
   to = "https://docs.pachyderm.com/contributing/coding-conventions/"
   status = 301
   force = true
+
+[[redirects]]
+  from = "/en/latest/managing_pachyderm/gpus.html"
+  to = "/deploy-manage/manage/gpus/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/en/latest/deployment/tracing.html"
+  to = "/deploy-manage/deploy/tracing/"
+  status = 301
+  force = true
+
+[[redirects]]
+   from = "/en/latest/contributing/docs-style-guide.html"
+   to = "/contributing/docs-style-guide/"
+   status = 301
+   force = true
+
+[[redirects]]
+   from = "/en/latest/doc-style-guide/index.html"
+   to = "/contributing/docs-style-guide/"
+   status = 301
+   force = true
 
 [[redirects]]
   from = "/en/latest/getting_started/local_installation.html"
