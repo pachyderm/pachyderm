@@ -408,16 +408,17 @@ If <object store backend> is \"s3\", then the arguments are:
 				}
 
 				if !awsAccessKeyIDRE.MatchString(amazonCreds.ID) {
-					fmt.Printf("The AWS Access Key seems invalid (does not match %q). "+
-						"Do you want to continue deploying? [yN]\n", awsAccessKeyIDRE)
+					fmt.Fprintf(os.Stderr, "The AWS Access Key seems invalid (does not "+
+						"match %q). Do you want to continue deploying? [yN]\n",
+						awsAccessKeyIDRE)
 					if s.Scan(); s.Text()[0] != 'y' && s.Text()[0] != 'Y' {
 						os.Exit(1)
 					}
 				}
 
 				if !awsSecretRE.MatchString(amazonCreds.Secret) {
-					fmt.Printf("The AWS Secret seems invalid (does not match %q). "+
-						"Do you want to continue deploying? [yN]\n", awsSecretRE)
+					fmt.Fprintf(os.Stderr, "The AWS Secret seems invalid (does not "+
+						"match %q). Do you want to continue deploying? [yN]\n", awsSecretRE)
 					if s.Scan(); s.Text()[0] != 'y' && s.Text()[0] != 'Y' {
 						os.Exit(1)
 					}
@@ -444,13 +445,15 @@ If <object store backend> is \"s3\", then the arguments are:
 				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[2])
 			}
 			if strings.TrimSpace(cloudfrontDistribution) != "" {
-				fmt.Printf("WARNING: You specified a cloudfront distribution. Deploying on AWS with cloudfront is currently " +
-					"an alpha feature. No security restrictions have been applied to cloudfront, making all data public (obscured but not secured)\n")
+				fmt.Fprintf(os.Stderr, "WARNING: You specified a cloudfront "+
+					"distribution. Deploying on AWS with cloudfront is currently an "+
+					"alpha feature. No security restrictions have been applied to "+
+					"cloudfront, making all data public (obscured but not secured)\n")
 			}
 			bucket, region := strings.TrimPrefix(args[0], "s3://"), args[1]
 			if !awsRegionRE.MatchString(region) {
-				fmt.Printf("The AWS region seems invalid (does not match %q). "+
-					"Do you want to continue deploying? [yN]\n", awsRegionRE)
+				fmt.Fprintf(os.Stderr, "The AWS region seems invalid (does not match "+
+					"%q). Do you want to continue deploying? [yN]\n", awsRegionRE)
 				if s.Scan(); s.Text()[0] != 'y' && s.Text()[0] != 'Y' {
 					os.Exit(1)
 				}
