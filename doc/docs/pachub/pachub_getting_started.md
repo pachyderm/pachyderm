@@ -19,9 +19,10 @@ so clusters cannot be turned into production clusters and should only
 be used for easy development and testing. Production-grade functionality
 will be supported in later releases.
 
-**Note:** We'd like to hear your feedback! Let us know what you think
-about Pachyderm Hub and help us make it better.
-Join our [Slack channel](http://slack.pachyderm.io).
+!!! note
+    We'd like to hear your feedback! Let us know what you think
+    about Pachyderm Hub and help us make it better.
+    Join our [Slack channel](http://slack.pachyderm.io).
 
 ## How it Works
 
@@ -97,7 +98,7 @@ To connect to your cluster, complete the following steps:
 
 1. On your local computer, open a terminal window.
 1. Install or upgrade  `pachctl` as described in
-   [Install pachctl](../getting_started/local_installation/#install-pachctl).
+   [Install pachctl](../../getting_started/local_installation/#install-pachctl).
 
 1. Verify your `pachctl` version:
 
