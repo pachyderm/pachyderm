@@ -148,6 +148,7 @@ nav:
         - Configure Distributed Computing: how-tos/distributed_computing.md
         - Deferred Processing of Data: how-tos/deferred_processing.md
         - Ingress and Egress Data from an External Object Store: how-tos/ingressing_from_diff_cloud.md
+        - Skip Failed Datums: how-tos/err_cmd.md
     - Deploy and Manage:
         - Overview: deploy-manage/index.md
         - Deploy Pachyderm:
