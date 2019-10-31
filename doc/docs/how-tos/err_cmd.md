@@ -33,7 +33,7 @@ to run the second pipeline.
 The following diagram describes how Pachyderm transformation and error
 code work:
 
-![err_cmd logic](err_cmd_workflow.svg)
+![err_cmd logic](../assets/images/err_cmd_workflow.svg)
 
 Here is what happens in the diagram above:
 
@@ -52,7 +52,7 @@ as failed, and, consequently, the job is marked as failed.
 You can view the processed, skipped, and recovered datums in the `PROGRESS`
 field in the output of the `pachctl list job` command:
 
-![dautms in progress](../assets/images/datums-in-progress.png)
+![datums in progress](../assets/images/datums_in_progress.svg)
 
 Only processed datums are used in downstream pipelines, if there are any.
 For example, in your first pipeline, Pachyderm processes three datums.
@@ -61,5 +61,5 @@ successfully processed, only these two successful datums are used in
 the next pipeline.
 
 !!! note "See also"
-    [Example err_cmd pipeline](https://github.pachyderm.com/examples/err-md-example/)
+    [Example err_cmd pipeline](https://github.com/pachyderm/pachyderm/tree/master/examples/err-cmd-example/)
 
