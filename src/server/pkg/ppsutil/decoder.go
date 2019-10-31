@@ -47,26 +47,16 @@ func (d *jsonpbDecoder) Decode(v interface{}) error {
 	return d.decoder.Decode(v)
 }
 
-// yamlDecoder implements the 'pipelineDecoder' interface to decode
-// YAML-encoded pipelines
-type yamlDecoder struct {
-	yaml.Decoder
-}
-
-func newYAMLDecoder(r io.Reader) *yamlDecoder {
-	return &yamlDecoder{*yaml.NewDecoder(r)}
-}
-
 // PipelineManifestReader helps with unmarshalling pipeline configs from JSON. It's used by
 // 'create pipeline' and 'update pipeline'
 //
-// Note that the json decoder is able to parse text that gopkg.in/yaml.v3 cannot
-// (multiple json documents) so we currently guess whether the document is JSON
-// or not by looking at the first non-space character and seeing if it's '{' (we
-// originally tried parsing the pipeline spec with both parsers, but that
-// approach made it hard to return sensible errors). We may fail to parse valid
-// YAML documents this way, so hopefully the yaml parser gains multi-document
-// support and we can rely on it fully.
+// Note that the json decoder is able to parse text that
+// gopkg.in/pachyderm/yaml.v3 cannot (multiple json documents) so we currently
+// guess whether the document is JSON or not by looking at the first non-space
+// character and seeing if it's '{' (we originally tried parsing the pipeline
+// spec with both parsers, but that approach made it hard to return sensible
+// errors). We may fail to parse valid YAML documents this way, so hopefully the
+// yaml parser gains multi-document support and we can rely on it fully.
 type PipelineManifestReader struct {
 	decoder pipelineDecoder
 }
