@@ -287,13 +287,13 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 			if err != nil {
 				return err
 			}
-			if strings.HasPrefix(realPath, client.PPSInputPrefix) {
+			if strings.HasPrefix(realPath, a.driver.InputDir()) {
 				var pathWithInput string
 				var err error
 				if strings.HasPrefix(realPath, dir) {
 					pathWithInput, err = filepath.Rel(dir, realPath)
 				} else {
-					pathWithInput, err = filepath.Rel(client.PPSInputPrefix, realPath)
+					pathWithInput, err = filepath.Rel(a.driver.InputDir(), realPath)
 				}
 				if err == nil {
 					// We can only skip the upload if the real path is
@@ -491,10 +491,10 @@ func (a *APIServer) datum() []*pps.InputFile {
 }
 
 // TODO: move this to common
-func userCodeEnv(jobID string, outputCommitID string, data []*common.Input) []string {
+func userCodeEnv(jobID string, outputCommitID string, inputDir string, data []*common.Input) []string {
 	result := os.Environ()
 	for _, input := range data {
-		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(client.PPSInputPrefix, input.Name, input.FileInfo.File.Path)))
+		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(inputDir, input.Name, input.FileInfo.File.Path)))
 		result = append(result, fmt.Sprintf("%s_COMMIT=%s", input.Name, input.FileInfo.File.Commit.ID))
 	}
 	result = append(result, fmt.Sprintf("%s=%s", client.JobIDEnv, jobID))
@@ -1377,7 +1377,7 @@ func (a *APIServer) processDatums(
 				}()
 
 				subStats, err := a.driver.WithData(ctx, data, inputTree, logger, func(subStats *pps.ProcessStats) error {
-					env := userCodeEnv(jobInfo.Job.ID, jobInfo.OutputCommit.ID, data)
+					env := userCodeEnv(jobInfo.Job.ID, jobInfo.OutputCommit.ID, a.driver.InputDir(), data)
 					a.runMu.Lock()
 					defer a.runMu.Unlock()
 					if err := a.driver.RunUserCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {

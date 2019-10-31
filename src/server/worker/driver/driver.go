@@ -288,6 +288,10 @@ func (d *driver) GetExpectedNumWorkers() (int, error) {
 	return ppsutil.GetExpectedNumWorkers(d.kubeClient, d.pipelineInfo.ParallelismSpec)
 }
 
+func (d *driver) InputDir() string {
+	return d.inputDir
+}
+
 func (d *driver) NewSTM(ctx context.Context, cb func(col.STM) error) (*etcd.TxnResponse, error) {
 	return col.NewSTM(ctx, d.etcdClient, cb)
 }
@@ -385,6 +389,8 @@ func (d *driver) downloadData(
 		}
 	}(time.Now())
 
+	// The scratch space is where Pachyderm stores downloaded and output data, which is
+	// then symlinked into place for the pipeline.
 	dir := filepath.Join(d.inputDir, client.PPSScratchSpace, uuid.NewWithoutDashes())
 	// Create output directory (currently /pfs/out)
 	outPath := filepath.Join(dir, "out")
@@ -478,15 +484,15 @@ func (d *driver) linkData(inputs []*common.Input, dir string) error {
 }
 
 func (d *driver) unlinkData(inputs []*common.Input) error {
-	dirs, err := ioutil.ReadDir(client.PPSInputPrefix)
+	entries, err := ioutil.ReadDir(d.inputDir)
 	if err != nil {
 		return fmt.Errorf("ioutil.ReadDir: %v", err)
 	}
-	for _, d := range dirs {
-		if d.Name() == client.PPSScratchSpace {
+	for _, entry := range entries {
+		if entry.Name() == client.PPSScratchSpace {
 			continue // don't delete scratch space
 		}
-		if err := os.RemoveAll(filepath.Join(client.PPSInputPrefix, d.Name())); err != nil {
+		if err := os.RemoveAll(filepath.Join(d.inputDir, entry.Name())); err != nil {
 			return err
 		}
 	}
