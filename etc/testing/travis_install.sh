@@ -56,7 +56,15 @@ fi
 # curl -Ls https://api.github.com/repos/etcd-io/etcd/releases | jq -r .[].tag_name
 if [ ! -f ~/cached-deps/etcdctl ] ; then
     ETCD_VERSION=v3.3.12
-    curl -L https://storage.googleapis.com/etcd/${ETCD_VERSION}/etcd-${ETCD_VERSION}-linux-amd64.tar.gz | \
-        tar xzf - --strip-components=1 && \
+    curl -L https://storage.googleapis.com/etcd/${ETCD_VERSION}/etcd-${ETCD_VERSION}-linux-amd64.tar.gz \
+        | tar xzf - --strip-components=1 && \
         mv ./etcdctl ~/cached-deps/etcdctl
+fi
+
+# Install kubeval
+if [ ! -f ~/cached-deps/kubeval ]; then
+  KUBEVAL_VERSION=0.14.0
+  curl -L https://github.com/instrumenta/kubeval/releases/download/${KUBEVAL_VERSION}/kubeval-linux-amd64.tar.gz \
+      | tar xzf - kubeval && \
+      mv ./kubeval ~/cached-deps/kubeval
 fi
