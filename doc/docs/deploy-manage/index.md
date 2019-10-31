@@ -38,7 +38,7 @@ and others.
       </div>
       <div class="mdl-card__actions mdl-card--border">
           <ul>
-            <li><a href="pipeline-concepts/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+            <li><a href="manage/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
             Manage Pachyderm
            </a>
           </li>

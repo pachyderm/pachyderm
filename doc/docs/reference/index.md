@@ -117,7 +117,7 @@ your favorite programming language.
        </div>
        <div class="mdl-card__actions mdl-card--border">
          <ul>
-            <li><a href="examples/examples/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+            <li><a href="../examples/examples/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
             Examples
             </a>
             </li>
