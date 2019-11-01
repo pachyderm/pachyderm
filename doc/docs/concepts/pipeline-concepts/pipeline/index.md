@@ -62,7 +62,7 @@ A minimum pipeline specification must include the following parameters:
   For more information, see [Cross and Union](../datum/cross-union.md).
 
   One very important property that is defined in the `input` field
-  is the `glob` pattern that defines how Pachyderm breaks the data into
+  is the `glob` pattern that specifieshow Pachyderm breaks the data into
   individual processing units, called Datums. For more information, see
   [Datum](../datum/index.md).
 
@@ -72,7 +72,7 @@ A minimum pipeline specification must include the following parameters:
   run, as well as a `cmd` field for the specific code within the
   container that you want to execute, such as a Python script.
 
-**Example:**
+!!! example
 
 ```bash
 
@@ -93,5 +93,5 @@ A minimum pipeline specification must include the following parameters:
 }
 ```
 
-!!! note "See also:"
+!!! note "See also"
     [Pipeline Specification](../../../reference/pipeline_spec.md)

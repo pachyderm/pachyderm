@@ -48,7 +48,7 @@ triggers the pipeline.
 The pipeline runs every ten seconds, queries the database and updates its
 output. By default, each cron trigger adds a new tick file to the cron input
 repository, accumulating more datums over time. This behavior works for some
-pipelines. For others you might want each tick file to overwrite the
+pipelines. For others, you might want each tick file to overwrite the
 previous one. You can set the overwrite flag to true to overwrite the
 timestamp file on each tick. To learn more about overwriting commits in
 Pachyderm, see [Datum processing](../datum/index.md).
@@ -65,5 +65,5 @@ Pachyderm, see [Datum processing](../datum/index.md).
       }
     ```
 
-!!! note "See also:"
+!!! note "See also"
     [Periodic Ingress from MongoDB](https://github.com/pachyderm/pachyderm/tree/master/examples/db)

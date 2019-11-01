@@ -19,7 +19,7 @@ command, you can put both files and directories into a Pachyderm repository.
 
 Pachyderm provides the following file processing strategies:
 
-Appending files
+**Appending files**
 :   By default, when you put a file into a Pachyderm repository and a
     file by the same name already exists in the repo, Pachyderm appends
     the new data to the existing file.
@@ -52,7 +52,7 @@ Appending files
        /A.csv file 516B
        ```
 
-Overwriting files
+**Overwriting files**
 :   When you enable the overwrite mode by using the `--overwrite`
     flag or `-o`, the file replaces the existing file instead of appending to
     it. For example, you have an `A.csv` file in the `images` repository.

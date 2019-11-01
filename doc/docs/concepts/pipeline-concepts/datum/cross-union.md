@@ -82,13 +82,14 @@ Your pipeline processes the following datums without any specific order:
 /pfs/B/6.txt
 ```
 
-**Note:** Each datum in a pipeline is processed independently by a single
-execution of your code. In this example, your code runs six times, and each
-datum is available to it one at a time. For example, your code
-processes `pfs/A/1.txt` in one of the runs and `pfs/B/5.txt` in a different run,
-and so on. In a union, two or more datums are never available to your code
-at the same time. You can simplify
-your union code by using the `name` property as described below.
+!!! note
+    Each datum in a pipeline is processed independently by a single
+    execution of your code. In this example, your code runs six times, and
+    each datum is available to it one at a time. For example, your code
+    processes `pfs/A/1.txt` in one of the runs and `pfs/B/5.txt` in a
+    different run, and so on. In a union, two or more datums are never
+    available to your code at the same time. You can simplify
+    your union code by using the `name` property as described below.
 
 ### Simplifying the Union Pipelines Code
 
@@ -142,7 +143,8 @@ code is provided one of these sets at the time to process.
 For example, you have repositories `A` and `B` with three datums, each
 with the following structure:
 
-**Note:** For this example, the glob pattern is set to `/*`.
+!!! note
+    For this example, the glob pattern is set to `/*`.
 
 Repository `A` has three files at the top level:
 
@@ -165,8 +167,9 @@ B
 Because you have three datums in each repo, Pachyderm exposes
 a total of nine combinations of datums to your code.
 
-**Important:** In cross pipelines, both `pfs/A` and `pfs/B`
-directories are visible during each code run.
+!!! important
+    In cross pipelines, both `pfs/A` and `pfs/B`
+    directories are visible during each code run.
 
 ```bash
 Run 1: /pfs/A/1.txt
@@ -180,10 +183,11 @@ Run 9: /pfs/A/3.txt
        /pfs/B/3.txt
 ```
 
-**Note:** In cross inputs, if you use the `name` field, your two
-inputs cannot have the same name. This could cause file system collisions.
+!!! note
+    In cross inputs, if you use the `name` field, your two
+    inputs cannot have the same name. This could cause file system collisions.
 
-**See Also:**
+!!! note "See Also"
 
 - [Cross Input](../../../../reference/pipeline_spec/#cross-input)
 - [Union Input](../../../../reference/pipeline_spec/#union-input)

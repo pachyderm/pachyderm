@@ -26,14 +26,14 @@ by using `put file`, `delete file`, or other commands. You can
 *finish*, or *close* a commit which means the commit is immutable and
 cannot be changed.
 
-The `pachctl list commit repo@branch` command. This command returns a
+The `pachctl list commit repo@branch` command returns a
 timestamp, size, parent, and other information about the commit.
 The initial commit has `<none>` as a parent.
 
 !!! example
     ```bash
     $ pachctl list commit images@master
-    REPO   BRANCH COMMIT                           PARENT                           STARTED        DURATION           SIZE
+    REPO     BRANCH COMMIT                           PARENT                           STARTED        DURATION           SIZE
     raw_data master 8248d97632874103823c7603fb8c851c 22cdb5ae05cb40868566586140ea5ed5 6 seconds ago  Less than a second 5.121MiB
     raw_data master 22cdb5ae05cb40868566586140ea5ed5 <none>                           33 minutes ago Less than a second 2.561MiB
     ```
@@ -67,7 +67,7 @@ those commits. You can think about the `delete commit` command as an
 equivalent of the `rm -rf` command in Linux.
 It is an irreversible operation that should be used with caution.
 An alternative and a much safer way to revert incorrect data changes is to
-move the HEAD of the branch or create a new commit that removes
+move the `HEAD` of the branch or create a new commit that removes
 the incorrect data.
 
 !!! example

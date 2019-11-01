@@ -58,10 +58,11 @@ parameters:
 
 The following text is an example of a minimum specification:
 
-**Note:** The `env` property is an optional argument. You can define
-your data stream source from within the container in which you run
-your script. For simplicity, in this example, `env` specifies the
-source of the Kafka host.
+!!! note
+    The `env` property is an optional argument. You can define
+    your data stream source from within the container in which you run
+    your script. For simplicity, in this example, `env` specifies the
+    source of the Kafka host.
 
 ```
 {
