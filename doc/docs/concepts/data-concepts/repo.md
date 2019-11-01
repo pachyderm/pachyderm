@@ -14,11 +14,10 @@ merge conflicts as you often do with Git commits when you try to merge
 your `.git` history with the master copy of the repo. With large datatsets
 resolving a merge conflict might not be possible.
 
-A Pachyderm repository is the first entity that you configure to create
-A Pachyderm repository is the first entity that you configure when you want to add data to Pachyderm
-`pachctl create repo` command or by using the Pachyderm UI. After
-creating the repository, you can add your data by using the
-`pachctl put file` command.
+A Pachyderm repository is the first entity that you configure when you want
+to add data to Pachyderm. You can create a repository with the `pachctl create repo`
+command, or by using the Pachyderm UI. After creating the repository, you can
+add your data by using the `pachctl put file` command.
 
 The following types of repositories exist in Pachyderm:
 
