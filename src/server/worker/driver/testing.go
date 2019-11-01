@@ -89,13 +89,21 @@ func (md *MockDriver) Merges(jobID string) col.Collection {
 	return col.NewCollection(md.etcdClient, path.Join(md.options.EtcdPrefix, mergePrefix, jobID), nil, &common.MergeState{}, nil, nil)
 }
 
+// InputDir returns the path used to hold the input filesets.  Inherit and
+// shadow this if you want to actually load data somewhere (make sure that
+// this is unique so that tests don't collide).
+func (md *MockDriver) InputDir() string {
+	return "/pfs"
+}
+
 // GetExpectedNumWorkers returns the configured number of workers
 func (md *MockDriver) GetExpectedNumWorkers() (int, error) {
 	return md.options.NumWorkers, nil
 }
 
 // WithData doesn't do anything except call the given callback.  Inherit and
-// shadow this if you actually want to load some data onto the filesystem
+// shadow this if you actually want to load some data onto the filesystem.
+// Make sure to implement this in terms of the `InputDir` method.
 func (md *MockDriver) WithData(
 	ctx context.Context,
 	data []*common.Input,
@@ -148,4 +156,20 @@ func (md *MockDriver) ReportUploadStats(time.Time, *pps.ProcessStats, logs.Tagge
 // client.
 func (md *MockDriver) NewSTM(ctx context.Context, cb func(col.STM) error) (*etcd.TxnResponse, error) {
 	return col.NewSTM(ctx, md.etcdClient, cb)
+}
+
+// MockKubeWrapper is an alternate implementation of the KubeWrapper interface
+// for use with tests.
+type MockKubeWrapper struct{}
+
+// NewMockKubeWrapper constructs a MockKubeWrapper for use with testing drivers
+// without a kubeClient dependency.
+func NewMockKubeWrapper() KubeWrapper {
+	return &MockKubeWrapper{}
+}
+
+// GetExpectedNumWorkers returns the number of workers the pipeline should be using.
+// Inherit and shadow this if you want anything other than 1.
+func (mkw *MockKubeWrapper) GetExpectedNumWorkers(*pps.ParallelismSpec) (int, error) {
+	return 1, nil
 }

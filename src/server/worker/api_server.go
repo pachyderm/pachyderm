@@ -72,7 +72,6 @@ var (
 // APIServer implements the worker API
 type APIServer struct {
 	pachClient *client.APIClient
-	kubeClient *kube.Clientset
 	etcdClient *etcd.Client
 	etcdPrefix string
 
@@ -155,7 +154,6 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 
 	server := &APIServer{
 		pachClient:      oldPachClient,
-		kubeClient:      kubeClient,
 		etcdClient:      etcdClient,
 		etcdPrefix:      etcdPrefix,
 		driver:          driver,

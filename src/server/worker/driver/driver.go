@@ -24,7 +24,6 @@ import (
 	"gopkg.in/go-playground/webhooks.v5/github"
 	"gopkg.in/src-d/go-git.v4"
 	gitPlumbing "gopkg.in/src-d/go-git.v4/plumbing"
-	kube "k8s.io/client-go/kubernetes"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
@@ -65,6 +64,10 @@ type Driver interface {
 	Chunks(jobID string) col.Collection
 	Merges(jobID string) col.Collection
 
+	// Returns the path that will contain the input filesets for the job
+	InputDir() string
+
+	// Returns the number of workers to be used based on what can be determined from kubernetes
 	GetExpectedNumWorkers() (int, error)
 
 	// WithCtx clones the current driver and applies the context to its pachClient
@@ -96,7 +99,7 @@ type Driver interface {
 type driver struct {
 	pipelineInfo *pps.PipelineInfo
 	pachClient   *client.APIClient
-	kubeClient   *kube.Clientset
+	kubeWrapper  KubeWrapper
 	etcdClient   *etcd.Client
 	etcdPrefix   string
 
@@ -128,14 +131,14 @@ type driver struct {
 func NewDriver(
 	pipelineInfo *pps.PipelineInfo,
 	pachClient *client.APIClient,
-	kubeClient *kube.Clientset,
+	kubeWrapper KubeWrapper,
 	etcdClient *etcd.Client,
 	etcdPrefix string,
 ) (Driver, error) {
 	result := &driver{
 		pipelineInfo: pipelineInfo,
 		pachClient:   pachClient,
-		kubeClient:   kubeClient,
+		kubeWrapper:  kubeWrapper,
 		etcdClient:   etcdClient,
 		etcdPrefix:   etcdPrefix,
 		jobs:         ppsdb.Jobs(etcdClient, etcdPrefix),
@@ -285,7 +288,7 @@ func (d *driver) Merges(jobID string) col.Collection {
 }
 
 func (d *driver) GetExpectedNumWorkers() (int, error) {
-	return ppsutil.GetExpectedNumWorkers(d.kubeClient, d.pipelineInfo.ParallelismSpec)
+	return d.kubeWrapper.GetExpectedNumWorkers(d.pipelineInfo.ParallelismSpec)
 }
 
 func (d *driver) InputDir() string {
@@ -399,9 +402,12 @@ func (d *driver) downloadData(
 		if err := os.MkdirAll(filepath.Dir(outPath), 0700); err != nil {
 			return "", fmt.Errorf("mkdirall :%v", err)
 		}
-		if err := syscall.Mkfifo(outPath, 0666); err != nil {
-			return "", fmt.Errorf("mkfifo :%v", err)
-		}
+		// TODO: this doesn't build on windows
+		/*
+			if err := syscall.Mkfifo(outPath, 0666); err != nil {
+				return "", fmt.Errorf("mkfifo :%v", err)
+			}
+		*/
 	} else {
 		if err := os.MkdirAll(outPath, 0777); err != nil {
 			return "", err
@@ -529,14 +535,17 @@ func (d *driver) RunUserCode(ctx context.Context, logger logs.TaggedLogger, envi
 	cmd.Stdout = logger.WithUserCode()
 	cmd.Stderr = logger.WithUserCode()
 	cmd.Env = environ
-	if d.uid != nil && d.gid != nil {
-		cmd.SysProcAttr = &syscall.SysProcAttr{
-			Credential: &syscall.Credential{
-				Uid: *d.uid,
-				Gid: *d.gid,
-			},
+	// TODO: this doesn't work on windows
+	/*
+		if d.uid != nil && d.gid != nil {
+			cmd.SysProcAttr = &syscall.SysProcAttr{
+				Credential: &syscall.Credential{
+					Uid: *d.uid,
+					Gid: *d.gid,
+				},
+			}
 		}
-	}
+	*/
 	cmd.Dir = d.pipelineInfo.Transform.WorkingDir
 	err := cmd.Start()
 	if err != nil {
@@ -598,14 +607,17 @@ func (d *driver) RunUserErrorHandlingCode(ctx context.Context, logger logs.Tagge
 	cmd.Stdout = logger.WithUserCode()
 	cmd.Stderr = logger.WithUserCode()
 	cmd.Env = environ
-	if d.uid != nil && d.gid != nil {
-		cmd.SysProcAttr = &syscall.SysProcAttr{
-			Credential: &syscall.Credential{
-				Uid: *d.uid,
-				Gid: *d.gid,
-			},
+	// TODO: this doesn't work on windows
+	/*
+		if d.uid != nil && d.gid != nil {
+			cmd.SysProcAttr = &syscall.SysProcAttr{
+				Credential: &syscall.Credential{
+					Uid: *d.uid,
+					Gid: *d.gid,
+				},
+			}
 		}
-	}
+	*/
 	cmd.Dir = d.pipelineInfo.Transform.WorkingDir
 	err := cmd.Start()
 	if err != nil {
