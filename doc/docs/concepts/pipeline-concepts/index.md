@@ -23,17 +23,3 @@ pipelines have the following main concepts:
 :   A datum is the smallest indivisible unit of work within
     a job. Different datums can be processed in parallel
     within a job.
-
-**Service**
-:   A service is a special type of pipeline that
-    instead of executing jobs and then waiting, permanently runs
-    a serving data through an endpoint. For example, you can be
-    serving an ML model or a REST API that can be queried. A
-    service reads data from Pachyderm but does not have an
-    output repo.
-
-**Spout**
-:   A spout is a special type of pipeline for ingesting data
-    from a data stream. A spout can subscribe to a message
-    stream, such as Kafka or Amazon SQS, and ingest data when
-    it receives a message. A spout does not have an input repo.

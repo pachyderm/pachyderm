@@ -9,16 +9,16 @@ By analogy, a Pachyderm join is similar to a database *equi-join*,
 or *inner join* operation, but it matches on file paths
 only, not the contents of the files.
 
-Unlike the [cross input](../datum/cross-union.md), which creates datums from every
-combination of files in each input repository, joins only create datums
-where there is a *match*. You can use joins to combine data from different
-Pachyderm repositories and ensure that only specific files from each repo
-are processed together.
+Unlike the [cross input](../datum/cross-union.md), which creates datums
+from every combination of files in each input repository, joins only create
+datums where there is a *match*. You can use joins to combine data from
+different Pachyderm repositories and ensure that only specific files from
+each repo are processed together.
 
 When you configure a join input, you must specify a glob pattern that
 includes a capture group. The capture group defines the specific string in
-the file path that is used to match files in the other joined repos.
-Capture groups work analagously to the [regex capture group](https://www.regular-expressions.info/refcapture.html).
+the file path that is used to match files in other joined repos.
+Capture groups work analogously to the [regex capture group](https://www.regular-expressions.info/refcapture.html).
 You define the capture group inside parenthesis. Capture groups are numbered
 from left to right and can also be nested within each other. Numbering for
 nested capture groups is based on their opening parenthesis.
@@ -42,12 +42,12 @@ following capture groups:
 
 
 Also, joins require you to specify a [replacement group](https://www.regular-expressions.info/replacebackref.html)
-in the  a `join_on` parameter to define which capture groups you want to try
+in the `join_on` parameter to define which capture groups you want to try
 to match.
 
 For example, `$1` indicates that you want Pachyderm to match based on
-capture group 1. Similarly, `$2` matches the capture group 2.
-`$1$2` means that it must match both capture groups 1 and 2.
+capture group `1`. Similarly, `$2` matches the capture group `2`.
+`$1$2` means that it must match both capture groups `1` and `2`.
 
 If Pachyderm does not find any matching files, you get a zero-datum job.
 
@@ -85,7 +85,8 @@ structures:
    ├── file8.txt
    ```
 
-Pachyderm runs your code on only the pairs of files that match the glob pattern and capture groups.
+Pachyderm runs your code only on the pairs of files that match
+the glob pattern and capture groups.
 
 The following example shows how you can use joins to group
 matching IDs:
@@ -122,10 +123,12 @@ matching IDs:
  }
 ```
 
-The glob pattern for the `readings` repository, `/*/(*)`, indicates all
+The glob pattern for the `readings` repository, `/*/(*).txt`, indicates all
 matching files in the `ID` sub-directory. In the `parameters` repository,
-the glob pattern `/(*)` selects all the matching files in the root directory.
+the glob pattern `/(*).txt` selects all the matching files in the root
+directory.
 All files with indices from `1` to `5` match. The files
-with indices from `6` to `8` do not match. Therefore, you only get five datums for this job.
+with indices from `6` to `8` do not match. Therefore, you only get five
+datums for this job.
 
 To experiment further, see the full [joins example](https://github.com/pachyderm/pachyderm/tree/master/examples/joins).

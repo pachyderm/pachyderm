@@ -25,7 +25,7 @@ along the way. If the final decision does not satisfy the applicant,
 the historical data is the first place to look for proof of authenticity,
 as well as for possible prejudice or model bias against the applicant.
 Data provenance creates a complete audit trail that enables data scientists
-to track the data from its origin through to the final decision and make
+to track the data from its origin to the final decision and make
 appropriate changes that address issues. With the adoption of General Data
 Protection Regulation (GDPR) compliance requirements, monitoring data lineage
 is becoming a necessity for many organizations that work with sensitive data.
@@ -33,8 +33,7 @@ is becoming a necessity for many organizations that work with sensitive data.
 Pachyderm implements provenance for both commits and repositories.
 You can track revisions of the data and
 understand the connection between the data stored in one repository
-and the results in the other
-repository.
+and the results in the other repository.
 
 Collaboration takes data provenance even further. Provenance enables teams
 of data scientists across the globe to build on each other work, share,
@@ -48,8 +47,8 @@ The following diagram demonstrates how provenance works:
 In the diagram above, you can see two input repositories called `parameters`
 and `training-data`. The `training-data` repository continuously collects
 data from an outside source. The training model pipeline combines the
-data from these two repositories, trains many models, and runs tests to select the best
-one.
+data from these two repositories, trains many models, and runs tests to
+select the best one.
 
 Provenance helps you to understand how and why the best model was
 selected and enables you to track the origin of the best model.
@@ -88,7 +87,8 @@ a certain input has resulted.
 
 For example, you have the `ccf82debb4b94ca3bfe165aca8d517c3` commit in
 the `raw_data` repository. If you run the `pachctl flush commit` command
-for this commit.
+for this commit, you can see in which repositories and commits that data
+resulted.
 
 !!! example
     ```bash

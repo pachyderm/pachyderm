@@ -20,7 +20,7 @@ The following abstractions store the history of your data:
 * **Branches**
 
   Branches are pointers to commits that are similar to Git branches. Typically,
-  Branches have semantically meaningful names such as `master` and `staging`.
+  branches have semantically meaningful names such as `master` and `staging`.
   Branches are mutable, and they move along a growing chain of commits as you
   commit to the branch, and can even be reassigned to any commit within the
   repo by using the `pachctl create branch` command. The commit that a
@@ -41,11 +41,11 @@ to the parent of the head commit. You can add multiple `^`s. For example,
 `master`, and so on. Similarly, `master^3` has the same meaning as
 `master^^^`.
 
-Git supports two characters for ancestor references—`^` and `~`— with
+Git supports two characters for ancestor references —`^` and `~`— with
 slightly different meanings. Pachyderm supports both characters as well,
 but their meaning is identical.
 
-Also, Pachyderm also supports a type of ancestor reference that Git does not—
+Also, Pachyderm supports a type of ancestor reference that Git does not—
 forward references, these use a different special character `.` and
 resolve to commits on the beginning of commit chains. For example,
 `master.1` is the first (oldest) commit on the `master` branch, `master.2`
@@ -114,7 +114,8 @@ Pipeline1 2       input1:/* 4 hours ago running / success
 Pipeline1 1       input1:/* 4 hours ago running / success
 ```
 
-A common operation with pipelines is reverting a pipeline to a previous.
+A common operation with pipelines is reverting a pipeline to a previous
+version.
 To revert a pipeline to a previous version, run the following command:
 
 ```bash
@@ -132,7 +133,7 @@ for the latest version of the pipeline. To view a previous version
 of a pipeline you can add the caret symbol to the end of the
 pipeline name. For example `-p edges^`.
 
-Furthermore you can get jobs from multiple versions of
+Furthermore, you can get jobs from multiple versions of
 pipelines by passing the `--history` flag. For example,
 `pachctl list job  --history all` returns all jobs from all
 versions of all pipelines.
@@ -150,5 +151,3 @@ To view job history, run the following command:
   ```bash
   $ pachctl list job --history all
   ```
-
-

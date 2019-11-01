@@ -22,12 +22,12 @@ add your data by using the `pachctl put file` command.
 The following types of repositories exist in Pachyderm:
 
 Input repositories
- Users or external applications outside of Pachyderm can add data to
- the input repositories for further processing.
+:   Users or external applications outside of Pachyderm can add data to
+    the input repositories for further processing.
 
 Output repositories
- Pachyderm automatically creates output repositories
- pipelines write results of computations into these repositories.
+:   Pachyderm automatically creates output repositories
+    pipelines write results of computations into these repositories.
 
 You can view the list of repositories in your Pachyderm cluster
 by running the `pachctl list repo` command.
