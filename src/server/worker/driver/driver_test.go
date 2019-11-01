@@ -3,6 +3,7 @@ package driver
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
 	"reflect"
@@ -10,6 +11,7 @@ import (
 	"testing"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	embed "github.com/coreos/etcd/embed"
 	"github.com/prometheus/client_golang/prometheus"
 	prometheus_proto "github.com/prometheus/client_model/go"
 
@@ -46,19 +48,18 @@ func getEtcdClient(t *testing.T) *etcd.Client {
 }
 
 var pachClient *client.APIClient
+var pachClientError error
 var getPachClientOnce sync.Once
 
-func getPachClient(t testing.TB) *client.APIClient {
+func getPachClient() (*client.APIClient, error) {
 	getPachClientOnce.Do(func() {
-		var err error
 		if addr := os.Getenv("PACHD_PORT_650_TCP_ADDR"); addr != "" {
-			pachClient, err = client.NewInCluster()
+			pachClient, pachClientError = client.NewInCluster()
 		} else {
-			pachClient, err = client.NewForTest()
+			pachClient, pachClientError = client.NewForTest()
 		}
-		require.NoError(t, err)
 	})
-	return pachClient
+	return pachClient, pachClientError
 }
 
 var inputRepo = "inputRepo"
@@ -77,12 +78,76 @@ var testPipelineInfo = &pps.PipelineInfo{
 	Input: client.NewPFSInput(inputRepo, "/*"),
 }
 
-func newTestDriver(t *testing.T) *driver {
-	d, err := NewDriver(testPipelineInfo, getPachClient(t), tu.GetKubeClient(t), getEtcdClient(t), tu.UniqueString("driverTest"))
-	require.NoError(t, err)
-	return d.(*driver)
+type testEnv struct {
+	etcd       *embed.Etcd
+	etcdClient *etcd.Client
+	driver     *driver
 }
 
+func newTestEnv(t *testing.T) *testEnv {
+	var err error
+
+	tempDirBase := path.Join(os.TempDir(), "pachyderm_test")
+	require.NoError(t, os.MkdirAll(tempDirBase, 0700))
+
+	etcdConfig := embed.NewConfig()
+
+	// Create test dirs for etcd data
+	etcdConfig.Dir, err = ioutil.TempDir(tempDirBase, "driver_test_etcd_data")
+	require.NoError(t, err)
+	etcdConfig.WalDir, err = ioutil.TempDir(tempDirBase, "driver_test_etcd_wal")
+	require.NoError(t, err)
+
+	etcdServer, err := embed.StartEtcd(etcdConfig)
+	require.NoError(t, err)
+
+	clientUrls := []string{}
+	for _, url := range etcdConfig.LCUrls {
+		clientUrls = append(clientUrls, url.String())
+	}
+
+	etcdClient, err := etcd.New(etcd.Config{
+		Endpoints:   clientUrls,
+		DialOptions: client.DefaultDialOptions(),
+	})
+	if err != nil {
+		fmt.Printf("Closing etcd server\n")
+		etcdServer.Close()
+		require.NoError(t, err)
+	}
+
+	pachClient, err := getPachClient()
+	if err != nil {
+		fmt.Printf("Closing etcd client and server\n")
+		etcdClient.Close()
+		etcdServer.Close()
+		require.NoError(t, err)
+	}
+
+	d, err := NewDriver(testPipelineInfo, pachClient, NewMockKubeWrapper(), etcdClient, tu.UniqueString("driverTest"))
+	if err != nil {
+		fmt.Printf("Closing etcd/pach client and server\n")
+		pachClient.Close()
+		etcdClient.Close()
+		etcdServer.Close()
+		require.NoError(t, err)
+	}
+
+	return &testEnv{
+		etcd:       etcdServer,
+		etcdClient: etcdClient,
+		driver:     d.(*driver),
+	}
+}
+
+func (env *testEnv) Close(t *testing.T) {
+	fmt.Printf("Closing testEnv\n")
+	env.etcdClient.Close()
+	env.etcd.Close()
+}
+
+// TODO: this test should be performed in the ppsutil package
+/*
 func TestGetExpectedNumWorkers(t *testing.T) {
 	d := newTestDriver(t)
 
@@ -117,6 +182,7 @@ func TestGetExpectedNumWorkers(t *testing.T) {
 
 	// TODO: test a non-zero coefficient - requires setting up a number of nodes with the kubeClient
 }
+*/
 
 func requireLogs(t *testing.T, pattern string, cb func(logs.TaggedLogger)) {
 	logger := logs.NewMockLogger()
@@ -189,8 +255,10 @@ func requireHistogram(t *testing.T, histogram *prometheus.HistogramVec, labels [
 }
 
 func TestUpdateCounter(t *testing.T) {
-	d := newTestDriver(t)
-	d.pipelineInfo.ID = "foo"
+	env := newTestEnv(t)
+	defer env.Close(t)
+
+	env.driver.pipelineInfo.ID = "foo"
 
 	counterVec := prometheus.NewCounterVec(
 		prometheus.CounterOpts{Namespace: "test", Subsystem: "driver", Name: "counter"},
@@ -204,14 +272,14 @@ func TestUpdateCounter(t *testing.T) {
 
 	// Passing a state to the stateless counter should error
 	requireLogs(t, "expected 2 label values but got 3", func(logger logs.TaggedLogger) {
-		d.updateCounter(counterVec, logger, "bar", func(c prometheus.Counter) {
+		env.driver.updateCounter(counterVec, logger, "bar", func(c prometheus.Counter) {
 			require.True(t, false, "should have errored")
 		})
 	})
 
 	// updateCounter should pass a valid counter with the selected tags
 	requireLogs(t, "", func(logger logs.TaggedLogger) {
-		d.updateCounter(counterVec, logger, "", func(c prometheus.Counter) {
+		env.driver.updateCounter(counterVec, logger, "", func(c prometheus.Counter) {
 			c.Add(1)
 		})
 	})
@@ -221,14 +289,14 @@ func TestUpdateCounter(t *testing.T) {
 
 	// Not passing a state to the stateful counter should error
 	requireLogs(t, "expected 3 label values but got 2", func(logger logs.TaggedLogger) {
-		d.updateCounter(counterVecWithState, logger, "", func(c prometheus.Counter) {
+		env.driver.updateCounter(counterVecWithState, logger, "", func(c prometheus.Counter) {
 			require.True(t, false, "should have errored")
 		})
 	})
 
 	// updateCounter should pass a valid counter with the selected tags
 	requireLogs(t, "", func(logger logs.TaggedLogger) {
-		d.updateCounter(counterVecWithState, logger, "bar", func(c prometheus.Counter) {
+		env.driver.updateCounter(counterVecWithState, logger, "bar", func(c prometheus.Counter) {
 			c.Add(1)
 		})
 	})
@@ -238,8 +306,10 @@ func TestUpdateCounter(t *testing.T) {
 }
 
 func TestUpdateHistogram(t *testing.T) {
-	d := newTestDriver(t)
-	d.pipelineInfo.ID = "foo"
+	env := newTestEnv(t)
+	defer env.Close(t)
+
+	env.driver.pipelineInfo.ID = "foo"
 
 	histogramVec := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
@@ -259,13 +329,13 @@ func TestUpdateHistogram(t *testing.T) {
 
 	// Passing a state to the stateless histogram should error
 	requireLogs(t, "expected 2 label values but got 3", func(logger logs.TaggedLogger) {
-		d.updateHistogram(histogramVec, logger, "bar", func(h prometheus.Observer) {
+		env.driver.updateHistogram(histogramVec, logger, "bar", func(h prometheus.Observer) {
 			require.True(t, false, "should have errored")
 		})
 	})
 
 	requireLogs(t, "", func(logger logs.TaggedLogger) {
-		d.updateHistogram(histogramVec, logger, "", func(h prometheus.Observer) {
+		env.driver.updateHistogram(histogramVec, logger, "", func(h prometheus.Observer) {
 		})
 	})
 
@@ -274,13 +344,13 @@ func TestUpdateHistogram(t *testing.T) {
 
 	// Not passing a state to the stateful histogram should error
 	requireLogs(t, "expected 3 label values but got 2", func(logger logs.TaggedLogger) {
-		d.updateHistogram(histogramVecWithState, logger, "", func(h prometheus.Observer) {
+		env.driver.updateHistogram(histogramVecWithState, logger, "", func(h prometheus.Observer) {
 			require.True(t, false, "should have errored")
 		})
 	})
 
 	requireLogs(t, "", func(logger logs.TaggedLogger) {
-		d.updateHistogram(histogramVecWithState, logger, "bar", func(h prometheus.Observer) {
+		env.driver.updateHistogram(histogramVecWithState, logger, "bar", func(h prometheus.Observer) {
 		})
 	})
 
