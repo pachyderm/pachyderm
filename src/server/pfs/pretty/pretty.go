@@ -88,6 +88,23 @@ func PrintBranch(w io.Writer, branchInfo *pfs.BranchInfo) {
 	}
 }
 
+// PrintDetailedBranchInfo pretty-prints detailed branch info.
+func PrintDetailedBranchInfo(branchInfo *pfs.BranchInfo) error {
+	template, err := template.New("BranchInfo").Funcs(funcMap).Parse(
+		`Name: {{.Branch.Repo.Name}}@{{.Branch.Name}}{{if .Head}}
+Head Commit: {{ .Head.Repo.Name}}@{{.Head.ID}} {{end}}{{if .Provenance}}
+Provenance: {{range .Provenance}} {{.Repo.Name}}@{{.Name}} {{end}} {{end}}
+`)
+	if err != nil {
+		return err
+	}
+	err = template.Execute(os.Stdout, branchInfo)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // PrintCommitInfo pretty-prints commit info.
 func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Repo.Name)
