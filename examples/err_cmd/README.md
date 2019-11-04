@@ -2,7 +2,9 @@
 
 This example describes how you can use the `err_cmd` and `err_stdin` fields
 in your pipeline to fail a datum without failing the job and the whole
-pipeline.
+pipeline. This feature is useful when you have large datasets and multiple
+datums, and you do not need to have them all processed successfully to
+move to the next step in your DAG.
 
 For more information about the `err_cmd` command, see [](../../docs/err_cmd.md)
 
