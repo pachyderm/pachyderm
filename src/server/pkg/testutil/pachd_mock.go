@@ -20,98 +20,313 @@ import (
 	"google.golang.org/grpc"
 )
 
-type mockAdminServer struct{}
+/* Admin Server Mocks */
 
-func (mock *mockAdminServer) Extract(*admin.ExtractRequest, admin.API_ExtractServer) error {
+type extractFunc func(*admin.ExtractRequest, admin.API_ExtractServer) error
+type extractPipelineFunc func(context.Context, *admin.ExtractPipelineRequest) (*admin.Op, error)
+type restoreFunc func(admin.API_RestoreServer) error
+type inspectClusterFunc func(context.Context, *types.Empty) (*admin.ClusterInfo, error)
+
+type mockExtract struct{ handler extractFunc }
+type mockExtractPipeline struct{ handler extractPipelineFunc }
+type mockRestore struct{ handler restoreFunc }
+type mockInspectCluster struct{ handler inspectClusterFunc }
+
+func (mock *mockExtract) Use(cb extractFunc)                 { mock.handler = cb }
+func (mock *mockExtractPipeline) Use(cb extractPipelineFunc) { mock.handler = cb }
+func (mock *mockRestore) Use(cb restoreFunc)                 { mock.handler = cb }
+func (mock *mockInspectCluster) Use(cb inspectClusterFunc)   { mock.handler = cb }
+
+type mockAdminServer struct {
+	MockExtract         mockExtract
+	MockExtractPipeline mockExtractPipeline
+	MockRestore         mockRestore
+	MockInspectCluster  mockInspectCluster
+}
+
+func (mock *mockAdminServer) Extract(req *admin.ExtractRequest, serv admin.API_ExtractServer) error {
+	if mock.MockExtract.handler != nil {
+		return mock.MockExtract.handler(req, serv)
+	}
 	return fmt.Errorf("Mock")
 }
-func (mock *mockAdminServer) ExtractPipeline(context.Context, *admin.ExtractPipelineRequest) (*admin.Op, error) {
+func (mock *mockAdminServer) ExtractPipeline(ctx context.Context, req *admin.ExtractPipelineRequest) (*admin.Op, error) {
+	if mock.MockExtractPipeline.handler != nil {
+		return mock.MockExtractPipeline.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockAdminServer) Restore(admin.API_RestoreServer) error {
+func (mock *mockAdminServer) Restore(serv admin.API_RestoreServer) error {
+	if mock.MockRestore.handler != nil {
+		return mock.MockRestore.handler(serv)
+	}
 	return fmt.Errorf("Mock")
 }
-func (mock *mockAdminServer) InspectCluster(context.Context, *types.Empty) (*admin.ClusterInfo, error) {
+func (mock *mockAdminServer) InspectCluster(ctx context.Context, req *types.Empty) (*admin.ClusterInfo, error) {
+	if mock.MockInspectCluster.handler != nil {
+		return mock.MockInspectCluster.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
 
-type mockAuthServer struct{}
+/* Auth Server Mocks */
 
-func (mock *mockAuthServer) Activate(context.Context, *auth.ActivateRequest) (*auth.ActivateResponse, error) {
+type activateAuthFunc func(context.Context, *auth.ActivateRequest) (*auth.ActivateResponse, error)
+type deactivateAuthFunc func(context.Context, *auth.DeactivateRequest) (*auth.DeactivateResponse, error)
+type getConfigurationFunc func(context.Context, *auth.GetConfigurationRequest) (*auth.GetConfigurationResponse, error)
+type setConfigurationFunc func(context.Context, *auth.SetConfigurationRequest) (*auth.SetConfigurationResponse, error)
+type getAdminsFunc func(context.Context, *auth.GetAdminsRequest) (*auth.GetAdminsResponse, error)
+type modifyAdminsFunc func(context.Context, *auth.ModifyAdminsRequest) (*auth.ModifyAdminsResponse, error)
+type authenticateFunc func(context.Context, *auth.AuthenticateRequest) (*auth.AuthenticateResponse, error)
+type authorizeFunc func(context.Context, *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error)
+type whoAmIFunc func(context.Context, *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error)
+type getScopeFunc func(context.Context, *auth.GetScopeRequest) (*auth.GetScopeResponse, error)
+type setScopeFunc func(context.Context, *auth.SetScopeRequest) (*auth.SetScopeResponse, error)
+type getACLFunc func(context.Context, *auth.GetACLRequest) (*auth.GetACLResponse, error)
+type setACLFunc func(context.Context, *auth.SetACLRequest) (*auth.SetACLResponse, error)
+type getAuthTokenFunc func(context.Context, *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error)
+type extendAuthTokenFunc func(context.Context, *auth.ExtendAuthTokenRequest) (*auth.ExtendAuthTokenResponse, error)
+type revokeAuthTokenFunc func(context.Context, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error)
+type setGroupsForUserFunc func(context.Context, *auth.SetGroupsForUserRequest) (*auth.SetGroupsForUserResponse, error)
+type modifyMembersFunc func(context.Context, *auth.ModifyMembersRequest) (*auth.ModifyMembersResponse, error)
+type getGroupsFunc func(context.Context, *auth.GetGroupsRequest) (*auth.GetGroupsResponse, error)
+type getUsersFunc func(context.Context, *auth.GetUsersRequest) (*auth.GetUsersResponse, error)
+type getOneTimePasswordFunc func(context.Context, *auth.GetOneTimePasswordRequest) (*auth.GetOneTimePasswordResponse, error)
+
+type mockActivateAuth struct{ handler activateAuthFunc }
+type mockDeactivateAuth struct{ handler deactivateAuthFunc }
+type mockGetConfiguration struct{ handler getConfigurationFunc }
+type mockSetConfiguration struct{ handler setConfigurationFunc }
+type mockGetAdmins struct{ handler getAdminsFunc }
+type mockModifyAdmins struct{ handler modifyAdminsFunc }
+type mockAuthenticate struct{ handler authenticateFunc }
+type mockAuthorize struct{ handler authorizeFunc }
+type mockWhoAmI struct{ handler whoAmIFunc }
+type mockGetScope struct{ handler getScopeFunc }
+type mockSetScope struct{ handler setScopeFunc }
+type mockGetACL struct{ handler getACLFunc }
+type mockSetACL struct{ handler setACLFunc }
+type mockGetAuthToken struct{ handler getAuthTokenFunc }
+type mockExtendAuthToken struct{ handler extendAuthTokenFunc }
+type mockRevokeAuthToken struct{ handler revokeAuthTokenFunc }
+type mockSetGroupsForUser struct{ handler setGroupsForUserFunc }
+type mockModifyMembers struct{ handler modifyMembersFunc }
+type mockGetGroups struct{ handler getGroupsFunc }
+type mockGetUsers struct{ handler getUsersFunc }
+type mockGetOneTimePassword struct{ handler getOneTimePasswordFunc }
+
+func (mock *mockActivateAuth) Use(cb activateAuthFunc)             { mock.handler = cb }
+func (mock *mockDeactivateAuth) Use(cb deactivateAuthFunc)         { mock.handler = cb }
+func (mock *mockGetConfiguration) Use(cb getConfigurationFunc)     { mock.handler = cb }
+func (mock *mockSetConfiguration) Use(cb setConfigurationFunc)     { mock.handler = cb }
+func (mock *mockGetAdmins) Use(cb getAdminsFunc)                   { mock.handler = cb }
+func (mock *mockModifyAdmins) Use(cb modifyAdminsFunc)             { mock.handler = cb }
+func (mock *mockAuthenticate) Use(cb authenticateFunc)             { mock.handler = cb }
+func (mock *mockAuthorize) Use(cb authorizeFunc)                   { mock.handler = cb }
+func (mock *mockWhoAmI) Use(cb whoAmIFunc)                         { mock.handler = cb }
+func (mock *mockGetScope) Use(cb getScopeFunc)                     { mock.handler = cb }
+func (mock *mockSetScope) Use(cb setScopeFunc)                     { mock.handler = cb }
+func (mock *mockGetACL) Use(cb getACLFunc)                         { mock.handler = cb }
+func (mock *mockSetACL) Use(cb setACLFunc)                         { mock.handler = cb }
+func (mock *mockGetAuthToken) Use(cb getAuthTokenFunc)             { mock.handler = cb }
+func (mock *mockExtendAuthToken) Use(cb extendAuthTokenFunc)       { mock.handler = cb }
+func (mock *mockSetGroupsForUser) Use(cb setGroupsForUserFunc)     { mock.handler = cb }
+func (mock *mockModifyMembers) Use(cb modifyMembersFunc)           { mock.handler = cb }
+func (mock *mockGetGroups) Use(cb getGroupsFunc)                   { mock.handler = cb }
+func (mock *mockGetUsers) Use(cb getUsersFunc)                     { mock.handler = cb }
+func (mock *mockGetOneTimePassword) Use(cb getOneTimePasswordFunc) { mock.handler = cb }
+
+type mockAuthServer struct {
+	MockActivate           mockActivateAuth
+	MockDeactivate         mockDeactivateAuth
+	MockGetConfiguration   mockGetConfiguration
+	MockSetConfiguration   mockSetConfiguration
+	MockGetAdmins          mockGetAdmins
+	MockModifyAdmins       mockModifyAdmins
+	MockAuthenticate       mockAuthenticate
+	MockAuthorize          mockAuthorize
+	MockWhoAmI             mockWhoAmI
+	MockGetScope           mockGetScope
+	MockSetScope           mockSetScope
+	MockGetACL             mockGetACL
+	MockSetACL             mockSetACL
+	MockGetAuthToken       mockGetAuthToken
+	MockExtendAuthToken    mockExtendAuthToken
+	MockRevokeAuthToken    mockRevokeAuthToken
+	MockSetGroupsForUser   mockSetGroupsForUser
+	MockModifyMembers      mockModifyMembers
+	MockGetGroups          mockGetGroups
+	MockGetUsers           mockGetUsers
+	MockGetOneTimePassword mockGetOneTimePassword
+}
+
+func (mock *mockAuthServer) Activate(ctx context.Context, req *auth.ActivateRequest) (*auth.ActivateResponse, error) {
+	if mock.MockActivate.handler != nil {
+		return mock.MockActivate.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockAuthServer) Deactivate(context.Context, *auth.DeactivateRequest) (*auth.DeactivateResponse, error) {
+func (mock *mockAuthServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest) (*auth.DeactivateResponse, error) {
+	if mock.MockDeactivate.handler != nil {
+		return mock.MockDeactivate.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockAuthServer) GetConfiguration(context.Context, *auth.GetConfigurationRequest) (*auth.GetConfigurationResponse, error) {
+func (mock *mockAuthServer) GetConfiguration(ctx context.Context, req *auth.GetConfigurationRequest) (*auth.GetConfigurationResponse, error) {
+	if mock.MockGetConfiguration.handler != nil {
+		return mock.MockGetConfiguration.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockAuthServer) SetConfiguration(context.Context, *auth.SetConfigurationRequest) (*auth.SetConfigurationResponse, error) {
+func (mock *mockAuthServer) SetConfiguration(ctx context.Context, req *auth.SetConfigurationRequest) (*auth.SetConfigurationResponse, error) {
+	if mock.MockSetConfiguration.handler != nil {
+		return mock.MockSetConfiguration.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockAuthServer) GetAdmins(context.Context, *auth.GetAdminsRequest) (*auth.GetAdminsResponse, error) {
+func (mock *mockAuthServer) GetAdmins(ctx context.Context, req *auth.GetAdminsRequest) (*auth.GetAdminsResponse, error) {
+	if mock.MockGetAdmins.handler != nil {
+		return mock.MockGetAdmins.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockAuthServer) ModifyAdmins(context.Context, *auth.ModifyAdminsRequest) (*auth.ModifyAdminsResponse, error) {
+func (mock *mockAuthServer) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequest) (*auth.ModifyAdminsResponse, error) {
+	if mock.MockModifyAdmins.handler != nil {
+		return mock.MockModifyAdmins.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockAuthServer) Authenticate(context.Context, *auth.AuthenticateRequest) (*auth.AuthenticateResponse, error) {
+func (mock *mockAuthServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequest) (*auth.AuthenticateResponse, error) {
+	if mock.MockAuthenticate.handler != nil {
+		return mock.MockAuthenticate.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockAuthServer) Authorize(context.Context, *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error) {
+func (mock *mockAuthServer) Authorize(ctx context.Context, req *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error) {
+	if mock.MockAuthorize.handler != nil {
+		return mock.MockAuthorize.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockAuthServer) WhoAmI(context.Context, *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error) {
+func (mock *mockAuthServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error) {
+	if mock.MockWhoAmI.handler != nil {
+		return mock.MockWhoAmI.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockAuthServer) GetScope(context.Context, *auth.GetScopeRequest) (*auth.GetScopeResponse, error) {
+func (mock *mockAuthServer) GetScope(ctx context.Context, req *auth.GetScopeRequest) (*auth.GetScopeResponse, error) {
+	if mock.MockGetScope.handler != nil {
+		return mock.MockGetScope.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockAuthServer) SetScope(context.Context, *auth.SetScopeRequest) (*auth.SetScopeResponse, error) {
+func (mock *mockAuthServer) SetScope(ctx context.Context, req *auth.SetScopeRequest) (*auth.SetScopeResponse, error) {
+	if mock.MockSetScope.handler != nil {
+		return mock.MockSetScope.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockAuthServer) GetACL(context.Context, *auth.GetACLRequest) (*auth.GetACLResponse, error) {
+func (mock *mockAuthServer) GetACL(ctx context.Context, req *auth.GetACLRequest) (*auth.GetACLResponse, error) {
+	if mock.MockGetACL.handler != nil {
+		return mock.MockGetACL.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockAuthServer) SetACL(context.Context, *auth.SetACLRequest) (*auth.SetACLResponse, error) {
+func (mock *mockAuthServer) SetACL(ctx context.Context, req *auth.SetACLRequest) (*auth.SetACLResponse, error) {
+	if mock.MockSetACL.handler != nil {
+		return mock.MockSetACL.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockAuthServer) GetAuthToken(context.Context, *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error) {
+func (mock *mockAuthServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error) {
+	if mock.MockGetAuthToken.handler != nil {
+		return mock.MockGetAuthToken.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockAuthServer) ExtendAuthToken(context.Context, *auth.ExtendAuthTokenRequest) (*auth.ExtendAuthTokenResponse, error) {
+func (mock *mockAuthServer) ExtendAuthToken(ctx context.Context, req *auth.ExtendAuthTokenRequest) (*auth.ExtendAuthTokenResponse, error) {
+	if mock.MockExtendAuthToken.handler != nil {
+		return mock.MockExtendAuthToken.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockAuthServer) RevokeAuthToken(context.Context, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error) {
+func (mock *mockAuthServer) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error) {
+	if mock.MockRevokeAuthToken.handler != nil {
+		return mock.MockRevokeAuthToken.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockAuthServer) SetGroupsForUser(context.Context, *auth.SetGroupsForUserRequest) (*auth.SetGroupsForUserResponse, error) {
+func (mock *mockAuthServer) SetGroupsForUser(ctx context.Context, req *auth.SetGroupsForUserRequest) (*auth.SetGroupsForUserResponse, error) {
+	if mock.MockSetGroupsForUser.handler != nil {
+		return mock.MockSetGroupsForUser.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockAuthServer) ModifyMembers(context.Context, *auth.ModifyMembersRequest) (*auth.ModifyMembersResponse, error) {
+func (mock *mockAuthServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRequest) (*auth.ModifyMembersResponse, error) {
+	if mock.MockModifyMembers.handler != nil {
+		return mock.MockModifyMembers.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockAuthServer) GetGroups(context.Context, *auth.GetGroupsRequest) (*auth.GetGroupsResponse, error) {
+func (mock *mockAuthServer) GetGroups(ctx context.Context, req *auth.GetGroupsRequest) (*auth.GetGroupsResponse, error) {
+	if mock.MockGetGroups.handler != nil {
+		return mock.MockGetGroups.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockAuthServer) GetUsers(context.Context, *auth.GetUsersRequest) (*auth.GetUsersResponse, error) {
+func (mock *mockAuthServer) GetUsers(ctx context.Context, req *auth.GetUsersRequest) (*auth.GetUsersResponse, error) {
+	if mock.MockGetUsers.handler != nil {
+		return mock.MockGetUsers.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockAuthServer) GetOneTimePassword(context.Context, *auth.GetOneTimePasswordRequest) (*auth.GetOneTimePasswordResponse, error) {
+func (mock *mockAuthServer) GetOneTimePassword(ctx context.Context, req *auth.GetOneTimePasswordRequest) (*auth.GetOneTimePasswordResponse, error) {
+	if mock.MockGetOneTimePassword.handler != nil {
+		return mock.MockGetOneTimePassword.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
 
-type mockEnterpriseServer struct{}
+/* Enterprise Server Mocks */
 
-func (mock *mockEnterpriseServer) Activate(context.Context, *enterprise.ActivateRequest) (*enterprise.ActivateResponse, error) {
+type activateEnterpriseFunc func(context.Context, *enterprise.ActivateRequest) (*enterprise.ActivateResponse, error)
+type getStateFunc func(context.Context, *enterprise.GetStateRequest) (*enterprise.GetStateResponse, error)
+type deactivateEnterpriseFunc func(context.Context, *enterprise.DeactivateRequest) (*enterprise.DeactivateResponse, error)
+
+type mockActivateEnterprise struct{ handler activateEnterpriseFunc }
+type mockGetState struct{ handler getStateFunc }
+type mockDeactivateEnterprise struct{ handler deactivateEnterpriseFunc }
+
+func (mock *mockActivateEnterprise) Use(cb activateEnterpriseFunc)     { mock.handler = cb }
+func (mock *mockGetState) Use(cb getStateFunc)                         { mock.handler = cb }
+func (mock *mockDeactivateEnterprise) Use(cb deactivateEnterpriseFunc) { mock.handler = cb }
+
+type mockEnterpriseServer struct {
+	MockActivate   mockActivateEnterprise
+	MockGetState   mockGetState
+	MockDeactivate mockDeactivateEnterprise
+}
+
+func (mock *mockEnterpriseServer) Activate(ctx context.Context, req *enterprise.ActivateRequest) (*enterprise.ActivateResponse, error) {
+	if mock.MockActivate.handler != nil {
+		return mock.MockActivate.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockEnterpriseServer) GetState(context.Context, *enterprise.GetStateRequest) (*enterprise.GetStateResponse, error) {
+func (mock *mockEnterpriseServer) GetState(ctx context.Context, req *enterprise.GetStateRequest) (*enterprise.GetStateResponse, error) {
+	if mock.MockGetState.handler != nil {
+		return mock.MockGetState.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockEnterpriseServer) Deactivate(context.Context, *enterprise.DeactivateRequest) (*enterprise.DeactivateResponse, error) {
+func (mock *mockEnterpriseServer) Deactivate(ctx context.Context, req *enterprise.DeactivateRequest) (*enterprise.DeactivateResponse, error) {
+	if mock.MockDeactivate.handler != nil {
+		return mock.MockDeactivate.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
+
+/* PFS Server Mocks */
 
 type mockPfsServer struct{}
 
@@ -206,6 +421,8 @@ func (mock *mockPfsServer) Fsck(*pfs.FsckRequest, pfs.API_FsckServer) error {
 	return fmt.Errorf("Mock")
 }
 
+/* PPS Server Mocks */
+
 type mockPpsServer struct{}
 
 func (mock *mockPpsServer) CreateJob(context.Context, *pps.CreateJobRequest) (*pps.Job, error) {
@@ -275,93 +492,300 @@ func (mock *mockPpsServer) ActivateAuth(context.Context, *pps.ActivateAuthReques
 	return nil, fmt.Errorf("Mock")
 }
 
-type mockTransactionServer struct{}
+/* Transaction Server Mocks */
 
-func (mock *mockTransactionServer) StartTransaction(context.Context, *transaction.StartTransactionRequest) (*transaction.Transaction, error) {
+type startTransactionFunc func(context.Context, *transaction.StartTransactionRequest) (*transaction.Transaction, error)
+type inspectTransactionFunc func(context.Context, *transaction.InspectTransactionRequest) (*transaction.TransactionInfo, error)
+type deleteTransactionFunc func(context.Context, *transaction.DeleteTransactionRequest) (*types.Empty, error)
+type listTransactionFunc func(context.Context, *transaction.ListTransactionRequest) (*transaction.TransactionInfos, error)
+type finishTransactionFunc func(context.Context, *transaction.FinishTransactionRequest) (*transaction.TransactionInfo, error)
+type deleteAllTransactionFunc func(context.Context, *transaction.DeleteAllRequest) (*types.Empty, error)
+
+type mockStartTransaction struct{ handler startTransactionFunc }
+type mockInspectTransaction struct{ handler inspectTransactionFunc }
+type mockDeleteTransaction struct{ handler deleteTransactionFunc }
+type mockListTransaction struct{ handler listTransactionFunc }
+type mockFinishTransaction struct{ handler finishTransactionFunc }
+type mockDeleteAllTransaction struct{ handler deleteAllTransactionFunc }
+
+func (mock *mockStartTransaction) Use(cb startTransactionFunc)         { mock.handler = cb }
+func (mock *mockInspectTransaction) Use(cb inspectTransactionFunc)     { mock.handler = cb }
+func (mock *mockDeleteTransaction) Use(cb deleteTransactionFunc)       { mock.handler = cb }
+func (mock *mockListTransaction) Use(cb listTransactionFunc)           { mock.handler = cb }
+func (mock *mockFinishTransaction) Use(cb finishTransactionFunc)       { mock.handler = cb }
+func (mock *mockDeleteAllTransaction) Use(cb deleteAllTransactionFunc) { mock.handler = cb }
+
+type mockTransactionServer struct {
+	MockStartTransaction   mockStartTransaction
+	MockInspectTransaction mockInspectTransaction
+	MockDeleteTransaction  mockDeleteTransaction
+	MockListTransaction    mockListTransaction
+	MockFinishTransaction  mockFinishTransaction
+	MockDeleteAll          mockDeleteAllTransaction
+}
+
+func (mock *mockTransactionServer) StartTransaction(ctx context.Context, req *transaction.StartTransactionRequest) (*transaction.Transaction, error) {
+	if mock.MockStartTransaction.handler != nil {
+		return mock.MockStartTransaction.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockTransactionServer) InspectTransaction(context.Context, *transaction.InspectTransactionRequest) (*transaction.TransactionInfo, error) {
+func (mock *mockTransactionServer) InspectTransaction(ctx context.Context, req *transaction.InspectTransactionRequest) (*transaction.TransactionInfo, error) {
+	if mock.MockInspectTransaction.handler != nil {
+		return mock.MockInspectTransaction.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockTransactionServer) DeleteTransaction(context.Context, *transaction.DeleteTransactionRequest) (*types.Empty, error) {
+func (mock *mockTransactionServer) DeleteTransaction(ctx context.Context, req *transaction.DeleteTransactionRequest) (*types.Empty, error) {
+	if mock.MockDeleteTransaction.handler != nil {
+		return mock.MockDeleteTransaction.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockTransactionServer) ListTransaction(context.Context, *transaction.ListTransactionRequest) (*transaction.TransactionInfos, error) {
+func (mock *mockTransactionServer) ListTransaction(ctx context.Context, req *transaction.ListTransactionRequest) (*transaction.TransactionInfos, error) {
+	if mock.MockListTransaction.handler != nil {
+		return mock.MockListTransaction.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockTransactionServer) FinishTransaction(context.Context, *transaction.FinishTransactionRequest) (*transaction.TransactionInfo, error) {
+func (mock *mockTransactionServer) FinishTransaction(ctx context.Context, req *transaction.FinishTransactionRequest) (*transaction.TransactionInfo, error) {
+	if mock.MockFinishTransaction.handler != nil {
+		return mock.MockFinishTransaction.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockTransactionServer) DeleteAll(context.Context, *transaction.DeleteAllRequest) (*types.Empty, error) {
+func (mock *mockTransactionServer) DeleteAll(ctx context.Context, req *transaction.DeleteAllRequest) (*types.Empty, error) {
+	if mock.MockDeleteAll.handler != nil {
+		return mock.MockDeleteAll.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
 
-type mockVersionServer struct{}
+/* Version Server Mocks */
 
-func (mock *mockVersionServer) GetVersion(context.Context, *types.Empty) (*version.Version, error) {
+type getVersionFunc func(context.Context, *types.Empty) (*version.Version, error)
+
+type mockGetVersion struct{ handler getVersionFunc }
+
+func (mock *mockGetVersion) Use(cb getVersionFunc) { mock.handler = cb }
+
+type mockVersionServer struct {
+	MockGetVersion mockGetVersion
+}
+
+func (mock *mockVersionServer) GetVersion(ctx context.Context, req *types.Empty) (*version.Version, error) {
+	if mock.MockGetVersion.handler != nil {
+		return mock.MockGetVersion.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
 
-type mockObjectServer struct{}
+/* Object Server Mocks */
 
-func (mock *mockObjectServer) PutObject(pfs.ObjectAPI_PutObjectServer) error {
+type putObjectFunc func(pfs.ObjectAPI_PutObjectServer) error
+type putObjectSplitFunc func(pfs.ObjectAPI_PutObjectSplitServer) error
+type putObjectsFunc func(pfs.ObjectAPI_PutObjectsServer) error
+type createObjectFunc func(context.Context, *pfs.CreateObjectRequest) (*types.Empty, error)
+type getObjectFunc func(*pfs.Object, pfs.ObjectAPI_GetObjectServer) error
+type getObjectsFunc func(*pfs.GetObjectsRequest, pfs.ObjectAPI_GetObjectsServer) error
+type putBlockFunc func(pfs.ObjectAPI_PutBlockServer) error
+type getBlockFunc func(*pfs.GetBlockRequest, pfs.ObjectAPI_GetBlockServer) error
+type getBlocksFunc func(*pfs.GetBlocksRequest, pfs.ObjectAPI_GetBlocksServer) error
+type listBlockFunc func(*pfs.ListBlockRequest, pfs.ObjectAPI_ListBlockServer) error
+type tagObjectFunc func(context.Context, *pfs.TagObjectRequest) (*types.Empty, error)
+type inspectObjectFunc func(context.Context, *pfs.Object) (*pfs.ObjectInfo, error)
+type checkObjectFunc func(context.Context, *pfs.CheckObjectRequest) (*pfs.CheckObjectResponse, error)
+type listObjectsFunc func(*pfs.ListObjectsRequest, pfs.ObjectAPI_ListObjectsServer) error
+type deleteObjectsFunc func(context.Context, *pfs.DeleteObjectsRequest) (*pfs.DeleteObjectsResponse, error)
+type getTagFunc func(*pfs.Tag, pfs.ObjectAPI_GetTagServer) error
+type inspectTagFunc func(context.Context, *pfs.Tag) (*pfs.ObjectInfo, error)
+type listTagsFunc func(*pfs.ListTagsRequest, pfs.ObjectAPI_ListTagsServer) error
+type deleteTagsFunc func(context.Context, *pfs.DeleteTagsRequest) (*pfs.DeleteTagsResponse, error)
+type compactFunc func(context.Context, *types.Empty) (*types.Empty, error)
+
+type mockPutObject struct{ handler putObjectFunc }
+type mockPutObjectSplit struct{ handler putObjectSplitFunc }
+type mockPutObjects struct{ handler putObjectsFunc }
+type mockCreateObject struct{ handler createObjectFunc }
+type mockGetObject struct{ handler getObjectFunc }
+type mockGetObjects struct{ handler getObjectsFunc }
+type mockPutBlock struct{ handler putBlockFunc }
+type mockGetBlock struct{ handler getBlockFunc }
+type mockGetBlocks struct{ handler getBlocksFunc }
+type mockListBlock struct{ handler listBlockFunc }
+type mockTagObject struct{ handler tagObjectFunc }
+type mockInspectObject struct{ handler inspectObjectFunc }
+type mockCheckObject struct{ handler checkObjectFunc }
+type mockListObjects struct{ handler listObjectsFunc }
+type mockDeleteObjects struct{ handler deleteObjectsFunc }
+type mockGetTag struct{ handler getTagFunc }
+type mockInspectTag struct{ handler inspectTagFunc }
+type mockListTags struct{ handler listTagsFunc }
+type mockDeleteTags struct{ handler deleteTagsFunc }
+type mockCompact struct{ handler compactFunc }
+
+func (mock *mockPutObject) Use(cb putObjectFunc)           { mock.handler = cb }
+func (mock *mockPutObjectSplit) Use(cb putObjectSplitFunc) { mock.handler = cb }
+func (mock *mockPutObjects) Use(cb putObjectsFunc)         { mock.handler = cb }
+func (mock *mockCreateObject) Use(cb createObjectFunc)     { mock.handler = cb }
+func (mock *mockGetObject) Use(cb getObjectFunc)           { mock.handler = cb }
+func (mock *mockGetObjects) Use(cb getObjectsFunc)         { mock.handler = cb }
+func (mock *mockPutBlock) Use(cb putBlockFunc)             { mock.handler = cb }
+func (mock *mockGetBlock) Use(cb getBlockFunc)             { mock.handler = cb }
+func (mock *mockGetBlocks) Use(cb getBlocksFunc)           { mock.handler = cb }
+func (mock *mockListBlock) Use(cb listBlockFunc)           { mock.handler = cb }
+func (mock *mockTagObject) Use(cb tagObjectFunc)           { mock.handler = cb }
+func (mock *mockInspectObject) Use(cb inspectObjectFunc)   { mock.handler = cb }
+func (mock *mockCheckObject) Use(cb checkObjectFunc)       { mock.handler = cb }
+func (mock *mockListObjects) Use(cb listObjectsFunc)       { mock.handler = cb }
+func (mock *mockDeleteObjects) Use(cb deleteObjectsFunc)   { mock.handler = cb }
+func (mock *mockGetTag) Use(cb getTagFunc)                 { mock.handler = cb }
+func (mock *mockInspectTag) Use(cb inspectTagFunc)         { mock.handler = cb }
+func (mock *mockListTags) Use(cb listTagsFunc)             { mock.handler = cb }
+func (mock *mockDeleteTags) Use(cb deleteTagsFunc)         { mock.handler = cb }
+func (mock *mockCompact) Use(cb compactFunc)               { mock.handler = cb }
+
+type mockObjectServer struct {
+	MockPutObject      mockPutObject
+	MockPutObjectSplit mockPutObjectSplit
+	MockPutObjects     mockPutObjects
+	MockCreateObject   mockCreateObject
+	MockGetObject      mockGetObject
+	MockGetObjects     mockGetObjects
+	MockPutBlock       mockPutBlock
+	MockGetBlock       mockGetBlock
+	MockGetBlocks      mockGetBlocks
+	MockListBlock      mockListBlock
+	MockTagObject      mockTagObject
+	MockInspectObject  mockInspectObject
+	MockCheckObject    mockCheckObject
+	MockListObjects    mockListObjects
+	MockDeleteObjects  mockDeleteObjects
+	MockGetTag         mockGetTag
+	MockInspectTag     mockInspectTag
+	MockListTags       mockListTags
+	MockDeleteTags     mockDeleteTags
+	MockCompact        mockCompact
+}
+
+func (mock *mockObjectServer) PutObject(serv pfs.ObjectAPI_PutObjectServer) error {
+	if mock.MockPutObject.handler != nil {
+		return mock.MockPutObject.handler(serv)
+	}
 	return fmt.Errorf("Mock")
 }
-func (mock *mockObjectServer) PutObjectSplit(pfs.ObjectAPI_PutObjectSplitServer) error {
+func (mock *mockObjectServer) PutObjectSplit(serv pfs.ObjectAPI_PutObjectSplitServer) error {
+	if mock.MockPutObjectSplit.handler != nil {
+		return mock.MockPutObjectSplit.handler(serv)
+	}
 	return fmt.Errorf("Mock")
 }
-func (mock *mockObjectServer) PutObjects(pfs.ObjectAPI_PutObjectsServer) error {
+func (mock *mockObjectServer) PutObjects(serv pfs.ObjectAPI_PutObjectsServer) error {
+	if mock.MockPutObjects.handler != nil {
+		return mock.MockPutObjects.handler(serv)
+	}
 	return fmt.Errorf("Mock")
 }
-func (mock *mockObjectServer) CreateObject(context.Context, *pfs.CreateObjectRequest) (*types.Empty, error) {
+func (mock *mockObjectServer) CreateObject(ctx context.Context, serv *pfs.CreateObjectRequest) (*types.Empty, error) {
+	if mock.MockCreateObject.handler != nil {
+		return mock.MockCreateObject.handler(ctx, serv)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockObjectServer) GetObject(*pfs.Object, pfs.ObjectAPI_GetObjectServer) error {
+func (mock *mockObjectServer) GetObject(req *pfs.Object, serv pfs.ObjectAPI_GetObjectServer) error {
+	if mock.MockGetObject.handler != nil {
+		return mock.MockGetObject.handler(req, serv)
+	}
 	return fmt.Errorf("Mock")
 }
-func (mock *mockObjectServer) GetObjects(*pfs.GetObjectsRequest, pfs.ObjectAPI_GetObjectsServer) error {
+func (mock *mockObjectServer) GetObjects(req *pfs.GetObjectsRequest, serv pfs.ObjectAPI_GetObjectsServer) error {
+	if mock.MockGetObjects.handler != nil {
+		return mock.MockGetObjects.handler(req, serv)
+	}
 	return fmt.Errorf("Mock")
 }
-func (mock *mockObjectServer) PutBlock(pfs.ObjectAPI_PutBlockServer) error {
+func (mock *mockObjectServer) PutBlock(serv pfs.ObjectAPI_PutBlockServer) error {
+	if mock.MockPutBlock.handler != nil {
+		return mock.MockPutBlock.handler(serv)
+	}
 	return fmt.Errorf("Mock")
 }
-func (mock *mockObjectServer) GetBlock(*pfs.GetBlockRequest, pfs.ObjectAPI_GetBlockServer) error {
+func (mock *mockObjectServer) GetBlock(req *pfs.GetBlockRequest, serv pfs.ObjectAPI_GetBlockServer) error {
+	if mock.MockGetBlock.handler != nil {
+		return mock.MockGetBlock.handler(req, serv)
+	}
 	return fmt.Errorf("Mock")
 }
-func (mock *mockObjectServer) GetBlocks(*pfs.GetBlocksRequest, pfs.ObjectAPI_GetBlocksServer) error {
+func (mock *mockObjectServer) GetBlocks(req *pfs.GetBlocksRequest, serv pfs.ObjectAPI_GetBlocksServer) error {
+	if mock.MockGetBlocks.handler != nil {
+		return mock.MockGetBlocks.handler(req, serv)
+	}
 	return fmt.Errorf("Mock")
 }
-func (mock *mockObjectServer) ListBlock(*pfs.ListBlockRequest, pfs.ObjectAPI_ListBlockServer) error {
+func (mock *mockObjectServer) ListBlock(req *pfs.ListBlockRequest, serv pfs.ObjectAPI_ListBlockServer) error {
+	if mock.MockListBlock.handler != nil {
+		return mock.MockListBlock.handler(req, serv)
+	}
 	return fmt.Errorf("Mock")
 }
-func (mock *mockObjectServer) TagObject(context.Context, *pfs.TagObjectRequest) (*types.Empty, error) {
+func (mock *mockObjectServer) TagObject(ctx context.Context, req *pfs.TagObjectRequest) (*types.Empty, error) {
+	if mock.MockTagObject.handler != nil {
+		return mock.MockTagObject.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockObjectServer) InspectObject(context.Context, *pfs.Object) (*pfs.ObjectInfo, error) {
+func (mock *mockObjectServer) InspectObject(ctx context.Context, req *pfs.Object) (*pfs.ObjectInfo, error) {
+	if mock.MockInspectObject.handler != nil {
+		return mock.MockInspectObject.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockObjectServer) CheckObject(context.Context, *pfs.CheckObjectRequest) (*pfs.CheckObjectResponse, error) {
+func (mock *mockObjectServer) CheckObject(ctx context.Context, req *pfs.CheckObjectRequest) (*pfs.CheckObjectResponse, error) {
+	if mock.MockCheckObject.handler != nil {
+		return mock.MockCheckObject.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockObjectServer) ListObjects(*pfs.ListObjectsRequest, pfs.ObjectAPI_ListObjectsServer) error {
+func (mock *mockObjectServer) ListObjects(req *pfs.ListObjectsRequest, serv pfs.ObjectAPI_ListObjectsServer) error {
+	if mock.MockListObjects.handler != nil {
+		return mock.MockListObjects.handler(req, serv)
+	}
 	return fmt.Errorf("Mock")
 }
-func (mock *mockObjectServer) DeleteObjects(context.Context, *pfs.DeleteObjectsRequest) (*pfs.DeleteObjectsResponse, error) {
+func (mock *mockObjectServer) DeleteObjects(ctx context.Context, req *pfs.DeleteObjectsRequest) (*pfs.DeleteObjectsResponse, error) {
+	if mock.MockDeleteObjects.handler != nil {
+		return mock.MockDeleteObjects.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockObjectServer) GetTag(*pfs.Tag, pfs.ObjectAPI_GetTagServer) error {
+func (mock *mockObjectServer) GetTag(req *pfs.Tag, serv pfs.ObjectAPI_GetTagServer) error {
+	if mock.MockGetTag.handler != nil {
+		return mock.MockGetTag.handler(req, serv)
+	}
 	return fmt.Errorf("Mock")
 }
-func (mock *mockObjectServer) InspectTag(context.Context, *pfs.Tag) (*pfs.ObjectInfo, error) {
+func (mock *mockObjectServer) InspectTag(ctx context.Context, req *pfs.Tag) (*pfs.ObjectInfo, error) {
+	if mock.MockInspectTag.handler != nil {
+		return mock.MockInspectTag.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockObjectServer) ListTags(*pfs.ListTagsRequest, pfs.ObjectAPI_ListTagsServer) error {
+func (mock *mockObjectServer) ListTags(req *pfs.ListTagsRequest, serv pfs.ObjectAPI_ListTagsServer) error {
+	if mock.MockListTags.handler != nil {
+		return mock.MockListTags.handler(req, serv)
+	}
 	return fmt.Errorf("Mock")
 }
-func (mock *mockObjectServer) DeleteTags(context.Context, *pfs.DeleteTagsRequest) (*pfs.DeleteTagsResponse, error) {
+func (mock *mockObjectServer) DeleteTags(ctx context.Context, req *pfs.DeleteTagsRequest) (*pfs.DeleteTagsResponse, error) {
+	if mock.MockDeleteTags.handler != nil {
+		return mock.MockDeleteTags.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
-func (mock *mockObjectServer) Compact(context.Context, *types.Empty) (*types.Empty, error) {
+func (mock *mockObjectServer) Compact(ctx context.Context, req *types.Empty) (*types.Empty, error) {
+	if mock.MockCompact.handler != nil {
+		return mock.MockCompact.handler(ctx, req)
+	}
 	return nil, fmt.Errorf("Mock")
 }
 
