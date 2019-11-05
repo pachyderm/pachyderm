@@ -98,6 +98,7 @@ nav:
             - Repo Layout: contributing/repo-layout.md
             - Coding Conventions: contributing/coding-conventions.md
             - Documentation Style Guide: contributing/docs-style-guide.md
+            - Developing Pachyderm in Windows with VSCode: contributing/windows.md
     - Getting Started:
         - Overview: getting_started/index.md
         - getting_started/local_installation.md
