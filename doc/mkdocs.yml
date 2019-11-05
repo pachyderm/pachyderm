@@ -2,8 +2,8 @@ site_name: Pachyderm Documentation
 site_description: Pachyderm Documention
 site_author: Pachyderm Team
 site_url: https://docs.pachyderm.com/
-docs_dir: docs/master
-site_dir: site/master
+docs_dir: docs/latest
+site_dir: site/latest
 
 repo_name: pachyderm/pachyderm
 repo_url: https://github.com/pachyderm/pachyderm
