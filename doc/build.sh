@@ -1,8 +1,11 @@
 #!/bin/bash
 
+# Build each version of the docs
 mkdocs build --config-file mkdocs.yml --site-dir site/master/
 mkdocs build --config-file mkdocs-1.9.x.yml --site-dir site/1.9.x/
 
+# Add each version of the docs to the dropdown defined by
+# "material/partials/versions.html"
 cat <<EOF >material/partials/versions.html
 <div class="mdl-selectfield">
 <select class="mdl-selectfield__select" onchange="let pathParts = window.location.pathname.split('/ '); pathParts[1] = this.value; window.location.pathname = pathParts.join('/')">
