@@ -10,6 +10,8 @@ mkdocs build --config-file mkdocs-1.9.x.yml --site-dir site/1.9.x/
 cat <<EOF >material/partials/versions.html
 <div class="mdl-selectfield">
 <select class="mdl-selectfield__select" onchange="let pathParts = window.location.pathname.split('/ '); pathParts[1] = this.value; window.location.pathname = pathParts.join('/')">
+              <option style="" selected value="latest">latest</option>
+
 EOF
 for d in $(ls docs); do
     if [[ "${d}" == "archive" ]]; then
@@ -19,7 +21,6 @@ for d in $(ls docs); do
          continue
     fi
 cat <<EOF >>material/partials/versions.html
-              <option style="" selected value="latest">latest</option>
               <option style="" value="${d}">${d}</option>
 
 EOF
