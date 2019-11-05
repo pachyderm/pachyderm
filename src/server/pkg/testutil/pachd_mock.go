@@ -3,6 +3,8 @@ package testutil
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/gogo/protobuf/types"
 
@@ -15,7 +17,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/transaction"
 	version "github.com/pachyderm/pachyderm/src/client/version/versionpb"
 
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 )
@@ -1209,6 +1210,8 @@ type MockPachd struct {
 	cancel context.CancelFunc
 	eg     *errgroup.Group
 
+	Port uint16
+
 	Object      mockObjectServer
 	PFS         mockPFSServer
 	PPS         mockPPSServer
@@ -1222,7 +1225,7 @@ type MockPachd struct {
 // NewMockPachd constructs a mock Pachd API server whose behavior can be
 // controlled through the MockPachd instance. By default, all API calls will
 // error, unless a handler is specified.
-func NewMockPachd(port uint16) *MockPachd {
+func NewMockPachd() (*MockPachd, error) {
 	mock := &MockPachd{}
 
 	ctx := context.Background()
@@ -1238,12 +1241,15 @@ func NewMockPachd(port uint16) *MockPachd {
 	mock.Version.api.mock = &mock.Version
 	mock.Admin.api.mock = &mock.Admin
 
+	var serveErr error
+	ready := make(chan bool, 1)
+
 	mock.eg.Go(func() error {
-		err := grpcutil.Serve(
+		servers, err := grpcutil.Serve(
 			grpcutil.ServerOptions{
 				Cancel:     ctx.Done(),
 				Host:       "localhost",
-				Port:       port,
+				AnyPort:    true,
 				MaxMsgSize: grpcutil.MaxMsgSize,
 				RegisterFunc: func(s *grpc.Server) error {
 					admin.RegisterAPIServer(s, &mock.Admin.api)
@@ -1258,13 +1264,32 @@ func NewMockPachd(port uint16) *MockPachd {
 				},
 			},
 		)
+
+		defer func() {
+			serveErr = err
+			ready <- true
+		}()
+
 		if err != nil {
-			log.Printf("error starting grpc server %v\n", err)
+			return err
 		}
-		return err
+
+		var port uint64
+		addrStr := servers[0].Listener.Addr().String()
+		addrParts := strings.Split(addrStr, ":")
+		port, err = strconv.ParseUint(addrParts[len(addrParts)-1], 10, 16)
+
+		if err != nil {
+			return err
+		}
+
+		mock.Port = uint16(port)
+
+		return nil
 	})
 
-	return mock
+	<-ready
+	return mock, serveErr
 }
 
 // Close will cancel the mock Pachd API server goroutine and return its result

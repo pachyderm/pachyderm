@@ -28,6 +28,7 @@ var (
 type ServerOptions struct {
 	Host         string
 	Port         uint16
+	AnyPort      bool
 	MaxMsgSize   int
 	Cancel       <-chan struct{}
 	RegisterFunc func(*grpc.Server) error
@@ -45,16 +46,25 @@ type ServerOptions struct {
 	PublicPortTLSAllowed bool
 }
 
+// ServerRun is the long-lived results of calling Serve and can be used to
+// inspect or modify the servers directly. Specifically Listener can be used to
+// obtain the listener port if AnyPort=true is used.
+type ServerRun struct {
+	GrpcServer *grpc.Server
+	Listener   net.Listener
+}
+
 // Serve serves stuff.
 func Serve(
 	servers ...ServerOptions,
-) (retErr error) {
+) ([]*ServerRun, error) {
+	serverRuns := []*ServerRun{}
 	for _, server := range servers {
 		if server.RegisterFunc == nil {
-			return ErrMustSpecifyRegisterFunc
+			return nil, ErrMustSpecifyRegisterFunc
 		}
-		if server.Port == 0 {
-			return ErrMustSpecifyPort
+		if server.Port == 0 && !server.AnyPort {
+			return nil, ErrMustSpecifyPort
 		}
 		opts := []grpc.ServerOption{
 			grpc.MaxConcurrentStreams(math.MaxUint32),
@@ -76,7 +86,7 @@ func Serve(
 				// Read TLS cert and key
 				transportCreds, err := credentials.NewServerTLSFromFile(certPath, keyPath)
 				if err != nil {
-					return fmt.Errorf("couldn't build transport creds: %v", err)
+					return nil, fmt.Errorf("couldn't build transport creds: %v", err)
 				}
 				opts = append(opts, grpc.Creds(transportCreds))
 			}
@@ -84,11 +94,15 @@ func Serve(
 
 		grpcServer := grpc.NewServer(opts...)
 		if err := server.RegisterFunc(grpcServer); err != nil {
-			return err
+			return nil, err
 		}
-		listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", server.Host, server.Port))
+		port := server.Port
+		if server.AnyPort {
+			port = 0
+		}
+		listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", server.Host, port))
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if server.Cancel != nil {
 			go func() {
@@ -99,8 +113,12 @@ func Serve(
 			}()
 		}
 		if err := grpcServer.Serve(listener); err != nil {
-			return err
+			return nil, err
 		}
+		serverRuns = append(serverRuns, &ServerRun{
+			GrpcServer: grpcServer,
+			Listener:   listener,
+		})
 	}
-	return nil
+	return serverRuns, nil
 }

@@ -108,8 +108,6 @@ func newTestEnv(t *testing.T) *testEnv {
 	etcdConfig.TickMs = 2
 	etcdConfig.ElectionMs = 10
 
-	etcdConfig.LogOutputs = []string{}
-
 	etcdServer, err := embed.StartEtcd(etcdConfig)
 	require.NoError(t, err)
 
@@ -268,9 +266,10 @@ func requireCounter(t *testing.T, counter *prometheus.CounterVec, labels []strin
 	})
 }
 
-func requireHistogram(t *testing.T, histogram *prometheus.HistogramVec, labels []string, value float64) {
+func requireHistogram(t *testing.T, histogram *prometheus.HistogramVec, labels []string, value uint64) {
 	requireMetric(t, histogram, labels, func(m prometheus_proto.Metric) {
-		require.NotNil(t, m.Counter)
+		require.NotNil(t, m.Histogram)
+		require.Equal(t, value, *m.Histogram.SampleCount)
 	})
 }
 
@@ -356,6 +355,7 @@ func TestUpdateHistogram(t *testing.T) {
 
 	requireLogs(t, "", func(logger logs.TaggedLogger) {
 		env.driver.updateHistogram(histogramVec, logger, "", func(h prometheus.Observer) {
+			h.Observe(0)
 		})
 	})
 
@@ -371,6 +371,7 @@ func TestUpdateHistogram(t *testing.T) {
 
 	requireLogs(t, "", func(logger logs.TaggedLogger) {
 		env.driver.updateHistogram(histogramVecWithState, logger, "bar", func(h prometheus.Observer) {
+			h.Observe(0)
 		})
 	})
 
