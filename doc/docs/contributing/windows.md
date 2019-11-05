@@ -2,6 +2,7 @@
 
 ## Install
 
+* [go v1.13.x+](https://golang.org/dl/)
 * [VSCode](https://code.visualstudio.com/download)
 * [git](https://git-scm.com/download/win)
 * [docker toolbox](https://github.com/docker/toolbox/releases)
