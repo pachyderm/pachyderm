@@ -5,13 +5,19 @@ publish = "doc/site"
 
 [[redirects]]
   from = "/"
-  to = "/latest/"
+  to = "/latest/index.html"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/"
   to = "/latest/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/en/latest/index.html"
+  to = "/latest/index.html"
   status = 301
   force = true
 
