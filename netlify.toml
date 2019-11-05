@@ -5,7 +5,7 @@ publish = "doc/site"
 
 [[redirects]]
   from = "/"
-  to = "/latest/index.html"
+  to = "/latest/"
   status = 301
   force = true
 
