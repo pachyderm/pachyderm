@@ -1,5 +1,6 @@
 #!/bin/bash
-
+# Delete site/
+rm -rf site/
 # Build each version of the docs
 mkdocs build --config-file mkdocs.yml --site-dir site/latest/
 mkdocs build --config-file mkdocs-1.9.x.yml --site-dir site/1.9.x/
@@ -14,8 +15,13 @@ for d in $(ls docs); do
     if [[ "${d}" == "archive" ]]; then
         continue
     fi
+    if [[ "${d}" == "latest" ]]; then
+         continue
+    fi
 cat <<EOF >>material/partials/versions.html
-              <option style="" selected value="${d}">${d}</option>
+              <option style="" selected value="latest">latest</option>
+              <option style="" value="${d}">${d}</option>
+
 EOF
 done
 cat <<EOF >>material/partials/versions.html
