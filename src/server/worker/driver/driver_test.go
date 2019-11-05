@@ -2,6 +2,7 @@ package driver
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -16,6 +17,7 @@ import (
 	prometheus_proto "github.com/prometheus/client_model/go"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -81,6 +83,8 @@ var testPipelineInfo = &pps.PipelineInfo{
 type testEnv struct {
 	etcd       *embed.Etcd
 	etcdClient *etcd.Client
+	mockPachd  *tu.MockPachd
+	pachClient *client.APIClient
 	driver     *driver
 }
 
@@ -98,6 +102,12 @@ func newTestEnv(t *testing.T) *testEnv {
 	etcdConfig.WalDir, err = ioutil.TempDir(tempDirBase, "driver_test_etcd_wal")
 	require.NoError(t, err)
 
+	// Speed up initial election, hopefully this has no other impact since there
+	// is only one etcd instance
+	etcdConfig.InitialElectionTickAdvance = true
+	etcdConfig.TickMs = 2
+	etcdConfig.ElectionMs = 10
+
 	etcdServer, err := embed.StartEtcd(etcdConfig)
 	require.NoError(t, err)
 
@@ -111,22 +121,27 @@ func newTestEnv(t *testing.T) *testEnv {
 		DialOptions: client.DefaultDialOptions(),
 	})
 	if err != nil {
-		fmt.Printf("Closing etcd server\n")
 		etcdServer.Close()
 		require.NoError(t, err)
 	}
 
-	pachClient, err := getPachClient()
+	mockPachd := tu.NewMockPachd(30650)
+	pachClient, err := client.NewFromAddress("localhost:30650")
 	if err != nil {
-		fmt.Printf("Closing etcd client and server\n")
+		mockPachd.Close()
 		etcdClient.Close()
 		etcdServer.Close()
 		require.NoError(t, err)
 	}
 
+	// Mock out the enterprise.GetState call that happens during driver construction
+	mockPachd.Enterprise.GetState.Use(func(context.Context, *enterprise.GetStateRequest) (*enterprise.GetStateResponse, error) {
+		return &enterprise.GetStateResponse{State: enterprise.State_NONE}, nil
+	})
+
 	d, err := NewDriver(testPipelineInfo, pachClient, NewMockKubeWrapper(), etcdClient, tu.UniqueString("driverTest"))
 	if err != nil {
-		fmt.Printf("Closing etcd/pach client and server\n")
+		mockPachd.Close()
 		pachClient.Close()
 		etcdClient.Close()
 		etcdServer.Close()
@@ -136,12 +151,15 @@ func newTestEnv(t *testing.T) *testEnv {
 	return &testEnv{
 		etcd:       etcdServer,
 		etcdClient: etcdClient,
+		mockPachd:  mockPachd,
+		pachClient: pachClient,
 		driver:     d.(*driver),
 	}
 }
 
 func (env *testEnv) Close(t *testing.T) {
-	fmt.Printf("Closing testEnv\n")
+	env.pachClient.Close()
+	env.mockPachd.Close()
 	env.etcdClient.Close()
 	env.etcd.Close()
 }

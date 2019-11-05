@@ -26,9 +26,10 @@ var (
 
 // ServerOptions represent optional fields for serving.
 type ServerOptions struct {
+	Host         string
 	Port         uint16
 	MaxMsgSize   int
-	Cancel       chan struct{}
+	Cancel       <-chan struct{}
 	RegisterFunc func(*grpc.Server) error
 
 	// If set, grpcutil may enable TLS.  This should be set for public ports that
@@ -85,7 +86,7 @@ func Serve(
 		if err := server.RegisterFunc(grpcServer); err != nil {
 			return err
 		}
-		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", server.Port))
+		listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", server.Host, server.Port))
 		if err != nil {
 			return err
 		}
