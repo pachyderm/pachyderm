@@ -291,7 +291,7 @@ func deployCmds() []*cobra.Command {
 			}
 			if !dryRun {
 				if contextName == "" {
-					contextName = "gcs"
+					contextName = "gcp"
 				}
 				if err := contextCreate(contextName, namespace); err != nil {
 					return err
