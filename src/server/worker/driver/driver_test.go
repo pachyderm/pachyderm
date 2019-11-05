@@ -108,6 +108,8 @@ func newTestEnv(t *testing.T) *testEnv {
 	etcdConfig.TickMs = 2
 	etcdConfig.ElectionMs = 10
 
+	etcdConfig.LogOutputs = []string{}
+
 	etcdServer, err := embed.StartEtcd(etcdConfig)
 	require.NoError(t, err)
 
