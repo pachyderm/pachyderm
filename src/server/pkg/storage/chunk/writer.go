@@ -439,34 +439,34 @@ func (w *Writer) writeByteSet() {
 	w.annotations = splitAnnotations(w.annotations)
 }
 
-// Copy does a cheap copy from a reader to a writer.
-func (w *Writer) Copy(r *Reader, n ...int64) error {
-	c, err := r.ReadCopy(n...)
-	if err != nil {
-		return err
-	}
-	return w.WriteCopy(c)
-}
-
-// WriteCopy writes copy data to the writer.
-func (w *Writer) WriteCopy(c *Copy) error {
-	if _, err := io.Copy(w, c.before); err != nil {
-		return err
-	}
-	for _, chunkRef := range c.chunkRefs {
-		w.stats.chunkCount++
-		// (bryce) might want to double check if this is correct.
-		w.stats.annotatedBytesSize += chunkRef.SizeBytes
-		updateAnnotations(chunkRef, nil, w.annotations)
-		if err := w.f(chunkRef, w.annotations); err != nil {
-			return err
-		}
-	}
-	_, err := io.Copy(w, c.after)
-	return err
-}
-
 // Close closes the writer.
 func (w *Writer) Close() error {
 	return w.Flush()
 }
+
+//// Copy does a cheap copy from a reader to a writer.
+//func (w *Writer) Copy(r *Reader, n ...int64) error {
+//	c, err := r.ReadCopy(n...)
+//	if err != nil {
+//		return err
+//	}
+//	return w.WriteCopy(c)
+//}
+//
+//// WriteCopy writes copy data to the writer.
+//func (w *Writer) WriteCopy(c *Copy) error {
+//	if _, err := io.Copy(w, c.before); err != nil {
+//		return err
+//	}
+//	for _, chunkRef := range c.chunkRefs {
+//		w.stats.chunkCount++
+//		// (bryce) might want to double check if this is correct.
+//		w.stats.annotatedBytesSize += chunkRef.SizeBytes
+//		updateAnnotations(chunkRef, nil, w.annotations)
+//		if err := w.f(chunkRef, w.annotations); err != nil {
+//			return err
+//		}
+//	}
+//	_, err := io.Copy(w, c.after)
+//	return err
+//}
