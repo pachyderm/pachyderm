@@ -111,6 +111,8 @@ func newTestEnv(t *testing.T) *testEnv {
 	etcdServer, err := embed.StartEtcd(etcdConfig)
 	require.NoError(t, err)
 
+	fmt.Printf("Got etcdServer\n")
+
 	clientUrls := []string{}
 	for _, url := range etcdConfig.LCUrls {
 		clientUrls = append(clientUrls, url.String())
@@ -125,8 +127,13 @@ func newTestEnv(t *testing.T) *testEnv {
 		require.NoError(t, err)
 	}
 
-	mockPachd := tu.NewMockPachd(30650)
-	pachClient, err := client.NewFromAddress("localhost:30650")
+	fmt.Printf("Got etcdClient\n")
+
+	mockPachd := tu.NewMockPachd()
+
+	fmt.Printf("Got mockPachd\n")
+
+	pachClient, err := client.NewFromAddress(mockPachd.Addr.String())
 	if err != nil {
 		mockPachd.Close()
 		etcdClient.Close()

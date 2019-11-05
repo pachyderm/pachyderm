@@ -1,12 +1,14 @@
 package grpcutil
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
 	"net"
 	"time"
 
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
@@ -30,7 +32,6 @@ type ServerOptions struct {
 	Port         uint16
 	AnyPort      bool
 	MaxMsgSize   int
-	Cancel       <-chan struct{}
 	RegisterFunc func(*grpc.Server) error
 
 	// If set, grpcutil may enable TLS.  This should be set for public ports that
@@ -56,69 +57,79 @@ type ServerRun struct {
 
 // Serve serves stuff.
 func Serve(
+	ctx context.Context,
 	servers ...ServerOptions,
-) ([]*ServerRun, error) {
+) ([]*ServerRun, *errgroup.Group) {
 	serverRuns := []*ServerRun{}
-	for _, server := range servers {
-		if server.RegisterFunc == nil {
-			return nil, ErrMustSpecifyRegisterFunc
-		}
-		if server.Port == 0 && !server.AnyPort {
-			return nil, ErrMustSpecifyPort
-		}
-		opts := []grpc.ServerOption{
-			grpc.MaxConcurrentStreams(math.MaxUint32),
-			grpc.MaxRecvMsgSize(server.MaxMsgSize),
-			grpc.MaxSendMsgSize(server.MaxMsgSize),
-			grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
-				MinTime:             5 * time.Second,
-				PermitWithoutStream: true,
-			}),
-			grpc.UnaryInterceptor(tracing.UnaryServerInterceptor()),
-			grpc.StreamInterceptor(tracing.StreamServerInterceptor()),
-		}
-		if server.PublicPortTLSAllowed {
-			// Validate environment
-			certPath, keyPath, err := tls.GetCertPaths()
-			if err != nil {
-				log.Warnf("TLS disabled: %v", err)
-			} else {
-				// Read TLS cert and key
-				transportCreds, err := credentials.NewServerTLSFromFile(certPath, keyPath)
-				if err != nil {
-					return nil, fmt.Errorf("couldn't build transport creds: %v", err)
-				}
-				opts = append(opts, grpc.Creds(transportCreds))
-			}
-		}
+	eg, ctx := errgroup.WithContext(ctx)
+	ready := make(chan bool, len(servers))
 
-		grpcServer := grpc.NewServer(opts...)
-		if err := server.RegisterFunc(grpcServer); err != nil {
-			return nil, err
-		}
-		port := server.Port
-		if server.AnyPort {
-			port = 0
-		}
-		listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", server.Host, port))
-		if err != nil {
-			return nil, err
-		}
-		if server.Cancel != nil {
-			go func() {
-				<-server.Cancel
-				if err := listener.Close(); err != nil {
-					fmt.Printf("listener.Close(): %v\n", err)
+	for _, server := range servers {
+		eg.Go(func() error {
+			if server.RegisterFunc == nil {
+				return ErrMustSpecifyRegisterFunc
+			}
+			if server.Port == 0 && !server.AnyPort {
+				return ErrMustSpecifyPort
+			}
+			opts := []grpc.ServerOption{
+				grpc.MaxConcurrentStreams(math.MaxUint32),
+				grpc.MaxRecvMsgSize(server.MaxMsgSize),
+				grpc.MaxSendMsgSize(server.MaxMsgSize),
+				grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+					MinTime:             5 * time.Second,
+					PermitWithoutStream: true,
+				}),
+				grpc.UnaryInterceptor(tracing.UnaryServerInterceptor()),
+				grpc.StreamInterceptor(tracing.StreamServerInterceptor()),
+			}
+			if server.PublicPortTLSAllowed {
+				// Validate environment
+				certPath, keyPath, err := tls.GetCertPaths()
+				if err != nil {
+					log.Warnf("TLS disabled: %v", err)
+				} else {
+					// Read TLS cert and key
+					transportCreds, err := credentials.NewServerTLSFromFile(certPath, keyPath)
+					if err != nil {
+						return fmt.Errorf("couldn't build transport creds: %v", err)
+					}
+					opts = append(opts, grpc.Creds(transportCreds))
 				}
-			}()
-		}
-		if err := grpcServer.Serve(listener); err != nil {
-			return nil, err
-		}
-		serverRuns = append(serverRuns, &ServerRun{
-			GrpcServer: grpcServer,
-			Listener:   listener,
+			}
+
+			grpcServer := grpc.NewServer(opts...)
+			if err := server.RegisterFunc(grpcServer); err != nil {
+				return err
+			}
+			port := server.Port
+			if server.AnyPort {
+				port = 0
+			}
+			listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", server.Host, port))
+			if err != nil {
+				return err
+			}
+
+			eg.Go(func() error {
+				<-ctx.Done()
+				return listener.Close()
+			})
+
+			serverRuns = append(serverRuns, &ServerRun{
+				GrpcServer: grpcServer,
+				Listener:   listener,
+			})
+
+			ready <- true
+
+			return grpcServer.Serve(listener)
 		})
 	}
-	return serverRuns, nil
+
+	for range servers {
+		<-ready
+	}
+
+	return serverRuns, eg
 }

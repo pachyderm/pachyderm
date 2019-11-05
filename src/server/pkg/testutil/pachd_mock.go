@@ -3,8 +3,7 @@ package testutil
 import (
 	"context"
 	"fmt"
-	"strconv"
-	"strings"
+	"net"
 
 	"github.com/gogo/protobuf/types"
 
@@ -1210,7 +1209,7 @@ type MockPachd struct {
 	cancel context.CancelFunc
 	eg     *errgroup.Group
 
-	Port uint16
+	Addr net.Addr
 
 	Object      mockObjectServer
 	PFS         mockPFSServer
@@ -1225,12 +1224,11 @@ type MockPachd struct {
 // NewMockPachd constructs a mock Pachd API server whose behavior can be
 // controlled through the MockPachd instance. By default, all API calls will
 // error, unless a handler is specified.
-func NewMockPachd() (*MockPachd, error) {
+func NewMockPachd() *MockPachd {
 	mock := &MockPachd{}
 
 	ctx := context.Background()
 	ctx, mock.cancel = context.WithCancel(ctx)
-	mock.eg, ctx = errgroup.WithContext(ctx)
 
 	mock.Object.api.mock = &mock.Object
 	mock.PFS.api.mock = &mock.PFS
@@ -1241,55 +1239,29 @@ func NewMockPachd() (*MockPachd, error) {
 	mock.Version.api.mock = &mock.Version
 	mock.Admin.api.mock = &mock.Admin
 
-	var serveErr error
-	ready := make(chan bool, 1)
-
-	mock.eg.Go(func() error {
-		servers, err := grpcutil.Serve(
-			grpcutil.ServerOptions{
-				Cancel:     ctx.Done(),
-				Host:       "localhost",
-				AnyPort:    true,
-				MaxMsgSize: grpcutil.MaxMsgSize,
-				RegisterFunc: func(s *grpc.Server) error {
-					admin.RegisterAPIServer(s, &mock.Admin.api)
-					auth.RegisterAPIServer(s, &mock.Auth.api)
-					enterprise.RegisterAPIServer(s, &mock.Enterprise.api)
-					pfs.RegisterObjectAPIServer(s, &mock.Object.api)
-					pfs.RegisterAPIServer(s, &mock.PFS.api)
-					pps.RegisterAPIServer(s, &mock.PPS.api)
-					transaction.RegisterAPIServer(s, &mock.Transaction.api)
-					version.RegisterAPIServer(s, &mock.Version.api)
-					return nil
-				},
+	var servers []*grpcutil.ServerRun
+	servers, mock.eg = grpcutil.Serve(
+		ctx,
+		grpcutil.ServerOptions{
+			Host:       "localhost",
+			AnyPort:    true,
+			MaxMsgSize: grpcutil.MaxMsgSize,
+			RegisterFunc: func(s *grpc.Server) error {
+				admin.RegisterAPIServer(s, &mock.Admin.api)
+				auth.RegisterAPIServer(s, &mock.Auth.api)
+				enterprise.RegisterAPIServer(s, &mock.Enterprise.api)
+				pfs.RegisterObjectAPIServer(s, &mock.Object.api)
+				pfs.RegisterAPIServer(s, &mock.PFS.api)
+				pps.RegisterAPIServer(s, &mock.PPS.api)
+				transaction.RegisterAPIServer(s, &mock.Transaction.api)
+				version.RegisterAPIServer(s, &mock.Version.api)
+				return nil
 			},
-		)
+		},
+	)
 
-		defer func() {
-			serveErr = err
-			ready <- true
-		}()
-
-		if err != nil {
-			return err
-		}
-
-		var port uint64
-		addrStr := servers[0].Listener.Addr().String()
-		addrParts := strings.Split(addrStr, ":")
-		port, err = strconv.ParseUint(addrParts[len(addrParts)-1], 10, 16)
-
-		if err != nil {
-			return err
-		}
-
-		mock.Port = uint16(port)
-
-		return nil
-	})
-
-	<-ready
-	return mock, serveErr
+	mock.Addr = servers[0].Listener.Addr()
+	return mock
 }
 
 // Close will cancel the mock Pachd API server goroutine and return its result
