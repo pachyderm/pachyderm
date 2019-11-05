@@ -1,6 +1,6 @@
 [build]
 base = "doc"
-command = "mkdocs build"
+command = "./build.sh"
 publish = "doc/site"
 
 
