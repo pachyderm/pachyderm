@@ -12,10 +12,12 @@
 When Pachyderm processes your data, it breaks it up into units of
 computation called datums. Each datum is processed separately.
 In a basic pipeline configuration, a failed datum results in a failed
-pipeline. However, in some cases, you might not need all datums
-to consider a job successful. If a datum can be further processed in
-your downstream pipelines without impacting the result, Pachyderm can
-mark that datum as *recovered* and mark the job as successful.
+job. However, in some cases, you might not need all datums
+to consider a job successful. If your downstream pipelines can be run
+on only the successful datums instead of needing all the datums to be
+successful, Pachyderm can mark some datums as *recovered* which means
+that they failed with a non-critical error, but the successful datums
+will be processed.
 
 To configure a condition under which you want your failed datums not
 to fail the whole job, you can add your custom error code in
@@ -42,7 +44,7 @@ Here is what is happening in the diagram above:
 the `cmd` field against your datums.
 1. If a datum is processed without errors, Pachyderm marks it as
 `processed`.
-1. If a datum fails, Pachyderm marks it as *skipped* and executes your
+1. If a datum fails, Pachyderm marks executes your
 error code (`err_cmd`) on that datum.
 1. If the code in `err_cmd` successfully runs on the *skipped* datum,
 Pachyderm marks the skipped datum as `recovered` and marks the job as
@@ -53,7 +55,7 @@ as failed, and, consequently, the job is marked as failed.
 You can view the processed, skipped, and recovered datums in the `PROGRESS`
 field in the output of the `pachctl list job` command:
 
-![datums in progress](../assets/images/datums_in_progress.svg)
+![Datums in progress](../assets/images/datums_in_progress.svg)
 
 Only processed datums are used in downstream pipelines if there are any.
 For example, in your first pipeline, Pachyderm processes three datums.
@@ -63,4 +65,3 @@ the next pipeline.
 
 !!! note "See also"
     [Example err_cmd pipeline](https://github.com/pachyderm/pachyderm/tree/master/examples/err-cmd-example/)
-

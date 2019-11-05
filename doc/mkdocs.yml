@@ -127,6 +127,7 @@ nav:
                 - Glob Patterns: concepts/pipeline-concepts/datum/glob-pattern.md
                 - Datum Processing: concepts/pipeline-concepts/datum/relationship-between-datums.md
                 - Cross and Union Inputs: concepts/pipeline-concepts/datum/cross-union.md
+                - Datum Processing States: concepts/pipeline-concepts/datum/datum-processing-states.md
         - Advanced Concepts:
             Distributed Computing: concepts/pipeline-concepts/distributed_computing.md
 
