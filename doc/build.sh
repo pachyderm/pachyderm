@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Build each version of the docs
-mkdocs build --config-file mkdocs.yml --site-dir site/master/
+mkdocs build --config-file mkdocs.yml --site-dir site/latest/
 mkdocs build --config-file mkdocs-1.9.x.yml --site-dir site/1.9.x/
 
 # Add each version of the docs to the dropdown defined by
