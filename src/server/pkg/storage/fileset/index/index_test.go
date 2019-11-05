@@ -28,9 +28,6 @@ func write(tb testing.TB, objC obj.Client, chunks *chunk.Storage, fileNames []st
 
 func actualFiles(tb testing.TB, objC obj.Client, chunks *chunk.Storage, opts ...Option) []string {
 	ir := NewReader(context.Background(), objC, chunks, testPath, opts...)
-	defer func() {
-		require.NoError(tb, ir.Close())
-	}()
 	result := []string{}
 	require.NoError(tb, ir.Iterate(func(idx *Index) error {
 		result = append(result, idx.Path)

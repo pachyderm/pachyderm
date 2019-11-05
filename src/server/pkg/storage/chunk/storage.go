@@ -37,8 +37,8 @@ func NewStorage(objC obj.Client, opts ...StorageOption) *Storage {
 }
 
 // NewReader creates a new Reader.
-func (s *Storage) NewReader(ctx context.Context) *Reader {
-	return newReader(ctx, s.objC)
+func (s *Storage) NewReader(ctx context.Context, dataRefs ...*DataRef) *Reader {
+	return newReader(ctx, s.objC, dataRefs...)
 }
 
 // NewWriter creates a new Writer for a stream of bytes to be chunked.

@@ -18,10 +18,11 @@ type Reader struct {
 	curr     *DataReader
 }
 
-func newReader(ctx context.Context, objC obj.Client) *Reader {
+func newReader(ctx context.Context, objC obj.Client, dataRefs ...*DataRef) *Reader {
 	return &Reader{
-		ctx:  ctx,
-		objC: objC,
+		ctx:      ctx,
+		objC:     objC,
+		dataRefs: dataRefs,
 	}
 }
 

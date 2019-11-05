@@ -12,26 +12,21 @@ import (
 	"modernc.org/mathutil"
 )
 
-type levelReader struct {
-	cr      *chunk.Reader
-	pbr     pbutil.Reader
+// Reader is used for reading a multilevel index.
+type Reader struct {
+	ctx     context.Context
+	objC    obj.Client
+	chunks  *chunk.Storage
+	path    string
+	filter  *pathFilter
+	levels  []pbutil.Reader
 	peekIdx *Index
+	done    bool
 }
 
 type pathFilter struct {
 	pathRange *PathRange
 	prefix    string
-}
-
-// Reader is used for reading a multilevel index.
-type Reader struct {
-	ctx    context.Context
-	objC   obj.Client
-	chunks *chunk.Storage
-	path   string
-	filter *pathFilter
-	levels []*levelReader
-	done   bool
 }
 
 // NewReader create a new Reader.
@@ -50,58 +45,30 @@ func NewReader(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path
 }
 
 func (r *Reader) Peek() (*Index, error) {
-	if r.done {
-		return nil, io.EOF
-	}
-	if err := r.setupLevels(); err != nil {
+	if err := r.setup(); err != nil {
 		return nil, err
 	}
-	level := len(r.levels) - 1
-	levelR := r.levels[level]
-	if levelR.peekIdx != nil {
-		return levelR.peekIdx, nil
-	}
 	var err error
-	levelR.peekIdx, err = r.next(level)
-	return levelR.peekIdx, err
+	if r.peekIdx == nil {
+		r.peekIdx, err = r.next()
+	}
+	return r.peekIdx, err
+
 }
 
-func (r *Reader) setupLevels() error {
-	if r.levels != nil {
-		return nil
+func (r *Reader) setup() error {
+	if r.done {
+		return io.EOF
 	}
-	// Setup top level reader.
-	pbr, err := topLevel(r.ctx, r.objC, r.path)
-	if err != nil {
-		return err
-	}
-	r.levels = []*levelReader{&levelReader{pbr: pbr}}
-	// Traverse until we reach the first entry in the lowest level.
-	for {
-		idx, err := r.peek(len(r.levels) - 1)
+	if r.levels == nil {
+		// Setup top level reader.
+		pbr, err := topLevel(r.ctx, r.objC, r.path)
 		if err != nil {
 			return err
 		}
-		// Return when we are at the lowest level.
-		if idx.Range == nil {
-			return nil
-		}
-		_, err = r.next(len(r.levels) - 1)
-		if err != nil {
-			return err
-		}
-		// Setup next level.
-		// (bryce) this whole process of reading at the offset is janky, needs to be re-thought.
-		cr := r.chunks.NewReader(r.ctx, r.callback(len(r.levels)))
-		dataRef := idx.DataOp.DataRefs[0]
-		dataRef.OffsetBytes = idx.Range.Offset
-		dataRef.SizeBytes -= idx.Range.Offset
-		cr.NextRange([]*chunk.DataRef{dataRef})
-		r.levels = append(r.levels, &levelReader{
-			cr:  cr,
-			pbr: pbutil.NewReader(cr),
-		})
+		r.levels = []pbutil.Reader{pbr}
 	}
+	return nil
 }
 
 func topLevel(ctx context.Context, objC obj.Client, path string) (pbr pbutil.Reader, retErr error) {
@@ -121,26 +88,23 @@ func topLevel(ctx context.Context, objC obj.Client, path string) (pbr pbutil.Rea
 	return pbutil.NewReader(buf), nil
 }
 
-func (r *Reader) peek(level int) (*Index, error) {
-	l := r.levels[level]
-	if l.peekIdx != nil {
-		return l.peekIdx, nil
+func (r *Reader) Next() (*Index, error) {
+	if err := r.setup(); err != nil {
+		return nil, err
 	}
-	var err error
-	l.peekIdx, err = r.next(level)
-	return l.peekIdx, err
-}
-
-func (r *Reader) next(level int) (*Index, error) {
-	l := r.levels[level]
-	if l.peekIdx != nil {
-		idx := l.peekIdx
-		l.peekIdx = nil
+	if r.peekIdx != nil {
+		idx := r.peekIdx
+		r.peekIdx = nil
 		return idx, nil
 	}
+	return r.next()
+}
+
+func (r *Reader) next() (*Index, error) {
 	for {
+		pbr := r.levels[len(r.levels)-1]
 		idx := &Index{}
-		if err := l.pbr.Read(idx); err != nil {
+		if err := pbr.Read(idx); err != nil {
 			return nil, err
 		}
 		// Return if done.
@@ -160,7 +124,7 @@ func (r *Reader) next(level int) (*Index, error) {
 		if !r.atStart(idx.Range.LastPath) {
 			continue
 		}
-		return idx, nil
+		r.levels = append(r.levels, pbutil.NewReader(newLevelReader(pbr, r.chunks.NewReader(r.ctx), idx)))
 	}
 }
 
@@ -196,26 +160,65 @@ func (r *Reader) atEnd(name string) bool {
 	return name[:cmpSize] > r.filter.prefix[:cmpSize]
 }
 
-func (r *Reader) callback(level int) chunk.ReaderFunc {
-	return func() ([]*chunk.DataRef, error) {
-		idx, err := r.next(level - 1)
-		if err != nil {
-			return nil, err
-		}
-		return idx.DataOp.DataRefs, nil
+type levelReader struct {
+	parent pbutil.Reader
+	cr     *chunk.Reader
+	idx    *Index
+	buf    *bytes.Buffer
+}
+
+func newLevelReader(parent pbutil.Reader, cr *chunk.Reader, idx *Index) *levelReader {
+	return &levelReader{
+		parent: parent,
+		cr:     cr,
+		idx:    idx,
 	}
 }
 
-func (r *Reader) Iterate(f func(*Index) error, pathBound ...string) error {
-	if _, err := r.Peek(); err != nil {
-		if err == io.EOF {
-			return nil
+func (lr *levelReader) Read(data []byte) (int, error) {
+	if err := lr.setup(); err != nil {
+		return 0, err
+	}
+	var bytesRead int
+	for len(data) > 0 {
+		if lr.buf.Len() == 0 {
+			if err := lr.next(); err != nil {
+				return bytesRead, err
+			}
 		}
+		n, _ := lr.buf.Read(data)
+		bytesRead += n
+		data = data[n:]
+	}
+	return bytesRead, nil
+}
+
+func (lr *levelReader) setup() error {
+	if lr.buf == nil {
+		lr.cr.NextDataRefs(lr.idx.DataOp.DataRefs)
+		lr.buf = &bytes.Buffer{}
+		if err := lr.cr.Get(lr.buf); err != nil {
+			return err
+		}
+		// Skip offset bytes to get to first index entry in chunk.
+		lr.buf = bytes.NewBuffer(lr.buf.Bytes()[lr.idx.Range.Offset:])
+	}
+	return nil
+}
+
+func (lr *levelReader) next() error {
+	lr.idx.Reset()
+	if err := lr.parent.Read(lr.idx); err != nil {
 		return err
 	}
-	level := len(r.levels) - 1
+	lr.cr.NextDataRefs(lr.idx.DataOp.DataRefs)
+	lr.buf.Reset()
+	return lr.cr.Get(lr.buf)
+}
+
+func (r *Reader) Iterate(f func(*Index) error, pathBound ...string) error {
 	for {
-		idx, err := r.peek(level)
+		idx, err := r.Peek()
 		if err != nil {
 			if err == io.EOF {
 				return nil
@@ -228,8 +231,7 @@ func (r *Reader) Iterate(f func(*Index) error, pathBound ...string) error {
 		if err := f(idx); err != nil {
 			return err
 		}
-		_, err = r.next(level)
-		if err != nil {
+		if _, err := r.Next(); err != nil {
 			return err
 		}
 	}
@@ -239,16 +241,6 @@ func (r *Reader) Iterate(f func(*Index) error, pathBound ...string) error {
 // The string bound is optional, so if no string bound is passed then it returns true.
 func BeforeBound(str string, strBound ...string) bool {
 	return len(strBound) == 0 || strings.Compare(str, strBound[0]) < 0
-}
-
-// Close closes the reader.
-func (r *Reader) Close() error {
-	for i := 1; i < len(r.levels); i++ {
-		if err := r.levels[i].cr.Close(); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // GetTopLevelIndex gets the top level index entry for a file set, which contains metadata
