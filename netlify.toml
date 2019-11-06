@@ -23,7 +23,7 @@ publish = "doc/site"
 
 [[redirects]]
   from = "/en/latest/getting_started/"
-  to = "/latest/getting_started/"
+  to = "/getting_started/"
   status = 301
   force = true
 
