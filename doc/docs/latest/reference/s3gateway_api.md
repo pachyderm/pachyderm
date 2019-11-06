@@ -70,10 +70,12 @@ Only S3's list objects v1 is supported.
 
 PFS directories are represented via `CommonPrefixes`. This largely mirrors how
 S3 is used in practice, but leads to a couple of differences:
+
 * If you set the delimiter parameter, it must be `/`.
 * Empty directories are included in listed results.
 
 With regard to listed results:
+
 * Due to PFS peculiarities, the `LastModified` field references when the most
 recent commit to the branch happened, which may or may not have modified the
 specific object listed.
@@ -89,8 +91,9 @@ There is support for range queries and conditional requests, however error
 response bodies for bad requests using these headers are not standard S3 XML.
 
 With regard to HTTP response headers:
+
 * Due to PFS peculiarities, the HTTP `Last-Modified` header references when
-the most recent commit to the branch happened, which may or may not have
-modified this specific object.
+  the most recent commit to the branch happened, which may or may not have
+  modified this specific object.
 * The HTTP `ETag` does not use MD5, but is a cryptographically secure hash of
-the file contents.
+  the file contents.
