@@ -113,7 +113,7 @@ line in them.
    ```
 
    Processing of this datum fails, but because the `err_cmd` code ran successfully,
-   the datum is marked as *recovered*, and the job finishes without errors..
+   the datum is marked as *recovered*, and the job finishes without errors.
    Only `file1` is available in the output commit.
 
    ```bash
