@@ -1146,85 +1146,165 @@ func TestPipelineErrorHandling(t *testing.T) {
 	c := getPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
-	dataRepo := tu.UniqueString("TestPipelineErrorHandling_data")
-	require.NoError(t, c.CreateRepo(dataRepo))
+	t.Run("ErrCmd", func(t *testing.T) {
 
-	_, err := c.PutFile(dataRepo, "master", "file1", strings.NewReader("foo\n"))
-	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, "master", "file2", strings.NewReader("bar\n"))
-	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, "master", "file3", strings.NewReader("bar\n"))
-	require.NoError(t, err)
+		dataRepo := tu.UniqueString("TestPipelineErrorHandling_data")
+		require.NoError(t, c.CreateRepo(dataRepo))
 
-	// In this pipeline, we'll have a command that fails for files 2 and 3, and an error handler that fails for file 2
-	pipeline := tu.UniqueString("pipeline1")
-	_, err = c.PpsAPIClient.CreatePipeline(
-		context.Background(),
-		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
-			Transform: &pps.Transform{
-				Cmd:      []string{"bash"},
-				Stdin:    []string{"if", fmt.Sprintf("[ -a pfs/%v/file1 ]", dataRepo), "then", "exit 0", "fi", "exit 1"},
-				ErrCmd:   []string{"bash"},
-				ErrStdin: []string{"if", fmt.Sprintf("[ -a pfs/%v/file3 ]", dataRepo), "then", "exit 0", "fi", "exit 1"},
-			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
-		})
-	require.NoError(t, err)
-
-	var jobInfos []*pps.JobInfo
-	require.NoError(t, backoff.Retry(func() error {
-		jobInfos, err = c.ListJob(pipeline, nil, nil, -1, true)
+		_, err := c.PutFile(dataRepo, "master", "file1", strings.NewReader("foo\n"))
 		require.NoError(t, err)
-		if len(jobInfos) != 1 {
-			return fmt.Errorf("expected 1 job, got %d", len(jobInfos))
-		}
-		return nil
-	}, backoff.NewTestingBackOff()))
-	jobInfo, err := c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{
-		Job:        jobInfos[0].Job,
-		BlockState: true,
-	})
-	require.NoError(t, err)
-	// We expect the job to fail, and have 1 datum processed, recovered, and failed each
-	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
-	require.Equal(t, int64(1), jobInfo.DataProcessed)
-	require.Equal(t, int64(1), jobInfo.DataRecovered)
-	require.Equal(t, int64(1), jobInfo.DataFailed)
-
-	// For this pipeline, we have the same command as before, but this time the error handling passes for all
-	pipeline = tu.UniqueString("pipeline2")
-	_, err = c.PpsAPIClient.CreatePipeline(
-		context.Background(),
-		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
-			Transform: &pps.Transform{
-				Cmd:    []string{"bash"},
-				Stdin:  []string{"if", fmt.Sprintf("[ -a pfs/%v/file1 ]", dataRepo), "then", "exit 0", "fi", "exit 1"},
-				ErrCmd: []string{"true"},
-			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
-		})
-	require.NoError(t, err)
-
-	require.NoError(t, backoff.Retry(func() error {
-		jobInfos, err = c.ListJob(pipeline, nil, nil, -1, true)
+		_, err = c.PutFile(dataRepo, "master", "file2", strings.NewReader("bar\n"))
 		require.NoError(t, err)
-		if len(jobInfos) != 1 {
-			return fmt.Errorf("expected 1 job, got %d", len(jobInfos))
-		}
-		return nil
-	}, backoff.NewTestingBackOff()))
-	jobInfo, err = c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{
-		Job:        jobInfos[0].Job,
-		BlockState: true,
+		_, err = c.PutFile(dataRepo, "master", "file3", strings.NewReader("bar\n"))
+		require.NoError(t, err)
+
+		// In this pipeline, we'll have a command that fails for files 2 and 3, and an error handler that fails for file 2
+		pipeline := tu.UniqueString("pipeline1")
+		_, err = c.PpsAPIClient.CreatePipeline(
+			context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd:      []string{"bash"},
+					Stdin:    []string{"if", fmt.Sprintf("[ -a pfs/%v/file1 ]", dataRepo), "then", "exit 0", "fi", "exit 1"},
+					ErrCmd:   []string{"bash"},
+					ErrStdin: []string{"if", fmt.Sprintf("[ -a pfs/%v/file3 ]", dataRepo), "then", "exit 0", "fi", "exit 1"},
+				},
+				Input: client.NewPFSInput(dataRepo, "/*"),
+			})
+		require.NoError(t, err)
+
+		var jobInfos []*pps.JobInfo
+		require.NoError(t, backoff.Retry(func() error {
+			jobInfos, err = c.ListJob(pipeline, nil, nil, -1, true)
+			require.NoError(t, err)
+			if len(jobInfos) != 1 {
+				return fmt.Errorf("expected 1 job, got %d", len(jobInfos))
+			}
+			return nil
+		}, backoff.NewTestingBackOff()))
+		jobInfo, err := c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{
+			Job:        jobInfos[0].Job,
+			BlockState: true,
+		})
+		require.NoError(t, err)
+		// We expect the job to fail, and have 1 datum processed, recovered, and failed each
+		require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
+		require.Equal(t, int64(1), jobInfo.DataProcessed)
+		require.Equal(t, int64(1), jobInfo.DataRecovered)
+		require.Equal(t, int64(1), jobInfo.DataFailed)
+
+		// For this pipeline, we have the same command as before, but this time the error handling passes for all
+		pipeline = tu.UniqueString("pipeline2")
+		_, err = c.PpsAPIClient.CreatePipeline(
+			context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd:    []string{"bash"},
+					Stdin:  []string{"if", fmt.Sprintf("[ -a pfs/%v/file1 ]", dataRepo), "then", "exit 0", "fi", "exit 1"},
+					ErrCmd: []string{"true"},
+				},
+				Input: client.NewPFSInput(dataRepo, "/*"),
+			})
+		require.NoError(t, err)
+
+		require.NoError(t, backoff.Retry(func() error {
+			jobInfos, err = c.ListJob(pipeline, nil, nil, -1, true)
+			require.NoError(t, err)
+			if len(jobInfos) != 1 {
+				return fmt.Errorf("expected 1 job, got %d", len(jobInfos))
+			}
+			return nil
+		}, backoff.NewTestingBackOff()))
+		jobInfo, err = c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{
+			Job:        jobInfos[0].Job,
+			BlockState: true,
+		})
+		require.NoError(t, err)
+		// so we expect the job to succeed, and to have recovered 2 datums
+		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+		require.Equal(t, int64(1), jobInfo.DataProcessed)
+		require.Equal(t, int64(2), jobInfo.DataRecovered)
+		require.Equal(t, int64(0), jobInfo.DataFailed)
+
 	})
-	require.NoError(t, err)
-	// so we expect the job to succeed, and to have recovered 2 datums
-	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
-	require.Equal(t, int64(1), jobInfo.DataProcessed)
-	require.Equal(t, int64(2), jobInfo.DataRecovered)
-	require.Equal(t, int64(0), jobInfo.DataFailed)
+	t.Run("RecoveredDatums", func(t *testing.T) {
+		dataRepo := tu.UniqueString("TestPipelineRecoveredDatums_data")
+		require.NoError(t, c.CreateRepo(dataRepo))
+
+		_, err := c.PutFile(dataRepo, "master", "foo", strings.NewReader("bar\n"))
+		require.NoError(t, err)
+
+		// In this pipeline, we'll have a command that fails the datum, and then recovers it
+		pipeline := tu.UniqueString("pipeline3")
+		_, err = c.PpsAPIClient.CreatePipeline(
+			context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd:      []string{"bash"},
+					Stdin:    []string{"exit 1"},
+					ErrCmd:   []string{"bash"},
+					ErrStdin: []string{"exit 0"},
+				},
+				Input: client.NewPFSInput(dataRepo, "/*"),
+			})
+		require.NoError(t, err)
+
+		var jobInfos []*pps.JobInfo
+		require.NoError(t, backoff.Retry(func() error {
+			jobInfos, err = c.ListJob(pipeline, nil, nil, -1, true)
+			require.NoError(t, err)
+			if len(jobInfos) != 1 {
+				return fmt.Errorf("expected 1 job, got %d", len(jobInfos))
+			}
+			return nil
+		}, backoff.NewTestingBackOff()))
+		jobInfo, err := c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{
+			Job:        jobInfos[0].Job,
+			BlockState: true,
+		})
+		require.NoError(t, err)
+		// We expect there to be one recovered datum
+		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+		require.Equal(t, int64(0), jobInfo.DataProcessed)
+		require.Equal(t, int64(1), jobInfo.DataRecovered)
+		require.Equal(t, int64(0), jobInfo.DataFailed)
+
+		// Update the pipeline so that datums will now successfully be processed
+		_, err = c.PpsAPIClient.CreatePipeline(
+			context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd:   []string{"bash"},
+					Stdin: []string{"true"},
+				},
+				Input:  client.NewPFSInput(dataRepo, "/*"),
+				Update: true,
+			})
+		require.NoError(t, err)
+		require.NoError(t, backoff.Retry(func() error {
+			jobInfos, err = c.ListJob(pipeline, nil, nil, -1, true)
+			require.NoError(t, err)
+			if len(jobInfos) != 2 {
+				return fmt.Errorf("expected 2 jobs, got %d", len(jobInfos))
+			}
+			return nil
+		}, backoff.NewTestingBackOff()))
+
+		jobInfo, err = c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{
+			Job:        jobInfos[0].Job,
+			BlockState: true,
+		})
+		require.NoError(t, err)
+		// Now the recovered datum should have been processed
+		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+		require.Equal(t, int64(1), jobInfo.DataProcessed)
+		require.Equal(t, int64(0), jobInfo.DataRecovered)
+		require.Equal(t, int64(0), jobInfo.DataFailed)
+	})
 }
 
 func TestEgressFailure(t *testing.T) {
@@ -4480,7 +4560,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 	var container v1.Container
 	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := tu.GetKubeClient(t)
-	require.NoError(t, backoff.Retry(func() error {
+	err = backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
@@ -4495,7 +4575,8 @@ func TestPipelineResourceRequest(t *testing.T) {
 		}
 		container = podList.Items[0].Spec.Containers[0]
 		return nil // no more retries
-	}, backoff.NewTestingBackOff()))
+	}, backoff.NewTestingBackOff())
+	require.NoError(t, err)
 	// Make sure a CPU and Memory request are both set
 	cpu, ok := container.Resources.Requests[v1.ResourceCPU]
 	require.True(t, ok)
@@ -9792,7 +9873,7 @@ func TestFileHistory(t *testing.T) {
 	dataRepo2 := tu.UniqueString("TestFileHistory_data2")
 	require.NoError(t, c.CreateRepo(dataRepo2))
 
-	pipeline := tu.UniqueString("TestFileHistory")
+	pipeline := tu.UniqueString("TestSimplePipeline")
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
 		"",
@@ -9947,38 +10028,9 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 	require.Equal(t, "2", buf.String())
 }
 
-// TestCreatePipelineErrorNoTransform tests that sending a CreatePipeline
-// requests to pachd with no 'pipeline' field doesn't kill pachd
-func TestCreatePipelineErrorNoPipeline(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := getPachClient(t)
-	require.NoError(t, c.DeleteAll())
-
-	// Create input repo
-	dataRepo := tu.UniqueString(t.Name() + "-data")
-	require.NoError(t, c.CreateRepo(dataRepo))
-
-	// Create pipeline w/ no pipeline field--make sure we get a response
-	_, err := c.PpsAPIClient.CreatePipeline(
-		context.Background(),
-		&pps.CreatePipelineRequest{
-			Pipeline: nil,
-			Transform: &pps.Transform{
-				Cmd:   []string{"/bin/bash"},
-				Stdin: []string{`cat foo >/pfs/out/file`},
-			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
-		})
-	require.YesError(t, err)
-	require.Matches(t, "pipeline", err.Error())
-}
-
-// TestCreatePipelineErrorNoTransform tests that sending a CreatePipeline
-// requests to pachd with no 'transform' or 'pipeline' field doesn't kill pachd
-func TestCreatePipelineError(t *testing.T) {
+// TestNoTransform tests that sending a CreatePipeline request to pachd with no
+// 'transform' field doesn't kill pachd
+func TestNoTransform(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -10004,9 +10056,9 @@ func TestCreatePipelineError(t *testing.T) {
 	require.Matches(t, "transform", err.Error())
 }
 
-// TestCreatePipelineErrorNoCmd tests that sending a CreatePipeline request to
-// pachd with no 'transform.cmd' field doesn't kill pachd
-func TestCreatePipelineErrorNoCmd(t *testing.T) {
+// TestNoCmd tests that sending a CreatePipeline request to pachd with no
+// 'transform.cmd' field doesn't kill pachd
+func TestNoCmd(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -10083,89 +10135,6 @@ func TestListTag(t *testing.T) {
 	actual := &bytes.Buffer{}
 	require.NoError(t, c.GetTag("tag0", actual))
 	require.Equal(t, "Object 0", actual.String())
-}
-
-// TestPodPatchUnmarshalling tests the fix for issues #3483, by adding a
-// PodPatch to a pipeline spec and making sure it's applied correctly
-func TestPodPatchUnmarshalling(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := getPachClient(t)
-	require.NoError(t, c.DeleteAll())
-
-	// Create input data
-	dataRepo := tu.UniqueString(t.Name() + "-data-")
-	require.NoError(t, c.CreateRepo(dataRepo))
-	_, err := c.PutFile(dataRepo, "master", "file", strings.NewReader("foo"))
-	require.NoError(t, err)
-
-	// create pipeline
-	pipeline := tu.UniqueString("pod-patch-")
-	_, err = c.PpsAPIClient.CreatePipeline(
-		context.Background(),
-		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
-			Transform: &pps.Transform{
-				Cmd:   []string{"bash"},
-				Stdin: []string{"cp /pfs/in/* /pfs/out"},
-			},
-			Input: &pps.Input{Pfs: &pps.PFSInput{
-				Name: "in", Repo: dataRepo, Glob: "/*",
-			}},
-			PodPatch: `[
-				{
-				  "op": "add",
-				  "path": "/volumes/0",
-				  "value": {
-				    "name": "vol0",
-				    "hostPath": {
-				      "path": "/volumePath"
-				}}}]`,
-		})
-	require.NoError(t, err)
-
-	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
-	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
-
-	var buf bytes.Buffer
-	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
-	require.Equal(t, "foo", buf.String())
-
-	pipelineInfo, err := c.InspectPipeline(pipeline)
-	require.NoError(t, err)
-
-	// make sure 'vol0' is correct in the pod spec
-	var volumes []v1.Volume
-	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-	kubeClient := tu.GetKubeClient(t)
-	require.NoError(t, backoff.Retry(func() error {
-		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(
-			metav1.ListOptions{
-				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-					map[string]string{"app": rcName},
-				)),
-			})
-		if err != nil {
-			return err // retry
-		}
-		if len(podList.Items) != 1 || len(podList.Items[0].Spec.Volumes) == 0 {
-			return fmt.Errorf("could not find volumes for pipeline %s", pipelineInfo.Pipeline.Name)
-		}
-		volumes = podList.Items[0].Spec.Volumes
-		return nil // no more retries
-	}, backoff.NewTestingBackOff()))
-	// Make sure a CPU and Memory request are both set
-	for _, vol := range volumes {
-		require.True(t,
-			vol.VolumeSource.HostPath == nil || vol.VolumeSource.EmptyDir == nil)
-		if vol.Name == "vol0" {
-			require.True(t, vol.VolumeSource.HostPath.Path == "/volumePath")
-		}
-	}
 }
 
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
@@ -10356,7 +10325,7 @@ func scalePachdN(t testing.TB, n int) {
 	// k8s will accept it if we're talking to a 1.7 cluster
 	pachdDeployment := pachdDeployment(t)
 	*pachdDeployment.Spec.Replicas = int32(n)
-	pachdDeployment.TypeMeta.APIVersion = "apps/v1"
+	pachdDeployment.TypeMeta.APIVersion = "apps/v1beta1"
 	_, err := k.Apps().Deployments(v1.NamespaceDefault).Update(pachdDeployment)
 	require.NoError(t, err)
 	waitForReadiness(t)
