@@ -90,9 +90,19 @@ type testEnv struct {
 
 func newTestEnv(t *testing.T) *testEnv {
 	var err error
+	env := &testEnv{}
+
+	// Cleanup any state if we error out early
+	defer func() {
+		if r := recover(); r != nil {
+			env.Close()
+			panic(r)
+		}
+	}()
 
 	tempDirBase := path.Join(os.TempDir(), "pachyderm_test")
-	require.NoError(t, os.MkdirAll(tempDirBase, 0700))
+	err = os.MkdirAll(tempDirBase, 0700)
+	require.NoError(t, err)
 
 	etcdConfig := embed.NewConfig()
 
@@ -108,67 +118,69 @@ func newTestEnv(t *testing.T) *testEnv {
 	etcdConfig.TickMs = 2
 	etcdConfig.ElectionMs = 10
 
-	etcdServer, err := embed.StartEtcd(etcdConfig)
+	env.etcd, err = embed.StartEtcd(etcdConfig)
 	require.NoError(t, err)
-
-	fmt.Printf("Got etcdServer\n")
 
 	clientUrls := []string{}
 	for _, url := range etcdConfig.LCUrls {
 		clientUrls = append(clientUrls, url.String())
 	}
 
-	etcdClient, err := etcd.New(etcd.Config{
+	env.etcdClient, err = etcd.New(etcd.Config{
 		Endpoints:   clientUrls,
 		DialOptions: client.DefaultDialOptions(),
 	})
-	if err != nil {
-		etcdServer.Close()
-		require.NoError(t, err)
-	}
+	require.NoError(t, err)
 
-	fmt.Printf("Got etcdClient\n")
+	env.mockPachd = tu.NewMockPachd()
 
-	mockPachd := tu.NewMockPachd()
-
-	fmt.Printf("Got mockPachd\n")
-
-	pachClient, err := client.NewFromAddress(mockPachd.Addr.String())
-	if err != nil {
-		mockPachd.Close()
-		etcdClient.Close()
-		etcdServer.Close()
-		require.NoError(t, err)
-	}
+	env.pachClient, err = client.NewFromAddress(env.mockPachd.Addr.String())
+	require.NoError(t, err)
 
 	// Mock out the enterprise.GetState call that happens during driver construction
-	mockPachd.Enterprise.GetState.Use(func(context.Context, *enterprise.GetStateRequest) (*enterprise.GetStateResponse, error) {
+	env.mockPachd.Enterprise.GetState.Use(func(context.Context, *enterprise.GetStateRequest) (*enterprise.GetStateResponse, error) {
 		return &enterprise.GetStateResponse{State: enterprise.State_NONE}, nil
 	})
 
-	d, err := NewDriver(testPipelineInfo, pachClient, NewMockKubeWrapper(), etcdClient, tu.UniqueString("driverTest"))
-	if err != nil {
-		mockPachd.Close()
-		pachClient.Close()
-		etcdClient.Close()
-		etcdServer.Close()
-		require.NoError(t, err)
-	}
+	var d Driver
+	d, err = NewDriver(
+		testPipelineInfo,
+		env.pachClient,
+		NewMockKubeWrapper(),
+		env.etcdClient,
+		tu.UniqueString("driverTest"),
+	)
+	env.driver = d.(*driver)
+	require.NoError(t, err)
 
-	return &testEnv{
-		etcd:       etcdServer,
-		etcdClient: etcdClient,
-		mockPachd:  mockPachd,
-		pachClient: pachClient,
-		driver:     d.(*driver),
-	}
+	return env
 }
 
-func (env *testEnv) Close(t *testing.T) {
-	env.pachClient.Close()
-	env.mockPachd.Close()
-	env.etcdClient.Close()
-	env.etcd.Close()
+func (env *testEnv) Close() (err error) {
+	// We return the first error that occurs during teardown, but still try to close everything
+	saveErr := func(e error) {
+		if e != nil && err == nil {
+			err = e
+		}
+	}
+
+	if env.pachClient != nil {
+		saveErr(env.pachClient.Close())
+	}
+
+	if env.mockPachd != nil {
+		saveErr(env.mockPachd.Close())
+	}
+
+	if env.etcdClient != nil {
+		saveErr(env.etcdClient.Close())
+	}
+
+	if env.etcd != nil {
+		env.etcd.Close()
+	}
+
+	return err
 }
 
 // TODO: this test should be performed in the ppsutil package
@@ -282,7 +294,7 @@ func requireHistogram(t *testing.T, histogram *prometheus.HistogramVec, labels [
 
 func TestUpdateCounter(t *testing.T) {
 	env := newTestEnv(t)
-	defer env.Close(t)
+	defer env.Close()
 
 	env.driver.pipelineInfo.ID = "foo"
 
@@ -333,7 +345,7 @@ func TestUpdateCounter(t *testing.T) {
 
 func TestUpdateHistogram(t *testing.T) {
 	env := newTestEnv(t)
-	defer env.Close(t)
+	defer env.Close()
 
 	env.driver.pipelineInfo.ID = "foo"
 
