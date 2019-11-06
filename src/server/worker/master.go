@@ -657,6 +657,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 					if chunkState.State == State_FAILED {
 						failedDatumID = chunkState.DatumID
 					} else if chunkState.State == State_COMPLETE {
+						// if the chunk has been completed, grab the recovered datums from the chunk
 						chunkRecoveredDatums, err := a.getDatumMap(ctx, pachClient, chunkState.RecoveredDatums)
 						if err != nil {
 							return err

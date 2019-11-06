@@ -2108,6 +2108,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				logger.Logf("failed processing datum: %v, retrying in %v", err, d)
 				return nil
 			}); err == errDatumRecovered {
+				// keep track of the recovered datums
 				recoverMu.Lock()
 				defer recoverMu.Unlock()
 				recoveredDatums = append(recoveredDatums, a.DatumID(data))
@@ -2130,6 +2131,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 		return nil, err
 	}
 
+	// put the list of recovered datums in a pfs.Object, and save it as part of the result
 	recoveredDatumsBuf := &bytes.Buffer{}
 	pbw := pbutil.NewWriter(recoveredDatumsBuf)
 	for _, datumHash := range recoveredDatums {
