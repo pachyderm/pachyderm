@@ -112,8 +112,9 @@ line in them.
    $ echo "bar" | pachctl put file input@master:file2
    ```
 
-   Processing of this datum will succeed as well, but the datum will be marked
-   as *recovered* because it does not contain `file1` as per our pipeline code:
+   Processing of this datum fails, but because the `err_cmd` code ran successfully,
+   the datum is marked as *recovered*, and the job finishes without errors..
+   Only `file1` is available in the output commit.
 
    ```bash
    $ pachctl list job --no-pager
@@ -133,7 +134,7 @@ line in them.
    $ echo "baz" | pachctl put file input@master:file3
    ```
 
-   Because the processed datum does not have nor `file1`, neither
+   Because the processed datum does not have neither `file1`, nor
    `file2`, this job results in failure. Therefore, both `cmd`
    and `err_cmd` codes result in non-zero status:
 

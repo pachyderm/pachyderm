@@ -47,8 +47,9 @@ the `cmd` field against your datums.
 1. If a datum fails, Pachyderm marks executes your
 error code (`err_cmd`) on that datum.
 1. If the code in `err_cmd` successfully runs on the *skipped* datum,
-Pachyderm marks the skipped datum as `recovered` and marks the job as
-successful.
+Pachyderm marks the skipped datum as `recovered`. The datum is in a
+failed state and, therefore, the pipeline does not put it into the output
+repository, but successful datums continue onto the next step in your DAG.
 1. If the `err_cmd` code fails on the skipped datum, the datum is marked
 as failed, and, consequently, the job is marked as failed.
 
@@ -57,7 +58,8 @@ field in the output of the `pachctl list job` command:
 
 ![Datums in progress](../assets/images/datums_in_progress.svg)
 
-Only processed datums are used in downstream pipelines if there are any.
+Pachyderm writes only processed datums of successful jobs to the output
+commit so that these datums can be processed by downstream pipelines.
 For example, in your first pipeline, Pachyderm processes three datums.
 If one of the datums is marked as *recovered* and two others are
 successfully processed, only these two successful datums are used in
