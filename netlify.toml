@@ -21,6 +21,7 @@ publish = "doc/site"
   status = 301
   force = true
 
+
 [[redirects]]
   from = "/en/latest/how-tos/"
   to = "/latest/how-tos/"
@@ -330,6 +331,12 @@ publish = "doc/site"
 [[redirects]]
   from = "/en/latest/pachub/pachub_getting_started.html"
   to = "https://docs.pachyderm.com/latest/pachub/pachub_getting_started/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/en/latest/deployment/deploy_intro.html"
+  to = "https://docs.pachyderm.com/latest/deploy-manage/deploy/"
   status = 301
   force = true
 
