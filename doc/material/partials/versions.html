@@ -1,8 +1,11 @@
-{#-
-  This file was automatically generated - do not edit
--#}
 <div class="mdl-selectfield">
-     <select class="mdl-selectfield__select" onchange='console.log(this.value),""!=this.value&&(window.location.hostname=this.value+"."+window.location.hostname)'>
-              <option style="" selected value="">latest</option>
+<select class="mdl-selectfield__select" id="selector" onchange="let pathParts = window.location.pathname.split('/'); pathParts[1] = this.value; window.location.pathname = pathParts.join('/')">
+              <option value="latest">latest</option>
+              <option value="1.9.x">1.9.x</option>
      </select>
+     <!-- set initial value of 'select' to the version of the docs being browsed -->
+     <script type="text/javascript">
+       var pathParts = window.location.pathname.split('/');
+       document.getElementById('selector').value = pathParts[1]
+     </script>
    </div>

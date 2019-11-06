@@ -1,1409 +1,1414 @@
 [build]
 base = "doc"
-command = "mkdocs build"
+command = "./build.sh"
 publish = "doc/site"
 
+[[redirects]]
+  from = "/"
+  to = "/latest/"
+  status = 301
+  force = true
 
 [[redirects]]
   from = "/en/latest/"
-  to = "/"
+  to = "/latest/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/en/latest/index.html"
+  to = "/latest/index.html"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/getting_started/"
-  to = "/getting_started/"
+  to = "/latest/getting_started/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/how-tos/"
-  to = "/how-tos/"
+  to = "/latest/how-tos/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/concepts/pipeline-concepts/pipeline/join.html"
-  to = "https://docs.pachyderm.com/concepts/pipeline-concepts/pipeline/join/"
+  to = "https://docs.pachyderm.com/latest/concepts/pipeline-concepts/pipeline/join/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/enterprise/"
-  to = "https://docs.pachyderm.com/enterprise/"
+  to = "https://docs.pachyderm.com/latest/enterprise/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/concepts/"
-  to = "/concepts/"
+  to = "/latest/concepts/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/deployment/"
-  to = "/deploy-manage/deploy/"
+  to = "/latest/deploy-manage/deploy/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/managing_pachyderm/"
-  to = "/deploy-manage/manage/"
+  to = "/latest/deploy-manage/manage/"
   status = 301
   force = true
 
 [[redirects]]
   from = "https://docs.pachyderm.io/*"
-  to = "https://docs.pachyderm.com/:splat"
-  status = 301
-  force = true
-
-[[redirects]]
-  from = "/en/latest/"
-  to = "/"
+  to = "https://docs.pachyderm.com/latest/:splat"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/contributing/setup.html"
-  to = "https://docs.pachyderm.com/contributing/setup/"
+  to = "https://docs.pachyderm.com/latest/contributing/setup/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/contributing/gcloud-setup.html"
-  to = "https://docs.pachyderm.com/contributing/gcloud-setup/"
+  to = "https://docs.pachyderm.com/latest/contributing/gcloud-setup/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/contributing/repo-layout.html"
-  to = "https://docs.pachyderm.com/contributing/repo-layout/"
+  to = "https://docs.pachyderm.com/latest/contributing/repo-layout/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/contributing/coding-conventions.html"
-  to = "https://docs.pachyderm.com/contributing/coding-conventions/"
+  to = "https://docs.pachyderm.com/latest/contributing/coding-conventions/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/managing_pachyderm/gpus.html"
-  to = "/deploy-manage/manage/gpus/"
+  to = "/latest/deploy-manage/manage/gpus/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/deployment/tracing.html"
-  to = "/deploy-manage/deploy/tracing/"
+  to = "/latest/deploy-manage/deploy/tracing/"
   status = 301
   force = true
 
 [[redirects]]
    from = "/en/latest/contributing/docs-style-guide.html"
-   to = "/contributing/docs-style-guide/"
+   to = "/latest/contributing/docs-style-guide/"
    status = 301
    force = true
 
 [[redirects]]
    from = "/en/latest/doc-style-guide/index.html"
-   to = "/contributing/docs-style-guide/"
+   to = "/latest/contributing/docs-style-guide/"
    status = 301
    force = true
 
 [[redirects]]
   from = "/en/latest/getting_started/local_installation.html"
-  to = "https://docs.pachyderm.com/getting_started/local_installation/"
+  to = "https://docs.pachyderm.com/latest/getting_started/local_installation/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/getting_started/beginner_tutorial.html"
-  to = "https://docs.pachyderm.com/getting_started/beginner_tutorial/"
+  to = "https://docs.pachyderm.com/latest/getting_started/beginner_tutorial/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/concepts/data-concepts/"
-  to = "https://docs.pachyderm.com/concepts/data-concepts/"
+  to = "https://docs.pachyderm.com/latest/concepts/data-concepts/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/concepts/data-concepts/repo.html"
-  to = "https://docs.pachyderm.com/concepts/data-concepts/repo/"
+  to = "https://docs.pachyderm.com/latest/concepts/data-concepts/repo/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/concepts/data-concepts/commit.html"
-  to = "https://docs.pachyderm.com/concepts/data-concepts/commit/"
+  to = "https://docs.pachyderm.com/latest/concepts/data-concepts/commit/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/concepts/data-concepts/branch.html"
-  to = "https://docs.pachyderm.com/concepts/data-concepts/branch/"
+  to = "https://docs.pachyderm.com/latest/concepts/data-concepts/branch/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/concepts/data-concepts/file.html"
-  to = "https://docs.pachyderm.com/concepts/data-concepts/file/"
+  to = "https://docs.pachyderm.com/latest/concepts/data-concepts/file/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/concepts/data-concepts/provenance.html"
-  to = "https://docs.pachyderm.com/concepts/data-concepts/provenance/"
+  to = "https://docs.pachyderm.com/latest/concepts/data-concepts/provenance/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/concepts/data-concepts/history.html"
-  to = "https://docs.pachyderm.com/concepts/data-concepts/history/"
+  to = "https://docs.pachyderm.com/latest/concepts/data-concepts/history/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/concepts/pipeline-concepts/"
-  to = "https://docs.pachyderm.com/concepts/pipeline-concepts/"
+  to = "https://docs.pachyderm.com/latest/concepts/pipeline-concepts/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/concepts/pipeline-concepts/pipeline/"
-  to = "https://docs.pachyderm.com/concepts/pipeline-concepts/pipeline/"
+  to = "https://docs.pachyderm.com/latest/concepts/pipeline-concepts/pipeline/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/concepts/pipeline-concepts/pipeline/cron.html"
-  to = "https://docs.pachyderm.com/concepts/pipeline-concepts/pipeline/cron/"
+  to = "https://docs.pachyderm.com/latest/concepts/pipeline-concepts/pipeline/cron/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/concepts/pipeline-concepts/pipeline/service.html"
-  to = "https://docs.pachyderm.com/concepts/pipeline-concepts/pipeline/service/"
+  to = "https://docs.pachyderm.com/latest/concepts/pipeline-concepts/pipeline/service/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/concepts/pipeline-concepts/pipeline/spout.html"
-  to = "https://docs.pachyderm.com/concepts/pipeline-concepts/pipeline/spout/"
+  to = "https://docs.pachyderm.com/latest/concepts/pipeline-concepts/pipeline/spout/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/concepts/pipeline-concepts/job.html"
-  to = "https://docs.pachyderm.com/concepts/pipeline-concepts/job/"
+  to = "https://docs.pachyderm.com/latest/concepts/pipeline-concepts/job/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/concepts/pipeline-concepts/datum/"
-  to = "https://docs.pachyderm.com/concepts/pipeline-concepts/datum/"
+  to = "https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/concepts/pipeline-concepts/datum/glob-pattern.html"
-  to = "https://docs.pachyderm.com/concepts/pipeline-concepts/datum/glob-pattern/"
+  to = "https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/glob-pattern/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/concepts/pipeline-concepts/datum/relationship-between-datums.html"
-  to = "https://docs.pachyderm.com/concepts/pipeline-concepts/datum/relationship-between-datums/"
+  to = "https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/relationship-between-datums/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/concepts/pipeline-concepts/datum/cross-union.html"
-  to = "https://docs.pachyderm.com/concepts/pipeline-concepts/datum/cross-union/"
+  to = "https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/cross-union/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/how-tos/distributed_computing.html"
-  to = "https://docs.pachyderm.com/concepts/pipeline-concepts/distributed_computing/"
+  to = "https://docs.pachyderm.com/latest/concepts/pipeline-concepts/distributed_computing/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/how-tos/individual-developer-workflow.html"
-  to = "https://docs.pachyderm.com/how-tos/individual-developer-workflow/"
+  to = "https://docs.pachyderm.com/latest/how-tos/individual-developer-workflow/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/how-tos/team-developer-workflow.html"
-  to = "https://docs.pachyderm.com/how-tos/team-developer-workflow/"
+  to = "https://docs.pachyderm.com/latest/how-tos/team-developer-workflow/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/how-tos/load-data-into-pachyderm.html"
-  to = "https://docs.pachyderm.com/how-tos/load-data-into-pachyderm/"
+  to = "https://docs.pachyderm.com/latest/how-tos/load-data-into-pachyderm/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/how-tos/export-data-out-pachyderm.html"
-  to = "https://docs.pachyderm.com/how-tos/export-data-out-pachyderm/"
+  to = "https://docs.pachyderm.com/latest/how-tos/export-data-out-pachyderm/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/how-tos/splitting-data/"
-  to = "https://docs.pachyderm.com/how-tos/splitting-data/"
+  to = "https://docs.pachyderm.com/latest/how-tos/splitting-data/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/how-tos/splitting-data/splitting.html"
-  to = "https://docs.pachyderm.com/how-tos/splitting-data/splitting/"
+  to = "https://docs.pachyderm.com/latest/how-tos/splitting-data/splitting/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/how-tos/splitting-data/adjusting_data_processing_w_split.html"
-  to = "https://docs.pachyderm.com/how-tos/splitting-data/adjusting_data_processing_w_split/"
+  to = "https://docs.pachyderm.com/latest/how-tos/splitting-data/adjusting_data_processing_w_split/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/how-tos/combining.html"
-  to = "https://docs.pachyderm.com/how-tos/combining/"
+  to = "https://docs.pachyderm.com/latest/how-tos/combining/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/how-tos/create-ml-workflow.html"
-  to = "https://docs.pachyderm.com/how-tos/create-ml-workflow/"
+  to = "https://docs.pachyderm.com/latest/how-tos/create-ml-workflow/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/how-tos/run_pipeline.html"
-  to = "https://docs.pachyderm.com/how-tos/run_pipeline/"
+  to = "https://docs.pachyderm.com/latest/how-tos/run_pipeline/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/how-tos/updating_pipelines.html"
-  to = "https://docs.pachyderm.com/how-tos/updating_pipelines/"
+  to = "https://docs.pachyderm.com/latest/how-tos/updating_pipelines/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/how-tos/time_windows.html"
-  to = "https://docs.pachyderm.com/how-tos/time_windows/"
+  to = "https://docs.pachyderm.com/latest/how-tos/time_windows/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/how-tos/removing_data_from_pachyderm.html"
-  to = "https://docs.pachyderm.com/how-tos/removing_data_from_pachyderm/"
+  to = "https://docs.pachyderm.com/latest/how-tos/removing_data_from_pachyderm/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/how-tos/distributed_computing.html"
-  to = "https://docs.pachyderm.com/how-tos/distributed_computing/"
+  to = "https://docs.pachyderm.com/latest/how-tos/distributed_computing/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/how-tos/deferred_processing.html"
-  to = "https://docs.pachyderm.com/how-tos/deferred_processing/"
+  to = "https://docs.pachyderm.com/latest/how-tos/deferred_processing/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/cookbook/ingressing_from_diff_cloud.html"
-  to = "https://docs.pachyderm.com/how-tos/ingressing_from_diff_cloud/"
+  to = "https://docs.pachyderm.com/latest/how-tos/ingressing_from_diff_cloud/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachub/pachub_getting_started.html"
-  to = "https://docs.pachyderm.com/pachub/pachub_getting_started/"
+  to = "https://docs.pachyderm.com/latest/pachub/pachub_getting_started/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/deployment/google_cloud_platform.html"
-  to = "https://docs.pachyderm.com/deploy-manage/deploy/google_cloud_platform/"
+  to = "https://docs.pachyderm.com/latest/deploy-manage/deploy/google_cloud_platform/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/deployment/amazon_web_services/"
-  to = "https://docs.pachyderm.com/deploy-manage/deploy/amazon_web_services/"
+  to = "https://docs.pachyderm.com/latest/deploy-manage/deploy/amazon_web_services/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/deployment/amazon_web_services/deploy-eks.html"
-  to = "https://docs.pachyderm.com/deploy-manage/deploy/amazon_web_services/deploy-eks/"
+  to = "https://docs.pachyderm.com/latest/deploy-manage/deploy/amazon_web_services/deploy-eks/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/deployment/amazon_web_services/aws-deploy-kubernetes-kops.html"
-  to = "https://docs.pachyderm.com/deploy-manage/deploy/amazon_web_services/aws-deploy-kubernetes-kops/"
+  to = "https://docs.pachyderm.com/latest/deploy-manage/deploy/amazon_web_services/aws-deploy-kubernetes-kops/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/deployment/amazon_web_services/aws-deploy-pachyderm.html"
-  to = "https://docs.pachyderm.com/deploy-manage/deploy/amazon_web_services/aws-deploy-pachyderm/"
+  to = "https://docs.pachyderm.com/latest/deploy-manage/deploy/amazon_web_services/aws-deploy-pachyderm/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/deployment/amazon_web_services/aws_cloudfront.html"
-  to = "https://docs.pachyderm.com/deploy-manage/deploy/amazon_web_services/aws_cloudfront/"
+  to = "https://docs.pachyderm.com/latest/deploy-manage/deploy/amazon_web_services/aws_cloudfront/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/deployment/azure.html"
-  to = "https://docs.pachyderm.com/deploy-manage/deploy/azure/"
+  to = "https://docs.pachyderm.com/latest/deploy-manage/deploy/azure/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/deployment/openshift.html"
-  to = "https://docs.pachyderm.com/deploy-manage/deploy/openshift/"
+  to = "https://docs.pachyderm.com/latest/deploy-manage/deploy/openshift/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/deployment/on_premises.html"
-  to = "https://docs.pachyderm.com/deploy-manage/deploy/on_premises/"
+  to = "https://docs.pachyderm.com/latest/deploy-manage/deploy/on_premises/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/deployment/deploy_custom/"
-  to = "https://docs.pachyderm.com/deploy-manage/deploy/deploy_custom/"
+  to = "https://docs.pachyderm.com/latest/deploy-manage/deploy/deploy_custom/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/deployment/deploy_custom/deploy_custom_before_you_begin.html"
-  to = "https://docs.pachyderm.com/deploy-manage/deploy/deploy_custom/deploy_custom_before_you_begin/"
+  to = "https://docs.pachyderm.com/latest/deploy-manage/deploy/deploy_custom/deploy_custom_before_you_begin/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/deployment/deploy_custom/deploy_custom_pachyderm_deployment_manifest.html"
-  to = "https://docs.pachyderm.com/deploy-manage/deploy/deploy_custom/deploy_custom_pachyderm_deployment_manifest/"
+  to = "https://docs.pachyderm.com/latest/deploy-manage/deploy/deploy_custom/deploy_custom_pachyderm_deployment_manifest/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/deployment/deploy_custom/deploy_custom_configuring_persistent_disk_parameters.html"
-  to = "https://docs.pachyderm.com/deploy-manage/deploy/deploy_custom/deploy_custom_configuring_persistent_disk_parameters/"
+  to = "https://docs.pachyderm.com/latest/deploy-manage/deploy/deploy_custom/deploy_custom_configuring_persistent_disk_parameters/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/deployment/deploy_custom/deploy_custom_configuring_object_store.html"
-  to = "https://docs.pachyderm.com/deploy-manage/deploy/deploy_custom/deploy_custom_configuring_object_store/"
+  to = "https://docs.pachyderm.com/latest/deploy-manage/deploy/deploy_custom/deploy_custom_configuring_object_store/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/deployment/deploy_custom/deploy_custom_complete_example_invocation.html"
-  to = "https://docs.pachyderm.com/deploy-manage/deploy/deploy_custom/deploy_custom_complete_example_invocation/"
+  to = "https://docs.pachyderm.com/latest/deploy-manage/deploy/deploy_custom/deploy_custom_complete_example_invocation/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/deployment/deploy_custom/deploy_custom_additional_flags.html"
-  to = "https://docs.pachyderm.com/deploy-manage/deploy/deploy_custom/deploy_custom_additional_flags/"
+  to = "https://docs.pachyderm.com/latest/deploy-manage/deploy/deploy_custom/deploy_custom_additional_flags/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/deployment/namespaces.html"
-  to = "https://docs.pachyderm.com/deploy-manage/deploy/namespaces/"
+  to = "https://docs.pachyderm.com/latest/deploy-manage/deploy/namespaces/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/deployment/non-cloud-object-stores.html"
-  to = "https://docs.pachyderm.com/deploy-manage/deploy/non-cloud-object-stores/"
+  to = "https://docs.pachyderm.com/latest/deploy-manage/deploy/non-cloud-object-stores/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/deployment/rbac.html"
-  to = "https://docs.pachyderm.com/deploy-manage/deploy/rbac/"
+  to = "https://docs.pachyderm.com/latest/deploy-manage/deploy/rbac/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/deployment/connect-to-cluster.html"
-  to = "https://docs.pachyderm.com/deploy-manage/deploy/connect-to-cluster/"
+  to = "https://docs.pachyderm.com/latest/deploy-manage/deploy/connect-to-cluster/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/managing_pachyderm/cluster-access.html"
-  to = "https://docs.pachyderm.com/deploy-manage/manage/cluster-access/"
+  to = "https://docs.pachyderm.com/latest/deploy-manage/manage/cluster-access/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/managing_pachyderm/autoscaling.html"
-  to = "https://docs.pachyderm.com/deploy-manage/manage/autoscaling/"
+  to = "https://docs.pachyderm.com/latest/deploy-manage/manage/autoscaling/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/managing_pachyderm/backup_restore.html"
-  to = "https://docs.pachyderm.com/deploy-manage/manage/backup_restore/"
+  to = "https://docs.pachyderm.com/latest/deploy-manage/manage/backup_restore/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/managing_pachyderm/data_management.html"
-  to = "https://docs.pachyderm.com/deploy-manage/manage/data_management/"
+  to = "https://docs.pachyderm.com/latest/deploy-manage/manage/data_management/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/managing_pachyderm/sharing_gpu_resources.html"
-  to = "https://docs.pachyderm.com/deploy-manage/manage/sharing_gpu_resources/"
+  to = "https://docs.pachyderm.com/latest/deploy-manage/manage/sharing_gpu_resources/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/managing_pachyderm/upgrades_migrations.html"
-  to = "https://docs.pachyderm.com/deploy-manage/manage/upgrades_migrations/"
+  to = "https://docs.pachyderm.com/latest/deploy-manage/manage/upgrades_migrations/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/deployment/migrations.html"
-  to = "https://docs.pachyderm.com/deploy-manage/manage/migrations/"
+  to = "https://docs.pachyderm.com/latest/deploy-manage/manage/migrations/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/managing_pachyderm/upgrades.html"
-  to = "https://docs.pachyderm.com/deploy-manage/manage/upgrades/"
+  to = "https://docs.pachyderm.com/latest/deploy-manage/manage/upgrades/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/reference/pipeline_spec.html"
-  to = "https://docs.pachyderm.com/reference/pipeline_spec/"
+  to = "https://docs.pachyderm.com/latest/reference/pipeline_spec/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/reference/config_spec.html"
-  to = "https://docs.pachyderm.com/reference/config_spec/"
+  to = "https://docs.pachyderm.com/latest/reference/config_spec/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/reference/clients.html"
-  to = "https://docs.pachyderm.com/reference/clients/"
+  to = "https://docs.pachyderm.com/latest/reference/clients/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/reference/s3gateway_api.html"
-  to = "https://docs.pachyderm.com/reference/s3gateway_api/"
+  to = "https://docs.pachyderm.com/latest/reference/s3gateway_api/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_auth.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_auth/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_auth/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_auth_activate.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_auth_activate/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_auth_activate/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_auth_check.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_auth_check/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_auth_check/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_auth_deactivate.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_auth_deactivate/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_auth_deactivate/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_auth_get-auth-token.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_auth_get-auth-token/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_auth_get-auth-token/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_auth_get-config.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_auth_get-config/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_auth_get-config/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_auth_get.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_auth_get/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_auth_get/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_auth_list-admins.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_auth_list-admins/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_auth_list-admins/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_auth_login.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_auth_login/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_auth_login/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_auth_logout.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_auth_logout/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_auth_logout/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_auth_modify-admins.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_auth_modify-admins/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_auth_modify-admins/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_auth_set-config.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_auth_set-config/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_auth_set-config/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_auth_set.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_auth_set/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_auth_set/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_auth_use-auth-token.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_auth_use-auth-token/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_auth_use-auth-token/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_auth_whoami.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_auth_whoami/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_auth_whoami/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_completion.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_completion/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_completion/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_config.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_config/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_config/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_config_delete.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_config_delete/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_config_delete/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_config_delete_context.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_config_delete_context/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_config_delete_context/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_config_get.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_config_get/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_config_get/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_config_get_active-context.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_config_get_active-context/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_config_get_active-context/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_config_get_context.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_config_get_context/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_config_get_context/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_config_get_metrics.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_config_get_metrics/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_config_get_metrics/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_config_list.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_config_list/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_config_list/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_config_list_context.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_config_list_context/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_config_list_context/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_config_set.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_config_set/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_config_set/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_config_set_active-context.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_config_set_active-context/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_config_set_active-context/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_config_set_context.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_config_set_context/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_config_set_context/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_config_set_metrics.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_config_set_metrics/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_config_set_metrics/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_config_update.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_config_update/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_config_update/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_config_update_context.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_config_update_context/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_config_update_context/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_copy.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_copy/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_copy/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_copy_file.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_copy_file/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_copy_file/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_create.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_create/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_create/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_create_branch.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_create_branch/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_create_branch/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_create_pipeline.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_create_pipeline/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_create_pipeline/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_create_repo.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_create_repo/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_create_repo/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_debug.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_debug/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_debug/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_debug_binary.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_debug_binary/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_debug_binary/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_debug_dump.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_debug_dump/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_debug_dump/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_debug_pprof.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_debug_pprof/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_debug_pprof/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_debug_profile.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_debug_profile/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_debug_profile/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_delete.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_delete/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_delete/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_delete_all.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_delete_all/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_delete_all/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_delete_branch.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_delete_branch/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_delete_branch/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_delete_commit.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_delete_commit/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_delete_commit/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_delete_file.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_delete_file/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_delete_file/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_delete_job.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_delete_job/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_delete_job/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_delete_pipeline.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_delete_pipeline/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_delete_pipeline/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_delete_repo.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_delete_repo/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_delete_repo/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_delete_transaction.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_delete_transaction/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_delete_transaction/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_deploy.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_deploy/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_deploy/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_deploy_amazon.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_deploy_amazon/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_deploy_amazon/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_deploy_custom.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_deploy_custom/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_deploy_custom/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_deploy_export-images.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_deploy_export-images/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_deploy_export-images/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_deploy_google.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_deploy_google/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_deploy_google/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_deploy_import-images.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_deploy_import-images/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_deploy_import-images/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_deploy_list-images.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_deploy_list-images/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_deploy_list-images/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_deploy_local.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_deploy_local/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_deploy_local/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_deploy_microsoft.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_deploy_microsoft/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_deploy_microsoft/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_deploy_storage.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_deploy_storage/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_deploy_storage/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_deploy_storage_amazon.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_deploy_storage_amazon/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_deploy_storage_amazon/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_deploy_storage_google.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_deploy_storage_google/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_deploy_storage_google/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_deploy_storage_microsoft.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_deploy_storage_microsoft/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_deploy_storage_microsoft/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_diff.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_diff/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_diff/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_diff_file.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_diff_file/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_diff_file/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_edit.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_edit/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_edit/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_edit_pipeline.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_edit_pipeline/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_edit_pipeline/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_enterprise.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_enterprise/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_enterprise/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_enterprise_activate.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_enterprise_activate/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_enterprise_activate/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_enterprise_get-state.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_enterprise_get-state/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_enterprise_get-state/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_extract.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_extract/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_extract/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_extract_pipeline.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_extract_pipeline/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_extract_pipeline/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_finish.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_finish/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_finish/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_finish_commit.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_finish_commit/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_finish_commit/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_finish_transaction.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_finish_transaction/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_finish_transaction/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_flush.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_flush/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_flush/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_flush_commit.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_flush_commit/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_flush_commit/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_flush_job.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_flush_job/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_flush_job/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_fsck.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_fsck/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_fsck/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_garbage-collect.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_garbage-collect/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_garbage-collect/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_get.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_get/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_get/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_get_file.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_get_file/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_get_file/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_get_object.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_get_object/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_get_object/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_get_tag.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_get_tag/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_get_tag/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_glob.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_glob/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_glob/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_glob_file.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_glob_file/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_glob_file/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_inspect.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_inspect/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_inspect/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_inspect_cluster.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_inspect_cluster/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_inspect_cluster/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_inspect_commit.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_inspect_commit/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_inspect_commit/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_inspect_datum.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_inspect_datum/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_inspect_datum/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_inspect_file.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_inspect_file/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_inspect_file/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_inspect_job.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_inspect_job/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_inspect_job/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_inspect_pipeline.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_inspect_pipeline/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_inspect_pipeline/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_inspect_repo.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_inspect_repo/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_inspect_repo/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_inspect_transaction.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_inspect_transaction/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_inspect_transaction/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_list.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_list/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_list/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_list_branch.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_list_branch/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_list_branch/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_list_commit.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_list_commit/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_list_commit/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_list_datum.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_list_datum/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_list_datum/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_list_file.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_list_file/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_list_file/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_list_job.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_list_job/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_list_job/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_list_pipeline.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_list_pipeline/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_list_pipeline/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_list_repo.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_list_repo/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_list_repo/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_list_transaction.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_list_transaction/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_list_transaction/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_logs.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_logs/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_logs/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_mount.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_mount/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_mount/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_port-forward.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_port-forward/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_port-forward/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_put.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_put/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_put/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_put_file.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_put_file/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_put_file/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_restart.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_restart/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_restart/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_restart_datum.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_restart_datum/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_restart_datum/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_restore.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_restore/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_restore/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_resume.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_resume/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_resume/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_resume_transaction.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_resume_transaction/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_resume_transaction/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_run.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_run/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_run/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_run_pipeline.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_run_pipeline/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_run_pipeline/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_start.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_start/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_start/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_start_commit.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_start_commit/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_start_commit/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_start_pipeline.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_start_pipeline/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_start_pipeline/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_start_transaction.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_start_transaction/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_start_transaction/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_stop.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_stop/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_stop/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_stop_job.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_stop_job/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_stop_job/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_stop_pipeline.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_stop_pipeline/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_stop_pipeline/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_stop_transaction.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_stop_transaction/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_stop_transaction/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_subscribe.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_subscribe/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_subscribe/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_subscribe_commit.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_subscribe_commit/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_subscribe_commit/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_undeploy.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_undeploy/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_undeploy/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_unmount.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_unmount/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_unmount/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_update-dash.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_update-dash/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_update-dash/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_update.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_update/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_update/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_update_pipeline.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_update_pipeline/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_update_pipeline/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_update_repo.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_update_repo/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_update_repo/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/pachctl/pachctl_version.html"
-  to = "https://docs.pachyderm.com/reference/pachctl/pachctl_version/"
+  to = "https://docs.pachyderm.com/latest/reference/pachctl/pachctl_version/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/examples/examples.html"
-  to = "https://docs.pachyderm.com/examples/examples/"
+  to = "https://docs.pachyderm.com/latest/examples/examples/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/enterprise/overview.html"
-  to = "https://docs.pachyderm.com/enterprise/overview/"
+  to = "https://docs.pachyderm.com/latest/enterprise/overview/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/deployment/"
-  to = "https://docs.pachyderm.com/enterprise/deployment/"
+  to = "https://docs.pachyderm.com/latest/enterprise/deployment/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/enterprise/auth/"
-  to = "https://docs.pachyderm.com/enterprise/auth/auth/"
+  to = "https://docs.pachyderm.com/latest/enterprise/auth/auth/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/enterprise/stats.html"
-  to = "https://docs.pachyderm.com/enterprise/stats/"
+  to = "https://docs.pachyderm.com/latest/enterprise/stats/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/enterprise/s3gateway.html"
-  to = "https://docs.pachyderm.com/enterprise/s3gateway/"
+  to = "https://docs.pachyderm.com/latest/enterprise/s3gateway/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/auth/saml.html"
-  to = "https://docs.pachyderm.com/enterprise/saml/"
+  to = "https://docs.pachyderm.com/latest/enterprise/saml/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/auth/saml_setup.html"
-  to = "https://docs.pachyderm.com/enterprise/saml_setup/"
+  to = "https://docs.pachyderm.com/latest/enterprise/saml_setup/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/auth/saml_usage.html"
-  to = "https://docs.pachyderm.com/enterprise/saml_usage/"
+  to = "https://docs.pachyderm.com/latest/enterprise/saml_usage/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/managing_pachyderm/general_troubleshooting.html"
-  to = "https://docs.pachyderm.com/troubleshooting/general_troubleshooting/"
+  to = "https://docs.pachyderm.com/latest/troubleshooting/general_troubleshooting/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/deployment/deploy_troubleshooting.html"
-  to = "https://docs.pachyderm.com/troubleshooting/deploy_troubleshooting/"
+  to = "https://docs.pachyderm.com/latest/troubleshooting/deploy_troubleshooting/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/managing_pachyderm/pipeline_troubleshooting.html"
-  to = "https://docs.pachyderm.com/troubleshooting/pipeline_troubleshooting/"
+  to = "https://docs.pachyderm.com/latest/troubleshooting/pipeline_troubleshooting/"
   status = 301
   force = true
