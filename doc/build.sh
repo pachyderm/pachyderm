@@ -28,7 +28,7 @@ cat <<EOF >>material/partials/versions.html
      <!-- set initial value of 'select' to the version of the docs being browsed -->
      <script type="text/javascript">
        var pathParts = window.location.pathname.split('/');
-       document.getElementById("mdl-selectfield__select").value = pathParts[1];
+       document.querySelector("mdl-selectfield__select").value = pathParts[1]
      </script>
    </div>
 EOF
