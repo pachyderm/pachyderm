@@ -2,8 +2,8 @@ site_name: Pachyderm Documentation
 site_description: Pachyderm Documention
 site_author: Pachyderm Team
 site_url: https://docs.pachyderm.com/
-docs_dir: docs/latest
-site_dir: site/latest
+docs_dir: docs/latest/
+site_dir: site/latest/
 
 repo_name: pachyderm/pachyderm
 repo_url: https://github.com/pachyderm/pachyderm
@@ -19,7 +19,7 @@ theme:
 
   # 404 page
   static_templates:
-    - 404.html
+    - latest/404.html
   include_search_page: true
   search_index_only: true
   language: en
