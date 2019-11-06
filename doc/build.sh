@@ -9,7 +9,7 @@ mkdocs build --config-file mkdocs-1.9.x.yml --site-dir site/1.9.x/
 # "material/partials/versions.html"
 cat <<EOF >material/partials/versions.html
 <div class="mdl-selectfield">
-<select class="mdl-selectfield__select" onchange="let pathParts = window.location.pathname.split('/'); pathParts[1] = this.value; window.location.pathname = pathParts.join('/')">
+<select class="mdl-selectfield__select" id="selector" onchange="let pathParts = window.location.pathname.split('/'); pathParts[1] = this.value; window.location.pathname = pathParts.join('/')">
               <option value="latest">latest</option>
 EOF
 for d in $(ls docs); do
@@ -28,7 +28,7 @@ cat <<EOF >>material/partials/versions.html
      <!-- set initial value of 'select' to the version of the docs being browsed -->
      <script type="text/javascript">
        var pathParts = window.location.pathname.split('/');
-       document.querySelector("mdl-selectfield__select").value = pathParts[1]
+       document.getElementById('selector').value = pathParts[1]
      </script>
    </div>
 EOF
