@@ -28,6 +28,5 @@ the `pachctl list job` command:
 ![datums in progress](../../../assets/images/datums_in_progress.svg)
 
 !!! note
-    This output does not show the number of failed datums.
-    However, if any datum fails, it is added to the total
-    number of datums.
+    Datums that failed are still included in the total, but not
+    shown in the progress indicator.
