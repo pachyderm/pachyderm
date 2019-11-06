@@ -52,6 +52,7 @@ message ChunkState {
   string datum_id = 2 [(gogoproto.customname) = "DatumID"];
   // The IP address of the worker who processed this chunk
   string address = 3;
+  pfs.Object recovered_datums = 4;
 }
 
 message MergeState {
