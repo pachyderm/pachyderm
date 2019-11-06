@@ -59,7 +59,7 @@ publish = "doc/site"
 
 [[redirects]]
   from = "https://docs.pachyderm.io/*"
-  to = "https://docs.pachyderm.com/latest/:splat"
+  to = "https://docs.pachyderm.com/:splat"
   status = 301
   force = true
 
