@@ -27,3 +27,4 @@ understand the following subconcepts:
 
 * [Glob Pattern](glob-pattern.md)
 * [Datum Processing](relationship-between-datums.md)
+* [Datum Processing States](datum-processing-states.md)

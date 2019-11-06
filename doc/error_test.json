@@ -1,0 +1,18 @@
+{
+    "pipeline": {
+        "name": "error_test"
+    },
+    "input": {
+        "pfs": {
+            "glob": "/*",
+            "repo": "input"
+        }
+    },
+    "transform": {
+        "cmd": [ "bash" ] ,
+        "stdin": [ "if", "[ -a /pfs/input/file1 ]", "then cp /pfs/input/* /pfs/out/", "exit 0",  "fi", "exit 1" ] ,
+        "err_cmd": [ "bash" ] ,
+        "err_stdin": [ "if", "[ -a /pfs/input/file2 ]",  "then", "exit 0", "fi", " exit 1" ]
+    }
+}
+
