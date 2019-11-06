@@ -642,6 +642,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		// Watch the chunks in order
 		chunks := a.chunks(jobInfo.Job.ID).ReadOnly(ctx)
 		var failedDatumID string
+		recoveredDatums := make(map[string]bool)
 		for _, high := range plan.Chunks {
 			chunkState := &ChunkState{}
 			if err := chunks.WatchOneF(fmt.Sprint(high), func(e *watch.Event) error {
@@ -655,6 +656,15 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 				if chunkState.State != State_RUNNING {
 					if chunkState.State == State_FAILED {
 						failedDatumID = chunkState.DatumID
+					} else if chunkState.State == State_COMPLETE {
+						chunkRecoveredDatums, err := a.getDatumMap(ctx, pachClient, chunkState.RecoveredDatums)
+						if err != nil {
+							return err
+						}
+						for k := range chunkRecoveredDatums {
+							recoveredDatums[k] = true
+						}
+
 					}
 					return errutil.ErrBreak
 				}
@@ -727,6 +737,9 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		for i := 0; i < df.Len(); i++ {
 			files := df.DatumN(i)
 			datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
+			if recoveredDatums[datumHash] {
+				continue
+			}
 			if _, err := pbw.WriteBytes([]byte(datumHash)); err != nil {
 				return err
 			}

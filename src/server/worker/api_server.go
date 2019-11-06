@@ -1146,6 +1146,7 @@ type processResult struct {
 	datumsSkipped   int64
 	datumsRecovered int64
 	datumsFailed    int64
+	recoveredDatums *pfs.Object
 }
 
 type processFunc func(low, high int64) (*processResult, error)
@@ -1215,8 +1216,9 @@ func (a *APIServer) processChunk(ctx context.Context, jobID string, low, high in
 			})
 		}
 		return chunks.Put(fmt.Sprint(high), &ChunkState{
-			State:   State_COMPLETE,
-			Address: os.Getenv(client.PPSWorkerIPEnv),
+			State:           State_COMPLETE,
+			Address:         os.Getenv(client.PPSWorkerIPEnv),
+			RecoveredDatums: processResult.recoveredDatums,
 		})
 	}); err != nil {
 		return err
@@ -1225,7 +1227,7 @@ func (a *APIServer) processChunk(ctx context.Context, jobID string, low, high in
 }
 
 func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APIClient, jobInfo *pps.JobInfo, jobID string,
-	plan *Plan, logger *taggedLogger, df DatumIterator, skip map[string]struct{}, useParentHashTree bool) (retErr error) {
+	plan *Plan, logger *taggedLogger, df DatumIterator, skip map[string]bool, useParentHashTree bool) (retErr error) {
 	for {
 		if err := func() error {
 			// if this worker is not responsible for a shard, it waits to be assigned one or for the job to finish
@@ -1404,13 +1406,13 @@ func (a *APIServer) getChunk(ctx context.Context, id int64, address string, fail
 	return nil
 }
 
-func (a *APIServer) computeTags(df DatumIterator, low, high int64, skip map[string]struct{}, useParentHashTree bool) []*pfs.Tag {
+func (a *APIServer) computeTags(df DatumIterator, low, high int64, skip map[string]bool, useParentHashTree bool) []*pfs.Tag {
 	var tags []*pfs.Tag
 	for i := low; i < high; i++ {
 		files := df.DatumN(int(i))
 		datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
 		// Skip datum if it is in the parent hashtree and the parent hashtree is being used in the merge
-		if _, ok := skip[datumHash]; ok && useParentHashTree {
+		if skip[datumHash] && useParentHashTree {
 			continue
 		}
 		tags = append(tags, client.NewTag(datumHash))
@@ -1575,8 +1577,8 @@ func (a *APIServer) getHashtrees(ctx context.Context, pachClient *client.APIClie
 	return rs, nil
 }
 
-func (a *APIServer) getCommitDatums(ctx context.Context, pachClient *client.APIClient, commitInfo *pfs.CommitInfo) (datums map[string]struct{}, retErr error) {
-	r, err := pachClient.GetObjectReader(commitInfo.Datums.Hash)
+func (a *APIServer) getDatumMap(ctx context.Context, pachClient *client.APIClient, object *pfs.Object) (_ map[string]bool, retErr error) {
+	r, err := pachClient.GetObjectReader(object.Hash)
 	if err != nil {
 		return nil, err
 	}
@@ -1586,7 +1588,7 @@ func (a *APIServer) getCommitDatums(ctx context.Context, pachClient *client.APIC
 		}
 	}()
 	pbr := pbutil.NewReader(r)
-	datums = make(map[string]struct{})
+	datums := make(map[string]bool)
 	for {
 		k, err := pbr.ReadBytes()
 		if err != nil {
@@ -1595,8 +1597,9 @@ func (a *APIServer) getCommitDatums(ctx context.Context, pachClient *client.APIC
 			}
 			return nil, err
 		}
-		datums[string(k)] = struct{}{}
+		datums[string(k)] = true
 	}
+	return datums, nil
 }
 
 func (a *APIServer) getParentHashTree(ctx context.Context, pachClient *client.APIClient, objClient obj.Client, commit *pfs.Commit, merge int64) (io.ReadCloser, error) {
@@ -1801,7 +1804,7 @@ func (a *APIServer) worker() {
 			}
 
 			// Compute the datums to skip
-			skip := make(map[string]struct{})
+			skip := make(map[string]bool)
 			var useParentHashTree bool
 			parentCommitInfo, err := a.getParentCommitInfo(jobCtx, pachClient, jobInfo.OutputCommit)
 			if err != nil {
@@ -1809,7 +1812,7 @@ func (a *APIServer) worker() {
 			}
 			if parentCommitInfo != nil {
 				var err error
-				skip, err = a.getCommitDatums(jobCtx, pachClient, parentCommitInfo)
+				skip, err = a.getDatumMap(jobCtx, pachClient, parentCommitInfo.Datums)
 				if err != nil {
 					return err
 				}
@@ -1817,7 +1820,7 @@ func (a *APIServer) worker() {
 				for i := 0; i < df.Len(); i++ {
 					files := df.DatumN(i)
 					datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
-					if _, ok := skip[datumHash]; ok {
+					if skip[datumHash] {
 						count++
 					}
 				}
@@ -1903,7 +1906,7 @@ func (a *APIServer) claimShard(ctx context.Context) {
 // returns the id of the failed datum it also may return a variety of errors
 // such as network errors.
 func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo,
-	df DatumIterator, low, high int64, skip map[string]struct{}, useParentHashTree bool) (result *processResult, retErr error) {
+	df DatumIterator, low, high int64, skip map[string]bool, useParentHashTree bool) (result *processResult, retErr error) {
 	defer func() {
 		if err := a.datumCache.Clear(); err != nil && retErr == nil {
 			logger.Logf("error clearing datum cache: %v", err)
@@ -1922,6 +1925,8 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 	result = &processResult{}
 	var eg errgroup.Group
 	limiter := limit.New(int(a.pipelineInfo.MaxQueueSize))
+	var recoveredDatums []string
+	var recoverMu sync.Mutex
 	for i := low; i < high; i++ {
 		datumIdx := i
 
@@ -1938,7 +1943,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 			}
 			// Hash inputs
 			tag := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, data)
-			if _, ok := skip[tag]; ok {
+			if skip[tag] {
 				if !useParentHashTree {
 					if err := a.cacheHashtree(pachClient, tag, datumIdx); err != nil {
 						return err
@@ -2103,6 +2108,9 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				logger.Logf("failed processing datum: %v, retrying in %v", err, d)
 				return nil
 			}); err == errDatumRecovered {
+				recoverMu.Lock()
+				defer recoverMu.Unlock()
+				recoveredDatums = append(recoveredDatums, a.DatumID(data))
 				atomic.AddInt64(&result.datumsRecovered, 1)
 				return nil
 			} else if err != nil {
@@ -2121,6 +2129,20 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 	if err := eg.Wait(); err != nil {
 		return nil, err
 	}
+
+	recoveredDatumsBuf := &bytes.Buffer{}
+	pbw := pbutil.NewWriter(recoveredDatumsBuf)
+	for _, datumHash := range recoveredDatums {
+		if _, err := pbw.WriteBytes([]byte(datumHash)); err != nil {
+			return nil, err
+		}
+	}
+	recoveredDatumsObj, _, err := pachClient.PutObject(recoveredDatumsBuf)
+	if err != nil {
+		return nil, err
+	}
+	result.recoveredDatums = recoveredDatumsObj
+
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		jobs := a.jobs.ReadWrite(stm)
 		jobID := jobInfo.Job.ID
