@@ -138,7 +138,9 @@ line in them.
    `file2`, this job results in failure. Therefore, both `cmd`
    and `err_cmd` codes result in non-zero status:
 
+   ```bash
    ID                               PIPELINE   STARTED        DURATION           RESTART PROGRESS      DL UL STATE
    272370ec03c24cc1be660bf97403712f error_test 26 seconds ago Less than a second 0       0 + 2 / 3     0B 0B failure: failed to process datum:...
    bc3da288ff884d5a9bcb312dd6cf07cb error_test 6 minutes ago  Less than a second 0       0 + 1 + 1 / 2 0B 0B success
    c8860dae5a054ec38a33068f75fe9690 error_test 10 minutes ago Less than a second 0       1 + 0 / 1     4B 4B success
+   ```
