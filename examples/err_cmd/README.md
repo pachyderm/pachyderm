@@ -142,7 +142,3 @@ line in them.
    272370ec03c24cc1be660bf97403712f error_test 26 seconds ago Less than a second 0       0 + 2 / 3     0B 0B failure: failed to process datum:...
    bc3da288ff884d5a9bcb312dd6cf07cb error_test 6 minutes ago  Less than a second 0       0 + 1 + 1 / 2 0B 0B success
    c8860dae5a054ec38a33068f75fe9690 error_test 10 minutes ago Less than a second 0       1 + 0 / 1     4B 4B success
-
-   In the last pipeline run, you can see that two datums were skipped.
-   Because Pachyderm adds a failed datum to the count, the total number
-   of datums is three.
