@@ -5,7 +5,7 @@
      </select>
      <!-- set initial value of 'select' to the version of the docs being browsed -->
      <script type="text/javascript">
-       let pathParts = window.location.pathname.split('/');
+       var pathParts = window.location.pathname.split('/');
        document.getElementById("mdl-selectfield__select").value = pathParts[1];
      </script>
    </div>
