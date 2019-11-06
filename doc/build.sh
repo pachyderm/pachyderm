@@ -9,8 +9,9 @@ mkdocs build --config-file mkdocs-1.9.x.yml --site-dir site/1.9.x/
 # "material/partials/versions.html"
 cat <<EOF >material/partials/versions.html
 <div class="mdl-selectfield">
-<select class="mdl-selectfield__select" onchange="let pathParts = window.location.pathname.split('/'); pathParts[2] = this.value; window.location.pathname = pathParts.join('/')">
-              <option style="" selected value="latest">latest</option>
+        <select class="mdl-selectfield__select" onchange="let pathParts = window.location.pathname.split('/'); pathParts[1] = this. value; window.location.pathname = pathParts.join('/')">
+               <option>Select a version</option>
+               <option style="" value="latest">latest</option>
 
 EOF
 for d in $(ls docs); do
