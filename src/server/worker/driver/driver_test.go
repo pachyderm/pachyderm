@@ -183,44 +183,6 @@ func (env *testEnv) Close() (err error) {
 	return err
 }
 
-// TODO: this test should be performed in the ppsutil package
-/*
-func TestGetExpectedNumWorkers(t *testing.T) {
-	d := newTestDriver(t)
-
-	// An empty parallelism spec should default to 1 worker
-	d.pipelineInfo.ParallelismSpec.Constant = 0
-	d.pipelineInfo.ParallelismSpec.Coefficient = 0
-	workers, err := d.GetExpectedNumWorkers()
-	require.NoError(t, err)
-	require.Equal(t, 1, workers)
-
-	// A constant should literally be returned
-	d.pipelineInfo.ParallelismSpec.Constant = 1
-	workers, err = d.GetExpectedNumWorkers()
-	require.NoError(t, err)
-	require.Equal(t, 1, workers)
-
-	d.pipelineInfo.ParallelismSpec.Constant = 3
-	workers, err = d.GetExpectedNumWorkers()
-	require.NoError(t, err)
-	require.Equal(t, 3, workers)
-
-	// Constant and Coefficient cannot both be non-zero
-	d.pipelineInfo.ParallelismSpec.Coefficient = 0.5
-	workers, err = d.GetExpectedNumWorkers()
-	require.YesError(t, err)
-
-	// No parallelism spec should default to 1 worker
-	d.pipelineInfo.ParallelismSpec = nil
-	workers, err = d.GetExpectedNumWorkers()
-	require.NoError(t, err)
-	require.Equal(t, 1, workers)
-
-	// TODO: test a non-zero coefficient - requires setting up a number of nodes with the kubeClient
-}
-*/
-
 func requireLogs(t *testing.T, pattern string, cb func(logs.TaggedLogger)) {
 	logger := logs.NewMockLogger()
 	buffer := &bytes.Buffer{}
