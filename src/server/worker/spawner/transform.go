@@ -33,6 +33,7 @@ import (
 func forEachCommit(
 	pachClient *client.APIClient,
 	pipelineInfo *pps.PipelineInfo,
+	driver driver.Driver,
 	cb func(*pfs.CommitInfo) error,
 ) error {
 	return pachClient.SubscribeCommitF(
@@ -49,6 +50,24 @@ func forEachCommit(
 					return err
 				} else if ci.Finished == nil {
 					return cb(ci)
+				} else {
+					// Make sure that the job has been correctly finished as the commit has.
+					ji, err := pachClient.InspectJobOutputCommit(ci.Commit.Repo.Name, ci.Commit.ID, true)
+					if err != nil {
+						return err
+					}
+					if !ppsutil.IsTerminal(ji.State) {
+						if len(ci.Trees) == 0 {
+							if err := driver.UpdateJobState(pachClient.Ctx(), ji.Job.ID,
+								pps.JobState_JOB_KILLED, "output commit is finished without data, but job state has not been updated"); err != nil {
+								return fmt.Errorf("could not kill job with finished output commit: %v", err)
+							}
+						} else {
+							if err := driver.UpdateJobState(pachClient.Ctx(), ji.Job.ID, pps.JobState_JOB_SUCCESS, ""); err != nil {
+								return fmt.Errorf("could not mark job with finished output commit as successful: %v", err)
+							}
+						}
+					}
 				}
 			}
 			return nil
@@ -62,7 +81,7 @@ func runTransform(
 	logger logs.TaggedLogger,
 	driver driver.Driver,
 ) error {
-	return forEachCommit(pachClient, pipelineInfo, func(commitInfo *pfs.CommitInfo) error {
+	return forEachCommit(pachClient, pipelineInfo, driver, func(commitInfo *pfs.CommitInfo) error {
 		// Check if a job was previously created for this commit. If not, make one
 		var jobInfo *pps.JobInfo // job for commitInfo (new or old)
 		jobInfos, err := pachClient.ListJob("", nil, commitInfo.Commit, -1, true)
@@ -72,7 +91,15 @@ func runTransform(
 		if len(jobInfos) > 1 {
 			return fmt.Errorf("multiple jobs found for commit: %s/%s", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
 		} else if len(jobInfos) < 1 {
-			job, err := pachClient.CreateJob(pipelineInfo.Pipeline.Name, commitInfo.Commit)
+			var statsCommit *pfs.Commit
+			if pipelineInfo.EnableStats {
+				for _, commitRange := range commitInfo.Subvenance {
+					if commitRange.Lower.Repo.Name == pipelineInfo.Pipeline.Name && commitRange.Upper.Repo.Name == pipelineInfo.Pipeline.Name {
+						statsCommit = commitRange.Lower
+					}
+				}
+			}
+			job, err := pachClient.CreateJob(pipelineInfo.Pipeline.Name, commitInfo.Commit, statsCommit)
 			if err != nil {
 				return err
 			}
@@ -96,6 +123,14 @@ func runTransform(
 
 		switch {
 		case ppsutil.IsTerminal(jobInfo.State):
+			if jobInfo.StatsCommit != nil {
+				if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
+					Commit: jobInfo.StatsCommit,
+					Empty:  true,
+				}); err != nil && !pfsserver.IsCommitFinishedErr(err) {
+					return err
+				}
+			}
 			if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
 				Commit: jobInfo.OutputCommit,
 				Empty:  true,
@@ -109,7 +144,7 @@ func runTransform(
 			// up by PPS master, but the PPS master can fail, and if these jobs
 			// aren't killed, future jobs will hang indefinitely waiting for their
 			// parents to finish)
-			if err := driver.UpdateJobState(pachClient.Ctx(), jobInfo.Job.ID, nil,
+			if err := driver.UpdateJobState(pachClient.Ctx(), jobInfo.Job.ID,
 				pps.JobState_JOB_KILLED, "pipeline has been updated"); err != nil {
 				return fmt.Errorf("could not kill stale job: %v", err)
 			}
@@ -178,6 +213,14 @@ func waitJob(
 					if err := driver.Jobs().ReadWrite(stm).Get(jobInfo.Job.ID, jobPtr); err != nil {
 						return err
 					}
+					if jobInfo.EnableStats {
+						if _, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+							Commit: jobInfo.StatsCommit,
+							Empty:  true,
+						}); err != nil && !pfsserver.IsCommitFinishedErr(err) {
+							logger.Logf("error from FinishCommit for stats while cleaning up job: %+v", err)
+						}
+					}
 					// TODO: this should just be part of UpdateJobState
 					if !ppsutil.IsTerminal(jobPtr.State) {
 						return ppsutil.UpdateJobState(driver.Pipelines().ReadWrite(stm), driver.Jobs().ReadWrite(stm), jobPtr, pps.JobState_JOB_KILLED, "")
@@ -192,19 +235,6 @@ func waitJob(
 			return nil // retry again
 		})
 	}()
-	// Get the stats commit.
-	var statsCommit *pfs.Commit
-	if jobInfo.EnableStats {
-		ci, err := pachClient.InspectCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
-		if err != nil {
-			return err
-		}
-		for _, commitRange := range ci.Subvenance {
-			if commitRange.Lower.Repo.Name == jobInfo.OutputRepo.Name && commitRange.Upper.Repo.Name == jobInfo.OutputRepo.Name {
-				statsCommit = commitRange.Lower
-			}
-		}
-	}
 	if jobInfo.JobTimeout != nil {
 		startTime, err := types.TimestampFromProto(jobInfo.Started)
 		if err != nil {
@@ -219,7 +249,7 @@ func waitJob(
 		timer := time.AfterFunc(afterTime, func() {
 			if jobInfo.EnableStats {
 				if _, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
-					Commit: statsCommit,
+					Commit: jobInfo.StatsCommit,
 					Empty:  true,
 				}); err != nil {
 					logger.Logf("error from FinishCommit for stats while timing out job: %+v", err)
@@ -244,13 +274,13 @@ func waitJob(
 			reason := fmt.Sprintf("inputs %s failed", strings.Join(failed, ", "))
 			if jobInfo.EnableStats {
 				if _, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
-					Commit: statsCommit,
+					Commit: jobInfo.StatsCommit,
 					Empty:  true,
 				}); err != nil && !pfsserver.IsCommitFinishedErr(err) {
 					return err
 				}
 			}
-			if err := driver.UpdateJobState(ctx, jobInfo.Job.ID, statsCommit, pps.JobState_JOB_FAILURE, reason); err != nil {
+			if err := driver.UpdateJobState(ctx, jobInfo.Job.ID, pps.JobState_JOB_FAILURE, reason); err != nil {
 				return err
 			}
 			if _, err := pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
@@ -290,7 +320,6 @@ func waitJob(
 				return nil
 			}
 			jobPtr.DataTotal = int64(dit.Len())
-			jobPtr.StatsCommit = statsCommit
 			if err := ppsutil.UpdateJobState(driver.Pipelines().ReadWrite(stm), driver.Jobs().ReadWrite(stm), jobPtr, pps.JobState_JOB_RUNNING, ""); err != nil {
 				return err
 			}
@@ -339,7 +368,7 @@ func waitJob(
 				return err
 			}
 		}
-		if err := driver.UpdateJobState(ctx, jobInfo.Job.ID, nil, pps.JobState_JOB_MERGING, ""); err != nil {
+		if err := driver.UpdateJobState(ctx, jobInfo.Job.ID, pps.JobState_JOB_MERGING, ""); err != nil {
 			return err
 		}
 		var trees []*pfs.Object
@@ -374,7 +403,7 @@ func waitJob(
 		}
 		if jobInfo.EnableStats {
 			if _, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
-				Commit:    statsCommit,
+				Commit:    jobInfo.StatsCommit,
 				Trees:     statsTrees,
 				SizeBytes: statsSize,
 			}); err != nil && !pfsserver.IsCommitFinishedErr(err) {
@@ -386,7 +415,7 @@ func waitJob(
 		// killed.
 		if failedDatumID != "" {
 			reason := fmt.Sprintf("failed to process datum: %v", failedDatumID)
-			if err := driver.UpdateJobState(ctx, jobInfo.Job.ID, statsCommit, pps.JobState_JOB_FAILURE, reason); err != nil {
+			if err := driver.UpdateJobState(ctx, jobInfo.Job.ID, pps.JobState_JOB_FAILURE, reason); err != nil {
 				return err
 			}
 			if _, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
@@ -431,9 +460,9 @@ func waitJob(
 		// Handle egress
 		if err := egress(pachClient, logger, jobInfo); err != nil {
 			reason := fmt.Sprintf("egress error: %v", err)
-			return driver.UpdateJobState(ctx, jobInfo.Job.ID, statsCommit, pps.JobState_JOB_FAILURE, reason)
+			return driver.UpdateJobState(ctx, jobInfo.Job.ID, pps.JobState_JOB_FAILURE, reason)
 		}
-		return driver.UpdateJobState(ctx, jobInfo.Job.ID, statsCommit, pps.JobState_JOB_SUCCESS, "")
+		return driver.UpdateJobState(ctx, jobInfo.Job.ID, pps.JobState_JOB_SUCCESS, "")
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		logger.Logf("error in waitJob %v, retrying in %v", err, d)
 		select {

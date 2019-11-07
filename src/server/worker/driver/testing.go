@@ -8,7 +8,6 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/types"
 
-	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
@@ -135,7 +134,7 @@ func (md *MockDriver) DeleteJob(stm col.STM, jobPtr *pps.EtcdJobInfo) error {
 }
 
 // UpdateJobState will update the given job's state in etcd.
-func (md *MockDriver) UpdateJobState(ctx context.Context, jobID string, statsCommit *pfs.Commit, state pps.JobState, reason string) error {
+func (md *MockDriver) UpdateJobState(ctx context.Context, jobID string, state pps.JobState, reason string) error {
 	// The dummy version doesn't bother with stats commits
 	_, err := md.NewSTM(ctx, func(stm col.STM) error {
 		jobPtr := &pps.EtcdJobInfo{}
