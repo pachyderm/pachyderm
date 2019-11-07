@@ -2,6 +2,13 @@
 
 set -ex
 
+# Create 'latest' symlink
+latest_version="1.9.x"
+if [[ -L site/latest ]]; then
+  rm site/latest
+fi
+ln -s "${latest_version}" site/latest
+
 # Rebuild all docs versions
 for d in $(ls docs); do
     # don't rebuild archive dir
