@@ -147,7 +147,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		return nil, err
 	}
 
-	driver, err := driver.NewDriver(pipelineInfo, oldPachClient, kubeClient, etcdClient, etcdPrefix)
+	d, err := driver.NewDriver(pipelineInfo, oldPachClient, driver.NewKubeWrapper(kubeClient), etcdClient, etcdPrefix)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +156,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		pachClient:      oldPachClient,
 		etcdClient:      etcdClient,
 		etcdPrefix:      etcdPrefix,
-		driver:          driver,
+		driver:          d,
 		pipelineInfo:    pipelineInfo,
 		workerName:      workerName,
 		namespace:       namespace,
@@ -205,7 +205,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		}
 		if server.pipelineInfo.Transform.Cmd == nil {
 			if len(image.Config.Entrypoint) == 0 {
-				ppsutil.FailPipeline(ctx, etcdClient, driver.Pipelines(),
+				ppsutil.FailPipeline(ctx, etcdClient, d.Pipelines(),
 					pipelineInfo.Pipeline.Name,
 					"nothing to run: no transform.cmd and no entrypoint")
 			}

@@ -143,8 +143,8 @@ func doSidecarMode(config interface{}) (retErr error) {
 	// The sidecar only needs to serve traffic on the peer port, as it only serves
 	// traffic from the user container (the worker binary and occasionally user
 	// pipelines)
-	eg := grpcutil.Serve(
-		context.Background()
+	_, eg := grpcutil.Serve(
+		context.Background(),
 		grpcutil.ServerOptions{
 			Port:       env.PeerPort,
 			MaxMsgSize: grpcutil.MaxMsgSize,
@@ -359,7 +359,7 @@ func doFullMode(config interface{}) (retErr error) {
 		return fmt.Errorf("ListenAndServe: %v", err)
 	})
 	eg.Go(func() error {
-		grpcEg := grpcutil.Serve(
+		_, grpcEg := grpcutil.Serve(
 			context.Background(),
 			grpcutil.ServerOptions{
 				Port:                 env.Port,
@@ -469,7 +469,7 @@ func doFullMode(config interface{}) (retErr error) {
 	// APIServer structs here so we can serve the Pachyderm API on the
 	// peer port
 	eg.Go(func() error {
-		grpcEg := grpcutil.Serve(
+		_, grpcEg := grpcutil.Serve(
 			context.Background(),
 			grpcutil.ServerOptions{
 				Port:       env.PeerPort,
