@@ -854,15 +854,11 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry string
 				if pipelinePath == "-" || (err == nil && url.Scheme != "") {
 					return fmt.Errorf("`--build` can only be used when the pipeline path is local")
 				}
-				absPath, err := filepath.Abs(pipelinePath)
-				if err != nil {
-					return fmt.Errorf("could not get absolute path to the pipeline path '%s': %s", pipelinePath, err)
-				}
-				contextDir := filepath.Dir(absPath)
 				dockerfile := request.Transform.Dockerfile
 				if dockerfile == "" {
 					dockerfile = "./Dockerfile"
 				}
+				contextDir, dockerfile := filepath.Split(dockerfile)
 				err = buildImage(dockerClient, repo, contextDir, dockerfile, destTag)
 				if err != nil {
 					return err
