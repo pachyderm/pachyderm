@@ -401,12 +401,11 @@ func (d *driver) downloadData(
 		if err := os.MkdirAll(filepath.Dir(outPath), 0700); err != nil {
 			return "", fmt.Errorf("mkdirall :%v", err)
 		}
-		// TODO: this doesn't build on windows
-		/*
-			if err := syscall.Mkfifo(outPath, 0666); err != nil {
-				return "", fmt.Errorf("mkfifo :%v", err)
-			}
-		*/
+		// Fifos don't exist on windows (where we may run this code in tests), so
+		// this is broken out into a file
+		if err := createSpoutFifo(outPath); err != nil {
+			return "", fmt.Errorf("mkfifo :%v", err)
+		}
 	} else {
 		if err := os.MkdirAll(outPath, 0777); err != nil {
 			return "", err

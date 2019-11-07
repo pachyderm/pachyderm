@@ -262,6 +262,9 @@ func provisionPipeline(d *driver) {
 }
 
 func TestWithData(t *testing.T) {
+	err := withTestEnv(func(env *testEnv) {
+	})
+	require.NoError(t, err)
 }
 
 func TestWithDataCancel(t *testing.T) {
