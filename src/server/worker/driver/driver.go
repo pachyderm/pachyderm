@@ -28,7 +28,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/exec"
@@ -83,7 +82,7 @@ type Driver interface {
 	// TODO: provide a more generic interface for modifying jobs/plans/etc, and
 	// some quality-of-life functions for common operations.
 	DeleteJob(col.STM, *pps.EtcdJobInfo) error
-	UpdateJobState(context.Context, string, *pfs.Commit, pps.JobState, string) error
+	UpdateJobState(context.Context, string, pps.JobState, string) error
 
 	// TODO: figure out how to not expose this
 	ReportUploadStats(time.Time, *pps.ProcessStats, logs.TaggedLogger)
@@ -637,17 +636,12 @@ func (d *driver) RunUserErrorHandlingCode(ctx context.Context, logger logs.Tagge
 	return nil
 }
 
-func (d *driver) UpdateJobState(ctx context.Context, jobID string, statsCommit *pfs.Commit, state pps.JobState, reason string) error {
+func (d *driver) UpdateJobState(ctx context.Context, jobID string, state pps.JobState, reason string) error {
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		jobPtr := &pps.EtcdJobInfo{}
 		if err := d.Jobs().ReadWrite(stm).Get(jobID, jobPtr); err != nil {
 			return err
 		}
-		// TODO: move this out
-		if jobPtr.StatsCommit == nil {
-			jobPtr.StatsCommit = statsCommit
-		}
-
 		return ppsutil.UpdateJobState(d.Pipelines().ReadWrite(stm), d.Jobs().ReadWrite(stm), jobPtr, state, reason)
 	})
 	return err
