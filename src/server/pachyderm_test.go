@@ -1174,20 +1174,11 @@ func TestPipelineErrorHandling(t *testing.T) {
 			})
 		require.NoError(t, err)
 
-		var jobInfos []*pps.JobInfo
-		require.NoError(t, backoff.Retry(func() error {
-			jobInfos, err = c.ListJob(pipeline, nil, nil, -1, true)
-			require.NoError(t, err)
-			if len(jobInfos) != 1 {
-				return fmt.Errorf("expected 1 job, got %d", len(jobInfos))
-			}
-			return nil
-		}, backoff.NewTestingBackOff()))
-		jobInfo, err := c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{
-			Job:        jobInfos[0].Job,
-			BlockState: true,
-		})
+		jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 		require.NoError(t, err)
+		require.Equal(t, 1, len(jis))
+		jobInfo := jis[0]
+
 		// We expect the job to fail, and have 1 datum processed, recovered, and failed each
 		require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
 		require.Equal(t, int64(1), jobInfo.DataProcessed)
@@ -1209,25 +1200,16 @@ func TestPipelineErrorHandling(t *testing.T) {
 			})
 		require.NoError(t, err)
 
-		require.NoError(t, backoff.Retry(func() error {
-			jobInfos, err = c.ListJob(pipeline, nil, nil, -1, true)
-			require.NoError(t, err)
-			if len(jobInfos) != 1 {
-				return fmt.Errorf("expected 1 job, got %d", len(jobInfos))
-			}
-			return nil
-		}, backoff.NewTestingBackOff()))
-		jobInfo, err = c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{
-			Job:        jobInfos[0].Job,
-			BlockState: true,
-		})
+		jis, err = c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 		require.NoError(t, err)
+		require.Equal(t, 2, len(jis))
+		jobInfo = jis[1]
+
 		// so we expect the job to succeed, and to have recovered 2 datums
 		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 		require.Equal(t, int64(1), jobInfo.DataProcessed)
 		require.Equal(t, int64(2), jobInfo.DataRecovered)
 		require.Equal(t, int64(0), jobInfo.DataFailed)
-
 	})
 	t.Run("RecoveredDatums", func(t *testing.T) {
 		dataRepo := tu.UniqueString("TestPipelineRecoveredDatums_data")
@@ -1252,20 +1234,11 @@ func TestPipelineErrorHandling(t *testing.T) {
 			})
 		require.NoError(t, err)
 
-		var jobInfos []*pps.JobInfo
-		require.NoError(t, backoff.Retry(func() error {
-			jobInfos, err = c.ListJob(pipeline, nil, nil, -1, true)
-			require.NoError(t, err)
-			if len(jobInfos) != 1 {
-				return fmt.Errorf("expected 1 job, got %d", len(jobInfos))
-			}
-			return nil
-		}, backoff.NewTestingBackOff()))
-		jobInfo, err := c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{
-			Job:        jobInfos[0].Job,
-			BlockState: true,
-		})
+		jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 		require.NoError(t, err)
+		require.Equal(t, 1, len(jis))
+		jobInfo := jis[0]
+
 		// We expect there to be one recovered datum
 		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 		require.Equal(t, int64(0), jobInfo.DataProcessed)
@@ -1285,20 +1258,12 @@ func TestPipelineErrorHandling(t *testing.T) {
 				Update: true,
 			})
 		require.NoError(t, err)
-		require.NoError(t, backoff.Retry(func() error {
-			jobInfos, err = c.ListJob(pipeline, nil, nil, -1, true)
-			require.NoError(t, err)
-			if len(jobInfos) != 2 {
-				return fmt.Errorf("expected 2 jobs, got %d", len(jobInfos))
-			}
-			return nil
-		}, backoff.NewTestingBackOff()))
 
-		jobInfo, err = c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{
-			Job:        jobInfos[0].Job,
-			BlockState: true,
-		})
+		jis, err = c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 		require.NoError(t, err)
+		require.Equal(t, 1, len(jis))
+		jobInfo = jis[0]
+
 		// Now the recovered datum should have been processed
 		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 		require.Equal(t, int64(1), jobInfo.DataProcessed)
