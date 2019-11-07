@@ -468,7 +468,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	createPipeline.Flags().BoolVarP(&build, "build", "b", false, "If true, build and push local docker images into the docker registry.")
 	createPipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the docker registry.")
 	createPipeline.Flags().StringVarP(&registry, "registry", "r", "docker.io", "The registry to push images to.")
-	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your docker username.")
+	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as.")
 	commands = append(commands, cmdutil.CreateAlias(createPipeline, "create pipeline"))
 
 	var reprocess bool
@@ -483,7 +483,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	updatePipeline.Flags().BoolVarP(&build, "build", "b", false, "If true, build and push local docker images into the docker registry.")
 	updatePipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the docker registry.")
 	updatePipeline.Flags().StringVarP(&registry, "registry", "r", "docker.io", "The registry to push images to.")
-	updatePipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
+	updatePipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as.")
 	updatePipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
 	commands = append(commands, cmdutil.CreateAlias(updatePipeline, "update pipeline"))
 
