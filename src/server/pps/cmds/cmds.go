@@ -837,7 +837,7 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry string
 		}
 		if build || pushImages {
 			if build && pushImages {
-				fmt.Fprintln(os.Stderr, "`--push-images` is redundant, as it's already enabled with `--build`")
+				fmt.Fprintln(os.Stderr, "WARNING: `--push-images` is redundant, as it's already enabled with `--build`")
 			}
 			dockerClient, authConfig, err := dockerConfig(registry, username)
 			if err != nil {
