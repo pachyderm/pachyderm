@@ -18,6 +18,17 @@ for d in $(ls docs); do
         exit 1
     fi
 
+    # # Skip building docs if the version has changed
+    # dir_hash="$( find "${in_dir}" -type f | xargs md5sum | md5sum )"
+    # old_hash="-"
+    # if [[ -f "${out_dir}/checksum" ]]; then
+    #     old_hash="$( cat "${out_dir}/checksum" )"
+    # fi
+    # if [[ "${dir_hash}" == "${old_hash}" ]]; then
+    #     continue
+    # fi
+    # # Record new hash
+    # echo "${dir_hash}" >"${out_dir}/checksum"
     # Delete old built site/
     if [[ -d  "${out_dir}" ]]; then
       rm -r "${out_dir}"
