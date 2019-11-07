@@ -113,7 +113,8 @@ func Serve(
 
 			eg.Go(func() error {
 				<-ctx.Done()
-				return listener.Close()
+				grpcServer.GracefulStop() // This also closes the TCP listener
+				return nil
 			})
 
 			serverRuns = append(serverRuns, &ServerRun{

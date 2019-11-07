@@ -4,15 +4,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"path"
 	"reflect"
-	"sync"
 	"testing"
 
-	etcd "github.com/coreos/etcd/clientv3"
-	embed "github.com/coreos/etcd/embed"
 	"github.com/prometheus/client_golang/prometheus"
 	prometheus_proto "github.com/prometheus/client_model/go"
 
@@ -20,49 +15,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
 )
-
-var etcdClient *etcd.Client
-var etcdOnce sync.Once
-
-func getEtcdClient(t *testing.T) *etcd.Client {
-	// src/server/pfs/server/driver.go expects an etcd server at "localhost:32379"
-	// Try to establish a connection before proceeding with the test (which will
-	// fail if the connection can't be established)
-	etcdAddress := "localhost:32379"
-	etcdOnce.Do(func() {
-		require.NoError(t, backoff.Retry(func() error {
-			var err error
-			etcdClient, err = etcd.New(etcd.Config{
-				Endpoints:   []string{etcdAddress},
-				DialOptions: client.DefaultDialOptions(),
-			})
-			if err != nil {
-				return fmt.Errorf("could not connect to etcd: %s", err.Error())
-			}
-			return nil
-		}, backoff.NewTestingBackOff()))
-	})
-	return etcdClient
-}
-
-var pachClient *client.APIClient
-var pachClientError error
-var getPachClientOnce sync.Once
-
-func getPachClient() (*client.APIClient, error) {
-	getPachClientOnce.Do(func() {
-		if addr := os.Getenv("PACHD_PORT_650_TCP_ADDR"); addr != "" {
-			pachClient, pachClientError = client.NewInCluster()
-		} else {
-			pachClient, pachClientError = client.NewForTest()
-		}
-	})
-	return pachClient, pachClientError
-}
 
 var inputRepo = "inputRepo"
 var testPipelineInfo = &pps.PipelineInfo{
@@ -81,106 +36,41 @@ var testPipelineInfo = &pps.PipelineInfo{
 }
 
 type testEnv struct {
-	etcd       *embed.Etcd
-	etcdClient *etcd.Client
-	mockPachd  *tu.MockPachd
-	pachClient *client.APIClient
-	driver     *driver
+	tu.Env
+	mockKube *MockKubeWrapper
+	driver   *driver
 }
 
-func newTestEnv(t *testing.T) *testEnv {
-	var err error
-	env := &testEnv{}
+func withTestEnv(cb func(*testEnv)) error {
+	return tu.WithEnv(func(baseEnv *tu.Env) (err error) {
+		env := &testEnv{Env: *baseEnv}
 
-	// Cleanup any state if we error out early
-	defer func() {
-		if r := recover(); r != nil {
-			env.Close()
-			panic(r)
+		// Mock out the enterprise.GetState call that happens during driver construction
+		env.MockPachd.Enterprise.GetState.Use(func(context.Context, *enterprise.GetStateRequest) (*enterprise.GetStateResponse, error) {
+			return &enterprise.GetStateResponse{State: enterprise.State_NONE}, nil
+		})
+
+		env.mockKube = NewMockKubeWrapper().(*MockKubeWrapper)
+
+		var d Driver
+		d, err = NewDriver(
+			testPipelineInfo,
+			env.PachClient,
+			env.mockKube,
+			env.EtcdClient,
+			tu.UniqueString("driverTest"),
+		)
+		env.driver = d.(*driver)
+		if err != nil {
+			return err
 		}
-	}()
 
-	tempDirBase := path.Join(os.TempDir(), "pachyderm_test")
-	err = os.MkdirAll(tempDirBase, 0700)
-	require.NoError(t, err)
+		env.driver.inputDir = path.Join(env.Directory, "pfs")
 
-	etcdConfig := embed.NewConfig()
+		cb(env)
 
-	// Create test dirs for etcd data
-	etcdConfig.Dir, err = ioutil.TempDir(tempDirBase, "driver_test_etcd_data")
-	require.NoError(t, err)
-	etcdConfig.WalDir, err = ioutil.TempDir(tempDirBase, "driver_test_etcd_wal")
-	require.NoError(t, err)
-
-	// Speed up initial election, hopefully this has no other impact since there
-	// is only one etcd instance
-	etcdConfig.InitialElectionTickAdvance = true
-	etcdConfig.TickMs = 2
-	etcdConfig.ElectionMs = 10
-
-	env.etcd, err = embed.StartEtcd(etcdConfig)
-	require.NoError(t, err)
-
-	clientUrls := []string{}
-	for _, url := range etcdConfig.LCUrls {
-		clientUrls = append(clientUrls, url.String())
-	}
-
-	env.etcdClient, err = etcd.New(etcd.Config{
-		Endpoints:   clientUrls,
-		DialOptions: client.DefaultDialOptions(),
+		return nil
 	})
-	require.NoError(t, err)
-
-	env.mockPachd = tu.NewMockPachd()
-
-	env.pachClient, err = client.NewFromAddress(env.mockPachd.Addr.String())
-	require.NoError(t, err)
-
-	// Mock out the enterprise.GetState call that happens during driver construction
-	env.mockPachd.Enterprise.GetState.Use(func(context.Context, *enterprise.GetStateRequest) (*enterprise.GetStateResponse, error) {
-		return &enterprise.GetStateResponse{State: enterprise.State_NONE}, nil
-	})
-
-	var d Driver
-	d, err = NewDriver(
-		testPipelineInfo,
-		env.pachClient,
-		NewMockKubeWrapper(),
-		env.etcdClient,
-		tu.UniqueString("driverTest"),
-	)
-	env.driver = d.(*driver)
-	require.NoError(t, err)
-
-	return env
-}
-
-func (env *testEnv) Close() (err error) {
-	// We return the first error that occurs during teardown, but still try to close everything
-	saveErr := func(e error) {
-		if e != nil && err == nil {
-			err = e
-		}
-	}
-
-	if env.pachClient != nil {
-		saveErr(env.pachClient.Close())
-	}
-
-	if env.mockPachd != nil {
-		saveErr(env.mockPachd.Close())
-	}
-
-	if env.etcdClient != nil {
-		saveErr(env.etcdClient.Close())
-	}
-
-	if env.etcd != nil {
-		env.etcd.Close()
-	}
-
-	return err
 }
 
 func requireLogs(t *testing.T, pattern string, cb func(logs.TaggedLogger)) {
@@ -255,109 +145,109 @@ func requireHistogram(t *testing.T, histogram *prometheus.HistogramVec, labels [
 }
 
 func TestUpdateCounter(t *testing.T) {
-	env := newTestEnv(t)
-	defer env.Close()
+	err := withTestEnv(func(env *testEnv) {
+		env.driver.pipelineInfo.ID = "foo"
 
-	env.driver.pipelineInfo.ID = "foo"
+		counterVec := prometheus.NewCounterVec(
+			prometheus.CounterOpts{Namespace: "test", Subsystem: "driver", Name: "counter"},
+			[]string{"pipeline", "job"},
+		)
 
-	counterVec := prometheus.NewCounterVec(
-		prometheus.CounterOpts{Namespace: "test", Subsystem: "driver", Name: "counter"},
-		[]string{"pipeline", "job"},
-	)
+		counterVecWithState := prometheus.NewCounterVec(
+			prometheus.CounterOpts{Namespace: "test", Subsystem: "driver", Name: "counter_with_state"},
+			[]string{"pipeline", "job", "state"},
+		)
 
-	counterVecWithState := prometheus.NewCounterVec(
-		prometheus.CounterOpts{Namespace: "test", Subsystem: "driver", Name: "counter_with_state"},
-		[]string{"pipeline", "job", "state"},
-	)
-
-	// Passing a state to the stateless counter should error
-	requireLogs(t, "expected 2 label values but got 3", func(logger logs.TaggedLogger) {
-		env.driver.updateCounter(counterVec, logger, "bar", func(c prometheus.Counter) {
-			require.True(t, false, "should have errored")
+		// Passing a state to the stateless counter should error
+		requireLogs(t, "expected 2 label values but got 3", func(logger logs.TaggedLogger) {
+			env.driver.updateCounter(counterVec, logger, "bar", func(c prometheus.Counter) {
+				require.True(t, false, "should have errored")
+			})
 		})
-	})
 
-	// updateCounter should pass a valid counter with the selected tags
-	requireLogs(t, "", func(logger logs.TaggedLogger) {
-		env.driver.updateCounter(counterVec, logger, "", func(c prometheus.Counter) {
-			c.Add(1)
+		// updateCounter should pass a valid counter with the selected tags
+		requireLogs(t, "", func(logger logs.TaggedLogger) {
+			env.driver.updateCounter(counterVec, logger, "", func(c prometheus.Counter) {
+				c.Add(1)
+			})
 		})
-	})
 
-	// Check that the counter was incremented
-	requireCounter(t, counterVec, []string{"foo", "job-id"}, 1)
+		// Check that the counter was incremented
+		requireCounter(t, counterVec, []string{"foo", "job-id"}, 1)
 
-	// Not passing a state to the stateful counter should error
-	requireLogs(t, "expected 3 label values but got 2", func(logger logs.TaggedLogger) {
-		env.driver.updateCounter(counterVecWithState, logger, "", func(c prometheus.Counter) {
-			require.True(t, false, "should have errored")
+		// Not passing a state to the stateful counter should error
+		requireLogs(t, "expected 3 label values but got 2", func(logger logs.TaggedLogger) {
+			env.driver.updateCounter(counterVecWithState, logger, "", func(c prometheus.Counter) {
+				require.True(t, false, "should have errored")
+			})
 		})
-	})
 
-	// updateCounter should pass a valid counter with the selected tags
-	requireLogs(t, "", func(logger logs.TaggedLogger) {
-		env.driver.updateCounter(counterVecWithState, logger, "bar", func(c prometheus.Counter) {
-			c.Add(1)
+		// updateCounter should pass a valid counter with the selected tags
+		requireLogs(t, "", func(logger logs.TaggedLogger) {
+			env.driver.updateCounter(counterVecWithState, logger, "bar", func(c prometheus.Counter) {
+				c.Add(1)
+			})
 		})
-	})
 
-	// Check that the counter was incremented
-	requireCounter(t, counterVecWithState, []string{"foo", "job-id", "bar"}, 1)
+		// Check that the counter was incremented
+		requireCounter(t, counterVecWithState, []string{"foo", "job-id", "bar"}, 1)
+	})
+	require.NoError(t, err)
 }
 
 func TestUpdateHistogram(t *testing.T) {
-	env := newTestEnv(t)
-	defer env.Close()
+	err := withTestEnv(func(env *testEnv) {
+		env.driver.pipelineInfo.ID = "foo"
 
-	env.driver.pipelineInfo.ID = "foo"
+		histogramVec := prometheus.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Namespace: "test", Subsystem: "driver", Name: "histogram",
+				Buckets: prometheus.ExponentialBuckets(1.0, 2.0, 20),
+			},
+			[]string{"pipeline", "job"},
+		)
 
-	histogramVec := prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Namespace: "test", Subsystem: "driver", Name: "histogram",
-			Buckets: prometheus.ExponentialBuckets(1.0, 2.0, 20),
-		},
-		[]string{"pipeline", "job"},
-	)
+		histogramVecWithState := prometheus.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Namespace: "test", Subsystem: "driver", Name: "histogram_with_state",
+				Buckets: prometheus.ExponentialBuckets(1.0, 2.0, 20),
+			},
+			[]string{"pipeline", "job", "state"},
+		)
 
-	histogramVecWithState := prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Namespace: "test", Subsystem: "driver", Name: "histogram_with_state",
-			Buckets: prometheus.ExponentialBuckets(1.0, 2.0, 20),
-		},
-		[]string{"pipeline", "job", "state"},
-	)
-
-	// Passing a state to the stateless histogram should error
-	requireLogs(t, "expected 2 label values but got 3", func(logger logs.TaggedLogger) {
-		env.driver.updateHistogram(histogramVec, logger, "bar", func(h prometheus.Observer) {
-			require.True(t, false, "should have errored")
+		// Passing a state to the stateless histogram should error
+		requireLogs(t, "expected 2 label values but got 3", func(logger logs.TaggedLogger) {
+			env.driver.updateHistogram(histogramVec, logger, "bar", func(h prometheus.Observer) {
+				require.True(t, false, "should have errored")
+			})
 		})
-	})
 
-	requireLogs(t, "", func(logger logs.TaggedLogger) {
-		env.driver.updateHistogram(histogramVec, logger, "", func(h prometheus.Observer) {
-			h.Observe(0)
+		requireLogs(t, "", func(logger logs.TaggedLogger) {
+			env.driver.updateHistogram(histogramVec, logger, "", func(h prometheus.Observer) {
+				h.Observe(0)
+			})
 		})
-	})
 
-	// Check that the counter was incremented
-	requireHistogram(t, histogramVec, []string{"foo", "job-id"}, 1)
+		// Check that the counter was incremented
+		requireHistogram(t, histogramVec, []string{"foo", "job-id"}, 1)
 
-	// Not passing a state to the stateful histogram should error
-	requireLogs(t, "expected 3 label values but got 2", func(logger logs.TaggedLogger) {
-		env.driver.updateHistogram(histogramVecWithState, logger, "", func(h prometheus.Observer) {
-			require.True(t, false, "should have errored")
+		// Not passing a state to the stateful histogram should error
+		requireLogs(t, "expected 3 label values but got 2", func(logger logs.TaggedLogger) {
+			env.driver.updateHistogram(histogramVecWithState, logger, "", func(h prometheus.Observer) {
+				require.True(t, false, "should have errored")
+			})
 		})
-	})
 
-	requireLogs(t, "", func(logger logs.TaggedLogger) {
-		env.driver.updateHistogram(histogramVecWithState, logger, "bar", func(h prometheus.Observer) {
-			h.Observe(0)
+		requireLogs(t, "", func(logger logs.TaggedLogger) {
+			env.driver.updateHistogram(histogramVecWithState, logger, "bar", func(h prometheus.Observer) {
+				h.Observe(0)
+			})
 		})
-	})
 
-	// Check that the counter was incremented
-	requireHistogram(t, histogramVecWithState, []string{"foo", "job-id", "bar"}, 1)
+		// Check that the counter was incremented
+		requireHistogram(t, histogramVecWithState, []string{"foo", "job-id", "bar"}, 1)
+	})
+	require.NoError(t, err)
 }
 
 /*
