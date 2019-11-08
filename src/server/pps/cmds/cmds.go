@@ -1,12 +1,14 @@
 package cmds
 
 import (
-	"bufio"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/url"
 	"os"
+	"os/user"
+	"path"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -912,27 +914,36 @@ func dockerConfig(registry string, username string) (*docker.Client, docker.Auth
 		return nil, authConfig, err
 	}
 
-	if username == "" {
-		fmt.Printf("Username for %s: ", registry)
-		reader := bufio.NewReader(os.Stdin)
-		username, err := reader.ReadString('\n')
+	if username != "" {
+		fmt.Printf("Password for %s/%s: ", registry, username)
+		passBytes, err := terminal.ReadPassword(int(syscall.Stdin))
+
 		if err != nil {
 			return nil, authConfig, err
 		}
-		authConfig.Username = strings.TrimRight(username, "\r\n")
-	} else {
+
+		authConfig = docker.AuthConfiguration{ServerAddress: registry}
 		authConfig.Username = username
-	}
+		authConfig.Password = string(passBytes)
+	} else {
+		authConfigs, err := docker.NewAuthConfigurationsFromDockerCfg()
+		if err != nil {
+			if isDockerUsingKeychain() {
+				err = fmt.Errorf("error parsing auth: %s; it looks like you may have a docker configuration not supported by the client library that we use; as a workaround, try specifying the `--username` flag", err.Error())
+				return nil, authConfig, err
+			}
 
-	fmt.Printf("Password for %s@%s: ", authConfig.Username, registry)
-	passBytes, err := terminal.ReadPassword(int(syscall.Stdin))
-	if err != nil {
-		return nil, authConfig, err
+			err = fmt.Errorf("error parsing auth: %s, try running `docker login`", err.Error())
+			return nil, authConfig, err
+		}
+		for _, _authConfig := range authConfigs.Configs {
+			serverAddress := _authConfig.ServerAddress
+			if strings.Contains(serverAddress, registry) {
+				authConfig = _authConfig
+				break
+			}
+		}
 	}
-	authConfig.Password = string(passBytes)
-
-	// print a newline, since `ReadPassword` gobbles the user-inputted one
-	fmt.Println()
 
 	return client, authConfig, nil
 }
@@ -985,4 +996,48 @@ func pushImage(client *docker.Client, authConfig docker.AuthConfiguration, repo 
 	}
 
 	return destImage, nil
+}
+
+// isDockerUsingKeychain checks if the user has a configuration that is not
+// readable by our current docker client library.
+// TODO(ys): remove if/when this issue is addressed:
+// https://github.com/fsouza/go-dockerclient/issues/677
+func isDockerUsingKeychain() bool {
+	user, err := user.Current()
+	if err != nil {
+		return false
+	}
+
+	contents, err := ioutil.ReadFile(path.Join(user.HomeDir, ".docker/config.json"))
+	if err != nil {
+		return false
+	}
+
+	var j map[string]interface{}
+
+	if err = json.Unmarshal(contents, &j); err != nil {
+		return false
+	}
+
+	auths, ok := j["auths"]
+	if !ok {
+		return false
+	}
+
+	authsInner, ok := auths.(map[string]interface{})
+	if !ok {
+		return false
+	}
+
+	index, ok := authsInner["https://index.docker.io/v1/"]
+	if !ok {
+		return false
+	}
+
+	indexInner, ok := index.(map[string]interface{})
+	if !ok || len(indexInner) > 0 {
+		return false
+	}
+
+	return j["credsStore"] == "osxkeychain"
 }
