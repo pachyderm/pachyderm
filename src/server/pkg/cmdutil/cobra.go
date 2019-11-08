@@ -149,6 +149,57 @@ func ParseBranches(args []string) ([]*pfs.Branch, error) {
 	return results, nil
 }
 
+// ParseCommitProvenance takes an argument of the form "repo@branch=commit" and
+// returns the corresponding *pfs.CommitProvenance.
+func ParseCommitProvenance(arg string) (*pfs.CommitProvenance, error) {
+	commit, err := ParseCommit(arg)
+	if err != nil {
+		return nil, err
+	}
+
+	branchAndCommit := strings.SplitN(commit.ID, "=", 2)
+	if len(branchAndCommit) < 1 {
+		return nil, fmt.Errorf("invalid format \"%s\": a branch name or branch and commit id must be given", arg)
+	}
+	branch := branchAndCommit[0]
+	commitID := branch // default to using the head commit once this commit is resolved
+	if len(branchAndCommit) == 2 {
+		commitID = branchAndCommit[1]
+	}
+	if branch == "" {
+		return nil, fmt.Errorf("invalid format \"%s\": branch cannot be empty", arg)
+	}
+	if commitID == "" {
+		return nil, fmt.Errorf("invalid format \"%s\": commit cannot be empty", arg)
+	}
+
+	prov := &pfs.CommitProvenance{
+		Branch: &pfs.Branch{
+			Repo: commit.Repo,
+			Name: branch,
+		},
+		Commit: &pfs.Commit{
+			Repo: commit.Repo,
+			ID:   commitID,
+		},
+	}
+	return prov, nil
+}
+
+// ParseCommitProvenances converts all arguments to *pfs.CommitProvenance structs using the
+// semantics of ParseCommitProvenance
+func ParseCommitProvenances(args []string) ([]*pfs.CommitProvenance, error) {
+	var results []*pfs.CommitProvenance
+	for _, arg := range args {
+		prov, err := ParseCommitProvenance(arg)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, prov)
+	}
+	return results, nil
+}
+
 // ParseFile takes an argument of the form "repo[@branch-or-commit[:path]]", and
 // returns the corresponding *pfs.File.
 func ParseFile(arg string) (*pfs.File, error) {
@@ -380,7 +431,7 @@ func CreateDocsAlias(command *cobra.Command, invocation string, pattern string) 
 		t := template.New("top")
 		t.Funcs(templateFuncs)
 		template.Must(t.Parse(text))
-		return t.Execute(cmd.Out(), cmd)
+		return t.Execute(cmd.OutOrStderr(), cmd)
 	})
 	return root
 }

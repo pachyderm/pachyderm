@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.9.8
+
+- Fixes a bug that prevent the `--reprocess` flag in `edit pipeline` from working. (#4232)
+- Changes the CLI syntax for `run pipeline` to accept commit branch pairs. (#4262)
+- Fixes a bug that caused `pachctl logs --follow` to exit immediately. (#4259)
+- Fixes a bug that joins to sometimes miss pairs that matched. (#4256)
+- Fixes a bug that prevent pachyderm from deploying on Kuberentes 1.6 without modifying manifests. (#4242)
+- Fixes a family of bugs that could cause output and stats commits to remain open and block later jobs. (#4215)
+
 ## 1.9.7
 
 - Fixes a bug that prevent pachctl from connecting to clusters with TLS enabled. (#4167)
