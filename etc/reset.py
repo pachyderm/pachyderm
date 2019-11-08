@@ -78,9 +78,6 @@ class DefaultDriver:
     def start(self):
         pass
 
-    def inspect(self):
-        pass
-
     def push_images(self, deploy_version, dash_image):
         pass
 
@@ -88,6 +85,9 @@ class DefaultDriver:
         while suppress("pachctl", "version") != 0:
             log.info("Waiting for pachyderm to come up...")
             time.sleep(1)
+
+    def set_config(self):
+        run("pachctl", "config", "update", "context", "--pachd-address=localhost:30650")
 
 class MinikubeDriver(DefaultDriver):
     def available(self):
@@ -108,6 +108,10 @@ class MinikubeDriver(DefaultDriver):
         run("./etc/kube/push-to-minikube.sh", "pachyderm/worker:{}".format(deploy_version))
         run("./etc/kube/push-to-minikube.sh", ETCD_IMAGE)
         run("./etc/kube/push-to-minikube.sh", dash_image)
+
+    def set_config(self):
+        ip = capture("minikube", "ip")
+        run("pachctl", "config", "update", "context", "--pachd-address={}".format(ip))
 
 def parse_log_level(s):
     try:
@@ -214,8 +218,6 @@ def main():
             lambda: get_pachyderm(args.deploy_version),
         )
 
-    driver.inspect()
-
     version = capture("pachctl", "version", "--client-only")
     log.info("Deploy pachyderm version v{}".format(version))
 
@@ -242,6 +244,7 @@ def main():
         driver.wait()
 
     run("killall", "kubectl", raise_on_error=False)
+    driver.set_config()
 
 if __name__ == "__main__":
     main()

@@ -40,6 +40,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sql"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
@@ -60,6 +62,8 @@ const (
 
 	// maxInt is the maximum value for 'int' (system-dependent). Not in 'math'!
 	maxInt = int(^uint(0) >> 1)
+	// tmpPrefix is for temporary object paths that store merged shards.
+	tmpPrefix = "tmp"
 )
 
 var (
@@ -108,6 +112,10 @@ type driver struct {
 
 	// memory limiter (useful for limiting operations that could use a lot of memory)
 	memoryLimiter *semaphore.Weighted
+
+	// New storage layer.
+	storage *fileset.Storage
+	fs      *fileset.FileSet
 }
 
 // newDriver is used to create a new Driver instance
@@ -154,6 +162,18 @@ func newDriver(
 		return repos.Create(repo.Name, repoInfo)
 	}); err != nil && !col.IsErrExists(err) {
 		return nil, err
+	}
+	if env.NewStorageLayer {
+		// (bryce) local client for testing.
+		// need to figure out obj_block_api_server before this
+		// can be changed.
+		objC, err := obj.NewLocalClient(storageRoot)
+		if err != nil {
+			return nil, err
+		}
+		chunkStorage := chunk.NewStorage(objC, chunk.ServiceEnvToOptions(env)...)
+		d.storage = fileset.NewStorage(objC, chunkStorage, fileset.ServiceEnvToOptions(env)...)
+		go d.mergeWorker()
 	}
 	return d, nil
 }
@@ -1285,10 +1305,11 @@ func (d *driver) makeCommit(
 	newCommitProv := make(map[string]*pfs.CommitProvenance)
 	for _, prov := range provenance {
 		newCommitProv[prov.Commit.ID] = prov
-		provCommitInfo := &pfs.CommitInfo{}
-		if err := d.commits(prov.Commit.Repo.Name).ReadWrite(txnCtx.Stm).Get(prov.Commit.ID, provCommitInfo); err != nil {
-			return nil, fmt.Errorf("cannot access commit \"%s/%s\" in provenance: %v", prov.Commit.Repo.Name, prov.Commit.ID, err)
+		provCommitInfo, err := d.resolveCommit(txnCtx.Stm, prov.Commit)
+		if err != nil {
+			return nil, err
 		}
+
 		for _, c := range provCommitInfo.Provenance {
 			newCommitProv[c.Commit.ID] = c
 		}

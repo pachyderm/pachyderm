@@ -59,6 +59,9 @@ func NewPortForwarder(namespace string) (*PortForwarder, error) {
 	if namespace == "" {
 		namespace = context.Namespace
 	}
+	if namespace == "" {
+		namespace = "default"
+	}
 
 	kubeConfig := config.KubeConfig(context)
 

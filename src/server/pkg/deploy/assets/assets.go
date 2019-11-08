@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -14,7 +15,7 @@ import (
 	pfs "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
-	apps "k8s.io/api/apps/v1beta1"
+	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -116,8 +117,8 @@ type TLSOpts struct {
 
 // FeatureFlags are flags for experimental features.
 type FeatureFlags struct {
-	// NewHashTree, if true, will make Pachyderm use 1.9 hash trees.
-	NewHashTree bool
+	// NewStorageLayer, if true, will make Pachyderm use the new storage layer.
+	NewStorageLayer bool
 }
 
 // AssetOpts are options that are applicable to all the asset types.
@@ -225,6 +226,15 @@ type Encoder interface {
 // helpful because the Replicas field of many specs expectes an *int32
 func replicas(r int32) *int32 {
 	return &r
+}
+
+// Kubernetes doesn't work well with windows path separators
+func kubeFilepathJoin(paths ...string) string {
+	joined := filepath.Join(paths...)
+	if runtime.GOOS != "windows" {
+		return joined
+	}
+	return strings.ReplaceAll(joined, "\\", "/")
 }
 
 // fillDefaultResourceRequests sets any of:
@@ -382,15 +392,15 @@ func GetSecretEnvVars(storageBackend string) []v1.EnvVar {
 		})
 	}
 	trueVal := true
-	for envVar, secretKey := range obj.EnvVarToSecretKey {
+	for _, e := range obj.EnvVarToSecretKey {
 		envVars = append(envVars, v1.EnvVar{
-			Name: envVar,
+			Name: e.Key,
 			ValueFrom: &v1.EnvVarSource{
 				SecretKeyRef: &v1.SecretKeySelector{
 					LocalObjectReference: v1.LocalObjectReference{
 						Name: client.StorageSecretName,
 					},
-					Key:      secretKey,
+					Key:      e.Value,
 					Optional: &trueVal,
 				},
 			},
@@ -457,9 +467,11 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 	var storageHostPath string
 	switch objectStoreBackend {
 	case localBackend:
-		storageHostPath = filepath.Join(hostPath, "pachd")
+		storageHostPath = kubeFilepathJoin(hostPath, "pachd")
+		pathType := v1.HostPathDirectoryOrCreate
 		volumes[0].HostPath = &v1.HostPathVolumeSource{
 			Path: storageHostPath,
+			Type: &pathType,
 		}
 		backendEnvVar = pfs.LocalBackendEnvVar
 	case minioBackend:
@@ -503,7 +515,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 	return &apps.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
-			APIVersion: "apps/v1beta1",
+			APIVersion: "apps/v1",
 		},
 		ObjectMeta: objectMeta(pachdName, labels(pachdName), nil, opts.Namespace),
 		Spec: apps.DeploymentSpec{
@@ -705,12 +717,14 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 			},
 		}
 	} else {
+		pathType := v1.HostPathDirectoryOrCreate
 		volumes = []v1.Volume{
 			{
 				Name: "etcd-storage",
 				VolumeSource: v1.VolumeSource{
 					HostPath: &v1.HostPathVolumeSource{
-						Path: filepath.Join(hostPath, "etcd"),
+						Path: kubeFilepathJoin(hostPath, "etcd"),
+						Type: &pathType,
 					},
 				},
 			},
@@ -737,7 +751,7 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 	return &apps.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
-			APIVersion: "apps/v1beta1",
+			APIVersion: "apps/v1",
 		},
 		ObjectMeta: objectMeta(etcdName, labels(etcdName), nil, opts.Namespace),
 		Spec: apps.DeploymentSpec{
@@ -787,7 +801,7 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 // on AWS and GCE.
 func EtcdStorageClass(opts *AssetOpts, backend backend) (interface{}, error) {
 	sc := map[string]interface{}{
-		"apiVersion": "storage.k8s.io/v1beta1",
+		"apiVersion": "storage.k8s.io/v1",
 		"kind":       "StorageClass",
 		"metadata": map[string]interface{}{
 			"name":      defaultEtcdStorageClassName,
@@ -859,9 +873,11 @@ func EtcdVolume(persistentDiskBackend backend, opts *AssetOpts,
 	case minioBackend:
 		fallthrough
 	case localBackend:
+		pathType := v1.HostPathDirectoryOrCreate
 		spec.Spec.PersistentVolumeSource = v1.PersistentVolumeSource{
 			HostPath: &v1.HostPathVolumeSource{
-				Path: filepath.Join(hostPath, "etcd"),
+				Path: kubeFilepathJoin(hostPath, "etcd"),
+				Type: &pathType,
 			},
 		}
 	default:
@@ -1027,7 +1043,7 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 		image = AddRegistry(opts.Registry, etcdImage)
 	}
 	return map[string]interface{}{
-		"apiVersion": "apps/v1beta1",
+		"apiVersion": "apps/v1",
 		"kind":       "StatefulSet",
 		"metadata": map[string]interface{}{
 			"name":      etcdName,
@@ -1113,7 +1129,7 @@ func DashDeployment(opts *AssetOpts) *apps.Deployment {
 	return &apps.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
-			APIVersion: "apps/v1beta1",
+			APIVersion: "apps/v1",
 		},
 		ObjectMeta: objectMeta(dashName, labels(dashName), nil, opts.Namespace),
 		Spec: apps.DeploymentSpec{

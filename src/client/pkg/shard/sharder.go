@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/jsonpb"
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm/src/client/pkg/discovery"
 	log "github.com/sirupsen/logrus"
 

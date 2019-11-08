@@ -132,7 +132,7 @@ func TestWriteThenRead(t *testing.T) {
 		}
 		require.NoError(t, w.Close(), msg)
 		// Read files from file set, checking against recorded files.
-		r := fileSets.NewReader(context.Background(), testPath, "")
+		r := fileSets.NewReader(context.Background(), testPath)
 		for _, fileName := range fileNames {
 			checkNextFile(t, r, files[fileName], msg)
 		}
@@ -182,13 +182,13 @@ func TestCopy(t *testing.T) {
 	}), msg)
 	// Copy intial file set to a new copy file set.
 	testPathCopy := testPath + "Copy"
-	r := fileSets.NewReader(context.Background(), testPath, "")
+	r := fileSets.NewReader(context.Background(), testPath)
 	wCopy := fileSets.NewWriter(context.Background(), testPathCopy)
 	require.NoError(t, wCopy.CopyFiles(r), msg)
 	require.NoError(t, wCopy.Close(), msg)
 	require.NoError(t, r.Close(), msg)
 	// Compare initial file set and copy file set.
-	rCopy := fileSets.NewReader(context.Background(), testPathCopy, "")
+	rCopy := fileSets.NewReader(context.Background(), testPathCopy)
 	for _, fileName := range fileNames {
 		checkNextFile(t, rCopy, files[fileName], msg)
 	}
@@ -266,7 +266,7 @@ func TestMerge(t *testing.T) {
 	// Merge the file sets.
 	var rs []*Reader
 	for i := 0; i < numFileSets; i++ {
-		rs = append(rs, fileSets.NewReader(context.Background(), testPath+strconv.Itoa(i), ""))
+		rs = append(rs, fileSets.NewReader(context.Background(), testPath+strconv.Itoa(i)))
 	}
 	var fileStreams []stream
 	for _, r := range rs {
@@ -279,7 +279,7 @@ func TestMerge(t *testing.T) {
 		require.NoError(t, r.Close(), msg)
 	}
 	// Check the results of the merge against the files.
-	r := fileSets.NewReader(context.Background(), testPath, "")
+	r := fileSets.NewReader(context.Background(), testPath)
 	for _, fileName := range fileNames {
 		checkNextFile(t, r, files[fileName], msg)
 	}
@@ -316,8 +316,7 @@ func TestFull(t *testing.T) {
 			},
 		}
 	}
-	options := []Option{WithMemThreshold(1024 * chunk.MB)}
-	fs := fileSets.New(context.Background(), testPath, options...)
+	fs := fileSets.New(context.Background(), testPath)
 	// Write the files in random order.
 	rand.Shuffle(len(fileNames), func(i, j int) {
 		fileNames[i], fileNames[j] = fileNames[j], fileNames[i]
@@ -344,7 +343,8 @@ func TestFull(t *testing.T) {
 	}
 	require.NoError(t, fs.Close(), msg)
 	// Read files from file set, checking against recorded files.
-	r := fileSets.NewReader(context.Background(), path.Join(testPath, fullMergeSuffix), "")
+	require.NoError(t, fileSets.Merge(context.Background(), path.Join(testPath, Compacted), []string{testPath}))
+	r := fileSets.NewReader(context.Background(), path.Join(testPath, Compacted))
 	// Skip root directory.
 	_, err := r.Next()
 	require.NoError(t, err, msg)

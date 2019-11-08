@@ -205,15 +205,18 @@ func (op *pipelineOp) getPipelineInfo() error {
 }
 
 // getRC reads the RC associated with 'op's pipeline. op.pipelineInfo must be
-// set already. 'expected' indicates whether the PPS master expects an RC to
-// exist--if set to 'true', getRC will retry until a fresh RC is found (and if
-// false, getRC will return after the first "not found" error)
+// set already. 'expectation' indicates whether the PPS master expects an RC to
+// exist--if set to 'rcExpected', getRC will restart the pipeline if no RC is
+// found after three retries. If set to 'noRCExpected', then getRC will return
+// after the first "not found" error. If set to noExpectation, then getRC will
+// retry the kubeclient.List() RPC, but will no restart the pipeline if no RC is
+// found
 //
 // Like other functions in this file, it takes responsibility for restarting
 // op's pipeline if it can't read the pipeline's RC (or if the RC is stale or
 // redundant), and then returns an error to the caller to indicate that the
 // caller shouldn't continue with other operations
-func (op *pipelineOp) getRC(expected rcExpectation) (retErr error) {
+func (op *pipelineOp) getRC(expectation rcExpectation) (retErr error) {
 	span, _ := tracing.AddSpanToAnyExisting(op.pachClient.Ctx(),
 		"/pps.Master/GetRC", "pipeline", op.name)
 	defer func(span opentracing.Span) {
@@ -254,14 +257,14 @@ func (op *pipelineOp) getRC(expected rcExpectation) (retErr error) {
 			return errTooManyRCs
 		case !op.rcIsFresh():
 			return errStaleRC
-		case expected == noRCExpected:
+		case expectation == noRCExpected:
 			return errUnexpectedRC
 		default:
 			return nil
 		}
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		if expected == noRCExpected && err == errRCNotFound {
-			return err
+		if expectation == noRCExpected && err == errRCNotFound {
+			return err // rc has come down successfully--no need to keep looking
 		}
 		switch err {
 		case errRCNotFound:
@@ -271,14 +274,19 @@ func (op *pipelineOp) getRC(expected rcExpectation) (retErr error) {
 		case errTooManyRCs:
 			tooManyErrCount++
 		case errStaleRC:
-			staleErrCount++
+			staleErrCount++ // don't return immediately b/c RC might be changing
 		default:
 			otherErrCount++
 		}
 		errCount := max(notFoundErrCount, unexpectedErrCount, staleErrCount,
 			tooManyErrCount, otherErrCount)
 		if errCount >= maxErrCount {
-			return op.restartPipeline(fmt.Sprintf("could not get RC after %d attempts: %v", errCount, err))
+			missingExpectedRC := expectation == rcExpected && err == errRCNotFound
+			invalidRCState := err == errTooManyRCs || err == errStaleRC
+			if missingExpectedRC || invalidRCState {
+				return op.restartPipeline(fmt.Sprintf("could not get RC after %d attempts: %v", errCount, err))
+			}
+			return err //return whatever the most recent error was
 		}
 		log.Errorf("PPS master: error retrieving RC for %q: %v; retrying in %v", op.name, err, d)
 		return nil

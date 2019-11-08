@@ -52,7 +52,6 @@ import (
 
 	opentracing "github.com/opentracing/opentracing-go"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -284,6 +283,9 @@ func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName str
 func validateTransform(transform *pps.Transform) error {
 	if transform == nil {
 		return fmt.Errorf("pipeline must specify a transform")
+	}
+	if transform.Image == "" {
+		return fmt.Errorf("pipeline transform must contain an image")
 	}
 	return nil
 }
@@ -1397,10 +1399,6 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 						TailLines: tailLines,
 					}).Timeout(10 * time.Second).Stream()
 				if err != nil {
-					if apiStatus, ok := err.(errors.APIStatus); ok &&
-						strings.Contains(apiStatus.Status().Message, "PodInitializing") {
-						return nil // No logs to collect from this node yet, just skip it
-					}
 					return err
 				}
 				defer func() {
@@ -1531,9 +1529,37 @@ func (a *apiServer) getLogsFromStats(pachClient *client.APIClient, request *pps.
 	return eg.Wait()
 }
 
+func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) error {
+	if request.Pipeline == nil {
+		return goerr.New("invalid pipeline spec: request.Pipeline cannot be nil")
+	}
+	if request.Pipeline.Name == "" {
+		return goerr.New("invalid pipeline spec: request.Pipeline.Name cannot be empty")
+	}
+	if err := ancestry.ValidateName(request.Pipeline.Name); err != nil {
+		return fmt.Errorf("invalid pipeline name: %v", err)
+	}
+	if len(request.Pipeline.Name) > 63 {
+		return fmt.Errorf("pipeline name is %d characters long, but must have at most 63: %q",
+			len(request.Pipeline.Name), request.Pipeline.Name)
+	}
+	// TODO(msteffen) eventually TFJob and Transform will be alternatives, but
+	// currently TFJob isn't supported
+	if request.TFJob != nil {
+		return goerr.New("embedding TFJobs in pipelines is not supported yet")
+	}
+	if request.Transform == nil {
+		return fmt.Errorf("pipeline must specify a transform")
+	}
+	return nil
+}
+
 func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) error {
-	if pipelineInfo.Pipeline == nil || pipelineInfo.Pipeline.Name == "" {
-		return fmt.Errorf("pipeline has no name")
+	if pipelineInfo.Pipeline == nil {
+		return goerr.New("invalid pipeline spec: Pipeline field cannot be nil")
+	}
+	if pipelineInfo.Pipeline.Name == "" {
+		return goerr.New("invalid pipeline spec: Pipeline.Name cannot be empty")
 	}
 	if err := ancestry.ValidateName(pipelineInfo.Pipeline.Name); err != nil {
 		return fmt.Errorf("invalid pipeline name: %v", err)
@@ -1543,37 +1569,38 @@ func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo 
 		return fmt.Errorf("pipeline names must start with an alphanumeric character")
 	}
 	if len(pipelineInfo.Pipeline.Name) > 63 {
-		return fmt.Errorf("pipeline name is longer than 63 characters: ", len(pipelineInfo.Pipeline.Name))
-	}
-	if err := a.validateInput(pachClient, pipelineInfo.Pipeline.Name, pipelineInfo.Input, false); err != nil {
-		return err
+		return fmt.Errorf("pipeline name is %d characters long, but must have at most 63: %q",
+			len(pipelineInfo.Pipeline.Name), pipelineInfo.Pipeline.Name)
 	}
 	if err := validateTransform(pipelineInfo.Transform); err != nil {
 		return fmt.Errorf("invalid transform: %v", err)
 	}
+	if err := a.validateInput(pachClient, pipelineInfo.Pipeline.Name, pipelineInfo.Input, false); err != nil {
+		return err
+	}
 	if pipelineInfo.ParallelismSpec != nil {
 		if pipelineInfo.ParallelismSpec.Constant < 0 {
-			return fmt.Errorf("ParallelismSpec.Constant must be > 0")
+			return goerr.New("ParallelismSpec.Constant cannot be negative")
 		}
 		if pipelineInfo.ParallelismSpec.Coefficient < 0 {
-			return fmt.Errorf("ParallelismSpec.Coefficient must be > 0")
+			return goerr.New("ParallelismSpec.Coefficient cannot be negative")
 		}
 		if pipelineInfo.ParallelismSpec.Constant != 0 &&
 			pipelineInfo.ParallelismSpec.Coefficient != 0 {
-			return fmt.Errorf("contradictory parallelism strategies: must set at " +
+			return goerr.New("contradictory parallelism strategies: must set at " +
 				"most one of ParallelismSpec.Constant and ParallelismSpec.Coefficient")
 		}
 		if pipelineInfo.Service != nil && pipelineInfo.ParallelismSpec.Constant != 1 {
-			return fmt.Errorf("services can only be run with a constant parallelism of 1")
+			return goerr.New("services can only be run with a constant parallelism of 1")
 		}
 	}
 	if pipelineInfo.HashtreeSpec != nil {
 		if pipelineInfo.HashtreeSpec.Constant <= 0 {
-			return fmt.Errorf("HashtreeSpec.Constant must be > 0")
+			return goerr.New("invalid pipeline spec: HashtreeSpec.Constant must be > 0")
 		}
 	}
 	if pipelineInfo.OutputBranch == "" {
-		return fmt.Errorf("pipeline needs to specify an output branch")
+		return goerr.New("pipeline needs to specify an output branch")
 	}
 	if _, err := resource.ParseQuantity(pipelineInfo.CacheSize); err != nil {
 		return fmt.Errorf("could not parse cacheSize '%s': %v", pipelineInfo.CacheSize, err)
@@ -1604,7 +1631,7 @@ func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo 
 		}
 
 		if !validServiceTypes[v1.ServiceType(pipelineInfo.Service.Type)] {
-			return fmt.Errorf("the following service type % is not allowed", pipelineInfo.Service.Type)
+			return fmt.Errorf("the following service type %s is not allowed", pipelineInfo.Service.Type)
 		}
 	}
 	return nil
@@ -1882,6 +1909,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
+	// Validate request
+	if err := a.validatePipelineRequest(request); err != nil {
+		return nil, err
+	}
+
 	// Annotate current span with pipeline name
 	span := opentracing.SpanFromContext(ctx)
 	tracing.TagAnySpan(span, "pipeline", request.Pipeline.Name)
@@ -1894,13 +1926,15 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	pachClient := a.env.GetPachClient(ctx)
 	ctx = pachClient.Ctx() // GetPachClient propagates auth info to inner ctx
 	pfsClient := pachClient.PfsAPIClient
-	if request.Salt == "" {
+	// Reprocess overrides the salt in the request
+	if request.Salt == "" || request.Reprocess {
 		request.Salt = uuid.NewWithoutDashes()
 	}
 	pipelineInfo := &pps.PipelineInfo{
 		Pipeline:         request.Pipeline,
 		Version:          1,
 		Transform:        request.Transform,
+		TFJob:            request.TFJob,
 		ParallelismSpec:  request.ParallelismSpec,
 		HashtreeSpec:     request.HashtreeSpec,
 		Input:            request.Input,
@@ -1928,11 +1962,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
 		return nil, err
 	}
-
-	// Validate new pipeline
+	// Validate final PipelineInfo (now that defaults have been populated)
 	if err := a.validatePipeline(pachClient, pipelineInfo); err != nil {
 		return nil, err
 	}
+
 	var visitErr error
 	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
 		if input.Cron != nil {
@@ -2166,10 +2200,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 // setPipelineDefaults sets the default values for a pipeline info
 func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
-	if pipelineInfo.Transform == nil {
-		return fmt.Errorf("pipeline spec is missing transform: %v", pipelineInfo)
-	}
-
 	now := time.Now()
 	if pipelineInfo.Transform.Image == "" {
 		pipelineInfo.Transform.Image = DefaultUserImage
