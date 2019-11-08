@@ -23,6 +23,6 @@ RUN mkdir -p /go/src/saml-idp
 ADD ./*.go /go/src/saml-idp
 
 # Build saml-id (quote -ldflags arguments)
-CMD go install -ldflags "-linkmode external -extldflags -static" -a saml-idp \
+CMD go install -mod=vendor -ldflags "-linkmode external -extldflags -static" -a saml-idp \
   && chmod 755 /go/bin/saml-idp \
   && cp /go/bin/saml-idp /out

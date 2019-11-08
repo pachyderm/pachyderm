@@ -4,7 +4,7 @@ set -euo pipefail
 
 which match || {
   here="$(dirname "${0}")"
-  go install -v "${here}/../../src/testing/match"
+  go install -mod=vendor -v "${here}/../../src/testing/match"
 }
 
 address=$(pachctl config get context `pachctl config get active-context` | jq -r .pachd_address)

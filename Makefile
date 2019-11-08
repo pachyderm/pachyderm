@@ -67,11 +67,11 @@ worker:
 
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
-	go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
+	go install -mod=vendor -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
 
 install-mac:
 	# Result will be in $GOPATH/bin/darwin_amd64/pachctl (if building on linux)
-	GOOS=darwin GOARCH=amd64 go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
+	GOOS=darwin GOARCH=amd64 go install -mod=vendor -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
 
 install-clean:
 	@# Need to blow away pachctl binary if its already there
@@ -79,7 +79,7 @@ install-clean:
 	@make install
 
 install-doc:
-	go install -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl-doc
+	go install -mod=vendor -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl-doc
 
 check-docker-version:
 	# The latest docker client requires server api version >= 1.24.
@@ -449,7 +449,7 @@ test-pps: launch-stats launch-kafka docker-build-test-entrypoint
 	  go test -v -count=1 ./src/server -parallel 1 -timeout $(TIMEOUT) $(RUN)
 
 test-cmds:
-	go install -v ./src/testing/match
+	go install -mod=vendor -v ./src/testing/match
 	CGOENABLED=0 go test -v -count=1 ./src/server/cmd/pachctl/cmd
 	go test -v -count=1 ./src/server/pkg/deploy/cmds -timeout $(TIMEOUT)
 	go test -v -count=1 ./src/server/pfs/cmds -timeout $(TIMEOUT)
