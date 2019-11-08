@@ -2,15 +2,14 @@
 
 A transaction is a Pachyderm operation that enables you to create
 a collection of Pachyderm commands and execute them concurrently in a
-single job run. Because Pachyderm is a atomic system, regular
-Pachyderm operations are executed consequently, one after another.
-However, when you need to run multiple commands
-simultaneously, you can use transactions.
+single job run. Regular Pachyderm operations are executed consequently,
+one after another. However, when you need to run multiple commands
+at the same time, you can use transactions.
 
 The transaction framework provides a method for batching together
 commit propagation such that changed branches are collected over
 the course of the transaction and all propagated in one batch at
-the end. This method allows Pachyderm to deduplicate changed branches and
+the end. This method allows Pachyderm to dedupe changed branches and
 branches provenant on the changed branches so that the minimum
 number of new commits are issued.
 
@@ -39,7 +38,7 @@ Started new transaction: 7a81eab5-e6c6-430a-a5c0-1deb06852ca5
 ```
 
 This command generates a transaction object in the cluster and saves
-its ID in the local Pachyderm configuration file. By default, this file
+its ID in the local Pachyderm configuration file. By default this file
 is stored at `~/.pachyderm/config.json`.
 
 **Example:**
@@ -70,7 +69,7 @@ Other supporting commands for transactions include the following commands:
 | `pachctl stop transaction` | Remove the currently active transaction from the local Pachyderm config file. The transaction remains in the Pachyderm cluster and can be resumed later. |
 | `pachctl resume transaction` | Set an already-existing transaction as the active transaction in the local Pachyderm config file. |
 | `pachctl delete transaction` | Deletes a transaction from the Pachyderm cluster. |
-| `pachctl inspect transaction` | Provides detailed information about an existing transaction, including which operations it will perform. |
+| `inspect transaction` | Provides detailed information about an existing transaction, including which operations it will perform. |
 
 ## Supported Operations
 
@@ -79,13 +78,13 @@ supported API requests append the request to the transaction instead
 of running directly. These commands include:
 
 ```bash
-pachctl create repo
-pachctl delete repo
-pachctl start commit
-pachctl finish commit
-pachctl delete commit
-pachctl create branch
-pachctl delete branch
+create repo
+delete repo
+start commit
+finish commit
+delete commit
+create branch
+delete branch
 ```
 
 Each time a command is added to a transaction, the transaction is dry-run
@@ -102,47 +101,10 @@ not be committed until you run `finish transaction`, and a message will
 be logged to `stderr` to indicate that the command was placed in a
 transaction rather than run directly.
 
-## Multiple Transactions
+There are several other supporting commands for transactions:
 
-While you can open multiple transactions one after another, there is no
-such concept as *nested* transactions. This means that you cannot create
-a transaction within an opened transaction.
-
-For example, if you run the following commands:
-
-```bash
-$ pachctl start transaction
-Started new transaction: 828cf822-8f96-417a-8740-8b6e53080d90
-
-$ pachctl create repo test
-Added to transaction: 828cf822-8f96-417a-8740-8b6e53080d90
-
-$ pachctl start transaction
-Started new transaction: 378f02fe-9c17-4307-9130-19ef7959e3e5
-
-$ pachctl delete repo test
-Added to transaction: 378f02fe-9c17-4307-9130-19ef7959e3e5
-
-$ pachctl create repo test
-
-$ pachctl finish transaction
-Completed transaction with 1 requests: 1dd29bd4-780d-4b6b-a6db-af5d00aabc69
-
-$ pachctl finish transaction
-no active transaction
-```
-
-In the example above, the first transaction was opened, and then another one
-was opened after it. Then, the second transaction was finished. As soon as you
-finish the second transaction but if you
-try to finish the first one, you get a message that there is no active
-transaction. You can still close the first transaction by specifying its
-ID but 
-
-## Limitations and Conflicts
-
-You cannot run into conflicts between transactions because concurrent
-transactions are not supported. If you start a new transaction while
-you already have an opened transaction, Pachyderm will run commands
-in the transaction that is finished first.
-
+- `list transaction` - list all unfinished transactions available in the pachyderm cluster
+- `stop transaction` - remove the currently active transaction from the local pachyderm config file - it remains in the pachyderm cluster and may be resumed later
+- `resume transaction` - set an already-existing transaction as the active transaction in the local pachyderm config file
+- `delete transaction` - deletes a transaction from the pachyderm cluster
+- `inspect transaction` - provide detailed information about an existing transaction, including which operations it will perform
