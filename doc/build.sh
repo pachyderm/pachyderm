@@ -14,6 +14,7 @@ fi
 # Add each version of the docs to the dropdown defined by
 # material/partials/versions.html. This must be built before running 'mkdocs'
 # itself
+latest_version="$(ls ./docs | grep -Ev 'latest|master|archive' | sort -r -V | head -n 1)"
 cat <<EOF >material/partials/versions.html
 <div class="mdl-selectfield">
     <select class="mdl-selectfield__select" id="version-selector" onchange="
@@ -21,6 +22,7 @@ cat <<EOF >material/partials/versions.html
         pathParts[1] = this.value;
         window.location.pathname = pathParts.join('/')
     ">
+        <option style="color:white;background-color:#4b2a5c;" value="latest">latest (${latest_version})</option>
 EOF
 for d in $(ls docs); do
     # don't rebuild archive dir
@@ -60,6 +62,13 @@ for d in $(ls docs); do
     # rebuild site
     mkdocs build --config-file "${mkdocs_file}" --site-dir "${out_dir}"
 done
+
+# Finally, copy latest version of the docs into 'latest'
+if [[ -z "${latest_version}" ]]; then
+    echo "No latest version to symlink"
+    exit 1
+fi
+cp -Rl "site/${latest_version}" site/latest
 
 # Add custom 404
 ln site/latest/404.html site/404.html
