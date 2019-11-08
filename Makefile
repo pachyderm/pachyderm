@@ -17,7 +17,7 @@ COMPILE_RUN_ARGS = -d -v /var/run/docker.sock:/var/run/docker.sock --privileged=
 COMPILE_IMAGE = "pachyderm/compile:$(shell cat etc/compile/GO_VERSION)"
 export VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
 LD_FLAGS = -X github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
-GC_FLAGS = "all=-trimpath=${PWD}"
+export GC_FLAGS = "all=-trimpath=${PWD}"
 export DOCKER_BUILD_FLAGS
 
 CLUSTER_NAME?=pachyderm
