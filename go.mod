@@ -111,7 +111,7 @@ require (
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/sys v0.0.0-20190813064441-fde4db37ae7a // indirect
-	golang.org/x/tools v0.0.0-20191108175616-46f5a7f28bf0 // indirect
+	golang.org/x/tools v0.0.0-20191108193012-7d206e10da11 // indirect
 	google.golang.org/api v0.6.0
 	google.golang.org/grpc v1.21.1
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
