@@ -16,10 +16,6 @@ env:
     - PATH=${HOME}/cached-deps:${PATH}
     - PPS_BUCKETS=6
     - AUTH_BUCKETS=2
-    # Disable Go modules: we use go mod to track deps but keep everything in
-    # the top-level 'vendor' directory rather than 'go-get'ing all modules
-    # every time
-    - GO111MODULE=off
   matrix:
     - BUCKET=MISC
     # If you want to update the number of PPS or auth buckets, you'll neet to
