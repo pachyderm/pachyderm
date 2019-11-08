@@ -16,8 +16,8 @@ mkdir _out
 LD_FLAGS="-extldflags -static"
 BUILD_PATH=github.com/pachyderm/pachyderm/src/testing/loadtest/split
 BUILD_CMD="
-go install -mod=vendor -a -ldflags \"${LD_FLAGS}\" ./${BUILD_PATH}/cmd/pipeline && \
-go install -mod=vendor -a -ldflags \"${LD_FLAGS}\" ./${BUILD_PATH}/cmd/supervisor && \
+GO111MODULE=on go install -mod=vendor -a -ldflags \"${LD_FLAGS}\" ./${BUILD_PATH}/cmd/pipeline && \
+GO111MODULE=on go install -mod=vendor -a -ldflags \"${LD_FLAGS}\" ./${BUILD_PATH}/cmd/supervisor && \
 mv ../bin/* /out/"
 
 # Run compilation inside golang container, with pachyderm mounted
