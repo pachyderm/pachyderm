@@ -4041,33 +4041,44 @@ func testGetLogs(t *testing.T, enableStats bool) {
 	_, err = c.FlushJobAll([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
 
-	// Get logs from pipeline, using pipeline
-	iter = c.GetLogs(pipelineName, "", nil, "", false, false, 0)
-	var numLogs int
-	var loglines []string
-	for iter.Next() {
-		if !iter.Message().User {
-			continue
+	// This is put in a backoff because there's the possibility that pod was
+	// evicted from k8s and is being re-initialized, in which case `GetLogs`
+	// will appropriately fail
+	require.NoError(t, backoff.Retry(func() error {
+		// Get logs from pipeline, using pipeline
+		iter = c.GetLogs(pipelineName, "", nil, "", false, false, 0)
+		var numLogs int
+		var loglines []string
+		for iter.Next() {
+			if !iter.Message().User {
+				continue
+			}
+			numLogs++
+			require.True(t, iter.Message().Message != "")
+			loglines = append(loglines, strings.TrimSuffix(iter.Message().Message, "\n"))
+			require.False(t, strings.Contains(iter.Message().Message, "MISSING"), iter.Message().Message)
 		}
-		numLogs++
-		require.True(t, iter.Message().Message != "")
-		loglines = append(loglines, strings.TrimSuffix(iter.Message().Message, "\n"))
-		require.False(t, strings.Contains(iter.Message().Message, "MISSING"), iter.Message().Message)
-	}
-	require.True(t, numLogs >= 2, "logs:\n%s", strings.Join(loglines, "\n"))
-	require.NoError(t, iter.Err())
+		require.True(t, numLogs >= 2, "logs:\n%s", strings.Join(loglines, "\n"))
+		if err := iter.Err(); err != nil {
+			return err
+		}
 
-	// Get logs from pipeline, using pipeline (tailing the last two log lines)
-	iter = c.GetLogs(pipelineName, "", nil, "", false, false, 2)
-	numLogs = 0
-	loglines = []string{}
-	for iter.Next() {
-		numLogs++
-		require.True(t, iter.Message().Message != "")
-		loglines = append(loglines, strings.TrimSuffix(iter.Message().Message, "\n"))
-	}
-	require.True(t, numLogs >= 2, "logs:\n%s", strings.Join(loglines, "\n"))
-	require.NoError(t, iter.Err())
+		// Get logs from pipeline, using pipeline (tailing the last two log lines)
+		iter = c.GetLogs(pipelineName, "", nil, "", false, false, 2)
+		numLogs = 0
+		loglines = []string{}
+		for iter.Next() {
+			numLogs++
+			require.True(t, iter.Message().Message != "")
+			loglines = append(loglines, strings.TrimSuffix(iter.Message().Message, "\n"))
+		}
+		require.True(t, numLogs >= 2, "logs:\n%s", strings.Join(loglines, "\n"))
+		if err := iter.Err(); err != nil {
+			return err
+		}
+
+		return nil
+	}, backoff.NewTestingBackOff()))
 
 	// Get logs from pipeline, using a pipeline that doesn't exist. There should
 	// be an error
@@ -4085,7 +4096,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 	// wait for logs to be collected
 	time.Sleep(10 * time.Second)
 	iter = c.GetLogs("", jobInfos[0].Job.ID, nil, "", false, false, 0)
-	numLogs = 0
+	numLogs := 0
 	for iter.Next() {
 		numLogs++
 		require.True(t, iter.Message().Message != "")
