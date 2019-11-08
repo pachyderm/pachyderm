@@ -129,7 +129,15 @@ func Serve(
 	}
 
 	for range servers {
-		<-ready
+		select {
+		case <-ready:
+			continue
+		case <-ctx.Done():
+			eg.Go(func() error {
+				return fmt.Errorf("Canceled before servers became ready: %v", ctx.Err())
+			})
+			return serverRuns, eg
+		}
 	}
 
 	return serverRuns, eg
