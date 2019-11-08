@@ -105,7 +105,7 @@ export -f yes # use in subshells too
 
 which match >/dev/null || {
 	echo "You must have 'match' installed to run these tests. Please run:" >&2
-	echo "  GO111MODULE=on cd ${GOPATH}/src/github.com/pachyderm/pachyderm/ && go install -mod=vendor ./src/testing/match" >&2
+	echo "  cd ${GOPATH}/src/github.com/pachyderm/pachyderm/ && go install -mod=vendor ./src/testing/match" >&2
 	exit 1
 }`)
 	buf.WriteRune('\n')
