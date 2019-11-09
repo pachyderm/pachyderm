@@ -10134,6 +10134,15 @@ func TestExtractPipeline(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		request)
+	require.YesError(t, err)
+	require.True(t, strings.Contains(err.Error(), "TFJob"))
+	// TODO when TFJobs are supported the above should be deleted
+
+	// Set TFJob to nil so request can work
+	request.TFJob = nil
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		request)
 	require.NoError(t, err)
 
 	// Extract it and see if we get the same thing
