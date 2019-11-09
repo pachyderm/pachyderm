@@ -122,9 +122,8 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 	}
 
 	// Wait for pipelines to process input data
-	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, numPipelines, len(commitInfos))
 
 	// confirm that all the jobs passed (there may be a short delay between the
@@ -152,6 +151,9 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 	ris, err := c.ListRepo()
 	require.NoError(t, err)
 	sort.Slice(ris, func(i, j int) bool { return ris[i].Repo.Name < ris[j].Repo.Name })
+	cis, err := c.ListCommit("", "", "", 0)
+	require.NoError(t, err)
+	sort.Slice(cis, func(i, j int) bool { return cis[i].Commit.ID < cis[j].Commit.ID })
 	// Extract existing cluster state
 	ops, err := c.ExtractAll(testObjects)
 	require.NoError(t, err)
@@ -173,8 +175,20 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 	sort.Slice(risAfter, func(i, j int) bool { return risAfter[i].Repo.Name < risAfter[j].Repo.Name })
 	require.Equal(t, len(ris), len(risAfter))
 	for i, ri := range ris {
-		require.Equal(t, ri.Repo.Name, risAfter[i].Repo.Name)
-		require.Equal(t, ri.SizeBytes, risAfter[i].SizeBytes)
+		ri.Created = nil
+		risAfter[i].Created = nil
+		require.ProtoEqual(t, ri, risAfter[i])
+	}
+
+	cisAfter, err := c.ListCommit("", "", "", 0)
+	require.NoError(t, err)
+	sort.Slice(cisAfter, func(i, j int) bool { return cisAfter[i].Commit.ID < cisAfter[j].Commit.ID })
+	for i, ci := range cis {
+		ci.Started = nil
+		ci.Finished = nil
+		cisAfter[i].Started = nil
+		cisAfter[i].Finished = nil
+		require.ProtoEqual(t, ci, cisAfter[i])
 	}
 
 	// Make sure all commits got re-created
@@ -191,9 +205,8 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 	})
 
 	// Wait for re-created pipelines to process recreated input data
-	commitIter, err = c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	commitInfos, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
-	commitInfos = collectCommitInfos(t, commitIter)
 	require.Equal(t, numPipelines, len(commitInfos))
 
 	// Confirm all the recreated jobs passed

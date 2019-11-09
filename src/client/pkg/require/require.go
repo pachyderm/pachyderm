@@ -7,6 +7,8 @@ import (
 	"runtime/debug"
 	"testing"
 	"time"
+
+	"github.com/gogo/protobuf/proto"
 )
 
 // Matches checks that a string matches a regular-expression.
@@ -49,6 +51,18 @@ func Equal(tb testing.TB, expected interface{}, actual interface{}, msgAndArgs .
 				"        != %T(%#v) (actual)", expected, expected, actual, actual)
 	}
 	if !reflect.DeepEqual(expected, actual) {
+		fatal(
+			tb,
+			msgAndArgs,
+			"Not equal: %#v (expected)\n"+
+				"        != %#v (actual)", expected, actual)
+	}
+}
+
+// ProtoEqual checks equality of two values.
+func ProtoEqual(tb testing.TB, expected proto.Message, actual proto.Message, msgAndArgs ...interface{}) {
+	tb.Helper()
+	if !proto.Equal(expected, actual) {
 		fatal(
 			tb,
 			msgAndArgs,
