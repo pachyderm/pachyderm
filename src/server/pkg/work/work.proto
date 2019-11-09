@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package work;
+option go_package = "github.com/pachyderm/pachyderm/src/server/pkg/work";
+
+import "google/protobuf/any.proto";
+
+enum State {
+  RUNNING = 0;
+  SUCCESS = 1;
+  FAILURE = 2;
+}
+
+message Task {
+  string id = 1;
+  google.protobuf.Any data = 2;
+  repeated Task subtasks = 3;
+}
+
+message TaskInfo {
+  Task task = 1;
+  State state = 2;
+}

@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -89,6 +90,21 @@ func Read() (*Config, error) {
 			fmt.Fprintln(os.Stderr, "No config V2 present in config - generating a new one.")
 			if err := value.initV2(); err != nil {
 				return nil, err
+			}
+		}
+
+		for contextName, context := range value.V2.Contexts {
+			pachdAddress, err := grpcutil.ParsePachdAddress(context.PachdAddress)
+			if err != nil {
+				if err != grpcutil.ErrNoPachdAddress {
+					return nil, fmt.Errorf("could not parse pachd address for context '%s': %v", contextName, err)
+				}
+			} else {
+				if qualifiedPachdAddress := pachdAddress.Qualified(); qualifiedPachdAddress != context.PachdAddress {
+					fmt.Fprintf(os.Stderr, "Non-qualified pachd address set for context '%s' - fixing.\n", contextName)
+					context.PachdAddress = qualifiedPachdAddress
+					updated = true
+				}
 			}
 		}
 

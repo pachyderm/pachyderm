@@ -68,7 +68,8 @@ func (a *apiServer) handleSAMLResponseInternal(cfg *canonicalConfig, sp *saml.Se
 	if cfg.SAMLSvc.SessionDuration != 0 {
 		expiration = time.Now().Add(cfg.SAMLSvc.SessionDuration)
 	}
-	authCode, err := a.getOneTimePassword(req.Context(), subject, expiration)
+	authCode, err := a.getOneTimePassword(req.Context(), subject,
+		defaultOTPTTLSecs, expiration)
 	if err != nil {
 		return "", "", errutil.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

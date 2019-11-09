@@ -183,6 +183,19 @@ message ObjectInfo {
   BlockRef block_ref = 2;
 }
 
+message Merge {
+  repeated string prefixes = 1;
+}
+
+message Shard {
+  PathRange range = 1;
+}
+
+message PathRange {
+  string lower = 1;
+  string upper = 2;
+}
+
 // PFS API
 
 message CreateRepoRequest {

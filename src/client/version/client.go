@@ -12,7 +12,7 @@ const (
 	// MinorVersion is the current minor version for pachyderm.
 	MinorVersion = 9
 	// MicroVersion is the patch number for pachyderm.
-	MicroVersion = 7
+	MicroVersion = 8
 )
 
 var (
@@ -40,6 +40,12 @@ func PrettyPrintVersion(version *pb.Version) string {
 		result += fmt.Sprintf("%s", version.Additional)
 	}
 	return result
+}
+
+// IsAtLeast returns true if Pachyderm is at least at the given version. This
+// allows us to gate backwards-incompatible features on release boundaries.
+func IsAtLeast(major, minor int) bool {
+	return MajorVersion > major || (MajorVersion == major && MinorVersion >= minor)
 }
 
 // PrettyVersion calls PrettyPrintVersion on Version and returns the result.

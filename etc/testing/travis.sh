@@ -2,22 +2,12 @@
 
 set -ex
 
-# Make sure cache dirs exist and are writable
-# Note that this script executes as the user `travis`, vs the pre-install
-# script which executes as `root`. Without `chown`ing `~/cached-deps` (where
-# we store cacheable binaries), any calls to those binaries would fail because
-# they're otherwised owned by `root`.
-#
-# To further complicate things, we update the `PATH` to include
+# Note that we update the `PATH` to include
 # `~/cached-deps` in `.travis.yml`, but this doesn't update the PATH for
 # calls using `sudo`. If you need to make a `sudo` call to a binary in
 # `~/cached-deps`, you'll need to explicitly set the path like so:
 #
 #     sudo env "PATH=$PATH" minikube foo
-
-mkdir -p ~/.cache/go-build
-sudo chown -R `whoami` ~/.cache/go-build
-sudo chown -R `whoami` ~/cached-deps
 
 kubectl version --client
 etcdctl --version
@@ -59,6 +49,8 @@ for i in $(seq 3); do
     sleep 10
 done
 
+pachctl config update context `pachctl config get active-context` --pachd-address=$(minikube ip):30650
+
 function test_bucket {
     set +x
     package="${1}"
@@ -85,14 +77,15 @@ function test_bucket {
     set -x
 }
 
+# Clean cached test results
+go clean -testcache
+
 case "${BUCKET}" in
  MISC)
     if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
         echo "Running the full misc test suite because secret env vars exist"
         make lint
         make enterprise-code-checkin-test
-        make test-pfs-server
-        make test-pfs-storage
         make test-cmds
         make test-libs
         make test-tls
@@ -106,8 +99,6 @@ case "${BUCKET}" in
         echo "Running the misc test suite with some tests disabled because secret env vars have not been set"
         make lint
         make enterprise-code-checkin-test
-        make test-pfs-server
-        make test-pfs-storage
         make test-cmds
         make test-libs
         make test-tls
@@ -120,10 +111,17 @@ case "${BUCKET}" in
     echo "Running the example test suite"
     ./etc/testing/examples.sh
     ;;
+ PFS)
+    make test-pfs-server
+    make test-pfs-storage
+    ;;
  PPS?)
     make docker-build-kafka
     bucket_num="${BUCKET#PPS}"
     test_bucket "./src/server" test-pps "${bucket_num}" "${PPS_BUCKETS}"
+    if [[ "${bucket_num}" -eq "${PPS_BUCKETS}" ]]; then
+      go test -v -count=1 ./src/server/pps/server -timeout 3600s
+    fi
     ;;
  AUTH?)
     bucket_num="${BUCKET#AUTH}"

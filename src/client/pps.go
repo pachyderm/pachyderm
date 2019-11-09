@@ -174,12 +174,13 @@ func NewPipelineInput(repoName string, glob string) *pps.PipelineInput {
 // CreateJob creates and runs a job in PPS.
 // This function is mostly useful internally, users should generally run work
 // by creating pipelines as well.
-func (c APIClient) CreateJob(pipeline string, outputCommit *pfs.Commit) (*pps.Job, error) {
+func (c APIClient) CreateJob(pipeline string, outputCommit, statsCommit *pfs.Commit) (*pps.Job, error) {
 	job, err := c.PpsAPIClient.CreateJob(
 		c.Ctx(),
 		&pps.CreateJobRequest{
 			Pipeline:     NewPipeline(pipeline),
 			OutputCommit: outputCommit,
+			StatsCommit:  statsCommit,
 		},
 	)
 	return job, grpcutil.ScrubGRPC(err)

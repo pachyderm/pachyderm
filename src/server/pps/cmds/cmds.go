@@ -490,33 +490,27 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	commands = append(commands, cmdutil.CreateAlias(updatePipeline, "update pipeline"))
 
 	runPipeline := &cobra.Command{
-		Use:   "{{alias}} <pipeline> [<repo>@<commit or branch>...]",
-		Short: "Run an existing Pachyderm pipeline on the specified commits or branches.",
-		Long:  "Run a Pachyderm pipeline on the datums from specific commits. Note: pipelines run automatically when data is committed to them. This command is for the case where you want to run the pipeline on a specific set of data, or if you want to rerun the pipeline. If a commit or branch is not specified, it will default to using the HEAD of master.",
+		Use:   "{{alias}} <pipeline> [<repo>@<branch>[=<commit>]...]",
+		Short: "Run an existing Pachyderm pipeline on the specified commits-branch pairs.",
+		Long:  "Run a Pachyderm pipeline on the datums from specific commit-branch pairs. If only the branch is given, the head commit of the branch is used to complete the pair. Note: pipelines run automatically when data is committed to them. This command is for the case where you want to run the pipeline on a specific set of data, or if you want to rerun the pipeline. If a commit or branch is not specified, it will default to using the HEAD of master.",
 		Example: `
 		# Rerun the latest job for the "filter" pipeline
 		$ {{alias}} filter
 
-		# Process the pipeline "filter" on the data from commits repo1@a23e4 and repo2@bf363
-		$ {{alias}} filter repo1@a23e4 repo2@bf363
+		# Process the pipeline "filter" on the data from commit-branch pairs "repo1@A=a23e4" and "repo2@B=bf363"
+		$ {{alias}} filter repo1@A=a23e4 repo2@B=bf363
 
-		# Run the pipeline "filter" on the data from the "staging" branch on repo repo1
-		$ {{alias}} filter repo1@staging`,
+		# Run the pipeline "filter" on the data from commit "167af5" on the "staging" branch on repo "repo1"
+		$ {{alias}} filter repo1@staging=167af5`,
 		Run: cmdutil.RunMinimumArgs(1, func(args []string) (retErr error) {
 			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
 			defer client.Close()
-			provCommits, err := cmdutil.ParseCommits(args[1:])
+			prov, err := cmdutil.ParseCommitProvenances(args[1:])
 			if err != nil {
 				return err
-			}
-			prov := make([]*pfs.CommitProvenance, 0, len(args[1:]))
-			for _, commit := range provCommits {
-				prov = append(prov, &pfs.CommitProvenance{
-					Commit: commit,
-				})
 			}
 			err = client.RunPipeline(args[0], prov)
 			if err != nil {

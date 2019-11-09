@@ -108,7 +108,7 @@ func GetPachClient(t testing.TB) *client.APIClient {
 	config.PeerPort = uint16(testPort)
 	env := serviceenv.InitServiceEnv(config)
 
-	pfsBlockServer, err := pfsserver.NewBlockAPIServer(root, localBlockServerCacheBytes, pfsserver.LocalBackendEnvVar, net.JoinHostPort(etcdHost, etcdPort))
+	pfsBlockServer, err := pfsserver.NewBlockAPIServer(root, localBlockServerCacheBytes, pfsserver.LocalBackendEnvVar, net.JoinHostPort(etcdHost, etcdPort), true /* duplicate */)
 	require.NoError(t, err)
 
 	etcdPrefix := generateRandomString(32)

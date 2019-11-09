@@ -22,9 +22,12 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
+
+const secsInYear = 365 * 24 * 60 * 60
 
 func RepoInfoToName(repoInfo interface{}) interface{} {
 	return repoInfo.(*pfs.RepoInfo).Repo.Name
@@ -46,6 +49,10 @@ func pl(pipeline string) string {
 	return auth.PipelinePrefix + pipeline
 }
 
+func robot(robot string) string {
+	return auth.RobotPrefix + robot
+}
+
 // TestActivate tests the Activate API (in particular, verifying
 // that Activate() also authenticates). Even though GetClient also activates
 // auth, this makes sure the code path is exercised (as auth may already be
@@ -55,6 +62,7 @@ func TestActivate(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	// Get anonymous client (this will activate auth, which is about to be
 	// deactivated, but it also activates Pacyderm enterprise, which is needed for
 	// this test to pass)
@@ -67,12 +75,11 @@ func TestActivate(t *testing.T) {
 	tokenMap[admin] = resp.PachToken
 	adminClient.SetAuthToken(resp.PachToken)
 
-	// Check that the token 'c' received from PachD authenticates them as "admin"
+	// Check that the token 'c' received from pachd authenticates them as "admin"
 	who, err := adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.True(t, who.IsAdmin)
 	require.Equal(t, admin, who.Username)
-	deleteAll(t)
 }
 
 // TestAdminRWO tests adding and removing cluster admins, as well as admins
@@ -82,6 +89,7 @@ func TestAdminRWO(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 	adminClient := getPachClient(t, admin)
@@ -197,7 +205,6 @@ func TestAdminRWO(t *testing.T) {
 	// check that ACL wasn't updated
 	require.ElementsEqual(t,
 		entries(alice, "owner", "carol", "reader"), getACL(t, aliceClient, repo))
-	deleteAll(t)
 }
 
 // TestAdminFixBrokenRepo tests that an admin can modify the ACL of a repo even
@@ -208,6 +215,7 @@ func TestAdminFixBrokenRepo(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice := tu.UniqueString("alice")
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
 
@@ -252,7 +260,6 @@ func TestAdminFixBrokenRepo(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(repo, commit.ID))
 	require.Equal(t, 1, CommitCnt(t, adminClient, repo)) // check that a new commit was created
-	deleteAll(t)
 }
 
 // TestModifyAdminsErrorMissingAdmin tests that trying to remove a nonexistant
@@ -262,6 +269,7 @@ func TestModifyAdminsErrorMissingAdmin(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice := tu.UniqueString("alice")
 	adminClient := getPachClient(t, admin)
 
@@ -291,7 +299,6 @@ func TestModifyAdminsErrorMissingAdmin(t *testing.T) {
 		require.NoError(t, err)
 		return require.ElementsEqualOrErr([]string{admin}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
-	deleteAll(t)
 }
 
 // TestCannotRemoveAllClusterAdmins tests that trying to remove all of a
@@ -301,6 +308,7 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice := tu.UniqueString("alice")
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
 
@@ -365,7 +373,6 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 		require.NoError(t, err)
 		return require.ElementsEqualOrErr([]string{admin}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
-	deleteAll(t)
 }
 
 // TestModifyClusterAdminsAllowRobotOnlyAdmin tests the fix to
@@ -377,6 +384,7 @@ func TestModifyClusterAdminsAllowRobotOnlyAdmin(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	adminClient := getPachClient(t, admin)
 
 	// Check that the initial set of admins is just "admin"
@@ -388,7 +396,7 @@ func TestModifyClusterAdminsAllowRobotOnlyAdmin(t *testing.T) {
 	// so that the only cluster administrator is the robot user
 	tokenResp, err := adminClient.GetAuthToken(adminClient.Ctx(),
 		&auth.GetAuthTokenRequest{
-			Subject: "robot:rob",
+			Subject: robot("rob"),
 			TTL:     3600,
 		})
 	require.NoError(t, err)
@@ -398,20 +406,20 @@ func TestModifyClusterAdminsAllowRobotOnlyAdmin(t *testing.T) {
 	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
 		&auth.ModifyAdminsRequest{
 			Remove: []string{admin},
-			Add:    []string{"robot:rob"},
+			Add:    []string{robot("rob")},
 		})
 	require.NoError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
-		return require.ElementsEqualOrErr([]string{"robot:rob"}, resp.Admins)
+		return require.ElementsEqualOrErr([]string{robot("rob")}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
 
 	// The robot user adds admin back as a cluster admin
 	_, err = robotClient.ModifyAdmins(robotClient.Ctx(),
 		&auth.ModifyAdminsRequest{
 			Add:    []string{admin},
-			Remove: []string{"robot:rob"},
+			Remove: []string{robot("rob")},
 		})
 	require.NoError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
@@ -419,7 +427,6 @@ func TestModifyClusterAdminsAllowRobotOnlyAdmin(t *testing.T) {
 		require.NoError(t, err)
 		return require.ElementsEqualOrErr([]string{admin}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
-	deleteAll(t)
 }
 
 func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
@@ -427,6 +434,7 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice := tu.UniqueString("alice")
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
 
@@ -516,7 +524,6 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 		_, err := iter.Next()
 		return err
 	})
-	deleteAll(t)
 }
 
 func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
@@ -524,6 +531,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice := tu.UniqueString("alice")
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
 
@@ -660,7 +668,6 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	// check that ACL was updated
 	require.ElementsEqual(t,
 		entries(alice, "owner", "carol", "writer"), getACL(t, adminClient, repo))
-	deleteAll(t)
 }
 
 func TestPipelinesRunAfterExpiration(t *testing.T) {
@@ -668,6 +675,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice := tu.UniqueString("alice")
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
 
@@ -745,7 +753,6 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 		_, err := iter.Next()
 		return err
 	})
-	deleteAll(t)
 }
 
 // Tests that GetAcl, SetAcl, GetScope, and SetScope all respect expired
@@ -756,6 +763,7 @@ func TestGetSetScopeAndAclWithExpiredToken(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice := tu.UniqueString("alice")
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
 
@@ -862,7 +870,6 @@ func TestGetSetScopeAndAclWithExpiredToken(t *testing.T) {
 	require.NoError(t, err)
 	require.ElementsEqual(t,
 		entries(alice, "owner", "carol", "writer"), getACL(t, adminClient, repo))
-	deleteAll(t)
 }
 
 // TestAdminWhoAmI tests that when an admin calls WhoAmI(), the IsAdmin field
@@ -872,6 +879,7 @@ func TestAdminWhoAmI(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice := tu.UniqueString("alice")
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
 
@@ -885,7 +893,6 @@ func TestAdminWhoAmI(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, admin, resp.Username)
 	require.True(t, resp.IsAdmin)
-	deleteAll(t)
 }
 
 // TestListRepoAdminIsOwnerOfAllRepos tests that when an admin calls ListRepo,
@@ -896,6 +903,7 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	// t.Parallel()
 	adminClient := getPachClient(t, admin)
 	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
@@ -918,7 +926,6 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 	for _, info := range infos {
 		require.Equal(t, auth.Scope_OWNER, info.AuthInfo.AccessLevel)
 	}
-	deleteAll(t)
 }
 
 // TestGetAuthToken tests that an admin can manufacture auth credentials for
@@ -928,25 +935,49 @@ func TestGetAuthToken(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	adminClient := getPachClient(t, admin)
 
-	// Generate two auth credentials, and give them to two separate clients
-	robotUser := auth.RobotPrefix + tu.UniqueString("optimus_prime")
+	// Generate first set of auth credentials
+	robotUser := robot(tu.UniqueString("optimus_prime"))
 	resp, err := adminClient.GetAuthToken(adminClient.Ctx(),
 		&auth.GetAuthTokenRequest{Subject: robotUser})
 	require.NoError(t, err)
-	// copy client & use resp token
-	robotClient1 := adminClient.WithCtx(context.Background())
-	robotClient1.SetAuthToken(resp.Token)
-
 	token1 := resp.Token
+	robotClient1 := getPachClient(t, "")
+	robotClient1.SetAuthToken(token1)
+
+	// Confirm identity tied to 'token1'
+	who, err := robotClient1.WhoAmI(robotClient1.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, robotUser, who.Username)
+	require.False(t, who.IsAdmin)
+	if version.IsAtLeast(1, 10) {
+		require.True(t, who.TTL >= 0 && who.TTL < secsInYear)
+	} else {
+		require.Equal(t, -1, who.TTL)
+	}
+
+	// Generate a second set of auth credentials--confirm that a unique token is
+	// generated, but that the identity tied to it is the same
 	resp, err = adminClient.GetAuthToken(adminClient.Ctx(),
 		&auth.GetAuthTokenRequest{Subject: robotUser})
 	require.NoError(t, err)
-	require.NotEqual(t, token1, resp.Token)
-	// copy client & use resp token
-	robotClient2 := adminClient.WithCtx(context.Background())
-	robotClient2.SetAuthToken(resp.Token)
+	token2 := resp.Token
+	require.NotEqual(t, token1, token2)
+	robotClient2 := getPachClient(t, "")
+	robotClient2.SetAuthToken(token2)
+
+	// Confirm identity tied to 'token1'
+	who, err = robotClient2.WhoAmI(robotClient2.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, robotUser, who.Username)
+	require.False(t, who.IsAdmin)
+	if version.IsAtLeast(1, 10) {
+		require.True(t, who.TTL >= 0 && who.TTL < secsInYear)
+	} else {
+		require.Equal(t, -1, who.TTL)
+	}
 
 	// robotClient1 creates a repo
 	repo := tu.UniqueString("TestPipelinesRunAfterExpiration")
@@ -1009,7 +1040,36 @@ func TestGetAuthToken(t *testing.T) {
 		_, err := iter.Next()
 		return err
 	})
+}
+
+// TestGetIndefiniteAuthToken tests that an admin can generate an auth token that never
+// times out if explicitly requested (e.g. for a daemon)
+func TestGetIndefiniteAuthToken(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	deleteAll(t)
+	defer deleteAll(t)
+	adminClient := getPachClient(t, admin)
+
+	// Generate auth credentials
+	robotUser := robot(tu.UniqueString("rock-em-sock-em"))
+	resp, err := adminClient.GetAuthToken(adminClient.Ctx(),
+		&auth.GetAuthTokenRequest{
+			Subject: robotUser,
+			TTL:     -1,
+		})
+	require.NoError(t, err)
+	token1 := resp.Token
+	robotClient1 := getPachClient(t, "")
+	robotClient1.SetAuthToken(token1)
+
+	// Confirm identity tied to 'token1'
+	who, err := robotClient1.WhoAmI(robotClient1.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, robotUser, who.Username)
+	require.False(t, who.IsAdmin)
+	require.Equal(t, -1, who.TTL)
 }
 
 // TestRobotUserWhoAmI tests that robot users can call WhoAmI and get a response
@@ -1019,10 +1079,11 @@ func TestRobotUserWhoAmI(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	adminClient := getPachClient(t, admin)
 
 	// Generate a robot user auth credential, and create a client for that user
-	robotUser := auth.RobotPrefix + tu.UniqueString("r2d2")
+	robotUser := robot(tu.UniqueString("r2d2"))
 	resp, err := adminClient.GetAuthToken(adminClient.Ctx(),
 		&auth.GetAuthTokenRequest{Subject: robotUser})
 	require.NoError(t, err)
@@ -1030,12 +1091,11 @@ func TestRobotUserWhoAmI(t *testing.T) {
 	robotClient := adminClient.WithCtx(context.Background())
 	robotClient.SetAuthToken(resp.Token)
 
-	whoAmIResp, err := robotClient.WhoAmI(robotClient.Ctx(), &auth.WhoAmIRequest{})
+	who, err := robotClient.WhoAmI(robotClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
-	require.Equal(t, robotUser, whoAmIResp.Username)
-	require.True(t, strings.HasPrefix(whoAmIResp.Username, auth.RobotPrefix))
-	require.False(t, whoAmIResp.IsAdmin)
-	deleteAll(t)
+	require.Equal(t, robotUser, who.Username)
+	require.True(t, strings.HasPrefix(who.Username, auth.RobotPrefix))
+	require.False(t, who.IsAdmin)
 }
 
 // TestRobotUserACL tests that a robot user can create a repo, add github users
@@ -1048,7 +1108,7 @@ func TestRobotUserACL(t *testing.T) {
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
 
 	// Generate a robot user auth credential, and create a client for that user
-	robotUser := auth.RobotPrefix + tu.UniqueString("voltron")
+	robotUser := robot(tu.UniqueString("voltron"))
 	resp, err := adminClient.GetAuthToken(adminClient.Ctx(),
 		&auth.GetAuthTokenRequest{Subject: robotUser})
 	require.NoError(t, err)
@@ -1089,7 +1149,6 @@ func TestRobotUserACL(t *testing.T) {
 	commit, err = robotClient.StartCommit(repo2, "master")
 	require.NoError(t, err)
 	require.NoError(t, robotClient.FinishCommit(repo2, commit.ID))
-	deleteAll(t)
 }
 
 // TestRobotUserAdmin tests that robot users can
@@ -1102,12 +1161,13 @@ func TestRobotUserAdmin(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice := tu.UniqueString("alice")
 	adminClient := getPachClient(t, admin)
 	aliceClient := getPachClient(t, alice)
 
 	// Generate a robot user auth credential, and create a client for that user
-	robotUser := auth.RobotPrefix + tu.UniqueString("bender")
+	robotUser := robot(tu.UniqueString("bender"))
 	resp, err := adminClient.GetAuthToken(adminClient.Ctx(),
 		&auth.GetAuthTokenRequest{Subject: robotUser})
 	require.NoError(t, err)
@@ -1128,7 +1188,7 @@ func TestRobotUserAdmin(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// robotUser mints a token for robotUser2
-	robotUser2 := auth.RobotPrefix + tu.UniqueString("robocop")
+	robotUser2 := robot(tu.UniqueString("robocop"))
 	resp, err = robotClient.GetAuthToken(robotClient.Ctx(), &auth.GetAuthTokenRequest{
 		Subject: robotUser2,
 	})
@@ -1167,7 +1227,6 @@ func TestRobotUserAdmin(t *testing.T) {
 	require.NoError(t, err)
 	tokenMap[admin] = deactivateResp.PachToken
 	robotClient.SetAuthToken(deactivateResp.PachToken)
-	deleteAll(t)
 }
 
 // TestTokenTTL tests that an admin can create a token with a TTL for a user,
@@ -1177,6 +1236,7 @@ func TestTokenTTL(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	adminClient := getPachClient(t, admin)
 
 	// Create repo (so alice has something to list)
@@ -1206,7 +1266,6 @@ func TestTokenTTL(t *testing.T) {
 		require.Equal(t, 0, len(repos))
 		return nil
 	}, backoff.NewTestingBackOff()))
-	deleteAll(t)
 }
 
 // TestTokenTTLExtend tests that after creating a token, the admin can extend
@@ -1216,6 +1275,7 @@ func TestTokenTTLExtend(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	adminClient := getPachClient(t, admin)
 
 	// Create repo (so alice has something to list)
@@ -1270,7 +1330,6 @@ func TestTokenTTLExtend(t *testing.T) {
 	repos, err = aliceClient.ListRepo()
 	require.True(t, auth.IsErrBadToken(err), err.Error())
 	require.Equal(t, 0, len(repos))
-	deleteAll(t)
 }
 
 // TestTokenRevoke tests that an admin can revoke that token and it no longer works
@@ -1279,6 +1338,7 @@ func TestTokenRevoke(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	adminClient := getPachClient(t, admin)
 
 	// Create repo (so alice has something to list)
@@ -1308,26 +1368,63 @@ func TestTokenRevoke(t *testing.T) {
 	repos, err = aliceClient.ListRepo()
 	require.True(t, auth.IsErrBadToken(err), err.Error())
 	require.Equal(t, 0, len(repos))
-	deleteAll(t)
 }
 
 // TestGetAuthTokenErrorNonAdminUser tests that non-admin users can't call
-// GetAuthToken
+// GetAuthToken on behalf of another user
 func TestGetAuthTokenErrorNonAdminUser(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 
 	alice := tu.UniqueString("alice")
 	aliceClient := getPachClient(t, alice)
 	resp, err := aliceClient.GetAuthToken(aliceClient.Ctx(), &auth.GetAuthTokenRequest{
-		Subject: auth.RobotPrefix + tu.UniqueString("terminator"),
+		Subject: robot(tu.UniqueString("t-1000")),
 	})
 	require.Nil(t, resp)
 	require.YesError(t, err)
 	require.Matches(t, "must be an admin", err.Error())
-	deleteAll(t)
+}
+
+// TestGetAuthTokenDefaultTTL tests the default TTL of a token returned from
+// GetAuthToken
+func TestGetAuthTokenDefaultTTL(t *testing.T) {
+	// if testing.Short() {
+	// 	t.Skip("Skipping integration tests in short mode")
+	// }
+	// deleteAll(t)
+	// defer deleteAll(t)
+
+	// alice := tu.UniqueString("alice")
+	// aliceClient := getPachClient(t, alice)
+	// resp, err := aliceClient.GetAuthToken(aliceClient.Ctx(), &auth.GetAuthTokenRequest{
+	// 	Subject: robot(tu.UniqueString("t-1000")),
+	// })
+	// require.Nil(t, resp)
+	// require.YesError(t, err)
+	// require.Matches(t, "must be an admin", err.Error())
+}
+
+// TestGetAuthTokenPermanent tests the TTL of a token returned from GetAuthToken
+// when request.TTL is -1 (i.e. a permanent token)
+func TestGetAuthTokenPermanent(t *testing.T) {
+	// if testing.Short() {
+	// 	t.Skip("Skipping integration tests in short mode")
+	// }
+	// deleteAll(t)
+	// defer deleteAll(t)
+
+	// alice := tu.UniqueString("alice")
+	// aliceClient := getPachClient(t, alice)
+	// resp, err := aliceClient.GetAuthToken(aliceClient.Ctx(), &auth.GetAuthTokenRequest{
+	// 	Subject: robot(tu.UniqueString("t-1000")),
+	// })
+	// require.Nil(t, resp)
+	// require.YesError(t, err)
+	// require.Matches(t, "must be an admin", err.Error())
 }
 
 // TestActivateAsRobotUser tests that Pachyderm can be activated such that the
@@ -1337,19 +1434,20 @@ func TestActivateAsRobotUser(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 
 	client := seedClient.WithCtx(context.Background())
 	resp, err := client.Activate(client.Ctx(), &auth.ActivateRequest{
-		Subject: "robot:deckard",
+		Subject: robot("deckard"),
 	})
 	require.NoError(t, err)
 	client.SetAuthToken(resp.PachToken)
-	whoAmI, err := client.WhoAmI(client.Ctx(), &auth.WhoAmIRequest{})
+	who, err := client.WhoAmI(client.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
-	require.Equal(t, "robot:deckard", whoAmI.Username)
+	require.Equal(t, robot("deckard"), who.Username)
 
 	// Make sure the robot token has no TTL
-	require.Equal(t, int64(-1), whoAmI.TTL)
+	require.Equal(t, int64(-1), who.TTL)
 
 	client.Deactivate(client.Ctx(), &auth.DeactivateRequest{})
 	require.NoError(t, err)
@@ -1358,7 +1456,6 @@ func TestActivateAsRobotUser(t *testing.T) {
 		&auth.ActivateRequest{Subject: admin})
 	require.NoError(t, err)
 	tokenMap[admin] = resp.PachToken
-	deleteAll(t)
 }
 
 func TestActivateMismatchedUsernames(t *testing.T) {
@@ -1366,6 +1463,7 @@ func TestActivateMismatchedUsernames(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 
 	client := seedClient.WithCtx(context.Background())
 	_, err := client.Activate(client.Ctx(), &auth.ActivateRequest{
@@ -1375,7 +1473,6 @@ func TestActivateMismatchedUsernames(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "github:alice", err.Error())
 	require.Matches(t, "github:bob", err.Error())
-	deleteAll(t)
 }
 
 // TestDeleteAllAfterDeactivate tests that deleting repos and (particularly)
@@ -1388,6 +1485,7 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 
 	alice := tu.UniqueString("alice")
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
@@ -1440,7 +1538,6 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 
 	// Make sure DeleteAll() succeeds
 	require.NoError(t, aliceClient.DeleteAll())
-	deleteAll(t)
 }
 
 // TestDeleteRCInStandby creates a pipeline, waits for it to enter standby, and
@@ -1456,6 +1553,7 @@ func TestDeleteRCInStandby(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice := tu.UniqueString("alice")
 	c := getPachClient(t, alice)
 
@@ -1516,7 +1614,6 @@ func TestDeleteRCInStandby(t *testing.T) {
 		_, err := iter.Next()
 		return err
 	})
-	deleteAll(t)
 }
 
 // TestNoOutputRepoDoesntCrashPPSMaster creates a pipeline, then deletes its
@@ -1542,6 +1639,7 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice := tu.UniqueString("alice")
 	aliceClient := getPachClient(t, alice)
 
@@ -1640,7 +1738,6 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 	buf.Reset()
 	require.NoError(t, aliceClient.GetFile(pipeline2, "master", "/file.2", 0, 0, buf))
 	require.Equal(t, "2", buf.String())
-	deleteAll(t)
 }
 
 // TestPipelineFailingWithOpenCommit creates a pipeline, then revokes its access
@@ -1656,6 +1753,7 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice := tu.UniqueString("alice")
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
 
@@ -1705,5 +1803,68 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 	pi, err := adminClient.InspectPipeline(pipeline)
 	require.NoError(t, err)
 	require.Equal(t, pps.PipelineState_PIPELINE_FAILURE, pi.State)
+}
+
+// TestOneTimePasswordOtherUser tests that it's possible for an admin to
+// generate an OTP on behalf of another user (similar to how an admin can
+// generate a Pachyderm token for another user).
+func TestOneTimePasswordOtherUser(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	deleteAll(t)
+
+	adminClient, anonClient := getPachClient(t, admin), getPachClient(t, "")
+	otpResp, err := adminClient.GetOneTimePassword(adminClient.Ctx(),
+		&auth.GetOneTimePasswordRequest{
+			Subject: gh("alice"),
+		})
+	require.NoError(t, err)
+
+	authResp, err := anonClient.Authenticate(anonClient.Ctx(),
+		&auth.AuthenticateRequest{
+			OneTimePassword: otpResp.Code,
+		})
+	require.NoError(t, err)
+	anonClient.SetAuthToken(authResp.PachToken)
+	who, err := anonClient.WhoAmI(anonClient.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.False(t, who.IsAdmin)
+	require.Equal(t, gh("alice"), who.Username)
+	require.True(t, who.TTL > 0)
+}
+
+// TestInitialRobotUserGetOTP tests that Pachyderm can be activated with a robot
+// user, which will have no session expiration, and that when this user gets an
+// OTP, the token associated with their OTP will expire
+func TestInitialRobotUserGetOTP(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	// adminClient will use 'admin's initial Pachyderm token, which does not
+	// expire
+	adminClient := getPachClient(t, admin)
+	// make sure the admin client is a robot user initial admin
+	who, err := adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.True(t, who.IsAdmin)
+	require.True(t, strings.HasPrefix(who.Username, auth.RobotPrefix))
+	require.Equal(t, int64(-1), who.TTL)
+
+	// Get an OTP as the initial admin
+	otpResp, err := adminClient.GetOneTimePassword(adminClient.Ctx(),
+		&auth.GetOneTimePasswordRequest{})
+	require.NoError(t, err)
+
+	authResp, err := adminClient.Authenticate(adminClient.Ctx(), &auth.AuthenticateRequest{
+		OneTimePassword: otpResp.Code,
+	})
+	require.NoError(t, err)
+	adminClient.SetAuthToken(authResp.PachToken)
+	who, err = adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.True(t, who.IsAdmin)
+	require.True(t, strings.HasPrefix(who.Username, auth.RobotPrefix))
+	require.True(t, who.TTL > 0)
 }
