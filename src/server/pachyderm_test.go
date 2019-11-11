@@ -48,7 +48,10 @@ import (
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 
+	"github.com/brianvoe/gofakeit"
 	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	prom_api "github.com/prometheus/client_golang/api"
 	prom_api_v1 "github.com/prometheus/client_golang/api/prometheus/v1"
@@ -10083,6 +10086,81 @@ func TestListTag(t *testing.T) {
 	actual := &bytes.Buffer{}
 	require.NoError(t, c.GetTag("tag0", actual))
 	require.Equal(t, "Object 0", actual.String())
+}
+
+func TestExtractPipeline(t *testing.T) {
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestExtractPipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	request := &pps.CreatePipelineRequest{}
+	// Generate fake data
+	gofakeit.Struct(&request)
+
+	// Now set a bunch of fields explicitly so the server will accept the request.
+	// Override the input because otherwise the repo won't exist
+	request.Input = client.NewPFSInput(dataRepo, "/*")
+	// These must be set explicitly, because extract returns the default values
+	// and we want them to match.
+	request.Input.Pfs.Name = "input"
+	request.Input.Pfs.Branch = "master"
+	// Can't set both parallelism spec values
+	request.ParallelismSpec.Coefficient = 0
+	// If service, can only set as Constant:1
+	request.ParallelismSpec.Constant = 1
+	// CacheSize must parse as a memory value
+	request.CacheSize = "1G"
+	// Durations must be valid
+	d := &types.Duration{Seconds: 1, Nanos: 1}
+	request.JobTimeout = d
+	request.DatumTimeout = d
+	// PodSpec and PodPatch must parse as json
+	request.PodSpec = "{}"
+	request.PodPatch = "{}"
+	request.Service.Type = string(v1.ServiceTypeClusterIP)
+	// Don't want to explicitly set spec commit, since there's no valid commit
+	// to set it to, and this is one of the few fields that shouldn't get
+	// extracted back to us.
+	request.SpecCommit = nil
+	// MaxQueueSize gets set to 1 if it's negative, which will superficially
+	// fail the test, so we set a real value.
+	request.MaxQueueSize = 2
+	// Update and reprocess don't get extracted back either so don't set it.
+	request.Update = false
+	request.Reprocess = false
+
+	// Create the pipeline
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		request)
+	require.YesError(t, err)
+	require.True(t, strings.Contains(err.Error(), "TFJob"))
+	// TODO when TFJobs are supported the above should be deleted
+
+	// Set TFJob to nil so request can work
+	request.TFJob = nil
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		request)
+	require.NoError(t, err)
+
+	// Extract it and see if we get the same thing
+	extractedRequest, err := c.ExtractPipeline(request.Pipeline.Name)
+	require.NoError(t, err)
+	// When this check fails it most likely means that you've added field to
+	// pipelines and not set it up to be extract. PipelineReqFromInfo is the
+	// function you'll need to add it to.
+	if !proto.Equal(request, extractedRequest) {
+		marshaller := &jsonpb.Marshaler{
+			Indent:   "  ",
+			OrigName: true,
+		}
+		requestString, err := marshaller.MarshalToString(request)
+		require.NoError(t, err)
+		extractedRequestString, err := marshaller.MarshalToString(extractedRequest)
+		t.Errorf("Expected:\n%s\n, Got:\n%s\n", requestString, extractedRequestString)
+	}
 }
 
 // TestPodPatchUnmarshalling tests the fix for issues #3483, by adding a

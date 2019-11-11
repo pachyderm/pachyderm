@@ -1,4 +1,4 @@
-<img src='doc/docs/assets/images/pachyderm_factory_gh.png' height='225' title='Pachyderm'> 
+<img src='doc/docs/latest/assets/images/pachyderm_factory_gh.png' height='225' title='Pachyderm'> 
 
 [![GitHub release](https://img.shields.io/github/release/pachyderm/pachyderm.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/releases)
 [![GitHub license](https://img.shields.io/badge/license-apache-blue.svg)](https://github.com/pachyderm/pachyderm/blob/master/LICENSE)
