@@ -2,6 +2,8 @@ site_name: Pachyderm Documentation
 site_description: Pachyderm Documention
 site_author: Pachyderm Team
 site_url: https://docs.pachyderm.com/
+docs_dir: docs/latest/
+site_dir: site/latest/
 
 repo_name: pachyderm/pachyderm
 repo_url: https://github.com/pachyderm/pachyderm
@@ -17,7 +19,7 @@ theme:
 
   # 404 page
   static_templates:
-    - 404.html
+    - latest/404.html
   include_search_page: true
   search_index_only: true
   language: en
@@ -96,6 +98,7 @@ nav:
             - Repo Layout: contributing/repo-layout.md
             - Coding Conventions: contributing/coding-conventions.md
             - Documentation Style Guide: contributing/docs-style-guide.md
+            - Developing Pachyderm in Windows with VSCode: contributing/windows.md
     - Getting Started:
         - Overview: getting_started/index.md
         - getting_started/local_installation.md
@@ -124,6 +127,7 @@ nav:
                 - Glob Patterns: concepts/pipeline-concepts/datum/glob-pattern.md
                 - Datum Processing: concepts/pipeline-concepts/datum/relationship-between-datums.md
                 - Cross and Union Inputs: concepts/pipeline-concepts/datum/cross-union.md
+                - Datum Processing States: concepts/pipeline-concepts/datum/datum-processing-states.md
         - Advanced Concepts:
             Distributed Computing: concepts/pipeline-concepts/distributed_computing.md
 
@@ -145,6 +149,7 @@ nav:
         - Configure Distributed Computing: how-tos/distributed_computing.md
         - Deferred Processing of Data: how-tos/deferred_processing.md
         - Ingress and Egress Data from an External Object Store: how-tos/ingressing_from_diff_cloud.md
+        - Skip Failed Datums: how-tos/err_cmd.md
     - Deploy and Manage:
         - Overview: deploy-manage/index.md
         - Deploy Pachyderm:

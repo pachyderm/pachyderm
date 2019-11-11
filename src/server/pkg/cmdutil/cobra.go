@@ -431,7 +431,7 @@ func CreateDocsAlias(command *cobra.Command, invocation string, pattern string) 
 		t := template.New("top")
 		t.Funcs(templateFuncs)
 		template.Must(t.Parse(text))
-		return t.Execute(cmd.Out(), cmd)
+		return t.Execute(cmd.OutOrStderr(), cmd)
 	})
 	return root
 }
