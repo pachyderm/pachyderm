@@ -1,0 +1,25 @@
+{
+  "pipeline": {
+    "name": "kafka_spout"
+  },
+  "spout": {
+    "overwrite": true
+  },
+  "transform": {
+    "cmd": [
+      "go",
+      "run",
+      "./main.go"
+    ],
+    "image": "papposilenus/kafka_spout:0.50",
+    "env": {
+      "KAFKA_HOST": "kafka.kafka",
+      "KAFKA_PORT": "9092",
+      "KAFKA_TOPIC": "test",
+      "KAFKA_GROUP_ID": "test3",
+      "KAFKA_TIMEOUT": "5",
+      "NAMED_PIPE": "/pfs/out",
+      "VERBOSE_LOGGING": "true"
+    }
+  }
+}
