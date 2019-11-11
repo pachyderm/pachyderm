@@ -7,14 +7,15 @@
     },
     "transform": {
         "cmd": [ "go", "run", "./main.go"],
-        "image": "papposilenus/kafka-demo:jk",
+        "image": "pachyderm/kafka_spout:1.9.8",
         "env" : {
             "KAFKA_HOST": "kafka.kafka",
             "KAFKA_PORT": "9092",
-            "KAFKA_TOPIC": "test",
-            "KAFKA_GROUP_ID": "testgroup",
+            "KAFKA_TOPIC": "test_topic",
+            "KAFKA_GROUP_ID": "test_group",
             "KAFKA_TIMEOUT": "5",
-            "NAMED_PIPE": "/pfs/out"
+            "NAMED_PIPE": "/pfs/out",
+            "VERBOSE_LOGGING": "false"
         }
     }
 }
