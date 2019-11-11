@@ -8,6 +8,7 @@ cache:
     # etc/testing/travis_cache.sh
     - ${HOME}/.cache
     - ${HOME}/cached-deps
+    - ${HOME}/gopath/pkg/mod
 language: go
 go:
   - "1.13.1"
