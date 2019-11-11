@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-zookeeper
+  namespace: kafka
+spec:
+  ports:
+  - name: client
+    port: 2181
+    protocol: TCP
+    targetPort: client
+  selector:
+    app: kafka-zookeeper
+  sessionAffinity: None
+  type: ClusterIP
