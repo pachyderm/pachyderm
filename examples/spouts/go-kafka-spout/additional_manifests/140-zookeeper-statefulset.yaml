@@ -1,0 +1,109 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kafka-zookeeper
+  namespace: kafka
+spec:
+  podManagementPolicy: OrderedReady
+  replicas: 3
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: kafka-zookeeper
+  serviceName: kafka-zookeeper-headless
+  template:
+    metadata:
+      labels:
+        app: kafka-zookeeper
+    spec:
+      containers:
+      - command:
+        - /bin/bash
+        - -xec
+        - zkGenConfig.sh && exec zkServer.sh start-foreground
+        env:
+        - name: ZK_REPLICAS
+          value: "3"
+        - name: JMXAUTH
+          value: "false"
+        - name: JMXDISABLE
+          value: "false"
+        - name: JMXPORT
+          value: "1099"
+        - name: JMXSSL
+          value: "false"
+        - name: ZK_CLIENT_PORT
+          value: "2181"
+        - name: ZK_ELECTION_PORT
+          value: "3888"
+        - name: ZK_HEAP_SIZE
+          value: 1G
+        - name: ZK_INIT_LIMIT
+          value: "5"
+        - name: ZK_LOG_LEVEL
+          value: INFO
+        - name: ZK_MAX_CLIENT_CNXNS
+          value: "60"
+        - name: ZK_MAX_SESSION_TIMEOUT
+          value: "40000"
+        - name: ZK_MIN_SESSION_TIMEOUT
+          value: "4000"
+        - name: ZK_PURGE_INTERVAL
+          value: "0"
+        - name: ZK_SERVER_PORT
+          value: "2888"
+        - name: ZK_SNAP_RETAIN_COUNT
+          value: "3"
+        - name: ZK_SYNC_LIMIT
+          value: "10"
+        - name: ZK_TICK_TIME
+          value: "2000"
+        image: gcr.io/google_samples/k8szk:v3
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          exec:
+            command:
+            - zkOk.sh
+          failureThreshold: 3
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        name: zookeeper
+        ports:
+        - containerPort: 2181
+          name: client
+          protocol: TCP
+        - containerPort: 3888
+          name: election
+          protocol: TCP
+        - containerPort: 2888
+          name: server
+          protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - zkOk.sh
+          failureThreshold: 3
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /var/lib/zookeeper
+          name: data
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext:
+        fsGroup: 1000
+        runAsUser: 1000
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - emptyDir: {}
+        name: data
+  updateStrategy:
+    type: OnDelete
