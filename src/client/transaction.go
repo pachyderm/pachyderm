@@ -127,3 +127,20 @@ func (c APIClient) InspectTransaction(txn *transaction.Transaction) (*transactio
 	}
 	return response, nil
 }
+
+// ExecuteInTransaction executes a callback within a transaction.
+// The callback should use the passed in APIClient.
+// If the callback returns a nil error, then the transaction will be finished.
+// If the callback returns a non-nil error, then the transaction will be deleted.
+func (c APIClient) ExecuteInTransaction(f func(c *APIClient) error) (*transaction.TransactionInfo, error) {
+	txn, err := c.StartTransaction()
+	if err != nil {
+		return nil, err
+	}
+	if err := f(c.WithTransaction(txn)); err != nil {
+		// We ignore the delete error, because we are more interested in the error from the callback.
+		c.DeleteTransaction(txn)
+		return nil, err
+	}
+	return c.FinishTransaction(txn)
+}

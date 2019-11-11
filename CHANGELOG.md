@@ -1,8 +1,77 @@
 # Changelog
 
+## 1.9.8
+
+- Fixes a bug that prevent the `--reprocess` flag in `edit pipeline` from working. (#4232)
+- Changes the CLI syntax for `run pipeline` to accept commit branch pairs. (#4262)
+- Fixes a bug that caused `pachctl logs --follow` to exit immediately. (#4259)
+- Fixes a bug that joins to sometimes miss pairs that matched. (#4256)
+- Fixes a bug that prevent pachyderm from deploying on Kuberentes 1.6 without modifying manifests. (#4242)
+- Fixes a family of bugs that could cause output and stats commits to remain open and block later jobs. (#4215)
+
+## 1.9.7
+
+- Fixes a bug that prevent pachctl from connecting to clusters with TLS enabled. (#4167)
+
+## 1.9.6
+
+- Fixes a bug which would cause jobs to report success despite datum failures. (#4158)
+- Fixes a bug which prevent Disk resource requests in pipelines from working. (#4157)
+- Fixes a bug which caused `pachctl fsck --fix` to exit with an error and not complete the fix. (#4155)
+- Pachctl contexts now have support for importing Kubernetes contexts. (#4152)
+- Fixes a bug which caused Spouts to create invalid provenance. (#4145)
+- Fixes a bug which allowed creation, but not deletion, of pipelines with invalid names. (#4133)
+- Fixes a bug which caused ListTag to fail with WriteHeader already called. (#4132)
+- Increases the max transaction operations and max request bytes values for etcd's deployment. (#4121)
+- Fixes a bug that caused `run pipeline` to crash pachd. (#4109)
+- Pachctl deploy amazon now exposes several new s3 connection options. (#4107)
+- Readds the `--namespace` flag to `port forward`. (#4105)
+- Removes and unused field `Batch` from the pipeline spec. (#4104)
+
+## 1.9.5
+
+- Fixes a bug that caused the Salt field to be stripped from restored pipelines. (#4086)
+- Fixes a bug that caused datums to fail with `io: read/write on closed pipe`. (#4085)
+- Fixes a bug that prevented reading logs from running jobs with stats enabled. (#4083)
+- Fixes a bug that prevented putting files into output commits via s3gateway. (#4076)
+
+## 1.9.4
+
+- Fixes a bug (#4053) which made it impossible to read files written to output commits with `put file`. (#4055)
+- Adds a flag `--fix` to `pachctl fsck` which will fix some of the issues that it detects. (#4052)
+- Fixes a bug (#3879) which caused `pachctl debug dump` to hit max message size issues. (#4015)
+- The Microsoft Azure Blob Storage client has been upgraded to the most recent version. (#4000)
+- Extract now correctly extracts the `pod_patch` and `pod_spec` for pipelines. (#3964, thanks to @mrene)
+- S3Gateway now has support for multi-part uploads. (#3903)
+- S3Gateway now has support for multi-deletes. (#4004)
+- S3Geteway now has support for auth. (#3937)
+
+## 1.9.3
+
+- Fixes a bug that caused the Azure driver to lock up when there were too many active requests. (#3970)
+- Increases the max message size for etcd, this should eliminate errors that would appear with large etcd requests such as those created when deleting repos and pipelines. (#3958)
+- Fixes several bugs that would cause commits not to be finished when jobs encountered errors, which would lead to pipelines getting stuck. (#3951)
+
+## 1.9.2
+
+- Fixes a bug that broke Pachyderm on Openshift. (#3935, thanks to @jiangytcn)
+- Fixes a bug that caused pachctl to crash when deleting a transaction while no active transaction was set. (#3929)
+- Fixes a bug that broke provenance when deleting a repo or pipeline. (#3925)
+
+## 1.9.1
+
+- Pachyderm now uses go modules. (#3870)
+- `pachctl diff file` now diffs content, similar to `git diff`. (#3866)
+- It's now possible to create spout services as ingress endpoints. (#3829)
+- Pachyderm now supports contexts as a way to access multiple clusters. (#3786)
+- Fixes a bug that causes `pachctl put file --overwrite` to fail when reading from stdin. (#3882)
+- Fixes a bug that caused jobs from run pipeline to succeed when they should fail. (#3872)
+- Fixes a bug that caused workers to get stuck in a crashloop. (#3858)
+- Fixes a bug that causes pachd to panic when a pipeline had no transform. (#3866)
+
 ## 1.9.0
 
-- `pachctl` now has a new, more consistent syntax that's more inline with other container clis such as `kubectl`. (#3617)
+- `pachctl` now has a new, more consistent syntax that's more in line with other container clis such as `kubectl`. (#3617)
 - Pachyderm now exposes an s3 interface to the data stored in pfs. (#3411, #3432, #3508)
 - Pachyderm now supports transactional PFS operations. (#3658)
 - The `--history` flag has been extended to `list job` and `list pipeline` (in addition to `list file`.) (#3692)

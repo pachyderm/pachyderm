@@ -12,24 +12,24 @@ func TestCommit(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	require.NoError(t, tu.BashCmd(`
-		pachctl create repo {{.repo}} --no-port-forwarding
+		pachctl create repo {{.repo}}
 
 		# Create a commit and put some data in it
-		commit1=$(pachctl start commit {{.repo}}@master --no-port-forwarding)
-		echo "file contents" | pachctl put file {{.repo}}@${commit1}:/file -f --no-port-forwarding -
-		pachctl finish commit {{.repo}}@${commit1} --no-port-forwarding
+		commit1=$(pachctl start commit {{.repo}}@master)
+		echo "file contents" | pachctl put file {{.repo}}@${commit1}:/file -f -
+		pachctl finish commit {{.repo}}@${commit1}
 
 		# Check that the commit above now appears in the output
-		pachctl list commit {{.repo}} --no-port-forwarding \
+		pachctl list commit {{.repo}} \
 		  | match ${commit1}
 
 		# Create a second commit and put some data in it
-		commit2=$(pachctl start commit {{.repo}}@master --no-port-forwarding)
-		echo "file contents" | pachctl put file {{.repo}}@${commit2}:/file -f --no-port-forwarding -
-		pachctl finish commit {{.repo}}@${commit2} --no-port-forwarding
+		commit2=$(pachctl start commit {{.repo}}@master)
+		echo "file contents" | pachctl put file {{.repo}}@${commit2}:/file -f -
+		pachctl finish commit {{.repo}}@${commit2}
 
 		# Check that the commit above now appears in the output
-		pachctl list commit {{.repo}} --no-port-forwarding \
+		pachctl list commit {{.repo}} \
 		  | match ${commit1} \
 		  | match ${commit2}
 		`,
@@ -42,25 +42,25 @@ func TestPutFileSplit(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	require.NoError(t, tu.BashCmd(`
-		pachctl create repo {{.repo}} --no-port-forwarding
+		pachctl create repo {{.repo}}
 
-		pachctl put file {{.repo}}@master:/data --split=csv --header-records=1 --no-port-forwarding <<EOF
+		pachctl put file {{.repo}}@master:/data --split=csv --header-records=1 <<EOF
 		name,job
 		alice,accountant
 		bob,baker
 		EOF
 
-		pachctl get file "{{.repo}}@master:/data/*0" --no-port-forwarding \
+		pachctl get file "{{.repo}}@master:/data/*0" \
 		  | match "name,job" \
 			| match "alice,accountant" \
 			| match -v "bob,baker"
 
-		pachctl get file "{{.repo}}@master:/data/*1" --no-port-forwarding \
+		pachctl get file "{{.repo}}@master:/data/*1" \
 		  | match "name,job" \
 			| match -v "alice,accountant" \
 			| match "bob,baker"
 
-		pachctl get file "{{.repo}}@master:/data/*" --no-port-forwarding \
+		pachctl get file "{{.repo}}@master:/data/*" \
 		  | match "name,job" \
 			| match "alice,accountant" \
 			| match "bob,baker"

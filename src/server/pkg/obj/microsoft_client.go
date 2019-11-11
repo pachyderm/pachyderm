@@ -1,7 +1,6 @@
 package obj
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"fmt"
@@ -10,20 +9,16 @@ import (
 	"github.com/Azure/azure-sdk-for-go/storage"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 )
 
-// Azure blob storage is a little different from object storage. The best resource for understanding how it works has been:
-// https://docs.microsoft.com/en-us/rest/api/storageservices/understanding-block-blobs--append-blobs--and-page-blobs
-// this page is what's meant by msft docs throughout this file
 const (
-	// maxBlockSize set to 4MB according to msft docs
-	// TODO if we upgrade to the latest version of the azure sdk we can use a
-	// blocksize of 100MB which would allow for larger objects. Upgrading seems
-	// to completely change the interface though so it's a nontrivial amount of
-	// work.
+	// Maximum block size set to 4MB.
 	maxBlockSize = 4 * 1024 * 1024
+	// Concurrency is the maximum concurrent block writes per writer.
+	concurrency = 10
 )
 
 var (
@@ -31,72 +26,59 @@ var (
 )
 
 type microsoftClient struct {
-	blobClient storage.BlobStorageClient
-	container  string
+	container *storage.Container
 }
 
 func newMicrosoftClient(container string, accountName string, accountKey string) (*microsoftClient, error) {
-	client, err := storage.NewBasicClient(
-		accountName,
-		accountKey,
-	)
+	client, err := storage.NewBasicClient(accountName, accountKey)
 	if err != nil {
 		return nil, err
 	}
-
-	return &microsoftClient{
-		blobClient: client.GetBlobService(),
-		container:  container,
-	}, nil
+	blobSvc := client.GetBlobService()
+	return &microsoftClient{container: (&blobSvc).GetContainerReference(container)}, nil
 }
 
 func (c *microsoftClient) Writer(ctx context.Context, name string) (io.WriteCloser, error) {
-	writer, err := newMicrosoftWriter(ctx, c, name)
-	if err != nil {
-		return nil, err
-	}
-	return newBackoffWriteCloser(ctx, c, writer), nil
+	return newMicrosoftWriter(ctx, c, name), nil
 }
 
 func (c *microsoftClient) Reader(ctx context.Context, name string, offset uint64, size uint64) (io.ReadCloser, error) {
-	byteRange := byteRange(offset, size)
-	var reader io.ReadCloser
-	var err error
-	if byteRange == "" {
-		reader, err = c.blobClient.GetBlob(c.container, name)
-	} else {
-		reader, err = c.blobClient.GetBlobRange(c.container, name, byteRange, nil)
+	blobRange := blobRange(offset, size)
+	if blobRange == nil {
+		return c.container.GetBlobReference(name).Get(nil)
 	}
+	return c.container.GetBlobReference(name).GetRange(&storage.GetBlobRangeOptions{Range: blobRange})
+}
 
-	if err != nil {
-		return nil, err
+func blobRange(offset, size uint64) *storage.BlobRange {
+	if offset == 0 && size == 0 {
+		return nil
+	} else if size == 0 {
+		return &storage.BlobRange{Start: offset}
 	}
-	return newBackoffReadCloser(ctx, c, reader), nil
+	return &storage.BlobRange{Start: offset, End: offset + size}
 }
 
 func (c *microsoftClient) Delete(_ context.Context, name string) error {
-	return c.blobClient.DeleteBlob(c.container, name, nil)
+	_, err := c.container.GetBlobReference(name).DeleteIfExists(nil)
+	return err
 }
 
-func (c *microsoftClient) Walk(_ context.Context, name string, fn func(name string) error) error {
-	// See Azure docs for what `marker` does:
-	// https://docs.microsoft.com/en-us/rest/api/storageservices/List-Blobs?redirectedfrom=MSDN
+func (c *microsoftClient) Walk(_ context.Context, name string, f func(name string) error) error {
 	var marker string
 	for {
-		blobList, err := c.blobClient.ListBlobs(c.container, storage.ListBlobsParameters{
+		blobList, err := c.container.ListBlobs(storage.ListBlobsParameters{
 			Prefix: name,
 			Marker: marker,
 		})
 		if err != nil {
 			return err
 		}
-
 		for _, file := range blobList.Blobs {
-			if err := fn(file.Name); err != nil {
+			if err := f(file.Name); err != nil {
 				return err
 			}
 		}
-
 		// NextMarker is empty when all results have been returned
 		if blobList.NextMarker == "" {
 			break
@@ -107,7 +89,7 @@ func (c *microsoftClient) Walk(_ context.Context, name string, fn func(name stri
 }
 
 func (c *microsoftClient) Exists(_ context.Context, name string) bool {
-	exists, _ := c.blobClient.BlobExists(c.container, name)
+	exists, _ := c.container.GetBlobReference(name).Exists()
 	return exists
 }
 
@@ -132,99 +114,69 @@ func (c *microsoftClient) IsIgnorable(err error) bool {
 }
 
 type microsoftWriter struct {
-	ctx        context.Context
-	container  string
-	blob       string
-	blobClient storage.BlobStorageClient
-	buf        *bytes.Buffer
-	nBlocks    int
-	eg         errgroup.Group
-	err        error // used for fast exit from Write below
+	ctx       context.Context
+	blob      *storage.Blob
+	w         *grpcutil.ChunkWriteCloser
+	limiter   limit.ConcurrencyLimiter
+	eg        *errgroup.Group
+	numBlocks int
+	err       error
 }
 
-func newMicrosoftWriter(ctx context.Context, client *microsoftClient, name string) (*microsoftWriter, error) {
-	if _, err := client.blobClient.CreateContainerIfNotExists(client.container, storage.ContainerAccessTypePrivate); err != nil {
-		return nil, err
+func newMicrosoftWriter(ctx context.Context, client *microsoftClient, name string) *microsoftWriter {
+	eg, cancelCtx := errgroup.WithContext(ctx)
+	w := &microsoftWriter{
+		ctx:     cancelCtx,
+		blob:    client.container.GetBlobReference(name),
+		limiter: limit.New(concurrency),
+		eg:      eg,
 	}
-	if err := client.blobClient.CreateBlockBlob(client.container, name); err != nil {
-		return nil, err
-	}
-	return &microsoftWriter{
-		ctx:        ctx,
-		container:  client.container,
-		blob:       name,
-		blobClient: client.blobClient,
-		buf:        bytes.NewBuffer(bufPool.GetBuffer()[:0]),
-	}, nil
+	w.w = grpcutil.NewChunkWriteCloser(bufPool, w.writeBlock)
+	return w
 }
 
-func (w *microsoftWriter) Write(b []byte) (int, error) {
+func (w *microsoftWriter) Write(data []byte) (int, error) {
 	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/microsoftWriter/Write")
 	defer tracing.FinishAnySpan(span)
 	if w.err != nil {
-		// w.err wasn't generated by putting this block but a previous block,
-		// we return it here though because PutBlock is called async so we
-		// can't return it from the correct call but we also don't want to wait
-		// until the end to handle errors.
 		return 0, w.err
 	}
-	nBytes := 0
-	for {
-		if w.buf.Len()+len(b) >= maxBlockSize {
-			offset := maxBlockSize - w.buf.Len()
-			w.buf.Write(b[:offset])
-			w.writeBlock(w.buf.Bytes())
-			nBytes += offset
-			w.buf = bytes.NewBuffer(bufPool.GetBuffer()[:0])
-			b = b[offset:]
-		} else {
-			w.buf.Write(b)
-			nBytes += len(b)
-			break
-		}
-	}
-	return nBytes, nil
-	// TODO according to msft docs a blob can have at most 100,000 uncommitted
-	// blocks and at most 200,000 MB so this code will probably break with
-	// objects over 200GB, right now that's a rare case. But when we do hit
-	// this we should add a check in this function that commits the blocks with
-	// a PutBlockList call when there's more than 200,000 MB outstanding.
+	return w.w.Write(data)
 }
 
-func blockID(n int) string {
-	// according to msft docs: Block IDs are strings of equal length within a
-	// blob. Block client code usually uses base-64 encoding to normalize
-	// strings into equal lengths. When using base-64 encoding, the pre-encoded
-	// string must be 64 bytes or less. Block ID values can be duplicated in
-	// different blobs.
-	return base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%011d\n", n)))
-}
-
-func (w *microsoftWriter) writeBlock(b []byte) {
-	block := w.nBlocks
-	w.nBlocks++
+func (w *microsoftWriter) writeBlock(block []byte) error {
+	blockID := blockID(w.numBlocks)
+	w.numBlocks++
+	w.limiter.Acquire()
 	w.eg.Go(func() error {
-		defer bufPool.PutBuffer(b)
-		if err := w.blobClient.PutBlock(w.container, w.blob, blockID(block), b); err != nil {
+		defer w.limiter.Release()
+		defer bufPool.Put(block[:cap(block)])
+		if err := w.blob.PutBlock(blockID, block, nil); err != nil {
 			w.err = err
 			return err
 		}
 		return nil
 	})
+	return nil
+}
+
+func blockID(n int) string {
+	return base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%011d\n", n)))
 }
 
 func (w *microsoftWriter) Close() error {
 	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/microsoftWriter/Close")
 	defer tracing.FinishAnySpan(span)
-	if w.buf.Len() > 0 {
-		w.writeBlock(w.buf.Bytes())
+	if err := w.w.Close(); err != nil {
+		return err
 	}
 	if err := w.eg.Wait(); err != nil {
 		return err
 	}
-	blocks := make([]storage.Block, w.nBlocks)
+	// Finalize the blocks.
+	blocks := make([]storage.Block, w.numBlocks)
 	for i := range blocks {
 		blocks[i] = storage.Block{ID: blockID(i), Status: storage.BlockStatusUncommitted}
 	}
-	return w.blobClient.PutBlockList(w.container, w.blob, blocks)
+	return w.blob.PutBlockList(blocks, nil)
 }

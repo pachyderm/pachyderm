@@ -6,7 +6,8 @@ option go_package = "github.com/pachyderm/pachyderm/src/server/pkg/storage/files
 import "server/pkg/storage/chunk/chunk.proto";
 
 message Range {
-  string last_path = 1;
+  int64 offset = 1;
+  string last_path = 2;
   // bloom filter, stats, etc.
 }
 
@@ -26,7 +27,7 @@ enum Op {
 }
 
 message Tag {
-  int64 id = 1;
+  string id = 1;
   int64 size_bytes = 2;
 }
 
@@ -34,4 +35,8 @@ message Tag {
 message Index {
   Range range = 1;
   DataOp data_op = 2;
+  // Size of the content being indexed (does not include headers).
+  int64 size_bytes = 3;
+  string last_path_chunk = 4;
+  // (bryce) need to make content inline when very small (0 size files for example)
 }

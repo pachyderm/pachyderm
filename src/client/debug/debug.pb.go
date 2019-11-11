@@ -25,7 +25,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type DumpRequest struct {
 	// Recursed is true if this request is a recursive call from another request.
@@ -51,7 +51,7 @@ func (m *DumpRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) 
 		return xxx_messageInfo_DumpRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -99,7 +99,7 @@ func (m *ProfileRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, erro
 		return xxx_messageInfo_ProfileRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -152,7 +152,7 @@ func (m *BinaryRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return xxx_messageInfo_BinaryRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -439,7 +439,7 @@ var _Debug_serviceDesc = grpc.ServiceDesc{
 func (m *DumpRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -447,30 +447,36 @@ func (m *DumpRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *DumpRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *DumpRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	if m.Recursed {
-		dAtA[i] = 0x8
-		i++
+		i--
 		if m.Recursed {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x8
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *ProfileRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -478,36 +484,45 @@ func (m *ProfileRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ProfileRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ProfileRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Profile) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintDebug(dAtA, i, uint64(len(m.Profile)))
-		i += copy(dAtA[i:], m.Profile)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Duration != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintDebug(dAtA, i, uint64(m.Duration.Size()))
-		n1, err1 := m.Duration.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
+		{
+			size, err := m.Duration.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintDebug(dAtA, i, uint64(size))
 		}
-		i += n1
+		i--
+		dAtA[i] = 0x12
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Profile) > 0 {
+		i -= len(m.Profile)
+		copy(dAtA[i:], m.Profile)
+		i = encodeVarintDebug(dAtA, i, uint64(len(m.Profile)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *BinaryRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -515,24 +530,32 @@ func (m *BinaryRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *BinaryRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *BinaryRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintDebug(dAtA []byte, offset int, v uint64) int {
+	offset -= sovDebug(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *DumpRequest) Size() (n int) {
 	if m == nil {
@@ -840,6 +863,7 @@ func (m *BinaryRequest) Unmarshal(dAtA []byte) error {
 func skipDebug(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
+	depth := 0
 	for iNdEx < l {
 		var wire uint64
 		for shift := uint(0); ; shift += 7 {
@@ -871,10 +895,8 @@ func skipDebug(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			return iNdEx, nil
 		case 1:
 			iNdEx += 8
-			return iNdEx, nil
 		case 2:
 			var length int
 			for shift := uint(0); ; shift += 7 {
@@ -895,55 +917,30 @@ func skipDebug(dAtA []byte) (n int, err error) {
 				return 0, ErrInvalidLengthDebug
 			}
 			iNdEx += length
-			if iNdEx < 0 {
-				return 0, ErrInvalidLengthDebug
-			}
-			return iNdEx, nil
 		case 3:
-			for {
-				var innerWire uint64
-				var start int = iNdEx
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return 0, ErrIntOverflowDebug
-					}
-					if iNdEx >= l {
-						return 0, io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					innerWire |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				innerWireType := int(innerWire & 0x7)
-				if innerWireType == 4 {
-					break
-				}
-				next, err := skipDebug(dAtA[start:])
-				if err != nil {
-					return 0, err
-				}
-				iNdEx = start + next
-				if iNdEx < 0 {
-					return 0, ErrInvalidLengthDebug
-				}
-			}
-			return iNdEx, nil
+			depth++
 		case 4:
-			return iNdEx, nil
+			if depth == 0 {
+				return 0, ErrUnexpectedEndOfGroupDebug
+			}
+			depth--
 		case 5:
 			iNdEx += 4
-			return iNdEx, nil
 		default:
 			return 0, fmt.Errorf("proto: illegal wireType %d", wireType)
 		}
+		if iNdEx < 0 {
+			return 0, ErrInvalidLengthDebug
+		}
+		if depth == 0 {
+			return iNdEx, nil
+		}
 	}
-	panic("unreachable")
+	return 0, io.ErrUnexpectedEOF
 }
 
 var (
-	ErrInvalidLengthDebug = fmt.Errorf("proto: negative length found during unmarshaling")
-	ErrIntOverflowDebug   = fmt.Errorf("proto: integer overflow")
+	ErrInvalidLengthDebug        = fmt.Errorf("proto: negative length found during unmarshaling")
+	ErrIntOverflowDebug          = fmt.Errorf("proto: integer overflow")
+	ErrUnexpectedEndOfGroupDebug = fmt.Errorf("proto: unexpected end of group")
 )

@@ -21,7 +21,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 // FileNodeProto is a node corresponding to a file (which is also a leaf node).
 type FileNodeProto struct {
@@ -60,7 +60,7 @@ func (m *FileNodeProto) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return xxx_messageInfo_FileNodeProto.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -128,7 +128,7 @@ func (m *Shared) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Shared.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -206,7 +206,7 @@ func (m *DirectoryNodeProto) XXX_Marshal(b []byte, deterministic bool) ([]byte, 
 		return xxx_messageInfo_DirectoryNodeProto.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -273,7 +273,7 @@ func (m *NodeProto) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_NodeProto.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -362,7 +362,7 @@ func (m *HashTreeProto) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return xxx_messageInfo_HashTreeProto.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -416,7 +416,7 @@ func (m *BucketHeader) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_BucketHeader.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -464,7 +464,7 @@ func (m *Index) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Index.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -554,7 +554,7 @@ var fileDescriptor_4bd44075bd9a7a70 = []byte{
 func (m *FileNodeProto) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -562,54 +562,64 @@ func (m *FileNodeProto) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *FileNodeProto) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *FileNodeProto) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Objects) > 0 {
-		for _, msg := range m.Objects {
-			dAtA[i] = 0x22
-			i++
-			i = encodeVarintHashtree(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if len(m.BlockRefs) > 0 {
-		for _, msg := range m.BlockRefs {
-			dAtA[i] = 0x2a
-			i++
-			i = encodeVarintHashtree(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.HasHeaderFooter {
-		dAtA[i] = 0x30
-		i++
+		i--
 		if m.HasHeaderFooter {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x30
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.BlockRefs) > 0 {
+		for iNdEx := len(m.BlockRefs) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.BlockRefs[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintHashtree(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x2a
+		}
 	}
-	return i, nil
+	if len(m.Objects) > 0 {
+		for iNdEx := len(m.Objects) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Objects[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintHashtree(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x22
+		}
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Shared) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -617,50 +627,60 @@ func (m *Shared) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Shared) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Shared) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Header != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintHashtree(dAtA, i, uint64(m.Header.Size()))
-		n1, err1 := m.Header.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
-		}
-		i += n1
-	}
-	if m.Footer != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintHashtree(dAtA, i, uint64(m.Footer.Size()))
-		n2, err2 := m.Footer.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
-		}
-		i += n2
-	}
-	if m.HeaderSize != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintHashtree(dAtA, i, uint64(m.HeaderSize))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.FooterSize != 0 {
-		dAtA[i] = 0x20
-		i++
 		i = encodeVarintHashtree(dAtA, i, uint64(m.FooterSize))
+		i--
+		dAtA[i] = 0x20
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.HeaderSize != 0 {
+		i = encodeVarintHashtree(dAtA, i, uint64(m.HeaderSize))
+		i--
+		dAtA[i] = 0x18
 	}
-	return i, nil
+	if m.Footer != nil {
+		{
+			size, err := m.Footer.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintHashtree(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Header != nil {
+		{
+			size, err := m.Header.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintHashtree(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *DirectoryNodeProto) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -668,45 +688,47 @@ func (m *DirectoryNodeProto) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *DirectoryNodeProto) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *DirectoryNodeProto) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Children) > 0 {
-		for _, s := range m.Children {
-			dAtA[i] = 0x1a
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
-		}
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Shared != nil {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintHashtree(dAtA, i, uint64(m.Shared.Size()))
-		n3, err3 := m.Shared.MarshalTo(dAtA[i:])
-		if err3 != nil {
-			return 0, err3
+		{
+			size, err := m.Shared.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintHashtree(dAtA, i, uint64(size))
 		}
-		i += n3
+		i--
+		dAtA[i] = 0x22
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Children) > 0 {
+		for iNdEx := len(m.Children) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Children[iNdEx])
+			copy(dAtA[i:], m.Children[iNdEx])
+			i = encodeVarintHashtree(dAtA, i, uint64(len(m.Children[iNdEx])))
+			i--
+			dAtA[i] = 0x1a
+		}
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *NodeProto) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -714,57 +736,69 @@ func (m *NodeProto) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NodeProto) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NodeProto) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintHashtree(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
-	if len(m.Hash) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintHashtree(dAtA, i, uint64(len(m.Hash)))
-		i += copy(dAtA[i:], m.Hash)
-	}
-	if m.SubtreeSize != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintHashtree(dAtA, i, uint64(m.SubtreeSize))
-	}
-	if m.FileNode != nil {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintHashtree(dAtA, i, uint64(m.FileNode.Size()))
-		n4, err4 := m.FileNode.MarshalTo(dAtA[i:])
-		if err4 != nil {
-			return 0, err4
-		}
-		i += n4
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.DirNode != nil {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintHashtree(dAtA, i, uint64(m.DirNode.Size()))
-		n5, err5 := m.DirNode.MarshalTo(dAtA[i:])
-		if err5 != nil {
-			return 0, err5
+		{
+			size, err := m.DirNode.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintHashtree(dAtA, i, uint64(size))
 		}
-		i += n5
+		i--
+		dAtA[i] = 0x2a
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.FileNode != nil {
+		{
+			size, err := m.FileNode.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintHashtree(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x22
 	}
-	return i, nil
+	if m.SubtreeSize != 0 {
+		i = encodeVarintHashtree(dAtA, i, uint64(m.SubtreeSize))
+		i--
+		dAtA[i] = 0x18
+	}
+	if len(m.Hash) > 0 {
+		i -= len(m.Hash)
+		copy(dAtA[i:], m.Hash)
+		i = encodeVarintHashtree(dAtA, i, uint64(len(m.Hash)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintHashtree(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *HashTreeProto) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -772,53 +806,57 @@ func (m *HashTreeProto) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *HashTreeProto) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *HashTreeProto) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Version != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintHashtree(dAtA, i, uint64(m.Version))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Fs) > 0 {
-		for k, _ := range m.Fs {
-			dAtA[i] = 0x12
-			i++
+		for k := range m.Fs {
 			v := m.Fs[k]
-			msgSize := 0
+			baseI := i
 			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovHashtree(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovHashtree(uint64(len(k))) + msgSize
-			i = encodeVarintHashtree(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintHashtree(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintHashtree(dAtA, i, uint64(v.Size()))
-				n6, err6 := v.MarshalTo(dAtA[i:])
-				if err6 != nil {
-					return 0, err6
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintHashtree(dAtA, i, uint64(size))
 				}
-				i += n6
+				i--
+				dAtA[i] = 0x12
 			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintHashtree(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintHashtree(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x12
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Version != 0 {
+		i = encodeVarintHashtree(dAtA, i, uint64(m.Version))
+		i--
+		dAtA[i] = 0x8
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *BucketHeader) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -826,26 +864,33 @@ func (m *BucketHeader) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *BucketHeader) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *BucketHeader) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Bucket) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintHashtree(dAtA, i, uint64(len(m.Bucket)))
-		i += copy(dAtA[i:], m.Bucket)
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if len(m.Bucket) > 0 {
+		i -= len(m.Bucket)
+		copy(dAtA[i:], m.Bucket)
+		i = encodeVarintHashtree(dAtA, i, uint64(len(m.Bucket)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Index) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -853,35 +898,44 @@ func (m *Index) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Index) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Index) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.K) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintHashtree(dAtA, i, uint64(len(m.K)))
-		i += copy(dAtA[i:], m.K)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Offset != 0 {
-		dAtA[i] = 0x10
-		i++
 		i = encodeVarintHashtree(dAtA, i, uint64(m.Offset))
+		i--
+		dAtA[i] = 0x10
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.K) > 0 {
+		i -= len(m.K)
+		copy(dAtA[i:], m.K)
+		i = encodeVarintHashtree(dAtA, i, uint64(len(m.K)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintHashtree(dAtA []byte, offset int, v uint64) int {
+	offset -= sovHashtree(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *FileNodeProto) Size() (n int) {
 	if m == nil {
@@ -2095,6 +2149,7 @@ func (m *Index) Unmarshal(dAtA []byte) error {
 func skipHashtree(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
+	depth := 0
 	for iNdEx < l {
 		var wire uint64
 		for shift := uint(0); ; shift += 7 {
@@ -2126,10 +2181,8 @@ func skipHashtree(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			return iNdEx, nil
 		case 1:
 			iNdEx += 8
-			return iNdEx, nil
 		case 2:
 			var length int
 			for shift := uint(0); ; shift += 7 {
@@ -2150,55 +2203,30 @@ func skipHashtree(dAtA []byte) (n int, err error) {
 				return 0, ErrInvalidLengthHashtree
 			}
 			iNdEx += length
-			if iNdEx < 0 {
-				return 0, ErrInvalidLengthHashtree
-			}
-			return iNdEx, nil
 		case 3:
-			for {
-				var innerWire uint64
-				var start int = iNdEx
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return 0, ErrIntOverflowHashtree
-					}
-					if iNdEx >= l {
-						return 0, io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					innerWire |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				innerWireType := int(innerWire & 0x7)
-				if innerWireType == 4 {
-					break
-				}
-				next, err := skipHashtree(dAtA[start:])
-				if err != nil {
-					return 0, err
-				}
-				iNdEx = start + next
-				if iNdEx < 0 {
-					return 0, ErrInvalidLengthHashtree
-				}
-			}
-			return iNdEx, nil
+			depth++
 		case 4:
-			return iNdEx, nil
+			if depth == 0 {
+				return 0, ErrUnexpectedEndOfGroupHashtree
+			}
+			depth--
 		case 5:
 			iNdEx += 4
-			return iNdEx, nil
 		default:
 			return 0, fmt.Errorf("proto: illegal wireType %d", wireType)
 		}
+		if iNdEx < 0 {
+			return 0, ErrInvalidLengthHashtree
+		}
+		if depth == 0 {
+			return iNdEx, nil
+		}
 	}
-	panic("unreachable")
+	return 0, io.ErrUnexpectedEOF
 }
 
 var (
-	ErrInvalidLengthHashtree = fmt.Errorf("proto: negative length found during unmarshaling")
-	ErrIntOverflowHashtree   = fmt.Errorf("proto: integer overflow")
+	ErrInvalidLengthHashtree        = fmt.Errorf("proto: negative length found during unmarshaling")
+	ErrIntOverflowHashtree          = fmt.Errorf("proto: integer overflow")
+	ErrUnexpectedEndOfGroupHashtree = fmt.Errorf("proto: unexpected end of group")
 )

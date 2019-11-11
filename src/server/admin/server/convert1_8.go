@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/pachyderm/pachyderm/src/client/admin"
-	pfs1_8 "github.com/pachyderm/pachyderm/src/client/admin/1_8/pfs"
-	pps1_8 "github.com/pachyderm/pachyderm/src/client/admin/1_8/pps"
+	pfs1_8 "github.com/pachyderm/pachyderm/src/client/admin/v1_8/pfs"
+	pps1_8 "github.com/pachyderm/pachyderm/src/client/admin/v1_8/pps"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 )
@@ -375,7 +375,6 @@ func convert1_8Op(op *admin.Op1_8) (*admin.Op1_9, error) {
 				CacheSize:          op.Pipeline.CacheSize,
 				EnableStats:        op.Pipeline.EnableStats,
 				Reprocess:          op.Pipeline.Reprocess,
-				Batch:              op.Pipeline.Batch,
 				MaxQueueSize:       op.Pipeline.MaxQueueSize,
 				Service:            convert1_8Service(op.Pipeline.Service),
 				ChunkSpec:          convert1_8ChunkSpec(op.Pipeline.ChunkSpec),
@@ -385,7 +384,7 @@ func convert1_8Op(op *admin.Op1_8) (*admin.Op1_9, error) {
 				DatumTries:         op.Pipeline.DatumTries,
 				SchedulingSpec:     convert1_8SchedulingSpec(op.Pipeline.SchedulingSpec),
 				PodSpec:            op.Pipeline.PodSpec,
-				// Note - don't set Salt, so we don't re-use old datum hashtrees
+				Salt:               op.Pipeline.Salt,
 			},
 		}, nil
 	default:

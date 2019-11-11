@@ -13,7 +13,7 @@ You can retrieve all the input data for this pipeline from the Broad Institute [
 Download `GATK_Germline.zip` and unzip it to your local dir.
 
 ```sh
-wget GATK_Germline.zip https://s3-us-west-1.amazonaws.com/pachyderm.io/Examples_Data_Repo/GATK_Germline.zip
+wget https://s3-us-west-1.amazonaws.com/pachyderm.io/Examples_Data_Repo/GATK_Germline.zip
 ``` 
 ```sh
 $ unzip GATK_Germline.zip

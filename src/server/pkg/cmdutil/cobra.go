@@ -3,6 +3,7 @@ package cmdutil
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -21,6 +22,22 @@ func RunFixedArgs(numArgs int, run func([]string) error) func(*cobra.Command, []
 			cmd.Usage()
 		} else {
 			if err := run(args); err != nil {
+				ErrorAndExit("%v", err)
+			}
+		}
+	}
+}
+
+// RunCmdFixedArgs wraps a function in a function that checks its exact
+// argument count. The only difference between this and RunFixedArgs is that
+// this passes in the cobra command.
+func RunCmdFixedArgs(numArgs int, run func(*cobra.Command, []string) error) func(*cobra.Command, []string) {
+	return func(cmd *cobra.Command, args []string) {
+		if len(args) != numArgs {
+			fmt.Printf("expected %d arguments, got %d\n\n", numArgs, len(args))
+			cmd.Usage()
+		} else {
+			if err := run(cmd, args); err != nil {
 				ErrorAndExit("%v", err)
 			}
 		}
@@ -128,6 +145,57 @@ func ParseBranches(args []string) ([]*pfs.Branch, error) {
 			return nil, err
 		}
 		results = append(results, branch)
+	}
+	return results, nil
+}
+
+// ParseCommitProvenance takes an argument of the form "repo@branch=commit" and
+// returns the corresponding *pfs.CommitProvenance.
+func ParseCommitProvenance(arg string) (*pfs.CommitProvenance, error) {
+	commit, err := ParseCommit(arg)
+	if err != nil {
+		return nil, err
+	}
+
+	branchAndCommit := strings.SplitN(commit.ID, "=", 2)
+	if len(branchAndCommit) < 1 {
+		return nil, fmt.Errorf("invalid format \"%s\": a branch name or branch and commit id must be given", arg)
+	}
+	branch := branchAndCommit[0]
+	commitID := branch // default to using the head commit once this commit is resolved
+	if len(branchAndCommit) == 2 {
+		commitID = branchAndCommit[1]
+	}
+	if branch == "" {
+		return nil, fmt.Errorf("invalid format \"%s\": branch cannot be empty", arg)
+	}
+	if commitID == "" {
+		return nil, fmt.Errorf("invalid format \"%s\": commit cannot be empty", arg)
+	}
+
+	prov := &pfs.CommitProvenance{
+		Branch: &pfs.Branch{
+			Repo: commit.Repo,
+			Name: branch,
+		},
+		Commit: &pfs.Commit{
+			Repo: commit.Repo,
+			ID:   commitID,
+		},
+	}
+	return prov, nil
+}
+
+// ParseCommitProvenances converts all arguments to *pfs.CommitProvenance structs using the
+// semantics of ParseCommitProvenance
+func ParseCommitProvenances(args []string) ([]*pfs.CommitProvenance, error) {
+	var results []*pfs.CommitProvenance
+	for _, arg := range args {
+		prov, err := ParseCommitProvenance(arg)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, prov)
 	}
 	return results, nil
 }
@@ -298,23 +366,38 @@ func MergeCommands(root *cobra.Command, children []*cobra.Command) {
 	}
 }
 
-// SetDocsUsage sets the usage string for a docs-style command.  Docs commands
-// have no functionality except to output some docs and related commands, and
-// should not specify a 'Run' attribute.
-func SetDocsUsage(command *cobra.Command) {
-	command.SetHelpTemplate(`{{or .Long .Short}}
+// CreateDocsAlias sets the usage string for a docs-style command.  Docs
+// commands have no functionality except to output some docs and related
+// commands, and should not specify a 'Run' attribute.
+func CreateDocsAlias(command *cobra.Command, invocation string, pattern string) *cobra.Command {
+	// This should create a linked-list-shaped tree, follow it to the one leaf
+	root := CreateAlias(command, invocation)
+	command = root
+	for len(command.Commands()) != 0 {
+		command = command.Commands()[0]
+	}
 
-{{.UsageString}}
-`)
+	// Normally cobra will not render usage if the command is not runnable or has
+	// no subcommands, specify our own help template to override that.
+	command.SetHelpTemplate(`{{with (or .Long .Short)}}{{. | trimRightSpace}}
 
+{{end}}{{.UsageString}}`)
+
+	originalUsageFunc := command.UsageFunc()
 	command.SetUsageFunc(func(cmd *cobra.Command) error {
+		// commands inherit their parents' usage function, so we'll want to pass-
+		// through anything but usage for this specific command
+		if cmd.CommandPath() != command.CommandPath() {
+			return originalUsageFunc(cmd)
+		}
 		rootCmd := cmd.Root()
 
 		// Walk the command tree, finding commands with the documented word
 		var associated []*cobra.Command
 		var walk func(*cobra.Command)
 		walk = func(cursor *cobra.Command) {
-			if cursor.Name() == cmd.Name() && cursor.CommandPath() != cmd.CommandPath() {
+			isMatch, _ := regexp.MatchString(pattern, cursor.CommandPath())
+			if isMatch && cursor.CommandPath() != cmd.CommandPath() && cursor.Runnable() {
 				associated = append(associated, cursor)
 			}
 			for _, subcmd := range cursor.Commands() {
@@ -342,11 +425,13 @@ func SetDocsUsage(command *cobra.Command) {
 		}
 
 		text := `Associated Commands:{{range associated}}{{if .IsAvailableCommand}}
-  {{pad .CommandPath}} {{.Short}}{{end}}{{end}}`
+  {{pad .CommandPath}} {{.Short}}{{end}}{{end}}
+`
 
 		t := template.New("top")
 		t.Funcs(templateFuncs)
 		template.Must(t.Parse(text))
-		return t.Execute(cmd.Out(), cmd)
+		return t.Execute(cmd.OutOrStderr(), cmd)
 	})
+	return root
 }

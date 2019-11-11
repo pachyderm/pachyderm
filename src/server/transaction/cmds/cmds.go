@@ -17,7 +17,7 @@ import (
 
 // Cmds returns the set of commands used for managing transactions with the
 // Pachyderm CLI tool pachctl.
-func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
+func Cmds() []*cobra.Command {
 	var commands []*cobra.Command
 
 	marshaller := &jsonpb.Marshaler{Indent: "  "}
@@ -48,14 +48,13 @@ commands will be stored in the transaction rather than immediately executed.
 The stored commands can be executed as a single operation with 'finish
 transaction' or cancelled with 'delete transaction'.`,
 	}
-	cmdutil.SetDocsUsage(transactionDocs)
-	commands = append(commands, cmdutil.CreateAlias(transactionDocs, "transaction"))
+	commands = append(commands, cmdutil.CreateDocsAlias(transactionDocs, "transaction", " transaction$"))
 
 	listTransaction := &cobra.Command{
 		Short: "List transactions.",
 		Long:  "List transactions.",
 		Run: cmdutil.RunFixedArgs(0, func([]string) error {
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -87,7 +86,7 @@ transaction' or cancelled with 'delete transaction'.`,
 		Short: "Start a new transaction.",
 		Long:  "Start a new transaction.",
 		Run: cmdutil.RunFixedArgs(0, func([]string) error {
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -135,7 +134,7 @@ transaction' or cancelled with 'delete transaction'.`,
 		Short: "Execute and clear the currently active transaction.",
 		Long:  "Execute and clear the currently active transaction.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -174,7 +173,7 @@ transaction' or cancelled with 'delete transaction'.`,
 		Short: "Cancel and delete an existing transaction.",
 		Long:  "Cancel and delete an existing transaction.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -183,14 +182,16 @@ transaction' or cancelled with 'delete transaction'.`,
 			// TODO: use advisory locks on config so we don't have a race condition if
 			// two commands are run simultaneously
 			var txn *transaction.Transaction
-			var isActive bool
+			isActive := false
 			if len(args) > 0 {
 				txn = &transaction.Transaction{ID: args[0]}
 
 				// Don't check err here, this is just a quality-of-life check to clean
 				// up the config after a successful delete
 				activeTxn, _ := requireActiveTransaction()
-				isActive = (txn.ID == activeTxn.ID)
+				if activeTxn != nil {
+					isActive = txn.ID == activeTxn.ID
+				}
 			} else {
 				txn, err = requireActiveTransaction()
 				if err != nil {
@@ -218,7 +219,7 @@ transaction' or cancelled with 'delete transaction'.`,
 		Short: "Print information about an open transaction.",
 		Long:  "Print information about an open transaction.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -259,7 +260,7 @@ transaction' or cancelled with 'delete transaction'.`,
 		Short: "Set an existing transaction as active.",
 		Long:  "Set an existing transaction as active.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}

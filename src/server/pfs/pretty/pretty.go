@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/docker/go-units"
+	"github.com/fatih/color"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
 )
@@ -24,6 +25,8 @@ const (
 	FileHeader = "NAME\tTYPE\tSIZE\t\n"
 	// FileHeaderWithCommit is the header for files that includes a commit field.
 	FileHeaderWithCommit = "COMMIT\tNAME\tTYPE\tCOMMITTED\tSIZE\t\n"
+	// DiffFileHeader is the header for files produced by diff file.
+	DiffFileHeader = "OP\t" + FileHeader
 )
 
 // PrintRepoInfo pretty-prints repo info.
@@ -175,6 +178,16 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, fullTimestamps, withComm
 		}
 	}
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(fileInfo.SizeBytes)))
+}
+
+// PrintDiffFileInfo pretty-prints a file info from diff file.
+func PrintDiffFileInfo(w io.Writer, added bool, fileInfo *pfs.FileInfo, fullTimestamps bool) {
+	if added {
+		fmt.Fprintf(w, color.GreenString("+\t"))
+	} else {
+		fmt.Fprintf(w, color.RedString("-\t"))
+	}
+	PrintFileInfo(w, fileInfo, fullTimestamps, false)
 }
 
 // PrintDetailedFileInfo pretty-prints detailed file info.

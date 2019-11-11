@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	minio "github.com/minio/minio-go"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
@@ -25,8 +27,9 @@ import (
 
 const (
 	// admin is the sole cluster admin after getPachClient is called in each test
-	admin = auth.GitHubPrefix + "admin"
-	carol = auth.GitHubPrefix + "carol"
+	admin          = auth.RobotPrefix + "admin"
+	carol          = auth.GitHubPrefix + "carol"
+	adminTokenFile = "/tmp/pach-auth-test_admin-token"
 )
 
 var (
@@ -35,17 +38,42 @@ var (
 	seedClient  *client.APIClient
 )
 
-func isAuthActive(tb testing.TB) bool {
+// isAuthActive is a helper that checks if auth is currently active in the
+// target cluster
+//
+// Caller must hold tokenMapMut. Currently only called by getPachClient(),
+// activateAuth (which is only called by getPachClient()) and deleteAll()
+func isAuthActive(tb testing.TB, checkConfig bool) bool {
 	_, err := seedClient.GetAdmins(context.Background(),
 		&auth.GetAdminsRequest{})
 	switch {
 	case auth.IsErrNotSignedIn(err):
+		adminClient := getPachClientInternal(tb, admin)
+		if checkConfig {
+			if err := backoff.Retry(func() error {
+				resp, err := adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
+				if err != nil {
+					return fmt.Errorf("could not get config: %v", err)
+				}
+				cfg := resp.GetConfiguration()
+				if cfg.SAMLServiceOptions != nil {
+					return fmt.Errorf("SAML config in fresh cluster: %+v", cfg)
+				}
+				if len(cfg.IDProviders) != 1 || cfg.IDProviders[0].SAML != nil || cfg.IDProviders[0].GitHub == nil || cfg.IDProviders[0].Name != "GitHub" {
+					return fmt.Errorf("problem with ID providers in config in fresh cluster: %+v", cfg)
+				}
+				return nil
+			}, backoff.NewTestingBackOff()); err != nil {
+				panic(err)
+			}
+		}
 		return true
-	case auth.IsErrNotActivated(err):
+	case auth.IsErrNotActivated(err), auth.IsErrPartiallyActivated(err):
 		return false
 	default:
 		panic(fmt.Sprintf("could not determine if auth is activated: %v", err))
 	}
+	return false
 }
 
 // getPachClientInternal is a helper function called by getPachClient. It
@@ -53,16 +81,42 @@ func isAuthActive(tb testing.TB) bool {
 // do any any checks to confirm that auth is activated and the cluster is
 // configured correctly (those are done by getPachClient). If subject has no
 // prefix, they are assumed to be a GitHub user.
+//
+// Caller must hold tokenMapMut. Currently only called by getPachClient()
 func getPachClientInternal(tb testing.TB, subject string) *client.APIClient {
 	// copy seed, so caller can safely modify result
 	resultClient := seedClient.WithCtx(context.Background())
 	if subject == "" {
 		return resultClient // anonymous client
 	}
-	if strings.Index(subject, ":") < 0 {
-		subject = auth.GitHubPrefix + subject
+	if token, ok := tokenMap[subject]; ok {
+		resultClient.SetAuthToken(token)
+		return resultClient
 	}
-	if _, ok := tokenMap[subject]; !ok {
+	if subject == admin {
+		bytes, err := ioutil.ReadFile(adminTokenFile)
+		if err == nil {
+			tb.Logf("couldn't find admin token in cache, reading from %q", adminTokenFile)
+			resultClient.SetAuthToken(string(bytes))
+			return resultClient
+		}
+		tb.Fatalf("couldn't get admin client from cache or %q, no way to reset "+
+			"cluster. Please deactivate auth or redeploy Pachyderm", adminTokenFile)
+	}
+	if strings.Index(subject, ":") < 0 {
+		subject = gh(subject)
+	}
+	colonIdx := strings.Index(subject, ":")
+	prefix := subject[:colonIdx+1]
+	switch prefix {
+	case auth.RobotPrefix:
+		adminClient := getPachClientInternal(tb, admin)
+		resp, err := adminClient.GetAuthToken(adminClient.Ctx(), &auth.GetAuthTokenRequest{
+			Subject: subject,
+		})
+		require.NoError(tb, err)
+		tokenMap[subject] = resp.Token
+	case auth.GitHubPrefix:
 		resp, err := seedClient.Authenticate(context.Background(),
 			&auth.AuthenticateRequest{
 				// When Pachyderm is deployed locally, GitHubToken automatically
@@ -72,35 +126,47 @@ func getPachClientInternal(tb testing.TB, subject string) *client.APIClient {
 			})
 		require.NoError(tb, err)
 		tokenMap[subject] = resp.PachToken
+	default:
+		tb.Fatalf("can't give you a client of type %s", prefix)
 	}
 	resultClient.SetAuthToken(tokenMap[subject])
 	return resultClient
 }
 
 // activateAuth activates the auth service in the test cluster
+//
+// Caller must hold tokenMapMut. Currently only called by getPachClient()
 func activateAuth(tb testing.TB) {
-	if _, err := seedClient.AuthAPIClient.Activate(context.Background(),
-		&auth.ActivateRequest{GitHubToken: "admin"},
-	); err != nil && !strings.HasSuffix(err.Error(), "already activated") {
+	resp, err := seedClient.AuthAPIClient.Activate(context.Background(),
+		&auth.ActivateRequest{Subject: admin},
+	)
+	if err != nil && !strings.HasSuffix(err.Error(), "already activated") {
 		tb.Fatalf("could not activate auth service: %v", err.Error())
 	}
+	tokenMap[admin] = resp.PachToken
+	ioutil.WriteFile(adminTokenFile, []byte(resp.PachToken), 0644)
 
 	// Wait for the Pachyderm Auth system to activate
 	require.NoError(tb, backoff.Retry(func() error {
-		if isAuthActive(tb) {
+		if isAuthActive(tb, true) {
 			return nil
 		}
 		return fmt.Errorf("auth not active yet")
 	}, backoff.NewTestingBackOff()))
 }
 
+// initSeedClient is a helper function called by getPachClient that initializes
+// the 'seedClient' global variable.
+//
+// Caller must hold tokenMapMut. Currently only called by getPachClient() and
+// deleteAll()
 func initSeedClient(tb testing.TB) {
 	tb.Helper()
 	var err error
 	if _, ok := os.LookupEnv("PACHD_PORT_650_TCP_ADDR"); ok {
 		seedClient, err = client.NewInCluster()
 	} else {
-		seedClient, err = client.NewOnUserMachine(false, false, "user")
+		seedClient, err = client.NewForTest()
 	}
 	require.NoError(tb, err)
 	// discard any credentials from the user's machine (seedClient is
@@ -109,9 +175,21 @@ func initSeedClient(tb testing.TB) {
 	seedClient.SetAuthToken("")
 }
 
+// getPachClientConfigAgnostic does not check that the auth config is in the default state.
+// i.e. it can be used to retrieve the pach client even after the auth config has been manipulated
+func getPachClientConfigAgnostic(tb testing.TB, subject string) *client.APIClient {
+	return getPachClientP(tb, subject, false)
+}
+
+// getPachClient explicitly checks that the auth config is set to the default,
+// and will fail otherwise.
+func getPachClient(tb testing.TB, subject string) *client.APIClient {
+	return getPachClientP(tb, subject, true)
+}
+
 // getPachClient creates a seed client with a grpc connection to a pachyderm
 // cluster, and then enable the auth service in that cluster
-func getPachClient(tb testing.TB, subject string) *client.APIClient {
+func getPachClientP(tb testing.TB, subject string, checkConfig bool) *client.APIClient {
 	tb.Helper()
 	tokenMapMut.Lock()
 	defer tokenMapMut.Unlock()
@@ -146,7 +224,7 @@ func getPachClient(tb testing.TB, subject string) *client.APIClient {
 	//    (=> reset cluster admins to "admin")
 	// 4) Auth is on, client tokens are valid, and the only admin is "admin" (do
 	//    nothing)
-	if !isAuthActive(tb) {
+	if !isAuthActive(tb, checkConfig) {
 		// Case 1: auth is off. Activate auth & return a new client
 		tokenMap = make(map[string]string)
 		activateAuth(tb)
@@ -232,6 +310,8 @@ func getPachClient(tb testing.TB, subject string) *client.APIClient {
 // clients have been created or after they're done being used).
 func deleteAll(tb testing.TB) {
 	tb.Helper()
+	var anonClient *client.APIClient
+	var useAdminClient bool
 	func() {
 		tokenMapMut.Lock() // May initialize the seed client
 		defer tokenMapMut.Unlock()
@@ -239,12 +319,19 @@ func deleteAll(tb testing.TB) {
 		if seedClient == nil {
 			initSeedClient(tb)
 		}
-		if !isAuthActive(tb) {
-			require.NoError(tb, seedClient.DeleteAll())
-		}
+		anonClient = seedClient.WithCtx(context.Background())
+
+		// config might be nil if this is
+		// called after a test that changed
+		// the config
+		useAdminClient = isAuthActive(tb, false)
 	}() // release tokenMapMut before getPachClient
-	adminClient := getPachClient(tb, "admin")
-	require.NoError(tb, adminClient.DeleteAll(), "initial DeleteAll()")
+	if useAdminClient {
+		adminClient := getPachClientConfigAgnostic(tb, admin)
+		require.NoError(tb, adminClient.DeleteAll(), "initial DeleteAll()")
+	} else {
+		require.NoError(tb, anonClient.DeleteAll())
+	}
 }
 
 // aclEntry mirrors auth.ACLEntry, but without XXX_fields, which make
@@ -329,11 +416,12 @@ func TestGetSetBasic(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// create repo, and check that alice is the owner of the new repo
-	dataRepo := tu.UniqueString("TestGetSetBasic")
+	dataRepo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(dataRepo))
 	require.ElementsEqual(t,
 		entries(alice, "owner"), getACL(t, aliceClient, dataRepo))
@@ -477,11 +565,12 @@ func TestGetSetReverse(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// create repo, and check that alice is the owner of the new repo
-	dataRepo := tu.UniqueString("TestGetSetReverse")
+	dataRepo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(dataRepo))
 	require.ElementsEqual(t,
 		entries(alice, "owner"), getACL(t, aliceClient, dataRepo))
@@ -639,6 +728,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	type createArgs struct {
 		client     *client.APIClient
 		name, repo string
@@ -660,7 +750,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// create repo, and check that alice is the owner of the new repo
-	dataRepo := tu.UniqueString("TestCreateAndUpdatePipeline")
+	dataRepo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(dataRepo))
 	require.ElementsEqual(t,
 		entries(alice, "owner"), getACL(t, aliceClient, dataRepo))
@@ -834,6 +924,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	type createArgs struct {
 		client *client.APIClient
 		name   string
@@ -856,8 +947,8 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// create two repos, and check that alice is the owner of the new repos
-	dataRepo1 := tu.UniqueString("TestPipelineMultipleInputs")
-	dataRepo2 := tu.UniqueString("TestPipelineMultipleInputs")
+	dataRepo1 := tu.UniqueString(t.Name())
+	dataRepo2 := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(dataRepo1))
 	require.NoError(t, aliceClient.CreateRepo(dataRepo2))
 	require.ElementsEqual(t,
@@ -1038,11 +1129,12 @@ func TestPipelineRevoke(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo, and adds bob as a reader
-	repo := tu.UniqueString("TestPipelineRevoke")
+	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	_, err := aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
 		Repo:     repo,
@@ -1203,11 +1295,12 @@ func TestStopAndDeletePipeline(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo
-	repo := tu.UniqueString("TestDeletePipeline")
+	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.ElementsEqual(t, entries(alice, "owner"), getACL(t, aliceClient, repo))
 
@@ -1247,7 +1340,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	require.ElementsEqual(t, entries(), getACL(t, aliceClient, repo))
 
 	// alice creates another repo
-	repo = tu.UniqueString("TestDeletePipeline")
+	repo = tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.ElementsEqual(t, entries(alice, "owner"), getACL(t, aliceClient, repo))
 
@@ -1358,6 +1451,67 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// TestStopJob just confirms that the StopJob API works when auth is on
+func TestStopJob(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	alice := tu.UniqueString("alice")
+	aliceClient := getPachClient(t, alice)
+
+	// alice creates a repo
+	repo := tu.UniqueString(t.Name())
+	require.NoError(t, aliceClient.CreateRepo(repo))
+	require.ElementsEqual(t, entries(alice, "owner"), getACL(t, aliceClient, repo))
+	_, err := aliceClient.PutFile(repo, "master", "/file", strings.NewReader("test"))
+	require.NoError(t, err)
+
+	// alice creates a pipeline
+	pipeline := tu.UniqueString("alice-pipeline")
+	require.NoError(t, aliceClient.CreatePipeline(
+		pipeline,
+		"", // default image: ubuntu:16.04
+		[]string{"bash"},
+		[]string{"sleep 600"},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewPFSInput(repo, "/*"),
+		"", // default output branch: master
+		false,
+	))
+	// Make sure the input and output repos have non-empty ACLs
+	require.ElementsEqual(t,
+		entries(alice, "owner", pl(pipeline), "reader"), getACL(t, aliceClient, repo))
+	require.ElementsEqual(t,
+		entries(alice, "owner", pl(pipeline), "writer"), getACL(t, aliceClient, pipeline))
+
+	// Stop the first job in 'pipeline'
+	var jobID string
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		jobs, err := aliceClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/, -1 /*history*/, true /* full */)
+		if err != nil {
+			return err
+		}
+		if len(jobs) != 1 {
+			return fmt.Errorf("expected one job but got %d", len(jobs))
+		}
+		jobID = jobs[0].Job.ID
+		return nil
+	})
+
+	require.NoError(t, aliceClient.StopJob(jobID))
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		ji, err := aliceClient.InspectJob(jobID, false)
+		if err != nil {
+			return fmt.Errorf("could not inspect job %q: %v", jobID, err)
+		}
+		if ji.State != pps.JobState_JOB_KILLED {
+			return fmt.Errorf("expected job %q to be in JOB_KILLED but was in %s", jobID, ji.State.String())
+		}
+		return nil
+	})
+}
+
 // Test ListRepo checks that the auth information returned by ListRepo and
 // InspectRepo is correct.
 // TODO(msteffen): This should maybe go in pachyderm_test, since ListRepo isn't
@@ -1367,11 +1521,12 @@ func TestListAndInspectRepo(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo and makes Bob a writer
-	repoWriter := tu.UniqueString("TestListRepo")
+	repoWriter := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repoWriter))
 	_, err := aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
 		Repo:     repoWriter,
@@ -1383,7 +1538,7 @@ func TestListAndInspectRepo(t *testing.T) {
 		entries(alice, "owner", bob, "writer"), getACL(t, aliceClient, repoWriter))
 
 	// alice creates a repo and makes Bob a reader
-	repoReader := tu.UniqueString("TestListRepo")
+	repoReader := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repoReader))
 	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
 		Repo:     repoReader,
@@ -1395,13 +1550,13 @@ func TestListAndInspectRepo(t *testing.T) {
 		entries(alice, "owner", bob, "reader"), getACL(t, aliceClient, repoReader))
 
 	// alice creates a repo and gives Bob no access privileges
-	repoNone := tu.UniqueString("TestListRepo")
+	repoNone := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repoNone))
 	require.ElementsEqual(t,
 		entries(alice, "owner"), getACL(t, aliceClient, repoNone))
 
 	// bob creates a repo
-	repoOwner := tu.UniqueString("TestListRepo")
+	repoOwner := tu.UniqueString(t.Name())
 	require.NoError(t, bobClient.CreateRepo(repoOwner))
 	require.ElementsEqual(t, entries(bob, "owner"), getACL(t, bobClient, repoOwner))
 
@@ -1435,11 +1590,12 @@ func TestUnprivilegedUserCannotMakeSelfOwner(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo
-	repo := tu.UniqueString("TestUnprivilegedUserCannotMakeSelfOwner")
+	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.ElementsEqual(t,
 		entries(alice, "owner"), getACL(t, aliceClient, repo))
@@ -1460,11 +1616,12 @@ func TestGetScopeRequiresReader(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo
-	repo := tu.UniqueString("TestGetScopeRequiresReader")
+	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.ElementsEqual(t, entries(alice, "owner"), getACL(t, aliceClient, repo))
 
@@ -1493,11 +1650,12 @@ func TestListRepoNotLoggedInError(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice := tu.UniqueString("alice")
 	aliceClient, anonClient := getPachClient(t, alice), getPachClient(t, "")
 
 	// alice creates a repo
-	repo := tu.UniqueString("TestListRepo")
+	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.ElementsEqual(t,
 		entries(alice, "owner"), getACL(t, aliceClient, repo))
@@ -1516,14 +1674,15 @@ func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	// Dont't run this test in parallel, since it deactivates the auth system
 	// globally, so any tests running concurrently will fail
 	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
-	adminClient := getPachClient(t, "admin")
+	adminClient := getPachClient(t, admin)
 
 	// alice creates a repo
-	repo := tu.UniqueString("TestListRepo")
+	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
 
 	// bob calls ListRepo, but has NONE access to all repos
@@ -1562,11 +1721,12 @@ func TestCreateRepoAlreadyExistsError(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo
-	repo := tu.UniqueString("TestCreateRepoAlreadyExistsError")
+	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
 
 	// bob creates the same repo, and should get an error to the effect that the
@@ -1583,10 +1743,11 @@ func TestCreateRepoNotLoggedInError(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	anonClient := getPachClient(t, "")
 
 	// anonClient tries and fails to create a repo
-	repo := tu.UniqueString("TestCreateRepo")
+	repo := tu.UniqueString(t.Name())
 	err := anonClient.CreateRepo(repo)
 	require.YesError(t, err)
 	require.Matches(t, "no authentication token", err.Error())
@@ -1600,11 +1761,12 @@ func TestCreatePipelineRepoAlreadyExistsError(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo
-	inputRepo := tu.UniqueString("TestCreatePipelineRepoAlreadyExistsError")
+	inputRepo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(inputRepo))
 	aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
 		Username: bob,
@@ -1637,7 +1799,8 @@ func TestAuthorizedNoneRole(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
-	adminClient := getPachClient(t, "admin")
+	defer deleteAll(t)
+	adminClient := getPachClient(t, admin)
 
 	// Deactivate auth
 	_, err := adminClient.Deactivate(adminClient.Ctx(), &auth.DeactivateRequest{})
@@ -1653,12 +1816,12 @@ func TestAuthorizedNoneRole(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// alice creates a repo
-	repo := tu.UniqueString("TestAuthorizedNoneRole")
+	repo := tu.UniqueString(t.Name())
 	require.NoError(t, adminClient.CreateRepo(repo))
 
 	// Get new pach clients, re-activating auth
 	alice := tu.UniqueString("alice")
-	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, "admin")
+	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
 
 	// Check that the repo has no ACL
 	require.ElementsEqual(t, entries(), getACL(t, adminClient, repo))
@@ -1678,11 +1841,12 @@ func TestDeleteAll(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice := tu.UniqueString("alice")
-	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, "admin")
+	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
 
 	// alice creates a repo
-	repo := tu.UniqueString("TestAuthorizedNoneRole")
+	repo := tu.UniqueString(t.Name())
 	require.NoError(t, adminClient.CreateRepo(repo))
 
 	// alice calls DeleteAll, but it fails
@@ -1701,13 +1865,14 @@ func TestListDatum(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo
-	repoA := tu.UniqueString("TestListDatum")
+	repoA := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repoA))
-	repoB := tu.UniqueString("TestListDatum")
+	repoB := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repoB))
 
 	// alice creates a pipeline
@@ -1821,11 +1986,12 @@ func TestListJob(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo
-	repo := tu.UniqueString("TestListJob")
+	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
 
 	// alice creates a pipeline
@@ -1913,11 +2079,12 @@ func TestInspectDatum(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice := tu.UniqueString("alice")
 	aliceClient := getPachClient(t, alice)
 
 	// alice creates a repo
-	repo := tu.UniqueString("TestInspectDatum")
+	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
 
 	// alice creates a pipeline (we must enable stats for InspectDatum, which
@@ -1976,11 +2143,12 @@ func TestGetLogs(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo
-	repo := tu.UniqueString("TestGetLogs")
+	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
 
 	// alice creates a pipeline
@@ -2072,11 +2240,12 @@ func TestGetLogsFromStats(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice := tu.UniqueString("alice")
 	aliceClient := getPachClient(t, alice)
 
 	// alice creates a repo
-	repo := tu.UniqueString("TestGetLogsFromStats")
+	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
 
 	// alice creates a pipeline (we must enable stats for InspectDatum, which
@@ -2103,7 +2272,7 @@ func TestGetLogsFromStats(t *testing.T) {
 		[]*pfs.Repo{client.NewRepo(pipeline)},
 	)
 	require.NoError(t, err)
-	require.NoErrorWithinT(t, 60*time.Second, func() error {
+	require.NoErrorWithinT(t, 3*time.Minute, func() error {
 		_, err := commitItr.Next()
 		return err
 	})
@@ -2126,6 +2295,7 @@ func TestPipelineNewInput(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice := tu.UniqueString("alice")
 	aliceClient := getPachClient(t, alice)
 
@@ -2217,6 +2387,7 @@ func TestModifyMembers(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 
 	alice := tu.UniqueString("alice")
 	bob := tu.UniqueString("bob")
@@ -2342,6 +2513,7 @@ func TestSetGroupsForUser(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 
 	alice := tu.UniqueString("alice")
 	organization := tu.UniqueString("organization")
@@ -2432,6 +2604,7 @@ func TestGetGroupsEmpty(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 
 	alice := tu.UniqueString("alice")
 	organization := tu.UniqueString("organization")
@@ -2463,11 +2636,12 @@ func TestGetJobsBugFix(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 	alice := tu.UniqueString("alice")
 	aliceClient, anonClient := getPachClient(t, alice), getPachClient(t, "")
 
 	// alice creates a repo
-	repo := tu.UniqueString("TestDeletePipeline")
+	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.ElementsEqual(t, entries(alice, "owner"), getACL(t, aliceClient, repo))
 	_, err := aliceClient.PutFile(repo, "master", "/file", strings.NewReader("lorem ipsum"))
@@ -2512,33 +2686,90 @@ func TestGetJobsBugFix(t *testing.T) {
 	require.Equal(t, jobs[0].Job.ID, jobs2[0].Job.ID)
 }
 
-func TestOneTimePassword(t *testing.T) {
+// TestGetAuthTokenNoSubject tests that calling GetAuthToken without the subject
+// explicitly set to the calling user works, even if the caller isn't an admin.
+func TestGetAuthTokenNoSubject(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 
 	alice := tu.UniqueString("alice")
 	aliceClient, anonClient := getPachClient(t, alice), getPachClient(t, "")
-	codeResp, err := aliceClient.GetOneTimePassword(aliceClient.Ctx(),
+
+	// Get GetOTP with no subject
+	resp, err := aliceClient.GetAuthToken(aliceClient.Ctx(), &auth.GetAuthTokenRequest{})
+	require.NoError(t, err)
+	anonClient.SetAuthToken(resp.Token)
+	who, err := anonClient.WhoAmI(anonClient.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, gh(alice), who.Username)
+}
+
+// TestGetOneTimePasswordNoSubject tests that calling GetOneTimePassword without
+// the subject explicitly set to the calling user works, even if the caller
+// isn't an admin.
+func TestOneTimePasswordNoSubject(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	defer deleteAll(t)
+
+	alice := tu.UniqueString("alice")
+	aliceClient, anonClient := getPachClient(t, alice), getPachClient(t, "")
+
+	// Get GetOTP with no subject
+	otpResp, err := aliceClient.GetOneTimePassword(aliceClient.Ctx(),
 		&auth.GetOneTimePasswordRequest{})
 	require.NoError(t, err)
 
 	authResp, err := anonClient.Authenticate(anonClient.Ctx(), &auth.AuthenticateRequest{
-		OneTimePassword: codeResp.Code,
+		OneTimePassword: otpResp.Code,
 	})
 	require.NoError(t, err)
 	anonClient.SetAuthToken(authResp.PachToken)
-	whoAmIResp, err := anonClient.WhoAmI(anonClient.Ctx(), &auth.WhoAmIRequest{})
+	who, err := anonClient.WhoAmI(anonClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
-	require.Equal(t, auth.GitHubPrefix+alice, whoAmIResp.Username)
+	require.Equal(t, gh(alice), who.Username)
 }
 
+// TestOneTimePassword tests the GetOneTimePassword -> Authenticate auth flow
+func TestGetOneTimePassword(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	defer deleteAll(t)
+
+	alice := tu.UniqueString("alice")
+	aliceClient, anonClient := getPachClient(t, alice), getPachClient(t, "")
+
+	// Get GetOTP with subject equal to the caller
+	otpResp, err := aliceClient.GetOneTimePassword(aliceClient.Ctx(),
+		&auth.GetOneTimePasswordRequest{Subject: alice})
+	require.NoError(t, err)
+
+	anonClient.SetAuthToken("")
+	authResp, err := anonClient.Authenticate(anonClient.Ctx(), &auth.AuthenticateRequest{
+		OneTimePassword: otpResp.Code,
+	})
+	require.NoError(t, err)
+	anonClient.SetAuthToken(authResp.PachToken)
+	who, err := anonClient.WhoAmI(anonClient.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, gh(alice), who.Username)
+}
+
+// TestOneTimePasswordOtherUserError tests that if a non-admin tries to
+// generate an OTP on behalf of another user, they'll get an error
 func TestOneTimePasswordOtherUserError(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 
 	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
 	aliceClient := getPachClient(t, alice)
@@ -2555,17 +2786,262 @@ func TestOneTimePasswordExpires(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
+	defer deleteAll(t)
 
+	var authCodeTTL int64 = 10 // seconds
 	alice := tu.UniqueString("alice")
 	aliceClient, anonClient := getPachClient(t, alice), getPachClient(t, "")
-	codeResp, err := aliceClient.GetOneTimePassword(aliceClient.Ctx(),
-		&auth.GetOneTimePasswordRequest{})
+	otpResp, err := aliceClient.GetOneTimePassword(aliceClient.Ctx(),
+		&auth.GetOneTimePasswordRequest{
+			TTL: authCodeTTL,
+		})
 	require.NoError(t, err)
 
-	time.Sleep(time.Duration(defaultAuthCodeTTLSecs+1) * time.Second)
+	time.Sleep(time.Duration(authCodeTTL+1) * time.Second)
 	authResp, err := anonClient.Authenticate(anonClient.Ctx(), &auth.AuthenticateRequest{
-		OneTimePassword: codeResp.Code,
+		OneTimePassword: otpResp.Code,
 	})
 	require.YesError(t, err)
 	require.Nil(t, authResp)
+}
+
+// TestOTPTimeoutShorterThanSessionTimeout tests that GetOneTimePassword
+// returns an OTP that cannot live longer than the session of the user
+// that created it (in other words, you cannot extend your session by
+// requesting and OTP and using it--only by re-authenticating or having an
+// admin generate a token for you
+func TestOTPTimeoutShorterThanSessionTimeout(t *testing.T) {
+	// TODO(msteffen) test not written yet
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	defer deleteAll(t)
+	alice := tu.UniqueString("alice")
+	aliceClient := getPachClient(t, alice)
+
+	// Change aliceClient to use a short-lived token
+	var tokenLifetime int64 = 15 // seconds (must be >10 per check in api_server)
+	resp, err := aliceClient.GetAuthToken(aliceClient.Ctx(), &auth.GetAuthTokenRequest{
+		TTL: tokenLifetime,
+	})
+	require.NoError(t, err)
+	token1 := resp.Token
+	aliceClient.SetAuthToken(token1)
+
+	// Get a one-time password using the short-lived token
+	otpResp, err := aliceClient.GetOneTimePassword(aliceClient.Ctx(),
+		&auth.GetOneTimePasswordRequest{})
+	require.NoError(t, err)
+	authResp, err := aliceClient.Authenticate(aliceClient.Ctx(), &auth.AuthenticateRequest{
+		OneTimePassword: otpResp.Code,
+	})
+	require.NoError(t, err)
+	token2 := authResp.PachToken
+	require.NotEqual(t, token1, token2) // OTP-based token is new
+	aliceClient.SetAuthToken(token2)
+
+	// The new token (from the OTP) works initially...
+	who, err := aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, gh(alice), who.Username)
+
+	// ...but stops working after the original token expires
+	time.Sleep(time.Duration(tokenLifetime+1) * time.Second)
+	who, err = aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
+	require.YesError(t, err)
+	require.True(t, auth.IsErrBadToken(err), err.Error())
+}
+
+func TestS3GatewayAuthRequests(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	// generate auth credentials
+	aliceClient := getPachClient(t, tu.UniqueString("alice"))
+	authResp, err := aliceClient.GetAuthToken(aliceClient.Ctx(), &auth.GetAuthTokenRequest{})
+	require.NoError(t, err)
+	authToken := authResp.Token
+
+	// anon login via V2 - should fail
+	minioClientV2, err := minio.NewV2("127.0.0.1:30600", "", "", false)
+	require.NoError(t, err)
+	_, err = minioClientV2.ListBuckets()
+	require.YesError(t, err)
+
+	// anon login via V4 - should fail
+	minioClientV4, err := minio.NewV4("127.0.0.1:30600", "", "", false)
+	require.NoError(t, err)
+	_, err = minioClientV4.ListBuckets()
+	require.YesError(t, err)
+
+	// proper login via V2 - should succeed
+	minioClientV2, err = minio.NewV2("127.0.0.1:30600", authToken, authToken, false)
+	require.NoError(t, err)
+	_, err = minioClientV2.ListBuckets()
+	require.NoError(t, err)
+
+	// proper login via V4 - should succeed
+	minioClientV2, err = minio.NewV4("127.0.0.1:30600", authToken, authToken, false)
+	require.NoError(t, err)
+	_, err = minioClientV2.ListBuckets()
+	require.NoError(t, err)
+}
+
+// TestDeleteFailedPipeline creates a pipeline with an invalid image and then
+// tries to delete it (which shouldn't be blocked by the auth system)
+func TestDeleteFailedPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	defer deleteAll(t)
+	alice := tu.UniqueString("alice")
+	aliceClient := getPachClient(t, alice)
+
+	// Create input repo w/ initial commit
+	repo := tu.UniqueString(t.Name())
+	require.NoError(t, aliceClient.CreateRepo(repo))
+	_, err := aliceClient.PutFile(repo, "master", "/file", strings.NewReader("1"))
+	require.NoError(t, err)
+
+	// Create pipeline
+	pipeline := tu.UniqueString("pipeline")
+	require.NoError(t, aliceClient.CreatePipeline(
+		pipeline,
+		"does-not-exist", // nonexistant image
+		[]string{"true"}, nil,
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewPFSInput(repo, "/*"),
+		"", // default output branch: master
+		false,
+	))
+	require.NoError(t, aliceClient.DeletePipeline(pipeline, true))
+
+	// make sure FlushCommit eventually returns (i.e. pipeline failure doesn't
+	// block flushCommit indefinitely)
+	iter, err := aliceClient.FlushCommit(
+		[]*pfs.Commit{client.NewCommit(repo, "master")},
+		[]*pfs.Repo{client.NewRepo(pipeline)})
+	require.NoError(t, err)
+	require.NoErrorWithinT(t, 30*time.Second, func() error {
+		_, err := iter.Next()
+		if err != io.EOF {
+			return err
+		}
+		return nil
+	})
+}
+
+// TestDeletePipelineMissingRepos creates a pipeline, force-deletes its input
+// and output repos, and then confirms that DeletePipeline still works (i.e.
+// the missing repos/ACLs don't cause an auth error).
+func TestDeletePipelineMissingRepos(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	defer deleteAll(t)
+	alice := tu.UniqueString("alice")
+	aliceClient := getPachClient(t, alice)
+
+	// Create input repo w/ initial commit
+	repo := tu.UniqueString(t.Name())
+	require.NoError(t, aliceClient.CreateRepo(repo))
+	_, err := aliceClient.PutFile(repo, "master", "/file", strings.NewReader("1"))
+	require.NoError(t, err)
+
+	// Create pipeline
+	pipeline := tu.UniqueString("pipeline")
+	require.NoError(t, aliceClient.CreatePipeline(
+		pipeline,
+		"does-not-exist", // nonexistant image
+		[]string{"true"}, nil,
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewPFSInput(repo, "/*"),
+		"", // default output branch: master
+		false,
+	))
+
+	// force-delete input and output repos
+	require.NoError(t, aliceClient.DeleteRepo(repo, true))
+	require.NoError(t, aliceClient.DeleteRepo(pipeline, true))
+
+	// Attempt to delete the pipeline--must succeed
+	require.NoError(t, aliceClient.DeletePipeline(pipeline, true))
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		pis, err := aliceClient.ListPipeline()
+		if err != nil {
+			return err
+		}
+		for _, pi := range pis {
+			if pi.Pipeline.Name == pipeline {
+				return fmt.Errorf("Expected %q to be deleted, but still present", pipeline)
+			}
+		}
+		return nil
+	})
+}
+
+func TestDisableGitHubAuth(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	defer deleteAll(t)
+
+	// activate auth with initial admin robot:hub
+	adminClient := getPachClient(t, admin)
+
+	// confirm config is set to default config
+	cfg, err := adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	requireConfigsEqual(t, &defaultAuthConfig, cfg.GetConfiguration())
+
+	// confirm GH auth works by default
+	_, err = adminClient.Authenticate(adminClient.Ctx(), &auth.AuthenticateRequest{
+		GitHubToken: "alice",
+	})
+	require.NoError(t, err)
+
+	// set config to no GH, confirm it gets set
+	configNoGitHub := &auth.AuthConfig{
+		LiveConfigVersion: 1,
+	}
+	_, err = adminClient.SetConfiguration(adminClient.Ctx(), &auth.SetConfigurationRequest{
+		Configuration: configNoGitHub,
+	})
+	require.NoError(t, err)
+
+	cfg, err = adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	configNoGitHub.LiveConfigVersion = 2
+	requireConfigsEqual(t, configNoGitHub, cfg.GetConfiguration())
+
+	// confirm GH auth doesn't work
+	_, err = adminClient.Authenticate(adminClient.Ctx(), &auth.AuthenticateRequest{
+		GitHubToken: "bob",
+	})
+	require.YesError(t, err)
+	require.Equal(t, "rpc error: code = Unknown desc = GitHub auth is not enabled on this cluster", err.Error())
+
+	// set conifg to allow GH auth again
+	newerDefaultAuth := defaultAuthConfig
+	newerDefaultAuth.LiveConfigVersion = 2
+	_, err = adminClient.SetConfiguration(adminClient.Ctx(), &auth.SetConfigurationRequest{
+		Configuration: &newerDefaultAuth,
+	})
+	cfg, err = adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	newerDefaultAuth.LiveConfigVersion = 3
+	requireConfigsEqual(t, &newerDefaultAuth, cfg.GetConfiguration())
+
+	// confirm GH works again
+	_, err = adminClient.Authenticate(adminClient.Ctx(), &auth.AuthenticateRequest{
+		GitHubToken: "carol",
+	})
+	require.NoError(t, err)
+
+	// clean up
 }

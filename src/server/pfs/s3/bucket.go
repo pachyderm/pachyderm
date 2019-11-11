@@ -3,154 +3,99 @@ package s3
 import (
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
-	"time"
 
-	"github.com/gobwas/glob"
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/gorilla/mux"
+	glob "github.com/pachyderm/ohmyglob"
 	pfsClient "github.com/pachyderm/pachyderm/src/client/pfs"
 	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
+	"github.com/pachyderm/s2"
 )
 
-const defaultMaxKeys int = 1000
-
-// the raw XML returned for a request to get the location of a bucket
-const locationSource = `<?xml version="1.0" encoding="UTF-8"?>
-<LocationConstraint xmlns="http://s3.amazonaws.com/doc/2006-03-01/">PACHYDERM</LocationConstraint>`
-
-// ListBucketResult is an XML-encodable listing of files/objects in a
-// repo/bucket
-type ListBucketResult struct {
-	Contents       []Contents       `xml:"Contents"`
-	CommonPrefixes []CommonPrefixes `xml:"CommonPrefixes"`
-	Delimiter      string           `xml:"Delimiter,omitempty"`
-	IsTruncated    bool             `xml:"IsTruncated"`
-	Marker         string           `xml:"Marker"`
-	MaxKeys        int              `xml:"MaxKeys"`
-	Name           string           `xml:"Name"`
-	NextMarker     string           `xml:"NextMarker,omitempty"`
-	Prefix         string           `xml:"Prefix"`
-}
-
-func (r *ListBucketResult) isFull() bool {
-	return len(r.Contents)+len(r.CommonPrefixes) >= r.MaxKeys
-}
-
-// Contents is an individual file/object
-type Contents struct {
-	Key          string    `xml:"Key"`
-	LastModified time.Time `xml:"LastModified"`
-	ETag         string    `xml:"ETag"`
-	Size         uint64    `xml:"Size"`
-	StorageClass string    `xml:"StorageClass"`
-	Owner        User      `xml:"Owner"`
-}
-
-func newContents(fileInfo *pfsClient.FileInfo) (Contents, error) {
+func newContents(fileInfo *pfsClient.FileInfo) (s2.Contents, error) {
 	t, err := types.TimestampFromProto(fileInfo.Committed)
 	if err != nil {
-		return Contents{}, err
+		return s2.Contents{}, err
 	}
 
-	return Contents{
+	return s2.Contents{
 		Key:          fileInfo.File.Path,
 		LastModified: t,
 		ETag:         fmt.Sprintf("%x", fileInfo.Hash),
 		Size:         fileInfo.SizeBytes,
-		StorageClass: storageClass,
+		StorageClass: globalStorageClass,
 		Owner:        defaultUser,
 	}, nil
 }
 
-// CommonPrefixes is an individual PFS directory
-type CommonPrefixes struct {
-	Prefix string `xml:"Prefix"`
-	Owner  User   `xml:"Owner"`
-}
-
-func newCommonPrefixes(dir string) CommonPrefixes {
-	return CommonPrefixes{
+func newCommonPrefixes(dir string) s2.CommonPrefixes {
+	return s2.CommonPrefixes{
 		Prefix: fmt.Sprintf("%s/", dir),
 		Owner:  defaultUser,
 	}
 }
 
-type bucketHandler struct {
-	pc *client.APIClient
-}
-
-func newBucketHandler(pc *client.APIClient) bucketHandler {
-	return bucketHandler{pc: pc}
-}
-
-func (h bucketHandler) location(w http.ResponseWriter, r *http.Request) {
-	repo, branch := bucketArgs(w, r)
-
-	_, err := h.pc.InspectBranch(repo, branch)
+func (c controller) GetLocation(r *http.Request, bucket string) (string, error) {
+	vars := mux.Vars(r)
+	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
-		maybeNotFoundError(w, r, err)
-		return
+		return "", err
+	}
+	repo, branch, err := bucketArgs(r, bucket)
+	if err != nil {
+		return "", err
 	}
 
-	w.Header().Set("Content-Type", "application/xml")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(locationSource))
+	_, err = pc.InspectBranch(repo, branch)
+	if err != nil {
+		return "", maybeNotFoundError(r, err)
+	}
+
+	return globalLocation, nil
 }
 
-func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
-	repo, branch := bucketArgs(w, r)
+func (c controller) ListObjects(r *http.Request, bucket, prefix, marker, delimiter string, maxKeys int) (*s2.ListObjectsResult, error) {
+	vars := mux.Vars(r)
+	pc, err := c.pachClient(vars["authAccessKey"])
+	if err != nil {
+		return nil, err
+	}
+	repo, branch, err := bucketArgs(r, bucket)
+	if err != nil {
+		return nil, err
+	}
+
+	if delimiter != "" && delimiter != "/" {
+		return nil, invalidDelimiterError(r)
+	}
+
+	result := s2.ListObjectsResult{
+		Contents:       []s2.Contents{},
+		CommonPrefixes: []s2.CommonPrefixes{},
+	}
 
 	// ensure the branch exists and has a head
-	branchInfo, err := h.pc.InspectBranch(repo, branch)
+	branchInfo, err := pc.InspectBranch(repo, branch)
 	if err != nil {
-		maybeNotFoundError(w, r, err)
-		return
+		return nil, maybeNotFoundError(r, err)
 	}
-
-	maxKeys := defaultMaxKeys
-	maxKeysStr := r.FormValue("max-keys")
-	if maxKeysStr != "" {
-		i, err := strconv.Atoi(maxKeysStr)
-		if err != nil || i < 0 || i > defaultMaxKeys {
-			invalidArgument(w, r)
-			return
-		}
-		maxKeys = i
-	}
-
-	delimiter := r.FormValue("delimiter")
-	if delimiter != "" && delimiter != "/" {
-		invalidDelimiterError(w, r)
-		return
-	}
-	recursive := delimiter == ""
-
-	result := &ListBucketResult{
-		Name:        repo,
-		Prefix:      r.FormValue("prefix"),
-		Marker:      r.FormValue("marker"),
-		Delimiter:   delimiter,
-		MaxKeys:     maxKeys,
-		IsTruncated: false,
-	}
-
 	if branchInfo.Head == nil {
 		// if there's no head commit, just print an empty list of files
-		writeXML(w, r, http.StatusOK, result)
-		return
+		return &result, nil
 	}
 
+	recursive := delimiter == ""
 	var pattern string
 	if recursive {
-		pattern = fmt.Sprintf("%s**", glob.QuoteMeta(result.Prefix))
+		pattern = fmt.Sprintf("%s**", glob.QuoteMeta(prefix))
 	} else {
-		pattern = fmt.Sprintf("%s*", glob.QuoteMeta(result.Prefix))
+		pattern = fmt.Sprintf("%s*", glob.QuoteMeta(prefix))
 	}
 
-	if err = h.pc.GlobFileF(result.Name, branch, pattern, func(fileInfo *pfsClient.FileInfo) error {
+	err = pc.GlobFileF(repo, branch, pattern, func(fileInfo *pfsClient.FileInfo) error {
 		if fileInfo.FileType == pfsClient.FileType_DIR {
 			if fileInfo.File.Path == "/" {
 				// skip the root directory
@@ -167,105 +112,101 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 
 		fileInfo.File.Path = fileInfo.File.Path[1:] // strip leading slash
 
-		if !strings.HasPrefix(fileInfo.File.Path, result.Prefix) {
+		if !strings.HasPrefix(fileInfo.File.Path, prefix) {
 			return nil
 		}
-		if fileInfo.File.Path <= result.Marker {
+		if fileInfo.File.Path <= marker {
 			return nil
 		}
 
-		if result.isFull() {
-			if result.MaxKeys > 0 {
+		if len(result.Contents)+len(result.CommonPrefixes) >= maxKeys {
+			if maxKeys > 0 {
 				result.IsTruncated = true
 			}
 			return errutil.ErrBreak
 		}
 		if fileInfo.FileType == pfsClient.FileType_FILE {
-			contents, err := newContents(fileInfo)
+			c, err := newContents(fileInfo)
 			if err != nil {
 				return err
 			}
 
-			result.Contents = append(result.Contents, contents)
+			result.Contents = append(result.Contents, c)
 		} else {
 			result.CommonPrefixes = append(result.CommonPrefixes, newCommonPrefixes(fileInfo.File.Path))
 		}
 
 		return nil
-	}); err != nil {
-		internalError(w, r, err)
-		return
-	}
+	})
 
-	if result.IsTruncated {
-		if len(result.Contents) > 0 && len(result.CommonPrefixes) == 0 {
-			result.NextMarker = result.Contents[len(result.Contents)-1].Key
-		} else if len(result.Contents) == 0 && len(result.CommonPrefixes) > 0 {
-			result.NextMarker = result.CommonPrefixes[len(result.CommonPrefixes)-1].Prefix
-		} else if len(result.Contents) > 0 && len(result.CommonPrefixes) > 0 {
-			lastContents := result.Contents[len(result.Contents)-1].Key
-			lastCommonPrefixes := result.CommonPrefixes[len(result.CommonPrefixes)-1].Prefix
-
-			if lastContents > lastCommonPrefixes {
-				result.NextMarker = lastContents
-			} else {
-				result.NextMarker = lastCommonPrefixes
-			}
-		}
-	}
-
-	writeXML(w, r, http.StatusOK, result)
+	return &result, err
 }
 
-func (h bucketHandler) put(w http.ResponseWriter, r *http.Request) {
-	repo, branch := bucketArgs(w, r)
+func (c controller) CreateBucket(r *http.Request, bucket string) error {
+	vars := mux.Vars(r)
+	pc, err := c.pachClient(vars["authAccessKey"])
+	if err != nil {
+		return err
+	}
+	repo, branch, err := bucketArgs(r, bucket)
+	if err != nil {
+		return err
+	}
 
-	err := h.pc.CreateRepo(repo)
+	err = pc.CreateRepo(repo)
 	if err != nil {
 		if errutil.IsAlreadyExistError(err) {
 			// Bucket already exists - this is not an error so long as the
 			// branch being created is new. Verify if that is the case now,
 			// since PFS' `CreateBranch` won't error out.
-			_, err := h.pc.InspectBranch(repo, branch)
+			_, err := pc.InspectBranch(repo, branch)
 			if err != nil {
 				if !pfsServer.IsBranchNotFoundErr(err) {
-					internalError(w, r, err)
-					return
+					return s2.InternalError(r, err)
 				}
 			} else {
-				bucketAlreadyOwnedByYouError(w, r)
-				return
+				return s2.BucketAlreadyOwnedByYouError(r)
 			}
+		} else if ancestry.IsInvalidNameError(err) {
+			return s2.InvalidBucketNameError(r)
 		} else {
-			internalError(w, r, err)
-			return
+			return s2.InternalError(r, err)
 		}
 	}
 
-	err = h.pc.CreateBranch(repo, branch, "", nil)
+	err = pc.CreateBranch(repo, branch, "", nil)
 	if err != nil {
-		internalError(w, r, err)
-		return
+		if ancestry.IsInvalidNameError(err) {
+			return s2.InvalidBucketNameError(r)
+		}
+		return s2.InternalError(r, err)
 	}
 
-	w.WriteHeader(http.StatusOK)
+	return nil
 }
 
-func (h bucketHandler) del(w http.ResponseWriter, r *http.Request) {
-	repo, branch := bucketArgs(w, r)
+func (c controller) DeleteBucket(r *http.Request, bucket string) error {
+	vars := mux.Vars(r)
+	pc, err := c.pachClient(vars["authAccessKey"])
+	if err != nil {
+		return err
+	}
+	repo, branch, err := bucketArgs(r, bucket)
+	if err != nil {
+		return err
+	}
 
 	// `DeleteBranch` does not return an error if a non-existing branch is
 	// deleting. So first, we verify that the branch exists so we can
 	// otherwise return a 404.
-	branchInfo, err := h.pc.InspectBranch(repo, branch)
+	branchInfo, err := pc.InspectBranch(repo, branch)
 	if err != nil {
-		maybeNotFoundError(w, r, err)
-		return
+		return maybeNotFoundError(r, err)
 	}
 
 	if branchInfo.Head != nil {
 		hasFiles := false
-		err = h.pc.Walk(branchInfo.Branch.Repo.Name, branchInfo.Head.ID, "", func(fileInfo *pfsClient.FileInfo) error {
+		err = pc.Walk(branchInfo.Branch.Repo.Name, branchInfo.Head.ID, "", func(fileInfo *pfsClient.FileInfo) error {
 			if fileInfo.FileType == pfsClient.FileType_FILE {
 				hasFiles = true
 				return errutil.ErrBreak
@@ -273,36 +214,43 @@ func (h bucketHandler) del(w http.ResponseWriter, r *http.Request) {
 			return nil
 		})
 		if err != nil {
-			internalError(w, r, err)
-			return
+			return s2.InternalError(r, err)
 		}
 
 		if hasFiles {
-			bucketNotEmptyError(w, r)
-			return
+			return s2.BucketNotEmptyError(r)
 		}
 	}
 
-	err = h.pc.DeleteBranch(repo, branch, false)
+	err = pc.DeleteBranch(repo, branch, false)
 	if err != nil {
-		internalError(w, r, err)
-		return
+		return s2.InternalError(r, err)
 	}
 
-	repoInfo, err := h.pc.InspectRepo(repo)
+	repoInfo, err := pc.InspectRepo(repo)
 	if err != nil {
-		internalError(w, r, err)
-		return
+		return s2.InternalError(r, err)
 	}
 
 	// delete the repo if this was the last branch
 	if len(repoInfo.Branches) == 0 {
-		err = h.pc.DeleteRepo(repo, false)
+		err = pc.DeleteRepo(repo, false)
 		if err != nil {
-			internalError(w, r, err)
-			return
+			return s2.InternalError(r, err)
 		}
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	return nil
+}
+
+func (c *controller) ListObjectVersions(r *http.Request, repo, prefix, keyMarker, versionIDMarker string, delimiter string, maxKeys int) (*s2.ListObjectVersionsResult, error) {
+	return nil, s2.NotImplementedError(r)
+}
+
+func (c *controller) GetBucketVersioning(r *http.Request, repo string) (string, error) {
+	return s2.VersioningEnabled, nil
+}
+
+func (c *controller) SetBucketVersioning(r *http.Request, repo, status string) error {
+	return s2.NotImplementedError(r)
 }

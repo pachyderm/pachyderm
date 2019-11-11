@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"path"
 
@@ -62,8 +63,10 @@ func RunGitHookServer(address string, etcdAddress string, etcdPrefix string) err
 		return err
 	}
 	etcdClient, err := etcd.New(etcd.Config{
-		Endpoints:   []string{etcdAddress},
-		DialOptions: client.DefaultDialOptions(),
+		Endpoints:          []string{etcdAddress},
+		DialOptions:        client.DefaultDialOptions(),
+		MaxCallSendMsgSize: math.MaxInt32,
+		MaxCallRecvMsgSize: math.MaxInt32,
 	})
 	if err != nil {
 		return err

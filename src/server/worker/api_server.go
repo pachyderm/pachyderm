@@ -406,6 +406,11 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 			pipelineInfo.Transform.WorkingDir = image.Config.WorkingDir
 		}
 		if server.pipelineInfo.Transform.Cmd == nil {
+			if len(image.Config.Entrypoint) == 0 {
+				ppsutil.FailPipeline(ctx, etcdClient, server.pipelines,
+					pipelineInfo.Pipeline.Name,
+					"nothing to run: no transform.cmd and no entrypoint")
+			}
 			server.pipelineInfo.Transform.Cmd = image.Config.Entrypoint
 		}
 	}
@@ -525,7 +530,7 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 			logger.Logf("finished downloading data after %v", time.Since(start))
 		}
 	}(time.Now())
-	dir := filepath.Join(client.PPSScratchSpace, uuid.NewWithoutDashes())
+	dir := filepath.Join(client.PPSInputPrefix, client.PPSScratchSpace, uuid.NewWithoutDashes())
 	// Create output directory (currently /pfs/out)
 	outPath := filepath.Join(dir, "out")
 	if a.pipelineInfo.Spout != nil {
@@ -564,6 +569,10 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 }
 
 func (a *APIServer) linkData(inputs []*Input, dir string) error {
+	// Make sure that previously symlinked outputs are removed.
+	if err := a.unlinkData(inputs); err != nil {
+		return err
+	}
 	for _, input := range inputs {
 		src := filepath.Join(dir, input.Name)
 		dst := filepath.Join(client.PPSInputPrefix, input.Name)
@@ -575,12 +584,19 @@ func (a *APIServer) linkData(inputs []*Input, dir string) error {
 }
 
 func (a *APIServer) unlinkData(inputs []*Input) error {
-	for _, input := range inputs {
-		if err := os.RemoveAll(filepath.Join(client.PPSInputPrefix, input.Name)); err != nil {
+	dirs, err := ioutil.ReadDir(client.PPSInputPrefix)
+	if err != nil {
+		return fmt.Errorf("ioutil.ReadDir: %v", err)
+	}
+	for _, d := range dirs {
+		if d.Name() == client.PPSScratchSpace {
+			continue // don't delete scratch space
+		}
+		if err := os.RemoveAll(filepath.Join(client.PPSInputPrefix, d.Name())); err != nil {
 			return err
 		}
 	}
-	return os.RemoveAll(filepath.Join(client.PPSInputPrefix, "out"))
+	return nil
 }
 
 func (a *APIServer) reportUserCodeStats(logger *taggedLogger) {
@@ -1208,7 +1224,8 @@ func (a *APIServer) processChunk(ctx context.Context, jobID string, low, high in
 	return nil
 }
 
-func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APIClient, jobInfo *pps.JobInfo, jobID string, plan *Plan, logger *taggedLogger, df DatumFactory, skip map[string]struct{}, useParentHashTree bool) (retErr error) {
+func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APIClient, jobInfo *pps.JobInfo, jobID string,
+	plan *Plan, logger *taggedLogger, df DatumIterator, skip map[string]struct{}, useParentHashTree bool) (retErr error) {
 	for {
 		if err := func() error {
 			// if this worker is not responsible for a shard, it waits to be assigned one or for the job to finish
@@ -1387,10 +1404,10 @@ func (a *APIServer) getChunk(ctx context.Context, id int64, address string, fail
 	return nil
 }
 
-func (a *APIServer) computeTags(df DatumFactory, low, high int64, skip map[string]struct{}, useParentHashTree bool) []*pfs.Tag {
+func (a *APIServer) computeTags(df DatumIterator, low, high int64, skip map[string]struct{}, useParentHashTree bool) []*pfs.Tag {
 	var tags []*pfs.Tag
 	for i := low; i < high; i++ {
-		files := df.Datum(int(i))
+		files := df.DatumN(int(i))
 		datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
 		// Skip datum if it is in the parent hashtree and the parent hashtree is being used in the merge
 		if _, ok := skip[datumHash]; ok && useParentHashTree {
@@ -1778,7 +1795,7 @@ func (a *APIServer) worker() {
 			if err := a.plans.ReadOnly(jobCtx).GetBlock(jobInfo.Job.ID, plan); err != nil {
 				return fmt.Errorf("error reading job chunks: %v", err)
 			}
-			df, err := NewDatumFactory(pachClient, jobInfo.Input)
+			df, err := NewDatumIterator(pachClient, jobInfo.Input)
 			if err != nil {
 				return fmt.Errorf("error from NewDatumFactory: %v", err)
 			}
@@ -1798,7 +1815,7 @@ func (a *APIServer) worker() {
 				}
 				var count int
 				for i := 0; i < df.Len(); i++ {
-					files := df.Datum(i)
+					files := df.DatumN(i)
 					datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
 					if _, ok := skip[datumHash]; ok {
 						count++
@@ -1886,7 +1903,7 @@ func (a *APIServer) claimShard(ctx context.Context) {
 // returns the id of the failed datum it also may return a variety of errors
 // such as network errors.
 func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo,
-	df DatumFactory, low, high int64, skip map[string]struct{}, useParentHashTree bool) (result *processResult, retErr error) {
+	df DatumIterator, low, high int64, skip map[string]struct{}, useParentHashTree bool) (result *processResult, retErr error) {
 	defer func() {
 		if err := a.datumCache.Clear(); err != nil && retErr == nil {
 			logger.Logf("error clearing datum cache: %v", err)
@@ -1914,7 +1931,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 			defer limiter.Release()
 			defer atomic.AddInt64(&a.queueSize, -1)
 
-			data := df.Datum(int(datumIdx))
+			data := df.DatumN(int(datumIdx))
 			logger, err := a.getTaggedLogger(pachClient, jobInfo.Job.ID, data, a.pipelineInfo.EnableStats)
 			if err != nil {
 				return err

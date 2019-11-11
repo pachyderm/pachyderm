@@ -19,7 +19,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func applyCommandCompat1_8(rootCmd *cobra.Command, noMetrics *bool, noPortForwarding *bool) {
+func applyCommandCompat1_8(rootCmd *cobra.Command) {
 	var commands []*cobra.Command
 
 	// Command.Find matches args as well as command names, so implement our own
@@ -465,7 +465,7 @@ $ pachctl diff-file foo master path1 bar master path2`,
 		Short: newCreateBranch.Short,
 		Long:  newCreateBranch.Long,
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			client, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -505,7 +505,7 @@ $ pachctl list-job foo/XXX bar/YYY
 # return all jobs in pipeline foo and whose input commits include bar/YYY
 $ pachctl list-job -p foo bar/YYY`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			client, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -590,7 +590,7 @@ Provenance: {{range .Provenance}} {{.Repo.Name}}/{{.ID}}{{end}}{{end}}
 		Short: newInspectCommit.Short,
 		Long:  newInspectCommit.Long,
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			client, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}

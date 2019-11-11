@@ -15,20 +15,12 @@ package ppsutil
 
 import (
 	"bytes"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"math"
-	"net/http"
-	"net/url"
-	"os"
 	"path"
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
@@ -90,7 +82,7 @@ func getResourceListFromSpec(resources *pps.ResourceSpec, cacheSize string) (*v1
 		if err != nil {
 			log.Warnf("error parsing disk string: %s: %+v", resources.Disk, err)
 		} else {
-			result[v1.ResourceStorage] = diskQuantity
+			result[v1.ResourceEphemeralStorage] = diskQuantity
 		}
 	}
 
@@ -247,96 +239,15 @@ func PipelineReqFromInfo(pipelineInfo *ppsclient.PipelineInfo) *ppsclient.Create
 		Description:        pipelineInfo.Description,
 		CacheSize:          pipelineInfo.CacheSize,
 		EnableStats:        pipelineInfo.EnableStats,
-		Batch:              pipelineInfo.Batch,
 		MaxQueueSize:       pipelineInfo.MaxQueueSize,
 		Service:            pipelineInfo.Service,
 		ChunkSpec:          pipelineInfo.ChunkSpec,
 		DatumTimeout:       pipelineInfo.DatumTimeout,
 		JobTimeout:         pipelineInfo.JobTimeout,
 		Salt:               pipelineInfo.Salt,
+		PodSpec:            pipelineInfo.PodSpec,
+		PodPatch:           pipelineInfo.PodPatch,
 	}
-}
-
-// PipelineManifestReader helps with unmarshalling pipeline configs from JSON. It's used by
-// 'create pipeline' and 'update pipeline'
-type PipelineManifestReader struct {
-	buf     bytes.Buffer
-	decoder *json.Decoder
-}
-
-// NewPipelineManifestReader creates a new manifest reader from a path.
-func NewPipelineManifestReader(path string) (result *PipelineManifestReader, retErr error) {
-	result = &PipelineManifestReader{}
-	var pipelineReader io.Reader
-	if path == "-" {
-		pipelineReader = io.TeeReader(os.Stdin, &result.buf)
-		fmt.Print("Reading from stdin.\n")
-	} else if url, err := url.Parse(path); err == nil && url.Scheme != "" {
-		resp, err := http.Get(url.String())
-		if err != nil {
-			return nil, err
-		}
-		defer func() {
-			if err := resp.Body.Close(); err != nil && retErr == nil {
-				retErr = err
-			}
-		}()
-		rawBytes, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-		pipelineReader = io.TeeReader(strings.NewReader(string(rawBytes)), &result.buf)
-	} else {
-		rawBytes, err := ioutil.ReadFile(path)
-		if err != nil {
-			return nil, err
-		}
-
-		pipelineReader = io.TeeReader(strings.NewReader(string(rawBytes)), &result.buf)
-	}
-	result.decoder = json.NewDecoder(pipelineReader)
-	return result, nil
-}
-
-// NextCreatePipelineRequest gets the next request from the manifest reader.
-func (r *PipelineManifestReader) NextCreatePipelineRequest() (*ppsclient.CreatePipelineRequest, error) {
-	var result ppsclient.CreatePipelineRequest
-	if err := jsonpb.UnmarshalNext(r.decoder, &result); err != nil {
-		if err == io.EOF {
-			return nil, err
-		}
-		return nil, fmt.Errorf("malformed pipeline spec: %s", err)
-	}
-	return &result, nil
-}
-
-// DescribeSyntaxError describes a syntax error encountered parsing json.
-func DescribeSyntaxError(originalErr error, parsedBuffer bytes.Buffer) error {
-
-	sErr, ok := originalErr.(*json.SyntaxError)
-	if !ok {
-		return originalErr
-	}
-
-	buffer := make([]byte, sErr.Offset)
-	parsedBuffer.Read(buffer)
-
-	lineOffset := strings.LastIndex(string(buffer[:len(buffer)-1]), "\n")
-	if lineOffset == -1 {
-		lineOffset = 0
-	}
-
-	lines := strings.Split(string(buffer[:len(buffer)-1]), "\n")
-	lineNumber := len(lines)
-
-	descriptiveErrorString := fmt.Sprintf("Syntax Error on line %v:\n%v\n%v^\n%v\n",
-		lineNumber,
-		string(buffer[lineOffset:]),
-		strings.Repeat(" ", int(sErr.Offset)-2-lineOffset),
-		originalErr,
-	)
-
-	return errors.New(descriptiveErrorString)
 }
 
 // IsTerminal returns 'true' if 'state' indicates that the job is done (i.e.
@@ -355,6 +266,10 @@ func IsTerminal(state pps.JobState) bool {
 
 // UpdateJobState performs the operations involved with a job state transition.
 func UpdateJobState(pipelines col.ReadWriteCollection, jobs col.ReadWriteCollection, jobPtr *pps.EtcdJobInfo, state pps.JobState, reason string) error {
+	if jobPtr.State == pps.JobState_JOB_FAILURE {
+		return fmt.Errorf("cannot put %q in state %s as it's already in state JOB_FAILURE", jobPtr.Job.ID, state.String())
+	}
+
 	// Update pipeline
 	pipelinePtr := &pps.EtcdPipelineInfo{}
 	if err := pipelines.Get(jobPtr.Pipeline.Name, pipelinePtr); err != nil {

@@ -2,36 +2,20 @@
 
 set -euxo pipefail
 
-# Make sure Pachyderm is running
+# Make sure Pachyderm is running and auth is activated
 which pachctl
 pachctl version
+pachctl auth whoami
 
 # Make sure vault binary is present
 which vault
 
-# Make sure Pachyderm enterprise and auth are enabled
-which aws || pip install awscli --upgrade --user
-if [[ "$(pachctl enterprise get-state --no-port-forwarding)" = "No Pachyderm Enterprise token was found" ]]; then
-  # Don't print token to stdout
-  # This is very important, or we'd leak it in our CI logs
-  set +x
-  pachctl --no-port-forwarding enterprise activate $(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -)
-  set -x
-fi
-
-# Activate Pachyderm auth, if needed, and get a Pachyderm admin token
-if ! pachctl auth list-admins --no-port-forwarding; then
-  admin="admin"
-  echo "${admin}" | pachctl auth activate --no-port-forwarding
-elif pachctl auth list-admins --no-port-forwarding | grep "github:"; then
-  admin="$( pachctl auth list-admins --no-port-forwarding | grep 'github:' | head -n 1)"
-  admin="${admin#github:}"
-  echo "${admin}" | pachctl auth login --no-port-forwarding
-else
-  echo "Could not find a github user to log in as. Cannot get admin token"
-  exit 1
-fi
-ADMIN_TOKEN="$(pachctl auth get-auth-token "github:${admin}" --no-port-forwarding | grep Token | awk '{print $2}')"
+# generate an auth token for one of Pachyderm's existing admins
+admin="$(
+  pachctl auth list-admins \
+    | grep 'github:' | head -n 1 | sed 's/^github://'
+)"
+ADMIN_TOKEN="$(pachctl auth get-auth-token "github:${admin}" | grep Token | awk '{print $2}')"
 
 # Login to vault, so we can disable the previous Pachyderm plugin (if any is running)
 export VAULT_ADDR='http://127.0.0.1:8200'

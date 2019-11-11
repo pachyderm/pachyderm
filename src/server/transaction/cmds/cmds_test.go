@@ -1,6 +1,7 @@
 package cmds
 
 import (
+	"fmt"
 	"os/exec"
 	"strings"
 	"testing"
@@ -42,4 +43,54 @@ func TestTransaction(t *testing.T) {
 		"repo", repo,
 		"commit", commit,
 	).Run())
+}
+
+func startTransaction(t *testing.T) string {
+	output, err := (*exec.Cmd)(tu.BashCmd("pachctl start transaction")).Output()
+	require.NoError(t, err)
+
+	strs := strings.Split(strings.TrimSpace(string(output)), " ")
+	return strs[len(strs)-1]
+}
+
+func requireTransactionDoesNotExist(t *testing.T, txn string) {
+	output, err := (*exec.Cmd)(tu.BashCmd("pachctl inspect transaction {{.txn}} 2>&1", "txn", txn)).Output()
+	require.YesError(t, err)
+	expected := fmt.Sprintf("%s not found", txn)
+	require.True(t, strings.Contains(string(output), expected))
+}
+
+func TestDeleteActiveTransaction(t *testing.T) {
+	// Start then delete a transaction
+	txn := startTransaction(t)
+	require.NoError(t, tu.BashCmd("pachctl delete transaction").Run())
+
+	// Check that the transaction no longer exists
+	requireTransactionDoesNotExist(t, txn)
+}
+
+func TestDeleteInactiveTransaction(t *testing.T) {
+	// Start, stop, then delete a transaction
+	txn := startTransaction(t)
+	require.NoError(t, tu.BashCmd("pachctl stop transaction").Run())
+	require.NoError(t, tu.BashCmd("pachctl delete transaction {{.txn}}", "txn", txn).Run())
+
+	// Check that the transaction no longer exists
+	requireTransactionDoesNotExist(t, txn)
+}
+
+func TestDeleteSpecificTransaction(t *testing.T) {
+	// Start two transactions, delete the first one, make sure the correct one is deleted
+	txn1 := startTransaction(t)
+	txn2 := startTransaction(t)
+
+	// Check that both transactions exist
+	require.NoError(t, tu.BashCmd("pachctl inspect transaction {{.txn}}", "txn", txn1).Run())
+	require.NoError(t, tu.BashCmd("pachctl inspect transaction {{.txn}}", "txn", txn2).Run())
+
+	require.NoError(t, tu.BashCmd("pachctl delete transaction {{.txn}}", "txn", txn1).Run())
+
+	// Check that only the second transaction exists
+	requireTransactionDoesNotExist(t, txn1)
+	require.NoError(t, tu.BashCmd("pachctl inspect transaction {{.txn}}", "txn", txn2).Run())
 }

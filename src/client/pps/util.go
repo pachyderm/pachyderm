@@ -19,6 +19,10 @@ func VisitInput(input *Input, f func(*Input)) {
 		for _, input := range input.Cross {
 			VisitInput(input, f)
 		}
+	case input.Join != nil:
+		for _, input := range input.Join {
+			VisitInput(input, f)
+		}
 	case input.Union != nil:
 		for _, input := range input.Union {
 			VisitInput(input, f)
@@ -38,6 +42,10 @@ func InputName(input *Input) string {
 		if len(input.Cross) > 0 {
 			return InputName(input.Cross[0])
 		}
+	case input.Join != nil:
+		if len(input.Join) > 0 {
+			return InputName(input.Join[0])
+		}
 	case input.Union != nil:
 		if len(input.Union) > 0 {
 			return InputName(input.Union[0])
@@ -55,6 +63,8 @@ func SortInput(input *Input) {
 		switch {
 		case input.Cross != nil:
 			SortInputs(input.Cross)
+		case input.Join != nil:
+			SortInputs(input.Join)
 		case input.Union != nil:
 			SortInputs(input.Union)
 		}

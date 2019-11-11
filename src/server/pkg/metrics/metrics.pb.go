@@ -21,7 +21,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type Metrics struct {
 	ClusterID            string   `protobuf:"bytes,1,opt,name=cluster_id,json=clusterId,proto3" json:"cluster_id,omitempty"`
@@ -56,7 +56,7 @@ func (m *Metrics) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Metrics.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -202,7 +202,7 @@ var fileDescriptor_6561ed73a72f8e1f = []byte{
 func (m *Metrics) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -210,93 +210,105 @@ func (m *Metrics) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Metrics) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Metrics) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.ClusterID) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintMetrics(dAtA, i, uint64(len(m.ClusterID)))
-		i += copy(dAtA[i:], m.ClusterID)
-	}
-	if len(m.PodID) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintMetrics(dAtA, i, uint64(len(m.PodID)))
-		i += copy(dAtA[i:], m.PodID)
-	}
-	if m.Nodes != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintMetrics(dAtA, i, uint64(m.Nodes))
-	}
-	if len(m.Version) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintMetrics(dAtA, i, uint64(len(m.Version)))
-		i += copy(dAtA[i:], m.Version)
-	}
-	if m.Repos != 0 {
-		dAtA[i] = 0x28
-		i++
-		i = encodeVarintMetrics(dAtA, i, uint64(m.Repos))
-	}
-	if m.Commits != 0 {
-		dAtA[i] = 0x30
-		i++
-		i = encodeVarintMetrics(dAtA, i, uint64(m.Commits))
-	}
-	if m.Files != 0 {
-		dAtA[i] = 0x38
-		i++
-		i = encodeVarintMetrics(dAtA, i, uint64(m.Files))
-	}
-	if m.Bytes != 0 {
-		dAtA[i] = 0x40
-		i++
-		i = encodeVarintMetrics(dAtA, i, uint64(m.Bytes))
-	}
-	if m.Jobs != 0 {
-		dAtA[i] = 0x48
-		i++
-		i = encodeVarintMetrics(dAtA, i, uint64(m.Jobs))
-	}
-	if m.Pipelines != 0 {
-		dAtA[i] = 0x50
-		i++
-		i = encodeVarintMetrics(dAtA, i, uint64(m.Pipelines))
-	}
-	if m.ArchivedCommits != 0 {
-		dAtA[i] = 0x58
-		i++
-		i = encodeVarintMetrics(dAtA, i, uint64(m.ArchivedCommits))
-	}
-	if m.CancelledCommits != 0 {
-		dAtA[i] = 0x60
-		i++
-		i = encodeVarintMetrics(dAtA, i, uint64(m.CancelledCommits))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.ActivationCode) > 0 {
-		dAtA[i] = 0x6a
-		i++
+		i -= len(m.ActivationCode)
+		copy(dAtA[i:], m.ActivationCode)
 		i = encodeVarintMetrics(dAtA, i, uint64(len(m.ActivationCode)))
-		i += copy(dAtA[i:], m.ActivationCode)
+		i--
+		dAtA[i] = 0x6a
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.CancelledCommits != 0 {
+		i = encodeVarintMetrics(dAtA, i, uint64(m.CancelledCommits))
+		i--
+		dAtA[i] = 0x60
 	}
-	return i, nil
+	if m.ArchivedCommits != 0 {
+		i = encodeVarintMetrics(dAtA, i, uint64(m.ArchivedCommits))
+		i--
+		dAtA[i] = 0x58
+	}
+	if m.Pipelines != 0 {
+		i = encodeVarintMetrics(dAtA, i, uint64(m.Pipelines))
+		i--
+		dAtA[i] = 0x50
+	}
+	if m.Jobs != 0 {
+		i = encodeVarintMetrics(dAtA, i, uint64(m.Jobs))
+		i--
+		dAtA[i] = 0x48
+	}
+	if m.Bytes != 0 {
+		i = encodeVarintMetrics(dAtA, i, uint64(m.Bytes))
+		i--
+		dAtA[i] = 0x40
+	}
+	if m.Files != 0 {
+		i = encodeVarintMetrics(dAtA, i, uint64(m.Files))
+		i--
+		dAtA[i] = 0x38
+	}
+	if m.Commits != 0 {
+		i = encodeVarintMetrics(dAtA, i, uint64(m.Commits))
+		i--
+		dAtA[i] = 0x30
+	}
+	if m.Repos != 0 {
+		i = encodeVarintMetrics(dAtA, i, uint64(m.Repos))
+		i--
+		dAtA[i] = 0x28
+	}
+	if len(m.Version) > 0 {
+		i -= len(m.Version)
+		copy(dAtA[i:], m.Version)
+		i = encodeVarintMetrics(dAtA, i, uint64(len(m.Version)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if m.Nodes != 0 {
+		i = encodeVarintMetrics(dAtA, i, uint64(m.Nodes))
+		i--
+		dAtA[i] = 0x18
+	}
+	if len(m.PodID) > 0 {
+		i -= len(m.PodID)
+		copy(dAtA[i:], m.PodID)
+		i = encodeVarintMetrics(dAtA, i, uint64(len(m.PodID)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.ClusterID) > 0 {
+		i -= len(m.ClusterID)
+		copy(dAtA[i:], m.ClusterID)
+		i = encodeVarintMetrics(dAtA, i, uint64(len(m.ClusterID)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintMetrics(dAtA []byte, offset int, v uint64) int {
+	offset -= sovMetrics(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *Metrics) Size() (n int) {
 	if m == nil {
@@ -715,6 +727,7 @@ func (m *Metrics) Unmarshal(dAtA []byte) error {
 func skipMetrics(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
+	depth := 0
 	for iNdEx < l {
 		var wire uint64
 		for shift := uint(0); ; shift += 7 {
@@ -746,10 +759,8 @@ func skipMetrics(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			return iNdEx, nil
 		case 1:
 			iNdEx += 8
-			return iNdEx, nil
 		case 2:
 			var length int
 			for shift := uint(0); ; shift += 7 {
@@ -770,55 +781,30 @@ func skipMetrics(dAtA []byte) (n int, err error) {
 				return 0, ErrInvalidLengthMetrics
 			}
 			iNdEx += length
-			if iNdEx < 0 {
-				return 0, ErrInvalidLengthMetrics
-			}
-			return iNdEx, nil
 		case 3:
-			for {
-				var innerWire uint64
-				var start int = iNdEx
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return 0, ErrIntOverflowMetrics
-					}
-					if iNdEx >= l {
-						return 0, io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					innerWire |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				innerWireType := int(innerWire & 0x7)
-				if innerWireType == 4 {
-					break
-				}
-				next, err := skipMetrics(dAtA[start:])
-				if err != nil {
-					return 0, err
-				}
-				iNdEx = start + next
-				if iNdEx < 0 {
-					return 0, ErrInvalidLengthMetrics
-				}
-			}
-			return iNdEx, nil
+			depth++
 		case 4:
-			return iNdEx, nil
+			if depth == 0 {
+				return 0, ErrUnexpectedEndOfGroupMetrics
+			}
+			depth--
 		case 5:
 			iNdEx += 4
-			return iNdEx, nil
 		default:
 			return 0, fmt.Errorf("proto: illegal wireType %d", wireType)
 		}
+		if iNdEx < 0 {
+			return 0, ErrInvalidLengthMetrics
+		}
+		if depth == 0 {
+			return iNdEx, nil
+		}
 	}
-	panic("unreachable")
+	return 0, io.ErrUnexpectedEOF
 }
 
 var (
-	ErrInvalidLengthMetrics = fmt.Errorf("proto: negative length found during unmarshaling")
-	ErrIntOverflowMetrics   = fmt.Errorf("proto: integer overflow")
+	ErrInvalidLengthMetrics        = fmt.Errorf("proto: negative length found during unmarshaling")
+	ErrIntOverflowMetrics          = fmt.Errorf("proto: integer overflow")
+	ErrUnexpectedEndOfGroupMetrics = fmt.Errorf("proto: unexpected end of group")
 )

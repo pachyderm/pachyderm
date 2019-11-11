@@ -25,15 +25,14 @@ var activateMut sync.Mutex
 // activateEnterprise checks if Pachyderm Enterprise is active and if not,
 // activates it
 func activateEnterprise(t *testing.T) {
-	cmd := tu.Cmd("pachctl", "enterprise", "get-state", "--no-port-forwarding")
+	cmd := tu.Cmd("pachctl", "enterprise", "get-state")
 	out, err := cmd.Output()
 	require.NoError(t, err)
 	if string(out) != "ACTIVE" {
 		// Enterprise not active in the cluster. Activate it
 		require.NoError(t,
-			tu.Cmd("pachctl", "enterprise", "activate", tu.GetTestEnterpriseCode()).Run(), "--no-port-forwarding")
+			tu.Cmd("pachctl", "enterprise", "activate", tu.GetTestEnterpriseCode()).Run())
 	}
-
 }
 
 func activateAuth(t *testing.T) {
@@ -43,8 +42,8 @@ func activateAuth(t *testing.T) {
 	activateEnterprise(t)
 	// TODO(msteffen): Make sure client & server have the same version
 	// Logout (to clear any expired tokens) and activate Pachyderm auth
-	require.NoError(t, tu.Cmd("pachctl", "auth", "logout", "--no-port-forwarding").Run())
-	cmd := tu.Cmd("pachctl", "auth", "activate", "--no-port-forwarding")
+	require.NoError(t, tu.Cmd("pachctl", "auth", "logout").Run())
+	cmd := tu.Cmd("pachctl", "auth", "activate")
 	cmd.Stdin = strings.NewReader("admin\n")
 	require.NoError(t, cmd.Run())
 }
@@ -55,14 +54,14 @@ func deactivateAuth(t *testing.T) {
 	defer activateMut.Unlock()
 
 	// Check if Pachyderm Auth is active -- if so, deactivate it
-	if err := tu.BashCmd("echo admin | pachctl auth login --no-port-forwarding").Run(); err == nil {
-		require.NoError(t, tu.BashCmd("yes | pachctl auth deactivate --no-port-forwarding").Run())
+	if err := tu.BashCmd("echo admin | pachctl auth login").Run(); err == nil {
+		require.NoError(t, tu.BashCmd("yes | pachctl auth deactivate").Run())
 	}
 
 	// Wait for auth to finish deactivating
 	time.Sleep(time.Second)
 	backoff.Retry(func() error {
-		cmd := tu.Cmd("pachctl", "auth", "login", "--no-port-forwarding")
+		cmd := tu.Cmd("pachctl", "auth", "login")
 		cmd.Stdin = strings.NewReader("admin\n")
 		cmd.Stdout, cmd.Stderr = ioutil.Discard, ioutil.Discard
 		if cmd.Run() != nil {
@@ -79,11 +78,11 @@ func TestAuthBasic(t *testing.T) {
 	activateAuth(t)
 	defer deactivateAuth(t)
 	require.NoError(t, tu.BashCmd(`
-		echo "{{.alice}}" | pachctl auth login --no-port-forwarding
-		pachctl create repo {{.repo}} --no-port-forwarding
-		pachctl list repo --no-port-forwarding \
+		echo "{{.alice}}" | pachctl auth login
+		pachctl create repo {{.repo}}
+		pachctl list repo \
 			| match {{.repo}}
-		pachctl inspect repo {{.repo}} --no-port-forwarding
+		pachctl inspect repo {{.repo}}
 		`,
 		"alice", tu.UniqueString("alice"),
 		"repo", tu.UniqueString("TestAuthBasic-repo"),
@@ -97,8 +96,8 @@ func TestWhoAmI(t *testing.T) {
 	activateAuth(t)
 	defer deactivateAuth(t)
 	require.NoError(t, tu.BashCmd(`
-		echo "{{.alice}}" | pachctl auth login --no-port-forwarding
-		pachctl auth whoami --no-port-forwarding | match {{.alice}}
+		echo "{{.alice}}" | pachctl auth login
+		pachctl auth whoami | match {{.alice}}
 		`,
 		"alice", tu.UniqueString("alice"),
 	).Run())
@@ -112,12 +111,12 @@ func TestCheckGetSet(t *testing.T) {
 	defer deactivateAuth(t)
 	// Test both forms of the 'pachctl auth get' command, as well as 'pachctl auth check'
 	require.NoError(t, tu.BashCmd(`
-		echo "{{.alice}}" | pachctl auth login --no-port-forwarding
-		pachctl create repo {{.repo}} --no-port-forwarding
-		pachctl auth check owner {{.repo}} --no-port-forwarding
-		pachctl auth get {{.repo}} --no-port-forwarding \
+		echo "{{.alice}}" | pachctl auth login
+		pachctl create repo {{.repo}}
+		pachctl auth check owner {{.repo}}
+		pachctl auth get {{.repo}} \
 			| match {{.alice}}
-		pachctl auth get {{.bob}} {{.repo}} --no-port-forwarding \
+		pachctl auth get {{.bob}} {{.repo}} \
 			| match NONE
 		`,
 		"alice", tu.UniqueString("alice"),
@@ -127,10 +126,10 @@ func TestCheckGetSet(t *testing.T) {
 
 	// Test 'pachctl auth set'
 	require.NoError(t, tu.BashCmd(`
-		echo "{{.alice}}" | pachctl auth login --no-port-forwarding
-		pachctl create repo {{.repo}} --no-port-forwarding
-		pachctl auth set {{.bob}} reader {{.repo}} --no-port-forwarding
-		pachctl auth get {{.bob}} {{.repo}} --no-port-forwarding \
+		echo "{{.alice}}" | pachctl auth login
+		pachctl create repo {{.repo}}
+		pachctl auth set {{.bob}} reader {{.repo}}
+		pachctl auth get {{.bob}} {{.repo}} \
 			| match READER
 		`,
 		"alice", tu.UniqueString("alice"),
@@ -147,17 +146,17 @@ func TestAdmins(t *testing.T) {
 	defer deactivateAuth(t)
 
 	// Modify the list of admins to replace 'admin' with 'admin2'
-	require.NoError(t, tu.BashCmd("echo admin | pachctl auth login --no-port-forwarding").Run())
+	require.NoError(t, tu.BashCmd("echo admin | pachctl auth login").Run())
 	require.NoError(t, tu.BashCmd(`
-		pachctl auth list-admins --no-port-forwarding \
+		pachctl auth list-admins \
 			| match "admin"
-		pachctl auth modify-admins --add admin2 --no-port-forwarding
-		pachctl auth list-admins --no-port-forwarding \
+		pachctl auth modify-admins --add admin2
+		pachctl auth list-admins \
 			| match  "admin2"
-		pachctl auth modify-admins --remove admin --no-port-forwarding
+		pachctl auth modify-admins --remove admin
 
 		# as 'admin' is a substr of 'admin2', use '^admin$' regex...
-		pachctl auth list-admins --no-port-forwarding \
+		pachctl auth list-admins \
 			| match -v "^github:admin$" \
 			| match "^github:admin2$"
 		`).Run())
@@ -165,10 +164,10 @@ func TestAdmins(t *testing.T) {
 	// Now 'admin2' is the only admin. Login as admin2, and swap 'admin' back in
 	// (so that deactivateAuth() runs), and call 'list-admin' (to make sure it
 	// works for non-admins)
-	require.NoError(t, tu.BashCmd("echo admin2 | pachctl auth login --no-port-forwarding").Run())
+	require.NoError(t, tu.BashCmd("echo admin2 | pachctl auth login").Run())
 	require.NoError(t, tu.BashCmd(`
-		pachctl auth modify-admins --add admin --remove admin2 --no-port-forwarding
-		pachctl auth list-admins --no-port-forwarding \
+		pachctl auth modify-admins --add admin --remove admin2
+		pachctl auth list-admins \
 			| match -v "admin2" \
 			| match "admin"
 		`).Run())
@@ -183,16 +182,16 @@ func TestModifyAdminsPropagateError(t *testing.T) {
 
 	// Add admin2, and then try to remove it along with a fake admin. Make sure we
 	// get an error
-	require.NoError(t, tu.BashCmd("echo admin | pachctl auth login --no-port-forwarding").Run())
+	require.NoError(t, tu.BashCmd("echo admin | pachctl auth login").Run())
 	require.NoError(t, tu.BashCmd(`
-		pachctl auth list-admins --no-port-forwarding \
+		pachctl auth list-admins \
 			| match "admin"
-		pachctl auth modify-admins --add admin2 --no-port-forwarding
-		pachctl auth list-admins --no-port-forwarding \
+		pachctl auth modify-admins --add admin2
+		pachctl auth list-admins \
 			| match  "admin2"
 
  		# cmd should fail
-		! pachctl auth modify-admins --remove admin1,not_in_list --no-port-forwarding
+		! pachctl auth modify-admins --remove admin1,not_in_list
 		`).Run())
 }
 
@@ -205,11 +204,11 @@ func TestGetAndUseAuthToken(t *testing.T) {
 
 	// Test both get-auth-token and use-auth-token; make sure that they work
 	// together with -q
-	require.NoError(t, tu.BashCmd("echo admin | pachctl auth login --no-port-forwarding").Run())
+	require.NoError(t, tu.BashCmd("echo admin | pachctl auth login").Run())
 	require.NoError(t, tu.BashCmd(`
-	pachctl auth get-auth-token -q robot:marvin --no-port-forwarding \
-	  | pachctl auth use-auth-token --no-port-forwarding
-	pachctl auth whoami --no-port-forwarding \
+	pachctl auth get-auth-token -q robot:marvin \
+	  | pachctl auth use-auth-token
+	pachctl auth whoami \
 	  | match 'robot:marvin'
 		`).Run())
 }
@@ -226,15 +225,15 @@ func TestActivateAsRobotUser(t *testing.T) {
 	activateEnterprise(t)
 	// Logout (to clear any expired tokens) and activate Pachyderm auth
 	require.NoError(t, tu.BashCmd(`
-	pachctl auth logout --no-port-forwarding
-	pachctl auth activate --initial-admin=robot:hal9000 --no-port-forwarding
-	pachctl auth whoami --no-port-forwarding \
+	pachctl auth logout
+	pachctl auth activate --initial-admin=robot:hal9000
+	pachctl auth whoami \
 		| match 'robot:hal9000'
 	`).Run())
 
 	// Make "admin" a cluster admins, so that deactivateAuth works
 	require.NoError(t,
-		tu.Cmd("pachctl", "auth", "modify-admins", "--add=admin", "--no-port-forwarding").Run())
+		tu.Cmd("pachctl", "auth", "modify-admins", "--add=admin").Run())
 }
 
 func TestActivateMismatchedUsernames(t *testing.T) {
@@ -248,8 +247,8 @@ func TestActivateMismatchedUsernames(t *testing.T) {
 	activateEnterprise(t)
 	// Logout (to clear any expired tokens) and activate Pachyderm auth
 	activate := tu.BashCmd(`
-		pachctl auth logout --no-port-forwarding
-		echo alice | pachctl auth activate --initial-admin=bob --no-port-forwarding
+		pachctl auth logout
+		echo alice | pachctl auth activate --initial-admin=bob
 	`)
 	var errorMsg bytes.Buffer
 	activate.Stderr = &errorMsg
@@ -283,11 +282,16 @@ func TestConfig(t *testing.T) {
       </SPSSODescriptor>
     </EntityDescriptor>`))
 	require.NoError(t, tu.BashCmd(`
-		echo "admin" | pachctl auth login --no-port-forwarding
-		pachctl auth --no-port-forwarding set-config <<EOF
+		echo "admin" | pachctl auth login
+		pachctl auth set-config <<EOF
 		{
-		  "live_config_version": 0,
+		  "live_config_version": 1,
 		  "id_providers": [{
+			"name": "github",
+			"description": "oauth-based authentication with github.com",
+			"github":{}
+		  },
+		  {
 		    "name": "idp",
 		    "description": "fake ID provider for testing",
 		    "saml": {
@@ -300,8 +304,8 @@ func TestConfig(t *testing.T) {
 		  }
 		}
 		EOF
-		pachctl auth get-config --no-port-forwarding \
-		  | match '"live_config_version": 1,' \
+		pachctl auth get-config \
+		  | match '"live_config_version": 2,' \
 		  | match '"saml_svc_options": {' \
 		  | match '"acs_url": "http://www.example.com",' \
 		  | match '"metadata_url": "http://www.example.com"' \
@@ -309,16 +313,133 @@ func TestConfig(t *testing.T) {
 		`).Run())
 }
 
+// TestGetAuthTokenNoSubject tests that 'pachctl get-auth-token' infers the
+// subject from the currently logged-in user if none is specified on the command
+// line
+func TestGetAuthTokenNoSubject(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	activateAuth(t)
+	defer deactivateAuth(t)
+	require.NoError(t, tu.BashCmd(`
+		echo "{{.alice}}" | pachctl auth login
+		pachctl auth get-auth-token -q | pachctl auth use-auth-token
+		pachctl auth whoami | match {{.alice}}
+		`,
+		"alice", tu.UniqueString("alice"),
+	).Run())
+}
+
+// TestGetAuthTokenTTL tests that the --ttl argument to 'pachctl get-auth-token'
+// correctly limits the lifetime of the returned token
+func TestGetAuthTokenTTL(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	activateAuth(t)
+	defer deactivateAuth(t)
+
+	alice := tu.UniqueString("alice")
+	require.NoError(t, tu.BashCmd(`echo "{{.alice}}" | pachctl auth login `,
+		"alice", alice,
+	).Run())
+
+	var tokenBuf bytes.Buffer
+	tokenCmd := tu.BashCmd(`pachctl auth get-auth-token --ttl=5s -q`)
+	tokenCmd.Stdout = &tokenBuf
+	require.NoError(t, tokenCmd.Run())
+	token := strings.TrimSpace(tokenBuf.String())
+
+	time.Sleep(6 * time.Second)
+	var errMsg bytes.Buffer
+	login := tu.BashCmd(`
+		echo {{.token}} | pachctl auth use-auth-token
+		pachctl auth whoami
+	`, "token", token)
+	login.Stderr = &errMsg
+	require.YesError(t, login.Run())
+	require.Matches(t, "try logging in", errMsg.String())
+}
+
+// TestGetOneTimePasswordNoSubject tests that 'pachctl get-otp' infers the
+// subject from the currently logged-in user if none is specified on the command
+// line
+func TestGetOneTimePasswordNoSubject(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	activateAuth(t)
+	defer deactivateAuth(t)
+	require.NoError(t, tu.BashCmd(`
+		echo "{{.alice}}" | pachctl auth login
+		otp="$(pachctl auth get-otp)"
+		echo "${otp}" | pachctl auth login --one-time-password
+		pachctl auth whoami | match {{.alice}}
+		`,
+		"alice", tu.UniqueString("alice"),
+	).Run())
+}
+
+// TestGetOneTimePasswordTTL tests that the --ttl argument to 'pachctl get-otp'
+// correctly limits the lifetime of the returned token
+func TestGetOneTimePasswordTTL(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	activateAuth(t)
+	defer deactivateAuth(t)
+
+	alice := tu.UniqueString("alice")
+	require.NoError(t, tu.BashCmd(`echo "{{.alice}}" | pachctl auth login`,
+		"alice", alice,
+	).Run())
+
+	var otpBuf bytes.Buffer
+	otpCmd := tu.BashCmd(`pachctl auth get-otp --ttl=5s`)
+	otpCmd.Stdout = &otpBuf
+	require.NoError(t, otpCmd.Run())
+	otp := strings.TrimSpace(otpBuf.String())
+
+	// wait for OTP to expire
+	time.Sleep(6 * time.Second)
+	var errMsg bytes.Buffer
+	login := tu.BashCmd(`
+		echo {{.otp}} | pachctl auth login --one-time-password
+	`, "otp", otp)
+	login.Stderr = &errMsg
+	require.YesError(t, login.Run())
+	require.Matches(t, "otp is invalid or has expired", errMsg.String())
+}
+
+func TestYAMLConfig(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	activateAuth(t)
+	defer deactivateAuth(t)
+
+	require.NoError(t, tu.BashCmd(`
+		echo "admin" | pachctl auth login
+		pachctl auth get-config -o yaml \
+		  | match 'live_config_version: 1' \
+		  | match 'id_providers:' \
+		  | match '  - name: GitHub' \
+		  | match '    description: oauth-based authentication with github.com' \
+		  | match '    github: {}'
+		`).Run())
+}
+
 func TestMain(m *testing.M) {
 	// Preemptively deactivate Pachyderm auth (to avoid errors in early tests)
-	if err := tu.BashCmd("echo 'admin' | pachctl auth login --no-port-forwarding &>/dev/null").Run(); err == nil {
-		if err := tu.BashCmd("yes | pachctl auth deactivate --no-port-forwarding").Run(); err != nil {
+	if err := tu.BashCmd("echo 'admin' | pachctl auth login &>/dev/null").Run(); err == nil {
+		if err := tu.BashCmd("yes | pachctl auth deactivate").Run(); err != nil {
 			panic(err.Error())
 		}
 	}
 	time.Sleep(time.Second)
 	backoff.Retry(func() error {
-		cmd := tu.Cmd("pachctl", "auth", "login", "--no-port-forwarding")
+		cmd := tu.Cmd("pachctl", "auth", "login")
 		cmd.Stdin = strings.NewReader("admin\n")
 		cmd.Stdout, cmd.Stderr = ioutil.Discard, ioutil.Discard
 		if cmd.Run() != nil {

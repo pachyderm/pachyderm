@@ -26,7 +26,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 // Scope (actually a "role" in canonical security nomenclature) represents a
 // rough level of access that a principal has to a repo
@@ -127,7 +127,7 @@ func (m *ActivateRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, err
 		return xxx_messageInfo_ActivateRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -184,7 +184,7 @@ func (m *ActivateResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, er
 		return xxx_messageInfo_ActivateResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -230,7 +230,7 @@ func (m *DeactivateRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, e
 		return xxx_messageInfo_DeactivateRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -269,7 +269,7 @@ func (m *DeactivateResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, 
 		return xxx_messageInfo_DeactivateResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -296,11 +296,12 @@ type IDProvider struct {
 	// Description is a human-readable description of this authentication
 	// backend. It's ignored by Pachyderm, but exists for the benefit of users
 	// configuring Pachyderm's auth system.
-	Description          string                  `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
-	SAML                 *IDProvider_SAMLOptions `protobuf:"bytes,3,opt,name=saml,proto3" json:"saml,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
-	XXX_unrecognized     []byte                  `json:"-"`
-	XXX_sizecache        int32                   `json:"-"`
+	Description          string                    `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	SAML                 *IDProvider_SAMLOptions   `protobuf:"bytes,3,opt,name=saml,proto3" json:"saml,omitempty"`
+	GitHub               *IDProvider_GitHubOptions `protobuf:"bytes,4,opt,name=github,proto3" json:"github,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                  `json:"-"`
+	XXX_unrecognized     []byte                    `json:"-"`
+	XXX_sizecache        int32                     `json:"-"`
 }
 
 func (m *IDProvider) Reset()         { *m = IDProvider{} }
@@ -317,7 +318,7 @@ func (m *IDProvider) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_IDProvider.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -353,6 +354,13 @@ func (m *IDProvider) GetDescription() string {
 func (m *IDProvider) GetSAML() *IDProvider_SAMLOptions {
 	if m != nil {
 		return m.SAML
+	}
+	return nil
+}
+
+func (m *IDProvider) GetGitHub() *IDProvider_GitHubOptions {
+	if m != nil {
+		return m.GitHub
 	}
 	return nil
 }
@@ -394,7 +402,7 @@ func (m *IDProvider_SAMLOptions) XXX_Marshal(b []byte, deterministic bool) ([]by
 		return xxx_messageInfo_IDProvider_SAMLOptions.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -434,6 +442,47 @@ func (m *IDProvider_SAMLOptions) GetGroupAttribute() string {
 	return ""
 }
 
+// GitHubOptions is an empty protobuf message whose presence in the IDProvider
+// of an AuthConfig indicates that GitHub auth should be enabled.
+type IDProvider_GitHubOptions struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *IDProvider_GitHubOptions) Reset()         { *m = IDProvider_GitHubOptions{} }
+func (m *IDProvider_GitHubOptions) String() string { return proto.CompactTextString(m) }
+func (*IDProvider_GitHubOptions) ProtoMessage()    {}
+func (*IDProvider_GitHubOptions) Descriptor() ([]byte, []int) {
+	return fileDescriptor_15ace9a5d0179ff3, []int{4, 1}
+}
+func (m *IDProvider_GitHubOptions) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *IDProvider_GitHubOptions) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_IDProvider_GitHubOptions.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *IDProvider_GitHubOptions) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_IDProvider_GitHubOptions.Merge(m, src)
+}
+func (m *IDProvider_GitHubOptions) XXX_Size() int {
+	return m.Size()
+}
+func (m *IDProvider_GitHubOptions) XXX_DiscardUnknown() {
+	xxx_messageInfo_IDProvider_GitHubOptions.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_IDProvider_GitHubOptions proto.InternalMessageInfo
+
 // Configure Pachyderm's auth system (particularly authentication backends
 type AuthConfig struct {
 	// live_config_version identifies the version of a given pachyderm cluster's
@@ -465,7 +514,7 @@ func (m *AuthConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_AuthConfig.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -552,7 +601,7 @@ func (m *AuthConfig_SAMLServiceOptions) XXX_Marshal(b []byte, deterministic bool
 		return xxx_messageInfo_AuthConfig_SAMLServiceOptions.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -626,7 +675,7 @@ func (m *GetConfigurationRequest) XXX_Marshal(b []byte, deterministic bool) ([]b
 		return xxx_messageInfo_GetConfigurationRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -666,7 +715,7 @@ func (m *GetConfigurationResponse) XXX_Marshal(b []byte, deterministic bool) ([]
 		return xxx_messageInfo_GetConfigurationResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -713,7 +762,7 @@ func (m *SetConfigurationRequest) XXX_Marshal(b []byte, deterministic bool) ([]b
 		return xxx_messageInfo_SetConfigurationRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -759,7 +808,7 @@ func (m *SetConfigurationResponse) XXX_Marshal(b []byte, deterministic bool) ([]
 		return xxx_messageInfo_SetConfigurationResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -799,7 +848,7 @@ func (m *GetAdminsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, er
 		return xxx_messageInfo_GetAdminsRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -840,7 +889,7 @@ func (m *GetAdminsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, e
 		return xxx_messageInfo_GetAdminsResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -889,7 +938,7 @@ func (m *ModifyAdminsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte,
 		return xxx_messageInfo_ModifyAdminsRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -942,7 +991,7 @@ func (m *ModifyAdminsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte
 		return xxx_messageInfo_ModifyAdminsResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -992,7 +1041,7 @@ func (m *OTPInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_OTPInfo.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1051,7 +1100,7 @@ func (m *TokenInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_TokenInfo.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1114,7 +1163,7 @@ func (m *AuthenticateRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte,
 		return xxx_messageInfo_AuthenticateRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1171,7 +1220,7 @@ func (m *AuthenticateResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte
 		return xxx_messageInfo_AuthenticateResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1217,7 +1266,7 @@ func (m *WhoAmIRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return xxx_messageInfo_WhoAmIRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1259,7 +1308,7 @@ func (m *WhoAmIResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, erro
 		return xxx_messageInfo_WhoAmIResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1324,7 +1373,7 @@ func (m *ACL) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_ACL.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1371,7 +1420,7 @@ func (m *Users) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Users.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1418,7 +1467,7 @@ func (m *Groups) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Groups.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1468,7 +1517,7 @@ func (m *AuthorizeRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, er
 		return xxx_messageInfo_AuthorizeRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1525,7 +1574,7 @@ func (m *AuthorizeResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, e
 		return xxx_messageInfo_AuthorizeResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1580,7 +1629,7 @@ func (m *GetScopeRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, err
 		return xxx_messageInfo_GetScopeRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1637,7 +1686,7 @@ func (m *GetScopeResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, er
 		return xxx_messageInfo_GetScopeResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1695,7 +1744,7 @@ func (m *SetScopeRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, err
 		return xxx_messageInfo_SetScopeRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1755,7 +1804,7 @@ func (m *SetScopeResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, er
 		return xxx_messageInfo_SetScopeResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1795,7 +1844,7 @@ func (m *GetACLRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return xxx_messageInfo_GetACLRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1848,7 +1897,7 @@ func (m *ACLEntry) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_ACLEntry.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1915,7 +1964,7 @@ func (m *GetACLResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, erro
 		return xxx_messageInfo_GetACLResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1970,7 +2019,7 @@ func (m *SetACLRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return xxx_messageInfo_SetACLRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2023,7 +2072,7 @@ func (m *SetACLResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, erro
 		return xxx_messageInfo_SetACLResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2046,7 +2095,8 @@ type GetAuthTokenRequest struct {
 	// The returned token will allow the caller to access resources as this
 	// subject
 	Subject string `protobuf:"bytes,1,opt,name=subject,proto3" json:"subject,omitempty"`
-	// ttl indicates the approximate remaining lifetime of this token, in seconds
+	// ttl indicates the requested (approximate) remaining lifetime of this token,
+	// in seconds
 	TTL                  int64    `protobuf:"varint,2,opt,name=ttl,proto3" json:"ttl,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -2067,7 +2117,7 @@ func (m *GetAuthTokenRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte,
 		return xxx_messageInfo_GetAuthTokenRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2124,7 +2174,7 @@ func (m *GetAuthTokenResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte
 		return xxx_messageInfo_GetAuthTokenResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2181,7 +2231,7 @@ func (m *ExtendAuthTokenRequest) XXX_Marshal(b []byte, deterministic bool) ([]by
 		return xxx_messageInfo_ExtendAuthTokenRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2234,7 +2284,7 @@ func (m *ExtendAuthTokenResponse) XXX_Marshal(b []byte, deterministic bool) ([]b
 		return xxx_messageInfo_ExtendAuthTokenResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2274,7 +2324,7 @@ func (m *RevokeAuthTokenRequest) XXX_Marshal(b []byte, deterministic bool) ([]by
 		return xxx_messageInfo_RevokeAuthTokenRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2320,7 +2370,7 @@ func (m *RevokeAuthTokenResponse) XXX_Marshal(b []byte, deterministic bool) ([]b
 		return xxx_messageInfo_RevokeAuthTokenResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2361,7 +2411,7 @@ func (m *SetGroupsForUserRequest) XXX_Marshal(b []byte, deterministic bool) ([]b
 		return xxx_messageInfo_SetGroupsForUserRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2414,7 +2464,7 @@ func (m *SetGroupsForUserResponse) XXX_Marshal(b []byte, deterministic bool) ([]
 		return xxx_messageInfo_SetGroupsForUserResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2456,7 +2506,7 @@ func (m *ModifyMembersRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte
 		return xxx_messageInfo_ModifyMembersRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2516,7 +2566,7 @@ func (m *ModifyMembersResponse) XXX_Marshal(b []byte, deterministic bool) ([]byt
 		return xxx_messageInfo_ModifyMembersResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2556,7 +2606,7 @@ func (m *GetGroupsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, er
 		return xxx_messageInfo_GetGroupsRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2603,7 +2653,7 @@ func (m *GetGroupsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, e
 		return xxx_messageInfo_GetGroupsResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2650,7 +2700,7 @@ func (m *GetUsersRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, err
 		return xxx_messageInfo_GetUsersRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2697,7 +2747,7 @@ func (m *GetUsersResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, er
 		return xxx_messageInfo_GetUsersResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2733,7 +2783,10 @@ type GetOneTimePasswordRequest struct {
 	// If the caller is not an admin, GetOneTimePassword() will return an
 	// authentication code for the caller if username is unset or set to the
 	// caller's username (and will return an error otherwise)
-	Subject              string   `protobuf:"bytes,1,opt,name=subject,proto3" json:"subject,omitempty"`
+	Subject string `protobuf:"bytes,1,opt,name=subject,proto3" json:"subject,omitempty"`
+	// ttl indicates the requested (approximate) remaining lifetime of this token,
+	// in seconds
+	TTL                  int64    `protobuf:"varint,2,opt,name=ttl,proto3" json:"ttl,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -2753,7 +2806,7 @@ func (m *GetOneTimePasswordRequest) XXX_Marshal(b []byte, deterministic bool) ([
 		return xxx_messageInfo_GetOneTimePasswordRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2779,11 +2832,23 @@ func (m *GetOneTimePasswordRequest) GetSubject() string {
 	return ""
 }
 
+func (m *GetOneTimePasswordRequest) GetTTL() int64 {
+	if m != nil {
+		return m.TTL
+	}
+	return 0
+}
+
 type GetOneTimePasswordResponse struct {
-	Code                 string   `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	// 'code' is the string that must be presented in
+	// AuthenticateRequest.one_time_password to login as
+	// GetOneTimePasswordRequest.subject
+	Code string `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
+	// expiration is the time at which the token in 'code' will expire
+	OTPExpiration        *types.Timestamp `protobuf:"bytes,2,opt,name=otp_expiration,json=otpExpiration,proto3" json:"otp_expiration,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
+	XXX_unrecognized     []byte           `json:"-"`
+	XXX_sizecache        int32            `json:"-"`
 }
 
 func (m *GetOneTimePasswordResponse) Reset()         { *m = GetOneTimePasswordResponse{} }
@@ -2800,7 +2865,7 @@ func (m *GetOneTimePasswordResponse) XXX_Marshal(b []byte, deterministic bool) (
 		return xxx_messageInfo_GetOneTimePasswordResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2826,6 +2891,13 @@ func (m *GetOneTimePasswordResponse) GetCode() string {
 	return ""
 }
 
+func (m *GetOneTimePasswordResponse) GetOTPExpiration() *types.Timestamp {
+	if m != nil {
+		return m.OTPExpiration
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterEnum("auth.Scope", Scope_name, Scope_value)
 	proto.RegisterEnum("auth.TokenInfo_TokenSource", TokenInfo_TokenSource_name, TokenInfo_TokenSource_value)
@@ -2835,6 +2907,7 @@ func init() {
 	proto.RegisterType((*DeactivateResponse)(nil), "auth.DeactivateResponse")
 	proto.RegisterType((*IDProvider)(nil), "auth.IDProvider")
 	proto.RegisterType((*IDProvider_SAMLOptions)(nil), "auth.IDProvider.SAMLOptions")
+	proto.RegisterType((*IDProvider_GitHubOptions)(nil), "auth.IDProvider.GitHubOptions")
 	proto.RegisterType((*AuthConfig)(nil), "auth.AuthConfig")
 	proto.RegisterType((*AuthConfig_SAMLServiceOptions)(nil), "auth.AuthConfig.SAMLServiceOptions")
 	proto.RegisterType((*GetConfigurationRequest)(nil), "auth.GetConfigurationRequest")
@@ -2889,125 +2962,128 @@ func init() {
 func init() { proto.RegisterFile("client/auth/auth.proto", fileDescriptor_15ace9a5d0179ff3) }
 
 var fileDescriptor_15ace9a5d0179ff3 = []byte{
-	// 1876 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x58, 0x5b, 0x73, 0xe3, 0x48,
-	0x15, 0x8e, 0xed, 0xc4, 0x97, 0x63, 0x27, 0x76, 0x3a, 0x5e, 0xc7, 0xd1, 0xee, 0x24, 0x41, 0xa9,
-	0x62, 0xc3, 0x52, 0xe5, 0x0c, 0x19, 0x06, 0x96, 0x1d, 0x0a, 0x70, 0x12, 0xaf, 0xd7, 0x8b, 0x73,
-	0x41, 0xf2, 0xcc, 0x2c, 0xbc, 0xb8, 0x64, 0xa9, 0xc7, 0x11, 0x63, 0x5b, 0x46, 0x17, 0x33, 0xe1,
-	0x05, 0xfe, 0x05, 0x3c, 0xc1, 0xbf, 0xa1, 0x78, 0x84, 0x3f, 0x90, 0xa2, 0x4c, 0xf1, 0x3f, 0xb6,
-	0xfa, 0x26, 0xb7, 0x64, 0x39, 0x93, 0x9d, 0x97, 0xa4, 0xfb, 0x5c, 0xbe, 0x3e, 0x7d, 0xba, 0xfb,
-	0x7c, 0x47, 0x86, 0x9a, 0x39, 0xb2, 0xf1, 0xc4, 0x3f, 0x31, 0x02, 0xff, 0x96, 0xfe, 0x69, 0x4c,
-	0x5d, 0xc7, 0x77, 0xd0, 0x3a, 0x19, 0x2b, 0xd5, 0xa1, 0x33, 0x74, 0xa8, 0xe0, 0x84, 0x8c, 0x98,
-	0x4e, 0x39, 0x18, 0x3a, 0xce, 0x70, 0x84, 0x4f, 0xe8, 0x6c, 0x10, 0xbc, 0x39, 0xf1, 0xed, 0x31,
-	0xf6, 0x7c, 0x63, 0x3c, 0x65, 0x06, 0x6a, 0x1f, 0xca, 0x4d, 0xd3, 0xb7, 0x67, 0x86, 0x8f, 0x35,
-	0xfc, 0x87, 0x00, 0x7b, 0x3e, 0xaa, 0x43, 0xce, 0x0b, 0x06, 0xbf, 0xc7, 0xa6, 0x5f, 0x4f, 0x1f,
-	0xa6, 0x8e, 0x0b, 0x9a, 0x98, 0xa2, 0x53, 0x28, 0x0d, 0x6d, 0xff, 0x36, 0x18, 0xf4, 0x7d, 0xe7,
-	0x2d, 0x9e, 0xd4, 0x53, 0x44, 0x7d, 0x56, 0x9e, 0xdf, 0x1f, 0x14, 0xdb, 0xb6, 0xff, 0x55, 0x30,
-	0xe8, 0x11, 0xb1, 0x56, 0x64, 0x46, 0x74, 0xa2, 0xfe, 0x08, 0x2a, 0x8b, 0x05, 0xbc, 0xa9, 0x33,
-	0xf1, 0x30, 0x7a, 0x02, 0x30, 0x35, 0xcc, 0x5b, 0x19, 0x45, 0x2b, 0x10, 0x09, 0x73, 0xd9, 0x81,
-	0xed, 0x0b, 0x6c, 0x44, 0xa3, 0x52, 0xab, 0x80, 0x64, 0x21, 0x43, 0x52, 0xff, 0x91, 0x06, 0xe8,
-	0x5c, 0xdc, 0xb8, 0xce, 0xcc, 0xb6, 0xb0, 0x8b, 0x10, 0xac, 0x4f, 0x8c, 0x31, 0xe6, 0x90, 0x74,
-	0x8c, 0x0e, 0xa1, 0x68, 0x61, 0xcf, 0x74, 0xed, 0xa9, 0x6f, 0x3b, 0x13, 0xbe, 0x25, 0x59, 0x84,
-	0xbe, 0x80, 0x75, 0xcf, 0x18, 0x8f, 0xea, 0x99, 0xc3, 0xd4, 0x71, 0xf1, 0xf4, 0x93, 0x06, 0xcd,
-	0xed, 0x02, 0xb5, 0xa1, 0x37, 0x2f, 0xbb, 0xd7, 0xd4, 0xd4, 0x3b, 0xcb, 0xcf, 0xef, 0x0f, 0xd6,
-	0x89, 0x40, 0xa3, 0x3e, 0xca, 0xdf, 0x53, 0x50, 0x94, 0xf4, 0x24, 0x45, 0x63, 0xec, 0x1b, 0x96,
-	0xe1, 0x1b, 0xfd, 0xc0, 0x1d, 0xc9, 0x29, 0xba, 0xe4, 0xf2, 0x97, 0x5a, 0x57, 0x2b, 0x0a, 0xa3,
-	0x97, 0xee, 0x28, 0xe2, 0xf3, 0x6e, 0x3c, 0xa2, 0x21, 0x96, 0xa2, 0x3e, 0xdf, 0x5c, 0x4a, 0x3e,
-	0xdf, 0x8c, 0x47, 0xe8, 0x53, 0x28, 0x0f, 0x5d, 0x27, 0x98, 0xf6, 0x0d, 0xdf, 0x77, 0xed, 0x41,
-	0xe0, 0x63, 0x1a, 0x7e, 0x41, 0xdb, 0xa2, 0xe2, 0xa6, 0x90, 0xaa, 0xff, 0xc9, 0x00, 0x34, 0x03,
-	0xff, 0xf6, 0xdc, 0x99, 0xbc, 0xb1, 0x87, 0xa8, 0x01, 0x3b, 0x23, 0x7b, 0x86, 0xfb, 0x26, 0x9d,
-	0xf6, 0x67, 0xd8, 0xf5, 0x48, 0x56, 0x48, 0x98, 0x19, 0x6d, 0x9b, 0xa8, 0x98, 0xe1, 0x2b, 0xa6,
-	0x40, 0x17, 0x50, 0xb2, 0xad, 0xfe, 0x94, 0xa7, 0xc2, 0xab, 0xa7, 0x0f, 0x33, 0xc7, 0xc5, 0xd3,
-	0x4a, 0x3c, 0x47, 0x2c, 0xda, 0xc5, 0xdc, 0xd3, 0x8a, 0xb6, 0x15, 0x4e, 0x10, 0x86, 0x0a, 0xc9,
-	0x56, 0xdf, 0x9b, 0x99, 0x7d, 0x87, 0x65, 0x8a, 0x67, 0xfb, 0x88, 0x21, 0x2d, 0x22, 0xa4, 0xd9,
-	0xd6, 0xb1, 0x3b, 0xb3, 0x4d, 0x2c, 0x92, 0x5e, 0x9b, 0xdf, 0x1f, 0xa0, 0x65, 0xb9, 0xb6, 0x45,
-	0x40, 0xf5, 0x99, 0xc9, 0xe7, 0xca, 0xff, 0x53, 0x90, 0x60, 0x86, 0x8e, 0x20, 0x67, 0x98, 0x9e,
-	0x74, 0x1c, 0x30, 0xbf, 0x3f, 0xc8, 0x36, 0xcf, 0x75, 0x72, 0x12, 0x59, 0xc3, 0xf4, 0xe2, 0x87,
-	0x40, 0x2c, 0xd3, 0x8f, 0x38, 0xb8, 0xef, 0x43, 0xde, 0x32, 0xbc, 0x5b, 0x6a, 0x4f, 0xb3, 0x7f,
-	0x56, 0x9c, 0xdf, 0x1f, 0xe4, 0x2e, 0x0c, 0xef, 0x96, 0xd8, 0xe6, 0x88, 0x92, 0xd8, 0xfd, 0x00,
-	0x2a, 0x1e, 0xf6, 0x48, 0x3e, 0xfb, 0x56, 0xe0, 0x1a, 0xf4, 0x1e, 0xae, 0xd3, 0xd3, 0x2a, 0x73,
-	0xf9, 0x05, 0x17, 0xa3, 0x23, 0xd8, 0xb4, 0xf0, 0x20, 0x18, 0xf6, 0x47, 0xce, 0x70, 0x68, 0x4f,
-	0x86, 0xf5, 0x8d, 0xc3, 0xd4, 0x71, 0x5e, 0x2b, 0x51, 0x61, 0x97, 0xc9, 0xd4, 0x3d, 0xd8, 0x6d,
-	0x63, 0x9f, 0xe5, 0x8b, 0x3b, 0x8a, 0x67, 0xa2, 0x41, 0x7d, 0x59, 0xc5, 0x9f, 0xdd, 0x4f, 0x60,
-	0xd3, 0x94, 0x15, 0x34, 0x1b, 0xe1, 0x61, 0x2e, 0x8e, 0x40, 0x8b, 0x9a, 0xa9, 0xbf, 0x81, 0x5d,
-	0x3d, 0x79, 0xb9, 0x0f, 0x86, 0x54, 0xa0, 0xae, 0xaf, 0x08, 0x53, 0x45, 0x50, 0x69, 0x63, 0xbf,
-	0x69, 0x8d, 0xed, 0x89, 0x27, 0xb6, 0xf5, 0x43, 0xd8, 0x96, 0x64, 0x7c, 0x3f, 0x35, 0xc8, 0x1a,
-	0x54, 0x52, 0x4f, 0x1d, 0x66, 0x8e, 0x0b, 0x1a, 0x9f, 0xa9, 0xbf, 0x84, 0x9d, 0x4b, 0xc7, 0xb2,
-	0xdf, 0xdc, 0x45, 0x30, 0x50, 0x05, 0x32, 0x86, 0x65, 0x71, 0x5b, 0x32, 0x24, 0x00, 0x2e, 0x1e,
-	0x3b, 0x33, 0x4c, 0xaf, 0x75, 0x41, 0xe3, 0x33, 0xb5, 0x06, 0xd5, 0x28, 0x00, 0x8f, 0x6c, 0x02,
-	0xb9, 0xeb, 0xde, 0x4d, 0x67, 0xf2, 0xc6, 0x91, 0x8b, 0x64, 0x2a, 0x5a, 0x24, 0x3b, 0x80, 0xc4,
-	0x61, 0xe3, 0x77, 0x53, 0x9b, 0xe7, 0x25, 0x4d, 0xf3, 0xa2, 0x34, 0x58, 0x3d, 0x6e, 0x88, 0x7a,
-	0xdc, 0xe8, 0x89, 0x7a, 0xac, 0x6d, 0x73, 0xaf, 0x56, 0xe8, 0xa4, 0xfe, 0x35, 0x05, 0x05, 0x5a,
-	0x12, 0xdf, 0xb3, 0xe4, 0x33, 0xc8, 0x7a, 0x4e, 0xe0, 0x9a, 0x98, 0x2e, 0xb3, 0x75, 0xfa, 0x31,
-	0x4b, 0x7f, 0xe8, 0xca, 0x46, 0x3a, 0x35, 0xd1, 0xb8, 0xa9, 0xfa, 0x02, 0x8a, 0x92, 0x18, 0x15,
-	0x21, 0xd7, 0xb9, 0x7a, 0xd5, 0xec, 0x76, 0x2e, 0x2a, 0x6b, 0xa8, 0x02, 0xa5, 0xe6, 0xcb, 0xde,
-	0x57, 0xad, 0xab, 0x5e, 0xe7, 0xbc, 0xd9, 0x6b, 0x55, 0x52, 0x68, 0x13, 0x0a, 0xed, 0x56, 0xaf,
-	0xdf, 0xbb, 0xfe, 0x75, 0xeb, 0xaa, 0x92, 0x56, 0x03, 0xd8, 0x21, 0x87, 0x8b, 0x27, 0xbe, 0x6d,
-	0x4a, 0xd4, 0xf1, 0x01, 0x04, 0x81, 0x3e, 0x83, 0x6d, 0x67, 0x82, 0xfb, 0x84, 0x98, 0xfa, 0x53,
-	0xc3, 0xf3, 0xfe, 0xe8, 0xb8, 0x16, 0xaf, 0xd2, 0x65, 0x67, 0x82, 0x49, 0x82, 0x6e, 0xb8, 0x58,
-	0x7d, 0x0e, 0xd5, 0xe8, 0xb2, 0x8f, 0x23, 0x94, 0x32, 0x6c, 0xbe, 0xbe, 0x75, 0x9a, 0xe3, 0x8e,
-	0xb8, 0x4e, 0x03, 0xd8, 0x12, 0x02, 0x8e, 0xa0, 0x40, 0x3e, 0xf0, 0xb0, 0x2b, 0xb1, 0x47, 0x38,
-	0x47, 0x7b, 0x90, 0xb7, 0xbd, 0x3e, 0xbd, 0x5c, 0x34, 0xb0, 0xbc, 0x96, 0xb3, 0x3d, 0x7a, 0x35,
-	0xd0, 0x1e, 0x64, 0x7c, 0x9f, 0x3d, 0xfe, 0xcc, 0x59, 0x6e, 0x7e, 0x7f, 0x90, 0xe9, 0xf5, 0xba,
-	0x1a, 0x91, 0xa9, 0x7f, 0x49, 0x41, 0xa6, 0x79, 0xde, 0x45, 0x4f, 0x21, 0x87, 0x27, 0xbe, 0x6b,
-	0x63, 0x76, 0x4d, 0x8b, 0xa7, 0x35, 0xfe, 0x38, 0xce, 0xbb, 0x8d, 0x16, 0x53, 0x90, 0x7f, 0x77,
-	0x9a, 0x30, 0x53, 0xda, 0x50, 0x92, 0x15, 0xe4, 0xe2, 0xbe, 0xc5, 0x77, 0x3c, 0x2c, 0x32, 0x44,
-	0xdf, 0x83, 0x8d, 0x99, 0x31, 0x0a, 0xc4, 0x79, 0x17, 0x19, 0xa2, 0x6e, 0x3a, 0x53, 0xac, 0x31,
-	0xcd, 0x17, 0xe9, 0xcf, 0x53, 0xea, 0x9f, 0x61, 0xe3, 0xa5, 0x47, 0xea, 0xef, 0xe7, 0x50, 0x10,
-	0xbb, 0x11, 0x51, 0x28, 0xcc, 0x87, 0xea, 0xe9, 0x5f, 0xaa, 0x64, 0x91, 0x2c, 0x8c, 0x95, 0x9f,
-	0xc3, 0x56, 0x54, 0x99, 0x10, 0x4d, 0x55, 0x8e, 0x26, 0x2f, 0x07, 0x10, 0x40, 0xb6, 0x4d, 0xe8,
-	0xc8, 0x43, 0x4f, 0x21, 0x4b, 0x89, 0x49, 0x2c, 0x5f, 0x67, 0xcb, 0x33, 0x2d, 0xff, 0xc7, 0x16,
-	0xe7, 0x76, 0xca, 0xcf, 0xa0, 0x28, 0x89, 0xbf, 0xd3, 0xb2, 0x1d, 0xa8, 0x90, 0x6b, 0xe2, 0xb8,
-	0xf6, 0x9f, 0xc2, 0xab, 0x89, 0x60, 0xdd, 0xc5, 0x53, 0x47, 0xb4, 0x06, 0x64, 0x4c, 0xd2, 0xe8,
-	0x91, 0x9c, 0x25, 0xa6, 0x91, 0x6a, 0xd4, 0x67, 0xb0, 0x2d, 0x41, 0xf1, 0xcb, 0xb2, 0x0f, 0x60,
-	0x08, 0xa1, 0x45, 0x11, 0xf3, 0x9a, 0x24, 0x51, 0xcf, 0xa1, 0xdc, 0xc6, 0x3e, 0xc3, 0xe1, 0xcb,
-	0x3f, 0x74, 0xbf, 0xaa, 0xb0, 0x41, 0xc2, 0xf1, 0x78, 0x15, 0x62, 0x13, 0xf5, 0xa7, 0xb4, 0x0c,
-	0x72, 0x10, 0xbe, 0xf0, 0x11, 0x64, 0x69, 0x58, 0x2c, 0x8b, 0xb1, 0x88, 0xb9, 0x4a, 0xb5, 0xa0,
-	0xac, 0x7f, 0x87, 0xd5, 0x45, 0x62, 0xd2, 0x49, 0x89, 0xc9, 0xac, 0x4c, 0x0c, 0x82, 0x8a, 0x1e,
-	0x0b, 0x4f, 0x3d, 0x82, 0x4d, 0x52, 0xa5, 0xcf, 0xbb, 0x0f, 0x24, 0x5d, 0xed, 0x40, 0xbe, 0x79,
-	0xde, 0x65, 0x87, 0xfa, 0x50, 0x5c, 0x8f, 0x38, 0x1c, 0x07, 0xb6, 0xc4, 0x7a, 0x3c, 0x41, 0xc7,
-	0xf1, 0xc7, 0xb6, 0x15, 0x3e, 0xb6, 0xe8, 0x23, 0x43, 0xcf, 0x60, 0xd3, 0x75, 0x06, 0x8e, 0xdf,
-	0x17, 0xf6, 0xe9, 0x44, 0xfb, 0x12, 0x35, 0xe2, 0xcf, 0x51, 0xbd, 0x84, 0x4d, 0xfd, 0x7d, 0x1b,
-	0x94, 0x63, 0x48, 0x3f, 0x18, 0x83, 0x5a, 0x81, 0x2d, 0x3d, 0x12, 0xbf, 0xfa, 0x35, 0xec, 0x90,
-	0x1d, 0x05, 0x3e, 0xab, 0x5c, 0x09, 0x2d, 0x79, 0xac, 0xf4, 0xf3, 0x02, 0x94, 0x4e, 0x28, 0x40,
-	0x5f, 0x42, 0x35, 0x8a, 0xc5, 0x73, 0xb4, 0xba, 0xbf, 0xaf, 0xc2, 0x86, 0x5c, 0x41, 0xd9, 0x44,
-	0xed, 0x40, 0xad, 0xf5, 0xce, 0xc7, 0x13, 0x6b, 0x29, 0xac, 0x44, 0xfb, 0x87, 0x42, 0xda, 0x83,
-	0xdd, 0x25, 0x28, 0xbe, 0xf3, 0x06, 0xd4, 0x34, 0x3c, 0x73, 0xde, 0xe2, 0xc7, 0xad, 0x42, 0xa0,
-	0x96, 0xec, 0x39, 0xd4, 0x25, 0xed, 0x57, 0x58, 0xf1, 0xf8, 0xd2, 0x71, 0x49, 0xfd, 0x7a, 0xcc,
-	0x43, 0xa8, 0x85, 0x25, 0x8a, 0x77, 0x03, 0x6c, 0xc6, 0x7b, 0x95, 0x18, 0x1c, 0x5f, 0xea, 0x95,
-	0xe8, 0x14, 0x2e, 0xf1, 0x78, 0x40, 0xda, 0xde, 0x45, 0xcc, 0xd4, 0x5b, 0xc4, 0x4c, 0x27, 0xa2,
-	0x03, 0x49, 0x27, 0x75, 0x20, 0x99, 0x48, 0x07, 0xb2, 0x0b, 0x1f, 0xc5, 0x70, 0xc3, 0x34, 0x91,
-	0xaa, 0xc0, 0x82, 0x79, 0xc4, 0xa6, 0x78, 0xe3, 0x24, 0xec, 0x17, 0x8d, 0x93, 0x54, 0x8c, 0x17,
-	0x3b, 0xfd, 0x94, 0xd6, 0x2d, 0x4a, 0x09, 0x0f, 0x6e, 0x44, 0x7d, 0x4a, 0xa3, 0xe0, 0x86, 0x1c,
-	0xf4, 0x93, 0x38, 0xc7, 0x14, 0x24, 0x1e, 0x51, 0x9f, 0xc3, 0x5e, 0x1b, 0xfb, 0xd7, 0x51, 0x3e,
-	0x7f, 0xef, 0xf5, 0x56, 0x9f, 0x82, 0x92, 0xe4, 0xc6, 0x97, 0x44, 0xb0, 0x6e, 0x3a, 0x56, 0xf8,
-	0xb9, 0x47, 0xc6, 0x9f, 0xfd, 0x18, 0x36, 0x68, 0x8d, 0x40, 0x79, 0x58, 0xbf, 0xba, 0xbe, 0x6a,
-	0x55, 0xd6, 0x10, 0x40, 0x56, 0x6b, 0x35, 0x2f, 0x5a, 0x5a, 0x25, 0x45, 0xc6, 0xaf, 0xb5, 0x4e,
-	0xaf, 0xa5, 0x55, 0xd2, 0xa8, 0x00, 0x1b, 0xd7, 0xaf, 0xaf, 0x5a, 0x5a, 0x25, 0x73, 0xfa, 0xcf,
-	0x22, 0x64, 0x9a, 0x37, 0x1d, 0xf4, 0x02, 0xf2, 0xe2, 0x6b, 0x15, 0x7d, 0xc4, 0x9f, 0x6d, 0xf4,
-	0x43, 0x54, 0xa9, 0xc5, 0xc5, 0xfc, 0x64, 0xd6, 0x50, 0x13, 0x60, 0xf1, 0x89, 0x8a, 0x76, 0x99,
-	0xdd, 0xd2, 0x97, 0xac, 0x52, 0x5f, 0x56, 0x84, 0x10, 0x3a, 0x4d, 0x6c, 0xa4, 0x2f, 0x46, 0x4f,
-	0x38, 0x55, 0x26, 0xb7, 0xe0, 0xca, 0xfe, 0x2a, 0xb5, 0x0c, 0xaa, 0xaf, 0x00, 0xd5, 0x1f, 0x06,
-	0xd5, 0x57, 0x83, 0xfe, 0x02, 0x0a, 0x61, 0x47, 0x8e, 0x6a, 0x61, 0x0c, 0x91, 0x96, 0x5b, 0xd9,
-	0x5d, 0x92, 0x87, 0xfe, 0x6d, 0x28, 0xc9, 0x3d, 0x36, 0xda, 0x63, 0xa6, 0x09, 0x8d, 0xbb, 0xa2,
-	0x24, 0xa9, 0x64, 0x20, 0xb9, 0x27, 0x14, 0x40, 0x09, 0xed, 0xa9, 0x00, 0x4a, 0x6a, 0x21, 0xd9,
-	0x8e, 0x42, 0xaa, 0x17, 0x3b, 0x8a, 0xb7, 0x11, 0x62, 0x47, 0x4b, 0x3d, 0x81, 0xba, 0x86, 0x9e,
-	0x43, 0x96, 0x35, 0x95, 0x68, 0x87, 0x19, 0x45, 0x7a, 0x4e, 0xa5, 0x1a, 0x15, 0x86, 0x6e, 0x2f,
-	0x20, 0x2f, 0x78, 0x5e, 0x5c, 0xb9, 0x58, 0xf3, 0xa0, 0xd4, 0xe2, 0x62, 0xd9, 0x59, 0x8f, 0x39,
-	0xeb, 0xc9, 0xce, 0xfa, 0xb2, 0xf3, 0x73, 0xc8, 0x32, 0xfa, 0x14, 0x01, 0x47, 0xc8, 0x5b, 0x04,
-	0x1c, 0x65, 0x58, 0xe6, 0xa6, 0x47, 0xdc, 0xf4, 0x24, 0x37, 0x3d, 0xee, 0xd6, 0x86, 0x92, 0x4c,
-	0x47, 0xe2, 0x9c, 0x12, 0xe8, 0x4e, 0x9c, 0x53, 0x12, 0x7b, 0xa9, 0x6b, 0xe8, 0x06, 0xca, 0x31,
-	0x12, 0x41, 0xfc, 0x37, 0x9b, 0x64, 0x9a, 0x52, 0x9e, 0xac, 0xd0, 0xca, 0x88, 0x31, 0x2e, 0x11,
-	0x88, 0xc9, 0x94, 0x24, 0x10, 0x57, 0x11, 0x90, 0x78, 0x72, 0x11, 0xce, 0x90, 0x9e, 0x5c, 0x12,
-	0x35, 0x49, 0x4f, 0x2e, 0x99, 0x6a, 0xd6, 0xd0, 0xd7, 0xb0, 0x19, 0x21, 0x05, 0x14, 0x79, 0x18,
-	0x51, 0x06, 0x52, 0x3e, 0x4e, 0xd4, 0xc5, 0x9e, 0x2f, 0x6f, 0xce, 0x17, 0xf7, 0x2b, 0x42, 0x2c,
-	0xd2, 0xf3, 0x8d, 0x12, 0x48, 0x78, 0x6b, 0xd9, 0xd7, 0xc5, 0xe2, 0xd6, 0xca, 0xd4, 0x21, 0xdd,
-	0xda, 0x08, 0x51, 0xa8, 0x6b, 0xe8, 0xb7, 0x80, 0x96, 0xab, 0x3a, 0x3a, 0x08, 0xed, 0x93, 0x69,
-	0x42, 0x39, 0x5c, 0x6d, 0x20, 0xa0, 0xcf, 0x7e, 0xf5, 0xaf, 0xf9, 0x7e, 0xea, 0xdf, 0xf3, 0xfd,
-	0xd4, 0x7f, 0xe7, 0xfb, 0xa9, 0xbf, 0xfd, 0x6f, 0x7f, 0xed, 0x77, 0x0d, 0xf6, 0xb1, 0xd9, 0x30,
-	0x9d, 0xf1, 0x09, 0xf9, 0x24, 0xbc, 0xb3, 0xb0, 0x2b, 0x8f, 0x3c, 0xd7, 0x3c, 0x91, 0x7e, 0x59,
-	0x1d, 0x64, 0xe9, 0xb7, 0xf9, 0xb3, 0x6f, 0x03, 0x00, 0x00, 0xff, 0xff, 0x95, 0x7a, 0x93, 0xa2,
-	0x6f, 0x15, 0x00, 0x00,
+	// 1934 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x58, 0xdd, 0x72, 0xe3, 0x48,
+	0x15, 0x8e, 0xed, 0xc4, 0xb1, 0x8f, 0xe3, 0x9f, 0x74, 0xbc, 0x8e, 0xa3, 0xdd, 0x89, 0x83, 0xa6,
+	0x8a, 0x0d, 0x4b, 0x95, 0x33, 0x64, 0x18, 0x58, 0x76, 0x28, 0xc0, 0x49, 0xbc, 0x5e, 0x2f, 0xce,
+	0x0f, 0x92, 0x67, 0x66, 0xe1, 0xc6, 0x25, 0x4b, 0x3d, 0x8e, 0x18, 0xdb, 0x32, 0xfa, 0x31, 0x33,
+	0xdc, 0xc0, 0x15, 0xaf, 0x00, 0x57, 0x3c, 0x0e, 0xc5, 0x25, 0xbc, 0x40, 0x8a, 0x32, 0xc5, 0x1b,
+	0xf0, 0x00, 0x54, 0xff, 0xc9, 0x2d, 0x59, 0xce, 0x66, 0x76, 0x6f, 0x12, 0xf5, 0xf9, 0xf9, 0xfa,
+	0xf4, 0x39, 0xa7, 0xcf, 0x39, 0x6d, 0xa8, 0x99, 0x63, 0x1b, 0x4f, 0xfd, 0x13, 0x23, 0xf0, 0x6f,
+	0xe9, 0x9f, 0xe6, 0xcc, 0x75, 0x7c, 0x07, 0x6d, 0x92, 0x6f, 0xa5, 0x3a, 0x72, 0x46, 0x0e, 0x25,
+	0x9c, 0x90, 0x2f, 0xc6, 0x53, 0x1a, 0x23, 0xc7, 0x19, 0x8d, 0xf1, 0x09, 0x5d, 0x0d, 0x83, 0xd7,
+	0x27, 0xbe, 0x3d, 0xc1, 0x9e, 0x6f, 0x4c, 0x66, 0x4c, 0x40, 0x1d, 0x40, 0xb9, 0x65, 0xfa, 0xf6,
+	0xdc, 0xf0, 0xb1, 0x86, 0x7f, 0x17, 0x60, 0xcf, 0x47, 0x75, 0xd8, 0xf6, 0x82, 0xe1, 0x6f, 0xb1,
+	0xe9, 0xd7, 0xd3, 0x47, 0xa9, 0xe3, 0xbc, 0x26, 0x96, 0xe8, 0x14, 0x76, 0x46, 0xb6, 0x7f, 0x1b,
+	0x0c, 0x07, 0xbe, 0xf3, 0x06, 0x4f, 0xeb, 0x29, 0xc2, 0x3e, 0x2b, 0x2f, 0xee, 0x1a, 0x85, 0x8e,
+	0xed, 0x7f, 0x11, 0x0c, 0xfb, 0x84, 0xac, 0x15, 0x98, 0x10, 0x5d, 0xa8, 0x3f, 0x80, 0xca, 0x72,
+	0x03, 0x6f, 0xe6, 0x4c, 0x3d, 0x8c, 0x1e, 0x01, 0xcc, 0x0c, 0xf3, 0x56, 0x46, 0xd1, 0xf2, 0x84,
+	0xc2, 0x54, 0xf6, 0x60, 0xf7, 0x02, 0x1b, 0x51, 0xab, 0xd4, 0x2a, 0x20, 0x99, 0xc8, 0x90, 0xd4,
+	0xff, 0xa5, 0x01, 0xba, 0x17, 0x37, 0xae, 0x33, 0xb7, 0x2d, 0xec, 0x22, 0x04, 0x9b, 0x53, 0x63,
+	0x82, 0x39, 0x24, 0xfd, 0x46, 0x47, 0x50, 0xb0, 0xb0, 0x67, 0xba, 0xf6, 0xcc, 0xb7, 0x9d, 0x29,
+	0x3f, 0x92, 0x4c, 0x42, 0x9f, 0xc1, 0xa6, 0x67, 0x4c, 0xc6, 0xf5, 0xcc, 0x51, 0xea, 0xb8, 0x70,
+	0xfa, 0x51, 0x93, 0xfa, 0x76, 0x89, 0xda, 0xd4, 0x5b, 0x97, 0xbd, 0x6b, 0x2a, 0xea, 0x9d, 0xe5,
+	0x16, 0x77, 0x8d, 0x4d, 0x42, 0xd0, 0xa8, 0x0e, 0x3a, 0x83, 0x2c, 0x3b, 0x6d, 0x7d, 0x93, 0x6a,
+	0x1f, 0xae, 0x68, 0x33, 0xcf, 0x08, 0x7d, 0x58, 0xdc, 0x35, 0xb2, 0x8c, 0xa4, 0x71, 0x4d, 0xe5,
+	0x6f, 0x29, 0x28, 0x48, 0x7b, 0x10, 0x37, 0x4f, 0xb0, 0x6f, 0x58, 0x86, 0x6f, 0x0c, 0x02, 0x77,
+	0x2c, 0xbb, 0xf9, 0x92, 0xd3, 0x5f, 0x68, 0x3d, 0xad, 0x20, 0x84, 0x5e, 0xb8, 0xe3, 0x88, 0xce,
+	0xdb, 0xc9, 0x98, 0x1e, 0x73, 0x27, 0xaa, 0xf3, 0xd5, 0xa5, 0xa4, 0xf3, 0xd5, 0x64, 0x8c, 0x3e,
+	0x86, 0xf2, 0xc8, 0x75, 0x82, 0xd9, 0xc0, 0xf0, 0x7d, 0xd7, 0x1e, 0x06, 0x3e, 0xa6, 0x2e, 0xc8,
+	0x6b, 0x25, 0x4a, 0x6e, 0x09, 0xaa, 0x52, 0x86, 0x62, 0xe4, 0x14, 0xea, 0xbf, 0x32, 0x00, 0xad,
+	0xc0, 0xbf, 0x3d, 0x77, 0xa6, 0xaf, 0xed, 0x11, 0x6a, 0xc2, 0xde, 0xd8, 0x9e, 0xe3, 0x81, 0x49,
+	0x97, 0x83, 0x39, 0x76, 0x3d, 0xe2, 0x6a, 0x62, 0x77, 0x46, 0xdb, 0x25, 0x2c, 0x26, 0xf8, 0x92,
+	0x31, 0xd0, 0x05, 0xec, 0xd8, 0xd6, 0x60, 0xc6, 0x3d, 0xe4, 0xd5, 0xd3, 0x47, 0x99, 0xe3, 0xc2,
+	0x69, 0x25, 0xee, 0x3a, 0x66, 0xfe, 0x72, 0xed, 0x69, 0x05, 0xdb, 0x0a, 0x17, 0x08, 0x43, 0x85,
+	0x84, 0x60, 0xe0, 0xcd, 0xcd, 0x81, 0xc3, 0x0c, 0xe3, 0x21, 0x7c, 0xcc, 0x90, 0x96, 0x16, 0xd2,
+	0x10, 0xea, 0xd8, 0x9d, 0xdb, 0x26, 0x16, 0x91, 0xa8, 0x2d, 0xee, 0x1a, 0x68, 0x95, 0xae, 0x95,
+	0x08, 0xa8, 0x3e, 0x37, 0xf9, 0x5a, 0xf9, 0x6f, 0x0a, 0x12, 0xc4, 0xd0, 0x63, 0xd8, 0x36, 0x4c,
+	0x4f, 0x8a, 0x0f, 0x8d, 0x6c, 0xeb, 0x5c, 0x27, 0xa1, 0xc9, 0x1a, 0xa6, 0x17, 0x8f, 0x0a, 0x91,
+	0x4c, 0x3f, 0x20, 0x92, 0xdf, 0x85, 0x9c, 0x65, 0x78, 0xb7, 0x54, 0x9e, 0x86, 0xe3, 0xac, 0xb0,
+	0xb8, 0x6b, 0x6c, 0x5f, 0x18, 0xde, 0x2d, 0x91, 0xdd, 0x26, 0x4c, 0x22, 0xf7, 0x3d, 0xa8, 0x78,
+	0xd8, 0x23, 0xfe, 0x1c, 0x58, 0x81, 0x6b, 0xd0, 0xe4, 0xde, 0xa4, 0xe1, 0x2b, 0x73, 0xfa, 0x05,
+	0x27, 0xa3, 0xc7, 0x50, 0xb4, 0xf0, 0x30, 0x18, 0x0d, 0xc6, 0xce, 0x68, 0x64, 0x4f, 0x47, 0xf5,
+	0xad, 0xa3, 0xd4, 0x71, 0x4e, 0xdb, 0xa1, 0xc4, 0x1e, 0xa3, 0xa9, 0x07, 0xb0, 0xdf, 0xc1, 0x3e,
+	0xf3, 0x17, 0x57, 0x14, 0x77, 0x4f, 0x83, 0xfa, 0x2a, 0x8b, 0xdf, 0xe5, 0x1f, 0x41, 0xd1, 0x94,
+	0x19, 0xd4, 0x1b, 0x61, 0x30, 0x97, 0x21, 0xd0, 0xa2, 0x62, 0xea, 0xaf, 0x60, 0x5f, 0x4f, 0xde,
+	0xee, 0x1b, 0x43, 0x2a, 0x50, 0xd7, 0xd7, 0x98, 0xa9, 0x22, 0xa8, 0x74, 0xb0, 0xdf, 0xb2, 0x26,
+	0xf6, 0xd4, 0x13, 0xc7, 0xfa, 0x3e, 0xec, 0x4a, 0x34, 0x7e, 0x9e, 0x1a, 0x64, 0x0d, 0x4a, 0xa9,
+	0xa7, 0x8e, 0x32, 0xc7, 0x79, 0x8d, 0xaf, 0xd4, 0x9f, 0xc3, 0xde, 0xa5, 0x63, 0xd9, 0xaf, 0xdf,
+	0x45, 0x30, 0x50, 0x05, 0x32, 0x86, 0x65, 0x71, 0x59, 0xf2, 0x49, 0x00, 0x5c, 0x3c, 0x71, 0xe6,
+	0x98, 0xa6, 0x75, 0x5e, 0xe3, 0x2b, 0xb5, 0x06, 0xd5, 0x28, 0x00, 0xb7, 0x6c, 0x0a, 0xdb, 0xd7,
+	0xfd, 0x9b, 0xee, 0xf4, 0xb5, 0x23, 0x57, 0xde, 0x54, 0xb4, 0xf2, 0x76, 0x01, 0x89, 0x60, 0xe3,
+	0xb7, 0x33, 0x9b, 0xfb, 0x25, 0x4d, 0xfd, 0xa2, 0x34, 0x59, 0x91, 0x6f, 0x8a, 0x22, 0xdf, 0xec,
+	0x8b, 0x22, 0xaf, 0xed, 0x72, 0xad, 0x76, 0xa8, 0xa4, 0xfe, 0x25, 0x05, 0x79, 0x5a, 0x67, 0xbf,
+	0x66, 0xcb, 0xa7, 0x90, 0xf5, 0x9c, 0xc0, 0x35, 0x31, 0xdd, 0xa6, 0x74, 0xfa, 0x21, 0x73, 0x7f,
+	0xa8, 0xca, 0xbe, 0x74, 0x2a, 0xa2, 0x71, 0x51, 0xf5, 0x39, 0x14, 0x24, 0x32, 0x2a, 0xc0, 0x76,
+	0xf7, 0xea, 0x65, 0xab, 0xd7, 0xbd, 0xa8, 0x6c, 0xa0, 0x0a, 0xec, 0xb4, 0x5e, 0xf4, 0xbf, 0x68,
+	0x5f, 0xf5, 0xbb, 0xe7, 0xad, 0x7e, 0xbb, 0x92, 0x42, 0x45, 0xc8, 0x77, 0xda, 0xfd, 0x41, 0xff,
+	0xfa, 0x97, 0xed, 0xab, 0x4a, 0x5a, 0x0d, 0x60, 0x8f, 0x04, 0x17, 0x4f, 0x7d, 0xdb, 0x94, 0xfa,
+	0xd1, 0x37, 0xe8, 0x3a, 0xe8, 0x13, 0xd8, 0x75, 0xa6, 0x78, 0x40, 0xba, 0xdd, 0x60, 0x66, 0x78,
+	0xde, 0xef, 0x1d, 0xd7, 0xe2, 0xa5, 0xbf, 0xec, 0x4c, 0x31, 0x71, 0xd0, 0x0d, 0x27, 0xab, 0xcf,
+	0xa0, 0x1a, 0xdd, 0xf6, 0x61, 0x5d, 0xaa, 0x0c, 0xc5, 0x57, 0xb7, 0x4e, 0x6b, 0xd2, 0x15, 0xe9,
+	0x34, 0x84, 0x92, 0x20, 0x70, 0x04, 0x05, 0x72, 0x81, 0x87, 0x5d, 0xa9, 0x25, 0x85, 0x6b, 0x74,
+	0x00, 0x39, 0xdb, 0x1b, 0xd0, 0xe4, 0xa2, 0x86, 0xe5, 0xb4, 0x6d, 0xdb, 0xa3, 0xa9, 0x81, 0x0e,
+	0x20, 0xe3, 0xfb, 0xec, 0xf2, 0x67, 0xce, 0xb6, 0x17, 0x77, 0x8d, 0x4c, 0xbf, 0xdf, 0xd3, 0x08,
+	0x4d, 0xfd, 0x53, 0x0a, 0x32, 0xad, 0xf3, 0x1e, 0x7a, 0x02, 0xdb, 0x78, 0xea, 0xbb, 0x36, 0x66,
+	0x69, 0x5a, 0x38, 0xad, 0xf1, 0xcb, 0x71, 0xde, 0x6b, 0xb6, 0x19, 0x83, 0xfc, 0x7b, 0xa7, 0x09,
+	0x31, 0xa5, 0x03, 0x3b, 0x32, 0x83, 0x24, 0xee, 0x1b, 0xfc, 0x8e, 0x9b, 0x45, 0x3e, 0xd1, 0x77,
+	0x60, 0x6b, 0x6e, 0x8c, 0x03, 0x11, 0xef, 0x02, 0x43, 0xd4, 0x4d, 0x67, 0x86, 0x35, 0xc6, 0xf9,
+	0x2c, 0xfd, 0x69, 0x4a, 0xfd, 0x23, 0x6c, 0xbd, 0xf0, 0x48, 0xfd, 0xfd, 0x14, 0xf2, 0xe2, 0x34,
+	0xc2, 0x0a, 0x85, 0xe9, 0x50, 0x3e, 0xfd, 0x4b, 0x99, 0xcc, 0x92, 0xa5, 0xb0, 0xf2, 0x53, 0x28,
+	0x45, 0x99, 0x09, 0xd6, 0x54, 0x65, 0x6b, 0x72, 0xb2, 0x01, 0x01, 0x64, 0x3b, 0xa4, 0x3f, 0x79,
+	0xe8, 0x09, 0x64, 0x69, 0xa7, 0x12, 0xdb, 0xd7, 0xd9, 0xf6, 0x8c, 0xcb, 0xff, 0xb1, 0xcd, 0xb9,
+	0x9c, 0xf2, 0x13, 0x28, 0x48, 0xe4, 0xf7, 0xda, 0xb6, 0x0b, 0x15, 0x92, 0x26, 0x8e, 0x6b, 0xff,
+	0x21, 0x4c, 0x4d, 0x04, 0x9b, 0x2e, 0x9e, 0x39, 0x62, 0xde, 0x20, 0xdf, 0xc4, 0x8d, 0x1e, 0xf1,
+	0x59, 0xa2, 0x1b, 0x29, 0x47, 0x7d, 0x0a, 0xbb, 0x12, 0x14, 0x4f, 0x96, 0x43, 0x00, 0x43, 0x10,
+	0x2d, 0x8a, 0x98, 0xd3, 0x24, 0x8a, 0x7a, 0x0e, 0xe5, 0x0e, 0xf6, 0x19, 0x0e, 0xdf, 0xfe, 0xbe,
+	0xfc, 0xaa, 0xc2, 0x16, 0x31, 0xc7, 0xe3, 0x55, 0x88, 0x2d, 0xd4, 0x1f, 0xd3, 0x32, 0xc8, 0x41,
+	0xf8, 0xc6, 0x8f, 0x21, 0x4b, 0xcd, 0x62, 0x5e, 0x8c, 0x59, 0xcc, 0x59, 0xaa, 0x05, 0x65, 0xfd,
+	0x3d, 0x76, 0x17, 0x8e, 0x49, 0x27, 0x39, 0x26, 0xb3, 0xd6, 0x31, 0x08, 0x2a, 0x7a, 0xcc, 0x3c,
+	0xf5, 0x31, 0x14, 0x49, 0x95, 0x3e, 0xef, 0xdd, 0xe3, 0x74, 0xb5, 0x0b, 0xb9, 0xd6, 0x79, 0x8f,
+	0x05, 0xf5, 0x3e, 0xbb, 0x1e, 0x10, 0x1c, 0x07, 0x4a, 0x62, 0x3f, 0xee, 0xa0, 0xe3, 0xf8, 0x65,
+	0x2b, 0x85, 0x97, 0x2d, 0x7a, 0xc9, 0xd0, 0x53, 0x28, 0xba, 0xce, 0xd0, 0xf1, 0x07, 0x42, 0x3e,
+	0x9d, 0x28, 0xbf, 0x43, 0x85, 0xf8, 0x75, 0x54, 0x2f, 0xa1, 0xa8, 0x7f, 0xdd, 0x01, 0x65, 0x1b,
+	0xd2, 0xf7, 0xda, 0xa0, 0x56, 0xa0, 0xa4, 0x47, 0xec, 0x57, 0xbf, 0x84, 0x3d, 0x72, 0xa2, 0xc0,
+	0x67, 0x95, 0x2b, 0x61, 0xce, 0x8f, 0x95, 0x7e, 0x5e, 0x80, 0xd2, 0x09, 0x05, 0xe8, 0x73, 0xa8,
+	0x46, 0xb1, 0xb8, 0x8f, 0xd6, 0x3f, 0x1a, 0xaa, 0xb0, 0x25, 0x57, 0x50, 0xb6, 0x50, 0xbb, 0x50,
+	0x6b, 0xbf, 0xf5, 0xf1, 0xd4, 0x5a, 0x31, 0x2b, 0x51, 0xfe, 0x3e, 0x93, 0x0e, 0x60, 0x7f, 0x05,
+	0x8a, 0x9f, 0xbc, 0x09, 0x35, 0x0d, 0xcf, 0x9d, 0x37, 0xf8, 0x61, 0xbb, 0x10, 0xa8, 0x15, 0x79,
+	0x0e, 0x75, 0x49, 0xe7, 0x15, 0x56, 0x3c, 0x3e, 0x77, 0x5c, 0x52, 0xbf, 0x1e, 0x72, 0x11, 0x6a,
+	0x61, 0x89, 0xe2, 0xd3, 0x00, 0x5b, 0xf1, 0x59, 0x25, 0x06, 0xc7, 0xb7, 0x7a, 0x29, 0x26, 0x85,
+	0x4b, 0x3c, 0x19, 0x92, 0xb1, 0x77, 0x69, 0x33, 0xd5, 0x16, 0x36, 0xd3, 0x85, 0x98, 0x40, 0xd2,
+	0x49, 0x13, 0x48, 0x26, 0x32, 0x81, 0xec, 0xc3, 0x07, 0x31, 0xdc, 0xd0, 0x4d, 0xa4, 0x2a, 0x30,
+	0x63, 0x1e, 0x70, 0x28, 0x3e, 0x38, 0x09, 0xf9, 0xe5, 0xe0, 0x24, 0x15, 0xe3, 0xe5, 0x49, 0x3f,
+	0xa6, 0x75, 0x8b, 0xb6, 0x84, 0x7b, 0x0f, 0xa2, 0x3e, 0xa1, 0x56, 0x70, 0x41, 0x0e, 0xfa, 0x51,
+	0xbc, 0xc7, 0xe4, 0xa5, 0x3e, 0xa2, 0xde, 0xc0, 0x41, 0x07, 0xfb, 0xd7, 0xd1, 0x7e, 0xfe, 0xad,
+	0xd2, 0xfb, 0xcf, 0x29, 0x50, 0x92, 0x20, 0xb9, 0x39, 0x08, 0x36, 0x4d, 0xc7, 0x0a, 0xdf, 0x97,
+	0xe4, 0x1b, 0xf5, 0xa1, 0xe4, 0xf8, 0xb3, 0xf7, 0x1a, 0xcb, 0xce, 0x76, 0x17, 0x77, 0x8d, 0xe2,
+	0x75, 0xff, 0x66, 0x39, 0x96, 0x69, 0x45, 0xc7, 0x9f, 0x2d, 0x97, 0x9f, 0xfc, 0x10, 0xb6, 0x68,
+	0x55, 0x42, 0x39, 0xd8, 0xbc, 0xba, 0xbe, 0x6a, 0x57, 0x36, 0x10, 0x40, 0x56, 0x6b, 0xb7, 0x2e,
+	0xda, 0x5a, 0x25, 0x45, 0xbe, 0x5f, 0x69, 0xdd, 0x7e, 0x5b, 0xab, 0xa4, 0x51, 0x1e, 0xb6, 0xae,
+	0x5f, 0x5d, 0xb5, 0xb5, 0x4a, 0xe6, 0xf4, 0xef, 0x05, 0xc8, 0xb4, 0x6e, 0xba, 0xe8, 0x39, 0xe4,
+	0xc4, 0xa3, 0x1b, 0x7d, 0xc0, 0x0b, 0x45, 0xf4, 0x3d, 0xad, 0xd4, 0xe2, 0x64, 0x9e, 0x0b, 0x1b,
+	0xa8, 0x05, 0xb0, 0x7c, 0x69, 0xa3, 0x7d, 0x26, 0xb7, 0xf2, 0x20, 0x57, 0xea, 0xab, 0x8c, 0x10,
+	0x42, 0xa7, 0xa1, 0x8c, 0x4c, 0xe2, 0xe8, 0x11, 0x6f, 0xce, 0xc9, 0x43, 0xbf, 0x72, 0xb8, 0x8e,
+	0x2d, 0x83, 0xea, 0x6b, 0x40, 0xf5, 0xfb, 0x41, 0xf5, 0xf5, 0xa0, 0x3f, 0x83, 0x7c, 0xf8, 0x06,
+	0x40, 0xb5, 0xd0, 0x86, 0xc8, 0x90, 0xaf, 0xec, 0xaf, 0xd0, 0x43, 0xfd, 0x0e, 0xec, 0xc8, 0x53,
+	0x3d, 0x3a, 0x60, 0xa2, 0x09, 0x4f, 0x05, 0x45, 0x49, 0x62, 0xc9, 0x40, 0xf2, 0x14, 0x2a, 0x80,
+	0x12, 0x06, 0x62, 0x01, 0x94, 0x34, 0xb4, 0xb2, 0x13, 0x85, 0xc3, 0x85, 0x38, 0x51, 0x7c, 0x70,
+	0x11, 0x27, 0x5a, 0x99, 0x42, 0xd4, 0x0d, 0xf4, 0x0c, 0xb2, 0x6c, 0x8c, 0x45, 0x7b, 0x4c, 0x28,
+	0x32, 0xe5, 0x2a, 0xd5, 0x28, 0x31, 0x54, 0x7b, 0x0e, 0x39, 0x31, 0x59, 0x88, 0x94, 0x8b, 0x8d,
+	0x2b, 0x4a, 0x2d, 0x4e, 0x96, 0x95, 0xf5, 0x98, 0xb2, 0x9e, 0xac, 0xac, 0xaf, 0x2a, 0x3f, 0x83,
+	0x2c, 0x6b, 0xd8, 0xc2, 0xe0, 0xc8, 0xb8, 0x20, 0x0c, 0x8e, 0xf6, 0x74, 0xa6, 0xa6, 0x47, 0xd4,
+	0xf4, 0x24, 0x35, 0x3d, 0xae, 0xd6, 0x81, 0x1d, 0xb9, 0x01, 0x8a, 0x38, 0x25, 0x34, 0x58, 0x11,
+	0xa7, 0xa4, 0x7e, 0xa9, 0x6e, 0xa0, 0x1b, 0x28, 0xc7, 0xda, 0x16, 0xe2, 0x3f, 0x3d, 0x25, 0x37,
+	0x46, 0xe5, 0xd1, 0x1a, 0xae, 0x8c, 0x18, 0xeb, 0x5e, 0x02, 0x31, 0xb9, 0x09, 0x0a, 0xc4, 0x75,
+	0x2d, 0x4f, 0x5c, 0xb9, 0x48, 0x97, 0x92, 0xae, 0x5c, 0x52, 0x33, 0x94, 0xae, 0x5c, 0x72, 0x73,
+	0xdb, 0x40, 0x5f, 0x42, 0x31, 0xd2, 0x86, 0x50, 0xe4, 0x62, 0x44, 0x7b, 0x9e, 0xf2, 0x61, 0x22,
+	0x2f, 0x76, 0x7d, 0xf9, 0x73, 0x60, 0x99, 0x5f, 0x91, 0x56, 0x26, 0x5d, 0xdf, 0x68, 0xcb, 0x0a,
+	0xb3, 0x96, 0xbd, 0x67, 0x96, 0x59, 0x2b, 0x37, 0x2b, 0x29, 0x6b, 0x23, 0xad, 0x49, 0xdd, 0x40,
+	0xbf, 0x06, 0xb4, 0xda, 0x2b, 0x50, 0x23, 0x94, 0x4f, 0x6e, 0x4c, 0xca, 0xd1, 0x7a, 0x01, 0x01,
+	0x7d, 0xf6, 0x8b, 0x7f, 0x2c, 0x0e, 0x53, 0xff, 0x5c, 0x1c, 0xa6, 0xfe, 0xbd, 0x38, 0x4c, 0xfd,
+	0xf5, 0x3f, 0x87, 0x1b, 0xbf, 0x69, 0xb2, 0xe7, 0x6d, 0xd3, 0x74, 0x26, 0x27, 0xe4, 0x11, 0xfa,
+	0xce, 0xc2, 0xae, 0xfc, 0xe5, 0xb9, 0xe6, 0x89, 0xf4, 0x03, 0xf1, 0x30, 0x4b, 0xdb, 0xce, 0xd3,
+	0xff, 0x07, 0x00, 0x00, 0xff, 0xff, 0xac, 0xa1, 0xfe, 0x33, 0x36, 0x16, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -3823,7 +3899,7 @@ var _API_serviceDesc = grpc.ServiceDesc{
 func (m *ActivateRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -3831,32 +3907,40 @@ func (m *ActivateRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ActivateRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ActivateRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.GitHubToken) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.GitHubToken)))
-		i += copy(dAtA[i:], m.GitHubToken)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Subject) > 0 {
-		dAtA[i] = 0x12
-		i++
+		i -= len(m.Subject)
+		copy(dAtA[i:], m.Subject)
 		i = encodeVarintAuth(dAtA, i, uint64(len(m.Subject)))
-		i += copy(dAtA[i:], m.Subject)
+		i--
+		dAtA[i] = 0x12
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.GitHubToken) > 0 {
+		i -= len(m.GitHubToken)
+		copy(dAtA[i:], m.GitHubToken)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.GitHubToken)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *ActivateResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -3864,26 +3948,33 @@ func (m *ActivateResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ActivateResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ActivateResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.PachToken) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.PachToken)))
-		i += copy(dAtA[i:], m.PachToken)
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if len(m.PachToken) > 0 {
+		i -= len(m.PachToken)
+		copy(dAtA[i:], m.PachToken)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.PachToken)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *DeactivateRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -3891,20 +3982,26 @@ func (m *DeactivateRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *DeactivateRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *DeactivateRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *DeactivateResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -3912,20 +4009,26 @@ func (m *DeactivateResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *DeactivateResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *DeactivateResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *IDProvider) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -3933,42 +4036,64 @@ func (m *IDProvider) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *IDProvider) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *IDProvider) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if len(m.Description) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.Description)))
-		i += copy(dAtA[i:], m.Description)
+	if m.GitHub != nil {
+		{
+			size, err := m.GitHub.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAuth(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x22
 	}
 	if m.SAML != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(m.SAML.Size()))
-		n1, err1 := m.SAML.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
+		{
+			size, err := m.SAML.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAuth(dAtA, i, uint64(size))
 		}
-		i += n1
+		i--
+		dAtA[i] = 0x1a
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Description) > 0 {
+		i -= len(m.Description)
+		copy(dAtA[i:], m.Description)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.Description)))
+		i--
+		dAtA[i] = 0x12
 	}
-	return i, nil
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *IDProvider_SAMLOptions) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -3976,38 +4101,74 @@ func (m *IDProvider_SAMLOptions) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *IDProvider_SAMLOptions) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *IDProvider_SAMLOptions) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.MetadataURL) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.MetadataURL)))
-		i += copy(dAtA[i:], m.MetadataURL)
-	}
-	if len(m.MetadataXML) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.MetadataXML)))
-		i += copy(dAtA[i:], m.MetadataXML)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.GroupAttribute) > 0 {
-		dAtA[i] = 0x1a
-		i++
+		i -= len(m.GroupAttribute)
+		copy(dAtA[i:], m.GroupAttribute)
 		i = encodeVarintAuth(dAtA, i, uint64(len(m.GroupAttribute)))
-		i += copy(dAtA[i:], m.GroupAttribute)
+		i--
+		dAtA[i] = 0x1a
 	}
+	if len(m.MetadataXML) > 0 {
+		i -= len(m.MetadataXML)
+		copy(dAtA[i:], m.MetadataXML)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.MetadataXML)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.MetadataURL) > 0 {
+		i -= len(m.MetadataURL)
+		copy(dAtA[i:], m.MetadataURL)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.MetadataURL)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *IDProvider_GitHubOptions) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *IDProvider_GitHubOptions) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *IDProvider_GitHubOptions) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *AuthConfig) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4015,47 +4176,57 @@ func (m *AuthConfig) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *AuthConfig) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *AuthConfig) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.LiveConfigVersion != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(m.LiveConfigVersion))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if len(m.IDProviders) > 0 {
-		for _, msg := range m.IDProviders {
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintAuth(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
+	if m.SAMLServiceOptions != nil {
+		{
+			size, err := m.SAMLServiceOptions.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
-			i += n
+			i -= size
+			i = encodeVarintAuth(dAtA, i, uint64(size))
 		}
-	}
-	if m.SAMLServiceOptions != nil {
+		i--
 		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(m.SAMLServiceOptions.Size()))
-		n2, err2 := m.SAMLServiceOptions.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
+	}
+	if len(m.IDProviders) > 0 {
+		for iNdEx := len(m.IDProviders) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.IDProviders[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintAuth(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x12
 		}
-		i += n2
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.LiveConfigVersion != 0 {
+		i = encodeVarintAuth(dAtA, i, uint64(m.LiveConfigVersion))
+		i--
+		dAtA[i] = 0x8
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *AuthConfig_SAMLServiceOptions) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4063,54 +4234,64 @@ func (m *AuthConfig_SAMLServiceOptions) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *AuthConfig_SAMLServiceOptions) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *AuthConfig_SAMLServiceOptions) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.ACSURL) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.ACSURL)))
-		i += copy(dAtA[i:], m.ACSURL)
-	}
-	if len(m.MetadataURL) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.MetadataURL)))
-		i += copy(dAtA[i:], m.MetadataURL)
-	}
-	if len(m.DashURL) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.DashURL)))
-		i += copy(dAtA[i:], m.DashURL)
-	}
-	if len(m.SessionDuration) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.SessionDuration)))
-		i += copy(dAtA[i:], m.SessionDuration)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.DebugLogging {
-		dAtA[i] = 0x28
-		i++
+		i--
 		if m.DebugLogging {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x28
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.SessionDuration) > 0 {
+		i -= len(m.SessionDuration)
+		copy(dAtA[i:], m.SessionDuration)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.SessionDuration)))
+		i--
+		dAtA[i] = 0x22
 	}
-	return i, nil
+	if len(m.DashURL) > 0 {
+		i -= len(m.DashURL)
+		copy(dAtA[i:], m.DashURL)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.DashURL)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.MetadataURL) > 0 {
+		i -= len(m.MetadataURL)
+		copy(dAtA[i:], m.MetadataURL)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.MetadataURL)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.ACSURL) > 0 {
+		i -= len(m.ACSURL)
+		copy(dAtA[i:], m.ACSURL)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.ACSURL)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *GetConfigurationRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4118,20 +4299,26 @@ func (m *GetConfigurationRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *GetConfigurationRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GetConfigurationRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *GetConfigurationResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4139,30 +4326,38 @@ func (m *GetConfigurationResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *GetConfigurationResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GetConfigurationResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Configuration != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(m.Configuration.Size()))
-		n3, err3 := m.Configuration.MarshalTo(dAtA[i:])
-		if err3 != nil {
-			return 0, err3
-		}
-		i += n3
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.Configuration != nil {
+		{
+			size, err := m.Configuration.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAuth(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *SetConfigurationRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4170,30 +4365,38 @@ func (m *SetConfigurationRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *SetConfigurationRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *SetConfigurationRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Configuration != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(m.Configuration.Size()))
-		n4, err4 := m.Configuration.MarshalTo(dAtA[i:])
-		if err4 != nil {
-			return 0, err4
-		}
-		i += n4
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.Configuration != nil {
+		{
+			size, err := m.Configuration.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAuth(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *SetConfigurationResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4201,20 +4404,26 @@ func (m *SetConfigurationResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *SetConfigurationResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *SetConfigurationResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *GetAdminsRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4222,20 +4431,26 @@ func (m *GetAdminsRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *GetAdminsRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GetAdminsRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *GetAdminsResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4243,35 +4458,35 @@ func (m *GetAdminsResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *GetAdminsResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GetAdminsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	if len(m.Admins) > 0 {
-		for _, s := range m.Admins {
+		for iNdEx := len(m.Admins) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Admins[iNdEx])
+			copy(dAtA[i:], m.Admins[iNdEx])
+			i = encodeVarintAuth(dAtA, i, uint64(len(m.Admins[iNdEx])))
+			i--
 			dAtA[i] = 0xa
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *ModifyAdminsRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4279,50 +4494,44 @@ func (m *ModifyAdminsRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ModifyAdminsRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ModifyAdminsRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Add) > 0 {
-		for _, s := range m.Add {
-			dAtA[i] = 0xa
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
-		}
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Remove) > 0 {
-		for _, s := range m.Remove {
+		for iNdEx := len(m.Remove) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Remove[iNdEx])
+			copy(dAtA[i:], m.Remove[iNdEx])
+			i = encodeVarintAuth(dAtA, i, uint64(len(m.Remove[iNdEx])))
+			i--
 			dAtA[i] = 0x12
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Add) > 0 {
+		for iNdEx := len(m.Add) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Add[iNdEx])
+			copy(dAtA[i:], m.Add[iNdEx])
+			i = encodeVarintAuth(dAtA, i, uint64(len(m.Add[iNdEx])))
+			i--
+			dAtA[i] = 0xa
+		}
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *ModifyAdminsResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4330,20 +4539,26 @@ func (m *ModifyAdminsResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ModifyAdminsResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ModifyAdminsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *OTPInfo) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4351,36 +4566,45 @@ func (m *OTPInfo) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *OTPInfo) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *OTPInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Subject) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.Subject)))
-		i += copy(dAtA[i:], m.Subject)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.SessionExpiration != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(m.SessionExpiration.Size()))
-		n5, err5 := m.SessionExpiration.MarshalTo(dAtA[i:])
-		if err5 != nil {
-			return 0, err5
+		{
+			size, err := m.SessionExpiration.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAuth(dAtA, i, uint64(size))
 		}
-		i += n5
+		i--
+		dAtA[i] = 0x12
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Subject) > 0 {
+		i -= len(m.Subject)
+		copy(dAtA[i:], m.Subject)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.Subject)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *TokenInfo) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4388,31 +4612,38 @@ func (m *TokenInfo) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *TokenInfo) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TokenInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Subject) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.Subject)))
-		i += copy(dAtA[i:], m.Subject)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Source != 0 {
-		dAtA[i] = 0x10
-		i++
 		i = encodeVarintAuth(dAtA, i, uint64(m.Source))
+		i--
+		dAtA[i] = 0x10
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Subject) > 0 {
+		i -= len(m.Subject)
+		copy(dAtA[i:], m.Subject)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.Subject)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *AuthenticateRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4420,32 +4651,40 @@ func (m *AuthenticateRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *AuthenticateRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *AuthenticateRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.GitHubToken) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.GitHubToken)))
-		i += copy(dAtA[i:], m.GitHubToken)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.OneTimePassword) > 0 {
-		dAtA[i] = 0x12
-		i++
+		i -= len(m.OneTimePassword)
+		copy(dAtA[i:], m.OneTimePassword)
 		i = encodeVarintAuth(dAtA, i, uint64(len(m.OneTimePassword)))
-		i += copy(dAtA[i:], m.OneTimePassword)
+		i--
+		dAtA[i] = 0x12
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.GitHubToken) > 0 {
+		i -= len(m.GitHubToken)
+		copy(dAtA[i:], m.GitHubToken)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.GitHubToken)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *AuthenticateResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4453,26 +4692,33 @@ func (m *AuthenticateResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *AuthenticateResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *AuthenticateResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.PachToken) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.PachToken)))
-		i += copy(dAtA[i:], m.PachToken)
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if len(m.PachToken) > 0 {
+		i -= len(m.PachToken)
+		copy(dAtA[i:], m.PachToken)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.PachToken)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *WhoAmIRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4480,20 +4726,26 @@ func (m *WhoAmIRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *WhoAmIRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *WhoAmIRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *WhoAmIResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4501,41 +4753,48 @@ func (m *WhoAmIResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *WhoAmIResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *WhoAmIResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Username) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.Username)))
-		i += copy(dAtA[i:], m.Username)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.TTL != 0 {
+		i = encodeVarintAuth(dAtA, i, uint64(m.TTL))
+		i--
+		dAtA[i] = 0x18
 	}
 	if m.IsAdmin {
-		dAtA[i] = 0x10
-		i++
+		i--
 		if m.IsAdmin {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x10
 	}
-	if m.TTL != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(m.TTL))
+	if len(m.Username) > 0 {
+		i -= len(m.Username)
+		copy(dAtA[i:], m.Username)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.Username)))
+		i--
+		dAtA[i] = 0xa
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *ACL) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4543,36 +4802,43 @@ func (m *ACL) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ACL) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ACL) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	if len(m.Entries) > 0 {
-		for k, _ := range m.Entries {
-			dAtA[i] = 0xa
-			i++
+		for k := range m.Entries {
 			v := m.Entries[k]
-			mapSize := 1 + len(k) + sovAuth(uint64(len(k))) + 1 + sovAuth(uint64(v))
-			i = encodeVarintAuth(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintAuth(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x10
-			i++
+			baseI := i
 			i = encodeVarintAuth(dAtA, i, uint64(v))
+			i--
+			dAtA[i] = 0x10
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintAuth(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintAuth(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0xa
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Users) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4580,41 +4846,48 @@ func (m *Users) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Users) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Users) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	if len(m.Usernames) > 0 {
-		for k, _ := range m.Usernames {
-			dAtA[i] = 0xa
-			i++
+		for k := range m.Usernames {
 			v := m.Usernames[k]
-			mapSize := 1 + len(k) + sovAuth(uint64(len(k))) + 1 + 1
-			i = encodeVarintAuth(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintAuth(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x10
-			i++
+			baseI := i
+			i--
 			if v {
 				dAtA[i] = 1
 			} else {
 				dAtA[i] = 0
 			}
-			i++
+			i--
+			dAtA[i] = 0x10
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintAuth(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintAuth(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0xa
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Groups) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4622,41 +4895,48 @@ func (m *Groups) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Groups) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Groups) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	if len(m.Groups) > 0 {
-		for k, _ := range m.Groups {
-			dAtA[i] = 0xa
-			i++
+		for k := range m.Groups {
 			v := m.Groups[k]
-			mapSize := 1 + len(k) + sovAuth(uint64(len(k))) + 1 + 1
-			i = encodeVarintAuth(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintAuth(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x10
-			i++
+			baseI := i
+			i--
 			if v {
 				dAtA[i] = 1
 			} else {
 				dAtA[i] = 0
 			}
-			i++
+			i--
+			dAtA[i] = 0x10
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintAuth(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintAuth(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0xa
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *AuthorizeRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4664,31 +4944,38 @@ func (m *AuthorizeRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *AuthorizeRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *AuthorizeRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Repo) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.Repo)))
-		i += copy(dAtA[i:], m.Repo)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Scope != 0 {
-		dAtA[i] = 0x10
-		i++
 		i = encodeVarintAuth(dAtA, i, uint64(m.Scope))
+		i--
+		dAtA[i] = 0x10
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Repo) > 0 {
+		i -= len(m.Repo)
+		copy(dAtA[i:], m.Repo)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.Repo)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *AuthorizeResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4696,30 +4983,36 @@ func (m *AuthorizeResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *AuthorizeResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *AuthorizeResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	if m.Authorized {
-		dAtA[i] = 0x8
-		i++
+		i--
 		if m.Authorized {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x8
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *GetScopeRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4727,41 +5020,42 @@ func (m *GetScopeRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *GetScopeRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GetScopeRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Username) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.Username)))
-		i += copy(dAtA[i:], m.Username)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Repos) > 0 {
-		for _, s := range m.Repos {
+		for iNdEx := len(m.Repos) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Repos[iNdEx])
+			copy(dAtA[i:], m.Repos[iNdEx])
+			i = encodeVarintAuth(dAtA, i, uint64(len(m.Repos[iNdEx])))
+			i--
 			dAtA[i] = 0x12
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Username) > 0 {
+		i -= len(m.Username)
+		copy(dAtA[i:], m.Username)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.Username)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *GetScopeResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4769,37 +5063,44 @@ func (m *GetScopeResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *GetScopeResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GetScopeResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	if len(m.Scopes) > 0 {
-		dAtA7 := make([]byte, len(m.Scopes)*10)
-		var j6 int
+		dAtA8 := make([]byte, len(m.Scopes)*10)
+		var j7 int
 		for _, num := range m.Scopes {
 			for num >= 1<<7 {
-				dAtA7[j6] = uint8(uint64(num)&0x7f | 0x80)
+				dAtA8[j7] = uint8(uint64(num)&0x7f | 0x80)
 				num >>= 7
-				j6++
+				j7++
 			}
-			dAtA7[j6] = uint8(num)
-			j6++
+			dAtA8[j7] = uint8(num)
+			j7++
 		}
+		i -= j7
+		copy(dAtA[i:], dAtA8[:j7])
+		i = encodeVarintAuth(dAtA, i, uint64(j7))
+		i--
 		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(j6))
-		i += copy(dAtA[i:], dAtA7[:j6])
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *SetScopeRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4807,37 +5108,45 @@ func (m *SetScopeRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *SetScopeRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *SetScopeRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Username) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.Username)))
-		i += copy(dAtA[i:], m.Username)
-	}
-	if len(m.Repo) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.Repo)))
-		i += copy(dAtA[i:], m.Repo)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Scope != 0 {
-		dAtA[i] = 0x18
-		i++
 		i = encodeVarintAuth(dAtA, i, uint64(m.Scope))
+		i--
+		dAtA[i] = 0x18
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Repo) > 0 {
+		i -= len(m.Repo)
+		copy(dAtA[i:], m.Repo)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.Repo)))
+		i--
+		dAtA[i] = 0x12
 	}
-	return i, nil
+	if len(m.Username) > 0 {
+		i -= len(m.Username)
+		copy(dAtA[i:], m.Username)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.Username)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *SetScopeResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4845,20 +5154,26 @@ func (m *SetScopeResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *SetScopeResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *SetScopeResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *GetACLRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4866,26 +5181,33 @@ func (m *GetACLRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *GetACLRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GetACLRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Repo) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.Repo)))
-		i += copy(dAtA[i:], m.Repo)
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if len(m.Repo) > 0 {
+		i -= len(m.Repo)
+		copy(dAtA[i:], m.Repo)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.Repo)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *ACLEntry) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4893,31 +5215,38 @@ func (m *ACLEntry) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ACLEntry) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ACLEntry) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Username) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.Username)))
-		i += copy(dAtA[i:], m.Username)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Scope != 0 {
-		dAtA[i] = 0x10
-		i++
 		i = encodeVarintAuth(dAtA, i, uint64(m.Scope))
+		i--
+		dAtA[i] = 0x10
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Username) > 0 {
+		i -= len(m.Username)
+		copy(dAtA[i:], m.Username)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.Username)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *GetACLResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4925,44 +5254,54 @@ func (m *GetACLResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *GetACLResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GetACLResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Entries) > 0 {
-		for _, msg := range m.Entries {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintAuth(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.RobotEntries) > 0 {
-		for _, msg := range m.RobotEntries {
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintAuth(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+		for iNdEx := len(m.RobotEntries) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.RobotEntries[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintAuth(dAtA, i, uint64(size))
 			}
-			i += n
+			i--
+			dAtA[i] = 0x12
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Entries) > 0 {
+		for iNdEx := len(m.Entries) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Entries[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintAuth(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *SetACLRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -4970,38 +5309,47 @@ func (m *SetACLRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *SetACLRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *SetACLRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Repo) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.Repo)))
-		i += copy(dAtA[i:], m.Repo)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Entries) > 0 {
-		for _, msg := range m.Entries {
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintAuth(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+		for iNdEx := len(m.Entries) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Entries[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintAuth(dAtA, i, uint64(size))
 			}
-			i += n
+			i--
+			dAtA[i] = 0x12
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Repo) > 0 {
+		i -= len(m.Repo)
+		copy(dAtA[i:], m.Repo)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.Repo)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *SetACLResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -5009,20 +5357,26 @@ func (m *SetACLResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *SetACLResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *SetACLResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *GetAuthTokenRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -5030,31 +5384,38 @@ func (m *GetAuthTokenRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *GetAuthTokenRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GetAuthTokenRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Subject) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.Subject)))
-		i += copy(dAtA[i:], m.Subject)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.TTL != 0 {
-		dAtA[i] = 0x10
-		i++
 		i = encodeVarintAuth(dAtA, i, uint64(m.TTL))
+		i--
+		dAtA[i] = 0x10
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Subject) > 0 {
+		i -= len(m.Subject)
+		copy(dAtA[i:], m.Subject)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.Subject)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *GetAuthTokenResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -5062,32 +5423,40 @@ func (m *GetAuthTokenResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *GetAuthTokenResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GetAuthTokenResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Token) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.Token)))
-		i += copy(dAtA[i:], m.Token)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Subject) > 0 {
-		dAtA[i] = 0x12
-		i++
+		i -= len(m.Subject)
+		copy(dAtA[i:], m.Subject)
 		i = encodeVarintAuth(dAtA, i, uint64(len(m.Subject)))
-		i += copy(dAtA[i:], m.Subject)
+		i--
+		dAtA[i] = 0x12
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Token) > 0 {
+		i -= len(m.Token)
+		copy(dAtA[i:], m.Token)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.Token)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *ExtendAuthTokenRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -5095,31 +5464,38 @@ func (m *ExtendAuthTokenRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ExtendAuthTokenRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ExtendAuthTokenRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Token) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.Token)))
-		i += copy(dAtA[i:], m.Token)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.TTL != 0 {
-		dAtA[i] = 0x10
-		i++
 		i = encodeVarintAuth(dAtA, i, uint64(m.TTL))
+		i--
+		dAtA[i] = 0x10
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Token) > 0 {
+		i -= len(m.Token)
+		copy(dAtA[i:], m.Token)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.Token)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *ExtendAuthTokenResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -5127,20 +5503,26 @@ func (m *ExtendAuthTokenResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ExtendAuthTokenResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ExtendAuthTokenResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *RevokeAuthTokenRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -5148,26 +5530,33 @@ func (m *RevokeAuthTokenRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *RevokeAuthTokenRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *RevokeAuthTokenRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Token) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.Token)))
-		i += copy(dAtA[i:], m.Token)
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if len(m.Token) > 0 {
+		i -= len(m.Token)
+		copy(dAtA[i:], m.Token)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.Token)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *RevokeAuthTokenResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -5175,20 +5564,26 @@ func (m *RevokeAuthTokenResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *RevokeAuthTokenResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *RevokeAuthTokenResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *SetGroupsForUserRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -5196,41 +5591,42 @@ func (m *SetGroupsForUserRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *SetGroupsForUserRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *SetGroupsForUserRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Username) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.Username)))
-		i += copy(dAtA[i:], m.Username)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Groups) > 0 {
-		for _, s := range m.Groups {
+		for iNdEx := len(m.Groups) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Groups[iNdEx])
+			copy(dAtA[i:], m.Groups[iNdEx])
+			i = encodeVarintAuth(dAtA, i, uint64(len(m.Groups[iNdEx])))
+			i--
 			dAtA[i] = 0x12
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Username) > 0 {
+		i -= len(m.Username)
+		copy(dAtA[i:], m.Username)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.Username)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *SetGroupsForUserResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -5238,20 +5634,26 @@ func (m *SetGroupsForUserResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *SetGroupsForUserResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *SetGroupsForUserResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *ModifyMembersRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -5259,56 +5661,51 @@ func (m *ModifyMembersRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ModifyMembersRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ModifyMembersRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Group) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.Group)))
-		i += copy(dAtA[i:], m.Group)
-	}
-	if len(m.Add) > 0 {
-		for _, s := range m.Add {
-			dAtA[i] = 0x12
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
-		}
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Remove) > 0 {
-		for _, s := range m.Remove {
+		for iNdEx := len(m.Remove) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Remove[iNdEx])
+			copy(dAtA[i:], m.Remove[iNdEx])
+			i = encodeVarintAuth(dAtA, i, uint64(len(m.Remove[iNdEx])))
+			i--
 			dAtA[i] = 0x1a
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Add) > 0 {
+		for iNdEx := len(m.Add) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Add[iNdEx])
+			copy(dAtA[i:], m.Add[iNdEx])
+			i = encodeVarintAuth(dAtA, i, uint64(len(m.Add[iNdEx])))
+			i--
+			dAtA[i] = 0x12
+		}
 	}
-	return i, nil
+	if len(m.Group) > 0 {
+		i -= len(m.Group)
+		copy(dAtA[i:], m.Group)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.Group)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *ModifyMembersResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -5316,20 +5713,26 @@ func (m *ModifyMembersResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ModifyMembersResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ModifyMembersResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *GetGroupsRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -5337,26 +5740,33 @@ func (m *GetGroupsRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *GetGroupsRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GetGroupsRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Username) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.Username)))
-		i += copy(dAtA[i:], m.Username)
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if len(m.Username) > 0 {
+		i -= len(m.Username)
+		copy(dAtA[i:], m.Username)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.Username)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *GetGroupsResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -5364,35 +5774,35 @@ func (m *GetGroupsResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *GetGroupsResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GetGroupsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	if len(m.Groups) > 0 {
-		for _, s := range m.Groups {
+		for iNdEx := len(m.Groups) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Groups[iNdEx])
+			copy(dAtA[i:], m.Groups[iNdEx])
+			i = encodeVarintAuth(dAtA, i, uint64(len(m.Groups[iNdEx])))
+			i--
 			dAtA[i] = 0xa
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *GetUsersRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -5400,26 +5810,33 @@ func (m *GetUsersRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *GetUsersRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GetUsersRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Group) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.Group)))
-		i += copy(dAtA[i:], m.Group)
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if len(m.Group) > 0 {
+		i -= len(m.Group)
+		copy(dAtA[i:], m.Group)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.Group)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *GetUsersResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -5427,35 +5844,35 @@ func (m *GetUsersResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *GetUsersResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GetUsersResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	if len(m.Usernames) > 0 {
-		for _, s := range m.Usernames {
+		for iNdEx := len(m.Usernames) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Usernames[iNdEx])
+			copy(dAtA[i:], m.Usernames[iNdEx])
+			i = encodeVarintAuth(dAtA, i, uint64(len(m.Usernames[iNdEx])))
+			i--
 			dAtA[i] = 0xa
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *GetOneTimePasswordRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -5463,26 +5880,38 @@ func (m *GetOneTimePasswordRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *GetOneTimePasswordRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GetOneTimePasswordRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Subject) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.Subject)))
-		i += copy(dAtA[i:], m.Subject)
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.TTL != 0 {
+		i = encodeVarintAuth(dAtA, i, uint64(m.TTL))
+		i--
+		dAtA[i] = 0x10
+	}
+	if len(m.Subject) > 0 {
+		i -= len(m.Subject)
+		copy(dAtA[i:], m.Subject)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.Subject)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *GetOneTimePasswordResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -5490,30 +5919,51 @@ func (m *GetOneTimePasswordResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *GetOneTimePasswordResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GetOneTimePasswordResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Code) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.Code)))
-		i += copy(dAtA[i:], m.Code)
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.OTPExpiration != nil {
+		{
+			size, err := m.OTPExpiration.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAuth(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Code) > 0 {
+		i -= len(m.Code)
+		copy(dAtA[i:], m.Code)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.Code)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintAuth(dAtA []byte, offset int, v uint64) int {
+	offset -= sovAuth(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *ActivateRequest) Size() (n int) {
 	if m == nil {
@@ -5593,6 +6043,10 @@ func (m *IDProvider) Size() (n int) {
 		l = m.SAML.Size()
 		n += 1 + l + sovAuth(uint64(l))
 	}
+	if m.GitHub != nil {
+		l = m.GitHub.Size()
+		n += 1 + l + sovAuth(uint64(l))
+	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -5617,6 +6071,18 @@ func (m *IDProvider_SAMLOptions) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovAuth(uint64(l))
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *IDProvider_GitHubOptions) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -6423,6 +6889,9 @@ func (m *GetOneTimePasswordRequest) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovAuth(uint64(l))
 	}
+	if m.TTL != 0 {
+		n += 1 + sovAuth(uint64(m.TTL))
+	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -6437,6 +6906,10 @@ func (m *GetOneTimePasswordResponse) Size() (n int) {
 	_ = l
 	l = len(m.Code)
 	if l > 0 {
+		n += 1 + l + sovAuth(uint64(l))
+	}
+	if m.OTPExpiration != nil {
+		l = m.OTPExpiration.Size()
 		n += 1 + l + sovAuth(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
@@ -6892,6 +7365,42 @@ func (m *IDProvider) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field GitHub", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAuth
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthAuth
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthAuth
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.GitHub == nil {
+				m.GitHub = &IDProvider_GitHubOptions{}
+			}
+			if err := m.GitHub.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipAuth(dAtA[iNdEx:])
@@ -7044,6 +7553,60 @@ func (m *IDProvider_SAMLOptions) Unmarshal(dAtA []byte) error {
 			}
 			m.GroupAttribute = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipAuth(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthAuth
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthAuth
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *IDProvider_GitHubOptions) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowAuth
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GitHubOptions: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GitHubOptions: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
 		default:
 			iNdEx = preIndex
 			skippy, err := skipAuth(dAtA[iNdEx:])
@@ -11530,6 +12093,25 @@ func (m *GetOneTimePasswordRequest) Unmarshal(dAtA []byte) error {
 			}
 			m.Subject = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TTL", wireType)
+			}
+			m.TTL = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAuth
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.TTL |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipAuth(dAtA[iNdEx:])
@@ -11616,6 +12198,42 @@ func (m *GetOneTimePasswordResponse) Unmarshal(dAtA []byte) error {
 			}
 			m.Code = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field OTPExpiration", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAuth
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthAuth
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthAuth
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.OTPExpiration == nil {
+				m.OTPExpiration = &types.Timestamp{}
+			}
+			if err := m.OTPExpiration.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipAuth(dAtA[iNdEx:])
@@ -11644,6 +12262,7 @@ func (m *GetOneTimePasswordResponse) Unmarshal(dAtA []byte) error {
 func skipAuth(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
+	depth := 0
 	for iNdEx < l {
 		var wire uint64
 		for shift := uint(0); ; shift += 7 {
@@ -11675,10 +12294,8 @@ func skipAuth(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			return iNdEx, nil
 		case 1:
 			iNdEx += 8
-			return iNdEx, nil
 		case 2:
 			var length int
 			for shift := uint(0); ; shift += 7 {
@@ -11699,55 +12316,30 @@ func skipAuth(dAtA []byte) (n int, err error) {
 				return 0, ErrInvalidLengthAuth
 			}
 			iNdEx += length
-			if iNdEx < 0 {
-				return 0, ErrInvalidLengthAuth
-			}
-			return iNdEx, nil
 		case 3:
-			for {
-				var innerWire uint64
-				var start int = iNdEx
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return 0, ErrIntOverflowAuth
-					}
-					if iNdEx >= l {
-						return 0, io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					innerWire |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				innerWireType := int(innerWire & 0x7)
-				if innerWireType == 4 {
-					break
-				}
-				next, err := skipAuth(dAtA[start:])
-				if err != nil {
-					return 0, err
-				}
-				iNdEx = start + next
-				if iNdEx < 0 {
-					return 0, ErrInvalidLengthAuth
-				}
-			}
-			return iNdEx, nil
+			depth++
 		case 4:
-			return iNdEx, nil
+			if depth == 0 {
+				return 0, ErrUnexpectedEndOfGroupAuth
+			}
+			depth--
 		case 5:
 			iNdEx += 4
-			return iNdEx, nil
 		default:
 			return 0, fmt.Errorf("proto: illegal wireType %d", wireType)
 		}
+		if iNdEx < 0 {
+			return 0, ErrInvalidLengthAuth
+		}
+		if depth == 0 {
+			return iNdEx, nil
+		}
 	}
-	panic("unreachable")
+	return 0, io.ErrUnexpectedEOF
 }
 
 var (
-	ErrInvalidLengthAuth = fmt.Errorf("proto: negative length found during unmarshaling")
-	ErrIntOverflowAuth   = fmt.Errorf("proto: integer overflow")
+	ErrInvalidLengthAuth        = fmt.Errorf("proto: negative length found during unmarshaling")
+	ErrIntOverflowAuth          = fmt.Errorf("proto: integer overflow")
+	ErrUnexpectedEndOfGroupAuth = fmt.Errorf("proto: unexpected end of group")
 )

@@ -25,7 +25,7 @@ import (
 )
 
 var (
-	pachClient  *client.APIClient
+	pc          *client.APIClient
 	minioClient *minio.Client
 	clientOnce  sync.Once
 )
@@ -36,19 +36,19 @@ func clients(t testing.TB) (*client.APIClient, *minio.Client) {
 	clientOnce.Do(func() {
 		var err error
 
-		pachClient, err = client.NewOnUserMachine(false, false, "user")
+		pc, err = client.NewForTest()
 		require.NoError(t, err)
 
-		minioClient, err = minio.New("127.0.0.1:30600", "id", "secret", false)
+		minioClient, err = minio.NewV4("127.0.0.1:30600", "", "", false)
 		require.NoError(t, err)
 	})
-	return pachClient, minioClient
+	return pc, minioClient
 }
 
 func getObject(t *testing.T, c *minio.Client, repo, branch, file string) (string, error) {
 	t.Helper()
 
-	obj, err := c.GetObject(fmt.Sprintf("%s.%s", branch, repo), file)
+	obj, err := c.GetObject(fmt.Sprintf("%s.%s", branch, repo), file, minio.GetObjectOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -256,7 +256,7 @@ func TestStatObject(t *testing.T) {
 	require.NoError(t, err)
 	endTime := time.Now().Add(time.Duration(5) * time.Minute)
 
-	info, err := c.StatObject(fmt.Sprintf("master.%s", repo), "file")
+	info, err := c.StatObject(fmt.Sprintf("master.%s", repo), "file", minio.StatObjectOptions{})
 	require.NoError(t, err)
 	require.True(t, startTime.Before(info.LastModified))
 	require.True(t, endTime.After(info.LastModified))
@@ -275,11 +275,13 @@ func TestPutObject(t *testing.T) {
 	require.NoError(t, pc.CreateRepo(repo))
 	require.NoError(t, pc.CreateBranch(repo, "branch", "", nil))
 
-	_, err := c.PutObject(fmt.Sprintf("branch.%s", repo), "file", strings.NewReader("content1"), "text/plain")
+	r := strings.NewReader("content1")
+	_, err := c.PutObject(fmt.Sprintf("branch.%s", repo), "file", r, int64(r.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
 	require.NoError(t, err)
 
 	// this should act as a PFS PutFileOverwrite
-	_, err = c.PutObject(fmt.Sprintf("branch.%s", repo), "file", strings.NewReader("content2"), "text/plain")
+	r2 := strings.NewReader("content2")
+	_, err = c.PutObject(fmt.Sprintf("branch.%s", repo), "file", r2, int64(r2.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
 	require.NoError(t, err)
 
 	fetchedContent, err := getObject(t, c, repo, "branch", "file")
@@ -331,32 +333,28 @@ func TestLargeObjects(t *testing.T) {
 
 	// first ensure that putting into a repo that doesn't exist triggers an
 	// error
-	_, err = c.FPutObject(fmt.Sprintf("master.%s", repo2), "file", inputFile.Name(), "text/plain")
+	_, err = c.FPutObject(fmt.Sprintf("master.%s", repo2), "file", inputFile.Name(), minio.PutObjectOptions{
+		ContentType: "text/plain",
+	})
 	bucketNotFoundError(t, err)
 
 	// now try putting into a legit repo
-	// NOTE: `FPutObject` will try to use multipart uploads since the file
-	// size is over 65mb. Because the s3gateway returns that
-	// multipart-related endpoints are not implemented, minio gracefully
-	// degrades to a standard put object operation. When a standard put
-	// operation is performed, `FPutObject` will return no error assuming
-	// everything went OK. If multipart were ever implemented, `FPutObject`
-	// will default to using that instead, and will return `io.EOF` if
-	// everything went OK instead.
-	l, err := c.FPutObject(fmt.Sprintf("master.%s", repo1), "file", inputFile.Name(), "text/plain")
+	l, err := c.FPutObject(fmt.Sprintf("master.%s", repo1), "file", inputFile.Name(), minio.PutObjectOptions{
+		ContentType: "text/plain",
+	})
 	require.NoError(t, err)
 	require.Equal(t, int(l), 68157450)
 
 	// try getting an object that does not exist
-	err = c.FGetObject(fmt.Sprintf("master.%s", repo2), "file", "foo")
+	err = c.FGetObject(fmt.Sprintf("master.%s", repo2), "file", "foo", minio.GetObjectOptions{})
 	bucketNotFoundError(t, err)
 
 	// get the file that does exist
 	outputFile, err := ioutil.TempFile("", "pachyderm-test-large-objects-output-*")
 	require.NoError(t, err)
 	defer os.Remove(outputFile.Name())
-	err = c.FGetObject(fmt.Sprintf("master.%s", repo1), "file", outputFile.Name())
-	require.NoError(t, err)
+	err = c.FGetObject(fmt.Sprintf("master.%s", repo1), "file", outputFile.Name(), minio.GetObjectOptions{})
+	require.True(t, err == nil || err == io.EOF, fmt.Sprintf("unexpected error: %s", err))
 
 	// compare the files and ensure they're the same
 	// NOTE: Because minio's `FGetObject` does a rename from a buffer file
@@ -647,4 +645,16 @@ func TestListObjectsRecursive(t *testing.T) {
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
 	ch = c.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/subdir/2", true, make(chan struct{}))
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
+}
+
+func TestAuthV2(t *testing.T) {
+	// The other tests use auth V4, versus this which checks auth V2
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	minioClientV2, err := minio.NewV2("127.0.0.1:30600", "", "", false)
+	require.NoError(t, err)
+	_, err = minioClientV2.ListBuckets()
+	require.NoError(t, err)
 }

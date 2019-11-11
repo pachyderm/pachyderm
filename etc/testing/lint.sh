@@ -4,6 +4,9 @@ set -e
 
 go get -u golang.org/x/lint/golint
 for file in $(find "./src" -name '*.go' | grep -v '/vendor/' | grep -v '\.pb\.go'); do
+    if [[ $file == *fileset/tar* ]]; then
+        continue
+    fi
     golint -set_exit_status $file;
 done;
 

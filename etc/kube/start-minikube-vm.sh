@@ -74,8 +74,6 @@ until minikube ip 2>/dev/null; do
 done
 set -x
 
-export PACHD_ADDRESS=$(minikube ip):30650
-
 # Push pachyderm images to minikube VM
 # (extract correct dash image from pachctl deploy)
 dash_image="$(pachctl deploy local -d --dry-run | jq -r '.. | select(.name? == "dash" and has("image")).image')"
@@ -95,6 +93,11 @@ else
   # deploy with -d (disable auth, small footprint), but use official version
   pachctl deploy local -d --dry-run | sed "s/:local/:${PACH_VERSION}/g" | kubectl create -f -
 fi
+
+active_kube_context=`kubectl config current-context`
+pachctl config set context $active_kube_context -k $active_kube_context --overwrite
+pachctl config update context $active_kube_context --pachd-address=$(minikube ip):30650
+pachctl config set active-context $active_kube_context
 
 # Wait for pachyderm to come up
 set +x

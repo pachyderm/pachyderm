@@ -3,6 +3,7 @@ package serviceenv
 import (
 	"errors"
 	"fmt"
+	"math"
 	"net"
 	"os"
 	"time"
@@ -116,7 +117,9 @@ func (env *ServiceEnv) initEtcdClient() error {
 			Endpoints: []string{env.etcdAddress},
 			// Use a long timeout with Etcd so that Pachyderm doesn't crash loop
 			// while waiting for etcd to come up (makes startup net faster)
-			DialOptions: append(client.DefaultDialOptions(), grpc.WithTimeout(3*time.Minute)),
+			DialOptions:        append(client.DefaultDialOptions(), grpc.WithTimeout(3*time.Minute)),
+			MaxCallSendMsgSize: math.MaxInt32,
+			MaxCallRecvMsgSize: math.MaxInt32,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to initialize etcd client: %v", err)

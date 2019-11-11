@@ -2,22 +2,12 @@
 
 set -ex
 
-# Make sure cache dirs exist and are writable
-# Note that this script executes as the user `travis`, vs the pre-install
-# script which executes as `root`. Without `chown`ing `~/cached-deps` (where
-# we store cacheable binaries), any calls to those binaries would fail because
-# they're otherwised owned by `root`.
-#
-# To further complicate things, we update the `PATH` to include
+# Note that we update the `PATH` to include
 # `~/cached-deps` in `.travis.yml`, but this doesn't update the PATH for
 # calls using `sudo`. If you need to make a `sudo` call to a binary in
 # `~/cached-deps`, you'll need to explicitly set the path like so:
 #
 #     sudo env "PATH=$PATH" minikube foo
-#
-mkdir -p ~/.cache/go-build
-sudo chown -R `whoami` ~/.cache/go-build
-sudo chown -R `whoami` ~/cached-deps
 
 kubectl version --client
 etcdctl --version
@@ -50,11 +40,8 @@ kubectl version
 
 echo "Running test suite based on BUCKET=$BUCKET"
 
-PPS_SUITE=`echo $BUCKET | grep PPS > /dev/null; echo $?`
-
 make install
 make docker-build
-make docker-build-kafka
 for i in $(seq 3); do
     make clean-launch-dev || true # may be nothing to delete
     make launch-dev && break
@@ -62,23 +49,49 @@ for i in $(seq 3); do
     sleep 10
 done
 
-go install ./src/testing/match
+pachctl config update context `pachctl config get active-context` --pachd-address=$(minikube ip):30650
 
-if [[ "$BUCKET" == "MISC" ]]; then
+function test_bucket {
+    set +x
+    package="${1}"
+    target="${2}"
+    bucket="${3}"
+    num_buckets="${4}"
+    if (( bucket == 0 )); then
+        echo "Error: bucket should be > 0, but was 0" >/dev/stderr
+        exit 1
+    fi
+
+    echo "Running bucket $bucket of $num_buckets"
+    tests=( $(go test -v  "${package}" -list ".*" | grep -v ok | grep -v Benchmark) )
+    total_tests="${#tests[@]}"
+    # Determine the offset and length of the sub-array of tests we want to run
+    # The last bucket may have a few extra tests, to accommodate rounding errors from bucketing:
+    let \
+        "bucket_size=total_tests/num_buckets" \
+        "start=bucket_size * (bucket-1)" \
+        "bucket_size+=bucket < num_buckets ? 0 : total_tests%num_buckets"
+    test_regex="$(IFS=\|; echo "${tests[*]:start:bucket_size}")"
+    echo "Running ${bucket_size} tests of ${total_tests} total tests"
+    make RUN="-run=\"${test_regex}\"" "${target}"
+    set -x
+}
+
+# Clean cached test results
+go clean -testcache
+
+case "${BUCKET}" in
+ MISC)
     if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
         echo "Running the full misc test suite because secret env vars exist"
         make lint
         make enterprise-code-checkin-test
-        make test-pfs-server
-        make test-pfs-cmds
-        make test-pfs-storage
-        make test-deploy-cmds
+        make test-cmds
         make test-libs
+        make test-tls
         make test-vault
-        make test-auth
         make test-enterprise
         make test-worker
-        make test-admin
         make test-s3gateway-integration
         make test-proto-static
         make test-transaction
@@ -86,48 +99,37 @@ if [[ "$BUCKET" == "MISC" ]]; then
         echo "Running the misc test suite with some tests disabled because secret env vars have not been set"
         make lint
         make enterprise-code-checkin-test
-        make test-pfs-server
-        make test-pfs-cmds
-        make test-pfs-storage
-        make test-deploy-cmds
+        make test-cmds
         make test-libs
-        make test-admin
+        make test-tls
     fi
-elif [[ "$BUCKET" == "EXAMPLES" ]]; then
+    ;;
+ ADMIN)
+    make test-admin
+    ;;
+ EXAMPLES)
     echo "Running the example test suite"
     ./etc/testing/examples.sh
-elif [[ $PPS_SUITE -eq 0 ]]; then
-    set +x
-    PART=`echo $BUCKET | grep -Po '\d+'`
-    NUM_BUCKETS=`cat etc/build/PPS_BUILD_BUCKET_COUNT`
-    echo "Running pps test suite, part $PART of $NUM_BUCKETS"
-    LIST=`go test -v  ./src/server/ -list ".*" | grep -v ok | grep -v Benchmark`
-    COUNT=`echo $LIST | tr " " "\n" | wc -l`
-    BUCKET_SIZE=$(( $COUNT / $NUM_BUCKETS ))
-    MIN=$(( $BUCKET_SIZE * $(( $PART - 1 )) ))
-    #The last bucket may have a few extra tests, to accommodate rounding errors from bucketing:
-    MAX=$COUNT
-    if [[ $PART -ne $NUM_BUCKETS ]]; then
-        MAX=$(( $MIN + $BUCKET_SIZE ))
+    ;;
+ PFS)
+    make test-pfs-server
+    make test-pfs-storage
+    ;;
+ PPS?)
+    make docker-build-kafka
+    bucket_num="${BUCKET#PPS}"
+    test_bucket "./src/server" test-pps "${bucket_num}" "${PPS_BUCKETS}"
+    if [[ "${bucket_num}" -eq "${PPS_BUCKETS}" ]]; then
+      go test -v -count=1 ./src/server/pps/server -timeout 3600s
     fi
-
-    RUN=""
-    INDEX=0
-
-    for test in $LIST; do
-        if [[ $INDEX -ge $MIN ]] && [[ $INDEX -lt $MAX ]] ; then
-            if [[ "$RUN" == "" ]]; then
-                RUN=$test
-            else
-                RUN="$RUN|$test"
-            fi
-        fi
-        INDEX=$(( $INDEX + 1 ))
-    done
-    echo "Running $( echo $RUN | tr '|' '\n' | wc -l ) tests of $COUNT total tests"
-    set -x
-    make RUN=-run=\"$RUN\" test-pps-helper
-else
+    ;;
+ AUTH?)
+    bucket_num="${BUCKET#AUTH}"
+    test_bucket "./src/server/auth/server" test-auth "${bucket_num}" "${AUTH_BUCKETS}"
+    set +x
+    ;;
+ *)
     echo "Unknown bucket"
     exit 1
-fi
+    ;;
+esac

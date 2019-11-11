@@ -1,37 +1,59 @@
 dist: xenial
 sudo: required
 services:
-- docker
+  - docker
 cache:
   directories:
-    - $HOME/.cache/go-build
-    - $HOME/cached-deps
+    # If any directories are added here, they must also be added to
+    # etc/testing/travis_cache.sh
+    - ${HOME}/.cache
+    - ${HOME}/cached-deps
 language: go
 go:
-- "1.11.1"
+  - "1.13.1"
 env:
   global:
-    - PATH=$HOME/cached-deps:$PATH
+    - PATH=${HOME}/cached-deps:${PATH}
+    - PPS_BUCKETS=6
+    - AUTH_BUCKETS=2
+    # Disable Go modules: we use go mod to track deps but keep everything in
+    # the top-level 'vendor' directory rather than 'go-get'ing all modules
+    # every time
+    - GO111MODULE=off
   matrix:
     - BUCKET=MISC
-    # If you want to update the number of PPS workers, you'll also need to update
-    # the value in ./etc/build/PPS_BUILD_BUCKET_COUNT
+    # If you want to update the number of PPS or auth buckets, you'll neet to
+    # update the value of PPS_BUCKETS or AUTH_BUCKETS above
+    - BUCKET=ADMIN
+    - BUCKET=AUTH1
+    - BUCKET=AUTH2
+    - BUCKET=PFS
     - BUCKET=PPS1
     - BUCKET=PPS2
     - BUCKET=PPS3
+    - BUCKET=PPS4
+    - BUCKET=PPS5
+    - BUCKET=PPS6
     - BUCKET=EXAMPLES
 before_install:
-- sudo etc/testing/travis_before_install.sh
+  # Make sure cache dirs exist and are writable
+  - etc/testing/travis_cache.sh
+install:
+  - etc/testing/travis_install.sh
 before_script:
-- docker version
+  - docker version
 script:
-- etc/testing/travis.sh
+  - etc/testing/travis.sh
+before_cache:
+  # Make sure cache dirs have the necessary permissions for Travis to traverse
+  # & copy them all elsewhere
+  - etc/testing/travis_cache.sh
 after_failure:
-- kubectl version
-- kubectl get all
-- kubectl get all --namespace kafka
-- kubectl describe pod -l app=pachd
-- kubectl describe pod -l suite=pachyderm,app=etcd
-- kubectl logs -l app=pachd | tail -n 100
+  - kubectl version
+  - kubectl get all
+  - kubectl get all --namespace kafka
+  - kubectl describe pod -l app=pachd
+  - kubectl describe pod -l suite=pachyderm,app=etcd
+  - kubectl logs -l app=pachd | tail -n 100
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd

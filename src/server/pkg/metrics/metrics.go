@@ -89,15 +89,13 @@ func (r *Reporter) reportUserAction(ctx context.Context, action string, value in
 
 // Helper method called by (Start|Finish)ReportAndFlushUserAction. Like those
 // functions, it is used by the pachctl binary and runs on users' machines
-// TODO(msteffen): Wrap config parsing in a library
 func reportAndFlushUserAction(action string, value interface{}) func() {
 	metricsDone := make(chan struct{})
 	go func() {
 		client := newSegmentClient()
 		defer client.Close()
-		cfg, err := config.Read()
-		if err != nil || cfg == nil || cfg.UserID == "" {
-			// metrics errors are non fatal
+		cfg, _ := config.Read()
+		if cfg == nil || cfg.UserID == "" || !cfg.V2.Metrics {
 			return
 		}
 		reportUserMetricsToSegment(client, cfg.UserID, "user", action, value, "")

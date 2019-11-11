@@ -27,7 +27,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type DeleteAllRequest struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -49,7 +49,7 @@ func (m *DeleteAllRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, er
 		return xxx_messageInfo_DeleteAllRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -97,7 +97,7 @@ func (m *TransactionRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, 
 		return xxx_messageInfo_TransactionRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -194,7 +194,7 @@ func (m *TransactionResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte,
 		return xxx_messageInfo_TransactionResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -241,7 +241,7 @@ func (m *Transaction) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) 
 		return xxx_messageInfo_Transaction.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -291,7 +291,7 @@ func (m *TransactionInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, err
 		return xxx_messageInfo_TransactionInfo.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -359,7 +359,7 @@ func (m *TransactionInfos) XXX_Marshal(b []byte, deterministic bool) ([]byte, er
 		return xxx_messageInfo_TransactionInfos.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -405,7 +405,7 @@ func (m *StartTransactionRequest) XXX_Marshal(b []byte, deterministic bool) ([]b
 		return xxx_messageInfo_StartTransactionRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -445,7 +445,7 @@ func (m *InspectTransactionRequest) XXX_Marshal(b []byte, deterministic bool) ([
 		return xxx_messageInfo_InspectTransactionRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -492,7 +492,7 @@ func (m *DeleteTransactionRequest) XXX_Marshal(b []byte, deterministic bool) ([]
 		return xxx_messageInfo_DeleteTransactionRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -538,7 +538,7 @@ func (m *ListTransactionRequest) XXX_Marshal(b []byte, deterministic bool) ([]by
 		return xxx_messageInfo_ListTransactionRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -578,7 +578,7 @@ func (m *FinishTransactionRequest) XXX_Marshal(b []byte, deterministic bool) ([]
 		return xxx_messageInfo_FinishTransactionRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -935,7 +935,7 @@ var _API_serviceDesc = grpc.ServiceDesc{
 func (m *DeleteAllRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -943,20 +943,26 @@ func (m *DeleteAllRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *DeleteAllRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *DeleteAllRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *TransactionRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -964,100 +970,122 @@ func (m *TransactionRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *TransactionRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TransactionRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.CreateRepo != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintTransaction(dAtA, i, uint64(m.CreateRepo.Size()))
-		n1, err1 := m.CreateRepo.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
-		}
-		i += n1
-	}
-	if m.DeleteRepo != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintTransaction(dAtA, i, uint64(m.DeleteRepo.Size()))
-		n2, err2 := m.DeleteRepo.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
-		}
-		i += n2
-	}
-	if m.StartCommit != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintTransaction(dAtA, i, uint64(m.StartCommit.Size()))
-		n3, err3 := m.StartCommit.MarshalTo(dAtA[i:])
-		if err3 != nil {
-			return 0, err3
-		}
-		i += n3
-	}
-	if m.FinishCommit != nil {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintTransaction(dAtA, i, uint64(m.FinishCommit.Size()))
-		n4, err4 := m.FinishCommit.MarshalTo(dAtA[i:])
-		if err4 != nil {
-			return 0, err4
-		}
-		i += n4
-	}
-	if m.DeleteCommit != nil {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintTransaction(dAtA, i, uint64(m.DeleteCommit.Size()))
-		n5, err5 := m.DeleteCommit.MarshalTo(dAtA[i:])
-		if err5 != nil {
-			return 0, err5
-		}
-		i += n5
-	}
-	if m.CreateBranch != nil {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintTransaction(dAtA, i, uint64(m.CreateBranch.Size()))
-		n6, err6 := m.CreateBranch.MarshalTo(dAtA[i:])
-		if err6 != nil {
-			return 0, err6
-		}
-		i += n6
-	}
-	if m.DeleteBranch != nil {
-		dAtA[i] = 0x3a
-		i++
-		i = encodeVarintTransaction(dAtA, i, uint64(m.DeleteBranch.Size()))
-		n7, err7 := m.DeleteBranch.MarshalTo(dAtA[i:])
-		if err7 != nil {
-			return 0, err7
-		}
-		i += n7
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.DeleteAll != nil {
-		dAtA[i] = 0x52
-		i++
-		i = encodeVarintTransaction(dAtA, i, uint64(m.DeleteAll.Size()))
-		n8, err8 := m.DeleteAll.MarshalTo(dAtA[i:])
-		if err8 != nil {
-			return 0, err8
+		{
+			size, err := m.DeleteAll.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTransaction(dAtA, i, uint64(size))
 		}
-		i += n8
+		i--
+		dAtA[i] = 0x52
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.DeleteBranch != nil {
+		{
+			size, err := m.DeleteBranch.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTransaction(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x3a
 	}
-	return i, nil
+	if m.CreateBranch != nil {
+		{
+			size, err := m.CreateBranch.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTransaction(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x32
+	}
+	if m.DeleteCommit != nil {
+		{
+			size, err := m.DeleteCommit.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTransaction(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x2a
+	}
+	if m.FinishCommit != nil {
+		{
+			size, err := m.FinishCommit.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTransaction(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x22
+	}
+	if m.StartCommit != nil {
+		{
+			size, err := m.StartCommit.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTransaction(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.DeleteRepo != nil {
+		{
+			size, err := m.DeleteRepo.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTransaction(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.CreateRepo != nil {
+		{
+			size, err := m.CreateRepo.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTransaction(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *TransactionResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1065,30 +1093,38 @@ func (m *TransactionResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *TransactionResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TransactionResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Commit != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintTransaction(dAtA, i, uint64(m.Commit.Size()))
-		n9, err9 := m.Commit.MarshalTo(dAtA[i:])
-		if err9 != nil {
-			return 0, err9
-		}
-		i += n9
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.Commit != nil {
+		{
+			size, err := m.Commit.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTransaction(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Transaction) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1096,26 +1132,33 @@ func (m *Transaction) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Transaction) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Transaction) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.ID) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintTransaction(dAtA, i, uint64(len(m.ID)))
-		i += copy(dAtA[i:], m.ID)
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if len(m.ID) > 0 {
+		i -= len(m.ID)
+		copy(dAtA[i:], m.ID)
+		i = encodeVarintTransaction(dAtA, i, uint64(len(m.ID)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *TransactionInfo) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1123,64 +1166,78 @@ func (m *TransactionInfo) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *TransactionInfo) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TransactionInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Transaction != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintTransaction(dAtA, i, uint64(m.Transaction.Size()))
-		n10, err10 := m.Transaction.MarshalTo(dAtA[i:])
-		if err10 != nil {
-			return 0, err10
-		}
-		i += n10
-	}
-	if len(m.Requests) > 0 {
-		for _, msg := range m.Requests {
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintTransaction(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if len(m.Responses) > 0 {
-		for _, msg := range m.Responses {
-			dAtA[i] = 0x1a
-			i++
-			i = encodeVarintTransaction(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Started != nil {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintTransaction(dAtA, i, uint64(m.Started.Size()))
-		n11, err11 := m.Started.MarshalTo(dAtA[i:])
-		if err11 != nil {
-			return 0, err11
+		{
+			size, err := m.Started.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTransaction(dAtA, i, uint64(size))
 		}
-		i += n11
+		i--
+		dAtA[i] = 0x22
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Responses) > 0 {
+		for iNdEx := len(m.Responses) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Responses[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintTransaction(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x1a
+		}
 	}
-	return i, nil
+	if len(m.Requests) > 0 {
+		for iNdEx := len(m.Requests) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Requests[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintTransaction(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x12
+		}
+	}
+	if m.Transaction != nil {
+		{
+			size, err := m.Transaction.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTransaction(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *TransactionInfos) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1188,32 +1245,40 @@ func (m *TransactionInfos) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *TransactionInfos) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TransactionInfos) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	if len(m.TransactionInfo) > 0 {
-		for _, msg := range m.TransactionInfo {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintTransaction(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+		for iNdEx := len(m.TransactionInfo) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.TransactionInfo[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintTransaction(dAtA, i, uint64(size))
 			}
-			i += n
+			i--
+			dAtA[i] = 0xa
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *StartTransactionRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1221,20 +1286,26 @@ func (m *StartTransactionRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *StartTransactionRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *StartTransactionRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *InspectTransactionRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1242,30 +1313,38 @@ func (m *InspectTransactionRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *InspectTransactionRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *InspectTransactionRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Transaction != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintTransaction(dAtA, i, uint64(m.Transaction.Size()))
-		n12, err12 := m.Transaction.MarshalTo(dAtA[i:])
-		if err12 != nil {
-			return 0, err12
-		}
-		i += n12
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.Transaction != nil {
+		{
+			size, err := m.Transaction.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTransaction(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *DeleteTransactionRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1273,30 +1352,38 @@ func (m *DeleteTransactionRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *DeleteTransactionRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *DeleteTransactionRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Transaction != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintTransaction(dAtA, i, uint64(m.Transaction.Size()))
-		n13, err13 := m.Transaction.MarshalTo(dAtA[i:])
-		if err13 != nil {
-			return 0, err13
-		}
-		i += n13
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.Transaction != nil {
+		{
+			size, err := m.Transaction.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTransaction(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *ListTransactionRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1304,20 +1391,26 @@ func (m *ListTransactionRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ListTransactionRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ListTransactionRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *FinishTransactionRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1325,34 +1418,44 @@ func (m *FinishTransactionRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *FinishTransactionRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *FinishTransactionRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Transaction != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintTransaction(dAtA, i, uint64(m.Transaction.Size()))
-		n14, err14 := m.Transaction.MarshalTo(dAtA[i:])
-		if err14 != nil {
-			return 0, err14
-		}
-		i += n14
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.Transaction != nil {
+		{
+			size, err := m.Transaction.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTransaction(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintTransaction(dAtA []byte, offset int, v uint64) int {
+	offset -= sovTransaction(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *DeleteAllRequest) Size() (n int) {
 	if m == nil {
@@ -2805,6 +2908,7 @@ func (m *FinishTransactionRequest) Unmarshal(dAtA []byte) error {
 func skipTransaction(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
+	depth := 0
 	for iNdEx < l {
 		var wire uint64
 		for shift := uint(0); ; shift += 7 {
@@ -2836,10 +2940,8 @@ func skipTransaction(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			return iNdEx, nil
 		case 1:
 			iNdEx += 8
-			return iNdEx, nil
 		case 2:
 			var length int
 			for shift := uint(0); ; shift += 7 {
@@ -2860,55 +2962,30 @@ func skipTransaction(dAtA []byte) (n int, err error) {
 				return 0, ErrInvalidLengthTransaction
 			}
 			iNdEx += length
-			if iNdEx < 0 {
-				return 0, ErrInvalidLengthTransaction
-			}
-			return iNdEx, nil
 		case 3:
-			for {
-				var innerWire uint64
-				var start int = iNdEx
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return 0, ErrIntOverflowTransaction
-					}
-					if iNdEx >= l {
-						return 0, io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					innerWire |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				innerWireType := int(innerWire & 0x7)
-				if innerWireType == 4 {
-					break
-				}
-				next, err := skipTransaction(dAtA[start:])
-				if err != nil {
-					return 0, err
-				}
-				iNdEx = start + next
-				if iNdEx < 0 {
-					return 0, ErrInvalidLengthTransaction
-				}
-			}
-			return iNdEx, nil
+			depth++
 		case 4:
-			return iNdEx, nil
+			if depth == 0 {
+				return 0, ErrUnexpectedEndOfGroupTransaction
+			}
+			depth--
 		case 5:
 			iNdEx += 4
-			return iNdEx, nil
 		default:
 			return 0, fmt.Errorf("proto: illegal wireType %d", wireType)
 		}
+		if iNdEx < 0 {
+			return 0, ErrInvalidLengthTransaction
+		}
+		if depth == 0 {
+			return iNdEx, nil
+		}
 	}
-	panic("unreachable")
+	return 0, io.ErrUnexpectedEOF
 }
 
 var (
-	ErrInvalidLengthTransaction = fmt.Errorf("proto: negative length found during unmarshaling")
-	ErrIntOverflowTransaction   = fmt.Errorf("proto: integer overflow")
+	ErrInvalidLengthTransaction        = fmt.Errorf("proto: negative length found during unmarshaling")
+	ErrIntOverflowTransaction          = fmt.Errorf("proto: integer overflow")
+	ErrUnexpectedEndOfGroupTransaction = fmt.Errorf("proto: unexpected end of group")
 )

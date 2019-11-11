@@ -42,7 +42,7 @@ const (
 	PPSInputPrefix = "/pfs"
 	// PPSScratchSpace is where pps workers store data while it's waiting to be
 	// processed.
-	PPSScratchSpace = "/pfs/.scratch"
+	PPSScratchSpace = ".scratch"
 	// PPSWorkerPortEnv is environment variable name for the port that workers
 	// use for their gRPC server
 	PPSWorkerPortEnv = "PPS_WORKER_GRPC_PORT"
@@ -97,13 +97,14 @@ func NewPFSInput(repo string, glob string) *pps.Input {
 }
 
 // NewPFSInputOpts returns a new PFS input. It includes all options.
-func NewPFSInputOpts(name string, repo string, branch string, glob string, lazy bool) *pps.Input {
+func NewPFSInputOpts(name string, repo string, branch string, glob string, joinOn string, lazy bool) *pps.Input {
 	return &pps.Input{
 		Pfs: &pps.PFSInput{
 			Name:   name,
 			Repo:   repo,
 			Branch: branch,
 			Glob:   glob,
+			JoinOn: joinOn,
 			Lazy:   lazy,
 		},
 	}
@@ -115,6 +116,15 @@ func NewPFSInputOpts(name string, repo string, branch string, glob string, lazy 
 func NewCrossInput(input ...*pps.Input) *pps.Input {
 	return &pps.Input{
 		Cross: input,
+	}
+}
+
+// NewJoinInput returns an input which is the join of other inputs.
+// That means that all combination of datums which match on `joinOn` will be seen by the job /
+// pipeline.
+func NewJoinInput(input ...*pps.Input) *pps.Input {
+	return &pps.Input{
+		Join: input,
 	}
 }
 
@@ -164,12 +174,13 @@ func NewPipelineInput(repoName string, glob string) *pps.PipelineInput {
 // CreateJob creates and runs a job in PPS.
 // This function is mostly useful internally, users should generally run work
 // by creating pipelines as well.
-func (c APIClient) CreateJob(pipeline string, outputCommit *pfs.Commit) (*pps.Job, error) {
+func (c APIClient) CreateJob(pipeline string, outputCommit, statsCommit *pfs.Commit) (*pps.Job, error) {
 	job, err := c.PpsAPIClient.CreateJob(
 		c.Ctx(),
 		&pps.CreateJobRequest{
 			Pipeline:     NewPipeline(pipeline),
 			OutputCommit: outputCommit,
+			StatsCommit:  statsCommit,
 		},
 	)
 	return job, grpcutil.ScrubGRPC(err)

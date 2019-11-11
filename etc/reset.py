@@ -78,9 +78,6 @@ class DefaultDriver:
     def start(self):
         pass
 
-    def inspect(self):
-        pass
-
     def push_images(self, deploy_version, dash_image):
         pass
 
@@ -88,6 +85,9 @@ class DefaultDriver:
         while suppress("pachctl", "version") != 0:
             log.info("Waiting for pachyderm to come up...")
             time.sleep(1)
+
+    def set_config(self):
+        run("pachctl", "config", "update", "context", "--pachd-address=localhost:30650")
 
 class MinikubeDriver(DefaultDriver):
     def available(self):
@@ -109,57 +109,9 @@ class MinikubeDriver(DefaultDriver):
         run("./etc/kube/push-to-minikube.sh", ETCD_IMAGE)
         run("./etc/kube/push-to-minikube.sh", dash_image)
 
-class MicroK8sDriver(DefaultDriver):
-    def available(self):
-        return run("which", "microk8s.kubectl", raise_on_error=False).rc == 0
-
-    def clear(self):
-        # `microk8s.reset` doesn't clear out cluster pods, so we'll go ahead
-        # and do that through pachctl functionality if possible
-        if run("yes | pachctl delete all --no-port-forwarding", shell=True, raise_on_error=False).rc != 0:
-            log.error("could not call `pachctl delete all`; most likely this just means that a pachyderm cluster hasn't been setup, but may indicate a bad state")
-
-        run("microk8s.stop")
-
-    def start(self):
-        # starting microk8s immediately after stopping it can fail, so try a
-        # few times
-        for i in range(5):
-            if run("microk8s.start", raise_on_error=False).rc == 0:
-                break
-            time.sleep(1)
-
-        # `microk8s.reset` has a couple of issues:
-        # 1) it can fail when called immediately after `microk8s.start`
-        # 2) it doesn't always output a proper return code when there's an error
-        stderr = None
-        for i in range(5):
-            stderr = run("microk8s.reset").stderr
-            if len(stderr) == 0:
-                break
-            time.sleep(1)
-        if len(stderr) > 0:
-            raise Exception("reset failed")
-
-        while suppress("microk8s.status") != 0:
-            log.info("Waiting for microk8s to come up...")
-            time.sleep(1)
-
-    def inspect(self):
-        # get output of `microk8s.inspect`, as it may include a warning about
-        # firewall rules that need to be changed in order for it to work
-        run("microk8s.inspect")
-
-    def push_images(self, deploy_version, dash_image):
-        run("./etc/kube/push-to-microk8s.sh", "pachyderm/pachd:{}".format(deploy_version))
-        run("./etc/kube/push-to-microk8s.sh", "pachyderm/worker:{}".format(deploy_version))
-        run("./etc/kube/push-to-microk8s.sh", ETCD_IMAGE)
-        run("./etc/kube/push-to-microk8s.sh", dash_image)
-
-    def wait(self):
-        while suppress("pachctl", "version", "--no-port-forwarding") != 0:
-            log.info("Waiting for pachyderm to come up...")
-            time.sleep(1)
+    def set_config(self):
+        ip = capture("minikube", "ip")
+        run("pachctl", "config", "update", "context", "--pachd-address={}".format(ip))
 
 def parse_log_level(s):
     try:
@@ -167,27 +119,30 @@ def parse_log_level(s):
     except KeyError:
         raise Exception("Unknown log level: {}".format(s))
 
-def redirect_to_logger(stdout, stderr):
-    for io in select.select([stdout.pipe, stderr.pipe], [], [], 1000)[0]:
-        line = io.readline().decode().rstrip()
-
-        if line == "":
-            continue
-
-        dest = stdout if io == stdout.pipe else stderr
-        log.log(LOG_LEVELS[dest.level], "{}{}\x1b[0m".format(LOG_COLORS.get(dest.level, ""), line))
-        dest.lines.append(line)
-
 def run(cmd, *args, raise_on_error=True, shell=False, stdout_log_level="info", stderr_log_level="error"):
     log.debug("Running `%s %s`", cmd, " ".join(args))
 
     proc = subprocess.Popen([cmd, *args], shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout = Output(proc.stdout, stdout_log_level)
     stderr = Output(proc.stderr, stderr_log_level)
+    timed_out_last = False
 
-    while proc.poll() is None:
-        redirect_to_logger(stdout, stderr)
-    redirect_to_logger(stdout, stderr)
+    while True:
+        if (proc.poll() is not None and timed_out_last) or (stdout.pipe.closed and stderr.pipe.closed):
+            break
+
+        for io in select.select([stdout.pipe, stderr.pipe], [], [], 100)[0]:
+            timed_out_last = False
+            line = io.readline().decode().rstrip()
+
+            if line == "":
+                continue
+
+            dest = stdout if io == stdout.pipe else stderr
+            log.log(LOG_LEVELS[dest.level], "{}{}\x1b[0m".format(LOG_COLORS.get(dest.level, ""), line))
+            dest.lines.append(line)
+        else:
+            timed_out_last = True
 
     rc = proc.wait()
 
@@ -233,16 +188,10 @@ def main():
     if not args.no_deploy and "PACH_CA_CERTS" in os.environ:
         log.critical("Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS", file=sys.stderr)
         sys.exit(1)
-    if args.deploy_version == "local" and not os.getcwd().startswith(os.path.join(os.environ["GOPATH"], "src", "github.com", "pachyderm", "pachyderm")):
-        log.critical("Must be in a Pachyderm client", file=sys.stderr)
-        sys.exit(1)
 
     if MinikubeDriver().available():
         log.info("using the minikube driver")
         driver = MinikubeDriver()
-    elif MicroK8sDriver().available():
-        log.info("using the microk8s driver")
-        driver = MicroK8sDriver()
     else:
         log.info("using the k8s for docker driver")
         log.warning("with this driver, it's not possible to fully reset the cluster")
@@ -253,8 +202,6 @@ def main():
     gopath = os.environ["GOPATH"]
 
     if args.deploy_version == "local":
-        os.chdir(os.path.join(gopath, "src", "github.com", "pachyderm", "pachyderm"))
-        
         try:
             os.remove(os.path.join(gopath, "bin", "pachctl"))
         except:
@@ -270,8 +217,6 @@ def main():
             driver.start,
             lambda: get_pachyderm(args.deploy_version),
         )
-
-    driver.inspect()
 
     version = capture("pachctl", "version", "--client-only")
     log.info("Deploy pachyderm version v{}".format(version))
@@ -299,6 +244,7 @@ def main():
         driver.wait()
 
     run("killall", "kubectl", raise_on_error=False)
+    driver.set_config()
 
 if __name__ == "__main__":
     main()

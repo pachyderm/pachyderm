@@ -13,7 +13,6 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	units "github.com/docker/go-units"
-	"github.com/pachyderm/pachyderm/src/client"
 	adminclient "github.com/pachyderm/pachyderm/src/client/admin"
 	authclient "github.com/pachyderm/pachyderm/src/client/auth"
 	debugclient "github.com/pachyderm/pachyderm/src/client/debug"
@@ -52,6 +51,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	txnserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/tls"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
@@ -153,7 +153,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 				if err != nil {
 					return fmt.Errorf("units.RAMInBytes: %v", err)
 				}
-				blockAPIServer, err := pfs_server.NewBlockAPIServer(env.StorageRoot, blockCacheBytes, env.StorageBackend, net.JoinHostPort(env.EtcdHost, env.EtcdPort))
+				blockAPIServer, err := pfs_server.NewBlockAPIServer(env.StorageRoot, blockCacheBytes, env.StorageBackend, net.JoinHostPort(env.EtcdHost, env.EtcdPort), false)
 				if err != nil {
 					return fmt.Errorf("pfs.NewBlockAPIServer: %v", err)
 				}
@@ -281,7 +281,7 @@ func doFullMode(config interface{}) (retErr error) {
 		env.Namespace,
 	)
 	go func() {
-		if err := sharder.AssignRoles(address, nil); err != nil {
+		if err := sharder.AssignRoles(address); err != nil {
 			log.Printf("error from sharder.AssignRoles: %s", grpcutil.ScrubGRPC(err))
 		}
 	}()
@@ -330,14 +330,20 @@ func doFullMode(config interface{}) (retErr error) {
 		return fmt.Errorf("RunGitHookServer: %v", err)
 	})
 	eg.Go(func() error {
-		c, err := client.NewFromAddress(fmt.Sprintf("localhost:%d", env.Port))
+		server, err := s3.Server(env.S3GatewayPort, env.Port)
 		if err != nil {
-			return fmt.Errorf("s3gateway gRPC client init: %v", err)
-		}
-		defer c.Close()
-		server := s3.Server(c, env.S3GatewayPort)
-		if err := server.ListenAndServe(); err != http.ErrServerClosed {
 			return fmt.Errorf("s3gateway server: %v", err)
+		}
+		certPath, keyPath, err := tls.GetCertPaths()
+		if err != nil {
+			log.Warnf("s3gateway TLS disabled: %v", err)
+			if err := server.ListenAndServe(); err != http.ErrServerClosed {
+				return fmt.Errorf("s3gateway listen: %v", err)
+			}
+		} else {
+			if err := server.ListenAndServeTLS(certPath, keyPath); err != http.ErrServerClosed {
+				return fmt.Errorf("s3gateway listen: %v", err)
+			}
 		}
 		return nil
 	})
@@ -400,7 +406,8 @@ func doFullMode(config interface{}) (retErr error) {
 						blockAPIServer, err := pfs_server.NewBlockAPIServer(
 							env.StorageRoot,
 							0 /* = blockCacheBytes (disable cache) */, env.StorageBackend,
-							etcdAddress)
+							etcdAddress,
+							true /* duplicate */)
 						if err != nil {
 							return fmt.Errorf("pfs.NewBlockAPIServer: %v", err)
 						}
@@ -464,12 +471,12 @@ func doFullMode(config interface{}) (retErr error) {
 					txnEnv := &txnenv.TransactionEnv{}
 					cacheServer := cache_server.NewCacheServer(router, env.NumShards)
 					go func() {
-						if err := sharder.RegisterFrontends(nil, address, []shard.Frontend{cacheServer}); err != nil {
+						if err := sharder.RegisterFrontends(address, []shard.Frontend{cacheServer}); err != nil {
 							log.Printf("error from sharder.RegisterFrontend %s", grpcutil.ScrubGRPC(err))
 						}
 					}()
 					go func() {
-						if err := sharder.Register(nil, address, []shard.Server{cacheServer}); err != nil {
+						if err := sharder.Register(address, []shard.Server{cacheServer}); err != nil {
 							log.Printf("error from sharder.Register %s", grpcutil.ScrubGRPC(err))
 						}
 					}()
@@ -480,7 +487,7 @@ func doFullMode(config interface{}) (retErr error) {
 						return fmt.Errorf("units.RAMInBytes: %v", err)
 					}
 					blockAPIServer, err := pfs_server.NewBlockAPIServer(
-						env.StorageRoot, blockCacheBytes, env.StorageBackend, etcdAddress)
+						env.StorageRoot, blockCacheBytes, env.StorageBackend, etcdAddress, false)
 					if err != nil {
 						return fmt.Errorf("pfs.NewBlockAPIServer: %v", err)
 					}

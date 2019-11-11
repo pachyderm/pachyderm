@@ -36,6 +36,13 @@ message Transform {
   string dockerfile = 12;
 }
 
+message TFJob {
+  // tf_job  is a serialized Kubeflow TFJob spec. Pachyderm sends this directly
+  // to a kubernetes cluster on which kubeflow has been installed, instead of
+  // creating a pipeline ReplicationController as it normally would.
+  string tf_job = 1 [(gogoproto.customname) = "TFJob"];
+}
+
 message Egress {
   string URL = 1;
 }
@@ -72,6 +79,7 @@ message PFSInput {
   string branch = 3;
   string commit = 4;
   string glob = 5;
+  string join_on = 8;
   bool lazy = 6;
   // EmptyFiles, if true, will cause files from this PFS input to be
   // presented as empty files. This is useful in shuffle pipelines where you
@@ -99,6 +107,7 @@ message GitInput {
 
 message Input {
   PFSInput pfs = 6;
+  repeated Input join = 7;
   repeated Input cross = 2;
   repeated Input union = 3;
   CronInput cron = 4;
@@ -258,7 +267,7 @@ message EtcdJobInfo {
 }
 
 message JobInfo {
-  reserved 4, 5, 28;
+  reserved 4, 5, 28, 34;
   Job job = 1;
   Transform transform = 2;                     // requires ListJobRequest.Full
   Pipeline pipeline = 3;
@@ -291,7 +300,6 @@ message JobInfo {
   pfs.Commit stats_commit = 29;
   bool enable_stats = 32;                      // requires ListJobRequest.Full
   string salt = 33;                            // requires ListJobRequest.Full
-  bool batch = 34;                             // requires ListJobRequest.Full
   ChunkSpec chunk_spec = 37;                   // requires ListJobRequest.Full
   google.protobuf.Duration datum_timeout = 38; // requires ListJobRequest.Full
   google.protobuf.Duration job_timeout = 39;   // requires ListJobRequest.Full
@@ -325,26 +333,28 @@ message PipelineInput {
   pfs.Repo repo = 1;
   string branch = 2;
   string glob = 3;
+  string join_on = 7;
   bool lazy = 4;
   pfs.Commit from = 6;
 }
 
 enum PipelineState {
-  // When the pipeline is not ready to be triggered by commits.
-  // This happens when either 1) a pipeline has been created but not
-  // yet picked up by a PPS server, or 2) the pipeline does not have
-  // any inputs and is meant to be triggered manually
+  // There is an EtcdPipelineInfo + spec commit, but no RC
+  // This happens when a pipeline has been created but not yet picked up by a
+  // PPS server.
   PIPELINE_STARTING = 0;
-  // After this pipeline is picked up by a pachd node.  This is the normal
-  // state of a pipeline.
+  // A pipeline has a spec commit and a service + RC
+  // This is the normal state of a pipeline.
   PIPELINE_RUNNING = 1;
-  // After some error caused runPipeline to exit, but before the
-  // pipeline is re-run.  This is when the exponential backoff is
-  // in effect.
+  // Equivalent to STARTING (there is an EtcdPipelineInfo + commit, but no RC)
+  // After some error caused runPipeline to exit, but before the pipeline is
+  // re-run. This is when the exponential backoff is in effect.
   PIPELINE_RESTARTING = 2;
-  // We have retried too many times and we have given up on this pipeline.
+  // We have retried too many times and we have given up on this pipeline (or
+  // the pipeline image doesn't exist)
   PIPELINE_FAILURE = 3;
-  // The pipeline has been explicitly paused by the user.
+  // The pipeline has been explicitly paused by the user (the pipeline spec's
+  // Stopped field should be true if the pipeline is in this state)
   PIPELINE_PAUSED = 4;
   // The pipeline is fully functional, but there are no commits to process.
   PIPELINE_STANDBY = 5;
@@ -363,11 +373,15 @@ message EtcdPipelineInfo {
 }
 
 message PipelineInfo {
-  reserved 3, 4, 22, 26;
+  reserved 3, 4, 22, 26, 27;
   string id = 17 [(gogoproto.customname) = "ID"];
   Pipeline pipeline = 1;
   uint64 version = 11;
   Transform transform = 2;
+  // tf_job encodes a Kubeflow TFJob spec. Pachyderm uses this to create TFJobs
+  // when running in a kubernetes cluster on which kubeflow has been installed.
+  // Exactly one of 'tf_job' and 'transform' should be set
+  TFJob tf_job = 46 [(gogoproto.customname) = "TFJob"];
   ParallelismSpec parallelism_spec = 10;
   HashtreeSpec hashtree_spec = 42;
   Egress egress = 15;
@@ -397,7 +411,6 @@ message PipelineInfo {
   string cache_size = 23;
   bool enable_stats = 24;
   string salt = 25;
-  bool batch = 27;
 
   // reason includes any error messages associated with a failed pipeline
   string reason = 28;
@@ -424,6 +437,25 @@ message CreateJobRequest {
   reserved 3, 4, 1, 10, 7, 9, 8, 12, 11, 13, 14, 21, 15, 16, 17, 18, 19, 20, 22, 23, 24;
   Pipeline pipeline = 2;
   pfs.Commit output_commit = 25;
+
+  // Fields below should only be set when restoring an extracted job.
+  uint64 restart = 26;
+
+  // Counts of how many times we processed or skipped a datum
+  int64 data_processed = 27;
+  int64 data_skipped = 28;
+  int64 data_total = 29;
+  int64 data_failed = 30;
+  int64 data_recovered = 31;
+
+  // Download/process/upload time and download/upload bytes
+  ProcessStats stats = 32;
+
+  pfs.Commit stats_commit = 33;
+  JobState state = 34;
+  string reason = 35;
+  google.protobuf.Timestamp started = 36;
+  google.protobuf.Timestamp finished = 37;
 }
 
 message InspectJobRequest {
@@ -571,8 +603,12 @@ message SchedulingSpec {
 }
 
 message CreatePipelineRequest {
-  reserved 3, 4, 15;
+  reserved 3, 4, 15, 19;
   Pipeline pipeline = 1;
+  // tf_job encodes a Kubeflow TFJob spec. Pachyderm uses this to create TFJobs
+  // when running in a kubernetes cluster on which kubeflow has been installed.
+  // Exactly one of 'tf_job' and 'transform' should be set
+  TFJob tf_job = 35 [(gogoproto.customname) = "TFJob"];
   Transform transform = 2;
   ParallelismSpec parallelism_spec = 7;
   HashtreeSpec hashtree_spec = 31;
@@ -589,7 +625,6 @@ message CreatePipelineRequest {
   // Reprocess forces the pipeline to reprocess all datums.
   // It only has meaning if Update is true
   bool reprocess = 18;
-  bool batch = 19;
   int64 max_queue_size = 20;
   Service service = 21;
   Spout spout = 33;
@@ -602,6 +637,7 @@ message CreatePipelineRequest {
   SchedulingSpec scheduling_spec = 29;
   string pod_spec = 30; // deprecated, use pod_patch below
   string pod_patch = 32; // a json patch will be applied to the pipeline's pod_spec before it's created;
+  pfs.Commit spec_commit = 34;
 }
 
 message InspectPipelineRequest {

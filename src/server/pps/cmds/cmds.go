@@ -19,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/pager"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
@@ -35,7 +36,7 @@ import (
 )
 
 // Cmds returns a slice containing pps commands.
-func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
+func Cmds() []*cobra.Command {
 	var commands []*cobra.Command
 
 	raw := false
@@ -45,6 +46,10 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 	fullTimestamps := false
 	fullTimestampsFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
 	fullTimestampsFlags.BoolVar(&fullTimestamps, "full-timestamps", false, "Return absolute timestamps (as opposed to the default, relative timestamps).")
+
+	noPager := false
+	noPagerFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
+	noPagerFlags.BoolVar(&noPager, "no-pager", false, "Don't pipe output into a pager (i.e. less).")
 
 	marshaller := &jsonpb.Marshaler{
 		Indent:   "  ",
@@ -62,8 +67,7 @@ results will be merged together at the end.
 
 If the job fails, the output commit will not be populated with data.`,
 	}
-	cmdutil.SetDocsUsage(jobDocs)
-	commands = append(commands, cmdutil.CreateAlias(jobDocs, "job"))
+	commands = append(commands, cmdutil.CreateDocsAlias(jobDocs, "job", " job$"))
 
 	var block bool
 	inspectJob := &cobra.Command{
@@ -71,7 +75,7 @@ If the job fails, the output commit will not be populated with data.`,
 		Short: "Return info about a job.",
 		Long:  "Return info about a job.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -137,25 +141,27 @@ $ {{alias}} -p foo -i bar@YYY`,
 				}
 			}
 
-			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
 			defer client.Close()
 
-			if raw {
-				return client.ListJobF(pipelineName, commits, outputCommit, history, true, func(ji *ppsclient.JobInfo) error {
-					return marshaller.Marshal(os.Stdout, ji)
-				})
-			}
-			writer := tabwriter.NewWriter(os.Stdout, pretty.JobHeader)
-			if err := client.ListJobF(pipelineName, commits, outputCommit, history, false, func(ji *ppsclient.JobInfo) error {
-				pretty.PrintJobInfo(writer, ji, fullTimestamps)
-				return nil
-			}); err != nil {
-				return err
-			}
-			return writer.Flush()
+			return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
+				if raw {
+					return client.ListJobF(pipelineName, commits, outputCommit, history, true, func(ji *ppsclient.JobInfo) error {
+						return marshaller.Marshal(w, ji)
+					})
+				}
+				writer := tabwriter.NewWriter(w, pretty.JobHeader)
+				if err := client.ListJobF(pipelineName, commits, outputCommit, history, false, func(ji *ppsclient.JobInfo) error {
+					pretty.PrintJobInfo(writer, ji, fullTimestamps)
+					return nil
+				}); err != nil {
+					return err
+				}
+				return writer.Flush()
+			})
 		}),
 	}
 	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Limit to jobs made by pipeline.")
@@ -166,6 +172,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 	listJob.MarkFlagCustom("input", "__pachctl_get_repo_commit")
 	listJob.Flags().AddFlagSet(rawFlags)
 	listJob.Flags().AddFlagSet(fullTimestampsFlags)
+	listJob.Flags().AddFlagSet(noPagerFlags)
 	listJob.Flags().StringVar(&history, "history", "none", "Return jobs from historical versions of pipelines.")
 	commands = append(commands, cmdutil.CreateAlias(listJob, "list job"))
 
@@ -186,7 +193,7 @@ $ {{alias}} foo@XXX -p bar -p baz`,
 				return err
 			}
 
-			c, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -224,7 +231,7 @@ $ {{alias}} foo@XXX -p bar -p baz`,
 		Short: "Delete a job.",
 		Long:  "Delete a job.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -242,7 +249,7 @@ $ {{alias}} foo@XXX -p bar -p baz`,
 		Short: "Stop a job.",
 		Long:  "Stop a job.  The job will be stopped immediately.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -266,15 +273,14 @@ Datums within a job will be processed independently, sometimes distributed
 across separate workers.  A separate execution of user code will be run for
 each datum.`,
 	}
-	cmdutil.SetDocsUsage(datumDocs)
-	commands = append(commands, cmdutil.CreateAlias(datumDocs, "datum"))
+	commands = append(commands, cmdutil.CreateDocsAlias(datumDocs, "datum", " datum$"))
 
 	restartDatum := &cobra.Command{
 		Use:   "{{alias}} <job> <datum-path1>,<datum-path2>,...",
 		Short: "Restart a datum.",
 		Long:  "Restart a datum.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -302,7 +308,7 @@ each datum.`,
 		Short: "Return the datums in a job.",
 		Long:  "Return the datums in a job.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -338,7 +344,7 @@ each datum.`,
 		Short: "Display detailed info about a single datum.",
 		Long:  "Display detailed info about a single datum. Requires the pipeline to have stats enabled.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -379,7 +385,7 @@ $ {{alias}} --job=aedfa12aedf
 # Return logs emitted by the pipeline \"filter\" while processing /apple.txt and a file with the hash 123aef
 $ {{alias}} --pipeline=filter --inputs=/apple.txt,123aef`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
@@ -446,8 +452,7 @@ and launch a job to process each incoming commit.
 
 All jobs created by a pipeline will create commits in the pipeline's output repo.`,
 	}
-	cmdutil.SetDocsUsage(pipelineDocs)
-	commands = append(commands, cmdutil.CreateAlias(pipelineDocs, "pipeline"))
+	commands = append(commands, cmdutil.CreateDocsAlias(pipelineDocs, "pipeline", " pipeline$"))
 
 	var build bool
 	var pushImages bool
@@ -458,7 +463,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		Short: "Create a new pipeline.",
 		Long:  "Create a new pipeline from a pipeline specification. For details on the format, see http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			return pipelineHelper(!*noMetrics, !*noPortForwarding, false, build, pushImages, registry, username, pipelinePath, false)
+			return pipelineHelper(false, build, pushImages, registry, username, pipelinePath, false)
 		}),
 	}
 	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The JSON file containing the pipeline, it can be a url or local file. - reads from stdin.")
@@ -473,7 +478,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		Short: "Update an existing Pachyderm pipeline.",
 		Long:  "Update a Pachyderm pipeline with a new pipeline specification. For details on the format, see http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			return pipelineHelper(!*noMetrics, !*noPortForwarding, reprocess, build, pushImages, registry, username, pipelinePath, true)
+			return pipelineHelper(reprocess, build, pushImages, registry, username, pipelinePath, true)
 		}),
 	}
 	updatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The JSON file containing the pipeline, it can be a url or local file. - reads from stdin.")
@@ -485,35 +490,32 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	commands = append(commands, cmdutil.CreateAlias(updatePipeline, "update pipeline"))
 
 	runPipeline := &cobra.Command{
-		Use:   "{{alias}} <pipeline> [commits...]",
-		Short: "Run an existing Pachyderm pipeline on the specified commits or branches.",
-		Long:  "Run a Pachyderm pipeline on the datums from specific commits. Note: pipelines run automatically when data is committed to them. This command is for the case where you want to run the pipeline on a specific set of data, or if you want to rerun the pipeline.",
+		Use:   "{{alias}} <pipeline> [<repo>@<branch>[=<commit>]...]",
+		Short: "Run an existing Pachyderm pipeline on the specified commits-branch pairs.",
+		Long:  "Run a Pachyderm pipeline on the datums from specific commit-branch pairs. If only the branch is given, the head commit of the branch is used to complete the pair. Note: pipelines run automatically when data is committed to them. This command is for the case where you want to run the pipeline on a specific set of data, or if you want to rerun the pipeline. If a commit or branch is not specified, it will default to using the HEAD of master.",
 		Example: `
 		# Rerun the latest job for the "filter" pipeline
 		$ {{alias}} filter
 
-		# Reprocess the pipeline "filter" on the data from commits a23e4 and bf363
-		$ {{alias}} filter a23e4 and bf363
+		# Process the pipeline "filter" on the data from commit-branch pairs "repo1@A=a23e4" and "repo2@B=bf363"
+		$ {{alias}} filter repo1@A=a23e4 repo2@B=bf363
 
-		# Run the pipeline "filter" on the data from the "staging" branch
-		$ {{alias}} filter staging`,
+		# Run the pipeline "filter" on the data from commit "167af5" on the "staging" branch on repo "repo1"
+		$ {{alias}} filter repo1@staging=167af5`,
 		Run: cmdutil.RunMinimumArgs(1, func(args []string) (retErr error) {
-			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
 			defer client.Close()
-			provCommits, err := cmdutil.ParseCommits(args[1:])
+			prov, err := cmdutil.ParseCommitProvenances(args[1:])
 			if err != nil {
 				return err
 			}
-			prov := make([]*pfs.CommitProvenance, 0, len(args[1:]))
-			for _, commit := range provCommits {
-				prov = append(prov, &pfs.CommitProvenance{
-					Commit: commit,
-				})
+			err = client.RunPipeline(args[0], prov)
+			if err != nil {
+				return err
 			}
-			client.RunPipeline(args[0], prov)
 			return nil
 		}),
 	}
@@ -524,7 +526,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		Short: "Return info about a pipeline.",
 		Long:  "Return info about a pipeline.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -555,7 +557,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		Short: "Return the manifest used to create a pipeline.",
 		Long:  "Return the manifest used to create a pipeline.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -575,7 +577,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		Short: "Edit the manifest for a pipeline in your text editor.",
 		Long:  "Edit the manifest for a pipeline in your text editor.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -609,11 +611,11 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			}, editor, f.Name()); err != nil {
 				return err
 			}
-			cfgReader, err := ppsutil.NewPipelineManifestReader(f.Name())
+			pipelineReader, err := ppsutil.NewPipelineManifestReader(f.Name())
 			if err != nil {
 				return err
 			}
-			request, err := cfgReader.NextCreatePipelineRequest()
+			request, err := pipelineReader.NextCreatePipelineRequest()
 			if err != nil {
 				return err
 			}
@@ -646,7 +648,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if err != nil {
 				return fmt.Errorf("error parsing history flag: %v", err)
 			}
-			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
@@ -695,7 +697,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		Short: "Delete a pipeline.",
 		Long:  "Delete a pipeline.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -731,7 +733,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		Short: "Restart a stopped pipeline.",
 		Long:  "Restart a stopped pipeline.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -749,7 +751,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		Short: "Stop a running pipeline.",
 		Long:  "Stop a running pipeline.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -789,7 +791,7 @@ you can increase the amount of memory used for the bloom filters with the
 --memory flag. The default value is 10MB.
 `,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -807,18 +809,18 @@ you can increase the amount of memory used for the bloom filters with the
 	return commands
 }
 
-func pipelineHelper(metrics bool, portForwarding bool, reprocess bool, build bool, pushImages bool, registry string, username string, pipelinePath string, update bool) error {
-	cfgReader, err := ppsutil.NewPipelineManifestReader(pipelinePath)
+func pipelineHelper(reprocess bool, build bool, pushImages bool, registry string, username string, pipelinePath string, update bool) error {
+	pipelineReader, err := ppsutil.NewPipelineManifestReader(pipelinePath)
 	if err != nil {
 		return err
 	}
-	client, err := pachdclient.NewOnUserMachine(metrics, portForwarding, "user")
+	client, err := pachdclient.NewOnUserMachine("user")
 	if err != nil {
 		return fmt.Errorf("error connecting to pachd: %v", err)
 	}
 	defer client.Close()
 	for {
-		request, err := cfgReader.NextCreatePipelineRequest()
+		request, err := pipelineReader.NextCreatePipelineRequest()
 		if err == io.EOF {
 			break
 		} else if err != nil {

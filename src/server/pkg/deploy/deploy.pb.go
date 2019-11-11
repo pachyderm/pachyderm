@@ -25,7 +25,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type KubeEndpoint struct {
 	Host                 string   `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
@@ -48,7 +48,7 @@ func (m *KubeEndpoint) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_KubeEndpoint.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -95,7 +95,7 @@ func (m *Cluster) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Cluster.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -143,7 +143,7 @@ func (m *ClusterInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) 
 		return xxx_messageInfo_ClusterInfo.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -197,7 +197,7 @@ func (m *ClusterInfos) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_ClusterInfos.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -245,7 +245,7 @@ func (m *CreateClusterRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte
 		return xxx_messageInfo_CreateClusterRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -300,7 +300,7 @@ func (m *UpdateClusterRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte
 		return xxx_messageInfo_UpdateClusterRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -354,7 +354,7 @@ func (m *InspectClusterRequest) XXX_Marshal(b []byte, deterministic bool) ([]byt
 		return xxx_messageInfo_InspectClusterRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -400,7 +400,7 @@ func (m *ListClusterRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, 
 		return xxx_messageInfo_ListClusterRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -440,7 +440,7 @@ func (m *DeleteClusterRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte
 		return xxx_messageInfo_DeleteClusterRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -738,7 +738,7 @@ var _API_serviceDesc = grpc.ServiceDesc{
 func (m *KubeEndpoint) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -746,26 +746,33 @@ func (m *KubeEndpoint) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *KubeEndpoint) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *KubeEndpoint) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Host) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintDeploy(dAtA, i, uint64(len(m.Host)))
-		i += copy(dAtA[i:], m.Host)
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if len(m.Host) > 0 {
+		i -= len(m.Host)
+		copy(dAtA[i:], m.Host)
+		i = encodeVarintDeploy(dAtA, i, uint64(len(m.Host)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Cluster) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -773,26 +780,33 @@ func (m *Cluster) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Cluster) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Cluster) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintDeploy(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintDeploy(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *ClusterInfo) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -800,35 +814,43 @@ func (m *ClusterInfo) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ClusterInfo) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ClusterInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Cluster != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintDeploy(dAtA, i, uint64(m.Cluster.Size()))
-		n1, err1 := m.Cluster.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
-		}
-		i += n1
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Shards != 0 {
-		dAtA[i] = 0x10
-		i++
 		i = encodeVarintDeploy(dAtA, i, uint64(m.Shards))
+		i--
+		dAtA[i] = 0x10
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Cluster != nil {
+		{
+			size, err := m.Cluster.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintDeploy(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *ClusterInfos) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -836,32 +858,40 @@ func (m *ClusterInfos) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ClusterInfos) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ClusterInfos) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	if len(m.ClusterInfos) > 0 {
-		for _, msg := range m.ClusterInfos {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintDeploy(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+		for iNdEx := len(m.ClusterInfos) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.ClusterInfos[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintDeploy(dAtA, i, uint64(size))
 			}
-			i += n
+			i--
+			dAtA[i] = 0xa
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *CreateClusterRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -869,35 +899,43 @@ func (m *CreateClusterRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *CreateClusterRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CreateClusterRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Cluster != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintDeploy(dAtA, i, uint64(m.Cluster.Size()))
-		n2, err2 := m.Cluster.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
-		}
-		i += n2
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Shards != 0 {
-		dAtA[i] = 0x10
-		i++
 		i = encodeVarintDeploy(dAtA, i, uint64(m.Shards))
+		i--
+		dAtA[i] = 0x10
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Cluster != nil {
+		{
+			size, err := m.Cluster.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintDeploy(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *UpdateClusterRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -905,35 +943,43 @@ func (m *UpdateClusterRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *UpdateClusterRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *UpdateClusterRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Cluster != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintDeploy(dAtA, i, uint64(m.Cluster.Size()))
-		n3, err3 := m.Cluster.MarshalTo(dAtA[i:])
-		if err3 != nil {
-			return 0, err3
-		}
-		i += n3
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Nodes != 0 {
-		dAtA[i] = 0x10
-		i++
 		i = encodeVarintDeploy(dAtA, i, uint64(m.Nodes))
+		i--
+		dAtA[i] = 0x10
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Cluster != nil {
+		{
+			size, err := m.Cluster.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintDeploy(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *InspectClusterRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -941,30 +987,38 @@ func (m *InspectClusterRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *InspectClusterRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *InspectClusterRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Cluster != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintDeploy(dAtA, i, uint64(m.Cluster.Size()))
-		n4, err4 := m.Cluster.MarshalTo(dAtA[i:])
-		if err4 != nil {
-			return 0, err4
-		}
-		i += n4
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.Cluster != nil {
+		{
+			size, err := m.Cluster.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintDeploy(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *ListClusterRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -972,20 +1026,26 @@ func (m *ListClusterRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ListClusterRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ListClusterRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *DeleteClusterRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -993,34 +1053,44 @@ func (m *DeleteClusterRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *DeleteClusterRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *DeleteClusterRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Cluster != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintDeploy(dAtA, i, uint64(m.Cluster.Size()))
-		n5, err5 := m.Cluster.MarshalTo(dAtA[i:])
-		if err5 != nil {
-			return 0, err5
-		}
-		i += n5
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.Cluster != nil {
+		{
+			size, err := m.Cluster.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintDeploy(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintDeploy(dAtA []byte, offset int, v uint64) int {
+	offset -= sovDeploy(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *KubeEndpoint) Size() (n int) {
 	if m == nil {
@@ -2003,6 +2073,7 @@ func (m *DeleteClusterRequest) Unmarshal(dAtA []byte) error {
 func skipDeploy(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
+	depth := 0
 	for iNdEx < l {
 		var wire uint64
 		for shift := uint(0); ; shift += 7 {
@@ -2034,10 +2105,8 @@ func skipDeploy(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			return iNdEx, nil
 		case 1:
 			iNdEx += 8
-			return iNdEx, nil
 		case 2:
 			var length int
 			for shift := uint(0); ; shift += 7 {
@@ -2058,55 +2127,30 @@ func skipDeploy(dAtA []byte) (n int, err error) {
 				return 0, ErrInvalidLengthDeploy
 			}
 			iNdEx += length
-			if iNdEx < 0 {
-				return 0, ErrInvalidLengthDeploy
-			}
-			return iNdEx, nil
 		case 3:
-			for {
-				var innerWire uint64
-				var start int = iNdEx
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return 0, ErrIntOverflowDeploy
-					}
-					if iNdEx >= l {
-						return 0, io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					innerWire |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				innerWireType := int(innerWire & 0x7)
-				if innerWireType == 4 {
-					break
-				}
-				next, err := skipDeploy(dAtA[start:])
-				if err != nil {
-					return 0, err
-				}
-				iNdEx = start + next
-				if iNdEx < 0 {
-					return 0, ErrInvalidLengthDeploy
-				}
-			}
-			return iNdEx, nil
+			depth++
 		case 4:
-			return iNdEx, nil
+			if depth == 0 {
+				return 0, ErrUnexpectedEndOfGroupDeploy
+			}
+			depth--
 		case 5:
 			iNdEx += 4
-			return iNdEx, nil
 		default:
 			return 0, fmt.Errorf("proto: illegal wireType %d", wireType)
 		}
+		if iNdEx < 0 {
+			return 0, ErrInvalidLengthDeploy
+		}
+		if depth == 0 {
+			return iNdEx, nil
+		}
 	}
-	panic("unreachable")
+	return 0, io.ErrUnexpectedEOF
 }
 
 var (
-	ErrInvalidLengthDeploy = fmt.Errorf("proto: negative length found during unmarshaling")
-	ErrIntOverflowDeploy   = fmt.Errorf("proto: integer overflow")
+	ErrInvalidLengthDeploy        = fmt.Errorf("proto: negative length found during unmarshaling")
+	ErrIntOverflowDeploy          = fmt.Errorf("proto: integer overflow")
+	ErrUnexpectedEndOfGroupDeploy = fmt.Errorf("proto: unexpected end of group")
 )

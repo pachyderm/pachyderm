@@ -48,7 +48,7 @@ func (b *backend) Renew(ctx context.Context, req *logical.Request, d *framework.
 	// Extract TTL from request first, and then config (if unset)
 	ttl, maxTTL := req.Secret.LeaseOptions.Increment, b.System().MaxLeaseTTL()
 	if ttl == 0 {
-		ttl, maxTTL, err = b.SanitizeTTLStr(config.TTL, maxTTL.String())
+		ttl, maxTTL, err = sanitizeTTLStr(config.TTL, maxTTL.String())
 		if err != nil {
 			return nil, fmt.Errorf("%v: could not sanitize config TTL", err)
 		}

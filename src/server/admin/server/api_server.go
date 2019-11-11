@@ -22,6 +22,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 )
 
 var objHashRE = regexp.MustCompile("[0-9a-f]{128}")
@@ -113,13 +115,20 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		}
 	}
 	if !request.NoObjects {
-		w := extractObjectWriter(writeOp)
-		if err := pachClient.ListObject(func(object *pfs.Object) error {
-			if err := pachClient.GetObject(object.Hash, w); err != nil {
+		if err := pachClient.ListBlock(func(block *pfs.Block) error {
+			w := &extractBlockWriter{f: writeOp, block: block}
+			if err := pachClient.GetBlock(block.Hash, w); err != nil {
 				return err
 			}
-			// empty PutObjectRequest to indicate EOF
-			return writeOp(&admin.Op{Op1_9: &admin.Op1_9{Object: &pfs.PutObjectRequest{}}})
+			return w.Close()
+		}); err != nil {
+			return err
+		}
+		if err := pachClient.ListObject(func(oi *pfs.ObjectInfo) error {
+			return writeOp(&admin.Op{Op1_9: &admin.Op1_9{CreateObject: &pfs.CreateObjectRequest{
+				Object:   oi.Object,
+				BlockRef: oi.BlockRef,
+			}}})
 		}); err != nil {
 			return err
 		}
@@ -134,23 +143,14 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			return err
 		}
 	}
-	var repos []*pfs.Repo
 	if !request.NoRepos {
 		ris, err := pachClient.ListRepo()
 		if err != nil {
 			return err
 		}
-	repos:
-		for _, ri := range ris {
-			bis, err := pachClient.ListBranch(ri.Repo.Name)
-			if err != nil {
-				return err
-			}
-			for _, bi := range bis {
-				if len(bi.Provenance) > 0 {
-					continue repos
-				}
-			}
+		ris = append(ris, &pfs.RepoInfo{Repo: &pfs.Repo{Name: ppsconsts.SpecRepo}})
+		for i := range ris {
+			ri := ris[len(ris)-1-i]
 			if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{
 				Repo: &pfs.CreateRepoRequest{
 					Repo:        ri.Repo,
@@ -159,7 +159,42 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			}); err != nil {
 				return err
 			}
-			repos = append(repos, ri.Repo)
+		}
+		if err := pachClient.ListCommitF("", "", "", 0, true, func(ci *pfs.CommitInfo) error {
+			if ci.ParentCommit == nil {
+				ci.ParentCommit = client.NewCommit(ci.Commit.Repo.Name, "")
+			}
+			return writeOp(&admin.Op{Op1_9: &admin.Op1_9{Commit: &pfs.BuildCommitRequest{
+				Parent:     ci.ParentCommit,
+				Tree:       ci.Tree,
+				ID:         ci.Commit.ID,
+				Trees:      ci.Trees,
+				Datums:     ci.Datums,
+				SizeBytes:  ci.SizeBytes,
+				Provenance: ci.Provenance,
+			}}})
+		}); err != nil {
+			return err
+		}
+		bis, err := pachClient.PfsAPIClient.ListBranch(pachClient.Ctx(),
+			&pfs.ListBranchRequest{
+				Repo:    client.NewRepo(""),
+				Reverse: true,
+			},
+		)
+		if err != nil {
+			return err
+		}
+		for _, bi := range bis.BranchInfo {
+			if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{
+				Branch: &pfs.CreateBranchRequest{
+					Head:       bi.Head,
+					Branch:     bi.Branch,
+					Provenance: bi.DirectProvenance,
+				},
+			}}); err != nil {
+				return err
+			}
 		}
 	}
 	if !request.NoPipelines {
@@ -169,35 +204,29 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		}
 		pis = sortPipelineInfos(pis)
 		for _, pi := range pis {
-			if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{Pipeline: pipelineInfoToRequest(pi)}}); err != nil {
+			cPR := ppsutil.PipelineReqFromInfo(pi)
+			cPR.SpecCommit = pi.SpecCommit
+			if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{Pipeline: cPR}}); err != nil {
 				return err
 			}
-		}
-	}
-	// We send the actual commits last, that way pipelines will have already
-	// been created and will recreate output commits for historical outputs.
-	for _, repo := range repos {
-		cis, err := pachClient.ListCommit(repo.Name, "", "", 0)
-		if err != nil {
-			return err
-		}
-		bis, err := pachClient.ListBranch(repo.Name)
-		if err != nil {
-			return err
-		}
-		for _, bcr := range buildCommitRequests(cis, bis) {
-			if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{Commit: bcr}}); err != nil {
-				return err
-			}
-		}
-		for _, bi := range bis {
-			if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{
-				Branch: &pfs.CreateBranchRequest{
-					Head:   bi.Head,
-					Branch: bi.Branch,
-				},
-			}}); err != nil {
-				return err
+			if err := pachClient.ListJobF(pi.Pipeline.Name, nil, nil, -1, false, func(ji *pps.JobInfo) error {
+				return writeOp(&admin.Op{Op1_9: &admin.Op1_9{Job: &pps.CreateJobRequest{
+					Pipeline:      pi.Pipeline,
+					OutputCommit:  ji.OutputCommit,
+					Restart:       ji.Restart,
+					DataProcessed: ji.DataProcessed,
+					DataSkipped:   ji.DataSkipped,
+					DataTotal:     ji.DataTotal,
+					DataFailed:    ji.DataFailed,
+					DataRecovered: ji.DataRecovered,
+					Stats:         ji.Stats,
+					StatsCommit:   ji.StatsCommit,
+					State:         ji.State,
+					Reason:        ji.Reason,
+					Started:       ji.Started,
+					Finished:      ji.Finished,
+				}}})
+			}); err != nil {
 			}
 		}
 	}
@@ -212,7 +241,7 @@ func (a *apiServer) ExtractPipeline(ctx context.Context, request *admin.ExtractP
 	if err != nil {
 		return nil, err
 	}
-	return &admin.Op{Op1_9: &admin.Op1_9{Pipeline: pipelineInfoToRequest(pi)}}, nil
+	return &admin.Op{Op1_9: &admin.Op1_9{Pipeline: ppsutil.PipelineReqFromInfo(pi)}}, nil
 }
 
 func buildCommitRequests(cis []*pfs.CommitInfo, bis []*pfs.BranchInfo) []*pfs.BuildCommitRequest {
@@ -299,29 +328,6 @@ func sortPipelineInfos(pis []*pps.PipelineInfo) []*pps.PipelineInfo {
 	return result
 }
 
-func pipelineInfoToRequest(pi *pps.PipelineInfo) *pps.CreatePipelineRequest {
-	return &pps.CreatePipelineRequest{
-		Pipeline:           pi.Pipeline,
-		Transform:          pi.Transform,
-		ParallelismSpec:    pi.ParallelismSpec,
-		Egress:             pi.Egress,
-		OutputBranch:       pi.OutputBranch,
-		ScaleDownThreshold: pi.ScaleDownThreshold,
-		ResourceRequests:   pi.ResourceRequests,
-		ResourceLimits:     pi.ResourceLimits,
-		Input:              pi.Input,
-		Description:        pi.Description,
-		CacheSize:          pi.CacheSize,
-		EnableStats:        pi.EnableStats,
-		Batch:              pi.Batch,
-		MaxQueueSize:       pi.MaxQueueSize,
-		Service:            pi.Service,
-		ChunkSpec:          pi.ChunkSpec,
-		DatumTimeout:       pi.DatumTimeout,
-		JobTimeout:         pi.JobTimeout,
-	}
-}
-
 func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error) {
 	func() { a.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
@@ -392,13 +398,13 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 		// apply op
 		if op.Op1_7 != nil {
 			if op.Op1_7.Object != nil {
-				extractedReader := &extractedObjectReader{
+				extractReader := &extractObjectReader{
 					adminAPIRestoreServer: restoreServer,
 					restoreURLReader:      r,
 					version:               v1_7,
 				}
-				extractedReader.buf.Write(op.Op1_7.Object.Value)
-				if _, _, err := pachClient.PutObject(extractedReader); err != nil {
+				extractReader.buf.Write(op.Op1_7.Object.Value)
+				if _, _, err := pachClient.PutObject(extractReader); err != nil {
 					return fmt.Errorf("error putting object: %v", err)
 				}
 			} else {
@@ -416,13 +422,13 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 			}
 		} else if op.Op1_8 != nil {
 			if op.Op1_8.Object != nil {
-				extractedReader := &extractedObjectReader{
+				extractReader := &extractObjectReader{
 					adminAPIRestoreServer: restoreServer,
 					restoreURLReader:      r,
 					version:               v1_9,
 				}
-				extractedReader.buf.Write(op.Op1_8.Object.Value)
-				if _, _, err := pachClient.PutObject(extractedReader); err != nil {
+				extractReader.buf.Write(op.Op1_8.Object.Value)
+				if _, _, err := pachClient.PutObject(extractReader); err != nil {
 					return fmt.Errorf("error putting object: %v", err)
 				}
 			} else {
@@ -436,14 +442,31 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 			}
 		} else if op.Op1_9 != nil {
 			if op.Op1_9.Object != nil {
-				extractedReader := &extractedObjectReader{
+				extractReader := &extractObjectReader{
 					adminAPIRestoreServer: restoreServer,
 					restoreURLReader:      r,
 					version:               v1_9,
 				}
-				extractedReader.buf.Write(op.Op1_9.Object.Value)
-				if _, _, err := pachClient.PutObject(extractedReader); err != nil {
+				extractReader.buf.Write(op.Op1_9.Object.Value)
+				if _, _, err := pachClient.PutObject(extractReader); err != nil {
 					return fmt.Errorf("error putting object: %v", err)
+				}
+			} else if op.Op1_9.Block != nil {
+				if len(op.Op1_9.Block.Value) == 0 {
+					// Empty block
+					if _, err := pachClient.PutBlock(op.Op1_9.Block.Block.Hash, bytes.NewReader(nil)); err != nil {
+						return fmt.Errorf("error putting block: %v", err)
+					}
+				} else {
+					extractReader := &extractBlockReader{
+						adminAPIRestoreServer: restoreServer,
+						restoreURLReader:      r,
+						version:               v1_9,
+					}
+					extractReader.buf.Write(op.Op1_9.Block.Value)
+					if _, err := pachClient.PutBlock(op.Op1_9.Block.Block.Hash, extractReader); err != nil {
+						return fmt.Errorf("error putting block: %v", err)
+					}
 				}
 			} else {
 				if err := a.applyOp(pachClient, op.Op1_9); err != nil {
@@ -456,6 +479,10 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 
 func (a *apiServer) applyOp(pachClient *client.APIClient, op *admin.Op1_9) error {
 	switch {
+	case op.CreateObject != nil:
+		if _, err := pachClient.ObjectAPIClient.CreateObject(pachClient.Ctx(), op.CreateObject); err != nil {
+			return fmt.Errorf("error creating object: %v", grpcutil.ScrubGRPC(err))
+		}
 	case op.Tag != nil:
 		if _, err := pachClient.ObjectAPIClient.TagObject(pachClient.Ctx(), op.Tag); err != nil {
 			return fmt.Errorf("error tagging object: %v", grpcutil.ScrubGRPC(err))
@@ -480,6 +507,10 @@ func (a *apiServer) applyOp(pachClient *client.APIClient, op *admin.Op1_9) error
 		sanitizePipeline(op.Pipeline)
 		if _, err := pachClient.PpsAPIClient.CreatePipeline(pachClient.Ctx(), op.Pipeline); err != nil && !errutil.IsAlreadyExistError(err) {
 			return fmt.Errorf("error creating pipeline: %v", grpcutil.ScrubGRPC(err))
+		}
+	case op.Job != nil:
+		if _, err := pachClient.PpsAPIClient.CreateJob(pachClient.Ctx(), op.Job); err != nil && !errutil.IsAlreadyExistError(err) {
+			return fmt.Errorf("error creating job: %v", grpcutil.ScrubGRPC(err))
 		}
 	}
 	return nil
@@ -528,7 +559,7 @@ func (w extractObjectWriter) Write(p []byte) (int, error) {
 
 type adminAPIRestoreServer admin.API_RestoreServer
 
-type extractedObjectReader struct {
+type extractObjectReader struct {
 	// One of these two must be set (whether user is restoring over the wire or
 	// via URL)
 	adminAPIRestoreServer
@@ -539,7 +570,7 @@ type extractedObjectReader struct {
 	eof     bool
 }
 
-func (r *extractedObjectReader) Read(p []byte) (int, error) {
+func (r *extractObjectReader) Read(p []byte) (int, error) {
 	// Shortcut -- if object is done just return EOF
 	if r.eof {
 		return 0, io.EOF
@@ -596,6 +627,106 @@ func (r *extractedObjectReader) Read(p []byte) (int, error) {
 				return 0, fmt.Errorf("expected an object, but got: %v", op)
 			}
 			value = op.Op1_9.Object.Value
+		}
+
+		if len(value) == 0 {
+			r.eof = true
+		} else {
+			r.buf.Write(value)
+		}
+	}
+	dn, err := r.buf.Read(p)
+	return n + dn, err
+}
+
+type extractBlockWriter struct {
+	f     func(*admin.Op) error
+	block *pfs.Block
+}
+
+func (w extractBlockWriter) Write(p []byte) (int, error) {
+	chunkSize := grpcutil.MaxMsgSize / 2
+	var n int
+	for i := 0; i*(chunkSize) < len(p); i++ {
+		value := p[i*chunkSize:]
+		if len(value) > chunkSize {
+			value = value[:chunkSize]
+		}
+		if err := w.f(&admin.Op{Op1_9: &admin.Op1_9{Block: &pfs.PutBlockRequest{Block: w.block, Value: value}}}); err != nil {
+			return n, err
+		}
+		w.block = nil // only need to send block on the first request
+		n += len(value)
+	}
+	return n, nil
+}
+
+func (w extractBlockWriter) Close() error {
+	return w.f(&admin.Op{Op1_9: &admin.Op1_9{Block: &pfs.PutBlockRequest{Block: w.block}}})
+}
+
+type extractBlockReader struct {
+	// One of these two must be set (whether user is restoring over the wire or
+	// via URL)
+	adminAPIRestoreServer
+	restoreURLReader pbutil.Reader
+
+	version opVersion
+	buf     bytes.Buffer
+	eof     bool
+}
+
+func (r *extractBlockReader) Read(p []byte) (int, error) {
+	// Shortcut -- if object is done just return EOF
+	if r.eof {
+		return 0, io.EOF
+	}
+
+	// Read leftover bytes in buffer (from prior Read() call) into 'p'
+	n, err := r.buf.Read(p)
+	if n == len(p) || err != nil && err != io.EOF {
+		return n, err // quit early if done; ignore EOF--just means buf is now empty
+	}
+	r.buf.Reset() // discard data now in 'p'; ready to refill 'r.buf'
+	p = p[n:]     // only want to fill remainder of p
+
+	// refill 'r.buf'
+	for len(p) > r.buf.Len() && !r.eof {
+		var op *admin.Op
+		if r.restoreURLReader == nil {
+			request, err := r.Recv()
+			if err != nil {
+				return 0, grpcutil.ScrubGRPC(err)
+			}
+			op = request.Op
+		} else {
+			if op == nil {
+				op = &admin.Op{}
+			} else {
+				*op = admin.Op{} // clear 'op' without making old contents into garbage
+			}
+			if err := r.restoreURLReader.Read(op); err != nil {
+				return 0, fmt.Errorf("unexpected error while restoring object: %v", err)
+			}
+		}
+
+		// Validate op version
+		if r.version != version(op) {
+			return 0, fmt.Errorf("cannot mix different versions of pachd operation "+
+				"within a metadata dumps (found both %s and %s)", version(op), r.version)
+		}
+
+		// extract object bytes
+		var value []byte
+		if r.version == v1_7 {
+			return 0, fmt.Errorf("invalid version 1.7 doesn't have extracted blocks")
+		} else if r.version == v1_8 {
+			return 0, fmt.Errorf("invalid version 1.8 doesn't have extracted blocks")
+		} else {
+			if op.Op1_9.Block == nil {
+				return 0, fmt.Errorf("expected a block, but got: %v", op)
+			}
+			value = op.Op1_9.Block.Value
 		}
 
 		if len(value) == 0 {

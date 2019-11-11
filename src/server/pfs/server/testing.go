@@ -79,10 +79,18 @@ func runServers(
 	<-ready
 }
 
+// GetBasicConfig gets a basic service environment configuration for testing pachd.
+func GetBasicConfig() *serviceenv.Configuration {
+	config := serviceenv.NewConfiguration(&serviceenv.PachdFullConfiguration{})
+	config.EtcdHost = etcdHost
+	config.EtcdPort = etcdPort
+	return config
+}
+
 // GetPachClient initializes a new PFSAPIServer and blockAPIServer and begins
 // serving requests for them on a new port, and then returns a client connected
 // to the new servers (allows PFS tests to run in parallel without conflict)
-func GetPachClient(t testing.TB) *client.APIClient {
+func GetPachClient(t testing.TB, config *serviceenv.Configuration) *client.APIClient {
 	// src/server/pfs/server/driver.go expects an etcd server at "localhost:32379"
 	// Try to establish a connection before proceeding with the test (which will
 	// fail if the connection can't be established)
@@ -101,15 +109,17 @@ func GetPachClient(t testing.TB) *client.APIClient {
 
 	root := tu.UniqueString("/tmp/pach_test/run")
 	t.Logf("root %s", root)
+
 	pfsPort := atomic.AddInt32(&port, 1)
+	config.PeerPort = uint16(pfsPort)
 
 	// initialize new BlockAPIServier
-	config := serviceenv.NewConfiguration(&serviceenv.GlobalConfiguration{})
-	config.EtcdHost = etcdHost
-	config.EtcdPort = etcdPort
-	config.PeerPort = uint16(pfsPort)
 	env := serviceenv.InitServiceEnv(config)
-	blockAPIServer, err := newLocalBlockAPIServer(root, localBlockServerCacheBytes, net.JoinHostPort(etcdHost, etcdPort))
+	blockAPIServer, err := newLocalBlockAPIServer(
+		root,
+		localBlockServerCacheBytes,
+		net.JoinHostPort(etcdHost, etcdPort),
+		true /* duplicate--see comment in newObjBlockAPIServer */)
 	require.NoError(t, err)
 	etcdPrefix := generateRandomString(32)
 	treeCache, err := hashtree.NewCache(testingTreeCacheSize)

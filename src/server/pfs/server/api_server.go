@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"io"
 	"sync"
 	"time"
 
@@ -149,15 +150,20 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) Fsck(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
+// Fsckimplements the protobuf pfs.Fsck RPC
+func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-
-	err := a.driver.fsck(a.env.GetPachClient(ctx))
-	if err != nil {
-		return nil, err
+	sent := 0
+	defer func(start time.Time) {
+		a.Log(request, fmt.Sprintf("stream containing %d messages", sent), retErr, time.Since(start))
+	}(time.Now())
+	if err := a.driver.fsck(a.env.GetPachClient(fsckServer.Context()), request.Fix, func(resp *pfs.FsckResponse) error {
+		sent++
+		return fsckServer.Send(resp)
+	}); err != nil {
+		return err
 	}
-	return &types.Empty{}, nil
+	return nil
 }
 
 // StartCommitInTransaction is identical to StartCommit except that it can run
@@ -173,6 +179,9 @@ func (a *apiServer) StartCommitInTransaction(
 	id := ""
 	if commit != nil {
 		id = commit.ID
+	}
+	if a.env.NewStorageLayer {
+		return a.driver.startCommitNewStorageLayer(txnCtx, id, request.Parent, request.Branch, request.Provenance, request.Description)
 	}
 	return a.driver.startCommit(txnCtx, id, request.Parent, request.Branch, request.Provenance, request.Description)
 }
@@ -198,7 +207,7 @@ func (a *apiServer) BuildCommit(ctx context.Context, request *pfs.BuildCommitReq
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	commit, err := a.driver.buildCommit(ctx, request.ID, request.Parent, request.Branch, request.Provenance, request.Tree)
+	commit, err := a.driver.buildCommit(ctx, request.ID, request.Parent, request.Branch, request.Provenance, request.Tree, request.Trees, request.Datums, request.SizeBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -211,6 +220,9 @@ func (a *apiServer) FinishCommitInTransaction(
 	txnCtx *txnenv.TransactionContext,
 	request *pfs.FinishCommitRequest,
 ) error {
+	if a.env.NewStorageLayer {
+		return a.driver.finishCommitNewStorageLayer(txnCtx, request.Commit, request.Description)
+	}
 	if request.Trees != nil {
 		return a.driver.finishOutputCommit(txnCtx, request.Commit, request.Trees, request.Datums, request.SizeBytes)
 	}
@@ -243,7 +255,7 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	commitInfos, err := a.driver.listCommit(a.env.GetPachClient(ctx), request.Repo, request.To, request.From, request.Number)
+	commitInfos, err := a.driver.listCommit(a.env.GetPachClient(ctx), request.Repo, request.To, request.From, request.Number, request.Reverse)
 	if err != nil {
 		return nil, err
 	}
@@ -253,13 +265,13 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 }
 
 // ListCommitStream implements the protobuf pfs.ListCommitStream RPC
-func (a *apiServer) ListCommitStream(req *pfs.ListCommitRequest, respServer pfs.API_ListCommitStreamServer) (retErr error) {
-	func() { a.Log(req, nil, nil, 0) }()
+func (a *apiServer) ListCommitStream(request *pfs.ListCommitRequest, respServer pfs.API_ListCommitStreamServer) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	sent := 0
 	defer func(start time.Time) {
-		a.Log(req, fmt.Sprintf("stream containing %d commits", sent), retErr, time.Since(start))
+		a.Log(request, fmt.Sprintf("stream containing %d commits", sent), retErr, time.Since(start))
 	}(time.Now())
-	return a.driver.listCommitF(a.env.GetPachClient(respServer.Context()), req.Repo, req.To, req.From, req.Number, func(ci *pfs.CommitInfo) error {
+	return a.driver.listCommitF(a.env.GetPachClient(respServer.Context()), request.Repo, request.To, request.From, request.Number, request.Reverse, func(ci *pfs.CommitInfo) error {
 		sent++
 		return respServer.Send(ci)
 	})
@@ -308,7 +320,7 @@ func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchReque
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	branches, err := a.driver.listBranch(a.env.GetPachClient(ctx), request.Repo)
+	branches, err := a.driver.listBranch(a.env.GetPachClient(ctx), request.Repo, request.Reverse)
 	if err != nil {
 		return nil, err
 	}
@@ -372,7 +384,7 @@ func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream 
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 
-	return a.driver.subscribeCommit(a.env.GetPachClient(stream.Context()), request.Repo, request.Branch, request.From, request.State, stream.Send)
+	return a.driver.subscribeCommit(a.env.GetPachClient(stream.Context()), request.Repo, request.Branch, request.Prov, request.From, request.State, stream.Send)
 }
 
 // PutFile implements the protobuf pfs.PutFile RPC
@@ -393,6 +405,9 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 		}
 	}()
 	pachClient := a.env.GetPachClient(s.Context())
+	if a.env.NewStorageLayer {
+		return a.driver.putFilesNewStorageLayer(pachClient, s)
+	}
 	return a.driver.putFiles(pachClient, s)
 }
 
@@ -416,7 +431,13 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.AP
 		a.Log(request, nil, retErr, time.Since(start))
 	}(time.Now())
 
-	file, err := a.driver.getFile(a.env.GetPachClient(apiGetFileServer.Context()), request.File, request.OffsetBytes, request.SizeBytes)
+	var file io.Reader
+	var err error
+	if a.env.NewStorageLayer {
+		file, err = a.driver.getFileNewStorageLayer(a.env.GetPachClient(apiGetFileServer.Context()), request.File)
+	} else {
+		file, err = a.driver.getFile(a.env.GetPachClient(apiGetFileServer.Context()), request.File, request.OffsetBytes, request.SizeBytes)
+	}
 	if err != nil {
 		return err
 	}

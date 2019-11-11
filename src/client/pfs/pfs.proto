@@ -83,6 +83,7 @@ message RepoAuthInfo {
 enum OriginKind {
   USER = 0;
   AUTO = 1;
+  FSCK = 2;
 }
 
 message CommitOrigin {
@@ -178,6 +179,19 @@ message ObjectInfo {
   BlockRef block_ref = 2;
 }
 
+message Merge {
+  repeated string prefixes = 1;
+}
+
+message Shard {
+  PathRange range = 1;
+}
+
+message PathRange {
+  string lower = 1;
+  string upper = 2;
+}
+
 // PFS API
 
 message CreateRepoRequest {
@@ -230,8 +244,11 @@ message BuildCommitRequest {
   string branch = 4;
   repeated CommitProvenance provenance = 6;
   Object tree = 3;
+  repeated Object trees = 7;
+  Object datums = 8;
   // ID sets the ID of the created commit.
   string ID = 5;
+  uint64 size_bytes = 9;
 }
 
 message FinishCommitRequest {
@@ -260,6 +277,7 @@ message ListCommitRequest {
   Commit from = 2;
   Commit to = 3;
   uint64 number = 4;
+  bool reverse = 5;  // Return commits oldest to newest
 }
 
 message CommitInfos {
@@ -282,6 +300,7 @@ message InspectBranchRequest {
 
 message ListBranchRequest {
   Repo repo = 1;
+  bool reverse = 2; // Returns branches oldest to newest
 }
 
 message DeleteBranchRequest {
@@ -301,6 +320,7 @@ message FlushCommitRequest {
 message SubscribeCommitRequest {
   Repo repo = 1;
   string branch = 2;
+  CommitProvenance prov = 5;
   // only commits created since this commit are returned
   Commit from = 3;
   // Don't return commits until they're in (at least) the desired state.
@@ -450,6 +470,15 @@ message DeleteFileRequest {
   File file = 1;
 }
 
+message FsckRequest {
+  bool fix = 1;
+}
+
+message FsckResponse {
+  string fix = 1;
+  string error = 2;
+}
+
 service API {
   // Repo rpcs
   // CreateRepo creates a new repo.
@@ -525,13 +554,18 @@ service API {
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
   // Fsck does a file system consistency check for pfs
-  rpc Fsck(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc Fsck(FsckRequest) returns (stream FsckResponse) {}
 }
 
 message PutObjectRequest {
   bytes value = 1;
   repeated Tag tags = 2;
   Block block = 3;
+}
+
+message CreateObjectRequest {
+  Object object = 1;
+  BlockRef block_ref = 2;
 }
 
 message GetObjectsRequest {
@@ -545,6 +579,15 @@ message GetObjectsRequest {
   uint64 total_size = 4;
 }
 
+message PutBlockRequest {
+  Block block = 1;
+  bytes value = 2;
+}
+
+message GetBlockRequest {
+  Block block = 1;
+}
+
 message GetBlocksRequest {
   repeated BlockRef blockRefs = 1;
   uint64 offset_bytes = 2;
@@ -555,6 +598,8 @@ message GetBlocksRequest {
   // It's used primarily as a hint for cache eviction.
   uint64 total_size = 4;
 }
+
+message ListBlockRequest {}
 
 message TagObjectRequest {
   Object object = 1;
@@ -601,15 +646,19 @@ service ObjectAPI {
   rpc PutObject(stream PutObjectRequest) returns (Object) {}
   rpc PutObjectSplit(stream PutObjectRequest) returns (Objects) {}
   rpc PutObjects(stream PutObjectRequest) returns (google.protobuf.Empty) {}
+  rpc CreateObject(CreateObjectRequest) returns (google.protobuf.Empty) {}
   rpc GetObject(Object) returns (stream google.protobuf.BytesValue) {}
   rpc GetObjects(GetObjectsRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc PutBlock(stream PutBlockRequest) returns (google.protobuf.Empty) {}
+  rpc GetBlock(GetBlockRequest) returns (stream google.protobuf.BytesValue) {}
   rpc GetBlocks(GetBlocksRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc ListBlock(ListBlockRequest) returns (stream Block) {}
   rpc TagObject(TagObjectRequest) returns (google.protobuf.Empty) {}
   rpc InspectObject(Object) returns (ObjectInfo) {}
   // CheckObject checks if an object exists in the blob store without
   // actually reading the object.
   rpc CheckObject(CheckObjectRequest) returns (CheckObjectResponse) {}
-  rpc ListObjects(ListObjectsRequest) returns (stream Object) {}
+  rpc ListObjects(ListObjectsRequest) returns (stream ObjectInfo) {}
   rpc DeleteObjects(DeleteObjectsRequest) returns (DeleteObjectsResponse) {}
   rpc GetTag(Tag) returns (stream google.protobuf.BytesValue) {}
   rpc InspectTag(Tag) returns (ObjectInfo) {}

@@ -309,8 +309,11 @@ func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (
 	}
 
 	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		// blind delete
-		return a.enterpriseToken.ReadWrite(stm).Delete(enterpriseTokenKey)
+		err := a.enterpriseToken.ReadWrite(stm).Delete(enterpriseTokenKey)
+		if err != nil && !col.IsErrNotFound(err) {
+			return err
+		}
+		return nil
 	}); err != nil {
 		return nil, err
 	}

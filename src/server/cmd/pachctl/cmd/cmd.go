@@ -25,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	admincmds "github.com/pachyderm/pachyderm/src/server/admin/cmds"
 	authcmds "github.com/pachyderm/pachyderm/src/server/auth/cmds"
+	configcmds "github.com/pachyderm/pachyderm/src/server/config"
 	debugcmds "github.com/pachyderm/pachyderm/src/server/debug/cmds"
 	enterprisecmds "github.com/pachyderm/pachyderm/src/server/enterprise/cmds"
 	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
@@ -305,8 +306,6 @@ __custom_func() {
 // interact with them (it implements the pachctl binary).
 func PachctlCmd() *cobra.Command {
 	var verbose bool
-	var noMetrics bool
-	var noPortForwarding bool
 
 	raw := false
 	rawFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
@@ -319,7 +318,6 @@ func PachctlCmd() *cobra.Command {
 		Long: `Access the Pachyderm API.
 
 Environment variables:
-  PACHD_ADDRESS=<host>:<port>, the pachd server to connect to (e.g. 127.0.0.1:30650).
   PACH_CONFIG=<path>, the path where pachctl will attempt to load your pach config.
   JAEGER_ENDPOINT=<host>:<port>, the Jaeger server to connect to, if PACH_TRACE is set
   PACH_TRACE={true,false}, If true, and JAEGER_ENDPOINT is set, attach a
@@ -350,8 +348,7 @@ Environment variables:
 		BashCompletionFunction: bashCompletionFunc,
 	}
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Output verbose logs")
-	rootCmd.PersistentFlags().BoolVarP(&noMetrics, "no-metrics", "", false, "Don't report user metrics for this command")
-	rootCmd.PersistentFlags().BoolVarP(&noPortForwarding, "no-port-forwarding", "", false, "Disable implicit port forwarding")
+	rootCmd.PersistentFlags().BoolVar(&color.NoColor, "no-color", false, "Turn off colors.")
 
 	var subcommands []*cobra.Command
 
@@ -371,15 +368,14 @@ Environment variables:
 				}
 				return nil
 			}
-			if !noMetrics {
-				start := time.Now()
-				startMetricsWait := metrics.StartReportAndFlushUserAction("Version", start)
-				defer startMetricsWait()
-				defer func() {
-					finishMetricsWait := metrics.FinishReportAndFlushUserAction("Version", retErr, start)
-					finishMetricsWait()
-				}()
-			}
+
+			start := time.Now()
+			startMetricsWait := metrics.StartReportAndFlushUserAction("Version", start)
+			defer startMetricsWait()
+			defer func() {
+				finishMetricsWait := metrics.FinishReportAndFlushUserAction("Version", retErr, start)
+				finishMetricsWait()
+			}()
 
 			// Print header + client version
 			writer := ansiterm.NewTabWriter(os.Stdout, 20, 1, 3, ' ', 0)
@@ -404,9 +400,9 @@ Environment variables:
 				if err != nil {
 					return fmt.Errorf("could not parse timeout duration %q: %v", timeout, err)
 				}
-				pachClient, err = client.NewOnUserMachine(false, !noPortForwarding, "user", client.WithDialTimeout(timeout))
+				pachClient, err = client.NewOnUserMachine("user", client.WithDialTimeout(timeout))
 			} else {
-				pachClient, err = client.NewOnUserMachine(false, !noPortForwarding, "user")
+				pachClient, err = client.NewOnUserMachine("user")
 			}
 			if err != nil {
 				return err
@@ -454,7 +450,7 @@ Environment variables:
 		Long: `Delete all repos, commits, files, pipelines and jobs.
 This resets the cluster to its initial state.`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := client.NewOnUserMachine(!noMetrics, !noPortForwarding, "user")
+			client, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -512,6 +508,10 @@ This resets the cluster to its initial state.`,
 		Short: "Forward a port on the local machine to pachd. This command blocks.",
 		Long:  "Forward a port on the local machine to pachd. This command blocks.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			if namespace != "" {
+				fmt.Printf("WARNING: The `--namespace` flag is deprecated and will be removed in a future version. Please set the namespace in the pachyderm context instead: pachctl config update context `pachctl config get active-context` --namespace '%s'\n", namespace)
+			}
+
 			fw, err := client.NewPortForwarder(namespace)
 			if err != nil {
 				return err
@@ -578,7 +578,7 @@ This resets the cluster to its initial state.`,
 	portForward.Flags().Uint16VarP(&uiWebsocketPort, "proxy-port", "x", 30081, "The local port to bind Pachyderm's dash proxy service to.")
 	portForward.Flags().Uint16VarP(&pfsPort, "pfs-port", "f", 30652, "The local port to bind PFS over HTTP to.")
 	portForward.Flags().Uint16VarP(&s3gatewayPort, "s3gateway-port", "s", 30600, "The local port to bind the s3gateway to.")
-	portForward.Flags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace Pachyderm is deployed in.")
+	portForward.Flags().StringVar(&namespace, "namespace", "", "Kubernetes namespace Pachyderm is deployed in.")
 	subcommands = append(subcommands, cmdutil.CreateAlias(portForward, "port-forward"))
 
 	var install bool
@@ -744,19 +744,20 @@ This resets the cluster to its initial state.`,
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(editDocs, "edit"))
 
-	subcommands = append(subcommands, pfscmds.Cmds(&noMetrics, &noPortForwarding)...)
-	subcommands = append(subcommands, ppscmds.Cmds(&noMetrics, &noPortForwarding)...)
-	subcommands = append(subcommands, deploycmds.Cmds(&noMetrics, &noPortForwarding)...)
-	subcommands = append(subcommands, authcmds.Cmds(&noMetrics, &noPortForwarding)...)
-	subcommands = append(subcommands, enterprisecmds.Cmds(&noMetrics, &noPortForwarding)...)
-	subcommands = append(subcommands, admincmds.Cmds(&noMetrics, &noPortForwarding)...)
-	subcommands = append(subcommands, debugcmds.Cmds(&noMetrics, &noPortForwarding)...)
-	subcommands = append(subcommands, txncmds.Cmds(&noMetrics, &noPortForwarding)...)
+	subcommands = append(subcommands, pfscmds.Cmds()...)
+	subcommands = append(subcommands, ppscmds.Cmds()...)
+	subcommands = append(subcommands, deploycmds.Cmds()...)
+	subcommands = append(subcommands, authcmds.Cmds()...)
+	subcommands = append(subcommands, enterprisecmds.Cmds()...)
+	subcommands = append(subcommands, admincmds.Cmds()...)
+	subcommands = append(subcommands, debugcmds.Cmds()...)
+	subcommands = append(subcommands, txncmds.Cmds()...)
+	subcommands = append(subcommands, configcmds.Cmds()...)
 
 	cmdutil.MergeCommands(rootCmd, subcommands)
 
 	applyRootUsageFunc(rootCmd)
-	applyCommandCompat1_8(rootCmd, &noMetrics, &noPortForwarding)
+	applyCommandCompat1_8(rootCmd)
 
 	return rootCmd
 }
@@ -882,7 +883,7 @@ Use "{{.CommandPath}} [command] --help" for more information about a command.{{e
 		t := template.New("top")
 		t.Funcs(templateFuncs)
 		template.Must(t.Parse(text))
-		return t.Execute(cmd.Out(), cmd)
+		return t.Execute(cmd.OutOrStderr(), cmd)
 		return originalUsageFunc(cmd)
 	})
 }
