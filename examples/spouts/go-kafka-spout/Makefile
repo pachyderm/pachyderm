@@ -3,8 +3,8 @@ PROJNAME := pachkafka
 
 # customize these to your kafka deployment and needs
 KAFKA_HOST := kafka.kafka
-KAFKA_TOPIC := test
-KAFKA_GROUP_ID := test3
+KAFKA_TOPIC := test_topic
+KAFKA_GROUP_ID := test_group
 KAFKA_PORT := 9092
 KAFKA_TIMEOUT := 5
 NAMED_PIPE := /pfs/out
@@ -14,8 +14,8 @@ PIPELINES_DIR := pipelines
 SOURCE_DIR := source
 ADDITIONAL_MANIFESTS_DIR := additional_manifests
 PROJ_DIRS := $(SOURCE_DIR) $(PIPELINES_DIR)
-CONTAINER_VERSION := 0.50
-DOCKER_ACCOUNT := papposilenus
+CONTAINER_VERSION := 1.9.8
+DOCKER_ACCOUNT := pachyderm
 CONTAINER_NAME := kafka_spout
 CONTAINER_TAG := $(DOCKER_ACCOUNT)/$(CONTAINER_NAME):$(CONTAINER_VERSION)
 JQ := jq
