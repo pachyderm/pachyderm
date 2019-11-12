@@ -8804,7 +8804,7 @@ func TestPachdPrometheusStats(t *testing.T) {
 	promAPI := prom_api_v1.NewAPI(promClient)
 
 	countQuery := func(t *testing.T, query string) float64 {
-		result, err := promAPI.Query(context.Background(), query, time.Now())
+		result, _, err := promAPI.Query(context.Background(), query, time.Now())
 		require.NoError(t, err)
 		resultVec := result.(prom_model.Vector)
 		require.Equal(t, 1, len(resultVec))
@@ -8812,7 +8812,7 @@ func TestPachdPrometheusStats(t *testing.T) {
 	}
 	avgQuery := func(t *testing.T, sumQuery string, countQuery string, expected int) {
 		query := "(" + sumQuery + ")/(" + countQuery + ")"
-		result, err := promAPI.Query(context.Background(), query, time.Now())
+		result, _, err := promAPI.Query(context.Background(), query, time.Now())
 		require.NoError(t, err)
 		resultVec := result.(prom_model.Vector)
 		require.Equal(t, expected, len(resultVec))

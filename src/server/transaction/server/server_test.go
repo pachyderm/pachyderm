@@ -58,24 +58,22 @@ func runServers(
 	authServer auth.APIServer,
 	txnServer APIServer,
 ) {
-	ready := make(chan bool)
+	_, eg := grpcutil.Serve(
+		context.Background(),
+		grpcutil.ServerOptions{
+			Port:       uint16(port),
+			MaxMsgSize: grpcutil.MaxMsgSize,
+			RegisterFunc: func(s *grpc.Server) error {
+				pfs.RegisterAPIServer(s, pfsServer)
+				pfs.RegisterObjectAPIServer(s, pfsBlockServer)
+				auth.RegisterAPIServer(s, authServer)
+				transaction.RegisterAPIServer(s, txnServer)
+				return nil
+			}},
+	)
 	go func() {
-		err := grpcutil.Serve(
-			grpcutil.ServerOptions{
-				Port:       uint16(port),
-				MaxMsgSize: grpcutil.MaxMsgSize,
-				RegisterFunc: func(s *grpc.Server) error {
-					defer close(ready)
-					pfs.RegisterAPIServer(s, pfsServer)
-					pfs.RegisterObjectAPIServer(s, pfsBlockServer)
-					auth.RegisterAPIServer(s, authServer)
-					transaction.RegisterAPIServer(s, txnServer)
-					return nil
-				}},
-		)
-		require.NoError(t, err)
+		require.NoError(t, eg.Wait())
 	}()
-	<-ready
 }
 
 // GetPachClient initializes a new PFS, Block, and Transaction servers and
