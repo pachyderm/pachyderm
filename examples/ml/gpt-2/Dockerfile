@@ -1,10 +1,10 @@
-FROM nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04
+FROM tensorflow/tensorflow:1.14.0-gpu-py3
 
 RUN apt-get update && \
     apt-get install -y python3-pip && \
     rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install twitterscraper gpt_2_simple tensorflow-gpu==1.14
+RUN pip3 install twitterscraper gpt_2_simple
 
 ADD tweets.py /
 ADD train.py /
