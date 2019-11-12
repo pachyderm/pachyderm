@@ -4102,7 +4102,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 		// wait for logs to be collected
 		time.Sleep(10 * time.Second)
 		iter = c.GetLogs("", jobInfos[0].Job.ID, nil, "", false, false, 0)
-		numLogs := 0
+		numLogs = 0
 		for iter.Next() {
 			numLogs++
 			require.True(t, iter.Message().Message != "")
