@@ -373,7 +373,7 @@ message EtcdPipelineInfo {
 }
 
 message PipelineInfo {
-  reserved 3, 4, 22, 26, 27;
+  reserved 3, 4, 22, 26, 27, 18;
   string id = 17 [(gogoproto.customname) = "ID"];
   Pipeline pipeline = 1;
   uint64 version = 11;
@@ -403,7 +403,6 @@ message PipelineInfo {
   JobState last_job_state = 43;
 
   string output_branch = 16;
-  google.protobuf.Duration scale_down_threshold = 18;
   ResourceSpec resource_requests = 19;
   ResourceSpec resource_limits = 31;
   Input input = 20;
@@ -603,7 +602,7 @@ message SchedulingSpec {
 }
 
 message CreatePipelineRequest {
-  reserved 3, 4, 15, 19;
+  reserved 3, 4, 11, 15, 19;
   Pipeline pipeline = 1;
   // tf_job encodes a Kubeflow TFJob spec. Pachyderm uses this to create TFJobs
   // when running in a kubernetes cluster on which kubeflow has been installed.
@@ -615,7 +614,6 @@ message CreatePipelineRequest {
   Egress egress = 9;
   bool update = 5;
   string output_branch = 10;
-  google.protobuf.Duration scale_down_threshold = 11;
   ResourceSpec resource_requests = 12;
   ResourceSpec resource_limits = 22;
   Input input = 13;

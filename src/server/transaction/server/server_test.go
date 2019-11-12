@@ -58,12 +58,12 @@ func runServers(
 	authServer auth.APIServer,
 	txnServer APIServer,
 ) {
-	eg := grpcutil.Serve(
+	_, eg := grpcutil.Serve(
+		context.Background(),
 		grpcutil.ServerOptions{
 			Port:       uint16(port),
 			MaxMsgSize: grpcutil.MaxMsgSize,
 			RegisterFunc: func(s *grpc.Server) error {
-				defer close(ready)
 				pfs.RegisterAPIServer(s, pfsServer)
 				pfs.RegisterObjectAPIServer(s, pfsBlockServer)
 				auth.RegisterAPIServer(s, authServer)

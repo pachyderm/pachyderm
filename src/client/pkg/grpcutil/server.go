@@ -53,6 +53,7 @@ type ServerOptions struct {
 type ServerRun struct {
 	GrpcServer *grpc.Server
 	Listener   net.Listener
+	Err        error
 }
 
 // Serve serves stuff.
@@ -65,7 +66,14 @@ func Serve(
 	ready := make(chan bool, len(servers))
 
 	for _, server := range servers {
-		eg.Go(func() error {
+		serverRun := &ServerRun{}
+		serverRuns = append(serverRuns, serverRun)
+
+		eg.Go(func() (err error) {
+			defer func() {
+				serverRun.Err = err
+			}()
+
 			if server.RegisterFunc == nil {
 				return ErrMustSpecifyRegisterFunc
 			}
@@ -98,38 +106,48 @@ func Serve(
 				}
 			}
 
-			grpcServer := grpc.NewServer(opts...)
-			if err := server.RegisterFunc(grpcServer); err != nil {
+			serverRun.GrpcServer = grpc.NewServer(opts...)
+			if err = server.RegisterFunc(serverRun.GrpcServer); err != nil {
 				return err
 			}
+
 			port := server.Port
 			if server.AnyPort {
 				port = 0
 			}
-			listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", server.Host, port))
+			serverRun.Listener, err = net.Listen("tcp", fmt.Sprintf("%s:%d", server.Host, port))
 			if err != nil {
 				return err
 			}
 
 			eg.Go(func() error {
 				<-ctx.Done()
-				grpcServer.GracefulStop() // This also closes the TCP listener
+				serverRun.GrpcServer.GracefulStop() // This also closes the TCP listener
 				return nil
-			})
-
-			serverRuns = append(serverRuns, &ServerRun{
-				GrpcServer: grpcServer,
-				Listener:   listener,
 			})
 
 			ready <- true
 
-			return grpcServer.Serve(listener)
+			return serverRun.GrpcServer.Serve(serverRun.Listener)
 		})
 	}
 
 	for range servers {
-		<-ready
+		select {
+		case <-ready:
+			continue
+		case <-ctx.Done():
+			err := fmt.Errorf("Canceled before servers became ready: %v", ctx.Err())
+			eg.Go(func() error {
+				return err
+			})
+			for _, run := range serverRuns {
+				if run.Err != nil {
+					run.Err = err
+				}
+			}
+			return serverRuns, eg
+		}
 	}
 
 	return serverRuns, eg

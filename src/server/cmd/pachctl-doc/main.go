@@ -21,5 +21,5 @@ func do(appEnvObj interface{}) error {
 
 	rootCmd := cmd.PachctlCmd()
 
-	return doc.GenMarkdownTree(rootCmd, "./doc/pachctl/")
+	return doc.GenMarkdownTree(rootCmd, "./doc/docs/latest/reference/pachctl/")
 }

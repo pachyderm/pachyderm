@@ -9,5 +9,5 @@ for query in os.listdir("/pfs/queries/"):
             with open(os.path.join("/pfs/out", query), "w+") as out:
                 for tweet in t.query_tweets(q):
                     out.write("<|startoftext|> ")
-                    out.write(tweet.text)
+                    out.write(tweet.text.encode("ascii", "replace").decode("ascii"))
                     out.write(" <|endoftext|> ")
