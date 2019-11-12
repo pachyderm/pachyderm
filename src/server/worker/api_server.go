@@ -1578,6 +1578,9 @@ func (a *APIServer) getHashtrees(ctx context.Context, pachClient *client.APIClie
 }
 
 func (a *APIServer) getDatumMap(ctx context.Context, pachClient *client.APIClient, object *pfs.Object) (_ map[string]bool, retErr error) {
+	if object == nil {
+		return nil, nil
+	}
 	r, err := pachClient.GetObjectReader(object.Hash)
 	if err != nil {
 		return nil, err
@@ -2132,18 +2135,21 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 	}
 
 	// put the list of recovered datums in a pfs.Object, and save it as part of the result
-	recoveredDatumsBuf := &bytes.Buffer{}
-	pbw := pbutil.NewWriter(recoveredDatumsBuf)
-	for _, datumHash := range recoveredDatums {
-		if _, err := pbw.WriteBytes([]byte(datumHash)); err != nil {
+	if len(recoveredDatums) > 0 {
+		recoveredDatumsBuf := &bytes.Buffer{}
+		pbw := pbutil.NewWriter(recoveredDatumsBuf)
+		for _, datumHash := range recoveredDatums {
+			if _, err := pbw.WriteBytes([]byte(datumHash)); err != nil {
+				return nil, err
+			}
+		}
+		recoveredDatumsObj, _, err := pachClient.PutObject(recoveredDatumsBuf)
+		if err != nil {
 			return nil, err
 		}
+
+		result.recoveredDatums = recoveredDatumsObj
 	}
-	recoveredDatumsObj, _, err := pachClient.PutObject(recoveredDatumsBuf)
-	if err != nil {
-		return nil, err
-	}
-	result.recoveredDatums = recoveredDatumsObj
 
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		jobs := a.jobs.ReadWrite(stm)
