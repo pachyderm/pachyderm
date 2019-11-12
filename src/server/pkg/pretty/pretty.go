@@ -46,8 +46,10 @@ func Size(size uint64) string {
 	return units.BytesSize(float64(size))
 }
 
-// Progress pretty prints a progress bar with given width and green, yellow and red segments.
-// green, yellow and red need not add to width, they will be normalized
+// ProgressBar pretty prints a progress bar with given width and green, yellow
+// and red segments.  green, yellow and red need not add to width, they will be
+// normalized. If red is nonzero there will always be at least one red segment,
+// even if red is less than 1/width of the total bar.
 func ProgressBar(width, green, yellow, red int) string {
 	total := green + yellow + red
 	var sb strings.Builder
