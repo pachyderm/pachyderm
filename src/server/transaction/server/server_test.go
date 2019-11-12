@@ -59,6 +59,7 @@ func runServers(
 	txnServer APIServer,
 ) {
 	_, eg := grpcutil.Serve(
+		context.Background(),
 		grpcutil.ServerOptions{
 			Port:       uint16(port),
 			MaxMsgSize: grpcutil.MaxMsgSize,
