@@ -1,14 +1,12 @@
 package cmds
 
 import (
-	"encoding/json"
+	"bufio"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/url"
 	"os"
-	"os/user"
-	"path"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -469,8 +467,8 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The JSON file containing the pipeline, it can be a url or local file. - reads from stdin.")
 	createPipeline.Flags().BoolVarP(&build, "build", "b", false, "If true, build and push local docker images into the docker registry.")
 	createPipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the docker registry.")
-	createPipeline.Flags().StringVarP(&registry, "registry", "r", "docker.io", "The registry to push images to.")
-	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your docker username.")
+	createPipeline.Flags().StringVarP(&registry, "registry", "r", "index.docker.io", "The registry to push images to.")
+	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as.")
 	commands = append(commands, cmdutil.CreateAlias(createPipeline, "create pipeline"))
 
 	var reprocess bool
@@ -484,8 +482,8 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	updatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The JSON file containing the pipeline, it can be a url or local file. - reads from stdin.")
 	updatePipeline.Flags().BoolVarP(&build, "build", "b", false, "If true, build and push local docker images into the docker registry.")
 	updatePipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the docker registry.")
-	updatePipeline.Flags().StringVarP(&registry, "registry", "r", "docker.io", "The registry to push images to.")
-	updatePipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
+	updatePipeline.Flags().StringVarP(&registry, "registry", "r", "index.docker.io", "The registry to push images to.")
+	updatePipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as.")
 	updatePipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
 	commands = append(commands, cmdutil.CreateAlias(updatePipeline, "update pipeline"))
 
@@ -837,9 +835,13 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry string
 		}
 		if build || pushImages {
 			if build && pushImages {
-				fmt.Fprintln(os.Stderr, "`--push-images` is redundant, as it's already enabled with `--build`")
+				fmt.Fprintln(os.Stderr, "WARNING: `--push-images` is redundant, as it's already enabled with `--build`")
 			}
-			dockerClient, authConfig, err := dockerConfig(registry, username)
+			dockerClient, err := docker.NewClientFromEnv()
+			if err != nil {
+				return fmt.Errorf("could not create a docker client from the environment: %s", err)
+			}
+			authConfig, err := dockerConfig(registry, username)
 			if err != nil {
 				return err
 			}
@@ -854,15 +856,11 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry string
 				if pipelinePath == "-" || (err == nil && url.Scheme != "") {
 					return fmt.Errorf("`--build` can only be used when the pipeline path is local")
 				}
-				absPath, err := filepath.Abs(pipelinePath)
-				if err != nil {
-					return fmt.Errorf("could not get absolute path to the pipeline path '%s': %s", pipelinePath, err)
-				}
-				contextDir := filepath.Dir(absPath)
 				dockerfile := request.Transform.Dockerfile
 				if dockerfile == "" {
 					dockerfile = "./Dockerfile"
 				}
+				contextDir, dockerfile := filepath.Split(dockerfile)
 				err = buildImage(dockerClient, repo, contextDir, dockerfile, destTag)
 				if err != nil {
 					return err
@@ -910,46 +908,42 @@ func (arr ByCreationTime) Less(i, j int) bool {
 	return false
 }
 
-func dockerConfig(registry string, username string) (*docker.Client, docker.AuthConfiguration, error) {
-	var authConfig docker.AuthConfiguration
-	client, err := docker.NewClientFromEnv()
+func dockerConfig(registry string, username string) (docker.AuthConfiguration, error) {
+	// try to automatically determine the credentials
+	authConfigs, err := docker.NewAuthConfigurationsFromDockerCfg()
+	if err == nil {
+		for _, ac := range authConfigs.Configs {
+			u, err := url.Parse(ac.ServerAddress)
+			if err == nil && u.Hostname() == registry && (username == "" || username == ac.Username) {
+				return ac, nil
+			}
+		}
+	}
+
+	// if that failed, manually build credentials
+	if username == "" {
+		// request the username if it hasn't been specified yet
+		fmt.Printf("Username for %s: ", registry)
+		reader := bufio.NewReader(os.Stdin)
+		username, err = reader.ReadString('\n')
+		if err != nil {
+			return docker.AuthConfiguration{}, fmt.Errorf("could not read username: %v", err)
+		}
+		username = strings.TrimRight(username, "\r\n")
+	}
+	fmt.Printf("Password for %s@%s: ", username, registry)
+	passBytes, err := terminal.ReadPassword(int(syscall.Stdin))
 	if err != nil {
-		err = fmt.Errorf("could not create a docker client from the environment: %s", err)
-		return nil, authConfig, err
+		return docker.AuthConfiguration{}, fmt.Errorf("could not read password: %v", err)
 	}
 
-	if username != "" {
-		fmt.Printf("Password for %s/%s: ", registry, username)
-		passBytes, err := terminal.ReadPassword(int(syscall.Stdin))
+	// print a newline, since `ReadPassword` gobbles the user-inputted one
+	fmt.Println()
 
-		if err != nil {
-			return nil, authConfig, err
-		}
-
-		authConfig = docker.AuthConfiguration{ServerAddress: registry}
-		authConfig.Username = username
-		authConfig.Password = string(passBytes)
-	} else {
-		authConfigs, err := docker.NewAuthConfigurationsFromDockerCfg()
-		if err != nil {
-			if isDockerUsingKeychain() {
-				err = fmt.Errorf("error parsing auth: %s; it looks like you may have a docker configuration not supported by the client library that we use; as a workaround, try specifying the `--username` flag", err.Error())
-				return nil, authConfig, err
-			}
-
-			err = fmt.Errorf("error parsing auth: %s, try running `docker login`", err.Error())
-			return nil, authConfig, err
-		}
-		for _, _authConfig := range authConfigs.Configs {
-			serverAddress := _authConfig.ServerAddress
-			if strings.Contains(serverAddress, registry) {
-				authConfig = _authConfig
-				break
-			}
-		}
-	}
-
-	return client, authConfig, nil
+	return docker.AuthConfiguration{
+		Username: username,
+		Password: string(passBytes),
+	}, nil
 }
 
 // buildImage builds a new docker image.
@@ -1000,48 +994,4 @@ func pushImage(client *docker.Client, authConfig docker.AuthConfiguration, repo 
 	}
 
 	return destImage, nil
-}
-
-// isDockerUsingKeychain checks if the user has a configuration that is not
-// readable by our current docker client library.
-// TODO(ys): remove if/when this issue is addressed:
-// https://github.com/fsouza/go-dockerclient/issues/677
-func isDockerUsingKeychain() bool {
-	user, err := user.Current()
-	if err != nil {
-		return false
-	}
-
-	contents, err := ioutil.ReadFile(path.Join(user.HomeDir, ".docker/config.json"))
-	if err != nil {
-		return false
-	}
-
-	var j map[string]interface{}
-
-	if err = json.Unmarshal(contents, &j); err != nil {
-		return false
-	}
-
-	auths, ok := j["auths"]
-	if !ok {
-		return false
-	}
-
-	authsInner, ok := auths.(map[string]interface{})
-	if !ok {
-		return false
-	}
-
-	index, ok := authsInner["https://index.docker.io/v1/"]
-	if !ok {
-		return false
-	}
-
-	indexInner, ok := index.(map[string]interface{})
-	if !ok || len(indexInner) > 0 {
-		return false
-	}
-
-	return j["credsStore"] == "osxkeychain"
 }

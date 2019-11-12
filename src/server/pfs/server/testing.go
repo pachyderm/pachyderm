@@ -58,25 +58,26 @@ func runServers(
 	apiServer APIServer,
 	blockAPIServer BlockAPIServer,
 ) {
-	ready := make(chan bool)
+	_, eg := grpcutil.Serve(
+		context.Background(),
+		grpcutil.ServerOptions{
+			Port:       uint16(port),
+			MaxMsgSize: grpcutil.MaxMsgSize,
+			RegisterFunc: func(s *grpc.Server) error {
+				pfs.RegisterAPIServer(s, apiServer)
+				pfs.RegisterObjectAPIServer(s, blockAPIServer)
+				auth.RegisterAPIServer(s, &authtesting.InactiveAPIServer{}) // PFS server uses auth API
+				versionpb.RegisterAPIServer(s,
+					version.NewAPIServer(version.Version, version.APIServerOptions{}))
+				return nil
+			}},
+	)
+
+	// TODO: pretty sure `require` in a goroutine doesn't work very well, consider
+	// returning a structure that will be closed at the end of a test.
 	go func() {
-		err := grpcutil.Serve(
-			grpcutil.ServerOptions{
-				Port:       uint16(port),
-				MaxMsgSize: grpcutil.MaxMsgSize,
-				RegisterFunc: func(s *grpc.Server) error {
-					defer close(ready)
-					pfs.RegisterAPIServer(s, apiServer)
-					pfs.RegisterObjectAPIServer(s, blockAPIServer)
-					auth.RegisterAPIServer(s, &authtesting.InactiveAPIServer{}) // PFS server uses auth API
-					versionpb.RegisterAPIServer(s,
-						version.NewAPIServer(version.Version, version.APIServerOptions{}))
-					return nil
-				}},
-		)
-		require.NoError(t, err)
+		require.NoError(t, eg.Wait())
 	}()
-	<-ready
 }
 
 // GetBasicConfig gets a basic service environment configuration for testing pachd.

@@ -11,8 +11,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"golang.org/x/sync/errgroup"
-
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/pachyderm/pachyderm/src/client"
 	debugclient "github.com/pachyderm/pachyderm/src/client/debug"
@@ -154,27 +152,21 @@ func do(config interface{}) error {
 	}
 
 	// Start worker api server
-	eg := errgroup.Group{}
-	ready := make(chan error)
-	eg.Go(func() error {
-		return grpcutil.Serve(
-			grpcutil.ServerOptions{
-				MaxMsgSize: grpcutil.MaxMsgSize,
-				Port:       env.PPSWorkerPort,
-				RegisterFunc: func(s *grpc.Server) error {
-					defer close(ready)
-					worker.RegisterWorkerServer(s, apiServer)
-					versionpb.RegisterAPIServer(s, version.NewAPIServer(version.Version, version.APIServerOptions{}))
-					debugclient.RegisterDebugServer(s, debugserver.NewDebugServer(env.PodName, env.GetEtcdClient(), env.PPSEtcdPrefix, env.PPSWorkerPort))
-					return nil
-				},
+	_, eg := grpcutil.Serve(
+		context.Background(),
+		grpcutil.ServerOptions{
+			MaxMsgSize: grpcutil.MaxMsgSize,
+			Port:       env.PPSWorkerPort,
+			RegisterFunc: func(s *grpc.Server) error {
+				worker.RegisterWorkerServer(s, apiServer)
+				versionpb.RegisterAPIServer(s, version.NewAPIServer(version.Version, version.APIServerOptions{}))
+				debugclient.RegisterDebugServer(s, debugserver.NewDebugServer(env.PodName, env.GetEtcdClient(), env.PPSEtcdPrefix, env.PPSWorkerPort))
+				return nil
 			},
-		)
-	})
+		},
+	)
 
-	// Wait until server is ready, then put our IP address into etcd, so pachd can
-	// discover us
-	<-ready
+	// Put our IP address into etcd, so pachd can discover us
 	key := path.Join(env.PPSEtcdPrefix, worker.WorkerEtcdPrefix, workerRcName, env.PPSWorkerIP)
 
 	// Prepare to write "key" into etcd by creating lease -- if worker dies, our
