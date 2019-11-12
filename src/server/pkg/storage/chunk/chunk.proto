@@ -3,10 +3,6 @@ syntax = "proto3";
 package chunk;
 option go_package = "github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk";
 
-message Chunk {
-  string hash = 1;
-}
-
 // DataRef is a reference to data within a chunk.
 message DataRef {
   // The chunk the referenced data is located in.
@@ -17,4 +13,15 @@ message DataRef {
   // The offset and size used for accessing the data within the chunk.
   int64 offset_bytes = 3;
   int64 size_bytes = 4;
+  repeated Tag tags = 5;
+}
+
+message Chunk {
+  string hash = 1;
+  int64 size_bytes = 2;
+}
+
+message Tag {
+  string id = 1;
+  int64 size_bytes = 2;
 }

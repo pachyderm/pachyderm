@@ -3,6 +3,7 @@ package chunk
 import (
 	"bytes"
 	"context"
+	"strconv"
 	"testing"
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
@@ -28,7 +29,9 @@ func Write(t *testing.T, chunks *Storage, n, rangeSize int) ([]*DataRef, []byte)
 		for i := 0; i < n/rangeSize; i++ {
 			w.Annotate(&Annotation{
 				NextDataRef: &DataRef{},
+				Meta:        i,
 			})
+			w.StartTag(strconv.Itoa(i))
 			_, err := w.Write(seq[i*MB*rangeSize : (i+1)*MB*rangeSize])
 			require.NoError(t, err)
 		}
@@ -49,7 +52,7 @@ func TestWriteThenRead(t *testing.T) {
 	buf := &bytes.Buffer{}
 	t.Run("ReadInitial", func(t *testing.T) {
 		require.NoError(t, r.Get(buf))
-		require.Equal(t, bytes.Compare(buf.Bytes(), seq[:buf.Len()]), 0)
+		require.Equal(t, 0, bytes.Compare(buf.Bytes(), seq[:buf.Len()]))
 	})
 	seq = seq[buf.Len():]
 	buf.Reset()
@@ -58,7 +61,7 @@ func TestWriteThenRead(t *testing.T) {
 			r.NextDataRefs([]*DataRef{ref})
 			require.NoError(t, r.Get(buf))
 		}
-		require.Equal(t, bytes.Compare(buf.Bytes(), seq), 0)
+		require.Equal(t, 0, bytes.Compare(buf.Bytes(), seq))
 	})
 }
 

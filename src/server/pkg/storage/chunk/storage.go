@@ -1,6 +1,7 @@
 package chunk
 
 import (
+	"bytes"
 	"context"
 	"path"
 
@@ -11,13 +12,16 @@ const (
 	prefix = "chunks"
 )
 
-// Annotation is used to associate information with a set of bytes
+// Annotation is used to associate information with data
 // written into the chunk storage layer.
 type Annotation struct {
 	Offset      int64
 	RefDataRefs []*DataRef
 	NextDataRef *DataRef
 	Meta        interface{}
+	buf         *bytes.Buffer
+	tags        []*Tag
+	drs         []*DataReader
 }
 
 // Storage is the abstraction that manages chunk storage.
