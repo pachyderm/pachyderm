@@ -48,7 +48,7 @@ by running two separate Pachyderm jobs. One job commits changes to
 the data repository and the other updates parameters.
 The following animation shows the standard Pachyderm workflow:
 
-![Standard workflow](../../assets/images/transactions_wrong.gif)
+![Standard workflow](../../assets/images/transaction_wrong.gif)
 
 If you need to update both the parameters and the data, this approach
 will not work.
@@ -57,7 +57,7 @@ With transactions, you can ensure that `data` and `parameters` have
 the latest commits in the same pipeline run. The following animation
 demonstrates how a transaction works:
 
-![Transactions workflow](../../assets/images/transactions_right.gif)
+![Transactions workflow](../../assets/images/transaction_right.gif)
 
 ## Starting and Finishing Transactions
 

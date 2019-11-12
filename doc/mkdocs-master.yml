@@ -185,7 +185,7 @@ nav:
             - Overview: deploy-manage/manage/index.md
             - Manage Cluster Access: deploy-manage/manage/cluster-access.md
             - Autoscale your Cluster: deploy-manage/manage/autoscaling.md
-            - Batching Pachyderm with Transactions: deploy-manage/manage/batching_pachyderm_with_transactions.md
+            - Use Transactions: deploy-manage/manage/use-transactions-to-run-multiple-commands.md
             - Backup and Restore: deploy-manage/manage/backup_restore.md
             - Storage Use Optimization: deploy-manage/manage/data_management.md
             - Use GPUs: deploy-manage/manage/gpus.md
