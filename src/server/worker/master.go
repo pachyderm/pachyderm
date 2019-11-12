@@ -665,7 +665,6 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 						for k := range chunkRecoveredDatums {
 							recoveredDatums[k] = true
 						}
-
 					}
 					return errutil.ErrBreak
 				}
@@ -739,7 +738,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 			files := df.DatumN(i)
 			datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
 			// recovered datums were not processed, and thus should not be skipped
-			if recoveredDatums[datumHash] {
+			if recoveredDatums[a.DatumID(files)] {
 				continue // so we won't write them to the processed datums object
 			}
 			if _, err := pbw.WriteBytes([]byte(datumHash)); err != nil {

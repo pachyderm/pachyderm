@@ -1593,7 +1593,7 @@ func (a *APIServer) getDatumMap(ctx context.Context, pachClient *client.APIClien
 		k, err := pbr.ReadBytes()
 		if err != nil {
 			if err == io.EOF {
-				return
+				return datums, retErr
 			}
 			return nil, err
 		}

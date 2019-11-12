@@ -1226,9 +1226,9 @@ func TestPipelineErrorHandling(t *testing.T) {
 				Pipeline: client.NewPipeline(pipeline),
 				Transform: &pps.Transform{
 					Cmd:      []string{"bash"},
-					Stdin:    []string{"exit 1"},
+					Stdin:    []string{"false"},
 					ErrCmd:   []string{"bash"},
-					ErrStdin: []string{"exit 0"},
+					ErrStdin: []string{"true"},
 				},
 				Input: client.NewPFSInput(dataRepo, "/*"),
 			})
