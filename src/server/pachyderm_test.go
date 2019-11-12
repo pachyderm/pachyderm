@@ -4041,6 +4041,20 @@ func testGetLogs(t *testing.T, enableStats bool) {
 	_, err = c.FlushJobAll([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
 
+	// Get logs from pipeline, using a pipeline that doesn't exist. There should
+	// be an error
+	iter = c.GetLogs("__DOES_NOT_EXIST__", "", nil, "", false, false, 0)
+	require.False(t, iter.Next())
+	require.YesError(t, iter.Err())
+	require.Matches(t, "could not get", iter.Err().Error())
+
+	// Get logs from pipeline, using a job that doesn't exist. There should
+	// be an error
+	iter = c.GetLogs("", "__DOES_NOT_EXIST__", nil, "", false, false, 0)
+	require.False(t, iter.Next())
+	require.YesError(t, iter.Err())
+	require.Matches(t, "could not get", iter.Err().Error())
+
 	// This is put in a backoff because there's the possibility that pod was
 	// evicted from k8s and is being re-initialized, in which case `GetLogs`
 	// will appropriately fail
@@ -4077,61 +4091,49 @@ func testGetLogs(t *testing.T, enableStats bool) {
 			return err
 		}
 
-		return nil
-	}, backoff.NewTestingBackOff()))
+		// Get logs from pipeline, using job
+		// (1) Get job ID, from pipeline that just ran
+		jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
+		if err != nil {
+			return err
+		}
+		require.True(t, len(jobInfos) == 1)
+		// (2) Get logs using extracted job ID
+		// wait for logs to be collected
+		time.Sleep(10 * time.Second)
+		iter = c.GetLogs("", jobInfos[0].Job.ID, nil, "", false, false, 0)
+		numLogs := 0
+		for iter.Next() {
+			numLogs++
+			require.True(t, iter.Message().Message != "")
+		}
+		// Make sure that we've seen some logs
+		if err = iter.Err(); err != nil {
+			return err
+		}
+		require.True(t, numLogs > 0)
 
-	// Get logs from pipeline, using a pipeline that doesn't exist. There should
-	// be an error
-	iter = c.GetLogs("__DOES_NOT_EXIST__", "", nil, "", false, false, 0)
-	require.False(t, iter.Next())
-	require.YesError(t, iter.Err())
-	require.Matches(t, "could not get", iter.Err().Error())
+		// Get logs for datums but don't specify pipeline or job. These should error
+		iter = c.GetLogs("", "", []string{"/foo"}, "", false, false, 0)
+		require.False(t, iter.Next())
+		require.YesError(t, iter.Err())
 
-	// Get logs from pipeline, using job
-	// (1) Get job ID, from pipeline that just ran
-	jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
-	require.NoError(t, err)
-	require.True(t, len(jobInfos) == 1)
-	// (2) Get logs using extracted job ID
-	// wait for logs to be collected
-	time.Sleep(10 * time.Second)
-	iter = c.GetLogs("", jobInfos[0].Job.ID, nil, "", false, false, 0)
-	numLogs := 0
-	for iter.Next() {
-		numLogs++
-		require.True(t, iter.Message().Message != "")
-	}
-	// Make sure that we've seen some logs
-	require.NoError(t, iter.Err())
-	require.True(t, numLogs > 0)
+		resp, err := c.ListDatum(jobInfos[0].Job.ID, 0, 0)
+		if err != nil {
+			return err
+		}
+		require.True(t, len(resp.DatumInfos) > 0)
+		iter = c.GetLogs("", "", nil, resp.DatumInfos[0].Datum.ID, false, false, 0)
+		require.False(t, iter.Next())
+		require.YesError(t, iter.Err())
 
-	// Get logs for datums but don't specify pipeline or job. These should error
-	iter = c.GetLogs("", "", []string{"/foo"}, "", false, false, 0)
-	require.False(t, iter.Next())
-	require.YesError(t, iter.Err())
+		// Filter logs based on input (using file that exists). Get logs using file
+		// path, hex hash, and base64 hash, and make sure you get the same log lines
+		fileInfo, err := c.InspectFile(dataRepo, commit.ID, "/file")
+		if err != nil {
+			return err
+		}
 
-	resp, err := c.ListDatum(jobInfos[0].Job.ID, 0, 0)
-	require.NoError(t, err)
-	require.True(t, len(resp.DatumInfos) > 0)
-	iter = c.GetLogs("", "", nil, resp.DatumInfos[0].Datum.ID, false, false, 0)
-	require.False(t, iter.Next())
-	require.YesError(t, iter.Err())
-
-	// Get logs from pipeline, using a job that doesn't exist. There should
-	// be an error
-	iter = c.GetLogs("", "__DOES_NOT_EXIST__", nil, "", false, false, 0)
-	require.False(t, iter.Next())
-	require.YesError(t, iter.Err())
-	require.Matches(t, "could not get", iter.Err().Error())
-
-	// Filter logs based on input (using file that exists). Get logs using file
-	// path, hex hash, and base64 hash, and make sure you get the same log lines
-	fileInfo, err := c.InspectFile(dataRepo, commit.ID, "/file")
-	require.NoError(t, err)
-
-	// TODO(msteffen) This code shouldn't be wrapped in a backoff, but for some
-	// reason GetLogs is not yet 100% consistent. This reduces flakes in testing.
-	require.NoError(t, backoff.Retry(func() error {
 		pathLog := c.GetLogs("", jobInfos[0].Job.ID, []string{"/file"}, "", false, false, 0)
 
 		hexHash := "19fdf57bdf9eb5a9602bfa9c0e6dd7ed3835f8fd431d915003ea82747707be66"
@@ -4169,35 +4171,43 @@ func testGetLogs(t *testing.T, enableStats bool) {
 		if numLogs == 0 {
 			return fmt.Errorf("no logs found")
 		}
-		return nil
+
+		// Filter logs based on input (using file that doesn't exist). There should
+		// be no logs
+		iter = c.GetLogs("", jobInfos[0].Job.ID, []string{"__DOES_NOT_EXIST__"}, "", false, false, 0)
+		require.False(t, iter.Next())
+		if err = iter.Err(); err != nil {
+			return err
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		iter = c.WithCtx(ctx).GetLogs(pipelineName, "", nil, "", false, false, 0)
+		numLogs = 0
+		for iter.Next() {
+			numLogs++
+			if numLogs == 8 {
+				// Do another commit so there's logs to receive with follow
+				_, err = c.StartCommit(dataRepo, "master")
+				if err != nil {
+					return err
+				}
+				_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("bar\n"))
+				if err != nil {
+					return err
+				}
+				if err = c.FinishCommit(dataRepo, "master"); err != nil {
+					return err
+				}
+			}
+			require.True(t, iter.Message().Message != "")
+			if numLogs == 16 {
+				break
+			}
+		}
+
+		return iter.Err()
 	}, backoff.NewTestingBackOff()))
-
-	// Filter logs based on input (using file that doesn't exist). There should
-	// be no logs
-	iter = c.GetLogs("", jobInfos[0].Job.ID, []string{"__DOES_NOT_EXIST__"}, "", false, false, 0)
-	require.False(t, iter.Next())
-	require.NoError(t, iter.Err())
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-	iter = c.WithCtx(ctx).GetLogs(pipelineName, "", nil, "", false, false, 0)
-	numLogs = 0
-	for iter.Next() {
-		numLogs++
-		if numLogs == 8 {
-			// Do another commit so there's logs to receive with follow
-			_, err = c.StartCommit(dataRepo, "master")
-			require.NoError(t, err)
-			_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("bar\n"))
-			require.NoError(t, err)
-			require.NoError(t, c.FinishCommit(dataRepo, "master"))
-		}
-		require.True(t, iter.Message().Message != "")
-		if numLogs == 16 {
-			break
-		}
-	}
-	require.NoError(t, iter.Err())
 }
 
 func TestAllDatumsAreProcessed(t *testing.T) {
