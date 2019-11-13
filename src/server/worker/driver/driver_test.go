@@ -4,10 +4,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"path"
+	"path/filepath"
 	"reflect"
 	"testing"
 
+	"github.com/otiai10/copy"
 	"github.com/prometheus/client_golang/prometheus"
 	prometheus_proto "github.com/prometheus/client_model/go"
 
@@ -16,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
 )
 
@@ -71,6 +76,32 @@ func withTestEnv(cb func(*testEnv)) error {
 
 		return nil
 	})
+}
+
+// Note: this function only exists for tests, the real system uses a fifo for
+// this (which does not exist in the normal filesystem on Windows)
+func createSpoutFifo(path string) error {
+	file, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	return file.Close()
+}
+
+// os.Symlink requires additional privileges on windows, so just copy the files instead
+func (d *driver) linkData(inputs []*common.Input, dir string) error {
+	// Make sure that previously symlinked outputs are removed.
+	if err := d.unlinkData(inputs); err != nil {
+		return err
+	}
+	for _, input := range inputs {
+		src := filepath.Join(dir, input.Name)
+		dst := filepath.Join(d.inputDir, input.Name)
+		if err := copy.Copy(src, dst); err != nil {
+			return err
+		}
+	}
+	return copy.Copy(filepath.Join(dir, "out"), filepath.Join(d.inputDir, "out"))
 }
 
 func requireLogs(t *testing.T, pattern string, cb func(logs.TaggedLogger)) {
@@ -250,19 +281,94 @@ func TestUpdateHistogram(t *testing.T) {
 	require.NoError(t, err)
 }
 
-/*
-	ctx context.Context,
-	data []*common.Input,
-	inputTree *hashtree.Ordered,
-	logger logs.TaggedLogger,
-	cb func(*pps.ProcessStats) error,
-*/
-
-func provisionPipeline(d *driver) {
+type inputData struct {
+	path     string
+	contents string
+	found    bool
 }
 
-func TestWithData(t *testing.T) {
+func newInputData(path string, contents string) *inputData {
+	return &inputData{path: path, contents: contents}
+}
+
+func requireInputContents(t *testing.T, rootDir string, data []*inputData) {
+	checkFile := func(fullPath string, relPath string) {
+		for _, checkData := range data {
+			if checkData.path == relPath {
+				contents, err := ioutil.ReadFile(fullPath)
+				require.NoError(t, err)
+				require.Equal(t, string(contents), checkData.contents, "Incorrect contents for input file: %s", relPath)
+				checkData.found = true
+				return
+			}
+		}
+		require.True(t, false, "Unexpected input file found: %s", relPath)
+	}
+
+	var recurse func(os.FileInfo, string, string)
+	recurse = func(entry os.FileInfo, fullPath string, relPath string) {
+		if entry.IsDir() {
+			entries, err := ioutil.ReadDir(fullPath)
+			require.NoError(t, err)
+
+			for _, e := range entries {
+				recurse(e, path.Join(fullPath, e.Name()), path.Join(relPath, e.Name()))
+			}
+		} else {
+			checkFile(fullPath, relPath)
+		}
+	}
+
+	entries, err := ioutil.ReadDir(rootDir)
+	require.NoError(t, err)
+
+	for _, entry := range entries {
+		// Ignore .scratch, as that is not considered an input/output
+		if entry.Name() != ".scratch" {
+			recurse(entry, path.Join(rootDir, entry.Name()), entry.Name())
+		}
+	}
+
+	for _, checkData := range data {
+		require.True(t, checkData.found, "Expected input file not found: %s", checkData.path)
+	}
+}
+
+func TestWithDataEmpty(t *testing.T) {
 	err := withTestEnv(func(env *testEnv) {
+		requireLogs(t, "finished downloading data", func(logger logs.TaggedLogger) {
+			_, err := env.driver.WithData(
+				context.Background(),
+				[]*common.Input{},
+				nil,
+				logger,
+				func(stats *pps.ProcessStats) error {
+					requireInputContents(t, env.driver.inputDir, []*inputData{})
+					return nil
+				},
+			)
+			require.NoError(t, err)
+			requireInputContents(t, env.driver.inputDir, []*inputData{})
+		})
+	})
+	require.NoError(t, err)
+}
+
+func TestWithDataSpout(t *testing.T) {
+	err := withTestEnv(func(env *testEnv) {
+		env.driver.pipelineInfo.Spout = &pps.Spout{}
+		requireLogs(t, "finished downloading data", func(logger logs.TaggedLogger) {
+			_, err := env.driver.WithData(
+				context.Background(),
+				[]*common.Input{},
+				nil,
+				logger,
+				func(stats *pps.ProcessStats) error {
+					return nil
+				},
+			)
+			require.NoError(t, err)
+		})
 	})
 	require.NoError(t, err)
 }
@@ -271,6 +377,9 @@ func TestWithDataCancel(t *testing.T) {
 }
 
 func TestWithDataGit(t *testing.T) {
+}
+
+func TestWithDataStats(t *testing.T) {
 }
 
 func TestRunUserCode(t *testing.T) {

@@ -1,7 +1,6 @@
 package testutil
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -42,7 +41,6 @@ func WithEnv(cb func(*Env) error) (err error) {
 
 	// Cleanup any state when we return
 	defer func() {
-		fmt.Printf("Cleaning up testutil.Env, err: %v\n", err)
 		// We return the first error that occurs during teardown, but still try to
 		// close everything
 		saveErr := func(e error) error {
@@ -53,26 +51,22 @@ func WithEnv(cb func(*Env) error) (err error) {
 		}
 
 		if env.PachClient != nil {
-			e := saveErr(env.PachClient.Close())
-			fmt.Printf("Closed PachClient, err: %v\n", e)
+			saveErr(env.PachClient.Close())
 		}
 
 		if env.MockPachd != nil {
-			e := saveErr(env.MockPachd.Close())
-			fmt.Printf("Closed MockPachd, err: %v\n", e)
+			saveErr(env.MockPachd.Close())
 		}
 
 		if env.EtcdClient != nil {
-			e := saveErr(env.EtcdClient.Close())
-			fmt.Printf("Closed EtcdClient, err: %v\n", e)
+			saveErr(env.EtcdClient.Close())
 		}
 
 		if env.Etcd != nil {
 			env.Etcd.Close()
 		}
 
-		e := saveErr(os.RemoveAll(env.Directory))
-		fmt.Printf("Removed temp directory, err: %v\n", e)
+		saveErr(os.RemoveAll(env.Directory))
 	}()
 
 	etcdConfig := embed.NewConfig()

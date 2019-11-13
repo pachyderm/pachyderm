@@ -472,21 +472,6 @@ func (d *driver) downloadGitData(pachClient *client.APIClient, dir string, input
 	return nil
 }
 
-func (d *driver) linkData(inputs []*common.Input, dir string) error {
-	// Make sure that previously symlinked outputs are removed.
-	if err := d.unlinkData(inputs); err != nil {
-		return err
-	}
-	for _, input := range inputs {
-		src := filepath.Join(dir, input.Name)
-		dst := filepath.Join(d.inputDir, input.Name)
-		if err := os.Symlink(src, dst); err != nil {
-			return err
-		}
-	}
-	return os.Symlink(filepath.Join(dir, "out"), filepath.Join(d.inputDir, "out"))
-}
-
 func (d *driver) unlinkData(inputs []*common.Input) error {
 	entries, err := ioutil.ReadDir(d.inputDir)
 	if err != nil {
