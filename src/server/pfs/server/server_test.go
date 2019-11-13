@@ -5231,6 +5231,24 @@ func TestListAll(t *testing.T) {
 	require.Equal(t, 2, len(bis))
 }
 
+func TestCreateBranchPropagation(t *testing.T) {
+	client := GetPachClient(t, GetBasicConfig())
+	require.NoError(t, client.CreateRepo("input"))
+	require.NoError(t, client.CreateRepo("output"))
+	require.NoError(t, client.CreateBranch("output", "master", "", []*pfs.Branch{pclient.NewBranch("input", "master")}))
+	_, err := client.PutFile("input", "master", "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	_, err = client.PfsAPIClient.CreateBranch(client.Ctx(), &pfs.CreateBranchRequest{
+		Head:      pclient.NewCommit("input", "master"),
+		Branch:    pclient.NewBranch("input", "dev"),
+		Propagate: true,
+	})
+	require.NoError(t, err)
+	branches, err := client.ListBranch("output")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(branches))
+}
+
 func TestPutBlock(t *testing.T) {
 	client := GetPachClient(t, GetBasicConfig())
 	_, err := client.PutBlock("test", strings.NewReader("foo"))
