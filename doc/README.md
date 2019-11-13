@@ -7,7 +7,7 @@ These docs are rendered and searchable in our [Documentation Portal](https://doc
 - [How-Tos](https://docs.pachyderm.com/latest/how-tos/) — includes how-tos about that describe how you can load your data into Pachyderm, export it to external systems, split your data, and all the other data operaions and features available in Pachyderm. 
 - [Pachctl API Documentation](https://deploy-preview-4312--pachyderm-docs.netlify.com/latest/reference/pachctl/pachctl/) — provides an overview of all Pachyderm CLI tool commands.
 
-Have more questions? - Join our [Slack channel](http://slack.pachyderm.io/).
+Have more questions? — Join our [Slack channel](http://slack.pachyderm.io/).
 
 # Can I Contribute to Docs?
 
