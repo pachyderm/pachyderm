@@ -292,6 +292,9 @@ message CreateBranchRequest {
   string s_branch = 2;
   Branch branch = 3;
   repeated Branch provenance = 4;
+  // Propagate indicates that this branch creation should propagate to branches
+  // downstream from the head.
+  bool propagate = 5;
 }
 
 message InspectBranchRequest {
