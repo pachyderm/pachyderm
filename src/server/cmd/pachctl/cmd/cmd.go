@@ -884,6 +884,5 @@ Use "{{.CommandPath}} [command] --help" for more information about a command.{{e
 		t.Funcs(templateFuncs)
 		template.Must(t.Parse(text))
 		return t.Execute(cmd.OutOrStderr(), cmd)
-		return originalUsageFunc(cmd)
 	})
 }
