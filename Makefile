@@ -151,10 +151,10 @@ docker-clean-worker:
 
 docker-build-worker: docker-clean-worker
 	docker run \
-		-v $(PWD):/go/src/github.com/pachyderm/pachyderm \
+		-v $(PWD):/pachyderm \
 		-v $$GOPATH/pkg:/go/pkg \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
-		--name worker_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh worker "$(LD_FLAGS)"
+		--name worker_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /pachyderm/etc/compile/compile.sh worker "$(LD_FLAGS)"
 
 
 docker-wait-worker:
@@ -166,10 +166,10 @@ docker-clean-pachd:
 
 docker-build-pachd: docker-clean-pachd
 	docker run  \
-		-v $(PWD):/go/src/github.com/pachyderm/pachyderm \
+		-v $(PWD):/pachyderm \
 		-v $$GOPATH/pkg:/go/pkg \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
-		--name pachd_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh pachd "$(LD_FLAGS)"
+		--name pachd_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /pachyderm/etc/compile/compile.sh pachd "$(LD_FLAGS)"
 
 docker-clean-test:
 	docker stop test_compile || true
@@ -185,13 +185,12 @@ docker-build-test: docker-clean-test docker-build-compile
 	  --attach stdout \
 	  --attach stderr \
 	  --rm \
-	  -w /go/src/github.com/pachyderm/pachyderm \
-	  -v $$GOPATH/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
+	  -w /pachyderm \
 	  -v $$HOME/.cache/go-build:/root/.cache/go-build \
 	  -v /var/run/docker.sock:/var/run/docker.sock \
 	  --privileged=true \
 	  --name test_compile \
-	  pachyderm_test_buildenv sh /go/src/github.com/pachyderm/pachyderm/etc/compile/compile_test.sh
+	  pachyderm_test_buildenv sh /pachyderm/etc/compile/compile_test.sh
 	docker tag pachyderm_test:latest pachyderm/test:`git rev-list HEAD --max-count=1`
 
 docker-push-test:

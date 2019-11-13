@@ -23,7 +23,6 @@ DOCKER_OPTS=()
 # TODO: this is probably needed for the Makefile build to run worker/pachd in parallel
 # DOCKER_OPTS+=("-d")
 DOCKER_OPTS+=("--name ${NAME}")
-DOCKER_OPTS+=("-v ${PWD}:/go/src/github.com/pachyderm/pachyderm")
 DOCKER_OPTS+=("-v ${HOME}/.cache/go-build:/root/.cache/go-build")
 
 if [[ "${OS}" == "Windows_NT" ]]; then
@@ -52,4 +51,4 @@ docker stop ${NAME} > /dev/null
 docker rm ${NAME} > /dev/null
 
 MSYS_NO_PATHCONV=1 docker run ${DOCKER_OPTS[@]} ${COMPILE_IMAGE} \
-  /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh ${TYPE} "${LD_FLAGS}"
+  /pachyderm/etc/compile/compile.sh ${TYPE} "${LD_FLAGS}"
