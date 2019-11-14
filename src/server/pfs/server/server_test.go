@@ -5210,7 +5210,7 @@ func TestMultiInputWithDeferredProcessing(t *testing.T) {
 }
 
 func TestCommitProgress(t *testing.T) {
-	c := GetPachClient(t)
+	c := GetPachClient(t, GetBasicConfig())
 	require.NoError(t, c.CreateRepo("in"))
 	require.NoError(t, c.CreateRepo("out"))
 	require.NoError(t, c.CreateBranch("out", "master", "", []*pfs.Branch{pclient.NewBranch("in", "master")}))
