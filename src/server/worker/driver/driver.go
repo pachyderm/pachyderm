@@ -69,7 +69,9 @@ type Driver interface {
 	// Returns the number of workers to be used based on what can be determined from kubernetes
 	GetExpectedNumWorkers() (int, error)
 
-	// WithCtx clones the current driver and applies the context to its pachClient
+	// WithCtx clones the current driver and applies the context to its
+	// pachClient. The pachClient context will be used for other blocking
+	// operations as well.
 	WithCtx(context.Context) Driver
 
 	// WithData prepares the current node the code is running on to run a piece
@@ -77,22 +79,22 @@ type Driver interface {
 	WithData([]*common.Input, *hashtree.Ordered, logs.TaggedLogger, func(*pps.ProcessStats) error) (*pps.ProcessStats, error)
 
 	// RunUserCode runs the pipeline's configured code
-	RunUserCode(context.Context, logs.TaggedLogger, []string, *pps.ProcessStats, *types.Duration) error
+	RunUserCode(logs.TaggedLogger, []string, *pps.ProcessStats, *types.Duration) error
 
 	// RunUserErrorHandlingCode runs the pipeline's configured error handling code
-	RunUserErrorHandlingCode(context.Context, logs.TaggedLogger, []string, *pps.ProcessStats, *types.Duration) error
+	RunUserErrorHandlingCode(logs.TaggedLogger, []string, *pps.ProcessStats, *types.Duration) error
 
 	// TODO: provide a more generic interface for modifying jobs/plans/etc, and
 	// some quality-of-life functions for common operations.
 	DeleteJob(col.STM, *pps.EtcdJobInfo) error
-	UpdateJobState(context.Context, string, pps.JobState, string) error
+	UpdateJobState(string, pps.JobState, string) error
 
 	// TODO: figure out how to not expose this
 	ReportUploadStats(time.Time, *pps.ProcessStats, logs.TaggedLogger)
 
-	// TODO: figure out how to not expose this - currenly only used for a few
+	// TODO: figure out how to not expose this - currently only used for a few
 	// operations in the map spawner
-	NewSTM(context.Context, func(col.STM) error) (*etcd.TxnResponse, error)
+	NewSTM(func(col.STM) error) (*etcd.TxnResponse, error)
 }
 
 type driver struct {
@@ -294,8 +296,8 @@ func (d *driver) InputDir() string {
 	return d.inputDir
 }
 
-func (d *driver) NewSTM(ctx context.Context, cb func(col.STM) error) (*etcd.TxnResponse, error) {
-	return col.NewSTM(ctx, d.etcdClient, cb)
+func (d *driver) NewSTM(cb func(col.STM) error) (*etcd.TxnResponse, error) {
+	return col.NewSTM(d.pachClient.Ctx(), d.etcdClient, cb)
 }
 
 func (d *driver) WithData(
@@ -488,7 +490,8 @@ func (d *driver) unlinkData(inputs []*common.Input) error {
 }
 
 // Run user code and return the combined output of stdout and stderr.
-func (d *driver) RunUserCode(ctx context.Context, logger logs.TaggedLogger, environ []string, procStats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
+func (d *driver) RunUserCode(logger logs.TaggedLogger, environ []string, procStats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
+	ctx := d.pachClient.Ctx()
 	d.reportUserCodeStats(logger)
 	defer func(start time.Time) { d.reportDeferredUserCodeStats(retErr, start, procStats, logger) }(time.Now())
 	logger.Logf("beginning to run user code")
@@ -572,7 +575,8 @@ func (d *driver) RunUserCode(ctx context.Context, logger logs.TaggedLogger, envi
 }
 
 // Run user error code and return the combined output of stdout and stderr.
-func (d *driver) RunUserErrorHandlingCode(ctx context.Context, logger logs.TaggedLogger, environ []string, procStats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
+func (d *driver) RunUserErrorHandlingCode(logger logs.TaggedLogger, environ []string, procStats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
+	ctx := d.pachClient.Ctx()
 	logger.Logf("beginning to run user error handling code")
 	defer func(start time.Time) {
 		if retErr != nil {
@@ -642,8 +646,8 @@ func (d *driver) RunUserErrorHandlingCode(ctx context.Context, logger logs.Tagge
 	return nil
 }
 
-func (d *driver) UpdateJobState(ctx context.Context, jobID string, state pps.JobState, reason string) error {
-	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+func (d *driver) UpdateJobState(jobID string, state pps.JobState, reason string) error {
+	_, err := d.NewSTM(func(stm col.STM) error {
 		jobPtr := &pps.EtcdJobInfo{}
 		if err := d.Jobs().ReadWrite(stm).Get(jobID, jobPtr); err != nil {
 			return err

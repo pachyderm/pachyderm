@@ -27,6 +27,7 @@ type MockOptions struct {
 // Complicated operations are short-circuited, but etcd operations should still
 // work through this.
 type MockDriver struct {
+	ctx        context.Context
 	options    *MockOptions
 	etcdClient *etcd.Client
 }
@@ -45,6 +46,7 @@ func NewMockDriver(etcdClient *etcd.Client, userOptions *MockOptions) *MockDrive
 	}
 
 	return &MockDriver{
+		ctx:        context.Background(),
 		options:    options,
 		etcdClient: etcdClient,
 	}
@@ -52,9 +54,10 @@ func NewMockDriver(etcdClient *etcd.Client, userOptions *MockOptions) *MockDrive
 
 // WithCtx does nothing aside from cloning the current MockDriver since there
 // is no pachClient configured.
-func (md *MockDriver) WithCtx(context.Context) Driver {
+func (md *MockDriver) WithCtx(ctx context.Context) Driver {
 	result := &MockDriver{}
 	*result = *md
+	result.ctx = ctx
 	return result
 }
 
@@ -116,13 +119,13 @@ func (md *MockDriver) WithData(
 
 // RunUserCode does nothing.  Inherit and shadow this if you actually want to
 // do something for user code
-func (md *MockDriver) RunUserCode(context.Context, logs.TaggedLogger, []string, *pps.ProcessStats, *types.Duration) error {
+func (md *MockDriver) RunUserCode(logs.TaggedLogger, []string, *pps.ProcessStats, *types.Duration) error {
 	return nil
 }
 
 // RunUserErrorHandlingCode does nothing.  Inherit and shadow this if you
 // actually want to do something for user error-handling code
-func (md *MockDriver) RunUserErrorHandlingCode(context.Context, logs.TaggedLogger, []string, *pps.ProcessStats, *types.Duration) error {
+func (md *MockDriver) RunUserErrorHandlingCode(logs.TaggedLogger, []string, *pps.ProcessStats, *types.Duration) error {
 	return nil
 }
 
@@ -133,9 +136,9 @@ func (md *MockDriver) DeleteJob(stm col.STM, jobPtr *pps.EtcdJobInfo) error {
 }
 
 // UpdateJobState will update the given job's state in etcd.
-func (md *MockDriver) UpdateJobState(ctx context.Context, jobID string, state pps.JobState, reason string) error {
+func (md *MockDriver) UpdateJobState(jobID string, state pps.JobState, reason string) error {
 	// The dummy version doesn't bother with stats commits
-	_, err := md.NewSTM(ctx, func(stm col.STM) error {
+	_, err := md.NewSTM(func(stm col.STM) error {
 		jobPtr := &pps.EtcdJobInfo{}
 		if err := md.Jobs().ReadWrite(stm).Get(jobID, jobPtr); err != nil {
 			return err
@@ -152,8 +155,8 @@ func (md *MockDriver) ReportUploadStats(time.Time, *pps.ProcessStats, logs.Tagge
 
 // NewSTM calls the given callback under a new STM using the configured etcd
 // client.
-func (md *MockDriver) NewSTM(ctx context.Context, cb func(col.STM) error) (*etcd.TxnResponse, error) {
-	return col.NewSTM(ctx, md.etcdClient, cb)
+func (md *MockDriver) NewSTM(cb func(col.STM) error) (*etcd.TxnResponse, error) {
+	return col.NewSTM(md.ctx, md.etcdClient, cb)
 }
 
 // MockKubeWrapper is an alternate implementation of the KubeWrapper interface
