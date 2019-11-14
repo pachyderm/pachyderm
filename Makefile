@@ -17,7 +17,7 @@ COMPILE_RUN_ARGS = -d -v /var/run/docker.sock:/var/run/docker.sock --privileged=
 COMPILE_IMAGE = "pachyderm/compile:$(shell cat etc/compile/GO_VERSION)"
 export VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
 LD_FLAGS = -X github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
-GC_FLAGS = "all=-trimpath=${PWD}"
+export GC_FLAGS = "all=-trimpath=${PWD}"
 export DOCKER_BUILD_FLAGS
 
 CLUSTER_NAME?=pachyderm
@@ -108,34 +108,34 @@ release-candidate:
 
 custom-release: release-helper release-pachctl-custom
 	@echo 'For brew install, do:'
-	@echo "$$ brew install https://raw.githubusercontent.com/pachyderm/homebrew-tap/$$(cat VERSION)-$$(git log --pretty=format:%H | head -n 1)/pachctl@$$(cat VERSION | cut -f -2 -d\.).rb"
+	@echo "$$ brew install https://raw.githubusercontent.com/pachyderm/homebrew-tap/$(shell pachctl version --client-only)-$$(git log --pretty=format:%H | head -n 1)/pachctl@$(shell pachctl version --client-only | cut -f -2 -d\.).rb"
 	@echo 'For linux install, do:'
-	@echo "$$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v$$(cat VERSION)/pachctl_$$(cat VERSION)_amd64.deb && sudo dpkg -i /tmp/pachctl.deb"
+	@echo "$$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v$(shell pachctl version --client-only)/pachctl_$(shell pachctl version --client-only)_amd64.deb && sudo dpkg -i /tmp/pachctl.deb"
 	# Workaround for https://github.com/laher/goxc/issues/112
-	@git push origin :v$$(cat VERSION)
-	@git tag v$$(cat VERSION)
+	@git push origin :v$(shell pachctl version --client-only)
+	@git tag v$(shell pachctl version --client-only)
 	@git push origin --tags
 	@rm VERSION
 	@echo "Release completed"
 
 release-pachctl-custom:
 	@# Run pachctl release script w deploy branch name
-	@VERSION="$$(cat VERSION)" ./etc/build/release_pachctl $$(cat VERSION)
+	@VERSION="$(shell pachctl version --client-only)" ./etc/build/release_pachctl $$(pachctl version --client-only)
 
 release-pachctl:
 	@# Run pachctl release script w deploy branch name
-	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachctl
+	@VERSION="$(shell pachctl version --client-only)" ./etc/build/release_pachctl
 
 release-helper: check-docker-version release-version release-pachd release-worker
 
 release-version: install-clean
-	@./etc/build/release_version
+	@./etc/build/repo_ready_for_release.sh
 
 release-pachd:
-	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachd
+	@VERSION="$(shell pachctl version --client-only)" ./etc/build/release_pachd
 
 release-worker:
-	@VERSION="$(shell cat VERSION)" ./etc/build/release_worker
+	@VERSION="$(shell pachctl version --client-only)" ./etc/build/release_worker
 
 docker-build-compile:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_compile .

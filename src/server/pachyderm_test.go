@@ -48,7 +48,10 @@ import (
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 
+	"github.com/brianvoe/gofakeit"
 	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	prom_api "github.com/prometheus/client_golang/api"
 	prom_api_v1 "github.com/prometheus/client_golang/api/prometheus/v1"
@@ -4041,70 +4044,12 @@ func testGetLogs(t *testing.T, enableStats bool) {
 	_, err = c.FlushJobAll([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
 
-	// Get logs from pipeline, using pipeline
-	iter = c.GetLogs(pipelineName, "", nil, "", false, false, 0)
-	var numLogs int
-	var loglines []string
-	for iter.Next() {
-		if !iter.Message().User {
-			continue
-		}
-		numLogs++
-		require.True(t, iter.Message().Message != "")
-		loglines = append(loglines, strings.TrimSuffix(iter.Message().Message, "\n"))
-		require.False(t, strings.Contains(iter.Message().Message, "MISSING"), iter.Message().Message)
-	}
-	require.True(t, numLogs >= 2, "logs:\n%s", strings.Join(loglines, "\n"))
-	require.NoError(t, iter.Err())
-
-	// Get logs from pipeline, using pipeline (tailing the last two log lines)
-	iter = c.GetLogs(pipelineName, "", nil, "", false, false, 2)
-	numLogs = 0
-	loglines = []string{}
-	for iter.Next() {
-		numLogs++
-		require.True(t, iter.Message().Message != "")
-		loglines = append(loglines, strings.TrimSuffix(iter.Message().Message, "\n"))
-	}
-	require.True(t, numLogs >= 2, "logs:\n%s", strings.Join(loglines, "\n"))
-	require.NoError(t, iter.Err())
-
 	// Get logs from pipeline, using a pipeline that doesn't exist. There should
 	// be an error
 	iter = c.GetLogs("__DOES_NOT_EXIST__", "", nil, "", false, false, 0)
 	require.False(t, iter.Next())
 	require.YesError(t, iter.Err())
 	require.Matches(t, "could not get", iter.Err().Error())
-
-	// Get logs from pipeline, using job
-	// (1) Get job ID, from pipeline that just ran
-	jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
-	require.NoError(t, err)
-	require.True(t, len(jobInfos) == 1)
-	// (2) Get logs using extracted job ID
-	// wait for logs to be collected
-	time.Sleep(10 * time.Second)
-	iter = c.GetLogs("", jobInfos[0].Job.ID, nil, "", false, false, 0)
-	numLogs = 0
-	for iter.Next() {
-		numLogs++
-		require.True(t, iter.Message().Message != "")
-	}
-	// Make sure that we've seen some logs
-	require.NoError(t, iter.Err())
-	require.True(t, numLogs > 0)
-
-	// Get logs for datums but don't specify pipeline or job. These should error
-	iter = c.GetLogs("", "", []string{"/foo"}, "", false, false, 0)
-	require.False(t, iter.Next())
-	require.YesError(t, iter.Err())
-
-	resp, err := c.ListDatum(jobInfos[0].Job.ID, 0, 0)
-	require.NoError(t, err)
-	require.True(t, len(resp.DatumInfos) > 0)
-	iter = c.GetLogs("", "", nil, resp.DatumInfos[0].Datum.ID, false, false, 0)
-	require.False(t, iter.Next())
-	require.YesError(t, iter.Err())
 
 	// Get logs from pipeline, using a job that doesn't exist. There should
 	// be an error
@@ -4113,14 +4058,85 @@ func testGetLogs(t *testing.T, enableStats bool) {
 	require.YesError(t, iter.Err())
 	require.Matches(t, "could not get", iter.Err().Error())
 
-	// Filter logs based on input (using file that exists). Get logs using file
-	// path, hex hash, and base64 hash, and make sure you get the same log lines
-	fileInfo, err := c.InspectFile(dataRepo, commit.ID, "/file")
-	require.NoError(t, err)
-
-	// TODO(msteffen) This code shouldn't be wrapped in a backoff, but for some
-	// reason GetLogs is not yet 100% consistent. This reduces flakes in testing.
+	// This is put in a backoff because there's the possibility that pod was
+	// evicted from k8s and is being re-initialized, in which case `GetLogs`
+	// will appropriately fail
 	require.NoError(t, backoff.Retry(func() error {
+		// Get logs from pipeline, using pipeline
+		iter = c.GetLogs(pipelineName, "", nil, "", false, false, 0)
+		var numLogs int
+		var loglines []string
+		for iter.Next() {
+			if !iter.Message().User {
+				continue
+			}
+			numLogs++
+			require.True(t, iter.Message().Message != "")
+			loglines = append(loglines, strings.TrimSuffix(iter.Message().Message, "\n"))
+			require.False(t, strings.Contains(iter.Message().Message, "MISSING"), iter.Message().Message)
+		}
+		require.True(t, numLogs >= 2, "logs:\n%s", strings.Join(loglines, "\n"))
+		if err := iter.Err(); err != nil {
+			return err
+		}
+
+		// Get logs from pipeline, using pipeline (tailing the last two log lines)
+		iter = c.GetLogs(pipelineName, "", nil, "", false, false, 2)
+		numLogs = 0
+		loglines = []string{}
+		for iter.Next() {
+			numLogs++
+			require.True(t, iter.Message().Message != "")
+			loglines = append(loglines, strings.TrimSuffix(iter.Message().Message, "\n"))
+		}
+		require.True(t, numLogs >= 2, "logs:\n%s", strings.Join(loglines, "\n"))
+		if err := iter.Err(); err != nil {
+			return err
+		}
+
+		// Get logs from pipeline, using job
+		// (1) Get job ID, from pipeline that just ran
+		jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
+		if err != nil {
+			return err
+		}
+		require.True(t, len(jobInfos) == 1)
+		// (2) Get logs using extracted job ID
+		// wait for logs to be collected
+		time.Sleep(10 * time.Second)
+		iter = c.GetLogs("", jobInfos[0].Job.ID, nil, "", false, false, 0)
+		numLogs = 0
+		for iter.Next() {
+			numLogs++
+			require.True(t, iter.Message().Message != "")
+		}
+		// Make sure that we've seen some logs
+		if err = iter.Err(); err != nil {
+			return err
+		}
+		require.True(t, numLogs > 0)
+
+		// Get logs for datums but don't specify pipeline or job. These should error
+		iter = c.GetLogs("", "", []string{"/foo"}, "", false, false, 0)
+		require.False(t, iter.Next())
+		require.YesError(t, iter.Err())
+
+		resp, err := c.ListDatum(jobInfos[0].Job.ID, 0, 0)
+		if err != nil {
+			return err
+		}
+		require.True(t, len(resp.DatumInfos) > 0)
+		iter = c.GetLogs("", "", nil, resp.DatumInfos[0].Datum.ID, false, false, 0)
+		require.False(t, iter.Next())
+		require.YesError(t, iter.Err())
+
+		// Filter logs based on input (using file that exists). Get logs using file
+		// path, hex hash, and base64 hash, and make sure you get the same log lines
+		fileInfo, err := c.InspectFile(dataRepo, commit.ID, "/file")
+		if err != nil {
+			return err
+		}
+
 		pathLog := c.GetLogs("", jobInfos[0].Job.ID, []string{"/file"}, "", false, false, 0)
 
 		hexHash := "19fdf57bdf9eb5a9602bfa9c0e6dd7ed3835f8fd431d915003ea82747707be66"
@@ -4158,35 +4174,43 @@ func testGetLogs(t *testing.T, enableStats bool) {
 		if numLogs == 0 {
 			return fmt.Errorf("no logs found")
 		}
-		return nil
+
+		// Filter logs based on input (using file that doesn't exist). There should
+		// be no logs
+		iter = c.GetLogs("", jobInfos[0].Job.ID, []string{"__DOES_NOT_EXIST__"}, "", false, false, 0)
+		require.False(t, iter.Next())
+		if err = iter.Err(); err != nil {
+			return err
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		iter = c.WithCtx(ctx).GetLogs(pipelineName, "", nil, "", false, false, 0)
+		numLogs = 0
+		for iter.Next() {
+			numLogs++
+			if numLogs == 8 {
+				// Do another commit so there's logs to receive with follow
+				_, err = c.StartCommit(dataRepo, "master")
+				if err != nil {
+					return err
+				}
+				_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("bar\n"))
+				if err != nil {
+					return err
+				}
+				if err = c.FinishCommit(dataRepo, "master"); err != nil {
+					return err
+				}
+			}
+			require.True(t, iter.Message().Message != "")
+			if numLogs == 16 {
+				break
+			}
+		}
+
+		return iter.Err()
 	}, backoff.NewTestingBackOff()))
-
-	// Filter logs based on input (using file that doesn't exist). There should
-	// be no logs
-	iter = c.GetLogs("", jobInfos[0].Job.ID, []string{"__DOES_NOT_EXIST__"}, "", false, false, 0)
-	require.False(t, iter.Next())
-	require.NoError(t, iter.Err())
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-	iter = c.WithCtx(ctx).GetLogs(pipelineName, "", nil, "", false, false, 0)
-	numLogs = 0
-	for iter.Next() {
-		numLogs++
-		if numLogs == 8 {
-			// Do another commit so there's logs to receive with follow
-			_, err = c.StartCommit(dataRepo, "master")
-			require.NoError(t, err)
-			_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("bar\n"))
-			require.NoError(t, err)
-			require.NoError(t, c.FinishCommit(dataRepo, "master"))
-		}
-		require.True(t, iter.Message().Message != "")
-		if numLogs == 16 {
-			break
-		}
-	}
-	require.NoError(t, iter.Err())
 }
 
 func TestAllDatumsAreProcessed(t *testing.T) {
@@ -8801,7 +8825,7 @@ func TestPachdPrometheusStats(t *testing.T) {
 	promAPI := prom_api_v1.NewAPI(promClient)
 
 	countQuery := func(t *testing.T, query string) float64 {
-		result, err := promAPI.Query(context.Background(), query, time.Now())
+		result, _, err := promAPI.Query(context.Background(), query, time.Now())
 		require.NoError(t, err)
 		resultVec := result.(prom_model.Vector)
 		require.Equal(t, 1, len(resultVec))
@@ -8809,7 +8833,7 @@ func TestPachdPrometheusStats(t *testing.T) {
 	}
 	avgQuery := func(t *testing.T, sumQuery string, countQuery string, expected int) {
 		query := "(" + sumQuery + ")/(" + countQuery + ")"
-		result, err := promAPI.Query(context.Background(), query, time.Now())
+		result, _, err := promAPI.Query(context.Background(), query, time.Now())
 		require.NoError(t, err)
 		resultVec := result.(prom_model.Vector)
 		require.Equal(t, expected, len(resultVec))
@@ -10083,6 +10107,81 @@ func TestListTag(t *testing.T) {
 	actual := &bytes.Buffer{}
 	require.NoError(t, c.GetTag("tag0", actual))
 	require.Equal(t, "Object 0", actual.String())
+}
+
+func TestExtractPipeline(t *testing.T) {
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestExtractPipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	request := &pps.CreatePipelineRequest{}
+	// Generate fake data
+	gofakeit.Struct(&request)
+
+	// Now set a bunch of fields explicitly so the server will accept the request.
+	// Override the input because otherwise the repo won't exist
+	request.Input = client.NewPFSInput(dataRepo, "/*")
+	// These must be set explicitly, because extract returns the default values
+	// and we want them to match.
+	request.Input.Pfs.Name = "input"
+	request.Input.Pfs.Branch = "master"
+	// Can't set both parallelism spec values
+	request.ParallelismSpec.Coefficient = 0
+	// If service, can only set as Constant:1
+	request.ParallelismSpec.Constant = 1
+	// CacheSize must parse as a memory value
+	request.CacheSize = "1G"
+	// Durations must be valid
+	d := &types.Duration{Seconds: 1, Nanos: 1}
+	request.JobTimeout = d
+	request.DatumTimeout = d
+	// PodSpec and PodPatch must parse as json
+	request.PodSpec = "{}"
+	request.PodPatch = "{}"
+	request.Service.Type = string(v1.ServiceTypeClusterIP)
+	// Don't want to explicitly set spec commit, since there's no valid commit
+	// to set it to, and this is one of the few fields that shouldn't get
+	// extracted back to us.
+	request.SpecCommit = nil
+	// MaxQueueSize gets set to 1 if it's negative, which will superficially
+	// fail the test, so we set a real value.
+	request.MaxQueueSize = 2
+	// Update and reprocess don't get extracted back either so don't set it.
+	request.Update = false
+	request.Reprocess = false
+
+	// Create the pipeline
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		request)
+	require.YesError(t, err)
+	require.True(t, strings.Contains(err.Error(), "TFJob"))
+	// TODO when TFJobs are supported the above should be deleted
+
+	// Set TFJob to nil so request can work
+	request.TFJob = nil
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		request)
+	require.NoError(t, err)
+
+	// Extract it and see if we get the same thing
+	extractedRequest, err := c.ExtractPipeline(request.Pipeline.Name)
+	require.NoError(t, err)
+	// When this check fails it most likely means that you've added field to
+	// pipelines and not set it up to be extract. PipelineReqFromInfo is the
+	// function you'll need to add it to.
+	if !proto.Equal(request, extractedRequest) {
+		marshaller := &jsonpb.Marshaler{
+			Indent:   "  ",
+			OrigName: true,
+		}
+		requestString, err := marshaller.MarshalToString(request)
+		require.NoError(t, err)
+		extractedRequestString, err := marshaller.MarshalToString(extractedRequest)
+		t.Errorf("Expected:\n%s\n, Got:\n%s\n", requestString, extractedRequestString)
+	}
 }
 
 // TestPodPatchUnmarshalling tests the fix for issues #3483, by adding a

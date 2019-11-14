@@ -2789,3 +2789,4 @@ publish = "doc/site"
   to = "/latest/troubleshooting/pipeline_troubleshooting/"
   status = 301
   force = true
+

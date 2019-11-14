@@ -19,13 +19,20 @@ aws_region = os.getenv('AWS_REGION', 'us-east-1')
 output_pipe = os.getenv('OUTPUT_PIPE', '/pfs/out')
 sqs_queue_url = os.getenv('SQS_QUEUE_URL', 'https://sqs.us-west-1.amazonaws.com/ID/Name')
 s3_bucket = os.getenv('S3_BUCKET', 's3://bucket-name/')
+logging_verbosity = os.getenv('LOGGING_VERBOSITY', "critical")
+logging_boto = os.getenv('LOGGING_BOTO', "critical")
+timeout = os.getenv('TIMEOUT', 5)
+logging_format = '%(levelname)s: %(asctime)s: %(message)s'
 
-def retrieve_sqs_messages(sqs_queue_url, aws_access_key_id, aws_secret_access_key, aws_region, num_msgs=1, wait_time=0, visibility_time=5):
+def retrieve_sqs_messages(sqs_client, sqs_queue_url,  num_msgs=1, wait_time=0, visibility_time=5):
     """Retrieve messages from an SQS queue
 
     The retrieved messages are not deleted from the queue.
 
     :param sqs_queue_url: String URL of existing SQS queue
+    :param aws_access_key_id: AWS user with access to queue
+    :param aws_secret_access_key: AWS user secret key / password to access queue
+    :param aws_region: region in which the queue resides
     :param num_msgs: Number of messages to retrieve (1-10)
     :param wait_time: Number of seconds to wait if no messages in queue
     :param visibility_time: Number of seconds to make retrieved messages
@@ -41,7 +48,6 @@ def retrieve_sqs_messages(sqs_queue_url, aws_access_key_id, aws_secret_access_ke
         num_msgs = 10
 
     # Retrieve messages from an SQS queue
-    sqs_client = boto3.client('sqs', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key, region_name=aws_region)
     try:
         msgs = sqs_client.receive_message(QueueUrl=sqs_queue_url,
                                           MaxNumberOfMessages=num_msgs,
@@ -51,11 +57,15 @@ def retrieve_sqs_messages(sqs_queue_url, aws_access_key_id, aws_secret_access_ke
         logging.error(e)
         return None
 
+    logging.debug("returning msgs: {0}".format(msgs))
     # Return the list of retrieved messages
-    return msgs['Messages']
+    if msgs and 'Messages' in msgs.keys():
+        return msgs['Messages']
+
+    return None
 
 
-def delete_sqs_message(sqs_queue_url, msg_receipt_handle):
+def delete_sqs_message(sqs_client, sqs_queue_url, msg_receipt_handle):
     """Delete a message from an SQS queue
 
     :param sqs_queue_url: String URL of existing SQS queue
@@ -63,7 +73,6 @@ def delete_sqs_message(sqs_queue_url, msg_receipt_handle):
     """
 
     # Delete the message from the SQS queue
-    sqs_client = boto3.client('sqs')
     sqs_client.delete_message(QueueUrl=sqs_queue_url,
                               ReceiptHandle=msg_receipt_handle)
 
@@ -107,65 +116,122 @@ def main():
     parser.add_argument('-q', '--sqs_queue_url', required=False,
                         help="The url to the SQS queue for bucket notifications.  Overrides env var SQS_QUEUE_URL. Default: '{0}'.".format(sqs_queue_url),
                         default=sqs_queue_url)
+    parser.add_argument('-v', '--logging_verbosity', required=False,
+                        help="Verbosity for logging: debug, info, warning, error, critical.  Overrides env var LOGGING_VERBOSITY. Default: '{0}'.".format(logging_verbosity),
+                        default=logging_verbosity)
+    parser.add_argument('-l', '--logging_boto', required=False,
+                        help="Verbosity for logging boto3: debug, info, warning, error, critical.  Overrides env var LOGGING_BOTO. Default: '{0}'.".format(logging_boto),
+                        default=logging_boto)
+    parser.add_argument('-t', '--timeout', required=False, type=int,
+                        help="Timeout for polling the SQS topic.  Overrides env var TIMEOUT. Default: '{0}'.".format(timeout),
+                        default=timeout)
 
     
     args = parser.parse_args()
 
     num_messages = 1
-    s3 = boto3.client('s3')
+    sqs_client = boto3.client('sqs', aws_access_key_id=args.aws_access_key_id, aws_secret_access_key=args.aws_secret_access_key, region_name=args.aws_region)
+    s3_client = boto3.client('s3', aws_access_key_id=args.aws_access_key_id, aws_secret_access_key=args.aws_secret_access_key, region_name=args.aws_region)
 
     # Set up logging
-    logging.basicConfig(level=logging.DEBUG,
-                        format='%(levelname)s: %(asctime)s: %(message)s')
+    if args.logging_verbosity == "debug":
+        logging.basicConfig(level=logging.DEBUG,
+                            format=logging_verbosity)
+    elif args.logging_verbosity == "info":
+        logging.basicConfig(level=logging.INFO,
+                            format=logging_format)
+    elif args.logging_verbosity == "warning":
+        logging.basicConfig(level=logging.WARNING,
+                            format=logging_format)
+    elif args.logging_verbosity == "error":
+        logging.basicConfig(level=logging.ERROR,
+                            format=logging_format)
+    else:
+        logging.basicConfig(level=logging.CRITICAL,
+                            format=logging_format)
+
+    # Set up logging for boto
+    if args.logging_boto == "debug":
+        logging.getLogger('boto3').setLevel(logging.DEBUG)
+        logging.getLogger('botocore').setLevel(logging.DEBUG)
+        logging.getLogger('nose').setLevel(logging.DEBUG)
+    elif args.logging_boto == "info":
+        logging.getLogger('boto3').setLevel(logging.INFO)
+        logging.getLogger('botocore').setLevel(logging.INFO)
+        logging.getLogger('nose').setLevel(logging.INFO)
+    elif args.logging_boto == "warning":
+        logging.getLogger('boto3').setLevel(logging.WARNING)
+        logging.getLogger('botocore').setLevel(logging.WARNING)
+        logging.getLogger('nose').setLevel(logging.WARNING)
+    elif args.logging_boto == "error":
+        logging.getLogger('boto3').setLevel(logging.ERROR)
+        logging.getLogger('botocore').setLevel(logging.ERROR)
+        logging.getLogger('nose').setLevel(logging.ERROR)
+    else:
+        logging.getLogger('boto3').setLevel(logging.CRITICAL)
+        logging.getLogger('botocore').setLevel(logging.CRITICAL)
+        logging.getLogger('nose').setLevel(logging.CRITICAL) 
+
+    console = logging.StreamHandler()
+    logging.getLogger('').addHandler(console)
+    
 
     # Retrieve SQS messages
-    msgs = retrieve_sqs_messages(args.sqs_queue_url, args.aws_access_key_id, args.aws_secret_access_key, args.aws_region, num_messages)
-    if msgs is not None:
-        for msg in msgs:
-            logging.info(f'SQS: Message ID: {msg["MessageId"]}, '
-                         f'Contents: {msg["Body"]}')
-            # Iterate over the JSON to pull out full file name 
+    logging.debug("starting sqs retrieval loop")
+    while True: 
+        logging.debug("retrieving {4} messages from {0} using access key starting with {1} and secret starting with {2} in region {3}.".format(
+          args.sqs_queue_url, args.aws_access_key_id[0:5], args.aws_secret_access_key[0:5], args.aws_region, num_messages))
+        msgs = retrieve_sqs_messages(sqs_client, args.sqs_queue_url, num_messages, wait_time=args.timeout)
+        logging.debug("message: {0}.".format(msgs))
+        if msgs is not None:
+            for msg in msgs:
+                logging.debug(f'SQS: Message ID: {msg["MessageId"]}, '
+                             f'Contents: {msg["Body"]}')
+                # Iterate over the JSON to pull out full file name 
             data = json.loads(msg['Body'])['Records'][0]
             bucket = data['s3']['bucket']['name']
             file = data['s3']['object']['key']
 
             # Get the file from S3 and extract it.
             file_path = os.path.join(args.s3_bucket,file)
-            print(file_path)
-            s3.download_file(bucket, file, file)
-           
+            logging.debug("fetching url from s3: {0}".format(file_path))
+            s3_client.download_file(bucket, file, file)
+            
             
             # Start Spout portion
+            logging.debug("opening pipe {0}".format(args.output_pipe))
             mySpout = open_pipe(args.output_pipe)
 
             # To use a tarfile object with a named pipe, you must use the "w|" mode
             # which makes it not seekable
-            print("Creating tarstream...")
+            logging.debug("creating tarstream")
             try: 
                 tarStream = tarfile.open(fileobj=mySpout,mode="w|", encoding='utf-8')
             except tarfile.TarError as te:
-                print('error creating tarstream: {0}'.format(te))
+                logging.critical('error creating tarstream: {0}'.format(te))
                 exit(-2)
 
-            print("Creating tar archive entry file {}...".format(file))
+            size = os.stat(file).st_size 
+            logging.debug("Creating tar archive entry for file {0} of size {1}...".format(file, size))
             
             tarHeader = tarfile.TarInfo(file)
-            tarHeader.size = os.stat(file).st_size #Size of the file itself
+            tarHeader.size = size #Size of the file itself
             tarHeader.mode = 0o600
             tarHeader.name = file
-            print(tarHeader.size)
 
-            print("Writing tarfile to spout for file: {}...".format(file))
+            logging.debug("Writing tarfile to spout for file {0}...".format(file))
             try:
                 with open(file, mode="rb") as file:
                     tarStream.addfile(tarinfo=tarHeader, fileobj=file)
             except tarfile.TarError as te:
-                print('error writing message {0} to tarstream: {1}'.format(file, te))
+                logging.critical('error writing message {0} to tarstream: {1}'.format(file, te))
+                tarStream.close()
+                mySpout.close()
                 exit(-2)
+                
             tarStream.close()
             mySpout.close()
-
-            delete_sqs_message(sqs_queue_url, msg['ReceiptHandle'])
+            delete_sqs_message(sqs_client, args.sqs_queue_url, msg['ReceiptHandle'])
 
 if __name__ == '__main__':
     main()

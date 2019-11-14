@@ -125,7 +125,7 @@ func TestPrometheusStats(t *testing.T) {
 	time.Sleep(45 * time.Second)
 
 	datumCountQuery := func(t *testing.T, query string) float64 {
-		result, err := promAPI.Query(context.Background(), query, time.Now())
+		result, _, err := promAPI.Query(context.Background(), query, time.Now())
 		require.NoError(t, err)
 		resultVec := result.(prom_model.Vector)
 		require.Equal(t, 1, len(resultVec))
@@ -190,7 +190,7 @@ func TestPrometheusStats(t *testing.T) {
 	// Avg Datum Time Queries
 	avgDatumQuery := func(t *testing.T, sumQuery string, countQuery string, expected int) {
 		query := "(" + sumQuery + ")/(" + countQuery + ")"
-		result, err := promAPI.Query(context.Background(), query, time.Now())
+		result, _, err := promAPI.Query(context.Background(), query, time.Now())
 		require.NoError(t, err)
 		resultVec := result.(prom_model.Vector)
 		require.Equal(t, expected, len(resultVec))
