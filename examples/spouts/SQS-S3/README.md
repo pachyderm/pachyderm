@@ -3,7 +3,7 @@
 This example describes how to create a simple spout
 that listens for "object added" notifications on an
 Amazon™ Simple Queue Service (SQS) queue, grabs the
-files, and places them in its output repo.
+files, and places them into a Pachyderm repository.
 
 ## Prerequisites
 
@@ -119,7 +119,6 @@ pipeline specification.
 
 | Optional Parameter  | Description   |
 | ------------------- | ------------- |
-| `-h`, `--help`          | Show help message and exit. |
 | `-i AWS_ACCESS_KEY_ID`, `--aws_access_key_id AWS_ACCESS_KEY_ID` | An AWS Access Key ID for accessing the SQS queue and the bucket. Overrides env var AWS_ACCESS_KEY_ID. The default value is `user-id`. You can view your AWS credentials in your AWS Management Console or, if you have set up AWS CLIi, in the `~/.aws/config` file. |
 | `-k AWS_SECRET_ACCESS_KEY`, `--aws_secret_access_key AWS_SECRET_ACCESS_KEY` | AWS secret key for accessing the SQS queue and the bucket. Overrides env var AWS_SECRET_ACCESS_KEY. The default value is `secret-key`. You can view your AWS credentials in your AWS Management Console or, if you have set up AWS CLI, in the `~/.aws/config` file. |
 | `-r AWS_REGION`, `--aws_region AWS_REGION` | An AWS region. Overrides env var `AWS_REGION`. The default value is `us-east-1`. |
