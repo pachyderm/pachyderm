@@ -10,13 +10,16 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/otiai10/copy"
 	"github.com/prometheus/client_golang/prometheus"
 	prometheus_proto "github.com/prometheus/client_model/go"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
@@ -97,7 +100,15 @@ func (d *driver) linkData(inputs []*common.Input, dir string) error {
 	for _, input := range inputs {
 		src := filepath.Join(dir, input.Name)
 		dst := filepath.Join(d.inputDir, input.Name)
+		// Make sure the directory for the input exists
+		//if err := os.Mkdir(dst, 0777); err != nil {
+		//	fmt.Printf("error in mkdir: %v\n", err)
+		//	return err
+		//}
 		if err := copy.Copy(src, dst); err != nil {
+			fmt.Printf("error in copy: %v\n", err)
+			duration, err := time.ParseDuration("1000s")
+			time.Sleep(duration)
 			return err
 		}
 	}
@@ -291,13 +302,13 @@ func newInputData(path string, contents string) *inputData {
 	return &inputData{path: path, contents: contents}
 }
 
-func requireInputContents(t *testing.T, rootDir string, data []*inputData) {
+func requireInputContents(t *testing.T, env *testEnv, data []*inputData) {
 	checkFile := func(fullPath string, relPath string) {
 		for _, checkData := range data {
 			if checkData.path == relPath {
 				contents, err := ioutil.ReadFile(fullPath)
 				require.NoError(t, err)
-				require.Equal(t, string(contents), checkData.contents, "Incorrect contents for input file: %s", relPath)
+				require.Equal(t, checkData.contents, string(contents), "Incorrect contents for input file: %s", relPath)
 				checkData.found = true
 				return
 			}
@@ -319,13 +330,13 @@ func requireInputContents(t *testing.T, rootDir string, data []*inputData) {
 		}
 	}
 
-	entries, err := ioutil.ReadDir(rootDir)
+	entries, err := ioutil.ReadDir(env.driver.inputDir)
 	require.NoError(t, err)
 
 	for _, entry := range entries {
 		// Ignore .scratch, as that is not considered an input/output
 		if entry.Name() != ".scratch" {
-			recurse(entry, path.Join(rootDir, entry.Name()), entry.Name())
+			recurse(entry, path.Join(env.driver.inputDir, entry.Name()), entry.Name())
 		}
 	}
 
@@ -338,17 +349,16 @@ func TestWithDataEmpty(t *testing.T) {
 	err := withTestEnv(func(env *testEnv) {
 		requireLogs(t, "finished downloading data", func(logger logs.TaggedLogger) {
 			_, err := env.driver.WithData(
-				context.Background(),
 				[]*common.Input{},
 				nil,
 				logger,
 				func(stats *pps.ProcessStats) error {
-					requireInputContents(t, env.driver.inputDir, []*inputData{})
+					requireInputContents(t, env, []*inputData{})
 					return nil
 				},
 			)
 			require.NoError(t, err)
-			requireInputContents(t, env.driver.inputDir, []*inputData{})
+			requireInputContents(t, env, []*inputData{})
 		})
 	})
 	require.NoError(t, err)
@@ -359,21 +369,148 @@ func TestWithDataSpout(t *testing.T) {
 		env.driver.pipelineInfo.Spout = &pps.Spout{}
 		requireLogs(t, "finished downloading data", func(logger logs.TaggedLogger) {
 			_, err := env.driver.WithData(
-				context.Background(),
 				[]*common.Input{},
 				nil,
 				logger,
 				func(stats *pps.ProcessStats) error {
+					// A spout pipeline should have created a 'pfs/out` fifo for the user
+					// code to write to
+					requireInputContents(t, env, []*inputData{newInputData("out", "")})
 					return nil
 				},
 			)
 			require.NoError(t, err)
+			requireInputContents(t, env, []*inputData{})
 		})
 	})
 	require.NoError(t, err)
 }
 
+// Shitty helper function to create possibly-not-malformed input structures
+func newInput(repo string, path string) *common.Input {
+	return &common.Input{
+		FileInfo: &pfs.FileInfo{
+			File: &pfs.File{
+				Commit: &pfs.Commit{
+					Repo: &pfs.Repo{
+						Name: repo,
+					},
+					ID: "commit-id-string",
+				},
+				Path: path,
+			},
+			FileType: pfs.FileType_FILE,
+		},
+		Name:   repo,
+		Branch: "master",
+	}
+}
+
 func TestWithDataCancel(t *testing.T) {
+	err := withTestEnv(func(env *testEnv) {
+		requireLogs(t, "errored downloading data.*context canceled", func(logger logs.TaggedLogger) {
+			ctx, cancel := context.WithCancel(context.Background())
+			driver := env.driver.WithCtx(ctx)
+
+			// Cancel the context during the download
+			env.MockPachd.PFS.WalkFile.Use(func(req *pfs.WalkFileRequest, serv pfs.API_WalkFileServer) error {
+				cancel()
+				<-serv.Context().Done()
+				return fmt.Errorf("WalkFile canceled")
+			})
+
+			_, err := driver.WithData(
+				[]*common.Input{newInput("repo", "input.txt")},
+				nil,
+				logger,
+				func(stats *pps.ProcessStats) error {
+					require.True(t, false, "Should have been canceled before the callback")
+					cancel()
+					return nil
+				},
+			)
+			require.YesError(t, err, "WithData call should have been canceled")
+			requireInputContents(t, env, []*inputData{})
+		})
+	})
+	require.NoError(t, err)
+}
+
+// Check that the driver will download the requested inputs, put them in place
+// during WithData, and clean them up after running the inner function.
+func TestWithDataDownload(t *testing.T) {
+	err := withTestEnv(func(env *testEnv) {
+		requireLogs(t, "finished downloading data.*inner function", func(logger logs.TaggedLogger) {
+			// Mock out the calls that will be used to download the data
+			env.MockPachd.PFS.WalkFile.Use(func(req *pfs.WalkFileRequest, serv pfs.API_WalkFileServer) error {
+				return serv.Send(&pfs.FileInfo{
+					File:     req.File,
+					FileType: pfs.FileType_FILE,
+				})
+			})
+
+			env.MockPachd.PFS.GetFile.Use(func(req *pfs.GetFileRequest, serv pfs.API_GetFileServer) error {
+				return serv.Send(&types.BytesValue{Value: []byte(fmt.Sprintf("%s-data", req.File.Commit.Repo.Name))})
+			})
+
+			_, err := env.driver.WithData(
+				[]*common.Input{newInput("repoA", "input.txt"), newInput("repoB", "input.md")},
+				nil,
+				logger,
+				func(stats *pps.ProcessStats) error {
+					requireInputContents(t, env, []*inputData{
+						newInputData("repoA/input.txt", "repoA-data"),
+						newInputData("repoB/input.md", "repoB-data"),
+					})
+					logger.Logf("inner function")
+					return nil
+				},
+			)
+			require.NoError(t, err)
+			requireInputContents(t, env, []*inputData{})
+		})
+	})
+	require.NoError(t, err)
+}
+
+// Create several files and directories inside WithData and verify that they are
+// cleaned up after WithData returns.
+func TestWithDataCleanup(t *testing.T) {
+	err := withTestEnv(func(env *testEnv) {
+		create := func(relPath string) {
+			fullPath := path.Join(env.driver.inputDir, relPath)
+			require.NoError(t, os.MkdirAll(path.Dir(fullPath), 0777))
+			file, err := os.Create(fullPath)
+			require.NoError(t, err)
+			require.NoError(t, file.Close())
+		}
+
+		requireLogs(t, "finished downloading data.*inner function", func(logger logs.TaggedLogger) {
+			_, err := env.driver.WithData(
+				[]*common.Input{},
+				nil,
+				logger,
+				func(stats *pps.ProcessStats) error {
+					requireInputContents(t, env, []*inputData{})
+					logger.Logf("inner function")
+
+					create("c")
+					create("out/1")
+					create("out/2/a")
+					create("out/2/b")
+					create("out/2/3/c")
+					create("foo/barbaz")
+					create("foo/bar/baz")
+					create("floop/blarp/blazj/etc")
+
+					return nil
+				},
+			)
+			require.NoError(t, err)
+			requireInputContents(t, env, []*inputData{})
+		})
+	})
+	require.NoError(t, err)
 }
 
 func TestWithDataGit(t *testing.T) {

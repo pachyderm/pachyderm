@@ -74,7 +74,7 @@ type Driver interface {
 
 	// WithData prepares the current node the code is running on to run a piece
 	// of user code by downloading the specified data, and cleans up afterwards.
-	WithData(context.Context, []*common.Input, *hashtree.Ordered, logs.TaggedLogger, func(*pps.ProcessStats) error) (*pps.ProcessStats, error)
+	WithData([]*common.Input, *hashtree.Ordered, logs.TaggedLogger, func(*pps.ProcessStats) error) (*pps.ProcessStats, error)
 
 	// RunUserCode runs the pipeline's configured code
 	RunUserCode(context.Context, logs.TaggedLogger, []string, *pps.ProcessStats, *types.Duration) error
@@ -299,7 +299,6 @@ func (d *driver) NewSTM(ctx context.Context, cb func(col.STM) error) (*etcd.TxnR
 }
 
 func (d *driver) WithData(
-	ctx context.Context,
 	data []*common.Input,
 	inputTree *hashtree.Ordered,
 	logger logs.TaggedLogger,
@@ -309,7 +308,7 @@ func (d *driver) WithData(
 	stats := &pps.ProcessStats{}
 
 	// Download input data into a temporary directory
-	// TODO: pass down ctx and use it for interruption
+	// This can be interrupted via the pachClient using driver.WithCtx
 	dir, err := d.downloadData(d.pachClient, logger, data, puller, stats, inputTree)
 	// We run these cleanup functions no matter what, so that if
 	// downloadData partially succeeded, we still clean up the resources.

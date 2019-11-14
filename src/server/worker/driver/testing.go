@@ -104,7 +104,6 @@ func (md *MockDriver) GetExpectedNumWorkers() (int, error) {
 // shadow this if you actually want to load some data onto the filesystem.
 // Make sure to implement this in terms of the `InputDir` method.
 func (md *MockDriver) WithData(
-	ctx context.Context,
 	data []*common.Input,
 	inputTree *hashtree.Ordered,
 	logger logs.TaggedLogger,
