@@ -67,42 +67,34 @@ func (s *Storage) New(ctx context.Context, fileSet string, opts ...Option) *File
 }
 
 // NewWriter creates a new Writer.
-func (s *Storage) NewWriter(ctx context.Context, fileSet string) *Writer {
-	fileSet = applyPrefix(fileSet)
-	return s.newWriter(ctx, fileSet)
-}
-
 func (s *Storage) newWriter(ctx context.Context, fileSet string) *Writer {
+	fileSet = applyPrefix(fileSet)
 	return newWriter(ctx, s.objC, s.chunks, fileSet)
 }
 
 // NewReader creates a new Reader for a file set.
 // (bryce) expose some notion of read ahead (read a certain number of chunks in parallel).
 // this will be necessary to speed up reading large files.
-func (s *Storage) NewReader(ctx context.Context, fileSet string, opts ...index.Option) *Reader {
-	fileSet = applyPrefix(fileSet)
-	return s.newReader(ctx, fileSet, opts...)
-}
-
 func (s *Storage) newReader(ctx context.Context, fileSet string, opts ...index.Option) *Reader {
+	fileSet = applyPrefix(fileSet)
 	return newReader(ctx, s.objC, s.chunks, fileSet, opts...)
 }
 
+func (s *Storage) NewMergeReader(ctx context.Context, fileSet string, opts ...index.Option) *MergeReader {
+	fileSet = applyPrefix(fileSet)
+	var rs []*Reader
+	for _, fileSet := range fileSets {
+		if err := s.objC.Walk(ctx, path.Join(fileSet, Compacted), func(name string) error {
+			rs = append(rs, s.newReader(ctx, name, opts...))
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	return s.newMergeReader(ctx, rs)
+}
+
 // (bryce) commented out for now to checkpoint changes to reader/writer
-//func (s *Storage) NewMergeReader(ctx context.Context, fileSet string, opts ...index.Option) *MergeReader {
-//	fileSet = applyPrefix(fileSet)
-//	var rs []*Reader
-//	for _, fileSet := range fileSets {
-//		if err := s.objC.Walk(ctx, path.Join(fileSet, Compacted), func(name string) error {
-//			rs = append(rs, s.newReader(ctx, name, opts...))
-//			return nil
-//		}); err != nil {
-//			return err
-//		}
-//	}
-//	return s.newMergeReader(ctx, rs)
-//}
-//
 //// Shard shards the merge of the file sets with the passed in prefix into file ranges.
 //// (bryce) this should be extended to be more configurable (different criteria
 //// for creating shards).
@@ -110,17 +102,18 @@ func (s *Storage) newReader(ctx context.Context, fileSet string, opts ...index.O
 //	fileSets = applyPrefixes(fileSets)
 //	return s.merge(ctx, fileSets, shardMergeFunc(s.shardThreshold, shardFunc))
 //}
-//
-//func (s *Storage) Compact(ctx context.Context, outputFileSet string, inputFileSets []string, opts ...index.Option) error {
-//	outputFileSet = applyPrefix(outputFileSet)
-//	inputFileSets = applyPrefixes(inputFileSets)
-//	w := s.newWriter(ctx, outputFileSet)
-//	if err := s.merge(ctx, inputFileSets, contentMergeFunc(w), opts...); err != nil {
-//		return err
-//	}
-//	return w.Close()
-//}
-//
+
+func (s *Storage) Compact(ctx context.Context, outputFileSet string, inputFileSets []string, opts ...index.Option) error {
+	outputFileSet = applyPrefix(outputFileSet)
+	inputFileSets = applyPrefixes(inputFileSets)
+	w := s.newWriter(ctx, outputFileSet)
+	mr := s.NewMergeReader(ctx, inputFileSets, opts...)
+	if err := w.Copy(mr); err != nil {
+		return err
+	}
+	return w.Close()
+}
+
 //type CompactSpec struct {
 //	Output string
 //	Input  []string

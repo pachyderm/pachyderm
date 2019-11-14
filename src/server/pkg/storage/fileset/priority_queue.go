@@ -1,6 +1,8 @@
 package fileset
 
-import "io"
+import (
+	"io"
+)
 
 type stream interface {
 	next() error
@@ -13,15 +15,11 @@ type priorityQueue struct {
 	ss    []stream
 }
 
-func newPriorityQueue(ss []stream) (*priorityQueue, error) {
-	pq := &priorityQueue{queue: make([]stream, len(ss)+1)}
-	// Insert streams.
-	for _, s := range ss {
-		if err := pq.insert(s); err != nil {
-			return nil, err
-		}
+func newPriorityQueue(ss []stream) *priorityQueue {
+	return &priorityQueue{
+		queue: make([]stream, len(ss)+1),
+		ss:    ss,
 	}
-	return pq, nil
 }
 
 func (pq *priorityQueue) iterate(f func([]stream, string) error) error {

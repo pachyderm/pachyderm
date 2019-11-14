@@ -30,19 +30,32 @@ func (r *Reader) Peek() (*index.Index, error) {
 	return r.ir.Peek()
 }
 
-func (r *Reader) Read(data []byte) (int, error) {
-	// (bryce) no-op for now, will read the serialized tar stream.
-	return 0, nil
+func (r *Reader) Next() (*FileReader, error) {
+	idx, err := r.ir.Next()
+	if err != nil {
+		return nil, err
+	}
+	r.cr.NextDataRefs(idx.DataOp.DataRefs)
+	return &FileReader{
+		idx: idx,
+		cr:  r.cr,
+	}
 }
 
 func (r *Reader) Iterate(f func(*FileReader) error, pathBound ...string) error {
 	return r.ir.Iterate(func(idx *index.Index) error {
-		r.cr.NextRange(idx.DataOp.DataRefs)
+		r.cr.NextDataRefs(idx.DataOp.DataRefs)
 		return f(&FileReader{
 			idx: idx,
 			cr:  r.cr,
 		})
 	}, pathBound...)
+}
+
+func (r *Reader) Get(w io.Writer) error {
+	return r.Iterate(func(fr *FileReader) error {
+		return fr.Get(w)
+	})
 }
 
 type FileReader struct {
@@ -61,8 +74,8 @@ func (fr *FileReader) Index() *index.Index {
 	return fr.idx
 }
 
-func (fr *FileReader) Read(data []byte) (int, error) {
-	return fr.cr.Read(data)
+func (fr *FileReader) Get(w io.Writer) error {
+	return fr.cr.Get(w)
 }
 
 func (fr *FileReader) TagReader() *TagReader {
@@ -122,95 +135,3 @@ func (tr *TagReader) Iterate(f func(*index.Tag, io.Reader) error, tagBound ...st
 		tr.tags = tr.tags[1:]
 	}
 }
-
-// (bryce) commented out for now to checkpoint changes to reader/writer
-//type copyFiles struct {
-//	indexCopyF func() (*index.Copy, error)
-//	files      []*copyTags
-//}
-//
-//func (r *Reader) readCopyFiles(pathBound ...string) func() (*copyFiles, error) {
-//	var done bool
-//	return func() (*copyFiles, error) {
-//		if done {
-//			return nil, io.EOF
-//		}
-//		c := &copyFiles{}
-//		// Setup index copying callback at the first split point where
-//		// the next chunk will be copied.
-//		var hdr *index.Header
-//		r.cr.OnSplit(func() {
-//			if hdr != nil && index.BeforeBound(hdr.Idx.LastPathChunk, pathBound...) {
-//				c.indexCopyF = r.ir.ReadCopyFunc(pathBound...)
-//			}
-//		})
-//		for {
-//			var err error
-//			hdr, err = r.Peek()
-//			if err != nil {
-//				if err == io.EOF {
-//					done = true
-//					break
-//				}
-//				return nil, err
-//			}
-//			// If the header is past the path bound, then we are done.
-//			if !index.BeforeBound(hdr.Hdr.Name, pathBound...) {
-//				done = true
-//				break
-//			}
-//			if _, err := r.Next(); err != nil {
-//				return nil, err
-//			}
-//			file, err := r.readCopyTags()
-//			if err != nil {
-//				return nil, err
-//			}
-//			c.files = append(c.files, file)
-//			// Return copy information for content level, and callback
-//			// for index level copying.
-//			if c.indexCopyF != nil {
-//				break
-//			}
-//		}
-//		return c, nil
-//	}
-//}
-//
-//type copyTags struct {
-//	hdr     *index.Header
-//	content *chunk.Copy
-//	tags    []*index.Tag
-//}
-//
-//func (r *Reader) readCopyTags(tagBound ...string) (*copyTags, error) {
-//	// Lazily setup reader for underlying file.
-//	if err := r.setupReader(); err != nil {
-//		return nil, err
-//	}
-//	// Determine the tags and number of bytes to copy.
-//	var idx int
-//	var numBytes int64
-//	for i, tag := range r.tags {
-//		if !index.BeforeBound(tag.Id, tagBound...) {
-//			break
-//		}
-//		idx = i + 1
-//		numBytes += tag.SizeBytes
-//
-//	}
-//	// Setup copy struct.
-//	c := &copyTags{hdr: r.hdr}
-//	var err error
-//	c.content, err = r.cr.ReadCopy(numBytes)
-//	if err != nil {
-//		return nil, err
-//	}
-//	c.tags = r.tags[:idx]
-//	// Update reader state.
-//	r.tags = r.tags[idx:]
-//	if err := r.tr.Skip(numBytes); err != nil {
-//		return nil, err
-//	}
-//	return c, nil
-//}

@@ -12,11 +12,9 @@ message Range {
 }
 
 // DataOp is a sequence of data references and an operation associated with the referenced data.
-// Tags map identifiers to data in the resulting byte stream. 
 message DataOp {
   repeated chunk.DataRef data_refs = 1;
   Op op = 2;
-  repeated Tag tags = 3;
 }
 
 // Op is the set of operations that can be associated with data.
@@ -26,11 +24,6 @@ enum Op {
   DELETE = 2;
 }
 
-message Tag {
-  string id = 1;
-  int64 size_bytes = 2;
-}
-
 // Index stores an index to and metadata about file sets.
 message Index {
   string path = 1;
@@ -38,5 +31,4 @@ message Index {
   DataOp data_op = 3;
   // Size of the content being indexed (does not include headers).
   int64 size_bytes = 4;
-  string last_path_chunk = 5;
 }

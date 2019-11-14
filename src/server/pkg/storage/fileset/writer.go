@@ -21,11 +21,11 @@ type meta struct {
 // Writer writes the serialized format of a fileset.
 // The serialized format of a fileset consists of indexes and content.
 type Writer struct {
-	ctx          context.Context
-	tw           *tar.Writer
-	cw           *chunk.Writer
-	iw           *index.Writer
-	idx, lastIdx *index.Index
+	ctx     context.Context
+	tw      *tar.Writer
+	cw      *chunk.Writer
+	iw      *index.Writer
+	lastIdx *index.Index
 }
 
 func newWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path string) *Writer {
@@ -41,26 +41,36 @@ func newWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path
 
 // WriteHeader writes a tar header and prepares to accept the file's contents.
 func (w *Writer) WriteHeader(hdr *tar.Header) error {
-	// Flush out preceding file's content.
+	// Finish prior file.
+	if err := finishFile(); err != nil {
+		return err
+	}
+	// Setup annotation in chunk writer.
+	w.setupAnnotation(hdr.Name)
+	// Setup header tag for the file.
+	w.cw.Tag(headerTag)
+	// Write file header.
+	return w.tw.WriteHeader(hdr)
+}
+
+func (w *Writer) setupAnnotation(path string) {
+	w.cw.Annotate(&chunk.Annotation{
+		NextDataRef: &chunk.DataRef{},
+		Meta: &meta{
+			idx: &index.Index{
+				Path:   path,
+				DataOp: &index.DataOp{},
+			},
+		},
+	})
+}
+
+func (w *Writer) finishFile() {
+	w.cw.FinishTag()
+	// Flush the last file's content.
 	if err := w.tw.Flush(); err != nil {
 		return err
 	}
-	w.idx = &index.Index{
-		Path:   hdr.Name,
-		DataOp: &index.DataOp{},
-	}
-	// Setup annotation in chunk writer.
-	w.cw.Annotate(&chunk.Annotation{
-		NextDataRef: &chunk.DataRef{},
-		Meta:        &meta{idx: w.idx},
-	})
-	// Write file header.
-	if err := w.tw.WriteHeader(hdr); err != nil {
-		return err
-	}
-	// Setup header tag for the file.
-	w.idx.DataOp.Tags = []*index.Tag{&index.Tag{Id: headerTag, SizeBytes: w.cw.AnnotatedBytesSize()}}
-	return nil
 }
 
 func (w *Writer) callback() chunk.WriterFunc {
@@ -79,7 +89,9 @@ func (w *Writer) callback() chunk.WriterFunc {
 		for i := 0; i < len(annotations); i++ {
 			idx := annotations[i].Meta.(*meta).idx
 			idx.DataOp.DataRefs = append(idx.DataOp.DataRefs, annotations[i].NextDataRef)
-			idx.LastPathChunk = w.lastIdx.Path
+			for _, tag := range annotations[i].NextDataRef.Tags {
+				idx.SizeBytes += int64(tag.SizeBytes)
+			}
 			idxs = append(idxs, idx)
 		}
 		// Don't write out the last file index (it may have more content in the next chunk).
@@ -90,21 +102,29 @@ func (w *Writer) callback() chunk.WriterFunc {
 
 // StartTag starts a tag for the next set of bytes (used for the reverse index, mapping file output to datums).
 func (w *Writer) StartTag(id string) {
-	w.idx.DataOp.Tags = append(w.idx.DataOp.Tags, &index.Tag{Id: id})
+	w.cw.StartTag(id)
 }
 
 // Write writes to the current file in the tar stream.
 func (w *Writer) Write(data []byte) (int, error) {
-	n, err := w.tw.Write(data)
-	w.idx.SizeBytes += int64(n)
-	w.idx.DataOp.Tags[len(w.idx.DataOp.Tags)-1].SizeBytes += int64(n)
-	return n, err
+	return w.tw.Write(data)
+}
+
+func (w *Writer) CopyFile(fr *FileReader) error {
+	w.setupAnnotation(fr.Index().Path)
+	return fr.cr.Iterate(func(dr *DataReader) error {
+		return w.cw.Copy(dr)
+	})
+}
+
+func (w *Writer) CopyTags(dr *DataReader, tagBound ...string) error {
+	return w.cw.Copy(dr, tagBound...)
 }
 
 // Close closes the writer.
 func (w *Writer) Close() error {
-	// Flush the last file's content.
-	if err := w.tw.Flush(); err != nil {
+	// Finish prior file.
+	if err := finishFile(); err != nil {
 		return err
 	}
 	// Close the chunk writer.
@@ -120,79 +140,3 @@ func (w *Writer) Close() error {
 	// Close the index writer.
 	return w.iw.Close()
 }
-
-// (bryce) commented out for now to checkpoint changes to reader/writer
-//// CopyTags does a cheap copy of tagged file data from a reader to a writer.
-//func (w *Writer) CopyTags(r *Reader, tagBound ...string) error {
-//	c, err := r.readCopyTags(tagBound...)
-//	if err != nil {
-//		return err
-//	}
-//	return w.writeCopyTags(c)
-//}
-//
-//func (w *Writer) writeCopyTags(c *copyTags) error {
-//	beforeSize := w.cw.AnnotatedBytesSize()
-//	if err := w.cw.WriteCopy(c.content); err != nil {
-//		return err
-//	}
-//	w.hdr.Idx.DataOp.Tags = append(w.hdr.Idx.DataOp.Tags, c.tags...)
-//	return w.tw.Skip(w.cw.AnnotatedBytesSize() - beforeSize)
-//}
-//
-//// CopyFiles does a cheap copy of files from a reader to a writer.
-//// (bryce) need to handle delete operations.
-//func (w *Writer) CopyFiles(r *Reader, pathBound ...string) error {
-//	f := r.readCopyFiles(pathBound...)
-//	for {
-//		c, err := f()
-//		if err != nil {
-//			if err == io.EOF {
-//				return nil
-//			}
-//			return err
-//		}
-//		// Copy the content level.
-//		for _, file := range c.files {
-//			if err := w.WriteHeader(file.hdr); err != nil {
-//				return err
-//			}
-//			if err := w.writeCopyTags(file); err != nil {
-//				return err
-//			}
-//		}
-//		// Copy the index level(s).
-//		if c.indexCopyF != nil {
-//			if err := w.finishFile(); err != nil {
-//				return err
-//			}
-//			if err := w.iw.WriteCopyFunc(c.indexCopyF); err != nil {
-//				return err
-//			}
-//		}
-//	}
-//}
-//
-//func (w *Writer) finishFile() error {
-//	// Pull the last data reference and the corresponding last path in the last chunk from the copy header.
-//	if err := w.cw.Flush(); err != nil {
-//		return err
-//	}
-//	// We need to delete the last chunk after the flush because it will be contained within the copied chunks.
-//	if err := w.chunks.Delete(w.ctx, w.lastHdr.Idx.DataOp.DataRefs[len(w.lastHdr.Idx.DataOp.DataRefs)-1].Chunk.Hash); err != nil {
-//		return err
-//	}
-//	w.lastHdr.Idx.DataOp.DataRefs = w.lastHdr.Idx.DataOp.DataRefs[:len(w.lastHdr.Idx.DataOp.DataRefs)-1]
-//	dataRefs := w.lastHdr.Idx.DataOp.DataRefs
-//	copyDataRefs := w.copyHdr.Idx.DataOp.DataRefs
-//	if len(dataRefs) == 0 || dataRefs[len(dataRefs)-1].Chunk.Hash != copyDataRefs[len(copyDataRefs)-1].Chunk.Hash {
-//		w.lastHdr.Idx.DataOp.DataRefs = append(w.lastHdr.Idx.DataOp.DataRefs, copyDataRefs[len(copyDataRefs)-1])
-//	}
-//	w.lastHdr.Idx.LastPathChunk = w.copyHdr.Idx.LastPathChunk
-//	// Write the last hdr and clear the content level writers.
-//	w.iw.WriteHeaders([]*index.Header{w.lastHdr})
-//	w.lastHdr = nil
-//	w.tw = tar.NewWriter(w.cw)
-//	w.cw.Reset()
-//	return nil
-//}

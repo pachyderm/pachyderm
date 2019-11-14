@@ -64,7 +64,9 @@ func writeFile(t *testing.T, w *Writer, name string, f *testFile, msg string) {
 
 func checkNextFile(t *testing.T, fr *FileReader, f *testFile, msg string) {
 	// Check header.
-	tr := tar.NewReader(fr)
+	buf := &bytes.Buffer{}
+	require.NoError(t, fr.Get(buf))
+	tr := tar.NewReader(buf)
 	hdr, err := tr.Next()
 	require.NoError(t, err)
 	require.Equal(t, f.hdr.Name, hdr.Name, msg)
@@ -210,87 +212,85 @@ func TestWriteThenRead(t *testing.T) {
 //	}), msg)
 //	require.Equal(t, initialChunkCount, finalChunkCount, msg)
 //}
-//
-//func TestMerge(t *testing.T) {
-//	objC, chunks := chunk.LocalStorage(t)
-//	numFileSets := 5
-//	defer func() {
-//		chunk.Cleanup(objC, chunks)
-//		for i := 0; i < numFileSets; i++ {
-//			objC.Delete(context.Background(), path.Join(prefix, testPath+strconv.Itoa(i)))
-//		}
-//		objC.Delete(context.Background(), path.Join(prefix, testPath))
-//		objC.Delete(context.Background(), prefix)
-//	}()
-//	fileSets := NewStorage(objC, chunks)
-//	fileNames := index.Generate("abcd")
-//	files := make(map[string]*testFile)
-//	seed := time.Now().UTC().UnixNano()
-//	rand.Seed(seed)
-//	msg := seedStr(seed)
-//	// Generate the files and randomly distribute them across the file sets.
-//	var ws []*Writer
-//	for i := 0; i < numFileSets; i++ {
-//		ws = append(ws, fileSets.NewWriter(context.Background(), testPath+strconv.Itoa(i)))
-//	}
-//	for _, fileName := range fileNames {
-//		data := chunk.RandSeq(rand.Intn(max))
-//		files[fileName] = &testFile{
-//			data: data,
-//			tags: generateTags(len(data)),
-//		}
-//		// Shallow copy for slicing as data is distributed.
-//		f := *files[fileName]
-//		wsCopy := make([]*Writer, len(ws))
-//		copy(wsCopy, ws)
-//		// Randomly distribute tagged data among file sets.
-//		for len(f.tags) > 0 {
-//			// Randomly select file set to write to.
-//			i := rand.Intn(len(wsCopy))
-//			w := wsCopy[i]
-//			wsCopy = append(wsCopy[:i], wsCopy[i+1:]...)
-//			// Write the rest of the file if this is the last file set.
-//			if len(wsCopy) == 0 {
-//				writeFile(t, w, fileName, &f, msg)
-//				break
-//			}
-//			// Choose a random number of the tags left.
-//			numTags := rand.Intn(len(f.tags)) + 1
-//			var size int
-//			for _, tag := range f.tags[:numTags] {
-//				size += int(tag.SizeBytes)
-//			}
-//			// Create file for writing and remove data/tags from rest of the file.
-//			fWrite := f
-//			fWrite.data = fWrite.data[:size]
-//			fWrite.tags = fWrite.tags[:numTags]
-//			f.data = f.data[size:]
-//			f.tags = f.tags[numTags:]
-//			writeFile(t, w, fileName, &fWrite, msg)
-//		}
-//	}
-//	for _, w := range ws {
-//		require.NoError(t, w.Close(), msg)
-//	}
-//	// Merge the file sets.
-//	var rs []*Reader
-//	for i := 0; i < numFileSets; i++ {
-//		rs = append(rs, fileSets.NewReader(context.Background(), testPath+strconv.Itoa(i)))
-//	}
-//	var fileStreams []stream
-//	for _, r := range rs {
-//		fileStreams = append(fileStreams, &fileStream{r: r})
-//	}
-//	w := fileSets.NewWriter(context.Background(), testPath)
-//	require.NoError(t, merge(fileStreams, contentMergeFunc(w)), msg)
-//	require.NoError(t, w.Close(), msg)
-//	// Check the results of the merge against the files.
-//	r := fileSets.NewReader(context.Background(), testPath)
-//	for _, fileName := range fileNames {
-//		checkNextFile(t, r, files[fileName], msg)
-//	}
-//}
-//
+
+func TestCompaction(t *testing.T) {
+	objC, chunks := chunk.LocalStorage(t)
+	numFileSets := 5
+	defer func() {
+		chunk.Cleanup(objC, chunks)
+		for i := 0; i < numFileSets; i++ {
+			objC.Delete(context.Background(), path.Join(prefix, testPath+strconv.Itoa(i)))
+		}
+		objC.Delete(context.Background(), path.Join(prefix, testPath))
+		objC.Delete(context.Background(), prefix)
+	}()
+	fileSets := NewStorage(objC, chunks)
+	fileNames := index.Generate("abcd")
+	files := make(map[string]*testFile)
+	seed := time.Now().UTC().UnixNano()
+	rand.Seed(seed)
+	msg := seedStr(seed)
+	// Generate the files and randomly distribute them across the file sets.
+	var ws []*Writer
+	for i := 0; i < numFileSets; i++ {
+		ws = append(ws, fileSets.NewWriter(context.Background(), testPath+strconv.Itoa(i)))
+	}
+	for _, fileName := range fileNames {
+		data := chunk.RandSeq(rand.Intn(max))
+		files[fileName] = &testFile{
+			data: data,
+			tags: generateTags(len(data)),
+		}
+		// Shallow copy for slicing as data is distributed.
+		f := *files[fileName]
+		wsCopy := make([]*Writer, len(ws))
+		copy(wsCopy, ws)
+		// Randomly distribute tagged data among file sets.
+		for len(f.tags) > 0 {
+			// Randomly select file set to write to.
+			i := rand.Intn(len(wsCopy))
+			w := wsCopy[i]
+			wsCopy = append(wsCopy[:i], wsCopy[i+1:]...)
+			// Write the rest of the file if this is the last file set.
+			if len(wsCopy) == 0 {
+				writeFile(t, w, fileName, &f, msg)
+				break
+			}
+			// Choose a random number of the tags left.
+			numTags := rand.Intn(len(f.tags)) + 1
+			var size int
+			for _, tag := range f.tags[:numTags] {
+				size += int(tag.SizeBytes)
+			}
+			// Create file for writing and remove data/tags from rest of the file.
+			fWrite := f
+			fWrite.data = fWrite.data[:size]
+			fWrite.tags = fWrite.tags[:numTags]
+			f.data = f.data[size:]
+			f.tags = f.tags[numTags:]
+			writeFile(t, w, fileName, &fWrite, msg)
+		}
+	}
+	for _, w := range ws {
+		require.NoError(t, w.Close(), msg)
+	}
+	// Merge the file sets.
+	var rs []*Reader
+	for i := 0; i < numFileSets; i++ {
+		rs = append(rs, fileSets.NewReader(context.Background(), testPath+strconv.Itoa(i)))
+	}
+	var fileStreams []stream
+	for _, r := range rs {
+		fileStreams = append(fileStreams, &fileStream{r: r})
+	}
+	mr := fileSets.Compact(context.Background(), path.Join(testPath, Compacted), testPath)
+	// Check the results of the merge against the files.
+	r := fileSets.NewMergeReader(context.Background(), path.Join(testPath, Compacted))
+	for _, fileName := range fileNames {
+		checkNextFile(t, r, files[fileName], msg)
+	}
+}
+
 //// (bryce) This test will be expanded upon to include testing across a chain of filesets (basically commits)
 //// and various sequences of operations across this chain.
 //func TestFull(t *testing.T) {

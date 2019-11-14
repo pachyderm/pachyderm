@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
@@ -225,7 +224,7 @@ func (r *Reader) Iterate(f func(*Index) error, pathBound ...string) error {
 			}
 			return err
 		}
-		if !BeforeBound(idx.Path, pathBound...) {
+		if !chunk.BeforeBound(idx.Path, pathBound...) {
 			return nil
 		}
 		if err := f(idx); err != nil {
@@ -235,12 +234,6 @@ func (r *Reader) Iterate(f func(*Index) error, pathBound ...string) error {
 			return err
 		}
 	}
-}
-
-// BeforeBound checks if the passed in string is before the string bound (exclusive).
-// The string bound is optional, so if no string bound is passed then it returns true.
-func BeforeBound(str string, strBound ...string) bool {
-	return len(strBound) == 0 || strings.Compare(str, strBound[0]) < 0
 }
 
 // GetTopLevelIndex gets the top level index entry for a file set, which contains metadata
@@ -256,82 +249,3 @@ func GetTopLevelIndex(ctx context.Context, objC obj.Client, path string) (*Index
 	}
 	return idx, nil
 }
-
-//// Copy is the basic data structure to represent a copy of data from
-//// a reader to a writer.
-//type Copy struct {
-//	level int
-//	raw   *chunk.Copy
-//	hdrs  []*Header
-//}
-//
-//// ReadCopyFunc returns a function for copying data from the reader.
-//func (r *Reader) ReadCopyFunc(pathBound ...string) func() (*Copy, error) {
-//	level := -1
-//	var offset int64
-//	var done bool
-//	return func() (*Copy, error) {
-//		if done {
-//			return nil, io.EOF
-//		}
-//		// Setup levels, initialize first level.
-//		if err := r.setupLevels(); err != nil {
-//			return nil, err
-//		}
-//		if level < 0 {
-//			level = len(r.levels) - 1
-//		}
-//		c := &Copy{level: r.wLevel(level)}
-//		cr := r.levels[level].cr
-//		// Handle index entries that span multiple chunks.
-//		if offset > 0 {
-//			raw, err := cr.ReadCopy(offset)
-//			if err != nil {
-//				return nil, err
-//			}
-//			c.raw = raw
-//		}
-//		// (bryce) this is janky, but we need the current header when copying a level above.
-//		if r.levels[level].currHdr != nil {
-//			r.levels[level].peekHdr, r.levels[level].currHdr = r.levels[level].currHdr, nil
-//		}
-//		// While not past a split point, get index entries to copy.
-//		pastSplit := false
-//		cr.OnSplit(func() { pastSplit = true })
-//		for !pastSplit {
-//			hdr, err := r.peek(level)
-//			if err != nil {
-//				if err == io.EOF {
-//					done = true
-//					return c, nil
-//				}
-//				return nil, err
-//			}
-//			// Stop copying when the last referenced (directly or indirectly) content
-//			// chunk has a path that is >= the path bound.
-//			if !BeforeBound(hdr.Idx.LastPathChunk, pathBound...) {
-//				if hdr.Idx.Range == nil {
-//					done = true
-//					return c, nil
-//				}
-//				level++
-//				offset = hdr.Idx.Range.Offset
-//				return c, nil
-//			}
-//			c.hdrs = append(c.hdrs, hdr)
-//			_, err = r.next(level)
-//			if err != nil {
-//				return nil, err
-//			}
-//		}
-//		level--
-//		return c, nil
-//	}
-//}
-//
-//// wLevel converts a reader level to the corresponding writer level.
-//// The reason this is necessary is because the corresponding writer level is the inverse of the reader level.
-//// The reader levels start at the top level index entry while the writer levels start at the content level.
-//func (r *Reader) wLevel(rLevel int) int {
-//	return len(r.levels) - 1 - rLevel
-//}
