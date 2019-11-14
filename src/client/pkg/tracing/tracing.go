@@ -37,6 +37,10 @@ const shortTraceEnvVar = "PACH_TRACE"
 // jaegerOnce is used to ensure that the Jaeger tracer is only initialized once
 var jaegerOnce sync.Once
 
+// jaegerEndpoint is set using jaegerOnce on startup, and then returned by
+// future calls to InstallJaegerTracerFromEnv
+var jaegerEndpoint string
+
 // TagAnySpan tags any span associated with 'spanBox' (which must be either a
 // span itself or a context.Context) with 'kvs'
 func TagAnySpan(spanBox interface{}, kvs ...interface{}) opentracing.Span {
@@ -95,9 +99,10 @@ func FinishAnySpan(span opentracing.Span) {
 
 // InstallJaegerTracerFromEnv installs a Jaeger client as the opentracing global
 // tracer, relying on environment variables to configure the client
-func InstallJaegerTracerFromEnv() {
+func InstallJaegerTracerFromEnv() string {
 	jaegerOnce.Do(func() {
-		jaegerEndpoint, onUserMachine := os.LookupEnv(jaegerEndpointEnvVar)
+		var onUserMachine bool
+		jaegerEndpoint, onUserMachine = os.LookupEnv(jaegerEndpointEnvVar)
 		if !onUserMachine {
 			if host, ok := os.LookupEnv("JAEGER_COLLECTOR_SERVICE_HOST"); ok {
 				port := os.Getenv("JAEGER_COLLECTOR_SERVICE_PORT_JAEGER_COLLECTOR_HTTP")
@@ -146,6 +151,7 @@ func InstallJaegerTracerFromEnv() {
 		}
 		opentracing.SetGlobalTracer(tracer)
 	})
+	return jaegerEndpoint
 }
 
 // addTraceIfTracingEnabled is an otgrpc span inclusion func that propagates
