@@ -24,7 +24,7 @@ You should be able to easily adapt it to your needs.
 
 ## Setup
 
-This example includes a pre-configured Kafka cluster you can deploy on Amazon EKS,
+This example includes a pre-configured Kafka cluster that you can deploy on Amazon EKS,
 adapted from [Craig Johnston's excellent blog post](https://imti.co/kafka-kubernetes/).
 If you'd like to adapt it for your own cluster on GCP, Azure, or on-premises Kubernetes deployment,
 the file 001-storage-class.yaml is probably the only thing you'd need to change.
