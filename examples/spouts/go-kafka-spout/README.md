@@ -2,7 +2,6 @@
 
 This is a simple example of using spouts with [Kafka](https://kafka.apache.org) to process messages and write them to files.
 
-## Background
 
 This example connects to a Kafka queue and reads a topic.
 It then writes each message in the topic to a file named by the topic and offset. 
