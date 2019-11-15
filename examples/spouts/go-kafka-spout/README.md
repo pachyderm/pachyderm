@@ -3,7 +3,7 @@
 This is a simple example of using spouts with [Kafka](https://kafka.apache.org) to process messages and write them to files.
 
 
-This example connects to a Kafka queue and reads a topic.
+This example spout connects to a Kafka queue and reads a topic.
 It then writes each message in the topic to a file named by the topic and offset. 
 It uses Kafka group ids to maintain a cursor into the offset in the topic, 
 making it resilient to restarts.
