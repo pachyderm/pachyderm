@@ -1322,6 +1322,9 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		var err error
 		if request.Pipeline != nil {
 			pipelineInfo, err = a.inspectPipeline(pachClient, request.Pipeline.Name)
+			if err != nil {
+				return fmt.Errorf("could not get pipeline information for %s: %v", request.Pipeline.Name, err)
+			}
 		} else if request.Job != nil {
 			// If user provides a job, lookup the pipeline from the job info, and then
 			// get the pipeline RC
@@ -1332,9 +1335,9 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			}
 			statsCommit = jobPtr.StatsCommit
 			pipelineInfo, err = a.inspectPipeline(pachClient, jobPtr.Pipeline.Name)
-		}
-		if err != nil {
-			return fmt.Errorf("could not get pipeline information for %s: %v", request.Pipeline.Name, err)
+			if err != nil {
+				return fmt.Errorf("could not get pipeline information for %s: %v", jobPtr.Pipeline.Name, err)
+			}
 		}
 
 		// 2) Check whether the caller is authorized to get logs from this pipeline/job
