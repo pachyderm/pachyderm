@@ -29,7 +29,7 @@ Weblogs and Social Media (ICWSM-14). Ann Arbor, MI, June 2014.
 
 ## Commit messages from a Kafka queue
 
-A [simple example](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/go-kafka-spout), of using spouts with Kafka to process messages and write them to files.
+A [simple example](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/go-kafka-spout) of using spouts with Kafka to process messages and write them to files.
 
 
 
