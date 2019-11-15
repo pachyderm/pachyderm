@@ -68,14 +68,14 @@ func newMinioWriter(ctx context.Context, client *minioClient, name string) *mini
 }
 
 func (w *minioWriter) Write(p []byte) (int, error) {
-	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/minioWriter/Write")
+	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/Minio.Writer/Write")
 	defer tracing.FinishAnySpan(span)
 	return w.pipe.Write(p)
 }
 
 // This will block till upload is done
 func (w *minioWriter) Close() error {
-	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/minioWriter/Close")
+	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/Minio.Writer/Close")
 	defer tracing.FinishAnySpan(span)
 	if err := w.pipe.Close(); err != nil {
 		return err

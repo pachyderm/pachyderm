@@ -91,7 +91,8 @@ func AddSpanToAnyExisting(ctx context.Context, operation string, kvs ...interfac
 
 // FinishAnySpan calls span.Finish() if span is not nil. Pairs with
 // AddSpanToAnyExisting
-func FinishAnySpan(span opentracing.Span) {
+func FinishAnySpan(span opentracing.Span, kvs ...interface{}) {
+	span = TagAnySpan(span, kvs...)
 	if span != nil {
 		span.Finish()
 	}

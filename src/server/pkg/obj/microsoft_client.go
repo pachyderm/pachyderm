@@ -136,7 +136,7 @@ func newMicrosoftWriter(ctx context.Context, client *microsoftClient, name strin
 }
 
 func (w *microsoftWriter) Write(data []byte) (int, error) {
-	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/microsoftWriter/Write")
+	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/Microsoft.Writer/Write")
 	defer tracing.FinishAnySpan(span)
 	if w.err != nil {
 		return 0, w.err
@@ -165,7 +165,7 @@ func blockID(n int) string {
 }
 
 func (w *microsoftWriter) Close() error {
-	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/microsoftWriter/Close")
+	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/Microsoft.Writer/Close")
 	defer tracing.FinishAnySpan(span)
 	if err := w.w.Close(); err != nil {
 		return err
