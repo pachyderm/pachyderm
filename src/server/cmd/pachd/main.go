@@ -100,7 +100,14 @@ func doSidecarMode(config interface{}) (retErr error) {
 			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
 		}
 	}()
-	tracing.InstallJaegerTracerFromEnv() // must run before InitWithKube
+	// must run InstallJaegerTracer before InitWithKube (otherwise InitWithKube
+	// may create a pach client before tracing is active, not install the Jaeger
+	// gRPC interceptor in the client, and not propagate traces)
+	if endpoint := tracing.InstallJaegerTracerFromEnv(); endpoint != "" {
+		log.Printf("connecting to Jaeger at %q", endpoint)
+	} else {
+		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
+	}
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 	debug.SetGCPercent(50)
 	go func() {
@@ -242,7 +249,12 @@ func doFullMode(config interface{}) (retErr error) {
 			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
 		}
 	}()
-	tracing.InstallJaegerTracerFromEnv() // must run before InitWithKube
+	// must run InstallJaegerTracer before InitWithKube
+	if endpoint := tracing.InstallJaegerTracerFromEnv(); endpoint != "" {
+		log.Printf("connecting to Jaeger at %q", endpoint)
+	} else {
+		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
+	}
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 	debug.SetGCPercent(50)
 	go func() {
