@@ -1,6 +1,6 @@
 # Commit messages from a Kafka queue
 
-A simple example using spouts with [Kafka](https://kafka.apache.org) to process messages and write them to files.
+This is a simple example of using spouts with [Kafka](https://kafka.apache.org) to process messages and write them to files.
 
 ## Background
 
