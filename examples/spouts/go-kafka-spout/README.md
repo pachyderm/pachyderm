@@ -11,7 +11,7 @@ making it resilient to restarts.
 ## Introduction
 
 Apache® Kafka is a distributed streaming platform
-It's used in a variety of applications to provide communications between microservices.  
+that is used in a variety of applications to provide communications between microservices.  
 Many Pachyderm users use Kafka to ingest data from legacy data sources using Pachyderm spouts.
 
 Pachyderm spouts are a way to ingest data into Pachyderm 
