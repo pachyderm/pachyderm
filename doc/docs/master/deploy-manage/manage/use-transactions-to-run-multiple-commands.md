@@ -24,11 +24,12 @@ can put files and finish the commits at will, and the pipeline job
 will run once all the input commits have been finished.
 
 ## Use Cases
+
 Pachyderm users implement transactions to their own workflows finding
 unique ways to benefit from this feature, whether it is a small
 research or an enterprise-grade machine learning workflow.
 
-Here are the most commonly employed ways of using transactions:
+Below are examples of the most commonly employed ways of using transactions.
 
 ###Commit to Separate Repositories Simultaneously
 
@@ -45,7 +46,7 @@ by running two separate Pachyderm jobs. One job commits changes to
 the data repository and the other updates the parameters.
 The following animation shows the standard Pachyderm workflow:
 
-![Standard workflow](../../assets/images/transactions_wrong.gif)
+![Standard workflow](../../assets/images/transaction_wrong.gif)
 
 In Pachyderm, a pipeline starts as soon as a new commit lands in
 a repository. In the diagram above, as soon as `commit 1` is added
@@ -62,7 +63,7 @@ With transactions, you can ensure that `data` and `parameters` have
 the latest commits in the same pipeline job. The following animation
 demonstrates how transactions work:
 
-![Transactions workflow](../../assets/images/transactions_right.gif)
+![Transactions workflow](../../assets/images/transaction_right.gif)
 
 The transaction ensures that a job runs for the two latest commits.
 While you could probably achieve the same without transactions by
