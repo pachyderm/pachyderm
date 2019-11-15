@@ -161,9 +161,10 @@ func addTraceIfTracingEnabled(
 	method string,
 	req, resp interface{}) bool {
 	// Always trace if PACH_TRACE is on
-	_, hasJaegerEndpoint := os.LookupEnv(jaegerEndpointEnvVar)
-	_, shortTracingOn := os.LookupEnv(shortTraceEnvVar)
-	if hasJaegerEndpoint && shortTracingOn {
+	if _, shortTracingOn := os.LookupEnv(shortTraceEnvVar); shortTracingOn {
+		if !IsActive() {
+			fmt.Fprintf(os.Stderr, "PACH_TRACE is set, indicating tracing is requested, but no connection to Jaeger has been established")
+		}
 		return true
 	}
 
