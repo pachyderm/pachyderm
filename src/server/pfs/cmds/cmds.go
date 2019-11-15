@@ -611,6 +611,39 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 	createBranch.MarkFlagCustom("head", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
 	commands = append(commands, cmdutil.CreateAlias(createBranch, "create branch"))
 
+	inspectBranch := &cobra.Command{
+		Use:   "{{alias}}  <repo>@<branch>",
+		Short: "Return info about a branch.",
+		Long:  "Return info about a branch.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			branch, err := cmdutil.ParseBranch(args[0])
+			if err != nil {
+				return err
+			}
+
+			branchInfo, err := c.InspectBranch(branch.Repo.Name, branch.Name)
+			if err != nil {
+				return err
+			}
+			if branchInfo == nil {
+				return fmt.Errorf("branch %s not found", args[0])
+			}
+			if raw {
+				return marshaller.Marshal(os.Stdout, branchInfo)
+			}
+
+			return pretty.PrintDetailedBranchInfo(branchInfo)
+		}),
+	}
+	inspectBranch.Flags().AddFlagSet(rawFlags)
+	inspectBranch.Flags().AddFlagSet(fullTimestampsFlags)
+	commands = append(commands, cmdutil.CreateAlias(inspectBranch, "inspect branch"))
+
 	listBranch := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Return all branches on a repo.",
