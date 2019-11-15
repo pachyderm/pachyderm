@@ -2,7 +2,8 @@
 
 !!! note "Summary"
     Use transactions to run multiple Pachyderm commands
-    simultaneously in one job run.
+    simultaneously in one job runi and optimize the use
+    of resources.
 
 A transaction is a Pachyderm operation that enables you to create
 a collection of Pachyderm commands and execute them concurrently in a
@@ -22,7 +23,7 @@ inputs. If you need to update two or more input repos, you might not want
 pipeline jobs for each state change. You can issue a transaction
 to start commits in each of the input repos, which creates a single
 downstream commit in the pipeline repo. After the transaction, you
-can put files and finish the commits at will, and the pipeline job
+ccan put files and finish the commits at will, and the pipeline job
 will run once all the input commits have been finished.
 
 ## Use Cases
@@ -146,3 +147,6 @@ in a transaction rather than run directly.
      then put as many files as you need, and then finish your commit.
      Your changes will only be applied in one batch when you close
      the commit.
+
+To get a better understanding of how transactions work in practice, try
+[Use Transactions with Hyperparameter Tuning](https://github.com/pachyderm/pachyderm/tree/master/examples/transactions/).

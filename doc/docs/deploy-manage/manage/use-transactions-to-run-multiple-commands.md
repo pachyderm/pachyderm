@@ -1,4 +1,4 @@
-# Transaction
+# Use Pachyderm Transactions
 
 !!! note "Summary"
     Use transactions to run multiple Pachyderm commands
@@ -50,12 +50,20 @@ The following animation shows the standard Pachyderm workflow:
 
 ![Standard workflow](../../assets/images/transactions_wrong.gif)
 
-If you need to update both the parameters and the data, this approach
-does not work.
+In Pachyderm, a pipeline starts as soon as a new commit lands in
+a repository. In the diagram above, as soon as `commit 1` is added
+to the `data` repository, Pachyderm runs a job for `commit 1` and
+`commit 0` in the parameters repository. You can also see
+that Pachyderm runs the second job and processes `commit 1`
+from the `data` repository with the `commit 1` in the `parameters`
+repository. In some cases, this is perfectly acceptable solution.
+But if your job takes many hours and you are only intersted in the
+result of the pipeline run with `commit 1` from both repositories
+this approach does not work.
 
 With transactions, you can ensure that `data` and `parameters` have
-the latest commits in the same pipeline run. The following animation
-demonstrates how a transaction works:
+the latest commits in the same pipeline job. The following animation
+demonstrates how transactions work:
 
 ![Transactions workflow](../../assets/images/transactions_right.gif)
 
@@ -67,11 +75,11 @@ it in individual repositories for organizational and logistics reasons.
 ### Switching from Staging to Master Simultaneously
 
 If you use the [deferred processing](../../how-tos/deferred_processing/)
-model when you want to commit your changes often but do not want your
+model, you want to commit your changes often but do not want your
 pipeline to be triggered as often as you commit. When you want to postpone
 pipeline execution, you can create a staging and master branch in
 the same repository. You commit your changes to the staging branch and
-when needed, switch the HEAD of you master branch to a commit in the
+when needed, switch the `HEAD` of you master branch to a commit in the
 staging branch. To do this simultaneously, you can use transactions.
 
 For example, you have two repositories `data` and `parameters`, both
@@ -92,7 +100,7 @@ Completed transaction with 2 requests: 0d6f0bc3-37a0-4936-96e3-82034a2a2055
 ```
 
 When you finish the transaction, both repositories switch to
-to the master at the same time which crates new commits in
+to the master at the same time which creates new commits in
 the corresponding `master` branches and the pipeline triggers
 one job to process the commits together.
 
@@ -106,7 +114,7 @@ Started new transaction: 7a81eab5-e6c6-430a-a5c0-1deb06852ca5
 ```
 
 This command generates a transaction object in the cluster and saves
-its ID in the local Pachyderm configuration file. By default this file
+its ID in the local Pachyderm configuration file. By default, this file
 is stored at `~/.pachyderm/config.json`.
 
 !!! example
@@ -127,11 +135,13 @@ is stored at `~/.pachyderm/config.json`.
            },
     ```
 
-After you start a transaction, you can add supported commands to it, such
-as create a repo, create a branch, and so on. You can also start a commit
-within a transaction. If you close a transaction before you close a commit,
-the commands that you have specified inside the transaction and inside the
-commit will not be applied until you close that commit.
+After you start a transaction, you can add supported commands, such
+as create a repo, create a branch, and so on, to th transaction. You
+can also start a commit within a transaction. If you close a transaction
+before you close a commit, the commands that you have specified inside
+the transaction and inside the
+commit will not be applied until you close all commits that you have
+started in that transaction.
 
 To finish a transaction, run:
 
@@ -139,11 +149,6 @@ To finish a transaction, run:
 $ pachctl finsh transaction
 Completed transaction with 1 requests: 7a81eab5-e6c6-430a-a5c0-1deb06852ca5
 ```
-
-If you have opened a commit within the transaction, you can apply
-all the operations that are not supported by transactions, such as
-`pachctl put file` within that commit. Then, the operations are applied
-in one job after you close the commit.
 
 ## Other Transaction Commands
 
@@ -190,16 +195,16 @@ in a transaction rather than run directly.
 
 ## Multiple Opened Transactions
 
-Some systems has a notion of *nested* transactions. That is when you
-open transactions within an opened transaction. In such systems, the
+Some systems have a notion of *nested* transactions. That is when you
+open transactions within an already opened transaction. In such systems, the
 operations added to the subsequent transactions are not executed
-until you close all the nested transaction and the main transaction.
+until all the nested transactions and the main transaction are closed.
 
-Pachyderm does not support such behaviour. Instead, when you open a
+Pachyderm does not support such behavior. Instead, when you open a
 transaction, the transaction ID is written to the Pachyderm configuration
-file. If you open another transaction while the first one is open, Pachyderm
+file. If you begin another transaction while the first one is open, Pachyderm
 suspends the first transaction and overwrites the transaction ID in the
-configuration file. All operations that you add to the consequent
+configuration file. All operations that you add to the ensuing
 transactions will be executed as soon as you close those
 transactions. To resume the initial transaction, you need to run
 `pachctl resume transaction`.
@@ -208,6 +213,3 @@ Because nested transactions are not supported, transactions cannot
 conflict with each other. Every time you add a command to a transaction,
 Pachyderm creates a blueprint of the commit and verifies that the
 command is valid.
-
-
-
