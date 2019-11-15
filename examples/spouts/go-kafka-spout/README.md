@@ -50,7 +50,7 @@ run the command
 ```sh
 make -n kafka
 ```
-You can confirm that the kafka cluster is running properly by checking to see if all the pods are running.
+You can confirm that the Kafka cluster is running properly by verifying that the pods are running.
 ```sh
 $ kubectl get pods -n kafka
 NAME                READY   STATUS    RESTARTS   AGE
