@@ -23,6 +23,7 @@ DOCKER_OPTS=()
 # TODO: this is probably needed for the Makefile build to run worker/pachd in parallel
 # DOCKER_OPTS+=("-d")
 DOCKER_OPTS+=("--name ${NAME}")
+DOCKER_OPTS+=("-v ${PWD}:/pachyderm")
 DOCKER_OPTS+=("-v ${HOME}/.cache/go-build:/root/.cache/go-build")
 
 if [[ "${OS}" == "Windows_NT" ]]; then

@@ -186,6 +186,7 @@ docker-build-test: docker-clean-test docker-build-compile
 	  --attach stderr \
 	  --rm \
 	  -w /pachyderm \
+	  -v $(PWD):/pachyderm \
 	  -v $$HOME/.cache/go-build:/root/.cache/go-build \
 	  -v /var/run/docker.sock:/var/run/docker.sock \
 	  --privileged=true \
