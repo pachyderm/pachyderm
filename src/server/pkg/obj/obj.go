@@ -644,9 +644,11 @@ func newBackoffReadCloser(ctx context.Context, client Client, reader io.ReadClos
 	}
 }
 
-func (b *BackoffReadCloser) Read(data []byte) (int, error) {
-	span, _ := tracing.AddSpanToAnyExisting(b.ctx, "obj/BackoffReadCloser.Read")
-	defer tracing.FinishAnySpan(span)
+func (b *BackoffReadCloser) Read(data []byte) (retN int, retErr error) {
+	span, _ := tracing.AddSpanToAnyExisting(b.ctx, "/obj.BackoffReadCloser/Read")
+	defer func() {
+		tracing.FinishAnySpan(span, "bytes", retN, "err", retErr)
+	}()
 	bytesRead := 0
 	var n int
 	var err error
@@ -669,9 +671,11 @@ func (b *BackoffReadCloser) Read(data []byte) (int, error) {
 }
 
 // Close closes the ReaderCloser contained in b.
-func (b *BackoffReadCloser) Close() error {
-	span, _ := tracing.AddSpanToAnyExisting(b.ctx, "obj/BackoffReadCloser.Close")
-	defer tracing.FinishAnySpan(span)
+func (b *BackoffReadCloser) Close() (retErr error) {
+	span, _ := tracing.AddSpanToAnyExisting(b.ctx, "/obj.BackoffReadCloser/Close")
+	defer func() {
+		tracing.FinishAnySpan(span, "err", retErr)
+	}()
 	return b.reader.Close()
 }
 
@@ -692,9 +696,11 @@ func newBackoffWriteCloser(ctx context.Context, client Client, writer io.WriteCl
 	}
 }
 
-func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
-	span, _ := tracing.AddSpanToAnyExisting(b.ctx, "obj/BackoffWriteCloser.Write")
-	defer tracing.FinishAnySpan(span)
+func (b *BackoffWriteCloser) Write(data []byte) (retN int, retErr error) {
+	span, _ := tracing.AddSpanToAnyExisting(b.ctx, "/obj.BackoffWriteCloser/Write")
+	defer func() {
+		tracing.FinishAnySpan(span, "bytes", retN, "err", retErr)
+	}()
 	bytesWritten := 0
 	var n int
 	var err error
@@ -717,9 +723,11 @@ func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
 }
 
 // Close closes the WriteCloser contained in b.
-func (b *BackoffWriteCloser) Close() error {
-	span, _ := tracing.AddSpanToAnyExisting(b.ctx, "obj/BackoffWriteCloser.Close")
-	defer tracing.FinishAnySpan(span)
+func (b *BackoffWriteCloser) Close() (retErr error) {
+	span, _ := tracing.AddSpanToAnyExisting(b.ctx, "/obj.BackoffWriteCloser/Close")
+	defer func() {
+		tracing.FinishAnySpan(span, "err", retErr)
+	}()
 	err := b.writer.Close()
 	if b.client.IsIgnorable(err) {
 		return nil
