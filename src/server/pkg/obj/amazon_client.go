@@ -427,9 +427,9 @@ func newWriter(ctx context.Context, client *amazonClient, name string) *amazonWr
 	return w
 }
 
-func (w *amazonWriter) Write(p []byte) (_ int, retErr error) {
+func (w *amazonWriter) Write(p []byte) (retN int, retErr error) {
 	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/Amazon.Writer/Write")
-	defer tracing.FinishAnySpan(span, "err", retErr)
+	defer tracing.FinishAnySpan(span, "bytes", retN, "err", retErr)
 	return w.pipe.Write(p)
 }
 
