@@ -8,6 +8,7 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/types"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
@@ -96,6 +97,13 @@ func (md *MockDriver) Merges(jobID string) col.Collection {
 // this is unique so that tests don't collide).
 func (md *MockDriver) InputDir() string {
 	return "/pfs"
+}
+
+// PachClient returns the pachd API client for the driver.  This is always
+// `nil` for a MockDriver, but you can inherit and shadow this if you want
+// some other value.
+func (md *MockDriver) PachClient() *client.APIClient {
+	return nil
 }
 
 // GetExpectedNumWorkers returns the configured number of workers

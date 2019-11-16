@@ -1,12 +1,15 @@
 package testutil
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"path"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/embed"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/pachyderm/pachyderm/src/client"
 )
 
@@ -15,6 +18,7 @@ import (
 // storing data, an embedded etcd server with a connected client, as well as a
 // local mock pachd instance which allows a test to hook into any pachd calls.
 type Env struct {
+	Context    context.Context
 	Directory  string
 	Etcd       *embed.Etcd
 	EtcdClient *etcd.Client
@@ -25,7 +29,12 @@ type Env struct {
 // WithEnv sets up an Env structure, passes it to the provided callback, then
 // cleans up everything in the environment, regardless of if an assertion fails.
 func WithEnv(cb func(*Env) error) (err error) {
-	env := &Env{}
+	// Use an error group with a cancelable context to supervise every component
+	// and cancel everything if one fails
+	ctx, cancel := context.WithCancel(context.Background())
+	eg, ctx := errgroup.WithContext(ctx)
+
+	env := &Env{Context: ctx}
 
 	dirBase := path.Join(os.TempDir(), "pachyderm_test")
 
@@ -67,6 +76,8 @@ func WithEnv(cb func(*Env) error) (err error) {
 		}
 
 		saveErr(os.RemoveAll(env.Directory))
+		cancel()
+		saveErr(eg.Wait())
 	}()
 
 	etcdConfig := embed.NewConfig()
@@ -92,12 +103,17 @@ func WithEnv(cb func(*Env) error) (err error) {
 		return err
 	}
 
+	eg.Go(func() error {
+		return errorWait(ctx, env.Etcd.Err())
+	})
+
 	clientUrls := []string{}
 	for _, url := range etcdConfig.LCUrls {
 		clientUrls = append(clientUrls, url.String())
 	}
 
 	env.EtcdClient, err = etcd.New(etcd.Config{
+		Context:     env.Context,
 		Endpoints:   clientUrls,
 		DialOptions: client.DefaultDialOptions(),
 	})
@@ -105,12 +121,32 @@ func WithEnv(cb func(*Env) error) (err error) {
 		return err
 	}
 
-	env.MockPachd = NewMockPachd()
+	env.MockPachd = NewMockPachd(env.Context)
+
+	eg.Go(func() error {
+		return errorWait(ctx, env.MockPachd.Err())
+	})
 
 	env.PachClient, err = client.NewFromAddress(env.MockPachd.Addr.String())
 	if err != nil {
 		return err
 	}
 
+	// TODO: supervise the PachClient and EtcdClient connections and error the
+	// errgroup if they go down
+
+	go func() {
+		<-ctx.Done()
+	}()
+
 	return cb(env)
+}
+
+func errorWait(ctx context.Context, errChan <-chan error) error {
+	select {
+	case <-ctx.Done():
+		return nil
+	case err := <-errChan:
+		return err
+	}
 }

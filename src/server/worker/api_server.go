@@ -217,220 +217,6 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	return server, nil
 }
 
-func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag string, logger logs.TaggedLogger, inputs []*common.Input, stats *pps.ProcessStats, statsTree *hashtree.Ordered, datumIdx int64) (retErr error) {
-	defer a.driver.ReportUploadStats(time.Now(), stats, logger)
-	logger.Logf("starting to upload output")
-	defer func(start time.Time) {
-		if retErr != nil {
-			logger.Logf("errored uploading output after %v: %v", time.Since(start), retErr)
-		} else {
-			logger.Logf("finished uploading output after %v", time.Since(start))
-		}
-	}(time.Now())
-	// Setup client for writing file data
-	putObjsClient, err := pachClient.ObjectAPIClient.PutObjects(pachClient.Ctx())
-	if err != nil {
-		return err
-	}
-	block := &pfs.Block{Hash: uuid.NewWithoutDashes()}
-	if err := putObjsClient.Send(&pfs.PutObjectRequest{
-		Block: block,
-	}); err != nil {
-		return err
-	}
-	outputPath := filepath.Join(dir, "out")
-	buf := grpcutil.GetBuffer()
-	defer grpcutil.PutBuffer(buf)
-	var offset uint64
-	var tree *hashtree.Ordered
-	// Upload all files in output directory
-	if err := filepath.Walk(outputPath, func(filePath string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !utf8.ValidString(filePath) {
-			return fmt.Errorf("file path is not valid utf-8: %s", filePath)
-		}
-		if filePath == outputPath {
-			tree = hashtree.NewOrdered("/")
-			return nil
-		}
-		relPath, err := filepath.Rel(outputPath, filePath)
-		if err != nil {
-			return err
-		}
-		// Put directory. Even if the directory is empty, that may be useful to
-		// users
-		// TODO(msteffen) write a test pipeline that outputs an empty directory and
-		// make sure it's preserved
-		if info.IsDir() {
-			tree.PutDir(relPath)
-			if statsTree != nil {
-				statsTree.PutDir(relPath)
-			}
-			return nil
-		}
-		// Under some circumstances, the user might have copied
-		// some pipes from the input directory to the output directory.
-		// Reading from these files will result in job blocking.  Thus
-		// we preemptively detect if the file is a named pipe.
-		if (info.Mode() & os.ModeNamedPipe) > 0 {
-			logger.Logf("cannot upload named pipe: %v", relPath)
-			return errSpecialFile
-		}
-		// If the output file is a symlink to an input file, we can skip
-		// the uploading.
-		if (info.Mode() & os.ModeSymlink) > 0 {
-			realPath, err := os.Readlink(filePath)
-			if err != nil {
-				return err
-			}
-			if strings.HasPrefix(realPath, a.driver.InputDir()) {
-				var pathWithInput string
-				var err error
-				if strings.HasPrefix(realPath, dir) {
-					pathWithInput, err = filepath.Rel(dir, realPath)
-				} else {
-					pathWithInput, err = filepath.Rel(a.driver.InputDir(), realPath)
-				}
-				if err == nil {
-					// We can only skip the upload if the real path is
-					// under /pfs, meaning that it's a file that already
-					// exists in PFS.
-
-					// The name of the input
-					inputName := strings.Split(pathWithInput, string(os.PathSeparator))[0]
-					var input *common.Input
-					for _, i := range inputs {
-						if i.Name == inputName {
-							input = i
-						}
-					}
-					// this changes realPath from `/pfs/input/...` to `/scratch/<id>/input/...`
-					realPath = filepath.Join(dir, pathWithInput)
-					if input != nil {
-						return filepath.Walk(realPath, func(filePath string, info os.FileInfo, err error) error {
-							if err != nil {
-								return err
-							}
-							rel, err := filepath.Rel(realPath, filePath)
-							if err != nil {
-								return err
-							}
-							subRelPath := filepath.Join(relPath, rel)
-							// The path of the input file
-							pfsPath, err := filepath.Rel(filepath.Join(dir, input.Name), filePath)
-							if err != nil {
-								return err
-							}
-							if info.IsDir() {
-								tree.PutDir(subRelPath)
-								if statsTree != nil {
-									statsTree.PutDir(subRelPath)
-								}
-								return nil
-							}
-							fc := input.FileInfo.File.Commit
-							fileInfo, err := pachClient.InspectFile(fc.Repo.Name, fc.ID, pfsPath)
-							if err != nil {
-								return err
-							}
-							var blockRefs []*pfs.BlockRef
-							for _, object := range fileInfo.Objects {
-								objectInfo, err := pachClient.InspectObject(object.Hash)
-								if err != nil {
-									return err
-								}
-								blockRefs = append(blockRefs, objectInfo.BlockRef)
-							}
-							blockRefs = append(blockRefs, fileInfo.BlockRefs...)
-							n := &hashtree.FileNodeProto{BlockRefs: blockRefs}
-							tree.PutFile(subRelPath, fileInfo.Hash, int64(fileInfo.SizeBytes), n)
-							if statsTree != nil {
-								statsTree.PutFile(subRelPath, fileInfo.Hash, int64(fileInfo.SizeBytes), n)
-							}
-							return nil
-						})
-					}
-				}
-			}
-		}
-		// Open local file that is being uploaded
-		f, err := os.Open(filePath)
-		if err != nil {
-			return fmt.Errorf("os.Open(%s): %v", filePath, err)
-		}
-		defer func() {
-			if err := f.Close(); err != nil && retErr == nil {
-				retErr = err
-			}
-		}()
-		var size int64
-		h := pfs.NewHash()
-		r := io.TeeReader(f, h)
-		// Write local file to object storage block
-		for {
-			n, err := r.Read(buf)
-			if n == 0 && err != nil {
-				if err == io.EOF {
-					break
-				}
-				return err
-			}
-			if err := putObjsClient.Send(&pfs.PutObjectRequest{
-				Value: buf[:n],
-			}); err != nil {
-				return err
-			}
-			size += int64(n)
-		}
-		n := &hashtree.FileNodeProto{
-			BlockRefs: []*pfs.BlockRef{
-				&pfs.BlockRef{
-					Block: block,
-					Range: &pfs.ByteRange{
-						Lower: offset,
-						Upper: offset + uint64(size),
-					},
-				},
-			},
-		}
-		hash := h.Sum(nil)
-		tree.PutFile(relPath, hash, size, n)
-		if statsTree != nil {
-			statsTree.PutFile(relPath, hash, size, n)
-		}
-		offset += uint64(size)
-		stats.UploadBytes += uint64(size)
-		return nil
-	}); err != nil {
-		return fmt.Errorf("error walking output: %v", err)
-	}
-	if _, err := putObjsClient.CloseAndRecv(); err != nil && err != io.EOF {
-		return err
-	}
-	// Serialize datum hashtree
-	b := &bytes.Buffer{}
-	if err := tree.Serialize(b); err != nil {
-		return err
-	}
-	// Write datum hashtree to object storage
-	w, err := pachClient.PutObjectAsync([]*pfs.Tag{client.NewTag(tag)})
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := w.Close(); err != nil && retErr != nil {
-			retErr = err
-		}
-	}()
-	if _, err := w.Write(b.Bytes()); err != nil {
-		return err
-	}
-	// Cache datum hashtree locally
-	return a.datumCache.Put(datumIdx, bytes.NewReader(b.Bytes()))
-}
-
 // Status returns the status of the current worker.
 func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (*pps.WorkerStatus, error) {
 	a.statusMu.Lock()
@@ -1354,7 +1140,6 @@ func (a *APIServer) processDatums(
 				}()
 			}
 
-			var dir string
 			var failures int64
 			if err := backoff.RetryNotify(func() error {
 				if common.IsDone(ctx) {
@@ -1363,6 +1148,7 @@ func (a *APIServer) processDatums(
 
 				// shadow ctx and pachClient for the context of processing this one datum
 				ctx, cancel := context.WithCancel(ctx)
+				localDriver := driver.WithCtx(ctx)
 				pachClient := pachClient.WithCtx(ctx)
 				func() {
 					a.statusMu.Lock()
@@ -1374,13 +1160,13 @@ func (a *APIServer) processDatums(
 					a.stats = stats
 				}()
 
-				subStats, err := a.driver.WithData(ctx, data, inputTree, logger, func(subStats *pps.ProcessStats) error {
-					env := userCodeEnv(jobInfo.Job.ID, jobInfo.OutputCommit.ID, a.driver.InputDir(), data)
+				subStats, err := localDriver.WithData(data, inputTree, logger, func(subStats *pps.ProcessStats) error {
+					env := userCodeEnv(jobInfo.Job.ID, jobInfo.OutputCommit.ID, localDriver.InputDir(), data)
 					a.runMu.Lock()
 					defer a.runMu.Unlock()
-					if err := a.driver.RunUserCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
+					if err := localDriver.RunUserCode(logger, env, subStats, jobInfo.DatumTimeout); err != nil {
 						if a.pipelineInfo.Transform.ErrCmd != nil && failures == jobInfo.DatumTries-1 {
-							if err = a.driver.RunUserErrorHandlingCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
+							if err = localDriver.RunUserErrorHandlingCode(logger, env, subStats, jobInfo.DatumTimeout); err != nil {
 								return fmt.Errorf("error runUserErrorHandlingCode: %v", err)
 							}
 							return errDatumRecovered
@@ -1393,7 +1179,12 @@ func (a *APIServer) processDatums(
 					return err
 				}
 
-				return a.uploadOutput(pachClient, dir, tag, logger, data, subStats, outputTree, datumIdx)
+				b, err := a.driver.UploadOutput(
+				if err != nil {
+					return err
+				}
+				// Cache datum hashtree locally
+				return a.datumCache.Put(datumIdx, bytes.NewReader(b))
 			}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
 				if common.IsDone(ctx) {
 					return ctx.Err() // timeout or cancelled job, err out and don't retry

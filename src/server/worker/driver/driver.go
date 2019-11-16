@@ -5,7 +5,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -17,6 +19,7 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+	"unicode/utf8"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/types"
@@ -27,6 +30,8 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/exec"
@@ -50,6 +55,10 @@ const (
 	shardPrefix = "/shard"
 )
 
+var (
+	errSpecialFile = errors.New("cannot upload special file")
+)
+
 // Driver provides an interface for common functions needed by worker code, and
 // captures the relevant objects necessary to provide these functions so that
 // users do not need to keep track of as many variables.  In addition, this
@@ -65,6 +74,9 @@ type Driver interface {
 
 	// Returns the path that will contain the input filesets for the job
 	InputDir() string
+
+	// Returns the pachd API client for the driver
+	PachClient() *client.APIClient
 
 	// Returns the number of workers to be used based on what can be determined from kubernetes
 	GetExpectedNumWorkers() (int, error)
@@ -296,6 +308,10 @@ func (d *driver) InputDir() string {
 	return d.inputDir
 }
 
+func (d *driver) PachClient() *client.APIClient {
+	return d.pachClient
+}
+
 func (d *driver) NewSTM(cb func(col.STM) error) (*etcd.TxnResponse, error) {
 	return col.NewSTM(d.pachClient.Ctx(), d.etcdClient, cb)
 }
@@ -311,7 +327,7 @@ func (d *driver) WithData(
 
 	// Download input data into a temporary directory
 	// This can be interrupted via the pachClient using driver.WithCtx
-	dir, err := d.downloadData(d.pachClient, logger, data, puller, stats, inputTree)
+	dir, err := d.downloadData(logger, data, puller, stats, inputTree)
 	// We run these cleanup functions no matter what, so that if
 	// downloadData partially succeeded, we still clean up the resources.
 	defer func() {
@@ -375,7 +391,6 @@ func (d *driver) WithData(
 }
 
 func (d *driver) downloadData(
-	pachClient *client.APIClient,
 	logger logs.TaggedLogger,
 	inputs []*common.Input,
 	puller *filesync.Puller,
@@ -394,9 +409,9 @@ func (d *driver) downloadData(
 
 	// The scratch space is where Pachyderm stores downloaded and output data, which is
 	// then symlinked into place for the pipeline.
-	dir := filepath.Join(d.inputDir, client.PPSScratchSpace, uuid.NewWithoutDashes())
+	scratchPath := filepath.Join(d.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
 	// Create output directory (currently /pfs/out)
-	outPath := filepath.Join(dir, "out")
+	outPath := filepath.Join(scratchPath, "out")
 	if d.pipelineInfo.Spout != nil {
 		// Spouts need to create a named pipe at /pfs/out
 		if err := os.MkdirAll(filepath.Dir(outPath), 0700); err != nil {
@@ -414,61 +429,86 @@ func (d *driver) downloadData(
 	}
 	for _, input := range inputs {
 		if input.GitURL != "" {
-			if err := d.downloadGitData(pachClient, dir, input); err != nil {
+			if err := d.downloadGitData(scratchPath, input); err != nil {
 				return "", err
 			}
 			continue
 		}
 		file := input.FileInfo.File
-		root := filepath.Join(dir, input.Name, file.Path)
+		fullInputPath := filepath.Join(scratchPath, input.Name, file.Path)
 		var statsRoot string
 		if statsTree != nil {
 			statsRoot = path.Join(input.Name, file.Path)
 			parent, _ := path.Split(statsRoot)
 			statsTree.MkdirAll(parent)
 		}
-		if err := puller.Pull(pachClient, root, file.Commit.Repo.Name, file.Commit.ID, file.Path, input.Lazy, input.EmptyFiles, concurrency, statsTree, statsRoot); err != nil {
+		if err := puller.Pull(
+			d.pachClient,
+			fullInputPath,
+			file.Commit.Repo.Name,
+			file.Commit.ID,
+			file.Path,
+			input.Lazy,
+			input.EmptyFiles,
+			concurrency,
+			statsTree,
+			statsRoot,
+		); err != nil {
 			return "", err
 		}
 	}
-	return dir, nil
+	return scratchPath, nil
 }
 
-func (d *driver) downloadGitData(pachClient *client.APIClient, dir string, input *common.Input) error {
+func (d *driver) downloadGitData(scratchPath string, input *common.Input) error {
 	file := input.FileInfo.File
-	pachydermRepoName := input.Name
+
 	var rawJSON bytes.Buffer
-	err := pachClient.GetFile(pachydermRepoName, file.Commit.ID, "commit.json", 0, 0, &rawJSON)
+	err := d.pachClient.GetFile(file.Commit.Repo.Name, file.Commit.ID, file.Path, 0, 0, &rawJSON)
 	if err != nil {
 		return err
 	}
+
 	var payload github.PushPayload
 	err = json.Unmarshal(rawJSON.Bytes(), &payload)
 	if err != nil {
 		return err
 	}
-	sha := payload.After
-	// Clone checks out a reference, not a SHA
-	r, err := git.PlainClone(
-		filepath.Join(dir, pachydermRepoName),
+
+	if payload.Repository.CloneURL == "" {
+		return fmt.Errorf("Git hook payload does not specify the upstream URL")
+	} else if payload.Ref == "" {
+		return fmt.Errorf("Git hook payload does not specify the updated ref")
+	} else if payload.After == "" {
+		return fmt.Errorf("Git hook payload does not specify the commit SHA")
+	}
+
+	// Clone checks out a reference, not a SHA. Github does not support fetching
+	// an individual SHA.
+	remoteURL := payload.Repository.CloneURL
+	gitRepo, err := git.PlainCloneContext(
+		d.pachClient.Ctx(),
+		filepath.Join(scratchPath, input.Name),
 		false,
 		&git.CloneOptions{
-			URL:           payload.Repository.CloneURL,
+			URL:           remoteURL,
 			SingleBranch:  true,
 			ReferenceName: gitPlumbing.ReferenceName(payload.Ref),
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("error cloning repo %v at SHA %v from URL %v: %v", pachydermRepoName, sha, input.GitURL, err)
+		return fmt.Errorf("error fetching repo %v with ref %v from URL %v: %v", input.Name, payload.Ref, remoteURL, err)
 	}
-	hash := gitPlumbing.NewHash(sha)
-	wt, err := r.Worktree()
+
+	wt, err := gitRepo.Worktree()
 	if err != nil {
 		return err
 	}
-	err = wt.Checkout(&git.CheckoutOptions{Hash: hash})
+
+	sha := payload.After
+	err = wt.Checkout(&git.CheckoutOptions{Hash: gitPlumbing.NewHash(sha)})
 	if err != nil {
-		return fmt.Errorf("error checking out SHA %v from repo %v: %v", sha, pachydermRepoName, err)
+		return fmt.Errorf("error checking out SHA %v from repo %v: %v", sha, input.Name, err)
 	}
 	return nil
 }
@@ -718,7 +758,12 @@ func (d *driver) reportUserCodeStats(logger logs.TaggedLogger) {
 	}
 }
 
-func (d *driver) reportDeferredUserCodeStats(err error, start time.Time, procStats *pps.ProcessStats, logger logs.TaggedLogger) {
+func (d *driver) reportDeferredUserCodeStats(
+	err error,
+	start time.Time,
+	procStats *pps.ProcessStats,
+	logger logs.TaggedLogger,
+) {
 	if d.exportStats {
 		duration := time.Since(start)
 		procStats.ProcessTime = types.DurationProto(duration)
@@ -740,7 +785,11 @@ func (d *driver) reportDeferredUserCodeStats(err error, start time.Time, procSta
 	}
 }
 
-func (d *driver) ReportUploadStats(start time.Time, procStats *pps.ProcessStats, logger logs.TaggedLogger) {
+func (d *driver) ReportUploadStats(
+	start time.Time,
+	procStats *pps.ProcessStats,
+	logger logs.TaggedLogger,
+) {
 	if d.exportStats {
 		duration := time.Since(start)
 		procStats.UploadTime = types.DurationProto(duration)
@@ -760,7 +809,10 @@ func (d *driver) ReportUploadStats(start time.Time, procStats *pps.ProcessStats,
 	}
 }
 
-func (d *driver) reportDownloadSizeStats(downSize float64, logger logs.TaggedLogger) {
+func (d *driver) reportDownloadSizeStats(
+	downSize float64,
+	logger logs.TaggedLogger,
+) {
 	if d.exportStats {
 		d.updateHistogram(stats.DatumDownloadSize, logger, "", func(hist prometheus.Observer) {
 			hist.Observe(downSize)
@@ -771,7 +823,11 @@ func (d *driver) reportDownloadSizeStats(downSize float64, logger logs.TaggedLog
 	}
 }
 
-func (d *driver) reportDownloadTimeStats(start time.Time, procStats *pps.ProcessStats, logger logs.TaggedLogger) {
+func (d *driver) reportDownloadTimeStats(
+	start time.Time,
+	procStats *pps.ProcessStats,
+	logger logs.TaggedLogger,
+) {
 	if d.exportStats {
 		duration := time.Since(start)
 		procStats.DownloadTime = types.DurationProto(duration)
@@ -783,4 +839,225 @@ func (d *driver) reportDownloadTimeStats(start time.Time, procStats *pps.Process
 			counter.Add(duration.Seconds())
 		})
 	}
+}
+
+func (d *driver) UploadOutput(
+	tag string,
+	logger logs.TaggedLogger,
+	inputs []*common.Input,
+	stats *pps.ProcessStats,
+	statsTree *hashtree.Ordered,
+) (retBuffer []byte, retErr error) {
+	defer d.ReportUploadStats(time.Now(), stats, logger)
+	logger.Logf("starting to upload output")
+	defer func(start time.Time) {
+		if retErr != nil {
+			logger.Logf("errored uploading output after %v: %v", time.Since(start), retErr)
+		} else {
+			logger.Logf("finished uploading output after %v", time.Since(start))
+		}
+	}(time.Now())
+
+	// Set up client for writing file data
+	putObjsClient, err := d.pachClient.ObjectAPIClient.PutObjects(d.pachClient.Ctx())
+	if err != nil {
+		return nil, err
+	}
+	block := &pfs.Block{Hash: uuid.NewWithoutDashes()}
+	if err := putObjsClient.Send(&pfs.PutObjectRequest{
+		Block: block,
+	}); err != nil {
+		return nil, err
+	}
+	outputPath := filepath.Join(d.InputDir(), "out")
+	buf := grpcutil.GetBuffer()
+	defer grpcutil.PutBuffer(buf)
+	var offset uint64
+	var tree *hashtree.Ordered
+
+	// Upload all files in output directory
+	if err := filepath.Walk(outputPath, func(filePath string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !utf8.ValidString(filePath) {
+			return fmt.Errorf("file path is not valid utf-8: %s", filePath)
+		}
+		if filePath == outputPath {
+			tree = hashtree.NewOrdered("/")
+			return nil
+		}
+		relPath, err := filepath.Rel(outputPath, filePath)
+		if err != nil {
+			return err
+		}
+		// Put directory. Even if the directory is empty, that may be useful to
+		// users
+		// TODO(msteffen) write a test pipeline that outputs an empty directory and
+		// make sure it's preserved
+		if info.IsDir() {
+			tree.PutDir(relPath)
+			if statsTree != nil {
+				statsTree.PutDir(relPath)
+			}
+			return nil
+		}
+		// Under some circumstances, the user might have copied
+		// some pipes from the input directory to the output directory.
+		// Reading from these files will result in job blocking.  Thus
+		// we preemptively detect if the file is a named pipe.
+		if (info.Mode() & os.ModeNamedPipe) > 0 {
+			logger.Logf("cannot upload named pipe: %v", relPath)
+			return errSpecialFile
+		}
+		// If the output file is a symlink to an input file, we can skip
+		// the uploading.
+		if (info.Mode() & os.ModeSymlink) > 0 {
+			realPath, err := os.Readlink(filePath)
+			if err != nil {
+				return err
+			}
+			if strings.HasPrefix(realPath, d.InputDir()) {
+				var pathWithInput string
+				var err error
+				if strings.HasPrefix(realPath, relPath) {
+					pathWithInput, err = filepath.Rel(relPath, realPath)
+				} else {
+					pathWithInput, err = filepath.Rel(d.InputDir(), realPath)
+				}
+				if err == nil {
+					// We can only skip the upload if the real path is
+					// under /pfs, meaning that it's a file that already
+					// exists in PFS.
+
+					// The name of the input
+					inputName := strings.Split(pathWithInput, string(os.PathSeparator))[0]
+					var input *common.Input
+					for _, i := range inputs {
+						if i.Name == inputName {
+							input = i
+						}
+					}
+					// this changes realPath from `/pfs/input/...` to `/scratch/<id>/input/...`
+					realPath = filepath.Join(relPath, pathWithInput)
+					if input != nil {
+						return filepath.Walk(realPath, func(filePath string, info os.FileInfo, err error) error {
+							if err != nil {
+								return err
+							}
+							rel, err := filepath.Rel(realPath, filePath)
+							if err != nil {
+								return err
+							}
+							subRelPath := filepath.Join(relPath, rel)
+							// The path of the input file
+							pfsPath, err := filepath.Rel(filepath.Join(relPath, input.Name), filePath)
+							if err != nil {
+								return err
+							}
+							if info.IsDir() {
+								tree.PutDir(subRelPath)
+								if statsTree != nil {
+									statsTree.PutDir(subRelPath)
+								}
+								return nil
+							}
+							fc := input.FileInfo.File.Commit
+							fileInfo, err := d.pachClient.InspectFile(fc.Repo.Name, fc.ID, pfsPath)
+							if err != nil {
+								return err
+							}
+							var blockRefs []*pfs.BlockRef
+							for _, object := range fileInfo.Objects {
+								objectInfo, err := d.pachClient.InspectObject(object.Hash)
+								if err != nil {
+									return err
+								}
+								blockRefs = append(blockRefs, objectInfo.BlockRef)
+							}
+							blockRefs = append(blockRefs, fileInfo.BlockRefs...)
+							n := &hashtree.FileNodeProto{BlockRefs: blockRefs}
+							tree.PutFile(subRelPath, fileInfo.Hash, int64(fileInfo.SizeBytes), n)
+							if statsTree != nil {
+								statsTree.PutFile(subRelPath, fileInfo.Hash, int64(fileInfo.SizeBytes), n)
+							}
+							return nil
+						})
+					}
+				}
+			}
+		}
+		// Open local file that is being uploaded
+		f, err := os.Open(filePath)
+		if err != nil {
+			return fmt.Errorf("os.Open(%s): %v", filePath, err)
+		}
+		defer func() {
+			if err := f.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		var size int64
+		h := pfs.NewHash()
+		r := io.TeeReader(f, h)
+		// Write local file to object storage block
+		for {
+			n, err := r.Read(buf)
+			if n == 0 && err != nil {
+				if err == io.EOF {
+					break
+				}
+				return err
+			}
+			if err := putObjsClient.Send(&pfs.PutObjectRequest{
+				Value: buf[:n],
+			}); err != nil {
+				return err
+			}
+			size += int64(n)
+		}
+		n := &hashtree.FileNodeProto{
+			BlockRefs: []*pfs.BlockRef{
+				&pfs.BlockRef{
+					Block: block,
+					Range: &pfs.ByteRange{
+						Lower: offset,
+						Upper: offset + uint64(size),
+					},
+				},
+			},
+		}
+		hash := h.Sum(nil)
+		tree.PutFile(relPath, hash, size, n)
+		if statsTree != nil {
+			statsTree.PutFile(relPath, hash, size, n)
+		}
+		offset += uint64(size)
+		stats.UploadBytes += uint64(size)
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("error walking output: %v", err)
+	}
+	if _, err := putObjsClient.CloseAndRecv(); err != nil && err != io.EOF {
+		return nil, err
+	}
+	// Serialize datum hashtree
+	b := &bytes.Buffer{}
+	if err := tree.Serialize(b); err != nil {
+		return nil, err
+	}
+	// Write datum hashtree to object storage
+	w, err := d.pachClient.PutObjectAsync([]*pfs.Tag{client.NewTag(tag)})
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := w.Close(); err != nil && retErr != nil {
+			retErr = err
+		}
+	}()
+	if _, err := w.Write(b.Bytes()); err != nil {
+		return nil, err
+	}
+	return b.Bytes(), nil
 }

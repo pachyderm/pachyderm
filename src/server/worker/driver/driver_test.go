@@ -3,12 +3,14 @@ package driver
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,6 +18,7 @@ import (
 	"github.com/otiai10/copy"
 	"github.com/prometheus/client_golang/prometheus"
 	prometheus_proto "github.com/prometheus/client_model/go"
+	"gopkg.in/go-playground/webhooks.v5/github"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
@@ -68,12 +71,13 @@ func withTestEnv(cb func(*testEnv)) error {
 			env.EtcdClient,
 			tu.UniqueString("driverTest"),
 		)
+		d = d.WithCtx(env.Context)
 		env.driver = d.(*driver)
 		if err != nil {
 			return err
 		}
 
-		env.driver.inputDir = path.Join(env.Directory, "pfs")
+		env.driver.inputDir = filepath.Clean(path.Join(env.Directory, "pfs"))
 
 		cb(env)
 
@@ -100,13 +104,7 @@ func (d *driver) linkData(inputs []*common.Input, dir string) error {
 	for _, input := range inputs {
 		src := filepath.Join(dir, input.Name)
 		dst := filepath.Join(d.inputDir, input.Name)
-		// Make sure the directory for the input exists
-		//if err := os.Mkdir(dst, 0777); err != nil {
-		//	fmt.Printf("error in mkdir: %v\n", err)
-		//	return err
-		//}
 		if err := copy.Copy(src, dst); err != nil {
-			fmt.Printf("error in copy: %v\n", err)
 			duration, err := time.ParseDuration("1000s")
 			time.Sleep(duration)
 			return err
@@ -295,11 +293,16 @@ func TestUpdateHistogram(t *testing.T) {
 type inputData struct {
 	path     string
 	contents string
+	regex    string
 	found    bool
 }
 
+func newInputDataRegex(path string, regex string) *inputData {
+	return &inputData{path: filepath.Clean(path), regex: regex}
+}
+
 func newInputData(path string, contents string) *inputData {
-	return &inputData{path: path, contents: contents}
+	return &inputData{path: filepath.Clean(path), contents: contents}
 }
 
 func requireInputContents(t *testing.T, env *testEnv, data []*inputData) {
@@ -308,7 +311,11 @@ func requireInputContents(t *testing.T, env *testEnv, data []*inputData) {
 			if checkData.path == relPath {
 				contents, err := ioutil.ReadFile(fullPath)
 				require.NoError(t, err)
-				require.Equal(t, checkData.contents, string(contents), "Incorrect contents for input file: %s", relPath)
+				if checkData.regex != "" {
+					require.Matches(t, checkData.regex, string(contents), "Incorrect contents for input file: %s", relPath)
+				} else {
+					require.Equal(t, checkData.contents, string(contents), "Incorrect contents for input file: %s", relPath)
+				}
 				checkData.found = true
 				return
 			}
@@ -316,29 +323,18 @@ func requireInputContents(t *testing.T, env *testEnv, data []*inputData) {
 		require.True(t, false, "Unexpected input file found: %s", relPath)
 	}
 
-	var recurse func(os.FileInfo, string, string)
-	recurse = func(entry os.FileInfo, fullPath string, relPath string) {
-		if entry.IsDir() {
-			entries, err := ioutil.ReadDir(fullPath)
-			require.NoError(t, err)
-
-			for _, e := range entries {
-				recurse(e, path.Join(fullPath, e.Name()), path.Join(relPath, e.Name()))
-			}
-		} else {
-			checkFile(fullPath, relPath)
+	err := filepath.Walk(env.driver.inputDir, func(path string, info os.FileInfo, err error) error {
+		if info.Name() == ".scratch" || info.Name() == ".git" {
+			return filepath.SkipDir
 		}
-	}
-
-	entries, err := ioutil.ReadDir(env.driver.inputDir)
+		if !info.IsDir() {
+			path = filepath.Clean(path)
+			relPath := strings.TrimLeft(strings.TrimPrefix(path, env.driver.inputDir), "/\\")
+			checkFile(path, relPath)
+		}
+		return nil
+	})
 	require.NoError(t, err)
-
-	for _, entry := range entries {
-		// Ignore .scratch, as that is not considered an input/output
-		if entry.Name() != ".scratch" {
-			recurse(entry, path.Join(env.driver.inputDir, entry.Name()), entry.Name())
-		}
-	}
 
 	for _, checkData := range data {
 		require.True(t, checkData.found, "Expected input file not found: %s", checkData.path)
@@ -409,7 +405,7 @@ func newInput(repo string, path string) *common.Input {
 func TestWithDataCancel(t *testing.T) {
 	err := withTestEnv(func(env *testEnv) {
 		requireLogs(t, "errored downloading data.*context canceled", func(logger logs.TaggedLogger) {
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(env.Context)
 			driver := env.driver.WithCtx(ctx)
 
 			// Cancel the context during the download
@@ -513,7 +509,65 @@ func TestWithDataCleanup(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func newGitInput(repo string, url string) *common.Input {
+	return &common.Input{
+		FileInfo: &pfs.FileInfo{
+			File: &pfs.File{
+				Commit: &pfs.Commit{
+					Repo: &pfs.Repo{
+						Name: repo,
+					},
+					ID: "commit-id-string",
+				},
+				Path: "commit.json",
+			},
+			FileType: pfs.FileType_FILE,
+		},
+		GitURL: url,
+		Name:   repo,
+	}
+}
+
 func TestWithDataGit(t *testing.T) {
+	err := withTestEnv(func(env *testEnv) {
+		requireLogs(t, "finished downloading data", func(logger logs.TaggedLogger) {
+			var getFileReq *pfs.GetFileRequest
+			env.MockPachd.PFS.GetFile.Use(func(req *pfs.GetFileRequest, serv pfs.API_GetFileServer) (retErr error) {
+				getFileReq = req
+
+				payload := &github.PushPayload{
+					Ref:   "refs/heads/master",
+					After: "foobar",
+				}
+				payload.Repository.CloneURL = "https://github.com/pachyderm/test-artifacts.git"
+				jsonBytes, err := json.Marshal(payload)
+				if err != nil {
+					return err
+				}
+
+				return serv.Send(&types.BytesValue{Value: jsonBytes})
+			})
+			_, err := env.driver.WithData(
+				[]*common.Input{
+					newGitInput("artifacts", "https://github.com/pachyderm/test-artifacts.git"),
+				},
+				nil,
+				logger,
+				func(stats *pps.ProcessStats) error {
+					requireInputContents(t, env, []*inputData{newInputDataRegex("artifacts/readme.md", "Test Artifacts")})
+					return nil
+				},
+			)
+			require.NoError(t, err)
+			require.NotNil(t, getFileReq)
+			require.Equal(t, getFileReq.File, client.NewFile("artifacts", "commit-id-string", "commit.json"))
+			requireInputContents(t, env, []*inputData{})
+		})
+	})
+	require.NoError(t, err)
+}
+
+func TestWithDataGitError(t *testing.T) {
 }
 
 func TestWithDataStats(t *testing.T) {

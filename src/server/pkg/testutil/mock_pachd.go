@@ -1206,8 +1206,9 @@ func (api *objectServerAPI) Compact(ctx context.Context, req *types.Empty) (*typ
 // API calls by providing a handler function, and later check information about
 // the mocked calls.
 type MockPachd struct {
-	cancel context.CancelFunc
-	eg     *errgroup.Group
+	cancel  context.CancelFunc
+	eg      *errgroup.Group
+	errchan chan error
 
 	Addr net.Addr
 
@@ -1224,10 +1225,11 @@ type MockPachd struct {
 // NewMockPachd constructs a mock Pachd API server whose behavior can be
 // controlled through the MockPachd instance. By default, all API calls will
 // error, unless a handler is specified.
-func NewMockPachd() *MockPachd {
-	mock := &MockPachd{}
+func NewMockPachd(ctx context.Context) *MockPachd {
+	mock := &MockPachd{
+		errchan: make(chan error),
+	}
 
-	ctx := context.Background()
 	ctx, mock.cancel = context.WithCancel(ctx)
 
 	mock.Object.api.mock = &mock.Object
@@ -1260,8 +1262,21 @@ func NewMockPachd() *MockPachd {
 		},
 	)
 
+	// If one of the servers fails, write it to our error channel
+	go func() {
+		if err := mock.eg.Wait(); err != nil {
+			mock.errchan <- err
+		}
+	}()
+
 	mock.Addr = servers[0].Listener.Addr()
 	return mock
+}
+
+// Err returns a read-only channel that will receive the first error that occurs
+// in the server group (stopping all the servers).
+func (mock *MockPachd) Err() <-chan error {
+	return mock.errchan
 }
 
 // Close will cancel the mock Pachd API server goroutine and return its result
