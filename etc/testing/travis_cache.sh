@@ -11,11 +11,7 @@ set -ex
 dirs=(
   "${HOME}/.cache"
   "${HOME}/cached-deps"
-
-  # Fix permissions on the entire $GOPATH. While we only cache `$GOPATH/pkg`,
-  # there are permissions issues for the pachyderm code when (which is cloned
-  # into $GOPATH/src.)
-  "${GOPATH}"
+  "${GOPATH}/pkg"
 )
 
 for dir in "${dirs[@]}"; do
