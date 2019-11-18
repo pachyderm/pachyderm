@@ -4,15 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"os"
-	"strings"
 	"sync"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serde"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
-	"gopkg.in/pachyderm/yaml.v3"
 )
 
 var pachClient *client.APIClient
@@ -33,8 +32,7 @@ func getPachClient(t testing.TB) *client.APIClient {
 
 func YAMLToJSONString(t *testing.T, yamlStr string) string {
 	holder := make(map[string]interface{})
-	d := yaml.NewDecoder(strings.NewReader(yamlStr))
-	if err := d.Decode(&holder); err != nil {
+	if err := serde.DecodeYAML([]byte(yamlStr), &holder); err != nil {
 		t.Fatalf("error parsing TFJob: %v", err)
 	}
 	result, err := json.Marshal(holder)
