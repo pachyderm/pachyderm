@@ -649,12 +649,13 @@ func (c APIClient) StopPipeline(name string) error {
 
 // RunPipeline runs a pipeline. It can be passed a list of commit provenance.
 // This will trigger a new job provenant on those commits, effectively running the pipeline on the data in those commits.
-func (c APIClient) RunPipeline(name string, provenance []*pfs.CommitProvenance) error {
+func (c APIClient) RunPipeline(name string, provenance []*pfs.CommitProvenance, jobID string) error {
 	_, err := c.PpsAPIClient.RunPipeline(
 		c.Ctx(),
 		&pps.RunPipelineRequest{
 			Pipeline:   NewPipeline(name),
 			Provenance: provenance,
+			JobID:      jobID,
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
