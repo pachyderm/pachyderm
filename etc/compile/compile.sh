@@ -20,6 +20,7 @@ mkdir -p _tmp
 TMP=docker_build_${BINARY}.tmpdir
 mkdir -p "${TMP}"
 CGO_ENABLED=0 GOOS=linux go build \
+  -mod=vendor \
   -installsuffix netgo \
   -tags netgo \
   -o ${TMP}/${BINARY} \

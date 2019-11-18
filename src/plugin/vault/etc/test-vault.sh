@@ -33,7 +33,7 @@ echo $ADMIN_TOKEN
 vault write $PLUGIN_PATH/config \
     admin_token="${ADMIN_TOKEN}" \
 	pachd_address="${PACHD_ADDRESS:-127.0.0.1}:30650"
-go build -o /tmp/vault-plugins/$PLUGIN_NAME src/plugin/vault/main.go
+go build -mod=vendor -o /tmp/vault-plugins/$PLUGIN_NAME src/plugin/vault/main.go
 
 # Test login (failure/success):
 vault write -f $PLUGIN_PATH/login/github:jdoliner

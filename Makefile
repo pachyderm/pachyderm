@@ -57,13 +57,13 @@ update-deps:
 	go get -d -v -u ./src/... ./.
 
 build:
-	go build $$(go list ./src/client/... | grep -v '/src/client$$')
+	go build -mod=vendor $$(go list ./src/client/... | grep -v '/src/client$$')
 
 pachd:
-	go build ./src/server/cmd/pachd
+	go build -mod=vendor ./src/server/cmd/pachd
 
 worker:
-	go build ./src/server/cmd/worker
+	go build -mod=vendor ./src/server/cmd/worker
 
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:

@@ -16,7 +16,7 @@ vault secrets disable pachyderm
 
 # Build plugin
 mkdir /tmp/vault-plugins || true
-go build -o /tmp/vault-plugins/pachyderm "$(dirname ${0})/.."
+go build -mod=vendor -o /tmp/vault-plugins/pachyderm "$(dirname ${0})/.."
 
 ### Start the written instructions ###
 
