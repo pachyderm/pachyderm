@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -33,6 +34,10 @@ import (
 var inputRepo = "inputRepo"
 var inputGitRepo = "https://github.com/pachyderm/test-artifacts.git"
 var inputGitRepoFake = "https://github.com/pachyderm/test-artifacts-fake.git"
+
+func makeCmdCredentials(uid uint32, gid uint32) *syscall.SysProcAttr {
+	return nil
+}
 
 func testPipelineInfo() *pps.PipelineInfo {
 	return &pps.PipelineInfo{
@@ -537,7 +542,7 @@ func mockGitGetFile(env *testEnv, repo string, ref string, sha string, cb func(*
 	env.MockPachd.PFS.GetFile.Use(func(req *pfs.GetFileRequest, serv pfs.API_GetFileServer) (retErr error) {
 		payload := &github.PushPayload{
 			Ref:   ref,
-			After: sha, // TODO: this should error, but doesn't
+			After: sha,
 		}
 		payload.Repository.CloneURL = repo
 		jsonBytes, err := json.Marshal(payload)
@@ -643,9 +648,6 @@ func TestWithDataGitInvalidSHA(t *testing.T) {
 		})
 	})
 	require.NoError(t, err)
-}
-
-func TestWithDataStats(t *testing.T) {
 }
 
 func TestRunUserCode(t *testing.T) {

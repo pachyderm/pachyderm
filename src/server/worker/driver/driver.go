@@ -540,7 +540,12 @@ func (d *driver) unlinkData(inputs []*common.Input) error {
 }
 
 // Run user code and return the combined output of stdout and stderr.
-func (d *driver) RunUserCode(logger logs.TaggedLogger, environ []string, procStats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
+func (d *driver) RunUserCode(
+	logger logs.TaggedLogger,
+	environ []string,
+	procStats *pps.ProcessStats,
+	rawDatumTimeout *types.Duration,
+) (retErr error) {
 	ctx := d.pachClient.Ctx()
 	d.reportUserCodeStats(logger)
 	defer func(start time.Time) { d.reportDeferredUserCodeStats(retErr, start, procStats, logger) }(time.Now())
@@ -570,17 +575,9 @@ func (d *driver) RunUserCode(logger logs.TaggedLogger, environ []string, procSta
 	cmd.Stdout = logger.WithUserCode()
 	cmd.Stderr = logger.WithUserCode()
 	cmd.Env = environ
-	// TODO: this doesn't work on windows
-	/*
-		if d.uid != nil && d.gid != nil {
-			cmd.SysProcAttr = &syscall.SysProcAttr{
-				Credential: &syscall.Credential{
-					Uid: *d.uid,
-					Gid: *d.gid,
-				},
-			}
-		}
-	*/
+	if d.uid != nil && d.gid != nil {
+		cmd.SysProcAttr = makeCmdCredentials(*d.uid, *d.gid)
+	}
 	cmd.Dir = d.pipelineInfo.Transform.WorkingDir
 	err := cmd.Start()
 	if err != nil {
@@ -643,17 +640,9 @@ func (d *driver) RunUserErrorHandlingCode(logger logs.TaggedLogger, environ []st
 	cmd.Stdout = logger.WithUserCode()
 	cmd.Stderr = logger.WithUserCode()
 	cmd.Env = environ
-	// TODO: this doesn't work on windows
-	/*
-		if d.uid != nil && d.gid != nil {
-			cmd.SysProcAttr = &syscall.SysProcAttr{
-				Credential: &syscall.Credential{
-					Uid: *d.uid,
-					Gid: *d.gid,
-				},
-			}
-		}
-	*/
+	if d.uid != nil && d.gid != nil {
+		cmd.SysProcAttr = makeCmdCredentials(*d.uid, *d.gid)
+	}
 	cmd.Dir = d.pipelineInfo.Transform.WorkingDir
 	err := cmd.Start()
 	if err != nil {
