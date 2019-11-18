@@ -410,7 +410,6 @@ func (d *driver) downloadData(
 	// The scratch space is where Pachyderm stores downloaded and output data, which is
 	// then symlinked into place for the pipeline.
 	scratchPath := filepath.Join(d.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
-	// Create output directory (currently /pfs/out)
 	outPath := filepath.Join(scratchPath, "out")
 	if d.pipelineInfo.Spout != nil {
 		// Spouts need to create a named pipe at /pfs/out
@@ -423,6 +422,7 @@ func (d *driver) downloadData(
 			return "", fmt.Errorf("mkfifo :%v", err)
 		}
 	} else {
+		// Create output directory (typically /pfs/out)
 		if err := os.MkdirAll(outPath, 0777); err != nil {
 			return "", err
 		}
@@ -508,8 +508,18 @@ func (d *driver) downloadGitData(scratchPath string, input *common.Input) error 
 	sha := payload.After
 	err = wt.Checkout(&git.CheckoutOptions{Hash: gitPlumbing.NewHash(sha)})
 	if err != nil {
-		return fmt.Errorf("error checking out SHA %v from repo %v: %v", sha, input.Name, err)
+		return fmt.Errorf("error checking out SHA %v for repo %v: %v", sha, input.Name, err)
 	}
+
+	// go-git will silently fail to checkout an invalid SHA and leave the HEAD at
+	// the selected ref. Verify that we are now on the correct SHA
+	rev, err := gitRepo.ResolveRevision("HEAD")
+	if err != nil {
+		return fmt.Errorf("failed to inspect HEAD SHA for repo %v: %v", input.Name, err)
+	} else if rev.String() != sha {
+		return fmt.Errorf("could not find SHA %v for repo %v", sha, input.Name)
+	}
+
 	return nil
 }
 

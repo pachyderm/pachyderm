@@ -64,7 +64,6 @@ const (
 )
 
 var (
-	errSpecialFile    = errors.New("cannot upload special file")
 	errDatumRecovered = errors.New("the datum errored, and the error was handled successfully")
 	statsTagSuffix    = "_stats"
 )

@@ -31,19 +31,24 @@ import (
 )
 
 var inputRepo = "inputRepo"
-var testPipelineInfo = &pps.PipelineInfo{
-	Pipeline: client.NewPipeline("testPipeline"),
-	Transform: &pps.Transform{
-		Cmd: []string{"cp", path.Join("/pfs", inputRepo, "file"), "/pfs/out/file"},
-	},
-	ParallelismSpec: &pps.ParallelismSpec{
-		Constant: 1,
-	},
-	ResourceRequests: &pps.ResourceSpec{
-		Memory: "100M",
-		Cpu:    0.5,
-	},
-	Input: client.NewPFSInput(inputRepo, "/*"),
+var inputGitRepo = "https://github.com/pachyderm/test-artifacts.git"
+var inputGitRepoFake = "https://github.com/pachyderm/test-artifacts-fake.git"
+
+func testPipelineInfo() *pps.PipelineInfo {
+	return &pps.PipelineInfo{
+		Pipeline: client.NewPipeline("testPipeline"),
+		Transform: &pps.Transform{
+			Cmd: []string{"cp", path.Join("/pfs", inputRepo, "file"), "/pfs/out/file"},
+		},
+		ParallelismSpec: &pps.ParallelismSpec{
+			Constant: 1,
+		},
+		ResourceRequests: &pps.ResourceSpec{
+			Memory: "100M",
+			Cpu:    0.5,
+		},
+		Input: client.NewPFSInput(inputRepo, "/*"),
+	}
 }
 
 type testEnv struct {
@@ -65,7 +70,7 @@ func withTestEnv(cb func(*testEnv)) error {
 
 		var d Driver
 		d, err = NewDriver(
-			testPipelineInfo,
+			testPipelineInfo(),
 			env.PachClient,
 			env.mockKube,
 			env.EtcdClient,
@@ -528,29 +533,36 @@ func newGitInput(repo string, url string) *common.Input {
 	}
 }
 
+func mockGitGetFile(env *testEnv, repo string, ref string, sha string, cb func(*pfs.GetFileRequest)) {
+	env.MockPachd.PFS.GetFile.Use(func(req *pfs.GetFileRequest, serv pfs.API_GetFileServer) (retErr error) {
+		payload := &github.PushPayload{
+			Ref:   ref,
+			After: sha, // TODO: this should error, but doesn't
+		}
+		payload.Repository.CloneURL = repo
+		jsonBytes, err := json.Marshal(payload)
+		if err != nil {
+			return err
+		}
+
+		if cb != nil {
+			cb(req)
+		}
+
+		return serv.Send(&types.BytesValue{Value: jsonBytes})
+	})
+}
+
 func TestWithDataGit(t *testing.T) {
 	err := withTestEnv(func(env *testEnv) {
 		requireLogs(t, "finished downloading data", func(logger logs.TaggedLogger) {
 			var getFileReq *pfs.GetFileRequest
-			env.MockPachd.PFS.GetFile.Use(func(req *pfs.GetFileRequest, serv pfs.API_GetFileServer) (retErr error) {
+			mockGitGetFile(env, inputGitRepo, "refs/heads/master", "9047fbfc251e7412ef3300868f743f2c24852539", func(req *pfs.GetFileRequest) {
 				getFileReq = req
-
-				payload := &github.PushPayload{
-					Ref:   "refs/heads/master",
-					After: "foobar",
-				}
-				payload.Repository.CloneURL = "https://github.com/pachyderm/test-artifacts.git"
-				jsonBytes, err := json.Marshal(payload)
-				if err != nil {
-					return err
-				}
-
-				return serv.Send(&types.BytesValue{Value: jsonBytes})
 			})
+
 			_, err := env.driver.WithData(
-				[]*common.Input{
-					newGitInput("artifacts", "https://github.com/pachyderm/test-artifacts.git"),
-				},
+				[]*common.Input{newGitInput("artifacts", inputGitRepo)},
 				nil,
 				logger,
 				func(stats *pps.ProcessStats) error {
@@ -567,7 +579,70 @@ func TestWithDataGit(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestWithDataGitError(t *testing.T) {
+func TestWithDataGitHookError(t *testing.T) {
+	err := withTestEnv(func(env *testEnv) {
+		requireLogs(t, "errored downloading data", func(logger logs.TaggedLogger) {
+			mockGitGetFile(env, "", "", "", nil)
+
+			_, err := env.driver.WithData(
+				[]*common.Input{newGitInput("artifacts", inputGitRepo)},
+				nil,
+				logger,
+				func(stats *pps.ProcessStats) error {
+					require.True(t, false, "Should have errored before calling WithData callback")
+					return nil
+				},
+			)
+			require.YesError(t, err)
+			require.Matches(t, "payload does not specify", err.Error())
+			requireInputContents(t, env, []*inputData{})
+		})
+	})
+	require.NoError(t, err)
+}
+
+func TestWithDataGitRepoMissing(t *testing.T) {
+	err := withTestEnv(func(env *testEnv) {
+		requireLogs(t, "errored downloading data", func(logger logs.TaggedLogger) {
+			mockGitGetFile(env, inputGitRepoFake, "refs/heads/master", "foobar", nil)
+
+			_, err := env.driver.WithData(
+				[]*common.Input{newGitInput("artifacts", inputGitRepo)},
+				nil,
+				logger,
+				func(stats *pps.ProcessStats) error {
+					require.True(t, false, "Should have errored before calling WithData callback")
+					return nil
+				},
+			)
+			require.YesError(t, err)
+			require.Matches(t, "authentication required", err.Error())
+			requireInputContents(t, env, []*inputData{})
+		})
+	})
+	require.NoError(t, err)
+}
+
+func TestWithDataGitInvalidSHA(t *testing.T) {
+	err := withTestEnv(func(env *testEnv) {
+		requireLogs(t, "errored downloading data", func(logger logs.TaggedLogger) {
+			mockGitGetFile(env, inputGitRepo, "refs/heads/master", "foobar", nil)
+
+			_, err := env.driver.WithData(
+				[]*common.Input{newGitInput("artifacts", inputGitRepo)},
+				nil,
+				logger,
+				func(stats *pps.ProcessStats) error {
+					require.True(t, false, "Should have errored before calling WithData callback")
+					return nil
+				},
+			)
+			require.YesError(t, err)
+			require.Matches(t, "could not find SHA foobar", err.Error())
+			requireInputContents(t, env, []*inputData{})
+		})
+	})
+	require.NoError(t, err)
 }
 
 func TestWithDataStats(t *testing.T) {
@@ -586,33 +661,9 @@ func TestDeleteJob(t *testing.T) {
 }
 
 /*
-func lookupDockerUser(userArg string) (_ *user.User, retErr error) {
-func lookupGroup(group string) (_ *user.Group, retErr error) {
-func (d *driver) WithCtx(ctx context.Context) Driver {
-func (d *driver) Jobs() col.Collection {
-func (d *driver) Pipelines() col.Collection {
-func (d *driver) Plans() col.Collection {
-func (d *driver) Shards() col.Collection {
-func (d *driver) Chunks(jobID string) col.Collection {
-func (d *driver) Merges(jobID string) col.Collection {
-
-func (d *driver) WithData(
-func (d *driver) downloadData(
-func (d *driver) downloadGitData(pachClient *client.APIClient, dir string, input *common.Input) error {
-func (d *driver) linkData(inputs []*common.Input, dir string) error {
-func (d *driver) unlinkData(inputs []*common.Input) error {
-
 func (d *driver) RunUserCode(ctx context.Context, logger logs.TaggedLogger, environ []string, procStats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
 func (d *driver) RunUserErrorHandlingCode(ctx context.Context, logger logs.TaggedLogger, environ []string, procStats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
 
 func (d *driver) UpdateJobState(ctx context.Context, jobID string, statsCommit *pfs.Commit, state pps.JobState, reason string) error {
 func (d *driver) DeleteJob(stm col.STM, jobPtr *pps.EtcdJobInfo) error {
-
-func (d *driver) updateCounter(
-func (d *driver) updateHistogram(
-func (d *driver) reportUserCodeStats(logger logs.TaggedLogger) {
-func (d *driver) reportDeferredUserCodeStats(err error, start time.Time, procStats *pps.ProcessStats, logger logs.TaggedLogger) {
-func (d *driver) ReportUploadStats(start time.Time, procStats *pps.ProcessStats, logger logs.TaggedLogger) {
-func (d *driver) reportDownloadSizeStats(downSize float64, logger logs.TaggedLogger) {
-func (d *driver) reportDownloadTimeStats(start time.Time, procStats *pps.ProcessStats, logger logs.TaggedLogger) {
 */
