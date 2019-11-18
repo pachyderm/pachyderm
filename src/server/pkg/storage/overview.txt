@@ -1,0 +1,63 @@
+Problems being addressed:
+
+Pachyderm's current storage layer has several issues preventing it from supporting the overarching goal of reproducible and performant data science. These issues and how they are being addressed by the new storage layer will be discussed briefly in the following subsections.
+
+- File content ordering and hashes: 
+
+  In order to support reproducibility: 
+    - File hashes should be based solely on their content.
+    - A set of inputs to a job should produce consistent output.
+
+  These two things are not exactly true in Pachyderm's current storage layer due to how adding/removing content to/from a file is supported (appending to a file in an input repo or a new datum outputting to an existing file path). The core issue is that file content ordering and hashes are influenced by how file content is added/removed. This has different, but conceptually similar, implications for both input and output repos.
+
+  - Input repos:
+
+    Input file content can be appended across multiple commits. At each commit, the content being appended to a file is written to an object and hashed. This hash is then used when computing the file's hash. This is problematic if that same file content is uploaded in a single commit (i.e. to attempt to reproduce some results) because the file hash would be different and the object(s) would be different.
+
+  - Output repos:
+
+    Output file content is formed by merging the output of the datums for a job. The content of files output by datums that have the same path are concatenated. This is very tricky to make reproducibile in Pachyderm because of the support for incremental datum processing and merging. In order to have output based solely on the input, we need some notion of consistent ordering between the datums and logic that adds and removes (when datums are deleted) content efficiently from the correct locations while maintaining consistent hashing of the files. 
+
+  The intent with the new storage layer is to guarantee that files with the same content will have the same hash in Pachyderm regardless of where they are in Pachyderm and how they got there.
+
+- Performance / Scalability:
+
+  Pachyderm's current storage layer has several performance / scalability issues across the different scalable dimensions (number of files, size of files, number of datums, etc.). The new storage layer attempts to provide functionality and a storage format that will perform well across these scalable dimensions. These improvements will be discussed below in no particular order.
+
+  - Improved batching:
+
+    In Pachyderm's current storage layer, batching only happens for files output by a single datum. All other files are stored as separate objects (potentially multiple objects for larger files). The new storage layer will batch smaller files into objects while still storing large files across multiple objects. This batching will apply to all files stored in the system.
+
+  - Balancing co-locating file content and compaction cost: 
+
+    Pachyderm's current storage layer does not ever re-write file content, which means that workloads that result with file content spread across multiple commits or datums will never have their content co-located. This means that read accesses for files get slower without bound as new content is added. The new storage layer will re-write content at certain points using a level based compaction scheme. This level based compaction scheme takes advantage of a cheap copy process that is able to skip a lot of the copying for several workloads.     
+
+  - Multilevel indexing:
+
+    Pachyderm's current storage layer writes out a single index into the metadata per output commit. The new storage layer will create a multilevel index with more levels based on the number and size of the files.
+
+  - Memory and parallelization control:
+
+    Pachyderm's current storage layer does not have a very consistent or configurable means for controlling memory usage and parallelization, so it is difficult to figure out how to squeeze more performance out of the system (or control it). The new storage layer will expose configuration for memory usage and parallelization. The memory configuration will be used primarily for controlling the buffering of object storage activity and the parallelization configuration will be used for controlling the number of workers performing the hashing and uploading of data.
+
+  - Determining which datums to process/skip:
+
+    Pachyderm's current storage layer has to go to object storage before it can process a datum (check for skipping). The new storage layer will avoid this by exposing a diff file set which contains information about the new file content added/removed from an input commit which can be used to quickly determine which datums were added/removed.
+
+- Merging / Compaction:
+
+  Note: Compaction is a merge that writes the results to object storage.
+
+  Pachyderm's current storage layer compacts metadata, but the new storage layer merges/compacts both metadata and data. The merging/compacting of data is necessary to support some of the improvements mentioned above (co-locating file content, consistent content ordering and hashes, etc.) Also, Pachyderm's current storage layer has a fixed number of metadata shards that represent the parallelism of a compaction. The new storage layer has a distributed compaction process that dynamically creates shards based on some configured threshold (i.e. number of files).  
+
+- Deduplication: 
+
+  Pachyderm currently uses fixed size chunking of file content. Fixed size chunking does not work well in cases where a large file is uploaded with small changes (i.e. database dump). The new storage layer uses content defined chunking which provides more effective deduplication for workloads that make modifications to files.
+
+- Different input and output storage format:
+
+  Pachyderm currently has different input and output storage formats. This difference arose mostly because of short term decision making when addressing particular performance/scalability bottlenecks. Finding a common model that would work well for both input and output repos has been a key goal of the new storage layer. 
+
+- Storage format:
+
+  The new storage format, at the content level, is a tar stream. Also, the interface of the new storage layer is based on tar streams (put tar streams in, get tar streams out). This provides a bit more flexibility for users who want to take advantage of the tar format. Also, the file hashes take into account the tar header content.
