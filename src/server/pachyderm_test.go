@@ -1185,8 +1185,7 @@ func TestPipelineErrorHandling(t *testing.T) {
 		require.Equal(t, int64(1), jobInfo.DataRecovered)
 		require.Equal(t, int64(1), jobInfo.DataFailed)
 
-		// For this pipeline, we have the same command as before, but this time the error handling passes for all
-		pipeline = tu.UniqueString("pipeline2")
+		// Now update this pipeline, we have the same command as before, but this time the error handling passes for all
 		_, err = c.PpsAPIClient.CreatePipeline(
 			context.Background(),
 			&pps.CreatePipelineRequest{
@@ -1196,18 +1195,19 @@ func TestPipelineErrorHandling(t *testing.T) {
 					Stdin:  []string{"if", fmt.Sprintf("[ -a pfs/%v/file1 ]", dataRepo), "then", "exit 0", "fi", "exit 1"},
 					ErrCmd: []string{"true"},
 				},
-				Input: client.NewPFSInput(dataRepo, "/*"),
+				Input:  client.NewPFSInput(dataRepo, "/*"),
+				Update: true,
 			})
 		require.NoError(t, err)
 
 		jis, err = c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(jis))
-		jobInfo = jis[1]
+		require.Equal(t, 1, len(jis))
+		jobInfo = jis[0]
 
 		// so we expect the job to succeed, and to have recovered 2 datums
 		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
-		require.Equal(t, int64(1), jobInfo.DataProcessed)
+		require.Equal(t, int64(1), jobInfo.DataSkipped)
 		require.Equal(t, int64(2), jobInfo.DataRecovered)
 		require.Equal(t, int64(0), jobInfo.DataFailed)
 	})
