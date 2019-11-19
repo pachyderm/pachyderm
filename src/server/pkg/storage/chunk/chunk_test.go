@@ -3,7 +3,7 @@ package chunk
 import (
 	"bytes"
 	"context"
-	"io"
+	"strconv"
 	"testing"
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
@@ -14,7 +14,7 @@ const (
 	averageBits = 23
 )
 
-func Write(t *testing.T, chunks *Storage, n, rangeSize int) ([]*DataRef, []byte) {
+func Write(t *testing.T, chunks *Storage, n, annotationSize int) ([]*DataRef, []byte) {
 	var finalDataRefs []*DataRef
 	var seq []byte
 	t.Run("Write", func(t *testing.T) {
@@ -26,11 +26,13 @@ func Write(t *testing.T, chunks *Storage, n, rangeSize int) ([]*DataRef, []byte)
 		}
 		w := chunks.NewWriter(context.Background(), averageBits, f, 0)
 		seq = RandSeq(n * MB)
-		for i := 0; i < n/rangeSize; i++ {
+		for i := 0; i < n/annotationSize; i++ {
 			w.Annotate(&Annotation{
 				NextDataRef: &DataRef{},
+				Meta:        i,
 			})
-			_, err := w.Write(seq[i*MB*rangeSize : (i+1)*MB*rangeSize])
+			w.StartTag(strconv.Itoa(i))
+			_, err := w.Write(seq[i*MB*annotationSize : (i+1)*MB*annotationSize])
 			require.NoError(t, err)
 		}
 		require.NoError(t, w.Close())
@@ -46,22 +48,20 @@ func TestWriteThenRead(t *testing.T) {
 	initialRefs := finalDataRefs[:mid]
 	streamRefs := finalDataRefs[mid:]
 	r := chunks.NewReader(context.Background())
-	r.NextRange(initialRefs)
+	r.NextDataRefs(initialRefs)
 	buf := &bytes.Buffer{}
 	t.Run("ReadInitial", func(t *testing.T) {
-		_, err := io.Copy(buf, r)
-		require.NoError(t, err)
-		require.Equal(t, bytes.Compare(buf.Bytes(), seq[:buf.Len()]), 0)
+		require.NoError(t, r.Get(buf))
+		require.Equal(t, 0, bytes.Compare(buf.Bytes(), seq[:buf.Len()]))
 	})
 	seq = seq[buf.Len():]
 	buf.Reset()
 	t.Run("ReadStream", func(t *testing.T) {
 		for _, ref := range streamRefs {
-			r.NextRange([]*DataRef{ref})
-			_, err := io.Copy(buf, r)
-			require.NoError(t, err)
+			r.NextDataRefs([]*DataRef{ref})
+			require.NoError(t, r.Get(buf))
 		}
-		require.Equal(t, bytes.Compare(buf.Bytes(), seq), 0)
+		require.Equal(t, 0, bytes.Compare(buf.Bytes(), seq))
 	})
 }
 
@@ -123,25 +123,24 @@ func TestCopy(t *testing.T) {
 	}
 	w := chunks.NewWriter(context.Background(), averageBits, f, 0)
 	r1 := chunks.NewReader(context.Background())
-	r1.NextRange(dataRefs1)
+	r1.NextDataRefs(dataRefs1)
 	r2 := chunks.NewReader(context.Background())
-	r2.NextRange(dataRefs2)
+	r2.NextDataRefs(dataRefs2)
 	w.Annotate(&Annotation{
 		NextDataRef: &DataRef{},
 	})
-	mid := r1.Len() / 2
-	require.NoError(t, w.Copy(r1, r1.Len()-mid))
-	require.NoError(t, w.Copy(r1, mid))
-	mid = r2.Len() / 2
-	require.NoError(t, w.Copy(r2, r2.Len()-mid))
-	require.NoError(t, w.Copy(r2, mid))
+	require.NoError(t, r1.Iterate(func(dr *DataReader) error {
+		return w.Copy(dr.LimitReader())
+	}))
+	require.NoError(t, r2.Iterate(func(dr *DataReader) error {
+		return w.Copy(dr.LimitReader())
+	}))
 	require.NoError(t, w.Close())
 	// Check that the initial data equals the final data.
 	buf := &bytes.Buffer{}
 	finalR := chunks.NewReader(context.Background())
-	finalR.NextRange(finalDataRefs)
-	_, err := io.Copy(buf, finalR)
-	require.NoError(t, err)
+	finalR.NextDataRefs(finalDataRefs)
+	require.NoError(t, finalR.Get(buf))
 	require.Equal(t, append(seq1, seq2...), buf.Bytes())
 	// Only one extra chunk should get created when connecting the two sets of data.
 	var finalChunkCount int64
