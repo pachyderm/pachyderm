@@ -567,6 +567,10 @@ func (d *driver) RunUserCode(
 		ctx = datumTimeoutCtx
 	}
 
+	if len(d.pipelineInfo.Transform.Cmd) == 0 {
+		return fmt.Errorf("invalid pipeline transform, no command specified")
+	}
+
 	// Run user code
 	cmd := exec.CommandContext(ctx, d.pipelineInfo.Transform.Cmd[0], d.pipelineInfo.Transform.Cmd[1:]...)
 	if d.pipelineInfo.Transform.Stdin != nil {
@@ -583,7 +587,7 @@ func (d *driver) RunUserCode(
 	if err != nil {
 		return fmt.Errorf("error cmd.Start: %v", err)
 	}
-	// A context w a deadline will successfully cancel/kill
+	// A context with a deadline will successfully cancel/kill
 	// the running process (minus zombies)
 	state, err := cmd.Process.Wait()
 	if err != nil {

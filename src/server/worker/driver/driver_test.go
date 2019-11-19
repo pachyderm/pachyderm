@@ -43,7 +43,7 @@ func testPipelineInfo() *pps.PipelineInfo {
 	return &pps.PipelineInfo{
 		Pipeline: client.NewPipeline("testPipeline"),
 		Transform: &pps.Transform{
-			Cmd: []string{"cp", path.Join("/pfs", inputRepo, "file"), "/pfs/out/file"},
+			Cmd: []string{"cp", path.Join("pfs", inputRepo, "file"), "pfs/out/file"},
 		},
 		ParallelismSpec: &pps.ParallelismSpec{
 			Constant: 1,
@@ -81,13 +81,13 @@ func withTestEnv(cb func(*testEnv)) error {
 			env.EtcdClient,
 			tu.UniqueString("driverTest"),
 		)
-		d = d.WithCtx(env.Context)
-		env.driver = d.(*driver)
 		if err != nil {
 			return err
 		}
-
+		d = d.WithCtx(env.Context)
+		env.driver = d.(*driver)
 		env.driver.inputDir = filepath.Clean(path.Join(env.Directory, "pfs"))
+		env.driver.pipelineInfo.Transform.WorkingDir = env.Directory
 
 		cb(env)
 
@@ -123,7 +123,12 @@ func (d *driver) linkData(inputs []*common.Input, dir string) error {
 	return copy.Copy(filepath.Join(dir, "out"), filepath.Join(d.inputDir, "out"))
 }
 
-func requireLogs(t *testing.T, pattern string, cb func(logs.TaggedLogger)) {
+// collectLogs provides the given callback with a mock TaggedLogger object which
+// will be used to collect all the logs and return them. This is pretty naive
+// and just splits log statements based on newlines because when running user
+// code, it is just used as an io.Writer and doesn't know when one message ends
+// and the next begins.
+func collectLogs(cb func(logs.TaggedLogger)) []string {
 	logger := logs.NewMockLogger()
 	buffer := &bytes.Buffer{}
 	logger.Writer = buffer
@@ -131,12 +136,27 @@ func requireLogs(t *testing.T, pattern string, cb func(logs.TaggedLogger)) {
 
 	cb(logger)
 
-	result := string(buffer.Bytes())
+	logStmts := strings.Split(string(buffer.Bytes()), "\n")
+	if len(logStmts) > 0 && logStmts[len(logStmts)-1] == "" {
+		return logStmts[0 : len(logStmts)-1]
+	}
+	return logStmts
+}
 
-	if pattern == "" {
-		require.Equal(t, "", result, "callback should not have logged anything")
+// requireLogs wraps collectLogs and ensures that certain log statements were
+// made. These are specified as regular expressions in the patterns parameter,
+// and each pattern must match at least one log line. The patterns are run
+// separately against each log line, not against the entire output. If the
+// patterns parameter is nil, we require that there are no log statements.
+func requireLogs(t *testing.T, patterns []string, cb func(logs.TaggedLogger)) {
+	logStmts := collectLogs(cb)
+
+	if patterns == nil {
+		require.Equal(t, 0, len(logStmts), "callback should not have logged anything")
 	} else {
-		require.Matches(t, pattern, result, "callback did not log the expected message")
+		for _, pattern := range patterns {
+			require.OneOfMatches(t, pattern, logStmts, "callback did not log the expected message")
+		}
 	}
 }
 
@@ -209,14 +229,14 @@ func TestUpdateCounter(t *testing.T) {
 		)
 
 		// Passing a state to the stateless counter should error
-		requireLogs(t, "expected 2 label values but got 3", func(logger logs.TaggedLogger) {
+		requireLogs(t, []string{"expected 2 label values but got 3"}, func(logger logs.TaggedLogger) {
 			env.driver.updateCounter(counterVec, logger, "bar", func(c prometheus.Counter) {
 				require.True(t, false, "should have errored")
 			})
 		})
 
 		// updateCounter should pass a valid counter with the selected tags
-		requireLogs(t, "", func(logger logs.TaggedLogger) {
+		requireLogs(t, nil, func(logger logs.TaggedLogger) {
 			env.driver.updateCounter(counterVec, logger, "", func(c prometheus.Counter) {
 				c.Add(1)
 			})
@@ -226,14 +246,14 @@ func TestUpdateCounter(t *testing.T) {
 		requireCounter(t, counterVec, []string{"foo", "job-id"}, 1)
 
 		// Not passing a state to the stateful counter should error
-		requireLogs(t, "expected 3 label values but got 2", func(logger logs.TaggedLogger) {
+		requireLogs(t, []string{"expected 3 label values but got 2"}, func(logger logs.TaggedLogger) {
 			env.driver.updateCounter(counterVecWithState, logger, "", func(c prometheus.Counter) {
 				require.True(t, false, "should have errored")
 			})
 		})
 
 		// updateCounter should pass a valid counter with the selected tags
-		requireLogs(t, "", func(logger logs.TaggedLogger) {
+		requireLogs(t, nil, func(logger logs.TaggedLogger) {
 			env.driver.updateCounter(counterVecWithState, logger, "bar", func(c prometheus.Counter) {
 				c.Add(1)
 			})
@@ -266,13 +286,13 @@ func TestUpdateHistogram(t *testing.T) {
 		)
 
 		// Passing a state to the stateless histogram should error
-		requireLogs(t, "expected 2 label values but got 3", func(logger logs.TaggedLogger) {
+		requireLogs(t, []string{"expected 2 label values but got 3"}, func(logger logs.TaggedLogger) {
 			env.driver.updateHistogram(histogramVec, logger, "bar", func(h prometheus.Observer) {
 				require.True(t, false, "should have errored")
 			})
 		})
 
-		requireLogs(t, "", func(logger logs.TaggedLogger) {
+		requireLogs(t, nil, func(logger logs.TaggedLogger) {
 			env.driver.updateHistogram(histogramVec, logger, "", func(h prometheus.Observer) {
 				h.Observe(0)
 			})
@@ -282,13 +302,13 @@ func TestUpdateHistogram(t *testing.T) {
 		requireHistogram(t, histogramVec, []string{"foo", "job-id"}, 1)
 
 		// Not passing a state to the stateful histogram should error
-		requireLogs(t, "expected 3 label values but got 2", func(logger logs.TaggedLogger) {
+		requireLogs(t, []string{"expected 3 label values but got 2"}, func(logger logs.TaggedLogger) {
 			env.driver.updateHistogram(histogramVecWithState, logger, "", func(h prometheus.Observer) {
 				require.True(t, false, "should have errored")
 			})
 		})
 
-		requireLogs(t, "", func(logger logs.TaggedLogger) {
+		requireLogs(t, nil, func(logger logs.TaggedLogger) {
 			env.driver.updateHistogram(histogramVecWithState, logger, "bar", func(h prometheus.Observer) {
 				h.Observe(0)
 			})
@@ -353,7 +373,7 @@ func requireInputContents(t *testing.T, env *testEnv, data []*inputData) {
 
 func TestWithDataEmpty(t *testing.T) {
 	err := withTestEnv(func(env *testEnv) {
-		requireLogs(t, "finished downloading data", func(logger logs.TaggedLogger) {
+		requireLogs(t, []string{"finished downloading data"}, func(logger logs.TaggedLogger) {
 			_, err := env.driver.WithData(
 				[]*common.Input{},
 				nil,
@@ -373,7 +393,7 @@ func TestWithDataEmpty(t *testing.T) {
 func TestWithDataSpout(t *testing.T) {
 	err := withTestEnv(func(env *testEnv) {
 		env.driver.pipelineInfo.Spout = &pps.Spout{}
-		requireLogs(t, "finished downloading data", func(logger logs.TaggedLogger) {
+		requireLogs(t, []string{"finished downloading data"}, func(logger logs.TaggedLogger) {
 			_, err := env.driver.WithData(
 				[]*common.Input{},
 				nil,
@@ -414,7 +434,7 @@ func newInput(repo string, path string) *common.Input {
 
 func TestWithDataCancel(t *testing.T) {
 	err := withTestEnv(func(env *testEnv) {
-		requireLogs(t, "errored downloading data.*context canceled", func(logger logs.TaggedLogger) {
+		requireLogs(t, []string{"errored downloading data", "context canceled"}, func(logger logs.TaggedLogger) {
 			ctx, cancel := context.WithCancel(env.Context)
 			driver := env.driver.WithCtx(ctx)
 
@@ -446,7 +466,7 @@ func TestWithDataCancel(t *testing.T) {
 // during WithData, and clean them up after running the inner function.
 func TestWithDataDownload(t *testing.T) {
 	err := withTestEnv(func(env *testEnv) {
-		requireLogs(t, "finished downloading data.*inner function", func(logger logs.TaggedLogger) {
+		requireLogs(t, []string{"finished downloading data", "inner function"}, func(logger logs.TaggedLogger) {
 			// Mock out the calls that will be used to download the data
 			env.MockPachd.PFS.WalkFile.Use(func(req *pfs.WalkFileRequest, serv pfs.API_WalkFileServer) error {
 				return serv.Send(&pfs.FileInfo{
@@ -491,7 +511,7 @@ func TestWithDataCleanup(t *testing.T) {
 			require.NoError(t, file.Close())
 		}
 
-		requireLogs(t, "finished downloading data.*inner function", func(logger logs.TaggedLogger) {
+		requireLogs(t, []string{"finished downloading data", "inner function"}, func(logger logs.TaggedLogger) {
 			_, err := env.driver.WithData(
 				[]*common.Input{},
 				nil,
@@ -560,7 +580,7 @@ func mockGitGetFile(env *testEnv, repo string, ref string, sha string, cb func(*
 
 func TestWithDataGit(t *testing.T) {
 	err := withTestEnv(func(env *testEnv) {
-		requireLogs(t, "finished downloading data", func(logger logs.TaggedLogger) {
+		requireLogs(t, []string{"finished downloading data"}, func(logger logs.TaggedLogger) {
 			var getFileReq *pfs.GetFileRequest
 			mockGitGetFile(env, inputGitRepo, "refs/heads/master", "9047fbfc251e7412ef3300868f743f2c24852539", func(req *pfs.GetFileRequest) {
 				getFileReq = req
@@ -586,7 +606,7 @@ func TestWithDataGit(t *testing.T) {
 
 func TestWithDataGitHookError(t *testing.T) {
 	err := withTestEnv(func(env *testEnv) {
-		requireLogs(t, "errored downloading data", func(logger logs.TaggedLogger) {
+		requireLogs(t, []string{"errored downloading data"}, func(logger logs.TaggedLogger) {
 			mockGitGetFile(env, "", "", "", nil)
 
 			_, err := env.driver.WithData(
@@ -608,7 +628,7 @@ func TestWithDataGitHookError(t *testing.T) {
 
 func TestWithDataGitRepoMissing(t *testing.T) {
 	err := withTestEnv(func(env *testEnv) {
-		requireLogs(t, "errored downloading data", func(logger logs.TaggedLogger) {
+		requireLogs(t, []string{"errored downloading data"}, func(logger logs.TaggedLogger) {
 			mockGitGetFile(env, inputGitRepoFake, "refs/heads/master", "foobar", nil)
 
 			_, err := env.driver.WithData(
@@ -630,7 +650,7 @@ func TestWithDataGitRepoMissing(t *testing.T) {
 
 func TestWithDataGitInvalidSHA(t *testing.T) {
 	err := withTestEnv(func(env *testEnv) {
-		requireLogs(t, "errored downloading data", func(logger logs.TaggedLogger) {
+		requireLogs(t, []string{"errored downloading data"}, func(logger logs.TaggedLogger) {
 			mockGitGetFile(env, inputGitRepo, "refs/heads/master", "foobar", nil)
 
 			_, err := env.driver.WithData(
@@ -650,7 +670,112 @@ func TestWithDataGitInvalidSHA(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// Test that user code will successfully run and the output will be forwarded to logs
 func TestRunUserCode(t *testing.T) {
+	logMessage := "this is a user code log message"
+	err := withTestEnv(func(env *testEnv) {
+		env.driver.pipelineInfo.Transform.Cmd = []string{"echo", logMessage}
+		requireLogs(t, []string{logMessage}, func(logger logs.TaggedLogger) {
+			err := env.driver.RunUserCode(
+				logger,
+				[]string{},
+				nil,
+				nil,
+			)
+			require.NoError(t, err)
+		})
+	})
+	require.NoError(t, err)
+}
+
+func TestRunUserCodeError(t *testing.T) {
+	err := withTestEnv(func(env *testEnv) {
+		env.driver.pipelineInfo.Transform.Cmd = []string{"false"}
+		requireLogs(t, []string{"exit status 1"}, func(logger logs.TaggedLogger) {
+			err := env.driver.RunUserCode(logger, []string{}, nil, nil)
+			require.YesError(t, err)
+		})
+	})
+	require.NoError(t, err)
+}
+
+func TestRunUserCodeNoCommand(t *testing.T) {
+	err := withTestEnv(func(env *testEnv) {
+		env.driver.pipelineInfo.Transform.Cmd = []string{}
+		requireLogs(t, []string{"no command specified"}, func(logger logs.TaggedLogger) {
+			err := env.driver.RunUserCode(logger, []string{}, nil, nil)
+			require.YesError(t, err)
+		})
+	})
+	require.NoError(t, err)
+}
+
+func TestRunUserCodeTimeout(t *testing.T) {
+	err := withTestEnv(func(env *testEnv) {
+		env.driver.pipelineInfo.Transform.Cmd = []string{"sleep", "10"}
+		timeout := types.DurationProto(10 * time.Millisecond)
+		requireLogs(t, []string{"context deadline exceeded"}, func(logger logs.TaggedLogger) {
+			err := env.driver.RunUserCode(logger, []string{}, nil, timeout)
+			require.YesError(t, err)
+			require.Matches(t, "context deadline exceeded", err.Error())
+		})
+	})
+	require.NoError(t, err)
+}
+
+func TestRunUserCodeEnv(t *testing.T) {
+	err := withTestEnv(func(env *testEnv) {
+		env.driver.pipelineInfo.Transform.Cmd = []string{"env"}
+		requireLogs(t, []string{"FOO=password", "BAR=hunter2"}, func(logger logs.TaggedLogger) {
+			err := env.driver.RunUserCode(logger, []string{"FOO=password", "BAR=hunter2"}, nil, nil)
+			require.NoError(t, err)
+		})
+	})
+	require.NoError(t, err)
+}
+
+func TestRunUserCodeWithData(t *testing.T) {
+	err := withTestEnv(func(env *testEnv) {
+		env.driver.pipelineInfo.Transform.Cmd = []string{"bash", "-c", "cat pfs/repoA/input.txt pfs/repoB/input.md > pfs/out/output.txt"}
+		requireLogs(t, []string{"finished running user code"}, func(logger logs.TaggedLogger) {
+			// Mock out the calls that will be used to download the data
+			env.MockPachd.PFS.WalkFile.Use(func(req *pfs.WalkFileRequest, serv pfs.API_WalkFileServer) error {
+				return serv.Send(&pfs.FileInfo{
+					File:     req.File,
+					FileType: pfs.FileType_FILE,
+				})
+			})
+
+			env.MockPachd.PFS.GetFile.Use(func(req *pfs.GetFileRequest, serv pfs.API_GetFileServer) error {
+				return serv.Send(&types.BytesValue{Value: []byte(fmt.Sprintf("%s-data", req.File.Commit.Repo.Name))})
+			})
+
+			_, err := env.driver.WithData(
+				[]*common.Input{newInput("repoA", "input.txt"), newInput("repoB", "input.md")},
+				nil,
+				logger,
+				func(stats *pps.ProcessStats) error {
+					requireInputContents(t, env, []*inputData{
+						newInputData("repoA/input.txt", "repoA-data"),
+						newInputData("repoB/input.md", "repoB-data"),
+					})
+
+					err := env.driver.RunUserCode(logger, []string{}, nil, nil)
+					require.NoError(t, err)
+
+					requireInputContents(t, env, []*inputData{
+						newInputData("repoA/input.txt", "repoA-data"),
+						newInputData("repoB/input.md", "repoB-data"),
+						newInputData("out/output.txt", "repoA-datarepoB-data"),
+					})
+					return nil
+				},
+			)
+			require.NoError(t, err)
+			requireInputContents(t, env, []*inputData{})
+		})
+	})
+	require.NoError(t, err)
 }
 
 func TestRunUserErrorHandlingCode(t *testing.T) {

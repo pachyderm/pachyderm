@@ -44,7 +44,7 @@ func (ml *MockLogger) Logf(formatString string, args ...interface{}) {
 	if ml.Writer != nil {
 		params := []interface{}{ml.Job, ml.Data, ml.UserCode}
 		params = append(params, args...)
-		str := fmt.Sprintf("Logf (%v, %v, %v): "+formatString, params...)
+		str := fmt.Sprintf("Logf (%v, %v, %v): "+formatString+"\n", params...)
 		ml.Writer.Write([]byte(str))
 	}
 }
@@ -54,7 +54,7 @@ func (ml *MockLogger) Errf(formatString string, args ...interface{}) {
 	if ml.Writer != nil {
 		params := []interface{}{ml.Job, ml.Data, ml.UserCode}
 		params = append(params, args...)
-		str := fmt.Sprintf("Errf (%v, %v, %v): "+formatString, params...)
+		str := fmt.Sprintf("Errf (%v, %v, %v): "+formatString+"\n", params...)
 		ml.Writer.Write([]byte(str))
 	}
 }

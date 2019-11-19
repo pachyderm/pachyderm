@@ -83,14 +83,8 @@ func WithEnv(cb func(*Env) error) (err error) {
 	etcdConfig := embed.NewConfig()
 
 	// Create test dirs for etcd data
-	etcdConfig.Dir, err = ioutil.TempDir(env.Directory, "etcd_data")
-	if err != nil {
-		return err
-	}
-	etcdConfig.WalDir, err = ioutil.TempDir(env.Directory, "etcd_wal")
-	if err != nil {
-		return err
-	}
+	etcdConfig.Dir = path.Join(env.Directory, "etcd_data")
+	etcdConfig.WalDir = path.Join(env.Directory, "etcd_wal")
 
 	// Speed up initial election, hopefully this has no other impact since there
 	// is only one etcd instance
