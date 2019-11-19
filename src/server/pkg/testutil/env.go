@@ -2,7 +2,10 @@ package testutil
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
+	"net"
+	"net/url"
 	"os"
 	"path"
 
@@ -95,6 +98,29 @@ func WithEnv(cb func(*Env) error) (err error) {
 	etcdConfig.TickMs = 10
 	etcdConfig.ElectionMs = 50
 
+	// We want to assign a random unused port to etcd, but etcd doesn't give us a
+	// way to read it back out later. We can work around this by creating our own
+	// listener on a random port, find out which port was used, close that
+	// listener, and pass that port down for etcd to use. There is a small race
+	// condition here where someone else can steal the port between these steps,
+	// but it should be fairly minimal and depends on how the OS assigns
+	// unallocated ports.
+	listener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		return err
+	}
+	defer listener.Close()
+
+	clientUrl, err := url.Parse(fmt.Sprintf("http://%s", listener.Addr().String()))
+	if err != nil {
+		return err
+	}
+
+	etcdConfig.LPUrls = []url.URL{}
+	etcdConfig.LCUrls = []url.URL{*clientUrl}
+
+	listener.Close()
+
 	// Throw away noisy messages from etcd - comment these out if you need to debug
 	// a failed start
 	capnslog.SetGlobalLogLevel(capnslog.CRITICAL)
@@ -110,14 +136,9 @@ func WithEnv(cb func(*Env) error) (err error) {
 		return errorWait(ctx, env.Etcd.Err())
 	})
 
-	clientUrls := []string{}
-	for _, url := range etcdConfig.LCUrls {
-		clientUrls = append(clientUrls, url.String())
-	}
-
 	env.EtcdClient, err = etcd.New(etcd.Config{
 		Context:     env.Context,
-		Endpoints:   clientUrls,
+		Endpoints:   []string{clientUrl.String()},
 		DialOptions: client.DefaultDialOptions(),
 	})
 	if err != nil {

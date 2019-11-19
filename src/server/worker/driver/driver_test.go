@@ -215,6 +215,7 @@ func requireHistogram(t *testing.T, histogram *prometheus.HistogramVec, labels [
 }
 
 func TestUpdateCounter(t *testing.T) {
+	t.Parallel()
 	err := withTestEnv(func(env *testEnv) {
 		env.driver.pipelineInfo.ID = "foo"
 
@@ -266,6 +267,7 @@ func TestUpdateCounter(t *testing.T) {
 }
 
 func TestUpdateHistogram(t *testing.T) {
+	t.Parallel()
 	err := withTestEnv(func(env *testEnv) {
 		env.driver.pipelineInfo.ID = "foo"
 
@@ -372,6 +374,7 @@ func requireInputContents(t *testing.T, env *testEnv, data []*inputData) {
 }
 
 func TestWithDataEmpty(t *testing.T) {
+	t.Parallel()
 	err := withTestEnv(func(env *testEnv) {
 		requireLogs(t, []string{"finished downloading data"}, func(logger logs.TaggedLogger) {
 			_, err := env.driver.WithData(
@@ -391,6 +394,7 @@ func TestWithDataEmpty(t *testing.T) {
 }
 
 func TestWithDataSpout(t *testing.T) {
+	t.Parallel()
 	err := withTestEnv(func(env *testEnv) {
 		env.driver.pipelineInfo.Spout = &pps.Spout{}
 		requireLogs(t, []string{"finished downloading data"}, func(logger logs.TaggedLogger) {
@@ -433,6 +437,7 @@ func newInput(repo string, path string) *common.Input {
 }
 
 func TestWithDataCancel(t *testing.T) {
+	t.Parallel()
 	err := withTestEnv(func(env *testEnv) {
 		requireLogs(t, []string{"errored downloading data", "context canceled"}, func(logger logs.TaggedLogger) {
 			ctx, cancel := context.WithCancel(env.Context)
@@ -465,6 +470,7 @@ func TestWithDataCancel(t *testing.T) {
 // Check that the driver will download the requested inputs, put them in place
 // during WithData, and clean them up after running the inner function.
 func TestWithDataDownload(t *testing.T) {
+	t.Parallel()
 	err := withTestEnv(func(env *testEnv) {
 		requireLogs(t, []string{"finished downloading data", "inner function"}, func(logger logs.TaggedLogger) {
 			// Mock out the calls that will be used to download the data
@@ -502,6 +508,7 @@ func TestWithDataDownload(t *testing.T) {
 // Create several files and directories inside WithData and verify that they are
 // cleaned up after WithData returns.
 func TestWithDataCleanup(t *testing.T) {
+	t.Parallel()
 	err := withTestEnv(func(env *testEnv) {
 		create := func(relPath string) {
 			fullPath := path.Join(env.driver.inputDir, relPath)
@@ -579,6 +586,7 @@ func mockGitGetFile(env *testEnv, repo string, ref string, sha string, cb func(*
 }
 
 func TestWithDataGit(t *testing.T) {
+	t.Parallel()
 	err := withTestEnv(func(env *testEnv) {
 		requireLogs(t, []string{"finished downloading data"}, func(logger logs.TaggedLogger) {
 			var getFileReq *pfs.GetFileRequest
@@ -605,6 +613,7 @@ func TestWithDataGit(t *testing.T) {
 }
 
 func TestWithDataGitHookError(t *testing.T) {
+	t.Parallel()
 	err := withTestEnv(func(env *testEnv) {
 		requireLogs(t, []string{"errored downloading data"}, func(logger logs.TaggedLogger) {
 			mockGitGetFile(env, "", "", "", nil)
@@ -627,6 +636,7 @@ func TestWithDataGitHookError(t *testing.T) {
 }
 
 func TestWithDataGitRepoMissing(t *testing.T) {
+	t.Parallel()
 	err := withTestEnv(func(env *testEnv) {
 		requireLogs(t, []string{"errored downloading data"}, func(logger logs.TaggedLogger) {
 			mockGitGetFile(env, inputGitRepoFake, "refs/heads/master", "foobar", nil)
@@ -649,6 +659,7 @@ func TestWithDataGitRepoMissing(t *testing.T) {
 }
 
 func TestWithDataGitInvalidSHA(t *testing.T) {
+	t.Parallel()
 	err := withTestEnv(func(env *testEnv) {
 		requireLogs(t, []string{"errored downloading data"}, func(logger logs.TaggedLogger) {
 			mockGitGetFile(env, inputGitRepo, "refs/heads/master", "foobar", nil)
@@ -672,6 +683,7 @@ func TestWithDataGitInvalidSHA(t *testing.T) {
 
 // Test that user code will successfully run and the output will be forwarded to logs
 func TestRunUserCode(t *testing.T) {
+	t.Parallel()
 	logMessage := "this is a user code log message"
 	err := withTestEnv(func(env *testEnv) {
 		env.driver.pipelineInfo.Transform.Cmd = []string{"echo", logMessage}
@@ -689,6 +701,7 @@ func TestRunUserCode(t *testing.T) {
 }
 
 func TestRunUserCodeError(t *testing.T) {
+	t.Parallel()
 	err := withTestEnv(func(env *testEnv) {
 		env.driver.pipelineInfo.Transform.Cmd = []string{"false"}
 		requireLogs(t, []string{"exit status 1"}, func(logger logs.TaggedLogger) {
@@ -700,6 +713,7 @@ func TestRunUserCodeError(t *testing.T) {
 }
 
 func TestRunUserCodeNoCommand(t *testing.T) {
+	t.Parallel()
 	err := withTestEnv(func(env *testEnv) {
 		env.driver.pipelineInfo.Transform.Cmd = []string{}
 		requireLogs(t, []string{"no command specified"}, func(logger logs.TaggedLogger) {
@@ -711,6 +725,7 @@ func TestRunUserCodeNoCommand(t *testing.T) {
 }
 
 func TestRunUserCodeTimeout(t *testing.T) {
+	t.Parallel()
 	err := withTestEnv(func(env *testEnv) {
 		env.driver.pipelineInfo.Transform.Cmd = []string{"sleep", "10"}
 		timeout := types.DurationProto(10 * time.Millisecond)
@@ -724,6 +739,7 @@ func TestRunUserCodeTimeout(t *testing.T) {
 }
 
 func TestRunUserCodeEnv(t *testing.T) {
+	t.Parallel()
 	err := withTestEnv(func(env *testEnv) {
 		env.driver.pipelineInfo.Transform.Cmd = []string{"env"}
 		requireLogs(t, []string{"FOO=password", "BAR=hunter2"}, func(logger logs.TaggedLogger) {
@@ -735,6 +751,7 @@ func TestRunUserCodeEnv(t *testing.T) {
 }
 
 func TestRunUserCodeWithData(t *testing.T) {
+	t.Parallel()
 	err := withTestEnv(func(env *testEnv) {
 		env.driver.pipelineInfo.Transform.Cmd = []string{"bash", "-c", "cat pfs/repoA/input.txt pfs/repoB/input.md > pfs/out/output.txt"}
 		requireLogs(t, []string{"finished running user code"}, func(logger logs.TaggedLogger) {
@@ -779,12 +796,15 @@ func TestRunUserCodeWithData(t *testing.T) {
 }
 
 func TestRunUserErrorHandlingCode(t *testing.T) {
+	t.Parallel()
 }
 
 func TestUpdateJobState(t *testing.T) {
+	t.Parallel()
 }
 
 func TestDeleteJob(t *testing.T) {
+	t.Parallel()
 }
 
 /*
