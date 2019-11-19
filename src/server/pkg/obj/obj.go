@@ -633,6 +633,7 @@ type BackoffReadCloser struct {
 	client        Client
 	reader        io.ReadCloser
 	backoffConfig *backoff.ExponentialBackOff
+	object        string
 }
 
 func newBackoffReadCloser(ctx context.Context, client Client, reader io.ReadCloser) io.ReadCloser {
@@ -653,7 +654,10 @@ func (b *BackoffReadCloser) Read(data []byte) (retN int, retErr error) {
 	var n int
 	var err error
 	backoff.RetryNotify(func() error {
+		start := time.Now()
+		fmt.Printf("reading %d bytes from object: %q @ %v\n", len(data[bytesRead:]), b.object, start)
 		n, err = b.reader.Read(data[bytesRead:])
+		fmt.Printf("finished reading from object: %q after %v with error: %v\n", b.object, time.Since(start), err)
 		bytesRead += n
 		if err != nil && IsRetryable(b.client, err) {
 			return err

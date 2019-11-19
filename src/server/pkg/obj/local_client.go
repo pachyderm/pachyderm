@@ -42,7 +42,7 @@ func (c *localClient) Writer(_ context.Context, path string) (io.WriteCloser, er
 	return file, nil
 }
 
-func (c *localClient) Reader(_ context.Context, path string, offset uint64, size uint64) (io.ReadCloser, error) {
+func (c *localClient) Reader(ctx context.Context, path string, offset uint64, size uint64) (io.ReadCloser, error) {
 	file, err := os.Open(filepath.Join(c.root, path))
 	if err != nil {
 		return nil, err
@@ -57,7 +57,7 @@ func (c *localClient) Reader(_ context.Context, path string, offset uint64, size
 		}
 		return file, nil
 	}
-	return newSectionReadCloser(file, offset, size), nil
+	return newBackoffReadCloser(ctx, c, newSectionReadCloser(file, offset, size)), nil
 }
 
 func (c *localClient) Delete(_ context.Context, path string) error {

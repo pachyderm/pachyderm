@@ -157,10 +157,12 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 	if err != nil {
 		return nil, err
 	}
+	logLevel := aws.LogDebugWithSigning | aws.LogDebugWithRequestRetries | aws.LogDebugWithRequestErrors | aws.LogDebugWithEventStreamBody
 	awsConfig := &aws.Config{
 		Region:     aws.String(region),
 		MaxRetries: aws.Int(advancedConfig.Retries),
 		HTTPClient: &http.Client{Timeout: timeout},
+		LogLevel:   &logLevel,
 	}
 	if creds.ID != "" {
 		awsConfig.Credentials = credentials.NewStaticCredentials(creds.ID, creds.Secret, creds.Token)
@@ -327,7 +329,13 @@ func (c *amazonClient) Reader(ctx context.Context, name string, offset uint64, s
 		}
 		reader = getObjectOutput.Body
 	}
-	return newBackoffReadCloser(ctx, c, reader), nil
+	return &BackoffReadCloser{
+		ctx:           ctx,
+		client:        c,
+		reader:        reader,
+		backoffConfig: NewExponentialBackOffConfig(),
+		object:        fmt.Sprintf("%s[%d:%d]", name, offset, offset+size),
+	}, nil
 }
 
 func (c *amazonClient) Delete(_ context.Context, name string) error {
