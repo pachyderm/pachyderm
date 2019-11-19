@@ -8,6 +8,7 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/embed"
+	"github.com/coreos/pkg/capnslog"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -32,6 +33,7 @@ func WithEnv(cb func(*Env) error) (err error) {
 	// Use an error group with a cancelable context to supervise every component
 	// and cancel everything if one fails
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	eg, ctx := errgroup.WithContext(ctx)
 
 	env := &Env{Context: ctx}
@@ -81,6 +83,7 @@ func WithEnv(cb func(*Env) error) (err error) {
 	}()
 
 	etcdConfig := embed.NewConfig()
+	etcdConfig.LogOutput = "default"
 
 	// Create test dirs for etcd data
 	etcdConfig.Dir = path.Join(env.Directory, "etcd_data")
@@ -88,14 +91,20 @@ func WithEnv(cb func(*Env) error) (err error) {
 
 	// Speed up initial election, hopefully this has no other impact since there
 	// is only one etcd instance
-	etcdConfig.InitialElectionTickAdvance = true
-	etcdConfig.TickMs = 2
-	etcdConfig.ElectionMs = 10
+	etcdConfig.InitialElectionTickAdvance = false
+	etcdConfig.TickMs = 10
+	etcdConfig.ElectionMs = 50
+
+	// Throw away noisy messages from etcd - comment these out if you need to debug
+	// a failed start
+	capnslog.SetGlobalLogLevel(capnslog.CRITICAL)
 
 	env.Etcd, err = embed.StartEtcd(etcdConfig)
 	if err != nil {
 		return err
 	}
+
+	capnslog.SetGlobalLogLevel(capnslog.CRITICAL)
 
 	eg.Go(func() error {
 		return errorWait(ctx, env.Etcd.Err())
