@@ -7,6 +7,7 @@ import (
 	"io"
 	"path"
 	"strings"
+	"sync"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )
@@ -16,7 +17,8 @@ type Reader struct {
 	ctx      context.Context
 	objC     obj.Client
 	dataRefs []*DataRef
-	curr     *DataReader
+	peek     *DataReader
+	prev     *DataReader
 }
 
 func newReader(ctx context.Context, objC obj.Client, dataRefs ...*DataRef) *Reader {
@@ -33,14 +35,29 @@ func (r *Reader) NextDataRefs(dataRefs []*DataRef) {
 }
 
 func (r *Reader) Peek() (*DataReader, error) {
-	if r.curr == nil || r.curr.Done() {
-		if len(r.dataRefs) == 0 {
-			return nil, io.EOF
+	if r.peek == nil {
+		var err error
+		r.peek, err = r.Next()
+		if err != nil {
+			return nil, err
 		}
-		r.curr = newDataReader(r.ctx, r.objC, r.dataRefs[0], r.curr)
-		r.dataRefs = r.dataRefs[1:]
 	}
-	return r.curr, nil
+	return r.peek, nil
+}
+
+func (r *Reader) Next() (*DataReader, error) {
+	if r.peek != nil {
+		dr := r.peek
+		r.peek = nil
+		return dr, nil
+	}
+	if len(r.dataRefs) == 0 {
+		return nil, io.EOF
+	}
+	dr := newDataReader(r.ctx, r.objC, r.dataRefs[0], r.prev)
+	r.dataRefs = r.dataRefs[1:]
+	r.prev = dr
+	return dr, nil
 }
 
 func (r *Reader) Iterate(f func(*DataReader) error) error {
@@ -55,6 +72,9 @@ func (r *Reader) Iterate(f func(*DataReader) error) error {
 		if err := f(dr); err != nil {
 			return err
 		}
+		if _, err := r.Next(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -66,14 +86,14 @@ func (r *Reader) Get(w io.Writer) error {
 }
 
 type DataReader struct {
-	ctx     context.Context
-	objC    obj.Client
-	dataRef *DataRef
-	chunk   []byte
-	offset  int64
-	tags    []*Tag
-	seed    *DataReader
-	done    bool
+	ctx        context.Context
+	objC       obj.Client
+	dataRef    *DataRef
+	getChunkMu sync.Mutex
+	chunk      []byte
+	offset     int64
+	tags       []*Tag
+	seed       *DataReader
 }
 
 func newDataReader(ctx context.Context, objC obj.Client, dataRef *DataRef, seed *DataReader) *DataReader {
@@ -82,6 +102,7 @@ func newDataReader(ctx context.Context, objC obj.Client, dataRef *DataRef, seed 
 		objC:    objC,
 		dataRef: dataRef,
 		offset:  dataRef.OffsetBytes,
+		tags:    dataRef.Tags,
 		seed:    seed,
 	}
 }
@@ -99,26 +120,24 @@ func (dr *DataReader) Len() int64 {
 }
 
 func (dr *DataReader) Peek() (*Tag, error) {
-	if dr.Done() {
+	if len(dr.tags) == 0 {
 		return nil, io.EOF
 	}
 	return dr.tags[0], nil
 }
 
-func (dr *DataReader) Done() bool {
-	return dr.done
-}
-
 func (dr *DataReader) Iterate(f func(*Tag, io.Reader) error, tagBound ...string) error {
-	if err := dr.setup(); err != nil {
+	if err := dr.getChunk(); err != nil {
 		return err
 	}
 	for {
-		if len(dr.tags) == 0 {
-			dr.done = true
-			return nil
+		tag, err := dr.Peek()
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return err
 		}
-		tag := dr.tags[0]
 		if !BeforeBound(tag.Id, tagBound...) {
 			return nil
 		}
@@ -130,19 +149,21 @@ func (dr *DataReader) Iterate(f func(*Tag, io.Reader) error, tagBound ...string)
 	}
 }
 
-func (dr *DataReader) setup() error {
+func (dr *DataReader) getChunk() error {
+	dr.getChunkMu.Lock()
+	defer dr.getChunkMu.Unlock()
 	if dr.chunk != nil {
 		return nil
 	}
 	// Use seed chunk if possible.
 	if dr.seed != nil && dr.dataRef.Chunk.Hash == dr.seed.dataRef.Chunk.Hash {
+		if err := dr.seed.getChunk(); err != nil {
+			return err
+		}
 		dr.chunk = dr.seed.chunk
 		return nil
 	}
-	return dr.getChunk()
-}
-
-func (dr *DataReader) getChunk() error {
+	// Get chunk from object storage.
 	objR, err := dr.objC.Reader(dr.ctx, path.Join(prefix, dr.dataRef.Chunk.Hash), 0, 0)
 	if err != nil {
 		return err
@@ -168,31 +189,37 @@ func BeforeBound(str string, strBound ...string) bool {
 }
 
 func (dr *DataReader) Get(w io.Writer) error {
-	if err := dr.setup(); err != nil {
+	if err := dr.getChunk(); err != nil {
 		return err
 	}
 	data := dr.chunk[dr.dataRef.OffsetBytes : dr.dataRef.OffsetBytes+dr.dataRef.SizeBytes]
 	if _, err := w.Write(data); err != nil {
 		return err
 	}
-	dr.done = true
 	return nil
 }
 
-func (dr *DataReader) LimitReader(tagBound ...string) (*DataReader, error) {
+func (dr *DataReader) LimitReader(tagBound ...string) *DataReader {
+	offset := dr.offset
 	var tags []*Tag
-	if err := dr.Iterate(func(tag *Tag, _ io.Reader) error {
+	for {
+		if len(dr.tags) == 0 {
+			break
+		}
+		tag := dr.tags[0]
+		if !BeforeBound(tag.Id, tagBound...) {
+			break
+		}
 		tags = append(tags, tag)
-		return nil
-	}, tagBound...); err != nil {
-		return nil, err
+		dr.offset += tag.SizeBytes
+		dr.tags = dr.tags[1:]
 	}
 	return &DataReader{
 		ctx:     dr.ctx,
 		objC:    dr.objC,
 		dataRef: dr.dataRef,
-		offset:  dr.offset,
+		offset:  offset,
 		tags:    tags,
 		seed:    dr,
-	}, nil
+	}
 }

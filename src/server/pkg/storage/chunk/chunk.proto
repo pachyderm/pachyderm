@@ -19,6 +19,7 @@ message DataRef {
 message Chunk {
   string hash = 1;
   int64 size_bytes = 2;
+  bool edge = 3;
 }
 
 message Tag {

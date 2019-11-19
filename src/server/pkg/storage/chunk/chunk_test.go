@@ -14,7 +14,7 @@ const (
 	averageBits = 23
 )
 
-func Write(t *testing.T, chunks *Storage, n, rangeSize int) ([]*DataRef, []byte) {
+func Write(t *testing.T, chunks *Storage, n, annotationSize int) ([]*DataRef, []byte) {
 	var finalDataRefs []*DataRef
 	var seq []byte
 	t.Run("Write", func(t *testing.T) {
@@ -26,13 +26,13 @@ func Write(t *testing.T, chunks *Storage, n, rangeSize int) ([]*DataRef, []byte)
 		}
 		w := chunks.NewWriter(context.Background(), averageBits, f, 0)
 		seq = RandSeq(n * MB)
-		for i := 0; i < n/rangeSize; i++ {
+		for i := 0; i < n/annotationSize; i++ {
 			w.Annotate(&Annotation{
 				NextDataRef: &DataRef{},
 				Meta:        i,
 			})
 			w.StartTag(strconv.Itoa(i))
-			_, err := w.Write(seq[i*MB*rangeSize : (i+1)*MB*rangeSize])
+			_, err := w.Write(seq[i*MB*annotationSize : (i+1)*MB*annotationSize])
 			require.NoError(t, err)
 		}
 		require.NoError(t, w.Close())
@@ -102,52 +102,51 @@ func BenchmarkRollingHash(b *testing.B) {
 	}
 }
 
-//func TestCopy(t *testing.T) {
-//	objC, chunks := LocalStorage(t)
-//	defer Cleanup(objC, chunks)
-//	// Write the initial data and count the chunks.
-//	dataRefs1, seq1 := Write(t, chunks, 60, 20)
-//	dataRefs2, seq2 := Write(t, chunks, 60, 20)
-//	var initialChunkCount int64
-//	require.NoError(t, chunks.List(context.Background(), func(_ string) error {
-//		initialChunkCount++
-//		return nil
-//	}))
-//	// Copy data from readers into new writer.
-//	var finalDataRefs []*DataRef
-//	f := func(_ *DataRef, annotations []*Annotation) error {
-//		for _, a := range annotations {
-//			finalDataRefs = append(finalDataRefs, a.NextDataRef)
-//		}
-//		return nil
-//	}
-//	w := chunks.NewWriter(context.Background(), averageBits, f, 0)
-//	r1 := chunks.NewReader(context.Background())
-//	r1.NextRange(dataRefs1)
-//	r2 := chunks.NewReader(context.Background())
-//	r2.NextRange(dataRefs2)
-//	w.Annotate(&Annotation{
-//		NextDataRef: &DataRef{},
-//	})
-//	mid := r1.Len() / 2
-//	require.NoError(t, w.Copy(r1, r1.Len()-mid))
-//	require.NoError(t, w.Copy(r1, mid))
-//	mid = r2.Len() / 2
-//	require.NoError(t, w.Copy(r2, r2.Len()-mid))
-//	require.NoError(t, w.Copy(r2, mid))
-//	require.NoError(t, w.Close())
-//	// Check that the initial data equals the final data.
-//	buf := &bytes.Buffer{}
-//	finalR := chunks.NewReader(context.Background())
-//	finalR.NextRange(finalDataRefs)
-//	_, err := io.Copy(buf, finalR)
-//	require.NoError(t, err)
-//	require.Equal(t, append(seq1, seq2...), buf.Bytes())
-//	// Only one extra chunk should get created when connecting the two sets of data.
-//	var finalChunkCount int64
-//	require.NoError(t, chunks.List(context.Background(), func(_ string) error {
-//		finalChunkCount++
-//		return nil
-//	}))
-//	require.Equal(t, initialChunkCount+1, finalChunkCount)
-//}
+func TestCopy(t *testing.T) {
+	objC, chunks := LocalStorage(t)
+	defer Cleanup(objC, chunks)
+	// Write the initial data and count the chunks.
+	dataRefs1, seq1 := Write(t, chunks, 60, 20)
+	dataRefs2, seq2 := Write(t, chunks, 60, 20)
+	var initialChunkCount int64
+	require.NoError(t, chunks.List(context.Background(), func(_ string) error {
+		initialChunkCount++
+		return nil
+	}))
+	// Copy data from readers into new writer.
+	var finalDataRefs []*DataRef
+	f := func(_ *DataRef, annotations []*Annotation) error {
+		for _, a := range annotations {
+			finalDataRefs = append(finalDataRefs, a.NextDataRef)
+		}
+		return nil
+	}
+	w := chunks.NewWriter(context.Background(), averageBits, f, 0)
+	r1 := chunks.NewReader(context.Background())
+	r1.NextDataRefs(dataRefs1)
+	r2 := chunks.NewReader(context.Background())
+	r2.NextDataRefs(dataRefs2)
+	w.Annotate(&Annotation{
+		NextDataRef: &DataRef{},
+	})
+	require.NoError(t, r1.Iterate(func(dr *DataReader) error {
+		return w.Copy(dr.LimitReader())
+	}))
+	require.NoError(t, r2.Iterate(func(dr *DataReader) error {
+		return w.Copy(dr.LimitReader())
+	}))
+	require.NoError(t, w.Close())
+	// Check that the initial data equals the final data.
+	buf := &bytes.Buffer{}
+	finalR := chunks.NewReader(context.Background())
+	finalR.NextDataRefs(finalDataRefs)
+	require.NoError(t, finalR.Get(buf))
+	require.Equal(t, append(seq1, seq2...), buf.Bytes())
+	// Only one extra chunk should get created when connecting the two sets of data.
+	var finalChunkCount int64
+	require.NoError(t, chunks.List(context.Background(), func(_ string) error {
+		finalChunkCount++
+		return nil
+	}))
+	require.Equal(t, initialChunkCount+1, finalChunkCount)
+}

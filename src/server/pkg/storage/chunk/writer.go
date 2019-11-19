@@ -80,19 +80,19 @@ func newNextChanSet(c *chanSet) *nextChanSet {
 }
 
 type worker struct {
-	ctx         context.Context
-	objC        obj.Client
-	hash        *buzhash64.Buzhash64
-	splitMask   uint64
-	first       bool
-	annotations []*Annotation
-	f           WriterFunc
-	fs          []func() error
-	prev        *prevChanSet
-	next        *nextChanSet
-	stats       *stats
-	drs         []*DataReader
-	size        int64
+	ctx            context.Context
+	objC           obj.Client
+	hash           *buzhash64.Buzhash64
+	splitMask      uint64
+	first          bool
+	annotations    []*Annotation
+	bufAnnotations []*Annotation
+	bufSize        int64
+	f              WriterFunc
+	fs             []func() error
+	prev           *prevChanSet
+	next           *nextChanSet
+	stats          *stats
 }
 
 func (w *worker) run(dataSet *dataSet) error {
@@ -100,11 +100,9 @@ func (w *worker) run(dataSet *dataSet) error {
 	if err := w.rollDataSet(dataSet); err != nil {
 		return err
 	}
-	if err := w.flushDataReaders(); err != nil {
-		return err
-	}
 	// No split point found.
 	if w.prev != nil && w.first {
+		dataSet.annotations = w.annotations
 		dataSet.nextDataSet = w.next.dataSet
 		select {
 		case w.prev.dataSet <- dataSet:
@@ -120,8 +118,11 @@ func (w *worker) run(dataSet *dataSet) error {
 				// The next data set channel is closed for the last worker,
 				// so it uploads the last buffer as a chunk.
 				if !more {
-					if err := w.put(); err != nil {
-						return err
+					if w.annotations[len(w.annotations)-1].buf.Len() > 0 {
+						// Last chunk in byte stream is an edge chunk.
+						if err := w.put(true); err != nil {
+							return err
+						}
 					}
 					nextDataSet = nil
 					break
@@ -141,75 +142,20 @@ func (w *worker) run(dataSet *dataSet) error {
 func (w *worker) rollDataSet(dataSet *dataSet) error {
 	// Roll across the annotations in the data set.
 	for _, a := range dataSet.annotations {
-		if err := w.copyDataReaders(a); err != nil {
-			return err
-		}
-		if err := w.roll(a); err != nil {
-			return err
-		}
-		// Reset hash between annotations.
-		w.resetHash()
-	}
-	return nil
-}
-
-func (w *worker) copyDataReaders(a *Annotation) error {
-	for _, dr := range a.drs {
-		if w.first {
-			if err := w.rollDataReader(dr); err != nil {
+		if a.buf.Len() > 0 {
+			if err := w.roll(a); err != nil {
 				return err
 			}
-			continue
-		}
-		// Flush buffered data readers if they will not be cheap copied.
-		if len(w.drs) > 0 && w.drs[0].DataRef().Chunk.Hash != dr.DataRef().Chunk.Hash {
-			if err := w.flushDataReaders(); err != nil {
+			// Reset hash between annotations.
+			w.resetHash()
+		} else {
+			if err := w.copyDataReaders(a); err != nil {
 				return err
 			}
-			w.drs = nil
-			w.size = 0
-		}
-		w.drs = append(w.drs, dr)
-		w.size += dr.Len()
-		// Cheap copy if full chunk is buffered.
-		if w.size == dr.DataRef().Chunk.SizeBytes {
-			// (bryce) I think passing the chunk ref into the callback is no longer necessary
-			// in the indexing and can be removed.
-			chunkRef := &(*dr.DataRef())
-			chunkRef.Hash = ""
-			chunkRef.OffsetBytes = 0
-			chunkRef.SizeBytes = dr.DataRef().Chunk.SizeBytes
-			for i, a := range w.annotations {
-				a.NextDataRef = w.drs[i].DataRef()
-			}
-			if err := w.f(chunkRef, w.annotations); err != nil {
-				return err
-			}
-			w.drs = nil
-			w.size = 0
 		}
 	}
-	return nil
-}
-
-func (w *worker) rollDataReader(dr *DataReader) error {
-	a := w.annotations[len(w.annotations)-1]
-	if err := dr.Iterate(func(tag *Tag, r io.Reader) error {
-		a.tags = joinTags(a.tags, []*Tag{tag})
-		_, err := io.Copy(a.buf, r)
+	if err := w.flushDataReaders(); err != nil {
 		return err
-	}); err != nil {
-		return err
-	}
-	defer a.buf.Reset()
-	return w.roll(a)
-}
-
-func (w *worker) flushDataReaders() error {
-	for _, dr := range w.drs {
-		if err := w.rollDataReader(dr); err != nil {
-			return err
-		}
 	}
 	return nil
 }
@@ -224,6 +170,7 @@ func (w *worker) roll(a *Annotation) error {
 			var beforeSplitA *Annotation
 			beforeSplitA, a = splitAnnotation(a, i+1-offset)
 			w.annotations = joinAnnotations(w.annotations, beforeSplitA)
+			offset = i + 1
 			// Send the annotations up to this point to the prior worker if this
 			// is the first split point encountered by this worker.
 			if w.prev != nil && w.first {
@@ -234,12 +181,11 @@ func (w *worker) roll(a *Annotation) error {
 				}
 				dataSet := &dataSet{annotations: w.annotations}
 				w.prev.dataSet <- dataSet
-				w.first = false
-			} else if err := w.put(); err != nil {
+			} else if err := w.put(w.first); err != nil {
 				return err
 			}
 			w.annotations = nil
-			offset += i
+			w.first = false
 		}
 	}
 	w.annotations = joinAnnotations(w.annotations, a)
@@ -254,12 +200,16 @@ func (w *worker) numBytesRolled() int {
 	return numBytes
 }
 
-func (w *worker) put() error {
+func (w *worker) put(edge bool) error {
 	var chunkBytes []byte
 	for _, a := range w.annotations {
 		chunkBytes = append(chunkBytes, a.buf.Bytes()...)
 	}
-	chunk := &Chunk{Hash: hash.EncodeHash(hash.Sum(chunkBytes))}
+	chunk := &Chunk{
+		Hash:      hash.EncodeHash(hash.Sum(chunkBytes)),
+		SizeBytes: int64(len(chunkBytes)),
+		Edge:      edge,
+	}
 	path := path.Join(prefix, chunk.Hash)
 	// If the chunk does not exist, upload it.
 	if !w.objC.Exists(w.ctx, path) {
@@ -281,28 +231,21 @@ func (w *worker) put() error {
 }
 
 func (w *worker) updateAnnotations(chunkRef *DataRef) {
-	// (bryce) add check for no buf and greater than one annotation.
-	// Fast path for next data reference being full chunk.
-	if len(w.annotations) == 1 && w.annotations[0].NextDataRef != nil {
-		w.annotations[0].NextDataRef = chunkRef
-		return
-	}
 	var offset int64
 	for _, a := range w.annotations {
 		// (bryce) probably a better way to communicate whether to compute datarefs for an annotation.
+		a.Offset = offset
 		if a.NextDataRef != nil {
 			a.NextDataRef.Chunk = chunkRef.Chunk
-			a.NextDataRef.Hash = hash.EncodeHash(hash.Sum(a.buf.Bytes()))
+			if len(w.annotations) > 1 {
+				a.NextDataRef.Hash = hash.EncodeHash(hash.Sum(a.buf.Bytes()))
+			}
 			a.NextDataRef.OffsetBytes = offset
 			a.NextDataRef.SizeBytes = int64(a.buf.Len())
-			offset += a.NextDataRef.SizeBytes
+			a.NextDataRef.Tags, a.tags = splitTags(a.tags, a.buf.Len())
 		}
+		offset += int64(a.buf.Len())
 	}
-}
-
-func (w *worker) resetHash() {
-	w.hash.Reset()
-	w.hash.Write(initialWindow)
 }
 
 func (w *worker) upload(path string, chunk []byte) error {
@@ -319,6 +262,99 @@ func (w *worker) upload(path string, chunk []byte) error {
 	// (bryce) Encrypt?
 	_, err = io.Copy(gzipW, bytes.NewReader(chunk))
 	return err
+}
+
+func (w *worker) resetHash() {
+	w.hash.Reset()
+	w.hash.Write(initialWindow)
+}
+
+func (w *worker) copyDataReaders(a *Annotation) error {
+	for _, dr := range a.drs {
+		// We can only consider a data reader for buffering / cheap copying
+		// when it does not reference an edge chunk and we are at a split point.
+		if dr.DataRef().Chunk.Edge || !w.atSplit() {
+			if err := w.flushDataReaders(); err != nil {
+				return err
+			}
+			if err := w.rollDataReader(copyAnnotation(a), dr); err != nil {
+				return err
+			}
+			continue
+		}
+		// Flush buffered annotations if the next data reader is from a different chunk.
+		if len(w.bufAnnotations) > 0 {
+			lastA := w.bufAnnotations[len(w.bufAnnotations)-1]
+			if lastA.drs[0].DataRef().Chunk.Hash != dr.DataRef().Chunk.Hash {
+				if err := w.flushDataReaders(); err != nil {
+					return err
+				}
+			}
+		}
+		// Join annotation with current buffered annotations, then buffer the current data reader.
+		w.bufAnnotations = joinAnnotations(w.bufAnnotations, copyAnnotation(a))
+		lastA := w.bufAnnotations[len(w.bufAnnotations)-1]
+		lastA.drs = append(lastA.drs, dr)
+		w.bufSize += dr.Len()
+		// Cheap copy if full chunk is buffered.
+		if w.bufSize == dr.DataRef().Chunk.SizeBytes {
+			// (bryce) I think passing the chunk ref into the callback is no longer necessary
+			// in the indexing and can be removed.
+			chunkRef := proto.Clone(dr.DataRef()).(*DataRef)
+			chunkRef.Hash = ""
+			chunkRef.OffsetBytes = 0
+			chunkRef.SizeBytes = chunkRef.Chunk.SizeBytes
+			for _, a := range w.bufAnnotations {
+				// (bryce) need to handle tags.
+				var size int64
+				for _, dr := range a.drs {
+					size += dr.DataRef().SizeBytes
+				}
+				a.NextDataRef = a.drs[0].DataRef()
+				a.NextDataRef.SizeBytes = size
+			}
+			annotations := w.bufAnnotations
+			w.fs = append(w.fs, func() error {
+				return w.f(chunkRef, annotations)
+			})
+			w.bufAnnotations = nil
+			w.bufSize = 0
+		}
+	}
+	return nil
+}
+
+func (w *worker) atSplit() bool {
+	return w.prev != nil && (!w.first && w.numBytesRolled() == 0)
+}
+
+func (w *worker) rollDataReader(a *Annotation, dr *DataReader) error {
+	if err := dr.Iterate(func(tag *Tag, r io.Reader) error {
+		_, err := io.Copy(a.buf, r)
+		if err != nil {
+			return err
+		}
+		a.tags = append(a.tags, tag)
+		return nil
+	}); err != nil {
+		return err
+	}
+	return w.roll(a)
+}
+
+func (w *worker) flushDataReaders() error {
+	for _, a := range w.bufAnnotations {
+		for _, dr := range a.drs {
+			if err := w.rollDataReader(copyAnnotation(a), dr); err != nil {
+				return err
+			}
+		}
+		// Reset hash between annotations.
+		w.resetHash()
+	}
+	w.bufAnnotations = nil
+	w.bufSize = 0
+	return nil
 }
 
 func (w *worker) executeFuncs() error {
@@ -398,7 +434,6 @@ func newWriter(ctx context.Context, objC obj.Client, averageBits int, f WriterFu
 func (w *Writer) Annotate(a *Annotation) {
 	w.finishTag()
 	a.buf = &bytes.Buffer{}
-	a.tags = []*Tag{}
 	w.annotations = append(w.annotations, a)
 	w.stats.annotationCount++
 }
@@ -422,7 +457,7 @@ func (w *Writer) FinishTag(t string) {
 func (w *Writer) finishTag() {
 	if len(w.annotations) > 0 {
 		a := w.annotations[len(w.annotations)-1]
-		if len(a.tags) > 0 {
+		if a.tags != nil {
 			a.tags[len(a.tags)-1].SizeBytes = w.stats.taggedBytesSize
 			w.stats.taggedBytesSize = 0
 		}
@@ -443,6 +478,7 @@ func (w *Writer) Write(data []byte) (int, error) {
 		a.buf.Write(data[:i])
 		w.stats.taggedBytesSize += int64(i)
 		w.writeDataSet()
+		a = w.annotations[len(w.annotations)-1]
 		written += i
 		data = data[i:]
 	}
@@ -471,14 +507,9 @@ func (w *Writer) writeDataSet() {
 	w.bufSize = 0
 }
 
-func (w *Writer) Copy(dr *DataReader, tagBound ...string) error {
-	var err error
-	dr, err = dr.LimitReader(tagBound...)
-	if err == nil {
-		return err
-	}
-	a := w.annotations[len(w.annotations)-1]
-	a.drs = append(a.drs, dr)
+func (w *Writer) Copy(dr *DataReader) error {
+	lastA := w.annotations[len(w.annotations)-1]
+	lastA.drs = append(lastA.drs, dr)
 	w.bufSize += int(dr.Len())
 	if w.bufSize > bufSize {
 		w.writeDataSet()
@@ -508,7 +539,9 @@ func joinAnnotations(as []*Annotation, a *Annotation) []*Annotation {
 		lastA := as[len(as)-1]
 		if lastA.Meta == a.Meta {
 			lastA.buf.Write(a.buf.Bytes())
-			lastA.tags = joinTags(lastA.tags, a.tags)
+			if lastA.tags != nil {
+				lastA.tags = joinTags(lastA.tags, a.tags)
+			}
 			return as
 		}
 	}
@@ -525,20 +558,27 @@ func joinTags(ts1, ts2 []*Tag) []*Tag {
 }
 
 func splitAnnotation(a *Annotation, size int) (*Annotation, *Annotation) {
-	a1 := &Annotation{
-		Meta: a.Meta,
-		buf:  bytes.NewBuffer(a.buf.Bytes()[:size]),
+	a1 := copyAnnotation(a)
+	a2 := copyAnnotation(a)
+	if a.buf != nil {
+		a1.buf = bytes.NewBuffer(a.buf.Bytes()[:size])
+		a2.buf = bytes.NewBuffer(a.buf.Bytes()[size:])
 	}
-	a2 := &Annotation{
-		Meta: a.Meta,
-		buf:  bytes.NewBuffer(a.buf.Bytes()[size:]),
+	if a.tags != nil {
+		a1.tags, a2.tags = splitTags(a.tags, size)
 	}
-	if a.NextDataRef != nil {
-		a1.NextDataRef = &DataRef{}
-		a2.NextDataRef = &DataRef{}
-	}
-	a1.tags, a2.tags = splitTags(a.tags, size)
 	return a1, a2
+}
+
+func copyAnnotation(a *Annotation) *Annotation {
+	copyA := &Annotation{Meta: a.Meta}
+	if a.NextDataRef != nil {
+		copyA.NextDataRef = &DataRef{}
+	}
+	if a.buf != nil {
+		copyA.buf = &bytes.Buffer{}
+	}
+	return copyA
 }
 
 func splitTags(ts []*Tag, size int) ([]*Tag, []*Tag) {
