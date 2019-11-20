@@ -154,7 +154,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 		Host: "",
 		Port: env.PeerPort,
 	}
-	server, err := grpcutil.NewServer(context.Background(), &tcpConfig, nil, grpcutil.MaxMsgSize, false)
+	server, err := grpcutil.NewServer(&tcpConfig, nil, false)
 	if err != nil {
 		return err
 	}
@@ -239,7 +239,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 	))
 	txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer)
 
-	return server.StartAndWait()
+	return server.StartAndWait(context.Background())
 }
 
 func doFullMode(config interface{}) (retErr error) {
@@ -373,7 +373,7 @@ func doFullMode(config interface{}) (retErr error) {
 		tcpConfig := grpcutil.TCPConfig{
 			Port: env.Port,
 		}
-		server, err := grpcutil.NewServer(context.Background(), &tcpConfig, nil, grpcutil.MaxMsgSize, true)
+		server, err := grpcutil.NewServer(&tcpConfig, nil, grpcutil.MaxMsgSize, true)
 		if err != nil {
 			return err
 		}
@@ -465,13 +465,13 @@ func doFullMode(config interface{}) (retErr error) {
 		))
 		txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer)
 
-		return server.StartAndWait()
+		return server.StartAndWait(context.Background())
 	})
 	eg.Go(func() error {
 		tcpConfig := grpcutil.TCPConfig{
 			Port: env.PeerPort,
 		}
-		server, err := grpcutil.NewServer(context.Background(), &tcpConfig, nil, grpcutil.MaxMsgSize, true)
+		server, err := grpcutil.NewServer(&tcpConfig, nil, grpcutil.MaxMsgSize, true)
 		if err != nil {
 			return err
 		}
@@ -577,7 +577,7 @@ func doFullMode(config interface{}) (retErr error) {
 		versionpb.RegisterAPIServer(server.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
 		adminclient.RegisterAPIServer(server.Server, adminserver.NewAPIServer(address, env.StorageRoot, &adminclient.ClusterInfo{ID: clusterID}))
 		txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer)
-		return server.StartAndWait()
+		return server.StartAndWait(context.Background())
 	})
 
 	// TODO(msteffen): Is it really necessary to indicate that the peer service is

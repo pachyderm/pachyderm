@@ -61,7 +61,7 @@ func runServers(
 	tcpConfig := grpcutil.TCPConfig{
 		Port: uint16(port),
 	}
-	server, err := grpcutil.NewServer(context.Background(), &tcpConfig, nil, grpcutil.MaxMsgSize, false)
+	server, err := grpcutil.NewServer(&tcpConfig, nil, false)
 	if err != nil {
 		return err
 	}
@@ -70,7 +70,7 @@ func runServers(
 	auth.RegisterAPIServer(server.Server, authServer)
 	transaction.RegisterAPIServer(server.Server, txnServer)
 	go func() {
-		require.NoError(t, server.StartAndWait())
+		require.NoError(t, server.StartAndWait(context.Background()))
 	}()
 }
 

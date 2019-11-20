@@ -41,8 +41,7 @@ type Server struct {
 	TCPListener net.Listener
 	UDSListener net.Listener
 
-	eg  *errgroup.Group
-	ctx context.Context
+	eg *errgroup.Group
 
 	tcpConfig *TCPConfig
 	udsConfig *UDSConfig
@@ -56,7 +55,7 @@ type Server struct {
 // corresponding private key in 'TLSVolumePath', this will serve GRPC traffic
 // over TLS. If either are missing this will serve GRPC traffic over
 // unencrypted HTTP,
-func NewServer(ctx context.Context, tcpConfig *TCPConfig, udsConfig *UDSConfig, maxMsgSize int, publicPortTLSAllowed bool) (*Server, error) {
+func NewServer(tcpConfig *TCPConfig, udsConfig *UDSConfig, publicPortTLSAllowed bool) (*Server, error) {
 	// TODO make the TLS cert and key path a parameter, as pachd will need
 	// multiple certificates for multiple ports
 	if tcpConfig == nil && udsConfig == nil {
@@ -65,8 +64,8 @@ func NewServer(ctx context.Context, tcpConfig *TCPConfig, udsConfig *UDSConfig, 
 
 	opts := []grpc.ServerOption{
 		grpc.MaxConcurrentStreams(math.MaxUint32),
-		grpc.MaxRecvMsgSize(maxMsgSize),
-		grpc.MaxSendMsgSize(maxMsgSize),
+		grpc.MaxRecvMsgSize(MaxMsgSize),
+		grpc.MaxSendMsgSize(MaxMsgSize),
 		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
 			MinTime:             5 * time.Second,
 			PermitWithoutStream: true,
@@ -92,21 +91,19 @@ func NewServer(ctx context.Context, tcpConfig *TCPConfig, udsConfig *UDSConfig, 
 	return &Server{
 		Server: grpc.NewServer(opts...),
 		eg:     nil,
-		ctx:    ctx,
 
 		tcpConfig: tcpConfig,
 		udsConfig: udsConfig,
 	}, nil
 }
 
-func (s *Server) Start() error {
+func (s *Server) Start(ctx context.Context) error {
 	if s.eg != nil {
 		return ErrServerAlreadyStarted
 	}
 
-	var ctx context.Context
 	var err error
-	s.eg, ctx = errgroup.WithContext(s.ctx)
+	s.eg, ctx = errgroup.WithContext(ctx)
 
 	if s.tcpConfig != nil {
 		s.TCPListener, err = net.Listen("tcp", fmt.Sprintf("%s:%d", s.tcpConfig.Host, s.tcpConfig.Port))
@@ -139,8 +136,8 @@ func (s *Server) Start() error {
 	return nil
 }
 
-func (s *Server) StartAndWait() error {
-	if err := s.Start(); err != nil {
+func (s *Server) StartAndWait(ctx context.Context) error {
+	if err := s.Start(ctx); err != nil {
 		return err
 	}
 	return s.eg.Wait()

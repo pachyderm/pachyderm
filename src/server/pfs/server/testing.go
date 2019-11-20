@@ -60,7 +60,7 @@ func runServers(
 	tcpConfig := grpcutil.TCPConfig{
 		Port: uint16(port),
 	}
-	server, err := grpcutil.NewServer(context.Background(), &tcpConfig, nil, grpcutil.MaxMsgSize, false)
+	server, err := grpcutil.NewServer(&tcpConfig, nil, false)
 	require.NoError(t, err)
 
 	pfs.RegisterAPIServer(server.Server, apiServer)
@@ -69,7 +69,7 @@ func runServers(
 	versionpb.RegisterAPIServer(server.Server,
 		version.NewAPIServer(version.Version, version.APIServerOptions{}))
 	go func() {
-		require.NoError(t, server.StartAndWait())
+		require.NoError(t, server.StartAndWait(context.Background()))
 	}()
 }
 

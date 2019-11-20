@@ -1239,7 +1239,7 @@ func NewMockPachd() (*MockPachd, error) {
 	mock.Admin.api.mock = &mock.Admin
 
 	tcpConfig := grpcutil.TCPConfig{}
-	server, err := grpcutil.NewServer(ctx, &tcpConfig, nil, grpcutil.MaxMsgSize, false)
+	server, err := grpcutil.NewServer(&tcpConfig, nil, false)
 	if err != nil {
 		return nil, err
 	}
@@ -1253,7 +1253,7 @@ func NewMockPachd() (*MockPachd, error) {
 	transaction.RegisterAPIServer(server.Server, &mock.Transaction.api)
 	version.RegisterAPIServer(server.Server, &mock.Version.api)
 
-	if err := server.Start(); err != nil {
+	if err := server.Start(ctx); err != nil {
 		return nil, err
 	}
 

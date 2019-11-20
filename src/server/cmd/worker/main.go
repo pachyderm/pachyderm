@@ -155,7 +155,7 @@ func do(config interface{}) error {
 	tcpConfig := grpcutil.TCPConfig{
 		Port: env.PPSWorkerPort,
 	}
-	server, err := grpcutil.NewServer(context.Background(), &tcpConfig, nil, grpcutil.MaxMsgSize, false)
+	server, err := grpcutil.NewServer(&tcpConfig, nil, false)
 	if err != nil {
 		return err
 	}
@@ -189,5 +189,5 @@ func do(config interface{}) error {
 	}
 
 	// If server ever exits, return error
-	return server.Wait()
+	return server.StartAndWait(context.Background())
 }
