@@ -19,136 +19,129 @@ import (
 )
 
 var (
-	// ErrMustSpecifyRegisterFunc is used when a register func is nil.
-	ErrMustSpecifyRegisterFunc = errors.New("must specify registerFunc")
+	// ErrMustSpecifyNetConfig is used when no TCP or UDS config is specified
+	ErrMustSpecifyNetConfig = errors.New("must specify a TCP or UDS config, or both")
 
-	// ErrMustSpecifyPort is used when a port is 0
-	ErrMustSpecifyPort = errors.New("must specify port on which to serve")
+	// ErrServerAlreadyStarted is used when attempting to start a server that
+	// is already running
+	ErrServerAlreadyStarted = errors.New("server already started")
 )
 
-// ServerOptions represent optional fields for serving.
-type ServerOptions struct {
-	Host         string
-	Port         uint16
-	AnyPort      bool
-	MaxMsgSize   int
-	RegisterFunc func(*grpc.Server) error
+type TCPConfig struct {
+	Host string
+	Port uint16
+}
 
-	// If set, grpcutil may enable TLS.  This should be set for public ports that
-	// serve GRPC services to 3rd party clients.
-	//
-	// If set, the criterion for actually serving over TLS is:
-	// if a signed TLS cert and corresponding private key in 'TLSVolumePath',
-	// this will serve GRPC traffic over TLS. If either are missing this will
-	// serve GRPC traffic over unencrypted HTTP,
-	//
+type UDSConfig struct {
+	Name string
+}
+
+type Server struct {
+	Server      *grpc.Server
+	TCPListener net.Listener
+	UDSListener net.Listener
+
+	eg  *errgroup.Group
+	ctx context.Context
+
+	tcpConfig *TCPConfig
+	udsConfig *UDSConfig
+}
+
+// NewServer creates a new gRPC server, but does not start serving yet.
+//
+// If 'publicPortTLSAllowed' is set, grpcutil may enable TLS. This should be
+// set for public ports that serve GRPC services to 3rd party clients. If set,
+// the criterion for actually serving over TLS is: if a signed TLS cert and
+// corresponding private key in 'TLSVolumePath', this will serve GRPC traffic
+// over TLS. If either are missing this will serve GRPC traffic over
+// unencrypted HTTP,
+func NewServer(ctx context.Context, tcpConfig *TCPConfig, udsConfig *UDSConfig, maxMsgSize int, publicPortTLSAllowed bool) (*Server, error) {
 	// TODO make the TLS cert and key path a parameter, as pachd will need
 	// multiple certificates for multiple ports
-	PublicPortTLSAllowed bool
-}
-
-// ServerRun is the long-lived results of calling Serve and can be used to
-// inspect or modify the servers directly. Specifically Listener can be used to
-// obtain the listener port if AnyPort=true is used.
-type ServerRun struct {
-	GrpcServer *grpc.Server
-	Listener   net.Listener
-	Err        error
-}
-
-// Serve serves stuff.
-func Serve(
-	ctx context.Context,
-	servers ...ServerOptions,
-) ([]*ServerRun, *errgroup.Group) {
-	serverRuns := []*ServerRun{}
-	eg, ctx := errgroup.WithContext(ctx)
-	ready := make(chan bool, len(servers))
-
-	for _, server := range servers {
-		serverRun := &ServerRun{}
-		serverRuns = append(serverRuns, serverRun)
-
-		eg.Go(func() (err error) {
-			defer func() {
-				serverRun.Err = err
-			}()
-
-			if server.RegisterFunc == nil {
-				return ErrMustSpecifyRegisterFunc
-			}
-			if server.Port == 0 && !server.AnyPort {
-				return ErrMustSpecifyPort
-			}
-			opts := []grpc.ServerOption{
-				grpc.MaxConcurrentStreams(math.MaxUint32),
-				grpc.MaxRecvMsgSize(server.MaxMsgSize),
-				grpc.MaxSendMsgSize(server.MaxMsgSize),
-				grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
-					MinTime:             5 * time.Second,
-					PermitWithoutStream: true,
-				}),
-				grpc.UnaryInterceptor(tracing.UnaryServerInterceptor()),
-				grpc.StreamInterceptor(tracing.StreamServerInterceptor()),
-			}
-			if server.PublicPortTLSAllowed {
-				// Validate environment
-				certPath, keyPath, err := tls.GetCertPaths()
-				if err != nil {
-					log.Warnf("TLS disabled: %v", err)
-				} else {
-					// Read TLS cert and key
-					transportCreds, err := credentials.NewServerTLSFromFile(certPath, keyPath)
-					if err != nil {
-						return fmt.Errorf("couldn't build transport creds: %v", err)
-					}
-					opts = append(opts, grpc.Creds(transportCreds))
-				}
-			}
-
-			serverRun.GrpcServer = grpc.NewServer(opts...)
-			if err = server.RegisterFunc(serverRun.GrpcServer); err != nil {
-				return err
-			}
-
-			port := server.Port
-			if server.AnyPort {
-				port = 0
-			}
-			serverRun.Listener, err = net.Listen("tcp", fmt.Sprintf("%s:%d", server.Host, port))
-			if err != nil {
-				return err
-			}
-
-			eg.Go(func() error {
-				<-ctx.Done()
-				serverRun.GrpcServer.GracefulStop() // This also closes the TCP listener
-				return nil
-			})
-
-			ready <- true
-
-			return serverRun.GrpcServer.Serve(serverRun.Listener)
-		})
+	if tcpConfig == nil && udsConfig == nil {
+		return nil, ErrMustSpecifyNetConfig
 	}
 
-	for range servers {
-		select {
-		case <-ready:
-			continue
-		case <-ctx.Done():
-			err := fmt.Errorf("Canceled before servers became ready: %v", ctx.Err())
-			eg.Go(func() error {
-				return err
-			})
-			for _, run := range serverRuns {
-				if run.Err != nil {
-					run.Err = err
-				}
+	opts := []grpc.ServerOption{
+		grpc.MaxConcurrentStreams(math.MaxUint32),
+		grpc.MaxRecvMsgSize(maxMsgSize),
+		grpc.MaxSendMsgSize(maxMsgSize),
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime:             5 * time.Second,
+			PermitWithoutStream: true,
+		}),
+		grpc.UnaryInterceptor(tracing.UnaryServerInterceptor()),
+		grpc.StreamInterceptor(tracing.StreamServerInterceptor()),
+	}
+	if publicPortTLSAllowed {
+		// Validate environment
+		certPath, keyPath, err := tls.GetCertPaths()
+		if err != nil {
+			log.Warnf("TLS disabled: %v", err)
+		} else {
+			// Read TLS cert and key
+			transportCreds, err := credentials.NewServerTLSFromFile(certPath, keyPath)
+			if err != nil {
+				return nil, fmt.Errorf("couldn't build transport creds: %v", err)
 			}
-			return serverRuns, eg
+			opts = append(opts, grpc.Creds(transportCreds))
 		}
 	}
 
-	return serverRuns, eg
+	return &Server{
+		Server: grpc.NewServer(opts...),
+		eg:     nil,
+		ctx:    ctx,
+
+		tcpConfig: tcpConfig,
+		udsConfig: udsConfig,
+	}, nil
+}
+
+func (s *Server) Start() error {
+	if s.eg != nil {
+		return ErrServerAlreadyStarted
+	}
+
+	var ctx context.Context
+	var err error
+	s.eg, ctx = errgroup.WithContext(s.ctx)
+
+	if s.tcpConfig != nil {
+		s.TCPListener, err = net.Listen("tcp", fmt.Sprintf("%s:%d", s.tcpConfig.Host, s.tcpConfig.Port))
+		if err != nil {
+			return err
+		}
+
+		s.eg.Go(func() error {
+			return s.Server.Serve(s.TCPListener)
+		})
+	}
+
+	if s.udsConfig != nil {
+		s.UDSListener, err = net.Listen("unix", s.udsConfig.Name)
+		if err != nil {
+			return err
+		}
+
+		s.eg.Go(func() error {
+			return s.Server.Serve(s.UDSListener)
+		})
+	}
+
+	s.eg.Go(func() error {
+		<-ctx.Done()
+		s.Server.GracefulStop() // This also closes the listeners
+		return nil
+	})
+
+	return nil
+}
+
+func (s *Server) StartAndWait() error {
+	if err := s.Start(); err != nil {
+		return err
+	}
+	return s.eg.Wait()
 }

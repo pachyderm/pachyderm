@@ -58,21 +58,19 @@ func runServers(
 	authServer auth.APIServer,
 	txnServer APIServer,
 ) {
-	_, eg := grpcutil.Serve(
-		context.Background(),
-		grpcutil.ServerOptions{
-			Port:       uint16(port),
-			MaxMsgSize: grpcutil.MaxMsgSize,
-			RegisterFunc: func(s *grpc.Server) error {
-				pfs.RegisterAPIServer(s, pfsServer)
-				pfs.RegisterObjectAPIServer(s, pfsBlockServer)
-				auth.RegisterAPIServer(s, authServer)
-				transaction.RegisterAPIServer(s, txnServer)
-				return nil
-			}},
-	)
+	tcpConfig := grpcutil.TCPConfig{
+		Port: uint16(port),
+	}
+	server, err := grpcutil.NewServer(context.Background(), &tcpConfig, nil, grpcutil.MaxMsgSize, false)
+	if err != nil {
+		return err
+	}
+	pfs.RegisterAPIServer(server.Server, pfsServer)
+	pfs.RegisterObjectAPIServer(server.Server, pfsBlockServer)
+	auth.RegisterAPIServer(server.Server, authServer)
+	transaction.RegisterAPIServer(server.Server, txnServer)
 	go func() {
-		require.NoError(t, eg.Wait())
+		require.NoError(t, server.StartAndWait())
 	}()
 }
 

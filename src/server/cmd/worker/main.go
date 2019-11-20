@@ -152,19 +152,17 @@ func do(config interface{}) error {
 	}
 
 	// Start worker api server
-	_, eg := grpcutil.Serve(
-		context.Background(),
-		grpcutil.ServerOptions{
-			MaxMsgSize: grpcutil.MaxMsgSize,
-			Port:       env.PPSWorkerPort,
-			RegisterFunc: func(s *grpc.Server) error {
-				worker.RegisterWorkerServer(s, apiServer)
-				versionpb.RegisterAPIServer(s, version.NewAPIServer(version.Version, version.APIServerOptions{}))
-				debugclient.RegisterDebugServer(s, debugserver.NewDebugServer(env.PodName, env.GetEtcdClient(), env.PPSEtcdPrefix, env.PPSWorkerPort))
-				return nil
-			},
-		},
-	)
+	tcpConfig := grpcutil.TCPConfig{
+		Port: env.PPSWorkerPort,
+	}
+	server, err := grpcutil.NewServer(context.Background(), &tcpConfig, nil, grpcutil.MaxMsgSize, false)
+	if err != nil {
+		return err
+	}
+
+	worker.RegisterWorkerServer(server.Server, apiServer)
+	versionpb.RegisterAPIServer(server.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
+	debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(env.PodName, env.GetEtcdClient(), env.PPSEtcdPrefix, env.PPSWorkerPort))
 
 	// Put our IP address into etcd, so pachd can discover us
 	key := path.Join(env.PPSEtcdPrefix, worker.WorkerEtcdPrefix, workerRcName, env.PPSWorkerIP)
@@ -191,5 +189,5 @@ func do(config interface{}) error {
 	}
 
 	// If server ever exits, return error
-	return eg.Wait()
+	return server.Wait()
 }
