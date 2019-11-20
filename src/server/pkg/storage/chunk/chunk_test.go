@@ -18,7 +18,7 @@ func Write(t *testing.T, chunks *Storage, n, annotationSize int) ([]*DataRef, []
 	var finalDataRefs []*DataRef
 	var seq []byte
 	t.Run("Write", func(t *testing.T) {
-		f := func(_ *DataRef, annotations []*Annotation) error {
+		f := func(annotations []*Annotation) error {
 			for _, a := range annotations {
 				finalDataRefs = append(finalDataRefs, a.NextDataRef)
 			}
@@ -72,7 +72,7 @@ func BenchmarkWriter(b *testing.B) {
 	b.SetBytes(100 * MB)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		f := func(_ *DataRef, _ []*Annotation) error { return nil }
+		f := func(_ []*Annotation) error { return nil }
 		w := chunks.NewWriter(context.Background(), averageBits, f, 0)
 		for i := 0; i < 100; i++ {
 			w.Annotate(&Annotation{
@@ -115,7 +115,7 @@ func TestCopy(t *testing.T) {
 	}))
 	// Copy data from readers into new writer.
 	var finalDataRefs []*DataRef
-	f := func(_ *DataRef, annotations []*Annotation) error {
+	f := func(annotations []*Annotation) error {
 		for _, a := range annotations {
 			finalDataRefs = append(finalDataRefs, a.NextDataRef)
 		}

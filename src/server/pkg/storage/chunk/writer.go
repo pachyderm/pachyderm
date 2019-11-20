@@ -27,8 +27,8 @@ const (
 // of the rolling hash function.
 var initialWindow = make([]byte, WindowSize)
 
-// WriterFunc is a callback that returns a data reference to the next chunk and the annotations within the chunk.
-type WriterFunc func(*DataRef, []*Annotation) error
+// WriterFunc is a callback that returns the annotations within a chunk.
+type WriterFunc func([]*Annotation) error
 
 // dataSet is a unit of work for the workers.
 // A worker will roll the rolling hash function across the data set
@@ -225,7 +225,7 @@ func (w *worker) put(edge bool) error {
 	w.updateAnnotations(chunkRef)
 	annotations := w.annotations
 	w.fs = append(w.fs, func() error {
-		return w.f(chunkRef, annotations)
+		return w.f(annotations)
 	})
 	return nil
 }
@@ -234,7 +234,6 @@ func (w *worker) updateAnnotations(chunkRef *DataRef) {
 	var offset int64
 	for _, a := range w.annotations {
 		// (bryce) probably a better way to communicate whether to compute datarefs for an annotation.
-		a.Offset = offset
 		if a.NextDataRef != nil {
 			a.NextDataRef.Chunk = chunkRef.Chunk
 			if len(w.annotations) > 1 {
@@ -298,12 +297,6 @@ func (w *worker) copyDataReaders(a *Annotation) error {
 		w.bufSize += dr.Len()
 		// Cheap copy if full chunk is buffered.
 		if w.bufSize == dr.DataRef().Chunk.SizeBytes {
-			// (bryce) I think passing the chunk ref into the callback is no longer necessary
-			// in the indexing and can be removed.
-			chunkRef := proto.Clone(dr.DataRef()).(*DataRef)
-			chunkRef.Hash = ""
-			chunkRef.OffsetBytes = 0
-			chunkRef.SizeBytes = chunkRef.Chunk.SizeBytes
 			for _, a := range w.bufAnnotations {
 				// (bryce) need to handle tags.
 				var size int64
@@ -315,7 +308,7 @@ func (w *worker) copyDataReaders(a *Annotation) error {
 			}
 			annotations := w.bufAnnotations
 			w.fs = append(w.fs, func() error {
-				return w.f(chunkRef, annotations)
+				return w.f(annotations)
 			})
 			w.bufAnnotations = nil
 			w.bufSize = 0
