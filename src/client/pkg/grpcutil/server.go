@@ -17,6 +17,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// Server is a convenience wrapper to gRPC servers that simplifies their
+// setup and execution
 type Server struct {
 	Server *grpc.Server
 	eg     *errgroup.Group
@@ -73,6 +75,7 @@ func NewServer(ctx context.Context, publicPortTLSAllowed bool) (*Server, error) 
 	}, nil
 }
 
+// ListenTCP causes the gRPC server to listen on a given TCP host and port
 func (s *Server) ListenTCP(host string, port uint16) (net.Listener, error) {
 	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
@@ -86,6 +89,8 @@ func (s *Server) ListenTCP(host string, port uint16) (net.Listener, error) {
 	return listener, nil
 }
 
+// ListenUDS causes the gRPC server to listen on a given Unix domain socket
+// path
 func (s *Server) ListenUDS(name string) (net.Listener, error) {
 	listener, err := net.Listen("unix", name)
 	if err != nil {
@@ -99,6 +104,8 @@ func (s *Server) ListenUDS(name string) (net.Listener, error) {
 	return listener, nil
 }
 
+// Wait causes the gRPC server to wait until it finishes, returning any errors
+// that happened
 func (s *Server) Wait() error {
 	return s.eg.Wait()
 }
