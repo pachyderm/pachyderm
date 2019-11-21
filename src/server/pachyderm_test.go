@@ -9224,7 +9224,7 @@ func TestSpout(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c := getPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	defer require.NoError(t, c.DeleteAll())
 	t.Run("SpoutBasic", func(t *testing.T) {
 		dataRepo := tu.UniqueString("TestSpoutBasic_data")
 		require.NoError(t, c.CreateRepo(dataRepo))
@@ -9541,7 +9541,7 @@ func TestSpout(t *testing.T) {
 				Spout: &pps.Spout{}, // this needs to be non-nil to make it a spout
 			})
 		require.NoError(t, err)
-		fmt.Println("first pipeline")
+
 		// get 5 succesive commits, and ensure that the file size increases each time
 		// since the spout should be appending to that file on each commit
 		iter, err := c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED)
@@ -9583,7 +9583,7 @@ func TestSpout(t *testing.T) {
 				Update: true,
 			})
 		require.NoError(t, err)
-		fmt.Println("second pipeline")
+
 		for i := 0; i < 5; i++ {
 			commitInfo, err := iter.Next()
 			require.NoError(t, err)
@@ -9621,7 +9621,53 @@ func TestSpout(t *testing.T) {
 				t.Errorf("line did not have the expected form")
 			}
 		}
+
+		// now let's reprocess the spout
+		_, err = c.PpsAPIClient.CreatePipeline(
+			c.Ctx(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd: []string{"/bin/sh"},
+					Stdin: []string{
+						"cp /pfs/marker/test ./test",
+						"while [ : ]",
+						"do",
+						"sleep 1",
+						"echo $(tail -1 test). >> test",
+						"mkdir marker",
+						"cp test marker/test",
+						"tar -cvf /pfs/out ./marker/test*",
+						"done"},
+				},
+				Spout:     &pps.Spout{}, // this needs to be non-nil to make it a spout
+				Update:    true,
+				Reprocess: true,
+			})
+		require.NoError(t, err)
+
+		// we should get a single file with a pyramid of '.'s
+		commitInfo, err := iter.Next()
+		require.NoError(t, err)
+		files, err := c.ListFile(pipeline, commitInfo.Commit.ID, "")
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+
+		err = c.GetFile(pipeline, "master", "marker/test", 0, 0, &buf)
+		if err != nil {
+			t.Errorf("Could not get file %v", err)
+		}
+		for err != io.EOF {
+			line := ""
+			line, err = buf.ReadString('\n')
+
+			if len(line) > 1 && line != strings.Repeat(".", len(line)-1)+"\n" {
+				t.Errorf("line did not have the expected form")
+			}
+		}
 	})
+
+	// finally, let's make sure that the provenance is in a consistent state after running all of the spout tests
 	require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
 		if resp.Error != "" {
 			return fmt.Errorf("%v", resp.Error)

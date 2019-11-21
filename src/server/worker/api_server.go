@@ -542,7 +542,7 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 			return "", fmt.Errorf("mkfifo :%v", err)
 		}
 		_, err := pachClient.InspectFile(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "marker")
-		if err == nil {
+		if err != nil && strings.Contains(err.Error(), "not found") {
 			if err := puller.Pull(pachClient, filepath.Join(dir, "marker"), a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "/marker", false, false, concurrency, nil, ""); err != nil {
 				return "", err
 			}

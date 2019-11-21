@@ -1637,6 +1637,11 @@ func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo 
 			return fmt.Errorf("the following service type %s is not allowed", pipelineInfo.Service.Type)
 		}
 	}
+	if pipelineInfo.Spout != nil {
+		if pipelineInfo.EnableStats == true {
+			return fmt.Errorf("spouts are not allowed to have a stats branch")
+		}
+	}
 	return nil
 }
 
@@ -2177,6 +2182,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				return nil, err
 			}
 		}
+	}
+
+	// spouts don't need to keep track of branch provenance since they are essentially inputs
+	if request.Spout != nil {
+		provenance = nil
 	}
 
 	// Create/update output branch (creating new output commit for the pipeline
