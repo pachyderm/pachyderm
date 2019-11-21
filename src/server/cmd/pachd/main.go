@@ -369,6 +369,7 @@ func doFullMode(config interface{}) (retErr error) {
 		return fmt.Errorf("ListenAndServe: %v", err)
 	})
 	eg.Go(func() error {
+		// start public pachd server
 		server, err := grpcutil.NewServer(context.Background(), true)
 		if err != nil {
 			return err
@@ -467,7 +468,8 @@ func doFullMode(config interface{}) (retErr error) {
 		return server.Wait()
 	})
 	eg.Go(func() error {
-		server, err := grpcutil.NewServer(context.Background(), true)
+		// start internal pachd server
+		server, err := grpcutil.NewServer(context.Background(), false)
 		if err != nil {
 			return err
 		}
