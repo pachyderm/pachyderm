@@ -25,7 +25,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/worker"
-	"google.golang.org/grpc"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -152,10 +151,7 @@ func do(config interface{}) error {
 	}
 
 	// Start worker api server
-	tcpConfig := grpcutil.TCPConfig{
-		Port: env.PPSWorkerPort,
-	}
-	server, err := grpcutil.NewServer(&tcpConfig, nil, false)
+	server, err := grpcutil.NewServer(context.Background(), false)
 	if err != nil {
 		return err
 	}
@@ -189,5 +185,8 @@ func do(config interface{}) error {
 	}
 
 	// If server ever exits, return error
-	return server.StartAndWait(context.Background())
+	if _, err := server.ListenTCP("", env.PPSWorkerPort); err != nil {
+		return err
+	}
+	return server.Wait()
 }

@@ -58,19 +58,19 @@ func runServers(
 	authServer auth.APIServer,
 	txnServer APIServer,
 ) {
-	tcpConfig := grpcutil.TCPConfig{
-		Port: uint16(port),
-	}
-	server, err := grpcutil.NewServer(&tcpConfig, nil, false)
-	if err != nil {
-		return err
-	}
+	server, err := grpcutil.NewServer(context.Background(), false)
+	require.NoError(t, err)
+
 	pfs.RegisterAPIServer(server.Server, pfsServer)
 	pfs.RegisterObjectAPIServer(server.Server, pfsBlockServer)
 	auth.RegisterAPIServer(server.Server, authServer)
 	transaction.RegisterAPIServer(server.Server, txnServer)
+
+	_, err = server.ListenTCP("", uint16(port))
+	require.NoError(t, err)
+
 	go func() {
-		require.NoError(t, server.StartAndWait(context.Background()))
+		require.NoError(t, server.Wait())
 	}()
 }
 

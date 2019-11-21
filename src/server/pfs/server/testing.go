@@ -57,10 +57,7 @@ func runServers(
 	apiServer APIServer,
 	blockAPIServer BlockAPIServer,
 ) {
-	tcpConfig := grpcutil.TCPConfig{
-		Port: uint16(port),
-	}
-	server, err := grpcutil.NewServer(&tcpConfig, nil, false)
+	server, err := grpcutil.NewServer(context.Background(), false)
 	require.NoError(t, err)
 
 	pfs.RegisterAPIServer(server.Server, apiServer)
@@ -68,8 +65,12 @@ func runServers(
 	auth.RegisterAPIServer(server.Server, &authtesting.InactiveAPIServer{}) // PFS server uses auth API
 	versionpb.RegisterAPIServer(server.Server,
 		version.NewAPIServer(version.Version, version.APIServerOptions{}))
+
+	_, err = server.ListenTCP("", uint16(port))
+	require.NoError(t, err)
+
 	go func() {
-		require.NoError(t, server.StartAndWait(context.Background()))
+		require.NoError(t, server.Wait())
 	}()
 }
 

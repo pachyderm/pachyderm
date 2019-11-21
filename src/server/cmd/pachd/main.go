@@ -147,14 +147,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 	if err != nil {
 		return fmt.Errorf("lru.New: %v", err)
 	}
-	// The sidecar only needs to serve traffic on the peer port, as it only serves
-	// traffic from the user container (the worker binary and occasionally user
-	// pipelines)
-	tcpConfig := grpcserver.TCPConfig{
-		Host: "",
-		Port: env.PeerPort,
-	}
-	server, err := grpcutil.NewServer(&tcpConfig, nil, false)
+	server, err := grpcutil.NewServer(context.Background(), false)
 	if err != nil {
 		return err
 	}
@@ -239,7 +232,13 @@ func doSidecarMode(config interface{}) (retErr error) {
 	))
 	txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer)
 
-	return server.StartAndWait(context.Background())
+	// The sidecar only needs to serve traffic on the peer port, as it only serves
+	// traffic from the user container (the worker binary and occasionally user
+	// pipelines)
+	if _, err := server.ListenTCP("", env.PeerPort); err != nil {
+		return err
+	}
+	return server.Wait()
 }
 
 func doFullMode(config interface{}) (retErr error) {
@@ -370,10 +369,7 @@ func doFullMode(config interface{}) (retErr error) {
 		return fmt.Errorf("ListenAndServe: %v", err)
 	})
 	eg.Go(func() error {
-		tcpConfig := grpcutil.TCPConfig{
-			Port: env.Port,
-		}
-		server, err := grpcutil.NewServer(&tcpConfig, nil, grpcutil.MaxMsgSize, true)
+		server, err := grpcutil.NewServer(context.Background(), true)
 		if err != nil {
 			return err
 		}
@@ -465,13 +461,13 @@ func doFullMode(config interface{}) (retErr error) {
 		))
 		txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer)
 
-		return server.StartAndWait(context.Background())
+		if _, err := server.ListenTCP("", env.Port); err != nil {
+			return err
+		}
+		return server.Wait()
 	})
 	eg.Go(func() error {
-		tcpConfig := grpcutil.TCPConfig{
-			Port: env.PeerPort,
-		}
-		server, err := grpcutil.NewServer(&tcpConfig, nil, grpcutil.MaxMsgSize, true)
+		server, err := grpcutil.NewServer(context.Background(), true)
 		if err != nil {
 			return err
 		}
@@ -577,7 +573,11 @@ func doFullMode(config interface{}) (retErr error) {
 		versionpb.RegisterAPIServer(server.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
 		adminclient.RegisterAPIServer(server.Server, adminserver.NewAPIServer(address, env.StorageRoot, &adminclient.ClusterInfo{ID: clusterID}))
 		txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer)
-		return server.StartAndWait(context.Background())
+
+		if _, err := server.ListenTCP("", env.PeerPort); err != nil {
+			return err
+		}
+		return server.Wait()
 	})
 
 	// TODO(msteffen): Is it really necessary to indicate that the peer service is
