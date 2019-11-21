@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"path"
 	"path/filepath"
@@ -82,16 +83,16 @@ type APIClient struct {
 	DebugClient
 	Enterprise enterprise.APIClient // not embedded--method name conflicts with AuthAPIClient
 
-	// addr is a "host:port" string pointing at a pachd endpoint
-	addr string
+	// endpoint specifies how to connect to the pachd instance
+	endpoint grpcutil.PachdEndpoint
 
 	// The trusted CAs, for authenticating a pachd server over TLS
 	caCerts *x509.CertPool
 
-	// clientConn is a cached grpc connection to 'addr'
+	// clientConn is a cached grpc connection to 'endpoint'
 	clientConn *grpc.ClientConn
 
-	// healthClient is a cached healthcheck client connected to 'addr'
+	// healthClient is a cached healthcheck client connected to 'endpoint'
 	healthClient health.HealthClient
 
 	// streamSemaphore limits the number of concurrent message streams between
@@ -117,11 +118,11 @@ type APIClient struct {
 	portForwarder *PortForwarder
 }
 
-// GetAddress returns the pachd host:port with which 'c' is communicating. If
-// 'c' was created using NewInCluster or NewOnUserMachine then this is how the
-// address may be retrieved from the environment.
+// GetAddress returns the pachd address. If 'c' was created using NewInCluster
+// or NewOnUserMachine then this is how the address may be retrieved from the
+// environment.
 func (c *APIClient) GetAddress() string {
-	return c.addr
+	return c.endpoint.Address()
 }
 
 // DefaultMaxConcurrentStreams defines the max number of Putfiles or Getfiles happening simultaneously
@@ -139,10 +140,15 @@ type clientSettings struct {
 
 // NewFromAddress constructs a new APIClient for the server at addr.
 func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
-	// Validate address
-	if strings.Contains(addr, "://") {
-		return nil, fmt.Errorf("address shouldn't contain protocol (\"://\"), but is: %q", addr)
+	endpoint, err := grpcutil.ParsePachdEndpoint(addr)
+	if err != nil {
+		return nil, err
 	}
+	return NewFromEndpoint(endpoint, options...)
+}
+
+// NewFromEndpoint constructs a new APIClient for the server using a pachd endpoint.
+func NewFromEndpoint(endpoint grpcutil.PachdEndpoint, options ...Option) (*APIClient, error) {
 	// Apply creation options
 	settings := clientSettings{
 		maxConcurrentStreams: DefaultMaxConcurrentStreams,
@@ -154,9 +160,9 @@ func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
 		}
 	}
 	c := &APIClient{
-		addr:    addr,
-		caCerts: settings.caCerts,
-		limiter: limit.New(settings.maxConcurrentStreams),
+		endpoint: endpoint,
+		caCerts:  settings.caCerts,
+		limiter:  limit.New(settings.maxConcurrentStreams),
 	}
 	if err := c.connect(settings.dialTimeout); err != nil {
 		return nil, err
@@ -259,12 +265,12 @@ func getCertOptionsFromEnv() ([]Option, error) {
 			return nil, errors.New("cannot set 'PACH_CA_CERTS' without setting 'PACHD_ADDRESS'")
 		}
 
-		pachdAddress, err := grpcutil.ParsePachdAddress(pachdAddressStr)
+		pachdEndpoint, err := grpcutil.ParsePachdEndpoint(pachdAddressStr)
 		if err != nil {
 			return nil, fmt.Errorf("could not parse 'PACHD_ADDRESS': %v", err)
 		}
 
-		if !pachdAddress.Secured {
+		if !pachdEndpoint.Secured() {
 			return nil, fmt.Errorf("cannot set 'PACH_CA_CERTS' if 'PACHD_ADDRESS' is not using grpcs")
 		}
 
@@ -297,19 +303,19 @@ func getCertOptionsFromEnv() ([]Option, error) {
 // getUserMachineAddrAndOpts is a helper for NewOnUserMachine that uses
 // environment variables, config files, etc to figure out which address a user
 // running a command should connect to.
-func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress, []Option, error) {
+func getUserMachineAddrAndOpts(context *config.Context) (grpcutil.PachdEndpoint, []Option, error) {
 	var options []Option
 
 	// 1) PACHD_ADDRESS environment variable (shell-local) overrides global config
 	if envAddrStr, ok := os.LookupEnv("PACHD_ADDRESS"); ok {
 		fmt.Fprintln(os.Stderr, "WARNING: 'PACHD_ADDRESS' is deprecated and will be removed in a future release, use Pachyderm contexts instead.")
 
-		envAddr, err := grpcutil.ParsePachdAddress(envAddrStr)
+		envEndpoint, err := grpcutil.ParsePachdEndpoint(envAddrStr)
 		if err != nil {
 			return nil, nil, fmt.Errorf("could not parse 'PACHD_ADDRESS': %v", err)
 		}
 
-		if envAddr.Secured {
+		if envEndpoint.Secured() {
 			options = append(options, WithSystemCAs)
 		}
 
@@ -318,22 +324,22 @@ func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress,
 			return nil, nil, err
 		}
 
-		return envAddr, options, nil
+		return envEndpoint, options, nil
 	}
 
 	// 2) Get target address from global config if possible
 	if context != nil && (context.ServerCAs != "" || context.PachdAddress != "") {
-		pachdAddress, err := grpcutil.ParsePachdAddress(context.PachdAddress)
+		pachdEndpoint, err := grpcutil.ParsePachdEndpoint(context.PachdAddress)
 		if err != nil {
 			return nil, nil, fmt.Errorf("could not parse the active context's pachd address: %v", err)
 		}
 
 		// Proactively return an error in this case, instead of falling back to the default address below
-		if context.ServerCAs != "" && !pachdAddress.Secured {
+		if context.ServerCAs != "" && !pachdEndpoint.Secured() {
 			return nil, nil, errors.New("must set pachd_address to grpcs://... if server_cas is set")
 		}
 
-		if pachdAddress.Secured {
+		if pachdEndpoint.Secured() {
 			options = append(options, WithSystemCAs)
 		}
 		// Also get cert info from config (if set)
@@ -342,9 +348,9 @@ func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress,
 			if err != nil {
 				return nil, nil, fmt.Errorf("could not decode server CA certs in config: %v", err)
 			}
-			return pachdAddress, []Option{WithAdditionalRootCAs(pemBytes)}, nil
+			return pachdEndpoint, []Option{WithAdditionalRootCAs(pemBytes)}, nil
 		}
-		return pachdAddress, options, nil
+		return pachdEndpoint, options, nil
 	}
 
 	// 3) Use default address (broadcast) if nothing else works
@@ -393,18 +399,18 @@ func NewForTest() (*APIClient, error) {
 	}
 
 	// create new pachctl client
-	pachdAddress, cfgOptions, err := getUserMachineAddrAndOpts(context)
+	pachdEndpoint, cfgOptions, err := getUserMachineAddrAndOpts(context)
 	if err != nil {
 		return nil, err
 	}
 
-	if pachdAddress == nil {
-		pachdAddress = &grpcutil.DefaultPachdAddress
+	if pachdEndpoint == nil {
+		pachdEndpoint = &grpcutil.DefaultPachdEndpoint
 	}
 
-	client, err := NewFromAddress(pachdAddress.Hostname(), cfgOptions...)
+	client, err := NewFromEndpoint(pachdEndpoint, cfgOptions...)
 	if err != nil {
-		return nil, fmt.Errorf("could not connect to pachd at %s: %v", pachdAddress.Qualified(), err)
+		return nil, fmt.Errorf("could not connect to pachd at %s: %v", pachdEndpoint.URL(), err)
 	}
 	return client, nil
 }
@@ -428,29 +434,32 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 
 	// create new pachctl client
 	var fw *PortForwarder
-	pachdAddress, cfgOptions, err := getUserMachineAddrAndOpts(context)
+	pachdEndpoint, cfgOptions, err := getUserMachineAddrAndOpts(context)
 	if err != nil {
 		return nil, err
 	}
-	if pachdAddress == nil {
-		pachdAddress = &grpcutil.DefaultPachdAddress
+	if pachdEndpoint == nil {
+		pachdEndpoint = &grpcutil.DefaultPachdEndpoint
 		fw = portForwarder()
 	}
 
-	client, err := NewFromAddress(pachdAddress.Hostname(), append(options, cfgOptions...)...)
+	client, err := NewFromEndpoint(pachdEndpoint, append(options, cfgOptions...)...)
 	if err != nil {
 		if strings.Contains(err.Error(), "context deadline exceeded") {
 			// Check for errors in approximate order of helpfulness
-			if pachdAddress.IsUnusualPort() {
-				return nil, fmt.Errorf("could not connect (note: port is usually "+
-					"%d or %d, but is currently set to %d - is this right?): %v", grpcutil.DefaultPachdNodePort, grpcutil.DefaultPachdPort, pachdAddress.Port, err)
-			} else if fw == nil && pachdAddress.IsLoopback() {
-				return nil, fmt.Errorf("could not connect (note: address %s looks "+
-					"like loopback, try unsetting it): %v",
-					pachdAddress.Qualified(), err)
+			tcpPachdEndpoint, ok := pachdEndpoint.(*grpcutil.TCPPachdEndpoint)
+			if ok {
+				if tcpPachdEndpoint.IsUnusualPort() {
+					return nil, fmt.Errorf("could not connect (note: port is usually "+
+						"%d or %d, but is currently set to %d - is this right?): %v", grpcutil.DefaultPachdNodePort, grpcutil.DefaultPachdPort, tcpPachdEndpoint.Port, err)
+				} else if fw == nil && tcpPachdEndpoint.IsLoopback() {
+					return nil, fmt.Errorf("could not connect (note: address %s looks "+
+						"like loopback, try unsetting it): %v",
+						tcpPachdEndpoint.URL(), err)
+				}
 			}
 		}
-		return nil, fmt.Errorf("could not connect to pachd at %q: %v", pachdAddress.Qualified(), err)
+		return nil, fmt.Errorf("could not connect to pachd at %q: %v", pachdEndpoint.URL(), err)
 	}
 
 	// Add metrics info & authentication token
@@ -561,23 +570,42 @@ func (c *APIClient) connect(timeout time.Duration) error {
 		PermitWithoutStream: true,             // send ping even if no active RPCs
 	})
 	dialOptions := append(DefaultDialOptions(), keepaliveOpt)
+
+	switch endpoint := c.endpoint.(type) {
+	case *grpcutil.TCPPachdEndpoint:
+		// no special dial options needed
+		break
+	case *grpcutil.UDSPachdEndpoint:
+		// TODO(ys): `grpc.WithDialer` is deprecated; switch to
+		// `grpc.WithContextDialer` at some point
+		udsDialer := grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
+			return net.DialTimeout("unix", addr, timeout)
+		})
+		dialOptions = append(dialOptions, udsDialer)
+	default:
+		return fmt.Errorf("unrecognized endpoint type: %T", endpoint)
+	}
+
 	if c.caCerts == nil {
 		dialOptions = append(dialOptions, grpc.WithInsecure())
 	} else {
 		tlsCreds := credentials.NewClientTLSFromCert(c.caCerts, "")
 		dialOptions = append(dialOptions, grpc.WithTransportCredentials(tlsCreds))
 	}
+
 	dialOptions = append(dialOptions,
 		// TODO(msteffen) switch to grpc.DialContext instead
 		grpc.WithTimeout(timeout),
 	)
+
 	if tracing.IsActive() {
 		dialOptions = append(dialOptions,
 			grpc.WithUnaryInterceptor(tracing.UnaryClientInterceptor()),
 			grpc.WithStreamInterceptor(tracing.StreamClientInterceptor()),
 		)
 	}
-	clientConn, err := grpc.Dial(c.addr, dialOptions...)
+
+	clientConn, err := grpc.Dial(c.endpoint.Address(), dialOptions...)
 	if err != nil {
 		return err
 	}

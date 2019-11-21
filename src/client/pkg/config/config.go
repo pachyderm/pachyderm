@@ -94,15 +94,15 @@ func Read() (*Config, error) {
 		}
 
 		for contextName, context := range value.V2.Contexts {
-			pachdAddress, err := grpcutil.ParsePachdAddress(context.PachdAddress)
+			pachdEndpoint, err := grpcutil.ParsePachdEndpoint(context.PachdAddress)
 			if err != nil {
-				if err != grpcutil.ErrNoPachdAddress {
+				if err != grpcutil.ErrNoPachdEndpoint {
 					return nil, fmt.Errorf("could not parse pachd address for context '%s': %v", contextName, err)
 				}
 			} else {
-				if qualifiedPachdAddress := pachdAddress.Qualified(); qualifiedPachdAddress != context.PachdAddress {
-					fmt.Fprintf(os.Stderr, "Non-qualified pachd address set for context '%s' - fixing.\n", contextName)
-					context.PachdAddress = qualifiedPachdAddress
+				if url := pachdEndpoint.URL(); url != context.PachdAddress {
+					fmt.Fprintf(os.Stderr, "Non-URL pachd address value set for context '%s' - fixing.\n", contextName)
+					context.PachdAddress = url
 					updated = true
 				}
 			}

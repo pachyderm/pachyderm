@@ -76,32 +76,32 @@ func NewServer(ctx context.Context, publicPortTLSAllowed bool) (*Server, error) 
 }
 
 // ListenTCP causes the gRPC server to listen on a given TCP host and port
-func (s *Server) ListenTCP(host string, port uint16) (net.Listener, error) {
+func (s *Server) ListenTCP(host string, port uint16) error {
 	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	s.eg.Go(func() error {
 		return s.Server.Serve(listener)
 	})
 
-	return listener, nil
+	return nil
 }
 
 // ListenUDS causes the gRPC server to listen on a given Unix domain socket
 // path
-func (s *Server) ListenUDS(name string) (net.Listener, error) {
-	listener, err := net.Listen("unix", name)
+func (s *Server) ListenUDS(path string) error {
+	listener, err := net.Listen("unix", path)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	s.eg.Go(func() error {
 		return s.Server.Serve(listener)
 	})
 
-	return listener, nil
+	return nil
 }
 
 // Wait causes the gRPC server to wait until it finishes, returning any errors

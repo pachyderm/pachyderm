@@ -66,8 +66,7 @@ func runServers(
 	auth.RegisterAPIServer(server.Server, authServer)
 	transaction.RegisterAPIServer(server.Server, txnServer)
 
-	_, err = server.ListenTCP("", uint16(port))
-	require.NoError(t, err)
+	require.NoError(t, server.ListenTCP("", uint16(port)))
 
 	go func() {
 		require.NoError(t, server.Wait())

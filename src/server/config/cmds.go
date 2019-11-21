@@ -178,13 +178,13 @@ func Cmds() []*cobra.Command {
 					return fmt.Errorf("malformed context: %s", err)
 				}
 
-				pachdAddress, err := grpcutil.ParsePachdAddress(context.PachdAddress)
+				pachdEndpoint, err := grpcutil.ParsePachdEndpoint(context.PachdAddress)
 				if err != nil {
-					if err != grpcutil.ErrNoPachdAddress {
+					if err != grpcutil.ErrNoPachdEndpoint {
 						return err
 					}
 				} else {
-					context.PachdAddress = pachdAddress.Qualified()
+					context.PachdAddress = pachdEndpoint.URL()
 				}
 			}
 
@@ -235,15 +235,15 @@ func Cmds() []*cobra.Command {
 			// being an empty string (meaning we want to set the value to an
 			// empty string)
 			if updateContext.Flags().Changed("pachd-address") {
-				parsedPachdAddress, err := grpcutil.ParsePachdAddress(pachdAddress)
+				pachdEndpoint, err := grpcutil.ParsePachdEndpoint(pachdAddress)
 				if err != nil {
-					if err == grpcutil.ErrNoPachdAddress {
+					if err == grpcutil.ErrNoPachdEndpoint {
 						context.PachdAddress = ""
 					} else {
 						return err
 					}
 				} else {
-					context.PachdAddress = parsedPachdAddress.Qualified()
+					context.PachdAddress = pachdEndpoint.URL()
 				}
 			}
 			if updateContext.Flags().Changed("cluster-name") {

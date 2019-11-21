@@ -235,7 +235,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 	// The sidecar only needs to serve traffic on the peer port, as it only serves
 	// traffic from the user container (the worker binary and occasionally user
 	// pipelines)
-	if _, err := server.ListenTCP("", env.PeerPort); err != nil {
+	if err = server.ListenTCP("", env.PeerPort); err != nil {
 		return err
 	}
 	return server.Wait()
@@ -461,7 +461,7 @@ func doFullMode(config interface{}) (retErr error) {
 		))
 		txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer)
 
-		if _, err := server.ListenTCP("", env.Port); err != nil {
+		if err = server.ListenTCP("", env.Port); err != nil {
 			return err
 		}
 		return server.Wait()
@@ -574,7 +574,7 @@ func doFullMode(config interface{}) (retErr error) {
 		adminclient.RegisterAPIServer(server.Server, adminserver.NewAPIServer(address, env.StorageRoot, &adminclient.ClusterInfo{ID: clusterID}))
 		txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer)
 
-		if _, err := server.ListenTCP("", env.PeerPort); err != nil {
+		if err = server.ListenTCP("", env.PeerPort); err != nil {
 			return err
 		}
 		return server.Wait()

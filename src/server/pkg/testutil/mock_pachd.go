@@ -3,7 +3,8 @@ package testutil
 import (
 	"context"
 	"fmt"
-	"net"
+	"io/ioutil"
+	"os"
 
 	"github.com/gogo/protobuf/types"
 
@@ -15,8 +16,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/transaction"
 	version "github.com/pachyderm/pachyderm/src/client/version/versionpb"
-
-	"golang.org/x/sync/errgroup"
 )
 
 /* Admin Server Mocks */
@@ -1205,10 +1204,9 @@ func (api *objectServerAPI) Compact(ctx context.Context, req *types.Empty) (*typ
 // API calls by providing a handler function, and later check information about
 // the mocked calls.
 type MockPachd struct {
-	cancel context.CancelFunc
-	eg     *errgroup.Group
-
-	Addr net.Addr
+	server  *grpcutil.Server
+	cancel  context.CancelFunc
+	UDSPath string
 
 	Object      mockObjectServer
 	PFS         mockPFSServer
@@ -1242,6 +1240,7 @@ func NewMockPachd() (*MockPachd, error) {
 	if err != nil {
 		return nil, err
 	}
+	mock.server = server
 
 	admin.RegisterAPIServer(server.Server, &mock.Admin.api)
 	auth.RegisterAPIServer(server.Server, &mock.Auth.api)
@@ -1252,17 +1251,30 @@ func NewMockPachd() (*MockPachd, error) {
 	transaction.RegisterAPIServer(server.Server, &mock.Transaction.api)
 	version.RegisterAPIServer(server.Server, &mock.Version.api)
 
-	listener, err := server.ListenTCP("", 0)
+	// Generate a temporary path for the UDS socket. We just need a path,
+	// whereas `ioutil.TempFile` actually crates a file and opens the file -
+	// so we'll close the file and delete it.
+	udsFile, err := ioutil.TempFile("", "pachyderm-test-*.sock")
 	if err != nil {
 		return nil, err
 	}
+	if err = udsFile.Close(); err != nil {
+		return nil, err
+	}
+	mock.UDSPath = udsFile.Name()
+	if err = os.Remove(mock.UDSPath); err != nil {
+		return nil, err
+	}
 
-	mock.Addr = listener.Addr()
+	if err = server.ListenUDS(mock.UDSPath); err != nil {
+		return nil, err
+	}
+
 	return mock, nil
 }
 
 // Close will cancel the mock Pachd API server goroutine and return its result
 func (mock *MockPachd) Close() error {
 	mock.cancel()
-	return mock.eg.Wait()
+	return mock.server.Wait()
 }

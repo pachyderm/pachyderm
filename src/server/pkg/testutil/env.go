@@ -9,6 +9,7 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/embed"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 )
 
 // Env contains the basic setup for running end-to-end pachyderm tests entirely
@@ -116,7 +117,12 @@ func WithEnv(cb func(*Env) error) (err error) {
 		return err
 	}
 
-	env.PachClient, err = client.NewFromAddress(env.MockPachd.Addr.String())
+	endpoint, err := grpcutil.ParsePachdEndpoint(fmt.Sprintf("uds://%s", env.MockPachd.UDSPath))
+	if err != nil {
+		return err
+	}
+
+	env.PachClient, err = client.NewFromEndpoint(endpoint)
 	if err != nil {
 		return err
 	}

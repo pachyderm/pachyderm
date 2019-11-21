@@ -185,7 +185,7 @@ func do(config interface{}) error {
 	}
 
 	// If server ever exits, return error
-	if _, err := server.ListenTCP("", env.PPSWorkerPort); err != nil {
+	if err = server.ListenTCP("", env.PPSWorkerPort); err != nil {
 		return err
 	}
 	return server.Wait()

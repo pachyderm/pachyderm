@@ -99,13 +99,13 @@ func TestCommandAliases(t *testing.T) {
 	walk(pachctlCmd)
 }
 
-func testConfig(t *testing.T, pachdAddressStr string) *os.File {
+func testConfig(t *testing.T, pachdEndpointStr string) *os.File {
 	t.Helper()
 
 	cfgFile, err := ioutil.TempFile("", "")
 	require.NoError(t, err)
 
-	pachdAddress, err := grpcutil.ParsePachdAddress(pachdAddressStr)
+	pachdEndpoint, err := grpcutil.ParsePachdEndpoint(pachdEndpointStr)
 	require.NoError(t, err)
 
 	cfg := &config.Config{
@@ -114,7 +114,7 @@ func testConfig(t *testing.T, pachdAddressStr string) *os.File {
 			ActiveContext: "test",
 			Contexts: map[string]*config.Context{
 				"test": &config.Context{
-					PachdAddress: pachdAddress.Qualified(),
+					PachdAddress: pachdEndpoint.URL(),
 				},
 			},
 			Metrics: false,

@@ -66,8 +66,7 @@ func runServers(
 	versionpb.RegisterAPIServer(server.Server,
 		version.NewAPIServer(version.Version, version.APIServerOptions{}))
 
-	_, err = server.ListenTCP("", uint16(port))
-	require.NoError(t, err)
+	require.NoError(t, server.ListenTCP("", uint16(port)))
 
 	go func() {
 		require.NoError(t, server.Wait())
