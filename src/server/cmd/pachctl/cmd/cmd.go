@@ -415,7 +415,7 @@ Environment variables:
 			if err != nil {
 				buf := bytes.NewBufferString("")
 				errWriter := ansiterm.NewTabWriter(buf, 20, 1, 3, ' ', 0)
-				fmt.Fprintf(errWriter, "pachd\t(version unknown) : error connecting to pachd server at address (%v): %v\n\nplease make sure pachd is up (`kubectl get all`) and portforwarding is enabled\n", pachClient.GetAddress(), grpc.ErrorDesc(err))
+				fmt.Fprintf(errWriter, "pachd\t(version unknown) : error connecting to pachd server at %q: %v\n\nplease make sure pachd is up (`kubectl get all`) and portforwarding is enabled\n", pachClient.Endpoint().URL(), grpc.ErrorDesc(err))
 				errWriter.Flush()
 				return errors.New(buf.String())
 			}

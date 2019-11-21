@@ -241,7 +241,7 @@ func (t *TestIDP) NewSAMLResponse(subject string, groups ...string) []byte {
 // OTP from the response, converts it to a Pachyderm token, and automatically
 // assigns it to the client 'c'
 func AuthenticateWithSAMLResponse(t testing.TB, c *client.APIClient, samlResponse []byte) {
-	pachdSAMLAddress := GetACSAddress(t, c.GetAddress())
+	pachdSAMLAddress := GetACSAddress(t, c.Endpoint().Address())
 	pachdACSURL := fmt.Sprintf("http://%s/saml/acs", pachdSAMLAddress)
 
 	var resp *http.Response

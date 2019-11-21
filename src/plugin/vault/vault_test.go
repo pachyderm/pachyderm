@@ -53,14 +53,14 @@ func configurePlugin(t *testing.T, v *vault.Client, ttl string) error {
 		return err
 	}
 
-	return configurePluginHelper(c, v, resp.PachToken, c.GetAddress(), ttl)
+	return configurePluginHelper(c, v, resp.PachToken, c.Endpoint(), ttl)
 }
 
-func configurePluginHelper(pachClient *client.APIClient, v *vault.Client, testPachToken string, testPachdAddress string, ttl string) error {
+func configurePluginHelper(pachClient *client.APIClient, v *vault.Client, testPachToken string, testPachdEndpoint *grpcutil.Endpoint, ttl string) error {
 	vl := v.Logical()
 	config := make(map[string]interface{})
 	config["admin_token"] = testPachToken
-	config["pachd_address"] = testPachdAddress
+	config["pachd_address"] = testPachdAddress.URL()
 	if ttl != "" {
 		config["ttl"] = ttl
 	}
@@ -107,13 +107,13 @@ func TestBadConfig(t *testing.T) {
 	}
 
 	// make sure that missing TTL is OK
-	err = configurePluginHelper(c, v, resp.PachToken, c.GetAddress(), "")
+	err = configurePluginHelper(c, v, resp.PachToken, c.Endpoint(), "")
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
 
 	// make sure that malformed TTL is not OK
-	err = configurePluginHelper(c, v, resp.PachToken, c.GetAddress(), "234....^^^")
+	err = configurePluginHelper(c, v, resp.PachToken, c.Endpoint(), "234....^^^")
 	if err == nil {
 		t.Fatalf("expected bad ttl in config to error")
 	}
@@ -145,7 +145,7 @@ func TestMinimalConfig(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	if secret.Data["pachd_address"] != c.GetAddress() {
+	if secret.Data["pachd_address"] != c.Endpoint().URL() {
 		t.Fatalf("pachd_address configured incorrectly")
 	}
 	if secret.Data["ttl"] == "0s" {

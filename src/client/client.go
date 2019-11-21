@@ -121,8 +121,17 @@ type APIClient struct {
 // GetAddress returns the pachd address. If 'c' was created using NewInCluster
 // or NewOnUserMachine then this is how the address may be retrieved from the
 // environment.
+//
+// DEPRECATED: Use `c.Endpoint()` instead.
 func (c *APIClient) GetAddress() string {
 	return c.endpoint.Address()
+}
+
+// Endpoint returns the pachd endpoint. If 'c' was created using NewInCluster
+// or NewOnUserMachine then this is how the address may be retrieved from the
+// environment.
+func (c *APIClient) Endpoint() grpcutil.PachdEndpoint {
+	return c.endpoint
 }
 
 // DefaultMaxConcurrentStreams defines the max number of Putfiles or Getfiles happening simultaneously

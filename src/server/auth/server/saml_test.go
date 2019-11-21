@@ -124,7 +124,7 @@ func TestSAMLBasic(t *testing.T) {
 	require.NoError(t, err)
 
 	var (
-		pachdSAMLAddress = tu.GetACSAddress(t, adminClient.GetAddress())
+		pachdSAMLAddress = tu.GetACSAddress(t, adminClient.Endpoint().Address())
 		pachdACSURL      = fmt.Sprintf("http://%s/saml/acs", pachdSAMLAddress)
 		pachdMetadataURL = fmt.Sprintf("http://%s/saml/metadata", pachdSAMLAddress)
 	)
@@ -204,7 +204,7 @@ func TestGroupsBasic(t *testing.T) {
 	adminClient := getPachClient(t, admin)
 
 	var (
-		pachdSAMLAddress = tu.GetACSAddress(t, adminClient.GetAddress())
+		pachdSAMLAddress = tu.GetACSAddress(t, adminClient.Endpoint().Address())
 		pachdACSURL      = fmt.Sprintf("http://%s/saml/acs", pachdSAMLAddress)
 		pachdMetadataURL = fmt.Sprintf("http://%s/saml/metadata", pachdSAMLAddress)
 	)

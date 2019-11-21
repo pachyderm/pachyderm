@@ -6716,7 +6716,7 @@ func TestHTTPAuth(t *testing.T) {
 	}
 	c := getPachClient(t)
 
-	clientAddr := c.GetAddress()
+	clientAddr := c.Endpoint().Address()
 	host, _, err := net.SplitHostPort(clientAddr)
 	port, ok := os.LookupEnv("PACHD_SERVICE_PORT_API_HTTP_PORT")
 	if !ok {
@@ -6778,7 +6778,7 @@ func TestHTTPGetFile(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 
-	clientAddr := c.GetAddress()
+	clientAddr := c.Endpoint().Address()
 	host, _, err := net.SplitHostPort(clientAddr)
 	port, ok := os.LookupEnv("PACHD_SERVICE_PORT_API_HTTP_PORT")
 	if !ok {
@@ -6857,7 +6857,7 @@ func TestService(t *testing.T) {
 		// Hack: detect if running inside the cluster by looking for this env var
 		if _, ok := os.LookupEnv("KUBERNETES_PORT"); !ok {
 			// Outside cluster: Re-use external IP and external port defined above
-			clientAddr := c.GetAddress()
+			clientAddr := c.Endpoint().Address()
 			host, _, err := net.SplitHostPort(clientAddr)
 			require.NoError(t, err)
 			return net.JoinHostPort(host, "31800")
@@ -6919,7 +6919,7 @@ func TestService(t *testing.T) {
 		return nil
 	}, backoff.NewTestingBackOff()))
 
-	clientAddr := c.GetAddress()
+	clientAddr := c.Endpoint().Address()
 	host, _, err := net.SplitHostPort(clientAddr)
 	port, ok := os.LookupEnv("PACHD_SERVICE_PORT_API_HTTP_PORT")
 	if !ok {
@@ -9464,7 +9464,7 @@ func TestSpout(t *testing.T) {
 		require.NoError(t, err)
 		time.Sleep(20 * time.Second)
 
-		host, _, err := net.SplitHostPort(c.GetAddress())
+		host, _, err := net.SplitHostPort(c.Endpoint().Address())
 		serviceAddr := net.JoinHostPort(host, "31800")
 
 		// Write a tar stream with a single file to
