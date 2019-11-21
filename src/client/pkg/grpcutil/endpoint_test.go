@@ -148,7 +148,7 @@ func TestPachdEndpointURL(t *testing.T) {
 	require.Equal(t, "grpcs://pachyderm.com:30650", p.URL())
 
 	p = &UDSPachdEndpoint{
-		Path: "/tmp/foo"
+		Path: "/tmp/foo",
 	}
 	require.Equal(t, "uds:///tmp/foo", p.URL())
 }
@@ -169,7 +169,7 @@ func TestPachdEndpointAddress(t *testing.T) {
 	require.Equal(t, "pachyderm.com:30650", p.Address())
 
 	p = &UDSPachdEndpoint{
-		Path: "/tmp/foo"
+		Path: "/tmp/foo",
 	}
 	require.Equal(t, "/tmp/foo", p.Address())
 }

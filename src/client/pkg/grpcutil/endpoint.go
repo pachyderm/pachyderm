@@ -32,6 +32,8 @@ var (
 	}
 )
 
+// PachdEndpoint is a structured reference to a pachd instance. Each supported
+// underlying protocol (e.g. TCP, UDS) implements this interface.
 type PachdEndpoint interface {
 	// URL returns a URL version of the pachd endpoint
 	URL() string
@@ -43,8 +45,8 @@ type PachdEndpoint interface {
 	Secured() bool
 }
 
-// PachdEndpoint parses a string into a pachd endpoint, or returns an error
-// if it's invalid
+// ParsePachdEndpoint parses a string into a pachd endpoint, or returns an
+// error if it's invalid
 func ParsePachdEndpoint(value string) (PachdEndpoint, error) {
 	if value == "" {
 		return nil, ErrNoPachdEndpoint
@@ -115,6 +117,7 @@ type TCPPachdEndpoint struct {
 	Port uint16
 }
 
+// URL returns a URL version of the pachd endpoint
 func (p *TCPPachdEndpoint) URL() string {
 	if p.secured {
 		return fmt.Sprintf("grpcs://%s:%d", p.Host, p.Port)
@@ -122,10 +125,12 @@ func (p *TCPPachdEndpoint) URL() string {
 	return fmt.Sprintf("grpc://%s:%d", p.Host, p.Port)
 }
 
+// Address returns the pachd address without the scheme
 func (p *TCPPachdEndpoint) Address() string {
 	return fmt.Sprintf("%s:%d", p.Host, p.Port)
 }
 
+// Secured returns whether the endpoint is using TLS
 func (p *TCPPachdEndpoint) Secured() bool {
 	return p.secured
 }
@@ -146,14 +151,17 @@ type UDSPachdEndpoint struct {
 	Path string
 }
 
+// URL returns a URL version of the pachd endpoint
 func (p *UDSPachdEndpoint) URL() string {
 	return fmt.Sprintf("uds://%s", p.Path)
 }
 
+// Address returns the pachd address without the scheme
 func (p *UDSPachdEndpoint) Address() string {
 	return p.Path
 }
 
+// Secured returns whether the endpoint is using TLS
 func (p *UDSPachdEndpoint) Secured() bool {
 	return false
 }
