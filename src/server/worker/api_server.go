@@ -965,6 +965,10 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 		// Open local file that is being uploaded
 		f, err := os.Open(filePath)
 		if err != nil {
+			// if the error is that the spout marker file is missing, that's fine, just skip to the next file
+			if strings.Contains(err.Error(), "out/marker") {
+				return nil
+			}
 			return fmt.Errorf("os.Open(%s): %v", filePath, err)
 		}
 		defer func() {
