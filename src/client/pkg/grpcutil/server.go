@@ -94,7 +94,7 @@ func (s *Server) ListenTCP(host string, port uint16) error {
 func (s *Server) ListenUDS(name string) error {
 	listener, err := net.Listen("unix", name)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	s.eg.Go(func() error {
