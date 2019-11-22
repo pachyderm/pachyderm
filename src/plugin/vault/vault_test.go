@@ -13,6 +13,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 )
 
 const (
@@ -60,7 +61,7 @@ func configurePluginHelper(pachClient *client.APIClient, v *vault.Client, testPa
 	vl := v.Logical()
 	config := make(map[string]interface{})
 	config["admin_token"] = testPachToken
-	config["pachd_address"] = testPachdAddress.URL()
+	config["pachd_address"] = testPachdEndpoint.URL()
 	if ttl != "" {
 		config["ttl"] = ttl
 	}
