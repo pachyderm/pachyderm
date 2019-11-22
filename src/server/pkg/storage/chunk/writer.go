@@ -437,13 +437,18 @@ func (w *Writer) AnnotationCount() int64 {
 	return w.stats.annotationCount
 }
 
+// StartTag starts a tag in the current annotation with the passed in id.
 func (w *Writer) StartTag(id string) {
 	w.finishTag()
 	a := w.annotations[len(w.annotations)-1]
 	a.tags = append(a.tags, &Tag{Id: id})
 }
 
-func (w *Writer) FinishTag(t string) {
+// FinishTag finishes the current tag in the current annotation.
+// (bryce) this is here to explicitly bound the tag at the end of
+// file content before tar padding is added, might be easier to
+// just filter this out at a layer above.
+func (w *Writer) FinishTag() {
 	w.finishTag()
 }
 
@@ -463,6 +468,8 @@ func (w *Writer) ChunkCount() int64 {
 	return w.stats.chunkCount
 }
 
+// Write buffers data up to a certain threshold, then creates a worker
+// to process it (find chunk split points, hash data, and execute the callback).
 func (w *Writer) Write(data []byte) (int, error) {
 	a := w.annotations[len(w.annotations)-1]
 	var written int
@@ -500,6 +507,9 @@ func (w *Writer) writeDataSet() {
 	w.bufSize = 0
 }
 
+// Copy copies data from a data reader to the writer.
+// The copy will either be by reading the referenced data, or just
+// copying the data reference (cheap copy).
 func (w *Writer) Copy(dr *DataReader) error {
 	lastA := w.annotations[len(w.annotations)-1]
 	lastA.drs = append(lastA.drs, dr)
