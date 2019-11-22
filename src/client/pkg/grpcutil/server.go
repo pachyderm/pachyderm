@@ -91,7 +91,7 @@ func (s *Server) ListenTCP(host string, port uint16) error {
 
 // ListenUDS causes the gRPC server to listen on a given Unix domain socket
 // path
-func (s *Server) ListenUDS(name string) (net.Listener, error) {
+func (s *Server) ListenUDS(name string) error {
 	listener, err := net.Listen("unix", name)
 	if err != nil {
 		return nil, err
@@ -101,7 +101,7 @@ func (s *Server) ListenUDS(name string) (net.Listener, error) {
 		return s.Server.Serve(listener)
 	})
 
-	return listener, nil
+	return nil
 }
 
 // Wait causes the gRPC server to wait until it finishes, returning any errors
