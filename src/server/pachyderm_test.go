@@ -1283,6 +1283,81 @@ func TestPipelineErrorHandling(t *testing.T) {
 		require.Equal(t, int64(0), jobInfo.DataRecovered)
 		require.Equal(t, int64(0), jobInfo.DataFailed)
 	})
+	t.Run("RapidCommits", func(t *testing.T) {
+		dataRepo := tu.UniqueString("TestRapidUpdates_data")
+		require.NoError(t, c.CreateRepo(dataRepo))
+
+		pipeline := tu.UniqueString("TestRapidUpdates")
+		_, err := c.PpsAPIClient.CreatePipeline(
+			context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd: []string{"bash"},
+					Stdin: []string{
+						"echo Starting...",
+						"sleep 5",
+						"if [ $(( RANDOM % 100 )) -gt 20 ]",
+						"then",
+						"   echo Error...",
+						"   exit 1",
+						"fi",
+						"echo Done",
+					},
+					ErrCmd: []string{"bash"},
+					ErrStdin: []string{
+						"echo \"error handled\"",
+					},
+				},
+				Input: client.NewPFSInput(dataRepo, "/*"),
+			})
+		require.NoError(t, err)
+		numCommits := 15
+		for i := 0; i < numCommits; i++ {
+			_, err := c.PutFile(dataRepo, "master", fmt.Sprintf("file-%d", i), strings.NewReader(fmt.Sprintf("%d\n", i)))
+			require.NoError(t, err)
+		}
+		for i := 1; i <= numCommits; i++ {
+			jobInfos, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, fmt.Sprintf("master.%d", i))}, nil)
+			require.NoError(t, err)
+			for _, ji := range jobInfos {
+				// if a datum gets recovered then we update the pipeline
+				require.Equal(t, pps.JobState_JOB_SUCCESS.String(), ji.State.String())
+				if ji.DataRecovered != 0 {
+					_, err := c.PpsAPIClient.CreatePipeline(
+						context.Background(),
+						&pps.CreatePipelineRequest{
+							Pipeline: client.NewPipeline(pipeline),
+							Transform: &pps.Transform{
+								Cmd: []string{"bash"},
+								Stdin: []string{
+									"echo Starting...",
+									"sleep 5",
+									"if [ $(( RANDOM % 100 )) -gt 20 ]",
+									"then",
+									"   echo Error...",
+									"   exit 1",
+									"fi",
+									"echo Done",
+								},
+								ErrCmd: []string{"bash"},
+								ErrStdin: []string{
+									"echo \"error handled\"",
+								},
+							},
+							Input:  client.NewPFSInput(dataRepo, "/*"),
+							Update: true,
+						})
+					require.NoError(t, err)
+					jobInfos, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+					require.NoError(t, err)
+					for _, ji := range jobInfos {
+						require.Equal(t, pps.JobState_JOB_SUCCESS.String(), ji.State.String())
+					}
+				}
+			}
+		}
+	})
 }
 
 func TestEgressFailure(t *testing.T) {
