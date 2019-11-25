@@ -35,7 +35,7 @@ to your pipelines as needed.
 
 The following diagram describes the pipeline structure:
 
-
+![transactions diagram](../../assets/images/d_transactions_hyperparameter.svg)
 
 To set up the pipeline, complete the following steps:
 
@@ -66,7 +66,7 @@ To set up the pipeline, complete the following steps:
    $ git clone git@github.com:pachyderm/pachyderm.git
    ```
 
-1. Change the directory to `examples/ml/hyperparameter`:
+1. Change the directory to `examples/transactions`:
 
    ```bash
    $ cd examples/transactions/
@@ -198,7 +198,12 @@ To run the transaction, complete the following steps:
    $ pachctl finish commit raw_data@master
    ```
 
-   Still no jobs run for the `model` pipeline.
+   Still no jobs run for the `model` pipeline. If we had not
+   started those commits in a transaction, a job would normally
+   be triggered here because Pachyderm normally triggers jobs
+   whenever a commit is made on any input. In this case, because
+   those commits were added to a transaction, Pachyderm waits
+   for both input commits to be finished before a job triggers.
 
 1. Close the commit to the `parameters` repository that you have
    started within the transaction:

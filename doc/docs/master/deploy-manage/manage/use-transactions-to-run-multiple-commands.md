@@ -5,10 +5,10 @@
     simultaneously in one job run.
 
 A transaction is a Pachyderm operation that enables you to create
-a collection of Pachyderm commands and execute them concurrently in a
-single job run. Regular Pachyderm operations are executed consequently,
-one after another. However, when you need to run multiple commands
-at the same time, you can use transactions.
+a collection of Pachyderm commands and execute them concurrently.
+Regular Pachyderm operations, that are not in a transaction, are
+executed one after another. However, when you need
+to run multiple commands at the same time, you can use transactions.
 The transaction framework provides a method for batching together
 commit propagation such that changed branches are collected over
 the course of the transaction and all propagated in one batch at
@@ -27,11 +27,11 @@ will run once all the input commits have been finished.
 
 Pachyderm users implement transactions to their own workflows finding
 unique ways to benefit from this feature, whether it is a small
-research or an enterprise-grade machine learning workflow.
+research team or an enterprise-grade machine learning workflow.
 
 Below are examples of the most commonly employed ways of using transactions.
 
-###Commit to Separate Repositories Simultaneously
+### Commit to Separate Repositories Simultaneously
 
 For example, you have a Pachyderm pipeline with two input
 repositories. One repository includes training data and the
@@ -41,10 +41,12 @@ run your pipeline against specific commits in both repositories.
 To achieve this, you need to commit to these repositories
 simultaneously.
 
-If you use a regular Pachyderm workflow, the data is uploaded consequently
-by running two separate Pachyderm jobs. One job commits changes to
-the data repository and the other updates the parameters.
-The following animation shows the standard Pachyderm workflow:
+If you use a regular Pachyderm workflow, the data is uploaded sequentially,
+each time triggering a separate job instead of one job with both commits
+of new data. One `put file` operation commits changes to
+the data repository and the other updates the parameters repository.
+The following animation shows the standard Pachyderm workflow without
+a transaction:
 
 ![Standard workflow](../../assets/images/transaction_wrong.gif)
 
@@ -55,28 +57,30 @@ to the `data` repository, Pachyderm runs a job for `commit 1` and
 that Pachyderm runs the second job and processes `commit 1`
 from the `data` repository with the `commit 1` in the `parameters`
 repository. In some cases, this is perfectly acceptable solution.
-But if your job takes many hours and you are only intersted in the
+But if your job takes many hours and you are only interested in the
 result of the pipeline run with `commit 1` from both repositories
 this approach does not work.
 
-With transactions, you can ensure that `data` and `parameters` have
-the latest commits in the same pipeline job. The following animation
+With transactions, you can ensure that only one job triggers with
+both the new `data` and `parameters`. The following animation
 demonstrates how transactions work:
 
 ![Transactions workflow](../../assets/images/transaction_right.gif)
 
-The transaction ensures that a job runs for the two latest commits.
-While you could probably achieve the same without transactions by
-storing all your data in one repository, often you prefer to separate
-it in individual repositories for organizational and logistics reasons.
+The transaction ensures that a single job runs for the two commits
+that were started within the transaction.
+While Pachyderm supports some workflows where you can get the
+same effect by having both data and parameters in the same repo,
+often separating them and using transactions is much more efficient for
+organizational and performance reasons.
 
 ### Switching from Staging to Master Simultaneously
 
-If you use the [deferred processing](../../how-tos/deferred_processing/)
-model, you want to commit your changes often but do not want your
-pipeline to be triggered as often as you commit. When you want to postpone
-pipeline execution, you can create a staging and master branch in
-the same repository. You commit your changes to the staging branch and
+If you are using [deferred processing](../../how-tos/deferred_processing/)
+in your repositories because you want to commit your changes frequently
+without triggering jobs every time, then transactions can help you
+manage deferred processing with multiple inputs. You commit your
+changes to the staging branch and
 when needed, switch the `HEAD` of you master branch to a commit in the
 staging branch. To do this simultaneously, you can use transactions.
 
@@ -98,9 +102,8 @@ Completed transaction with 2 requests: 0d6f0bc3-37a0-4936-96e3-82034a2a2055
 ```
 
 When you finish the transaction, both repositories switch to
-to the master at the same time which creates new commits in
-the corresponding `master` branches and the pipeline triggers
-one job to process the commits together.
+to the master branch at the same time which triggers one job to process
+those commits together.
 
 ## Start and Finish Transactions
 
@@ -133,12 +136,11 @@ is stored at `~/.pachyderm/config.json`.
     ```
 
 After you start a transaction, you can add supported commands, such
-as create a repo, create a branch, and so on, to th transaction. You
-can also start a commit within a transaction. If you close a transaction
-before you close a commit, the commands that you have specified inside
-the transaction and inside the
-commit will not be applied until you close all commits that you have
-started in that transaction.
+as `pachctl create repo`, `pachctl create branch`, and so on, to the
+transaction. All commands that are performed in a transaction are
+queued up and not executed against the actual cluster until you finish
+the transaction. When you finish the transaction, all queued command
+are executed atomically.
 
 To finish a transaction, run:
 
@@ -175,7 +177,7 @@ create branch
 delete branch
 ```
 
-Each time you ad a command to a transaction, Pachyderm validates the
+Each time you add a command to a transaction, Pachyderm validates the
 transaction against the current state of the cluster metadata and obtains
 any return values, which is important for such commands as
 `start commit`. If validation fails for any reason, Pachyderm does
