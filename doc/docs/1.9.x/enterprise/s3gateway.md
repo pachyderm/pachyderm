@@ -78,29 +78,31 @@ the following command:
    Release-tag: RELEASE.2019-07-11T19-31-28Z
    Commit-id: 31e5ac02bdbdbaf20a87683925041f406307cfb9
    ```
+
 1. Set up the MinIO configuration file to use the `30600` port for your host:
 
    ```bash
    vi ~/.mc/config.json
    ```
+
    You should see a configuration similar to the following:
 
    * For a minikube deployment, verify the
    `local` host configuration:
 
-    ```bash
-    "local": {
-              "url": "http://localhost:30600",
-              "accessKey": "YOUR-PACHYDERM-AUTH-TOKEN",
-              "secretKey": "YOUR-PACHYDERM-AUTH-TOKEN",
-              "api": "S3v4",
-              "lookup": "auto"
-           },
-    ```
+     ```bash
+     "local": {
+               "url": "http://localhost:30600",
+               "accessKey": "YOUR-PACHYDERM-AUTH-TOKEN",
+               "secretKey": "YOUR-PACHYDERM-AUTH-TOKEN",
+               "api": "S3v4",
+               "lookup": "auto"
+            },
+     ```
 
-    Set both the access key and secret key to your
-    Pachyderm auth token. If auth is not enabled on the cluster, both should
-    be empty strings.
+     Set the access key and secret key to your
+     Pachyderm authentication token. If authentication is not enabled
+     on the cluster, both parameters must be empty strings.
 
 ### Configure the AWS CLI
 
