@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
-	"errors"
 	goerr "errors"
 	"fmt"
 	"io"
@@ -1365,66 +1364,81 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		}
 	}
 
-	// Get pods managed by the RC we're scraping (either pipeline or pachd)
-	pods, err := a.rcPods(rcName)
-	if err != nil {
-		return fmt.Errorf("could not get pods in rc \"%s\" containing logs: %s", rcName, err.Error())
-	}
-	if len(pods) == 0 {
-		return fmt.Errorf("no pods belonging to the rc \"%s\" were found", rcName)
-	}
-
-	// Spawn one goroutine per pod. Each goro writes its pod's logs to a channel
-	// and channels are read into the output server in a stable order.
-	// (sort the pods to make sure that the order of log lines is stable)
-	sort.Sort(podSlice(pods))
 	logCh := make(chan *pps.LogMessage)
-	eg, ctx := errgroup.WithContext(ctx)
-	var mu sync.Mutex
-	for _, pod := range pods {
-		pod := pod
-		if !request.Follow {
-			mu.Lock()
-		}
-		eg.Go(func() error {
-			if !request.Follow {
-				defer mu.Unlock()
-			}
+	var podLogsErr error
 
-			// We're not using the backoff package because there's a certain
-			// set of errors that we want to propagate to the errgroup
-			var err error
-			var cancelled bool
+	if request.Follow {
+		go func() {
+			defer close(logCh)
 
-			// TODO(ys): add a set number of retries?
 			for {
-				err, cancelled = a.getLogsFromPod(ctx, request, pod, containerName, logCh)
-				if cancelled || !request.Follow {
-					return err
+				// Get pods managed by the RC we're scraping (either pipeline or pachd)
+				pods, err := a.rcPods(rcName)
+				if err != nil || len(pods) == 0 {
+					// pod fetch failed, retry in 5s
+					if err != nil {
+						logrus.Warningf("error fetching pods for logs: %v", err)
+					}
+					time.Sleep(5 * time.Second)
+					continue
 				}
-				time.Sleep(5 * time.Second)
-			}
 
+				eg, egCtx := errgroup.WithContext(ctx)
+
+				for _, pod := range pods {
+					pod := pod
+
+					eg.Go(func() error {
+						return a.getLogsFromPod(egCtx, request, pod, containerName, logCh)
+					})
+				}
+
+				if err := eg.Wait(); err != nil {
+					logrus.Warningf("error fetching pod logs: %v", err)
+				}
+
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					// log fetch failed, retry in 5s
+					time.Sleep(5 * time.Second)
+					continue
+				}
+			}
+		}()
+	} else {
+		go func() {
+			defer close(logCh)
+
+			// Get pods managed by the RC we're scraping (either pipeline or pachd)
+			pods, err := a.rcPods(rcName)
 			if err != nil {
-				return fmt.Errorf("pod log fetch failed after a few tries, last error: %v", err)
-			} else {
-				return errors.New("pod log fetch failed after a few tries")
+				podLogsErr = fmt.Errorf("could not get pods in rc \"%s\" containing logs: %s", rcName, err.Error())
+				return
 			}
-		})
-	}
+			if len(pods) == 0 {
+				podLogsErr = fmt.Errorf("no pods belonging to the rc \"%s\" were found", rcName)
+				return
+			}
 
-	var egErr error
-	go func() {
-		egErr = eg.Wait()
-		close(logCh)
-	}()
+			// sort the pods to make sure that the order of log lines is stable
+			sort.Sort(podSlice(pods))
+
+			for _, pod := range pods {
+				if podLogsErr = a.getLogsFromPod(ctx, request, pod, containerName, logCh); podLogsErr != nil {
+					return
+				}
+			}
+		}()
+	}
 
 	for msg := range logCh {
 		if err := apiGetLogsServer.Send(msg); err != nil {
 			return err
 		}
 	}
-	return egErr
+	return podLogsErr
 }
 
 func (a *apiServer) getLogsFromStats(pachClient *client.APIClient, request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer, statsCommit *pfs.Commit) error {
@@ -1492,13 +1506,13 @@ func (a *apiServer) getLogsFromStats(pachClient *client.APIClient, request *pps.
 	return eg.Wait()
 }
 
-func (a *apiServer) getLogsFromPod(ctx context.Context, request *pps.GetLogsRequest, pod v1.Pod, containerName string, logCh chan *pps.LogMessage) (error, bool) {
+func (a *apiServer) getLogsFromPod(ctx context.Context, request *pps.GetLogsRequest, pod v1.Pod, containerName string, logCh chan *pps.LogMessage) error {
 	tailLines := &request.Tail
 	if *tailLines <= 0 {
 		tailLines = nil
 	}
 
-	// Get full set of logs from pod i
+	// Get full set of logs from the pod
 	stream, err := a.env.GetKubeClient().CoreV1().Pods(a.namespace).GetLogs(
 		pod.ObjectMeta.Name, &v1.PodLogOptions{
 			Container: containerName,
@@ -1506,7 +1520,7 @@ func (a *apiServer) getLogsFromPod(ctx context.Context, request *pps.GetLogsRequ
 			TailLines: tailLines,
 		}).Timeout(10 * time.Second).Stream()
 	if err != nil {
-		return err, false
+		return err
 	}
 
 	// Parse pods' log lines, and filter out irrelevant ones
@@ -1540,14 +1554,14 @@ func (a *apiServer) getLogsFromPod(ctx context.Context, request *pps.GetLogsRequ
 		}
 		msg.Message = strings.TrimSuffix(msg.Message, "\n")
 
-		// Log message passes all filters -- return it
+		// Log message passes all filters -- yield it
 		select {
 		case logCh <- msg:
 		case <-ctx.Done():
-			return stream.Close(), true
+			return stream.Close()
 		}
 	}
-	return stream.Close(), false
+	return stream.Close()
 }
 
 func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) error {
