@@ -74,6 +74,7 @@ class DefaultDriver:
     def clear(self):
         if run("yes | pachctl delete all", shell=True, raise_on_error=False).rc != 0:
             log.error("could not call `pachctl delete all`; most likely this just means that a pachyderm cluster hasn't been setup, but may indicate a bad state")
+        run("kubectl", "delete", "daemonsets,replicasets,services,deployments,pods,rc", "--all")
 
     def start(self):
         pass
