@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	goerr "errors"
 	"fmt"
 	"io"
@@ -1378,81 +1379,40 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	// (sort the pods to make sure that the order of log lines is stable)
 	sort.Sort(podSlice(pods))
 	logCh := make(chan *pps.LogMessage)
-	var eg errgroup.Group
+	eg, ctx := errgroup.WithContext(ctx)
 	var mu sync.Mutex
-	eg.Go(func() error {
-		for _, pod := range pods {
-			pod := pod
+	for _, pod := range pods {
+		pod := pod
+		if !request.Follow {
+			mu.Lock()
+		}
+		eg.Go(func() error {
 			if !request.Follow {
-				mu.Lock()
+				defer mu.Unlock()
 			}
-			eg.Go(func() (retErr error) {
-				if !request.Follow {
-					defer mu.Unlock()
-				}
-				tailLines := &request.Tail
-				if *tailLines <= 0 {
-					tailLines = nil
-				}
-				// Get full set of logs from pod i
-				stream, err := a.env.GetKubeClient().CoreV1().Pods(a.namespace).GetLogs(
-					pod.ObjectMeta.Name, &v1.PodLogOptions{
-						Container: containerName,
-						Follow:    request.Follow,
-						TailLines: tailLines,
-					}).Timeout(10 * time.Second).Stream()
-				if err != nil {
+
+			// We're not using the backoff package because there's a certain
+			// set of errors that we want to propagate to the errgroup
+			var err error
+			var cancelled bool
+
+			// TODO(ys): add a set number of retries?
+			for {
+				err, cancelled = a.getLogsFromPod(ctx, request, pod, containerName, logCh)
+				if cancelled || !request.Follow {
 					return err
 				}
-				defer func() {
-					if err := stream.Close(); err != nil && retErr == nil {
-						retErr = err
-					}
-				}()
+				time.Sleep(5 * time.Second)
+			}
 
-				// Parse pods' log lines, and filter out irrelevant ones
-				scanner := bufio.NewScanner(stream)
-				for scanner.Scan() {
-					msg := new(pps.LogMessage)
-					if containerName == "pachd" {
-						msg.Message = scanner.Text()
-					} else {
-						logBytes := scanner.Bytes()
-						if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
-							continue
-						}
+			if err != nil {
+				return fmt.Errorf("pod log fetch failed after a few tries, last error: %v", err)
+			} else {
+				return errors.New("pod log fetch failed after a few tries")
+			}
+		})
+	}
 
-						// Filter out log lines that don't match on pipeline or job
-						if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
-							continue
-						}
-						if request.Job != nil && request.Job.ID != msg.JobID {
-							continue
-						}
-						if request.Datum != nil && request.Datum.ID != msg.DatumID {
-							continue
-						}
-						if request.Master != msg.Master {
-							continue
-						}
-						if !workerpkg.MatchDatum(request.DataFilters, msg.Data) {
-							continue
-						}
-					}
-					msg.Message = strings.TrimSuffix(msg.Message, "\n")
-
-					// Log message passes all filters -- return it
-					select {
-					case logCh <- msg:
-					case <-ctx.Done():
-						return nil
-					}
-				}
-				return nil
-			})
-		}
-		return nil
-	})
 	var egErr error
 	go func() {
 		egErr = eg.Wait()
@@ -1520,16 +1480,74 @@ func (a *apiServer) getLogsFromStats(pachClient *client.APIClient, request *pps.
 				}
 
 				mu.Lock()
-				if err := apiGetLogsServer.Send(msg); err != nil {
-					mu.Unlock()
+				err := apiGetLogsServer.Send(msg)
+				mu.Unlock()
+				if err != nil {
 					return err
 				}
-				mu.Unlock()
 			}
 			return nil
 		})
 	}
 	return eg.Wait()
+}
+
+func (a *apiServer) getLogsFromPod(ctx context.Context, request *pps.GetLogsRequest, pod v1.Pod, containerName string, logCh chan *pps.LogMessage) (error, bool) {
+	tailLines := &request.Tail
+	if *tailLines <= 0 {
+		tailLines = nil
+	}
+
+	// Get full set of logs from pod i
+	stream, err := a.env.GetKubeClient().CoreV1().Pods(a.namespace).GetLogs(
+		pod.ObjectMeta.Name, &v1.PodLogOptions{
+			Container: containerName,
+			Follow:    request.Follow,
+			TailLines: tailLines,
+		}).Timeout(10 * time.Second).Stream()
+	if err != nil {
+		return err, false
+	}
+
+	// Parse pods' log lines, and filter out irrelevant ones
+	scanner := bufio.NewScanner(stream)
+	for scanner.Scan() {
+		msg := new(pps.LogMessage)
+		if containerName == "pachd" {
+			msg.Message = scanner.Text()
+		} else {
+			logBytes := scanner.Bytes()
+			if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
+				continue
+			}
+
+			// Filter out log lines that don't match on pipeline or job
+			if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
+				continue
+			}
+			if request.Job != nil && request.Job.ID != msg.JobID {
+				continue
+			}
+			if request.Datum != nil && request.Datum.ID != msg.DatumID {
+				continue
+			}
+			if request.Master != msg.Master {
+				continue
+			}
+			if !workerpkg.MatchDatum(request.DataFilters, msg.Data) {
+				continue
+			}
+		}
+		msg.Message = strings.TrimSuffix(msg.Message, "\n")
+
+		// Log message passes all filters -- return it
+		select {
+		case logCh <- msg:
+		case <-ctx.Done():
+			return stream.Close(), true
+		}
+	}
+	return stream.Close(), false
 }
 
 func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) error {
