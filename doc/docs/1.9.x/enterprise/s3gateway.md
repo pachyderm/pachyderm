@@ -118,6 +118,7 @@ in the [AWS documentation](https://docs.aws.amazon.com/cli/latest/userguide/cli-
    ```bash
    $ aws --version aws-cli/1.16.204 Python/2.7.16 Darwin/17.7.0 botocore/1.12.194
    ```
+
 1. Configure AWS CLI:
 
    ```bash
