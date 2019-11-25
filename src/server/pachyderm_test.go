@@ -10358,6 +10358,10 @@ func TestExtractPipeline(t *testing.T) {
 	// Update and reprocess don't get extracted back either so don't set it.
 	request.Update = false
 	request.Reprocess = false
+	// Spouts can't have stats, so disable stats in that case
+	if request.Spout != nil {
+		request.EnableStats = false
+	}
 
 	// Create the pipeline
 	_, err := c.PpsAPIClient.CreatePipeline(
