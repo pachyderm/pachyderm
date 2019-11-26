@@ -1500,6 +1500,7 @@ func (a *apiServer) getLogsForRC(pachClient *client.APIClient, request *pps.GetL
 
 		// Sort the pods to make sure that the order of log lines is stable
 		sort.Sort(podSlice(pods))
+
 		// We'll span a separate goro for each pod, which will all be
 		// managed by this error group. The behavior of `.Wait()` (called
 		// below) is to return when all of the goros have returned. By
@@ -1508,6 +1509,7 @@ func (a *apiServer) getLogsForRC(pachClient *client.APIClient, request *pps.GetL
 		// error group context builds upon the request context, it can
 		// also be cancelled when the request is cancelled.
 		eg, egCtx := errgroup.WithContext(ctx)
+
 		// Used to serialize log fetch when follow mode is not enabled
 		var mu sync.Mutex
 
