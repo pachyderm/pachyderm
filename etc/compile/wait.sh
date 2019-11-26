@@ -2,8 +2,7 @@
 
 CONTAINER="${1}"
 
-docker wait "$CONTAINER" 2>/dev/null 1>/dev/null
-RET=$?
+RET=`docker wait "$CONTAINER"`
 
 if [ "$RET" -ne 0 ]
 then

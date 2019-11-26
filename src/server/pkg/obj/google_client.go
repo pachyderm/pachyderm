@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"cloud.google.com/go/storage"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"golang.org/x/net/context"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iterator"
@@ -26,6 +27,7 @@ func newGoogleClient(bucket string, opts []option.ClientOption) (*googleClient, 
 
 func (c *googleClient) Exists(ctx context.Context, name string) bool {
 	_, err := c.bucket.Object(name).Attrs(ctx)
+	tracing.TagAnySpan(ctx, "err", err)
 	return err == nil
 }
 

@@ -1609,6 +1609,12 @@ publish = "doc/site"
   force = true
 
 [[redirects]]
+  from = "/concepts/pipeline-concepts/distributed_computing/"
+  to = "/latest/concepts/pipeline-concepts/distributed_computing/"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/concepts/pipeline-concepts/datum/cross-union/"
   to = "/latest/concepts/pipeline-concepts/datum/cross-union/"
   status = 301

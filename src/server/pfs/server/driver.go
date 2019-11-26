@@ -2651,6 +2651,18 @@ func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo, revers
 	if err := d.checkIsAuthorized(pachClient, repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
+
+	// Make sure that the repo exists
+	if repo.Name != "" {
+		err := d.txnEnv.WithReadContext(pachClient.Ctx(), func(txnCtx *txnenv.TransactionContext) error {
+			_, err := d.inspectRepo(txnCtx, repo, !includeAuth)
+			return err
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	var result []*pfs.BranchInfo
 	branchInfo := &pfs.BranchInfo{}
 	branches := d.branches(repo.Name).ReadOnly(pachClient.Ctx())

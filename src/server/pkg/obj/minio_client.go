@@ -67,16 +67,20 @@ func newMinioWriter(ctx context.Context, client *minioClient, name string) *mini
 	return w
 }
 
-func (w *minioWriter) Write(p []byte) (int, error) {
-	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/minioWriter/Write")
-	defer tracing.FinishAnySpan(span)
+func (w *minioWriter) Write(p []byte) (retN int, retErr error) {
+	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/Minio.Writer/Write")
+	defer func() {
+		tracing.FinishAnySpan(span, "bytes", retN, "err", retErr)
+	}()
 	return w.pipe.Write(p)
 }
 
 // This will block till upload is done
-func (w *minioWriter) Close() error {
-	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/minioWriter/Close")
-	defer tracing.FinishAnySpan(span)
+func (w *minioWriter) Close() (retErr error) {
+	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/Minio.Writer/Close")
+	defer func() {
+		tracing.FinishAnySpan(span, "err", retErr)
+	}()
 	if err := w.pipe.Close(); err != nil {
 		return err
 	}
@@ -115,9 +119,11 @@ func (l *limitReadCloser) Close() (err error) {
 	return l.mObj.Close()
 }
 
-func (l *limitReadCloser) Read(p []byte) (int, error) {
-	span, _ := tracing.AddSpanToAnyExisting(l.ctx, "/minioReader/Read")
-	defer tracing.FinishAnySpan(span)
+func (l *limitReadCloser) Read(p []byte) (retN int, retErr error) {
+	span, _ := tracing.AddSpanToAnyExisting(l.ctx, "/Minio.Reader/Read")
+	defer func() {
+		tracing.FinishAnySpan(span, "bytes", retN, "err", retErr)
+	}()
 	return l.Reader.Read(p)
 }
 
@@ -146,8 +152,9 @@ func (c *minioClient) Delete(_ context.Context, name string) error {
 	return c.RemoveObject(c.bucket, name)
 }
 
-func (c *minioClient) Exists(_ context.Context, name string) bool {
+func (c *minioClient) Exists(ctx context.Context, name string) bool {
 	_, err := c.StatObject(c.bucket, name, minio.StatObjectOptions{})
+	tracing.TagAnySpan(ctx, "err", err)
 	return err == nil
 }
 

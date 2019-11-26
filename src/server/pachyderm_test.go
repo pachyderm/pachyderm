@@ -668,7 +668,7 @@ func TestRunPipeline(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 2, len(ji))
 		// now run the pipeline
-		require.NoError(t, c.RunPipeline(pipeline, nil))
+		require.NoError(t, c.RunPipeline(pipeline, nil, ""))
 		// running the pipeline should create a new job
 		require.NoError(t, backoff.Retry(func() error {
 			jobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
@@ -683,7 +683,7 @@ func TestRunPipeline(t *testing.T) {
 		require.NoError(t, backoff.Retry(func() error {
 			return c.RunPipeline(pipeline, []*pfs.CommitProvenance{
 				client.NewCommitProvenance(dataRepo, "branchA", commitA.ID),
-			})
+			}, "")
 		}, backoff.NewTestingBackOff()))
 
 		// running the pipeline should create a new job
@@ -720,7 +720,7 @@ func TestRunPipeline(t *testing.T) {
 		require.NoError(t, c.RunPipeline(pipeline, []*pfs.CommitProvenance{
 			client.NewCommitProvenance(dataRepo, "branchA", commitA.ID),
 			client.NewCommitProvenance(dataRepo, "branchB", commitB2.ID),
-		}))
+		}, ""))
 
 		// and ensure that the file now has the info from the correct versions of the commits
 		iter, err = c.FlushCommit([]*pfs.Commit{commitA, commitB2}, nil)
@@ -760,7 +760,7 @@ func TestRunPipeline(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 0, len(ji))
 		// now run the pipeline
-		require.YesError(t, c.RunPipeline(pipeline, nil))
+		require.YesError(t, c.RunPipeline(pipeline, nil, ""))
 	})
 
 	// Test on unrelated branch
@@ -810,7 +810,7 @@ func TestRunPipeline(t *testing.T) {
 
 		// now run the pipeline with unrelated provenance
 		require.YesError(t, c.RunPipeline(pipeline, []*pfs.CommitProvenance{
-			client.NewCommitProvenance(dataRepo, "unrelated", commitU.ID)}))
+			client.NewCommitProvenance(dataRepo, "unrelated", commitU.ID)}, ""))
 	})
 
 	// Test with downstream pipeline
@@ -885,13 +885,23 @@ func TestRunPipeline(t *testing.T) {
 		require.NoError(t, backoff.Retry(func() error {
 			return c.RunPipeline(pipeline, []*pfs.CommitProvenance{
 				client.NewCommitProvenance(dataRepo, branchA, commitA.ID),
-			})
+			}, "")
 		}, backoff.NewTestingBackOff()))
 
 		// the downstream pipeline shouldn't have any new jobs, since runpipeline jobs don't propagate
 		jobInfos, err = c.FlushJobAll([]*pfs.Commit{commitA}, []string{downstreamPipeline})
 		require.NoError(t, err)
 		require.Equal(t, 1, len(jobInfos))
+
+		// now rerun the one job that we saw
+		require.NoError(t, backoff.Retry(func() error {
+			return c.RunPipeline(downstreamPipeline, nil, jobInfos[0].Job.ID)
+		}, backoff.NewTestingBackOff()))
+
+		// we should now have two jobs
+		jobInfos, err = c.FlushJobAll([]*pfs.Commit{commitA}, []string{downstreamPipeline})
+		require.NoError(t, err)
+		require.Equal(t, 2, len(jobInfos))
 	})
 
 	// Test with a downstream pipeline who's upstream has no datum, but where the downstream still needs to succeed
@@ -969,7 +979,7 @@ func TestRunPipeline(t *testing.T) {
 		require.NoError(t, backoff.Retry(func() error {
 			return c.RunPipeline(pipeline, []*pfs.CommitProvenance{
 				client.NewCommitProvenance(dataRepo, branchA, commitA.ID),
-			})
+			}, "")
 		}, backoff.NewTestingBackOff()))
 
 		buffer2 := bytes.Buffer{}
@@ -1037,8 +1047,8 @@ func TestRunPipeline(t *testing.T) {
 		// now run the pipeline with provenance from the same branch
 		require.YesError(t, c.RunPipeline(pipeline, []*pfs.CommitProvenance{
 			client.NewCommitProvenance(dataRepo, branchA, commitA1.ID),
-			client.NewCommitProvenance(dataRepo, branchA, commitA2.ID)},
-		))
+			client.NewCommitProvenance(dataRepo, branchA, commitA2.ID),
+		}, ""))
 	})
 	// Test on pipeline that should always fail
 	t.Run("RerunPipeline", func(t *testing.T) {
@@ -1068,7 +1078,7 @@ func TestRunPipeline(t *testing.T) {
 		commits := collectCommitInfos(t, iter)
 		require.Equal(t, 1, len(commits))
 		// now run the pipeline
-		require.NoError(t, c.RunPipeline(pipeline, nil))
+		require.NoError(t, c.RunPipeline(pipeline, nil, ""))
 
 		// running the pipeline should create a new job
 		require.NoError(t, backoff.Retry(func() error {
@@ -1149,85 +1159,130 @@ func TestPipelineErrorHandling(t *testing.T) {
 	c := getPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
-	dataRepo := tu.UniqueString("TestPipelineErrorHandling_data")
-	require.NoError(t, c.CreateRepo(dataRepo))
+	t.Run("ErrCmd", func(t *testing.T) {
 
-	_, err := c.PutFile(dataRepo, "master", "file1", strings.NewReader("foo\n"))
-	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, "master", "file2", strings.NewReader("bar\n"))
-	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, "master", "file3", strings.NewReader("bar\n"))
-	require.NoError(t, err)
+		dataRepo := tu.UniqueString("TestPipelineErrorHandling_data")
+		require.NoError(t, c.CreateRepo(dataRepo))
 
-	// In this pipeline, we'll have a command that fails for files 2 and 3, and an error handler that fails for file 2
-	pipeline := tu.UniqueString("pipeline1")
-	_, err = c.PpsAPIClient.CreatePipeline(
-		context.Background(),
-		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
-			Transform: &pps.Transform{
-				Cmd:      []string{"bash"},
-				Stdin:    []string{"if", fmt.Sprintf("[ -a pfs/%v/file1 ]", dataRepo), "then", "exit 0", "fi", "exit 1"},
-				ErrCmd:   []string{"bash"},
-				ErrStdin: []string{"if", fmt.Sprintf("[ -a pfs/%v/file3 ]", dataRepo), "then", "exit 0", "fi", "exit 1"},
-			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
-		})
-	require.NoError(t, err)
-
-	var jobInfos []*pps.JobInfo
-	require.NoError(t, backoff.Retry(func() error {
-		jobInfos, err = c.ListJob(pipeline, nil, nil, -1, true)
+		_, err := c.PutFile(dataRepo, "master", "file1", strings.NewReader("foo\n"))
 		require.NoError(t, err)
-		if len(jobInfos) != 1 {
-			return fmt.Errorf("expected 1 job, got %d", len(jobInfos))
-		}
-		return nil
-	}, backoff.NewTestingBackOff()))
-	jobInfo, err := c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{
-		Job:        jobInfos[0].Job,
-		BlockState: true,
-	})
-	require.NoError(t, err)
-	// We expect the job to fail, and have 1 datum processed, recovered, and failed each
-	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
-	require.Equal(t, int64(1), jobInfo.DataProcessed)
-	require.Equal(t, int64(1), jobInfo.DataRecovered)
-	require.Equal(t, int64(1), jobInfo.DataFailed)
-
-	// For this pipeline, we have the same command as before, but this time the error handling passes for all
-	pipeline = tu.UniqueString("pipeline2")
-	_, err = c.PpsAPIClient.CreatePipeline(
-		context.Background(),
-		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
-			Transform: &pps.Transform{
-				Cmd:    []string{"bash"},
-				Stdin:  []string{"if", fmt.Sprintf("[ -a pfs/%v/file1 ]", dataRepo), "then", "exit 0", "fi", "exit 1"},
-				ErrCmd: []string{"true"},
-			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
-		})
-	require.NoError(t, err)
-
-	require.NoError(t, backoff.Retry(func() error {
-		jobInfos, err = c.ListJob(pipeline, nil, nil, -1, true)
+		_, err = c.PutFile(dataRepo, "master", "file2", strings.NewReader("bar\n"))
 		require.NoError(t, err)
-		if len(jobInfos) != 1 {
-			return fmt.Errorf("expected 1 job, got %d", len(jobInfos))
-		}
-		return nil
-	}, backoff.NewTestingBackOff()))
-	jobInfo, err = c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{
-		Job:        jobInfos[0].Job,
-		BlockState: true,
+		_, err = c.PutFile(dataRepo, "master", "file3", strings.NewReader("bar\n"))
+		require.NoError(t, err)
+
+		// In this pipeline, we'll have a command that fails for files 2 and 3, and an error handler that fails for file 2
+		pipeline := tu.UniqueString("pipeline1")
+		_, err = c.PpsAPIClient.CreatePipeline(
+			context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd:      []string{"bash"},
+					Stdin:    []string{"if", fmt.Sprintf("[ -a pfs/%v/file1 ]", dataRepo), "then", "exit 0", "fi", "exit 1"},
+					ErrCmd:   []string{"bash"},
+					ErrStdin: []string{"if", fmt.Sprintf("[ -a pfs/%v/file3 ]", dataRepo), "then", "exit 0", "fi", "exit 1"},
+				},
+				Input: client.NewPFSInput(dataRepo, "/*"),
+			})
+		require.NoError(t, err)
+
+		jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(jis))
+		jobInfo := jis[0]
+
+		// We expect the job to fail, and have 1 datum processed, recovered, and failed each
+		require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
+		require.Equal(t, int64(1), jobInfo.DataProcessed)
+		require.Equal(t, int64(1), jobInfo.DataRecovered)
+		require.Equal(t, int64(1), jobInfo.DataFailed)
+
+		// Now update this pipeline, we have the same command as before, but this time the error handling passes for all
+		_, err = c.PpsAPIClient.CreatePipeline(
+			context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd:    []string{"bash"},
+					Stdin:  []string{"if", fmt.Sprintf("[ -a pfs/%v/file1 ]", dataRepo), "then", "exit 0", "fi", "exit 1"},
+					ErrCmd: []string{"true"},
+				},
+				Input:  client.NewPFSInput(dataRepo, "/*"),
+				Update: true,
+			})
+		require.NoError(t, err)
+
+		jis, err = c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(jis))
+		jobInfo = jis[0]
+
+		// so we expect the job to succeed, and to have recovered 2 datums
+		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+		require.Equal(t, int64(1), jobInfo.DataSkipped)
+		require.Equal(t, int64(2), jobInfo.DataRecovered)
+		require.Equal(t, int64(0), jobInfo.DataFailed)
 	})
-	require.NoError(t, err)
-	// so we expect the job to succeed, and to have recovered 2 datums
-	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
-	require.Equal(t, int64(1), jobInfo.DataProcessed)
-	require.Equal(t, int64(2), jobInfo.DataRecovered)
-	require.Equal(t, int64(0), jobInfo.DataFailed)
+	t.Run("RecoveredDatums", func(t *testing.T) {
+		dataRepo := tu.UniqueString("TestPipelineRecoveredDatums_data")
+		require.NoError(t, c.CreateRepo(dataRepo))
+
+		_, err := c.PutFile(dataRepo, "master", "foo", strings.NewReader("bar\n"))
+		require.NoError(t, err)
+
+		// In this pipeline, we'll have a command that fails the datum, and then recovers it
+		pipeline := tu.UniqueString("pipeline3")
+		_, err = c.PpsAPIClient.CreatePipeline(
+			context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd:      []string{"bash"},
+					Stdin:    []string{"false"},
+					ErrCmd:   []string{"bash"},
+					ErrStdin: []string{"true"},
+				},
+				Input: client.NewPFSInput(dataRepo, "/*"),
+			})
+		require.NoError(t, err)
+
+		jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(jis))
+		jobInfo := jis[0]
+
+		// We expect there to be one recovered datum
+		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+		require.Equal(t, int64(0), jobInfo.DataProcessed)
+		require.Equal(t, int64(1), jobInfo.DataRecovered)
+		require.Equal(t, int64(0), jobInfo.DataFailed)
+
+		// Update the pipeline so that datums will now successfully be processed
+		_, err = c.PpsAPIClient.CreatePipeline(
+			context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd:   []string{"bash"},
+					Stdin: []string{"true"},
+				},
+				Input:  client.NewPFSInput(dataRepo, "/*"),
+				Update: true,
+			})
+		require.NoError(t, err)
+
+		jis, err = c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(jis))
+		jobInfo = jis[0]
+
+		// Now the recovered datum should have been processed
+		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+		require.Equal(t, int64(1), jobInfo.DataProcessed)
+		require.Equal(t, int64(0), jobInfo.DataRecovered)
+		require.Equal(t, int64(0), jobInfo.DataFailed)
+	})
 }
 
 func TestEgressFailure(t *testing.T) {
@@ -4044,70 +4099,12 @@ func testGetLogs(t *testing.T, enableStats bool) {
 	_, err = c.FlushJobAll([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
 
-	// Get logs from pipeline, using pipeline
-	iter = c.GetLogs(pipelineName, "", nil, "", false, false, 0)
-	var numLogs int
-	var loglines []string
-	for iter.Next() {
-		if !iter.Message().User {
-			continue
-		}
-		numLogs++
-		require.True(t, iter.Message().Message != "")
-		loglines = append(loglines, strings.TrimSuffix(iter.Message().Message, "\n"))
-		require.False(t, strings.Contains(iter.Message().Message, "MISSING"), iter.Message().Message)
-	}
-	require.True(t, numLogs >= 2, "logs:\n%s", strings.Join(loglines, "\n"))
-	require.NoError(t, iter.Err())
-
-	// Get logs from pipeline, using pipeline (tailing the last two log lines)
-	iter = c.GetLogs(pipelineName, "", nil, "", false, false, 2)
-	numLogs = 0
-	loglines = []string{}
-	for iter.Next() {
-		numLogs++
-		require.True(t, iter.Message().Message != "")
-		loglines = append(loglines, strings.TrimSuffix(iter.Message().Message, "\n"))
-	}
-	require.True(t, numLogs >= 2, "logs:\n%s", strings.Join(loglines, "\n"))
-	require.NoError(t, iter.Err())
-
 	// Get logs from pipeline, using a pipeline that doesn't exist. There should
 	// be an error
 	iter = c.GetLogs("__DOES_NOT_EXIST__", "", nil, "", false, false, 0)
 	require.False(t, iter.Next())
 	require.YesError(t, iter.Err())
 	require.Matches(t, "could not get", iter.Err().Error())
-
-	// Get logs from pipeline, using job
-	// (1) Get job ID, from pipeline that just ran
-	jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
-	require.NoError(t, err)
-	require.True(t, len(jobInfos) == 1)
-	// (2) Get logs using extracted job ID
-	// wait for logs to be collected
-	time.Sleep(10 * time.Second)
-	iter = c.GetLogs("", jobInfos[0].Job.ID, nil, "", false, false, 0)
-	numLogs = 0
-	for iter.Next() {
-		numLogs++
-		require.True(t, iter.Message().Message != "")
-	}
-	// Make sure that we've seen some logs
-	require.NoError(t, iter.Err())
-	require.True(t, numLogs > 0)
-
-	// Get logs for datums but don't specify pipeline or job. These should error
-	iter = c.GetLogs("", "", []string{"/foo"}, "", false, false, 0)
-	require.False(t, iter.Next())
-	require.YesError(t, iter.Err())
-
-	resp, err := c.ListDatum(jobInfos[0].Job.ID, 0, 0)
-	require.NoError(t, err)
-	require.True(t, len(resp.DatumInfos) > 0)
-	iter = c.GetLogs("", "", nil, resp.DatumInfos[0].Datum.ID, false, false, 0)
-	require.False(t, iter.Next())
-	require.YesError(t, iter.Err())
 
 	// Get logs from pipeline, using a job that doesn't exist. There should
 	// be an error
@@ -4116,14 +4113,85 @@ func testGetLogs(t *testing.T, enableStats bool) {
 	require.YesError(t, iter.Err())
 	require.Matches(t, "could not get", iter.Err().Error())
 
-	// Filter logs based on input (using file that exists). Get logs using file
-	// path, hex hash, and base64 hash, and make sure you get the same log lines
-	fileInfo, err := c.InspectFile(dataRepo, commit.ID, "/file")
-	require.NoError(t, err)
-
-	// TODO(msteffen) This code shouldn't be wrapped in a backoff, but for some
-	// reason GetLogs is not yet 100% consistent. This reduces flakes in testing.
+	// This is put in a backoff because there's the possibility that pod was
+	// evicted from k8s and is being re-initialized, in which case `GetLogs`
+	// will appropriately fail
 	require.NoError(t, backoff.Retry(func() error {
+		// Get logs from pipeline, using pipeline
+		iter = c.GetLogs(pipelineName, "", nil, "", false, false, 0)
+		var numLogs int
+		var loglines []string
+		for iter.Next() {
+			if !iter.Message().User {
+				continue
+			}
+			numLogs++
+			require.True(t, iter.Message().Message != "")
+			loglines = append(loglines, strings.TrimSuffix(iter.Message().Message, "\n"))
+			require.False(t, strings.Contains(iter.Message().Message, "MISSING"), iter.Message().Message)
+		}
+		require.True(t, numLogs >= 2, "logs:\n%s", strings.Join(loglines, "\n"))
+		if err := iter.Err(); err != nil {
+			return err
+		}
+
+		// Get logs from pipeline, using pipeline (tailing the last two log lines)
+		iter = c.GetLogs(pipelineName, "", nil, "", false, false, 2)
+		numLogs = 0
+		loglines = []string{}
+		for iter.Next() {
+			numLogs++
+			require.True(t, iter.Message().Message != "")
+			loglines = append(loglines, strings.TrimSuffix(iter.Message().Message, "\n"))
+		}
+		require.True(t, numLogs >= 2, "logs:\n%s", strings.Join(loglines, "\n"))
+		if err := iter.Err(); err != nil {
+			return err
+		}
+
+		// Get logs from pipeline, using job
+		// (1) Get job ID, from pipeline that just ran
+		jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
+		if err != nil {
+			return err
+		}
+		require.True(t, len(jobInfos) == 1)
+		// (2) Get logs using extracted job ID
+		// wait for logs to be collected
+		time.Sleep(10 * time.Second)
+		iter = c.GetLogs("", jobInfos[0].Job.ID, nil, "", false, false, 0)
+		numLogs = 0
+		for iter.Next() {
+			numLogs++
+			require.True(t, iter.Message().Message != "")
+		}
+		// Make sure that we've seen some logs
+		if err = iter.Err(); err != nil {
+			return err
+		}
+		require.True(t, numLogs > 0)
+
+		// Get logs for datums but don't specify pipeline or job. These should error
+		iter = c.GetLogs("", "", []string{"/foo"}, "", false, false, 0)
+		require.False(t, iter.Next())
+		require.YesError(t, iter.Err())
+
+		resp, err := c.ListDatum(jobInfos[0].Job.ID, 0, 0)
+		if err != nil {
+			return err
+		}
+		require.True(t, len(resp.DatumInfos) > 0)
+		iter = c.GetLogs("", "", nil, resp.DatumInfos[0].Datum.ID, false, false, 0)
+		require.False(t, iter.Next())
+		require.YesError(t, iter.Err())
+
+		// Filter logs based on input (using file that exists). Get logs using file
+		// path, hex hash, and base64 hash, and make sure you get the same log lines
+		fileInfo, err := c.InspectFile(dataRepo, commit.ID, "/file")
+		if err != nil {
+			return err
+		}
+
 		pathLog := c.GetLogs("", jobInfos[0].Job.ID, []string{"/file"}, "", false, false, 0)
 
 		hexHash := "19fdf57bdf9eb5a9602bfa9c0e6dd7ed3835f8fd431d915003ea82747707be66"
@@ -4161,35 +4229,43 @@ func testGetLogs(t *testing.T, enableStats bool) {
 		if numLogs == 0 {
 			return fmt.Errorf("no logs found")
 		}
-		return nil
+
+		// Filter logs based on input (using file that doesn't exist). There should
+		// be no logs
+		iter = c.GetLogs("", jobInfos[0].Job.ID, []string{"__DOES_NOT_EXIST__"}, "", false, false, 0)
+		require.False(t, iter.Next())
+		if err = iter.Err(); err != nil {
+			return err
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		iter = c.WithCtx(ctx).GetLogs(pipelineName, "", nil, "", false, false, 0)
+		numLogs = 0
+		for iter.Next() {
+			numLogs++
+			if numLogs == 8 {
+				// Do another commit so there's logs to receive with follow
+				_, err = c.StartCommit(dataRepo, "master")
+				if err != nil {
+					return err
+				}
+				_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("bar\n"))
+				if err != nil {
+					return err
+				}
+				if err = c.FinishCommit(dataRepo, "master"); err != nil {
+					return err
+				}
+			}
+			require.True(t, iter.Message().Message != "")
+			if numLogs == 16 {
+				break
+			}
+		}
+
+		return iter.Err()
 	}, backoff.NewTestingBackOff()))
-
-	// Filter logs based on input (using file that doesn't exist). There should
-	// be no logs
-	iter = c.GetLogs("", jobInfos[0].Job.ID, []string{"__DOES_NOT_EXIST__"}, "", false, false, 0)
-	require.False(t, iter.Next())
-	require.NoError(t, iter.Err())
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-	iter = c.WithCtx(ctx).GetLogs(pipelineName, "", nil, "", false, false, 0)
-	numLogs = 0
-	for iter.Next() {
-		numLogs++
-		if numLogs == 8 {
-			// Do another commit so there's logs to receive with follow
-			_, err = c.StartCommit(dataRepo, "master")
-			require.NoError(t, err)
-			_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("bar\n"))
-			require.NoError(t, err)
-			require.NoError(t, c.FinishCommit(dataRepo, "master"))
-		}
-		require.True(t, iter.Message().Message != "")
-		if numLogs == 16 {
-			break
-		}
-	}
-	require.NoError(t, iter.Err())
 }
 
 func TestAllDatumsAreProcessed(t *testing.T) {

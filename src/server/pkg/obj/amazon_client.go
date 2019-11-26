@@ -291,9 +291,11 @@ func (c *amazonClient) Reader(ctx context.Context, name string, offset uint64, s
 		}
 		req.Header.Add("Range", byteRange)
 
-		backoff.RetryNotify(func() error {
-			span, _ := tracing.AddSpanToAnyExisting(ctx, "aws/cloudfront.Get")
-			defer tracing.FinishAnySpan(span)
+		backoff.RetryNotify(func() (retErr error) {
+			span, _ := tracing.AddSpanToAnyExisting(ctx, "/Amazon.Cloudfront/Get")
+			defer func() {
+				tracing.FinishAnySpan(span, "err", retErr)
+			}()
 			resp, connErr = http.DefaultClient.Do(req)
 			if connErr != nil && isNetRetryable(connErr) {
 				return connErr
@@ -339,7 +341,7 @@ func (c *amazonClient) Delete(_ context.Context, name string) error {
 	return err
 }
 
-func (c *amazonClient) Exists(_ context.Context, name string) bool {
+func (c *amazonClient) Exists(ctx context.Context, name string) bool {
 	if c.advancedConfig.Reverse {
 		name = reverse(name)
 	}
@@ -347,6 +349,7 @@ func (c *amazonClient) Exists(_ context.Context, name string) bool {
 		Bucket: aws.String(c.bucket),
 		Key:    aws.String(name),
 	})
+	tracing.TagAnySpan(ctx, "err", err)
 	return err == nil
 }
 
@@ -424,15 +427,15 @@ func newWriter(ctx context.Context, client *amazonClient, name string) *amazonWr
 	return w
 }
 
-func (w *amazonWriter) Write(p []byte) (int, error) {
-	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "amazonWriter.Write")
-	defer tracing.FinishAnySpan(span)
+func (w *amazonWriter) Write(p []byte) (retN int, retErr error) {
+	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/Amazon.Writer/Write")
+	defer tracing.FinishAnySpan(span, "bytes", retN, "err", retErr)
 	return w.pipe.Write(p)
 }
 
-func (w *amazonWriter) Close() error {
-	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "amazonWriter.Close")
-	defer tracing.FinishAnySpan(span)
+func (w *amazonWriter) Close() (retErr error) {
+	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/Amazon.Writer/Close")
+	defer tracing.FinishAnySpan(span, "err", retErr)
 	if err := w.pipe.Close(); err != nil {
 		return err
 	}

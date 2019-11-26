@@ -122,6 +122,15 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, objC
 	return s, nil
 }
 
+// prettyObjPath renders an object hash as a path, for more readable traces
+// and logs
+func (s *objBlockAPIServer) prettyObjPath(obj *pfsclient.Object) string {
+	if obj != nil && obj.Hash != "" {
+		return s.objectPath(obj)
+	}
+	return "nil"
+}
+
 // watchGC watches for GC runs and invalidate all cache when GC happens.
 func (s *objBlockAPIServer) watchGC(etcdAddress string) {
 	b := backoff.NewInfiniteBackOff()
@@ -223,14 +232,12 @@ func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer
 		server: server,
 	}
 	defer func(start time.Time) {
-		hash := "nil"
-		if object != nil {
-			hash = object.Hash
-		}
-		tracing.TagAnySpan(server.Context(), "err", retErr)
+		objpath := s.prettyObjPath(object)
+		tracing.TagAnySpan(server.Context(),
+			"err", retErr, "object", objpath, "size", putObjectReader.BytesRead)
 		s.Log(nil,
-			fmt.Sprintf("PutObjectResponse{ Hash: %q, Size: %d }",
-				hash,
+			fmt.Sprintf("PutObjectResponse{Path: %q, Size: %d }",
+				objpath,
 				putObjectReader.BytesRead,
 			), retErr, time.Since(start))
 	}(time.Now())
@@ -384,7 +391,7 @@ func (s *objBlockAPIServer) CreateObject(ctx context.Context, request *pfsclient
 func (s *objBlockAPIServer) GetObject(request *pfsclient.Object, getObjectServer pfsclient.ObjectAPI_GetObjectServer) (retErr error) {
 	func() { s.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) {
-		tracing.TagAnySpan(getObjectServer.Context(), "object", request.Hash, "err", retErr)
+		tracing.TagAnySpan(getObjectServer.Context(), "object", s.prettyObjPath(request), "err", retErr)
 		s.Log(request, nil, retErr, time.Since(start))
 	}(time.Now())
 	// First we inspect the object to see how big it is.
@@ -524,7 +531,10 @@ func (s *objBlockAPIServer) TagObject(ctx context.Context, request *pfsclient.Ta
 
 func (s *objBlockAPIServer) InspectObject(ctx context.Context, request *pfsclient.Object) (response *pfsclient.ObjectInfo, retErr error) {
 	func() { s.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) {
+		tracing.TagAnySpan(ctx, "err", retErr, "object", s.prettyObjPath(request))
+		s.Log(request, response, retErr, time.Since(start))
+	}(time.Now())
 	objectInfo := &pfsclient.ObjectInfo{}
 	sink := groupcache.ProtoSink(objectInfo)
 	if err := s.objectInfoCache.Get(ctx, s.splitKey(request.Hash), sink); err != nil {
@@ -534,7 +544,10 @@ func (s *objBlockAPIServer) InspectObject(ctx context.Context, request *pfsclien
 }
 
 func (s *objBlockAPIServer) CheckObject(ctx context.Context, request *pfsclient.CheckObjectRequest) (response *pfsclient.CheckObjectResponse, retErr error) {
-	func() { s.Log(request, nil, nil, 0) }()
+	func() {
+		tracing.TagAnySpan(ctx, "err", retErr, "object", s.prettyObjPath(request.Object))
+		s.Log(request, nil, nil, 0)
+	}()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
 	return &pfsclient.CheckObjectResponse{
@@ -546,6 +559,7 @@ func (s *objBlockAPIServer) ListObjects(request *pfsclient.ListObjectsRequest, l
 	func() { s.Log(request, nil, nil, 0) }()
 	sent := 0
 	defer func(start time.Time) {
+		tracing.TagAnySpan(listObjectsServer.Context(), "err", retErr, "objects-returned", sent)
 		s.Log(request, fmt.Sprintf("stream containing %d ObjectInfos", sent), retErr, time.Since(start))
 	}(time.Now())
 
@@ -563,6 +577,7 @@ func (s *objBlockAPIServer) ListTags(request *pfsclient.ListTagsRequest, server 
 	func() { s.Log(request, nil, nil, 0) }()
 	respCount := 0
 	defer func(start time.Time) {
+		tracing.TagAnySpan(server.Context(), "err", retErr, "tags-returned", respCount)
 		s.Log(request, fmt.Sprintf("stream containing %d tags", respCount), retErr, time.Since(start))
 	}(time.Now())
 
@@ -608,7 +623,10 @@ func (s *objBlockAPIServer) ListTags(request *pfsclient.ListTagsRequest, server 
 
 func (s *objBlockAPIServer) DeleteTags(ctx context.Context, request *pfsclient.DeleteTagsRequest) (response *pfsclient.DeleteTagsResponse, retErr error) {
 	func() { s.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) {
+		tracing.TagAnySpan(ctx, "err", retErr, "tags-deleted", len(request.Tags))
+		s.Log(request, response, retErr, time.Since(start))
+	}(time.Now())
 
 	limiter := limit.New(100)
 	var eg errgroup.Group
