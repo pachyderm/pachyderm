@@ -1364,8 +1364,12 @@ func (a *apiServer) getLogsForRC(ctx context.Context, pachClient *client.APIClie
 	var podLogsErr error
 
 	go func() {
+		// When this goro finishes, close the log channel, which will signal
+		// to the parent goro that we're done
 		defer close(logCh)
 
+		// Keep retrying to get logs if in follow mode; otherwise exit after
+		// the first failure
 		var backOffPolicy backoff.BackOff
 		if request.Follow {
 			backOffPolicy = backoff.NewConstantBackOff(5 * time.Second)
@@ -1374,6 +1378,7 @@ func (a *apiServer) getLogsForRC(ctx context.Context, pachClient *client.APIClie
 		}
 
 		err := backoff.RetryNotify(func() error {
+			// If an RC name hasn't been passed in, fetch one now
 			curRCName := rcName
 			if curRCName == "" {
 				var pipelineInfo *pps.PipelineInfo
@@ -1410,14 +1415,21 @@ func (a *apiServer) getLogsForRC(ctx context.Context, pachClient *client.APIClie
 				return fmt.Errorf("no pods belonging to the rc \"%s\" were found", curRCName)
 			}
 
-			// sort the pods to make sure that the order of log lines is stable
+			// Sort the pods to make sure that the order of log lines is stable
 			sort.Sort(podSlice(pods))
+			// We'll span a separate goro for each pod, which will all be
+			// managed by this error group. The behavior of `.Wait()` (called
+			// below) is to return when all of the goros have returned. By
+			// using a context tied to the error group, a single failing goro
+			// can signal to the other goros to wrap up as well. Because the
+			// error group context builds upon the request context, it can
+			// also be cancelled when the request is cancelled.
 			eg, egCtx := errgroup.WithContext(ctx)
-			// used to serialize log fetch when follow mode is not enabled
+			// Used to serialize log fetch when follow mode is not enabled
 			var mu sync.Mutex
 
 			for _, pod := range pods {
-				// w/o this, variable shadowing will prevent us from
+				// Without this, variable shadowing will prevent us from
 				// properly iterating over all the pods
 				pod := pod
 
@@ -1435,6 +1447,7 @@ func (a *apiServer) getLogsForRC(ctx context.Context, pachClient *client.APIClie
 
 			return eg.Wait()
 		}, backOffPolicy, func(err error, _ time.Duration) error {
+			// Keep retrying, unless the request context is done
 			select {
 			case <-ctx.Done():
 				return err
@@ -1443,11 +1456,14 @@ func (a *apiServer) getLogsForRC(ctx context.Context, pachClient *client.APIClie
 			}
 		})
 
+		// Do not propagate EOF errors, as they're strictly used to signal
+		// shutdown for pod log goros
 		if err != io.EOF {
 			podLogsErr = err
 		}
 	}()
 
+	// Proxy messages from `logCh` until it's closed
 	for msg := range logCh {
 		if err := apiGetLogsServer.Send(msg); err != nil {
 			return err
