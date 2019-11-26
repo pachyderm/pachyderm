@@ -7,7 +7,7 @@ labels: docs
 
 If you're looking for help, please check:
 
-Docs: http://docs.pachyderm.com/latest/
+Docs: http://docs.pachyderm.com
 Slack: http://slack.pachyderm.io/
 
 -->
