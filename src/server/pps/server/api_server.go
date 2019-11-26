@@ -1303,143 +1303,150 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	pachClient := a.env.GetPachClient(apiGetLogsServer.Context())
 	ctx := pachClient.Ctx() // pachClient will propagate auth info
 
-	// Authorize request and get list of pods containing logs we're interested in
-	// (based on pipeline and job filters)
-	var rcName, containerName string
 	if request.Pipeline == nil && request.Job == nil {
 		if len(request.DataFilters) > 0 || request.Datum != nil {
 			return fmt.Errorf("must specify the Job or Pipeline that the datum is from to get logs for it")
 		}
 		// no authorization is done to get logs from master
-		containerName, rcName = "pachd", "pachd"
-	} else {
-		containerName = client.PPSWorkerUserContainerName
+		return a.getLogsForRC(ctx, pachClient, request, apiGetLogsServer, "pachd", "pachd")
+	}
 
-		// 1) Lookup the PipelineInfo for this pipeline/job, for auth and to get the
-		// RC name
-		var pipelineInfo *pps.PipelineInfo
-		var statsCommit *pfs.Commit
-		var err error
-		if request.Pipeline != nil {
-			pipelineInfo, err = a.inspectPipeline(pachClient, request.Pipeline.Name)
-			if err != nil {
-				return fmt.Errorf("could not get pipeline information for %s: %v", request.Pipeline.Name, err)
-			}
-		} else if request.Job != nil {
-			// If user provides a job, lookup the pipeline from the job info, and then
-			// get the pipeline RC
-			var jobPtr pps.EtcdJobInfo
-			err = a.jobs.ReadOnly(ctx).Get(request.Job.ID, &jobPtr)
-			if err != nil {
-				return fmt.Errorf("could not get job information for \"%s\": %v", request.Job.ID, err)
-			}
-			statsCommit = jobPtr.StatsCommit
-			pipelineInfo, err = a.inspectPipeline(pachClient, jobPtr.Pipeline.Name)
-			if err != nil {
-				return fmt.Errorf("could not get pipeline information for %s: %v", jobPtr.Pipeline.Name, err)
-			}
-		}
-
-		// 2) Check whether the caller is authorized to get logs from this pipeline/job
-		if err := a.authorizePipelineOp(pachClient, pipelineOpGetLogs, pipelineInfo.Input, pipelineInfo.Pipeline.Name); err != nil {
-			return err
-		}
-
-		// If the job had stats enabled, we use the logs from the stats
-		// commit since that's likely to yield better results.
-		if statsCommit != nil {
-			ci, err := pachClient.InspectCommit(statsCommit.Repo.Name, statsCommit.ID)
-			if err != nil {
-				return err
-			}
-			if ci.Finished != nil {
-				return a.getLogsFromStats(pachClient, request, apiGetLogsServer, statsCommit)
-			}
-		}
-
-		// 3) Get rcName for this pipeline
-		rcName = ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	// Authorize request and get list of pods containing logs we're interested in
+	// (based on pipeline and job filters)
+	// 1) Lookup the PipelineInfo for this pipeline/job, for auth and to get the
+	// RC name
+	var pipelineInfo *pps.PipelineInfo
+	var statsCommit *pfs.Commit
+	var err error
+	if request.Pipeline != nil {
+		pipelineInfo, err = a.inspectPipeline(pachClient, request.Pipeline.Name)
 		if err != nil {
-			return err
+			return fmt.Errorf("could not get pipeline information for %s: %v", request.Pipeline.Name, err)
+		}
+	} else if request.Job != nil {
+		// If user provides a job, lookup the pipeline from the job info, and then
+		// get the pipeline RC
+		var jobPtr pps.EtcdJobInfo
+		err = a.jobs.ReadOnly(ctx).Get(request.Job.ID, &jobPtr)
+		if err != nil {
+			return fmt.Errorf("could not get job information for \"%s\": %v", request.Job.ID, err)
+		}
+		statsCommit = jobPtr.StatsCommit
+		pipelineInfo, err = a.inspectPipeline(pachClient, jobPtr.Pipeline.Name)
+		if err != nil {
+			return fmt.Errorf("could not get pipeline information for %s: %v", jobPtr.Pipeline.Name, err)
 		}
 	}
 
+	// 2) Check whether the caller is authorized to get logs from this pipeline/job
+	if err := a.authorizePipelineOp(pachClient, pipelineOpGetLogs, pipelineInfo.Input, pipelineInfo.Pipeline.Name); err != nil {
+		return err
+	}
+
+	// If the job had stats enabled, we use the logs from the stats
+	// commit since that's likely to yield better results.
+	if statsCommit != nil {
+		ci, err := pachClient.InspectCommit(statsCommit.Repo.Name, statsCommit.ID)
+		if err != nil {
+			return err
+		}
+		if ci.Finished != nil {
+			return a.getLogsFromStats(pachClient, request, apiGetLogsServer, statsCommit)
+		}
+	}
+
+	containerName := client.PPSWorkerUserContainerName
+	return a.getLogsForRC(ctx, pachClient, request, apiGetLogsServer, containerName, "")
+}
+
+func (a *apiServer) getLogsForRC(ctx context.Context, pachClient *client.APIClient, request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer, containerName, rcName string) error {
 	logCh := make(chan *pps.LogMessage)
 	var podLogsErr error
 
-	if request.Follow {
-		go func() {
-			defer close(logCh)
+	go func() {
+		defer close(logCh)
 
-			err := backoff.RetryNotify(func() error {
-				// TODO(ys): rm
-				if containerName == "user" {
-					logrus.Warnf("begin logging errors for rc %s", rcName)
+		var backOffPolicy backoff.BackOff
+		if request.Follow {
+			backOffPolicy = backoff.NewConstantBackOff(5 * time.Second)
+		} else {
+			backOffPolicy = &backoff.StopBackOff{}
+		}
+
+		err := backoff.RetryNotify(func() error {
+			curRCName := rcName
+			if curRCName == "" {
+				var pipelineInfo *pps.PipelineInfo
+				var err error
+
+				if request.Pipeline != nil {
+					pipelineInfo, err = a.inspectPipeline(pachClient, request.Pipeline.Name)
+					if err != nil {
+						return fmt.Errorf("could not get pipeline information for %s: %v", request.Pipeline.Name, err)
+					}
+				} else if request.Job != nil {
+					// If user provides a job, lookup the pipeline from the job info, and then
+					// get the pipeline RC
+					var jobPtr pps.EtcdJobInfo
+					err = a.jobs.ReadOnly(ctx).Get(request.Job.ID, &jobPtr)
+					if err != nil {
+						return fmt.Errorf("could not get job information for \"%s\": %v", request.Job.ID, err)
+					}
+					pipelineInfo, err = a.inspectPipeline(pachClient, jobPtr.Pipeline.Name)
+					if err != nil {
+						return fmt.Errorf("could not get pipeline information for %s: %v", jobPtr.Pipeline.Name, err)
+					}
 				}
 
-				// Get pods managed by the RC we're scraping (either pipeline or pachd)
-				pods, err := a.rcPods(rcName)
-				if err != nil {
-					return err
-				}
-				if len(pods) == 0 {
-					return goerr.New("no pods available yet")
-				}
-
-				eg, egCtx := errgroup.WithContext(ctx)
-
-				for _, pod := range pods {
-					// w/o this, variable shadowing will prevent us from
-					// properly iterating over all the pods
-					pod := pod
-
-					eg.Go(func() error {
-						return a.getLogsFromPod(egCtx, request, pod, containerName, logCh)
-					})
-				}
-
-				return eg.Wait()
-			}, backoff.NewConstantBackOff(5*time.Second), func(err error, _ time.Duration) error {
-				// TODO(ys): rm
-				if containerName == "user" {
-					logrus.Warnf("reported error from logs: %s", err)
-				}
-
-				select {
-				case <-ctx.Done():
-					return err
-				default:
-					return nil
-				}
-			})
-
-			logrus.Infof("log follow finished with error: %v", err)
-		}()
-	} else {
-		go func() {
-			defer close(logCh)
+				curRCName = ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+			}
 
 			// Get pods managed by the RC we're scraping (either pipeline or pachd)
-			pods, err := a.rcPods(rcName)
+			pods, err := a.rcPods(curRCName)
 			if err != nil {
-				podLogsErr = fmt.Errorf("could not get pods in rc \"%s\" containing logs: %s", rcName, err.Error())
-				return
+				return fmt.Errorf("could not get pods in rc \"%s\" containing logs: %s", curRCName, err.Error())
 			}
 			if len(pods) == 0 {
-				podLogsErr = fmt.Errorf("no pods belonging to the rc \"%s\" were found", rcName)
-				return
+				return fmt.Errorf("no pods belonging to the rc \"%s\" were found", curRCName)
 			}
 
 			// sort the pods to make sure that the order of log lines is stable
 			sort.Sort(podSlice(pods))
+			eg, egCtx := errgroup.WithContext(ctx)
+			// used to serialize log fetch when follow mode is not enabled
+			var mu sync.Mutex
 
 			for _, pod := range pods {
-				if podLogsErr = a.getLogsFromPod(ctx, request, pod, containerName, logCh); podLogsErr != nil {
-					return
+				// w/o this, variable shadowing will prevent us from
+				// properly iterating over all the pods
+				pod := pod
+
+				if !request.Follow {
+					mu.Lock()
 				}
+
+				eg.Go(func() error {
+					if !request.Follow {
+						defer mu.Unlock()
+					}
+					return a.getLogsFromPod(egCtx, request, pod, containerName, logCh)
+				})
 			}
-		}()
-	}
+
+			return eg.Wait()
+		}, backOffPolicy, func(err error, _ time.Duration) error {
+			select {
+			case <-ctx.Done():
+				return err
+			default:
+				return nil
+			}
+		})
+
+		if err != io.EOF {
+			podLogsErr = err
+		}
+	}()
 
 	for msg := range logCh {
 		if err := apiGetLogsServer.Send(msg); err != nil {
@@ -1515,11 +1522,6 @@ func (a *apiServer) getLogsFromStats(pachClient *client.APIClient, request *pps.
 }
 
 func (a *apiServer) getLogsFromPod(ctx context.Context, request *pps.GetLogsRequest, pod v1.Pod, containerName string, logCh chan *pps.LogMessage) error {
-	// TODO(ys): rm
-	if containerName == "user" {
-		logrus.Warnf("fetching logs for pod: %s", pod.Name)
-	}
-
 	tailLines := &request.Tail
 	if *tailLines <= 0 {
 		tailLines = nil
@@ -1537,18 +1539,9 @@ func (a *apiServer) getLogsFromPod(ctx context.Context, request *pps.GetLogsRequ
 	}
 
 	go func() {
-		// Close the stream if the context is done
+		// Close the stream if the context is done. This is needed because we
+		// otherwise risk blocking indefinitely on `scanner.Scan()`.
 		<-ctx.Done()
-		if err := stream.Close(); err != nil {
-			logrus.Warningf("error closing log stream: %v", err)
-		}
-	}()
-	defer func() {
-		// Close the stream if we're about to exit
-		if containerName == "user" {
-			logrus.Warnf("closing logs for pod: %s", pod.Name)
-		}
-
 		if err := stream.Close(); err != nil {
 			logrus.Warningf("error closing log stream: %v", err)
 		}
