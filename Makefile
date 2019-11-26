@@ -212,6 +212,9 @@ docker-build:
 docker-build-proto:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_proto etc/proto
 
+docker-build-proto-no-cache:
+	docker build $(DOCKER_BUILD_FLAGS) --no-cache -t pachyderm_proto etc/proto
+
 docker-build-netcat:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_netcat etc/netcat
 
@@ -395,13 +398,13 @@ integration-tests:
 	CGOENABLED=0 go test -v -count=1 ./src/server $(TESTFLAGS) -timeout $(TIMEOUT)
 
 test-proto-static:
-	./etc/proto/test_no_changes.sh
+	./etc/proto/test_no_changes.sh || echo "Protos need to be recompiled; run make proto-no-cache."
 
 proto: docker-build-proto
-	find src -regex ".*\.proto" \
-	| xargs tar cf - \
-	| docker run -i pachyderm_proto \
-	| tar xf -
+	./etc/proto/build.sh
+
+proto-no-cache: docker-build-proto-no-cache
+	./etc/proto/build.sh
 
 # Use this to grab a binary for profiling purposes
 pachd-profiling-binary: docker-clean-pachd docker-build-compile
