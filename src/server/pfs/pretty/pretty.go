@@ -18,7 +18,7 @@ const (
 	// RepoAuthHeader is the header for repos with auth information attached.
 	RepoAuthHeader = "NAME\tCREATED\tSIZE (MASTER)\tACCESS LEVEL\t\n"
 	// CommitHeader is the header for commits.
-	CommitHeader = "REPO\tBRANCH\tCOMMIT\tPARENT\tSTARTED\tDURATION\tSIZE\t\n"
+	CommitHeader = "REPO\tBRANCH\tCOMMIT\tPARENT\tSTARTED\tDURATION\tSIZE\tPROGRESS\t\n"
 	// BranchHeader is the header for branches.
 	BranchHeader = "BRANCH\tHEAD\t\n"
 	// FileHeader is the header for files.
@@ -126,12 +126,17 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamps boo
 	}
 	if commitInfo.Finished != nil {
 		fmt.Fprintf(w, fmt.Sprintf("%s\t", pretty.TimeDifference(commitInfo.Started, commitInfo.Finished)))
-		fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(commitInfo.SizeBytes)))
+		fmt.Fprintf(w, "%s\t", units.BytesSize(float64(commitInfo.SizeBytes)))
 	} else {
 		fmt.Fprintf(w, "-\t")
 		// Open commits don't have meaningful size information
-		fmt.Fprintf(w, "-\t\n")
+		fmt.Fprintf(w, "-\t")
 	}
+	fmt.Fprintf(w, "%s\t\n", pretty.ProgressBar(
+		8,
+		int(commitInfo.SubvenantCommitsSuccess),
+		int(commitInfo.SubvenantCommitsTotal-commitInfo.SubvenantCommitsSuccess-commitInfo.SubvenantCommitsFailure),
+		int(commitInfo.SubvenantCommitsFailure)))
 }
 
 // PrintableCommitInfo is a wrapper around CommitInfo containing any formatting options

@@ -5209,6 +5209,26 @@ func TestMultiInputWithDeferredProcessing(t *testing.T) {
 	}
 }
 
+func TestCommitProgress(t *testing.T) {
+	c := GetPachClient(t, GetBasicConfig())
+	require.NoError(t, c.CreateRepo("in"))
+	require.NoError(t, c.CreateRepo("out"))
+	require.NoError(t, c.CreateBranch("out", "master", "", []*pfs.Branch{pclient.NewBranch("in", "master")}))
+	_, err := c.PutFile("in", "master", "foo", strings.NewReader("foo"))
+	require.NoError(t, err)
+	ci, err := c.InspectCommit("in", "master")
+	require.NoError(t, err)
+	require.Equal(t, int64(1), ci.SubvenantCommitsTotal)
+	require.Equal(t, int64(0), ci.SubvenantCommitsSuccess)
+	require.Equal(t, int64(0), ci.SubvenantCommitsFailure)
+	require.NoError(t, c.FinishCommit("out", "master"))
+	ci, err = c.InspectCommit("in", "master")
+	require.NoError(t, err)
+	require.Equal(t, int64(1), ci.SubvenantCommitsTotal)
+	require.Equal(t, int64(1), ci.SubvenantCommitsSuccess)
+	require.Equal(t, int64(0), ci.SubvenantCommitsFailure)
+}
+
 func TestListAll(t *testing.T) {
 	client := GetPachClient(t, GetBasicConfig())
 	require.NoError(t, client.CreateRepo("repo1"))
