@@ -1,0 +1,16 @@
+FROM golang:1.12.1
+
+WORKDIR /usr/src/app
+
+COPY . .
+
+#RUN CGO_ENABLED=0 GOOS=linux go build \
+#  -installsuffix netgo \
+#  -tags netgo \
+#  -o ./worker \
+#  -mod=vendor \
+#  src/server/cmd/worker/main.go
+
+#RUN mkdir /pach
+#ADD etc/worker/worker.sh /pach/
+#RUN cp ./worker /pach/
