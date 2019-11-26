@@ -1371,21 +1371,26 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		go func() {
 			defer close(logCh)
 
-			for {
+			err := backoff.RetryNotify(func() error {
+				// TODO(ys): rm
+				if containerName == "user" {
+					logrus.Warnf("begin logging errors for rc %s", rcName)
+				}
+
 				// Get pods managed by the RC we're scraping (either pipeline or pachd)
 				pods, err := a.rcPods(rcName)
-				if err != nil || len(pods) == 0 {
-					// pod fetch failed, retry in 5s
-					if err != nil {
-						logrus.Warningf("error fetching pods for logs: %v", err)
-					}
-					time.Sleep(5 * time.Second)
-					continue
+				if err != nil {
+					return err
+				}
+				if len(pods) == 0 {
+					return goerr.New("no pods available yet")
 				}
 
 				eg, egCtx := errgroup.WithContext(ctx)
 
 				for _, pod := range pods {
+					// w/o this, variable shadowing will prevent us from
+					// properly iterating over all the pods
 					pod := pod
 
 					eg.Go(func() error {
@@ -1393,19 +1398,22 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 					})
 				}
 
-				if err := eg.Wait(); err != nil {
-					logrus.Warningf("error fetching pod logs: %v", err)
+				return eg.Wait()
+			}, backoff.NewConstantBackOff(5*time.Second), func(err error, _ time.Duration) error {
+				// TODO(ys): rm
+				if containerName == "user" {
+					logrus.Warnf("reported error from logs: %s", err)
 				}
 
 				select {
 				case <-ctx.Done():
-					return
+					return err
 				default:
-					// log fetch failed, retry in 5s
-					time.Sleep(5 * time.Second)
-					continue
+					return nil
 				}
-			}
+			})
+
+			logrus.Infof("log follow finished with error: %v", err)
 		}()
 	} else {
 		go func() {
@@ -1507,6 +1515,11 @@ func (a *apiServer) getLogsFromStats(pachClient *client.APIClient, request *pps.
 }
 
 func (a *apiServer) getLogsFromPod(ctx context.Context, request *pps.GetLogsRequest, pod v1.Pod, containerName string, logCh chan *pps.LogMessage) error {
+	// TODO(ys): rm
+	if containerName == "user" {
+		logrus.Warnf("fetching logs for pod: %s", pod.Name)
+	}
+
 	tailLines := &request.Tail
 	if *tailLines <= 0 {
 		tailLines = nil
@@ -1522,6 +1535,24 @@ func (a *apiServer) getLogsFromPod(ctx context.Context, request *pps.GetLogsRequ
 	if err != nil {
 		return err
 	}
+
+	go func() {
+		// Close the stream if the context is done
+		<-ctx.Done()
+		if err := stream.Close(); err != nil {
+			logrus.Warningf("error closing log stream: %v", err)
+		}
+	}()
+	defer func() {
+		// Close the stream if we're about to exit
+		if containerName == "user" {
+			logrus.Warnf("closing logs for pod: %s", pod.Name)
+		}
+
+		if err := stream.Close(); err != nil {
+			logrus.Warningf("error closing log stream: %v", err)
+		}
+	}()
 
 	// Parse pods' log lines, and filter out irrelevant ones
 	scanner := bufio.NewScanner(stream)
@@ -1558,10 +1589,13 @@ func (a *apiServer) getLogsFromPod(ctx context.Context, request *pps.GetLogsRequ
 		select {
 		case logCh <- msg:
 		case <-ctx.Done():
-			return stream.Close()
+			return nil
 		}
 	}
-	return stream.Close()
+
+	// trigger an EOF, as this way the error will propagate to the other
+	// goros in the errgroup
+	return io.EOF
 }
 
 func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) error {
