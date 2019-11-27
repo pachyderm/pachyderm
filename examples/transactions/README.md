@@ -142,7 +142,7 @@ To run the transaction, complete the following steps:
    /gamma_parameters.txt dir  42B
    ```
 
-   Note that although the files are in the repository, no jobs were
+   **Note:** Although the files are in the repository, no jobs were
    triggered for the `model` pipeline. You can verify that by running
    the following command:
 

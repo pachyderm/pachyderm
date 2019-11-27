@@ -152,8 +152,7 @@ Other supporting commands for transactions include the following commands:
 | `pachctl stop transaction` | Remove the currently active transaction from the local Pachyderm config file. The transaction remains in the Pachyderm cluster and can be resumed later. |
 | `pachctl resume transaction` | Set an already-existing transaction as the active transaction in the local Pachyderm config file. |
 | `pachctl delete transaction` | Deletes a transaction from the Pachyderm cluster. |
-| `pachctl inspect transaction` | Provides detailed information about an existing transaction, including which operations it will perform. By default, displays information about the current transaction. If you specify a transaction ID, displays information
-about the corresponding transaction. |
+| `pachctl inspect transaction` | Provides detailed information about an existing transaction, including which operations it will perform. By default, displays information about the current transaction. If you specify a transaction ID, displays information about the corresponding transaction. |
 
 ## Supported Operations
 
