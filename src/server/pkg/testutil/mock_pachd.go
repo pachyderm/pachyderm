@@ -1252,7 +1252,7 @@ func NewMockPachd() (*MockPachd, error) {
 	transaction.RegisterAPIServer(server.Server, &mock.Transaction.api)
 	version.RegisterAPIServer(server.Server, &mock.Version.api)
 
-	listener, err := server.ListenTCP("", 0)
+	listener, err := server.ListenTCP("localhost", 0)
 	if err != nil {
 		return nil, err
 	}
