@@ -47,12 +47,12 @@ a transaction:
 In Pachyderm, a pipeline starts as soon as a new commit lands in
 a repository. In the diagram above, as soon as `commit 1` is added
 to the `data` repository, Pachyderm runs a job for `commit 1` and
-`commit 0` in the parameters repository. You can also see
+`commit 0` in the `parameters` repository. You can also see
 that Pachyderm runs the second job and processes `commit 1`
 from the `data` repository with the `commit 1` in the `parameters`
 repository. In some cases, this is perfectly acceptable solution.
 But if your job takes many hours and you are only interested in the
-result of the pipeline run with `commit 1` from both repositories
+result of the pipeline run with `commit 1` from both repositories,
 this approach does not work.
 
 With transactions, you can ensure that only one job triggers with
