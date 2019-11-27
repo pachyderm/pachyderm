@@ -16,8 +16,8 @@ publish = "doc/site"
   force = true
 
 [[redirects]]
-   from = "/deploy-manage/manage/batching_pachyderm_with_transactions.md"
-   to = "/latest/deploy-manage/manage/use-transactions-to-run-multiple-commands.md"
+   from = "/deploy-manage/manage/batching_pachyderm_with_transactions/"
+   to = "/latest/how-tos/use-transactions-to-run-multiple-commands/"
    status = 301
    force = true
 
