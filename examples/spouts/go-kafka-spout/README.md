@@ -8,10 +8,24 @@ The spout then writes each message in the topic to a file named by the topic and
 It uses Kafka group IDs to maintain a cursor into the offset in the topic, 
 making it resilient to restarts.
 
+## Prerequisites
+
+If you would like to run the Kafka cluster included with this example,
+using the `make kafka` target,
+you must deploy an Amazon EKS cluster with at least three (3) m5.xlarge machines. 
+
+To deploy an EKS cluster, 
+follow the instructions in the [Amazon EKS documentation](https://docs.aws.amazon.com/eks/latest/userguide/create-cluster.html)
+
+That Kafka cluster could be deployed on other cloud providers. 
+See [setup](#setup) below for more information.
+
+The Pachyderm code in this example requires a Pachyderm cluster version 1.9.8 or later.
+
 ## Introduction
 
 Apache® Kafka is a distributed streaming platform
-that is used in a variety of applications to provide communications between microservices.  
+that is used in a variety of applications to provide communications between microservices.
 Many Pachyderm users use Kafka to ingest data from legacy data sources using Pachyderm spouts.
 
 Pachyderm spouts are a way to ingest data into Pachyderm 
@@ -52,7 +66,16 @@ run the command
 make -n kafka
 ```
 
+!!! note
+If you are redeploying a Kafka deployment, run `make clean` before running `make kafka`.
+
 You can confirm that the Kafka cluster is running properly by verifying that the pods are running.
+
+!!! note
+Before deploying Kafka, 
+verify that you are using the correct Kubernetes context by running `kubectl config get-contexts`. 
+For example, when you are deploying on EKS, your active context should end with `eksctl.io`.
+
 
 ```sh
 $ kubectl get pods -n kafka
@@ -67,20 +90,30 @@ kafka-zookeeper-2   1/1     Running   0          3d19h
 ```
 
 2. Once the Kafka cluster is running, create the topic you'd like to consume messages from.
-The example is configured to look for a topic called `test-topic`.
+The example is configured to look for a topic called `test_topic`.
 You may modify the Makefile to use another topic name, of course.
 To use the example's Kafka environment,
 you may use the following command to create the topic:
 
 ```sh
 $ kubectl -n kafka exec kafka-test-client -- /usr/bin/kafka-topics --zookeeper \
-      kafka-zookeeper.kafka:2181 --topic test --create \
+      kafka-zookeeper.kafka:2181 --topic test_topic --create \
       --partitions 1 --replication-factor 1
 Created topic "test".
 ```
 
-Note that the command is using Kubernetes DNS names to specify the Kafka zookeeper service,
+!!! note
+The command is using Kubernetes DNS names to specify the Kafka zookeeper service,
 `kafka-zookeeper.kafka`.
+
+You can confirm that your topic was created with the following command:
+
+```
+$ kubectl -n kafka exec kafka-test-client -- /usr/bin/kafka-topics --zookeeper \
+       kafka-zookeeper.kafka:2181 --list
+```
+
+It should return the topic you created and the topic `__confluent.support.metrics`.
 
 3. You can start populating the topic with data using the `kafka-console-producer` command.
 It provides you with a `>` prompt for entering data,
@@ -93,7 +126,7 @@ Data entry is completed with an end-of-file character,
 
 ```sh
 $ kubectl -n kafka exec -ti kafka-test-client --  /usr/bin/kafka-console-producer \
-   --broker-list kafka.kafka:9092 --topic test 
+   --broker-list kafka.kafka:9092 --topic test_topic 
 >yo 
 >man
 >this 
@@ -103,33 +136,36 @@ $ kubectl -n kafka exec -ti kafka-test-client --  /usr/bin/kafka-console-produce
 ```
 
 4. You can see if the data has been added to the topic with the `kafka-console-consumer` command.
-In the example below,
-the session was terminated with `Control-C` keystrokes.
 
 ```sh
 $ kubectl -n kafka exec -ti kafka-test-client -- /usr/bin/kafka-console-consumer 
-   --bootstrap-server kafka:9092 --topic test --from-beginning
+   --bootstrap-server kafka:9092 --topic test_topic --from-beginning
 yo
 man
 this
 is so
 cool!!
+```
+
+Terminate the command to see the following message:
+
+```
 ^CProcessed a total of 5 messages
 command terminated with exit code 130
 ```
 
 ### Pachyderm setup
 
-This guide assumes that you already have a Pachyderm cluster running and have configured `pachctl` to talk to the cluster and `kubectl` to talk to Kubernetes.
-[Installation instructions can be found here](http://pachyderm.readthedocs.io/en/stable/getting_started/local_installation.html).
-
 1. If you would simply like to use the prebuilt spout image,
 you can simply create the spout with the pachctl command
 using the pipeline definition available in the `pipelines` directory
 
 ```
-$ pachctl create pipeline -f pipelines/kafka_spout.json
+$ pachctl create pipeline -f pipelines/kafka_spout.pipeline
 ```
+
+!!! note
+The Makefile included with this example has a target for customizing that pipeline.
 
 2. To create your own version of the spout,
 you may modify the Makefile to use your own Dockerhub account, tag and version
