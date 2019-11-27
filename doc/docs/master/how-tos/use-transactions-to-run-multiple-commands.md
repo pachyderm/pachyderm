@@ -42,7 +42,7 @@ the data repository and the other updates the parameters repository.
 The following animation shows the standard Pachyderm workflow without
 a transaction:
 
-![Standard workflow](../../assets/images/transaction_wrong.gif)
+![Standard workflow](../assets/images/transaction_wrong.gif)
 
 In Pachyderm, a pipeline starts as soon as a new commit lands in
 a repository. In the diagram above, as soon as `commit 1` is added
@@ -59,7 +59,7 @@ With transactions, you can ensure that only one job triggers with
 both the new `data` and `parameters`. The following animation
 demonstrates how transactions work:
 
-![Transactions workflow](../../assets/images/transaction_right.gif)
+![Transactions workflow](../assets/images/transaction_right.gif)
 
 The transaction ensures that a single job runs for the two commits
 that were started within the transaction.
@@ -70,7 +70,7 @@ organizational and performance reasons.
 
 ### Switching from Staging to Master Simultaneously
 
-If you are using [deferred processing](../../how-tos/deferred_processing/)
+If you are using [deferred processing](../deferred_processing/)
 in your repositories because you want to commit your changes frequently
 without triggering jobs every time, then transactions can help you
 manage deferred processing with multiple inputs. You commit your
