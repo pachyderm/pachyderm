@@ -9224,7 +9224,7 @@ func TestSpout(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	t.Run("SpoutBasic", func(t *testing.T) {
 		dataRepo := tu.UniqueString("TestSpoutBasic_data")
 		require.NoError(t, c.CreateRepo(dataRepo))
