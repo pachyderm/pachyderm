@@ -35,7 +35,7 @@ to your pipelines as needed.
 
 The following diagram describes the pipeline structure:
 
-![transactions diagram](../../assets/images/d_transactions_hyperparameter.svg)
+![transactions diagram](../../doc/docs/master/assets/images/d_transactions_hyperparameter.svg)
 
 To set up the pipeline, complete the following steps:
 
@@ -135,8 +135,6 @@ To run the transaction, complete the following steps:
    $ pachctl put file parameters@master -f gamma_parameters.txt --split line --target-file-datums 1
    ```
 
-1. View the `parameters` repository:
-
    ```bah
    $ pachctl list file parameters@master
    NAME                  TYPE SIZE
@@ -159,36 +157,12 @@ To run the transaction, complete the following steps:
    $ pachctl put file raw_data@master:iris.csv -f noisy_iris.csv
    ```
 
-1. Verify that the `iris.csv` file is added to the repository:
-
-   ```bash
-   $ pachctl list file raw_data@master
-   NAME      TYPE SIZE
-   /iris.csv file 6.858KiB
-   ```
-
    If you check whether the pipeline has run or not, you
-   can see that it has not:
+   can see that it has not yet run:
 
    ```bash
    $ pachctl list job --pipeline=model --no-pager
    ID PIPELINE STARTED DURATION RESTART PROGRESS DL UL STATE
-   ```
-
-1. Add the files to the `split` repository:
-
-   ```bash
-   $ pachctl put file split@master -f test.csv
-   $ pachctl put file split@master -f train.csv
-   ```
-
-1. Verify that the files were added to the `split` repository:
-
-   ```bash
-   $ pachctl list file split@master
-   NAME       TYPE SIZE
-   /test.csv  file 1.37KiB
-   /train.csv file 5.488KiB
    ```
 
 1. Close the commit to the `raw_data` repository that you have

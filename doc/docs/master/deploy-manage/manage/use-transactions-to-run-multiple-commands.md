@@ -9,12 +9,6 @@ a collection of Pachyderm commands and execute them concurrently.
 Regular Pachyderm operations, that are not in a transaction, are
 executed one after another. However, when you need
 to run multiple commands at the same time, you can use transactions.
-The transaction framework provides a method for batching together
-commit propagation such that changed branches are collected over
-the course of the transaction and all propagated in one batch at
-the end. This method allows Pachyderm to dedupe changed branches and
-branches provenant on the changed branches so that the minimum
-number of new commits are issued.
 This functionality is useful in particular for pipelines with multiple
 inputs. If you need to update two or more input repos, you might not want
 pipeline jobs for each state change. You can issue a transaction
