@@ -1973,12 +1973,20 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	var visitErr error
 	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
 		if input.Cron != nil {
-			if err := pachClient.CreateRepo(input.Cron.Repo); err != nil && !isAlreadyExistsErr(err) {
+			if _, err := pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(),
+				&pfs.CreateRepoRequest{
+					Repo:        client.NewRepo(input.Cron.Repo),
+					Description: fmt.Sprintf("Cron tick repo for pipeline %s.", request.Pipeline.Name),
+				}); err != nil && !isAlreadyExistsErr(err) {
 				visitErr = err
 			}
 		}
 		if input.Git != nil {
-			if err := pachClient.CreateRepo(input.Git.Name); err != nil && !isAlreadyExistsErr(err) {
+			if _, err := pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(),
+				&pfs.CreateRepoRequest{
+					Repo:        client.NewRepo(input.Git.Name),
+					Description: fmt.Sprintf("Git input repo for pipeline %s.", request.Pipeline.Name),
+				}); err != nil && !isAlreadyExistsErr(err) {
 				visitErr = err
 			}
 		}
@@ -2106,7 +2114,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		}
 	} else {
 		// Create output repo, pipeline output, and stats
-		if err := pachClient.CreateRepo(pipelineName); err != nil && !isAlreadyExistsErr(err) {
+		if _, err := pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(),
+			&pfs.CreateRepoRequest{
+				Repo:        client.NewRepo(pipelineName),
+				Description: fmt.Sprintf("Output repo for pipeline %s.", request.Pipeline.Name),
+			}); err != nil && !isAlreadyExistsErr(err) {
 			return nil, err
 		}
 
