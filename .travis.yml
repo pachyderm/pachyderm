@@ -63,5 +63,5 @@ branches:
   - master
   # Trigger CI tess for all branches that end with "-ci-trigger"
   - /.*(?i:ci-trigger)$)/
-  # For all branches
+  # For all branches uncomment the line below or remove the "branches" section
   #- /.*/
