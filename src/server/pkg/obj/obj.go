@@ -108,10 +108,11 @@ type AmazonAdvancedConfiguration struct {
 	// By default, objects uploaded to a bucket are only accessible to the
 	// uploader, and not the owner of the bucket. Using the default ensures that
 	// the owner of the bucket can access the objects as well.
-	UploadACL      string `env:"UPLOAD_ACL, default=bucket-owner-full-control"`
-	Reverse        bool   `env:"REVERSE, default=true"`
-	PartSize       int64  `env:"PART_SIZE, default=5242880"`
-	MaxUploadParts int    `env:"MAX_UPLOAD_PARTS, default=10000"`
+	UploadACL        string `env:"UPLOAD_ACL, default=bucket-owner-full-control"`
+	Reverse          bool   `env:"REVERSE, default=true"`
+	PartSize         int64  `env:"PART_SIZE, default=5242880"`
+	MaxUploadParts   int    `env:"MAX_UPLOAD_PARTS, default=10000"`
+	DownloadPartSize int64  `env:"DOWNLOAD_PART_SIZE, default=0"`
 }
 
 // EnvVarToSecretKey is an environment variable name to secret key mapping

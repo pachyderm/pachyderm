@@ -255,6 +255,7 @@ func doFullMode(config interface{}) (retErr error) {
 	} else {
 		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
 	}
+	fmt.Printf(">>> about to init serviceenv")
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 	debug.SetGCPercent(50)
 	go func() {
@@ -282,6 +283,7 @@ func doFullMode(config interface{}) (retErr error) {
 	if env.Metrics {
 		reporter = metrics.NewReporter(clusterID, env)
 	}
+	fmt.Printf(">>> about to init sharder")
 	// (bryce) Do we have to use etcd client v2 here for sharder? Might want to re-visit this later.
 	etcdAddress := fmt.Sprintf("http://%s", net.JoinHostPort(env.EtcdHost, env.EtcdPort))
 	etcdClientV2 := getEtcdClient(etcdAddress)

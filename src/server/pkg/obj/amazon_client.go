@@ -37,6 +37,7 @@ type amazonClient struct {
 	cloudfrontURLSigner    *sign.URLSigner
 	s3                     *s3.S3
 	uploader               *s3manager.Uploader
+	downloader             *s3manager.Downloader
 	advancedConfig         *AmazonAdvancedConfiguration
 }
 
@@ -192,6 +193,9 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 			u.PartSize = advancedConfig.PartSize
 			u.MaxUploadParts = advancedConfig.MaxUploadParts
 		}),
+		downloader: s3manager.NewDownloader(session, func(u *s3manager.Downloader) {
+			u.PartSize = advancedConfig.DownloadPartSize
+		}),
 		advancedConfig: advancedConfig,
 	}
 
@@ -321,11 +325,9 @@ func (c *amazonClient) Reader(ctx context.Context, name string, offset uint64, s
 		if byteRange != "" {
 			objIn.Range = aws.String(byteRange)
 		}
-		getObjectOutput, err := c.s3.GetObject(objIn)
-		if err != nil {
-			return nil, err
-		}
-		reader = getObjectOutput.Body
+		buf := awsBuf{aws.NewWriteAtBuffer(make([]byte, 0, 4096))}
+		c.downloader.DownloadWithContext(ctx, buf, objIn)
+		reader = buf
 	}
 	return newBackoffReadCloser(ctx, c, reader), nil
 }
