@@ -10,15 +10,15 @@ spec:
           image: pachyderm/split-loadtest-supervisor:latest
           command:
               - /supervisor
-              - --record-size=100
-              - --records-per-file=100
-              - --files-per-commit=100
-              - --num-commits=10
-              - --unique-keys-per-file=10
-              - --total-unique-keys=1000
-              - --pipeline-concurrency=5
-              - --hashtree-shards=3
-              - --put-file-concurrency=3
+              - --record-size=1000
+              - --records-per-file=1000000
+              - --files-per-commit=2
+              - --num-commits=1
+              - --unique-keys-per-file=2
+              - --total-unique-keys=2
+              - --pipeline-concurrency=1
+              - --hashtree-shards=1
+              - --put-file-concurrency=1
           imagePullPolicy: Always
     restartPolicy: Never
     # toleration is added in case we want a dedicated, high-memory node

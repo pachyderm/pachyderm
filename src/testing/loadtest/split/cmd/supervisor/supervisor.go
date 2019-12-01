@@ -156,18 +156,25 @@ func main() {
 		log.Fatalf("cluster must be empty before running the \"split\" loadtest")
 	}
 
-	// Create input repo and pipeline
+	// Create input repo
 	log.Printf("creating input repo and pipeline")
 	repo, branch := "input", "master"
 	if err := c.CreateRepo(repo); err != nil {
 		log.Fatalf("could not create input repo: %v", err)
+	}
+
+	// Create pipeline (using BENCH_VERSION env var, which ties the supervisor
+	// container version to the pipeline container version)
+	image := "pachyderm/split-loadtest-pipeline"
+	if tag, ok := os.LookupEnv("BENCH_VERSION"); ok && tag != "" {
+		image = "pachyderm/split-loadtest-pipeline:" + tag
 	}
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
 			Pipeline: &pps.Pipeline{Name: "split"},
 			Transform: &pps.Transform{
-				Image: "pachyderm/split-loadtest-pipeline",
+				Image: image,
 				Cmd:   []string{"/pipeline", fmt.Sprintf("--key-size=%d", keySz)},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{Constant: pipelineConcurrency},
