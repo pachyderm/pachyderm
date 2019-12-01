@@ -62,6 +62,7 @@ branches:
   # Trigger only for PR's to master
   - master
   # Trigger CI tess for all branches that end with "-ci-trigger"
+  # ruby reg-ex except for things before/after "/"
   - /.*(?i:ci-trigger)$/
   # For all branches uncomment the line below or remove the "branches" section
   #- /.*/
