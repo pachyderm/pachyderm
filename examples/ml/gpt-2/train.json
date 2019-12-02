@@ -2,6 +2,7 @@
     "pipeline": {
         "name": "train"
     },
+    "description": "A pipeline that trains the ML model on the tweets gathered by the `tweets` pipeline.",
     "transform": {
         "image": "pachyderm/gpt-2-example",
         "cmd": ["/train.py"]

@@ -2,6 +2,7 @@
   "pipeline": {
     "name": "estimate_pi"
   },
+  "description": "A pipeline that initiates a Spark job from within a Pachyderm job.",
   "transform": {
     "cmd": [ "spark-submit", "/home/estimate_pi.py" ],
     "image": "pachyderm/estimate-pi-spark:0.3"

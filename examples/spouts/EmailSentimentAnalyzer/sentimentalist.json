@@ -2,6 +2,7 @@
     "pipeline": {
         "name": "sentimentalist"
     },
+    "description": "A pipeline that sorts the incoming mail by positive and negative sentiment.",
     "input": {
         "pfs": {
             "glob": "/*",

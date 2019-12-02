@@ -2,6 +2,7 @@
   "pipeline": {
     "name": "checkpoint"
   },
+  "description": "A pipeline that performs image-to-image translation in the `training` mode to output the results in the `checkpoint` repository and then runs the same code in the `export` mode against the results in the `checkpoint` repo to output the model to the `model` repository.",
   "transform": {
     "image": "dwhitena/pix2pix",
     "cmd": [ "/bin/bash" ],

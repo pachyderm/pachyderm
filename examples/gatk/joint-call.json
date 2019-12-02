@@ -2,6 +2,7 @@
   "pipeline": {
     "name": "joint_call"
   },
+  "description": "A pipeline that performs joint genotyping of multiple samples.",
   "transform": {
     "image": "broadinstitute/gatk3:3.8-0",
     "cmd": [ "/bin/bash" ],

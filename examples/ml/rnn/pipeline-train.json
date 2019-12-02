@@ -2,6 +2,7 @@
   "pipeline": {
     "name": "GoT_train"
   },
+  "description": "A pipeline that trains the RNN algorithm with the data from the `GoT_scripts` repository.",
   "transform": {
     "image": "<yourregistry>/tensorflow_0_10_rnn_got",
     "cmd": [ "sh" ],
