@@ -199,10 +199,13 @@ transactions will be executed as soon as you close those
 transactions. To resume the initial transaction, you need to run
 `pachctl resume transaction`.
 
-Because nested transactions are not supported, transactions cannot
-conflict with each other. Every time you add a command to a transaction,
+Every time you add a command to a transaction,
 Pachyderm creates a blueprint of the commit and verifies that the
-command is valid.
+command is valid. However, one transaction can invalidate another.
+In this case, a transaction that is closed first takes precedence
+over the other. For example, if two transactions create a repository
+with the same name, the one that is executed first results in the
+creation of the repository, and the other results in error.
 
 !!! tip
      While you cannot use `pachctl put file` in a transaction, you can
