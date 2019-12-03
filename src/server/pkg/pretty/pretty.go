@@ -64,8 +64,10 @@ func ProgressBar(width, green, yellow, red int) string {
 			sb.WriteString(color.GreenString("▇"))
 		case i*total < (green+yellow)*width:
 			sb.WriteString(color.YellowString("▇"))
-		default:
+		case i*total < (green+yellow+red)*width:
 			sb.WriteString(color.RedString("▇"))
+		default:
+			sb.WriteString(" ")
 		}
 	}
 	return sb.String()
