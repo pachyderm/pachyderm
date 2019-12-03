@@ -578,13 +578,10 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 		}
 		branches := d.branches(repoName).ReadOnly(ctx)
 		branchInfo := &pfs.BranchInfo{}
-		if err := branches.List(branchInfo, col.DefaultOptions, func(branchName string) error {
+		return branches.List(branchInfo, col.DefaultOptions, func(branchName string) error {
 			branchInfos[key(repoName, branchName)] = proto.Clone(branchInfo).(*pfs.BranchInfo)
 			return nil
-		}); err != nil {
-			return err
-		}
-		return nil
+		})
 	}); err != nil {
 		return err
 	}
@@ -2633,10 +2630,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	// propagate the head commit to 'branch'. This may also modify 'branch', by
 	// creating a new HEAD commit if 'branch's provenance was changed and its
 	// current HEAD commit has old provenance
-	if err := txnCtx.PropagateCommit(branch, false); err != nil {
-		return err
-	}
-	return nil
+	return txnCtx.PropagateCommit(branch, false)
 }
 
 func (d *driver) inspectBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Branch) (*pfs.BranchInfo, error) {

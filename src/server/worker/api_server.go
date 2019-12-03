@@ -541,6 +541,12 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 		if err := syscall.Mkfifo(outPath, 0666); err != nil {
 			return "", fmt.Errorf("mkfifo :%v", err)
 		}
+		_, err := pachClient.InspectFile(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "marker")
+		if err != nil && strings.Contains(err.Error(), "not found") {
+			if err := puller.Pull(pachClient, filepath.Join(dir, "marker"), a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "/marker", false, false, concurrency, nil, ""); err != nil {
+				return "", err
+			}
+		}
 	} else {
 		if err := os.MkdirAll(outPath, 0777); err != nil {
 			return "", err
@@ -570,7 +576,8 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 
 func (a *APIServer) linkData(inputs []*Input, dir string) error {
 	// Make sure that previously symlinked outputs are removed.
-	if err := a.unlinkData(inputs); err != nil {
+	err := a.unlinkData(inputs)
+	if err != nil {
 		return err
 	}
 	for _, input := range inputs {
@@ -580,6 +587,12 @@ func (a *APIServer) linkData(inputs []*Input, dir string) error {
 			return err
 		}
 	}
+
+	err = os.Symlink(filepath.Join(dir, "marker"), filepath.Join(client.PPSInputPrefix, "marker"))
+	if err != nil {
+		return err
+	}
+
 	return os.Symlink(filepath.Join(dir, "out"), filepath.Join(client.PPSInputPrefix, "out"))
 }
 
@@ -952,6 +965,10 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 		// Open local file that is being uploaded
 		f, err := os.Open(filePath)
 		if err != nil {
+			// if the error is that the spout marker file is missing, that's fine, just skip to the next file
+			if strings.Contains(err.Error(), "out/marker") {
+				return nil
+			}
 			return fmt.Errorf("os.Open(%s): %v", filePath, err)
 		}
 		defer func() {
