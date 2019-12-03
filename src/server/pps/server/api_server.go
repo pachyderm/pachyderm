@@ -1311,9 +1311,15 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			return fmt.Errorf("must specify the Job or Pipeline that the datum is from to get logs for it")
 		}
 		// no authorization is done to get logs from master
-		eg.Go(func() error {
-			return a.getLogsForRC(pachClient, request, "pachd", "pachd", logCh)
-		})
+		if request.Follow {
+			eg.Go(func() error {
+				return a.followLogsForRC(pachClient, request, "pachd", "pachd", logCh)
+			})
+		} else {
+			eg.Go(func() error {
+				return a.getLogsForRC(pachClient, request, "pachd", "pachd", logCh)
+			})
+		}
 	} else {
 		// Authorize request and get list of pods containing logs we're interested in
 		// (based on pipeline and job filters)
@@ -1365,9 +1371,16 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 
 		if !statsLogs {
 			containerName := client.PPSWorkerUserContainerName
-			eg.Go(func() error {
-				return a.getLogsForRC(pachClient, request, containerName, "", logCh)
-			})
+
+			if request.Follow {
+				eg.Go(func() error {
+					return a.followLogsForRC(pachClient, request, containerName, "", logCh)
+				})
+			} else {
+				eg.Go(func() error {
+					return a.getLogsForRC(pachClient, request, containerName, "", logCh)
+				})
+			}
 		}
 	}
 
@@ -1447,89 +1460,37 @@ func (a *apiServer) getLogsFromStats(pachClient *client.APIClient, request *pps.
 	return eg.Wait()
 }
 
-func (a *apiServer) getLogsForRC(pachClient *client.APIClient, request *pps.GetLogsRequest, containerName, rcName string, logCh chan *pps.LogMessage) error {
+func (a *apiServer) followLogsForRC(pachClient *client.APIClient, request *pps.GetLogsRequest, containerName, rcName string, logCh chan *pps.LogMessage) error {
 	defer close(logCh)
 	ctx := pachClient.Ctx()
 
-	// Keep retrying to get logs if in follow mode; otherwise exit after
-	// the first failure
-	var backOffPolicy backoff.BackOff
-	if request.Follow {
-		backOffPolicy = backoff.NewConstantBackOff(5 * time.Second)
-	} else {
-		backOffPolicy = &backoff.StopBackOff{}
-	}
-
 	err := backoff.RetryNotify(func() error {
-		// If an RC name hasn't been passed in, fetch one now
-		curRCName := rcName
-		if curRCName == "" {
-			var pipelineInfo *pps.PipelineInfo
-			var err error
-
-			if request.Pipeline != nil {
-				pipelineInfo, err = a.inspectPipeline(pachClient, request.Pipeline.Name)
-				if err != nil {
-					return fmt.Errorf("could not get pipeline information for %s: %v", request.Pipeline.Name, err)
-				}
-			} else if request.Job != nil {
-				// If user provides a job, lookup the pipeline from the job info, and then
-				// get the pipeline RC
-				var jobPtr pps.EtcdJobInfo
-				err = a.jobs.ReadOnly(ctx).Get(request.Job.ID, &jobPtr)
-				if err != nil {
-					return fmt.Errorf("could not get job information for \"%s\": %v", request.Job.ID, err)
-				}
-				pipelineInfo, err = a.inspectPipeline(pachClient, jobPtr.Pipeline.Name)
-				if err != nil {
-					return fmt.Errorf("could not get pipeline information for %s: %v", jobPtr.Pipeline.Name, err)
-				}
-			}
-
-			curRCName = ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-		}
-
-		// Get pods managed by the RC we're scraping (either pipeline or pachd)
-		pods, err := a.rcPods(curRCName)
+		pods, err := a.rcPodsFromLogsRequest(pachClient, request, rcName)
 		if err != nil {
-			return fmt.Errorf("could not get pods in rc \"%s\" containing logs: %s", curRCName, err.Error())
-		}
-		if len(pods) == 0 {
-			return fmt.Errorf("no pods belonging to the rc \"%s\" were found", curRCName)
+			return err
 		}
 
-		if request.Follow {
-			// We'll spawn a separate goro for each pod, which will all be
-			// managed by this error group. The behavior of an error group's
-			// `.Wait()` (called below) is to return when all of the goros have
-			// returned. By using a context tied to the error group, a single
-			// failing goro can signal to the other goros to wrap up as well.
-			// Because the error group context builds upon the request context,
-			// it can also be cancelled when the request is cancelled.
-			eg, egCtx := errgroup.WithContext(ctx)
-
-			for _, pod := range pods {
-				// Without this, variable shadowing will prevent us from
-				// properly iterating over all the pods
-				pod := pod
-
-				eg.Go(func() error {
-					return a.getLogsFromPod(egCtx, request, pod, containerName, logCh)
-				})
-			}
-
-			return eg.Wait()
-		}
-
-		// Sort the pods to make sure that the order of log lines is stable
-		sort.Sort(podSlice(pods))
+		// We'll spawn a separate goro for each pod, which will all be
+		// managed by this error group. The behavior of an error group's
+		// `.Wait()` (called below) is to return when all of the goros have
+		// returned. By using a context tied to the error group, a single
+		// failing goro can signal to the other goros to wrap up as well.
+		// Because the error group context builds upon the request context,
+		// it can also be cancelled when the request is cancelled.
+		eg, egCtx := errgroup.WithContext(ctx)
 
 		for _, pod := range pods {
-			if err := a.getLogsFromPod(egCtx, request, pod, containerName, logCh); err != nil && err != io.EOF {
-				return err
-			}
+			// Without this, variable shadowing will prevent us from
+			// properly iterating over all the pods
+			pod := pod
+
+			eg.Go(func() error {
+				return a.getLogsFromPod(egCtx, request, pod, containerName, logCh)
+			})
 		}
-	}, backOffPolicy, func(err error, _ time.Duration) error {
+
+		return eg.Wait()
+	}, backoff.NewConstantBackOff(5*time.Second), func(err error, _ time.Duration) error {
 		// Keep retrying, unless the request context is done
 		select {
 		case <-ctx.Done():
@@ -1545,6 +1506,67 @@ func (a *apiServer) getLogsForRC(pachClient *client.APIClient, request *pps.GetL
 		return err
 	}
 	return nil
+}
+
+func (a *apiServer) getLogsForRC(pachClient *client.APIClient, request *pps.GetLogsRequest, containerName, rcName string, logCh chan *pps.LogMessage) error {
+	defer close(logCh)
+
+	pods, err := a.rcPodsFromLogsRequest(pachClient, request, rcName)
+	if err != nil {
+		return err
+	}
+
+	// Sort the pods to make sure that the order of log lines is stable
+	sort.Sort(podSlice(pods))
+
+	for _, pod := range pods {
+		if err := a.getLogsFromPod(pachClient.Ctx(), request, pod, containerName, logCh); err != nil && err != io.EOF {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (a *apiServer) rcPodsFromLogsRequest(pachClient *client.APIClient, request *pps.GetLogsRequest, rcName string) ([]v1.Pod, error) {
+	// If an RC name hasn't been passed in, fetch one now
+	curRCName := rcName
+	if curRCName == "" {
+		var pipelineInfo *pps.PipelineInfo
+		var err error
+
+		if request.Pipeline != nil {
+			pipelineInfo, err = a.inspectPipeline(pachClient, request.Pipeline.Name)
+			if err != nil {
+				return nil, fmt.Errorf("could not get pipeline information for %s: %v", request.Pipeline.Name, err)
+			}
+		} else if request.Job != nil {
+			// If user provides a job, lookup the pipeline from the job info, and then
+			// get the pipeline RC
+			var jobPtr pps.EtcdJobInfo
+			err = a.jobs.ReadOnly(ctx).Get(request.Job.ID, &jobPtr)
+			if err != nil {
+				return nil, fmt.Errorf("could not get job information for \"%s\": %v", request.Job.ID, err)
+			}
+			pipelineInfo, err = a.inspectPipeline(pachClient, jobPtr.Pipeline.Name)
+			if err != nil {
+				return nil, fmt.Errorf("could not get pipeline information for %s: %v", jobPtr.Pipeline.Name, err)
+			}
+		}
+
+		curRCName = ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	}
+
+	// Get pods managed by the RC we're scraping (either pipeline or pachd)
+	pods, err := a.rcPods(curRCName)
+	if err != nil {
+		return nil, fmt.Errorf("could not get pods in rc \"%s\" containing logs: %s", curRCName, err.Error())
+	}
+	if len(pods) == 0 {
+		return nil, fmt.Errorf("no pods belonging to the rc \"%s\" were found", curRCName)
+	}
+
+	return pods, nil
 }
 
 func (a *apiServer) getLogsFromPod(ctx context.Context, request *pps.GetLogsRequest, pod v1.Pod, containerName string, logCh chan *pps.LogMessage) error {
