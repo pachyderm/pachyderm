@@ -1544,7 +1544,7 @@ func (a *apiServer) rcPodsFromLogsRequest(pachClient *client.APIClient, request 
 			// If user provides a job, lookup the pipeline from the job info, and then
 			// get the pipeline RC
 			var jobPtr pps.EtcdJobInfo
-			err = a.jobs.ReadOnly(ctx).Get(request.Job.ID, &jobPtr)
+			err = a.jobs.ReadOnly(pachClient.Ctx()).Get(request.Job.ID, &jobPtr)
 			if err != nil {
 				return nil, fmt.Errorf("could not get job information for \"%s\": %v", request.Job.ID, err)
 			}
