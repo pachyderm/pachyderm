@@ -1452,8 +1452,10 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 
 		commitInfo.SizeBytes = uint64(finishedTree.FSSize())
 	}
-
 	commitInfo.Finished = now()
+	if err := d.updateProvenanceProgress(txnCtx, !empty, commitInfo); err != nil {
+		return err
+	}
 	return d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo)
 }
 
@@ -1472,7 +1474,28 @@ func (d *driver) finishOutputCommit(txnCtx *txnenv.TransactionContext, commit *p
 	commitInfo.Datums = datums
 	commitInfo.SizeBytes = size
 	commitInfo.Finished = now()
+	if err := d.updateProvenanceProgress(txnCtx, true, commitInfo); err != nil {
+		return err
+	}
 	return d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo)
+}
+
+func (d *driver) updateProvenanceProgress(txnCtx *txnenv.TransactionContext, success bool, ci *pfs.CommitInfo) error {
+	fmt.Println("updateProvenanceProgress")
+	for _, provC := range ci.Provenance {
+		provCi := &pfs.CommitInfo{}
+		if err := d.commits(provC.Commit.Repo.Name).ReadWrite(txnCtx.Stm).Update(provC.Commit.ID, provCi, func() error {
+			if success {
+				provCi.SubvenantCommitsSuccess++
+			} else {
+				provCi.SubvenantCommitsFailure++
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // writeFinishedCommit writes these changes to etcd:
@@ -4155,6 +4178,7 @@ func appendSubvenance(commitInfo *pfs.CommitInfo, subvCommitInfo *pfs.CommitInfo
 		Lower: subvCommitInfo.Commit,
 		Upper: subvCommitInfo.Commit,
 	})
+	commitInfo.SubvenantCommitsTotal++
 }
 
 type branchSet []*pfs.Branch

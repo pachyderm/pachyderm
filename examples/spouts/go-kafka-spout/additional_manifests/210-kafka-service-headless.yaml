@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-headless
+  namespace: kafka
+spec:
+  clusterIP: None
+  ports:
+  - name: broker
+    port: 9092
+    protocol: TCP
+    targetPort: 9092
+  selector:
+    app: kafka
+  sessionAffinity: None
+  type: ClusterIP
