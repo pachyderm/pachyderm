@@ -4130,7 +4130,9 @@ func testGetLogs(t *testing.T, enableStats bool) {
 			loglines = append(loglines, strings.TrimSuffix(iter.Message().Message, "\n"))
 			require.False(t, strings.Contains(iter.Message().Message, "MISSING"), iter.Message().Message)
 		}
-		require.True(t, numLogs >= 2, "logs:\n%s", strings.Join(loglines, "\n"))
+		if numLogs < 2 {
+			return fmt.Errorf("not enough logs: %s", strings.Join(loglines, "\n"))
+		}
 		if err := iter.Err(); err != nil {
 			return err
 		}
@@ -4144,7 +4146,9 @@ func testGetLogs(t *testing.T, enableStats bool) {
 			require.True(t, iter.Message().Message != "")
 			loglines = append(loglines, strings.TrimSuffix(iter.Message().Message, "\n"))
 		}
-		require.True(t, numLogs >= 2, "logs:\n%s", strings.Join(loglines, "\n"))
+		if numLogs < 2 {
+			return fmt.Errorf("not enough logs: %s", strings.Join(loglines, "\n"))
+		}
 		if err := iter.Err(); err != nil {
 			return err
 		}
@@ -4169,7 +4173,9 @@ func testGetLogs(t *testing.T, enableStats bool) {
 		if err = iter.Err(); err != nil {
 			return err
 		}
-		require.True(t, numLogs > 0)
+		if numLogs == 0 {
+			return errors.New("no logs")
+		}
 
 		// Get logs for datums but don't specify pipeline or job. These should error
 		iter = c.GetLogs("", "", []string{"/foo"}, "", false, false, 0)
