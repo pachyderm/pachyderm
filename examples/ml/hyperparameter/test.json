@@ -2,7 +2,7 @@
   "pipeline": {
     "name": "test"
   },
-  "description": "A pipeline that generates evaluation metrics by using each of the train models.",
+  "description": "A pipeline that scores each of the trained models.",
   "transform": {
     "image": "pachyderm/iris-evaluate",
     "cmd": [ "/bin/ash" ],

@@ -2,7 +2,7 @@
   "pipeline": {
     "name": "model"
   },
-  "description": "A pipeline that trains the model for each combinataion of C and Gamma parameters.",
+  "description": "A pipeline that trains the model for each combination of C and Gamma parameters.",
   "transform": {
     "image": "pachyderm/iris-train:python-svm-adj-c-gamma",
     "cmd": [ "/bin/ash" ],
