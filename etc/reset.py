@@ -194,11 +194,8 @@ def rewrite_config():
     contexts = v2["contexts"]
 
     for k, v in contexts.items():
-        if not LOCAL_CONFIG_PATTERN.fullmatch(k):
-            continue
-        if len(v) == 0:
-            continue
-        keys.add(k)
+        if LOCAL_CONFIG_PATTERN.fullmatch(k) and len(v) > 0:
+            keys.add(k)
 
     for k in keys:
         del contexts[k]
