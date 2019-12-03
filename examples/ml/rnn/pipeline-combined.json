@@ -2,6 +2,7 @@
   "pipeline": {
     "name": "GoT_train"
   },
+  "description": "A combined pipeline that trains the RNN model and generates a new GoT script.",
   "transform": {
     "image": "<yourregistry>/tensorflow_0_10_rnn_got",
     "cmd": [ "sh" ],

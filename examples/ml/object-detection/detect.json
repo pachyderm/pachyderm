@@ -2,6 +2,7 @@
   "pipeline": {
     "name": "detect"
   },
+  "description": "A pipeline that detects objects in files stored in the `images` repository by using the trained model.",
   "input": {
     "cross": [
       {
