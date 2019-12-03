@@ -8,15 +8,12 @@ import (
 	"path"
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
-	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/hash"
 	"golang.org/x/sync/errgroup"
 )
 
 const (
-	// MB is Megabytes.
-	MB = 1024 * 1024
 	// WindowSize is the size of the rolling hash window.
 	WindowSize = 64
 	// (bryce) this should be configurable.
@@ -80,19 +77,21 @@ func newNextChanSet(c *chanSet) *nextChanSet {
 }
 
 type worker struct {
-	ctx            context.Context
-	objC           obj.Client
-	hash           *buzhash64.Buzhash64
-	splitMask      uint64
-	first          bool
-	annotations    []*Annotation
-	bufAnnotations []*Annotation
-	bufSize        int64
-	f              WriterFunc
-	fs             []func() error
-	prev           *prevChanSet
-	next           *nextChanSet
-	stats          *stats
+	ctx                  context.Context
+	objC                 obj.Client
+	hash                 *buzhash64.Buzhash64
+	splitMask            uint64
+	first                bool
+	annotations          []*Annotation
+	lastAnnotation       *Annotation
+	bufAnnotations       []*Annotation
+	bufSize              int64
+	lastCopiedAnnotation *Annotation
+	f                    WriterFunc
+	fs                   []func() error
+	prev                 *prevChanSet
+	next                 *nextChanSet
+	stats                *stats
 }
 
 func (w *worker) run(dataSet *dataSet) error {
@@ -146,8 +145,6 @@ func (w *worker) rollDataSet(dataSet *dataSet) error {
 			if err := w.roll(a); err != nil {
 				return err
 			}
-			// Reset hash between annotations.
-			w.resetHash()
 		} else {
 			if err := w.copyDataReaders(a); err != nil {
 				return err
@@ -161,6 +158,9 @@ func (w *worker) rollDataSet(dataSet *dataSet) error {
 }
 
 func (w *worker) roll(a *Annotation) error {
+	if err := w.setupHash(a); err != nil {
+		return err
+	}
 	offset := 0
 	for i, b := range a.buf.Bytes() {
 		w.hash.Roll(b)
@@ -188,8 +188,38 @@ func (w *worker) roll(a *Annotation) error {
 			w.first = false
 		}
 	}
-	w.annotations = joinAnnotations(w.annotations, a)
+	if a.buf.Len() > 0 {
+		w.annotations = joinAnnotations(w.annotations, a)
+	}
+	w.lastAnnotation = a
 	return nil
+}
+
+func (w *worker) setupHash(a *Annotation) error {
+	// The hash state needs to be updated to include the last copied annotation(s).
+	if w.lastCopiedAnnotation != nil {
+		w.resetHash(w.lastCopiedAnnotation)
+		buf := &bytes.Buffer{}
+		for _, dr := range w.lastCopiedAnnotation.drs {
+			if err := dr.Get(buf); err != nil {
+				return err
+			}
+		}
+		for _, b := range buf.Bytes() {
+			w.hash.Roll(b)
+		}
+		w.lastAnnotation = copyAnnotation(w.lastCopiedAnnotation)
+		w.lastCopiedAnnotation = nil
+	}
+	w.resetHash(a)
+	return nil
+}
+
+func (w *worker) resetHash(a *Annotation) {
+	if w.lastAnnotation != nil && a.Meta != w.lastAnnotation.Meta {
+		w.hash.Reset()
+		w.hash.Write(initialWindow)
+	}
 }
 
 func (w *worker) numBytesRolled() int {
@@ -241,7 +271,7 @@ func (w *worker) updateAnnotations(chunkRef *DataRef) {
 			}
 			a.NextDataRef.OffsetBytes = offset
 			a.NextDataRef.SizeBytes = int64(a.buf.Len())
-			a.NextDataRef.Tags, a.tags = splitTags(a.tags, a.buf.Len())
+			a.NextDataRef.Tags = a.tags
 		}
 		offset += int64(a.buf.Len())
 	}
@@ -261,11 +291,6 @@ func (w *worker) upload(path string, chunk []byte) error {
 	// (bryce) Encrypt?
 	_, err = io.Copy(gzipW, bytes.NewReader(chunk))
 	return err
-}
-
-func (w *worker) resetHash() {
-	w.hash.Reset()
-	w.hash.Write(initialWindow)
 }
 
 func (w *worker) copyDataReaders(a *Annotation) error {
@@ -298,18 +323,14 @@ func (w *worker) copyDataReaders(a *Annotation) error {
 		// Cheap copy if full chunk is buffered.
 		if w.bufSize == dr.DataRef().Chunk.SizeBytes {
 			for _, a := range w.bufAnnotations {
-				// (bryce) need to handle tags.
-				var size int64
-				for _, dr := range a.drs {
-					size += dr.DataRef().SizeBytes
-				}
 				a.NextDataRef = a.drs[0].DataRef()
-				a.NextDataRef.SizeBytes = size
 			}
 			annotations := w.bufAnnotations
 			w.fs = append(w.fs, func() error {
 				return w.f(annotations)
 			})
+			// (bryce) need to handle less than WindowSize chunk.
+			w.lastCopiedAnnotation = w.bufAnnotations[len(w.bufAnnotations)-1]
 			w.bufAnnotations = nil
 			w.bufSize = 0
 		}
@@ -342,8 +363,6 @@ func (w *worker) flushDataReaders() error {
 				return err
 			}
 		}
-		// Reset hash between annotations.
-		w.resetHash()
 	}
 	w.bufAnnotations = nil
 	w.bufSize = 0
@@ -408,7 +427,8 @@ func newWriter(ctx context.Context, objC obj.Client, averageBits int, f WriterFu
 			f:         f,
 			stats:     stats,
 		}
-		w.resetHash()
+		w.hash.Reset()
+		w.hash.Write(initialWindow)
 		return w
 	}
 	eg, cancelCtx := errgroup.WithContext(ctx)
@@ -533,73 +553,4 @@ func (w *Writer) Close() error {
 	}
 	// Wait for the workers to finish.
 	return w.eg.Wait()
-}
-
-func joinAnnotations(as []*Annotation, a *Annotation) []*Annotation {
-	// If the annotation being added is the same as the
-	// last, then they are merged.
-	if as != nil {
-		lastA := as[len(as)-1]
-		if lastA.Meta == a.Meta {
-			lastA.buf.Write(a.buf.Bytes())
-			if lastA.tags != nil {
-				lastA.tags = joinTags(lastA.tags, a.tags)
-			}
-			return as
-		}
-	}
-	return append(as, a)
-}
-
-func joinTags(ts1, ts2 []*Tag) []*Tag {
-	lastT := ts1[len(ts1)-1]
-	if lastT.Id == ts2[0].Id {
-		lastT.SizeBytes += ts2[0].SizeBytes
-		ts2 = ts2[1:]
-	}
-	return append(ts1, ts2...)
-}
-
-func splitAnnotation(a *Annotation, size int) (*Annotation, *Annotation) {
-	a1 := copyAnnotation(a)
-	a2 := copyAnnotation(a)
-	if a.buf != nil {
-		a1.buf = bytes.NewBuffer(a.buf.Bytes()[:size])
-		a2.buf = bytes.NewBuffer(a.buf.Bytes()[size:])
-	}
-	if a.tags != nil {
-		a1.tags, a2.tags = splitTags(a.tags, size)
-	}
-	return a1, a2
-}
-
-func copyAnnotation(a *Annotation) *Annotation {
-	copyA := &Annotation{Meta: a.Meta}
-	if a.NextDataRef != nil {
-		copyA.NextDataRef = &DataRef{}
-	}
-	if a.buf != nil {
-		copyA.buf = &bytes.Buffer{}
-	}
-	return copyA
-}
-
-func splitTags(ts []*Tag, size int) ([]*Tag, []*Tag) {
-	var ts1, ts2 []*Tag
-	for _, t := range ts {
-		ts2 = append(ts2, proto.Clone(t).(*Tag))
-	}
-	for {
-		if int(ts2[0].SizeBytes) >= size {
-			t := proto.Clone(ts2[0]).(*Tag)
-			t.SizeBytes = int64(size)
-			ts1 = append(ts1, t)
-			ts2[0].SizeBytes -= int64(size)
-			break
-		}
-		size -= int(ts2[0].SizeBytes)
-		ts1 = append(ts1, ts2[0])
-		ts2 = ts2[1:]
-	}
-	return ts1, ts2
 }
