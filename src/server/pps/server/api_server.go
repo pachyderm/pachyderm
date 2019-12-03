@@ -1498,39 +1498,37 @@ func (a *apiServer) getLogsForRC(pachClient *client.APIClient, request *pps.GetL
 			return fmt.Errorf("no pods belonging to the rc \"%s\" were found", curRCName)
 		}
 
+		if request.Follow {
+			// We'll spawn a separate goro for each pod, which will all be
+			// managed by this error group. The behavior of an error group's
+			// `.Wait()` (called below) is to return when all of the goros have
+			// returned. By using a context tied to the error group, a single
+			// failing goro can signal to the other goros to wrap up as well.
+			// Because the error group context builds upon the request context,
+			// it can also be cancelled when the request is cancelled.
+			eg, egCtx := errgroup.WithContext(ctx)
+
+			for _, pod := range pods {
+				// Without this, variable shadowing will prevent us from
+				// properly iterating over all the pods
+				pod := pod
+
+				eg.Go(func() error {
+					return a.getLogsFromPod(egCtx, request, pod, containerName, logCh)
+				})
+			}
+
+			return eg.Wait()
+		}
+
 		// Sort the pods to make sure that the order of log lines is stable
 		sort.Sort(podSlice(pods))
 
-		// We'll span a separate goro for each pod, which will all be
-		// managed by this error group. The behavior of `.Wait()` (called
-		// below) is to return when all of the goros have returned. By
-		// using a context tied to the error group, a single failing goro
-		// can signal to the other goros to wrap up as well. Because the
-		// error group context builds upon the request context, it can
-		// also be cancelled when the request is cancelled.
-		eg, egCtx := errgroup.WithContext(ctx)
-
-		// Used to serialize log fetch when follow mode is not enabled
-		var mu sync.Mutex
-
 		for _, pod := range pods {
-			// Without this, variable shadowing will prevent us from
-			// properly iterating over all the pods
-			pod := pod
-
-			if !request.Follow {
-				mu.Lock()
+			if err := a.getLogsFromPod(egCtx, request, pod, containerName, logCh); err != nil && err != io.EOF {
+				return err
 			}
-
-			eg.Go(func() error {
-				if !request.Follow {
-					defer mu.Unlock()
-				}
-				return a.getLogsFromPod(egCtx, request, pod, containerName, logCh)
-			})
 		}
-
-		return eg.Wait()
 	}, backOffPolicy, func(err error, _ time.Duration) error {
 		// Keep retrying, unless the request context is done
 		select {
