@@ -62,7 +62,7 @@ A minimum pipeline specification must include the following parameters:
   For more information, see [Cross and Union](../datum/cross-union.md).
 
   One very important property that is defined in the `input` field
-  is the `glob` pattern that specifieshow Pachyderm breaks the data into
+  is the `glob` pattern that specifies how Pachyderm breaks the data into
   individual processing units, called Datums. For more information, see
   [Datum](../datum/index.md).
 

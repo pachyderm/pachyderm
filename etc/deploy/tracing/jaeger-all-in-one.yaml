@@ -1,5 +1,5 @@
 # copied from
-# https://github.com/jaegertracing/jaeger-kubernetes/blob/39dc1369228952164bcdde2350ebc91cf00e36b0/all-in-one/jaeger-all-in-one-template.yml
+# https://github.com/jaegertracing/jaeger-kubernetes/blob/bcca10c297b38c01d9d7c554172572ffa11944ce/all-in-one/jaeger-all-in-one-template.yml
 # with minor changes:
 #   - jaeger-agent service removed (unused--our client sends traces directly to the collector. See
 #     https://github.com/jaegertracing/jaeger-client-csharp/issues/104
@@ -54,7 +54,7 @@ items:
           -   env:
               - name: COLLECTOR_ZIPKIN_HTTP_PORT
                 value: "9411"
-              image: jaegertracing/all-in-one:1.10.1
+              image: jaegertracing/all-in-one:1.15.1
               name: jaeger
               ports:
 #                 - containerPort: 5775
@@ -69,7 +69,7 @@ items:
                   protocol: TCP
                 - containerPort: 9411
                   protocol: TCP
-                # These ports are reference by the jaeger-collector service but
+                # These ports are referenced by the jaeger-collector service but
                 # aren't in the original manifest
                 - containerPort: 14267
                   protocol: TCP

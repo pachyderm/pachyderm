@@ -510,13 +510,14 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if err != nil {
 				return err
 			}
-			err = client.RunPipeline(args[0], prov)
+			err = client.RunPipeline(args[0], prov, jobID)
 			if err != nil {
 				return err
 			}
 			return nil
 		}),
 	}
+	runPipeline.Flags().StringVar(&jobID, "job", "", "rerun the given job")
 	commands = append(commands, cmdutil.CreateAlias(runPipeline, "run pipeline"))
 
 	inspectPipeline := &cobra.Command{

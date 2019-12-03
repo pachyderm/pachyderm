@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-zookeeper-headless
+  namespace: kafka
+spec:
+  clusterIP: None
+  ports:
+  - name: client
+    port: 21
+    protocol: TCP
+    targetPort: 2181
+  - name: election
+    port: 3888
+    protocol: TCP
+    targetPort: 3888
+  - name: server
+    port: 2888
+    protocol: TCP
+    targetPort: 2888
+  selector:
+    app: kafka-zookeeper
+  sessionAffinity: None
+  type: ClusterIP

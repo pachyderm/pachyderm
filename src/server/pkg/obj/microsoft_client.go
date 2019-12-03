@@ -88,8 +88,9 @@ func (c *microsoftClient) Walk(_ context.Context, name string, f func(name strin
 	return nil
 }
 
-func (c *microsoftClient) Exists(_ context.Context, name string) bool {
-	exists, _ := c.container.GetBlobReference(name).Exists()
+func (c *microsoftClient) Exists(ctx context.Context, name string) bool {
+	exists, err := c.container.GetBlobReference(name).Exists()
+	tracing.TagAnySpan(ctx, "exists", exists, "err", err)
 	return exists
 }
 
@@ -135,16 +136,22 @@ func newMicrosoftWriter(ctx context.Context, client *microsoftClient, name strin
 	return w
 }
 
-func (w *microsoftWriter) Write(data []byte) (int, error) {
-	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/microsoftWriter/Write")
-	defer tracing.FinishAnySpan(span)
+func (w *microsoftWriter) Write(data []byte) (retN int, retErr error) {
+	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/Microsoft.Writer/Write")
+	defer func() {
+		tracing.FinishAnySpan(span, "bytes", retN, "err", retErr)
+	}()
 	if w.err != nil {
 		return 0, w.err
 	}
 	return w.w.Write(data)
 }
 
-func (w *microsoftWriter) writeBlock(block []byte) error {
+func (w *microsoftWriter) writeBlock(block []byte) (retErr error) {
+	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/Microsoft.Writer/WriteBlock")
+	defer func() {
+		tracing.FinishAnySpan(span, "err", retErr)
+	}()
 	blockID := blockID(w.numBlocks)
 	w.numBlocks++
 	w.limiter.Acquire()
@@ -164,9 +171,11 @@ func blockID(n int) string {
 	return base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%011d\n", n)))
 }
 
-func (w *microsoftWriter) Close() error {
-	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/microsoftWriter/Close")
-	defer tracing.FinishAnySpan(span)
+func (w *microsoftWriter) Close() (retErr error) {
+	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/Microsoft.Writer/Close")
+	defer func() {
+		tracing.FinishAnySpan(span, "err", retErr)
+	}()
 	if err := w.w.Close(); err != nil {
 		return err
 	}

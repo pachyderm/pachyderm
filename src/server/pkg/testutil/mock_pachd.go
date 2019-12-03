@@ -17,7 +17,6 @@ import (
 	version "github.com/pachyderm/pachyderm/src/client/version/versionpb"
 
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc"
 )
 
 /* Admin Server Mocks */
@@ -1224,7 +1223,7 @@ type MockPachd struct {
 // NewMockPachd constructs a mock Pachd API server whose behavior can be
 // controlled through the MockPachd instance. By default, all API calls will
 // error, unless a handler is specified.
-func NewMockPachd() *MockPachd {
+func NewMockPachd() (*MockPachd, error) {
 	mock := &MockPachd{}
 
 	ctx := context.Background()
@@ -1239,29 +1238,27 @@ func NewMockPachd() *MockPachd {
 	mock.Version.api.mock = &mock.Version
 	mock.Admin.api.mock = &mock.Admin
 
-	var servers []*grpcutil.ServerRun
-	servers, mock.eg = grpcutil.Serve(
-		ctx,
-		grpcutil.ServerOptions{
-			Host:       "localhost",
-			AnyPort:    true,
-			MaxMsgSize: grpcutil.MaxMsgSize,
-			RegisterFunc: func(s *grpc.Server) error {
-				admin.RegisterAPIServer(s, &mock.Admin.api)
-				auth.RegisterAPIServer(s, &mock.Auth.api)
-				enterprise.RegisterAPIServer(s, &mock.Enterprise.api)
-				pfs.RegisterObjectAPIServer(s, &mock.Object.api)
-				pfs.RegisterAPIServer(s, &mock.PFS.api)
-				pps.RegisterAPIServer(s, &mock.PPS.api)
-				transaction.RegisterAPIServer(s, &mock.Transaction.api)
-				version.RegisterAPIServer(s, &mock.Version.api)
-				return nil
-			},
-		},
-	)
+	server, err := grpcutil.NewServer(ctx, false)
+	if err != nil {
+		return nil, err
+	}
 
-	mock.Addr = servers[0].Listener.Addr()
-	return mock
+	admin.RegisterAPIServer(server.Server, &mock.Admin.api)
+	auth.RegisterAPIServer(server.Server, &mock.Auth.api)
+	enterprise.RegisterAPIServer(server.Server, &mock.Enterprise.api)
+	pfs.RegisterObjectAPIServer(server.Server, &mock.Object.api)
+	pfs.RegisterAPIServer(server.Server, &mock.PFS.api)
+	pps.RegisterAPIServer(server.Server, &mock.PPS.api)
+	transaction.RegisterAPIServer(server.Server, &mock.Transaction.api)
+	version.RegisterAPIServer(server.Server, &mock.Version.api)
+
+	listener, err := server.ListenTCP("localhost", 0)
+	if err != nil {
+		return nil, err
+	}
+
+	mock.Addr = listener.Addr()
+	return mock, nil
 }
 
 // Close will cancel the mock Pachd API server goroutine and return its result

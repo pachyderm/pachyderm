@@ -30,29 +30,29 @@ for a way to "productionize" them, Pachyderm can make this easy for you.
   is smart enough to only process the new data.
 
 ## Getting Started
-[Install Pachyderm locally](http://pachyderm.readthedocs.io/en/latest/getting_started/local_installation.html) or [deploy on AWS/GCE/Azure](http://pachyderm.readthedocs.io/en/latest/deployment/deploy_intro.html) in about 5 minutes. 
+[Install Pachyderm locally](https://docs.pachyderm.com/latest/getting_started/local_installation/) or [deploy on AWS/GCE/Azure](https://docs.pachyderm.com/latest/deploy-manage/deploy/amazon_web_services/) in about 5 minutes. 
 
-You can also refer to our complete [developer docs](http://pachyderm.readthedocs.io/en/latest) to see tutorials, check out example projects, and learn about advanced features of Pachyderm.
+You can also refer to our complete [documentation](https://docs.pachyderm.com) to see tutorials, check out example projects, and learn about advanced features of Pachyderm.
 
 If you'd like to see some examples and learn about core use cases for Pachyderm:
-- [Examples](http://pachyderm.readthedocs.io/en/latest/examples/examples.html)
-- [Use Cases](http://www.pachyderm.io/use_cases.html)
-- [Case Studies](http://www.pachyderm.io/usecases/generalfusion.html): Learn how [General Fusion](http://www.generalfusion.com/) uses Pachyderm to power commercial fusion research.
+- [Examples](https://docs.pachyderm.com/latest/examples/examples/)
+- [Use Cases](https://www.pachyderm.com/use-cases/)
+- [Case Studies](https://www.pachyderm.com/case-studies/generalfusion/: Learn how [General Fusion](http://www.generalfusion.com/) uses Pachyderm to power commercial fusion research.
 
 ## Documentation
 
-[Official Documentation](http://pachyderm.readthedocs.io/en/latest/)
+[Official Documentation](https://docs.pachyderm.com/)
 
 ## Community
 Keep up to date and get Pachyderm support via:
-- [![Twitter](https://img.shields.io/twitter/url/https/twitter.com/pachydermio.svg?style=social&label=Follow%20%40pachydermio)](http://twitter.com/pachydermio) Follow us on Twitter.
+- [![Twitter](https://img.shields.io/twitter/url/https/twitter.com/pachydermio.svg?style=social&label=Follow%20%40pachydermio)](https://twitter.com/pachyderminc) Follow us on Twitter.
 - [![Slack Status](http://slack.pachyderm.io/badge.svg)](http://slack.pachyderm.io) Join our community [Slack Channel](http://slack.pachyderm.io) to get help from the Pachyderm team and other users.
 
 ### Contributing
 
 To get started, sign the [Contributor License Agreement](https://pachyderm.wufoo.com/forms/pachyderm-contributor-license-agreement).
 
-You should also check out our [contributing guide](./doc/contributing).
+You should also check out our [contributing guide](https://docs.pachyderm.com/latest/contributing/setup/).
 
 Send us PRs, we would love to see what you do! You can also check our GH issues for things labeled "help-wanted" as a good place to start. We're sometimes bad about keeping that label up-to-date, so if you don't see any, just let us know.
 

@@ -25,7 +25,6 @@ import (
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
 )
 
 const (
@@ -58,21 +57,19 @@ func runServers(
 	authServer auth.APIServer,
 	txnServer APIServer,
 ) {
-	_, eg := grpcutil.Serve(
-		context.Background(),
-		grpcutil.ServerOptions{
-			Port:       uint16(port),
-			MaxMsgSize: grpcutil.MaxMsgSize,
-			RegisterFunc: func(s *grpc.Server) error {
-				pfs.RegisterAPIServer(s, pfsServer)
-				pfs.RegisterObjectAPIServer(s, pfsBlockServer)
-				auth.RegisterAPIServer(s, authServer)
-				transaction.RegisterAPIServer(s, txnServer)
-				return nil
-			}},
-	)
+	server, err := grpcutil.NewServer(context.Background(), false)
+	require.NoError(t, err)
+
+	pfs.RegisterAPIServer(server.Server, pfsServer)
+	pfs.RegisterObjectAPIServer(server.Server, pfsBlockServer)
+	auth.RegisterAPIServer(server.Server, authServer)
+	transaction.RegisterAPIServer(server.Server, txnServer)
+
+	_, err = server.ListenTCP("", uint16(port))
+	require.NoError(t, err)
+
 	go func() {
-		require.NoError(t, eg.Wait())
+		require.NoError(t, server.Wait())
 	}()
 }
 

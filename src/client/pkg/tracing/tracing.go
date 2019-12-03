@@ -37,6 +37,10 @@ const shortTraceEnvVar = "PACH_TRACE"
 // jaegerOnce is used to ensure that the Jaeger tracer is only initialized once
 var jaegerOnce sync.Once
 
+// jaegerEndpoint is set using jaegerOnce on startup, and then returned by
+// future calls to InstallJaegerTracerFromEnv
+var jaegerEndpoint string
+
 // TagAnySpan tags any span associated with 'spanBox' (which must be either a
 // span itself or a context.Context) with 'kvs'
 func TagAnySpan(spanBox interface{}, kvs ...interface{}) opentracing.Span {
@@ -87,7 +91,8 @@ func AddSpanToAnyExisting(ctx context.Context, operation string, kvs ...interfac
 
 // FinishAnySpan calls span.Finish() if span is not nil. Pairs with
 // AddSpanToAnyExisting
-func FinishAnySpan(span opentracing.Span) {
+func FinishAnySpan(span opentracing.Span, kvs ...interface{}) {
+	span = TagAnySpan(span, kvs...)
 	if span != nil {
 		span.Finish()
 	}
@@ -95,9 +100,10 @@ func FinishAnySpan(span opentracing.Span) {
 
 // InstallJaegerTracerFromEnv installs a Jaeger client as the opentracing global
 // tracer, relying on environment variables to configure the client
-func InstallJaegerTracerFromEnv() {
+func InstallJaegerTracerFromEnv() string {
 	jaegerOnce.Do(func() {
-		jaegerEndpoint, onUserMachine := os.LookupEnv(jaegerEndpointEnvVar)
+		var onUserMachine bool
+		jaegerEndpoint, onUserMachine = os.LookupEnv(jaegerEndpointEnvVar)
 		if !onUserMachine {
 			if host, ok := os.LookupEnv("JAEGER_COLLECTOR_SERVICE_HOST"); ok {
 				port := os.Getenv("JAEGER_COLLECTOR_SERVICE_PORT_JAEGER_COLLECTOR_HTTP")
@@ -146,6 +152,7 @@ func InstallJaegerTracerFromEnv() {
 		}
 		opentracing.SetGlobalTracer(tracer)
 	})
+	return jaegerEndpoint
 }
 
 // addTraceIfTracingEnabled is an otgrpc span inclusion func that propagates
@@ -155,9 +162,10 @@ func addTraceIfTracingEnabled(
 	method string,
 	req, resp interface{}) bool {
 	// Always trace if PACH_TRACE is on
-	_, hasJaegerEndpoint := os.LookupEnv(jaegerEndpointEnvVar)
-	_, shortTracingOn := os.LookupEnv(shortTraceEnvVar)
-	if hasJaegerEndpoint && shortTracingOn {
+	if _, shortTracingOn := os.LookupEnv(shortTraceEnvVar); shortTracingOn {
+		if !IsActive() {
+			fmt.Fprintf(os.Stderr, "PACH_TRACE is set, indicating tracing is requested, but no connection to Jaeger has been established")
+		}
 		return true
 	}
 

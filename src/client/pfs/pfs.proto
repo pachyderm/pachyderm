@@ -143,6 +143,10 @@ message CommitInfo {
   Object tree = 7;
   repeated Object trees = 13;
   Object datums = 14;
+
+  int64 subvenant_commits_success = 18;
+  int64 subvenant_commits_failure = 19;
+  int64 subvenant_commits_total = 20;
 }
 
 enum FileType {

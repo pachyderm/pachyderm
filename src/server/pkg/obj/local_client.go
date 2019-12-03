@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 )
 
 // NewLocalClient returns a Client that stores data on the local file system
@@ -87,8 +89,9 @@ func (c *localClient) Walk(_ context.Context, dir string, walkFn func(name strin
 	})
 }
 
-func (c *localClient) Exists(_ context.Context, path string) bool {
+func (c *localClient) Exists(ctx context.Context, path string) bool {
 	_, err := os.Stat(filepath.Join(c.root, path))
+	tracing.TagAnySpan(ctx, "err", err)
 	return err == nil
 }
 

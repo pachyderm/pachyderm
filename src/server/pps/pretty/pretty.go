@@ -21,7 +21,7 @@ import (
 
 const (
 	// PipelineHeader is the header for pipelines.
-	PipelineHeader = "NAME\tVERSION\tINPUT\tCREATED\tSTATE / LAST JOB\t\n"
+	PipelineHeader = "NAME\tVERSION\tINPUT\tCREATED\tSTATE / LAST JOB\tDESCRIPTION\t\n"
 	// JobHeader is the header for jobs
 	JobHeader = "ID\tPIPELINE\tSTARTED\tDURATION\tRESTART\tPROGRESS\tDL\tUL\tSTATE\t\n"
 	// DatumHeader is the header for datums
@@ -60,10 +60,11 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo, fullTimestamps bool) 
 	fmt.Fprintf(w, "%s\t", pretty.Size(jobInfo.Stats.DownloadBytes))
 	fmt.Fprintf(w, "%s\t", pretty.Size(jobInfo.Stats.UploadBytes))
 	if jobInfo.State == ppsclient.JobState_JOB_FAILURE {
-		fmt.Fprintf(w, "%s: %s\t\n", jobState(jobInfo.State), safeTrim(jobInfo.Reason, jobReasonLen))
+		fmt.Fprintf(w, "%s: %s\t", jobState(jobInfo.State), safeTrim(jobInfo.Reason, jobReasonLen))
 	} else {
-		fmt.Fprintf(w, "%s\t\n", jobState(jobInfo.State))
+		fmt.Fprintf(w, "%s\t", jobState(jobInfo.State))
 	}
+	fmt.Fprintln(w)
 }
 
 // PrintPipelineInfo pretty-prints pipeline info.
@@ -76,7 +77,9 @@ func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo, fullTi
 	} else {
 		fmt.Fprintf(w, "%s\t", pretty.Ago(pipelineInfo.CreatedAt))
 	}
-	fmt.Fprintf(w, "%s / %s\t\n", pipelineState(pipelineInfo.State), jobState(pipelineInfo.LastJobState))
+	fmt.Fprintf(w, "%s / %s\t", pipelineState(pipelineInfo.State), jobState(pipelineInfo.LastJobState))
+	fmt.Fprintf(w, "%s\t", pipelineInfo.Description)
+	fmt.Fprintln(w)
 }
 
 // PrintWorkerStatusHeader pretty prints a worker status header.
@@ -97,7 +100,8 @@ func PrintWorkerStatus(w io.Writer, workerStatus *ppsclient.WorkerStatus, fullTi
 	} else {
 		fmt.Fprintf(w, "%s\t", pretty.Ago(workerStatus.Started))
 	}
-	fmt.Fprintf(w, "%d\t\n", workerStatus.QueueSize)
+	fmt.Fprintf(w, "%d\t", workerStatus.QueueSize)
+	fmt.Fprintln(w)
 }
 
 // PrintableJobInfo is a wrapper around JobInfo containing any formatting options
@@ -234,7 +238,8 @@ func PrintDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
 	if datumInfo.Stats != nil {
 		totalTime = units.HumanDuration(client.GetDatumTotalTime(datumInfo.Stats))
 	}
-	fmt.Fprintf(w, "%s\t%s\t%s\n", datumInfo.Datum.ID, datumState(datumInfo.State), totalTime)
+	fmt.Fprintf(w, "%s\t%s\t%s\t", datumInfo.Datum.ID, datumState(datumInfo.State), totalTime)
+	fmt.Fprintln(w)
 }
 
 // PrintDetailedDatumInfo pretty-prints detailed info about a datum

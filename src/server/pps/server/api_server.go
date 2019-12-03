@@ -1322,6 +1322,9 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		var err error
 		if request.Pipeline != nil {
 			pipelineInfo, err = a.inspectPipeline(pachClient, request.Pipeline.Name)
+			if err != nil {
+				return fmt.Errorf("could not get pipeline information for %s: %v", request.Pipeline.Name, err)
+			}
 		} else if request.Job != nil {
 			// If user provides a job, lookup the pipeline from the job info, and then
 			// get the pipeline RC
@@ -1332,9 +1335,9 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			}
 			statsCommit = jobPtr.StatsCommit
 			pipelineInfo, err = a.inspectPipeline(pachClient, jobPtr.Pipeline.Name)
-		}
-		if err != nil {
-			return fmt.Errorf("could not get pipeline information for %s: %v", request.Pipeline.Name, err)
+			if err != nil {
+				return fmt.Errorf("could not get pipeline information for %s: %v", jobPtr.Pipeline.Name, err)
+			}
 		}
 
 		// 2) Check whether the caller is authorized to get logs from this pipeline/job
@@ -1970,12 +1973,20 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	var visitErr error
 	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
 		if input.Cron != nil {
-			if err := pachClient.CreateRepo(input.Cron.Repo); err != nil && !isAlreadyExistsErr(err) {
+			if _, err := pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(),
+				&pfs.CreateRepoRequest{
+					Repo:        client.NewRepo(input.Cron.Repo),
+					Description: fmt.Sprintf("Cron tick repo for pipeline %s.", request.Pipeline.Name),
+				}); err != nil && !isAlreadyExistsErr(err) {
 				visitErr = err
 			}
 		}
 		if input.Git != nil {
-			if err := pachClient.CreateRepo(input.Git.Name); err != nil && !isAlreadyExistsErr(err) {
+			if _, err := pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(),
+				&pfs.CreateRepoRequest{
+					Repo:        client.NewRepo(input.Git.Name),
+					Description: fmt.Sprintf("Git input repo for pipeline %s.", request.Pipeline.Name),
+				}); err != nil && !isAlreadyExistsErr(err) {
 				visitErr = err
 			}
 		}
@@ -2103,7 +2114,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		}
 	} else {
 		// Create output repo, pipeline output, and stats
-		if err := pachClient.CreateRepo(pipelineName); err != nil && !isAlreadyExistsErr(err) {
+		if _, err := pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(),
+			&pfs.CreateRepoRequest{
+				Repo:        client.NewRepo(pipelineName),
+				Description: fmt.Sprintf("Output repo for pipeline %s.", request.Pipeline.Name),
+			}); err != nil && !isAlreadyExistsErr(err) {
 			return nil, err
 		}
 
@@ -2676,6 +2691,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	pachClient := a.env.GetPachClient(ctx)
 	ctx = pachClient.Ctx() // pachClient will propagate auth info
 	pfsClient := pachClient.PfsAPIClient
+	ppsClient := pachClient.PpsAPIClient
 
 	pipelineInfo, err := a.inspectPipeline(pachClient, request.Pipeline.Name)
 	if err != nil {
@@ -2719,8 +2735,26 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	if err != nil {
 		return nil, err
 	}
-	requestProv := make(map[string]*pfs.CommitProvenance)
-	for _, prov := range request.Provenance {
+	provenance := request.Provenance
+	provenanceMap := make(map[string]*pfs.CommitProvenance)
+
+	if request.JobID != "" {
+		jobInfo, err := ppsClient.InspectJob(ctx, &pps.InspectJobRequest{
+			Job: client.NewJob(request.JobID),
+		})
+		if err != nil {
+			return nil, err
+		}
+		jobOutputCommit, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+			Commit: jobInfo.OutputCommit,
+		})
+		if err != nil {
+			return nil, err
+		}
+		provenance = append(provenance, jobOutputCommit.Provenance...)
+	}
+
+	for _, prov := range provenance {
 		if prov == nil {
 			return nil, fmt.Errorf("request should not contain nil provenance")
 		}
@@ -2752,11 +2786,11 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 				return nil, fmt.Errorf("the commit provenance contains a branch which the pipeline's branch is not provenant on")
 			}
 		}
-		requestProv[key(branch.Repo.Name, branch.Name)] = prov
+		provenanceMap[key(branch.Repo.Name, branch.Name)] = prov
 	}
 
 	for _, branchProv := range append(branch.Provenance, branch.Branch) {
-		if _, ok := requestProv[key(branchProv.Repo.Name, branchProv.Name)]; !ok {
+		if _, ok := provenanceMap[key(branchProv.Repo.Name, branchProv.Name)]; !ok {
 			branchInfo, err := pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{
 				Branch: client.NewBranch(branchProv.Repo.Name, branchProv.Name),
 			})
@@ -2773,21 +2807,23 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 				return nil, err
 			}
 			for _, headProv := range headCommit.Provenance {
-				if _, ok := requestProv[key(headProv.Branch.Repo.Name, headProv.Branch.Name)]; !ok {
-					request.Provenance = append(request.Provenance, headProv)
+				if _, ok := provenanceMap[key(headProv.Branch.Repo.Name, headProv.Branch.Name)]; !ok {
+					provenance = append(provenance, headProv)
 				}
 			}
 		}
 	}
 	// we need to include the spec commit in the provenance, so that the new job is represented by the correct spec commit
 	specProvenance := client.NewCommitProvenance(ppsconsts.SpecRepo, request.Pipeline.Name, specCommit.Commit.ID)
+	provenance = append(provenance, specProvenance)
+
 	_, err = pfsClient.StartCommit(ctx, &pfs.StartCommitRequest{
 		Parent: &pfs.Commit{
 			Repo: &pfs.Repo{
 				Name: request.Pipeline.Name,
 			},
 		},
-		Provenance: append(request.Provenance, specProvenance),
+		Provenance: provenance,
 	})
 	if err != nil {
 		return nil, err

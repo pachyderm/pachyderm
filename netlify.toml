@@ -16,6 +16,18 @@ publish = "doc/site"
   force = true
 
 [[redirects]]
+   from = "/deploy-manage/manage/batching_pachyderm_with_transactions/"
+   to = "/latest/how-tos/use-transactions-to-run-multiple-commands/"
+   status = 301
+   force = true
+
+[[redirects]]
+    from = "/batching_pachyderm_with_transactions/"
+    to = "/use-transactions-to-run-multiple-commands/"
+    status = 301
+    force = true
+
+[[redirects]]
   from = "/en/latest/getting_started/"
   to = "/latest/getting_started/"
   status = 301
@@ -1605,6 +1617,12 @@ publish = "doc/site"
 [[redirects]]
   from = "/concepts/pipeline-concepts/datum/relationship-between-datums/"
   to = "/latest/concepts/pipeline-concepts/datum/relationship-between-datums/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/concepts/pipeline-concepts/distributed_computing/"
+  to = "/latest/concepts/pipeline-concepts/distributed_computing/"
   status = 301
   force = true
 
