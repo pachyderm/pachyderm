@@ -151,7 +151,7 @@ docker-clean-worker:
 
 docker-build-worker: docker-clean-worker
 	docker run \
-		-v $(PWD):/pachyderm \
+		-v $$PWD:/pachyderm \
 		-v $$GOPATH/pkg:/go/pkg \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
 		--name worker_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /pachyderm/etc/compile/compile.sh worker "$(LD_FLAGS)"
@@ -166,7 +166,7 @@ docker-clean-pachd:
 
 docker-build-pachd: docker-clean-pachd
 	docker run  \
-		-v $(PWD):/pachyderm \
+		-v $$PWD:/pachyderm \
 		-v $$GOPATH/pkg:/go/pkg \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
 		--name pachd_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /pachyderm/etc/compile/compile.sh pachd "$(LD_FLAGS)"
@@ -186,7 +186,7 @@ docker-build-test: docker-clean-test docker-build-compile
 	  --attach stderr \
 	  --rm \
 	  -w /pachyderm \
-	  -v $(PWD):/pachyderm \
+	  -v $$PWD:/pachyderm \
 	  -v $$HOME/.cache/go-build:/root/.cache/go-build \
 	  -v /var/run/docker.sock:/var/run/docker.sock \
 	  --privileged=true \
