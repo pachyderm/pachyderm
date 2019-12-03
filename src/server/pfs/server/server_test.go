@@ -5341,7 +5341,7 @@ func TestFsckFix(t *testing.T) {
 	require.NoError(t, client.CreateRepo(output2))
 	require.NoError(t, client.CreateBranch(output1, "master", "", []*pfs.Branch{pclient.NewBranch(input, "master")}))
 	require.NoError(t, client.CreateBranch(output2, "master", "", []*pfs.Branch{pclient.NewBranch(output1, "master")}))
-	numCommits := 10
+	numCommits := 10000
 	for i := 0; i < numCommits; i++ {
 		_, err := client.PutFile(input, "master", "file", strings.NewReader("1"))
 		require.NoError(t, err)
