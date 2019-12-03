@@ -83,20 +83,3 @@ The following text is an example of a minimum specification:
   }
 }
 ```
-
-## Preserve Spout Progress Across Restarts
-
-By default, when a spout container crashes, all changes that
-were the spout processed before the crash are lost and the
-spout needs to start from scratch. To enable a spout keep
-the history of changes so that it can continue where it
-left off after restart, you can specify a spout `marker`.
-
-When you specify the `marker` in the `transform` section
-of your pipeline, Pachyderm creates the `marker` file or
-directory. The current spout marker is stored in
-`pfs/out/marker`. The previous marker is stored in `pfs/marker`.
-Therefore, if a spout container crashes
-and then starts again, it can read the history from that file
-and resume at the point it was interrupted instead of
-starting from the beginning.
