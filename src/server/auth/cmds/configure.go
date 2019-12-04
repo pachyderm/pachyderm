@@ -45,11 +45,17 @@ func GetConfigCmd() *cobra.Command {
 			} else {
 				format = strings.ToLower(format)
 			}
-			e, err := serde.GetEncoder(format, &buf)
+			e, err := serde.GetEncoder(format, &buf, serde.WithIndent(2),
+				serde.WithOrigName(true))
 			if err != nil {
 				return err
 			}
-			if err := e.EncodeProto(resp.Configuration); err != nil {
+			// Use Encode() rather than EncodeProto, because the official proto->json
+			// spec (https://developers.google.com/protocol-buffers/docs/proto3#json)
+			// requires that int64 fields (e.g. live_config_version) be serialized as
+			// strings rather than ints, which would break existing auth configs. Go's
+			// built-in json serializer marshals int64 fields to JSON numbers
+			if err := e.Encode(resp.Configuration); err != nil {
 				return err
 			}
 			fmt.Println(buf.String())
