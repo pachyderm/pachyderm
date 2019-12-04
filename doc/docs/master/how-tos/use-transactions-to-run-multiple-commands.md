@@ -1,4 +1,4 @@
-# Use Pachyderm Transactions
+# Use Transactions
 
 !!! note "Summary"
     Use transactions to run multiple Pachyderm commands
