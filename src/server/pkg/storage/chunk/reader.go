@@ -172,7 +172,7 @@ func (dr *DataReader) getChunk() error {
 		return nil
 	}
 	// Use seed chunk if possible.
-	if dr.seed != nil && dr.dataRef.Chunk.Hash == dr.seed.dataRef.Chunk.Hash {
+	if dr.seed != nil && dr.dataRef.ChunkInfo.Chunk.Hash == dr.seed.dataRef.ChunkInfo.Chunk.Hash {
 		if err := dr.seed.getChunk(); err != nil {
 			return err
 		}
@@ -180,7 +180,7 @@ func (dr *DataReader) getChunk() error {
 		return nil
 	}
 	// Get chunk from object storage.
-	objR, err := dr.objC.Reader(dr.ctx, path.Join(prefix, dr.dataRef.Chunk.Hash), 0, 0)
+	objR, err := dr.objC.Reader(dr.ctx, path.Join(prefix, dr.dataRef.ChunkInfo.Chunk.Hash), 0, 0)
 	if err != nil {
 		return err
 	}

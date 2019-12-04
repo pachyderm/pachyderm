@@ -235,11 +235,7 @@ func (w *worker) put(edge bool) error {
 	for _, a := range w.annotations {
 		chunkBytes = append(chunkBytes, a.buf.Bytes()...)
 	}
-	chunk := &Chunk{
-		Hash:      hash.EncodeHash(hash.Sum(chunkBytes)),
-		SizeBytes: int64(len(chunkBytes)),
-		Edge:      edge,
-	}
+	chunk := &Chunk{Hash: hash.EncodeHash(hash.Sum(chunkBytes))}
 	path := path.Join(prefix, chunk.Hash)
 	// If the chunk does not exist, upload it.
 	if !w.objC.Exists(w.ctx, path) {
@@ -248,7 +244,11 @@ func (w *worker) put(edge bool) error {
 		}
 	}
 	chunkRef := &DataRef{
-		Chunk:     chunk,
+		ChunkInfo: &ChunkInfo{
+			Chunk:     chunk,
+			SizeBytes: int64(len(chunkBytes)),
+			Edge:      edge,
+		},
 		SizeBytes: int64(len(chunkBytes)),
 	}
 	// Update the annotations for the current chunk.
@@ -265,7 +265,7 @@ func (w *worker) updateAnnotations(chunkRef *DataRef) {
 	for _, a := range w.annotations {
 		// (bryce) probably a better way to communicate whether to compute datarefs for an annotation.
 		if a.NextDataRef != nil {
-			a.NextDataRef.Chunk = chunkRef.Chunk
+			a.NextDataRef.ChunkInfo = chunkRef.ChunkInfo
 			if len(w.annotations) > 1 {
 				a.NextDataRef.Hash = hash.EncodeHash(hash.Sum(a.buf.Bytes()))
 			}
@@ -297,7 +297,7 @@ func (w *worker) copyDataReaders(a *Annotation) error {
 	for _, dr := range a.drs {
 		// We can only consider a data reader for buffering / cheap copying
 		// when it does not reference an edge chunk and we are at a split point.
-		if dr.DataRef().Chunk.Edge || !w.atSplit() {
+		if dr.DataRef().ChunkInfo.Edge || !w.atSplit() {
 			if err := w.flushDataReaders(); err != nil {
 				return err
 			}
@@ -309,7 +309,7 @@ func (w *worker) copyDataReaders(a *Annotation) error {
 		// Flush buffered annotations if the next data reader is from a different chunk.
 		if len(w.bufAnnotations) > 0 {
 			lastA := w.bufAnnotations[len(w.bufAnnotations)-1]
-			if lastA.drs[0].DataRef().Chunk.Hash != dr.DataRef().Chunk.Hash {
+			if lastA.drs[0].DataRef().ChunkInfo.Chunk.Hash != dr.DataRef().ChunkInfo.Chunk.Hash {
 				if err := w.flushDataReaders(); err != nil {
 					return err
 				}
@@ -321,7 +321,7 @@ func (w *worker) copyDataReaders(a *Annotation) error {
 		lastA.drs = append(lastA.drs, dr)
 		w.bufSize += dr.Len()
 		// Cheap copy if full chunk is buffered.
-		if w.bufSize == dr.DataRef().Chunk.SizeBytes {
+		if w.bufSize == dr.DataRef().ChunkInfo.SizeBytes {
 			for _, a := range w.bufAnnotations {
 				a.NextDataRef = a.drs[0].DataRef()
 			}

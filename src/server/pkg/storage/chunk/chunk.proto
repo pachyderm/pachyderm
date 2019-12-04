@@ -6,7 +6,7 @@ option go_package = "github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk
 // DataRef is a reference to data within a chunk.
 message DataRef {
   // The chunk the referenced data is located in.
-  Chunk chunk = 1;
+  ChunkInfo chunk_info = 1;
   // The hash of the data being referenced.
   // This field is empty when it is equal to the chunk hash (the ref is the whole chunk).
   string hash = 2;
@@ -18,6 +18,10 @@ message DataRef {
 
 message Chunk {
   string hash = 1;
+}
+
+message ChunkInfo {
+  Chunk chunk = 1;
   int64 size_bytes = 2;
   bool edge = 3;
 }
