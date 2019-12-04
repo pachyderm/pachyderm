@@ -84,10 +84,10 @@ The following text is an example of a minimum specification:
 }
 ```
 
-When a spout container crashes, all changes that were
-processed before the crash are lost, and the spout needs
+When a spout container crashes, all incomplete operations
+that were processed before the crash are lost, and the spout needs
 to start the interrupted data operation from scratch.
-To kepp the history of changes, so that the spout can
+To keep the history of changes, so that the spout can
 continue where it left off after the restart, you can
 enable a `marker` for your spout.
 
@@ -96,5 +96,5 @@ When you specify the `marker` parameter in the
 the `marker` file or directory. The current spout marker
 is stored in `pfs/out/marker`. The previous marker is stored
 in `pfs/marker`. If a spout container crashes and then starts
-again, it can read the history from that file and resume at
-the point it was interrupted instead of starting over.
+again, it can read the `marker` file and resume where it left
+off instead of starting over.
