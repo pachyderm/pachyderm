@@ -11,11 +11,12 @@ import (
 	"github.com/gogo/protobuf/proto"
 )
 
+// JSONEncoder is an implementation of serde.Encoder that operates on JSON data
 type JSONEncoder struct {
 	w io.Writer
 	e *json.Encoder
 
-	// origName sets whether this YAMLEncoder uses the original (.proto) name of
+	// origName sets whether this JSONEncoder uses the original (.proto) name of
 	// fields when marshalling to protos
 	origName bool
 
@@ -24,6 +25,8 @@ type JSONEncoder struct {
 	indentSpaces int
 }
 
+// EncodeJSON is a convenience function that encodes json data using a
+// JSONEncoder, but can be called inline
 func EncodeJSON(v interface{}, options ...EncoderOption) ([]byte, error) {
 	var buf bytes.Buffer
 	e := NewJSONEncoder(&buf, options...)
@@ -32,6 +35,8 @@ func EncodeJSON(v interface{}, options ...EncoderOption) ([]byte, error) {
 	}
 	return buf.Bytes(), nil
 }
+
+// NewJSONEncoder returns a new JSONEncoder that writes to 'w'
 func NewJSONEncoder(w io.Writer, options ...EncoderOption) *JSONEncoder {
 	e := &JSONEncoder{w: w, e: json.NewEncoder(w)}
 	for _, o := range options {
@@ -40,11 +45,13 @@ func NewJSONEncoder(w io.Writer, options ...EncoderOption) *JSONEncoder {
 	return e
 }
 
+// Encode implements the corresponding method of serde.Encoder
 func (e *JSONEncoder) Encode(v interface{}) error {
 	// shortcut encoding
 	return e.e.Encode(v)
 }
 
+// EncodeTransform implements the corresponding method of serde.Encoder
 func (e *JSONEncoder) EncodeTransform(v interface{}, f func(map[string]interface{}) error) error {
 	// Encode to JSON first
 	var buf bytes.Buffer
@@ -56,6 +63,7 @@ func (e *JSONEncoder) EncodeTransform(v interface{}, f func(map[string]interface
 	return e.encodeTransform(buf.Bytes(), f)
 }
 
+// EncodeProto implements the corresponding method of serde.Encoder
 func (e *JSONEncoder) EncodeProto(v proto.Message) error {
 	// shortcut encoding
 	m := jsonpb.Marshaler{
@@ -65,6 +73,7 @@ func (e *JSONEncoder) EncodeProto(v proto.Message) error {
 	return m.Marshal(e.w, v)
 }
 
+// EncodeProtoTransform implements the corresponding method of serde.Encoder
 func (e *JSONEncoder) EncodeProtoTransform(v proto.Message, f func(map[string]interface{}) error) error {
 	// Encode to JSON first
 	var buf bytes.Buffer

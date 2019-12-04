@@ -1,6 +1,6 @@
-// structfmt is a super-package that contains Pachyderm-specific libraries for
-// marshalling and unmarshalling Go structs and maps to structured text formats
-// (currently just json and yaml).
+// Package serde contains Pachyderm-specific data structures for marshalling and
+// unmarshalling Go structs and maps to structured text formats (currently just
+// JSON and YAML).
 //
 // Similar to https://github.com/ghodss/yaml, all implementations of the Format
 // interface marshal and unmarshal data using the following pipeline:
@@ -29,23 +29,8 @@ import (
 	"github.com/gogo/protobuf/proto"
 )
 
-// EncoderOptions are functions that modify the behavior of an encoder and can
-// be passed to GetEncoder.
-//
-// Currently all EncoderOptions are encoder-agnostic (i.e. the option works on
-// both the JSON encoder and the YAML encoder). Future EncoderOptions that are
-// only compatible with a single encoder type, however, should silently ignore
-// any passed Encoders of other types. For example, if a user calls GetEncoder
-// requesting a JSON encoder, but also passes an option that only applies to
-// YAML encoders, then the option should exit silently. This makes it possible
-// to pass all options to GetEncoder, but defer the decision about what kind of
-// encoding to use until runtime, like so:
-//
-// enc, _ := GetEncoder(outputFlag, os.Stdout,
-//     ...options to use if json...,
-//     ...options to use if yaml...,
-// )
-// enc.Encode(obj)
+// EncoderOption modifies the behavior of new encoders and can be passed to
+// GetEncoder.
 type EncoderOption func(Encoder)
 
 // WithOrigName is an EncoderOption that, if set, encodes proto messages using
@@ -62,6 +47,10 @@ func WithOrigName(origName bool) func(d Encoder) {
 	}
 }
 
+// WithIndent is an EncoderOption that causes the returned encoder to use
+// 'numSpaces' spaces as the indentation prefix for embedded messages. If
+// applied to a JSON encoder, it also changes the encoder output to be
+// multi-line (instead of inline).
 func WithIndent(numSpaces int) func(d Encoder) {
 	return func(d Encoder) {
 		switch e := d.(type) {

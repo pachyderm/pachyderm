@@ -14,23 +14,29 @@ import (
 	"gopkg.in/pachyderm/yaml.v3"
 )
 
+// DecodeYAML is a convenience function that decodes yaml data using a
+// YAMLDecoder, but can be called inline
 func DecodeYAML(yamlData []byte, v interface{}) error {
 	d := NewYAMLDecoder(bytes.NewReader(yamlData))
 	return d.Decode(v)
 }
 
+// YAMLDecoder is an implementation of serde.Decoder that operates on YAML data
 type YAMLDecoder struct {
 	d *yaml.Decoder
 }
 
+// NewYAMLDecoder returns a new YAMLDecoder that reads from 'r'
 func NewYAMLDecoder(r io.Reader) *YAMLDecoder {
 	return &YAMLDecoder{d: yaml.NewDecoder(r)}
 }
 
+// Decode implements the corresponding method of serde.Decoder
 func (d *YAMLDecoder) Decode(v interface{}) error {
 	return d.DecodeTransform(v, nil)
 }
 
+// DecodeTransform implements the corresponding method of serde.Decoder
 func (d *YAMLDecoder) DecodeTransform(v interface{}, f func(map[string]interface{}) error) error {
 	jsonData, err := d.yamlToJSONTransform(f)
 	if err != nil {
@@ -44,10 +50,12 @@ func (d *YAMLDecoder) DecodeTransform(v interface{}, f func(map[string]interface
 	return nil
 }
 
+// DecodeProto implements the corresponding method of serde.Decoder
 func (d *YAMLDecoder) DecodeProto(v proto.Message) error {
 	return d.DecodeProtoTransform(v, nil)
 }
 
+// DecodeProtoTransform implements the corresponding method of serde.Decoder
 func (d *YAMLDecoder) DecodeProtoTransform(v proto.Message, f func(map[string]interface{}) error) error {
 	jsonData, err := d.yamlToJSONTransform(f)
 	if err != nil {

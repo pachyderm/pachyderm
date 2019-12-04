@@ -11,6 +11,7 @@ import (
 	"gopkg.in/pachyderm/yaml.v3"
 )
 
+// YAMLEncoder is an implementation of serde.Encoder that operates on YAML data
 type YAMLEncoder struct {
 	e *yaml.Encoder
 
@@ -19,6 +20,8 @@ type YAMLEncoder struct {
 	origName bool
 }
 
+// EncodeYAML is a convenience function that encodes yaml data using a
+// YAMLEncoder, but can be called inline
 func EncodeYAML(v interface{}, options ...EncoderOption) ([]byte, error) {
 	var buf bytes.Buffer
 	e := NewYAMLEncoder(&buf, options...)
@@ -28,6 +31,7 @@ func EncodeYAML(v interface{}, options ...EncoderOption) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// NewYAMLEncoder returns a new YAMLEncoder that writes to 'w'
 func NewYAMLEncoder(w io.Writer, options ...EncoderOption) *YAMLEncoder {
 	e := &YAMLEncoder{e: yaml.NewEncoder(w)}
 	for _, o := range options {
@@ -36,10 +40,12 @@ func NewYAMLEncoder(w io.Writer, options ...EncoderOption) *YAMLEncoder {
 	return e
 }
 
+// Encode implements the corresponding method of serde.Encoder
 func (e *YAMLEncoder) Encode(v interface{}) error {
 	return e.EncodeTransform(v, nil)
 }
 
+// EncodeTransform implements the corresponding method of serde.Encoder
 func (e *YAMLEncoder) EncodeTransform(v interface{}, f func(map[string]interface{}) error) error {
 	// Encode to JSON first
 	var buf bytes.Buffer
@@ -51,10 +57,12 @@ func (e *YAMLEncoder) EncodeTransform(v interface{}, f func(map[string]interface
 	return e.jsonToYAMLTransform(buf.Bytes(), f)
 }
 
+// EncodeProto implements the corresponding method of serde.Encoder
 func (e *YAMLEncoder) EncodeProto(v proto.Message) error {
 	return e.EncodeProtoTransform(v, nil)
 }
 
+// EncodeProtoTransform implements the corresponding method of serde.Encoder
 func (e *YAMLEncoder) EncodeProtoTransform(v proto.Message, f func(map[string]interface{}) error) error {
 	// Encode to JSON first
 	var buf bytes.Buffer
