@@ -6,7 +6,6 @@ import (
 	"context"
 	"io"
 	"path"
-	"strings"
 	"sync"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
@@ -142,7 +141,8 @@ func (dr *DataReader) Peek() (*Tag, error) {
 
 // Iterate iterates over the tags in the data reference and passes the tag and a reader for getting
 // the tagged content to the callback function.
-func (dr *DataReader) Iterate(f func(*Tag, io.Reader) error, tagBound ...string) error {
+// tagUpperBound is an optional parameter for specifiying the upper bound (exclusive) of the iteration.
+func (dr *DataReader) Iterate(f func(*Tag, io.Reader) error, tagUpperBound ...string) error {
 	if err := dr.getChunk(); err != nil {
 		return err
 	}
@@ -154,7 +154,7 @@ func (dr *DataReader) Iterate(f func(*Tag, io.Reader) error, tagBound ...string)
 			}
 			return err
 		}
-		if !BeforeBound(tag.Id, tagBound...) {
+		if !BeforeBound(tag.Id, tagUpperBound...) {
 			return nil
 		}
 		if err := f(tag, bytes.NewReader(dr.chunk[dr.offset:dr.offset+tag.SizeBytes])); err != nil {
@@ -201,7 +201,7 @@ func (dr *DataReader) getChunk() error {
 // BeforeBound checks if the passed in string is before the string bound (exclusive).
 // The string bound is optional, so if no string bound is passed then it returns true.
 func BeforeBound(str string, strBound ...string) bool {
-	return len(strBound) == 0 || strings.Compare(str, strBound[0]) < 0
+	return len(strBound) == 0 || str < strBound[0]
 }
 
 // Get writes the data referenced by the data reference.
@@ -216,10 +216,11 @@ func (dr *DataReader) Get(w io.Writer) error {
 	return nil
 }
 
-// LimitReader progresses the data reader to a tag bound and will return
-// a new data reader that will read the tags up to the tag bound. This does
-// not fetch any data.
-func (dr *DataReader) LimitReader(tagBound ...string) *DataReader {
+// LimitReader creates a new data reader that reads a subset of the remaining tags in the current data reader.
+// This tag subset is determined by the optional parameter tagUpperBound which specifies the upper bound (exclusive) of the new data reader.
+// LimitReader will progress the current data reader past the tags in the tag subset.
+// Data in the tag subset is fetched lazily by the new data reader.
+func (dr *DataReader) LimitReader(tagUpperBound ...string) *DataReader {
 	offset := dr.offset
 	var tags []*Tag
 	for {
@@ -227,7 +228,7 @@ func (dr *DataReader) LimitReader(tagBound ...string) *DataReader {
 			break
 		}
 		tag := dr.tags[0]
-		if !BeforeBound(tag.Id, tagBound...) {
+		if !BeforeBound(tag.Id, tagUpperBound...) {
 			break
 		}
 		tags = append(tags, tag)
