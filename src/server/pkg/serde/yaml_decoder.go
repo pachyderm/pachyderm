@@ -1,5 +1,5 @@
-// yaml_decoder.go implements the structfmt.{Encoder,Decoder} interfaces for the
-// yaml text format
+// yaml_decoder.go implements the structfmt.Decoder interfaces for the yaml text
+// format
 
 package serde
 
@@ -21,7 +21,7 @@ func DecodeYAML(yamlData []byte, v interface{}) error {
 	return d.Decode(v)
 }
 
-// YAMLDecoder is an implementation of serde.Decoder that operates on YAML data
+// YAMLDecoder is an implementation of serde.Decoder that operates on yaml data
 type YAMLDecoder struct {
 	d *yaml.Decoder
 }
@@ -74,6 +74,9 @@ func (d *YAMLDecoder) yamlToJSONTransform(f func(map[string]interface{}) error) 
 	// deserialize yaml into 'holder'
 	holder := map[string]interface{}{}
 	if err := d.d.Decode(&holder); err != nil {
+		if err == io.EOF {
+			return nil, err
+		}
 		return nil, fmt.Errorf("could not parse yaml: %v", err)
 	}
 
