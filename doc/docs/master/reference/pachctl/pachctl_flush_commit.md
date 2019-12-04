@@ -4,11 +4,10 @@ Wait for all commits caused by the specified commits to finish and return them.
 
 ### Synopsis
 
-
 Wait for all commits caused by the specified commits to finish and return them.
 
 ```
-pachctl flush commit <repo>@<branch-or-commit> ...
+pachctl flush commit <repo>@<branch-or-commit> ... [flags]
 ```
 
 ### Examples
@@ -26,6 +25,7 @@ $ pachctl flush commit foo@XXX -r bar -r baz
 
 ```
       --full-timestamps   Return absolute timestamps (as opposed to the default, relative timestamps).
+  -h, --help              help for commit
       --raw               disable pretty printing, print raw json
   -r, --repos []string    Wait only for commits leading to a specific set of repos (default [])
 ```

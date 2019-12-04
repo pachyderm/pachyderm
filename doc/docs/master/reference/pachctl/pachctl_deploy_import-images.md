@@ -4,11 +4,16 @@ Import a tarball (from stdin) containing all of the images in a deployment and p
 
 ### Synopsis
 
-
 Import a tarball (from stdin) containing all of the images in a deployment and push them to a private registry.
 
 ```
-pachctl deploy import-images <input-file>
+pachctl deploy import-images <input-file> [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for import-images
 ```
 
 ### Options inherited from parent commands

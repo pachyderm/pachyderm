@@ -4,8 +4,13 @@ Create a new instance of a Pachyderm resource.
 
 ### Synopsis
 
-
 Create a new instance of a Pachyderm resource.
+
+### Options
+
+```
+  -h, --help   help for create
+```
 
 ### Options inherited from parent commands
 

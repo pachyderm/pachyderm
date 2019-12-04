@@ -4,11 +4,16 @@ Restart a datum.
 
 ### Synopsis
 
-
 Restart a datum.
 
 ```
-pachctl restart datum <job> <datum-path1>,<datum-path2>,...
+pachctl restart datum <job> <datum-path1>,<datum-path2>,... [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for datum
 ```
 
 ### Options inherited from parent commands

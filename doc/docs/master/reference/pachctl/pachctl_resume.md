@@ -4,8 +4,13 @@ Resume a stopped task.
 
 ### Synopsis
 
-
 Resume a stopped task.
+
+### Options
+
+```
+  -h, --help   help for resume
+```
 
 ### Options inherited from parent commands
 

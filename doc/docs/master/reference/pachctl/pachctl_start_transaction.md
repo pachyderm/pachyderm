@@ -4,11 +4,16 @@ Start a new transaction.
 
 ### Synopsis
 
-
 Start a new transaction.
 
 ```
-pachctl start transaction
+pachctl start transaction [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for transaction
 ```
 
 ### Options inherited from parent commands

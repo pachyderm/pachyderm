@@ -4,11 +4,10 @@ Print commits as they are created (finished).
 
 ### Synopsis
 
-
 Print commits as they are created in the specified repo and branch.  By default, all existing commits on the specified branch are returned first.  A commit is only considered 'created' when it's been finished.
 
 ```
-pachctl subscribe commit <repo>@<branch>
+pachctl subscribe commit <repo>@<branch> [flags]
 ```
 
 ### Examples
@@ -30,6 +29,7 @@ $ pachctl subscribe commit test@master --new
 ```
       --from string       subscribe to all commits since this commit
       --full-timestamps   Return absolute timestamps (as opposed to the default, relative timestamps).
+  -h, --help              help for commit
       --new               subscribe to only new commits created from now on
       --pipeline string   subscribe to all commits created by this pipeline
       --raw               disable pretty printing, print raw json

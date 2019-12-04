@@ -4,17 +4,17 @@ Return info about all pipelines.
 
 ### Synopsis
 
-
 Return info about all pipelines.
 
 ```
-pachctl list pipeline [<pipeline>]
+pachctl list pipeline [<pipeline>] [flags]
 ```
 
 ### Options
 
 ```
       --full-timestamps   Return absolute timestamps (as opposed to the default, relative timestamps).
+  -h, --help              help for pipeline
       --history string    Return revision history for pipelines. (default "none")
       --raw               disable pretty printing, print raw json
   -s, --spec              Output 'create pipeline' compatibility specs.
