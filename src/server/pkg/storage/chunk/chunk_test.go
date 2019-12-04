@@ -71,7 +71,7 @@ func TestCopy(t *testing.T) {
 		as := append(as1, as2...)
 		f := func(annotations []*Annotation) error {
 			for _, a := range annotations {
-				testA := a.Meta.(*testAnnotation)
+				testA := a.Data.(*testAnnotation)
 				testA.dataRefs = append(testA.dataRefs, a.NextDataRef)
 			}
 			return nil
@@ -168,7 +168,7 @@ func writeAnnotations(t *testing.T, chunks *Storage, annotations []*testAnnotati
 	t.Run("Write", func(t *testing.T) {
 		f := func(annotations []*Annotation) error {
 			for _, a := range annotations {
-				testA := a.Meta.(*testAnnotation)
+				testA := a.Data.(*testAnnotation)
 				testA.dataRefs = append(testA.dataRefs, a.NextDataRef)
 			}
 			return nil
@@ -177,7 +177,7 @@ func writeAnnotations(t *testing.T, chunks *Storage, annotations []*testAnnotati
 		for _, a := range annotations {
 			w.Annotate(&Annotation{
 				NextDataRef: &DataRef{},
-				Meta:        a,
+				Data:        a,
 			})
 			var offset int
 			for _, tag := range a.tags {
@@ -199,7 +199,7 @@ func copyAnnotations(t *testing.T, chunks *Storage, w *Writer, annotations []*te
 			a.dataRefs = nil
 			w.Annotate(&Annotation{
 				NextDataRef: &DataRef{},
-				Meta:        a,
+				Data:        a,
 			})
 			require.NoError(t, r.Iterate(func(dr *DataReader) error {
 				return w.Copy(dr.LimitReader())

@@ -17,7 +17,7 @@ const (
 type Annotation struct {
 	RefDataRefs []*DataRef
 	NextDataRef *DataRef
-	Meta        interface{}
+	Data        interface{}
 	buf         *bytes.Buffer
 	tags        []*Tag
 	drs         []*DataReader

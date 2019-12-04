@@ -216,7 +216,7 @@ func (w *worker) setupHash(a *Annotation) error {
 }
 
 func (w *worker) resetHash(a *Annotation) {
-	if w.lastAnnotation != nil && a.Meta != w.lastAnnotation.Meta {
+	if w.lastAnnotation != nil && a.Data != w.lastAnnotation.Data {
 		w.hash.Reset()
 		w.hash.Write(initialWindow)
 	}

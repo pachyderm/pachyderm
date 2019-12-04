@@ -51,7 +51,7 @@ func joinAnnotations(as []*Annotation, a *Annotation) []*Annotation {
 	// last, then they are merged.
 	if as != nil {
 		lastA := as[len(as)-1]
-		if lastA.Meta == a.Meta {
+		if lastA.Data == a.Data {
 			lastA.buf.Write(a.buf.Bytes())
 			if lastA.tags != nil {
 				lastA.tags = joinTags(lastA.tags, a.tags)
@@ -87,7 +87,7 @@ func splitAnnotation(a *Annotation, size int) (*Annotation, *Annotation) {
 }
 
 func copyAnnotation(a *Annotation) *Annotation {
-	copyA := &Annotation{Meta: a.Meta}
+	copyA := &Annotation{Data: a.Data}
 	if a.NextDataRef != nil {
 		copyA.NextDataRef = &DataRef{}
 	}
