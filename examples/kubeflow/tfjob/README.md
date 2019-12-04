@@ -53,7 +53,7 @@ The S3 Gateway provides an way to access data stored in Pachyderm using any S3-c
 
 The S3 Gateway is enabled via the Enterprise Edition activation code
 you received from Pachyderm.
-[This document](http://docs.pachyderm.io/en/latest/enterprise/deployment.html) takes you through activating Enterprise Edition
+[This document](https://docs.pachyderm.com/latest/enterprise/deployment/) takes you through activating Enterprise Edition
 with that code 
 in the web-based dashboard UI or 
 via the command line.
@@ -65,7 +65,7 @@ Complete instructions for setting up and working with the S3 Gateway using vario
 [s3cmd](https://github.com/s3tools/s3cmd),
 [the AWS CLI](https://aws.amazon.com/cli/) and
 the [minio client (mc)](https://github.com/minio/mc) are available
-at the [documentation for the S3 Gateway](http://docs.pachyderm.io/en/latest/enterprise/s3gateway.html).
+at the [documentation for the S3 Gateway](https://docs.pachyderm.com/latest/enterprise/s3gateway/).
 
 ### Accessing Pachyderm repos from TFJobs and the Tensorflow apis
 

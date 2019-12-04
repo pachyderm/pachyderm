@@ -5,7 +5,7 @@ To use the advanced statistics features in Pachyderm Enterprise Edition, you nee
 1. Run your pipelines on a Pachyderm cluster that has activated Enterprise
    features. See [Deploying Enterprise Edition](deployment.md).
 2. Enable stats collection in your pipelines by including
-   `"enable_stats": true` in your [pipeline specification](http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html#enable-stats-optional).
+   `"enable_stats": true` in your [pipeline specification](https://docs.pachyderm.com/latest/reference/pipeline_spec/#enable-stats-optional).
 
 Advanced statistics provides the following information for any jobs
 corresponding to your pipelines:
