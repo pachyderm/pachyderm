@@ -11,6 +11,7 @@ set -ex
 dirs=(
   "${HOME}/.cache"
   "${HOME}/cached-deps"
+  "${GOPATH}/pkg"
 )
 
 for dir in "${dirs[@]}"; do
