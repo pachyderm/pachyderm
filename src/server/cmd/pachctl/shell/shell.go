@@ -29,6 +29,9 @@ func (s *shell) executor(in string) {
 
 func (s *shell) suggestor(in prompt.Document) []prompt.Suggest {
 	args := strings.Fields(in.Text)
+	if len(strings.TrimSuffix(in.Text, " ")) < len(in.Text) {
+		args = append(args, "")
+	}
 	cmd := s.rootCmd
 	text := ""
 	if len(args) > 0 {
