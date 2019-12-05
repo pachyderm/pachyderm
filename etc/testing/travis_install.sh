@@ -22,6 +22,7 @@ sudo cp etc/build/fuse.conf /etc/fuse.conf
 sudo chown root:root /etc/fuse.conf
 
 # Install aws CLI (for TLS test)
+pip3 install --upgrade --user wheel
 pip3 install --upgrade --user awscli
 
 # Install kubectl
