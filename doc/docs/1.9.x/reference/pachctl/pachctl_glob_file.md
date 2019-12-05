@@ -4,11 +4,10 @@ Return files that match a glob pattern in a commit.
 
 ### Synopsis
 
-
 Return files that match a glob pattern in a commit (that is, match a glob pattern in a repo at the state represented by a commit). Glob patterns are documented [here](https://golang.org/pkg/path/filepath/#Match).
 
 ```
-pachctl glob file <repo>@<branch-or-commit>:<pattern>
+pachctl glob file <repo>@<branch-or-commit>:<pattern> [flags]
 ```
 
 ### Examples
@@ -28,6 +27,7 @@ $ pachctl glob file "foo@master:data/*"
 
 ```
       --full-timestamps   Return absolute timestamps (as opposed to the default, relative timestamps).
+  -h, --help              help for file
       --raw               disable pretty printing, print raw json
 ```
 

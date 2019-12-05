@@ -4,11 +4,10 @@ Extract Pachyderm state to stdout or an object store bucket.
 
 ### Synopsis
 
-
 Extract Pachyderm state to stdout or an object store bucket.
 
 ```
-pachctl extract
+pachctl extract [flags]
 ```
 
 ### Examples
@@ -25,6 +24,7 @@ $ pachctl extract -u s3://bucket/backup
 ### Options
 
 ```
+  -h, --help         help for extract
       --no-objects   don't extract from object storage, only extract data from etcd
   -u, --url string   An object storage url (i.e. s3://...) to extract to.
 ```

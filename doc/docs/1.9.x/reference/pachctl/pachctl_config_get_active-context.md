@@ -4,11 +4,16 @@ Gets the currently active context.
 
 ### Synopsis
 
-
 Gets the currently active context.
 
 ```
-pachctl config get active-context
+pachctl config get active-context [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for active-context
 ```
 
 ### Options inherited from parent commands

@@ -4,7 +4,6 @@ Garbage collect unused data.
 
 ### Synopsis
 
-
 Garbage collect unused data.
 
 When a file/commit/repo is deleted, the data is not immediately removed from
@@ -30,12 +29,13 @@ you can increase the amount of memory used for the bloom filters with the
 
 
 ```
-pachctl garbage-collect
+pachctl garbage-collect [flags]
 ```
 
 ### Options
 
 ```
+  -h, --help            help for garbage-collect
   -m, --memory string   The amount of memory to use during garbage collection. Default is 10MB. (default "0")
 ```
 

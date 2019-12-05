@@ -4,11 +4,16 @@ Check whether the Pachyderm cluster has enterprise features activated
 
 ### Synopsis
 
-
 Check whether the Pachyderm cluster has enterprise features activated
 
 ```
-pachctl enterprise get-state
+pachctl enterprise get-state [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for get-state
 ```
 
 ### Options inherited from parent commands

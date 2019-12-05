@@ -4,17 +4,17 @@ Deploy a single-node Pachyderm cluster with local metadata storage.
 
 ### Synopsis
 
-
 Deploy a single-node Pachyderm cluster with local metadata storage.
 
 ```
-pachctl deploy local
+pachctl deploy local [flags]
 ```
 
 ### Options
 
 ```
   -d, --dev                Deploy pachd with local version tags, disable metrics, expose Pachyderm's object/block API, and use an insecure authentication mechanism (do not set on any cluster with sensitive data)
+  -h, --help               help for local
       --host-path string   Location on the host machine where PFS metadata will be stored. (default "/var/pachyderm")
 ```
 

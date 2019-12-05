@@ -4,11 +4,16 @@ List the current cluster admins
 
 ### Synopsis
 
-
 List the current cluster admins
 
 ```
-pachctl auth list-admins
+pachctl auth list-admins [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for list-admins
 ```
 
 ### Options inherited from parent commands

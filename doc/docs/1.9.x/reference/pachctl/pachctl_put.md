@@ -4,8 +4,13 @@ Insert data into Pachyderm.
 
 ### Synopsis
 
-
 Insert data into Pachyderm.
+
+### Options
+
+```
+  -h, --help   help for put
+```
 
 ### Options inherited from parent commands
 

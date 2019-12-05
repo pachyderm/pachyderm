@@ -4,11 +4,16 @@ Output the list of images in a deployment.
 
 ### Synopsis
 
-
 Output the list of images in a deployment.
 
 ```
-pachctl deploy list-images
+pachctl deploy list-images [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for list-images
 ```
 
 ### Options inherited from parent commands
