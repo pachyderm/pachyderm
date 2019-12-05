@@ -3,6 +3,7 @@
 set -e
 
 version="$(pachctl version --client-only)"
+major_minor=`echo $version | cut -f -2 -d "."`
 echo "--- Updating docs for version: $version"
 
 # Rebuild pachctl docs
@@ -36,7 +37,6 @@ find doc -type f -exec sed -i'' 's@tmp\/pachctl_.*_linux_amd64\/pachctl@'"tmp/pa
 find doc -type f -exec sed -i'' 's#pachyderm/tap/pachctl.*#pachyderm/tap/pachctl@'"$major_minor"'#g' {} \;
 
 # Copy "master" to current version's docs
-major_minor=`echo $version | cut -f -2 -d "."`
 rm -rf "${doc_root}/docs/${major_minor}.x"
 cp -R "${doc_root}/docs/master" "${doc_root}/docs/${major_minor}.x"
 
