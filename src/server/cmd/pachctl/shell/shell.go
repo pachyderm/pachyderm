@@ -1,7 +1,7 @@
 package shell
 
 import (
-	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"strings"
@@ -36,19 +36,22 @@ func (s *shell) suggestor(in prompt.Document) []prompt.Suggest {
 	text := ""
 	if len(args) > 0 {
 		var err error
-		cmd, _, err = cmd.Traverse(args[:len(args)-1])
+		cmd, _, err = s.rootCmd.Traverse(args[:len(args)-1])
 		if err != nil {
-			return []prompt.Suggest{{
-				Text: fmt.Sprintf("Error: %v", err.Error()),
-			}}
+			log.Fatal(err)
 		}
 		text = args[len(args)-1]
 	}
 	suggestions := cmd.SuggestionsFor(text)
 	var result []prompt.Suggest
 	for _, suggestion := range suggestions {
+		cmd, _, err := cmd.Traverse([]string{suggestion})
+		if err != nil {
+			log.Fatal(err)
+		}
 		result = append(result, prompt.Suggest{
-			Text: suggestion,
+			Text:        suggestion,
+			Description: cmd.Short,
 		})
 	}
 	return result
