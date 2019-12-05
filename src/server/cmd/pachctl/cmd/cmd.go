@@ -450,7 +450,7 @@ Environment variables:
 		Short: "Run the pachyderm shell.",
 		Long:  "Run the pachyderm shell.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			shell.Run() // never returns
+			shell.Run(rootCmd) // never returns
 			return nil
 		}),
 	}
