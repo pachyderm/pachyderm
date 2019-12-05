@@ -25,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	admincmds "github.com/pachyderm/pachyderm/src/server/admin/cmds"
 	authcmds "github.com/pachyderm/pachyderm/src/server/auth/cmds"
+	"github.com/pachyderm/pachyderm/src/server/cmd/pachctl/shell"
 	configcmds "github.com/pachyderm/pachyderm/src/server/config"
 	debugcmds "github.com/pachyderm/pachyderm/src/server/debug/cmds"
 	enterprisecmds "github.com/pachyderm/pachyderm/src/server/enterprise/cmds"
@@ -444,6 +445,16 @@ Environment variables:
 		"default timeout; if set to 0s, the call will never time out.")
 	versionCmd.Flags().AddFlagSet(rawFlags)
 	subcommands = append(subcommands, cmdutil.CreateAlias(versionCmd, "version"))
+
+	shellCmd := &cobra.Command{
+		Short: "Run the pachyderm shell.",
+		Long:  "Run the pachyderm shell.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+			shell.Run() // never returns
+			return nil
+		}),
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(shellCmd, "shell"))
 
 	deleteAll := &cobra.Command{
 		Short: "Delete everything.",
