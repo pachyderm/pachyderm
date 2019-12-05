@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -18,11 +19,13 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	prompt "github.com/c-bata/go-prompt"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/server/cmd/pachctl/shell"
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
@@ -413,6 +416,25 @@ $ {{alias}} foo@master --from XXX`,
 	listCommit.MarkFlagCustom("from", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
 	listCommit.Flags().AddFlagSet(rawFlags)
 	listCommit.Flags().AddFlagSet(fullTimestampsFlags)
+	shell.RegisterCompletionFunc(listCommit, func(text string) []prompt.Suggest {
+		c, err := client.NewOnUserMachine("user-completion")
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer c.Close()
+		ris, err := c.ListRepo()
+		if err != nil {
+			log.Fatal(err)
+		}
+		var result []prompt.Suggest
+		for _, ri := range ris {
+			result = append(result, prompt.Suggest{
+				Text:        ri.Repo.Name,
+				Description: ri.Description,
+			})
+		}
+		return result
+	})
 	commands = append(commands, cmdutil.CreateAlias(listCommit, "list commit"))
 
 	printCommitIter := func(commitIter client.CommitInfoIterator) error {
