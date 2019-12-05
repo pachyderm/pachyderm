@@ -10479,6 +10479,20 @@ func TestPodPatchUnmarshalling(t *testing.T) {
 	}
 }
 
+// TestDeleteRepoPanicOnNilArgs tests for a regression where pachd would panic
+// if passed nil args on a `DeleteRepo` request. See
+// https://github.com/pachyderm/pachyderm/issues/4279.
+func TestDeleteRepoPanicOnNilArgs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	_, err := c.PfsAPIClient.DeleteRepo(c.Ctx(), &pfs.DeleteRepoRequest{})
+	require.YesError(t, err)
+	require.False(t, strings.Contains(err.Error(), "transport is closing"), err.Error())
+}
+
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
 	pipelineInfos, err := pachClient.ListPipeline()
 	require.NoError(t, err)
