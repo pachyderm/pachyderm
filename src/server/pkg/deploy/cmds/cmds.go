@@ -714,6 +714,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	var pachdShards int
 	var registry string
 	var tlsCertKey string
+	var uploadConcurrencyLimit int
 	deploy := &cobra.Command{
 		Short: "Deploy a Pachyderm cluster.",
 		Long:  "Deploy a Pachyderm cluster.",
@@ -735,6 +736,9 @@ If <object store backend> is \"s3\", then the arguments are:
 			opts = &assets.AssetOpts{
 				FeatureFlags: assets.FeatureFlags{
 					NewStorageLayer: newStorageLayer,
+				},
+				StorageOpts: assets.StorageOpts{
+					UploadConcurrencyLimit: uploadConcurrencyLimit,
 				},
 				PachdShards:             uint64(pachdShards),
 				Version:                 version.PrettyPrintVersion(version.Version),
@@ -795,6 +799,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	deploy.PersistentFlags().BoolVar(&exposeObjectAPI, "expose-object-api", false, "If set, instruct pachd to serve its object/block API on its public port (not safe with auth enabled, do not set in production).")
 	deploy.PersistentFlags().StringVar(&tlsCertKey, "tls", "", "string of the form \"<cert path>,<key path>\" of the signed TLS certificate and private key that Pachd should use for TLS authentication (enables TLS-encrypted communication with Pachd)")
 	deploy.PersistentFlags().BoolVar(&newStorageLayer, "new-storage-layer", false, "(feature flag) Do not set, used for testing.")
+	deploy.PersistentFlags().IntVar(&uploadConcurrencyLimit, "upload-concurrency-limit", assets.DefaultUploadConcurrencyLimit, "The maximum number of concurrent object storage uploads per Pachd instance.")
 	deploy.PersistentFlags().StringVarP(&contextName, "context", "c", "", "Name of the context to add to the pachyderm config.")
 
 	// Flags for setting pachd resource requests. These should rarely be set --

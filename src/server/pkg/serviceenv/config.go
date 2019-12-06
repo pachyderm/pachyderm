@@ -58,8 +58,9 @@ type PachdSpecificConfiguration struct {
 
 // StorageConfiguration contains the storage configuration.
 type StorageConfiguration struct {
-	StorageMemoryThreshold int64 `env:"STORAGE_MEMORY_THRESHOLD"`
-	StorageShardThreshold  int64 `env:"STORAGE_SHARD_THRESHOLD"`
+	StorageMemoryThreshold        int64 `env:"STORAGE_MEMORY_THRESHOLD"`
+	StorageShardThreshold         int64 `env:"STORAGE_SHARD_THRESHOLD"`
+	StorageUploadConcurrencyLimit int   `env:"STORAGE_UPLOAD_CONCURRENCY_LIMIT,default=100"`
 }
 
 // WorkerFullConfiguration contains the full worker configuration.
