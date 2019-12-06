@@ -15,7 +15,7 @@ go:
   - "1.13.1"
 env:
   global:
-    - PATH=${HOME}/cached-deps:${PATH}
+    - PATH="${HOME}/cached-deps:$(python3 -c 'import site; print(site.USER_BASE)')/bin:${PATH}"
     - PPS_BUCKETS=6
     - AUTH_BUCKETS=2
   matrix:
