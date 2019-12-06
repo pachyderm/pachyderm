@@ -229,6 +229,24 @@ func ParseFile(arg string) (*pfs.File, error) {
 	return file, nil
 }
 
+// ParsePartialFile returns the same thing as ParseFile, unless ParseFile would
+// error on this input, in which case it returns as much as it was able to
+// parse.
+func ParsePartialFile(arg string) *pfs.File {
+	file, err := ParseFile(arg)
+	if err == nil {
+		return file
+	}
+	partialFile := &pfs.File{}
+	commit, err := ParseCommit(arg)
+	if err == nil {
+		partialFile.Commit = commit
+		return partialFile
+	}
+	partialFile.Commit = &pfs.Commit{Repo: &pfs.Repo{Name: arg}}
+	return partialFile
+}
+
 // ParseFiles converts all arguments to *pfs.Commit structs using the
 // semantics of ParseFile
 func ParseFiles(args []string) ([]*pfs.File, error) {
