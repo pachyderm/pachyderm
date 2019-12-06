@@ -15,11 +15,8 @@ import (
 	"strings"
 	gosync "sync"
 
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
-
-	"golang.org/x/sync/errgroup"
-
 	prompt "github.com/c-bata/go-prompt"
+	"github.com/docker/go-units"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
@@ -30,11 +27,13 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pager"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
 	txncmds "github.com/pachyderm/pachyderm/src/server/transaction/cmds"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -430,7 +429,7 @@ $ {{alias}} foo@master --from XXX`,
 		for _, ri := range ris {
 			result = append(result, prompt.Suggest{
 				Text:        ri.Repo.Name,
-				Description: ri.Description,
+				Description: fmt.Sprintf("%s (%s)", ri.Description, units.BytesSize(float64(ri.SizeBytes))),
 			})
 		}
 		return result
@@ -1066,6 +1065,52 @@ $ {{alias}} foo@master --history all`,
 	listFile.Flags().AddFlagSet(rawFlags)
 	listFile.Flags().AddFlagSet(fullTimestampsFlags)
 	listFile.Flags().StringVar(&history, "history", "none", "Return revision history for files.")
+	shell.RegisterCompletionFunc(listFile, func(text string) []prompt.Suggest {
+		c, err := client.NewOnUserMachine("user-completion")
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer c.Close()
+		partialFile := cmdutil.ParsePartialFile(text)
+		var result []prompt.Suggest
+		if partialFile.Commit.Repo.Name == "" || // nothing typed yet
+			(len(partialFile.Commit.ID) == 0 && text[len(text)-1] != '@') { // partial repo typed
+			ris, err := c.ListRepo()
+			if err != nil {
+				log.Fatal(err)
+			}
+			for _, ri := range ris {
+				result = append(result, prompt.Suggest{
+					Text:        fmt.Sprintf("%s@", ri.Repo.Name),
+					Description: fmt.Sprintf("%s (%s)", ri.Description, units.BytesSize(float64(ri.SizeBytes))),
+				})
+			}
+		} else if partialFile.Commit.ID == "" || // repo@ typed, no commit/branch yet
+			(len(partialFile.Path) == 0 && text[len(text)-1] != ':') { // partial commit/branch typed
+			bis, err := c.ListBranch(partialFile.Commit.Repo.Name)
+			if err != nil {
+				log.Fatal(err)
+			}
+			for _, bi := range bis {
+				result = append(result, prompt.Suggest{
+					Text:        fmt.Sprintf("%s@%s:", partialFile.Commit.Repo.Name, bi.Branch.Name),
+					Description: fmt.Sprintf("(%s)", bi.Head.ID),
+				})
+			}
+		} else { // typing the file
+			fis, err := c.ListFile(partialFile.Commit.Repo.Name, partialFile.Commit.ID, partialFile.Path)
+			if err != nil {
+				log.Fatal(err)
+			}
+			for _, fi := range fis {
+				result = append(result, prompt.Suggest{
+					Text: fmt.Sprintf("%s@%s:%s", partialFile.Commit.Repo.Name, partialFile.Commit.ID, fi.File.Path),
+				})
+			}
+		}
+		return result
+	})
+	commands = append(commands, cmdutil.CreateAlias(listCommit, "list commit"))
 	commands = append(commands, cmdutil.CreateAlias(listFile, "list file"))
 
 	globFile := &cobra.Command{

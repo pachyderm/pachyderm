@@ -13,6 +13,7 @@ import (
 
 const (
 	completionAnnotation string = "completion"
+	ldThreshold          int    = 2
 )
 
 var completions map[string]func(string) []prompt.Suggest = make(map[string]func(string) []prompt.Suggest)
@@ -78,7 +79,18 @@ func (s *shell) suggestor(in prompt.Document) []prompt.Suggest {
 	}
 	if id, ok := cmd.Annotations[completionAnnotation]; ok {
 		completionFunc := completions[id]
-		return completionFunc(text)
+		suggests := completionFunc(text)
+		var result []prompt.Suggest
+		for _, s := range suggests {
+			sText := s.Text
+			if len(text) < len(sText) {
+				sText = sText[:len(text)]
+			}
+			if ld(sText, text, true) < ldThreshold {
+				result = append(result, s)
+			}
+		}
+		return result
 	}
 	return nil
 }
@@ -94,4 +106,40 @@ func (s *shell) run() {
 // Run runs a prompt, it does not return.
 func Run(rootCmd *cobra.Command) {
 	newShell(rootCmd).run()
+}
+
+// ld computes the Levenshtein Distance for two strings.
+func ld(s, t string, ignoreCase bool) int {
+	if ignoreCase {
+		s = strings.ToLower(s)
+		t = strings.ToLower(t)
+	}
+	d := make([][]int, len(s)+1)
+	for i := range d {
+		d[i] = make([]int, len(t)+1)
+	}
+	for i := range d {
+		d[i][0] = i
+	}
+	for j := range d[0] {
+		d[0][j] = j
+	}
+	for j := 1; j <= len(t); j++ {
+		for i := 1; i <= len(s); i++ {
+			if s[i-1] == t[j-1] {
+				d[i][j] = d[i-1][j-1]
+			} else {
+				min := d[i-1][j]
+				if d[i][j-1] < min {
+					min = d[i][j-1]
+				}
+				if d[i-1][j-1] < min {
+					min = d[i-1][j-1]
+				}
+				d[i][j] = min + 1
+			}
+		}
+
+	}
+	return d[len(s)][len(t)]
 }
