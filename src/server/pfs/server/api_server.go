@@ -425,9 +425,12 @@ func (a *apiServer) CopyFile(ctx context.Context, request *pfs.CopyFileRequest) 
 func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.API_GetFileServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) {
-		tracing.TagAnySpan(apiGetFileServer.Context(), "file", fmt.Sprintf("%s@%s:%s",
-			request.File.Commit.Repo.Name, request.File.Commit.ID, request.File.Path),
-			"err", retErr)
+		if request.File != nil && request.File.Commit != nil && request.File.Commit.Repo != nil {
+			tracing.TagAnySpan(apiGetFileServer.Context(), "file", fmt.Sprintf("%s@%s:%s",
+				request.File.Commit.Repo.Name, request.File.Commit.ID, request.File.Path),
+				"err", retErr)
+		}
+
 		a.Log(request, nil, retErr, time.Since(start))
 	}(time.Now())
 
@@ -449,9 +452,12 @@ func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileReq
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) {
 		a.Log(request, response, retErr, time.Since(start))
-		tracing.TagAnySpan(ctx, "file", fmt.Sprintf("%s@%s:%s",
-			request.File.Commit.Repo.Name, request.File.Commit.ID, request.File.Path),
-			"err", retErr)
+
+		if request.File != nil && request.File.Commit != nil && request.File.Commit.Repo != nil {
+			tracing.TagAnySpan(ctx, "file", fmt.Sprintf("%s@%s:%s",
+				request.File.Commit.Repo.Name, request.File.Commit.ID, request.File.Path),
+				"err", retErr)
+		}
 	}(time.Now())
 
 	return a.driver.inspectFile(a.env.GetPachClient(ctx), request.File)

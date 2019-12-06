@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -238,6 +239,11 @@ func absent(key string) etcd.Cmp {
 }
 
 func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, description string, update bool) error {
+	// Validate arguments
+	if repo == nil {
+		return errors.New("repo cannot be nil")
+	}
+
 	// Check that the user is logged in (user doesn't need any access level to
 	// create a repo, but they must be authenticated if auth is active)
 	whoAmI, err := txnCtx.Client.WhoAmI(txnCtx.ClientContext, &auth.WhoAmIRequest{})
@@ -305,6 +311,11 @@ func (d *driver) inspectRepo(
 	repo *pfs.Repo,
 	includeAuth bool,
 ) (*pfs.RepoInfo, error) {
+	// Validate arguments
+	if repo == nil {
+		return nil, errors.New("repo cannot be nil")
+	}
+
 	result := &pfs.RepoInfo{}
 	if err := d.repos.ReadWrite(txnCtx.Stm).Get(repo.Name, result); err != nil {
 		return nil, err
@@ -935,6 +946,11 @@ func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool) (*pfs.
 }
 
 func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, force bool) error {
+	// Validate arguments
+	if repo == nil {
+		return errors.New("repo cannot be nil")
+	}
+
 	// TODO(msteffen): Fix d.deleteAll() so that it doesn't need to delete and
 	// recreate the PPS spec repo, then uncomment this block to prevent users from
 	// deleting it and breaking their cluster
@@ -1390,6 +1406,14 @@ func (d *driver) makeCommit(
 }
 
 func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, tree *pfs.Object, empty bool, description string) (retErr error) {
+	// Validate arguments
+	if commit == nil {
+		return errors.New("commit cannot be nil")
+	}
+	if commit.Repo == nil {
+		return errors.New("commit repo cannot be nil")
+	}
+
 	if err := d.checkIsAuthorizedInTransaction(txnCtx, commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
@@ -1904,6 +1928,11 @@ func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo,
 
 func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 	to *pfs.Commit, from *pfs.Commit, number uint64, reverse bool, f func(*pfs.CommitInfo) error) error {
+	// Validate arguments
+	if repo == nil {
+		return errors.New("repo cannot be nil")
+	}
+
 	ctx := pachClient.Ctx()
 	if err := d.checkIsAuthorized(pachClient, repo, auth.Scope_READER); err != nil {
 		return err
@@ -2020,6 +2049,10 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 
 func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, branch string, prov *pfs.CommitProvenance,
 	from *pfs.Commit, state pfs.CommitState, f func(*pfs.CommitInfo) error) error {
+	// Validate arguments
+	if repo == nil {
+		return errors.New("repo cannot be nil")
+	}
 	if from != nil && from.Repo.Name != repo.Name {
 		return fmt.Errorf("the `from` commit needs to be from repo %s", repo.Name)
 	}
@@ -2165,6 +2198,14 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 }
 
 func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs.Commit) error {
+	// Validate arguments
+	if userCommit == nil {
+		return errors.New("commit cannot be nil")
+	}
+	if userCommit.Repo == nil {
+		return errors.New("commit repo cannot be nil")
+	}
+
 	if err := d.checkIsAuthorizedInTransaction(txnCtx, userCommit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
@@ -2479,6 +2520,14 @@ func (d *driver) resolveCommitProvenance(stm col.STM, userCommitProvenance *pfs.
 // This invariant is assumed to hold for all branches upstream of 'branch', but not
 // for 'branch' itself once 'b.Provenance' has been set.
 func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Branch, commit *pfs.Commit, provenance []*pfs.Branch) error {
+	// Validate arguments
+	if branch == nil {
+		return errors.New("branch cannot be nil")
+	}
+	if branch.Repo == nil {
+		return errors.New("branch repo cannot be nil")
+	}
+
 	var err error
 	if err := d.checkIsAuthorizedInTransaction(txnCtx, branch.Repo, auth.Scope_WRITER); err != nil {
 		return err
@@ -2634,6 +2683,14 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 }
 
 func (d *driver) inspectBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Branch) (*pfs.BranchInfo, error) {
+	// Validate arguments
+	if branch == nil {
+		return nil, errors.New("branch cannot be nil")
+	}
+	if branch.Repo == nil {
+		return nil, errors.New("branch repo cannot be nil")
+	}
+
 	result := &pfs.BranchInfo{}
 	if err := d.branches(branch.Repo.Name).ReadWrite(txnCtx.Stm).Get(branch.Name, result); err != nil {
 		return nil, err
@@ -2642,6 +2699,11 @@ func (d *driver) inspectBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Br
 }
 
 func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo, reverse bool) ([]*pfs.BranchInfo, error) {
+	// Validate arguments
+	if repo == nil {
+		return nil, errors.New("repo cannot be nil")
+	}
+
 	if err := d.checkIsAuthorized(pachClient, repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
@@ -2690,6 +2752,14 @@ func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo, revers
 }
 
 func (d *driver) deleteBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Branch, force bool) error {
+	// Validate arguments
+	if branch == nil {
+		return errors.New("branch cannot be nil")
+	}
+	if branch.Repo == nil {
+		return errors.New("branch repo cannot be nil")
+	}
+
 	if err := d.checkIsAuthorizedInTransaction(txnCtx, branch.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
@@ -3063,6 +3133,26 @@ func headerDirToPutFileRecords(tree hashtree.HashTree, path string, node *hashtr
 }
 
 func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.File, overwrite bool) error {
+	// Validate arguments
+	if src == nil {
+		return errors.New("src cannot be nil")
+	}
+	if src.Commit == nil {
+		return errors.New("src commit cannot be nil")
+	}
+	if src.Commit.Repo == nil {
+		return errors.New("src commit repo cannot be nil")
+	}
+	if dst == nil {
+		return errors.New("dst cannot be nil")
+	}
+	if dst.Commit == nil {
+		return errors.New("dst commit cannot be nil")
+	}
+	if dst.Commit.Repo == nil {
+		return errors.New("dst commit repo cannot be nil")
+	}
+
 	if err := d.checkIsAuthorized(pachClient, src.Commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
@@ -3397,6 +3487,17 @@ func provenantOnInput(provenance []*pfs.CommitProvenance) bool {
 }
 
 func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset int64, size int64) (r io.Reader, retErr error) {
+	// Validate arguments
+	if file == nil {
+		return nil, errors.New("file cannot be nil")
+	}
+	if file.Commit == nil {
+		return nil, errors.New("file commit cannot be nil")
+	}
+	if file.Commit.Repo == nil {
+		return nil, errors.New("file commit repo cannot be nil")
+	}
+
 	ctx := pachClient.Ctx()
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return nil, err
@@ -3624,6 +3725,17 @@ func nodeToFileInfoHeaderFooter(ci *pfs.CommitInfo, filePath string,
 }
 
 func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (fi *pfs.FileInfo, retErr error) {
+	// Validate arguments
+	if file == nil {
+		return nil, errors.New("file cannot be nil")
+	}
+	if file.Commit == nil {
+		return nil, errors.New("file commit cannot be nil")
+	}
+	if file.Commit.Repo == nil {
+		return nil, errors.New("file commit repo cannot be nil")
+	}
+
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
@@ -3669,6 +3781,17 @@ func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (fi *
 }
 
 func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full bool, history int64, f func(*pfs.FileInfo) error) (retErr error) {
+	// Validate arguments
+	if file == nil {
+		return errors.New("file cannot be nil")
+	}
+	if file.Commit == nil {
+		return errors.New("file commit cannot be nil")
+	}
+	if file.Commit.Repo == nil {
+		return errors.New("file commit repo cannot be nil")
+	}
+
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
@@ -3778,6 +3901,17 @@ func (d *driver) fileHistory(pachClient *client.APIClient, file *pfs.File, histo
 }
 
 func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, f func(*pfs.FileInfo) error) (retErr error) {
+	// Validate arguments
+	if file == nil {
+		return errors.New("file cannot be nil")
+	}
+	if file.Commit == nil {
+		return errors.New("file commit cannot be nil")
+	}
+	if file.Commit.Repo == nil {
+		return errors.New("file commit repo cannot be nil")
+	}
+
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
@@ -3823,6 +3957,14 @@ func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, f func(*
 }
 
 func (d *driver) globFile(pachClient *client.APIClient, commit *pfs.Commit, pattern string, f func(*pfs.FileInfo) error) (retErr error) {
+	// Validate arguments
+	if commit == nil {
+		return errors.New("commit cannot be nil")
+	}
+	if commit.Repo == nil {
+		return errors.New("commit repo cannot be nil")
+	}
+
 	if err := d.checkIsAuthorized(pachClient, commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
@@ -3879,6 +4021,17 @@ func (d *driver) globFile(pachClient *client.APIClient, commit *pfs.Commit, patt
 }
 
 func (d *driver) diffFile(pachClient *client.APIClient, newFile *pfs.File, oldFile *pfs.File, shallow bool) ([]*pfs.FileInfo, []*pfs.FileInfo, error) {
+	// Validate arguments
+	if newFile == nil {
+		return nil, nil, errors.New("file cannot be nil")
+	}
+	if newFile.Commit == nil {
+		return nil, nil, errors.New("file commit cannot be nil")
+	}
+	if newFile.Commit.Repo == nil {
+		return nil, nil, errors.New("file commit repo cannot be nil")
+	}
+
 	// Do READER authorization check for both newFile and oldFile
 	if oldFile != nil && oldFile.Commit != nil {
 		if err := d.checkIsAuthorized(pachClient, oldFile.Commit.Repo, auth.Scope_READER); err != nil {
@@ -3949,6 +4102,17 @@ func (d *driver) diffFile(pachClient *client.APIClient, newFile *pfs.File, oldFi
 }
 
 func (d *driver) deleteFile(pachClient *client.APIClient, file *pfs.File) error {
+	// Validate arguments
+	if file == nil {
+		return errors.New("file cannot be nil")
+	}
+	if file.Commit == nil {
+		return errors.New("file commit cannot be nil")
+	}
+	if file.Commit.Repo == nil {
+		return errors.New("file commit repo cannot be nil")
+	}
+
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
@@ -4313,6 +4477,13 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 	for req, err = server.Recv(); err == nil; req, err = server.Recv() {
 		req := req
 		if req.File != nil {
+			if req.File.Commit == nil {
+				return false, "", "", errors.New("file commit cannot be nil")
+			}
+			if req.File.Commit.Repo == nil {
+				return false, "", "", errors.New("file commit repo cannot be nil")
+			}
+
 			// For the first file, dereference the commit ID if needed. For
 			// subsequent files, ensure that they're all referencing the same
 			// commit ID, and replace their commit objects to all refer to the
@@ -4456,6 +4627,9 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 				}
 				return nil
 			})
+		}
+		if req.Value == nil {
+			return false, "", "", errors.New("either file or value must not be nil")
 		}
 		if _, err := pw.Write(req.Value); err != nil {
 			return false, "", "", err

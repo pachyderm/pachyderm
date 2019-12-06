@@ -10491,8 +10491,11 @@ func TestPFSPanicOnNilArgs(t *testing.T) {
 
 	requireNoPanic := func(err error) {
 		t.Helper()
-		require.YesError(t, err)
-		require.False(t, strings.Contains(err.Error(), "transport is closing"), err.Error())
+		if err != nil {
+			// if a "transport is closing" error happened, pachd abruptly
+			// closed the connection. Most likely this is caused by a panic.
+			require.False(t, strings.Contains(err.Error(), "transport is closing"), err.Error())
+		}
 	}
 
 	_, err := c.PfsAPIClient.CreateRepo(c.Ctx(), &pfs.CreateRepoRequest{})
@@ -10518,8 +10521,6 @@ func TestPFSPanicOnNilArgs(t *testing.T) {
 	_, err = c.PfsAPIClient.FlushCommit(c.Ctx(), &pfs.FlushCommitRequest{})
 	requireNoPanic(err)
 	_, err = c.PfsAPIClient.SubscribeCommit(c.Ctx(), &pfs.SubscribeCommitRequest{})
-	requireNoPanic(err)
-	_, err = c.PfsAPIClient.BuildCommit(c.Ctx(), &pfs.BuildCommitRequest{})
 	requireNoPanic(err)
 	_, err = c.PfsAPIClient.CreateBranch(c.Ctx(), &pfs.CreateBranchRequest{})
 	requireNoPanic(err)
