@@ -4,8 +4,8 @@ This example pipeline executes a query periodically against a MongoDB database o
 
 The example assumes that you have:
 
-- A Pachyderm cluster running - see [this guide](http://pachyderm.readthedocs.io/en/latest/getting_started/local_installation.html) to get up and running with a local Pachyderm cluster in just a few minutes.
-- The `pachctl` CLI tool installed and connected to your Pachyderm cluster - see [any of our deploy docs](http://pachyderm.readthedocs.io/en/latest/deployment/deploy_intro.html) for instructions. 
+- A Pachyderm cluster running - see [Local Installation](https://docs.pachyderm.com/latest/getting_started/local_installation/) to get up and running with a local Pachyderm cluster in just a few minutes.
+- The `pachctl` CLI tool installed and connected to your Pachyderm cluster - see [deploy docs](https://docs.pachyderm.com/latest/deploy-manage/) for instructions.
 
 ## Setup MongoDB
 

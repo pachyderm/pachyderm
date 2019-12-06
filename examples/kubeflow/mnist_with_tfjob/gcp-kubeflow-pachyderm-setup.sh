@@ -5,9 +5,9 @@
 # executing the commands one-by-one to debug issues.
 export CLUSTER_NAME="<insert a name here>"
 export GCP_ZONE="<your gcp zone>"
-export MACHINE_TYPE="n1-standard-8" 
+export MACHINE_TYPE="n1-standard-8"
 
-# For the persistent disk, 10GB is a good size to start with. 
+# For the persistent disk, 10GB is a good size to start with.
 # This stores PFS metadata. For reference, 1GB
 # should work fine for 1000 commits on 1000 files.
 export STORAGE_SIZE=10
@@ -54,7 +54,7 @@ gcloud container clusters create ${CLUSTER_NAME} --scopes storage-rw --machine-t
 # needed to create those clusterrolebindings.
 #
 # Note that this command is simple and concise, but gives your user account more privileges than necessary. See
-# https://docs.pachyderm.io/en/latest/deployment/rbac.html for the complete list of privileges that the
+# https://docs.pachyderm.com/latest/deploy-manage/deploy/rbac/ for the complete list of privileges that the
 # pachyderm serviceaccount needs.
 kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value account)
 
