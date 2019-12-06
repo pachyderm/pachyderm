@@ -122,6 +122,7 @@ or type (e.g. csv, binary, images, etc).`,
 		}),
 	}
 	updateRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
+	shell.RegisterCompletionFunc(updateRepo, repoCompletion)
 	commands = append(commands, cmdutil.CreateAlias(updateRepo, "update repo"))
 
 	inspectRepo := &cobra.Command{
@@ -153,6 +154,7 @@ or type (e.g. csv, binary, images, etc).`,
 	}
 	inspectRepo.Flags().AddFlagSet(rawFlags)
 	inspectRepo.Flags().AddFlagSet(fullTimestampsFlags)
+	shell.RegisterCompletionFunc(inspectRepo, repoCompletion)
 	commands = append(commands, cmdutil.CreateAlias(inspectRepo, "inspect repo"))
 
 	listRepo := &cobra.Command{
@@ -227,6 +229,7 @@ or type (e.g. csv, binary, images, etc).`,
 	}
 	deleteRepo.Flags().BoolVarP(&force, "force", "f", false, "remove the repo regardless of errors; use with care")
 	deleteRepo.Flags().BoolVar(&all, "all", false, "remove all repos")
+	shell.RegisterCompletionFunc(deleteRepo, repoCompletion)
 	commands = append(commands, cmdutil.CreateAlias(deleteRepo, "delete repo"))
 
 	commitDocs := &cobra.Command{
@@ -295,6 +298,7 @@ $ {{alias}} test -p XXX`,
 	startCommit.MarkFlagCustom("parent", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
 	startCommit.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents")
 	startCommit.Flags().StringVar(&description, "description", "", "A description of this commit's contents (synonym for --message)")
+	shell.RegisterCompletionFunc(startCommit, branchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(startCommit, "start commit"))
 
 	finishCommit := &cobra.Command{
@@ -327,6 +331,7 @@ $ {{alias}} test -p XXX`,
 	}
 	finishCommit.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents (overwrites any existing commit description)")
 	finishCommit.Flags().StringVar(&description, "description", "", "A description of this commit's contents (synonym for --message)")
+	shell.RegisterCompletionFunc(finishCommit, branchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(finishCommit, "finish commit"))
 
 	inspectCommit := &cobra.Command{
@@ -363,6 +368,7 @@ $ {{alias}} test -p XXX`,
 	}
 	inspectCommit.Flags().AddFlagSet(rawFlags)
 	inspectCommit.Flags().AddFlagSet(fullTimestampsFlags)
+	shell.RegisterCompletionFunc(inspectCommit, branchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(inspectCommit, "inspect commit"))
 
 	var from string
@@ -415,25 +421,7 @@ $ {{alias}} foo@master --from XXX`,
 	listCommit.MarkFlagCustom("from", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
 	listCommit.Flags().AddFlagSet(rawFlags)
 	listCommit.Flags().AddFlagSet(fullTimestampsFlags)
-	shell.RegisterCompletionFunc(listCommit, func(text string) []prompt.Suggest {
-		c, err := client.NewOnUserMachine("user-completion")
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer c.Close()
-		ris, err := c.ListRepo()
-		if err != nil {
-			log.Fatal(err)
-		}
-		var result []prompt.Suggest
-		for _, ri := range ris {
-			result = append(result, prompt.Suggest{
-				Text:        ri.Repo.Name,
-				Description: fmt.Sprintf("%s (%s)", ri.Description, units.BytesSize(float64(ri.SizeBytes))),
-			})
-		}
-		return result
-	})
+	shell.RegisterCompletionFunc(listCommit, repoCompletion)
 	commands = append(commands, cmdutil.CreateAlias(listCommit, "list commit"))
 
 	printCommitIter := func(commitIter client.CommitInfoIterator) error {
@@ -505,6 +493,7 @@ $ {{alias}} foo@XXX -r bar -r baz`,
 	flushCommit.MarkFlagCustom("repos", "__pachctl_get_repo")
 	flushCommit.Flags().AddFlagSet(rawFlags)
 	flushCommit.Flags().AddFlagSet(fullTimestampsFlags)
+	shell.RegisterCompletionFunc(flushCommit, branchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(flushCommit, "flush commit"))
 
 	var newCommits bool
@@ -564,6 +553,7 @@ $ {{alias}} test@master --new`,
 	subscribeCommit.Flags().BoolVar(&newCommits, "new", false, "subscribe to only new commits created from now on")
 	subscribeCommit.Flags().AddFlagSet(rawFlags)
 	subscribeCommit.Flags().AddFlagSet(fullTimestampsFlags)
+	shell.RegisterCompletionFunc(subscribeCommit, branchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(subscribeCommit, "subscribe commit"))
 
 	deleteCommit := &cobra.Command{
@@ -586,6 +576,7 @@ $ {{alias}} test@master --new`,
 			})
 		}),
 	}
+	shell.RegisterCompletionFunc(deleteCommit, branchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(deleteCommit, "delete commit"))
 
 	branchDocs := &cobra.Command{
@@ -663,6 +654,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 	}
 	inspectBranch.Flags().AddFlagSet(rawFlags)
 	inspectBranch.Flags().AddFlagSet(fullTimestampsFlags)
+	shell.RegisterCompletionFunc(inspectBranch, branchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(inspectBranch, "inspect branch"))
 
 	listBranch := &cobra.Command{
@@ -695,6 +687,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 		}),
 	}
 	listBranch.Flags().AddFlagSet(rawFlags)
+	shell.RegisterCompletionFunc(listBranch, repoCompletion)
 	commands = append(commands, cmdutil.CreateAlias(listBranch, "list branch"))
 
 	deleteBranch := &cobra.Command{
@@ -718,6 +711,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 		}),
 	}
 	deleteBranch.Flags().BoolVarP(&force, "force", "f", false, "remove the branch regardless of errors; use with care")
+	shell.RegisterCompletionFunc(deleteBranch, branchCompletion)
 	commands = append(commands, cmdutil.CreateAlias(deleteBranch, "delete branch"))
 
 	fileDocs := &cobra.Command{
@@ -890,6 +884,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 	putFile.Flags().UintVar(&headerRecords, "header-records", 0, "the number of records that will be converted to a PFS 'header', and prepended to future retrievals of any subset of data from PFS; needs to be used with --split=(json|line|csv)")
 	putFile.Flags().BoolVarP(&putFileCommit, "commit", "c", false, "DEPRECATED: Put file(s) in a new commit.")
 	putFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
+	shell.RegisterCompletionFunc(putFile, fileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(putFile, "put file"))
 
 	copyFile := &cobra.Command{
@@ -919,6 +914,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 		}),
 	}
 	copyFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
+	shell.RegisterCompletionFunc(copyFile, fileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(copyFile, "copy file"))
 
 	var outputPath string
@@ -972,6 +968,7 @@ $ {{alias}} foo@master^2:XXX`,
 	getFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively download a directory.")
 	getFile.Flags().StringVarP(&outputPath, "output", "o", "", "The path where data will be downloaded.")
 	getFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be downloaded in parallel")
+	shell.RegisterCompletionFunc(getFile, fileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(getFile, "get file"))
 
 	inspectFile := &cobra.Command{
@@ -1002,6 +999,7 @@ $ {{alias}} foo@master^2:XXX`,
 		}),
 	}
 	inspectFile.Flags().AddFlagSet(rawFlags)
+	shell.RegisterCompletionFunc(inspectFile, fileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(inspectFile, "inspect file"))
 
 	var history string
@@ -1065,52 +1063,7 @@ $ {{alias}} foo@master --history all`,
 	listFile.Flags().AddFlagSet(rawFlags)
 	listFile.Flags().AddFlagSet(fullTimestampsFlags)
 	listFile.Flags().StringVar(&history, "history", "none", "Return revision history for files.")
-	shell.RegisterCompletionFunc(listFile, func(text string) []prompt.Suggest {
-		c, err := client.NewOnUserMachine("user-completion")
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer c.Close()
-		partialFile := cmdutil.ParsePartialFile(text)
-		var result []prompt.Suggest
-		if partialFile.Commit.Repo.Name == "" || // nothing typed yet
-			(len(partialFile.Commit.ID) == 0 && text[len(text)-1] != '@') { // partial repo typed
-			ris, err := c.ListRepo()
-			if err != nil {
-				log.Fatal(err)
-			}
-			for _, ri := range ris {
-				result = append(result, prompt.Suggest{
-					Text:        fmt.Sprintf("%s@", ri.Repo.Name),
-					Description: fmt.Sprintf("%s (%s)", ri.Description, units.BytesSize(float64(ri.SizeBytes))),
-				})
-			}
-		} else if partialFile.Commit.ID == "" || // repo@ typed, no commit/branch yet
-			(len(partialFile.Path) == 0 && text[len(text)-1] != ':') { // partial commit/branch typed
-			bis, err := c.ListBranch(partialFile.Commit.Repo.Name)
-			if err != nil {
-				log.Fatal(err)
-			}
-			for _, bi := range bis {
-				result = append(result, prompt.Suggest{
-					Text:        fmt.Sprintf("%s@%s:", partialFile.Commit.Repo.Name, bi.Branch.Name),
-					Description: fmt.Sprintf("(%s)", bi.Head.ID),
-				})
-			}
-		} else { // typing the file
-			fis, err := c.ListFile(partialFile.Commit.Repo.Name, partialFile.Commit.ID, partialFile.Path)
-			if err != nil {
-				log.Fatal(err)
-			}
-			for _, fi := range fis {
-				result = append(result, prompt.Suggest{
-					Text: fmt.Sprintf("%s@%s:%s", partialFile.Commit.Repo.Name, partialFile.Commit.ID, fi.File.Path),
-				})
-			}
-		}
-		return result
-	})
-	commands = append(commands, cmdutil.CreateAlias(listCommit, "list commit"))
+	shell.RegisterCompletionFunc(listFile, fileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(listFile, "list file"))
 
 	globFile := &cobra.Command{
@@ -1156,6 +1109,7 @@ $ {{alias}} "foo@master:data/*"`,
 	}
 	globFile.Flags().AddFlagSet(rawFlags)
 	globFile.Flags().AddFlagSet(fullTimestampsFlags)
+	shell.RegisterCompletionFunc(globFile, fileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(globFile, "glob file"))
 
 	var shallow bool
@@ -1259,6 +1213,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 	diffFile.Flags().StringVar(&diffCmdArg, "diff-command", "", "Use a program other than git to diff files.")
 	diffFile.Flags().AddFlagSet(fullTimestampsFlags)
 	diffFile.Flags().AddFlagSet(noPagerFlags)
+	shell.RegisterCompletionFunc(diffFile, fileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(diffFile, "diff file"))
 
 	deleteFile := &cobra.Command{
@@ -1558,4 +1513,106 @@ func forEachDiffFile(newFiles, oldFiles []*pfsclient.FileInfo, f func(newFile, o
 			return err
 		}
 	}
+}
+
+func repoCompletion(text string) []prompt.Suggest {
+	c, err := client.NewOnUserMachine("user-completion")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer c.Close()
+	ris, err := c.ListRepo()
+	if err != nil {
+		log.Fatal(err)
+	}
+	var result []prompt.Suggest
+	for _, ri := range ris {
+		result = append(result, prompt.Suggest{
+			Text:        ri.Repo.Name,
+			Description: fmt.Sprintf("%s (%s)", ri.Description, units.BytesSize(float64(ri.SizeBytes))),
+		})
+	}
+	return result
+}
+
+func branchCompletion(text string) []prompt.Suggest {
+	c, err := client.NewOnUserMachine("user-completion")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer c.Close()
+	partialFile := cmdutil.ParsePartialFile(text)
+	var result []prompt.Suggest
+	if partialFile.Commit.Repo.Name == "" || // nothing typed yet
+		(len(partialFile.Commit.ID) == 0 && text[len(text)-1] != '@') { // partial repo typed
+		ris, err := c.ListRepo()
+		if err != nil {
+			log.Fatal(err)
+		}
+		for _, ri := range ris {
+			result = append(result, prompt.Suggest{
+				Text:        fmt.Sprintf("%s@", ri.Repo.Name),
+				Description: fmt.Sprintf("%s (%s)", ri.Description, units.BytesSize(float64(ri.SizeBytes))),
+			})
+		}
+	} else if partialFile.Commit.ID == "" || // repo@ typed, no commit/branch yet
+		(len(partialFile.Path) == 0 && text[len(text)-1] != ':') { // partial commit/branch typed
+		bis, err := c.ListBranch(partialFile.Commit.Repo.Name)
+		if err != nil {
+			log.Fatal(err)
+		}
+		for _, bi := range bis {
+			result = append(result, prompt.Suggest{
+				Text:        fmt.Sprintf("%s@%s:", partialFile.Commit.Repo.Name, bi.Branch.Name),
+				Description: fmt.Sprintf("(%s)", bi.Head.ID),
+			})
+		}
+	}
+	return result
+}
+
+func fileCompletion(text string) []prompt.Suggest {
+	c, err := client.NewOnUserMachine("user-completion")
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer c.Close()
+	partialFile := cmdutil.ParsePartialFile(text)
+	var result []prompt.Suggest
+	if partialFile.Commit.Repo.Name == "" || // nothing typed yet
+		(len(partialFile.Commit.ID) == 0 && text[len(text)-1] != '@') { // partial repo typed
+		ris, err := c.ListRepo()
+		if err != nil {
+			log.Fatal(err)
+		}
+		for _, ri := range ris {
+			result = append(result, prompt.Suggest{
+				Text:        fmt.Sprintf("%s@", ri.Repo.Name),
+				Description: fmt.Sprintf("%s (%s)", ri.Description, units.BytesSize(float64(ri.SizeBytes))),
+			})
+		}
+	} else if partialFile.Commit.ID == "" || // repo@ typed, no commit/branch yet
+		(len(partialFile.Path) == 0 && text[len(text)-1] != ':') { // partial commit/branch typed
+		bis, err := c.ListBranch(partialFile.Commit.Repo.Name)
+		if err != nil {
+			log.Fatal(err)
+		}
+		for _, bi := range bis {
+			result = append(result, prompt.Suggest{
+				Text:        fmt.Sprintf("%s@%s:", partialFile.Commit.Repo.Name, bi.Branch.Name),
+				Description: fmt.Sprintf("Head: %s", bi.Head.ID),
+			})
+		}
+	} else { // typing the file
+		fis, err := c.GlobFile(partialFile.Commit.Repo.Name, partialFile.Commit.ID, partialFile.Path+"*")
+		if err != nil {
+			log.Fatal(err)
+		}
+		for _, fi := range fis {
+			result = append(result, prompt.Suggest{
+				Text: fmt.Sprintf("%s@%s:%s", partialFile.Commit.Repo.Name, partialFile.Commit.ID, fi.File.Path),
+			})
+		}
+	}
+	return result
 }
