@@ -398,6 +398,9 @@ integration-tests:
 test-proto-static:
 	./etc/proto/test_no_changes.sh || echo "Protos need to be recompiled; run make proto-no-cache."
 
+test-deploy-manifests:
+	./etc/testing/deploy-manifests/validate.sh
+
 proto: docker-build-proto
 	./etc/proto/build.sh
 

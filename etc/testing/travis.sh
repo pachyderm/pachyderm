@@ -98,6 +98,7 @@ case "${BUCKET}" in
         make test-s3gateway-integration
         make test-proto-static
         make test-transaction
+        make test-deploy-manifests
     else
         echo "Running the misc test suite with some tests disabled because secret env vars have not been set"
         make lint
@@ -105,6 +106,9 @@ case "${BUCKET}" in
         make test-cmds
         make test-libs
         make test-tls
+        make test-proto-static
+        make test-transaction
+        make test-deploy-manifests
     fi
     ;;
  ADMIN)

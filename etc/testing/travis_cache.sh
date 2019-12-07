@@ -8,10 +8,13 @@
 
 set -ex
 
+# If any directories are added or changed here, they must also be added to
+# .travis.yml
 dirs=(
   "${HOME}/.cache"
   "${HOME}/cached-deps"
   "${GOPATH}/pkg"
+  "$(python3 -c 'import site; print(site.USER_BASE)')" # $HOME/.local
 )
 
 for dir in "${dirs[@]}"; do
