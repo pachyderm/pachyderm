@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -177,7 +176,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 	listJob.Flags().StringVar(&history, "history", "none", "Return jobs from historical versions of pipelines.")
 	shell.RegisterCompletionFunc(listJob, func(flag, text string) []prompt.Suggest {
 		if flag == "-p" || flag == "--pipeline" {
-			return pipelineCompletion(flag, text)
+			return shell.PipelineCompletion(flag, text)
 		}
 		return nil
 	})
@@ -231,6 +230,12 @@ $ {{alias}} foo@XXX -p bar -p baz`,
 	flushJob.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
 	flushJob.Flags().AddFlagSet(rawFlags)
 	flushJob.Flags().AddFlagSet(fullTimestampsFlags)
+	shell.RegisterCompletionFunc(flushJob, func(flag, text string) []prompt.Suggest {
+		if flag == "--pipeline" || flag == "-p" {
+			return shell.PipelineCompletion(flag, text)
+		}
+		return shell.BranchCompletion(flag, text)
+	})
 	commands = append(commands, cmdutil.CreateAlias(flushJob, "flush job"))
 
 	deleteJob := &cobra.Command{
@@ -249,6 +254,7 @@ $ {{alias}} foo@XXX -p bar -p baz`,
 			return nil
 		}),
 	}
+	shell.RegisterCompletionFunc(deleteJob, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAlias(deleteJob, "delete job"))
 
 	stopJob := &cobra.Command{
@@ -267,6 +273,7 @@ $ {{alias}} foo@XXX -p bar -p baz`,
 			return nil
 		}),
 	}
+	shell.RegisterCompletionFunc(stopJob, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAlias(stopJob, "stop job"))
 
 	datumDocs := &cobra.Command{
@@ -344,6 +351,7 @@ each datum.`,
 	listDatum.Flags().Int64Var(&pageSize, "pageSize", 0, "Specify the number of results sent back in a single page")
 	listDatum.Flags().Int64Var(&page, "page", 0, "Specify the page of results to send")
 	listDatum.Flags().AddFlagSet(rawFlags)
+	shell.RegisterCompletionFunc(listDatum, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAlias(listDatum, "list datum"))
 
 	inspectDatum := &cobra.Command{
@@ -447,6 +455,15 @@ $ {{alias}} --pipeline=filter --inputs=/apple.txt,123aef`,
 	getLogs.Flags().BoolVar(&raw, "raw", false, "Return log messages verbatim from server.")
 	getLogs.Flags().BoolVarP(&follow, "follow", "f", false, "Follow logs as more are created.")
 	getLogs.Flags().Int64VarP(&tail, "tail", "t", 0, "Lines of recent logs to display.")
+	shell.RegisterCompletionFunc(getLogs, func(flag, text string) []prompt.Suggest {
+		if flag == "--pipeline" || flag == "-p" {
+			return shell.PipelineCompletion(flag, text)
+		}
+		if flag == "--job" {
+			return shell.JobCompletion(flag, text)
+		}
+		return nil
+	})
 	commands = append(commands, cmdutil.CreateAlias(getLogs, "logs"))
 
 	pipelineDocs := &cobra.Command{
@@ -1004,24 +1021,4 @@ func pushImage(client *docker.Client, authConfig docker.AuthConfiguration, repo 
 	}
 
 	return destImage, nil
-}
-
-func pipelineCompletion(_, text string) []prompt.Suggest {
-	c, err := pachdclient.NewOnUserMachine("user-completion")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer c.Close()
-	pis, err := c.ListPipeline()
-	if err != nil {
-		log.Fatal(err)
-	}
-	var result []prompt.Suggest
-	for _, pi := range pis {
-		result = append(result, prompt.Suggest{
-			Text:        pi.Pipeline.Name,
-			Description: pi.Description,
-		})
-	}
-	return result
 }
