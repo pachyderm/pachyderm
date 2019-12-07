@@ -16,9 +16,11 @@ const (
 	ldThreshold          int    = 2
 )
 
-var completions map[string]func(string) []prompt.Suggest = make(map[string]func(string) []prompt.Suggest)
+type CompletionFunc func(flag, arg string) []prompt.Suggest
 
-func RegisterCompletionFunc(cmd *cobra.Command, completionFunc func(string) []prompt.Suggest) {
+var completions map[string]CompletionFunc = make(map[string]CompletionFunc)
+
+func RegisterCompletionFunc(cmd *cobra.Command, completionFunc CompletionFunc) {
 	id := uuid.NewWithoutDashes()
 
 	if cmd.Annotations == nil {
@@ -62,6 +64,12 @@ func (s *shell) suggestor(in prompt.Document) []prompt.Suggest {
 		}
 		text = args[len(args)-1]
 	}
+	flag := ""
+	if len(args) > 1 {
+		if args[len(args)-2][0] == '-' {
+			flag = args[len(args)-2]
+		}
+	}
 	suggestions := cmd.SuggestionsFor(text)
 	if len(suggestions) > 0 {
 		var result []prompt.Suggest
@@ -79,7 +87,7 @@ func (s *shell) suggestor(in prompt.Document) []prompt.Suggest {
 	}
 	if id, ok := cmd.Annotations[completionAnnotation]; ok {
 		completionFunc := completions[id]
-		suggests := completionFunc(text)
+		suggests := completionFunc(flag, text)
 		var result []prompt.Suggest
 		for _, s := range suggests {
 			sText := s.Text

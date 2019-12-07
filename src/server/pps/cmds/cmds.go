@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -18,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/cmd/pachctl/shell"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pager"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
@@ -26,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pps/pretty"
 
+	prompt "github.com/c-bata/go-prompt"
 	units "github.com/docker/go-units"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/gogo/protobuf/proto"
@@ -207,6 +210,12 @@ $ {{alias}} -p foo -i bar@YYY`,
 	listJob.Flags().AddFlagSet(fullTimestampsFlags)
 	listJob.Flags().AddFlagSet(noPagerFlags)
 	listJob.Flags().StringVar(&history, "history", "none", "Return jobs from historical versions of pipelines.")
+	shell.RegisterCompletionFunc(listJob, func(flag, text string) []prompt.Suggest {
+		if flag == "-p" || flag == "--pipeline" {
+			return pipelineCompletion(flag, text)
+		}
+		return nil
+	})
 	commands = append(commands, cmdutil.CreateAlias(listJob, "list job"))
 
 	var pipelines cmdutil.RepeatedStringArg
@@ -1072,4 +1081,24 @@ func pushImage(client *docker.Client, authConfig docker.AuthConfiguration, repo 
 	}
 
 	return destImage, nil
+}
+
+func pipelineCompletion(_, text string) []prompt.Suggest {
+	c, err := pachdclient.NewOnUserMachine("user-completion")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer c.Close()
+	pis, err := c.ListPipeline()
+	if err != nil {
+		log.Fatal(err)
+	}
+	var result []prompt.Suggest
+	for _, pi := range pis {
+		result = append(result, prompt.Suggest{
+			Text:        pi.Pipeline.Name,
+			Description: pi.Description,
+		})
+	}
+	return result
 }
