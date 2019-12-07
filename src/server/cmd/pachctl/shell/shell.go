@@ -99,7 +99,7 @@ func (s *shell) run() {
 	prompt.New(
 		s.executor,
 		s.suggestor,
-		prompt.OptionPrefix(">>> "),
+		prompt.OptionPrefix("🐘 > "),
 	).Run()
 }
 
