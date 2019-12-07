@@ -1527,7 +1527,7 @@ func forEachDiffFile(newFiles, oldFiles []*pfsclient.FileInfo, f func(newFile, o
 	}
 }
 
-func repoCompletion(text string) []prompt.Suggest {
+func repoCompletion(_, text string) []prompt.Suggest {
 	c, err := client.NewOnUserMachine("user-completion")
 	if err != nil {
 		log.Fatal(err)
@@ -1547,7 +1547,7 @@ func repoCompletion(text string) []prompt.Suggest {
 	return result
 }
 
-func branchCompletion(text string) []prompt.Suggest {
+func branchCompletion(_, text string) []prompt.Suggest {
 	c, err := client.NewOnUserMachine("user-completion")
 	if err != nil {
 		log.Fatal(err)
@@ -1583,7 +1583,7 @@ func branchCompletion(text string) []prompt.Suggest {
 	return result
 }
 
-func fileCompletion(text string) []prompt.Suggest {
+func fileCompletion(_, text string) []prompt.Suggest {
 	c, err := client.NewOnUserMachine("user-completion")
 	if err != nil {
 		fmt.Println(err)
