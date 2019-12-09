@@ -4628,8 +4628,8 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 				return nil
 			})
 		}
-		if req.Value == nil {
-			return false, "", "", errors.New("either file or value must not be nil")
+		if pw == nil {
+			return false, "", "", errors.New("must send a request with a file first")
 		}
 		if _, err := pw.Write(req.Value); err != nil {
 			return false, "", "", err
