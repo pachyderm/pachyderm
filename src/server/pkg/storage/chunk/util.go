@@ -46,6 +46,14 @@ func RandSeq(n int) []byte {
 	return []byte(string(b))
 }
 
+// Reference creates a data reference for the full chunk referenced by a data reference.
+func Reference(dataRef *DataRef) *DataRef {
+	chunkRef := &DataRef{}
+	chunkRef.ChunkInfo = dataRef.ChunkInfo
+	chunkRef.SizeBytes = dataRef.ChunkInfo.SizeBytes
+	return chunkRef
+}
+
 func joinAnnotations(as []*Annotation, a *Annotation) []*Annotation {
 	// If the annotation being added is the same as the
 	// last, then they are merged.
