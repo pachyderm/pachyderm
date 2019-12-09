@@ -6,13 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gorilla/mux"
-	enterpriseclient "github.com/pachyderm/pachyderm/src/client/enterprise"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/s2"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 )
 
 const (
@@ -22,8 +18,6 @@ const (
 	requestTimeout       = 10 * time.Second
 	readBodyTimeout      = 5 * time.Second
 )
-
-var enterpriseTimeout = 24 * time.Hour
 
 // Server runs an HTTP server with an S3-like API for PFS. This allows you to
 // use s3 clients to acccess PFS contents.
@@ -45,9 +39,6 @@ func Server(port, pachdPort uint16) (*http.Server, error) {
 	logger := logrus.WithFields(logrus.Fields{
 		"source": "s3gateway",
 	})
-
-	var lastEnterpriseCheck time.Time
-	isEnterprise := false
 
 	c := &controller{
 		pachdPort:       pachdPort,
@@ -81,37 +72,6 @@ func Server(port, pachdPort uint16) (*http.Server, error) {
 
 			// Log that a request was made
 			logger.Infof("http request: %s %s", r.Method, r.RequestURI)
-
-			// Ensure enterprise is enabled
-			now := time.Now()
-			if !isEnterprise || now.Sub(lastEnterpriseCheck) > enterpriseTimeout {
-				vars := mux.Vars(r)
-				pc, err := c.pachClient(vars["authAccessKey"])
-				if err != nil {
-					err = fmt.Errorf("gRPC client client: %v", err)
-					s2.WriteError(logger, w, r, s2.InternalError(r, err))
-					return
-				}
-
-				defer func() {
-					if err := pc.Close(); err != nil {
-						logger.Errorf("could not close enterprise check pach client: %v", err.Error())
-					}
-				}()
-
-				resp, err := pc.Enterprise.GetState(context.Background(), &enterpriseclient.GetStateRequest{})
-				if err != nil {
-					err = fmt.Errorf("enterprise status check: %v", grpcutil.ScrubGRPC(err))
-					s2.WriteError(logger, w, r, s2.InternalError(r, err))
-					return
-				}
-
-				isEnterprise = resp.State == enterpriseclient.State_ACTIVE
-			}
-			if !isEnterprise {
-				s2.WriteError(logger, w, r, enterpriseDisabledError(r))
-				return
-			}
 
 			router.ServeHTTP(w, r)
 		}),
