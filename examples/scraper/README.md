@@ -208,8 +208,7 @@ finished on their input repo(s).
 If we want to re-scrape some of our urls to see if the sites of have changed, we can use the `run-pipeline` command:
 
 ```shell
-$ pachctl run-pipeline scraper
-fab8c59c786842ccaf20589e15606604
+$ pachctl update pipeline scraper --reprocess
 ```
 
 Next, let’s add additional urls to our input data . We're going to append more urls from “urls2” to the file “urls.”
