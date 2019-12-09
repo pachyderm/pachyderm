@@ -151,6 +151,7 @@ nav:
         - Deferred Processing of Data: how-tos/deferred_processing.md
         - Ingress and Egress Data from an External Object Store: how-tos/ingressing_from_diff_cloud.md
         - Skip Failed Datums: how-tos/err_cmd.md
+        - Using the S3 Gateway: how-tos/s3gateway.md
     - Deploy and Manage:
         - Overview: deploy-manage/index.md
         - Deploy Pachyderm:
@@ -345,7 +346,6 @@ nav:
         - Deploy Enterprise Edition: enterprise/deployment.md
         - Configure Access Controls: enterprise/auth/auth.md
         - Advanced Statistics: enterprise/stats.md
-        - Using the S3 Gateway: enterprise/s3gateway.md
         - Configure Pachyderm with an Access Management Provider:
             - Overview: enterprise/saml.md
             - Configure SAML: enterprise/saml_setup.md
