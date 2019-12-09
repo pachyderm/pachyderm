@@ -714,7 +714,8 @@ inspect datum` and `pachctl list datum` commands, as well as through the web UI.
 Once turned on, statistics tracking cannot be disabled for the pipeline. You can
 turn it off by deleting the pipeline, setting `enable_stats` to `false` or
 completely removing it from your pipeline spec, and recreating the pipeline from
-that updated spec file.
+that updated spec file. While the pipeline that collects the stats
+exists, the storage space used by the stats cannot be released.
 
 !!! note
     Enabling stats results in slight storage use increase for logs and timing
