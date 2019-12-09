@@ -53,6 +53,7 @@ src/cmd/ppsd/ppsd
 /build/
 /etc/testing/s3gateway/s3-tests
 /etc/testing/s3gateway/*.txt
+/etc/testing/deploy-manifests/test
 
 .bucket
 .cluster_name
