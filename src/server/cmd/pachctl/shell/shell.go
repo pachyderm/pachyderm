@@ -16,7 +16,6 @@ import (
 const (
 	completionAnnotation string = "completion"
 	ldThreshold          int    = 2
-	pachChar             rune   = '🐘'
 )
 
 type CompletionFunc func(flag, arg string) []prompt.Suggest
@@ -110,7 +109,7 @@ func (s *shell) run() {
 	prompt.New(
 		s.executor,
 		s.suggestor,
-		prompt.OptionPrefix(fmt.Sprintf("%c > ", pachChar)),
+		prompt.OptionPrefix(">>> "),
 		prompt.OptionLivePrefix(func() (string, bool) {
 			cfg, err := config.Read()
 			if err != nil {
@@ -120,7 +119,7 @@ func (s *shell) run() {
 			if err != nil {
 				return "", false
 			}
-			return fmt.Sprintf("%c  context:(%s) >", pachChar, activeContext), true
+			return fmt.Sprintf("context:(%s) >>> ", activeContext), true
 		}),
 	).Run()
 }
