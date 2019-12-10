@@ -1,12 +1,14 @@
 package shell
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
 	"strings"
 
 	prompt "github.com/c-bata/go-prompt"
+	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/spf13/cobra"
 )
@@ -14,6 +16,7 @@ import (
 const (
 	completionAnnotation string = "completion"
 	ldThreshold          int    = 2
+	pachChar             rune   = '🐘'
 )
 
 type CompletionFunc func(flag, arg string) []prompt.Suggest
@@ -107,7 +110,18 @@ func (s *shell) run() {
 	prompt.New(
 		s.executor,
 		s.suggestor,
-		prompt.OptionPrefix("🐘 > "),
+		prompt.OptionPrefix(fmt.Sprintf("%c > ", pachChar)),
+		prompt.OptionLivePrefix(func() (string, bool) {
+			cfg, err := config.Read()
+			if err != nil {
+				return "", false
+			}
+			activeContext, _, err := cfg.ActiveContext()
+			if err != nil {
+				return "", false
+			}
+			return fmt.Sprintf("%c  context:(%s) >", pachChar, activeContext), true
+		}),
 	).Run()
 }
 
