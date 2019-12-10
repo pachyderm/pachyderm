@@ -1231,6 +1231,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 			return c.DeleteFile(file.Commit.Repo.Name, file.Commit.ID, file.Path)
 		}),
 	}
+	shell.RegisterCompletionFunc(deleteFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAlias(deleteFile, "delete file"))
 
 	objectDocs := &cobra.Command{
