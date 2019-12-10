@@ -308,16 +308,10 @@ func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress,
 		if err != nil {
 			return nil, nil, fmt.Errorf("could not parse 'PACHD_ADDRESS': %v", err)
 		}
-
-		if envAddr.Secured {
-			options = append(options, WithSystemCAs)
-		}
-
-		certOps, err := getCertOptionsFromEnv()
+		options, err := getCertOptionsFromEnv()
 		if err != nil {
 			return nil, nil, err
 		}
-		options = append(options, certOps...)
 
 		return envAddr, options, nil
 	}

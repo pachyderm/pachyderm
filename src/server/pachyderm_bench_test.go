@@ -75,7 +75,6 @@ func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, l
 	commit, err := c.StartCommit(repo, "master")
 	require.NoError(b, err)
 	if !b.Run(fmt.Sprintf("Put%dFiles", fileNum), func(b *testing.B) {
-		b.N = 1
 		var totalBytes int64
 		var eg errgroup.Group
 		zipf := rand.NewZipf(r, 1.05, 1, maxSize-minSize)
@@ -120,7 +119,6 @@ func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, l
 	}
 
 	if !b.Run(fmt.Sprintf("PipelineCopy%dFiles", fileNum), func(b *testing.B) {
-		b.N = 1
 		pipeline := tu.UniqueString("BenchmarkFilesPipeline")
 		require.NoError(b, c.CreatePipeline(
 			pipeline,
@@ -199,7 +197,6 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 	var lastIndex int
 	// addInputCommit adds an input commit to the data repo
 	addInputCommit := func(b *testing.B) *pfs.Commit {
-		b.N = 1
 		commit, err := c.StartCommit(dataRepo, "master")
 		require.NoError(b, err)
 		var totalSize int64
@@ -281,7 +278,6 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 
 	pipelineOne := tu.UniqueString("BenchmarkDataShuffleStageOne")
 	if !b.Run(fmt.Sprintf("Extract%dTarballsInto%dFiles", numTarballs, numTotalFiles), func(b *testing.B) {
-		b.N = 1
 		require.NoError(b, c.CreatePipeline(
 			pipelineOne,
 			"",
@@ -304,6 +300,7 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 		collectCommitInfos(b, commitIter)
 		b.StopTimer()
 		outputRepoInfo, err := c.InspectRepo(pipelineOne)
+		require.NoError(b, err)
 		b.SetBytes(int64(outputRepoInfo.SizeBytes))
 	}) {
 		return
@@ -311,7 +308,6 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 
 	pipelineTwo := tu.UniqueString("BenchmarkDataShuffleStageTwo")
 	if !b.Run(fmt.Sprintf("Processing%dFiles", numTotalFiles), func(b *testing.B) {
-		b.N = 1
 		require.NoError(b, c.CreatePipeline(
 			pipelineTwo,
 			"",
@@ -340,6 +336,7 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 		collectCommitInfos(b, commitIter)
 		b.StopTimer()
 		outputRepoInfo, err := c.InspectRepo(pipelineTwo)
+		require.NoError(b, err)
 		b.SetBytes(int64(outputRepoInfo.SizeBytes))
 	}) {
 		return
@@ -347,7 +344,6 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 
 	pipelineThree := tu.UniqueString("BenchmarkDataShuffleStageThree")
 	if !b.Run(fmt.Sprintf("Compressing26DirectoriesWith%dFilesInto26Tarballs", numTotalFiles), func(b *testing.B) {
-		b.N = 1
 		require.NoError(b, c.CreatePipeline(
 			pipelineThree,
 			"",
@@ -373,6 +369,7 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 		collectCommitInfos(b, commitIter)
 		b.StopTimer()
 		outputRepoInfo, err := c.InspectRepo(pipelineTwo)
+		require.NoError(b, err)
 		b.SetBytes(int64(outputRepoInfo.SizeBytes))
 	}) {
 		return

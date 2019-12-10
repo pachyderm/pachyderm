@@ -144,7 +144,6 @@ func (a *apiServer) handleMetadata(w http.ResponseWriter, req *http.Request) {
 	buf, _ := xml.MarshalIndent(a.samlSP.Metadata(), "", "  ")
 	w.Header().Set("Content-Type", "application/samlmetadata+xml")
 	w.Write(buf)
-	return
 }
 
 func (a *apiServer) serveSAML() {

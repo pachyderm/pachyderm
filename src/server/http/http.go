@@ -91,8 +91,11 @@ func (s *server) getFileHandler(w http.ResponseWriter, r *http.Request, ps httpr
 		return
 	}
 	modtime, err := types.TimestampFromProto(commitInfo.Finished)
+	if err != nil {
+		httpError(w, err)
+		return
+	}
 	http.ServeContent(w, r, fileName, modtime, content)
-	return
 }
 
 func (s *server) serviceHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
@@ -115,10 +118,6 @@ func (s *server) serviceHandler(w http.ResponseWriter, r *http.Request, ps httpr
 		req.URL.Path = strings.TrimPrefix(req.URL.Path, path.Join(path.Dir(path.Dir(servicePath)), serviceName))
 	}
 	proxy.ServeHTTP(w, r)
-}
-
-type loginRequestPayload struct {
-	Token string
 }
 
 func (s *server) authLoginHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {

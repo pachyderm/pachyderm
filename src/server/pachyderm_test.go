@@ -62,12 +62,6 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 )
 
-const (
-	// If this environment variable is set, then the tests are being run
-	// in a real cluster in the cloud.
-	InCloudEnv = "PACH_TEST_CLOUD"
-)
-
 func TestSimplePipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
