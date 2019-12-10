@@ -10479,6 +10479,88 @@ func TestPodPatchUnmarshalling(t *testing.T) {
 	}
 }
 
+// TestPFSPanicOnNilArgs tests for a regression where pachd would panic
+// if passed nil args on some PFS endpoints. See
+// https://github.com/pachyderm/pachyderm/issues/4279.
+func TestPFSPanicOnNilArgs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+
+	requireNoPanic := func(err error) {
+		t.Helper()
+		if err != nil {
+			// if a "transport is closing" error happened, pachd abruptly
+			// closed the connection. Most likely this is caused by a panic.
+			require.False(t, strings.Contains(err.Error(), "transport is closing"), err.Error())
+		}
+	}
+
+	_, err := c.PfsAPIClient.CreateRepo(c.Ctx(), &pfs.CreateRepoRequest{})
+	requireNoPanic(err)
+	_, err = c.PfsAPIClient.InspectRepo(c.Ctx(), &pfs.InspectRepoRequest{})
+	requireNoPanic(err)
+	_, err = c.PfsAPIClient.ListRepo(c.Ctx(), &pfs.ListRepoRequest{})
+	requireNoPanic(err)
+	_, err = c.PfsAPIClient.DeleteRepo(c.Ctx(), &pfs.DeleteRepoRequest{})
+	requireNoPanic(err)
+	_, err = c.PfsAPIClient.StartCommit(c.Ctx(), &pfs.StartCommitRequest{})
+	requireNoPanic(err)
+	_, err = c.PfsAPIClient.FinishCommit(c.Ctx(), &pfs.FinishCommitRequest{})
+	requireNoPanic(err)
+	_, err = c.PfsAPIClient.InspectCommit(c.Ctx(), &pfs.InspectCommitRequest{})
+	requireNoPanic(err)
+	_, err = c.PfsAPIClient.ListCommit(c.Ctx(), &pfs.ListCommitRequest{})
+	requireNoPanic(err)
+	_, err = c.PfsAPIClient.ListCommitStream(c.Ctx(), &pfs.ListCommitRequest{})
+	requireNoPanic(err)
+	_, err = c.PfsAPIClient.DeleteCommit(c.Ctx(), &pfs.DeleteCommitRequest{})
+	requireNoPanic(err)
+	_, err = c.PfsAPIClient.FlushCommit(c.Ctx(), &pfs.FlushCommitRequest{})
+	requireNoPanic(err)
+	_, err = c.PfsAPIClient.SubscribeCommit(c.Ctx(), &pfs.SubscribeCommitRequest{})
+	requireNoPanic(err)
+	_, err = c.PfsAPIClient.CreateBranch(c.Ctx(), &pfs.CreateBranchRequest{})
+	requireNoPanic(err)
+	_, err = c.PfsAPIClient.InspectBranch(c.Ctx(), &pfs.InspectBranchRequest{})
+	requireNoPanic(err)
+	_, err = c.PfsAPIClient.ListBranch(c.Ctx(), &pfs.ListBranchRequest{})
+	requireNoPanic(err)
+	_, err = c.PfsAPIClient.DeleteBranch(c.Ctx(), &pfs.DeleteBranchRequest{})
+	requireNoPanic(err)
+	_, err = c.PfsAPIClient.CopyFile(c.Ctx(), &pfs.CopyFileRequest{})
+	requireNoPanic(err)
+	_, err = c.PfsAPIClient.GetFile(c.Ctx(), &pfs.GetFileRequest{})
+	requireNoPanic(err)
+	_, err = c.PfsAPIClient.InspectFile(c.Ctx(), &pfs.InspectFileRequest{})
+	requireNoPanic(err)
+	_, err = c.PfsAPIClient.ListFile(c.Ctx(), &pfs.ListFileRequest{})
+	requireNoPanic(err)
+	_, err = c.PfsAPIClient.ListFileStream(c.Ctx(), &pfs.ListFileRequest{})
+	requireNoPanic(err)
+	_, err = c.PfsAPIClient.WalkFile(c.Ctx(), &pfs.WalkFileRequest{})
+	requireNoPanic(err)
+	_, err = c.PfsAPIClient.GlobFile(c.Ctx(), &pfs.GlobFileRequest{})
+	requireNoPanic(err)
+	_, err = c.PfsAPIClient.GlobFileStream(c.Ctx(), &pfs.GlobFileRequest{})
+	requireNoPanic(err)
+	_, err = c.PfsAPIClient.DiffFile(c.Ctx(), &pfs.DiffFileRequest{})
+	requireNoPanic(err)
+	_, err = c.PfsAPIClient.DeleteFile(c.Ctx(), &pfs.DeleteFileRequest{})
+	requireNoPanic(err)
+	_, err = c.PfsAPIClient.Fsck(c.Ctx(), &pfs.FsckRequest{})
+	requireNoPanic(err)
+
+	pfc, err := c.PfsAPIClient.PutFile(c.Ctx())
+	require.NoError(t, err)
+	err = pfc.Send(&pfs.PutFileRequest{})
+	requireNoPanic(err)
+	_, err = pfc.CloseAndRecv()
+	requireNoPanic(err)
+}
+
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
 	pipelineInfos, err := pachClient.ListPipeline()
 	require.NoError(t, err)
