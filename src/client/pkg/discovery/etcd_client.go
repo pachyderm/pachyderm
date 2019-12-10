@@ -84,7 +84,7 @@ func (c *etcdClient) Get(key string) (string, error) {
 
 func (c *etcdClient) GetAll(key string) (map[string]string, error) {
 	response, err := c.client.Get(key, false, true)
-	result := make(map[string]string, 0)
+	result := make(map[string]string)
 	if err != nil {
 		if strings.HasPrefix(err.Error(), "100: Key not found") {
 			return result, nil

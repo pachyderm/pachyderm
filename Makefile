@@ -395,6 +395,9 @@ clean-pps-storage: check-kubectl
 integration-tests:
 	CGOENABLED=0 go test -v -count=1 ./src/server $(TESTFLAGS) -timeout $(TIMEOUT)
 
+staticcheck:
+	staticcheck ./...
+
 test-proto-static:
 	./etc/proto/test_no_changes.sh || echo "Protos need to be recompiled; run make proto-no-cache."
 

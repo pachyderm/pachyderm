@@ -313,10 +313,11 @@ func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress,
 			options = append(options, WithSystemCAs)
 		}
 
-		options, err := getCertOptionsFromEnv()
+		certOps, err := getCertOptionsFromEnv()
 		if err != nil {
 			return nil, nil, err
 		}
+		options = append(options, certOps...)
 
 		return envAddr, options, nil
 	}
@@ -543,10 +544,6 @@ func DefaultDialOptions() []grpc.DialOption {
 	return []grpc.DialOption{
 		// Don't return from Dial() until the connection has been established
 		grpc.WithBlock(),
-
-		// If no connection is established in 30s, fail the call
-		grpc.WithTimeout(30 * time.Second),
-
 		grpc.WithDefaultCallOptions(
 			grpc.MaxCallRecvMsgSize(grpcutil.MaxMsgSize),
 			grpc.MaxCallSendMsgSize(grpcutil.MaxMsgSize),
@@ -567,17 +564,15 @@ func (c *APIClient) connect(timeout time.Duration) error {
 		tlsCreds := credentials.NewClientTLSFromCert(c.caCerts, "")
 		dialOptions = append(dialOptions, grpc.WithTransportCredentials(tlsCreds))
 	}
-	dialOptions = append(dialOptions,
-		// TODO(msteffen) switch to grpc.DialContext instead
-		grpc.WithTimeout(timeout),
-	)
 	if tracing.IsActive() {
 		dialOptions = append(dialOptions,
 			grpc.WithUnaryInterceptor(tracing.UnaryClientInterceptor()),
 			grpc.WithStreamInterceptor(tracing.StreamClientInterceptor()),
 		)
 	}
-	clientConn, err := grpc.Dial(c.addr, dialOptions...)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	clientConn, err := grpc.DialContext(ctx, c.addr, dialOptions...)
 	if err != nil {
 		return err
 	}

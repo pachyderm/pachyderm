@@ -131,7 +131,7 @@ func sanitizeTTLStr(ttlStr, maxTTLStr string) (ttl, maxTTL time.Duration, err er
 	} else {
 		ttl, err = time.ParseDuration(ttlStr)
 		if err != nil {
-			return 0, 0, fmt.Errorf("Invalid ttl: %s", err)
+			return 0, 0, fmt.Errorf("invalid ttl: %s", err)
 		}
 	}
 
@@ -140,7 +140,7 @@ func sanitizeTTLStr(ttlStr, maxTTLStr string) (ttl, maxTTL time.Duration, err er
 	} else {
 		maxTTL, err = time.ParseDuration(maxTTLStr)
 		if err != nil {
-			return 0, 0, fmt.Errorf("Invalid max_ttl: %s", err)
+			return 0, 0, fmt.Errorf("invalid max_ttl: %s", err)
 		}
 	}
 
