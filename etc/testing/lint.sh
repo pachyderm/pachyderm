@@ -17,3 +17,6 @@ if [[ $files ]]; then
     tr ' ' '\n'  <<< $files
     exit 1
 fi
+
+go get honnef.co/go/tools/cmd/staticcheck
+staticcheck ./...
