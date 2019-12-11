@@ -16,6 +16,20 @@ ETCD_IMAGE = "quay.io/coreos/etcd:v3.3.5"
 
 LOCAL_CONFIG_PATTERN = re.compile(r"^local(-\d+)?$")
 
+DELETABLE_RESOURCES = [
+    "daemonsets",
+    "replicasets",
+    "services",
+    "deployments",
+    "pods",
+    "rc",
+    "pvc",
+    "serviceaccounts",
+    "secrets",
+    "clusterroles.rbac.authorization.k8s.io",
+    "clusterrolebindings.rbac.authorization.k8s.io",
+]
+
 class ExcThread(threading.Thread):
     def __init__(self, target):
         super().__init__(target=target)
@@ -46,18 +60,13 @@ class DefaultDriver:
         return True
 
     def clear(self):
-        run("kubectl", "delete", "daemonsets,replicasets,services,deployments,pods,rc,pvc", "--all")
+        run("kubectl", "delete", ",".join(DELETABLE_RESOURCES), "--all")
 
     def start(self):
         pass
 
     def push_images(self, deploy_version, dash_image):
         pass
-
-    def wait(self):
-        while suppress("pachctl", "version") != 0:
-            print("Waiting for pachyderm to come up...")
-            time.sleep(1)
 
     def set_config(self):
         pass
@@ -164,6 +173,7 @@ def main():
             print("using the k8s for docker driver")
             driver = DockerDriver()
     else:
+        print("using the default driver")
         driver = DefaultDriver()
 
     driver.clear()
@@ -222,7 +232,10 @@ def main():
 
     if not args.no_deploy:
         run("kubectl", "create", "-f", "-", stdin=deployments_str)
-        driver.wait()
+
+        while suppress("pachctl", "version") != 0:
+            print("Waiting for pachyderm to come up...")
+            time.sleep(1)
 
     if args.deploy_to == "local" and not args.no_config_rewrite:
         driver.set_config()
