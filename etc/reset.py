@@ -153,7 +153,6 @@ def rewrite_config():
 
 def main():
     parser = argparse.ArgumentParser(description="Recompiles pachyderm tooling and restarts the cluster with a clean slate.")
-    parser.add_argument("--no-deploy", default=False, action="store_true", help="Disables deployment")
     parser.add_argument("--no-config-rewrite", default=False, action="store_true", help="Disables config rewriting")
     parser.add_argument("--deploy-args", default="", help="Arguments to be passed into `pachctl deploy`")
     parser.add_argument("--deploy-to", default="local", help="Set where to deploy")
@@ -162,7 +161,7 @@ def main():
 
     if "GOPATH" not in os.environ:
         raise Exception("Must set GOPATH")
-    if not args.no_deploy and "PACH_CA_CERTS" in os.environ:
+    if "PACH_CA_CERTS" in os.environ:
         raise Exception("Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS")
 
     if args.deploy_to == "local":
@@ -230,12 +229,11 @@ def main():
     run("docker", "pull", ETCD_IMAGE)
     driver.push_images(args.deploy_version, dash_image)
 
-    if not args.no_deploy:
-        run("kubectl", "create", "-f", "-", stdin=deployments_str)
+    run("kubectl", "create", "-f", "-", stdin=deployments_str)
 
-        while suppress("pachctl", "version") != 0:
-            print("Waiting for pachyderm to come up...")
-            time.sleep(1)
+    while suppress("pachctl", "version") != 0:
+        print("Waiting for pachyderm to come up...")
+        time.sleep(1)
 
     if args.deploy_to == "local" and not args.no_config_rewrite:
         driver.set_config()
