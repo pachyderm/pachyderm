@@ -6,10 +6,12 @@ import sys
 import json
 import time
 import select
+import shutil
 import logging
 import argparse
 import threading
 import subprocess
+import urllib.request
 
 ETCD_IMAGE = "quay.io/coreos/etcd:v3.3.5"
 
@@ -90,6 +92,10 @@ class DefaultDriver:
             time.sleep(1)
 
     def set_config(self):
+        pass
+
+class DockerDriver(DefaultDriver):
+    def set_config(self):
         run("pachctl", "config", "update", "context", "--pachd-address=localhost:30650")
 
 class MinikubeDriver(DefaultDriver):
@@ -122,13 +128,26 @@ def parse_log_level(s):
     except KeyError:
         raise Exception("Unknown log level: {}".format(s))
 
-def run(cmd, *args, raise_on_error=True, shell=False, stdout_log_level="info", stderr_log_level="error"):
+def find_in_json(j, f):
+    if f(j):
+        return j
+    elif isinstance(j, dict):
+        for v in j.values():
+            find_in_json(v, f)
+    elif isinstance(j, list):
+        for i in j:
+            find_in_json(i, f)
+
+def run(cmd, *args, raise_on_error=True, stdout_log_level="info", stderr_log_level="error", stdin=None):
     log.debug("Running `%s %s`", cmd, " ".join(args))
 
-    proc = subprocess.Popen([cmd, *args], shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    proc = subprocess.Popen([cmd, *args], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE if stdin is not None else None)
     stdout = Output(proc.stdout, stdout_log_level)
     stderr = Output(proc.stderr, stderr_log_level)
     timed_out_last = False
+
+    if stdin is not None:
+        proc.stdin.write(stdin)
 
     while True:
         if (proc.poll() is not None and timed_out_last) or (stdout.pipe.closed and stderr.pipe.closed):
@@ -154,26 +173,11 @@ def run(cmd, *args, raise_on_error=True, shell=False, stdout_log_level="info", s
 
     return ProcessResult(rc, "\n".join(stdout.lines), "\n".join(stderr.lines))
 
-def capture(cmd, *args, shell=False):
-    return run(cmd, *args, shell=shell, stdout_log_level="debug").stdout
+def capture(cmd, *args):
+    return run(cmd, *args, stdout_log_level="debug").stdout
 
 def suppress(cmd, *args):
     return run(cmd, *args, stdout_log_level="debug", stderr_log_level="debug", raise_on_error=False).rc
-
-def get_pachyderm(deploy_version):
-    log.info("Deploying pachd:{}".format(deploy_version))
-
-    should_download = suppress("which", "pachctl") != 0 \
-        or capture("pachctl", "version", "--client-only") != deploy_version
-
-    if should_download:
-        release_url = "https://github.com/pachyderm/pachyderm/releases/download/v{}/pachctl_{}_linux_amd64.tar.gz".format(deploy_version, deploy_version)
-        outpath = os.path.join(os.environ["GOPATH"], "bin")
-        filepath = "pachctl_{}_linux_amd64/pachctl".format(deploy_version)
-        run("curl -L {} | tar -C \"{}\" --strip-components=1 -xzf - {}".format(release_url, outpath, filepath), shell=True)
-
-    run("docker", "pull", "pachyderm/pachd:{}".format(deploy_version))
-    run("docker", "pull", "pachyderm/worker:{}".format(deploy_version))
 
 def rewrite_config():
     log.info("Rewriting config")
@@ -207,7 +211,8 @@ def main():
     parser.add_argument("--no-deploy", default=False, action="store_true", help="Disables deployment")
     parser.add_argument("--no-config-rewrite", default=False, action="store_true", help="Disables config rewriting")
     parser.add_argument("--deploy-args", default="", help="Arguments to be passed into `pachctl deploy`")
-    parser.add_argument("--deploy-version", default="local", help="Sets the deployment version")
+    parser.add_argument("--deploy-to", default="local", help="Set where to deploy")
+    parser.add_argument("--deploy-version", default="head", help="Sets the deployment version")
     parser.add_argument("--log-level", default="info", type=parse_log_level, help="Sets the log level; defaults to 'info', other options include 'critical', 'error', 'warning', and 'debug'")
     args = parser.parse_args()
 
@@ -220,19 +225,22 @@ def main():
         log.critical("Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS", file=sys.stderr)
         sys.exit(1)
 
-    if MinikubeDriver().available():
-        log.info("using the minikube driver")
-        driver = MinikubeDriver()
+    if args.deploy_to == "local":
+        if MinikubeDriver().available():
+            log.info("using the minikube driver")
+            driver = MinikubeDriver()
+        else:
+            log.info("using the k8s for docker driver")
+            log.warning("with this driver, it's not possible to fully reset the cluster")
+            driver = DockerDriver()
     else:
-        log.info("using the k8s for docker driver")
-        log.warning("with this driver, it's not possible to fully reset the cluster")
         driver = DefaultDriver()
 
     driver.clear()
 
     gopath = os.environ["GOPATH"]
 
-    if args.deploy_version == "local":
+    if args.deploy_version == "head":
         try:
             os.remove(os.path.join(gopath, "bin", "pachctl"))
         except:
@@ -249,22 +257,30 @@ def main():
 
         join(*procs)
     else:
-        join(
-            driver.start,
-            lambda: get_pachyderm(args.deploy_version),
-        )
+        should_download = suppress("which", "pachctl") != 0 \
+            or capture("pachctl", "version", "--client-only") != args.deploy_version
+
+        if should_download:
+            release_url = "https://github.com/pachyderm/pachyderm/releases/download/v{}/pachctl_{}_{}_amd64.tar.gz".format(args.deploy_version, args.deploy_version, sys.platform)
+            bin_path = os.path.join(os.environ["GOPATH"], "bin")
+
+            with urllib.request.urlopen(release_url) as response:
+                with gzip.GzipFile(fileobj=response) as uncompressed:
+                    with open(bin_path, "wb") as f:
+                        shutil.copyfileobj(uncompressed, f)
+
+        run("docker", "pull", "pachyderm/pachd:{}".format(args.deploy_version))
+        run("docker", "pull", "pachyderm/worker:{}".format(args.deploy_version))
 
     version = capture("pachctl", "version", "--client-only")
     log.info("Deploy pachyderm version v{}".format(version))
 
-    while suppress("pachctl", "version", "--client-only") != 0:
-        log.info("Waiting for pachctl to build...")
-        time.sleep(1)
-
     run("which", "pachctl")
 
-    dash_image = capture("pachctl deploy local -d --dry-run | jq -r '.. | select(.name? == \"dash\" and has(\"image\")).image'", shell=True)
-    grpc_proxy_image = capture("pachctl deploy local -d --dry-run | jq -r '.. | select(.name? == \"grpc-proxy\").image'", shell=True)
+    deployments = json.loads("[{}]".format(capture("pachctl", "deploy", "local", "-d", "--dry-run").replace("}\n{", "},{")))
+
+    dash_image = find_in_json(deployments, lambda j: isinstance(j, dict) and j.get("name") == "dash" and j.get("image") is not None)["image"]
+    grpc_proxy_image = find_in_json(deployments, lambda j: isinstance(j, dict) and j.get("name") == "grpc-proxy")["image"]
 
     run("docker", "pull", dash_image)
     run("docker", "pull", grpc_proxy_image)
@@ -272,14 +288,12 @@ def main():
     driver.push_images(args.deploy_version, dash_image)
 
     if not args.no_deploy:
-        if args.deploy_version == "local":
-            run("pachctl deploy local -d {}".format(args.deploy_args), shell=True)
-        else:
-            run("pachctl deploy local -d {} --dry-run | sed \"s/:local/:{}/g\" | kubectl create -f -".format(args.deploy_args, args.deploy_version), shell=True)
+        if args.deploy_to != "local":
+            deployments = deployments.replace("local", args.deploy_to)
 
+        run("kubectl", "create", "-f", "-", stdin=deployments)
         driver.wait()
 
-    run("killall", "kubectl", raise_on_error=False)
     driver.set_config()
 
 if __name__ == "__main__":
