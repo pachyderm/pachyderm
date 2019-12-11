@@ -100,7 +100,6 @@ func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, l
 	require.NoError(b, c.FinishCommit(repo, commit.ID))
 
 	if !b.Run(fmt.Sprintf("Get%dFiles", fileNum), func(b *testing.B) {
-		b.N = 1
 		w := &countWriter{}
 		var eg errgroup.Group
 		for k := 0; k < fileNum; k++ {

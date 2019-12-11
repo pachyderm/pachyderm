@@ -145,7 +145,7 @@ func GetExpectedNumWorkers(kubeClient *kube.Clientset, spec *ppsclient.Paralleli
 		result := math.Floor(spec.Coefficient * float64(numNodes))
 		return int(math.Max(result, 1)), nil
 	}
-	return 0, fmt.Errorf("Unable to interpret ParallelismSpec %+v", spec)
+	return 0, fmt.Errorf("unable to interpret ParallelismSpec %+v", spec)
 }
 
 // GetExpectedNumHashtrees computes the expected number of hashtrees that
