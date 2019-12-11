@@ -21,7 +21,7 @@ provider, or in our fully managed service, Pachyderm Hub.
           </a>
           </li>
           <li><a href="beginner_tutorial/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
-          Begginer Tutorial
+          Beginner Tutorial
           </a>
           <li><a href="https://hub.pachyderm.com" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
           Go to PacHub
