@@ -96,7 +96,7 @@ func BenchmarkRollingHash(b *testing.B) {
 		hash.Write(initialWindow)
 		for _, bt := range seq {
 			hash.Roll(bt)
-			if hash.Sum64()&splitMask == 0 {
+			if hash.Sum64()&splitMask == 0 { //lint:ignore SA9003 benchmark is simulating exact usecase
 			}
 		}
 	}

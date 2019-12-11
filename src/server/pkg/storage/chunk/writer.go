@@ -228,7 +228,7 @@ func updateAnnotations(chunkRef *DataRef, buf []byte, annotations []*Annotation)
 			a.NextDataRef.Chunk = chunkRef.Chunk
 			var data []byte
 			if i == len(annotations)-1 {
-				data = buf[a.Offset:len(buf)]
+				data = buf[a.Offset:]
 			} else {
 				data = buf[a.Offset:annotations[i+1].Offset]
 			}
