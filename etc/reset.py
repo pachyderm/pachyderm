@@ -68,7 +68,7 @@ class DockerDriver(DefaultDriver):
 
 class MinikubeDriver(DefaultDriver):
     def available(self):
-        return run("which", "minikube", raise_on_error=False).rc == 0
+        return run("which", "minikube", raise_on_error=False).returncode == 0
 
     def clear(self):
         run("minikube", "delete")
