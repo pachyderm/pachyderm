@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import os
-import re
 import sys
 import json
 import time
@@ -14,8 +13,6 @@ import urllib.request
 
 ETCD_IMAGE = "quay.io/coreos/etcd:v3.3.5"
 
-LOCAL_CONFIG_PATTERN = re.compile(r"^local(-\d+)?$")
-
 DELETABLE_RESOURCES = [
     "daemonsets",
     "replicasets",
@@ -26,8 +23,6 @@ DELETABLE_RESOURCES = [
     "pvc",
     "serviceaccounts",
     "secrets",
-    "clusterroles.rbac.authorization.k8s.io",
-    "clusterrolebindings.rbac.authorization.k8s.io",
 ]
 
 class ExcThread(threading.Thread):
@@ -61,6 +56,8 @@ class DefaultDriver:
 
     def clear(self):
         run("kubectl", "delete", ",".join(DELETABLE_RESOURCES), "--all")
+        run("kubectl", "delete", "clusterrole.rbac.authorization.k8s.io/pachyderm")
+        run("kubectl", "delete", "clusterrolebinding.rbac.authorization.k8s.io/pachyderm")
 
     def start(self):
         pass
@@ -69,10 +66,13 @@ class DefaultDriver:
         pass
 
     def set_config(self):
-        pass
+        kube_context = capture("kubectl", "config", "current-context").strip()
+        run("pachctl", "config", "set", "context", kube_context, "--kubernetes", kube_context, "--overwrite")
+        run("pachctl", "config", "set", "active-context", kube_context)
 
 class DockerDriver(DefaultDriver):
     def set_config(self):
+        super().set_config()
         run("pachctl", "config", "update", "context", "--pachd-address=localhost:30650")
 
 class MinikubeDriver(DefaultDriver):
@@ -96,6 +96,7 @@ class MinikubeDriver(DefaultDriver):
         run("./etc/kube/push-to-minikube.sh", dash_image)
 
     def set_config(self):
+        super().set_config()
         ip = capture("minikube", "ip")
         run("pachctl", "config", "update", "context", "--pachd-address={}".format(ip))
 
@@ -122,34 +123,7 @@ def capture(cmd, *args):
     return run(cmd, *args, capture_output=True).stdout
 
 def suppress(cmd, *args):
-    return run(cmd, *args, capture_output=True).returncode
-
-def rewrite_config():
-    print("Rewriting config")
-
-    keys = set([])
-
-    try:
-        with open(os.path.expanduser("~/.pachyderm/config.json"), "r") as f:
-            j = json.load(f)
-    except:
-        return
-        
-    v2 = j.get("v2")
-    if not v2:
-        return
-
-    contexts = v2["contexts"]
-
-    for k, v in contexts.items():
-        if LOCAL_CONFIG_PATTERN.fullmatch(k) and len(v) > 0:
-            keys.add(k)
-
-    for k in keys:
-        del contexts[k]
-
-    with open(os.path.expanduser("~/.pachyderm/config.json"), "w") as f:
-        json.dump(j, f, indent=2)
+    return run(cmd, *args, capture_output=True, raise_on_error=False).returncode
 
 def main():
     parser = argparse.ArgumentParser(description="Recompiles pachyderm tooling and restarts the cluster with a clean slate.")
@@ -190,9 +164,6 @@ def main():
             lambda: run("make", "install"),
             lambda: run("make", "docker-build"),
         ]
-
-        if args.deploy_to == "local" and not args.no_config_rewrite:
-            procs.append(rewrite_config)
 
         join(*procs)
     else:
@@ -235,8 +206,7 @@ def main():
         print("Waiting for pachyderm to come up...")
         time.sleep(1)
 
-    if args.deploy_to == "local" and not args.no_config_rewrite:
-        driver.set_config()
+    driver.set_config()
 
 if __name__ == "__main__":
     main()
