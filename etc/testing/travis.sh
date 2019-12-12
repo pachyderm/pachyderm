@@ -19,6 +19,9 @@ echo "Running test suite based on BUCKET=$BUCKET"
 
 make docker-build
 
+kind load docker-image pachyderm/pachd:local
+kind load docker-image pachyderm/worker:local
+
 # fix for docker build process messing with permissions
 sudo chown -R ${USER}:${USER} ${GOPATH}
 
