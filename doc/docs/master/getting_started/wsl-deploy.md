@@ -1,7 +1,11 @@
 # Deploy Pachyderm on a Microsoft Windows machine
 
 You can deploy Pachyderm locally on your Microsoft Windows computer to
-try out Pachyderm.
+try out Pachyderm. However, currently Pachyderm has limited support for
+Windows. This document provides guidelines that enable you to run Pachyderm
+on a Windows machine for preview. You might need to troubleshoot these
+instructions further to make this work. To test full functionality, we
+encourage you to run Pachyderm in a UNIX environment.
 
 ## Prerequisites
 
