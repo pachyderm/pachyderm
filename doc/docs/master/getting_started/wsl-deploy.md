@@ -88,11 +88,12 @@ WSL `/.kube/` directory:
 
 1. Change the following lines in the configuration file:
 
-   ```bash hl_lines=3 4"
-   - name: minikube
-     user:
-       client-certificate: C:\Users\User\.minikube\client.crt
-       client-key: C:\Users\User\.minikube\client.key
+   ```bash hl_lines="3 4 5"
+    users:
+    - name: minikube
+      user:
+         client-certificate: C:\Users\User\.minikube\client.crt
+         client-key: C:\Users\User\.minikube\client.key
    ```
 
    You need to change the path to the client key and certificate
@@ -109,7 +110,7 @@ WSL `/.kube/` directory:
 ## Install `pachctl`
 
 Get the latest version of `pachctl` by directly downloading it to your computer
-as described in [Install pachctl](#install-pachctl).
+as described in [Install pachctl](../local_installation/#install-pachctl).
 
 **Example:**
 
@@ -120,15 +121,9 @@ $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/do
 100   613    0   613    0     0   2043      0 --:--:-- --:--:-- --:--:--  2043
 100 25.9M  100 25.9M    0     0  10.0M      0  0:00:02  0:00:02 --:--:-- 13.0M
 ```
-```bash
-tar -xvf /tmp/pachctl.tar.gz -C /tmp && sudo cp /tmp/pachctl_1.9.9_linux_amd64/pachctl /usr/local/bin(Readi(Reading database ... 124118 files and directories currently installed.)
-Preparing to unpack /tmp/pachctl.deb ...
-Unpacking pachctl (1.9.9) ...
-Setting up pachctl (1.9.9) ...
-```
 
 ## Deploy Pachyderm
 
 After you complete all the steps above, start your Minikube VM by running
 `minikube start` and deploy Pachyderm in Ubuntu WSL by running
-`pachctl deploy local` as described in [Deploy Pachyderm](local_installation/#deploy-pachyderm).
+`pachctl deploy local` as described in [Deploy Pachyderm](../local_installation/#deploy-pachyderm).
