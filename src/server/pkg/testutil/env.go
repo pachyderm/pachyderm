@@ -293,7 +293,7 @@ func WithRealEnv(cb func(*RealEnv) error) error {
 			return err
 		}
 
-		txnEnv.Initialize(servEnv, realEnv.TransactionServer, realEnv.AuthServer, realEnv.PFSServer, txnenv.NewMockPpsTransactionServer())
+		txnEnv.Initialize(servEnv, realEnv.TransactionServer, realEnv.AuthServer, realEnv.PFSServer)
 
 		linkServers(&realEnv.MockPachd.Object, realEnv.PFSBlockServer)
 		linkServers(&realEnv.MockPachd.PFS, realEnv.PFSServer)
