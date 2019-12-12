@@ -13,14 +13,14 @@ kubectl version --client
 etcdctl --version
 
 minikube delete || true  # In case we get a recycled machine
-make launch-kube
+time make launch-kube
 sleep 5
 
 # Wait until a connection with kubernetes has been established
 echo "Waiting for connection to kubernetes..."
 max_t=90
 WHEEL='\|/-';
-until {
+time until {
   minikube status 2>&1 >/dev/null
   kubectl version 2>&1 >/dev/null
 }; do
@@ -40,7 +40,7 @@ kubectl version
 
 echo "Running test suite based on BUCKET=$BUCKET"
 
-make docker-build
+time make docker-build
 
 # fix for docker build process messing with permissions
 sudo chown -R ${USER}:${USER} ${GOPATH}
