@@ -6394,8 +6394,7 @@ func TestCronPipeline(t *testing.T) {
 		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", nil, "", pfs.CommitState_STARTED)
 		require.NoError(t, err)
 
-		// We'll look at three commits - with one created in each tick
-		// We expect the first commit to have 1 file, the second to have 2 files, etc...
+		// We expect to see three commits, despite the schedule being every hour, and the timeout 120 seconds
 		for i := 1; i <= 3; i++ {
 			commitInfo, err := iter.Next()
 			require.NoError(t, err)
@@ -6404,13 +6403,6 @@ func TestCronPipeline(t *testing.T) {
 			require.NoError(t, err)
 			commitInfos := collectCommitInfos(t, commitIter)
 			require.Equal(t, 2, len(commitInfos))
-
-			// for _, ci := range commitInfos {
-			// 	// files, err := c.ListFile(ci.Commit.Repo.Name, ci.Commit.ID, "")
-			// 	// require.NoError(t, err)
-			// 	// require.Equal(t, i, len(files))
-
-			// }
 		}
 	})
 }

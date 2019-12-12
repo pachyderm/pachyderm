@@ -554,6 +554,28 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	runPipeline.Flags().StringVar(&jobID, "job", "", "rerun the given job")
 	commands = append(commands, cmdutil.CreateAlias(runPipeline, "run pipeline"))
 
+	runCron := &cobra.Command{
+		Use:   "{{alias}} <pipeline>",
+		Short: "Run an existing Pachyderm cron pipeline now",
+		Long:  "Run an existing Pachyderm cron pipeline now",
+		Example: `
+		# Run a cron pipeline "clock" now
+		$ {{alias}} clock`,
+		Run: cmdutil.RunMinimumArgs(1, func(args []string) (retErr error) {
+			client, err := pachdclient.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+			err = client.RunCron(args[0])
+			if err != nil {
+				return err
+			}
+			return nil
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(runCron, "run cron"))
+
 	inspectPipeline := &cobra.Command{
 		Use:   "{{alias}} <pipeline>",
 		Short: "Return info about a pipeline.",
