@@ -39,7 +39,7 @@ fi
 if [ ! -f ~/cached-deps/kind ] ; then
     curl -Lo kind https://github.com/kubernetes-sigs/kind/releases/download/v0.6.1/kind-linux-amd64 && \
     chmod +x kind && \
-    mv ./kind cached-deps/kind
+    mv ./kind ~/cached-deps/kind
 fi
 
 # Install vault
