@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 
 import os
-import sys
+import re
 import json
 import time
-import select
-import shutil
 import argparse
 import threading
 import subprocess
-import urllib.request
 
 ETCD_IMAGE = "quay.io/coreos/etcd:v3.3.5"
 
@@ -24,6 +21,8 @@ DELETABLE_RESOURCES = [
     "serviceaccounts",
     "secrets",
 ]
+
+NEWLINE_SEPARATE_OBJECTS_PATTERN = re.compile(r"\}\n+\{", re.MULTILINE)
 
 class ExcThread(threading.Thread):
     def __init__(self, target):
@@ -55,14 +54,14 @@ class DefaultDriver:
         return True
 
     def clear(self):
-        run("kubectl", "delete", ",".join(DELETABLE_RESOURCES), "--all")
-        run("kubectl", "delete", "clusterrole.rbac.authorization.k8s.io/pachyderm")
-        run("kubectl", "delete", "clusterrolebinding.rbac.authorization.k8s.io/pachyderm")
+        run("kubectl", "delete", ",".join(DELETABLE_RESOURCES), "--all", raise_on_error=False)
+        run("kubectl", "delete", "clusterrole.rbac.authorization.k8s.io/pachyderm", raise_on_error=False)
+        run("kubectl", "delete", "clusterrolebinding.rbac.authorization.k8s.io/pachyderm", raise_on_error=False)
 
     def start(self):
         pass
 
-    def push_images(self, deploy_version, dash_image):
+    def push_images(self, dash_image):
         pass
 
     def set_config(self):
@@ -85,13 +84,13 @@ class MinikubeDriver(DefaultDriver):
     def start(self):
         run("minikube", "start")
 
-        while suppress("minikube", "status") != 0:
+        while run("minikube", "status", raise_on_error=False).returncode != 0:
             print("Waiting for minikube to come up...")
             time.sleep(1)
 
-    def push_images(self, deploy_version, dash_image):
-        run("./etc/kube/push-to-minikube.sh", "pachyderm/pachd:{}".format(deploy_version))
-        run("./etc/kube/push-to-minikube.sh", "pachyderm/worker:{}".format(deploy_version))
+    def push_images(self, dash_image):
+        run("./etc/kube/push-to-minikube.sh", "pachyderm/pachd:local")
+        run("./etc/kube/push-to-minikube.sh", "pachyderm/worker:local")
         run("./etc/kube/push-to-minikube.sh", ETCD_IMAGE)
         run("./etc/kube/push-to-minikube.sh", dash_image)
 
@@ -116,21 +115,20 @@ def find_in_json(j, f):
             if v is not None:
                 return v
 
+def print_status(status):
+    print("===> {}".format(status))
+
 def run(cmd, *args, raise_on_error=True, stdin=None, capture_output=False):
-    return subprocess.run([cmd, *args], check=raise_on_error, capture_output=capture_output, input=stdin, encoding="utf8")
+    all_args = [cmd, *args]
+    print_status(" ".join(all_args))
+    return subprocess.run(all_args, check=raise_on_error, capture_output=capture_output, input=stdin, encoding="utf8")
 
 def capture(cmd, *args):
     return run(cmd, *args, capture_output=True).stdout
 
-def suppress(cmd, *args):
-    return run(cmd, *args, capture_output=True, raise_on_error=False).returncode
-
 def main():
     parser = argparse.ArgumentParser(description="Recompiles pachyderm tooling and restarts the cluster with a clean slate.")
-    parser.add_argument("--no-config-rewrite", default=False, action="store_true", help="Disables config rewriting")
-    parser.add_argument("--deploy-args", default="", help="Arguments to be passed into `pachctl deploy`")
-    parser.add_argument("--deploy-to", default="local", help="Set where to deploy")
-    parser.add_argument("--deploy-version", default="head", help="Sets the deployment version")
+    parser.add_argument("--args", default="", help="Arguments to be passed into `pachctl deploy`")
     args = parser.parse_args()
 
     if "GOPATH" not in os.environ:
@@ -138,75 +136,45 @@ def main():
     if "PACH_CA_CERTS" in os.environ:
         raise Exception("Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS")
 
-    if args.deploy_to == "local":
-        if MinikubeDriver().available():
-            print("using the minikube driver")
-            driver = MinikubeDriver()
-        else:
-            print("using the k8s for docker driver")
-            driver = DockerDriver()
+    if MinikubeDriver().available():
+        print_status("using the minikube driver")
+        driver = MinikubeDriver()
     else:
-        print("using the default driver")
-        driver = DefaultDriver()
+        print_status("using the k8s for docker driver")
+        driver = DockerDriver()
 
     driver.clear()
 
-    gopath = os.environ["GOPATH"]
+    bin_path = os.path.join(os.environ["GOPATH"], "bin", "pachctl")
 
-    if args.deploy_version == "head":
-        try:
-            os.remove(os.path.join(gopath, "bin", "pachctl"))
-        except:
-            pass
+    if os.path.exists(bin_path):
+        os.remove(bin_path)
 
-        procs = [
-            driver.start,
-            lambda: run("make", "install"),
-            lambda: run("make", "docker-build"),
-        ]
-
-        join(*procs)
-    else:
-        should_download = suppress("which", "pachctl") != 0 \
-            or capture("pachctl", "version", "--client-only") != args.deploy_version
-
-        if should_download:
-            release_url = "https://github.com/pachyderm/pachyderm/releases/download/v{}/pachctl_{}_{}_amd64.tar.gz".format(args.deploy_version, args.deploy_version, sys.platform)
-            bin_path = os.path.join(os.environ["GOPATH"], "bin")
-
-            with urllib.request.urlopen(release_url) as response:
-                with gzip.GzipFile(fileobj=response) as uncompressed:
-                    with open(bin_path, "wb") as f:
-                        shutil.copyfileobj(uncompressed, f)
-
-        run("docker", "pull", "pachyderm/pachd:{}".format(args.deploy_version))
-        run("docker", "pull", "pachyderm/worker:{}".format(args.deploy_version))
-
+    join(
+        driver.start,
+        lambda: run("make", "install"),
+        lambda: run("make", "docker-build"),
+    )
+    
     version = capture("pachctl", "version", "--client-only")
-    print("Deploy pachyderm version v{}".format(version))
-
-    run("which", "pachctl")
+    print_status("Deploy pachyderm version v{}".format(version))
 
     deployments_str = capture("pachctl", "deploy", "local", "-d", "--dry-run")
-    if args.deploy_to != "local":
-        deployments_str = deployments_str.replace("local", args.deploy_to)
-    deployments_json = json.loads("[{}]".format(deployments_str.replace("}\n{", "},{")))
-
+    deployments_json = json.loads("[{}]".format(NEWLINE_SEPARATE_OBJECTS_PATTERN.sub("},{", deployments_str)))
     dash_image = find_in_json(deployments_json, lambda j: isinstance(j, dict) and j.get("name") == "dash" and j.get("image") is not None)["image"]
     grpc_proxy_image = find_in_json(deployments_json, lambda j: isinstance(j, dict) and j.get("name") == "grpc-proxy")["image"]
 
     run("docker", "pull", dash_image)
     run("docker", "pull", grpc_proxy_image)
     run("docker", "pull", ETCD_IMAGE)
-    driver.push_images(args.deploy_version, dash_image)
+    driver.push_images(dash_image)
 
     run("kubectl", "create", "-f", "-", stdin=deployments_str)
-
-    while suppress("pachctl", "version") != 0:
-        print("Waiting for pachyderm to come up...")
-        time.sleep(1)
-
     driver.set_config()
+
+    while run("pachctl", "version", raise_on_error=False).returncode:
+        print_status("Waiting for pachyderm to come up...")
+        time.sleep(1)
 
 if __name__ == "__main__":
     main()
