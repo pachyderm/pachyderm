@@ -17,6 +17,11 @@ export KUBECONFIG="$(kind get kubeconfig-path)"
 
 echo "Running test suite based on BUCKET=$BUCKET"
 
+#build pachctl
+time make install
+
+ls $HOME/.cache/go-build
+
 time make docker-build
 
 kind load docker-image pachyderm/pachd:local
