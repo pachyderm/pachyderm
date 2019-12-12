@@ -355,27 +355,20 @@ func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress,
 	return nil, options, nil
 }
 
-func portForwarder() (*PortForwarder, error) {
+func portForwarder() (*PortForwarder, uint16, error) {
 	log.Debugln("Attempting to implicitly enable port forwarding...")
 
 	fw, err := NewPortForwarder("")
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize port forwarder: %v", err)
-	}
-	if err = fw.Lock(); err != nil {
-		// TODO(ys): verify explicit port forwarding is referencing the right context
-		log.Infof("Implicit port forwarding was not enabled because the pidfile could not be written to. Most likely this means that port forwarding is running in another instance of `pachctl`: %v", err)
-		return nil, nil
+		return nil, 0, fmt.Errorf("failed to initialize port forwarder: %v", err)
 	}
 
-	if err = fw.RunForDaemon(0, 0); err != nil {
-		return nil, fmt.Errorf("port forwarding for the daemon failed: %v", err)
-	}
-	if err = fw.RunForSAMLACS(0); err != nil {
-		return nil, fmt.Errorf("port forwarding for SAML ACS failed: %v", err)
+	port, err := fw.RunForDaemon(0, 650)
+	if err != nil {
+		return nil, 0, err
 	}
 
-	return fw, nil
+	return fw, port, nil
 }
 
 // NewForTest constructs a new APIClient for tests.
@@ -424,17 +417,22 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 	}
 
 	// create new pachctl client
-	var fw *PortForwarder
 	pachdAddress, cfgOptions, err := getUserMachineAddrAndOpts(context)
 	if err != nil {
 		return nil, err
 	}
 
+	var fw *PortForwarder
 	if pachdAddress == nil {
-		pachdAddress = &grpcutil.DefaultPachdAddress
-		fw, err = portForwarder()
+		var pachdLocalPort uint16
+		fw, pachdLocalPort, err = portForwarder()
 		if err != nil {
 			return nil, err
+		}
+		pachdAddress = &grpcutil.PachdAddress{
+			Secured: false,
+			Host:    "localhost",
+			Port:    pachdLocalPort,
 		}
 	}
 
