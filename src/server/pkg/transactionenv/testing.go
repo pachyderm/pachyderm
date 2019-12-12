@@ -5,6 +5,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pps"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 )
 
@@ -117,4 +118,18 @@ func (mpts *MockPfsTransactionServer) CreateBranchInTransaction(*TransactionCont
 // DeleteBranchInTransaction always errors
 func (mpts *MockPfsTransactionServer) DeleteBranchInTransaction(*TransactionContext, *pfs.DeleteBranchRequest) error {
 	return unimplementedError("PfsTransactionServer.DeleteBranchInTransaction")
+}
+
+// MockPpsTransactionServer is a simple mock that can be used to satisfy the
+// PpsTransactionServer interface
+type MockPpsTransactionServer struct{}
+
+// NewMockPpsTransactionServer instantiates a MockPpsTransactionServer
+func NewMockPpsTransactionServer() *MockPpsTransactionServer {
+	return &MockPpsTransactionServer{}
+}
+
+// UpdateJobStateInTransaction always errors
+func (mpts *MockPpsTransactionServer) UpdateJobStateInTransaction(*TransactionContext, *pps.UpdateJobStateRequest) error {
+	return unimplementedError("PpsTransactionServer.UpdateJobStateInTransaction")
 }
