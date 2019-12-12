@@ -355,30 +355,27 @@ func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress,
 	return nil, options, nil
 }
 
-func portForwarder() *PortForwarder {
+func portForwarder() (*PortForwarder, error) {
 	log.Debugln("Attempting to implicitly enable port forwarding...")
 
-	// NOTE: this will always use the default namespace; if a custom
-	// namespace is required with port forwarding,
-	// `pachctl port-forward` should be explicitly called.
 	fw, err := NewPortForwarder("")
 	if err != nil {
-		log.Infof("Implicit port forwarding was not enabled because the kubernetes config could not be read: %v", err)
-		return nil
+		return nil, fmt.Errorf("failed to initialize port forwarder: %v", err)
 	}
 	if err = fw.Lock(); err != nil {
+		// TODO(ys): verify explicit port forwarding is referencing the right context
 		log.Infof("Implicit port forwarding was not enabled because the pidfile could not be written to. Most likely this means that port forwarding is running in another instance of `pachctl`: %v", err)
-		return nil
+		return nil, nil
 	}
 
 	if err = fw.RunForDaemon(0, 0); err != nil {
-		log.Debugf("Implicit port forwarding for the daemon failed: %v", err)
+		return nil, fmt.Errorf("port forwarding for the daemon failed: %v", err)
 	}
 	if err = fw.RunForSAMLACS(0); err != nil {
-		log.Debugf("Implicit port forwarding for SAML ACS failed: %v", err)
+		return nil, fmt.Errorf("port forwarding for SAML ACS failed: %v", err)
 	}
 
-	return fw
+	return fw, nil
 }
 
 // NewForTest constructs a new APIClient for tests.
@@ -432,9 +429,13 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if pachdAddress == nil {
 		pachdAddress = &grpcutil.DefaultPachdAddress
-		fw = portForwarder()
+		fw, err = portForwarder()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	client, err := NewFromAddress(pachdAddress.Hostname(), append(options, cfgOptions...)...)
