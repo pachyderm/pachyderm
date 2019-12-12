@@ -12,31 +12,8 @@ set -ex
 kubectl version --client
 etcdctl --version
 
-minikube delete || true  # In case we get a recycled machine
-make launch-kube
-sleep 5
-
-# Wait until a connection with kubernetes has been established
-echo "Waiting for connection to kubernetes..."
-max_t=90
-WHEEL='\|/-';
-until {
-  minikube status 2>&1 >/dev/null
-  kubectl version 2>&1 >/dev/null
-}; do
-    if ((max_t-- <= 0)); then
-        echo "Could not connect to minikube"
-        echo "minikube status --alsologtostderr --loglevel=0 -v9:"
-        echo "==================================================="
-        minikube status --alsologtostderr --loglevel=0 -v9
-        exit 1
-    fi
-    echo -en "\e[G$${WHEEL:0:1}";
-    WHEEL="$${WHEEL:1}$${WHEEL:0:1}";
-    sleep 1;
-done
-minikube status
-kubectl version
+kind create cluster
+export KUBECONFIG="$(kind get kubeconfig-path)"
 
 echo "Running test suite based on BUCKET=$BUCKET"
 
@@ -45,14 +22,10 @@ make docker-build
 # fix for docker build process messing with permissions
 sudo chown -R ${USER}:${USER} ${GOPATH}
 
-for i in $(seq 3); do
-    make clean-launch-dev || true # may be nothing to delete
-    make launch-dev && break
-    (( i < 3 )) # false if this is the last loop (causes exit)
-    sleep 10
-done
+kubectl apply -f pachconfig.yaml
+until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
 
-pachctl config update context `pachctl config get active-context` --pachd-address=$(minikube ip):30650
+pachctl config update context `pachctl config get active-context` --pachd-address=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane):30650
 
 function test_bucket {
     set +x

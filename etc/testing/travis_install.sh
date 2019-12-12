@@ -36,14 +36,10 @@ if [ ! -f ~/cached-deps/kubectl ] ; then
         mv ./kubectl ~/cached-deps/kubectl
 fi
 
-# Install minikube
-# To get the latest minikube version:
-# curl https://api.github.com/repos/kubernetes/minikube/releases | jq -r .[].tag_name | sort | tail -n1
-if [ ! -f ~/cached-deps/minikube ] ; then
-    MINIKUBE_VERSION=v0.31.0
-    curl -L -o minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VERSION}/minikube-linux-amd64 && \
-        chmod +x ./minikube && \
-        mv ./minikube ~/cached-deps/minikube
+if [ ! -f ~/cached-deps/kind ] ; then
+    curl -Lo kind https://github.com/kubernetes-sigs/kind/releases/download/v0.6.1/kind-linux-amd64 && \
+    chmod +x kind && \
+    mv kind cached-deps/kind
 fi
 
 # Install vault
