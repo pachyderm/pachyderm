@@ -45,7 +45,7 @@ time make docker-build
 # fix for docker build process messing with permissions
 sudo chown -R ${USER}:${USER} ${GOPATH}
 
-for i in $(seq 3); do
+time for i in $(seq 3); do
     make clean-launch-dev || true # may be nothing to delete
     make launch-dev && break
     (( i < 3 )) # false if this is the last loop (causes exit)
