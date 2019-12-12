@@ -368,6 +368,8 @@ func portForwarder() (*PortForwarder, uint16, error) {
 		return nil, 0, err
 	}
 
+	log.Debugf("Implicit port forwarder listening on port %d", port)
+
 	return fw, port, nil
 }
 
