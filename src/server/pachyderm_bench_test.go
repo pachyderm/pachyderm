@@ -76,23 +76,25 @@ func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, l
 	require.NoError(b, err)
 	if !b.Run(fmt.Sprintf("Put%dFiles", fileNum), func(b *testing.B) {
 		var totalBytes int64
-		var eg errgroup.Group
-		zipf := rand.NewZipf(r, 1.05, 1, maxSize-minSize)
-		for k := 0; k < fileNum; k++ {
-			k := k
-			fileSize := int64(zipf.Uint64() + minSize)
-			totalBytes += fileSize
-			eg.Go(func() error {
-				var err error
-				if k%10 == 0 {
-					_, err = c.PutFile(repo, commit.ID, fmt.Sprintf("dir/file%d", k), workload.NewReader(r, fileSize))
-				} else {
-					_, err = c.PutFile(repo, commit.ID, fmt.Sprintf("file%d", k), workload.NewReader(r, fileSize))
-				}
-				return err
-			})
+		for i := 0; i < b.N; i++ {
+			var eg errgroup.Group
+			zipf := rand.NewZipf(r, 1.05, 1, maxSize-minSize)
+			for k := 0; k < fileNum; k++ {
+				k := k
+				fileSize := int64(zipf.Uint64() + minSize)
+				totalBytes += fileSize
+				eg.Go(func() error {
+					var err error
+					if k%10 == 0 {
+						_, err = c.PutFile(repo, commit.ID, fmt.Sprintf("dir/file%d", k), workload.NewReader(r, fileSize))
+					} else {
+						_, err = c.PutFile(repo, commit.ID, fmt.Sprintf("file%d", k), workload.NewReader(r, fileSize))
+					}
+					return err
+				})
+			}
+			require.NoError(b, eg.Wait())
 		}
-		require.NoError(b, eg.Wait())
 		b.SetBytes(totalBytes)
 	}) {
 		return
@@ -100,48 +102,56 @@ func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, l
 	require.NoError(b, c.FinishCommit(repo, commit.ID))
 
 	if !b.Run(fmt.Sprintf("Get%dFiles", fileNum), func(b *testing.B) {
-		w := &countWriter{}
-		var eg errgroup.Group
-		for k := 0; k < fileNum; k++ {
-			k := k
-			eg.Go(func() error {
-				if k%10 == 0 {
-					return c.GetFile(repo, commit.ID, fmt.Sprintf("dir/file%d", k), 0, 0, w)
-				}
-				return c.GetFile(repo, commit.ID, fmt.Sprintf("file%d", k), 0, 0, w)
-			})
+		var totalBytes int64
+		for i := 0; i < b.N; i++ {
+			w := &countWriter{}
+			var eg errgroup.Group
+			for k := 0; k < fileNum; k++ {
+				k := k
+				eg.Go(func() error {
+					if k%10 == 0 {
+						return c.GetFile(repo, commit.ID, fmt.Sprintf("dir/file%d", k), 0, 0, w)
+					}
+					return c.GetFile(repo, commit.ID, fmt.Sprintf("file%d", k), 0, 0, w)
+				})
+			}
+			require.NoError(b, eg.Wait())
+			totalBytes += w.count
 		}
-		require.NoError(b, eg.Wait())
-		defer func() { b.SetBytes(w.count) }()
+		b.SetBytes(totalBytes)
 	}) {
 		return
 	}
 
 	if !b.Run(fmt.Sprintf("PipelineCopy%dFiles", fileNum), func(b *testing.B) {
-		pipeline := tu.UniqueString("BenchmarkFilesPipeline")
-		require.NoError(b, c.CreatePipeline(
-			pipeline,
-			"",
-			[]string{"bash"},
-			[]string{fmt.Sprintf("cp -R %s /pfs/out/", path.Join("/pfs", repo, "/*"))},
-			&pps.ParallelismSpec{
-				Constant: 4,
-			},
-			client.NewPFSInput(repo, "/*"),
-			"",
-			false,
-		))
-		commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(repo, commit.ID)}, nil)
-		require.NoError(b, err)
-		_, err = commitIter.Next()
-		require.NoError(b, err)
-		b.StopTimer()
-		inputRepoInfo, err := c.InspectRepo(repo)
-		require.NoError(b, err)
-		outputRepoInfo, err := c.InspectRepo(pipeline)
-		require.NoError(b, err)
-		require.Equal(b, inputRepoInfo.SizeBytes, outputRepoInfo.SizeBytes)
-		b.SetBytes(int64(inputRepoInfo.SizeBytes + outputRepoInfo.SizeBytes))
+		var totalBytes int64
+		for i := 0; i < b.N; i++ {
+			pipeline := tu.UniqueString("BenchmarkFilesPipeline")
+			require.NoError(b, c.CreatePipeline(
+				pipeline,
+				"",
+				[]string{"bash"},
+				[]string{fmt.Sprintf("cp -R %s /pfs/out/", path.Join("/pfs", repo, "/*"))},
+				&pps.ParallelismSpec{
+					Constant: 4,
+				},
+				client.NewPFSInput(repo, "/*"),
+				"",
+				false,
+			))
+			commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(repo, commit.ID)}, nil)
+			require.NoError(b, err)
+			_, err = commitIter.Next()
+			require.NoError(b, err)
+			b.StopTimer()
+			inputRepoInfo, err := c.InspectRepo(repo)
+			require.NoError(b, err)
+			outputRepoInfo, err := c.InspectRepo(pipeline)
+			require.NoError(b, err)
+			require.Equal(b, inputRepoInfo.SizeBytes, outputRepoInfo.SizeBytes)
+			totalBytes += int64(inputRepoInfo.SizeBytes + outputRepoInfo.SizeBytes)
+		}
+		b.SetBytes(totalBytes)
 	}) {
 		return
 	}
@@ -195,7 +205,7 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 
 	var lastIndex int
 	// addInputCommit adds an input commit to the data repo
-	addInputCommit := func(b *testing.B) *pfs.Commit {
+	addInputCommit := func(b *testing.B) (*pfs.Commit, int64) {
 		commit, err := c.StartCommit(dataRepo, "master")
 		require.NoError(b, err)
 		var totalSize int64
@@ -264,122 +274,146 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 		fmt.Println("Finished commit")
 		commitInfo, err := c.InspectCommit(dataRepo, commit.ID)
 		require.NoError(b, err)
-		b.SetBytes(int64(commitInfo.SizeBytes))
-		return commit
+		return commit, int64(commitInfo.SizeBytes)
 	}
 
 	var commit *pfs.Commit
 	if !b.Run(fmt.Sprintf("Put%dTarballs", numTarballs), func(b *testing.B) {
-		commit = addInputCommit(b)
+		var totalBytes int64
+		for i := 0; i < b.N; i++ {
+			var opBytes int64
+			commit, opBytes = addInputCommit(b)
+			totalBytes += opBytes
+		}
+		b.SetBytes(totalBytes)
 	}) {
 		return
 	}
 
 	pipelineOne := tu.UniqueString("BenchmarkDataShuffleStageOne")
 	if !b.Run(fmt.Sprintf("Extract%dTarballsInto%dFiles", numTarballs, numTotalFiles), func(b *testing.B) {
-		require.NoError(b, c.CreatePipeline(
-			pipelineOne,
-			"",
-			[]string{"bash"},
-			[]string{
-				fmt.Sprintf("for f in /pfs/%s/*.tar.gz; do", dataRepo),
-				"  echo \"going to untar $f\"",
-				"  tar xzf \"$f\" -C /pfs/out",
-				"done",
-			},
-			&pps.ParallelismSpec{
-				Constant: 4,
-			},
-			client.NewPFSInput(dataRepo, "/*"),
-			"",
-			false,
-		))
-		commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
-		require.NoError(b, err)
-		collectCommitInfos(b, commitIter)
-		b.StopTimer()
-		outputRepoInfo, err := c.InspectRepo(pipelineOne)
-		require.NoError(b, err)
-		b.SetBytes(int64(outputRepoInfo.SizeBytes))
+		var totalBytes int64
+		for i := 0; i < b.N; i++ {
+			require.NoError(b, c.CreatePipeline(
+				pipelineOne,
+				"",
+				[]string{"bash"},
+				[]string{
+					fmt.Sprintf("for f in /pfs/%s/*.tar.gz; do", dataRepo),
+					"  echo \"going to untar $f\"",
+					"  tar xzf \"$f\" -C /pfs/out",
+					"done",
+				},
+				&pps.ParallelismSpec{
+					Constant: 4,
+				},
+				client.NewPFSInput(dataRepo, "/*"),
+				"",
+				false,
+			))
+			commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
+			require.NoError(b, err)
+			collectCommitInfos(b, commitIter)
+			b.StopTimer()
+			outputRepoInfo, err := c.InspectRepo(pipelineOne)
+			require.NoError(b, err)
+			totalBytes += int64(outputRepoInfo.SizeBytes)
+		}
+		b.SetBytes(totalBytes)
 	}) {
 		return
 	}
 
 	pipelineTwo := tu.UniqueString("BenchmarkDataShuffleStageTwo")
 	if !b.Run(fmt.Sprintf("Processing%dFiles", numTotalFiles), func(b *testing.B) {
-		require.NoError(b, c.CreatePipeline(
-			pipelineTwo,
-			"",
-			[]string{"bash"},
-			// This script computes the checksum for each file (to exercise
-			// CPU) and groups files into directories named after the first
-			// letter of the filename.
-			[]string{
-				fmt.Sprintf("for i in /pfs/%s/*; do", pipelineOne),
-				"    cksum $i",
-				"    FILE=$(basename \"$i\")",
-				"    LTR=$(echo \"${FILE:0:1}\")",
-				"	 mkdir -p /pfs/out/$LTR",
-				"    mv \"$i\" \"/pfs/out/$LTR/$FILE\"",
-				"done",
-			},
-			&pps.ParallelismSpec{
-				Constant: 4,
-			},
-			client.NewPFSInput(pipelineOne, "/*"),
-			"",
-			false,
-		))
-		commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
-		require.NoError(b, err)
-		collectCommitInfos(b, commitIter)
-		b.StopTimer()
-		outputRepoInfo, err := c.InspectRepo(pipelineTwo)
-		require.NoError(b, err)
-		b.SetBytes(int64(outputRepoInfo.SizeBytes))
+		var totalBytes int64
+		for i := 0; i < b.N; i++ {
+			require.NoError(b, c.CreatePipeline(
+				pipelineTwo,
+				"",
+				[]string{"bash"},
+				// This script computes the checksum for each file (to exercise
+				// CPU) and groups files into directories named after the first
+				// letter of the filename.
+				[]string{
+					fmt.Sprintf("for i in /pfs/%s/*; do", pipelineOne),
+					"    cksum $i",
+					"    FILE=$(basename \"$i\")",
+					"    LTR=$(echo \"${FILE:0:1}\")",
+					"	 mkdir -p /pfs/out/$LTR",
+					"    mv \"$i\" \"/pfs/out/$LTR/$FILE\"",
+					"done",
+				},
+				&pps.ParallelismSpec{
+					Constant: 4,
+				},
+				client.NewPFSInput(pipelineOne, "/*"),
+				"",
+				false,
+			))
+			commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
+			require.NoError(b, err)
+			collectCommitInfos(b, commitIter)
+			b.StopTimer()
+			outputRepoInfo, err := c.InspectRepo(pipelineTwo)
+			require.NoError(b, err)
+			totalBytes += int64(outputRepoInfo.SizeBytes)
+		}
+		b.SetBytes(totalBytes)
 	}) {
 		return
 	}
 
 	pipelineThree := tu.UniqueString("BenchmarkDataShuffleStageThree")
 	if !b.Run(fmt.Sprintf("Compressing26DirectoriesWith%dFilesInto26Tarballs", numTotalFiles), func(b *testing.B) {
-		require.NoError(b, c.CreatePipeline(
-			pipelineThree,
-			"",
-			[]string{"bash"},
-			// This script computes the checksum for each file (to exercise
-			// CPU) and groups files into directories named after the first
-			// letter of the filename.
-			[]string{
-				fmt.Sprintf("for i in /pfs/%s/*; do", pipelineTwo),
-				"    DIR=$(basename \"$i\")",
-				"    tar czf /pfs/out/$DIR.tar.gz $i",
-				"done",
-			},
-			&pps.ParallelismSpec{
-				Constant: 4,
-			},
-			client.NewPFSInput(pipelineTwo, "/*"),
-			"",
-			false,
-		))
-		commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
-		require.NoError(b, err)
-		collectCommitInfos(b, commitIter)
-		b.StopTimer()
-		outputRepoInfo, err := c.InspectRepo(pipelineTwo)
-		require.NoError(b, err)
-		b.SetBytes(int64(outputRepoInfo.SizeBytes))
+		var totalBytes int64
+		for i := 0; i < b.N; i++ {
+			require.NoError(b, c.CreatePipeline(
+				pipelineThree,
+				"",
+				[]string{"bash"},
+				// This script computes the checksum for each file (to exercise
+				// CPU) and groups files into directories named after the first
+				// letter of the filename.
+				[]string{
+					fmt.Sprintf("for i in /pfs/%s/*; do", pipelineTwo),
+					"    DIR=$(basename \"$i\")",
+					"    tar czf /pfs/out/$DIR.tar.gz $i",
+					"done",
+				},
+				&pps.ParallelismSpec{
+					Constant: 4,
+				},
+				client.NewPFSInput(pipelineTwo, "/*"),
+				"",
+				false,
+			))
+			commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
+			require.NoError(b, err)
+			collectCommitInfos(b, commitIter)
+			b.StopTimer()
+			outputRepoInfo, err := c.InspectRepo(pipelineTwo)
+			require.NoError(b, err)
+			totalBytes += int64(outputRepoInfo.SizeBytes)
+		}
+		b.SetBytes(totalBytes)
 	}) {
 		return
 	}
 
 	for i := 0; i < round; i++ {
 		if !b.Run(fmt.Sprintf("RunPipelinesEndToEnd-Round%d", i), func(b *testing.B) {
-			commit := addInputCommit(b)
-			commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
-			require.NoError(b, err)
-			collectCommitInfos(b, commitIter)
+			var totalBytes int64
+			for i := 0; i < b.N; i++ {
+				commit, opBytes := addInputCommit(b)
+				totalBytes += opBytes
+				cis, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
+				require.NoError(b, err)
+				for _, ci := range cis {
+					totalBytes += int64(ci.SizeBytes)
+				}
+			}
+			b.SetBytes(totalBytes)
 		}) {
 			return
 		}

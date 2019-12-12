@@ -376,7 +376,7 @@ func convert1_8Op(op *admin.Op1_8) (*admin.Op1_9, error) {
 			},
 		}, nil
 	default:
-		return nil, fmt.Errorf("unrecognized 1.7 op type:\n%+v", op)
+		return nil, fmt.Errorf("unrecognized 1.8 op type:\n%+v", op)
 	}
 	return nil, fmt.Errorf("internal error: convert1_8Op() didn't return a 1.9 op for:\n%+v", op)
 }

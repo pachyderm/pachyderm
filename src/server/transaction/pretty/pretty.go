@@ -65,7 +65,7 @@ func sprintDeleteRepo(request *pfs.DeleteRepoRequest) string {
 		force = " --force"
 	}
 	if request.All {
-		return fmt.Sprintf("delete repo --all")
+		return fmt.Sprintf("delete repo --all%s", force)
 	}
 	return fmt.Sprintf("delete repo %s %s", request.Repo.Name, force)
 }
