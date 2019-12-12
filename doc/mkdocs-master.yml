@@ -102,6 +102,7 @@ nav:
     - Getting Started:
         - Overview: getting_started/index.md
         - getting_started/local_installation.md
+        - getting_started/wsl-deploy.md
         - getting_started/beginner_tutorial.md
     - Concepts:
         - Overview: concepts/index.md
