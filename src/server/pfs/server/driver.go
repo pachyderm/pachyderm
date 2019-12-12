@@ -152,6 +152,13 @@ func newDriver(
 		// Allow up to a third of the requested memory to be used for memory intensive operations
 		memoryLimiter: semaphore.NewWeighted(memoryRequest / 3),
 	}
+	// Create empty hashtree in cache for empty commits and parentless commits
+	t, err := hashtree.NewDBHashTree(d.storageRoot)
+	if err != nil {
+		return nil, err
+	}
+	d.treeCache.Add("", t)
+
 	// Create spec repo (default repo)
 	repo := client.NewRepo(ppsconsts.SpecRepo)
 	repoInfo := &pfs.RepoInfo{
@@ -3294,13 +3301,7 @@ func (d *driver) getEmptyTree() (hashtree.HashTree, error) {
 		return nil, fmt.Errorf("corrupted cache: expected hashtree.Hashtree, found %v", tree)
 	}
 
-	t, err := hashtree.NewDBHashTree(d.storageRoot)
-	if err != nil {
-		return nil, err
-	}
-
-	d.treeCache.Add("", t)
-	return t, nil
+	return nil, fmt.Errorf("corrupted cache: empty hashtree is missing")
 }
 
 func (d *driver) getTreeForCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Commit) (hashtree.HashTree, error) {

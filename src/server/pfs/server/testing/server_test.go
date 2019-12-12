@@ -5818,7 +5818,8 @@ func monkeyRetry(t *testing.T, f func() error, errMsg string) {
 }
 
 func TestMonkeyObjectStorage(t *testing.T) {
-	t.Parallel()
+	// This test cannot be done in parallel because the monkey object client
+	// modifies global state.
 	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
 		seed := time.Now().UTC().UnixNano()
 		obj.InitMonkeyTest(seed)

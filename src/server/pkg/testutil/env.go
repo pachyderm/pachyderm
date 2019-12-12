@@ -83,6 +83,7 @@ func WithEnv(cb func(*Env) error) (err error) {
 
 	etcdConfig := embed.NewConfig()
 	etcdConfig.LogOutput = "default"
+	etcdConfig.MaxTxnOps = 10000
 
 	// Create test dirs for etcd data
 	etcdConfig.Dir = path.Join(env.Directory, "etcd_data")
