@@ -1,7 +1,7 @@
 # Local Installation
 
 This guide walks you through the steps to install Pachyderm
-on macOS®, Linux®, or Windows®. Local installation helps you to learn
+on macOS®, Linux®, or Microsoft® Windows®. Local installation helps you to learn
 some of the Pachyderm basics and is not designed to be a production
 environment.
 
@@ -19,13 +19,9 @@ programs installed on your computer:
 - Oracle® VirtualBox™ or [Docker Desktop (v18.06+)](#docker-desktop)
 - [Pachyderm Command Line Interface](#install-pachctl)
 
-If you install Pachyderm on Windows 10 or later, you must have the following
-components installed in addition to the ones listed above:
+If you want to install Pachyderm on Windows, follow the instructions in
+[Deploy Pachyderm on Windows](wsl-deploy.md).
 
-- [Windows Subsystem for Linux (WSL)](https://docs.microsoft.com/en-us/windows/wsl/install-win10)
-
-!!! note
-    For a Windows installation, use Minikube.
 
 ### Using Minikube
 
@@ -36,7 +32,8 @@ the Beginner Tutorial.
 
 To configure Minikube, follow these steps:
 
-1. Install minikube and VirtualBox in your operating system as described in the
+1. Install minikube and VirtualBox in your operating system as described in
+the
 [Kubernetes documentation](http://kubernetes.io/docs/getting-started-guides/minikube).
 1. [Install `kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/).
 1. Start `minikube`:
