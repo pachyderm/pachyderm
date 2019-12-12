@@ -17,7 +17,7 @@ export KUBECONFIG="$(kind get kubeconfig-path)"
 
 echo "Running test suite based on BUCKET=$BUCKET"
 
-make docker-build
+time make docker-build
 
 kind load docker-image pachyderm/pachd:local
 kind load docker-image pachyderm/worker:local
