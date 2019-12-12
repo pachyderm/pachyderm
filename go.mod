@@ -28,8 +28,7 @@ require (
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v0.7.3-0.20190621081258-52c16677b22d // indirect
 	github.com/docker/go-units v0.4.0
-	github.com/docker/spdystream v0.0.0-20160310174837-449fdfce4d96 // indirect
-	github.com/elazarl/goproxy v0.0.0-20170405201442-c4fc26588b6e // indirect
+	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
 	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/facebookgo/atomicfile v0.0.0-20151019160806-2de1f203e7d5 // indirect
 	github.com/facebookgo/pidfile v0.0.0-20150612191647-f242e2999868
@@ -40,7 +39,7 @@ require (
 	github.com/go-ini/ini v1.42.0 // indirect
 	github.com/go-test/deep v1.0.1 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
-	github.com/gogo/protobuf v1.2.2-0.20190730201129-28a6bbf47e48
+	github.com/gogo/protobuf v1.3.1
 	github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef
 	github.com/golang/protobuf v1.3.2
 	github.com/golang/snappy v0.0.1
@@ -67,7 +66,6 @@ require (
 	github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d // indirect
 	github.com/imdario/mergo v0.3.7 // indirect
 	github.com/jehiah/go-strftime v0.0.0-20171201141054-1d33003b3869 // indirect
-	github.com/json-iterator/go v1.1.8 // indirect
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
 	github.com/julienschmidt/httprouter v1.2.0
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
@@ -79,7 +77,6 @@ require (
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/montanaflynn/stats v0.5.0
 	github.com/onsi/ginkgo v1.10.2 // indirect
-	github.com/onsi/gomega v1.7.0 // indirect
 	github.com/opentracing-contrib/go-grpc v0.0.0-20180928155321-4b5a12d3ff02
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/pachyderm/ohmyglob v0.0.0-20190713004043-630e5c15d4e4
@@ -110,14 +107,15 @@ require (
 	go.etcd.io/bbolt v1.3.3 // indirect
 	go.uber.org/multierr v1.4.0 // indirect
 	go.uber.org/zap v1.12.0 // indirect
-	golang.org/x/crypto v0.0.0-20191111213947-16651526fdb4
-	golang.org/x/net v0.0.0-20191109021931-daa7c04131f5
-	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
+	golang.org/x/crypto v0.0.0-20191206172530-e9b2fee46413
+	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553
+	golang.org/x/oauth2 v0.0.0-20191202225959-858c2ad4c8b6
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
-	golang.org/x/sys v0.0.0-20191110163157-d32e6e3b99c4 // indirect
+	golang.org/x/sys v0.0.0-20191210023423-ac6580df4449 // indirect
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
 	golang.org/x/tools v0.0.0-20191121165004-82924fac8e73 // indirect
 	google.golang.org/api v0.6.0
+	google.golang.org/appengine v1.6.5 // indirect
 	google.golang.org/grpc v1.24.0
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 	gopkg.in/go-playground/webhooks.v5 v5.11.0
@@ -126,10 +124,11 @@ require (
 	gopkg.in/pachyderm/yaml.v3 v3.0.0-20191204210125-74de94ae3b7a
 	gopkg.in/square/go-jose.v2 v2.3.1 // indirect
 	gopkg.in/src-d/go-git.v4 v4.12.0
-	k8s.io/api v0.0.0-20181130031204-d04500c8c3dd
-	k8s.io/apimachinery v0.0.0-20181128191346-49ce2735e507
-	k8s.io/client-go v0.0.0-20181213230135-6924ba6dfc02
-	k8s.io/klog v0.3.1 // indirect
+	gopkg.in/yaml.v2 v2.2.7 // indirect
+	k8s.io/api v0.0.0-20190816222004-e3a6b8045b0b
+	k8s.io/apimachinery v0.0.0-20190816221834-a9f1d8a9c101
+	k8s.io/client-go v11.0.1-0.20190918222721-c0e3722d5cf0+incompatible
+	k8s.io/utils v0.0.0-20191114200735-6ca3b61696b6 // indirect
 	modernc.org/mathutil v1.0.0
 	sigs.k8s.io/yaml v1.1.0 // indirect
 )

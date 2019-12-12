@@ -355,30 +355,22 @@ func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress,
 	return nil, options, nil
 }
 
-func portForwarder() *PortForwarder {
+func portForwarder() (*PortForwarder, uint16, error) {
 	log.Debugln("Attempting to implicitly enable port forwarding...")
 
-	// NOTE: this will always use the default namespace; if a custom
-	// namespace is required with port forwarding,
-	// `pachctl port-forward` should be explicitly called.
 	fw, err := NewPortForwarder("")
 	if err != nil {
-		log.Infof("Implicit port forwarding was not enabled because the kubernetes config could not be read: %v", err)
-		return nil
-	}
-	if err = fw.Lock(); err != nil {
-		log.Infof("Implicit port forwarding was not enabled because the pidfile could not be written to. Most likely this means that port forwarding is running in another instance of `pachctl`: %v", err)
-		return nil
+		return nil, 0, fmt.Errorf("failed to initialize port forwarder: %v", err)
 	}
 
-	if err = fw.RunForDaemon(0, 0); err != nil {
-		log.Debugf("Implicit port forwarding for the daemon failed: %v", err)
-	}
-	if err = fw.RunForSAMLACS(0); err != nil {
-		log.Debugf("Implicit port forwarding for SAML ACS failed: %v", err)
+	port, err := fw.RunForDaemon(0, 650)
+	if err != nil {
+		return nil, 0, err
 	}
 
-	return fw
+	log.Debugf("Implicit port forwarder listening on port %d", port)
+
+	return fw, port, nil
 }
 
 // NewForTest constructs a new APIClient for tests.
@@ -427,14 +419,23 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 	}
 
 	// create new pachctl client
-	var fw *PortForwarder
 	pachdAddress, cfgOptions, err := getUserMachineAddrAndOpts(context)
 	if err != nil {
 		return nil, err
 	}
+
+	var fw *PortForwarder
 	if pachdAddress == nil {
-		pachdAddress = &grpcutil.DefaultPachdAddress
-		fw = portForwarder()
+		var pachdLocalPort uint16
+		fw, pachdLocalPort, err = portForwarder()
+		if err != nil {
+			return nil, err
+		}
+		pachdAddress = &grpcutil.PachdAddress{
+			Secured: false,
+			Host:    "localhost",
+			Port:    pachdLocalPort,
+		}
 	}
 
 	client, err := NewFromAddress(pachdAddress.Hostname(), append(options, cfgOptions...)...)
