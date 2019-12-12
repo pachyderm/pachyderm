@@ -10657,7 +10657,7 @@ func waitForReadiness(t testing.TB) {
 	k := tu.GetKubeClient(t)
 	deployment := pachdDeployment(t)
 	for {
-		newDeployment, err := k.Apps().Deployments(v1.NamespaceDefault).Get(deployment.Name, metav1.GetOptions{})
+		newDeployment, err := k.AppsV1().Deployments(v1.NamespaceDefault).Get(deployment.Name, metav1.GetOptions{})
 		require.NoError(t, err)
 		if newDeployment.Status.ObservedGeneration >= deployment.Generation && newDeployment.Status.Replicas == *newDeployment.Spec.Replicas {
 			break
@@ -10717,7 +10717,7 @@ func pipelineRc(t testing.TB, pipelineInfo *pps.PipelineInfo) (*v1.ReplicationCo
 
 func pachdDeployment(t testing.TB) *apps.Deployment {
 	k := tu.GetKubeClient(t)
-	result, err := k.Apps().Deployments(v1.NamespaceDefault).Get("pachd", metav1.GetOptions{})
+	result, err := k.AppsV1().Deployments(v1.NamespaceDefault).Get("pachd", metav1.GetOptions{})
 	require.NoError(t, err)
 	return result
 }
@@ -10750,7 +10750,7 @@ func scalePachdN(t testing.TB, n int) {
 	pachdDeployment := pachdDeployment(t)
 	*pachdDeployment.Spec.Replicas = int32(n)
 	pachdDeployment.TypeMeta.APIVersion = "apps/v1"
-	_, err := k.Apps().Deployments(v1.NamespaceDefault).Update(pachdDeployment)
+	_, err := k.AppsV1().Deployments(v1.NamespaceDefault).Update(pachdDeployment)
 	require.NoError(t, err)
 	waitForReadiness(t)
 	// Unfortunately, even when all pods are ready, the cluster membership
