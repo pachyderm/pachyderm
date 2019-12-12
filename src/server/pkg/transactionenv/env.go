@@ -8,6 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/transaction"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
@@ -27,6 +28,14 @@ type PfsWrites interface {
 
 	CreateBranch(*pfs.CreateBranchRequest) error
 	DeleteBranch(*pfs.DeleteBranchRequest) error
+}
+
+// PpsWrites is an interface providing a wrapper for each operation that
+// may be appended to a transaction through PPS.  Each call may either
+// directly run the request through PPS or append it to the active transaction,
+// depending on if there is an active transaction in the client context.
+type PpsWrites interface {
+	UpdateJobState(*pps.UpdateJobStateRequest) error
 }
 
 // AuthWrites is an interface providing a wrapper for each operation that
@@ -130,6 +139,12 @@ type PfsTransactionServer interface {
 	DeleteBranchInTransaction(*TransactionContext, *pfs.DeleteBranchRequest) error
 }
 
+// PpsTransactionServer is an interface for the transactionally-supported
+// methods that can be called through the PPS server.
+type PpsTransactionServer interface {
+	UpdateJobStateInTransaction(*TransactionContext, *pps.UpdateJobStateRequest) error
+}
+
 // TransactionEnv contains the APIServer instances for each subsystem that may
 // be involved in running transactions so that they can make calls to each other
 // without leaving the context of a transaction.  This is a separate object
@@ -139,6 +154,7 @@ type TransactionEnv struct {
 	txnServer  TransactionServer
 	authServer AuthTransactionServer
 	pfsServer  PfsTransactionServer
+	ppsServer  PpsTransactionServer
 }
 
 // Initialize stores the references to APIServer instances in the TransactionEnv
@@ -147,11 +163,13 @@ func (env *TransactionEnv) Initialize(
 	txnServer TransactionServer,
 	authServer AuthTransactionServer,
 	pfsServer PfsTransactionServer,
+	ppsServer PpsTransactionServer,
 ) {
 	env.serviceEnv = serviceEnv
 	env.txnServer = txnServer
 	env.authServer = authServer
 	env.pfsServer = pfsServer
+	env.ppsServer = ppsServer
 }
 
 // Transaction is an interface to unify the code that may either perform an
@@ -166,6 +184,7 @@ func (env *TransactionEnv) Initialize(
 //    isn't as efficient as it could be.
 type Transaction interface {
 	PfsWrites
+	PpsWrites
 	AuthWrites
 }
 
@@ -214,6 +233,11 @@ func (t *directTransaction) CreateBranch(original *pfs.CreateBranchRequest) erro
 func (t *directTransaction) DeleteBranch(original *pfs.DeleteBranchRequest) error {
 	req := proto.Clone(original).(*pfs.DeleteBranchRequest)
 	return t.txnCtx.txnEnv.pfsServer.DeleteBranchInTransaction(t.txnCtx, req)
+}
+
+func (t *directTransaction) UpdateJobState(original *pps.UpdateJobStateRequest) error {
+	req := proto.Clone(original).(*pps.UpdateJobStateRequest)
+	return t.txnCtx.txnEnv.ppsServer.UpdateJobStateInTransaction(t.txnCtx, req)
 }
 
 func (t *directTransaction) SetScope(original *auth.SetScopeRequest) (*auth.SetScopeResponse, error) {
@@ -275,6 +299,11 @@ func (t *appendTransaction) CreateBranch(req *pfs.CreateBranchRequest) error {
 
 func (t *appendTransaction) DeleteBranch(req *pfs.DeleteBranchRequest) error {
 	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{DeleteBranch: req})
+	return err
+}
+
+func (t *appendTransaction) UpdateJobState(req *pps.UpdateJobStateRequest) error {
+	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{UpdateJobState: req})
 	return err
 }
 

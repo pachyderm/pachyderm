@@ -687,6 +687,7 @@ type listJobStreamFunc func(*pps.ListJobRequest, pps.API_ListJobStreamServer) er
 type flushJobFunc func(*pps.FlushJobRequest, pps.API_FlushJobServer) error
 type deleteJobFunc func(context.Context, *pps.DeleteJobRequest) (*types.Empty, error)
 type stopJobFunc func(context.Context, *pps.StopJobRequest) (*types.Empty, error)
+type updateJobStateFunc func(context.Context, *pps.UpdateJobStateRequest) (*types.Empty, error)
 type inspectDatumFunc func(context.Context, *pps.InspectDatumRequest) (*pps.DatumInfo, error)
 type listDatumFunc func(context.Context, *pps.ListDatumRequest) (*pps.ListDatumResponse, error)
 type listDatumStreamFunc func(*pps.ListDatumRequest, pps.API_ListDatumStreamServer) error
@@ -710,6 +711,7 @@ type mockListJobStream struct{ handler listJobStreamFunc }
 type mockFlushJob struct{ handler flushJobFunc }
 type mockDeleteJob struct{ handler deleteJobFunc }
 type mockStopJob struct{ handler stopJobFunc }
+type mockUpdateJobState struct{ handler updateJobStateFunc }
 type mockInspectDatum struct{ handler inspectDatumFunc }
 type mockListDatum struct{ handler listDatumFunc }
 type mockListDatumStream struct{ handler listDatumStreamFunc }
@@ -733,6 +735,7 @@ func (mock *mockListJobStream) Use(cb listJobStreamFunc)     { mock.handler = cb
 func (mock *mockFlushJob) Use(cb flushJobFunc)               { mock.handler = cb }
 func (mock *mockDeleteJob) Use(cb deleteJobFunc)             { mock.handler = cb }
 func (mock *mockStopJob) Use(cb stopJobFunc)                 { mock.handler = cb }
+func (mock *mockUpdateJobState) Use(cb updateJobStateFunc)   { mock.handler = cb }
 func (mock *mockInspectDatum) Use(cb inspectDatumFunc)       { mock.handler = cb }
 func (mock *mockListDatum) Use(cb listDatumFunc)             { mock.handler = cb }
 func (mock *mockListDatumStream) Use(cb listDatumStreamFunc) { mock.handler = cb }
@@ -762,6 +765,7 @@ type mockPPSServer struct {
 	FlushJob        mockFlushJob
 	DeleteJob       mockDeleteJob
 	StopJob         mockStopJob
+	UpdateJobState  mockUpdateJobState
 	InspectDatum    mockInspectDatum
 	ListDatum       mockListDatum
 	ListDatumStream mockListDatumStream
@@ -814,6 +818,12 @@ func (api *ppsServerAPI) DeleteJob(ctx context.Context, req *pps.DeleteJobReques
 		return api.mock.DeleteJob.handler(ctx, req)
 	}
 	return nil, fmt.Errorf("Unhandled pachd mock pps.DeleteJob")
+}
+func (api *ppsServerAPI) UpdateJobState(ctx context.Context, req *pps.UpdateJobStateRequest) (*types.Empty, error) {
+	if api.mock.UpdateJobState.handler != nil {
+		return api.mock.UpdateJobState.handler(ctx, req)
+	}
+	return nil, fmt.Errorf("Unhandled pachd mock pps.UpdateJobState")
 }
 func (api *ppsServerAPI) StopJob(ctx context.Context, req *pps.StopJobRequest) (*types.Empty, error) {
 	if api.mock.StopJob.handler != nil {
@@ -914,6 +924,7 @@ func (api *ppsServerAPI) ActivateAuth(ctx context.Context, req *pps.ActivateAuth
 
 /* Transaction Server Mocks */
 
+type batchTransactionFunc func(context.Context, *transaction.BatchTransactionRequest) (*transaction.TransactionInfo, error)
 type startTransactionFunc func(context.Context, *transaction.StartTransactionRequest) (*transaction.Transaction, error)
 type inspectTransactionFunc func(context.Context, *transaction.InspectTransactionRequest) (*transaction.TransactionInfo, error)
 type deleteTransactionFunc func(context.Context, *transaction.DeleteTransactionRequest) (*types.Empty, error)
@@ -921,6 +932,7 @@ type listTransactionFunc func(context.Context, *transaction.ListTransactionReque
 type finishTransactionFunc func(context.Context, *transaction.FinishTransactionRequest) (*transaction.TransactionInfo, error)
 type deleteAllTransactionFunc func(context.Context, *transaction.DeleteAllRequest) (*types.Empty, error)
 
+type mockBatchTransaction struct{ handler batchTransactionFunc }
 type mockStartTransaction struct{ handler startTransactionFunc }
 type mockInspectTransaction struct{ handler inspectTransactionFunc }
 type mockDeleteTransaction struct{ handler deleteTransactionFunc }
@@ -928,6 +940,7 @@ type mockListTransaction struct{ handler listTransactionFunc }
 type mockFinishTransaction struct{ handler finishTransactionFunc }
 type mockDeleteAllTransaction struct{ handler deleteAllTransactionFunc }
 
+func (mock *mockBatchTransaction) Use(cb batchTransactionFunc)         { mock.handler = cb }
 func (mock *mockStartTransaction) Use(cb startTransactionFunc)         { mock.handler = cb }
 func (mock *mockInspectTransaction) Use(cb inspectTransactionFunc)     { mock.handler = cb }
 func (mock *mockDeleteTransaction) Use(cb deleteTransactionFunc)       { mock.handler = cb }
@@ -941,6 +954,7 @@ type transactionServerAPI struct {
 
 type mockTransactionServer struct {
 	api                transactionServerAPI
+	BatchTransaction   mockBatchTransaction
 	StartTransaction   mockStartTransaction
 	InspectTransaction mockInspectTransaction
 	DeleteTransaction  mockDeleteTransaction
@@ -949,6 +963,12 @@ type mockTransactionServer struct {
 	DeleteAll          mockDeleteAllTransaction
 }
 
+func (api *transactionServerAPI) BatchTransaction(ctx context.Context, req *transaction.BatchTransactionRequest) (*transaction.TransactionInfo, error) {
+	if api.mock.BatchTransaction.handler != nil {
+		return api.mock.BatchTransaction.handler(ctx, req)
+	}
+	return nil, fmt.Errorf("Unhandled pachd mock transaction.BatchTransaction")
+}
 func (api *transactionServerAPI) StartTransaction(ctx context.Context, req *transaction.StartTransactionRequest) (*transaction.Transaction, error) {
 	if api.mock.StartTransaction.handler != nil {
 		return api.mock.StartTransaction.handler(ctx, req)

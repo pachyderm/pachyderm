@@ -447,3 +447,18 @@ func TestPropagateCommitRedux(t *testing.T) {
 	})
 	require.NoError(t, err)
 }
+
+func TestBatchTransaction(t *testing.T) {
+	t.Parallel()
+	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+		// Empty batch
+		info, err := env.PachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
+			return nil
+		})
+		require.NoError(t, err)
+		require.NotNil(t, info)
+
+		return nil
+	})
+	require.NoError(t, err)
+}
