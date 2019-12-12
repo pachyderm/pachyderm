@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"reflect"
 
 	"github.com/gogo/protobuf/types"
 
@@ -15,9 +16,31 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/transaction"
 	version "github.com/pachyderm/pachyderm/src/client/version/versionpb"
-
-	"golang.org/x/sync/errgroup"
 )
+
+// linkServers can be used to default a mock server to make calls to a real api
+// server. Due to some reflection shenanigans, mockServerPtr must explicitly be
+// a pointer to the mock server instance.
+func linkServers(mockServerPtr interface{}, realServer interface{}) {
+	mockValue := reflect.ValueOf(mockServerPtr).Elem()
+	realValue := reflect.ValueOf(realServer)
+	mockType := mockValue.Type()
+	for i := 0; i < mockType.NumField(); i++ {
+		field := mockType.Field(i)
+		if field.Name != "api" {
+			mock := mockValue.FieldByName(field.Name)
+			realMethod := realValue.MethodByName(field.Name)
+
+			// We need a pointer to the mock field to call the right method
+			mockPtr := reflect.New(reflect.PtrTo(mock.Type()))
+			mockPtrValue := mockPtr.Elem()
+			mockPtrValue.Set(mock.Addr())
+
+			useFn := mockPtrValue.MethodByName("Use")
+			useFn.Call([]reflect.Value{realMethod})
+		}
+	}
+}
 
 /* Admin Server Mocks */
 
@@ -134,6 +157,7 @@ func (mock *mockGetACL) Use(cb getACLFunc)                         { mock.handle
 func (mock *mockSetACL) Use(cb setACLFunc)                         { mock.handler = cb }
 func (mock *mockGetAuthToken) Use(cb getAuthTokenFunc)             { mock.handler = cb }
 func (mock *mockExtendAuthToken) Use(cb extendAuthTokenFunc)       { mock.handler = cb }
+func (mock *mockRevokeAuthToken) Use(cb revokeAuthTokenFunc)       { mock.handler = cb }
 func (mock *mockSetGroupsForUser) Use(cb setGroupsForUserFunc)     { mock.handler = cb }
 func (mock *mockModifyMembers) Use(cb modifyMembersFunc)           { mock.handler = cb }
 func (mock *mockGetGroups) Use(cb getGroupsFunc)                   { mock.handler = cb }
@@ -1205,8 +1229,8 @@ func (api *objectServerAPI) Compact(ctx context.Context, req *types.Empty) (*typ
 // API calls by providing a handler function, and later check information about
 // the mocked calls.
 type MockPachd struct {
-	cancel context.CancelFunc
-	eg     *errgroup.Group
+	cancel  context.CancelFunc
+	errchan chan error
 
 	Addr net.Addr
 
@@ -1223,10 +1247,11 @@ type MockPachd struct {
 // NewMockPachd constructs a mock Pachd API server whose behavior can be
 // controlled through the MockPachd instance. By default, all API calls will
 // error, unless a handler is specified.
-func NewMockPachd() (*MockPachd, error) {
-	mock := &MockPachd{}
+func NewMockPachd(ctx context.Context) (*MockPachd, error) {
+	mock := &MockPachd{
+		errchan: make(chan error),
+	}
 
-	ctx := context.Background()
 	ctx, mock.cancel = context.WithCancel(ctx)
 
 	mock.Object.api.mock = &mock.Object
@@ -1257,12 +1282,24 @@ func NewMockPachd() (*MockPachd, error) {
 		return nil, err
 	}
 
+	go func() {
+		mock.errchan <- server.Wait()
+		close(mock.errchan)
+	}()
+
 	mock.Addr = listener.Addr()
+
 	return mock, nil
+}
+
+// Err returns a read-only channel that will receive the first error that occurs
+// in the server group (stopping all the servers).
+func (mock *MockPachd) Err() <-chan error {
+	return mock.errchan
 }
 
 // Close will cancel the mock Pachd API server goroutine and return its result
 func (mock *MockPachd) Close() error {
 	mock.cancel()
-	return mock.eg.Wait()
+	return <-mock.errchan
 }

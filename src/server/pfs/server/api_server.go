@@ -3,7 +3,6 @@ package server
 import (
 	"fmt"
 	"io"
-	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -37,12 +36,6 @@ type apiServer struct {
 
 	// env generates clients for pachyderm's downstream services
 	env *serviceenv.ServiceEnv
-	// pachClientOnce ensures that _pachClient is only initialized once
-	pachClientOnce sync.Once
-	// pachClient is a cached Pachd client that connects to Pachyderm's object
-	// store API and auth API. Instead of accessing it directly, functions should
-	// call a.env.GetPachClient()
-	_pachClient *client.APIClient
 }
 
 func newAPIServer(
@@ -65,6 +58,10 @@ func newAPIServer(
 	}
 	go func() { s.env.GetPachClient(context.Background()) }() // Begin dialing connection on startup
 	return s, nil
+}
+
+func (a *apiServer) Close() {
+	a.driver.Close()
 }
 
 // CreateRepoInTransaction is identical to CreateRepo except that it can run

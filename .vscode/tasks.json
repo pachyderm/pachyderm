@@ -2,6 +2,27 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "docker-build-proto",
+      "type": "shell",
+      "command": "docker build -t pachyderm_proto etc/proto",
+      "problemMatcher": []
+    },
+    {
+      "label": "build-proto",
+      "type": "shell",
+      "command": "find src -regex \".*\\.proto\" | xargs tar cf - | docker run -i pachyderm_proto | tar xf -",
+      "problemMatcher": []
+    },
+    {
+      "label": "proto",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "docker-build-proto",
+        "build-proto"
+      ],
+      "problemMatcher": []
+    },
+    {
       "label": "docker-build",
       "dependsOrder": "sequence",
       "dependsOn": [

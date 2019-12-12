@@ -13,26 +13,40 @@ import (
 // Cache is an LRU cache for hashtrees.
 type Cache struct {
 	*lru.Cache
+	syncEvict *bool
+}
+
+func evict(value interface{}) {
+	tree, ok := value.(*dbHashTree)
+	if !ok {
+		logrus.Infof("non hashtree slice value of type: %v", reflect.TypeOf(value))
+		return
+	}
+	if err := tree.Destroy(); err != nil {
+		logrus.Infof("failed to destroy hashtree: %v", err)
+	}
 }
 
 // NewCache creates a new cache.
 func NewCache(size int) (*Cache, error) {
+	syncEvict := false
 	c, err := lru.NewWithEvict(size, func(key interface{}, value interface{}) {
-		go func() {
-			tree, ok := value.(*dbHashTree)
-			if !ok {
-				logrus.Infof("non hashtree slice value of type: %v", reflect.TypeOf(value))
-				return
-			}
-			if err := tree.Destroy(); err != nil {
-				logrus.Infof("failed to destroy hashtree: %v", err)
-			}
-		}()
+		if syncEvict {
+			evict(value)
+		} else {
+			go evict(value)
+		}
 	})
 	if err != nil {
 		return nil, err
 	}
-	return &Cache{c}, nil
+	return &Cache{Cache: c, syncEvict: &syncEvict}, nil
+}
+
+// Close will synchronously evict all hashtrees from the cache, cleaning up any on-disk data.
+func (c *Cache) Close() {
+	*c.syncEvict = true
+	c.Purge()
 }
 
 // MergeCache is an unbounded hashtree cache that can merge the hashtrees in the cache.
