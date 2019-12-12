@@ -4454,7 +4454,7 @@ func TestUseMultipleWorkers(t *testing.T) {
 }
 
 // TestSystemResourceRequest doesn't create any jobs or pipelines, it
-// just makes sure that when pachyderm is deployed, we give rethinkdb, pachd,
+// just makes sure that when pachyderm is deployed, we give pachd,
 // and etcd default resource requests. This prevents them from overloading
 // nodes and getting evicted, which can slow down or break a cluster.
 func TestSystemResourceRequests(t *testing.T) {
