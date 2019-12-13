@@ -850,14 +850,6 @@ func (s *objBlockAPIServer) Compact(ctx context.Context, request *types.Empty) (
 	return &types.Empty{}, nil
 }
 
-func (s *objBlockAPIServer) objectPrefix(prefix string) string {
-	return s.objectPath(&pfsclient.Object{Hash: prefix})
-}
-
-func (s *objBlockAPIServer) tagPrefix(prefix string) string {
-	return s.tagPath(&pfsclient.Tag{Name: prefix})
-}
-
 func (s *objBlockAPIServer) compact(ctx context.Context) (retErr error) {
 	w, err := s.newBlockWriter(ctx, &pfsclient.Block{Hash: uuid.NewWithoutDashes()})
 	if err != nil {

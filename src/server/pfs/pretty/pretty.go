@@ -206,9 +206,9 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, fullTimestamps, withComm
 // PrintDiffFileInfo pretty-prints a file info from diff file.
 func PrintDiffFileInfo(w io.Writer, added bool, fileInfo *pfs.FileInfo, fullTimestamps bool) {
 	if added {
-		fmt.Fprintf(w, color.GreenString("+\t"))
+		fmt.Fprint(w, color.GreenString("+\t"))
 	} else {
-		fmt.Fprintf(w, color.RedString("-\t"))
+		fmt.Fprint(w, color.RedString("-\t"))
 	}
 	PrintFileInfo(w, fileInfo, fullTimestamps, false)
 }
@@ -226,12 +226,6 @@ Children: {{range .Children}} {{.}} {{end}}
 	}
 	return template.Execute(os.Stdout, fileInfo)
 }
-
-type uint64Slice []uint64
-
-func (s uint64Slice) Len() int           { return len(s) }
-func (s uint64Slice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
-func (s uint64Slice) Less(i, j int) bool { return s[i] < s[j] }
 
 func fileType(fileType pfs.FileType) string {
 	if fileType == pfs.FileType_FILE {

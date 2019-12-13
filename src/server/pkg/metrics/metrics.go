@@ -162,8 +162,14 @@ func internalMetrics(pachClient *client.APIClient, metrics *Metrics) error {
 	}
 	metrics.ActivationCode = enterpriseState.ActivationCode
 	pis, err := pachClient.ListPipeline()
+	if err != nil {
+		return err
+	}
 	metrics.Pipelines = int64(len(pis))
 	ris, err := pachClient.ListRepo()
+	if err != nil {
+		return err
+	}
 	metrics.Repos = int64(len(ris))
 	return nil
 }

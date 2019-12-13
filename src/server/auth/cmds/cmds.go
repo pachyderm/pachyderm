@@ -120,6 +120,9 @@ func DeactivateCmd() *cobra.Command {
 			fmt.Println("Are you sure you want to delete ALL auth information " +
 				"(ACLs, tokens, and admins) in this cluster, and expose ALL data? yN")
 			confirm, err := bufio.NewReader(os.Stdin).ReadString('\n')
+			if err != nil {
+				return err
+			}
 			if !strings.Contains("yY", confirm[:1]) {
 				return fmt.Errorf("operation aborted")
 			}

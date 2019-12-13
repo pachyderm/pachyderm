@@ -40,7 +40,7 @@ func main() {
 	outputDir = args[1]
 
 	wordMap := make(map[string]int)
-	if err := filepath.Walk(inputDir, func(path string, info os.FileInfo, err error) error {
+	if err := filepath.Walk(inputDir, func(path string, info os.FileInfo, _ error) error {
 		if info.IsDir() {
 			return nil
 		}

@@ -61,8 +61,6 @@ const (
 	// Makes calls to ListRepo and InspectRepo more legible
 	includeAuth = true
 
-	// maxInt is the maximum value for 'int' (system-dependent). Not in 'math'!
-	maxInt = int(^uint(0) >> 1)
 	// tmpPrefix is for temporary object paths that store merged shards.
 	tmpPrefix = "tmp"
 )
@@ -103,7 +101,6 @@ type driver struct {
 	commits        collectionFactory
 	branches       collectionFactory
 	openCommits    col.Collection
-	transactions   col.Collection
 
 	// a cache for hashtrees
 	treeCache *hashtree.Cache
@@ -187,9 +184,8 @@ func (d *driver) checkIsAuthorizedInTransaction(txnCtx *txnenv.TransactionContex
 		return nil
 	}
 
-	resp := &auth.AuthorizeResponse{}
 	req := &auth.AuthorizeRequest{Repo: r.Name, Scope: s}
-	resp, err = txnCtx.Auth().AuthorizeInTransaction(txnCtx, req)
+	resp, err := txnCtx.Auth().AuthorizeInTransaction(txnCtx, req)
 	if err != nil {
 		return fmt.Errorf("error during authorization check for operation on \"%s\": %v",
 			r.Name, grpcutil.ScrubGRPC(err))
@@ -209,9 +205,8 @@ func (d *driver) checkIsAuthorized(pachClient *client.APIClient, r *pfs.Repo, s 
 		return nil
 	}
 
-	resp := &auth.AuthorizeResponse{}
 	req := &auth.AuthorizeRequest{Repo: r.Name, Scope: s}
-	resp, err = pachClient.AuthAPIClient.Authorize(ctx, req)
+	resp, err := pachClient.AuthAPIClient.Authorize(ctx, req)
 	if err != nil {
 		return fmt.Errorf("error during authorization check for operation on \"%s\": %v",
 			r.Name, grpcutil.ScrubGRPC(err))
@@ -228,14 +223,6 @@ func now() *types.Timestamp {
 		return &types.Timestamp{}
 	}
 	return t
-}
-
-func present(key string) etcd.Cmp {
-	return etcd.Compare(etcd.CreateRevision(key), ">", 0)
-}
-
-func absent(key string) etcd.Cmp {
-	return etcd.Compare(etcd.CreateRevision(key), "=", 0)
 }
 
 func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, description string, update bool) error {
@@ -1812,7 +1799,7 @@ func (d *driver) inspectCommit(pachClient *client.APIClient, commit *pfs.Commit,
 					return event.Err
 				case watch.EventPut:
 					if err := event.Unmarshal(&commitID, _commitInfo); err != nil {
-						return fmt.Errorf("Unmarshal: %v", err)
+						return fmt.Errorf("unmarshal: %v", err)
 					}
 				case watch.EventDelete:
 					return pfsserver.ErrCommitDeleted{commit}
@@ -1992,7 +1979,7 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 			// Sort in reverse provenance order, i.e. commits come before their provenance
 			sort.Slice(cis, func(i, j int) bool { return len(cis[i].Provenance) > len(cis[j].Provenance) })
 			for i, ci := range cis {
-				if number <= 0 {
+				if number == 0 {
 					return errutil.ErrBreak
 				}
 				number--
@@ -2079,10 +2066,10 @@ func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, b
 			return event.Err
 		case watch.EventPut:
 			if err := event.Unmarshal(&commitID, commitInfo); err != nil {
-				return fmt.Errorf("Unmarshal: %v", err)
+				return fmt.Errorf("unmarshal: %v", err)
 			}
 			if commitInfo == nil {
-				return fmt.Errorf("Commit info is empty for id: %v", commitID)
+				return fmt.Errorf("commit info is empty for id: %v", commitID)
 			}
 
 			// if provenance is provided, ensure that the returned commits have the commit in their provenance
@@ -3877,7 +3864,7 @@ func (d *driver) fileHistory(pachClient *client.APIClient, file *pfs.File, histo
 			}
 			return err
 		}
-		if fi != nil && bytes.Compare(fi.Hash, _fi.Hash) != 0 {
+		if fi != nil && !bytes.Equal(fi.Hash, _fi.Hash) {
 			if err := f(fi); err != nil {
 				return err
 			}
@@ -4352,10 +4339,6 @@ func (b *branchSet) search(branch *pfs.Branch) (int, bool) {
 	return i, branchKey((*b)[i]) == branchKey(branch)
 }
 
-func search(bs *[]*pfs.Branch, branch *pfs.Branch) (int, bool) {
-	return (*branchSet)(bs).search(branch)
-}
-
 func (b *branchSet) add(branch *pfs.Branch) {
 	i, ok := b.search(branch)
 	if !ok {
@@ -4389,50 +4372,6 @@ func (b *branchSet) has(branch *pfs.Branch) bool {
 
 func has(bs *[]*pfs.Branch, branch *pfs.Branch) bool {
 	return (*branchSet)(bs).has(branch)
-}
-
-type putFileReader struct {
-	server pfs.API_PutFileServer
-	buffer *bytes.Buffer
-	// request is the request that contains the File and other meaningful
-	// information
-	request *pfs.PutFileRequest
-}
-
-func newPutFileReader(server pfs.API_PutFileServer) (*putFileReader, error) {
-	result := &putFileReader{
-		server: server,
-		buffer: &bytes.Buffer{}}
-	if _, err := result.Read(nil); err != nil && err != io.EOF {
-		return nil, err
-	}
-	if result.request == nil {
-		return nil, io.EOF
-	}
-	return result, nil
-}
-
-func (r *putFileReader) Read(p []byte) (int, error) {
-	eof := false
-	if r.buffer.Len() == 0 {
-		request, err := r.server.Recv()
-		if err != nil {
-			if err == io.EOF {
-				r.request = nil
-			}
-			return 0, err
-		}
-		//buffer.Write cannot error
-		r.buffer = bytes.NewBuffer(request.Value)
-		if request.File != nil {
-			eof = true
-			r.request = request
-		}
-	}
-	if eof {
-		return 0, io.EOF
-	}
-	return r.buffer.Read(p)
 }
 
 type putFileServer struct {
@@ -4520,10 +4459,10 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 				}
 				commitID = commit.ID
 			} else if req.File.Commit.ID != rawCommitID {
-				err = fmt.Errorf("All requests in a put files call must have the same commit ID; expected '%s', got '%s'", rawCommitID, req.File.Commit.ID)
+				err = fmt.Errorf("all requests in a put files call must have the same commit ID; expected '%s', got '%s'", rawCommitID, req.File.Commit.ID)
 				return false, "", "", err
 			} else if req.File.Commit.Repo.Name != repo {
-				err = fmt.Errorf("All requests in a put files call must have the same repo name; expected '%s', got '%s'", repo, req.File.Commit.Repo.Name)
+				err = fmt.Errorf("all requests in a put files call must have the same repo name; expected '%s', got '%s'", repo, req.File.Commit.Repo.Name)
 				return false, "", "", err
 			} else {
 				req.File.Commit.ID = commitID
@@ -4645,13 +4584,4 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 	}
 	err = eg.Wait()
 	return oneOff, repo, branch, err
-}
-
-func branchContains(bs []*pfs.Branch, b *pfs.Branch) bool {
-	for _, _b := range bs {
-		if proto.Equal(_b, b) {
-			return true
-		}
-	}
-	return false
 }

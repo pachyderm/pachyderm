@@ -186,18 +186,16 @@ func fetchRawIDPMetadata(name string, mdURL *url.URL) ([]byte, error) {
 func validateIDP(idp *auth.IDProvider, src configSource) (*canonicalIDPConfig, error) {
 	// Validate the ID Provider's name (must exist and must not be reserved)
 	if idp.Name == "" {
-		return nil, errors.New("All ID providers must have a name specified (for " +
+		return nil, errors.New("all ID providers must have a name specified (for " +
 			"use during authorization)")
 	}
 	// TODO(msteffen): make sure we don't have to extend this every time we add
 	// a new built-in backend.
 	switch idp.Name + ":" {
 	case auth.RobotPrefix:
-		return nil, errors.New("cannot configure ID provider with reserved prefix " +
-			auth.RobotPrefix)
+		return nil, fmt.Errorf("cannot configure ID provider with reserved prefix %q", auth.RobotPrefix)
 	case auth.PipelinePrefix:
-		return nil, errors.New("cannot configure ID provider with reserved prefix " +
-			auth.PipelinePrefix)
+		return nil, fmt.Errorf("cannot configure ID provider with reserved prefix %q", auth.PipelinePrefix)
 	}
 
 	// Check if the IDP is a known type (right now the only types of IDPs are SAML and GitHub)
@@ -248,7 +246,7 @@ func validateIDP(idp *auth.IDProvider, src configSource) (*canonicalIDPConfig, e
 		var err error
 		newIDP.SAML.MetadataURL, err = url.Parse(idp.SAML.MetadataURL)
 		if err != nil {
-			return nil, fmt.Errorf("Could not parse SAML IDP metadata URL (%q) to "+
+			return nil, fmt.Errorf("could not parse SAML IDP metadata URL (%q) to "+
 				"query it: %v", idp.SAML.MetadataURL, err)
 		} else if newIDP.SAML.MetadataURL.Scheme == "" {
 			return nil, fmt.Errorf("SAML IDP metadata URL %q is invalid (no scheme)",
@@ -367,7 +365,7 @@ func validateConfig(config *auth.AuthConfig, src configSource) (*canonicalConfig
 			return nil, fmt.Errorf("could not parse SAML config metadata URL (%q): %v",
 				svcCfgProto.MetadataURL, err)
 		} else if c.SAMLSvc.MetadataURL.Scheme == "" {
-			return nil, fmt.Errorf("Metadata URL %q is invalid (no scheme)", svcCfgProto.MetadataURL)
+			return nil, fmt.Errorf("metadata URL %q is invalid (no scheme)", svcCfgProto.MetadataURL)
 		}
 
 		// parse Dash URL
@@ -375,7 +373,7 @@ func validateConfig(config *auth.AuthConfig, src configSource) (*canonicalConfig
 			if c.SAMLSvc.DashURL, err = url.Parse(svcCfgProto.DashURL); err != nil {
 				return nil, fmt.Errorf("could not parse Pachyderm dashboard URL (%q): %v", svcCfgProto.DashURL, err)
 			} else if c.SAMLSvc.DashURL.Scheme == "" {
-				return nil, fmt.Errorf("Pachyderm dashboard URL %q is invalid (no scheme)", svcCfgProto.DashURL)
+				return nil, fmt.Errorf("Pachyderm dashboard URL %q is invalid (no scheme)", svcCfgProto.DashURL) //lint:ignore ST1005 caps due to proper noun
 			}
 		}
 

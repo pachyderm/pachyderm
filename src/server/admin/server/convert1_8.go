@@ -29,17 +29,6 @@ func convert1_8Commit(c *pfs1_8.Commit) *pfs.Commit {
 	}
 }
 
-func convert1_8Commits(commits []*pfs1_8.Commit) []*pfs.Commit {
-	if commits == nil {
-		return nil
-	}
-	result := make([]*pfs.Commit, 0, len(commits))
-	for _, c := range commits {
-		result = append(result, convert1_8Commit(c))
-	}
-	return result
-}
-
 func convert1_8Object(o *pfs1_8.Object) *pfs.Object {
 	if o == nil {
 		return nil
@@ -387,7 +376,7 @@ func convert1_8Op(op *admin.Op1_8) (*admin.Op1_9, error) {
 			},
 		}, nil
 	default:
-		return nil, fmt.Errorf("Unrecognized 1.7 op type:\n%+v", op)
+		return nil, fmt.Errorf("unrecognized 1.8 op type:\n%+v", op)
 	}
 	return nil, fmt.Errorf("internal error: convert1_8Op() didn't return a 1.9 op for:\n%+v", op)
 }

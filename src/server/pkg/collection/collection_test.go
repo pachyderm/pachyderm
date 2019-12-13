@@ -301,6 +301,7 @@ func TestIndexWatch(t *testing.T) {
 		jobInfos.Put(j1.Job.ID, j1)
 		return nil
 	})
+	require.NoError(t, err)
 
 	select {
 	case event := <-eventCh:
@@ -448,6 +449,7 @@ func TestMultiIndex(t *testing.T) {
 		cis.Delete(c1.Commit.ID)
 		return nil
 	})
+	require.NoError(t, err)
 
 	// Now "c1" only retrieves c2
 	require.NoError(t, cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c1"), ci, DefaultOptions, func(ID string) error {

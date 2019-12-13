@@ -21,10 +21,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
-var (
-	port int32 = 30653
-)
-
 func TestAcquireDatums(t *testing.T) {
 	t.Skip()
 	c := getPachClient(t)

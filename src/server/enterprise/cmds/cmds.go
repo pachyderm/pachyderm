@@ -64,7 +64,7 @@ func ActivateCmd() *cobra.Command {
 			}
 			ts, err := types.TimestampFromProto(resp.Info.Expires)
 			if err != nil {
-				return fmt.Errorf("Activation request succeeded, but could not "+
+				return fmt.Errorf("activation request succeeded, but could not "+
 					"convert token expiration time to a timestamp: %s", err.Error())
 			}
 			fmt.Printf("Activation succeeded. Your Pachyderm Enterprise token "+
@@ -107,7 +107,7 @@ func GetStateCmd() *cobra.Command {
 			}
 			ts, err := types.TimestampFromProto(resp.Info.Expires)
 			if err != nil {
-				return fmt.Errorf("Activation request succeeded, but could not "+
+				return fmt.Errorf("activation request succeeded, but could not "+
 					"convert token expiration time to a timestamp: %s", err.Error())
 			}
 			fmt.Printf("Pachyderm Enterprise token state: %s\nExpiration: %s\n",

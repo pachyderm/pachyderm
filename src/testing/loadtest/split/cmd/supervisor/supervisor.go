@@ -192,7 +192,7 @@ func main() {
 	// start timing load test
 	var start = time.Now()
 	defer func() {
-		fmt.Printf("Benchmark complete. Total time: %.3f\n", time.Now().Sub(start).Seconds())
+		fmt.Printf("Benchmark complete. Total time: %.3f\n", time.Since(start).Seconds())
 	}()
 
 	// Start creating input files
@@ -243,7 +243,7 @@ func main() {
 		if _, err = iter.Next(); err != nil {
 			log.Fatalf("could not get commit info after flushing commit %d: %v", i, err)
 		}
-		jobTimes = append(jobTimes, time.Now().Sub(jobStart))
+		jobTimes = append(jobTimes, time.Since(jobStart))
 		log.Printf("job %d (commit %s) finished", i, commit.ID)
 		PrintDurations()
 	}

@@ -24,10 +24,13 @@ type PipelineManifestReader struct {
 // NewPipelineManifestReader creates a new manifest reader from a path.
 func NewPipelineManifestReader(path string) (result *PipelineManifestReader, retErr error) {
 	var pipelineBytes []byte
-	var err error
 	if path == "-" {
 		fmt.Print("Reading from stdin.\n")
+		var err error
 		pipelineBytes, err = ioutil.ReadAll(os.Stdin)
+		if err != nil {
+			return nil, err
+		}
 	} else if url, err := url.Parse(path); err == nil && url.Scheme != "" {
 		resp, err := http.Get(url.String())
 		if err != nil {
@@ -39,11 +42,15 @@ func NewPipelineManifestReader(path string) (result *PipelineManifestReader, ret
 			}
 		}()
 		pipelineBytes, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
 	} else {
+		var err error
 		pipelineBytes, err = ioutil.ReadFile(path)
-	}
-	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
 	}
 	// TODO(msteffen): if we can get the yaml decoder to handle leading tabs, as
 	// in pps/cmds/cmds_test.go, then we can get rid of this

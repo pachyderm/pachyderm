@@ -3,7 +3,6 @@ package server
 import (
 	"fmt"
 	"io"
-	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -19,11 +18,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
-)
-
-var (
-	grpcErrorf = grpc.Errorf // needed to get passed govet
 )
 
 // apiServer implements the public interface of the Pachyderm File System,
@@ -37,12 +31,6 @@ type apiServer struct {
 
 	// env generates clients for pachyderm's downstream services
 	env *serviceenv.ServiceEnv
-	// pachClientOnce ensures that _pachClient is only initialized once
-	pachClientOnce sync.Once
-	// pachClient is a cached Pachd client that connects to Pachyderm's object
-	// store API and auth API. Instead of accessing it directly, functions should
-	// call a.env.GetPachClient()
-	_pachClient *client.APIClient
 }
 
 func newAPIServer(
