@@ -564,7 +564,7 @@ func (c *APIClient) connect(timeout time.Duration) error {
 			grpc.WithStreamInterceptor(tracing.StreamClientInterceptor()),
 		)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	clientConn, err := grpc.DialContext(ctx, c.addr, dialOptions...)
 	if err != nil {
