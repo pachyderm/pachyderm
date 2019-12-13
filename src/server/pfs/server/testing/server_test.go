@@ -707,14 +707,17 @@ func TestInspectCommitBlock(t *testing.T) {
 		commit, err := env.PachClient.StartCommit(repo, "")
 		require.NoError(t, err)
 
-		go func() {
+		var eg errgroup.Group
+		eg.Go(func() error {
 			time.Sleep(2 * time.Second)
-			require.NoError(t, env.PachClient.FinishCommit(repo, commit.ID))
-		}()
+			return env.PachClient.FinishCommit(repo, commit.ID)
+		})
 
 		commitInfo, err := env.PachClient.BlockCommit(commit.Repo.Name, commit.ID)
 		require.NoError(t, err)
 		require.NotNil(t, commitInfo.Finished)
+
+		require.NoError(t, eg.Wait())
 
 		return nil
 	})
