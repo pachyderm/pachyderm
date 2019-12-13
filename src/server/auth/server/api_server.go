@@ -92,7 +92,8 @@ const (
 	SamlPort = 654
 )
 
-var defaultAuthConfig = auth.AuthConfig{
+// DefaultAuthConfig is the default config for the auth API server
+var DefaultAuthConfig = auth.AuthConfig{
 	LiveConfigVersion: 1,
 	IDProviders: []*auth.IDProvider{
 		&auth.IDProvider{
@@ -2405,7 +2406,7 @@ func (a *apiServer) GetConfiguration(ctx context.Context, req *auth.GetConfigura
 	if err := authConfigRO.Get(configKey, &currentCfg); err != nil && !col.IsErrNotFound(err) {
 		return nil, err
 	} else if col.IsErrNotFound(err) {
-		currentCfg = defaultAuthConfig
+		currentCfg = DefaultAuthConfig
 	} else {
 		cacheCfg := a.getCacheConfig()
 		if cacheCfg == nil || cacheCfg.Version < currentCfg.LiveConfigVersion {
@@ -2473,7 +2474,7 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *auth.SetConfigura
 		// Explicitly store default auth config so that config version is retained &
 		// continues increasing monotonically. Don't set reqConfigVersion, though--
 		// setting an empty config is a blind write (req.Configuration.Version == 0)
-		configToStore = proto.Clone(&defaultAuthConfig).(*auth.AuthConfig)
+		configToStore = proto.Clone(&DefaultAuthConfig).(*auth.AuthConfig)
 	}
 
 	// upsert new config
@@ -2481,7 +2482,7 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *auth.SetConfigura
 		var liveConfig auth.AuthConfig
 		return a.authConfig.ReadWrite(stm).Upsert(configKey, &liveConfig, func() error {
 			if liveConfig.LiveConfigVersion == 0 {
-				liveConfig = defaultAuthConfig // no config in etcd--assume default cfg
+				liveConfig = DefaultAuthConfig // no config in etcd--assume default cfg
 			}
 			liveConfigVersion := liveConfig.LiveConfigVersion
 			if reqConfigVersion > 0 && liveConfigVersion != reqConfigVersion {

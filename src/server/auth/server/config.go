@@ -451,7 +451,7 @@ func (a *apiServer) getCacheConfig() *canonicalConfig {
 	a.configMu.Lock()
 	defer a.configMu.Unlock()
 	if a.configCache == nil {
-		defaultCononicalConfig, err := validateConfig(&defaultAuthConfig, internal)
+		defaultCononicalConfig, err := validateConfig(&DefaultAuthConfig, internal)
 		if err != nil {
 			panic("could not convert default auth config")
 		}

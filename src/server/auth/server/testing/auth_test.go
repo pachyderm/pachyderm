@@ -21,6 +21,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
@@ -3001,7 +3002,7 @@ func TestDisableGitHubAuth(t *testing.T) {
 	// confirm config is set to default config
 	cfg, err := adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	requireConfigsEqual(t, &defaultAuthConfig, cfg.GetConfiguration())
+	requireConfigsEqual(t, &authserver.DefaultAuthConfig, cfg.GetConfiguration())
 
 	// confirm GH auth works by default
 	_, err = adminClient.Authenticate(adminClient.Ctx(), &auth.AuthenticateRequest{
@@ -3031,7 +3032,7 @@ func TestDisableGitHubAuth(t *testing.T) {
 	require.Equal(t, "rpc error: code = Unknown desc = GitHub auth is not enabled on this cluster", err.Error())
 
 	// set conifg to allow GH auth again
-	newerDefaultAuth := defaultAuthConfig
+	newerDefaultAuth := authserver.DefaultAuthConfig
 	newerDefaultAuth.LiveConfigVersion = 2
 	_, err = adminClient.SetConfiguration(adminClient.Ctx(), &auth.SetConfigurationRequest{
 		Configuration: &newerDefaultAuth,
