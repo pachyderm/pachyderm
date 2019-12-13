@@ -39,38 +39,36 @@ func main() {
 			tw := tar.NewWriter(out)
 			defer tw.Close()
 			// this is the message loop
-			for {
-				// read a message
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-				defer cancel()
-				m, err := reader.ReadMessage(ctx)
-				if err != nil {
+			// read a message
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			m, err := reader.ReadMessage(ctx)
+			if err != nil {
+				return err
+			}
+			// give it a unique name
+			name := topic + time.Now().Format(time.RFC3339Nano)
+			// write the header
+			for err = tw.WriteHeader(&tar.Header{
+				Name: name,
+				Mode: 0600,
+				Size: int64(len(m.Value)),
+			}); err != nil; {
+				if !strings.Contains(err.Error(), "broken pipe") {
 					return err
 				}
-				// give it a unique name
-				name := topic + time.Now().Format(time.RFC3339Nano)
-				// write the header
-				for err = tw.WriteHeader(&tar.Header{
-					Name: name,
-					Mode: 0600,
-					Size: int64(len(m.Value)),
-				}); err != nil; {
-					if !strings.Contains(err.Error(), "broken pipe") {
-						return err
-					}
-					// if there's a broken pipe, just give it some time to get ready for the next message
-					time.Sleep(5 * time.Millisecond)
-				}
-				// and the message
-				for _, err = tw.Write(m.Value); err != nil; {
-					if !strings.Contains(err.Error(), "broken pipe") {
-						return err
-					}
-					// if there's a broken pipe, just give it some time to get ready for the next message
-					time.Sleep(5 * time.Millisecond)
-				}
-				return nil
+				// if there's a broken pipe, just give it some time to get ready for the next message
+				time.Sleep(5 * time.Millisecond)
 			}
+			// and the message
+			for _, err = tw.Write(m.Value); err != nil; {
+				if !strings.Contains(err.Error(), "broken pipe") {
+					return err
+				}
+				// if there's a broken pipe, just give it some time to get ready for the next message
+				time.Sleep(5 * time.Millisecond)
+			}
+			return nil
 		}(); err != nil {
 			panic(err)
 		}

@@ -41,8 +41,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -415,7 +415,7 @@ Environment variables:
 			if err != nil {
 				buf := bytes.NewBufferString("")
 				errWriter := ansiterm.NewTabWriter(buf, 20, 1, 3, ' ', 0)
-				fmt.Fprintf(errWriter, "pachd\t(version unknown) : error connecting to pachd server at address (%v): %v\n\nplease make sure pachd is up (`kubectl get all`) and portforwarding is enabled\n", pachClient.GetAddress(), grpc.ErrorDesc(err))
+				fmt.Fprintf(errWriter, "pachd\t(version unknown) : error connecting to pachd server at address (%v): %v\n\nplease make sure pachd is up (`kubectl get all`) and portforwarding is enabled\n", pachClient.GetAddress(), status.Convert(err).Message())
 				errWriter.Flush()
 				return errors.New(buf.String())
 			}
@@ -772,7 +772,6 @@ func printVersion(w io.Writer, component string, v *versionpb.Version) {
 
 func applyRootUsageFunc(rootCmd *cobra.Command) {
 	// Partition subcommands by category
-	var docs []*cobra.Command
 	var admin []*cobra.Command
 	var actions []*cobra.Command
 	var other []*cobra.Command
@@ -790,7 +789,6 @@ func applyRootUsageFunc(rootCmd *cobra.Command) {
 			"repo",
 			"tag":
 			// These are ignored - they will show up in the help topics section
-			docs = append(docs, subcmd)
 		case
 			"copy",
 			"create",

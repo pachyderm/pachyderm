@@ -18,11 +18,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
-)
-
-var (
-	grpcErrorf = grpc.Errorf // needed to get passed govet
 )
 
 // apiServer implements the public interface of the Pachyderm File System,

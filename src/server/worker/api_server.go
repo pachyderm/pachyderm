@@ -159,12 +159,6 @@ type APIServer struct {
 	clients map[string]Client
 }
 
-type putObjectResponse struct {
-	object *pfs.Object
-	size   int64
-	err    error
-}
-
 type taggedLogger struct {
 	template     pps.LogMessage
 	stderrLog    log.Logger
@@ -1695,6 +1689,7 @@ func (a *APIServer) cancelCtxIfJobFails(jobCtx context.Context, jobCancel func()
 		}
 
 		// If any job events indicate that the job is done, cancel jobCtx
+	Outer:
 		for {
 			select {
 			case e := <-watcher.Watch():
@@ -1716,9 +1711,10 @@ func (a *APIServer) cancelCtxIfJobFails(jobCtx context.Context, jobCancel func()
 					return fmt.Errorf("job state watch error: %v", e.Err)
 				}
 			case <-jobCtx.Done():
-				break
+				break Outer
 			}
 		}
+		return nil
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		if jobCtx.Err() == context.Canceled {
 			return err // worker is done, nothing else to do
@@ -1750,7 +1746,6 @@ func (a *APIServer) worker() {
 			return fmt.Errorf("error creating watch: %v", err)
 		}
 		defer watcher.Close()
-	NextJob:
 		for e := range watcher.Watch() {
 			// Clear chunk caches from previous job
 			if err := a.chunkCache.Clear(); err != nil {
@@ -1778,107 +1773,112 @@ func (a *APIServer) worker() {
 				// previously-created job has finished, or job was finished during backoff
 				// or in the 'watcher' queue
 				logger.Logf("skipping job %v as it is already in state %v", jobID, jobPtr.State)
-				continue NextJob
+				continue
 			}
 
 			// create new ctx for this job, and don't use retryCtx as the
 			// parent. Just because another job's etcd write failed doesn't
 			// mean this job shouldn't run
-			jobCtx, jobCancel := context.WithCancel(a.pachClient.Ctx())
-			defer jobCancel() // cancel the job ctx
-			pachClient := a.pachClient.WithCtx(jobCtx)
+			if err := func() error {
+				jobCtx, jobCancel := context.WithCancel(a.pachClient.Ctx())
+				defer jobCancel() // cancel the job ctx
+				pachClient := a.pachClient.WithCtx(jobCtx)
 
-			//  Watch for any changes to EtcdJobInfo corresponding to jobID; if
-			// the EtcdJobInfo is marked 'FAILED', call jobCancel().
-			// ('watcher' above can't detect job state changes--it's watching
-			// an index and so only emits when jobs are created or deleted).
-			go a.cancelCtxIfJobFails(jobCtx, jobCancel, jobID)
+				//  Watch for any changes to EtcdJobInfo corresponding to jobID; if
+				// the EtcdJobInfo is marked 'FAILED', call jobCancel().
+				// ('watcher' above can't detect job state changes--it's watching
+				// an index and so only emits when jobs are created or deleted).
+				go a.cancelCtxIfJobFails(jobCtx, jobCancel, jobID)
 
-			// Inspect the job and make sure it's relevant, as this worker may be old
-			jobInfo, err := pachClient.InspectJob(jobID, false)
-			if err != nil {
-				if col.IsErrNotFound(err) {
-					continue NextJob // job was deleted--no sense retrying
+				// Inspect the job and make sure it's relevant, as this worker may be old
+				jobInfo, err := pachClient.InspectJob(jobID, false)
+				if err != nil {
+					if col.IsErrNotFound(err) {
+						return nil
+					}
+					return fmt.Errorf("error from InspectJob(%v): %+v", jobID, err)
 				}
-				return fmt.Errorf("error from InspectJob(%v): %+v", jobID, err)
-			}
-			if jobInfo.PipelineVersion < a.pipelineInfo.Version {
-				logger.Logf("skipping job %v as it uses old pipeline version %d", jobID, jobInfo.PipelineVersion)
-				continue
-			}
-			if jobInfo.PipelineVersion > a.pipelineInfo.Version {
-				return fmt.Errorf("job %s's version (%d) greater than pipeline's "+
-					"version (%d), this should automatically resolve when the worker "+
-					"is updated", jobID, jobInfo.PipelineVersion, a.pipelineInfo.Version)
-			}
-			logger.Logf("processing job %v", jobID)
+				if jobInfo.PipelineVersion < a.pipelineInfo.Version {
+					logger.Logf("skipping job %v as it uses old pipeline version %d", jobID, jobInfo.PipelineVersion)
+					return nil
+				}
+				if jobInfo.PipelineVersion > a.pipelineInfo.Version {
+					return fmt.Errorf("job %s's version (%d) greater than pipeline's "+
+						"version (%d), this should automatically resolve when the worker "+
+						"is updated", jobID, jobInfo.PipelineVersion, a.pipelineInfo.Version)
+				}
+				logger.Logf("processing job %v", jobID)
 
-			// Read the chunks laid out by the master and create the datum factory
-			plan := &Plan{}
-			if err := a.plans.ReadOnly(jobCtx).GetBlock(jobInfo.Job.ID, plan); err != nil {
-				return fmt.Errorf("error reading job chunks: %v", err)
-			}
-			df, err := NewDatumIterator(pachClient, jobInfo.Input)
-			if err != nil {
-				return fmt.Errorf("error from NewDatumFactory: %v", err)
-			}
+				// Read the chunks laid out by the master and create the datum factory
+				plan := &Plan{}
+				if err := a.plans.ReadOnly(jobCtx).GetBlock(jobInfo.Job.ID, plan); err != nil {
+					return fmt.Errorf("error reading job chunks: %v", err)
+				}
+				df, err := NewDatumIterator(pachClient, jobInfo.Input)
+				if err != nil {
+					return fmt.Errorf("error from NewDatumFactory: %v", err)
+				}
 
-			// Compute the datums to skip
-			skip := make(map[string]bool)
-			var useParentHashTree bool
-			parentCommitInfo, err := a.getParentCommitInfo(jobCtx, pachClient, jobInfo.OutputCommit)
-			if err != nil {
-				return err
-			}
-			if parentCommitInfo != nil {
-				var err error
-				skip, err = a.getDatumMap(jobCtx, pachClient, parentCommitInfo.Datums)
+				// Compute the datums to skip
+				skip := make(map[string]bool)
+				var useParentHashTree bool
+				parentCommitInfo, err := a.getParentCommitInfo(jobCtx, pachClient, jobInfo.OutputCommit)
 				if err != nil {
 					return err
 				}
-				var count int
-				for i := 0; i < df.Len(); i++ {
-					files := df.DatumN(i)
-					datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
-					if skip[datumHash] {
-						count++
+				if parentCommitInfo != nil {
+					var err error
+					skip, err = a.getDatumMap(jobCtx, pachClient, parentCommitInfo.Datums)
+					if err != nil {
+						return err
+					}
+					var count int
+					for i := 0; i < df.Len(); i++ {
+						files := df.DatumN(i)
+						datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
+						if skip[datumHash] {
+							count++
+						}
+					}
+					if len(skip) == count {
+						useParentHashTree = true
 					}
 				}
-				if len(skip) == count {
-					useParentHashTree = true
-				}
-			}
 
-			// Get updated job info from master
-			jobInfo, err = pachClient.InspectJob(jobID, false)
-			if err != nil {
-				return err
-			}
-			eg, ctx := errgroup.WithContext(jobCtx)
-			// If a datum fails, acquireDatums updates the relevant lock in
-			// etcd, which causes the master to fail the job (which is
-			// handled above in the JOB_FAILURE case). There's no need to
-			// handle failed datums here, just failed etcd writes.
-			eg.Go(func() error {
-				return a.acquireDatums(
-					ctx, jobID, plan, logger,
-					func(low, high int64) (*processResult, error) {
-						processResult, err := a.processDatums(pachClient, logger, jobInfo, df, low, high, skip, useParentHashTree)
-						if err != nil {
-							return nil, err
-						}
-						return processResult, nil
-					},
-				)
-			})
-			eg.Go(func() error {
-				return a.mergeDatums(ctx, pachClient, jobInfo, jobID, plan, logger, df, skip, useParentHashTree)
-			})
-			if err := eg.Wait(); err != nil {
-				if jobCtx.Err() == context.Canceled {
-					continue NextJob // job cancelled--don't restart, just wait for next job
+				// Get updated job info from master
+				jobInfo, err = pachClient.InspectJob(jobID, false)
+				if err != nil {
+					return err
 				}
-				return fmt.Errorf("acquire/process/merge datums for job %s exited with err: %v", jobID, err)
+				eg, ctx := errgroup.WithContext(jobCtx)
+				// If a datum fails, acquireDatums updates the relevant lock in
+				// etcd, which causes the master to fail the job (which is
+				// handled above in the JOB_FAILURE case). There's no need to
+				// handle failed datums here, just failed etcd writes.
+				eg.Go(func() error {
+					return a.acquireDatums(
+						ctx, jobID, plan, logger,
+						func(low, high int64) (*processResult, error) {
+							processResult, err := a.processDatums(pachClient, logger, jobInfo, df, low, high, skip, useParentHashTree)
+							if err != nil {
+								return nil, err
+							}
+							return processResult, nil
+						},
+					)
+				})
+				eg.Go(func() error {
+					return a.mergeDatums(ctx, pachClient, jobInfo, jobID, plan, logger, df, skip, useParentHashTree)
+				})
+				if err := eg.Wait(); err != nil {
+					if jobCtx.Err() == context.Canceled {
+						return nil
+					}
+					return fmt.Errorf("acquire/process/merge datums for job %s exited with err: %v", jobID, err)
+				}
+				return nil
+			}(); err != nil {
+				return err
 			}
 		}
 		return fmt.Errorf("worker: jobs.WatchByIndex(pipeline = %s) closed unexpectedly", a.pipelineInfo.Pipeline.Name)

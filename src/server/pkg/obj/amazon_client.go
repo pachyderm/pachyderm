@@ -184,7 +184,10 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 	}
 
 	// Create new session using awsConfig
-	session := session.New(awsConfig)
+	session, err := session.NewSession(awsConfig)
+	if err != nil {
+		return nil, err
+	}
 	awsClient := &amazonClient{
 		bucket: bucket,
 		s3:     s3.New(session),

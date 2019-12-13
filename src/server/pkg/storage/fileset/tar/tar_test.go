@@ -8,13 +8,11 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"internal/testenv"
 	"io"
 	"io/ioutil"
 	"math"
 	"os"
 	"path"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -259,40 +257,40 @@ func TestFileInfoHeaderDir(t *testing.T) {
 	}
 }
 
-func TestFileInfoHeaderSymlink(t *testing.T) {
-	testenv.MustHaveSymlink(t)
-
-	tmpdir, err := ioutil.TempDir("", "TestFileInfoHeaderSymlink")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpdir)
-
-	link := filepath.Join(tmpdir, "link")
-	target := tmpdir
-	err = os.Symlink(target, link)
-	if err != nil {
-		t.Fatal(err)
-	}
-	fi, err := os.Lstat(link)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	h, err := FileInfoHeader(fi, target)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if g, e := h.Name, fi.Name(); g != e {
-		t.Errorf("Name = %q; want %q", g, e)
-	}
-	if g, e := h.Linkname, target; g != e {
-		t.Errorf("Linkname = %q; want %q", g, e)
-	}
-	if g, e := h.Typeflag, byte(TypeSymlink); g != e {
-		t.Errorf("Typeflag = %v; want %v", g, e)
-	}
-}
+// func TestFileInfoHeaderSymlink(t *testing.T) {
+// 	testenv.MustHaveSymlink(t)
+//
+// 	tmpdir, err := ioutil.TempDir("", "TestFileInfoHeaderSymlink")
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	defer os.RemoveAll(tmpdir)
+//
+// 	link := filepath.Join(tmpdir, "link")
+// 	target := tmpdir
+// 	err = os.Symlink(target, link)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	fi, err := os.Lstat(link)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+//
+// 	h, err := FileInfoHeader(fi, target)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	if g, e := h.Name, fi.Name(); g != e {
+// 		t.Errorf("Name = %q; want %q", g, e)
+// 	}
+// 	if g, e := h.Linkname, target; g != e {
+// 		t.Errorf("Linkname = %q; want %q", g, e)
+// 	}
+// 	if g, e := h.Typeflag, byte(TypeSymlink); g != e {
+// 		t.Errorf("Typeflag = %v; want %v", g, e)
+// 	}
+// }
 
 func TestRoundTrip(t *testing.T) {
 	data := []byte("some file contents")

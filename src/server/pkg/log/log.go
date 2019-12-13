@@ -279,7 +279,7 @@ func Pretty(entry *logrus.Entry) ([]byte, error) {
 		}
 		data, err := json.Marshal(entry.Data)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to marshal fields to JSON, %v", err)
+			return nil, fmt.Errorf("failed to marshal fields to JSON, %v", err)
 		}
 		serialized = append(serialized, []byte(string(data))...)
 		serialized = append(serialized, ' ')

@@ -341,7 +341,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				finishMetricsWait()
 			}()
 			if creds == "" && vault == "" && iamRole == "" {
-				return fmt.Errorf("One of --credentials, --vault, or --iam-role needs to be provided")
+				return fmt.Errorf("one of --credentials, --vault, or --iam-role needs to be provided")
 			}
 
 			// populate 'amazonCreds' & validate
@@ -350,7 +350,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			if creds != "" {
 				parts := strings.Split(creds, ",")
 				if len(parts) < 2 || len(parts) > 3 || containsEmpty(parts[:2]) {
-					return fmt.Errorf("Incorrect format of --credentials")
+					return fmt.Errorf("incorrect format of --credentials")
 				}
 				amazonCreds = &assets.AmazonCreds{ID: parts[0], Secret: parts[1]}
 				if len(parts) > 2 {
@@ -376,17 +376,17 @@ If <object store backend> is \"s3\", then the arguments are:
 			}
 			if vault != "" {
 				if amazonCreds != nil {
-					return fmt.Errorf("Only one of --credentials, --vault, or --iam-role needs to be provided")
+					return fmt.Errorf("only one of --credentials, --vault, or --iam-role needs to be provided")
 				}
 				parts := strings.Split(vault, ",")
 				if len(parts) != 3 || containsEmpty(parts) {
-					return fmt.Errorf("Incorrect format of --vault")
+					return fmt.Errorf("incorrect format of --vault")
 				}
 				amazonCreds = &assets.AmazonCreds{VaultAddress: parts[0], VaultRole: parts[1], VaultToken: parts[2]}
 			}
 			if iamRole != "" {
 				if amazonCreds != nil {
-					return fmt.Errorf("Only one of --credentials, --vault, or --iam-role needs to be provided")
+					return fmt.Errorf("only one of --credentials, --vault, or --iam-role needs to be provided")
 				}
 				opts.IAMRole = iamRole
 			}
@@ -474,7 +474,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			if opts.EtcdVolume != "" {
 				tempURI, err := url.ParseRequestURI(opts.EtcdVolume)
 				if err != nil {
-					return fmt.Errorf("Volume URI needs to be a well-formed URI; instead got '%v'", opts.EtcdVolume)
+					return fmt.Errorf("volume URI needs to be a well-formed URI; instead got '%v'", opts.EtcdVolume)
 				}
 				opts.EtcdVolume = tempURI.String()
 			}
@@ -536,7 +536,7 @@ If <object store backend> is \"s3\", then the arguments are:
 		}
 
 		// it can't unmarshal it from stdin in the given format for some reason, so we pass it in directly
-		s := string(buf.Bytes())
+		s := buf.String()
 		return cmdutil.RunIO(io, `kubectl`, "patch", "secret", "pachyderm-storage-secret", "-p", s, "--namespace", opts.Namespace, "--type=merge")
 	}
 
