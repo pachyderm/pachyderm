@@ -457,19 +457,11 @@ func (w *Writer) AnnotationCount() int64 {
 	return w.stats.annotationCount
 }
 
-// StartTag starts a tag in the current annotation with the passed in id.
-func (w *Writer) StartTag(id string) {
+// Tag starts a tag in the current annotation with the passed in id.
+func (w *Writer) Tag(id string) {
 	w.finishTag()
 	a := w.annotations[len(w.annotations)-1]
 	a.tags = append(a.tags, &Tag{Id: id})
-}
-
-// FinishTag finishes the current tag in the current annotation.
-// (bryce) this is here to explicitly bound the tag at the end of
-// file content before tar padding is added, might be easier to
-// just filter this out at a layer above.
-func (w *Writer) FinishTag() {
-	w.finishTag()
 }
 
 func (w *Writer) finishTag() {
@@ -491,18 +483,22 @@ func (w *Writer) ChunkCount() int64 {
 // Write buffers data up to a certain threshold, then creates a worker
 // to process it (find chunk split points, hash data, and execute the callback).
 func (w *Writer) Write(data []byte) (int, error) {
-	a := w.annotations[len(w.annotations)-1]
+	lastA := w.annotations[len(w.annotations)-1]
+	if lastA.drs != nil {
+		lastA = copyAnnotation(lastA)
+		w.annotations = append(w.annotations, lastA)
+	}
 	var written int
 	for w.bufSize+len(data) >= bufSize {
 		i := bufSize - w.bufSize
-		a.buf.Write(data[:i])
+		lastA.buf.Write(data[:i])
 		w.stats.taggedBytesSize += int64(i)
 		w.writeDataSet()
-		a = w.annotations[len(w.annotations)-1]
+		lastA = w.annotations[len(w.annotations)-1]
 		written += i
 		data = data[i:]
 	}
-	a.buf.Write(data)
+	lastA.buf.Write(data)
 	w.bufSize += len(data)
 	w.stats.taggedBytesSize += int64(len(data))
 	written += len(data)
@@ -532,6 +528,10 @@ func (w *Writer) writeDataSet() {
 // copying the data reference (cheap copy).
 func (w *Writer) Copy(dr *DataReader) error {
 	lastA := w.annotations[len(w.annotations)-1]
+	if lastA.buf.Len() > 0 {
+		lastA = copyAnnotation(lastA)
+		w.annotations = append(w.annotations, lastA)
+	}
 	lastA.drs = append(lastA.drs, dr)
 	w.bufSize += int(dr.Len())
 	if w.bufSize > bufSize {

@@ -3,6 +3,7 @@ package fileset
 import (
 	"bytes"
 	"context"
+	"io"
 	"path"
 	"sort"
 	"strconv"
@@ -11,11 +12,15 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
 )
 
-type node struct {
+type memFile struct {
 	hdr  *tar.Header
 	op   index.Op
 	data *bytes.Buffer
-	tag  string
+}
+
+func (mf *memFile) Write(data []byte) (int, error) {
+	mf.hdr.Size += int64(len(data))
+	return mf.data.Write(data)
 }
 
 // FileSet is a set of files.
@@ -26,20 +31,20 @@ type FileSet struct {
 	root                       string
 	memAvailable, memThreshold int64
 	name                       string
-	fs                         map[string]*node
-	curr                       *node
 	tag                        string
-	part                       int
+	fs                         map[string]*memFile
+	subFileSet                 int
 }
 
-func newFileSet(ctx context.Context, storage *Storage, name string, memThreshold int64, opts ...Option) *FileSet {
+func newFileSet(ctx context.Context, storage *Storage, name string, memThreshold int64, tag string, opts ...Option) *FileSet {
 	f := &FileSet{
 		ctx:          ctx,
 		storage:      storage,
 		memAvailable: memThreshold,
 		memThreshold: memThreshold,
 		name:         name,
-		fs:           make(map[string]*node),
+		tag:          tag,
+		fs:           make(map[string]*memFile),
 	}
 	for _, opt := range opts {
 		opt(f)
@@ -47,30 +52,49 @@ func newFileSet(ctx context.Context, storage *Storage, name string, memThreshold
 	return f
 }
 
-// StartTag starts a tag for the next set of files.
-func (f *FileSet) StartTag(tag string) {
-	f.tag = tag
+func (f *FileSet) Put(r io.Reader) error {
+	tr := tar.NewReader(r)
+	for {
+		hdr, err := tr.Next()
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return err
+		}
+		mFile := f.createFile(hdr)
+		for {
+			n, err := io.CopyN(mFile, tr, f.memAvailable)
+			f.memAvailable -= n
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				return err
+			}
+			if f.memAvailable == 0 {
+				if err := f.serialize(); err != nil {
+					return err
+				}
+				mFile = f.createFile(hdr)
+			}
+		}
+	}
+	return nil
 }
 
-// WriteHeader writes a tar header and prepares to accept the file's contents.
-// (bryce) should we prevent directories from being written here?
-func (f *FileSet) WriteHeader(hdr *tar.Header) error {
+func (f *FileSet) createFile(hdr *tar.Header) *memFile {
 	hdr.Name = path.Join(f.root, hdr.Name)
 	// Create entry for path if it does not exist.
 	if _, ok := f.fs[hdr.Name]; !ok {
 		f.createParent(hdr.Name)
 		hdr.Size = 0
-		f.fs[hdr.Name] = &node{
+		f.fs[hdr.Name] = &memFile{
 			hdr:  hdr,
 			data: &bytes.Buffer{},
 		}
 	}
-	// (bryce) should make a note about the implication of this
-	// a file in a file set being written can only have one tag.
-	// multiple come into play when merging.
-	f.fs[hdr.Name].tag = f.tag
-	f.curr = f.fs[hdr.Name]
-	return nil
+	return f.fs[hdr.Name]
 }
 
 func (f *FileSet) createParent(name string) {
@@ -78,7 +102,7 @@ func (f *FileSet) createParent(name string) {
 	if _, ok := f.fs[name]; ok {
 		return
 	}
-	f.fs[name] = &node{
+	f.fs[name] = &memFile{
 		hdr: &tar.Header{
 			Typeflag: tar.TypeDir,
 			Name:     name,
@@ -87,28 +111,12 @@ func (f *FileSet) createParent(name string) {
 	f.createParent(name)
 }
 
-// Write writes to the current file in the tar stream.
-func (f *FileSet) Write(data []byte) (int, error) {
-	for int64(len(data)) > f.memAvailable {
-		n, _ := f.curr.data.Write(data[:int(f.memAvailable)])
-		f.curr.hdr.Size += int64(n)
-		data = data[n:]
-		if err := f.serialize(); err != nil {
-			return 0, err
-		}
-	}
-	n, _ := f.curr.data.Write(data)
-	f.curr.hdr.Size += int64(n)
-	f.memAvailable -= int64(n)
-	return n, nil
-}
-
 // Delete deletes a file from the file set.
 // (bryce) might need to delete ancestor directories in certain cases.
 func (f *FileSet) Delete(name string) {
 	name = path.Join(f.root, name)
 	if _, ok := f.fs[name]; !ok {
-		f.fs[name] = &node{
+		f.fs[name] = &memFile{
 			hdr: &tar.Header{
 				Name: name,
 			},
@@ -117,7 +125,6 @@ func (f *FileSet) Delete(name string) {
 	f.fs[name].hdr.Size = 0
 	f.fs[name].op = index.Op_DELETE
 	f.fs[name].data = nil
-	f.curr = nil
 }
 
 // serialize will be called whenever the in-memory file set is past the memory threshold.
@@ -132,19 +139,18 @@ func (f *FileSet) serialize() error {
 	}
 	sort.Strings(names)
 	// Serialize file set.
-	w := f.storage.newWriter(f.ctx, path.Join(f.name, strconv.Itoa(f.part)))
+	w := f.storage.newWriter(f.ctx, path.Join(f.name, strconv.Itoa(f.subFileSet)))
 	for _, name := range names {
 		n := f.fs[name]
 		// (bryce) skipping serialization of deletion operations for the time being.
-		// only testing against basic interface without multiple parts.
 		if n.op == index.Op_DELETE {
 			continue
 		}
-		if err := w.WriteHeader(&index.Header{Hdr: n.hdr}); err != nil {
+		if err := w.WriteHeader(n.hdr); err != nil {
 			return err
 		}
 		if n.hdr.Typeflag != tar.TypeDir {
-			w.StartTag(n.tag)
+			w.Tag(f.tag)
 			if _, err := w.Write(n.data.Bytes()); err != nil {
 				return err
 			}
@@ -154,9 +160,9 @@ func (f *FileSet) serialize() error {
 		return err
 	}
 	// Reset in-memory file set.
-	f.fs = make(map[string]*node)
+	f.fs = make(map[string]*memFile)
 	f.memAvailable = f.memThreshold
-	f.part++
+	f.subFileSet++
 	return nil
 }
 

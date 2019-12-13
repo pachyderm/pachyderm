@@ -8,6 +8,7 @@ import (
 	"path"
 	"sync"
 
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )
 
@@ -45,6 +46,14 @@ func (r *Reader) Peek() (*DataReader, error) {
 	return r.peek, nil
 }
 
+func (r *Reader) PeekTag() (*Tag, error) {
+	dr, err := r.Peek()
+	if err != nil {
+		return nil, err
+	}
+	return dr.PeekTag()
+}
+
 // Next progresses the reader to the next data reader.
 func (r *Reader) Next() (*DataReader, error) {
 	if r.peek != nil {
@@ -63,7 +72,8 @@ func (r *Reader) Next() (*DataReader, error) {
 
 // Iterate iterates over the data readers for the current data references
 // set in the reader.
-func (r *Reader) Iterate(f func(*DataReader) error) error {
+// tagUpperBound is an optional parameter for specifiying the upper bound (exclusive) of the iteration.
+func (r *Reader) Iterate(f func(*DataReader) error, tagUpperBound ...string) error {
 	for {
 		dr, err := r.Peek()
 		if err != nil {
@@ -72,7 +82,21 @@ func (r *Reader) Iterate(f func(*DataReader) error) error {
 			}
 			return err
 		}
+		// (bryce) have to special case for indexing which does not use tags.
+		// maybe indexing should just use tags.
+		if len(tagUpperBound) > 0 {
+			tags, err := dr.PeekTags()
+			if err != nil {
+				return err
+			}
+			if tags != nil && !BeforeBound(tags[0].Id, tagUpperBound...) {
+				return nil
+			}
+		}
 		if err := f(dr); err != nil {
+			if err == errutil.ErrBreak {
+				return nil
+			}
 			return err
 		}
 		if _, err := r.Next(); err != nil {
@@ -89,6 +113,61 @@ func (r *Reader) Iterate(f func(*DataReader) error) error {
 func (r *Reader) Get(w io.Writer) error {
 	return r.Iterate(func(dr *DataReader) error {
 		return dr.Get(w)
+	})
+}
+
+func (r *Reader) NextTagReader() *TagReader {
+	return &TagReader{r: r}
+}
+
+type TagReader struct {
+	r   *Reader
+	tag *Tag
+}
+
+func (tr *TagReader) Iterate(f func(*DataReader) error) error {
+	if err := tr.setup(); err != nil {
+		return err
+	}
+	return tr.r.Iterate(func(dr *DataReader) error {
+		tags, err := dr.PeekTags()
+		if err != nil {
+			return err
+		}
+		// Done if the current data reader does not have the tag.
+		if tags[0].Id != tr.tag.Id {
+			return errutil.ErrBreak
+		}
+		// Limit the current data reader if it has more than one tag.
+		if len(tags) > 1 {
+			dr = dr.LimitReader(tags[1].Id)
+		}
+		if err := f(dr); err != nil {
+			return err
+		}
+		// Done if the current data reader has more than one tag.
+		if len(tags) > 1 {
+			return errutil.ErrBreak
+		}
+		return nil
+	})
+}
+
+func (tr *TagReader) setup() error {
+	if tr.tag == nil {
+		var err error
+		tr.tag, err = tr.r.PeekTag()
+		return err
+	}
+	return nil
+}
+
+func (tr *TagReader) Get(w io.Writer) error {
+	return tr.Iterate(func(dr *DataReader) error {
+		return dr.Iterate(func(_ *Tag, r io.Reader) error {
+			_, err := io.Copy(w, r)
+			return err
+		})
 	})
 }
 
@@ -132,11 +211,19 @@ func (dr *DataReader) Len() int64 {
 }
 
 // Peek peeks ahead in the tags.
-func (dr *DataReader) Peek() (*Tag, error) {
+func (dr *DataReader) PeekTag() (*Tag, error) {
+	tags, err := dr.PeekTags()
+	if err != nil {
+		return nil, err
+	}
+	return tags[0], nil
+}
+
+func (dr *DataReader) PeekTags() ([]*Tag, error) {
 	if len(dr.tags) == 0 {
 		return nil, io.EOF
 	}
-	return dr.tags[0], nil
+	return dr.tags, nil
 }
 
 // Iterate iterates over the tags in the data reference and passes the tag and a reader for getting
@@ -147,7 +234,7 @@ func (dr *DataReader) Iterate(f func(*Tag, io.Reader) error, tagUpperBound ...st
 		return err
 	}
 	for {
-		tag, err := dr.Peek()
+		tag, err := dr.PeekTag()
 		if err != nil {
 			if err == io.EOF {
 				return nil
