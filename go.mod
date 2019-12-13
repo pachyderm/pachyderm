@@ -7,7 +7,7 @@ require (
 	github.com/Azure/azure-sdk-for-go v32.4.0+incompatible
 	github.com/Azure/go-autorest/autorest/to v0.3.0 // indirect
 	github.com/LK4D4/joincontext v0.0.0-20171026170139-1724345da6d5
-	github.com/Microsoft/hcsshim v0.8.6 // indirect
+	github.com/Microsoft/hcsshim v0.8.7 // indirect
 	github.com/OneOfOne/xxhash v1.2.5
 	github.com/aws/aws-lambda-go v1.11.1
 	github.com/aws/aws-sdk-go v1.20.3
@@ -16,7 +16,7 @@ require (
 	github.com/brianvoe/gofakeit v3.18.0+incompatible
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd // indirect
-	github.com/containerd/continuity v0.0.0-20190426062206-aaeac12a7ffc // indirect
+	github.com/containerd/containerd v1.3.2 // indirect
 	github.com/coreos/bbolt v1.3.3
 	github.com/coreos/etcd v3.3.13+incompatible
 	github.com/coreos/go-etcd v2.0.0+incompatible
@@ -27,7 +27,8 @@ require (
 	github.com/dlclark/regexp2 v1.2.0 // indirect
 	github.com/dnaeon/go-vcr v1.0.1 // indirect
 	github.com/docker/distribution v2.7.1+incompatible // indirect
-	github.com/docker/docker v0.7.3-0.20190621081258-52c16677b22d // indirect
+	github.com/docker/docker v1.4.2-0.20191213113251-3452f136aa68 // indirect
+	github.com/docker/engine v1.13.1 // indirect
 	github.com/docker/go-units v0.4.0
 	github.com/docker/spdystream v0.0.0-20160310174837-449fdfce4d96 // indirect
 	github.com/elazarl/goproxy v0.0.0-20170405201442-c4fc26588b6e // indirect
@@ -133,3 +134,7 @@ require (
 	modernc.org/mathutil v1.0.0
 	sigs.k8s.io/yaml v1.1.0 // indirect
 )
+
+// Holy shit, the docker library versions are a clusterfuck, see https://github.com/moby/moby/issues/39302
+// For the moment, the windows build requires a fix that has not been tagged with an official release
+replace github.com/docker/docker => github.com/docker/docker v1.4.2-0.20191213113251-3452f136aa68
