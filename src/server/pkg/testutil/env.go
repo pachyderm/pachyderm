@@ -24,26 +24,26 @@ import (
 	txnserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
 )
 
-// Env contains the basic setup for running end-to-end pachyderm tests entirely
+// EtcdEnv contains the basic setup for running end-to-end pachyderm tests entirely
 // locally within the test process. It provides a temporary directory for
 // storing data, and an embedded etcd server with a connected client.
-type Env struct {
+type EtcdEnv struct {
 	Context    context.Context
 	Directory  string
 	Etcd       *embed.Etcd
 	EtcdClient *etcd.Client
 }
 
-// WithEnv constructs a default Env for testing during the lifetime of the
-// callback.
-func WithEnv(cb func(*Env) error) (err error) {
+// WithEtcdEnv constructs a default EtcdEnv for testing during the lifetime of
+// the callback.
+func WithEtcdEnv(cb func(*EtcdEnv) error) (err error) {
 	// Use an error group with a cancelable context to supervise every component
 	// and cancel everything if one fails
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	eg, ctx := errgroup.WithContext(ctx)
 
-	env := &Env{Context: ctx}
+	env := &EtcdEnv{Context: ctx}
 
 	// Cleanup any state when we return
 	defer func() {
@@ -153,23 +153,23 @@ func WithEnv(cb func(*Env) error) (err error) {
 // for storing data, an embedded etcd server with a connected client, as well as
 // a local mock pachd instance which allows a test to hook into any pachd calls.
 type MockEnv struct {
-	Env
+	EtcdEnv
 	MockPachd  *MockPachd
 	PachClient *client.APIClient
 }
 
-// WithMockEnv sets up an Env structure, passes it to the provided callback,
+// WithMockEnv sets up a MockEnv structure, passes it to the provided callback,
 // then cleans up everything in the environment, regardless of if an assertion
 // fails.
 func WithMockEnv(cb func(*MockEnv) error) error {
-	return WithEnv(func(env *Env) (err error) {
+	return WithEtcdEnv(func(etcdEnv *EtcdEnv) (err error) {
 		// Use an error group with a cancelable context to supervise every component
 		// and cancel everything if one fails
-		ctx, cancel := context.WithCancel(env.Context)
+		ctx, cancel := context.WithCancel(etcdEnv.Context)
 		defer cancel()
 		eg, ctx := errgroup.WithContext(ctx)
 
-		mockEnv := &MockEnv{Env: *env}
+		mockEnv := &MockEnv{EtcdEnv: *etcdEnv}
 		mockEnv.Context = ctx
 
 		// Cleanup any state when we return
@@ -215,7 +215,7 @@ func WithMockEnv(cb func(*MockEnv) error) error {
 }
 
 // RealEnv contains a setup for running end-to-end pachyderm tests locally.  It
-// includes the base Env struct as well as a real instance of the API server.
+// includes the base MockEnv struct as well as a real instance of the API server.
 // These calls can still be mocked, but they default to calling into the real
 // server endpoints.
 type RealEnv struct {
