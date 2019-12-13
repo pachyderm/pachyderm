@@ -2,37 +2,27 @@
 
 import os
 import re
-import sys
 import json
 import time
-import select
-import logging
 import argparse
 import threading
 import subprocess
 
 ETCD_IMAGE = "quay.io/coreos/etcd:v3.3.5"
 
-LOG_LEVELS = {
-    "critical": logging.CRITICAL,
-    "error": logging.ERROR,
-    "warning": logging.WARNING,
-    "info": logging.INFO,
-    "debug": logging.DEBUG,
-}
+DELETABLE_RESOURCES = [
+    "daemonsets",
+    "replicasets",
+    "services",
+    "deployments",
+    "pods",
+    "rc",
+    "pvc",
+    "serviceaccounts",
+    "secrets",
+]
 
-LOG_COLORS = {
-    "critical": "\x1b[31;1m",
-    "error": "\x1b[31;1m",
-    "warning": "\x1b[33;1m",
-}
-
-LOCAL_CONFIG_PATTERN = re.compile(r"^local(-\d+)?$")
-
-log = logging.getLogger(__name__)
-handler = logging.StreamHandler()
-handler.setFormatter(logging.Formatter("%(levelname)s:%(message)s"))
-log.addHandler(handler)
+NEWLINE_SEPARATE_OBJECTS_PATTERN = re.compile(r"\}\n+\{", re.MULTILINE)
 
 class ExcThread(threading.Thread):
     def __init__(self, target):
@@ -59,42 +49,34 @@ def join(*targets):
         if t.error is not None:
             raise Exception("Thread error") from t.error
 
-class Output:
-    def __init__(self, pipe, level):
-        self.pipe = pipe
-        self.level = level
-        self.lines = []
-
-class ProcessResult:
-    def __init__(self, rc, stdout, stderr):
-        self.rc = rc
-        self.stdout = stdout
-        self.stderr = stderr
-
 class DefaultDriver:
     def available(self):
         return True
 
     def clear(self):
-        run("kubectl", "delete", "daemonsets,replicasets,services,deployments,pods,rc,pvc", "--all")
+        run("kubectl", "delete", ",".join(DELETABLE_RESOURCES), "--all", raise_on_error=False)
+        run("kubectl", "delete", "clusterrole.rbac.authorization.k8s.io/pachyderm", raise_on_error=False)
+        run("kubectl", "delete", "clusterrolebinding.rbac.authorization.k8s.io/pachyderm", raise_on_error=False)
 
     def start(self):
         pass
 
-    def push_images(self, deploy_version, dash_image):
+    def push_images(self, dash_image):
         pass
 
-    def wait(self):
-        while suppress("pachctl", "version") != 0:
-            log.info("Waiting for pachyderm to come up...")
-            time.sleep(1)
-
     def set_config(self):
+        kube_context = capture("kubectl", "config", "current-context").strip()
+        run("pachctl", "config", "set", "context", kube_context, "--kubernetes", kube_context, "--overwrite")
+        run("pachctl", "config", "set", "active-context", kube_context)
+
+class DockerDriver(DefaultDriver):
+    def set_config(self):
+        super().set_config()
         run("pachctl", "config", "update", "context", "--pachd-address=localhost:30650")
 
 class MinikubeDriver(DefaultDriver):
     def available(self):
-        return run("which", "minikube", raise_on_error=False).rc == 0
+        return run("which", "minikube", raise_on_error=False).returncode == 0
 
     def clear(self):
         run("minikube", "delete")
@@ -102,185 +84,97 @@ class MinikubeDriver(DefaultDriver):
     def start(self):
         run("minikube", "start")
 
-        while suppress("minikube", "status") != 0:
-            log.info("Waiting for minikube to come up...")
+        while run("minikube", "status", raise_on_error=False).returncode != 0:
+            print("Waiting for minikube to come up...")
             time.sleep(1)
 
-    def push_images(self, deploy_version, dash_image):
-        run("./etc/kube/push-to-minikube.sh", "pachyderm/pachd:{}".format(deploy_version))
-        run("./etc/kube/push-to-minikube.sh", "pachyderm/worker:{}".format(deploy_version))
+    def push_images(self, dash_image):
+        run("./etc/kube/push-to-minikube.sh", "pachyderm/pachd:local")
+        run("./etc/kube/push-to-minikube.sh", "pachyderm/worker:local")
         run("./etc/kube/push-to-minikube.sh", ETCD_IMAGE)
         run("./etc/kube/push-to-minikube.sh", dash_image)
 
     def set_config(self):
+        super().set_config()
         ip = capture("minikube", "ip")
         run("pachctl", "config", "update", "context", "--pachd-address={}".format(ip))
 
-def parse_log_level(s):
-    try:
-        return LOG_LEVELS[s]
-    except KeyError:
-        raise Exception("Unknown log level: {}".format(s))
+def find_in_json(j, f):
+    if f(j):
+        return j
 
-def run(cmd, *args, raise_on_error=True, shell=False, stdout_log_level="info", stderr_log_level="error"):
-    log.debug("Running `%s %s`", cmd, " ".join(args))
+    iter = None
+    if isinstance(j, dict):
+        iter = j.values()
+    elif isinstance(j, list):
+        iter = j
 
-    proc = subprocess.Popen([cmd, *args], shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    stdout = Output(proc.stdout, stdout_log_level)
-    stderr = Output(proc.stderr, stderr_log_level)
-    timed_out_last = False
+    if iter is not None:
+        for sub_j in iter:
+            v = find_in_json(sub_j, f)
+            if v is not None:
+                return v
 
-    while True:
-        if (proc.poll() is not None and timed_out_last) or (stdout.pipe.closed and stderr.pipe.closed):
-            break
+def print_status(status):
+    print("===> {}".format(status))
 
-        for io in select.select([stdout.pipe, stderr.pipe], [], [], 100)[0]:
-            timed_out_last = False
-            line = io.readline().decode().rstrip()
+def run(cmd, *args, raise_on_error=True, stdin=None, capture_output=False):
+    all_args = [cmd, *args]
+    print_status(" ".join(all_args))
+    return subprocess.run(all_args, check=raise_on_error, capture_output=capture_output, input=stdin, encoding="utf8")
 
-            if line == "":
-                continue
-
-            dest = stdout if io == stdout.pipe else stderr
-            log.log(LOG_LEVELS[dest.level], "{}{}\x1b[0m".format(LOG_COLORS.get(dest.level, ""), line))
-            dest.lines.append(line)
-        else:
-            timed_out_last = True
-
-    rc = proc.wait()
-
-    if raise_on_error and rc != 0:
-        raise Exception("Unexpected return code for `{} {}`: {}".format(cmd, " ".join(args), rc))
-
-    return ProcessResult(rc, "\n".join(stdout.lines), "\n".join(stderr.lines))
-
-def capture(cmd, *args, shell=False):
-    return run(cmd, *args, shell=shell, stdout_log_level="debug").stdout
-
-def suppress(cmd, *args):
-    return run(cmd, *args, stdout_log_level="debug", stderr_log_level="debug", raise_on_error=False).rc
-
-def get_pachyderm(deploy_version):
-    log.info("Deploying pachd:{}".format(deploy_version))
-
-    should_download = suppress("which", "pachctl") != 0 \
-        or capture("pachctl", "version", "--client-only") != deploy_version
-
-    if should_download:
-        release_url = "https://github.com/pachyderm/pachyderm/releases/download/v{}/pachctl_{}_linux_amd64.tar.gz".format(deploy_version, deploy_version)
-        outpath = os.path.join(os.environ["GOPATH"], "bin")
-        filepath = "pachctl_{}_linux_amd64/pachctl".format(deploy_version)
-        run("curl -L {} | tar -C \"{}\" --strip-components=1 -xzf - {}".format(release_url, outpath, filepath), shell=True)
-
-    run("docker", "pull", "pachyderm/pachd:{}".format(deploy_version))
-    run("docker", "pull", "pachyderm/worker:{}".format(deploy_version))
-
-def rewrite_config():
-    log.info("Rewriting config")
-
-    keys = set([])
-
-    try:
-        with open(os.path.expanduser("~/.pachyderm/config.json"), "r") as f:
-            j = json.load(f)
-    except:
-        return
-        
-    v2 = j.get("v2")
-    if not v2:
-        return
-
-    contexts = v2["contexts"]
-
-    for k, v in contexts.items():
-        if LOCAL_CONFIG_PATTERN.fullmatch(k) and len(v) > 0:
-            keys.add(k)
-
-    for k in keys:
-        del contexts[k]
-
-    with open(os.path.expanduser("~/.pachyderm/config.json"), "w") as f:
-        json.dump(j, f, indent=2)
+def capture(cmd, *args):
+    return run(cmd, *args, capture_output=True).stdout
 
 def main():
     parser = argparse.ArgumentParser(description="Recompiles pachyderm tooling and restarts the cluster with a clean slate.")
-    parser.add_argument("--no-deploy", default=False, action="store_true", help="Disables deployment")
-    parser.add_argument("--no-config-rewrite", default=False, action="store_true", help="Disables config rewriting")
-    parser.add_argument("--deploy-args", default="", help="Arguments to be passed into `pachctl deploy`")
-    parser.add_argument("--deploy-version", default="local", help="Sets the deployment version")
-    parser.add_argument("--log-level", default="info", type=parse_log_level, help="Sets the log level; defaults to 'info', other options include 'critical', 'error', 'warning', and 'debug'")
+    parser.add_argument("--args", default="", help="Arguments to be passed into `pachctl deploy`")
     args = parser.parse_args()
 
-    log.setLevel(args.log_level)
-
     if "GOPATH" not in os.environ:
-        log.critical("Must set GOPATH")
-        sys.exit(1)
-    if not args.no_deploy and "PACH_CA_CERTS" in os.environ:
-        log.critical("Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS", file=sys.stderr)
-        sys.exit(1)
+        raise Exception("Must set GOPATH")
+    if "PACH_CA_CERTS" in os.environ:
+        raise Exception("Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS")
 
     if MinikubeDriver().available():
-        log.info("using the minikube driver")
+        print_status("using the minikube driver")
         driver = MinikubeDriver()
     else:
-        log.info("using the k8s for docker driver")
-        log.warning("with this driver, it's not possible to fully reset the cluster")
-        driver = DefaultDriver()
+        print_status("using the k8s for docker driver")
+        driver = DockerDriver()
 
     driver.clear()
 
-    gopath = os.environ["GOPATH"]
+    bin_path = os.path.join(os.environ["GOPATH"], "bin", "pachctl")
 
-    if args.deploy_version == "local":
-        try:
-            os.remove(os.path.join(gopath, "bin", "pachctl"))
-        except:
-            pass
+    if os.path.exists(bin_path):
+        os.remove(bin_path)
 
-        procs = [
-            driver.start,
-            lambda: run("make", "install"),
-            lambda: run("make", "docker-build"),
-        ]
-
-        if not args.no_config_rewrite:
-            procs.append(rewrite_config)
-
-        join(*procs)
-    else:
-        join(
-            driver.start,
-            lambda: get_pachyderm(args.deploy_version),
-        )
-
+    join(
+        driver.start,
+        lambda: run("make", "install"),
+        lambda: run("make", "docker-build"),
+    )
+    
     version = capture("pachctl", "version", "--client-only")
-    log.info("Deploy pachyderm version v{}".format(version))
+    print_status("Deploy pachyderm version v{}".format(version))
 
-    while suppress("pachctl", "version", "--client-only") != 0:
-        log.info("Waiting for pachctl to build...")
-        time.sleep(1)
-
-    run("which", "pachctl")
-
-    dash_image = capture("pachctl deploy local -d --dry-run | jq -r '.. | select(.name? == \"dash\" and has(\"image\")).image'", shell=True)
-    grpc_proxy_image = capture("pachctl deploy local -d --dry-run | jq -r '.. | select(.name? == \"grpc-proxy\").image'", shell=True)
+    deployments_str = capture("pachctl", "deploy", "local", "-d", "--dry-run")
+    deployments_json = json.loads("[{}]".format(NEWLINE_SEPARATE_OBJECTS_PATTERN.sub("},{", deployments_str)))
+    dash_image = find_in_json(deployments_json, lambda j: isinstance(j, dict) and j.get("name") == "dash" and j.get("image") is not None)["image"]
+    grpc_proxy_image = find_in_json(deployments_json, lambda j: isinstance(j, dict) and j.get("name") == "grpc-proxy")["image"]
 
     run("docker", "pull", dash_image)
     run("docker", "pull", grpc_proxy_image)
     run("docker", "pull", ETCD_IMAGE)
-    driver.push_images(args.deploy_version, dash_image)
+    driver.push_images(dash_image)
 
-    if not args.no_deploy:
-        if args.deploy_version == "local":
-            run("pachctl deploy local -d {}".format(args.deploy_args), shell=True)
-        else:
-            run("pachctl deploy local -d {} --dry-run | sed \"s/:local/:{}/g\" | kubectl create -f -".format(args.deploy_args, args.deploy_version), shell=True)
-
-        driver.wait()
-
-    run("killall", "kubectl", raise_on_error=False)
+    run("kubectl", "create", "-f", "-", stdin=deployments_str)
     driver.set_config()
+
+    while run("pachctl", "version", raise_on_error=False).returncode:
+        print_status("Waiting for pachyderm to come up...")
+        time.sleep(1)
 
 if __name__ == "__main__":
     main()
