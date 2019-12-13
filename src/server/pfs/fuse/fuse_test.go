@@ -23,9 +23,10 @@ const (
 )
 
 func TestBasic(t *testing.T) {
-	c := server.GetPachClient(t)
+	c := server.GetPachClient(t, server.GetBasicConfig())
 	require.NoError(t, c.CreateRepo("repo"))
 	_, err := c.PutFile("repo", "master", "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
 	_, err = c.PutFile("repo", "master", "dir/file2", strings.NewReader("foo"))
 	require.NoError(t, err)
 	mount(t, c, nil, func(mountPoint string) {
@@ -52,7 +53,7 @@ func TestBasic(t *testing.T) {
 }
 
 func TestChunkSize(t *testing.T) {
-	c := server.GetPachClient(t)
+	c := server.GetPachClient(t, server.GetBasicConfig())
 	require.NoError(t, c.CreateRepo("repo"))
 	_, err := c.PutFile("repo", "master", "file", strings.NewReader(strings.Repeat("p", int(pfs.ChunkSize))))
 	require.NoError(t, err)
@@ -64,7 +65,7 @@ func TestChunkSize(t *testing.T) {
 }
 
 func TestLargeFile(t *testing.T) {
-	c := server.GetPachClient(t)
+	c := server.GetPachClient(t, server.GetBasicConfig())
 	require.NoError(t, c.CreateRepo("repo"))
 	src := workload.RandString(rand.New(rand.NewSource(123)), GB+17)
 	_, err := c.PutFile("repo", "master", "file", strings.NewReader(src))
@@ -77,7 +78,7 @@ func TestLargeFile(t *testing.T) {
 }
 
 func BenchmarkLargeFile(b *testing.B) {
-	c := server.GetPachClient(b)
+	c := server.GetPachClient(b, server.GetBasicConfig())
 	require.NoError(b, c.CreateRepo("repo"))
 	src := workload.RandString(rand.New(rand.NewSource(123)), GB)
 	_, err := c.PutFile("repo", "master", "file", strings.NewReader(src))
@@ -94,7 +95,7 @@ func BenchmarkLargeFile(b *testing.B) {
 }
 
 func TestSeek(t *testing.T) {
-	c := server.GetPachClient(t)
+	c := server.GetPachClient(t, server.GetBasicConfig())
 	require.NoError(t, c.CreateRepo("repo"))
 	data := strings.Repeat("foo", MB)
 	_, err := c.PutFile("repo", "master", "file", strings.NewReader(data))
@@ -122,7 +123,7 @@ func TestSeek(t *testing.T) {
 }
 
 func TestHeadlessBranch(t *testing.T) {
-	c := server.GetPachClient(t)
+	c := server.GetPachClient(t, server.GetBasicConfig())
 	require.NoError(t, c.CreateRepo("repo"))
 	require.NoError(t, c.CreateBranch("repo", "master", "", nil))
 	mount(t, c, nil, func(mountPoint string) {

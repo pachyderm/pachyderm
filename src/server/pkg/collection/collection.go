@@ -43,8 +43,6 @@ type collection struct {
 	// The limit used when listing the collection. This gets automatically
 	// tuned when requests fail so it's stored per collection.
 	limit int64
-	// Which sort to use for the collection
-	sortBy etcd.SortTarget
 	// We need this to figure out the concrete type of the objects
 	// that this collection is storing. It's pretty retarded, but
 	// not sure what else we can do since types in Go are not first-class
@@ -180,16 +178,6 @@ func (c *collection) indexDir(index *Index, indexVal interface{}) string {
 // See the documentation for `Index` for details.
 func (c *collection) indexPath(index *Index, indexVal interface{}, key string) string {
 	return path.Join(c.indexDir(index, indexVal), key)
-}
-
-func (c *collection) checkType(val interface{}) error {
-	if c.template != nil {
-		valType, templateType := reflect.TypeOf(val), reflect.TypeOf(c.template)
-		if valType != templateType {
-			return fmt.Errorf("invalid type, got: %s, expected: %s", valType, templateType)
-		}
-	}
-	return nil
 }
 
 type readWriteCollection struct {
@@ -557,13 +545,11 @@ func (c *readonlyCollection) GetBlock(key string, val proto.Message) error {
 		return err
 	}
 	defer watcher.Close()
-	for {
-		e := <-watcher.Watch()
-		if e.Err != nil {
-			return e.Err
-		}
-		return e.Unmarshal(&key, val)
+	e := <-watcher.Watch()
+	if e.Err != nil {
+		return e.Err
 	}
+	return e.Unmarshal(&key, val)
 }
 
 func (c *readonlyCollection) TTL(key string) (int64, error) {

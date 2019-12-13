@@ -257,24 +257,27 @@ func PrintDetailedDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
 	dl, err := types.DurationFromProto(datumInfo.Stats.DownloadTime)
 	if err != nil {
 		downloadTime = err.Error()
+	} else {
+		downloadTime = dl.String()
 	}
-	downloadTime = dl.String()
 	fmt.Fprintf(w, "Download Time\t%s\n", downloadTime)
 
 	var procTime string
 	proc, err := types.DurationFromProto(datumInfo.Stats.ProcessTime)
 	if err != nil {
 		procTime = err.Error()
+	} else {
+		procTime = proc.String()
 	}
-	procTime = proc.String()
 	fmt.Fprintf(w, "Process Time\t%s\n", procTime)
 
 	var uploadTime string
 	ul, err := types.DurationFromProto(datumInfo.Stats.UploadTime)
 	if err != nil {
 		uploadTime = err.Error()
+	} else {
+		uploadTime = ul.String()
 	}
-	uploadTime = ul.String()
 	fmt.Fprintf(w, "Upload Time\t%s\n", uploadTime)
 
 	fmt.Fprintf(w, "PFS State:\n")

@@ -96,7 +96,7 @@ func (f *PortForwarder) Run(appName string, localPort, remotePort uint16) (uint1
 		return 0, err
 	}
 	if len(podList.Items) == 0 {
-		return 0, fmt.Errorf("No pods found for app %s", appName)
+		return 0, return fmt.Errorf("no pods found for app %s", appName)
 	}
 
 	// Choose a random pod

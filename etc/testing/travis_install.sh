@@ -70,3 +70,4 @@ if [ ! -f ~/cached-deps/kubeval ]; then
       | tar xzf - kubeval && \
       mv ./kubeval ~/cached-deps/kubeval
 fi
+

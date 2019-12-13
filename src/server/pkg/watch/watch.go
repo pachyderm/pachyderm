@@ -66,21 +66,6 @@ func (w *watcher) Close() {
 	close(w.done)
 }
 
-// sort the key-value pairs by revision time
-type byModRev struct{ etcd.GetResponse }
-
-func (s byModRev) Len() int {
-	return len(s.GetResponse.Kvs)
-}
-
-func (s byModRev) Swap(i, j int) {
-	s.GetResponse.Kvs[i], s.GetResponse.Kvs[j] = s.GetResponse.Kvs[j], s.GetResponse.Kvs[i]
-}
-
-func (s byModRev) Less(i, j int) bool {
-	return s.GetResponse.Kvs[i].ModRevision < s.GetResponse.Kvs[j].ModRevision
-}
-
 // NewWatcher watches a given etcd prefix for events.
 func NewWatcher(ctx context.Context, client *etcd.Client, trimPrefix, prefix string, template proto.Message, opts ...OpOption) (Watcher, error) {
 	eventCh := make(chan *Event)

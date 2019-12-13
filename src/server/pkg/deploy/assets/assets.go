@@ -36,7 +36,6 @@ var (
 	dashName       = "dash"
 	workerImage    = "pachyderm/worker"
 	pauseImage     = "gcr.io/google_containers/pause-amd64:3.0"
-	dashImage      = "pachyderm/dash"
 
 	// ServiceAccountName is the name of Pachyderm's service account.
 	// It's public because it's needed by pps.APIServer to create the RCs for
@@ -1446,13 +1445,13 @@ func WriteTLSSecret(encoder serde.Encoder, opts *AssetOpts) error {
 		return nil
 	}
 	if opts.TLS == nil {
-		return fmt.Errorf("Internal error: WriteTLSSecret called but opts.TLS is nil")
+		return fmt.Errorf("internal error: WriteTLSSecret called but opts.TLS is nil")
 	}
 	if opts.TLS.ServerKey == "" {
-		return fmt.Errorf("Internal error: WriteTLSSecret called but opts.TLS.ServerKey is \"\"")
+		return fmt.Errorf("internal error: WriteTLSSecret called but opts.TLS.ServerKey is \"\"")
 	}
 	if opts.TLS.ServerCert == "" {
-		return fmt.Errorf("Internal error: WriteTLSSecret called but opts.TLS.ServerCert is \"\"")
+		return fmt.Errorf("internal error: WriteTLSSecret called but opts.TLS.ServerCert is \"\"")
 	}
 
 	// Attempt to copy server cert and key files into config (kubernetes client
@@ -1496,7 +1495,7 @@ func WriteCustomAssets(encoder serde.Encoder, opts *AssetOpts, args []string, ob
 	switch objectStoreBackend {
 	case "s3":
 		if len(args) != s3CustomArgs {
-			return fmt.Errorf("Expected %d arguments for disk+s3 backend", s3CustomArgs)
+			return fmt.Errorf("expected %d arguments for disk+s3 backend", s3CustomArgs)
 		}
 		volumeSize, err := strconv.Atoi(args[1])
 		if err != nil {
@@ -1521,7 +1520,7 @@ func WriteCustomAssets(encoder serde.Encoder, opts *AssetOpts, args []string, ob
 				return err
 			}
 		default:
-			return fmt.Errorf("Did not recognize the choice of persistent-disk")
+			return fmt.Errorf("did not recognize the choice of persistent-disk")
 		}
 		bucket := args[2]
 		id := args[3]
@@ -1533,7 +1532,7 @@ func WriteCustomAssets(encoder serde.Encoder, opts *AssetOpts, args []string, ob
 		// (bryce) hardcode region?
 		return WriteSecret(encoder, AmazonSecret("us-east-1", bucket, id, secret, "", "", endpoint, advancedConfig), opts)
 	default:
-		return fmt.Errorf("Did not recognize the choice of object-store")
+		return fmt.Errorf("did not recognize the choice of object-store")
 	}
 }
 

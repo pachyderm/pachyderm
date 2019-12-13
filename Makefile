@@ -53,7 +53,7 @@ version:
 deps:
 	go get -d -v ./src/... ./.
 
-update-deps: 
+update-deps:
 	go get -d -v -u ./src/... ./.
 
 build:
@@ -378,22 +378,11 @@ full-clean-launch: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found serviceaccount -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
 
-launch-test-rethinkdb:
-	@# Expose port 8081 so you can connect to the rethink dashboard
-	@# (You may need to forward port 8081 if you're running docker machine)
-	docker run --name pachyderm-test-rethinkdb -d -p 28015:28015 -p 8081:8080 rethinkdb:2.3.3
-	sleep 20  # wait for rethinkdb to start up
-
-clean-launch-test-rethinkdb:
-	docker stop pachyderm-test-rethinkdb || true
-	docker rm pachyderm-test-rethinkdb || true
-
-clean-pps-storage: check-kubectl
-	kubectl $(KUBECTLFLAGS) delete pvc rethink-volume-claim
-	kubectl $(KUBECTLFLAGS) delete pv rethink-volume
-
 integration-tests:
 	CGOENABLED=0 go test -v -count=1 ./src/server $(TESTFLAGS) -timeout $(TIMEOUT)
+
+staticcheck:
+	staticcheck ./...
 
 test-proto-static:
 	./etc/proto/test_no_changes.sh || echo "Protos need to be recompiled; run make proto-no-cache."
@@ -576,7 +565,7 @@ kubectl:
 	gcloud container clusters get-credentials $(CLUSTER_NAME)
 
 google-cluster-manifest:
-	@pachctl deploy --rethinkdb-cache-size=5G --dry-run google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
+	@pachctl deploy --dry-run google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
 
 google-cluster:
 	gcloud container clusters create $(CLUSTER_NAME) --scopes storage-rw --machine-type $(CLUSTER_MACHINE_TYPE) --num-nodes $(CLUSTER_SIZE)
@@ -608,8 +597,6 @@ amazon-clean-cluster:
 
 amazon-clean-launch: clean-launch
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secrets amazon-secret
-	kubectl $(KUBECTLFLAGS) delete --ignore-not-found persistentvolumes rethink-volume
-	kubectl $(KUBECTLFLAGS) delete --ignore-not-found persistentvolumeclaims rethink-volume-claim
 
 amazon-clean:
 	@while :; \
@@ -689,7 +676,6 @@ goxc-build:
 	clean-launch-dev \
 	clean-launch \
 	full-clean-launch \
-	clean-pps-storage \
 	integration-tests \
 	proto \
 	pretest \
@@ -718,6 +704,4 @@ goxc-build:
 	lint \
 	goxc-generate-local \
 	goxc-release \
-	goxc-build \
-	launch-test-rethinkdb \
-	clean-launch-test-rethinkdb
+	goxc-build

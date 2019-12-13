@@ -138,7 +138,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 
 	pfsCacheSize, err := strconv.Atoi(env.PFSCacheSize)
 	if err != nil {
-		return fmt.Errorf("Atoi: %v", err)
+		return fmt.Errorf("atoi: %v", err)
 	}
 	if pfsCacheSize == 0 {
 		pfsCacheSize = defaultTreeCacheSize
@@ -307,7 +307,7 @@ func doFullMode(config interface{}) (retErr error) {
 	)
 	pfsCacheSize, err := strconv.Atoi(env.PFSCacheSize)
 	if err != nil {
-		return fmt.Errorf("Atoi: %v", err)
+		return fmt.Errorf("atoi: %v", err)
 	}
 	if pfsCacheSize == 0 {
 		pfsCacheSize = defaultTreeCacheSize

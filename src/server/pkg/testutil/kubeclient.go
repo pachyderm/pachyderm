@@ -71,7 +71,7 @@ func DeletePachdPod(t testing.TB) {
 		if len(podList.Items) == 0 {
 			return nil
 		}
-		if time.Now().Sub(startTime) > 10*time.Second {
+		if time.Since(startTime) > 10*time.Second {
 			return nil
 		}
 		return fmt.Errorf("waiting for old pachd pod to be killed")

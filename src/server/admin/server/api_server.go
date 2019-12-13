@@ -227,6 +227,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 					Finished:      ji.Finished,
 				}}})
 			}); err != nil {
+				return err
 			}
 		}
 	}
@@ -242,66 +243,6 @@ func (a *apiServer) ExtractPipeline(ctx context.Context, request *admin.ExtractP
 		return nil, err
 	}
 	return &admin.Op{Op1_9: &admin.Op1_9{Pipeline: ppsutil.PipelineReqFromInfo(pi)}}, nil
-}
-
-func buildCommitRequests(cis []*pfs.CommitInfo, bis []*pfs.BranchInfo) []*pfs.BuildCommitRequest {
-	cis = sortCommitInfos(cis)
-	result := make([]*pfs.BuildCommitRequest, len(cis))
-	commitToBranch := make(map[string]string)
-	for _, bi := range bis {
-		if bi.Head == nil {
-			continue
-		}
-		if _, ok := commitToBranch[bi.Head.ID]; !ok || bi.Name == "master" {
-			commitToBranch[bi.Head.ID] = bi.Name
-		}
-	}
-	for i := range cis {
-		ci := cis[len(cis)-i-1]
-		branch := commitToBranch[ci.Commit.ID]
-		// Even without a parent, ParentCommit is used to indicate which
-		// repo to make the commit in.
-		if ci.ParentCommit == nil {
-			ci.ParentCommit = client.NewCommit(ci.Commit.Repo.Name, "")
-		}
-		result[len(cis)-i-1] = &pfs.BuildCommitRequest{
-			Parent: ci.ParentCommit,
-			Tree:   ci.Tree,
-			ID:     ci.Commit.ID,
-			Branch: branch,
-		}
-		if _, ok := commitToBranch[ci.ParentCommit.ID]; !ok || branch == "master" {
-			commitToBranch[ci.ParentCommit.ID] = branch
-		}
-	}
-	return result
-}
-
-func sortCommitInfos(cis []*pfs.CommitInfo) []*pfs.CommitInfo {
-	commitMap := make(map[string]*pfs.CommitInfo)
-	for _, ci := range cis {
-		commitMap[ci.Commit.ID] = ci
-	}
-	var result []*pfs.CommitInfo
-	for _, ci := range cis {
-		if commitMap[ci.Commit.ID] == nil {
-			continue
-		}
-		var localResult []*pfs.CommitInfo
-		for ci != nil {
-			localResult = append(localResult, ci)
-			delete(commitMap, ci.Commit.ID)
-			if ci.ParentCommit != nil {
-				ci = commitMap[ci.ParentCommit.ID]
-			} else {
-				ci = nil
-			}
-		}
-		for i := range localResult {
-			result = append(result, localResult[len(localResult)-i-1])
-		}
-	}
-	return result
 }
 
 func sortPipelineInfos(pis []*pps.PipelineInfo) []*pps.PipelineInfo {
@@ -537,24 +478,6 @@ func (a *apiServer) getPachClient() *client.APIClient {
 		}
 	})
 	return a.pachClient
-}
-
-type extractObjectWriter func(*admin.Op) error
-
-func (w extractObjectWriter) Write(p []byte) (int, error) {
-	chunkSize := grpcutil.MaxMsgSize / 2
-	var n int
-	for i := 0; i*(chunkSize) < len(p); i++ {
-		value := p[i*chunkSize:]
-		if len(value) > chunkSize {
-			value = value[:chunkSize]
-		}
-		if err := w(&admin.Op{Op1_9: &admin.Op1_9{Object: &pfs.PutObjectRequest{Value: value}}}); err != nil {
-			return n, err
-		}
-		n += len(value)
-	}
-	return n, nil
 }
 
 type adminAPIRestoreServer admin.API_RestoreServer

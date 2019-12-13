@@ -37,7 +37,7 @@ var (
 func PrettyPrintVersion(version *pb.Version) string {
 	result := PrettyPrintVersionNoAdditional(version)
 	if version.Additional != "" {
-		result += fmt.Sprintf("%s", version.Additional)
+		result += version.Additional
 	}
 	return result
 }
