@@ -220,6 +220,9 @@ func WithMockEnv(cb func(*MockEnv) error) error {
 // server endpoints.
 type RealEnv struct {
 	MockEnv
+
+	treeCache *hashtree.Cache
+
 	AuthServer        authserver.APIServer
 	PFSBlockServer    pfsserver.BlockAPIServer
 	PFSServer         pfsserver.APIServer
@@ -240,8 +243,8 @@ func WithRealEnv(cb func(*RealEnv) error) error {
 		realEnv := &RealEnv{MockEnv: *mockEnv}
 
 		defer func() {
-			if realEnv.PFSServer != nil {
-				realEnv.PFSServer.Close()
+			if realEnv.treeCache != nil {
+				realEnv.treeCache.Close()
 			}
 		}()
 
@@ -268,7 +271,7 @@ func WithRealEnv(cb func(*RealEnv) error) error {
 		}
 
 		etcdPrefix := ""
-		treeCache, err := hashtree.NewCache(testingTreeCacheSize)
+		realEnv.treeCache, err = hashtree.NewCache(testingTreeCacheSize)
 		if err != nil {
 			return err
 		}
@@ -279,7 +282,7 @@ func WithRealEnv(cb func(*RealEnv) error) error {
 			servEnv,
 			txnEnv,
 			etcdPrefix,
-			treeCache,
+			realEnv.treeCache,
 			path.Join(realEnv.Directory, "pfs"),
 			64*1024*1024,
 		)

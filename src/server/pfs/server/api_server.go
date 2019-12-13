@@ -60,10 +60,6 @@ func newAPIServer(
 	return s, nil
 }
 
-func (a *apiServer) Close() {
-	a.driver.Close()
-}
-
 // CreateRepoInTransaction is identical to CreateRepo except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) CreateRepoInTransaction(

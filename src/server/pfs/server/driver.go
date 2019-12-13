@@ -152,12 +152,6 @@ func newDriver(
 		// Allow up to a third of the requested memory to be used for memory intensive operations
 		memoryLimiter: semaphore.NewWeighted(memoryRequest / 3),
 	}
-	// Create empty hashtree in cache for empty commits and parentless commits
-	t, err := hashtree.NewDBHashTree(d.storageRoot)
-	if err != nil {
-		return nil, err
-	}
-	d.treeCache.Add("", t)
 
 	// Create spec repo (default repo)
 	repo := client.NewRepo(ppsconsts.SpecRepo)
@@ -184,10 +178,6 @@ func newDriver(
 		go d.mergeWorker()
 	}
 	return d, nil
-}
-
-func (d *driver) Close() {
-	d.treeCache.Close()
 }
 
 // checkIsAuthorizedInTransaction is identicalto checkIsAuthorized except that
@@ -3291,17 +3281,12 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 	return nil
 }
 
+// getEmptyTree lazily generates and caches the empty hashtree for empty commits
+// and parentless commits
 func (d *driver) getEmptyTree() (hashtree.HashTree, error) {
-	tree, ok := d.treeCache.Get("")
-	if ok {
-		h, ok := tree.(hashtree.HashTree)
-		if ok {
-			return h, nil
-		}
-		return nil, fmt.Errorf("corrupted cache: expected hashtree.Hashtree, found %v", tree)
-	}
-
-	return nil, fmt.Errorf("corrupted cache: empty hashtree is missing")
+	return d.treeCache.GetOrAdd("nil", func() (hashtree.HashTree, error) {
+		return hashtree.NewDBHashTree(d.storageRoot)
+	})
 }
 
 func (d *driver) getTreeForCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Commit) (hashtree.HashTree, error) {
@@ -3309,42 +3294,33 @@ func (d *driver) getTreeForCommit(txnCtx *txnenv.TransactionContext, commit *pfs
 		return d.getEmptyTree()
 	}
 
-	tree, ok := d.treeCache.Get(commit.ID)
-	if ok {
-		h, ok := tree.(hashtree.HashTree)
-		if ok {
-			return h, nil
+	return d.treeCache.GetOrAdd(commit.ID, func() (hashtree.HashTree, error) {
+		if _, err := d.resolveCommit(txnCtx.Stm, commit); err != nil {
+			return nil, err
 		}
-		return nil, fmt.Errorf("corrupted cache: expected hashtree.Hashtree, found %v", tree)
-	}
 
-	if _, err := d.resolveCommit(txnCtx.Stm, commit); err != nil {
-		return nil, err
-	}
+		commits := d.commits(commit.Repo.Name).ReadWrite(txnCtx.Stm)
+		commitInfo := &pfs.CommitInfo{}
+		if err := commits.Get(commit.ID, commitInfo); err != nil {
+			return nil, err
+		}
+		if commitInfo.Finished == nil {
+			return nil, fmt.Errorf("cannot read from an open commit")
+		}
+		treeRef := commitInfo.Tree
 
-	commits := d.commits(commit.Repo.Name).ReadWrite(txnCtx.Stm)
-	commitInfo := &pfs.CommitInfo{}
-	if err := commits.Get(commit.ID, commitInfo); err != nil {
-		return nil, err
-	}
-	if commitInfo.Finished == nil {
-		return nil, fmt.Errorf("cannot read from an open commit")
-	}
-	treeRef := commitInfo.Tree
+		if treeRef == nil {
+			return d.getEmptyTree()
+		}
 
-	if treeRef == nil {
-		return d.getEmptyTree()
-	}
+		// read the tree from the block store
+		h, err := hashtree.GetHashTreeObject(txnCtx.Client, d.storageRoot, treeRef)
+		if err != nil {
+			return nil, err
+		}
 
-	// read the tree from the block store
-	h, err := hashtree.GetHashTreeObject(txnCtx.Client, d.storageRoot, treeRef)
-	if err != nil {
-		return nil, err
-	}
-
-	d.treeCache.Add(commit.ID, h)
-
-	return h, nil
+		return h, nil
+	})
 }
 
 func (d *driver) getTree(pachClient *client.APIClient, commitInfo *pfs.CommitInfo, path string) (rs []io.ReadCloser, retErr error) {

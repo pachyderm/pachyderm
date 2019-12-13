@@ -4,33 +4,42 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"sync"
 
-	lru "github.com/hashicorp/golang-lru"
+	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/pachyderm/pachyderm/src/server/pkg/localcache"
 	"github.com/sirupsen/logrus"
 )
 
 // Cache is an LRU cache for hashtrees.
 type Cache struct {
-	*lru.Cache
+	lruCache  simplelru.LRUCache
+	lock      sync.Mutex
 	syncEvict *bool
 }
 
-func evict(value interface{}) {
-	tree, ok := value.(*dbHashTree)
+func castValue(value interface{}) (HashTree, error) {
+	tree, ok := value.(HashTree)
 	if !ok {
-		logrus.Infof("non hashtree slice value of type: %v", reflect.TypeOf(value))
-		return
+		return nil, fmt.Errorf("corrupted cache: expected HashTree, found: %v", reflect.TypeOf(value))
 	}
-	if err := tree.Destroy(); err != nil {
-		logrus.Infof("failed to destroy hashtree: %v", err)
+	return tree, nil
+}
+
+func evict(value interface{}) {
+	if tree, err := castValue(value); err != nil {
+		logrus.Infof(err.Error())
+	} else {
+		if err := tree.Destroy(); err != nil {
+			logrus.Infof("failed to destroy hashtree: %v", err)
+		}
 	}
 }
 
 // NewCache creates a new cache.
 func NewCache(size int) (*Cache, error) {
 	syncEvict := false
-	c, err := lru.NewWithEvict(size, func(key interface{}, value interface{}) {
+	lruCache, err := simplelru.NewLRU(size, func(key interface{}, value interface{}) {
 		if syncEvict {
 			evict(value)
 		} else {
@@ -40,13 +49,36 @@ func NewCache(size int) (*Cache, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Cache{Cache: c, syncEvict: &syncEvict}, nil
+	return &Cache{lruCache: lruCache, syncEvict: &syncEvict}, nil
 }
 
 // Close will synchronously evict all hashtrees from the cache, cleaning up any on-disk data.
 func (c *Cache) Close() {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
 	*c.syncEvict = true
-	c.Purge()
+	c.lruCache.Purge()
+}
+
+// GetOrAdd will atomically attempt to get the given HashTree from the cache,
+// and if it does not exist, it will generate the HashTree using the provided
+// function and store it in the cache before returning it. This is implemented
+// because the underlying LRU library does not provide a way to atomically
+// perform this operation without preconstructing the HashTree, which is a
+// relatively expensive operation.
+func (c *Cache) GetOrAdd(key interface{}, generator func() (HashTree, error)) (HashTree, error) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	if value, ok := c.lruCache.Get(key); ok {
+		return castValue(value)
+	} else if newValue, err := generator(); err != nil {
+		return nil, err
+	} else {
+		c.lruCache.Add(key, newValue)
+		return newValue, nil
+	}
 }
 
 // MergeCache is an unbounded hashtree cache that can merge the hashtrees in the cache.
