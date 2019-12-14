@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # This is the first step in building Pachyderm binaries ('pachd' and 'worker')
 # and is called by the 'make docker-build-pachd' and 'make docker-build-worker'
