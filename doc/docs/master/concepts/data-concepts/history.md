@@ -67,7 +67,7 @@ versions you want to display. For example, you can get
 the two most recent versions of a file with the following command:
 
 ```sh
-$ pachctl list file repo@master:/file --history 2
+pachctl list file repo@master:/file --history 2
 COMMIT                           NAME  TYPE COMMITTED      SIZE
 73ba56144be94f5bad1ce64e6b96eade /file file 16 seconds ago 8B
 c5026f053a7f482fbd719dadecec8f89 /file file 21 seconds ago 4B
@@ -85,7 +85,7 @@ expensive. You can get back the full history of a file by passing
 **Example:**
 
 ```bash
-$ pachctl list file edges@master:liberty.png --history all
+pachctl list file edges@master:liberty.png --history all
 COMMIT                           NAME         TYPE COMMITTED    SIZE
 ff479f3a639344daa9474e729619d258 /liberty.png file 23 hours ago 22.22KiB
 ```
@@ -106,7 +106,7 @@ To view historical versions of a pipeline use the `--history`
 flag with the `pachctl list pipeline` command:
 
 ```bash
-$ pachctl list pipeline --history all
+pachctl list pipeline --history all
 NAME      VERSION INPUT     CREATED     STATE / LAST JOB
 Pipeline2 1       input2:/* 4 hours ago running / success
 Pipeline1 3       input1:/* 4 hours ago running / success
@@ -119,7 +119,7 @@ version.
 To revert a pipeline to a previous version, run the following command:
 
 ```bash
-$ pachctl extract pipeline pipeline^ | pachctl create pipeline
+pachctl extract pipeline pipeline^ | pachctl create pipeline
 ```
 
 ## View the Job History
@@ -143,11 +143,11 @@ To view job history, run the following command:
 * By using the `-p` flag:
 
   ```bash
-  $ pachctl list job -p <pipeline^>
+  pachctl list job -p <pipeline^>
   ```
 
 * By using the `history` flag:
 
   ```bash
-  $ pachctl list job --history all
+  pachctl list job --history all
   ```

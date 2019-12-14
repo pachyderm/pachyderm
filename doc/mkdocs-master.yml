@@ -43,6 +43,7 @@ plugins:
         - archive/*
   - minify:
       minify_html: true
+  - git-revision-date-localized
 
 # Customization
 extra:

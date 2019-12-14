@@ -30,7 +30,7 @@ When you have Pachyderm up and running, the `kubectl get pods` must return a sim
 output:
 
 ```
-$ kubectl get pods
+kubectl get pods
 NAME                     READY     STATUS    RESTARTS   AGE
 dash-6c9dc97d9c-vb972    2/2       Running   0          6m
 etcd-7dbb489f44-9v5jj    1/1       Running   0          6m
@@ -40,7 +40,7 @@ pachd-6c878bbc4c-f2h2c   1/1       Running   0          6m
 You should also be able to connect to the Pachyderm cluster via the `pachctl` CLI:
 
 ```
-$ pachctl version
+pachctl version
 COMPONENT           VERSION
 pachctl             1.9.5
 pachd               1.9.5
@@ -51,7 +51,7 @@ To activate the Pachyderm Enterprise Edition, complete the following steps::
 1. Activate the Enterprise Edition by running:
 
    ```bash
-   $ pachctl enterprise activate <activation-code>
+   pachctl enterprise activate <activation-code>
    ```
 
    If this command does not return any error, then the activation was
@@ -60,7 +60,7 @@ To activate the Pachyderm Enterprise Edition, complete the following steps::
 1. Verify the status of the enterprise activation:
 
    ```bash
-   $ pachctl enterprise get-state
+   pachctl enterprise get-state
    ACTIVE
    ```
 
@@ -90,6 +90,6 @@ To active Enterprise Edition in the Dashboard, complete the following steps:
 1. Confirm that your cluster has an active Enterprise Edition license:
 
    ```bash
-   $ pachctl enterprise get-state
+   pachctl enterprise get-state
    ACTIVE
    ```

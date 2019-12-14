@@ -39,7 +39,7 @@ To connect to a Pachyderm dashboard, complete the following steps:
 * To use port-forwarding, run:
 
   ```bash
-  $ pachctl port-forward
+  pachctl port-forward
   ```
 
 * To use the IP address of the VM:`
@@ -47,7 +47,7 @@ To connect to a Pachyderm dashboard, complete the following steps:
   1. Get the minikube IP address:
 
      ```bash
-     $ minikube ip
+     minikube ip
      ```
 
   1. Point your browser to the following address:
@@ -110,7 +110,7 @@ steps:
 1. Get the current context:
 
    ```bash
-   $ pachctl config get active-context
+   pachctl config get active-context
    ```
 
    This command returns the name of the currently active context.
@@ -120,7 +120,7 @@ steps:
    output:
 
    ```bash
-   $ pachctl config get context <name>
+   pachctl config get context <name>
    {
 
    }
@@ -129,13 +129,13 @@ steps:
 1. Set up `pachd_address`:
 
    ```bash
-   $ pachctl config update context <name> --pachd-address <host:port>
+   pachctl config update context <name> --pachd-address <host:port>
    ```
 
    **Example:**
 
    ```bash
-   $ pachctl config update context local --pachd-address 192.168.1.15:30650
+   pachctl config update context local --pachd-address 192.168.1.15:30650
    ```
 
    **Note:** By default, the `pachd` port is `30650`.
@@ -143,7 +143,7 @@ steps:
 1. Verify that the configuration has been updated:
 
    ```bash
-   $ pachctl config get context local
+   pachctl config get context local
    {
       "pachd_address": "192.168.1.15:30650"
    }
@@ -188,7 +188,7 @@ To enable port-forwarding, complete the following steps:
 1. Run:
 
    ```bash
-   $ pachctl port-forward
+   pachctl port-forward
    ```
 
    This command does not stop unless you manually interrupt it.

@@ -46,7 +46,7 @@ the private key, which looks similar to the following text:
 
 !!! example
     ```bash
-    $ cat pk-APKAXXXXXXXXXXXX.pem
+    cat pk-APKAXXXXXXXXXXXX.pem
     -----BEGIN RSA PRIVATE KEY-----
     ...
     ```
@@ -58,13 +58,13 @@ the following steps:
 repository:
 
    ```bash
-   $ curl -o secure-cloudfront.sh https://raw.githubusercontent.com/pachyderm/pachyderm/master/etc/deploy/cloudfront/secure-cloudfront.sh
+   curl -o secure-cloudfront.sh https://raw.githubusercontent.com/pachyderm/pachyderm/master/etc/deploy/cloudfront/secure-cloudfront.sh
    ```
 
 1. Make the script executable:
 
    ```bash
-   $ chmod +x secure-cloudfront.sh
+   chmod +x secure-cloudfront.sh
    ```
 
 1. From the `deploy.log` file, obtain the S3 bucket name for your
@@ -73,28 +73,28 @@ deployment and the CloudFront distribution ID.
 1. Apply the key pair to your CloudFront distribution:
 
    ```bash
-   $ ./secure-cloudfront.sh --region us-west-2 --zone us-west-2c --bucket YYYY-pachyderm-store --cloudfront-distribution-id E1BEBVLIDYTLEV  --cloudfront-keypair-id APKAXXXXXXXXXXXX --cloudfront-private-key-file ~/Downloads/pk-APKAXXXXXXXXXXXX.pem
+   ./secure-cloudfront.sh --region us-west-2 --zone us-west-2c --bucket YYYY-pachyderm-store --cloudfront-distribution-id E1BEBVLIDYTLEV  --cloudfront-keypair-id APKAXXXXXXXXXXXX --cloudfront-private-key-file ~/Downloads/pk-APKAXXXXXXXXXXXX.pem
    ```
 
 1. Restart the `pachd` pod for the
 changes to take effect:
 
    ```bash
-   $ kubectl scale --replicas=0 deployment/pachd && kubectl scale --replicas=1 deployment/pachd && kubectl get pod
+   kubectl scale --replicas=0 deployment/pachd && kubectl scale --replicas=1 deployment/pachd && kubectl get pod
    ```
 
 1. Verify the setup by checking the `pachd` logs and confirming that
 Kubernetes uses the CloudFront credentials:
 
    ```bash
-   $ kubectl get pod
+   kubectl get pod
    NAME                        READY     STATUS             RESTARTS   AGE
    etcd-0                   1/1       Running            0          19h
    etcd-1                   1/1       Running            0          19h
    etcd-2                   1/1       Running            0          19h
    pachd-2796595787-9x0qf   1/1       Running            0          16h
 
-   $ kubectl logs pachd-2796595787-9x0qf | grep cloudfront
+   kubectl logs pachd-2796595787-9x0qf | grep cloudfront
    2017-06-09T22:56:27Z INFO  AWS deployed with cloudfront distribution at d3j9kenawdv8p0
    2017-06-09T22:56:27Z INFO  Using cloudfront security credentials - keypair ID (APKAXXXXXXXXX) - to sign cloudfront URLs
    ```

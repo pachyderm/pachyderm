@@ -50,7 +50,7 @@ To enable access controls, complete the following steps:
    by running the following `pachctl` command:
 
    ```bash
-   $ pachctl enterprise get-state
+   pachctl enterprise get-state
    ACTIVE
    ```
 
@@ -85,7 +85,7 @@ To activate access controls with `pachctl`, choose one of these options:
 1. Activate access controls by specifying an initial admin user:
 
    ```bash
-   $ pachctl auth activate --initial-admin=<prefix>:<user>
+   pachctl auth activate --initial-admin=<prefix>:<user>
    ```
 
    You must prefix the username with the appropriate account
@@ -99,7 +99,7 @@ To activate access controls with `pachctl`, choose one of these options:
 1. Activate access controls with a GitHub account:
 
    ```bash
-   $ pachctl auth activate
+   pachctl auth activate
    ```
 
    Pachyderm prompts you to log in with your GitHub account. The
@@ -145,7 +145,7 @@ To log in to `pachctl`, complete the following steps:
 1. Type the following command:
 
    ```bash
-   $ pachctl auth login
+   pachctl auth login
    ```
 
    When you run this command, `pachctl` provides
@@ -165,7 +165,7 @@ To log in to `pachctl`, complete the following steps:
    1. Alternatively, you can run the command:
 
       ```bash
-      $ pachctl auth use-auth-token
+      pachctl auth use-auth-token
       ```
 
    1. Paste an authentication token recieved from
@@ -190,7 +190,7 @@ Alternatively, you can confirm your access by running the
 !!! example
 
     ```
-    $ pachctl auth get dwhitena test`
+    pachctl auth get dwhitena test`
     OWNER
     ```
 

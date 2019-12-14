@@ -19,12 +19,12 @@ To use tracing in Pachyderm, complete the following steps:
 
     ```bash
     # For pachctl
-    $ export JAEGER_ENDPOINT=localhost:14268
-    $ kubectl port-forward svc/jaeger-collector 14268 & # Collector service
+    export JAEGER_ENDPOINT=localhost:14268
+    kubectl port-forward svc/jaeger-collector 14268 & # Collector service
 
 
     # For pachd
-    $ kubectl delete po -l suite=pachyderm,app=pachd
+    kubectl delete po -l suite=pachyderm,app=pachd
     ```
     The port-forward command is necessary because `pachctl` sends traces to
     Jaeger (it actually initiates every trace), and reads the `JAEGER_ENDPOINT`
@@ -58,7 +58,7 @@ To use tracing in Pachyderm, complete the following steps:
 
 To view traces, run:
 ```
-$ kubectl port-forward svc/jaeger-query 16686:80 & # UI service
+kubectl port-forward svc/jaeger-query 16686:80 & # UI service
 
 ```
 then connect to `localhost:16686` in your browser, and you should see all

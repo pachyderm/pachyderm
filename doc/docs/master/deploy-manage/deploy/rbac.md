@@ -26,7 +26,7 @@ working with RBAC. Not having DNS will make Pachyderm effectively unusable. You
 can tell if you're being affected by the bug like so:
 
 ```shell
-$ kubectl get all --namespace=kube-system
+kubectl get all --namespace=kube-system
 NAME              DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
 deploy/kube-dns   1         1         1            0           3m
 

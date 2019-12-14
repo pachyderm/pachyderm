@@ -28,7 +28,7 @@ section.
    **Example:**
 
    ```bash
-   $ brew upgrade pachyderm/tap/pachctl@1.9
+   brew upgrade pachyderm/tap/pachctl@1.9
    ==> Upgrading 1 outdated package:
    pachyderm/tap/pachctl@1.9
    ==> Upgrading pachyderm/tap/pachctl@1.9
@@ -43,7 +43,7 @@ section.
 the following command:
 
    ```sh
-   $ pachctl version --client-only
+   pachctl version --client-only
    COMPONENT           VERSION
    pachctl             1.9.2
    ```
@@ -54,7 +54,7 @@ that you specified when you deployed the previous version
 of Pachyderm:
 
    ```sh
-   $ pachctl deploy <args>
+   pachctl deploy <args>
    serviceaccount "pachyderm" created
    storageclass "etcd-storage-class" created
    service "etcd-headless" created
@@ -76,7 +76,7 @@ of Pachyderm:
 
 
    ```sh
-   $ kubectl get pods
+   kubectl get pods
    NAME                     READY     STATUS    RESTARTS   AGE
    dash-482120938-np8cc     2/2       Running   0          4m
    etcd-0                   1/1       Running   0          4m

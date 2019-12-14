@@ -39,8 +39,8 @@ For this demo, we create a repo called `images` to hold the
 data we want to process:
 
 ```bash
-$ pachctl create repo images
-$ pachctl list repo
+pachctl create repo images
+pachctl list repo
 NAME   CREATED       SIZE (MASTER)
 images 7 seconds ago 0B
 ```
@@ -78,7 +78,7 @@ Here is an example atomic commit of the file `liberty.png` to the
 `images` repo `master` branch:
 
 ```bash
-$ pachctl put file images@master:liberty.png -f http://imgur.com/46Q8nDz.png
+pachctl put file images@master:liberty.png -f http://imgur.com/46Q8nDz.png
 ```
 
 We can check to make sure the data we just added is in Pachyderm.
@@ -86,7 +86,7 @@ We can check to make sure the data we just added is in Pachyderm.
 * Use the `pachctl list repo` command to check that data has been added:
 
   ```bash
-  $ pachctl list repo
+  pachctl list repo
   NAME   CREATED            SIZE (MASTER)
   images About a minute ago 57.27KiB
   ```
@@ -94,7 +94,7 @@ We can check to make sure the data we just added is in Pachyderm.
 * View the commit that was just created:
 
   ```bash
-  $ pachctl list commit images
+  pachctl list commit images
   REPO   COMMIT                           PARENT STARTED        DURATION           SIZE
   images d89758a7496a4c56920b0eaa7d7d3255 <none> 29 seconds ago Less than a second 57.27KiB
   ```
@@ -102,7 +102,7 @@ We can check to make sure the data we just added is in Pachyderm.
 * View the file in that commit:
 
   ```bash
-  $ pachctl list file images@master
+  pachctl list file images@master
   COMMIT                           NAME         TYPE COMMITTED          SIZE     
   d89758a7496a4c56920b0eaa7d7d3255 /liberty.png file About a minute ago 57.27KiB
   ```
@@ -114,13 +114,13 @@ commands will let you view it easily:
 * If you are on macOS, run:
 
   ```bash
-  $ pachctl get file images@master:liberty.png | open -f -a /Applications/Preview.app
+  pachctl get file images@master:liberty.png | open -f -a /Applications/Preview.app
   ```
 
 * If you are on Linux, run:
 
   ```bash
-  $ pachctl get file images@master:liberty.png | display
+  pachctl get file images@master:liberty.png | display
   ```
 
 ### Create a Pipeline
@@ -214,7 +214,7 @@ pipeline output.
 Now, let's create the pipeline in Pachyderm:
 
 ```bash
-$ pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json
+pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json
 ```
 
 ### What Happens When You Create a Pipeline
@@ -233,7 +233,7 @@ connection. Subsequent runs will be much faster.
 You can view the job with:
 
 ``` bash
-$ pachctl list job
+pachctl list job
 ID                               PIPELINE STARTED        DURATION           RESTART PROGRESS  DL       UL       STATE
 0f6a53829eeb4ca193bb7944fe693700 edges    16 seconds ago Less than a second 0       1 + 0 / 1 57.27KiB 22.22KiB success
 ```
@@ -245,7 +245,7 @@ output repo. In our example, the `edges` pipeline created a repo
 called `edges` to store the results.
 
 ``` bash
-$ pachctl list repo
+pachctl list repo
 NAME   CREATED       SIZE (MASTER)
 edges  2 minutes ago 22.22KiB
 images 5 minutes ago 57.27KiB
@@ -258,10 +258,10 @@ that we viewed the input data.
 
 ``` bash
 # on macOS
-$ pachctl get file edges@master:liberty.png | open -f -a /Applications/Preview.app
+pachctl get file edges@master:liberty.png | open -f -a /Applications/Preview.app
 
 # on Linux
-$ pachctl get file edges@master:liberty.png | display
+pachctl get file edges@master:liberty.png | display
 ```
 
 The output should look similar to:
@@ -282,8 +282,8 @@ as the branch, it automatically parents our commits onto each other.
 Branch names are just references to a particular HEAD commit.
 
 ``` bash
-$ pachctl put file images@master:AT-AT.png -f http://imgur.com/8MN9Kg0.png
-$ pachctl put file images@master:kitten.png -f http://imgur.com/g2QnNqa.png
+pachctl put file images@master:AT-AT.png -f http://imgur.com/8MN9Kg0.png
+pachctl put file images@master:kitten.png -f http://imgur.com/g2QnNqa.png
 ```
 
 Adding a new commit of data will automatically trigger the pipeline to
@@ -293,7 +293,7 @@ new outputs.
 
 ``` bash
 # view the jobs that were kicked off
-$ pachctl list job
+pachctl list job
 ID                                STARTED        DURATION           RESTART PROGRESS  DL       UL       STATE
 81ae47a802f14038b95f8f248cddbed2  7 seconds ago  Less than a second 0       1 + 2 / 3 102.4KiB 74.21KiB success
 ce448c12d0dd4410b3a5ae0c0f07e1f9  16 seconds ago Less than a second 0       1 + 1 / 2 78.7KiB  37.15KiB success
@@ -304,14 +304,14 @@ ce448c12d0dd4410b3a5ae0c0f07e1f9  16 seconds ago Less than a second 0       1 + 
 # View the output data
 
 # on macOS
-$ pachctl get file edges@master:AT-AT.png | open -f -a /Applications/Preview.app
+pachctl get file edges@master:AT-AT.png | open -f -a /Applications/Preview.app
 
-$ pachctl get file edges@master:kitten.png | open -f -a /Applications/Preview.app
+pachctl get file edges@master:kitten.png | open -f -a /Applications/Preview.app
 
 # on Linux
-$ pachctl get file edges@master:AT-AT.png | display
+pachctl get file edges@master:AT-AT.png | display
 
-$ pachctl get file edges@master:kitten.png | display
+pachctl get file edges@master:kitten.png | display
 ```
 
 ### Adding Another Pipeline
@@ -376,14 +376,14 @@ and
 We create the `montage` pipeline as before, with `pachctl`:
 
 ```bash
-$ pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/montage.json
+pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/montage.json
 ```
 
 Pipeline creating triggers a job that generates a montage for all the
 current HEAD commits of the input repos:
 
 ```bash
-$ pachctl list job
+pachctl list job
 ID                                  STARTED        DURATION           RESTART PROGRESS  DL       UL       STATE
 92cecc40c3144fd5b4e07603bb24b104    45 seconds ago 6 seconds          0       1 + 0 / 1 371.9KiB 1.284MiB success
 81ae47a802f14038b95f8f248cddbed2    2 minutes ago  Less than a second 0       1 + 2 / 3 102.4KiB 74.21KiB success
@@ -395,10 +395,10 @@ And you can view the generated montage image via:
 
 ``` bash
 # on macOS
-$ pachctl get file montage@master:montage.png | open -f -a /Applications/Preview.app
+pachctl get file montage@master:montage.png | open -f -a /Applications/Preview.app
 
 # on Linux
-$ pachctl get file montage@master:montage.png | display
+pachctl get file montage@master:montage.png | display
 ```
 
 ![image](../assets/images/montage-screenshot.png)

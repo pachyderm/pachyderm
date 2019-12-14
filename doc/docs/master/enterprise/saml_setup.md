@@ -46,11 +46,11 @@ GitHub-based user in the system. The reason:
    running
 
    ```
-   $ pachctl auth use-auth-token
+   pachctl auth use-auth-token
    Please paste your Pachyderm auth token:
    <paste robot token emitted by "pachctl auth activate --initial-admin=robot:admin">
 
-   $ pachctl auth whoami
+   pachctl auth whoami
    You are "robot:admin"
    You are an administrator of this Pachyderm cluster
    ```

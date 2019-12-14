@@ -70,8 +70,8 @@ described on the [MinIO download page](https://min.io/download#/macos).
 the following command:
 
    ```bash
-   $ minio version
-   $ mc version
+   minio version
+   mc version
    Version: 2019-07-11T19:31:28Z
    Release-tag: RELEASE.2019-07-11T19-31-28Z
    Commit-id: 31e5ac02bdbdbaf20a87683925041f406307cfb9
@@ -116,13 +116,13 @@ in the [AWS documentation](https://docs.aws.amazon.com/cli/latest/userguide/cli-
 1. Verify that the AWS CLI is installed:
 
    ```bash
-   $ aws --version aws-cli/1.16.204 Python/2.7.16 Darwin/17.7.0 botocore/1.12.194
+   aws --version aws-cli/1.16.204 Python/2.7.16 Darwin/17.7.0 botocore/1.12.194
    ```
 
 1. Configure AWS CLI:
 
    ```bash
-   $ aws configure
+   aws configure
    AWS Access Key ID: YOUR-PACHYDERM-AUTH-TOKEN
    AWS Secret Access Key: YOUR-PACHYDERM-AUTH-TOKEN
    Default region name:
@@ -145,20 +145,20 @@ it as described in the [S3cmd documentation](https://s3tools.org/download).
 For example, in macOS, run:
 
    ```bash
-   $ brew install s3cmd
+   brew install s3cmd
    ```
 
 1. Verify that S3cmd is installed:
 
    ```bash
-   $ s3cmd --version
+   s3cmd --version
    s3cmd version 2.0.2
    ```
 
 1. Configure S3cmd to use Pachyderm:
 
    ```bash
-   $ s3cmd --configure
+   s3cmd --configure
    ...
    ```
 
@@ -208,7 +208,7 @@ To list filesystem objects, complete the following steps:
    * If you are using MinIO, type:
 
      ```bash
-     $ mc ls local
+     mc ls local
      [2019-07-12 15:09:50 PDT]      0B master.train/
      [2019-07-12 14:58:50 PDT]      0B master.pre_process/
      [2019-07-12 14:58:09 PDT]      0B master.split/
@@ -219,7 +219,7 @@ To list filesystem objects, complete the following steps:
    * If you are using AWS, type:
 
      ```bash
-     $ aws --endpoint-url http://localhost:30600 s3 ls
+     aws --endpoint-url http://localhost:30600 s3 ls
      2019-07-12 15:09:50 master.train
      2019-07-12 14:58:50 master.pre_process
      2019-07-12 14:58:09 master.split
@@ -230,7 +230,7 @@ To list filesystem objects, complete the following steps:
    * If you are using S3cmd, type:
 
      ```bash
-     $ s3cmd ls
+     s3cmd ls
      2019-07-12 15:09 master.train
      2019-07-12 14:58 master.pre_process
      2019-07-12 14:58 master.split
@@ -243,21 +243,21 @@ To list filesystem objects, complete the following steps:
    * If you are using MinIO, type:
 
      ```bash
-     $ mc ls local/master.raw_data
+     mc ls local/master.raw_data
      [2019-07-19 12:11:37 PDT]  2.6MiB github_issues_medium.csv
      ```
 
    * If you are using AWS, type:
 
      ```bash
-     $ aws --endpoint-url http://localhost:30600/ s3 ls s3://master.raw_data
+     aws --endpoint-url http://localhost:30600/ s3 ls s3://master.raw_data
      2019-07-26 11:22:23    2685061 github_issues_medium.csv
      ```
 
    * If you are using S3cmd, type:
 
      ```bash
-     $ s3cmd ls s3://master.raw_data/
+     s3cmd ls s3://master.raw_data/
      2019-07-26 11:22 2685061 s3://master.raw_data/github_issues_medium.csv
      ```
 ### Create an S3 Bucket
@@ -275,21 +275,21 @@ S3 bucket, which is a repository with a branch in Pachyderm.
    * If you are using MinIO, type:
 
      ```bash
-     $ mc mb local/master.test
+     mc mb local/master.test
      Bucket created successfully `local/master.test`.
      ```
 
    * If you are using AWS, type:
 
      ```bash
-     $ aws --endpoint-url http://localhost:30600/ s3 mb s3://master.test
+     aws --endpoint-url http://localhost:30600/ s3 mb s3://master.test
      make_bucket: master.test
      ```
 
    * If you are using S3cmd, type:
 
      ```bash
-     $ s3cmd mb s3://master.test
+     s3cmd mb s3://master.test
      ```
 
      This command creates the `test` repository with the `master` branch.
@@ -299,7 +299,7 @@ S3 bucket, which is a repository with a branch in Pachyderm.
    * If you are using MinIO, type:
 
      ```bash
-     $ mc ls local
+     mc ls local
      [2019-07-18 13:32:44 PDT]      0B master.test/
      [2019-07-12 15:09:50 PDT]      0B master.train/
      [2019-07-12 14:58:50 PDT]      0B master.pre_process/
@@ -311,7 +311,7 @@ S3 bucket, which is a repository with a branch in Pachyderm.
    * If you are using AWS, type:
 
      ```bash
-     $ aws --endpoint-url http://localhost:30600/ s3 ls
+     aws --endpoint-url http://localhost:30600/ s3 ls
      2019-07-26 11:35:28 master.test
      2019-07-12 14:58:50 master.pre_process
      2019-07-12 14:58:09 master.split
@@ -320,7 +320,7 @@ S3 bucket, which is a repository with a branch in Pachyderm.
           ```
    * If you are using S3cmd, type:
      ```bash
-     $ s3cmd ls
+     s3cmd ls
      2019-07-26 11:35 master.test
      2019-07-12 14:58 master.pre_process
      2019-07-12 14:58 master.split
@@ -332,7 +332,7 @@ S3 bucket, which is a repository with a branch in Pachyderm.
    list of repositories:
 
      ```bash
-     $ pachctl list repo
+     pachctl list repo
      NAME               CREATED                    SIZE (MASTER)
      test               About an hour ago          0B
      train              6 days ago                 68.57MiB
@@ -351,21 +351,21 @@ MinIO client by running the following command:
 * If you are using MinIO, type:
 
   ```bash
-  $ mc rb local/master.test
+  mc rb local/master.test
   Removed `local/master.test` successfully.
   ```
 
 * If you are using AWS, type:
 
   ```bash
-  $ aws --endpoint-url http://localhost:30600/ s3 rb s3://master.test
+  aws --endpoint-url http://localhost:30600/ s3 rb s3://master.test
   remove_bucket: master.test
   ```
 
 * If you are using S3cmd, type:
 
   ```bash
-  $ s3cmd rb s3://master.test
+  s3cmd rb s3://master.test
   ```
 
 ### Upload and Download File Objects
@@ -389,21 +389,21 @@ To add a file to a repository, complete the following steps:
    * If you are using MinIO, type:
 
      ```bash
-     $ mc cp test.csv local/master.raw_data/test.csv
+     mc cp test.csv local/master.raw_data/test.csv
      test.csv:                  62 B / 62 B  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓  100.00% 206 B/s 0s
      ```
 
    * If you are using AWS, type:
 
      ```bash
-     $ aws --endpoint-url http://localhost:30600/ s3 cp test.csv s3://master.raw_data
+     aws --endpoint-url http://localhost:30600/ s3 cp test.csv s3://master.raw_data
      upload: ./test.csv to s3://master.raw_data/test.csv
      ```
 
    * If you are using S3cmd, type:
 
      ```bash
-     $ s3cmd cp test.csv s3://master.raw_data
+     s3cmd cp test.csv s3://master.raw_data
      ```
 
    These commands add the `test.csv` file to the `master` branch in
@@ -414,7 +414,7 @@ To add a file to a repository, complete the following steps:
    * If you are using MinIO, type:
 
      ```bash
-     $ mc ls local/master.raw_data
+     mc ls local/master.raw_data
      [2019-07-19 12:11:37 PDT]  2.6MiB github_issues_medium.csv
      [2019-07-19 12:11:37 PDT]     62B test.csv
      ```
@@ -422,7 +422,7 @@ To add a file to a repository, complete the following steps:
    * If you are using AWS, type:
 
      ```bash
-     $ aws --endpoint-url http://localhost:30600/ s3 ls s3://master.raw_data/
+     aws --endpoint-url http://localhost:30600/ s3 ls s3://master.raw_data/
      2019-07-19 12:11:37  2685061 github_issues_medium.csv
      2019-07-19 12:11:37       62 test.csv
      ```
@@ -430,7 +430,7 @@ To add a file to a repository, complete the following steps:
    * If you are using S3cmd, type:
 
      ```bash
-     $ s3cmd ls s3://master.raw_data/
+     s3cmd ls s3://master.raw_data/
      2019-07-19 12:11  2685061 github_issues_medium.csv
      2019-07-19 12:11       62 test.csv
      ```
@@ -441,21 +441,21 @@ current directory by running the following commands:
    * If you are using MinIO, type:
 
      ```bash
-     $ mc cp local/master.raw_data/github_issues_medium.csv .
+     mc cp local/master.raw_data/github_issues_medium.csv .
      ...hub_issues_medium.csv:  2.56 MiB / 2.56 MiB  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ 100.00% 1.26 MiB/s 2s
      ```
 
    * If you are using AWS, type:
 
      ```
-     $ aws --endpoint-url http://localhost:30600/ s3 cp s3://master.raw_data/test.csv .
+     aws --endpoint-url http://localhost:30600/ s3 cp s3://master.raw_data/test.csv .
      download: s3://master.raw_data/test.csv to ./test.csv
      ```
 
    * If you are using S3cmd, type:
 
      ```bash
-     $ s3cmd cp s3://master.raw_data/test.csv .
+     s3cmd cp s3://master.raw_data/test.csv .
      ```
 ### Remove a File Object
 
@@ -467,7 +467,7 @@ MinIO command-line interface:
    * If you are using MinIO, type:
 
      ```bash
-     $ mc ls local/master.raw_data/
+     mc ls local/master.raw_data/
      [2019-07-19 12:11:37 PDT]  2.6MiB github_issues_medium.csv
      [2019-07-19 12:11:37 PDT]     62B test.csv
      ```
@@ -475,7 +475,7 @@ MinIO command-line interface:
    * If you are using AWS, type:
 
      ```bash
-     $ aws --endpoint-url http://localhost:30600/ s3 ls s3://master.raw_data
+     aws --endpoint-url http://localhost:30600/ s3 ls s3://master.raw_data
      2019-07-19 12:11:37    2685061 github_issues_medium.csv
      2019-07-19 12:11:37         62 test.csv
      ```
@@ -483,7 +483,7 @@ MinIO command-line interface:
    * If you are using S3cmd, type:
 
      ```bash
-     $ s3cmd ls s3://master.raw_data
+     s3cmd ls s3://master.raw_data
      2019-07-19 12:11    2685061 github_issues_medium.csv
      2019-07-19 12:11         62 test.csv
      ```
@@ -493,21 +493,21 @@ MinIO command-line interface:
    * If you are using MinIO, type:
 
      ```bash
-     $ mc rm local/master.raw_data/test.csv
+     mc rm local/master.raw_data/test.csv
      Removing `local/master.raw_data/test.csv`.
      ```
 
    * If you are using AWS, type:
 
      ```bash
-     $ aws --endpoint-url http://localhost:30600/ s3 rm s3://master.raw_data/test.csv
+     aws --endpoint-url http://localhost:30600/ s3 rm s3://master.raw_data/test.csv
      delete: s3://master.raw_data/test.csv
      ```
 
    * If you are using S3cmd, type:
 
      ```bash
-     $ s3cmd rm s3://master.raw_data/test.csv
+     s3cmd rm s3://master.raw_data/test.csv
      ```
 
 ## Unsupported operations

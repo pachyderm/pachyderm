@@ -32,7 +32,7 @@ The initial commit has `<none>` as a parent.
 
 !!! example
     ```bash
-    $ pachctl list commit images@master
+    pachctl list commit images@master
     REPO     BRANCH COMMIT                           PARENT                           STARTED        DURATION           SIZE
     raw_data master 8248d97632874103823c7603fb8c851c 22cdb5ae05cb40868566586140ea5ed5 6 seconds ago  Less than a second 5.121MiB
     raw_data master 22cdb5ae05cb40868566586140ea5ed5 <none>                           33 minutes ago Less than a second 2.561MiB

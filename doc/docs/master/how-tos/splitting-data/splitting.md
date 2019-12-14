@@ -19,7 +19,7 @@ This data is in `CSV` format in a single file called `user_data.csv`
 with one record per line:
 
 ```
-$ head user_data.csv
+head user_data.csv
 1,cyukhtin0@stumbleupon.com,144.155.176.12
 2,csisneros1@over-blog.com,26.119.26.5
 3,jeye2@instagram.com,13.165.230.106
@@ -52,7 +52,7 @@ To complete this example, follow the steps below:
 1. Create a `users` repository by running:
 
    ```bash
-   $ pachctl create repo users
+   pachctl create repo users
    ```
 
 1. Create a file called `user_data.csv` with the
@@ -62,7 +62,7 @@ contents listed above.
 automatically split it into separate datums for each line:
 
    ```bash
-   $ pachctl put file users@master -f user_data.csv --split line --target-file-datums 1
+   pachctl put file users@master -f user_data.csv --split line --target-file-datums 1
    ```
 
    The `--split line` argument specifies that Pachyderm
@@ -74,7 +74,7 @@ automatically split it into separate datums for each line:
 repository:
 
    ```bash
-   $ pachctl list file users@master
+   pachctl list file users@master
    NAME                 TYPE                SIZE
    user_data.csv   dir                 5.346 KiB
    ```
@@ -91,7 +91,10 @@ the `user_data.csv` file, run the command with the file name
 specified after a colon:
 
    ```bash
-   $ pachctl list file users@master:user_data.csv
+   pachctl list file users@master:user_data.csv
+   ```
+
+   ```bash
    NAME                             TYPE                SIZE
    user_data.csv/0000000000000000   file                43 B
    user_data.csv/0000000000000001   file                39 B
@@ -116,21 +119,21 @@ JSON blobs as well. See the examples below.
 blob into a separate file.
 
   ```bash
-  $ pachctl put file users@master -f user_data.json --split json --target-file-datums 1
+  pachctl put file users@master -f user_data.json --split json --target-file-datums 1
   ```
 
 * Split a `json` file on `json` blobs by putting three `json`
 blobs into each split file.
 
   ```bash
-  $ pachctl put file users@master -f user_data.json --split json --target-file-datums 3
+  pachctl put file users@master -f user_data.json --split json --target-file-datums 3
   ```
 
 * Split a file on lines by putting each 100-bytes chunk into
 the split files.
 
   ```bash
-  $ pachctl put file users@master -f user_data.txt --split line --target-file-bytes 100
+  pachctl put file users@master -f user_data.txt --split line --target-file-bytes 100
   ```
 
 ## Specifying a Header
@@ -151,20 +154,20 @@ from the section above with the following header:
 1. Create a new repository or use an existing one:
 
    ```bash
-   $ pachctl create repo users
+   pachctl create repo users
    ```
 
 1. Put your file into the repository by separating the header from
 other lines:
 
    ```bash
-   $ pachctl put file users@master -f user_data.csv --split=csv --header-records=1 --target-file-datums=1
+   pachctl put file users@master -f user_data.csv --split=csv --header-records=1 --target-file-datums=1
    ```
 
 1. Verify that the file was added and split:
 
    ```bash
-   $ pachctl list file users@master:/user_data.csv
+   pachctl list file users@master:/user_data.csv
    ```
 
    **Example:**
@@ -186,14 +189,17 @@ other lines:
 1. Get the first file from the repository:
 
    ```bash
-   $ pachctl get file users@master:/user_data.csv/0000000000000000
+   pachctl get file users@master:/user_data.csv/0000000000000000
    NUMBER,EMAIL,IP_ADDRESS
    1,cyukhtin0@stumbleupon.com,144.155.176.12
    ```
 1. Get all files:
 
+   ```bash
+   pachctl get file users@master:/user_data.csv/*
+   ```
+
    ```csv
-   $ pachctl get file users@master:/user_data.csv/*
    NUMBER,EMAIL,IP_ADDRESS
    1,cyukhtin0@stumbleupon.com,144.155.176.12
    2,csisneros1@over-blog.com,26.119.26.5
@@ -244,15 +250,16 @@ steps:
    **Example:**
 
    ```bash
-   $ pg_dump -t users -f users.pgdump
+   pg_dump -t users -f users.pgdump
    ```
 
 1. View the `pgdump` file:
 
-???+ note "Example"
+    ```bash
+    cat users.pgdump
+    ```
 
     ```bash
-    $ cat users.pgdump
     --
     -- PostgreSQL database dump
     --
@@ -305,15 +312,17 @@ steps:
     with the `--split` file:
 
     ```bash
-    $ pachctl put file data@master -f users.pgdump --split sql
-    $ pachctl put file data@master:users --split sql -f users.pgdump
+    pachctl put file data@master -f users.pgdump --split sql
+    ```
+
+    ```bash
+    pachctl put file data@master:users --split sql -f users.pgdump
     ```
 
 4. View the information about your repository:
 
    ```bash
-
-   $ pachctl list file data@master
+   pachctl list file data@master
    NAME         TYPE SIZE
    users        dir  914B
    ```
@@ -325,7 +334,7 @@ steps:
 
    ```bash
 
-   $ pachctl list file data@master:users
+   pachctl list file data@master:users
    NAME                           TYPE SIZE
    /users/0000000000000000        file 20B
    /users/0000000000000001        file 18B
@@ -335,7 +344,7 @@ steps:
 you can load the data by running the following or a similar script:
 
    ```
-   $ cat /pfs/data/users/* | sudo -u postgres psql
+   cat /pfs/data/users/* | sudo -u postgres psql
    ```
 
    By using the glob pattern `/*`, this code loads each raw PostgreSQL chunk

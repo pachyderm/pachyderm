@@ -163,7 +163,7 @@ To create a Pipeline, complete the following steps:
 1. Create a Pachyderm pipeline from the spec:
 
    ```bash
-   $ pachctl create pipeline -f my-pipeline.json
+   pachctl create pipeline -f my-pipeline.json
    ```
 
    You can specify a local file or a file stored in a remote

@@ -112,7 +112,7 @@ We'll show how to remove this PV in case you want to use a PV you create separat
 
 #### Cluster roles
 ```
-$ pachctl deploy custom --persistent-disk aws --object-store s3 \
+pachctl deploy custom --persistent-disk aws --object-store s3 \
      <pv-storage-name> <pv-storage-size> \
      <s3-bucket-name> <s3-access-key-id> <s3-access-secret-key> <s3-access-endpoint-url> \
      --static-etcd-volume=<pv-storage-name> > manifest.json
@@ -120,7 +120,7 @@ $ pachctl deploy custom --persistent-disk aws --object-store s3 \
 
 #### Namespace-local roles
 ```
-$ pachctl deploy custom --persistent-disk aws --object-store s3 \
+pachctl deploy custom --persistent-disk aws --object-store s3 \
      <pv-storage-name> <pv-storage-size> \
      <s3-bucket-name> <s3-access-key-id> <s3-access-secret-key> <s3-access-endpoint-url> \
      --static-etcd-volume=<pv-storage-name> --local-roles > manifest.json
@@ -401,13 +401,13 @@ If you're using a PV you've created separately, remove the PV that was added to 
 ## 7. Deploy the Pachyderm manifest you modified.
 
 ```sh
-$ oc create -f pachyderm.json
+oc create -f pachyderm.json
 ```
 
 You can see the cluster status by using `oc get pods` as in upstream Kubernetes:
 
 ```sh
-    $ oc get pods
+    oc get pods
     NAME                     READY     STATUS    RESTARTS   AGE
     dash-6c9dc97d9c-89dv9    2/2       Running   0          1m
     etcd-0                   1/1       Running   0          4m

@@ -34,7 +34,7 @@ by running the `pachctl list repo` command.
 
 !!! example
     ```bash
-    $ pachctl list repo
+    pachctl list repo
     NAME     CREATED     SIZE (MASTER)
     raw_data 6 hours ago 0B
     ```
@@ -44,7 +44,7 @@ of a specified repository.
 
 !!! example
     ```bash
-    $ pachctl inspect repo raw_data
+    pachctl inspect repo raw_data
     Name: raw_data
     Description: A raw data repository
     Created: 6 hours ago

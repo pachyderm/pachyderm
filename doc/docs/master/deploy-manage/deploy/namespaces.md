@@ -5,15 +5,15 @@ Often, production deploys of Pachyderm involve deploying Pachyderm to a non-defa
 To deploy Pachyderm to a non-default namespace, you just need to create that namespace with `kubectl` and then add the `--namespace` flag to your deploy command:
 
 ```
-$ kubectl create namespace pachyderm
-$ kubectl config set-context $(kubectl config current-context) --namespace=pachyderm
-$ pachctl deploy <args> --namespace pachyderm
+kubectl create namespace pachyderm
+kubectl config set-context $(kubectl config current-context) --namespace=pachyderm
+pachctl deploy <args> --namespace pachyderm
 ```
 
 After the Pachyderm pods are up and running, you should see something similar to:
 
 ```
-$ kubectl get pods
+kubectl get pods
 NAME                     READY     STATUS    RESTARTS   AGE
 dash-68578d4bb4-mmtbj    2/2       Running   0          3m
 etcd-69fcfb5fcf-dgc8j    1/1       Running   0          3m

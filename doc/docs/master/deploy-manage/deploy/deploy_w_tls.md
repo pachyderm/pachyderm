@@ -12,7 +12,7 @@ providing a path to your CA certificate and your private key by using the
 `--tls` flag with the `pachctl deploy` command.
 
 ```bash
-$ pachctl deploy <platform> --tls "<path/to/cert>,<path/to/key>"
+pachctl deploy <platform> --tls "<path/to/cert>,<path/to/key>"
 ```
 
 !!! note

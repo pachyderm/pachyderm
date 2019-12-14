@@ -25,7 +25,7 @@ Here are some common issues by symptom related to certain deploys.
 The pachd pod keeps crashing/restarting:
 
 ```
-$ kubectl get all
+kubectl get all
 NAME                        READY     STATUS             RESTARTS   AGE
 po/etcd-281005231-qlkzw     1/1       Running            0          7m
 po/pachd-1333950811-0sm1p   0/1       CrashLoopBackOff   6          7m
@@ -49,7 +49,7 @@ rs/pachd-1333950811   1         1         0         7m
 First describe the pod:
 
 ```
-$ kubectl describe po/pachd-1333950811-0sm1p
+kubectl describe po/pachd-1333950811-0sm1p
 ```
 
 If you see an error including `Error attaching EBS volume` or similar, see the recourse for that error here under the corresponding section below. If you don't see that error, but do see something like:

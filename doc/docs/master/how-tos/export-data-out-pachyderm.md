@@ -50,13 +50,13 @@ To export your data with pachctl:
 1. Get the list of files in the repository:
 
    ```bash
-   $ pachctl list file <repo>@<branch>
+   pachctl list file <repo>@<branch>
    ```
 
    **Example:**
 
    ```bash
-   $ pachctl list commit data@master
+   pachctl list commit data@master
    REPO   BRANCH COMMIT                           PARENT                           STARTED           DURATION           SIZE
    data master 230103d3c6bd45b483ab6d0b7ae858d5 f82b76f463ca4799817717a49ab74fac 2 seconds ago  Less than a second 750B
    data master f82b76f463ca4799817717a49ab74fac <none>                           40 seconds ago Less than a second 375B
@@ -71,7 +71,7 @@ To export your data with pachctl:
    **Example:**
 
    ```bash
-   $ pachctl get file data@master:user_data.csv
+   pachctl get file data@master:user_data.csv
    1,cyukhtin0@stumbleupon.com,144.155.176.12
    2,csisneros1@over-blog.com,26.119.26.5
    3,jeye2@instagram.com,13.165.230.106
@@ -93,13 +93,13 @@ To export your data with pachctl:
      1. List files in the parent commit:
 
         ```bash
-        $ pachctl list commit <repo>@<branch-or-commit>^:<path/to/file>
+        pachctl list commit <repo>@<branch-or-commit>^:<path/to/file>
         ```
 
      1. Get the contents of a file:
 
         ```bash
-        $ pachctl get file <repo>@<branch-or-commit>^:<path/to/file>
+        pachctl get file <repo>@<branch-or-commit>^:<path/to/file>
         ```
 
    * To view an `<n>` parent of a commit:
@@ -107,7 +107,7 @@ To export your data with pachctl:
      1. List files in the parent commit:
 
         ```bash
-        $ pachctl list commit <repo>@<branch-or-commit>^<n>:<path/to/file>
+        pachctl list commit <repo>@<branch-or-commit>^<n>:<path/to/file>
         ```
 
         **Example:**
@@ -120,13 +120,13 @@ To export your data with pachctl:
      1. Get the contents of a file:
 
         ```bash
-        $ pachctl get file <repo>@<branch-or-commit>^<n>:<path/to/file>
+        pachctl get file <repo>@<branch-or-commit>^<n>:<path/to/file>
         ```
 
         **Example:**
 
         ```bash
-        $ pachctl get file datas@master^4:user_data.csv
+        pachctl get file datas@master^4:user_data.csv
         ```
 
      You can specify any number in the `^<n>` notation. If the file
@@ -135,7 +135,7 @@ To export your data with pachctl:
      message:
 
      ```bash
-     $ pachctl get file <repo>@<branch-or-commit>^<n>:<path/to/file>
+     pachctl get file <repo>@<branch-or-commit>^<n>:<path/to/file>
      file "<path/to/file>" not found
      ```
 

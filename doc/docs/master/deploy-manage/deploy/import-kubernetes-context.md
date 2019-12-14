@@ -37,7 +37,7 @@ To import a Kubernetes context, complete the following steps:
    flag:
 
    ```bash
-   $ kubectl apply -f <manifest.yaml>
+   kubectl apply -f <manifest.yaml>
    clusterrole.rbac.authorization.k8s.io/pachyderm configured
    clusterrolebinding.rbac.authorization.k8s.io/pachyderm configured
    deployment.apps/etcd configured
@@ -52,7 +52,7 @@ To import a Kubernetes context, complete the following steps:
 1. Verify that the cluster was successfully deployed:
 
    ```bash
-   $ kubectl get pods
+   kubectl get pods
    NAME                     READY   STATUS    RESTARTS   AGE
    dash-64c868cc8b-j79d6    2/2     Running   0          20h
    etcd-6865455568-tm5tf    1/1     Running   0          20h
@@ -64,7 +64,7 @@ To import a Kubernetes context, complete the following steps:
 1. Create a new Pachyderm context with the embedded Kubernetes context:
 
    ```bash
-   $ pachctl config set context <new-pachyderm-context> -k `kubectl config current-context`
+   pachctl config set context <new-pachyderm-context> -k `kubectl config current-context`
    ```
 
 1. Verify that the context was successfully created and view the context parameters:
@@ -72,7 +72,7 @@ To import a Kubernetes context, complete the following steps:
    **Example:**
 
    ```bash
-   $ pachctl config get context test-context
+   pachctl config get context test-context
    {
      "source": "IMPORTED",
      "cluster_name": "minikube",
@@ -84,11 +84,11 @@ To import a Kubernetes context, complete the following steps:
 1. Activate the new Pachyderm context:
 
    ```bash
-   $ pachctl config set active-context <new-pachyderm-context>
+   pachctl config set active-context <new-pachyderm-context>
    ```
 
 1. Verify that the new context has been activated:
 
    ```bash
-   $ pachctl config get active-context
+   pachctl config get active-context
    ```
