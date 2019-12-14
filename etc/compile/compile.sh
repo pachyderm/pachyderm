@@ -8,6 +8,16 @@
 
 set -Eex
 
+# Validate env vars
+if [[ -z "${CALLING_USER_ID}" ]]; then
+  echo "Cannot do docker build without the caller's user ID" >/dev/stderr
+  exit 1
+fi
+if [[ -z "${DOCKER_GROUP_ID}" ]]; then
+  echo "Cannot do docker build without the 'docker' group's ID" >/dev/stderr
+  exit 1
+fi
+
 useradd --uid="${CALLING_USER_ID}" caller
 groupadd  --gid="${DOCKER_GROUP_ID}" docker
 # Hack: add caller (which we want to have all privileges inside the container,
