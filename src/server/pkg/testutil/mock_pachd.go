@@ -871,7 +871,7 @@ func (api *ppsServerAPI) RunCron(ctx context.Context, req *pps.RunCronRequest) (
 	if api.mock.RunCron.handler != nil {
 		return api.mock.RunCron.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("Unhandled pachd mock pps.RunCron")
+	return nil, fmt.Errorf("unhandled pachd mock pps.RunCron")
 }
 func (api *ppsServerAPI) DeleteAll(ctx context.Context, req *types.Empty) (*types.Empty, error) {
 	if api.mock.DeleteAll.handler != nil {
