@@ -107,9 +107,8 @@ Deletes the PFS file `filepath` in an atomic commit on the HEAD of `branch`.
 Route: `GET /<branch>.<repo>/<filepath>`.
 
 By default, this request gets the `HEAD` version of the file. You can use s3's
-versioning API (that is, with the `versionId` subresource) to get the object
-at a non-HEAD commit by specifying either a specific commit ID, or via the
-caret syntax (for example, `HEAD^`.)
+versioning API to get the object at a non-HEAD commit by specifying either a
+specific commit ID, or by using the caret syntax -- for example, `HEAD^`.
 
 There is support for range queries and conditional requests, however error
 response bodies for bad requests using these headers are not standard S3 XML.
