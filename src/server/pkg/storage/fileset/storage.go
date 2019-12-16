@@ -2,7 +2,11 @@ package fileset
 
 import (
 	"context"
+	"fmt"
+	"io"
+	"math"
 	"path"
+	"strconv"
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
@@ -11,7 +15,7 @@ import (
 )
 
 const (
-	// (bryce) Not sure if these are the tags we should use, but the header and padding tag should up before and after respectively in the
+	// (bryce) Not sure if these are the tags we should use, but the header and padding tag should show up before and after respectively in the
 	// lexicographical ordering of tags.
 	headerTag  = ""
 	paddingTag = "~"
@@ -33,9 +37,6 @@ const (
 	// Compacted is the suffix of a path that points to the compaction of the prefix.
 	Compacted = "compacted"
 )
-
-// ShardFunc is a callback that returns a PathRange for each shard.
-type ShardFunc func(*index.PathRange) error
 
 // Storage is the abstraction that manages fileset storage.
 type Storage struct {
@@ -63,10 +64,9 @@ func NewStorage(objC obj.Client, chunks *chunk.Storage, opts ...StorageOption) *
 }
 
 // New creates a new in-memory fileset.
-func (s *Storage) New(ctx context.Context, fileSet string, opts ...Option) *FileSet {
+func (s *Storage) New(ctx context.Context, fileSet, tag string, opts ...Option) *FileSet {
 	fileSet = applyPrefix(fileSet)
-	// (bryce) tag will need to be piped through here.
-	return newFileSet(ctx, s, fileSet, s.memThreshold, "", opts...)
+	return newFileSet(ctx, s, fileSet, s.memThreshold, tag, opts...)
 }
 
 func (s *Storage) newWriter(ctx context.Context, fileSet string) *Writer {
@@ -81,117 +81,123 @@ func (s *Storage) newReader(ctx context.Context, fileSet string, opts ...index.O
 	return newReader(ctx, s.objC, s.chunks, fileSet, opts...)
 }
 
-func (s *Storage) NewMergeReader(ctx context.Context, fileSet string, opts ...index.Option) (*MergeReader, error) {
-	fileSet = applyPrefix(fileSet)
+func (s *Storage) NewMergeReader(ctx context.Context, fileSets []string, opts ...index.Option) (*MergeReader, error) {
+	fileSets = applyPrefixes(fileSets)
 	var rs []*Reader
-	// (bryce) compacted prefix here.
-	if err := s.objC.Walk(ctx, fileSet, func(name string) error {
-		rs = append(rs, s.newReader(ctx, name, opts...))
-		return nil
-	}); err != nil {
-		return nil, err
+	for _, fileSet := range fileSets {
+		if err := s.objC.Walk(ctx, fileSet, func(name string) error {
+			rs = append(rs, s.newReader(ctx, name, opts...))
+			return nil
+		}); err != nil {
+			return nil, err
+		}
 	}
 	return newMergeReader(rs), nil
 }
 
-// (bryce) commented out for now to checkpoint changes to reader/writer
-//// Shard shards the merge of the file sets with the passed in prefix into file ranges.
-//// (bryce) this should be extended to be more configurable (different criteria
-//// for creating shards).
-//func (s *Storage) Shard(ctx context.Context, fileSets []string, shardFunc ShardFunc) error {
-//	fileSets = applyPrefixes(fileSets)
-//	return s.merge(ctx, fileSets, shardMergeFunc(s.shardThreshold, shardFunc))
-//}
-//
-//func (s *Storage) Compact(ctx context.Context, outputFileSet string, inputFileSets []string, opts ...index.Option) error {
-//	outputFileSet = applyPrefix(outputFileSet)
-//	inputFileSets = applyPrefixes(inputFileSets)
-//	w := s.newWriter(ctx, outputFileSet)
-//	mr := s.NewMergeReader(ctx, inputFileSets, opts...)
-//	if err := w.Copy(mr); err != nil {
-//		return err
-//	}
-//	return w.Close()
-//}
-//
-//type CompactSpec struct {
-//	Output string
-//	Input  []string
-//}
-//
-//func (s *Storage) CompactSpec(ctx context.Context, fileSet, compactedFileSet string) (*CompactSpec, error) {
-//	fileSet = applyPrefix(fileSet)
-//	compactedFileSet = applyPrefix(compactedFileSet)
-//	hdr, err := index.GetTopLevelIndex(ctx, s.objC, path.Join(fileSet, Diff))
-//	if err != nil {
-//		return nil, err
-//	}
-//	var level int
-//	size := hdr.Idx.SizeBytes
-//	spec := &CompactSpec{
-//		Input: []string{path.Join(fileSet, Diff)},
-//	}
-//	if err := s.objC.Walk(ctx, path.Join(compactedFileSet, Compacted), func(name string) error {
-//		nextLevel, err := strconv.Atoi(path.Base(name))
-//		if err != nil {
-//			return err
-//		}
-//		// Handle levels that are non-empty.
-//		if nextLevel == level {
-//			hdr, err := index.GetTopLevelIndex(ctx, s.objC, name)
-//			if err != nil {
-//				return err
-//			}
-//			size += hdr.Idx.SizeBytes
-//			// If the output level has not been determined yet, then the current level will be an input
-//			// to the compaction.
-//			// If the output level has been determined, then the current level will be copied.
-//			// The copied levels are above the output level.
-//			if spec.Output == "" {
-//				spec.Input = append(spec.Input, name)
-//			} else {
-//				w, err := s.objC.Writer(ctx, path.Join(fileSet, Compacted, strconv.Itoa(level)))
-//				if err != nil {
-//					return err
-//				}
-//				r, err := s.objC.Reader(ctx, name, 0, 0)
-//				if err != nil {
-//					return err
-//				}
-//				if _, err := io.Copy(w, r); err != nil {
-//					return err
-//				}
-//			}
-//		}
-//		// If the output level has not been determined yet and the compaction size is less than the threshold for
-//		// the current level, then the current level becomes the output level.
-//		if spec.Output == "" && size < s.levelZeroSize*int64(math.Pow(float64(s.levelSizeBase), float64(level))) {
-//			spec.Output = path.Join(fileSet, Compacted, strconv.Itoa(level))
-//		}
-//		level++
-//		return nil
-//	}); err != nil {
-//		return nil, err
-//	}
-//	return spec, nil
-//}
-//
-//func (s *Storage) merge(ctx context.Context, fileSets []string, f mergeFunc, opts ...index.Option) error {
-//	var rs []*Reader
-//	for _, fileSet := range fileSets {
-//		if err := s.objC.Walk(ctx, fileSet, func(name string) error {
-//			rs = append(rs, s.newReader(ctx, name, opts...))
-//			return nil
-//		}); err != nil {
-//			return err
-//		}
-//	}
-//	var fileStreams []stream
-//	for _, r := range rs {
-//		fileStreams = append(fileStreams, &fileStream{r: r})
-//	}
-//	return merge(fileStreams, f)
-//}
+// Shard shards the merge of the file sets with the passed in prefix into file ranges.
+// (bryce) this should be extended to be more configurable (different criteria
+// for creating shards).
+func (s *Storage) Shard(ctx context.Context, fileSets []string, shardFunc ShardFunc) error {
+	fileSets = applyPrefixes(fileSets)
+	mr, err := s.NewMergeReader(ctx, fileSets)
+	if err != nil {
+		return err
+	}
+	return shard(mr, s.shardThreshold, shardFunc)
+}
+
+func (s *Storage) Compact(ctx context.Context, outputFileSet string, inputFileSets []string, opts ...index.Option) error {
+	outputFileSet = applyPrefix(outputFileSet)
+	inputFileSets = applyPrefixes(inputFileSets)
+	w := s.newWriter(ctx, outputFileSet)
+	mr, err := s.NewMergeReader(ctx, inputFileSets, opts...)
+	if err != nil {
+		return err
+	}
+	if err := mr.WriteTo(w); err != nil {
+		return err
+	}
+	return w.Close()
+}
+
+type CompactSpec struct {
+	Output string
+	Input  []string
+}
+
+func (s *Storage) CompactSpec(ctx context.Context, fileSet string, compactedFileSet ...string) (*CompactSpec, error) {
+	fileSet = applyPrefix(fileSet)
+	idx, err := index.GetTopLevelIndex(ctx, s.objC, path.Join(fileSet, Diff))
+	if err != nil {
+		return nil, err
+	}
+	size := idx.SizeBytes
+	spec := &CompactSpec{
+		Input: []string{path.Join(fileSet, Diff)},
+	}
+	var level int
+	// Handle first commit being compacted.
+	if len(compactedFileSet) == 0 {
+		for size > s.levelZeroSize*int64(math.Pow(float64(s.levelSizeBase), float64(level))) {
+			level++
+		}
+		spec.Output = path.Join(fileSet, Compacted, strconv.Itoa(level))
+		return spec, nil
+	}
+	// Handle commits with a parent commit.
+	compactedFileSet[0] = applyPrefix(compactedFileSet[0])
+	if err := s.objC.Walk(ctx, path.Join(compactedFileSet[0], Compacted), func(name string) error {
+		nextLevel, err := strconv.Atoi(path.Base(name))
+		if err != nil {
+			return err
+		}
+		// Handle levels that are non-empty.
+		if nextLevel == level {
+			idx, err := index.GetTopLevelIndex(ctx, s.objC, name)
+			if err != nil {
+				return err
+			}
+			size += idx.SizeBytes
+			// If the output level has not been determined yet, then the current level will be an input
+			// to the compaction.
+			// If the output level has been determined, then the current level will be copied.
+			// The copied levels are above the output level.
+			if spec.Output == "" {
+				spec.Input = append(spec.Input, name)
+			} else {
+				w, err := s.objC.Writer(ctx, path.Join(fileSet, Compacted, strconv.Itoa(level)))
+				if err != nil {
+					return err
+				}
+				r, err := s.objC.Reader(ctx, name, 0, 0)
+				if err != nil {
+					return err
+				}
+				if _, err := io.Copy(w, r); err != nil {
+					return err
+				}
+			}
+		}
+		// If the output level has not been determined yet and the compaction size is less than the threshold for
+		// the current level, then the current level becomes the output level.
+		if spec.Output == "" && size <= s.levelZeroSize*int64(math.Pow(float64(s.levelSizeBase), float64(level))) {
+			spec.Output = path.Join(fileSet, Compacted, strconv.Itoa(level))
+		}
+		level++
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return spec, nil
+}
+
+func (s *Storage) Delete(ctx context.Context, fileSet string) error {
+	fileSet = applyPrefix(fileSet)
+	return s.objC.Walk(ctx, fileSet, func(name string) error {
+		return s.objC.Delete(ctx, name)
+	})
+}
 
 func applyPrefix(fileSet string) string {
 	if strings.HasPrefix(fileSet, prefix) {
@@ -206,4 +212,8 @@ func applyPrefixes(fileSets []string) []string {
 		prefixedFileSets = append(prefixedFileSets, applyPrefix(fileSet))
 	}
 	return prefixedFileSets
+}
+
+func SubFileSetStr(subFileSet int64) string {
+	return fmt.Sprintf("%020d", subFileSet)
 }

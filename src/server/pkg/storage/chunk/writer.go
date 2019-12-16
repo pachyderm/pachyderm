@@ -142,6 +142,9 @@ func (w *worker) rollDataSet(dataSet *dataSet) error {
 	// Roll across the annotations in the data set.
 	for _, a := range dataSet.annotations {
 		if a.buf.Len() > 0 {
+			if err := w.flushDataReaders(); err != nil {
+				return err
+			}
 			if err := w.roll(a); err != nil {
 				return err
 			}
@@ -460,15 +463,19 @@ func (w *Writer) AnnotationCount() int64 {
 // Tag starts a tag in the current annotation with the passed in id.
 func (w *Writer) Tag(id string) {
 	w.finishTag()
-	a := w.annotations[len(w.annotations)-1]
-	a.tags = append(a.tags, &Tag{Id: id})
+	lastA := w.annotations[len(w.annotations)-1]
+	if lastA.drs != nil {
+		lastA = copyAnnotation(lastA)
+		w.annotations = append(w.annotations, lastA)
+	}
+	lastA.tags = append(lastA.tags, &Tag{Id: id})
 }
 
 func (w *Writer) finishTag() {
 	if len(w.annotations) > 0 {
-		a := w.annotations[len(w.annotations)-1]
-		if a.tags != nil {
-			a.tags[len(a.tags)-1].SizeBytes = w.stats.taggedBytesSize
+		lastA := w.annotations[len(w.annotations)-1]
+		if lastA.tags != nil {
+			lastA.tags[len(lastA.tags)-1].SizeBytes = w.stats.taggedBytesSize
 			w.stats.taggedBytesSize = 0
 		}
 	}
@@ -484,10 +491,6 @@ func (w *Writer) ChunkCount() int64 {
 // to process it (find chunk split points, hash data, and execute the callback).
 func (w *Writer) Write(data []byte) (int, error) {
 	lastA := w.annotations[len(w.annotations)-1]
-	if lastA.drs != nil {
-		lastA = copyAnnotation(lastA)
-		w.annotations = append(w.annotations, lastA)
-	}
 	var written int
 	for w.bufSize+len(data) >= bufSize {
 		i := bufSize - w.bufSize
@@ -529,6 +532,7 @@ func (w *Writer) writeDataSet() {
 func (w *Writer) Copy(dr *DataReader) error {
 	lastA := w.annotations[len(w.annotations)-1]
 	if lastA.buf.Len() > 0 {
+		w.finishTag()
 		lastA = copyAnnotation(lastA)
 		w.annotations = append(w.annotations, lastA)
 	}

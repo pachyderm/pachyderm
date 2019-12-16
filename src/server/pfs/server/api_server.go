@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"io"
 	"sync"
 	"time"
 
@@ -430,14 +429,10 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.AP
 			"err", retErr)
 		a.Log(request, nil, retErr, time.Since(start))
 	}(time.Now())
-
-	var file io.Reader
-	var err error
 	if a.env.NewStorageLayer {
-		file, err = a.driver.getFileNewStorageLayer(a.env.GetPachClient(apiGetFileServer.Context()), request.File)
-	} else {
-		file, err = a.driver.getFile(a.env.GetPachClient(apiGetFileServer.Context()), request.File, request.OffsetBytes, request.SizeBytes)
+		return a.driver.getFileNewStorageLayer(a.env.GetPachClient(apiGetFileServer.Context()), request.File, grpcutil.NewStreamingBytesWriter(apiGetFileServer))
 	}
+	file, err := a.driver.getFile(a.env.GetPachClient(apiGetFileServer.Context()), request.File, request.OffsetBytes, request.SizeBytes)
 	if err != nil {
 		return err
 	}

@@ -132,7 +132,7 @@ func (r *Reader) atStart(name string) bool {
 	if r.filter == nil {
 		return true
 	}
-	if r.filter.pathRange != nil {
+	if r.filter.pathRange != nil && r.filter.pathRange.Lower != "" {
 		return name >= r.filter.pathRange.Lower
 	}
 	return name >= r.filter.prefix
@@ -145,7 +145,7 @@ func (r *Reader) atEnd(name string) bool {
 	if r.filter == nil {
 		return false
 	}
-	if r.filter.pathRange != nil {
+	if r.filter.pathRange != nil && r.filter.pathRange.Upper != "" {
 		return name > r.filter.pathRange.Upper
 	}
 	// Name is past a prefix when the first len(prefix) bytes are greater than the prefix

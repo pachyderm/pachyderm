@@ -6,7 +6,6 @@ import (
 	"io"
 	"path"
 	"sort"
-	"strconv"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
@@ -33,7 +32,7 @@ type FileSet struct {
 	name                       string
 	tag                        string
 	fs                         map[string]*memFile
-	subFileSet                 int
+	subFileSet                 int64
 }
 
 func newFileSet(ctx context.Context, storage *Storage, name string, memThreshold int64, tag string, opts ...Option) *FileSet {
@@ -139,7 +138,7 @@ func (f *FileSet) serialize() error {
 	}
 	sort.Strings(names)
 	// Serialize file set.
-	w := f.storage.newWriter(f.ctx, path.Join(f.name, strconv.Itoa(f.subFileSet)))
+	w := f.storage.newWriter(f.ctx, path.Join(f.name, SubFileSetStr(f.subFileSet)))
 	for _, name := range names {
 		n := f.fs[name]
 		// (bryce) skipping serialization of deletion operations for the time being.

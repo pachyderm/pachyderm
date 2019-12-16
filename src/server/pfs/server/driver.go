@@ -62,8 +62,6 @@ const (
 
 	// maxInt is the maximum value for 'int' (system-dependent). Not in 'math'!
 	maxInt = int(^uint(0) >> 1)
-	// tmpPrefix is for temporary object paths that store merged shards.
-	tmpPrefix = "tmp"
 )
 
 var (
@@ -114,8 +112,9 @@ type driver struct {
 	memoryLimiter *semaphore.Weighted
 
 	// New storage layer.
-	storage *fileset.Storage
-	fs      *fileset.FileSet
+	storage    *fileset.Storage
+	fs         *fileset.FileSet
+	subFileSet int64
 }
 
 // newDriver is used to create a new Driver instance
@@ -173,7 +172,7 @@ func newDriver(
 		}
 		chunkStorage := chunk.NewStorage(objC, chunk.ServiceEnvToOptions(env)...)
 		d.storage = fileset.NewStorage(objC, chunkStorage, fileset.ServiceEnvToOptions(env)...)
-		go d.mergeWorker()
+		go d.compactionWorker()
 	}
 	return d, nil
 }

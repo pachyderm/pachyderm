@@ -94,7 +94,9 @@ func (w *Writer) callback() chunk.WriterFunc {
 			idx := annotations[i].Data.(*data).idx
 			idx.DataOp.DataRefs = append(idx.DataOp.DataRefs, annotations[i].NextDataRef)
 			for _, tag := range annotations[i].NextDataRef.Tags {
-				idx.SizeBytes += int64(tag.SizeBytes)
+				if tag.Id != headerTag && tag.Id != paddingTag {
+					idx.SizeBytes += int64(tag.SizeBytes)
+				}
 			}
 			idxs = append(idxs, idx)
 		}

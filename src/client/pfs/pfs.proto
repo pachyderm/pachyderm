@@ -179,7 +179,7 @@ message ObjectInfo {
   BlockRef block_ref = 2;
 }
 
-message Merge {
+message Compaction {
   repeated string prefixes = 1;
 }
 

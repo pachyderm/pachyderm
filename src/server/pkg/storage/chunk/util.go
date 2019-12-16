@@ -55,16 +55,20 @@ func Reference(dataRef *DataRef) *DataRef {
 }
 
 func joinAnnotations(as []*Annotation, a *Annotation) []*Annotation {
-	// If the annotation being added is the same as the
-	// last, then they are merged.
 	if as != nil {
 		lastA := as[len(as)-1]
+		// If the annotation being added is the same as the
+		// last, then they are merged.
 		if lastA.Data == a.Data {
-			lastA.buf.Write(a.buf.Bytes())
-			if lastA.tags != nil {
-				lastA.tags = joinTags(lastA.tags, a.tags)
+			if lastA.tags != nil && a.tags != nil {
+				lastA.buf.Write(a.buf.Bytes())
+				if lastA.tags != nil {
+					lastA.tags = joinTags(lastA.tags, a.tags)
+				}
+				return as
+			} else if lastA.drs != nil && a.drs != nil {
+				return as
 			}
-			return as
 		}
 	}
 	return append(as, a)

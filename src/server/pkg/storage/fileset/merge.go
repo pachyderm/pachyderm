@@ -116,16 +116,21 @@ func newFileMergeReader(frs []*FileReader) *FileMergeReader {
 func (fmr *FileMergeReader) Index() *index.Index {
 	// (bryce) need to merge and compute new hashes when client
 	// wants the stable hash for the content. Only returning
-	// highest priority index for now.
-	return fmr.frs[len(fmr.frs)-1].Index()
+	// returning index with path and size for now.
+	idx := &index.Index{}
+	idx.Path = fmr.frs[0].Index().Path
+	for _, fr := range fmr.frs {
+		idx.SizeBytes += fr.Index().SizeBytes
+	}
+	return idx
 }
 
 func (fmr *FileMergeReader) Header() (*tar.Header, error) {
 	if fmr.hdr == nil {
 		// Compute the size of the headers being merged.
 		var size int64
-		for i := 0; i < len(fmr.frs)-1; i++ {
-			hdr, err := fmr.frs[i].Header()
+		for _, fr := range fmr.frs {
+			hdr, err := fr.Header()
 			if err != nil {
 				return nil, err
 			}
@@ -139,7 +144,7 @@ func (fmr *FileMergeReader) Header() (*tar.Header, error) {
 		if err != nil {
 			return nil, err
 		}
-		fmr.hdr.Size += size
+		fmr.hdr.Size = size
 	}
 	return fmr.hdr, nil
 }
@@ -250,11 +255,12 @@ func (tsmr *TagSetMergeReader) WriteTo(w *Writer) error {
 		}
 		// Copy single tag stream.
 		if len(ss) == 1 {
-			if err := tss[0].fr.Iterate(func(dr *chunk.DataReader) error {
-				return w.CopyTags(dr.LimitReader(next...))
-			}, next...); err != nil {
-				return err
+			if len(next) == 0 {
+				next = []string{paddingTag}
 			}
+			return tss[0].fr.Iterate(func(dr *chunk.DataReader) error {
+				return w.CopyTags(dr.LimitReader(next...))
+			}, next...)
 		}
 		// Create tag merge reader and call its WriteTo function.
 		var trs []*chunk.TagReader
@@ -318,55 +324,37 @@ func (tmr *TagMergeReader) Get(w io.Writer) error {
 	})
 }
 
-//// shard creates shards (path ranges) from the fileset streams being merged.
-//// A shard is created when the size of the content for a path range is greater than
-//// the passed in shard threshold.
-//// For each shard, the callback is called with the path range for the shard.
-//func shard(ss []stream, shardThreshold int64, f func(r *index.PathRange) error) {
-//	pq := newPriorityQueue(ss)
-//	var size int64
-//	pathRange := &index.PathRange{}
-//	for {
-//		ss, err := pq.Next()
-//		if err != nil {
-//			if err == io.EOF {
-//				return nil
-//			}
-//			return nil, err
-//		}
-//		// Convert generic streams to file streams.
-//		var fileStreams []*fileStream
-//		for _, s := range ss {
-//			fileStreams = append(fileStreams, s.(*fileStream))
-//		}
-//		var hdr *index.Header
-//		var err error
-//		last := true
-//		for _, fs := range fileStreams {
-//			hdr, err = fs.r.Next()
-//			if err != nil {
-//				return err
-//			}
-//			size += hdr.Idx.SizeBytes
-//			if _, err = fs.r.Peek(); err != io.EOF {
-//				last = false
-//			}
-//		}
-//		if pathRange.Lower == "" {
-//			pathRange.Lower = hdr.Hdr.Name
-//		}
-//		// A shard is created when we have encountered more than shardThreshold content bytes.
-//		// The last shard is created when there are no more streams in the queue and the
-//		// streams being handled in this call are all io.EOF.
-//		if size > shardThreshold || len(next) == 0 && last {
-//			pathRange.Upper = hdr.Hdr.Name
-//			if err := f(pathRange); err != nil {
-//				return err
-//			}
-//			size = 0
-//			pathRange = &index.PathRange{}
-//			return nil
-//		}
-//		return nil
-//	}
-//}
+// ShardFunc is a callback that returns a PathRange for each shard.
+type ShardFunc func(*index.PathRange) error
+
+// shard creates shards (path ranges) from the fileset streams being merged.
+// A shard is created when the size of the content for a path range is greater than
+// the passed in shard threshold.
+// For each shard, the callback is called with the path range for the shard.
+func shard(mr *MergeReader, shardThreshold int64, f ShardFunc) error {
+	var size int64
+	pathRange := &index.PathRange{}
+	if err := mr.Iterate(func(fmr *FileMergeReader) error {
+		if pathRange.Lower == "" {
+			pathRange.Lower = fmr.Index().Path
+		}
+		size += fmr.Index().SizeBytes
+		// A shard is created when we have encountered more than shardThreshold content bytes.
+		if size >= shardThreshold {
+			pathRange.Upper = fmr.Index().Path
+			if err := f(pathRange); err != nil {
+				return err
+			}
+			size = 0
+			pathRange = &index.PathRange{}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	// Edge case where the last shard is created at the last file.
+	if pathRange.Lower == "" {
+		return nil
+	}
+	return f(pathRange)
+}

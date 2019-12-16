@@ -104,7 +104,7 @@ func BenchmarkWriter(b *testing.B) {
 			w.Annotate(&Annotation{
 				NextDataRef: &DataRef{},
 			})
-			w.StartTag(strconv.Itoa(i))
+			w.Tag(strconv.Itoa(i))
 			_, err := w.Write(seq[i*MB : (i+1)*MB])
 			require.NoError(b, err)
 		}
@@ -181,7 +181,7 @@ func writeAnnotations(t *testing.T, chunks *Storage, annotations []*testAnnotati
 			})
 			var offset int
 			for _, tag := range a.tags {
-				w.StartTag(tag.Id)
+				w.Tag(tag.Id)
 				_, err := w.Write(a.data[offset : offset+int(tag.SizeBytes)])
 				require.NoError(t, err, msg)
 				offset += int(tag.SizeBytes)
