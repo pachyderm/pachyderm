@@ -69,4 +69,3 @@ Any `pachctl put file` or `pachctl get file` commands are slow.
 #### Recourse
 
 If you do not explicitly set the pachd address config value, `pachctl` will default to using port forwarding, which throttles traffic to ~1MB/s. If you need to do large downloads/uploads you should consider using pachd address config value. You'll also want to make sure you've allowed ingress access through any firewalls to your k8s cluster.
-
