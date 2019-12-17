@@ -6,6 +6,8 @@ set -euxo pipefail
 which aws || pip install awscli --upgrade --user
 
 function activate {
+    pachctl config update context $(pachctl config get active-context) --pachd-address=$(minikube ip):30650
+
     if [[ "$(pachctl enterprise get-state)" = "No Pachyderm Enterprise token was found" ]]; then
         # Don't print token to stdout
         # This is very important, or we'd leak it in our CI logs
