@@ -128,6 +128,7 @@ func (w *Writer) CopyFile(fr *FileReader) error {
 	})
 }
 
+// CopyTags copies the tagged data from the passed in data reader.
 func (w *Writer) CopyTags(dr *chunk.DataReader) error {
 	if err := w.tw.Skip(dr.Len()); err != nil {
 		return err

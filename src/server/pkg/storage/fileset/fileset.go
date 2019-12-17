@@ -51,6 +51,7 @@ func newFileSet(ctx context.Context, storage *Storage, name string, memThreshold
 	return f
 }
 
+// Put reads files from a tar stream and adds them to the fileset.
 func (f *FileSet) Put(r io.Reader) error {
 	tr := tar.NewReader(r)
 	for {

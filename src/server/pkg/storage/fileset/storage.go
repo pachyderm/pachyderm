@@ -81,6 +81,7 @@ func (s *Storage) newReader(ctx context.Context, fileSet string, opts ...index.O
 	return newReader(ctx, s.objC, s.chunks, fileSet, opts...)
 }
 
+// NewMergeReader returns a merge reader for a set for filesets.
 func (s *Storage) NewMergeReader(ctx context.Context, fileSets []string, opts ...index.Option) (*MergeReader, error) {
 	fileSets = applyPrefixes(fileSets)
 	var rs []*Reader
@@ -107,6 +108,7 @@ func (s *Storage) Shard(ctx context.Context, fileSets []string, shardFunc ShardF
 	return shard(mr, s.shardThreshold, shardFunc)
 }
 
+// Compact compacts a set of filesets into an output fileset.
 func (s *Storage) Compact(ctx context.Context, outputFileSet string, inputFileSets []string, opts ...index.Option) error {
 	outputFileSet = applyPrefix(outputFileSet)
 	inputFileSets = applyPrefixes(inputFileSets)
@@ -121,11 +123,14 @@ func (s *Storage) Compact(ctx context.Context, outputFileSet string, inputFileSe
 	return w.Close()
 }
 
+// CompactSpec specifies the input and output for a compaction operation.
 type CompactSpec struct {
 	Output string
 	Input  []string
 }
 
+// CompactSpec returns a compaction specification that determines the input filesets (the diff file set and potentially
+// compacted filesets) and output fileset.
 func (s *Storage) CompactSpec(ctx context.Context, fileSet string, compactedFileSet ...string) (*CompactSpec, error) {
 	fileSet = applyPrefix(fileSet)
 	idx, err := index.GetTopLevelIndex(ctx, s.objC, path.Join(fileSet, Diff))
@@ -192,6 +197,7 @@ func (s *Storage) CompactSpec(ctx context.Context, fileSet string, compactedFile
 	return spec, nil
 }
 
+// Delete deletes a fileset.
 func (s *Storage) Delete(ctx context.Context, fileSet string) error {
 	fileSet = applyPrefix(fileSet)
 	return s.objC.Walk(ctx, fileSet, func(name string) error {
@@ -214,6 +220,7 @@ func applyPrefixes(fileSets []string) []string {
 	return prefixedFileSets
 }
 
+// SubFileSetStr returns the string representation of a subfileset.
 func SubFileSetStr(subFileSet int64) string {
 	return fmt.Sprintf("%020d", subFileSet)
 }

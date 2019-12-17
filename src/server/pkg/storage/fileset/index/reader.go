@@ -42,6 +42,7 @@ func NewReader(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path
 	return r
 }
 
+// Peek returns the next index without progressing the reader.
 func (r *Reader) Peek() (*Index, error) {
 	if err := r.setup(); err != nil {
 		return nil, err
@@ -85,6 +86,7 @@ func topLevel(ctx context.Context, objC obj.Client, path string) (pbr pbutil.Rea
 	return pbutil.NewReader(buf), nil
 }
 
+// Next returns the next index and progresses the reader.
 func (r *Reader) Next() (*Index, error) {
 	if err := r.setup(); err != nil {
 		return nil, err
@@ -172,6 +174,7 @@ func newLevelReader(parent pbutil.Reader, cr *chunk.Reader, idx *Index) *levelRe
 	}
 }
 
+// Read reads data from an index level.
 func (lr *levelReader) Read(data []byte) (int, error) {
 	if err := lr.setup(); err != nil {
 		return 0, err
@@ -213,6 +216,8 @@ func (lr *levelReader) next() error {
 	return lr.cr.Get(lr.buf)
 }
 
+// Iterate iterates over the indexes.
+// pathBound is an optional parameter for specifiying the upper bound (exclusive) of the iteration.
 func (r *Reader) Iterate(f func(*Index) error, pathBound ...string) error {
 	for {
 		idx, err := r.Peek()

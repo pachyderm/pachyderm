@@ -26,6 +26,7 @@ func newMergeReader(rs []*Reader) *MergeReader {
 	return &MergeReader{pq: newPriorityQueue(fileStreams)}
 }
 
+// Iterate iterates over the file merge readers in the merged fileset.
 func (mr *MergeReader) Iterate(f func(*FileMergeReader) error) error {
 	return mr.pq.iterate(func(ss []stream, _ ...string) error {
 		// Convert generic streams to file streams.
@@ -46,6 +47,7 @@ func (mr *MergeReader) Iterate(f func(*FileMergeReader) error) error {
 	})
 }
 
+// WriteTo writes the merged fileset to the passed in fileset writer.
 func (mr *MergeReader) WriteTo(w *Writer) error {
 	return mr.pq.iterate(func(ss []stream, next ...string) error {
 		// Convert generic streams to file streams.
@@ -72,6 +74,7 @@ func (mr *MergeReader) WriteTo(w *Writer) error {
 	})
 }
 
+// Get writes the merged fileset.
 func (mr *MergeReader) Get(w io.Writer) error {
 	// Write a tar entry for each file merge reader.
 	if err := mr.Iterate(func(fmr *FileMergeReader) error {
@@ -99,6 +102,7 @@ func (fs *fileStream) key() string {
 	return fs.idx.Path
 }
 
+// FileMergeReader is an abstraction for reading a merged file.
 type FileMergeReader struct {
 	frs  []*FileReader
 	hdr  *tar.Header
@@ -113,6 +117,7 @@ func newFileMergeReader(frs []*FileReader) *FileMergeReader {
 	}
 }
 
+// Index returns the index for the merged file.
 func (fmr *FileMergeReader) Index() *index.Index {
 	// (bryce) need to merge and compute new hashes when client
 	// wants the stable hash for the content. Only returning
@@ -125,6 +130,7 @@ func (fmr *FileMergeReader) Index() *index.Index {
 	return idx
 }
 
+// Header returns the tar header for the merged file.
 func (fmr *FileMergeReader) Header() (*tar.Header, error) {
 	if fmr.hdr == nil {
 		// Compute the size of the headers being merged.
@@ -149,6 +155,7 @@ func (fmr *FileMergeReader) Header() (*tar.Header, error) {
 	return fmr.hdr, nil
 }
 
+// WriteTo writes the merged file to the passed in fileset writer.
 func (fmr *FileMergeReader) WriteTo(w *Writer) error {
 	hdr, err := fmr.Header()
 	if err != nil {
@@ -162,6 +169,7 @@ func (fmr *FileMergeReader) WriteTo(w *Writer) error {
 	return fmr.tsmr.WriteTo(w)
 }
 
+// Get writes the merged file.
 // (bryce) it might be cleaner to check if w is of type *Writer then use WriteTo rather than Get.
 func (fmr *FileMergeReader) Get(w io.Writer) error {
 	hdr, err := fmr.Header()
@@ -180,6 +188,9 @@ func (fmr *FileMergeReader) Get(w io.Writer) error {
 	return tw.Flush()
 }
 
+// TagSetMergeReader returns the tagset merge reader for the file.
+// This is how you would get just the data in the file (excludes the tar
+// header and padding).
 func (fmr *FileMergeReader) TagSetMergeReader() (*TagSetMergeReader, error) {
 	if _, err := fmr.Header(); err != nil {
 		return nil, err
@@ -187,6 +198,7 @@ func (fmr *FileMergeReader) TagSetMergeReader() (*TagSetMergeReader, error) {
 	return fmr.tsmr, nil
 }
 
+// TagSetMergeReader is an abstraction for reading the merged tagged data in a merged file.
 type TagSetMergeReader struct {
 	frs []*FileReader
 	hdr *tar.Header
@@ -204,6 +216,7 @@ func newTagSetMergeReader(frs []*FileReader) *TagSetMergeReader {
 	}
 }
 
+// Iterate iterates over the tag merge readers in the merged tagset.
 func (tsmr *TagSetMergeReader) Iterate(f func(*TagMergeReader) error) error {
 	return tsmr.pq.iterate(func(ss []stream, _ ...string) error {
 		// Convert generic stream to tag stream.
@@ -233,6 +246,7 @@ func (tsmr *TagSetMergeReader) Iterate(f func(*TagMergeReader) error) error {
 	})
 }
 
+// WriteTo writes the merged tagset to the passed in fileset writer.
 func (tsmr *TagSetMergeReader) WriteTo(w *Writer) error {
 	return tsmr.pq.iterate(func(ss []stream, next ...string) error {
 		// Convert generic stream to tag stream.
@@ -271,6 +285,7 @@ func (tsmr *TagSetMergeReader) WriteTo(w *Writer) error {
 	})
 }
 
+// Get writes the merged tagset.
 func (tsmr *TagSetMergeReader) Get(w io.Writer) error {
 	return tsmr.Iterate(func(tmr *TagMergeReader) error {
 		return tmr.Get(w)
@@ -292,6 +307,9 @@ func (ts *tagStream) key() string {
 	return ts.tag.Id
 }
 
+// TagMergeReader is an abstraction for reading a merged tag.
+// This abstraction is necessary because a tag in a file can appear
+// across multiple filesets.
 type TagMergeReader struct {
 	trs []*chunk.TagReader
 }
@@ -300,6 +318,7 @@ func newTagMergeReader(trs []*chunk.TagReader) *TagMergeReader {
 	return &TagMergeReader{trs: trs}
 }
 
+// Iterate iterates over the data readers for the tagged data being merged.
 func (tmr *TagMergeReader) Iterate(f func(*chunk.DataReader) error) error {
 	for _, tr := range tmr.trs {
 		if err := tr.Iterate(f); err != nil {
@@ -309,12 +328,14 @@ func (tmr *TagMergeReader) Iterate(f func(*chunk.DataReader) error) error {
 	return nil
 }
 
+// WriteTo writes the merged tagged data to the passed in fileset writer.
 func (tmr *TagMergeReader) WriteTo(w *Writer) error {
 	return tmr.Iterate(func(dr *chunk.DataReader) error {
 		return w.CopyTags(dr)
 	})
 }
 
+// Get writes the merged tagged data.
 func (tmr *TagMergeReader) Get(w io.Writer) error {
 	return tmr.Iterate(func(dr *chunk.DataReader) error {
 		return dr.Iterate(func(_ *chunk.Tag, r io.Reader) error {

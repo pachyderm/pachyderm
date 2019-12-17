@@ -46,6 +46,7 @@ func (r *Reader) Peek() (*DataReader, error) {
 	return r.peek, nil
 }
 
+// PeekTag returns the next tag for the next data reader without progressing the reader.
 func (r *Reader) PeekTag() (*Tag, error) {
 	dr, err := r.Peek()
 	if err != nil {
@@ -54,7 +55,7 @@ func (r *Reader) PeekTag() (*Tag, error) {
 	return dr.PeekTag()
 }
 
-// Next progresses the reader to the next data reader.
+// Next returns the next data reader and progresses the reader.
 func (r *Reader) Next() (*DataReader, error) {
 	if r.peek != nil {
 		dr := r.peek
@@ -116,15 +117,21 @@ func (r *Reader) Get(w io.Writer) error {
 	})
 }
 
+// NextTagReader sets up a tag reader for the next tagged data.
 func (r *Reader) NextTagReader() *TagReader {
 	return &TagReader{r: r}
 }
 
+// TagReader is an abstraction for reading tagged data. A tag
+// may span multiple data readers, so this abstraction will
+// connect the data readers and bound them appropriately to
+// retrieve the content for a specific tag.
 type TagReader struct {
 	r   *Reader
 	tag *Tag
 }
 
+// Iterate iterates over the data readers for the tagged data.
 func (tr *TagReader) Iterate(f func(*DataReader) error) error {
 	if err := tr.setup(); err != nil {
 		return err
@@ -162,6 +169,7 @@ func (tr *TagReader) setup() error {
 	return nil
 }
 
+// Get writes the tagged data.
 func (tr *TagReader) Get(w io.Writer) error {
 	return tr.Iterate(func(dr *DataReader) error {
 		return dr.Iterate(func(_ *Tag, r io.Reader) error {
@@ -196,12 +204,12 @@ func newDataReader(ctx context.Context, objC obj.Client, dataRef *DataRef, seed 
 	}
 }
 
-// DataRef is the data reference associated with this data reader.
+// DataRef returns the data reference associated with this data reader.
 func (dr *DataReader) DataRef() *DataRef {
 	return dr.dataRef
 }
 
-// Len is the length of the remaining data to be read.
+// Len returns the length of the remaining data to be read.
 func (dr *DataReader) Len() int64 {
 	var size int64
 	for _, tag := range dr.tags {
@@ -210,7 +218,7 @@ func (dr *DataReader) Len() int64 {
 	return size
 }
 
-// Peek peeks ahead in the tags.
+// PeekTag returns the next tag without progressing the reader.
 func (dr *DataReader) PeekTag() (*Tag, error) {
 	tags, err := dr.PeekTags()
 	if err != nil {
@@ -219,6 +227,7 @@ func (dr *DataReader) PeekTag() (*Tag, error) {
 	return tags[0], nil
 }
 
+// PeekTags returns the tags left in the reader without progressing the reader.
 func (dr *DataReader) PeekTags() ([]*Tag, error) {
 	if len(dr.tags) == 0 {
 		return nil, io.EOF
@@ -227,7 +236,7 @@ func (dr *DataReader) PeekTags() ([]*Tag, error) {
 }
 
 // Iterate iterates over the tags in the data reference and passes the tag and a reader for getting
-// the tagged content to the callback function.
+// the tagged data to the callback function.
 // tagUpperBound is an optional parameter for specifiying the upper bound (exclusive) of the iteration.
 func (dr *DataReader) Iterate(f func(*Tag, io.Reader) error, tagUpperBound ...string) error {
 	if err := dr.getChunk(); err != nil {
@@ -291,7 +300,8 @@ func BeforeBound(str string, strBound ...string) bool {
 	return len(strBound) == 0 || str < strBound[0]
 }
 
-// Get writes the data referenced by the data reference.
+// Get writes the referenced data.
+// This does not take into account the reading of tags.
 func (dr *DataReader) Get(w io.Writer) error {
 	if err := dr.getChunk(); err != nil {
 		return err
