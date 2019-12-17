@@ -93,7 +93,7 @@ require (
 	github.com/sirupsen/logrus v1.4.2
 	github.com/smartystreets/goconvey v0.0.0-20190330032615-68dc04aab96a // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
-	github.com/spf13/cobra v0.0.6-0.20191019221741-77e4d5aecc4d
+	github.com/spf13/cobra v0.0.6-0.20191202130430-b04b5bfc50cb
 	github.com/spf13/pflag v1.0.5
 	github.com/uber-go/atomic v1.4.0 // indirect
 	github.com/uber/jaeger-client-go v2.16.0+incompatible

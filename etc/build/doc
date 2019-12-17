@@ -40,4 +40,9 @@ find doc -type f -exec sed -i'' 's#pachyderm/tap/pachctl.*#pachyderm/tap/pachctl
 rm -rf "${doc_root}/docs/${major_minor}.x"
 cp -R "${doc_root}/docs/master" "${doc_root}/docs/${major_minor}.x"
 
+# Copy navigation from "master" mkdocs.yml to current version mkdocs.yml
+cp "${doc_root}/mkdocs-master.yml" "${doc_root}/mkdocs-${major_minor}.x.yml"
+sed -i '' -e 's#docs_dir: docs/master/#docs_dir: docs/${major_minor}.x#g' "${doc_root}/mkdocs-${major_minor}.x.yml"
+sed -i '' -e 's#site_dir: site/master/#site_dir: site/${major_minor}.x#g' "${doc_root}/mkdocs-${major_minor}.x.yml"
+
 echo "--- Successfully updated docs"

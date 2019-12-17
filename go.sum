@@ -470,6 +470,8 @@ github.com/spf13/afero v1.2.2/go.mod h1:9ZxEEn6pIJ8Rxe320qSDBk6AsU0r9pR7Q4OcevTd
 github.com/spf13/cast v1.3.0/go.mod h1:Qx5cxh0v+4UWYiBimWS+eyWzqEqokIECu5etghLkUJE=
 github.com/spf13/cobra v0.0.6-0.20191019221741-77e4d5aecc4d h1:rwYd2YirFsXaAGxiI2Zv8ZLD0pTHQZPtaRH/InnNSHQ=
 github.com/spf13/cobra v0.0.6-0.20191019221741-77e4d5aecc4d/go.mod h1:/6GTrnGXV9HjY+aR4k0oJ5tcvakLuG6EuKReYlHNrgE=
+github.com/spf13/cobra v0.0.6-0.20191202130430-b04b5bfc50cb h1:AQ3dAfiHykqRCfCdhd/xT75fZNwYxt+iRdlrT6v3QMg=
+github.com/spf13/cobra v0.0.6-0.20191202130430-b04b5bfc50cb/go.mod h1:/6GTrnGXV9HjY+aR4k0oJ5tcvakLuG6EuKReYlHNrgE=
 github.com/spf13/jwalterweatherman v1.0.0/go.mod h1:cQK4TGJAtQXfYWX+Ddv3mKDzgVb68N+wFjFa4jdeBTo=
 github.com/spf13/pflag v0.0.0-20170130214245-9ff6c6923cff/go.mod h1:DYY7MBk1bdzusC3SYhjObp+wFpr4gzcvqqNjLnInEg4=
 github.com/spf13/pflag v1.0.3 h1:zPAT6CGy6wXeQ7NtTnaTerfKOsV6V6F8agHXFiazDkg=
