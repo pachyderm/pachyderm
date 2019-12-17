@@ -74,31 +74,33 @@ If you do not explicitly set the pachd address config value, `pachctl` will defa
 
 ### Cannot Delete Pipelines and etcd Errors
 
+Failed to delete a pipeline with an `etcdserver` error.
+
 ### Symptoms
 
-Deleting pipelines fails with an error like this one:
+Deleting pipelines fails with the following error:
 
-```
+```bash
 $ pachctl delete pipeline pipeline-name
 etcdserver: too many operations in txn request (XXXXXX comparisons, YYYYYYY writes: hint: set --max-txn-ops on the ETCD cluster to at least the largest of those values)
 ```
 
 ### Recourse
 
-When a Pachyderm cluster reaches a certain scale, 
-the default parameters provided for  certain`etcd` flags need to be adjusted.  
-Depending on the how you deployed Pachyderm,
-you'll need to either edit the `etcd` `Deployment` or `StatefulSet`.  
+When a Pachyderm cluster reaches a certain scale, you need to adjust
+the default parameters provided for certain `etcd` flags.  
+Depending on how you deployed Pachyderm,
+you need to either edit the `etcd` `Deployment` or `StatefulSet`.  
 
-```
+```bash
 $ kubectl edit deploy etcd
 ```
 
 or 
 
-```
+```bash
 $ kubectl edit statefulset edtc
 ```
 
-In the path `spec/template/containers/command`, set the value for `max-txn-ops` to a value appropriate for your cluster, in line with the advice in the error above: larger than the greater of XXXXXX or YYYYYYY.
+In the `spec/template/containers/command` path, set the value for `max-txn-ops` to a value appropriate for your cluster, in line with the advice in the error above: *larger than the greater of XXXXXX or YYYYYYY*.
 
