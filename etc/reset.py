@@ -144,7 +144,13 @@ def main():
         driver = DockerDriver()
 
 
-    run("pachctl", "delete", "all", raise_on_error=False)
+    # wrap in try/except rather than using `raise_on_error`, because the
+    # latter doesn't catch when `pachctl` doesn't exist -- an error case which
+    # we also want to ignore
+    try:
+        run("pachctl", "delete", "all")
+    except:
+        pass
 
     driver.clear()
 
