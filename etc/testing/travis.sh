@@ -40,8 +40,11 @@ kubectl version
 
 echo "Running test suite based on BUCKET=$BUCKET"
 
-make install
 make docker-build
+
+# fix for docker build process messing with permissions
+sudo chown -R ${USER}:${USER} ${GOPATH}
+
 for i in $(seq 3); do
     make clean-launch-dev || true # may be nothing to delete
     make launch-dev && break
@@ -95,6 +98,7 @@ case "${BUCKET}" in
         make test-s3gateway-integration
         make test-proto-static
         make test-transaction
+        make test-deploy-manifests
     else
         echo "Running the misc test suite with some tests disabled because secret env vars have not been set"
         make lint
@@ -102,6 +106,9 @@ case "${BUCKET}" in
         make test-cmds
         make test-libs
         make test-tls
+        make test-proto-static
+        make test-transaction
+        make test-deploy-manifests
     fi
     ;;
  ADMIN)

@@ -205,11 +205,10 @@ Pipelines can be triggered manually, but also will automatically process the dat
 created. Think of pipelines as being subscribed to any new commits that are
 finished on their input repo(s).
 
-If we want to re-scrape some of our urls to see if the sites of have changed, we can use the `run-pipeline` command:
+If we want to re-scrape some of our urls to see if the sites of have changed, we can use the `pachctl update pipeline` command with the `--reprocess` flag:
 
 ```shell
-$ pachctl run-pipeline scraper
-fab8c59c786842ccaf20589e15606604
+$ pachctl update pipeline scraper --reprocess
 ```
 
 Next, let’s add additional urls to our input data . We're going to append more urls from “urls2” to the file “urls.”

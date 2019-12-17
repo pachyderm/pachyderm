@@ -221,11 +221,11 @@ The following text is an example of a minimum spec:
 
 `pipeline.name` is the name of the pipeline that you are creating. Each
 pipeline needs to have a unique name. Pipeline names must meet the following
-prerequisites:
+requirements:
 
 - Include only alphanumeric characters, `_` and `-`.
 - Begin or end with only alphanumeric characters (not `_` or `-`).
-- Not exceed 50 characters in length.
+- Not exceed 63 characters in length.
 
 ### Description (optional)
 
@@ -390,7 +390,11 @@ or number of datums, no single datum is allowed to exceed this value.
 
 ### Datum Tries (optional)
 
-`datum_tries` is a int (e.g. `1`, `2`, or `3`) that determines the number of retries that a job should attempt given failure was observed. Only failed datums are retries in retry attempt. The the operation succeeds in retry attempts then job is successful, otherwise the job is marked as failure.
+`datum_tries` is an integer, such as `1`, `2`, or `3`, that determines the
+number of retries that a job attempts when a failure occurs.
+Only failed datums are retried in a retry attempt. If the operation succeeds
+in retry attempts, then the job is marked as successful. Otherwise, the job
+is marked as failed.
 
 
 ### Job Timeout (optional)
@@ -422,10 +426,6 @@ these fields be set for any instantiation of the object.
 ```
 
 #### PFS Input
-
-**Note:** Atom inputs were renamed to PFS inputs in version 1.8.1. If you are using an
-older version of Pachyderm, replace every instance of `pfs` with
-`atom` in the code below.
 
 PFS inputs are the simplest inputs, they take input from a single branch on a
 single repo.

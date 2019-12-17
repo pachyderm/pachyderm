@@ -2,6 +2,7 @@
   "pipeline": {
     "name": "preprocess_images"
   },
+  "description": "A pipeline that pre-processes input images and generates final images by combining the preposessed images with the trained data in the `model` repository.",
   "transform": {
     "image": "dwhitena/pix2pix",
     "cmd": [ "/bin/bash" ],

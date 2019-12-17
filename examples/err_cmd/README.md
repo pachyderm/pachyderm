@@ -43,6 +43,7 @@ pipeline:
 {
     "pipeline": {
         "name": "error_test"
+    "description": "A pipeline that checks if the `file1` is present in the datum.",
     },
     "input": {
         "pfs": {

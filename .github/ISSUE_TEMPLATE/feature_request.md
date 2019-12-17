@@ -6,7 +6,7 @@ about: Suggest an idea for this project
 
 If you're looking for help, please check:
 
-Docs: http://docs.pachyderm.io/en/latest/
+Docs: https://docs.pachyderm.com/latest/
 Slack: http://slack.pachyderm.io/
 
 -->

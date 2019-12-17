@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -18,11 +17,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
-)
-
-var (
-	grpcErrorf = grpc.Errorf // needed to get passed govet
 )
 
 // apiServer implements the public interface of the Pachyderm File System,
@@ -36,12 +30,6 @@ type apiServer struct {
 
 	// env generates clients for pachyderm's downstream services
 	env *serviceenv.ServiceEnv
-	// pachClientOnce ensures that _pachClient is only initialized once
-	pachClientOnce sync.Once
-	// pachClient is a cached Pachd client that connects to Pachyderm's object
-	// store API and auth API. Instead of accessing it directly, functions should
-	// call a.env.GetPachClient()
-	_pachClient *client.APIClient
 }
 
 func newAPIServer(
@@ -424,9 +412,12 @@ func (a *apiServer) CopyFile(ctx context.Context, request *pfs.CopyFileRequest) 
 func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.API_GetFileServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) {
-		tracing.TagAnySpan(apiGetFileServer.Context(), "file", fmt.Sprintf("%s@%s:%s",
-			request.File.Commit.Repo.Name, request.File.Commit.ID, request.File.Path),
-			"err", retErr)
+		if request.File != nil && request.File.Commit != nil && request.File.Commit.Repo != nil {
+			tracing.TagAnySpan(apiGetFileServer.Context(), "file", fmt.Sprintf("%s@%s:%s",
+				request.File.Commit.Repo.Name, request.File.Commit.ID, request.File.Path),
+				"err", retErr)
+		}
+
 		a.Log(request, nil, retErr, time.Since(start))
 	}(time.Now())
 	if a.env.NewStorageLayer {
@@ -444,9 +435,12 @@ func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileReq
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) {
 		a.Log(request, response, retErr, time.Since(start))
-		tracing.TagAnySpan(ctx, "file", fmt.Sprintf("%s@%s:%s",
-			request.File.Commit.Repo.Name, request.File.Commit.ID, request.File.Path),
-			"err", retErr)
+
+		if request.File != nil && request.File.Commit != nil && request.File.Commit.Repo != nil {
+			tracing.TagAnySpan(ctx, "file", fmt.Sprintf("%s@%s:%s",
+				request.File.Commit.Repo.Name, request.File.Commit.ID, request.File.Path),
+				"err", retErr)
+		}
 	}(time.Now())
 
 	return a.driver.inspectFile(a.env.GetPachClient(ctx), request.File)

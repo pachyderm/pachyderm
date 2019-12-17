@@ -181,7 +181,7 @@ func (a *apiServer) cancelMonitor(pipeline string) {
 
 func (a *apiServer) deletePipelineResources(ctx context.Context, pipelineName string) (retErr error) {
 	log.Infof("PPS master: deleting resources for pipeline %q", pipelineName)
-	span, ctx := tracing.AddSpanToAnyExisting(ctx,
+	span, ctx := tracing.AddSpanToAnyExisting(ctx, //lint:ignore SA4006 ctx is unused, but better to have the right ctx in scope so people don't use the wrong one
 		"/pps.Master/DeletePipelineResources", "pipeline", pipelineName)
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)
@@ -422,7 +422,6 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 		// and wait until then to make the next commit
 		select {
 		case <-time.After(time.Until(next)):
-			break
 		case <-pachClient.Ctx().Done():
 			return pachClient.Ctx().Err()
 		}

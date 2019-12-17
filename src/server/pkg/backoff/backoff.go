@@ -79,7 +79,7 @@ func (b *ConstantBackOff) Reset() {
 //
 // The elapsed time is computed using time.Now().UnixNano().
 func (b *ConstantBackOff) GetElapsedTime() time.Duration {
-	return time.Now().Sub(b.startTime)
+	return time.Since(b.startTime)
 }
 
 // NextBackOff ...

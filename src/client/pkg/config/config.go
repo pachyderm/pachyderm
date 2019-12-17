@@ -21,7 +21,6 @@ var defaultConfigPath = filepath.Join(defaultConfigDir, "config.json")
 
 var configMu sync.Mutex
 var value *Config
-var readErr error
 
 func configPath() string {
 	if env, ok := os.LookupEnv(configEnvVar); ok {

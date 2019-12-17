@@ -14,11 +14,11 @@ import (
 
 const (
 	// RepoHeader is the header for repos.
-	RepoHeader = "NAME\tCREATED\tSIZE (MASTER)\t\n"
+	RepoHeader = "NAME\tCREATED\tSIZE (MASTER)\tDESCRIPTION\t\n"
 	// RepoAuthHeader is the header for repos with auth information attached.
 	RepoAuthHeader = "NAME\tCREATED\tSIZE (MASTER)\tACCESS LEVEL\t\n"
 	// CommitHeader is the header for commits.
-	CommitHeader = "REPO\tBRANCH\tCOMMIT\tPARENT\tSTARTED\tDURATION\tSIZE\t\n"
+	CommitHeader = "REPO\tBRANCH\tCOMMIT\tFINISHED\tSIZE\tPROGRESS\tDESCRIPTION\n"
 	// BranchHeader is the header for branches.
 	BranchHeader = "BRANCH\tHEAD\t\n"
 	// FileHeader is the header for files.
@@ -41,6 +41,7 @@ func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo, fullTimestamps bool) {
 	if repoInfo.AuthInfo != nil {
 		fmt.Fprintf(w, "%s\t", repoInfo.AuthInfo.AccessLevel.String())
 	}
+	fmt.Fprintf(w, "%s\t", repoInfo.Description)
 	fmt.Fprintln(w)
 }
 
@@ -82,10 +83,11 @@ Access level: {{ .AuthInfo.AccessLevel.String }}{{end}}
 func PrintBranch(w io.Writer, branchInfo *pfs.BranchInfo) {
 	fmt.Fprintf(w, "%s\t", branchInfo.Branch.Name)
 	if branchInfo.Head != nil {
-		fmt.Fprintf(w, "%s\t\n", branchInfo.Head.ID)
+		fmt.Fprintf(w, "%s\t", branchInfo.Head.ID)
 	} else {
-		fmt.Fprintf(w, "-\t\n")
+		fmt.Fprintf(w, "-\t")
 	}
+	fmt.Fprintln(w)
 }
 
 // PrintDetailedBranchInfo pretty-prints detailed branch info.
@@ -114,24 +116,27 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamps boo
 		fmt.Fprintf(w, "<none>\t")
 	}
 	fmt.Fprintf(w, "%s\t", commitInfo.Commit.ID)
-	if commitInfo.ParentCommit != nil {
-		fmt.Fprintf(w, "%s\t", commitInfo.ParentCommit.ID)
-	} else {
-		fmt.Fprint(w, "<none>\t")
-	}
 	if fullTimestamps {
-		fmt.Fprintf(w, "%s\t", commitInfo.Started.String())
+		fmt.Fprintf(w, "%s\t", commitInfo.Finished.String())
 	} else {
-		fmt.Fprintf(w, "%s\t", pretty.Ago(commitInfo.Started))
+		fmt.Fprintf(w, "%s\t", pretty.Ago(commitInfo.Finished))
 	}
-	if commitInfo.Finished != nil {
-		fmt.Fprintf(w, fmt.Sprintf("%s\t", pretty.TimeDifference(commitInfo.Started, commitInfo.Finished)))
-		fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(commitInfo.SizeBytes)))
-	} else {
+	if commitInfo.Finished == nil {
 		fmt.Fprintf(w, "-\t")
-		// Open commits don't have meaningful size information
-		fmt.Fprintf(w, "-\t\n")
+	} else {
+		fmt.Fprintf(w, "%s\t", units.BytesSize(float64(commitInfo.SizeBytes)))
 	}
+	if commitInfo.SubvenantCommitsTotal == 0 {
+		fmt.Fprintf(w, "-\t")
+	} else {
+		fmt.Fprintf(w, "%s\t", pretty.ProgressBar(
+			8,
+			int(commitInfo.SubvenantCommitsSuccess),
+			int(commitInfo.SubvenantCommitsTotal-commitInfo.SubvenantCommitsSuccess-commitInfo.SubvenantCommitsFailure),
+			int(commitInfo.SubvenantCommitsFailure)))
+	}
+	fmt.Fprintf(w, "%s\t", commitInfo.Description)
+	fmt.Fprintln(w)
 }
 
 // PrintableCommitInfo is a wrapper around CommitInfo containing any formatting options
@@ -194,15 +199,16 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, fullTimestamps, withComm
 			fmt.Fprintf(w, "%s\t", pretty.Ago(fileInfo.Committed))
 		}
 	}
-	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(fileInfo.SizeBytes)))
+	fmt.Fprintf(w, "%s\t", units.BytesSize(float64(fileInfo.SizeBytes)))
+	fmt.Fprintln(w)
 }
 
 // PrintDiffFileInfo pretty-prints a file info from diff file.
 func PrintDiffFileInfo(w io.Writer, added bool, fileInfo *pfs.FileInfo, fullTimestamps bool) {
 	if added {
-		fmt.Fprintf(w, color.GreenString("+\t"))
+		fmt.Fprint(w, color.GreenString("+\t"))
 	} else {
-		fmt.Fprintf(w, color.RedString("-\t"))
+		fmt.Fprint(w, color.RedString("-\t"))
 	}
 	PrintFileInfo(w, fileInfo, fullTimestamps, false)
 }
@@ -220,12 +226,6 @@ Children: {{range .Children}} {{.}} {{end}}
 	}
 	return template.Execute(os.Stdout, fileInfo)
 }
-
-type uint64Slice []uint64
-
-func (s uint64Slice) Len() int           { return len(s) }
-func (s uint64Slice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
-func (s uint64Slice) Less(i, j int) bool { return s[i] < s[j] }
 
 func fileType(fileType pfs.FileType) string {
 	if fileType == pfs.FileType_FILE {

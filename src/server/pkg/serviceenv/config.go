@@ -91,17 +91,17 @@ type FeatureFlags struct {
 // NewConfiguration creates a generic configuration from a specific type of configuration.
 func NewConfiguration(config interface{}) *Configuration {
 	configuration := &Configuration{}
-	switch config.(type) {
+	switch v := config.(type) {
 	case *GlobalConfiguration:
-		configuration.GlobalConfiguration = config.(*GlobalConfiguration)
+		configuration.GlobalConfiguration = v
 		return configuration
 	case *PachdFullConfiguration:
-		configuration.GlobalConfiguration = &config.(*PachdFullConfiguration).GlobalConfiguration
-		configuration.PachdSpecificConfiguration = &config.(*PachdFullConfiguration).PachdSpecificConfiguration
+		configuration.GlobalConfiguration = &v.GlobalConfiguration
+		configuration.PachdSpecificConfiguration = &v.PachdSpecificConfiguration
 		return configuration
 	case *WorkerFullConfiguration:
-		configuration.GlobalConfiguration = &config.(*WorkerFullConfiguration).GlobalConfiguration
-		configuration.WorkerSpecificConfiguration = &config.(*WorkerFullConfiguration).WorkerSpecificConfiguration
+		configuration.GlobalConfiguration = &v.GlobalConfiguration
+		configuration.WorkerSpecificConfiguration = &v.WorkerSpecificConfiguration
 		return configuration
 	default:
 		return nil

@@ -37,7 +37,6 @@ import (
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
-	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	workerpkg "github.com/pachyderm/pachyderm/src/server/worker"
 	"github.com/robfig/cron"
@@ -66,14 +65,9 @@ const (
 )
 
 var (
-	zeroVal         = int64(0)
 	suite           = "pachyderm"
 	defaultGCMemory = 20 * 1024 * 1024 // 20 MB
 )
-
-func newErrJobNotFound(job string) error {
-	return fmt.Errorf("job %v not found", job)
-}
 
 func newErrPipelineNotFound(pipeline string) error {
 	return fmt.Errorf("pipeline %v not found", pipeline)
@@ -87,27 +81,8 @@ func newErrPipelineUpdate(pipeline string, err error) error {
 	return fmt.Errorf("pipeline %v update error: %v", pipeline, err)
 }
 
-type errEmptyInput struct {
-	error
-}
-
-func newErrEmptyInput(commitID string) *errEmptyInput {
-	return &errEmptyInput{
-		error: fmt.Errorf("job was not started due to empty input at commit %v", commitID),
-	}
-}
-
 type errGithookServiceNotFound struct {
 	error
-}
-
-func newErrParentInputsMismatch(parent string) error {
-	return fmt.Errorf("job does not have the same set of inputs as its parent %v", parent)
-}
-
-type ctxAndCancel struct {
-	ctx    context.Context
-	cancel context.CancelFunc
 }
 
 // apiServer implements the public interface of the Pachyderm Pipeline System,
@@ -115,7 +90,6 @@ type ctxAndCancel struct {
 type apiServer struct {
 	log.Logger
 	etcdPrefix            string
-	hasher                *ppsserver.Hasher
 	env                   *serviceenv.ServiceEnv
 	txnEnv                *txnenv.TransactionEnv
 	namespace             string
@@ -188,7 +162,7 @@ func validateNames(names map[string]bool, input *pps.Input) error {
 			}
 		}
 	case input.Git != nil:
-		if names[input.Git.Name] == true {
+		if names[input.Git.Name] {
 			return fmt.Errorf(`name "%s" was used more than once`, input.Git.Name)
 		}
 		names[input.Git.Name] = true
@@ -290,13 +264,6 @@ func validateTransform(transform *pps.Transform) error {
 	return nil
 }
 
-func (a *apiServer) validateJob(pachClient *client.APIClient, jobInfo *pps.JobInfo) error {
-	if err := validateTransform(jobInfo.Transform); err != nil {
-		return err
-	}
-	return a.validateInput(pachClient, jobInfo.Pipeline.Name, jobInfo.Input, true)
-}
-
 func (a *apiServer) validateKube() {
 	errors := false
 	kubeClient := a.env.GetKubeClient()
@@ -315,16 +282,18 @@ func (a *apiServer) validateKube() {
 		errors = true
 		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but 'pachctl logs' will not work. error: %v", err)
 	} else {
-		for _, pod := range pods {
-			_, err = kubeClient.CoreV1().Pods(a.namespace).GetLogs(
-				pod.ObjectMeta.Name, &v1.PodLogOptions{
-					Container: "pachd",
-				}).Timeout(10 * time.Second).Do().Raw()
-			if err != nil {
-				errors = true
-				logrus.Errorf("unable to access kubernetes logs, Pachyderm will continue to work but 'pachctl logs' will not work. error: %v", err)
-			}
-			break
+		if len(pods) == 0 {
+			logrus.Errorf("able to access kubernetes pods, but did not find a pachd pod... this is very strange since this code is run from within a pachd pod")
+		}
+		// No need to check all pods since we're just checking permissions.
+		pod := pods[0]
+		_, err = kubeClient.CoreV1().Pods(a.namespace).GetLogs(
+			pod.ObjectMeta.Name, &v1.PodLogOptions{
+				Container: "pachd",
+			}).Timeout(10 * time.Second).Do().Raw()
+		if err != nil {
+			errors = true
+			logrus.Errorf("unable to access kubernetes logs, Pachyderm will continue to work but 'pachctl logs' will not work. error: %v", err)
 		}
 	}
 	name := uuid.NewWithoutDashes()
@@ -828,7 +797,6 @@ func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (r
 		}
 	}(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	ctx = pachClient.Ctx() // pachClient will propagate auth info
 	var jobInfos []*pps.JobInfo
 	if err := a.listJob(pachClient, request.Pipeline, request.OutputCommit, request.InputCommit, request.History, request.Full, func(ji *pps.JobInfo) error {
 		jobInfos = append(jobInfos, ji)
@@ -908,7 +876,6 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	ctx = pachClient.Ctx() // pachClient will propagate auth info
 	ctx, err := checkLoggedIn(pachClient)
 	if err != nil {
 		return nil, err
@@ -932,7 +899,6 @@ func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (r
 	if err != nil {
 		return nil, err
 	}
-	ctx = pachClient.Ctx() // pachClient will propagate auth info
 
 	// Lookup jobInfo
 	jobPtr := &pps.EtcdJobInfo{}
@@ -960,7 +926,6 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 	if err != nil {
 		return nil, err
 	}
-	ctx = pachClient.Ctx() // pachClient will propagate auth info
 
 	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
 		Job: request.Job,
@@ -1266,7 +1231,6 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 	if err != nil {
 		return nil, err
 	}
-	ctx = pachClient.Ctx() // pachClient will propagate auth info
 	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
 		Job: &pps.Job{
 			ID: request.Datum.Job.ID,
@@ -1582,9 +1546,6 @@ func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo 
 		return err
 	}
 	if pipelineInfo.ParallelismSpec != nil {
-		if pipelineInfo.ParallelismSpec.Constant < 0 {
-			return goerr.New("ParallelismSpec.Constant cannot be negative")
-		}
 		if pipelineInfo.ParallelismSpec.Coefficient < 0 {
 			return goerr.New("ParallelismSpec.Coefficient cannot be negative")
 		}
@@ -1598,7 +1559,7 @@ func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo 
 		}
 	}
 	if pipelineInfo.HashtreeSpec != nil {
-		if pipelineInfo.HashtreeSpec.Constant <= 0 {
+		if pipelineInfo.HashtreeSpec.Constant == 0 {
 			return goerr.New("invalid pipeline spec: HashtreeSpec.Constant must be > 0")
 		}
 	}
@@ -1635,6 +1596,11 @@ func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo 
 
 		if !validServiceTypes[v1.ServiceType(pipelineInfo.Service.Type)] {
 			return fmt.Errorf("the following service type %s is not allowed", pipelineInfo.Service.Type)
+		}
+	}
+	if pipelineInfo.Spout != nil {
+		if pipelineInfo.EnableStats {
+			return fmt.Errorf("spouts are not allowed to have a stats branch")
 		}
 	}
 	return nil
@@ -1973,12 +1939,20 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	var visitErr error
 	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
 		if input.Cron != nil {
-			if err := pachClient.CreateRepo(input.Cron.Repo); err != nil && !isAlreadyExistsErr(err) {
+			if _, err := pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(),
+				&pfs.CreateRepoRequest{
+					Repo:        client.NewRepo(input.Cron.Repo),
+					Description: fmt.Sprintf("Cron tick repo for pipeline %s.", request.Pipeline.Name),
+				}); err != nil && !isAlreadyExistsErr(err) {
 				visitErr = err
 			}
 		}
 		if input.Git != nil {
-			if err := pachClient.CreateRepo(input.Git.Name); err != nil && !isAlreadyExistsErr(err) {
+			if _, err := pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(),
+				&pfs.CreateRepoRequest{
+					Repo:        client.NewRepo(input.Git.Name),
+					Description: fmt.Sprintf("Git input repo for pipeline %s.", request.Pipeline.Name),
+				}); err != nil && !isAlreadyExistsErr(err) {
 				visitErr = err
 			}
 		}
@@ -2106,7 +2080,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		}
 	} else {
 		// Create output repo, pipeline output, and stats
-		if err := pachClient.CreateRepo(pipelineName); err != nil && !isAlreadyExistsErr(err) {
+		if _, err := pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(),
+			&pfs.CreateRepoRequest{
+				Repo:        client.NewRepo(pipelineName),
+				Description: fmt.Sprintf("Output repo for pipeline %s.", request.Pipeline.Name),
+			}); err != nil && !isAlreadyExistsErr(err) {
 			return nil, err
 		}
 
@@ -2177,6 +2155,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				return nil, err
 			}
 		}
+	}
+
+	// spouts don't need to keep track of branch provenance since they are essentially inputs
+	if request.Spout != nil {
+		provenance = nil
 	}
 
 	// Create/update output branch (creating new output commit for the pipeline
@@ -2356,7 +2339,7 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 		}
 	}(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
-	ctx, err := checkLoggedIn(pachClient)
+	_, err := checkLoggedIn(pachClient)
 	if err != nil {
 		return nil, err
 	}
@@ -2835,7 +2818,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 			}
 		}
 	} else if !auth.IsErrNotActivated(err) {
-		return nil, fmt.Errorf("Error during authorization check: %v", err)
+		return nil, fmt.Errorf("error during authorization check: %v", err)
 	}
 
 	if _, err := a.DeletePipeline(ctx, &pps.DeletePipelineRequest{All: true, Force: true}); err != nil {

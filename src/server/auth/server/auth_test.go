@@ -103,7 +103,7 @@ func getPachClientInternal(tb testing.TB, subject string) *client.APIClient {
 		tb.Fatalf("couldn't get admin client from cache or %q, no way to reset "+
 			"cluster. Please deactivate auth or redeploy Pachyderm", adminTokenFile)
 	}
-	if strings.Index(subject, ":") < 0 {
+	if !strings.Contains(subject, ":") {
 		subject = gh(subject)
 	}
 	colonIdx := strings.Index(subject, ":")
@@ -365,7 +365,7 @@ func entries(items ...string) []aclEntry {
 			panic(fmt.Sprintf("could not parse scope: %v", err))
 		}
 		principal := items[i]
-		if strings.Index(principal, ":") < 0 {
+		if !strings.Contains(principal, ":") {
 			principal = auth.GitHubPrefix + principal
 		}
 		result = append(result, aclEntry{Username: principal, Scope: scope})
@@ -1032,6 +1032,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 
 	// bob can update alice's pipeline if he removes one of the inputs
 	infoBefore, err := aliceClient.InspectPipeline(aliceCrossPipeline)
+	require.NoError(t, err)
 	require.NoError(t, createPipeline(createArgs{
 		client: bobClient,
 		name:   aliceCrossPipeline,
@@ -1048,6 +1049,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 
 	// bob cannot update alice's to put the second input back
 	infoBefore, err = aliceClient.InspectPipeline(aliceCrossPipeline)
+	require.NoError(t, err)
 	err = createPipeline(createArgs{
 		client: bobClient,
 		name:   aliceCrossPipeline,
@@ -1073,6 +1075,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 
 	// bob can now update alice's to put the second input back
 	infoBefore, err = aliceClient.InspectPipeline(aliceCrossPipeline)
+	require.NoError(t, err)
 	require.NoError(t, createPipeline(createArgs{
 		client: bobClient,
 		name:   aliceCrossPipeline,
@@ -1965,6 +1968,7 @@ func TestListDatum(t *testing.T) {
 	})
 	require.NoError(t, err)
 	resp, err := bobClient.ListDatum(jobID, 0 /*pageSize*/, 0 /*page*/)
+	require.NoError(t, err)
 	files := make(map[string]struct{})
 	for _, di := range resp.DatumInfos {
 		for _, f := range di.Data {
@@ -2848,7 +2852,7 @@ func TestOTPTimeoutShorterThanSessionTimeout(t *testing.T) {
 
 	// ...but stops working after the original token expires
 	time.Sleep(time.Duration(tokenLifetime+1) * time.Second)
-	who, err = aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
+	_, err = aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
 	require.YesError(t, err)
 	require.True(t, auth.IsErrBadToken(err), err.Error())
 }
@@ -3032,6 +3036,7 @@ func TestDisableGitHubAuth(t *testing.T) {
 	_, err = adminClient.SetConfiguration(adminClient.Ctx(), &auth.SetConfigurationRequest{
 		Configuration: &newerDefaultAuth,
 	})
+	require.NoError(t, err)
 	cfg, err = adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
 	require.NoError(t, err)
 	newerDefaultAuth.LiveConfigVersion = 3

@@ -11,11 +11,6 @@ import (
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
-)
-
-var (
-	grpcErrorf = grpc.Errorf // needed to get passed govet
 )
 
 type apiServer struct {

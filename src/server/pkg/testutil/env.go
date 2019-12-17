@@ -111,7 +111,10 @@ func WithEnv(cb func(*Env) error) (err error) {
 		return err
 	}
 
-	env.MockPachd = NewMockPachd()
+	env.MockPachd, err = NewMockPachd()
+	if err != nil {
+		return err
+	}
 
 	env.PachClient, err = client.NewFromAddress(env.MockPachd.Addr.String())
 	if err != nil {

@@ -23,7 +23,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
-	"google.golang.org/grpc"
 
 	"golang.org/x/net/context"
 )
@@ -58,25 +57,20 @@ func runServers(
 	apiServer APIServer,
 	blockAPIServer BlockAPIServer,
 ) {
-	_, eg := grpcutil.Serve(
-		context.Background(),
-		grpcutil.ServerOptions{
-			Port:       uint16(port),
-			MaxMsgSize: grpcutil.MaxMsgSize,
-			RegisterFunc: func(s *grpc.Server) error {
-				pfs.RegisterAPIServer(s, apiServer)
-				pfs.RegisterObjectAPIServer(s, blockAPIServer)
-				auth.RegisterAPIServer(s, &authtesting.InactiveAPIServer{}) // PFS server uses auth API
-				versionpb.RegisterAPIServer(s,
-					version.NewAPIServer(version.Version, version.APIServerOptions{}))
-				return nil
-			}},
-	)
+	server, err := grpcutil.NewServer(context.Background(), false)
+	require.NoError(t, err)
 
-	// TODO: pretty sure `require` in a goroutine doesn't work very well, consider
-	// returning a structure that will be closed at the end of a test.
+	pfs.RegisterAPIServer(server.Server, apiServer)
+	pfs.RegisterObjectAPIServer(server.Server, blockAPIServer)
+	auth.RegisterAPIServer(server.Server, &authtesting.InactiveAPIServer{}) // PFS server uses auth API
+	versionpb.RegisterAPIServer(server.Server,
+		version.NewAPIServer(version.Version, version.APIServerOptions{}))
+
+	_, err = server.ListenTCP("", uint16(port))
+	require.NoError(t, err)
+
 	go func() {
-		require.NoError(t, eg.Wait())
+		require.NoError(t, server.Wait())
 	}()
 }
 

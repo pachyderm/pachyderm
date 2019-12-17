@@ -2,6 +2,7 @@
   "pipeline": {
     "name": "inference"
   },
+  "description": "An inference pipeline that makes a prediction based on the trained model by using an R script.",
   "transform": {
     "image": "pachyderm/iris-infer:rstats",
     "cmd": [

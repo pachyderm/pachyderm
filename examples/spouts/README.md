@@ -1,6 +1,6 @@
 # Pachyderm Spouts Examples
 
-[Spouts](http://docs.pachyderm.io/en/latest/fundamentals/spouts.html) are a way to get streaming data from any source into Pachyderm.
+[Spouts](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/pipeline/spout/) are a way to get streaming data from any source into Pachyderm.
 To create a spout, you need three things
 
 1. A source of streaming data, such as Kafka, nifi, rabbitMQ, etc.
@@ -22,6 +22,16 @@ Hutto, C.J. & Gilbert, E.E. (2014). VADER: A Parsimonious Rule-based Model for
 Sentiment Analysis of Social Media Text. Eighth International Conference on
 Weblogs and Social Media (ICWSM-14). Ann Arbor, MI, June 2014.
 ```
+
+## Ingress data from an S3 bucket using SQS
+
+[This example](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/SQS-S3) shows how to use spouts to ingress data from an S3 bucket using an SQS queue for notification of new items added to the bucket. 
+
+## Commit messages from a Kafka queue
+
+A [simple example](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/go-kafka-spout) of using spouts with Kafka to process messages and write them to files.
+
+
 
 
 

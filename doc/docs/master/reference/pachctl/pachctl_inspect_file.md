@@ -4,17 +4,17 @@ Return info about a file.
 
 ### Synopsis
 
-
 Return info about a file.
 
 ```
-pachctl inspect file <repo>@<branch-or-commit>:<path/in/pfs>
+pachctl inspect file <repo>@<branch-or-commit>:<path/in/pfs> [flags]
 ```
 
 ### Options
 
 ```
-      --raw   disable pretty printing, print raw json
+  -h, --help   help for file
+      --raw    disable pretty printing, print raw json
 ```
 
 ### Options inherited from parent commands

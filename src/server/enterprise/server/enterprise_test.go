@@ -69,7 +69,7 @@ func TestGetState(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if expires.Sub(time.Now()) <= year {
+		if time.Until(expires) <= year {
 			return fmt.Errorf("expected test token to expire >1yr in the future, but expires at %v (congratulations on making it to 2026!)", expires)
 		}
 		if resp.ActivationCode != testutil.GetTestEnterpriseCode() {
@@ -87,6 +87,7 @@ func TestGetState(t *testing.T) {
 			ActivationCode: testutil.GetTestEnterpriseCode(),
 			Expires:        expiresProto,
 		})
+	require.NoError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := client.Enterprise.GetState(context.Background(),
 			&enterprise.GetStateRequest{})
@@ -181,5 +182,6 @@ func TestDoubleDeactivate(t *testing.T) {
 	require.NoError(t, err)
 	resp, err := client.Enterprise.GetState(context.Background(),
 		&enterprise.GetStateRequest{})
+	require.NoError(t, err)
 	require.Equal(t, enterprise.State_NONE, resp.State)
 }

@@ -4,11 +4,10 @@ Return info about jobs.
 
 ### Synopsis
 
-
 Return info about jobs.
 
 ```
-pachctl list job
+pachctl list job [flags]
 ```
 
 ### Examples
@@ -35,6 +34,7 @@ $ pachctl list job -p foo -i bar@YYY
 
 ```
       --full-timestamps   Return absolute timestamps (as opposed to the default, relative timestamps).
+  -h, --help              help for job
       --history string    Return jobs from historical versions of pipelines. (default "none")
   -i, --input strings     List jobs with a specific set of input commits. format: <repo>@<branch-or-commit>
       --no-pager          Don't pipe output into a pager (i.e. less).

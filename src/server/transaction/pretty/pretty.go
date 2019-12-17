@@ -65,9 +65,9 @@ func sprintDeleteRepo(request *pfs.DeleteRepoRequest) string {
 		force = " --force"
 	}
 	if request.All {
-		return fmt.Sprintf("delete repo --all%s", request.Repo.Name, force)
+		return fmt.Sprintf("delete repo --all%s", force)
 	}
-	return fmt.Sprintf("delete repo %s%s", request.Repo.Name, force)
+	return fmt.Sprintf("delete repo %s %s", request.Repo.Name, force)
 }
 
 func sprintStartCommit(request *pfs.StartCommitRequest, response *transaction.TransactionResponse) string {
@@ -103,26 +103,6 @@ func sprintDeleteBranch(request *pfs.DeleteBranchRequest) string {
 		force = " --force"
 	}
 	return fmt.Sprintf("delete branch %s@%s%s", request.Branch.Repo.Name, request.Branch.Name, force)
-}
-
-func sprintCopyFile(request *pfs.CopyFileRequest) string {
-	overwrite := ""
-	if request.Overwrite {
-		overwrite = " --overwrite"
-	}
-	return fmt.Sprintf(
-		"copy file %s@%s:%s %s@%s:%s%s",
-		request.Src.Commit.Repo.Name, request.Src.Commit.ID, request.Src.Path,
-		request.Dst.Commit.Repo.Name, request.Src.Commit.ID, request.Src.Path,
-		overwrite,
-	)
-}
-
-func sprintDeleteFile(request *pfs.DeleteFileRequest) string {
-	return fmt.Sprintf(
-		"delete file %s@%s:%s",
-		request.File.Commit.Repo.Name, request.File.Commit.ID, request.File.Path,
-	)
 }
 
 func transactionRequests(

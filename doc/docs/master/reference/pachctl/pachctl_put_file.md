@@ -4,11 +4,10 @@ Put a file into the filesystem.
 
 ### Synopsis
 
-
 Put a file into the filesystem.  This supports a number of ways to insert data into pfs.
 
 ```
-pachctl put file <repo>@<branch-or-commit>[:<path/in/pfs>]
+pachctl put file <repo>@<branch-or-commit>[:<path/in/pfs>] [flags]
 ```
 
 ### Examples
@@ -61,6 +60,7 @@ $ pachctl put file repo@branch -i http://host/path
   -c, --commit                    DEPRECATED: Put file(s) in a new commit.
   -f, --file strings              The file to be put, it can be a local file or a URL. (default [-])
       --header-records uint       the number of records that will be converted to a PFS 'header', and prepended to future retrievals of any subset of data from PFS; needs to be used with --split=(json|line|csv)
+  -h, --help                      help for file
   -i, --input-file string         Read filepaths or URLs from a file.  If - is used, paths are read from the standard input.
   -o, --overwrite                 Overwrite the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.
   -p, --parallelism int           The maximum number of files that can be uploaded in parallel. (default 10)

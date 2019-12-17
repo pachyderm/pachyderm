@@ -4,11 +4,16 @@ Deletes a context.
 
 ### Synopsis
 
-
 Deletes a context.
 
 ```
-pachctl config delete context
+pachctl config delete context [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for context
 ```
 
 ### Options inherited from parent commands

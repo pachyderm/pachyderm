@@ -2,6 +2,7 @@
     "pipeline": {
         "name": "generate"
     },
+    "description": "A pipeline that generates tweets based on the trained model.",
     "transform": {
         "image": "pachyderm/gpt-2-example",
         "cmd": ["/generate.py"]

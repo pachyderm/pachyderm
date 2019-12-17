@@ -4,11 +4,16 @@ Print your Pachyderm identity
 
 ### Synopsis
 
-
 Print your Pachyderm identity.
 
 ```
-pachctl auth whoami
+pachctl auth whoami [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for whoami
 ```
 
 ### Options inherited from parent commands

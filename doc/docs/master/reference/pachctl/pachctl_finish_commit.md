@@ -4,17 +4,17 @@ Finish a started commit.
 
 ### Synopsis
 
-
 Finish a started commit. Commit-id must be a writeable commit.
 
 ```
-pachctl finish commit <repo>@<branch-or-commit>
+pachctl finish commit <repo>@<branch-or-commit> [flags]
 ```
 
 ### Options
 
 ```
       --description string   A description of this commit's contents (synonym for --message)
+  -h, --help                 help for commit
   -m, --message string       A description of this commit's contents (overwrites any existing commit description)
 ```
 

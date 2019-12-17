@@ -26,8 +26,6 @@ import (
 )
 
 const (
-	enterprisePrefix = "/enterprise"
-
 	publicKey = `-----BEGIN PUBLIC KEY-----
 MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAtJnDuD05fJZVsWDvN/un
 m5xbG7jcmxUsSOQZfvMaafZjV6iG/z6Wst2uhcMGAMrLHBxFiRYiVVM3kbUhbfbw

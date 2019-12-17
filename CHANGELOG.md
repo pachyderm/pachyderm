@@ -99,7 +99,7 @@
 
 ## 1.8.6
 
-- The semantics of Cron inputs have changed slightly, each tick will now be a separate file unless the `Overwrite` flag is set to true, which will get you the old behavior. The name of the emitted file is now the timestamp that triggered the cron, rather than a static filename. Pipelines that use cron will need to be updated to work in 1.8.6. See [the docs](https://docs.pachyderm.io/en/latest/reference/pipeline_spec.html#cron-input) for more info. (#3509)
+- The semantics of Cron inputs have changed slightly, each tick will now be a separate file unless the `Overwrite` flag is set to true, which will get you the old behavior. The name of the emitted file is now the timestamp that triggered the cron, rather than a static filename. Pipelines that use cron will need to be updated to work in 1.8.6. See [the docs](https://docs-archive.pachyderm.com/en/v1.8.6/reference/pipeline_spec.html#cron-input) for more info. (#3509)
 - 1.8.6 contains alpha support for a new kind of pipeline, spouts, which take no inputs and run continuously outputting (or spouting) data. Documentation and an example of spout usage will be in a future release. (#3531)
 - New debug commands have been added to `pachctl` to easily profile running pachyderm clusters. They are `debug-profile` `debug-binary` and `debug-pprof`.  See the docs for these commands for more information. (#3559)
 - The performance of `list-job` has been greatly improved. (#3557)
@@ -357,9 +357,9 @@ New Features:
 
 ### Features / Improvements
 
-* Pipelines now support the “stats” feature.  See the [docs](http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html#enable-stats-optional) for details.  (#1998)
-* Pipeline cache size is now configurable.  See the [docs](http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html#cache-size-optional) for details.  (#2033)
-* `pachctl update-pipeline` now **only** process new input data with the new code; the old input data is not re-processed.  If it’s desired that all data are re-processed, use the `--reprocess` flag.  See the [docs](http://pachyderm.readthedocs.io/en/latest/fundamentals/updating_pipelines.html) for details.  (#2034)
+* Pipelines now support the “stats” feature.  See the [docs](https://http://docs-archive.pachyderm.com/en/latest/reference/pipeline_spec.html#enable-stats-optional) for details.  (#1998)
+* Pipeline cache size is now configurable.  See the [docs](https://docs-archive.pachyderm.com/en/latest/reference/pipeline_spec.html#cache-size-optional) for details.  (#2033)
+* `pachctl update-pipeline` now **only** process new input data with the new code; the old input data is not re-processed. If it’s desired that all data are re-processed, use the `--reprocess` flag.  See the [docs](http://docs-archive.pachyderm.com/en/latest/how-tos/updating_pipelines.html) for details.  (#2034)
 * Pipeline workers now support “pipelining”, meaning that they start downloading the next datums while processing the current datum, thereby improving overall throughput.  (#2057)
 * The `scaleDownThreshold` feature has been improved such that when a pipeline is scaled down, the remaining worker only takes up minimal system resources.  (#2091)
 
@@ -404,7 +404,7 @@ New Features:
 
 ### Bug fixes
 
-* [Copy elision](http://pachyderm.readthedocs.io/en/latest/reference/best_practices.html#shuffling-files) does not work for directories. (#1803)
+* [Copy elision](http://docs-archive.pachyderm.com/en/latest/managing_pachyderm/data_management.html#shuffling-files) does not work for directories. (#1803)
 * Deleting a file in a closed commit fails silently. (#1804)
 * Pachyderm has trouble processing large files. (#1819)
 * etcd uses an unexpectedly large amount of space. (#1824)
@@ -413,8 +413,8 @@ New Features:
 ### New features
 
 * `create-repo` and `create-pipeline` now accept the `--description` flag, which creates the repo/pipeline with a "description" field.  You can then see the description via `inspect-repo/inspect-pipeline`. (#1805)
-* Pachyderm now supports garbage collection, i.e. removing data that's no longer referenced anywhere.  See the [docs](http://pachyderm.readthedocs.io/en/latest/reference/best_practices.html#garbage-collection) for details. (#1826)
-* Pachyderm now has GPU support!  See the [docs](http://pachyderm.readthedocs.io/en/latest/cookbook/tensorflow_gpu.html) for details. (#1835)
+* Pachyderm now supports garbage collection, i.e. removing data that's no longer referenced anywhere.  See the [docs](http://docs-archive.pachyderm.com/en/latest/managing_pachyderm/data_management.html#garbage-collection) for details. (#1826)
+* Pachyderm now has GPU support!  See the [docs](http://docs-archive.pachyderm.com/en/latest/managing_pachyderm/sharing_gpu_resources.html#without-configuration) for details. (#1835)
 * Most commands in `pachctl` now support the `--raw` flag, which prints the raw JSON data as opposed to pretty-printing.  For instance, `pachctl inspect-pipeline --raw` would print something akin to a pipeline spec. (#1839)
 * `pachctl` now supports `delete-commit`, which allows for deleting a commit that's not been finished.  This is useful when you have added the wrong data in a commit and you want to start over.
 * The web UI has added a file viewer, which allows for viewing PFS file content in the browser.
@@ -456,7 +456,7 @@ New Features:
 
 * Pachyderm now ships with a web UI!  To deploy a new Pachyderm cluster with the UI, use `pachctl deploy <arguments> --dashboard`.  To deploy the UI onto an existing cluster, use `pachctl deploy <arguments> --dashboard-only`.  To access the UI, simply `pachctl port-forward`, then go to `localhost:38080`.  Note that the web UI is currently in alpha; expect bugs and significant changes.   
 * You can now specify the amount of resources (i.e. CPU & memory) used by Pachyderm and etcd.  See `pachctl deploy --help` for details. (#1676)
-* You can now specify the amount of resources (i.e. CPU & memory) used by your pipelines.  See the [pipeline spec](http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html#resource-spec-optional) for details. (#1683)
+* You can now specify the amount of resources (i.e. CPU & memory) used by your pipelines. (#1683)
 
 ## 1.4.4
 
@@ -473,7 +473,7 @@ New Features:
 
 ### Features
 
-* Pachyderm now supports auto-scaling: a pipeline's worker pods can be terminated automatically when the pipeline has been idle for a configurable amount of time.  See the `scaleDownThreshold` field of the [pipeline spec](http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html#scale-down-threshold-optional) for details.
+* Pachyderm now supports auto-scaling: a pipeline's worker pods can be terminated automatically when the pipeline has been idle for a configurable amount of time.  See the `scaleDownThreshold` field of the [pipeline spec](http://docs-archive.pachyderm.com/en/latest/reference/pipeline_spec.html#standby-optional) for details.
 * The processing of a datum can be restarted manually via `restart-datum`.
 * Workers' statuses are now exposed through `inspect-job`.
 * A job can be stopped manually via `stop-job`.
@@ -537,7 +537,7 @@ As a consequence of this change, a user can now fix a pipeline that has processe
 
 - Vastly improved performance for metadata operations (e.g. list-file, inspect-file).  In prior versions, metadata operations on commits that are N levels deep are O(N) in runtime.  In 1.4, metadata operations are always O(1), regardless of the depth of the commit.
 
-- A new way to specify how input data is partitioned.  Instead of using two flags `partition` and `incrementality`, we now use a single `glob` pattern.  See the [glob doc](http://pachyderm.readthedocs.io/en/stable/reference/pipeline_spec.html#input-glob-pattern) for details.
+- A new way to specify how input data is partitioned.  Instead of using two flags `partition` and `incrementality`, we now use a single `glob` pattern.  See the [glob doc](http://docs-archive.pachyderm.com/en/latest/reference/pipeline_spec.html#the-input-glob-pattern) for details.
 
 - Flexible branch management.  In prior versions, branches are fixed, in that a commit always stays on the same branch, and a branch always refers to the same series of commits.  In 1.4, branches are modeled similar to Git's tags; they can be created, deleted, and renamed independently of commits.
 
@@ -549,7 +549,7 @@ As a consequence of this change, a user can now fix a pipeline that has processe
 
 - Simplified deployment dependencies.  In prior versions, Pachyderm depends on RethinkDB and etcd to function.  In 1.4, Pachyderm no longer depends on RethinkDB.
 
-- Dynamic volume provisioning.  GCE and AWS users (Azure support is coming soon) no longer have to manually provision persistent volumes for deploying Pachyderm.  `pachctl deploy` is now able to dynamically provision persistent volumes.  See the [deployment doc](http://pachyderm.readthedocs.io/en/stable/deployment/deploy_intro.html) for details.
+- Dynamic volume provisioning.  GCE and AWS users (Azure support is coming soon) no longer have to manually provision persistent volumes for deploying Pachyderm.  `pachctl deploy` is now able to dynamically provision persistent volumes.
 
 Removed features:
 
@@ -607,7 +607,7 @@ Features:
 
 Content:
 
-- Our developer portal is now available at: http://pachyderm.readthedocs.io/en/latest/
+- Our developer portal is now available at: https://docs.pachyderm.com/latest/
 - We've added a quick way for people to reach us on Slack at: http://slack.pachyderm.io
 - OpenCV example
 

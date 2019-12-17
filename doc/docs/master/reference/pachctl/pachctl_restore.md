@@ -4,11 +4,10 @@ Restore Pachyderm state from stdin or an object store.
 
 ### Synopsis
 
-
 Restore Pachyderm state from stdin or an object store.
 
 ```
-pachctl restore
+pachctl restore [flags]
 ```
 
 ### Examples
@@ -25,6 +24,7 @@ $ pachctl restore -u s3://bucket/backup
 ### Options
 
 ```
+  -h, --help         help for restore
   -u, --url string   An object storage url (i.e. s3://...) to restore from.
 ```
 

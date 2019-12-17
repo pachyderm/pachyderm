@@ -49,18 +49,18 @@ the following steps:
    $ pachctl deploy storage <storage-provider> ...
    ```
 
-1. In the command above, specify `aws`, `google`, or `azure` as
+1. In the command above, specify `amazon`, `google`, or `microsoft` as
    a storage provider.
 
 1. Depending on the storage provider, configure the required
    parameters. Run `pachctl deploy storage <backend> --help` for more
    information.
 
-   For example, if you select `aws`, you need to specify the following
+   For example, if you select `amazon`, you need to specify the following
    parameters:
 
    ```bash
-   $ pachctl deploy storage aws <region> <bucket-name> <access key id> <secret access key>
+   $ pachctl deploy storage amazon <region> <access-key-id> <secret-access-key> [<session-token>]
    ```
 
 !!! note "See also:"

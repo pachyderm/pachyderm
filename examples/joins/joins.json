@@ -2,6 +2,7 @@
   "pipeline": {
     "name": "joins"
   },
+  "description": "A pipeline that combines files from two repositories that match a naming pattern.",
   "input": {
     "join": [
       {

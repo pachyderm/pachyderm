@@ -4,11 +4,16 @@ Gets whether metrics are enabled.
 
 ### Synopsis
 
-
 Gets whether metrics are enabled.
 
 ```
-pachctl config get metrics
+pachctl config get metrics [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for metrics
 ```
 
 ### Options inherited from parent commands

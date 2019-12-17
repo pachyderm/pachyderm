@@ -2,6 +2,7 @@
   "pipeline": {
     "name": "likelihoods"
   },
+  "description": "A pipeline that calls variants for the input samples and generates genotype likelihoods.",
   "transform": {
     "image": "broadinstitute/gatk3:3.8-0",
     "cmd": [ "/bin/bash" ],

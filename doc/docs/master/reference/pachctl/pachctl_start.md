@@ -4,8 +4,13 @@ Start a Pachyderm resource.
 
 ### Synopsis
 
-
 Start a Pachyderm resource.
+
+### Options
+
+```
+  -h, --help   help for start
+```
 
 ### Options inherited from parent commands
 

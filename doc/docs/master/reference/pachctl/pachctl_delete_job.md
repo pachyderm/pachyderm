@@ -4,11 +4,16 @@ Delete a job.
 
 ### Synopsis
 
-
 Delete a job.
 
 ```
-pachctl delete job <job>
+pachctl delete job <job> [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for job
 ```
 
 ### Options inherited from parent commands

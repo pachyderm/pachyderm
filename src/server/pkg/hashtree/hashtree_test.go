@@ -30,17 +30,15 @@ func obj(s ...string) []*pfs.Object {
 // EqualOneOf
 func i(ss ...string) []string {
 	result := make([]string, len(ss))
-	for i, v := range ss {
-		result[i] = v
-	}
+	copy(result, ss)
 	return result
 }
 
 func TestFmtNodeType(t *testing.T) {
-	require.Equal(t, "directory", fmt.Sprintf("%s", directory))
-	require.Equal(t, "file", fmt.Sprintf("%s", file))
-	require.Equal(t, "none", fmt.Sprintf("%s", none))
-	require.Equal(t, "unknown", fmt.Sprintf("%s", unrecognized))
+	require.Equal(t, "directory", directory.String())
+	require.Equal(t, "file", file.String())
+	require.Equal(t, "none", none.String())
+	require.Equal(t, "unknown", unrecognized.String())
 }
 
 func getT(t *testing.T, h HashTree, path string) *NodeProto {
@@ -561,6 +559,7 @@ func TestSerialize(t *testing.T) {
 func TestListEmpty(t *testing.T) {
 	tree := newHashTree(t)
 	_, err := tree.ListAll("/")
+	require.NoError(t, err)
 	nop := func(string, *NodeProto) error { return nil }
 	require.NoError(t, tree.Glob("*", nop))
 	require.NoError(t, tree.Glob("/*", nop))
