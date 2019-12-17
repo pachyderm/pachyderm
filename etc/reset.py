@@ -96,8 +96,8 @@ class MinikubeDriver(DefaultDriver):
 
     def set_config(self):
         super().set_config()
-        ip = capture("minikube", "ip")
-        run("pachctl", "config", "update", "context", "--pachd-address={}".format(ip))
+        ip = capture("minikube", "ip").strip()
+        run("pachctl", "config", "update", "context", "--pachd-address={}:30650".format(ip))
 
 def find_in_json(j, f):
     if f(j):
