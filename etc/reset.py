@@ -118,10 +118,10 @@ def find_in_json(j, f):
 def print_status(status):
     print("===> {}".format(status))
 
-def run(cmd, *args, raise_on_error=True, stdin=None, capture_output=False):
+def run(cmd, *args, raise_on_error=True, stdin=None, capture_output=False, timeout=None):
     all_args = [cmd, *args]
     print_status("running: `{}`".format(" ".join(all_args)))
-    return subprocess.run(all_args, check=raise_on_error, capture_output=capture_output, input=stdin, encoding="utf8")
+    return subprocess.run(all_args, check=raise_on_error, capture_output=capture_output, input=stdin, encoding="utf8", timeout=timeout)
 
 def capture(cmd, *args):
     return run(cmd, *args, capture_output=True).stdout
@@ -148,7 +148,7 @@ def main():
     # latter doesn't catch when `pachctl` doesn't exist -- an error case which
     # we also want to ignore
     try:
-        run("pachctl", "delete", "all")
+        run("pachctl", "delete", "all", stdin="yes\n", timeout=5)
     except:
         pass
 
