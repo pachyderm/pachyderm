@@ -143,6 +143,9 @@ def main():
         print_status("using the k8s for docker driver")
         driver = DockerDriver()
 
+
+    run("pachctl", "delete", "all", raise_on_error=False)
+
     driver.clear()
 
     bin_path = os.path.join(os.environ["GOPATH"], "bin", "pachctl")
