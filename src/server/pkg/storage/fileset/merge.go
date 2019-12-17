@@ -201,7 +201,6 @@ func (fmr *FileMergeReader) TagSetMergeReader() (*TagSetMergeReader, error) {
 // TagSetMergeReader is an abstraction for reading the merged tagged data in a merged file.
 type TagSetMergeReader struct {
 	frs []*FileReader
-	hdr *tar.Header
 	pq  *priorityQueue
 }
 

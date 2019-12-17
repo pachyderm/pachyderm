@@ -110,7 +110,6 @@ type driver struct {
 
 	// New storage layer.
 	storage    *fileset.Storage
-	fs         *fileset.FileSet
 	subFileSet int64
 }
 

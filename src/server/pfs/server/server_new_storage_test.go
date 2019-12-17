@@ -57,7 +57,7 @@ func TestCompaction(t *testing.T) {
 		require.NoError(t, err)
 		_, err = io.Copy(contentBuf, tr)
 		require.NoError(t, err)
-		return string(contentBuf.Bytes())
+		return contentBuf.String()
 	}
 	require.NoError(t, c.GetFile(repo, commit.ID, "/file0", 0, 0, tarBuf))
 	require.Equal(t, "0", getContent())
