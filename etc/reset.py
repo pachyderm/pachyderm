@@ -120,7 +120,7 @@ def print_status(status):
 
 def run(cmd, *args, raise_on_error=True, stdin=None, capture_output=False):
     all_args = [cmd, *args]
-    print_status(" ".join(all_args))
+    print_status("running: `{}`".format(" ".join(all_args)))
     return subprocess.run(all_args, check=raise_on_error, capture_output=capture_output, input=stdin, encoding="utf8")
 
 def capture(cmd, *args):
@@ -166,7 +166,7 @@ def main():
     )
     
     version = capture("pachctl", "version", "--client-only")
-    print_status("Deploy pachyderm version v{}".format(version))
+    print_status("deploy pachyderm version v{}".format(version))
 
     deployments_str = capture("pachctl", "deploy", "local", "-d", "--dry-run")
     deployments_json = json.loads("[{}]".format(NEWLINE_SEPARATE_OBJECTS_PATTERN.sub("},{", deployments_str)))
@@ -182,7 +182,7 @@ def main():
     driver.set_config()
 
     while run("pachctl", "version", raise_on_error=False).returncode:
-        print_status("Waiting for pachyderm to come up...")
+        print_status("waiting for pachyderm to come up...")
         time.sleep(1)
 
 if __name__ == "__main__":
