@@ -72,7 +72,7 @@ Any `pachctl put file` or `pachctl get file` commands are slow.
 If you do not explicitly set the pachd address config value, `pachctl` will default to using port forwarding, which throttles traffic to ~1MB/s. If you need to do large downloads/uploads you should consider using pachd address config value. You'll also want to make sure you've allowed ingress access through any firewalls to your k8s cluster.
 
 
-### Cannot Delete Pipelines and etcd Errors
+### Cannot Delete Pipelines with an etcd Error
 
 Failed to delete a pipeline with an `etcdserver` error.
 
