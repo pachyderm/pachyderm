@@ -6,7 +6,6 @@ Here are some common issues by symptom along with steps to resolve them.
   - [Cannot connect via `pachctl` - context deadline exceeded](#cannot-connect-via-pachctl-context-deadline-exceeded)
   - [Certificate error when using `kubectl`](#certificate-error-when-using-kubectl)
   - [Uploads and Downloads are slow](#uploads-and-downloads-are-slow)
-  - [Cannot Delete Pipelines and etcd Errors](#cannot-delete-pipelines-and-etcd-errors)
 
 
 ---
@@ -70,37 +69,3 @@ Any `pachctl put file` or `pachctl get file` commands are slow.
 #### Recourse
 
 If you do not explicitly set the pachd address config value, `pachctl` will default to using port forwarding, which throttles traffic to ~1MB/s. If you need to do large downloads/uploads you should consider using pachd address config value. You'll also want to make sure you've allowed ingress access through any firewalls to your k8s cluster.
-
-
-### Cannot Delete Pipelines with an etcd Error
-
-Failed to delete a pipeline with an `etcdserver` error.
-
-### Symptoms
-
-Deleting pipelines fails with the following error:
-
-```bash
-$ pachctl delete pipeline pipeline-name
-etcdserver: too many operations in txn request (XXXXXX comparisons, YYYYYYY writes: hint: set --max-txn-ops on the ETCD cluster to at least the largest of those values)
-```
-
-### Recourse
-
-When a Pachyderm cluster reaches a certain scale, you need to adjust
-the default parameters provided for certain `etcd` flags.  
-Depending on how you deployed Pachyderm,
-you need to either edit the `etcd` `Deployment` or `StatefulSet`.  
-
-```bash
-$ kubectl edit deploy etcd
-```
-
-or 
-
-```bash
-$ kubectl edit statefulset edtc
-```
-
-In the `spec/template/containers/command` path, set the value for `max-txn-ops` to a value appropriate for your cluster, in line with the advice in the error above: *larger than the greater of XXXXXX or YYYYYYY*.
-
