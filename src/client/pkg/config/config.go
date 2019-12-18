@@ -65,14 +65,14 @@ func Read() (*Config, error) {
 		if raw, err := ioutil.ReadFile(p); err == nil {
 			err = json.Unmarshal(raw, &value)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("could not parse config json at %q: %v", p, err)
 			}
 		} else if os.IsNotExist(err) {
 			// File doesn't exist, so create a new config
 			fmt.Fprintf(os.Stderr, "No config detected at %q. Generating new config...\n", p)
 			value = &Config{}
 		} else {
-			return nil, fmt.Errorf("fatal: could not read config at %q: %v", p, err)
+			return nil, fmt.Errorf("could not read config at %q: %v", p, err)
 		}
 
 		updated := false
