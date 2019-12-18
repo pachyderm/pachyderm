@@ -11,11 +11,17 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+type nascentTree struct {
+	cond *sync.Cond
+	err  error
+}
+
 // Cache is an LRU cache for hashtrees.
 type Cache struct {
-	lruCache  simplelru.LRUCache
-	lock      sync.Mutex
-	syncEvict *bool
+	lruCache     simplelru.LRUCache
+	lock         sync.Mutex
+	syncEvict    *bool
+	nascentTrees map[interface{}]*nascentTree
 }
 
 func castValue(value interface{}) (HashTree, error) {
@@ -49,7 +55,11 @@ func NewCache(size int) (*Cache, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Cache{lruCache: lruCache, syncEvict: &syncEvict}, nil
+	return &Cache{
+		lruCache:     lruCache,
+		syncEvict:    &syncEvict,
+		nascentTrees: make(map[interface{}]*nascentTree),
+	}, nil
 }
 
 // Close will synchronously evict all hashtrees from the cache, cleaning up any on-disk data.
@@ -67,18 +77,51 @@ func (c *Cache) Close() {
 // because the underlying LRU library does not provide a way to atomically
 // perform this operation without preconstructing the HashTree, which is a
 // relatively expensive operation.
+// If the generator panics, the cache will be left in an unreliable state.
 func (c *Cache) GetOrAdd(key interface{}, generator func() (HashTree, error)) (HashTree, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
+	// First try to get a tree from the cache
 	if value, ok := c.lruCache.Get(key); ok {
 		return castValue(value)
-	} else if newValue, err := generator(); err != nil {
-		return nil, err
-	} else {
-		c.lruCache.Add(key, newValue)
-		return newValue, nil
+	} else if nascent, ok := c.nascentTrees[key]; ok {
+		// There is a pending hashtree being generated, wait for it
+		nascent.cond.Wait()
+
+		if nascent.err != nil {
+			return nil, nascent.err
+		} else if value, ok := c.lruCache.Get(key); ok {
+			return castValue(value)
+		}
+
+		// If we get here, that means the hashtree was evicted between when the
+		// nascentTree completed and when this goroutine woke up. Fallthrough so
+		// that we can run the generator to reconstruct it.
 	}
+
+	nascent := &nascentTree{cond: sync.NewCond(&c.lock)}
+	c.nascentTrees[key] = nascent
+	c.lock.Unlock()
+
+	// We do the generator outside of the lock so we don't bottleneck on this,
+	// as it may be a long-running operation.
+	newValue, err := generator()
+	if err != nil {
+		c.lock.Lock()
+		delete(c.nascentTrees, key)
+		nascent.err = err
+		nascent.cond.Broadcast()
+
+		return nil, err
+	}
+
+	c.lock.Lock()
+	c.lruCache.Add(key, newValue)
+	delete(c.nascentTrees, key)
+	nascent.cond.Broadcast()
+
+	return newValue, nil
 }
 
 // MergeCache is an unbounded hashtree cache that can merge the hashtrees in the cache.
