@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -104,24 +105,38 @@ func contextCreate(namePrefix, namespace string) error {
 		Namespace:   namespace,
 	}
 
+	// if the new context is the same as the active context, exit without
+	// changes
 	_, activeContext, err := cfg.ActiveContext()
-	if err != nil || !proto.Equal(newContext, activeContext) {
-		newContextName := namePrefix
-		for i := 0; i < 10000; i++ {
-			if i > 0 {
-				newContextName = fmt.Sprintf("%s-%d", namePrefix, i)
-			}
-			if _, ok := cfg.V2.Contexts[newContextName]; !ok {
-				break
-			}
-		}
-
-		cfg.V2.Contexts[newContextName] = newContext
-		cfg.V2.ActiveContext = newContextName
-		return cfg.Write()
+	if err == nil && proto.Equal(newContext, activeContext) {
+		return nil
 	}
 
-	return nil
+	// try to find an existing context that is the same as the new context,
+	// in which case we just switch contexts rather than creating a new one
+	contextNames := []string{}
+	for contextName := range cfg.V2.Contexts {
+		contextNames = append(contextNames, contextName)
+	}
+	sort.Strings(contextNames)
+
+	for _, contextName := range contextNames {
+		if proto.Equal(newContext, cfg.V2.Contexts[contextName]) {
+			cfg.V2.ActiveContext = contextName
+			return cfg.Write()
+		}
+	}
+
+	// we couldn't find an existing context that is the same as the new one,
+	// so we'll have to create it
+	newContextName := namePrefix
+	if _, ok := cfg.V2.Contexts[newContextName]; ok {
+		newContextName = fmt.Sprintf("%s-%s", namePrefix, time.Now().Format("2006-01-02-15-04-05"))
+	}
+
+	cfg.V2.Contexts[newContextName] = newContext
+	cfg.V2.ActiveContext = newContextName
+	return cfg.Write()
 }
 
 // containsEmpty is a helper function used for validation (particularly for
