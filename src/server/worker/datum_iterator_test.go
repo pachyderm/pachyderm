@@ -7,7 +7,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	"github.com/pachyderm/pachyderm/src/client/pps"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
@@ -109,24 +108,23 @@ func TestDatumIterators(t *testing.T) {
 	in9 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)", "$2$1", false)
 	in9.Pfs.Commit = commit.ID
 
-	join1, err := newJoinDatumIterator(c, []*pps.Input{in8, in9})
-	require.NoError(t, err)
+	join1, err := newJoinDatumIterator(c, []InputI{in8, in9})
 	validateDI(t, join1,
 		"/foo11/foo11",
-		"/foo21/foo12",
-		"/foo31/foo13",
-		"/foo41/foo14",
 		"/foo12/foo21",
-		"/foo22/foo22",
-		"/foo32/foo23",
-		"/foo42/foo24",
 		"/foo13/foo31",
-		"/foo23/foo32",
-		"/foo33/foo33",
-		"/foo43/foo34",
 		"/foo14/foo41",
+		"/foo21/foo12",
+		"/foo22/foo22",
+		"/foo23/foo32",
 		"/foo24/foo42",
+		"/foo31/foo13",
+		"/foo32/foo23",
+		"/foo33/foo33",
 		"/foo34/foo43",
+		"/foo41/foo14",
+		"/foo42/foo24",
+		"/foo43/foo34",
 		"/foo44/foo44")
 }
 
@@ -190,7 +188,7 @@ func benchmarkDatumIterators(j int, b *testing.B) {
 			in8.Pfs.Commit = commit.ID
 			in9 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)*", "$2$1", false)
 			in9.Pfs.Commit = commit.ID
-			join1, err := newJoinDatumIterator(c, []*pps.Input{in8, in9})
+			join1, err := newJoinDatumIterator(c, []InputI{in8, in9})
 			require.NoError(b, err)
 			validateDI(b, join1)
 		})

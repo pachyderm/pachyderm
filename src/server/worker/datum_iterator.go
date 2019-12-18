@@ -10,7 +10,12 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+
+	"github.com/cevaris/ordered_map"
 )
+
+// InputI is an interface for generic inputs
+type InputI interface{}
 
 // DatumIterator is an interface which allows you to iterate through the datums
 // for a job. A datum iterator keeps track of which datum it is on, which can be Reset()
@@ -98,13 +103,47 @@ func (d *pfsDatumIterator) Next() bool {
 	return d.location < len(d.inputs)
 }
 
+type listDatumIterator struct {
+	inputs   []*Input
+	location int
+}
+
+func newListDatumIterator(pachClient *client.APIClient, inputs []*Input) (DatumIterator, error) {
+	result := &listDatumIterator{}
+	// make sure it gets initialized properly
+	result.Reset()
+	result.inputs = inputs
+	return result, nil
+}
+
+func (d *listDatumIterator) Reset() {
+	d.location = -1
+}
+
+func (d *listDatumIterator) Len() int {
+	return len(d.inputs)
+}
+
+func (d *listDatumIterator) Datum() []*Input {
+	return []*Input{d.inputs[d.location]}
+}
+
+func (d *listDatumIterator) DatumN(n int) []*Input {
+	return []*Input{d.inputs[n]}
+}
+
+func (d *listDatumIterator) Next() bool {
+	d.location++
+	return d.location < len(d.inputs)
+}
+
 type unionDatumIterator struct {
 	iterators []DatumIterator
 	unionIdx  int
 	location  int
 }
 
-func newUnionDatumIterator(pachClient *client.APIClient, union []*pps.Input) (DatumIterator, error) {
+func newUnionDatumIterator(pachClient *client.APIClient, union []InputI) (DatumIterator, error) {
 	result := &unionDatumIterator{}
 	defer result.Reset()
 	for _, input := range union {
@@ -165,7 +204,7 @@ type crossDatumIterator struct {
 	location  int
 }
 
-func newCrossDatumIterator(pachClient *client.APIClient, cross []*pps.Input) (DatumIterator, error) {
+func newCrossDatumIterator(pachClient *client.APIClient, cross []InputI) (DatumIterator, error) {
 	result := &crossDatumIterator{}
 	defer result.Reset()
 	for _, iterator := range cross {
@@ -254,20 +293,44 @@ type joinDatumIterator struct {
 	location int
 }
 
-func newJoinDatumIterator(pachClient *client.APIClient, join []*pps.Input) (DatumIterator, error) {
-	cross, err := newCrossDatumIterator(pachClient, join)
-	if err != nil {
-		return nil, err
-	}
+func newJoinDatumIterator(pachClient *client.APIClient, join []InputI) (DatumIterator, error) {
 	result := &joinDatumIterator{}
-	for cross.Next() {
-		tuple := cross.Datum()
-		count := make(map[string]int)
-		for _, input := range tuple {
-			count[input.JoinOn]++
+	om := ordered_map.NewOrderedMap()
+
+	for i, input := range join {
+		datumIterator, err := NewDatumIterator(pachClient, input)
+		if err != nil {
+			return nil, err
 		}
-		if len(count) == 1 {
-			result.datums = append(result.datums, tuple)
+		for datumIterator.Next() {
+			x := datumIterator.Datum()
+			for _, k := range x {
+				tupleI, ok := om.Get(k.JoinOn)
+				var tuple [][]*Input
+				if !ok {
+					tuple = make([][]*Input, len(join))
+				} else {
+					tuple = tupleI.([][]*Input)
+				}
+				tuple[i] = append(tuple[i], k)
+				om.Set(k.JoinOn, tuple)
+			}
+		}
+	}
+
+	iter := om.IterFunc()
+	for kv, ok := iter(); ok; kv, ok = iter() {
+		tuple := kv.Value.([][]*Input)
+		var inputSlice = make([]InputI, len(tuple))
+		for i, list := range tuple {
+			inputSlice[i] = list
+		}
+		cross, err := newCrossDatumIterator(pachClient, inputSlice)
+		if err != nil {
+			return nil, err
+		}
+		for cross.Next() {
+			result.datums = append(result.datums, cross.Datum())
 		}
 	}
 	result.location = -1
@@ -366,20 +429,41 @@ func newCronDatumIterator(pachClient *client.APIClient, input *pps.CronInput) (D
 }
 
 // NewDatumIterator creates a datumIterator for an input.
-func NewDatumIterator(pachClient *client.APIClient, input *pps.Input) (DatumIterator, error) {
-	switch {
-	case input.Pfs != nil:
-		return newPFSDatumIterator(pachClient, input.Pfs)
-	case input.Union != nil:
-		return newUnionDatumIterator(pachClient, input.Union)
-	case input.Cross != nil:
-		return newCrossDatumIterator(pachClient, input.Cross)
-	case input.Join != nil:
-		return newJoinDatumIterator(pachClient, input.Join)
-	case input.Cron != nil:
-		return newCronDatumIterator(pachClient, input.Cron)
-	case input.Git != nil:
-		return newGitDatumIterator(pachClient, input.Git)
+func NewDatumIterator(pachClient *client.APIClient, in InputI) (DatumIterator, error) {
+	switch in.(type) {
+	case *pps.Input:
+		ppsInput := in.(*pps.Input)
+		switch {
+		case ppsInput.Pfs != nil:
+			return newPFSDatumIterator(pachClient, ppsInput.Pfs)
+		case ppsInput.Union != nil:
+			var inputSlice = make([]InputI, len(ppsInput.Union))
+			for i, element := range ppsInput.Union {
+				inputSlice[i] = element
+			}
+			return newUnionDatumIterator(pachClient, inputSlice)
+		case ppsInput.Cross != nil:
+			var inputSlice = make([]InputI, len(ppsInput.Cross))
+			for i, element := range ppsInput.Cross {
+				inputSlice[i] = element
+			}
+			return newCrossDatumIterator(pachClient, inputSlice)
+		case ppsInput.Join != nil:
+			var inputSlice = make([]InputI, len(ppsInput.Join))
+			for i, element := range ppsInput.Join {
+				inputSlice[i] = element
+			}
+			return newJoinDatumIterator(pachClient, inputSlice)
+		case ppsInput.Cron != nil:
+			return newCronDatumIterator(pachClient, ppsInput.Cron)
+		case ppsInput.Git != nil:
+			return newGitDatumIterator(pachClient, ppsInput.Git)
+		default:
+			return nil, fmt.Errorf("unrecognized PPS input type")
+		}
+	case []*Input:
+		sliceInput := in.([]*Input)
+		return newListDatumIterator(pachClient, sliceInput)
 	}
 	return nil, fmt.Errorf("unrecognized input type")
 }
