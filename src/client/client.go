@@ -458,6 +458,20 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 		client.authenticationToken = context.SessionToken
 	}
 
+	// Verify cluster ID
+	clusterID, err := client.ClusterID()
+	if err != nil {
+		return nil, fmt.Errorf("could not get cluster ID: %v", err)
+	}
+	if context.ClusterID == "" {
+		context.ClusterID = clusterID
+		if err = cfg.Write(); err != nil {
+			return nil, fmt.Errorf("could not write config to save cluster ID: %v", err)
+		}
+	} else if context.ClusterID != clusterID {
+		return nil, fmt.Errorf("connected to the wrong cluster (context cluster ID = %q vs reported cluster ID = %q)", context.ClusterID, clusterID)
+	}
+
 	// Add port forwarding. This will set it to nil if port forwarding is
 	// disabled, or an address is explicitly set.
 	client.portForwarder = fw

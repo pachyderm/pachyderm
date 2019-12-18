@@ -82,6 +82,11 @@ message Context {
 
     // The k8s namespace - used to construct a k8s context
     string namespace = 8;
+
+    // A unique ID for the cluster. At client initialization time, we ensure
+    // this is the same as what the cluster reports back, to prevent us from
+    // connecting to the wrong cluster.
+    string cluster_id = 9 [(gogoproto.customname) = "ClusterID"];
 }
 
 enum ContextSource {
