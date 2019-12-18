@@ -1,6 +1,8 @@
 package server
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -19,12 +21,13 @@ const (
 )
 
 // NewDebugServer creates a new server that serves the debug api over GRPC
-func NewDebugServer(name string, etcdClient *etcd.Client, etcdPrefix string, workerGrpcPort uint16) debug.DebugServer {
+func NewDebugServer(name string, etcdClient *etcd.Client, etcdPrefix string, workerGrpcPort uint16, clusterID string) debug.DebugServer {
 	return &debugServer{
 		name:           name,
 		etcdClient:     etcdClient,
 		etcdPrefix:     etcdPrefix,
 		workerGrpcPort: workerGrpcPort,
+		clusterID:      clusterID,
 	}
 }
 
@@ -33,6 +36,7 @@ type debugServer struct {
 	etcdClient     *etcd.Client
 	etcdPrefix     string
 	workerGrpcPort uint16
+	clusterID      string
 }
 
 func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpServer) error {
@@ -117,4 +121,14 @@ func (s *debugServer) Binary(request *debug.BinaryRequest, server debug.Debug_Bi
 	defer grpcutil.PutBuffer(buf)
 	_, err = io.CopyBuffer(w, f, buf)
 	return err
+}
+
+func (s *debugServer) ClusterID(ctx context.Context, request *types.Empty) (*debug.ClusterIDResponse, error) {
+	if s.clusterID == "" {
+		return nil, errors.New("endpoint cannot be called on this debug server instance")
+	}
+
+	return &debug.ClusterIDResponse{
+		ClusterID: s.clusterID,
+	}, nil
 }

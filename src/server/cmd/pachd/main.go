@@ -229,6 +229,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 		env.GetEtcdClient(),
 		path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
 		env.PPSWorkerPort,
+		clusterID,
 	))
 	txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer)
 
@@ -459,6 +460,7 @@ func doFullMode(config interface{}) (retErr error) {
 			env.GetEtcdClient(),
 			path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
 			env.PPSWorkerPort,
+			clusterID,
 		))
 		txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer)
 
