@@ -11,6 +11,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	uuid "github.com/satori/go.uuid"
+	log "github.com/sirupsen/logrus"
 )
 
 const configEnvVar = "PACH_CONFIG"
@@ -69,7 +70,7 @@ func Read() (*Config, error) {
 			}
 		} else if os.IsNotExist(err) {
 			// File doesn't exist, so create a new config
-			fmt.Fprintf(os.Stderr, "No config detected at %q. Generating new config...\n", p)
+			log.Debugf("No config detected at %q. Generating new config...", p)
 			value = &Config{}
 		} else {
 			return nil, fmt.Errorf("could not read config at %q: %v", p, err)
@@ -79,14 +80,14 @@ func Read() (*Config, error) {
 
 		if value.UserID == "" {
 			updated = true
-			fmt.Fprintln(os.Stderr, "No UserID present in config - generating new one.")
+			log.Debugln("No UserID present in config - generating new one.")
 			uuid := uuid.NewV4()
 			value.UserID = uuid.String()
 		}
 
 		if value.V2 == nil {
 			updated = true
-			fmt.Fprintln(os.Stderr, "No config V2 present in config - generating a new one.")
+			log.Debugln("No config V2 present in config - generating a new one.")
 			if err := value.initV2(); err != nil {
 				return nil, err
 			}
@@ -100,7 +101,7 @@ func Read() (*Config, error) {
 				}
 			} else {
 				if qualifiedPachdAddress := pachdAddress.Qualified(); qualifiedPachdAddress != context.PachdAddress {
-					fmt.Fprintf(os.Stderr, "Non-qualified pachd address set for context '%s' - fixing.\n", contextName)
+					log.Debugf("Non-qualified pachd address set for context '%s' - fixing", contextName)
 					context.PachdAddress = qualifiedPachdAddress
 					updated = true
 				}
@@ -108,7 +109,7 @@ func Read() (*Config, error) {
 		}
 
 		if updated {
-			fmt.Fprintf(os.Stderr, "Rewriting config at %q.\n", p)
+			log.Debugf("Rewriting config at %q.", p)
 
 			if err := value.write(); err != nil {
 				return nil, fmt.Errorf("could not rewrite config at %q: %v", p, err)
