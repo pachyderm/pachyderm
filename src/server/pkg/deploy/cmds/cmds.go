@@ -79,7 +79,7 @@ func kubectlCreate(dryRun bool, manifest []byte, opts *assets.AssetOpts) error {
 	return nil
 }
 
-func contextCreate(namePrefix, namespace string) error {
+func contextCreate(namePrefix, namespace, serverCert string) error {
 	kubeConfig, err := config.RawKubeConfig()
 	if err != nil {
 		return err
@@ -107,9 +107,11 @@ func contextCreate(namePrefix, namespace string) error {
 
 	// if the new context is the same as the active context, exit without
 	// changes
-	_, activeContext, err := cfg.ActiveContext()
-	if err == nil && proto.Equal(newContext, activeContext) {
-		return nil
+	_, activeContext, _ := cfg.ActiveContext()
+	if newContext.EqualClusterReference(activeContext) {
+		activeContext.ClusterID = ""
+		activeContext.ServerCAs = serverCert
+		return cfg.Write()
 	}
 
 	// try to find an existing context that is the same as the new context,
@@ -121,8 +123,11 @@ func contextCreate(namePrefix, namespace string) error {
 	sort.Strings(contextNames)
 
 	for _, contextName := range contextNames {
-		if proto.Equal(newContext, cfg.V2.Contexts[contextName]) {
+		existingContext := cfg.V2.Contexts[contextName]
+		if proto.Equal(newContext, existingContext) {
 			cfg.V2.ActiveContext = contextName
+			existingContext.ClusterID = ""
+			existingContext.ServerCAs = serverCert
 			return cfg.Write()
 		}
 	}
@@ -161,6 +166,7 @@ func deployCmds() []*cobra.Command {
 	var dev bool
 	var hostPath string
 	var namespace string
+	var serverCert string
 
 	deployLocal := &cobra.Command{
 		Short: "Deploy a single-node Pachyderm cluster with local metadata storage.",
@@ -203,7 +209,7 @@ func deployCmds() []*cobra.Command {
 				if contextName == "" {
 					contextName = "local"
 				}
-				if err := contextCreate(contextName, namespace); err != nil {
+				if err := contextCreate(contextName, namespace, serverCert); err != nil {
 					return err
 				}
 			}
@@ -256,7 +262,7 @@ func deployCmds() []*cobra.Command {
 				if contextName == "" {
 					contextName = "gcs"
 				}
-				if err := contextCreate(contextName, namespace); err != nil {
+				if err := contextCreate(contextName, namespace, serverCert); err != nil {
 					return err
 				}
 			}
@@ -313,7 +319,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				if contextName == "" {
 					contextName = "custom"
 				}
-				if err := contextCreate(contextName, namespace); err != nil {
+				if err := contextCreate(contextName, namespace, serverCert); err != nil {
 					return err
 				}
 			}
@@ -447,7 +453,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				if contextName == "" {
 					contextName = "aws"
 				}
-				if err := contextCreate(contextName, namespace); err != nil {
+				if err := contextCreate(contextName, namespace, serverCert); err != nil {
 					return err
 				}
 			}
@@ -512,7 +518,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				if contextName == "" {
 					contextName = "azure"
 				}
-				if err := contextCreate(contextName, namespace); err != nil {
+				if err := contextCreate(contextName, namespace, serverCert); err != nil {
 					return err
 				}
 			}
@@ -743,6 +749,12 @@ If <object store backend> is \"s3\", then the arguments are:
 					ServerCert: certKey[0],
 					ServerKey:  certKey[1],
 				}
+
+				serverCertBytes, err := ioutil.ReadFile(certKey[0])
+				if err != nil {
+					return fmt.Errorf("could not read server cert at %q: %v", certKey[0], err)
+				}
+				serverCert = base64.StdEncoding.EncodeToString([]byte(serverCertBytes))
 			}
 			return nil
 		}),

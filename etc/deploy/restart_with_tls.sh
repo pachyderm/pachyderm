@@ -28,10 +28,6 @@ fi
 # Re-deploy pachd with new mount containing TLS key
 pachctl deploy local -d --tls="$cert,$key" --dry-run | kubectl apply -f -
 
-pachctl config update context \
-  --pachd-address="grpcs://$hostport" \
-  --server-cas="$(cat $cert | base64)"
-
 # Wait 30s for new pachd to come up
 echo -n "Waiting for new pachd to come up"
 retries=15
