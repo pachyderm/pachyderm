@@ -1361,26 +1361,22 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			if err != nil {
 				return err
 			}
-			if ci.Finished != nil {
-				statsLogs = true
-				eg.Go(func() error {
-					return a.getLogsFromStats(pachClient, request, statsCommit, logCh)
-				})
-			}
+			statsLogs = ci.Finished != nil
 		}
 
-		if !statsLogs {
-			containerName := client.PPSWorkerUserContainerName
-
-			if request.Follow {
-				eg.Go(func() error {
-					return a.followLogsForRC(pachClient, request, containerName, "", logCh)
-				})
-			} else {
-				eg.Go(func() error {
-					return a.getLogsForRC(pachClient, request, containerName, "", logCh)
-				})
-			}
+		switch {
+		case statsLogs:
+			eg.Go(func() error {
+				return a.getLogsFromStats(pachClient, request, statsCommit, logCh)
+			})
+		case request.Follow:
+			eg.Go(func() error {
+				return a.followLogsForRC(pachClient, request, client.PPSWorkerUserContainerName, "", logCh)
+			})
+		default:
+			eg.Go(func() error {
+				return a.getLogsForRC(pachClient, request, client.PPSWorkerUserContainerName, "", logCh)
+			})
 		}
 	}
 
