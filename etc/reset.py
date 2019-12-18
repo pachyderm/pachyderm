@@ -11,15 +11,15 @@ import subprocess
 ETCD_IMAGE = "quay.io/coreos/etcd:v3.3.5"
 
 DELETABLE_RESOURCES = [
-    "daemonsets",
     "replicasets",
     "services",
     "deployments",
     "pods",
     "rc",
-    "pvc",
     "serviceaccounts",
     "secrets",
+    "clusterrole",
+    "clusterrolebinding",
 ]
 
 NEWLINE_SEPARATE_OBJECTS_PATTERN = re.compile(r"\}\n+\{", re.MULTILINE)
@@ -50,13 +50,8 @@ def join(*targets):
             raise Exception("Thread error") from t.error
 
 class DefaultDriver:
-    def available(self):
-        return True
-
     def clear(self):
-        run("kubectl", "delete", ",".join(DELETABLE_RESOURCES), "--all", raise_on_error=False)
-        run("kubectl", "delete", "clusterrole.rbac.authorization.k8s.io/pachyderm", raise_on_error=False)
-        run("kubectl", "delete", "clusterrolebinding.rbac.authorization.k8s.io/pachyderm", raise_on_error=False)
+        run("kubectl", "delete", ",".join(DELETABLE_RESOURCES), "-l", "suite=pachyderm")
 
     def start(self):
         pass
@@ -64,20 +59,16 @@ class DefaultDriver:
     def push_images(self, dash_image):
         pass
 
-    def set_config(self):
-        kube_context = capture("kubectl", "config", "current-context").strip()
+    def set_config(self, kube_context):
         run("pachctl", "config", "set", "context", kube_context, "--kubernetes", kube_context, "--overwrite")
         run("pachctl", "config", "set", "active-context", kube_context)
 
-class DockerDriver(DefaultDriver):
-    def set_config(self):
-        super().set_config()
+class DockerDesktopDriver(DefaultDriver):
+    def set_config(self, kube_context):
+        super().set_config(kube_context)
         run("pachctl", "config", "update", "context", "--pachd-address=localhost:30650")
 
 class MinikubeDriver(DefaultDriver):
-    def available(self):
-        return run("which", "minikube", raise_on_error=False).returncode == 0
-
     def clear(self):
         run("minikube", "delete")
 
@@ -94,8 +85,8 @@ class MinikubeDriver(DefaultDriver):
         run("./etc/kube/push-to-minikube.sh", ETCD_IMAGE)
         run("./etc/kube/push-to-minikube.sh", dash_image)
 
-    def set_config(self):
-        super().set_config()
+    def set_config(self, kube_context):
+        super().set_config(kube_context)
         ip = capture("minikube", "ip").strip()
         run("pachctl", "config", "update", "context", "--pachd-address={}:30650".format(ip))
 
@@ -136,17 +127,23 @@ def main():
     if "PACH_CA_CERTS" in os.environ:
         raise Exception("Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS")
 
-    if MinikubeDriver().available():
+    kube_context = capture("kubectl", "config", "current-context").strip()
+
+    if kube_context == "minikube":
         print_status("using the minikube driver")
         driver = MinikubeDriver()
-    else:
-        print_status("using the k8s for docker driver")
-        driver = DockerDriver()
+    elif kube_context == "docker-desktop":
+        print_status("using the docker desktop driver")
+        driver = DockerDesktopDriver()
 
-
-    # wrap in try/except rather than using `raise_on_error`, because the
-    # latter doesn't catch when `pachctl` doesn't exist -- an error case which
-    # we also want to ignore
+    # ignore errors on `pachctl delete all` because there's a variety of ways
+    # it could fail that we can recover from:
+    # 1) pachyderm isn't installed on the cluster yet
+    # 2) pachctl isn't installed
+    # 3) pachd is unresponsive
+    # ... etc. Wrap in try/except rather than using `raise_on_error`, because
+    # the latter doesn't catch when `pachctl` doesn't exist -- an error case
+    # which we also want to ignore.
     try:
         run("pachctl", "delete", "all", stdin="yes\n", timeout=5)
     except:
@@ -179,7 +176,7 @@ def main():
     driver.push_images(dash_image)
 
     run("kubectl", "create", "-f", "-", stdin=deployments_str)
-    driver.set_config()
+    driver.set_config(kube_context)
 
     while run("pachctl", "version", raise_on_error=False).returncode:
         print_status("waiting for pachyderm to come up...")
