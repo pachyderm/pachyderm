@@ -152,6 +152,7 @@ docker-clean-worker:
 
 docker-build-worker: docker-clean-worker
 	docker run \
+		--env=CALLING_OS=$$(uname) \
 		--env=CALLING_USER_ID=$$(id -u $$USER) \
 		--env=DOCKER_GROUP_ID=$$(cat /etc/group | grep docker | cut -d: -f3) \
 		-v $$PWD:/pachyderm \
@@ -172,6 +173,7 @@ docker-clean-pachd:
 
 docker-build-pachd: docker-clean-pachd
 	docker run  \
+		--env=CALLING_OS=$$(uname) \
 		--env=CALLING_USER_ID=$$(id -u $$USER) \
 		--env=DOCKER_GROUP_ID=$$(cat /etc/group | grep docker | cut -d: -f3) \
 		-v $$PWD:/pachyderm \

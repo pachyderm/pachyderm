@@ -8,15 +8,13 @@
 
 set -Eex
 
-export PATH="${ROOT_PATH}"
-env
-whoami
-id -u ${USER}
-echo $HOME
+if [[ -n "${ROOT_PATH}" ]]; then
+  # Called from linux via 'su' -- must reset PATH
+  export PATH="${ROOT_PATH}"
+fi
 
-DIR="$(cd "$(dirname "${0}")/../.." && pwd)"
-cd "${DIR}"
-pwd
+# Navigate to root of repo
+cd "$(dirname "${0}")/../.."
 
 BINARY="${1}"
 LD_FLAGS="${2}"

@@ -8,6 +8,18 @@
 
 set -Eex
 
+# On OS X, skip setting all of this user/group stuff and just build as root.
+# The way bind mounts work in docker-for-mac are such that even files created
+# by root inside the docker container will be owned by the calling user and
+# group on the host filesystem
+
+env
+
+if [[ "${CALLING_OS}" == "Darwin" ]]; then
+  "$(dirname "${0}")/run_go_cmds.sh" "${@}"
+  exit $?
+fi
+
 # Validate env vars
 if [[ -z "${CALLING_USER_ID}" ]]; then
   echo "Cannot do docker build without the caller's user ID" >/dev/stderr
