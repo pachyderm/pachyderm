@@ -49,7 +49,7 @@ def join(*targets):
         if t.error is not None:
             raise Exception("Thread error") from t.error
 
-class DefaultDriver:
+class DockerDesktopDriver:
     def clear(self):
         run("kubectl", "delete", ",".join(DELETABLE_RESOURCES), "-l", "suite=pachyderm")
 
@@ -59,16 +59,10 @@ class DefaultDriver:
     def push_images(self, dash_image):
         pass
 
-    def set_config(self, kube_context):
-        run("pachctl", "config", "set", "context", kube_context, "--kubernetes", kube_context, "--overwrite")
-        run("pachctl", "config", "set", "active-context", kube_context)
-
-class DockerDesktopDriver(DefaultDriver):
-    def set_config(self, kube_context):
-        super().set_config(kube_context)
+    def update_config(self):
         run("pachctl", "config", "update", "context", "--pachd-address=localhost:30650")
 
-class MinikubeDriver(DefaultDriver):
+class MinikubeDriver:
     def clear(self):
         run("minikube", "delete")
 
@@ -85,8 +79,7 @@ class MinikubeDriver(DefaultDriver):
         run("./etc/kube/push-to-minikube.sh", ETCD_IMAGE)
         run("./etc/kube/push-to-minikube.sh", dash_image)
 
-    def set_config(self, kube_context):
-        super().set_config(kube_context)
+    def update_config(self):
         ip = capture("minikube", "ip").strip()
         run("pachctl", "config", "update", "context", "--pachd-address={}:30650".format(ip))
 
@@ -176,7 +169,7 @@ def main():
     driver.push_images(dash_image)
 
     run("kubectl", "create", "-f", "-", stdin=deployments_str)
-    driver.set_config(kube_context)
+    driver.update_config()
 
     while run("pachctl", "version", raise_on_error=False).returncode:
         print_status("waiting for pachyderm to come up...")
