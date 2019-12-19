@@ -4,11 +4,16 @@ Deploy credentials for the Azure storage provider.
 
 ### Synopsis
 
-
 Deploy credentials for the Azure storage provider, so that Pachyderm can ingress data from and egress data to it.
 
 ```
-pachctl deploy storage microsoft <account-name> <account-key>
+pachctl deploy storage microsoft <account-name> <account-key> [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for microsoft
 ```
 
 ### Options inherited from parent commands

@@ -1,7 +1,7 @@
 # Local Installation
 
 This guide walks you through the steps to install Pachyderm
-on macOS®, Linux®, or Windows®. Local installation helps you to learn
+on macOS®, Linux®, or Microsoft® Windows®. Local installation helps you to learn
 some of the Pachyderm basics and is not designed to be a production
 environment.
 
@@ -19,13 +19,9 @@ programs installed on your computer:
 - Oracle® VirtualBox™ or [Docker Desktop (v18.06+)](#docker-desktop)
 - [Pachyderm Command Line Interface](#install-pachctl)
 
-If you install Pachyderm on Windows 10 or later, you must have the following
-components installed in addition to the ones listed above:
+If you want to install Pachyderm on Windows, follow the instructions in
+[Deploy Pachyderm on Windows](wsl-deploy.md).
 
-- [Windows Subsystem for Linux (WSL)](https://docs.microsoft.com/en-us/windows/wsl/install-win10)
-
-!!! note
-    For a Windows installation, use Minikube.
 
 ### Using Minikube
 
@@ -36,7 +32,8 @@ the Beginner Tutorial.
 
 To configure Minikube, follow these steps:
 
-1. Install minikube and VirtualBox in your operating system as described in the
+1. Install minikube and VirtualBox in your operating system as described in
+the
 [Kubernetes documentation](http://kubernetes.io/docs/getting-started-guides/minikube).
 1. [Install `kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/).
 1. Start `minikube`:
@@ -94,13 +91,13 @@ to have pachctl installed on your machine by following these steps:
    WSL:
 
      ```bash
-     $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.8/pachctl_1.9.8_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+     $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.9/pachctl_1.9.9_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
      ```
 
    * For all other Linux flavors:
 
      ```bash
-     $ curl -o /tmp/pachctl.tar.gz -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.8/pachctl_1.9.8_linux_amd64.tar.gz && tar -xvf /tmp/pachctl.tar.gz -C /tmp && sudo cp /tmp/pachctl_1.9.8_linux_amd64/pachctl /usr/local/bin
+     $ curl -o /tmp/pachctl.tar.gz -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.9/pachctl_1.9.9_linux_amd64.tar.gz && tar -xvf /tmp/pachctl.tar.gz -C /tmp && sudo cp /tmp/pachctl_1.9.9_linux_amd64/pachctl /usr/local/bin
      ```
 
 1. Verify that installation was successful by running `pachctl version --client-only`:

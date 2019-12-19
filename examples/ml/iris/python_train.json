@@ -2,6 +2,7 @@
   "pipeline": {
     "name": "model"
   },
+  "description": "A pipeline that trains the model based on the data in the `training` repository by using a Python script.",
   "transform": {
     "image": "pachyderm/iris-train:python-svm",
     "cmd": [

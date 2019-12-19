@@ -4,16 +4,16 @@ Forward a port on the local machine to pachd. This command blocks.
 
 ### Synopsis
 
-
 Forward a port on the local machine to pachd. This command blocks.
 
 ```
-pachctl port-forward
+pachctl port-forward [flags]
 ```
 
 ### Options
 
 ```
+  -h, --help                    help for port-forward
       --namespace string        Kubernetes namespace Pachyderm is deployed in.
   -f, --pfs-port uint16         The local port to bind PFS over HTTP to. (default 30652)
   -p, --port uint16             The local port to bind pachd to. (default 30650)

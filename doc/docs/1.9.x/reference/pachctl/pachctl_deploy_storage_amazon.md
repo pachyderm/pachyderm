@@ -4,16 +4,16 @@ Deploy credentials for the Amazon S3 storage provider.
 
 ### Synopsis
 
-
 Deploy credentials for the Amazon S3 storage provider, so that Pachyderm can ingress data from and egress data to it.
 
 ```
-pachctl deploy storage amazon <region> <access-key-id> <secret-access-key> [<session-token>]
+pachctl deploy storage amazon <region> <access-key-id> <secret-access-key> [<session-token>] [flags]
 ```
 
 ### Options
 
 ```
+  -h, --help                   help for amazon
       --max-upload-parts int   (rarely set) Set a custom maximum number of upload parts. (default 10000)
       --part-size int          (rarely set) Set a custom part size for object storage uploads. (default 5242880)
       --retries int            (rarely set) Set a custom number of retries for object storage requests. (default 10)

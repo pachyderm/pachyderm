@@ -2,6 +2,7 @@
   "pipeline": {
     "name": "GoT_generate"
   },
+  "description": "A pipeline that generates a new GoT script.",
   "transform": {
     "image": "<yourregistry>/tensorflow_0_10_rnn_got",
     "cmd": [ "sh" ],

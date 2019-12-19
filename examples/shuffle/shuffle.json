@@ -20,6 +20,7 @@
   "pipeline": {
     "name": "shuffle"
   },
+  "description": "A pipeline that places files with a matching name pattern and stored in separate repositories to a corresponding folder in the output repository.",
   "transform": {
     "image": "ubuntu",
     "cmd": ["/bin/bash"],

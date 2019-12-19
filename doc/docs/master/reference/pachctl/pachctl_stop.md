@@ -4,8 +4,13 @@ Cancel an ongoing task.
 
 ### Synopsis
 
-
 Cancel an ongoing task.
+
+### Options
+
+```
+  -h, --help   help for stop
+```
 
 ### Options inherited from parent commands
 

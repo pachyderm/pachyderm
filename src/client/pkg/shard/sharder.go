@@ -89,9 +89,7 @@ func (a *sharder) Register(address string, servers []Server) (retErr error) {
 	}()
 	go func() {
 		defer wg.Done()
-		select {
-		case <-internalCancel:
-		}
+		<-internalCancel
 	}()
 	wg.Wait()
 	return
@@ -123,9 +121,7 @@ func (a *sharder) RegisterFrontends(address string, frontends []Frontend) (retEr
 	}()
 	go func() {
 		defer wg.Done()
-		select {
-		case <-internalCancel:
-		}
+		<-internalCancel
 	}()
 	wg.Wait()
 	return
@@ -155,9 +151,7 @@ func (a *sharder) AssignRoles(address string) (retErr error) {
 				}()
 			}
 		}
-		select {
-		case <-time.After(time.Second * time.Duration(holdTTL/2)):
-		}
+		<-time.After(time.Second * time.Duration(holdTTL/2))
 	}
 }
 
@@ -514,52 +508,12 @@ func decodeFrontendState(encodedFrontendState string) (*FrontendState, error) {
 	return &frontendState, nil
 }
 
-func (a *sharder) getServerStates() (map[string]*ServerState, error) {
-	encodedServerStates, err := a.discoveryClient.GetAll(a.serverStateDir())
-	if err != nil {
-		return nil, err
-	}
-	result := make(map[string]*ServerState)
-	for _, encodedServerState := range encodedServerStates {
-		serverState, err := decodeServerState(encodedServerState)
-		if err != nil {
-			return nil, err
-		}
-		result[serverState.Address] = serverState
-	}
-	return result, nil
-}
-
-func (a *sharder) getServerState(address string) (*ServerState, error) {
-	encodedServerState, err := a.discoveryClient.Get(a.serverStateKey(address))
-	if err != nil {
-		return nil, err
-	}
-	return decodeServerState(encodedServerState)
-}
-
 func decodeServerRole(encodedServerRole string) (*ServerRole, error) {
 	var serverRole ServerRole
 	if err := jsonpb.UnmarshalString(encodedServerRole, &serverRole); err != nil {
 		return nil, err
 	}
 	return &serverRole, nil
-}
-
-func (a *sharder) getServerRole(address string) (map[int64]*ServerRole, error) {
-	encodedServerRoles, err := a.discoveryClient.GetAll(a.serverRoleKey(address))
-	if err != nil {
-		return nil, err
-	}
-	result := make(map[int64]*ServerRole)
-	for _, encodedServerRole := range encodedServerRoles {
-		serverRole, err := decodeServerRole(encodedServerRole)
-		if err != nil {
-			return nil, err
-		}
-		result[serverRole.Version] = serverRole
-	}
-	return result, nil
 }
 
 func (a *sharder) getAddresses(version int64) (*Addresses, error) {
@@ -847,12 +801,4 @@ func sameServers(oldServers map[string]bool, newServerStates map[string]*ServerS
 		}
 	}
 	return true
-}
-
-// TODO this code is duplicate elsewhere, we should put it somehwere.
-func errorToString(err error) string {
-	if err == nil {
-		return ""
-	}
-	return err.Error()
 }

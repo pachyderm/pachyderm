@@ -114,7 +114,7 @@ func ElementsEqualOrErr(expecteds interface{}, actuals interface{}) error {
 		asElemType = as.Type().Elem().Elem()
 	}
 	if esElemType != asElemType {
-		return fmt.Errorf("Expected []%s but got []%s", es.Type().Elem(), as.Type().Elem())
+		return fmt.Errorf("expected []%s but got []%s", es.Type().Elem(), as.Type().Elem())
 	}
 
 	// Count up elements of expecteds

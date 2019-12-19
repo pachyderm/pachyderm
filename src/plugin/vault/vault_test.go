@@ -521,6 +521,9 @@ func TestVersion(t *testing.T) {
 
 	// Test client-only endpoint
 	secret, err = vl.Read("/pachyderm/version/client-only")
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
 	if _, ok := secret.Data["client-version"]; !ok {
 		t.Fatalf("could not get client version from Pachyderm plugin (client-only)")
 	}

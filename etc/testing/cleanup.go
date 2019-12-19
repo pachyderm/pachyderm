@@ -37,7 +37,11 @@ func HandleRequest() (string, error) {
 	names := strings.Split(string(out), "\n")
 	names = names[:len(names)-1]
 	var deleted string
-	svc := s3.New(session.New())
+	s, err := session.NewSession()
+	if err != nil {
+		return "Failed to create session", err
+	}
+	svc := s3.New(s)
 	for _, name := range names {
 		infoObject, err := svc.GetObject(
 			&s3.GetObjectInput{

@@ -4,17 +4,17 @@ Modify the current cluster admins
 
 ### Synopsis
 
-
 Modify the current cluster admins. --add accepts a comma-separated list of users to grant admin status, and --remove accepts a comma-separated list of users to revoke admin status
 
 ```
-pachctl auth modify-admins
+pachctl auth modify-admins [flags]
 ```
 
 ### Options
 
 ```
       --add strings      Comma-separated list of users to grant admin status
+  -h, --help             help for modify-admins
       --remove strings   Comma-separated list of users revoke admin status
 ```
 

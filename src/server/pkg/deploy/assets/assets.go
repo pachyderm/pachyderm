@@ -14,6 +14,7 @@ import (
 	auth "github.com/pachyderm/pachyderm/src/server/auth/server"
 	pfs "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serde"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -35,7 +36,6 @@ var (
 	dashName       = "dash"
 	workerImage    = "pachyderm/worker"
 	pauseImage     = "gcr.io/google_containers/pause-amd64:3.0"
-	dashImage      = "pachyderm/dash"
 
 	// ServiceAccountName is the name of Pachyderm's service account.
 	// It's public because it's needed by pps.APIServer to create the RCs for
@@ -213,13 +213,6 @@ type AssetOpts struct {
 	// placed into a Kubernetes secret and used by pachd nodes to authenticate
 	// during TLS
 	TLS *TLSOpts
-}
-
-// Encoder is the interface for writing out assets. This is assumed to wrap an output writer.
-type Encoder interface {
-	// Encodes the given struct to the wrapped output stream. This also will write out a separator
-	// value, suitable for differentiating multiple objects in the stream.
-	Encode(interface{}) (err error)
 }
 
 // replicas lets us create a pointer to a non-zero int32 in-line. This is
@@ -1225,7 +1218,7 @@ func MinioSecret(bucket string, id string, secret string, endpoint string, secur
 
 // WriteSecret writes a JSON-encoded k8s secret to the given writer.
 // The secret uses the given map as data.
-func WriteSecret(encoder Encoder, data map[string][]byte, opts *AssetOpts) error {
+func WriteSecret(encoder serde.Encoder, data map[string][]byte, opts *AssetOpts) error {
 	if opts.DashOnly {
 		return nil
 	}
@@ -1324,7 +1317,7 @@ func MicrosoftSecret(container string, id string, secret string) map[string][]by
 
 // WriteDashboardAssets writes the k8s config for deploying the Pachyderm
 // dashboard to 'encoder'
-func WriteDashboardAssets(encoder Encoder, opts *AssetOpts) error {
+func WriteDashboardAssets(encoder serde.Encoder, opts *AssetOpts) error {
 	if err := encoder.Encode(DashService(opts)); err != nil {
 		return err
 	}
@@ -1332,7 +1325,7 @@ func WriteDashboardAssets(encoder Encoder, opts *AssetOpts) error {
 }
 
 // WriteAssets writes the assets to encoder.
-func WriteAssets(encoder Encoder, opts *AssetOpts, objectStoreBackend backend,
+func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend backend,
 	persistentDiskBackend backend, volumeSize int,
 	hostPath string) error {
 	// If either backend is "local", both must be "local"
@@ -1446,19 +1439,19 @@ func WriteAssets(encoder Encoder, opts *AssetOpts, objectStoreBackend backend,
 // (equivalent to one generate by 'kubectl create secret tls'). This will be
 // mounted by the pachd pod and used as its TLS public certificate and private
 // key
-func WriteTLSSecret(encoder Encoder, opts *AssetOpts) error {
+func WriteTLSSecret(encoder serde.Encoder, opts *AssetOpts) error {
 	// Validate arguments
 	if opts.DashOnly {
 		return nil
 	}
 	if opts.TLS == nil {
-		return fmt.Errorf("Internal error: WriteTLSSecret called but opts.TLS is nil")
+		return fmt.Errorf("internal error: WriteTLSSecret called but opts.TLS is nil")
 	}
 	if opts.TLS.ServerKey == "" {
-		return fmt.Errorf("Internal error: WriteTLSSecret called but opts.TLS.ServerKey is \"\"")
+		return fmt.Errorf("internal error: WriteTLSSecret called but opts.TLS.ServerKey is \"\"")
 	}
 	if opts.TLS.ServerCert == "" {
-		return fmt.Errorf("Internal error: WriteTLSSecret called but opts.TLS.ServerCert is \"\"")
+		return fmt.Errorf("internal error: WriteTLSSecret called but opts.TLS.ServerCert is \"\"")
 	}
 
 	// Attempt to copy server cert and key files into config (kubernetes client
@@ -1486,7 +1479,7 @@ func WriteTLSSecret(encoder Encoder, opts *AssetOpts) error {
 }
 
 // WriteLocalAssets writes assets to a local backend.
-func WriteLocalAssets(encoder Encoder, opts *AssetOpts, hostPath string) error {
+func WriteLocalAssets(encoder serde.Encoder, opts *AssetOpts, hostPath string) error {
 	if err := WriteAssets(encoder, opts, localBackend, localBackend, 1 /* = volume size (gb) */, hostPath); err != nil {
 		return err
 	}
@@ -1497,12 +1490,12 @@ func WriteLocalAssets(encoder Encoder, opts *AssetOpts, hostPath string) error {
 }
 
 // WriteCustomAssets writes assets to a custom combination of object-store and persistent disk.
-func WriteCustomAssets(encoder Encoder, opts *AssetOpts, args []string, objectStoreBackend string,
+func WriteCustomAssets(encoder serde.Encoder, opts *AssetOpts, args []string, objectStoreBackend string,
 	persistentDiskBackend string, secure, isS3V2 bool, advancedConfig *obj.AmazonAdvancedConfiguration) error {
 	switch objectStoreBackend {
 	case "s3":
 		if len(args) != s3CustomArgs {
-			return fmt.Errorf("Expected %d arguments for disk+s3 backend", s3CustomArgs)
+			return fmt.Errorf("expected %d arguments for disk+s3 backend", s3CustomArgs)
 		}
 		volumeSize, err := strconv.Atoi(args[1])
 		if err != nil {
@@ -1527,7 +1520,7 @@ func WriteCustomAssets(encoder Encoder, opts *AssetOpts, args []string, objectSt
 				return err
 			}
 		default:
-			return fmt.Errorf("Did not recognize the choice of persistent-disk")
+			return fmt.Errorf("did not recognize the choice of persistent-disk")
 		}
 		bucket := args[2]
 		id := args[3]
@@ -1539,7 +1532,7 @@ func WriteCustomAssets(encoder Encoder, opts *AssetOpts, args []string, objectSt
 		// (bryce) hardcode region?
 		return WriteSecret(encoder, AmazonSecret("us-east-1", bucket, id, secret, "", "", endpoint, advancedConfig), opts)
 	default:
-		return fmt.Errorf("Did not recognize the choice of object-store")
+		return fmt.Errorf("did not recognize the choice of object-store")
 	}
 }
 
@@ -1559,7 +1552,7 @@ type AmazonCreds struct {
 }
 
 // WriteAmazonAssets writes assets to an amazon backend.
-func WriteAmazonAssets(encoder Encoder, opts *AssetOpts, region string, bucket string, volumeSize int, creds *AmazonCreds, cloudfrontDistro string, advancedConfig *obj.AmazonAdvancedConfiguration) error {
+func WriteAmazonAssets(encoder serde.Encoder, opts *AssetOpts, region string, bucket string, volumeSize int, creds *AmazonCreds, cloudfrontDistro string, advancedConfig *obj.AmazonAdvancedConfiguration) error {
 	if err := WriteAssets(encoder, opts, amazonBackend, amazonBackend, volumeSize, ""); err != nil {
 		return err
 	}
@@ -1575,7 +1568,7 @@ func WriteAmazonAssets(encoder Encoder, opts *AssetOpts, region string, bucket s
 }
 
 // WriteGoogleAssets writes assets to a google backend.
-func WriteGoogleAssets(encoder Encoder, opts *AssetOpts, bucket string, cred string, volumeSize int) error {
+func WriteGoogleAssets(encoder serde.Encoder, opts *AssetOpts, bucket string, cred string, volumeSize int) error {
 	if err := WriteAssets(encoder, opts, googleBackend, googleBackend, volumeSize, ""); err != nil {
 		return err
 	}
@@ -1583,7 +1576,7 @@ func WriteGoogleAssets(encoder Encoder, opts *AssetOpts, bucket string, cred str
 }
 
 // WriteMicrosoftAssets writes assets to a microsoft backend
-func WriteMicrosoftAssets(encoder Encoder, opts *AssetOpts, container string, id string, secret string, volumeSize int) error {
+func WriteMicrosoftAssets(encoder serde.Encoder, opts *AssetOpts, container string, id string, secret string, volumeSize int) error {
 	if err := WriteAssets(encoder, opts, microsoftBackend, microsoftBackend, volumeSize, ""); err != nil {
 		return err
 	}

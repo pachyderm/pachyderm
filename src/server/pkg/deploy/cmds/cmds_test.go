@@ -29,11 +29,11 @@ func TestWarnInvalidAmazonCreds(t *testing.T) {
 		"--dynamic-etcd-nodes=1", "--dry-run")
 	var warningMsg bytes.Buffer
 	c.Stdin = strings.NewReader(strings.Repeat("y\n", 10))
-	c.Stderr = ioutil.Discard
-	c.Stdout = &warningMsg
+	c.Stderr = &warningMsg
+	c.Stdout = ioutil.Discard
 	err := c.Run()
 	require.NoError(t, err)
-	require.Matches(t, "invalid", warningMsg.String())
+	require.Matches(t, "seems invalid", warningMsg.String())
 }
 
 func TestWarnBadRegion(t *testing.T) {
@@ -42,11 +42,11 @@ func TestWarnBadRegion(t *testing.T) {
 		"--dynamic-etcd-nodes=1", "--dry-run")
 	var warningMsg bytes.Buffer
 	c.Stdin = strings.NewReader(strings.Repeat("y\n", 10))
-	c.Stderr = ioutil.Discard
-	c.Stdout = &warningMsg
+	c.Stderr = &warningMsg
+	c.Stdout = ioutil.Discard
 	err := c.Run()
 	require.NoError(t, err)
-	require.Matches(t, "invalid", warningMsg.String())
+	require.Matches(t, "seems invalid", warningMsg.String())
 }
 
 func TestStripS3Prefix(t *testing.T) {

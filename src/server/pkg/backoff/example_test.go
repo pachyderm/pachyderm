@@ -43,7 +43,4 @@ func ExampleTicker() {
 		// Operation has failed.
 		return
 	}
-
-	// Operation is successful.
-	return
 }

@@ -36,10 +36,10 @@ If you're doing a custom release (off a branch that isn't master), [skip to the 
 
 2) Make sure that you have no uncommitted files in the current branch. Note that `make doc` (next step) will fail if there are any uncommited changes in the current branch
 
-3) Update `src/client/version/client.go` and `doc/conf.py` version values, build a new local version of pachctl, and **commit the change** (locally—you'll push it to GitHub in the next step, but this allows `make doc` to run):
+3) Update `src/client/version/client.go` version values, build a new local version of pachctl, and **commit the change** (locally—you'll push it to GitHub in the next step, but this allows `make doc` to run):
     ```
     > make VERSION_ADDITIONAL= install
-    > git add src/client/version/client.go doc/conf.py
+    > git add src/client/version/client.go
     > git commit -m"Increment version for $(pachctl version --client-only) point release"
     ```
 
@@ -134,7 +134,7 @@ Which will create a release like `v1.2.3-2342345aefda9879e87ad`
 Which can be installed like:
 
 ```
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.8/pachctl_1.9.8_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.9/pachctl_1.9.9_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 Or for mac/brew:

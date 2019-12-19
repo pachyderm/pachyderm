@@ -4,8 +4,13 @@ Debug commands for analyzing a running cluster.
 
 ### Synopsis
 
-
 Debug commands for analyzing a running cluster.
+
+### Options
+
+```
+  -h, --help   help for debug
+```
 
 ### Options inherited from parent commands
 

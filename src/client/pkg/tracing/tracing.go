@@ -119,6 +119,7 @@ func InstallJaegerTracerFromEnv() string {
 		jaegerEndpoint = strings.TrimSuffix(jaegerEndpoint, "/api/traces")
 		jaegerEndpoint = fmt.Sprintf("http://%s/api/traces", jaegerEndpoint)
 		cfg := jaegercfg.Configuration{
+			ServiceName: JaegerServiceName,
 			// Configure Jaeger to sample every call, but use the SpanInclusionFunc
 			// addTraceIfTracingEnabled (defined below) to skip sampling every RPC
 			// unless the PACH_TRACE environment variable is set
@@ -145,7 +146,7 @@ func InstallJaegerTracerFromEnv() string {
 		// that wrap the same underlying type). Instead of storing the second return
 		// value here, just cast the tracer to io.Closer in CloseAndReportTraces()
 		// (below) and call 'Close()' on it there.
-		tracer, _, err := cfg.New(JaegerServiceName, jaegercfg.Logger(logger))
+		tracer, _, err := cfg.NewTracer(jaegercfg.Logger(logger))
 		if err != nil {
 			log.Errorf("jaeger-collector service is deployed, but Pachyderm could not install Jaeger tracer: %v", err)
 			return

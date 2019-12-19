@@ -2,6 +2,7 @@
   "pipeline": {
     "name": "model"
   },
+  "description": "A pipeline that uses the data in the `training` repository to train the model.",
   "transform": {
     "image": "kaixhin/neon",
     "cmd": [

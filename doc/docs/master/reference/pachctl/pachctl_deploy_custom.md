@@ -4,18 +4,18 @@ Deploy a custom Pachyderm cluster configuration
 
 ### Synopsis
 
-
 Deploy a custom Pachyderm cluster configuration.
 If <object store backend> is \"s3\", then the arguments are:
     <volumes> <size of volumes (in GB)> <bucket> <id> <secret> <endpoint>
 
 ```
-pachctl deploy custom --persistent-disk <persistent disk backend> --object-store <object store backend> <persistent disk args> <object store args>
+pachctl deploy custom --persistent-disk <persistent disk backend> --object-store <object store backend> <persistent disk args> <object store args> [flags]
 ```
 
 ### Options
 
 ```
+  -h, --help                     help for custom
       --isS3V2                   Enable S3V2 client
       --max-upload-parts int     (rarely set / S3V2 incompatible) Set a custom maximum number of upload parts. (default 10000)
       --object-store string      (required) Backend providing an object-storage API to pachyderm. One of: s3, gcs, or azure-blob. (default "s3")

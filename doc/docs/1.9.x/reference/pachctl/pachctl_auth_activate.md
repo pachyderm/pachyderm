@@ -4,18 +4,18 @@ Activate Pachyderm's auth system
 
 ### Synopsis
 
-
 Activate Pachyderm's auth system, and restrict access to existing data to the
 user running the command (or the argument to --initial-admin), who will be the
 first cluster admin
 
 ```
-pachctl auth activate
+pachctl auth activate [flags]
 ```
 
 ### Options
 
 ```
+  -h, --help                   help for activate
       --initial-admin string   The subject (robot user or github user) who
                                will be the first cluster admin; the user running 'activate' will identify as
                                this user once auth is active.  If you set 'initial-admin' to a robot

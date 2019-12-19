@@ -4,11 +4,16 @@ Export a tarball (to stdout) containing all of the images in a deployment.
 
 ### Synopsis
 
-
 Export a tarball (to stdout) containing all of the images in a deployment.
 
 ```
-pachctl deploy export-images <output-file>
+pachctl deploy export-images <output-file> [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for export-images
 ```
 
 ### Options inherited from parent commands

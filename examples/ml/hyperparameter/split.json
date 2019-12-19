@@ -2,6 +2,7 @@
   "pipeline": {
     "name": "split"
   },
+  "description": "A pipeline that splits the `iris` data set into the `training` and `test` data sets.",
   "transform": {
     "cmd": [ "/bin/bash" ],
     "stdin": [

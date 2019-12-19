@@ -4,9 +4,9 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -25,7 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/images"
 	_metrics "github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
-	"gopkg.in/pachyderm/yaml.v3"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serde"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
@@ -37,86 +37,30 @@ var awsAccessKeyIDRE = regexp.MustCompile("^[A-Z0-9]{20}$")
 var awsSecretRE = regexp.MustCompile("^[A-Za-z0-9/+=]{40}$")
 var awsRegionRE = regexp.MustCompile("^[a-z]{2}(?:-gov)?-[a-z]+-[0-9]$")
 
-// BytesEncoder is an Encoder with bytes content.
-type BytesEncoder interface {
-	assets.Encoder
-	// Return the current buffer of the encoder.
-	Buffer() *bytes.Buffer
-}
-
-// JSON assets.Encoder.
-type jsonEncoder struct {
-	encoder *json.Encoder
-	buffer  *bytes.Buffer
-}
-
-func newJSONEncoder() *jsonEncoder {
-	buffer := &bytes.Buffer{}
-	encoder := json.NewEncoder(buffer)
-	encoder.SetIndent("", "\t")
-	return &jsonEncoder{encoder, buffer}
-}
-
-func (e *jsonEncoder) Encode(item interface{}) error {
-	if err := e.encoder.Encode(item); err != nil {
-		return err
-	}
-	_, err := fmt.Fprintf(e.buffer, "\n")
-	return err
-}
-
-// Return the current bytes content.
-func (e *jsonEncoder) Buffer() *bytes.Buffer {
-	return e.buffer
-}
-
-// YAML assets.Encoder.
-type yamlEncoder struct {
-	buffer *bytes.Buffer
-}
-
-func newYAMLEncoder() *yamlEncoder {
-	buffer := &bytes.Buffer{}
-	return &yamlEncoder{buffer}
-}
-
-func (e *yamlEncoder) Encode(item interface{}) error {
-	bytes, err := yaml.Marshal(item)
-	if err != nil {
-		return err
-	}
-	_, err = e.buffer.Write(bytes)
-	if err != nil {
-		return err
-	}
-	_, err = fmt.Fprintf(e.buffer, "---\n")
-	return err
-}
-
-// Return the current bytes content.
-func (e *yamlEncoder) Buffer() *bytes.Buffer {
-	return e.buffer
-}
-
 // Return the appropriate encoder for the given output format.
-func getEncoder(outputFormat string) BytesEncoder {
-	switch outputFormat {
-	case "yaml":
-		return newYAMLEncoder()
-	case "json":
-		return newJSONEncoder()
-	default:
-		return newJSONEncoder()
+func encoder(output string, w io.Writer) serde.Encoder {
+	if output == "" {
+		output = "json"
+	} else {
+		output = strings.ToLower(output)
 	}
+	e, err := serde.GetEncoder(output, w,
+		serde.WithIndent(2),
+		serde.WithOrigName(true),
+	)
+	if err != nil {
+		cmdutil.ErrorAndExit(err.Error())
+	}
+	return e
 }
 
-func kubectlCreate(dryRun bool, manifest BytesEncoder, opts *assets.AssetOpts) error {
+func kubectlCreate(dryRun bool, manifest []byte, opts *assets.AssetOpts) error {
 	if dryRun {
-		_, err := os.Stdout.Write(manifest.Buffer().Bytes())
+		_, err := os.Stdout.Write(manifest)
 		return err
 	}
 	io := cmdutil.IO{
-		Stdin:  manifest.Buffer(),
+		Stdin:  bytes.NewReader(manifest),
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
 	}
@@ -216,7 +160,6 @@ func deployCmds() []*cobra.Command {
 					finishMetricsWait()
 				}()
 			}
-			manifest := getEncoder(outputFormat)
 			if dev {
 				// Use dev build instead of release build
 				opts.Version = deploy.DevVersionTag
@@ -232,10 +175,13 @@ func deployCmds() []*cobra.Command {
 				// our tests (and authentication is disabled anyway)
 				opts.ExposeObjectAPI = true
 			}
-			if err := assets.WriteLocalAssets(manifest, opts, hostPath); err != nil {
+			var buf bytes.Buffer
+			if err := assets.WriteLocalAssets(
+				encoder(outputFormat, &buf), opts, hostPath,
+			); err != nil {
 				return err
 			}
-			if err := kubectlCreate(dryRun, manifest, opts); err != nil {
+			if err := kubectlCreate(dryRun, buf.Bytes(), opts); err != nil {
 				return err
 			}
 			if !dryRun {
@@ -272,7 +218,7 @@ func deployCmds() []*cobra.Command {
 			if err != nil {
 				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[1])
 			}
-			manifest := getEncoder(outputFormat)
+			var buf bytes.Buffer
 			opts.BlockCacheSize = "0G" // GCS is fast so we want to disable the block cache. See issue #1650
 			var cred string
 			if len(args) == 3 {
@@ -283,10 +229,12 @@ func deployCmds() []*cobra.Command {
 				cred = string(credBytes)
 			}
 			bucket := strings.TrimPrefix(args[0], "gs://")
-			if err = assets.WriteGoogleAssets(manifest, opts, bucket, cred, volumeSize); err != nil {
+			if err = assets.WriteGoogleAssets(
+				encoder(outputFormat, &buf), opts, bucket, cred, volumeSize,
+			); err != nil {
 				return err
 			}
-			if err := kubectlCreate(dryRun, manifest, opts); err != nil {
+			if err := kubectlCreate(dryRun, buf.Bytes(), opts); err != nil {
 				return err
 			}
 			if !dryRun {
@@ -336,12 +284,14 @@ If <object store backend> is \"s3\", then the arguments are:
 				MaxUploadParts: maxUploadParts,
 			}
 			// Generate manifest and write assets.
-			manifest := getEncoder(outputFormat)
-			err := assets.WriteCustomAssets(manifest, opts, args, objectStoreBackend, persistentDiskBackend, secure, isS3V2, advancedConfig)
-			if err != nil {
+			var buf bytes.Buffer
+			if err := assets.WriteCustomAssets(
+				encoder(outputFormat, &buf), opts, args, objectStoreBackend,
+				persistentDiskBackend, secure, isS3V2, advancedConfig,
+			); err != nil {
 				return err
 			}
-			if err := kubectlCreate(dryRun, manifest, opts); err != nil {
+			if err := kubectlCreate(dryRun, buf.Bytes(), opts); err != nil {
 				return err
 			}
 			if !dryRun {
@@ -391,7 +341,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				finishMetricsWait()
 			}()
 			if creds == "" && vault == "" && iamRole == "" {
-				return fmt.Errorf("One of --credentials, --vault, or --iam-role needs to be provided")
+				return fmt.Errorf("one of --credentials, --vault, or --iam-role needs to be provided")
 			}
 
 			// populate 'amazonCreds' & validate
@@ -400,7 +350,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			if creds != "" {
 				parts := strings.Split(creds, ",")
 				if len(parts) < 2 || len(parts) > 3 || containsEmpty(parts[:2]) {
-					return fmt.Errorf("Incorrect format of --credentials")
+					return fmt.Errorf("incorrect format of --credentials")
 				}
 				amazonCreds = &assets.AmazonCreds{ID: parts[0], Secret: parts[1]}
 				if len(parts) > 2 {
@@ -408,16 +358,17 @@ If <object store backend> is \"s3\", then the arguments are:
 				}
 
 				if !awsAccessKeyIDRE.MatchString(amazonCreds.ID) {
-					fmt.Printf("The AWS Access Key seems invalid (does not match %q). "+
-						"Do you want to continue deploying? [yN]\n", awsAccessKeyIDRE)
+					fmt.Fprintf(os.Stderr, "The AWS Access Key seems invalid (does not "+
+						"match %q). Do you want to continue deploying? [yN]\n",
+						awsAccessKeyIDRE)
 					if s.Scan(); s.Text()[0] != 'y' && s.Text()[0] != 'Y' {
 						os.Exit(1)
 					}
 				}
 
 				if !awsSecretRE.MatchString(amazonCreds.Secret) {
-					fmt.Printf("The AWS Secret seems invalid (does not match %q). "+
-						"Do you want to continue deploying? [yN]\n", awsSecretRE)
+					fmt.Fprintf(os.Stderr, "The AWS Secret seems invalid (does not "+
+						"match %q). Do you want to continue deploying? [yN]\n", awsSecretRE)
 					if s.Scan(); s.Text()[0] != 'y' && s.Text()[0] != 'Y' {
 						os.Exit(1)
 					}
@@ -425,17 +376,17 @@ If <object store backend> is \"s3\", then the arguments are:
 			}
 			if vault != "" {
 				if amazonCreds != nil {
-					return fmt.Errorf("Only one of --credentials, --vault, or --iam-role needs to be provided")
+					return fmt.Errorf("only one of --credentials, --vault, or --iam-role needs to be provided")
 				}
 				parts := strings.Split(vault, ",")
 				if len(parts) != 3 || containsEmpty(parts) {
-					return fmt.Errorf("Incorrect format of --vault")
+					return fmt.Errorf("incorrect format of --vault")
 				}
 				amazonCreds = &assets.AmazonCreds{VaultAddress: parts[0], VaultRole: parts[1], VaultToken: parts[2]}
 			}
 			if iamRole != "" {
 				if amazonCreds != nil {
-					return fmt.Errorf("Only one of --credentials, --vault, or --iam-role needs to be provided")
+					return fmt.Errorf("only one of --credentials, --vault, or --iam-role needs to be provided")
 				}
 				opts.IAMRole = iamRole
 			}
@@ -444,13 +395,15 @@ If <object store backend> is \"s3\", then the arguments are:
 				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[2])
 			}
 			if strings.TrimSpace(cloudfrontDistribution) != "" {
-				fmt.Printf("WARNING: You specified a cloudfront distribution. Deploying on AWS with cloudfront is currently " +
-					"an alpha feature. No security restrictions have been applied to cloudfront, making all data public (obscured but not secured)\n")
+				fmt.Fprintf(os.Stderr, "WARNING: You specified a cloudfront "+
+					"distribution. Deploying on AWS with cloudfront is currently an "+
+					"alpha feature. No security restrictions have been applied to "+
+					"cloudfront, making all data public (obscured but not secured)\n")
 			}
 			bucket, region := strings.TrimPrefix(args[0], "s3://"), args[1]
 			if !awsRegionRE.MatchString(region) {
-				fmt.Printf("The AWS region seems invalid (does not match %q). "+
-					"Do you want to continue deploying? [yN]\n", awsRegionRE)
+				fmt.Fprintf(os.Stderr, "The AWS region seems invalid (does not match "+
+					"%q). Do you want to continue deploying? [yN]\n", awsRegionRE)
 				if s.Scan(); s.Text()[0] != 'y' && s.Text()[0] != 'Y' {
 					os.Exit(1)
 				}
@@ -465,11 +418,14 @@ If <object store backend> is \"s3\", then the arguments are:
 				MaxUploadParts: maxUploadParts,
 			}
 			// Generate manifest and write assets.
-			manifest := getEncoder(outputFormat)
-			if err = assets.WriteAmazonAssets(manifest, opts, region, bucket, volumeSize, amazonCreds, cloudfrontDistribution, advancedConfig); err != nil {
+			var buf bytes.Buffer
+			if err = assets.WriteAmazonAssets(
+				encoder(outputFormat, &buf), opts, region, bucket, volumeSize,
+				amazonCreds, cloudfrontDistribution, advancedConfig,
+			); err != nil {
 				return err
 			}
-			if err := kubectlCreate(dryRun, manifest, opts); err != nil {
+			if err := kubectlCreate(dryRun, buf.Bytes(), opts); err != nil {
 				return err
 			}
 			if !dryRun {
@@ -518,7 +474,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			if opts.EtcdVolume != "" {
 				tempURI, err := url.ParseRequestURI(opts.EtcdVolume)
 				if err != nil {
-					return fmt.Errorf("Volume URI needs to be a well-formed URI; instead got '%v'", opts.EtcdVolume)
+					return fmt.Errorf("volume URI needs to be a well-formed URI; instead got '%v'", opts.EtcdVolume)
 				}
 				opts.EtcdVolume = tempURI.String()
 			}
@@ -526,13 +482,15 @@ If <object store backend> is \"s3\", then the arguments are:
 			if err != nil {
 				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[3])
 			}
-			manifest := getEncoder(outputFormat)
+			var buf bytes.Buffer
 			container := strings.TrimPrefix(args[0], "wasb://")
 			accountName, accountKey := args[1], args[2]
-			if err = assets.WriteMicrosoftAssets(manifest, opts, container, accountName, accountKey, volumeSize); err != nil {
+			if err = assets.WriteMicrosoftAssets(
+				encoder(outputFormat, &buf), opts, container, accountName, accountKey, volumeSize,
+			); err != nil {
 				return err
 			}
-			if err := kubectlCreate(dryRun, manifest, opts); err != nil {
+			if err := kubectlCreate(dryRun, buf.Bytes(), opts); err != nil {
 				return err
 			}
 			if !dryRun {
@@ -562,24 +520,23 @@ If <object store backend> is \"s3\", then the arguments are:
 			}
 		}
 
-		manifest := getEncoder(outputFormat)
-		err = assets.WriteSecret(manifest, data, opts)
-		if err != nil {
+		var buf bytes.Buffer
+		if err = assets.WriteSecret(encoder(outputFormat, &buf), data, opts); err != nil {
 			return err
 		}
 		if dryRun {
-			_, err := os.Stdout.Write(manifest.Buffer().Bytes())
+			_, err := os.Stdout.Write(buf.Bytes())
 			return err
 		}
 
 		io := cmdutil.IO{
-			Stdin:  manifest.Buffer(),
+			Stdin:  &buf,
 			Stdout: os.Stdout,
 			Stderr: os.Stderr,
 		}
 
 		// it can't unmarshal it from stdin in the given format for some reason, so we pass it in directly
-		s := string(manifest.Buffer().Bytes())
+		s := buf.String()
 		return cmdutil.RunIO(io, `kubectl`, "patch", "secret", "pachyderm-storage-secret", "-p", s, "--namespace", opts.Namespace, "--type=merge")
 	}
 
@@ -927,13 +884,17 @@ removed.`)
 				}
 			}
 			// Redeploy the dash
-			manifest := getEncoder(updateDashOutputFormat)
+			var buf bytes.Buffer
 			opts := &assets.AssetOpts{
 				DashOnly:  true,
 				DashImage: getDefaultOrLatestDashImage("", updateDashDryRun),
 			}
-			assets.WriteDashboardAssets(manifest, opts)
-			return kubectlCreate(updateDashDryRun, manifest, opts)
+			if err := assets.WriteDashboardAssets(
+				encoder(updateDashOutputFormat, &buf), opts,
+			); err != nil {
+				return err
+			}
+			return kubectlCreate(updateDashDryRun, buf.Bytes(), opts)
 		}),
 	}
 	updateDash.Flags().BoolVar(&updateDashDryRun, "dry-run", false, "Don't actually deploy Pachyderm Dash to Kubernetes, instead just print the manifest.")

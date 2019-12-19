@@ -6,10 +6,6 @@ import (
 )
 
 const (
-	// Used for a sanity check that we don't allocate too much when determining
-	// bloom filter size in NewFilterWithFalsePositiveRate.
-	maxBuckets = 104857600
-
 	// We use uint32 for bucket size internally
 	bytesPerBucket = 4
 )

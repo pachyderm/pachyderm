@@ -3,17 +3,14 @@
 set -e
 
 version="$(pachctl version --client-only)"
+major_minor=`echo $version | cut -f -2 -d "."`
 echo "--- Updating docs for version: $version"
 
 # Rebuild pachctl docs
-doc_root="${GOPATH}/github.com/pachyderm/pachyderm/doc"
+doc_root="${GOPATH}/src/github.com/pachyderm/pachyderm/doc"
 pachctl_docs="${doc_root}/docs/master/reference/pachctl"
 rm -rf "${pachctl_docs}" && mkdir "${pachctl_docs}"
-$GOPATH/bin/pachctl-doc
-
-# Copy "master" to current version's docs
-major_minor=`echo $version | cut -f -2 -d "."`
-cp -R "${doc_root}/docs/master" "${doc_root}/docs/${major_minor}.x"
+"${GOPATH}/bin/pachctl-doc"
 
 # Remove "see also" sections, since they have bad links and aren't very
 # helpful here anyways
@@ -38,5 +35,9 @@ find doc -type f -exec sed -i'' 's@tmp\/pachctl_.*_linux_amd64\/pachctl@'"tmp/pa
 
 # Update brew formula (only needed when major_minor changes)
 find doc -type f -exec sed -i'' 's#pachyderm/tap/pachctl.*#pachyderm/tap/pachctl@'"$major_minor"'#g' {} \;
+
+# Copy "master" to current version's docs
+rm -rf "${doc_root}/docs/${major_minor}.x"
+cp -R "${doc_root}/docs/master" "${doc_root}/docs/${major_minor}.x"
 
 echo "--- Successfully updated docs"
