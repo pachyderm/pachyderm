@@ -20,7 +20,7 @@ rm -rf "${pachctl_docs}" && mkdir "${pachctl_docs}"
 # using here to remove everything after the see also pattern
 for srcpath in "${pachctl_docs}"/*.md; do
 	#dstpath="${pachctl_docs}"-fixed/$(basename $srcpath)
-	sed -n '/### SEE ALSO/!p;//q' $srcpath > tmp.md
+	sed -n '/### SEE ALSO/ { !p; q; }' $srcpath > tmp.md
 	mv tmp.md $srcpath
 done
 
