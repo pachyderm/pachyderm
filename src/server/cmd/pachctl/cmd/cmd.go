@@ -21,6 +21,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/juju/ansiterm"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	admincmds "github.com/pachyderm/pachyderm/src/server/admin/cmds"
@@ -512,12 +513,31 @@ This resets the cluster to its initial state.`,
 				fmt.Printf("WARNING: The `--namespace` flag is deprecated and will be removed in a future version. Please set the namespace in the pachyderm context instead: pachctl config update context `pachctl config get active-context` --namespace '%s'\n", namespace)
 			}
 
-			fw, err := client.NewPortForwarder(namespace)
+			cfg, err := config.Read()
+			if err != nil {
+				return err
+			}
+			_, context, err := cfg.ActiveContext()
+			if err != nil {
+				return err
+			}
+			if context.PortForwarders != nil && len(context.PortForwarders) > 0 {
+				return errors.New("port forwarding appears to already be running for this context")
+			}
+			defer func() {
+				context.PortForwarders = nil
+				if err := cfg.Write(); err != nil {
+					fmt.Fprintf(os.Stderr, "failed to write config file: %v\n", err)
+				}
+			}()
+
+			fw, err := client.NewPortForwarder(context, namespace)
 			if err != nil {
 				return err
 			}
 			defer fw.Close()
 
+			context.PortForwarders = map[string]uint32{}
 			successCount := 0
 
 			fmt.Println("Forwarding the pachd (Pachyderm daemon) port...")
@@ -526,6 +546,7 @@ This resets the cluster to its initial state.`,
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {
 				fmt.Printf("listening on port %d\n", port)
+				context.PortForwarders["pachd"] = uint32(port)
 				successCount++
 			}
 
@@ -535,6 +556,7 @@ This resets the cluster to its initial state.`,
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {
 				fmt.Printf("listening on port %d\n", port)
+				context.PortForwarders["saml-acs"] = uint32(port)
 				successCount++
 			}
 
@@ -544,6 +566,7 @@ This resets the cluster to its initial state.`,
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {
 				fmt.Printf("listening on port %d\n", port)
+				context.PortForwarders["dash-ui"] = uint32(port)
 				successCount++
 			}
 
@@ -553,6 +576,7 @@ This resets the cluster to its initial state.`,
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {
 				fmt.Printf("listening on port %d\n", port)
+				context.PortForwarders["dash-ws"] = uint32(port)
 				successCount++
 			}
 
@@ -562,6 +586,7 @@ This resets the cluster to its initial state.`,
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {
 				fmt.Printf("listening on port %d\n", port)
+				context.PortForwarders["pfs-over-http"] = uint32(port)
 				successCount++
 			}
 
@@ -571,10 +596,15 @@ This resets the cluster to its initial state.`,
 				fmt.Printf("port forwarding failed: %v\n", err)
 			} else {
 				fmt.Printf("listening on port %d\n", port)
+				context.PortForwarders["s3g"] = uint32(port)
 				successCount++
 			}
 
 			if successCount > 0 {
+				if err = cfg.Write(); err != nil {
+					return err
+				}
+
 				fmt.Println("CTRL-C to exit")
 				ch := make(chan os.Signal, 1)
 				signal.Notify(ch, os.Interrupt)

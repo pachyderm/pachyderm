@@ -350,10 +350,10 @@ func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress,
 	return nil, options, nil
 }
 
-func portForwarder() (*PortForwarder, uint16, error) {
+func portForwarder(context *config.Context) (*PortForwarder, uint16, error) {
 	log.Debugln("Attempting to implicitly enable port forwarding...")
 
-	fw, err := NewPortForwarder("")
+	fw, err := NewPortForwarder(context, "")
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to initialize port forwarder: %v", err)
 	}
@@ -420,9 +420,20 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 	}
 
 	var fw *PortForwarder
+	if pachdAddress == nil && context.PortForwarders != nil {
+		pachdLocalPort, ok := context.PortForwarders["pachd"]
+		if ok {
+			log.Debugf("Connecting to explicitly port forwarded pachd instance on port %d", pachdLocalPort)
+			pachdAddress = &grpcutil.PachdAddress{
+				Secured: false,
+				Host:    "localhost",
+				Port:    uint16(pachdLocalPort),
+			}
+		}
+	}
 	if pachdAddress == nil {
 		var pachdLocalPort uint16
-		fw, pachdLocalPort, err = portForwarder()
+		fw, pachdLocalPort, err = portForwarder(context)
 		if err != nil {
 			return nil, err
 		}
