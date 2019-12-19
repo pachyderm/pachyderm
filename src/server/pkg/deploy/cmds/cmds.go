@@ -102,6 +102,7 @@ func contextCreate(namePrefix, namespace, serverCert string) error {
 		ClusterName: clusterName,
 		AuthInfo:    authInfo,
 		Namespace:   namespace,
+		ServerCAs:   serverCert,
 	}
 
 	// if the new context is the same as the active context, exit without
