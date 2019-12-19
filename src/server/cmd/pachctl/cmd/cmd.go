@@ -516,52 +516,65 @@ This resets the cluster to its initial state.`,
 			if err != nil {
 				return err
 			}
-
-			if err = fw.Lock(); err != nil {
-				return err
-			}
-
 			defer fw.Close()
 
-			failCount := 0
+			successCount := 0
 
 			fmt.Println("Forwarding the pachd (Pachyderm daemon) port...")
-			if err = fw.RunForDaemon(port, remotePort); err != nil {
-				fmt.Printf("%v\n", err)
-				failCount++
+			port, err := fw.RunForDaemon(port, remotePort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				successCount++
 			}
 
 			fmt.Println("Forwarding the SAML ACS port...")
-			if err = fw.RunForSAMLACS(samlPort); err != nil {
-				fmt.Printf("%v\n", err)
-				failCount++
+			port, err = fw.RunForSAMLACS(samlPort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				successCount++
 			}
 
 			fmt.Printf("Forwarding the dash (Pachyderm dashboard) UI port to http://localhost:%v...\n", uiPort)
-			if err = fw.RunForDashUI(uiPort); err != nil {
-				fmt.Printf("%v\n", err)
-				failCount++
+			port, err = fw.RunForDashUI(uiPort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				successCount++
 			}
 
 			fmt.Println("Forwarding the dash (Pachyderm dashboard) websocket port...")
-			if err = fw.RunForDashWebSocket(uiWebsocketPort); err != nil {
-				fmt.Printf("%v\n", err)
-				failCount++
+			port, err = fw.RunForDashWebSocket(uiWebsocketPort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				successCount++
 			}
 
 			fmt.Println("Forwarding the PFS port...")
-			if err = fw.RunForPFS(pfsPort); err != nil {
-				fmt.Printf("%v\n", err)
-				failCount++
+			port, err = fw.RunForPFS(pfsPort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				successCount++
 			}
 
 			fmt.Println("Forwarding the s3gateway port...")
-			if err = fw.RunForS3Gateway(s3gatewayPort); err != nil {
-				fmt.Printf("%v\n", err)
-				failCount++
+			port, err = fw.RunForS3Gateway(s3gatewayPort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				successCount++
 			}
 
-			if failCount < 6 {
+			if successCount > 0 {
 				fmt.Println("CTRL-C to exit")
 				ch := make(chan os.Signal, 1)
 				signal.Notify(ch, os.Interrupt)
