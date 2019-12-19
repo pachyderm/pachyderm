@@ -28,7 +28,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serde"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
 )
 
@@ -124,7 +123,8 @@ func contextCreate(namePrefix, namespace, serverCert string) error {
 
 	for _, contextName := range contextNames {
 		existingContext := cfg.V2.Contexts[contextName]
-		if proto.Equal(newContext, existingContext) {
+
+		if newContextName.EqualClusterReference(existingContext) {
 			cfg.V2.ActiveContext = contextName
 			existingContext.ClusterID = ""
 			existingContext.ServerCAs = serverCert
