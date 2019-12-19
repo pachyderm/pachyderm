@@ -128,6 +128,8 @@ def main():
     elif kube_context == "docker-desktop":
         print_status("using the docker desktop driver")
         driver = DockerDesktopDriver()
+    else:
+        raise Exception("could not derive driver from context name: {}".format(kube_context))
 
     # ignore errors on `pachctl delete all` because there's a variety of ways
     # it could fail that we can recover from:
