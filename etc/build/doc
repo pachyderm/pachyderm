@@ -7,7 +7,8 @@ major_minor=`echo $version | cut -f -2 -d "."`
 echo "--- Updating docs for version: $version"
 
 # Rebuild pachctl docs
-doc_root="${GOPATH}/src/github.com/pachyderm/pachyderm/doc"
+here="$(dirname "${0}")"
+doc_root="${here}/../../doc"
 pachctl_docs="${doc_root}/docs/master/reference/pachctl"
 rm -rf "${pachctl_docs}" && mkdir "${pachctl_docs}"
 "${GOPATH}/bin/pachctl-doc"
