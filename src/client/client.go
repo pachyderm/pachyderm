@@ -370,7 +370,7 @@ func portForwarder(context *config.Context) (*PortForwarder, uint16, error) {
 
 // NewForTest constructs a new APIClient for tests.
 func NewForTest() (*APIClient, error) {
-	cfg, err := config.Read()
+	cfg, err := config.Read(false)
 	if err != nil {
 		return nil, fmt.Errorf("could not read config: %v", err)
 	}
@@ -404,7 +404,7 @@ func NewForTest() (*APIClient, error) {
 // (and similar) logic into src/server and have it call a NewFromOptions()
 // constructor.
 func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
-	cfg, err := config.Read()
+	cfg, err := config.Read(false)
 	if err != nil {
 		return nil, fmt.Errorf("could not read config: %v", err)
 	}

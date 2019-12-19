@@ -513,23 +513,17 @@ This resets the cluster to its initial state.`,
 				fmt.Printf("WARNING: The `--namespace` flag is deprecated and will be removed in a future version. Please set the namespace in the pachyderm context instead: pachctl config update context `pachctl config get active-context` --namespace '%s'\n", namespace)
 			}
 
-			cfg, err := config.Read()
+			cfg, err := config.Read(false)
 			if err != nil {
 				return err
 			}
-			_, context, err := cfg.ActiveContext()
+			contextName, context, err := cfg.ActiveContext()
 			if err != nil {
 				return err
 			}
 			if context.PortForwarders != nil && len(context.PortForwarders) > 0 {
 				return errors.New("port forwarding appears to already be running for this context")
 			}
-			defer func() {
-				context.PortForwarders = nil
-				if err := cfg.Write(); err != nil {
-					fmt.Fprintf(os.Stderr, "failed to write config file: %v\n", err)
-				}
-			}()
 
 			fw, err := client.NewPortForwarder(context, namespace)
 			if err != nil {
@@ -600,16 +594,35 @@ This resets the cluster to its initial state.`,
 				successCount++
 			}
 
-			if successCount > 0 {
-				if err = cfg.Write(); err != nil {
-					return err
-				}
-
-				fmt.Println("CTRL-C to exit")
-				ch := make(chan os.Signal, 1)
-				signal.Notify(ch, os.Interrupt)
-				<-ch
+			if successCount == 0 {
+				return errors.New("failed to start port forwarders")
 			}
+
+			if err = cfg.Write(); err != nil {
+				return err
+			}
+
+			defer func() {
+				// reload config in case changes have happened since the
+				// config was last read
+				cfg, err := config.Read(true)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "failed to read config file: %v\n", err)
+					return
+				}
+				context, ok := cfg.V2.Contexts[contextName]
+				if ok {
+					context.PortForwarders = nil
+					if err := cfg.Write(); err != nil {
+						fmt.Fprintf(os.Stderr, "failed to write config file: %v\n", err)
+					}
+				}
+			}()
+
+			fmt.Println("CTRL-C to exit")
+			ch := make(chan os.Signal, 1)
+			signal.Notify(ch, os.Interrupt)
+			<-ch
 
 			return nil
 		}),

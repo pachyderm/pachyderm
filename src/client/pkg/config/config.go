@@ -56,11 +56,11 @@ func (c *Config) ActiveContext() (string, *Context, error) {
 // Read loads the Pachyderm config on this machine.
 // If an existing configuration cannot be found, it sets up the defaults. Read
 // returns a nil Config if and only if it returns a non-nil error.
-func Read() (*Config, error) {
+func Read(ignoreCache bool) (*Config, error) {
 	configMu.Lock()
 	defer configMu.Unlock()
 
-	if value == nil {
+	if value == nil || ignoreCache {
 		// Read json file
 		p := configPath()
 		if raw, err := ioutil.ReadFile(p); err == nil {
@@ -111,7 +111,7 @@ func Read() (*Config, error) {
 		if updated {
 			log.Debugf("Rewriting config at %q.", p)
 
-			if err := value.write(); err != nil {
+			if err := value.Write(); err != nil {
 				return nil, fmt.Errorf("could not rewrite config at %q: %v", p, err)
 			}
 		}
@@ -148,15 +148,6 @@ func (c *Config) initV2() error {
 // Write writes the configuration in 'c' to this machine's Pachyderm config
 // file.
 func (c *Config) Write() error {
-	configMu.Lock()
-	defer configMu.Unlock()
-	return c.write()
-}
-
-// write() is a helper for Write() that assumes the caller has already locked
-// configMu. Because Go mutexes are not reentrant, this is safe to call from
-// inside Read()
-func (c *Config) write() error {
 	if c.V1 != nil {
 		panic("config V1 included (this is a bug)")
 	}

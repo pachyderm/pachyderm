@@ -92,7 +92,7 @@ func contextCreate(namePrefix, namespace, serverCert string) error {
 		authInfo = kubeContext.AuthInfo
 	}
 
-	cfg, err := config.Read()
+	cfg, err := config.Read(false)
 	if err != nil {
 		return err
 	}
@@ -697,7 +697,7 @@ If <object store backend> is \"s3\", then the arguments are:
 		Short: "Deploy a Pachyderm cluster.",
 		Long:  "Deploy a Pachyderm cluster.",
 		PersistentPreRun: cmdutil.Run(func([]string) error {
-			cfg, err := config.Read()
+			cfg, err := config.Read(false)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "WARNING: could not read config to check whether cluster metrics will be enabled: %v.\n", err)
 			}
