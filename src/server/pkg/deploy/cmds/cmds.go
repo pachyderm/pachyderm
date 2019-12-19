@@ -124,7 +124,7 @@ func contextCreate(namePrefix, namespace, serverCert string) error {
 	for _, contextName := range contextNames {
 		existingContext := cfg.V2.Contexts[contextName]
 
-		if newContextName.EqualClusterReference(existingContext) {
+		if newContext.EqualClusterReference(existingContext) {
 			cfg.V2.ActiveContext = contextName
 			existingContext.ClusterID = ""
 			existingContext.ServerCAs = serverCert
