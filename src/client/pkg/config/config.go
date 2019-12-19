@@ -167,6 +167,7 @@ func (c *Config) write() error {
 	}
 
 	p := configPath()
+
 	// Because we're writing the config back to disk, we'll also need to make sure
 	// that the directory we're writing the config into exists. The approach we
 	// use for doing this depends on whether PACH_CONFIG is set.
@@ -184,10 +185,26 @@ func (c *Config) write() error {
 			return err
 		}
 	}
-	err = ioutil.WriteFile(p, rawConfig, 0644)
-	if err == nil {
-		// essentially short-cuts reading the new config back from disk
-		value = proto.Clone(c).(*Config)
+
+	// Write to a temporary file first, then rename the temporary file to `p`.
+	// This ensures the write is atomic on POSIX.
+	tmpfile, err := ioutil.TempFile("", "pachyderm-config-*.json")
+	if err != nil {
+		return err
 	}
-	return err
+	defer os.Remove(tmpfile.Name())
+
+	if _, err = tmpfile.Write(rawConfig); err != nil {
+		return err
+	}
+	if err = tmpfile.Close(); err != nil {
+		return err
+	}
+	if err = os.Rename(tmpfile.Name(), p); err != nil {
+		return err
+	}
+
+	// essentially short-cuts reading the new config back from disk
+	value = proto.Clone(c).(*Config)
+	return nil
 }
