@@ -446,17 +446,6 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 
 	client, err := NewFromAddress(pachdAddress.Hostname(), append(options, cfgOptions...)...)
 	if err != nil {
-		if strings.Contains(err.Error(), "context deadline exceeded") {
-			// Check for errors in approximate order of helpfulness
-			if pachdAddress.IsUnusualPort() {
-				return nil, fmt.Errorf("could not connect (note: port is usually "+
-					"%d or %d, but is currently set to %d - is this right?): %v", grpcutil.DefaultPachdNodePort, grpcutil.DefaultPachdPort, pachdAddress.Port, err)
-			} else if fw == nil && pachdAddress.IsLoopback() {
-				return nil, fmt.Errorf("could not connect (note: address %s looks "+
-					"like loopback, try unsetting it): %v",
-					pachdAddress.Qualified(), err)
-			}
-		}
 		return nil, fmt.Errorf("could not connect to pachd at %q: %v", pachdAddress.Qualified(), err)
 	}
 
