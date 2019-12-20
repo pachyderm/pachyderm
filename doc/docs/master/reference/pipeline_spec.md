@@ -467,7 +467,7 @@ input data is partitioned.
 exposes it as normal files on disk. If lazy is set to `true`, data is
 exposed as named pipes instead, and no data is downloaded until the job
 opens the pipe and reads it. If the pipe is never opened, then no data is
-downloaded.
+downloaded. The `lazy` property has a limit of 10,000 files.
 
 Some applications do not work with pipes. For example, pipes do not support
 applications that makes `syscalls` such as `Seek`. Applications that can work
