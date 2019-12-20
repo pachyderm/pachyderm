@@ -683,6 +683,11 @@ message RunPipelineRequest {
   string job_id = 4 [(gogoproto.customname) = "JobID"];
 }
 
+message RunCronRequest {
+  Pipeline pipeline = 1;
+}
+
+
 message GarbageCollectRequest {
     // Memory is how much memory to use in computing which objects are alive. A
     // larger number will result in more precise garbage collection (at the
@@ -720,6 +725,7 @@ service API {
   rpc StartPipeline(StartPipelineRequest) returns (google.protobuf.Empty) {}
   rpc StopPipeline(StopPipelineRequest) returns (google.protobuf.Empty) {}
   rpc RunPipeline(RunPipelineRequest) returns (google.protobuf.Empty) {}
+  rpc RunCron(RunCronRequest) returns (google.protobuf.Empty) {}
 
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
