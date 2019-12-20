@@ -698,6 +698,7 @@ type deletePipelineFunc func(context.Context, *pps.DeletePipelineRequest) (*type
 type startPipelineFunc func(context.Context, *pps.StartPipelineRequest) (*types.Empty, error)
 type stopPipelineFunc func(context.Context, *pps.StopPipelineRequest) (*types.Empty, error)
 type runPipelineFunc func(context.Context, *pps.RunPipelineRequest) (*types.Empty, error)
+type runCronFunc func(context.Context, *pps.RunCronRequest) (*types.Empty, error)
 type deleteAllPPSFunc func(context.Context, *types.Empty) (*types.Empty, error)
 type getLogsFunc func(*pps.GetLogsRequest, pps.API_GetLogsServer) error
 type garbageCollectFunc func(context.Context, *pps.GarbageCollectRequest) (*pps.GarbageCollectResponse, error)
@@ -721,6 +722,7 @@ type mockDeletePipeline struct{ handler deletePipelineFunc }
 type mockStartPipeline struct{ handler startPipelineFunc }
 type mockStopPipeline struct{ handler stopPipelineFunc }
 type mockRunPipeline struct{ handler runPipelineFunc }
+type mockRunCron struct{ handler runCronFunc }
 type mockDeleteAllPPS struct{ handler deleteAllPPSFunc }
 type mockGetLogs struct{ handler getLogsFunc }
 type mockGarbageCollect struct{ handler garbageCollectFunc }
@@ -744,6 +746,7 @@ func (mock *mockDeletePipeline) Use(cb deletePipelineFunc)   { mock.handler = cb
 func (mock *mockStartPipeline) Use(cb startPipelineFunc)     { mock.handler = cb }
 func (mock *mockStopPipeline) Use(cb stopPipelineFunc)       { mock.handler = cb }
 func (mock *mockRunPipeline) Use(cb runPipelineFunc)         { mock.handler = cb }
+func (mock *mockRunCron) Use(cb runCronFunc)                 { mock.handler = cb }
 func (mock *mockDeleteAllPPS) Use(cb deleteAllPPSFunc)       { mock.handler = cb }
 func (mock *mockGetLogs) Use(cb getLogsFunc)                 { mock.handler = cb }
 func (mock *mockGarbageCollect) Use(cb garbageCollectFunc)   { mock.handler = cb }
@@ -773,6 +776,7 @@ type mockPPSServer struct {
 	StartPipeline   mockStartPipeline
 	StopPipeline    mockStopPipeline
 	RunPipeline     mockRunPipeline
+	RunCron         mockRunCron
 	DeleteAll       mockDeleteAllPPS
 	GetLogs         mockGetLogs
 	GarbageCollect  mockGarbageCollect
@@ -886,6 +890,12 @@ func (api *ppsServerAPI) RunPipeline(ctx context.Context, req *pps.RunPipelineRe
 		return api.mock.RunPipeline.handler(ctx, req)
 	}
 	return nil, fmt.Errorf("unhandled pachd mock pps.RunPipeline")
+}
+func (api *ppsServerAPI) RunCron(ctx context.Context, req *pps.RunCronRequest) (*types.Empty, error) {
+	if api.mock.RunCron.handler != nil {
+		return api.mock.RunCron.handler(ctx, req)
+	}
+	return nil, fmt.Errorf("unhandled pachd mock pps.RunCron")
 }
 func (api *ppsServerAPI) DeleteAll(ctx context.Context, req *types.Empty) (*types.Empty, error) {
 	if api.mock.DeleteAll.handler != nil {

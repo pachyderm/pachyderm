@@ -24,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
@@ -2799,6 +2800,73 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	if err != nil {
 		return nil, err
 	}
+	return &types.Empty{}, nil
+}
+
+func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (response *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+
+	pachClient := a.env.GetPachClient(ctx)
+
+	pipelineInfo, err := a.inspectPipeline(pachClient, request.Pipeline.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	if pipelineInfo.Input == nil {
+		return nil, fmt.Errorf("pipeline must have a cron input")
+	}
+	if pipelineInfo.Input.Cron == nil {
+		return nil, fmt.Errorf("pipeline must have a cron input")
+	}
+
+	cron := pipelineInfo.Input.Cron
+
+	var latestTime time.Time
+	files, err := pachClient.ListFile(cron.Repo, "master", "")
+	if err != nil && !pfsServer.IsNoHeadErr(err) {
+		return nil, err
+	} else if err != nil || len(files) == 0 {
+		// File not found, this happens the first time the pipeline is run
+		latestTime, err = types.TimestampFromProto(cron.Start)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// Take the name of the most recent file as the latest timestamp
+		// ListFile returns the files in lexicographical order, and the RFC3339 format goes
+		// from largest unit of time to smallest, so the most recent file will be the last one
+		latestTime, err = time.Parse(time.RFC3339, path.Base(files[len(files)-1].File.Path))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// We need the DeleteFile and the PutFile to happen in the same commit
+	_, err = pachClient.StartCommit(cron.Repo, "master")
+	if err != nil {
+		return nil, err
+	}
+	if cron.Overwrite {
+		// If we want to "overwrite" the file, we need to delete the file with the previous time
+		err := pachClient.DeleteFile(cron.Repo, "master", latestTime.Format(time.RFC3339))
+		if err != nil && !isNotFoundErr(err) && !pfsServer.IsNoHeadErr(err) {
+			return nil, fmt.Errorf("delete error %v", err)
+		}
+	}
+
+	// Put in an empty file named by the timestamp
+	_, err = pachClient.PutFile(cron.Repo, "master", time.Now().Format(time.RFC3339), strings.NewReader(""))
+	if err != nil {
+		return nil, fmt.Errorf("put error %v", err)
+	}
+
+	err = pachClient.FinishCommit(cron.Repo, "master")
+	if err != nil {
+		return nil, err
+	}
+
 	return &types.Empty{}, nil
 }
 

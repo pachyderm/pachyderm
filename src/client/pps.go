@@ -658,6 +658,18 @@ func (c APIClient) RunPipeline(name string, provenance []*pfs.CommitProvenance, 
 	return grpcutil.ScrubGRPC(err)
 }
 
+// RunCron runs a pipeline. It can be passed a list of commit provenance.
+// This will trigger a new job provenant on those commits, effectively running the pipeline on the data in those commits.
+func (c APIClient) RunCron(name string) error {
+	_, err := c.PpsAPIClient.RunCron(
+		c.Ctx(),
+		&pps.RunCronRequest{
+			Pipeline: NewPipeline(name),
+		},
+	)
+	return grpcutil.ScrubGRPC(err)
+}
+
 // CreatePipelineService creates a new pipeline service.
 func (c APIClient) CreatePipelineService(
 	name string,
