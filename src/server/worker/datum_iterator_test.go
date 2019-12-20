@@ -7,6 +7,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/client/pps"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
@@ -108,7 +109,7 @@ func TestDatumIterators(t *testing.T) {
 	in9 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)", "$2$1", false)
 	in9.Pfs.Commit = commit.ID
 
-	join1, err := newJoinDatumIterator(c, []InputI{in8, in9})
+	join1, err := newJoinDatumIterator(c, []*pps.Input{in8, in9})
 	validateDI(t, join1,
 		"/foo11/foo11",
 		"/foo12/foo21",
@@ -188,7 +189,7 @@ func benchmarkDatumIterators(j int, b *testing.B) {
 			in8.Pfs.Commit = commit.ID
 			in9 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)*", "$2$1", false)
 			in9.Pfs.Commit = commit.ID
-			join1, err := newJoinDatumIterator(c, []InputI{in8, in9})
+			join1, err := newJoinDatumIterator(c, []*pps.Input{in8, in9})
 			require.NoError(b, err)
 			validateDI(b, join1)
 		})
