@@ -359,9 +359,7 @@ func (d *joinDatumIterator) Next() bool {
 
 func (d *joinDatumIterator) Datum() []*Input {
 	var result []*Input
-	for _, datum := range d.datums[d.location] {
-		result = append(result, datum)
-	}
+	result = append(result, d.datums[d.location]...)
 	sortInputs(result)
 	return result
 }

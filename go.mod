@@ -72,7 +72,6 @@ require (
 	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b // indirect
 	github.com/minio/minio-go v6.0.14+incompatible
 	github.com/mitchellh/go-testing-interface v1.0.0 // indirect
-	github.com/montanaflynn/stats v0.5.0
 	github.com/onsi/ginkgo v1.10.2 // indirect
 	github.com/onsi/gomega v1.8.1 // indirect
 	github.com/opentracing-contrib/go-grpc v0.0.0-20180928155321-4b5a12d3ff02

@@ -110,6 +110,7 @@ func TestDatumIterators(t *testing.T) {
 	in9.Pfs.Commit = commit.ID
 
 	join1, err := newJoinDatumIterator(c, []*pps.Input{in8, in9})
+	require.NoError(t, err)
 	validateDI(t, join1,
 		"/foo11/foo11",
 		"/foo12/foo21",
