@@ -61,7 +61,7 @@ func (d *driver) batchTransaction(ctx context.Context, req []*transaction.Transa
 		Transaction: &transaction.Transaction{
 			ID: uuid.New(),
 		},
-		Requests: []*transaction.TransactionRequest{},
+		Requests: req,
 		Started:  now(),
 	}
 

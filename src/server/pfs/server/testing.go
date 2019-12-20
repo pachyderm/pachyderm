@@ -127,7 +127,7 @@ func GetPachClient(t testing.TB, config *serviceenv.Configuration) *client.APICl
 	apiServer, err := newAPIServer(env, txnEnv, etcdPrefix, treeCache, "/tmp", 64*1024*1024)
 	require.NoError(t, err)
 
-	txnEnv.Initialize(env, nil, &authtesting.InactiveAPIServer{}, apiServer)
+	txnEnv.Initialize(env, nil, &authtesting.InactiveAPIServer{}, apiServer, txnenv.NewMockPpsTransactionServer())
 
 	runServers(t, pfsPort, apiServer, blockAPIServer)
 	return env.GetPachClient(context.Background())
