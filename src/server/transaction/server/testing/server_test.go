@@ -516,7 +516,11 @@ func TestBatchTransaction(t *testing.T) {
 
 		require.ElementsEqual(t, []string{"master", "branchA", "branchB"}, getBranchNames(branches))
 
-		// TODO: check that the result of the startcommit matches the master branch
+		for _, x := range branches {
+			if x.Name == "master" {
+				require.Equal(t, x.Head, info.Responses[1].Commit)
+			}
+		}
 
 		return nil
 	})
