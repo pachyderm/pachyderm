@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.9.10
+
+- Fixes a bug that causes `pachctl` to connect to the wrong cluster (#4416)
+- Fixes a bug that causes hashtree resource leak in certain conditions (#4420)
+- Fixes a family of minor bugs found through static code analysis (#4410)
+- Fixes a family of bugs that caused pachd panic when it processed invalid arguments (#4391)
+- Fixes a family of bugs that caused deploy yaml to fail (#4290)
+- Changes to use standard go modules instead of old vendor directory (#4323)
+- Changes to add additional logging during pachd startup (#4447)
+- Changes to CLI to add a command, `run cron <pipeline>` to manually trigger a CRON pipeline (#4419)
+- Changes to improve performance of join datum processing (#4441)
+- Open source Pachyderm S3 gateway to allow applications to interact with PFS storage (#4399)
+
 ## 1.9.8
 
 - Fixes a bug that prevent the `--reprocess` flag in `edit pipeline` from working. (#4232)
