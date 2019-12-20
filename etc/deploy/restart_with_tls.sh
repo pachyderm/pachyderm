@@ -26,7 +26,7 @@ if pachctl version --timeout=5s; then
 fi
 
 # Re-deploy pachd with new mount containing TLS key
-pachctl deploy local -d --tls="$cert,$key" --dry-run | kubectl apply -f -
+pachctl deploy local -d --tls="$cert,$key"
 
 pachctl config update context --pachd-address="grpcs://$hostport"
 
