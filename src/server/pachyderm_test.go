@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/segmentio/kafka-go"
+	kafka "github.com/segmentio/kafka-go"
 
 	"golang.org/x/sync/errgroup"
 
@@ -2807,6 +2807,59 @@ func TestUpdatePipeline(t *testing.T) {
 	buffer.Reset()
 	require.NoError(t, c.GetFile(pipelineName, "master", "file", 0, 0, &buffer))
 	require.Equal(t, "buzz\n", buffer.String())
+}
+
+func TestUpdatePipelineWithInProgressCommitsAndStats(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	dataRepo := tu.UniqueString("TestUpdatePipelineWithInProgressCommitsAndStats_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	pipeline := tu.UniqueString("pipeline")
+	createPipeline := func() {
+		_, err := c.PpsAPIClient.CreatePipeline(
+			context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd:   []string{"bash"},
+					Stdin: []string{"sleep 1"},
+				},
+				Input:       client.NewPFSInput(dataRepo, "/*"),
+				Update:      true,
+				EnableStats: true,
+			})
+		require.NoError(t, err)
+	}
+	createPipeline()
+	flushCommit := func(commitNum int) {
+		commit, err := c.StartCommit(dataRepo, "master")
+		require.NoError(t, err)
+		_, err = c.PutFile(dataRepo, commit.ID, "file"+strconv.Itoa(commitNum), strings.NewReader("foo"))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+		commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+		require.NoError(t, err)
+		commitInfos := collectCommitInfos(t, commitIter)
+		require.Equal(t, 2, len(commitInfos))
+	}
+	// Create a new job that should succeed (both output and stats commits should be finished normally).
+	flushCommit(1)
+	// Create multiple new commits.
+	numCommits := 5
+	for i := 1; i < numCommits; i++ {
+		commit, err := c.StartCommit(dataRepo, "master")
+		require.NoError(t, err)
+		_, err = c.PutFile(dataRepo, commit.ID, "file"+strconv.Itoa(i), strings.NewReader("foo"))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	}
+	// Force the in progress commits to be finished.
+	createPipeline()
+	// Create a new job that should succeed (should not get blocked on an unfinished stats commit).
+	flushCommit(numCommits)
 }
 
 // TestManyPipelineUpdate updates a single pipeline several (currently 8) times,

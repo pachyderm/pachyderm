@@ -121,10 +121,32 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 		if err != nil {
 			return err
 		}
+		// Determine stats commit.
+		var statsCommit *pfs.Commit
+		if a.pipelineInfo.EnableStats {
+			for _, commitRange := range commitInfo.Subvenance {
+				if commitRange.Lower.Repo.Name == a.pipelineInfo.Pipeline.Name && commitRange.Upper.Repo.Name == a.pipelineInfo.Pipeline.Name {
+					statsCommit = commitRange.Lower
+				}
+			}
+		}
 		if commitInfo.Finished != nil {
+			// Finish stats commit if it has not been finished.
+			if statsCommit != nil {
+				if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
+					Commit: statsCommit,
+					Empty:  true,
+				}); err != nil && !pfsserver.IsCommitFinishedErr(err) {
+					return err
+				}
+			}
 			// Make sure that the job has been correctly finished as the commit has.
-			ji, err := pachClient.InspectJobOutputCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, true)
+			ji, err := pachClient.InspectJobOutputCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, false)
 			if err != nil {
+				// If no job was created for the commit, then we are done.
+				if strings.Contains(err.Error(), fmt.Sprintf("job with output commit %s not found", commitInfo.Commit.ID)) {
+					continue
+				}
 				return err
 			}
 			if !ppsutil.IsTerminal(ji.State) {
@@ -151,14 +173,6 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 		if len(jobInfos) > 1 {
 			return fmt.Errorf("multiple jobs found for commit: %s/%s", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
 		} else if len(jobInfos) < 1 {
-			var statsCommit *pfs.Commit
-			if a.pipelineInfo.EnableStats {
-				for _, commitRange := range commitInfo.Subvenance {
-					if commitRange.Lower.Repo.Name == a.pipelineInfo.Pipeline.Name && commitRange.Upper.Repo.Name == a.pipelineInfo.Pipeline.Name {
-						statsCommit = commitRange.Lower
-					}
-				}
-			}
 			job, err := pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit, statsCommit)
 			if err != nil {
 				return err
