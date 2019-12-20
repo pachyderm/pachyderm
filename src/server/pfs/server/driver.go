@@ -75,6 +75,12 @@ func IsPermissionError(err error) bool {
 	return strings.Contains(err.Error(), "has already finished")
 }
 
+func destroyHashtree(tree hashtree.HashTree) {
+	if err := tree.Destroy(); err != nil {
+		logrus.Infof("failed to destroy hashtree: %v", err)
+	}
+}
+
 // CommitEvent is an event that contains a CommitInfo or an error
 type CommitEvent struct {
 	Err   error
@@ -1261,9 +1267,7 @@ func (d *driver) makeCommit(
 			if err != nil {
 				return nil, err
 			}
-			defer func() {
-				tree.Destroy()
-			}()
+			defer destroyHashtree(tree)
 			for i, record := range records {
 				if err := d.applyWrite(recordFiles[i], record, tree); err != nil {
 					return nil, err
@@ -1443,7 +1447,7 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 
 		defer func() {
 			if finishedTree != nil {
-				finishedTree.Destroy()
+				destroyHashtree(finishedTree)
 			}
 		}()
 
@@ -3193,9 +3197,7 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 	if err != nil {
 		return err
 	}
-	defer func() {
-		srcTree.Destroy()
-	}()
+	defer destroyHashtree(srcTree)
 	// This is necessary so we can call filepath.Rel below
 	if !strings.HasPrefix(src.Path, "/") {
 		src.Path = "/" + src.Path
@@ -3455,7 +3457,7 @@ func (d *driver) getTreeForOpenCommit(pachClient *client.APIClient, file *pfs.Fi
 
 	defer func() {
 		if retErr != nil {
-			tree.Destroy()
+			destroyHashtree(tree)
 		}
 	}()
 
@@ -3513,9 +3515,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 		if err != nil {
 			return nil, err
 		}
-		defer func() {
-			tree.Destroy()
-		}()
+		defer destroyHashtree(tree)
 		var (
 			pathsFound int
 			objects    []*pfs.Object
@@ -3753,9 +3753,7 @@ func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (fi *
 		if err != nil {
 			return nil, err
 		}
-		defer func() {
-			tree.Destroy()
-		}()
+		defer destroyHashtree(tree)
 		node, err := tree.Get(file.Path)
 		if err != nil {
 			return nil, pfsserver.ErrFileNotFound{file}
@@ -3818,9 +3816,7 @@ func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full boo
 		if err != nil {
 			return err
 		}
-		defer func() {
-			tree.Destroy()
-		}()
+		defer destroyHashtree(tree)
 		return tree.Glob(file.Path, func(rootPath string, rootNode *hashtree.NodeProto) error {
 			if rootNode.DirNode == nil {
 				if history != 0 {
@@ -3935,9 +3931,7 @@ func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, f func(*
 		if err != nil {
 			return err
 		}
-		defer func() {
-			tree.Destroy()
-		}()
+		defer destroyHashtree(tree)
 		return tree.Walk(file.Path, func(path string, node *hashtree.NodeProto) error {
 			fi, err := nodeToFileInfoHeaderFooter(commitInfo, path, node, tree, false)
 			if err != nil {
@@ -3991,9 +3985,7 @@ func (d *driver) globFile(pachClient *client.APIClient, commit *pfs.Commit, patt
 		if err != nil {
 			return err
 		}
-		defer func() {
-			tree.Destroy()
-		}()
+		defer destroyHashtree(tree)
 		globErr := tree.Glob(pattern, func(path string, node *hashtree.NodeProto) error {
 			fi, err := nodeToFileInfoHeaderFooter(commitInfo, path, node, tree, false)
 			if err != nil {
@@ -4063,9 +4055,7 @@ func (d *driver) diffFile(pachClient *client.APIClient, newFile *pfs.File, oldFi
 	if err != nil {
 		return nil, nil, err
 	}
-	defer func() {
-		newTree.Destroy()
-	}()
+	defer destroyHashtree(newTree)
 	newCommitInfo, err := d.inspectCommit(pachClient, newFile.Commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return nil, nil, err
@@ -4093,9 +4083,7 @@ func (d *driver) diffFile(pachClient *client.APIClient, newFile *pfs.File, oldFi
 	if err != nil {
 		return nil, nil, err
 	}
-	defer func() {
-		oldTree.Destroy()
-	}()
+	defer destroyHashtree(oldTree)
 	var newFileInfos []*pfs.FileInfo
 	var oldFileInfos []*pfs.FileInfo
 	recursiveDepth := -1
