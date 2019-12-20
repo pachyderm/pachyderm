@@ -49,6 +49,11 @@ Install the following prerequisites:
 
     ```bash
     pachctl version --client-only
+    ```
+
+    **System Response:**
+
+    ```bash
     COMPONENT           VERSION
     pachctl             1.9.0
     ```
@@ -95,6 +100,11 @@ To deploy Kubernetes on Azure, complete the following steps:
 
    ```bash
    az login
+   ```
+
+   **System Response:**
+
+   ```bash
    Note, we have launched a browser for you to login. For old experience with
    device code, use "az login --use-device-code"
    ```
@@ -130,6 +140,11 @@ To deploy Kubernetes on Azure, complete the following steps:
 
    ```bash
    az group create --name="test-group" --location=centralus
+   ```
+
+   **System Response:**
+
+   ```bash
    {
      "id": "/subscriptions/6c9f2e1e-0eba-4421-b4cc-172f959ee110/resourceGroups/pach-resource-group",
      "location": "centralus",
@@ -153,6 +168,11 @@ To deploy Kubernetes on Azure, complete the following steps:
 
    ```bash
    az aks create --resource-group test-group --name test-cluster --generate-ssh-keys --node-vm-size Standard_DS4_v2
+   ```
+
+   **System Response:**
+
+   ```bash
    {
      "aadProfile": null,
      "addonProfiles": null,
@@ -181,13 +201,17 @@ To deploy Kubernetes on Azure, complete the following steps:
 
    ```bash
    kubectl version
+   ```
+
+   **System Response:**
+
+   ```bash
    Client Version: version.Info{Major:"1", Minor:"13", GitVersion:"v1.13.4", GitCommit:"c27b913fddd1a6c480c229191a087698aa92f0b1", GitTreeState:"clean", BuildDate:"2019-03-01T23:36:43Z", GoVersion:"go1.12", Compiler:"gc", Platform:"darwin/amd64"}
    Server Version: version.Info{Major:"1", Minor:"13", GitVersion:"v1.13.4", GitCommit:"c27b913fddd1a6c480c229191a087698aa92f0b1", GitTreeState:"clean", BuildDate:"2019-02-28T13:30:26Z", GoVersion:"go1.11.5", Compiler:"gc", Platform:"linux/amd64"}
    ```
 
-**See also:**
-
-- [Azure Virtual Machine sizes](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/sizes-general)
+!!! note "See also:"
+    - [Azure Virtual Machine sizes](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/sizes-general)
 
 
 ## Add storage resources
@@ -286,6 +310,11 @@ To create these resources, follow these steps:
 
    ```bash
    az storage account keys list --account-name=${STORAGE_ACCOUNT}
+   ```
+
+   **System Response:**
+
+   ```bash
    [
      {
        "keyName": "key1",
@@ -295,8 +324,7 @@ To create these resources, follow these steps:
    ]
    ```
 
-!!! note "See also"
-
+!!! note "See also:"
     - [Azure Storage](https://azure.microsoft.com/documentation/articles/storage-introduction/)
 
 
@@ -321,6 +349,11 @@ you might accidentally deploy your cluster on Minikube.
 
    ```bash
    az aks get-credentials --resource-group ${RESOURCE_GROUP} --name ${CLUSTER_NAME}
+   ```
+
+   **System Response:**
+
+   ```bash
    Merged "${CLUSTER_NAME}" as current context in /Users/test-user/.kube/config
    ```
 
@@ -357,6 +390,11 @@ you might accidentally deploy your cluster on Minikube.
 
    ```sh
    kubectl get pods
+   ```
+
+   **System Response:**
+
+   ```bash
    NAME                      READY     STATUS    RESTARTS   AGE
    dash-482120938-vdlg9      2/2       Running   0          54m
    etcd-0                    1/1       Running   0          54m
@@ -376,8 +414,13 @@ set up port forwarding to enable `pachctl` and cluster communication:
 
 1. Verify that the cluster is up and running:
 
-   ```sh
+   ```bash
    pachctl version
+   ```
+
+   **System Response:**
+
+   ```bash
    COMPONENT           VERSION
    pachctl             1.9.0
    pachd               1.9.0

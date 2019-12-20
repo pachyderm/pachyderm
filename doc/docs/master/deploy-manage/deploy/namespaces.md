@@ -12,8 +12,13 @@ pachctl deploy <args> --namespace pachyderm
 
 After the Pachyderm pods are up and running, you should see something similar to:
 
-```
+```bash
 kubectl get pods
+```
+
+**System Response:**
+
+```
 NAME                     READY     STATUS    RESTARTS   AGE
 dash-68578d4bb4-mmtbj    2/2       Running   0          3m
 etcd-69fcfb5fcf-dgc8j    1/1       Running   0          3m

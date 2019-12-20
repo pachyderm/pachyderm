@@ -104,6 +104,11 @@ to have pachctl installed on your machine by following these steps:
 
    ```bash
    pachctl version --client-only
+   ```
+
+   **System Response:**
+
+   ```bash
    COMPONENT           VERSION
    pachctl             1.9.8
    ```
@@ -152,6 +157,11 @@ all Pachyderm pods must be in the **Running** status.
 
    ```bash
    kubectl get pods
+   ```
+
+   **System Response:**
+
+   ```bash
    NAME                     READY     STATUS    RESTARTS   AGE
    dash-6c9dc97d9c-vb972    2/2       Running   0          6m
    etcd-7dbb489f44-9v5jj    1/1       Running   0          6m
@@ -166,6 +176,11 @@ all Pachyderm pods must be in the **Running** status.
 
    ```bash
    pachctl version
+   ```
+
+   **System Response:**
+
+   ```bash
    COMPONENT           VERSION
    pachctl             1.9.5
    pachd               1.9.5

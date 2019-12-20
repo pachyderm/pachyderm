@@ -12,6 +12,7 @@ The following section walks you through deploying a Pachyderm cluster on GKE.
 
 If this is the first time you use the SDK, follow
 the [Google SDK QuickStart Guide](https://cloud.google.com/sdk/docs/quickstarts).
+
 !!! note
     When you follow the QuickStart Guide, you might update your `~/.bash_profile`
     and point your `$PATH` at the location where you extracted
@@ -30,7 +31,7 @@ the [Google SDK QuickStart Guide](https://cloud.google.com/sdk/docs/quickstarts)
 
 To create a new Kubernetes cluster by using GKE, run:
 
-```bassh
+```bash
 CLUSTER_NAME=<any unique name, e.g. "pach-cluster">
 
 GCP_ZONE=<a GCP availability zone. e.g. "us-west1-a">
@@ -68,6 +69,11 @@ by running the following `kubectl` command:
 ```bash
 # List all pods in the kube-system namespace.
 kubectl get pods -n kube-system
+```
+
+**System Response:**
+
+```bash
 NAME                                                     READY     STATUS    RESTARTS   AGE
 event-exporter-v0.1.7-5c4d9556cf-fd9j2                   2/2       Running   0          1m
 fluentd-gcp-v2.0.9-68vhs                                 2/2       Running   0          1m
@@ -155,6 +161,11 @@ Now you can deploy a Pachyderm cluster by running this command:
 
 ```bash
 pachctl deploy google ${BUCKET_NAME} ${STORAGE_SIZE} --dynamic-etcd-nodes=1
+```
+
+**System Response:**
+
+```bash
 serviceaccount "pachyderm" created
 storageclass "etcd-storage-class" created
 service "etcd-headless" created
@@ -183,6 +194,11 @@ pulls containers from DockerHub. You can see the cluster status with
 
 ```bash
 kubectl get pods
+```
+
+**System Response:**
+
+```bash
 NAME                     READY     STATUS    RESTARTS   AGE
 dash-482120938-np8cc     2/2       Running   0          4m
 etcd-0                   1/1       Running   0          4m
@@ -204,9 +220,13 @@ pachctl port-forward &
 And you're done! You can test to make sure the cluster is working
 by running `pachctl version` or even creating a new repo.
 
-```sh
-
+```bash
 pachctl version
+```
+
+**System Response:**
+
+```bash
 COMPONENT           VERSION
 pachctl             1.9.7
 pachd               1.9.7

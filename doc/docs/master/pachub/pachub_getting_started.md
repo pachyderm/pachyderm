@@ -104,6 +104,11 @@ To connect to your cluster, complete the following steps:
 
    ```bash
    pachctl version --client-only
+   ```
+
+   **System Response:**
+
+   ```bash
    1.9.8
    ```
 
@@ -130,6 +135,11 @@ To connect to your cluster, complete the following steps:
 
       ```bash
       pachctl config get active-context
+      ```
+
+      **System Response:**
+
+      ```bash
       test-svet-cc0mi51i52
       ```
 
@@ -145,6 +155,11 @@ To connect to your cluster, complete the following steps:
 
       ```bash
       pachctl list repo
+      ```
+
+      **System Response:**
+
+      ```bash
       NAME   CREATED       SIZE (MASTER) ACCESS LEVEL
       test   3 seconds ago 0B            OWNER
       ```

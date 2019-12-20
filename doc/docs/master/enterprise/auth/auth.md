@@ -50,7 +50,12 @@ To enable access controls, complete the following steps:
    by running the following `pachctl` command:
 
    ```bash
-   pachctl enterprise get-state
+   pachctl enterprise get-stat
+   ```
+
+   **System response:**
+
+   ```bashe
    ACTIVE
    ```
 
@@ -190,7 +195,12 @@ Alternatively, you can confirm your access by running the
 !!! example
 
     ```
-    pachctl auth get dwhitena test`
+    pachctl auth get dwhitena test
+    ```
+
+    **System response:**
+
+    ```bash
     OWNER
     ```
 

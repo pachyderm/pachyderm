@@ -141,9 +141,9 @@ and Markdown does not support starting lists from an arbitrary number.
 
 * Do not use the dollar sign `$` in code snippets. While the dollar sign
 signifies the beginning of a line, it creates usability issues. When users
-copy commands from the code blocks, they copy everything from that code
+copy commands from a code block, they copy everything from that code
 block, including the dollar sign. Then, they need to navigate to the
-begining of the prompt to remove the dollar sign, which is quite annoying.
+begining of the command prompt to remove the dollar sign, which is quite annoying.
 Most of the commands that are described in the Pachyderm documentation
 are run from a UNIX shell as a normal user.
 

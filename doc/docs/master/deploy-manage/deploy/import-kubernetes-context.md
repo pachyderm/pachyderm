@@ -38,6 +38,11 @@ To import a Kubernetes context, complete the following steps:
 
    ```bash
    kubectl apply -f <manifest.yaml>
+   ```
+
+   **System Response:**
+
+   ```bash
    clusterrole.rbac.authorization.k8s.io/pachyderm configured
    clusterrolebinding.rbac.authorization.k8s.io/pachyderm configured
    deployment.apps/etcd configured
@@ -53,6 +58,11 @@ To import a Kubernetes context, complete the following steps:
 
    ```bash
    kubectl get pods
+   ```
+
+   **System Response:**
+
+   ```bash
    NAME                     READY   STATUS    RESTARTS   AGE
    dash-64c868cc8b-j79d6    2/2     Running   0          20h
    etcd-6865455568-tm5tf    1/1     Running   0          20h
@@ -73,6 +83,11 @@ To import a Kubernetes context, complete the following steps:
 
    ```bash
    pachctl config get context test-context
+   ```
+
+   **System Response:**
+
+   ```bash
    {
      "source": "IMPORTED",
      "cluster_name": "minikube",

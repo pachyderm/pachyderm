@@ -53,6 +53,11 @@ To configure a staging branch, complete the following steps:
 
    ```bash
    pachctl list branch data
+   ```
+
+   **System Response:**
+
+   ```bash
    BRANCH HEAD
    master -
    ```
@@ -78,6 +83,11 @@ To configure a staging branch, complete the following steps:
 
    ```bash
    pachctl list branch data
+   ```
+
+   **System Response:**
+
+   ```bash
    BRANCH  HEAD
    staging f3506f0fab6e483e8338754081109e69
    master  -
@@ -101,6 +111,11 @@ To configure a staging branch, complete the following steps:
 
    ```bash
    pachctl list branch
+   ```
+
+   **System Response:**
+
+   ```bash
    staging f3506f0fab6e483e8338754081109e69
    master  f3506f0fab6e483e8338754081109e69
    ```
@@ -112,6 +127,11 @@ To configure a staging branch, complete the following steps:
 
    ```bash
    pachctl list job
+   ```
+
+   **System Response:**
+
+   ```bash
    ID                               PIPELINE STARTED        DURATION           RESTART PROGRESS  DL   UL  STATE
    061b0ef8f44f41bab5247420b4e62ca2 test     32 seconds ago Less than a second 0       6 + 0 / 6 108B 24B success
    ```

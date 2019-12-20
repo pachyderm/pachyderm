@@ -129,6 +129,7 @@ pachctl deploy custom --persistent-disk aws --object-store s3 \
 ### 4. Modify pachd Service ports
 
 In the deployment manifest, which we called `manifest.json`, above, find the stanza for the `pachd` Service.  An example is shown below.
+
 ```
 {
 	"kind": "Service",
@@ -195,7 +196,9 @@ In the deployment manifest, which we called `manifest.json`, above, find the sta
 	}
 }
 ```
+
 While the nodePort declarations are fine, the port declarations are too low for OpenShift. Good example values are shown below.
+
 ```
 	"spec": {
 		"ports": [
@@ -245,6 +248,7 @@ Instead, we'll show you the modified version.
 #### 5.1 pachd Deployment ports
 The `pachd` Deployment also has a set of port numbers in the spec for the `pachd` container. 
 Those must be modified to match the port numbers you set above for each port.
+
 ```
 {
 	"kind": "Deployment",
@@ -326,10 +330,12 @@ Those must be modified to match the port numbers you set above for each port.
 								"protocol": "TCP"
 							}
 						],
-                        
+
 ```
+
 #### 5.2 Add environment variables
-There are six environment variables necessary for OpenShift
+There are six environment variables necessary for OpenShift:
+
 1. `WORKER_USES_ROOT`: This controls whether worker pipelines run as the root user or not. You'll need to set it to `false`
 1. `PORT`: This is the grpc port used by pachd for communication with `pachctl` and the api.  It should be set to the same value you set for `api-grpc-port` above.
 1. `HTTP_PORT`: The port for the api proxy.  It should be set to `api-http-port` above.
@@ -338,6 +344,7 @@ There are six environment variables necessary for OpenShift
 
 The added values below are shown inserted above the `PACH_ROOT` value, which is typically the first value in this array.
 The rest of the stanza is omitted for clarity.
+
 ```
 						"env": [
                             {
@@ -366,8 +373,10 @@ The rest of the stanza is omitted for clarity.
 							},
 
 ```
+
 ### 6. (Optional) Remove the PV created during the deploy command
 If you're using a PV you've created separately, remove the PV that was added to your manifest by `pachctl deploy --dry-run`.  Here's the example PV we created with the deploy command we used above, so you can recognize it.
+
 ```
 {
 	"kind": "PersistentVolume",
@@ -400,13 +409,13 @@ If you're using a PV you've created separately, remove the PV that was added to 
 
 ## 7. Deploy the Pachyderm manifest you modified.
 
-```sh
+```bash
 oc create -f pachyderm.json
 ```
 
 You can see the cluster status by using `oc get pods` as in upstream Kubernetes:
 
-```sh
+```bash
     oc get pods
     NAME                     READY     STATUS    RESTARTS   AGE
     dash-6c9dc97d9c-89dv9    2/2       Running   0          1m
@@ -416,9 +425,4 @@ You can see the cluster status by using `oc get pods` as in upstream Kubernetes:
 
 ### Known issues
 
-Problems related to OpenShift deployment are tracked in [issues with the "openshift" label](https://github.com/pachyderm/pachyderm/issues?utf8=%E2%9C%93&q=is%3Aissue+is%3Aopen+label%3Aopenshift). 
-
-
-
-
-
+Problems related to OpenShift deployment are tracked in [issues with the "openshift" label](https://github.com/pachyderm/pachyderm/issues?utf8=%E2%9C%93&q=is%3Aissue+is%3Aopen+label%3Aopenshift).

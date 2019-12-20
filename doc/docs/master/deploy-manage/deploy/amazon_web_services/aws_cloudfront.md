@@ -88,6 +88,11 @@ Kubernetes uses the CloudFront credentials:
 
    ```bash
    kubectl get pod
+   ```
+
+   **System Response:**
+
+   ```bash
    NAME                        READY     STATUS             RESTARTS   AGE
    etcd-0                   1/1       Running            0          19h
    etcd-1                   1/1       Running            0          19h

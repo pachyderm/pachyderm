@@ -163,6 +163,11 @@ To deploy Pachyderm with an IAM role, complete the following steps:
 
    ```bash
    kubectl get pods
+   ```
+
+   **System Response:**
+
+   ```bash
    NAME                     READY     STATUS    RESTARTS   AGE
    dash-6c9dc97d9c-89dv9    2/2       Running   0          1m
    etcd-0                   1/1       Running   0          4m
@@ -177,7 +182,11 @@ To deploy Pachyderm with an IAM role, complete the following steps:
 
    ```bash
    pachctl version
+   ```
 
+   **System Response:**
+
+   ```bash
    COMPONENT           VERSION
    pachctl             1.9.7
    pachd               1.9.7
@@ -187,9 +196,9 @@ To deploy Pachyderm with an IAM role, complete the following steps:
    forward Pachyderm ports. Open a new terminal window and run the
    following command:
 
-     ```bash
-     pachctl port-forward
-     ```
+   ```bash
+   pachctl port-forward
+   ```
 
 ## Deploy Pachyderm with an Access Key
 
@@ -223,6 +232,11 @@ steps:
 
     ```bash
     kubectl get pods
+    ```
+
+    **System Response:**
+
+    ```bash
     NAME                     READY     STATUS    RESTARTS   AGE
     dash-6c9dc97d9c-89dv9    2/2       Running   0          1m
     etcd-0                   1/1       Running   0          4m
@@ -238,6 +252,11 @@ steps:
 
    ```bash
    pachctl version
+   ```
+
+   **System Response:**
+
+   ```bash
 
    COMPONENT           VERSION
    pachctl             1.9.7

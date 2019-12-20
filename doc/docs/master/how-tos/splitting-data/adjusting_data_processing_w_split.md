@@ -91,6 +91,11 @@ To complete this example, perform the following steps:
 
    ```bash
    pachctl list file line-data@master
+   ```
+
+   **System Response:**
+
+   ```bash
    NAME         TYPE  SIZE
    /my-data.txt dir   1.071KiB
    ```
@@ -109,6 +114,11 @@ To complete this example, perform the following steps:
 
    ```bash
    pachctl list file line-data@master my-data.txt
+   ```
+
+   **System Response:**
+
+   ```bash
    NAME                          TYPE  SIZE
    /my-data.txt/0000000000000000 file  21B
    /my-data.txt/0000000000000001 file  22B
@@ -160,6 +170,11 @@ To complete this example, follow these steps:
 
    ```bash
    pachctl list file raw_data@master
+   ```
+
+   **System Response:**
+
+   ```bash
    NAME       TYPE SIZE
    /count.txt dir  24B
    ```
@@ -170,6 +185,11 @@ To complete this example, follow these steps:
 
    ```bash
    pachctl list file raw_data@master:count.txt
+   ```
+
+   **System Response:**
+
+   ```bash
    NAME                        TYPE SIZE
    /count.txt/0000000000000000 file 4B
    /count.txt/0000000000000001 file 4B
@@ -187,6 +207,11 @@ To complete this example, follow these steps:
 
    ```bash
    pachctl get file raw_data@master:count.txt/0000000000000000
+   ```
+
+   **System Response:**
+
+   ```bash
    Zero
    ```
 
@@ -218,6 +243,11 @@ To complete this example, follow these steps:
 
    ```bash
    pachctl list file raw_data@master:count.txt
+   ```
+
+   **System Response:**
+
+   ```bash
    NAME                        TYPE SIZE
    /count.txt/0000000000000000 file 4B
    /count.txt/0000000000000001 file 4B
@@ -236,6 +266,11 @@ To complete this example, follow these steps:
 
    ```
    pachctl get file raw_data@master:count.txt/0000000000000005
+   ```
+
+   **System Response:**
+
+   ```bash
    Five
    ```
 
@@ -278,6 +313,11 @@ To complete this example, follow these steps:
 
    ```bash
    pachctl list file raw_data@master
+   ```
+
+   **System Response:**
+
+   ```bash
    NAME       TYPE SIZE
    /count.txt dir  24B
    ```
@@ -288,6 +328,11 @@ To complete this example, follow these steps:
 
    ```bash
    pachctl list file raw_data@master:count.txt
+   ```
+
+   **System Response:**
+
+   ```bash
    NAME                        TYPE SIZE
    /count.txt/0000000000000000 file 4B
    /count.txt/0000000000000001 file 4B
@@ -305,6 +350,11 @@ To complete this example, follow these steps:
 
    ```bash
    pachctl get file raw_data@master:count.txt/0000000000000000
+   ```
+
+   **System Response:**
+
+   ```bash
    One
    ```
 
@@ -336,6 +386,11 @@ To complete this example, follow these steps:
 
    ```bash
    pachctl list file raw_data@master:count.txt
+   ```
+
+   **System Response:**
+
+   ```bash
    NAME                        TYPE SIZE
    /count.txt/0000000000000000 file 5B
    /count.txt/0000000000000001 file 4B
@@ -350,6 +405,11 @@ To complete this example, follow these steps:
 
    ```bash
    pachctl get file raw_data@master:count.txt/0000000000000000
+   ```
+
+   **System Response:**
+
+   ```bash
    Zero
    ```
 

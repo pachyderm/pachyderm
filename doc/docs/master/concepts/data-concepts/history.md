@@ -66,8 +66,13 @@ takes a single argument, an integer, which indicates how many historical
 versions you want to display. For example, you can get
 the two most recent versions of a file with the following command:
 
-```sh
+```bash
 pachctl list file repo@master:/file --history 2
+```
+
+**System Response:**
+
+```bash
 COMMIT                           NAME  TYPE COMMITTED      SIZE
 73ba56144be94f5bad1ce64e6b96eade /file file 16 seconds ago 8B
 c5026f053a7f482fbd719dadecec8f89 /file file 21 seconds ago 4B
@@ -86,6 +91,11 @@ expensive. You can get back the full history of a file by passing
 
 ```bash
 pachctl list file edges@master:liberty.png --history all
+```
+
+**System Response:**
+
+```bash
 COMMIT                           NAME         TYPE COMMITTED    SIZE
 ff479f3a639344daa9474e729619d258 /liberty.png file 23 hours ago 22.22KiB
 ```
@@ -107,6 +117,11 @@ flag with the `pachctl list pipeline` command:
 
 ```bash
 pachctl list pipeline --history all
+```
+
+**System Response:**
+
+```bash
 NAME      VERSION INPUT     CREATED     STATE / LAST JOB
 Pipeline2 1       input2:/* 4 hours ago running / success
 Pipeline1 3       input1:/* 4 hours ago running / success

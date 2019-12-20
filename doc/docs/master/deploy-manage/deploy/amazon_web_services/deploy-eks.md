@@ -60,6 +60,11 @@ To deploy an EKS cluster, complete the following steps:
 
    ```bash
    kubectl get all
+   ```
+
+   **System Response:**
+
+   ```bash
    NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
    service/kubernetes   ClusterIP   10.100.0.1   <none>        443/TCP   7m9s
    ```

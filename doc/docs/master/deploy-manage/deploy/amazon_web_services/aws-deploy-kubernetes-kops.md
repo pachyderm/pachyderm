@@ -67,6 +67,11 @@ location on your computer.
 
    ```bash
    aws s3api create-bucket --bucket test-pachyderm --region us-east-1
+   ```
+
+   **System Response:**
+
+   ```bash
    {
         "Location": "/test-pachyderm"
    }
@@ -112,6 +117,11 @@ cluster as variables.
 
    ```bash
    kops validate cluster
+   ```
+
+   **System Response:**
+
+   ```bash
    Using cluster from kubectl context: test-pachyderm.k8s.local
 
    Validating cluster svetkars.k8s.local

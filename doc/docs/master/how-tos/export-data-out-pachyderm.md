@@ -57,6 +57,11 @@ To export your data with pachctl:
 
    ```bash
    pachctl list commit data@master
+   ```
+
+   **System Response:**
+
+   ```bash
    REPO   BRANCH COMMIT                           PARENT                           STARTED           DURATION           SIZE
    data master 230103d3c6bd45b483ab6d0b7ae858d5 f82b76f463ca4799817717a49ab74fac 2 seconds ago  Less than a second 750B
    data master f82b76f463ca4799817717a49ab74fac <none>                           40 seconds ago Less than a second 375B
@@ -72,6 +77,11 @@ To export your data with pachctl:
 
    ```bash
    pachctl get file data@master:user_data.csv
+   ```
+
+   **System Response:**
+
+   ```bash
    1,cyukhtin0@stumbleupon.com,144.155.176.12
    2,csisneros1@over-blog.com,26.119.26.5
    3,jeye2@instagram.com,13.165.230.106
@@ -136,6 +146,11 @@ To export your data with pachctl:
 
      ```bash
      pachctl get file <repo>@<branch-or-commit>^<n>:<path/to/file>
+     ```
+
+     **System Response:**
+
+     ```bash
      file "<path/to/file>" not found
      ```
 

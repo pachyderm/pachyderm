@@ -36,9 +36,15 @@ What the `--initial-admin` flag does is this:
    `--initial-admin=robot:<something>` does.
 4. Pachyderm will print out a Pachyderm token that authenticates the holder as
    this robot user. At any point, you can authenticate as this robot user by
-   running
-   ```
+   running the following command:
+
+   ```bash
    pachctl auth use-auth-token
+   ```
+
+   **System response:**
+
+   ```bash
    Please paste your Pachyderm auth token:
    <paste robot token emitted by "pachctl auth activate --initial-admin=robot:admin">
    # you are now robot:admin, cluster administrator
@@ -127,12 +133,14 @@ pachctl auth set-config <<EOF
 }
 EOF
 ```
+
 Then, try:
 ```
 pachctl create repo group-test
 pachctl put file group-test@master -f some-data.txt
 pachctl auth set group/saml:"Test Group" reader group-test
 ```
+
 Elsewhere:
 ```
 pachctl auth login --code=<auth code>

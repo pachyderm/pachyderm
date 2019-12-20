@@ -34,6 +34,11 @@ Pachyderm provides the following file processing strategies:
 
        ```bash
        pachctl list file images@master
+       ```
+
+       **System Response:**
+
+       ```bash
        NAME   TYPE SIZE
        /A.csv file 258B
        ```
@@ -48,6 +53,11 @@ Pachyderm provides the following file processing strategies:
 
        ```bash
        pachctl list file images@master
+       ```
+
+       **System Response:**
+
+       ```bash
        NAME   TYPE SIZE
        /A.csv file 516B
        ```
@@ -65,6 +75,11 @@ Pachyderm provides the following file processing strategies:
 
        ```bash
        pachctl list file images@master
+       ```
+
+       **System Response:**
+
+       ```bash
        NAME   TYPE SIZE
        /A.csv file 258B
        ```
@@ -79,6 +94,11 @@ Pachyderm provides the following file processing strategies:
 
        ```bash
        pachctl list file images@master
+       ```
+
+       **System Response:**
+
+       ```bash
        NAME   TYPE SIZE
        /A.csv file 258B
        ```

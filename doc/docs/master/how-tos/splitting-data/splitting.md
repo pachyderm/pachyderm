@@ -75,6 +75,11 @@ repository:
 
    ```bash
    pachctl list file users@master
+   ```
+
+   **System Response:**
+
+   ```bash
    NAME                 TYPE                SIZE
    user_data.csv   dir                 5.346 KiB
    ```
@@ -93,6 +98,8 @@ specified after a colon:
    ```bash
    pachctl list file users@master:user_data.csv
    ```
+
+   **System Response:**
 
    ```bash
    NAME                             TYPE                SIZE
@@ -190,6 +197,11 @@ other lines:
 
    ```bash
    pachctl get file users@master:/user_data.csv/0000000000000000
+   ```
+
+   **System Response:**
+
+   ```bash
    NUMBER,EMAIL,IP_ADDRESS
    1,cyukhtin0@stumbleupon.com,144.155.176.12
    ```
@@ -198,6 +210,8 @@ other lines:
    ```bash
    pachctl get file users@master:/user_data.csv/*
    ```
+
+   **System Response:**
 
    ```csv
    NUMBER,EMAIL,IP_ADDRESS
@@ -258,6 +272,8 @@ steps:
     ```bash
     cat users.pgdump
     ```
+
+    **System Response:**
 
     ```bash
     --
@@ -323,6 +339,11 @@ steps:
 
    ```bash
    pachctl list file data@master
+   ```
+
+   **System Response:**
+
+   ```bash
    NAME         TYPE SIZE
    users        dir  914B
    ```
@@ -335,6 +356,11 @@ steps:
    ```bash
 
    pachctl list file data@master:users
+   ```
+
+   **System Response:**
+
+   ```bash
    NAME                           TYPE SIZE
    /users/0000000000000000        file 20B
    /users/0000000000000001        file 18B

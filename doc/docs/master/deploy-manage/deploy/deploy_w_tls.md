@@ -31,6 +31,6 @@ You can do so by running the following command:
     pachctl config update context `p config get active-context` --pachd_address "grpcs://<cluster-ip>:31400"
     ```
 
-!!! note "See also"
+!!! note "See also:"
 
 - [Connect by using a Pachyderm context](../connect-to-cluster/#connect-by-using-a-pachyderm-context)

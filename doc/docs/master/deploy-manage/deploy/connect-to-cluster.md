@@ -144,6 +144,11 @@ steps:
 
    ```bash
    pachctl config get context local
+   ```
+
+   **System Response:**
+
+   ```bash
    {
       "pachd_address": "192.168.1.15:30650"
    }

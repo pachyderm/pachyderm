@@ -72,6 +72,11 @@ the following command:
    ```bash
    minio version
    mc version
+   ```
+
+   **System Response:**
+
+   ```bash
    Version: 2019-07-11T19:31:28Z
    Release-tag: RELEASE.2019-07-11T19-31-28Z
    Commit-id: 31e5ac02bdbdbaf20a87683925041f406307cfb9
@@ -123,6 +128,11 @@ in the [AWS documentation](https://docs.aws.amazon.com/cli/latest/userguide/cli-
 
    ```bash
    aws configure
+   ```
+
+   **System Response:**
+
+   ```bash
    AWS Access Key ID: YOUR-PACHYDERM-AUTH-TOKEN
    AWS Secret Access Key: YOUR-PACHYDERM-AUTH-TOKEN
    Default region name:
@@ -209,6 +219,11 @@ To list filesystem objects, complete the following steps:
 
      ```bash
      mc ls local
+     ```
+
+     **System Response:**
+
+     ```bash
      [2019-07-12 15:09:50 PDT]      0B master.train/
      [2019-07-12 14:58:50 PDT]      0B master.pre_process/
      [2019-07-12 14:58:09 PDT]      0B master.split/
@@ -220,6 +235,11 @@ To list filesystem objects, complete the following steps:
 
      ```bash
      aws --endpoint-url http://localhost:30600 s3 ls
+     ```
+
+     **System Response:**
+
+     ```bash
      2019-07-12 15:09:50 master.train
      2019-07-12 14:58:50 master.pre_process
      2019-07-12 14:58:09 master.split
@@ -231,6 +251,11 @@ To list filesystem objects, complete the following steps:
 
      ```bash
      s3cmd ls
+     ```
+
+     **System Response:**
+
+     ```bash
      2019-07-12 15:09 master.train
      2019-07-12 14:58 master.pre_process
      2019-07-12 14:58 master.split
@@ -244,6 +269,11 @@ To list filesystem objects, complete the following steps:
 
      ```bash
      mc ls local/master.raw_data
+     ```
+
+     **System Response:**
+
+     ```bash
      [2019-07-19 12:11:37 PDT]  2.6MiB github_issues_medium.csv
      ```
 
@@ -251,6 +281,11 @@ To list filesystem objects, complete the following steps:
 
      ```bash
      aws --endpoint-url http://localhost:30600/ s3 ls s3://master.raw_data
+     ```
+
+     **System Response:**
+
+     ```bash
      2019-07-26 11:22:23    2685061 github_issues_medium.csv
      ```
 
@@ -258,6 +293,11 @@ To list filesystem objects, complete the following steps:
 
      ```bash
      s3cmd ls s3://master.raw_data/
+     ```
+
+     **System Response:**
+
+     ```bash
      2019-07-26 11:22 2685061 s3://master.raw_data/github_issues_medium.csv
      ```
 ### Create an S3 Bucket
@@ -276,6 +316,11 @@ S3 bucket, which is a repository with a branch in Pachyderm.
 
      ```bash
      mc mb local/master.test
+     ```
+
+     **System Response:**
+
+     ```bash
      Bucket created successfully `local/master.test`.
      ```
 
@@ -283,6 +328,11 @@ S3 bucket, which is a repository with a branch in Pachyderm.
 
      ```bash
      aws --endpoint-url http://localhost:30600/ s3 mb s3://master.test
+     ```
+
+     **System Response:**
+
+     ```bash
      make_bucket: master.test
      ```
 
@@ -300,6 +350,11 @@ S3 bucket, which is a repository with a branch in Pachyderm.
 
      ```bash
      mc ls local
+     ```
+
+     **System Response:**
+
+     ```bash
      [2019-07-18 13:32:44 PDT]      0B master.test/
      [2019-07-12 15:09:50 PDT]      0B master.train/
      [2019-07-12 14:58:50 PDT]      0B master.pre_process/
@@ -312,6 +367,11 @@ S3 bucket, which is a repository with a branch in Pachyderm.
 
      ```bash
      aws --endpoint-url http://localhost:30600/ s3 ls
+     ```
+
+     **System Response:**
+
+     ```bash
      2019-07-26 11:35:28 master.test
      2019-07-12 14:58:50 master.pre_process
      2019-07-12 14:58:09 master.split
@@ -319,8 +379,14 @@ S3 bucket, which is a repository with a branch in Pachyderm.
      2019-07-12 14:36:27 master.raw_data
           ```
    * If you are using S3cmd, type:
+
      ```bash
      s3cmd ls
+     ```
+
+     **System Response:**
+
+     ```bash
      2019-07-26 11:35 master.test
      2019-07-12 14:58 master.pre_process
      2019-07-12 14:58 master.split
@@ -333,6 +399,11 @@ S3 bucket, which is a repository with a branch in Pachyderm.
 
      ```bash
      pachctl list repo
+     ```
+
+     **System Response:**
+
+     ```bash
      NAME               CREATED                    SIZE (MASTER)
      test               About an hour ago          0B
      train              6 days ago                 68.57MiB
@@ -352,6 +423,11 @@ MinIO client by running the following command:
 
   ```bash
   mc rb local/master.test
+  ```
+
+  **System Response:**
+
+  ```bash
   Removed `local/master.test` successfully.
   ```
 
@@ -359,6 +435,11 @@ MinIO client by running the following command:
 
   ```bash
   aws --endpoint-url http://localhost:30600/ s3 rb s3://master.test
+  ```
+
+  **System Response:**
+
+  ```bash
   remove_bucket: master.test
   ```
 
@@ -390,6 +471,11 @@ To add a file to a repository, complete the following steps:
 
      ```bash
      mc cp test.csv local/master.raw_data/test.csv
+     ```
+
+     **System Response:**
+
+     ```bash
      test.csv:                  62 B / 62 B  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓  100.00% 206 B/s 0s
      ```
 
@@ -397,6 +483,11 @@ To add a file to a repository, complete the following steps:
 
      ```bash
      aws --endpoint-url http://localhost:30600/ s3 cp test.csv s3://master.raw_data
+     ```
+
+     **System Response:**
+
+     ```bash
      upload: ./test.csv to s3://master.raw_data/test.csv
      ```
 
@@ -415,6 +506,11 @@ To add a file to a repository, complete the following steps:
 
      ```bash
      mc ls local/master.raw_data
+     ```
+
+     **System Response:**
+
+     ```bash
      [2019-07-19 12:11:37 PDT]  2.6MiB github_issues_medium.csv
      [2019-07-19 12:11:37 PDT]     62B test.csv
      ```
@@ -423,6 +519,11 @@ To add a file to a repository, complete the following steps:
 
      ```bash
      aws --endpoint-url http://localhost:30600/ s3 ls s3://master.raw_data/
+     ```
+
+     **System Response:**
+
+     ```bash
      2019-07-19 12:11:37  2685061 github_issues_medium.csv
      2019-07-19 12:11:37       62 test.csv
      ```
@@ -431,6 +532,11 @@ To add a file to a repository, complete the following steps:
 
      ```bash
      s3cmd ls s3://master.raw_data/
+     ```
+
+     **System Response:**
+
+     ```bash
      2019-07-19 12:11  2685061 github_issues_medium.csv
      2019-07-19 12:11       62 test.csv
      ```
@@ -442,6 +548,11 @@ current directory by running the following commands:
 
      ```bash
      mc cp local/master.raw_data/github_issues_medium.csv .
+     ```
+
+     **System Response:**
+
+     ```bash
      ...hub_issues_medium.csv:  2.56 MiB / 2.56 MiB  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ 100.00% 1.26 MiB/s 2s
      ```
 
@@ -449,6 +560,11 @@ current directory by running the following commands:
 
      ```
      aws --endpoint-url http://localhost:30600/ s3 cp s3://master.raw_data/test.csv .
+     ```
+
+     **System Response:**
+
+     ```bash
      download: s3://master.raw_data/test.csv to ./test.csv
      ```
 
@@ -468,6 +584,11 @@ MinIO command-line interface:
 
      ```bash
      mc ls local/master.raw_data/
+     ```
+
+     **System Response:**
+
+     ```bash
      [2019-07-19 12:11:37 PDT]  2.6MiB github_issues_medium.csv
      [2019-07-19 12:11:37 PDT]     62B test.csv
      ```
@@ -476,6 +597,11 @@ MinIO command-line interface:
 
      ```bash
      aws --endpoint-url http://localhost:30600/ s3 ls s3://master.raw_data
+     ```
+
+     **System Response:**
+
+     ```bash
      2019-07-19 12:11:37    2685061 github_issues_medium.csv
      2019-07-19 12:11:37         62 test.csv
      ```
@@ -484,6 +610,11 @@ MinIO command-line interface:
 
      ```bash
      s3cmd ls s3://master.raw_data
+     ```
+
+     **System Response:**
+
+     ```bash
      2019-07-19 12:11    2685061 github_issues_medium.csv
      2019-07-19 12:11         62 test.csv
      ```
@@ -494,6 +625,11 @@ MinIO command-line interface:
 
      ```bash
      mc rm local/master.raw_data/test.csv
+     ```
+
+     **System Response:**
+
+     ```bash
      Removing `local/master.raw_data/test.csv`.
      ```
 
@@ -501,6 +637,11 @@ MinIO command-line interface:
 
      ```bash
      aws --endpoint-url http://localhost:30600/ s3 rm s3://master.raw_data/test.csv
+     ```
+
+     **System Response:**
+
+     ```bash
      delete: s3://master.raw_data/test.csv
      ```
 

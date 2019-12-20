@@ -44,6 +44,11 @@ To view active context, type:
 
   ```bash
   pachctl config get active-context
+  ```
+
+  **System response:**
+
+  ```bash
   local-1
   ```
 
@@ -51,6 +56,11 @@ To view active context, type:
 
   ```bash
   pachctl config list context
+  ```
+
+  **System response:**
+
+  ```bash
     ACTIVE  NAME
             default
             local
@@ -94,6 +104,11 @@ and a client certificate:
 
    ```bash
    echo '{"pachd_address":"10.10.10.130:650", "server_cas":"key.pem"}' | pachctl config set context new-local
+   ```
+
+   **System response:**
+
+   ```bash
    Reading from stdin
    ```
 
@@ -128,6 +143,11 @@ To update the Active Context, run the following commands:
 
    ```bash
    pachctl config get context local-1
+   ```
+
+   **System response:**
+
+   ```bash
    {
      "pachd_address": "10.10.10.131"
    }
@@ -138,6 +158,11 @@ an `echo` script:
 
    ```bash
    echo '{"pachd_address":"10.10.10.132", "server_cas":"key.pem"}' | pachctl config set context local-1 --overwrite
+   ```
+
+   **System response:**
+
+   ```bash
    Reading from stdin.
    ```
 
@@ -145,6 +170,11 @@ an `echo` script:
 
    ```bash
    pachctl config get context local-1
+   ```
+
+   **System response:**
+
+   ```bash
    {
      "pachd_address": "10.10.10.132",
      "server_cas": "key.pem"

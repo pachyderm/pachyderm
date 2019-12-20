@@ -103,6 +103,11 @@ WSL `/.kube/` directory:
 
    ```bash
    kubectl version
+   ```
+
+   **System Response:**
+
+   ```bash
    Client Version: version.Info{Major:"1", Minor:"17", GitVersion:"v1.17.0", GitCommit:"70132b0f130acc0bed193d9ba59dd186f0e634cf", GitTreeState:"clean", BuildDate:"2019-12-07T21:20:10Z", GoVersion:"go1.13.4", Compiler:"gc", Platform:"linux/amd64"}
    Server Version: version.Info{Major:"1", Minor:"17", GitVersion:"v1.17.0", GitCommit:"70132b0f130acc0bed193d9ba59dd186f0e634cf", GitTreeState:"clean", BuildDate:"2019-12-07T21:12:17Z", GoVersion:"go1.13.4", Compiler:"gc", Platform:"linux/amd64"}
    ```
@@ -115,12 +120,13 @@ as described in [Install pachctl](../local_installation/#install-pachctl).
 **Example:**
 
 ```bash
+<<<<<<< HEAD
 $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.11/pachctl_1.9.11_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
-**System Response**
+**System Response:**
 
-```
+```bash
 % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
                                  Dload  Upload   Total   Spent    Left  Speed
 100   613    0   613    0     0   2043      0 --:--:-- --:--:-- --:--:--  2043
