@@ -11,17 +11,17 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type nascentTree struct {
+type seedling struct {
 	cond *sync.Cond
 	err  error
 }
 
 // Cache is an LRU cache for hashtrees.
 type Cache struct {
-	lruCache     simplelru.LRUCache
-	lock         sync.Mutex
-	syncEvict    *bool
-	nascentTrees map[interface{}]*nascentTree
+	lruCache  simplelru.LRUCache
+	lock      sync.Mutex
+	syncEvict *bool
+	seedlings map[interface{}]*seedling
 }
 
 func castValue(value interface{}) (HashTree, error) {
@@ -56,9 +56,9 @@ func NewCache(size int) (*Cache, error) {
 		return nil, err
 	}
 	return &Cache{
-		lruCache:     lruCache,
-		syncEvict:    &syncEvict,
-		nascentTrees: make(map[interface{}]*nascentTree),
+		lruCache:  lruCache,
+		syncEvict: &syncEvict,
+		seedlings: make(map[interface{}]*seedling),
 	}, nil
 }
 
@@ -85,23 +85,23 @@ func (c *Cache) GetOrAdd(key interface{}, generator func() (HashTree, error)) (H
 	// First try to get a tree from the cache
 	if value, ok := c.lruCache.Get(key); ok {
 		return castValue(value)
-	} else if nascent, ok := c.nascentTrees[key]; ok {
+	} else if s, ok := c.seedlings[key]; ok {
 		// There is a pending hashtree being generated, wait for it
-		nascent.cond.Wait()
+		s.cond.Wait()
 
-		if nascent.err != nil {
-			return nil, nascent.err
+		if s.err != nil {
+			return nil, s.err
 		} else if value, ok := c.lruCache.Get(key); ok {
 			return castValue(value)
 		}
 
 		// If we get here, that means the hashtree was evicted between when the
-		// nascentTree completed and when this goroutine woke up. Fallthrough so
+		// seedling completed and when this goroutine woke up. Fallthrough so
 		// that we can run the generator to reconstruct it.
 	}
 
-	nascent := &nascentTree{cond: sync.NewCond(&c.lock)}
-	c.nascentTrees[key] = nascent
+	s := &seedling{cond: sync.NewCond(&c.lock)}
+	c.seedlings[key] = s
 	c.lock.Unlock()
 
 	// We do the generator outside of the lock so we don't bottleneck on this,
@@ -109,17 +109,17 @@ func (c *Cache) GetOrAdd(key interface{}, generator func() (HashTree, error)) (H
 	newValue, err := generator()
 	if err != nil {
 		c.lock.Lock()
-		delete(c.nascentTrees, key)
-		nascent.err = err
-		nascent.cond.Broadcast()
+		delete(c.seedlings, key)
+		s.err = err
+		s.cond.Broadcast()
 
 		return nil, err
 	}
 
 	c.lock.Lock()
 	c.lruCache.Add(key, newValue)
-	delete(c.nascentTrees, key)
-	nascent.cond.Broadcast()
+	delete(c.seedlings, key)
+	s.cond.Broadcast()
 
 	return newValue, nil
 }
