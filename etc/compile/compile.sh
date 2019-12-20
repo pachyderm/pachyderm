@@ -24,7 +24,7 @@ CGO_ENABLED=0 GOOS=linux go build \
   -tags netgo \
   -o ${TMP}/${BINARY} \
   -ldflags "${LD_FLAGS}" \
-  -gcflags "all=-trimpath=$GOPATH" \
+  -gcflags "-N -l" \
   src/server/cmd/${BINARY}/main.go
 
 echo "LD_FLAGS=$LD_FLAGS"
