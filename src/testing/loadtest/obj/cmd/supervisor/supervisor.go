@@ -75,14 +75,14 @@ func main() {
 	if err := basicTest(c); err != nil {
 		log.Fatalf("Basic test error: %v", err)
 	}
-	fmt.Printf("Basic test completed. Total time: %.3f\n", time.Now().Sub(start).Seconds())
+	fmt.Printf("Basic test completed. Total time: %.3f\n", time.Since(start).Seconds())
 	// Run load test.
 	start = time.Now()
 	fmt.Printf("Load test started.\n")
 	if err := loadTest(c); err != nil {
 		log.Fatalf("Load test error: %v", err)
 	}
-	fmt.Printf("Load test completed. Total time: %.3f\n", time.Now().Sub(start).Seconds())
+	fmt.Printf("Load test completed. Total time: %.3f\n", time.Since(start).Seconds())
 }
 
 func basicTest(c obj.Client) error {
@@ -195,7 +195,7 @@ func readTest(ctx context.Context, c obj.Client, name string, offset, size int, 
 	if err := readObject(ctx, c, name, offset, size, buf); err != nil {
 		return err
 	}
-	if bytes.Compare(expected, buf) != 0 {
+	if !bytes.Equal(expected, buf) {
 		return fmt.Errorf("range read for object %v incorrect (offset: %v, size: %v)", name, offset, size)
 	}
 	return nil
@@ -220,7 +220,7 @@ func loadTest(c obj.Client) error {
 			if err := readObject(ctx, c, name, 0, 0, buf); err != nil {
 				return err
 			}
-			if bytes.Compare(data, buf) != 0 {
+			if !bytes.Equal(data, buf) {
 				return fmt.Errorf("data writen does not equal data read for object %v", i)
 			}
 			return c.Delete(ctx, name)

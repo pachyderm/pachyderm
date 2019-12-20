@@ -204,6 +204,7 @@ func (t *TestIDP) NewSAMLResponse(subject string, groups ...string) []byte {
 		RequestBuffer: MustMarshalXML(t.t, clientReq),
 	}
 	samlRequest.HTTPRequest, err = http.NewRequest("POST", idpSSOURL, nil)
+	require.NoError(t.t, err)
 	// Populate SP metadata fields in samlRequest (a side effect of Validate())
 	require.NoError(t.t, samlRequest.Validate())
 

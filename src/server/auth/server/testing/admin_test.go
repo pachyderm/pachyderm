@@ -604,6 +604,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	commit, err = adminClient.StartCommit(repo, "master")
 	require.NoError(t, err)
 	_, err = adminClient.PutFile(repo, commit.ID, "/file2", strings.NewReader("test data"))
+	require.NoError(t, err)
 	require.NoError(t, adminClient.FinishCommit(repo, commit.ID))
 	require.Equal(t, 2, CommitCnt(t, adminClient, repo)) // check that a new commit was created
 

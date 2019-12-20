@@ -11,7 +11,7 @@ import stat
 SPOUT = '/pfs/out'
 
 def open_pipe(path_to_file, attempts=0, timeout=2, sleep_int=5):
-    if attempts < timeout : 
+    if attempts < timeout :
         flags = os.O_WRONLY  # Refer to "man 2 open".
         mode = stat.S_IWUSR  # This is 0o400.
         umask = 0o777 ^ mode  # Prevents always downgrading umask to 0.
@@ -28,7 +28,6 @@ def open_pipe(path_to_file, attempts=0, timeout=2, sleep_int=5):
         finally:
             os.umask(umask_original)
     return None
-            
 
 
 unspecified_value = 'not specified';
@@ -74,12 +73,12 @@ while (True):
         # To use a tarfile object with a named pipe, you must use the "w|" mode
         # which makes it not seekable
         print("Creating tarstream...")
-        try: 
+        try:
             tarStream = tarfile.open(fileobj=mySpout,mode="w|", encoding='utf-8')
         except tarfile.TarError as te:
             print('error creating tarstream: {0}'.format(te))
             exit(-2)
-            
+
         for current in range(number_of_emails):
             current_uid = all_emails[current]
             typ, email_data = imap.uid("fetch", current_uid, '(RFC822)')
@@ -110,7 +109,7 @@ while (True):
             else:
                 print("Error copying message {} to {}".format(current_uid, imap_processed_box))
                 exit(-2)
-                    
+
         tarStream.close()
         mySpout.close()
     else:
@@ -118,7 +117,7 @@ while (True):
 
     print("waiting for new emails...")
     time.sleep(5)
-        
+
 
 
 

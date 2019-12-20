@@ -61,8 +61,6 @@ const (
 	// Makes calls to ListRepo and InspectRepo more legible
 	includeAuth = true
 
-	// maxInt is the maximum value for 'int' (system-dependent). Not in 'math'!
-	maxInt = int(^uint(0) >> 1)
 	// tmpPrefix is for temporary object paths that store merged shards.
 	tmpPrefix = "tmp"
 )
@@ -75,6 +73,12 @@ var (
 // IsPermissionError returns true if a given error is a permission error.
 func IsPermissionError(err error) bool {
 	return strings.Contains(err.Error(), "has already finished")
+}
+
+func destroyHashtree(tree hashtree.HashTree) {
+	if err := tree.Destroy(); err != nil {
+		logrus.Infof("failed to destroy hashtree: %v", err)
+	}
 }
 
 // CommitEvent is an event that contains a CommitInfo or an error
@@ -103,7 +107,6 @@ type driver struct {
 	commits        collectionFactory
 	branches       collectionFactory
 	openCommits    col.Collection
-	transactions   col.Collection
 
 	// a cache for hashtrees
 	treeCache *hashtree.Cache
@@ -152,6 +155,7 @@ func newDriver(
 		// Allow up to a third of the requested memory to be used for memory intensive operations
 		memoryLimiter: semaphore.NewWeighted(memoryRequest / 3),
 	}
+
 	// Create spec repo (default repo)
 	repo := client.NewRepo(ppsconsts.SpecRepo)
 	repoInfo := &pfs.RepoInfo{
@@ -179,10 +183,6 @@ func newDriver(
 	return d, nil
 }
 
-func (d *driver) Close() {
-	d.treeCache.Close()
-}
-
 // checkIsAuthorizedInTransaction is identicalto checkIsAuthorized except that
 // it performs reads consistent with the latest state of the STM transaction.
 func (d *driver) checkIsAuthorizedInTransaction(txnCtx *txnenv.TransactionContext, r *pfs.Repo, s auth.Scope) error {
@@ -191,9 +191,8 @@ func (d *driver) checkIsAuthorizedInTransaction(txnCtx *txnenv.TransactionContex
 		return nil
 	}
 
-	resp := &auth.AuthorizeResponse{}
 	req := &auth.AuthorizeRequest{Repo: r.Name, Scope: s}
-	resp, err = txnCtx.Auth().AuthorizeInTransaction(txnCtx, req)
+	resp, err := txnCtx.Auth().AuthorizeInTransaction(txnCtx, req)
 	if err != nil {
 		return fmt.Errorf("error during authorization check for operation on \"%s\": %v",
 			r.Name, grpcutil.ScrubGRPC(err))
@@ -213,9 +212,8 @@ func (d *driver) checkIsAuthorized(pachClient *client.APIClient, r *pfs.Repo, s 
 		return nil
 	}
 
-	resp := &auth.AuthorizeResponse{}
 	req := &auth.AuthorizeRequest{Repo: r.Name, Scope: s}
-	resp, err = pachClient.AuthAPIClient.Authorize(ctx, req)
+	resp, err := pachClient.AuthAPIClient.Authorize(ctx, req)
 	if err != nil {
 		return fmt.Errorf("error during authorization check for operation on \"%s\": %v",
 			r.Name, grpcutil.ScrubGRPC(err))
@@ -232,14 +230,6 @@ func now() *types.Timestamp {
 		return &types.Timestamp{}
 	}
 	return t
-}
-
-func present(key string) etcd.Cmp {
-	return etcd.Compare(etcd.CreateRevision(key), ">", 0)
-}
-
-func absent(key string) etcd.Cmp {
-	return etcd.Compare(etcd.CreateRevision(key), "=", 0)
 }
 
 func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, description string, update bool) error {
@@ -1277,10 +1267,7 @@ func (d *driver) makeCommit(
 			if err != nil {
 				return nil, err
 			}
-			defer func() {
-				// TODO: handle error?
-				tree.Destroy()
-			}()
+			defer destroyHashtree(tree)
 			for i, record := range records {
 				if err := d.applyWrite(recordFiles[i], record, tree); err != nil {
 					return nil, err
@@ -1460,8 +1447,7 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 
 		defer func() {
 			if finishedTree != nil {
-				// TODO: do anything with errors here?
-				finishedTree.Destroy()
+				destroyHashtree(finishedTree)
 			}
 		}()
 
@@ -1827,7 +1813,7 @@ func (d *driver) inspectCommit(pachClient *client.APIClient, commit *pfs.Commit,
 					return event.Err
 				case watch.EventPut:
 					if err := event.Unmarshal(&commitID, _commitInfo); err != nil {
-						return fmt.Errorf("Unmarshal: %v", err)
+						return fmt.Errorf("unmarshal: %v", err)
 					}
 				case watch.EventDelete:
 					return pfsserver.ErrCommitDeleted{commit}
@@ -2007,7 +1993,7 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 			// Sort in reverse provenance order, i.e. commits come before their provenance
 			sort.Slice(cis, func(i, j int) bool { return len(cis[i].Provenance) > len(cis[j].Provenance) })
 			for i, ci := range cis {
-				if number <= 0 {
+				if number == 0 {
 					return errutil.ErrBreak
 				}
 				number--
@@ -2094,10 +2080,10 @@ func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, b
 			return event.Err
 		case watch.EventPut:
 			if err := event.Unmarshal(&commitID, commitInfo); err != nil {
-				return fmt.Errorf("Unmarshal: %v", err)
+				return fmt.Errorf("unmarshal: %v", err)
 			}
 			if commitInfo == nil {
-				return fmt.Errorf("Commit info is empty for id: %v", commitID)
+				return fmt.Errorf("commit info is empty for id: %v", commitID)
 			}
 
 			// if provenance is provided, ensure that the returned commits have the commit in their provenance
@@ -3211,10 +3197,7 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 	if err != nil {
 		return err
 	}
-	defer func() {
-		// TODO: handle error?
-		srcTree.Destroy()
-	}()
+	defer destroyHashtree(srcTree)
 	// This is necessary so we can call filepath.Rel below
 	if !strings.HasPrefix(src.Path, "/") {
 		src.Path = "/" + src.Path
@@ -3284,66 +3267,40 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 	return nil
 }
 
-func (d *driver) getEmptyTree() (hashtree.HashTree, error) {
-	tree, ok := d.treeCache.Get("")
-	if ok {
-		h, ok := tree.(hashtree.HashTree)
-		if ok {
-			return h, nil
-		}
-		return nil, fmt.Errorf("corrupted cache: expected hashtree.Hashtree, found %v", tree)
-	}
-
-	t, err := hashtree.NewDBHashTree(d.storageRoot)
-	if err != nil {
-		return nil, err
-	}
-
-	d.treeCache.Add("", t)
-	return t, nil
-}
-
 func (d *driver) getTreeForCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Commit) (hashtree.HashTree, error) {
 	if commit == nil || commit.ID == "" {
-		return d.getEmptyTree()
+		return d.treeCache.GetOrAdd("nil", func() (hashtree.HashTree, error) {
+			return hashtree.NewDBHashTree(d.storageRoot)
+		})
 	}
 
-	tree, ok := d.treeCache.Get(commit.ID)
-	if ok {
-		h, ok := tree.(hashtree.HashTree)
-		if ok {
-			return h, nil
+	return d.treeCache.GetOrAdd(commit.ID, func() (hashtree.HashTree, error) {
+		if _, err := d.resolveCommit(txnCtx.Stm, commit); err != nil {
+			return nil, err
 		}
-		return nil, fmt.Errorf("corrupted cache: expected hashtree.Hashtree, found %v", tree)
-	}
 
-	if _, err := d.resolveCommit(txnCtx.Stm, commit); err != nil {
-		return nil, err
-	}
+		commits := d.commits(commit.Repo.Name).ReadWrite(txnCtx.Stm)
+		commitInfo := &pfs.CommitInfo{}
+		if err := commits.Get(commit.ID, commitInfo); err != nil {
+			return nil, err
+		}
+		if commitInfo.Finished == nil {
+			return nil, fmt.Errorf("cannot read from an open commit")
+		}
+		treeRef := commitInfo.Tree
 
-	commits := d.commits(commit.Repo.Name).ReadWrite(txnCtx.Stm)
-	commitInfo := &pfs.CommitInfo{}
-	if err := commits.Get(commit.ID, commitInfo); err != nil {
-		return nil, err
-	}
-	if commitInfo.Finished == nil {
-		return nil, fmt.Errorf("cannot read from an open commit")
-	}
-	treeRef := commitInfo.Tree
+		if treeRef == nil {
+			return hashtree.NewDBHashTree(d.storageRoot)
+		}
 
-	if treeRef == nil {
-		return d.getEmptyTree()
-	}
+		// read the tree from the block store
+		h, err := hashtree.GetHashTreeObject(txnCtx.Client, d.storageRoot, treeRef)
+		if err != nil {
+			return nil, err
+		}
 
-	// read the tree from the block store
-	h, err := hashtree.GetHashTreeObject(txnCtx.Client, d.storageRoot, treeRef)
-	if err != nil {
-		return nil, err
-	}
-
-	d.treeCache.Add(commit.ID, h)
-
-	return h, nil
+		return h, nil
+	})
 }
 
 func (d *driver) getTree(pachClient *client.APIClient, commitInfo *pfs.CommitInfo, path string) (rs []io.ReadCloser, retErr error) {
@@ -3500,7 +3457,7 @@ func (d *driver) getTreeForOpenCommit(pachClient *client.APIClient, file *pfs.Fi
 
 	defer func() {
 		if retErr != nil {
-			tree.Destroy()
+			destroyHashtree(tree)
 		}
 	}()
 
@@ -3558,10 +3515,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 		if err != nil {
 			return nil, err
 		}
-		defer func() {
-			// TODO: handle error?
-			tree.Destroy()
-		}()
+		defer destroyHashtree(tree)
 		var (
 			pathsFound int
 			objects    []*pfs.Object
@@ -3799,10 +3753,7 @@ func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (fi *
 		if err != nil {
 			return nil, err
 		}
-		defer func() {
-			// TODO: handle error?
-			tree.Destroy()
-		}()
+		defer destroyHashtree(tree)
 		node, err := tree.Get(file.Path)
 		if err != nil {
 			return nil, pfsserver.ErrFileNotFound{file}
@@ -3865,10 +3816,7 @@ func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full boo
 		if err != nil {
 			return err
 		}
-		defer func() {
-			// TODO: handle error?
-			tree.Destroy()
-		}()
+		defer destroyHashtree(tree)
 		return tree.Glob(file.Path, func(rootPath string, rootNode *hashtree.NodeProto) error {
 			if rootNode.DirNode == nil {
 				if history != 0 {
@@ -3935,7 +3883,7 @@ func (d *driver) fileHistory(pachClient *client.APIClient, file *pfs.File, histo
 			}
 			return err
 		}
-		if fi != nil && bytes.Compare(fi.Hash, _fi.Hash) != 0 {
+		if fi != nil && !bytes.Equal(fi.Hash, _fi.Hash) {
 			if err := f(fi); err != nil {
 				return err
 			}
@@ -3983,10 +3931,7 @@ func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, f func(*
 		if err != nil {
 			return err
 		}
-		defer func() {
-			// TODO: handle error?
-			tree.Destroy()
-		}()
+		defer destroyHashtree(tree)
 		return tree.Walk(file.Path, func(path string, node *hashtree.NodeProto) error {
 			fi, err := nodeToFileInfoHeaderFooter(commitInfo, path, node, tree, false)
 			if err != nil {
@@ -4040,10 +3985,7 @@ func (d *driver) globFile(pachClient *client.APIClient, commit *pfs.Commit, patt
 		if err != nil {
 			return err
 		}
-		defer func() {
-			// TODO: handle error?
-			tree.Destroy()
-		}()
+		defer destroyHashtree(tree)
 		globErr := tree.Glob(pattern, func(path string, node *hashtree.NodeProto) error {
 			fi, err := nodeToFileInfoHeaderFooter(commitInfo, path, node, tree, false)
 			if err != nil {
@@ -4113,10 +4055,7 @@ func (d *driver) diffFile(pachClient *client.APIClient, newFile *pfs.File, oldFi
 	if err != nil {
 		return nil, nil, err
 	}
-	defer func() {
-		// TODO: handle error?
-		newTree.Destroy()
-	}()
+	defer destroyHashtree(newTree)
 	newCommitInfo, err := d.inspectCommit(pachClient, newFile.Commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return nil, nil, err
@@ -4144,10 +4083,7 @@ func (d *driver) diffFile(pachClient *client.APIClient, newFile *pfs.File, oldFi
 	if err != nil {
 		return nil, nil, err
 	}
-	defer func() {
-		// TODO: handle error?
-		oldTree.Destroy()
-	}()
+	defer destroyHashtree(oldTree)
 	var newFileInfos []*pfs.FileInfo
 	var oldFileInfos []*pfs.FileInfo
 	recursiveDepth := -1
@@ -4426,10 +4362,6 @@ func (b *branchSet) search(branch *pfs.Branch) (int, bool) {
 	return i, branchKey((*b)[i]) == branchKey(branch)
 }
 
-func search(bs *[]*pfs.Branch, branch *pfs.Branch) (int, bool) {
-	return (*branchSet)(bs).search(branch)
-}
-
 func (b *branchSet) add(branch *pfs.Branch) {
 	i, ok := b.search(branch)
 	if !ok {
@@ -4463,50 +4395,6 @@ func (b *branchSet) has(branch *pfs.Branch) bool {
 
 func has(bs *[]*pfs.Branch, branch *pfs.Branch) bool {
 	return (*branchSet)(bs).has(branch)
-}
-
-type putFileReader struct {
-	server pfs.API_PutFileServer
-	buffer *bytes.Buffer
-	// request is the request that contains the File and other meaningful
-	// information
-	request *pfs.PutFileRequest
-}
-
-func newPutFileReader(server pfs.API_PutFileServer) (*putFileReader, error) {
-	result := &putFileReader{
-		server: server,
-		buffer: &bytes.Buffer{}}
-	if _, err := result.Read(nil); err != nil && err != io.EOF {
-		return nil, err
-	}
-	if result.request == nil {
-		return nil, io.EOF
-	}
-	return result, nil
-}
-
-func (r *putFileReader) Read(p []byte) (int, error) {
-	eof := false
-	if r.buffer.Len() == 0 {
-		request, err := r.server.Recv()
-		if err != nil {
-			if err == io.EOF {
-				r.request = nil
-			}
-			return 0, err
-		}
-		//buffer.Write cannot error
-		r.buffer = bytes.NewBuffer(request.Value)
-		if request.File != nil {
-			eof = true
-			r.request = request
-		}
-	}
-	if eof {
-		return 0, io.EOF
-	}
-	return r.buffer.Read(p)
 }
 
 type putFileServer struct {
@@ -4594,10 +4482,10 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 				}
 				commitID = commit.ID
 			} else if req.File.Commit.ID != rawCommitID {
-				err = fmt.Errorf("All requests in a put files call must have the same commit ID; expected '%s', got '%s'", rawCommitID, req.File.Commit.ID)
+				err = fmt.Errorf("all requests in a put files call must have the same commit ID; expected '%s', got '%s'", rawCommitID, req.File.Commit.ID)
 				return false, "", "", err
 			} else if req.File.Commit.Repo.Name != repo {
-				err = fmt.Errorf("All requests in a put files call must have the same repo name; expected '%s', got '%s'", repo, req.File.Commit.Repo.Name)
+				err = fmt.Errorf("all requests in a put files call must have the same repo name; expected '%s', got '%s'", repo, req.File.Commit.Repo.Name)
 				return false, "", "", err
 			} else {
 				req.File.Commit.ID = commitID
@@ -4719,13 +4607,4 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 	}
 	err = eg.Wait()
 	return oneOff, repo, branch, err
-}
-
-func branchContains(bs []*pfs.Branch, b *pfs.Branch) bool {
-	for _, _b := range bs {
-		if proto.Equal(_b, b) {
-			return true
-		}
-	}
-	return false
 }

@@ -12,6 +12,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
@@ -78,7 +79,7 @@ func TestValidateConfigMultipleSAMLIdPs(t *testing.T) {
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	requireConfigsEqual(t, &defaultAuthConfig, configResp.Configuration)
+	requireConfigsEqual(t, &authserver.DefaultAuthConfig, configResp.Configuration)
 	deleteAll(t)
 }
 
@@ -110,7 +111,7 @@ func TestValidateConfigErrMissingSAMLConfig(t *testing.T) {
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	requireConfigsEqual(t, &defaultAuthConfig, configResp.Configuration)
+	requireConfigsEqual(t, &authserver.DefaultAuthConfig, configResp.Configuration)
 	deleteAll(t)
 }
 
@@ -179,8 +180,8 @@ func TestSAMLBasic(t *testing.T) {
 	require.NoError(t, err)
 	// Compare host and path (i.e. redirect location) but not e.g. query string,
 	// which contains a randomly-generated OTP
-	require.Equal(t, defaultDashRedirectURL.Host, redirectLocation.Host)
-	require.Equal(t, defaultDashRedirectURL.Path, redirectLocation.Path)
+	require.Equal(t, authserver.DefaultDashRedirectURL.Host, redirectLocation.Host)
+	require.Equal(t, authserver.DefaultDashRedirectURL.Path, redirectLocation.Path)
 
 	otp := redirectLocation.Query()["auth_code"][0]
 	require.NotEqual(t, "", otp)

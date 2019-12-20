@@ -79,6 +79,15 @@
       "label": "wait-dev",
       "type": "shell",
       "command": "until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done"
+    },
+    {
+      "label": "build-launch",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "docker-build",
+        "launch-dev"
+      ],
+      "problemMatcher": []
     }
   ]
 }

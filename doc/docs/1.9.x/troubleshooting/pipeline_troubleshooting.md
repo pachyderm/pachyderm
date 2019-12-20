@@ -171,3 +171,37 @@ If the state is `CrashLoopBackoff`, you're looking for a descriptive error messa
 If the state is `Pending` it's likely the cluster doesn't have enough resources. In this case, you'll see a `could not schedule` type of error message which should describe which resource you're low on. This is more likely to happen if you've set resource requests (cpu/mem/gpu) for your pipelines.  In this case, you'll just need to scale up your resources. If you deployed using `kops`, you'll want to do edit the instance group, e.g. `kops edit ig nodes ...` and up the number of nodes. If you didn't use `kops` to deploy, you can use your cloud provider's auto scaling groups to increase the size of your instance group. Either way, it can take up to 10 minutes for the changes to go into effect. 
 
 For more information, see [Autoscale Your Cluster](../deploy-manage/manage/autoscaling.md).
+
+### Cannot Delete Pipelines with an etcd Error
+
+Failed to delete a pipeline with an `etcdserver` error.
+
+### Symptoms
+
+Deleting pipelines fails with the following error:
+
+```bash
+$ pachctl delete pipeline pipeline-name
+etcdserver: too many operations in txn request (XXXXXX comparisons, YYYYYYY writes: hint: set --max-txn-ops on the ETCD cluster to at least the largest of those values)
+```
+
+### Recourse
+
+When a Pachyderm cluster reaches a certain scale, you need to adjust
+the default parameters provided for certain `etcd` flags.
+Depending on how you deployed Pachyderm,
+you need to either edit the `etcd` `Deployment` or `StatefulSet`.
+
+```bash
+$ kubectl edit deploy etcd
+```
+
+or
+
+```bash
+$ kubectl edit statefulset edtc
+```
+
+In the `spec/template/containers/command` path, set the value for
+`max-txn-ops` to a value appropriate for your cluster, in line with
+the advice in the error above: *larger than the greater of XXXXXX or YYYYYYY*.

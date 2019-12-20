@@ -45,7 +45,7 @@ func GetTransaction(ctx context.Context) (*transaction.Transaction, error) {
 	}
 
 	txns := md.Get(transactionMetadataKey)
-	if txns == nil || len(txns) == 0 {
+	if len(txns) == 0 {
 		return nil, nil
 	} else if len(txns) > 1 {
 		return nil, fmt.Errorf("multiple active transactions found in context")

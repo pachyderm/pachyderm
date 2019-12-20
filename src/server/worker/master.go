@@ -14,7 +14,6 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
-	"github.com/montanaflynn/stats"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
@@ -35,16 +34,7 @@ import (
 )
 
 const (
-	// maximumRetriesPerDatum is the maximum number of times each datum
-	// can failed to be processed before we declare that the job has failed.
-	maximumRetriesPerDatum = 3
-
 	masterLockPath = "_master_worker_lock"
-
-	// The number of datums the master caches
-	numCachedDatums = 1000000
-
-	ttl = int64(30)
 )
 
 func (a *APIServer) getMasterLogger() *taggedLogger {
@@ -67,12 +57,6 @@ func (a *APIServer) getWorkerLogger() *taggedLogger {
 	}
 	result.stderrLog.SetOutput(os.Stderr)
 	result.stderrLog.SetFlags(log.LstdFlags | log.Llongfile) // Log file/line
-	return result
-}
-
-func (logger *taggedLogger) jobLogger(jobID string) *taggedLogger {
-	result := logger.clone()
-	result.template.JobID = jobID
 	return result
 }
 
@@ -137,10 +121,32 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 		if err != nil {
 			return err
 		}
+		// Determine stats commit.
+		var statsCommit *pfs.Commit
+		if a.pipelineInfo.EnableStats {
+			for _, commitRange := range commitInfo.Subvenance {
+				if commitRange.Lower.Repo.Name == a.pipelineInfo.Pipeline.Name && commitRange.Upper.Repo.Name == a.pipelineInfo.Pipeline.Name {
+					statsCommit = commitRange.Lower
+				}
+			}
+		}
 		if commitInfo.Finished != nil {
+			// Finish stats commit if it has not been finished.
+			if statsCommit != nil {
+				if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
+					Commit: statsCommit,
+					Empty:  true,
+				}); err != nil && !pfsserver.IsCommitFinishedErr(err) {
+					return err
+				}
+			}
 			// Make sure that the job has been correctly finished as the commit has.
-			ji, err := pachClient.InspectJobOutputCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, true)
+			ji, err := pachClient.InspectJobOutputCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, false)
 			if err != nil {
+				// If no job was created for the commit, then we are done.
+				if strings.Contains(err.Error(), fmt.Sprintf("job with output commit %s not found", commitInfo.Commit.ID)) {
+					continue
+				}
 				return err
 			}
 			if !ppsutil.IsTerminal(ji.State) {
@@ -167,14 +173,6 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 		if len(jobInfos) > 1 {
 			return fmt.Errorf("multiple jobs found for commit: %s/%s", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
 		} else if len(jobInfos) < 1 {
-			var statsCommit *pfs.Commit
-			if a.pipelineInfo.EnableStats {
-				for _, commitRange := range commitInfo.Subvenance {
-					if commitRange.Lower.Repo.Name == a.pipelineInfo.Pipeline.Name && commitRange.Upper.Repo.Name == a.pipelineInfo.Pipeline.Name {
-						statsCommit = commitRange.Lower
-					}
-				}
-			}
 			job, err := pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit, statsCommit)
 			if err != nil {
 				return err
@@ -247,6 +245,9 @@ func (a *APIServer) spoutSpawner(pachClient *client.APIClient) error {
 	var dir string
 
 	logger, err := a.getTaggedLogger(pachClient, "spout", nil, false)
+	if err != nil {
+		return fmt.Errorf("getTaggedLogger: %v", err)
+	}
 	puller := filesync.NewPuller()
 
 	if err := a.unlinkData(nil); err != nil {
@@ -309,6 +310,9 @@ func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
 		}
 		data := df.DatumN(0)
 		logger, err := a.getTaggedLogger(pachClient, job.ID, data, false)
+		if err != nil {
+			return fmt.Errorf("getTaggedLogger: %v", err)
+		}
 		puller := filesync.NewPuller()
 		// If this is our second time through the loop cleanup the old data.
 		if dir != "" {
@@ -539,7 +543,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		if err != nil {
 			return err
 		}
-		afterTime := startTime.Add(timeout).Sub(time.Now())
+		afterTime := time.Until(startTime.Add(timeout))
 		logger.Logf("cancelling job at: %+v", afterTime)
 		timer := time.AfterFunc(afterTime, func() {
 			if jobInfo.EnableStats {
@@ -955,98 +959,4 @@ func (a *APIServer) runService(ctx context.Context, logger *taggedLogger) error 
 			return nil
 		}
 	})
-}
-
-func (a *APIServer) aggregateProcessStats(stats []*pps.ProcessStats) (*pps.AggregateProcessStats, error) {
-	var downloadTime []float64
-	var processTime []float64
-	var uploadTime []float64
-	var downloadBytes []float64
-	var uploadBytes []float64
-	for _, s := range stats {
-		dt, err := types.DurationFromProto(s.DownloadTime)
-		if err != nil {
-			return nil, err
-		}
-		downloadTime = append(downloadTime, float64(dt))
-		pt, err := types.DurationFromProto(s.ProcessTime)
-		if err != nil {
-			return nil, err
-		}
-		processTime = append(processTime, float64(pt))
-		ut, err := types.DurationFromProto(s.UploadTime)
-		if err != nil {
-			return nil, err
-		}
-		uploadTime = append(uploadTime, float64(ut))
-		downloadBytes = append(downloadBytes, float64(s.DownloadBytes))
-		uploadBytes = append(uploadBytes, float64(s.UploadBytes))
-
-	}
-	dtAgg, err := a.aggregate(downloadTime)
-	if err != nil {
-		return nil, err
-	}
-	ptAgg, err := a.aggregate(processTime)
-	if err != nil {
-		return nil, err
-	}
-	utAgg, err := a.aggregate(uploadTime)
-	if err != nil {
-		return nil, err
-	}
-	dbAgg, err := a.aggregate(downloadBytes)
-	if err != nil {
-		return nil, err
-	}
-	ubAgg, err := a.aggregate(uploadBytes)
-	if err != nil {
-		return nil, err
-	}
-	return &pps.AggregateProcessStats{
-		DownloadTime:  dtAgg,
-		ProcessTime:   ptAgg,
-		UploadTime:    utAgg,
-		DownloadBytes: dbAgg,
-		UploadBytes:   ubAgg,
-	}, nil
-}
-
-func (a *APIServer) aggregate(datums []float64) (*pps.Aggregate, error) {
-	logger := a.getMasterLogger()
-	mean, err := stats.Mean(datums)
-	if err != nil {
-		logger.Logf("error aggregating mean: %v", err)
-	}
-	stddev, err := stats.StandardDeviation(datums)
-	if err != nil {
-		logger.Logf("error aggregating std dev: %v", err)
-	}
-	fifth, err := stats.Percentile(datums, 5)
-	if err != nil {
-		logger.Logf("error aggregating 5th percentile: %v", err)
-	}
-	ninetyFifth, err := stats.Percentile(datums, 95)
-	if err != nil {
-		logger.Logf("error aggregating 95th percentile: %v", err)
-	}
-	return &pps.Aggregate{
-		Count:                 int64(len(datums)),
-		Mean:                  mean,
-		Stddev:                stddev,
-		FifthPercentile:       fifth,
-		NinetyFifthPercentile: ninetyFifth,
-	}, nil
-}
-
-func isNotFoundErr(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "not found")
-}
-
-func now() *types.Timestamp {
-	t, err := types.TimestampProto(time.Now())
-	if err != nil {
-		panic(err)
-	}
-	return t
 }

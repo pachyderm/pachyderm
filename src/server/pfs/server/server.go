@@ -20,8 +20,6 @@ const (
 type APIServer interface {
 	pfsclient.APIServer
 	txnenv.PfsTransactionServer
-
-	Close()
 }
 
 // BlockAPIServer combines BlockAPIServer and ObjectAPIServer.

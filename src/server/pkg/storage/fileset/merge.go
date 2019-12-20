@@ -161,7 +161,6 @@ func shardMergeFunc(shardThreshold int64, f func(r *index.PathRange) error) merg
 
 type mergePriorityQueue struct {
 	queue []stream
-	f     mergeFunc
 	size  int
 }
 

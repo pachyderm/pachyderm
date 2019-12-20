@@ -21,7 +21,6 @@
                 "env_var": "IMAP_PASSWORD"
             }
         ]
-    },
-    "enable_stats": true
+    }
 }
 

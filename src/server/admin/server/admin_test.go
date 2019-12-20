@@ -97,7 +97,6 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 	}
 
 	// Create test pipelines
-	var pipelines []string
 	numPipelines := 3
 	var input, pipeline string
 	input = dataRepo
@@ -118,7 +117,6 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 			false,
 		))
 		input = pipeline
-		pipelines = append(pipelines, pipeline)
 	}
 
 	// Wait for pipelines to process input data
@@ -198,6 +196,7 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 
 	// Confirm all the recreated jobs passed
 	jis, err := pachClient.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
 	// One job per pipeline, as above
 	require.Equal(t, numPipelines, len(jis))
 	for _, ji := range jis {
@@ -261,7 +260,6 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 		_, err := c.PutFile(dataRepo, "master", fmt.Sprintf("file-%d", i),
 			io.TeeReader(strings.NewReader(fileContent), hash))
 		require.NoError(t, err)
-		fileHashes = append(fileHashes, hex.EncodeToString(hash.Sum(nil)))
 	}
 
 	// Wait for pipelines to process input data
@@ -524,6 +522,7 @@ func TestExtractRestoreDeferredProcessing(t *testing.T) {
 			Input:        client.NewPFSInput(dataRepo, "/*"),
 			OutputBranch: "staging",
 		})
+	require.NoError(t, err)
 
 	pipeline2 := tu.UniqueString("TestExtractRestoreDeferredProcessing2")
 	require.NoError(t, c.CreatePipeline(
@@ -600,6 +599,7 @@ func TestExtractRestoreStats(t *testing.T) {
 			Input:       client.NewPFSInput(dataRepo, "/*"),
 			EnableStats: true,
 		})
+	require.NoError(t, err)
 
 	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)

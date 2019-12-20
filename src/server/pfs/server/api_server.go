@@ -18,11 +18,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
-)
-
-var (
-	grpcErrorf = grpc.Errorf // needed to get passed govet
 )
 
 // apiServer implements the public interface of the Pachyderm File System,
@@ -58,10 +53,6 @@ func newAPIServer(
 	}
 	go func() { s.env.GetPachClient(context.Background()) }() // Begin dialing connection on startup
 	return s, nil
-}
-
-func (a *apiServer) Close() {
-	a.driver.Close()
 }
 
 // CreateRepoInTransaction is identical to CreateRepo except that it can run

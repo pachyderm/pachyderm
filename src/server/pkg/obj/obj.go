@@ -457,8 +457,14 @@ func NewAmazonClientFromSecret(bucket string, reverse ...bool) (Client, error) {
 
 	// Get Cloudfront distribution (not required, though we can log a warning)
 	distribution, err := readSecretFile("/amazon-distribution")
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
 	// Get endpoint for custom deployment (optional).
 	endpoint, err := readSecretFile("/custom-endpoint")
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
 	return NewAmazonClient(region, bucket, &creds, distribution, endpoint, reverse...)
 }
 

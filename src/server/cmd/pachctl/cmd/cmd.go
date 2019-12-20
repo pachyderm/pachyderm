@@ -41,8 +41,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -415,7 +415,7 @@ Environment variables:
 			if err != nil {
 				buf := bytes.NewBufferString("")
 				errWriter := ansiterm.NewTabWriter(buf, 20, 1, 3, ' ', 0)
-				fmt.Fprintf(errWriter, "pachd\t(version unknown) : error connecting to pachd server at address (%v): %v\n\nplease make sure pachd is up (`kubectl get all`) and portforwarding is enabled\n", pachClient.GetAddress(), grpc.ErrorDesc(err))
+				fmt.Fprintf(errWriter, "pachd\t(version unknown) : error connecting to pachd server at address (%v): %v\n\nplease make sure pachd is up (`kubectl get all`) and portforwarding is enabled\n", pachClient.GetAddress(), status.Convert(err).Message())
 				errWriter.Flush()
 				return errors.New(buf.String())
 			}
@@ -516,52 +516,65 @@ This resets the cluster to its initial state.`,
 			if err != nil {
 				return err
 			}
-
-			if err = fw.Lock(); err != nil {
-				return err
-			}
-
 			defer fw.Close()
 
-			failCount := 0
+			successCount := 0
 
 			fmt.Println("Forwarding the pachd (Pachyderm daemon) port...")
-			if err = fw.RunForDaemon(port, remotePort); err != nil {
-				fmt.Printf("%v\n", err)
-				failCount++
+			port, err := fw.RunForDaemon(port, remotePort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				successCount++
 			}
 
 			fmt.Println("Forwarding the SAML ACS port...")
-			if err = fw.RunForSAMLACS(samlPort); err != nil {
-				fmt.Printf("%v\n", err)
-				failCount++
+			port, err = fw.RunForSAMLACS(samlPort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				successCount++
 			}
 
 			fmt.Printf("Forwarding the dash (Pachyderm dashboard) UI port to http://localhost:%v...\n", uiPort)
-			if err = fw.RunForDashUI(uiPort); err != nil {
-				fmt.Printf("%v\n", err)
-				failCount++
+			port, err = fw.RunForDashUI(uiPort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				successCount++
 			}
 
 			fmt.Println("Forwarding the dash (Pachyderm dashboard) websocket port...")
-			if err = fw.RunForDashWebSocket(uiWebsocketPort); err != nil {
-				fmt.Printf("%v\n", err)
-				failCount++
+			port, err = fw.RunForDashWebSocket(uiWebsocketPort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				successCount++
 			}
 
 			fmt.Println("Forwarding the PFS port...")
-			if err = fw.RunForPFS(pfsPort); err != nil {
-				fmt.Printf("%v\n", err)
-				failCount++
+			port, err = fw.RunForPFS(pfsPort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				successCount++
 			}
 
 			fmt.Println("Forwarding the s3gateway port...")
-			if err = fw.RunForS3Gateway(s3gatewayPort); err != nil {
-				fmt.Printf("%v\n", err)
-				failCount++
+			port, err = fw.RunForS3Gateway(s3gatewayPort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				successCount++
 			}
 
-			if failCount < 6 {
+			if successCount > 0 {
 				fmt.Println("CTRL-C to exit")
 				ch := make(chan os.Signal, 1)
 				signal.Notify(ch, os.Interrupt)
@@ -772,7 +785,6 @@ func printVersion(w io.Writer, component string, v *versionpb.Version) {
 
 func applyRootUsageFunc(rootCmd *cobra.Command) {
 	// Partition subcommands by category
-	var docs []*cobra.Command
 	var admin []*cobra.Command
 	var actions []*cobra.Command
 	var other []*cobra.Command
@@ -790,7 +802,6 @@ func applyRootUsageFunc(rootCmd *cobra.Command) {
 			"repo",
 			"tag":
 			// These are ignored - they will show up in the help topics section
-			docs = append(docs, subcmd)
 		case
 			"copy",
 			"create",

@@ -458,10 +458,7 @@ func (l *LogsIter) Next() bool {
 		return false
 	}
 	l.msg, l.err = l.logsClient.Recv()
-	if l.err != nil {
-		return false
-	}
-	return true
+	return l.err == nil
 }
 
 // Message returns the most recently retrieve log message (as an annotated log
