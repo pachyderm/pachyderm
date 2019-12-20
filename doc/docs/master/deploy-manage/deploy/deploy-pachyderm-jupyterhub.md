@@ -214,22 +214,22 @@ and selecting **Python 3**.
 
 When you need to update your pipeline,
 you can do so directly in the JupyterHub UI by
-modifying the corresponding notebook.
+modifying the corresponding notebook and
+reruning it again.
 
-If you need to update your code, you can do in the
+If you need to update your code, you can do it in the
 JupyterHub UI as well. The main advantage of
 using Python Pachyderm Python client is that you
 do need to rebuild your pipeline image to apply
 new changes. You can use the `create_python_pipeline`
-function that uses the code stored a local path to
+function that uses the code stored in a local path to
 execute the pipeline. To update your pipeline code,
-you need to create a separate Jupyter notebool and
-use `create_python_pipeline` with the `update=True`
-parameter.
+you can paste `create_python_pipeline` with the `update=True`
+parameter into a new Jupyter notebook cell.
 
 **Example:**
 
-```bash
+```bash hl_lines="6 10"
 import os
 import python_pachyderm
 
