@@ -50,7 +50,7 @@ type canonicalIDPConfig struct {
 type canonicalSAMLSvcConfig struct {
 	ACSURL          *url.URL
 	MetadataURL     *url.URL
-	DashURL         *url.URL      // optional (use defaultDashRedirectURL if unset)
+	DashURL         *url.URL      // optional (use DefaultDashRedirectURL if unset)
 	SessionDuration time.Duration // optional
 }
 
@@ -451,7 +451,7 @@ func (a *apiServer) getCacheConfig() *canonicalConfig {
 	a.configMu.Lock()
 	defer a.configMu.Unlock()
 	if a.configCache == nil {
-		defaultCononicalConfig, err := validateConfig(&defaultAuthConfig, internal)
+		defaultCononicalConfig, err := validateConfig(&DefaultAuthConfig, internal)
 		if err != nil {
 			panic("could not convert default auth config")
 		}

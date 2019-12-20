@@ -132,7 +132,7 @@ case "${BUCKET}" in
     ;;
  AUTH?)
     bucket_num="${BUCKET#AUTH}"
-    test_bucket "./src/server/auth/server" test-auth "${bucket_num}" "${AUTH_BUCKETS}"
+    test_bucket "./src/server/auth/server/testing" test-auth "${bucket_num}" "${AUTH_BUCKETS}"
     set +x
     ;;
  *)

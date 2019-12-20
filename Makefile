@@ -429,7 +429,7 @@ enterprise-code-checkin-test:
 	fi
 
 test-pfs-server:
-	./etc/testing/pfs_server.sh $(ETCD_IMAGE) $(TIMEOUT)
+	./etc/testing/pfs_server.sh $(TIMEOUT)
 
 test-pfs-storage:
 	go test  -count=1 ./src/server/pkg/storage/chunk -timeout $(TIMEOUT)
