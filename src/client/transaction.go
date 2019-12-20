@@ -514,6 +514,9 @@ func (c *ppsBuilderClient) GarbageCollect(ctx context.Context, req *pps.GarbageC
 func (c *ppsBuilderClient) ActivateAuth(ctx context.Context, req *pps.ActivateAuthRequest, opts ...grpc.CallOption) (*pps.ActivateAuthResponse, error) {
 	return nil, unsupportedError("ActivateAuth")
 }
+func (c *ppsBuilderClient) RunCron(ctx context.Context, req *pps.RunCronRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("RunCron")
+}
 
 func (c *authBuilderClient) Activate(ctx context.Context, req *auth.ActivateRequest, opts ...grpc.CallOption) (*auth.ActivateResponse, error) {
 	return nil, unsupportedError("Activate")
