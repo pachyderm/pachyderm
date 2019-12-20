@@ -121,7 +121,7 @@ introduce a link.
 
 | Do not use | Use |
 | ---------- | --- |
-| More information about getting your FREE trial token and activating the dashboard can be found [here](https://pachyderm.readthedocs.io/en/latest/enterprise/deployment.html#activate-via-the-dashboard). | For more information, see [Activate your token by using the dashboard](https://pachyderm.readthedocs.io/en/latest/enterprise/deployment.html#activate-via-the-dashboard). |
+| More information about getting your FREE trial token and activating the dashboard can be found [here](https://docs.pachyderm.com/latest/enterprise/deployment/#activate-by-using-the-dashboard). | For more information, see [Activate your token by using the dashboard](https://docs.pachyderm.com/latest/enterprise/deployment/#activate-by-using-the-dashboard). |
 
 ## Markdown
 

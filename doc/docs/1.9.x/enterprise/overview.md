@@ -31,7 +31,3 @@ Pachyderm Enterprise Edition gives data scientists advanced insights into their 
 ## Administrative Controls, Interactive Pipeline Configuration
 
 With Pachyderm Enterprise, cluster admins don't have to rely solely on command line tools and language libraries to configure and control Pachyderm. With new versions of our UI you can control, scale, and configure Pachyderm interactively.
-
-## S3Gateway
-
-Pachyderm Enterprise Edition includes the s3gateway, an S3-like API for interacting with PFS content. With it, you can interact with PFS content with tools and libraries built to work with S3.
