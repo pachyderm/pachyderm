@@ -135,7 +135,6 @@ func doSidecarMode(config interface{}) (retErr error) {
 	if env.Metrics {
 		reporter = metrics.NewReporter(clusterID, env)
 	}
-
 	pfsCacheSize, err := strconv.Atoi(env.PFSCacheSize)
 	if err != nil {
 		return fmt.Errorf("atoi: %v", err)
@@ -151,87 +150,122 @@ func doSidecarMode(config interface{}) (retErr error) {
 	if err != nil {
 		return err
 	}
-
 	txnEnv := &txnenv.TransactionEnv{}
 	blockCacheBytes, err := units.RAMInBytes(env.BlockCacheBytes)
 	if err != nil {
 		return fmt.Errorf("units.RAMInBytes: %v", err)
 	}
-	blockAPIServer, err := pfs_server.NewBlockAPIServer(env.StorageRoot, blockCacheBytes, env.StorageBackend, net.JoinHostPort(env.EtcdHost, env.EtcdPort), false)
-	if err != nil {
-		return fmt.Errorf("pfs.NewBlockAPIServer: %v", err)
+	if err := logGRPCServerSetup("Block API", func() error {
+		blockAPIServer, err := pfs_server.NewBlockAPIServer(env.StorageRoot, blockCacheBytes, env.StorageBackend, net.JoinHostPort(env.EtcdHost, env.EtcdPort), false)
+		if err != nil {
+			return err
+		}
+		pfsclient.RegisterObjectAPIServer(server.Server, blockAPIServer)
+		return nil
+	}); err != nil {
+		return err
 	}
-	pfsclient.RegisterObjectAPIServer(server.Server, blockAPIServer)
-
 	memoryRequestBytes, err := units.RAMInBytes(env.MemoryRequest)
 	if err != nil {
 		return err
 	}
-	pfsAPIServer, err := pfs_server.NewAPIServer(
-		env,
-		txnEnv,
-		path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
-		treeCache,
-		env.StorageRoot,
-		memoryRequestBytes,
-	)
-	if err != nil {
-		return fmt.Errorf("pfs.NewAPIServer: %v", err)
+	var pfsAPIServer pfs_server.APIServer
+	if err := logGRPCServerSetup("PFS API", func() error {
+		pfsAPIServer, err = pfs_server.NewAPIServer(
+			env,
+			txnEnv,
+			path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
+			treeCache,
+			env.StorageRoot,
+			memoryRequestBytes,
+		)
+		if err != nil {
+			return err
+		}
+		pfsclient.RegisterAPIServer(server.Server, pfsAPIServer)
+		return nil
+	}); err != nil {
+		return err
 	}
-	pfsclient.RegisterAPIServer(server.Server, pfsAPIServer)
-
-	ppsAPIServer, err := pps_server.NewSidecarAPIServer(
-		env,
-		path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
-		env.IAMRole,
-		reporter,
-		env.PPSWorkerPort,
-		env.PProfPort,
-		env.HTTPPort,
-		env.PeerPort,
-	)
-	if err != nil {
-		return fmt.Errorf("pps.NewSidecarAPIServer: %v", err)
+	if err := logGRPCServerSetup("PPS API", func() error {
+		ppsAPIServer, err := pps_server.NewSidecarAPIServer(
+			env,
+			path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
+			env.IAMRole,
+			reporter,
+			env.PPSWorkerPort,
+			env.PProfPort,
+			env.HTTPPort,
+			env.PeerPort,
+		)
+		if err != nil {
+			return err
+		}
+		ppsclient.RegisterAPIServer(server.Server, ppsAPIServer)
+		return nil
+	}); err != nil {
+		return err
 	}
-	ppsclient.RegisterAPIServer(server.Server, ppsAPIServer)
-
-	authAPIServer, err := authserver.NewAuthServer(
-		env,
-		txnEnv,
-		path.Join(env.EtcdPrefix, env.AuthEtcdPrefix),
-		false,
-	)
-	if err != nil {
-		return fmt.Errorf("NewAuthServer: %v", err)
+	var authAPIServer authserver.APIServer
+	if err := logGRPCServerSetup("Auth API", func() error {
+		authAPIServer, err = authserver.NewAuthServer(
+			env,
+			txnEnv,
+			path.Join(env.EtcdPrefix, env.AuthEtcdPrefix),
+			false,
+		)
+		if err != nil {
+			return err
+		}
+		authclient.RegisterAPIServer(server.Server, authAPIServer)
+		return nil
+	}); err != nil {
+		return err
 	}
-	authclient.RegisterAPIServer(server.Server, authAPIServer)
-
-	transactionAPIServer, err := txnserver.NewAPIServer(
-		env,
-		txnEnv,
-		path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
-	)
-	if err != nil {
-		return fmt.Errorf("transaction.NewAPIServer: %v", err)
+	var transactionAPIServer txnserver.APIServer
+	if err := logGRPCServerSetup("Transaction API", func() error {
+		transactionAPIServer, err = txnserver.NewAPIServer(
+			env,
+			txnEnv,
+			path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
+		)
+		if err != nil {
+			return err
+		}
+		transactionclient.RegisterAPIServer(server.Server, transactionAPIServer)
+		return nil
+	}); err != nil {
+		return err
 	}
-	transactionclient.RegisterAPIServer(server.Server, transactionAPIServer)
-
-	enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-		env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))
-	if err != nil {
-		return fmt.Errorf("NewEnterpriseServer: %v", err)
+	if err := logGRPCServerSetup("Enterprise API", func() error {
+		enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
+			env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))
+		if err != nil {
+			return err
+		}
+		eprsclient.RegisterAPIServer(server.Server, enterpriseAPIServer)
+		return nil
+	}); err != nil {
+		return err
 	}
-	eprsclient.RegisterAPIServer(server.Server, enterpriseAPIServer)
-
-	healthclient.RegisterHealthServer(server.Server, health.NewHealthServer())
-	debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(
-		"", // no name for pachd servers
-		env.GetEtcdClient(),
-		path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
-		env.PPSWorkerPort,
-	))
+	if err := logGRPCServerSetup("Health", func() error {
+		healthclient.RegisterHealthServer(server.Server, health.NewHealthServer())
+		return nil
+	}); err != nil {
+		return err
+	}
+	if err := logGRPCServerSetup("Debug", func() error {
+		debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(
+			"", // no name for pachd servers
+			env.GetEtcdClient(),
+			path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
+			env.PPSWorkerPort,
+		))
+		return nil
+	}); err != nil {
+		return err
+	}
 	txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer)
-
 	// The sidecar only needs to serve traffic on the peer port, as it only serves
 	// traffic from the user container (the worker binary and occasionally user
 	// pipelines)
@@ -319,7 +353,6 @@ func doFullMode(config interface{}) (retErr error) {
 	kubeNamespace := getNamespace()
 	publicHealthServer := health.NewHealthServer()
 	peerHealthServer := health.NewHealthServer()
-
 	// TODO(msteffen): We should not use an errorgroup here. Errorgroup waits
 	// until *all* goroutines have run and then returns, but we want pachd to halt
 	// if *any* of these serve functions returns an arror.
@@ -374,94 +407,139 @@ func doFullMode(config interface{}) (retErr error) {
 		if err != nil {
 			return err
 		}
-
 		txnEnv := &txnenv.TransactionEnv{}
 		memoryRequestBytes, err := units.RAMInBytes(env.MemoryRequest)
 		if err != nil {
 			return err
 		}
-		pfsAPIServer, err := pfs_server.NewAPIServer(env, txnEnv, path.Join(env.EtcdPrefix, env.PFSEtcdPrefix), treeCache, env.StorageRoot, memoryRequestBytes)
-		if err != nil {
-			return fmt.Errorf("pfs.NewAPIServer: %v", err)
-		}
-		pfsclient.RegisterAPIServer(server.Server, pfsAPIServer)
-
-		ppsAPIServer, err := pps_server.NewAPIServer(
-			env,
-			txnEnv,
-			path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
-			kubeNamespace,
-			env.WorkerImage,
-			env.WorkerSidecarImage,
-			env.WorkerImagePullPolicy,
-			env.StorageRoot,
-			env.StorageBackend,
-			env.StorageHostPath,
-			env.IAMRole,
-			env.ImagePullSecret,
-			env.NoExposeDockerSocket,
-			reporter,
-			env.WorkerUsesRoot,
-			env.PPSWorkerPort,
-			env.Port,
-			env.PProfPort,
-			env.HTTPPort,
-			env.PeerPort,
-		)
-		if err != nil {
-			return fmt.Errorf("pps.NewAPIServer: %v", err)
-		}
-		ppsclient.RegisterAPIServer(server.Server, ppsAPIServer)
-
-		if env.ExposeObjectAPI {
-			// Generally the object API should not be exposed publicly, but
-			// TestGarbageCollection uses it and it may help with debugging
-			blockAPIServer, err := pfs_server.NewBlockAPIServer(
-				env.StorageRoot,
-				0 /* = blockCacheBytes (disable cache) */, env.StorageBackend,
-				etcdAddress,
-				true /* duplicate */)
+		var pfsAPIServer pfs_server.APIServer
+		if err := logGRPCServerSetup("External PFS API", func() error {
+			pfsAPIServer, err = pfs_server.NewAPIServer(env, txnEnv, path.Join(env.EtcdPrefix, env.PFSEtcdPrefix), treeCache, env.StorageRoot, memoryRequestBytes)
 			if err != nil {
-				return fmt.Errorf("pfs.NewBlockAPIServer: %v", err)
+				return err
 			}
-			pfsclient.RegisterObjectAPIServer(server.Server, blockAPIServer)
+			pfsclient.RegisterAPIServer(server.Server, pfsAPIServer)
+			return nil
+		}); err != nil {
+			return err
 		}
-
-		authAPIServer, err := authserver.NewAuthServer(
-			env, txnEnv, path.Join(env.EtcdPrefix, env.AuthEtcdPrefix), true)
-		if err != nil {
-			return fmt.Errorf("NewAuthServer: %v", err)
+		if err := logGRPCServerSetup("External PPS API", func() error {
+			ppsAPIServer, err := pps_server.NewAPIServer(
+				env,
+				txnEnv,
+				path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
+				kubeNamespace,
+				env.WorkerImage,
+				env.WorkerSidecarImage,
+				env.WorkerImagePullPolicy,
+				env.StorageRoot,
+				env.StorageBackend,
+				env.StorageHostPath,
+				env.IAMRole,
+				env.ImagePullSecret,
+				env.NoExposeDockerSocket,
+				reporter,
+				env.WorkerUsesRoot,
+				env.PPSWorkerPort,
+				env.Port,
+				env.PProfPort,
+				env.HTTPPort,
+				env.PeerPort,
+			)
+			if err != nil {
+				return err
+			}
+			ppsclient.RegisterAPIServer(server.Server, ppsAPIServer)
+			return nil
+		}); err != nil {
+			return err
 		}
-		authclient.RegisterAPIServer(server.Server, authAPIServer)
-
-		transactionAPIServer, err := txnserver.NewAPIServer(
-			env,
-			txnEnv,
-			path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
-		)
-		if err != nil {
-			return fmt.Errorf("transaction.NewAPIServer: %v", err)
+		if env.ExposeObjectAPI {
+			if err := logGRPCServerSetup("External Block API", func() error {
+				// Generally the object API should not be exposed publicly, but
+				// TestGarbageCollection uses it and it may help with debugging
+				blockAPIServer, err := pfs_server.NewBlockAPIServer(
+					env.StorageRoot,
+					0 /* = blockCacheBytes (disable cache) */, env.StorageBackend,
+					etcdAddress,
+					true /* duplicate */)
+				if err != nil {
+					return err
+				}
+				pfsclient.RegisterObjectAPIServer(server.Server, blockAPIServer)
+				return nil
+			}); err != nil {
+				return err
+			}
 		}
-		transactionclient.RegisterAPIServer(server.Server, transactionAPIServer)
-
-		enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-			env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))
-		if err != nil {
-			return fmt.Errorf("NewEnterpriseServer: %v", err)
+		var authAPIServer authserver.APIServer
+		if err := logGRPCServerSetup("External Auth API", func() error {
+			authAPIServer, err = authserver.NewAuthServer(
+				env, txnEnv, path.Join(env.EtcdPrefix, env.AuthEtcdPrefix), true)
+			if err != nil {
+				return err
+			}
+			authclient.RegisterAPIServer(server.Server, authAPIServer)
+			return nil
+		}); err != nil {
+			return err
 		}
-		eprsclient.RegisterAPIServer(server.Server, enterpriseAPIServer)
-
-		adminclient.RegisterAPIServer(server.Server, adminserver.NewAPIServer(address, env.StorageRoot, &adminclient.ClusterInfo{ID: clusterID}))
-		healthclient.RegisterHealthServer(server.Server, publicHealthServer)
-		versionpb.RegisterAPIServer(server.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
-		debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(
-			"", // no name for pachd servers
-			env.GetEtcdClient(),
-			path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
-			env.PPSWorkerPort,
-		))
+		var transactionAPIServer txnserver.APIServer
+		if err := logGRPCServerSetup("External Transaction API", func() error {
+			transactionAPIServer, err = txnserver.NewAPIServer(
+				env,
+				txnEnv,
+				path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
+			)
+			if err != nil {
+				return err
+			}
+			transactionclient.RegisterAPIServer(server.Server, transactionAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := logGRPCServerSetup("External Enterprise API", func() error {
+			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
+				env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))
+			if err != nil {
+				return err
+			}
+			eprsclient.RegisterAPIServer(server.Server, enterpriseAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := logGRPCServerSetup("External Admin API", func() error {
+			adminclient.RegisterAPIServer(server.Server, adminserver.NewAPIServer(address, env.StorageRoot, &adminclient.ClusterInfo{ID: clusterID}))
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := logGRPCServerSetup("External Health", func() error {
+			healthclient.RegisterHealthServer(server.Server, publicHealthServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := logGRPCServerSetup("External Version API", func() error {
+			versionpb.RegisterAPIServer(server.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := logGRPCServerSetup("External Debug", func() error {
+			debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(
+				"", // no name for pachd servers
+				env.GetEtcdClient(),
+				path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
+				env.PPSWorkerPort,
+			))
+			return nil
+		}); err != nil {
+			return err
+		}
 		txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer)
-
 		if _, err := server.ListenTCP("", env.Port); err != nil {
 			return err
 		}
@@ -473,7 +551,6 @@ func doFullMode(config interface{}) (retErr error) {
 		if err != nil {
 			return err
 		}
-
 		txnEnv := &txnenv.TransactionEnv{}
 		cacheServer := cache_server.NewCacheServer(router, env.NumShards)
 		go func() {
@@ -487,101 +564,140 @@ func doFullMode(config interface{}) (retErr error) {
 			}
 		}()
 		cache_pb.RegisterGroupCacheServer(server.Server, cacheServer)
-
 		blockCacheBytes, err := units.RAMInBytes(env.BlockCacheBytes)
 		if err != nil {
 			return fmt.Errorf("units.RAMInBytes: %v", err)
 		}
-		blockAPIServer, err := pfs_server.NewBlockAPIServer(
-			env.StorageRoot, blockCacheBytes, env.StorageBackend, etcdAddress, false)
-		if err != nil {
-			return fmt.Errorf("pfs.NewBlockAPIServer: %v", err)
+		if err := logGRPCServerSetup("Internal Block API", func() error {
+			blockAPIServer, err := pfs_server.NewBlockAPIServer(
+				env.StorageRoot, blockCacheBytes, env.StorageBackend, etcdAddress, false)
+			if err != nil {
+				return err
+			}
+			pfsclient.RegisterObjectAPIServer(server.Server, blockAPIServer)
+			return nil
+		}); err != nil {
+			return err
 		}
-		pfsclient.RegisterObjectAPIServer(server.Server, blockAPIServer)
-
 		memoryRequestBytes, err := units.RAMInBytes(env.MemoryRequest)
 		if err != nil {
 			return err
 		}
-		pfsAPIServer, err := pfs_server.NewAPIServer(
-			env,
-			txnEnv,
-			path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
-			treeCache,
-			env.StorageRoot,
-			memoryRequestBytes,
-		)
-		if err != nil {
-			return fmt.Errorf("pfs.NewAPIServer: %v", err)
+		var pfsAPIServer pfs_server.APIServer
+		if err := logGRPCServerSetup("Internal PFS API", func() error {
+			pfsAPIServer, err = pfs_server.NewAPIServer(
+				env,
+				txnEnv,
+				path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
+				treeCache,
+				env.StorageRoot,
+				memoryRequestBytes,
+			)
+			if err != nil {
+				return err
+			}
+			pfsclient.RegisterAPIServer(server.Server, pfsAPIServer)
+			return nil
+		}); err != nil {
+			return err
 		}
-		pfsclient.RegisterAPIServer(server.Server, pfsAPIServer)
-
-		ppsAPIServer, err := pps_server.NewAPIServer(
-			env,
-			txnEnv,
-			path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
-			kubeNamespace,
-			env.WorkerImage,
-			env.WorkerSidecarImage,
-			env.WorkerImagePullPolicy,
-			env.StorageRoot,
-			env.StorageBackend,
-			env.StorageHostPath,
-			env.IAMRole,
-			env.ImagePullSecret,
-			env.NoExposeDockerSocket,
-			reporter,
-			env.WorkerUsesRoot,
-			env.PPSWorkerPort,
-			env.Port,
-			env.PProfPort,
-			env.HTTPPort,
-			env.PeerPort,
-		)
-		if err != nil {
-			return fmt.Errorf("pps.NewAPIServer: %v", err)
+		if err := logGRPCServerSetup("Internal PPS API", func() error {
+			ppsAPIServer, err := pps_server.NewAPIServer(
+				env,
+				txnEnv,
+				path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
+				kubeNamespace,
+				env.WorkerImage,
+				env.WorkerSidecarImage,
+				env.WorkerImagePullPolicy,
+				env.StorageRoot,
+				env.StorageBackend,
+				env.StorageHostPath,
+				env.IAMRole,
+				env.ImagePullSecret,
+				env.NoExposeDockerSocket,
+				reporter,
+				env.WorkerUsesRoot,
+				env.PPSWorkerPort,
+				env.Port,
+				env.PProfPort,
+				env.HTTPPort,
+				env.PeerPort,
+			)
+			if err != nil {
+				return err
+			}
+			ppsclient.RegisterAPIServer(server.Server, ppsAPIServer)
+			return nil
+		}); err != nil {
+			return err
 		}
-		ppsclient.RegisterAPIServer(server.Server, ppsAPIServer)
-
-		authAPIServer, err := authserver.NewAuthServer(
-			env,
-			txnEnv,
-			path.Join(env.EtcdPrefix, env.AuthEtcdPrefix),
-			false,
-		)
-		if err != nil {
-			return fmt.Errorf("NewAuthServer: %v", err)
+		var authAPIServer authserver.APIServer
+		if err := logGRPCServerSetup("Internal Auth API", func() error {
+			authAPIServer, err = authserver.NewAuthServer(
+				env,
+				txnEnv,
+				path.Join(env.EtcdPrefix, env.AuthEtcdPrefix),
+				false,
+			)
+			if err != nil {
+				return err
+			}
+			authclient.RegisterAPIServer(server.Server, authAPIServer)
+			return nil
+		}); err != nil {
+			return err
 		}
-		authclient.RegisterAPIServer(server.Server, authAPIServer)
-
-		transactionAPIServer, err := txnserver.NewAPIServer(
-			env,
-			txnEnv,
-			path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
-		)
-		if err != nil {
-			return fmt.Errorf("transaction.NewAPIServer: %v", err)
+		var transactionAPIServer txnserver.APIServer
+		if err := logGRPCServerSetup("Internal Transaction API", func() error {
+			transactionAPIServer, err = txnserver.NewAPIServer(
+				env,
+				txnEnv,
+				path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
+			)
+			if err != nil {
+				return err
+			}
+			transactionclient.RegisterAPIServer(server.Server, transactionAPIServer)
+			return nil
+		}); err != nil {
+			return err
 		}
-		transactionclient.RegisterAPIServer(server.Server, transactionAPIServer)
-
-		enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-			env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))
-		if err != nil {
-			return fmt.Errorf("NewEnterpriseServer: %v", err)
+		if err := logGRPCServerSetup("Internal Enterprise API", func() error {
+			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
+				env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))
+			if err != nil {
+				return err
+			}
+			eprsclient.RegisterAPIServer(server.Server, enterpriseAPIServer)
+			return nil
+		}); err != nil {
+			return err
 		}
-		eprsclient.RegisterAPIServer(server.Server, enterpriseAPIServer)
-
-		healthclient.RegisterHealthServer(server.Server, peerHealthServer)
-		versionpb.RegisterAPIServer(server.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
-		adminclient.RegisterAPIServer(server.Server, adminserver.NewAPIServer(address, env.StorageRoot, &adminclient.ClusterInfo{ID: clusterID}))
+		if err := logGRPCServerSetup("Internal Health", func() error {
+			healthclient.RegisterHealthServer(server.Server, peerHealthServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := logGRPCServerSetup("Internal Version API", func() error {
+			versionpb.RegisterAPIServer(server.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := logGRPCServerSetup("Internal Admin API", func() error {
+			adminclient.RegisterAPIServer(server.Server, adminserver.NewAPIServer(address, env.StorageRoot, &adminclient.ClusterInfo{ID: clusterID}))
+			return nil
+		}); err != nil {
+			return err
+		}
 		txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer)
-
 		if _, err := server.ListenTCP("", env.PeerPort); err != nil {
 			return err
 		}
 		return server.Wait()
 	})
-
 	// TODO(msteffen): Is it really necessary to indicate that the peer service is
 	// healthy? Presumably migrate() will call the peer service no matter what.
 	publicHealthServer.Ready()
@@ -622,4 +738,16 @@ func getNamespace() string {
 		return namespace
 	}
 	return v1.NamespaceDefault
+}
+
+func logGRPCServerSetup(name string, f func() error) (retErr error) {
+	log.Printf("started setting up %v GRPC Server", name)
+	defer func() {
+		if retErr != nil {
+			log.Printf("errored setting up %v GRPC Server", name)
+		} else {
+			log.Printf("finished setting up %v GRPC Server", name)
+		}
+	}()
+	return f()
 }
