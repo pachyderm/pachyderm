@@ -24,6 +24,8 @@ DELETABLE_RESOURCES = [
 
 NEWLINE_SEPARATE_OBJECTS_PATTERN = re.compile(r"\}\n+\{", re.MULTILINE)
 
+GCP_KUBE_CONTEXT_NAME_PATTERN = re.compile(r"gke_([^_]+)_(.+)")
+
 class ExcThread(threading.Thread):
     def __init__(self, target):
         super().__init__(target=target)
@@ -49,20 +51,40 @@ def join(*targets):
         if t.error is not None:
             raise Exception("Thread error") from t.error
 
-class DockerDesktopDriver:
+class BaseDriver:
     def clear(self):
         run("kubectl", "delete", ",".join(DELETABLE_RESOURCES), "-l", "suite=pachyderm")
 
     def start(self):
         pass
 
-    def push_images(self, dash_image):
+    def create_manifest(self):
+        return capture("pachctl", "deploy", "local", "-d", "--dry-run")
+
+    def sync_images(self, deployments):
+        dash_image = find_in_json(deployments, lambda j: isinstance(j, dict) and j.get("name") == "dash" and j.get("image") is not None)["image"]
+        grpc_proxy_image = find_in_json(deployments, lambda j: isinstance(j, dict) and j.get("name") == "grpc-proxy")["image"]
+        
+        run("docker", "pull", dash_image)
+        run("docker", "pull", grpc_proxy_image)
+        run("docker", "pull", ETCD_IMAGE)
+
+        return (
+            dash_image,
+            grpc_proxy_image,
+            ETCD_IMAGE,
+            "pachyderm/pachd:local",
+            "pachyderm/worker:local",
+        )
+
+    def update_config(self):
         pass
 
+class DockerDesktopDriver(BaseDriver):
     def update_config(self):
         run("pachctl", "config", "update", "context", "--pachd-address=localhost:30650")
 
-class MinikubeDriver:
+class MinikubeDriver(BaseDriver):
     def clear(self):
         run("minikube", "delete")
 
@@ -73,15 +95,39 @@ class MinikubeDriver:
             print("Waiting for minikube to come up...")
             time.sleep(1)
 
-    def push_images(self, dash_image):
-        run("./etc/kube/push-to-minikube.sh", "pachyderm/pachd:local")
-        run("./etc/kube/push-to-minikube.sh", "pachyderm/worker:local")
-        run("./etc/kube/push-to-minikube.sh", ETCD_IMAGE)
-        run("./etc/kube/push-to-minikube.sh", dash_image)
+    def sync_images(self, deployments):
+        for image in super().sync_images(deployments):
+            run("./etc/kube/push-to-minikube.sh", image)
 
     def update_config(self):
         ip = capture("minikube", "ip").strip()
-        run("pachctl", "config", "update", "context", "--pachd-address={}:30650".format(ip))
+        run("pachctl", "config", "update", "context", f"--pachd-address={ip}:30650")
+
+class GCPDriver(BaseDriver):
+    def __init__(self, project_id):
+        self.project_id = project_id
+
+    def clear(self):
+        super().clear()
+        run("kubectl", "delete", "secret", "regcred", raise_on_error=False)
+
+    def create_manifest(self):
+        registry_url = f"gcr.io/{self.project_id}"
+        return capture("pachctl", "deploy", "local", "-d", "--dry-run", "--image-pull-secret", "regcred", "--registry", registry_url)
+
+    def sync_images(self, deployments):
+        docker_config_path = os.path.expanduser("~/.docker/config.json")
+        run("kubectl", "create", "secret", "generic", "regcred", \
+            f"--from-file=.dockerconfigjson={docker_config_path}", "--type=kubernetes.io/dockerconfigjson")
+
+        for image in super().sync_images(deployments):
+            if image.startswith("quay.io/"):
+                image_url = f"gcr.io/{self.project_id}/{image[8:]}"
+            else:
+                image_url = f"gcr.io/{self.project_id}/{image}"
+
+            run("docker", "tag", image, image_url)
+            run("docker", "push", image_url)
 
 def find_in_json(j, f):
     if f(j):
@@ -100,18 +146,20 @@ def find_in_json(j, f):
                 return v
 
 def print_status(status):
-    print("===> {}".format(status))
+    print(f"===> {status}")
 
 def run(cmd, *args, raise_on_error=True, stdin=None, capture_output=False, timeout=None):
     all_args = [cmd, *args]
     print_status("running: `{}`".format(" ".join(all_args)))
-    return subprocess.run(all_args, check=raise_on_error, capture_output=capture_output, input=stdin, encoding="utf8", timeout=timeout)
+    return subprocess.run(all_args, check=raise_on_error, capture_output=capture_output, input=stdin, \
+        encoding="utf8", timeout=timeout)
 
 def capture(cmd, *args):
     return run(cmd, *args, capture_output=True).stdout
 
 def main():
     parser = argparse.ArgumentParser(description="Recompiles pachyderm tooling and restarts the cluster with a clean slate.")
+    parser.add_argument("--skip-delete", action="store_true", help="Do not clear existing cluster data")
     parser.add_argument("--args", default="", help="Arguments to be passed into `pachctl deploy`")
     args = parser.parse_args()
 
@@ -121,6 +169,7 @@ def main():
         raise Exception("Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS")
 
     kube_context = capture("kubectl", "config", "current-context").strip()
+    driver = None
 
     if kube_context == "minikube":
         print_status("using the minikube driver")
@@ -129,25 +178,31 @@ def main():
         print_status("using the docker desktop driver")
         driver = DockerDesktopDriver()
     else:
-        raise Exception("could not derive driver from context name: {}".format(kube_context))
+        match = GCP_KUBE_CONTEXT_NAME_PATTERN.match(kube_context)
+        if match is not None:
+            print_status("using the GKE driver")
+            driver = GCPDriver(match.groups()[0])
 
-    # ignore errors on `pachctl delete all` because there's a variety of ways
-    # it could fail that we can recover from:
-    # 1) pachyderm isn't installed on the cluster yet
-    # 2) pachctl isn't installed
-    # 3) pachd is unresponsive
-    # ... etc. Wrap in try/except rather than using `raise_on_error`, because
-    # the latter doesn't catch when `pachctl` doesn't exist -- an error case
-    # which we also want to ignore.
-    try:
-        run("pachctl", "delete", "all", stdin="yes\n", timeout=5)
-    except:
-        pass
+    if driver is None:
+        raise Exception(f"could not derive driver from context name: {kube_context}")
+
+    if not args.skip_delete:
+        # ignore errors on `pachctl delete all` because there's a variety of ways
+        # it could fail that we can recover from:
+        # 1) pachyderm isn't installed on the cluster yet
+        # 2) pachctl isn't installed
+        # 3) pachd is unresponsive
+        # ... etc. Wrap in try/except rather than using `raise_on_error`, because
+        # the latter doesn't catch when `pachctl` doesn't exist -- an error case
+        # which we also want to ignore.
+        try:
+            run("pachctl", "delete", "all", stdin="yes\n", timeout=5)
+        except:
+            pass
 
     driver.clear()
 
     bin_path = os.path.join(os.environ["GOPATH"], "bin", "pachctl")
-
     if os.path.exists(bin_path):
         os.remove(bin_path)
 
@@ -158,18 +213,11 @@ def main():
     )
     
     version = capture("pachctl", "version", "--client-only")
-    print_status("deploy pachyderm version v{}".format(version))
+    print_status(f"deploy pachyderm version v{version}")
 
-    deployments_str = capture("pachctl", "deploy", "local", "-d", "--dry-run")
+    deployments_str = driver.create_manifest()
     deployments_json = json.loads("[{}]".format(NEWLINE_SEPARATE_OBJECTS_PATTERN.sub("},{", deployments_str)))
-    dash_image = find_in_json(deployments_json, lambda j: isinstance(j, dict) and j.get("name") == "dash" and j.get("image") is not None)["image"]
-    grpc_proxy_image = find_in_json(deployments_json, lambda j: isinstance(j, dict) and j.get("name") == "grpc-proxy")["image"]
-
-    run("docker", "pull", dash_image)
-    run("docker", "pull", grpc_proxy_image)
-    run("docker", "pull", ETCD_IMAGE)
-    driver.push_images(dash_image)
-
+    driver.sync_images(deployments_json)
     run("kubectl", "create", "-f", "-", stdin=deployments_str)
     driver.update_config()
 
