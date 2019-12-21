@@ -77,7 +77,7 @@ prior to running this example.
    ```
    
 2. Once the demo is loaded, 
-   look at the commits in `merge chunks`.
+   look at the commits in `edges_dp`.
    They should look something like this.
    
    ```sh
