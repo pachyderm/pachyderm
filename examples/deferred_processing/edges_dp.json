@@ -1,0 +1,18 @@
+{
+    "pipeline": {
+        "name": "edges_dp"
+    },
+    "input": {
+        "pfs": {
+            "glob": "/*",
+            "repo": "images_dp_1"
+        }
+    },
+    "output_branch": "dev",
+    "transform": {
+        "cmd": [ "python3", "/edges.py" ],
+        "image": "pachyderm/opencv"
+    }
+}
+
+
