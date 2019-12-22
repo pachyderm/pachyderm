@@ -442,9 +442,11 @@ func (a *APIServer) failedInputs(ctx context.Context, jobInfo *pps.JobInfo) ([]s
 				Commit:     commit,
 				BlockState: pfs.CommitState_FINISHED,
 			})
-		if err != nil && vistErr == nil {
-			vistErr = fmt.Errorf("error blocking on commit %s/%s: %v",
-				commit.Repo.Name, commit.ID, err)
+		if err != nil {
+			if vistErr == nil {
+				vistErr = fmt.Errorf("error blocking on commit %s/%s: %v",
+					commit.Repo.Name, commit.ID, err)
+			}
 			return
 		}
 		if ci.Tree == nil && ci.Trees == nil {
