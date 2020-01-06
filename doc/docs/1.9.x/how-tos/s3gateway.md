@@ -1,18 +1,16 @@
 # Using the S3Gateway
 
-Pachyderm Enterprise includes an S3 gateway that enables you to interact
-with PFS storage through an HTTP application programming interface (API)
-that imitates the Amazon S3 Storage API. Therefore, with Pachyderm S3
-gateway, you can interact with Pachyderm through tools and libraries designed
-to work with object stores. For example, you can use these tools:
+Pachyderm includes an S3 gateway that enables you to interact with PFS storage
+through an HTTP application programming interface (API) that imitates the
+Amazon S3 Storage API. Therefore, with Pachyderm S3 gateway, you can interact
+with Pachyderm through tools and libraries designed to work with object stores.
+For example, you can use these tools:
 
 * [MinIO](https://docs.min.io/docs/minio-client-complete-guide)
 * [boto3](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html)
 * [S3cmd](https://s3tools.org/usage)
 
-When you deploy `pachd`, the S3 gateway starts automatically. However, the
-S3 gateway is an enterprise feature that is only available to paid customers or
-during the free trial evaluation.
+When you deploy `pachd`, the S3 gateway starts automatically.
 
 The S3 gateway has some limitations that are outlined below. If you need richer
 access, use the PFS gRPC interface instead, or one of the

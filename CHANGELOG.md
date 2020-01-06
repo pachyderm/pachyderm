@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.9.10
+
+- Fixes a bug that causes `pachctl` to connect to the wrong cluster (#4416)
+- Fixes a bug that causes hashtree resource leak in certain conditions (#4420)
+- Fixes a family of minor bugs found through static code analysis (#4410)
+- Fixes a family of bugs that caused pachd panic when it processed invalid arguments (#4391)
+- Fixes a family of bugs that caused deploy yaml to fail (#4290)
+- Changes to use standard go modules instead of old vendor directory (#4323)
+- Changes to add additional logging during pachd startup (#4447)
+- Changes to CLI to add a command, `run cron <pipeline>` to manually trigger a CRON pipeline (#4419)
+- Changes to improve performance of join datum processing (#4441)
+- Open source Pachyderm S3 gateway to allow applications to interact with PFS storage (#4399)
+
+## 1.9.9
+
+- Adds support for spout marker to keep track of metadata during spout processing. (#4224)
+- Updates GPT 2 example to use GPU. (#4325)
+- Fixes a bug that did not extract all the pipeline fields (#4204)
+- Fixes a bug that did not retry a previously skipped datum when pipeline specs are updated. (#4310)
+- Fixes a family of bugs which failed the building of docker images with create pipeline --build command. (#4319)
+- Fixed a bug that did not prompt users if auto-derivation of docker credentials fails. (#4319)
+- Changes to track commit progress through DAG. (#4203)
+- Changes to CLI syntax for run pipeline to accept —job option to re-run a job. (#4267)
+- Changes to CLI syntax for inspect to accept branch option. (#4293)
+- Changes to CLI output for list repo and list pipeline to show description. (#4368)
+- Changes to CLI output for list commit to show progress and description while removing parent and duration output. (#4368)
+
 ## 1.9.8
 
 - Fixes a bug that prevent the `--reprocess` flag in `edit pipeline` from working. (#4232)

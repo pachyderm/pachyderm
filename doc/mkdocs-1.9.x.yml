@@ -2,8 +2,8 @@ site_name: Pachyderm Documentation
 site_description: Pachyderm Documention
 site_author: Pachyderm Team
 site_url: https://docs.pachyderm.com/
-docs_dir: docs/1.9.x/
-site_dir: site/1.9.x/
+docs_dir: docs/1.9.x
+site_dir: site/1.9.x
 
 repo_name: pachyderm/pachyderm
 repo_url: https://github.com/pachyderm/pachyderm
@@ -101,8 +101,9 @@ nav:
             - Developing Pachyderm in Windows with VSCode: contributing/windows.md
     - Getting Started:
         - Overview: getting_started/index.md
-        - getting_started/local_installation.md
-        - getting_started/beginner_tutorial.md
+        - Local Installation: getting_started/local_installation.md
+        - Deploy Pachyderm on Windows: getting_started/wsl-deploy.md
+        - Beginner Tutorial: getting_started/beginner_tutorial.md
     - Concepts:
         - Overview: concepts/index.md
         - Versioned Data Concepts:
@@ -151,6 +152,7 @@ nav:
         - Deferred Processing of Data: how-tos/deferred_processing.md
         - Ingress and Egress Data from an External Object Store: how-tos/ingressing_from_diff_cloud.md
         - Skip Failed Datums: how-tos/err_cmd.md
+        - Using the S3 Gateway: how-tos/s3gateway.md
     - Deploy and Manage:
         - Overview: deploy-manage/index.md
         - Deploy Pachyderm:
@@ -345,7 +347,6 @@ nav:
         - Deploy Enterprise Edition: enterprise/deployment.md
         - Configure Access Controls: enterprise/auth/auth.md
         - Advanced Statistics: enterprise/stats.md
-        - Using the S3 Gateway: enterprise/s3gateway.md
         - Configure Pachyderm with an Access Management Provider:
             - Overview: enterprise/saml.md
             - Configure SAML: enterprise/saml_setup.md
