@@ -13,7 +13,7 @@ By using Pachyderm authentication, you can log in to JupyterHub with
 your Pachyderm credentials. In essence, you run your code
 in JupyterHub and use Pachyderm Python API to create your
 pipelines and version your data in Pachyderm from within
-JupyterHub UI.
+the JupyterHub UI.
 
 ## Deploy Prerequisites
 
@@ -35,7 +35,7 @@ in of the supported platforms:
     Kubernetes v1.16 is not supported, including Minikube deployments.
     If you already have a local Pachyderm deployed with Kubernetes v1.16,
     you might not be able to deploy JupyterHub on the same Kubernetes
-    cluster by using Pachyderm deployment script.
+    cluster by using the Jupyter deployment script.
 
 For more information about JupyterHub requirements for Kubernetes,
 see [Zero to JupyterHub with Kubernetes](https://zero-to-jupyterhub.readthedocs.io/en/latest/).
@@ -78,7 +78,7 @@ to deploy JupyterHub.
 
 To deploy JupyterHub, complete the following steps:
 
-1. Clone the [jypeterhub-pachyderm](https://github.com/pachyderm/jupyterhub-pachyderm)
+1. Clone the [jupyterhub-pachyderm](https://github.com/pachyderm/jupyterhub-pachyderm)
 repository:
 
    ```bash
@@ -133,7 +133,7 @@ username.
 ## Using `python-pachyderm`
 
 After you log in, you can use the [Python Pachyderm](https://pachyderm.github.io/python-pachyderm/python_pachyderm.m.html#header-functions)
-client API to manage Pachyderm directly in Jupyter notebooks.
+client API to manage Pachyderm directly from your Jupyter notebooks.
 
 The following lines initialize the Python Pachyderm client in JupyterHub:
 
@@ -146,7 +146,7 @@ client = python_pachyderm.Client.new_in_cluster()
     This syntax is different from the one you run directly
     from your terminal.
 
-Then, you can API request to create Pachyderm repositories, pipelines,
+Then, you can use API requests to create Pachyderm repositories, pipelines,
 put files, and others. For example, you can check the current user by
 running the following:
 
