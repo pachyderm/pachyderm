@@ -192,7 +192,12 @@ func (c *Config) Write() error {
 		return err
 	}
 	if err = os.Rename(tmpfile.Name(), p); err != nil {
-		return err
+		// A rename could fail if the temporary directory is mounted on a
+		// different device than the config path. If the rename failed, try to
+		// just copy the bytes instead.
+		if err = ioutil.WriteFile(p, rawConfig, 0644); err != nil {
+			return fmt.Errorf("failed to write config file: %v", err)
+		}
 	}
 
 	// essentially short-cuts reading the new config back from disk

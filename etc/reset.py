@@ -53,6 +53,17 @@ def join(*targets):
 
 class BaseDriver:
     def clear(self):
+        # ignore errors on `pachctl delete all` because there's a variety of
+        # ways it could fail that we can recover from:
+        # 1) pachyderm isn't installed on the cluster yet
+        # 2) pachctl isn't installed
+        # 3) pachd is unresponsive
+        # ... etc.
+        try:
+            run("pachctl", "delete", "all", stdin="yes\n", timeout=5)
+        except:
+            pass
+
         run("kubectl", "delete", ",".join(DELETABLE_RESOURCES), "-l", "suite=pachyderm")
 
     def start(self):
@@ -159,7 +170,6 @@ def capture(cmd, *args):
 
 def main():
     parser = argparse.ArgumentParser(description="Recompiles pachyderm tooling and restarts the cluster with a clean slate.")
-    parser.add_argument("--skip-delete", action="store_true", help="Do not clear existing cluster data")
     parser.add_argument("--args", default="", help="Arguments to be passed into `pachctl deploy`")
     args = parser.parse_args()
 
@@ -185,20 +195,6 @@ def main():
 
     if driver is None:
         raise Exception(f"could not derive driver from context name: {kube_context}")
-
-    if not args.skip_delete:
-        # ignore errors on `pachctl delete all` because there's a variety of ways
-        # it could fail that we can recover from:
-        # 1) pachyderm isn't installed on the cluster yet
-        # 2) pachctl isn't installed
-        # 3) pachd is unresponsive
-        # ... etc. Wrap in try/except rather than using `raise_on_error`, because
-        # the latter doesn't catch when `pachctl` doesn't exist -- an error case
-        # which we also want to ignore.
-        try:
-            run("pachctl", "delete", "all", stdin="yes\n", timeout=5)
-        except:
-            pass
 
     driver.clear()
 
