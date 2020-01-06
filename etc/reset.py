@@ -59,7 +59,7 @@ class BaseDriver:
         pass
 
     def create_manifest(self):
-        return capture("pachctl", "deploy", "local", "-d", "--dry-run")
+        return capture("pachctl", "deploy", "local", "-d", "--dry-run", "--create-context")
 
     def sync_images(self, deployments):
         dash_image = find_in_json(deployments, lambda j: isinstance(j, dict) and j.get("name") == "dash" and j.get("image") is not None)["image"]
@@ -113,7 +113,7 @@ class GCPDriver(BaseDriver):
 
     def create_manifest(self):
         registry_url = f"gcr.io/{self.project_id}"
-        return capture("pachctl", "deploy", "local", "-d", "--dry-run", "--image-pull-secret", "regcred", "--registry", registry_url)
+        return capture("pachctl", "deploy", "local", "-d", "--dry-run", "--create-context", "--image-pull-secret", "regcred", "--registry", registry_url)
 
     def sync_images(self, deployments):
         docker_config_path = os.path.expanduser("~/.docker/config.json")
