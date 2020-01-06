@@ -6409,6 +6409,55 @@ func TestCronPipeline(t *testing.T) {
 		commitInfos := collectCommitInfos(t, commitIter)
 		require.Equal(t, 1, len(commitInfos))
 	})
+	t.Run("RunCron", func(t *testing.T) {
+		pipeline5 := tu.UniqueString("cron5-")
+		require.NoError(t, c.CreatePipeline(
+			pipeline5,
+			"",
+			[]string{"/bin/bash"},
+			[]string{"cp /pfs/time/* /pfs/out/"},
+			nil,
+			client.NewCronInput("time", "@every 1h"),
+			"",
+			false,
+		))
+		pipeline6 := tu.UniqueString("cron6-")
+		require.NoError(t, c.CreatePipeline(
+			pipeline6,
+			"",
+			[]string{"/bin/bash"},
+			[]string{"cp " + fmt.Sprintf("/pfs/%s/*", pipeline5) + " /pfs/out/"},
+			nil,
+			client.NewPFSInput(pipeline5, "/*"),
+			"",
+			false,
+		))
+
+		_, err := c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline5)})
+		require.NoError(t, err)
+		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline5)})
+		require.NoError(t, err)
+		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline5)})
+		require.NoError(t, err)
+
+		// subscribe to the pipeline1 cron repo and wait for inputs
+		repo := fmt.Sprintf("%s_%s", pipeline5, "time")
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
+		defer cancel() //cleanup resources
+		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", nil, "", pfs.CommitState_STARTED)
+		require.NoError(t, err)
+
+		// We expect to see three commits, despite the schedule being every hour, and the timeout 120 seconds
+		for i := 1; i <= 3; i++ {
+			commitInfo, err := iter.Next()
+			require.NoError(t, err)
+
+			commitIter, err := c.FlushCommit([]*pfs.Commit{commitInfo.Commit}, nil)
+			require.NoError(t, err)
+			commitInfos := collectCommitInfos(t, commitIter)
+			require.Equal(t, 2, len(commitInfos))
+		}
+	})
 }
 
 func TestSelfReferentialPipeline(t *testing.T) {

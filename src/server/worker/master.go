@@ -227,7 +227,6 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 			return fmt.Errorf("job %s's version (%d) greater than pipeline's "+
 				"version (%d), this should automatically resolve when the worker "+
 				"is updated", jobInfo.Job.ID, jobInfo.PipelineVersion, a.pipelineInfo.Version)
-			continue
 		}
 
 		// Now that the jobInfo is persisted, wait until all input commits are

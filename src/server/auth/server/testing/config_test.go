@@ -12,6 +12,7 @@ import (
 	"github.com/crewjam/saml" // used to format saml IdP in config
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
@@ -89,7 +90,7 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	requireConfigsEqual(t, &defaultAuthConfig, configResp.GetConfiguration())
+	requireConfigsEqual(t, &authserver.DefaultAuthConfig, configResp.GetConfiguration())
 
 	alice := tu.UniqueString("alice")
 	anonClient := getPachClient(t, "")
@@ -122,7 +123,7 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 	configResp, err = adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	requireConfigsEqual(t, &defaultAuthConfig, configResp.Configuration)
+	requireConfigsEqual(t, &authserver.DefaultAuthConfig, configResp.Configuration)
 
 	// Modify the configuration and make sure anon can't read it, but alice and
 	// admin can
@@ -351,7 +352,7 @@ func TestConfigRestartAuth(t *testing.T) {
 	configResp, err = adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	requireConfigsEqual(t, &defaultAuthConfig, configResp.Configuration)
+	requireConfigsEqual(t, &authserver.DefaultAuthConfig, configResp.Configuration)
 
 	// Set the configuration (again)
 	conf.LiveConfigVersion = 0 // clear version, so we issue a blind write
@@ -396,7 +397,7 @@ func TestValidateConfigErrNoName(t *testing.T) {
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	requireConfigsEqual(t, &defaultAuthConfig, configResp.Configuration)
+	requireConfigsEqual(t, &authserver.DefaultAuthConfig, configResp.Configuration)
 	deleteAll(t)
 }
 
@@ -431,7 +432,7 @@ func TestValidateConfigErrReservedName(t *testing.T) {
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	requireConfigsEqual(t, &defaultAuthConfig, configResp.Configuration)
+	requireConfigsEqual(t, &authserver.DefaultAuthConfig, configResp.Configuration)
 	deleteAll(t)
 }
 
@@ -462,7 +463,7 @@ func TestValidateConfigErrNoType(t *testing.T) {
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	requireConfigsEqual(t, &defaultAuthConfig, configResp.Configuration)
+	requireConfigsEqual(t, &authserver.DefaultAuthConfig, configResp.Configuration)
 	deleteAll(t)
 }
 
@@ -496,7 +497,7 @@ func TestValidateConfigErrInvalidIDPMetadata(t *testing.T) {
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	requireConfigsEqual(t, &defaultAuthConfig, configResp.Configuration)
+	requireConfigsEqual(t, &authserver.DefaultAuthConfig, configResp.Configuration)
 	deleteAll(t)
 }
 
@@ -530,7 +531,7 @@ func TestValidateConfigErrInvalidMetadataURL(t *testing.T) {
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	requireConfigsEqual(t, &defaultAuthConfig, configResp.Configuration)
+	requireConfigsEqual(t, &authserver.DefaultAuthConfig, configResp.Configuration)
 	deleteAll(t)
 }
 
@@ -582,7 +583,7 @@ func TestValidateConfigErrRedundantIDPMetadata(t *testing.T) {
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	requireConfigsEqual(t, &defaultAuthConfig, configResp.Configuration)
+	requireConfigsEqual(t, &authserver.DefaultAuthConfig, configResp.Configuration)
 	deleteAll(t)
 }
 
@@ -708,7 +709,7 @@ func TestSetGetNilConfig(t *testing.T) {
 	configResp, err = adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	conf = proto.Clone(&defaultAuthConfig).(*auth.AuthConfig)
+	conf = proto.Clone(&authserver.DefaultAuthConfig).(*auth.AuthConfig)
 	conf.LiveConfigVersion = 3 // increment version
 	requireConfigsEqual(t, conf, configResp.Configuration)
 	deleteAll(t)

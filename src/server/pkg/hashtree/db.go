@@ -106,7 +106,7 @@ func NewDBHashTree(storageRoot string) (HashTree, error) {
 	if err := result.PutDir("/"); err != nil {
 		return nil, err
 	}
-	return result, err
+	return result, nil
 }
 
 // DeserializeDBHashTree deserializes a hashtree into a database (bolt) backed hashtree.
