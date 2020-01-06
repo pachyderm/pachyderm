@@ -532,7 +532,7 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 		if err := os.MkdirAll(filepath.Dir(outPath), 0700); err != nil {
 			return "", fmt.Errorf("mkdirall :%v", err)
 		}
-		if err := syscall.Mkfifo(outPath, 0666); err != nil {
+		if err := createSpoutFifo(outPath); err != nil {
 			return "", fmt.Errorf("mkfifo :%v", err)
 		}
 		_, err := pachClient.InspectFile(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "marker")
@@ -673,12 +673,7 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	cmd.Stderr = logger.userLogger()
 	cmd.Env = environ
 	if a.uid != nil && a.gid != nil {
-		cmd.SysProcAttr = &syscall.SysProcAttr{
-			Credential: &syscall.Credential{
-				Uid: *a.uid,
-				Gid: *a.gid,
-			},
-		}
+		cmd.SysProcAttr = makeCmdCredentials(*a.uid, *a.gid)
 	}
 	cmd.Dir = a.pipelineInfo.Transform.WorkingDir
 	err := cmd.Start()
@@ -742,12 +737,7 @@ func (a *APIServer) runUserErrorHandlingCode(ctx context.Context, logger *tagged
 	cmd.Stderr = logger.userLogger()
 	cmd.Env = environ
 	if a.uid != nil && a.gid != nil {
-		cmd.SysProcAttr = &syscall.SysProcAttr{
-			Credential: &syscall.Credential{
-				Uid: *a.uid,
-				Gid: *a.gid,
-			},
-		}
+		cmd.SysProcAttr = makeCmdCredentials(*a.uid, *a.gid)
 	}
 	cmd.Dir = a.pipelineInfo.Transform.WorkingDir
 	err := cmd.Start()

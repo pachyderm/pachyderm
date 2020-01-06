@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/segmentio/kafka-go"
+	kafka "github.com/segmentio/kafka-go"
 
 	"golang.org/x/sync/errgroup"
 
@@ -2807,6 +2807,59 @@ func TestUpdatePipeline(t *testing.T) {
 	buffer.Reset()
 	require.NoError(t, c.GetFile(pipelineName, "master", "file", 0, 0, &buffer))
 	require.Equal(t, "buzz\n", buffer.String())
+}
+
+func TestUpdatePipelineWithInProgressCommitsAndStats(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	dataRepo := tu.UniqueString("TestUpdatePipelineWithInProgressCommitsAndStats_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	pipeline := tu.UniqueString("pipeline")
+	createPipeline := func() {
+		_, err := c.PpsAPIClient.CreatePipeline(
+			context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd:   []string{"bash"},
+					Stdin: []string{"sleep 1"},
+				},
+				Input:       client.NewPFSInput(dataRepo, "/*"),
+				Update:      true,
+				EnableStats: true,
+			})
+		require.NoError(t, err)
+	}
+	createPipeline()
+	flushCommit := func(commitNum int) {
+		commit, err := c.StartCommit(dataRepo, "master")
+		require.NoError(t, err)
+		_, err = c.PutFile(dataRepo, commit.ID, "file"+strconv.Itoa(commitNum), strings.NewReader("foo"))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+		commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+		require.NoError(t, err)
+		commitInfos := collectCommitInfos(t, commitIter)
+		require.Equal(t, 2, len(commitInfos))
+	}
+	// Create a new job that should succeed (both output and stats commits should be finished normally).
+	flushCommit(1)
+	// Create multiple new commits.
+	numCommits := 5
+	for i := 1; i < numCommits; i++ {
+		commit, err := c.StartCommit(dataRepo, "master")
+		require.NoError(t, err)
+		_, err = c.PutFile(dataRepo, commit.ID, "file"+strconv.Itoa(i), strings.NewReader("foo"))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	}
+	// Force the in progress commits to be finished.
+	createPipeline()
+	// Create a new job that should succeed (should not get blocked on an unfinished stats commit).
+	flushCommit(numCommits)
 }
 
 // TestManyPipelineUpdate updates a single pipeline several (currently 8) times,
@@ -6355,6 +6408,55 @@ func TestCronPipeline(t *testing.T) {
 		require.NoError(t, err)
 		commitInfos := collectCommitInfos(t, commitIter)
 		require.Equal(t, 1, len(commitInfos))
+	})
+	t.Run("RunCron", func(t *testing.T) {
+		pipeline5 := tu.UniqueString("cron5-")
+		require.NoError(t, c.CreatePipeline(
+			pipeline5,
+			"",
+			[]string{"/bin/bash"},
+			[]string{"cp /pfs/time/* /pfs/out/"},
+			nil,
+			client.NewCronInput("time", "@every 1h"),
+			"",
+			false,
+		))
+		pipeline6 := tu.UniqueString("cron6-")
+		require.NoError(t, c.CreatePipeline(
+			pipeline6,
+			"",
+			[]string{"/bin/bash"},
+			[]string{"cp " + fmt.Sprintf("/pfs/%s/*", pipeline5) + " /pfs/out/"},
+			nil,
+			client.NewPFSInput(pipeline5, "/*"),
+			"",
+			false,
+		))
+
+		_, err := c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline5)})
+		require.NoError(t, err)
+		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline5)})
+		require.NoError(t, err)
+		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline5)})
+		require.NoError(t, err)
+
+		// subscribe to the pipeline1 cron repo and wait for inputs
+		repo := fmt.Sprintf("%s_%s", pipeline5, "time")
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
+		defer cancel() //cleanup resources
+		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", nil, "", pfs.CommitState_STARTED)
+		require.NoError(t, err)
+
+		// We expect to see three commits, despite the schedule being every hour, and the timeout 120 seconds
+		for i := 1; i <= 3; i++ {
+			commitInfo, err := iter.Next()
+			require.NoError(t, err)
+
+			commitIter, err := c.FlushCommit([]*pfs.Commit{commitInfo.Commit}, nil)
+			require.NoError(t, err)
+			commitInfos := collectCommitInfos(t, commitIter)
+			require.Equal(t, 2, len(commitInfos))
+		}
 	})
 }
 

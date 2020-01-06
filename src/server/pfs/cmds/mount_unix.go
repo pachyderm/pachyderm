@@ -17,6 +17,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func parseCommits(args []string) (map[string]string, error) {
+	result := make(map[string]string)
+	for _, arg := range args {
+		split := strings.Split(arg, "@")
+		if len(split) != 2 {
+			return nil, fmt.Errorf("malformed input %s, must be of the form repo@commit", args)
+		}
+		result[split[0]] = split[1]
+	}
+	return result, nil
+}
+
 func mountCmds() []*cobra.Command {
 	var commands []*cobra.Command
 
