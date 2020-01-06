@@ -827,7 +827,7 @@ func (api *ppsServerAPI) UpdateJobState(ctx context.Context, req *pps.UpdateJobS
 	if api.mock.UpdateJobState.handler != nil {
 		return api.mock.UpdateJobState.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("Unhandled pachd mock pps.UpdateJobState")
+	return nil, fmt.Errorf("unhandled pachd mock pps.UpdateJobState")
 }
 func (api *ppsServerAPI) StopJob(ctx context.Context, req *pps.StopJobRequest) (*types.Empty, error) {
 	if api.mock.StopJob.handler != nil {
@@ -977,7 +977,7 @@ func (api *transactionServerAPI) BatchTransaction(ctx context.Context, req *tran
 	if api.mock.BatchTransaction.handler != nil {
 		return api.mock.BatchTransaction.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("Unhandled pachd mock transaction.BatchTransaction")
+	return nil, fmt.Errorf("unhandled pachd mock transaction.BatchTransaction")
 }
 func (api *transactionServerAPI) StartTransaction(ctx context.Context, req *transaction.StartTransactionRequest) (*transaction.Transaction, error) {
 	if api.mock.StartTransaction.handler != nil {

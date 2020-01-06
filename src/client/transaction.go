@@ -314,7 +314,7 @@ func (c *ppsBuilderClient) UpdateJobState(ctx context.Context, req *pps.UpdateJo
 
 // Boilerplate for making unsupported API requests error when used on a TransactionBuilder
 func unsupportedError(name string) error {
-	return fmt.Errorf("The '%s' API call is not supported in transactions", name)
+	return fmt.Errorf("the '%s' API call is not supported in transactions", name)
 }
 
 func (c *pfsBuilderClient) InspectRepo(ctx context.Context, req *pfs.InspectRepoRequest, opts ...grpc.CallOption) (*pfs.RepoInfo, error) {
