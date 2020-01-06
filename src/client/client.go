@@ -351,8 +351,6 @@ func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress,
 }
 
 func portForwarder(context *config.Context) (*PortForwarder, uint16, error) {
-	log.Debugln("Attempting to implicitly enable port forwarding...")
-
 	fw, err := NewPortForwarder(context, "")
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to initialize port forwarder: %v", err)
