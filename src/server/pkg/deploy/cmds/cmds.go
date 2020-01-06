@@ -105,8 +105,8 @@ func contextCreate(namePrefix, namespace, serverCert string) error {
 		ServerCAs:   serverCert,
 	}
 
-	// if the new context is the same as the active context, exit without
-	// changes
+	// if the new context is the same as the active context, just update
+	// fields on the existing context
 	_, activeContext, _ := cfg.ActiveContext()
 	if newContext.EqualClusterReference(activeContext) {
 		activeContext.ClusterID = ""
