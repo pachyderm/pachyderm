@@ -76,6 +76,7 @@ require (
 	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b // indirect
 	github.com/minio/minio-go v6.0.14+incompatible
 	github.com/mitchellh/go-testing-interface v1.0.0 // indirect
+	github.com/montanaflynn/stats v0.5.0
 	github.com/onsi/ginkgo v1.10.2 // indirect
 	github.com/onsi/gomega v1.8.1 // indirect
 	github.com/opentracing-contrib/go-grpc v0.0.0-20180928155321-4b5a12d3ff02
@@ -123,7 +124,7 @@ require (
 	gopkg.in/go-playground/webhooks.v5 v5.11.0
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.42.0 // indirect
-	gopkg.in/pachyderm/yaml.v3 v3.0.0-20200130061037-1dd3d7bd0850 // indirect
+	gopkg.in/pachyderm/yaml.v3 v3.0.0-20200130061037-1dd3d7bd0850
 	gopkg.in/square/go-jose.v2 v2.3.1 // indirect
 	gopkg.in/src-d/go-git.v4 v4.12.0
 	gopkg.in/yaml.v2 v2.2.7 // indirect
