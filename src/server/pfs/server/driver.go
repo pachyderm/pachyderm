@@ -3113,6 +3113,9 @@ func appendRecords(pfr *pfs.PutFileRecords, node *hashtree.NodeProto) {
 // will correctly convert back to a header dir in the target hashtree via the
 // regular putFile codepath.
 func headerDirToPutFileRecords(tree hashtree.HashTree, path string, node *hashtree.NodeProto) (*pfs.PutFileRecords, error) {
+	if tree == nil {
+		return nil, fmt.Errorf("called headerDirToPutFileRecords with nil tree (this is likely a bug")
+	}
 	if node.DirNode == nil || node.DirNode.Shared == nil {
 		return nil, fmt.Errorf("headerDirToPutFileRecords only works on header/footer dirs")
 	}
@@ -3145,7 +3148,7 @@ func headerDirToPutFileRecords(tree hashtree.HashTree, path string, node *hashtr
 	return pfr, nil // TODO(msteffen) put something real here
 }
 
-func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.File, overwrite bool) error {
+func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.File, overwrite bool) (retErr error) {
 	// Validate arguments
 	if src == nil {
 		return errors.New("src cannot be nil")
@@ -3205,18 +3208,11 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 			records = append(records, &pfs.PutFileRecords{Tombstone: true})
 		}
 	}
-	srcTree, err := d.getTreeForFile(pachClient, src)
-	if err != nil {
-		return err
-	}
-	defer destroyHashtree(srcTree)
-	// This is necessary so we can call filepath.Rel below
-	if !strings.HasPrefix(src.Path, "/") {
-		src.Path = "/" + src.Path
-	}
 	var eg errgroup.Group
-	if err := srcTree.Walk(src.Path, func(walkPath string, node *hashtree.NodeProto) error {
+	var srcTree hashtree.HashTree
+	cb := func(walkPath string, node *hashtree.NodeProto) error {
 		relPath, err := filepath.Rel(src.Path, walkPath)
+		fmt.Printf("relPath: %s", relPath)
 		if err != nil {
 			return fmt.Errorf("error from filepath.Rel (likely a bug): %v", err)
 		}
@@ -3248,8 +3244,40 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 			records = append(records, record)
 		}
 		return nil
-	}); err != nil {
+	}
+	// This is necessary so we can call filepath.Rel
+	if !strings.HasPrefix(src.Path, "/") {
+		src.Path = "/" + src.Path
+	}
+	srcCi, err := d.inspectCommit(pachClient, src.Commit, pfs.CommitState_STARTED)
+	if err != nil {
 		return err
+	}
+	if !provenantOnInput(srcCi.Provenance) || srcCi.Tree != nil {
+		// handle input commits
+		srcTree, err = d.getTreeForFile(pachClient, src)
+		if err != nil {
+			return err
+		}
+		defer destroyHashtree(srcTree)
+		if err := srcTree.Walk(src.Path, cb); err != nil {
+			return err
+		}
+	} else {
+		rs, err := d.getTree(pachClient, srcCi, src.Path)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			for _, r := range rs {
+				if err := r.Close(); err != nil && retErr != nil {
+					retErr = err
+				}
+			}
+		}()
+		if err := hashtree.Walk(rs, src.Path, cb); err != nil {
+			return err
+		}
 	}
 	if err := eg.Wait(); err != nil {
 		return err
