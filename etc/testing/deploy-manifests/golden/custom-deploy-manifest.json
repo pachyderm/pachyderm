@@ -461,7 +461,7 @@
               },
               {
                 "name": "METRICS",
-                "value": "true"
+                "value": "false"
               },
               {
                 "name": "LOG_LEVEL",
@@ -774,6 +774,26 @@
                     "optional": true
                   }
                 }
+              },
+              {
+                "name": "DISABLE_SSL",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "disable-ssl",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "NO_VERIFY_SSL",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "no-verify-ssl",
+                    "optional": true
+                  }
+                }
               }
             ],
             "resources": {
@@ -933,7 +953,9 @@
     "amazon-secret": "c3RvcmFnZS1zZWNyZXQ=",
     "amazon-token": "",
     "custom-endpoint": "c3RvcmFnZS5lbmRwb2ludA==",
+    "disable-ssl": "ZmFsc2U=",
     "max-upload-parts": "MTAwMDA=",
+    "no-verify-ssl": "ZmFsc2U=",
     "part-size": "NTI0Mjg4MA==",
     "retries": "MTA=",
     "reverse": "dHJ1ZQ==",
