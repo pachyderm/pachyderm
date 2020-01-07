@@ -3075,6 +3075,31 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 	return records, nil
 }
 
+func appendRecords(pfr *pfs.PutFileRecords, node *hashtree.NodeProto) {
+	for i, object := range node.FileNode.Objects {
+		// We only have the whole file size in src file, so mark the first object
+		// as the size of the whole file and all the rest as size 0; applyWrite
+		// will compute the right sum size for the target file
+		// TODO(msteffen): this is a bit of a hack--either PutFileRecords should
+		// only record the sum size of all PutFileRecord messages as well, or
+		// FileNodeProto should record the size of every object
+		var size int64
+		if i == 0 {
+			size = node.SubtreeSize
+		}
+		pfr.Records = append(pfr.Records, &pfs.PutFileRecord{
+			SizeBytes:  size,
+			ObjectHash: object.Hash,
+		})
+	}
+	for _, blockRef := range node.FileNode.BlockRefs {
+		pfr.Records = append(pfr.Records, &pfs.PutFileRecord{
+			BlockRef:  blockRef,
+			SizeBytes: int64(blockRef.Range.Upper - blockRef.Range.Lower),
+		})
+	}
+}
+
 // headerDirToPutFileRecords is a helper for copyFile that handles copying
 // header/footer directories.
 //
@@ -3112,20 +3137,7 @@ func headerDirToPutFileRecords(tree hashtree.HashTree, path string, node *hashtr
 			return fmt.Errorf("header/footer dir contains child subdirectory, " +
 				"which is invalid--header/footer dirs must be created by PutFileSplit")
 		}
-		for i, o := range child.FileNode.Objects {
-			// same hack as copyFile--set size of first object to the size of the
-			// whole subtree (and size of other objects to 0). I don't think
-			// PutFileSplit files can have more than one object, but that invariant
-			// isn't necessary to this code's correctness, so don't verify it.
-			var size int64
-			if i == 0 {
-				size = child.SubtreeSize
-			}
-			pfr.Records = append(pfr.Records, &pfs.PutFileRecord{
-				SizeBytes:  size,
-				ObjectHash: o.Hash,
-			})
-		}
+		appendRecords(pfr, child)
 		return nil
 	}); err != nil {
 		return nil, err
@@ -3222,22 +3234,7 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 		} else if node.FileNode.HasHeaderFooter {
 			return nil // parent dir will be copied as a PutFileRecord w/ Split==true
 		} else {
-			for i, object := range node.FileNode.Objects {
-				// We only have the whole file size in src file, so mark the first object
-				// as the size of the whole file and all the rest as size 0; applyWrite
-				// will compute the right sum size for the target file
-				// TODO(msteffen): this is a bit of a hack--either PutFileRecords should
-				// only record the sum size of all PutFileRecord messages as well, or
-				// FileNodeProto should record the size of every object
-				var size int64
-				if i == 0 {
-					size = node.SubtreeSize
-				}
-				record.Records = append(record.Records, &pfs.PutFileRecord{
-					SizeBytes:  size,
-					ObjectHash: object.Hash,
-				})
-			}
+			appendRecords(record, node)
 		}
 
 		// Either upsert 'record' to etcd (if 'dst' is in an open commit) or add it
