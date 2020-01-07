@@ -527,12 +527,14 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 		if err := createSpoutFifo(outPath); err != nil {
 			return "", fmt.Errorf("mkfifo :%v", err)
 		}
-		_, err := pachClient.InspectFile(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "marker")
+		// if a.pipelineInfo.Spout.Marker != "" {
+		_, err := pachClient.InspectFile(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, a.pipelineInfo.Spout.Marker)
 		if err != nil && strings.Contains(err.Error(), "not found") {
-			if err := puller.Pull(pachClient, filepath.Join(dir, "marker"), a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "/marker", false, false, concurrency, nil, ""); err != nil {
+			if err := puller.Pull(pachClient, filepath.Join(dir, a.pipelineInfo.Spout.Marker), a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "/"+a.pipelineInfo.Spout.Marker, false, false, concurrency, nil, ""); err != nil {
 				return "", err
 			}
 		}
+		// }
 	} else {
 		if err := os.MkdirAll(outPath, 0777); err != nil {
 			return "", err

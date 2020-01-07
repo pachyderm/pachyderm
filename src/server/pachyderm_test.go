@@ -9734,7 +9734,9 @@ func TestSpout(t *testing.T) {
 						"tar -cvf /pfs/out ./marker/test*",
 						"done"},
 				},
-				Spout: &pps.Spout{}, // this needs to be non-nil to make it a spout
+				Spout: &pps.Spout{
+					Marker: "marker",
+				},
 			})
 		require.NoError(t, err)
 
@@ -9775,7 +9777,9 @@ func TestSpout(t *testing.T) {
 						"tar -cvf /pfs/out ./marker/test*",
 						"done"},
 				},
-				Spout:  &pps.Spout{}, // this needs to be non-nil to make it a spout
+				Spout: &pps.Spout{
+					Marker: "marker",
+				},
 				Update: true,
 			})
 		require.NoError(t, err)
@@ -9786,7 +9790,6 @@ func TestSpout(t *testing.T) {
 			files, err := c.ListFile(pipeline, commitInfo.Commit.ID, "")
 			require.NoError(t, err)
 			require.Equal(t, 1, len(files))
-
 		}
 
 		// we want to check that the marker/test file looks like this:
@@ -9836,7 +9839,9 @@ func TestSpout(t *testing.T) {
 						"tar -cvf /pfs/out ./marker/test*",
 						"done"},
 				},
-				Spout:     &pps.Spout{}, // this needs to be non-nil to make it a spout
+				Spout: &pps.Spout{
+					Marker: "marker",
+				},
 				Update:    true,
 				Reprocess: true,
 			})
