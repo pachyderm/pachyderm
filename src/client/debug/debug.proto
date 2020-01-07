@@ -3,11 +3,8 @@ syntax = "proto3";
 package debug;
 option go_package = "github.com/pachyderm/pachyderm/src/client/debug";
 
-import "google/protobuf/empty.proto";
 import "google/protobuf/wrappers.proto";
 import "google/protobuf/duration.proto";
-
-import "gogoproto/gogo.proto";
 
 message DumpRequest {
   // Recursed is true if this request is a recursive call from another request.
@@ -24,13 +21,8 @@ message ProfileRequest {
 message BinaryRequest {
 }
 
-message ClusterIDResponse {
-    string cluster_id = 1 [(gogoproto.customname) = "ClusterID"];
-}
-
 service Debug {
   rpc Dump(DumpRequest) returns (stream google.protobuf.BytesValue) {}
   rpc Profile(ProfileRequest) returns (stream google.protobuf.BytesValue) {}
   rpc Binary(BinaryRequest) returns (stream google.protobuf.BytesValue) {}
-  rpc ClusterID(google.protobuf.Empty) returns (ClusterIDResponse) {}
 }

@@ -42,12 +42,3 @@ func (c APIClient) Binary(w io.Writer) error {
 	}
 	return grpcutil.ScrubGRPC(grpcutil.WriteFromStreamingBytesClient(binaryClient, w))
 }
-
-// ClusterID gets a unique ID for the cluster.
-func (c APIClient) ClusterID() (string, error) {
-	resp, err := c.DebugClient.ClusterID(c.Ctx(), &types.Empty{})
-	if err != nil {
-		return "", grpcutil.ScrubGRPC(err)
-	}
-	return resp.ClusterID, nil
-}

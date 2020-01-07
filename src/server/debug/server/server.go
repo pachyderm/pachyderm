@@ -1,8 +1,6 @@
 package server
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -121,14 +119,4 @@ func (s *debugServer) Binary(request *debug.BinaryRequest, server debug.Debug_Bi
 	defer grpcutil.PutBuffer(buf)
 	_, err = io.CopyBuffer(w, f, buf)
 	return err
-}
-
-func (s *debugServer) ClusterID(ctx context.Context, request *types.Empty) (*debug.ClusterIDResponse, error) {
-	if s.clusterID == "" {
-		return nil, errors.New("endpoint cannot be called on this debug server instance")
-	}
-
-	return &debug.ClusterIDResponse{
-		ClusterID: s.clusterID,
-	}, nil
 }
