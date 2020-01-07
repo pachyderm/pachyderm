@@ -29,7 +29,6 @@ require (
 	github.com/dnaeon/go-vcr v1.0.1 // indirect
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v1.4.2-0.20191213113251-3452f136aa68 // indirect
-	github.com/docker/engine v1.13.1 // indirect
 	github.com/docker/go-units v0.4.0
 	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
 	github.com/elazarl/goproxy v0.0.0-20191011121108-aa519ddbe484 // indirect
