@@ -499,6 +499,12 @@ message StopJobRequest {
   Job job = 1;
 }
 
+message UpdateJobStateRequest {
+  Job job = 1;
+  JobState state = 2;
+  string reason = 3;
+}
+
 message GetLogsRequest {
   reserved 4;
   // The pipeline from which we want to get logs (required if the job in 'job'
@@ -731,4 +737,7 @@ service API {
   // An internal call that causes PPS to put itself into an auth-enabled state
   // (all pipeline have tokens, correct permissions, etcd)
   rpc ActivateAuth(ActivateAuthRequest) returns (ActivateAuthResponse) {}
+
+  // An internal call used to move a job from one state to another
+  rpc UpdateJobState(UpdateJobStateRequest) returns(google.protobuf.Empty) {}
 }
