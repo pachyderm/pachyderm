@@ -87,6 +87,12 @@ If you're doing a custom release (off a branch that isn't master), [skip to the 
   > git push origin master
   ```
 
+10) Update the
+[release's notes](https://github.com/pachyderm/pachyderm/releases) and the
+[changelog](https://github.com/pachyderm/pachyderm/blob/master/CHANGELOG.md).
+
+11) Post the update on the #users channel.
+
 ### If the release failed
 
 You'll need to delete the *release* and the *release tag* in github. Navigate to
