@@ -10727,7 +10727,7 @@ func TestCopyOutToIn(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+			fmt.Sprintf("cp -R /pfs/%s/* /pfs/out/", dataRepo),
 		},
 		&pps.ParallelismSpec{
 			Constant: 1,
@@ -10737,17 +10737,38 @@ func TestCopyOutToIn(t *testing.T) {
 		false,
 	))
 
-	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(commitInfos))
 	require.NoError(t, c.CopyFile(pipeline, "master", "file", dataRepo, "master", "file2", false))
-	commitInfos, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(commitInfos))
 
 	var buf bytes.Buffer
 	require.NoError(t, c.GetFile(pipeline, "master", "file2", 0, 0, &buf))
 	require.Equal(t, "foo", buf.String())
+
+	pfc, err := c.NewPutFileClient()
+	require.NoError(t, err)
+	_, err = pfc.PutFile(dataRepo, "master", "dir/file3", strings.NewReader("foo"))
+	require.NoError(t, err)
+	_, err = pfc.PutFile(dataRepo, "master", "dir/file4", strings.NewReader("bar"))
+	require.NoError(t, err)
+	require.NoError(t, pfc.Close())
+
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+
+	require.NoError(t, c.CopyFile(pipeline, "master", "dir", dataRepo, "master", "dir2", false))
+
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+
+	buf.Reset()
+	require.NoError(t, c.GetFile(pipeline, "master", "dir/file3", 0, 0, &buf))
+	require.Equal(t, "foo", buf.String())
+	buf.Reset()
+	require.NoError(t, c.GetFile(pipeline, "master", "dir/file4", 0, 0, &buf))
+	require.Equal(t, "bar", buf.String())
 }
 
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
