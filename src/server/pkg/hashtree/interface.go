@@ -129,6 +129,9 @@ type HashTree interface {
 	// PutFile appends data to a file (and creates the file if it doesn't exist).
 	PutFile(path string, objects []*pfs.Object, size int64) error
 
+	// PutFileBlockRefs is like PutFile, but it uses block refs instead of objects.
+	PutFileBlockRefs(path string, brs []*pfs.BlockRef, size int64) error
+
 	// PutFileHeaderFooter is the same as PutFile, except that it marks the
 	// FileNode at 'path' as having a header stored in its parent directory and
 	// validates that the parent directory has the right header/footer data
@@ -145,6 +148,10 @@ type HashTree interface {
 	// sizeDelta is the delta between the size of the objects added and
 	// the size of the objects removed.
 	PutFileOverwrite(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64) error
+
+	// PutFileOverwriteBlockRefs is the same as PutFileOverwrite except that it
+	// uses Block Refs instead of objects.
+	PutFileOverwriteBlockRefs(path string, brs []*pfs.BlockRef, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64) error
 
 	// PutDir creates a directory (or does nothing if one exists).
 	PutDir(path string) error
