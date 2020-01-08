@@ -458,7 +458,7 @@
               },
               {
                 "name": "METRICS",
-                "value": "false"
+                "value": "true"
               },
               {
                 "name": "LOG_LEVEL",

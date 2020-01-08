@@ -278,7 +278,7 @@ spec:
         - name: PACHD_VERSION
           value: 1.9.10
         - name: METRICS
-          value: "false"
+          value: "true"
         - name: LOG_LEVEL
           value: info
         - name: BLOCK_CACHE_BYTES
