@@ -189,7 +189,7 @@ prior to running this example.
     ```
 
 12. We won't cause another job to trigger on `montage_dp` if we commit more data to `images_dp_1`.
-    It will only trigger a job in `edges_dp`.
+    It will only trigger a job in `edges_dp`:
 
     ```sh
     $ pachctl put file images_dp_1@master:2GI70mb.jpg -f http://imgur.com/2GI70mb.jpg
