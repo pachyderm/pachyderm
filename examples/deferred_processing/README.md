@@ -235,7 +235,7 @@ prior to running this example.
     against a particular branch of `edges_dp`,
     you need to perform two operations
     - commit data to `images_dp_2` and
-    - point `edges_dp@master` to the branch of interest.
+    - point `edges_dp@master` to the specific commit of interest.
     
     This will result in two jobs being triggered.
     - `images_dp_2@master` running against whatever is currently in `edges_dp@master`
