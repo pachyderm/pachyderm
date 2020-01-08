@@ -285,7 +285,7 @@ prior to running this example.
 
 18. Before you put any files in a repo, 
     you need to finish the transaction.
-    That will group all the commits and branches together,
+    When you run `pachctl finish transaction`, Pachyderm groups all the commits and branches together,
     triggering when the last commit in the transaction is finished.
     
     ```sh
