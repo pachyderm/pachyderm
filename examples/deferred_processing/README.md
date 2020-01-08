@@ -5,7 +5,7 @@
 is a Pachyderm technique for controlling when data gets processed.
 Transactions are a Pachyderm feature that ensures that data from different repos is processed together.
 
-This is an example which uses a simple DAG, 
+This example illustrates how you can use deferred processing along with transactions.
 based on our opencv example, 
 to illustrate using deferred processing along with transactions.
 
