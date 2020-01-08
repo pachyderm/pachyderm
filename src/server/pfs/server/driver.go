@@ -1501,7 +1501,6 @@ func (d *driver) finishOutputCommit(txnCtx *txnenv.TransactionContext, commit *p
 }
 
 func (d *driver) updateProvenanceProgress(txnCtx *txnenv.TransactionContext, success bool, ci *pfs.CommitInfo) error {
-	fmt.Println("updateProvenanceProgress")
 	for _, provC := range ci.Provenance {
 		provCi := &pfs.CommitInfo{}
 		if err := d.commits(provC.Commit.Repo.Name).ReadWrite(txnCtx.Stm).Update(provC.Commit.ID, provCi, func() error {
@@ -3212,7 +3211,6 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 	var srcTree hashtree.HashTree
 	cb := func(walkPath string, node *hashtree.NodeProto) error {
 		relPath, err := filepath.Rel(src.Path, walkPath)
-		fmt.Printf("relPath: %s", relPath)
 		if err != nil {
 			return fmt.Errorf("error from filepath.Rel (likely a bug): %v", err)
 		}
@@ -3544,6 +3542,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 		var (
 			pathsFound int
 			objects    []*pfs.Object
+			brs        []*pfs.BlockRef
 			totalSize  uint64
 			footer     *pfs.Object
 			prevDir    string
@@ -3590,6 +3589,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 				}
 			}
 			objects = append(objects, node.FileNode.Objects...)
+			brs = append(brs, node.FileNode.BlockRefs...)
 			totalSize += uint64(node.SubtreeSize)
 			return nil
 		}); err != nil {
@@ -3603,6 +3603,20 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 		}
 
 		// retrieve the content of all objects in 'objects'
+		if len(brs) > 0 {
+			getBlocksClient, err := pachClient.ObjectAPIClient.GetBlocks(
+				ctx,
+				&pfs.GetBlocksRequest{
+					BlockRefs:   brs,
+					OffsetBytes: uint64(offset),
+					SizeBytes:   uint64(size),
+					TotalSize:   uint64(totalSize),
+				})
+			if err != nil {
+				return nil, err
+			}
+			return grpcutil.NewStreamingBytesReader(getBlocksClient, nil), nil
+		}
 		getObjectsClient, err := pachClient.ObjectAPIClient.GetObjects(
 			ctx,
 			&pfs.GetObjectsRequest{
@@ -4257,12 +4271,24 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 					}
 				}
 
-				if err := tree.PutFileOverwrite(key, []*pfs.Object{{Hash: record.ObjectHash}}, record.OverwriteIndex, delta); err != nil {
-					return err
+				if record.ObjectHash != "" {
+					if err := tree.PutFileOverwrite(key, []*pfs.Object{{Hash: record.ObjectHash}}, record.OverwriteIndex, delta); err != nil {
+						return err
+					}
+				} else if record.BlockRef != nil {
+					if err := tree.PutFileOverwriteBlockRefs(key, []*pfs.BlockRef{record.BlockRef}, record.OverwriteIndex, delta); err != nil {
+						return err
+					}
 				}
 			} else {
-				if err := tree.PutFile(key, []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
-					return err
+				if record.ObjectHash != "" {
+					if err := tree.PutFile(key, []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
+						return err
+					}
+				} else if record.BlockRef != nil {
+					if err := tree.PutFileBlockRefs(key, []*pfs.BlockRef{record.BlockRef}, record.SizeBytes); err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -4310,8 +4336,14 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 					return err
 				}
 			} else {
-				if err := tree.PutFile(path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))), []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
-					return err
+				if record.ObjectHash != "" {
+					if err := tree.PutFile(path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))), []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
+						return err
+					}
+				} else if record.BlockRef != nil {
+					if err := tree.PutFileBlockRefs(path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))), []*pfs.BlockRef{record.BlockRef}, record.SizeBytes); err != nil {
+						return err
+					}
 				}
 			}
 		}
