@@ -9,10 +9,10 @@ import "google/protobuf/timestamp.proto";
 import "gogoproto/gogo.proto";
 
 import "client/pfs/pfs.proto";
+import "client/pps/pps.proto";
 
 message DeleteAllRequest {
 }
-
 
 message TransactionRequest {
   // Exactly one of these fields should be set
@@ -23,6 +23,7 @@ message TransactionRequest {
   pfs.DeleteCommitRequest delete_commit = 5;
   pfs.CreateBranchRequest create_branch = 6;
   pfs.DeleteBranchRequest delete_branch = 7;
+  pps.UpdateJobStateRequest update_job_state = 11;
   DeleteAllRequest delete_all = 10;
 }
 
@@ -46,6 +47,10 @@ message TransactionInfos {
   repeated TransactionInfo transaction_info = 1;
 }
 
+message BatchTransactionRequest {
+  repeated TransactionRequest requests = 1;
+}
+
 message StartTransactionRequest {
 }
 
@@ -66,6 +71,7 @@ message FinishTransactionRequest {
 
 service API {
   // Transaction rpcs
+  rpc BatchTransaction(BatchTransactionRequest) returns (TransactionInfo) {}
   rpc StartTransaction(StartTransactionRequest) returns (Transaction) {}
   rpc InspectTransaction(InspectTransactionRequest) returns (TransactionInfo) {}
   rpc DeleteTransaction(DeleteTransactionRequest) returns (google.protobuf.Empty) {}
