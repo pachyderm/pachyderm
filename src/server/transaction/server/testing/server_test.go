@@ -447,3 +447,82 @@ func TestPropagateCommitRedux(t *testing.T) {
 	})
 	require.NoError(t, err)
 }
+
+func TestBatchTransaction(t *testing.T) {
+	t.Parallel()
+	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+		var branches []*pfs.BranchInfo
+		var info *transaction.TransactionInfo
+		var err error
+
+		getBranchNames := func(branches []*pfs.BranchInfo) (result []string) {
+			for _, branch := range branches {
+				result = append(result, branch.Name)
+			}
+			return result
+		}
+
+		// Empty batch
+		info, err = env.PachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
+			return nil
+		})
+		require.NoError(t, err)
+		require.NotNil(t, info)
+		require.Equal(t, 0, len(info.Requests))
+		require.Equal(t, 0, len(info.Responses))
+
+		// One operation
+		info, err = env.PachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
+			require.NoError(t, builder.CreateRepo("repoA"))
+			return nil
+		})
+		require.NoError(t, err)
+		require.NotNil(t, info)
+		require.Equal(t, 1, len(info.Requests))
+		require.Equal(t, 1, len(info.Responses))
+
+		// Two independent operations
+		info, err = env.PachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
+			require.NoError(t, builder.CreateBranch("repoA", "master", "", []*pfs.Branch{}))
+			require.NoError(t, builder.CreateBranch("repoA", "branchA", "master", []*pfs.Branch{}))
+			return nil
+		})
+		require.NoError(t, err)
+		require.NotNil(t, info)
+		require.Equal(t, 2, len(info.Requests))
+		require.Equal(t, 2, len(info.Responses))
+
+		branches, err = env.PachClient.ListBranch("repoA")
+		require.NoError(t, err)
+
+		require.ElementsEqual(t, []string{"master", "branchA"}, getBranchNames(branches))
+
+		// Some dependent operations
+		info, err = env.PachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
+			require.NoError(t, builder.CreateRepo("repoB"))
+			_, err := builder.StartCommit("repoB", "master")
+			require.NoError(t, err)
+			require.NoError(t, builder.CreateBranch("repoB", "branchA", "master", []*pfs.Branch{}))
+			require.NoError(t, builder.CreateBranch("repoB", "branchB", "branchA", []*pfs.Branch{}))
+			return nil
+		})
+		require.NoError(t, err)
+		require.NotNil(t, info)
+		require.Equal(t, 4, len(info.Requests))
+		require.Equal(t, 4, len(info.Responses))
+
+		branches, err = env.PachClient.ListBranch("repoB")
+		require.NoError(t, err)
+
+		require.ElementsEqual(t, []string{"master", "branchA", "branchB"}, getBranchNames(branches))
+
+		for _, x := range branches {
+			if x.Name == "master" {
+				require.Equal(t, x.Head, info.Responses[1].Commit)
+			}
+		}
+
+		return nil
+	})
+	require.NoError(t, err)
+}

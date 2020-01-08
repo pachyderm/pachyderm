@@ -471,6 +471,29 @@ func (a *apiServer) authorizePipelineOp(pachClient *client.APIClient, operation 
 	return nil
 }
 
+func (a *apiServer) UpdateJobState(ctx context.Context, request *pps.UpdateJobStateRequest) (response *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+
+	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+		return txn.UpdateJobState(request)
+	}); err != nil {
+		return nil, err
+	}
+
+	return &types.Empty{}, nil
+}
+
+func (a *apiServer) UpdateJobStateInTransaction(txnCtx *txnenv.TransactionContext, request *pps.UpdateJobStateRequest) error {
+	jobs := a.jobs.ReadWrite(txnCtx.Stm)
+
+	jobPtr := &pps.EtcdJobInfo{}
+	if err := jobs.Get(request.Job.ID, jobPtr); err != nil {
+		return err
+	}
+	return ppsutil.UpdateJobState(a.pipelines.ReadWrite(txnCtx.Stm), jobs, jobPtr, request.State, request.Reason)
+}
+
 // CreateJob implements the protobuf pps.CreateJob RPC
 func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()

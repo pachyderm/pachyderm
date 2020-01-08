@@ -187,8 +187,9 @@ func doSidecarMode(config interface{}) (retErr error) {
 	}); err != nil {
 		return err
 	}
+	var ppsAPIServer pps_server.APIServer
 	if err := logGRPCServerSetup("PPS API", func() error {
-		ppsAPIServer, err := pps_server.NewSidecarAPIServer(
+		ppsAPIServer, err = pps_server.NewSidecarAPIServer(
 			env,
 			path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
 			env.IAMRole,
@@ -266,7 +267,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 	}); err != nil {
 		return err
 	}
-	txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer)
+	txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer, ppsAPIServer)
 	// The sidecar only needs to serve traffic on the peer port, as it only serves
 	// traffic from the user container (the worker binary and occasionally user
 	// pipelines)
@@ -424,8 +425,9 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
+		var ppsAPIServer pps_server.APIServer
 		if err := logGRPCServerSetup("External PPS API", func() error {
-			ppsAPIServer, err := pps_server.NewAPIServer(
+			ppsAPIServer, err = pps_server.NewAPIServer(
 				env,
 				txnEnv,
 				path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
@@ -541,7 +543,7 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
-		txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer)
+		txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer, ppsAPIServer)
 		if _, err := server.ListenTCP("", env.Port); err != nil {
 			return err
 		}
@@ -603,8 +605,9 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
+		var ppsAPIServer pps_server.APIServer
 		if err := logGRPCServerSetup("Internal PPS API", func() error {
-			ppsAPIServer, err := pps_server.NewAPIServer(
+			ppsAPIServer, err = pps_server.NewAPIServer(
 				env,
 				txnEnv,
 				path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
@@ -694,7 +697,7 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
-		txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer)
+		txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer, ppsAPIServer)
 		if _, err := server.ListenTCP("", env.PeerPort); err != nil {
 			return err
 		}

@@ -369,8 +369,8 @@ github.com/opentracing/opentracing-go v1.1.0 h1:pWlfV3Bxv7k65HYwkikxat0+s3pV4bsq
 github.com/opentracing/opentracing-go v1.1.0/go.mod h1:UkNAQd3GIcIGf0SeVgPpRdFStlNbqXla1AfSYxPUl2o=
 github.com/pachyderm/ohmyglob v0.0.0-20190713004043-630e5c15d4e4 h1:VaM0qJE77embDzVlZxjxLm2sN6s1xMhgSfls+QVzjOQ=
 github.com/pachyderm/ohmyglob v0.0.0-20190713004043-630e5c15d4e4/go.mod h1:zTTB59W9i3MPZor62iS6A5hL1rbPCKDLPo/CetUPLuQ=
-github.com/pachyderm/s2 v0.0.0-20190816193705-b8b3b86077e2 h1:LYJraVp8rz0rBu1U+sZN3GL0WiHEWpYq/tRVc6JF6cQ=
-github.com/pachyderm/s2 v0.0.0-20190816193705-b8b3b86077e2/go.mod h1:ElO4u0RXSPaw9RGOyFafJ9GzaWS1bteLwywxyduiGNU=
+github.com/pachyderm/s2 v0.0.0-20191119172829-5e460c076ab6 h1:NcikC60ySZOrtHBKhGyQNAvUGT1ghjoQCmOAoX0Q6Fo=
+github.com/pachyderm/s2 v0.0.0-20191119172829-5e460c076ab6/go.mod h1:ElO4u0RXSPaw9RGOyFafJ9GzaWS1bteLwywxyduiGNU=
 github.com/pelletier/go-buffruneio v0.2.0 h1:U4t4R6YkofJ5xHm3dJzuRpPZ0mr5MMCoAWooScCR7aA=
 github.com/pelletier/go-buffruneio v0.2.0/go.mod h1:JkE26KsDizTr40EUHkXVtNPvgGtbSNq5BcowyYOWdKo=
 github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
