@@ -16,9 +16,11 @@ set -Eex
 env
 
 if [[ "${CALLING_OS}" == "Darwin" ]]; then
+  echo "Compiling for Mac OS"
   "$(dirname "${0}")/run_go_cmds.sh" "${@}"
   exit $?
 fi
+echo "Compiling for Linux"
 
 # Validate env vars
 if [[ -z "${CALLING_USER_ID}" ]]; then
@@ -40,6 +42,5 @@ usermod --home=/root caller
 chmod g+rwx /root
 
 # Run "go build" as "caller", to avoid littering host machine's $GOPATH with
-# root-owned files
-export ROOT_PATH="${PATH}"
-su caller -- "$(dirname "${0}")/run_go_cmds.sh" "${@}"
+# root-owned files.
+runuser -u caller -- "$(dirname "${0}")/run_go_cmds.sh" "${@}"

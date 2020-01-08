@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # This file actually builds Pachyderm binaries ('pachd' and 'worker') and is
 # called by etc/compile/compile.sh inside the Pachyderm build container, but it
@@ -8,10 +8,12 @@
 
 set -Eex
 
+env
 if [[ -n "${ROOT_PATH}" ]]; then
   # Called from linux via 'su' -- must reset PATH
   export PATH="${ROOT_PATH}"
 fi
+which go
 
 # Navigate to root of repo
 cd "$(dirname "${0}")/../.."
@@ -27,31 +29,28 @@ mkdir -p _tmp
 # includes ${BINARY} so that it doesn't collide with any concurrently-running
 # pachyderm builds (e.g. when we build pachd and worker concurrently in 'make
 # docker-build'). See https://github.com/pachyderm/pachyderm/issues/3845
-TMP=docker_build_${BINARY}.tmpdir
+TMP="docker_build_${BINARY}.tmpdir"
 mkdir -p "${TMP}"
 CGO_ENABLED=0 GOOS=linux go build \
   -installsuffix netgo \
   -tags netgo \
-  -o ${TMP}/${BINARY} \
+  -o "${TMP}/${BINARY}" \
   -ldflags "${LD_FLAGS}" \
   -gcflags "all=-trimpath=$GOPATH" \
-  src/server/cmd/${BINARY}/main.go
-
-echo "LD_FLAGS=$LD_FLAGS"
+  "src/server/cmd/${BINARY}/main.go"
 
 # When creating profile binaries, we dont want to detach or do docker ops
-if [ -z ${PROFILE} ]
-then
-    cp Dockerfile.${BINARY} ${TMP}/Dockerfile
-    if [ ${BINARY} = "worker" ]; then
-        cp ./etc/worker/* ${TMP}/
+if [[ -z "${PROFILE}" ]]; then
+    cp "Dockerfile.${BINARY}" "${TMP}/Dockerfile"
+    if [[ "${BINARY}" = "worker" ]]; then
+        cp ./etc/worker/* "${TMP}/"
     fi
-    cp /etc/ssl/certs/ca-certificates.crt ${TMP}/ca-certificates.crt
-    docker build ${DOCKER_BUILD_FLAGS} -t pachyderm_${BINARY} ${TMP}
-    docker tag pachyderm_${BINARY}:latest pachyderm/${BINARY}:latest
-    docker tag pachyderm_${BINARY}:latest pachyderm/${BINARY}:local
+    cp /etc/ssl/certs/ca-certificates.crt "${TMP}/ca-certificates.crt"
+    docker build ${DOCKER_BUILD_FLAGS} -t "pachyderm_${BINARY}" "${TMP}"
+    docker tag "pachyderm_${BINARY}:latest" "pachyderm/${BINARY}:latest"
+    docker tag "pachyderm_${BINARY}:latest" "pachyderm/${BINARY}:local"
 else
-    cd ${TMP}
-    tar cf - ${BINARY}
+    cd "${TMP}"
+    tar cf - "${BINARY}"
 fi
 rm -rf "${TMP}"

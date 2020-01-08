@@ -155,6 +155,7 @@ docker-build-worker: docker-clean-worker
 		--env=CALLING_OS=$$(uname) \
 		--env=CALLING_USER_ID=$$(id -u $$USER) \
 		--env=DOCKER_GROUP_ID=$$(cat /etc/group | grep docker | cut -d: -f3) \
+		--env=DOCKER_BUILD_FLAGS="$(DOCKER_BUILD_FLAGS)" \
 		-v $$PWD:/pachyderm \
 		-v $$GOPATH/pkg:/go/pkg \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
@@ -176,6 +177,7 @@ docker-build-pachd: docker-clean-pachd
 		--env=CALLING_OS=$$(uname) \
 		--env=CALLING_USER_ID=$$(id -u $$USER) \
 		--env=DOCKER_GROUP_ID=$$(cat /etc/group | grep docker | cut -d: -f3) \
+		--env=DOCKER_BUILD_FLAGS="$(DOCKER_BUILD_FLAGS)" \
 		-v $$PWD:/pachyderm \
 		-v $$GOPATH/pkg:/go/pkg \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
