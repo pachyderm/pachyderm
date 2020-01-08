@@ -51,7 +51,7 @@ This means that this pipeline,
 instead of putting its output in the `master` branch,
 will put it in a branch called `dev`.
 
-Since `montage_dp` is subscribed to the master branch of `edges_dp`,
+Since `montage_dp` is subscribed to the master branch of `edges_dp`, jobs will not trigger when the edges pipeline outputs files to the `dev` branch. Instead, to trigger a montage job, 
 we can simply create a `master` branch attached to any commit in `edges_dp` to trigger the pipeline.
 
 ## Example run-through
@@ -336,4 +336,3 @@ prior to running this example.
 Deferred processing with transactions in Pachyderm 
 will give you fine-grained control of jobs and datums
 while preserving Pachyderm's advantages of data lineage and incremental processing.
-
