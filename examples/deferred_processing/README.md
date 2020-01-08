@@ -237,7 +237,7 @@ prior to running this example.
     - commit data to `images_dp_2` and
     - point `edges_dp@master` to the specific commit of interest.
     
-    This will result in two jobs being triggered.
+    If you do not use a transaction, this will result in two jobs being triggered, one for the new commit and a second when we move `edges_dp@master` branch.
     - `images_dp_2@master` running against whatever is currently in `edges_dp@master`
     - `images_dp_2@master` running against whatever you set `edges_dp@master` to
     
