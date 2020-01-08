@@ -5,7 +5,8 @@
     "input": {
         "pfs": {
             "glob": "/*",
-            "repo": "images_dp_1"
+            "repo": "images_dp_1",
+            "name": "images"
         }
     },
     "output_branch": "dev",
