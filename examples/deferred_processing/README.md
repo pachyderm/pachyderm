@@ -3,7 +3,7 @@
 ## Introduction
 [Deferred processing](https://docs.pachyderm.com/latest/how-tos/deferred_processing/) 
 is a Pachyderm technique for controlling when data gets processed.
-Transactions are Pachyderm feature for assuring data from different repos get processed together.
+Transactions are a Pachyderm feature that ensures that data from different repos is processed together.
 
 This is an example which uses a simple DAG, 
 based on our opencv example, 
