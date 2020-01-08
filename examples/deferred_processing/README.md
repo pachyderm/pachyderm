@@ -313,7 +313,7 @@ prior to running this example.
     f9c620d1a4cc421a9c3923b749e9e6ed edges_dp           25 minutes ago     3 seconds 0       1 + 0 / 1 57.27KiB 0B       success 
     ```
 
-20. Finishing the transaction by finishing the commit starts the job.
+20.   Finishing the commit that we started during the transaction finally starts the job.
 
     ```
     $ pachctl finish commit images_dp_2@master
