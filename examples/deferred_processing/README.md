@@ -88,7 +88,7 @@ prior to running this example.
    ```
    
 3. Remember that the `edges_dp` pipeline outputs to the `dev` branch.
-   Since the `montage_dp` pipeline subscribes to the master branch,
+   Since the `montage_dp` pipeline subscribes to the `master` branch,
    it won't be triggered when `edges_dp` jobs complete,
    since that output goes into the `dev` branch.
 
@@ -336,5 +336,4 @@ prior to running this example.
 Deferred processing with transactions in Pachyderm 
 will give you fine-grained control of jobs and datums
 while preserving Pachyderm's advantages of data lineage and incremental processing.
-
 
