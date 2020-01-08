@@ -14,7 +14,7 @@ The example is based on our [OpenCV example](https://github.com/pachyderm/pachyd
 
 ![Example DAG](./example_dag.png)
 
-The DAG shown is a simple elaboration on the opencv example,
+The DAG shown is a simple elaboration on the OpenCV example,
 with pipeline and repo names chosen to avoid collisions with that example 
 if installed in the same cluster.
 
