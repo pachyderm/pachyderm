@@ -8,12 +8,10 @@
 
 set -Eex
 
-# On OS X, skip setting all of this user/group stuff and just build as root.
+# On macOS, skip setting all of this user/group stuff and just build as root.
 # The way bind mounts work in docker-for-mac are such that even files created
 # by root inside the docker container will be owned by the calling user and
 # group on the host filesystem
-
-env
 
 if [[ "${CALLING_OS}" == "Darwin" ]]; then
   echo "Compiling for Mac OS"

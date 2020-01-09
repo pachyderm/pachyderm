@@ -8,7 +8,6 @@
 
 set -Eex
 
-env
 if [[ -n "${ROOT_PATH}" ]]; then
   # Called from linux via 'su' -- must reset PATH
   export PATH="${ROOT_PATH}"
