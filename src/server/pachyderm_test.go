@@ -9718,7 +9718,21 @@ func TestSpout(t *testing.T) {
 		// create a spout pipeline
 		pipeline := "pipelinespoutmarker"
 
+		// make sure it fails for an invalid filename
 		_, err := c.PpsAPIClient.CreatePipeline(
+			c.Ctx(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd: []string{"/bin/sh"},
+				},
+				Spout: &pps.Spout{
+					Marker: "$$$*",
+				},
+			})
+		require.YesError(t, err)
+
+		_, err = c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
 				Pipeline: client.NewPipeline(pipeline),
