@@ -31,7 +31,7 @@ With everything configured and working, we're going to grab our data and then ch
 `➜ curl -O https://storage.googleapis.com/tensorflow/tf-keras-datasets/mnist.npz`
 
 2. Create our two Pachyderm repos called `inputrepo` and `outputrepo`:  
-`➜ pachctl create repo inputrepo`  
+`➜ pachctl create repo inputrepo`
 `➜ pachctl create repo outputrepo`
 
 3. Add `mnist.npz` to `inputrepo`:  
