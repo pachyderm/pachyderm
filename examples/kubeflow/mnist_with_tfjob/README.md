@@ -64,7 +64,7 @@ input_bucket = os.getenv('INPUT_BUCKET', 'master.inputrepo')
 # this is the Pachyderm repo & branch  we'll copy the files to
 output_bucket  = os.getenv('OUTPUT_BUCKET', "master.outputrepo")
 # this is local directory we'll copy the files to
-data_dir  = os.getenv('DATA_DIR', "/data")
+data_dir  = os.getenv('DATA_DIR', "/tmp/data")
 # this is the training data file in the input repo
 training_data = os.getenv('TRAINING_DATA', "mninst.npz")
 # this is the name of model file in the output repo
@@ -166,16 +166,6 @@ spec:
               command:
                 - "python3"
                 - "/app/tfjob.py"
-                - "-i"
-                - "master.inputrepo"
-                - "-o"
-                - "master.outputrepo"
-                - "-d"
-                - "/tmp/data/"
-                - "-t"
-                - "mnist.npz"
-                - "-m"
-                - "my_model.h5"
 ```
 The `mnist_tf_job_s3_gateway.yaml` is our spec file 
 that [Kubeflow](https://www.kubeflow.org/) and [Kubernetes](https://kubernetes.io/) will use to deploy our code. 

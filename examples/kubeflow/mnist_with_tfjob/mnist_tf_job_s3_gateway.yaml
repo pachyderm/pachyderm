@@ -16,16 +16,6 @@ spec:
             command:
               - "python3"
               - "/app/tfjob.py"
-              - "-i"
-              - "master.input"
-              - "-o"
-              - "master.output"
-              - "-d"
-              - "/tmp/data/"
-              - "-t"
-              - "mnist.npz"
-              - "-m"
-              - "my_model.h5"
             env:
               - name: S3_ENDPOINT
                 value: "pachd.kubeflow:600"
@@ -50,16 +40,6 @@ spec:
             command:
               - "python3"
               - "/app/tfjob.py"
-              - "-i"
-              - "master.input"
-              - "-o"
-              - "master.output"
-              - "-d"
-              - "/tmp/data/"
-              - "-t"
-              - "mnist.npz"
-              - "-m"
-              - "my_model.h5"
             env:
               - name: S3_ENDPOINT
                 value: "pachd.kubeflow:600"

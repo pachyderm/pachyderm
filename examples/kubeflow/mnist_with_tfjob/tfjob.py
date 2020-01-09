@@ -16,7 +16,7 @@ input_bucket = os.getenv('INPUT_BUCKET', 'master.inputrepo')
 # this is the Pachyderm repo & branch  we'll copy the files to
 output_bucket = os.getenv('OUTPUT_BUCKET', "master.outputrepo")
 # this is local directory we'll copy the files to
-data_dir = os.getenv('DATA_DIR', "/data")
+data_dir = os.getenv('DATA_DIR', "/tmp/data")
 # this is the training data file in the input repo
 training_data = os.getenv('TRAINING_DATA', "mninst.npz")
 # this is the name of model file in the output repo
