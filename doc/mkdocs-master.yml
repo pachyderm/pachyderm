@@ -131,7 +131,6 @@ nav:
                 - Datum Processing States: concepts/pipeline-concepts/datum/datum-processing-states.md
         - Advanced Concepts:
             - Deferred Processing of Data: how-tos/deferred_processing.md
-            - 
 
     - How-Tos:
         - Overview: how-tos/index.md
