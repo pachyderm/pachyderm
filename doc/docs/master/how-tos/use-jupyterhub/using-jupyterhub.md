@@ -13,7 +13,7 @@ To run your code, click the <i class="fa fa-play" aria-hidden="true"></i> icon.
 
 The following code initializes the Python Pachyderm client in JupyterHub:
 
-```bash
+```python
 import python_pachyderm
 client = python_pachyderm.Client.new_in_cluster()
 ```
@@ -24,7 +24,7 @@ client = python_pachyderm.Client.new_in_cluster()
 For example, you can check the current user by
 running the following code:
 
-```bash
+```python
 import python_pachyderm
 client = python_pachyderm.Client.new_in_cluster()
 print(client.who_am_i())
@@ -46,22 +46,22 @@ choice, use one of the following examples to create a pipeline:
 
 * By using the `create_python_pipeline` method:
 
-  ```bash
+  ```python
   import python_pachyderm
   client = python_pachyderm.Client.new_in_cluster()
 
   python_pachyderm.create_python_pipeline(
       client,
-      relpath("output_repo"),
+      "./test"),
       python_pachyderm.Input(pfs=python_pachyderm.PFSInput(glob="/*", repo="input_repo")),
       )
   client.list_pipeline()
   ```
 
-This code likely will not work as is. To run a pipeline, you need to specify
-`main.py` and `requirements.txt` files in the root directory of your
-JupyterHub notebook. For more information, see the
-[OpenCV example](https://github.com/pachyderm/python-pachyderm/blob/master/examples/opencv/opencv.py).
+  This code likely will not work as is. To run a pipeline, you need to specify
+  `main.py` and `requirements.txt` files in the root directory of your
+  JupyterHub notebook. For more information, see the
+  [OpenCV example](https://github.com/pachyderm/python-pachyderm/blob/master/examples/opencv/opencv.py).
 
 * By using the `create_pipeline` method:
 
@@ -70,10 +70,10 @@ JupyterHub notebook. For more information, see the
       code below we first create the repository and then
       create the pipeline.
 
-  ```bash
+  ```python
   import python_pachyderm
   client = python_pachyderm.Client.new_in_cluster()
-  client.create_repo('input_repo')
+  client.create_repo('test')
 
   client.create_pipeline(
      "test",
@@ -85,7 +85,7 @@ JupyterHub notebook. For more information, see the
 
   **System response:**
 
-   ```bash
+   ```json
    pipeline_info {
     pipeline {
       name: "test1"
@@ -132,7 +132,7 @@ For more information, see the
 
 To create a repository, run the following code:
 
-```bash
+```python
 import python_pachyderm
 client = python_pachyderm.Client.new_in_cluster()
 client.create_repo('<repo-name>')
@@ -141,7 +141,7 @@ client.list_repo()
 
 **Example:**
 
-```bash
+```python
 import python_pachyderm
 client = python_pachyderm.Client.new_in_cluster()
 client.create_repo('test')
@@ -150,7 +150,7 @@ client.list_repo()
 
 **System Response:**
 
-```bash
+```json
 [repo {
 name: "test"
 }
@@ -168,13 +168,13 @@ auth_info {
 
 To add a file to a repository, run the following code:
 
-```bash
+```python
 client.put_file_url("<repo-name>/<branch>", "<filename>", "<path-to-file>")
 ```
 
 **Example:**
 
-```bash
+```python
 client.put_file_url("images/master", "46Q8nDz.jpg", "http://imgur.com/46Q8nDz.jpg")
 ```
 
@@ -182,7 +182,7 @@ client.put_file_url("images/master", "46Q8nDz.jpg", "http://imgur.com/46Q8nDz.jp
 
 To delete a repository, run the following code:
 
-```bash
+```python
 import python_pachyderm
 client = python_pachyderm.Client.new_in_cluster()
 client.delete_repo('test')
@@ -196,20 +196,16 @@ client.list_repo()
 
 ## Update Your Pipeline
 
-When you need to update your pipeline,
-you can do so directly in the JupyterHub UI by
-modifying the corresponding notebook and
-rerunning it again.
-If you use the `create_python_pipeline`
-function that uses the code stored in a local directory,
-you can update the pipeline directly in the JupyterHub
-UI by adding the `update=True`
-parameter to your code into a new Jupyter notebook cell
-and running it.
+When you need to update your pipeline, you can do so directly in the
+JupyterHub UI by modifying the corresponding notebook and running it
+again. If you use the `create_python_pipeline` function that uses the
+code stored in a local directory, you can update the pipeline directly
+in the JupyterHub UI by adding the `update=True` parameter to your
+code into a new Jupyter notebook cell and running it.
 
 **Example:**
 
-```bash hl_lines="8"
+```python hl_lines="8"
 import os
 import python_pachyderm
 client = python_pachyderm.Client.new_in_cluster()
@@ -224,7 +220,7 @@ python_pachyderm.create_python_pipeline(
 If you are using the standard `create_pipeline` method,
 you need to rebuild and push your Docker container to your image
 registry. Then, you need to update the image tag in your pipeline
-creation code.
+creation code and run `create_pipeline` with `update=True`.
 
 ## Example
 

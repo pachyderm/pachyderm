@@ -67,7 +67,7 @@ To enable Pachyderm authentication, follow the steps in
 !!! note
     If you decide to enable Pachyderm authentication later, you
     will need to either manually reconfigure or redeploy JupyterHub.
-    Your existing notebooks will be preserved during
+    Your existing notebooks will be preserved after
     the redeploy.
 
 ### Install Helm
@@ -107,7 +107,7 @@ repository:
 
    **System response:**
 
-   ```bash
+   ```
    ===> checking dependencies are installed
    ...
    ===> installing jupyterhub

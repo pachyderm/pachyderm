@@ -4,7 +4,7 @@ This section describes how you can use the `python-pachyderm`
 client from within the JupyterHub UI.
 
 !!! note
-    You need to have Pachyderm and JupyterHub instlalled on the
+    You need to have Pachyderm and JupyterHub installed on the
     same Kubernetes cluster as described in
     [Deploy Pachyderm with JupyterHub](../../deploy-manage/deploy/deploy-pachyderm-jupyterhub.md).
     Currently, an existing JupyterHub deployment cannot be
@@ -30,35 +30,36 @@ describes various API operations that you can execute to interact with
 Pachyderm.
 
 When you deployed JupyterHub by using our deployment script, `python-pachyderm`
-was enabled in JupyterHub so that you can run API requests directly from
+was installed in JupyterHub so that you can run API requests directly from
 your Jupyter Notebook.
 
 ### Difference in Pipeline Creation Methods
 
 One of the most significant advantages of using `python-pachyderm`
-with JupyterHub is that you can avoid rebuilding your Docker images
-every time you update your code. Because JupyterHub is a Python environment,
-you can use the `create_python_pipeline` function to create a pipeline from
+is that you can avoid rebuilding your Docker images
+every time you update your code.
+You can use the `create_python_pipeline` function to create a pipeline from
 within your JupyterHub Notebook and store your code locally rather than
 in a Docker container.
 
-When you use `pachctl` or the Pachyderm UI to create a pipeline, you execute
-the
+If you want to create a pipeline from a Docker image or non-Python code, you
+can use the
 [create_pipeline](https://pachyderm.github.io/python-pachyderm/python_pachyderm.m.html#python_pachyderm.Client.create_pipeline)
-method in the background. This standard workflow requires you to build a new
-Docker image and push it to an image registry every time you update the
-code in your pipeline. Users that are less familiar with Docker might find this
-process a bit cumbersome.
+method. This is the method Pachyderm uses when you run `pachctl create
+pipeline` or create a pipeline in the Pachyderm UI. When you use
+`create_pipeline`, you need to build a new Docker image and push
+it to an image registry every
+time you update the code in your pipeline. Users that are less familiar
+with Docker might find this process a bit cumbersome.
 
 When you use JupyterHub, in addition to the mentioned `create_pipeline` method,
 you can use the [create_python_pipeline](https://pachyderm.github.io/python-pachyderm/python_pachyderm.m.html#python_pachyderm.create_python_pipeline) function that does not require
 you to include your code in a Docker image and rebuild it each time you make
 a change. Instead, this function creates a PFS repository
-called `pipeline_name.source` and puts the source code into it. Also, it
-creates a `pipeline_name.build` repository to build Python dependencies.
+called `<pipeline_name>.source` and puts the source code into it. Also, it
+creates a `<pipeline_name>.build` repository to build Python dependencies.
 Therefore, when you use `create_python_pipeline`, your DAG includes two
-additional repositories for each pipeline. While you still need a generic
-image for your pipeline, your code is stored separately from it.
+additional repositories for each pipeline.
 Because of that, you do not need
 to build a new Docker image every time you change something in your
 pipeline code. You can run your code instantly. This method is ideal for
