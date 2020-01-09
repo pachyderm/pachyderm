@@ -28,21 +28,7 @@ func TestPortForwardError(t *testing.T) {
 	c.Stderr = &errMsg
 	err := c.Run()
 	require.YesError(t, err) // 1ns should prevent even local connections
-	require.Matches(t, "looks like loopback", errMsg.String())
-}
-
-func TestWeirdPortError(t *testing.T) {
-	cfgFile := testConfig(t, "localhost:30560")
-	defer os.Remove(cfgFile.Name())
-	os.Setenv("PACH_CONFIG", cfgFile.Name())
-
-	c := tu.Cmd("pachctl", "version", "--timeout=1ns")
-	var errMsg bytes.Buffer
-	c.Stdout = ioutil.Discard
-	c.Stderr = &errMsg
-	err := c.Run()
-	require.YesError(t, err) // 1ns should prevent even local connections
-	require.Matches(t, "30650", errMsg.String())
+	require.Matches(t, "context deadline exceeded", errMsg.String())
 }
 
 // Check that no commands have brackets in their names, which indicates that

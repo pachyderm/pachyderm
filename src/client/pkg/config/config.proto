@@ -61,7 +61,7 @@ message Context {
     string pachd_address = 2;
 
     // Trusted root certificates (overrides installed certificates), formatted
-    // as base64-encoded PEM
+    // as base64-encoded PEM.
     string server_cas = 3 [(gogoproto.customname) = "ServerCAs"];
 
     // A secret token identifying the current pachctl user within their
@@ -74,14 +74,23 @@ message Context {
     // This is the ID of the transaction object stored in the pachyderm etcd.
     string active_transaction = 5;
 
-    // The k8s cluster name - used to construct a k8s context
+    // The k8s cluster name - used to construct a k8s context.
     string cluster_name = 6;
 
-    // The k8s auth info - used to construct a k8s context
+    // The k8s auth info - used to construct a k8s context.
     string auth_info = 7;
 
-    // The k8s namespace - used to construct a k8s context
+    // The k8s namespace - used to construct a k8s context.
     string namespace = 8;
+
+    // A unique ID for the cluster. At client initialization time, we ensure
+    // this is the same as what the cluster reports back, to prevent us from
+    // connecting to the wrong cluster.
+    string cluster_id = 9 [(gogoproto.customname) = "ClusterID"];
+
+    // A mapping of service -> port number, when port forwarding is
+    // running for this context.
+    map<string, uint32> port_forwarders = 10;
 }
 
 enum ContextSource {
