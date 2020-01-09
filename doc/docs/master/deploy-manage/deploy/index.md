@@ -86,10 +86,10 @@ deployment options and related topics:
            Deploy On-Premises With Non-Cloud Object Stores
            </a>
            </li>
-           <li><a href="deploy-pachyderm-jupyterhub/"> class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-    effect">
+           <li><a href="deploy-pachyderm-jupyterhub/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
            Deploy Pachyderm with JupyterHub
-            </a>
-            </li>
+           </a>
+           </li>
            <li><a href="rbac/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
            Configure RBAC
            </a>
