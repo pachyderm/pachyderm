@@ -73,8 +73,8 @@ associated with.)
 
 #### Source
 
-An int specifying where the config came from. This is for internal use, and
-shouldn't be modified.
+An integer that specifies where the config came from. This parameter is for internal use only and
+should not be modified.
 
 #### Pachd Address
 
@@ -102,30 +102,30 @@ can be set or cleared via many of the `pachctl * transaction` commands.
 
 #### Cluster name
 
-The name of the underlying kubernetes cluster, extracted from the kubernetes
+The name of the underlying Kubernetes cluster, extracted from the Kubernetes
 context.
 
 #### Auth info
 
-The name of the underlying kubernetes cluster's auth credentials, extracted
-from the kubernetes context.
+The name of the underlying Kubernetes cluster's auth credentials, extracted
+from the Kubernetes context.
 
 #### Namespace
 
-The underlying kubernetes cluster's namespace, extracted from the kubernetes
+The underlying Kubernetes cluster's namespace, extracted from the Kubernetes
 context.
 
 #### Cluster ID
 
-The pachyderm cluster ID - used to ensure we're running operations on the
+The pachyderm cluster ID that is used to ensure the operations run on the
 expected cluster.
 
 #### Port forwarders
 
-A mapping of service name -> local port. This field is populated when running
+A mapping of `service name -> local port`. This field is populated when you run
 explicit port forwarding (`pachctl port-forward`), so that subsequent
 `pachctl` operations know to use the explicit port forwarder.
 
-This field will be removed when the `pachctl port-forward` operation
-completes, but note that you may need to manually delete the field from your
-config if the process was killed being being able to do so.
+This field is removed when the `pachctl port-forward` operation
+completes. You might need to manually delete the field from your
+config if the process failed to remove the field automatically.
