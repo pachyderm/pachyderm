@@ -249,6 +249,16 @@ func (a *APIServer) spoutSpawner(pachClient *client.APIClient) error {
 	}
 	puller := filesync.NewPuller()
 
+	if a.pipelineInfo.Spout.Marker != "" {
+		markerBranch, err := pachClient.InspectBranch(a.pipelineInfo.Pipeline.Name, "marker")
+		if err != nil || markerBranch == nil {
+			err = pachClient.CreateBranch(a.pipelineInfo.Pipeline.Name, "marker", "", nil)
+			if err != nil {
+				return nil
+			}
+		}
+	}
+
 	if err := a.unlinkData(nil); err != nil {
 		return fmt.Errorf("unlinkData: %v", err)
 	}
@@ -918,8 +928,7 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 					}
 					// put files into pachyderm
 					if a.pipelineInfo.Spout.Marker != "" && strings.Contains(fileHeader.Name, a.pipelineInfo.Spout.Marker) {
-
-						_, err = a.pachClient.PutFileOverwrite(repo, commit.ID, fileHeader.Name, outTar, 0)
+						_, err = a.pachClient.PutFileOverwrite(repo, "marker", fileHeader.Name, outTar, 0)
 						if err != nil {
 							return err
 						}
