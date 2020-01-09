@@ -350,10 +350,8 @@ func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress,
 	return nil, options, nil
 }
 
-func portForwarder() (*PortForwarder, uint16, error) {
-	log.Debugln("Attempting to implicitly enable port forwarding...")
-
-	fw, err := NewPortForwarder("")
+func portForwarder(context *config.Context) (*PortForwarder, uint16, error) {
+	fw, err := NewPortForwarder(context, "")
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to initialize port forwarder: %v", err)
 	}
@@ -370,7 +368,7 @@ func portForwarder() (*PortForwarder, uint16, error) {
 
 // NewForTest constructs a new APIClient for tests.
 func NewForTest() (*APIClient, error) {
-	cfg, err := config.Read()
+	cfg, err := config.Read(false)
 	if err != nil {
 		return nil, fmt.Errorf("could not read config: %v", err)
 	}
@@ -404,7 +402,7 @@ func NewForTest() (*APIClient, error) {
 // (and similar) logic into src/server and have it call a NewFromOptions()
 // constructor.
 func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
-	cfg, err := config.Read()
+	cfg, err := config.Read(false)
 	if err != nil {
 		return nil, fmt.Errorf("could not read config: %v", err)
 	}
@@ -420,9 +418,20 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 	}
 
 	var fw *PortForwarder
+	if pachdAddress == nil && context.PortForwarders != nil {
+		pachdLocalPort, ok := context.PortForwarders["pachd"]
+		if ok {
+			log.Debugf("Connecting to explicitly port forwarded pachd instance on port %d", pachdLocalPort)
+			pachdAddress = &grpcutil.PachdAddress{
+				Secured: false,
+				Host:    "localhost",
+				Port:    uint16(pachdLocalPort),
+			}
+		}
+	}
 	if pachdAddress == nil {
 		var pachdLocalPort uint16
-		fw, pachdLocalPort, err = portForwarder()
+		fw, pachdLocalPort, err = portForwarder(context)
 		if err != nil {
 			return nil, err
 		}
@@ -435,17 +444,6 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 
 	client, err := NewFromAddress(pachdAddress.Hostname(), append(options, cfgOptions...)...)
 	if err != nil {
-		if strings.Contains(err.Error(), "context deadline exceeded") {
-			// Check for errors in approximate order of helpfulness
-			if pachdAddress.IsUnusualPort() {
-				return nil, fmt.Errorf("could not connect (note: port is usually "+
-					"%d or %d, but is currently set to %d - is this right?): %v", grpcutil.DefaultPachdNodePort, grpcutil.DefaultPachdPort, pachdAddress.Port, err)
-			} else if fw == nil && pachdAddress.IsLoopback() {
-				return nil, fmt.Errorf("could not connect (note: address %s looks "+
-					"like loopback, try unsetting it): %v",
-					pachdAddress.Qualified(), err)
-			}
-		}
 		return nil, fmt.Errorf("could not connect to pachd at %q: %v", pachdAddress.Qualified(), err)
 	}
 
@@ -456,6 +454,22 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 	}
 	if context.SessionToken != "" {
 		client.authenticationToken = context.SessionToken
+	}
+
+	// Verify cluster ID
+	clusterInfo, err := client.InspectCluster()
+	if err != nil {
+		return nil, fmt.Errorf("could not get cluster ID: %v", err)
+	}
+	if context.ClusterID != clusterInfo.ID {
+		if context.ClusterID == "" {
+			context.ClusterID = clusterInfo.ID
+			if err = cfg.Write(); err != nil {
+				return nil, fmt.Errorf("could not write config to save cluster ID: %v", err)
+			}
+		} else {
+			return nil, fmt.Errorf("connected to the wrong cluster (context cluster ID = %q vs reported cluster ID = %q)", context.ClusterID, clusterInfo.ID)
+		}
 	}
 
 	// Add port forwarding. This will set it to nil if port forwarding is

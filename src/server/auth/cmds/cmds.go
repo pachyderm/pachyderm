@@ -35,7 +35,7 @@ func githubLogin() (string, error) {
 }
 
 func writePachTokenToCfg(token string) error {
-	cfg, err := config.Read()
+	cfg, err := config.Read(false)
 	if err != nil {
 		return fmt.Errorf("error reading Pachyderm config (for cluster "+
 			"address): %v", err)
@@ -211,7 +211,7 @@ func LogoutCmd() *cobra.Command {
 			"(simply run 'pachctl auth login' twice) but 'logout' can be useful on " +
 			"shared workstations.",
 		Run: cmdutil.Run(func([]string) error {
-			cfg, err := config.Read()
+			cfg, err := config.Read(false)
 			if err != nil {
 				return fmt.Errorf("error reading Pachyderm config (for cluster "+
 					"address): %v", err)

@@ -21,7 +21,6 @@ message ProfileRequest {
 message BinaryRequest {
 }
 
-
 service Debug {
   rpc Dump(DumpRequest) returns (stream google.protobuf.BytesValue) {}
   rpc Profile(ProfileRequest) returns (stream google.protobuf.BytesValue) {}
