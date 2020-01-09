@@ -12,7 +12,7 @@ spec:
         spec:
           containers:
           - name: tensorflow
-            image: ysimonson/pach_kflow_example:v3.1.4
+            image: ysimonson/pach_kflow_example:v3.1.5
             command:
               - "python3"
               - "/app/tfjob.py"
@@ -36,7 +36,7 @@ spec:
         spec:
           containers:
           - name: tensorflow
-            image: ysimonson/pach_kflow_example:v3.1.4
+            image: ysimonson/pach_kflow_example:v3.1.5
             command:
               - "python3"
               - "/app/tfjob.py"

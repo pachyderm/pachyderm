@@ -30,10 +30,10 @@ def main(_):
   with tempfile.TemporaryDirectory(suffix="pachyderm-mnist-with-tfjob") as data_dir:
     # first, we copy files from pachyderm into a convenient
     # local directory for processing.
-    input_uri = os.path.join(input_url, "mnist.npz")
+    training_data_url = os.path.join(input_url, "mnist.npz")
     training_data_path = os.path.join(data_dir, "mnist.npz")
-    print("copying {} to {}".format(input_uri, training_data_path))
-    file_io.copy(input_uri, training_data_path, True)
+    print("copying {} to {}".format(training_data_url, training_data_path))
+    file_io.copy(training_data_url, training_data_path, True)
     
     (train_images, train_labels), (test_images, test_labels) = tf.keras.datasets.mnist.load_data(path=training_data_path)
     train_labels = train_labels[:1000]
@@ -42,24 +42,19 @@ def main(_):
     train_images = train_images[:1000].reshape(-1, 28 * 28) / 255.0
     test_images = test_images[:1000].reshape(-1, 28 * 28) / 255.0
 
-    # Returns a short sequential model
-    def create_model():
-      model = tf.keras.models.Sequential([
-        keras.layers.Dense(512, activation=tf.keras.activations.relu, input_shape=(784,)),
-        keras.layers.Dropout(0.2),
-        keras.layers.Dense(10, activation=tf.keras.activations.softmax)
-      ])
-
-      model.compile(
-        optimizer=tf.keras.optimizers.Adam(),
-        loss=tf.keras.losses.sparse_categorical_crossentropy,
-        metrics=['accuracy']
-      )
-
-      return model
-
     # Create a basic model instance
-    model = create_model()
+    model = tf.keras.models.Sequential([
+      keras.layers.Dense(512, activation=tf.keras.activations.relu, input_shape=(784,)),
+      keras.layers.Dropout(0.2),
+      keras.layers.Dense(10, activation=tf.keras.activations.softmax)
+    ])
+
+    model.compile(
+      optimizer=tf.keras.optimizers.Adam(),
+      loss=tf.keras.losses.sparse_categorical_crossentropy,
+      metrics=['accuracy']
+    )
+
     model.summary()
 
     model.fit(train_images, train_labels, batch_size=32, epochs=5, validation_data=(test_images, test_labels))
@@ -68,9 +63,9 @@ def main(_):
     model_path = os.path.join(data_dir, "my_model.h5")
     model.save(model_path)
     # Copy file over to Pachyderm
-    output_uri = os.path.join(output_url, model_path)
-    print("copying {} to {}".format(model_path, output_uri))
-    file_io.copy(model_path, output_uri, True)
+    model_url = os.path.join(output_url, "my_model.h5")
+    print("copying {} to {}".format(model_path, model_url))
+    file_io.copy(model_path, model_url, True)
 
 if __name__ == '__main__':
   tf.compat.v1.app.run(main=main, argv=[sys.argv[0]])

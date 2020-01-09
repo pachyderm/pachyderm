@@ -1,8 +1,8 @@
 .PHONY: docker-build tfjobs-clean tfjob
 
 docker-build:
-	docker build --tag ysimonson/pach_kflow_example:v3.1.4 .
-	docker push ysimonson/pach_kflow_example:v3.1.4
+	docker build --tag ysimonson/pach_kflow_example:v3.1.5 .
+	docker push ysimonson/pach_kflow_example:v3.1.5
 
 tfjobs-clean:
 	kubectl delete tfjob --all
