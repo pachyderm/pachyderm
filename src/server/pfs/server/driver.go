@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -60,8 +61,6 @@ const (
 	// Makes calls to ListRepo and InspectRepo more legible
 	includeAuth = true
 
-	// maxInt is the maximum value for 'int' (system-dependent). Not in 'math'!
-	maxInt = int(^uint(0) >> 1)
 	// tmpPrefix is for temporary object paths that store merged shards.
 	tmpPrefix = "tmp"
 )
@@ -74,6 +73,12 @@ var (
 // IsPermissionError returns true if a given error is a permission error.
 func IsPermissionError(err error) bool {
 	return strings.Contains(err.Error(), "has already finished")
+}
+
+func destroyHashtree(tree hashtree.HashTree) {
+	if err := tree.Destroy(); err != nil {
+		logrus.Infof("failed to destroy hashtree: %v", err)
+	}
 }
 
 // CommitEvent is an event that contains a CommitInfo or an error
@@ -102,7 +107,6 @@ type driver struct {
 	commits        collectionFactory
 	branches       collectionFactory
 	openCommits    col.Collection
-	transactions   col.Collection
 
 	// a cache for hashtrees
 	treeCache *hashtree.Cache
@@ -151,6 +155,7 @@ func newDriver(
 		// Allow up to a third of the requested memory to be used for memory intensive operations
 		memoryLimiter: semaphore.NewWeighted(memoryRequest / 3),
 	}
+
 	// Create spec repo (default repo)
 	repo := client.NewRepo(ppsconsts.SpecRepo)
 	repoInfo := &pfs.RepoInfo{
@@ -186,9 +191,8 @@ func (d *driver) checkIsAuthorizedInTransaction(txnCtx *txnenv.TransactionContex
 		return nil
 	}
 
-	resp := &auth.AuthorizeResponse{}
 	req := &auth.AuthorizeRequest{Repo: r.Name, Scope: s}
-	resp, err = txnCtx.Auth().AuthorizeInTransaction(txnCtx, req)
+	resp, err := txnCtx.Auth().AuthorizeInTransaction(txnCtx, req)
 	if err != nil {
 		return fmt.Errorf("error during authorization check for operation on \"%s\": %v",
 			r.Name, grpcutil.ScrubGRPC(err))
@@ -208,9 +212,8 @@ func (d *driver) checkIsAuthorized(pachClient *client.APIClient, r *pfs.Repo, s 
 		return nil
 	}
 
-	resp := &auth.AuthorizeResponse{}
 	req := &auth.AuthorizeRequest{Repo: r.Name, Scope: s}
-	resp, err = pachClient.AuthAPIClient.Authorize(ctx, req)
+	resp, err := pachClient.AuthAPIClient.Authorize(ctx, req)
 	if err != nil {
 		return fmt.Errorf("error during authorization check for operation on \"%s\": %v",
 			r.Name, grpcutil.ScrubGRPC(err))
@@ -229,15 +232,12 @@ func now() *types.Timestamp {
 	return t
 }
 
-func present(key string) etcd.Cmp {
-	return etcd.Compare(etcd.CreateRevision(key), ">", 0)
-}
-
-func absent(key string) etcd.Cmp {
-	return etcd.Compare(etcd.CreateRevision(key), "=", 0)
-}
-
 func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, description string, update bool) error {
+	// Validate arguments
+	if repo == nil {
+		return errors.New("repo cannot be nil")
+	}
+
 	// Check that the user is logged in (user doesn't need any access level to
 	// create a repo, but they must be authenticated if auth is active)
 	whoAmI, err := txnCtx.Client.WhoAmI(txnCtx.ClientContext, &auth.WhoAmIRequest{})
@@ -305,6 +305,11 @@ func (d *driver) inspectRepo(
 	repo *pfs.Repo,
 	includeAuth bool,
 ) (*pfs.RepoInfo, error) {
+	// Validate arguments
+	if repo == nil {
+		return nil, errors.New("repo cannot be nil")
+	}
+
 	result := &pfs.RepoInfo{}
 	if err := d.repos.ReadWrite(txnCtx.Stm).Get(repo.Name, result); err != nil {
 		return nil, err
@@ -935,6 +940,11 @@ func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool) (*pfs.
 }
 
 func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, force bool) error {
+	// Validate arguments
+	if repo == nil {
+		return errors.New("repo cannot be nil")
+	}
+
 	// TODO(msteffen): Fix d.deleteAll() so that it doesn't need to delete and
 	// recreate the PPS spec repo, then uncomment this block to prevent users from
 	// deleting it and breaking their cluster
@@ -1257,6 +1267,7 @@ func (d *driver) makeCommit(
 			if err != nil {
 				return nil, err
 			}
+			defer destroyHashtree(tree)
 			for i, record := range records {
 				if err := d.applyWrite(recordFiles[i], record, tree); err != nil {
 					return nil, err
@@ -1390,6 +1401,14 @@ func (d *driver) makeCommit(
 }
 
 func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, tree *pfs.Object, empty bool, description string) (retErr error) {
+	// Validate arguments
+	if commit == nil {
+		return errors.New("commit cannot be nil")
+	}
+	if commit.Repo == nil {
+		return errors.New("commit repo cannot be nil")
+	}
+
 	if err := d.checkIsAuthorizedInTransaction(txnCtx, commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
@@ -1425,6 +1444,12 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 		if err != nil {
 			return err
 		}
+
+		defer func() {
+			if finishedTree != nil {
+				destroyHashtree(finishedTree)
+			}
+		}()
 
 		if tree == nil {
 			var err error
@@ -1788,7 +1813,7 @@ func (d *driver) inspectCommit(pachClient *client.APIClient, commit *pfs.Commit,
 					return event.Err
 				case watch.EventPut:
 					if err := event.Unmarshal(&commitID, _commitInfo); err != nil {
-						return fmt.Errorf("Unmarshal: %v", err)
+						return fmt.Errorf("unmarshal: %v", err)
 					}
 				case watch.EventDelete:
 					return pfsserver.ErrCommitDeleted{commit}
@@ -1904,6 +1929,11 @@ func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo,
 
 func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 	to *pfs.Commit, from *pfs.Commit, number uint64, reverse bool, f func(*pfs.CommitInfo) error) error {
+	// Validate arguments
+	if repo == nil {
+		return errors.New("repo cannot be nil")
+	}
+
 	ctx := pachClient.Ctx()
 	if err := d.checkIsAuthorized(pachClient, repo, auth.Scope_READER); err != nil {
 		return err
@@ -1963,7 +1993,7 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 			// Sort in reverse provenance order, i.e. commits come before their provenance
 			sort.Slice(cis, func(i, j int) bool { return len(cis[i].Provenance) > len(cis[j].Provenance) })
 			for i, ci := range cis {
-				if number <= 0 {
+				if number == 0 {
 					return errutil.ErrBreak
 				}
 				number--
@@ -2020,6 +2050,10 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 
 func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, branch string, prov *pfs.CommitProvenance,
 	from *pfs.Commit, state pfs.CommitState, f func(*pfs.CommitInfo) error) error {
+	// Validate arguments
+	if repo == nil {
+		return errors.New("repo cannot be nil")
+	}
 	if from != nil && from.Repo.Name != repo.Name {
 		return fmt.Errorf("the `from` commit needs to be from repo %s", repo.Name)
 	}
@@ -2046,10 +2080,10 @@ func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, b
 			return event.Err
 		case watch.EventPut:
 			if err := event.Unmarshal(&commitID, commitInfo); err != nil {
-				return fmt.Errorf("Unmarshal: %v", err)
+				return fmt.Errorf("unmarshal: %v", err)
 			}
 			if commitInfo == nil {
-				return fmt.Errorf("Commit info is empty for id: %v", commitID)
+				return fmt.Errorf("commit info is empty for id: %v", commitID)
 			}
 
 			// if provenance is provided, ensure that the returned commits have the commit in their provenance
@@ -2165,6 +2199,14 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 }
 
 func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs.Commit) error {
+	// Validate arguments
+	if userCommit == nil {
+		return errors.New("commit cannot be nil")
+	}
+	if userCommit.Repo == nil {
+		return errors.New("commit repo cannot be nil")
+	}
+
 	if err := d.checkIsAuthorizedInTransaction(txnCtx, userCommit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
@@ -2479,6 +2521,14 @@ func (d *driver) resolveCommitProvenance(stm col.STM, userCommitProvenance *pfs.
 // This invariant is assumed to hold for all branches upstream of 'branch', but not
 // for 'branch' itself once 'b.Provenance' has been set.
 func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Branch, commit *pfs.Commit, provenance []*pfs.Branch) error {
+	// Validate arguments
+	if branch == nil {
+		return errors.New("branch cannot be nil")
+	}
+	if branch.Repo == nil {
+		return errors.New("branch repo cannot be nil")
+	}
+
 	var err error
 	if err := d.checkIsAuthorizedInTransaction(txnCtx, branch.Repo, auth.Scope_WRITER); err != nil {
 		return err
@@ -2634,6 +2684,14 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 }
 
 func (d *driver) inspectBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Branch) (*pfs.BranchInfo, error) {
+	// Validate arguments
+	if branch == nil {
+		return nil, errors.New("branch cannot be nil")
+	}
+	if branch.Repo == nil {
+		return nil, errors.New("branch repo cannot be nil")
+	}
+
 	result := &pfs.BranchInfo{}
 	if err := d.branches(branch.Repo.Name).ReadWrite(txnCtx.Stm).Get(branch.Name, result); err != nil {
 		return nil, err
@@ -2642,6 +2700,11 @@ func (d *driver) inspectBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Br
 }
 
 func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo, reverse bool) ([]*pfs.BranchInfo, error) {
+	// Validate arguments
+	if repo == nil {
+		return nil, errors.New("repo cannot be nil")
+	}
+
 	if err := d.checkIsAuthorized(pachClient, repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
@@ -2690,6 +2753,14 @@ func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo, revers
 }
 
 func (d *driver) deleteBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Branch, force bool) error {
+	// Validate arguments
+	if branch == nil {
+		return errors.New("branch cannot be nil")
+	}
+	if branch.Repo == nil {
+		return errors.New("branch repo cannot be nil")
+	}
+
 	if err := d.checkIsAuthorizedInTransaction(txnCtx, branch.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
@@ -3063,6 +3134,26 @@ func headerDirToPutFileRecords(tree hashtree.HashTree, path string, node *hashtr
 }
 
 func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.File, overwrite bool) error {
+	// Validate arguments
+	if src == nil {
+		return errors.New("src cannot be nil")
+	}
+	if src.Commit == nil {
+		return errors.New("src commit cannot be nil")
+	}
+	if src.Commit.Repo == nil {
+		return errors.New("src commit repo cannot be nil")
+	}
+	if dst == nil {
+		return errors.New("dst cannot be nil")
+	}
+	if dst.Commit == nil {
+		return errors.New("dst commit cannot be nil")
+	}
+	if dst.Commit.Repo == nil {
+		return errors.New("dst commit repo cannot be nil")
+	}
+
 	if err := d.checkIsAuthorized(pachClient, src.Commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
@@ -3106,6 +3197,7 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 	if err != nil {
 		return err
 	}
+	defer destroyHashtree(srcTree)
 	// This is necessary so we can call filepath.Rel below
 	if !strings.HasPrefix(src.Path, "/") {
 		src.Path = "/" + src.Path
@@ -3177,53 +3269,38 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 
 func (d *driver) getTreeForCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Commit) (hashtree.HashTree, error) {
 	if commit == nil || commit.ID == "" {
-		t, err := hashtree.NewDBHashTree(d.storageRoot)
+		return d.treeCache.GetOrAdd("nil", func() (hashtree.HashTree, error) {
+			return hashtree.NewDBHashTree(d.storageRoot)
+		})
+	}
+
+	return d.treeCache.GetOrAdd(commit.ID, func() (hashtree.HashTree, error) {
+		if _, err := d.resolveCommit(txnCtx.Stm, commit); err != nil {
+			return nil, err
+		}
+
+		commits := d.commits(commit.Repo.Name).ReadWrite(txnCtx.Stm)
+		commitInfo := &pfs.CommitInfo{}
+		if err := commits.Get(commit.ID, commitInfo); err != nil {
+			return nil, err
+		}
+		if commitInfo.Finished == nil {
+			return nil, fmt.Errorf("cannot read from an open commit")
+		}
+		treeRef := commitInfo.Tree
+
+		if treeRef == nil {
+			return hashtree.NewDBHashTree(d.storageRoot)
+		}
+
+		// read the tree from the block store
+		h, err := hashtree.GetHashTreeObject(txnCtx.Client, d.storageRoot, treeRef)
 		if err != nil {
 			return nil, err
 		}
-		return t, nil
-	}
 
-	tree, ok := d.treeCache.Get(commit.ID)
-	if ok {
-		h, ok := tree.(hashtree.HashTree)
-		if ok {
-			return h, nil
-		}
-		return nil, fmt.Errorf("corrupted cache: expected hashtree.Hashtree, found %v", tree)
-	}
-
-	if _, err := d.resolveCommit(txnCtx.Stm, commit); err != nil {
-		return nil, err
-	}
-
-	commits := d.commits(commit.Repo.Name).ReadWrite(txnCtx.Stm)
-	commitInfo := &pfs.CommitInfo{}
-	if err := commits.Get(commit.ID, commitInfo); err != nil {
-		return nil, err
-	}
-	if commitInfo.Finished == nil {
-		return nil, fmt.Errorf("cannot read from an open commit")
-	}
-	treeRef := commitInfo.Tree
-
-	if treeRef == nil {
-		t, err := hashtree.NewDBHashTree(d.storageRoot)
-		if err != nil {
-			return nil, err
-		}
-		return t, nil
-	}
-
-	// read the tree from the block store
-	h, err := hashtree.GetHashTreeObject(txnCtx.Client, d.storageRoot, treeRef)
-	if err != nil {
-		return nil, err
-	}
-
-	d.treeCache.Add(commit.ID, h)
-
-	return h, nil
+		return h, nil
+	})
 }
 
 func (d *driver) getTree(pachClient *client.APIClient, commitInfo *pfs.CommitInfo, path string) (rs []io.ReadCloser, retErr error) {
@@ -3324,7 +3401,8 @@ func getTreeRange(ctx context.Context, objClient obj.Client, path string, prefix
 
 // getTreeForFile is like getTreeForCommit except that it can handle open commits.
 // It takes a file instead of a commit so that it can apply the changes for
-// that path to the tree before it returns it.
+// that path to the tree before it returns it. The returned hash tree is not in
+// the treeCache and must be cleaned up by the caller.
 func (d *driver) getTreeForFile(pachClient *client.APIClient, file *pfs.File) (hashtree.HashTree, error) {
 	ctx := pachClient.Ctx()
 	if file.Commit == nil {
@@ -3342,7 +3420,12 @@ func (d *driver) getTreeForFile(pachClient *client.APIClient, file *pfs.File) (h
 			return err
 		}
 		if commitInfo.Finished != nil {
-			result, err = d.getTreeForCommit(txnCtx, file.Commit)
+			t, err := d.getTreeForCommit(txnCtx, file.Commit)
+			if err != nil {
+				return err
+			}
+
+			result, err = t.Copy()
 			return err
 		}
 
@@ -3359,7 +3442,10 @@ func (d *driver) getTreeForFile(pachClient *client.APIClient, file *pfs.File) (h
 	return result, nil
 }
 
-func (d *driver) getTreeForOpenCommit(pachClient *client.APIClient, file *pfs.File, parentTree hashtree.HashTree) (hashtree.HashTree, error) {
+// getTreeForOpenCommit obtains the resulting hashtree made by applying the
+// given file to the hashtree of a parent commit. The returned hash tree is not
+// in the treeCache and must be cleaned up by the caller.
+func (d *driver) getTreeForOpenCommit(pachClient *client.APIClient, file *pfs.File, parentTree hashtree.HashTree) (result hashtree.HashTree, retErr error) {
 	prefix, err := d.scratchFilePrefix(file)
 	if err != nil {
 		return nil, err
@@ -3368,6 +3454,13 @@ func (d *driver) getTreeForOpenCommit(pachClient *client.APIClient, file *pfs.Fi
 	if err != nil {
 		return nil, err
 	}
+
+	defer func() {
+		if retErr != nil {
+			destroyHashtree(tree)
+		}
+	}()
+
 	recordsCol := d.putFileRecords.ReadOnly(pachClient.Ctx())
 	putFileRecords := &pfs.PutFileRecords{}
 	opts := &col.Options{etcd.SortByModRevision, etcd.SortAscend, true}
@@ -3397,6 +3490,17 @@ func provenantOnInput(provenance []*pfs.CommitProvenance) bool {
 }
 
 func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset int64, size int64) (r io.Reader, retErr error) {
+	// Validate arguments
+	if file == nil {
+		return nil, errors.New("file cannot be nil")
+	}
+	if file.Commit == nil {
+		return nil, errors.New("file commit cannot be nil")
+	}
+	if file.Commit.Repo == nil {
+		return nil, errors.New("file commit repo cannot be nil")
+	}
+
 	ctx := pachClient.Ctx()
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return nil, err
@@ -3411,6 +3515,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 		if err != nil {
 			return nil, err
 		}
+		defer destroyHashtree(tree)
 		var (
 			pathsFound int
 			objects    []*pfs.Object
@@ -3624,6 +3729,17 @@ func nodeToFileInfoHeaderFooter(ci *pfs.CommitInfo, filePath string,
 }
 
 func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (fi *pfs.FileInfo, retErr error) {
+	// Validate arguments
+	if file == nil {
+		return nil, errors.New("file cannot be nil")
+	}
+	if file.Commit == nil {
+		return nil, errors.New("file commit cannot be nil")
+	}
+	if file.Commit.Repo == nil {
+		return nil, errors.New("file commit repo cannot be nil")
+	}
+
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
@@ -3637,6 +3753,7 @@ func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (fi *
 		if err != nil {
 			return nil, err
 		}
+		defer destroyHashtree(tree)
 		node, err := tree.Get(file.Path)
 		if err != nil {
 			return nil, pfsserver.ErrFileNotFound{file}
@@ -3669,6 +3786,17 @@ func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (fi *
 }
 
 func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full bool, history int64, f func(*pfs.FileInfo) error) (retErr error) {
+	// Validate arguments
+	if file == nil {
+		return errors.New("file cannot be nil")
+	}
+	if file.Commit == nil {
+		return errors.New("file commit cannot be nil")
+	}
+	if file.Commit.Repo == nil {
+		return errors.New("file commit repo cannot be nil")
+	}
+
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
@@ -3688,6 +3816,7 @@ func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full boo
 		if err != nil {
 			return err
 		}
+		defer destroyHashtree(tree)
 		return tree.Glob(file.Path, func(rootPath string, rootNode *hashtree.NodeProto) error {
 			if rootNode.DirNode == nil {
 				if history != 0 {
@@ -3754,7 +3883,7 @@ func (d *driver) fileHistory(pachClient *client.APIClient, file *pfs.File, histo
 			}
 			return err
 		}
-		if fi != nil && bytes.Compare(fi.Hash, _fi.Hash) != 0 {
+		if fi != nil && !bytes.Equal(fi.Hash, _fi.Hash) {
 			if err := f(fi); err != nil {
 				return err
 			}
@@ -3778,6 +3907,17 @@ func (d *driver) fileHistory(pachClient *client.APIClient, file *pfs.File, histo
 }
 
 func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, f func(*pfs.FileInfo) error) (retErr error) {
+	// Validate arguments
+	if file == nil {
+		return errors.New("file cannot be nil")
+	}
+	if file.Commit == nil {
+		return errors.New("file commit cannot be nil")
+	}
+	if file.Commit.Repo == nil {
+		return errors.New("file commit repo cannot be nil")
+	}
+
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
@@ -3791,6 +3931,7 @@ func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, f func(*
 		if err != nil {
 			return err
 		}
+		defer destroyHashtree(tree)
 		return tree.Walk(file.Path, func(path string, node *hashtree.NodeProto) error {
 			fi, err := nodeToFileInfoHeaderFooter(commitInfo, path, node, tree, false)
 			if err != nil {
@@ -3823,6 +3964,14 @@ func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, f func(*
 }
 
 func (d *driver) globFile(pachClient *client.APIClient, commit *pfs.Commit, pattern string, f func(*pfs.FileInfo) error) (retErr error) {
+	// Validate arguments
+	if commit == nil {
+		return errors.New("commit cannot be nil")
+	}
+	if commit.Repo == nil {
+		return errors.New("commit repo cannot be nil")
+	}
+
 	if err := d.checkIsAuthorized(pachClient, commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
@@ -3836,6 +3985,7 @@ func (d *driver) globFile(pachClient *client.APIClient, commit *pfs.Commit, patt
 		if err != nil {
 			return err
 		}
+		defer destroyHashtree(tree)
 		globErr := tree.Glob(pattern, func(path string, node *hashtree.NodeProto) error {
 			fi, err := nodeToFileInfoHeaderFooter(commitInfo, path, node, tree, false)
 			if err != nil {
@@ -3879,6 +4029,17 @@ func (d *driver) globFile(pachClient *client.APIClient, commit *pfs.Commit, patt
 }
 
 func (d *driver) diffFile(pachClient *client.APIClient, newFile *pfs.File, oldFile *pfs.File, shallow bool) ([]*pfs.FileInfo, []*pfs.FileInfo, error) {
+	// Validate arguments
+	if newFile == nil {
+		return nil, nil, errors.New("file cannot be nil")
+	}
+	if newFile.Commit == nil {
+		return nil, nil, errors.New("file commit cannot be nil")
+	}
+	if newFile.Commit.Repo == nil {
+		return nil, nil, errors.New("file commit repo cannot be nil")
+	}
+
 	// Do READER authorization check for both newFile and oldFile
 	if oldFile != nil && oldFile.Commit != nil {
 		if err := d.checkIsAuthorized(pachClient, oldFile.Commit.Repo, auth.Scope_READER); err != nil {
@@ -3894,6 +4055,7 @@ func (d *driver) diffFile(pachClient *client.APIClient, newFile *pfs.File, oldFi
 	if err != nil {
 		return nil, nil, err
 	}
+	defer destroyHashtree(newTree)
 	newCommitInfo, err := d.inspectCommit(pachClient, newFile.Commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return nil, nil, err
@@ -3921,6 +4083,7 @@ func (d *driver) diffFile(pachClient *client.APIClient, newFile *pfs.File, oldFi
 	if err != nil {
 		return nil, nil, err
 	}
+	defer destroyHashtree(oldTree)
 	var newFileInfos []*pfs.FileInfo
 	var oldFileInfos []*pfs.FileInfo
 	recursiveDepth := -1
@@ -3949,6 +4112,17 @@ func (d *driver) diffFile(pachClient *client.APIClient, newFile *pfs.File, oldFi
 }
 
 func (d *driver) deleteFile(pachClient *client.APIClient, file *pfs.File) error {
+	// Validate arguments
+	if file == nil {
+		return errors.New("file cannot be nil")
+	}
+	if file.Commit == nil {
+		return errors.New("file commit cannot be nil")
+	}
+	if file.Commit.Repo == nil {
+		return errors.New("file commit repo cannot be nil")
+	}
+
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
@@ -4188,10 +4362,6 @@ func (b *branchSet) search(branch *pfs.Branch) (int, bool) {
 	return i, branchKey((*b)[i]) == branchKey(branch)
 }
 
-func search(bs *[]*pfs.Branch, branch *pfs.Branch) (int, bool) {
-	return (*branchSet)(bs).search(branch)
-}
-
 func (b *branchSet) add(branch *pfs.Branch) {
 	i, ok := b.search(branch)
 	if !ok {
@@ -4225,50 +4395,6 @@ func (b *branchSet) has(branch *pfs.Branch) bool {
 
 func has(bs *[]*pfs.Branch, branch *pfs.Branch) bool {
 	return (*branchSet)(bs).has(branch)
-}
-
-type putFileReader struct {
-	server pfs.API_PutFileServer
-	buffer *bytes.Buffer
-	// request is the request that contains the File and other meaningful
-	// information
-	request *pfs.PutFileRequest
-}
-
-func newPutFileReader(server pfs.API_PutFileServer) (*putFileReader, error) {
-	result := &putFileReader{
-		server: server,
-		buffer: &bytes.Buffer{}}
-	if _, err := result.Read(nil); err != nil && err != io.EOF {
-		return nil, err
-	}
-	if result.request == nil {
-		return nil, io.EOF
-	}
-	return result, nil
-}
-
-func (r *putFileReader) Read(p []byte) (int, error) {
-	eof := false
-	if r.buffer.Len() == 0 {
-		request, err := r.server.Recv()
-		if err != nil {
-			if err == io.EOF {
-				r.request = nil
-			}
-			return 0, err
-		}
-		//buffer.Write cannot error
-		r.buffer = bytes.NewBuffer(request.Value)
-		if request.File != nil {
-			eof = true
-			r.request = request
-		}
-	}
-	if eof {
-		return 0, io.EOF
-	}
-	return r.buffer.Read(p)
 }
 
 type putFileServer struct {
@@ -4313,6 +4439,13 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 	for req, err = server.Recv(); err == nil; req, err = server.Recv() {
 		req := req
 		if req.File != nil {
+			if req.File.Commit == nil {
+				return false, "", "", errors.New("file commit cannot be nil")
+			}
+			if req.File.Commit.Repo == nil {
+				return false, "", "", errors.New("file commit repo cannot be nil")
+			}
+
 			// For the first file, dereference the commit ID if needed. For
 			// subsequent files, ensure that they're all referencing the same
 			// commit ID, and replace their commit objects to all refer to the
@@ -4349,10 +4482,10 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 				}
 				commitID = commit.ID
 			} else if req.File.Commit.ID != rawCommitID {
-				err = fmt.Errorf("All requests in a put files call must have the same commit ID; expected '%s', got '%s'", rawCommitID, req.File.Commit.ID)
+				err = fmt.Errorf("all requests in a put files call must have the same commit ID; expected '%s', got '%s'", rawCommitID, req.File.Commit.ID)
 				return false, "", "", err
 			} else if req.File.Commit.Repo.Name != repo {
-				err = fmt.Errorf("All requests in a put files call must have the same repo name; expected '%s', got '%s'", repo, req.File.Commit.Repo.Name)
+				err = fmt.Errorf("all requests in a put files call must have the same repo name; expected '%s', got '%s'", repo, req.File.Commit.Repo.Name)
 				return false, "", "", err
 			} else {
 				req.File.Commit.ID = commitID
@@ -4457,6 +4590,9 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 				return nil
 			})
 		}
+		if pw == nil {
+			return false, "", "", errors.New("must send a request with a file first")
+		}
 		if _, err := pw.Write(req.Value); err != nil {
 			return false, "", "", err
 		}
@@ -4471,13 +4607,4 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 	}
 	err = eg.Wait()
 	return oneOff, repo, branch, err
-}
-
-func branchContains(bs []*pfs.Branch, b *pfs.Branch) bool {
-	for _, _b := range bs {
-		if proto.Equal(_b, b) {
-			return true
-		}
-	}
-	return false
 }

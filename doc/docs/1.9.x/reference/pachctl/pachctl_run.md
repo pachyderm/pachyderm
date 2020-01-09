@@ -4,8 +4,13 @@ Manually run a Pachyderm resource.
 
 ### Synopsis
 
-
 Manually run a Pachyderm resource.
+
+### Options
+
+```
+  -h, --help   help for run
+```
 
 ### Options inherited from parent commands
 

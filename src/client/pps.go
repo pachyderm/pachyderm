@@ -163,14 +163,6 @@ func NewPipeline(pipelineName string) *pps.Pipeline {
 	return &pps.Pipeline{Name: pipelineName}
 }
 
-// NewPipelineInput creates a new pps.PipelineInput
-func NewPipelineInput(repoName string, glob string) *pps.PipelineInput {
-	return &pps.PipelineInput{
-		Repo: NewRepo(repoName),
-		Glob: glob,
-	}
-}
-
 // CreateJob creates and runs a job in PPS.
 // This function is mostly useful internally, users should generally run work
 // by creating pipelines as well.
@@ -458,10 +450,7 @@ func (l *LogsIter) Next() bool {
 		return false
 	}
 	l.msg, l.err = l.logsClient.Recv()
-	if l.err != nil {
-		return false
-	}
-	return true
+	return l.err == nil
 }
 
 // Message returns the most recently retrieve log message (as an annotated log
@@ -656,6 +645,18 @@ func (c APIClient) RunPipeline(name string, provenance []*pfs.CommitProvenance, 
 			Pipeline:   NewPipeline(name),
 			Provenance: provenance,
 			JobID:      jobID,
+		},
+	)
+	return grpcutil.ScrubGRPC(err)
+}
+
+// RunCron runs a pipeline. It can be passed a list of commit provenance.
+// This will trigger a new job provenant on those commits, effectively running the pipeline on the data in those commits.
+func (c APIClient) RunCron(name string) error {
+	_, err := c.PpsAPIClient.RunCron(
+		c.Ctx(),
+		&pps.RunCronRequest{
+			Pipeline: NewPipeline(name),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)

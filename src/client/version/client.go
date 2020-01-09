@@ -12,7 +12,7 @@ const (
 	// MinorVersion is the current minor version for pachyderm.
 	MinorVersion = 9
 	// MicroVersion is the patch number for pachyderm.
-	MicroVersion = 8
+	MicroVersion = 10
 )
 
 var (
@@ -37,7 +37,7 @@ var (
 func PrettyPrintVersion(version *pb.Version) string {
 	result := PrettyPrintVersionNoAdditional(version)
 	if version.Additional != "" {
-		result += fmt.Sprintf("%s", version.Additional)
+		result += version.Additional
 	}
 	return result
 }

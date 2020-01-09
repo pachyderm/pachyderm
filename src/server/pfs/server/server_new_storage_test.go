@@ -36,11 +36,11 @@ func TestMerge(t *testing.T) {
 	}
 	buf := &bytes.Buffer{}
 	require.NoError(t, c.GetFile(repo, commit.ID, "/file0", 0, 0, buf))
-	require.Equal(t, "0", string(buf.Bytes()))
+	require.Equal(t, "0", buf.String())
 	buf.Reset()
 	require.NoError(t, c.GetFile(repo, commit.ID, "/file50", 0, 0, buf))
-	require.Equal(t, "50", string(buf.Bytes()))
+	require.Equal(t, "50", buf.String())
 	buf.Reset()
 	require.NoError(t, c.GetFile(repo, commit.ID, "/file99", 0, 0, buf))
-	require.Equal(t, "99", string(buf.Bytes()))
+	require.Equal(t, "99", buf.String())
 }

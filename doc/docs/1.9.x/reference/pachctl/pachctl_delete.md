@@ -4,8 +4,13 @@ Delete an existing Pachyderm resource.
 
 ### Synopsis
 
-
 Delete an existing Pachyderm resource.
+
+### Options
+
+```
+  -h, --help   help for delete
+```
 
 ### Options inherited from parent commands
 

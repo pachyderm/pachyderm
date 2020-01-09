@@ -11,7 +11,6 @@ cd "${scriptdir}/../.."
 # hash our generated protobuf code, mostly to see if make proto changed anything
 orig_hash="$(
 find src -regex ".*\.pb\.go" \
-  | grep -v vendor \
   | sort -u \
   | xargs cat \
   | sha256sum \
@@ -23,7 +22,6 @@ make proto
 # hash newly-generated code
 new_hash="$(
 find src -regex ".*\.pb\.go" \
-  | grep -v vendor \
   | sort -u \
   | xargs cat \
   | sha256sum \

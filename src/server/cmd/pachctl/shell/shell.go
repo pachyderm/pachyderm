@@ -111,7 +111,7 @@ func (s *shell) run() {
 		s.suggestor,
 		prompt.OptionPrefix(">>> "),
 		prompt.OptionLivePrefix(func() (string, bool) {
-			cfg, err := config.Read()
+			cfg, err := config.Read(false)
 			if err != nil {
 				return "", false
 			}

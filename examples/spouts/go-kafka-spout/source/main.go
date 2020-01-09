@@ -135,7 +135,7 @@ func main() {
 	tmp, ok = os.LookupEnv("KAFKA_TIMEOUT")
 	if ok {
 		if myTimeout, err := strconv.Atoi(tmp); err != nil {
-			fmt.Sprintf("error parsing KAFKA_TIMEOUT env value %v, using default %v unless flagged\n", tmp, defaultTimeout)
+			fmt.Printf("error parsing KAFKA_TIMEOUT env value %v, using default %v unless flagged\n", tmp, defaultTimeout)
 			timeout = defaultTimeout
 		} else {
 			timeout = myTimeout

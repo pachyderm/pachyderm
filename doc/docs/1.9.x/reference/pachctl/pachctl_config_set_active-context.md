@@ -4,11 +4,16 @@ Sets the currently active context.
 
 ### Synopsis
 
-
 Sets the currently active context.
 
 ```
-pachctl config set active-context
+pachctl config set active-context [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for active-context
 ```
 
 ### Options inherited from parent commands

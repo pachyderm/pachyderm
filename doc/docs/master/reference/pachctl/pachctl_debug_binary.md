@@ -4,11 +4,16 @@ Return the binary the server is running.
 
 ### Synopsis
 
-
 Return the binary the server is running.
 
 ```
-pachctl debug binary
+pachctl debug binary [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for binary
 ```
 
 ### Options inherited from parent commands

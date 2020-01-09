@@ -1319,18 +1319,6 @@ Tags are a low-level resource and should not be accessed directly by most users.
 	return commands
 }
 
-func parseCommits(args []string) (map[string]string, error) {
-	result := make(map[string]string)
-	for _, arg := range args {
-		split := strings.Split(arg, "@")
-		if len(split) != 2 {
-			return nil, fmt.Errorf("malformed input %s, must be of the form repo@commit", args)
-		}
-		result[split[0]] = split[1]
-	}
-	return result, nil
-}
-
 func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 	repo, commit, path, source string, recursive, overwrite bool, // destination
 	limiter limit.ConcurrencyLimiter,

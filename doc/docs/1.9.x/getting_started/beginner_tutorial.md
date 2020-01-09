@@ -117,7 +117,7 @@ commands will let you view it easily:
   $ pachctl get file images@master:liberty.png | open -f -a /Applications/Preview.app
   ```
 
-* If you on Linux, run:
+* If you are on Linux, run:
 
   ```bash
   $ pachctl get file images@master:liberty.png | display
@@ -151,6 +151,7 @@ through the details.
   "pipeline": {
     "name": "edges"
   },
+  "description": "A pipeline that performs image edge detection by using the OpenCV library.",
   "transform": {
     "cmd": [ "python3", "/edges.py" ],
     "image": "pachyderm/opencv"
@@ -212,7 +213,7 @@ pipeline output.
 
 Now, let's create the pipeline in Pachyderm:
 
-``` bash
+```bash
 $ pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json
 ```
 
@@ -331,6 +332,7 @@ Below is the pipeline spec for this new pipeline:
   "pipeline": {
     "name": "montage"
   },
+  "description": "A pipeline that combines images from the `images` and `edges` repositories into a montage.",
   "input": {
     "cross": [ {
       "pfs": {
@@ -354,10 +356,13 @@ Below is the pipeline spec for this new pipeline:
 ```
 
 This `montage` pipeline spec is similar to our `edges` pipeline except
-for three differences: (1) we are using a different Docker image that
-has `imagemagick` installed, (2) we are executing a `sh` command with
-`stdin` instead of a python script, and (3) we have multiple input data
-repositories.
+for the following differences:
+
+1. We are using a different Docker image that
+has `imagemagick` installed.
+2. We are executing a `sh` command with
+`stdin` instead of a python script.
+3. We have multiple input data repositories.
 
 In the `montage` pipeline we are combining our multiple input data
 repositories using a `cross` pattern. This `cross` pattern creates a
@@ -426,12 +431,12 @@ Pachyderm is now running locally with data and a pipeline! To play with
 Pachyderm locally, you can use what you've learned to build on or
 change this pipeline. You can also dig in and learn more details about:
 
--   [Deploying Pachyderm to the cloud or on prem](../deploy-manage/deploy/index.md)
--   [Load Your Data into Pachyderm](../how-tos/load-data-into-pachyderm.md)
--   [Individual Developer Workflow](../how-tos/individual-developer-workflow.md)
+- [Deploying Pachyderm to the cloud or on prem](../deploy-manage/deploy/index.md)
+- [Load Your Data into Pachyderm](../how-tos/load-data-into-pachyderm.md)
+- [Individual Developer Workflow](../how-tos/individual-developer-workflow.md)
 
 We'd love to help and see what you come up with, so submit any
 issues/questions you come across on
-[GitHub](https://github.com/pachyderm/pachyderm) ,
+[GitHub](https://github.com/pachyderm/pachyderm),
 [Slack](http://slack.pachyderm.io), or email at <support@pachyderm.io>
 if you want to show off anything nifty you've created!

@@ -4,17 +4,17 @@ Unmount pfs.
 
 ### Synopsis
 
-
 Unmount pfs.
 
 ```
-pachctl unmount <path/to/mount/point>
+pachctl unmount <path/to/mount/point> [flags]
 ```
 
 ### Options
 
 ```
-  -a, --all   unmount all pfs mounts
+  -a, --all    unmount all pfs mounts
+  -h, --help   help for unmount
 ```
 
 ### Options inherited from parent commands

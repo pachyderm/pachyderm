@@ -14,7 +14,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 )
 
-var defaultDashRedirectURL = &url.URL{
+// DefaultDashRedirectURL is the default URL used for redirecting the dashboard
+var DefaultDashRedirectURL = &url.URL{
 	Scheme: "http",
 	Host:   "localhost:30080",
 	// leading slash is for equality checks in tests (HTTP lib inserts it)
@@ -129,7 +130,7 @@ func (a *apiServer) handleSAMLResponse(w http.ResponseWriter, req *http.Request)
 	}
 
 	// Redirect caller back to dash with auth code
-	u := *defaultDashRedirectURL
+	u := *DefaultDashRedirectURL
 	if cfg.SAMLSvc != nil && cfg.SAMLSvc.DashURL != nil {
 		u = *cfg.SAMLSvc.DashURL
 	}
@@ -144,7 +145,6 @@ func (a *apiServer) handleMetadata(w http.ResponseWriter, req *http.Request) {
 	buf, _ := xml.MarshalIndent(a.samlSP.Metadata(), "", "  ")
 	w.Header().Set("Content-Type", "application/samlmetadata+xml")
 	w.Write(buf)
-	return
 }
 
 func (a *apiServer) serveSAML() {

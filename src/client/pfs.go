@@ -841,7 +841,6 @@ func (c APIClient) ListBlock(f func(*pfs.Block) error) error {
 			return err
 		}
 	}
-	return nil
 }
 
 // GetBlock gets the content of a block.

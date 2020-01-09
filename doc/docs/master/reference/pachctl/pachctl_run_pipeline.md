@@ -4,11 +4,10 @@ Run an existing Pachyderm pipeline on the specified commits-branch pairs.
 
 ### Synopsis
 
-
 Run a Pachyderm pipeline on the datums from specific commit-branch pairs. If only the branch is given, the head commit of the branch is used to complete the pair. Note: pipelines run automatically when data is committed to them. This command is for the case where you want to run the pipeline on a specific set of data, or if you want to rerun the pipeline. If a commit or branch is not specified, it will default to using the HEAD of master.
 
 ```
-pachctl run pipeline <pipeline> [<repo>@<branch>[=<commit>]...]
+pachctl run pipeline <pipeline> [<repo>@<branch>[=<commit>]...] [flags]
 ```
 
 ### Examples
@@ -23,6 +22,13 @@ pachctl run pipeline <pipeline> [<repo>@<branch>[=<commit>]...]
 
 		# Run the pipeline "filter" on the data from commit "167af5" on the "staging" branch on repo "repo1"
 		$ pachctl run pipeline filter repo1@staging=167af5
+```
+
+### Options
+
+```
+  -h, --help         help for pipeline
+      --job string   rerun the given job
 ```
 
 ### Options inherited from parent commands

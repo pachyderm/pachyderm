@@ -17,36 +17,36 @@ fi
 rm -rf ./_tmp/*
 echo "Building test"
 go test \
-  -c -o /go/src/github.com/pachyderm/pachyderm/_tmp/pachyderm_test \
+  -c -o /pachyderm/_tmp/pachyderm_test \
   ./src/server
 go test \
-  -c -o /go/src/github.com/pachyderm/pachyderm/_tmp/pfs_server_test \
+  -c -o /pachyderm/_tmp/pfs_server_test \
   ./src/server/pfs/server
 go test \
-  -c -o /go/src/github.com/pachyderm/pachyderm/_tmp/pfs_cmds_test \
+  -c -o /pachyderm/_tmp/pfs_cmds_test \
   ./src/server/pfs/cmds
 go test \
-  -c -o /go/src/github.com/pachyderm/pachyderm/_tmp/pps_cmds_test \
+  -c -o /pachyderm/_tmp/pps_cmds_test \
   ./src/server/pps/cmds
 go test \
-  -c -o /go/src/github.com/pachyderm/pachyderm/_tmp/auth_server_test \
+  -c -o /pachyderm/_tmp/auth_server_test \
   ./src/server/auth/server
 go test \
-  -c -o /go/src/github.com/pachyderm/pachyderm/_tmp/auth_cmds_test \
+  -c -o /pachyderm/_tmp/auth_cmds_test \
   ./src/server/auth/cmds
 go test \
-  -c -o /go/src/github.com/pachyderm/pachyderm/_tmp/enterprise_server_test \
+  -c -o /pachyderm/_tmp/enterprise_server_test \
   ./src/server/enterprise/server
 go test \
-  -c -o /go/src/github.com/pachyderm/pachyderm/_tmp/worker_test \
+  -c -o /pachyderm/_tmp/worker_test \
   ./src/server/worker
-go test -c -o /go/src/github.com/pachyderm/pachyderm/_tmp/collection_test ./src/server/pkg/collection
-go test -c -o /go/src/github.com/pachyderm/pachyderm/_tmp/hashtree_test ./src/server/pkg/hashtree
-go test -c -o /go/src/github.com/pachyderm/pachyderm/_tmp/cert_test ./src/server/pkg/cert
-go test -c -o /go/src/github.com/pachyderm/pachyderm/_tmp/vault_test ./src/plugin/vault
+go test -c -o /pachyderm/_tmp/collection_test ./src/server/pkg/collection
+go test -c -o /pachyderm/_tmp/hashtree_test ./src/server/pkg/hashtree
+go test -c -o /pachyderm/_tmp/cert_test ./src/server/pkg/cert
+go test -c -o /pachyderm/_tmp/vault_test ./src/plugin/vault
 echo "Test built..."
 pwd
-ls /go/src/github.com/pachyderm/pachyderm/_tmp
+ls /pachyderm/_tmp
 
 cp Dockerfile.test _tmp/Dockerfile
 cp etc/testing/artifacts/giphy.gif _tmp/

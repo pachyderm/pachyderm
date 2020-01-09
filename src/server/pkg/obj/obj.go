@@ -84,6 +84,8 @@ const (
 	ReverseEnvVar        = "REVERSE"
 	PartSizeEnvVar       = "PART_SIZE"
 	MaxUploadPartsEnvVar = "MAX_UPLOAD_PARTS"
+	DisableSSLEnvVar     = "DISABLE_SSL"
+	NoVerifySSLEnvVar    = "NO_VERIFY_SSL"
 )
 
 const (
@@ -99,6 +101,10 @@ const (
 	DefaultPartSize = 5242880
 	// DefaultMaxUploadParts is the default maximum number of upload parts.
 	DefaultMaxUploadParts = 10000
+	// DefaultDisableSSL is the default for whether SSL should be disabled.
+	DefaultDisableSSL = false
+	// DefaultNoVerifySSL is the default for whether SSL certificate verification should be disabled.
+	DefaultNoVerifySSL = false
 )
 
 // AmazonAdvancedConfiguration contains the advanced configuration for the amazon client.
@@ -112,6 +118,8 @@ type AmazonAdvancedConfiguration struct {
 	Reverse        bool   `env:"REVERSE, default=true"`
 	PartSize       int64  `env:"PART_SIZE, default=5242880"`
 	MaxUploadParts int    `env:"MAX_UPLOAD_PARTS, default=10000"`
+	DisableSSL     bool   `env:"DISABLE_SSL, default=false"`
+	NoVerifySSL    bool   `env:"NO_VERIFY_SSL, default=false"`
 }
 
 // EnvVarToSecretKey is an environment variable name to secret key mapping
@@ -150,6 +158,8 @@ var EnvVarToSecretKey = []struct {
 	{Key: ReverseEnvVar, Value: "reverse"},
 	{Key: PartSizeEnvVar, Value: "part-size"},
 	{Key: MaxUploadPartsEnvVar, Value: "max-upload-parts"},
+	{Key: DisableSSLEnvVar, Value: "disable-ssl"},
+	{Key: NoVerifySSLEnvVar, Value: "no-verify-ssl"},
 }
 
 // StorageRootFromEnv gets the storage root based on environment variables.
@@ -457,8 +467,14 @@ func NewAmazonClientFromSecret(bucket string, reverse ...bool) (Client, error) {
 
 	// Get Cloudfront distribution (not required, though we can log a warning)
 	distribution, err := readSecretFile("/amazon-distribution")
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
 	// Get endpoint for custom deployment (optional).
 	endpoint, err := readSecretFile("/custom-endpoint")
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
 	return NewAmazonClient(region, bucket, &creds, distribution, endpoint, reverse...)
 }
 

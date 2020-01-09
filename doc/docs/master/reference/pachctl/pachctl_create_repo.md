@@ -4,17 +4,17 @@ Create a new repo.
 
 ### Synopsis
 
-
 Create a new repo.
 
 ```
-pachctl create repo <repo>
+pachctl create repo <repo> [flags]
 ```
 
 ### Options
 
 ```
   -d, --description string   A description of the repo.
+  -h, --help                 help for repo
 ```
 
 ### Options inherited from parent commands

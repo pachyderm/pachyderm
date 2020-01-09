@@ -6,7 +6,7 @@ This example uses the canonical mnist dataset, Kubeflow, TFJobs, and Pachyderm t
 Part of what makes [Pachyderm](https://pachyderm.com/) and [Kubeflow](https://www.kubeflow.org/) work so well together is that they're built on [Kubernetes](https://kubernetes.io/), which means they can run virtually anywhere. While both Pachyderm and Kubeflow have their own deployment instructions for various infrastructures, this instructional will be based on my personal favorite, GKE. Before continuing, make sure you have the following installed on your local machine. 
 
 #### Prerequisites:
-  - [Pachyderm CLI](http://docs.pachyderm.com/en/latest/getting_started/local_installation.html#install-pachctl) 
+  - [Pachyderm CLI](https://docs.pachyderm.com/latest/getting_started/local_installation/#install-pachctl)
   - [Kubeflow CLI](https://www.kubeflow.org/docs/started/getting-started/#installing-command-line-tools)
   - [Kubectl CLI](https://kubernetes.io/docs/tasks/tools/install-kubectl/)  
   - [gcloud CLI](https://cloud.google.com/sdk/gcloud/) 
@@ -15,13 +15,13 @@ Part of what makes [Pachyderm](https://pachyderm.com/) and [Kubeflow](https://ww
 #### Deploy:
 To make it simple, we created a simple [bash script](github.com/pachyderm/pachyderm/examples/kubeflow/mnist_with_tfjob/gcp-kubeflow-pachyderm-setup.sh) specifically for this post, and you can use it to deploy Pachyderm and Kubeflow together on GKE in no time. However, If you prefer to do this all on your local machine, or any other infrastructure, please refer to the links below.
 
-  - [Pachyderm Install Docs](http://docs.pachyderm.com/en/latest/getting_started/local_installation.html)
+  - [Pachyderm Install Docs](https://docs.pachyderm.com/latest/getting_started/local_installation/)
   - [Kubeflow Install Docs](https://www.kubeflow.org/docs/started/getting-started/#installing-kubeflow)
 
 #### Working setup check
 1. `kubectl get pods -n kubeflow` returns running pods.
 2. `pachctl version` returns *both* pachctl and pachd versions.
-3. `pachctl enterprise get-state` returns: `Pachyderm Enterprise token state: ACTIVE` (If it doesn't, [Register Pachyderm](http://docs.pachyderm.com/en/latest/enterprise/deployment.html#activate-via-the-dashboard)) 
+3. `pachctl enterprise get-state` returns: `Pachyderm Enterprise token state: ACTIVE`. If it doesn't, register Pachyderm as described in [Activate by Using the Dashboard](https://docs.pachyderm.com/latest/enterprise/deployment/#activate-by-using-the-dashboard).
 
 ## Step 2 - Checking in your data 
 With everything configured and working, we're going to grab our data and then check it in to Pachyderm. To do so, you need to download a mnist.npz dataset to your local machine, create a Pachyderm repo, and then upload the dataset to the Pachyderm repo.
@@ -90,7 +90,7 @@ def main(_):
 The comments in the code provide a pretty good description of what's going on line by line. 
 However, a quick breakdown is this:
 
-1. We're copying mnist.npz from our Pachyderm repo `inputrepo@master` via the [S3 Gateway](http://docs.pachyderm.com/en/latest/enterprise/s3gateway.html#using-the-s3-gateway) into a local directory in the container (`/tmp/data/`). 
+1. We're copying mnist.npz from our Pachyderm repo `inputrepo@master` via the [S3 Gateway](https://docs.pachyderm.com/latest/enterprise/s3gateway/) into a local directory in the container (`/tmp/data/`). 
 2. Then we tell [TensorFlow](https://www.tensorflow.org/) to load that data and start training. 
 3. Saving the trained model back to Pachyderm.
 Once our code trains the model, it needs to save it somewhere. 

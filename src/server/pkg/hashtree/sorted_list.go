@@ -48,15 +48,3 @@ func insertStr(ss *[]string, newS string) bool {
 	}
 	return false
 }
-
-// removeStr removes 's' from 'ss', preserving the sorted order of 'ss' (for
-// removing child strings from DirectoryNodes.
-func removeStr(ss *[]string, s string) bool {
-	idx := sort.SearchStrings(*ss, s)
-	if idx == len(*ss) {
-		return false
-	}
-	copy((*ss)[idx:], (*ss)[idx+1:])
-	*ss = (*ss)[:len(*ss)-1]
-	return true
-}

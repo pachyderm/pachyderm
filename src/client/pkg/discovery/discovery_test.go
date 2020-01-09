@@ -51,22 +51,7 @@ func runTest(t *testing.T, client Client) {
 
 func runWatchTest(t *testing.T, client Client) {
 	cancel := make(chan bool)
-	err := client.Watch(
-		"watch/foo",
-		cancel,
-		func(value string) error {
-			if value == "" {
-				return client.Set("watch/foo", "bar", 0)
-			}
-			require.Equal(t, "bar", value)
-			close(cancel)
-			return nil
-		},
-	)
-	require.Equal(t, ErrCancelled, err)
-
-	cancel = make(chan bool)
-	err = client.WatchAll(
+	err := client.WatchAll(
 		"watchAll/foo",
 		cancel,
 		func(value map[string]string) error {

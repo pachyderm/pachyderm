@@ -9,9 +9,9 @@ computation.
 
 The example assumes that you have:
 
-- A Pachyderm cluster running - see [this guide](http://pachyderm.readthedocs.io/en/latest/getting_started/local_installation.html) to get up and running with a local Pachyderm cluster in just a few minutes.
-- The `pachctl` CLI tool installed and connected to your Pachyderm cluster - see [the relevant deploy docs](http://pachyderm.readthedocs.io/en/latest/deployment/deploy_intro.html) for instructions.
-- The `kubectl` CLI tool installed (you will likely have installed this while [setting up your local Pachyderm cluster](http://pachyderm.readthedocs.io/en/latest/getting_started/local_installation.html))
+- A Pachyderm cluster running - see [this guide](https://docs.pachyderm.com/latest/getting_started/local_installation/) to get up and running with a local Pachyderm cluster in just a few minutes.
+- The `pachctl` CLI tool installed and connected to your Pachyderm cluster - see [the relevant deploy docs](https://docs.pachyderm.com/latest/deploy-manage/deploy/) for instructions.
+- The `kubectl` CLI tool installed (you will likely have installed this while [setting up your local Pachyderm cluster](https://docs.pachyderm.com/latest/getting_started/local_installation/))
 
 Note: if deploying on Minikube, you'll need to increase the default memory
 allocation to accomodate the deploy of a Spark cluster. When running `minikube

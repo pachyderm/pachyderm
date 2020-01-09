@@ -4,8 +4,13 @@ Wait for notifications of changes to a Pachyderm resource.
 
 ### Synopsis
 
-
 Wait for notifications of changes to a Pachyderm resource.
+
+### Options
+
+```
+  -h, --help   help for subscribe
+```
 
 ### Options inherited from parent commands
 

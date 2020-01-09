@@ -12,6 +12,7 @@ import (
 // APIServer represents a PPS API server
 type APIServer interface {
 	ppsclient.APIServer
+	txnenv.PpsTransactionServer
 }
 
 // NewAPIServer creates an APIServer.

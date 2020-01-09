@@ -56,7 +56,6 @@ commit).
     or for a more specific version
     `go get foo@v1.2.3`, `go get foo@master`, `go get foo@e3702bed2`
   - import foo package to you go code as needed.
-  - Run `go mod vendor`
 - Note: Go modules requires you clone the repo outside of the `$GOPATH` or you must pass the `GO111MODULE=on` flag to any go commands. See wiki page on [activating module support](https://github.com/golang/go/wiki/Modules#how-to-install-and-activate-module-support)
 
 - See

@@ -74,8 +74,6 @@ var (
 	valid              = regexp.MustCompile("^[a-zA-Z0-9_-]+$") // Matches a valid name
 	invalid            = regexp.MustCompile("[^a-zA-Z0-9_-]")   // matches an invalid character
 	invalidNameErrorRe = regexp.MustCompile(`name \(.+\) invalid: only alphanumeric characters, underscores, and dashes are allowed`)
-
-	repl = []byte("_")
 )
 
 // ValidateName validates a name to make sure that it can be used unambiguously

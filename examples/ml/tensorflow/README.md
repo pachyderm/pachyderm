@@ -20,7 +20,7 @@ The cylinders represent data “repositories” in which Pachyderm will version 
 
 ## Getting up and running with Pachyderm
 
-You can experiment with this pipeline locally using a quick [local installation of Pachyderm](http://docs.pachyderm.io/en/latest/getting_started/local_installation.html).  Alternatively, you can quickly spin up a real Pachyderm cluster in any one of the popular cloud providers.  Check out the [Pachyderm docs](http://docs.pachyderm.io/en/latest/deployment/deploy_intro.html) for more details on deployment.
+You can experiment with this pipeline locally using a quick [local installation of Pachyderm](https://docs.pachyderm.com/latest/getting_started/local_installation/).  Alternatively, you can quickly spin up a real Pachyderm cluster in any one of the popular cloud providers.  Check out the [Pachyderm docs](https://docs.pachyderm.com/latest/deploy-manage/deploy/) for more details on deployment.
 
 Once deployed, you will be able to use the Pachyderm’s `pachctl` CLI tool to create data repositories and start our deep learning pipeline.
 
@@ -42,7 +42,7 @@ We can deploy this part of the pipeline in two quick steps:
 
 **Note** - Training could take 15+ minutes depending on how many images are supplied in the training set and the exact setting of the `pix2pix.py` script.
 
-**Note** - If you have a [GPU enable Pachyderm cluster](http://docs.pachyderm.io/en/latest/cookbook/gpus.html), you can use [this pipeline specification](training_and_export_gpu.json) to run the training stage of the pipeline on a GPU node.
+**Note** - If you have a [GPU-enabled Pachyderm cluster](https://docs.pachyderm.com/latest/deploy-manage/manage/gpus/), you can use [this pipeline specification](training_and_export_gpu.json) to run the training stage of the pipeline on a GPU node.
 
 ## Preparing the pre-processing and image generation stages
 

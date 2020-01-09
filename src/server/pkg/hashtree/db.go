@@ -106,7 +106,7 @@ func NewDBHashTree(storageRoot string) (HashTree, error) {
 	if err := result.PutDir("/"); err != nil {
 		return nil, err
 	}
-	return result, err
+	return result, nil
 }
 
 // DeserializeDBHashTree deserializes a hashtree into a database (bolt) backed hashtree.
@@ -184,15 +184,6 @@ func Get(rs []io.ReadCloser, filePath string) (*NodeProto, error) {
 		return nil, errorf(PathNotFound, "file \"%s\" not found", filePath)
 	}
 	return fileNode, nil
-}
-
-// dirPrefix returns the prefix that keys must have to be considered under the
-// directory at path
-func dirPrefix(path string) string {
-	if path == "" {
-		return "" // all paths are under the root
-	}
-	return path + "/"
 }
 
 // iterDir iterates through the nodes under path, it errors with PathNotFound if path doesn't exist, it errors with PathConflict if path exists but isn't a directory.
@@ -1132,11 +1123,11 @@ func GetRangeFromIndex(r io.Reader, prefix string) (uint64, uint64, error) {
 	// Find lower
 	iter(low)
 	// Find upper
-	if upper <= 0 {
+	if upper == 0 {
 		iter(up)
 	}
 	// Handles the case when at the end of the indexes
-	if upper <= 0 {
+	if upper == 0 {
 		return lower, 0, nil
 	}
 	// Return offset and size
@@ -1146,10 +1137,7 @@ func GetRangeFromIndex(r io.Reader, prefix string) (uint64, uint64, error) {
 // NewFilter creates a filter for a hashtree shard.
 func NewFilter(numTrees int64, tree int64) Filter {
 	return func(k []byte) bool {
-		if pathToTree(k, numTrees) == uint64(tree) {
-			return true
-		}
-		return false
+		return pathToTree(k, numTrees) == uint64(tree)
 	}
 }
 
@@ -1207,7 +1195,7 @@ func (mq *mergePQ) next() ([]*MergeNode, error) {
 		return nil, err
 	}
 	// Keep popping nodes off the queue if they share the same path
-	for mq.q[1] != nil && bytes.Compare(mq.k(1), ns[0].k) == 0 {
+	for mq.q[1] != nil && bytes.Equal(mq.k(1), ns[0].k) {
 		ns = append(ns, mq.q[1].node)
 		if err := mq.fill(); err != nil {
 			return nil, err
@@ -1462,11 +1450,6 @@ func (n nodetype) String() string {
 // The *NodeProto argument is guaranteed to have DirNode set (if it's not nil)--visit
 // returns a 'PathConflict' error otherwise.
 type updateFn func(*NodeProto, string, string) error
-
-// This can be passed to visit() to detect PathConflict errors early
-func nop(*NodeProto, string, string) error {
-	return nil
-}
 
 var globRegex = regexp.MustCompile(`[*?[\]{}!()@+^]`)
 

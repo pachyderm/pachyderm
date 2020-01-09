@@ -4,11 +4,16 @@ Deploy credentials for the Google Cloud storage provider.
 
 ### Synopsis
 
-
 Deploy credentials for the Google Cloud storage provider, so that Pachyderm can ingress data from and egress data to it.
 
 ```
-pachctl deploy storage google <credentials-file>
+pachctl deploy storage google <credentials-file> [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for google
 ```
 
 ### Options inherited from parent commands

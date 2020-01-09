@@ -4,17 +4,17 @@ Return all branches on a repo.
 
 ### Synopsis
 
-
 Return all branches on a repo.
 
 ```
-pachctl list branch <repo>
+pachctl list branch <repo> [flags]
 ```
 
 ### Options
 
 ```
-      --raw   disable pretty printing, print raw json
+  -h, --help   help for branch
+      --raw    disable pretty printing, print raw json
 ```
 
 ### Options inherited from parent commands
