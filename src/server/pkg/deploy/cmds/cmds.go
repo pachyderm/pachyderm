@@ -283,6 +283,8 @@ func deployCmds() []*cobra.Command {
 	var reverse bool
 	var partSize int64
 	var maxUploadParts int
+	var disableSSL bool
+	var noVerifySSL bool
 	deployCustom := &cobra.Command{
 		Use:   "{{alias}} --persistent-disk <persistent disk backend> --object-store <object store backend> <persistent disk args> <object store args>",
 		Short: "Deploy a custom Pachyderm cluster configuration",
@@ -305,6 +307,8 @@ If <object store backend> is \"s3\", then the arguments are:
 				Reverse:        reverse,
 				PartSize:       partSize,
 				MaxUploadParts: maxUploadParts,
+				DisableSSL:     disableSSL,
+				NoVerifySSL:    noVerifySSL,
 			}
 			// Generate manifest and write assets.
 			var buf bytes.Buffer
@@ -328,6 +332,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			return nil
 		}),
 	}
+	// (bryce) secure should be merged with disableSSL, but it would be a breaking change.
 	deployCustom.Flags().BoolVarP(&secure, "secure", "s", false, "Enable secure access to a Minio server.")
 	deployCustom.Flags().StringVar(&persistentDiskBackend, "persistent-disk", "aws",
 		"(required) Backend providing persistent local volumes to stateful pods. "+
@@ -342,6 +347,8 @@ If <object store backend> is \"s3\", then the arguments are:
 	deployCustom.Flags().BoolVar(&reverse, "reverse", obj.DefaultReverse, "(rarely set) Reverse object storage paths.")
 	deployCustom.Flags().Int64Var(&partSize, "part-size", obj.DefaultPartSize, "(rarely set / S3V2 incompatible) Set a custom part size for object storage uploads.")
 	deployCustom.Flags().IntVar(&maxUploadParts, "max-upload-parts", obj.DefaultMaxUploadParts, "(rarely set / S3V2 incompatible) Set a custom maximum number of upload parts.")
+	deployCustom.Flags().BoolVar(&disableSSL, "disable-ssl", obj.DefaultDisableSSL, "(rarely set / S3V2 incompatible) Disable SSL.")
+	deployCustom.Flags().BoolVar(&noVerifySSL, "no-verify-ssl", obj.DefaultNoVerifySSL, "(rarely set / S3V2 incompatible) Skip SSL certificate verification (typically used for enabling self-signed certificates).")
 	commands = append(commands, cmdutil.CreateAlias(deployCustom, "deploy custom"))
 
 	var cloudfrontDistribution string
@@ -439,6 +446,8 @@ If <object store backend> is \"s3\", then the arguments are:
 				Reverse:        reverse,
 				PartSize:       partSize,
 				MaxUploadParts: maxUploadParts,
+				DisableSSL:     disableSSL,
+				NoVerifySSL:    noVerifySSL,
 			}
 			// Generate manifest and write assets.
 			var buf bytes.Buffer
@@ -475,6 +484,8 @@ If <object store backend> is \"s3\", then the arguments are:
 	deployAmazon.Flags().BoolVar(&reverse, "reverse", obj.DefaultReverse, "(rarely set) Reverse object storage paths.")
 	deployAmazon.Flags().Int64Var(&partSize, "part-size", obj.DefaultPartSize, "(rarely set) Set a custom part size for object storage uploads.")
 	deployAmazon.Flags().IntVar(&maxUploadParts, "max-upload-parts", obj.DefaultMaxUploadParts, "(rarely set) Set a custom maximum number of upload parts.")
+	deployAmazon.Flags().BoolVar(&disableSSL, "disable-ssl", obj.DefaultDisableSSL, "(rarely set) Disable SSL.")
+	deployAmazon.Flags().BoolVar(&noVerifySSL, "no-verify-ssl", obj.DefaultNoVerifySSL, "(rarely set) Skip SSL certificate verification (typically used for enabling self-signed certificates).")
 	commands = append(commands, cmdutil.CreateAlias(deployAmazon, "deploy amazon"))
 
 	deployMicrosoft := &cobra.Command{
@@ -580,6 +591,8 @@ If <object store backend> is \"s3\", then the arguments are:
 				Reverse:        reverse,
 				PartSize:       partSize,
 				MaxUploadParts: maxUploadParts,
+				DisableSSL:     disableSSL,
+				NoVerifySSL:    noVerifySSL,
 			}
 			return deployStorageSecrets(assets.AmazonSecret(args[0], "", args[1], args[2], token, "", "", advancedConfig))
 		}),
@@ -590,6 +603,8 @@ If <object store backend> is \"s3\", then the arguments are:
 	deployStorageAmazon.Flags().BoolVar(&reverse, "reverse", obj.DefaultReverse, "(rarely set) Reverse object storage paths.")
 	deployStorageAmazon.Flags().Int64Var(&partSize, "part-size", obj.DefaultPartSize, "(rarely set) Set a custom part size for object storage uploads.")
 	deployStorageAmazon.Flags().IntVar(&maxUploadParts, "max-upload-parts", obj.DefaultMaxUploadParts, "(rarely set) Set a custom maximum number of upload parts.")
+	deployStorageAmazon.Flags().BoolVar(&disableSSL, "disable-ssl", obj.DefaultDisableSSL, "(rarely set) Disable SSL.")
+	deployStorageAmazon.Flags().BoolVar(&noVerifySSL, "no-verify-ssl", obj.DefaultNoVerifySSL, "(rarely set) Skip SSL certificate verification (typically used for enabling self-signed certificates).")
 	commands = append(commands, cmdutil.CreateAlias(deployStorageAmazon, "deploy storage amazon"))
 
 	deployStorageGoogle := &cobra.Command{

@@ -465,6 +465,18 @@ spec:
               key: max-upload-parts
               name: pachyderm-storage-secret
               optional: true
+        - name: DISABLE_SSL
+          valueFrom:
+            secretKeyRef:
+              key: disable-ssl
+              name: pachyderm-storage-secret
+              optional: true
+        - name: NO_VERIFY_SSL
+          valueFrom:
+            secretKeyRef:
+              key: no-verify-ssl
+              name: pachyderm-storage-secret
+              optional: true
         image: pachyderm/pachd:1.9.10
         imagePullPolicy: IfNotPresent
         name: pachd
@@ -587,7 +599,9 @@ data:
   amazon-secret: c3RvcmFnZS1zZWNyZXQ=
   amazon-token: ""
   custom-endpoint: c3RvcmFnZS5lbmRwb2ludA==
+  disable-ssl: ZmFsc2U=
   max-upload-parts: MTAwMDA=
+  no-verify-ssl: ZmFsc2U=
   part-size: NTI0Mjg4MA==
   retries: MTA=
   reverse: dHJ1ZQ==
