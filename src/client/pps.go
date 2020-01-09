@@ -163,14 +163,6 @@ func NewPipeline(pipelineName string) *pps.Pipeline {
 	return &pps.Pipeline{Name: pipelineName}
 }
 
-// NewPipelineInput creates a new pps.PipelineInput
-func NewPipelineInput(repoName string, glob string) *pps.PipelineInput {
-	return &pps.PipelineInput{
-		Repo: NewRepo(repoName),
-		Glob: glob,
-	}
-}
-
 // CreateJob creates and runs a job in PPS.
 // This function is mostly useful internally, users should generally run work
 // by creating pipelines as well.
