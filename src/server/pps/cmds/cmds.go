@@ -29,6 +29,7 @@ import (
 	units "github.com/docker/go-units"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"golang.org/x/crypto/ssh/terminal"
@@ -831,6 +832,117 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(stopPipeline, "stop pipeline"))
+
+	var file string
+	createSecret := &cobra.Command{
+		Short: "Create a secret on the cluster.",
+		Long:  "Create a secret on the cluster.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+			client, err := pachdclient.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+			fileBytes, err := ioutil.ReadFile(file)
+			if err != nil {
+				return err
+			}
+
+			_, err = client.PpsAPIClient.CreateSecret(
+				client.Ctx(),
+				&ppsclient.CreateSecretRequest{
+					File: fileBytes,
+				})
+
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			return nil
+		}),
+	}
+	createSecret.Flags().StringVarP(&file, "file", "f", "", "File containing Kubernetes secret.")
+	commands = append(commands, cmdutil.CreateAlias(createSecret, "create secret"))
+
+	deleteSecret := &cobra.Command{
+		Short: "Delete a secret from the cluster.",
+		Long:  "Delete a secret from the cluster.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+			client, err := pachdclient.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+
+			_, err = client.PpsAPIClient.DeleteSecret(
+				client.Ctx(),
+				&ppsclient.DeleteSecretRequest{
+					Secret: &ppsclient.Secret{
+						Name: args[0],
+					},
+				})
+
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			return nil
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(deleteSecret, "delete secret"))
+
+	inspectSecret := &cobra.Command{
+		Short: "Inspect a secret from the cluster.",
+		Long:  "Inspect a secret from the cluster.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+			client, err := pachdclient.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+
+			secretInfo, err := client.PpsAPIClient.InspectSecret(
+				client.Ctx(),
+				&ppsclient.InspectSecretRequest{
+					Secret: &ppsclient.Secret{
+						Name: args[0],
+					},
+				})
+
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			writer := tabwriter.NewWriter(os.Stdout, pretty.SecretHeader)
+			pretty.PrintSecretInfo(writer, secretInfo)
+			return writer.Flush()
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(inspectSecret, "inspect secret"))
+
+	listSecret := &cobra.Command{
+		Short: "List all secrets from a namespace in the cluster.",
+		Long:  "List all secrets from a namespace in the cluster.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+			client, err := pachdclient.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+
+			secretInfos, err := client.PpsAPIClient.ListSecret(
+				client.Ctx(),
+				&types.Empty{},
+			)
+
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			writer := tabwriter.NewWriter(os.Stdout, pretty.SecretHeader)
+			for _, si := range secretInfos.GetSecretInfo() {
+				pretty.PrintSecretInfo(writer, si)
+			}
+			return writer.Flush()
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(listSecret, "list secret"))
 
 	var memory string
 	garbageCollect := &cobra.Command{

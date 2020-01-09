@@ -675,6 +675,48 @@ func (c APIClient) RunCron(name string) error {
 	return grpcutil.ScrubGRPC(err)
 }
 
+// CreateSecret creates a secret on the cluster.
+func (c APIClient) CreateSecret(file []byte) error {
+	_, err := c.PpsAPIClient.CreateSecret(
+		c.Ctx(),
+		&pps.CreateSecretRequest{
+			File: file,
+		},
+	)
+	return grpcutil.ScrubGRPC(err)
+}
+
+// DeleteSecret deletes a secret from the cluster.
+func (c APIClient) DeleteSecret(secret string) error {
+	_, err := c.PpsAPIClient.DeleteSecret(
+		c.Ctx(),
+		&pps.DeleteSecretRequest{
+			Secret: &pps.Secret{Name: secret},
+		},
+	)
+	return grpcutil.ScrubGRPC(err)
+}
+
+// InspectSecret returns info about a specific secret.
+func (c APIClient) InspectSecret(secret string) (*pps.SecretInfo, error) {
+	secretInfo, err := c.PpsAPIClient.InspectSecret(
+		c.Ctx(),
+		&pps.InspectSecretRequest{
+			Secret: &pps.Secret{Name: secret},
+		},
+	)
+	return secretInfo, grpcutil.ScrubGRPC(err)
+}
+
+// ListSecret returns info about all Pachyderm secrets.
+func (c APIClient) ListSecret() ([]*pps.SecretInfo, error) {
+	secretInfos, err := c.PpsAPIClient.ListSecret(
+		c.Ctx(),
+		&types.Empty{},
+	)
+	return secretInfos.SecretInfo, grpcutil.ScrubGRPC(err)
+}
+
 // CreatePipelineService creates a new pipeline service.
 func (c APIClient) CreatePipelineService(
 	name string,
