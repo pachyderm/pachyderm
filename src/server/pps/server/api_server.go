@@ -1626,6 +1626,12 @@ func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo 
 		if pipelineInfo.EnableStats {
 			return fmt.Errorf("spouts are not allowed to have a stats branch")
 		}
+		if pipelineInfo.Spout.Marker != "" {
+			// we need to make sure the marker name is also a valid file name, since it is used in file names
+			if err := hashtree.ValidatePath(pipelineInfo.Spout.Marker); err != nil {
+				return fmt.Errorf("the spout marker name must be a valid filename: %v", pipelineInfo.Spout.Marker)
+			}
+		}
 	}
 	return nil
 }

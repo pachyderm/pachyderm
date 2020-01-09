@@ -254,7 +254,7 @@ func (a *APIServer) spoutSpawner(pachClient *client.APIClient) error {
 		if err != nil || markerBranch == nil {
 			err = pachClient.CreateBranch(a.pipelineInfo.Pipeline.Name, "marker", "", nil)
 			if err != nil {
-				return nil
+				return err
 			}
 		}
 	}

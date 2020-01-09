@@ -576,7 +576,7 @@ func (a *APIServer) linkData(inputs []*Input, dir string) error {
 		}
 	}
 
-	if a.pipelineInfo.Spout.Marker != "" {
+	if a.pipelineInfo.Spout != nil && a.pipelineInfo.Spout.Marker != "" {
 		err = os.Symlink(filepath.Join(dir, a.pipelineInfo.Spout.Marker), filepath.Join(client.PPSInputPrefix, a.pipelineInfo.Spout.Marker))
 		if err != nil {
 			return err
