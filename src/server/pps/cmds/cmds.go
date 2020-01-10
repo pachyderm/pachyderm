@@ -487,7 +487,7 @@ $ {{alias}} --pipeline=filter --inputs=/apple.txt,123aef`,
 	getLogs.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Filter the log "+
 		"for lines from this pipeline (accepts pipeline name)")
 	getLogs.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
-	getLogs.Flags().StringVar(&jobID, "job", "", "Filter for log lines from "+
+	getLogs.Flags().StringVarP(&jobID, "job", "j", "", "Filter for log lines from "+
 		"this job (accepts job ID)")
 	getLogs.MarkFlagCustom("job", "__pachctl_get_job")
 	getLogs.Flags().StringVar(&datumID, "datum", "", "Filter for log lines for this datum (accepts datum ID)")
@@ -501,7 +501,7 @@ $ {{alias}} --pipeline=filter --inputs=/apple.txt,123aef`,
 		if flag == "--pipeline" || flag == "-p" {
 			return shell.PipelineCompletion(flag, text, maxCompletions)
 		}
-		if flag == "--job" {
+		if flag == "--job" || flag == "-j" {
 			return shell.JobCompletion(flag, text, maxCompletions)
 		}
 		return nil
