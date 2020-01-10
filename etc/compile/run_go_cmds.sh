@@ -21,12 +21,9 @@ BINARY="${1}"
 LD_FLAGS="${2}"
 PROFILE="${3}"
 
-# Note that github.com/pachyderm/pachyderm is mounted into the
-# {pachd,worker}_compile docker container that this script is running in, so
-# 'mkdir' below actually creates a dir on the host machine. The dir name
-# includes ${BINARY} so that building pachd and worker concurrently in 'make
-# docker-build' works. See https://github.com/pachyderm/pachyderm/issues/3845
-TMP="docker_build_${BINARY}.tmpdir"
+# Ubuntu mounts an in-memory filesystem at /dev/shm (rather than /tmp) so use
+# that parent for performance
+TMP="$(mktemp -t docker_build_${BINARY}.XXXXXXXX)"
 rm -rf "${TMP}" # in case a directory was left behind by a prior failed build
 mkdir -p "${TMP}"
 CGO_ENABLED=0 GOOS=linux go build \
