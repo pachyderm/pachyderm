@@ -131,7 +131,7 @@ If the job fails, the output commit will not be populated with data.`,
 	}
 	inspectJob.Flags().BoolVarP(&block, "block", "b", false, "block until the job has either succeeded or failed")
 	inspectJob.Flags().AddFlagSet(outputFlags)
-	inspectJob.Flags().AddFlagSet(fullTimestampsFlags)
+	shell.RegisterCompletionFunc(inspectJob, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAlias(inspectJob, "inspect job"))
 
 	var pipelineName string
