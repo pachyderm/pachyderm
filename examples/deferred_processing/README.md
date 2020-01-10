@@ -23,7 +23,7 @@ See [Deploy Pachyderm](https://docs.pachyderm.com/latest/deploy-manage/deploy/).
 
 The following diagram demonstrates the DAG that is used in this example.
 
-![Example DAG](./example_dag.png)
+![Example DAG](example_dag.png)
 
 The DAG shown is a simple elaboration on the OpenCV example,
 with pipeline and repo names chosen to avoid collisions with that example 
@@ -98,9 +98,9 @@ before you run this example.
    
    ```sh
    $  pachctl list commit edges_dp
-   REPO     BRANCH COMMIT                           FINISHED       SIZE     PROGRESS DESCRIPTION
-   edges_dp dev    364f49663dd848098b60c1ac97a332af 36 seconds ago 133.6KiB -         
-   edges_dp dev    a07c857b91a14add9f8309a81d86dbe8 44 seconds ago 22.22KiB -      
+   REPO     BRANCH COMMIT                           FINISHED       
+   edges_dp dev    364f49663dd848098b60c1ac97a332af 36 seconds ago 
+   edges_dp dev    a07c857b91a14add9f8309a81d86dbe8 44 seconds ago 
    ```
    
    Remember that the `edges_dp` pipeline outputs to the `dev` branch.
