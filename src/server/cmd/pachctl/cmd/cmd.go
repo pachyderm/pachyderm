@@ -447,14 +447,23 @@ Environment variables:
 	versionCmd.Flags().AddFlagSet(rawFlags)
 	subcommands = append(subcommands, cmdutil.CreateAlias(versionCmd, "version"))
 
+	var maxCompletions int64
 	shellCmd := &cobra.Command{
 		Short: "Run the pachyderm shell.",
 		Long:  "Run the pachyderm shell.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			shell.Run(rootCmd) // never returns
+			cfg, err := config.Read(true)
+			if err != nil {
+				return err
+			}
+			if maxCompletions == 0 {
+				maxCompletions = cfg.V2.MaxShellCompletions
+			}
+			shell.Run(rootCmd, maxCompletions) // never returns
 			return nil
 		}),
 	}
+	shellCmd.Flags().Int64Var(&maxCompletions, "max-completions", 0, "The maximum number of completions to show in the shell, defaults to 64.")
 	subcommands = append(subcommands, cmdutil.CreateAlias(shellCmd, "shell"))
 
 	deleteAll := &cobra.Command{
