@@ -209,9 +209,9 @@ $ {{alias}} -p foo -i bar@YYY`,
 	listJob.Flags().AddFlagSet(fullTimestampsFlags)
 	listJob.Flags().AddFlagSet(noPagerFlags)
 	listJob.Flags().StringVar(&history, "history", "none", "Return jobs from historical versions of pipelines.")
-	shell.RegisterCompletionFunc(listJob, func(flag, text string) []prompt.Suggest {
+	shell.RegisterCompletionFunc(listJob, func(flag, text string, maxCompletions int64) []prompt.Suggest {
 		if flag == "-p" || flag == "--pipeline" {
-			return shell.PipelineCompletion(flag, text)
+			return shell.PipelineCompletion(flag, text, maxCompletions)
 		}
 		return nil
 	})
@@ -268,11 +268,11 @@ $ {{alias}} foo@XXX -p bar -p baz`,
 	flushJob.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
 	flushJob.Flags().AddFlagSet(outputFlags)
 	flushJob.Flags().AddFlagSet(fullTimestampsFlags)
-	shell.RegisterCompletionFunc(flushJob, func(flag, text string) []prompt.Suggest {
+	shell.RegisterCompletionFunc(flushJob, func(flag, text string, maxCompletions int64) []prompt.Suggest {
 		if flag == "--pipeline" || flag == "-p" {
-			return shell.PipelineCompletion(flag, text)
+			return shell.PipelineCompletion(flag, text, maxCompletions)
 		}
-		return shell.BranchCompletion(flag, text)
+		return shell.BranchCompletion(flag, text, maxCompletions)
 	})
 	commands = append(commands, cmdutil.CreateAlias(flushJob, "flush job"))
 
@@ -497,12 +497,12 @@ $ {{alias}} --pipeline=filter --inputs=/apple.txt,123aef`,
 	getLogs.Flags().BoolVar(&raw, "raw", false, "Return log messages verbatim from server.")
 	getLogs.Flags().BoolVarP(&follow, "follow", "f", false, "Follow logs as more are created.")
 	getLogs.Flags().Int64VarP(&tail, "tail", "t", 0, "Lines of recent logs to display.")
-	shell.RegisterCompletionFunc(getLogs, func(flag, text string) []prompt.Suggest {
+	shell.RegisterCompletionFunc(getLogs, func(flag, text string, maxCompletions int64) []prompt.Suggest {
 		if flag == "--pipeline" || flag == "-p" {
-			return shell.PipelineCompletion(flag, text)
+			return shell.PipelineCompletion(flag, text, maxCompletions)
 		}
 		if flag == "--job" {
-			return shell.JobCompletion(flag, text)
+			return shell.JobCompletion(flag, text, maxCompletions)
 		}
 		return nil
 	})

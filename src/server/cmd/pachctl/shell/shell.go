@@ -14,11 +14,12 @@ import (
 )
 
 const (
-	completionAnnotation string = "completion"
-	ldThreshold          int    = 2
+	completionAnnotation  string = "completion"
+	ldThreshold           int    = 2
+	defaultMaxCompletions int64  = 64
 )
 
-type CompletionFunc func(flag, arg string) []prompt.Suggest
+type CompletionFunc func(flag, arg string, maxCompletions int64) []prompt.Suggest
 
 var completions map[string]CompletionFunc = make(map[string]CompletionFunc)
 
@@ -35,11 +36,18 @@ func RegisterCompletionFunc(cmd *cobra.Command, completionFunc CompletionFunc) {
 }
 
 type shell struct {
-	rootCmd *cobra.Command
+	rootCmd        *cobra.Command
+	maxCompletions int64
 }
 
-func newShell(rootCmd *cobra.Command) *shell {
-	return &shell{rootCmd: rootCmd}
+func newShell(rootCmd *cobra.Command, maxCompletions int64) *shell {
+	if maxCompletions == 0 {
+		maxCompletions = defaultMaxCompletions
+	}
+	return &shell{
+		rootCmd:        rootCmd,
+		maxCompletions: maxCompletions,
+	}
 }
 
 func (s *shell) executor(in string) {
@@ -89,7 +97,10 @@ func (s *shell) suggestor(in prompt.Document) []prompt.Suggest {
 	}
 	if id, ok := cmd.Annotations[completionAnnotation]; ok {
 		completionFunc := completions[id]
-		suggests := completionFunc(flag, text)
+		suggests := completionFunc(flag, text, s.maxCompletions)
+		if int64(len(suggests)) > s.maxCompletions {
+			suggests = suggests[:s.maxCompletions]
+		}
 		var result []prompt.Suggest
 		for _, s := range suggests {
 			sText := s.Text
@@ -110,8 +121,9 @@ func (s *shell) run() {
 		s.executor,
 		s.suggestor,
 		prompt.OptionPrefix(">>> "),
+		prompt.OptionTitle("Pachyderm Shell"),
 		prompt.OptionLivePrefix(func() (string, bool) {
-			cfg, err := config.Read()
+			cfg, err := config.Read(true)
 			if err != nil {
 				return "", false
 			}
@@ -125,8 +137,8 @@ func (s *shell) run() {
 }
 
 // Run runs a prompt, it does not return.
-func Run(rootCmd *cobra.Command) {
-	newShell(rootCmd).run()
+func Run(rootCmd *cobra.Command, maxCompletions int64) {
+	newShell(rootCmd, maxCompletions).run()
 }
 
 // ld computes the Levenshtein Distance for two strings.
