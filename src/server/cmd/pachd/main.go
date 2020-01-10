@@ -687,9 +687,8 @@ func doFullMode(config interface{}) (retErr error) {
 		if err != nil {
 			log.Warnf("s3gateway TLS disabled: %v", err)
 			return server.ListenAndServe()
-		} else {
-			return server.ListenAndServeTLS(certPath, keyPath)
 		}
+		return server.ListenAndServeTLS(certPath, keyPath)
 	})
 	go waitForError("Prometheus Server", errChan, func() error {
 		http.Handle("/metrics", promhttp.Handler())
