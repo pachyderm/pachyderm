@@ -21,6 +21,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/juju/ansiterm"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	admincmds "github.com/pachyderm/pachyderm/src/server/admin/cmds"
@@ -41,8 +42,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -415,7 +416,7 @@ Environment variables:
 			if err != nil {
 				buf := bytes.NewBufferString("")
 				errWriter := ansiterm.NewTabWriter(buf, 20, 1, 3, ' ', 0)
-				fmt.Fprintf(errWriter, "pachd\t(version unknown) : error connecting to pachd server at address (%v): %v\n\nplease make sure pachd is up (`kubectl get all`) and portforwarding is enabled\n", pachClient.GetAddress(), grpc.ErrorDesc(err))
+				fmt.Fprintf(errWriter, "pachd\t(version unknown) : error connecting to pachd server at address (%v): %v\n\nplease make sure pachd is up (`kubectl get all`) and portforwarding is enabled\n", pachClient.GetAddress(), status.Convert(err).Message())
 				errWriter.Flush()
 				return errors.New(buf.String())
 			}
@@ -512,61 +513,116 @@ This resets the cluster to its initial state.`,
 				fmt.Printf("WARNING: The `--namespace` flag is deprecated and will be removed in a future version. Please set the namespace in the pachyderm context instead: pachctl config update context `pachctl config get active-context` --namespace '%s'\n", namespace)
 			}
 
-			fw, err := client.NewPortForwarder(namespace)
+			cfg, err := config.Read(false)
 			if err != nil {
 				return err
 			}
-
-			if err = fw.Lock(); err != nil {
+			contextName, context, err := cfg.ActiveContext()
+			if err != nil {
 				return err
 			}
+			if context.PortForwarders != nil && len(context.PortForwarders) > 0 {
+				return errors.New("port forwarding appears to already be running for this context")
+			}
 
+			fw, err := client.NewPortForwarder(context, namespace)
+			if err != nil {
+				return err
+			}
 			defer fw.Close()
 
-			failCount := 0
+			context.PortForwarders = map[string]uint32{}
+			successCount := 0
 
 			fmt.Println("Forwarding the pachd (Pachyderm daemon) port...")
-			if err = fw.RunForDaemon(port, remotePort); err != nil {
-				fmt.Printf("%v\n", err)
-				failCount++
+			port, err := fw.RunForDaemon(port, remotePort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				context.PortForwarders["pachd"] = uint32(port)
+				successCount++
 			}
 
 			fmt.Println("Forwarding the SAML ACS port...")
-			if err = fw.RunForSAMLACS(samlPort); err != nil {
-				fmt.Printf("%v\n", err)
-				failCount++
+			port, err = fw.RunForSAMLACS(samlPort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				context.PortForwarders["saml-acs"] = uint32(port)
+				successCount++
 			}
 
 			fmt.Printf("Forwarding the dash (Pachyderm dashboard) UI port to http://localhost:%v...\n", uiPort)
-			if err = fw.RunForDashUI(uiPort); err != nil {
-				fmt.Printf("%v\n", err)
-				failCount++
+			port, err = fw.RunForDashUI(uiPort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				context.PortForwarders["dash-ui"] = uint32(port)
+				successCount++
 			}
 
 			fmt.Println("Forwarding the dash (Pachyderm dashboard) websocket port...")
-			if err = fw.RunForDashWebSocket(uiWebsocketPort); err != nil {
-				fmt.Printf("%v\n", err)
-				failCount++
+			port, err = fw.RunForDashWebSocket(uiWebsocketPort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				context.PortForwarders["dash-ws"] = uint32(port)
+				successCount++
 			}
 
 			fmt.Println("Forwarding the PFS port...")
-			if err = fw.RunForPFS(pfsPort); err != nil {
-				fmt.Printf("%v\n", err)
-				failCount++
+			port, err = fw.RunForPFS(pfsPort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				context.PortForwarders["pfs-over-http"] = uint32(port)
+				successCount++
 			}
 
 			fmt.Println("Forwarding the s3gateway port...")
-			if err = fw.RunForS3Gateway(s3gatewayPort); err != nil {
-				fmt.Printf("%v\n", err)
-				failCount++
+			port, err = fw.RunForS3Gateway(s3gatewayPort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				context.PortForwarders["s3g"] = uint32(port)
+				successCount++
 			}
 
-			if failCount < 6 {
-				fmt.Println("CTRL-C to exit")
-				ch := make(chan os.Signal, 1)
-				signal.Notify(ch, os.Interrupt)
-				<-ch
+			if successCount == 0 {
+				return errors.New("failed to start port forwarders")
 			}
+
+			if err = cfg.Write(); err != nil {
+				return err
+			}
+
+			defer func() {
+				// reload config in case changes have happened since the
+				// config was last read
+				cfg, err := config.Read(true)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "failed to read config file: %v\n", err)
+					return
+				}
+				context, ok := cfg.V2.Contexts[contextName]
+				if ok {
+					context.PortForwarders = nil
+					if err := cfg.Write(); err != nil {
+						fmt.Fprintf(os.Stderr, "failed to write config file: %v\n", err)
+					}
+				}
+			}()
+
+			fmt.Println("CTRL-C to exit")
+			ch := make(chan os.Signal, 1)
+			signal.Notify(ch, os.Interrupt)
+			<-ch
 
 			return nil
 		}),
@@ -772,7 +828,6 @@ func printVersion(w io.Writer, component string, v *versionpb.Version) {
 
 func applyRootUsageFunc(rootCmd *cobra.Command) {
 	// Partition subcommands by category
-	var docs []*cobra.Command
 	var admin []*cobra.Command
 	var actions []*cobra.Command
 	var other []*cobra.Command
@@ -790,7 +845,6 @@ func applyRootUsageFunc(rootCmd *cobra.Command) {
 			"repo",
 			"tag":
 			// These are ignored - they will show up in the help topics section
-			docs = append(docs, subcmd)
 		case
 			"copy",
 			"create",

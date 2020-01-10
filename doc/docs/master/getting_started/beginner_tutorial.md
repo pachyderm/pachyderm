@@ -117,7 +117,7 @@ commands will let you view it easily:
   $ pachctl get file images@master:liberty.png | open -f -a /Applications/Preview.app
   ```
 
-* If you on Linux, run:
+* If you are on Linux, run:
 
   ```bash
   $ pachctl get file images@master:liberty.png | display

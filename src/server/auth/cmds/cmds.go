@@ -35,7 +35,7 @@ func githubLogin() (string, error) {
 }
 
 func writePachTokenToCfg(token string) error {
-	cfg, err := config.Read()
+	cfg, err := config.Read(false)
 	if err != nil {
 		return fmt.Errorf("error reading Pachyderm config (for cluster "+
 			"address): %v", err)
@@ -120,6 +120,9 @@ func DeactivateCmd() *cobra.Command {
 			fmt.Println("Are you sure you want to delete ALL auth information " +
 				"(ACLs, tokens, and admins) in this cluster, and expose ALL data? yN")
 			confirm, err := bufio.NewReader(os.Stdin).ReadString('\n')
+			if err != nil {
+				return err
+			}
 			if !strings.Contains("yY", confirm[:1]) {
 				return fmt.Errorf("operation aborted")
 			}
@@ -208,7 +211,7 @@ func LogoutCmd() *cobra.Command {
 			"(simply run 'pachctl auth login' twice) but 'logout' can be useful on " +
 			"shared workstations.",
 		Run: cmdutil.Run(func([]string) error {
-			cfg, err := config.Read()
+			cfg, err := config.Read(false)
 			if err != nil {
 				return fmt.Errorf("error reading Pachyderm config (for cluster "+
 					"address): %v", err)

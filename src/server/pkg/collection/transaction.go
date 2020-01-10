@@ -74,13 +74,6 @@ func NewDryrunSTM(ctx context.Context, c *v3.Client, apply func(STM) error) erro
 	return err
 }
 
-// newSTMRepeatable initiates new repeatable read transaction; reads within
-// the same transaction attempt to always return the same data.
-func newSTMRepeatable(ctx context.Context, c *v3.Client, apply func(STM) error) (*v3.TxnResponse, error) {
-	s := &stm{client: c, ctx: ctx, getOpts: []v3.OpOption{v3.WithSerializable()}}
-	return runSTM(s, apply, false)
-}
-
 // newSTMSerializable initiates a new serialized transaction; reads within the
 // same transaction attempt to return data from the revision of the first read.
 func newSTMSerializable(ctx context.Context, c *v3.Client, apply func(STM) error, dryrun bool) (*v3.TxnResponse, error) {
@@ -89,12 +82,6 @@ func newSTMSerializable(ctx context.Context, c *v3.Client, apply func(STM) error
 		prefetch: make(map[string]*v3.GetResponse),
 	}
 	return runSTM(s, apply, dryrun)
-}
-
-// newSTMReadCommitted initiates a new read committed transaction.
-func newSTMReadCommitted(ctx context.Context, c *v3.Client, apply func(STM) error) (*v3.TxnResponse, error) {
-	s := &stmReadCommitted{stm{client: c, ctx: ctx, getOpts: []v3.OpOption{v3.WithSerializable()}}}
-	return runSTM(s, apply, true)
 }
 
 type stmResponse struct {
@@ -447,14 +434,6 @@ func (s *stmSerializable) commit() *v3.TxnResponse {
 	s.prefetch = s.rset
 	s.getOpts = nil
 	return nil
-}
-
-type stmReadCommitted struct{ stm }
-
-// commit always goes through when read committed
-func (s *stmReadCommitted) commit() *v3.TxnResponse {
-	s.rset = nil
-	return s.stm.commit()
 }
 
 func isKeyCurrent(k string, r *v3.GetResponse) v3.Cmp {

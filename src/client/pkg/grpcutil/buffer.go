@@ -25,7 +25,7 @@ func (b *BufPool) GetBuffer() []byte {
 
 // PutBuffer returns the buffer to the pool.
 func (b *BufPool) PutBuffer(buf []byte) {
-	b.Put(buf)
+	b.Put(buf) //lint:ignore SA6002 []byte is sufficiently pointer-like for our purposes
 }
 
 // bufPool is a pool of buffers that are sized for grpc connections

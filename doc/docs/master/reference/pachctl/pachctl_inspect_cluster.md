@@ -4,11 +4,16 @@ Returns info about the pachyderm cluster
 
 ### Synopsis
 
-
 Returns info about the pachyderm cluster
 
 ```
-pachctl inspect cluster
+pachctl inspect cluster [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for cluster
 ```
 
 ### Options inherited from parent commands

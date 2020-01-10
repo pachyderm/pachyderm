@@ -1,10 +1,10 @@
 # Pachyderm Word Count
 
-In this guide, we will write a classic [word count](https://portal.futuresystems.org/manual/hadoop-wordcount) application on Pachyderm.  This is a somewhat advanced guide; to learn the basic usage of Pachyderm, start with the [beginner tutorial](http://pachyderm.readthedocs.io/en/stable/getting_started/beginner_tutorial.html).
+In this guide, we will write a classic [word count](https://portal.futuresystems.org/manual/hadoop-wordcount) application on Pachyderm.  This is a somewhat advanced guide; to learn the basic usage of Pachyderm, start with the [beginner tutorial](https://docs.pachyderm.com/latest/getting_started/beginner_tutorial/).
 
 ## Setup
 
-This guide assumes that you already have a Pachyderm cluster running and have configured `pachctl` to talk to the cluster. [Installation instructions can be found here](http://pachyderm.readthedocs.io/en/stable/getting_started/local_installation.html).
+This guide assumes that you already have a Pachyderm cluster running and have configured `pachctl` to talk to the cluster. See [Installation instructions](https://docs.pachyderm.com/latest/getting_started/local_installation/).
 
 ## Pipelines
 
@@ -96,7 +96,7 @@ $ pachctl get file map@master:about
 
 ```
 
-By default, Pachyderm will spin up the same number of workers as the number of nodes in your cluster.  This can of course be customized or changed (see [here](http://docs.pachyderm.io/en/latest/fundamentals/distributed_computing.html#controlling-the-number-of-workers-parallelism) for more info on controlling the number of workers).
+By default, Pachyderm will spin up the same number of workers as the number of nodes in your cluster.  This can of course be customized or changed as described in [Distributed Computing](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/distributed_computing/#controlling-the-number-of-workers) for more info on controlling the number of workers).
 
 ## Reduce
 
@@ -163,6 +163,6 @@ $ pachctl finish commit urls@master
 ```
 Your scraper should automatically get started pulling these new sites (it won't rescrape Wikipedia). That will then automatically trigger the `map` and `reduce` pipelines to process the new data and update the word counts for all the sites combined.
 
-If you add a bunch more data and your pipeline starts to run slowly, you can crank up the parallelism. By default, pipelines spin up one worker for each node in your cluster, but you can set that manually with the [parallelism spec](http://docs.pachyderm.io/en/latest/fundamentals/distributed_computing.html#controlling-the-number-of-workers-parallelism) field in the pipeline specification. Further, the pipelines are already configured to spread computation across the various workers with `"glob": "/*"`. Check out our [spreading data across workers docs](http://docs.pachyderm.io/en/latest/fundamentals/distributed_computing.html#spreading-data-across-workers-glob-patterns) to learn more about that. 
+If you add a bunch more data and your pipeline starts to run slowly, you can crank up the parallelism. By default, pipelines spin up one worker for each node in your cluster, but you can set that manually with the [parallelism spec](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/distributed_computing/#controlling-the-number-of-workers) field in the pipeline specification. Further, the pipelines are already configured to spread computation across the various workers with `"glob": "/*"`. Check out our [Glob Pattern](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/glob-pattern/) to learn more.
 
 

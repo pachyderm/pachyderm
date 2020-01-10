@@ -4,11 +4,10 @@ Tear down a deployed Pachyderm cluster.
 
 ### Synopsis
 
-
 Tear down a deployed Pachyderm cluster.
 
 ```
-pachctl undeploy
+pachctl undeploy [flags]
 ```
 
 ### Options
@@ -22,6 +21,7 @@ pachctl undeploy
                            unrecoverable. If your persistent volume was manually provisioned (i.e. if
                            you used the "--static-etcd-volume" flag), the underlying volume will not be
                            removed.
+  -h, --help               help for undeploy
       --namespace string   Kubernetes namespace to undeploy Pachyderm from.
 ```
 

@@ -4,11 +4,16 @@ Sets whether metrics are enabled.
 
 ### Synopsis
 
-
 Sets whether metrics are enabled.
 
 ```
-pachctl config set metrics
+pachctl config set metrics [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for metrics
 ```
 
 ### Options inherited from parent commands

@@ -4,11 +4,16 @@ Execute and clear the currently active transaction.
 
 ### Synopsis
 
-
 Execute and clear the currently active transaction.
 
 ```
-pachctl finish transaction [<transaction>]
+pachctl finish transaction [<transaction>] [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for transaction
 ```
 
 ### Options inherited from parent commands

@@ -4,11 +4,16 @@ Cancel and delete an existing transaction.
 
 ### Synopsis
 
-
 Cancel and delete an existing transaction.
 
 ```
-pachctl delete transaction [<transaction>]
+pachctl delete transaction [<transaction>] [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for transaction
 ```
 
 ### Options inherited from parent commands

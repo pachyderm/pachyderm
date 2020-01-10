@@ -24,7 +24,7 @@ Finally, we provide some [Resources](README.md#resources) for you for further ex
 ## Getting Started
 
 - Clone this repo.
-- Install/deploy Pachyderm (See the [Pachyderm docs](http://docs.pachyderm.io/en/latest/) for details. In particular, the [local installation](http://docs.pachyderm.io/en/latest/getting_started/local_installation.html) is a super easy way to experiment with Pachyderm).
+- Install Pachyderm as described in [Local Installation](https://docs.pachyderm.com/latest/getting_started/local_installation/).
 
 ## 1. Make sure Pachyderm is running
 
@@ -326,6 +326,6 @@ We could get this model to examine it, rerun it, revert to a different model, et
 ## Resources
 
 - Join the [Pachyderm Slack team](http://slack.pachyderm.io/) to ask questions, get help, and talk about production deploys.
-- Follow [Pachyderm on Twitter](https://twitter.com/pachydermIO),
+- Follow [Pachyderm on Twitter](https://twitter.com/pachyderminc),
 - Find [Pachyderm on GitHub](https://github.com/pachyderm/pachyderm), and
-- [Spin up Pachyderm](http://docs.pachyderm.io/en/latest/getting_started/getting_started.html) in just a few commands to try this and [other examples](http://docs.pachyderm.io/en/latest/examples/readme.html) locally.
+- [Spin up Pachyderm](https://docs.pachyderm.com/latest/getting_started/) by running just a few commands to try this and [other examples](https://docs.pachyderm.com/latest/examples/examples/) locally.

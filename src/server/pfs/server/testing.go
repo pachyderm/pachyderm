@@ -21,8 +21,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
-	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 
 	"golang.org/x/net/context"
 )
@@ -102,7 +102,7 @@ func GetPachClient(t testing.TB, config *serviceenv.Configuration) *client.APICl
 		}, backoff.NewTestingBackOff()))
 	})
 
-	root := tu.UniqueString("/tmp/pach_test/run")
+	root := "/tmp/pach_test/run" + uuid.NewWithoutDashes()[0:12]
 	t.Logf("root %s", root)
 
 	pfsPort := atomic.AddInt32(&port, 1)
@@ -127,7 +127,7 @@ func GetPachClient(t testing.TB, config *serviceenv.Configuration) *client.APICl
 	apiServer, err := newAPIServer(env, txnEnv, etcdPrefix, treeCache, "/tmp", 64*1024*1024)
 	require.NoError(t, err)
 
-	txnEnv.Initialize(env, nil, &authtesting.InactiveAPIServer{}, apiServer)
+	txnEnv.Initialize(env, nil, &authtesting.InactiveAPIServer{}, apiServer, txnenv.NewMockPpsTransactionServer())
 
 	runServers(t, pfsPort, apiServer, blockAPIServer)
 	return env.GetPachClient(context.Background())

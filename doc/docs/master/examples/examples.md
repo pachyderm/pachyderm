@@ -4,7 +4,7 @@
 
 This example does edge detection using OpenCV. This is our canonical starter demo. If you haven't used Pachyderm before, start here. We'll get you started running Pachyderm locally in just a few minutes and processing sample log lines.
 
-[Open CV](http://pachyderm.readthedocs.io/en/stable/getting_started/beginner_tutorial.html)
+[Open CV](https://docs.pachyderm.com/latest/getting_started/beginner_tutorial/)
 
 ## Word Count (Map/Reduce)
 
@@ -20,7 +20,7 @@ This example pipeline executes a query periodically against a MongoDB database o
 
 ## Lazy Shuffle pipeline
 
-This example demonstrates how lazy shuffle pipeline i.e. a pipeline that shuffles, combines files without downloading/uploading can be created. These types of pipelines are useful for intermediate processing step that aggregates or rearranges data from one or many sources. For more information [see](https://pachyderm.readthedocs.io/en/latest/managing_pachyderm/data_management.html)
+This example demonstrates how lazy shuffle pipeline i.e. a pipeline that shuffles, combines files without downloading/uploading can be created. These types of pipelines are useful for intermediate processing step that aggregates or rearranges data from one or many sources.
 
 [Lazy Shuffle pipeline](https://github.com/pachyderm/pachyderm/tree/master/examples/shuffle)
 
@@ -29,6 +29,44 @@ This example demonstrates how lazy shuffle pipeline i.e. a pipeline that shuffle
 This example illustrates the use of GATK in Pachyderm for Germline variant calling and joint genotyping. Each stage of this GATK best practice pipeline can be scaled individually and is automatically triggered as data flows into the top of the pipeline. The example follows [this tutorial](https://drive.google.com/open?id=0BzI1CyccGsZiQ1BONUxfaGhZRGc) from GATK, which includes more details about the various stages.
 
 [GATK - Variant Calling](https://github.com/pachyderm/pachyderm/tree/master/examples/gatk)
+
+## Pachyderm Pipelines
+
+This section lists all the examples that you can run with various
+Pachyderm pipelines and special features, such as transactions.
+
+### Joins
+
+A join is a special type of pipeline that enables you to perform
+data operations on files with a specific naming pattern.
+
+[Matching files by name pattern](https://github.com/pachyderm/pachyderm/tree/master/examples/joins)
+
+### Spouts
+
+A spout is a special type of pipeline that you can use to ingest
+streaming data and perform such operations as sorting, filtering, and other.
+
+* [Email Sentiment Analyzer](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/EmailSentimentAnalyzer)
+* [Commit Messages from a Kafka Queue](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/go-kafka-spout)
+* [Amazon SQS S3 Spout](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/SQS-S3)
+
+### Transactions
+
+Pachyderm transactions enable you to execute multiple
+Pachyderm operations simultaneously.
+
+[Use Transactions with Hyperparameter Tuning](https://github.com/pachyderm/pachyderm/tree/master/examples/transactions)
+
+### err_cmd
+
+The `err_cmd` parameter in a Pachyderm pipeline enables
+you to specified actions for failed datums. When you do not
+need all the datums to be successful for each run of your
+pipeline, you can configure this parameter to skip them and
+mark the job run as successful.
+
+[Skip Failed Datums in Your Pipeline](https://github.com/pachyderm/pachyderm/tree/master/examples/err_cmd)
 
 ## Machine Learning
 
@@ -66,3 +104,5 @@ This example demonstrates how you can evaluate a model or function in a distribu
 This example demonstrates integration of Spark with Pachyderm by launching a Spark job on an existing cluster from within a Pachyderm Job. The job uses configuration info that is versioned within Pachyderm, and stores it's reduced result back into a Pachyderm output repo, maintaining full provenance and version history within Pachyderm, while taking advantage of Spark for computation.
 
 [Spark Example](https://github.com/pachyderm/pachyderm/tree/master/examples/spark/pi)
+
+

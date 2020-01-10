@@ -53,7 +53,7 @@ version:
 deps:
 	go get -d -v ./src/... ./.
 
-update-deps: 
+update-deps:
 	go get -d -v -u ./src/... ./.
 
 build:
@@ -151,10 +151,10 @@ docker-clean-worker:
 
 docker-build-worker: docker-clean-worker
 	docker run \
-		-v $(PWD):/go/src/github.com/pachyderm/pachyderm \
+		-v $$PWD:/pachyderm \
 		-v $$GOPATH/pkg:/go/pkg \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
-		--name worker_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh worker "$(LD_FLAGS)"
+		--name worker_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /pachyderm/etc/compile/compile.sh worker "$(LD_FLAGS)"
 
 
 docker-wait-worker:
@@ -166,10 +166,10 @@ docker-clean-pachd:
 
 docker-build-pachd: docker-clean-pachd
 	docker run  \
-		-v $(PWD):/go/src/github.com/pachyderm/pachyderm \
+		-v $$PWD:/pachyderm \
 		-v $$GOPATH/pkg:/go/pkg \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
-		--name pachd_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh pachd "$(LD_FLAGS)"
+		--name pachd_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /pachyderm/etc/compile/compile.sh pachd "$(LD_FLAGS)"
 
 docker-clean-test:
 	docker stop test_compile || true
@@ -185,13 +185,13 @@ docker-build-test: docker-clean-test docker-build-compile
 	  --attach stdout \
 	  --attach stderr \
 	  --rm \
-	  -w /go/src/github.com/pachyderm/pachyderm \
-	  -v $$GOPATH/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
+	  -w /pachyderm \
+	  -v $$PWD:/pachyderm \
 	  -v $$HOME/.cache/go-build:/root/.cache/go-build \
 	  -v /var/run/docker.sock:/var/run/docker.sock \
 	  --privileged=true \
 	  --name test_compile \
-	  pachyderm_test_buildenv sh /go/src/github.com/pachyderm/pachyderm/etc/compile/compile_test.sh
+	  pachyderm_test_buildenv sh /pachyderm/etc/compile/compile_test.sh
 	docker tag pachyderm_test:latest pachyderm/test:`git rev-list HEAD --max-count=1`
 
 docker-push-test:
@@ -223,9 +223,7 @@ docker-build-gpu:
 	docker tag pachyderm_nvidia_driver_install pachyderm/nvidia_driver_install
 
 docker-build-kafka:
-	cp -R vendor/github.com/segmentio/kafka-go etc/testing/kafka
-	docker build -t kafka-demo etc/testing/kafka || { rm -r etc/testing/kafka/kafka-go; exit 1; }
-	rm -r etc/testing/kafka/kafka-go
+	docker build -t kafka-demo etc/testing/kafka
 
 docker-push-gpu:
 	docker push pachyderm/nvidia_driver_install
@@ -380,25 +378,17 @@ full-clean-launch: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found serviceaccount -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
 
-launch-test-rethinkdb:
-	@# Expose port 8081 so you can connect to the rethink dashboard
-	@# (You may need to forward port 8081 if you're running docker machine)
-	docker run --name pachyderm-test-rethinkdb -d -p 28015:28015 -p 8081:8080 rethinkdb:2.3.3
-	sleep 20  # wait for rethinkdb to start up
-
-clean-launch-test-rethinkdb:
-	docker stop pachyderm-test-rethinkdb || true
-	docker rm pachyderm-test-rethinkdb || true
-
-clean-pps-storage: check-kubectl
-	kubectl $(KUBECTLFLAGS) delete pvc rethink-volume-claim
-	kubectl $(KUBECTLFLAGS) delete pv rethink-volume
-
 integration-tests:
 	CGOENABLED=0 go test -v -count=1 ./src/server $(TESTFLAGS) -timeout $(TIMEOUT)
 
+staticcheck:
+	staticcheck ./...
+
 test-proto-static:
 	./etc/proto/test_no_changes.sh || echo "Protos need to be recompiled; run make proto-no-cache."
+
+test-deploy-manifests:
+	./etc/testing/deploy-manifests/validate.sh
 
 proto: docker-build-proto
 	./etc/proto/build.sh
@@ -439,7 +429,7 @@ enterprise-code-checkin-test:
 	fi
 
 test-pfs-server:
-	./etc/testing/pfs_server.sh $(ETCD_IMAGE) $(TIMEOUT)
+	./etc/testing/pfs_server.sh $(TIMEOUT)
 
 test-pfs-storage:
 	go test  -count=1 ./src/server/pkg/storage/chunk -timeout $(TIMEOUT)
@@ -484,11 +474,9 @@ test-vault:
 	./src/plugin/vault/etc/pach-auth.sh --delete-all
 
 test-s3gateway-conformance:
-	pachctl enterprise activate $$(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -) && echo
 	$(CONFORMANCE_SCRIPT_PATH) --s3tests-config=etc/testing/s3gateway/s3tests.conf --ignore-config=etc/testing/s3gateway/ignore.conf --runs-dir=etc/testing/s3gateway/runs
 
 test-s3gateway-integration:
-	pachctl enterprise activate $$(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -) && echo
 	go test -v -count=1 ./src/server/pfs/s3 -timeout $(TIMEOUT)
 
 test-fuse:
@@ -577,7 +565,7 @@ kubectl:
 	gcloud container clusters get-credentials $(CLUSTER_NAME)
 
 google-cluster-manifest:
-	@pachctl deploy --rethinkdb-cache-size=5G --dry-run google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
+	@pachctl deploy --dry-run google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
 
 google-cluster:
 	gcloud container clusters create $(CLUSTER_NAME) --scopes storage-rw --machine-type $(CLUSTER_MACHINE_TYPE) --num-nodes $(CLUSTER_SIZE)
@@ -609,8 +597,6 @@ amazon-clean-cluster:
 
 amazon-clean-launch: clean-launch
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secrets amazon-secret
-	kubectl $(KUBECTLFLAGS) delete --ignore-not-found persistentvolumes rethink-volume
-	kubectl $(KUBECTLFLAGS) delete --ignore-not-found persistentvolumeclaims rethink-volume-claim
 
 amazon-clean:
 	@while :; \
@@ -690,7 +676,6 @@ goxc-build:
 	clean-launch-dev \
 	clean-launch \
 	full-clean-launch \
-	clean-pps-storage \
 	integration-tests \
 	proto \
 	pretest \
@@ -719,6 +704,4 @@ goxc-build:
 	lint \
 	goxc-generate-local \
 	goxc-release \
-	goxc-build \
-	launch-test-rethinkdb \
-	clean-launch-test-rethinkdb
+	goxc-build

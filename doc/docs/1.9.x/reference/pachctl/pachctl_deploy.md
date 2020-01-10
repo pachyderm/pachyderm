@@ -4,7 +4,6 @@ Deploy a Pachyderm cluster.
 
 ### Synopsis
 
-
 Deploy a Pachyderm cluster.
 
 ### Options
@@ -20,6 +19,7 @@ Deploy a Pachyderm cluster.
       --etcd-memory-request string    (rarely set) The size of etcd's memory request. Size is in bytes, with SI suffixes (M, K, G, Mi, Ki, Gi, etc).
       --etcd-storage-class string     If set, the name of an existing StorageClass to use for etcd storage. Ignored if --static-etcd-volume is set.
       --expose-object-api             If set, instruct pachd to serve its object/block API on its public port (not safe with auth enabled, do not set in production).
+  -h, --help                          help for deploy
       --image-pull-secret string      A secret in Kubernetes that's needed to pull from your private registry.
       --local-roles                   Use namespace-local roles instead of cluster roles. Ignored if --no-rbac is set.
       --log-level string              The level of log messages to print options are, from least to most verbose: "error", "info", "debug". (default "info")

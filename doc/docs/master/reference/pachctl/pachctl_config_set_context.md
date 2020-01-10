@@ -4,16 +4,16 @@ Set a context.
 
 ### Synopsis
 
-
 Set a context config from a given name and either JSON stdin, or a given kubernetes context.
 
 ```
-pachctl config set context
+pachctl config set context [flags]
 ```
 
 ### Options
 
 ```
+  -h, --help                help for context
   -k, --kubernetes string   Import a given kubernetes context's values into the Pachyderm context.
       --overwrite           Overwrite a context if it already exists.
 ```

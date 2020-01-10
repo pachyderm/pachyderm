@@ -102,7 +102,7 @@ func (env *ServiceEnv) initPachClient() error {
 			return fmt.Errorf("failed to initialize pach client: %v", err)
 		}
 		return nil
-	}, backoff.RetryEvery(time.Second).For(time.Minute))
+	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
 
 func (env *ServiceEnv) initEtcdClient() error {
@@ -117,7 +117,7 @@ func (env *ServiceEnv) initEtcdClient() error {
 			Endpoints: []string{env.etcdAddress},
 			// Use a long timeout with Etcd so that Pachyderm doesn't crash loop
 			// while waiting for etcd to come up (makes startup net faster)
-			DialOptions:        append(client.DefaultDialOptions(), grpc.WithTimeout(3*time.Minute)),
+			DialOptions:        append(client.DefaultDialOptions(), grpc.WithTimeout(3*time.Minute)), //lint:ignore SA1019 can't call grpc.Dial directly
 			MaxCallSendMsgSize: math.MaxInt32,
 			MaxCallRecvMsgSize: math.MaxInt32,
 		})
@@ -125,7 +125,7 @@ func (env *ServiceEnv) initEtcdClient() error {
 			return fmt.Errorf("failed to initialize etcd client: %v", err)
 		}
 		return nil
-	}, backoff.RetryEvery(time.Second).For(time.Minute))
+	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
 
 func (env *ServiceEnv) initKubeClient() error {
@@ -153,7 +153,7 @@ func (env *ServiceEnv) initKubeClient() error {
 			return fmt.Errorf("could not initialize kube client: %v", err)
 		}
 		return nil
-	}, backoff.RetryEvery(time.Second).For(time.Minute))
+	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
 
 // GetPachClient returns a pachd client with the same authentication

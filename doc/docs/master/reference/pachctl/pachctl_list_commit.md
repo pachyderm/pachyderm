@@ -4,11 +4,10 @@ Return all commits on a repo.
 
 ### Synopsis
 
-
 Return all commits on a repo.
 
 ```
-pachctl list commit <repo>[@<branch>]
+pachctl list commit <repo>[@<branch>] [flags]
 ```
 
 ### Examples
@@ -33,6 +32,7 @@ $ pachctl list commit foo@master --from XXX
 ```
   -f, --from string       list all commits since this commit
       --full-timestamps   Return absolute timestamps (as opposed to the default, relative timestamps).
+  -h, --help              help for commit
   -n, --number int        list only this many commits; if set to zero, list all commits
       --raw               disable pretty printing, print raw json
 ```

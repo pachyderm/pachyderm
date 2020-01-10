@@ -22,7 +22,7 @@ func main() {
 		log.Fatalf("must set --key-size")
 	}
 
-	if err := filepath.Walk("/pfs/input/", func(path string, info os.FileInfo, err error) error {
+	if err := filepath.Walk("/pfs/input/", func(path string, info os.FileInfo, _ error) error {
 		f, err := os.Open(path)
 		if err != nil {
 			return err

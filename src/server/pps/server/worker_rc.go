@@ -50,7 +50,6 @@ type workerOptions struct {
 	workerEnv        []v1.EnvVar         // Environment vars set in the user container
 	volumes          []v1.Volume         // Volumes that we expose to the user container
 	volumeMounts     []v1.VolumeMount    // Paths where we mount each volume in 'volumes'
-	etcdPrefix       string              // the prefix in etcd to use
 	schedulingSpec   *pps.SchedulingSpec // the SchedulingSpec for the pipeline
 	podSpec          string
 	podPatch         string
@@ -101,7 +100,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	}
 	sidecarEnv = append(sidecarEnv, storageEnvVars...)
 	workerEnv := options.workerEnv
-	workerEnv = append(options.workerEnv, v1.EnvVar{Name: "PACH_ROOT", Value: a.storageRoot})
+	workerEnv = append(workerEnv, v1.EnvVar{Name: "PACH_ROOT", Value: a.storageRoot})
 	workerEnv = append(workerEnv, assets.GetSecretEnvVars(a.storageBackend)...)
 	// This only happens in local deployment.  We want the workers to be
 	// able to read from/write to the hostpath volume as well.
@@ -506,7 +505,7 @@ type noValidOptionsErr struct {
 
 func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.EtcdPipelineInfo, pipelineInfo *pps.PipelineInfo) (retErr error) {
 	log.Infof("PPS master: upserting workers for %q", pipelineInfo.Pipeline.Name)
-	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/CreateWorkerRC",
+	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/CreateWorkerRC", //lint:ignore SA4006 ctx never used, but we want the right one in scope for future uses
 		"pipeline", pipelineInfo.Pipeline.Name)
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)

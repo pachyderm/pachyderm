@@ -92,7 +92,8 @@ const (
 	SamlPort = 654
 )
 
-var defaultAuthConfig = auth.AuthConfig{
+// DefaultAuthConfig is the default config for the auth API server
+var DefaultAuthConfig = auth.AuthConfig{
 	LiveConfigVersion: 1,
 	IDProviders: []*auth.IDProvider{
 		&auth.IDProvider{
@@ -431,7 +432,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 	}
 	if state != enterpriseclient.State_ACTIVE {
-		return nil, fmt.Errorf("Pachyderm Enterprise is not active in this " +
+		return nil, fmt.Errorf("Pachyderm Enterprise is not active in this " + //lint:ignore ST1005 caps due to proper noun
 			"cluster, and the Pachyderm auth API is an Enterprise-level feature")
 	}
 
@@ -817,7 +818,7 @@ func (a *apiServer) expiredClusterAdminCheck(ctx context.Context, username strin
 		return err
 	}
 	if state != enterpriseclient.State_ACTIVE && !isAdmin {
-		return errors.New("Pachyderm Enterprise is not active in this " +
+		return errors.New("Pachyderm Enterprise is not active in this " + //lint:ignore ST1005 caps due to proper noun
 			"cluster (until Pachyderm Enterprise is re-activated or Pachyderm " +
 			"auth is deactivated, only cluster admins can perform any operations)")
 	}
@@ -902,7 +903,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 					return fmt.Errorf("invalid timestamp in OTPInfo, could not " +
 						"authenticate (try obtaining a new OTP)")
 				}
-				tokenTTLDuration := expiration.Sub(time.Now())
+				tokenTTLDuration := time.Until(expiration)
 				if tokenTTLDuration < minSessionTTL {
 					return fmt.Errorf("otp is invalid or has expired")
 				}
@@ -1135,7 +1136,7 @@ func (a *apiServer) AuthorizeInTransaction(
 	}
 	if state != enterpriseclient.State_ACTIVE &&
 		!strings.HasPrefix(callerInfo.Subject, auth.PipelinePrefix) {
-		return nil, errors.New("Pachyderm Enterprise is not active in this " +
+		return nil, errors.New("Pachyderm Enterprise is not active in this " + //lint:ignore ST1005 caps due to proper noun
 			"cluster (until Pachyderm Enterprise is re-activated or Pachyderm " +
 			"auth is deactivated, only cluster admins can perform any operations)")
 	}
@@ -1300,7 +1301,7 @@ func (a *apiServer) SetScopeInTransaction(
 			return false, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 		}
 		if state != enterpriseclient.State_ACTIVE {
-			return false, fmt.Errorf("Pachyderm Enterprise is not active in this " +
+			return false, fmt.Errorf("Pachyderm Enterprise is not active in this " + //lint:ignore ST1005 caps due to proper noun
 				"cluster (only a cluster admin can set a scope)")
 		}
 
@@ -1411,7 +1412,7 @@ func (a *apiServer) GetScopeInTransaction(
 		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 	}
 	if state != enterpriseclient.State_ACTIVE && !callerIsAdmin {
-		return nil, errors.New("Pachyderm Enterprise is not active in this " +
+		return nil, errors.New("Pachyderm Enterprise is not active in this " + //lint:ignore ST1005 caps due to proper noun
 			"cluster (until Pachyderm Enterprise is re-activated or Pachyderm " +
 			"auth is deactivated, only cluster admins can perform any operations)")
 	}
@@ -1616,7 +1617,7 @@ func (a *apiServer) SetACLInTransaction(
 			return false, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 		}
 		if state != enterpriseclient.State_ACTIVE {
-			return false, fmt.Errorf("Pachyderm Enterprise is not active in this " +
+			return false, fmt.Errorf("Pachyderm Enterprise is not active in this " + //lint:ignore ST1005 caps due to proper noun
 				"cluster (only a cluster admin can modify an ACL)")
 		}
 
@@ -1873,7 +1874,7 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *auth.ExtendAuthTok
 
 		ttl, err := tokens.TTL(hashToken(req.Token))
 		if err != nil {
-			return fmt.Errorf("Error looking up TTL for token: %v", err)
+			return fmt.Errorf("error looking up TTL for token: %v", err)
 		}
 		// TODO(msteffen): ttl may be -1 if the token has no TTL. We deliberately do
 		// not check this case so that admins can put TTLs on tokens that don't have
@@ -2362,7 +2363,7 @@ func (a *apiServer) canonicalizeSubject(ctx context.Context, subject string) (st
 // from that. 'user' should not have any subject prefixes (as they are required
 // to be a GitHub user).
 func canonicalizeGitHubUsername(ctx context.Context, user string) (string, error) {
-	if strings.Index(user, ":") >= 0 {
+	if strings.Contains(user, ":") {
 		return "", fmt.Errorf("invalid username has multiple prefixes: %s%s", auth.GitHubPrefix, user)
 	}
 	if os.Getenv(DisableAuthenticationEnvVar) == "true" {
@@ -2405,7 +2406,7 @@ func (a *apiServer) GetConfiguration(ctx context.Context, req *auth.GetConfigura
 	if err := authConfigRO.Get(configKey, &currentCfg); err != nil && !col.IsErrNotFound(err) {
 		return nil, err
 	} else if col.IsErrNotFound(err) {
-		currentCfg = defaultAuthConfig
+		currentCfg = DefaultAuthConfig
 	} else {
 		cacheCfg := a.getCacheConfig()
 		if cacheCfg == nil || cacheCfg.Version < currentCfg.LiveConfigVersion {
@@ -2473,7 +2474,7 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *auth.SetConfigura
 		// Explicitly store default auth config so that config version is retained &
 		// continues increasing monotonically. Don't set reqConfigVersion, though--
 		// setting an empty config is a blind write (req.Configuration.Version == 0)
-		configToStore = proto.Clone(&defaultAuthConfig).(*auth.AuthConfig)
+		configToStore = proto.Clone(&DefaultAuthConfig).(*auth.AuthConfig)
 	}
 
 	// upsert new config
@@ -2481,7 +2482,7 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *auth.SetConfigura
 		var liveConfig auth.AuthConfig
 		return a.authConfig.ReadWrite(stm).Upsert(configKey, &liveConfig, func() error {
 			if liveConfig.LiveConfigVersion == 0 {
-				liveConfig = defaultAuthConfig // no config in etcd--assume default cfg
+				liveConfig = DefaultAuthConfig // no config in etcd--assume default cfg
 			}
 			liveConfigVersion := liveConfig.LiveConfigVersion
 			if reqConfigVersion > 0 && liveConfigVersion != reqConfigVersion {

@@ -4,7 +4,7 @@ In this example we're going to use the [Tensorflow Object Detection API](https:/
 
 ## Prerequisites
 1. Clone this repo.
-2. Install/deploy Pachyderm (See the [Pachyderm docs](http://docs.pachyderm.io/en/latest/) for details. In this example we're going to use the local installation).
+2. Install Pachyderm as described in [Local Installation](https://docs.pachyderm.com/latest/getting_started/local_installation/).
 
 ## 1. Make Sure Pachyderm Is Running
 

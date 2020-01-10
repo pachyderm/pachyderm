@@ -13,7 +13,7 @@ import (
 // (if it exists) and return it.  If the config file is uninitialized or the
 // active transaction is unset, `nil` will be returned.
 func getActiveTransaction() (*transaction.Transaction, error) {
-	cfg, err := config.Read()
+	cfg, err := config.Read(false)
 	if err != nil {
 		return nil, fmt.Errorf("error reading Pachyderm config: %v", err)
 	}
@@ -38,7 +38,7 @@ func requireActiveTransaction() (*transaction.Transaction, error) {
 }
 
 func setActiveTransaction(txn *transaction.Transaction) error {
-	cfg, err := config.Read()
+	cfg, err := config.Read(false)
 	if err != nil {
 		return fmt.Errorf("error reading Pachyderm config: %v", err)
 	}
