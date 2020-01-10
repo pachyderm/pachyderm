@@ -11,6 +11,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
+	pps_pretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
 )
 
 func RepoCompletion(_, text string, maxCompletions int64) []prompt.Suggest {
@@ -112,6 +114,16 @@ func PipelineCompletion(_, text string, maxCompletions int64) []prompt.Suggest {
 	return result
 }
 
+func jobDesc(ji *pps.JobInfo) string {
+	statusString := ""
+	if ji.Finished == nil {
+		statusString = fmt.Sprintf("%s for %s", pps_pretty.JobState(ji.State), pretty.Since(ji.Started))
+	} else {
+		statusString = fmt.Sprintf("%s %s", pps_pretty.JobState(ji.State), pretty.Ago(ji.Finished))
+	}
+	return fmt.Sprintf("%s: %s - %s", ji.Pipeline.Name, pps_pretty.Progress(ji), statusString)
+}
+
 func JobCompletion(_, text string, maxCompletions int64) []prompt.Suggest {
 	c, err := client.NewOnUserMachine("user-completion")
 	if err != nil {
@@ -127,7 +139,7 @@ func JobCompletion(_, text string, maxCompletions int64) []prompt.Suggest {
 		}
 		result = append(result, prompt.Suggest{
 			Text:        ji.Job.ID,
-			Description: ji.Pipeline.Name,
+			Description: jobDesc(ji),
 		})
 		return nil
 	}); err != nil {

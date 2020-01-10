@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	prompt "github.com/c-bata/go-prompt"
+	"github.com/fatih/color"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/spf13/cobra"
@@ -117,6 +118,7 @@ func (s *shell) suggestor(in prompt.Document) []prompt.Suggest {
 }
 
 func (s *shell) run() {
+	color.NoColor = true // color doesn't work in terminal
 	prompt.New(
 		s.executor,
 		s.suggestor,

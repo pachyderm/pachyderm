@@ -17,14 +17,20 @@ func UnescapeHTML(s string) string {
 	return s
 }
 
-// Ago pretty-prints the amount of time that has passed
-// since timestamp as a human-readable string.
-func Ago(timestamp *types.Timestamp) string {
+// Since pretty-prints the amount of time that has passed since timestamp as a
+// human-readable string.
+func Since(timestamp *types.Timestamp) string {
 	t, _ := types.TimestampFromProto(timestamp)
 	if t.Equal(time.Time{}) {
 		return ""
 	}
-	return fmt.Sprintf("%s ago", units.HumanDuration(time.Since(t)))
+	return units.HumanDuration(time.Since(t))
+}
+
+// Ago pretty-prints the amount of time that has passed since timestamp as a
+// human-readable string, and adds "ago" to the end.
+func Ago(timestamp *types.Timestamp) string {
+	return fmt.Sprintf("%s ago", Since(timestamp))
 }
 
 // TimeDifference pretty-prints the duration of time between from
