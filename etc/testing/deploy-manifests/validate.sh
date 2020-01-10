@@ -61,14 +61,21 @@ microsoft_args=(
   50                       # <disk-size>
 )
 
-for plat in custom google amazon microsoft; do
+pach_config="${here}/${dest_dir}/pachconfig"
+# Use a test-specific pach config to avoid local settings from changing the
+# output
+export PACH_CONFIG="${pach_config}"
+for platform in custom google amazon microsoft; do
   for fmt in json yaml; do
-    output="${here}/${dest_dir}/${plat}-deploy-manifest.${fmt}"
-    eval "args=( \"\${${plat}_args[@]}\" )"
-    # Generate kubernetes manifest, and strip additional version info so that
-    # pachctl builds from the same version all work
-    pachctl deploy "${plat}" "${args[@]}" -o "${fmt}" --dry-run \
+    output="${here}/${dest_dir}/${platform}-deploy-manifest.${fmt}"
+    eval "args=( \"\${${platform}_args[@]}\" )"
+    # Generate kubernetes manifest:
+    # - strip additional version info so that pachctl builds from the same
+    #   version all work
+    # - Use an empty pach config so that e.g. metrics don't change the output
+    pachctl deploy "${platform}" "${args[@]}" -o "${fmt}" --dry-run \
       | sed 's/\([0-9]\{1,4\}\.[0-9]\{1,4\}\.[0-9]\{1,4\}\)-[0-9a-f]\{40\}/\1/g' >"${output}"
+    rm -f "${pach_config}" # remove cfg from next run (or diff dir, or golden/)
     if [[ ! "${is_regenerate}" ]]; then
       # Check manifests with kubeval
       kubeval "${output}"
@@ -85,8 +92,8 @@ done
 # would've caught at least one serialization bug that completely broke 'pachctl
 # deploy' in v1.9.8
 if [[ ! "${is_regenerate}" ]]; then
-  DIFF_CMD="${DIFF_CMD:-diff}"
-  if ! "${DIFF_CMD}" "${here}/test" "${here}/golden"; then
+  DIFF_CMD="${DIFF_CMD:-diff --unified=6}"
+  if ! ${DIFF_CMD} "${here}/${dest_dir}" "${here}/golden"; then
     echo "Deployment manifest has changed." >/dev/stderr
     echo "If this deliberate, run:" >/dev/stderr
     echo "  validate.sh --regenerate" >/dev/stderr
