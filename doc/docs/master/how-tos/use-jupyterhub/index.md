@@ -7,8 +7,6 @@ client from within the JupyterHub UI.
     You need to have Pachyderm and JupyterHub installed on the
     same Kubernetes cluster as described in
     [Deploy Pachyderm with JupyterHub](../../deploy-manage/deploy/deploy-pachyderm-jupyterhub.md).
-    Currently, an existing JupyterHub deployment cannot be
-    integrated with Pachyderm.
 
 ## Overview
 
@@ -52,12 +50,12 @@ it to an image registry every
 time you update the code in your pipeline. Users that are less familiar
 with Docker might find this process a bit cumbersome.
 
-When you use JupyterHub, in addition to the mentioned `create_pipeline` method,
+When you use `python-pachyderm`, in addition to the mentioned `create_pipeline` method,
 you can use the [create_python_pipeline](https://pachyderm.github.io/python-pachyderm/python_pachyderm.m.html#python_pachyderm.create_python_pipeline) function that does not require
 you to include your code in a Docker image and rebuild it each time you make
 a change. Instead, this function creates a PFS repository
-called `<pipeline_name>.source` and puts the source code into it. Also, it
-creates a `<pipeline_name>.build` repository to build Python dependencies.
+called `<pipeline_name>_source` and puts the source code into it. Also, it
+creates a `<pipeline_name>_build` repository to build Python dependencies.
 Therefore, when you use `create_python_pipeline`, your DAG includes two
 additional repositories for each pipeline.
 Because of that, you do not need

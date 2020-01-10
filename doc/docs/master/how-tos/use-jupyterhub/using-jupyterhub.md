@@ -50,9 +50,12 @@ choice, use one of the following examples to create a pipeline:
   import python_pachyderm
   client = python_pachyderm.Client.new_in_cluster()
 
+  def relpath(path):
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), path)
+
   python_pachyderm.create_python_pipeline(
       client,
-      "./test"),
+      relpath("test"),
       python_pachyderm.Input(pfs=python_pachyderm.PFSInput(glob="/*", repo="input_repo")),
       )
   client.list_pipeline()
@@ -88,7 +91,7 @@ choice, use one of the following examples to create a pipeline:
    ```json
    pipeline_info {
     pipeline {
-      name: "test1"
+      name: "test"
     }
     transform {
       image: "mytest/testimage"
@@ -190,7 +193,8 @@ client.list_repo()
 ```
 
 **System Response:**
-```bash
+
+```json
 []
 ```
 
