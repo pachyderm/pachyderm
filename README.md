@@ -37,7 +37,7 @@ You can also refer to our complete [documentation](https://docs.pachyderm.com) t
 If you'd like to see some examples and learn about core use cases for Pachyderm:
 - [Examples](https://docs.pachyderm.com/latest/examples/examples/)
 - [Use Cases](https://www.pachyderm.com/use-cases/)
-- [Case Studies](https://www.pachyderm.com/case-studies/generalfusion/): Learn how [General Fusion](http://www.generalfusion.com/) uses Pachyderm to power commercial fusion research.
+- [Case Studies](https://www.pachyderm.com/case-studies/)
 
 ## Documentation
 
