@@ -9,7 +9,7 @@ After you log in, use the [python-pachyderm](https://pachyderm.github.io/python-
 client API to manage Pachyderm directly from your Jupyter notebook.
 
 You need to create a new Notebook and add your code in a new cell.
-To run your code, click the <i class="fa fa-play" aria-hidden="true"></i> icon.
+To run your code, click the **Run** button.
 
 The following code initializes the Python Pachyderm client in JupyterHub:
 

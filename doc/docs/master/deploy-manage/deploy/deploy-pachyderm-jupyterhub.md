@@ -11,7 +11,7 @@ and [Pachyderm Python client library](https://github.com/pachyderm/python-pachyd
 with JupyterHub.
 By using Pachyderm authentication, you can log in to JupyterHub with
 your Pachyderm credentials. In essence, you run your code
-in JupyterHub and use `python-pachyderm` API to create your
+in JupyterHub and use the `python-pachyderm` API to create your
 pipelines and version your data in Pachyderm from within
 the JupyterHub UI.
 
