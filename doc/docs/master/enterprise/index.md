@@ -49,10 +49,6 @@ providing your email address.
             Configure Pachyderm with an Access Management Provider
           </a>
           </li>
-          <li><a href="s3gateway/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
-            Use the S3 Gateway
-          </a>
-          </li>
           <li><a href="stats/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
             Advanced Statistics
           </a>
