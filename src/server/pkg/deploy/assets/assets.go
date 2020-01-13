@@ -121,9 +121,27 @@ type FeatureFlags struct {
 	NewStorageLayer bool
 }
 
+const (
+	// UploadConcurrencyLimitEnvVar is the environment variable for the upload concurrency limit.
+	UploadConcurrencyLimitEnvVar = "STORAGE_UPLOAD_CONCURRENCY_LIMIT"
+)
+
+const (
+	// DefaultUploadConcurrencyLimit is the default maximum number of concurrent object storage uploads.
+	// (bryce) this default is set here and in the service env config, need to figure out how to refactor
+	// this to be in one place.
+	DefaultUploadConcurrencyLimit = 100
+)
+
+// StorageOpts are options that are applicable to the storage layer.
+type StorageOpts struct {
+	UploadConcurrencyLimit int
+}
+
 // AssetOpts are options that are applicable to all the asset types.
 type AssetOpts struct {
 	FeatureFlags
+	StorageOpts
 	PachdShards uint64
 	Version     string
 	LogLevel    string
@@ -402,6 +420,12 @@ func GetSecretEnvVars(storageBackend string) []v1.EnvVar {
 	return envVars
 }
 
+func getStorageEnvVars(opts *AssetOpts) []v1.EnvVar {
+	return []v1.EnvVar{
+		{Name: UploadConcurrencyLimitEnvVar, Value: strconv.Itoa(opts.StorageOpts.UploadConcurrencyLimit)},
+	}
+}
+
 func versionedPachdImage(opts *AssetOpts) string {
 	if opts.Version != "" {
 		return fmt.Sprintf("%s:%s", pachdImage, opts.Version)
@@ -505,6 +529,45 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 			v1.ResourceMemory: mem,
 		}
 	}
+	envVars := []v1.EnvVar{
+		{Name: "PACH_ROOT", Value: "/pach"},
+		{Name: "ETCD_PREFIX", Value: opts.EtcdPrefix},
+		{Name: "NUM_SHARDS", Value: fmt.Sprintf("%d", opts.PachdShards)},
+		{Name: "STORAGE_BACKEND", Value: backendEnvVar},
+		{Name: "STORAGE_HOST_PATH", Value: storageHostPath},
+		{Name: "WORKER_IMAGE", Value: AddRegistry(opts.Registry, versionedWorkerImage(opts))},
+		{Name: "IMAGE_PULL_SECRET", Value: opts.ImagePullSecret},
+		{Name: "WORKER_SIDECAR_IMAGE", Value: image},
+		{Name: "WORKER_IMAGE_PULL_POLICY", Value: "IfNotPresent"},
+		{Name: "PACHD_VERSION", Value: opts.Version},
+		{Name: "METRICS", Value: strconv.FormatBool(opts.Metrics)},
+		{Name: "LOG_LEVEL", Value: opts.LogLevel},
+		{Name: "BLOCK_CACHE_BYTES", Value: opts.BlockCacheSize},
+		{Name: "IAM_ROLE", Value: opts.IAMRole},
+		{Name: "NO_EXPOSE_DOCKER_SOCKET", Value: strconv.FormatBool(opts.NoExposeDockerSocket)},
+		{Name: auth.DisableAuthenticationEnvVar, Value: strconv.FormatBool(opts.DisableAuthentication)},
+		{
+			Name: "PACHD_POD_NAMESPACE",
+			ValueFrom: &v1.EnvVarSource{
+				FieldRef: &v1.ObjectFieldSelector{
+					APIVersion: "v1",
+					FieldPath:  "metadata.namespace",
+				},
+			},
+		},
+		{
+			Name: "PACHD_MEMORY_REQUEST",
+			ValueFrom: &v1.EnvVarSource{
+				ResourceFieldRef: &v1.ResourceFieldSelector{
+					ContainerName: "pachd",
+					Resource:      "requests.memory",
+				},
+			},
+		},
+		{Name: "EXPOSE_OBJECT_API", Value: strconv.FormatBool(opts.ExposeObjectAPI)},
+	}
+	envVars = append(envVars, GetSecretEnvVars("")...)
+	envVars = append(envVars, getStorageEnvVars(opts)...)
 	return &apps.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
@@ -524,43 +587,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 						{
 							Name:  pachdName,
 							Image: image,
-							Env: append([]v1.EnvVar{
-								{Name: "PACH_ROOT", Value: "/pach"},
-								{Name: "ETCD_PREFIX", Value: opts.EtcdPrefix},
-								{Name: "NUM_SHARDS", Value: fmt.Sprintf("%d", opts.PachdShards)},
-								{Name: "STORAGE_BACKEND", Value: backendEnvVar},
-								{Name: "STORAGE_HOST_PATH", Value: storageHostPath},
-								{Name: "WORKER_IMAGE", Value: AddRegistry(opts.Registry, versionedWorkerImage(opts))},
-								{Name: "IMAGE_PULL_SECRET", Value: opts.ImagePullSecret},
-								{Name: "WORKER_SIDECAR_IMAGE", Value: image},
-								{Name: "WORKER_IMAGE_PULL_POLICY", Value: "IfNotPresent"},
-								{Name: "PACHD_VERSION", Value: opts.Version},
-								{Name: "METRICS", Value: strconv.FormatBool(opts.Metrics)},
-								{Name: "LOG_LEVEL", Value: opts.LogLevel},
-								{Name: "BLOCK_CACHE_BYTES", Value: opts.BlockCacheSize},
-								{Name: "IAM_ROLE", Value: opts.IAMRole},
-								{Name: "NO_EXPOSE_DOCKER_SOCKET", Value: strconv.FormatBool(opts.NoExposeDockerSocket)},
-								{Name: auth.DisableAuthenticationEnvVar, Value: strconv.FormatBool(opts.DisableAuthentication)},
-								{
-									Name: "PACHD_POD_NAMESPACE",
-									ValueFrom: &v1.EnvVarSource{
-										FieldRef: &v1.ObjectFieldSelector{
-											APIVersion: "v1",
-											FieldPath:  "metadata.namespace",
-										},
-									},
-								},
-								{
-									Name: "PACHD_MEMORY_REQUEST",
-									ValueFrom: &v1.EnvVarSource{
-										ResourceFieldRef: &v1.ResourceFieldSelector{
-											ContainerName: "pachd",
-											Resource:      "requests.memory",
-										},
-									},
-								},
-								{Name: "EXPOSE_OBJECT_API", Value: strconv.FormatBool(opts.ExposeObjectAPI)},
-							}, GetSecretEnvVars("")...),
+							Env:   envVars,
 							Ports: []v1.ContainerPort{
 								{
 									ContainerPort: opts.PachdPort, // also set in cmd/pachd/main.go

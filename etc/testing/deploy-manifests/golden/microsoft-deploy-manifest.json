@@ -791,6 +791,10 @@
                     "optional": true
                   }
                 }
+              },
+              {
+                "name": "STORAGE_UPLOAD_CONCURRENCY_LIMIT",
+                "value": "100"
               }
             ],
             "resources": {
