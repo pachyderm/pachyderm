@@ -790,6 +790,30 @@
                     "optional": true
                   }
                 }
+              },
+              {
+                "name": "DISABLE_SSL",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "disable-ssl",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "NO_VERIFY_SSL",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "no-verify-ssl",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "STORAGE_UPLOAD_CONCURRENCY_LIMIT",
+                "value": "100"
               }
             ],
             "resources": {
@@ -949,7 +973,9 @@
     "amazon-secret": "YXdzc2VjcmV0K2F3c3NlY3JldCthd3NzZWNyZXQrYXdzc2VjcmV0Kw==",
     "amazon-token": "",
     "custom-endpoint": "",
+    "disable-ssl": "ZmFsc2U=",
     "max-upload-parts": "MTAwMDA=",
+    "no-verify-ssl": "ZmFsc2U=",
     "part-size": "NTI0Mjg4MA==",
     "retries": "MTA=",
     "reverse": "dHJ1ZQ==",

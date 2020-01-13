@@ -130,7 +130,7 @@ nav:
                 - Cross and Union Inputs: concepts/pipeline-concepts/datum/cross-union.md
                 - Datum Processing States: concepts/pipeline-concepts/datum/datum-processing-states.md
         - Advanced Concepts:
-            Distributed Computing: concepts/pipeline-concepts/distributed_computing.md
+            - Deferred Processing of Data: how-tos/deferred_processing.md
 
     - How-Tos:
         - Overview: how-tos/index.md
@@ -152,7 +152,6 @@ nav:
         - Deferred Processing of Data: how-tos/deferred_processing.md
         - Ingress and Egress Data from an External Object Store: how-tos/ingressing_from_diff_cloud.md
         - Skip Failed Datums: how-tos/err_cmd.md
-        - Using the S3 Gateway: how-tos/s3gateway.md
     - Deploy and Manage:
         - Overview: deploy-manage/index.md
         - Deploy Pachyderm:
@@ -197,6 +196,7 @@ nav:
                 - Migrate to a Major Version: deploy-manage/manage/migrations.md
                 - Upgrade your Cluster: deploy-manage/manage/upgrades.md
             - Disable Usage Metrics: deploy-manage/manage/disable-metrics.md
+            - Using the S3 Gateway: how-tos/s3gateway.md
     - Reference:
         - Overview: reference/index.md
         - Pipeline Specification: reference/pipeline_spec.md

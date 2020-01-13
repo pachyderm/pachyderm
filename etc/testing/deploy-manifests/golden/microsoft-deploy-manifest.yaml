@@ -463,6 +463,20 @@ spec:
               key: max-upload-parts
               name: pachyderm-storage-secret
               optional: true
+        - name: DISABLE_SSL
+          valueFrom:
+            secretKeyRef:
+              key: disable-ssl
+              name: pachyderm-storage-secret
+              optional: true
+        - name: NO_VERIFY_SSL
+          valueFrom:
+            secretKeyRef:
+              key: no-verify-ssl
+              name: pachyderm-storage-secret
+              optional: true
+        - name: STORAGE_UPLOAD_CONCURRENCY_LIMIT
+          value: "100"
         image: pachyderm/pachd:1.9.10
         imagePullPolicy: IfNotPresent
         name: pachd

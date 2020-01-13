@@ -790,6 +790,30 @@
                     "optional": true
                   }
                 }
+              },
+              {
+                "name": "DISABLE_SSL",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "disable-ssl",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "NO_VERIFY_SSL",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "no-verify-ssl",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "STORAGE_UPLOAD_CONCURRENCY_LIMIT",
+                "value": "100"
               }
             ],
             "resources": {

@@ -146,26 +146,38 @@ publish-compile: docker-build-compile
 	docker push $(COMPILE_IMAGE)
 
 docker-clean-worker:
+	rm -rf docker_build_worker.tmpdir
 	docker stop worker_compile || true
 	docker rm worker_compile || true
 
 docker-build-worker: docker-clean-worker
 	docker run \
+		--env=CALLING_OS=$$(uname) \
+		--env=CALLING_USER_ID=$$(id -u $$USER) \
+		--env=DOCKER_GROUP_ID=$$(cat /etc/group | grep docker | cut -d: -f3) \
+		--env=DOCKER_BUILD_FLAGS="$(DOCKER_BUILD_FLAGS)" \
 		-v $$PWD:/pachyderm \
 		-v $$GOPATH/pkg:/go/pkg \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
-		--name worker_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /pachyderm/etc/compile/compile.sh worker "$(LD_FLAGS)"
+		--name worker_compile \
+		$(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) \
+		/pachyderm/etc/compile/compile.sh worker "$(LD_FLAGS)"
 
 
 docker-wait-worker:
 	etc/compile/wait.sh worker_compile
 
 docker-clean-pachd:
+	rm -rf docker_build_worker.tmpdir
 	docker stop pachd_compile || true
 	docker rm pachd_compile || true
 
 docker-build-pachd: docker-clean-pachd
 	docker run  \
+		--env=CALLING_OS=$$(uname) \
+		--env=CALLING_USER_ID=$$(id -u $$USER) \
+		--env=DOCKER_GROUP_ID=$$(cat /etc/group | grep docker | cut -d: -f3) \
+		--env=DOCKER_BUILD_FLAGS="$(DOCKER_BUILD_FLAGS)" \
 		-v $$PWD:/pachyderm \
 		-v $$GOPATH/pkg:/go/pkg \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \

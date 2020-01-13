@@ -34,16 +34,7 @@ type PortForwarder struct {
 }
 
 // NewPortForwarder creates a new port forwarder
-func NewPortForwarder(namespace string) (*PortForwarder, error) {
-	cfg, err := config.Read()
-	if err != nil {
-		return nil, fmt.Errorf("could not read config: %v", err)
-	}
-	_, context, err := cfg.ActiveContext()
-	if err != nil {
-		return nil, fmt.Errorf("could not get active context: %v", err)
-	}
-
+func NewPortForwarder(context *config.Context, namespace string) (*PortForwarder, error) {
 	if namespace == "" {
 		namespace = context.Namespace
 	}
