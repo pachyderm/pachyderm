@@ -30,7 +30,11 @@ func Since(timestamp *types.Timestamp) string {
 // Ago pretty-prints the amount of time that has passed since timestamp as a
 // human-readable string, and adds "ago" to the end.
 func Ago(timestamp *types.Timestamp) string {
-	return fmt.Sprintf("%s ago", Since(timestamp))
+	since := Since(timestamp)
+	if since == "" {
+		return since
+	}
+	return fmt.Sprintf("%s ago", since)
 }
 
 // TimeDifference pretty-prints the duration of time between from
