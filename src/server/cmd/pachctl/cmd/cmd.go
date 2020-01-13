@@ -674,6 +674,12 @@ This resets the cluster to its initial state.`,
 	subcommands = append(subcommands, cmdutil.CreateAlias(completionZsh, "completion zsh"))
 
 	// Logical commands for grouping commands by verb (no run functions)
+	completionDocs := &cobra.Command{
+		Short: "Print or install terminal completion code.",
+		Long:  "Print or install terminal completion code.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(completionDocs, "completion"))
+
 	deleteDocs := &cobra.Command{
 		Short: "Delete an existing Pachyderm resource.",
 		Long:  "Delete an existing Pachyderm resource.",
