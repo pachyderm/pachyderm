@@ -85,6 +85,10 @@ type APIClient struct {
 	// addr is a "host:port" string pointing at a pachd endpoint
 	addr string
 
+	// serverNameOverride, if non-empty, overrides the actual hostname
+	// for TLS hostname checks.
+	serverNameOverride string
+
 	// The trusted CAs, for authenticating a pachd server over TLS
 	caCerts *x509.CertPool
 
@@ -135,6 +139,7 @@ type clientSettings struct {
 	maxConcurrentStreams int
 	dialTimeout          time.Duration
 	caCerts              *x509.CertPool
+	serverNameOverride   string
 }
 
 // NewFromAddress constructs a new APIClient for the server at addr.
@@ -154,9 +159,10 @@ func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
 		}
 	}
 	c := &APIClient{
-		addr:    addr,
-		caCerts: settings.caCerts,
-		limiter: limit.New(settings.maxConcurrentStreams),
+		addr:               addr,
+		serverNameOverride: settings.serverNameOverride,
+		caCerts:            settings.caCerts,
+		limiter:            limit.New(settings.maxConcurrentStreams),
 	}
 	if err := c.connect(settings.dialTimeout); err != nil {
 		return nil, err
@@ -249,6 +255,15 @@ func WithAdditionalPachdCert() Option {
 	}
 }
 
+// WithServerNameOverride instructs the New* functions to use the
+// given value for TLS hostname checks.
+func WithServerNameOverride(n string) Option {
+	return func(settings *clientSettings) error {
+		settings.serverNameOverride = n
+		return nil
+	}
+}
+
 func getCertOptionsFromEnv() ([]Option, error) {
 	var options []Option
 	if certPaths, ok := os.LookupEnv("PACH_CA_CERTS"); ok {
@@ -316,8 +331,12 @@ func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress,
 		return envAddr, options, nil
 	}
 
+	if context != nil && context.ServerNameOverride != "" {
+		options = append(options, WithServerNameOverride(context.ServerNameOverride))
+	}
+
 	// 2) Get target address from global config if possible
-	if context != nil && (context.ServerCAs != "" || context.PachdAddress != "") {
+	if context != nil && context.PachdAddress != "" {
 		pachdAddress, err := grpcutil.ParsePachdAddress(context.PachdAddress)
 		if err != nil {
 			return nil, nil, fmt.Errorf("could not parse the active context's pachd address: %v", err)
@@ -331,22 +350,29 @@ func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress,
 		if pachdAddress.Secured {
 			options = append(options, WithSystemCAs)
 		}
-		// Also get cert info from config (if set)
+
 		if context.ServerCAs != "" {
 			pemBytes, err := base64.StdEncoding.DecodeString(context.ServerCAs)
 			if err != nil {
 				return nil, nil, fmt.Errorf("could not decode server CA certs in config: %v", err)
 			}
-			return pachdAddress, []Option{WithAdditionalRootCAs(pemBytes)}, nil
+			options = append(options, WithAdditionalRootCAs(pemBytes))
 		}
 		return pachdAddress, options, nil
 	}
 
-	// 3) Use default address (broadcast) if nothing else works
-	options, err := getCertOptionsFromEnv() // error if PACH_CA_CERTS is set
-	if err != nil {
-		return nil, nil, err
+	// 3) Get cert info from config (if set)
+	if context != nil && context.ServerCAs != "" {
+		pemBytes, err := base64.StdEncoding.DecodeString(context.ServerCAs)
+		if err != nil {
+			return nil, nil, fmt.Errorf("could not decode server CA certs in config: %v", err)
+		}
+		options = append(options, WithSystemCAs, WithAdditionalRootCAs(pemBytes))
+		return &grpcutil.PachdAddress{
+			Secured: true,
+		}, options, nil
 	}
+
 	return nil, options, nil
 }
 
@@ -420,14 +446,18 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 	}
 
 	var fw *PortForwarder
-	if pachdAddress == nil {
+	if pachdAddress == nil || pachdAddress.Host == "" {
 		var pachdLocalPort uint16
 		fw, pachdLocalPort, err = portForwarder()
 		if err != nil {
 			return nil, err
 		}
+		var secured bool
+		if pachdAddress != nil {
+			secured = pachdAddress.Secured
+		}
 		pachdAddress = &grpcutil.PachdAddress{
-			Secured: false,
+			Secured: secured,
 			Host:    "localhost",
 			Port:    pachdLocalPort,
 		}
@@ -556,7 +586,7 @@ func (c *APIClient) connect(timeout time.Duration) error {
 	if c.caCerts == nil {
 		dialOptions = append(dialOptions, grpc.WithInsecure())
 	} else {
-		tlsCreds := credentials.NewClientTLSFromCert(c.caCerts, "")
+		tlsCreds := credentials.NewClientTLSFromCert(c.caCerts, c.serverNameOverride)
 		dialOptions = append(dialOptions, grpc.WithTransportCredentials(tlsCreds))
 	}
 	if tracing.IsActive() {

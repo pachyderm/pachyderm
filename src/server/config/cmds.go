@@ -200,6 +200,7 @@ func Cmds() []*cobra.Command {
 	var clusterName string
 	var authInfo string
 	var serverCAs string
+	var serverNameOverride string
 	var namespace string
 	var updateContext *cobra.Command // standalone declaration so Run() can refer
 	updateContext = &cobra.Command{
@@ -258,6 +259,9 @@ func Cmds() []*cobra.Command {
 			if updateContext.Flags().Changed("namespace") {
 				context.Namespace = namespace
 			}
+			if updateContext.Flags().Changed("server-name-override") {
+				context.ServerNameOverride = serverNameOverride
+			}
 
 			return cfg.Write()
 		}),
@@ -266,6 +270,7 @@ func Cmds() []*cobra.Command {
 	updateContext.Flags().StringVar(&clusterName, "cluster-name", "", "Set a new cluster name.")
 	updateContext.Flags().StringVar(&authInfo, "auth-info", "", "Set a new k8s auth info.")
 	updateContext.Flags().StringVar(&serverCAs, "server-cas", "", "Set new trusted CA certs.")
+	updateContext.Flags().StringVar(&serverNameOverride, "server-name-override", "", "Override the server name used for TLS host check.")
 	updateContext.Flags().StringVar(&namespace, "namespace", "", "Set a new namespace.")
 	commands = append(commands, cmdutil.CreateAlias(updateContext, "config update context"))
 

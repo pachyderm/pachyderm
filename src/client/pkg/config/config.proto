@@ -82,6 +82,10 @@ message Context {
 
     // The k8s namespace - used to construct a k8s context
     string namespace = 8;
+
+    // Server name to use for TLS hostname checks (overrides the
+    // hostname actually connected to).
+    string server_name_override = 9;
 }
 
 enum ContextSource {
