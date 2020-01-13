@@ -99,17 +99,17 @@ func (s *shell) suggestor(in prompt.Document) []prompt.Suggest {
 	if id, ok := cmd.Annotations[completionAnnotation]; ok {
 		completionFunc := completions[id]
 		suggests := completionFunc(flag, text, s.maxCompletions)
-		if int64(len(suggests)) > s.maxCompletions {
-			suggests = suggests[:s.maxCompletions]
-		}
 		var result []prompt.Suggest
-		for _, s := range suggests {
-			sText := s.Text
+		for _, sug := range suggests {
+			sText := sug.Text
 			if len(text) < len(sText) {
 				sText = sText[:len(text)]
 			}
 			if ld(sText, text, true) < ldThreshold {
-				result = append(result, s)
+				result = append(result, sug)
+			}
+			if int64(len(result)) > s.maxCompletions {
+				break
 			}
 		}
 		return result
