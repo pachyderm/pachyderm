@@ -53,9 +53,13 @@ func BranchCompletion(flag, text string, maxCompletions int64) []prompt.Suggest 
 			log.Fatal(err)
 		}
 		for _, bi := range bis {
+			head := "-"
+			if bi.Head != nil {
+				head = bi.Head.ID
+			}
 			result = append(result, prompt.Suggest{
 				Text:        fmt.Sprintf("%s@%s:", partialFile.Commit.Repo.Name, bi.Branch.Name),
-				Description: fmt.Sprintf("(%s)", bi.Head.ID),
+				Description: fmt.Sprintf("(%s)", head),
 			})
 		}
 	}
