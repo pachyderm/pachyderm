@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -93,6 +94,11 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		Value: strconv.FormatUint(uint64(a.peerPort), 10),
 	}}
 	sidecarEnv = append(sidecarEnv, assets.GetSecretEnvVars(a.storageBackend)...)
+	storageEnvVars, err := getStorageEnvVars()
+	if err != nil {
+		return v1.PodSpec{}, err
+	}
+	sidecarEnv = append(sidecarEnv, storageEnvVars...)
 	workerEnv := options.workerEnv
 	workerEnv = append(workerEnv, v1.EnvVar{Name: "PACH_ROOT", Value: a.storageRoot})
 	workerEnv = append(workerEnv, assets.GetSecretEnvVars(a.storageBackend)...)
@@ -265,6 +271,16 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		}
 	}
 	return podSpec, nil
+}
+
+func getStorageEnvVars() ([]v1.EnvVar, error) {
+	uploadConcurrencyLimit, ok := os.LookupEnv(assets.UploadConcurrencyLimitEnvVar)
+	if !ok {
+		return nil, fmt.Errorf("%s not found", assets.UploadConcurrencyLimitEnvVar)
+	}
+	return []v1.EnvVar{
+		{Name: assets.UploadConcurrencyLimitEnvVar, Value: uploadConcurrencyLimit},
+	}, nil
 }
 
 // We don't want to expose pipeline auth tokens, so we hash it. This will be
