@@ -35,7 +35,7 @@ other prerequisites listed below.
 ### Deploy Pachyderm
 
 You need to deploy Pachyderm as described in
-[Deploy Pachyderm](deploy/)
+[Deploy Pachyderm](../../deploy/)
 in of the supported platforms:
 
 - Google Kubernetes Engine (GKE) with Kubernetes v1.13
