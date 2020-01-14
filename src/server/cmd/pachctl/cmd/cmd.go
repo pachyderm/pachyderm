@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"os"
 	"os/signal"
-	"path"
 	"sort"
 	"strings"
 	"text/template"
@@ -644,16 +643,11 @@ This resets the cluster to its initial state.`,
 		Short: "Print or install the bash completion code.",
 		Long:  "Print or install the bash completion code.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			if install {
-				if path.Base(installPathBash) != "pachctl" {
-					installPathBash = path.Join(installPathBash, "pachctl")
-				}
-			}
 			return createCompletions(rootCmd, install, installPathBash, rootCmd.GenBashCompletion)
 		}),
 	}
 	completionBash.Flags().BoolVar(&install, "install", false, "Install the completion.")
-	completionBash.Flags().StringVar(&installPathBash, "path", "/etc/bash_completion.d/pachctl", "Path to install the completion to.")
+	completionBash.Flags().StringVar(&installPathBash, "path", "/etc/bash_completion.d/pachctl", "Path to install the completions to.")
 	subcommands = append(subcommands, cmdutil.CreateAlias(completionBash, "completion bash"))
 
 	var installPathZsh string
@@ -661,16 +655,11 @@ This resets the cluster to its initial state.`,
 		Short: "Print or install the zsh completion code.",
 		Long:  "Print or install the zsh completion code.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			if install {
-				if path.Base(installPathZsh) != "_pachctl" {
-					installPathZsh = path.Join(installPathZsh, "_pachctl")
-				}
-			}
 			return createCompletions(rootCmd, install, installPathZsh, rootCmd.GenZshCompletion)
 		}),
 	}
 	completionZsh.Flags().BoolVar(&install, "install", false, "Install the completion.")
-	completionZsh.Flags().StringVar(&installPathZsh, "path", "", "Path to install the completion to. If unspecified, this will default to '_pachctl' in the first directory in your $FPATH.")
+	completionZsh.Flags().StringVar(&installPathZsh, "path", "_pachctl", "Path to install the completions to.")
 	subcommands = append(subcommands, cmdutil.CreateAlias(completionZsh, "completion zsh"))
 
 	// Logical commands for grouping commands by verb (no run functions)
