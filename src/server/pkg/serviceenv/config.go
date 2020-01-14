@@ -14,7 +14,6 @@ type GlobalConfiguration struct {
 	EtcdPort      string `env:"ETCD_SERVICE_PORT,required"`
 	PPSWorkerPort uint16 `env:"PPS_WORKER_GRPC_PORT,default=80"`
 	Port          uint16 `env:"PORT,default=650"`
-	PProfPort     uint16 `env:"PPROF_PORT,default=651"`
 	HTTPPort      uint16 `env:"HTTP_PORT,default=652"`
 	PeerPort      uint16 `env:"PEER_PORT,default=653"`
 	PPSEtcdPrefix string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`

@@ -109,7 +109,6 @@ type apiServer struct {
 	workerUsesRoot        bool
 	workerGrpcPort        uint16
 	port                  uint16
-	pprofPort             uint16
 	httpPort              uint16
 	peerPort              uint16
 	// collections

@@ -84,9 +84,6 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		Name:  "PORT",
 		Value: strconv.FormatUint(uint64(a.port), 10),
 	}, {
-		Name:  "PPROF_PORT",
-		Value: strconv.FormatUint(uint64(a.pprofPort), 10),
-	}, {
 		Name:  "HTTP_PORT",
 		Value: strconv.FormatUint(uint64(a.httpPort), 10),
 	}, {
@@ -376,10 +373,6 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 	workerEnv = append(workerEnv, v1.EnvVar{
 		Name:  client.PPSWorkerPortEnv,
 		Value: strconv.FormatUint(uint64(a.workerGrpcPort), 10),
-	})
-	workerEnv = append(workerEnv, v1.EnvVar{
-		Name:  client.PProfPortEnv,
-		Value: strconv.FormatUint(uint64(a.pprofPort), 10),
 	})
 	workerEnv = append(workerEnv, v1.EnvVar{
 		Name:  client.PeerPortEnv,

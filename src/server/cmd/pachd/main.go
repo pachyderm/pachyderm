@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	_ "net/http/pprof"
 	"os"
 	"path"
 	"runtime/debug"
@@ -109,9 +108,6 @@ func doSidecarMode(config interface{}) (retErr error) {
 	}
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 	debug.SetGCPercent(50)
-	go func() {
-		log.Println(http.ListenAndServe(fmt.Sprintf(":%d", env.PProfPort), nil))
-	}()
 	switch env.LogLevel {
 	case "debug":
 		log.SetLevel(log.DebugLevel)
@@ -194,7 +190,6 @@ func doSidecarMode(config interface{}) (retErr error) {
 			env.IAMRole,
 			reporter,
 			env.PPSWorkerPort,
-			env.PProfPort,
 			env.HTTPPort,
 			env.PeerPort,
 		)
@@ -391,7 +386,6 @@ func doFullMode(config interface{}) (retErr error) {
 				env.WorkerUsesRoot,
 				env.PPSWorkerPort,
 				env.Port,
-				env.PProfPort,
 				env.HTTPPort,
 				env.PeerPort,
 			)
@@ -575,7 +569,6 @@ func doFullMode(config interface{}) (retErr error) {
 				env.WorkerUsesRoot,
 				env.PPSWorkerPort,
 				env.Port,
-				env.PProfPort,
 				env.HTTPPort,
 				env.PeerPort,
 			)
@@ -666,9 +659,6 @@ func doFullMode(config interface{}) (retErr error) {
 	})
 	go waitForError("Internal Pachd GRPC Server", errChan, func() error {
 		return internalServer.Wait()
-	})
-	go waitForError("PProf Server", errChan, func() error {
-		return http.ListenAndServe(fmt.Sprintf(":%d", env.PProfPort), nil)
 	})
 	go waitForError("HTTP Server", errChan, func() error {
 		httpServer, err := pach_http.NewHTTPServer(address)
