@@ -249,16 +249,6 @@ func (a *APIServer) spoutSpawner(pachClient *client.APIClient) error {
 	}
 	puller := filesync.NewPuller()
 
-	if a.pipelineInfo.Spout.Marker != "" {
-		markerBranch, err := pachClient.InspectBranch(a.pipelineInfo.Pipeline.Name, "marker")
-		if err != nil || markerBranch == nil {
-			err = pachClient.CreateBranch(a.pipelineInfo.Pipeline.Name, "marker", "", nil)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
 	if err := a.unlinkData(nil); err != nil {
 		return fmt.Errorf("unlinkData: %v", err)
 	}

@@ -49,6 +49,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/exec"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
@@ -528,10 +529,17 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 			return "", fmt.Errorf("mkfifo :%v", err)
 		}
 		if a.pipelineInfo.Spout.Marker != "" {
-			_, err := pachClient.InspectFile(a.pipelineInfo.Pipeline.Name, "marker", a.pipelineInfo.Spout.Marker)
+			// check if we have a marker file
+			_, err := pachClient.InspectFile(a.pipelineInfo.Pipeline.Name, ppsconsts.SpoutMarkerBranch, a.pipelineInfo.Spout.Marker)
+			// if not, then we need to pull it
 			if err != nil && strings.Contains(err.Error(), "not found") {
-				if err := puller.Pull(pachClient, filepath.Join(dir, a.pipelineInfo.Spout.Marker), a.pipelineInfo.Pipeline.Name, "marker", "/"+a.pipelineInfo.Spout.Marker, false, false, concurrency, nil, ""); err != nil {
-					return "", err
+				if err := puller.Pull(pachClient, filepath.Join(dir, a.pipelineInfo.Spout.Marker), a.pipelineInfo.Pipeline.Name,
+					ppsconsts.SpoutMarkerBranch, "/"+a.pipelineInfo.Spout.Marker, false, false, concurrency, nil, ""); err != nil {
+					// this might fail if the marker branch hasn't been created, so check for that
+					if !(err != nil && strings.Contains(err.Error(), "branches") && strings.Contains(err.Error(), "not found")) {
+						return "", err
+					}
+					// if it hasn't been created yet, that's fine and we should just continue as normal
 				}
 			}
 		}
