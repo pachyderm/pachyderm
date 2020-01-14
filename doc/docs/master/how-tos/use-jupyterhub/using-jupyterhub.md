@@ -39,7 +39,7 @@ The following screenshot demonstrates how this looks in JupyterHub:
 
 ## Create a Pipeline
 
-As discussed in [Difference in Pipeline Creation Methods](#difference-in-pipeline-creation-methods),
+As discussed in [Difference in Pipeline Creation Methods](../../use-jupyterhub/#difference-in-pipeline-creation-methods),
 you can use the standard `create_pipeline` method or `create_python_pipeline`
 function to create Pachyderm pipelines in JupyterHub. Depending on your
 choice, use one of the following examples to create a pipeline:
@@ -232,5 +232,5 @@ To get started with JupyterHub, try the
 [OpenCV example for JupyterHub](https://github.com/pachyderm/jupyterhub-pachyderm/blob/master/doc/opencv.md).
 
 This example walks you through the same steps as in the
-[Beginner Tutorial](../../getting_started/beginner_tutorial/) but using the
+[Beginner Tutorial](../../../getting_started/beginner_tutorial/) but using the
 `python-pachyderm` client instead of `pachctl` or the Pachyderm UI.
