@@ -90,20 +90,18 @@ fi
 # would've caught at least one serialization bug that completely broke 'pachctl
 # deploy' in v1.9.8
 echo ""
-echo "Diffing 'pachctl deploy' output with known-good golden manifests."
-echo "If this fails but should pass, run:"
-echo "  validate.sh --regenerate"
-echo "    or"
-echo "  make regenerate-test-deploy-manifests"
-echo "  (at the top level of the Pachyderm repo)"
-echo "to replace the golden deployment manifests with current output."
-echo "This is necessary if you have deliberately changed 'pachctl deploy'"
-echo ""
+echo "Diffing 'pachctl deploy' output with known-good golden deploy manifests."
 DIFF_CMD="${DIFF_CMD:-diff --unified=6}"
 if ! ${DIFF_CMD} "${here}/${dest_dir}" "${here}/golden"; then
   echo ""
   echo "Error: deployment manifest has changed."
+  echo "If this test is failing because you have deliberately changed"\
+    "'pachctl deploy', you'll need to fix it by replacing the golden"\
+    "deployment manifests."
+  echo "You can update the golden manifests by running:"
+  echo "  make regenerate-test-deploy-manifests"
   exit 1
 else
+  echo ""
   echo "No differences found"
 fi
