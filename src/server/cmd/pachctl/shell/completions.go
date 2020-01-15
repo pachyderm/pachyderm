@@ -15,6 +15,7 @@ import (
 	pps_pretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
 )
 
+// RepoCompletion completes repo parameters of the form <repo>
 func RepoCompletion(_, text string, maxCompletions int64) []prompt.Suggest {
 	c, err := client.NewOnUserMachine("user-completion")
 	if err != nil {
@@ -35,6 +36,7 @@ func RepoCompletion(_, text string, maxCompletions int64) []prompt.Suggest {
 	return result
 }
 
+// BranchCompletion completes branch parameters of the form <repo>@<branch>
 func BranchCompletion(flag, text string, maxCompletions int64) []prompt.Suggest {
 	c, err := client.NewOnUserMachine("user-completion")
 	if err != nil {
@@ -66,6 +68,7 @@ func BranchCompletion(flag, text string, maxCompletions int64) []prompt.Suggest 
 	return result
 }
 
+// FileCompletion completes file parameters of the form <repo>@<branch>:/file
 func FileCompletion(flag, text string, maxCompletions int64) []prompt.Suggest {
 	c, err := client.NewOnUserMachine("user-completion")
 	if err != nil {
@@ -98,6 +101,7 @@ func FileCompletion(flag, text string, maxCompletions int64) []prompt.Suggest {
 	return result
 }
 
+// PipelineCompletion completes pipeline parameters of the form <pipeline>
 func PipelineCompletion(_, text string, maxCompletions int64) []prompt.Suggest {
 	c, err := client.NewOnUserMachine("user-completion")
 	if err != nil {
@@ -128,6 +132,7 @@ func jobDesc(ji *pps.JobInfo) string {
 	return fmt.Sprintf("%s: %s - %s", ji.Pipeline.Name, pps_pretty.Progress(ji), statusString)
 }
 
+// JobCompletion completes job parameters of the form <job>
 func JobCompletion(_, text string, maxCompletions int64) []prompt.Suggest {
 	c, err := client.NewOnUserMachine("user-completion")
 	if err != nil {
