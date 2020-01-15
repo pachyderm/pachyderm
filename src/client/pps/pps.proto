@@ -360,6 +360,7 @@ message EtcdPipelineInfo {
   map<int32, int32> job_counts = 3;
   string auth_token = 5;
   JobState last_job_state = 6;
+  uint64 parallelism = 7;
 }
 
 message PipelineInfo {

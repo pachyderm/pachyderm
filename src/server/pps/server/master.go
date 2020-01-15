@@ -244,8 +244,12 @@ func (a *apiServer) setPipelineState(pachClient *client.APIClient, pipelineInfo 
 		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
 	}()
+	parallelism, err := ppsutil.GetExpectedNumWorkers(a.env.GetKubeClient(), pipelineInfo.ParallelismSpec)
+	if err != nil {
+		return err
+	}
 	log.Infof("moving pipeline %s to %s", pipelineInfo.Pipeline.Name, state.String())
-	_, err := col.NewSTM(pachClient.Ctx(), a.env.GetEtcdClient(), func(stm col.STM) error {
+	_, err = col.NewSTM(pachClient.Ctx(), a.env.GetEtcdClient(), func(stm col.STM) error {
 		pipelines := a.pipelines.ReadWrite(stm)
 		pipelinePtr := &pps.EtcdPipelineInfo{}
 		if err := pipelines.Get(pipelineInfo.Pipeline.Name, pipelinePtr); err != nil {
@@ -257,6 +261,7 @@ func (a *apiServer) setPipelineState(pachClient *client.APIClient, pipelineInfo 
 		}
 		pipelinePtr.State = state
 		pipelinePtr.Reason = reason
+		pipelinePtr.Parallelism = uint64(parallelism)
 		return pipelines.Put(pipelineInfo.Pipeline.Name, pipelinePtr)
 	})
 	return err
