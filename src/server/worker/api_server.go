@@ -32,8 +32,6 @@ import (
 	"gopkg.in/go-playground/webhooks.v5/github"
 	"gopkg.in/src-d/go-git.v4"
 	gitPlumbing "gopkg.in/src-d/go-git.v4/plumbing"
-	kube "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/pachyderm/pachyderm/src/client"
@@ -87,7 +85,6 @@ var (
 // APIServer implements the worker API
 type APIServer struct {
 	pachClient *client.APIClient
-	kubeClient *kube.Clientset
 	etcdClient *etcd.Client
 	etcdPrefix string
 
@@ -115,8 +112,6 @@ type APIServer struct {
 	// queueSize is the number of items enqueued
 	queueSize int64
 
-	// The total number of workers for this pipeline
-	numWorkers int
 	// The namespace in which pachyderm is deployed
 	namespace string
 	// The jobs collection
@@ -318,17 +313,8 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	}
 	defer tracing.FinishAnySpan(span)
 
-	cfg, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, err
-	}
-	kubeClient, err := kube.NewForConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
 	server := &APIServer{
 		pachClient:   oldPachClient,
-		kubeClient:   kubeClient,
 		etcdClient:   etcdClient,
 		etcdPrefix:   etcdPrefix,
 		pipelineInfo: pipelineInfo,
@@ -357,12 +343,6 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	} else {
 		server.exportStats = resp.State == enterprise.State_ACTIVE
 	}
-	numWorkers, err := ppsutil.GetExpectedNumWorkers(kubeClient, pipelineInfo.ParallelismSpec)
-	if err != nil {
-		logger.Logf("error getting number of workers, default to 1 worker: %v", err)
-		numWorkers = 1
-	}
-	server.numWorkers = numWorkers
 	numShards, err := ppsutil.GetExpectedNumHashtrees(pipelineInfo.HashtreeSpec)
 	if err != nil {
 		logger.Logf("error getting number of shards, default to 1 shard: %v", err)

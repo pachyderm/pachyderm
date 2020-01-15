@@ -130,7 +130,7 @@ nav:
                 - Cross and Union Inputs: concepts/pipeline-concepts/datum/cross-union.md
                 - Datum Processing States: concepts/pipeline-concepts/datum/datum-processing-states.md
         - Advanced Concepts:
-            Distributed Computing: concepts/pipeline-concepts/distributed_computing.md
+            - Deferred Processing of Data: how-tos/deferred_processing.md
 
     - How-Tos:
         - Overview: how-tos/index.md
@@ -143,6 +143,9 @@ nav:
             - Splitting Data for Distributed Processing: how-tos/splitting-data/splitting.md
             - Adjusting Data Processing by Splitting Data: how-tos/splitting-data/adjusting_data_processing_w_split.md
         - Create a Machine Learning Workflow: how-tos/create-ml-workflow.md
+        - Use JupyterHub:
+            - Overview: how-tos/use-jupyterhub/index.md
+            - Using python-pachyderm in JupyterHub: how-tos/use-jupyterhub/using-jupyterhub.md
         - Run a Pipeline on a Specific Commit: how-tos/run_pipeline.md
         - Update a Pipeline: how-tos/updating_pipelines.md
         - Processing Time-Windowed Data: how-tos/time_windows.md
@@ -152,7 +155,6 @@ nav:
         - Deferred Processing of Data: how-tos/deferred_processing.md
         - Ingress and Egress Data from an External Object Store: how-tos/ingressing_from_diff_cloud.md
         - Skip Failed Datums: how-tos/err_cmd.md
-        - Using the S3 Gateway: how-tos/s3gateway.md
     - Deploy and Manage:
         - Overview: deploy-manage/index.md
         - Deploy Pachyderm:
@@ -168,6 +170,7 @@ nav:
             - Deploy on Azure: deploy-manage/deploy/azure.md
             - Deploy on OpenShift: deploy-manage/deploy/openshift.md
             - Deploy On-Premises: deploy-manage/deploy/on_premises.md
+            - Deploy Pachyderm with JupyterHub: deploy-manage/deploy/deploy-pachyderm-jupyterhub.md
             - Create a Custom Deployment:
                 - Overview: deploy-manage/deploy/deploy_custom/index.md
                 - Before You Begin: deploy-manage/deploy/deploy_custom/deploy_custom_before_you_begin.md
@@ -197,6 +200,7 @@ nav:
                 - Migrate to a Major Version: deploy-manage/manage/migrations.md
                 - Upgrade your Cluster: deploy-manage/manage/upgrades.md
             - Disable Usage Metrics: deploy-manage/manage/disable-metrics.md
+            - Using the S3 Gateway: how-tos/s3gateway.md
     - Reference:
         - Overview: reference/index.md
         - Pipeline Specification: reference/pipeline_spec.md

@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/http"
-	_ "net/http/pprof"
 	"os"
 	"path"
 	"path/filepath"
@@ -127,12 +125,8 @@ func getPipelineInfo(pachClient *client.APIClient, env *serviceenv.ServiceEnv) (
 }
 
 func do(config interface{}) error {
-	tracing.InstallJaegerTracerFromEnv() // must run before InitWithKube
+	tracing.InstallJaegerTracerFromEnv() // must run before InitServiceEnv
 	env := serviceenv.InitServiceEnv(serviceenv.NewConfiguration(config))
-	// Expose PProf service
-	go func() {
-		log.Println(http.ListenAndServe(fmt.Sprintf(":%d", env.PProfPort), nil))
-	}()
 
 	// Construct a client that connects to the sidecar.
 	pachClient := env.GetPachClient(context.Background())

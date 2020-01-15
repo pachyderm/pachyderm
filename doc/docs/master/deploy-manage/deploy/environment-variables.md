@@ -44,7 +44,6 @@ environment variables.
 | `ETCD_SERVICE_PORT`    | N/A               | The etcd port number.                    |
 | `PPS_WORKER_GRPC_PORT` | `80`              | The GRPs port number.                    |
 | `PORT`                 | `650`             | The `pachd` port number. |
-| `PPROF_PORT`            | `651`             | The port number for the `pprof` tool.     |
 | `HTTP_PORT`             | `652`             | The HTTP port number.   |
 | `PEER_PORT`             | `653`             | The port for pachd-to-pachd communication. |
 | `PPS_ETCD_PREFIX`        | `pachyderm_pps`   | ???  |

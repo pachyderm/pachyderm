@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	_ "net/http/pprof"
 	"os"
 	"path"
 	"runtime/debug"
@@ -56,7 +55,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 	"golang.org/x/net/context"
-	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	v1 "k8s.io/api/core/v1"
 )
@@ -110,9 +108,6 @@ func doSidecarMode(config interface{}) (retErr error) {
 	}
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 	debug.SetGCPercent(50)
-	go func() {
-		log.Println(http.ListenAndServe(fmt.Sprintf(":%d", env.PProfPort), nil))
-	}()
 	switch env.LogLevel {
 	case "debug":
 		log.SetLevel(log.DebugLevel)
@@ -195,7 +190,6 @@ func doSidecarMode(config interface{}) (retErr error) {
 			env.IAMRole,
 			reporter,
 			env.PPSWorkerPort,
-			env.PProfPort,
 			env.HTTPPort,
 			env.PeerPort,
 		)
@@ -291,9 +285,6 @@ func doFullMode(config interface{}) (retErr error) {
 	}
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 	debug.SetGCPercent(50)
-	go func() {
-		log.Println(http.ListenAndServe(fmt.Sprintf(":%d", env.PProfPort), nil))
-	}()
 	switch env.LogLevel {
 	case "debug":
 		log.SetLevel(log.DebugLevel)
@@ -353,80 +344,30 @@ func doFullMode(config interface{}) (retErr error) {
 		return fmt.Errorf("lru.New: %v", err)
 	}
 	kubeNamespace := getNamespace()
-	publicHealthServer := health.NewHealthServer()
-	peerHealthServer := health.NewHealthServer()
-	// TODO(msteffen): We should not use an errorgroup here. Errorgroup waits
-	// until *all* goroutines have run and then returns, but we want pachd to halt
-	// if *any* of these serve functions returns an arror.
-	var eg errgroup.Group
-	eg.Go(func() error {
-		httpServer, err := pach_http.NewHTTPServer(address)
-		if err != nil {
-			return err
-		}
-		err = http.ListenAndServe(fmt.Sprintf(":%v", env.HTTPPort), httpServer)
-		if err != nil {
-			log.Printf("error starting http server %v\n", err)
-		}
-		return fmt.Errorf("ListenAndServe: %v", err)
-	})
-	eg.Go(func() error {
-		err := githook.RunGitHookServer(address, etcdAddress, path.Join(env.EtcdPrefix, env.PPSEtcdPrefix))
-		if err != nil {
-			log.Printf("error starting githook server %v\n", err)
-		}
-		return fmt.Errorf("RunGitHookServer: %v", err)
-	})
-	eg.Go(func() error {
-		server, err := s3.Server(env.S3GatewayPort, env.Port)
-		if err != nil {
-			return fmt.Errorf("s3gateway server: %v", err)
-		}
-		certPath, keyPath, err := tls.GetCertPaths()
-		if err != nil {
-			log.Warnf("s3gateway TLS disabled: %v", err)
-			if err := server.ListenAndServe(); err != http.ErrServerClosed {
-				return fmt.Errorf("s3gateway listen: %v", err)
-			}
-		} else {
-			if err := server.ListenAndServeTLS(certPath, keyPath); err != http.ErrServerClosed {
-				return fmt.Errorf("s3gateway listen: %v", err)
-			}
-		}
-		return nil
-	})
-	eg.Go(func() error {
-		http.Handle("/metrics", promhttp.Handler())
-		err := http.ListenAndServe(fmt.Sprintf(":%v", assets.PrometheusPort), nil)
-		if err != nil {
-			log.Printf("error starting prometheus server %v\n", err)
-		}
-		return fmt.Errorf("ListenAndServe: %v", err)
-	})
-	eg.Go(func() error {
-		// start public pachd server
-		server, err := grpcutil.NewServer(context.Background(), true)
-		if err != nil {
-			return err
-		}
+	// Setup External Pachd GRPC Server.
+	externalServer, err := grpcutil.NewServer(context.Background(), true)
+	if err != nil {
+		return err
+	}
+	if err := logGRPCServerSetup("External Pachd", func() error {
 		txnEnv := &txnenv.TransactionEnv{}
 		memoryRequestBytes, err := units.RAMInBytes(env.MemoryRequest)
 		if err != nil {
 			return err
 		}
 		var pfsAPIServer pfs_server.APIServer
-		if err := logGRPCServerSetup("External PFS API", func() error {
+		if err := logGRPCServerSetup("PFS API", func() error {
 			pfsAPIServer, err = pfs_server.NewAPIServer(env, txnEnv, path.Join(env.EtcdPrefix, env.PFSEtcdPrefix), treeCache, env.StorageRoot, memoryRequestBytes)
 			if err != nil {
 				return err
 			}
-			pfsclient.RegisterAPIServer(server.Server, pfsAPIServer)
+			pfsclient.RegisterAPIServer(externalServer.Server, pfsAPIServer)
 			return nil
 		}); err != nil {
 			return err
 		}
 		var ppsAPIServer pps_server.APIServer
-		if err := logGRPCServerSetup("External PPS API", func() error {
+		if err := logGRPCServerSetup("PPS API", func() error {
 			ppsAPIServer, err = pps_server.NewAPIServer(
 				env,
 				txnEnv,
@@ -445,20 +386,19 @@ func doFullMode(config interface{}) (retErr error) {
 				env.WorkerUsesRoot,
 				env.PPSWorkerPort,
 				env.Port,
-				env.PProfPort,
 				env.HTTPPort,
 				env.PeerPort,
 			)
 			if err != nil {
 				return err
 			}
-			ppsclient.RegisterAPIServer(server.Server, ppsAPIServer)
+			ppsclient.RegisterAPIServer(externalServer.Server, ppsAPIServer)
 			return nil
 		}); err != nil {
 			return err
 		}
 		if env.ExposeObjectAPI {
-			if err := logGRPCServerSetup("External Block API", func() error {
+			if err := logGRPCServerSetup("Block API", func() error {
 				// Generally the object API should not be exposed publicly, but
 				// TestGarbageCollection uses it and it may help with debugging
 				blockAPIServer, err := pfs_server.NewBlockAPIServer(
@@ -469,26 +409,26 @@ func doFullMode(config interface{}) (retErr error) {
 				if err != nil {
 					return err
 				}
-				pfsclient.RegisterObjectAPIServer(server.Server, blockAPIServer)
+				pfsclient.RegisterObjectAPIServer(externalServer.Server, blockAPIServer)
 				return nil
 			}); err != nil {
 				return err
 			}
 		}
 		var authAPIServer authserver.APIServer
-		if err := logGRPCServerSetup("External Auth API", func() error {
+		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err = authserver.NewAuthServer(
 				env, txnEnv, path.Join(env.EtcdPrefix, env.AuthEtcdPrefix), true)
 			if err != nil {
 				return err
 			}
-			authclient.RegisterAPIServer(server.Server, authAPIServer)
+			authclient.RegisterAPIServer(externalServer.Server, authAPIServer)
 			return nil
 		}); err != nil {
 			return err
 		}
 		var transactionAPIServer txnserver.APIServer
-		if err := logGRPCServerSetup("External Transaction API", func() error {
+		if err := logGRPCServerSetup("Transaction API", func() error {
 			transactionAPIServer, err = txnserver.NewAPIServer(
 				env,
 				txnEnv,
@@ -497,42 +437,43 @@ func doFullMode(config interface{}) (retErr error) {
 			if err != nil {
 				return err
 			}
-			transactionclient.RegisterAPIServer(server.Server, transactionAPIServer)
+			transactionclient.RegisterAPIServer(externalServer.Server, transactionAPIServer)
 			return nil
 		}); err != nil {
 			return err
 		}
-		if err := logGRPCServerSetup("External Enterprise API", func() error {
+		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
 				env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))
 			if err != nil {
 				return err
 			}
-			eprsclient.RegisterAPIServer(server.Server, enterpriseAPIServer)
+			eprsclient.RegisterAPIServer(externalServer.Server, enterpriseAPIServer)
 			return nil
 		}); err != nil {
 			return err
 		}
-		if err := logGRPCServerSetup("External Admin API", func() error {
-			adminclient.RegisterAPIServer(server.Server, adminserver.NewAPIServer(address, env.StorageRoot, &adminclient.ClusterInfo{ID: clusterID}))
+		if err := logGRPCServerSetup("Admin API", func() error {
+			adminclient.RegisterAPIServer(externalServer.Server, adminserver.NewAPIServer(address, env.StorageRoot, &adminclient.ClusterInfo{ID: clusterID}))
 			return nil
 		}); err != nil {
 			return err
 		}
-		if err := logGRPCServerSetup("External Health", func() error {
-			healthclient.RegisterHealthServer(server.Server, publicHealthServer)
+		healthServer := health.NewHealthServer()
+		if err := logGRPCServerSetup("Health", func() error {
+			healthclient.RegisterHealthServer(externalServer.Server, healthServer)
 			return nil
 		}); err != nil {
 			return err
 		}
-		if err := logGRPCServerSetup("External Version API", func() error {
-			versionpb.RegisterAPIServer(server.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
+		if err := logGRPCServerSetup("Version API", func() error {
+			versionpb.RegisterAPIServer(externalServer.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
 			return nil
 		}); err != nil {
 			return err
 		}
-		if err := logGRPCServerSetup("External Debug", func() error {
-			debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(
+		if err := logGRPCServerSetup("Debug", func() error {
+			debugclient.RegisterDebugServer(externalServer.Server, debugserver.NewDebugServer(
 				"", // no name for pachd servers
 				env.GetEtcdClient(),
 				path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
@@ -544,17 +485,20 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer, ppsAPIServer)
-		if _, err := server.ListenTCP("", env.Port); err != nil {
+		if _, err := externalServer.ListenTCP("", env.Port); err != nil {
 			return err
 		}
-		return server.Wait()
-	})
-	eg.Go(func() error {
-		// start internal pachd server
-		server, err := grpcutil.NewServer(context.Background(), false)
-		if err != nil {
-			return err
-		}
+		healthServer.Ready()
+		return nil
+	}); err != nil {
+		return err
+	}
+	// Setup Internal Pachd GRPC Server.
+	internalServer, err := grpcutil.NewServer(context.Background(), false)
+	if err != nil {
+		return err
+	}
+	if err := logGRPCServerSetup("Internal Pachd", func() error {
 		txnEnv := &txnenv.TransactionEnv{}
 		cacheServer := cache_server.NewCacheServer(router, env.NumShards)
 		go func() {
@@ -567,18 +511,18 @@ func doFullMode(config interface{}) (retErr error) {
 				log.Printf("error from sharder.Register %s", grpcutil.ScrubGRPC(err))
 			}
 		}()
-		cache_pb.RegisterGroupCacheServer(server.Server, cacheServer)
+		cache_pb.RegisterGroupCacheServer(internalServer.Server, cacheServer)
 		blockCacheBytes, err := units.RAMInBytes(env.BlockCacheBytes)
 		if err != nil {
 			return fmt.Errorf("units.RAMInBytes: %v", err)
 		}
-		if err := logGRPCServerSetup("Internal Block API", func() error {
+		if err := logGRPCServerSetup("Block API", func() error {
 			blockAPIServer, err := pfs_server.NewBlockAPIServer(
 				env.StorageRoot, blockCacheBytes, env.StorageBackend, etcdAddress, false)
 			if err != nil {
 				return err
 			}
-			pfsclient.RegisterObjectAPIServer(server.Server, blockAPIServer)
+			pfsclient.RegisterObjectAPIServer(internalServer.Server, blockAPIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -588,7 +532,7 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		var pfsAPIServer pfs_server.APIServer
-		if err := logGRPCServerSetup("Internal PFS API", func() error {
+		if err := logGRPCServerSetup("PFS API", func() error {
 			pfsAPIServer, err = pfs_server.NewAPIServer(
 				env,
 				txnEnv,
@@ -600,13 +544,13 @@ func doFullMode(config interface{}) (retErr error) {
 			if err != nil {
 				return err
 			}
-			pfsclient.RegisterAPIServer(server.Server, pfsAPIServer)
+			pfsclient.RegisterAPIServer(internalServer.Server, pfsAPIServer)
 			return nil
 		}); err != nil {
 			return err
 		}
 		var ppsAPIServer pps_server.APIServer
-		if err := logGRPCServerSetup("Internal PPS API", func() error {
+		if err := logGRPCServerSetup("PPS API", func() error {
 			ppsAPIServer, err = pps_server.NewAPIServer(
 				env,
 				txnEnv,
@@ -625,20 +569,19 @@ func doFullMode(config interface{}) (retErr error) {
 				env.WorkerUsesRoot,
 				env.PPSWorkerPort,
 				env.Port,
-				env.PProfPort,
 				env.HTTPPort,
 				env.PeerPort,
 			)
 			if err != nil {
 				return err
 			}
-			ppsclient.RegisterAPIServer(server.Server, ppsAPIServer)
+			ppsclient.RegisterAPIServer(internalServer.Server, ppsAPIServer)
 			return nil
 		}); err != nil {
 			return err
 		}
 		var authAPIServer authserver.APIServer
-		if err := logGRPCServerSetup("Internal Auth API", func() error {
+		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err = authserver.NewAuthServer(
 				env,
 				txnEnv,
@@ -648,13 +591,13 @@ func doFullMode(config interface{}) (retErr error) {
 			if err != nil {
 				return err
 			}
-			authclient.RegisterAPIServer(server.Server, authAPIServer)
+			authclient.RegisterAPIServer(internalServer.Server, authAPIServer)
 			return nil
 		}); err != nil {
 			return err
 		}
 		var transactionAPIServer txnserver.APIServer
-		if err := logGRPCServerSetup("Internal Transaction API", func() error {
+		if err := logGRPCServerSetup("Transaction API", func() error {
 			transactionAPIServer, err = txnserver.NewAPIServer(
 				env,
 				txnEnv,
@@ -663,51 +606,87 @@ func doFullMode(config interface{}) (retErr error) {
 			if err != nil {
 				return err
 			}
-			transactionclient.RegisterAPIServer(server.Server, transactionAPIServer)
+			transactionclient.RegisterAPIServer(internalServer.Server, transactionAPIServer)
 			return nil
 		}); err != nil {
 			return err
 		}
-		if err := logGRPCServerSetup("Internal Enterprise API", func() error {
+		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
 				env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))
 			if err != nil {
 				return err
 			}
-			eprsclient.RegisterAPIServer(server.Server, enterpriseAPIServer)
+			eprsclient.RegisterAPIServer(internalServer.Server, enterpriseAPIServer)
 			return nil
 		}); err != nil {
 			return err
 		}
-		if err := logGRPCServerSetup("Internal Health", func() error {
-			healthclient.RegisterHealthServer(server.Server, peerHealthServer)
+		healthServer := health.NewHealthServer()
+		if err := logGRPCServerSetup("Health", func() error {
+			healthclient.RegisterHealthServer(internalServer.Server, healthServer)
 			return nil
 		}); err != nil {
 			return err
 		}
-		if err := logGRPCServerSetup("Internal Version API", func() error {
-			versionpb.RegisterAPIServer(server.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
+		if err := logGRPCServerSetup("Version API", func() error {
+			versionpb.RegisterAPIServer(internalServer.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
 			return nil
 		}); err != nil {
 			return err
 		}
-		if err := logGRPCServerSetup("Internal Admin API", func() error {
-			adminclient.RegisterAPIServer(server.Server, adminserver.NewAPIServer(address, env.StorageRoot, &adminclient.ClusterInfo{ID: clusterID}))
+		if err := logGRPCServerSetup("Admin API", func() error {
+			adminclient.RegisterAPIServer(internalServer.Server, adminserver.NewAPIServer(address, env.StorageRoot, &adminclient.ClusterInfo{ID: clusterID}))
 			return nil
 		}); err != nil {
 			return err
 		}
 		txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer, ppsAPIServer)
-		if _, err := server.ListenTCP("", env.PeerPort); err != nil {
+		if _, err := internalServer.ListenTCP("", env.PeerPort); err != nil {
 			return err
 		}
-		return server.Wait()
+		healthServer.Ready()
+		return nil
+	}); err != nil {
+		return err
+	}
+	// Create the goroutines for the servers.
+	// Any server error is considered critical and will cause Pachd to exit.
+	// The first server that errors will have its error message logged.
+	errChan := make(chan error, 1)
+	go waitForError("External Pachd GRPC Server", errChan, func() error {
+		return externalServer.Wait()
 	})
-	// TODO(msteffen): Is it really necessary to indicate that the peer service is
-	// healthy? Presumably migrate() will call the peer service no matter what.
-	publicHealthServer.Ready()
-	peerHealthServer.Ready()
-	return eg.Wait()
+	go waitForError("Internal Pachd GRPC Server", errChan, func() error {
+		return internalServer.Wait()
+	})
+	go waitForError("HTTP Server", errChan, func() error {
+		httpServer, err := pach_http.NewHTTPServer(address)
+		if err != nil {
+			return err
+		}
+		return http.ListenAndServe(fmt.Sprintf(":%v", env.HTTPPort), httpServer)
+	})
+	go waitForError("Githook Server", errChan, func() error {
+		return githook.RunGitHookServer(address, etcdAddress, path.Join(env.EtcdPrefix, env.PPSEtcdPrefix))
+	})
+	go waitForError("S3 Server", errChan, func() error {
+		server, err := s3.Server(env.S3GatewayPort, env.Port)
+		if err != nil {
+			return err
+		}
+		certPath, keyPath, err := tls.GetCertPaths()
+		if err != nil {
+			log.Warnf("s3gateway TLS disabled: %v", err)
+			return server.ListenAndServe()
+		}
+		return server.ListenAndServeTLS(certPath, keyPath)
+	})
+	go waitForError("Prometheus Server", errChan, func() error {
+		http.Handle("/metrics", promhttp.Handler())
+		return http.ListenAndServe(fmt.Sprintf(":%v", assets.PrometheusPort), nil)
+	})
+	return <-errChan
 }
 
 func getEtcdClient(etcdAddress string) discovery.Client {
@@ -749,10 +728,16 @@ func logGRPCServerSetup(name string, f func() error) (retErr error) {
 	log.Printf("started setting up %v GRPC Server", name)
 	defer func() {
 		if retErr != nil {
-			log.Printf("errored setting up %v GRPC Server", name)
+			retErr = fmt.Errorf("error setting up %v GRPC Server: %v", name, retErr)
 		} else {
 			log.Printf("finished setting up %v GRPC Server", name)
 		}
 	}()
 	return f()
+}
+
+func waitForError(name string, errChan chan error, f func() error) {
+	if err := f(); err != http.ErrServerClosed {
+		errChan <- fmt.Errorf("error in %v: %v", name, f())
+	}
 }

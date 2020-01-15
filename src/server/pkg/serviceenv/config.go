@@ -14,7 +14,6 @@ type GlobalConfiguration struct {
 	EtcdPort      string `env:"ETCD_SERVICE_PORT,required"`
 	PPSWorkerPort uint16 `env:"PPS_WORKER_GRPC_PORT,default=80"`
 	Port          uint16 `env:"PORT,default=650"`
-	PProfPort     uint16 `env:"PPROF_PORT,default=651"`
 	HTTPPort      uint16 `env:"HTTP_PORT,default=652"`
 	PeerPort      uint16 `env:"PEER_PORT,default=653"`
 	PPSEtcdPrefix string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
@@ -58,8 +57,9 @@ type PachdSpecificConfiguration struct {
 
 // StorageConfiguration contains the storage configuration.
 type StorageConfiguration struct {
-	StorageMemoryThreshold int64 `env:"STORAGE_MEMORY_THRESHOLD"`
-	StorageShardThreshold  int64 `env:"STORAGE_SHARD_THRESHOLD"`
+	StorageMemoryThreshold        int64 `env:"STORAGE_MEMORY_THRESHOLD"`
+	StorageShardThreshold         int64 `env:"STORAGE_SHARD_THRESHOLD"`
+	StorageUploadConcurrencyLimit int   `env:"STORAGE_UPLOAD_CONCURRENCY_LIMIT,default=100"`
 }
 
 // WorkerFullConfiguration contains the full worker configuration.
