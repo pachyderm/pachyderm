@@ -20,10 +20,18 @@ const (
 	defaultMaxCompletions int64  = 64
 )
 
+// CompletionFunc is the type of functions which implement completions for
+// pachctl commands.
 type CompletionFunc func(flag, arg string, maxCompletions int64) []prompt.Suggest
 
 var completions map[string]CompletionFunc = make(map[string]CompletionFunc)
 
+// RegisterCompletionFunc registers a completion function for a command.
+// NOTE: RegisterCompletionFunc must be called before cmd is passed to
+// functions that make copies of it (such as cmdutil.CreateAlias. This is
+// because RegisterCompletionFunc modifies cmd in a superficial way by adding
+// an annotation (to the Annotations field) that associates it with the
+// completion function. This means that
 func RegisterCompletionFunc(cmd *cobra.Command, completionFunc CompletionFunc) {
 	id := uuid.NewWithoutDashes()
 
@@ -57,7 +65,6 @@ func (s *shell) executor(in string) {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Run()
-	return
 }
 
 func (s *shell) suggestor(in prompt.Document) []prompt.Suggest {

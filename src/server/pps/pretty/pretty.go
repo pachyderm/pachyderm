@@ -337,9 +337,8 @@ func JobState(jobState ppsclient.JobState) string {
 func Progress(ji *ppsclient.JobInfo) string {
 	if ji.DataRecovered != 0 {
 		return fmt.Sprintf("%d + %d + %d / %d", ji.DataProcessed, ji.DataSkipped, ji.DataRecovered, ji.DataTotal)
-	} else {
-		return fmt.Sprintf("%d + %d / %d", ji.DataProcessed, ji.DataSkipped, ji.DataTotal)
 	}
+	return fmt.Sprintf("%d + %d / %d", ji.DataProcessed, ji.DataSkipped, ji.DataTotal)
 }
 
 func pipelineState(pipelineState ppsclient.PipelineState) string {
