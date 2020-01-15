@@ -2,13 +2,6 @@
 
 set -e
 
-echo "Testing current pachctl against golden deployment manifests"
-echo "Run"
-echo "  validate.sh --regenerate"
-echo "to replace golden deployment manifests with current output"
-echo "(necessary if you have deliberately changed 'pachctl deploy')"
-echo ""
-
 here="$(dirname "${0}")"
 dest_dir="test"
 rm -rf "${here}/${dest_dir}" || true
@@ -26,7 +19,8 @@ if [[ "${#@}" -eq 1 ]]; then
   fi
 fi
 
-# A custom deployment
+# Generate a deployment manifest for many different targets using the local
+# build of 'pachctl'
 custom_args=(
 --secure
 --dynamic-etcd-nodes 3
@@ -83,6 +77,10 @@ for platform in custom google amazon microsoft; do
   done
 done
 
+if [[ "${is_regenerate}" ]]; then
+  exit 0
+fi
+
 # Compare manifests to golden files (in addition to kubeval, to see changes
 # in storage secrets and such)
 #
@@ -91,15 +89,21 @@ done
 # validation above, as it should accept any valid kubernetes manifest, and
 # would've caught at least one serialization bug that completely broke 'pachctl
 # deploy' in v1.9.8
-if [[ ! "${is_regenerate}" ]]; then
-  DIFF_CMD="${DIFF_CMD:-diff --unified=6}"
-  if ! ${DIFF_CMD} "${here}/${dest_dir}" "${here}/golden"; then
-    echo "Deployment manifest has changed." >/dev/stderr
-    echo "If this deliberate, run:" >/dev/stderr
-    echo "  validate.sh --regenerate" >/dev/stderr
-    echo "  git add etc/testing/deploy-manifests/golden" >/dev/stderr
-    echo "  git commit" >/dev/stderr
-    echo "to replace golden deployment manifests with current output" >/dev/stderr
-    exit 1
-  fi
+echo ""
+echo "Diffing 'pachctl deploy' output with known-good golden manifests."
+echo "If this fails but should pass, run:"
+echo "  validate.sh --regenerate"
+echo "    or"
+echo "  make regenerate-test-deploy-manifests"
+echo "  (at the top level of the Pachyderm repo)"
+echo "to replace the golden deployment manifests with current output."
+echo "This is necessary if you have deliberately changed 'pachctl deploy'"
+echo ""
+DIFF_CMD="${DIFF_CMD:-diff --unified=6}"
+if ! ${DIFF_CMD} "${here}/${dest_dir}" "${here}/golden"; then
+  echo ""
+  echo "Error: deployment manifest has changed."
+  exit 1
+else
+  echo "No differences found"
 fi

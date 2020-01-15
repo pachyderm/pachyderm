@@ -402,6 +402,9 @@ test-proto-static:
 test-deploy-manifests: install
 	./etc/testing/deploy-manifests/validate.sh
 
+regenerate-test-deploy-manifests: install
+	./etc/testing/deploy-manifests/validate.sh --regenerate
+
 proto: docker-build-proto
 	./etc/proto/build.sh
 
