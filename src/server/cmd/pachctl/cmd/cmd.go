@@ -642,26 +642,6 @@ This resets the cluster to its initial state.`,
 	completion.Flags().StringVar(&path, "path", "/etc/bash_completion.d/pachctl", "Path to install the completion to. This will default to `/etc/bash_completion.d/` if unspecified.")
 	subcommands = append(subcommands, cmdutil.CreateAlias(completion, "completion"))
 
-	var file string
-	createKubeSecret := &cobra.Command{
-		Short: "Create a kubernetes secret on the cluster.",
-		Long:  "Create a kubernetes secret on the cluster.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			c, err := client.NewKubeSecretConfig()
-			if err != nil {
-				return fmt.Errorf("failed to create docker registry: %v", err)
-			}
-			secretName, err := c.Create(file)
-			if err != nil {
-				return fmt.Errorf("failed to create secret: %v", err)
-			}
-			fmt.Println("secret created: ", secretName)
-			return nil
-		}),
-	}
-	createKubeSecret.Flags().StringVarP(&file, "file", "f", "", "File containing Docker Registry secret.")
-	subcommands = append(subcommands, cmdutil.CreateAlias(createKubeSecret, "create kube-secret"))
-
 	// Logical commands for grouping commands by verb (no run functions)
 	deleteDocs := &cobra.Command{
 		Short: "Delete an existing Pachyderm resource.",
