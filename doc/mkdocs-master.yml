@@ -190,6 +190,7 @@ nav:
         - Manage Pachyderm:
             - Overview: deploy-manage/manage/index.md
             - Manage Cluster Access: deploy-manage/manage/cluster-access.md
+            - Using Pachctl Shell: deploy-manage/manage/pachctl_shell.md
             - Autoscale your Cluster: deploy-manage/manage/autoscaling.md
             - Backup and Restore: deploy-manage/manage/backup_restore.md
             - Storage Use Optimization: deploy-manage/manage/data_management.md
