@@ -2896,7 +2896,7 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 func (a *apiServer) CreateSecret(ctx context.Context, request *pps.CreateSecretRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreateSecret")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	var s v1.Secret
@@ -2905,11 +2905,22 @@ func (a *apiServer) CreateSecret(ctx context.Context, request *pps.CreateSecretR
 		return nil, fmt.Errorf("failed to unmarshal secret: %v", err)
 	}
 
-	_, err = a.env.GetKubeClient().CoreV1().Secrets(request.Namespace).Create(&s)
-	if err != nil {
+	if _, err = a.env.GetKubeClient().CoreV1().Secrets(request.Namespace).Create(&s); err != nil {
 		return nil, fmt.Errorf("failed to create secret: %v", err)
 	}
+	return &types.Empty{}, nil
+}
 
+// DeleteSecret implements the protobuf pps.DeleteSecret RPC
+func (a *apiServer) DeleteSecret(ctx context.Context, request *pps.DeleteSecretRequest) (response *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteSecret")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	if err := a.env.GetKubeClient().CoreV1().Secrets(request.Namespace).Delete(request.GetSecret(), &metav1.DeleteOptions{}); err != nil {
+		return nil, fmt.Errorf("failed to create secret: %v", err)
+	}
 	return &types.Empty{}, nil
 }
 
