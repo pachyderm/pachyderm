@@ -678,6 +678,10 @@ message RunCronRequest {
   Pipeline pipeline = 1;
 }
 
+message CreateSecretRequest {
+  bytes file = 1;
+  string namespace = 2;
+}
 
 message GarbageCollectRequest {
     // Memory is how much memory to use in computing which objects are alive. A
@@ -717,6 +721,8 @@ service API {
   rpc StopPipeline(StopPipelineRequest) returns (google.protobuf.Empty) {}
   rpc RunPipeline(RunPipelineRequest) returns (google.protobuf.Empty) {}
   rpc RunCron(RunCronRequest) returns (google.protobuf.Empty) {}
+
+  rpc CreateSecret(CreateSecretRequest) returns (google.protobuf.Empty) {}
 
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}

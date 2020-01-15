@@ -517,6 +517,9 @@ func (c *ppsBuilderClient) ActivateAuth(ctx context.Context, req *pps.ActivateAu
 func (c *ppsBuilderClient) RunCron(ctx context.Context, req *pps.RunCronRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("RunCron")
 }
+func (c *ppsBuilderClient) CreateSecret(ctx context.Context, req *pps.CreateSecretRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("CreateSecret")
+}
 
 func (c *authBuilderClient) Activate(ctx context.Context, req *auth.ActivateRequest, opts ...grpc.CallOption) (*auth.ActivateResponse, error) {
 	return nil, unsupportedError("Activate")

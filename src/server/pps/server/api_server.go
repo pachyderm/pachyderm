@@ -2892,6 +2892,27 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 	return &types.Empty{}, nil
 }
 
+// CreateSecret implements the protobuf pps.CreateSecret RPC
+func (a *apiServer) CreateSecret(ctx context.Context, request *pps.CreateSecretRequest) (response *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	var s v1.Secret
+	err := json.Unmarshal(request.GetFile(), &s)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal secret: %v", err)
+	}
+
+	_, err = a.env.GetKubeClient().CoreV1().Secrets(request.Namespace).Create(&s)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create secret: %v", err)
+	}
+
+	return &types.Empty{}, nil
+}
+
 // DeleteAll implements the protobuf pps.DeleteAll RPC
 func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()

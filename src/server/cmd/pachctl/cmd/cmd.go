@@ -682,26 +682,6 @@ This resets the cluster to its initial state.`,
 	completionZsh.Flags().StringVar(&installPathZsh, "path", "_pachctl", "Path to install the completions to.")
 	subcommands = append(subcommands, cmdutil.CreateAlias(completionZsh, "completion zsh"))
 
-	var file string
-	createKubeSecret := &cobra.Command{
-		Short: "Create a kubernetes secret on the cluster.",
-		Long:  "Create a kubernetes secret on the cluster.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			c, err := client.NewKubeSecretConfig()
-			if err != nil {
-				return fmt.Errorf("failed to create docker registry: %v", err)
-			}
-			secretName, err := c.Create(file)
-			if err != nil {
-				return fmt.Errorf("failed to create secret: %v", err)
-			}
-			fmt.Println("secret created: ", secretName)
-			return nil
-		}),
-	}
-	createKubeSecret.Flags().StringVarP(&file, "file", "f", "", "File containing Docker Registry secret.")
-	subcommands = append(subcommands, cmdutil.CreateAlias(createKubeSecret, "create kube-secret"))
-
 	// Logical commands for grouping commands by verb (no run functions)
 	completionDocs := &cobra.Command{
 		Short: "Print or install terminal completion code.",

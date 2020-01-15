@@ -848,6 +848,41 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	}
 	commands = append(commands, cmdutil.CreateAlias(startPipeline, "start pipeline"))
 
+	var file string
+	var namespace string
+	createSecret := &cobra.Command{
+		Short: "Create a secret on the cluster.",
+		Long:  "Create a secret on the cluster.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+			client, err := pachdclient.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+			fileBytes, err := ioutil.ReadFile(file)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println("namespace", namespace)
+			fmt.Println("file", file)
+			_, err = client.PpsAPIClient.CreateSecret(
+				client.Ctx(),
+				&ppsclient.CreateSecretRequest{
+					File:      fileBytes,
+					Namespace: namespace,
+				})
+
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			return nil
+		}),
+	}
+	createSecret.Flags().StringVarP(&file, "file", "f", "", "File containing Docker Registry secret.")
+	createSecret.Flags().StringVarP(&namespace, "namespace", "n", "default", "Namespace to write the secret into.")
+	commands = append(commands, cmdutil.CreateAlias(createSecret, "create secret"))
+
 	stopPipeline := &cobra.Command{
 		Use:   "{{alias}} <pipeline>",
 		Short: "Stop a running pipeline.",
