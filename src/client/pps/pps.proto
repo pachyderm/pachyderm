@@ -697,6 +697,17 @@ message DeleteSecretRequest {
   string namespace = 2;
 }
 
+message InspectSecretRequest {
+  string secret = 1;
+  string namespace = 2;
+}
+
+message SecretInfo {
+  string name = 1;
+  string type = 2;
+  google.protobuf.Timestamp creation_timestamp = 3;
+}
+
 message GarbageCollectRequest {
     // Memory is how much memory to use in computing which objects are alive. A
     // larger number will result in more precise garbage collection (at the
@@ -738,6 +749,8 @@ service API {
 
   rpc CreateSecret(CreateSecretRequest) returns (google.protobuf.Empty) {}
   rpc DeleteSecret(DeleteSecretRequest) returns (google.protobuf.Empty) {}
+  // rpc ListSecret(ListSecretRequest) returns (stream SecretInfo) {}
+  rpc InspectSecret(InspectSecretRequest) returns (SecretInfo) {}
 
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}

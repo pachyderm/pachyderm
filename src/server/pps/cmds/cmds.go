@@ -814,6 +814,24 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	}
 	commands = append(commands, cmdutil.CreateAlias(startPipeline, "start pipeline"))
 
+	stopPipeline := &cobra.Command{
+		Use:   "{{alias}} <pipeline>",
+		Short: "Stop a running pipeline.",
+		Long:  "Stop a running pipeline.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			client, err := pachdclient.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+			if err := client.StopPipeline(args[0]); err != nil {
+				cmdutil.ErrorAndExit("error from StopPipeline: %s", err.Error())
+			}
+			return nil
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(stopPipeline, "stop pipeline"))
+
 	var file string
 	var createSecretNamespace string
 	createSecret := &cobra.Command{
@@ -871,26 +889,36 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			return nil
 		}),
 	}
-	deleteSecret.Flags().StringVarP(&deleteSecretNamespace, "namespace", "n", "default", "Namespace to write the secret into.")
+	deleteSecret.Flags().StringVarP(&deleteSecretNamespace, "namespace", "n", "default", "Namespace to delete the secret from.")
 	commands = append(commands, cmdutil.CreateAlias(deleteSecret, "delete secret"))
 
-	stopPipeline := &cobra.Command{
-		Use:   "{{alias}} <pipeline>",
-		Short: "Stop a running pipeline.",
-		Long:  "Stop a running pipeline.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+	var inspectSecretNamespace string
+	inspectSecret := &cobra.Command{
+		Short: "Inspect a secret from the cluster.",
+		Long:  "Inspect a secret from the cluster.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
 			defer client.Close()
-			if err := client.StopPipeline(args[0]); err != nil {
-				cmdutil.ErrorAndExit("error from StopPipeline: %s", err.Error())
+
+			secretInfo, err := client.PpsAPIClient.InspectSecret(
+				client.Ctx(),
+				&ppsclient.InspectSecretRequest{
+					Secret:    args[0],
+					Namespace: inspectSecretNamespace,
+				})
+
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
 			}
+			fmt.Println(secretInfo)
 			return nil
 		}),
 	}
-	commands = append(commands, cmdutil.CreateAlias(stopPipeline, "stop pipeline"))
+	inspectSecret.Flags().StringVarP(&inspectSecretNamespace, "namespace", "n", "default", "Namespace to look for the secret in.")
+	commands = append(commands, cmdutil.CreateAlias(inspectSecret, "inspect secret"))
 
 	var memory string
 	garbageCollect := &cobra.Command{

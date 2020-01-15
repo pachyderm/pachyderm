@@ -16,6 +16,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/limit"
@@ -2923,6 +2924,31 @@ func (a *apiServer) DeleteSecret(ctx context.Context, request *pps.DeleteSecretR
 		return nil, fmt.Errorf("failed to create secret: %v", err)
 	}
 	return &types.Empty{}, nil
+}
+
+// InspectSecret implements the protobuf pps.InspectSecret RPC
+func (a *apiServer) InspectSecret(ctx context.Context, request *pps.InspectSecretRequest) (response *pps.SecretInfo, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "InspectSecret")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	secret, err := a.env.GetKubeClient().CoreV1().Secrets(request.Namespace).Get(request.GetSecret(), metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create secret: %v", err)
+	}
+	creationTimestamp, err := ptypes.TimestampProto(secret.GetCreationTimestamp().Time)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse creation timestamp")
+	}
+	return &pps.SecretInfo{
+		Name: secret.GetName(),
+		Type: string(secret.Type),
+		CreationTimestamp: &types.Timestamp{
+			Seconds: creationTimestamp.GetSeconds(),
+			Nanos:   creationTimestamp.GetNanos(),
+		},
+	}, nil
 }
 
 // DeleteAll implements the protobuf pps.DeleteAll RPC
