@@ -520,6 +520,9 @@ func (c *ppsBuilderClient) RunCron(ctx context.Context, req *pps.RunCronRequest,
 func (c *ppsBuilderClient) CreateSecret(ctx context.Context, req *pps.CreateSecretRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("CreateSecret")
 }
+func (c *ppsBuilderClient) DeleteSecret(ctx context.Context, req *pps.DeleteSecretRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("DeleteSecret")
+}
 
 func (c *authBuilderClient) Activate(ctx context.Context, req *auth.ActivateRequest, opts ...grpc.CallOption) (*auth.ActivateResponse, error) {
 	return nil, unsupportedError("Activate")

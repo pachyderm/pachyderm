@@ -815,7 +815,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	commands = append(commands, cmdutil.CreateAlias(startPipeline, "start pipeline"))
 
 	var file string
-	var namespace string
+	var createSecretNamespace string
 	createSecret := &cobra.Command{
 		Short: "Create a secret on the cluster.",
 		Long:  "Create a secret on the cluster.",
@@ -830,13 +830,11 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return err
 			}
 
-			fmt.Println("namespace", namespace)
-			fmt.Println("file", file)
 			_, err = client.PpsAPIClient.CreateSecret(
 				client.Ctx(),
 				&ppsclient.CreateSecretRequest{
 					File:      fileBytes,
-					Namespace: namespace,
+					Namespace: createSecretNamespace,
 				})
 
 			if err != nil {
@@ -846,8 +844,35 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		}),
 	}
 	createSecret.Flags().StringVarP(&file, "file", "f", "", "File containing Docker Registry secret.")
-	createSecret.Flags().StringVarP(&namespace, "namespace", "n", "default", "Namespace to write the secret into.")
+	createSecret.Flags().StringVarP(&createSecretNamespace, "namespace", "n", "default", "Namespace to write the secret into.")
 	commands = append(commands, cmdutil.CreateAlias(createSecret, "create secret"))
+
+	var deleteSecretNamespace string
+	deleteSecret := &cobra.Command{
+		Short: "Delete a secret from the cluster.",
+		Long:  "Delete a secret from the cluster.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+			client, err := pachdclient.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+
+			_, err = client.PpsAPIClient.DeleteSecret(
+				client.Ctx(),
+				&ppsclient.DeleteSecretRequest{
+					Secret:    args[0],
+					Namespace: deleteSecretNamespace,
+				})
+
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			return nil
+		}),
+	}
+	deleteSecret.Flags().StringVarP(&deleteSecretNamespace, "namespace", "n", "default", "Namespace to write the secret into.")
+	commands = append(commands, cmdutil.CreateAlias(deleteSecret, "delete secret"))
 
 	stopPipeline := &cobra.Command{
 		Use:   "{{alias}} <pipeline>",

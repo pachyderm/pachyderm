@@ -670,12 +670,24 @@ func (c APIClient) RunCron(name string) error {
 	return grpcutil.ScrubGRPC(err)
 }
 
-// CreateSecrete creates a secret on the cluster.
+// CreateSecret creates a secret on the cluster.
 func (c APIClient) CreateSecret(file []byte, namespace string) error {
 	_, err := c.PpsAPIClient.CreateSecret(
 		c.Ctx(),
 		&pps.CreateSecretRequest{
 			File:      file,
+			Namespace: namespace,
+		},
+	)
+	return grpcutil.ScrubGRPC(err)
+}
+
+// DeleteSecret deletes a secret from the cluster.
+func (c APIClient) DeleteSecret(secret, namespace string) error {
+	_, err := c.PpsAPIClient.DeleteSecret(
+		c.Ctx(),
+		&pps.DeleteSecretRequest{
+			Secret:    secret,
 			Namespace: namespace,
 		},
 	)
