@@ -399,8 +399,11 @@ staticcheck:
 test-proto-static:
 	./etc/proto/test_no_changes.sh || echo "Protos need to be recompiled; run make proto-no-cache."
 
-test-deploy-manifests:
+test-deploy-manifests: install
 	./etc/testing/deploy-manifests/validate.sh
+
+regenerate-test-deploy-manifests: install
+	./etc/testing/deploy-manifests/validate.sh --regenerate
 
 proto: docker-build-proto
 	./etc/proto/build.sh
