@@ -2950,6 +2950,38 @@ func (a *apiServer) InspectSecret(ctx context.Context, request *pps.InspectSecre
 	}, nil
 }
 
+// ListSecret implements the protobuf pps.ListSecret RPC
+func (a *apiServer) ListSecret(ctx context.Context, request *pps.ListSecretRequest) (response *pps.SecretInfos, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListSecret")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	secrets, err := a.env.GetKubeClient().CoreV1().Secrets(request.Namespace).List(metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create secret: %v", err)
+	}
+	secretInfos := []*pps.SecretInfo{}
+	for _, s := range secrets.Items {
+		creationTimestamp, err := ptypes.TimestampProto(s.GetCreationTimestamp().Time)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse creation timestamp")
+		}
+		secretInfos = append(secretInfos, &pps.SecretInfo{
+			Name: s.GetName(),
+			Type: string(s.Type),
+			CreationTimestamp: &types.Timestamp{
+				Seconds: creationTimestamp.GetSeconds(),
+				Nanos:   creationTimestamp.GetNanos(),
+			},
+		})
+	}
+
+	return &pps.SecretInfos{
+		SecretInfo: secretInfos,
+	}, nil
+}
+
 // DeleteAll implements the protobuf pps.DeleteAll RPC
 func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()

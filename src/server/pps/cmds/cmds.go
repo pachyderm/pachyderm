@@ -954,6 +954,33 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	inspectSecret.Flags().StringVarP(&inspectSecretNamespace, "namespace", "n", "default", "Namespace to look for the secret in.")
 	commands = append(commands, cmdutil.CreateAlias(inspectSecret, "inspect secret"))
 
+	var listSecretNamespace string
+	listSecret := &cobra.Command{
+		Short: "List all secrets from a namespace in the cluster.",
+		Long:  "List all secrets from a namespace in the cluster.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+			client, err := pachdclient.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+
+			secretInfos, err := client.PpsAPIClient.ListSecret(
+				client.Ctx(),
+				&ppsclient.ListSecretRequest{
+					Namespace: inspectSecretNamespace,
+				})
+
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			fmt.Println(secretInfos)
+			return nil
+		}),
+	}
+	listSecret.Flags().StringVarP(&listSecretNamespace, "namespace", "n", "default", "Namespace to look for the secret in.")
+	commands = append(commands, cmdutil.CreateAlias(listSecret, "list secret"))
+
 	var memory string
 	garbageCollect := &cobra.Command{
 		Short: "Garbage collect unused data.",

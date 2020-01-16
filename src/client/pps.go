@@ -684,7 +684,7 @@ func (c APIClient) DeleteSecret(secret, namespace string) error {
 	return grpcutil.ScrubGRPC(err)
 }
 
-// InspectSecret returns info about a specific secret
+// InspectSecret returns info about a specific secret.
 func (c APIClient) InspectSecret(secret, namespace string) (*pps.SecretInfo, error) {
 	secretInfo, err := c.PpsAPIClient.InspectSecret(
 		c.Ctx(),
@@ -694,6 +694,17 @@ func (c APIClient) InspectSecret(secret, namespace string) (*pps.SecretInfo, err
 		},
 	)
 	return secretInfo, grpcutil.ScrubGRPC(err)
+}
+
+// ListSecret returns info about all the secrets in a namespace.
+func (c APIClient) ListSecret(namespace string) ([]*pps.SecretInfo, error) {
+	secretInfos, err := c.PpsAPIClient.ListSecret(
+		c.Ctx(),
+		&pps.ListSecretRequest{
+			Namespace: namespace,
+		},
+	)
+	return secretInfos.SecretInfo, grpcutil.ScrubGRPC(err)
 }
 
 // CreatePipelineService creates a new pipeline service.

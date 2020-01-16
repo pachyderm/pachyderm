@@ -693,10 +693,18 @@ message InspectSecretRequest {
   string namespace = 2;
 }
 
+message ListSecretRequest {
+  string namespace = 1;
+}
+
 message SecretInfo {
   string name = 1;
   string type = 2;
   google.protobuf.Timestamp creation_timestamp = 3;
+}
+
+message SecretInfos {
+  repeated SecretInfo secret_info = 1;
 }
 
 message GarbageCollectRequest {
@@ -740,7 +748,7 @@ service API {
 
   rpc CreateSecret(CreateSecretRequest) returns (google.protobuf.Empty) {}
   rpc DeleteSecret(DeleteSecretRequest) returns (google.protobuf.Empty) {}
-  // rpc ListSecret(ListSecretRequest) returns (stream SecretInfo) {}
+  rpc ListSecret(ListSecretRequest) returns (SecretInfos) {}
   rpc InspectSecret(InspectSecretRequest) returns (SecretInfo) {}
 
   // DeleteAll deletes everything
