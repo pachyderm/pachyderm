@@ -95,7 +95,6 @@ point-release:
 	@make VERSION_ADDITIONAL= release-helper
 	@make VERSION_ADDITIONAL= release-pachctl
 	@make doc
-	@rm VERSION
 	@echo "Release completed"
 
 # Run via 'make VERSION_ADDITIONAL=rc2 release-custom' to specify a version string
@@ -103,7 +102,6 @@ release-candidate:
 	@make release-helper
 	@make release-pachctl-custom
 	@make doc
-	@rm VERSION
 	@echo "Release completed"
 
 custom-release: release-helper release-pachctl-custom
@@ -115,7 +113,6 @@ custom-release: release-helper release-pachctl-custom
 	@git push origin :v$(shell pachctl version --client-only)
 	@git tag v$(shell pachctl version --client-only)
 	@git push origin --tags
-	@rm VERSION
 	@echo "Release completed"
 
 release-pachctl-custom:
