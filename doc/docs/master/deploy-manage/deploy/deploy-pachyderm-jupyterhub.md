@@ -1,11 +1,5 @@
 # Deploy Pachyderm with JupyterHub
 
-!!! note
-    JupyterHub integration with Pachyderm is an
-    enterprise feature. Contact sales@pachyderm.com
-    to request enabling JupyterHub integration
-    for your Pachyderm Enterprise license.
-
 JupyterHub is an open-source platform that enables you
 to spin multiple instances of single-user Jupyter notebook
 servers on-demand for each member of your team.
@@ -92,7 +86,7 @@ to deploy JupyterHub.
 
 To deploy JupyterHub, complete the following steps:
 
-<!--1. Clone the [jupyterhub-pachyderm](https://github.com/pachyderm/jupyterhub-pachyderm)
+1. Clone the [jupyterhub-pachyderm](https://github.com/pachyderm/jupyterhub-pachyderm)
 repository:
 
    ```bash
@@ -104,7 +98,7 @@ repository:
    ```bash
    cd jupyterhub-pachyderm
    ```
--->
+
 1. Run the `./init.py` script:
 
    ```bash
