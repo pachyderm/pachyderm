@@ -913,8 +913,9 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
-			fmt.Println(secretInfo)
-			return nil
+			writer := tabwriter.NewWriter(os.Stdout, pretty.SecretHeader)
+			pretty.PrintSecretInfo(writer, secretInfo)
+			return writer.Flush()
 		}),
 	}
 	inspectSecret.Flags().StringVarP(&inspectSecretNamespace, "namespace", "n", "default", "Namespace to look for the secret in.")
@@ -940,8 +941,11 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
-			fmt.Println(secretInfos)
-			return nil
+			writer := tabwriter.NewWriter(os.Stdout, pretty.SecretHeader)
+			for _, si := range secretInfos.GetSecretInfo() {
+				pretty.PrintSecretInfo(writer, si)
+			}
+			return writer.Flush()
 		}),
 	}
 	listSecret.Flags().StringVarP(&listSecretNamespace, "namespace", "n", "default", "Namespace to look for the secret in.")
