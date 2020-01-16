@@ -1,5 +1,11 @@
 # Use JupyterHub with `python-pachyderm`
 
+!!! note
+     JupyterHub integration with Pachyderm is an
+     enterprise feature. Contact sales@pachyderm.com
+     to request enabling JupyterHub integration
+     for your Pachyderm Enterprise license.
+
 This section describes how you can use the `python-pachyderm`
 client from within the JupyterHub UI.
 
