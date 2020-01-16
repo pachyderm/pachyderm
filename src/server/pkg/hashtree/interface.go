@@ -60,6 +60,14 @@ const (
 	// retroactively, as that would require modifying all of the directory's
 	// children to indicate that they include header data in their parent)
 	HeaderFooterConflict
+
+	// MixedObjectsAndBlockRefs is returned when PutFile attempts to append
+	// Objects to a file that already has BlockRefs or BlockRefs to a file that
+	// already has Objects. This generally happens when you user tries to copy
+	// from an output file to an input file that already has content, or tries
+	// to write to an input file that was created by copying from an output
+	// file.
+	MixedObjectsAndBlockRefs
 )
 
 // HashTree is the signature of a hash tree provided by this library. To get a

@@ -825,8 +825,20 @@ func (h *dbHashTree) putFile(path string, objects []*pfs.Object, brs []*pfs.Bloc
 			node.FileNode.BlockRefs = node.FileNode.BlockRefs[:overwriteIndex.Index]
 		}
 		node.SubtreeSize += sizeDelta
-		node.FileNode.Objects = append(node.FileNode.Objects, objects...)
-		node.FileNode.BlockRefs = append(node.FileNode.BlockRefs, brs...)
+		if len(objects) > 0 {
+			if len(node.FileNode.BlockRefs) > 0 {
+				return errorf(MixedObjectsAndBlockRefs, "could not put block refs to regular file at %q; "+
+					"because it already has BlockRef content")
+			}
+			node.FileNode.Objects = append(node.FileNode.Objects, objects...)
+		}
+		if len(brs) > 0 {
+			if len(node.FileNode.Objects) > 0 {
+				return errorf(MixedObjectsAndBlockRefs, "could not put objects to regular file at %q; "+
+					"because it already has Object content")
+			}
+			node.FileNode.BlockRefs = append(node.FileNode.BlockRefs, brs...)
+		}
 		// Put the node
 		if err := put(tx, path, node); err != nil {
 			return err
