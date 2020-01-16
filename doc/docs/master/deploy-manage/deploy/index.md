@@ -10,11 +10,11 @@ deployment options and related topics:
   <div class="column-2">
     <div class="card-square mdl-card mdl-shadow--2dp">
       <div class="mdl-card__title mdl-card--expand">
-        <h4 class="mdl-card__title-text">Deploy for Testing &nbsp;&nbsp;&nbsp;<i class="fa fa-rocket"></i></h4>
+        <h4 class="mdl-card__title-text">Test Deployments &nbsp;&nbsp;&nbsp;<i class="fa fa-rocket"></i></h4>
       </div>
       <div class="mdl-card__supporting-text">
         Deploy in Pachyderm Hub or on your local
-        computer to test basic Pachyderm functionalityi.
+        computer to test basic Pachyderm functionality.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
@@ -33,7 +33,7 @@ deployment options and related topics:
   <div class="column-2">
     <div class="card-square mdl-card mdl-shadow--2dp">
       <div class="mdl-card__title mdl-card--expand">
-        <h4 class="mdl-card__title-text">Production deployment  &nbsp;&nbsp;&nbsp;<i class="fa fa-cogs"></i></h4>
+        <h4 class="mdl-card__title-text">Production Deployments  &nbsp;&nbsp;&nbsp;<i class="fa fa-cogs"></i></h4>
       </div>
       <div class="mdl-card__supporting-text">
         Deploy your production Pachyderm environment in
@@ -66,7 +66,7 @@ deployment options and related topics:
   <div class="column-2">
     <div class="card-square mdl-card mdl-shadow--2dp">
       <div class="mdl-card__title mdl-card--expand">
-        <h4 class="mdl-card__title-text">Customize Deployments &nbsp;&nbsp;&nbsp;<i class="fa fa-book"></i></h4>
+        <h4 class="mdl-card__title-text">Custom Deployments &nbsp;&nbsp;&nbsp;<i class="fa fa-book"></i></h4>
       </div>
       <div class="mdl-card__supporting-text">
         Learn how to create a customized deployment by
@@ -84,6 +84,10 @@ deployment options and related topics:
            </li>
            <li><a href="non-cloud-object-stores/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
            Deploy On-Premises With Non-Cloud Object Stores
+           </a>
+           </li>
+           <li><a href="deploy-pachyderm-jupyterhub/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           Deploy Pachyderm with JupyterHub
            </a>
            </li>
            <li><a href="rbac/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
