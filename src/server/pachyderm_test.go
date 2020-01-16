@@ -10743,6 +10743,11 @@ func TestCopyOutToIn(t *testing.T) {
 	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 
+	require.YesError(t, c.CopyFile(pipeline, "master", "file", dataRepo, "master", "file", false))
+
+	_, err = c.PutFile(dataRepo, "master", "file2", strings.NewReader("foo"))
+	require.YesError(t, err)
+
 	var buf bytes.Buffer
 	require.NoError(t, c.GetFile(pipeline, "master", "file2", 0, 0, &buf))
 	require.Equal(t, "foo", buf.String())
