@@ -18,10 +18,14 @@ package collection
 // not have the DelAll method, which we need.
 
 import (
+	"bytes"
 	"fmt"
+	"sort"
+	"strings"
 
 	v3 "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"golang.org/x/net/context"
 )
 
@@ -60,30 +64,24 @@ type stmError struct{ err error }
 
 // NewSTM intiates a new STM operation. It uses a serializable model.
 func NewSTM(ctx context.Context, c *v3.Client, apply func(STM) error) (*v3.TxnResponse, error) {
-	return newSTMSerializable(ctx, c, apply)
+	return newSTMSerializable(ctx, c, apply, false)
 }
 
-// newSTMRepeatable initiates new repeatable read transaction; reads within
-// the same transaction attempt always return the same data.
-func newSTMRepeatable(ctx context.Context, c *v3.Client, apply func(STM) error) (*v3.TxnResponse, error) {
-	s := &stm{client: c, ctx: ctx, getOpts: []v3.OpOption{v3.WithSerializable()}}
-	return runSTM(s, apply)
+// NewDryrunSTM intiates a new STM operation, but the final commit is skipped.
+// It uses a serializable model.
+func NewDryrunSTM(ctx context.Context, c *v3.Client, apply func(STM) error) error {
+	_, err := newSTMSerializable(ctx, c, apply, true)
+	return err
 }
 
 // newSTMSerializable initiates a new serialized transaction; reads within the
-// same transactiona attempt return data from the revision of the first read.
-func newSTMSerializable(ctx context.Context, c *v3.Client, apply func(STM) error) (*v3.TxnResponse, error) {
+// same transaction attempt to return data from the revision of the first read.
+func newSTMSerializable(ctx context.Context, c *v3.Client, apply func(STM) error, dryrun bool) (*v3.TxnResponse, error) {
 	s := &stmSerializable{
 		stm:      stm{client: c, ctx: ctx},
 		prefetch: make(map[string]*v3.GetResponse),
 	}
-	return runSTM(s, apply)
-}
-
-// newSTMReadCommitted initiates a new read committed transaction.
-func newSTMReadCommitted(ctx context.Context, c *v3.Client, apply func(STM) error) (*v3.TxnResponse, error) {
-	s := &stmReadCommitted{stm{client: c, ctx: ctx, getOpts: []v3.OpOption{v3.WithSerializable()}}}
-	return runSTM(s, apply)
+	return runSTM(s, apply, dryrun)
 }
 
 type stmResponse struct {
@@ -91,7 +89,7 @@ type stmResponse struct {
 	err  error
 }
 
-func runSTM(s STM, apply func(STM) error) (*v3.TxnResponse, error) {
+func runSTM(s STM, apply func(STM) error, dryrun bool) (*v3.TxnResponse, error) {
 	outc := make(chan stmResponse, 1)
 	go func() {
 		defer func() {
@@ -110,7 +108,9 @@ func runSTM(s STM, apply func(STM) error) (*v3.TxnResponse, error) {
 			if out.err = apply(s); out.err != nil {
 				break
 			}
-			if out.resp = s.commit(); out.resp != nil {
+			if dryrun {
+				break
+			} else if out.resp = s.commit(); out.resp != nil {
 				break
 			}
 		}
@@ -128,6 +128,8 @@ type stm struct {
 	rset map[string]*v3.GetResponse
 	// wset holds overwritten keys and their values
 	wset map[string]stmPut
+	// deletedPrefixes holds the set of prefixes that have been deleted
+	deletedPrefixes []string
 	// getOpts are the opts used for gets. Includes revision of first read for
 	// stmSerializable
 	getOpts []v3.OpOption
@@ -158,6 +160,9 @@ func (s *stm) Get(key string) (string, error) {
 	if wv, ok := s.wset[key]; ok {
 		return wv.val, nil
 	}
+	if s.isKeyRangeDeleted(key) {
+		return "", ErrNotFound{Key: key}
+	}
 	return respToValue(key, s.fetch(key))
 }
 
@@ -175,12 +180,23 @@ func (s *stm) IsSafePut(key string, ptr uintptr) bool {
 	return true
 }
 
+func (s *stm) isKeyRangeDeleted(key string) bool {
+	for _, prefix := range s.deletedPrefixes {
+		if strings.HasPrefix(key, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *stm) Put(key, val string, ttl int64, ptr uintptr) error {
 	var options []v3.OpOption
 	if ttl > 0 {
 		lease, ok := s.newLeases[ttl]
 		if !ok {
-			leaseResp, err := s.client.Grant(context.Background(), ttl)
+			span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "/etcd/GrantLease")
+			defer tracing.FinishAnySpan(span)
+			leaseResp, err := s.client.Grant(ctx, ttl)
 			if err != nil {
 				return fmt.Errorf("error granting lease: %v", err)
 			}
@@ -194,9 +210,37 @@ func (s *stm) Put(key, val string, ttl int64, ptr uintptr) error {
 	return nil
 }
 
-func (s *stm) Del(key string) { s.wset[key] = stmPut{"", 0, v3.OpDelete(key), 0} }
+func (s *stm) Del(key string) {
+	s.wset[key] = stmPut{"", 0, v3.OpDelete(key), 0}
+}
 
-func (s *stm) DelAll(key string) { s.wset[key] = stmPut{"", 0, v3.OpDelete(key, v3.WithPrefix()), 0} }
+func (s *stm) DelAll(prefix string) {
+	// Remove any eclipsed deletes then add the new delete
+	isEclipsed := false
+	i := 0
+	for _, deletedPrefix := range s.deletedPrefixes {
+		if strings.HasPrefix(prefix, deletedPrefix) {
+			isEclipsed = true
+		}
+		if !strings.HasPrefix(deletedPrefix, prefix) {
+			s.deletedPrefixes[i] = deletedPrefix
+			i++
+		}
+	}
+	s.deletedPrefixes = s.deletedPrefixes[:i]
+
+	// If the new DelAll prefix is eclipsed by an already-deleted prefix, don't
+	// add it to the set, but still clean up any eclipsed writes.
+	if !isEclipsed {
+		s.deletedPrefixes = append(s.deletedPrefixes, prefix)
+	}
+
+	for k := range s.wset {
+		if strings.HasPrefix(k, prefix) {
+			delete(s.wset, k)
+		}
+	}
+}
 
 func (s *stm) Rev(key string) int64 {
 	if resp := s.fetch(key); resp != nil && len(resp.Kvs) != 0 {
@@ -206,15 +250,18 @@ func (s *stm) Rev(key string) int64 {
 }
 
 func (s *stm) commit() *v3.TxnResponse {
+	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "/etcd/Txn")
+	defer tracing.FinishAnySpan(span)
+
 	cmps := s.cmps()
-	puts := s.puts()
-	txnresp, err := s.client.Txn(s.ctx).If(cmps...).Then(puts...).Commit()
+	writes := s.writes()
+	txnresp, err := s.client.Txn(ctx).If(cmps...).Then(writes...).Commit()
 	if err == rpctypes.ErrTooManyOps {
 		panic(stmError{
 			fmt.Errorf(
-				"%v (%d comparisons, %d puts: hint: set --max-txn-ops on the "+
+				"%v (%d comparisons, %d writes: hint: set --max-txn-ops on the "+
 					"ETCD cluster to at least the largest of those values)",
-				err, len(cmps), len(puts)),
+				err, len(cmps), len(writes)),
 		})
 	} else if err != nil {
 		panic(stmError{err})
@@ -238,7 +285,10 @@ func (s *stm) fetch(key string) *v3.GetResponse {
 	if resp, ok := s.rset[key]; ok {
 		return resp
 	}
-	resp, err := s.client.Get(s.ctx, key, s.getOpts...)
+
+	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "/etcd.stm/Get", "key", key)
+	defer tracing.FinishAnySpan(span)
+	resp, err := s.client.Get(ctx, key, s.getOpts...)
 	if err != nil {
 		panic(stmError{err})
 	}
@@ -246,18 +296,53 @@ func (s *stm) fetch(key string) *v3.GetResponse {
 	return resp
 }
 
-// puts is the list of ops for all pending writes
-func (s *stm) puts() []v3.Op {
-	puts := make([]v3.Op, 0, len(s.wset))
-	for _, v := range s.wset {
-		puts = append(puts, v.op)
+// writes is the list of ops for all pending writes
+func (s *stm) writes() []v3.Op {
+	prefixes := s.deletedPrefixes
+	puts := make([]string, 0, len(s.wset))
+	for key := range s.wset {
+		puts = append(puts, key)
 	}
-	return puts
+	sort.Strings(puts)
+	sort.Strings(s.deletedPrefixes)
+
+	writes := make([]v3.Op, 0, 2*len(s.wset)+len(s.deletedPrefixes))
+	i := 0 // index into puts
+	j := 0 // index into prefixes
+	for i < len(puts) && j < len(prefixes) {
+		if puts[i] < prefixes[j] {
+			// This is a standalone put, nothing fancy here
+			writes = append(writes, s.wset[puts[i]].op)
+			i++
+		} else {
+			// There may be puts within a deleted range, but we can't have two
+			// overlapping writes - break up the deleted range into multiple deletes.
+			start := prefixes[j]
+			for i < len(puts) && strings.HasPrefix(puts[i], prefixes[j]) {
+				writes = append(writes, v3.OpDelete(start, v3.WithRange(puts[i])))
+				writes = append(writes, s.wset[puts[i]].op)
+				start = puts[i] + "\x00"
+				i++
+			}
+			writes = append(writes, v3.OpDelete(start, v3.WithRange(v3.GetPrefixRangeEnd(prefixes[j]))))
+			j++
+		}
+	}
+	for i < len(puts) {
+		writes = append(writes, s.wset[puts[i]].op)
+		i++
+	}
+	for j < len(prefixes) {
+		writes = append(writes, v3.OpDelete(prefixes[j], v3.WithPrefix()))
+		j++
+	}
+	return writes
 }
 
 func (s *stm) reset() {
 	s.rset = make(map[string]*v3.GetResponse)
 	s.wset = make(map[string]stmPut)
+	s.deletedPrefixes = []string{}
 	s.ttlset = make(map[string]int64)
 	s.newLeases = make(map[int64]v3.LeaseID)
 }
@@ -270,6 +355,9 @@ type stmSerializable struct {
 func (s *stmSerializable) Get(key string) (string, error) {
 	if wv, ok := s.wset[key]; ok {
 		return wv.val, nil
+	}
+	if s.isKeyRangeDeleted(key) {
+		return "", ErrNotFound{Key: key}
 	}
 	return respToValue(key, s.fetch(key))
 }
@@ -307,22 +395,34 @@ func (s *stmSerializable) gets() ([]string, []v3.Op) {
 }
 
 func (s *stmSerializable) commit() *v3.TxnResponse {
+	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "/etcd/Txn")
+	defer tracing.FinishAnySpan(span)
+	if span != nil {
+		keys := make([]byte, 0, 512)
+		for k := range s.wset {
+			keys = append(append(keys, ','), k...)
+		}
+		span.SetTag("updated-keys", string(bytes.TrimLeft(keys, ",")))
+	}
+
 	keys, getops := s.gets()
 	cmps := s.cmps()
-	puts := s.puts()
-	txn := s.client.Txn(s.ctx).If(cmps...).Then(puts...)
+	writes := s.writes()
+	txn := s.client.Txn(ctx).If(cmps...).Then(writes...)
 	// use Else to prefetch keys in case of conflict to save a round trip
 	txnresp, err := txn.Else(getops...).Commit()
 	if err == rpctypes.ErrTooManyOps {
 		panic(stmError{
 			fmt.Errorf(
-				"%v (%d comparisons, %d puts: hint: set --max-txn-ops on the "+
+				"%v (%d comparisons, %d writes: hint: set --max-txn-ops on the "+
 					"ETCD cluster to at least the largest of those values)",
-				err, len(cmps), len(puts)),
+				err, len(cmps), len(writes)),
 		})
 	} else if err != nil {
 		panic(stmError{err})
 	}
+
+	tracing.TagAnySpan(span, "applied-at-revision", txnresp.Header.Revision)
 	if txnresp.Succeeded {
 		return txnresp
 	}
@@ -334,14 +434,6 @@ func (s *stmSerializable) commit() *v3.TxnResponse {
 	s.prefetch = s.rset
 	s.getOpts = nil
 	return nil
-}
-
-type stmReadCommitted struct{ stm }
-
-// commit always goes through when read committed
-func (s *stmReadCommitted) commit() *v3.TxnResponse {
-	s.rset = nil
-	return s.stm.commit()
 }
 
 func isKeyCurrent(k string, r *v3.GetResponse) v3.Cmp {
@@ -370,6 +462,9 @@ func (s *stm) fetchTTL(iface STM, key string) (int64, error) {
 	if wv, ok := s.wset[key]; ok {
 		return wv.ttl, nil
 	}
+	if s.isKeyRangeDeleted(key) {
+		return 0, ErrNotFound{Key: key}
+	}
 
 	// Read ttl through s.ttlset cache
 	if ttl, ok := s.ttlset[key]; ok {
@@ -386,7 +481,9 @@ func (s *stm) fetchTTL(iface STM, key string) (int64, error) {
 		s.ttlset[key] = 0 // 0 is default value, but now 'ok' will be true on check
 		return 0, nil
 	}
-	leaseResp, err := s.client.TimeToLive(s.ctx, leaseID)
+	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "/etcd.stm/TimeToLive", "key", key)
+	defer tracing.FinishAnySpan(span)
+	leaseResp, err := s.client.TimeToLive(ctx, leaseID)
 	if err != nil {
 		panic(stmError{err})
 	}

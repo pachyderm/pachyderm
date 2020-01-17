@@ -2,6 +2,7 @@
   "pipeline": {
     "name": "montage"
   },
+  "description": "A pipeline that combines images from the `images` and `edges` repositories into a montage.",
   "input": {
     "cross": [ {
       "pfs": {

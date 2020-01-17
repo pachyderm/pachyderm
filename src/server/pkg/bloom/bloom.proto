@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package bloom;
+option go_package = "github.com/pachyderm/pachyderm/src/server/pkg/bloom";
+
+message BloomFilter {
+  uint32 num_subhashes = 1;
+
+  // TODO: we could make each bucket signed, which would allow us to do some interesting things,
+  // but it might make the design a little confusing.
+  // Two BloomFilters with identical hash_length and len(buckets) can be summed
+  // to produce a new filter which should be identical to running all operations
+  // from the original two filters onto a blank filter.
+  // Negative bucket values may be useful if we were to add a background
+  // reprocessing stage that would iterate over all existing items and re-add
+  // them, but would also track live updates to the set.  Due to live updates,
+  // some buckets may need to go negative temporarily - but we would lose the
+  // guarantee that removing something that wasn't added to the set is an error.
+  // Perhaps better to provide a 'BloomFilterDelta' that can later be combined
+  // into an existing filter, while still preserving the invariant that all
+  // buckets are positive.
+  repeated uint32 buckets = 2;
+}

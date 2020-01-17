@@ -1,53 +1,14 @@
 #!/bin/bash
 # This script generates a self-signed TLS cert to be used by pachd in tests
 
-eval "set -- $( getopt -l "dns:,ip:,port:" -o "o:" "--" "${0}" "${@:-}" )"
-
-dns="localhost"
-ip="127.0.0.1"
-port=650
-output_prefix=pachd
-while true; do
-  case "${1}" in
-    --dns)
-      dns="${2}"
-      shift 2
-      ;;
-    --ip)
-      ip="${2}"
-      shift 2
-      ;;
-    --port)
-      port="${2}"
-      shift 2
-      ;;
-    -o)
-      output_prefix="${2}"
-      shift 2
-      ;;
-    --)
-      shift
-      break
-      ;;
-    *)
-      cat <<EOF
-Unrecognized arg "${1}". Usage:
-Generate a self-signed TLS certificate for Pachyderm
-
-Args:
-  --dns  Set the domain name in the certificate (i.e. the common name with
-         which pachd will authenticate)
-
-  --ip   The IP address in the certificate (which you plan to use to connect
-         to pachd. Without this, enabling TLS while connecting to pachd over
-         an IP will not work)
-
-   -o <prefix>
-        This script generates a public TLS cert at <prefix>.pem and <prefix>.key
-        Setting this arg determines the output file names.
-EOF
-  esac
-done
+hostport=$1
+output_prefix=${2:-pachd}
+host="$(echo $hostport | sed -e 's,:.*,,g')"
+if [[ "${host}" =~ [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+  ip=${host}
+else
+  dns=${host}
+fi
 
 # Define a minimal openssl config for our micro-CA
 read -d '' -r tls_config <<EOF
@@ -58,12 +19,11 @@ distinguished_name = dn
 x509_extensions    = exn    # Since we're making self-signed certs. For CSRs, use req_extensions
 
 [ dn ]
-CN = ${dns}
+CN = ${dns:-localhost}
 
 [ exn ]
 EOF
 
-# If 'ip' is set, include IP in TLS cert
 if [[ -n "${ip}" ]]; then
   tls_config+=$'\n'"subjectAltName = IP:${ip}"
 fi
@@ -100,6 +60,10 @@ tls_opts=(
 # Generate self-signed cert
 openssl req "${tls_opts[@]}" -config <(echo "${tls_config}")
 
-# Copy pachd public key to pachyderm config
-cp ~/.pachyderm/config.json ~/.pachyderm/config.json.backup
-cat ~/.pachyderm/config.json.backup | jq ".v1.pachd_address = \"${ip}:${port}\" | .v1.server_cas = \"$(cat ./pachd.pem | base64)\" | ." >~/.pachyderm/config.json
+# Print instructions for using new cert and key
+echo "New cert and key are in '${output_prefix}.pem' and '${output_prefix}.key'"
+echo "Deploy pachd to present the new self-signed cert and key by running:"
+echo ""
+echo "  pachctl undeploy # remove any existing cluster"
+echo "  pachctl deploy <destination> --tls=\"${output_prefix}.pem,${output_prefix}.key\""
+echo ""

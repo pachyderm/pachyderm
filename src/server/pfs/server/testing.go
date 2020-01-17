@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"math/rand"
+	"net"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -19,13 +20,17 @@ import (
 	authtesting "github.com/pachyderm/pachyderm/src/server/auth/testing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
-	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
-	"google.golang.org/grpc"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
+	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+
+	"golang.org/x/net/context"
 )
 
 const (
 	testingTreeCacheSize       = 8
-	etcdAddress                = "localhost:32379" // etcd must already be serving at this address
+	etcdHost                   = "localhost"
+	etcdPort                   = "32379"
 	localBlockServerCacheBytes = 256 * 1024 * 1024
 )
 
@@ -46,40 +51,48 @@ func generateRandomString(n int) string {
 
 // runServers starts serving requests for the given apiServer & blockAPIServer
 // in a separate goroutine. Helper for getPachClient()
-func runServers(t testing.TB, port int32, apiServer pfs.APIServer,
-	blockAPIServer BlockAPIServer) {
-	ready := make(chan bool)
+func runServers(
+	t testing.TB,
+	port int32,
+	apiServer APIServer,
+	blockAPIServer BlockAPIServer,
+) {
+	server, err := grpcutil.NewServer(context.Background(), false)
+	require.NoError(t, err)
+
+	pfs.RegisterAPIServer(server.Server, apiServer)
+	pfs.RegisterObjectAPIServer(server.Server, blockAPIServer)
+	auth.RegisterAPIServer(server.Server, &authtesting.InactiveAPIServer{}) // PFS server uses auth API
+	versionpb.RegisterAPIServer(server.Server,
+		version.NewAPIServer(version.Version, version.APIServerOptions{}))
+
+	_, err = server.ListenTCP("", uint16(port))
+	require.NoError(t, err)
+
 	go func() {
-		err := grpcutil.Serve(
-			grpcutil.ServerOptions{
-				Port:       uint16(port),
-				MaxMsgSize: grpcutil.MaxMsgSize,
-				RegisterFunc: func(s *grpc.Server) error {
-					defer close(ready)
-					pfs.RegisterAPIServer(s, apiServer)
-					pfs.RegisterObjectAPIServer(s, blockAPIServer)
-					auth.RegisterAPIServer(s, &authtesting.InactiveAPIServer{}) // PFS server uses auth API
-					versionpb.RegisterAPIServer(s,
-						version.NewAPIServer(version.Version, version.APIServerOptions{}))
-					return nil
-				}},
-		)
-		require.NoError(t, err)
+		require.NoError(t, server.Wait())
 	}()
-	<-ready
+}
+
+// GetBasicConfig gets a basic service environment configuration for testing pachd.
+func GetBasicConfig() *serviceenv.Configuration {
+	config := serviceenv.NewConfiguration(&serviceenv.PachdFullConfiguration{})
+	config.EtcdHost = etcdHost
+	config.EtcdPort = etcdPort
+	return config
 }
 
 // GetPachClient initializes a new PFSAPIServer and blockAPIServer and begins
 // serving requests for them on a new port, and then returns a client connected
 // to the new servers (allows PFS tests to run in parallel without conflict)
-func GetPachClient(t testing.TB) *client.APIClient {
+func GetPachClient(t testing.TB, config *serviceenv.Configuration) *client.APIClient {
 	// src/server/pfs/server/driver.go expects an etcd server at "localhost:32379"
 	// Try to establish a connection before proceeding with the test (which will
 	// fail if the connection can't be established)
 	checkEtcdOnce.Do(func() {
 		require.NoError(t, backoff.Retry(func() error {
 			_, err := etcd.New(etcd.Config{
-				Endpoints:   []string{etcdAddress},
+				Endpoints:   []string{net.JoinHostPort(etcdHost, etcdPort)},
 				DialOptions: client.DefaultDialOptions(),
 			})
 			if err != nil {
@@ -89,23 +102,33 @@ func GetPachClient(t testing.TB) *client.APIClient {
 		}, backoff.NewTestingBackOff()))
 	})
 
-	root := tu.UniqueString("/tmp/pach_test/run")
+	root := "/tmp/pach_test/run" + uuid.NewWithoutDashes()[0:12]
 	t.Logf("root %s", root)
-	servePort := atomic.AddInt32(&port, 1)
-	serveAddress := fmt.Sprintf("localhost:%d", port)
+
+	pfsPort := atomic.AddInt32(&port, 1)
+	config.PeerPort = uint16(pfsPort)
 
 	// initialize new BlockAPIServier
-	blockAPIServer, err := newLocalBlockAPIServer(root, localBlockServerCacheBytes, etcdAddress)
+	env := serviceenv.InitServiceEnv(config)
+	blockAPIServer, err := newLocalBlockAPIServer(
+		root,
+		localBlockServerCacheBytes,
+		net.JoinHostPort(etcdHost, etcdPort),
+		true /* duplicate--see comment in newObjBlockAPIServer */)
 	require.NoError(t, err)
 	etcdPrefix := generateRandomString(32)
 	treeCache, err := hashtree.NewCache(testingTreeCacheSize)
 	if err != nil {
 		panic(fmt.Sprintf("could not initialize treeCache: %v", err))
 	}
-	apiServer, err := newAPIServer(serveAddress, []string{"localhost:32379"}, etcdPrefix, treeCache, "/tmp", 64*1024*1024)
+
+	txnEnv := &txnenv.TransactionEnv{}
+
+	apiServer, err := newAPIServer(env, txnEnv, etcdPrefix, treeCache, "/tmp", 64*1024*1024)
 	require.NoError(t, err)
-	runServers(t, servePort, apiServer, blockAPIServer)
-	c, err := client.NewFromAddress(serveAddress)
-	require.NoError(t, err)
-	return c
+
+	txnEnv.Initialize(env, nil, &authtesting.InactiveAPIServer{}, apiServer, txnenv.NewMockPpsTransactionServer())
+
+	runServers(t, pfsPort, apiServer, blockAPIServer)
+	return env.GetPachClient(context.Background())
 }

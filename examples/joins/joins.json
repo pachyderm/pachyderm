@@ -1,0 +1,30 @@
+{
+  "pipeline": {
+    "name": "joins"
+  },
+  "description": "A pipeline that combines files from two repositories that match a naming pattern.",
+  "input": {
+    "join": [
+      {
+        "pfs": {
+          "repo": "readings",
+          "branch": "master",
+          "glob": "/*/(*).txt",
+          "join_on": "$1"
+        }
+      },
+     {
+       "pfs": {
+         "repo": "parameters",
+         "branch": "master",
+         "glob": "/(*).txt",
+         "join_on": "$1"
+       }
+     }
+   ]
+ },
+ "transform": {
+    "cmd": [ "python3", "/joins.py"],
+    "image": "joins-example"
+  }
+}

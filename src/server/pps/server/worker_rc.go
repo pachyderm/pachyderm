@@ -2,21 +2,37 @@ package server
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
 	"strconv"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	client "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/worker"
 
+	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	kube "k8s.io/client-go/kubernetes"
+)
+
+const (
+	pipelineNameLabel         = "pipelineName"
+	pachVersionAnnotation     = "version"
+	specCommitAnnotation      = "specCommit"
+	hashedAuthTokenAnnotation = "authTokenHash"
 )
 
 // Parameters used when creating the kubernetes replication controller in charge
@@ -34,9 +50,9 @@ type workerOptions struct {
 	workerEnv        []v1.EnvVar         // Environment vars set in the user container
 	volumes          []v1.Volume         // Volumes that we expose to the user container
 	volumeMounts     []v1.VolumeMount    // Paths where we mount each volume in 'volumes'
-	etcdPrefix       string              // the prefix in etcd to use
 	schedulingSpec   *pps.SchedulingSpec // the SchedulingSpec for the pipeline
 	podSpec          string
+	podPatch         string
 
 	// Secrets that we mount in the worker container (e.g. for reading/writing to
 	// s3)
@@ -62,15 +78,26 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		Name:  "STORAGE_BACKEND",
 		Value: a.storageBackend,
 	}, {
+		Name:  "PPS_WOKER_GRPC_PORT",
+		Value: strconv.FormatUint(uint64(a.workerGrpcPort), 10),
+	}, {
 		Name:  "PORT",
 		Value: strconv.FormatUint(uint64(a.port), 10),
 	}, {
 		Name:  "HTTP_PORT",
 		Value: strconv.FormatUint(uint64(a.httpPort), 10),
+	}, {
+		Name:  "PEER_PORT",
+		Value: strconv.FormatUint(uint64(a.peerPort), 10),
 	}}
 	sidecarEnv = append(sidecarEnv, assets.GetSecretEnvVars(a.storageBackend)...)
+	storageEnvVars, err := getStorageEnvVars()
+	if err != nil {
+		return v1.PodSpec{}, err
+	}
+	sidecarEnv = append(sidecarEnv, storageEnvVars...)
 	workerEnv := options.workerEnv
-	workerEnv = append(options.workerEnv, v1.EnvVar{Name: "PACH_ROOT", Value: a.storageRoot})
+	workerEnv = append(workerEnv, v1.EnvVar{Name: "PACH_ROOT", Value: a.storageRoot})
 	workerEnv = append(workerEnv, assets.GetSecretEnvVars(a.storageBackend)...)
 	// This only happens in local deployment.  We want the workers to be
 	// able to read from/write to the hostpath volume as well.
@@ -93,6 +120,21 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		}
 		sidecarVolumeMounts = append(sidecarVolumeMounts, storageMount)
 		userVolumeMounts = append(userVolumeMounts, storageMount)
+	} else {
+		// `pach-dir-volume` is needed for openshift, see:
+		// https://github.com/pachyderm/pachyderm/issues/3404
+		options.volumes = append(options.volumes, v1.Volume{
+			Name: "pach-dir-volume",
+			VolumeSource: v1.VolumeSource{
+				EmptyDir: &v1.EmptyDirVolumeSource{},
+			},
+		})
+		emptyDirVolumeMount := v1.VolumeMount{
+			Name:      "pach-dir-volume",
+			MountPath: a.storageRoot,
+		}
+		sidecarVolumeMounts = append(sidecarVolumeMounts, emptyDirVolumeMount)
+		userVolumeMounts = append(userVolumeMounts, emptyDirVolumeMount)
 	}
 	secretVolume, secretMount := assets.GetBackendSecretVolumeAndMount(a.storageBackend)
 	options.volumes = append(options.volumes, secretVolume)
@@ -121,7 +163,11 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	}
 	zeroVal := int64(0)
 	workerImage := a.workerImage
-	resp, err := a.getPachClient().Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
+	var securityContext *v1.PodSecurityContext
+	if a.workerUsesRoot {
+		securityContext = &v1.PodSecurityContext{RunAsUser: &zeroVal}
+	}
+	resp, err := a.env.GetPachClient(context.Background()).Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
 	if err != nil {
 		return v1.PodSpec{}, err
 	}
@@ -172,7 +218,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		Volumes:                       options.volumes,
 		ImagePullSecrets:              options.imagePullSecrets,
 		TerminationGracePeriodSeconds: &zeroVal,
-		SecurityContext:               &v1.PodSecurityContext{RunAsUser: &zeroVal},
+		SecurityContext:               securityContext,
 	}
 	if options.schedulingSpec != nil {
 		podSpec.NodeSelector = options.schedulingSpec.NodeSelector
@@ -191,22 +237,84 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		resourceRequirements.Limits = *options.resourceLimits
 	}
 	podSpec.Containers[0].Resources = resourceRequirements
-	if options.podSpec != "" {
-		if err := json.Unmarshal([]byte(options.podSpec), &podSpec); err != nil {
+	if options.podSpec != "" || options.podPatch != "" {
+		jsonPodSpec, err := json.Marshal(&podSpec)
+		if err != nil {
+			return v1.PodSpec{}, err
+		}
+
+		// the json now contained in jsonPodSpec is the authoritative copy
+		// so we should deserialize in into a fresh structure
+		podSpec = v1.PodSpec{}
+
+		if options.podSpec != "" {
+			jsonPodSpec, err = jsonpatch.MergePatch(jsonPodSpec, []byte(options.podSpec))
+			if err != nil {
+				return v1.PodSpec{}, err
+			}
+		}
+		if options.podPatch != "" {
+			patch, err := jsonpatch.DecodePatch([]byte(options.podPatch))
+			if err != nil {
+				return v1.PodSpec{}, err
+			}
+			jsonPodSpec, err = patch.Apply(jsonPodSpec)
+			if err != nil {
+				return v1.PodSpec{}, err
+			}
+		}
+		if err := json.Unmarshal(jsonPodSpec, &podSpec); err != nil {
 			return v1.PodSpec{}, err
 		}
 	}
 	return podSpec, nil
 }
 
-func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64,
-	parallelism int32, resourceRequests *v1.ResourceList, resourceLimits *v1.ResourceList,
-	transform *pps.Transform, cacheSize string, service *pps.Service,
-	specCommitID string, schedulingSpec *pps.SchedulingSpec, podSpec string) *workerOptions {
+func getStorageEnvVars() ([]v1.EnvVar, error) {
+	uploadConcurrencyLimit, ok := os.LookupEnv(assets.UploadConcurrencyLimitEnvVar)
+	if !ok {
+		return nil, fmt.Errorf("%s not found", assets.UploadConcurrencyLimitEnvVar)
+	}
+	return []v1.EnvVar{
+		{Name: assets.UploadConcurrencyLimitEnvVar, Value: uploadConcurrencyLimit},
+	}, nil
+}
+
+// We don't want to expose pipeline auth tokens, so we hash it. This will be
+// visible to any user with k8s cluster access
+// Note: This hash shouldn't be used for authentication in any way. We just use
+// this to detect if an auth token has been added/changed
+// Note: ptr.AuthToken is a pachyderm-generated UUID, and wouldn't appear in any
+// rainbow tables
+func hashAuthToken(token string) string {
+	h := sha256.Sum256([]byte(token))
+	return base64.RawURLEncoding.EncodeToString(h[:])
+}
+
+func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pps.PipelineInfo) (*workerOptions, error) {
+	pipelineName := pipelineInfo.Pipeline.Name
+	pipelineVersion := pipelineInfo.Version
+	var resourceRequests *v1.ResourceList
+	var resourceLimits *v1.ResourceList
+	if pipelineInfo.ResourceRequests != nil {
+		var err error
+		resourceRequests, err = ppsutil.GetRequestsResourceListFromPipeline(pipelineInfo)
+		if err != nil {
+			return nil, fmt.Errorf("could not determine resource request: %v", err)
+		}
+	}
+	if pipelineInfo.ResourceLimits != nil {
+		var err error
+		resourceLimits, err = ppsutil.GetLimitsResourceListFromPipeline(pipelineInfo)
+		if err != nil {
+			return nil, fmt.Errorf("could not determine resource limit: %v", err)
+		}
+	}
+
+	transform := pipelineInfo.Transform
 	rcName := ppsutil.PipelineRcName(pipelineName, pipelineVersion)
 	labels := labels(rcName)
-	labels["version"] = version.PrettyVersion()
-	labels["pipelineName"] = pipelineName
+	labels[pipelineNameLabel] = pipelineName
 	userImage := transform.Image
 	if userImage == "" {
 		userImage = DefaultUserImage
@@ -255,19 +363,19 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 	})
 	workerEnv = append(workerEnv, v1.EnvVar{
 		Name:  client.PPSSpecCommitEnv,
-		Value: specCommitID,
+		Value: ptr.SpecCommit.ID,
+	})
+	workerEnv = append(workerEnv, v1.EnvVar{
+		Name:  client.PPSPipelineNameEnv,
+		Value: pipelineInfo.Pipeline.Name,
 	})
 	// Set the worker gRPC port
-	workerEnv = append(workerEnv, v1.EnvVar {
-		Name: client.PPSWorkerPortEnv,
+	workerEnv = append(workerEnv, v1.EnvVar{
+		Name:  client.PPSWorkerPortEnv,
 		Value: strconv.FormatUint(uint64(a.workerGrpcPort), 10),
 	})
 	workerEnv = append(workerEnv, v1.EnvVar{
-		Name: client.PProfPortEnv,
-		Value: strconv.FormatUint(uint64(a.pprofPort), 10),
-	})
-	workerEnv = append(workerEnv, v1.EnvVar{
-		Name: client.PeerPortEnv,
+		Name:  client.PeerPortEnv,
 		Value: strconv.FormatUint(uint64(a.peerPort), 10),
 	})
 
@@ -332,16 +440,39 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 		imagePullSecrets = append(imagePullSecrets, v1.LocalObjectReference{Name: a.imagePullSecret})
 	}
 
-	annotations := map[string]string{"pipelineName": pipelineName}
+	annotations := map[string]string{
+		pipelineNameLabel:         pipelineName,
+		pachVersionAnnotation:     version.PrettyVersion(),
+		specCommitAnnotation:      ptr.SpecCommit.ID,
+		hashedAuthTokenAnnotation: hashAuthToken(ptr.AuthToken),
+	}
 	if a.iamRole != "" {
 		annotations["iam.amazonaws.com/role"] = a.iamRole
 	}
+	// A service can be present either directly on the pipeline spec
+	// or on the spout field of the spec.
+	var service *pps.Service
+	if pipelineInfo.Spout != nil && pipelineInfo.Service != nil {
+		return nil, errors.New("only one of pipeline.service or pipeline.spout can be set")
+	} else if pipelineInfo.Spout != nil && pipelineInfo.Spout.Service != nil {
+		service = pipelineInfo.Spout.Service
+	} else {
+		service = pipelineInfo.Service
+	}
+	if service != nil {
+		for k, v := range service.Annotations {
+			if k != "pipelineName" && k != "iam.amazonaws.com/role" {
+				annotations[k] = v
+			}
+		}
+	}
 
+	// Generate options for new RC
 	return &workerOptions{
 		rcName:           rcName,
 		labels:           labels,
 		annotations:      annotations,
-		parallelism:      int32(parallelism),
+		parallelism:      int32(0), // pipelines start w/ 0 workers & are scaled up
 		resourceRequests: resourceRequests,
 		resourceLimits:   resourceLimits,
 		userImage:        userImage,
@@ -349,14 +480,35 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 		volumes:          volumes,
 		volumeMounts:     volumeMounts,
 		imagePullSecrets: imagePullSecrets,
-		cacheSize:        cacheSize,
+		cacheSize:        pipelineInfo.CacheSize,
 		service:          service,
-		schedulingSpec:   schedulingSpec,
-		podSpec:          podSpec,
-	}
+		schedulingSpec:   pipelineInfo.SchedulingSpec,
+		podSpec:          pipelineInfo.PodSpec,
+		podPatch:         pipelineInfo.PodPatch,
+	}, nil
 }
 
-func (a *apiServer) createWorkerRc(options *workerOptions) error {
+// noValidOptions error may be returned by createWorkerSvcAndRc to indicate that
+// getWorkerOptions returned an error to it (getWorkerOptions does not return
+// noValidOptions). This is a mechanism for createWorkerSvcAndRc to signal to
+// its caller not to retry
+type noValidOptionsErr struct {
+	error
+}
+
+func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.EtcdPipelineInfo, pipelineInfo *pps.PipelineInfo) (retErr error) {
+	log.Infof("PPS master: upserting workers for %q", pipelineInfo.Pipeline.Name)
+	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/CreateWorkerRC", //lint:ignore SA4006 ctx never used, but we want the right one in scope for future uses
+		"pipeline", pipelineInfo.Pipeline.Name)
+	defer func() {
+		tracing.TagAnySpan(span, "err", retErr)
+		tracing.FinishAnySpan(span)
+	}()
+
+	options, err := a.getWorkerOptions(ptr, pipelineInfo)
+	if err != nil {
+		return noValidOptionsErr{err}
+	}
 	podSpec, err := a.workerPodSpec(options)
 	if err != nil {
 		return err
@@ -384,7 +536,7 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 			},
 		},
 	}
-	if _, err := a.kubeClient.CoreV1().ReplicationControllers(a.namespace).Create(rc); err != nil {
+	if _, err := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.namespace).Create(rc); err != nil {
 		if !isAlreadyExistsErr(err) {
 			return err
 		}
@@ -418,40 +570,96 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 			},
 		},
 	}
-	if _, err := a.kubeClient.CoreV1().Services(a.namespace).Create(service); err != nil {
+	if _, err := a.env.GetKubeClient().CoreV1().Services(a.namespace).Create(service); err != nil {
 		if !isAlreadyExistsErr(err) {
 			return err
 		}
 	}
 
 	if options.service != nil {
+		var servicePort = []v1.ServicePort{
+			{
+				Port:       options.service.ExternalPort,
+				TargetPort: intstr.FromInt(int(options.service.InternalPort)),
+				Name:       "user-port",
+			},
+		}
+		var serviceType = v1.ServiceType(options.service.Type)
+		if serviceType == v1.ServiceTypeNodePort {
+			servicePort[0].NodePort = options.service.ExternalPort
+		}
 		service := &v1.Service{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "Service",
 				APIVersion: "v1",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:   options.rcName + "-user",
-				Labels: options.labels,
+				Name:        options.rcName + "-user",
+				Labels:      options.labels,
+				Annotations: options.annotations,
 			},
 			Spec: v1.ServiceSpec{
 				Selector: options.labels,
-				Type:     v1.ServiceTypeNodePort,
-				Ports: []v1.ServicePort{
-					{
-						Port:       options.service.ExternalPort,
-						TargetPort: intstr.FromInt(int(options.service.InternalPort)),
-						Name:       "user-port",
-						NodePort:   options.service.ExternalPort,
-					},
-				},
+				Type:     serviceType,
+				Ports:    servicePort,
 			},
 		}
-		if _, err := a.kubeClient.CoreV1().Services(a.namespace).Create(service); err != nil {
+		if _, err := a.env.GetKubeClient().CoreV1().Services(a.namespace).Create(service); err != nil {
 			if !isAlreadyExistsErr(err) {
 				return err
 			}
 		}
 	}
+
+	// True if the pipeline has a git input
+	var hasGitInput bool
+	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
+		if input.Git != nil {
+			hasGitInput = true
+		}
+	})
+	if hasGitInput {
+		if err := a.checkOrDeployGithookService(); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func (a *apiServer) checkOrDeployGithookService() error {
+	kubeClient := a.env.GetKubeClient()
+	_, err := getGithookService(kubeClient, a.namespace)
+	if err != nil {
+		if _, ok := err.(*errGithookServiceNotFound); ok {
+			svc := assets.GithookService(a.namespace)
+			_, err = kubeClient.CoreV1().Services(a.namespace).Create(svc)
+			return err
+		}
+		return err
+	}
+	// service already exists
+	return nil
+}
+
+func getGithookService(kubeClient *kube.Clientset, namespace string) (*v1.Service, error) {
+	labels := map[string]string{
+		"app":   "githook",
+		"suite": suite,
+	}
+	serviceList, err := kubeClient.CoreV1().Services(namespace).List(metav1.ListOptions{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ListOptions",
+			APIVersion: "v1",
+		},
+		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(labels)),
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(serviceList.Items) != 1 {
+		return nil, &errGithookServiceNotFound{
+			fmt.Errorf("expected 1 githook service but found %v", len(serviceList.Items)),
+		}
+	}
+	return &serviceList.Items[0], nil
 }

@@ -1,0 +1,16 @@
+{
+    "pipeline": {
+        "name": "tweets"
+    },
+    "description": "A pipeline that scrapes tweets from https://twitter.com.",
+    "transform": {
+        "image": "pachyderm/gpt-2-example",
+        "cmd": ["/tweets.py"]
+    },
+    "input": {
+        "pfs": {
+            "repo": "queries",
+            "glob": "/*"
+        }
+    }
+}

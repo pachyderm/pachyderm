@@ -21,10 +21,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
-var (
-	port int32 = 30653
-)
-
 func TestAcquireDatums(t *testing.T) {
 	t.Skip()
 	c := getPachClient(t)
@@ -99,7 +95,7 @@ func getPachClient(t testing.TB) *client.APIClient {
 		if addr := os.Getenv("PACHD_PORT_650_TCP_ADDR"); addr != "" {
 			pachClient, err = client.NewInCluster()
 		} else {
-			pachClient, err = client.NewOnUserMachine(false, false, "user")
+			pachClient, err = client.NewForTest()
 		}
 		require.NoError(t, err)
 	})

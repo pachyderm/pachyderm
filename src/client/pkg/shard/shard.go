@@ -11,9 +11,9 @@ type Sharder interface {
 	GetAddress(shard uint64, version int64) (string, bool, error)
 	GetShardToAddress(version int64) (map[uint64]string, error)
 
-	Register(cancel chan bool, address string, servers []Server) error
-	RegisterFrontends(cancel chan bool, address string, frontends []Frontend) error
-	AssignRoles(address string, cancel chan bool) error
+	Register(address string, servers []Server) error
+	RegisterFrontends(address string, frontends []Frontend) error
+	AssignRoles(address string) error
 }
 
 // NewSharder creates a Sharder using a discovery client.

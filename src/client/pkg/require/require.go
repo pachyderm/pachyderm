@@ -114,7 +114,7 @@ func ElementsEqualOrErr(expecteds interface{}, actuals interface{}) error {
 		asElemType = as.Type().Elem().Elem()
 	}
 	if esElemType != asElemType {
-		return fmt.Errorf("Expected []%s but got []%s", es.Type().Elem(), as.Type().Elem())
+		return fmt.Errorf("expected []%s but got []%s", es.Type().Elem(), as.Type().Elem())
 	}
 
 	// Count up elements of expecteds
@@ -411,6 +411,18 @@ func False(tb testing.TB, value bool, msgAndArgs ...interface{}) {
 	if value {
 		fatal(tb, msgAndArgs, "Should be false.")
 	}
+}
+
+// YesPanic checks that the callback panics.
+func YesPanic(tb testing.TB, cb func(), msgAndArgs ...interface{}) {
+	defer func() {
+		r := recover()
+		if r == nil {
+			fatal(tb, msgAndArgs, "Should have panicked.")
+		}
+	}()
+
+	cb()
 }
 
 func logMessage(tb testing.TB, msgAndArgs []interface{}) {

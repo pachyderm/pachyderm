@@ -2,6 +2,8 @@ package obj
 
 import (
 	"bytes"
+	"context"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -20,6 +22,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/storagegateway"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	log "github.com/sirupsen/logrus"
 
@@ -29,28 +32,13 @@ import (
 const oneDayInSeconds = 60 * 60 * 24
 const twoDaysInSeconds = 60 * 60 * 48
 
-var (
-	// By default, objects uploaded to a bucket are only accessible to the
-	// uploader, and not the owner of the bucket.  We want to ensure that
-	// the owner of the bucket can access the buckets as well.
-	uploadACL = "bucket-owner-full-control"
-)
-
 type amazonClient struct {
 	bucket                 string
 	cloudfrontDistribution string
 	cloudfrontURLSigner    *sign.URLSigner
 	s3                     *s3.S3
 	uploader               *s3manager.Uploader
-	// When true, keys are stored in reversed order; e.g. the key "ABCD" is
-	// rewritten to "DCBA". This is because, as of 12/2018, if a lot of assets
-	// have the same prefix, the same S3 servers will be hit. This comes into
-	// conflict with Pachyderm, which prefixes the keys of blocks with where
-	// the blocks came from, causing a lot of blocks with the same prefix to
-	// be written around the same time, and overloading S3. Reversing the
-	// order of keys gives an easy way to spread out S3 assets and
-	// substantially speed up block writing.
-	reversed               bool
+	advancedConfig         *AmazonAdvancedConfiguration
 }
 
 type vaultCredentialsProvider struct {
@@ -128,7 +116,7 @@ func (v *vaultCredentialsProvider) Retrieve() (credentials.Value, error) {
 				v.updateLease(vaultSecret)
 				return nil
 			}, backoff.NewExponentialBackOff(), func(err error, _ time.Duration) error {
-				log.Errorf("couuld not renew vault lease: %v", err)
+				log.Errorf("could not renew vault lease: %v", err)
 				return nil
 			})
 		}
@@ -163,11 +151,25 @@ type AmazonCreds struct {
 	VaultToken   string
 }
 
-func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistribution string, reversed ...bool) (*amazonClient, error) {
+func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistribution string, endpoint string, advancedConfig *AmazonAdvancedConfiguration) (*amazonClient, error) {
 	// set up aws config, including credentials (if neither creds.ID nor
 	// creds.VaultAddress are set, then this will use the EC2 metadata service
+	timeout, err := time.ParseDuration(advancedConfig.Timeout)
+	if err != nil {
+		return nil, err
+	}
+	httpClient := &http.Client{Timeout: timeout}
+	// If NoVerifySSL is true, then configure the transport to skip ssl verification (enables self-signed certificates).
+	if advancedConfig.NoVerifySSL {
+		transport := http.DefaultTransport.(*http.Transport).Clone()
+		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+		httpClient.Transport = transport
+	}
 	awsConfig := &aws.Config{
-		Region: aws.String(region),
+		Region:     aws.String(region),
+		MaxRetries: aws.Int(advancedConfig.Retries),
+		HTTPClient: httpClient,
+		DisableSSL: aws.Bool(advancedConfig.DisableSSL),
 	}
 	if creds.ID != "" {
 		awsConfig.Credentials = credentials.NewStaticCredentials(creds.ID, creds.Secret, creds.Token)
@@ -184,20 +186,25 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 			vaultRole:   creds.VaultRole,
 		})
 	}
+	// Set custom endpoint for a custom deployment.
+	if endpoint != "" {
+		awsConfig.Endpoint = aws.String(endpoint)
+		awsConfig.S3ForcePathStyle = aws.Bool(true)
+	}
 
 	// Create new session using awsConfig
-	session := session.New(awsConfig)
-	var r bool
-	if len(reversed) > 0 {
-		r = reversed[0]
-	} else {
-		r = true
+	session, err := session.NewSession(awsConfig)
+	if err != nil {
+		return nil, err
 	}
 	awsClient := &amazonClient{
-		bucket:   bucket,
-		s3:       s3.New(session),
-		uploader: s3manager.NewUploader(session),
-		reversed: r,
+		bucket: bucket,
+		s3:     s3.New(session),
+		uploader: s3manager.NewUploader(session, func(u *s3manager.Uploader) {
+			u.PartSize = advancedConfig.PartSize
+			u.MaxUploadParts = advancedConfig.MaxUploadParts
+		}),
+		advancedConfig: advancedConfig,
 	}
 
 	// Set awsClient.cloudfrontURLSigner and cloudfrontDistribution (if Pachd is
@@ -226,18 +233,18 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 	return awsClient, nil
 }
 
-func (c *amazonClient) Writer(name string) (io.WriteCloser, error) {
-	if c.reversed {
+func (c *amazonClient) Writer(ctx context.Context, name string) (io.WriteCloser, error) {
+	if c.advancedConfig.Reverse {
 		name = reverse(name)
 	}
-	return newBackoffWriteCloser(c, newWriter(c, name)), nil
+	return newBackoffWriteCloser(ctx, c, newWriter(ctx, c, name)), nil
 }
 
-func (c *amazonClient) Walk(name string, fn func(name string) error) error {
+func (c *amazonClient) Walk(_ context.Context, name string, fn func(name string) error) error {
 	var fnErr error
 	var prefix *string
 
-	if c.reversed {
+	if c.advancedConfig.Reverse {
 		prefix = nil
 	} else {
 		prefix = &name
@@ -251,7 +258,7 @@ func (c *amazonClient) Walk(name string, fn func(name string) error) error {
 		func(listObjectsOutput *s3.ListObjectsOutput, lastPage bool) bool {
 			for _, object := range listObjectsOutput.Contents {
 				key := *object.Key
-				if c.reversed {
+				if c.advancedConfig.Reverse {
 					key = reverse(key)
 				}
 				if strings.HasPrefix(key, name) {
@@ -269,8 +276,8 @@ func (c *amazonClient) Walk(name string, fn func(name string) error) error {
 	return fnErr
 }
 
-func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadCloser, error) {
-	if c.reversed {
+func (c *amazonClient) Reader(ctx context.Context, name string, offset uint64, size uint64) (io.ReadCloser, error) {
+	if c.advancedConfig.Reverse {
 		name = reverse(name)
 	}
 	byteRange := byteRange(offset, size)
@@ -296,7 +303,11 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 		}
 		req.Header.Add("Range", byteRange)
 
-		backoff.RetryNotify(func() error {
+		backoff.RetryNotify(func() (retErr error) {
+			span, _ := tracing.AddSpanToAnyExisting(ctx, "/Amazon.Cloudfront/Get")
+			defer func() {
+				tracing.FinishAnySpan(span, "err", retErr)
+			}()
 			resp, connErr = http.DefaultClient.Do(req)
 			if connErr != nil && isNetRetryable(connErr) {
 				return connErr
@@ -315,21 +326,24 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 		}
 		reader = resp.Body
 	} else {
-		getObjectOutput, err := c.s3.GetObject(&s3.GetObjectInput{
+		objIn := &s3.GetObjectInput{
 			Bucket: aws.String(c.bucket),
 			Key:    aws.String(name),
-			Range:  aws.String(byteRange),
-		})
+		}
+		if byteRange != "" {
+			objIn.Range = aws.String(byteRange)
+		}
+		getObjectOutput, err := c.s3.GetObject(objIn)
 		if err != nil {
 			return nil, err
 		}
 		reader = getObjectOutput.Body
 	}
-	return newBackoffReadCloser(c, reader), nil
+	return newBackoffReadCloser(ctx, c, reader), nil
 }
 
-func (c *amazonClient) Delete(name string) error {
-	if c.reversed {
+func (c *amazonClient) Delete(_ context.Context, name string) error {
+	if c.advancedConfig.Reverse {
 		name = reverse(name)
 	}
 	_, err := c.s3.DeleteObject(&s3.DeleteObjectInput{
@@ -339,14 +353,15 @@ func (c *amazonClient) Delete(name string) error {
 	return err
 }
 
-func (c *amazonClient) Exists(name string) bool {
-	if c.reversed {
+func (c *amazonClient) Exists(ctx context.Context, name string) bool {
+	if c.advancedConfig.Reverse {
 		name = reverse(name)
 	}
 	_, err := c.s3.HeadObject(&s3.HeadObjectInput{
 		Bucket: aws.String(c.bucket),
 		Key:    aws.String(name),
 	})
+	tracing.TagAnySpan(ctx, "err", err)
 	return err == nil
 }
 
@@ -396,34 +411,43 @@ func (c *amazonClient) IsNotExist(err error) bool {
 }
 
 type amazonWriter struct {
+	ctx     context.Context
 	errChan chan error
 	pipe    *io.PipeWriter
 }
 
-func newWriter(client *amazonClient, name string) *amazonWriter {
+func newWriter(ctx context.Context, client *amazonClient, name string) *amazonWriter {
 	reader, writer := io.Pipe()
 	w := &amazonWriter{
+		ctx:     ctx,
 		errChan: make(chan error),
 		pipe:    writer,
 	}
 	go func() {
 		_, err := client.uploader.Upload(&s3manager.UploadInput{
-			ACL:             &uploadACL,
+			ACL:             aws.String(client.advancedConfig.UploadACL),
 			Body:            reader,
 			Bucket:          aws.String(client.bucket),
 			Key:             aws.String(name),
 			ContentEncoding: aws.String("application/octet-stream"),
 		})
+		if err != nil {
+			reader.CloseWithError(err)
+		}
 		w.errChan <- err
 	}()
 	return w
 }
 
-func (w *amazonWriter) Write(p []byte) (int, error) {
+func (w *amazonWriter) Write(p []byte) (retN int, retErr error) {
+	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/Amazon.Writer/Write")
+	defer tracing.FinishAnySpan(span, "bytes", retN, "err", retErr)
 	return w.pipe.Write(p)
 }
 
-func (w *amazonWriter) Close() error {
+func (w *amazonWriter) Close() (retErr error) {
+	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "/Amazon.Writer/Close")
+	defer tracing.FinishAnySpan(span, "err", retErr)
 	if err := w.pipe.Close(); err != nil {
 		return err
 	}

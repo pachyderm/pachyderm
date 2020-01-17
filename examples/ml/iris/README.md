@@ -24,7 +24,7 @@ Finally, we provide some [Resources](README.md#resources) for you for further ex
 ## Getting Started
 
 - Clone this repo.
-- Install/deploy Pachyderm (See the [Pachyderm docs](http://docs.pachyderm.io/en/latest/) for details. In particular, the [local installation](http://docs.pachyderm.io/en/latest/getting_started/local_installation.html) is a super easy way to experiment with Pachyderm).
+- Install Pachyderm as described in [Local Installation](https://docs.pachyderm.com/latest/getting_started/local_installation/).
 
 ## 1. Make sure Pachyderm is running
 
@@ -42,14 +42,14 @@ pachd               1.7.0
 On the Pachyderm cluster running in your remote machine, we will need to create the two input data repositories (for our training data and input iris attributes).  To do this run:
 
 ```
-$ pachctl create-repo training
-$ pachctl create-repo attributes
+$ pachctl create repo training
+$ pachctl create repo attributes
 ```
 
 As a sanity check, we can list out the current repos, and you should see the two repos you just created:
 
 ```
-$ pachctl list-repo
+$ pachctl list repo
 NAME                CREATED             SIZE
 attributes          5 seconds ago       0 B
 training            8 seconds ago       0 B
@@ -63,17 +63,17 @@ To get this data into Pachyderm, navigate to this directory and run:
 
 ```
 $ cd data
-$ pachctl put-file training master -f iris.csv
+$ pachctl put file training@master -f iris.csv
 ```
 
 Then, you should be able to see the following:
 
 ```
-$ pachctl list-repo
+$ pachctl list repo
 NAME                CREATED             SIZE
 training            3 minutes ago       4.444 KiB
 attributes          3 minutes ago       0 B
-$ pachctl list-file training master
+$ pachctl list file training@master
 NAME                TYPE                SIZE
 iris.csv            file                4.444 KiB
 ```
@@ -101,13 +101,13 @@ Once you have specified your choice of modeling in the pipeline spec (the below 
 
 ```
 $ cd ..
-$ pachctl create-pipeline -f <julia, python, rstats>_train.json
+$ pachctl create pipeline -f <julia, python, rstats>_train.json
 ```
 
 Immediately you will notice that Pachyderm has kicked off a job to perform the model training:
 
 ```
-$ pachctl list-job
+$ pachctl list job
 ID                               OUTPUT COMMIT                          STARTED        DURATION RESTART PROGRESS  DL UL STATE
 1a8225537992422f87c8468a16d0718b model/6e7cf823910b4ae68c8d337614654564 41 seconds ago -        0       0 + 0 / 1 0B 0B running
 ```
@@ -115,15 +115,15 @@ ID                               OUTPUT COMMIT                          STARTED 
 This job should run for about a minute (it will actually run much faster after this, but we have to pull the Docker image on the first run).  After your model has successfully been trained, you should see:
 
 ```
-$ pachctl list-job
+$ pachctl list job
 ID                               OUTPUT COMMIT                          STARTED       DURATION       RESTART PROGRESS  DL       UL       STATE
 1a8225537992422f87c8468a16d0718b model/6e7cf823910b4ae68c8d337614654564 2 minutes ago About a minute 0       1 + 0 / 1 4.444KiB 49.86KiB success
-$ pachctl list-repo
+$ pachctl list repo
 NAME                CREATED             SIZE
 model               2 minutes ago       43.67 KiB
 training            8 minutes ago       4.444 KiB
 attributes          7 minutes ago       0 B
-$ pachctl list-file model master
+$ pachctl list file model@master
 NAME                TYPE                SIZE
 model.jld           file                43.67 KiB
 ```
@@ -136,13 +136,13 @@ Great! We now have a trained model that will infer the species of iris flowers. 
 
 ```
 $ cd data/test/
-$ pachctl put-file attributes master -r -f .
+$ pachctl put file attributes@master -r -f .
 ```
 
 You should then see:
 
 ```
-$ pachctl list-file attributes master
+$ pachctl list file attributes@master
 NAME                TYPE                SIZE
 1.csv               file                16 B
 2.csv               file                96 B
@@ -160,21 +160,21 @@ Then, to create the inference stage, we simply run:
 
 ```
 $ cd ../../
-$ pachctl create-pipeline -f <julia, python, rstats>_infer.json
+$ pachctl create pipeline -f <julia, python, rstats>_infer.json
 ```
 
 where `<julia, python, rstats>` is replaced by the language you are using.  This will immediately kick off an inference job, because we have committed unprocessed reviews into the `reviews` repo.  The results will then be versioned in a corresponding `inference` data repository:
 
 ```
-$ pachctl list-job
+$ pachctl list job
 ID                               OUTPUT COMMIT                              STARTED       DURATION       RESTART PROGRESS  DL       UL       STATE
 a139434b1b554443aceaf1424f119242 inference/15ef7bfe8e7d4df18a77f35b0019e119 8 seconds ago -              0       0 + 0 / 2 0B       0B       running
 1a8225537992422f87c8468a16d0718b model/6e7cf823910b4ae68c8d337614654564     6 minutes ago About a minute 0       1 + 0 / 1 4.444KiB 49.86KiB success
-$ pachctl list-job
+$ pachctl list job
 ID                               OUTPUT COMMIT                              STARTED       DURATION       RESTART PROGRESS  DL       UL       STATE
 a139434b1b554443aceaf1424f119242 inference/15ef7bfe8e7d4df18a77f35b0019e119 2 minutes ago 2 minutes      0       2 + 0 / 2 99.83KiB 100B     success
 1a8225537992422f87c8468a16d0718b model/6e7cf823910b4ae68c8d337614654564     9 minutes ago About a minute 0       1 + 0 / 1 4.444KiB 49.86KiB success
-$ pachctl list-repo
+$ pachctl list repo
 NAME                CREATED              SIZE
 inference           About a minute ago   100 B
 attributes          13 minutes ago       112 B
@@ -187,13 +187,13 @@ training            13 minutes ago       4.444 KiB
 We have created results from the inference, but how do we examine those results?  There are multiple ways, but an easy way is to just "get" the specific files out of Pachyderm's data versioning:
 
 ```
-$ pachctl list-file inference master
+$ pachctl list file inference@master
 NAME            TYPE                SIZE
 1               file                15 B
 2               file                85 B
-$ pachctl get-file inference master 1
+$ pachctl get file inference@master:1
 Iris-virginica
-$ pachctl get-file inference master 2
+$ pachctl get file inference@master:2
 Iris-versicolor
 Iris-virginica
 Iris-virginica
@@ -222,7 +222,7 @@ Pachyderm will then spin up 5 inference workers, each running our same script, t
 
 ```
 $ vim infer.json
-$ pachctl update-pipeline -f <python, julia, rstats>_infer.json
+$ pachctl update pipeline -f <python, julia, rstats>_infer.json
 $ kubectl get pods
 NAME                          READY     STATUS            RESTARTS   AGE
 etcd-7dbb489f44-pcdww         1/1       Running           0          3h
@@ -253,16 +253,16 @@ Let's now imagine that we want to update our model from random forest to decisio
 "image": "pachyderm/iris-train:julia-tree",
 ```
 
-Once you modify the spec, you can update the pipeline by running `pachctl update-pipeline ...`. By default, Pachyderm will then utilize this updated model on any new versions of our training data. However, let's say that we want to update the model and reprocess the training data that is already in the `training` repo. To do this we will run the update with the `--reprocess` flag:
+Once you modify the spec, you can update the pipeline by running `pachctl update pipeline ...`. By default, Pachyderm will then utilize this updated model on any new versions of our training data. However, let's say that we want to update the model and reprocess the training data that is already in the `training` repo. To do this we will run the update with the `--reprocess` flag:
 
 ```
-$ pachctl update-pipeline -f <julia, python, rstats>_train.json --reprocess
+$ pachctl update pipeline -f <julia, python, rstats>_train.json --reprocess
 ```
 
 Pachyderm will then automatically kick off new jobs to retrain our model with the new model code and update our inferences:
 
 ```
-$ pachctl list-job
+$ pachctl list job
 ID                               OUTPUT COMMIT                              STARTED        DURATION           RESTART PROGRESS  DL       UL       STATE
 95ffe60f94914522bccfff52e9f8d064 inference/be361c6b2c294aaea72ed18cbcfda644 6 seconds ago  -                  0       0 + 0 / 0 0B       0B       starting
 81cd82538e584c3d9edb901ab62e8f60 model/adb293f8a4604ed7b081c1ff030c0480     6 seconds ago  -                  0       0 + 0 / 1 0B       0B       running
@@ -278,7 +278,7 @@ a139434b1b554443aceaf1424f119242 inference/15ef7bfe8e7d4df18a77f35b0019e119 9 mi
 Let's say that one or more observations in our training data set were corrupt or unwanted.  Thus, we want to update our training data set.  To simulate this, go ahead and open up `iris.csv` (e.g., with `vim`) and remove a couple of the rows (non-header rows).  Then, let's replace our training set (`-o` tells Pachyderm to overwrite the file):
 
 ```
-$ pachctl put-file training master -o -f ./data/iris.csv
+$ pachctl put file training@master -o -f ./data/iris.csv
 ```
 
 Immediately, Pachyderm "knows" that the data has been updated, and it starts new jobs to update the model and inferences.
@@ -290,7 +290,7 @@ Let's say that we have updated our model or training set in one of the above sce
 Suppose we have run the following jobs:
 
 ```
-$ pachctl list-job
+$ pachctl list job
 95ffe60f94914522bccfff52e9f8d064 inference/be361c6b2c294aaea72ed18cbcfda644 3 minutes ago  3 minutes          0       2 + 0 / 2 72.61KiB 100B     success
 81cd82538e584c3d9edb901ab62e8f60 model/adb293f8a4604ed7b081c1ff030c0480     3 minutes ago  About a minute     0       1 + 0 / 1 4.444KiB 36.25KiB success
 aee1e950a22547d8bfaea397fc6bd60a inference/2e9d4707aadc4a9f82ef688ec11505c4 3 minutes ago  Less than a second 0       0 + 2 / 2 0B       0B       success
@@ -303,7 +303,7 @@ a139434b1b554443aceaf1424f119242 inference/15ef7bfe8e7d4df18a77f35b0019e119 12 m
 If we want to know which model and training data set was used for the latest inference, commit id `be361c6b2c294aaea72ed18cbcfda644`, we just need to inspect the particular commit:
 
 ```
-$ pachctl inspect-commit inference be361c6b2c294aaea72ed18cbcfda644
+$ pachctl inspect commit inference@be361c6b2c294aaea72ed18cbcfda644
 Commit: inference/be361c6b2c294aaea72ed18cbcfda644
 Parent: 2e9d4707aadc4a9f82ef688ec11505c4
 Started: 3 minutes ago
@@ -315,7 +315,7 @@ Provenance:  attributes/2757a902762e456a89852821069a33aa  model/adb293f8a4604ed7
 The `Provenance` tells us exactly which model and training set was used (along with which commit to attributes triggered the inference).  For example, if we wanted to see the exact model used, we would just need to reference commit `adb293f8a4604ed7b081c1ff030c0480` to the `model` repo:
 
 ```
-$ pachctl list-file model adb293f8a4604ed7b081c1ff030c0480
+$ pachctl list file model@adb293f8a4604ed7b081c1ff030c0480
 NAME                TYPE                SIZE
 model.pkl           file                3.448KiB
 model.txt           file                226B
@@ -326,6 +326,6 @@ We could get this model to examine it, rerun it, revert to a different model, et
 ## Resources
 
 - Join the [Pachyderm Slack team](http://slack.pachyderm.io/) to ask questions, get help, and talk about production deploys.
-- Follow [Pachyderm on Twitter](https://twitter.com/pachydermIO),
+- Follow [Pachyderm on Twitter](https://twitter.com/pachyderminc),
 - Find [Pachyderm on GitHub](https://github.com/pachyderm/pachyderm), and
-- [Spin up Pachyderm](http://docs.pachyderm.io/en/latest/getting_started/getting_started.html) in just a few commands to try this and [other examples](http://docs.pachyderm.io/en/latest/examples/readme.html) locally.
+- [Spin up Pachyderm](https://docs.pachyderm.com/latest/getting_started/) by running just a few commands to try this and [other examples](https://docs.pachyderm.com/latest/examples/examples/) locally.

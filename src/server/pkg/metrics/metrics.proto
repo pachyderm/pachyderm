@@ -18,4 +18,5 @@ message Metrics {
     int64 pipelines = 10;
     int64 archived_commits = 11;
     int64 cancelled_commits = 12;
+    string activation_code = 13;
 }

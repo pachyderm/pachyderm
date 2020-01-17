@@ -5,17 +5,19 @@ import (
 	"io/ioutil"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tls"
 	auth "github.com/pachyderm/pachyderm/src/server/auth/server"
 	pfs "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serde"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
-	apps "k8s.io/api/apps/v1beta1"
-	"k8s.io/api/core/v1"
+	apps "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,11 +32,10 @@ var (
 	// that hasn't been released, and which has been manually applied
 	// to the official v3.2.7 release.
 	etcdImage      = "quay.io/coreos/etcd:v3.3.5"
-	grpcProxyImage = "pachyderm/grpc-proxy:0.4.2"
+	grpcProxyImage = "pachyderm/grpc-proxy:0.4.10"
 	dashName       = "dash"
 	workerImage    = "pachyderm/worker"
 	pauseImage     = "gcr.io/google_containers/pause-amd64:3.0"
-	dashImage      = "pachyderm/dash"
 
 	// ServiceAccountName is the name of Pachyderm's service account.
 	// It's public because it's needed by pps.APIServer to create the RCs for
@@ -78,8 +79,6 @@ var (
 	// tlsVolumeName)
 	tlsSecretName = "pachd-tls-cert"
 
-	// 8 GiB, the max for etcd backend bytes.
-	etcdBackendBytes = 8 * 1024 * 1024 * 1024
 	// Cmd used to launch etcd
 	etcdCmd = []string{
 		"/usr/local/bin/etcd",
@@ -87,8 +86,9 @@ var (
 		"--advertise-client-urls=http://0.0.0.0:2379",
 		"--data-dir=/var/data/etcd",
 		"--auto-compaction-retention=1",
-		"--max-txn-ops=5000",
-		fmt.Sprintf("--quota-backend-bytes=%d", etcdBackendBytes),
+		"--max-txn-ops=10000",
+		"--max-request-bytes=52428800",     //50mb
+		"--quota-backend-bytes=8589934592", //8gb
 	}
 
 	// IAMAnnotation is the annotation used for the IAM role, this can work
@@ -115,8 +115,33 @@ type TLSOpts struct {
 	ServerKey  string
 }
 
+// FeatureFlags are flags for experimental features.
+type FeatureFlags struct {
+	// NewStorageLayer, if true, will make Pachyderm use the new storage layer.
+	NewStorageLayer bool
+}
+
+const (
+	// UploadConcurrencyLimitEnvVar is the environment variable for the upload concurrency limit.
+	UploadConcurrencyLimitEnvVar = "STORAGE_UPLOAD_CONCURRENCY_LIMIT"
+)
+
+const (
+	// DefaultUploadConcurrencyLimit is the default maximum number of concurrent object storage uploads.
+	// (bryce) this default is set here and in the service env config, need to figure out how to refactor
+	// this to be in one place.
+	DefaultUploadConcurrencyLimit = 100
+)
+
+// StorageOpts are options that are applicable to the storage layer.
+type StorageOpts struct {
+	UploadConcurrencyLimit int
+}
+
 // AssetOpts are options that are applicable to all the asset types.
 type AssetOpts struct {
+	FeatureFlags
+	StorageOpts
 	PachdShards uint64
 	Version     string
 	LogLevel    string
@@ -208,17 +233,19 @@ type AssetOpts struct {
 	TLS *TLSOpts
 }
 
-// Encoder is the interface for writing out assets. This is assumed to wrap an output writer.
-type Encoder interface {
-	// Encodes the given struct to the wrapped output stream. This also will write out a separator
-	// value, suitable for differentiating multiple objects in the stream.
-	Encode(interface{}) (err error)
-}
-
 // replicas lets us create a pointer to a non-zero int32 in-line. This is
 // helpful because the Replicas field of many specs expectes an *int32
 func replicas(r int32) *int32 {
 	return &r
+}
+
+// Kubernetes doesn't work well with windows path separators
+func kubeFilepathJoin(paths ...string) string {
+	joined := filepath.Join(paths...)
+	if runtime.GOOS != "windows" {
+		return joined
+	}
+	return strings.ReplaceAll(joined, "\\", "/")
 }
 
 // fillDefaultResourceRequests sets any of:
@@ -245,7 +272,7 @@ func fillDefaultResourceRequests(opts *AssetOpts, persistentDiskBackend backend)
 		}
 
 		if opts.EtcdMemRequest == "" {
-			opts.EtcdMemRequest = "256M"
+			opts.EtcdMemRequest = "512M"
 		}
 		if opts.EtcdCPURequest == "" {
 			opts.EtcdCPURequest = "0.25"
@@ -376,21 +403,27 @@ func GetSecretEnvVars(storageBackend string) []v1.EnvVar {
 		})
 	}
 	trueVal := true
-	for envVar, secretKey := range obj.EnvVarToSecretKey {
+	for _, e := range obj.EnvVarToSecretKey {
 		envVars = append(envVars, v1.EnvVar{
-			Name: envVar,
+			Name: e.Key,
 			ValueFrom: &v1.EnvVarSource{
 				SecretKeyRef: &v1.SecretKeySelector{
 					LocalObjectReference: v1.LocalObjectReference{
 						Name: client.StorageSecretName,
 					},
-					Key:      secretKey,
+					Key:      e.Value,
 					Optional: &trueVal,
 				},
 			},
 		})
 	}
 	return envVars
+}
+
+func getStorageEnvVars(opts *AssetOpts) []v1.EnvVar {
+	return []v1.EnvVar{
+		{Name: UploadConcurrencyLimitEnvVar, Value: strconv.Itoa(opts.StorageOpts.UploadConcurrencyLimit)},
+	}
 }
 
 func versionedPachdImage(opts *AssetOpts) string {
@@ -451,9 +484,11 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 	var storageHostPath string
 	switch objectStoreBackend {
 	case localBackend:
-		storageHostPath = filepath.Join(hostPath, "pachd")
+		storageHostPath = kubeFilepathJoin(hostPath, "pachd")
+		pathType := v1.HostPathDirectoryOrCreate
 		volumes[0].HostPath = &v1.HostPathVolumeSource{
 			Path: storageHostPath,
+			Type: &pathType,
 		}
 		backendEnvVar = pfs.LocalBackendEnvVar
 	case minioBackend:
@@ -479,7 +514,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 		})
 		volumeMounts = append(volumeMounts, v1.VolumeMount{
 			Name:      tlsVolumeName,
-			MountPath: grpcutil.TLSVolumePath,
+			MountPath: tls.VolumePath,
 		})
 	}
 	resourceRequirements := v1.ResourceRequirements{
@@ -494,10 +529,49 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 			v1.ResourceMemory: mem,
 		}
 	}
+	envVars := []v1.EnvVar{
+		{Name: "PACH_ROOT", Value: "/pach"},
+		{Name: "ETCD_PREFIX", Value: opts.EtcdPrefix},
+		{Name: "NUM_SHARDS", Value: fmt.Sprintf("%d", opts.PachdShards)},
+		{Name: "STORAGE_BACKEND", Value: backendEnvVar},
+		{Name: "STORAGE_HOST_PATH", Value: storageHostPath},
+		{Name: "WORKER_IMAGE", Value: AddRegistry(opts.Registry, versionedWorkerImage(opts))},
+		{Name: "IMAGE_PULL_SECRET", Value: opts.ImagePullSecret},
+		{Name: "WORKER_SIDECAR_IMAGE", Value: image},
+		{Name: "WORKER_IMAGE_PULL_POLICY", Value: "IfNotPresent"},
+		{Name: "PACHD_VERSION", Value: opts.Version},
+		{Name: "METRICS", Value: strconv.FormatBool(opts.Metrics)},
+		{Name: "LOG_LEVEL", Value: opts.LogLevel},
+		{Name: "BLOCK_CACHE_BYTES", Value: opts.BlockCacheSize},
+		{Name: "IAM_ROLE", Value: opts.IAMRole},
+		{Name: "NO_EXPOSE_DOCKER_SOCKET", Value: strconv.FormatBool(opts.NoExposeDockerSocket)},
+		{Name: auth.DisableAuthenticationEnvVar, Value: strconv.FormatBool(opts.DisableAuthentication)},
+		{
+			Name: "PACHD_POD_NAMESPACE",
+			ValueFrom: &v1.EnvVarSource{
+				FieldRef: &v1.ObjectFieldSelector{
+					APIVersion: "v1",
+					FieldPath:  "metadata.namespace",
+				},
+			},
+		},
+		{
+			Name: "PACHD_MEMORY_REQUEST",
+			ValueFrom: &v1.EnvVarSource{
+				ResourceFieldRef: &v1.ResourceFieldSelector{
+					ContainerName: "pachd",
+					Resource:      "requests.memory",
+				},
+			},
+		},
+		{Name: "EXPOSE_OBJECT_API", Value: strconv.FormatBool(opts.ExposeObjectAPI)},
+	}
+	envVars = append(envVars, GetSecretEnvVars("")...)
+	envVars = append(envVars, getStorageEnvVars(opts)...)
 	return &apps.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
-			APIVersion: "apps/v1beta1",
+			APIVersion: "apps/v1",
 		},
 		ObjectMeta: objectMeta(pachdName, labels(pachdName), nil, opts.Namespace),
 		Spec: apps.DeploymentSpec{
@@ -513,43 +587,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 						{
 							Name:  pachdName,
 							Image: image,
-							Env: append([]v1.EnvVar{
-								{Name: "PACH_ROOT", Value: "/pach"},
-								{Name: "ETCD_PREFIX", Value: opts.EtcdPrefix},
-								{Name: "NUM_SHARDS", Value: fmt.Sprintf("%d", opts.PachdShards)},
-								{Name: "STORAGE_BACKEND", Value: backendEnvVar},
-								{Name: "STORAGE_HOST_PATH", Value: storageHostPath},
-								{Name: "WORKER_IMAGE", Value: AddRegistry(opts.Registry, versionedWorkerImage(opts))},
-								{Name: "IMAGE_PULL_SECRET", Value: opts.ImagePullSecret},
-								{Name: "WORKER_SIDECAR_IMAGE", Value: image},
-								{Name: "WORKER_IMAGE_PULL_POLICY", Value: "IfNotPresent"},
-								{Name: "PACHD_VERSION", Value: opts.Version},
-								{Name: "METRICS", Value: strconv.FormatBool(opts.Metrics)},
-								{Name: "LOG_LEVEL", Value: opts.LogLevel},
-								{Name: "BLOCK_CACHE_BYTES", Value: opts.BlockCacheSize},
-								{Name: "IAM_ROLE", Value: opts.IAMRole},
-								{Name: "NO_EXPOSE_DOCKER_SOCKET", Value: strconv.FormatBool(opts.NoExposeDockerSocket)},
-								{Name: auth.DisableAuthenticationEnvVar, Value: strconv.FormatBool(opts.DisableAuthentication)},
-								{
-									Name: "PACHD_POD_NAMESPACE",
-									ValueFrom: &v1.EnvVarSource{
-										FieldRef: &v1.ObjectFieldSelector{
-											APIVersion: "v1",
-											FieldPath:  "metadata.namespace",
-										},
-									},
-								},
-								{
-									Name: "PACHD_MEMORY_REQUEST",
-									ValueFrom: &v1.EnvVarSource{
-										ResourceFieldRef: &v1.ResourceFieldSelector{
-											ContainerName: "pachd",
-											Resource:      "requests.memory",
-										},
-									},
-								},
-								{Name: "EXPOSE_OBJECT_API", Value: strconv.FormatBool(opts.ExposeObjectAPI)},
-							}, GetSecretEnvVars("")...),
+							Env:   envVars,
 							Ports: []v1.ContainerPort{
 								{
 									ContainerPort: opts.PachdPort, // also set in cmd/pachd/main.go
@@ -620,6 +658,8 @@ func PachdService(opts *AssetOpts) *v1.Service {
 				"app": pachdName,
 			},
 			Ports: []v1.ServicePort{
+				// NOTE: do not put any new ports before `api-grpc-port`, as
+				// it'll change k8s SERVICE_PORT env var values
 				{
 					Port:     650, // also set in cmd/pachd/main.go
 					Name:     "api-grpc-port",
@@ -644,6 +684,11 @@ func PachdService(opts *AssetOpts) *v1.Service {
 					Port:     githook.GitHookPort,
 					Name:     "api-git-port",
 					NodePort: githook.NodePort(),
+				},
+				{
+					Port:     600, // also set in cmd/pachd/main.go
+					Name:     "s3gateway-port",
+					NodePort: 30600,
 				},
 			},
 		},
@@ -692,12 +737,14 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 			},
 		}
 	} else {
+		pathType := v1.HostPathDirectoryOrCreate
 		volumes = []v1.Volume{
 			{
 				Name: "etcd-storage",
 				VolumeSource: v1.VolumeSource{
 					HostPath: &v1.HostPathVolumeSource{
-						Path: filepath.Join(hostPath, "etcd"),
+						Path: kubeFilepathJoin(hostPath, "etcd"),
+						Type: &pathType,
 					},
 				},
 			},
@@ -724,7 +771,7 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 	return &apps.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
-			APIVersion: "apps/v1beta1",
+			APIVersion: "apps/v1",
 		},
 		ObjectMeta: objectMeta(etcdName, labels(etcdName), nil, opts.Namespace),
 		Spec: apps.DeploymentSpec{
@@ -774,7 +821,7 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 // on AWS and GCE.
 func EtcdStorageClass(opts *AssetOpts, backend backend) (interface{}, error) {
 	sc := map[string]interface{}{
-		"apiVersion": "storage.k8s.io/v1beta1",
+		"apiVersion": "storage.k8s.io/v1",
 		"kind":       "StorageClass",
 		"metadata": map[string]interface{}{
 			"name":      defaultEtcdStorageClassName,
@@ -846,9 +893,11 @@ func EtcdVolume(persistentDiskBackend backend, opts *AssetOpts,
 	case minioBackend:
 		fallthrough
 	case localBackend:
+		pathType := v1.HostPathDirectoryOrCreate
 		spec.Spec.PersistentVolumeSource = v1.PersistentVolumeSource{
 			HostPath: &v1.HostPathVolumeSource{
-				Path: filepath.Join(hostPath, "etcd"),
+				Path: kubeFilepathJoin(hostPath, "etcd"),
+				Type: &pathType,
 			},
 		}
 	default:
@@ -1014,7 +1063,7 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 		image = AddRegistry(opts.Registry, etcdImage)
 	}
 	return map[string]interface{}{
-		"apiVersion": "apps/v1beta1",
+		"apiVersion": "apps/v1",
 		"kind":       "StatefulSet",
 		"metadata": map[string]interface{}{
 			"name":      etcdName,
@@ -1100,7 +1149,7 @@ func DashDeployment(opts *AssetOpts) *apps.Deployment {
 	return &apps.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
-			APIVersion: "apps/v1beta1",
+			APIVersion: "apps/v1",
 		},
 		ObjectMeta: objectMeta(dashName, labels(dashName), nil, opts.Namespace),
 		Spec: apps.DeploymentSpec{
@@ -1196,7 +1245,7 @@ func MinioSecret(bucket string, id string, secret string, endpoint string, secur
 
 // WriteSecret writes a JSON-encoded k8s secret to the given writer.
 // The secret uses the given map as data.
-func WriteSecret(encoder Encoder, data map[string][]byte, opts *AssetOpts) error {
+func WriteSecret(encoder serde.Encoder, data map[string][]byte, opts *AssetOpts) error {
 	if opts.DashOnly {
 		return nil
 	}
@@ -1217,50 +1266,61 @@ func LocalSecret() map[string][]byte {
 }
 
 // AmazonSecret creates an amazon secret with the following parameters:
-//   region       - AWS region
-//   bucket       - S3 bucket name
-//   id           - AWS access key id
-//   secret       - AWS secret access key
-//   token        - AWS access token
-//   distribution - cloudfront distribution
-func AmazonSecret(region, bucket, id, secret, token, distribution string) map[string][]byte {
-	return map[string][]byte{
-		"amazon-region":       []byte(region),
-		"amazon-bucket":       []byte(bucket),
-		"amazon-id":           []byte(id),
-		"amazon-secret":       []byte(secret),
-		"amazon-token":        []byte(token),
-		"amazon-distribution": []byte(distribution),
-	}
+//   region         - AWS region
+//   bucket         - S3 bucket name
+//   id             - AWS access key id
+//   secret         - AWS secret access key
+//   token          - AWS access token
+//   distribution   - cloudfront distribution
+//   endpoint       - Custom endpoint (generally used for S3 compatible object stores)
+//   advancedConfig - advanced configuration
+func AmazonSecret(region, bucket, id, secret, token, distribution, endpoint string, advancedConfig *obj.AmazonAdvancedConfiguration) map[string][]byte {
+	s := amazonBasicSecret(region, bucket, distribution, advancedConfig)
+	s["amazon-id"] = []byte(id)
+	s["amazon-secret"] = []byte(secret)
+	s["amazon-token"] = []byte(token)
+	s["custom-endpoint"] = []byte(endpoint)
+	return s
 }
 
 // AmazonVaultSecret creates an amazon secret with the following parameters:
-//   region       - AWS region
-//   bucket       - S3 bucket name
-//   vaultAddress - address/hostport of vault
-//   vaultRole    - pachd's role in vault
-//   vaultToken   - pachd's vault token
-//   distribution - cloudfront distribution
-func AmazonVaultSecret(region, bucket, vaultAddress, vaultRole, vaultToken, distribution string) map[string][]byte {
-	return map[string][]byte{
-		"amazon-region":       []byte(region),
-		"amazon-bucket":       []byte(bucket),
-		"amazon-vault-addr":   []byte(vaultAddress),
-		"amazon-vault-role":   []byte(vaultRole),
-		"amazon-vault-token":  []byte(vaultToken),
-		"amazon-distribution": []byte(distribution),
-	}
+//   region         - AWS region
+//   bucket         - S3 bucket name
+//   vaultAddress   - address/hostport of vault
+//   vaultRole      - pachd's role in vault
+//   vaultToken     - pachd's vault token
+//   distribution   - cloudfront distribution
+//   advancedConfig - advanced configuration
+func AmazonVaultSecret(region, bucket, vaultAddress, vaultRole, vaultToken, distribution string, advancedConfig *obj.AmazonAdvancedConfiguration) map[string][]byte {
+	s := amazonBasicSecret(region, bucket, distribution, advancedConfig)
+	s["amazon-vault-addr"] = []byte(vaultAddress)
+	s["amazon-vault-role"] = []byte(vaultRole)
+	s["amazon-vault-token"] = []byte(vaultToken)
+	return s
 }
 
 // AmazonIAMRoleSecret creates an amazon secret with the following parameters:
-//   region       - AWS region
-//   bucket       - S3 bucket name
-//   distribution - cloudfront distribution
-func AmazonIAMRoleSecret(region, bucket, distribution string) map[string][]byte {
+//   region         - AWS region
+//   bucket         - S3 bucket name
+//   distribution   - cloudfront distribution
+//   advancedConfig - advanced configuration
+func AmazonIAMRoleSecret(region, bucket, distribution string, advancedConfig *obj.AmazonAdvancedConfiguration) map[string][]byte {
+	return amazonBasicSecret(region, bucket, distribution, advancedConfig)
+}
+
+func amazonBasicSecret(region, bucket, distribution string, advancedConfig *obj.AmazonAdvancedConfiguration) map[string][]byte {
 	return map[string][]byte{
 		"amazon-region":       []byte(region),
 		"amazon-bucket":       []byte(bucket),
 		"amazon-distribution": []byte(distribution),
+		"retries":             []byte(strconv.Itoa(advancedConfig.Retries)),
+		"timeout":             []byte(advancedConfig.Timeout),
+		"upload-acl":          []byte(advancedConfig.UploadACL),
+		"reverse":             []byte(strconv.FormatBool(advancedConfig.Reverse)),
+		"part-size":           []byte(strconv.FormatInt(advancedConfig.PartSize, 10)),
+		"max-upload-parts":    []byte(strconv.Itoa(advancedConfig.MaxUploadParts)),
+		"disable-ssl":         []byte(strconv.FormatBool(advancedConfig.DisableSSL)),
+		"no-verify-ssl":       []byte(strconv.FormatBool(advancedConfig.NoVerifySSL)),
 	}
 }
 
@@ -1286,7 +1346,7 @@ func MicrosoftSecret(container string, id string, secret string) map[string][]by
 
 // WriteDashboardAssets writes the k8s config for deploying the Pachyderm
 // dashboard to 'encoder'
-func WriteDashboardAssets(encoder Encoder, opts *AssetOpts) error {
+func WriteDashboardAssets(encoder serde.Encoder, opts *AssetOpts) error {
 	if err := encoder.Encode(DashService(opts)); err != nil {
 		return err
 	}
@@ -1294,7 +1354,7 @@ func WriteDashboardAssets(encoder Encoder, opts *AssetOpts) error {
 }
 
 // WriteAssets writes the assets to encoder.
-func WriteAssets(encoder Encoder, opts *AssetOpts, objectStoreBackend backend,
+func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend backend,
 	persistentDiskBackend backend, volumeSize int,
 	hostPath string) error {
 	// If either backend is "local", both must be "local"
@@ -1306,7 +1366,9 @@ func WriteAssets(encoder Encoder, opts *AssetOpts, objectStoreBackend backend,
 	}
 	fillDefaultResourceRequests(opts, persistentDiskBackend)
 	if opts.DashOnly {
-		WriteDashboardAssets(encoder, opts)
+		if dashErr := WriteDashboardAssets(encoder, opts); dashErr != nil {
+			return dashErr
+		}
 		return nil
 	}
 
@@ -1406,19 +1468,19 @@ func WriteAssets(encoder Encoder, opts *AssetOpts, objectStoreBackend backend,
 // (equivalent to one generate by 'kubectl create secret tls'). This will be
 // mounted by the pachd pod and used as its TLS public certificate and private
 // key
-func WriteTLSSecret(encoder Encoder, opts *AssetOpts) error {
+func WriteTLSSecret(encoder serde.Encoder, opts *AssetOpts) error {
 	// Validate arguments
 	if opts.DashOnly {
 		return nil
 	}
 	if opts.TLS == nil {
-		return fmt.Errorf("Internal error: WriteTLSSecret called but opts.TLS is nil")
+		return fmt.Errorf("internal error: WriteTLSSecret called but opts.TLS is nil")
 	}
 	if opts.TLS.ServerKey == "" {
-		return fmt.Errorf("Internal error: WriteTLSSecret called but opts.TLS.ServerKey is \"\"")
+		return fmt.Errorf("internal error: WriteTLSSecret called but opts.TLS.ServerKey is \"\"")
 	}
 	if opts.TLS.ServerCert == "" {
-		return fmt.Errorf("Internal error: WriteTLSSecret called but opts.TLS.ServerCert is \"\"")
+		return fmt.Errorf("internal error: WriteTLSSecret called but opts.TLS.ServerCert is \"\"")
 	}
 
 	// Attempt to copy server cert and key files into config (kubernetes client
@@ -1438,53 +1500,68 @@ func WriteTLSSecret(encoder Encoder, opts *AssetOpts) error {
 		},
 		ObjectMeta: objectMeta(tlsSecretName, labels(tlsSecretName), nil, opts.Namespace),
 		Data: map[string][]byte{
-			grpcutil.TLSCertFile: certBytes,
-			grpcutil.TLSKeyFile:  keyBytes,
+			tls.CertFile: certBytes,
+			tls.KeyFile:  keyBytes,
 		},
 	}
 	return encoder.Encode(secret)
 }
 
 // WriteLocalAssets writes assets to a local backend.
-func WriteLocalAssets(encoder Encoder, opts *AssetOpts, hostPath string) error {
+func WriteLocalAssets(encoder serde.Encoder, opts *AssetOpts, hostPath string) error {
 	if err := WriteAssets(encoder, opts, localBackend, localBackend, 1 /* = volume size (gb) */, hostPath); err != nil {
 		return err
 	}
-	WriteSecret(encoder, LocalSecret(), opts)
+	if secretErr := WriteSecret(encoder, LocalSecret(), opts); secretErr != nil {
+		return secretErr
+	}
 	return nil
 }
 
 // WriteCustomAssets writes assets to a custom combination of object-store and persistent disk.
-func WriteCustomAssets(encoder Encoder, opts *AssetOpts, args []string, objectStoreBackend string,
-	persistentDiskBackend string, secure, isS3V2 bool) error {
+func WriteCustomAssets(encoder serde.Encoder, opts *AssetOpts, args []string, objectStoreBackend string,
+	persistentDiskBackend string, secure, isS3V2 bool, advancedConfig *obj.AmazonAdvancedConfiguration) error {
 	switch objectStoreBackend {
 	case "s3":
 		if len(args) != s3CustomArgs {
-			return fmt.Errorf("Expected %d arguments for disk+s3 backend", s3CustomArgs)
+			return fmt.Errorf("expected %d arguments for disk+s3 backend", s3CustomArgs)
 		}
 		volumeSize, err := strconv.Atoi(args[1])
 		if err != nil {
 			return fmt.Errorf("volume size needs to be an integer; instead got %v", args[1])
 		}
+		objectStoreBackend := amazonBackend
+		// (bryce) use minio if we need v2 signing enabled.
+		if isS3V2 {
+			objectStoreBackend = minioBackend
+		}
 		switch persistentDiskBackend {
 		case "aws":
-			if err := WriteAssets(encoder, opts, minioBackend, amazonBackend, volumeSize, ""); err != nil {
+			if err := WriteAssets(encoder, opts, objectStoreBackend, amazonBackend, volumeSize, ""); err != nil {
 				return err
 			}
 		case "google":
-			if err := WriteAssets(encoder, opts, minioBackend, googleBackend, volumeSize, ""); err != nil {
+			if err := WriteAssets(encoder, opts, objectStoreBackend, googleBackend, volumeSize, ""); err != nil {
 				return err
 			}
 		case "azure":
-			if err := WriteAssets(encoder, opts, minioBackend, microsoftBackend, volumeSize, ""); err != nil {
+			if err := WriteAssets(encoder, opts, objectStoreBackend, microsoftBackend, volumeSize, ""); err != nil {
 				return err
 			}
 		default:
-			return fmt.Errorf("Did not recognize the choice of persistent-disk")
+			return fmt.Errorf("did not recognize the choice of persistent-disk")
 		}
-		return WriteSecret(encoder, MinioSecret(args[2], args[3], args[4], args[5], secure, isS3V2), opts)
+		bucket := args[2]
+		id := args[3]
+		secret := args[4]
+		endpoint := args[5]
+		if objectStoreBackend == minioBackend {
+			return WriteSecret(encoder, MinioSecret(bucket, id, secret, endpoint, secure, isS3V2), opts)
+		}
+		// (bryce) hardcode region?
+		return WriteSecret(encoder, AmazonSecret("us-east-1", bucket, id, secret, "", "", endpoint, advancedConfig), opts)
 	default:
-		return fmt.Errorf("Did not recognize the choice of object-store")
+		return fmt.Errorf("did not recognize the choice of object-store")
 	}
 }
 
@@ -1504,23 +1581,23 @@ type AmazonCreds struct {
 }
 
 // WriteAmazonAssets writes assets to an amazon backend.
-func WriteAmazonAssets(encoder Encoder, opts *AssetOpts, region string, bucket string, volumeSize int, creds *AmazonCreds, cloudfrontDistro string) error {
+func WriteAmazonAssets(encoder serde.Encoder, opts *AssetOpts, region string, bucket string, volumeSize int, creds *AmazonCreds, cloudfrontDistro string, advancedConfig *obj.AmazonAdvancedConfiguration) error {
 	if err := WriteAssets(encoder, opts, amazonBackend, amazonBackend, volumeSize, ""); err != nil {
 		return err
 	}
 	var secret map[string][]byte
 	if creds == nil {
-		secret = AmazonIAMRoleSecret(region, bucket, cloudfrontDistro)
+		secret = AmazonIAMRoleSecret(region, bucket, cloudfrontDistro, advancedConfig)
 	} else if creds.ID != "" {
-		secret = AmazonSecret(region, bucket, creds.ID, creds.Secret, creds.Token, cloudfrontDistro)
+		secret = AmazonSecret(region, bucket, creds.ID, creds.Secret, creds.Token, cloudfrontDistro, "", advancedConfig)
 	} else if creds.VaultAddress != "" {
-		secret = AmazonVaultSecret(region, bucket, creds.VaultAddress, creds.VaultRole, creds.VaultToken, cloudfrontDistro)
+		secret = AmazonVaultSecret(region, bucket, creds.VaultAddress, creds.VaultRole, creds.VaultToken, cloudfrontDistro, advancedConfig)
 	}
 	return WriteSecret(encoder, secret, opts)
 }
 
 // WriteGoogleAssets writes assets to a google backend.
-func WriteGoogleAssets(encoder Encoder, opts *AssetOpts, bucket string, cred string, volumeSize int) error {
+func WriteGoogleAssets(encoder serde.Encoder, opts *AssetOpts, bucket string, cred string, volumeSize int) error {
 	if err := WriteAssets(encoder, opts, googleBackend, googleBackend, volumeSize, ""); err != nil {
 		return err
 	}
@@ -1528,7 +1605,7 @@ func WriteGoogleAssets(encoder Encoder, opts *AssetOpts, bucket string, cred str
 }
 
 // WriteMicrosoftAssets writes assets to a microsoft backend
-func WriteMicrosoftAssets(encoder Encoder, opts *AssetOpts, container string, id string, secret string, volumeSize int) error {
+func WriteMicrosoftAssets(encoder serde.Encoder, opts *AssetOpts, container string, id string, secret string, volumeSize int) error {
 	if err := WriteAssets(encoder, opts, microsoftBackend, microsoftBackend, volumeSize, ""); err != nil {
 		return err
 	}
@@ -1563,14 +1640,14 @@ func objectMeta(name string, labels, annotations map[string]string, namespace st
 	}
 }
 
-// AddRegistry switchs the registry that an image is targetting.
+// AddRegistry switches the registry that an image is targeting, unless registry is blank
 func AddRegistry(registry string, imageName string) string {
+	if registry == "" {
+		return imageName
+	}
 	parts := strings.Split(imageName, "/")
 	if len(parts) == 3 {
 		parts = parts[1:]
 	}
-	if registry != "" {
-		return path.Join(registry, parts[0], parts[1])
-	}
-	return path.Join(parts[0], parts[1])
+	return path.Join(registry, parts[0], parts[1])
 }

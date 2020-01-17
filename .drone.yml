@@ -1,0 +1,7 @@
+kind: pipeline
+
+steps:
+- name: my-build
+  image: golang:latest
+  commands:
+  - go mod download

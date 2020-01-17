@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Pod
+metadata:
+    name: split-loadtest-supervisor
+    labels:
+        app: split-loadtest-supervisor
+spec:
+    containers:
+        - name: supervisor
+          image: pachyderm/split-loadtest-supervisor:latest
+          command:
+              - /supervisor
+              - --record-size=100
+              - --records-per-file=100
+              - --files-per-commit=100
+              - --num-commits=10
+              - --unique-keys-per-file=10
+              - --total-unique-keys=1000
+              - --pipeline-concurrency=5
+              - --hashtree-shards=3
+              - --put-file-concurrency=3
+          imagePullPolicy: Always
+    restartPolicy: Never
+    # toleration is added in case we want a dedicated, high-memory node
+    tolerations:
+        - key: "dedicated"
+          operator: "Equal"
+          value: "loadtest"
+          effect: "NoSchedule"

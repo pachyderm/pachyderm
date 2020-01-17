@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client/admin"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
@@ -12,7 +13,7 @@ import (
 
 // InspectCluster retrieves cluster state
 func (c APIClient) InspectCluster() (*admin.ClusterInfo, error) {
-	clusterInfo, err := c.AdminAPIClient.InspectCluster(c.Ctx(), nil)
+	clusterInfo, err := c.AdminAPIClient.InspectCluster(c.Ctx(), &types.Empty{})
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
@@ -83,10 +84,10 @@ func (c APIClient) ExtractPipeline(pipelineName string) (*pps.CreatePipelineRequ
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
-	if op.Op1_8 == nil || op.Op1_8.Pipeline == nil {
+	if op.Op1_9 == nil || op.Op1_9.Pipeline == nil {
 		return nil, fmt.Errorf("malformed response is missing pipeline")
 	}
-	return op.Op1_8.Pipeline, nil
+	return op.Op1_9.Pipeline, nil
 }
 
 // Restore cluster state from an extract series of operations.

@@ -1,0 +1,22 @@
+{
+  "pipeline": {
+    "name": "GoT_generate"
+  },
+  "description": "A pipeline that generates a new GoT script.",
+  "transform": {
+    "image": "<yourregistry>/tensorflow_0_10_rnn_got",
+    "cmd": [ "sh" ],
+    "stdin": [
+      "cd /code && python ptb_word_lm.py --model=test --generate=true --model_path_prefix=/pfs/GoT_train > /pfs/out/new_script.txt"
+    ]
+  },
+  "parallelism_spec": {
+       "constant" : 1
+  },
+  "input": {
+    "pfs": {
+      "repo": "GoT_train",
+      "glob": "/"
+    }
+  }
+}

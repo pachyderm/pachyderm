@@ -1,4 +1,4 @@
-**Note**: This is a Pachyderm pre version 1.4 tutorial.  It needs to be updated for the latest versions of Pachyderm.
+:warning: **Warning**: This is a Pachyderm pre version 1.4 tutorial.  This example is deprecated until it has been updated for the latest versions of Pachyderm.
 
 # Quick Start Guide: Web Scraper
 In this guide you're going to create a Pachyderm pipeline to scrape web pages. 
@@ -20,8 +20,8 @@ For this demo we'll simply create a `repo` called
 “urls” to hold a list of urls that we want to scrape.
 
 ```shell
-$ pachctl create-repo urls
-$ pachctl list-repo
+$ pachctl create repo urls
+$ pachctl list repo
 urls
 ```
 
@@ -36,14 +36,14 @@ started and finished.
 
 Let's start a new commit in the “urls” repo:
 ```shell
-$ pachctl start-commit urls master
+$ pachctl start commit urls@master
 master/0
 ```
 
 This returns a brand new commit id. Yours should be different from mine.
 Now if we take a look inside our repo, we’ve created a directory for the new commit:
 ```shell
-$ pachctl list-commit urls
+$ pachctl list commit urls
 master/0
 ```
 
@@ -53,7 +53,7 @@ We're going to write that data as a file called “urls” in pfs.
 
 ```shell
 # Write sample data into pfs
-$ cat examples/scraper/urls | pachctl put-file urls master/0 urls
+$ cat examples/scraper/urls | pachctl put file urls@master/0:urls
 ```
 
 ## Finish a Commit
@@ -63,13 +63,13 @@ This prevents reads from racing with writes. Furthermore, every write
 to pfs is atomic. Now let's finish the commit:
 
 ```shell
-$ pachctl finish-commit urls master/0
+$ pachctl finish commit urls@master/0
 ```
 
 Now we can view the file:
 
 ```shell
-$ pachctl get-file urls master/0 urls
+$ pachctl get file urls@master/0:urls
 www.google.com
 www.reddit.com
 www.imgur.com
@@ -130,7 +130,7 @@ from `/pfs/urls/urls` (/pfs/[input_repo_name]) and write data to `/pfs/out/`.  W
 Now let's create the pipeline in Pachyderm:
 
 ```shell
-$ pachctl create-pipeline -f examples/scraper/scraper.json
+$ pachctl create pipeline -f examples/scraper/scraper.json
 ```
 
 ## What Happens When You Create a Pipeline
@@ -142,7 +142,7 @@ launch a `job` to scrape those webpages.
 You can view the job with:
 
 ```shell
-$ pachctl list-job
+$ pachctl list job
 ID                                 OUTPUT                                     STATE
 09a7eb68995c43979cba2b0d29432073   scraper/2b43def9b52b4fdfadd95a70215e90c9   JOB_STATE_RUNNING
 ```
@@ -166,11 +166,11 @@ name where it stores its output results. In our example, the pipeline was named 
 There are a couple of different ways to retrieve the output. We can read a single output file from the “scraper” `repo` in the same fashion that we read the input data:
 
 ```shell
-$ pachctl list-file scraper 2b43def9b52b4fdfadd95a70215e90c9 urls
-$ pachctl get-file scraper 2b43def9b52b4fdfadd95a70215e90c9 urls/www.imgur.com/index.html
+$ pachctl list file scraper@2b43def9b52b4fdfadd95a70215e90c9:urls
+$ pachctl get file scraper@2b43def9b52b4fdfadd95a70215e90c9:urls/www.imgur.com/index.html
 ```
 
-Using `get-file` is good if you know exactly what file you’re looking for, but for this example we want to just see all the scraped pages. One great way to do this is to mount the distributed file system locally and then just poke around.
+Using `get file` is good if you know exactly what file you’re looking for, but for this example we want to just see all the scraped pages. One great way to do this is to mount the distributed file system locally and then just poke around.
 
 ## Mount the Filesystem
 First create the mount point:
@@ -205,11 +205,10 @@ Pipelines can be triggered manually, but also will automatically process the dat
 created. Think of pipelines as being subscribed to any new commits that are
 finished on their input repo(s).
 
-If we want to re-scrape some of our urls to see if the sites of have changed, we can use the `run-pipeline` command:
+If we want to re-scrape some of our urls to see if the sites of have changed, we can use the `pachctl update pipeline` command with the `--reprocess` flag:
 
 ```shell
-$ pachctl run-pipeline scraper
-fab8c59c786842ccaf20589e15606604
+$ pachctl update pipeline scraper --reprocess
 ```
 
 Next, let’s add additional urls to our input data . We're going to append more urls from “urls2” to the file “urls.”
@@ -224,26 +223,26 @@ more data to the same file “urls.”
 Let's create a new commit with our previous commit as the parent:
 
 ```shell
-$ pachctl start-commit urls master
+$ pachctl start commit urls@master
 master/1
 ```
 
 Append more data to our urls file in the new commit:
 ```shell
-$ cat examples/scraper/urls2 | pachctl put-file urls master/1 urls
+$ cat examples/scraper/urls2 | pachctl put file urls@master/1:urls
 ```
 Finally, we'll want to finish our second commit. After it's finished, we can
 read “scraper” from the latest commit to see all the scrapes.
 
 ```shell
-$ pachctl finish-commit urls master1
+$ pachctl finish commit urls@master/1
 ```
 Finishing this commit will also automatically trigger the pipeline to run on
 the new data we've added. We'll see a corresponding commit to the output
 “scraper” repo with data from our newly added sites.
 
 ```shell
-$ pachctl list-commit scraper
+$ pachctl list commit scraper
 ```
 ## Next Steps
 You've now got a working Pachyderm cluster with data and a pipelines! Here are a few ideas for next steps that you can expand on your working setup.

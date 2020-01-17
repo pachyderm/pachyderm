@@ -1,5 +1,173 @@
 # Changelog
 
+## 1.9.10
+
+- Fixes a bug that causes `pachctl` to connect to the wrong cluster (#4416)
+- Fixes a bug that causes hashtree resource leak in certain conditions (#4420)
+- Fixes a family of minor bugs found through static code analysis (#4410)
+- Fixes a family of bugs that caused pachd panic when it processed invalid arguments (#4391)
+- Fixes a family of bugs that caused deploy yaml to fail (#4290)
+- Changes to use standard go modules instead of old vendor directory (#4323)
+- Changes to add additional logging during pachd startup (#4447)
+- Changes to CLI to add a command, `run cron <pipeline>` to manually trigger a CRON pipeline (#4419)
+- Changes to improve performance of join datum processing (#4441)
+- Open source Pachyderm S3 gateway to allow applications to interact with PFS storage (#4399)
+
+## 1.9.9
+
+- Adds support for spout marker to keep track of metadata during spout processing. (#4224)
+- Updates GPT 2 example to use GPU. (#4325)
+- Fixes a bug that did not extract all the pipeline fields (#4204)
+- Fixes a bug that did not retry a previously skipped datum when pipeline specs are updated. (#4310)
+- Fixes a family of bugs which failed the building of docker images with create pipeline --build command. (#4319)
+- Fixed a bug that did not prompt users if auto-derivation of docker credentials fails. (#4319)
+- Changes to track commit progress through DAG. (#4203)
+- Changes to CLI syntax for run pipeline to accept —job option to re-run a job. (#4267)
+- Changes to CLI syntax for inspect to accept branch option. (#4293)
+- Changes to CLI output for list repo and list pipeline to show description. (#4368)
+- Changes to CLI output for list commit to show progress and description while removing parent and duration output. (#4368)
+
+## 1.9.8
+
+- Fixes a bug that prevent the `--reprocess` flag in `edit pipeline` from working. (#4232)
+- Changes the CLI syntax for `run pipeline` to accept commit branch pairs. (#4262)
+- Fixes a bug that caused `pachctl logs --follow` to exit immediately. (#4259)
+- Fixes a bug that joins to sometimes miss pairs that matched. (#4256)
+- Fixes a bug that prevent pachyderm from deploying on Kuberentes 1.6 without modifying manifests. (#4242)
+- Fixes a family of bugs that could cause output and stats commits to remain open and block later jobs. (#4215)
+
+## 1.9.7
+
+- Fixes a bug that prevent pachctl from connecting to clusters with TLS enabled. (#4167)
+
+## 1.9.6
+
+- Fixes a bug which would cause jobs to report success despite datum failures. (#4158)
+- Fixes a bug which prevent Disk resource requests in pipelines from working. (#4157)
+- Fixes a bug which caused `pachctl fsck --fix` to exit with an error and not complete the fix. (#4155)
+- Pachctl contexts now have support for importing Kubernetes contexts. (#4152)
+- Fixes a bug which caused Spouts to create invalid provenance. (#4145)
+- Fixes a bug which allowed creation, but not deletion, of pipelines with invalid names. (#4133)
+- Fixes a bug which caused ListTag to fail with WriteHeader already called. (#4132)
+- Increases the max transaction operations and max request bytes values for etcd's deployment. (#4121)
+- Fixes a bug that caused `run pipeline` to crash pachd. (#4109)
+- Pachctl deploy amazon now exposes several new s3 connection options. (#4107)
+- Readds the `--namespace` flag to `port forward`. (#4105)
+- Removes and unused field `Batch` from the pipeline spec. (#4104)
+
+## 1.9.5
+
+- Fixes a bug that caused the Salt field to be stripped from restored pipelines. (#4086)
+- Fixes a bug that caused datums to fail with `io: read/write on closed pipe`. (#4085)
+- Fixes a bug that prevented reading logs from running jobs with stats enabled. (#4083)
+- Fixes a bug that prevented putting files into output commits via s3gateway. (#4076)
+
+## 1.9.4
+
+- Fixes a bug (#4053) which made it impossible to read files written to output commits with `put file`. (#4055)
+- Adds a flag `--fix` to `pachctl fsck` which will fix some of the issues that it detects. (#4052)
+- Fixes a bug (#3879) which caused `pachctl debug dump` to hit max message size issues. (#4015)
+- The Microsoft Azure Blob Storage client has been upgraded to the most recent version. (#4000)
+- Extract now correctly extracts the `pod_patch` and `pod_spec` for pipelines. (#3964, thanks to @mrene)
+- S3Gateway now has support for multi-part uploads. (#3903)
+- S3Gateway now has support for multi-deletes. (#4004)
+- S3Geteway now has support for auth. (#3937)
+
+## 1.9.3
+
+- Fixes a bug that caused the Azure driver to lock up when there were too many active requests. (#3970)
+- Increases the max message size for etcd, this should eliminate errors that would appear with large etcd requests such as those created when deleting repos and pipelines. (#3958)
+- Fixes several bugs that would cause commits not to be finished when jobs encountered errors, which would lead to pipelines getting stuck. (#3951)
+
+## 1.9.2
+
+- Fixes a bug that broke Pachyderm on Openshift. (#3935, thanks to @jiangytcn)
+- Fixes a bug that caused pachctl to crash when deleting a transaction while no active transaction was set. (#3929)
+- Fixes a bug that broke provenance when deleting a repo or pipeline. (#3925)
+
+## 1.9.1
+
+- Pachyderm now uses go modules. (#3870)
+- `pachctl diff file` now diffs content, similar to `git diff`. (#3866)
+- It's now possible to create spout services as ingress endpoints. (#3829)
+- Pachyderm now supports contexts as a way to access multiple clusters. (#3786)
+- Fixes a bug that causes `pachctl put file --overwrite` to fail when reading from stdin. (#3882)
+- Fixes a bug that caused jobs from run pipeline to succeed when they should fail. (#3872)
+- Fixes a bug that caused workers to get stuck in a crashloop. (#3858)
+- Fixes a bug that causes pachd to panic when a pipeline had no transform. (#3866)
+
+## 1.9.0
+
+- `pachctl` now has a new, more consistent syntax that's more in line with other container clis such as `kubectl`. (#3617)
+- Pachyderm now exposes an s3 interface to the data stored in pfs. (#3411, #3432, #3508)
+- Pachyderm now supports transactional PFS operations. (#3658)
+- The `--history` flag has been extended to `list job` and `list pipeline` (in addition to `list file`.) (#3692)
+- The ancestry syntax for accessing branches (`master^`) has been extended to include forward references i.e. `master.1`. (#3692)
+- You can now define service annotations and service type in your pipeline specs. (#3755, thanks to @cfga and @DanielMorales9)
+- You can now define error handlers for your pipelines. (#3611)
+- Pachyderm has a new command, `fsck` which will check pfs for corruption issues. (#3691)
+- Pachyderm has a new command, `run pipeline` which allows you to manually trigger a pipelined on a set of commits. (#3642)
+- Commits now store the original branch that they were created on. (#3583)
+- Pachyderm now exposes tracing via Jaeger. (#3541)
+- Fixes several issues that could lead to object store corruption, particularly on alternative object stores. (#3797)
+- Fixes several issues that could cause pipelines to get hung under heavy load. (#3788)
+- Fixes an issue that caused jobs downstream from jobs that output nothing to fail. (#3787)
+- Fixes a bug that prevent stats from being toggled on after a pipeline had already run. (#3744)
+- Fixes a bug that caused `pachctl` to crash in `list commit`. (#3699)
+- Fixes a bug that caused provenance to get corrupted on `delete commit`. (#3696)
+- A few minor bugs in the output and erroring behavior of `list file` have been fixed. (#3601, #3596)
+- Preflight object store tests have been revamped and their error output made less confusing. (#3592)
+- A bug that causes stopping a pipeline to create a new job has been fixed. (#3585)
+- Fixes a bug that caused pachd to panic if the `input` field of a pipeline was nil. (#3580)
+- The performance of `list job` has been greatly improved. (#3557)
+- `atom` inputs have been removed and use `pfs` inputs instead. (#3639)
+- The `ADDRESS` env var for connecting to pachd has been removed, use `PACHD_ADDRESS` instead. (#3638)
+
+
+## 1.8.6
+
+- The semantics of Cron inputs have changed slightly, each tick will now be a separate file unless the `Overwrite` flag is set to true, which will get you the old behavior. The name of the emitted file is now the timestamp that triggered the cron, rather than a static filename. Pipelines that use cron will need to be updated to work in 1.8.6. See [the docs](https://docs-archive.pachyderm.com/en/v1.8.6/reference/pipeline_spec.html#cron-input) for more info. (#3509)
+- 1.8.6 contains alpha support for a new kind of pipeline, spouts, which take no inputs and run continuously outputting (or spouting) data. Documentation and an example of spout usage will be in a future release. (#3531)
+- New debug commands have been added to `pachctl` to easily profile running pachyderm clusters. They are `debug-profile` `debug-binary` and `debug-pprof`.  See the docs for these commands for more information. (#3559)
+- The performance of `list-job` has been greatly improved. (#3557)
+- `pachctl undeploy` now asks for confirmation in all cases. (#3535)
+- Logging has been unified and made less verbose. (#3532)
+- Bogus output in with `--raw` flags has been removed. (#3523, thanks to @mdaniel)
+- Fixes a bug in `list-file --history` that would cause it to fail with too many files. (#3516)
+- `pachctl deploy` is more liberal in what it accepts for bucket names. (#3506)
+- `pachctl` now respects Kubernetes auth when port-forwarding. (#3504)
+- Output repos now report non-zero sizes, the size reported is that of the HEAD commit of the master branch. (#3475)
+- Pachyderm will no longer mutate custom image names when there's no registry. (#3487, thanks to @mdaniel)
+- Fixes a bug that caused `pod_patch` and `pod_spec` to be reapplied over themselves. (#3484, thanks to @mdaniel)
+
+## 1.8.5
+- New shuffle step which should improve the merge performance on certain workloads.
+
+## 1.8.4
+
+- Azure Blob Storage block size has been changed to 4MB due to object body too large errors. (#3464)
+- Fixed a bug in `--no-metrics` and `--no-port-forwarding`. (#3462)
+- Fixes a bug that caused `list-job` to panic if the `Reason` field was too short. (#3453)
+
+## 1.8.3
+
+- `--push-images` on `create-pipeline` has been replaced with `--build` which builds and pushes docker images. (#3370)
+- Fixed a bug that would cause malformed config files to panic pachctl. (#3336)
+- Port-forwarding will now happen automatically when commands are run. (#3340)
+- Fix bug where `create-pipeline` accepts names which Kubernetes considers invalid. (#3344)
+- Fix a bug where put-file would respond `master not found` for an open commit. (#3184)
+- Fix a bug where jobs with stats enabled and no datums would never close their stats commit. (#3355)
+- Pipelines now reject files paths with utf8 unprintable characters. (#3356)
+- Fixed a bug in the Azure driver that caused it to choke on large files. (#3378)
+- Fixed a bug that caused pipelines go into a loop and log a lot when they were stopped. (#3397)
+- `ADDRESS` has been renamed to `PACHD_ADDRESS` to be less generic. `ADDRESS` will still work for the remainder of the 1.8.x series of releases. (#3415)
+- The `pod_spec` field in pipelines has been revamped to use JSON Merge Patch (rfc7386) Additionally, a field, `pod_patch` has been added the the pipeline spec which is similar to `pod_spec` but uses JSON Patches (rfc6902) instead. (#3427)
+- Pachyderm developer names should no longer appear in backtraces. (#3436)
+
+## 1.8.2
+
+- Updated support for GPUs (through device plugins).
+
 ## 1.8.1
 
 - Adds support for viewing file history via the `--history` flag to `list-file` (#3277, #3299).
@@ -216,9 +384,9 @@ New Features:
 
 ### Features / Improvements
 
-* Pipelines now support the “stats” feature.  See the [docs](http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html#enable-stats-optional) for details.  (#1998)
-* Pipeline cache size is now configurable.  See the [docs](http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html#cache-size-optional) for details.  (#2033)
-* `pachctl update-pipeline` now **only** process new input data with the new code; the old input data is not re-processed.  If it’s desired that all data are re-processed, use the `--reprocess` flag.  See the [docs](http://pachyderm.readthedocs.io/en/latest/fundamentals/updating_pipelines.html) for details.  (#2034)
+* Pipelines now support the “stats” feature.  See the [docs](https://http://docs-archive.pachyderm.com/en/latest/reference/pipeline_spec.html#enable-stats-optional) for details.  (#1998)
+* Pipeline cache size is now configurable.  See the [docs](https://docs-archive.pachyderm.com/en/latest/reference/pipeline_spec.html#cache-size-optional) for details.  (#2033)
+* `pachctl update-pipeline` now **only** process new input data with the new code; the old input data is not re-processed. If it’s desired that all data are re-processed, use the `--reprocess` flag.  See the [docs](http://docs-archive.pachyderm.com/en/latest/how-tos/updating_pipelines.html) for details.  (#2034)
 * Pipeline workers now support “pipelining”, meaning that they start downloading the next datums while processing the current datum, thereby improving overall throughput.  (#2057)
 * The `scaleDownThreshold` feature has been improved such that when a pipeline is scaled down, the remaining worker only takes up minimal system resources.  (#2091)
 
@@ -263,7 +431,7 @@ New Features:
 
 ### Bug fixes
 
-* [Copy elision](http://pachyderm.readthedocs.io/en/latest/reference/best_practices.html#shuffling-files) does not work for directories. (#1803)
+* [Copy elision](http://docs-archive.pachyderm.com/en/latest/managing_pachyderm/data_management.html#shuffling-files) does not work for directories. (#1803)
 * Deleting a file in a closed commit fails silently. (#1804)
 * Pachyderm has trouble processing large files. (#1819)
 * etcd uses an unexpectedly large amount of space. (#1824)
@@ -272,8 +440,8 @@ New Features:
 ### New features
 
 * `create-repo` and `create-pipeline` now accept the `--description` flag, which creates the repo/pipeline with a "description" field.  You can then see the description via `inspect-repo/inspect-pipeline`. (#1805)
-* Pachyderm now supports garbage collection, i.e. removing data that's no longer referenced anywhere.  See the [docs](http://pachyderm.readthedocs.io/en/latest/reference/best_practices.html#garbage-collection) for details. (#1826)
-* Pachyderm now has GPU support!  See the [docs](http://pachyderm.readthedocs.io/en/latest/cookbook/tensorflow_gpu.html) for details. (#1835)
+* Pachyderm now supports garbage collection, i.e. removing data that's no longer referenced anywhere.  See the [docs](http://docs-archive.pachyderm.com/en/latest/managing_pachyderm/data_management.html#garbage-collection) for details. (#1826)
+* Pachyderm now has GPU support!  See the [docs](http://docs-archive.pachyderm.com/en/latest/managing_pachyderm/sharing_gpu_resources.html#without-configuration) for details. (#1835)
 * Most commands in `pachctl` now support the `--raw` flag, which prints the raw JSON data as opposed to pretty-printing.  For instance, `pachctl inspect-pipeline --raw` would print something akin to a pipeline spec. (#1839)
 * `pachctl` now supports `delete-commit`, which allows for deleting a commit that's not been finished.  This is useful when you have added the wrong data in a commit and you want to start over.
 * The web UI has added a file viewer, which allows for viewing PFS file content in the browser.
@@ -315,7 +483,7 @@ New Features:
 
 * Pachyderm now ships with a web UI!  To deploy a new Pachyderm cluster with the UI, use `pachctl deploy <arguments> --dashboard`.  To deploy the UI onto an existing cluster, use `pachctl deploy <arguments> --dashboard-only`.  To access the UI, simply `pachctl port-forward`, then go to `localhost:38080`.  Note that the web UI is currently in alpha; expect bugs and significant changes.   
 * You can now specify the amount of resources (i.e. CPU & memory) used by Pachyderm and etcd.  See `pachctl deploy --help` for details. (#1676)
-* You can now specify the amount of resources (i.e. CPU & memory) used by your pipelines.  See the [pipeline spec](http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html#resource-spec-optional) for details. (#1683)
+* You can now specify the amount of resources (i.e. CPU & memory) used by your pipelines. (#1683)
 
 ## 1.4.4
 
@@ -332,7 +500,7 @@ New Features:
 
 ### Features
 
-* Pachyderm now supports auto-scaling: a pipeline's worker pods can be terminated automatically when the pipeline has been idle for a configurable amount of time.  See the `scaleDownThreshold` field of the [pipeline spec](http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html#scale-down-threshold-optional) for details.
+* Pachyderm now supports auto-scaling: a pipeline's worker pods can be terminated automatically when the pipeline has been idle for a configurable amount of time.  See the `scaleDownThreshold` field of the [pipeline spec](http://docs-archive.pachyderm.com/en/latest/reference/pipeline_spec.html#standby-optional) for details.
 * The processing of a datum can be restarted manually via `restart-datum`.
 * Workers' statuses are now exposed through `inspect-job`.
 * A job can be stopped manually via `stop-job`.
@@ -396,7 +564,7 @@ As a consequence of this change, a user can now fix a pipeline that has processe
 
 - Vastly improved performance for metadata operations (e.g. list-file, inspect-file).  In prior versions, metadata operations on commits that are N levels deep are O(N) in runtime.  In 1.4, metadata operations are always O(1), regardless of the depth of the commit.
 
-- A new way to specify how input data is partitioned.  Instead of using two flags `partition` and `incrementality`, we now use a single `glob` pattern.  See the [glob doc](http://pachyderm.readthedocs.io/en/stable/reference/pipeline_spec.html#input-glob-pattern) for details.
+- A new way to specify how input data is partitioned.  Instead of using two flags `partition` and `incrementality`, we now use a single `glob` pattern.  See the [glob doc](http://docs-archive.pachyderm.com/en/latest/reference/pipeline_spec.html#the-input-glob-pattern) for details.
 
 - Flexible branch management.  In prior versions, branches are fixed, in that a commit always stays on the same branch, and a branch always refers to the same series of commits.  In 1.4, branches are modeled similar to Git's tags; they can be created, deleted, and renamed independently of commits.
 
@@ -408,7 +576,7 @@ As a consequence of this change, a user can now fix a pipeline that has processe
 
 - Simplified deployment dependencies.  In prior versions, Pachyderm depends on RethinkDB and etcd to function.  In 1.4, Pachyderm no longer depends on RethinkDB.
 
-- Dynamic volume provisioning.  GCE and AWS users (Azure support is coming soon) no longer have to manually provision persistent volumes for deploying Pachyderm.  `pachctl deploy` is now able to dynamically provision persistent volumes.  See the [deployment doc](http://pachyderm.readthedocs.io/en/stable/deployment/deploy_intro.html) for details.
+- Dynamic volume provisioning.  GCE and AWS users (Azure support is coming soon) no longer have to manually provision persistent volumes for deploying Pachyderm.  `pachctl deploy` is now able to dynamically provision persistent volumes.
 
 Removed features:
 
@@ -466,7 +634,7 @@ Features:
 
 Content:
 
-- Our developer portal is now available at: http://pachyderm.readthedocs.io/en/latest/
+- Our developer portal is now available at: https://docs.pachyderm.com/latest/
 - We've added a quick way for people to reach us on Slack at: http://slack.pachyderm.io
 - OpenCV example
 

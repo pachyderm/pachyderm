@@ -17,7 +17,7 @@ import (
 
 	"github.com/OneOfOne/xxhash"
 	bolt "github.com/coreos/bbolt"
-	globlib "github.com/gobwas/glob"
+	globlib "github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
@@ -48,6 +48,9 @@ var (
 	// A path should not have a globbing character.
 	SentinelByte = []byte{'*'}
 )
+
+// Filter is a function for filtering hashtree keys.
+type Filter func(k []byte) bool
 
 func fs(tx *bolt.Tx) *bolt.Bucket {
 	return tx.Bucket(b(FsBucket))
@@ -103,7 +106,7 @@ func NewDBHashTree(storageRoot string) (HashTree, error) {
 	if err := result.PutDir("/"); err != nil {
 		return nil, err
 	}
-	return result, err
+	return result, nil
 }
 
 // DeserializeDBHashTree deserializes a hashtree into a database (bolt) backed hashtree.
@@ -181,15 +184,6 @@ func Get(rs []io.ReadCloser, filePath string) (*NodeProto, error) {
 		return nil, errorf(PathNotFound, "file \"%s\" not found", filePath)
 	}
 	return fileNode, nil
-}
-
-// dirPrefix returns the prefix that keys must have to be considered under the
-// directory at path
-func dirPrefix(path string) string {
-	if path == "" {
-		return "" // all paths are under the root
-	}
-	return path + "/"
 }
 
 // iterDir iterates through the nodes under path, it errors with PathNotFound if path doesn't exist, it errors with PathConflict if path exists but isn't a directory.
@@ -946,11 +940,11 @@ type MergeNode struct {
 // Reader can read a serialized hashtree into a sequence of merge nodes.
 type Reader struct {
 	pbr    pbutil.Reader
-	filter func(k []byte) (bool, error)
+	filter Filter
 }
 
 // NewReader creates a new hashtree reader.
-func NewReader(r io.Reader, filter func(k []byte) (bool, error)) *Reader {
+func NewReader(r io.Reader, filter Filter) *Reader {
 	return &Reader{
 		pbr:    pbutil.NewReader(r),
 		filter: filter,
@@ -965,11 +959,7 @@ func (r *Reader) Read() (*MergeNode, error) {
 	}
 	if r.filter != nil {
 		for {
-			ok, err := r.filter(_k)
-			if err != nil {
-				return nil, err
-			}
-			if ok {
+			if r.filter(_k) {
 				break
 			}
 			_, err = r.pbr.ReadBytes()
@@ -1068,6 +1058,12 @@ func (w *Writer) Copy(r *Reader) error {
 	}
 }
 
+// Size returns the total size of the files in the written hashtree.
+// This is not the size of the serialized hashtree.
+func (w *Writer) Size() uint64 {
+	return w.size
+}
+
 // Index returns the index for a hashtree writer.
 func (w *Writer) Index() ([]byte, error) {
 	buf := &bytes.Buffer{}
@@ -1127,11 +1123,11 @@ func GetRangeFromIndex(r io.Reader, prefix string) (uint64, uint64, error) {
 	// Find lower
 	iter(low)
 	// Find upper
-	if upper <= 0 {
+	if upper == 0 {
 		iter(up)
 	}
 	// Handles the case when at the end of the indexes
-	if upper <= 0 {
+	if upper == 0 {
 		return lower, 0, nil
 	}
 	// Return offset and size
@@ -1139,12 +1135,9 @@ func GetRangeFromIndex(r io.Reader, prefix string) (uint64, uint64, error) {
 }
 
 // NewFilter creates a filter for a hashtree shard.
-func NewFilter(numTrees int64, tree int64) func(k []byte) (bool, error) {
-	return func(k []byte) (bool, error) {
-		if pathToTree(k, numTrees) == uint64(tree) {
-			return true, nil
-		}
-		return false, nil
+func NewFilter(numTrees int64, tree int64) Filter {
+	return func(k []byte) bool {
+		return pathToTree(k, numTrees) == uint64(tree)
 	}
 }
 
@@ -1202,7 +1195,7 @@ func (mq *mergePQ) next() ([]*MergeNode, error) {
 		return nil, err
 	}
 	// Keep popping nodes off the queue if they share the same path
-	for mq.q[1] != nil && bytes.Compare(mq.k(1), ns[0].k) == 0 {
+	for mq.q[1] != nil && bytes.Equal(mq.k(1), ns[0].k) {
 		ns = append(ns, mq.q[1].node)
 		if err := mq.fill(); err != nil {
 			return nil, err
@@ -1279,31 +1272,34 @@ func (mq *mergePQ) swap(i, j int) {
 }
 
 // Merge merges a collection of hashtree readers into a hashtree writer.
-func Merge(w *Writer, rs []*Reader) (uint64, error) {
+func Merge(w *Writer, rs []*Reader) error {
+	if len(rs) == 0 {
+		return nil
+	}
 	mq := &mergePQ{q: make([]*nodeStream, len(rs)+1)}
 	// Setup first set of nodes
 	for _, r := range rs {
 		if err := mq.insert(&nodeStream{r: r}); err != nil {
-			return 0, err
+			return err
 		}
 	}
 	for mq.q[1] != nil {
 		// Get next nodes to merge
 		ns, err := mq.next()
 		if err != nil {
-			return 0, err
+			return err
 		}
 		// Merge nodes
 		n, err := merge(ns)
 		if err != nil {
-			return 0, err
+			return err
 		}
 		// Write out result
 		if err := w.Write(n); err != nil {
-			return 0, err
+			return err
 		}
 	}
-	return w.size, nil
+	return nil
 }
 
 func nodes(rs []io.ReadCloser, f func(path string, nodeProto *NodeProto) error) error {
@@ -1455,12 +1451,7 @@ func (n nodetype) String() string {
 // returns a 'PathConflict' error otherwise.
 type updateFn func(*NodeProto, string, string) error
 
-// This can be passed to visit() to detect PathConflict errors early
-func nop(*NodeProto, string, string) error {
-	return nil
-}
-
-var globRegex = regexp.MustCompile(`[*?\[\]\{\}!]`)
+var globRegex = regexp.MustCompile(`[*?[\]{}!()@+^]`)
 
 // IsGlob checks if the pattern contains a glob character
 func IsGlob(pattern string) bool {
@@ -1634,12 +1625,14 @@ func NewOrdered(root string) *Ordered {
 	}
 	o.fs = append(o.fs, n)
 	o.dirStack = append(o.dirStack, n)
-	o.mkdirAll(root)
+	o.MkdirAll(root)
 	o.root = root
 	return o
 }
 
-func (o *Ordered) mkdirAll(path string) {
+// MkdirAll puts all of the parent directories of a given
+// path into the hashtree.
+func (o *Ordered) MkdirAll(path string) {
 	var paths []string
 	for path != "" {
 		paths = append(paths, path)
@@ -1700,8 +1693,8 @@ func (o *Ordered) putFile(path string, nodeProto *NodeProto) {
 }
 
 func (o *Ordered) handleEndOfDirectory(path string) {
-	parent, _ := split(path)
-	if parent != o.dirStack[len(o.dirStack)-1].path {
+	nextParent, _ := split(path)
+	for nextParent != o.dirStack[len(o.dirStack)-1].path {
 		child := o.dirStack[len(o.dirStack)-1]
 		child.nodeProto.Hash = child.hash.Sum(nil)
 		o.dirStack = o.dirStack[:len(o.dirStack)-1]
@@ -1790,7 +1783,8 @@ func (u *Unordered) Ordered() *Ordered {
 	}
 	sort.Strings(paths)
 	o := NewOrdered("")
-	for _, path := range paths {
+	for i := 1; i < len(paths); i++ {
+		path := paths[i]
 		n := u.fs[path]
 		if n.DirNode != nil {
 			o.putDir(path, n)

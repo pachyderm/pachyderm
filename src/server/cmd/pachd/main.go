@@ -4,37 +4,35 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	_ "net/http/pprof"
 	"os"
 	"path"
 	"runtime/debug"
 	"runtime/pprof"
 	"strconv"
-	"time"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	units "github.com/docker/go-units"
-	"github.com/pachyderm/pachyderm/src/client"
 	adminclient "github.com/pachyderm/pachyderm/src/client/admin"
 	authclient "github.com/pachyderm/pachyderm/src/client/auth"
 	debugclient "github.com/pachyderm/pachyderm/src/client/debug"
-	deployclient "github.com/pachyderm/pachyderm/src/client/deploy"
 	eprsclient "github.com/pachyderm/pachyderm/src/client/enterprise"
 	healthclient "github.com/pachyderm/pachyderm/src/client/health"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/discovery"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
+	transactionclient "github.com/pachyderm/pachyderm/src/client/transaction"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	adminserver "github.com/pachyderm/pachyderm/src/server/admin/server"
 	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
 	debugserver "github.com/pachyderm/pachyderm/src/server/debug/server"
-	deployserver "github.com/pachyderm/pachyderm/src/server/deploy"
 	eprsserver "github.com/pachyderm/pachyderm/src/server/enterprise/server"
 	"github.com/pachyderm/pachyderm/src/server/health"
 	pach_http "github.com/pachyderm/pachyderm/src/server/http"
+	"github.com/pachyderm/pachyderm/src/server/pfs/s3"
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	cache_pb "github.com/pachyderm/pachyderm/src/server/pkg/cache/groupcachepb"
 	cache_server "github.com/pachyderm/pachyderm/src/server/pkg/cache/server"
@@ -42,21 +40,23 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
+	logutil "github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/netutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
+	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
+	txnserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/tls"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 	"golang.org/x/net/context"
-	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	v1 "k8s.io/api/core/v1"
-	kube "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
 const (
@@ -72,80 +72,43 @@ func init() {
 	flag.Parse()
 }
 
-type appEnv struct {
-	// Ports served by Pachd
-	PPSWorkerPort uint16 `env:"PPS_WORKER_GRPC_PORT,default=80"`
-	Port          uint16 `env:"PORT,default=650"`
-	PProfPort     uint16 `env:"PPROF_PORT,default=651"`
-	HTTPPort      uint16 `env:"HTTP_PORT,default=652"`
-	PeerPort      uint16 `env:"PEER_PORT,default=653"`
-
-	NumShards             uint64 `env:"NUM_SHARDS,default=32"`
-	StorageRoot           string `env:"PACH_ROOT,default=/pach"`
-	StorageBackend        string `env:"STORAGE_BACKEND,default="`
-	StorageHostPath       string `env:"STORAGE_HOST_PATH,default="`
-	EtcdPrefix            string `env:"ETCD_PREFIX,default="`
-	PPSEtcdPrefix         string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
-	PFSEtcdPrefix         string `env:"PFS_ETCD_PREFIX,default=pachyderm_pfs"`
-	AuthEtcdPrefix        string `env:"PACHYDERM_AUTH_ETCD_PREFIX,default=pachyderm_auth"`
-	EnterpriseEtcdPrefix  string `env:"PACHYDERM_ENTERPRISE_ETCD_PREFIX,default=pachyderm_enterprise"`
-	KubeAddress           string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
-	EtcdHost              string `env:"ETCD_SERVICE_HOST,required"`
-	EtcdPort              string `env:"ETCD_SERVICE_PORT,required"`
-	Namespace             string `env:"NAMESPACE,default=default"`
-	Metrics               bool   `env:"METRICS,default=true"`
-	Init                  bool   `env:"INIT,default=false"`
-	BlockCacheBytes       string `env:"BLOCK_CACHE_BYTES,default=1G"`
-	PFSCacheSize          string `env:"PFS_CACHE_SIZE,default=0"`
-	WorkerImage           string `env:"WORKER_IMAGE,default="`
-	WorkerSidecarImage    string `env:"WORKER_SIDECAR_IMAGE,default="`
-	WorkerImagePullPolicy string `env:"WORKER_IMAGE_PULL_POLICY,default="`
-	LogLevel              string `env:"LOG_LEVEL,default=info"`
-	IAMRole               string `env:"IAM_ROLE,default="`
-	ImagePullSecret       string `env:"IMAGE_PULL_SECRET,default="`
-	NoExposeDockerSocket  bool   `env:"NO_EXPOSE_DOCKER_SOCKET,default=false"`
-	ExposeObjectAPI       bool   `env:"EXPOSE_OBJECT_API,default=false"`
-	MemoryRequest         string `env:"PACHD_MEMORY_REQUEST,default=1T"`
-}
-
 func main() {
+	log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
+
 	switch {
 	case readiness:
-		cmdutil.Main(doReadinessCheck, &appEnv{})
+		cmdutil.Main(doReadinessCheck, &serviceenv.PachdFullConfiguration{})
 	case mode == "full":
-		cmdutil.Main(doFullMode, &appEnv{})
+		cmdutil.Main(doFullMode, &serviceenv.PachdFullConfiguration{})
 	case mode == "sidecar":
-		cmdutil.Main(doSidecarMode, &appEnv{})
+		cmdutil.Main(doSidecarMode, &serviceenv.PachdFullConfiguration{})
 	default:
 		fmt.Printf("unrecognized mode: %s\n", mode)
 	}
 }
 
-func doReadinessCheck(appEnvObj interface{}) error {
-	appEnv := appEnvObj.(*appEnv)
-	address, err := netutil.ExternalIP()
-	if err != nil {
-		return err
-	}
-	pachClient, err := client.NewFromAddress(fmt.Sprintf("%s:%d", address, appEnv.PeerPort))
-	if err != nil {
-		return err
-	}
-	return pachClient.Health()
+func doReadinessCheck(config interface{}) error {
+	env := serviceenv.InitPachOnlyEnv(serviceenv.NewConfiguration(config))
+	return env.GetPachClient(context.Background()).Health()
 }
 
-func doSidecarMode(appEnvObj interface{}) (retErr error) {
+func doSidecarMode(config interface{}) (retErr error) {
 	defer func() {
 		if retErr != nil {
 			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
 		}
 	}()
-	appEnv := appEnvObj.(*appEnv)
+	// must run InstallJaegerTracer before InitWithKube (otherwise InitWithKube
+	// may create a pach client before tracing is active, not install the Jaeger
+	// gRPC interceptor in the client, and not propagate traces)
+	if endpoint := tracing.InstallJaegerTracerFromEnv(); endpoint != "" {
+		log.Printf("connecting to Jaeger at %q", endpoint)
+	} else {
+		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
+	}
+	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 	debug.SetGCPercent(50)
-	go func() {
-		log.Println(http.ListenAndServe(fmt.Sprintf(":%d", appEnv.PProfPort), nil))
-	}()
-	switch appEnv.LogLevel {
+	switch env.LogLevel {
 	case "debug":
 		log.SetLevel(log.DebugLevel)
 	case "info":
@@ -153,43 +116,23 @@ func doSidecarMode(appEnvObj interface{}) (retErr error) {
 	case "error":
 		log.SetLevel(log.ErrorLevel)
 	default:
-		log.Errorf("Unrecognized log level %s, falling back to default of \"info\"", appEnv.LogLevel)
+		log.Errorf("Unrecognized log level %s, falling back to default of \"info\"", env.LogLevel)
 		log.SetLevel(log.InfoLevel)
 	}
-	if appEnv.EtcdPrefix == "" {
-		appEnv.EtcdPrefix = col.DefaultPrefix
+	if env.EtcdPrefix == "" {
+		env.EtcdPrefix = col.DefaultPrefix
 	}
-
-	etcdAddress := fmt.Sprintf("http://%s", net.JoinHostPort(appEnv.EtcdHost, appEnv.EtcdPort))
-	etcdClientV3, err := etcd.New(etcd.Config{
-		Endpoints:   []string{etcdAddress},
-		DialOptions: client.DefaultDialOptions(),
-	})
-	if err != nil {
-		return err
-	}
-
-	clusterID, err := getClusterID(etcdClientV3)
+	clusterID, err := getClusterID(env.GetEtcdClient())
 	if err != nil {
 		return fmt.Errorf("getClusterID: %v", err)
 	}
-	kubeClient, err := getKubeClient(appEnv)
-	if err != nil {
-		return fmt.Errorf("getKubeClient: %v", err)
-	}
 	var reporter *metrics.Reporter
-	if appEnv.Metrics {
-		reporter = metrics.NewReporter(clusterID, kubeClient)
+	if env.Metrics {
+		reporter = metrics.NewReporter(clusterID, env)
 	}
-	address, err := netutil.ExternalIP()
+	pfsCacheSize, err := strconv.Atoi(env.PFSCacheSize)
 	if err != nil {
-		return fmt.Errorf("ExternalIP: %v", err)
-	}
-	address = fmt.Sprintf("%s:%d", address, appEnv.PeerPort)
-
-	pfsCacheSize, err := strconv.Atoi(appEnv.PFSCacheSize)
-	if err != nil {
-		return fmt.Errorf("Atoi: %v", err)
+		return fmt.Errorf("atoi: %v", err)
 	}
 	if pfsCacheSize == 0 {
 		pfsCacheSize = defaultTreeCacheSize
@@ -198,86 +141,151 @@ func doSidecarMode(appEnvObj interface{}) (retErr error) {
 	if err != nil {
 		return fmt.Errorf("lru.New: %v", err)
 	}
+	server, err := grpcutil.NewServer(context.Background(), false)
+	if err != nil {
+		return err
+	}
+	txnEnv := &txnenv.TransactionEnv{}
+	blockCacheBytes, err := units.RAMInBytes(env.BlockCacheBytes)
+	if err != nil {
+		return fmt.Errorf("units.RAMInBytes: %v", err)
+	}
+	if err := logGRPCServerSetup("Block API", func() error {
+		blockAPIServer, err := pfs_server.NewBlockAPIServer(env.StorageRoot, blockCacheBytes, env.StorageBackend, net.JoinHostPort(env.EtcdHost, env.EtcdPort), false)
+		if err != nil {
+			return err
+		}
+		pfsclient.RegisterObjectAPIServer(server.Server, blockAPIServer)
+		return nil
+	}); err != nil {
+		return err
+	}
+	memoryRequestBytes, err := units.RAMInBytes(env.MemoryRequest)
+	if err != nil {
+		return err
+	}
+	var pfsAPIServer pfs_server.APIServer
+	if err := logGRPCServerSetup("PFS API", func() error {
+		pfsAPIServer, err = pfs_server.NewAPIServer(
+			env,
+			txnEnv,
+			path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
+			treeCache,
+			env.StorageRoot,
+			memoryRequestBytes,
+		)
+		if err != nil {
+			return err
+		}
+		pfsclient.RegisterAPIServer(server.Server, pfsAPIServer)
+		return nil
+	}); err != nil {
+		return err
+	}
+	var ppsAPIServer pps_server.APIServer
+	if err := logGRPCServerSetup("PPS API", func() error {
+		ppsAPIServer, err = pps_server.NewSidecarAPIServer(
+			env,
+			path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
+			env.IAMRole,
+			reporter,
+			env.PPSWorkerPort,
+			env.HTTPPort,
+			env.PeerPort,
+		)
+		if err != nil {
+			return err
+		}
+		ppsclient.RegisterAPIServer(server.Server, ppsAPIServer)
+		return nil
+	}); err != nil {
+		return err
+	}
+	var authAPIServer authserver.APIServer
+	if err := logGRPCServerSetup("Auth API", func() error {
+		authAPIServer, err = authserver.NewAuthServer(
+			env,
+			txnEnv,
+			path.Join(env.EtcdPrefix, env.AuthEtcdPrefix),
+			false,
+		)
+		if err != nil {
+			return err
+		}
+		authclient.RegisterAPIServer(server.Server, authAPIServer)
+		return nil
+	}); err != nil {
+		return err
+	}
+	var transactionAPIServer txnserver.APIServer
+	if err := logGRPCServerSetup("Transaction API", func() error {
+		transactionAPIServer, err = txnserver.NewAPIServer(
+			env,
+			txnEnv,
+			path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
+		)
+		if err != nil {
+			return err
+		}
+		transactionclient.RegisterAPIServer(server.Server, transactionAPIServer)
+		return nil
+	}); err != nil {
+		return err
+	}
+	if err := logGRPCServerSetup("Enterprise API", func() error {
+		enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
+			env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))
+		if err != nil {
+			return err
+		}
+		eprsclient.RegisterAPIServer(server.Server, enterpriseAPIServer)
+		return nil
+	}); err != nil {
+		return err
+	}
+	if err := logGRPCServerSetup("Health", func() error {
+		healthclient.RegisterHealthServer(server.Server, health.NewHealthServer())
+		return nil
+	}); err != nil {
+		return err
+	}
+	if err := logGRPCServerSetup("Debug", func() error {
+		debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(
+			"", // no name for pachd servers
+			env.GetEtcdClient(),
+			path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
+			env.PPSWorkerPort,
+			clusterID,
+		))
+		return nil
+	}); err != nil {
+		return err
+	}
+	txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer, ppsAPIServer)
 	// The sidecar only needs to serve traffic on the peer port, as it only serves
 	// traffic from the user container (the worker binary and occasionally user
 	// pipelines)
-	return grpcutil.Serve(
-		grpcutil.ServerOptions{
-			Port:       appEnv.PeerPort,
-			MaxMsgSize: grpcutil.MaxMsgSize,
-			RegisterFunc: func(s *grpc.Server) error {
-				blockCacheBytes, err := units.RAMInBytes(appEnv.BlockCacheBytes)
-				if err != nil {
-					return fmt.Errorf("units.RAMInBytes: %v", err)
-				}
-				blockAPIServer, err := pfs_server.NewBlockAPIServer(appEnv.StorageRoot, blockCacheBytes, appEnv.StorageBackend, etcdAddress)
-				if err != nil {
-					return fmt.Errorf("pfs.NewBlockAPIServer: %v", err)
-				}
-				pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
-
-				memoryRequestBytes, err := units.RAMInBytes(appEnv.MemoryRequest)
-				if err != nil {
-					return err
-				}
-				pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), treeCache, appEnv.StorageRoot, memoryRequestBytes)
-				if err != nil {
-					return fmt.Errorf("pfs.NewAPIServer: %v", err)
-				}
-				pfsclient.RegisterAPIServer(s, pfsAPIServer)
-
-				ppsAPIServer, err := pps_server.NewSidecarAPIServer(
-					etcdAddress,
-					path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix),
-					address,
-					appEnv.IAMRole,
-					reporter,
-					appEnv.PPSWorkerPort,
-				)
-				if err != nil {
-					return fmt.Errorf("pps.NewSidecarAPIServer: %v", err)
-				}
-				ppsclient.RegisterAPIServer(s, ppsAPIServer)
-
-				authAPIServer, err := authserver.NewAuthServer(
-					address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.AuthEtcdPrefix),
-					false)
-				if err != nil {
-					return fmt.Errorf("NewAuthServer: %v", err)
-				}
-				authclient.RegisterAPIServer(s, authAPIServer)
-
-				enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-					address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.EnterpriseEtcdPrefix))
-				if err != nil {
-					return fmt.Errorf("NewEnterpriseServer: %v", err)
-				}
-				eprsclient.RegisterAPIServer(s, enterpriseAPIServer)
-
-				healthclient.RegisterHealthServer(s, health.NewHealthServer())
-				debugclient.RegisterDebugServer(s, debugserver.NewDebugServer(
-					"", // no name for pachd servers
-					etcdClientV3,
-					path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix),
-					appEnv.PPSWorkerPort,
-				))
-				return nil
-			},
-		},
-	)
+	if _, err := server.ListenTCP("", env.PeerPort); err != nil {
+		return err
+	}
+	return server.Wait()
 }
 
-func doFullMode(appEnvObj interface{}) (retErr error) {
+func doFullMode(config interface{}) (retErr error) {
 	defer func() {
 		if retErr != nil {
 			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
 		}
 	}()
-	appEnv := appEnvObj.(*appEnv)
-	go func() {
-		log.Println(http.ListenAndServe(fmt.Sprintf(":%d", appEnv.PProfPort), nil))
-	}()
-	switch appEnv.LogLevel {
+	// must run InstallJaegerTracer before InitWithKube
+	if endpoint := tracing.InstallJaegerTracerFromEnv(); endpoint != "" {
+		log.Printf("connecting to Jaeger at %q", endpoint)
+	} else {
+		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
+	}
+	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
+	debug.SetGCPercent(50)
+	switch env.LogLevel {
 	case "debug":
 		log.SetLevel(log.DebugLevel)
 	case "info":
@@ -285,46 +293,35 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 	case "error":
 		log.SetLevel(log.ErrorLevel)
 	default:
-		log.Errorf("Unrecognized log level %s, falling back to default of \"info\"", appEnv.LogLevel)
+		log.Errorf("Unrecognized log level %s, falling back to default of \"info\"", env.LogLevel)
 		log.SetLevel(log.InfoLevel)
 	}
-
-	if appEnv.EtcdPrefix == "" {
-		appEnv.EtcdPrefix = col.DefaultPrefix
+	if env.EtcdPrefix == "" {
+		env.EtcdPrefix = col.DefaultPrefix
 	}
-	etcdAddress := fmt.Sprintf("http://%s", net.JoinHostPort(appEnv.EtcdHost, appEnv.EtcdPort))
-	etcdClientV2 := getEtcdClient(etcdAddress)
-	etcdClientV3, err := etcd.New(etcd.Config{
-		Endpoints:   []string{etcdAddress},
-		DialOptions: append(client.DefaultDialOptions(), grpc.WithTimeout(5*time.Minute)),
-	})
-	if err != nil {
-		return err
-	}
-	clusterID, err := getClusterID(etcdClientV3)
+	clusterID, err := getClusterID(env.GetEtcdClient())
 	if err != nil {
 		return fmt.Errorf("getClusterID: %v", err)
 	}
-	kubeClient, err := getKubeClient(appEnv)
-	if err != nil {
-		return fmt.Errorf("getKubeClient: %v", err)
-	}
 	var reporter *metrics.Reporter
-	if appEnv.Metrics {
-		reporter = metrics.NewReporter(clusterID, kubeClient)
+	if env.Metrics {
+		reporter = metrics.NewReporter(clusterID, env)
 	}
-	address, err := netutil.ExternalIP()
+	// (bryce) Do we have to use etcd client v2 here for sharder? Might want to re-visit this later.
+	etcdAddress := fmt.Sprintf("http://%s", net.JoinHostPort(env.EtcdHost, env.EtcdPort))
+	etcdClientV2 := getEtcdClient(etcdAddress)
+	ip, err := netutil.ExternalIP()
 	if err != nil {
-		return fmt.Errorf("ExternalIP: %v", err)
+		return fmt.Errorf("error getting pachd external ip: %v", err)
 	}
-	address = fmt.Sprintf("%s:%d", address, appEnv.PeerPort)
+	address := net.JoinHostPort(ip, fmt.Sprintf("%d", env.PeerPort))
 	sharder := shard.NewSharder(
 		etcdClientV2,
-		appEnv.NumShards,
-		appEnv.Namespace,
+		env.NumShards,
+		env.Namespace,
 	)
 	go func() {
-		if err := sharder.AssignRoles(address, nil); err != nil {
+		if err := sharder.AssignRoles(address); err != nil {
 			log.Printf("error from sharder.AssignRoles: %s", grpcutil.ScrubGRPC(err))
 		}
 	}()
@@ -335,9 +332,9 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 		),
 		address,
 	)
-	pfsCacheSize, err := strconv.Atoi(appEnv.PFSCacheSize)
+	pfsCacheSize, err := strconv.Atoi(env.PFSCacheSize)
 	if err != nil {
-		return fmt.Errorf("Atoi: %v", err)
+		return fmt.Errorf("atoi: %v", err)
 	}
 	if pfsCacheSize == 0 {
 		pfsCacheSize = defaultTreeCacheSize
@@ -347,236 +344,349 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 		return fmt.Errorf("lru.New: %v", err)
 	}
 	kubeNamespace := getNamespace()
-	publicHealthServer := health.NewHealthServer()
-	peerHealthServer := health.NewHealthServer()
-
-	// TODO(msteffen): We should not use an errorgroup here. Errorgroup waits
-	// until *all* goroutines have run and then returns, but we want pachd to halt
-	// if *any* of these serve functions returns an arror.
-	var eg errgroup.Group
-	eg.Go(func() error {
+	// Setup External Pachd GRPC Server.
+	externalServer, err := grpcutil.NewServer(context.Background(), true)
+	if err != nil {
+		return err
+	}
+	if err := logGRPCServerSetup("External Pachd", func() error {
+		txnEnv := &txnenv.TransactionEnv{}
+		memoryRequestBytes, err := units.RAMInBytes(env.MemoryRequest)
+		if err != nil {
+			return err
+		}
+		var pfsAPIServer pfs_server.APIServer
+		if err := logGRPCServerSetup("PFS API", func() error {
+			pfsAPIServer, err = pfs_server.NewAPIServer(env, txnEnv, path.Join(env.EtcdPrefix, env.PFSEtcdPrefix), treeCache, env.StorageRoot, memoryRequestBytes)
+			if err != nil {
+				return err
+			}
+			pfsclient.RegisterAPIServer(externalServer.Server, pfsAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		var ppsAPIServer pps_server.APIServer
+		if err := logGRPCServerSetup("PPS API", func() error {
+			ppsAPIServer, err = pps_server.NewAPIServer(
+				env,
+				txnEnv,
+				path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
+				kubeNamespace,
+				env.WorkerImage,
+				env.WorkerSidecarImage,
+				env.WorkerImagePullPolicy,
+				env.StorageRoot,
+				env.StorageBackend,
+				env.StorageHostPath,
+				env.IAMRole,
+				env.ImagePullSecret,
+				env.NoExposeDockerSocket,
+				reporter,
+				env.WorkerUsesRoot,
+				env.PPSWorkerPort,
+				env.Port,
+				env.HTTPPort,
+				env.PeerPort,
+			)
+			if err != nil {
+				return err
+			}
+			ppsclient.RegisterAPIServer(externalServer.Server, ppsAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		if env.ExposeObjectAPI {
+			if err := logGRPCServerSetup("Block API", func() error {
+				// Generally the object API should not be exposed publicly, but
+				// TestGarbageCollection uses it and it may help with debugging
+				blockAPIServer, err := pfs_server.NewBlockAPIServer(
+					env.StorageRoot,
+					0 /* = blockCacheBytes (disable cache) */, env.StorageBackend,
+					etcdAddress,
+					true /* duplicate */)
+				if err != nil {
+					return err
+				}
+				pfsclient.RegisterObjectAPIServer(externalServer.Server, blockAPIServer)
+				return nil
+			}); err != nil {
+				return err
+			}
+		}
+		var authAPIServer authserver.APIServer
+		if err := logGRPCServerSetup("Auth API", func() error {
+			authAPIServer, err = authserver.NewAuthServer(
+				env, txnEnv, path.Join(env.EtcdPrefix, env.AuthEtcdPrefix), true)
+			if err != nil {
+				return err
+			}
+			authclient.RegisterAPIServer(externalServer.Server, authAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		var transactionAPIServer txnserver.APIServer
+		if err := logGRPCServerSetup("Transaction API", func() error {
+			transactionAPIServer, err = txnserver.NewAPIServer(
+				env,
+				txnEnv,
+				path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
+			)
+			if err != nil {
+				return err
+			}
+			transactionclient.RegisterAPIServer(externalServer.Server, transactionAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := logGRPCServerSetup("Enterprise API", func() error {
+			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
+				env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))
+			if err != nil {
+				return err
+			}
+			eprsclient.RegisterAPIServer(externalServer.Server, enterpriseAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := logGRPCServerSetup("Admin API", func() error {
+			adminclient.RegisterAPIServer(externalServer.Server, adminserver.NewAPIServer(address, env.StorageRoot, &adminclient.ClusterInfo{ID: clusterID}))
+			return nil
+		}); err != nil {
+			return err
+		}
+		healthServer := health.NewHealthServer()
+		if err := logGRPCServerSetup("Health", func() error {
+			healthclient.RegisterHealthServer(externalServer.Server, healthServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := logGRPCServerSetup("Version API", func() error {
+			versionpb.RegisterAPIServer(externalServer.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := logGRPCServerSetup("Debug", func() error {
+			debugclient.RegisterDebugServer(externalServer.Server, debugserver.NewDebugServer(
+				"", // no name for pachd servers
+				env.GetEtcdClient(),
+				path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
+				env.PPSWorkerPort,
+				clusterID,
+			))
+			return nil
+		}); err != nil {
+			return err
+		}
+		txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer, ppsAPIServer)
+		if _, err := externalServer.ListenTCP("", env.Port); err != nil {
+			return err
+		}
+		healthServer.Ready()
+		return nil
+	}); err != nil {
+		return err
+	}
+	// Setup Internal Pachd GRPC Server.
+	internalServer, err := grpcutil.NewServer(context.Background(), false)
+	if err != nil {
+		return err
+	}
+	if err := logGRPCServerSetup("Internal Pachd", func() error {
+		txnEnv := &txnenv.TransactionEnv{}
+		cacheServer := cache_server.NewCacheServer(router, env.NumShards)
+		go func() {
+			if err := sharder.RegisterFrontends(address, []shard.Frontend{cacheServer}); err != nil {
+				log.Printf("error from sharder.RegisterFrontend %s", grpcutil.ScrubGRPC(err))
+			}
+		}()
+		go func() {
+			if err := sharder.Register(address, []shard.Server{cacheServer}); err != nil {
+				log.Printf("error from sharder.Register %s", grpcutil.ScrubGRPC(err))
+			}
+		}()
+		cache_pb.RegisterGroupCacheServer(internalServer.Server, cacheServer)
+		blockCacheBytes, err := units.RAMInBytes(env.BlockCacheBytes)
+		if err != nil {
+			return fmt.Errorf("units.RAMInBytes: %v", err)
+		}
+		if err := logGRPCServerSetup("Block API", func() error {
+			blockAPIServer, err := pfs_server.NewBlockAPIServer(
+				env.StorageRoot, blockCacheBytes, env.StorageBackend, etcdAddress, false)
+			if err != nil {
+				return err
+			}
+			pfsclient.RegisterObjectAPIServer(internalServer.Server, blockAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		memoryRequestBytes, err := units.RAMInBytes(env.MemoryRequest)
+		if err != nil {
+			return err
+		}
+		var pfsAPIServer pfs_server.APIServer
+		if err := logGRPCServerSetup("PFS API", func() error {
+			pfsAPIServer, err = pfs_server.NewAPIServer(
+				env,
+				txnEnv,
+				path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
+				treeCache,
+				env.StorageRoot,
+				memoryRequestBytes,
+			)
+			if err != nil {
+				return err
+			}
+			pfsclient.RegisterAPIServer(internalServer.Server, pfsAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		var ppsAPIServer pps_server.APIServer
+		if err := logGRPCServerSetup("PPS API", func() error {
+			ppsAPIServer, err = pps_server.NewAPIServer(
+				env,
+				txnEnv,
+				path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
+				kubeNamespace,
+				env.WorkerImage,
+				env.WorkerSidecarImage,
+				env.WorkerImagePullPolicy,
+				env.StorageRoot,
+				env.StorageBackend,
+				env.StorageHostPath,
+				env.IAMRole,
+				env.ImagePullSecret,
+				env.NoExposeDockerSocket,
+				reporter,
+				env.WorkerUsesRoot,
+				env.PPSWorkerPort,
+				env.Port,
+				env.HTTPPort,
+				env.PeerPort,
+			)
+			if err != nil {
+				return err
+			}
+			ppsclient.RegisterAPIServer(internalServer.Server, ppsAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		var authAPIServer authserver.APIServer
+		if err := logGRPCServerSetup("Auth API", func() error {
+			authAPIServer, err = authserver.NewAuthServer(
+				env,
+				txnEnv,
+				path.Join(env.EtcdPrefix, env.AuthEtcdPrefix),
+				false,
+			)
+			if err != nil {
+				return err
+			}
+			authclient.RegisterAPIServer(internalServer.Server, authAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		var transactionAPIServer txnserver.APIServer
+		if err := logGRPCServerSetup("Transaction API", func() error {
+			transactionAPIServer, err = txnserver.NewAPIServer(
+				env,
+				txnEnv,
+				path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
+			)
+			if err != nil {
+				return err
+			}
+			transactionclient.RegisterAPIServer(internalServer.Server, transactionAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := logGRPCServerSetup("Enterprise API", func() error {
+			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
+				env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))
+			if err != nil {
+				return err
+			}
+			eprsclient.RegisterAPIServer(internalServer.Server, enterpriseAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		healthServer := health.NewHealthServer()
+		if err := logGRPCServerSetup("Health", func() error {
+			healthclient.RegisterHealthServer(internalServer.Server, healthServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := logGRPCServerSetup("Version API", func() error {
+			versionpb.RegisterAPIServer(internalServer.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := logGRPCServerSetup("Admin API", func() error {
+			adminclient.RegisterAPIServer(internalServer.Server, adminserver.NewAPIServer(address, env.StorageRoot, &adminclient.ClusterInfo{ID: clusterID}))
+			return nil
+		}); err != nil {
+			return err
+		}
+		txnEnv.Initialize(env, transactionAPIServer, authAPIServer, pfsAPIServer, ppsAPIServer)
+		if _, err := internalServer.ListenTCP("", env.PeerPort); err != nil {
+			return err
+		}
+		healthServer.Ready()
+		return nil
+	}); err != nil {
+		return err
+	}
+	// Create the goroutines for the servers.
+	// Any server error is considered critical and will cause Pachd to exit.
+	// The first server that errors will have its error message logged.
+	errChan := make(chan error, 1)
+	go waitForError("External Pachd GRPC Server", errChan, func() error {
+		return externalServer.Wait()
+	})
+	go waitForError("Internal Pachd GRPC Server", errChan, func() error {
+		return internalServer.Wait()
+	})
+	go waitForError("HTTP Server", errChan, func() error {
 		httpServer, err := pach_http.NewHTTPServer(address)
 		if err != nil {
 			return err
 		}
-		err = http.ListenAndServe(fmt.Sprintf(":%v", appEnv.HTTPPort), httpServer)
-		if err != nil {
-			log.Printf("error starting http server %v\n", err)
-		}
-		return fmt.Errorf("ListenAndServe: %v", err)
+		return http.ListenAndServe(fmt.Sprintf(":%v", env.HTTPPort), httpServer)
 	})
-	eg.Go(func() error {
-		err := githook.RunGitHookServer(address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix))
-		if err != nil {
-			log.Printf("error starting githook server %v\n", err)
-		}
-		return fmt.Errorf("RunGitHookServer: %v", err)
+	go waitForError("Githook Server", errChan, func() error {
+		return githook.RunGitHookServer(address, etcdAddress, path.Join(env.EtcdPrefix, env.PPSEtcdPrefix))
 	})
-	eg.Go(func() error {
+	go waitForError("S3 Server", errChan, func() error {
+		server, err := s3.Server(env.S3GatewayPort, env.Port)
+		if err != nil {
+			return err
+		}
+		certPath, keyPath, err := tls.GetCertPaths()
+		if err != nil {
+			log.Warnf("s3gateway TLS disabled: %v", err)
+			return server.ListenAndServe()
+		}
+		return server.ListenAndServeTLS(certPath, keyPath)
+	})
+	go waitForError("Prometheus Server", errChan, func() error {
 		http.Handle("/metrics", promhttp.Handler())
-		err := http.ListenAndServe(fmt.Sprintf(":%v", assets.PrometheusPort), nil)
-		if err != nil {
-			log.Printf("error starting prometheus server %v\n", err)
-		}
-		return fmt.Errorf("ListenAndServe: %v", err)
+		return http.ListenAndServe(fmt.Sprintf(":%v", assets.PrometheusPort), nil)
 	})
-	eg.Go(func() error {
-		err := grpcutil.Serve(
-			grpcutil.ServerOptions{
-				Port:                 appEnv.Port,
-				MaxMsgSize:           grpcutil.MaxMsgSize,
-				PublicPortTLSAllowed: true,
-				RegisterFunc: func(s *grpc.Server) error {
-					memoryRequestBytes, err := units.RAMInBytes(appEnv.MemoryRequest)
-					if err != nil {
-						return err
-					}
-					pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), treeCache, appEnv.StorageRoot, memoryRequestBytes)
-					if err != nil {
-						return fmt.Errorf("pfs.NewAPIServer: %v", err)
-					}
-					pfsclient.RegisterAPIServer(s, pfsAPIServer)
-
-					ppsAPIServer, err := pps_server.NewAPIServer(
-						etcdAddress,
-						path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix),
-						address,
-						kubeClient,
-						kubeNamespace,
-						appEnv.WorkerImage,
-						appEnv.WorkerSidecarImage,
-						appEnv.WorkerImagePullPolicy,
-						appEnv.StorageRoot,
-						appEnv.StorageBackend,
-						appEnv.StorageHostPath,
-						appEnv.IAMRole,
-						appEnv.ImagePullSecret,
-						appEnv.NoExposeDockerSocket,
-						reporter,
-						appEnv.PPSWorkerPort,
-						appEnv.Port,
-						appEnv.PProfPort,
-						appEnv.HTTPPort,
-						appEnv.PeerPort,
-					)
-					if err != nil {
-						return fmt.Errorf("pps.NewAPIServer: %v", err)
-					}
-					ppsclient.RegisterAPIServer(s, ppsAPIServer)
-
-					if appEnv.ExposeObjectAPI {
-						// Generally the object API should not be exposed publicly, but
-						// TestGarbageCollection uses it and it may help with debugging
-						blockAPIServer, err := pfs_server.NewBlockAPIServer(
-							appEnv.StorageRoot,
-							0 /* = blockCacheBytes (disable cache) */, appEnv.StorageBackend,
-							etcdAddress)
-						if err != nil {
-							return fmt.Errorf("pfs.NewBlockAPIServer: %v", err)
-						}
-						pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
-					}
-
-					authAPIServer, err := authserver.NewAuthServer(
-						address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.AuthEtcdPrefix),
-						true)
-					if err != nil {
-						return fmt.Errorf("NewAuthServer: %v", err)
-					}
-					authclient.RegisterAPIServer(s, authAPIServer)
-
-					enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-						address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.EnterpriseEtcdPrefix))
-					if err != nil {
-						return fmt.Errorf("NewEnterpriseServer: %v", err)
-					}
-					eprsclient.RegisterAPIServer(s, enterpriseAPIServer)
-
-					deployclient.RegisterAPIServer(s, deployserver.NewDeployServer(kubeClient, kubeNamespace))
-					adminclient.RegisterAPIServer(s, adminserver.NewAPIServer(address, appEnv.StorageRoot, &adminclient.ClusterInfo{ID: clusterID}))
-					healthclient.RegisterHealthServer(s, publicHealthServer)
-					versionpb.RegisterAPIServer(s, version.NewAPIServer(version.Version, version.APIServerOptions{}))
-					debugclient.RegisterDebugServer(s, debugserver.NewDebugServer(
-						"", // no name for pachd servers
-						etcdClientV3,
-						path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix),
-						appEnv.PPSWorkerPort,
-					))
-					return nil
-				},
-			},
-		)
-		if err != nil {
-			log.Printf("error starting grpc server %v\n", err)
-		}
-		return err
-	})
-	// Unfortunately, calling Register___Server(x) twice on the same
-	// struct x doesn't work--x will only serve requests from the first
-	// grpc.Server it was registered with. So we create a second set of
-	// APIServer structs here so we can serve the Pachyderm API on the
-	// peer port
-	eg.Go(func() error {
-		err := grpcutil.Serve(
-			grpcutil.ServerOptions{
-				Port:       appEnv.PeerPort,
-				MaxMsgSize: grpcutil.MaxMsgSize,
-				RegisterFunc: func(s *grpc.Server) error {
-					cacheServer := cache_server.NewCacheServer(router, appEnv.NumShards)
-					go func() {
-						if err := sharder.RegisterFrontends(nil, address, []shard.Frontend{cacheServer}); err != nil {
-							log.Printf("error from sharder.RegisterFrontend %s", grpcutil.ScrubGRPC(err))
-						}
-					}()
-					go func() {
-						if err := sharder.Register(nil, address, []shard.Server{cacheServer}); err != nil {
-							log.Printf("error from sharder.Register %s", grpcutil.ScrubGRPC(err))
-						}
-					}()
-					cache_pb.RegisterGroupCacheServer(s, cacheServer)
-
-					blockCacheBytes, err := units.RAMInBytes(appEnv.BlockCacheBytes)
-					if err != nil {
-						return fmt.Errorf("units.RAMInBytes: %v", err)
-					}
-					blockAPIServer, err := pfs_server.NewBlockAPIServer(
-						appEnv.StorageRoot, blockCacheBytes, appEnv.StorageBackend, etcdAddress)
-					if err != nil {
-						return fmt.Errorf("pfs.NewBlockAPIServer: %v", err)
-					}
-					pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
-
-					memoryRequestBytes, err := units.RAMInBytes(appEnv.MemoryRequest)
-					if err != nil {
-						return err
-					}
-					pfsAPIServer, err := pfs_server.NewAPIServer(
-						address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), treeCache, appEnv.StorageRoot, memoryRequestBytes)
-					if err != nil {
-						return fmt.Errorf("pfs.NewAPIServer: %v", err)
-					}
-					pfsclient.RegisterAPIServer(s, pfsAPIServer)
-
-					ppsAPIServer, err := pps_server.NewAPIServer(
-						etcdAddress,
-						path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix),
-						address,
-						kubeClient,
-						kubeNamespace,
-						appEnv.WorkerImage,
-						appEnv.WorkerSidecarImage,
-						appEnv.WorkerImagePullPolicy,
-						appEnv.StorageRoot,
-						appEnv.StorageBackend,
-						appEnv.StorageHostPath,
-						appEnv.IAMRole,
-						appEnv.ImagePullSecret,
-						appEnv.NoExposeDockerSocket,
-						reporter,
-						appEnv.PPSWorkerPort,
-						appEnv.Port,
-						appEnv.PProfPort,
-						appEnv.HTTPPort,
-						appEnv.PeerPort,
-					)
-					if err != nil {
-						return fmt.Errorf("pps.NewAPIServer: %v", err)
-					}
-					ppsclient.RegisterAPIServer(s, ppsAPIServer)
-
-					authAPIServer, err := authserver.NewAuthServer(
-						address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.AuthEtcdPrefix),
-						false)
-					if err != nil {
-						return fmt.Errorf("NewAuthServer: %v", err)
-					}
-					authclient.RegisterAPIServer(s, authAPIServer)
-
-					enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-						address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.EnterpriseEtcdPrefix))
-					if err != nil {
-						return fmt.Errorf("NewEnterpriseServer: %v", err)
-					}
-					eprsclient.RegisterAPIServer(s, enterpriseAPIServer)
-
-					deployclient.RegisterAPIServer(s, deployserver.NewDeployServer(kubeClient, kubeNamespace))
-					healthclient.RegisterHealthServer(s, peerHealthServer)
-					versionpb.RegisterAPIServer(s, version.NewAPIServer(version.Version, version.APIServerOptions{}))
-					adminclient.RegisterAPIServer(s, adminserver.NewAPIServer(address, appEnv.StorageRoot, &adminclient.ClusterInfo{ID: clusterID}))
-					return nil
-				},
-			},
-		)
-		if err != nil {
-			log.Printf("error starting grpc server %v\n", err)
-		}
-		return err
-	})
-	// TODO(msteffen): Is it really necessary to indicate that the peer service is
-	// healthy? Presumably migrate() will call the peer service no matter what.
-	publicHealthServer.Ready()
-	peerHealthServer.Ready()
-	return eg.Wait()
+	return <-errChan
 }
 
 func getEtcdClient(etcdAddress string) discovery.Client {
@@ -605,26 +715,6 @@ func getClusterID(client *etcd.Client) (string, error) {
 	return getClusterID(client)
 }
 
-func getKubeClient(env *appEnv) (*kube.Clientset, error) {
-	cfg, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, err
-	}
-	kubeClient, err := kube.NewForConfig(cfg)
-	if err != nil {
-		log.Errorf("falling back to insecure kube client due to error from NewForConfig: %s", grpcutil.ScrubGRPC(err))
-	} else {
-		return kubeClient, err
-	}
-	config := &rest.Config{
-		Host: fmt.Sprintf("%s:443", env.KubeAddress),
-		TLSClientConfig: rest.TLSClientConfig{
-			Insecure: true,
-		},
-	}
-	return kube.NewForConfig(config)
-}
-
 // getNamespace returns the kubernetes namespace that this pachd pod runs in
 func getNamespace() string {
 	namespace := os.Getenv("PACHD_POD_NAMESPACE")
@@ -632,4 +722,22 @@ func getNamespace() string {
 		return namespace
 	}
 	return v1.NamespaceDefault
+}
+
+func logGRPCServerSetup(name string, f func() error) (retErr error) {
+	log.Printf("started setting up %v GRPC Server", name)
+	defer func() {
+		if retErr != nil {
+			retErr = fmt.Errorf("error setting up %v GRPC Server: %v", name, retErr)
+		} else {
+			log.Printf("finished setting up %v GRPC Server", name)
+		}
+	}()
+	return f()
+}
+
+func waitForError(name string, errChan chan error, f func() error) {
+	if err := f(); err != http.ErrServerClosed {
+		errChan <- fmt.Errorf("error in %v: %v", name, f())
+	}
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -178,13 +179,16 @@ func initPrometheus() {
 	}
 	for _, metric := range metrics {
 		if err := prometheus.Register(metric); err != nil {
-			fmt.Printf("error registering prometheus metric: %v\n", err)
+			// metrics may be redundantly registered; ignore these errors
+			if _, ok := err.(prometheus.AlreadyRegisteredError); !ok {
+				logrus.Errorf("error registering prometheus metric: %v", err)
+			}
 		}
 	}
 	http.Handle("/metrics", promhttp.Handler())
 	go func() {
 		if err := http.ListenAndServe(fmt.Sprintf(":%v", PrometheusPort), nil); err != nil {
-			fmt.Printf("error serving prometheus metrics: %v\n", err)
+			logrus.Errorf("error serving prometheus metrics: %v", err)
 		}
 	}()
 }

@@ -1,25 +1,25 @@
 # Creating a shuffle pipeline
 
-This example demonstrates how shuffle pipelines i.e. a pipeline that shuffles, combines files without downloading/uploading can be created. For more information [see](https://pachyderm.readthedocs.io/en/latest/managing_pachyderm/data_management.html)
+This example demonstrates how shuffle pipelines i.e. a pipeline that shuffles, combines files without downloading/uploading can be created.
 
 ## Create fruits input repo
 ```bash
-pachctl create-repo fruits
-pachctl put-file fruits master -f mango.jpeg
-pachctl put-file fruits master -f apple.jpeg
+pachctl create repo fruits
+pachctl put file fruits@master -f mango.jpeg
+pachctl put file fruits@master -f apple.jpeg
 ```
 
 ## Create pricing input repo
 ```bash
-pachctl create-repo pricing
-pachctl put-file pricing master -f mango.json
-pachctl put-file pricing master -f apple.json
+pachctl create repo pricing
+pachctl put file pricing@master -f mango.json
+pachctl put file pricing@master -f apple.json
 ```
 
 
 ## Create shuffle pipeline
 ```bash
-pachctl create-pipeline -f shuffle.json
+pachctl create pipeline -f shuffle.json
 ```
 
 Let's take a closer look at that pipeline:
@@ -69,8 +69,8 @@ content, specifying `"empty_files"` will massively improve its performance.
 
 ## Results
 
-### List-job
-`pachctl  list-job` indicates no data download or upload was performed
+### List job
+`pachctl list job` indicates no data download or upload was performed
 
 | ID                               | OUTPUT COMMIT                            | STARTED        | DURATION  | RESTART | PROGRESS  | DL | UL | STATE   |
 |----------------------------------|------------------------------------------|----------------|-----------|---------|-----------|----|----|---------|
@@ -79,7 +79,7 @@ content, specifying `"empty_files"` will massively improve its performance.
 
 
 ### Output files:
-`pachctl list-file shuffle master "*"` will show shuffled file:
+`pachctl list file "shuffle@master:*"` will show shuffled file:
 
 | NAME             | TYPE | SIZE     |
 |------------------|------|----------|

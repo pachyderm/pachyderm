@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+package transaction;
+option go_package = "github.com/pachyderm/pachyderm/src/client/transaction";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+import "gogoproto/gogo.proto";
+
+import "client/pfs/pfs.proto";
+import "client/pps/pps.proto";
+
+message DeleteAllRequest {
+}
+
+message TransactionRequest {
+  // Exactly one of these fields should be set
+  pfs.CreateRepoRequest create_repo = 1;
+  pfs.DeleteRepoRequest delete_repo = 2;
+  pfs.StartCommitRequest start_commit = 3;
+  pfs.FinishCommitRequest finish_commit = 4;
+  pfs.DeleteCommitRequest delete_commit = 5;
+  pfs.CreateBranchRequest create_branch = 6;
+  pfs.DeleteBranchRequest delete_branch = 7;
+  pps.UpdateJobStateRequest update_job_state = 11;
+  DeleteAllRequest delete_all = 10;
+}
+
+message TransactionResponse {
+  // At most, one of these fields should be set (most responses are empty)
+  pfs.Commit commit = 2; // Only used for StartCommit - any way we can deterministically provide this before finishing the transaction?
+}
+
+message Transaction {
+  string id = 1 [(gogoproto.customname) = "ID"];
+}
+
+message TransactionInfo {
+  Transaction transaction = 1;
+  repeated TransactionRequest requests = 2;
+  repeated TransactionResponse responses = 3;
+  google.protobuf.Timestamp started = 4;
+}
+
+message TransactionInfos {
+  repeated TransactionInfo transaction_info = 1;
+}
+
+message BatchTransactionRequest {
+  repeated TransactionRequest requests = 1;
+}
+
+message StartTransactionRequest {
+}
+
+message InspectTransactionRequest {
+  Transaction transaction = 1;
+}
+
+message DeleteTransactionRequest {
+  Transaction transaction = 1;
+}
+
+message ListTransactionRequest {
+}
+
+message FinishTransactionRequest {
+  Transaction transaction = 1;
+}
+
+service API {
+  // Transaction rpcs
+  rpc BatchTransaction(BatchTransactionRequest) returns (TransactionInfo) {}
+  rpc StartTransaction(StartTransactionRequest) returns (Transaction) {}
+  rpc InspectTransaction(InspectTransactionRequest) returns (TransactionInfo) {}
+  rpc DeleteTransaction(DeleteTransactionRequest) returns (google.protobuf.Empty) {}
+  rpc ListTransaction(ListTransactionRequest) returns (TransactionInfos) {}
+  rpc FinishTransaction(FinishTransactionRequest) returns (TransactionInfo) {}
+  rpc DeleteAll(DeleteAllRequest) returns (google.protobuf.Empty) {}
+}

@@ -1,4 +1,4 @@
-FROM ubuntu:14.04
+FROM ubuntu:18.04
 LABEL maintainer="jdoliner@pachyderm.io"
 
 RUN \
@@ -30,5 +30,4 @@ RUN \
   mkdir -p /go/bin
 ENV PATH /go/bin:/usr/local/go/bin:$PATH
 ENV GOPATH /go
-ENV GO15VENDOREXPERIMENT 1
 RUN go get github.com/kisielk/errcheck golang.org/x/lint/golint

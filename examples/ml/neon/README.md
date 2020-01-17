@@ -11,22 +11,22 @@ This machine learning pipeline integrates Nervana Neon training and inference in
 
 ## Deploying Pachyderm
 
-See the [Pachyderm docs](http://docs.pachyderm.io/en/latest/) for details. Note, this demo requires `pachctl` 1.4.0+.  
+Install Pachyderm as described in [Local Installation](https://docs.pachyderm.com/latest/getting_started/local_installation/) for details. Note, this demo requires `pachctl` 1.4.0+.
 
 ## Deploying training and inference
 
 1. Create the necessary data "repositories":
 
     ```sh
-    $ pachctl create-repo training
-    $ pachctl create-repo reviews
+    $ pachctl create repo training
+    $ pachctl create repo reviews
     ```
 
 2. Create the pipeline:
 
     ```sh
-    $ pachctl create-pipeline -f train.json
-    $ pachctl create-pipeline -f infer.json
+    $ pachctl create pipeline -f train.json
+    $ pachctl create pipeline -f infer.json
     ```
 
 ## Running model training
@@ -34,7 +34,7 @@ See the [Pachyderm docs](http://docs.pachyderm.io/en/latest/) for details. Note,
 Because we have already deployed the pipeline, the training portion of the pipeline will run as soon as data is committed to the training data repo.  The training data in TSV format can be obtained [here](https://s3-us-west-2.amazonaws.com/wokshop-example-data/labeledTrainData.tsv).
 
 ```sh
-$ pachctl put-file training master labeledTrainData.tsv -c -f labeledTrainData.tsv
+$ pachctl put file training@master:labeledTrainData.tsv -c -f labeledTrainData.tsv
 ```
 
 The training should take about 10-15 minutes depending on your environment.
@@ -50,7 +50,7 @@ Naturally in a film who's main themes are of mortality, nostalgia, and loss of i
 Once this is committed to the `reviews` repo as `1.txt`:
 
 ```sh
-$ pachctl put-file reviews master 1.txt -c -f 1.txt
+$ pachctl put file reviews@master:1.txt -c -f 1.txt
 ```
 
 The inference stage of the pipeline will run and output results to the master branch of the `inference` repo.

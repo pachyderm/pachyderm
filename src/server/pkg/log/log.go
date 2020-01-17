@@ -50,7 +50,7 @@ func NewLocalLogger(service string) Logger {
 
 func newLogger(service string, exportStats bool) Logger {
 	l := logrus.New()
-	l.Formatter = new(prettyFormatter)
+	l.Formatter = FormatterFunc(Pretty)
 	newLogger := &logger{
 		l.WithFields(logrus.Fields{"service": service}),
 		make(map[string]*prometheus.HistogramVec),
@@ -70,8 +70,11 @@ func newLogger(service string, exportStats bool) Logger {
 				},
 			)
 			if err := prometheus.Register(newReportMetricGauge); err != nil {
-				entry := newLogger.WithFields(logrus.Fields{"method": "NewLogger"})
-				newLogger.LogAtLevel(entry, logrus.WarnLevel, fmt.Sprintf("error registering prometheus metric: %v", newReportMetricGauge), err)
+				// metrics may be redundantly registered; ignore these errors
+				if _, ok := err.(prometheus.AlreadyRegisteredError); !ok {
+					entry := newLogger.WithFields(logrus.Fields{"method": "NewLogger"})
+					newLogger.LogAtLevel(entry, logrus.WarnLevel, fmt.Sprintf("error registering prometheus metric: %v", newReportMetricGauge), err)
+				}
 			} else {
 				reportMetricGauge = newReportMetricGauge
 			}
@@ -150,7 +153,10 @@ func (l *logger) ReportMetric(method string, duration time.Duration, err error) 
 				},
 			)
 			if err := prometheus.Register(runTime); err != nil {
-				l.LogAtLevel(entry, logrus.WarnLevel, fmt.Sprintf("error registering prometheus metric %v: %v", runTime, runTimeName), err)
+				// metrics may be redundantly registered; ignore these errors
+				if _, ok := err.(prometheus.AlreadyRegisteredError); !ok {
+					l.LogAtLevel(entry, logrus.WarnLevel, fmt.Sprintf("error registering prometheus metric %v: %v", runTime, runTimeName), err)
+				}
 			} else {
 				l.histogram[runTimeName] = runTime
 			}
@@ -174,7 +180,10 @@ func (l *logger) ReportMetric(method string, duration time.Duration, err error) 
 			},
 		)
 		if err := prometheus.Register(secondsCount); err != nil {
-			l.LogAtLevel(entry, logrus.WarnLevel, fmt.Sprintf("error registering prometheus metric %v: %v", secondsCount, secondsCountName), err)
+			// metrics may be redundantly registered; ignore these errors
+			if _, ok := err.(prometheus.AlreadyRegisteredError); !ok {
+				l.LogAtLevel(entry, logrus.WarnLevel, fmt.Sprintf("error registering prometheus metric %v: %v", secondsCount, secondsCountName), err)
+			}
 		} else {
 			l.counter[secondsCountName] = secondsCount
 		}
@@ -201,15 +210,24 @@ func (l *logger) LogAtLevel(entry *logrus.Entry, level logrus.Level, args ...int
 }
 
 func (l *logger) LogAtLevelFromDepth(request interface{}, response interface{}, err error, duration time.Duration, level logrus.Level, depth int) {
-	pc := make([]uintptr, depth)
+	// We're only interested in 1 stack frame, however due to weirdness with
+	// inlining sometimes you need to get more than 1 caller so that
+	// CallersFrames can resolve the first function. 2 seems to be enough be
+	// we've set it to 5 to insulate us more, because this at one point broke
+	// due to some compile optimization changes.
+	pc := make([]uintptr, 5)
 	runtime.Callers(depth, pc)
-	split := strings.Split(runtime.FuncForPC(pc[0]).Name(), ".")
-	method := split[len(split)-1]
-
-	fields := logrus.Fields{
-		"method":  method,
-		"request": request,
+	frames := runtime.CallersFrames(pc)
+	frame, ok := frames.Next()
+	fields := logrus.Fields{}
+	if ok {
+		split := strings.Split(frame.Function, ".")
+		method := split[len(split)-1]
+		fields["method"] = method
+	} else {
+		fields["warn"] = "failed to resolve method"
 	}
+	fields["request"] = request
 	if response != nil {
 		fields["response"] = response
 	}
@@ -228,13 +246,25 @@ func topLevelService(fullyQualifiedService string) string {
 	return tokens[0]
 }
 
-type prettyFormatter struct{}
+// FormatterFunc is a type alias for a function that satisfies logrus'
+// `Formatter` interface
+type FormatterFunc func(entry *logrus.Entry) ([]byte, error)
 
-func (f *prettyFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+// Format proxies the closure in order to satisfy `logrus.Formatter`'s
+// interface.
+func (f FormatterFunc) Format(entry *logrus.Entry) ([]byte, error) {
+	return f(entry)
+}
+
+// Pretty formats a logrus entry like so:
+// ```
+// 2019-02-11T16:02:02Z INFO pfs.API.InspectRepo {"request":{"repo":{"name":"images"}}} []
+// ```
+func Pretty(entry *logrus.Entry) ([]byte, error) {
 	serialized := []byte(
 		fmt.Sprintf(
 			"%v %v ",
-			entry.Time.Format(logrus.DefaultTimestampFormat),
+			entry.Time.Format(time.RFC3339),
 			strings.ToUpper(entry.Level.String()),
 		),
 	)
@@ -249,7 +279,7 @@ func (f *prettyFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 		}
 		data, err := json.Marshal(entry.Data)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to marshal fields to JSON, %v", err)
+			return nil, fmt.Errorf("failed to marshal fields to JSON, %v", err)
 		}
 		serialized = append(serialized, []byte(string(data))...)
 		serialized = append(serialized, ' ')
@@ -258,4 +288,69 @@ func (f *prettyFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	serialized = append(serialized, []byte(entry.Message)...)
 	serialized = append(serialized, '\n')
 	return serialized, nil
+}
+
+// GRPCLogWriter proxies gRPC and etcd-produced log messages to a logrus
+// logger. Because it implements `io.Writer`, it could be used anywhere where
+// `io.Writer`s are used, but it has some logic specifically designed to
+// handle gRPC-formatted logs.
+type GRPCLogWriter struct {
+	logger *logrus.Logger
+	source string
+}
+
+// NewGRPCLogWriter creates a new GRPC log writer. `logger` specifies the
+// underlying logger, and `source` specifies where these logs are coming from;
+// it is added as a entry field for all log messages.
+func NewGRPCLogWriter(logger *logrus.Logger, source string) *GRPCLogWriter {
+	return &GRPCLogWriter{
+		logger: logger,
+		source: source,
+	}
+}
+
+// Write allows `GRPCInfoWriter` to implement the `io.Writer` interface. This
+// will take gRPC logs, which look something like this:
+// ```
+// INFO: 2019/02/18 12:21:54 ClientConn switching balancer to "pick_first"
+// ```
+// strip out redundant content, and print the message at the appropriate log
+// level in logrus. Any parse errors of the log message will be reported in
+// logrus as well.
+func (l *GRPCLogWriter) Write(p []byte) (int, error) {
+	parts := strings.SplitN(string(p), " ", 4)
+	entry := l.logger.WithField("source", l.source)
+
+	if len(parts) == 4 {
+		// parts[1] and parts[2] contain the date and time, but logrus already
+		// adds this under the `time` entry field, so it's not needed (though
+		// the time will presumably be marginally ahead of the original log
+		// message)
+		level := parts[0]
+		message := strings.TrimSpace(parts[3])
+
+		if level == "INFO:" {
+			entry.Info(message)
+		} else if level == "ERROR:" {
+			entry.Error(message)
+		} else if level == "WARNING:" {
+			entry.Warning(message)
+		} else if level == "FATAL:" {
+			// no need to call fatal ourselves because gRPC will exit the
+			// process
+			entry.Error(message)
+		} else {
+			entry.Error(message)
+			entry.Error("entry had unknown log level prefix: '%s'; this is a bug, please report it along with the previous log entry", level)
+		}
+	} else {
+		// can't format the message -- just display the contents
+		entry := l.logger.WithFields(logrus.Fields{
+			"source": l.source,
+		})
+		entry.Error(p)
+		entry.Error("entry had unexpected format; this is a bug, please report it along with the previous log entry")
+	}
+
+	return len(p), nil
 }

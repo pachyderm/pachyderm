@@ -32,7 +32,7 @@ func getPachClient(t testing.TB) *client.APIClient {
 		if _, ok := os.LookupEnv("PACHD_PORT_650_TCP_ADDR"); ok {
 			pachClient, err = client.NewInCluster()
 		} else {
-			pachClient, err = client.NewOnUserMachine(false, false, "user")
+			pachClient, err = client.NewForTest()
 		}
 		if err != nil {
 			t.Fatalf("error getting Pachyderm client: %s", err.Error())
@@ -69,8 +69,11 @@ func TestGetState(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if expires.Sub(time.Now()) <= year {
-			return fmt.Errorf("Expected test token to expire >1yr in the future, but expires at %v (congratulations on making it to 2026!)", expires)
+		if time.Until(expires) <= year {
+			return fmt.Errorf("expected test token to expire >1yr in the future, but expires at %v (congratulations on making it to 2026!)", expires)
+		}
+		if resp.ActivationCode != testutil.GetTestEnterpriseCode() {
+			return fmt.Errorf("incorrect activation code, got: %s, expected: %s", resp.ActivationCode, testutil.GetTestEnterpriseCode())
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -84,6 +87,7 @@ func TestGetState(t *testing.T) {
 			ActivationCode: testutil.GetTestEnterpriseCode(),
 			Expires:        expiresProto,
 		})
+	require.NoError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := client.Enterprise.GetState(context.Background(),
 			&enterprise.GetStateRequest{})
@@ -99,6 +103,9 @@ func TestGetState(t *testing.T) {
 		}
 		if expires.Unix() != respExpires.Unix() {
 			return fmt.Errorf("expected enterprise expiration to be %v, but was %v", expires, respExpires)
+		}
+		if resp.ActivationCode != testutil.GetTestEnterpriseCode() {
+			return fmt.Errorf("incorrect activation code, got: %s, expected: %s", resp.ActivationCode, testutil.GetTestEnterpriseCode())
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -141,5 +148,40 @@ func TestDeactivate(t *testing.T) {
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
+}
 
+// TestDoubleDeactivate makes sure calling Deactivate() when there is no
+// enterprise token works. Fixes
+// https://github.com/pachyderm/pachyderm/issues/3013
+func TestDoubleDeactivate(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	client := getPachClient(t)
+
+	// Deactivate cluster and make sure its state is NONE (enterprise might be
+	// active at the start of this test?)
+	_, err := client.Enterprise.Deactivate(context.Background(),
+		&enterprise.DeactivateRequest{})
+	require.NoError(t, err)
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := client.Enterprise.GetState(context.Background(),
+			&enterprise.GetStateRequest{})
+		if err != nil {
+			return err
+		}
+		if resp.State != enterprise.State_NONE {
+			return fmt.Errorf("expected enterprise state to be NONE but was %v", resp.State)
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+
+	// Deactivate the cluster again to make sure deactivation with no token works
+	_, err = client.Enterprise.Deactivate(context.Background(),
+		&enterprise.DeactivateRequest{})
+	require.NoError(t, err)
+	resp, err := client.Enterprise.GetState(context.Background(),
+		&enterprise.GetStateRequest{})
+	require.NoError(t, err)
+	require.Equal(t, enterprise.State_NONE, resp.State)
 }

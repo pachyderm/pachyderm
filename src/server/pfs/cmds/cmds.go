@@ -2,116 +2,132 @@ package cmds
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	gosync "sync"
-	"syscall"
+
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 
 	"golang.org/x/sync/errgroup"
 
 	"github.com/gogo/protobuf/jsonpb"
-	"github.com/hanwen/go-fuse/fuse/nodefs"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/pager"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
-
+	txncmds "github.com/pachyderm/pachyderm/src/server/transaction/cmds"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 const (
-	codestart = "```sh\n\n"
-	codeend   = "\n```"
-
-	// DefaultParallelism is the default parallelism used by get-file
-	// and put-file.
+	// DefaultParallelism is the default parallelism used by 'get file' and 'put file'.
 	DefaultParallelism = 10
 )
 
 // Cmds returns a slice containing pfs commands.
-func Cmds(noMetrics *bool) []*cobra.Command {
-	metrics := !*noMetrics
+func Cmds() []*cobra.Command {
+	var commands []*cobra.Command
+
 	raw := false
-	rawFlag := func(cmd *cobra.Command) {
-		cmd.Flags().BoolVar(&raw, "raw", false, "disable pretty printing, print raw json")
-	}
+	rawFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
+	rawFlags.BoolVar(&raw, "raw", false, "disable pretty printing, print raw json")
+
+	fullTimestamps := false
+	fullTimestampsFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
+	fullTimestampsFlags.BoolVar(&fullTimestamps, "full-timestamps", false, "Return absolute timestamps (as opposed to the default, relative timestamps).")
+
+	noPager := false
+	noPagerFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
+	noPagerFlags.BoolVar(&noPager, "no-pager", false, "Don't pipe output into a pager (i.e. less).")
+
 	marshaller := &jsonpb.Marshaler{Indent: "  "}
 
-	repo := &cobra.Command{
-		Use:   "repo",
+	repoDocs := &cobra.Command{
 		Short: "Docs for repos.",
-		Long: `Repos, short for repository, are the top level data object in Pachyderm.
+		Long: `Repos, short for repository, are the top level data objects in Pachyderm.
 
-	Repos are created with create-repo.`,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			return nil
-		}),
+Repos contain version-controlled directories and files. Files can be of any size
+or type (e.g. csv, binary, images, etc).`,
 	}
+	commands = append(commands, cmdutil.CreateDocsAlias(repoDocs, "repo", " repo$"))
 
 	var description string
 	createRepo := &cobra.Command{
-		Use:   "create-repo repo-name",
+		Use:   "{{alias}} <repo>",
 		Short: "Create a new repo.",
 		Long:  "Create a new repo.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine(metrics, true, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
 			defer c.Close()
-			_, err = c.PfsAPIClient.CreateRepo(
-				c.Ctx(),
-				&pfsclient.CreateRepoRequest{
-					Repo:        client.NewRepo(args[0]),
-					Description: description,
-				},
-			)
+
+			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
+				_, err = c.PfsAPIClient.CreateRepo(
+					c.Ctx(),
+					&pfsclient.CreateRepoRequest{
+						Repo:        client.NewRepo(args[0]),
+						Description: description,
+					},
+				)
+				return err
+			})
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
 	createRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
+	commands = append(commands, cmdutil.CreateAlias(createRepo, "create repo"))
 
 	updateRepo := &cobra.Command{
-		Use:   "update-repo repo-name",
+		Use:   "{{alias}} <repo>",
 		Short: "Update a repo.",
 		Long:  "Update a repo.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine(metrics, true, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
 			defer c.Close()
-			_, err = c.PfsAPIClient.CreateRepo(
-				c.Ctx(),
-				&pfsclient.CreateRepoRequest{
-					Repo:        client.NewRepo(args[0]),
-					Description: description,
-					Update:      true,
-				},
-			)
+
+			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
+				_, err = c.PfsAPIClient.CreateRepo(
+					c.Ctx(),
+					&pfsclient.CreateRepoRequest{
+						Repo:        client.NewRepo(args[0]),
+						Description: description,
+						Update:      true,
+					},
+				)
+				return err
+			})
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
 	updateRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
+	commands = append(commands, cmdutil.CreateAlias(updateRepo, "update repo"))
 
 	inspectRepo := &cobra.Command{
-		Use:   "inspect-repo repo-name",
+		Use:   "{{alias}} <repo>",
 		Short: "Return info about a repo.",
 		Long:  "Return info about a repo.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine(metrics, true, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -126,17 +142,22 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 			if raw {
 				return marshaller.Marshal(os.Stdout, repoInfo)
 			}
-			return pretty.PrintDetailedRepoInfo(repoInfo)
+			ri := &pretty.PrintableRepoInfo{
+				RepoInfo:       repoInfo,
+				FullTimestamps: fullTimestamps,
+			}
+			return pretty.PrintDetailedRepoInfo(ri)
 		}),
 	}
-	rawFlag(inspectRepo)
+	inspectRepo.Flags().AddFlagSet(rawFlags)
+	inspectRepo.Flags().AddFlagSet(fullTimestampsFlags)
+	commands = append(commands, cmdutil.CreateAlias(inspectRepo, "inspect repo"))
 
 	listRepo := &cobra.Command{
-		Use:   "list-repo",
 		Short: "Return all repos.",
 		Long:  "Return all repos.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine(metrics, true, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -160,209 +181,226 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 			}
 			writer := tabwriter.NewWriter(os.Stdout, header)
 			for _, repoInfo := range repoInfos {
-				pretty.PrintRepoInfo(writer, repoInfo)
+				pretty.PrintRepoInfo(writer, repoInfo, fullTimestamps)
 			}
 			return writer.Flush()
 		}),
 	}
-	rawFlag(listRepo)
+	listRepo.Flags().AddFlagSet(rawFlags)
+	listRepo.Flags().AddFlagSet(fullTimestampsFlags)
+	commands = append(commands, cmdutil.CreateAlias(listRepo, "list repo"))
 
 	var force bool
 	var all bool
 	deleteRepo := &cobra.Command{
-		Use:   "delete-repo repo-name",
+		Use:   "{{alias}} <repo>",
 		Short: "Delete a repo.",
 		Long:  "Delete a repo.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, true, "user")
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-			if len(args) > 0 && all {
-				return fmt.Errorf("cannot use the --all flag with an argument")
-			}
-			if len(args) == 0 && !all {
-				return fmt.Errorf("either a repo name or the --all flag needs to be provided")
-			}
-			if all {
-				_, err = client.PfsAPIClient.DeleteRepo(client.Ctx(),
-					&pfsclient.DeleteRepoRequest{
-						Force: force,
-						All:   all,
-					})
-			} else {
-				err = client.DeleteRepo(args[0], force)
-			}
-			if err != nil {
-				return grpcutil.ScrubGRPC(err)
-			}
-			return nil
-		}),
-	}
-	deleteRepo.Flags().BoolVarP(&force, "force", "f", false, "remove the repo regardless of errors; use with care")
-	deleteRepo.Flags().BoolVar(&all, "all", false, "remove all repos")
-
-	commit := &cobra.Command{
-		Use:   "commit",
-		Short: "Docs for commits.",
-		Long: `Commits are atomic transactions on the content of a repo.
-
-Creating a commit is a multistep process:
-- start a new commit with start-commit
-- write files to it through fuse or with put-file
-- finish the new commit with finish-commit
-
-Commits that have been started but not finished are NOT durable storage.
-Commits become reliable (and immutable) when they are finished.
-
-Commits can be created with another commit as a parent.
-This layers the data in the commit over the data in the parent.
-`,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			return nil
-		}),
-	}
-
-	var parent string
-	startCommit := &cobra.Command{
-		Use:   "start-commit repo-name [branch]",
-		Short: "Start a new commit.",
-		Long: `Start a new commit with parent-commit as the parent, or start a commit on the given branch; if the branch does not exist, it will be created.
-
-Examples:
-
-` + codestart + `# Start a new commit in repo "test" that's not on any branch
-$ pachctl start-commit test
-
-# Start a commit in repo "test" on branch "master"
-$ pachctl start-commit test master
-
-# Start a commit with "master" as the parent in repo "test", on a new branch "patch"; essentially a fork.
-$ pachctl start-commit test patch -p master
-
-# Start a commit with XXX as the parent in repo "test", not on any branch
-$ pachctl start-commit test -p XXX
-` + codeend,
-		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
-			cli, err := client.NewOnUserMachine(metrics, true, "user")
-			if err != nil {
-				return err
-			}
-			defer cli.Close()
-			var branch string
-			if len(args) == 2 {
-				branch = args[1]
-			}
-			commit, err := cli.PfsAPIClient.StartCommit(cli.Ctx(),
-				&pfsclient.StartCommitRequest{
-					Branch:      branch,
-					Parent:      client.NewCommit(args[0], parent),
-					Description: description,
-				})
-			if err != nil {
-				return grpcutil.ScrubGRPC(err)
-			}
-			fmt.Println(commit.ID)
-			return nil
-		}),
-	}
-	startCommit.Flags().StringVarP(&parent, "parent", "p", "", "The parent of the new commit, unneeded if branch is specified and you want to use the previous head of the branch as the parent.")
-	startCommit.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents")
-	startCommit.Flags().StringVar(&description, "description", "", "A description of this commit's contents (synonym for --message)")
-
-	finishCommit := &cobra.Command{
-		Use:   "finish-commit repo-name commit-id",
-		Short: "Finish a started commit.",
-		Long:  "Finish a started commit. Commit-id must be a writeable commit.",
-		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			cli, err := client.NewOnUserMachine(metrics, true, "user")
-			if err != nil {
-				return err
-			}
-			defer cli.Close()
-			if description != "" {
-				_, err := cli.PfsAPIClient.FinishCommit(cli.Ctx(),
-					&pfsclient.FinishCommitRequest{
-						Commit:      client.NewCommit(args[0], args[1]),
-						Description: description,
-					})
-				return grpcutil.ScrubGRPC(err)
-			}
-			return cli.FinishCommit(args[0], args[1])
-		}),
-	}
-	finishCommit.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents (overwrites any existing commit description)")
-	finishCommit.Flags().StringVar(&description, "description", "", "A description of this commit's contents (synonym for --message)")
-
-	inspectCommit := &cobra.Command{
-		Use:   "inspect-commit repo-name commit-id",
-		Short: "Return info about a commit.",
-		Long:  "Return info about a commit.",
-		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, true, "user")
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-			commitInfo, err := client.InspectCommit(args[0], args[1])
-			if err != nil {
-				return err
-			}
-			if commitInfo == nil {
-				return fmt.Errorf("commit %s not found", args[1])
-			}
-			if raw {
-				return marshaller.Marshal(os.Stdout, commitInfo)
-			}
-			return pretty.PrintDetailedCommitInfo(commitInfo)
-		}),
-	}
-	rawFlag(inspectCommit)
-
-	var from string
-	var number int
-	listCommit := &cobra.Command{
-		Use:   "list-commit repo-name",
-		Short: "Return all commits on a set of repos.",
-		Long: `Return all commits on a set of repos.
-
-Examples:
-
-` + codestart + `# return commits in repo "foo"
-$ pachctl list-commit foo
-
-# return commits in repo "foo" on branch "master"
-$ pachctl list-commit foo master
-
-# return the last 20 commits in repo "foo" on branch "master"
-$ pachctl list-commit foo master -n 20
-
-# return commits that are the ancestors of XXX
-$ pachctl list-commit foo XXX
-
-# return commits in repo "foo" since commit XXX
-$ pachctl list-commit foo master --from XXX
-` + codeend,
-		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) (retErr error) {
-			c, err := client.NewOnUserMachine(metrics, true, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
 			defer c.Close()
 
-			var to string
-			if len(args) == 2 {
-				to = args[1]
+			request := &pfsclient.DeleteRepoRequest{
+				Force: force,
+				All:   all,
+			}
+			if len(args) > 0 {
+				if all {
+					return fmt.Errorf("cannot use the --all flag with an argument")
+				}
+				request.Repo = client.NewRepo(args[0])
+			} else if !all {
+				return fmt.Errorf("either a repo name or the --all flag needs to be provided")
+			}
+
+			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
+				_, err = c.PfsAPIClient.DeleteRepo(c.Ctx(), request)
+				return err
+			})
+			return grpcutil.ScrubGRPC(err)
+		}),
+	}
+	deleteRepo.Flags().BoolVarP(&force, "force", "f", false, "remove the repo regardless of errors; use with care")
+	deleteRepo.Flags().BoolVar(&all, "all", false, "remove all repos")
+	commands = append(commands, cmdutil.CreateAlias(deleteRepo, "delete repo"))
+
+	commitDocs := &cobra.Command{
+		Short: "Docs for commits.",
+		Long: `Commits are atomic transactions on the content of a repo.
+
+Creating a commit is a multistep process:
+- start a new commit with 'start commit'
+- write files to the commit via 'put file'
+- finish the new commit with 'finish commit'
+
+Commits that have been started but not finished are NOT durable storage.
+Commits become reliable (and immutable) when they are finished.
+
+Commits can be created with another commit as a parent.`,
+	}
+	commands = append(commands, cmdutil.CreateDocsAlias(commitDocs, "commit", " commit$"))
+
+	var parent string
+	startCommit := &cobra.Command{
+		Use:   "{{alias}} <repo>@<branch-or-commit>",
+		Short: "Start a new commit.",
+		Long:  "Start a new commit with parent-commit as the parent, or start a commit on the given branch; if the branch does not exist, it will be created.",
+		Example: `# Start a new commit in repo "test" that's not on any branch
+$ {{alias}} test
+
+# Start a commit in repo "test" on branch "master"
+$ {{alias}} test@master
+
+# Start a commit with "master" as the parent in repo "test", on a new branch "patch"; essentially a fork.
+$ {{alias}} test@patch -p master
+
+# Start a commit with XXX as the parent in repo "test", not on any branch
+$ {{alias}} test -p XXX`,
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			branch, err := cmdutil.ParseBranch(args[0])
+			if err != nil {
+				return err
+			}
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+
+			var commit *pfsclient.Commit
+			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
+				var err error
+				commit, err = c.PfsAPIClient.StartCommit(
+					c.Ctx(),
+					&pfsclient.StartCommitRequest{
+						Branch:      branch.Name,
+						Parent:      client.NewCommit(branch.Repo.Name, parent),
+						Description: description,
+					},
+				)
+				return err
+			})
+			if err == nil {
+				fmt.Println(commit.ID)
+			}
+			return grpcutil.ScrubGRPC(err)
+		}),
+	}
+	startCommit.Flags().StringVarP(&parent, "parent", "p", "", "The parent of the new commit, unneeded if branch is specified and you want to use the previous head of the branch as the parent.")
+	startCommit.MarkFlagCustom("parent", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
+	startCommit.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents")
+	startCommit.Flags().StringVar(&description, "description", "", "A description of this commit's contents (synonym for --message)")
+	commands = append(commands, cmdutil.CreateAlias(startCommit, "start commit"))
+
+	finishCommit := &cobra.Command{
+		Use:   "{{alias}} <repo>@<branch-or-commit>",
+		Short: "Finish a started commit.",
+		Long:  "Finish a started commit. Commit-id must be a writeable commit.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			commit, err := cmdutil.ParseCommit(args[0])
+			if err != nil {
+				return err
+			}
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+
+			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
+				_, err = c.PfsAPIClient.FinishCommit(
+					c.Ctx(),
+					&pfsclient.FinishCommitRequest{
+						Commit:      commit,
+						Description: description,
+					},
+				)
+				return err
+			})
+			return grpcutil.ScrubGRPC(err)
+		}),
+	}
+	finishCommit.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents (overwrites any existing commit description)")
+	finishCommit.Flags().StringVar(&description, "description", "", "A description of this commit's contents (synonym for --message)")
+	commands = append(commands, cmdutil.CreateAlias(finishCommit, "finish commit"))
+
+	inspectCommit := &cobra.Command{
+		Use:   "{{alias}} <repo>@<branch-or-commit>",
+		Short: "Return info about a commit.",
+		Long:  "Return info about a commit.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			commit, err := cmdutil.ParseCommit(args[0])
+			if err != nil {
+				return err
+			}
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+
+			commitInfo, err := c.InspectCommit(commit.Repo.Name, commit.ID)
+			if err != nil {
+				return err
+			}
+			if commitInfo == nil {
+				return fmt.Errorf("commit %s not found", commit.ID)
 			}
 			if raw {
-				return c.ListCommitF(args[0], to, from, uint64(number), func(ci *pfsclient.CommitInfo) error {
+				return marshaller.Marshal(os.Stdout, commitInfo)
+			}
+			ci := &pretty.PrintableCommitInfo{
+				CommitInfo:     commitInfo,
+				FullTimestamps: fullTimestamps,
+			}
+			return pretty.PrintDetailedCommitInfo(ci)
+		}),
+	}
+	inspectCommit.Flags().AddFlagSet(rawFlags)
+	inspectCommit.Flags().AddFlagSet(fullTimestampsFlags)
+	commands = append(commands, cmdutil.CreateAlias(inspectCommit, "inspect commit"))
+
+	var from string
+	var number int
+	listCommit := &cobra.Command{
+		Use:   "{{alias}} <repo>[@<branch>]",
+		Short: "Return all commits on a repo.",
+		Long:  "Return all commits on a repo.",
+		Example: `
+# return commits in repo "foo"
+$ {{alias}} foo
+
+# return commits in repo "foo" on branch "master"
+$ {{alias}} foo@master
+
+# return the last 20 commits in repo "foo" on branch "master"
+$ {{alias}} foo@master -n 20
+
+# return commits in repo "foo" since commit XXX
+$ {{alias}} foo@master --from XXX`,
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+
+			branch, err := cmdutil.ParseBranch(args[0])
+			if err != nil {
+				return err
+			}
+
+			if raw {
+				return c.ListCommitF(branch.Repo.Name, branch.Name, from, uint64(number), false, func(ci *pfsclient.CommitInfo) error {
 					return marshaller.Marshal(os.Stdout, ci)
 				})
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
-			if err := c.ListCommitF(args[0], to, from, uint64(number), func(ci *pfsclient.CommitInfo) error {
-				pretty.PrintCommitInfo(writer, ci)
+			if err := c.ListCommitF(branch.Repo.Name, branch.Name, from, uint64(number), false, func(ci *pfsclient.CommitInfo) error {
+				pretty.PrintCommitInfo(writer, ci, fullTimestamps)
 				return nil
 			}); err != nil {
 				return err
@@ -372,7 +410,10 @@ $ pachctl list-commit foo master --from XXX
 	}
 	listCommit.Flags().StringVarP(&from, "from", "f", "", "list all commits since this commit")
 	listCommit.Flags().IntVarP(&number, "number", "n", 0, "list only this many commits; if set to zero, list all commits")
-	rawFlag(listCommit)
+	listCommit.MarkFlagCustom("from", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
+	listCommit.Flags().AddFlagSet(rawFlags)
+	listCommit.Flags().AddFlagSet(fullTimestampsFlags)
+	commands = append(commands, cmdutil.CreateAlias(listCommit, "list commit"))
 
 	printCommitIter := func(commitIter client.CommitInfoIterator) error {
 		if raw {
@@ -398,32 +439,29 @@ $ pachctl list-commit foo master --from XXX
 			if err != nil {
 				return err
 			}
-			pretty.PrintCommitInfo(writer, commitInfo)
+			pretty.PrintCommitInfo(writer, commitInfo, fullTimestamps)
 		}
 		return writer.Flush()
 	}
 
 	var repos cmdutil.RepeatedStringArg
 	flushCommit := &cobra.Command{
-		Use:   "flush-commit commit [commit ...]",
+		Use:   "{{alias}} <repo>@<branch-or-commit> ...",
 		Short: "Wait for all commits caused by the specified commits to finish and return them.",
-		Long: `Wait for all commits caused by the specified commits to finish and return them.
+		Long:  "Wait for all commits caused by the specified commits to finish and return them.",
+		Example: `
+# return commits caused by foo@XXX and bar@YYY
+$ {{alias}} foo@XXX bar@YYY
 
-Examples:
-
-` + codestart + `# return commits caused by foo/XXX and bar/YYY
-$ pachctl flush-commit foo/XXX bar/YYY
-
-# return commits caused by foo/XXX leading to repos bar and baz
-$ pachctl flush-commit foo/XXX -r bar -r baz
-` + codeend,
+# return commits caused by foo@XXX leading to repos bar and baz
+$ {{alias}} foo@XXX -r bar -r baz`,
 		Run: cmdutil.Run(func(args []string) error {
 			commits, err := cmdutil.ParseCommits(args)
 			if err != nil {
 				return err
 			}
 
-			c, err := client.NewOnUserMachine(metrics, true, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -443,46 +481,55 @@ $ pachctl flush-commit foo/XXX -r bar -r baz
 		}),
 	}
 	flushCommit.Flags().VarP(&repos, "repos", "r", "Wait only for commits leading to a specific set of repos")
-	rawFlag(flushCommit)
+	flushCommit.MarkFlagCustom("repos", "__pachctl_get_repo")
+	flushCommit.Flags().AddFlagSet(rawFlags)
+	flushCommit.Flags().AddFlagSet(fullTimestampsFlags)
+	commands = append(commands, cmdutil.CreateAlias(flushCommit, "flush commit"))
 
-	var new bool
+	var newCommits bool
+	var pipeline string
 	subscribeCommit := &cobra.Command{
-		Use:   "subscribe-commit repo branch",
+		Use:   "{{alias}} <repo>@<branch>",
 		Short: "Print commits as they are created (finished).",
-		Long: `Print commits as they are created in the specified repo and
-branch.  By default, all existing commits on the specified branch are
-returned first.  A commit is only considered "created" when it's been
-finished.
-
-Examples:
-
-` + codestart + `# subscribe to commits in repo "test" on branch "master"
-$ pachctl subscribe-commit test master
+		Long:  "Print commits as they are created in the specified repo and branch.  By default, all existing commits on the specified branch are returned first.  A commit is only considered 'created' when it's been finished.",
+		Example: `
+# subscribe to commits in repo "test" on branch "master"
+$ {{alias}} test@master
 
 # subscribe to commits in repo "test" on branch "master", but only since commit XXX.
-$ pachctl subscribe-commit test master --from XXX
+$ {{alias}} test@master --from XXX
 
-# subscribe to commits in repo "test" on branch "master", but only for new
-# commits created from now on.
-$ pachctl subscribe-commit test master --new
-` + codeend,
-		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			repo, branch := args[0], args[1]
-			c, err := client.NewOnUserMachine(metrics, true, "user")
+# subscribe to commits in repo "test" on branch "master", but only for new commits created from now on.
+$ {{alias}} test@master --new`,
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			branch, err := cmdutil.ParseBranch(args[0])
+			if err != nil {
+				return err
+			}
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
 			defer c.Close()
 
-			if new && from != "" {
-				return fmt.Errorf("--new and --from cannot both be provided")
+			if newCommits && from != "" {
+				return fmt.Errorf("--new and --from cannot be used together")
 			}
 
-			if new {
-				from = branch
+			if newCommits {
+				from = branch.Name
 			}
 
-			commitIter, err := c.SubscribeCommit(repo, branch, from, pfsclient.CommitState_STARTED)
+			var prov *pfsclient.CommitProvenance
+			if pipeline != "" {
+				pipelineInfo, err := c.InspectPipeline(pipeline)
+				if err != nil {
+					return err
+				}
+				prov = client.NewCommitProvenance(ppsconsts.SpecRepo, pipeline, pipelineInfo.SpecCommit.ID)
+			}
+
+			commitIter, err := c.SubscribeCommit(branch.Repo.Name, branch.Name, prov, from, pfsclient.CommitState_STARTED)
 			if err != nil {
 				return err
 			}
@@ -491,56 +538,123 @@ $ pachctl subscribe-commit test master --new
 		}),
 	}
 	subscribeCommit.Flags().StringVar(&from, "from", "", "subscribe to all commits since this commit")
-	subscribeCommit.Flags().BoolVar(&new, "new", false, "subscribe to only new commits created from now on")
-	rawFlag(subscribeCommit)
+	subscribeCommit.Flags().StringVar(&pipeline, "pipeline", "", "subscribe to all commits created by this pipeline")
+	subscribeCommit.MarkFlagCustom("from", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
+	subscribeCommit.Flags().BoolVar(&newCommits, "new", false, "subscribe to only new commits created from now on")
+	subscribeCommit.Flags().AddFlagSet(rawFlags)
+	subscribeCommit.Flags().AddFlagSet(fullTimestampsFlags)
+	commands = append(commands, cmdutil.CreateAlias(subscribeCommit, "subscribe commit"))
 
 	deleteCommit := &cobra.Command{
-		Use:   "delete-commit repo-name commit-id",
+		Use:   "{{alias}} <repo>@<branch-or-commit>",
 		Short: "Delete an input commit.",
 		Long:  "Delete an input commit. An input is a commit which is not the output of a pipeline.",
-		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, true, "user")
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			commit, err := cmdutil.ParseCommit(args[0])
 			if err != nil {
 				return err
 			}
-			defer client.Close()
-			return client.DeleteCommit(args[0], args[1])
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+
+			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
+				return c.DeleteCommit(commit.Repo.Name, commit.ID)
+			})
 		}),
 	}
+	commands = append(commands, cmdutil.CreateAlias(deleteCommit, "delete commit"))
+
+	branchDocs := &cobra.Command{
+		Short: "Docs for branches.",
+		Long: `A branch in Pachyderm is an alias for a Commit ID.
+
+The branch reference will "float" to always refer to the latest commit on the
+branch, known as the HEAD commit. Not all commits must be on a branch and
+multiple branches can refer to the same commit.
+
+Any pachctl command that can take a Commit ID, can take a branch name instead.`,
+	}
+	commands = append(commands, cmdutil.CreateDocsAlias(branchDocs, "branch", " branch$"))
 
 	var branchProvenance cmdutil.RepeatedStringArg
 	var head string
 	createBranch := &cobra.Command{
-		Use:   "create-branch <repo-name> <branch-name> [flags]",
+		Use:   "{{alias}} <repo>@<branch-or-commit>",
 		Short: "Create a new branch, or update an existing branch, on a repo.",
 		Long:  "Create a new branch, or update an existing branch, on a repo, starting a commit on the branch will also create it, so there's often no need to call this.",
-		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, true, "user")
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			branch, err := cmdutil.ParseBranch(args[0])
 			if err != nil {
 				return err
 			}
-			defer client.Close()
 			provenance, err := cmdutil.ParseBranches(branchProvenance)
 			if err != nil {
 				return err
 			}
-			return client.CreateBranch(args[0], args[1], head, provenance)
-		}),
-	}
-	createBranch.Flags().VarP(&branchProvenance, "provenance", "p", "The provenance for the branch.")
-	createBranch.Flags().StringVarP(&head, "head", "", "", "The head of the newly created branch.")
-
-	listBranch := &cobra.Command{
-		Use:   "list-branch repo-name",
-		Short: "Return all branches on a repo.",
-		Long:  "Return all branches on a repo.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, true, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
-			defer client.Close()
-			branches, err := client.ListBranch(args[0])
+			defer c.Close()
+
+			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
+				return c.CreateBranch(branch.Repo.Name, branch.Name, head, provenance)
+			})
+		}),
+	}
+	createBranch.Flags().VarP(&branchProvenance, "provenance", "p", "The provenance for the branch. format: <repo>@<branch-or-commit>")
+	createBranch.MarkFlagCustom("provenance", "__pachctl_get_repo_commit")
+	createBranch.Flags().StringVarP(&head, "head", "", "", "The head of the newly created branch.")
+	createBranch.MarkFlagCustom("head", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
+	commands = append(commands, cmdutil.CreateAlias(createBranch, "create branch"))
+
+	inspectBranch := &cobra.Command{
+		Use:   "{{alias}}  <repo>@<branch>",
+		Short: "Return info about a branch.",
+		Long:  "Return info about a branch.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			branch, err := cmdutil.ParseBranch(args[0])
+			if err != nil {
+				return err
+			}
+
+			branchInfo, err := c.InspectBranch(branch.Repo.Name, branch.Name)
+			if err != nil {
+				return err
+			}
+			if branchInfo == nil {
+				return fmt.Errorf("branch %s not found", args[0])
+			}
+			if raw {
+				return marshaller.Marshal(os.Stdout, branchInfo)
+			}
+
+			return pretty.PrintDetailedBranchInfo(branchInfo)
+		}),
+	}
+	inspectBranch.Flags().AddFlagSet(rawFlags)
+	inspectBranch.Flags().AddFlagSet(fullTimestampsFlags)
+	commands = append(commands, cmdutil.CreateAlias(inspectBranch, "inspect branch"))
+
+	listBranch := &cobra.Command{
+		Use:   "{{alias}} <repo>",
+		Short: "Return all branches on a repo.",
+		Long:  "Return all branches on a repo.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			branches, err := c.ListBranch(args[0])
 			if err != nil {
 				return err
 			}
@@ -559,59 +673,41 @@ $ pachctl subscribe-commit test master --new
 			return writer.Flush()
 		}),
 	}
-	rawFlag(listBranch)
-
-	setBranch := &cobra.Command{
-		Use:   "set-branch repo-name commit-id/branch-name new-branch-name",
-		Short: "DEPRECATED Set a commit and its ancestors to a branch",
-		Long: `DEPRECATED Set a commit and its ancestors to a branch.
-
-Examples:
-
-` + codestart + `# Set commit XXX and its ancestors as branch master in repo foo.
-$ pachctl set-branch foo XXX master
-
-# Set the head of branch test as branch master in repo foo.
-# After running this command, "test" and "master" both point to the
-# same commit.
-$ pachctl set-branch foo test master` + codeend,
-		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
-			fmt.Fprintf(os.Stderr, "set-branch is DEPRECATED, use create-branch instead.\n")
-			client, err := client.NewOnUserMachine(metrics, true, "user")
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-			return client.SetBranch(args[0], args[1], args[2])
-		}),
-	}
+	listBranch.Flags().AddFlagSet(rawFlags)
+	commands = append(commands, cmdutil.CreateAlias(listBranch, "list branch"))
 
 	deleteBranch := &cobra.Command{
-		Use:   "delete-branch repo-name branch-name",
+		Use:   "{{alias}} <repo>@<branch-or-commit>",
 		Short: "Delete a branch",
 		Long:  "Delete a branch, while leaving the commits intact",
-		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, true, "user")
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			branch, err := cmdutil.ParseBranch(args[0])
 			if err != nil {
 				return err
 			}
-			defer client.Close()
-			return client.DeleteBranch(args[0], args[1], force)
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+
+			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
+				return c.DeleteBranch(branch.Repo.Name, branch.Name, force)
+			})
 		}),
 	}
 	deleteBranch.Flags().BoolVarP(&force, "force", "f", false, "remove the branch regardless of errors; use with care")
+	commands = append(commands, cmdutil.CreateAlias(deleteBranch, "delete branch"))
 
-	file := &cobra.Command{
-		Use:   "file",
+	fileDocs := &cobra.Command{
 		Short: "Docs for files.",
-		Long: `Files are the lowest level data object in Pachyderm.
+		Long: `Files are the lowest level data objects in Pachyderm.
 
-	Files can be written to started (but not finished) commits with put-file.
-	Files can be read from finished commits with get-file.`,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			return nil
-		}),
+Files can be of any type (e.g. csv, binary, images, etc) or size and can be
+written to started (but not finished) commits with 'put file'. Files can be read
+from commits with 'get file'.`,
 	}
+	commands = append(commands, cmdutil.CreateDocsAlias(fileDocs, "file", " file$"))
 
 	var filePaths []string
 	var recursive bool
@@ -624,54 +720,60 @@ $ pachctl set-branch foo test master` + codeend,
 	var putFileCommit bool
 	var overwrite bool
 	putFile := &cobra.Command{
-		Use:   "put-file repo-name branch [path/to/file/in/pfs]",
+		Use:   "{{alias}} <repo>@<branch-or-commit>[:<path/in/pfs>]",
 		Short: "Put a file into the filesystem.",
-		Long: `Put-file supports a number of ways to insert data into pfs:
-` + codestart + `# Put data from stdin as repo/branch/path:
-$ echo "data" | pachctl put-file repo branch path
+		Long:  "Put a file into the filesystem.  This supports a number of ways to insert data into pfs.",
+		Example: `
+# Put data from stdin as repo/branch/path:
+$ echo "data" | {{alias}} repo@branch:/path
 
 # Put data from stdin as repo/branch/path and start / finish a new commit on the branch.
-$ echo "data" | pachctl put-file -c repo branch path
+$ echo "data" | {{alias}} -c repo@branch:/path
 
 # Put a file from the local filesystem as repo/branch/path:
-$ pachctl put-file repo branch path -f file
+$ {{alias}} repo@branch:/path -f file
 
 # Put a file from the local filesystem as repo/branch/file:
-$ pachctl put-file repo branch -f file
+$ {{alias}} repo@branch -f file
 
 # Put the contents of a directory as repo/branch/path/dir/file:
-$ pachctl put-file -r repo branch path -f dir
+$ {{alias}} -r repo@branch:/path -f dir
 
 # Put the contents of a directory as repo/branch/dir/file:
-$ pachctl put-file -r repo branch -f dir
+$ {{alias}} -r repo@branch -f dir
 
 # Put the contents of a directory as repo/branch/file, i.e. put files at the top level:
-$ pachctl put-file -r repo branch / -f dir
+$ {{alias}} -r repo@branch:/ -f dir
 
 # Put the data from a URL as repo/branch/path:
-$ pachctl put-file repo branch path -f http://host/path
+$ {{alias}} repo@branch:/path -f http://host/path
 
 # Put the data from a URL as repo/branch/path:
-$ pachctl put-file repo branch -f http://host/path
+$ {{alias}} repo@branch -f http://host/path
 
 # Put the data from an S3 bucket as repo/branch/s3_object:
-$ pachctl put-file repo branch -r -f s3://my_bucket
+$ {{alias}} repo@branch -r -f s3://my_bucket
 
 # Put several files or URLs that are listed in file.
 # Files and URLs should be newline delimited.
-$ pachctl put-file repo branch -i file
+$ {{alias}} repo@branch -i file
 
 # Put several files or URLs that are listed at URL.
 # NOTE this URL can reference local files, so it could cause you to put sensitive
 # files into your Pachyderm cluster.
-$ pachctl put-file repo branch -i http://host/path
-` + codeend,
-		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
-			c, err := client.NewOnUserMachine(metrics, true, "user", client.WithMaxConcurrentStreams(parallelism))
+$ {{alias}} repo@branch -i http://host/path`,
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+			file, err := cmdutil.ParseFile(args[0])
+			if err != nil {
+				return err
+			}
+			c, err := client.NewOnUserMachine("user", client.WithMaxConcurrentStreams(parallelism))
 			if err != nil {
 				return err
 			}
 			defer c.Close()
+
+			// load data into pachyderm
 			pfc, err := c.NewPutFileClient()
 			if err != nil {
 				return err
@@ -681,15 +783,6 @@ $ pachctl put-file repo branch -i http://host/path
 					retErr = err
 				}
 			}()
-			repoName := args[0]
-			branch := args[1]
-			var path string
-			if len(args) == 3 {
-				path = args[2]
-				if url, err := url.Parse(path); err == nil && url.Scheme != "" {
-					fmt.Fprintf(os.Stderr, "warning: PFS destination \"%s\" looks like a URL; did you mean -f %s?\n", path, path)
-				}
-			}
 			if putFileCommit {
 				fmt.Fprintf(os.Stderr, "flag --commit / -c is deprecated; as of 1.7.2, you will get the same behavior without it\n")
 			}
@@ -741,25 +834,25 @@ $ pachctl put-file repo branch -i http://host/path
 			filesPut := &gosync.Map{}
 			for _, source := range sources {
 				source := source
-				if len(args) == 2 {
+				if file.Path == "" {
 					// The user has not specified a path so we use source as path.
 					if source == "-" {
 						return fmt.Errorf("must specify filename when reading data from stdin")
 					}
 					eg.Go(func() error {
-						return putFileHelper(c, pfc, repoName, branch, joinPaths("", source), source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, headerRecords, filesPut)
+						return putFileHelper(c, pfc, file.Commit.Repo.Name, file.Commit.ID, joinPaths("", source), source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, headerRecords, filesPut)
 					})
-				} else if len(sources) == 1 && len(args) == 3 {
+				} else if len(sources) == 1 {
 					// We have a single source and the user has specified a path,
 					// we use the path and ignore source (in terms of naming the file).
 					eg.Go(func() error {
-						return putFileHelper(c, pfc, repoName, branch, path, source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, headerRecords, filesPut)
+						return putFileHelper(c, pfc, file.Commit.Repo.Name, file.Commit.ID, file.Path, source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, headerRecords, filesPut)
 					})
-				} else if len(sources) > 1 && len(args) == 3 {
+				} else {
 					// We have multiple sources and the user has specified a path,
 					// we use that path as a prefix for the filepaths.
 					eg.Go(func() error {
-						return putFileHelper(c, pfc, repoName, branch, joinPaths(path, source), source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, headerRecords, filesPut)
+						return putFileHelper(c, pfc, file.Commit.Repo.Name, file.Commit.ID, joinPaths(file.Path, source), source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, headerRecords, filesPut)
 					})
 				}
 			}
@@ -770,56 +863,75 @@ $ pachctl put-file repo branch -i http://host/path
 	putFile.Flags().StringVarP(&inputFile, "input-file", "i", "", "Read filepaths or URLs from a file.  If - is used, paths are read from the standard input.")
 	putFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively put the files in a directory.")
 	putFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be uploaded in parallel.")
-	putFile.Flags().StringVar(&split, "split", "", "Split the input file into smaller files, subject to the constraints of --target-file-datums and --target-file-bytes. Permissible values are `json` and `line`.")
+	putFile.Flags().StringVar(&split, "split", "", "Split the input file into smaller files, subject to the constraints of --target-file-datums and --target-file-bytes. Permissible values are `line`, `json`, `sql` and `csv`.")
 	putFile.Flags().UintVar(&targetFileDatums, "target-file-datums", 0, "The upper bound of the number of datums that each file contains, the last file will contain fewer if the datums don't divide evenly; needs to be used with --split.")
 	putFile.Flags().UintVar(&targetFileBytes, "target-file-bytes", 0, "The target upper bound of the number of bytes that each file contains; needs to be used with --split.")
 	putFile.Flags().UintVar(&headerRecords, "header-records", 0, "the number of records that will be converted to a PFS 'header', and prepended to future retrievals of any subset of data from PFS; needs to be used with --split=(json|line|csv)")
 	putFile.Flags().BoolVarP(&putFileCommit, "commit", "c", false, "DEPRECATED: Put file(s) in a new commit.")
-	putFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to put-file within this commit.")
+	putFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
+	commands = append(commands, cmdutil.CreateAlias(putFile, "put file"))
 
 	copyFile := &cobra.Command{
-		Use:   "copy-file src-repo src-commit src-path dst-repo dst-commit dst-path",
+		Use:   "{{alias}} <src-repo>@<src-branch-or-commit>:<src-path> <dst-repo>@<dst-branch-or-commit>:<dst-path>",
 		Short: "Copy files between pfs paths.",
 		Long:  "Copy files between pfs paths.",
-		Run: cmdutil.RunFixedArgs(6, func(args []string) (retErr error) {
-			c, err := client.NewOnUserMachine(metrics, true, "user", client.WithMaxConcurrentStreams(parallelism))
+		Run: cmdutil.RunFixedArgs(2, func(args []string) (retErr error) {
+			srcFile, err := cmdutil.ParseFile(args[0])
+			if err != nil {
+				return err
+			}
+			destFile, err := cmdutil.ParseFile(args[1])
+			if err != nil {
+				return err
+			}
+			c, err := client.NewOnUserMachine("user", client.WithMaxConcurrentStreams(parallelism))
 			if err != nil {
 				return err
 			}
 			defer c.Close()
-			return c.CopyFile(args[0], args[1], args[2], args[3], args[4], args[5], overwrite)
+
+			return c.CopyFile(
+				srcFile.Commit.Repo.Name, srcFile.Commit.ID, srcFile.Path,
+				destFile.Commit.Repo.Name, destFile.Commit.ID, destFile.Path,
+				overwrite,
+			)
 		}),
 	}
-	copyFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to put-file within this commit.")
+	copyFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
+	commands = append(commands, cmdutil.CreateAlias(copyFile, "copy file"))
 
 	var outputPath string
 	getFile := &cobra.Command{
-		Use:   "get-file repo-name commit-id path/to/file",
+		Use:   "{{alias}} <repo>@<branch-or-commit>:<path/in/pfs>",
 		Short: "Return the contents of a file.",
-		Long: `Return the contents of a file.
-` + codestart + `# get file "XXX" on branch "master" in repo "foo"
-$ pachctl get-file foo master XXX
+		Long:  "Return the contents of a file.",
+		Example: `
+# get file "XXX" on branch "master" in repo "foo"
+$ {{alias}} foo@master:XXX
 
 # get file "XXX" in the parent of the current head of branch "master"
 # in repo "foo"
-$ pachctl get-file foo master^ XXX
+$ {{alias}} foo@master^:XXX
 
 # get file "XXX" in the grandparent of the current head of branch "master"
 # in repo "foo"
-$ pachctl get-file foo master^2 XXX
-` + codeend,
-		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, true, "user")
+$ {{alias}} foo@master^2:XXX`,
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			file, err := cmdutil.ParseFile(args[0])
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
 			if recursive {
 				if outputPath == "" {
 					return fmt.Errorf("an output path needs to be specified when using the --recursive flag")
 				}
 				puller := sync.NewPuller()
-				return puller.Pull(client, outputPath, args[0], args[1], args[2], false, false, parallelism, nil, "")
+				return puller.Pull(c, outputPath, file.Commit.Repo.Name, file.Commit.ID, file.Path, false, false, parallelism, nil, "")
 			}
 			var w io.Writer
 			// If an output path is given, print the output to stdout
@@ -833,29 +945,34 @@ $ pachctl get-file foo master^2 XXX
 				defer f.Close()
 				w = f
 			}
-			return client.GetFile(args[0], args[1], args[2], 0, 0, w)
+			return c.GetFile(file.Commit.Repo.Name, file.Commit.ID, file.Path, 0, 0, w)
 		}),
 	}
 	getFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively download a directory.")
 	getFile.Flags().StringVarP(&outputPath, "output", "o", "", "The path where data will be downloaded.")
 	getFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be downloaded in parallel")
+	commands = append(commands, cmdutil.CreateAlias(getFile, "get file"))
 
 	inspectFile := &cobra.Command{
-		Use:   "inspect-file repo-name commit-id path/to/file",
+		Use:   "{{alias}} <repo>@<branch-or-commit>:<path/in/pfs>",
 		Short: "Return info about a file.",
 		Long:  "Return info about a file.",
-		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, true, "user")
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			file, err := cmdutil.ParseFile(args[0])
 			if err != nil {
 				return err
 			}
-			defer client.Close()
-			fileInfo, err := client.InspectFile(args[0], args[1], args[2])
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			fileInfo, err := c.InspectFile(file.Commit.Repo.Name, file.Commit.ID, file.Path)
 			if err != nil {
 				return err
 			}
 			if fileInfo == nil {
-				return fmt.Errorf("file %s not found", args[2])
+				return fmt.Errorf("file %s not found", file.Path)
 			}
 			if raw {
 				return marshaller.Marshal(os.Stdout, fileInfo)
@@ -863,88 +980,95 @@ $ pachctl get-file foo master^2 XXX
 			return pretty.PrintDetailedFileInfo(fileInfo)
 		}),
 	}
-	rawFlag(inspectFile)
+	inspectFile.Flags().AddFlagSet(rawFlags)
+	commands = append(commands, cmdutil.CreateAlias(inspectFile, "inspect file"))
 
-	var history int64
+	var history string
 	listFile := &cobra.Command{
-		Use:   "list-file repo-name commit-id path/to/dir",
+		Use:   "{{alias}} <repo>@<branch-or-commit>[:<path/in/pfs>]",
 		Short: "Return the files in a directory.",
-		Long: `Return the files in a directory.
-
-Examples:
-
-` + codestart + `# list top-level files on branch "master" in repo "foo"
-$ pachctl list-file foo master
+		Long:  "Return the files in a directory.",
+		Example: `
+# list top-level files on branch "master" in repo "foo"
+$ {{alias}} foo@master
 
 # list files under directory "dir" on branch "master" in repo "foo"
-$ pachctl list-file foo master dir
+$ {{alias}} foo@master:dir
 
 # list top-level files in the parent commit of the current head of "master"
 # in repo "foo"
-$ pachctl list-file foo master^
+$ {{alias}} foo@master^
 
 # list top-level files in the grandparent of the current head of "master"
 # in repo "foo"
-$ pachctl list-file foo master^2
+$ {{alias}} foo@master^2
 
 # list the last n versions of top-level files on branch "master" in repo "foo"
-$ pachctl list-file foo master --history n
+$ {{alias}} foo@master --history n
 
 # list all versions of top-level files on branch "master" in repo "foo"
-$ pachctl list-file foo master --history -1
-` + codeend,
-		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, true, "user")
+$ {{alias}} foo@master --history all`,
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			file, err := cmdutil.ParseFile(args[0])
 			if err != nil {
 				return err
 			}
-			defer client.Close()
-			var path string
-			if len(args) == 3 {
-				path = args[2]
+			history, err := cmdutil.ParseHistory(history)
+			if err != nil {
+				return fmt.Errorf("error parsing history flag: %v", err)
 			}
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
 			if raw {
-				return client.ListFileF(args[0], args[1], path, history, func(fi *pfsclient.FileInfo) error {
+				return c.ListFileF(file.Commit.Repo.Name, file.Commit.ID, file.Path, history, func(fi *pfsclient.FileInfo) error {
 					return marshaller.Marshal(os.Stdout, fi)
 				})
 			}
-			writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
-			if err := client.ListFileF(args[0], args[1], path, history, func(fi *pfsclient.FileInfo) error {
-				pretty.PrintFileInfo(writer, fi)
+			header := pretty.FileHeader
+			if history != 0 {
+				header = pretty.FileHeaderWithCommit
+			}
+			writer := tabwriter.NewWriter(os.Stdout, header)
+			if err := c.ListFileF(file.Commit.Repo.Name, file.Commit.ID, file.Path, history, func(fi *pfsclient.FileInfo) error {
+				pretty.PrintFileInfo(writer, fi, fullTimestamps, history != 0)
 				return nil
 			}); err != nil {
-				return nil
+				return err
 			}
 			return writer.Flush()
 		}),
 	}
-	rawFlag(listFile)
-	listFile.Flags().Int64Var(&history, "history", 0, "Return revision history for files.")
+	listFile.Flags().AddFlagSet(rawFlags)
+	listFile.Flags().AddFlagSet(fullTimestampsFlags)
+	listFile.Flags().StringVar(&history, "history", "none", "Return revision history for files.")
+	commands = append(commands, cmdutil.CreateAlias(listFile, "list file"))
 
 	globFile := &cobra.Command{
-		Use:   "glob-file repo-name commit-id pattern",
+		Use:   "{{alias}} <repo>@<branch-or-commit>:<pattern>",
 		Short: "Return files that match a glob pattern in a commit.",
-		Long: `Return files that match a glob pattern in a commit (that is, match a glob pattern
-in a repo at the state represented by a commit). Glob patterns are
-documented [here](https://golang.org/pkg/path/filepath/#Match).
-
-Examples:
-
-` + codestart + `# Return files in repo "foo" on branch "master" that start
-# with the character "A".  Note how the double quotation marks around "A*" are
-# necessary because otherwise your shell might interpret the "*".
-$ pachctl glob-file foo master "A*"
+		Long:  "Return files that match a glob pattern in a commit (that is, match a glob pattern in a repo at the state represented by a commit). Glob patterns are documented [here](https://golang.org/pkg/path/filepath/#Match).",
+		Example: `
+# Return files in repo "foo" on branch "master" that start
+# with the character "A".  Note how the double quotation marks around the
+# parameter are necessary because otherwise your shell might interpret the "*".
+$ {{alias}} "foo@master:A*"
 
 # Return files in repo "foo" on branch "master" under directory "data".
-$ pachctl glob-file foo master "data/*"
-` + codeend,
-		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, true, "user")
+$ {{alias}} "foo@master:data/*"`,
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			file, err := cmdutil.ParseFile(args[0])
 			if err != nil {
 				return err
 			}
-			defer client.Close()
-			fileInfos, err := client.GlobFile(args[0], args[1], args[2])
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			fileInfos, err := c.GlobFile(file.Commit.Repo.Name, file.Commit.ID, file.Path)
 			if err != nil {
 				return err
 			}
@@ -954,242 +1078,225 @@ $ pachctl glob-file foo master "data/*"
 						return err
 					}
 				}
+				return nil
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
 			for _, fileInfo := range fileInfos {
-				pretty.PrintFileInfo(writer, fileInfo)
+				pretty.PrintFileInfo(writer, fileInfo, fullTimestamps, false)
 			}
 			return writer.Flush()
 		}),
 	}
-	rawFlag(globFile)
+	globFile.Flags().AddFlagSet(rawFlags)
+	globFile.Flags().AddFlagSet(fullTimestampsFlags)
+	commands = append(commands, cmdutil.CreateAlias(globFile, "glob file"))
 
 	var shallow bool
+	var nameOnly bool
+	var diffCmdArg string
 	diffFile := &cobra.Command{
-		Use:   "diff-file new-repo-name new-commit-id new-path [old-repo-name old-commit-id old-path]",
+		Use:   "{{alias}} <new-repo>@<new-branch-or-commit>:<new-path> [<old-repo>@<old-branch-or-commit>:<old-path>]",
 		Short: "Return a diff of two file trees.",
-		Long: `Return a diff of two file trees.
+		Long:  "Return a diff of two file trees.",
+		Example: `
+# Return the diff of the file "path" of the repo "foo" between the head of the
+# "master" branch and its parent.
+$ {{alias}} foo@master:path
 
-Examples:
-
-` + codestart + `# Return the diff between foo master path and its parent.
-$ pachctl diff-file foo master path
-
-# Return the diff between foo master path1 and bar master path2.
-$ pachctl diff-file foo master path1 bar master path2
-` + codeend,
-		Run: cmdutil.RunBoundedArgs(3, 6, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, true, "user")
+# Return the diff between the master branches of repos foo and bar at paths
+# path1 and path2, respectively.
+$ {{alias}} foo@master:path1 bar@master:path2`,
+		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
+			newFile, err := cmdutil.ParseFile(args[0])
 			if err != nil {
 				return err
 			}
-			defer client.Close()
-			var newFiles []*pfsclient.FileInfo
-			var oldFiles []*pfsclient.FileInfo
-			switch {
-			case len(args) == 3:
-				newFiles, oldFiles, err = client.DiffFile(args[0], args[1], args[2], "", "", "", shallow)
-			case len(args) == 6:
-				newFiles, oldFiles, err = client.DiffFile(args[0], args[1], args[2], args[3], args[4], args[5], shallow)
-			default:
-				return fmt.Errorf("diff-file expects either 3 or 6 args, got %d", len(args))
-			}
-			if err != nil {
-				return err
-			}
-			if len(newFiles) > 0 {
-				fmt.Println("New Files:")
-				writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
-				for _, fileInfo := range newFiles {
-					pretty.PrintFileInfo(writer, fileInfo)
-				}
-				if err := writer.Flush(); err != nil {
-					return err
-				}
-			}
-			if len(oldFiles) > 0 {
-				fmt.Println("Old Files:")
-				writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
-				for _, fileInfo := range oldFiles {
-					pretty.PrintFileInfo(writer, fileInfo)
-				}
-				if err := writer.Flush(); err != nil {
-					return err
-				}
-			}
-			return nil
-		}),
-	}
-	diffFile.Flags().BoolVarP(&shallow, "shallow", "s", false, "Specifies whether or not to diff subdirectories")
-
-	deleteFile := &cobra.Command{
-		Use:   "delete-file repo-name commit-id path/to/file",
-		Short: "Delete a file.",
-		Long:  "Delete a file.",
-		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, true, "user")
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-			return client.DeleteFile(args[0], args[1], args[2])
-		}),
-	}
-
-	getObject := &cobra.Command{
-		Use:   "get-object hash",
-		Short: "Return the contents of an object",
-		Long:  "Return the contents of an object",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, true, "user")
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-			return client.GetObject(args[0], os.Stdout)
-		}),
-	}
-
-	getTag := &cobra.Command{
-		Use:   "get-tag tag",
-		Short: "Return the contents of a tag",
-		Long:  "Return the contents of a tag",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, true, "user")
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-			return client.GetTag(args[0], os.Stdout)
-		}),
-	}
-
-	var debug bool
-	var commits cmdutil.RepeatedStringArg
-	mount := &cobra.Command{
-		Use:   "mount path/to/mount/point",
-		Short: "Mount pfs locally. This command blocks.",
-		Long:  "Mount pfs locally. This command blocks.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, true, "fuse")
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-			mountPoint := args[0]
-			commits, err := parseCommits(commits)
-			if err != nil {
-				return err
-			}
-			opts := &fuse.Options{
-				Fuse: &nodefs.Options{
-					Debug: debug,
-				},
-				Commits: commits,
-			}
-			return fuse.Mount(client, mountPoint, opts)
-		}),
-	}
-	mount.Flags().BoolVarP(&debug, "debug", "d", false, "Turn on debug messages.")
-	mount.Flags().VarP(&commits, "commits", "c", "Commits to mount for repos, arguments should be of the form \"repo:commit\"")
-
-	unmount := &cobra.Command{
-		Use:   "unmount path/to/mount/point",
-		Short: "Unmount pfs.",
-		Long:  "Unmount pfs.",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			if len(args) == 1 {
-				return syscall.Unmount(args[0], 0)
-			}
-
-			if all {
-				stdin := strings.NewReader(`
-	mount | grep pfs:// | cut -f 3 -d " "
-	`)
-				var stdout bytes.Buffer
-				if err := cmdutil.RunIO(cmdutil.IO{
-					Stdin:  stdin,
-					Stdout: &stdout,
-					Stderr: os.Stderr,
-				}, "sh"); err != nil {
-					return err
-				}
-				scanner := bufio.NewScanner(&stdout)
-				var mounts []string
-				for scanner.Scan() {
-					mounts = append(mounts, scanner.Text())
-				}
-				if len(mounts) == 0 {
-					fmt.Println("No mounts found.")
-					return nil
-				}
-				fmt.Printf("Unmount the following filesystems? yN\n")
-				for _, mount := range mounts {
-					fmt.Printf("%s\n", mount)
-				}
-				r := bufio.NewReader(os.Stdin)
-				bytes, err := r.ReadBytes('\n')
+			oldFile := client.NewFile("", "", "")
+			if len(args) == 2 {
+				oldFile, err = cmdutil.ParseFile(args[1])
 				if err != nil {
 					return err
 				}
-				if bytes[0] == 'y' || bytes[0] == 'Y' {
-					for _, mount := range mounts {
-						if err := syscall.Unmount(mount, 0); err != nil {
+			}
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+
+			return pager.Page(noPager, os.Stdout, func(w io.Writer) (retErr error) {
+				var writer *tabwriter.Writer
+				if nameOnly {
+					writer = tabwriter.NewWriter(w, pretty.DiffFileHeader)
+					defer func() {
+						if err := writer.Flush(); err != nil && retErr == nil {
+							retErr = err
+						}
+					}()
+				}
+
+				newFiles, oldFiles, err := c.DiffFile(
+					newFile.Commit.Repo.Name, newFile.Commit.ID, newFile.Path,
+					oldFile.Commit.Repo.Name, oldFile.Commit.ID, oldFile.Path,
+					shallow,
+				)
+				if err != nil {
+					return err
+				}
+				diffCmd := diffCommand(diffCmdArg)
+				return forEachDiffFile(newFiles, oldFiles, func(nFI, oFI *pfsclient.FileInfo) error {
+					if nameOnly {
+						if nFI != nil {
+							pretty.PrintDiffFileInfo(writer, true, nFI, fullTimestamps)
+						}
+						if oFI != nil {
+							pretty.PrintDiffFileInfo(writer, false, oFI, fullTimestamps)
+						}
+						return nil
+					}
+					nPath, oPath := "/dev/null", "/dev/null"
+					if nFI != nil {
+						nPath, err = dlFile(c, nFI.File)
+						if err != nil {
 							return err
 						}
+						defer func() {
+							if err := os.RemoveAll(nPath); err != nil && retErr == nil {
+								retErr = err
+							}
+						}()
 					}
+					if oFI != nil {
+						oPath, err = dlFile(c, oFI.File)
+						defer func() {
+							if err := os.RemoveAll(oPath); err != nil && retErr == nil {
+								retErr = err
+							}
+						}()
+					}
+					cmd := exec.Command(diffCmd[0], append(diffCmd[1:], oPath, nPath)...)
+					cmd.Stdout = w
+					cmd.Stderr = os.Stderr
+					// Diff returns exit code 1 when it finds differences
+					// between the files, so we catch it.
+					if err := cmd.Run(); err != nil && cmd.ProcessState.ExitCode() != 1 {
+						return err
+					}
+					return nil
+				})
+			})
+		}),
+	}
+	diffFile.Flags().BoolVarP(&shallow, "shallow", "s", false, "Don't descend into sub directories.")
+	diffFile.Flags().BoolVar(&nameOnly, "name-only", false, "Show only the names of changed files.")
+	diffFile.Flags().StringVar(&diffCmdArg, "diff-command", "", "Use a program other than git to diff files.")
+	diffFile.Flags().AddFlagSet(fullTimestampsFlags)
+	diffFile.Flags().AddFlagSet(noPagerFlags)
+	commands = append(commands, cmdutil.CreateAlias(diffFile, "diff file"))
+
+	deleteFile := &cobra.Command{
+		Use:   "{{alias}} <repo>@<branch-or-commit>:<path/in/pfs>",
+		Short: "Delete a file.",
+		Long:  "Delete a file.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			file, err := cmdutil.ParseFile(args[0])
+			if err != nil {
+				return err
+			}
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+
+			return c.DeleteFile(file.Commit.Repo.Name, file.Commit.ID, file.Path)
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(deleteFile, "delete file"))
+
+	objectDocs := &cobra.Command{
+		Short: "Docs for objects.",
+		Long: `Objects are content-addressed blobs of data that are directly stored in the backend object store.
+
+Objects are a low-level resource and should not be accessed directly by most users.`,
+	}
+	commands = append(commands, cmdutil.CreateDocsAlias(objectDocs, "object", " object$"))
+
+	getObject := &cobra.Command{
+		Use:   "{{alias}} <hash>",
+		Short: "Print the contents of an object.",
+		Long:  "Print the contents of an object.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			return c.GetObject(args[0], os.Stdout)
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(getObject, "get object"))
+
+	tagDocs := &cobra.Command{
+		Short: "Docs for tags.",
+		Long: `Tags are aliases for objects. Many tags can refer to the same object.
+
+Tags are a low-level resource and should not be accessed directly by most users.`,
+	}
+	commands = append(commands, cmdutil.CreateDocsAlias(tagDocs, "tag", " tag$"))
+
+	getTag := &cobra.Command{
+		Use:   "{{alias}} <tag>",
+		Short: "Print the contents of a tag.",
+		Long:  "Print the contents of a tag.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			return c.GetTag(args[0], os.Stdout)
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(getTag, "get tag"))
+
+	var fix bool
+	fsck := &cobra.Command{
+		Use:   "{{alias}}",
+		Short: "Run a file system consistency check on pfs.",
+		Long:  "Run a file system consistency check on the pachyderm file system, ensuring the correct provenance relationships are satisfied.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			errors := false
+			if err = c.Fsck(fix, func(resp *pfsclient.FsckResponse) error {
+				if resp.Error != "" {
+					errors = true
+					fmt.Printf("Error: %s\n", resp.Error)
+				} else {
+					fmt.Printf("Fix applied: %v", resp.Fix)
 				}
+				return nil
+			}); err != nil {
+				return err
+			}
+			if !errors {
+				fmt.Println("No errors found.")
 			}
 			return nil
 		}),
 	}
-	unmount.Flags().BoolVarP(&all, "all", "a", false, "unmount all pfs mounts")
+	fsck.Flags().BoolVarP(&fix, "fix", "f", false, "Attempt to fix as many issues as possible.")
+	commands = append(commands, cmdutil.CreateAlias(fsck, "fsck"))
 
-	var result []*cobra.Command
-	result = append(result, repo)
-	result = append(result, createRepo)
-	result = append(result, updateRepo)
-	result = append(result, inspectRepo)
-	result = append(result, listRepo)
-	result = append(result, deleteRepo)
-	result = append(result, commit)
-	result = append(result, startCommit)
-	result = append(result, finishCommit)
-	result = append(result, inspectCommit)
-	result = append(result, listCommit)
-	result = append(result, flushCommit)
-	result = append(result, subscribeCommit)
-	result = append(result, deleteCommit)
-	result = append(result, createBranch)
-	result = append(result, listBranch)
-	result = append(result, setBranch)
-	result = append(result, deleteBranch)
-	result = append(result, file)
-	result = append(result, putFile)
-	result = append(result, copyFile)
-	result = append(result, getFile)
-	result = append(result, inspectFile)
-	result = append(result, listFile)
-	result = append(result, globFile)
-	result = append(result, diffFile)
-	result = append(result, deleteFile)
-	result = append(result, getObject)
-	result = append(result, getTag)
-	result = append(result, mount)
-	result = append(result, unmount)
-	return result
-}
+	// Add the mount commands (which aren't available on Windows, so they're in
+	// their own file)
+	commands = append(commands, mountCmds()...)
 
-func parseCommits(args []string) (map[string]string, error) {
-	result := make(map[string]string)
-	for _, arg := range args {
-		split := strings.Split(arg, ":")
-		if len(split) != 2 {
-			return nil, fmt.Errorf("malformed input %s, must be of the form repo:commit", args)
-		}
-		result[split[0]] = split[1]
-	}
-	return result, nil
+	return commands
 }
 
 func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
@@ -1197,17 +1304,32 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 	limiter limit.ConcurrencyLimiter,
 	split string, targetFileDatums, targetFileBytes, headerRecords uint, // split
 	filesPut *gosync.Map) (retErr error) {
+	// Resolve the path, then trim any prefixed '../' to avoid sending bad paths
+	// to the server
+	path = filepath.Clean(path)
+	for strings.HasPrefix(path, "../") {
+		path = strings.TrimPrefix(path, "../")
+	}
+
 	if _, ok := filesPut.LoadOrStore(path, nil); ok {
 		return fmt.Errorf("multiple files put with the path %s, aborting, "+
 			"some files may already have been put and should be cleaned up with "+
-			"delete-file or delete-commit", path)
+			"'delete file' or 'delete commit'", path)
 	}
 	putFile := func(reader io.ReadSeeker) error {
 		if split == "" {
-			if overwrite {
+			pipe, err := isPipe(reader)
+			if err != nil {
+				return err
+			}
+			if overwrite && !pipe {
 				return sync.PushFile(c, pfc, client.NewFile(repo, commit, path), reader)
 			}
-			_, err := pfc.PutFile(repo, commit, path, reader)
+			if overwrite {
+				_, err = pfc.PutFileOverwrite(repo, commit, path, reader, 0)
+				return err
+			}
+			_, err = pfc.PutFile(repo, commit, path, reader)
 			return err
 		}
 
@@ -1256,7 +1378,7 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 			}
 			childDest := filepath.Join(path, strings.TrimPrefix(filePath, source))
 			eg.Go(func() error {
-				// don't do a second recursive put-file, just put the one file at
+				// don't do a second recursive 'put file', just put the one file at
 				// filePath into childDest, and then this walk loop will go on to the
 				// next one
 				return putFileHelper(c, pfc, repo, commit, childDest, filePath, false,
@@ -1297,4 +1419,76 @@ func joinPaths(prefix, filePath string) string {
 		return filepath.Join(prefix, strings.TrimPrefix(url.Path, "/"))
 	}
 	return filepath.Join(prefix, filePath)
+}
+
+func isPipe(r io.ReadSeeker) (bool, error) {
+	file, ok := r.(*os.File)
+	if !ok {
+		return false, nil
+	}
+	fi, err := file.Stat()
+	if err != nil {
+		return false, err
+	}
+	return fi.Mode()&os.ModeNamedPipe != 0, nil
+}
+
+func dlFile(pachClient *client.APIClient, f *pfsclient.File) (_ string, retErr error) {
+	if err := os.MkdirAll(filepath.Join(os.TempDir(), filepath.Dir(f.Path)), 0777); err != nil {
+		return "", err
+	}
+	file, err := ioutil.TempFile("", f.Path+"_")
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if err := file.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	if err := pachClient.GetFile(f.Commit.Repo.Name, f.Commit.ID, f.Path, 0, 0, file); err != nil {
+		return "", err
+	}
+	return file.Name(), nil
+}
+
+func diffCommand(cmdArg string) []string {
+	if cmdArg != "" {
+		return strings.Fields(cmdArg)
+	}
+	_, err := exec.LookPath("git")
+	if err == nil {
+		return []string{"git", "-c", "color.ui=always", "--no-pager", "diff", "--no-index"}
+	}
+	return []string{"diff"}
+}
+
+func forEachDiffFile(newFiles, oldFiles []*pfsclient.FileInfo, f func(newFile, oldFile *pfsclient.FileInfo) error) error {
+	nI, oI := 0, 0
+	for {
+		if nI == len(newFiles) && oI == len(oldFiles) {
+			return nil
+		}
+		var oFI *pfsclient.FileInfo
+		var nFI *pfsclient.FileInfo
+		switch {
+		case oI == len(oldFiles) || newFiles[nI].File.Path < oldFiles[oI].File.Path:
+			nFI = newFiles[nI]
+			nI++
+		case nI == len(newFiles) || oldFiles[oI].File.Path < newFiles[nI].File.Path:
+			oFI = oldFiles[oI]
+			oI++
+		case newFiles[nI].File.Path == oldFiles[oI].File.Path:
+			nFI = newFiles[nI]
+			nI++
+			oFI = oldFiles[oI]
+			oI++
+		}
+		if err := f(nFI, oFI); err != nil {
+			if err == errutil.ErrBreak {
+				return nil
+			}
+			return err
+		}
+	}
 }

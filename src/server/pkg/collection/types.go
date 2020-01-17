@@ -27,6 +27,9 @@ type Collection interface {
 	ReadWriteInt(stm STM) ReadWriteIntCollection
 	// For read-only operatons, use the ReadOnly for better performance
 	ReadOnly(ctx context.Context) ReadonlyCollection
+	// Claim attempts to claim a key and run the passed in callback with
+	// the context for the claim.
+	Claim(ctx context.Context, key string, val proto.Message, f func(context.Context) error) error
 }
 
 // Index specifies a secondary index on a collection.
@@ -99,16 +102,16 @@ type ReadonlyCollection interface {
 	GetByIndex(index *Index, indexVal interface{}, val proto.Message, opts *Options, f func(key string) error) error
 	// GetBlock is like Get but waits for the key to exist if it doesn't already.
 	GetBlock(key string, val proto.Message) error
-	// TTL returns the amount of time that 'key' will continue to exist in the
+	// TTL returns the number of seconds that 'key' will continue to exist in the
 	// collection, or '0' if 'key' will remain in the collection indefinitely
 	TTL(key string) (int64, error)
 	List(val proto.Message, opts *Options, f func(key string) error) error
+	ListRev(val proto.Message, opts *Options, f func(key string, createRev int64) error) error
 	ListPrefix(prefix string, val proto.Message, opts *Options, f func(string) error) error
 	Count() (int64, error)
-	Watch() (watch.Watcher, error)
-	// WatchWithPrev is like Watch, but the events will include the previous
-	// versions of the key/value.
-	WatchWithPrev() (watch.Watcher, error)
-	WatchOne(key string) (watch.Watcher, error)
+	Watch(opts ...watch.OpOption) (watch.Watcher, error)
+	WatchF(f func(*watch.Event) error, opts ...watch.OpOption) error
+	WatchOne(key string, opts ...watch.OpOption) (watch.Watcher, error)
+	WatchOneF(key string, f func(*watch.Event) error, opts ...watch.OpOption) error
 	WatchByIndex(index *Index, val interface{}) (watch.Watcher, error)
 }

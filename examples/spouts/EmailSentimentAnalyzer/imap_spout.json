@@ -1,0 +1,26 @@
+{
+    "pipeline": {
+        "name": "imap_spout"
+    },
+    "spout": {
+        "overwrite": false
+    },
+    "description": "A spout pipeline that connects to an IMAP mail account, collects the incoming email, and stores it in the `imap_spout` repo.",
+    "transform": {
+        "cmd": [ "python3", "/imap_spout.py" ],
+        "image": "pachyderm/imap_spout:1.9",
+        "secrets" : [
+            {
+                "name": "imap-credentials",
+                "key": "IMAP_LOGIN",
+                "env_var": "IMAP_LOGIN"
+            },
+            {
+                "name": "imap-credentials",
+                "key": "IMAP_PASSWORD",
+                "env_var": "IMAP_PASSWORD"
+            }
+        ]
+    }
+}
+

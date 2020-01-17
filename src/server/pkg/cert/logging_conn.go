@@ -30,8 +30,6 @@ func (o loggingPipeAddr) String() string {
 type loggingPipe struct {
 	ClientToServerBuf, ServerToClientBuf bytes.Buffer
 
-	closed bool
-
 	clientReader, serverReader io.Reader
 	clientWriter, serverWriter io.WriteCloser
 }

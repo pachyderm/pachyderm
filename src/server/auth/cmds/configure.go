@@ -1,31 +1,31 @@
 package cmds
 
 import (
-	"encoding/json"
+	"bytes"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serde"
 
-	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
 )
 
-// GetConfig returns a cobra command that lets the caller see the configured
+// GetConfigCmd returns a cobra command that lets the caller see the configured
 // auth backends in Pachyderm
-func GetConfig() *cobra.Command {
+func GetConfigCmd() *cobra.Command {
 	var format string
 	getConfig := &cobra.Command{
-		Use:   "get-config",
 		Short: "Retrieve Pachyderm's current auth configuration",
 		Long:  "Retrieve Pachyderm's current auth configuration",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine(true, true, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}
@@ -38,54 +38,58 @@ func GetConfig() *cobra.Command {
 				fmt.Println("no auth config set")
 				return nil
 			}
-			output, err := json.MarshalIndent(resp.Configuration, "", "  ")
+
+			var buf bytes.Buffer
+			if format == "" {
+				format = "json"
+			} else {
+				format = strings.ToLower(format)
+			}
+			e, err := serde.GetEncoder(format, &buf, serde.WithIndent(2),
+				serde.WithOrigName(true))
 			if err != nil {
-				return fmt.Errorf("could not marshal response:\n%v\ndue to: %v", resp.Configuration, err)
+				return err
 			}
-			switch format {
-			case "json":
-				// already done
-			case "yaml":
-				output, err = yaml.JSONToYAML(output)
-				if err != nil {
-					return fmt.Errorf("could not convert json to yaml: %v", err)
-				}
-			default:
-				return fmt.Errorf("invalid output format: %v", format)
+			// Use Encode() rather than EncodeProto, because the official proto->json
+			// spec (https://developers.google.com/protocol-buffers/docs/proto3#json)
+			// requires that int64 fields (e.g. live_config_version) be serialized as
+			// strings rather than ints, which would break existing auth configs. Go's
+			// built-in json serializer marshals int64 fields to JSON numbers
+			if err := e.Encode(resp.Configuration); err != nil {
+				return err
 			}
-			fmt.Println(string(output))
+			fmt.Println(buf.String())
 			return nil
 		}),
 	}
 	getConfig.Flags().StringVarP(&format, "output-format", "o", "json", "output "+
 		"format (\"json\" or \"yaml\")")
-	return getConfig
+	return cmdutil.CreateAlias(getConfig, "auth get-config")
 }
 
-// SetConfig returns a cobra command that lets the caller configure auth
+// SetConfigCmd returns a cobra command that lets the caller configure auth
 // backends in Pachyderm
-func SetConfig() *cobra.Command {
+func SetConfigCmd() *cobra.Command {
 	var file string
-	configure := &cobra.Command{
-		Use:   "set-config",
+	setConfig := &cobra.Command{
 		Short: "Set Pachyderm's current auth configuration",
 		Long:  "Set Pachyderm's current auth configuration",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine(true, true, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}
 			defer c.Close()
-			var configBytes []byte
+			var rawConfigBytes []byte
 			if file == "-" {
 				var err error
-				configBytes, err = ioutil.ReadAll(os.Stdin)
+				rawConfigBytes, err = ioutil.ReadAll(os.Stdin)
 				if err != nil {
 					return fmt.Errorf("could not read config from stdin: %v", err)
 				}
 			} else if file != "" {
 				var err error
-				configBytes, err = ioutil.ReadFile(file)
+				rawConfigBytes, err = ioutil.ReadFile(file)
 				if err != nil {
 					return fmt.Errorf("could not read config from %q: %v", file, err)
 				}
@@ -93,9 +97,9 @@ func SetConfig() *cobra.Command {
 				return errors.New("must set input file (use \"-\" to read from stdin)")
 			}
 
-			// Try to parse config as YAML (JSON is a subset of YAML)
+			// parse config
 			var config auth.AuthConfig
-			if err := yaml.Unmarshal(configBytes, &config); err != nil {
+			if err := serde.DecodeYAML(rawConfigBytes, &config); err != nil {
 				return fmt.Errorf("could not parse config: %v", err)
 			}
 			// TODO(msteffen): try to handle empty config?
@@ -105,7 +109,7 @@ func SetConfig() *cobra.Command {
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
-	configure.Flags().StringVarP(&file, "file", "f", "-", "input file (to use "+
+	setConfig.Flags().StringVarP(&file, "file", "f", "-", "input file (to use "+
 		"as the new config")
-	return configure
+	return cmdutil.CreateAlias(setConfig, "auth set-config")
 }

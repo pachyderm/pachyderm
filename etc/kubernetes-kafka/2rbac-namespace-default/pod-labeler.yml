@@ -1,0 +1,39 @@
+# To see if init containers need RBAC:
+#
+# $ kubectl -n kafka logs kafka-2 -c init-config
+# ...
+# Error from server (Forbidden): pods "kafka-2" is forbidden: User "system:serviceaccount:kafka:default" cannot get pods in the namespace "kafka": Unknown user "system:serviceaccount:kafka:default"
+#
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: pod-labler
+  namespace: kafka
+  labels:
+    origin: github.com_Yolean_kubernetes-kafka
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - update
+  - patch
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kafka-pod-labler
+  namespace: kafka
+  labels:
+    origin: github.com_Yolean_kubernetes-kafka
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: pod-labler
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: kafka

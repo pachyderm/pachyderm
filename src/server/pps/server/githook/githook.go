@@ -1,11 +1,16 @@
+// Package githook adds support for git-based sources in pipeline specs. It
+// does so by exposing an HTTP server that listens for webhook requests. This
+// works with github's webhook API, and anything else API-compatible with
+// their push events.
 package githook
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math"
+	"net/http"
 	"path"
-	"strconv"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -16,8 +21,7 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
-	"gopkg.in/go-playground/webhooks.v3"
-	"gopkg.in/go-playground/webhooks.v3/github"
+	"gopkg.in/go-playground/webhooks.v5/github"
 )
 
 // GitHookPort specifies the port the server will listen on
@@ -59,35 +63,25 @@ func RunGitHookServer(address string, etcdAddress string, etcdPrefix string) err
 		return err
 	}
 	etcdClient, err := etcd.New(etcd.Config{
-		Endpoints:   []string{etcdAddress},
-		DialOptions: client.DefaultDialOptions(),
+		Endpoints:          []string{etcdAddress},
+		DialOptions:        client.DefaultDialOptions(),
+		MaxCallSendMsgSize: math.MaxInt32,
+		MaxCallRecvMsgSize: math.MaxInt32,
 	})
 	if err != nil {
 		return err
 	}
-	hook := github.New(&github.Config{})
+	hook, err := github.New()
+	if err != nil {
+		return err
+	}
 	s := &gitHookServer{
 		hook,
 		c,
 		etcdClient,
 		ppsdb.Pipelines(etcdClient, etcdPrefix),
 	}
-
-	hook.RegisterEvents(
-		func(payload interface{}, header webhooks.Header) {
-			if err := s.HandlePush(payload, header); err != nil {
-				pl, ok := payload.(github.PushPayload)
-				if !ok {
-					logrus.Infof("github webhook failed to cast payload, this is likely a bug")
-					logrus.Infof("github webhook failed to handle push with error %v", err)
-					return
-				}
-				logrus.Infof("github webhook failed to handle push for repo (%v) on branch (%v) with error %v", pl.Repository.Name, path.Base(pl.Ref), err)
-			}
-		},
-		github.PushEvent,
-	)
-	return webhooks.Run(hook, ":"+strconv.Itoa(GitHookPort), hookPath())
+	return http.ListenAndServe(fmt.Sprintf(":%d", GitHookPort), s)
 }
 
 func matchingBranch(inputBranch string, payloadBranch string) bool {
@@ -98,6 +92,26 @@ func matchingBranch(inputBranch string, payloadBranch string) bool {
 		return true
 	}
 	return false
+}
+
+func (s *gitHookServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	payload, err := s.hook.Parse(r, github.PushEvent)
+	if err != nil {
+		// `ErrEventNotFound` implies github sent an event we didn't ask for
+		if err != github.ErrEventNotFound {
+			logrus.Errorf("error parsing github hook: %v", err)
+		}
+		return
+	}
+
+	pl, ok := payload.(github.PushPayload)
+	if !ok {
+		logrus.Errorf("github webhook failed to cast payload, this is likely a bug")
+	}
+
+	if err = s.handlePush(pl); err != nil {
+		logrus.Errorf("github webhook failed to handle push for repo (%v) on branch (%v) with error %v", pl.Repository.Name, path.Base(pl.Ref), err)
+	}
 }
 
 func (s *gitHookServer) findMatchingPipelineInputs(payload github.PushPayload) (pipelines []*pps.PipelineInfo, inputs []*pps.GitInput, err error) {
@@ -121,11 +135,7 @@ func (s *gitHookServer) findMatchingPipelineInputs(payload github.PushPayload) (
 	return pipelines, inputs, nil
 }
 
-func (s *gitHookServer) HandlePush(payload interface{}, _ webhooks.Header) (retErr error) {
-	pl, ok := payload.(github.PushPayload)
-	if !ok {
-		return fmt.Errorf("received invalid github.PushPayload")
-	}
+func (s *gitHookServer) handlePush(pl github.PushPayload) (retErr error) {
 	logrus.Infof("received github push payload for repo (%v) on branch (%v)", pl.Repository.Name, path.Base(pl.Ref))
 
 	raw, err := json.Marshal(pl)

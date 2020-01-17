@@ -2,125 +2,115 @@ package cmd
 
 import (
 	"bytes"
+	"encoding/json"
 	"io/ioutil"
 	"os"
-	"sync"
+	"strings"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/config"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	uuid "github.com/satori/go.uuid"
+
+	"github.com/spf13/cobra"
 )
 
-var stdoutMutex = &sync.Mutex{}
-
-func TestMetricsNormalDeployment(t *testing.T) {
-	// Run deploy normally, should see METRICS=true
-	testDeploy(t, false, false, true)
-}
-
-func TestMetricsNormalDeploymentNoMetricsFlagSet(t *testing.T) {
-	// Run deploy normally, should see METRICS=true
-	testDeploy(t, false, true, false)
-}
-
-func TestMetricsDevDeployment(t *testing.T) {
-	// Run deploy w dev flag, should see METRICS=false
-	testDeploy(t, true, false, false)
-}
-
-func TestMetricsDevDeploymentNoMetricsFlagSet(t *testing.T) {
-	// Run deploy w dev flag, should see METRICS=false
-	testDeploy(t, true, true, false)
-}
-
 func TestPortForwardError(t *testing.T) {
-	os.Setenv("ADDRESS", "localhost:30650")
+	cfgFile := testConfig(t, "localhost:30650")
+	defer os.Remove(cfgFile.Name())
+	os.Setenv("PACH_CONFIG", cfgFile.Name())
+
 	c := tu.Cmd("pachctl", "version", "--timeout=1ns")
 	var errMsg bytes.Buffer
 	c.Stdout = ioutil.Discard
 	c.Stderr = &errMsg
 	err := c.Run()
 	require.YesError(t, err) // 1ns should prevent even local connections
-	require.Matches(t, "port-forward", errMsg.String())
+	require.Matches(t, "context deadline exceeded", errMsg.String())
 }
 
-func TestNoPortError(t *testing.T) {
-	os.Setenv("ADDRESS", "127.127.127.0")
-	c := tu.Cmd("pachctl", "version", "--timeout=1ns")
-	var errMsg bytes.Buffer
-	c.Stdout = ioutil.Discard
-	c.Stderr = &errMsg
-	err := c.Run()
-	require.YesError(t, err) // 1ns should prevent even local connections
-	require.Matches(t, "does not seem to be host:port", errMsg.String())
+// Check that no commands have brackets in their names, which indicates that
+// 'CreateAlias' was not used properly (or the command just needs to specify
+// its name).
+func TestCommandAliases(t *testing.T) {
+	pachctlCmd := PachctlCmd()
+
+	// Replace the first component with 'pachctl' because it uses os.Args[0] by default
+	path := func(cmd *cobra.Command) string {
+		return strings.Replace(cmd.CommandPath(), os.Args[0], "pachctl", 1)
+	}
+
+	paths := map[string]bool{}
+
+	var walk func(*cobra.Command)
+	walk = func(cmd *cobra.Command) {
+		for _, subcmd := range cmd.Commands() {
+			// This should only happen if there is a bug in MergeCommands, or some
+			// code is bypassing it.
+			require.False(
+				t, paths[path(subcmd)],
+				"Multiple commands found with the same invocation: '%s'",
+				path(subcmd),
+			)
+
+			paths[path(subcmd)] = true
+
+			require.True(
+				t, subcmd.Short != "",
+				"Command must provide a 'Short' description string: '%s'",
+				path(subcmd),
+			)
+			require.True(
+				t, subcmd.Long != "",
+				"Command must provide a 'Long' description string: '%s' (%s)",
+				path(subcmd), subcmd.Short,
+			)
+			require.False(
+				t, strings.ContainsAny(subcmd.Name(), "[<({})>]"),
+				"Command name contains invalid characters: '%s' (%s)",
+				path(subcmd), subcmd.Short,
+			)
+			require.True(
+				t, subcmd.Use != "",
+				"Command must provide a 'Use' string: '%s' (%s)",
+				path(subcmd), subcmd.Short,
+			)
+
+			walk(subcmd)
+		}
+	}
+
+	walk(pachctlCmd)
 }
 
-func TestWeirdPortError(t *testing.T) {
-	os.Setenv("ADDRESS", "localhost:30560")
-	c := tu.Cmd("pachctl", "version", "--timeout=1ns")
-	var errMsg bytes.Buffer
-	c.Stdout = ioutil.Discard
-	c.Stderr = &errMsg
-	err := c.Run()
-	require.YesError(t, err) // 1ns should prevent even local connections
-	require.Matches(t, "30650", errMsg.String())
-}
+func testConfig(t *testing.T, pachdAddressStr string) *os.File {
+	t.Helper()
 
-func testDeploy(t *testing.T, devFlag bool, noMetrics bool, expectedEnvValue bool) {
-	//t.Parallel()
-	//stdoutMutex.Lock()
-	//defer stdoutMutex.Unlock()
+	cfgFile, err := ioutil.TempFile("", "")
+	require.NoError(t, err)
 
-	//// Setup user config prior to test
-	//// So that stdout only contains JSON no warnings
-	//_, err := config.Read()
-	//require.NoError(t, err)
+	pachdAddress, err := grpcutil.ParsePachdAddress(pachdAddressStr)
+	require.NoError(t, err)
 
-	//old := os.Stdout
-	//r, w, _ := os.Pipe()
-	//os.Stdout = w
+	cfg := &config.Config{
+		UserID: uuid.NewV4().String(),
+		V2: &config.ConfigV2{
+			ActiveContext: "test",
+			Contexts: map[string]*config.Context{
+				"test": &config.Context{
+					PachdAddress: pachdAddress.Qualified(),
+				},
+			},
+			Metrics: false,
+		},
+	}
 
-	//os.Args = []string{
-	//"deploy",
-	//"local",
-	//"--dry-run",
-	//fmt.Sprintf("-d=%v", devFlag),
-	//}
-	//err = deploycmds.DeployCmd(&noMetrics).Execute()
-	//require.NoError(t, err)
-	//require.NoError(t, w.Close())
-	//// restore stdout
-	//os.Stdout = old
-
-	//decoder := json.NewDecoder(r)
-	//foundPachdManifest := false
-	//// Loop through generated manifest until we find a
-	//// ReplicationController (limit of 100 makes sure test
-	//// fails quickly if there is no RC)
-	//for i := 0; i < 100; i++ {
-	//var manifest *extensions.Deployment
-	//err = decoder.Decode(&manifest)
-	//if err == io.EOF {
-	//break
-	//}
-	//if err != nil {
-	//// Not a replication controller
-	//continue
-	//}
-	//require.NoError(t, err)
-	//if manifest.ObjectMeta.Name == "pachd" && manifest.Kind == "Deployment" {
-	//foundPachdManifest = true
-	//expectedMetricEnvVar := api.EnvVar{
-	//Name:  "METRICS",
-	//Value: fmt.Sprintf("%v", expectedEnvValue),
-	//}
-	//var env []interface{}
-	//require.Equal(t, 1, len(manifest.Spec.Template.Spec.Containers))
-	//for _, value := range manifest.Spec.Template.Spec.Containers[0].Env {
-	//env = append(env, value)
-	//}
-	//require.OneOfEquals(t, interface{}(expectedMetricEnvVar), env)
-	//}
-	//}
-	//require.Equal(t, true, foundPachdManifest)
+	j, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	_, err = cfgFile.Write(j)
+	require.NoError(t, err)
+	require.NoError(t, cfgFile.Close())
+	return cfgFile
 }

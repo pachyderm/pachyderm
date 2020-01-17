@@ -1,0 +1,22 @@
+{
+    "pipeline": {
+        "name": "sentimentalist"
+    },
+    "description": "A pipeline that sorts the incoming mail by positive and negative sentiment.",
+    "input": {
+        "pfs": {
+            "glob": "/*",
+            "repo": "imap_spout"
+        }
+    },
+    "transform": {
+        "cmd": [ "python3", "/sentimentalist.py" ],
+        "image": "pachyderm/sentimentalist:1.9",
+        "env": {
+            "INPUT_REPO": "/pfs/imap_spout",
+            "NEGATIVES_DIRECTORY": "/pfs/out/negatives",
+            "POSITIVES_DIRECTORY": "/pfs/out/positives",
+            "SENTIMENT_HEADER": "X-Sentiment-Rating"
+        }
+    }
+}

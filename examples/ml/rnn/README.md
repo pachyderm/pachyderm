@@ -1,6 +1,6 @@
-**Note**: This example has been tested on Pachyderm version 1.5.2. It needs to be updated for the latest versions of Pachyderm.
+# Game of Thrones / Tensorflow Example
 
-# Game of Thrones / Tensor Flow Example
+[We have a recorded demo of this example](https://www.bigmarker.com/pachyderm/From-Zero-To-Production-ML-in-30-mins-using-Loodse-Pachyderm) (RNN work starts at minute 34:00)
 
 Adapted from the tensor flow LSTM example [here](https://www.tensorflow.org/versions/r0.8/tutorials/recurrent/index.html#recurrent-neural-networks)
 
@@ -8,7 +8,7 @@ Adapted from the tensor flow LSTM example [here](https://www.tensorflow.org/vers
 
 In this example, you'll generate a new Game of Thrones script based on a bunch of previous GoT scripts.
 
-To do so, we'll be adapting [this LSTM Neural Net example](https://www.tensorflow.org/versions/r0.8/tutorials/recurrent/index.html#recurrent-neural-networks) from Tensor Flow. We won't cover any LSTM or Neural Net theory in this example. For background we recommend reading that example and the resources they link to.
+To do so, we'll be adapting [this LSTM Neural Net example](https://www.tensorflow.org/versions/r0.8/tutorials/recurrent/index.html#recurrent-neural-networks) from Tensorflow. We won't cover any LSTM or Neural Net theory in this example. For background we recommend reading that example and the resources they link to.
 
 This guide assumes you already have a [working pachyderm setup](http://pachyderm.readthedocs.io/en/stable/getting_started/local_installation.html), and you have a basic grasp of Pachyderm repos and pipelines. If you don't, you may want to start with the [opencv](http://pachyderm.readthedocs.io/en/stable/getting_started/beginner_tutorial.html) example or our [cloud deployment guide](http://pachyderm.readthedocs.io/en/stable/deployment/deploying_on_the_cloud.html).
 
@@ -17,7 +17,7 @@ This guide assumes you already have a [working pachyderm setup](http://pachyderm
 Getting this neural net running on Pachyderm will require a few steps:
 
 1. Creating the data repo, and initializing it with some GoT scripts
-2. Creating the Docker image that includes the Tensor Flow library and our code
+2. Creating the Docker image that includes the Tensorflow library and our code
 3. Creating the Pachyderm Pipeline that trains the neural net, and generates the new script
 
 ---
@@ -37,19 +37,16 @@ This task does 2 things:
 1. It grabs the data set in the form of a tarball from a URL, and extracts the data
 2. It inputs this data into Pachyderm by:
     - creating a new repo `GoT_scripts`
-    - starting a commit
-    - mounting the [Pachyderm File System (PFS)](http://pachyderm.io/pfs.html) at `./mnt`
-    - copying the data over to the `./mnt/GoT_scripts/{commitID}/` path
-    - finishing the commit
+    - executing a `put file` recursively via `pachctl put file GoT_scripts@master -f ./data/ -r`
 
 The result is a new repo with all the data we need stored inside. To confirm the setup, you can do:
 
 ```shell
-$ pachctl list-repo
+$ pachctl list repo
 NAME                CREATED             SIZE
 GoT_scripts         15 seconds ago      2.625 MiB
 4
-$ pachctl list-commit GoT_scripts
+$ pachctl list commit GoT_scripts
 BRANCH        REPO/ID       PARENT              STARTED             FINISHED            SIZE
               master/0      <none>              24 seconds ago      24 seconds ago      2.625 MiB
 ```
@@ -86,17 +83,17 @@ of this structure.
 
 ### Creating the Transformation Image
 
-Using Tensor Flow with Pachyderm is easy! Since [Pachyderm Pipeline System (PPS)](http://pachyderm.io/pps.html) allows you to use any Docker image, getting the code in place is straightforward. In fact, since Tensor Flow provides a docker image to work with, they've done most of the work for us!
+Using TensorFlow with Pachyderm is easy! Since [Pachyderm Pipeline System (PPS)](http://pachyderm.io/pps.html) allows you to use any Docker image, getting the code in place is straightforward. In fact, since Tensorflow provides a docker image to work with, they've done most of the work for us!
 
 To construct the image, we need to:
 
-1. Make sure we use an image with the Tensor Flow library installed
+1. Make sure we use an image with the TensorFlow library installed
 2. Make sure the image includes our code
 3. Build the image
 
 If you take a look at the [Dockerfile](./Dockerfile) in this directory, you'll notice a couple things.
 
-1) The top line specifies that we're basing our image off of Tensor Flow's image:
+1) The top line specifies that we're basing our image off of Tensorflow's image:
 
 ```
 FROM tensorflow/tensorflow
@@ -131,7 +128,7 @@ If you're familiar with Dockerfiles, one thing that seems noticeably absent is a
 
 ### Creating the Pipeline
 
-Now that we have the data and the image ready, we can specify how we want to process the data. To do that, we use a pipeline manifest. Take a look at `pipeline.json` in this directory.
+Now that we have the data and the image ready, we can specify how we want to process the data. To do that, we created two pipeline manifests. The first one `pipeline-train.json` will train the RNN and the second pipeline manifest `pipeline-generate.json` will actually generate the new script. There's an additional pipeline manifest in this directory `pipeline-combined`, but we'll get to that later. 
 
 #### Training:
 
@@ -145,7 +142,7 @@ cd /code && python ptb_word_lm.py --data_path=/data --model=small --model_path_p
 
 This line tells [Pachyderm Pipeline System (PPS)](http://pachyderm.io/pps.html) how to run the job. Here you can see we specify how to run the code with the arguments we want.
 
-The outputs are dictated by the script. In this case its really two types of files -- the script outputs the training model weights into a Tensor Flow `checkpoint` file, and also outputs two `.json` files containing a map of ID -> word and vice versa. These files will be output to the repo matching the pipeline name: `GoT_train`. We'll use these files in the next pipeline.
+The outputs are dictated by the script. In this case its really two types of files -- the script outputs the training model weights into a Tensorflow `checkpoint` file, and also outputs two `.json` files containing a map of ID -> word and vice versa. These files will be output to the repo matching the pipeline name: `GoT_train`. We'll use these files in the next pipeline.
 
 
 #### Generating:
@@ -157,50 +154,58 @@ Notice that we specify the same image as above, just a different entrypoint via 
 
 #### Running:
 
-Now that we have all of the pieces in place, we can run the pipeline. Do so by running:
+Now that we have all of the pieces in place, we can run the two pipelines. Do so by running:
 
-`make run`
+`pachctl create pipeline -f pipeline-train.json`
 
-This creates a pipeline from `pipeline.json`, and since a commit exists on the very first input repo `GoT_scripts`, the pipeline runs automatically. To see what's happening, you can run:
+This creates a pipeline from the manifest, and since a commit exists on the very first input repo `GoT_scripts`, the pipeline runs automatically. To see what's happening, you can run:
 
 ```
-$ pachctl list-job
+$ pachctl list job
 ID                                 OUTPUT                                       STARTED             DURATION            STATE
 8225e745ef8e3d0c4dcf550c895634e3   GoT_train/dd2c024a5da041cb89e12e7984c81359   9 seconds ago       -                   running
 ```
 
-and once the jobs have completed you'll see the output commit on the `GoT_generate` repo:
+and once the jobs have completed, you can then deploy the generate pipeline the same way. 
 
 ```
-$ pachctl list-job
+pachctl create pipeline -f pipeline-generate.json
+``` 
+
+This creates the second pipeline for our project, and since our model is already trained it shouldn't take long to get the new script. To see what's happening, you can run:
+
+```
+$ pachctl list job
 ID                                 OUTPUT                                          STARTED             DURATION            STATE
 8f137e20299c85d1f0326be6e8c1bca6   GoT_generate/dcc8ba9984d442ababc75ddff42a055b   4 minutes ago       16 seconds          success
 8225e745ef8e3d0c4dcf550c895634e3   GoT_train/dd2c024a5da041cb89e12e7984c81359      6 minutes ago       2 minutes           success
 
-$ pachctl list-commit GoT_generate
+$ pachctl list commit GoT_generate
 BRANCH              ID                                 PARENT              STARTED             FINISHED            SIZE
                     dcc8ba9984d442ababc75ddff42a055b   <none>              5 minutes ago       5 minutes ago       4.354 KiB
 ```
+
+For this example we wanted to show each pipeline seperately, but you can just as easily combine the two pipelines into a single manifest file for a more automated approach. See the file `pipeline-combined.json` to see what we mean. You can use the same command `pachctl create pipeline -f` as from before, except this time you'll see both train and generate jobs get created automatically. 
 
 #### Results:
 
 By default, we've set the size of the model to train to `test`. You can see this on each of the entrypoints specified in the `pipeline.json` file. For this size model, the training pipeline should run for a couple minutes, and the generate step much quicker than that. Let's take a look at the output.
 
-Once `pachctl list-commit GoT_generate` shows a single commit, we can take a look at the output. To do so, you can run:
+Once `pachctl list commit GoT_generate` shows a single commit, we can take a look at the output. To do so, you can run:
 
 ```
-pachctl get-file GoT_generate {the commit id from the above command} new_script.txt
+pachctl get file GoT_generate@{the commit id from the above command}:new_script.txt
 ```
 
 And you should see some text!
 
-Keep in mind, the model we just trained was very simplistic. Doing the 'test' model suffices as a proof of concept that we can train and use a neural net using Tensor Flow on Pachyderm. That said, the test model is dumb, and the output won't be that readable.
+Keep in mind, the model we just trained was very simplistic. Doing the 'test' model suffices as a proof of concept that we can train and use a neural net using Tensorflow on Pachyderm. That said, the test model is dumb, and the output won't be that readable.
 
-Actually, you can see how 'dumb' the model is. If you [read through the Tensor Flow example](https://www.tensorflow.org/versions/r0.8/tutorials/recurrent/index.html#run-the-code) they describe how 'perplexity' is used to measure how good this model will perform. Let's look at the perplexity of your model.
+Actually, you can see how 'dumb' the model is. If you [read through the Tensorflow example](https://www.tensorflow.org/versions/r0.8/tutorials/recurrent/index.html#run-the-code) they describe how 'perplexity' is used to measure how good this model will perform. Let's look at the perplexity of your model.
 
 ```
-$pachctl list-job
-$pachctl get-logs {job ID from GoT_train job}
+$pachctl list job
+$pachctl logs {job ID from GoT_train job}
 0 | Epoch: 1 Learning rate: 1.000
 0 | 0.002 perplexity: 8526.820 speed: 1558 wps
 0 | 0.102 perplexity: 880.494 speed: 1598 wps
@@ -226,17 +231,17 @@ That's not great. As a next step, you can improve that measure, and the readabil
 
 #### Next Iteration
 
-As referenced in the [Tensor Flow example](https://www.tensorflow.org/versions/r0.8/tutorials/recurrent/index.html#run-the-code), a 'perplexity' of less than 100 starts to get pretty good / readable. Running the 'small' model on the GoT data set should produce a perplexity lower than 100.
+As referenced in the [Tensorflow example](https://www.tensorflow.org/versions/r0.8/tutorials/recurrent/index.html#run-the-code), a 'perplexity' of less than 100 starts to get pretty good / readable. Running the 'small' model on the GoT data set should produce a perplexity lower than 100.
 
 To do this, you'll need to tear down this pipeline and re-create it. Specifically:
 
 1) Delete the existing data / pipeline by running:
 
 ```
-pachctl delete-all
+pachctl delete all
 ```
 
-2) Change the entrypoint commands in `pipeline.json` under the transformation property to use the `small` model not the `test` model. Save your changes.
+2) Change the entrypoint commands in `pipeline-train.json` and `pipeline-generate.json` (or in the `pipeline-combined.json`) under the transformation property to use the `small` model not the `test` model. Save your changes.
 
 3) Re-initialize the data / compile the image / create the pipeline
 

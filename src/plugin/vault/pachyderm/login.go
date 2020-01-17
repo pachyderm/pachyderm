@@ -69,9 +69,9 @@ func (b *backend) pathAuthLogin(ctx context.Context, req *logical.Request, d *fr
 
 	var ttl time.Duration
 	if ttlArg != "" {
-		ttl, _, err = b.SanitizeTTLStr(ttlArg, b.System().MaxLeaseTTL().String())
+		ttl, _, err = sanitizeTTLStr(ttlArg, b.System().MaxLeaseTTL().String())
 	} else {
-		ttl, _, err = b.SanitizeTTLStr(config.TTL, b.System().MaxLeaseTTL().String())
+		ttl, _, err = sanitizeTTLStr(config.TTL, b.System().MaxLeaseTTL().String())
 	}
 	if err != nil {
 		return nil, err
@@ -123,4 +123,26 @@ func generateUserCredentials(ctx context.Context, pachdAddress string, adminToke
 	}
 
 	return resp.Token, nil
+}
+
+func sanitizeTTLStr(ttlStr, maxTTLStr string) (ttl, maxTTL time.Duration, err error) {
+	if len(ttlStr) == 0 || ttlStr == "0" {
+		ttl = 0
+	} else {
+		ttl, err = time.ParseDuration(ttlStr)
+		if err != nil {
+			return 0, 0, fmt.Errorf("invalid ttl: %s", err)
+		}
+	}
+
+	if len(maxTTLStr) == 0 || maxTTLStr == "0" {
+		maxTTL = 0
+	} else {
+		maxTTL, err = time.ParseDuration(maxTTLStr)
+		if err != nil {
+			return 0, 0, fmt.Errorf("invalid max_ttl: %s", err)
+		}
+	}
+
+	return ttl, maxTTL, nil
 }

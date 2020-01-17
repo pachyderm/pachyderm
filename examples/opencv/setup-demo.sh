@@ -18,7 +18,7 @@ docker build -t opencv .
 docker tag opencv `whoami`/opencv
 docker push `whoami`/opencv
 # Step 0
-pachctl create-repo images 
+pachctl create repo images 
 # Step 1:
-# pachctl put-file images master -c -i images.txt
+# pachctl put file images@master -c -i images.txt
 

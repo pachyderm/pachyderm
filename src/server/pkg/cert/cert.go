@@ -100,7 +100,7 @@ func GenerateSelfSignedCert(address string, name *pkix.Name, ipAddresses ...stri
 			x509.KeyUsageKeyAgreement, // can establish keys (need for TLS in Diffie-Hellman mode)
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}, // can authenticate server (for TLS)
 
-		IsCA: true, // must be set b/c KeyUsageCertSign is set
+		IsCA:                  true, // must be set b/c KeyUsageCertSign is set
 		BasicConstraintsValid: true, // mark "Basic Constraints" extn critical(?)
 		MaxPathLenZero:        true, // must directly sign all end entity certs
 		IPAddresses:           parsedIPs,

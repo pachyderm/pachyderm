@@ -3,7 +3,9 @@ package worker
 import (
 	"context"
 	"fmt"
+	"os"
 	"path"
+	"strconv"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
@@ -115,4 +117,18 @@ func Clients(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client
 		result = append(result, newClient(conn))
 	}
 	return result, nil
+}
+
+// NewClient returns a worker client for the worker at the IP address passed in.
+func NewClient(address string) (Client, error) {
+	port, err := strconv.Atoi(os.Getenv(client.PPSWorkerPortEnv))
+	if err != nil {
+		return Client{}, err
+	}
+	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", address, port),
+		append(client.DefaultDialOptions(), grpc.WithInsecure())...)
+	if err != nil {
+		return Client{}, err
+	}
+	return newClient(conn), nil
 }

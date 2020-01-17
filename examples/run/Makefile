@@ -40,7 +40,7 @@ $(PIPE_CONFIG):
 	envsubst '$${PIPELINE_NAME} $${PIPELINE_DOCKER_IMAGE} \
 	$${PIPELINE_DOCKER_HOME} $${PIPELINE_DOCKER_SCRIPT} \
 	$${PIPELINE_DOCKER_SECRETS} $${PIPELINE_DOCKER_SECRETS_PATH} \
-	$${PIPELINE_DOCKER_REGISTRY_SECRETS}' \
+	$${PIPELINE_DOCKER_REGISTRY_SECRETS} $${PIPELINE_REPO}' \
 	< $(CONFIG)/$(PIPELINE_BUILD_CONFIG_TEMPLATE_FILE) \
 	> $(PIPE_CONFIG)
 # Just makes it easier to type and test
@@ -50,11 +50,11 @@ pipe.clean:
 
 # Creates the pipeline in pachyderm
 pipe.create:
-	pachctl create-pipeline -f $(PIPE_CONFIG)
+	pachctl create pipeline -f $(PIPE_CONFIG)
 
 # Deletes the pipeline from pacyderm
 pipe.delete:
-	pachctl delete-pipeline ${PIPELINE_NAME}
+	pachctl delete pipeline ${PIPELINE_NAME}
 
 docker.secrets: docker.secrets.registry docker.secrets.container
 # Create the secrets to access the docker registry
@@ -84,7 +84,7 @@ $(TARGET)/$(ENCODED_ENV):
 		close(foo); printf("export %s_ENCODED=%s\n", a[1], b);}' > $(TARGET)/$(ENCODED_ENV); \
 
 $(TARGET)/$(SECRETS_YAML):
-	source $(TARGET)/$(ENCODED_ENV); \
+	. $(TARGET)/$(ENCODED_ENV); \
 	envsubst < $(CONFIG)/$(SECRETS_YAML) > $(TARGET)/$(SECRETS_YAML); \
 	if kubectl get secret $(PIPELINE_DOCKER_SECRETS); then \
 		echo "$$PIPELINE_DOCKER_SECRETS already exists, skipping"; \
@@ -149,6 +149,6 @@ docker.test.clean: docker.container.clean docker.test.env.clean
 
 # Display some information about the pipeline
 verify:
-	pachctl inspect-pipeline $(PIPELINE_NAME); \
-	pachctl list-file $(PIPELINE_NAME) master
+	pachctl inspect pipeline $(PIPELINE_NAME); \
+	pachctl list file $(PIPELINE_NAME)@master
 

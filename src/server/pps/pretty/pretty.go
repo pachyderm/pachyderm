@@ -7,12 +7,12 @@ import (
 	"io"
 	"os"
 	"strings"
-	"text/tabwriter"
 	"text/template"
 
 	"github.com/docker/go-units"
 	"github.com/fatih/color"
 	"github.com/gogo/protobuf/types"
+	"github.com/juju/ansiterm"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
@@ -21,7 +21,7 @@ import (
 
 const (
 	// PipelineHeader is the header for pipelines.
-	PipelineHeader = "NAME\tINPUT\tCREATED\tSTATE / LAST JOB\t\n"
+	PipelineHeader = "NAME\tVERSION\tINPUT\tCREATED\tSTATE / LAST JOB\tDESCRIPTION\t\n"
 	// JobHeader is the header for jobs
 	JobHeader = "ID\tPIPELINE\tSTARTED\tDURATION\tRESTART\tPROGRESS\tDL\tUL\tSTATE\t\n"
 	// DatumHeader is the header for datums
@@ -30,47 +30,56 @@ const (
 	jobReasonLen = 25
 )
 
-// PrintJobHeader prints a job header.
-func PrintJobHeader(w io.Writer) {
-	// because STATE is a colorful field it has to be at the end of the line,
-	// otherwise the terminal escape characters will trip up the tabwriter
-	fmt.Fprint(w, JobHeader)
+func safeTrim(s string, l int) string {
+	if len(s) < l {
+		return s
+	}
+	return strings.TrimSpace(s[:l]) + "..."
 }
 
 // PrintJobInfo pretty-prints job info.
-func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo) {
+func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", jobInfo.Job.ID)
 	fmt.Fprintf(w, "%s\t", jobInfo.Pipeline.Name)
-	fmt.Fprintf(w, "%s\t", pretty.Ago(jobInfo.Started))
+	if fullTimestamps {
+		fmt.Fprintf(w, "%s\t", jobInfo.Started.String())
+	} else {
+		fmt.Fprintf(w, "%s\t", pretty.Ago(jobInfo.Started))
+	}
 	if jobInfo.Finished != nil {
 		fmt.Fprintf(w, "%s\t", pretty.TimeDifference(jobInfo.Started, jobInfo.Finished))
 	} else {
 		fmt.Fprintf(w, "-\t")
 	}
 	fmt.Fprintf(w, "%d\t", jobInfo.Restart)
-	fmt.Fprintf(w, "%d + %d / %d\t", jobInfo.DataProcessed, jobInfo.DataSkipped, jobInfo.DataTotal)
+	if jobInfo.DataRecovered != 0 {
+		fmt.Fprintf(w, "%d + %d + %d / %d\t", jobInfo.DataProcessed, jobInfo.DataSkipped, jobInfo.DataRecovered, jobInfo.DataTotal)
+	} else {
+		fmt.Fprintf(w, "%d + %d / %d\t", jobInfo.DataProcessed, jobInfo.DataSkipped, jobInfo.DataTotal)
+	}
 	fmt.Fprintf(w, "%s\t", pretty.Size(jobInfo.Stats.DownloadBytes))
 	fmt.Fprintf(w, "%s\t", pretty.Size(jobInfo.Stats.UploadBytes))
 	if jobInfo.State == ppsclient.JobState_JOB_FAILURE {
-		fmt.Fprintf(w, "%s: %s\t\n", jobState(jobInfo.State), strings.TrimSpace(jobInfo.Reason[:jobReasonLen])+"...")
+		fmt.Fprintf(w, "%s: %s\t", jobState(jobInfo.State), safeTrim(jobInfo.Reason, jobReasonLen))
 	} else {
-		fmt.Fprintf(w, "%s\t\n", jobState(jobInfo.State))
+		fmt.Fprintf(w, "%s\t", jobState(jobInfo.State))
 	}
-}
-
-// PrintPipelineHeader prints a pipeline header.
-func PrintPipelineHeader(w io.Writer) {
-	// because STATE is a colorful field it has to be at the end of the line,
-	// otherwise the terminal escape characters will trip up the tabwriter
-	fmt.Fprint(w, PipelineHeader)
+	fmt.Fprintln(w)
 }
 
 // PrintPipelineInfo pretty-prints pipeline info.
-func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo) {
+func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", pipelineInfo.Pipeline.Name)
+	fmt.Fprintf(w, "%d\t", pipelineInfo.Version)
 	fmt.Fprintf(w, "%s\t", ShorthandInput(pipelineInfo.Input))
-	fmt.Fprintf(w, "%s\t", pretty.Ago(pipelineInfo.CreatedAt))
-	fmt.Fprintf(w, "%s / %s\t\n", pipelineState(pipelineInfo.State), jobState(pipelineInfo.LastJobState))
+	if fullTimestamps {
+		fmt.Fprintf(w, "%s\t", pipelineInfo.CreatedAt.String())
+	} else {
+		fmt.Fprintf(w, "%s\t", pretty.Ago(pipelineInfo.CreatedAt))
+	}
+	fmt.Fprintf(w, "%s / %s\t", pipelineState(pipelineInfo.State), jobState(pipelineInfo.LastJobState))
+	fmt.Fprintf(w, "%s\t", pipelineInfo.Description)
+	fmt.Fprintln(w)
 }
 
 // PrintWorkerStatusHeader pretty prints a worker status header.
@@ -79,30 +88,51 @@ func PrintWorkerStatusHeader(w io.Writer) {
 }
 
 // PrintWorkerStatus pretty prints a worker status.
-func PrintWorkerStatus(w io.Writer, workerStatus *ppsclient.WorkerStatus) {
+func PrintWorkerStatus(w io.Writer, workerStatus *ppsclient.WorkerStatus, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", workerStatus.WorkerID)
 	fmt.Fprintf(w, "%s\t", workerStatus.JobID)
 	for _, datum := range workerStatus.Data {
 		fmt.Fprintf(w, datum.Path)
 	}
 	fmt.Fprintf(w, "\t")
-	fmt.Fprintf(w, "%s\t", pretty.Ago(workerStatus.Started))
-	fmt.Fprintf(w, "%d\t\n", workerStatus.QueueSize)
+	if fullTimestamps {
+		fmt.Fprintf(w, "%s\t", workerStatus.Started.String())
+	} else {
+		fmt.Fprintf(w, "%s\t", pretty.Ago(workerStatus.Started))
+	}
+	fmt.Fprintf(w, "%d\t", workerStatus.QueueSize)
+	fmt.Fprintln(w)
+}
+
+// PrintableJobInfo is a wrapper around JobInfo containing any formatting options
+// used within the template to conditionally print information.
+type PrintableJobInfo struct {
+	*ppsclient.JobInfo
+	FullTimestamps bool
+}
+
+// NewPrintableJobInfo constructs a PrintableJobInfo from just a JobInfo.
+func NewPrintableJobInfo(ji *ppsclient.JobInfo) *PrintableJobInfo {
+	return &PrintableJobInfo{
+		JobInfo: ji,
+	}
 }
 
 // PrintDetailedJobInfo pretty-prints detailed job info.
-func PrintDetailedJobInfo(jobInfo *ppsclient.JobInfo) error {
+func PrintDetailedJobInfo(jobInfo *PrintableJobInfo) error {
 	template, err := template.New("JobInfo").Funcs(funcMap).Parse(
 		`ID: {{.Job.ID}} {{if .Pipeline}}
 Pipeline: {{.Pipeline.Name}} {{end}} {{if .ParentJob}}
-Parent: {{.ParentJob.ID}} {{end}}
-Started: {{prettyAgo .Started}} {{if .Finished}}
+Parent: {{.ParentJob.ID}} {{end}}{{if .FullTimestamps}}
+Started: {{.Started}}{{else}}
+Started: {{prettyAgo .Started}} {{end}}{{if .Finished}}
 Duration: {{prettyTimeDifference .Started .Finished}} {{end}}
 State: {{jobState .State}}
 Reason: {{.Reason}}
 Processed: {{.DataProcessed}}
 Failed: {{.DataFailed}}
 Skipped: {{.DataSkipped}}
+Recovered: {{.DataRecovered}}
 Total: {{.DataTotal}}
 Data Downloaded: {{prettySize .Stats.DownloadBytes}}
 Data Uploaded: {{prettySize .Stats.UploadBytes}}
@@ -121,7 +151,7 @@ ParallelismSpec: {{.ParallelismSpec}}
   CPU: {{ .ResourceLimits.Cpu }}
   Memory: {{ .ResourceLimits.Memory }}
   {{ if .ResourceLimits.Gpu }}GPU:
-    Type: {{ .ResourceLimits.Gpu.Type }} 
+    Type: {{ .ResourceLimits.Gpu.Type }}
     Number: {{ .ResourceLimits.Gpu.Number }} {{end}} {{end}}
 {{ if .Service }}Service:
 	{{ if .Service.InternalPort }}InternalPort: {{ .Service.InternalPort }} {{end}}
@@ -143,12 +173,27 @@ Egress: {{.Egress.URL}} {{end}}
 	return nil
 }
 
+// PrintablePipelineInfo is a wrapper around PipelinInfo containing any formatting options
+// used within the template to conditionally print information.
+type PrintablePipelineInfo struct {
+	*ppsclient.PipelineInfo
+	FullTimestamps bool
+}
+
+// NewPrintablePipelineInfo constructs a PrintablePipelineInfo from just a PipelineInfo.
+func NewPrintablePipelineInfo(pi *ppsclient.PipelineInfo) *PrintablePipelineInfo {
+	return &PrintablePipelineInfo{
+		PipelineInfo: pi,
+	}
+}
+
 // PrintDetailedPipelineInfo pretty-prints detailed pipeline info.
-func PrintDetailedPipelineInfo(pipelineInfo *ppsclient.PipelineInfo) error {
+func PrintDetailedPipelineInfo(pipelineInfo *PrintablePipelineInfo) error {
 	template, err := template.New("PipelineInfo").Funcs(funcMap).Parse(
 		`Name: {{.Pipeline.Name}}{{if .Description}}
-Description: {{.Description}}{{end}}
-Created: {{prettyAgo .CreatedAt}}
+Description: {{.Description}}{{end}}{{if .FullTimestamps }}
+Created: {{.CreatedAt}}{{ else }}
+Created: {{prettyAgo .CreatedAt}} {{end}}
 State: {{pipelineState .State}}
 Stopped: {{ .Stopped }}
 Reason: {{.Reason}}
@@ -165,7 +210,7 @@ Parallelism Spec: {{.ParallelismSpec}}
 Datum Timeout: {{.DatumTimeout}}
 Job Timeout: {{.JobTimeout}}
 Input:
-{{pipelineInput .}}
+{{pipelineInput .PipelineInfo}}
 {{ if .GithookURL }}Githook URL: {{.GithookURL}} {{end}}
 Output Branch: {{.OutputBranch}}
 Transform:
@@ -185,11 +230,6 @@ Job Counts:
 	return nil
 }
 
-// PrintDatumInfoHeader prints a file info header.
-func PrintDatumInfoHeader(w io.Writer) {
-	fmt.Fprint(w, DatumHeader)
-}
-
 // PrintDatumInfo pretty-prints file info.
 // If recurse is false and directory size is 0, display "-" instead
 // If fast is true and file size is 0, display "-" instead
@@ -198,7 +238,8 @@ func PrintDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
 	if datumInfo.Stats != nil {
 		totalTime = units.HumanDuration(client.GetDatumTotalTime(datumInfo.Stats))
 	}
-	fmt.Fprintf(w, "%s\t%s\t%s\n", datumInfo.Datum.ID, datumState(datumInfo.State), totalTime)
+	fmt.Fprintf(w, "%s\t%s\t%s\t", datumInfo.Datum.ID, datumState(datumInfo.State), totalTime)
+	fmt.Fprintln(w)
 }
 
 // PrintDetailedDatumInfo pretty-prints detailed info about a datum
@@ -216,33 +257,36 @@ func PrintDetailedDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
 	dl, err := types.DurationFromProto(datumInfo.Stats.DownloadTime)
 	if err != nil {
 		downloadTime = err.Error()
+	} else {
+		downloadTime = dl.String()
 	}
-	downloadTime = dl.String()
 	fmt.Fprintf(w, "Download Time\t%s\n", downloadTime)
 
 	var procTime string
 	proc, err := types.DurationFromProto(datumInfo.Stats.ProcessTime)
 	if err != nil {
 		procTime = err.Error()
+	} else {
+		procTime = proc.String()
 	}
-	procTime = proc.String()
 	fmt.Fprintf(w, "Process Time\t%s\n", procTime)
 
 	var uploadTime string
 	ul, err := types.DurationFromProto(datumInfo.Stats.UploadTime)
 	if err != nil {
 		uploadTime = err.Error()
+	} else {
+		uploadTime = ul.String()
 	}
-	uploadTime = ul.String()
 	fmt.Fprintf(w, "Upload Time\t%s\n", uploadTime)
 
 	fmt.Fprintf(w, "PFS State:\n")
-	tw := tabwriter.NewWriter(w, 10, 1, 3, ' ', 0)
+	tw := ansiterm.NewTabWriter(w, 10, 1, 3, ' ', 0)
 	PrintFileHeader(tw)
 	PrintFile(tw, datumInfo.PfsState)
 	tw.Flush()
 	fmt.Fprintf(w, "Inputs:\n")
-	tw = tabwriter.NewWriter(w, 10, 1, 3, ' ', 0)
+	tw = ansiterm.NewTabWriter(w, 10, 1, 3, ' ', 0)
 	PrintFileHeader(tw)
 	for _, d := range datumInfo.Data {
 		PrintFile(tw, d.File)
@@ -266,6 +310,8 @@ func datumState(datumState ppsclient.DatumState) string {
 		return color.New(color.FgYellow).SprintFunc()("skipped")
 	case ppsclient.DatumState_FAILED:
 		return color.New(color.FgRed).SprintFunc()("failed")
+	case ppsclient.DatumState_RECOVERED:
+		return color.New(color.FgYellow).SprintFunc()("recovered")
 	case ppsclient.DatumState_SUCCESS:
 		return color.New(color.FgGreen).SprintFunc()("success")
 	}
@@ -308,7 +354,7 @@ func pipelineState(pipelineState ppsclient.PipelineState) string {
 	return "-"
 }
 
-func jobInput(jobInfo *ppsclient.JobInfo) string {
+func jobInput(jobInfo PrintableJobInfo) string {
 	if jobInfo.Input == nil {
 		return ""
 	}
@@ -319,12 +365,12 @@ func jobInput(jobInfo *ppsclient.JobInfo) string {
 	return string(input) + "\n"
 }
 
-func workerStatus(jobInfo *ppsclient.JobInfo) string {
+func workerStatus(jobInfo PrintableJobInfo) string {
 	var buffer bytes.Buffer
-	writer := tabwriter.NewWriter(&buffer, 20, 1, 3, ' ', 0)
+	writer := ansiterm.NewTabWriter(&buffer, 20, 1, 3, ' ', 0)
 	PrintWorkerStatusHeader(writer)
 	for _, workerStatus := range jobInfo.WorkerStatus {
-		PrintWorkerStatus(writer, workerStatus)
+		PrintWorkerStatus(writer, workerStatus, jobInfo.FullTimestamps)
 	}
 	// can't error because buffer can't error on Write
 	writer.Flush()
@@ -361,8 +407,8 @@ func prettyTransform(transform *ppsclient.Transform) (string, error) {
 // ShorthandInput renders a pps.Input as a short, readable string
 func ShorthandInput(input *ppsclient.Input) string {
 	switch {
-	case input.Atom != nil:
-		return fmt.Sprintf("%s:%s", input.Atom.Repo, input.Atom.Glob)
+	case input == nil:
+		return "none"
 	case input.Pfs != nil:
 		return fmt.Sprintf("%s:%s", input.Pfs.Repo, input.Pfs.Glob)
 	case input.Cross != nil:
@@ -371,6 +417,12 @@ func ShorthandInput(input *ppsclient.Input) string {
 			subInput = append(subInput, ShorthandInput(input))
 		}
 		return "(" + strings.Join(subInput, " ⨯ ") + ")"
+	case input.Join != nil:
+		var subInput []string
+		for _, input := range input.Join {
+			subInput = append(subInput, ShorthandInput(input))
+		}
+		return "(" + strings.Join(subInput, " ⋈ ") + ")"
 	case input.Union != nil:
 		var subInput []string
 		for _, input := range input.Union {

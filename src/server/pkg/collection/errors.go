@@ -1,6 +1,9 @@
 package collection
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // ErrNotFound indicates that a key was not found when it was expected to
 // exist.
@@ -10,7 +13,7 @@ type ErrNotFound struct {
 }
 
 func (e ErrNotFound) Error() string {
-	return fmt.Sprintf("%s %s not found", e.Type, e.Key)
+	return fmt.Sprintf("%s %s not found", strings.TrimPrefix(e.Type, DefaultPrefix), e.Key)
 }
 
 // IsErrNotFound determines if an error is an ErrNotFound error
@@ -27,7 +30,7 @@ type ErrExists struct {
 }
 
 func (e ErrExists) Error() string {
-	return fmt.Sprintf("%s %s already exists", e.Type, e.Key)
+	return fmt.Sprintf("%s %s already exists", strings.TrimPrefix(e.Type, DefaultPrefix), e.Key)
 }
 
 // IsErrExists determines if an error is an ErrExists error
@@ -45,7 +48,7 @@ type ErrMalformedValue struct {
 }
 
 func (e ErrMalformedValue) Error() string {
-	return fmt.Sprintf("malformed value at %s/%s: %s", e.Type, e.Key, e.Val)
+	return fmt.Sprintf("malformed value at %s/%s: %s", strings.TrimPrefix(e.Type, DefaultPrefix), e.Key, e.Val)
 }
 
 // IsErrMalformedValue determines if an error is an ErrMalformedValue error

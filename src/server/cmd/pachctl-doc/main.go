@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+
 	"github.com/pachyderm/pachyderm/src/server/cmd/pachctl/cmd"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 
@@ -14,9 +16,10 @@ func main() {
 }
 
 func do(appEnvObj interface{}) error {
-	rootCmd, err := cmd.PachctlCmd()
-	if err != nil {
-		return err
-	}
-	return doc.GenMarkdownTree(rootCmd, "./doc/pachctl/")
+	// Set 'os.Args[0]' so that examples use the expected command name
+	os.Args[0] = "pachctl"
+
+	rootCmd := cmd.PachctlCmd()
+
+	return doc.GenMarkdownTree(rootCmd, "./doc/docs/master/reference/pachctl/")
 }

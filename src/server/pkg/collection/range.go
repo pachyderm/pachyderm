@@ -3,6 +3,7 @@ package collection
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"sync/atomic"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -66,6 +67,9 @@ func listRevision(c *readonlyCollection, prefix string, limitPtr *int64, opts *O
 		}
 		kvs := getNewKeys(resp.Kvs, fromKey)
 		for _, kv := range kvs {
+			if strings.Contains(strings.TrimPrefix(string(kv.Key), prefix), indexIdentifier) {
+				continue
+			}
 			if err := f(kv); err != nil {
 				if err == errutil.ErrBreak {
 					return nil
@@ -128,6 +132,9 @@ func listSelfSortRevision(c *readonlyCollection, prefix string, limitPtr *int64,
 		sort.Sort(sort.Reverse(sorter))
 	}
 	for _, kv := range kvs {
+		if strings.Contains(strings.TrimPrefix(string(kv.Key), prefix), indexIdentifier) {
+			continue
+		}
 		if err := f(kv); err != nil {
 			if err == errutil.ErrBreak {
 				return nil

@@ -4,14 +4,17 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/version"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 
 	"github.com/segmentio/analytics-go"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube "k8s.io/client-go/kubernetes"
 )
 
@@ -19,16 +22,16 @@ import (
 type Reporter struct {
 	segmentClient *analytics.Client
 	clusterID     string
-	kubeClient    *kube.Clientset
+	env           *serviceenv.ServiceEnv
 }
 
 // NewReporter creates a new reporter and kicks off the loop to report cluster
 // metrics
-func NewReporter(clusterID string, kubeClient *kube.Clientset) *Reporter {
+func NewReporter(clusterID string, env *serviceenv.ServiceEnv) *Reporter {
 	reporter := &Reporter{
 		segmentClient: newPersistentClient(),
 		clusterID:     clusterID,
-		kubeClient:    kubeClient,
+		env:           env,
 	}
 	go reporter.reportClusterMetrics()
 	return reporter
@@ -70,7 +73,7 @@ func (r *Reporter) reportUserAction(ctx context.Context, action string, value in
 		}
 		prefix, err := getKeyFromMD(md, "prefix")
 		if err != nil {
-			log.Errorln(err)
+			// metrics errors are non fatal
 			return
 		}
 		reportUserMetricsToSegment(
@@ -86,16 +89,13 @@ func (r *Reporter) reportUserAction(ctx context.Context, action string, value in
 
 // Helper method called by (Start|Finish)ReportAndFlushUserAction. Like those
 // functions, it is used by the pachctl binary and runs on users' machines
-// TODO(msteffen): Wrap config parsing in a library
 func reportAndFlushUserAction(action string, value interface{}) func() {
 	metricsDone := make(chan struct{})
 	go func() {
 		client := newSegmentClient()
 		defer client.Close()
-		cfg, err := config.Read()
-		if err != nil || cfg == nil || cfg.UserID == "" {
-			log.Errorf("Error reading userid from ~/.pachyderm/config: %v", err)
-			// metrics errors are non fatal
+		cfg, _ := config.Read(false)
+		if cfg == nil || cfg.UserID == "" || !cfg.V2.Metrics {
 			return
 		}
 		reportUserMetricsToSegment(client, cfg.UserID, "user", action, value, "")
@@ -137,10 +137,39 @@ func (r *Reporter) reportClusterMetrics() {
 	for {
 		time.Sleep(reportingInterval)
 		metrics := &Metrics{}
-		externalMetrics(r.kubeClient, metrics)
+		internalMetrics(r.env.GetPachClient(context.Background()), metrics)
+		externalMetrics(r.env.GetKubeClient(), metrics)
 		metrics.ClusterID = r.clusterID
 		metrics.PodID = uuid.NewWithoutDashes()
 		metrics.Version = version.PrettyPrintVersion(version.Version)
 		reportClusterMetricsToSegment(r.segmentClient, metrics)
 	}
+}
+
+func externalMetrics(kubeClient *kube.Clientset, metrics *Metrics) error {
+	nodeList, err := kubeClient.CoreV1().Nodes().List(metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("externalMetrics: unable to retrieve node list from k8s: %v", err)
+	}
+	metrics.Nodes = int64(len(nodeList.Items))
+	return nil
+}
+
+func internalMetrics(pachClient *client.APIClient, metrics *Metrics) error {
+	enterpriseState, err := pachClient.Enterprise.GetState(pachClient.Ctx(), &enterprise.GetStateRequest{})
+	if err != nil {
+		return err
+	}
+	metrics.ActivationCode = enterpriseState.ActivationCode
+	pis, err := pachClient.ListPipeline()
+	if err != nil {
+		return err
+	}
+	metrics.Pipelines = int64(len(pis))
+	ris, err := pachClient.ListRepo()
+	if err != nil {
+		return err
+	}
+	metrics.Repos = int64(len(ris))
+	return nil
 }

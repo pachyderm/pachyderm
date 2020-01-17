@@ -2,35 +2,19 @@
 
 set -euxo pipefail
 
-# Make sure Pachyderm is running
+# Make sure Pachyderm is running and auth is activated
 which pachctl
 pachctl version
+pachctl auth whoami
 
 # Make sure vault binary is present
 which vault
 
-# Make sure Pachyderm enterprise and auth are enabled
-which aws || pip install awscli --upgrade --user
-if [[ "$(pachctl enterprise get-state)" = "No Pachyderm Enterprise token was found" ]]; then
-  # Don't print token to stdout
-  # This is very important, or we'd leak it in our CI logs
-  set +x
-  pachctl enterprise activate  $(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -)
-  set -x
-fi
-
-# Activate Pachyderm auth, if needed, and get a Pachyderm admin token
-if ! pachctl auth list-admins; then
-  admin="admin"
-  echo "${admin}" | pachctl auth activate
-elif pachctl auth list-admins | grep "github:"; then
-  admin="$( pachctl auth list-admins | grep 'github:' | head -n 1)"
-  admin="${admin#github:}"
-  echo "${admin}" | pachctl auth login
-else
-  echo "Could not find a github user to log in as. Cannot get admin token"
-  exit 1
-fi
+# generate an auth token for one of Pachyderm's existing admins
+admin="$(
+  pachctl auth list-admins \
+    | grep 'github:' | head -n 1 | sed 's/^github://'
+)"
 ADMIN_TOKEN="$(pachctl auth get-auth-token "github:${admin}" | grep Token | awk '{print $2}')"
 
 # Login to vault, so we can disable the previous Pachyderm plugin (if any is running)
@@ -46,7 +30,7 @@ echo "logged into vault"
 if vault read pachyderm/version/client-only; then
   vault write pachyderm/config \
         admin_token="${ADMIN_TOKEN}" \
-        pachd_address="${ADDRESS:-127.0.0.1:30650}" \
+        pachd_address="${PACHD_ADDRESS:-127.0.0.1:30650}" \
         ttl=5m # optional
   vault secrets disable $PLUGIN_NAME
 fi

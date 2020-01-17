@@ -2,6 +2,7 @@
   "pipeline": {
     "name": "scraper"
   },
+  "description": "A pipeline that pulls content from a specified Internet source.",
   "transform": {
     "cmd": [ "bash" ],
     "stdin": [

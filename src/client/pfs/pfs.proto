@@ -79,6 +79,16 @@ message RepoAuthInfo {
   auth.Scope access_level = 1;
 }
 
+// These are the different places where a commit may be originated from
+enum OriginKind {
+  USER = 0;
+  AUTO = 1;
+  FSCK = 2;
+}
+
+message CommitOrigin {
+  OriginKind kind = 1;
+}
 // Commit is a reference to a commit (e.g. the collection of branches and the
 // collection of currently-open commits in etcd are collections of Commit
 // protos)
@@ -94,9 +104,20 @@ message CommitRange {
   Commit upper = 2;
 }
 
+// CommitProvenance keeps track of where (i.e. which branch) a certain commit
+// originated from. A commit's provenance consists of the commits of
+// the commits which are in its causal history.
+message CommitProvenance {
+  Commit commit = 1;
+  Branch branch = 2;
+}
+
 // CommitInfo is the main data structure representing a commit in etcd
 message CommitInfo {
+  reserved 6, 10;
   Commit commit = 1;
+  Branch branch = 15;
+  CommitOrigin origin = 17;
   // description is a user-provided script describing this commit
   string description = 8;
   Commit parent_commit = 2;
@@ -105,11 +126,8 @@ message CommitInfo {
   google.protobuf.Timestamp finished = 4;
   uint64 size_bytes = 5;
 
-  // Commits on which this commit is provenant. provenance[i] is a commit in
-  // branch_provenance[i] (a branch name, and one of the branches on which this
-  // commit's branch is provenant)
-  repeated Commit provenance = 6;
-  repeated Branch branch_provenance = 10;
+  // the commits and their original branches on which this commit is provenant
+  repeated CommitProvenance provenance = 16;
 
   // ReadyProvenance is the number of provenant commits which have been
   // finished, if ReadyProvenance == len(Provenance) then the commit is ready
@@ -125,6 +143,10 @@ message CommitInfo {
   Object tree = 7;
   repeated Object trees = 13;
   Object datums = 14;
+
+  int64 subvenant_commits_success = 18;
+  int64 subvenant_commits_failure = 19;
+  int64 subvenant_commits_total = 20;
 }
 
 enum FileType {
@@ -159,6 +181,19 @@ message BlockRef {
 message ObjectInfo {
   Object object = 1;
   BlockRef block_ref = 2;
+}
+
+message Merge {
+  repeated string prefixes = 1;
+}
+
+message Shard {
+  PathRange range = 1;
+}
+
+message PathRange {
+  string lower = 1;
+  string upper = 2;
 }
 
 // PFS API
@@ -197,22 +232,27 @@ enum CommitState {
 }
 
 message StartCommitRequest {
+  reserved 2;
   // Parent.ID may be empty in which case the commit that Branch points to will be used as the parent.
   // If branch is empty, or if branch does not exist, the commit will have no parent.
   Commit parent = 1;
   // description is a user-provided string describing this commit
   string description = 4;
   string branch = 3;
-  repeated Commit provenance = 2;
+  repeated CommitProvenance provenance = 5;
 }
 
 message BuildCommitRequest {
+  reserved 2;
   Commit parent = 1;
   string branch = 4;
-  repeated Commit provenance = 2;
+  repeated CommitProvenance provenance = 6;
   Object tree = 3;
+  repeated Object trees = 7;
+  Object datums = 8;
   // ID sets the ID of the created commit.
   string ID = 5;
+  uint64 size_bytes = 9;
 }
 
 message FinishCommitRequest {
@@ -241,6 +281,7 @@ message ListCommitRequest {
   Commit from = 2;
   Commit to = 3;
   uint64 number = 4;
+  bool reverse = 5;  // Return commits oldest to newest
 }
 
 message CommitInfos {
@@ -263,6 +304,7 @@ message InspectBranchRequest {
 
 message ListBranchRequest {
   Repo repo = 1;
+  bool reverse = 2; // Returns branches oldest to newest
 }
 
 message DeleteBranchRequest {
@@ -282,6 +324,7 @@ message FlushCommitRequest {
 message SubscribeCommitRequest {
   Repo repo = 1;
   string branch = 2;
+  CommitProvenance prov = 5;
   // only commits created since this commit are returned
   Commit from = 3;
   // Don't return commits until they're in (at least) the desired state.
@@ -431,6 +474,15 @@ message DeleteFileRequest {
   File file = 1;
 }
 
+message FsckRequest {
+  bool fix = 1;
+}
+
+message FsckResponse {
+  string fix = 1;
+  string error = 2;
+}
+
 service API {
   // Repo rpcs
   // CreateRepo creates a new repo.
@@ -505,12 +557,19 @@ service API {
 
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  // Fsck does a file system consistency check for pfs
+  rpc Fsck(FsckRequest) returns (stream FsckResponse) {}
 }
 
 message PutObjectRequest {
   bytes value = 1;
   repeated Tag tags = 2;
   Block block = 3;
+}
+
+message CreateObjectRequest {
+  Object object = 1;
+  BlockRef block_ref = 2;
 }
 
 message GetObjectsRequest {
@@ -524,6 +583,15 @@ message GetObjectsRequest {
   uint64 total_size = 4;
 }
 
+message PutBlockRequest {
+  Block block = 1;
+  bytes value = 2;
+}
+
+message GetBlockRequest {
+  Block block = 1;
+}
+
 message GetBlocksRequest {
   repeated BlockRef blockRefs = 1;
   uint64 offset_bytes = 2;
@@ -534,6 +602,8 @@ message GetBlocksRequest {
   // It's used primarily as a hint for cache eviction.
   uint64 total_size = 4;
 }
+
+message ListBlockRequest {}
 
 message TagObjectRequest {
   Object object = 1;
@@ -580,15 +650,19 @@ service ObjectAPI {
   rpc PutObject(stream PutObjectRequest) returns (Object) {}
   rpc PutObjectSplit(stream PutObjectRequest) returns (Objects) {}
   rpc PutObjects(stream PutObjectRequest) returns (google.protobuf.Empty) {}
+  rpc CreateObject(CreateObjectRequest) returns (google.protobuf.Empty) {}
   rpc GetObject(Object) returns (stream google.protobuf.BytesValue) {}
   rpc GetObjects(GetObjectsRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc PutBlock(stream PutBlockRequest) returns (google.protobuf.Empty) {}
+  rpc GetBlock(GetBlockRequest) returns (stream google.protobuf.BytesValue) {}
   rpc GetBlocks(GetBlocksRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc ListBlock(ListBlockRequest) returns (stream Block) {}
   rpc TagObject(TagObjectRequest) returns (google.protobuf.Empty) {}
   rpc InspectObject(Object) returns (ObjectInfo) {}
   // CheckObject checks if an object exists in the blob store without
   // actually reading the object.
   rpc CheckObject(CheckObjectRequest) returns (CheckObjectResponse) {}
-  rpc ListObjects(ListObjectsRequest) returns (stream Object) {}
+  rpc ListObjects(ListObjectsRequest) returns (stream ObjectInfo) {}
   rpc DeleteObjects(DeleteObjectsRequest) returns (DeleteObjectsResponse) {}
   rpc GetTag(Tag) returns (stream google.protobuf.BytesValue) {}
   rpc InspectTag(Tag) returns (ObjectInfo) {}

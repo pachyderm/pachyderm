@@ -3,7 +3,8 @@ package tabwriter
 import (
 	"bytes"
 	"io"
-	"text/tabwriter"
+
+	"github.com/juju/ansiterm"
 )
 
 const (
@@ -15,7 +16,7 @@ const (
 // large numbers of items because it periodically flushes its contents and
 // reprints a header when it does.
 type Writer struct {
-	w      *tabwriter.Writer
+	w      *ansiterm.TabWriter
 	lines  int
 	header []byte
 }
@@ -28,7 +29,7 @@ func NewWriter(w io.Writer, header string) *Writer {
 	if header[len(header)-1] != '\n' {
 		panic("header must end in a new line")
 	}
-	tabwriter := tabwriter.NewWriter(w, 0, 1, 1, ' ', 0)
+	tabwriter := ansiterm.NewTabWriter(w, 0, 1, 1, ' ', 0)
 	tabwriter.Write([]byte(header))
 	return &Writer{
 		w:      tabwriter,

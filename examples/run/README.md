@@ -20,24 +20,29 @@ What this doesn't do:
 ## Configuring the pipeline
 
 The folder have the following structure:
-*  Congifuration files are stored in the [config](./config) folder
+*  Configuration files are stored in the [config](./config) folder
 *  Source files for magic are stored in the [src](./src) folder
-*  `Makefile` holds all the woodoo for putting thigs together
+*  `Makefile` holds all the voodoo for putting things together
 *  `Dockerfile` tells docker how to build the container
 
 All the configuration variables for the creation of the pipeline are stored in the [pipeline.conf](./config/pipeline.conf) file.
 This includes pipeline name, where the pipeline takes the input from etc. All the variables
 are commented in the file so read on there for more details.
 
-[pipeline.json](./config/pipeline.json) file holds the pachyderm specs for the pipeline, more here: [specs](http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html).
+[pipeline.json](./config/pipeline.json) file holds the pachyderm specs for the pipeline. For more information, see: [Pipeline specs](https://docs.pachyderm.com/latest/reference/pipeline_spec/).
 
 ## Creating the pipeline
 
-Run `make`, this will create a `target` folder with required configuration files. Then run `make install` to create a pipeline based on the created configuration. 
-After a while, run `make verify` to see if the job ran ok.
-
-Required environmental variables at build and deploy time (self explanatory): `$DOCKER_REGISTRY`, `$DOCKER_REGISTRY_USERNAME`, `$DOCKER_REGISTRY_PASSWORD` and `$DOCKER_REGISTRY_EMAIL`
-On top of that any env variables specified in `secrets.yaml` must also be present.
+1) Make any customizations to `config/pipeline.conf` that you need
+2) Ensure the repo specified in `config/pipeline.conf`'s `PIPELINE_REPO` exists in pachyderm: `pachctl create repo foobar`
+3) Ensure these env vars are specified:
+  * `$DOCKER_REGISTRY_USERNAME`
+  * `$DOCKER_REGISTRY_PASSWORD`
+  * `$DOCKER_REGISTRY_EMAIL`
+  * Any env vars used in `config/secrets.yaml`
+4) Run `make`. This will create a `target` folder with required configuration files.
+5) Run `make install` to create a pipeline based on the created configuration.
+6) After a while, run `make verify` to see if the job ran ok.
 
 ## Cleanup
 
@@ -62,3 +67,11 @@ pipeline gets the right input
 7.  (magic)
 8.  Observe data flowing ...
 
+## Platform-Specific Caveats
+
+If you're on mac, make sure to install GNU gettext. Via homebrew:
+
+```
+brew install gettext
+brew link --force gettext
+```

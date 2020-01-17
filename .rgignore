@@ -1,5 +1,0 @@
-**/vendor/**
-*.pb.go
-*.ipynb
-examples/jupyter_notebook/weather_data
-examples/jupyter_notebook/citibike_data

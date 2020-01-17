@@ -3,125 +3,69 @@ package cmds
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	deployclient "github.com/pachyderm/pachyderm/src/client/deploy"
-
+	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/images"
 	_metrics "github.com/pachyderm/pachyderm/src/server/pkg/metrics"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serde"
 
-	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
 )
 
-var defaultDashImage = "pachyderm/dash:1.7-preview-11"
+var defaultDashImage = "pachyderm/dash:1.9.0"
 
 var awsAccessKeyIDRE = regexp.MustCompile("^[A-Z0-9]{20}$")
 var awsSecretRE = regexp.MustCompile("^[A-Za-z0-9/+=]{40}$")
 var awsRegionRE = regexp.MustCompile("^[a-z]{2}(?:-gov)?-[a-z]+-[0-9]$")
 
-// BytesEncoder is an Encoder with bytes content.
-type BytesEncoder interface {
-	assets.Encoder
-	// Return the current buffer of the encoder.
-	Buffer() *bytes.Buffer
-}
-
-// JSON assets.Encoder.
-type jsonEncoder struct {
-	encoder *json.Encoder
-	buffer  *bytes.Buffer
-}
-
-func newJSONEncoder() *jsonEncoder {
-	buffer := &bytes.Buffer{}
-	encoder := json.NewEncoder(buffer)
-	encoder.SetIndent("", "\t")
-	return &jsonEncoder{encoder, buffer}
-}
-
-func (e *jsonEncoder) Encode(item interface{}) error {
-	if err := e.encoder.Encode(item); err != nil {
-		return err
-	}
-	_, err := fmt.Fprintf(e.buffer, "\n")
-	return err
-}
-
-// Return the current bytes content.
-func (e *jsonEncoder) Buffer() *bytes.Buffer {
-	return e.buffer
-}
-
-// YAML assets.Encoder.
-type yamlEncoder struct {
-	buffer *bytes.Buffer
-}
-
-func newYAMLEncoder() *yamlEncoder {
-	buffer := &bytes.Buffer{}
-	return &yamlEncoder{buffer}
-}
-
-func (e *yamlEncoder) Encode(item interface{}) error {
-	bytes, err := yaml.Marshal(item)
-	if err != nil {
-		return err
-	}
-	_, err = e.buffer.Write(bytes)
-	if err != nil {
-		return err
-	}
-	_, err = fmt.Fprintf(e.buffer, "---\n")
-	return err
-}
-
-// Return the current bytes content.
-func (e *yamlEncoder) Buffer() *bytes.Buffer {
-	return e.buffer
-}
-
 // Return the appropriate encoder for the given output format.
-func getEncoder(outputFormat string) BytesEncoder {
-	switch outputFormat {
-	case "yaml":
-		return newYAMLEncoder()
-	case "json":
-		return newJSONEncoder()
-	default:
-		return newJSONEncoder()
+func encoder(output string, w io.Writer) serde.Encoder {
+	if output == "" {
+		output = "json"
+	} else {
+		output = strings.ToLower(output)
 	}
+	e, err := serde.GetEncoder(output, w,
+		serde.WithIndent(2),
+		serde.WithOrigName(true),
+	)
+	if err != nil {
+		cmdutil.ErrorAndExit(err.Error())
+	}
+	return e
 }
 
-func kubectlCreate(dryRun bool, manifest BytesEncoder, opts *assets.AssetOpts, metrics bool) error {
+func kubectlCreate(dryRun bool, manifest []byte, opts *assets.AssetOpts) error {
 	if dryRun {
-		_, err := os.Stdout.Write(manifest.Buffer().Bytes())
+		_, err := os.Stdout.Write(manifest)
 		return err
 	}
 	io := cmdutil.IO{
-		Stdin:  manifest.Buffer(),
+		Stdin:  bytes.NewReader(manifest),
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
 	}
 	// we set --validate=false due to https://github.com/kubernetes/kubernetes/issues/53309
-	if err := cmdutil.RunIO(io, "kubectl", "apply", "-f", "-", "--validate=false"); err != nil {
+	if err := cmdutil.RunIO(io, "kubectl", "apply", "-f", "-", "--validate=false", "--namespace", opts.Namespace); err != nil {
 		return err
 	}
 
@@ -132,6 +76,73 @@ func kubectlCreate(dryRun bool, manifest BytesEncoder, opts *assets.AssetOpts, m
 	fmt.Println("")
 
 	return nil
+}
+
+func contextCreate(namePrefix, namespace, serverCert string) error {
+	kubeConfig, err := config.RawKubeConfig()
+	if err != nil {
+		return err
+	}
+	kubeContext := kubeConfig.Contexts[kubeConfig.CurrentContext]
+
+	clusterName := ""
+	authInfo := ""
+	if kubeContext != nil {
+		clusterName = kubeContext.Cluster
+		authInfo = kubeContext.AuthInfo
+	}
+
+	cfg, err := config.Read(false)
+	if err != nil {
+		return err
+	}
+
+	newContext := &config.Context{
+		Source:      config.ContextSource_IMPORTED,
+		ClusterName: clusterName,
+		AuthInfo:    authInfo,
+		Namespace:   namespace,
+		ServerCAs:   serverCert,
+	}
+
+	// if the new context is the same as the active context, just update
+	// fields on the existing context
+	_, activeContext, _ := cfg.ActiveContext()
+	if newContext.EqualClusterReference(activeContext) {
+		activeContext.ClusterID = ""
+		activeContext.ServerCAs = serverCert
+		return cfg.Write()
+	}
+
+	// try to find an existing context that is the same as the new context,
+	// in which case we just switch contexts rather than creating a new one
+	contextNames := []string{}
+	for contextName := range cfg.V2.Contexts {
+		contextNames = append(contextNames, contextName)
+	}
+	sort.Strings(contextNames)
+
+	for _, contextName := range contextNames {
+		existingContext := cfg.V2.Contexts[contextName]
+
+		if newContext.EqualClusterReference(existingContext) {
+			cfg.V2.ActiveContext = contextName
+			existingContext.ClusterID = ""
+			existingContext.ServerCAs = serverCert
+			return cfg.Write()
+		}
+	}
+
+	// we couldn't find an existing context that is the same as the new one,
+	// so we'll have to create it
+	newContextName := namePrefix
+	if _, ok := cfg.V2.Contexts[newContextName]; ok {
+		newContextName = fmt.Sprintf("%s-%s", namePrefix, time.Now().Format("2006-01-02-15-04-05"))
+	}
+
+	cfg.V2.Contexts[newContextName] = newContext
+	cfg.V2.ActiveContext = newContextName
+	return cfg.Write()
 }
 
 // containsEmpty is a helper function used for validation (particularly for
@@ -145,47 +156,25 @@ func containsEmpty(vals []string) bool {
 	return false
 }
 
-// DeployCmd returns a cobra.Command to deploy pachyderm.
-func DeployCmd(noMetrics *bool) *cobra.Command {
-	metrics := !*noMetrics
-	var pachdShards int
-	var hostPath string
-	var dev bool
+// deployCmds returns the set of cobra.Commands used to deploy pachyderm.
+func deployCmds() []*cobra.Command {
+	var commands []*cobra.Command
+	var opts *assets.AssetOpts
+
 	var dryRun bool
 	var outputFormat string
-	var secure bool
-	var isS3V2 bool
-	var etcdNodes int
-	var etcdVolume string
-	var etcdStorageClassName string
-	var pachdCPURequest string
-	var pachdNonCacheMemRequest string
-	var blockCacheSize string
-	var etcdCPURequest string
-	var etcdMemRequest string
-	var logLevel string
-	var persistentDiskBackend string
-	var objectStoreBackend string
-	var opts *assets.AssetOpts
-	var dashOnly bool
-	var noDash bool
-	var dashImage string
-	var registry string
-	var imagePullSecret string
-	var noGuaranteed bool
-	var noRBAC bool
-	var localRoles bool
+	var contextName string
+	var dev bool
+	var hostPath string
 	var namespace string
-	var noExposeDockerSocket bool
-	var exposeObjectAPI bool
-	var tlsCertKey string
+	var serverCert string
+	var createContext bool
 
 	deployLocal := &cobra.Command{
-		Use:   "local",
 		Short: "Deploy a single-node Pachyderm cluster with local metadata storage.",
 		Long:  "Deploy a single-node Pachyderm cluster with local metadata storage.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			if metrics && !dev {
+			if !dev {
 				start := time.Now()
 				startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
 				defer startMetricsWait()
@@ -194,13 +183,12 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 					finishMetricsWait()
 				}()
 			}
-			manifest := getEncoder(outputFormat)
 			if dev {
 				// Use dev build instead of release build
 				opts.Version = deploy.DevVersionTag
 
-				// we turn metrics off this is a dev cluster. The default is set by
-				// deploy.PersistentPreRun, below.
+				// we turn metrics off if this is a dev cluster. The default
+				// is set by deploy.PersistentPreRun, below.
 				opts.Metrics = false
 
 				// Disable authentication, for tests
@@ -210,39 +198,50 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 				// our tests (and authentication is disabled anyway)
 				opts.ExposeObjectAPI = true
 			}
-			if err := assets.WriteLocalAssets(manifest, opts, hostPath); err != nil {
+			var buf bytes.Buffer
+			if err := assets.WriteLocalAssets(
+				encoder(outputFormat, &buf), opts, hostPath,
+			); err != nil {
 				return err
 			}
-			return kubectlCreate(dryRun, manifest, opts, metrics)
+			if err := kubectlCreate(dryRun, buf.Bytes(), opts); err != nil {
+				return err
+			}
+			if !dryRun || createContext {
+				if contextName == "" {
+					contextName = "local"
+				}
+				if err := contextCreate(contextName, namespace, serverCert); err != nil {
+					return err
+				}
+			}
+			return nil
 		}),
 	}
-	deployLocal.Flags().StringVar(&hostPath, "host-path", "/var/pachyderm", "Location on the host machine where PFS metadata will be stored.")
+	deployLocal.Flags().StringVar(&hostPath, "host-path", localHostPath(), "Location on the host machine where PFS metadata will be stored.")
 	deployLocal.Flags().BoolVarP(&dev, "dev", "d", false, "Deploy pachd with local version tags, disable metrics, expose Pachyderm's object/block API, and use an insecure authentication mechanism (do not set on any cluster with sensitive data)")
+	commands = append(commands, cmdutil.CreateAlias(deployLocal, "deploy local"))
 
 	deployGoogle := &cobra.Command{
-		Use:   "google <GCS bucket> <size of disk(s) (in GB)> [<service account creds file>]",
-		Short: "Deploy a Pachyderm cluster running on GCP.",
-		Long: "Deploy a Pachyderm cluster running on GCP.\n" +
-			"Arguments are:\n" +
-			"  <GCS bucket>: A GCS bucket where Pachyderm will store PFS data.\n" +
-			"  <GCE persistent disks>: A comma-separated list of GCE persistent disks, one per etcd node (see --etcd-nodes).\n" +
-			"  <size of disks>: Size of GCE persistent disks in GB (assumed to all be the same).\n" +
-			"  <service account creds file>: a file contain a private key for a service account (downloaded from GCE).\n",
+		Use:   "{{alias}} <bucket-name> <disk-size> [<credentials-file>]",
+		Short: "Deploy a Pachyderm cluster running on Google Cloud Platform.",
+		Long: `Deploy a Pachyderm cluster running on Google Cloud Platform.
+  <bucket-name>: A Google Cloud Storage bucket where Pachyderm will store PFS data.
+  <disk-size>: Size of Google Compute Engine persistent disks in GB (assumed to all be the same).
+  <credentials-file>: A file containing the private key for the account (downloaded from Google Compute Engine).`,
 		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
-			if metrics && !dev {
-				start := time.Now()
-				startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
-				defer startMetricsWait()
-				defer func() {
-					finishMetricsWait := _metrics.FinishReportAndFlushUserAction("Deploy", retErr, start)
-					finishMetricsWait()
-				}()
-			}
+			start := time.Now()
+			startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
+			defer startMetricsWait()
+			defer func() {
+				finishMetricsWait := _metrics.FinishReportAndFlushUserAction("Deploy", retErr, start)
+				finishMetricsWait()
+			}()
 			volumeSize, err := strconv.Atoi(args[1])
 			if err != nil {
 				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[1])
 			}
-			manifest := getEncoder(outputFormat)
+			var buf bytes.Buffer
 			opts.BlockCacheSize = "0G" // GCS is fast so we want to disable the block cache. See issue #1650
 			var cred string
 			if len(args) == 3 {
@@ -252,37 +251,88 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 				}
 				cred = string(credBytes)
 			}
-			if err = assets.WriteGoogleAssets(manifest, opts, args[0], cred, volumeSize); err != nil {
+			bucket := strings.TrimPrefix(args[0], "gs://")
+			if err = assets.WriteGoogleAssets(
+				encoder(outputFormat, &buf), opts, bucket, cred, volumeSize,
+			); err != nil {
 				return err
 			}
-			return kubectlCreate(dryRun, manifest, opts, metrics)
+			if err := kubectlCreate(dryRun, buf.Bytes(), opts); err != nil {
+				return err
+			}
+			if !dryRun || createContext {
+				if contextName == "" {
+					contextName = "gcs"
+				}
+				if err := contextCreate(contextName, namespace, serverCert); err != nil {
+					return err
+				}
+			}
+			return nil
 		}),
 	}
+	commands = append(commands, cmdutil.CreateAlias(deployGoogle, "deploy google"))
 
+	var objectStoreBackend string
+	var persistentDiskBackend string
+	var secure bool
+	var isS3V2 bool
+	var retries int
+	var timeout string
+	var uploadACL string
+	var reverse bool
+	var partSize int64
+	var maxUploadParts int
+	var disableSSL bool
+	var noVerifySSL bool
 	deployCustom := &cobra.Command{
-		Use:   "custom --persistent-disk <persistent disk backend> --object-store <object store backend> <persistent disk args> <object store args>",
-		Short: "(in progress) Deploy a custom Pachyderm cluster configuration",
-		Long: "(in progress) Deploy a custom Pachyderm cluster configuration.\n" +
-			"If <object store backend> is \"s3\", then the arguments are:\n" +
-			"    <volumes> <size of volumes (in GB)> <bucket> <id> <secret> <endpoint>\n",
+		Use:   "{{alias}} --persistent-disk <persistent disk backend> --object-store <object store backend> <persistent disk args> <object store args>",
+		Short: "Deploy a custom Pachyderm cluster configuration",
+		Long: `Deploy a custom Pachyderm cluster configuration.
+If <object store backend> is \"s3\", then the arguments are:
+    <volumes> <size of volumes (in GB)> <bucket> <id> <secret> <endpoint>`,
 		Run: cmdutil.RunBoundedArgs(4, 7, func(args []string) (retErr error) {
-			if metrics && !dev {
-				start := time.Now()
-				startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
-				defer startMetricsWait()
-				defer func() {
-					finishMetricsWait := _metrics.FinishReportAndFlushUserAction("Deploy", retErr, start)
-					finishMetricsWait()
-				}()
+			start := time.Now()
+			startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
+			defer startMetricsWait()
+			defer func() {
+				finishMetricsWait := _metrics.FinishReportAndFlushUserAction("Deploy", retErr, start)
+				finishMetricsWait()
+			}()
+			// Setup advanced configuration.
+			advancedConfig := &obj.AmazonAdvancedConfiguration{
+				Retries:        retries,
+				Timeout:        timeout,
+				UploadACL:      uploadACL,
+				Reverse:        reverse,
+				PartSize:       partSize,
+				MaxUploadParts: maxUploadParts,
+				DisableSSL:     disableSSL,
+				NoVerifySSL:    noVerifySSL,
 			}
-			manifest := getEncoder(outputFormat)
-			err := assets.WriteCustomAssets(manifest, opts, args, objectStoreBackend, persistentDiskBackend, secure, isS3V2)
-			if err != nil {
+			// Generate manifest and write assets.
+			var buf bytes.Buffer
+			if err := assets.WriteCustomAssets(
+				encoder(outputFormat, &buf), opts, args, objectStoreBackend,
+				persistentDiskBackend, secure, isS3V2, advancedConfig,
+			); err != nil {
 				return err
 			}
-			return kubectlCreate(dryRun, manifest, opts, metrics)
+			if err := kubectlCreate(dryRun, buf.Bytes(), opts); err != nil {
+				return err
+			}
+			if !dryRun || createContext {
+				if contextName == "" {
+					contextName = "custom"
+				}
+				if err := contextCreate(contextName, namespace, serverCert); err != nil {
+					return err
+				}
+			}
+			return nil
 		}),
 	}
+	// (bryce) secure should be merged with disableSSL, but it would be a breaking change.
 	deployCustom.Flags().BoolVarP(&secure, "secure", "s", false, "Enable secure access to a Minio server.")
 	deployCustom.Flags().StringVar(&persistentDiskBackend, "persistent-disk", "aws",
 		"(required) Backend providing persistent local volumes to stateful pods. "+
@@ -291,31 +341,37 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		"(required) Backend providing an object-storage API to pachyderm. One of: "+
 			"s3, gcs, or azure-blob.")
 	deployCustom.Flags().BoolVar(&isS3V2, "isS3V2", false, "Enable S3V2 client")
+	deployCustom.Flags().IntVar(&retries, "retries", obj.DefaultRetries, "(rarely set / S3V2 incompatible) Set a custom number of retries for object storage requests.")
+	deployCustom.Flags().StringVar(&timeout, "timeout", obj.DefaultTimeout, "(rarely set / S3V2 incompatible) Set a custom timeout for object storage requests.")
+	deployCustom.Flags().StringVar(&uploadACL, "upload-acl", obj.DefaultUploadACL, "(rarely set / S3V2 incompatible) Set a custom upload ACL for object storage uploads.")
+	deployCustom.Flags().BoolVar(&reverse, "reverse", obj.DefaultReverse, "(rarely set) Reverse object storage paths.")
+	deployCustom.Flags().Int64Var(&partSize, "part-size", obj.DefaultPartSize, "(rarely set / S3V2 incompatible) Set a custom part size for object storage uploads.")
+	deployCustom.Flags().IntVar(&maxUploadParts, "max-upload-parts", obj.DefaultMaxUploadParts, "(rarely set / S3V2 incompatible) Set a custom maximum number of upload parts.")
+	deployCustom.Flags().BoolVar(&disableSSL, "disable-ssl", obj.DefaultDisableSSL, "(rarely set / S3V2 incompatible) Disable SSL.")
+	deployCustom.Flags().BoolVar(&noVerifySSL, "no-verify-ssl", obj.DefaultNoVerifySSL, "(rarely set / S3V2 incompatible) Skip SSL certificate verification (typically used for enabling self-signed certificates).")
+	commands = append(commands, cmdutil.CreateAlias(deployCustom, "deploy custom"))
 
-	var creds string
-	var vault string
-	var iamRole string
 	var cloudfrontDistribution string
+	var creds string
+	var iamRole string
+	var vault string
 	deployAmazon := &cobra.Command{
-		Use:   "amazon <S3 bucket> <region> <size of volumes (in GB)>",
+		Use:   "{{alias}} <bucket-name> <region> <disk-size>",
 		Short: "Deploy a Pachyderm cluster running on AWS.",
-		Long: "Deploy a Pachyderm cluster running on AWS. Arguments are:\n" +
-			"  <S3 bucket>: An S3 bucket where Pachyderm will store PFS data.\n" +
-			"\n" +
-			"  <region>: The aws region where pachyderm is being deployed (e.g. us-west-1)\n" +
-			"  <size of volumes>: Size of EBS volumes, in GB (assumed to all be the same).\n",
+		Long: `Deploy a Pachyderm cluster running on AWS.
+  <bucket-name>: An S3 bucket where Pachyderm will store PFS data.
+  <region>: The AWS region where Pachyderm is being deployed (e.g. us-west-1)
+  <disk-size>: Size of EBS volumes, in GB (assumed to all be the same).`,
 		Run: cmdutil.RunFixedArgs(3, func(args []string) (retErr error) {
-			if metrics && !dev {
-				start := time.Now()
-				startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
-				defer startMetricsWait()
-				defer func() {
-					finishMetricsWait := _metrics.FinishReportAndFlushUserAction("Deploy", retErr, start)
-					finishMetricsWait()
-				}()
-			}
+			start := time.Now()
+			startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
+			defer startMetricsWait()
+			defer func() {
+				finishMetricsWait := _metrics.FinishReportAndFlushUserAction("Deploy", retErr, start)
+				finishMetricsWait()
+			}()
 			if creds == "" && vault == "" && iamRole == "" {
-				return fmt.Errorf("One of --credentials, --vault, or --iam-role needs to be provided")
+				return fmt.Errorf("one of --credentials, --vault, or --iam-role needs to be provided")
 			}
 
 			// populate 'amazonCreds' & validate
@@ -324,7 +380,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			if creds != "" {
 				parts := strings.Split(creds, ",")
 				if len(parts) < 2 || len(parts) > 3 || containsEmpty(parts[:2]) {
-					return fmt.Errorf("Incorrect format of --credentials")
+					return fmt.Errorf("incorrect format of --credentials")
 				}
 				amazonCreds = &assets.AmazonCreds{ID: parts[0], Secret: parts[1]}
 				if len(parts) > 2 {
@@ -332,16 +388,17 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 				}
 
 				if !awsAccessKeyIDRE.MatchString(amazonCreds.ID) {
-					fmt.Printf("The AWS Access Key seems invalid (does not match %q). "+
-						"Do you want to continue deploying? [yN]\n", awsAccessKeyIDRE)
+					fmt.Fprintf(os.Stderr, "The AWS Access Key seems invalid (does not "+
+						"match %q). Do you want to continue deploying? [yN]\n",
+						awsAccessKeyIDRE)
 					if s.Scan(); s.Text()[0] != 'y' && s.Text()[0] != 'Y' {
 						os.Exit(1)
 					}
 				}
 
 				if !awsSecretRE.MatchString(amazonCreds.Secret) {
-					fmt.Printf("The AWS Secret seems invalid (does not match %q). "+
-						"Do you want to continue deploying? [yN]\n", awsSecretRE)
+					fmt.Fprintf(os.Stderr, "The AWS Secret seems invalid (does not "+
+						"match %q). Do you want to continue deploying? [yN]\n", awsSecretRE)
 					if s.Scan(); s.Text()[0] != 'y' && s.Text()[0] != 'Y' {
 						os.Exit(1)
 					}
@@ -349,17 +406,17 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			}
 			if vault != "" {
 				if amazonCreds != nil {
-					return fmt.Errorf("Only one of --credentials, --vault, or --iam-role needs to be provided")
+					return fmt.Errorf("only one of --credentials, --vault, or --iam-role needs to be provided")
 				}
 				parts := strings.Split(vault, ",")
 				if len(parts) != 3 || containsEmpty(parts) {
-					return fmt.Errorf("Incorrect format of --vault")
+					return fmt.Errorf("incorrect format of --vault")
 				}
 				amazonCreds = &assets.AmazonCreds{VaultAddress: parts[0], VaultRole: parts[1], VaultToken: parts[2]}
 			}
 			if iamRole != "" {
 				if amazonCreds != nil {
-					return fmt.Errorf("Only one of --credentials, --vault, or --iam-role needs to be provided")
+					return fmt.Errorf("only one of --credentials, --vault, or --iam-role needs to be provided")
 				}
 				opts.IAMRole = iamRole
 			}
@@ -368,24 +425,50 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[2])
 			}
 			if strings.TrimSpace(cloudfrontDistribution) != "" {
-				fmt.Printf("WARNING: You specified a cloudfront distribution. Deploying on AWS with cloudfront is currently " +
-					"an alpha feature. No security restrictions have been applied to cloudfront, making all data public (obscured but not secured)\n")
+				fmt.Fprintf(os.Stderr, "WARNING: You specified a cloudfront "+
+					"distribution. Deploying on AWS with cloudfront is currently an "+
+					"alpha feature. No security restrictions have been applied to "+
+					"cloudfront, making all data public (obscured but not secured)\n")
 			}
 			bucket, region := strings.TrimPrefix(args[0], "s3://"), args[1]
 			if !awsRegionRE.MatchString(region) {
-				fmt.Printf("The AWS region seems invalid (does not match %q). "+
-					"Do you want to continue deploying? [yN]\n", awsRegionRE)
+				fmt.Fprintf(os.Stderr, "The AWS region seems invalid (does not match "+
+					"%q). Do you want to continue deploying? [yN]\n", awsRegionRE)
 				if s.Scan(); s.Text()[0] != 'y' && s.Text()[0] != 'Y' {
 					os.Exit(1)
 				}
 			}
-
-			// generate manifest and write assets
-			manifest := getEncoder(outputFormat)
-			if err = assets.WriteAmazonAssets(manifest, opts, region, bucket, volumeSize, amazonCreds, cloudfrontDistribution); err != nil {
+			// Setup advanced configuration.
+			advancedConfig := &obj.AmazonAdvancedConfiguration{
+				Retries:        retries,
+				Timeout:        timeout,
+				UploadACL:      uploadACL,
+				Reverse:        reverse,
+				PartSize:       partSize,
+				MaxUploadParts: maxUploadParts,
+				DisableSSL:     disableSSL,
+				NoVerifySSL:    noVerifySSL,
+			}
+			// Generate manifest and write assets.
+			var buf bytes.Buffer
+			if err = assets.WriteAmazonAssets(
+				encoder(outputFormat, &buf), opts, region, bucket, volumeSize,
+				amazonCreds, cloudfrontDistribution, advancedConfig,
+			); err != nil {
 				return err
 			}
-			return kubectlCreate(dryRun, manifest, opts, metrics)
+			if err := kubectlCreate(dryRun, buf.Bytes(), opts); err != nil {
+				return err
+			}
+			if !dryRun || createContext {
+				if contextName == "" {
+					contextName = "aws"
+				}
+				if err := contextCreate(contextName, namespace, serverCert); err != nil {
+					return err
+				}
+			}
+			return nil
 		}),
 	}
 	deployAmazon.Flags().StringVar(&cloudfrontDistribution, "cloudfront-distribution", "",
@@ -395,30 +478,37 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	deployAmazon.Flags().StringVar(&creds, "credentials", "", "Use the format \"<id>,<secret>[,<token>]\". You can get a token by running \"aws sts get-session-token\".")
 	deployAmazon.Flags().StringVar(&vault, "vault", "", "Use the format \"<address/hostport>,<role>,<token>\".")
 	deployAmazon.Flags().StringVar(&iamRole, "iam-role", "", fmt.Sprintf("Use the given IAM role for authorization, as opposed to using static credentials. The given role will be applied as the annotation %s, this used with a Kubernetes IAM role management system such as kube2iam allows you to give pachd credentials in a more secure way.", assets.IAMAnnotation))
+	deployAmazon.Flags().IntVar(&retries, "retries", obj.DefaultRetries, "(rarely set) Set a custom number of retries for object storage requests.")
+	deployAmazon.Flags().StringVar(&timeout, "timeout", obj.DefaultTimeout, "(rarely set) Set a custom timeout for object storage requests.")
+	deployAmazon.Flags().StringVar(&uploadACL, "upload-acl", obj.DefaultUploadACL, "(rarely set) Set a custom upload ACL for object storage uploads.")
+	deployAmazon.Flags().BoolVar(&reverse, "reverse", obj.DefaultReverse, "(rarely set) Reverse object storage paths.")
+	deployAmazon.Flags().Int64Var(&partSize, "part-size", obj.DefaultPartSize, "(rarely set) Set a custom part size for object storage uploads.")
+	deployAmazon.Flags().IntVar(&maxUploadParts, "max-upload-parts", obj.DefaultMaxUploadParts, "(rarely set) Set a custom maximum number of upload parts.")
+	deployAmazon.Flags().BoolVar(&disableSSL, "disable-ssl", obj.DefaultDisableSSL, "(rarely set) Disable SSL.")
+	deployAmazon.Flags().BoolVar(&noVerifySSL, "no-verify-ssl", obj.DefaultNoVerifySSL, "(rarely set) Skip SSL certificate verification (typically used for enabling self-signed certificates).")
+	commands = append(commands, cmdutil.CreateAlias(deployAmazon, "deploy amazon"))
 
 	deployMicrosoft := &cobra.Command{
-		Use:   "microsoft <container> <storage account name> <storage account key> <size of volumes (in GB)>",
+		Use:   "{{alias}} <container> <account-name> <account-key> <disk-size>",
 		Short: "Deploy a Pachyderm cluster running on Microsoft Azure.",
-		Long: "Deploy a Pachyderm cluster running on Microsoft Azure. Arguments are:\n" +
-			"  <container>: An Azure container where Pachyderm will store PFS data.\n" +
-			"  <size of volumes>: Size of persistent volumes, in GB (assumed to all be the same).\n",
+		Long: `Deploy a Pachyderm cluster running on Microsoft Azure.
+  <container>: An Azure container where Pachyderm will store PFS data.
+  <disk-size>: Size of persistent volumes, in GB (assumed to all be the same).`,
 		Run: cmdutil.RunFixedArgs(4, func(args []string) (retErr error) {
-			if metrics && !dev {
-				start := time.Now()
-				startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
-				defer startMetricsWait()
-				defer func() {
-					finishMetricsWait := _metrics.FinishReportAndFlushUserAction("Deploy", retErr, start)
-					finishMetricsWait()
-				}()
-			}
+			start := time.Now()
+			startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
+			defer startMetricsWait()
+			defer func() {
+				finishMetricsWait := _metrics.FinishReportAndFlushUserAction("Deploy", retErr, start)
+				finishMetricsWait()
+			}()
 			if _, err := base64.StdEncoding.DecodeString(args[2]); err != nil {
 				return fmt.Errorf("storage-account-key needs to be base64 encoded; instead got '%v'", args[2])
 			}
 			if opts.EtcdVolume != "" {
 				tempURI, err := url.ParseRequestURI(opts.EtcdVolume)
 				if err != nil {
-					return fmt.Errorf("Volume URI needs to be a well-formed URI; instead got '%v'", opts.EtcdVolume)
+					return fmt.Errorf("volume URI needs to be a well-formed URI; instead got '%v'", opts.EtcdVolume)
 				}
 				opts.EtcdVolume = tempURI.String()
 			}
@@ -426,70 +516,128 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[3])
 			}
-			manifest := getEncoder(outputFormat)
-			if err = assets.WriteMicrosoftAssets(manifest, opts, args[0], args[1], args[2], volumeSize); err != nil {
+			var buf bytes.Buffer
+			container := strings.TrimPrefix(args[0], "wasb://")
+			accountName, accountKey := args[1], args[2]
+			if err = assets.WriteMicrosoftAssets(
+				encoder(outputFormat, &buf), opts, container, accountName, accountKey, volumeSize,
+			); err != nil {
 				return err
 			}
-			return kubectlCreate(dryRun, manifest, opts, metrics)
-		}),
-	}
-
-	deployStorage := &cobra.Command{
-		Use:   "storage <backend> ...",
-		Short: "Deploy credentials for a particular storage provider.",
-		Long: `
-Deploy credentials for a particular storage provider, so that Pachyderm can
-ingress data from and egress data to it.  Currently three backends are
-supported: aws, google, and azure.  To see the required arguments for a
-particular backend, run "pachctl deploy storage <backend>"`,
-		Run: cmdutil.RunBoundedArgs(1, 5, func(args []string) (retErr error) {
-			var data map[string][]byte
-			switch args[0] {
-			case "amazon", "aws":
-				// Need at least 4 arguments: backend, bucket, id, secret
-				if len(args) < 4 {
-					return fmt.Errorf("Usage: pachctl deploy storage amazon <region> <id> <secret> <token>\n\n<token> is optional")
-				}
-				var token string
-				if len(args) == 5 {
-					token = args[4]
-				}
-				data = assets.AmazonSecret(args[1], "", args[2], args[3], token, "")
-			case "google":
-				if len(args) < 2 {
-					return fmt.Errorf("Usage: pachctl deploy storage google <service account creds file>")
-				}
-				credBytes, err := ioutil.ReadFile(args[1])
-				if err != nil {
-					return fmt.Errorf("error reading creds file %s: %v", args[2], err)
-				}
-				data = assets.GoogleSecret("", string(credBytes))
-			case "azure":
-				// Need 3 arguments: backend, account name, account key
-				if len(args) != 3 {
-					return fmt.Errorf("Usage: pachctl deploy storage azure <account name> <account key>")
-				}
-				data = assets.MicrosoftSecret("", args[1], args[2])
+			if err := kubectlCreate(dryRun, buf.Bytes(), opts); err != nil {
+				return err
 			}
-
-			c, err := client.NewOnUserMachine(metrics, true, "user")
-			if err != nil {
-				return fmt.Errorf("error constructing pachyderm client: %v", err)
-			}
-			defer c.Close()
-
-			_, err = c.DeployStorageSecret(context.Background(), &deployclient.DeployStorageSecretRequest{
-				Secrets: data,
-			})
-			if err != nil {
-				return fmt.Errorf("error deploying storage secret to pachd: %v", err)
+			if !dryRun || createContext {
+				if contextName == "" {
+					contextName = "azure"
+				}
+				if err := contextCreate(contextName, namespace, serverCert); err != nil {
+					return err
+				}
 			}
 			return nil
 		}),
 	}
+	commands = append(commands, cmdutil.CreateAlias(deployMicrosoft, "deploy microsoft"))
+
+	deployStorageSecrets := func(data map[string][]byte) error {
+		c, err := client.NewOnUserMachine("user")
+		if err != nil {
+			return fmt.Errorf("error constructing pachyderm client: %v", err)
+		}
+		defer c.Close()
+
+		// clean up any empty, but non-nil strings in the data, since those will prevent those fields from getting merged when we do the patch
+		for k, v := range data {
+			if v != nil && len(v) == 0 {
+				delete(data, k)
+			}
+		}
+
+		var buf bytes.Buffer
+		if err = assets.WriteSecret(encoder(outputFormat, &buf), data, opts); err != nil {
+			return err
+		}
+		if dryRun {
+			_, err := os.Stdout.Write(buf.Bytes())
+			return err
+		}
+
+		io := cmdutil.IO{
+			Stdin:  &buf,
+			Stdout: os.Stdout,
+			Stderr: os.Stderr,
+		}
+
+		// it can't unmarshal it from stdin in the given format for some reason, so we pass it in directly
+		s := buf.String()
+		return cmdutil.RunIO(io, `kubectl`, "patch", "secret", "pachyderm-storage-secret", "-p", s, "--namespace", opts.Namespace, "--type=merge")
+	}
+
+	deployStorageAmazon := &cobra.Command{
+		Use:   "{{alias}} <region> <access-key-id> <secret-access-key> [<session-token>]",
+		Short: "Deploy credentials for the Amazon S3 storage provider.",
+		Long:  "Deploy credentials for the Amazon S3 storage provider, so that Pachyderm can ingress data from and egress data to it.",
+		Run: cmdutil.RunBoundedArgs(3, 4, func(args []string) error {
+			var token string
+			if len(args) == 4 {
+				token = args[3]
+			}
+			// Setup advanced configuration.
+			advancedConfig := &obj.AmazonAdvancedConfiguration{
+				Retries:        retries,
+				Timeout:        timeout,
+				UploadACL:      uploadACL,
+				Reverse:        reverse,
+				PartSize:       partSize,
+				MaxUploadParts: maxUploadParts,
+				DisableSSL:     disableSSL,
+				NoVerifySSL:    noVerifySSL,
+			}
+			return deployStorageSecrets(assets.AmazonSecret(args[0], "", args[1], args[2], token, "", "", advancedConfig))
+		}),
+	}
+	deployStorageAmazon.Flags().IntVar(&retries, "retries", obj.DefaultRetries, "(rarely set) Set a custom number of retries for object storage requests.")
+	deployStorageAmazon.Flags().StringVar(&timeout, "timeout", obj.DefaultTimeout, "(rarely set) Set a custom timeout for object storage requests.")
+	deployStorageAmazon.Flags().StringVar(&uploadACL, "upload-acl", obj.DefaultUploadACL, "(rarely set) Set a custom upload ACL for object storage uploads.")
+	deployStorageAmazon.Flags().BoolVar(&reverse, "reverse", obj.DefaultReverse, "(rarely set) Reverse object storage paths.")
+	deployStorageAmazon.Flags().Int64Var(&partSize, "part-size", obj.DefaultPartSize, "(rarely set) Set a custom part size for object storage uploads.")
+	deployStorageAmazon.Flags().IntVar(&maxUploadParts, "max-upload-parts", obj.DefaultMaxUploadParts, "(rarely set) Set a custom maximum number of upload parts.")
+	deployStorageAmazon.Flags().BoolVar(&disableSSL, "disable-ssl", obj.DefaultDisableSSL, "(rarely set) Disable SSL.")
+	deployStorageAmazon.Flags().BoolVar(&noVerifySSL, "no-verify-ssl", obj.DefaultNoVerifySSL, "(rarely set) Skip SSL certificate verification (typically used for enabling self-signed certificates).")
+	commands = append(commands, cmdutil.CreateAlias(deployStorageAmazon, "deploy storage amazon"))
+
+	deployStorageGoogle := &cobra.Command{
+		Use:   "{{alias}} <credentials-file>",
+		Short: "Deploy credentials for the Google Cloud storage provider.",
+		Long:  "Deploy credentials for the Google Cloud storage provider, so that Pachyderm can ingress data from and egress data to it.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			credBytes, err := ioutil.ReadFile(args[0])
+			if err != nil {
+				return fmt.Errorf("error reading credentials file %s: %v", args[0], err)
+			}
+			return deployStorageSecrets(assets.GoogleSecret("", string(credBytes)))
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(deployStorageGoogle, "deploy storage google"))
+
+	deployStorageAzure := &cobra.Command{
+		Use:   "{{alias}} <account-name> <account-key>",
+		Short: "Deploy credentials for the Azure storage provider.",
+		Long:  "Deploy credentials for the Azure storage provider, so that Pachyderm can ingress data from and egress data to it.",
+		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
+			return deployStorageSecrets(assets.MicrosoftSecret("", args[0], args[1]))
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(deployStorageAzure, "deploy storage microsoft"))
+
+	deployStorage := &cobra.Command{
+		Short: "Deploy credentials for a particular storage provider.",
+		Long:  "Deploy credentials for a particular storage provider, so that Pachyderm can ingress data from and egress data to it.",
+	}
+	commands = append(commands, cmdutil.CreateAlias(deployStorage, "deploy storage"))
 
 	listImages := &cobra.Command{
-		Use:   "list-images",
 		Short: "Output the list of images in a deployment.",
 		Long:  "Output the list of images in a deployment.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
@@ -499,9 +647,10 @@ particular backend, run "pachctl deploy storage <backend>"`,
 			return nil
 		}),
 	}
+	commands = append(commands, cmdutil.CreateAlias(listImages, "deploy list-images"))
 
 	exportImages := &cobra.Command{
-		Use:   "export-images output-file",
+		Use:   "{{alias}} <output-file>",
 		Short: "Export a tarball (to stdout) containing all of the images in a deployment.",
 		Long:  "Export a tarball (to stdout) containing all of the images in a deployment.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
@@ -517,9 +666,10 @@ particular backend, run "pachctl deploy storage <backend>"`,
 			return images.Export(opts, file)
 		}),
 	}
+	commands = append(commands, cmdutil.CreateAlias(exportImages, "deploy export-images"))
 
 	importImages := &cobra.Command{
-		Use:   "import-images input-file",
+		Use:   "{{alias}} <input-file>",
 		Short: "Import a tarball (from stdin) containing all of the images in a deployment and push them to a private registry.",
 		Long:  "Import a tarball (from stdin) containing all of the images in a deployment and push them to a private registry.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
@@ -535,18 +685,60 @@ particular backend, run "pachctl deploy storage <backend>"`,
 			return images.Import(opts, file)
 		}),
 	}
+	commands = append(commands, cmdutil.CreateAlias(importImages, "deploy import-images"))
 
+	var blockCacheSize string
+	var dashImage string
+	var dashOnly bool
+	var etcdCPURequest string
+	var etcdMemRequest string
+	var etcdNodes int
+	var etcdStorageClassName string
+	var etcdVolume string
+	var exposeObjectAPI bool
+	var imagePullSecret string
+	var localRoles bool
+	var logLevel string
+	var newStorageLayer bool
+	var noDash bool
+	var noExposeDockerSocket bool
+	var noGuaranteed bool
+	var noRBAC bool
+	var pachdCPURequest string
+	var pachdNonCacheMemRequest string
+	var pachdShards int
+	var registry string
+	var tlsCertKey string
+	var uploadConcurrencyLimit int
 	deploy := &cobra.Command{
-		Use:   "deploy amazon|google|microsoft|local|custom|storage",
 		Short: "Deploy a Pachyderm cluster.",
 		Long:  "Deploy a Pachyderm cluster.",
 		PersistentPreRun: cmdutil.Run(func([]string) error {
+			cfg, err := config.Read(false)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "WARNING: could not read config to check whether cluster metrics will be enabled: %v.\n", err)
+			}
+
+			if namespace == "" {
+				kubeConfig := config.KubeConfig(nil)
+				namespace, _, err = kubeConfig.Namespace()
+				if err != nil {
+					return err
+				}
+			}
+
 			dashImage = getDefaultOrLatestDashImage(dashImage, dryRun)
 			opts = &assets.AssetOpts{
+				FeatureFlags: assets.FeatureFlags{
+					NewStorageLayer: newStorageLayer,
+				},
+				StorageOpts: assets.StorageOpts{
+					UploadConcurrencyLimit: uploadConcurrencyLimit,
+				},
 				PachdShards:             uint64(pachdShards),
 				Version:                 version.PrettyPrintVersion(version.Version),
 				LogLevel:                logLevel,
-				Metrics:                 metrics,
+				Metrics:                 cfg == nil || cfg.V2.Metrics,
 				PachdCPURequest:         pachdCPURequest,
 				PachdNonCacheMemRequest: pachdNonCacheMemRequest,
 				BlockCacheSize:          blockCacheSize,
@@ -578,6 +770,12 @@ particular backend, run "pachctl deploy storage <backend>"`,
 					ServerCert: certKey[0],
 					ServerKey:  certKey[1],
 				}
+
+				serverCertBytes, err := ioutil.ReadFile(certKey[0])
+				if err != nil {
+					return fmt.Errorf("could not read server cert at %q: %v", certKey[0], err)
+				}
+				serverCert = base64.StdEncoding.EncodeToString([]byte(serverCertBytes))
 			}
 			return nil
 		}),
@@ -586,8 +784,8 @@ particular backend, run "pachctl deploy storage <backend>"`,
 	deploy.PersistentFlags().IntVar(&etcdNodes, "dynamic-etcd-nodes", 0, "Deploy etcd as a StatefulSet with the given number of pods.  The persistent volumes used by these pods are provisioned dynamically.  Note that StatefulSet is currently a beta kubernetes feature, which might be unavailable in older versions of kubernetes.")
 	deploy.PersistentFlags().StringVar(&etcdVolume, "static-etcd-volume", "", "Deploy etcd as a ReplicationController with one pod.  The pod uses the given persistent volume.")
 	deploy.PersistentFlags().StringVar(&etcdStorageClassName, "etcd-storage-class", "", "If set, the name of an existing StorageClass to use for etcd storage. Ignored if --static-etcd-volume is set.")
-	deploy.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
-	deploy.PersistentFlags().StringVarP(&outputFormat, "output", "o", "json", "Output formmat. One of: json|yaml")
+	deploy.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest. Note that a pachyderm context will not be created, unless you also use `--create-context`.")
+	deploy.PersistentFlags().StringVarP(&outputFormat, "output", "o", "json", "Output format. One of: json|yaml")
 	deploy.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
 	deploy.PersistentFlags().BoolVar(&dashOnly, "dashboard-only", false, "Only deploy the Pachyderm UI (experimental), without the rest of pachyderm. This is for launching the UI adjacent to an existing Pachyderm cluster. After deployment, run \"pachctl port-forward\" to connect")
 	deploy.PersistentFlags().BoolVar(&noDash, "no-dashboard", false, "Don't deploy the Pachyderm UI alongside Pachyderm (experimental).")
@@ -597,22 +795,14 @@ particular backend, run "pachctl deploy storage <backend>"`,
 	deploy.PersistentFlags().BoolVar(&noGuaranteed, "no-guaranteed", false, "Don't use guaranteed QoS for etcd and pachd deployments. Turning this on (turning guaranteed QoS off) can lead to more stable local clusters (such as a on Minikube), it should normally be used for production clusters.")
 	deploy.PersistentFlags().BoolVar(&noRBAC, "no-rbac", false, "Don't deploy RBAC roles for Pachyderm. (for k8s versions prior to 1.8)")
 	deploy.PersistentFlags().BoolVar(&localRoles, "local-roles", false, "Use namespace-local roles instead of cluster roles. Ignored if --no-rbac is set.")
-	deploy.PersistentFlags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace to deploy Pachyderm to.")
+	deploy.PersistentFlags().StringVar(&namespace, "namespace", "", "Kubernetes namespace to deploy Pachyderm to.")
 	deploy.PersistentFlags().BoolVar(&noExposeDockerSocket, "no-expose-docker-socket", false, "Don't expose the Docker socket to worker containers. This limits the privileges of workers which prevents them from automatically setting the container's working dir and user.")
 	deploy.PersistentFlags().BoolVar(&exposeObjectAPI, "expose-object-api", false, "If set, instruct pachd to serve its object/block API on its public port (not safe with auth enabled, do not set in production).")
 	deploy.PersistentFlags().StringVar(&tlsCertKey, "tls", "", "string of the form \"<cert path>,<key path>\" of the signed TLS certificate and private key that Pachd should use for TLS authentication (enables TLS-encrypted communication with Pachd)")
-
-	deploy.AddCommand(
-		deployLocal,
-		deployAmazon,
-		deployGoogle,
-		deployMicrosoft,
-		deployCustom,
-		deployStorage,
-		listImages,
-		exportImages,
-		importImages,
-	)
+	deploy.PersistentFlags().BoolVar(&newStorageLayer, "new-storage-layer", false, "(feature flag) Do not set, used for testing.")
+	deploy.PersistentFlags().IntVar(&uploadConcurrencyLimit, "upload-concurrency-limit", assets.DefaultUploadConcurrencyLimit, "The maximum number of concurrent object storage uploads per Pachd instance.")
+	deploy.PersistentFlags().StringVarP(&contextName, "context", "c", "", "Name of the context to add to the pachyderm config. If unspecified, a context name will automatically be derived.")
+	deploy.PersistentFlags().BoolVar(&createContext, "create-context", false, "Create a context, even with `--dry-run`.")
 
 	// Flags for setting pachd resource requests. These should rarely be set --
 	// only if we get the defaults wrong, or users have an unusual access pattern
@@ -639,16 +829,21 @@ particular backend, run "pachctl deploy storage <backend>"`,
 		"etcd-memory-request", "", "(rarely set) The size of etcd's memory "+
 			"request. Size is in bytes, with SI suffixes (M, K, G, Mi, Ki, Gi, "+
 			"etc).")
-	return deploy
+
+	commands = append(commands, cmdutil.CreateAlias(deploy, "deploy"))
+
+	return commands
 }
 
 // Cmds returns a list of cobra commands for deploying Pachyderm clusters.
-func Cmds(noMetrics *bool) []*cobra.Command {
-	deploy := DeployCmd(noMetrics)
+func Cmds() []*cobra.Command {
+	var commands []*cobra.Command
+
+	commands = append(commands, deployCmds()...)
+
 	var all bool
 	var namespace string
 	undeploy := &cobra.Command{
-		Use:   "undeploy",
 		Short: "Tear down a deployed Pachyderm cluster.",
 		Long:  "Tear down a deployed Pachyderm cluster.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
@@ -661,42 +856,48 @@ flag), the underlying volumes will be removed, making metadata such repos,
 commits, pipelines, and jobs unrecoverable. If your persistent volume was
 manually provisioned (i.e. if you used the "--static-etcd-volume" flag), the
 underlying volume will not be removed.
-
-Are you sure you want to proceed? yN
 `)
-				r := bufio.NewReader(os.Stdin)
-				bytes, err := r.ReadBytes('\n')
-				if err != nil {
-					return err
+			}
+			fmt.Println("Are you sure you want to do this? (y/n):")
+			r := bufio.NewReader(os.Stdin)
+			bytes, err := r.ReadBytes('\n')
+			if err != nil {
+				return err
+			}
+			if bytes[0] == 'y' || bytes[0] == 'Y' {
+				if namespace == "" {
+					kubeConfig := config.KubeConfig(nil)
+					namespace, _, err = kubeConfig.Namespace()
+					if err != nil {
+						return err
+					}
 				}
-				if !(bytes[0] == 'y' || bytes[0] == 'Y') {
-					return nil
+
+				io := cmdutil.IO{
+					Stdout: os.Stdout,
+					Stderr: os.Stderr,
 				}
-			}
-			io := cmdutil.IO{
-				Stdout: os.Stdout,
-				Stderr: os.Stderr,
-			}
-			assets := []string{
-				"service",
-				"replicationcontroller",
-				"deployment",
-				"serviceaccount",
-				"secret",
-				"statefulset",
-				"clusterrole",
-				"clusterrolebinding",
-			}
-			if all {
-				assets = append(assets, []string{
-					"storageclass",
-					"persistentvolumeclaim",
-					"persistentvolume",
-				}...)
-			}
-			for _, asset := range assets {
-				if err := cmdutil.RunIO(io, "kubectl", "delete", asset, "-l", "suite=pachyderm", "--namespace", namespace); err != nil {
-					return err
+				assets := []string{
+					"service",
+					"replicationcontroller",
+					"deployment",
+					"serviceaccount",
+					"secret",
+					"statefulset",
+					"clusterrole",
+					"clusterrolebinding",
+				}
+				if all {
+					assets = append(assets, []string{
+						"storageclass",
+						"persistentvolumeclaim",
+						"persistentvolume",
+					}...)
+				}
+				for _, asset := range assets {
+					if err := cmdutil.RunIO(io, "kubectl", "delete", asset, "-l", "suite=pachyderm", "--namespace", namespace); err != nil {
+						return err
+					}
 				}
 			}
 			return nil
@@ -710,12 +911,12 @@ removed, making metadata such repos, commits, pipelines, and jobs
 unrecoverable. If your persistent volume was manually provisioned (i.e. if
 you used the "--static-etcd-volume" flag), the underlying volume will not be
 removed.`)
-	undeploy.Flags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace to undeploy Pachyderm from.")
+	undeploy.Flags().StringVar(&namespace, "namespace", "", "Kubernetes namespace to undeploy Pachyderm from.")
+	commands = append(commands, cmdutil.CreateAlias(undeploy, "undeploy"))
 
 	var updateDashDryRun bool
 	var updateDashOutputFormat string
 	updateDash := &cobra.Command{
-		Use:   "update-dash",
 		Short: "Update and redeploy the Pachyderm Dashboard at the latest compatible version.",
 		Long:  "Update and redeploy the Pachyderm Dashboard at the latest compatible version.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
@@ -733,20 +934,24 @@ removed.`)
 				}
 			}
 			// Redeploy the dash
-			manifest := getEncoder(updateDashOutputFormat)
-			dashImage := getDefaultOrLatestDashImage("", updateDashDryRun)
+			var buf bytes.Buffer
 			opts := &assets.AssetOpts{
 				DashOnly:  true,
-				DashImage: dashImage,
+				DashImage: getDefaultOrLatestDashImage("", updateDashDryRun),
 			}
-			assets.WriteDashboardAssets(manifest, opts)
-			return kubectlCreate(updateDashDryRun, manifest, opts, false)
+			if err := assets.WriteDashboardAssets(
+				encoder(updateDashOutputFormat, &buf), opts,
+			); err != nil {
+				return err
+			}
+			return kubectlCreate(updateDashDryRun, buf.Bytes(), opts)
 		}),
 	}
 	updateDash.Flags().BoolVar(&updateDashDryRun, "dry-run", false, "Don't actually deploy Pachyderm Dash to Kubernetes, instead just print the manifest.")
-	updateDash.Flags().StringVarP(&updateDashOutputFormat, "output", "o", "json", "Output formmat. One of: json|yaml")
+	updateDash.Flags().StringVarP(&updateDashOutputFormat, "output", "o", "json", "Output format. One of: json|yaml")
+	commands = append(commands, cmdutil.CreateAlias(updateDash, "update-dash"))
 
-	return []*cobra.Command{deploy, undeploy, updateDash}
+	return commands
 }
 
 func getDefaultOrLatestDashImage(dashImage string, dryRun bool) string {

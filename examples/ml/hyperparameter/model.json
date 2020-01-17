@@ -2,13 +2,14 @@
   "pipeline": {
     "name": "model"
   },
+  "description": "A pipeline that trains the model for each combination of C and Gamma parameters.",
   "transform": {
     "image": "pachyderm/iris-train:python-svm-adj-c-gamma",
     "cmd": [ "/bin/ash" ],
     "stdin": [
-       "cp /pfs/split/train.csv /tmp/iris.csv",
+       "cp /pfs/raw_data/iris.csv /tmp/iris.csv",
        "for cf in /pfs/c-parameters/c_parameters.txt/*",
-       "do", 
+       "do",
        "for gf in /pfs/gamma-parameters/gamma_parameters.txt/*",
        "do",
        "cparam=`cat $cf`",
@@ -25,8 +26,8 @@
     "cross": [
       {
         "pfs": {
-          "repo": "split",
-          "glob": "/train.csv"
+          "repo": "raw_data",
+          "glob": "/iris.csv"
         }
       },
       {

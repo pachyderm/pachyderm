@@ -33,7 +33,6 @@ func activateEnterprise(t *testing.T) {
 		require.NoError(t,
 			tu.Cmd("pachctl", "enterprise", "activate", tu.GetTestEnterpriseCode()).Run())
 	}
-
 }
 
 func activateAuth(t *testing.T) {
@@ -80,10 +79,10 @@ func TestAuthBasic(t *testing.T) {
 	defer deactivateAuth(t)
 	require.NoError(t, tu.BashCmd(`
 		echo "{{.alice}}" | pachctl auth login
-		pachctl create-repo {{.repo}}
-		pachctl list-repo \
+		pachctl create repo {{.repo}}
+		pachctl list repo \
 			| match {{.repo}}
-		pachctl inspect-repo {{.repo}}
+		pachctl inspect repo {{.repo}}
 		`,
 		"alice", tu.UniqueString("alice"),
 		"repo", tu.UniqueString("TestAuthBasic-repo"),
@@ -113,7 +112,7 @@ func TestCheckGetSet(t *testing.T) {
 	// Test both forms of the 'pachctl auth get' command, as well as 'pachctl auth check'
 	require.NoError(t, tu.BashCmd(`
 		echo "{{.alice}}" | pachctl auth login
-		pachctl create-repo {{.repo}}
+		pachctl create repo {{.repo}}
 		pachctl auth check owner {{.repo}}
 		pachctl auth get {{.repo}} \
 			| match {{.alice}}
@@ -128,7 +127,7 @@ func TestCheckGetSet(t *testing.T) {
 	// Test 'pachctl auth set'
 	require.NoError(t, tu.BashCmd(`
 		echo "{{.alice}}" | pachctl auth login
-		pachctl create-repo {{.repo}}
+		pachctl create repo {{.repo}}
 		pachctl auth set {{.bob}} reader {{.repo}}
 		pachctl auth get {{.bob}} {{.repo}} \
 			| match READER
@@ -286,8 +285,13 @@ func TestConfig(t *testing.T) {
 		echo "admin" | pachctl auth login
 		pachctl auth set-config <<EOF
 		{
-		  "live_config_version": 0,
+		  "live_config_version": 1,
 		  "id_providers": [{
+			"name": "github",
+			"description": "oauth-based authentication with github.com",
+			"github":{}
+		  },
+		  {
 		    "name": "idp",
 		    "description": "fake ID provider for testing",
 		    "saml": {
@@ -301,11 +305,128 @@ func TestConfig(t *testing.T) {
 		}
 		EOF
 		pachctl auth get-config \
-		  | match '"live_config_version": 1,' \
+		  | match '"live_config_version": 2,' \
 		  | match '"saml_svc_options": {' \
 		  | match '"acs_url": "http://www.example.com",' \
 		  | match '"metadata_url": "http://www.example.com"' \
 		  | match '}'
+		`).Run())
+}
+
+// TestGetAuthTokenNoSubject tests that 'pachctl get-auth-token' infers the
+// subject from the currently logged-in user if none is specified on the command
+// line
+func TestGetAuthTokenNoSubject(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	activateAuth(t)
+	defer deactivateAuth(t)
+	require.NoError(t, tu.BashCmd(`
+		echo "{{.alice}}" | pachctl auth login
+		pachctl auth get-auth-token -q | pachctl auth use-auth-token
+		pachctl auth whoami | match {{.alice}}
+		`,
+		"alice", tu.UniqueString("alice"),
+	).Run())
+}
+
+// TestGetAuthTokenTTL tests that the --ttl argument to 'pachctl get-auth-token'
+// correctly limits the lifetime of the returned token
+func TestGetAuthTokenTTL(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	activateAuth(t)
+	defer deactivateAuth(t)
+
+	alice := tu.UniqueString("alice")
+	require.NoError(t, tu.BashCmd(`echo "{{.alice}}" | pachctl auth login `,
+		"alice", alice,
+	).Run())
+
+	var tokenBuf bytes.Buffer
+	tokenCmd := tu.BashCmd(`pachctl auth get-auth-token --ttl=5s -q`)
+	tokenCmd.Stdout = &tokenBuf
+	require.NoError(t, tokenCmd.Run())
+	token := strings.TrimSpace(tokenBuf.String())
+
+	time.Sleep(6 * time.Second)
+	var errMsg bytes.Buffer
+	login := tu.BashCmd(`
+		echo {{.token}} | pachctl auth use-auth-token
+		pachctl auth whoami
+	`, "token", token)
+	login.Stderr = &errMsg
+	require.YesError(t, login.Run())
+	require.Matches(t, "try logging in", errMsg.String())
+}
+
+// TestGetOneTimePasswordNoSubject tests that 'pachctl get-otp' infers the
+// subject from the currently logged-in user if none is specified on the command
+// line
+func TestGetOneTimePasswordNoSubject(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	activateAuth(t)
+	defer deactivateAuth(t)
+	require.NoError(t, tu.BashCmd(`
+		echo "{{.alice}}" | pachctl auth login
+		otp="$(pachctl auth get-otp)"
+		echo "${otp}" | pachctl auth login --one-time-password
+		pachctl auth whoami | match {{.alice}}
+		`,
+		"alice", tu.UniqueString("alice"),
+	).Run())
+}
+
+// TestGetOneTimePasswordTTL tests that the --ttl argument to 'pachctl get-otp'
+// correctly limits the lifetime of the returned token
+func TestGetOneTimePasswordTTL(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	activateAuth(t)
+	defer deactivateAuth(t)
+
+	alice := tu.UniqueString("alice")
+	require.NoError(t, tu.BashCmd(`echo "{{.alice}}" | pachctl auth login`,
+		"alice", alice,
+	).Run())
+
+	var otpBuf bytes.Buffer
+	otpCmd := tu.BashCmd(`pachctl auth get-otp --ttl=5s`)
+	otpCmd.Stdout = &otpBuf
+	require.NoError(t, otpCmd.Run())
+	otp := strings.TrimSpace(otpBuf.String())
+
+	// wait for OTP to expire
+	time.Sleep(6 * time.Second)
+	var errMsg bytes.Buffer
+	login := tu.BashCmd(`
+		echo {{.otp}} | pachctl auth login --one-time-password
+	`, "otp", otp)
+	login.Stderr = &errMsg
+	require.YesError(t, login.Run())
+	require.Matches(t, "otp is invalid or has expired", errMsg.String())
+}
+
+func TestYAMLConfig(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	activateAuth(t)
+	defer deactivateAuth(t)
+
+	require.NoError(t, tu.BashCmd(`
+		echo "admin" | pachctl auth login
+		pachctl auth get-config -o yaml \
+		  | match 'live_config_version: 1' \
+		  | match 'id_providers:' \
+		  | match 'name: GitHub' \
+		  | match 'description: oauth-based authentication with github.com' \
+		  | match 'github: {}'
 		`).Run())
 }
 

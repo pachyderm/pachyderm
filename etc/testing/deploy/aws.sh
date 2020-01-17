@@ -83,6 +83,11 @@ while true; do
       shift
       break
       ;;
+    *)
+      echo "Unrecognized argument: \"${1}\""
+      echo "Must be one of --list, --delete=<cluster>, --delete-all, --create [--zone=<zone>] [--use-cloudfront] [--no-pachyderm]"
+      exit 1
+      ;;
   esac
 done
 
@@ -93,19 +98,20 @@ echo -e "Zone: ${ZONE}"
 set -x
 case "${OP}" in
   create)
+    pachctl config set metrics false
     aws_sh="$(dirname "${0}")/../../deploy/aws.sh"
     aws_sh="$(realpath "${aws_sh}")"
-    cmd=("${aws_sh}" --zone=${ZONE} --state=${KOPS_BUCKET} --no-metrics)
+    cmd=("${aws_sh}" --zone=${ZONE} --state=${KOPS_BUCKET})
     if [[ "${DEPLOY_PACHD}" == "false" ]]; then
       cmd+=("--no-pachyderm")
     fi
     if [[ -n "${CLOUDFRONT}" ]]; then
       cmd+=("${CLOUDFRONT}")
     fi
-    sudo --preserve-env=PATH,GOPATH,KUBECONFIG "${cmd[@]}"
+    sudo env "PATH=${PATH}" "GOPATH=${GOPATH}" "KUBECONFIG=${KUBECONFIG}" "${cmd[@]}"
     check_ready="$(dirname "${0}")/../../kube/check_ready.sh"
     check_ready="$(realpath "${check_ready}")"
-    sudo --preserve-env=PATH,GOPATH,KUBECONFIG bash -c \
+    sudo env "PATH=${PATH}" "GOPATH=${GOPATH}" "KUBECONFIG=${KUBECONFIG}" bash -c \
       "until timeout 1s ${check_ready} app=pachd; do sleep 1; echo -en \"\\033[F\"; done"
     ;;
   delete)

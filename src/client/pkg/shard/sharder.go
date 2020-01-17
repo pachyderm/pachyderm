@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/jsonpb"
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm/src/client/pkg/discovery"
 	log "github.com/sirupsen/logrus"
 
@@ -63,7 +63,7 @@ func (a *sharder) GetShardToAddress(version int64) (result map[uint64]string, re
 	return _result, nil
 }
 
-func (a *sharder) Register(cancel chan bool, address string, servers []Server) (retErr error) {
+func (a *sharder) Register(address string, servers []Server) (retErr error) {
 	var once sync.Once
 	versionChan := make(chan int64)
 	internalCancel := make(chan bool)
@@ -89,20 +89,13 @@ func (a *sharder) Register(cancel chan bool, address string, servers []Server) (
 	}()
 	go func() {
 		defer wg.Done()
-		select {
-		case <-cancel:
-			once.Do(func() {
-				retErr = ErrCancelled
-				close(internalCancel)
-			})
-		case <-internalCancel:
-		}
+		<-internalCancel
 	}()
 	wg.Wait()
 	return
 }
 
-func (a *sharder) RegisterFrontends(cancel chan bool, address string, frontends []Frontend) (retErr error) {
+func (a *sharder) RegisterFrontends(address string, frontends []Frontend) (retErr error) {
 	var once sync.Once
 	versionChan := make(chan int64)
 	internalCancel := make(chan bool)
@@ -128,20 +121,13 @@ func (a *sharder) RegisterFrontends(cancel chan bool, address string, frontends 
 	}()
 	go func() {
 		defer wg.Done()
-		select {
-		case <-cancel:
-			once.Do(func() {
-				retErr = ErrCancelled
-				close(internalCancel)
-			})
-		case <-internalCancel:
-		}
+		<-internalCancel
 	}()
 	wg.Wait()
 	return
 }
 
-func (a *sharder) AssignRoles(address string, cancel chan bool) (retErr error) {
+func (a *sharder) AssignRoles(address string) (retErr error) {
 	var unsafeAssignRolesCancel chan bool
 	errChan := make(chan error)
 	// oldValue is the last value we wrote, if it's not "" it means we have the
@@ -165,14 +151,7 @@ func (a *sharder) AssignRoles(address string, cancel chan bool) (retErr error) {
 				}()
 			}
 		}
-		select {
-		case <-cancel:
-			if oldValue != "" {
-				close(unsafeAssignRolesCancel)
-				return <-errChan
-			}
-		case <-time.After(time.Second * time.Duration(holdTTL/2)):
-		}
+		<-time.After(time.Second * time.Duration(holdTTL/2))
 	}
 }
 
@@ -453,15 +432,15 @@ func (s *localSharder) GetShardToAddress(version int64) (map[uint64]string, erro
 	return s.shardToAddress, nil
 }
 
-func (s *localSharder) Register(cancel chan bool, address string, servers []Server) error {
+func (s *localSharder) Register(address string, servers []Server) error {
 	return nil
 }
 
-func (s *localSharder) RegisterFrontends(cancel chan bool, address string, frontends []Frontend) error {
+func (s *localSharder) RegisterFrontends(address string, frontends []Frontend) error {
 	return nil
 }
 
-func (s *localSharder) AssignRoles(string, chan bool) error {
+func (s *localSharder) AssignRoles(string) error {
 	return nil
 }
 
@@ -529,71 +508,12 @@ func decodeFrontendState(encodedFrontendState string) (*FrontendState, error) {
 	return &frontendState, nil
 }
 
-func (a *sharder) getServerStates() (map[string]*ServerState, error) {
-	encodedServerStates, err := a.discoveryClient.GetAll(a.serverStateDir())
-	if err != nil {
-		return nil, err
-	}
-	result := make(map[string]*ServerState)
-	for _, encodedServerState := range encodedServerStates {
-		serverState, err := decodeServerState(encodedServerState)
-		if err != nil {
-			return nil, err
-		}
-		result[serverState.Address] = serverState
-	}
-	return result, nil
-}
-
-func (a *sharder) getServerState(address string) (*ServerState, error) {
-	encodedServerState, err := a.discoveryClient.Get(a.serverStateKey(address))
-	if err != nil {
-		return nil, err
-	}
-	return decodeServerState(encodedServerState)
-}
-
 func decodeServerRole(encodedServerRole string) (*ServerRole, error) {
 	var serverRole ServerRole
 	if err := jsonpb.UnmarshalString(encodedServerRole, &serverRole); err != nil {
 		return nil, err
 	}
 	return &serverRole, nil
-}
-
-func (a *sharder) getServerRoles() (map[string]map[int64]*ServerRole, error) {
-	encodedServerRoles, err := a.discoveryClient.GetAll(a.serverRoleDir())
-	if err != nil {
-		return nil, err
-	}
-	result := make(map[string]map[int64]*ServerRole)
-	for _, encodedServerRole := range encodedServerRoles {
-		serverRole, err := decodeServerRole(encodedServerRole)
-		if err != nil {
-			return nil, err
-		}
-		if _, ok := result[serverRole.Address]; !ok {
-			result[serverRole.Address] = make(map[int64]*ServerRole)
-		}
-		result[serverRole.Address][serverRole.Version] = serverRole
-	}
-	return result, nil
-}
-
-func (a *sharder) getServerRole(address string) (map[int64]*ServerRole, error) {
-	encodedServerRoles, err := a.discoveryClient.GetAll(a.serverRoleKey(address))
-	if err != nil {
-		return nil, err
-	}
-	result := make(map[int64]*ServerRole)
-	for _, encodedServerRole := range encodedServerRoles {
-		serverRole, err := decodeServerRole(encodedServerRole)
-		if err != nil {
-			return nil, err
-		}
-		result[serverRole.Version] = serverRole
-	}
-	return result, nil
 }
 
 func (a *sharder) getAddresses(version int64) (*Addresses, error) {
@@ -670,7 +590,7 @@ func (a *sharder) announceServers(
 			return err
 		}
 		if err := a.discoveryClient.Set(a.serverStateKey(address), encodedServerState, holdTTL); err != nil {
-			log.Error("Error setting server state: %s", err.Error())
+			log.Errorf("Error setting server state: %s", err.Error())
 		}
 		select {
 		case <-cancel:
@@ -881,12 +801,4 @@ func sameServers(oldServers map[string]bool, newServerStates map[string]*ServerS
 		}
 	}
 	return true
-}
-
-// TODO this code is duplicate elsewhere, we should put it somehwere.
-func errorToString(err error) string {
-	if err == nil {
-		return ""
-	}
-	return err.Error()
 }

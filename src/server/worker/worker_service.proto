@@ -7,11 +7,13 @@ import "client/pfs/pfs.proto";
 import "client/pps/pps.proto";
 import "gogoproto/gogo.proto";
 import "google/protobuf/empty.proto";
+import "google/protobuf/wrappers.proto";
 
 message Input {
   pfs.FileInfo file_info = 1;
   pfs.Commit parent_commit = 5;
   string name = 2;
+  string join_on = 8;
   bool lazy = 3;
   string branch = 4;
   string git_url = 6 [(gogoproto.customname) = "GitURL"];
@@ -30,6 +32,13 @@ message CancelResponse {
 service Worker {
   rpc Status(google.protobuf.Empty) returns (pps.WorkerStatus) {}
   rpc Cancel(CancelRequest) returns (CancelResponse) {}
+  rpc GetChunk(GetChunkRequest) returns (stream google.protobuf.BytesValue) {}
+}
+
+message GetChunkRequest {
+  int64 id = 1;
+  int64 shard = 2;
+  bool stats = 3;
 }
 
 enum State {
@@ -41,6 +50,9 @@ enum State {
 message ChunkState {
   State state = 1;
   string datum_id = 2 [(gogoproto.customname) = "DatumID"];
+  // The IP address of the worker who processed this chunk
+  string address = 3;
+  pfs.Object recovered_datums = 4;
 }
 
 message MergeState {
@@ -50,6 +62,8 @@ message MergeState {
   pfs.Object stats_tree = 4;
   uint64 stats_size_bytes = 5;
 }
+
+message ShardInfo {}
 
 message Plan {
   repeated int64 chunks = 1;

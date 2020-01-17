@@ -1,6 +1,7 @@
 package obj
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -14,10 +15,13 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/option"
 )
 
 // Environment variables for determining storage backend and pathing
@@ -69,34 +73,93 @@ const (
 	AmazonVaultRoleEnvVar    = "AMAZON_VAULT_ROLE"
 	AmazonVaultTokenEnvVar   = "AMAZON_VAULT_TOKEN"
 	AmazonDistributionEnvVar = "AMAZON_DISTRIBUTION"
+	CustomEndpointEnvVar     = "CUSTOM_ENDPOINT"
 )
+
+// Advanced configuration environment variables
+const (
+	RetriesEnvVar        = "RETRIES"
+	TimeoutEnvVar        = "TIMEOUT"
+	UploadACLEnvVar      = "UPLOAD_ACL"
+	ReverseEnvVar        = "REVERSE"
+	PartSizeEnvVar       = "PART_SIZE"
+	MaxUploadPartsEnvVar = "MAX_UPLOAD_PARTS"
+	DisableSSLEnvVar     = "DISABLE_SSL"
+	NoVerifySSLEnvVar    = "NO_VERIFY_SSL"
+)
+
+const (
+	// DefaultRetries is the default number of retries for object storage requests.
+	DefaultRetries = 10
+	// DefaultTimeout is the default timeout for object storage requests.
+	DefaultTimeout = "5m"
+	// DefaultUploadACL is the default upload ACL for object storage uploads.
+	DefaultUploadACL = "bucket-owner-full-control"
+	// DefaultReverse is the default for whether to reverse object storage paths or not.
+	DefaultReverse = true
+	// DefaultPartSize is the default part size for object storage uploads.
+	DefaultPartSize = 5242880
+	// DefaultMaxUploadParts is the default maximum number of upload parts.
+	DefaultMaxUploadParts = 10000
+	// DefaultDisableSSL is the default for whether SSL should be disabled.
+	DefaultDisableSSL = false
+	// DefaultNoVerifySSL is the default for whether SSL certificate verification should be disabled.
+	DefaultNoVerifySSL = false
+)
+
+// AmazonAdvancedConfiguration contains the advanced configuration for the amazon client.
+type AmazonAdvancedConfiguration struct {
+	Retries int    `env:"RETRIES, default=10"`
+	Timeout string `env:"TIMEOUT, default=5m"`
+	// By default, objects uploaded to a bucket are only accessible to the
+	// uploader, and not the owner of the bucket. Using the default ensures that
+	// the owner of the bucket can access the objects as well.
+	UploadACL      string `env:"UPLOAD_ACL, default=bucket-owner-full-control"`
+	Reverse        bool   `env:"REVERSE, default=true"`
+	PartSize       int64  `env:"PART_SIZE, default=5242880"`
+	MaxUploadParts int    `env:"MAX_UPLOAD_PARTS, default=10000"`
+	DisableSSL     bool   `env:"DISABLE_SSL, default=false"`
+	NoVerifySSL    bool   `env:"NO_VERIFY_SSL, default=false"`
+}
 
 // EnvVarToSecretKey is an environment variable name to secret key mapping
 // This is being used to temporarily bridge the gap as we transition to a model
 // where object storage access in the workers is based on environment variables
 // and a library rather than mounting a secret to a sidecar container which
 // accesses object storage
-var EnvVarToSecretKey = map[string]string{
-	GoogleBucketEnvVar:       "google-bucket",
-	GoogleCredEnvVar:         "google-cred",
-	MicrosoftContainerEnvVar: "microsoft-container",
-	MicrosoftIDEnvVar:        "microsoft-id",
-	MicrosoftSecretEnvVar:    "microsoft-secret",
-	MinioBucketEnvVar:        "minio-bucket",
-	MinioEndpointEnvVar:      "minio-endpoint",
-	MinioIDEnvVar:            "minio-id",
-	MinioSecretEnvVar:        "minio-secret",
-	MinioSecureEnvVar:        "minio-secure",
-	MinioSignatureEnvVar:     "minio-signature",
-	AmazonRegionEnvVar:       "amazon-region",
-	AmazonBucketEnvVar:       "amazon-bucket",
-	AmazonIDEnvVar:           "amazon-id",
-	AmazonSecretEnvVar:       "amazon-secret",
-	AmazonTokenEnvVar:        "amazon-token",
-	AmazonVaultAddrEnvVar:    "amazon-vault-addr",
-	AmazonVaultRoleEnvVar:    "amazon-vault-role",
-	AmazonVaultTokenEnvVar:   "amazon-vault-token",
-	AmazonDistributionEnvVar: "amazon-distribution",
+var EnvVarToSecretKey = []struct {
+	Key   string
+	Value string
+}{
+	{Key: GoogleBucketEnvVar, Value: "google-bucket"},
+	{Key: GoogleCredEnvVar, Value: "google-cred"},
+	{Key: MicrosoftContainerEnvVar, Value: "microsoft-container"},
+	{Key: MicrosoftIDEnvVar, Value: "microsoft-id"},
+	{Key: MicrosoftSecretEnvVar, Value: "microsoft-secret"},
+	{Key: MinioBucketEnvVar, Value: "minio-bucket"},
+	{Key: MinioEndpointEnvVar, Value: "minio-endpoint"},
+	{Key: MinioIDEnvVar, Value: "minio-id"},
+	{Key: MinioSecretEnvVar, Value: "minio-secret"},
+	{Key: MinioSecureEnvVar, Value: "minio-secure"},
+	{Key: MinioSignatureEnvVar, Value: "minio-signature"},
+	{Key: AmazonRegionEnvVar, Value: "amazon-region"},
+	{Key: AmazonBucketEnvVar, Value: "amazon-bucket"},
+	{Key: AmazonIDEnvVar, Value: "amazon-id"},
+	{Key: AmazonSecretEnvVar, Value: "amazon-secret"},
+	{Key: AmazonTokenEnvVar, Value: "amazon-token"},
+	{Key: AmazonVaultAddrEnvVar, Value: "amazon-vault-addr"},
+	{Key: AmazonVaultRoleEnvVar, Value: "amazon-vault-role"},
+	{Key: AmazonVaultTokenEnvVar, Value: "amazon-vault-token"},
+	{Key: AmazonDistributionEnvVar, Value: "amazon-distribution"},
+	{Key: CustomEndpointEnvVar, Value: "custom-endpoint"},
+	{Key: RetriesEnvVar, Value: "retries"},
+	{Key: TimeoutEnvVar, Value: "timeout"},
+	{Key: UploadACLEnvVar, Value: "upload-acl"},
+	{Key: ReverseEnvVar, Value: "reverse"},
+	{Key: PartSizeEnvVar, Value: "part-size"},
+	{Key: MaxUploadPartsEnvVar, Value: "max-upload-parts"},
+	{Key: DisableSSLEnvVar, Value: "disable-ssl"},
+	{Key: NoVerifySSLEnvVar, Value: "no-verify-ssl"},
 }
 
 // StorageRootFromEnv gets the storage root based on environment variables.
@@ -135,20 +198,20 @@ type Client interface {
 	// Writer returns a writer which writes to an object.
 	// It should error if the object already exists or we don't have sufficient
 	// permissions to write it.
-	Writer(name string) (io.WriteCloser, error)
+	Writer(ctx context.Context, name string) (io.WriteCloser, error)
 	// Reader returns a reader which reads from an object.
 	// If `size == 0`, the reader should read from the offset till the end of the object.
 	// It should error if the object doesn't exist or we don't have sufficient
 	// permission to read it.
-	Reader(name string, offset uint64, size uint64) (io.ReadCloser, error)
+	Reader(ctx context.Context, name string, offset uint64, size uint64) (io.ReadCloser, error)
 	// Delete deletes an object.
 	// It should error if the object doesn't exist or we don't have sufficient
 	// permission to delete it.
-	Delete(name string) error
+	Delete(ctx context.Context, name string) error
 	// Walk calls `fn` with the names of objects which can be found under `prefix`.
-	Walk(prefix string, fn func(name string) error) error
+	Walk(ctx context.Context, prefix string, fn func(name string) error) error
 	// Exsits checks if a given object already exists
-	Exists(name string) bool
+	Exists(ctx context.Context, name string) bool
 	// IsRetryable determines if an operation should be retried given an error
 	IsRetryable(err error) bool
 	// IsNotExist returns true if err is a non existence error
@@ -158,8 +221,8 @@ type Client interface {
 }
 
 // NewGoogleClient creates a google client with the given bucket name.
-func NewGoogleClient(ctx context.Context, bucket string, credFile string) (Client, error) {
-	return newGoogleClient(ctx, bucket, credFile)
+func NewGoogleClient(bucket string, opts []option.ClientOption) (Client, error) {
+	return newGoogleClient(bucket, opts)
 }
 
 func secretFile(name string) string {
@@ -177,7 +240,7 @@ func readSecretFile(name string) (string, error) {
 // NewGoogleClientFromSecret creates a google client by reading credentials
 // from a mounted GoogleSecret. You may pass "" for bucket in which case it
 // will read the bucket from the secret.
-func NewGoogleClientFromSecret(ctx context.Context, bucket string) (Client, error) {
+func NewGoogleClientFromSecret(bucket string) (Client, error) {
 	var err error
 	if bucket == "" {
 		bucket, err = readSecretFile("/google-bucket")
@@ -189,29 +252,27 @@ func NewGoogleClientFromSecret(ctx context.Context, bucket string) (Client, erro
 	if err != nil {
 		return nil, fmt.Errorf("google-cred not found")
 	}
-	var credFile string
+	var opts []option.ClientOption
 	if cred != "" {
-		credFile = secretFile("/google-cred")
+		opts = append(opts, option.WithCredentialsFile(secretFile("/google-cred")))
+	} else {
+		opts = append(opts, option.WithTokenSource(google.ComputeTokenSource("")))
 	}
-	return NewGoogleClient(ctx, bucket, credFile)
+	return NewGoogleClient(bucket, opts)
 }
 
 // NewGoogleClientFromEnv creates a Google client based on environment variables.
-func NewGoogleClientFromEnv(ctx context.Context) (Client, error) {
+func NewGoogleClientFromEnv() (Client, error) {
 	bucket, ok := os.LookupEnv(GoogleBucketEnvVar)
 	if !ok {
 		return nil, fmt.Errorf("%s not found", GoogleBucketEnvVar)
 	}
-	// (bryce) Need to upgrade gcs client to be able to pass in credentials as bytes
-	//cred, ok := os.LookupEnv(GoogleCredEnvVar)
-	//if !ok {
-	//	return nil, fmt.Errorf("%s not found", GoogleCredEnvVar)
-	//}
-	//var credFile string
-	//if cred != "" {
-	//	credFile = secretFile("/google-cred")
-	//}
-	return NewGoogleClient(ctx, bucket, "")
+	creds, ok := os.LookupEnv(GoogleCredEnvVar)
+	if !ok {
+		return nil, fmt.Errorf("%s not found", GoogleCredEnvVar)
+	}
+	opts := []option.ClientOption{option.WithCredentialsJSON([]byte(creds))}
+	return NewGoogleClient(bucket, opts)
 }
 
 // NewMicrosoftClient creates a microsoft client:
@@ -282,8 +343,17 @@ func NewMinioClient(endpoint, bucket, id, secret string, secure, isS3V2 bool) (C
 //   secret - AWS secret access key
 //   token  - AWS access token
 //   region - AWS region
-func NewAmazonClient(region, bucket string, creds *AmazonCreds, distribution string, reversed ...bool) (Client, error) {
-	return newAmazonClient(region, bucket, creds, distribution, reversed...)
+//   endpoint - Custom endpoint (generally used for S3 compatible object stores)
+//   reverse - Reverse object storage paths (overwrites configured value)
+func NewAmazonClient(region, bucket string, creds *AmazonCreds, distribution string, endpoint string, reverse ...bool) (Client, error) {
+	advancedConfig := &AmazonAdvancedConfiguration{}
+	if err := cmdutil.Populate(advancedConfig); err != nil {
+		return nil, err
+	}
+	if len(reverse) > 0 {
+		advancedConfig.Reverse = reverse[0]
+	}
+	return newAmazonClient(region, bucket, creds, distribution, endpoint, advancedConfig)
 }
 
 // NewMinioClientFromSecret constructs an s3 compatible client by reading
@@ -352,7 +422,7 @@ func NewMinioClientFromEnv() (Client, error) {
 // NewAmazonClientFromSecret constructs an amazon client by reading credentials
 // from a mounted AmazonSecret. You may pass "" for bucket in which case it
 // will read the bucket from the secret.
-func NewAmazonClientFromSecret(bucket string, reversed ...bool) (Client, error) {
+func NewAmazonClientFromSecret(bucket string, reverse ...bool) (Client, error) {
 	// Get AWS region (required for constructing an AWS client)
 	region, err := readSecretFile("/amazon-region")
 	if err != nil {
@@ -397,12 +467,15 @@ func NewAmazonClientFromSecret(bucket string, reversed ...bool) (Client, error) 
 
 	// Get Cloudfront distribution (not required, though we can log a warning)
 	distribution, err := readSecretFile("/amazon-distribution")
-	if err != nil {
-		log.Warnln("AWS deployed without cloudfront distribution\n")
-	} else {
-		log.Infof("AWS deployed with cloudfront distribution at %v\n", string(distribution))
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
 	}
-	return NewAmazonClient(region, bucket, &creds, distribution, reversed...)
+	// Get endpoint for custom deployment (optional).
+	endpoint, err := readSecretFile("/custom-endpoint")
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+	return NewAmazonClient(region, bucket, &creds, distribution, endpoint, reverse...)
 }
 
 // NewAmazonClientFromEnv creates a Amazon client based on environment variables.
@@ -425,28 +498,37 @@ func NewAmazonClientFromEnv() (Client, error) {
 	creds.VaultToken, _ = os.LookupEnv(AmazonVaultTokenEnvVar)
 
 	distribution, _ := os.LookupEnv(AmazonDistributionEnvVar)
-	return NewAmazonClient(region, bucket, &creds, distribution)
+	// Get endpoint for custom deployment (optional).
+	endpoint, _ := os.LookupEnv(CustomEndpointEnvVar)
+	return NewAmazonClient(region, bucket, &creds, distribution, endpoint)
 }
 
 // NewClientFromURLAndSecret constructs a client by parsing `URL` and then
 // constructing the correct client for that URL using secrets.
-func NewClientFromURLAndSecret(ctx context.Context, url *ObjectStoreURL, reversed ...bool) (Client, error) {
+func NewClientFromURLAndSecret(url *ObjectStoreURL, reverse ...bool) (c Client, err error) {
 	switch url.Store {
 	case "s3":
-		return NewAmazonClientFromSecret(url.Bucket, reversed...)
+		c, err = NewAmazonClientFromSecret(url.Bucket, reverse...)
 	case "gcs":
 		fallthrough
 	case "gs":
-		return NewGoogleClientFromSecret(ctx, url.Bucket)
+		c, err = NewGoogleClientFromSecret(url.Bucket)
 	case "as":
 		fallthrough
 	case "wasb":
 		// In Azure, the first part of the path is the container name.
-		return NewMicrosoftClientFromSecret(url.Bucket)
+		c, err = NewMicrosoftClientFromSecret(url.Bucket)
 	case "local":
-		return NewLocalClient("/" + url.Bucket)
+		c, err = NewLocalClient("/" + url.Bucket)
 	}
-	return nil, fmt.Errorf("unrecognized object store: %s", url.Bucket)
+	switch {
+	case err != nil:
+		return nil, err
+	case c != nil:
+		return TracingObjClient(url.Store, c), nil
+	default:
+		return nil, fmt.Errorf("unrecognized object store: %s", url.Bucket)
+	}
 }
 
 // ObjectStoreURL represents a parsed URL to an object in an object store.
@@ -488,24 +570,59 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 }
 
 // NewClientFromEnv creates a client based on environment variables.
-func NewClientFromEnv(ctx context.Context, storageRoot string) (Client, error) {
+func NewClientFromEnv(storageRoot string) (c Client, err error) {
 	storageBackend, ok := os.LookupEnv(StorageBackendEnvVar)
 	if !ok {
 		return nil, fmt.Errorf("storage backend environment variable not found")
 	}
 	switch storageBackend {
 	case Amazon:
-		return NewAmazonClientFromEnv()
+		c, err = NewAmazonClientFromEnv()
 	case Google:
-		return NewGoogleClientFromEnv(ctx)
+		c, err = NewGoogleClientFromEnv()
 	case Microsoft:
-		return NewMicrosoftClientFromEnv()
+		c, err = NewMicrosoftClientFromEnv()
 	case Minio:
-		return NewMinioClientFromEnv()
+		c, err = NewMinioClientFromEnv()
 	case Local:
-		return NewLocalClient(storageRoot)
+		c, err = NewLocalClient(storageRoot)
 	}
-	return nil, fmt.Errorf("unrecognized storage backend: %s", storageBackend)
+	switch {
+	case err != nil:
+		return nil, err
+	case c != nil:
+		return TracingObjClient(storageBackend, c), nil
+	default:
+		return nil, fmt.Errorf("unrecognized storage backend: %s", storageBackend)
+	}
+}
+
+// NewClientFromSecret creates a client based on mounted secret files.
+func NewClientFromSecret(storageRoot string) (c Client, err error) {
+	storageBackend, ok := os.LookupEnv(StorageBackendEnvVar)
+	if !ok {
+		return nil, fmt.Errorf("storage backend environment variable not found")
+	}
+	switch storageBackend {
+	case Amazon:
+		c, err = NewAmazonClientFromSecret("")
+	case Google:
+		c, err = NewGoogleClientFromSecret("")
+	case Microsoft:
+		c, err = NewMicrosoftClientFromSecret("")
+	case Minio:
+		c, err = NewMinioClientFromSecret("")
+	case Local:
+		c, err = NewLocalClient(storageRoot)
+	}
+	switch {
+	case err != nil:
+		return nil, err
+	case c != nil:
+		return TracingObjClient(storageBackend, c), nil
+	default:
+		return nil, fmt.Errorf("unrecognized storage backend: %s", storageBackend)
+	}
 }
 
 // NewExponentialBackOffConfig creates an exponential back-off config with
@@ -528,20 +645,26 @@ type RetryError struct {
 
 // BackoffReadCloser retries with exponential backoff in the case of failures
 type BackoffReadCloser struct {
+	ctx           context.Context
 	client        Client
 	reader        io.ReadCloser
 	backoffConfig *backoff.ExponentialBackOff
 }
 
-func newBackoffReadCloser(client Client, reader io.ReadCloser) io.ReadCloser {
+func newBackoffReadCloser(ctx context.Context, client Client, reader io.ReadCloser) io.ReadCloser {
 	return &BackoffReadCloser{
+		ctx:           ctx,
 		client:        client,
 		reader:        reader,
 		backoffConfig: NewExponentialBackOffConfig(),
 	}
 }
 
-func (b *BackoffReadCloser) Read(data []byte) (int, error) {
+func (b *BackoffReadCloser) Read(data []byte) (retN int, retErr error) {
+	span, _ := tracing.AddSpanToAnyExisting(b.ctx, "/obj.BackoffReadCloser/Read")
+	defer func() {
+		tracing.FinishAnySpan(span, "bytes", retN, "err", retErr)
+	}()
 	bytesRead := 0
 	var n int
 	var err error
@@ -564,26 +687,36 @@ func (b *BackoffReadCloser) Read(data []byte) (int, error) {
 }
 
 // Close closes the ReaderCloser contained in b.
-func (b *BackoffReadCloser) Close() error {
+func (b *BackoffReadCloser) Close() (retErr error) {
+	span, _ := tracing.AddSpanToAnyExisting(b.ctx, "/obj.BackoffReadCloser/Close")
+	defer func() {
+		tracing.FinishAnySpan(span, "err", retErr)
+	}()
 	return b.reader.Close()
 }
 
 // BackoffWriteCloser retries with exponential backoff in the case of failures
 type BackoffWriteCloser struct {
+	ctx           context.Context
 	client        Client
 	writer        io.WriteCloser
 	backoffConfig *backoff.ExponentialBackOff
 }
 
-func newBackoffWriteCloser(client Client, writer io.WriteCloser) io.WriteCloser {
+func newBackoffWriteCloser(ctx context.Context, client Client, writer io.WriteCloser) io.WriteCloser {
 	return &BackoffWriteCloser{
+		ctx:           ctx,
 		client:        client,
 		writer:        writer,
 		backoffConfig: NewExponentialBackOffConfig(),
 	}
 }
 
-func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
+func (b *BackoffWriteCloser) Write(data []byte) (retN int, retErr error) {
+	span, _ := tracing.AddSpanToAnyExisting(b.ctx, "/obj.BackoffWriteCloser/Write")
+	defer func() {
+		tracing.FinishAnySpan(span, "bytes", retN, "err", retErr)
+	}()
 	bytesWritten := 0
 	var n int
 	var err error
@@ -606,7 +739,11 @@ func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
 }
 
 // Close closes the WriteCloser contained in b.
-func (b *BackoffWriteCloser) Close() error {
+func (b *BackoffWriteCloser) Close() (retErr error) {
+	span, _ := tracing.AddSpanToAnyExisting(b.ctx, "/obj.BackoffWriteCloser/Close")
+	defer func() {
+		tracing.FinishAnySpan(span, "err", retErr)
+	}()
 	err := b.writer.Close()
 	if b.client.IsIgnorable(err) {
 		return nil
@@ -633,10 +770,46 @@ func isNetRetryable(err error) bool {
 	return ok && netErr.Temporary()
 }
 
-// TestIsNotExist is a defensive method for checking to make sure IsNotExist is
-// satisfying its semantics.
-func TestIsNotExist(c Client) error {
-	_, err := c.Reader(uuid.NewWithoutDashes(), 0, 0)
+// TestStorage is a defensive method for checking to make sure that storage is
+// properly configured.
+func TestStorage(ctx context.Context, c Client) error {
+	testObj := uuid.NewWithoutDashes()
+	if err := func() (retErr error) {
+		w, err := c.Writer(ctx, testObj)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := w.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		_, err = w.Write([]byte("test"))
+		return err
+	}(); err != nil {
+		return fmt.Errorf("unable to write to object storage: %v", err)
+	}
+	if err := func() (retErr error) {
+		r, err := c.Reader(ctx, testObj, 0, 0)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := r.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		_, err = ioutil.ReadAll(r)
+		return err
+	}(); err != nil {
+		return fmt.Errorf("unable to read from object storage: %v", err)
+	}
+	if err := c.Delete(ctx, testObj); err != nil {
+		return fmt.Errorf("unable to delete from object storage: %v", err)
+	}
+	// Try reading a non-existant object to make sure our IsNotExist function
+	// works.
+	_, err := c.Reader(ctx, uuid.NewWithoutDashes(), 0, 0)
 	if !c.IsNotExist(err) {
 		return fmt.Errorf("storage is unable to discern NotExist errors, \"%s\" should count as NotExist", err.Error())
 	}

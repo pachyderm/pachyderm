@@ -1,0 +1,43 @@
+{
+  "pipeline": {
+    "name": "GoT_train"
+  },
+  "description": "A combined pipeline that trains the RNN model and generates a new GoT script.",
+  "transform": {
+    "image": "<yourregistry>/tensorflow_0_10_rnn_got",
+    "cmd": [ "sh" ],
+    "stdin": [
+      "cd /code && python ptb_word_lm.py --data_path=/pfs/GoT_scripts/ --model=test --model_path_prefix=/pfs/out/"
+    ]
+  },
+  "parallelism_spec": {
+       "constant" : 1
+  },
+  "input": {
+    "pfs": {
+      "repo": "GoT_scripts",
+      "glob": "/"
+    }
+  }
+}
+{
+  "pipeline": {
+    "name": "GoT_generate"
+  },
+  "transform": {
+    "image": "<yourregistry>/tensorflow_0_10_rnn_got:v1",
+    "cmd": [ "sh" ],
+    "stdin": [
+      "cd /code && python ptb_word_lm.py --model=test --generate=true --model_path_prefix=/pfs/GoT_train > /pfs/out/new_script.txt"
+    ]
+  },
+  "parallelism_spec": {
+       "constant" : 1
+  },
+  "input": {
+    "pfs": {
+      "repo": "GoT_train",
+      "glob": "/"
+    }
+  }
+}

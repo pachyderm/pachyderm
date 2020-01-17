@@ -7,125 +7,295 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	golog "log"
 	"os"
 	"os/signal"
+	"sort"
 	"strings"
-	"text/tabwriter"
+	"text/template"
 	"time"
+	"unicode"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/fatih/color"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
+	"github.com/juju/ansiterm"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	admincmds "github.com/pachyderm/pachyderm/src/server/admin/cmds"
 	authcmds "github.com/pachyderm/pachyderm/src/server/auth/cmds"
+	configcmds "github.com/pachyderm/pachyderm/src/server/config"
 	debugcmds "github.com/pachyderm/pachyderm/src/server/debug/cmds"
 	enterprisecmds "github.com/pachyderm/pachyderm/src/server/enterprise/cmds"
 	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	deploycmds "github.com/pachyderm/pachyderm/src/server/pkg/deploy/cmds"
+	logutil "github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
+	txncmds "github.com/pachyderm/pachyderm/src/server/transaction/cmds"
+	prefixed "github.com/x-cray/logrus-prefixed-formatter"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"golang.org/x/net/context"
-	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
+	"google.golang.org/grpc/status"
 )
 
 const (
 	bashCompletionFunc = `
 __pachctl_get_object() {
-	if [[ ${#nouns[@]} -ne $1 ]]; then
-		return
-	fi
-
-	local pachctl_output out
-	if pachctl_output=$(eval pachctl $2 2>/dev/null); then
-		out=($(echo "${pachctl_output}" | awk -v c=$3 'NR > 1 {print $c}'))
-		COMPREPLY+=($(compgen -W "${out[*]}" -- "$cur"))
+	if pachctl_output=$(eval pachctl $1 2>/dev/null); then
+		local out=($(echo "${pachctl_output}" | awk -v c=$2 'NR > 1 {print $c}'))
+		COMPREPLY+=($(compgen -P "${__pachctl_prefix}" -S "${__pachctl_suffix}" -W "${out[*]}" "$cur"))
 	fi
 }
 
 __pachctl_get_repo() {
-	__pachctl_get_object $1 "list-repo" 1
+	__pachctl_get_object "list repo" 1
 }
 
+# $1: repo name
 __pachctl_get_commit() {
-	__pachctl_get_object $1 "list-commit $2" 2
+	if [[ -z $1 ]]; then
+		return
+	fi
+	__pachctl_get_object "list commit $1" 2
+	__pachctl_get_object "list branch $1" 1
 }
 
+# Performs completion of the standard format <repo>@<branch-or-commit>
+__pachctl_get_repo_commit() {
+	if [[ ${cur} != *@* ]]; then
+		compopt -o nospace
+		local __pachctl_suffix="@"
+		__pachctl_get_repo
+	else
+		local repo=$(__parse_repo ${cur})
+		local cur=$(__parse_commit ${cur})
+		local __pachctl_prefix="${repo}@"
+		__pachctl_get_commit ${repo}
+	fi
+}
+
+# Performs completion of the standard format <repo>@<branch> (will not match commits)
+__pachctl_get_repo_branch() {
+	if [[ ${cur} != *@* ]]; then
+		compopt -o nospace
+		local __pachctl_suffix="@"
+		__pachctl_get_repo
+	else
+		local repo=$(__parse_repo ${cur})
+		local cur=$(__parse_commit ${cur})
+		local __pachctl_prefix="${repo}@"
+		__pachctl_get_branch ${repo}
+	fi
+}
+
+# Performs completion of the standard format <repo>@<branch-or-commit>:<path>
+__pachctl_get_repo_commit_path() {
+	# completion treats ':' as its own argument and an argument-break
+	if [[ ${#nouns[@]} -ge 1 ]] && [[ ${cur} == : ]]; then
+		local repo=$(__parse_repo ${nouns[-1]})
+		local commit=$(__parse_commit ${nouns[-1]})
+		local cur=
+		__pachctl_get_path ${repo} ${commit}
+	elif [[ ${#nouns[@]} -ge 2 ]] && [[ ${nouns[-1]} == : ]]; then
+		local repo=$(__parse_repo ${nouns[-2]})
+		local commit=$(__parse_commit ${nouns[-2]})
+		__pachctl_get_path ${repo} ${commit}
+	elif [[ ${cur} != *@* ]]; then
+		__pachctl_get_repo_commit
+	else
+		compopt -o nospace
+		local __pachctl_suffix=":"
+		__pachctl_get_repo_commit
+	fi
+}
+
+# $1: repo name
+# $2: branch name or commit id
 __pachctl_get_path() {
-	__pachctl_get_object $1 "glob-file $2 $3 \"${words[${#words[@]}-1]}**\"" 1
+	if [[ -z $1 ]] || [[ -z $2 ]]; then
+		return
+	fi
+
+	__pachctl_get_object "glob file \"$1@$2:${cur}**\"" 2
 }
 
+# $1: repo name
 __pachctl_get_branch() {
-	__pachctl_get_object $1 "list-branch $2" 1
+	if [[ -z $1 ]]; then
+		return
+	fi
+	__pachctl_get_object "list branch $1" 1
 }
 
 __pachctl_get_job() {
-	__pachctl_get_object $1 "list-job" 1
+	__pachctl_get_object "list job" 1
 }
 
 __pachctl_get_pipeline() {
-	__pachctl_get_object $1 "list-pipeline" 1
+	__pachctl_get_object "list pipeline" 1
 }
 
 __pachctl_get_datum() {
-	__pachctl_get_object $1 "list-datum $2" 1
+	__pachctl_get_object "list datum $2" 1
+}
+
+# Parses repo from the format <repo>@<branch-or-commit>
+__parse_repo() {
+	echo $1 | cut -f 1 -d "@"
+}
+
+# Parses commit from the format <repo>@<branch-or-commit>
+__parse_commit() {
+	echo $1 | cut -f 2 -d "@" -s
+}
+
+__pachctl_auth_scope() {
+	local out=(none reader writer owner)
+	COMPREPLY+=($(compgen -W "${out[*]}" "$cur"))
+}
+
+# $*: an integer corresponding to a positional argument index (zero-based)
+# Checks if the argument being completed is a positional argument at one of the
+# specified indices.
+__is_active_arg() {
+	for predicate in $*; do
+		if [[ $predicate == ${#nouns[@]} ]]; then
+			return 0
+		fi
+	done
+	return 1
 }
 
 __custom_func() {
 	case ${last_command} in
-		pachctl_update-repo | pachctl_inspect-repo | pachctl_delete-repo | pachctl_list-commit | pachctl_list-branch)
-			__pachctl_get_repo 0
+		pachctl_auth_check)
+		  if __is_active_arg 0; then
+				__pachctl_auth_scope
+			elif __is_active_arg 1; then
+				__pachctl_get_repo
+			fi
 			;;
-		pachctl_start-commit | pachctl_subscribe-commit | pachctl_delete-branch)
-			__pachctl_get_repo 0
-			__pachctl_get_branch 1 ${nouns[0]}
+		pachctl_auth_get)
+			if __is_active_arg 0 1; then
+				__pachctl_get_repo
+			fi
 			;;
-		pachctl_finish-commit | pachctl_inspect-commit | pachctl_delete-commit | pachctl_glob-file)
-			__pachctl_get_repo 0
-			__pachctl_get_commit 1 ${nouns[0]}
+		pachctl_auth_set)
+		  if __is_active_arg 1; then
+			  __pachctl_auth_scope
+			elif __is_active_arg 2; then
+				__pachctl_get_repo
+			fi
 			;;
-		pachctl_set-branch)
-			__pachctl_get_repo 0
-			__pachctl_get_commit 1 ${nouns[0]}
-			__pachctl_get_branch 1 ${nouns[0]}
+		pachctl_update_repo | pachctl_inspect_repo | pachctl_delete_repo | pachctl_list_branch | pachctl_list_commit)
+			if __is_active_arg 0; then
+				__pachctl_get_repo
+			fi
 			;;
-		pachctl_put-file)
-			__pachctl_get_repo 0
-			__pachctl_get_branch 1 ${nouns[0]}
-			__pachctl_get_path 2 ${nouns[0]} ${nouns[1]}
+		pachctl_delete_branch | pachctl_subscribe_commit)
+			if __is_active_arg 0; then
+				__pachctl_get_repo_branch
+			fi
+			;;
+		pachctl_finish_commit | pachctl_inspect_commit | pachctl_delete_commit | pachctl_create_branch | pachctl_start_commit)
+			if __is_active_arg 0; then
+				__pachctl_get_repo_commit
+			fi
+			;;
+		pachctl_get_file | pachctl_inspect_file | pachctl_list_file | pachctl_delete_file | pachctl_glob_file | pachctl_put_file)
+			# completion splits the ':' character into its own argument
+			if __is_active_arg 0 1 2; then
+				__pachctl_get_repo_commit_path
+			fi
+			;;
+		pachctl_copy_file | pachctl_diff_file)
+			__pachctl_get_repo_commit_path
+			;;
+		pachctl_inspect_job | pachctl_delete_job | pachctl_stop_job | pachctl_list_datum | pachctl_restart_datum)
+			if __is_active_arg 0; then
+				__pachctl_get_job
+			fi
+			;;
+		pachctl_inspect_datum)
+			if __is_active_arg 0; then
+				__pachctl_get_job
+			elif __is_active_arg 1; then
+				__pachctl_get_datum ${nouns[0]}
+			fi
+			;;
+		pachctl_inspect_pipeline | pachctl_delete_pipeline | pachctl_start_pipeline | pachctl_stop_pipeline | pachctl_extract_pipeline | pachctl_edit_pipeline)
+			if __is_active_arg 0; then
+				__pachctl_get_pipeline
+			fi
+			;;
+		pachctl_flush_job | pachctl_flush_commit)
+			__pachctl_get_repo_commit
+			;;
+		# Deprecated v1.8 commands - remove later
+		pachctl_update-repo | pachctl_inspect-repo | pachctl_delete-repo | pachctl_list-branch | pachctl_list-commit)
+			if __is_active_arg 0; then
+				__pachctl_get_repo
+			fi
+			;;
+		pachctl_delete-branch | pachctl_subscribe-commit)
+			if __is_active_arg 0; then
+				__pachctl_get_repo
+			elif __is_active_arg 1; then
+				__pachctl_get_branch ${nouns[0]}
+			fi
+			;;
+		pachctl_finish-commit | pachctl_inspect-commit | pachctl_delete-commit | pachctl_create-branch | pachctl_start-commit)
+			if __is_active_arg 0; then
+				__pachctl_get_repo
+			elif __is_active_arg 1; then
+				__pachctl_get_commit ${nouns[0]}
+			fi
+			;;
+		pachctl_get-file | pachctl_inspect-file | pachctl_list-file | pachctl_delete-file | pachctl_glob-file | pachctl_put-file)
+			if __is_active_arg 0; then
+				__pachctl_get_repo
+			elif __is_active_arg 1; then
+				__pachctl_get_commit ${nouns[0]}
+			elif __is_active_arg 2; then
+			  __pachctl_get_path ${nouns[0]} ${nouns[1]}
+			fi
 			;;
 		pachctl_copy-file | pachctl_diff-file)
-			__pachctl_get_repo 0
-			__pachctl_get_commit 1 ${nouns[0]}
-			__pachctl_get_path 2 ${nouns[0]} ${nouns[1]}
-			__pachctl_get_repo 3
-			__pachctl_get_commit 4 ${nouns[3]}
-			__pachctl_get_path 5 ${nouns[3]} ${nouns[4]}
+			if __is_active_arg 0 3; then
+				__pachctl_get_repo
+			elif __is_active_arg 1 4; then
+				__pachctl_get_commit ${nouns[0]}
+			elif __is_active_arg 2 5; then
+			  __pachctl_get_path ${nouns[0]} ${nouns[1]}
+			fi
 			;;
-		pachctl_get-file | pachctl_inspect-file | pachctl_list-file | pachctl_delete-file)
-			__pachctl_get_repo 0
-			__pachctl_get_commit 1 ${nouns[0]}
-			__pachctl_get_path 2 ${nouns[0]} ${nouns[1]}
-			;;
-		pachctl_inspect-job | pachctl_delete-job | pachctl_stop-job | pachctl_list-datum)
-			__pachctl_get_job 0
+		pachctl_inspect-job | pachctl_delete-job | pachctl_stop-job | pachctl_list-datum | pachctl_restart-datum)
+			if __is_active_arg 0; then
+				__pachctl_get_job
+			fi
 			;;
 		pachctl_inspect-datum)
-			__pachctl_get_job 0
-			__pachctl_get_datum 1 ${nouns[0]}
+			if __is_active_arg 0; then
+				__pachctl_get_job
+			elif __is_active_arg 1; then
+				__pachctl_get_datum ${nouns[0]}
+			fi
 			;;
-		pachctl_inspect-pipeline | pachctl_delete-pipeline | pachctl_start-pipeline | pachctl_stop-pipeline | pachctl_run-pipeline)
-			__pachctl_get_pipeline 0
+		pachctl_inspect-pipeline | pachctl_delete-pipeline | pachctl_start-pipeline | pachctl_stop-pipeline | pachctl_extract-pipeline | pachctl_edit-pipeline)
+			if __is_active_arg 0; then
+				__pachctl_get_pipeline
+			fi
+			;;
+		pachctl_flush-job | pachctl_flush-commit)
+			__pachctl_get_repo_slash_commit
 			;;
 		*)
 			;;
@@ -133,25 +303,15 @@ __custom_func() {
 }`
 )
 
-type logWriter golog.Logger
-
-func (l *logWriter) Write(p []byte) (int, error) {
-	err := (*golog.Logger)(l).Output(2, string(p))
-	if err != nil {
-		return 0, err
-	}
-	return len(p), nil
-}
-
 // PachctlCmd creates a cobra.Command which can deploy pachyderm clusters and
 // interact with them (it implements the pachctl binary).
-func PachctlCmd() (*cobra.Command, error) {
+func PachctlCmd() *cobra.Command {
 	var verbose bool
-	var noMetrics bool
+
 	raw := false
-	rawFlag := func(cmd *cobra.Command) {
-		cmd.Flags().BoolVar(&raw, "raw", false, "disable pretty printing, print raw json")
-	}
+	rawFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
+	rawFlags.BoolVar(&raw, "raw", false, "disable pretty printing, print raw json")
+
 	marshaller := &jsonpb.Marshaler{Indent: "  "}
 
 	rootCmd := &cobra.Command{
@@ -159,68 +319,45 @@ func PachctlCmd() (*cobra.Command, error) {
 		Long: `Access the Pachyderm API.
 
 Environment variables:
-  ADDRESS=<host>:<port>, the pachd server to connect to (e.g. 127.0.0.1:30650).
+  PACH_CONFIG=<path>, the path where pachctl will attempt to load your pach config.
+  JAEGER_ENDPOINT=<host>:<port>, the Jaeger server to connect to, if PACH_TRACE is set
+  PACH_TRACE={true,false}, If true, and JAEGER_ENDPOINT is set, attach a
+    Jaeger trace to any outgoing RPCs
 `,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			log.SetFormatter(new(prefixed.TextFormatter))
+
 			if !verbose {
+				log.SetLevel(log.ErrorLevel)
 				// Silence grpc logs
-				l := log.New()
-				l.Level = log.FatalLevel
 				grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
 			} else {
+				log.SetLevel(log.DebugLevel)
 				// etcd overrides grpc's logs--there's no way to enable one without
-				// enabling both
+				// enabling both.
+				// Error and warning logs are discarded because they will be
+				// redundantly sent to the info logger. See:
+				// https://godoc.org/google.golang.org/grpc/grpclog#NewLoggerV2
+				logger := log.StandardLogger()
 				etcd.SetLogger(grpclog.NewLoggerV2(
-					(*logWriter)(golog.New(os.Stderr, "[etcd/grpc] INFO  ", golog.LstdFlags|golog.Lshortfile)),
-					(*logWriter)(golog.New(os.Stderr, "[etcd/grpc] WARN  ", golog.LstdFlags|golog.Lshortfile)),
-					(*logWriter)(golog.New(os.Stderr, "[etcd/grpc] ERROR ", golog.LstdFlags|golog.Lshortfile)),
+					logutil.NewGRPCLogWriter(logger, "etcd/grpc"),
+					ioutil.Discard,
+					ioutil.Discard,
 				))
 			}
-
 		},
 		BashCompletionFunction: bashCompletionFunc,
 	}
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Output verbose logs")
-	rootCmd.PersistentFlags().BoolVarP(&noMetrics, "no-metrics", "", false, "Don't report user metrics for this command")
+	rootCmd.PersistentFlags().BoolVar(&color.NoColor, "no-color", false, "Turn off colors.")
 
-	pfsCmds := pfscmds.Cmds(&noMetrics)
-	for _, cmd := range pfsCmds {
-		rootCmd.AddCommand(cmd)
-	}
-	ppsCmds, err := ppscmds.Cmds(&noMetrics)
-	if err != nil {
-		return nil, err
-	}
-	for _, cmd := range ppsCmds {
-		rootCmd.AddCommand(cmd)
-	}
-	deployCmds := deploycmds.Cmds(&noMetrics)
-	for _, cmd := range deployCmds {
-		rootCmd.AddCommand(cmd)
-	}
-	authCmds := authcmds.Cmds()
-	for _, cmd := range authCmds {
-		rootCmd.AddCommand(cmd)
-	}
-	enterpriseCmds := enterprisecmds.Cmds()
-	for _, cmd := range enterpriseCmds {
-		rootCmd.AddCommand(cmd)
-	}
-	adminCmds := admincmds.Cmds(&noMetrics)
-	for _, cmd := range adminCmds {
-		rootCmd.AddCommand(cmd)
-	}
-	debugCmds := debugcmds.Cmds(&noMetrics)
-	for _, cmd := range debugCmds {
-		rootCmd.AddCommand(cmd)
-	}
+	var subcommands []*cobra.Command
 
 	var clientOnly bool
 	var timeoutFlag string
 	versionCmd := &cobra.Command{
-		Use:   "version",
-		Short: "Return version information.",
-		Long:  "Return version information.",
+		Short: "Print Pachyderm version information.",
+		Long:  "Print Pachyderm version information.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			if clientOnly {
 				if raw {
@@ -232,18 +369,17 @@ Environment variables:
 				}
 				return nil
 			}
-			if !noMetrics {
-				start := time.Now()
-				startMetricsWait := metrics.StartReportAndFlushUserAction("Version", start)
-				defer startMetricsWait()
-				defer func() {
-					finishMetricsWait := metrics.FinishReportAndFlushUserAction("Version", retErr, start)
-					finishMetricsWait()
-				}()
-			}
+
+			start := time.Now()
+			startMetricsWait := metrics.StartReportAndFlushUserAction("Version", start)
+			defer startMetricsWait()
+			defer func() {
+				finishMetricsWait := metrics.FinishReportAndFlushUserAction("Version", retErr, start)
+				finishMetricsWait()
+			}()
 
 			// Print header + client version
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			writer := ansiterm.NewTabWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			if raw {
 				if err := marshaller.Marshal(os.Stdout, version.Version); err != nil {
 					return err
@@ -265,9 +401,9 @@ Environment variables:
 				if err != nil {
 					return fmt.Errorf("could not parse timeout duration %q: %v", timeout, err)
 				}
-				pachClient, err = client.NewOnUserMachine(false, true, "user", client.WithDialTimeout(timeout))
+				pachClient, err = client.NewOnUserMachine("user", client.WithDialTimeout(timeout))
 			} else {
-				pachClient, err = client.NewOnUserMachine(false, true, "user")
+				pachClient, err = client.NewOnUserMachine("user")
 			}
 			if err != nil {
 				return err
@@ -279,8 +415,8 @@ Environment variables:
 
 			if err != nil {
 				buf := bytes.NewBufferString("")
-				errWriter := tabwriter.NewWriter(buf, 20, 1, 3, ' ', 0)
-				fmt.Fprintf(errWriter, "pachd\t(version unknown) : error connecting to pachd server at address (%v): %v\n\nplease make sure pachd is up (`kubectl get all`) and portforwarding is enabled\n", pachClient.GetAddress(), grpc.ErrorDesc(err))
+				errWriter := ansiterm.NewTabWriter(buf, 20, 1, 3, ' ', 0)
+				fmt.Fprintf(errWriter, "pachd\t(version unknown) : error connecting to pachd server at address (%v): %v\n\nplease make sure pachd is up (`kubectl get all`) and portforwarding is enabled\n", pachClient.GetAddress(), status.Convert(err).Message())
 				errWriter.Flush()
 				return errors.New(buf.String())
 			}
@@ -302,20 +438,20 @@ Environment variables:
 	versionCmd.Flags().BoolVar(&clientOnly, "client-only", false, "If set, "+
 		"only print pachctl's version, but don't make any RPCs to pachd. Useful "+
 		"if pachd is unavailable")
-	rawFlag(versionCmd)
 	versionCmd.Flags().StringVar(&timeoutFlag, "timeout", "default", "If set, "+
-		"pachctl version will timeout after the given duration (formatted as a "+
+		"'pachctl version' will timeout after the given duration (formatted as a "+
 		"golang time duration--a number followed by ns, us, ms, s, m, or h). If "+
 		"--client-only is set, this flag is ignored. If unset, pachctl will use a "+
 		"default timeout; if set to 0s, the call will never time out.")
+	versionCmd.Flags().AddFlagSet(rawFlags)
+	subcommands = append(subcommands, cmdutil.CreateAlias(versionCmd, "version"))
 
 	deleteAll := &cobra.Command{
-		Use:   "delete-all",
 		Short: "Delete everything.",
 		Long: `Delete all repos, commits, files, pipelines and jobs.
 This resets the cluster to its initial state.`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := client.NewOnUserMachine(!noMetrics, true, "user")
+			client, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -336,85 +472,158 @@ This resets the cluster to its initial state.`,
 			for _, pi := range pipelineInfos {
 				pipelines = append(pipelines, red(pi.Pipeline.Name))
 			}
-			fmt.Printf("Are you sure you want to delete all ACLs, repos, commits, files, pipelines and jobs?\nyN\n")
+			fmt.Println("All ACLs, repos, commits, files, pipelines and jobs will be deleted.")
 			if len(repos) > 0 {
 				fmt.Printf("Repos to delete: %s\n", strings.Join(repos, ", "))
 			}
 			if len(pipelines) > 0 {
 				fmt.Printf("Pipelines to delete: %s\n", strings.Join(pipelines, ", "))
 			}
+			fmt.Println("Are you sure you want to do this? (y/n):")
 			r := bufio.NewReader(os.Stdin)
 			bytes, err := r.ReadBytes('\n')
 			if err != nil {
 				return err
 			}
 			if bytes[0] == 'y' || bytes[0] == 'Y' {
-				return client.DeleteAll()
+				err = client.DeleteAll()
+				if err != nil {
+					return err
+				}
+				return txncmds.ClearActiveTransaction()
 			}
 			return nil
 		}),
 	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(deleteAll, "delete all"))
+
 	var port uint16
 	var remotePort uint16
 	var samlPort uint16
 	var uiPort uint16
 	var uiWebsocketPort uint16
 	var pfsPort uint16
+	var s3gatewayPort uint16
 	var namespace string
-
 	portForward := &cobra.Command{
-		Use:   "port-forward",
 		Short: "Forward a port on the local machine to pachd. This command blocks.",
 		Long:  "Forward a port on the local machine to pachd. This command blocks.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			fw, err := client.NewPortForwarder(namespace, ioutil.Discard, os.Stderr)
+			if namespace != "" {
+				fmt.Printf("WARNING: The `--namespace` flag is deprecated and will be removed in a future version. Please set the namespace in the pachyderm context instead: pachctl config update context `pachctl config get active-context` --namespace '%s'\n", namespace)
+			}
+
+			cfg, err := config.Read(false)
 			if err != nil {
 				return err
 			}
-
-			if err = fw.Lock(); err != nil {
+			contextName, context, err := cfg.ActiveContext()
+			if err != nil {
 				return err
 			}
+			if context.PortForwarders != nil && len(context.PortForwarders) > 0 {
+				return errors.New("port forwarding appears to already be running for this context")
+			}
 
-			var eg errgroup.Group
-
-			eg.Go(func() error {
-				fmt.Println("Forwarding the pachd (Pachyderm daemon) port...")
-				return fw.RunForDaemon(port, remotePort)
-			})
-
-			eg.Go(func() error {
-				fmt.Println("Forwarding the SAML ACS port...")
-				return fw.RunForSAMLACS(samlPort)
-			})
-
-			eg.Go(func() error {
-				fmt.Printf("Forwarding the dash (Pachyderm dashboard) UI port to http://localhost:%v ...\n", uiPort)
-				return fw.RunForDashUI(uiPort)
-			})
-
-			eg.Go(func() error {
-				fmt.Println("Forwarding the dash (Pachyderm dashboard) websocket port...")
-				return fw.RunForDashWebSocket(uiWebsocketPort)
-			})
-
-			eg.Go(func() error {
-				fmt.Println("Forwarding the PFS port...")
-				return fw.RunForPFS(pfsPort)
-			})
-
+			fw, err := client.NewPortForwarder(context, namespace)
+			if err != nil {
+				return err
+			}
 			defer fw.Close()
 
-			if err = eg.Wait(); err != nil {
+			context.PortForwarders = map[string]uint32{}
+			successCount := 0
+
+			fmt.Println("Forwarding the pachd (Pachyderm daemon) port...")
+			port, err := fw.RunForDaemon(port, remotePort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				context.PortForwarders["pachd"] = uint32(port)
+				successCount++
+			}
+
+			fmt.Println("Forwarding the SAML ACS port...")
+			port, err = fw.RunForSAMLACS(samlPort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				context.PortForwarders["saml-acs"] = uint32(port)
+				successCount++
+			}
+
+			fmt.Printf("Forwarding the dash (Pachyderm dashboard) UI port to http://localhost:%v...\n", uiPort)
+			port, err = fw.RunForDashUI(uiPort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				context.PortForwarders["dash-ui"] = uint32(port)
+				successCount++
+			}
+
+			fmt.Println("Forwarding the dash (Pachyderm dashboard) websocket port...")
+			port, err = fw.RunForDashWebSocket(uiWebsocketPort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				context.PortForwarders["dash-ws"] = uint32(port)
+				successCount++
+			}
+
+			fmt.Println("Forwarding the PFS port...")
+			port, err = fw.RunForPFS(pfsPort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				context.PortForwarders["pfs-over-http"] = uint32(port)
+				successCount++
+			}
+
+			fmt.Println("Forwarding the s3gateway port...")
+			port, err = fw.RunForS3Gateway(s3gatewayPort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				context.PortForwarders["s3g"] = uint32(port)
+				successCount++
+			}
+
+			if successCount == 0 {
+				return errors.New("failed to start port forwarders")
+			}
+
+			if err = cfg.Write(); err != nil {
 				return err
 			}
 
-			fmt.Println("CTRL-C to exit")
-			fmt.Println("NOTE: kubernetes port-forward often outputs benign error messages, these should be ignored unless they seem to be impacting your ability to connect over the forwarded port.")
+			defer func() {
+				// reload config in case changes have happened since the
+				// config was last read
+				cfg, err := config.Read(true)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "failed to read config file: %v\n", err)
+					return
+				}
+				context, ok := cfg.V2.Contexts[contextName]
+				if ok {
+					context.PortForwarders = nil
+					if err := cfg.Write(); err != nil {
+						fmt.Fprintf(os.Stderr, "failed to write config file: %v\n", err)
+					}
+				}
+			}()
 
+			fmt.Println("CTRL-C to exit")
 			ch := make(chan os.Signal, 1)
 			signal.Notify(ch, os.Interrupt)
-			<- ch
+			<-ch
+
 			return nil
 		}),
 	}
@@ -424,12 +633,13 @@ This resets the cluster to its initial state.`,
 	portForward.Flags().Uint16VarP(&uiPort, "ui-port", "u", 30080, "The local port to bind Pachyderm's dash service to.")
 	portForward.Flags().Uint16VarP(&uiWebsocketPort, "proxy-port", "x", 30081, "The local port to bind Pachyderm's dash proxy service to.")
 	portForward.Flags().Uint16VarP(&pfsPort, "pfs-port", "f", 30652, "The local port to bind PFS over HTTP to.")
-	portForward.Flags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace Pachyderm is deployed in.")
+	portForward.Flags().Uint16VarP(&s3gatewayPort, "s3gateway-port", "s", 30600, "The local port to bind the s3gateway to.")
+	portForward.Flags().StringVar(&namespace, "namespace", "", "Kubernetes namespace Pachyderm is deployed in.")
+	subcommands = append(subcommands, cmdutil.CreateAlias(portForward, "port-forward"))
 
 	var install bool
 	var path string
 	completion := &cobra.Command{
-		Use:   "completion",
 		Short: "Print or install the bash completion code.",
 		Long:  "Print or install the bash completion code. This should be placed as the file `pachctl` in the bash completion directory (by default this is `/etc/bash_completion.d`. If bash-completion was installed via homebrew, this would be `$(brew --prefix)/etc/bash_completion.d`.)",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
@@ -444,7 +654,7 @@ This resets the cluster to its initial state.`,
 					}
 					return err
 				}
-				
+
 				defer func() {
 					if err := f.Close(); err != nil && retErr == nil {
 						retErr = err
@@ -458,17 +668,154 @@ This resets the cluster to its initial state.`,
 				dest = os.Stdout
 			}
 
+			// Remove 'hidden' flag from all commands so we can get bash completions for them as well
+			var unhide func(*cobra.Command)
+			unhide = func(cmd *cobra.Command) {
+				cmd.Hidden = false
+				for _, subcmd := range cmd.Commands() {
+					unhide(subcmd)
+				}
+			}
+			unhide(rootCmd)
+
 			return rootCmd.GenBashCompletion(dest)
 		}),
 	}
 	completion.Flags().BoolVar(&install, "install", false, "Install the completion.")
 	completion.Flags().StringVar(&path, "path", "/etc/bash_completion.d/pachctl", "Path to install the completion to. This will default to `/etc/bash_completion.d/` if unspecified.")
+	subcommands = append(subcommands, cmdutil.CreateAlias(completion, "completion"))
 
-	rootCmd.AddCommand(versionCmd)
-	rootCmd.AddCommand(deleteAll)
-	rootCmd.AddCommand(portForward)
-	rootCmd.AddCommand(completion)
-	return rootCmd, nil
+	// Logical commands for grouping commands by verb (no run functions)
+	deleteDocs := &cobra.Command{
+		Short: "Delete an existing Pachyderm resource.",
+		Long:  "Delete an existing Pachyderm resource.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(deleteDocs, "delete"))
+
+	createDocs := &cobra.Command{
+		Short: "Create a new instance of a Pachyderm resource.",
+		Long:  "Create a new instance of a Pachyderm resource.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(createDocs, "create"))
+
+	updateDocs := &cobra.Command{
+		Short: "Change the properties of an existing Pachyderm resource.",
+		Long:  "Change the properties of an existing Pachyderm resource.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(updateDocs, "update"))
+
+	inspectDocs := &cobra.Command{
+		Short: "Show detailed information about a Pachyderm resource.",
+		Long:  "Show detailed information about a Pachyderm resource.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(inspectDocs, "inspect"))
+
+	listDocs := &cobra.Command{
+		Short: "Print a list of Pachyderm resources of a specific type.",
+		Long:  "Print a list of Pachyderm resources of a specific type.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(listDocs, "list"))
+
+	startDocs := &cobra.Command{
+		Short: "Start a Pachyderm resource.",
+		Long:  "Start a Pachyderm resource.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(startDocs, "start"))
+
+	finishDocs := &cobra.Command{
+		Short: "Finish a Pachyderm resource.",
+		Long:  "Finish a Pachyderm resource.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(finishDocs, "finish"))
+
+	flushDocs := &cobra.Command{
+		Short: "Wait for the side-effects of a Pachyderm resource to propagate.",
+		Long:  "Wait for the side-effects of a Pachyderm resource to propagate.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(flushDocs, "flush"))
+
+	subscribeDocs := &cobra.Command{
+		Short: "Wait for notifications of changes to a Pachyderm resource.",
+		Long:  "Wait for notifications of changes to a Pachyderm resource.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(subscribeDocs, "subscribe"))
+
+	putDocs := &cobra.Command{
+		Short: "Insert data into Pachyderm.",
+		Long:  "Insert data into Pachyderm.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(putDocs, "put"))
+
+	copyDocs := &cobra.Command{
+		Short: "Copy a Pachyderm resource.",
+		Long:  "Copy a Pachyderm resource.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(copyDocs, "copy"))
+
+	getDocs := &cobra.Command{
+		Short: "Get the raw data represented by a Pachyderm resource.",
+		Long:  "Get the raw data represented by a Pachyderm resource.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(getDocs, "get"))
+
+	globDocs := &cobra.Command{
+		Short: "Print a list of Pachyderm resources matching a glob pattern.",
+		Long:  "Print a list of Pachyderm resources matching a glob pattern.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(globDocs, "glob"))
+
+	diffDocs := &cobra.Command{
+		Short: "Show the differences between two Pachyderm resources.",
+		Long:  "Show the differences between two Pachyderm resources.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(diffDocs, "diff"))
+
+	stopDocs := &cobra.Command{
+		Short: "Cancel an ongoing task.",
+		Long:  "Cancel an ongoing task.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(stopDocs, "stop"))
+
+	restartDocs := &cobra.Command{
+		Short: "Cancel and restart an ongoing task.",
+		Long:  "Cancel and restart an ongoing task.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(restartDocs, "restart"))
+
+	resumeDocs := &cobra.Command{
+		Short: "Resume a stopped task.",
+		Long:  "Resume a stopped task.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(resumeDocs, "resume"))
+
+	runDocs := &cobra.Command{
+		Short: "Manually run a Pachyderm resource.",
+		Long:  "Manually run a Pachyderm resource.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(runDocs, "run"))
+
+	editDocs := &cobra.Command{
+		Short: "Edit the value of an existing Pachyderm resource.",
+		Long:  "Edit the value of an existing Pachyderm resource.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(editDocs, "edit"))
+
+	subcommands = append(subcommands, pfscmds.Cmds()...)
+	subcommands = append(subcommands, ppscmds.Cmds()...)
+	subcommands = append(subcommands, deploycmds.Cmds()...)
+	subcommands = append(subcommands, authcmds.Cmds()...)
+	subcommands = append(subcommands, enterprisecmds.Cmds()...)
+	subcommands = append(subcommands, admincmds.Cmds()...)
+	subcommands = append(subcommands, debugcmds.Cmds()...)
+	subcommands = append(subcommands, txncmds.Cmds()...)
+	subcommands = append(subcommands, configcmds.Cmds()...)
+
+	cmdutil.MergeCommands(rootCmd, subcommands)
+
+	applyRootUsageFunc(rootCmd)
+	applyCommandCompat1_8(rootCmd)
+
+	return rootCmd
 }
 
 func printVersionHeader(w io.Writer) {
@@ -477,4 +824,119 @@ func printVersionHeader(w io.Writer) {
 
 func printVersion(w io.Writer, component string, v *versionpb.Version) {
 	fmt.Fprintf(w, "%s\t%s\t\n", component, version.PrettyPrintVersion(v))
+}
+
+func applyRootUsageFunc(rootCmd *cobra.Command) {
+	// Partition subcommands by category
+	var admin []*cobra.Command
+	var actions []*cobra.Command
+	var other []*cobra.Command
+
+	for _, subcmd := range rootCmd.Commands() {
+		switch subcmd.Name() {
+		case
+			"branch",
+			"commit",
+			"datum",
+			"file",
+			"job",
+			"object",
+			"pipeline",
+			"repo",
+			"tag":
+			// These are ignored - they will show up in the help topics section
+		case
+			"copy",
+			"create",
+			"delete",
+			"diff",
+			"edit",
+			"finish",
+			"flush",
+			"get",
+			"glob",
+			"inspect",
+			"list",
+			"put",
+			"restart",
+			"start",
+			"stop",
+			"subscribe",
+			"update":
+			actions = append(actions, subcmd)
+		case
+			"deploy",
+			"undeploy",
+			"extract",
+			"restore",
+			"garbage-collect",
+			"update-dash",
+			"auth",
+			"enterprise":
+			admin = append(admin, subcmd)
+		default:
+			other = append(other, subcmd)
+		}
+	}
+
+	sortGroup := func(group []*cobra.Command) {
+		sort.Slice(group, func(i, j int) bool {
+			return group[i].Name() < group[j].Name()
+		})
+	}
+
+	sortGroup(admin)
+	sortGroup(actions)
+	sortGroup(other)
+
+	// Template environment copied from cobra templates
+	templateFuncs := template.FuncMap{
+		"trimRightSpace": func(s string) string {
+			return strings.TrimRightFunc(s, unicode.IsSpace)
+		},
+		"rpad": func(s string, padding int) string {
+			format := fmt.Sprintf("%%-%ds", padding)
+			return fmt.Sprintf(format, s)
+		},
+		"admin": func() []*cobra.Command {
+			return admin
+		},
+		"actions": func() []*cobra.Command {
+			return actions
+		},
+		"other": func() []*cobra.Command {
+			return other
+		},
+	}
+
+	// template modified from default cobra template
+	text := `Usage:
+  {{.CommandPath}} [command]
+
+Administration Commands:{{range admin}}{{if .IsAvailableCommand}}
+  {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}
+
+Commands by Action:{{range actions}}{{if .IsAvailableCommand}}
+  {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}
+
+Other Commands:{{range other}}{{if .IsAvailableCommand}}
+  {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}{{if .HasAvailableLocalFlags}}
+
+Additional help topics:{{range .Commands}}{{if .IsHelpCommand}}
+  {{rpad .Name .NamePadding}} {{.Short}}{{end}}{{end}}{{end}}{{if .HasAvailableSubCommands}}
+
+Use "{{.CommandPath}} [command] --help" for more information about a command.{{end}}
+`
+
+	originalUsageFunc := rootCmd.UsageFunc()
+	rootCmd.SetUsageFunc(func(cmd *cobra.Command) error {
+		if cmd != rootCmd {
+			return originalUsageFunc(cmd)
+		}
+
+		t := template.New("top")
+		t.Funcs(templateFuncs)
+		template.Must(t.Parse(text))
+		return t.Execute(cmd.OutOrStderr(), cmd)
+	})
 }

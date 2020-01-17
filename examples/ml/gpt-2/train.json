@@ -1,0 +1,29 @@
+{
+    "pipeline": {
+        "name": "train"
+    },
+    "description": "A pipeline that trains the ML model on the tweets gathered by the `tweets` pipeline.",
+    "transform": {
+        "image": "pachyderm/gpt-2-example",
+        "cmd": ["/train.py"]
+    },
+    "input": {
+        "pfs": {
+            "repo": "tweets",
+            "glob": "/*"
+        }
+    },
+    "resource_limits": {
+        "gpu": {
+            "type": "nvidia.com/gpu",
+            "number": 1
+        },
+        "memory": "10G",
+        "cpu": 1
+    },
+    "resource_requests": {
+        "memory": "10G",
+        "cpu": 1
+    },
+    "standby": true
+}

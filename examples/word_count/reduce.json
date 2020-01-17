@@ -2,6 +2,7 @@
   "pipeline": {
     "name": "reduce"
   },
+  "description": "A pipeline that aggregates the total counts for each word.",
   "transform": {
     "cmd": ["sh"],
     "stdin": [

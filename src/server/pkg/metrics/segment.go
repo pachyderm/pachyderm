@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/segmentio/analytics-go"
-	log "github.com/sirupsen/logrus"
 )
 
 const reportingInterval time.Duration = 5 * time.Minute
@@ -22,24 +21,24 @@ func newSegmentClient() *analytics.Client {
 }
 
 func reportClusterMetricsToSegment(client *analytics.Client, metrics *Metrics) {
-	err := client.Track(&analytics.Track{
+	// We're intentionally ignoring an error here because metrics code is
+	// non-critical
+	client.Track(&analytics.Track{
 		Event:       "cluster.metrics",
 		AnonymousId: metrics.ClusterID,
 		Properties: map[string]interface{}{
-			"PodID":     metrics.PodID,
-			"nodes":     metrics.Nodes,
-			"version":   metrics.Version,
-			"repos":     metrics.Repos,
-			"commits":   metrics.Commits,
-			"files":     metrics.Files,
-			"bytes":     metrics.Bytes,
-			"jobs":      metrics.Jobs,
-			"pipelines": metrics.Pipelines,
+			"PodID":          metrics.PodID,
+			"nodes":          metrics.Nodes,
+			"version":        metrics.Version,
+			"repos":          metrics.Repos,
+			"commits":        metrics.Commits,
+			"files":          metrics.Files,
+			"bytes":          metrics.Bytes,
+			"jobs":           metrics.Jobs,
+			"pipelines":      metrics.Pipelines,
+			"ActivationCode": metrics.ActivationCode,
 		},
 	})
-	if err != nil {
-		log.Errorf("error reporting cluster metrics to Segment: %s", err.Error())
-	}
 }
 
 /*
@@ -48,12 +47,11 @@ We have no way of knowing if a user has previously been identified, so we call t
 before every `Track()` call containing user data.
 */
 func identifyUser(client *analytics.Client, userID string) {
-	err := client.Identify(&analytics.Identify{
+	// We're intentionally ignoring an error here because metrics code is
+	// non-critical
+	client.Identify(&analytics.Identify{
 		UserId: userID,
 	})
-	if err != nil {
-		log.Errorf("error reporting user identity to Segment: %s", err.Error())
-	}
 }
 
 func reportUserMetricsToSegment(client *analytics.Client, userID string, prefix string, action string, value interface{}, clusterID string) {
@@ -62,12 +60,11 @@ func reportUserMetricsToSegment(client *analytics.Client, userID string, prefix 
 		"ClusterID": clusterID,
 	}
 	properties[action] = value
-	err := client.Track(&analytics.Track{
+	// We're intentionally ignoring an error here because metrics code is
+	// non-critical
+	client.Track(&analytics.Track{
 		Event:      fmt.Sprintf("%v.usage", prefix),
 		UserId:     userID,
 		Properties: properties,
 	})
-	if err != nil {
-		log.Errorf("error reporting user action to Segment: %s", err.Error())
-	}
 }
