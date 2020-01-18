@@ -529,14 +529,15 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 			return "", fmt.Errorf("mkfifo :%v", err)
 		}
 		if a.pipelineInfo.Spout.Marker != "" {
-			// check if we have a marker file
+			// check if we have a marker file in the /pfs/out directory
 			_, err := pachClient.InspectFile(a.pipelineInfo.Pipeline.Name, ppsconsts.SpoutMarkerBranch, a.pipelineInfo.Spout.Marker)
-			// if not, then we need to pull it
-			if err != nil && strings.Contains(err.Error(), "not found") {
+			// if not, then it might be because we need to pull it
+			if err != nil && errutil.IsNotFoundError(err) {
+				// the file might be in the spout marker directory, and so we'll try pulling it from there
 				if err := puller.Pull(pachClient, filepath.Join(dir, a.pipelineInfo.Spout.Marker), a.pipelineInfo.Pipeline.Name,
 					ppsconsts.SpoutMarkerBranch, "/"+a.pipelineInfo.Spout.Marker, false, false, concurrency, nil, ""); err != nil {
 					// this might fail if the marker branch hasn't been created, so check for that
-					if !(err != nil && strings.Contains(err.Error(), "branches") && strings.Contains(err.Error(), "not found")) {
+					if err == nil || !(strings.Contains(err.Error(), "branches") && errutil.IsNotFoundError(err)) {
 						return "", err
 					}
 					// if it hasn't been created yet, that's fine and we should just continue as normal
