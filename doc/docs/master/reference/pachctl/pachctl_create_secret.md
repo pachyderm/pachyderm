@@ -1,10 +1,11 @@
 ## pachctl create secret
 
-Create a kubernetes secret
+Create a kubernetes secret.
 
 ### Synopsis
 
-Create a kubernetes secret when one does not have direct kubectl access to the kubernetes cluster. The newly created secret can then be referenced by the `transform.image_pull_secrets` field on a pipeline spec in order to pull docker images from a private registry whose credentials are conained in the secret. For details on using `iamge_pull_secrets`, see https://docs.pachyderm.com/latest/reference/pipeline_spec/#transform-required.
+Creates a Kubernetes secret when direct `kubectl` access to the Kubernetes cluster is not available. Then, the newly created secret can be referenced by the `transform.image_pull_secrets` field in a pipeline spec to pull docker images from a private registry whose credentials are contained in the secret. For 
+ more information about `image_pull_secrets`, see https://docs.pachyderm.com/latest/reference/pipeline_spec/#transform-required.
 
 ```
 pachctl create secret [flags]
@@ -13,7 +14,7 @@ pachctl create secret [flags]
 ### Options
 
 ```
-  -f, --file string        The JSON or YAML file containing the kubernetes secret, it can be a url or local file. - reads from stdin. (default "-")
+  -f, --file string        The JSON or YAML file that contains the Kubernetes secret, it can be a URL or local file. - reads from stdin. (default "-")
   -n, --namespace          The Kubernetes namespace of secret (default is "default" namespace)
 ```
 
@@ -21,4 +22,4 @@ pachctl create secret [flags]
 
 ```
       --no-color   Turn off colors.
-  -v, --verbose    Output verbose logs
+  -v, --verbose    Output verbose logs.
