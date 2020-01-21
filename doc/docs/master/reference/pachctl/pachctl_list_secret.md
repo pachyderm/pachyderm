@@ -1,10 +1,10 @@
 ## pachctl list secret
 
-Return info about all secrets in a given kubernetes namespace.
+Return information about all secrets in a given kubernetes namespace.
 
 ### Synopsis
 
-Return info about all secrets in a given kubernetes namespace.
+Return information about all secrets in a given kubernetes namespace.
 
 ```
 pachctl list secret [flags]
@@ -13,12 +13,12 @@ pachctl list secret [flags]
 ### Options
 
 ```
-  -h, --help              help for pipeline
-  -n, --namespace         The Kubernetes namespace of secret (default is "default" namespace)
+  -h, --help              Display help information.
+  -n, --namespace         The Kubernetes namespace of secret (default is "default" namespace).
 ```
 
 ### Options inherited from parent commands
 
 ```
       --no-color   Turn off colors.
-  -v, --verbose    Output verbose logs
+  -v, --verbose    Output verbose logs.

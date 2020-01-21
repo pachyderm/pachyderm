@@ -1,10 +1,10 @@
 ## pachctl delete secret
 
-Delete a kubernetes secret.
+Delete a Kubernetes secret.
 
 ### Synopsis
 
-Delete a kubernetes secret.
+Delete a Kubernetes secret.
 
 ```
 pachctl delete secret <secret> [flags]
@@ -13,12 +13,12 @@ pachctl delete secret <secret> [flags]
 ### Options
 
 ```
-  -h, --help        help for job
-  -n, --namespace   The Kubernetes namespace of secret (default is "default" namespace)
+  -h, --help        Display help information. 
+  -n, --namespace   The Kubernetes namespace of secret (default is "default" namespace).
 ```
 
 ### Options inherited from parent commands
 
 ```
       --no-color   Turn off colors.
-  -v, --verbose    Output verbose logs
+  -v, --verbose    Output verbose logs.
