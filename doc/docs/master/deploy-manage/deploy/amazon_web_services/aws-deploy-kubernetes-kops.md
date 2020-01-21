@@ -52,7 +52,7 @@ location on your computer.
 1. Configure an AWS CLI client:
 
    ```bash
-   $ aws configure
+   aws configure
    ```
 
 1. Use the access and secret keys to configure the AWSL client.
