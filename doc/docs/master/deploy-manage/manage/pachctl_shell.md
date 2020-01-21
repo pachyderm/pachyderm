@@ -37,6 +37,11 @@ branch:
 
 ![Pachyderm Shell list file](../../assets/images/s_pach_shell_list_file.png)
 
+Similarly, you can select a commit:
+
+![Pachyderm Shell list commit](../../assets/images/s_pach_shell_list_commit.png)
+
+
 To exit Pachctl Shell, press `CTRL-D`.
 
 ## Limitations
