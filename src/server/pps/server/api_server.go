@@ -2920,7 +2920,7 @@ func (a *apiServer) DeleteSecret(ctx context.Context, request *pps.DeleteSecretR
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	if err := a.env.GetKubeClient().CoreV1().Secrets(request.Namespace).Delete(request.GetSecret(), &metav1.DeleteOptions{}); err != nil {
-		return nil, fmt.Errorf("failed to create secret: %v", err)
+		return nil, fmt.Errorf("failed to delete secret: %v", err)
 	}
 	return &types.Empty{}, nil
 }
@@ -2934,7 +2934,7 @@ func (a *apiServer) InspectSecret(ctx context.Context, request *pps.InspectSecre
 
 	secret, err := a.env.GetKubeClient().CoreV1().Secrets(request.Namespace).Get(request.GetSecret(), metav1.GetOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create secret: %v", err)
+		return nil, fmt.Errorf("failed to get secret: %v", err)
 	}
 	creationTimestamp, err := ptypes.TimestampProto(secret.GetCreationTimestamp().Time)
 	if err != nil {
@@ -2959,7 +2959,7 @@ func (a *apiServer) ListSecret(ctx context.Context, request *pps.ListSecretReque
 
 	secrets, err := a.env.GetKubeClient().CoreV1().Secrets(request.Namespace).List(metav1.ListOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create secret: %v", err)
+		return nil, fmt.Errorf("failed to list secrets: %v", err)
 	}
 	secretInfos := []*pps.SecretInfo{}
 	for _, s := range secrets.Items {
