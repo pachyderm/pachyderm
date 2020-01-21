@@ -60,6 +60,9 @@ branches:
   only:
   # Trigger only for PR's to master
   - master
+  # Trigger CI tess for all release branches
+  # Eg. 1.9.x, 1.10.x
+  - /^\d+\.\d+\.x/
   # Trigger CI tess for all branches that end with "-ci-trigger"
   # ruby reg-ex except for things before/after "/"
   - /.*(?i:ci-trigger)$/
