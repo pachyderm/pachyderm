@@ -1,14 +1,15 @@
 # Using Pachyderm Shell
 
-Pachctl Shell is a special purpose shell for Pachyderm that provides
+Pachctl Shell is a special-purpose shell for Pachyderm that provides
 auto-suggesting as you type. New Pachyderm users will find this user-friendly
 shell especially appealing as it helps to learn `pachctl`, type commands
-faster and displays useful information about the objects you are interacting
-with. This new shell does not supersede the classic `pachctl` shell, but
-complements it. If you prefer to use just `pachctl`, you can continue to
+faster, and displays useful information about the objects you are interacting
+with. This new shell does not supersede the classic use of `pachctl` shell
+in your standard terminal, but is a compelling convenience for power users
+and beginners alike. If you prefer to use just `pachctl`, you can continue to
 do so.
 
-To enter `pachctl shell`, type:
+To enter Pachctl Shell, type:
 
 ```bash
 pachctl shell
@@ -23,8 +24,9 @@ drop-down list.
 To scroll through the list, press `TAB` and then use arrows to move up or
 down. Press `SPACE` to select a command.
 
-After entering Pachctl Shell, omit `pachctl` from the standard `pachctl`
-commands. For example, instead of running `pachctl list repo`, run `list
+When in Pachctl Shell, you do not need to prepend your commands with
+`pachctl` because Pachyderm does that for you automatically behind the
+scenes. For example, instead of running `pachctl list repo`, run `list
 repo`:
 
 ![Pachyderm Shell list repo](../../assets/images/s_pach_shell_list_repo.png)
@@ -35,9 +37,10 @@ branch:
 
 ![Pachyderm Shell list file](../../assets/images/s_pach_shell_list_file.png)
 
-To exit pachctl shell, press `CTRL-D`.
+To exit Pachctl Shell, press `CTRL-D`.
 
 ## Limitations
 
 Pachctl shell does not support standard UNIX commands or `kubectl` commands.
-To run them, exit the shell.
+To run them, exit Pachctl Shell or run the commands in a different terminal
+window.
