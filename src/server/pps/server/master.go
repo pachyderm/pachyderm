@@ -448,27 +448,10 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 			return err
 		}
 		if in.Cron.Overwrite {
-			for {
-				// in an overwrite, we only want there to be one file, and bc of scheduled cron and run cron coexisting, we can potentially get multiple files here
-				latestTime, err := a.getLatestCronTime(pachClient, in)
-				if err != nil {
-					return err
-				}
-
-				// If we want to "overwrite" the file, we need to delete the file with the previous time
-				err = pachClient.DeleteFile(in.Cron.Repo, "master", latestTime.Format(time.RFC3339))
-				if err != nil && !isNotFoundErr(err) && !pfsServer.IsNoHeadErr(err) {
-					return fmt.Errorf("delete error %v", err)
-				}
-
-				files, err := pachClient.ListFile(in.Cron.Repo, "master", "")
-				if len(files) == 0 || pfsServer.IsNoHeadErr(err) {
-					// so we're only done if there aren't any files
-					break
-				}
-				if err != nil {
-					return err
-				}
+			// get rid of any files, so the new file "overwrites" previous runs
+			err = pachClient.DeleteFile(in.Cron.Repo, "master", "")
+			if err != nil && !isNotFoundErr(err) && !pfsServer.IsNoHeadErr(err) {
+				return fmt.Errorf("delete error %v", err)
 			}
 		}
 
