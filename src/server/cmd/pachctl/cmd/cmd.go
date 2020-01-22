@@ -638,54 +638,37 @@ This resets the cluster to its initial state.`,
 	subcommands = append(subcommands, cmdutil.CreateAlias(portForward, "port-forward"))
 
 	var install bool
-	var path string
-	completion := &cobra.Command{
+	var installPathBash string
+	completionBash := &cobra.Command{
 		Short: "Print or install the bash completion code.",
-		Long:  "Print or install the bash completion code. This should be placed as the file `pachctl` in the bash completion directory (by default this is `/etc/bash_completion.d`. If bash-completion was installed via homebrew, this would be `$(brew --prefix)/etc/bash_completion.d`.)",
+		Long:  "Print or install the bash completion code.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			var dest io.Writer
-
-			if install {
-				f, err := os.Create(path)
-
-				if err != nil {
-					if os.IsPermission(err) {
-						fmt.Fprintf(os.Stderr, "Permission error installing completions, rerun this command with sudo.\n")
-					}
-					return err
-				}
-
-				defer func() {
-					if err := f.Close(); err != nil && retErr == nil {
-						retErr = err
-					}
-
-					fmt.Printf("Bash completions installed in %s, you must restart bash to enable completions.\n", path)
-				}()
-
-				dest = f
-			} else {
-				dest = os.Stdout
-			}
-
-			// Remove 'hidden' flag from all commands so we can get bash completions for them as well
-			var unhide func(*cobra.Command)
-			unhide = func(cmd *cobra.Command) {
-				cmd.Hidden = false
-				for _, subcmd := range cmd.Commands() {
-					unhide(subcmd)
-				}
-			}
-			unhide(rootCmd)
-
-			return rootCmd.GenBashCompletion(dest)
+			return createCompletions(rootCmd, install, installPathBash, rootCmd.GenBashCompletion)
 		}),
 	}
-	completion.Flags().BoolVar(&install, "install", false, "Install the completion.")
-	completion.Flags().StringVar(&path, "path", "/etc/bash_completion.d/pachctl", "Path to install the completion to. This will default to `/etc/bash_completion.d/` if unspecified.")
-	subcommands = append(subcommands, cmdutil.CreateAlias(completion, "completion"))
+	completionBash.Flags().BoolVar(&install, "install", false, "Install the completion.")
+	completionBash.Flags().StringVar(&installPathBash, "path", "/etc/bash_completion.d/pachctl", "Path to install the completions to.")
+	subcommands = append(subcommands, cmdutil.CreateAlias(completionBash, "completion bash"))
+
+	var installPathZsh string
+	completionZsh := &cobra.Command{
+		Short: "Print or install the zsh completion code.",
+		Long:  "Print or install the zsh completion code.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+			return createCompletions(rootCmd, install, installPathZsh, rootCmd.GenZshCompletion)
+		}),
+	}
+	completionZsh.Flags().BoolVar(&install, "install", false, "Install the completion.")
+	completionZsh.Flags().StringVar(&installPathZsh, "path", "_pachctl", "Path to install the completions to.")
+	subcommands = append(subcommands, cmdutil.CreateAlias(completionZsh, "completion zsh"))
 
 	// Logical commands for grouping commands by verb (no run functions)
+	completionDocs := &cobra.Command{
+		Short: "Print or install terminal completion code.",
+		Long:  "Print or install terminal completion code.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(completionDocs, "completion"))
+
 	deleteDocs := &cobra.Command{
 		Short: "Delete an existing Pachyderm resource.",
 		Long:  "Delete an existing Pachyderm resource.",
@@ -939,4 +922,42 @@ Use "{{.CommandPath}} [command] --help" for more information about a command.{{e
 		template.Must(t.Parse(text))
 		return t.Execute(cmd.OutOrStderr(), cmd)
 	})
+}
+
+func createCompletions(rootCmd *cobra.Command, install bool, installPath string, f func(io.Writer) error) (retErr error) {
+	var dest io.Writer
+
+	if install {
+		f, err := os.Create(installPath)
+		if err != nil {
+			if os.IsPermission(err) {
+				return errors.New("could not install completions due to permissions - rerun this command with sudo")
+			}
+			return fmt.Errorf("could not install completions: %v", err)
+		}
+
+		defer func() {
+			if err := f.Close(); err != nil && retErr == nil {
+				retErr = err
+			} else {
+				fmt.Printf("Completions installed in %q, you must restart your terminal to enable them.\n", installPath)
+			}
+		}()
+
+		dest = f
+	} else {
+		dest = os.Stdout
+	}
+
+	// Remove 'hidden' flag from all commands so we can get completions for them as well
+	var unhide func(*cobra.Command)
+	unhide = func(cmd *cobra.Command) {
+		cmd.Hidden = false
+		for _, subcmd := range cmd.Commands() {
+			unhide(subcmd)
+		}
+	}
+	unhide(rootCmd)
+
+	return f(dest)
 }
