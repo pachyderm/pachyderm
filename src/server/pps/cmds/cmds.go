@@ -895,7 +895,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			return nil
 		}),
 	}
-	createSecret.Flags().StringVarP(&file, "file", "f", "", "File containing Docker Registry secret.")
+	createSecret.Flags().StringVarP(&file, "file", "f", "", "File containing Kubernetes secret.")
 	createSecret.Flags().StringVarP(&createSecretNamespace, "namespace", "n", "default", "Namespace to write the secret into.")
 	commands = append(commands, cmdutil.CreateAlias(createSecret, "create secret"))
 
