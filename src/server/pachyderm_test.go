@@ -10632,7 +10632,6 @@ func TestSecrets(t *testing.T) {
 
 	c := getPachClient(t)
 	require.NoError(t, c.DeleteAll())
-	c.DeleteSecret("test-secret", "default")
 
 	b := []byte(
 		`{
