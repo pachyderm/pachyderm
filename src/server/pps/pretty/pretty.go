@@ -27,7 +27,7 @@ const (
 	// DatumHeader is the header for datums
 	DatumHeader = "ID\tSTATUS\tTIME\t\n"
 	// SecretHeader is the header for secrets
-	SecretHeader = "NAME\tTYPE\tCREATION TIMESTAMP\t\n"
+	SecretHeader = "NAME\tTYPE\tCREATED\t\n"
 	// jobReasonLen is the amount of the job reason that we print
 	jobReasonLen = 25
 )
@@ -298,7 +298,7 @@ func PrintDetailedDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
 
 // PrintSecretInfo pretty-prints secret info.
 func PrintSecretInfo(w io.Writer, secretInfo *ppsclient.SecretInfo) {
-	fmt.Fprintf(w, "%s\t%s\t%s\t\n", secretInfo.GetName(), secretInfo.GetType(), secretInfo.GetCreationTimestamp())
+	fmt.Fprintf(w, "%s\t%s\t%s\t\n", secretInfo.Name, secretInfo.Type, pretty.Ago(secretInfo.CreationTimestamp))
 }
 
 // PrintFileHeader prints the header for a pfs file.
