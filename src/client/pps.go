@@ -138,12 +138,27 @@ func NewUnionInput(input ...*pps.Input) *pps.Input {
 // NewCronInput returns an input which will trigger based on a timed schedule.
 // It uses cron syntax to specify the schedule. The input will be exposed to
 // jobs as `/pfs/<name>/<timestamp>`. The timestamp uses the RFC 3339 format,
-// e.g. `2006-01-02T15:04:05Z07:00`.
+// e.g. `2006-01-02T15:04:05Z07:00`. It only takes required options.
 func NewCronInput(name string, spec string) *pps.Input {
 	return &pps.Input{
 		Cron: &pps.CronInput{
 			Name: name,
 			Spec: spec,
+		},
+	}
+}
+
+// NewCronInputOpts returns an input which will trigger based on a timed schedule.
+// It uses cron syntax to specify the schedule. The input will be exposed to
+// jobs as `/pfs/<name>/<timestamp>`. The timestamp uses the RFC 3339 format,
+// e.g. `2006-01-02T15:04:05Z07:00`. It includes all the options.
+func NewCronInputOpts(name string, repo string, spec string, overwrite bool) *pps.Input {
+	return &pps.Input{
+		Cron: &pps.CronInput{
+			Name:      name,
+			Repo:      repo,
+			Spec:      spec,
+			Overwrite: overwrite,
 		},
 	}
 }
