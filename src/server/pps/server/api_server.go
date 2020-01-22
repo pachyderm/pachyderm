@@ -2886,6 +2886,16 @@ func (a *apiServer) CreateSecret(ctx context.Context, request *pps.CreateSecretR
 		return nil, fmt.Errorf("failed to unmarshal secret: %v", err)
 	}
 
+	labels := s.GetLabels()
+	if labels["suite"] != "" && labels["suite"] != "pachyderm" {
+		return nil, fmt.Errorf("invalid suite label set on secret: suite=%s", labels["suite"])
+	}
+	if labels == nil {
+		labels = map[string]string{}
+	}
+	labels["suite"] = "pachyderm"
+	s.SetLabels(labels)
+
 	if _, err = a.env.GetKubeClient().CoreV1().Secrets(request.Namespace).Create(&s); err != nil {
 		return nil, fmt.Errorf("failed to create secret: %v", err)
 	}
@@ -2982,6 +2992,12 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	}
 
 	if _, err := a.DeletePipeline(ctx, &pps.DeletePipelineRequest{All: true, Force: true}); err != nil {
+		return nil, err
+	}
+
+	if err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).DeleteCollection(&metav1.DeleteOptions{}, metav1.ListOptions{
+		LabelSelector: "suite=pachyderm",
+	}); err != nil {
 		return nil, err
 	}
 
