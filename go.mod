@@ -116,7 +116,6 @@ require (
 	golang.org/x/sys v0.0.0-20191210023423-ac6580df4449 // indirect
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
 	golang.org/x/tools v0.0.0-20200115230748-a7dab0268b5f // indirect
-	golang.org/x/tools v0.0.0-20200114191411-189207f339b7 // indirect
 	google.golang.org/api v0.6.0
 	google.golang.org/appengine v1.6.5 // indirect
 	google.golang.org/grpc v1.24.0

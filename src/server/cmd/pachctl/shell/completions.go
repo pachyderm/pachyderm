@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"log"
 
-	prompt "github.com/c-bata/go-prompt"
-	"github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -13,6 +11,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
 	pps_pretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
+
+	prompt "github.com/c-bata/go-prompt"
+	"github.com/docker/go-units"
 )
 
 // RepoCompletion completes repo parameters of the form <repo>
