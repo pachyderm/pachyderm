@@ -1151,39 +1151,34 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, plan *Plan,
 		return fmt.Errorf("error creating chunk watcher: %v", err)
 	}
 	var complete bool
-	if err := logger.LogStep("claiming/processing chunks", func() error {
-		for !complete {
-			// We set complete to true and then unset it if we find an incomplete chunk
-			complete = true
-			// Attempt to claim a chunk
-			low, high := int64(0), int64(0)
-			for _, high = range plan.Chunks {
-				var chunkState ChunkState
-				if err := chunks.Claim(ctx, fmt.Sprint(high), &chunkState, func(ctx context.Context) error {
-					return a.processChunk(ctx, jobID, low, high, process)
-				}); err == col.ErrNotClaimed {
-					// Check if a different worker is processing this chunk
-					if chunkState.State == State_RUNNING {
-						complete = false
-					}
-				} else if err != nil {
-					return err
+	for !complete {
+		// We set complete to true and then unset it if we find an incomplete chunk
+		complete = true
+		// Attempt to claim a chunk
+		low, high := int64(0), int64(0)
+		for _, high = range plan.Chunks {
+			var chunkState ChunkState
+			if err := chunks.Claim(ctx, fmt.Sprint(high), &chunkState, func(ctx context.Context) error {
+				return a.processChunk(ctx, jobID, low, high, process)
+			}); err == col.ErrNotClaimed {
+				// Check if a different worker is processing this chunk
+				if chunkState.State == State_RUNNING {
+					complete = false
 				}
-				low = high
+			} else if err != nil {
+				return err
 			}
-			// Wait for a deletion event (ttl expired) before attempting to claim a chunk again
-			select {
-			case e := <-watcher.Watch():
-				if e.Type == watch.EventError {
-					return fmt.Errorf("chunk watch error: %v", e.Err)
-				}
-			case <-ctx.Done():
-				return ctx.Err()
-			}
+			low = high
 		}
-		return nil
-	}); err != nil {
-		return err
+		// Wait for a deletion event (ttl expired) before attempting to claim a chunk again
+		select {
+		case e := <-watcher.Watch():
+			if e.Type == watch.EventError {
+				return fmt.Errorf("chunk watch error: %v", e.Err)
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
 	return nil
 }
@@ -1227,7 +1222,7 @@ func (a *APIServer) processChunk(ctx context.Context, jobID string, low, high in
 func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APIClient, jobInfo *pps.JobInfo, jobID string,
 	plan *Plan, logger *taggedLogger, df DatumIterator, skip map[string]bool, useParentHashTree bool) (retErr error) {
 	for {
-		if err := logger.LogStep("merge worker", func() error {
+		if err := func() error {
 			// if this worker is not responsible for a shard, it waits to be assigned one or for the job to finish
 			if a.shardCtx == nil {
 				select {
@@ -1243,10 +1238,10 @@ func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APICl
 				return err
 			}
 			// collect hashtrees from chunks as they complete
-			low := int64(0)
-			chunks := a.chunks(jobInfo.Job.ID).ReadOnly(ctx)
 			var failed bool
 			if err := logger.LogStep("collecting chunk hashtree(s)", func() error {
+				low := int64(0)
+				chunks := a.chunks(jobInfo.Job.ID).ReadOnly(ctx)
 				for _, high := range plan.Chunks {
 					chunkState := &ChunkState{}
 					if err := chunks.WatchOneF(fmt.Sprint(high), func(e *watch.Event) error {
@@ -1344,7 +1339,7 @@ func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APICl
 				return merges.Put(fmt.Sprint(a.shard), &MergeState{State: State_COMPLETE, Tree: tree, SizeBytes: size, StatsTree: statsTree, StatsSizeBytes: statsSize})
 			})
 			return err
-		}); err != nil {
+		}(); err != nil {
 			if a.shardCtx.Err() == context.Canceled {
 				a.shardCtx = nil
 				continue
@@ -1853,19 +1848,23 @@ func (a *APIServer) worker() {
 				// handled above in the JOB_FAILURE case). There's no need to
 				// handle failed datums here, just failed etcd writes.
 				eg.Go(func() error {
-					return a.acquireDatums(
-						ctx, jobID, plan, logger,
-						func(low, high int64) (*processResult, error) {
-							processResult, err := a.processDatums(pachClient, logger, jobInfo, df, low, high, skip, useParentHashTree)
-							if err != nil {
-								return nil, err
-							}
-							return processResult, nil
-						},
-					)
+					return logger.LogStep("claiming/processing chunks", func() error {
+						return a.acquireDatums(
+							ctx, jobID, plan, logger,
+							func(low, high int64) (*processResult, error) {
+								processResult, err := a.processDatums(pachClient, logger, jobInfo, df, low, high, skip, useParentHashTree)
+								if err != nil {
+									return nil, err
+								}
+								return processResult, nil
+							},
+						)
+					})
 				})
 				eg.Go(func() error {
-					return a.mergeDatums(ctx, pachClient, jobInfo, jobID, plan, logger, df, skip, useParentHashTree)
+					return logger.LogStep("merge worker", func() error {
+						return a.mergeDatums(ctx, pachClient, jobInfo, jobID, plan, logger, df, skip, useParentHashTree)
+					})
 				})
 				if err := eg.Wait(); err != nil {
 					if jobCtx.Err() == context.Canceled {
