@@ -78,6 +78,33 @@ func kubectlCreate(dryRun bool, manifest []byte, opts *assets.AssetOpts) error {
 	return nil
 }
 
+// findEquivalentContext searches for a context in the existing config that
+// references the same cluster as the context passed in. If no such context
+// was found, default values are returned instead.
+func findEquivalentContext(cfg *config.Config, to *config.Context) (string, *config.Context) {
+	// first check the active context
+	activeContextName, activeContext, _ := cfg.ActiveContext()
+	if to.EqualClusterReference(activeContext) {
+		return activeContextName, activeContext
+	}
+
+	// failing that, search all contexts (sorted by name to be deterministic)
+	contextNames := []string{}
+	for contextName := range cfg.V2.Contexts {
+		contextNames = append(contextNames, contextName)
+	}
+	sort.Strings(contextNames)
+	for _, contextName := range contextNames {
+		existingContext := cfg.V2.Contexts[contextName]
+
+		if to.EqualClusterReference(existingContext) {
+			return contextName, existingContext
+		}
+	}
+
+	return "", nil
+}
+
 func contextCreate(namePrefix, namespace, serverCert string) error {
 	kubeConfig, err := config.RawKubeConfig()
 	if err != nil {
@@ -105,34 +132,13 @@ func contextCreate(namePrefix, namespace, serverCert string) error {
 		ServerCAs:   serverCert,
 	}
 
-	// if the new context is the same as the active context, just update
-	// fields on the existing context
-	_, activeContext, _ := cfg.ActiveContext()
-	if newContext.EqualClusterReference(activeContext) {
-		activeContext.Source = newContext.Source
-		activeContext.ClusterID = ""
-		activeContext.ServerCAs = serverCert
+	equivalentContextName, equivalentContext := findEquivalentContext(cfg, newContext)
+	if equivalentContext != nil {
+		cfg.V2.ActiveContext = equivalentContextName
+		equivalentContext.Source = newContext.Source
+		equivalentContext.ClusterID = newContext.ClusterID
+		equivalentContext.ServerCAs = newContext.ServerCAs
 		return cfg.Write()
-	}
-
-	// try to find an existing context that is the same as the new context,
-	// in which case we just switch contexts rather than creating a new one
-	contextNames := []string{}
-	for contextName := range cfg.V2.Contexts {
-		contextNames = append(contextNames, contextName)
-	}
-	sort.Strings(contextNames)
-
-	for _, contextName := range contextNames {
-		existingContext := cfg.V2.Contexts[contextName]
-
-		if newContext.EqualClusterReference(existingContext) {
-			cfg.V2.ActiveContext = contextName
-			existingContext.Source = newContext.Source
-			existingContext.ClusterID = ""
-			existingContext.ServerCAs = serverCert
-			return cfg.Write()
-		}
 	}
 
 	// we couldn't find an existing context that is the same as the new one,
