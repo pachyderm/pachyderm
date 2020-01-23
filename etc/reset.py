@@ -72,8 +72,10 @@ class BaseDriver:
         return capture("pachctl", "deploy", "local", "-d", "--dry-run", "--create-context", "--no-guaranteed")
 
     def sync_images(self, deployments):
-        dash_image = find_in_json(deployments, lambda j: isinstance(j, dict) and j.get("name") == "dash" and j.get("image") is not None)["image"]
-        grpc_proxy_image = find_in_json(deployments, lambda j: isinstance(j, dict) and j.get("name") == "grpc-proxy")["image"]
+        dash_image = find_in_json(deployments, lambda j: \
+            isinstance(j, dict) and j.get("name") == "dash" and j.get("image") is not None)["image"]
+        grpc_proxy_image = find_in_json(deployments, lambda j: \
+            isinstance(j, dict) and j.get("name") == "grpc-proxy")["image"]
         
         run("docker", "pull", dash_image)
         run("docker", "pull", grpc_proxy_image)
@@ -123,11 +125,12 @@ class GCPDriver(BaseDriver):
 
     def create_manifest(self):
         registry_url = f"gcr.io/{self.project_id}"
-        return capture("pachctl", "deploy", "local", "-d", "--dry-run", "--create-context", "--no-guaranteed", "--image-pull-secret", "regcred", "--registry", registry_url)
+        return capture("pachctl", "deploy", "local", "-d", "--dry-run", "--create-context", "--no-guaranteed",
+                       "--image-pull-secret", "regcred", "--registry", registry_url)
 
     def sync_images(self, deployments):
         docker_config_path = os.path.expanduser("~/.docker/config.json")
-        run("kubectl", "create", "secret", "generic", "regcred", \
+        run("kubectl", "create", "secret", "generic", "regcred",
             f"--from-file=.dockerconfigjson={docker_config_path}", "--type=kubernetes.io/dockerconfigjson")
 
         for image in super().sync_images(deployments):
@@ -161,8 +164,8 @@ def print_status(status):
 def run(cmd, *args, raise_on_error=True, stdin=None, capture_output=False, timeout=None):
     all_args = [cmd, *args]
     print_status("running: `{}`".format(" ".join(all_args)))
-    return subprocess.run(all_args, check=raise_on_error, capture_output=capture_output, input=stdin, \
-        encoding="utf8", timeout=timeout)
+    return subprocess.run(all_args, check=raise_on_error, capture_output=capture_output, input=stdin,
+                          encoding="utf8", timeout=timeout)
 
 def capture(cmd, *args):
     return run(cmd, *args, capture_output=True).stdout
