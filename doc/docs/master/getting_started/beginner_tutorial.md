@@ -4,6 +4,11 @@ Welcome to the beginner tutorial for Pachyderm! If you have already installed
 Pachyderm, this tutorial should take about 15. This tutorial
 introduces basic Pachyderm concepts.
 
+!!! tip
+    If you are new to Pachyderm, try [Pachyderm Shell](../deploy-manage/manage/pachctl_shell/).
+    This handy tool suggests you `pachctl` commands as you type and
+    helps you learn Pachyderm faster.
+
 ## Image processing with OpenCV
 
 This tutorial walks you through the deployment of a Pachyderm pipeline

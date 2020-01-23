@@ -121,6 +121,11 @@ to have pachctl installed on your machine by following these steps:
 After you configure all the [Prerequisites](#prerequisites),
 deploy Pachyderm by following these steps:
 
+!!! tip
+    If you are new to Pachyderm, try [Pachyderm Shell](../deploy-manage/manage/pachctl_shell/).
+    This handy tool suggests you `pachctl` commands as you type and
+    helps you learn Pachyderm faster.
+
 * For macOS or Linux, run:
 
    ```bash
