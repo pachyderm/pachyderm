@@ -99,11 +99,11 @@ func convert1_8Pipeline(p *pps1_8.Pipeline) *pps.Pipeline {
 	}
 }
 
-func convert1_8Secret(s *pps1_8.Secret) *pps.Secret {
+func convert1_8Secret(s *pps1_8.Secret) *pps.SecretMount {
 	if s == nil {
 		return nil
 	}
-	return &pps.Secret{
+	return &pps.SecretMount{
 		Name:      s.Name,
 		Key:       s.Key,
 		MountPath: s.MountPath,
@@ -111,11 +111,11 @@ func convert1_8Secret(s *pps1_8.Secret) *pps.Secret {
 	}
 }
 
-func convert1_8Secrets(secrets []*pps1_8.Secret) []*pps.Secret {
+func convert1_8Secrets(secrets []*pps1_8.Secret) []*pps.SecretMount {
 	if secrets == nil {
 		return nil
 	}
-	result := make([]*pps.Secret, 0, len(secrets))
+	result := make([]*pps.SecretMount, 0, len(secrets))
 	for _, s := range secrets {
 		result = append(result, convert1_8Secret(s))
 	}

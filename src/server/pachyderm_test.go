@@ -3499,7 +3499,7 @@ func TestPipelineEnv(t *testing.T) {
 					fmt.Sprintf("echo $%s_COMMIT >/pfs/out/input_commit", dataRepo),
 				},
 				Env: map[string]string{"bar": "bar"},
-				Secrets: []*pps.Secret{
+				Secrets: []*pps.SecretMount{
 					{
 						Name:      secretName,
 						Key:       "foo",
