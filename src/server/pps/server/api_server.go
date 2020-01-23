@@ -2896,7 +2896,7 @@ func (a *apiServer) CreateSecret(ctx context.Context, request *pps.CreateSecretR
 	labels["suite"] = "pachyderm"
 	s.SetLabels(labels)
 
-	if _, err = a.env.GetKubeClient().CoreV1().Secrets(request.Namespace).Create(&s); err != nil {
+	if _, err = a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Create(&s); err != nil {
 		return nil, fmt.Errorf("failed to create secret: %v", err)
 	}
 	return &types.Empty{}, nil
@@ -2909,7 +2909,7 @@ func (a *apiServer) DeleteSecret(ctx context.Context, request *pps.DeleteSecretR
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteSecret")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	if err := a.env.GetKubeClient().CoreV1().Secrets(request.Namespace).Delete(request.GetSecret(), &metav1.DeleteOptions{}); err != nil {
+	if err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Delete(request.Secret.Name, &metav1.DeleteOptions{}); err != nil {
 		return nil, fmt.Errorf("failed to delete secret: %v", err)
 	}
 	return &types.Empty{}, nil
@@ -2922,7 +2922,7 @@ func (a *apiServer) InspectSecret(ctx context.Context, request *pps.InspectSecre
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "InspectSecret")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	secret, err := a.env.GetKubeClient().CoreV1().Secrets(request.Namespace).Get(request.GetSecret(), metav1.GetOptions{})
+	secret, err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Get(request.Secret.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get secret: %v", err)
 	}
@@ -2931,7 +2931,9 @@ func (a *apiServer) InspectSecret(ctx context.Context, request *pps.InspectSecre
 		return nil, fmt.Errorf("failed to parse creation timestamp")
 	}
 	return &pps.SecretInfo{
-		Name: secret.GetName(),
+		Secret: &pps.Secret{
+			Name: secret.Name,
+		},
 		Type: string(secret.Type),
 		CreationTimestamp: &types.Timestamp{
 			Seconds: creationTimestamp.GetSeconds(),
@@ -2941,13 +2943,13 @@ func (a *apiServer) InspectSecret(ctx context.Context, request *pps.InspectSecre
 }
 
 // ListSecret implements the protobuf pps.ListSecret RPC
-func (a *apiServer) ListSecret(ctx context.Context, request *pps.ListSecretRequest) (response *pps.SecretInfos, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+func (a *apiServer) ListSecret(ctx context.Context, in *types.Empty) (response *pps.SecretInfos, retErr error) {
+	func() { a.Log(nil, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(nil, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListSecret")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	secrets, err := a.env.GetKubeClient().CoreV1().Secrets(request.Namespace).List(metav1.ListOptions{
+	secrets, err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).List(metav1.ListOptions{
 		LabelSelector: "suite=pachyderm",
 	})
 	if err != nil {
@@ -2960,7 +2962,9 @@ func (a *apiServer) ListSecret(ctx context.Context, request *pps.ListSecretReque
 			return nil, fmt.Errorf("failed to parse creation timestamp")
 		}
 		secretInfos = append(secretInfos, &pps.SecretInfo{
-			Name: s.GetName(),
+			Secret: &pps.Secret{
+				Name: s.Name,
+			},
 			Type: string(s.Type),
 			CreationTimestamp: &types.Timestamp{
 				Seconds: creationTimestamp.GetSeconds(),

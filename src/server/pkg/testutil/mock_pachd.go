@@ -703,7 +703,7 @@ type runCronFunc func(context.Context, *pps.RunCronRequest) (*types.Empty, error
 type createSecretFunc func(context.Context, *pps.CreateSecretRequest) (*types.Empty, error)
 type deleteSecretFunc func(context.Context, *pps.DeleteSecretRequest) (*types.Empty, error)
 type inspectSecretFunc func(context.Context, *pps.InspectSecretRequest) (*pps.SecretInfo, error)
-type listSecretFunc func(context.Context, *pps.ListSecretRequest) (*pps.SecretInfos, error)
+type listSecretFunc func(context.Context, *types.Empty) (*pps.SecretInfos, error)
 type deleteAllPPSFunc func(context.Context, *types.Empty) (*types.Empty, error)
 type getLogsFunc func(*pps.GetLogsRequest, pps.API_GetLogsServer) error
 type garbageCollectFunc func(context.Context, *pps.GarbageCollectRequest) (*pps.GarbageCollectResponse, error)
@@ -941,9 +941,9 @@ func (api *ppsServerAPI) InspectSecret(ctx context.Context, req *pps.InspectSecr
 	}
 	return nil, fmt.Errorf("unhandled pachd mock pps.InspectSecret")
 }
-func (api *ppsServerAPI) ListSecret(ctx context.Context, req *pps.ListSecretRequest) (*pps.SecretInfos, error) {
+func (api *ppsServerAPI) ListSecret(ctx context.Context, in *types.Empty) (*pps.SecretInfos, error) {
 	if api.mock.ListSecret.handler != nil {
-		return api.mock.ListSecret.handler(ctx, req)
+		return api.mock.ListSecret.handler(ctx, in)
 	}
 	return nil, fmt.Errorf("unhandled pachd mock pps.ListSecret")
 }

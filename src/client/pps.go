@@ -676,48 +676,43 @@ func (c APIClient) RunCron(name string) error {
 }
 
 // CreateSecret creates a secret on the cluster.
-func (c APIClient) CreateSecret(file []byte, namespace string) error {
+func (c APIClient) CreateSecret(file []byte) error {
 	_, err := c.PpsAPIClient.CreateSecret(
 		c.Ctx(),
 		&pps.CreateSecretRequest{
-			File:      file,
-			Namespace: namespace,
+			File: file,
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
 }
 
 // DeleteSecret deletes a secret from the cluster.
-func (c APIClient) DeleteSecret(secret, namespace string) error {
+func (c APIClient) DeleteSecret(secret string) error {
 	_, err := c.PpsAPIClient.DeleteSecret(
 		c.Ctx(),
 		&pps.DeleteSecretRequest{
-			Secret:    secret,
-			Namespace: namespace,
+			Secret: &pps.Secret{Name: secret},
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
 }
 
 // InspectSecret returns info about a specific secret.
-func (c APIClient) InspectSecret(secret, namespace string) (*pps.SecretInfo, error) {
+func (c APIClient) InspectSecret(secret string) (*pps.SecretInfo, error) {
 	secretInfo, err := c.PpsAPIClient.InspectSecret(
 		c.Ctx(),
 		&pps.InspectSecretRequest{
-			Secret:    secret,
-			Namespace: namespace,
+			Secret: &pps.Secret{Name: secret},
 		},
 	)
 	return secretInfo, grpcutil.ScrubGRPC(err)
 }
 
-// ListSecret returns info about all the secrets in a namespace.
-func (c APIClient) ListSecret(namespace string) ([]*pps.SecretInfo, error) {
+// ListSecret returns info about all Pachyderm secrets.
+func (c APIClient) ListSecret() ([]*pps.SecretInfo, error) {
 	secretInfos, err := c.PpsAPIClient.ListSecret(
 		c.Ctx(),
-		&pps.ListSecretRequest{
-			Namespace: namespace,
-		},
+		&types.Empty{},
 	)
 	return secretInfos.SecretInfo, grpcutil.ScrubGRPC(err)
 }
