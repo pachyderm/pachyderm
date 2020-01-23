@@ -109,6 +109,7 @@ func contextCreate(namePrefix, namespace, serverCert string) error {
 	// fields on the existing context
 	_, activeContext, _ := cfg.ActiveContext()
 	if newContext.EqualClusterReference(activeContext) {
+		activeContext.Source = newContext.Source
 		activeContext.ClusterID = ""
 		activeContext.ServerCAs = serverCert
 		return cfg.Write()
@@ -127,6 +128,7 @@ func contextCreate(namePrefix, namespace, serverCert string) error {
 
 		if newContext.EqualClusterReference(existingContext) {
 			cfg.V2.ActiveContext = contextName
+			existingContext.Source = newContext.Source
 			existingContext.ClusterID = ""
 			existingContext.ServerCAs = serverCert
 			return cfg.Write()
