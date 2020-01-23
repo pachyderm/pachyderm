@@ -10,6 +10,7 @@ pymdown-extensions = ">=4.11"
 markdown-include = "*"
 Pygments = ">=2.2"
 mdx_truly_sane_lists = ">=1.2"
+mkdocs-git-revision-date-localized-plugin = "*"
 
 [dev-packages]
 mkdocs = ">=1"

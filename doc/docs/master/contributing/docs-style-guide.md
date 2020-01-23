@@ -139,4 +139,29 @@ and Markdown does not support starting lists from an arbitrary number.
 
 * While PyMdown Extensions provide advanced UI features, use them sparingly because not all browsers fully support all of them.
 
+* Do not use the dollar sign `$` in code snippets. While the dollar sign
+signifies the beginning of a line, it creates usability issues. When users
+copy commands from a code block, they copy everything from that code
+block, including the dollar sign. Then, they need to navigate to the
+begining of the command prompt to remove the dollar sign, which is quite annoying.
+Most of the commands that are described in the Pachyderm documentation
+are run from a UNIX shell as a normal user.
+
+## Preview the Documentation Locally
+
+The documentation for each version is stored in eponymous folders. Each
+version uses its own configuration file that has a suffix named after
+the corresponding version.
+
+To serve the documentation locally, you need to run the `mkdocs serve`
+command with the corresponding configuration file from the `docs`
+folder.
+
+For example, to build the master version of documentation, run:
+
+```bash
+mkdocs serve -f mkdocs-master.yml
+```
+
+
 I hope you'll have fun with Python Markdown! :smile:

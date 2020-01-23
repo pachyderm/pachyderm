@@ -65,5 +65,5 @@ If one of the datums is marked as *recovered* and two others are
 successfully processed, only these two successful datums are used in
 the next pipeline.
 
-!!! note "See also"
+!!! note "See also:"
     [Example err_cmd pipeline](https://github.com/pachyderm/pachyderm/tree/master/examples/err_cmd/)

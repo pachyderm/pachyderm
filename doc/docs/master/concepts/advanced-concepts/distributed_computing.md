@@ -80,5 +80,6 @@ By default, Pachyderm sets `parallelism` to `“constant": 1`, which means
 that it spawns one worker per Kubernetes node for this pipeline.
 
 !!! note "See also:"
-    * [Glob Pattern](../concepts/pipeline-concepts/datum/glob-pattern.md)
-    * [Pipeline Specification](../reference/pipeline_spec.md)
+
+* [Glob Pattern](../datum/glob-pattern)
+* [Pipeline Specification](../../reference/pipeline_spec.md)

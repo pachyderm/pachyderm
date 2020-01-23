@@ -280,7 +280,7 @@ pulling. For example, if you are using a private Docker registry for your
 images, you can specify it by running the following command:
 
 ```sh
-$ kubectl create secret docker-registry myregistrykey --docker-server=DOCKER_REGISTRY_SERVER --docker-username=DOCKER_USER --docker-password=DOCKER_PASSWORD --docker-email=DOCKER_EMAIL
+kubectl create secret docker-registry myregistrykey --docker-server=DOCKER_REGISTRY_SERVER --docker-username=DOCKER_USER --docker-password=DOCKER_PASSWORD --docker-email=DOCKER_EMAIL
 ```
 
 And then, notify your pipeline about it by using

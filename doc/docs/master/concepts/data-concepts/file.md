@@ -33,7 +33,12 @@ Pachyderm provides the following file processing strategies:
     1. View the list of files:
 
        ```bash
-       $ pachctl list file images@master
+       pachctl list file images@master
+       ```
+
+       **System Response:**
+
+       ```bash
        NAME   TYPE SIZE
        /A.csv file 258B
        ```
@@ -41,13 +46,18 @@ Pachyderm provides the following file processing strategies:
     1. Add the `A.csv` file once again:
 
        ```bash
-       $ pachctl put file images@master -f A.csv
+       pachctl put file images@master -f A.csv
        ```
 
     1. Verify that the file has doubled in size:
 
        ```bash
-       $ pachctl list file images@master
+       pachctl list file images@master
+       ```
+
+       **System Response:**
+
+       ```bash
        NAME   TYPE SIZE
        /A.csv file 516B
        ```
@@ -64,7 +74,12 @@ Pachyderm provides the following file processing strategies:
     1. View the list of files:
 
        ```bash
-       $ pachctl list file images@master
+       pachctl list file images@master
+       ```
+
+       **System Response:**
+
+       ```bash
        NAME   TYPE SIZE
        /A.csv file 258B
        ```
@@ -72,13 +87,18 @@ Pachyderm provides the following file processing strategies:
     1. Add the `A.csv` file once again:
 
        ```bash
-       $ pachctl put file --overwrite images@master -f A.csv
+       pachctl put file --overwrite images@master -f A.csv
        ```
 
     1. Check the file size:
 
        ```bash
-       $ pachctl list file images@master
+       pachctl list file images@master
+       ```
+
+       **System Response:**
+
+       ```bash
        NAME   TYPE SIZE
        /A.csv file 258B
        ```
