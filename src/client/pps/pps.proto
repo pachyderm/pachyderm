@@ -11,7 +11,7 @@ import "gogoproto/gogo.proto";
 
 import "client/pfs/pfs.proto";
 
-message Secret {
+message SecretMount {
   // Name must be the name of the secret in kubernetes.
   string name = 1;
   // Key of the secret to load into env_var, this field only has meaning if EnvVar != "".
@@ -25,7 +25,7 @@ message Transform {
   repeated string cmd = 2;
   repeated string err_cmd = 13;
   map<string, string> env = 3;
-  repeated Secret secrets = 4;
+  repeated SecretMount secrets = 4;
   repeated string image_pull_secrets = 9;
   repeated string stdin = 5;
   repeated string err_stdin = 14;
