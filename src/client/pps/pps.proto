@@ -684,12 +684,12 @@ message CreateSecretRequest {
 }
 
 message DeleteSecretRequest {
-  string secret  = 1;
+  Secret secret  = 1;
   string namespace = 2;
 }
 
 message InspectSecretRequest {
-  string secret = 1;
+  Secret secret = 1;
   string namespace = 2;
 }
 
@@ -697,8 +697,12 @@ message ListSecretRequest {
   string namespace = 1;
 }
 
-message SecretInfo {
+message Secret {
   string name = 1;
+}
+
+message SecretInfo {
+  Secret secret = 1;
   string type = 2;
   google.protobuf.Timestamp creation_timestamp = 3;
 }
