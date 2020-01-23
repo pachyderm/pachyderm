@@ -847,6 +847,10 @@ func Cmds() []*cobra.Command {
 		Short: "Tear down a deployed Pachyderm cluster.",
 		Long:  "Tear down a deployed Pachyderm cluster.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			// TODO(ys): remove the `--namespace` flag here eventually
+			if namespace != "" {
+				fmt.Printf("WARNING: The `--namespace` flag is deprecated and will be removed in a future version. Please set the namespace in the pachyderm context instead: pachctl config update context `pachctl config get active-context` --namespace '%s'\n", namespace)
+			}
 			if all {
 				fmt.Printf(`
 By using the --all flag, you are going to delete everything, including the
