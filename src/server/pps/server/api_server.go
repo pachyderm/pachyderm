@@ -2968,7 +2968,9 @@ func (a *apiServer) ListSecret(ctx context.Context, request *pps.ListSecretReque
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListSecret")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	secrets, err := a.env.GetKubeClient().CoreV1().Secrets(request.Namespace).List(metav1.ListOptions{})
+	secrets, err := a.env.GetKubeClient().CoreV1().Secrets(request.Namespace).List(metav1.ListOptions{
+		LabelSelector: "suite=pachyderm",
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list secrets: %v", err)
 	}
