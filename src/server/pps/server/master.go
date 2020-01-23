@@ -383,6 +383,29 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 	}
 }
 
+func (a *apiServer) getLatestCronTime(pachClient *client.APIClient, in *pps.Input) (time.Time, error) {
+	var latestTime time.Time
+	files, err := pachClient.ListFile(in.Cron.Repo, "master", "")
+	if err != nil && !pfsServer.IsNoHeadErr(err) {
+		return latestTime, err
+	} else if err != nil || len(files) == 0 {
+		// File not found, this happens the first time the pipeline is run
+		latestTime, err = types.TimestampFromProto(in.Cron.Start)
+		if err != nil {
+			return latestTime, err
+		}
+	} else {
+		// Take the name of the most recent file as the latest timestamp
+		// ListFile returns the files in lexicographical order, and the RFC3339 format goes
+		// from largest unit of time to smallest, so the most recent file will be the last one
+		latestTime, err = time.Parse(time.RFC3339, path.Base(files[len(files)-1].File.Path))
+		if err != nil {
+			return latestTime, err
+		}
+	}
+	return latestTime, nil
+}
+
 // makeCronCommits makes commits to a single cron input's repo. It's
 // a helper function called by monitorPipeline.
 func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input) error {
@@ -401,24 +424,9 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 		}
 	}
 
-	var latestTime time.Time
-	files, err := pachClient.ListFile(in.Cron.Repo, "master", "")
-	if err != nil && !pfsServer.IsNoHeadErr(err) {
+	latestTime, err := a.getLatestCronTime(pachClient, in)
+	if err != nil {
 		return err
-	} else if err != nil || len(files) == 0 {
-		// File not found, this happens the first time the pipeline is run
-		latestTime, err = types.TimestampFromProto(in.Cron.Start)
-		if err != nil {
-			return err
-		}
-	} else {
-		// Take the name of the most recent file as the latest timestamp
-		// ListFile returns the files in lexicographical order, and the RFC3339 format goes
-		// from largest unit of time to smallest, so the most recent file will be the last one
-		latestTime, err = time.Parse(time.RFC3339, path.Base(files[len(files)-1].File.Path))
-		if err != nil {
-			return err
-		}
 	}
 
 	for {
@@ -440,8 +448,8 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 			return err
 		}
 		if in.Cron.Overwrite {
-			// If we want to "overwrite" the file, we need to delete the file with the previous time
-			err := pachClient.DeleteFile(in.Cron.Repo, "master", latestTime.Format(time.RFC3339))
+			// get rid of any files, so the new file "overwrites" previous runs
+			err = pachClient.DeleteFile(in.Cron.Repo, "master", "")
 			if err != nil && !isNotFoundErr(err) && !pfsServer.IsNoHeadErr(err) {
 				return fmt.Errorf("delete error %v", err)
 			}

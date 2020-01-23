@@ -6458,6 +6458,74 @@ func TestCronPipeline(t *testing.T) {
 			require.Equal(t, 2, len(commitInfos))
 		}
 	})
+	t.Run("RunCronOverwrite", func(t *testing.T) {
+		pipeline7 := tu.UniqueString("cron7-")
+		require.NoError(t, c.CreatePipeline(
+			pipeline7,
+			"",
+			[]string{"/bin/bash"},
+			[]string{"cp /pfs/time/* /pfs/out/"},
+			nil,
+			client.NewCronInputOpts("time", "", "1-59/1 * * * *", true), // every minute
+			"",
+			false,
+		))
+		pipeline8 := tu.UniqueString("cron8-")
+		require.NoError(t, c.CreatePipeline(
+			pipeline8,
+			"",
+			[]string{"/bin/bash"},
+			[]string{"cp " + fmt.Sprintf("/pfs/%s/*", pipeline7) + " /pfs/out/"},
+			nil,
+			client.NewPFSInput(pipeline7, "/*"),
+			"",
+			false,
+		))
+
+		// subscribe to the pipeline1 cron repo and wait for inputs
+		repo := fmt.Sprintf("%s_%s", pipeline7, "time")
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
+		defer cancel() //cleanup resources
+		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", nil, "", pfs.CommitState_FINISHED)
+		require.NoError(t, err)
+		commitInfo, err := iter.Next()
+		require.NoError(t, err)
+
+		// if the runcron is run too soon, it will have the same timestamp and we won't hit the weird bug
+		time.Sleep(2 * time.Second)
+
+		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline7)})
+		require.NoError(t, err)
+		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline7)})
+		require.NoError(t, err)
+		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline7)})
+		require.NoError(t, err)
+
+		// subscribe to the pipeline1 cron repo and wait for inputs
+		repo = fmt.Sprintf("%s_%s", pipeline7, "time")
+		ctx, cancel = context.WithTimeout(context.Background(), time.Second*120)
+		defer cancel() //cleanup resources
+		iter, err = c.WithCtx(ctx).SubscribeCommit(repo, "master", nil, commitInfo.Commit.ID, pfs.CommitState_STARTED)
+		require.NoError(t, err)
+
+		// We expect to see four commits, despite the schedule being every minute, and the timeout 120 seconds
+		// We expect each of the commits to have just a single file in this case
+		// We check four so that we can make sure the scheduled cron is not messed up by the run crons
+		for i := 1; i <= 4; i++ {
+			commitInfo, err := iter.Next()
+			require.NoError(t, err)
+
+			commitIter, err := c.FlushCommit([]*pfs.Commit{commitInfo.Commit}, nil)
+			require.NoError(t, err)
+			commitInfos := collectCommitInfos(t, commitIter)
+
+			for _, ci := range commitInfos {
+				files, err := c.ListFile(ci.Commit.Repo.Name, ci.Commit.ID, "")
+				require.NoError(t, err)
+				require.Equal(t, 1, len(files))
+			}
+		}
+	})
 }
 
 func TestSelfReferentialPipeline(t *testing.T) {

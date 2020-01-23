@@ -2845,34 +2845,14 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 
 	cron := pipelineInfo.Input.Cron
 
-	var latestTime time.Time
-	files, err := pachClient.ListFile(cron.Repo, "master", "")
-	if err != nil && !pfsServer.IsNoHeadErr(err) {
-		return nil, err
-	} else if err != nil || len(files) == 0 {
-		// File not found, this happens the first time the pipeline is run
-		latestTime, err = types.TimestampFromProto(cron.Start)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		// Take the name of the most recent file as the latest timestamp
-		// ListFile returns the files in lexicographical order, and the RFC3339 format goes
-		// from largest unit of time to smallest, so the most recent file will be the last one
-		latestTime, err = time.Parse(time.RFC3339, path.Base(files[len(files)-1].File.Path))
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	// We need the DeleteFile and the PutFile to happen in the same commit
 	_, err = pachClient.StartCommit(cron.Repo, "master")
 	if err != nil {
 		return nil, err
 	}
 	if cron.Overwrite {
-		// If we want to "overwrite" the file, we need to delete the file with the previous time
-		err := pachClient.DeleteFile(cron.Repo, "master", latestTime.Format(time.RFC3339))
+		// get rid of any files, so the new file "overwrites" previous runs
+		err = pachClient.DeleteFile(cron.Repo, "master", "")
 		if err != nil && !isNotFoundErr(err) && !pfsServer.IsNoHeadErr(err) {
 			return nil, fmt.Errorf("delete error %v", err)
 		}
