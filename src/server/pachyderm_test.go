@@ -10645,28 +10645,30 @@ func TestSecrets(t *testing.T) {
 				"mykey": "bXktdmFsdWU="
 			}
 		}`)
-	require.NoError(t, c.CreateSecret(b, "default"))
+	require.NoError(t, c.CreateSecret(b))
 
-	secretInfo, err := c.InspectSecret("test-secret", "default")
+	secretInfo, err := c.InspectSecret("test-secret")
 	secretInfo.CreationTimestamp = nil
 	require.NoError(t, err)
 	require.Equal(t, &pps.SecretInfo{
-		Name:              "test-secret",
+		Secret: &pps.Secret{
+			Name: "test-secret",
+		},
 		Type:              "Opaque",
 		CreationTimestamp: nil,
 	}, secretInfo)
 
-	secretInfos, err := c.ListSecret("default")
+	secretInfos, err := c.ListSecret()
 	require.NoError(t, err)
 	initialLength := len(secretInfos)
 
-	require.NoError(t, c.DeleteSecret("test-secret", "default"))
+	require.NoError(t, c.DeleteSecret("test-secret"))
 
-	secretInfos, err = c.ListSecret("default")
+	secretInfos, err = c.ListSecret()
 	require.NoError(t, err)
 	require.Equal(t, initialLength-1, len(secretInfos))
 
-	_, err = c.InspectSecret("test-secret", "default")
+	_, err = c.InspectSecret("test-secret")
 	require.YesError(t, err)
 }
 

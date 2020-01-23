@@ -298,7 +298,7 @@ func PrintDetailedDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
 
 // PrintSecretInfo pretty-prints secret info.
 func PrintSecretInfo(w io.Writer, secretInfo *ppsclient.SecretInfo) {
-	fmt.Fprintf(w, "%s\t%s\t%s\t\n", secretInfo.Name, secretInfo.Type, pretty.Ago(secretInfo.CreationTimestamp))
+	fmt.Fprintf(w, "%s\t%s\t%s\t\n", secretInfo.Secret.Name, secretInfo.Type, pretty.Ago(secretInfo.CreationTimestamp))
 }
 
 // PrintFileHeader prints the header for a pfs file.

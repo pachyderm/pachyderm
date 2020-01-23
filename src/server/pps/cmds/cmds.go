@@ -29,6 +29,7 @@ import (
 	units "github.com/docker/go-units"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"golang.org/x/crypto/ssh/terminal"
@@ -833,7 +834,6 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	commands = append(commands, cmdutil.CreateAlias(stopPipeline, "stop pipeline"))
 
 	var file string
-	var createSecretNamespace string
 	createSecret := &cobra.Command{
 		Short: "Create a secret on the cluster.",
 		Long:  "Create a secret on the cluster.",
@@ -851,8 +851,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			_, err = client.PpsAPIClient.CreateSecret(
 				client.Ctx(),
 				&ppsclient.CreateSecretRequest{
-					File:      fileBytes,
-					Namespace: createSecretNamespace,
+					File: fileBytes,
 				})
 
 			if err != nil {
@@ -862,10 +861,8 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		}),
 	}
 	createSecret.Flags().StringVarP(&file, "file", "f", "", "File containing Kubernetes secret.")
-	createSecret.Flags().StringVarP(&createSecretNamespace, "namespace", "n", "default", "Namespace to write the secret into.")
 	commands = append(commands, cmdutil.CreateAlias(createSecret, "create secret"))
 
-	var deleteSecretNamespace string
 	deleteSecret := &cobra.Command{
 		Short: "Delete a secret from the cluster.",
 		Long:  "Delete a secret from the cluster.",
@@ -879,8 +876,9 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			_, err = client.PpsAPIClient.DeleteSecret(
 				client.Ctx(),
 				&ppsclient.DeleteSecretRequest{
-					Secret:    args[0],
-					Namespace: deleteSecretNamespace,
+					Secret: &ppsclient.Secret{
+						Name: args[0],
+					},
 				})
 
 			if err != nil {
@@ -889,10 +887,8 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			return nil
 		}),
 	}
-	deleteSecret.Flags().StringVarP(&deleteSecretNamespace, "namespace", "n", "default", "Namespace to delete the secret from.")
 	commands = append(commands, cmdutil.CreateAlias(deleteSecret, "delete secret"))
 
-	var inspectSecretNamespace string
 	inspectSecret := &cobra.Command{
 		Short: "Inspect a secret from the cluster.",
 		Long:  "Inspect a secret from the cluster.",
@@ -906,8 +902,9 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			secretInfo, err := client.PpsAPIClient.InspectSecret(
 				client.Ctx(),
 				&ppsclient.InspectSecretRequest{
-					Secret:    args[0],
-					Namespace: inspectSecretNamespace,
+					Secret: &ppsclient.Secret{
+						Name: args[0],
+					},
 				})
 
 			if err != nil {
@@ -918,10 +915,8 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			return writer.Flush()
 		}),
 	}
-	inspectSecret.Flags().StringVarP(&inspectSecretNamespace, "namespace", "n", "default", "Namespace to look for the secret in.")
 	commands = append(commands, cmdutil.CreateAlias(inspectSecret, "inspect secret"))
 
-	var listSecretNamespace string
 	listSecret := &cobra.Command{
 		Short: "List all secrets from a namespace in the cluster.",
 		Long:  "List all secrets from a namespace in the cluster.",
@@ -934,9 +929,8 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 
 			secretInfos, err := client.PpsAPIClient.ListSecret(
 				client.Ctx(),
-				&ppsclient.ListSecretRequest{
-					Namespace: inspectSecretNamespace,
-				})
+				&types.Empty{},
+			)
 
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
@@ -948,7 +942,6 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			return writer.Flush()
 		}),
 	}
-	listSecret.Flags().StringVarP(&listSecretNamespace, "namespace", "n", "default", "Namespace to look for the secret in.")
 	commands = append(commands, cmdutil.CreateAlias(listSecret, "list secret"))
 
 	var memory string

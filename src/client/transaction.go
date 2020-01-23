@@ -526,7 +526,7 @@ func (c *ppsBuilderClient) DeleteSecret(ctx context.Context, req *pps.DeleteSecr
 func (c *ppsBuilderClient) InspectSecret(ctx context.Context, req *pps.InspectSecretRequest, opt ...grpc.CallOption) (*pps.SecretInfo, error) {
 	return nil, unsupportedError("InspectSecret")
 }
-func (c *ppsBuilderClient) ListSecret(ctx context.Context, req *pps.ListSecretRequest, opt ...grpc.CallOption) (*pps.SecretInfos, error) {
+func (c *ppsBuilderClient) ListSecret(ctx context.Context, in *types.Empty, opt ...grpc.CallOption) (*pps.SecretInfos, error) {
 	return nil, unsupportedError("ListSecret")
 }
 
