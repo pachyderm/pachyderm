@@ -742,7 +742,7 @@ func waitForError(name string, errChan chan error, required bool, f func() error
 		if !required {
 			log.Errorf("error setting up and/or running %v: %v", name, err)
 		} else {
-			errChan <- fmt.Errorf("error setting up and/or running %v: %v", name, err)
+			errChan <- fmt.Errorf("error setting up and/or running %v: %v (use --require-critical-servers-only deploy flag to ignore errors from noncritical servers)", name, err)
 		}
 	}
 }
