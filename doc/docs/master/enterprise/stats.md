@@ -66,7 +66,12 @@ branch called `stats`:
 !!! example
 
     ```bash
-    $ pachctl list file edges@stats
+    pachctl list file edges@stats
+    ```
+
+    **System response:**
+
+    ```bash
     NAME                                                               TYPE                SIZE
     002f991aa9db9f0c44a92a30dff8ab22e788f86cc851bec80d5a74e05ad12868   dir                 342.7KiB
     0597f2df3f37f1bb5b9bcd6397841f30c62b2b009e79653f9a97f5f13432cf09   dir                 1.177MiB

@@ -43,14 +43,24 @@ To view active context, type:
 * View the active context:
 
   ```bash
-  $ pachctl config get active-context
+  pachctl config get active-context
+  ```
+
+  **System response:**
+
+  ```bash
   local-1
   ```
 
 * List all contexts and view the current context:
 
   ```bash
-  $ pachctl config list context
+  pachctl config list context
+  ```
+
+  **System response:**
+
+  ```bash
     ACTIVE  NAME
             default
             local
@@ -93,14 +103,19 @@ the following steps:
 and a client certificate:
 
    ```bash
-   $ echo '{"pachd_address":"10.10.10.130:650", "server_cas":"key.pem"}' | pachctl config set context new-local
+   echo '{"pachd_address":"10.10.10.130:650", "server_cas":"key.pem"}' | pachctl config set context new-local
+   ```
+
+   **System response:**
+
+   ```bash
    Reading from stdin
    ```
 
 1. Verify your configuration by running the following command:
 
    ```bash
-   $ pachctl config get context new-local
+   pachctl config get context new-local
    {
      "pachd_address": "10.10.10.130:650",
      "server_cas": "key.pem"
@@ -118,7 +133,7 @@ To update the Active Context, run the following commands:
 1. Update the context with a new `pachd` address:
 
    ```bash
-   $ pachctl config update context local-1 --pachd-address 10.10.10.131
+   pachctl config update context local-1 --pachd-address 10.10.10.131
    ```
 
    The `pachctl config update` command supports the `--pachd-address`
@@ -127,7 +142,12 @@ To update the Active Context, run the following commands:
 1. Verify that the context has been updated:
 
    ```bash
-   $ pachctl config get context local-1
+   pachctl config get context local-1
+   ```
+
+   **System response:**
+
+   ```bash
    {
      "pachd_address": "10.10.10.131"
    }
@@ -137,14 +157,24 @@ To update the Active Context, run the following commands:
 an `echo` script:
 
    ```bash
-   $ echo '{"pachd_address":"10.10.10.132", "server_cas":"key.pem"}' | pachctl config set context local-1 --overwrite
+   echo '{"pachd_address":"10.10.10.132", "server_cas":"key.pem"}' | pachctl config set context local-1 --overwrite
+   ```
+
+   **System response:**
+
+   ```bash
    Reading from stdin.
    ```
 
 1. Verify that the changes were applied:
 
    ```bash
-   $ pachctl config get context local-1
+   pachctl config get context local-1
+   ```
+
+   **System response:**
+
+   ```bash
    {
      "pachd_address": "10.10.10.132",
      "server_cas": "key.pem"

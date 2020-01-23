@@ -12,7 +12,7 @@ store by using the following methods:
   `pachtl put file` with a URL to the S3 bucket. Example:
 
   ```
-  $ pachctl put file repo@branch -f <s3://my_bucket/file>
+  pachctl put file repo@branch -f <s3://my_bucket/file>
   ```
 
 * Egress data to an external object store by configuring the
@@ -46,7 +46,7 @@ the following steps:
 1. Deploy object storage:
 
    ```bash
-   $ pachctl deploy storage <storage-provider> ...
+   pachctl deploy storage <storage-provider> ...
    ```
 
 1. In the command above, specify `amazon`, `google`, or `microsoft` as
@@ -60,7 +60,7 @@ the following steps:
    parameters:
 
    ```bash
-   $ pachctl deploy storage amazon <region> <access-key-id> <secret-access-key> [<session-token>]
+   pachctl deploy storage amazon <region> <access-key-id> <secret-access-key> [<session-token>]
    ```
 
 !!! note "See also:"
