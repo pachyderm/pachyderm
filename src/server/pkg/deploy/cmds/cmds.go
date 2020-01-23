@@ -911,6 +911,46 @@ underlying volume will not be removed.
 						return err
 					}
 				}
+
+				if all {
+					// remove the context from the config
+					kubeConfig, err := config.RawKubeConfig()
+					if err != nil {
+						return err
+					}
+					kubeContext := kubeConfig.Contexts[kubeConfig.CurrentContext]
+					if kubeContext != nil {
+						cfg, err := config.Read(true)
+						if err != nil {
+							return err
+						}
+						ctx := &config.Context{
+							ClusterName: kubeContext.Cluster,
+							AuthInfo:    kubeContext.AuthInfo,
+							Namespace:   namespace,
+						}
+
+						// remove _all_ contexts associated with this
+						// deployment
+						configUpdated := false
+						for {
+							contextName, _ := findEquivalentContext(cfg, ctx)
+							if contextName == "" {
+								break
+							}
+							configUpdated = true
+							delete(cfg.V2.Contexts, contextName)
+							if contextName == cfg.V2.ActiveContext {
+								cfg.V2.ActiveContext = ""
+							}
+						}
+						if configUpdated {
+							if err = cfg.Write(); err != nil {
+								return err
+							}
+						}
+					}
+				}
 			}
 			return nil
 		}),
