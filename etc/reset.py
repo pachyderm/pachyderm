@@ -4,7 +4,6 @@ import os
 import re
 import json
 import time
-import argparse
 import threading
 import subprocess
 
@@ -169,10 +168,6 @@ def capture(cmd, *args):
     return run(cmd, *args, capture_output=True).stdout
 
 def main():
-    parser = argparse.ArgumentParser(description="Recompiles pachyderm tooling and restarts the cluster with a clean slate.")
-    parser.add_argument("--args", default="", help="Arguments to be passed into `pachctl deploy`")
-    args = parser.parse_args()
-
     if "GOPATH" not in os.environ:
         raise Exception("Must set GOPATH")
     if "PACH_CA_CERTS" in os.environ:
