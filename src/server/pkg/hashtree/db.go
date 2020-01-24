@@ -835,7 +835,7 @@ func (h *dbHashTree) putFile(path string, objects []*pfs.Object, brs []*pfs.Bloc
 		if len(brs) > 0 {
 			if len(node.FileNode.Objects) > 0 {
 				return errorf(MixedObjectsAndBlockRefs, "could not put objects to regular file at %q; "+
-					"because it already has Object content")
+					"because it already has Object content", path)
 			}
 			node.FileNode.BlockRefs = append(node.FileNode.BlockRefs, brs...)
 		}
