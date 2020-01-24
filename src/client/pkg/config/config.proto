@@ -51,6 +51,7 @@ message ConfigV2 {
     string active_context = 1;
     map<string, Context> contexts = 2;
     bool metrics = 3;
+    int64 max_shell_completions = 4;
 }
 
 message Context {
