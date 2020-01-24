@@ -40,15 +40,13 @@ import (
 
 // encoder creates an encoder that writes data structures to w[0] (or os.Stdout
 // if no 'w' is passed) in the serialization format 'format'. If more than one
-// writer is passed, all writers after the first are silently ignored (rather
-// than returning an error), and if the 'format' passed is unrecognized
-// (currently, 'format' must be 'json' or 'yaml') then pachctl exits
-// immediately. Ignoring errors or crashing simplifies the type signature of
-// 'encoder' and allows it to be used inline.
+// writer is passed, all writers after the first are silently ignored (to
+// simplify the type signature of 'encoder' and allow it to be used inline).
 func encoder(format string, w ...io.Writer) serde.Encoder {
-	format = strings.ToLower(format)
 	if format == "" {
 		format = "json"
+	} else {
+		format = strings.ToLower(format)
 	}
 	var output io.Writer = os.Stdout
 	if len(w) > 0 {
@@ -71,13 +69,8 @@ func Cmds() []*cobra.Command {
 	raw := false
 	var output string
 	outputFlags := pflag.NewFlagSet("", pflag.ExitOnError)
-	outputFlags.BoolVar(&raw, "raw", false, "Disable pretty printing; serialize data structures to an encoding such as json or yaml")
-	// --output is empty by default, so that we can print an error if a user
-	// explicitly sets --output without --raw, but the effective default is set in
-	// encode(), which assumes "json" if 'format' is empty.
-	// Note: because of how spf13/flags works, no other StringVarP that sets
-	// 'output' can have a default value either
-	outputFlags.StringVarP(&output, "output", "o", "", "Output format when --raw is set: \"json\" or \"yaml\" (default \"json\")")
+	outputFlags.BoolVar(&raw, "raw", false, "disable pretty printing, print raw json")
+	outputFlags.StringVarP(&output, "output", "o", "json", "Output format when --raw is set: \"json\" or \"yaml\"")
 
 	fullTimestamps := false
 	fullTimestampsFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
@@ -132,6 +125,7 @@ If the job fails, the output commit will not be populated with data.`,
 	}
 	inspectJob.Flags().BoolVarP(&block, "block", "b", false, "block until the job has either succeeded or failed")
 	inspectJob.Flags().AddFlagSet(outputFlags)
+	inspectJob.Flags().AddFlagSet(fullTimestampsFlags)
 	shell.RegisterCompletionFunc(inspectJob, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAlias(inspectJob, "inspect job"))
 
@@ -392,7 +386,7 @@ each datum.`,
 	}
 	listDatum.Flags().Int64Var(&pageSize, "pageSize", 0, "Specify the number of results sent back in a single page")
 	listDatum.Flags().Int64Var(&page, "page", 0, "Specify the page of results to send")
-	listDatum.Flags().AddFlagSet(rawFlags)
+	listDatum.Flags().AddFlagSet(outputFlags)
 	shell.RegisterCompletionFunc(listDatum, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAlias(listDatum, "list datum"))
 
@@ -661,7 +655,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			return encoder(output).EncodeProto(createPipelineRequest)
 		}),
 	}
-	extractPipeline.Flags().StringVarP(&output, "output", "o", "", "Output format: \"json\" or \"yaml\" (default \"json\")")
+	extractPipeline.Flags().StringVarP(&output, "output", "o", "json", "Output format: \"json\" or \"yaml\"")
 	commands = append(commands, cmdutil.CreateAlias(extractPipeline, "extract pipeline"))
 
 	var editor string
@@ -729,7 +723,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	}
 	editPipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
 	editPipeline.Flags().StringVar(&editor, "editor", "", "Editor to use for modifying the manifest.")
-	editPipeline.Flags().StringVarP(&output, "output", "o", "", "Output format: \"json\" or \"yaml\" (default \"json\")")
+	editPipeline.Flags().StringVarP(&output, "output", "o", "json", "Output format: \"json\" or \"yaml\"")
 	commands = append(commands, cmdutil.CreateAlias(editPipeline, "edit pipeline"))
 
 	var spec bool
