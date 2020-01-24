@@ -1284,9 +1284,28 @@ func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APICl
 			// get parent hashtree reader if it is being used
 			var parentHashtree, parentStatsHashtree io.Reader
 			if useParentHashTree {
-				if err := logger.LogStep("getting parent hashtree(s)", func() error {
-					r, err := a.getParentHashTree(ctx, pachClient, objClient, jobInfo.OutputCommit, a.shard)
-					if err != nil {
+				var r io.ReadCloser
+				if err := logger.LogStep("getting parent hashtree", func() error {
+					var err error
+					r, err = a.getParentHashTree(ctx, pachClient, objClient, jobInfo.OutputCommit, a.shard)
+					return err
+				}); err != nil {
+					return err
+				}
+				defer func() {
+					if err := r.Close(); err != nil && retErr == nil {
+						retErr = err
+					}
+				}()
+				parentHashtree = bufio.NewReaderSize(r, parentTreeBufSize)
+				// get parent stats hashtree reader if it is being used
+				if a.pipelineInfo.EnableStats {
+					var r io.ReadCloser
+					if err := logger.LogStep("getting parent stats hashtree", func() error {
+						var err error
+						r, err = a.getParentHashTree(ctx, pachClient, objClient, jobInfo.StatsCommit, a.shard)
+						return err
+					}); err != nil {
 						return err
 					}
 					defer func() {
@@ -1294,23 +1313,7 @@ func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APICl
 							retErr = err
 						}
 					}()
-					parentHashtree = bufio.NewReaderSize(r, parentTreeBufSize)
-					// get parent stats hashtree reader if it is being used
-					if a.pipelineInfo.EnableStats {
-						r, err := a.getParentHashTree(ctx, pachClient, objClient, jobInfo.StatsCommit, a.shard)
-						if err != nil {
-							return err
-						}
-						defer func() {
-							if err := r.Close(); err != nil && retErr == nil {
-								retErr = err
-							}
-						}()
-						parentStatsHashtree = bufio.NewReaderSize(r, parentTreeBufSize)
-					}
-					return nil
-				}); err != nil {
-					return err
+					parentStatsHashtree = bufio.NewReaderSize(r, parentTreeBufSize)
 				}
 			}
 			// merging output tree(s)
