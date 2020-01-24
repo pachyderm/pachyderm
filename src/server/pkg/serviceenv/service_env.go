@@ -3,13 +3,13 @@ package serviceenv
 import (
 	"errors"
 	"fmt"
-	"math"
 	"net"
 	"os"
 	"time"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -118,8 +118,7 @@ func (env *ServiceEnv) initEtcdClient() error {
 			// Use a long timeout with Etcd so that Pachyderm doesn't crash loop
 			// while waiting for etcd to come up (makes startup net faster)
 			DialOptions:        append(client.DefaultDialOptions(), grpc.WithTimeout(3*time.Minute)), //lint:ignore SA1019 can't call grpc.Dial directly
-			MaxCallSendMsgSize: math.MaxInt32,
-			MaxCallRecvMsgSize: math.MaxInt32,
+			MaxCallSendMsgSize: grpcutil.MaxMsgSize,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to initialize etcd client: %v", err)
