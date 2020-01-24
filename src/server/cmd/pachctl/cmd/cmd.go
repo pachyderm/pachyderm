@@ -26,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	admincmds "github.com/pachyderm/pachyderm/src/server/admin/cmds"
 	authcmds "github.com/pachyderm/pachyderm/src/server/auth/cmds"
+	"github.com/pachyderm/pachyderm/src/server/cmd/pachctl/shell"
 	configcmds "github.com/pachyderm/pachyderm/src/server/config"
 	debugcmds "github.com/pachyderm/pachyderm/src/server/debug/cmds"
 	enterprisecmds "github.com/pachyderm/pachyderm/src/server/enterprise/cmds"
@@ -445,6 +446,25 @@ Environment variables:
 		"default timeout; if set to 0s, the call will never time out.")
 	versionCmd.Flags().AddFlagSet(rawFlags)
 	subcommands = append(subcommands, cmdutil.CreateAlias(versionCmd, "version"))
+
+	var maxCompletions int64
+	shellCmd := &cobra.Command{
+		Short: "Run the pachyderm shell.",
+		Long:  "Run the pachyderm shell.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+			cfg, err := config.Read(true)
+			if err != nil {
+				return err
+			}
+			if maxCompletions == 0 {
+				maxCompletions = cfg.V2.MaxShellCompletions
+			}
+			shell.Run(rootCmd, maxCompletions) // never returns
+			return nil
+		}),
+	}
+	shellCmd.Flags().Int64Var(&maxCompletions, "max-completions", 0, "The maximum number of completions to show in the shell, defaults to 64.")
+	subcommands = append(subcommands, cmdutil.CreateAlias(shellCmd, "shell"))
 
 	deleteAll := &cobra.Command{
 		Short: "Delete everything.",
