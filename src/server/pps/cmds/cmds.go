@@ -70,7 +70,7 @@ func Cmds() []*cobra.Command {
 	raw := false
 	var output string
 	outputFlags := pflag.NewFlagSet("", pflag.ExitOnError)
-	outputFlags.BoolVar(&raw, "raw", false, "disable pretty printing, print raw json")
+	outputFlags.BoolVar(&raw, "raw", false, "Disable pretty printing; serialize data structures to an encoding such as json or yaml")
 	outputFlags.StringVarP(&output, "output", "o", "json", "Output format when --raw is set: \"json\" or \"yaml\"")
 
 	fullTimestamps := false
