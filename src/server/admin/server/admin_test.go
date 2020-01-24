@@ -574,7 +574,6 @@ func TestExtractRestoreDeferredProcessing(t *testing.T) {
 		_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 		require.NoError(t, err)
 	})
-
 	logStep("downstream branch update", func() {
 		c.CreateBranch(pipeline1, "master", "staging", nil)
 		_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
