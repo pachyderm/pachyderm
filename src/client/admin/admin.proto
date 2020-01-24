@@ -73,6 +73,7 @@ message RestoreRequest {
 
 message ClusterInfo {
   string id = 1 [(gogoproto.customname) = "ID"];
+  string deployment_id = 2 [(gogoproto.customname) = "DeploymentID"];
 }
 
 service API {

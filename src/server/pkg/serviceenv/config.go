@@ -53,6 +53,7 @@ type PachdSpecificConfiguration struct {
 	MemoryRequest         string `env:"PACHD_MEMORY_REQUEST,default=1T"`
 	WorkerUsesRoot        bool   `env:"WORKER_USES_ROOT,default=true"`
 	S3GatewayPort         uint16 `env:"S3GATEWAY_PORT,default=600"`
+	DeploymentID          string `env:"CLUSTER_DEPLOYMENT_ID,default="`
 }
 
 // StorageConfiguration contains the storage configuration.

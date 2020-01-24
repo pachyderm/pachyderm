@@ -136,7 +136,7 @@ func contextCreate(namePrefix, namespace, serverCert string) error {
 	if equivalentContext != nil {
 		cfg.V2.ActiveContext = equivalentContextName
 		equivalentContext.Source = newContext.Source
-		equivalentContext.ClusterID = newContext.ClusterID
+		equivalentContext.ClusterDeploymentID = ""
 		equivalentContext.ServerCAs = newContext.ServerCAs
 		return cfg.Write()
 	}

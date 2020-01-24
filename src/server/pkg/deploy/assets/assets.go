@@ -15,6 +15,7 @@ import (
 	pfs "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serde"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -565,6 +566,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 			},
 		},
 		{Name: "EXPOSE_OBJECT_API", Value: strconv.FormatBool(opts.ExposeObjectAPI)},
+		{Name: "CLUSTER_DEPLOYMENT_ID", Value: uuid.NewWithoutDashes()},
 	}
 	envVars = append(envVars, GetSecretEnvVars("")...)
 	envVars = append(envVars, getStorageEnvVars(opts)...)

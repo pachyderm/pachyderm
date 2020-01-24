@@ -55,6 +55,8 @@ message ConfigV2 {
 }
 
 message Context {
+    reserved 9;
+
     // Where this context came from
     ContextSource source = 1;
 
@@ -84,14 +86,14 @@ message Context {
     // The k8s namespace - used to construct a k8s context.
     string namespace = 8;
 
-    // A unique ID for the cluster. At client initialization time, we ensure
-    // this is the same as what the cluster reports back, to prevent us from
-    // connecting to the wrong cluster.
-    string cluster_id = 9 [(gogoproto.customname) = "ClusterID"];
-
     // A mapping of service -> port number, when port forwarding is
     // running for this context.
     map<string, uint32> port_forwarders = 10;
+
+    // A unique ID for the cluster deployment. At client initialization time,
+    // we ensure this is the same as what the cluster reports back, to prevent
+    // us from connecting to the wrong cluster.
+    string cluster_deployment_id = 11 [(gogoproto.customname) = "ClusterDeploymentID"];
 }
 
 enum ContextSource {
