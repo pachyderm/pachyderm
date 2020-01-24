@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/admin"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -551,23 +552,40 @@ func TestExtractRestoreDeferredProcessing(t *testing.T) {
 	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 
-	ops, err := c.ExtractAll(false)
-	require.NoError(t, err)
+	var ops []*admin.Op
+	logStep("extract", func() {
+		var err error
+		ops, err = c.ExtractAll(false)
+		require.NoError(t, err)
+	})
 	require.NoError(t, c.DeleteAll())
-	require.NoError(t, c.Restore(ops))
+	logStep("restore", func() {
+		require.NoError(t, c.Restore(ops))
+	})
 	// Do a fsck just in case.
-	require.NoError(t, c.FsckFastExit())
-
+	logStep("fsck", func() {
+		require.NoError(t, c.FsckFastExit())
+	})
 	_, err = c.PutFile(dataRepo, "staging", "file2", strings.NewReader("file"))
 	require.NoError(t, err)
-	c.CreateBranch(dataRepo, "master", "staging", nil)
-	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
-	require.NoError(t, err)
+	logStep("upstream branch update", func() {
+		var err error
+		c.CreateBranch(dataRepo, "master", "staging", nil)
+		_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+		require.NoError(t, err)
+	})
 
-	c.CreateBranch(pipeline1, "master", "staging", nil)
+	logStep("downstream branch update", func() {
+		c.CreateBranch(pipeline1, "master", "staging", nil)
+		_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+		require.NoError(t, err)
+	})
+}
 
-	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
-	require.NoError(t, err)
+func logStep(name string, f func()) {
+	fmt.Println(name, "started")
+	f()
+	fmt.Println(name, "finished")
 }
 
 func TestExtractRestoreStats(t *testing.T) {
