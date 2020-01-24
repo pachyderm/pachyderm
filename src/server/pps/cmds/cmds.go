@@ -71,7 +71,12 @@ func Cmds() []*cobra.Command {
 	var output string
 	outputFlags := pflag.NewFlagSet("", pflag.ExitOnError)
 	outputFlags.BoolVar(&raw, "raw", false, "Disable pretty printing; serialize data structures to an encoding such as json or yaml")
-	outputFlags.StringVarP(&output, "output", "o", "json", "Output format when --raw is set: \"json\" or \"yaml\"")
+	// --output is empty by default, so that we can print an error if a user
+	// explicitly sets --output without --raw, but the effective default is set in
+	// encode(), which assumes "json" if 'format' is empty.
+	// Note: because of how spf13/flags works, no other StringVarP that sets
+	// 'output' can have a default value either
+	outputFlags.StringVarP(&output, "output", "o", "", "Output format when --raw is set: \"json\" or \"yaml\" (default \"json\")")
 
 	fullTimestamps := false
 	fullTimestampsFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
@@ -656,7 +661,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			return encoder(output).EncodeProto(createPipelineRequest)
 		}),
 	}
-	extractPipeline.Flags().StringVarP(&output, "output", "o", "json", "Output format: \"json\" or \"yaml\"")
+	extractPipeline.Flags().StringVarP(&output, "output", "o", "", "Output format: \"json\" or \"yaml\" (default \"json\")")
 	commands = append(commands, cmdutil.CreateAlias(extractPipeline, "extract pipeline"))
 
 	var editor string
@@ -724,7 +729,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	}
 	editPipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
 	editPipeline.Flags().StringVar(&editor, "editor", "", "Editor to use for modifying the manifest.")
-	editPipeline.Flags().StringVarP(&output, "output", "o", "json", "Output format: \"json\" or \"yaml\"")
+	editPipeline.Flags().StringVarP(&output, "output", "o", "", "Output format: \"json\" or \"yaml\" (default \"json\")")
 	commands = append(commands, cmdutil.CreateAlias(editPipeline, "edit pipeline"))
 
 	var spec bool
@@ -736,6 +741,8 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			// validate flags
 			if raw && spec {
 				return fmt.Errorf("cannot set both --raw and --spec")
+			} else if !raw && !spec && output != "" {
+				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw or --spec")
 			}
 			history, err := cmdutil.ParseHistory(history)
 			if err != nil {
@@ -756,16 +763,16 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if err != nil {
 				return err
 			}
-			e := encoder(output)
 			if raw {
+				e := encoder(output)
 				for _, pipelineInfo := range pipelineInfos {
 					if err := e.EncodeProto(pipelineInfo); err != nil {
 						return err
 					}
 				}
 				return nil
-			}
-			if spec {
+			} else if spec {
+				e := encoder(output)
 				for _, pipelineInfo := range pipelineInfos {
 					if err := e.EncodeProto(ppsutil.PipelineReqFromInfo(pipelineInfo)); err != nil {
 						return err
