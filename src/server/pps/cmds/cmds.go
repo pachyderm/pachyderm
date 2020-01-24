@@ -39,8 +39,10 @@ import (
 
 // encoder creates an encoder that writes data structures to w[0] (or os.Stdout
 // if no 'w' is passed) in the serialization format 'format'. If more than one
-// writer is passed, all writers after the first are silently ignored (to
-// simplify the type signature of 'encoder' and allow it to be used inline).
+// writer is passed, all writers after the first are silently ignored (rather
+// than returning an error, as this is an internal function and silently
+// ignoring invalid arguments simplifies the type signature of 'encoder' and
+// allows it to be used inline).
 func encoder(format string, w ...io.Writer) serde.Encoder {
 	if format == "" {
 		format = "json"
