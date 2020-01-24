@@ -503,6 +503,10 @@
                 "value": "false"
               },
               {
+                "name": "REQUIRE_CRITICAL_SERVERS_ONLY",
+                "value": "false"
+              },
+              {
                 "name": "GOOGLE_BUCKET",
                 "valueFrom": {
                   "secretKeyRef": {
