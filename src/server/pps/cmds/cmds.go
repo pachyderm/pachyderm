@@ -38,14 +38,14 @@ import (
 // encoder creates an encoder that writes data structures to w[0] (or os.Stdout
 // if no 'w' is passed) in the serialization format 'format'. If more than one
 // writer is passed, all writers after the first are silently ignored (rather
-// than returning an error, as this is an internal function and silently
-// ignoring invalid arguments simplifies the type signature of 'encoder' and
-// allows it to be used inline).
+// than returning an error), and if the 'format' passed is unrecognized
+// (currently, 'format' must be 'json' or 'yaml') then pachctl exits
+// immediately. Ignoring errors or crashing simplifies the type signature of
+// 'encoder' and allows it to be used inline.
 func encoder(format string, w ...io.Writer) serde.Encoder {
+	format = strings.ToLower(format)
 	if format == "" {
 		format = "json"
-	} else {
-		format = strings.ToLower(format)
 	}
 	var output io.Writer = os.Stdout
 	if len(w) > 0 {
