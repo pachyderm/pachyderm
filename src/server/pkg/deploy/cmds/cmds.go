@@ -718,6 +718,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	var registry string
 	var tlsCertKey string
 	var uploadConcurrencyLimit int
+	var clusterDeploymentID string
 	deploy := &cobra.Command{
 		Short: "Deploy a Pachyderm cluster.",
 		Long:  "Deploy a Pachyderm cluster.",
@@ -766,6 +767,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				Namespace:               namespace,
 				NoExposeDockerSocket:    noExposeDockerSocket,
 				ExposeObjectAPI:         exposeObjectAPI,
+				ClusterDeploymentID:     clusterDeploymentID,
 			}
 			if tlsCertKey != "" {
 				// TODO(msteffen): If either the cert path or the key path contains a
@@ -809,6 +811,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	deploy.PersistentFlags().StringVar(&tlsCertKey, "tls", "", "string of the form \"<cert path>,<key path>\" of the signed TLS certificate and private key that Pachd should use for TLS authentication (enables TLS-encrypted communication with Pachd)")
 	deploy.PersistentFlags().BoolVar(&newStorageLayer, "new-storage-layer", false, "(feature flag) Do not set, used for testing.")
 	deploy.PersistentFlags().IntVar(&uploadConcurrencyLimit, "upload-concurrency-limit", assets.DefaultUploadConcurrencyLimit, "The maximum number of concurrent object storage uploads per Pachd instance.")
+	deploy.PersistentFlags().StringVar(&clusterDeploymentID, "cluster-deployment-id", "", "Set an ID for the cluster deployment. Defaults to a random value.")
 	deploy.PersistentFlags().StringVarP(&contextName, "context", "c", "", "Name of the context to add to the pachyderm config. If unspecified, a context name will automatically be derived.")
 	deploy.PersistentFlags().BoolVar(&createContext, "create-context", false, "Create a context, even with `--dry-run`.")
 

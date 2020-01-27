@@ -522,6 +522,10 @@
                 "value": "false"
               },
               {
+                "name": "CLUSTER_DEPLOYMENT_ID",
+                "value": "test"
+              },
+              {
                 "name": "GOOGLE_BUCKET",
                 "valueFrom": {
                   "secretKeyRef": {

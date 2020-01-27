@@ -22,6 +22,7 @@ fi
 # Generate a deployment manifest for many different targets using the local
 # build of 'pachctl'
 custom_args=(
+--cluster-deployment-id test
 --secure
 --dynamic-etcd-nodes 3
 --etcd-storage-class storage-class
@@ -36,11 +37,13 @@ custom_args=(
   storage.endpoint  # <endpoint>
 )
 google_args=(
+--cluster-deployment-id test
 --dynamic-etcd-nodes 3
   pach-bucket # <bucket-name>
   50          # <disk-size>
 )
 amazon_args=(
+--cluster-deployment-id test
 --dynamic-etcd-nodes 3
 --credentials "AWSIDAWSIDAWSIDAWSID,awssecret+awssecret+awssecret+awssecret+"
   pach-bucket # <bucket-name>
@@ -48,6 +51,7 @@ amazon_args=(
   50          # <disk-size>
 )
 microsoft_args=(
+--cluster-deployment-id test
 --dynamic-etcd-nodes 3
   pach-container           # <container>
   pach-account             # <account-name>

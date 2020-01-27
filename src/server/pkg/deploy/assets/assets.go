@@ -232,6 +232,10 @@ type AssetOpts struct {
 	// placed into a Kubernetes secret and used by pachd nodes to authenticate
 	// during TLS
 	TLS *TLSOpts
+
+	// Sets the cluster deployment ID. If unset, this will be a randomly
+	// generated UUID without dashes.
+	ClusterDeploymentID string
 }
 
 // replicas lets us create a pointer to a non-zero int32 in-line. This is
@@ -530,6 +534,9 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 			v1.ResourceMemory: mem,
 		}
 	}
+	if opts.ClusterDeploymentID == "" {
+		opts.ClusterDeploymentID = uuid.NewWithoutDashes()
+	}
 	envVars := []v1.EnvVar{
 		{Name: "PACH_ROOT", Value: "/pach"},
 		{Name: "ETCD_PREFIX", Value: opts.EtcdPrefix},
@@ -566,7 +573,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 			},
 		},
 		{Name: "EXPOSE_OBJECT_API", Value: strconv.FormatBool(opts.ExposeObjectAPI)},
-		{Name: "CLUSTER_DEPLOYMENT_ID", Value: uuid.NewWithoutDashes()},
+		{Name: "CLUSTER_DEPLOYMENT_ID", Value: opts.ClusterDeploymentID},
 	}
 	envVars = append(envVars, GetSecretEnvVars("")...)
 	envVars = append(envVars, getStorageEnvVars(opts)...)
