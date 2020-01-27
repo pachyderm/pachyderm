@@ -103,6 +103,7 @@ nav:
     - Getting Started:
         - Overview: getting_started/index.md
         - Local Installation: getting_started/local_installation.md
+            - Install pachctl completion: `getting_started/install-pachctl-completion.md
         - Deploy Pachyderm on Windows: getting_started/wsl-deploy.md
         - Beginner Tutorial: getting_started/beginner_tutorial.md
     - Concepts:
