@@ -1,6 +1,9 @@
 package backoff
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 // An Operation is executing by Retry() or RetryNotify().
 // The operation will be retried using a backoff policy if it returns an error.
@@ -48,4 +51,17 @@ func RetryNotify(operation Operation, b BackOff, notify Notify) error {
 
 		time.Sleep(next)
 	}
+}
+
+// RetryUntilCancel runs the given callback repeatedly until it returns an
+// error AND the given context has been canceled.
+func RetryUntilCancel(ctx context.Context, operation Operation, b BackOff, notify Notify) error {
+	return RetryNotify(operation, b, func(err error, d time.Duration) error {
+		select {
+		case <-ctx.Done():
+			return err
+		default:
+			return notify(err, d)
+		}
+	})
 }

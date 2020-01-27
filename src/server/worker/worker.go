@@ -1,29 +1,28 @@
 package worker
 
 import (
-	"encoding/base64"
-	"encoding/hex"
-	"github.com/pachyderm/pachyderm/src/client/pps"
+	"context"
+	"time"
+
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	"github.com/pachyderm/pachyderm/src/server/pkg/work"
+	"github.com/pachyderm/pachyderm/src/server/worker/logs"
+	"github.com/pachyderm/pachyderm/src/server/worker/pipeline/transform"
 )
 
-// MatchDatum checks if a datum matches a filter.  To match each string in
-// filter must correspond match at least 1 datum's Path or Hash. Order of
-// filter and data is irrelevant.
-func MatchDatum(filter []string, data []*pps.InputFile) bool {
-	// All paths in request.DataFilters must appear somewhere in the log
-	// line's inputs, or it's filtered
-	matchesData := true
-dataFilters:
-	for _, dataFilter := range filter {
-		for _, datum := range data {
-			if dataFilter == datum.Path ||
-				dataFilter == base64.StdEncoding.EncodeToString(datum.Hash) ||
-				dataFilter == hex.EncodeToString(datum.Hash) {
-				continue dataFilters // Found, move to next filter
-			}
-		}
-		matchesData = false
-		break
-	}
-	return matchesData
+func (a *APIServer) worker() {
+	ctx := a.driver.PachClient().Ctx()
+	logger := logs.NewStatlessLogger(a.driver.PipelineInfo())
+
+	backoff.RetryUntilCancel(ctx, func() error {
+		return a.driver.NewTaskWorker().Run(
+			a.driver.PachClient().Ctx(),
+			func(ctx context.Context, task *work.Task, subtask *work.Task) error {
+				return transform.Worker(a.driver, logger, task)
+			},
+		)
+	}, backoff.NewConstantBackOff(200*time.Millisecond), func(err error, d time.Duration) error {
+		logger.Logf("worker failed: %v; retrying in %v", err, d)
+		return nil
+	})
 }

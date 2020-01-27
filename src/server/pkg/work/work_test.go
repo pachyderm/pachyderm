@@ -51,7 +51,8 @@ func TestWork(t *testing.T) {
 		go func() {
 			for {
 				ctx, cancel := context.WithCancel(context.Background())
-				w := NewWorker(etcdClient, etcdPrefix, func(_ context.Context, task, subtask *Task) error {
+				w := NewWorker(etcdClient, etcdPrefix, "")
+				if err := w.Run(ctx, func(_ context.Context, task, subtask *Task) error {
 					if rand.Float64() < failProb {
 						cancel()
 					} else {
@@ -60,8 +61,7 @@ func TestWork(t *testing.T) {
 						processMu.Unlock()
 					}
 					return nil
-				})
-				if err := w.Run(ctx); err != nil {
+				}); err != nil {
 					if ctx.Err() == context.Canceled {
 						continue
 					}
@@ -71,10 +71,7 @@ func TestWork(t *testing.T) {
 		}()
 	}
 	// Setup master.
-	m := NewMaster(etcdClient, etcdPrefix, func(_ context.Context, subtask *Task) error {
-		subtasksCollected[subtask.Id] = true
-		return nil
-	})
+	m := NewMaster(etcdClient, etcdPrefix, "")
 	// Create task.
 	var subtasks []*Task
 	for i := 0; i < numSubtasks; i++ {
@@ -86,7 +83,14 @@ func TestWork(t *testing.T) {
 		Id:       taskID,
 		Subtasks: subtasks,
 	}
-	require.NoError(t, m.Run(context.Background(), task))
+	require.NoError(t, m.Run(
+		context.Background(),
+		task,
+		func(_ context.Context, subtask *Task) error {
+			subtasksCollected[subtask.Id] = true
+			return nil
+		}),
+	)
 	require.Equal(t, subtasksCreated, subtasksProcessed, subtasksCollected)
 }
 

@@ -72,16 +72,19 @@ func NewAPIServer(
 // create pipelines.
 func NewSidecarAPIServer(
 	env *serviceenv.ServiceEnv,
+	txnEnv *txnenv.TransactionEnv,
 	etcdPrefix string,
 	iamRole string,
 	reporter *metrics.Reporter,
 	workerGrpcPort uint16,
+	pprofPort uint16,
 	httpPort uint16,
 	peerPort uint16,
 ) (APIServer, error) {
 	apiServer := &apiServer{
 		Logger:         log.NewLogger("pps.API"),
 		env:            env,
+		txnEnv:         txnEnv,
 		etcdPrefix:     etcdPrefix,
 		iamRole:        iamRole,
 		reporter:       reporter,

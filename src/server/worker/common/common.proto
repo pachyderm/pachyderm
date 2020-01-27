@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package common;
+option go_package = "github.com/pachyderm/pachyderm/src/server/worker/common";
+
+import "client/pfs/pfs.proto";
+import "gogoproto/gogo.proto";
+
+message Input {
+  pfs.FileInfo file_info = 1;
+  pfs.Commit parent_commit = 5;
+  string name = 2;
+  string join_on = 8;
+  bool lazy = 3;
+  string branch = 4;
+  string git_url = 6 [(gogoproto.customname) = "GitURL"];
+  bool empty_files = 7;
+}
+
+enum State {
+  RUNNING = 0;
+  SUCCESS = 1;
+  FAILURE = 3;
+}
+
+message ChunkState {
+  State state = 1;
+  string datum_id = 2 [(gogoproto.customname) = "DatumID"];
+  // The IP address of the worker who processed this chunk
+  string address = 3;
+  pfs.Object recovered_datums = 4;
+}
+
+message MergeState {
+  State state = 1;
+  pfs.Object tree = 2;
+  uint64 size_bytes = 3;
+  pfs.Object stats_tree = 4;
+  uint64 stats_size_bytes = 5;
+}
+
+message Plan {
+  repeated int64 chunks = 1;
+  int64 merges = 2;
+}
+
+message ShardInfo {}

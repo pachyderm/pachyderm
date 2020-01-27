@@ -51,7 +51,7 @@
     {
       "label": "docker-build-pachd",
       "type": "shell",
-      "command": "./etc/compile/vscode_compile_task.sh pachd"
+      "command": "./etc/compile/vscode_compile_task.sh pachd",
     },
     {
       "label": "launch-dev",

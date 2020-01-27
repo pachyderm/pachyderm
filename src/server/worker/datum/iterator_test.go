@@ -1,4 +1,4 @@
-package worker
+package datum
 
 import (
 	"fmt"
@@ -32,17 +32,17 @@ func TestDatumIterators(t *testing.T) {
 	// make one with zero datums for testing edge cases
 	in0 := client.NewPFSInput(dataRepo, "!(**)")
 	in0.Pfs.Commit = commit.ID
-	pfs0, err := NewDatumIterator(c, in0)
+	pfs0, err := NewIterator(c, in0)
 	require.NoError(t, err)
 
 	in1 := client.NewPFSInput(dataRepo, "/foo?1")
 	in1.Pfs.Commit = commit.ID
-	pfs1, err := NewDatumIterator(c, in1)
+	pfs1, err := NewIterator(c, in1)
 	require.NoError(t, err)
 
 	in2 := client.NewPFSInput(dataRepo, "/foo*2")
 	in2.Pfs.Commit = commit.ID
-	pfs2, err := NewDatumIterator(c, in2)
+	pfs2, err := NewIterator(c, in2)
 	require.NoError(t, err)
 
 	// iterate through pfs0, pfs1 and pfs2 and verify they are as we expect
@@ -51,13 +51,13 @@ func TestDatumIterators(t *testing.T) {
 	validateDI(t, pfs2, "/foo12", "/foo2", "/foo22", "/foo32", "/foo42")
 
 	in3 := client.NewUnionInput(in1, in2)
-	union1, err := NewDatumIterator(c, in3)
+	union1, err := NewIterator(c, in3)
 	require.NoError(t, err)
 	validateDI(t, union1, "/foo11", "/foo21", "/foo31", "/foo41",
 		"/foo12", "/foo2", "/foo22", "/foo32", "/foo42")
 
 	in4 := client.NewCrossInput(in1, in2)
-	cross1, err := NewDatumIterator(c, in4)
+	cross1, err := NewIterator(c, in4)
 	require.NoError(t, err)
 	validateDI(t, cross1,
 		"/foo11/foo12", "/foo21/foo12", "/foo31/foo12", "/foo41/foo12",
@@ -68,7 +68,7 @@ func TestDatumIterators(t *testing.T) {
 	)
 
 	in5 := client.NewCrossInput(in3, in4)
-	cross2, err := NewDatumIterator(c, in5)
+	cross2, err := NewIterator(c, in5)
 	require.NoError(t, err)
 	validateDI(t, cross2,
 		"/foo11/foo11/foo12", "/foo21/foo11/foo12", "/foo31/foo11/foo12", "/foo41/foo11/foo12", "/foo12/foo11/foo12", "/foo2/foo11/foo12", "/foo22/foo11/foo12", "/foo32/foo11/foo12", "/foo42/foo11/foo12",
@@ -94,13 +94,13 @@ func TestDatumIterators(t *testing.T) {
 
 	// cross with a zero datum input should also be zero
 	in6 := client.NewCrossInput(in3, in0, in2, in4)
-	cross3, err := NewDatumIterator(c, in6)
+	cross3, err := NewIterator(c, in6)
 	require.NoError(t, err)
 	validateDI(t, cross3)
 
 	// zero cross inside a cross should also be zero
 	in7 := client.NewCrossInput(in6, in1)
-	cross4, err := NewDatumIterator(c, in7)
+	cross4, err := NewIterator(c, in7)
 	require.NoError(t, err)
 	validateDI(t, cross4)
 
@@ -228,12 +228,12 @@ func BenchmarkDI8(b *testing.B)  { benchmarkDatumIterators(8, b) }
 func BenchmarkDI16(b *testing.B) { benchmarkDatumIterators(16, b) }
 func BenchmarkDI32(b *testing.B) { benchmarkDatumIterators(32, b) }
 
-func validateDI(t testing.TB, di DatumIterator, datums ...string) {
+func validateDI(t testing.TB, dit Iterator, datums ...string) {
 	i := 0
-	clone := di
-	for di.Next() {
+	clone := dit
+	for dit.Next() {
 		key := ""
-		for _, file := range di.Datum() {
+		for _, file := range dit.Datum() {
 			key += file.FileInfo.File.Path
 		}
 
@@ -250,7 +250,7 @@ func validateDI(t testing.TB, di DatumIterator, datums ...string) {
 		i++
 	}
 	if len(datums) > 0 {
-		require.Equal(t, di.Len(), len(datums))
+		require.Equal(t, dit.Len(), len(datums))
 	}
-	require.Equal(t, di.Len(), i)
+	require.Equal(t, dit.Len(), i)
 }

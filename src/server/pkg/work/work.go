@@ -22,21 +22,18 @@ type CollectFunc func(context.Context, *Task) error
 
 // Master is the master for a task.
 // The master will layout the subtasks for the task in etcd and collect
-// them upon completion. The collectFunc callback will be called for
-// each subtask that is collected.
+// them upon completion.
 type Master struct {
 	etcdClient          *etcd.Client
 	taskCol, subtaskCol col.Collection
-	collectFunc         CollectFunc
 }
 
 // NewMaster creates a new master.
-func NewMaster(etcdClient *etcd.Client, etcdPrefix string, collectFunc CollectFunc) *Master {
+func NewMaster(etcdClient *etcd.Client, etcdPrefix string, taskNamespace string) *Master {
 	return &Master{
-		etcdClient:  etcdClient,
-		taskCol:     collection(etcdClient, path.Join(etcdPrefix, taskPrefix)),
-		subtaskCol:  collection(etcdClient, path.Join(etcdPrefix, subtaskPrefix)),
-		collectFunc: collectFunc,
+		etcdClient: etcdClient,
+		taskCol:    collection(etcdClient, path.Join(etcdPrefix, taskPrefix, taskNamespace)),
+		subtaskCol: collection(etcdClient, path.Join(etcdPrefix, subtaskPrefix, taskNamespace)),
 	}
 }
 
@@ -51,8 +48,9 @@ func collection(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 	)
 }
 
-// Run runs the master with a given context and task.
-func (m *Master) Run(ctx context.Context, task *Task) (retErr error) {
+// Run runs the master with a given context and task. The collectFunc callback
+// will be called for each subtask that is collected.
+func (m *Master) Run(ctx context.Context, task *Task, collectFunc CollectFunc) (retErr error) {
 	taskInfo := &TaskInfo{Task: task}
 	if err := m.updateTaskInfo(ctx, taskInfo); err != nil {
 		return err
@@ -87,10 +85,12 @@ func (m *Master) Run(ctx context.Context, task *Task) (retErr error) {
 			if key != subtaskKey {
 				return nil
 			}
-			// (bryce) need to figure out error propagation if subtask fails.
-			// if subtaskInfo.State == State_FAILURE {}
-			if err := m.collectFunc(ctx, subtaskInfo.Task); err != nil {
-				return err
+			if collectFunc != nil {
+				// (bryce) need to figure out error propagation if subtask fails.
+				// if subtaskInfo.State == State_FAILURE {}
+				if err := collectFunc(ctx, subtaskInfo.Task); err != nil {
+					return err
+				}
 			}
 			return errutil.ErrBreak
 		}, watch.WithFilterDelete()); err != nil {
@@ -119,22 +119,20 @@ type ProcessFunc func(context.Context, *Task, *Task) error
 type Worker struct {
 	etcdClient          *etcd.Client
 	taskCol, subtaskCol col.Collection
-	processFunc         ProcessFunc
 }
 
 // NewWorker creates a new worker.
-func NewWorker(etcdClient *etcd.Client, etcdPrefix string, processFunc ProcessFunc) *Worker {
+func NewWorker(etcdClient *etcd.Client, etcdPrefix string, taskNamespace string) *Worker {
 	return &Worker{
-		etcdClient:  etcdClient,
-		taskCol:     collection(etcdClient, path.Join(etcdPrefix, taskPrefix)),
-		subtaskCol:  collection(etcdClient, path.Join(etcdPrefix, subtaskPrefix)),
-		processFunc: processFunc,
+		etcdClient: etcdClient,
+		taskCol:    collection(etcdClient, path.Join(etcdPrefix, taskPrefix, taskNamespace)),
+		subtaskCol: collection(etcdClient, path.Join(etcdPrefix, subtaskPrefix, taskNamespace)),
 	}
 }
 
 // Run runs the worker with the given context.
 // The worker will continue to watch the task collection until the context is cancelled.
-func (w *Worker) Run(ctx context.Context) error {
+func (w *Worker) Run(ctx context.Context, processFunc ProcessFunc) error {
 	return w.taskCol.ReadOnly(ctx).WatchF(func(e *watch.Event) (retErr error) {
 		var id string
 		taskInfo := &TaskInfo{}
@@ -142,13 +140,13 @@ func (w *Worker) Run(ctx context.Context) error {
 			return err
 		}
 		if taskInfo.State == State_RUNNING {
-			return w.processTask(ctx, taskInfo.Task)
+			return w.processTask(ctx, taskInfo.Task, processFunc)
 		}
 		return nil
 	})
 }
 
-func (w *Worker) processTask(ctx context.Context, task *Task) error {
+func (w *Worker) processTask(ctx context.Context, task *Task, processFunc ProcessFunc) error {
 	var eg errgroup.Group
 	ctx, cancel := context.WithCancel(ctx)
 	// Watch for task termination.
@@ -182,12 +180,12 @@ func (w *Worker) processTask(ctx context.Context, task *Task) error {
 		//		retErr = err
 		//	}
 		//}()
-		if err := w.processSubtasks(ctx, task); err != nil {
+		if err := w.processSubtasks(ctx, task, processFunc); err != nil {
 			return err
 		}
 		// Wait for a deletion event (ttl expired) before attempting to process the subtasks again.
 		return w.subtaskCol.ReadOnly(ctx).WatchOneF(task.Id, func(e *watch.Event) error {
-			return w.processSubtasks(ctx, task)
+			return w.processSubtasks(ctx, task, processFunc)
 		}, watch.WithFilterPut())
 	})
 	if err := eg.Wait(); err != nil {
@@ -200,12 +198,12 @@ func (w *Worker) processTask(ctx context.Context, task *Task) error {
 	return nil
 }
 
-func (w *Worker) processSubtasks(ctx context.Context, task *Task) error {
+func (w *Worker) processSubtasks(ctx context.Context, task *Task, processFunc ProcessFunc) error {
 	for _, subtask := range task.Subtasks {
 		subtaskKey := path.Join(task.Id, subtask.Id)
 		subtaskInfo := &TaskInfo{}
 		if err := w.subtaskCol.Claim(ctx, subtaskKey, subtaskInfo, func(ctx context.Context) error {
-			if err := w.processFunc(ctx, task, subtask); err != nil {
+			if err := processFunc(ctx, task, subtask); err != nil {
 				return err
 			}
 			subtaskInfo.Task = subtask

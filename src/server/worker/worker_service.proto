@@ -3,22 +3,10 @@ syntax = "proto3";
 package worker;
 option go_package = "github.com/pachyderm/pachyderm/src/server/worker";
 
-import "client/pfs/pfs.proto";
 import "client/pps/pps.proto";
 import "gogoproto/gogo.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/wrappers.proto";
-
-message Input {
-  pfs.FileInfo file_info = 1;
-  pfs.Commit parent_commit = 5;
-  string name = 2;
-  string join_on = 8;
-  bool lazy = 3;
-  string branch = 4;
-  string git_url = 6 [(gogoproto.customname) = "GitURL"];
-  bool empty_files = 7;
-}
 
 message CancelRequest {
   string job_id = 2 [(gogoproto.customname) = "JobID"];
@@ -39,33 +27,4 @@ message GetChunkRequest {
   int64 id = 1;
   int64 shard = 2;
   bool stats = 3;
-}
-
-enum State {
-  RUNNING = 0;
-  COMPLETE = 1;
-  FAILED = 3;
-}
-
-message ChunkState {
-  State state = 1;
-  string datum_id = 2 [(gogoproto.customname) = "DatumID"];
-  // The IP address of the worker who processed this chunk
-  string address = 3;
-  pfs.Object recovered_datums = 4;
-}
-
-message MergeState {
-  State state = 1;
-  pfs.Object tree = 2;
-  uint64 size_bytes = 3;
-  pfs.Object stats_tree = 4;
-  uint64 stats_size_bytes = 5;
-}
-
-message ShardInfo {}
-
-message Plan {
-  repeated int64 chunks = 1;
-  int64 merges = 2;
 }

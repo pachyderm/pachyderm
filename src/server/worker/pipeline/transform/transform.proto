@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package transform;
+option go_package = "github.com/pachyderm/pachyderm/src/server/worker/pipeline/transform";
+
+import "client/pfs/pfs.proto";
+import "client/pps/pps.proto";
+import "server/worker/common/common.proto";
+
+message DatumInputs {
+  repeated common.Input inputs = 1;
+}
+
+message HashtreeInfo {
+  // Object for fetching from object storage if the hashtree is not in the worker cache
+  pfs.Object object = 1;
+
+  // Address used for fetching a cached version directly from the worker
+  string address = 2;
+}
+
+message DatumData {
+  // Inputs
+  pfs.Object datums = 1;
+
+  // Outputs
+  pps.ProcessStats process_stats = 2;
+}
+
+message MergeData {
+  // Inputs
+  int64 shard = 1;
+
+  // Outputs
+  HashtreeInfo output = 2;
+}

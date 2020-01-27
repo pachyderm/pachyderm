@@ -21,6 +21,10 @@ import (
 	"golang.org/x/net/context"
 )
 
+const (
+	storageTaskNamespace = "storage"
+)
+
 func init() {
 	// This is kind of weird, but I think it might be necessary.
 	// Since we build our protos with gogoproto, we need to register
@@ -146,8 +150,9 @@ func (d *driver) merge(ctx context.Context, outputPath string, prefixes []string
 		return err
 	}
 	// Setup and run master.
-	m := work.NewMaster(d.etcdClient, d.prefix, func(_ context.Context, _ *work.Task) error { return nil })
-	if err := m.Run(ctx, task); err != nil {
+	collectFunc := func(_ context.Context, _ *work.Task) error { return nil }
+	m := work.NewMaster(d.etcdClient, d.prefix, storageTaskNamespace)
+	if err := m.Run(ctx, task, collectFunc); err != nil {
 		return err
 	}
 	inputPrefix := path.Join(tmpPrefix, prefixes[0])
@@ -192,7 +197,9 @@ func deserialize(mergeAny, shardAny *types.Any) (*pfs.Merge, *pfs.Shard, error) 
 // because each pachd instance that errors here will lose its merge worker without an obvious
 // notification for the user (outside of the log message).
 func (d *driver) mergeWorker() {
-	w := work.NewWorker(d.etcdClient, d.prefix, func(ctx context.Context, task, subtask *work.Task) (retErr error) {
+	w := work.NewWorker(d.etcdClient, d.prefix, storageTaskNamespace)
+
+	err := w.Run(context.Background(), func(ctx context.Context, task, subtask *work.Task) (retErr error) {
 		merge, shard, err := deserialize(task.Data, subtask.Data)
 		if err != nil {
 			return err
@@ -204,7 +211,8 @@ func (d *driver) mergeWorker() {
 		}
 		return d.storage.Merge(ctx, outputPath, merge.Prefixes, index.WithRange(pathRange))
 	})
-	if err := w.Run(context.Background()); err != nil {
+
+	if err != nil {
 		log.Printf("error in merge worker: %v", err)
 	}
 }
