@@ -24,19 +24,24 @@ To install `pachctl` autocompletion, perform the following steps:
    ```
 
    This command returns information about the directory in which
-   `bash-completion` is installed.
+   `bash-completion` and bash completion scripts are installed.
    For example,  `/usr/local/etc/bash_completion.d/`. Unless it is
    the default `/etc/bash_completion.d/` location, you need to specify
    the path to `bash_completion.d`. Also, the output of the info
    command, might have a suggestion to include the path to
-   `bash-completion` into your
-   `~/.bash_profile` file.
+   `bash-completion` into your `~/.bash_profile` file.
 
 1. Install `pachctl` autocompletion:
 
-   ```bash
-   pachctl completion --install --path /usr/local/etc/bash_completion.d/pachctl
-   ```
+   * If you are using `bash`, run the following command:
+
+     ```bash
+     pachctl completion bash --install --path <path-to-bash>
+     ```
+
+   For example, if you specify the path to `bash-completion` as
+   `/usr/local/etc/bash_completion.d/pachctl`, your system response
+   looks like this:
 
    **System response:**
 
@@ -44,11 +49,21 @@ To install `pachctl` autocompletion, perform the following steps:
    Bash completions installed in /usr/local/etc/bash_completion.d/pachctl, you must restart bash to enable completions.
    ```
 
-1. Source your `~/.bash_profile` file:
+   * If you are using `zsh`, run the following command:
 
-   ```bash
-   source ~/.bash_profile
-   ```
+     ```sh
+     pachctl completion zsh --install
+     ```
+
+     **System response:**
+
+     ```sh
+     Completions installed in "_pachctl", you must restart your terminal to enable them.
+     ```
+
+1. Restart your terminal.
+
+   `pachctl` autocomplete should now be enabled in your system.
 
 !!! note "See Also"
 
