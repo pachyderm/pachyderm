@@ -112,6 +112,10 @@ data operations in Pachyderm.
            Use Transactions
            </a>
           </li>
+           <li><a href="err_cmd/" class="mdl-button mdl-button--colored mdl-js-button mdl- js-ripple-effect">
+           Skip Failed Datums
+           </a>
+          </li>
         </ul>
       </div>
     </div>

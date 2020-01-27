@@ -19,12 +19,13 @@ const (
 )
 
 // NewDebugServer creates a new server that serves the debug api over GRPC
-func NewDebugServer(name string, etcdClient *etcd.Client, etcdPrefix string, workerGrpcPort uint16) debug.DebugServer {
+func NewDebugServer(name string, etcdClient *etcd.Client, etcdPrefix string, workerGrpcPort uint16, clusterID string) debug.DebugServer {
 	return &debugServer{
 		name:           name,
 		etcdClient:     etcdClient,
 		etcdPrefix:     etcdPrefix,
 		workerGrpcPort: workerGrpcPort,
+		clusterID:      clusterID,
 	}
 }
 
@@ -33,6 +34,7 @@ type debugServer struct {
 	etcdClient     *etcd.Client
 	etcdPrefix     string
 	workerGrpcPort uint16
+	clusterID      string
 }
 
 func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpServer) error {

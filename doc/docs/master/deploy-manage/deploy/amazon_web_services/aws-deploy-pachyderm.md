@@ -42,20 +42,20 @@ To add stateful storage, complete the following steps:
    command:
 
      ```bash
-     $ aws s3api create-bucket --bucket ${BUCKET_NAME} --region ${AWS_REGION}
+     aws s3api create-bucket --bucket ${BUCKET_NAME} --region ${AWS_REGION}
      ```
 
    * If you are creating an S3 bucket in any region but the `us-east-1`
    region, run the following command:
 
      ```bash
-     $ aws s3api create-bucket --bucket ${BUCKET_NAME} --region ${AWS_REGION} --create-bucket-configuration LocationConstraint=${AWS_REGION}
+     aws s3api create-bucket --bucket ${BUCKET_NAME} --region ${AWS_REGION} --create-bucket-configuration LocationConstraint=${AWS_REGION}
      ```
 
 1. Verify that the S3 bucket was created:
 
    ```
-   $ aws s3api list-buckets --query 'Buckets[].Name'
+   aws s3api list-buckets --query 'Buckets[].Name'
    ```
 
 ## Deploy Pachyderm with an IAM Role
@@ -154,7 +154,7 @@ To deploy Pachyderm with an IAM role, complete the following steps:
 1. Deploy Pachyderm:
 
    ```bash
-   $ pachctl deploy amazon ${BUCKET_NAME} ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=1 --iam-role ${IAM_ROLE}
+   pachctl deploy amazon ${BUCKET_NAME} ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=1 --iam-role ${IAM_ROLE}
    ```
 
    The deployment takes some time. You can run `kubectl get pods` periodically
@@ -162,7 +162,12 @@ To deploy Pachyderm with an IAM role, complete the following steps:
    shows all pods as `READY`:
 
    ```bash
-   $ kubectl get pods
+   kubectl get pods
+   ```
+
+   **System Response:**
+
+   ```bash
    NAME                     READY     STATUS    RESTARTS   AGE
    dash-6c9dc97d9c-89dv9    2/2       Running   0          1m
    etcd-0                   1/1       Running   0          4m
@@ -176,8 +181,12 @@ To deploy Pachyderm with an IAM role, complete the following steps:
 1. Verify that the Pachyderm cluster is up and running:
 
    ```bash
-   $ pachctl version
+   pachctl version
+   ```
 
+   **System Response:**
+
+   ```bash
    COMPONENT           VERSION
    pachctl             1.9.7
    pachd               1.9.7
@@ -187,9 +196,9 @@ To deploy Pachyderm with an IAM role, complete the following steps:
    forward Pachyderm ports. Open a new terminal window and run the
    following command:
 
-     ```bash
-     $ pachctl port-forward
-     ```
+   ```bash
+   pachctl port-forward
+   ```
 
 ## Deploy Pachyderm with an Access Key
 
@@ -208,7 +217,7 @@ steps:
 1. Run the following command to deploy your Pachyderm cluster:
 
    ```bash
-   $ pachctl deploy amazon ${BUCKET_NAME} ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=1 --credentials "${AWS_ACCESS_KEY_ID},${AWS_SECRET_ACCESS_KEY},"
+   pachctl deploy amazon ${BUCKET_NAME} ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=1 --credentials "${AWS_ACCESS_KEY_ID},${AWS_SECRET_ACCESS_KEY},"
    ```
 
    The `,` at the end of the `credentials` flag in the deploy
@@ -222,7 +231,12 @@ steps:
    shows all pods as `READY`:
 
     ```bash
-    $ kubectl get pods
+    kubectl get pods
+    ```
+
+    **System Response:**
+
+    ```bash
     NAME                     READY     STATUS    RESTARTS   AGE
     dash-6c9dc97d9c-89dv9    2/2       Running   0          1m
     etcd-0                   1/1       Running   0          4m
@@ -237,7 +251,12 @@ steps:
 1. Verify that the Pachyderm cluster is up and running:
 
    ```bash
-   $ pachctl version
+   pachctl version
+   ```
+
+   **System Response:**
+
+   ```bash
 
    COMPONENT           VERSION
    pachctl             1.9.7
@@ -249,5 +268,5 @@ steps:
    following command:
 
      ```bash
-     $ pachctl port-forward
+     pachctl port-forward
      ```

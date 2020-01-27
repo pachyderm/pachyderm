@@ -328,16 +328,6 @@ message Pipeline {
   string name = 1;
 }
 
-message PipelineInput {
-  string name = 5;
-  pfs.Repo repo = 1;
-  string branch = 2;
-  string glob = 3;
-  string join_on = 7;
-  bool lazy = 4;
-  pfs.Commit from = 6;
-}
-
 enum PipelineState {
   // There is an EtcdPipelineInfo + spec commit, but no RC
   // This happens when a pipeline has been created but not yet picked up by a
@@ -370,6 +360,7 @@ message EtcdPipelineInfo {
   map<int32, int32> job_counts = 3;
   string auth_token = 5;
   JobState last_job_state = 6;
+  uint64 parallelism = 7;
 }
 
 message PipelineInfo {

@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.9.11
+
+- New configuration for deployments (exposed through pachctl deploy flags):
+  - Object storage upload concurrency limit (--upload-concurrency-limit). (#4393)
+- Various configuration improvements. (#4442)
+- Fixes a bug that would cause workers to segfault. (#4459)
+- Upgrades pachyderm to go 1.13.5. (#4472)
+- New configuration for amazon and custom deployments (exposed through pachctl deploy amazon/custom flags):
+  - Disabling ssl (--disable-ssl) (#4473)
+  - Skipping certificate verification (--no-verify-ssl) (#4473)
+- Further improves the logging and error reporting during pachd startup. (#4486)
+- Removes pprof http server from pachd (debugging should happen through the debug api). (#4496)
+- Removes k8s api access from worker code. (#4498)
+
 ## 1.9.10
 
 - Fixes a bug that causes `pachctl` to connect to the wrong cluster (#4416)
@@ -123,6 +137,21 @@
 - `atom` inputs have been removed and use `pfs` inputs instead. (#3639)
 - The `ADDRESS` env var for connecting to pachd has been removed, use `PACHD_ADDRESS` instead. (#3638)
 
+## 1.8.8
+
+- Fixes a bug that caused pipelines to recompute everything when they were restored. (#4079)
+
+## 1.8.7
+
+- Make the 'put file' directory traversal change backwards compatible for legacy branches (#3707)
+- Several fixes to provenance (#3734):
+    - Force provenance to be transitively closed
+    - Propagate all affected branches on deleteCommit
+    - Fix weird two branches with one commit bugs
+- Added a new fsck utility for PFS (#3734)
+- Make stats somewhat toggleable (#3758)
+- Example of spouts using kafka (#3752)
+- Refactor/fix some of the PFS upload steps (#3750)
 
 ## 1.8.6
 

@@ -597,10 +597,11 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		if err != nil {
 			return err
 		}
-		parallelism, err := ppsutil.GetExpectedNumWorkers(a.kubeClient, a.pipelineInfo.ParallelismSpec)
-		if err != nil {
-			return fmt.Errorf("error from GetExpectedNumWorkers: %v", err)
+		pipelinePtr := &pps.EtcdPipelineInfo{}
+		if err := a.pipelines.ReadOnly(ctx).Get(a.pipelineInfo.Pipeline.Name, pipelinePtr); err != nil {
+			return err
 		}
+		parallelism := int(pipelinePtr.Parallelism)
 		numHashtrees, err := ppsutil.GetExpectedNumHashtrees(a.pipelineInfo.HashtreeSpec)
 		if err != nil {
 			return fmt.Errorf("error from GetExpectedNumHashtrees: %v", err)

@@ -6,7 +6,7 @@ repo, and their purpose.
 ```
 build
 debian
-doc - documentation used on readthedocs
+doc - the Pachyderm documentation built with mkdocs
 ├── pachctl - cobra auto-generated docs on command-line usage
 etc - everything else
 ├── build - scripts for building releases

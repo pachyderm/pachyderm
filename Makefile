@@ -95,7 +95,6 @@ point-release:
 	@make VERSION_ADDITIONAL= release-helper
 	@make VERSION_ADDITIONAL= release-pachctl
 	@make doc
-	@rm VERSION
 	@echo "Release completed"
 
 # Run via 'make VERSION_ADDITIONAL=rc2 release-custom' to specify a version string
@@ -103,7 +102,6 @@ release-candidate:
 	@make release-helper
 	@make release-pachctl-custom
 	@make doc
-	@rm VERSION
 	@echo "Release completed"
 
 custom-release: release-helper release-pachctl-custom
@@ -115,7 +113,6 @@ custom-release: release-helper release-pachctl-custom
 	@git push origin :v$(shell pachctl version --client-only)
 	@git tag v$(shell pachctl version --client-only)
 	@git push origin --tags
-	@rm VERSION
 	@echo "Release completed"
 
 release-pachctl-custom:
@@ -146,26 +143,38 @@ publish-compile: docker-build-compile
 	docker push $(COMPILE_IMAGE)
 
 docker-clean-worker:
+	rm -rf docker_build_worker.tmpdir
 	docker stop worker_compile || true
 	docker rm worker_compile || true
 
 docker-build-worker: docker-clean-worker
 	docker run \
+		--env=CALLING_OS=$$(uname) \
+		--env=CALLING_USER_ID=$$(id -u $$USER) \
+		--env=DOCKER_GROUP_ID=$$(cat /etc/group | grep docker | cut -d: -f3) \
+		--env=DOCKER_BUILD_FLAGS="$(DOCKER_BUILD_FLAGS)" \
 		-v $$PWD:/pachyderm \
 		-v $$GOPATH/pkg:/go/pkg \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
-		--name worker_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /pachyderm/etc/compile/compile.sh worker "$(LD_FLAGS)"
+		--name worker_compile \
+		$(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) \
+		/pachyderm/etc/compile/compile.sh worker "$(LD_FLAGS)"
 
 
 docker-wait-worker:
 	etc/compile/wait.sh worker_compile
 
 docker-clean-pachd:
+	rm -rf docker_build_worker.tmpdir
 	docker stop pachd_compile || true
 	docker rm pachd_compile || true
 
 docker-build-pachd: docker-clean-pachd
 	docker run  \
+		--env=CALLING_OS=$$(uname) \
+		--env=CALLING_USER_ID=$$(id -u $$USER) \
+		--env=DOCKER_GROUP_ID=$$(cat /etc/group | grep docker | cut -d: -f3) \
+		--env=DOCKER_BUILD_FLAGS="$(DOCKER_BUILD_FLAGS)" \
 		-v $$PWD:/pachyderm \
 		-v $$GOPATH/pkg:/go/pkg \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
@@ -387,8 +396,11 @@ staticcheck:
 test-proto-static:
 	./etc/proto/test_no_changes.sh || echo "Protos need to be recompiled; run make proto-no-cache."
 
-test-deploy-manifests:
+test-deploy-manifests: install
 	./etc/testing/deploy-manifests/validate.sh
+
+regenerate-test-deploy-manifests: install
+	./etc/testing/deploy-manifests/validate.sh --regenerate
 
 proto: docker-build-proto
 	./etc/proto/build.sh

@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -27,7 +28,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serde"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
 )
 
@@ -78,7 +78,7 @@ func kubectlCreate(dryRun bool, manifest []byte, opts *assets.AssetOpts) error {
 	return nil
 }
 
-func contextCreate(namePrefix, namespace string) error {
+func contextCreate(namePrefix, namespace, serverCert string) error {
 	kubeConfig, err := config.RawKubeConfig()
 	if err != nil {
 		return err
@@ -92,7 +92,7 @@ func contextCreate(namePrefix, namespace string) error {
 		authInfo = kubeContext.AuthInfo
 	}
 
-	cfg, err := config.Read()
+	cfg, err := config.Read(false)
 	if err != nil {
 		return err
 	}
@@ -102,26 +102,47 @@ func contextCreate(namePrefix, namespace string) error {
 		ClusterName: clusterName,
 		AuthInfo:    authInfo,
 		Namespace:   namespace,
+		ServerCAs:   serverCert,
 	}
 
-	_, activeContext, err := cfg.ActiveContext()
-	if err != nil || !proto.Equal(newContext, activeContext) {
-		newContextName := namePrefix
-		for i := 0; i < 10000; i++ {
-			if i > 0 {
-				newContextName = fmt.Sprintf("%s-%d", namePrefix, i)
-			}
-			if _, ok := cfg.V2.Contexts[newContextName]; !ok {
-				break
-			}
-		}
-
-		cfg.V2.Contexts[newContextName] = newContext
-		cfg.V2.ActiveContext = newContextName
+	// if the new context is the same as the active context, just update
+	// fields on the existing context
+	_, activeContext, _ := cfg.ActiveContext()
+	if newContext.EqualClusterReference(activeContext) {
+		activeContext.ClusterID = ""
+		activeContext.ServerCAs = serverCert
 		return cfg.Write()
 	}
 
-	return nil
+	// try to find an existing context that is the same as the new context,
+	// in which case we just switch contexts rather than creating a new one
+	contextNames := []string{}
+	for contextName := range cfg.V2.Contexts {
+		contextNames = append(contextNames, contextName)
+	}
+	sort.Strings(contextNames)
+
+	for _, contextName := range contextNames {
+		existingContext := cfg.V2.Contexts[contextName]
+
+		if newContext.EqualClusterReference(existingContext) {
+			cfg.V2.ActiveContext = contextName
+			existingContext.ClusterID = ""
+			existingContext.ServerCAs = serverCert
+			return cfg.Write()
+		}
+	}
+
+	// we couldn't find an existing context that is the same as the new one,
+	// so we'll have to create it
+	newContextName := namePrefix
+	if _, ok := cfg.V2.Contexts[newContextName]; ok {
+		newContextName = fmt.Sprintf("%s-%s", namePrefix, time.Now().Format("2006-01-02-15-04-05"))
+	}
+
+	cfg.V2.Contexts[newContextName] = newContext
+	cfg.V2.ActiveContext = newContextName
+	return cfg.Write()
 }
 
 // containsEmpty is a helper function used for validation (particularly for
@@ -146,6 +167,8 @@ func deployCmds() []*cobra.Command {
 	var dev bool
 	var hostPath string
 	var namespace string
+	var serverCert string
+	var createContext bool
 
 	deployLocal := &cobra.Command{
 		Short: "Deploy a single-node Pachyderm cluster with local metadata storage.",
@@ -184,11 +207,11 @@ func deployCmds() []*cobra.Command {
 			if err := kubectlCreate(dryRun, buf.Bytes(), opts); err != nil {
 				return err
 			}
-			if !dryRun {
+			if !dryRun || createContext {
 				if contextName == "" {
 					contextName = "local"
 				}
-				if err := contextCreate(contextName, namespace); err != nil {
+				if err := contextCreate(contextName, namespace, serverCert); err != nil {
 					return err
 				}
 			}
@@ -237,11 +260,11 @@ func deployCmds() []*cobra.Command {
 			if err := kubectlCreate(dryRun, buf.Bytes(), opts); err != nil {
 				return err
 			}
-			if !dryRun {
+			if !dryRun || createContext {
 				if contextName == "" {
 					contextName = "gcs"
 				}
-				if err := contextCreate(contextName, namespace); err != nil {
+				if err := contextCreate(contextName, namespace, serverCert); err != nil {
 					return err
 				}
 			}
@@ -260,6 +283,8 @@ func deployCmds() []*cobra.Command {
 	var reverse bool
 	var partSize int64
 	var maxUploadParts int
+	var disableSSL bool
+	var noVerifySSL bool
 	deployCustom := &cobra.Command{
 		Use:   "{{alias}} --persistent-disk <persistent disk backend> --object-store <object store backend> <persistent disk args> <object store args>",
 		Short: "Deploy a custom Pachyderm cluster configuration",
@@ -282,6 +307,8 @@ If <object store backend> is \"s3\", then the arguments are:
 				Reverse:        reverse,
 				PartSize:       partSize,
 				MaxUploadParts: maxUploadParts,
+				DisableSSL:     disableSSL,
+				NoVerifySSL:    noVerifySSL,
 			}
 			// Generate manifest and write assets.
 			var buf bytes.Buffer
@@ -294,17 +321,18 @@ If <object store backend> is \"s3\", then the arguments are:
 			if err := kubectlCreate(dryRun, buf.Bytes(), opts); err != nil {
 				return err
 			}
-			if !dryRun {
+			if !dryRun || createContext {
 				if contextName == "" {
 					contextName = "custom"
 				}
-				if err := contextCreate(contextName, namespace); err != nil {
+				if err := contextCreate(contextName, namespace, serverCert); err != nil {
 					return err
 				}
 			}
 			return nil
 		}),
 	}
+	// (bryce) secure should be merged with disableSSL, but it would be a breaking change.
 	deployCustom.Flags().BoolVarP(&secure, "secure", "s", false, "Enable secure access to a Minio server.")
 	deployCustom.Flags().StringVar(&persistentDiskBackend, "persistent-disk", "aws",
 		"(required) Backend providing persistent local volumes to stateful pods. "+
@@ -319,6 +347,8 @@ If <object store backend> is \"s3\", then the arguments are:
 	deployCustom.Flags().BoolVar(&reverse, "reverse", obj.DefaultReverse, "(rarely set) Reverse object storage paths.")
 	deployCustom.Flags().Int64Var(&partSize, "part-size", obj.DefaultPartSize, "(rarely set / S3V2 incompatible) Set a custom part size for object storage uploads.")
 	deployCustom.Flags().IntVar(&maxUploadParts, "max-upload-parts", obj.DefaultMaxUploadParts, "(rarely set / S3V2 incompatible) Set a custom maximum number of upload parts.")
+	deployCustom.Flags().BoolVar(&disableSSL, "disable-ssl", obj.DefaultDisableSSL, "(rarely set / S3V2 incompatible) Disable SSL.")
+	deployCustom.Flags().BoolVar(&noVerifySSL, "no-verify-ssl", obj.DefaultNoVerifySSL, "(rarely set / S3V2 incompatible) Skip SSL certificate verification (typically used for enabling self-signed certificates).")
 	commands = append(commands, cmdutil.CreateAlias(deployCustom, "deploy custom"))
 
 	var cloudfrontDistribution string
@@ -416,6 +446,8 @@ If <object store backend> is \"s3\", then the arguments are:
 				Reverse:        reverse,
 				PartSize:       partSize,
 				MaxUploadParts: maxUploadParts,
+				DisableSSL:     disableSSL,
+				NoVerifySSL:    noVerifySSL,
 			}
 			// Generate manifest and write assets.
 			var buf bytes.Buffer
@@ -428,11 +460,11 @@ If <object store backend> is \"s3\", then the arguments are:
 			if err := kubectlCreate(dryRun, buf.Bytes(), opts); err != nil {
 				return err
 			}
-			if !dryRun {
+			if !dryRun || createContext {
 				if contextName == "" {
 					contextName = "aws"
 				}
-				if err := contextCreate(contextName, namespace); err != nil {
+				if err := contextCreate(contextName, namespace, serverCert); err != nil {
 					return err
 				}
 			}
@@ -452,6 +484,8 @@ If <object store backend> is \"s3\", then the arguments are:
 	deployAmazon.Flags().BoolVar(&reverse, "reverse", obj.DefaultReverse, "(rarely set) Reverse object storage paths.")
 	deployAmazon.Flags().Int64Var(&partSize, "part-size", obj.DefaultPartSize, "(rarely set) Set a custom part size for object storage uploads.")
 	deployAmazon.Flags().IntVar(&maxUploadParts, "max-upload-parts", obj.DefaultMaxUploadParts, "(rarely set) Set a custom maximum number of upload parts.")
+	deployAmazon.Flags().BoolVar(&disableSSL, "disable-ssl", obj.DefaultDisableSSL, "(rarely set) Disable SSL.")
+	deployAmazon.Flags().BoolVar(&noVerifySSL, "no-verify-ssl", obj.DefaultNoVerifySSL, "(rarely set) Skip SSL certificate verification (typically used for enabling self-signed certificates).")
 	commands = append(commands, cmdutil.CreateAlias(deployAmazon, "deploy amazon"))
 
 	deployMicrosoft := &cobra.Command{
@@ -493,11 +527,11 @@ If <object store backend> is \"s3\", then the arguments are:
 			if err := kubectlCreate(dryRun, buf.Bytes(), opts); err != nil {
 				return err
 			}
-			if !dryRun {
+			if !dryRun || createContext {
 				if contextName == "" {
 					contextName = "azure"
 				}
-				if err := contextCreate(contextName, namespace); err != nil {
+				if err := contextCreate(contextName, namespace, serverCert); err != nil {
 					return err
 				}
 			}
@@ -557,6 +591,8 @@ If <object store backend> is \"s3\", then the arguments are:
 				Reverse:        reverse,
 				PartSize:       partSize,
 				MaxUploadParts: maxUploadParts,
+				DisableSSL:     disableSSL,
+				NoVerifySSL:    noVerifySSL,
 			}
 			return deployStorageSecrets(assets.AmazonSecret(args[0], "", args[1], args[2], token, "", "", advancedConfig))
 		}),
@@ -567,6 +603,8 @@ If <object store backend> is \"s3\", then the arguments are:
 	deployStorageAmazon.Flags().BoolVar(&reverse, "reverse", obj.DefaultReverse, "(rarely set) Reverse object storage paths.")
 	deployStorageAmazon.Flags().Int64Var(&partSize, "part-size", obj.DefaultPartSize, "(rarely set) Set a custom part size for object storage uploads.")
 	deployStorageAmazon.Flags().IntVar(&maxUploadParts, "max-upload-parts", obj.DefaultMaxUploadParts, "(rarely set) Set a custom maximum number of upload parts.")
+	deployStorageAmazon.Flags().BoolVar(&disableSSL, "disable-ssl", obj.DefaultDisableSSL, "(rarely set) Disable SSL.")
+	deployStorageAmazon.Flags().BoolVar(&noVerifySSL, "no-verify-ssl", obj.DefaultNoVerifySSL, "(rarely set) Skip SSL certificate verification (typically used for enabling self-signed certificates).")
 	commands = append(commands, cmdutil.CreateAlias(deployStorageAmazon, "deploy storage amazon"))
 
 	deployStorageGoogle := &cobra.Command{
@@ -671,11 +709,12 @@ If <object store backend> is \"s3\", then the arguments are:
 	var pachdShards int
 	var registry string
 	var tlsCertKey string
+	var uploadConcurrencyLimit int
 	deploy := &cobra.Command{
 		Short: "Deploy a Pachyderm cluster.",
 		Long:  "Deploy a Pachyderm cluster.",
 		PersistentPreRun: cmdutil.Run(func([]string) error {
-			cfg, err := config.Read()
+			cfg, err := config.Read(false)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "WARNING: could not read config to check whether cluster metrics will be enabled: %v.\n", err)
 			}
@@ -692,6 +731,9 @@ If <object store backend> is \"s3\", then the arguments are:
 			opts = &assets.AssetOpts{
 				FeatureFlags: assets.FeatureFlags{
 					NewStorageLayer: newStorageLayer,
+				},
+				StorageOpts: assets.StorageOpts{
+					UploadConcurrencyLimit: uploadConcurrencyLimit,
 				},
 				PachdShards:             uint64(pachdShards),
 				Version:                 version.PrettyPrintVersion(version.Version),
@@ -728,6 +770,12 @@ If <object store backend> is \"s3\", then the arguments are:
 					ServerCert: certKey[0],
 					ServerKey:  certKey[1],
 				}
+
+				serverCertBytes, err := ioutil.ReadFile(certKey[0])
+				if err != nil {
+					return fmt.Errorf("could not read server cert at %q: %v", certKey[0], err)
+				}
+				serverCert = base64.StdEncoding.EncodeToString([]byte(serverCertBytes))
 			}
 			return nil
 		}),
@@ -736,7 +784,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	deploy.PersistentFlags().IntVar(&etcdNodes, "dynamic-etcd-nodes", 0, "Deploy etcd as a StatefulSet with the given number of pods.  The persistent volumes used by these pods are provisioned dynamically.  Note that StatefulSet is currently a beta kubernetes feature, which might be unavailable in older versions of kubernetes.")
 	deploy.PersistentFlags().StringVar(&etcdVolume, "static-etcd-volume", "", "Deploy etcd as a ReplicationController with one pod.  The pod uses the given persistent volume.")
 	deploy.PersistentFlags().StringVar(&etcdStorageClassName, "etcd-storage-class", "", "If set, the name of an existing StorageClass to use for etcd storage. Ignored if --static-etcd-volume is set.")
-	deploy.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
+	deploy.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest. Note that a pachyderm context will not be created, unless you also use `--create-context`.")
 	deploy.PersistentFlags().StringVarP(&outputFormat, "output", "o", "json", "Output format. One of: json|yaml")
 	deploy.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
 	deploy.PersistentFlags().BoolVar(&dashOnly, "dashboard-only", false, "Only deploy the Pachyderm UI (experimental), without the rest of pachyderm. This is for launching the UI adjacent to an existing Pachyderm cluster. After deployment, run \"pachctl port-forward\" to connect")
@@ -752,7 +800,9 @@ If <object store backend> is \"s3\", then the arguments are:
 	deploy.PersistentFlags().BoolVar(&exposeObjectAPI, "expose-object-api", false, "If set, instruct pachd to serve its object/block API on its public port (not safe with auth enabled, do not set in production).")
 	deploy.PersistentFlags().StringVar(&tlsCertKey, "tls", "", "string of the form \"<cert path>,<key path>\" of the signed TLS certificate and private key that Pachd should use for TLS authentication (enables TLS-encrypted communication with Pachd)")
 	deploy.PersistentFlags().BoolVar(&newStorageLayer, "new-storage-layer", false, "(feature flag) Do not set, used for testing.")
-	deploy.PersistentFlags().StringVarP(&contextName, "context", "c", "", "Name of the context to add to the pachyderm config.")
+	deploy.PersistentFlags().IntVar(&uploadConcurrencyLimit, "upload-concurrency-limit", assets.DefaultUploadConcurrencyLimit, "The maximum number of concurrent object storage uploads per Pachd instance.")
+	deploy.PersistentFlags().StringVarP(&contextName, "context", "c", "", "Name of the context to add to the pachyderm config. If unspecified, a context name will automatically be derived.")
+	deploy.PersistentFlags().BoolVar(&createContext, "create-context", false, "Create a context, even with `--dry-run`.")
 
 	// Flags for setting pachd resource requests. These should rarely be set --
 	// only if we get the defaults wrong, or users have an unusual access pattern

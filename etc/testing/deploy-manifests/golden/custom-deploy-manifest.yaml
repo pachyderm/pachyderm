@@ -271,14 +271,14 @@ spec:
           value: AMAZON
         - name: STORAGE_HOST_PATH
         - name: WORKER_IMAGE
-          value: pachyderm/worker:1.9.10
+          value: pachyderm/worker:1.9.11
         - name: IMAGE_PULL_SECRET
         - name: WORKER_SIDECAR_IMAGE
-          value: pachyderm/pachd:1.9.10
+          value: pachyderm/pachd:1.9.11
         - name: WORKER_IMAGE_PULL_POLICY
           value: IfNotPresent
         - name: PACHD_VERSION
-          value: 1.9.10
+          value: 1.9.11
         - name: METRICS
           value: "true"
         - name: LOG_LEVEL
@@ -465,7 +465,21 @@ spec:
               key: max-upload-parts
               name: pachyderm-storage-secret
               optional: true
-        image: pachyderm/pachd:1.9.10
+        - name: DISABLE_SSL
+          valueFrom:
+            secretKeyRef:
+              key: disable-ssl
+              name: pachyderm-storage-secret
+              optional: true
+        - name: NO_VERIFY_SSL
+          valueFrom:
+            secretKeyRef:
+              key: no-verify-ssl
+              name: pachyderm-storage-secret
+              optional: true
+        - name: STORAGE_UPLOAD_CONCURRENCY_LIMIT
+          value: "100"
+        image: pachyderm/pachd:1.9.11
         imagePullPolicy: IfNotPresent
         name: pachd
         ports:
@@ -587,7 +601,9 @@ data:
   amazon-secret: c3RvcmFnZS1zZWNyZXQ=
   amazon-token: ""
   custom-endpoint: c3RvcmFnZS5lbmRwb2ludA==
+  disable-ssl: ZmFsc2U=
   max-upload-parts: MTAwMDA=
+  no-verify-ssl: ZmFsc2U=
   part-size: NTI0Mjg4MA==
   retries: MTA=
   reverse: dHJ1ZQ==

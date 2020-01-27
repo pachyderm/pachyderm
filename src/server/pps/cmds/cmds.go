@@ -18,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/cmd/pachctl/shell"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pager"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
@@ -26,6 +27,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pps/pretty"
 
+	prompt "github.com/c-bata/go-prompt"
 	units "github.com/docker/go-units"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/gogo/protobuf/proto"
@@ -119,6 +121,7 @@ If the job fails, the output commit will not be populated with data.`,
 	inspectJob.Flags().AddFlagSet(rawFlags)
 	inspectJob.Flags().AddFlagSet(fullTimestampsFlags)
 	inspectJob.Flags().AddFlagSet(outputFlags)
+	shell.RegisterCompletionFunc(inspectJob, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAlias(inspectJob, "inspect job"))
 
 	var pipelineName string
@@ -197,6 +200,12 @@ $ {{alias}} -p foo -i bar@YYY`,
 	listJob.Flags().AddFlagSet(noPagerFlags)
 	listJob.Flags().AddFlagSet(outputFlags)
 	listJob.Flags().StringVar(&history, "history", "none", "Return jobs from historical versions of pipelines.")
+	shell.RegisterCompletionFunc(listJob, func(flag, text string, maxCompletions int64) []prompt.Suggest {
+		if flag == "-p" || flag == "--pipeline" {
+			return shell.PipelineCompletion(flag, text, maxCompletions)
+		}
+		return nil
+	})
 	commands = append(commands, cmdutil.CreateAlias(listJob, "list job"))
 
 	var pipelines cmdutil.RepeatedStringArg
@@ -250,6 +259,12 @@ $ {{alias}} foo@XXX -p bar -p baz`,
 	flushJob.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
 	flushJob.Flags().AddFlagSet(rawFlags)
 	flushJob.Flags().AddFlagSet(fullTimestampsFlags)
+	shell.RegisterCompletionFunc(flushJob, func(flag, text string, maxCompletions int64) []prompt.Suggest {
+		if flag == "--pipeline" || flag == "-p" {
+			return shell.PipelineCompletion(flag, text, maxCompletions)
+		}
+		return shell.BranchCompletion(flag, text, maxCompletions)
+	})
 	flushJob.Flags().AddFlagSet(outputFlags)
 	commands = append(commands, cmdutil.CreateAlias(flushJob, "flush job"))
 
@@ -269,6 +284,7 @@ $ {{alias}} foo@XXX -p bar -p baz`,
 			return nil
 		}),
 	}
+	shell.RegisterCompletionFunc(deleteJob, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAlias(deleteJob, "delete job"))
 
 	stopJob := &cobra.Command{
@@ -287,6 +303,7 @@ $ {{alias}} foo@XXX -p bar -p baz`,
 			return nil
 		}),
 	}
+	shell.RegisterCompletionFunc(stopJob, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAlias(stopJob, "stop job"))
 
 	datumDocs := &cobra.Command{
@@ -367,6 +384,7 @@ each datum.`,
 	listDatum.Flags().Int64Var(&pageSize, "pageSize", 0, "Specify the number of results sent back in a single page")
 	listDatum.Flags().Int64Var(&page, "page", 0, "Specify the page of results to send")
 	listDatum.Flags().AddFlagSet(rawFlags)
+	shell.RegisterCompletionFunc(listDatum, shell.JobCompletion)
 	listDatum.Flags().AddFlagSet(outputFlags)
 	commands = append(commands, cmdutil.CreateAlias(listDatum, "list datum"))
 
@@ -463,7 +481,7 @@ $ {{alias}} --pipeline=filter --inputs=/apple.txt,123aef`,
 	getLogs.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Filter the log "+
 		"for lines from this pipeline (accepts pipeline name)")
 	getLogs.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
-	getLogs.Flags().StringVar(&jobID, "job", "", "Filter for log lines from "+
+	getLogs.Flags().StringVarP(&jobID, "job", "j", "", "Filter for log lines from "+
 		"this job (accepts job ID)")
 	getLogs.MarkFlagCustom("job", "__pachctl_get_job")
 	getLogs.Flags().StringVar(&datumID, "datum", "", "Filter for log lines for this datum (accepts datum ID)")
@@ -473,6 +491,15 @@ $ {{alias}} --pipeline=filter --inputs=/apple.txt,123aef`,
 	getLogs.Flags().BoolVar(&raw, "raw", false, "Return log messages verbatim from server.")
 	getLogs.Flags().BoolVarP(&follow, "follow", "f", false, "Follow logs as more are created.")
 	getLogs.Flags().Int64VarP(&tail, "tail", "t", 0, "Lines of recent logs to display.")
+	shell.RegisterCompletionFunc(getLogs, func(flag, text string, maxCompletions int64) []prompt.Suggest {
+		if flag == "--pipeline" || flag == "-p" {
+			return shell.PipelineCompletion(flag, text, maxCompletions)
+		}
+		if flag == "--job" || flag == "-j" {
+			return shell.JobCompletion(flag, text, maxCompletions)
+		}
+		return nil
+	})
 	commands = append(commands, cmdutil.CreateAlias(getLogs, "logs"))
 
 	pipelineDocs := &cobra.Command{

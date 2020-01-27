@@ -2,13 +2,6 @@
 
 set -e
 
-echo "Testing current pachctl against golden deployment manifests"
-echo "Run"
-echo "  validate.sh --regenerate"
-echo "to replace golden deployment manifests with current output"
-echo "(necessary if you have deliberately changed 'pachctl deploy')"
-echo ""
-
 here="$(dirname "${0}")"
 dest_dir="test"
 rm -rf "${here}/${dest_dir}" || true
@@ -26,7 +19,8 @@ if [[ "${#@}" -eq 1 ]]; then
   fi
 fi
 
-# A custom deployment
+# Generate a deployment manifest for many different targets using the local
+# build of 'pachctl'
 custom_args=(
 --secure
 --dynamic-etcd-nodes 3
@@ -61,20 +55,31 @@ microsoft_args=(
   50                       # <disk-size>
 )
 
-for plat in custom google amazon microsoft; do
+pach_config="${here}/${dest_dir}/pachconfig"
+# Use a test-specific pach config to avoid local settings from changing the
+# output
+export PACH_CONFIG="${pach_config}"
+for platform in custom google amazon microsoft; do
   for fmt in json yaml; do
-    output="${here}/${dest_dir}/${plat}-deploy-manifest.${fmt}"
-    eval "args=( \"\${${plat}_args[@]}\" )"
-    # Generate kubernetes manifest, and strip additional version info so that
-    # pachctl builds from the same version all work
-    pachctl deploy "${plat}" "${args[@]}" -o "${fmt}" --dry-run \
+    output="${here}/${dest_dir}/${platform}-deploy-manifest.${fmt}"
+    eval "args=( \"\${${platform}_args[@]}\" )"
+    # Generate kubernetes manifest:
+    # - strip additional version info so that pachctl builds from the same
+    #   version all work
+    # - Use an empty pach config so that e.g. metrics don't change the output
+    pachctl deploy "${platform}" "${args[@]}" -o "${fmt}" --dry-run \
       | sed 's/\([0-9]\{1,4\}\.[0-9]\{1,4\}\.[0-9]\{1,4\}\)-[0-9a-f]\{40\}/\1/g' >"${output}"
+    rm -f "${pach_config}" # remove cfg from next run (or diff dir, or golden/)
     if [[ ! "${is_regenerate}" ]]; then
       # Check manifests with kubeval
       kubeval "${output}"
     fi
   done
 done
+
+if [[ "${is_regenerate}" ]]; then
+  exit 0
+fi
 
 # Compare manifests to golden files (in addition to kubeval, to see changes
 # in storage secrets and such)
@@ -84,15 +89,19 @@ done
 # validation above, as it should accept any valid kubernetes manifest, and
 # would've caught at least one serialization bug that completely broke 'pachctl
 # deploy' in v1.9.8
-if [[ ! "${is_regenerate}" ]]; then
-  DIFF_CMD="${DIFF_CMD:-diff}"
-  if ! "${DIFF_CMD}" "${here}/test" "${here}/golden"; then
-    echo "Deployment manifest has changed." >/dev/stderr
-    echo "If this deliberate, run:" >/dev/stderr
-    echo "  validate.sh --regenerate" >/dev/stderr
-    echo "  git add etc/testing/deploy-manifests/golden" >/dev/stderr
-    echo "  git commit" >/dev/stderr
-    echo "to replace golden deployment manifests with current output" >/dev/stderr
-    exit 1
-  fi
+echo ""
+echo "Diffing 'pachctl deploy' output with known-good golden deploy manifests."
+DIFF_CMD="${DIFF_CMD:-diff --unified=6}"
+if ! ${DIFF_CMD} "${here}/${dest_dir}" "${here}/golden"; then
+  echo ""
+  echo "Error: deployment manifest has changed."
+  echo "If this test is failing because you have deliberately changed"\
+    "'pachctl deploy', you'll need to fix it by replacing the golden"\
+    "deployment manifests."
+  echo "You can update the golden manifests by running:"
+  echo "  make regenerate-test-deploy-manifests"
+  exit 1
+else
+  echo ""
+  echo "No differences found"
 fi

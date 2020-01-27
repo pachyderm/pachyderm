@@ -30,7 +30,7 @@ You can find the list of `pachd` environment variables in the
 `pachd` manifest by running the following command:
 
 ```bash
-$ kubectl get deploy pachd -o yaml
+kubectl get deploy pachd -o yaml
 ```
 
 The following tables list all the `pachd`
@@ -44,7 +44,6 @@ environment variables.
 | `ETCD_SERVICE_PORT`    | N/A               | The etcd port number.                    |
 | `PPS_WORKER_GRPC_PORT` | `80`              | The GRPs port number.                    |
 | `PORT`                 | `650`             | The `pachd` port number. |
-| `PPROF_PORT`            | `651`             | The port number for the `pprof` tool.     |
 | `HTTP_PORT`             | `652`             | The HTTP port number.   |
 | `PEER_PORT`             | `653`             | The port for pachd-to-pachd communication. |
 | `PPS_ETCD_PREFIX`        | `pachyderm_pps`   | ???  |
@@ -111,7 +110,7 @@ Run this pipeline and upon completion you can view the log with
 variables by running the following command:
 
 ```bash
-$ pachctl logs --pipeline=env
+pachctl logs --pipeline=env
 PPS_WORKER_IP=172.17.0.7
 DASH_PORT_8081_TCP_PROTO=tcp
 PACHD_PORT_600_TCP_PORT=600

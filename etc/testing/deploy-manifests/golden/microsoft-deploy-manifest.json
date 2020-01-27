@@ -386,7 +386,7 @@
         "containers": [
           {
             "name": "pachd",
-            "image": "pachyderm/pachd:1.9.10",
+            "image": "pachyderm/pachd:1.9.11",
             "ports": [
               {
                 "name": "api-grpc-port",
@@ -439,14 +439,14 @@
               },
               {
                 "name": "WORKER_IMAGE",
-                "value": "pachyderm/worker:1.9.10"
+                "value": "pachyderm/worker:1.9.11"
               },
               {
                 "name": "IMAGE_PULL_SECRET"
               },
               {
                 "name": "WORKER_SIDECAR_IMAGE",
-                "value": "pachyderm/pachd:1.9.10"
+                "value": "pachyderm/pachd:1.9.11"
               },
               {
                 "name": "WORKER_IMAGE_PULL_POLICY",
@@ -454,7 +454,7 @@
               },
               {
                 "name": "PACHD_VERSION",
-                "value": "1.9.10"
+                "value": "1.9.11"
               },
               {
                 "name": "METRICS",
@@ -771,6 +771,30 @@
                     "optional": true
                   }
                 }
+              },
+              {
+                "name": "DISABLE_SSL",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "disable-ssl",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "NO_VERIFY_SSL",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "no-verify-ssl",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "STORAGE_UPLOAD_CONCURRENCY_LIMIT",
+                "value": "100"
               }
             ],
             "resources": {

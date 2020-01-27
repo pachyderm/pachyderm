@@ -65,11 +65,6 @@ const (
 	tmpPrefix = "tmp"
 )
 
-var (
-	// Limit the number of outstanding put object requests
-	putObjectLimiter = limit.New(100)
-)
-
 // IsPermissionError returns true if a given error is a permission error.
 func IsPermissionError(err error) bool {
 	return strings.Contains(err.Error(), "has already finished")
@@ -116,6 +111,8 @@ type driver struct {
 
 	// memory limiter (useful for limiting operations that could use a lot of memory)
 	memoryLimiter *semaphore.Weighted
+	// put object limiter (useful for limiting put object requests)
+	putObjectLimiter limit.ConcurrencyLimiter
 
 	// New storage layer.
 	storage *fileset.Storage
@@ -153,7 +150,8 @@ func newDriver(
 		treeCache:   treeCache,
 		storageRoot: storageRoot,
 		// Allow up to a third of the requested memory to be used for memory intensive operations
-		memoryLimiter: semaphore.NewWeighted(memoryRequest / 3),
+		memoryLimiter:    semaphore.NewWeighted(memoryRequest / 3),
+		putObjectLimiter: limit.New(env.StorageUploadConcurrencyLimit),
 	}
 
 	// Create spec repo (default repo)
@@ -2892,6 +2890,8 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 	}
 
 	if delimiter == pfs.Delimiter_NONE {
+		d.putObjectLimiter.Acquire()
+		defer d.putObjectLimiter.Release()
 		objects, size, err := pachClient.PutObjectSplit(reader)
 		if err != nil {
 			return nil, err
@@ -3012,9 +3012,9 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 					index := filesPut
 					filesPut++
 					d.memoryLimiter.Acquire(pachClient.Ctx(), _bufferLen)
-					putObjectLimiter.Acquire()
+					d.putObjectLimiter.Acquire()
 					eg.Go(func() error {
-						defer putObjectLimiter.Release()
+						defer d.putObjectLimiter.Release()
 						defer d.memoryLimiter.Release(_bufferLen)
 						object, size, err := pachClient.PutObject(_buffer)
 						if err != nil {
@@ -3049,9 +3049,9 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 			// that the parent dir is a header/footer dir
 			*hf = &pfs.PutFileRecord{}
 			if len(value) > 0 {
-				putObjectLimiter.Acquire()
+				d.putObjectLimiter.Acquire()
 				eg.Go(func() error {
-					defer putObjectLimiter.Release()
+					defer d.putObjectLimiter.Release()
 					object, size, err := pachClient.PutObject(bytes.NewReader(value))
 					if err != nil {
 						return err

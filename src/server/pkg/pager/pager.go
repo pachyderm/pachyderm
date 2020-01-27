@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	defaultPager = []string{"less", "-R"}
+	defaultPager = []string{"less", "-RFX"}
 )
 
 // Page pages content to whichever pager is defined by the PAGER env-var

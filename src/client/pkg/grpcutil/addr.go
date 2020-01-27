@@ -106,15 +106,3 @@ func (p *PachdAddress) Qualified() string {
 func (p *PachdAddress) Hostname() string {
 	return fmt.Sprintf("%s:%d", p.Host, p.Port)
 }
-
-// IsUnusualPort returns true if the pachd address port is not one of the
-// usual values
-func (p *PachdAddress) IsUnusualPort() bool {
-	return p.Port != DefaultPachdNodePort && p.Port != DefaultPachdPort
-}
-
-// IsLoopback returns whether the pachd address is referencing the loopback
-// hostname
-func (p *PachdAddress) IsLoopback() bool {
-	return p.Host == "0.0.0.0" || p.Host == "127.0.0.1" || p.Host == "[::1]" || p.Host == "localhost"
-}

@@ -83,14 +83,19 @@ To complete this example, perform the following steps:
 1. Create a repository called `line-data`:
 
    ```bash
-   $ pachctl create repo line-data
-   $ pachctl put file line-data@master -f my-data.txt --split line
+   pachctl create repo line-data
+   pachctl put file line-data@master -f my-data.txt --split line
    ```
 
 1. List the filesystem objects in the repository:
 
    ```bash
-   $ pachctl list file line-data@master
+   pachctl list file line-data@master
+   ```
+
+   **System Response:**
+
+   ```bash
    NAME         TYPE  SIZE
    /my-data.txt dir   1.071KiB
    ```
@@ -108,7 +113,12 @@ To complete this example, perform the following steps:
 1. List the files in the `my-data.txt` directory:
 
    ```bash
-   $ pachctl list file line-data@master my-data.txt
+   pachctl list file line-data@master my-data.txt
+   ```
+
+   **System Response:**
+
+   ```bash
    NAME                          TYPE  SIZE
    /my-data.txt/0000000000000000 file  21B
    /my-data.txt/0000000000000001 file  22B
@@ -148,7 +158,7 @@ To complete this example, follow these steps:
 1. Put the `count.txt` file into a Pachyderm repository called `raw_data`:
 
    ```bash
-   $ pachctl put file -f count.txt raw_data@master --split line
+   pachctl put file -f count.txt raw_data@master --split line
    ```
 
    This command splits the `count.txt` file by line and creates
@@ -159,7 +169,12 @@ To complete this example, follow these steps:
 1. View the repository contents:
 
    ```bash
-   $ pachctl list file raw_data@master
+   pachctl list file raw_data@master
+   ```
+
+   **System Response:**
+
+   ```bash
    NAME       TYPE SIZE
    /count.txt dir  24B
    ```
@@ -169,7 +184,12 @@ To complete this example, follow these steps:
 1. View the contents of the `count.txt` directory:
 
    ```bash
-   $ pachctl list file raw_data@master:count.txt
+   pachctl list file raw_data@master:count.txt
+   ```
+
+   **System Response:**
+
+   ```bash
    NAME                        TYPE SIZE
    /count.txt/0000000000000000 file 4B
    /count.txt/0000000000000001 file 4B
@@ -186,7 +206,12 @@ To complete this example, follow these steps:
    command:
 
    ```bash
-   $ pachctl get file raw_data@master:count.txt/0000000000000000
+   pachctl get file raw_data@master:count.txt/0000000000000000
+   ```
+
+   **System Response:**
+
+   ```bash
    Zero
    ```
 
@@ -203,7 +228,7 @@ To complete this example, follow these steps:
 1. Load this file into Pachyderm by appending it to the `count.txt` file:
 
    ```bash
-   $ pachctl put file raw_data@master:count.txt -f more-count.txt --split line
+   pachctl put file raw_data@master:count.txt -f more-count.txt --split line
    ```
 
    * If you do not specify `--split` flag while appending to
@@ -217,7 +242,12 @@ To complete this example, follow these steps:
 1. Verify that another file was added:
 
    ```bash
-   $ pachctl list file raw_data@master:count.txt
+   pachctl list file raw_data@master:count.txt
+   ```
+
+   **System Response:**
+
+   ```bash
    NAME                        TYPE SIZE
    /count.txt/0000000000000000 file 4B
    /count.txt/0000000000000001 file 4B
@@ -235,7 +265,12 @@ To complete this example, follow these steps:
 1. Get the contents of the `/count.txt/0000000000000005` file:
 
    ```
-   $ pachctl get file raw_data@master:count.txt/0000000000000005
+   pachctl get file raw_data@master:count.txt/0000000000000005
+   ```
+
+   **System Response:**
+
+   ```bash
    Five
    ```
 
@@ -266,7 +301,7 @@ To complete this example, follow these steps:
 1. Put the file into a Pachyderm repository called `raw_data`:
 
    ```bash
-   $ pachctl put file -f count.txt raw_data@master --split line
+   pachctl put file -f count.txt raw_data@master --split line
    ```
 
    This command splits the `count.txt` file by line and creates
@@ -277,7 +312,12 @@ To complete this example, follow these steps:
 1. View the repository contents:
 
    ```bash
-   $ pachctl list file raw_data@master
+   pachctl list file raw_data@master
+   ```
+
+   **System Response:**
+
+   ```bash
    NAME       TYPE SIZE
    /count.txt dir  24B
    ```
@@ -287,7 +327,12 @@ To complete this example, follow these steps:
 1. View the contents of the `count.txt` directory:
 
    ```bash
-   $ pachctl list file raw_data@master:count.txt
+   pachctl list file raw_data@master:count.txt
+   ```
+
+   **System Response:**
+
+   ```bash
    NAME                        TYPE SIZE
    /count.txt/0000000000000000 file 4B
    /count.txt/0000000000000001 file 4B
@@ -304,7 +349,12 @@ To complete this example, follow these steps:
    command:
 
    ```bash
-   $ pachctl get file raw_data@master:count.txt/0000000000000000
+   pachctl get file raw_data@master:count.txt/0000000000000000
+   ```
+
+   **System Response:**
+
+   ```bash
    One
    ```
 
@@ -324,7 +374,7 @@ To complete this example, follow these steps:
    by using the `--split` and `--overwrite` flags:
 
    ```bash
-   $ pachctl put file -f count.txt raw_data@master:count.txt --split line --overwrite
+   pachctl put file -f count.txt raw_data@master:count.txt --split line --overwrite
    ```
 
    Because Pachyderm takes the file name into account when hashing
@@ -335,7 +385,12 @@ To complete this example, follow these steps:
 1. List the files in the directory:
 
    ```bash
-   $ pachctl list file raw_data@master:count.txt
+   pachctl list file raw_data@master:count.txt
+   ```
+
+   **System Response:**
+
+   ```bash
    NAME                        TYPE SIZE
    /count.txt/0000000000000000 file 5B
    /count.txt/0000000000000001 file 4B
@@ -349,7 +404,12 @@ To complete this example, follow these steps:
    To verify the contents of the file, run:
 
    ```bash
-   $ pachctl get file raw_data@master:count.txt/0000000000000000
+   pachctl get file raw_data@master:count.txt/0000000000000000
+   ```
+
+   **System Response:**
+
+   ```bash
    Zero
    ```
 

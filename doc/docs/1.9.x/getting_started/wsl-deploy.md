@@ -115,7 +115,7 @@ as described in [Install pachctl](../local_installation/#install-pachctl).
 **Example:**
 
 ```bash
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.10/pachctl_1.9.10_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.11/pachctl_1.9.11_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
                                  Dload  Upload   Total   Spent    Left  Speed
 100   613    0   613    0     0   2043      0 --:--:-- --:--:-- --:--:--  2043
