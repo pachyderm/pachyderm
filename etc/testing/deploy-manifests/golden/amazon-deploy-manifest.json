@@ -72,9 +72,6 @@
       ],
       "resources": [
         "secrets"
-      ],
-      "resourceNames": [
-        "pachyderm-storage-secret"
       ]
     }
   ]

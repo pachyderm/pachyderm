@@ -43,8 +43,6 @@ rules:
   - delete
 - apiGroups:
   - ""
-  resourceNames:
-  - pachyderm-storage-secret
   resources:
   - secrets
   verbs:
