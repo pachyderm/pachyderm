@@ -64,7 +64,8 @@
         "watch",
         "create",
         "update",
-        "delete"
+        "delete",
+        "deletecollection"
       ],
       "apiGroups": [
         ""
