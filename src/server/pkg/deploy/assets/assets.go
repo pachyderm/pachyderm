@@ -67,7 +67,7 @@ var (
 		Resources: []string{"replicationcontrollers", "services"},
 	}, {
 		APIGroups:     []string{""},
-		Verbs:         []string{"get", "list", "watch", "create", "update", "delete"},
+		Verbs:         []string{"get", "list", "watch", "create", "update", "delete", "deletecollection"},
 		Resources:     []string{"secrets"},
 		ResourceNames: []string{client.StorageSecretName},
 	}}
