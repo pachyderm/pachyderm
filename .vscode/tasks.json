@@ -4,13 +4,13 @@
     {
       "label": "docker-build-proto",
       "type": "shell",
-      "command": "docker build -t pachyderm_proto etc/proto",
+      "command": "eval $(docker-machine env --shell bash); docker build -t pachyderm_proto etc/proto",
       "problemMatcher": []
     },
     {
       "label": "build-proto",
       "type": "shell",
-      "command": "find src -regex \".*\\.proto\" | xargs tar cf - | docker run -i pachyderm_proto | tar xf -",
+      "command": "eval $(docker-machine env --shell bash); find src -regex \".*\\.proto\" | xargs tar cf - | docker run -i pachyderm_proto | tar xf -",
       "problemMatcher": []
     },
     {
