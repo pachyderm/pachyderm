@@ -186,6 +186,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 	if err := logGRPCServerSetup("PPS API", func() error {
 		ppsAPIServer, err = pps_server.NewSidecarAPIServer(
 			env,
+			txnEnv,
 			path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
 			env.IAMRole,
 			reporter,

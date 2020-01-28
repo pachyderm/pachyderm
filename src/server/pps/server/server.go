@@ -77,7 +77,6 @@ func NewSidecarAPIServer(
 	iamRole string,
 	reporter *metrics.Reporter,
 	workerGrpcPort uint16,
-	pprofPort uint16,
 	httpPort uint16,
 	peerPort uint16,
 ) (APIServer, error) {

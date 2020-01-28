@@ -18,7 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
-	"github.com/pachyderm/pachyderm/src/server/worker"
+	workerstats "github.com/pachyderm/pachyderm/src/server/worker/stats"
 
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -543,7 +543,7 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.EtcdPipel
 	}
 	serviceAnnotations := map[string]string{
 		"prometheus.io/scrape": "true",
-		"prometheus.io/port":   strconv.Itoa(worker.PrometheusPort),
+		"prometheus.io/port":   strconv.Itoa(workerstats.PrometheusPort),
 	}
 
 	service := &v1.Service{
@@ -564,7 +564,7 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.EtcdPipel
 					Name: "grpc-port",
 				},
 				{
-					Port: worker.PrometheusPort,
+					Port: workerstats.PrometheusPort,
 					Name: "prometheus-metrics",
 				},
 			},

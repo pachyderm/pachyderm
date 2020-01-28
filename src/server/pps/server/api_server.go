@@ -40,6 +40,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	workerpkg "github.com/pachyderm/pachyderm/src/server/worker"
+	workercommon "github.com/pachyderm/pachyderm/src/server/worker/common"
+	"github.com/pachyderm/pachyderm/src/server/worker/datum"
 	"github.com/robfig/cron"
 	"github.com/willf/bloom"
 
@@ -1011,27 +1013,27 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, page, 
 		return 0, 0, goerr.New("getPageBounds: unreachable code")
 	}
 
-	df, err := workerpkg.NewDatumIterator(pachClient, jobInfo.Input)
+	dit, err := datum.NewIterator(pachClient, jobInfo.Input)
 	if err != nil {
 		return nil, err
 	}
 	// If there's no stats commit (job not finished), compute datums using jobInfo
 	if jobInfo.StatsCommit == nil {
 		start := 0
-		end := df.Len()
+		end := dit.Len()
 		if pageSize > 0 {
 			var err error
-			start, end, err = getPageBounds(df.Len())
+			start, end, err = getPageBounds(dit.Len())
 			if err != nil {
 				return nil, err
 			}
 			response.Page = page
-			response.TotalPages = getTotalPages(df.Len())
+			response.TotalPages = getTotalPages(dit.Len())
 		}
 		var datumInfos []*pps.DatumInfo
 		for i := start; i < end; i++ {
-			datum := df.DatumN(i) // flattened slice of *worker.Input to job
-			id := workerpkg.HashDatum(jobInfo.Pipeline.Name, jobInfo.Salt, datum)
+			datum := dit.DatumN(i) // flattened slice of *worker.Input to job
+			id := workercommon.HashDatum(jobInfo.Pipeline.Name, jobInfo.Salt, datum)
 			datumInfo := &pps.DatumInfo{
 				Datum: &pps.Datum{
 					ID:  id,
@@ -1101,7 +1103,7 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, page, 
 				// not a datum
 				return nil
 			}
-			datum, err := a.getDatum(pachClient, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, job.ID, datumHash, df)
+			datum, err := a.getDatum(pachClient, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, job.ID, datumHash, dit)
 			if err != nil {
 				return err
 			}
@@ -1176,7 +1178,7 @@ func (a *apiServer) ListDatumStream(req *pps.ListDatumRequest, resp pps.API_List
 	return nil
 }
 
-func (a *apiServer) getDatum(pachClient *client.APIClient, repo string, commit *pfs.Commit, jobID string, datumID string, df workerpkg.DatumIterator) (datumInfo *pps.DatumInfo, retErr error) {
+func (a *apiServer) getDatum(pachClient *client.APIClient, repo string, commit *pfs.Commit, jobID string, datumID string, dit datum.Iterator) (datumInfo *pps.DatumInfo, retErr error) {
 	datumInfo = &pps.DatumInfo{
 		Datum: &pps.Datum{
 			ID:  datumID,
@@ -1230,10 +1232,10 @@ func (a *apiServer) getDatum(pachClient *client.APIClient, repo string, commit *
 	if err != nil {
 		return nil, err
 	}
-	if i >= df.Len() {
+	if i >= dit.Len() {
 		return nil, fmt.Errorf("index %d out of range", i)
 	}
-	inputs := df.DatumN(i)
+	inputs := dit.DatumN(i)
 	for _, input := range inputs {
 		datumInfo.Data = append(datumInfo.Data, input.FileInfo)
 	}
@@ -1269,13 +1271,13 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 	if jobInfo.StatsCommit == nil {
 		return nil, fmt.Errorf("job not finished, no stats output yet")
 	}
-	df, err := workerpkg.NewDatumIterator(pachClient, jobInfo.Input)
+	dit, err := datum.NewIterator(pachClient, jobInfo.Input)
 	if err != nil {
 		return nil, err
 	}
 
 	// Populate datumInfo given a path
-	datumInfo, err := a.getDatum(pachClient, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Datum.Job.ID, request.Datum.ID, df)
+	datumInfo, err := a.getDatum(pachClient, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Datum.Job.ID, request.Datum.ID, dit)
 	if err != nil {
 		return nil, err
 	}
@@ -1422,7 +1424,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 						if request.Master != msg.Master {
 							continue
 						}
-						if !workerpkg.MatchDatum(request.DataFilters, msg.Data) {
+						if !workercommon.MatchDatum(request.DataFilters, msg.Data) {
 							continue
 						}
 					}
@@ -1502,7 +1504,7 @@ func (a *apiServer) getLogsFromStats(pachClient *client.APIClient, request *pps.
 				if request.Master != msg.Master {
 					continue
 				}
-				if !workerpkg.MatchDatum(request.DataFilters, msg.Data) {
+				if !workercommon.MatchDatum(request.DataFilters, msg.Data) {
 					continue
 				}
 
