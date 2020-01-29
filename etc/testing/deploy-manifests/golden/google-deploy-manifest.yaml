@@ -43,8 +43,6 @@ rules:
   - delete
 - apiGroups:
   - ""
-  resourceNames:
-  - pachyderm-storage-secret
   resources:
   - secrets
   verbs:
@@ -54,6 +52,7 @@ rules:
   - create
   - update
   - delete
+  - deletecollection
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -314,6 +313,8 @@ spec:
               divisor: "0"
               resource: requests.memory
         - name: EXPOSE_OBJECT_API
+          value: "false"
+        - name: REQUIRE_CRITICAL_SERVERS_ONLY
           value: "false"
         - name: GOOGLE_BUCKET
           valueFrom:
