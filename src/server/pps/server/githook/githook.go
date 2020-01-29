@@ -25,7 +25,7 @@ import (
 )
 
 // GitHookPort specifies the port the server will listen on
-const GitHookPort = 999
+const GitHookPort = 655
 const apiVersion = "v1"
 
 // gitHookServer serves GetFile requests over HTTP
