@@ -18,7 +18,7 @@ func (a *APIServer) worker() {
 		return a.driver.NewTaskWorker().Run(
 			a.driver.PachClient().Ctx(),
 			func(ctx context.Context, task *work.Task, subtask *work.Task) error {
-				return transform.Worker(a.driver, logger, task)
+				return transform.Worker(a.driver, logger, task, subtask)
 			},
 		)
 	}, backoff.NewConstantBackOff(200*time.Millisecond), func(err error, d time.Duration) error {

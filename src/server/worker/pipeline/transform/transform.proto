@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package transform;
+package pachyderm.worker.pipeline.transform;
 option go_package = "github.com/pachyderm/pachyderm/src/server/worker/pipeline/transform";
 
 import "client/pfs/pfs.proto";
@@ -19,18 +19,22 @@ message HashtreeInfo {
   string address = 2;
 }
 
+message JobData {
+  string job_id = 1;
+}
+
 message DatumData {
   // Inputs
-  pfs.Object datums = 1;
+  pfs.Object datums = 2;
 
   // Outputs
-  pps.ProcessStats process_stats = 2;
+  pps.ProcessStats process_stats = 3;
 }
 
 message MergeData {
   // Inputs
-  int64 shard = 1;
+  int64 shard = 2;
 
   // Outputs
-  HashtreeInfo output = 2;
+  HashtreeInfo output = 3;
 }

@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/proto"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -247,6 +247,7 @@ func calculateDatumSets(
 // Generate a datum task (and split it up into subtasks) for the added datums
 // in the pending job.
 func (reg *registry) makeDatumTask(
+	pj *pendingJob,
 	datumsAdded map[string]struct{},
 	dit datum.Iterator,
 ) (*work.Task, error) {
@@ -305,10 +306,12 @@ func (reg *registry) makeDatumTask(
 		return nil
 	}
 
+	fmt.Printf("iterating over dit with length %d\n", dit.Len())
 	// Iterate over the datum iterator and append the inputs for added datums to
 	// the current object
 	dit.Reset()
 	for dit.Next() {
+		fmt.Printf("dit datum: %v\n", dit.Datum())
 		inputs := dit.Datum()
 		hash := common.HashDatum(pipelineInfo.Pipeline.Name, pipelineInfo.Salt, inputs)
 
@@ -339,21 +342,43 @@ func (reg *registry) makeDatumTask(
 		}
 	}
 
+	jobData, err := serializeJobData(&JobData{JobId: pj.ji.Job.ID})
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize job data: %v", err)
+	}
+
+	fmt.Printf("returning work task, subtasks: %d\n", len(subtasks))
 	return &work.Task{
 		Id:       uuid.NewWithoutDashes(),
+		Data:     jobData,
 		Subtasks: subtasks,
 	}, nil
 }
 
-func serializeDatumData(data *DatumData) (*types.Any, error) {
-	serialized, err := proto.Marshal(data)
+func serializeJobData(data *JobData) (*types.Any, error) {
+	serialized, err := types.MarshalAny(data)
 	if err != nil {
 		return nil, err
 	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(data),
-		Value:   serialized,
-	}, nil
+	fmt.Printf("serialized job data: %v\n", serialized)
+	fmt.Printf("serialized job data type: %s\n", proto.MessageName(data))
+	return serialized, nil
+}
+
+func deserializeJobData(any *types.Any) (*JobData, error) {
+	data := &JobData{}
+	if err := types.UnmarshalAny(any, data); err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func serializeDatumData(data *DatumData) (*types.Any, error) {
+	serialized, err := types.MarshalAny(data)
+	if err != nil {
+		return nil, err
+	}
+	return serialized, nil
 }
 
 func deserializeDatumData(any *types.Any) (*DatumData, error) {
@@ -365,14 +390,12 @@ func deserializeDatumData(any *types.Any) (*DatumData, error) {
 }
 
 func serializeMergeData(data *MergeData) (*types.Any, error) {
-	serialized, err := proto.Marshal(data)
+	serialized, err := types.MarshalAny(data)
 	if err != nil {
 		return nil, err
 	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(data),
-		Value:   serialized,
-	}, nil
+	fmt.Printf("serialize merge data, data: %v, value: %v\n", data, serialized)
+	return serialized, nil
 }
 
 func deserializeMergeData(any *types.Any) (*MergeData, error) {
@@ -662,19 +685,18 @@ func (reg *registry) processJobStarting(pj *pendingJob) error {
 }
 
 func (reg *registry) processJobRunning(pj *pendingJob) error {
+	pj.logger.Logf("processJobRunning getting dit")
 	// Create a datum iterator pointing at the job's inputs
 	dit, err := datum.NewIterator(pj.client, pj.ji.Input)
 	if err != nil {
 		return err
 	}
 
+	pj.logger.Logf("processJobRunning creating task channel")
 	reg.mutex.Lock()
-	pj.datumTaskChan = make(chan *work.Task)
-	defer func() {
-		close(pj.datumTaskChan)
-		pj.datumTaskChan = nil
-	}()
+	taskChan := make(chan *work.Task, 10)
 
+	pj.logger.Logf("processJobRunning calculating datum sets")
 	pj.datumsAdded, pj.datumsRemoved, pj.orphan = calculateDatumSets(
 		reg.driver.PipelineInfo(),
 		dit,
@@ -682,15 +704,30 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 		reg.datumsBase,
 	)
 
-	datumTask, err := reg.makeDatumTask(pj.datumsAdded, dit)
+	pj.logger.Logf("processJobRunning making datum task")
+	datumTask, err := reg.makeDatumTask(pj, pj.datumsAdded, dit)
 	if err != nil {
 		reg.mutex.Unlock()
 		return err
 	}
-	pj.datumTaskChan <- datumTask
+	pj.logger.Logf("sending datum task")
+	taskChan <- datumTask
+	pj.logger.Logf("done sending datum task")
 	if pj.orphan || pj.index == 0 {
-		close(pj.datumTaskChan)
+		pj.logger.Logf("processJobRunning closing orphan channel")
+		close(taskChan)
+	} else {
+		// This job depends on upstream jobs - wait for more tasks or for the parent
+		// job to close the channel when it completes.
+		pj.datumTaskChan = taskChan
 	}
+
+	defer func() {
+		if pj.datumTaskChan != nil {
+			close(pj.datumTaskChan)
+			pj.datumTaskChan = nil
+		}
+	}()
 
 	reg.mutex.Unlock()
 
@@ -699,9 +736,11 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	eg := errgroup.Group{}
 
 	// Run tasks in the datumTaskChan until we are done
-	for task := range pj.datumTaskChan {
+	pj.logger.Logf("processJobRunning running datums tasks")
+	for task := range taskChan {
 		eg.Go(func() error {
-			return reg.workMaster.Run(
+			pj.logger.Logf("processJobRunning async task running")
+			err := reg.workMaster.Run(
 				reg.driver.PachClient().Ctx(),
 				task,
 				func(ctx context.Context, subtask *work.Task) error {
@@ -714,15 +753,19 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 					return nil
 				},
 			)
+			pj.logger.Logf("processJobRunning async task complete")
+			return err
 		})
 	}
 
+	pj.logger.Logf("processJobRunning waiting for task complete")
 	// Wait for datums to complete
 	if err := eg.Wait(); err != nil {
 		// TODO: some sort of error state?
 		return fmt.Errorf("process datum error: %v", err)
 	}
 
+	pj.logger.Logf("processJobRunning updating task to merging")
 	pj.ji.State = pps.JobState_JOB_MERGING
 	return updateJobState(pj.client, pj.ji)
 }
@@ -730,9 +773,10 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 func (reg *registry) processJobMerging(pj *pendingJob) error {
 	mergeSubtasks := []*work.Task{}
 	for i := int64(0); i < reg.numHashtrees; i++ {
-		data, err := serializeMergeData(&MergeData{Shard: i})
+		mergeData := &MergeData{Shard: i}
+		data, err := serializeMergeData(mergeData)
 		if err != nil {
-			return fmt.Errorf("failed to serialize merge task: %v", err)
+			return fmt.Errorf("failed to serialize merge data: %v", err)
 		}
 
 		mergeSubtasks = append(mergeSubtasks, &work.Task{
@@ -741,14 +785,23 @@ func (reg *registry) processJobMerging(pj *pendingJob) error {
 		})
 	}
 
+	jobData, err := serializeJobData(&JobData{JobId: pj.ji.Job.ID})
+	if err != nil {
+		return fmt.Errorf("failed to serialize job data: %v", err)
+	}
+
 	// Generate merge task
 	mergeTask := &work.Task{
 		Id:       uuid.NewWithoutDashes(),
+		Data:     jobData,
 		Subtasks: mergeSubtasks,
 	}
 
+	pj.logger.Logf("processJobMerging merge task: %v", mergeTask)
+	pj.logger.Logf("processJobMerging merge subtask[0].Data: %v", mergeTask.Subtasks[0].Data)
+
 	// Wait for merges to complete
-	err := reg.workMaster.Run(
+	err = reg.workMaster.Run(
 		reg.driver.PachClient().Ctx(),
 		mergeTask,
 		func(ctx context.Context, subtask *work.Task) error {

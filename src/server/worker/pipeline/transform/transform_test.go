@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -38,9 +39,6 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 		if err := env.PachClient.CreateBranch(input.Repo, input.Branch, "", nil); err != nil {
 			return err
 		}
-		/*if err := env.PachClient.CreateRepo(pipelineInfo.SpecCommit.Repo.Name); err != nil {
-			return err
-		}*/
 		if err := env.PachClient.CreateBranch(pipelineInfo.SpecCommit.Repo.Name, pipelineInfo.Pipeline.Name, "", nil); err != nil {
 			return err
 		}
@@ -75,7 +73,7 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 			return env.driver.NewTaskWorker().Run(
 				env.driver.PachClient().Ctx(),
 				func(ctx context.Context, task *work.Task, subtask *work.Task) error {
-					return Worker(env.driver, env.logger, task)
+					return Worker(env.driver, env.logger, task, subtask)
 				},
 			)
 		})
@@ -98,81 +96,92 @@ func triggerJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) *pfs.Commit {
 	return commit
 }
 
+func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) {
+	// Mock out the initial ListJob, CreateJob, and InspectJob calls
+	var etcdJobInfo *pps.EtcdJobInfo
+	var outputCommit *pfs.Commit
+
+	// TODO: use a 'real' pps if we can make one that doesn't need a real kube client
+	env.MockPachd.PPS.ListJobStream.Use(func(*pps.ListJobRequest, pps.API_ListJobStreamServer) error {
+		return nil
+	})
+	env.MockPachd.PPS.CreateJob.Use(func(ctx context.Context, request *pps.CreateJobRequest) (*pps.Job, error) {
+		etcdJobInfo = &pps.EtcdJobInfo{
+			Job:           client.NewJob(uuid.NewWithoutDashes()),
+			OutputCommit:  request.OutputCommit,
+			Pipeline:      request.Pipeline,
+			Stats:         request.Stats,
+			Restart:       request.Restart,
+			DataProcessed: request.DataProcessed,
+			DataSkipped:   request.DataSkipped,
+			DataTotal:     request.DataTotal,
+			DataFailed:    request.DataFailed,
+			DataRecovered: request.DataRecovered,
+			StatsCommit:   request.StatsCommit,
+			Started:       request.Started,
+			Finished:      request.Finished,
+		}
+		return etcdJobInfo.Job, nil
+	})
+	env.MockPachd.PPS.InspectJob.Use(func(ctx context.Context, request *pps.InspectJobRequest) (*pps.JobInfo, error) {
+		outputCommitInfo, err := env.PachClient.InspectCommit(outputCommit.Repo.Name, outputCommit.ID)
+		if err != nil {
+			return nil, err
+		}
+		return &pps.JobInfo{
+			Job:              etcdJobInfo.Job,
+			Pipeline:         etcdJobInfo.Pipeline,
+			OutputRepo:       &pfs.Repo{Name: etcdJobInfo.Pipeline.Name},
+			OutputCommit:     etcdJobInfo.OutputCommit,
+			Restart:          etcdJobInfo.Restart,
+			DataProcessed:    etcdJobInfo.DataProcessed,
+			DataSkipped:      etcdJobInfo.DataSkipped,
+			DataTotal:        etcdJobInfo.DataTotal,
+			DataFailed:       etcdJobInfo.DataFailed,
+			DataRecovered:    etcdJobInfo.DataRecovered,
+			Stats:            etcdJobInfo.Stats,
+			StatsCommit:      etcdJobInfo.StatsCommit,
+			State:            etcdJobInfo.State,
+			Reason:           etcdJobInfo.Reason,
+			Started:          etcdJobInfo.Started,
+			Finished:         etcdJobInfo.Finished,
+			Transform:        pi.Transform,
+			PipelineVersion:  pi.Version,
+			ParallelismSpec:  pi.ParallelismSpec,
+			Egress:           pi.Egress,
+			Service:          pi.Service,
+			Spout:            pi.Spout,
+			OutputBranch:     pi.OutputBranch,
+			ResourceRequests: pi.ResourceRequests,
+			ResourceLimits:   pi.ResourceLimits,
+			Input:            ppsutil.JobInput(pi, outputCommitInfo),
+			EnableStats:      pi.EnableStats,
+			Salt:             pi.Salt,
+			ChunkSpec:        pi.ChunkSpec,
+			DatumTimeout:     pi.DatumTimeout,
+			JobTimeout:       pi.JobTimeout,
+			DatumTries:       pi.DatumTries,
+			SchedulingSpec:   pi.SchedulingSpec,
+			PodSpec:          pi.PodSpec,
+			PodPatch:         pi.PodPatch,
+		}, nil
+	})
+
+	env.MockPachd.PPS.UpdateJobState.Use(func(ctx context.Context, request *pps.UpdateJobStateRequest) (*types.Empty, error) {
+		etcdJobInfo.State = request.State
+		etcdJobInfo.Reason = request.Reason
+		return &types.Empty{}, nil
+	})
+
+	// TODO: this may race - the InspectJob call might run before this returns
+	outputCommit = triggerJob(t, env, pi)
+}
+
 func TestJob(t *testing.T) {
 	pi := defaultPipelineInfo()
 	t.Parallel()
 	err := withWorkerSpawnerPair(pi, func(env *testEnv) error {
-		// Mock out the initial ListJob, CreateJob, and InspectJob calls
-		var etcdJobInfo *pps.EtcdJobInfo
-		var outputCommit *pfs.Commit
-
-		// TODO: use a 'real' pps if we can make one that doesn't need a real kube client
-		env.MockPachd.PPS.ListJobStream.Use(func(*pps.ListJobRequest, pps.API_ListJobStreamServer) error {
-			return nil
-		})
-		env.MockPachd.PPS.CreateJob.Use(func(ctx context.Context, request *pps.CreateJobRequest) (*pps.Job, error) {
-			etcdJobInfo = &pps.EtcdJobInfo{
-				Job:           client.NewJob(uuid.NewWithoutDashes()),
-				OutputCommit:  request.OutputCommit,
-				Pipeline:      request.Pipeline,
-				Stats:         request.Stats,
-				Restart:       request.Restart,
-				DataProcessed: request.DataProcessed,
-				DataSkipped:   request.DataSkipped,
-				DataTotal:     request.DataTotal,
-				DataFailed:    request.DataFailed,
-				DataRecovered: request.DataRecovered,
-				StatsCommit:   request.StatsCommit,
-				Started:       request.Started,
-				Finished:      request.Finished,
-			}
-			return etcdJobInfo.Job, nil
-		})
-		env.MockPachd.PPS.InspectJob.Use(func(ctx context.Context, request *pps.InspectJobRequest) (*pps.JobInfo, error) {
-			outputCommitInfo, err := env.PachClient.InspectCommit(outputCommit.Repo.Name, outputCommit.ID)
-			if err != nil {
-				return nil, err
-			}
-			return &pps.JobInfo{
-				Job:              etcdJobInfo.Job,
-				Pipeline:         etcdJobInfo.Pipeline,
-				OutputRepo:       &pfs.Repo{Name: etcdJobInfo.Pipeline.Name},
-				OutputCommit:     etcdJobInfo.OutputCommit,
-				Restart:          etcdJobInfo.Restart,
-				DataProcessed:    etcdJobInfo.DataProcessed,
-				DataSkipped:      etcdJobInfo.DataSkipped,
-				DataTotal:        etcdJobInfo.DataTotal,
-				DataFailed:       etcdJobInfo.DataFailed,
-				DataRecovered:    etcdJobInfo.DataRecovered,
-				Stats:            etcdJobInfo.Stats,
-				StatsCommit:      etcdJobInfo.StatsCommit,
-				State:            etcdJobInfo.State,
-				Reason:           etcdJobInfo.Reason,
-				Started:          etcdJobInfo.Started,
-				Finished:         etcdJobInfo.Finished,
-				Transform:        pi.Transform,
-				PipelineVersion:  pi.Version,
-				ParallelismSpec:  pi.ParallelismSpec,
-				Egress:           pi.Egress,
-				Service:          pi.Service,
-				Spout:            pi.Spout,
-				OutputBranch:     pi.OutputBranch,
-				ResourceRequests: pi.ResourceRequests,
-				ResourceLimits:   pi.ResourceLimits,
-				Input:            ppsutil.JobInput(pi, outputCommitInfo),
-				EnableStats:      pi.EnableStats,
-				Salt:             pi.Salt,
-				ChunkSpec:        pi.ChunkSpec,
-				DatumTimeout:     pi.DatumTimeout,
-				JobTimeout:       pi.JobTimeout,
-				DatumTries:       pi.DatumTries,
-				SchedulingSpec:   pi.SchedulingSpec,
-				PodSpec:          pi.PodSpec,
-				PodPatch:         pi.PodPatch,
-			}, nil
-		})
-
-		outputCommit = triggerJob(t, env, pi)
+		mockBasicJob(t, env, pi)
 		time.Sleep(time.Second * 4)
 		return nil
 	})
