@@ -2887,13 +2887,14 @@ func (a *apiServer) CreateSecret(ctx context.Context, request *pps.CreateSecretR
 	}
 
 	labels := s.GetLabels()
-	if labels["suite"] != "" && labels["suite"] != "pachyderm-user" {
+	if labels["suite"] != "" && labels["suite"] != "pachyderm" {
 		return nil, fmt.Errorf("invalid suite label set on secret: suite=%s", labels["suite"])
 	}
 	if labels == nil {
 		labels = map[string]string{}
 	}
-	labels["suite"] = "pachyderm-user"
+	labels["suite"] = "pachyderm"
+	labels["secret-source"] = "pachyderm-user"
 	s.SetLabels(labels)
 
 	if _, err = a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Create(&s); err != nil {
@@ -2950,7 +2951,7 @@ func (a *apiServer) ListSecret(ctx context.Context, in *types.Empty) (response *
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	secrets, err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).List(metav1.ListOptions{
-		LabelSelector: "suite=pachyderm-user",
+		LabelSelector: "secret-source=pachyderm-user",
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list secrets: %v", err)
@@ -3002,7 +3003,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	}
 
 	if err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).DeleteCollection(&metav1.DeleteOptions{}, metav1.ListOptions{
-		LabelSelector: "suite=pachyderm-user",
+		LabelSelector: "secret-source=pachyderm-user",
 	}); err != nil {
 		return nil, err
 	}
