@@ -710,6 +710,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	var registry string
 	var tlsCertKey string
 	var uploadConcurrencyLimit int
+	var requireCriticalServersOnly bool
 	deploy := &cobra.Command{
 		Short: "Deploy a Pachyderm cluster.",
 		Long:  "Deploy a Pachyderm cluster.",
@@ -735,29 +736,30 @@ If <object store backend> is \"s3\", then the arguments are:
 				StorageOpts: assets.StorageOpts{
 					UploadConcurrencyLimit: uploadConcurrencyLimit,
 				},
-				PachdShards:             uint64(pachdShards),
-				Version:                 version.PrettyPrintVersion(version.Version),
-				LogLevel:                logLevel,
-				Metrics:                 cfg == nil || cfg.V2.Metrics,
-				PachdCPURequest:         pachdCPURequest,
-				PachdNonCacheMemRequest: pachdNonCacheMemRequest,
-				BlockCacheSize:          blockCacheSize,
-				EtcdCPURequest:          etcdCPURequest,
-				EtcdMemRequest:          etcdMemRequest,
-				EtcdNodes:               etcdNodes,
-				EtcdVolume:              etcdVolume,
-				EtcdStorageClassName:    etcdStorageClassName,
-				DashOnly:                dashOnly,
-				NoDash:                  noDash,
-				DashImage:               dashImage,
-				Registry:                registry,
-				ImagePullSecret:         imagePullSecret,
-				NoGuaranteed:            noGuaranteed,
-				NoRBAC:                  noRBAC,
-				LocalRoles:              localRoles,
-				Namespace:               namespace,
-				NoExposeDockerSocket:    noExposeDockerSocket,
-				ExposeObjectAPI:         exposeObjectAPI,
+				PachdShards:                uint64(pachdShards),
+				Version:                    version.PrettyPrintVersion(version.Version),
+				LogLevel:                   logLevel,
+				Metrics:                    cfg == nil || cfg.V2.Metrics,
+				PachdCPURequest:            pachdCPURequest,
+				PachdNonCacheMemRequest:    pachdNonCacheMemRequest,
+				BlockCacheSize:             blockCacheSize,
+				EtcdCPURequest:             etcdCPURequest,
+				EtcdMemRequest:             etcdMemRequest,
+				EtcdNodes:                  etcdNodes,
+				EtcdVolume:                 etcdVolume,
+				EtcdStorageClassName:       etcdStorageClassName,
+				DashOnly:                   dashOnly,
+				NoDash:                     noDash,
+				DashImage:                  dashImage,
+				Registry:                   registry,
+				ImagePullSecret:            imagePullSecret,
+				NoGuaranteed:               noGuaranteed,
+				NoRBAC:                     noRBAC,
+				LocalRoles:                 localRoles,
+				Namespace:                  namespace,
+				NoExposeDockerSocket:       noExposeDockerSocket,
+				ExposeObjectAPI:            exposeObjectAPI,
+				RequireCriticalServersOnly: requireCriticalServersOnly,
 			}
 			if tlsCertKey != "" {
 				// TODO(msteffen): If either the cert path or the key path contains a
@@ -803,6 +805,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	deploy.PersistentFlags().IntVar(&uploadConcurrencyLimit, "upload-concurrency-limit", assets.DefaultUploadConcurrencyLimit, "The maximum number of concurrent object storage uploads per Pachd instance.")
 	deploy.PersistentFlags().StringVarP(&contextName, "context", "c", "", "Name of the context to add to the pachyderm config. If unspecified, a context name will automatically be derived.")
 	deploy.PersistentFlags().BoolVar(&createContext, "create-context", false, "Create a context, even with `--dry-run`.")
+	deploy.PersistentFlags().BoolVar(&requireCriticalServersOnly, "require-critical-servers-only", assets.DefaultRequireCriticalServersOnly, "Only require the critical Pachd servers to startup and run without errors.")
 
 	// Flags for setting pachd resource requests. These should rarely be set --
 	// only if we get the defaults wrong, or users have an unusual access pattern

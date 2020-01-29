@@ -64,16 +64,14 @@
         "watch",
         "create",
         "update",
-        "delete"
+        "delete",
+        "deletecollection"
       ],
       "apiGroups": [
         ""
       ],
       "resources": [
         "secrets"
-      ],
-      "resourceNames": [
-        "pachyderm-storage-secret"
       ]
     }
   ]
@@ -519,6 +517,10 @@
               },
               {
                 "name": "EXPOSE_OBJECT_API",
+                "value": "false"
+              },
+              {
+                "name": "REQUIRE_CRITICAL_SERVERS_ONLY",
                 "value": "false"
               },
               {
