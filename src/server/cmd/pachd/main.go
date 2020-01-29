@@ -654,23 +654,24 @@ func doFullMode(config interface{}) (retErr error) {
 	// Any server error is considered critical and will cause Pachd to exit.
 	// The first server that errors will have its error message logged.
 	errChan := make(chan error, 1)
-	go waitForError("External Pachd GRPC Server", errChan, func() error {
+	go waitForError("External Pachd GRPC Server", errChan, true, func() error {
 		return externalServer.Wait()
 	})
-	go waitForError("Internal Pachd GRPC Server", errChan, func() error {
+	go waitForError("Internal Pachd GRPC Server", errChan, true, func() error {
 		return internalServer.Wait()
 	})
-	go waitForError("HTTP Server", errChan, func() error {
+	requireNoncriticalServers := !env.RequireCriticalServersOnly
+	go waitForError("HTTP Server", errChan, requireNoncriticalServers, func() error {
 		httpServer, err := pach_http.NewHTTPServer(address)
 		if err != nil {
 			return err
 		}
 		return http.ListenAndServe(fmt.Sprintf(":%v", env.HTTPPort), httpServer)
 	})
-	go waitForError("Githook Server", errChan, func() error {
+	go waitForError("Githook Server", errChan, requireNoncriticalServers, func() error {
 		return githook.RunGitHookServer(address, etcdAddress, path.Join(env.EtcdPrefix, env.PPSEtcdPrefix))
 	})
-	go waitForError("S3 Server", errChan, func() error {
+	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
 		server, err := s3.Server(env.S3GatewayPort, env.Port)
 		if err != nil {
 			return err
@@ -682,7 +683,7 @@ func doFullMode(config interface{}) (retErr error) {
 		}
 		return server.ListenAndServeTLS(certPath, keyPath)
 	})
-	go waitForError("Prometheus Server", errChan, func() error {
+	go waitForError("Prometheus Server", errChan, requireNoncriticalServers, func() error {
 		http.Handle("/metrics", promhttp.Handler())
 		return http.ListenAndServe(fmt.Sprintf(":%v", assets.PrometheusPort), nil)
 	})
@@ -736,8 +737,12 @@ func logGRPCServerSetup(name string, f func() error) (retErr error) {
 	return f()
 }
 
-func waitForError(name string, errChan chan error, f func() error) {
+func waitForError(name string, errChan chan error, required bool, f func() error) {
 	if err := f(); err != http.ErrServerClosed {
-		errChan <- fmt.Errorf("error in %v: %v", name, f())
+		if !required {
+			log.Errorf("error setting up and/or running %v: %v", name, err)
+		} else {
+			errChan <- fmt.Errorf("error setting up and/or running %v: %v (use --require-critical-servers-only deploy flag to ignore errors from noncritical servers)", name, err)
+		}
 	}
 }
