@@ -5,7 +5,7 @@ partially typed commands by pressing `TAB`. Autocompletion needs
 to be installed separately when `pachctl` is already
 available on your client machine.
 
-Pachyderm autocompletion is supported for both `bash` and `zsh`.
+Pachyderm autocompletion is supported for `bash` and `zsh` shells.
 You must have either of them preinstalled
 before installing Pachyderm autocompletion.
 
@@ -13,9 +13,14 @@ before installing Pachyderm autocompletion.
     Type `pachctl completion --help` to display help information about
     the command.
 
-To install `pachctl` autocompletion, perform the following steps:
+## Install `pachctl` Autocompletion for `bash`
 
-1. Verify that `bash` or `zsh` completion is installed on your machine.
+If you are using bash as your preferred shell, follow the steps in this
+section to install `pachctl` completion for bash.
+
+To install `pachctl` autocompletion for `bash`, perform the following steps:
+
+1. Verify that `bash-completion` is installed on your machine.
    For example, if you have installed bash completion by using Homebrew,
    type:
 
@@ -33,11 +38,11 @@ To install `pachctl` autocompletion, perform the following steps:
 
 1. Install `pachctl` autocompletion:
 
-   * If you are using `bash`, run the following command:
 
-     ```bash
-     pachctl completion bash --install --path <path-to-bash>
-     ```
+   ```bash
+
+   pachctl completion bash --install --path <path/to/bash-completion>
+   ```
 
    For example, if you specify the path to `bash-completion` as
    `/usr/local/etc/bash_completion.d/pachctl`, your system response
@@ -49,17 +54,49 @@ To install `pachctl` autocompletion, perform the following steps:
    Bash completions installed in /usr/local/etc/bash_completion.d/pachctl, you must restart bash to enable completions.
    ```
 
-   * If you are using `zsh`, run the following command:
+1. Restart your terminal.
 
-     ```sh
-     pachctl completion zsh --install
-     ```
+   `pachctl` autocomplete should now be enabled in your system.
 
-     **System response:**
+## Install pachctl Autocompletion for `zsh`
 
-     ```sh
-     Completions installed in "_pachctl", you must restart your terminal to enable them.
-     ```
+Recently, `zsh` became the default shell on macOS, therefore, many users
+might prefer using `zsh`. Before you install pachctl completion for zsh,
+you must have `zsh-completions` installed.
+
+To install `pachctl` completion for `zsh`, complete the following
+steps:
+
+1. Verify that `zsh-completions` are installed on your machine:
+
+   ```bash
+   brew info zsh-completions
+   ```
+
+   You should see the directory in which `zsh-completions` are installed
+   and instructions to add the correct path in the ~/.zshrc file. Make sure
+   you add the required path. If you do not have the `~/.zshrc` file on
+   your computer, create one. For more information about setting up zsh
+   completions, see
+   [zsh-completions](https://github.com/zsh-users/zsh-completions).
+
+1. Install `pachctl` autocompletion for `zsh`:
+
+   ```sh
+   pachctl completion zsh --install --path <path/to/zfs-completions>
+   ```
+
+   **Example:**
+
+   ```sh
+   pachctl completion zsh --install --path /usr/local/share/zsh-completions/_pachctl
+   ```
+
+   **System response:**
+
+   ```sh
+   Completions installed in "_pachctl", you must restart your terminal to enable them.
+   ```
 
 1. Restart your terminal.
 
