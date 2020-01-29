@@ -66,10 +66,9 @@ var (
 		Verbs:     []string{"get", "list", "watch", "create", "update", "delete"},
 		Resources: []string{"replicationcontrollers", "services"},
 	}, {
-		APIGroups:     []string{""},
-		Verbs:         []string{"get", "list", "watch", "create", "update", "delete"},
-		Resources:     []string{"secrets"},
-		ResourceNames: []string{client.StorageSecretName},
+		APIGroups: []string{""},
+		Verbs:     []string{"get", "list", "watch", "create", "update", "delete", "deletecollection"},
+		Resources: []string{"secrets"},
 	}}
 
 	// The name of the local volume (mounted kubernetes secret) where pachd

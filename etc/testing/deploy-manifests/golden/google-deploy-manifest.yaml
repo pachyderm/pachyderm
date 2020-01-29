@@ -43,8 +43,6 @@ rules:
   - delete
 - apiGroups:
   - ""
-  resourceNames:
-  - pachyderm-storage-secret
   resources:
   - secrets
   verbs:
@@ -54,6 +52,7 @@ rules:
   - create
   - update
   - delete
+  - deletecollection
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

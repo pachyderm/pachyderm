@@ -64,16 +64,14 @@
         "watch",
         "create",
         "update",
-        "delete"
+        "delete",
+        "deletecollection"
       ],
       "apiGroups": [
         ""
       ],
       "resources": [
         "secrets"
-      ],
-      "resourceNames": [
-        "pachyderm-storage-secret"
       ]
     }
   ]
