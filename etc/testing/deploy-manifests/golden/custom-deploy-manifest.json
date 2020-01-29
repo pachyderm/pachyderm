@@ -289,7 +289,7 @@
       "suite": "pachyderm"
     },
     "annotations": {
-      "prometheus.io/port": "9091",
+      "prometheus.io/port": "656",
       "prometheus.io/scrape": "true"
     }
   },
@@ -321,9 +321,9 @@
       },
       {
         "name": "api-git-port",
-        "port": 999,
+        "port": 655,
         "targetPort": 0,
-        "nodePort": 30999
+        "nodePort": 30655
       },
       {
         "name": "s3gateway-port",
@@ -412,7 +412,7 @@
               },
               {
                 "name": "api-git-port",
-                "containerPort": 999,
+                "containerPort": 655,
                 "protocol": "TCP"
               },
               {
