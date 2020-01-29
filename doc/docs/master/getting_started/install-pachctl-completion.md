@@ -30,10 +30,10 @@ To install `pachctl` autocompletion for `bash`, perform the following steps:
 
    This command returns information about the directory in which
    `bash-completion` and bash completion scripts are installed.
-   For example,  `/usr/local/etc/bash_completion.d/`. Unless it is
-   the default `/etc/bash_completion.d/` location, you need to specify
-   the path to `bash_completion.d`. Also, the output of the info
-   command, might have a suggestion to include the path to
+   For example,  `/usr/local/etc/bash_completion.d/`. You need
+   to specify the path to `bash_completion.d` as the path to which install
+   `pachctl` autocompletion. Also, the output of the info
+   command might have a suggestion to include the path to
    `bash-completion` into your `~/.bash_profile` file.
 
 1. Install `pachctl` autocompletion:
@@ -50,7 +50,7 @@ To install `pachctl` autocompletion for `bash`, perform the following steps:
 
    **System response:**
 
-   ```bash
+   ```
    Bash completions installed in /usr/local/etc/bash_completion.d/pachctl, you must restart bash to enable completions.
    ```
 
@@ -67,9 +67,11 @@ you must have `zsh-completions` installed.
 To install `pachctl` completion for `zsh`, complete the following
 steps:
 
-1. Verify that `zsh-completions` are installed on your machine:
+1. Verify that `zsh-completions` are installed on your machine.
+   For example, if you have installed bash completion by using Homebrew,
+   type:
 
-   ```bash
+   ```zsh
    brew info zsh-completions
    ```
 
@@ -82,19 +84,19 @@ steps:
 
 1. Install `pachctl` autocompletion for `zsh`:
 
-   ```sh
+   ```zsh
    pachctl completion zsh --install --path <path/to/zfs-completions>
    ```
 
    **Example:**
 
-   ```sh
+   ```zsh
    pachctl completion zsh --install --path /usr/local/share/zsh-completions/_pachctl
    ```
 
    **System response:**
 
-   ```sh
+   ```
    Completions installed in "_pachctl", you must restart your terminal to enable them.
    ```
 
