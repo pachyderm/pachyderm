@@ -138,6 +138,18 @@ type StorageOpts struct {
 	UploadConcurrencyLimit int
 }
 
+const (
+	// RequireCriticalServersOnlyEnvVar is the environment variable for requiring critical servers only.
+	RequireCriticalServersOnlyEnvVar = "REQUIRE_CRITICAL_SERVERS_ONLY"
+)
+
+const (
+	// DefaultRequireCriticalServersOnly is the default for requiring critical servers only.
+	// (bryce) this default is set here and in the service env config, need to figure out how to refactor
+	// this to be in one place.
+	DefaultRequireCriticalServersOnly = false
+)
+
 // AssetOpts are options that are applicable to all the asset types.
 type AssetOpts struct {
 	FeatureFlags
@@ -231,6 +243,10 @@ type AssetOpts struct {
 	// placed into a Kubernetes secret and used by pachd nodes to authenticate
 	// during TLS
 	TLS *TLSOpts
+
+	// RequireCriticalServersOnly is true when only the critical Pachd servers
+	// are required to startup and run without error.
+	RequireCriticalServersOnly bool
 }
 
 // replicas lets us create a pointer to a non-zero int32 in-line. This is
@@ -565,6 +581,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 			},
 		},
 		{Name: "EXPOSE_OBJECT_API", Value: strconv.FormatBool(opts.ExposeObjectAPI)},
+		{Name: RequireCriticalServersOnlyEnvVar, Value: strconv.FormatBool(opts.RequireCriticalServersOnly)},
 	}
 	envVars = append(envVars, GetSecretEnvVars("")...)
 	envVars = append(envVars, getStorageEnvVars(opts)...)
