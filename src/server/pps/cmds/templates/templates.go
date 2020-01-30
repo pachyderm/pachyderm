@@ -3,11 +3,12 @@ package templates
 type Template struct {
 	SpecLanguageVersion int         `json:"spec-language-version"`
 	Params              []ParamSpec `json:"params"`
-	Templates           []string
+	Templates           []string    `json:"templates"`
 }
 
 type ParamSpec struct {
-	Name        string          `json:"name"`
+	Name string `json:"name"`
+	// TODO: short/long descriptions
 	Description *string         `json:"description,omitempty"`
 	Validation  *ValidationSpec `json:"validation,omitempty"`
 }
@@ -22,12 +23,12 @@ type ValidationSpec struct {
 	// Type *string `json:"type,omitempty"`
 }
 
-// template YAML:
-params:
-  - name: value
-	  validation:
-		  regex: '[0-9]+'
+// // template YAML:
+// params:
+//   - name: value
+// 	  validation:
+// 		  regex: '[0-9]+'
 
-// user YAML:
-template: github.com/pachyderm/kubeflow
-iterations: 5
+// // user YAML:
+// template: github.com/pachyderm/kubeflow
+// iterations: 5
