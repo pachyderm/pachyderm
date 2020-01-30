@@ -76,7 +76,7 @@ steps:
    ```
 
    You should see the directory in which `zsh-completions` are installed
-   and instructions to add the correct path in the ~/.zshrc file. Make sure
+   and instructions to add the correct path in the `~/.zshrc` file. Make sure
    you add the required path. If you do not have the `~/.zshrc` file on
    your computer, create one. For more information about setting up zsh
    completions, see
