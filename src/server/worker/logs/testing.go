@@ -60,6 +60,20 @@ func (ml *MockLogger) Errf(formatString string, args ...interface{}) {
 	}
 }
 
+// LogStep will log before and after the given callback function runs, using
+// the name provided
+func (ml *MockLogger) LogStep(name string, cb func() error) (retErr error) {
+	ml.Logf("started %v", name)
+	defer func() {
+		if retErr != nil {
+			retErr = fmt.Errorf("errored %v: %v", name, retErr)
+		} else {
+			ml.Logf("finished %v", name)
+		}
+	}()
+	return cb()
+}
+
 // clone is used by the With* member functions to duplicate the current logger.
 func (ml *MockLogger) clone() *MockLogger {
 	result := &MockLogger{}

@@ -693,7 +693,7 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, plan *commo
 					complete = false
 				}
 			} else if err != nil {
-				return fmt.Errorf("error claiming/processing chunk: %v", err)
+				return err
 			}
 			low = high
 		}
@@ -773,49 +773,57 @@ func (a *APIServer) mergeDatums(
 				return err
 			}
 			// collect hashtrees from chunks as they complete
-			low := int64(0)
-			chunks := a.driver.Chunks(jobInfo.Job.ID).ReadOnly(ctx)
 			var failed bool
-			for _, high := range plan.Chunks {
-				chunkState := &common.ChunkState{}
-				if err := chunks.WatchOneF(fmt.Sprint(high), func(e *watch.Event) error {
-					if e.Type == watch.EventError {
-						return e.Err
-					}
-					// unmarshal and check that full key matched
-					var key string
-					if err := e.Unmarshal(&key, chunkState); err != nil {
+			if err := logger.LogStep("collecting chunk hashtree(s)", func() error {
+				low := int64(0)
+				chunks := a.driver.Chunks(jobInfo.Job.ID).ReadOnly(ctx)
+				for _, high := range plan.Chunks {
+					chunkState := &common.ChunkState{}
+					if err := chunks.WatchOneF(fmt.Sprint(high), func(e *watch.Event) error {
+						if e.Type == watch.EventError {
+							return e.Err
+						}
+						// unmarshal and check that full key matched
+						var key string
+						if err := e.Unmarshal(&key, chunkState); err != nil {
+							return err
+						}
+						if key != fmt.Sprint(high) {
+							return nil
+						}
+						switch chunkState.State {
+						case common.State_FAILURE:
+							failed = true
+							fallthrough
+						case common.State_SUCCESS:
+							if err := a.getChunk(ctx, high, chunkState.Address, failed); err != nil {
+								logger.Logf("error downloading chunk %v from worker at %v (%v), falling back on object storage", high, chunkState.Address, err)
+								tags := a.computeTags(dit, low, high, skip, useParentHashTree)
+								// Download datum hashtrees from object storage if we run into an error getting them from the worker
+								if err := a.getChunkFromObjectStorage(ctx, pachClient, objClient, tags, high, failed); err != nil {
+									return err
+								}
+							}
+							return errutil.ErrBreak
+						}
+						return nil
+					}); err != nil {
 						return err
 					}
-					if key != fmt.Sprint(high) {
-						return nil
-					}
-					switch chunkState.State {
-					case common.State_FAILURE:
-						failed = true
-						fallthrough
-					case common.State_SUCCESS:
-						if err := a.getChunk(ctx, high, chunkState.Address, failed); err != nil {
-							logger.Logf("error downloading chunk %v from worker at %v (%v), falling back on object storage", high, chunkState.Address, err)
-							tags := a.computeTags(dit, low, high, skip, useParentHashTree)
-							// Download datum hashtrees from object storage if we run into an error getting them from the worker
-							if err := a.getChunkFromObjectStorage(ctx, pachClient, objClient, tags, high, failed); err != nil {
-								return err
-							}
-						}
-						return errutil.ErrBreak
-					}
-					return nil
-				}); err != nil {
-					return err
+					low = high
 				}
-				low = high
+			}); err != nil {
+				return err
 			}
 			// get parent hashtree reader if it is being used
 			var parentHashtree, parentStatsHashtree io.Reader
 			if useParentHashTree {
-				r, err := a.getParentHashTree(ctx, pachClient, objClient, jobInfo.OutputCommit, a.shard)
-				if err != nil {
+				var r io.ReadCloser
+				if err := logger.LogStep("getting parent hashtree", func() error {
+					var err error
+					r, err = a.getParentHashTree(ctx, pachClient, objClient, jobInfo.OutputCommit, a.shard)
+					return err
+				}); err != nil {
 					return err
 				}
 				defer func() {
@@ -826,8 +834,12 @@ func (a *APIServer) mergeDatums(
 				parentHashtree = bufio.NewReaderSize(r, parentTreeBufSize)
 				// get parent stats hashtree reader if it is being used
 				if a.pipelineInfo.EnableStats {
-					r, err := a.getParentHashTree(ctx, pachClient, objClient, jobInfo.StatsCommit, a.shard)
-					if err != nil {
+					var r io.ReadCloser
+					if err := logger.LogStep("getting parent stats hashtree", func() error {
+						var err error
+						r, err = a.getParentHashTree(ctx, pachClient, objClient, jobInfo.StatsCommit, a.shard)
+						return err
+					}); err != nil {
 						return err
 					}
 					defer func() {
@@ -841,15 +853,7 @@ func (a *APIServer) mergeDatums(
 			// merging output tree(s)
 			var tree, statsTree *pfs.Object
 			var size, statsSize uint64
-			if err := func() (retErr error) {
-				logger.Logf("starting to merge output")
-				defer func(start time.Time) {
-					if retErr != nil {
-						logger.Logf("errored merging output after %v: %v", time.Since(start), retErr)
-					} else {
-						logger.Logf("finished merging output after %v", time.Since(start))
-					}
-				}(time.Now())
+			if err := logger.LogStep("merging output", func() error {
 				if a.pipelineInfo.EnableStats {
 					statsTree, statsSize, err = a.merge(pachClient, objClient, true, parentStatsHashtree)
 					if err != nil {
@@ -863,7 +867,7 @@ func (a *APIServer) mergeDatums(
 					}
 				}
 				return nil
-			}(); err != nil {
+			}); err != nil {
 				return err
 			}
 			// mark merge as complete

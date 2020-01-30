@@ -38,6 +38,10 @@ type TaggedLogger interface {
 	// Errf logs only to stderr
 	Errf(formatString string, args ...interface{})
 
+	// LogStep will log before and after the given callback function runs, using
+	// the name provided
+	LogStep(name string, cb func() error) error
+
 	// These helpers will clone the current logger and construct a new logger that
 	// includes the given metadata in log messages.
 	WithJob(jobID string) TaggedLogger
@@ -165,6 +169,11 @@ func (logger *taggedLogger) WithUserCode() TaggedLogger {
 	return result
 }
 
+// JobID returns the current job that the logger is configured with.
+func (logger *taggedLogger) JobID() string {
+	return logger.template.JobID
+}
+
 func (logger *taggedLogger) clone() *taggedLogger {
 	return &taggedLogger{
 		template:     logger.template,  // Copy struct
@@ -198,9 +207,18 @@ func (logger *taggedLogger) Logf(formatString string, args ...interface{}) {
 	}
 }
 
-// JobID returns the current job that the logger is configured with.
-func (logger *taggedLogger) JobID() string {
-	return logger.template.JobID
+// LogStep will log before and after the given callback function runs, using
+// the name provided
+func (logger *taggedLogger) LogStep(name string, cb func() error) (retErr error) {
+	logger.Logf("started %v", name)
+	defer func() {
+		if retErr != nil {
+			retErr = fmt.Errorf("errored %v: %v", name, retErr)
+		} else {
+			logger.Logf("finished %v", name)
+		}
+	}()
+	return cb()
 }
 
 // Errf writes the given line to the stderr of the worker process.  This does

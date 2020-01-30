@@ -644,11 +644,17 @@ func (reg *registry) processJob(pj *pendingJob) error {
 		pj.cancel()
 		return errutil.ErrBreak
 	case state == pps.JobState_JOB_STARTING:
-		return reg.processJobStarting(pj)
+		return pj.logger.LogStep("calculating job datums (JOB_STARTING)", func() error {
+			return reg.processJobStarting(pj)
+		})
 	case state == pps.JobState_JOB_RUNNING:
-		return reg.processJobRunning(pj)
+		return pj.logger.LogStep("processing job datums (JOB_RUNNING)", func() error {
+			return reg.processJobRunning(pj)
+		})
 	case state == pps.JobState_JOB_MERGING:
-		return reg.processJobMerging(pj)
+		return pj.logger.LogStep("merging job hashtrees (JOB_MERGING)", func() error {
+			return reg.processJobMerging(pj)
+		})
 	}
 	pj.cancel()
 	return fmt.Errorf("unknown job state: %v", state)
@@ -681,10 +687,13 @@ func (reg *registry) processJobStarting(pj *pendingJob) error {
 }
 
 func (reg *registry) processJobRunning(pj *pendingJob) error {
-	pj.logger.Logf("processJobRunning getting dit, input: %v", pj.ji.Input)
 	// Create a datum iterator pointing at the job's inputs
-	dit, err := datum.NewIterator(pj.client, pj.ji.Input)
-	if err != nil {
+	var dit datum.Iterator
+	if err := pj.logger.LogStep("constructing datum iterator", func() error {
+		var err error
+		dit, err = datum.NewIterator(pj.client, pj.ji.Input)
+		return err
+	}); err != nil {
 		return err
 	}
 

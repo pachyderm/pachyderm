@@ -50,7 +50,7 @@ var (
 	grpcProxyName               = "grpc-proxy"
 	pachdName                   = "pachd"
 	// PrometheusPort hosts the prometheus stats for scraping
-	PrometheusPort = 9091
+	PrometheusPort = 656
 
 	// Role & binding names, used for Roles or ClusterRoles and their associated
 	// bindings.

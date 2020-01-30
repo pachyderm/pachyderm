@@ -144,7 +144,7 @@ To configure a staging branch, complete the following steps:
    because commits in Pachyderm are generally additive, so processing
    the HEAD commit also processes data from previous commits.
 
-![deffered processing](../assets/images/deferred_processing.gif)
+![deferred processing](../../assets/images/deferred_processing.gif)
 
 ## Process Specific Commits
 
