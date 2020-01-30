@@ -2855,3 +2855,15 @@ publish = "doc/site"
      to = "/master/concepts/advanced-concepts/deferred_processing/"
      status = 301
      force = true
+
+[[redirects]]
+     from = "/how-tos/deferred_processing/"
+     to = "/concepts/advanced-concepts/deferred_processing/"
+     status = 301
+     force = true
+
+[[redirects]]
+     from = "/how-tos/distributed_computing/"
+     to = "/concepts/advanced-concepts/distributed_computing/"
+     status = 301
+     force = true
