@@ -324,13 +324,25 @@ publish = "doc/site"
 
 [[redirects]]
   from = "/en/latest/how-tos/distributed_computing.html"
-  to = "https://docs.pachyderm.com/latest/how-tos/distributed_computing/"
+  to = "https://docs.pachyderm.com/latest/concepts/advanced-concepts/distributed_computing/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/latest/how-tos/distributed_computing/"
+  to = "/latest/concepts/advanced-concepts/distributed_computing/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/en/latest/how-tos/deferred_processing.html"
-  to = "https://docs.pachyderm.com/latest/how-tos/deferred_processing/"
+  to = "https://docs.pachyderm.com/latest/concepts/advanced-concepts/deferred_processing/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/latest/how-tos/deferred_processing/"
+  to = "/latest/concepts/advanced-concepts/deferred_processing/"
   status = 301
   force = true
 
@@ -2808,3 +2820,50 @@ publish = "doc/site"
   status = 301
   force = true
 
+[[redirects]]
+   from = "/1.9.x/how-tos/deferred_processing/"
+   to = "/1.9.x/concepts/advanced-concepts/deferred_processing/"
+   status = 301
+   force = true
+
+[[redirects]]
+    from = "/1.9.x/how-tos/deferred_processing.md"
+    to = "/1.9.x/concepts/advanced-concepts/deferred_processing/"
+    status = 301
+    force = true
+
+[[redirects]]
+    from = "/1.9.x/how-tos/distributed_computing.md"
+    to = "/1.9.x/concepts/advanced-concepts/distributed_computing/"
+    status = 301
+    force = true
+
+[[redirects]]
+    from = "/1.9.x/how-tos/distributed_computing.md"
+    to = "/1.9.x/concepts/advanced-concepts/distributed_computing/"
+    status = 301
+    force = true
+
+[[redirects]]
+    from = "/master/how-tos/distributed_computing/"
+    to = "/master/concepts/advanced-concepts/distributed_computing/"
+    status = 301
+    force = true
+
+[[redirects]]
+     from = "/master/how-tos/deferred_processing/"
+     to = "/master/concepts/advanced-concepts/deferred_processing/"
+     status = 301
+     force = true
+
+[[redirects]]
+     from = "/how-tos/deferred_processing/"
+     to = "/concepts/advanced-concepts/deferred_processing/"
+     status = 301
+     force = true
+
+[[redirects]]
+     from = "/how-tos/distributed_computing/"
+     to = "/concepts/advanced-concepts/distributed_computing/"
+     status = 301
+     force = true
