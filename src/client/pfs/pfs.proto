@@ -397,6 +397,7 @@ message PutFileRecord {
   int64 size_bytes = 1;
   string object_hash = 2;
   OverwriteIndex overwrite_index = 3;
+  BlockRef block_ref = 4;
 }
 
 message PutFileRecords {
