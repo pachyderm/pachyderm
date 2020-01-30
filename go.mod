@@ -123,7 +123,7 @@ require (
 	gopkg.in/go-playground/webhooks.v5 v5.11.0
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.42.0 // indirect
-	gopkg.in/pachyderm/yaml.v3 v3.0.0-20191204210125-74de94ae3b7a
+	gopkg.in/pachyderm/yaml.v3 v3.0.0-20200130061037-1dd3d7bd0850 // indirect
 	gopkg.in/square/go-jose.v2 v2.3.1 // indirect
 	gopkg.in/src-d/go-git.v4 v4.12.0
 	gopkg.in/yaml.v2 v2.2.7 // indirect
