@@ -130,7 +130,8 @@ nav:
                 - Cross and Union Inputs: concepts/pipeline-concepts/datum/cross-union.md
                 - Datum Processing States: concepts/pipeline-concepts/datum/datum-processing-states.md
         - Advanced Concepts:
-            - Deferred Processing of Data: how-tos/deferred_processing.md
+            - Deferred Processing of Data: concepts/advanced-concepts/deferred_processing.md
+            - Distributed Computing: concepts/advanced-concepts/distributed_computing.md
 
     - How-Tos:
         - Overview: how-tos/index.md
@@ -148,8 +149,6 @@ nav:
         - Processing Time-Windowed Data: how-tos/time_windows.md
         - Use Transactions: how-tos/use-transactions-to-run-multiple-commands.md
         - Delete Data: how-tos/removing_data_from_pachyderm.md
-        - Configure Distributed Computing: how-tos/distributed_computing.md
-        - Deferred Processing of Data: how-tos/deferred_processing.md
         - Ingress and Egress Data from an External Object Store: how-tos/ingressing_from_diff_cloud.md
         - Skip Failed Datums: how-tos/err_cmd.md
     - Deploy and Manage:
