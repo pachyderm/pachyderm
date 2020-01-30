@@ -61,14 +61,14 @@ To install `pachctl` autocompletion for `bash`, perform the following steps:
 ## Install pachctl Autocompletion for `zsh`
 
 Recently, `zsh` became the default shell on macOS, therefore, many users
-might prefer using `zsh`. Before you install pachctl completion for zsh,
+might prefer using `zsh`. Before you install `pachctl` completion for `zsh`,
 you must have `zsh-completions` installed.
 
 To install `pachctl` completion for `zsh`, complete the following
 steps:
 
 1. Verify that `zsh-completions` are installed on your machine.
-   For example, if you have installed bash completion by using Homebrew,
+   For example, if you have installed zsh completion by using Homebrew,
    type:
 
    ```zsh
