@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/proto"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -360,8 +359,6 @@ func serializeJobData(data *JobData) (*types.Any, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("serialized job data: %v\n", serialized)
-	fmt.Printf("serialized job data type: %s\n", proto.MessageName(data))
 	return serialized, nil
 }
 
@@ -394,7 +391,6 @@ func serializeMergeData(data *MergeData) (*types.Any, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("serialize merge data, data: %v, value: %v\n", data, serialized)
 	return serialized, nil
 }
 
@@ -685,7 +681,7 @@ func (reg *registry) processJobStarting(pj *pendingJob) error {
 }
 
 func (reg *registry) processJobRunning(pj *pendingJob) error {
-	pj.logger.Logf("processJobRunning getting dit")
+	pj.logger.Logf("processJobRunning getting dit, input: %v", pj.ji.Input)
 	// Create a datum iterator pointing at the job's inputs
 	dit, err := datum.NewIterator(pj.client, pj.ji.Input)
 	if err != nil {
@@ -796,9 +792,6 @@ func (reg *registry) processJobMerging(pj *pendingJob) error {
 		Data:     jobData,
 		Subtasks: mergeSubtasks,
 	}
-
-	pj.logger.Logf("processJobMerging merge task: %v", mergeTask)
-	pj.logger.Logf("processJobMerging merge subtask[0].Data: %v", mergeTask.Subtasks[0].Data)
 
 	// Wait for merges to complete
 	err = reg.workMaster.Run(

@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -81,32 +80,24 @@ func Worker(driver driver.Driver, logger logs.TaggedLogger, task *work.Task, sub
 
 	logger = logger.WithJob(jobData.JobId)
 
-	logger.Logf("transform worker started with job data: %v", jobData)
-
 	datumData, err := deserializeDatumData(subtask.Data)
 	if err == nil {
-		logger.Logf("transform worker datum task: %v", datumData)
-		logger.Logf("task typename: %s", proto.MessageName(datumData))
 		if err = handleDatumTask(driver, logger, datumData); err != nil {
 			return err
 		}
 		subtask.Data, err = serializeDatumData(datumData)
 		return err
 	}
-	logger.Logf("transform worker deserialize datum data err: %v", err)
 
 	mergeData, err := deserializeMergeData(subtask.Data)
 	if err == nil {
-		logger.Logf("transform worker merge task: %v", mergeData)
 		if err = handleMergeTask(driver, logger, mergeData); err != nil {
 			return err
 		}
 		subtask.Data, err = serializeMergeData(mergeData)
 		return err
 	}
-	logger.Logf("transform worker deserialize merge data err: %v", err)
 
-	logger.Logf("transform worker unrecognized task")
 	return fmt.Errorf("worker task format unrecognized")
 }
 

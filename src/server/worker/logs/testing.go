@@ -3,6 +3,7 @@ package logs
 import (
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
@@ -42,9 +43,9 @@ func (ml *MockLogger) Write(p []byte) (_ int, retErr error) {
 // Logf optionally logs a statement using string formatting
 func (ml *MockLogger) Logf(formatString string, args ...interface{}) {
 	if ml.Writer != nil {
-		params := []interface{}{ml.Job, ml.Data, ml.UserCode}
+		params := []interface{}{time.Now().Format(time.StampMilli), ml.Job, ml.Data, ml.UserCode}
 		params = append(params, args...)
-		str := fmt.Sprintf("Logf (%v, %v, %v): "+formatString+"\n", params...)
+		str := fmt.Sprintf("LOGF %s (%v, %v, %v): "+formatString+"\n", params...)
 		ml.Writer.Write([]byte(str))
 	}
 }
@@ -52,9 +53,9 @@ func (ml *MockLogger) Logf(formatString string, args ...interface{}) {
 // Errf optionally logs an error statement using string formatting
 func (ml *MockLogger) Errf(formatString string, args ...interface{}) {
 	if ml.Writer != nil {
-		params := []interface{}{ml.Job, ml.Data, ml.UserCode}
+		params := []interface{}{time.Now().Format(time.StampMilli), ml.Job, ml.Data, ml.UserCode}
 		params = append(params, args...)
-		str := fmt.Sprintf("Errf (%v, %v, %v): "+formatString+"\n", params...)
+		str := fmt.Sprintf("ERRF %s (%v, %v, %v): "+formatString+"\n", params...)
 		ml.Writer.Write([]byte(str))
 	}
 }
