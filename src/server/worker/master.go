@@ -934,7 +934,7 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 						return err
 					}
 					// put files into pachyderm
-					if a.pipelineInfo.Spout.Marker != "" && strings.Contains(fileHeader.Name, a.pipelineInfo.Spout.Marker) {
+					if a.pipelineInfo.Spout.Marker != "" && strings.HasPrefix(path.Clean(fileHeader.Name), a.pipelineInfo.Spout.Marker) {
 						_, err = txnClient.PutFileOverwrite(repo, "marker", fileHeader.Name, outTar, 0)
 						if err != nil {
 							return err

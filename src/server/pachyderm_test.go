@@ -9716,7 +9716,7 @@ func TestSpout(t *testing.T) {
 		require.NoError(t, c.CreateRepo(dataRepo))
 
 		// create a spout pipeline
-		pipeline := "pms"
+		pipeline := tu.UniqueString("pipelinespoutmarker")
 
 		// make sure it fails for an invalid filename
 		_, err := c.PpsAPIClient.CreatePipeline(
