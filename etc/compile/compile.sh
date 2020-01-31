@@ -13,9 +13,11 @@ set -Eex
 # by root inside the docker container will be owned by the calling user and
 # group on the host filesystem
 
-if [[ "${CALLING_OS}" == "Darwin" ]]; then
-  echo "Compiling for Mac OS"
-  "$(dirname "${0}")/run_go_cmds.sh" "${@}"
+SCRIPT="$(dirname "${0}")/run_go_cmds.sh"
+
+if [[ "$CALLING_OS" == "Darwin" ]] || [[ "$CALLING_OS" == "Windows" ]]; then
+  echo "Compiling for $CALLING_OS"
+  "$SCRIPT" "${@}"
   exit $?
 fi
 echo "Compiling for Linux"
@@ -39,6 +41,6 @@ usermod --append --groups=docker,root caller
 usermod --home=/root caller
 chmod g+rwx /root
 
-# Run "go build" as "caller", to avoid littering host machine's $GOPATH with
-# root-owned files.
-runuser -u caller -- "$(dirname "${0}")/run_go_cmds.sh" "${@}"
+ # Run "go build" as "caller", to avoid littering host machine's $GOPATH with
+ # root-owned files.
+runuser -u caller -- "$SCRIPT" "${@}"
