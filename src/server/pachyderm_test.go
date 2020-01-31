@@ -9716,7 +9716,7 @@ func TestSpout(t *testing.T) {
 		require.NoError(t, c.CreateRepo(dataRepo))
 
 		// create a spout pipeline
-		pipeline := "pipelinespoutmarker"
+		pipeline := "pms"
 
 		// make sure it fails for an invalid filename
 		_, err := c.PpsAPIClient.CreatePipeline(
@@ -9785,7 +9785,7 @@ func TestSpout(t *testing.T) {
 						"cp /pfs/mymark/test ./test",
 						"while [ : ]",
 						"do",
-						"sleep 1",
+						"sleep 5",
 						"echo $(tail -1 test). >> test",
 						"mkdir mymark",
 						"cp test mymark/test",
@@ -9835,6 +9835,9 @@ func TestSpout(t *testing.T) {
 				t.Errorf("line did not have the expected form")
 			}
 		}
+		if xs == 0 {
+			t.Errorf("file has the wrong form, marker was likely overwritten")
+		}
 
 		// now let's reprocess the spout
 		_, err = c.PpsAPIClient.CreatePipeline(
@@ -9878,7 +9881,7 @@ func TestSpout(t *testing.T) {
 			line, err = buf.ReadString('\n')
 
 			if len(line) > 1 && line != strings.Repeat(".", len(line)-1)+"\n" {
-				t.Errorf("line did not have the expected form")
+				t.Errorf("line did not have the expected form %v, '%v'", len(line), line)
 			}
 		}
 	})
