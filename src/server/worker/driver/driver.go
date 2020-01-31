@@ -406,6 +406,7 @@ func (d *driver) WithData(
 	if err := os.MkdirAll(d.inputDir, 0777); err != nil {
 		return nil, err
 	}
+	// TODO: move the link into runusercode
 	if err := d.linkData(data, dir); err != nil {
 		return nil, fmt.Errorf("error linkData: %v", err)
 	}

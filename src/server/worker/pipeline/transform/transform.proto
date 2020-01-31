@@ -23,18 +23,21 @@ message JobData {
   string job_id = 1;
 }
 
+message DatumStats {
+  pps.ProcessStats process_stats = 1;
+	int64 datums_processed = 2;
+	int64 datums_skipped = 3;
+  int64 datums_failed = 5;
+  repeated string recovered_datums = 6;
+	string failed_datum_id = 7;
+}
+
 message DatumData {
   // Inputs
   pfs.Object datums = 1;
 
   // Outputs
-  pps.ProcessStats process_stats = 2;
-	int64 datums_processed = 4;
-	int64 datums_skipped = 5;
-	int64 datums_recovered = 6;
-	int64 datums_failed = 7;
-	pfs.Object recovered_datums = 8;
-	string failed_datum_id = 3;
+  DatumStats stats = 2;
 }
 
 message MergeData {

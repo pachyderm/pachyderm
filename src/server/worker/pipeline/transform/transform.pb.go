@@ -176,21 +176,116 @@ func (m *JobData) GetJobId() string {
 	return ""
 }
 
-type DatumData struct {
-	// Inputs
-	Datums *pfs.Object `protobuf:"bytes,2,opt,name=datums,proto3" json:"datums,omitempty"`
-	// Outputs
-	ProcessStats         *pps.ProcessStats `protobuf:"bytes,3,opt,name=process_stats,json=processStats,proto3" json:"process_stats,omitempty"`
+type DatumStats struct {
+	ProcessStats         *pps.ProcessStats `protobuf:"bytes,1,opt,name=process_stats,json=processStats,proto3" json:"process_stats,omitempty"`
+	DatumsProcessed      int64             `protobuf:"varint,2,opt,name=datums_processed,json=datumsProcessed,proto3" json:"datums_processed,omitempty"`
+	DatumsSkipped        int64             `protobuf:"varint,3,opt,name=datums_skipped,json=datumsSkipped,proto3" json:"datums_skipped,omitempty"`
+	DatumsRecovered      int64             `protobuf:"varint,4,opt,name=datums_recovered,json=datumsRecovered,proto3" json:"datums_recovered,omitempty"`
+	DatumsFailed         int64             `protobuf:"varint,5,opt,name=datums_failed,json=datumsFailed,proto3" json:"datums_failed,omitempty"`
+	RecoveredDatums      []string          `protobuf:"bytes,6,rep,name=recovered_datums,json=recoveredDatums,proto3" json:"recovered_datums,omitempty"`
+	FailedDatumId        string            `protobuf:"bytes,7,opt,name=failed_datum_id,json=failedDatumId,proto3" json:"failed_datum_id,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
+}
+
+func (m *DatumStats) Reset()         { *m = DatumStats{} }
+func (m *DatumStats) String() string { return proto.CompactTextString(m) }
+func (*DatumStats) ProtoMessage()    {}
+func (*DatumStats) Descriptor() ([]byte, []int) {
+	return fileDescriptor_21583a759eb7fa97, []int{3}
+}
+func (m *DatumStats) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *DatumStats) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_DatumStats.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *DatumStats) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DatumStats.Merge(m, src)
+}
+func (m *DatumStats) XXX_Size() int {
+	return m.Size()
+}
+func (m *DatumStats) XXX_DiscardUnknown() {
+	xxx_messageInfo_DatumStats.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DatumStats proto.InternalMessageInfo
+
+func (m *DatumStats) GetProcessStats() *pps.ProcessStats {
+	if m != nil {
+		return m.ProcessStats
+	}
+	return nil
+}
+
+func (m *DatumStats) GetDatumsProcessed() int64 {
+	if m != nil {
+		return m.DatumsProcessed
+	}
+	return 0
+}
+
+func (m *DatumStats) GetDatumsSkipped() int64 {
+	if m != nil {
+		return m.DatumsSkipped
+	}
+	return 0
+}
+
+func (m *DatumStats) GetDatumsRecovered() int64 {
+	if m != nil {
+		return m.DatumsRecovered
+	}
+	return 0
+}
+
+func (m *DatumStats) GetDatumsFailed() int64 {
+	if m != nil {
+		return m.DatumsFailed
+	}
+	return 0
+}
+
+func (m *DatumStats) GetRecoveredDatums() []string {
+	if m != nil {
+		return m.RecoveredDatums
+	}
+	return nil
+}
+
+func (m *DatumStats) GetFailedDatumId() string {
+	if m != nil {
+		return m.FailedDatumId
+	}
+	return ""
+}
+
+type DatumData struct {
+	// Inputs
+	Datums *pfs.Object `protobuf:"bytes,1,opt,name=datums,proto3" json:"datums,omitempty"`
+	// Outputs
+	Stats                *DatumStats `protobuf:"bytes,2,opt,name=stats,proto3" json:"stats,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
+	XXX_unrecognized     []byte      `json:"-"`
+	XXX_sizecache        int32       `json:"-"`
 }
 
 func (m *DatumData) Reset()         { *m = DatumData{} }
 func (m *DatumData) String() string { return proto.CompactTextString(m) }
 func (*DatumData) ProtoMessage()    {}
 func (*DatumData) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21583a759eb7fa97, []int{3}
+	return fileDescriptor_21583a759eb7fa97, []int{4}
 }
 func (m *DatumData) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -226,9 +321,9 @@ func (m *DatumData) GetDatums() *pfs.Object {
 	return nil
 }
 
-func (m *DatumData) GetProcessStats() *pps.ProcessStats {
+func (m *DatumData) GetStats() *DatumStats {
 	if m != nil {
-		return m.ProcessStats
+		return m.Stats
 	}
 	return nil
 }
@@ -247,7 +342,7 @@ func (m *MergeData) Reset()         { *m = MergeData{} }
 func (m *MergeData) String() string { return proto.CompactTextString(m) }
 func (*MergeData) ProtoMessage()    {}
 func (*MergeData) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21583a759eb7fa97, []int{4}
+	return fileDescriptor_21583a759eb7fa97, []int{5}
 }
 func (m *MergeData) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -294,6 +389,7 @@ func init() {
 	proto.RegisterType((*DatumInputs)(nil), "pachyderm.worker.pipeline.transform.DatumInputs")
 	proto.RegisterType((*HashtreeInfo)(nil), "pachyderm.worker.pipeline.transform.HashtreeInfo")
 	proto.RegisterType((*JobData)(nil), "pachyderm.worker.pipeline.transform.JobData")
+	proto.RegisterType((*DatumStats)(nil), "pachyderm.worker.pipeline.transform.DatumStats")
 	proto.RegisterType((*DatumData)(nil), "pachyderm.worker.pipeline.transform.DatumData")
 	proto.RegisterType((*MergeData)(nil), "pachyderm.worker.pipeline.transform.MergeData")
 }
@@ -303,31 +399,39 @@ func init() {
 }
 
 var fileDescriptor_21583a759eb7fa97 = []byte{
-	// 375 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x52, 0xcd, 0x4e, 0x83, 0x40,
-	0x10, 0x0e, 0x36, 0xa5, 0x61, 0x69, 0x0f, 0x92, 0x9a, 0x10, 0x0f, 0x0d, 0xd2, 0x98, 0xf4, 0xb4,
-	0x68, 0x35, 0x3e, 0x80, 0xf6, 0x20, 0x26, 0x8d, 0x8a, 0x37, 0x2f, 0xcd, 0x02, 0xdb, 0x42, 0x2d,
-	0xec, 0x66, 0x67, 0xd1, 0xf8, 0x86, 0x1e, 0x7d, 0x04, 0xd3, 0x27, 0x31, 0x2c, 0xdb, 0x1f, 0xbd,
-	0xe8, 0x61, 0xc3, 0x7c, 0xf3, 0x7d, 0xf3, 0xcd, 0x64, 0x06, 0x74, 0x06, 0x54, 0xbc, 0x52, 0x11,
-	0xbc, 0x31, 0xf1, 0x42, 0x45, 0xc0, 0x73, 0x4e, 0x57, 0x79, 0x49, 0x03, 0x29, 0x48, 0x09, 0x73,
-	0x26, 0x8a, 0x5d, 0x84, 0xb9, 0x60, 0x92, 0x39, 0x43, 0x4e, 0x92, 0xec, 0x3d, 0xa5, 0xa2, 0xc0,
-	0x4d, 0x11, 0xde, 0x14, 0xe1, 0xad, 0xf4, 0xb8, 0x9f, 0xac, 0x72, 0x5a, 0xca, 0x80, 0xcf, 0xa1,
-	0x7e, 0x4d, 0xe9, 0x2e, 0xcb, 0xa1, 0x7e, 0x3a, 0x7b, 0xf2, 0x73, 0x84, 0x84, 0x15, 0x05, 0x2b,
-	0xf5, 0xa7, 0x91, 0xf8, 0x97, 0xc8, 0x9e, 0x10, 0x59, 0x15, 0x61, 0xc9, 0x2b, 0x09, 0xce, 0x29,
-	0x32, 0x73, 0x15, 0xb9, 0x86, 0xd7, 0x1a, 0xd9, 0xe3, 0x1e, 0xd6, 0x6a, 0xc5, 0x47, 0x9a, 0xf4,
-	0xa7, 0xa8, 0x7b, 0x4b, 0x20, 0x93, 0x82, 0xd2, 0xb0, 0x9c, 0x33, 0x67, 0x88, 0x4c, 0x16, 0x2f,
-	0x69, 0x22, 0x5d, 0xc3, 0x33, 0x46, 0xf6, 0xd8, 0xc6, 0xf5, 0x68, 0xf7, 0x2a, 0x15, 0x69, 0xca,
-	0x71, 0x51, 0x87, 0xa4, 0xa9, 0xa0, 0x00, 0xee, 0x81, 0x67, 0x8c, 0xac, 0x68, 0x03, 0x7d, 0x0f,
-	0x75, 0xee, 0x58, 0x3c, 0x21, 0x92, 0x38, 0x47, 0xc8, 0x5c, 0xb2, 0x78, 0x96, 0xa7, 0xca, 0xc9,
-	0x8a, 0xda, 0x4b, 0x16, 0x87, 0xa9, 0x9f, 0x21, 0x4b, 0x8d, 0xa9, 0x34, 0x43, 0x64, 0xa6, 0x35,
-	0x68, 0x7c, 0x7e, 0x77, 0x6b, 0x28, 0xe7, 0x0a, 0xf5, 0xb8, 0x60, 0x09, 0x05, 0x98, 0x81, 0x24,
-	0x12, 0xdc, 0x96, 0xd2, 0x1e, 0xe2, 0x7a, 0x3d, 0x0f, 0x0d, 0xf3, 0x54, 0x13, 0x51, 0x97, 0xef,
-	0x21, 0x7f, 0x85, 0xac, 0x29, 0x15, 0x0b, 0xaa, 0x3a, 0xf5, 0x51, 0x1b, 0x32, 0x22, 0x52, 0xd5,
-	0xa8, 0x15, 0x35, 0xc0, 0x09, 0x91, 0xc9, 0x2a, 0xc9, 0x2b, 0xa9, 0x3d, 0xcf, 0xf1, 0x3f, 0x0e,
-	0x87, 0xf7, 0x17, 0x16, 0x69, 0x83, 0xeb, 0xc7, 0x8f, 0xf5, 0xc0, 0xf8, 0x5c, 0x0f, 0x8c, 0xaf,
-	0xf5, 0xc0, 0x78, 0xbe, 0x59, 0xe4, 0x32, 0xab, 0xe2, 0x7a, 0xe7, 0xc1, 0xd6, 0x72, 0x2f, 0x02,
-	0x91, 0x04, 0x7f, 0xfd, 0x55, 0xb1, 0xa9, 0x0e, 0x7b, 0xf1, 0x1d, 0x00, 0x00, 0xff, 0xff, 0x53,
-	0xbd, 0x47, 0xf4, 0x80, 0x02, 0x00, 0x00,
+	// 505 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x93, 0xc1, 0x8e, 0xd3, 0x30,
+	0x10, 0x86, 0x95, 0x2d, 0x4d, 0xd5, 0x69, 0x4b, 0xc1, 0x5a, 0xa4, 0x88, 0x43, 0x55, 0x52, 0x2d,
+	0x2a, 0x97, 0x04, 0x0a, 0xe2, 0x01, 0x60, 0x41, 0x14, 0x69, 0xc5, 0xe2, 0xbd, 0x71, 0xa9, 0x9c,
+	0x78, 0xba, 0x4d, 0xb7, 0x8d, 0x2d, 0xdb, 0xdd, 0x15, 0x8f, 0xc6, 0x1b, 0x70, 0xe4, 0x11, 0x50,
+	0x9f, 0x04, 0xc5, 0x76, 0xda, 0x20, 0x21, 0xb1, 0x87, 0xa8, 0xe3, 0x6f, 0xfe, 0xf9, 0x3d, 0x1d,
+	0xdb, 0xf0, 0x52, 0xa3, 0xba, 0x45, 0x95, 0xde, 0x09, 0x75, 0x83, 0x2a, 0x95, 0x85, 0xc4, 0x4d,
+	0x51, 0x62, 0x6a, 0x14, 0x2b, 0xf5, 0x52, 0xa8, 0xed, 0x31, 0x4a, 0xa4, 0x12, 0x46, 0x90, 0x89,
+	0x64, 0xf9, 0xea, 0x3b, 0x47, 0xb5, 0x4d, 0x5c, 0x51, 0x52, 0x17, 0x25, 0x07, 0xe9, 0xd3, 0xd3,
+	0x7c, 0x53, 0x60, 0x69, 0x52, 0xb9, 0xd4, 0xd5, 0xe7, 0x4a, 0x8f, 0x54, 0xea, 0xea, 0xf3, 0xf4,
+	0xd9, 0xdf, 0x2d, 0xe4, 0x62, 0xbb, 0x15, 0xa5, 0xff, 0x71, 0x92, 0xf8, 0x0d, 0xf4, 0xce, 0x99,
+	0xd9, 0x6d, 0xe7, 0xa5, 0xdc, 0x19, 0x4d, 0xce, 0x20, 0x2c, 0x6c, 0x14, 0x05, 0xe3, 0xd6, 0xb4,
+	0x37, 0x1b, 0x24, 0x5e, 0x6d, 0xf3, 0xd4, 0x27, 0xe3, 0x0b, 0xe8, 0x7f, 0x62, 0x7a, 0x65, 0x14,
+	0xe2, 0xbc, 0x5c, 0x0a, 0x32, 0x81, 0x50, 0x64, 0x6b, 0xcc, 0x4d, 0x14, 0x8c, 0x83, 0x69, 0x6f,
+	0xd6, 0x4b, 0xaa, 0xd6, 0xbe, 0x58, 0x44, 0x7d, 0x8a, 0x44, 0xd0, 0x61, 0x9c, 0x2b, 0xd4, 0x3a,
+	0x3a, 0x19, 0x07, 0xd3, 0x2e, 0xad, 0x97, 0xf1, 0x18, 0x3a, 0x9f, 0x45, 0x76, 0xce, 0x0c, 0x23,
+	0x4f, 0x20, 0x5c, 0x8b, 0x6c, 0x51, 0x70, 0xeb, 0xd4, 0xa5, 0xed, 0xb5, 0xc8, 0xe6, 0x3c, 0xfe,
+	0x71, 0x02, 0x60, 0xfb, 0xbc, 0x32, 0xcc, 0x68, 0xf2, 0x16, 0x06, 0x52, 0x89, 0x1c, 0xb5, 0x5e,
+	0xe8, 0x0a, 0xf8, 0x6d, 0x1f, 0x27, 0xd5, 0x7f, 0xbf, 0x74, 0x19, 0xab, 0xa4, 0x7d, 0xd9, 0x58,
+	0x91, 0x17, 0xf0, 0x88, 0x57, 0x2e, 0x7a, 0xe1, 0x31, 0x72, 0xdb, 0x4b, 0x8b, 0x0e, 0x1d, 0xbf,
+	0xac, 0x31, 0x39, 0x83, 0x87, 0x5e, 0xaa, 0x6f, 0x0a, 0x29, 0x91, 0x47, 0x2d, 0x2b, 0x1c, 0x38,
+	0x7a, 0xe5, 0x60, 0xc3, 0x51, 0x61, 0x2e, 0x6e, 0x51, 0x21, 0x8f, 0x1e, 0x34, 0x1d, 0x69, 0x8d,
+	0xc9, 0x04, 0x7c, 0xed, 0x62, 0xc9, 0x8a, 0x0d, 0xf2, 0xa8, 0x6d, 0x75, 0x7d, 0x07, 0x3f, 0x5a,
+	0x56, 0xf9, 0x1d, 0x8c, 0x16, 0x2e, 0x13, 0x85, 0xe3, 0xd6, 0xb4, 0x4b, 0x87, 0x07, 0x6e, 0x07,
+	0xa1, 0xc9, 0x73, 0x18, 0x3a, 0x23, 0xa7, 0xab, 0x66, 0xd6, 0xb1, 0x33, 0x1b, 0x38, 0xec, 0xce,
+	0x95, 0xc7, 0x77, 0xd0, 0xb5, 0xa1, 0x9d, 0xef, 0x04, 0x42, 0xef, 0xfa, 0xaf, 0x93, 0x72, 0x29,
+	0xf2, 0x01, 0xda, 0x6e, 0xac, 0x27, 0x56, 0x93, 0x26, 0xf7, 0xb8, 0x98, 0xc9, 0xf1, 0x78, 0xa8,
+	0xab, 0x8e, 0x37, 0xd0, 0xbd, 0x40, 0x75, 0x8d, 0x76, 0xe3, 0x53, 0x68, 0xeb, 0x15, 0x53, 0xf5,
+	0xbc, 0xdd, 0x82, 0xcc, 0x21, 0x14, 0x3b, 0x23, 0x77, 0xc6, 0x4e, 0xb7, 0x37, 0x7b, 0x75, 0xaf,
+	0xad, 0x9a, 0x77, 0x8f, 0x7a, 0x83, 0x77, 0x5f, 0x7f, 0xee, 0x47, 0xc1, 0xaf, 0xfd, 0x28, 0xf8,
+	0xbd, 0x1f, 0x05, 0xdf, 0xde, 0x5f, 0x17, 0x66, 0xb5, 0xcb, 0xaa, 0xeb, 0x9b, 0x1e, 0x2c, 0x1b,
+	0x91, 0x56, 0x79, 0xfa, 0xbf, 0x07, 0x9a, 0x85, 0xf6, 0x8d, 0xbc, 0xfe, 0x13, 0x00, 0x00, 0xff,
+	0xff, 0xae, 0xfd, 0xb3, 0xff, 0xcb, 0x03, 0x00, 0x00,
 }
 
 func (m *DatumInputs) Marshal() (dAtA []byte, err error) {
@@ -451,6 +555,81 @@ func (m *JobData) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *DatumStats) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *DatumStats) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *DatumStats) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.FailedDatumId) > 0 {
+		i -= len(m.FailedDatumId)
+		copy(dAtA[i:], m.FailedDatumId)
+		i = encodeVarintTransform(dAtA, i, uint64(len(m.FailedDatumId)))
+		i--
+		dAtA[i] = 0x3a
+	}
+	if len(m.RecoveredDatums) > 0 {
+		for iNdEx := len(m.RecoveredDatums) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.RecoveredDatums[iNdEx])
+			copy(dAtA[i:], m.RecoveredDatums[iNdEx])
+			i = encodeVarintTransform(dAtA, i, uint64(len(m.RecoveredDatums[iNdEx])))
+			i--
+			dAtA[i] = 0x32
+		}
+	}
+	if m.DatumsFailed != 0 {
+		i = encodeVarintTransform(dAtA, i, uint64(m.DatumsFailed))
+		i--
+		dAtA[i] = 0x28
+	}
+	if m.DatumsRecovered != 0 {
+		i = encodeVarintTransform(dAtA, i, uint64(m.DatumsRecovered))
+		i--
+		dAtA[i] = 0x20
+	}
+	if m.DatumsSkipped != 0 {
+		i = encodeVarintTransform(dAtA, i, uint64(m.DatumsSkipped))
+		i--
+		dAtA[i] = 0x18
+	}
+	if m.DatumsProcessed != 0 {
+		i = encodeVarintTransform(dAtA, i, uint64(m.DatumsProcessed))
+		i--
+		dAtA[i] = 0x10
+	}
+	if m.ProcessStats != nil {
+		{
+			size, err := m.ProcessStats.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTransform(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func (m *DatumData) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -475,9 +654,9 @@ func (m *DatumData) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.ProcessStats != nil {
+	if m.Stats != nil {
 		{
-			size, err := m.ProcessStats.MarshalToSizedBuffer(dAtA[:i])
+			size, err := m.Stats.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -485,7 +664,7 @@ func (m *DatumData) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			i = encodeVarintTransform(dAtA, i, uint64(size))
 		}
 		i--
-		dAtA[i] = 0x1a
+		dAtA[i] = 0x12
 	}
 	if m.Datums != nil {
 		{
@@ -497,7 +676,7 @@ func (m *DatumData) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			i = encodeVarintTransform(dAtA, i, uint64(size))
 		}
 		i--
-		dAtA[i] = 0x12
+		dAtA[i] = 0xa
 	}
 	return len(dAtA) - i, nil
 }
@@ -611,6 +790,44 @@ func (m *JobData) Size() (n int) {
 	return n
 }
 
+func (m *DatumStats) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.ProcessStats != nil {
+		l = m.ProcessStats.Size()
+		n += 1 + l + sovTransform(uint64(l))
+	}
+	if m.DatumsProcessed != 0 {
+		n += 1 + sovTransform(uint64(m.DatumsProcessed))
+	}
+	if m.DatumsSkipped != 0 {
+		n += 1 + sovTransform(uint64(m.DatumsSkipped))
+	}
+	if m.DatumsRecovered != 0 {
+		n += 1 + sovTransform(uint64(m.DatumsRecovered))
+	}
+	if m.DatumsFailed != 0 {
+		n += 1 + sovTransform(uint64(m.DatumsFailed))
+	}
+	if len(m.RecoveredDatums) > 0 {
+		for _, s := range m.RecoveredDatums {
+			l = len(s)
+			n += 1 + l + sovTransform(uint64(l))
+		}
+	}
+	l = len(m.FailedDatumId)
+	if l > 0 {
+		n += 1 + l + sovTransform(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
 func (m *DatumData) Size() (n int) {
 	if m == nil {
 		return 0
@@ -621,8 +838,8 @@ func (m *DatumData) Size() (n int) {
 		l = m.Datums.Size()
 		n += 1 + l + sovTransform(uint64(l))
 	}
-	if m.ProcessStats != nil {
-		l = m.ProcessStats.Size()
+	if m.Stats != nil {
+		l = m.Stats.Size()
 		n += 1 + l + sovTransform(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
@@ -952,6 +1169,236 @@ func (m *JobData) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *DatumStats) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTransform
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: DatumStats: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: DatumStats: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ProcessStats", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTransform
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTransform
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTransform
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.ProcessStats == nil {
+				m.ProcessStats = &pps.ProcessStats{}
+			}
+			if err := m.ProcessStats.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DatumsProcessed", wireType)
+			}
+			m.DatumsProcessed = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTransform
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.DatumsProcessed |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DatumsSkipped", wireType)
+			}
+			m.DatumsSkipped = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTransform
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.DatumsSkipped |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DatumsRecovered", wireType)
+			}
+			m.DatumsRecovered = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTransform
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.DatumsRecovered |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 5:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DatumsFailed", wireType)
+			}
+			m.DatumsFailed = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTransform
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.DatumsFailed |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RecoveredDatums", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTransform
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTransform
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTransform
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.RecoveredDatums = append(m.RecoveredDatums, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		case 7:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field FailedDatumId", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTransform
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTransform
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTransform
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.FailedDatumId = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTransform(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthTransform
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthTransform
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func (m *DatumData) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -981,7 +1428,7 @@ func (m *DatumData) Unmarshal(dAtA []byte) error {
 			return fmt.Errorf("proto: DatumData: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
-		case 2:
+		case 1:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Datums", wireType)
 			}
@@ -1017,9 +1464,9 @@ func (m *DatumData) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
-		case 3:
+		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ProcessStats", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Stats", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -1046,10 +1493,10 @@ func (m *DatumData) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.ProcessStats == nil {
-				m.ProcessStats = &pps.ProcessStats{}
+			if m.Stats == nil {
+				m.Stats = &DatumStats{}
 			}
-			if err := m.ProcessStats.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			if err := m.Stats.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
