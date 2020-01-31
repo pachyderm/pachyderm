@@ -25,10 +25,16 @@ message JobData {
 
 message DatumData {
   // Inputs
-  pfs.Object datums = 2;
+  pfs.Object datums = 1;
 
   // Outputs
-  pps.ProcessStats process_stats = 3;
+  pps.ProcessStats process_stats = 2;
+	int64 datums_processed = 4;
+	int64 datums_skipped = 5;
+	int64 datums_recovered = 6;
+	int64 datums_failed = 7;
+	pfs.Object recovered_datums = 8;
+	string failed_datum_id = 3;
 }
 
 message MergeData {

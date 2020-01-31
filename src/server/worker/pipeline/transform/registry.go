@@ -644,7 +644,7 @@ func (reg *registry) processJob(pj *pendingJob) error {
 		pj.cancel()
 		return errutil.ErrBreak
 	case state == pps.JobState_JOB_STARTING:
-		return pj.logger.LogStep("calculating job datums (JOB_STARTING)", func() error {
+		return pj.logger.LogStep("waiting for job inputs (JOB_STARTING)", func() error {
 			return reg.processJobStarting(pj)
 		})
 	case state == pps.JobState_JOB_RUNNING:

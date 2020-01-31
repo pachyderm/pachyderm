@@ -2,14 +2,19 @@ package transform
 
 import (
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/gogo/protobuf/types"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
+	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
 )
@@ -101,8 +106,133 @@ func Worker(driver driver.Driver, logger logs.TaggedLogger, task *work.Task, sub
 	return fmt.Errorf("worker task format unrecognized")
 }
 
+func forEachDatum(driver driver.Driver, object *pfs.Object, cb func([]*common.Input) error) (retErr error) {
+	getObjectClient, err := driver.PachClient().ObjectAPIClient.GetObject(driver.PachClient().Ctx(), object)
+	if err != nil {
+		return err
+	}
+
+	grpcReader := grpcutil.NewStreamingBytesReader(getObjectClient, nil)
+	protoReader := pbutil.NewReader(grpcReader)
+
+	defer func() {
+		if retErr == io.EOF {
+			retErr = nil
+		}
+	}()
+
+	datum := &DatumInputs{}
+
+	if err := protoReader.Read(datum); err != nil {
+		return err
+	}
+
+	for {
+		cb(datum.Inputs)
+
+		if err := protoReader.Read(datum); err != nil {
+			return err
+		}
+	}
+}
+
 func handleDatumTask(driver driver.Driver, logger logs.TaggedLogger, data *DatumData) error {
 	logger.Logf("transform worker datum task: %v", data)
+	data.ProcessStats = &pps.ProcessStats{}
+	/*
+		  pps.ProcessStats process_stats = 2;
+			int64 datums_processed = 4;
+			int64 datums_skipped = 5;
+			int64 datums_recovered = 6;
+			int64 datums_failed = 7;
+			pfs.Object recovered_datums = 8;
+			string failed_datum_id = 3;
+	*/
+	limiter := limit.New(int(driver.PipelineInfo().MaxQueueSize))
+
+	runMutex := &sync.Mutex{}
+	var eg errgroup.Group
+	if err := forEachDatum(driver, data.Datums, func(inputs []*common.Input) error {
+		limiter.Acquire()
+		eg.Go(func() {
+			defer limiter.Release()
+			return processDatum(driver, logger.WithData(inputs), inputs, runMutex)
+		})
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func processDatum(driver driver.Driver, logger logs.TaggedLogger, inputs []*common.Input, runMutex *sync.Mutex) error {
+	if err := backoff.RetryUntilCancel(func() error {
+		subStats, err := driver.WithData(inputs, inputTree, logger, func(subStats *pps.ProcessStats) error {
+			env := userCodeEnv(jobInfo.Job.ID, jobInfo.OutputCommit.ID, localDriver.InputDir(), data)
+			runMutex.Lock()
+			defer runMutex.Unlock()
+			if err := driver.RunUserCode(logger, env, subStats, jobInfo.DatumTimeout); err != nil {
+				if a.pipelineInfo.Transform.ErrCmd != nil && failures == jobInfo.DatumTries-1 {
+					if err = localDriver.RunUserErrorHandlingCode(logger, env, subStats, jobInfo.DatumTimeout); err != nil {
+						return fmt.Errorf("error runUserErrorHandlingCode: %v", err)
+					}
+					return errDatumRecovered
+				}
+				return err
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+
+		b, err := driver.UploadOutput(tag, logger, data, subStats, outputTree)
+		if err != nil {
+			return err
+		}
+		// Cache datum hashtree locally
+		return a.datumCache.Put(datumIdx, bytes.NewReader(b))
+	}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
+		failures++
+		if failures >= jobInfo.DatumTries {
+			logger.Logf("failed to process datum with error: %+v", err)
+			if statsTree != nil {
+				object, size, err := pachClient.PutObject(strings.NewReader(err.Error()))
+				if err != nil {
+					logger.Errf("could not put error object: %s\n", err)
+				} else {
+					objectInfo, err := pachClient.InspectObject(object.Hash)
+					if err != nil {
+						return err
+					}
+					h, err := pfs.DecodeHash(object.Hash)
+					if err != nil {
+						return err
+					}
+					statsTree.PutFile("failure", h, size, objectInfo.BlockRef)
+				}
+			}
+			return err
+		}
+		logger.Logf("failed processing datum: %v, retrying in %v", err, d)
+		return nil
+	}); err == errDatumRecovered {
+		// keep track of the recovered datums
+		recoverMu.Lock()
+		defer recoverMu.Unlock()
+		recoveredDatums = append(recoveredDatums, a.DatumID(data))
+		atomic.AddInt64(&result.datumsRecovered, 1)
+		return nil
+	} else if err != nil {
+		result.failedDatumID = common.DatumID(data)
+		atomic.AddInt64(&result.datumsFailed, 1)
+		return nil
+	}
 	return nil
 }
 
