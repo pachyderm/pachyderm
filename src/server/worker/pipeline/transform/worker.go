@@ -804,27 +804,6 @@ func (a *APIServer) processDatums(
 	return result, nil
 }
 
-func (a *APIServer) cacheHashtree(pachClient *client.APIClient, tag string, datumIdx int64) (retErr error) {
-	buf := &bytes.Buffer{}
-	if err := pachClient.GetTag(tag, buf); err != nil {
-		return err
-	}
-	if err := a.datumCache.Put(datumIdx, buf); err != nil {
-		return err
-	}
-	if a.pipelineInfo.EnableStats {
-		buf.Reset()
-		if err := pachClient.GetTag(tag+statsTagSuffix, buf); err != nil {
-			// We are okay with not finding the stats hashtree.
-			// This allows users to enable stats on a pipeline
-			// with pre-existing jobs.
-			return nil
-		}
-		return a.datumStatsCache.Put(datumIdx, buf)
-	}
-	return nil
-}
-
 // mergeChunk merges the datum hashtrees into a chunk hashtree and stores it.
 func (a *APIServer) mergeChunk(logger logs.TaggedLogger, high int64, result *processResult) (retErr error) {
 	logger.Logf("starting to merge chunk")
@@ -850,45 +829,6 @@ func (a *APIServer) mergeChunk(logger logs.TaggedLogger, high int64, result *pro
 			return err
 		}
 		return a.chunkStatsCache.Put(high, buf)
-	}
-	return nil
-}
-
-func (a *APIServer) acquireDatums(ctx context.Context, jobID string, plan *common.Plan, logger logs.TaggedLogger, process processFunc) error {
-	chunks := a.driver.Chunks(jobID)
-	watcher, err := chunks.ReadOnly(ctx).Watch(watch.WithFilterPut())
-	if err != nil {
-		return fmt.Errorf("error creating chunk watcher: %v", err)
-	}
-	var complete bool
-	for !complete {
-		// We set complete to true and then unset it if we find an incomplete chunk
-		complete = true
-		// Attempt to claim a chunk
-		low, high := int64(0), int64(0)
-		for _, high = range plan.Chunks {
-			var chunkState common.ChunkState
-			if err := chunks.Claim(ctx, fmt.Sprint(high), &chunkState, func(ctx context.Context) error {
-				return a.processChunk(ctx, jobID, low, high, process)
-			}); err == col.ErrNotClaimed {
-				// Check if a different worker is processing this chunk
-				if chunkState.State == common.State_RUNNING {
-					complete = false
-				}
-			} else if err != nil {
-				return err
-			}
-			low = high
-		}
-		// Wait for a deletion event (ttl expired) before attempting to claim a chunk again
-		select {
-		case e := <-watcher.Watch():
-			if e.Type == watch.EventError {
-				return fmt.Errorf("chunk watch error: %v", e.Err)
-			}
-		case <-ctx.Done():
-			return ctx.Err()
-		}
 	}
 	return nil
 }

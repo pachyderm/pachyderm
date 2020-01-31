@@ -59,6 +59,8 @@ const (
 
 var (
 	errSpecialFile = errors.New("cannot upload special file")
+	statsTagSuffix = "_stats"
+)
 )
 
 func workNamespace(pipelineInfo *pps.PipelineInfo) string {

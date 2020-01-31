@@ -42,10 +42,6 @@ const (
 	shardKey ctxKey = iota
 )
 
-var (
-	statsTagSuffix = "_stats"
-)
-
 // APIServer implements the worker API
 type APIServer struct {
 	pachClient *client.APIClient

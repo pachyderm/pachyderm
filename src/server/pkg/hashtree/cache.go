@@ -137,13 +137,13 @@ func NewMergeCache(root string) *MergeCache {
 }
 
 // Put puts an id/hashtree pair in the cache and reads the hashtree from the passed in io.Reader.
-func (c *MergeCache) Put(id int64, tree io.Reader) (retErr error) {
-	return c.Cache.Put(fmt.Sprint(id), tree)
+func (c *MergeCache) Put(id string, tree io.Reader) (retErr error) {
+	return c.Cache.Put(id, tree)
 }
 
 // Get does a filtered write of id's hashtree to the passed in io.Writer.
-func (c *MergeCache) Get(id int64, w io.Writer, filter Filter) (retErr error) {
-	r, err := c.Cache.Get(fmt.Sprint(id))
+func (c *MergeCache) Get(id string, w io.Writer, filter Filter) (retErr error) {
+	r, err := c.Cache.Get(id)
 	if err != nil {
 		return err
 	}
@@ -156,8 +156,8 @@ func (c *MergeCache) Get(id int64, w io.Writer, filter Filter) (retErr error) {
 }
 
 // Delete deletes a hashtree from the cache.
-func (c *MergeCache) Delete(id int64) error {
-	return c.Cache.Delete(fmt.Sprint(id))
+func (c *MergeCache) Delete(id string) error {
+	return c.Cache.Delete(id)
 }
 
 // Merge does a filtered merge of the hashtrees in the cache.
