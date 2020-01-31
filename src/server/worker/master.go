@@ -904,7 +904,7 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 					return err
 				}
 				if spec != nil && len(spec.ChildCommits) != 0 {
-					return fmt.Errorf("Outdated spout, now shutting down")
+					return fmt.Errorf("outdated spout, now shutting down")
 				}
 
 				// start commit
