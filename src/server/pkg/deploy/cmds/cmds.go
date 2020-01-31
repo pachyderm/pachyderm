@@ -27,6 +27,7 @@ import (
 	_metrics "github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serde"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/spf13/cobra"
 )
@@ -724,7 +725,8 @@ If <object store backend> is \"s3\", then the arguments are:
 				kubeConfig := config.KubeConfig(nil)
 				namespace, _, err = kubeConfig.Namespace()
 				if err != nil {
-					return err
+					log.Errorf("couldn't load kubernetes config (using \"default\"): %v", err)
+					namespace = "default"
 				}
 			}
 
@@ -872,7 +874,8 @@ underlying volume will not be removed.
 					kubeConfig := config.KubeConfig(nil)
 					namespace, _, err = kubeConfig.Namespace()
 					if err != nil {
-						return err
+						log.Errorf("couldn't load kubernetes config (using \"default\"): %v", err)
+						namespace = "default"
 					}
 				}
 
