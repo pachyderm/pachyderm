@@ -531,16 +531,21 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 		if a.pipelineInfo.Spout.Marker != "" {
 			// check if we have a marker file in the /pfs/out directory
 			_, err := pachClient.InspectFile(a.pipelineInfo.Pipeline.Name, ppsconsts.SpoutMarkerBranch, a.pipelineInfo.Spout.Marker)
-			// if not, then it might be because we need to pull it
-			if err != nil && errutil.IsNotFoundError(err) {
+			if err != nil {
+				// if this fails because there's no head commit on the marker branch, then we don't want to pull the marker, but it's also not an error
+				if !strings.Contains(err.Error(), "no head") {
+					// if it fails for some other reason, then fail
+					return "", err
+				}
+			} else {
 				// the file might be in the spout marker directory, and so we'll try pulling it from there
 				if err := puller.Pull(pachClient, filepath.Join(dir, a.pipelineInfo.Spout.Marker), a.pipelineInfo.Pipeline.Name,
 					ppsconsts.SpoutMarkerBranch, "/"+a.pipelineInfo.Spout.Marker, false, false, concurrency, nil, ""); err != nil {
 					// this might fail if the marker branch hasn't been created, so check for that
-					if err == nil || !(strings.Contains(err.Error(), "branches") && errutil.IsNotFoundError(err)) {
+					if err == nil || !strings.Contains(err.Error(), "branches") || !errutil.IsNotFoundError(err) {
 						return "", err
 					}
-					// if it hasn't been created yet, that's fine and we should just continue as normal
+					// if it just hasn't been created yet, that's fine and we should just continue as normal
 				}
 			}
 		}
@@ -955,8 +960,10 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 		f, err := os.Open(filePath)
 		if err != nil {
 			// if the error is that the spout marker file is missing, that's fine, just skip to the next file
-			if strings.Contains(err.Error(), "out/marker") {
-				return nil
+			if a.pipelineInfo.Spout != nil {
+				if strings.Contains(err.Error(), path.Join("out", a.pipelineInfo.Spout.Marker)) {
+					return nil
+				}
 			}
 			return fmt.Errorf("os.Open(%s): %v", filePath, err)
 		}

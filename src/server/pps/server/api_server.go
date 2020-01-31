@@ -2014,8 +2014,10 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			client.NewBranch(ppsconsts.SpecRepo, pipelineName))
 		outputBranch     = client.NewBranch(pipelineName, pipelineInfo.OutputBranch)
 		statsBranch      = client.NewBranch(pipelineName, "stats")
+		markerBranch     = client.NewBranch(pipelineName, ppsconsts.SpoutMarkerBranch)
 		outputBranchHead *pfs.Commit
 		statsBranchHead  *pfs.Commit
+		markerBranchHead *pfs.Commit
 	)
 	if update {
 		// Help user fix inconsistency if previous UpdatePipeline call failed
@@ -2085,7 +2087,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		}
 
 		if !request.Reprocess {
-			// don't branch the output/stats commit chain from the old pipeline (re-use old branch HEAD)
+			// don't branch the output/stats/marker commit chain from the old pipeline (re-use old branch HEAD)
 			// However it's valid to set request.Update == true even if no pipeline exists, so only
 			// set outputBranchHead if there's an old pipeline to update
 			_, err := pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: outputBranch})
@@ -2100,6 +2102,13 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				return nil, err
 			} else if err == nil {
 				statsBranchHead = client.NewCommit(pipelineName, "stats")
+			}
+
+			_, err = pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: markerBranch})
+			if err != nil && !isNotFoundErr(err) {
+				return nil, err
+			} else if err == nil {
+				markerBranchHead = client.NewCommit(pipelineName, ppsconsts.SpoutMarkerBranch)
 			}
 		}
 
@@ -2208,6 +2217,14 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			Head:       statsBranchHead,
 		}); err != nil {
 			return nil, fmt.Errorf("could not create/update stats branch: %v", err)
+		}
+	}
+	if pipelineInfo.Spout != nil && pipelineInfo.Spout.Marker != "" {
+		if _, err := pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
+			Branch: markerBranch,
+			Head:   markerBranchHead,
+		}); err != nil {
+			return nil, fmt.Errorf("could not create/update marker branch: %v", err)
 		}
 	}
 
