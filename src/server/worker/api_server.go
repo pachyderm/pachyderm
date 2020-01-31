@@ -43,8 +43,7 @@ const (
 )
 
 var (
-	errDatumRecovered = errors.New("the datum errored, and the error was handled successfully")
-	statsTagSuffix    = "_stats"
+	statsTagSuffix = "_stats"
 )
 
 // APIServer implements the worker API
@@ -56,22 +55,11 @@ type APIServer struct {
 	// Provides common functions used by worker code
 	driver driver.Driver
 
-	// Information needed to process input data and upload output
-	pipelineInfo *pps.PipelineInfo
-
 	// The k8s pod name of this worker
 	workerName string
 
 	statusMu sync.Mutex
 
-	// The currently running job ID
-	jobID string
-	// The currently running data
-	data []*common.Input
-	// The time we started the currently running
-	started time.Time
-	// Func to cancel the currently running datum
-	cancel func()
 	// Stats about the execution of the job
 	stats *pps.ProcessStats
 	// queueSize is the number of items enqueued
@@ -80,21 +68,9 @@ type APIServer struct {
 	// The namespace in which pachyderm is deployed
 	namespace string
 
-	// Only one datum can be running at a time because they need to be
-	// accessing /pfs, runMu enforces this
-	runMu sync.Mutex
-
 	// hashtreeStorage is the where we store on disk hashtrees
 	hashtreeStorage string
 
-	// numShards is the number of filesystem shards for the output of this pipeline
-	numShards int64
-	// claimedShard communicates the context for the shard that was claimed
-	claimedShard chan context.Context
-	// shardCtx is the context for the shard this worker has claimed
-	shardCtx context.Context
-	// shard is the shard this worker has claimed
-	shard int64
 	// chunkCache caches chunk hashtrees during a job and can merge them (chunkStatsCache applies to stats)
 	chunkCache, chunkStatsCache *hashtree.MergeCache
 	// datumCache caches datum hashtrees during a job and can merge them (datumStatsCache applies to stats)
@@ -135,7 +111,6 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		etcdClient:      etcdClient,
 		etcdPrefix:      etcdPrefix,
 		driver:          d,
-		pipelineInfo:    pipelineInfo,
 		workerName:      workerName,
 		namespace:       namespace,
 		hashtreeStorage: hashtreeStorage,
@@ -239,27 +214,4 @@ func (a *APIServer) GetChunk(request *GetChunkRequest, server Worker_GetChunkSer
 		return a.chunkStatsCache.Get(request.Id, grpcutil.NewStreamingBytesWriter(server), filter)
 	}
 	return a.chunkCache.Get(request.Id, grpcutil.NewStreamingBytesWriter(server), filter)
-}
-
-func (a *APIServer) datum() []*pps.InputFile {
-	var result []*pps.InputFile
-	for _, datum := range a.data {
-		result = append(result, &pps.InputFile{
-			Path: datum.FileInfo.File.Path,
-			Hash: datum.FileInfo.Hash,
-		})
-	}
-	return result
-}
-
-// TODO: move this to common
-func userCodeEnv(jobID string, outputCommitID string, inputDir string, data []*common.Input) []string {
-	result := os.Environ()
-	for _, input := range data {
-		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(inputDir, input.Name, input.FileInfo.File.Path)))
-		result = append(result, fmt.Sprintf("%s_COMMIT=%s", input.Name, input.FileInfo.File.Commit.ID))
-	}
-	result = append(result, fmt.Sprintf("%s=%s", client.JobIDEnv, jobID))
-	result = append(result, fmt.Sprintf("%s=%s", client.OutputCommitIDEnv, outputCommitID))
-	return result
 }

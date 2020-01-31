@@ -1,12 +1,17 @@
 package transform
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"io"
-	"path"
+	"os"
+	"path/filepath"
+	// "strings"
 	"sync"
 	"time"
 
+	// "github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/sync/errgroup"
 
@@ -22,6 +27,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
+)
+
+var (
+	errDatumRecovered = errors.New("the datum errored, and the error was handled successfully")
 )
 
 func jobDatumHashtreeTag(jobID string) *pfs.Tag {
@@ -69,8 +78,8 @@ func mergeStats(x, y *DatumStats) error {
 	x.DatumsSkipped += y.DatumsSkipped
 	x.DatumsFailed += y.DatumsFailed
 	x.RecoveredDatums = append(x.RecoveredDatums, y.RecoveredDatums...)
-	if x.FailedDatumId == "" {
-		x.FailedDatumId = y.FailedDatumId
+	if x.FailedDatumID == "" {
+		x.FailedDatumID = y.FailedDatumID
 	}
 	return nil
 }
@@ -88,8 +97,9 @@ func Worker(driver driver.Driver, logger logs.TaggedLogger, task *work.Task, sub
 		return err
 	}
 
-	logger = logger.WithJob(jobData.JobId)
+	logger = logger.WithJob(jobData.JobID)
 
+	// Handle 'process datum' tasks
 	datumData, err := deserializeDatumData(subtask.Data)
 	if err == nil {
 		if err = handleDatumTask(driver, logger, datumData); err != nil {
@@ -99,6 +109,7 @@ func Worker(driver driver.Driver, logger logs.TaggedLogger, task *work.Task, sub
 		return err
 	}
 
+	// Handle 'merge hashtrees' tasks
 	mergeData, err := deserializeMergeData(subtask.Data)
 	if err == nil {
 		if err = handleMergeTask(driver, logger, mergeData); err != nil {
@@ -158,8 +169,9 @@ func handleDatumTask(driver driver.Driver, logger logs.TaggedLogger, data *Datum
 	if err := forEachDatum(driver, data.Datums, func(inputs []*common.Input) error {
 		limiter.Acquire()
 		eg.Go(func() error {
+			// TODO: create new logger for this datum
 			defer limiter.Release()
-			subStats, err := processDatum(driver, logger.WithData(inputs), inputs, runMutex)
+			subStats, err := processDatum(driver, logger.WithData(inputs), inputs, data.OutputCommit, runMutex)
 
 			statsMutex.Lock()
 			defer statsMutex.Unlock()
@@ -181,65 +193,54 @@ func handleDatumTask(driver driver.Driver, logger logs.TaggedLogger, data *Datum
 	return nil
 }
 
-/*
-
-	DatumStats:
-		ProcessStats:
-		google.protobuf.Duration download_time = 1;
-		google.protobuf.Duration process_time = 2;
-		google.protobuf.Duration upload_time = 3;
-		uint64 download_bytes = 4;
-		uint64 upload_bytes = 5;
-	int64 datums_processed = 4;
-	int64 datums_skipped = 5;
-	int64 datums_recovered = 6;
-	int64 datums_failed = 7;
-	pfs.Object recovered_datums = 8;
-	string failed_datum_id = 3;
-*/
 func processDatum(
 	driver driver.Driver,
 	logger logs.TaggedLogger,
 	inputs []*common.Input,
+	outputCommit *pfs.Commit,
 	runMutex *sync.Mutex,
 ) (*DatumStats, error) {
 	stats := &DatumStats{}
 	tag := common.HashDatum(driver.PipelineInfo().Pipeline.Name, driver.PipelineInfo().Salt, inputs)
+	datumID := common.DatumID(inputs)
 
 	if _, err := driver.PachClient().InspectTag(driver.PachClient().Ctx(), client.NewTag(tag)); err == nil {
 		logger.Logf("skipping datum")
 		if err := driver.DownloadAndCacheHashtree(logger.JobID(), tag); err != nil {
-			return err
+			return stats, err
 		}
-		stats.DatumsSkipped += 1
+		stats.DatumsSkipped++
 		return stats, nil
 	}
 
 	var inputTree, outputTree *hashtree.Ordered
 	var statsTree *hashtree.Unordered
+	/* TODO: enable stats
 	if driver.PipelineInfo().EnableStats {
-		statsRoot := path.Join("/", common.DatumID(data))
+		statsRoot := path.Join("/", datumID)
 		inputTree = hashtree.NewOrdered(path.Join(statsRoot, "pfs"))
 		outputTree = hashtree.NewOrdered(path.Join(statsRoot, "pfs", "out"))
 		statsTree = hashtree.NewUnordered(statsRoot)
 		// Write job id to stats tree
-		statsTree.PutFile(fmt.Sprintf("job:%s", jobInfo.Job.ID), nil, 0)
+		statsTree.PutFile(fmt.Sprintf("job:%s", logger.JobID()), nil, 0)
 		defer func() {
 			if err := writeStats(driver, logger, tag, stats.ProcessStats, inputTree, outputTree, statsTree); err != nil && retErr == nil {
 				retErr = err
 			}
 		}()
 	}
+	*/
 
-	if err := backoff.RetryUntilCancel(func() error {
+	var failures int64
+	if err := backoff.RetryUntilCancel(driver.PachClient().Ctx(), func() error {
 		var err error
 		stats.ProcessStats, err = driver.WithData(inputs, inputTree, logger, func(processStats *pps.ProcessStats) error {
-			env := userCodeEnv(jobInfo.Job.ID, jobInfo.OutputCommit.ID, driver.InputDir(), data)
+			env := userCodeEnv(logger.JobID(), outputCommit, driver.InputDir(), inputs)
 			runMutex.Lock()
 			defer runMutex.Unlock()
-			if err := driver.RunUserCode(logger, env, processStats, jobInfo.DatumTimeout); err != nil {
-				if a.pipelineInfo.Transform.ErrCmd != nil && failures == jobInfo.DatumTries-1 {
-					if err = localDriver.RunUserErrorHandlingCode(logger, env, processStats, jobInfo.DatumTimeout); err != nil {
+			if err := driver.RunUserCode(logger, env, processStats, driver.PipelineInfo().DatumTimeout); err != nil {
+				if driver.PipelineInfo().Transform.ErrCmd != nil && failures == driver.PipelineInfo().DatumTries-1 {
+					if err = driver.RunUserErrorHandlingCode(logger, env, processStats, driver.PipelineInfo().DatumTimeout); err != nil {
 						return fmt.Errorf("error runUserErrorHandlingCode: %v", err)
 					}
 					return errDatumRecovered
@@ -249,19 +250,20 @@ func processDatum(
 			return nil
 		})
 		if err != nil {
-			return stats, err
+			return err
 		}
 
-		b, err := driver.UploadOutput(tag, logger, data, stats.ProcessStats, outputTree)
+		b, err := driver.UploadOutput(tag, logger, inputs, stats.ProcessStats, outputTree)
 		if err != nil {
 			return err
 		}
 		// Cache datum hashtree locally
-		return driver.CacheHashtree(logger.JobID(), bytes.NewReader(b))
+		return driver.CacheHashtree(logger.JobID(), tag, bytes.NewReader(b))
 	}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
 		failures++
-		if failures >= jobInfo.DatumTries {
+		if failures >= driver.PipelineInfo().DatumTries {
 			logger.Logf("failed to process datum with error: %+v", err)
+			/* TODO: enable stats
 			if statsTree != nil {
 				object, size, err := pachClient.PutObject(strings.NewReader(err.Error()))
 				if err != nil {
@@ -278,15 +280,16 @@ func processDatum(
 					statsTree.PutFile("failure", h, size, objectInfo.BlockRef)
 				}
 			}
+			*/
 			return err
 		}
 		logger.Logf("failed processing datum: %v, retrying in %v", err, d)
 		return nil
 	}); err == errDatumRecovered {
 		// keep track of the recovered datums
-		append(stats.RecoveredDatums, common.DatumID(inputs))
+		stats.RecoveredDatums = append(stats.RecoveredDatums, datumID)
 	} else if err != nil {
-		stats.FailedDatumID = common.DatumID(inputs)
+		stats.FailedDatumID = datumID
 		stats.DatumsFailed++
 	} else {
 		stats.DatumsProcessed++
@@ -294,6 +297,18 @@ func processDatum(
 	return stats, nil
 }
 
+func userCodeEnv(jobID string, outputCommit *pfs.Commit, inputDir string, inputs []*common.Input) []string {
+	result := os.Environ()
+	for _, input := range inputs {
+		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(inputDir, input.Name, input.FileInfo.File.Path)))
+		result = append(result, fmt.Sprintf("%s_COMMIT=%s", input.Name, input.FileInfo.File.Commit.ID))
+	}
+	result = append(result, fmt.Sprintf("%s=%s", client.JobIDEnv, jobID))
+	result = append(result, fmt.Sprintf("%s=%s", client.OutputCommitIDEnv, outputCommit.ID))
+	return result
+}
+
+/* TODO: enable stats
 func writeStats(
 	driver driver.Driver,
 	logger logs.TaggedLogger,
@@ -310,12 +325,12 @@ func writeStats(
 		logger.Errf("could not serialize stats: %s\n", err)
 		return err
 	}
-	object, size, err := pachClient.PutObject(strings.NewReader(statsString))
+	object, size, err := driver.PachClient().PutObject(strings.NewReader(statsString))
 	if err != nil {
 		logger.Errf("could not put stats object: %s\n", err)
 		return err
 	}
-	objectInfo, err := pachClient.InspectObject(object.Hash)
+	objectInfo, err := driver.PachClient().InspectObject(object.Hash)
 	if err != nil {
 		return err
 	}
@@ -330,7 +345,7 @@ func writeStats(
 		return err
 	}
 	if object != nil {
-		objectInfo, err := pachClient.InspectObject(object.Hash)
+		objectInfo, err := driver.PachClient().InspectObject(object.Hash)
 		if err != nil {
 			return err
 		}
@@ -357,7 +372,7 @@ func writeStats(
 		return err
 	}
 	// Write datum stats hashtree to object storage
-	objW, err := pachClient.PutObjectAsync([]*pfs.Tag{client.NewTag(tag + statsTagSuffix)})
+	objW, err := driver.PachClient().PutObjectAsync([]*pfs.Tag{client.NewTag(tag + statsTagSuffix)})
 	if err != nil {
 		return err
 	}
@@ -370,8 +385,9 @@ func writeStats(
 		return err
 	}
 	// Cache datum stats hashtree locally
-	return a.datumStatsCache.Put(datumIdx, bytes.NewReader(buf.Bytes()))
+	return driver.CacheStatsHashtree(logger.JobID(), tag, bytes.NewReader(buf.Bytes()))
 }
+*/
 
 func handleMergeTask(driver driver.Driver, logger logs.TaggedLogger, data *MergeData) error {
 	logger.Logf("transform worker merge task: %v", data)
@@ -741,25 +757,6 @@ func (a *APIServer) processDatums(
 				}
 				logger.Logf("failed processing datum: %v, retrying in %v", err, d)
 				return nil
-			}); err == errDatumRecovered {
-				// keep track of the recovered datums
-				recoverMu.Lock()
-				defer recoverMu.Unlock()
-				recoveredDatums = append(recoveredDatums, a.DatumID(data))
-				atomic.AddInt64(&result.datumsRecovered, 1)
-				return nil
-			} else if err != nil {
-				result.failedDatumID = common.DatumID(data)
-				atomic.AddInt64(&result.datumsFailed, 1)
-				return nil
-			}
-			statsMu.Lock()
-			defer statsMu.Unlock()
-			if err := mergeStats(stats, subStats); err != nil {
-				logger.Logf("failed to merge Stats: %v", err)
-			}
-			return nil
-		})
 	}
 	if err := eg.Wait(); err != nil {
 		return nil, err

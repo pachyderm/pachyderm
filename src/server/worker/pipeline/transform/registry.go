@@ -289,7 +289,7 @@ func (reg *registry) makeDatumTask(
 			return err
 		}
 
-		taskData, err := serializeDatumData(&DatumData{Datums: datums})
+		taskData, err := serializeDatumData(&DatumData{Datums: datums, OutputCommit: pj.ji.OutputCommit})
 		if err != nil {
 			return err
 		}
@@ -341,7 +341,7 @@ func (reg *registry) makeDatumTask(
 		}
 	}
 
-	jobData, err := serializeJobData(&JobData{JobId: pj.ji.Job.ID})
+	jobData, err := serializeJobData(&JobData{JobID: pj.ji.Job.ID})
 	if err != nil {
 		return nil, fmt.Errorf("failed to serialize job data: %v", err)
 	}
@@ -736,7 +736,7 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 
 	reg.mutex.Unlock()
 
-	processStats := &pps.ProcessStats{}
+	stats := &DatumStats{ProcessStats: &pps.ProcessStats{}}
 
 	eg := errgroup.Group{}
 
@@ -754,7 +754,7 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 					if err != nil {
 						return err
 					}
-					mergeStats(processStats, data.ProcessStats)
+					mergeStats(stats, data.Stats)
 					return nil
 				},
 			)
@@ -770,7 +770,7 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 		return fmt.Errorf("process datum error: %v", err)
 	}
 
-	pj.logger.Logf("processJobRunning updating task to merging")
+	pj.logger.Logf("processJobRunning updating task to merging, total stats: %v", stats)
 	pj.ji.State = pps.JobState_JOB_MERGING
 	return updateJobState(pj.client, pj.ji)
 }
@@ -790,7 +790,7 @@ func (reg *registry) processJobMerging(pj *pendingJob) error {
 		})
 	}
 
-	jobData, err := serializeJobData(&JobData{JobId: pj.ji.Job.ID})
+	jobData, err := serializeJobData(&JobData{JobID: pj.ji.Job.ID})
 	if err != nil {
 		return fmt.Errorf("failed to serialize job data: %v", err)
 	}

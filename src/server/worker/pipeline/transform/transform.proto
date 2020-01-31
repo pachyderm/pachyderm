@@ -3,6 +3,8 @@ syntax = "proto3";
 package pachyderm.worker.pipeline.transform;
 option go_package = "github.com/pachyderm/pachyderm/src/server/worker/pipeline/transform";
 
+import "gogoproto/gogo.proto";
+
 import "client/pfs/pfs.proto";
 import "client/pps/pps.proto";
 import "server/worker/common/common.proto";
@@ -20,7 +22,7 @@ message HashtreeInfo {
 }
 
 message JobData {
-  string job_id = 1;
+  string job_id = 1 [(gogoproto.customname) = "JobID"];
 }
 
 message DatumStats {
@@ -29,15 +31,16 @@ message DatumStats {
 	int64 datums_skipped = 3;
   int64 datums_failed = 5;
   repeated string recovered_datums = 6;
-	string failed_datum_id = 7;
+	string failed_datum_id = 7 [(gogoproto.customname) = "FailedDatumID"];
 }
 
 message DatumData {
   // Inputs
   pfs.Object datums = 1;
+  pfs.Commit output_commit = 2;
 
   // Outputs
-  DatumStats stats = 2;
+  DatumStats stats = 3;
 }
 
 message MergeData {
