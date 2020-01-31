@@ -455,6 +455,34 @@ func TestYAMLTimestamp(t *testing.T) {
 	).Run())
 }
 
+func TestEditPipeline(t *testing.T) {
+	require.NoError(t, tu.BashCmd(`
+		yes | pachctl delete all
+	`).Run())
+	require.NoError(t, tu.BashCmd(`
+		pachctl create repo data
+		pachctl create pipeline <<EOF
+		  pipeline:
+		    name: my-pipeline
+		  input:
+		    pfs:
+		      glob: /*
+		      repo: data
+		  transform:
+		    cmd: [ /bin/bash ]
+		    stdin:
+		      - "cp /pfs/data/* /pfs/out"
+		EOF
+		`).Run())
+	require.NoError(t, tu.BashCmd(`
+		EDITOR=cat pachctl edit pipeline my-pipeline -o yaml \
+		| match 'name: my-pipeline' \
+		| match 'repo: data' \
+		| match 'cmd:' \
+		| match 'cp /pfs/data/\* /pfs/out'
+		`).Run())
+}
+
 // func TestPushImages(t *testing.T) {
 // 	if testing.Short() {
 // 		t.Skip("Skipping integration tests in short mode")

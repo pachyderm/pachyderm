@@ -51,7 +51,7 @@ var (
 	grpcProxyName               = "grpc-proxy"
 	pachdName                   = "pachd"
 	// PrometheusPort hosts the prometheus stats for scraping
-	PrometheusPort = 9091
+	PrometheusPort = 656
 
 	// Role & binding names, used for Roles or ClusterRoles and their associated
 	// bindings.
@@ -67,10 +67,9 @@ var (
 		Verbs:     []string{"get", "list", "watch", "create", "update", "delete"},
 		Resources: []string{"replicationcontrollers", "services"},
 	}, {
-		APIGroups:     []string{""},
-		Verbs:         []string{"get", "list", "watch", "create", "update", "delete"},
-		Resources:     []string{"secrets"},
-		ResourceNames: []string{client.StorageSecretName},
+		APIGroups: []string{""},
+		Verbs:     []string{"get", "list", "watch", "create", "update", "delete", "deletecollection"},
+		Resources: []string{"secrets"},
 	}}
 
 	// The name of the local volume (mounted kubernetes secret) where pachd
@@ -138,6 +137,18 @@ const (
 type StorageOpts struct {
 	UploadConcurrencyLimit int
 }
+
+const (
+	// RequireCriticalServersOnlyEnvVar is the environment variable for requiring critical servers only.
+	RequireCriticalServersOnlyEnvVar = "REQUIRE_CRITICAL_SERVERS_ONLY"
+)
+
+const (
+	// DefaultRequireCriticalServersOnly is the default for requiring critical servers only.
+	// (bryce) this default is set here and in the service env config, need to figure out how to refactor
+	// this to be in one place.
+	DefaultRequireCriticalServersOnly = false
+)
 
 // AssetOpts are options that are applicable to all the asset types.
 type AssetOpts struct {
@@ -236,6 +247,10 @@ type AssetOpts struct {
 	// Sets the cluster deployment ID. If unset, this will be a randomly
 	// generated UUID without dashes.
 	ClusterDeploymentID string
+
+	// RequireCriticalServersOnly is true when only the critical Pachd servers
+	// are required to startup and run without error.
+	RequireCriticalServersOnly bool
 }
 
 // replicas lets us create a pointer to a non-zero int32 in-line. This is
@@ -574,6 +589,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 		},
 		{Name: "EXPOSE_OBJECT_API", Value: strconv.FormatBool(opts.ExposeObjectAPI)},
 		{Name: "CLUSTER_DEPLOYMENT_ID", Value: opts.ClusterDeploymentID},
+		{Name: RequireCriticalServersOnlyEnvVar, Value: strconv.FormatBool(opts.RequireCriticalServersOnly)},
 	}
 	envVars = append(envVars, GetSecretEnvVars("")...)
 	envVars = append(envVars, getStorageEnvVars(opts)...)

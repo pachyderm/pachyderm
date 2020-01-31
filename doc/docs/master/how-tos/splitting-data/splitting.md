@@ -2,7 +2,7 @@
 
 Before you read this section, make sure that you understand
 the concepts described in
-[Distributed Computing](../distributed_computing.md).
+[Distributed Computing](../../concepts/advanced-concepts/distributed_computing.md).
 
 Pachyderm enables you to parallelize computations over data as long as
 that data can be split up into multiple *datums*.  However, in many

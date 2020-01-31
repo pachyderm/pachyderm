@@ -64,16 +64,14 @@
         "watch",
         "create",
         "update",
-        "delete"
+        "delete",
+        "deletecollection"
       ],
       "apiGroups": [
         ""
       ],
       "resources": [
         "secrets"
-      ],
-      "resourceNames": [
-        "pachyderm-storage-secret"
       ]
     }
   ]
@@ -289,7 +287,7 @@
       "suite": "pachyderm"
     },
     "annotations": {
-      "prometheus.io/port": "9091",
+      "prometheus.io/port": "656",
       "prometheus.io/scrape": "true"
     }
   },
@@ -321,9 +319,9 @@
       },
       {
         "name": "api-git-port",
-        "port": 999,
+        "port": 655,
         "targetPort": 0,
-        "nodePort": 30999
+        "nodePort": 30655
       },
       {
         "name": "s3gateway-port",
@@ -412,7 +410,7 @@
               },
               {
                 "name": "api-git-port",
-                "containerPort": 999,
+                "containerPort": 655,
                 "protocol": "TCP"
               },
               {
@@ -508,6 +506,10 @@
               {
                 "name": "CLUSTER_DEPLOYMENT_ID",
                 "value": "test"
+              },
+              {
+                "name": "REQUIRE_CRITICAL_SERVERS_ONLY",
+                "value": "false"
               },
               {
                 "name": "GOOGLE_BUCKET",

@@ -60,6 +60,14 @@ const (
 	// retroactively, as that would require modifying all of the directory's
 	// children to indicate that they include header data in their parent)
 	HeaderFooterConflict
+
+	// MixedObjectsAndBlockRefs is returned when PutFile attempts to append
+	// Objects to a file that already has BlockRefs or BlockRefs to a file that
+	// already has Objects. This generally happens when you user tries to copy
+	// from an output file to an input file that already has content, or tries
+	// to write to an input file that was created by copying from an output
+	// file.
+	MixedObjectsAndBlockRefs
 )
 
 // HashTree is the signature of a hash tree provided by this library. To get a
@@ -129,6 +137,9 @@ type HashTree interface {
 	// PutFile appends data to a file (and creates the file if it doesn't exist).
 	PutFile(path string, objects []*pfs.Object, size int64) error
 
+	// PutFileBlockRefs is like PutFile, but it uses block refs instead of objects.
+	PutFileBlockRefs(path string, brs []*pfs.BlockRef, size int64) error
+
 	// PutFileHeaderFooter is the same as PutFile, except that it marks the
 	// FileNode at 'path' as having a header stored in its parent directory and
 	// validates that the parent directory has the right header/footer data
@@ -145,6 +156,10 @@ type HashTree interface {
 	// sizeDelta is the delta between the size of the objects added and
 	// the size of the objects removed.
 	PutFileOverwrite(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64) error
+
+	// PutFileOverwriteBlockRefs is the same as PutFileOverwrite except that it
+	// uses Block Refs instead of objects.
+	PutFileOverwriteBlockRefs(path string, brs []*pfs.BlockRef, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64) error
 
 	// PutDir creates a directory (or does nothing if one exists).
 	PutDir(path string) error

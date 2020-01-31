@@ -3499,7 +3499,7 @@ func TestPipelineEnv(t *testing.T) {
 					fmt.Sprintf("echo $%s_COMMIT >/pfs/out/input_commit", dataRepo),
 				},
 				Env: map[string]string{"bar": "bar"},
-				Secrets: []*pps.Secret{
+				Secrets: []*pps.SecretMount{
 					{
 						Name:      secretName,
 						Key:       "foo",
@@ -10693,6 +10693,53 @@ func TestPodPatchUnmarshalling(t *testing.T) {
 	}
 }
 
+func TestSecrets(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	b := []byte(
+		`{
+			"kind": "Secret",
+			"apiVersion": "v1",
+			"metadata": {
+				"name": "test-secret",
+				"creationTimestamp": null
+			},
+			"data": {
+				"mykey": "bXktdmFsdWU="
+			}
+		}`)
+	require.NoError(t, c.CreateSecret(b))
+
+	secretInfo, err := c.InspectSecret("test-secret")
+	secretInfo.CreationTimestamp = nil
+	require.NoError(t, err)
+	require.Equal(t, &pps.SecretInfo{
+		Secret: &pps.Secret{
+			Name: "test-secret",
+		},
+		Type:              "Opaque",
+		CreationTimestamp: nil,
+	}, secretInfo)
+
+	secretInfos, err := c.ListSecret()
+	require.NoError(t, err)
+	initialLength := len(secretInfos)
+
+	require.NoError(t, c.DeleteSecret("test-secret"))
+
+	secretInfos, err = c.ListSecret()
+	require.NoError(t, err)
+	require.Equal(t, initialLength-1, len(secretInfos))
+
+	_, err = c.InspectSecret("test-secret")
+	require.YesError(t, err)
+}
+
 // TestPFSPanicOnNilArgs tests for a regression where pachd would panic
 // if passed nil args on some PFS endpoints. See
 // https://github.com/pachyderm/pachyderm/issues/4279.
@@ -10773,6 +10820,75 @@ func TestPFSPanicOnNilArgs(t *testing.T) {
 	requireNoPanic(err)
 	_, err = pfc.CloseAndRecv()
 	requireNoPanic(err)
+}
+
+func TestCopyOutToIn(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestCopyOutToIn_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	_, err := c.PutFile(dataRepo, "master", "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	pipeline := tu.UniqueString("TestSimplePipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp -R /pfs/%s/* /pfs/out/", dataRepo),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(dataRepo, "/*"),
+		"",
+		false,
+	))
+
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	require.NoError(t, c.CopyFile(pipeline, "master", "file", dataRepo, "master", "file2", false))
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+
+	require.YesError(t, c.CopyFile(pipeline, "master", "file", dataRepo, "master", "file", false))
+
+	_, err = c.PutFile(dataRepo, "master", "file2", strings.NewReader("foo"))
+	require.YesError(t, err)
+
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(pipeline, "master", "file2", 0, 0, &buf))
+	require.Equal(t, "foo", buf.String())
+
+	pfc, err := c.NewPutFileClient()
+	require.NoError(t, err)
+	_, err = pfc.PutFile(dataRepo, "master", "dir/file3", strings.NewReader("foo"))
+	require.NoError(t, err)
+	_, err = pfc.PutFile(dataRepo, "master", "dir/file4", strings.NewReader("bar"))
+	require.NoError(t, err)
+	require.NoError(t, pfc.Close())
+
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+
+	require.NoError(t, c.CopyFile(pipeline, "master", "dir", dataRepo, "master", "dir2", false))
+
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+
+	buf.Reset()
+	require.NoError(t, c.GetFile(pipeline, "master", "dir/file3", 0, 0, &buf))
+	require.Equal(t, "foo", buf.String())
+	buf.Reset()
+	require.NoError(t, c.GetFile(pipeline, "master", "dir/file4", 0, 0, &buf))
+	require.Equal(t, "bar", buf.String())
 }
 
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {

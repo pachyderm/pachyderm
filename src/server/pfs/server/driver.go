@@ -1501,7 +1501,6 @@ func (d *driver) finishOutputCommit(txnCtx *txnenv.TransactionContext, commit *p
 }
 
 func (d *driver) updateProvenanceProgress(txnCtx *txnenv.TransactionContext, success bool, ci *pfs.CommitInfo) error {
-	fmt.Println("updateProvenanceProgress")
 	for _, provC := range ci.Provenance {
 		provCi := &pfs.CommitInfo{}
 		if err := d.commits(provC.Commit.Repo.Name).ReadWrite(txnCtx.Stm).Update(provC.Commit.ID, provCi, func() error {
@@ -3075,6 +3074,31 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 	return records, nil
 }
 
+func appendRecords(pfr *pfs.PutFileRecords, node *hashtree.NodeProto) {
+	for i, object := range node.FileNode.Objects {
+		// We only have the whole file size in src file, so mark the first object
+		// as the size of the whole file and all the rest as size 0; applyWrite
+		// will compute the right sum size for the target file
+		// TODO(msteffen): this is a bit of a hack--either PutFileRecords should
+		// only record the sum size of all PutFileRecord messages as well, or
+		// FileNodeProto should record the size of every object
+		var size int64
+		if i == 0 {
+			size = node.SubtreeSize
+		}
+		pfr.Records = append(pfr.Records, &pfs.PutFileRecord{
+			SizeBytes:  size,
+			ObjectHash: object.Hash,
+		})
+	}
+	for _, blockRef := range node.FileNode.BlockRefs {
+		pfr.Records = append(pfr.Records, &pfs.PutFileRecord{
+			BlockRef:  blockRef,
+			SizeBytes: int64(blockRef.Range.Upper - blockRef.Range.Lower),
+		})
+	}
+}
+
 // headerDirToPutFileRecords is a helper for copyFile that handles copying
 // header/footer directories.
 //
@@ -3088,6 +3112,9 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 // will correctly convert back to a header dir in the target hashtree via the
 // regular putFile codepath.
 func headerDirToPutFileRecords(tree hashtree.HashTree, path string, node *hashtree.NodeProto) (*pfs.PutFileRecords, error) {
+	if tree == nil {
+		return nil, fmt.Errorf("called headerDirToPutFileRecords with nil tree (this is likely a bug")
+	}
 	if node.DirNode == nil || node.DirNode.Shared == nil {
 		return nil, fmt.Errorf("headerDirToPutFileRecords only works on header/footer dirs")
 	}
@@ -3112,20 +3139,7 @@ func headerDirToPutFileRecords(tree hashtree.HashTree, path string, node *hashtr
 			return fmt.Errorf("header/footer dir contains child subdirectory, " +
 				"which is invalid--header/footer dirs must be created by PutFileSplit")
 		}
-		for i, o := range child.FileNode.Objects {
-			// same hack as copyFile--set size of first object to the size of the
-			// whole subtree (and size of other objects to 0). I don't think
-			// PutFileSplit files can have more than one object, but that invariant
-			// isn't necessary to this code's correctness, so don't verify it.
-			var size int64
-			if i == 0 {
-				size = child.SubtreeSize
-			}
-			pfr.Records = append(pfr.Records, &pfs.PutFileRecord{
-				SizeBytes:  size,
-				ObjectHash: o.Hash,
-			})
-		}
+		appendRecords(pfr, child)
 		return nil
 	}); err != nil {
 		return nil, err
@@ -3133,7 +3147,7 @@ func headerDirToPutFileRecords(tree hashtree.HashTree, path string, node *hashtr
 	return pfr, nil // TODO(msteffen) put something real here
 }
 
-func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.File, overwrite bool) error {
+func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.File, overwrite bool) (retErr error) {
 	// Validate arguments
 	if src == nil {
 		return errors.New("src cannot be nil")
@@ -3193,17 +3207,9 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 			records = append(records, &pfs.PutFileRecords{Tombstone: true})
 		}
 	}
-	srcTree, err := d.getTreeForFile(pachClient, src)
-	if err != nil {
-		return err
-	}
-	defer destroyHashtree(srcTree)
-	// This is necessary so we can call filepath.Rel below
-	if !strings.HasPrefix(src.Path, "/") {
-		src.Path = "/" + src.Path
-	}
 	var eg errgroup.Group
-	if err := srcTree.Walk(src.Path, func(walkPath string, node *hashtree.NodeProto) error {
+	var srcTree hashtree.HashTree
+	cb := func(walkPath string, node *hashtree.NodeProto) error {
 		relPath, err := filepath.Rel(src.Path, walkPath)
 		if err != nil {
 			return fmt.Errorf("error from filepath.Rel (likely a bug): %v", err)
@@ -3222,22 +3228,7 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 		} else if node.FileNode.HasHeaderFooter {
 			return nil // parent dir will be copied as a PutFileRecord w/ Split==true
 		} else {
-			for i, object := range node.FileNode.Objects {
-				// We only have the whole file size in src file, so mark the first object
-				// as the size of the whole file and all the rest as size 0; applyWrite
-				// will compute the right sum size for the target file
-				// TODO(msteffen): this is a bit of a hack--either PutFileRecords should
-				// only record the sum size of all PutFileRecord messages as well, or
-				// FileNodeProto should record the size of every object
-				var size int64
-				if i == 0 {
-					size = node.SubtreeSize
-				}
-				record.Records = append(record.Records, &pfs.PutFileRecord{
-					SizeBytes:  size,
-					ObjectHash: object.Hash,
-				})
-			}
+			appendRecords(record, node)
 		}
 
 		// Either upsert 'record' to etcd (if 'dst' is in an open commit) or add it
@@ -3251,8 +3242,40 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 			records = append(records, record)
 		}
 		return nil
-	}); err != nil {
+	}
+	// This is necessary so we can call filepath.Rel
+	if !strings.HasPrefix(src.Path, "/") {
+		src.Path = "/" + src.Path
+	}
+	srcCi, err := d.inspectCommit(pachClient, src.Commit, pfs.CommitState_STARTED)
+	if err != nil {
 		return err
+	}
+	if !provenantOnInput(srcCi.Provenance) || srcCi.Tree != nil {
+		// handle input commits
+		srcTree, err = d.getTreeForFile(pachClient, src)
+		if err != nil {
+			return err
+		}
+		defer destroyHashtree(srcTree)
+		if err := srcTree.Walk(src.Path, cb); err != nil {
+			return err
+		}
+	} else {
+		rs, err := d.getTree(pachClient, srcCi, src.Path)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			for _, r := range rs {
+				if err := r.Close(); err != nil && retErr != nil {
+					retErr = err
+				}
+			}
+		}()
+		if err := hashtree.Walk(rs, src.Path, cb); err != nil {
+			return err
+		}
 	}
 	if err := eg.Wait(); err != nil {
 		return err
@@ -3519,6 +3542,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 		var (
 			pathsFound int
 			objects    []*pfs.Object
+			brs        []*pfs.BlockRef
 			totalSize  uint64
 			footer     *pfs.Object
 			prevDir    string
@@ -3565,6 +3589,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 				}
 			}
 			objects = append(objects, node.FileNode.Objects...)
+			brs = append(brs, node.FileNode.BlockRefs...)
 			totalSize += uint64(node.SubtreeSize)
 			return nil
 		}); err != nil {
@@ -3578,6 +3603,20 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 		}
 
 		// retrieve the content of all objects in 'objects'
+		if len(brs) > 0 {
+			getBlocksClient, err := pachClient.ObjectAPIClient.GetBlocks(
+				ctx,
+				&pfs.GetBlocksRequest{
+					BlockRefs:   brs,
+					OffsetBytes: uint64(offset),
+					SizeBytes:   uint64(size),
+					TotalSize:   uint64(totalSize),
+				})
+			if err != nil {
+				return nil, err
+			}
+			return grpcutil.NewStreamingBytesReader(getBlocksClient, nil), nil
+		}
 		getObjectsClient, err := pachClient.ObjectAPIClient.GetObjects(
 			ctx,
 			&pfs.GetObjectsRequest{
@@ -4232,12 +4271,24 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 					}
 				}
 
-				if err := tree.PutFileOverwrite(key, []*pfs.Object{{Hash: record.ObjectHash}}, record.OverwriteIndex, delta); err != nil {
-					return err
+				if record.ObjectHash != "" {
+					if err := tree.PutFileOverwrite(key, []*pfs.Object{{Hash: record.ObjectHash}}, record.OverwriteIndex, delta); err != nil {
+						return err
+					}
+				} else if record.BlockRef != nil {
+					if err := tree.PutFileOverwriteBlockRefs(key, []*pfs.BlockRef{record.BlockRef}, record.OverwriteIndex, delta); err != nil {
+						return err
+					}
 				}
 			} else {
-				if err := tree.PutFile(key, []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
-					return err
+				if record.ObjectHash != "" {
+					if err := tree.PutFile(key, []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
+						return err
+					}
+				} else if record.BlockRef != nil {
+					if err := tree.PutFileBlockRefs(key, []*pfs.BlockRef{record.BlockRef}, record.SizeBytes); err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -4285,8 +4336,14 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 					return err
 				}
 			} else {
-				if err := tree.PutFile(path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))), []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
-					return err
+				if record.ObjectHash != "" {
+					if err := tree.PutFile(path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))), []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
+						return err
+					}
+				} else if record.BlockRef != nil {
+					if err := tree.PutFileBlockRefs(path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))), []*pfs.BlockRef{record.BlockRef}, record.SizeBytes); err != nil {
+						return err
+					}
 				}
 			}
 		}

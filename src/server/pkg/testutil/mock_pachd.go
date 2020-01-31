@@ -700,6 +700,10 @@ type startPipelineFunc func(context.Context, *pps.StartPipelineRequest) (*types.
 type stopPipelineFunc func(context.Context, *pps.StopPipelineRequest) (*types.Empty, error)
 type runPipelineFunc func(context.Context, *pps.RunPipelineRequest) (*types.Empty, error)
 type runCronFunc func(context.Context, *pps.RunCronRequest) (*types.Empty, error)
+type createSecretFunc func(context.Context, *pps.CreateSecretRequest) (*types.Empty, error)
+type deleteSecretFunc func(context.Context, *pps.DeleteSecretRequest) (*types.Empty, error)
+type inspectSecretFunc func(context.Context, *pps.InspectSecretRequest) (*pps.SecretInfo, error)
+type listSecretFunc func(context.Context, *types.Empty) (*pps.SecretInfos, error)
 type deleteAllPPSFunc func(context.Context, *types.Empty) (*types.Empty, error)
 type getLogsFunc func(*pps.GetLogsRequest, pps.API_GetLogsServer) error
 type garbageCollectFunc func(context.Context, *pps.GarbageCollectRequest) (*pps.GarbageCollectResponse, error)
@@ -725,6 +729,10 @@ type mockStartPipeline struct{ handler startPipelineFunc }
 type mockStopPipeline struct{ handler stopPipelineFunc }
 type mockRunPipeline struct{ handler runPipelineFunc }
 type mockRunCron struct{ handler runCronFunc }
+type mockCreateSecret struct{ handler createSecretFunc }
+type mockDeleteSecret struct{ handler deleteSecretFunc }
+type mockInspectSecret struct{ handler inspectSecretFunc }
+type mockListSecret struct{ handler listSecretFunc }
 type mockDeleteAllPPS struct{ handler deleteAllPPSFunc }
 type mockGetLogs struct{ handler getLogsFunc }
 type mockGarbageCollect struct{ handler garbageCollectFunc }
@@ -750,6 +758,10 @@ func (mock *mockStartPipeline) Use(cb startPipelineFunc)     { mock.handler = cb
 func (mock *mockStopPipeline) Use(cb stopPipelineFunc)       { mock.handler = cb }
 func (mock *mockRunPipeline) Use(cb runPipelineFunc)         { mock.handler = cb }
 func (mock *mockRunCron) Use(cb runCronFunc)                 { mock.handler = cb }
+func (mock *mockCreateSecret) Use(cb createSecretFunc)       { mock.handler = cb }
+func (mock *mockDeleteSecret) Use(cb deleteSecretFunc)       { mock.handler = cb }
+func (mock *mockInspectSecret) Use(cb inspectSecretFunc)     { mock.handler = cb }
+func (mock *mockListSecret) Use(cb listSecretFunc)           { mock.handler = cb }
 func (mock *mockDeleteAllPPS) Use(cb deleteAllPPSFunc)       { mock.handler = cb }
 func (mock *mockGetLogs) Use(cb getLogsFunc)                 { mock.handler = cb }
 func (mock *mockGarbageCollect) Use(cb garbageCollectFunc)   { mock.handler = cb }
@@ -781,6 +793,10 @@ type mockPPSServer struct {
 	StopPipeline    mockStopPipeline
 	RunPipeline     mockRunPipeline
 	RunCron         mockRunCron
+	CreateSecret    mockCreateSecret
+	DeleteSecret    mockDeleteSecret
+	InspectSecret   mockInspectSecret
+	ListSecret      mockListSecret
 	DeleteAll       mockDeleteAllPPS
 	GetLogs         mockGetLogs
 	GarbageCollect  mockGarbageCollect
@@ -906,6 +922,30 @@ func (api *ppsServerAPI) RunCron(ctx context.Context, req *pps.RunCronRequest) (
 		return api.mock.RunCron.handler(ctx, req)
 	}
 	return nil, fmt.Errorf("unhandled pachd mock pps.RunCron")
+}
+func (api *ppsServerAPI) CreateSecret(ctx context.Context, req *pps.CreateSecretRequest) (*types.Empty, error) {
+	if api.mock.CreateSecret.handler != nil {
+		return api.mock.CreateSecret.handler(ctx, req)
+	}
+	return nil, fmt.Errorf("unhandled pachd mock pps.CreateSecret")
+}
+func (api *ppsServerAPI) DeleteSecret(ctx context.Context, req *pps.DeleteSecretRequest) (*types.Empty, error) {
+	if api.mock.DeleteSecret.handler != nil {
+		return api.mock.DeleteSecret.handler(ctx, req)
+	}
+	return nil, fmt.Errorf("unhandled pachd mock pps.DeleteSecret")
+}
+func (api *ppsServerAPI) InspectSecret(ctx context.Context, req *pps.InspectSecretRequest) (*pps.SecretInfo, error) {
+	if api.mock.InspectSecret.handler != nil {
+		return api.mock.InspectSecret.handler(ctx, req)
+	}
+	return nil, fmt.Errorf("unhandled pachd mock pps.InspectSecret")
+}
+func (api *ppsServerAPI) ListSecret(ctx context.Context, in *types.Empty) (*pps.SecretInfos, error) {
+	if api.mock.ListSecret.handler != nil {
+		return api.mock.ListSecret.handler(ctx, in)
+	}
+	return nil, fmt.Errorf("unhandled pachd mock pps.ListSecret")
 }
 func (api *ppsServerAPI) DeleteAll(ctx context.Context, req *types.Empty) (*types.Empty, error) {
 	if api.mock.DeleteAll.handler != nil {
