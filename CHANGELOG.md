@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.9.12
+
+- New configuration for deployments (exposed through pachctl deploy flags):
+  - Only require critical servers to startup and run without error (--require-critical-servers-only). (#4512)
+- Improved job logging. (#4523)
+- Fixes a bug where some unfinished commit finish times displayed the Unix Epoch time. (#4524) 
+- Fixes a bug with edit pipeline. (#4530) 
+- Removed cluster id check. (#4534)
+- Fixes a bug with spout markers. (#4487)
+
 ## 1.9.11
 
 - New configuration for deployments (exposed through pachctl deploy flags):
