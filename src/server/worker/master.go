@@ -890,25 +890,8 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 				}()
 				outTar := tar.NewReader(out)
 
-				// we'll check that this is the latest version of the spout, and then commit to it
-				// we need to do this atomically because we otherwise might hit a subtle race condition
-				txn, err := a.pachClient.StartTransaction()
-				if err != nil {
-					return err
-				}
-				txnClient := a.pachClient.WithTransaction(txn)
-
-				// check to see if this spout is the latest version of this spout by seeing if its spec commit has any children
-				spec, err := txnClient.InspectCommit(ppsconsts.SpecRepo, a.pipelineInfo.SpecCommit.ID)
-				if err != nil {
-					return err
-				}
-				if spec != nil && len(spec.ChildCommits) != 0 {
-					return fmt.Errorf("outdated spout, now shutting down")
-				}
-
 				// start commit
-				commit, err := txnClient.PfsAPIClient.StartCommit(txnClient.Ctx(), &pfs.StartCommitRequest{
+				commit, err := a.pachClient.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
 					Parent:     client.NewCommit(repo, ""),
 					Branch:     a.pipelineInfo.OutputBranch,
 					Provenance: []*pfs.CommitProvenance{client.NewCommitProvenance(ppsconsts.SpecRepo, repo, a.pipelineInfo.SpecCommit.ID)},
@@ -919,7 +902,7 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 
 				// finish the commit even if there was an issue
 				defer func() {
-					if err := txnClient.FinishCommit(repo, commit.ID); err != nil && retErr == nil {
+					if err := a.pachClient.FinishCommit(repo, commit.ID); err != nil && retErr == nil {
 						// this lets us pass the error through if FinishCommit fails
 						retErr = err
 					}
@@ -935,17 +918,36 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 					}
 					// put files into pachyderm
 					if a.pipelineInfo.Spout.Marker != "" && strings.HasPrefix(path.Clean(fileHeader.Name), a.pipelineInfo.Spout.Marker) {
-						_, err = txnClient.PutFileOverwrite(repo, "marker", fileHeader.Name, outTar, 0)
+						// we'll check that this is the latest version of the spout, and then commit to it
+						// we need to do this atomically because we otherwise might hit a subtle race condition
+						txn, err := a.pachClient.StartTransaction()
 						if err != nil {
 							return err
 						}
+						txnClient := a.pachClient.WithTransaction(txn)
+
+						// check to see if this spout is the latest version of this spout by seeing if its spec commit has any children
+						spec, err := txnClient.InspectCommit(ppsconsts.SpecRepo, a.pipelineInfo.SpecCommit.ID)
+						if err != nil && !errutil.IsNotFoundError(err) {
+							return err
+						}
+						if spec != nil && len(spec.ChildCommits) != 0 {
+							return fmt.Errorf("outdated spout, now shutting down")
+						}
+						_, err = txnClient.PutFileOverwrite(repo, ppsconsts.SpoutMarkerBranch, fileHeader.Name, outTar, 0)
+						if err != nil {
+							return err
+						}
+						if _, err := a.pachClient.FinishTransaction(txn); err != nil {
+							return err
+						}
 					} else if a.pipelineInfo.Spout.Overwrite {
-						_, err = txnClient.PutFileOverwrite(repo, commit.ID, fileHeader.Name, outTar, 0)
+						_, err = a.pachClient.PutFileOverwrite(repo, commit.ID, fileHeader.Name, outTar, 0)
 						if err != nil {
 							return err
 						}
 					} else {
-						_, err = txnClient.PutFile(repo, commit.ID, fileHeader.Name, outTar)
+						_, err = a.pachClient.PutFile(repo, commit.ID, fileHeader.Name, outTar)
 						if err != nil {
 							return err
 						}
