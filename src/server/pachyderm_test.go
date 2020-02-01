@@ -4523,7 +4523,7 @@ func TestSystemResourceRequests(t *testing.T) {
 	// Expected resource requests for pachyderm system pods:
 	defaultLocalMem := map[string]string{
 		"pachd": "512M",
-		"etcd":  "512M",
+		"etcd":  "1G",
 	}
 	defaultLocalCPU := map[string]string{
 		"pachd": "250m",
