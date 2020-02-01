@@ -9648,31 +9648,48 @@ func TestSpout(t *testing.T) {
 		require.NoError(t, c.CreateRepo(dataRepo))
 
 		// create a spout pipeline
-		pipeline := "pipelinespoutmarker"
+		pipeline := tu.UniqueString("pipelinespoutmarker")
+
+		// make sure it fails for an invalid filename
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
 				Pipeline: client.NewPipeline(pipeline),
 				Transform: &pps.Transform{
 					Cmd: []string{"/bin/sh"},
+				},
+				Spout: &pps.Spout{
+					Marker: "$$$*",
+				},
+			})
+		require.YesError(t, err)
+
+		_, err = c.PpsAPIClient.CreatePipeline(
+			c.Ctx(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd: []string{"/bin/sh"},
 					Stdin: []string{
-						"cp /pfs/marker/test ./test",
+						"cp /pfs/mymark/test ./test",
 						"while [ : ]",
 						"do",
 						"sleep 1",
 						"echo $(tail -1 test)x >> test",
-						"mkdir marker",
-						"cp test marker/test",
-						"tar -cvf /pfs/out ./marker/test*",
+						"mkdir mymark",
+						"cp test mymark/test",
+						"tar -cvf /pfs/out ./mymark/test*",
 						"done"},
 				},
-				Spout: &pps.Spout{}, // this needs to be non-nil to make it a spout
+				Spout: &pps.Spout{
+					Marker: "mymark",
+				},
 			})
 		require.NoError(t, err)
 
 		// get 5 succesive commits, and ensure that the file size increases each time
 		// since the spout should be appending to that file on each commit
-		iter, err := c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED)
+		iter, err := c.SubscribeCommit(pipeline, "marker", nil, "", pfs.CommitState_FINISHED)
 		require.NoError(t, err)
 
 		var prevLength uint64
@@ -9697,17 +9714,19 @@ func TestSpout(t *testing.T) {
 				Transform: &pps.Transform{
 					Cmd: []string{"/bin/sh"},
 					Stdin: []string{
-						"cp /pfs/marker/test ./test",
+						"cp /pfs/mymark/test ./test",
 						"while [ : ]",
 						"do",
-						"sleep 1",
+						"sleep 5",
 						"echo $(tail -1 test). >> test",
-						"mkdir marker",
-						"cp test marker/test",
-						"tar -cvf /pfs/out ./marker/test*",
+						"mkdir mymark",
+						"cp test mymark/test",
+						"tar -cvf /pfs/out ./mymark/test*",
 						"done"},
 				},
-				Spout:  &pps.Spout{}, // this needs to be non-nil to make it a spout
+				Spout: &pps.Spout{
+					Marker: "mymark",
+				},
 				Update: true,
 			})
 		require.NoError(t, err)
@@ -9718,7 +9737,6 @@ func TestSpout(t *testing.T) {
 			files, err := c.ListFile(pipeline, commitInfo.Commit.ID, "")
 			require.NoError(t, err)
 			require.Equal(t, 1, len(files))
-
 		}
 
 		// we want to check that the marker/test file looks like this:
@@ -9733,7 +9751,7 @@ func TestSpout(t *testing.T) {
 		// xxxxx....
 		// xxxxx.....
 		var buf bytes.Buffer
-		err = c.GetFile(pipeline, "master", "marker/test", 0, 0, &buf)
+		err = c.GetFile(pipeline, "marker", "mymark/test", 0, 0, &buf)
 		if err != nil {
 			t.Errorf("Could not get file %v", err)
 		}
@@ -9749,6 +9767,9 @@ func TestSpout(t *testing.T) {
 				t.Errorf("line did not have the expected form")
 			}
 		}
+		if xs == 0 {
+			t.Errorf("file has the wrong form, marker was likely overwritten")
+		}
 
 		// now let's reprocess the spout
 		_, err = c.PpsAPIClient.CreatePipeline(
@@ -9758,17 +9779,19 @@ func TestSpout(t *testing.T) {
 				Transform: &pps.Transform{
 					Cmd: []string{"/bin/sh"},
 					Stdin: []string{
-						"cp /pfs/marker/test ./test",
+						"cp /pfs/mymark/test ./test",
 						"while [ : ]",
 						"do",
 						"sleep 1",
 						"echo $(tail -1 test). >> test",
-						"mkdir marker",
-						"cp test marker/test",
-						"tar -cvf /pfs/out ./marker/test*",
+						"mkdir mymark",
+						"cp test mymark/test",
+						"tar -cvf /pfs/out ./mymark/test*",
 						"done"},
 				},
-				Spout:     &pps.Spout{}, // this needs to be non-nil to make it a spout
+				Spout: &pps.Spout{
+					Marker: "mymark",
+				},
 				Update:    true,
 				Reprocess: true,
 			})
@@ -9781,7 +9804,7 @@ func TestSpout(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 
-		err = c.GetFile(pipeline, "master", "marker/test", 0, 0, &buf)
+		err = c.GetFile(pipeline, "marker", "mymark/test", 0, 0, &buf)
 		if err != nil {
 			t.Errorf("Could not get file %v", err)
 		}
@@ -9790,7 +9813,7 @@ func TestSpout(t *testing.T) {
 			line, err = buf.ReadString('\n')
 
 			if len(line) > 1 && line != strings.Repeat(".", len(line)-1)+"\n" {
-				t.Errorf("line did not have the expected form")
+				t.Errorf("line did not have the expected form %v, '%v'", len(line), line)
 			}
 		}
 	})

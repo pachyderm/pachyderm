@@ -891,7 +891,7 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 				outTar := tar.NewReader(out)
 
 				// start commit
-				commit, err := a.pachClient.PfsAPIClient.StartCommit(a.pachClient.Ctx(), &pfs.StartCommitRequest{
+				commit, err := a.pachClient.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
 					Parent:     client.NewCommit(repo, ""),
 					Branch:     a.pipelineInfo.OutputBranch,
 					Provenance: []*pfs.CommitProvenance{client.NewCommitProvenance(ppsconsts.SpecRepo, repo, a.pipelineInfo.SpecCommit.ID)},
@@ -917,7 +917,24 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 						return err
 					}
 					// put files into pachyderm
-					if a.pipelineInfo.Spout.Overwrite || strings.Contains(fileHeader.Name, "marker") {
+					if a.pipelineInfo.Spout.Marker != "" && strings.HasPrefix(path.Clean(fileHeader.Name), a.pipelineInfo.Spout.Marker) {
+						// we'll check that this is the latest version of the spout, and then commit to it
+						// we need to do this atomically because we otherwise might hit a subtle race condition
+
+						// check to see if this spout is the latest version of this spout by seeing if its spec commit has any children
+						spec, err := a.pachClient.InspectCommit(ppsconsts.SpecRepo, a.pipelineInfo.SpecCommit.ID)
+						if err != nil && !errutil.IsNotFoundError(err) {
+							return err
+						}
+						if spec != nil && len(spec.ChildCommits) != 0 {
+							return fmt.Errorf("outdated spout, now shutting down")
+						}
+						_, err = a.pachClient.PutFileOverwrite(repo, ppsconsts.SpoutMarkerBranch, fileHeader.Name, outTar, 0)
+						if err != nil {
+							return err
+						}
+
+					} else if a.pipelineInfo.Spout.Overwrite {
 						_, err = a.pachClient.PutFileOverwrite(repo, commit.ID, fileHeader.Name, outTar, 0)
 						if err != nil {
 							return err
