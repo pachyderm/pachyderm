@@ -75,11 +75,9 @@ And check it's status: `kubectl get all`.
 
 This will install the dev version of `pachctl`:
 
-```
     cd ~/workspace/pachyderm
     make install
     pachctl version
-```
 
 And make sure that `$GOPATH/bin` is on your `$PATH` somewhere
 

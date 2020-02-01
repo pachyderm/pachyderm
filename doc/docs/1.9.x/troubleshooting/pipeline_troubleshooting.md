@@ -98,7 +98,7 @@ Triaging system failures varies as widely as the issues do themselves. Here are 
 Running:
 
 ```
-kubectl get all
+$ kubectl get all
 ```
 
 shows a bunch of pods that are marked `Evicted`. If you `kubectl describe ...` one of those evicted pods, you see an error saying that it was evicted due to disk pressure.
@@ -123,19 +123,19 @@ In this case we would recommend 250GB to be safe. If your root volume size is le
 You can see the pipeline via:
 
 ```
-pachctl list pipeline
+$ pachctl list pipeline
 ```
 
 But if you look at the job via:
 
 ```
-pachctl list job
+$ pachctl list job
 ```
 
 It's marked as running with `0/0` datums having been processed.  If you inspect the job via:
 
 ```
-pachctl inspect job
+$ pachctl inspect job
 ```
 
 You don't see any worker set. E.g:

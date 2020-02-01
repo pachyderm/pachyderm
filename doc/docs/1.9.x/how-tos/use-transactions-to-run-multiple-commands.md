@@ -85,18 +85,13 @@ master branch. To switch to these branches simultaneously, you can
 use transactions like this:
 
 ```bash
-pachctl start transaction
-```
-
-**System Response:**
-
-```bash
+$ pachctl start transaction
 Started new transaction: 0d6f0bc3-37a0-4936-96e3-82034a2a2055
-pachctl pachctl create branch data@master --head staging
+$ pachctl pachctl create branch data@master --head staging
 Added to transaction: 0d6f0bc3-37a0-4936-96e3-82034a2a2055
-pachctl create branch parameters@master --head staging
+$ pachctl create branch parameters@master --head staging
 Added to transaction: 0d6f0bc3-37a0-4936-96e3-82034a2a2055
-pachctl finish transaction
+$ pachctl finish transaction
 Completed transaction with 2 requests: 0d6f0bc3-37a0-4936-96e3-82034a2a2055
 ```
 
@@ -109,12 +104,7 @@ those commits together.
 To start a transaction, run the following command:
 
 ```bash
-pachctl start transaction
-```
-
-**System Response:**
-
-```bash
+$ pachctl start transaction
 Started new transaction: 7a81eab5-e6c6-430a-a5c0-1deb06852ca5
 ```
 
@@ -149,12 +139,7 @@ are executed atomically.
 To finish a transaction, run:
 
 ```bash
-pachctl finsh transaction
-```
-
-**System Response:**
-
-```bash
+$ pachctl finsh transaction
 Completed transaction with 1 requests: 7a81eab5-e6c6-430a-a5c0-1deb06852ca5
 ```
 

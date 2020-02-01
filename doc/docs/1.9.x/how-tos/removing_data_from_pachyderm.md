@@ -29,7 +29,7 @@ the `pachctl delete commit` command.
 To fix a broken HEAD, run the following command:
 
 ```bash
-pachctl delete commit <repo>@<branch-or-commit-id>
+$ pachctl delete commit <repo>@<branch-or-commit-id>
 ```
 
 When you delete a bad commit, Pachyderm performs the following actions:
@@ -78,19 +78,19 @@ To delete a file in an older commit, complete the following steps:
 1. Start a new commit:
 
    ```bash
-   pachctl start commit <repo>@<branch>
+   $ pachctl start commit <repo>@<branch>
    ```
 
 1. Delete all corrupted files from the newly opened commit:
 
    ```bash
-   pachctl delete file <repo>@<branch or commitID>:/path/to/files
+   $ pachctl delete file <repo>@<branch or commitID>:/path/to/files
    ```
 
 1. Finish the commit:
 
    ```bash
-   pachctl finish commit <repo>@<branch>
+   $ pachctl finish commit <repo>@<branch>
    ```
 
 4. Delete the initial bad commit and all its children up to
@@ -121,7 +121,7 @@ following steps:
 1. Run `garbage-collect`:
 
    ```bash
-   pachctl garbage-collect
+   $ pachctl garbage-collect
    ```
 
    To make garbage collection more comprehensive, increase the

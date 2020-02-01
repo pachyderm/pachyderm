@@ -111,12 +111,7 @@ datum:
 
 !!! example
     ```bash
-    pachctl glob file train@master:/
-    ```
-
-    **System Response:**
-
-    ```bash
+    $ pachctl glob file train@master:/
     NAME TYPE SIZE
     /    dir  15.11KiB
     ```
@@ -127,12 +122,7 @@ datum:
 
 !!! example
     ```bash
-    pachctl glob file train@master:/*
-    ```
-
-    **System Response:**
-
-    ```bash
+    $ pachctl glob file train@master:/*
     NAME                   TYPE SIZE
     /IssueSummarization.py file 1.224KiB
     /requirements.txt      file 74B

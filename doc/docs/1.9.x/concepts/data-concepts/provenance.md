@@ -65,12 +65,7 @@ originates in.
 
 !!! example
     ```bash
-    pachctl inspect commit split@master
-    ```
-
-    **System Response:**
-
-    ```bash
+    $ pachctl inspect commit split@master
     Commit: split@f71e42704b734598a89c02026c8f7d13
     Original Branch: master
     Started: 4 minutes ago
@@ -97,12 +92,7 @@ resulted.
 
 !!! example
     ```bash
-    pachctl flush commit raw_data@ccf82debb4b94ca3bfe165aca8d517c3
-    ```
-
-    **System Response:**
-
-    ```bash
+    $ pachctl flush commit raw_data@ccf82debb4b94ca3bfe165aca8d517c3
     REPO        BRANCH COMMIT                           PARENT STARTED        DURATION       SIZE
     split       master f71e42704b734598a89c02026c8f7d13 <none> 52 minutes ago About a minute 0B
     split       stats  9b46d7abf9a74bf7bf66c77f2a0da4b1 <none> 52 minutes ago About a minute 15.39MiB

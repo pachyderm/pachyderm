@@ -19,7 +19,7 @@ Here are some common issues by symptom along with steps to resolve them.
 You may be using the pachd address config value or environment variable to specify how `pachctl` talks to your Pachyderm cluster, or you may be forwarding the pachyderm port.  In any event, you might see something similar to:
 
 ```
-pachctl version
+$ pachctl version
 COMPONENT           VERSION                                          
 pachctl             1.9.5   
 context deadline exceeded
@@ -41,7 +41,7 @@ It's also possible that you haven't poked a hole in the firewall to access the n
 This can happen on any request using `kubectl` (e.g. `kubectl get all`). In particular you'll see:
 
 ```
-kubectl version
+$ kubectl version
 Client Version: version.Info{Major:"1", Minor:"6", GitVersion:"v1.6.4", GitCommit:"d6f433224538d4f9ca2f7ae19b252e6fcb66a3ae", GitTreeState:"clean", BuildDate:"2017-05-19T20:41:24Z", GoVersion:"go1.8.1", Compiler:"gc", Platform:"darwin/amd64"}
 Unable to connect to the server: x509: certificate signed by unknown authority
 ```
@@ -51,18 +51,12 @@ Unable to connect to the server: x509: certificate signed by unknown authority
 Check if you're on any sort of VPN or other egress proxy that would break SSL.  Also, there is a possibility that your credentials have expired. In the case where you're using GKE and gcloud, renew your credentials via:
 
 ```
-kubectl get all
+$ kubectl get all
 Unable to connect to the server: x509: certificate signed by unknown authority
-```
-
-```
-gcloud container clusters get-credentials my-cluster-name-dev
+$ gcloud container clusters get-credentials my-cluster-name-dev
 Fetching cluster endpoint and auth data.
 kubeconfig entry generated for my-cluster-name-dev.
-```
-
-```
-kubectl config current-context
+$ kubectl config current-context
 gke_my-org_us-east1-b_my-cluster-name-dev
 ```
 

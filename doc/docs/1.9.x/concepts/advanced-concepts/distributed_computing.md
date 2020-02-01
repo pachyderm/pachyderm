@@ -8,7 +8,7 @@ allocated to each job to optimize throughput.
 
 A Pachyderm worker is an identical Kubernetes pod that runs
 the Docker image that you specified in the
-[pipeline spec](../../reference/pipeline_spec.md). Your analysis code
+[pipeline spec](../reference/pipeline_spec.md). Your analysis code
 does not affect how Pachyderm distributes the workload among workers.
 Instead, Pachyderm spreads out the data that needs to be processed
 across the various workers and makes that data available for your code.
@@ -27,7 +27,7 @@ redistributed to other workers for maximum fault tolerance.
 
 The following animation shows how distributed computing works:
 
-![Distributed computing basics](../../assets/images/distributed_computing101.gif)
+![Distributed computing basics](../assets/images/distributed_computing101.gif)
 
 In the diagram above, you have three Pachyderm worker pods that
 process your data. When a pod finishes processing a datum,
@@ -51,14 +51,14 @@ processing sequence.
 The following animation displays what happens inside a pod during
 the datum processing:
 
-![Distributed processing internals](../../assets/images/distributed_computing102.gif)
+![Distributed processing internals](../assets/images/distributed_computing102.gif)
 
 <!--TBA: the chunk_size property explanation article. Probably in a separate
 How-to, but need to add a link to it here-->
 
 You can control the number of worker pods that Pachyderm runs in a
 pipeline by defining the `parallelism` parameter in the
-[pipeline specification](../../reference/pipeline_spec.md).
+[pipeline specification](../reference/pipeline_spec.md).
 
 !!! example
     ```json
@@ -80,6 +80,5 @@ By default, Pachyderm sets `parallelism` to `“constant": 1`, which means
 that it spawns one worker per Kubernetes node for this pipeline.
 
 !!! note "See also:"
-
-* [Glob Pattern](..//pipeline-concepts/datum/glob-pattern)
-* [Pipeline Specification](../../reference/pipeline_spec.md)
+    * [Glob Pattern](../concepts/pipeline-concepts/datum/glob-pattern.md)
+    * [Pipeline Specification](../reference/pipeline_spec.md)
