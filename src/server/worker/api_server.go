@@ -49,6 +49,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/exec"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
@@ -527,10 +528,25 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 		if err := createSpoutFifo(outPath); err != nil {
 			return "", fmt.Errorf("mkfifo :%v", err)
 		}
-		_, err := pachClient.InspectFile(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "marker")
-		if err != nil && strings.Contains(err.Error(), "not found") {
-			if err := puller.Pull(pachClient, filepath.Join(dir, "marker"), a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "/marker", false, false, concurrency, nil, ""); err != nil {
-				return "", err
+		if a.pipelineInfo.Spout.Marker != "" {
+			// check if we have a marker file in the /pfs/out directory
+			_, err := pachClient.InspectFile(a.pipelineInfo.Pipeline.Name, ppsconsts.SpoutMarkerBranch, a.pipelineInfo.Spout.Marker)
+			if err != nil {
+				// if this fails because there's no head commit on the marker branch, then we don't want to pull the marker, but it's also not an error
+				if !strings.Contains(err.Error(), "no head") {
+					// if it fails for some other reason, then fail
+					return "", err
+				}
+			} else {
+				// the file might be in the spout marker directory, and so we'll try pulling it from there
+				if err := puller.Pull(pachClient, filepath.Join(dir, a.pipelineInfo.Spout.Marker), a.pipelineInfo.Pipeline.Name,
+					ppsconsts.SpoutMarkerBranch, "/"+a.pipelineInfo.Spout.Marker, false, false, concurrency, nil, ""); err != nil {
+					// this might fail if the marker branch hasn't been created, so check for that
+					if err == nil || !strings.Contains(err.Error(), "branches") || !errutil.IsNotFoundError(err) {
+						return "", err
+					}
+					// if it just hasn't been created yet, that's fine and we should just continue as normal
+				}
 			}
 		}
 	} else {
@@ -574,9 +590,11 @@ func (a *APIServer) linkData(inputs []*Input, dir string) error {
 		}
 	}
 
-	err = os.Symlink(filepath.Join(dir, "marker"), filepath.Join(client.PPSInputPrefix, "marker"))
-	if err != nil {
-		return err
+	if a.pipelineInfo.Spout != nil && a.pipelineInfo.Spout.Marker != "" {
+		err = os.Symlink(filepath.Join(dir, a.pipelineInfo.Spout.Marker), filepath.Join(client.PPSInputPrefix, a.pipelineInfo.Spout.Marker))
+		if err != nil {
+			return err
+		}
 	}
 
 	return os.Symlink(filepath.Join(dir, "out"), filepath.Join(client.PPSInputPrefix, "out"))
@@ -942,8 +960,10 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 		f, err := os.Open(filePath)
 		if err != nil {
 			// if the error is that the spout marker file is missing, that's fine, just skip to the next file
-			if strings.Contains(err.Error(), "out/marker") {
-				return nil
+			if a.pipelineInfo.Spout != nil {
+				if strings.Contains(err.Error(), path.Join("out", a.pipelineInfo.Spout.Marker)) {
+					return nil
+				}
 			}
 			return fmt.Errorf("os.Open(%s): %v", filePath, err)
 		}
