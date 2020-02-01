@@ -50,7 +50,7 @@ Alternatively, you can use the following commands to stop all data loading into 
 
 ```
 # Once you have stopped all running pachyderm pipelines, such as with this command,
-# $ pachctl list pipeline --raw \
+# pachctl list pipeline --raw \
 #   | jq -r '.pipeline.name' \
 #   | xargs -P3 -n1 -I{} pachctl stop pipeline {}
 
@@ -61,18 +61,18 @@ Alternatively, you can use the following commands to stop all data loading into 
 # while 'extract' is running will not interfere with the process
 #
 # Backup the Pachyderm service spec, in case you need to restore it quickly
-$ kubectl get svc/pachd -o json >pach_service_backup_30650.json
+kubectl get svc/pachd -o json >pach_service_backup_30650.json
 
 # Modify the service to accept traffic on port 30649
 # Note that you'll likely also need to modify your cloud provider's firewall
 # rules to allow traffic on this port
-$ kubectl get svc/pachd -o json | sed 's/30650/30649/g' | kubectl apply -f -
+kubectl get svc/pachd -o json | sed 's/30650/30649/g' | kubectl apply -f -
 
 # Modify your environment so that *you* can talk to pachd on this new port
-$ pachctl config update context `pachctl config get active-context` --pachd-address=<cluster ip>:30649
+pachctl config update context `pachctl config get active-context` --pachd-address=<cluster ip>:30649
 
 # Make sure you can talk to pachd (if not, firewall rules are a common culprit)
-$ pachctl version
+pachctl version
 COMPONENT           VERSION
 pachctl             1.9.5
 pachd               1.9.5
@@ -150,7 +150,7 @@ If you used the port-changing technique, [above](#pausing-data-loading-operation
 
 ```
 # Once you have restarted all running pachyderm pipelines, such as with this command,
-# $ pachctl list pipeline --raw \
+# pachctl list pipeline --raw \
 #   | jq -r '.pipeline.name' \
 #   | xargs -P3 -n1 -I{} pachctl start pipeline {}
 
@@ -159,16 +159,16 @@ If you used the port-changing technique, [above](#pausing-data-loading-operation
 # it only accepts traffic on port 30650 again (from 30649). 
 #
 # Backup the Pachyderm service spec, in case you need to restore it quickly
-$ kubectl get svc/pachd -o json >pach_service_backup_30649.json
+kubectl get svc/pachd -o json >pach_service_backup_30649.json
 
 # Modify the service to accept traffic on port 30650, again
-$ kubectl get svc/pachd -o json | sed 's/30649/30650/g' | kubectl apply -f -
+kubectl get svc/pachd -o json | sed 's/30649/30650/g' | kubectl apply -f -
 
 # Modify your environment so that *you* can talk to pachd on the old port
-$ pachctl config update context `pachctl config get active-context` --pachd-address=<cluster ip>:30650
+pachctl config update context `pachctl config get active-context` --pachd-address=<cluster ip>:30650
 
 # Make sure you can talk to pachd (if not, firewall rules are a common culprit)
-$ pachctl version
+pachctl version
 COMPONENT           VERSION
 pachctl             1.9.5
 pachd               1.9.5

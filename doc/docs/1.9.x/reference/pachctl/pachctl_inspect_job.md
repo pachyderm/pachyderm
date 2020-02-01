@@ -16,8 +16,8 @@ pachctl inspect job <job> [flags]
   -b, --block             block until the job has either succeeded or failed
       --full-timestamps   Return absolute timestamps (as opposed to the default, relative timestamps).
   -h, --help              help for job
-  -o, --output string     Output format when --raw is set ("json" or "yaml")
-      --raw               disable pretty printing, print raw json
+  -o, --output string     Output format when --raw is set: "json" or "yaml" (default "json")
+      --raw               Disable pretty printing; serialize data structures to an encoding such as json or yaml
 ```
 
 ### Options inherited from parent commands

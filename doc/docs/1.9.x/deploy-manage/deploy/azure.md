@@ -37,18 +37,23 @@ Install the following prerequisites:
  * To install on macOS by using `brew`, run the following command:
 
    ```bash
-   $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.9
+   brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.9
    ```
  * To install on Linux 64-bit or Windows 10 or later, run the following command:
 
    ```bash
-   $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.11/pachctl_1.9.11_amd64.deb &&  sudo dpkg -i /tmp/pachctl.deb
+   $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.12/pachctl_1.9.12_amd64.deb &&  sudo dpkg -i /tmp/pachctl.deb
    ```
 
  1. Verify your installation by running `pachctl version`:
 
     ```bash
-    $ pachctl version --client-only
+    pachctl version --client-only
+    ```
+
+    **System Response:**
+
+    ```bash
     COMPONENT           VERSION
     pachctl             1.9.0
     ```
@@ -94,7 +99,12 @@ To deploy Kubernetes on Azure, complete the following steps:
 1. Log in to Azure:
 
    ```bash
-   $ az login
+   az login
+   ```
+
+   **System Response:**
+
+   ```bash
    Note, we have launched a browser for you to login. For old experience with
    device code, use "az login --use-device-code"
    ```
@@ -123,13 +133,18 @@ To deploy Kubernetes on Azure, complete the following steps:
 1. Create an Azure resource group.
 
    ```bash
-   $ az group create --name=${RESOURCE_GROUP} --location=${LOCATION}
+   az group create --name=${RESOURCE_GROUP} --location=${LOCATION}
    ```
 
    **Example:**
 
    ```bash
-   $ az group create --name="test-group" --location=centralus
+   az group create --name="test-group" --location=centralus
+   ```
+
+   **System Response:**
+
+   ```bash
    {
      "id": "/subscriptions/6c9f2e1e-0eba-4421-b4cc-172f959ee110/resourceGroups/pach-resource-group",
      "location": "centralus",
@@ -146,13 +161,18 @@ To deploy Kubernetes on Azure, complete the following steps:
 1. Create an AKS cluster:
 
    ```bash
-   $ az aks create --resource-group ${RESOURCE_GROUP} --name ${CLUSTER_NAME} --generate-ssh-keys --node-vm-size ${NODE_SIZE}
+   az aks create --resource-group ${RESOURCE_GROUP} --name ${CLUSTER_NAME} --generate-ssh-keys --node-vm-size ${NODE_SIZE}
    ```
 
    **Example:**
 
    ```bash
-   $ az aks create --resource-group test-group --name test-cluster --generate-ssh-keys --node-vm-size Standard_DS4_v2
+   az aks create --resource-group test-group --name test-cluster --generate-ssh-keys --node-vm-size Standard_DS4_v2
+   ```
+
+   **System Response:**
+
+   ```bash
    {
      "aadProfile": null,
      "addonProfiles": null,
@@ -180,14 +200,18 @@ To deploy Kubernetes on Azure, complete the following steps:
 1. Confirm the version of the Kubernetes server:
 
    ```bash
-   $ kubectl version
+   kubectl version
+   ```
+
+   **System Response:**
+
+   ```bash
    Client Version: version.Info{Major:"1", Minor:"13", GitVersion:"v1.13.4", GitCommit:"c27b913fddd1a6c480c229191a087698aa92f0b1", GitTreeState:"clean", BuildDate:"2019-03-01T23:36:43Z", GoVersion:"go1.12", Compiler:"gc", Platform:"darwin/amd64"}
    Server Version: version.Info{Major:"1", Minor:"13", GitVersion:"v1.13.4", GitCommit:"c27b913fddd1a6c480c229191a087698aa92f0b1", GitTreeState:"clean", BuildDate:"2019-02-28T13:30:26Z", GoVersion:"go1.11.5", Compiler:"gc", Platform:"linux/amd64"}
    ```
 
-**See also:**
-
-- [Azure Virtual Machine sizes](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/sizes-general)
+!!! note "See also:"
+    - [Azure Virtual Machine sizes](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/sizes-general)
 
 
 ## Add storage resources
@@ -232,7 +256,7 @@ To create these resources, follow these steps:
 1. Create an Azure storage account:
 
    ```bash
-   $ az storage account create \
+   az storage account create \
      --resource-group="${RESOURCE_GROUP}" \
      --location="${LOCATION}" \
      --sku=Premium_LRS \
@@ -267,13 +291,13 @@ To create these resources, follow these steps:
 1. Verify that your storage account has been successfully created:
 
    ```bash
-   $ az storage account list
+   az storage account list
    ```
 
 1. Build a Microsoft tool for creating Azure VMs from an image:
 
    ```bash
-   $ STORAGE_KEY="$(az storage account keys list \
+   STORAGE_KEY="$(az storage account keys list \
                  --account-name="${STORAGE_ACCOUNT}" \
                  --resource-group="${RESOURCE_GROUP}" \
                  --output=json \
@@ -285,7 +309,12 @@ To create these resources, follow these steps:
    section in the Azure Portal or by running the following command:
 
    ```bash
-   $ az storage account keys list --account-name=${STORAGE_ACCOUNT}
+   az storage account keys list --account-name=${STORAGE_ACCOUNT}
+   ```
+
+   **System Response:**
+
+   ```bash
    [
      {
        "keyName": "key1",
@@ -295,9 +324,8 @@ To create these resources, follow these steps:
    ]
    ```
 
-**See Also**
-
-- [Azure Storage](https://azure.microsoft.com/documentation/articles/storage-introduction/)
+!!! note "See also:"
+    - [Azure Storage](https://azure.microsoft.com/documentation/articles/storage-introduction/)
 
 
 ## Deploy Pachyderm
@@ -310,7 +338,7 @@ you might accidentally deploy your cluster on Minikube.
 1. Verify cluster context:
 
    ```bash
-   $ kubectl config current-context
+   kubectl config current-context
    ```
 
    This command should return the name of your Kubernetes cluster that
@@ -320,19 +348,24 @@ you might accidentally deploy your cluster on Minikube.
    to use your Azure configuration:
 
    ```bash
-   $ az aks get-credentials --resource-group ${RESOURCE_GROUP} --name ${CLUSTER_NAME}
+   az aks get-credentials --resource-group ${RESOURCE_GROUP} --name ${CLUSTER_NAME}
+   ```
+
+   **System Response:**
+
+   ```bash
    Merged "${CLUSTER_NAME}" as current context in /Users/test-user/.kube/config
    ```
 
 1. Run the following command:
 
    ```bash
-   $ pachctl deploy microsoft ${CONTAINER_NAME} ${STORAGE_ACCOUNT} ${STORAGE_KEY} ${STORAGE_SIZE} --dynamic-etcd-nodes 1
+   pachctl deploy microsoft ${CONTAINER_NAME} ${STORAGE_ACCOUNT} ${STORAGE_KEY} ${STORAGE_SIZE} --dynamic-etcd-nodes 1
    ```
    **Example:**
 
    ```bash
-   $ pachctl deploy microsoft test-container teststorage <key> 10 --dynamic-etcd-nodes 1
+   pachctl deploy microsoft test-container teststorage <key> 10 --dynamic-etcd-nodes 1
    serviceaccount/pachyderm configured
    clusterrole.rbac.authorization.k8s.io/pachyderm configured
    clusterrolebinding.rbac.authorization.k8s.io/pachyderm configured
@@ -356,7 +389,12 @@ you might accidentally deploy your cluster on Minikube.
 1. When pachyderm is up and running, get the information about the pods:
 
    ```sh
-   $ kubectl get pods
+   kubectl get pods
+   ```
+
+   **System Response:**
+
+   ```bash
    NAME                      READY     STATUS    RESTARTS   AGE
    dash-482120938-vdlg9      2/2       Running   0          54m
    etcd-0                    1/1       Running   0          54m
@@ -371,13 +409,18 @@ you might accidentally deploy your cluster on Minikube.
 set up port forwarding to enable `pachctl` and cluster communication:
 
    ```bash
-   $ pachctl port-forward
+   pachctl port-forward
    ```
 
 1. Verify that the cluster is up and running:
 
-   ```sh
-   $ pachctl version
+   ```bash
+   pachctl version
+   ```
+
+   **System Response:**
+
+   ```bash
    COMPONENT           VERSION
    pachctl             1.9.0
    pachd               1.9.0

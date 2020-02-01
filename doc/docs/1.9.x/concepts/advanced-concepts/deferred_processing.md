@@ -40,24 +40,19 @@ To configure a staging branch, complete the following steps:
 1. Create a repository. For example, `data`.
 
    ```bash
-   pachctl create repo data
+   $ pachctl create repo data
    ```
 
 1. Create a `master` branch.
 
    ```bash
-   pachctl create branch data@master
+   $ pachctl create branch data@master
    ```
 
 1. View the created branch:
 
    ```bash
-   pachctl list branch data
-   ```
-
-   **System Response:**
-
-   ```bash
+   $ pachctl list branch data
    BRANCH HEAD
    master -
    ```
@@ -71,7 +66,7 @@ To configure a staging branch, complete the following steps:
 1. Commit a file to the staging branch:
 
    ```bash
-   pachctl put file data@staging -f <file>
+   $ pachctl put file data@staging -f <file>
    ```
 
    Pachyderm automatically creates the `staging` branch.
@@ -82,12 +77,7 @@ To configure a staging branch, complete the following steps:
 1. Verify that the branches were created:
 
    ```bash
-   pachctl list branch data
-   ```
-
-   **System Response:**
-
-   ```bash
+   $ pachctl list branch data
    BRANCH  HEAD
    staging f3506f0fab6e483e8338754081109e69
    master  -
@@ -103,19 +93,14 @@ To configure a staging branch, complete the following steps:
    to point it to the head of the staging branch:
 
    ```bash
-   pachctl create branch data@master --head staging
+   $ pachctl create branch data@master --head staging
    ```
 
 1. List your branches to verify that the master branch has a `HEAD`
    commit:
 
    ```bash
-   pachctl list branch
-   ```
-
-   **System Response:**
-
-   ```bash
+   $ pachctl list branch
    staging f3506f0fab6e483e8338754081109e69
    master  f3506f0fab6e483e8338754081109e69
    ```
@@ -126,12 +111,7 @@ To configure a staging branch, complete the following steps:
 1. Verify that the pipeline has new jobs:
 
    ```bash
-   pachctl list job
-   ```
-
-   **System Response:**
-
-   ```bash
+   $ pachctl list job
    ID                               PIPELINE STARTED        DURATION           RESTART PROGRESS  DL   UL  STATE
    061b0ef8f44f41bab5247420b4e62ca2 test     32 seconds ago Less than a second 0       6 + 0 / 6 108B 24B success
    ```
@@ -156,9 +136,9 @@ want to process the seventh, third, and most recent commits, you need
 to run the following commands respectively:
 
 ```bash
-pachctl create branch data@master --head staging^7
-pachctl create branch data@master --head staging^3
-pachctl create branch data@master --head staging
+$ pachctl create branch data@master --head staging^7
+$ pachctl create branch data@master --head staging^3
+$ pachctl create branch data@master --head staging
 ```
 
 When you run the commands above, Pachyderm creates a job for each
@@ -174,7 +154,7 @@ the result of processing `staging^1`, you can *roll back* your HEAD commit
 by running the following command:
 
 ```bash
-pachctl create branch data@master --head staging^1
+$ pachctl create branch data@master --head staging^1
 ```
 
 This command starts a new job to process `staging^1`. The `HEAD` commit on
@@ -197,21 +177,21 @@ To copy files from one branch to another, complete the following steps:
 1. Start a commit:
 
    ```bash
-   pachctl start commit data@master
+   $ pachctl start commit data@master
    ```
 
 1. Copy files:
 
    ```bash
-   pachctl copy file data@staging:file1 data@master:file1
-   pachctl copy file data@staging:file2 data@master:file2
+   $ pachctl copy file data@staging:file1 data@master:file1
+   $ pachctl copy file data@staging:file2 data@master:file2
    ...
    ```
 
 1. Close the commit:
 
    ```bash
-   pachctl finish commit data@master
+   $ pachctl finish commit data@master
    ```
 
 Also, you can run `pachctl delete file` and `pachctl put file`
@@ -239,7 +219,7 @@ following steps:
 1. When you want to process data, run:
 
    ```bash
-   pachctl create-branch pipeline master --head staging
+   $ pachctl create-branch pipeline master --head staging
    ```
 
 ## Automate Branch Switching

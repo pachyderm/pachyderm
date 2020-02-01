@@ -31,7 +31,7 @@ $ pachctl logs --pipeline=filter --inputs=/apple.txt,123aef
   -f, --follow            Follow logs as more are created.
   -h, --help              help for logs
       --inputs string     Filter for log lines generated while processing these files (accepts PFS paths or file hashes)
-      --job string        Filter for log lines from this job (accepts job ID)
+  -j, --job string        Filter for log lines from this job (accepts job ID)
       --master            Return log messages from the master process (pipeline must be set).
   -p, --pipeline string   Filter the log for lines from this pipeline (accepts pipeline name)
       --raw               Return log messages verbatim from server.
