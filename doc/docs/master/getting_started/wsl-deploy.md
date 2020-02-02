@@ -120,7 +120,7 @@ as described in [Install pachctl](../local_installation/#install-pachctl).
 **Example:**
 
 ```bash
-curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.11/pachctl_1.9.11_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.12/pachctl_1.9.12_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 **System Response:**

@@ -1,25 +1,25 @@
 ## pachctl inspect secret
 
-Returns information about a Kubernetes secret.
+Inspect a secret from the cluster.
 
 ### Synopsis
 
-Returns information about a Kubernetes secret.
+Inspect a secret from the cluster.
 
 ```
-pachctl inspect secret <secret> [flags]
+pachctl inspect secret [flags]
 ```
 
 ### Options
 
 ```
-  -h, --help        Display help information.
-  -n, --namespace   The Kubernetes namespace of secret (default is "default" namespace).
+  -h, --help   help for secret
 ```
 
 ### Options inherited from parent commands
 
 ```
       --no-color   Turn off colors.
-  -v, --verbose    Output verbose logs.
+  -v, --verbose    Output verbose logs
 ```
+

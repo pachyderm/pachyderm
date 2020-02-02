@@ -36,8 +36,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/exec"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
@@ -513,10 +515,25 @@ func (d *driver) downloadData(
 		if err := createSpoutFifo(outPath); err != nil {
 			return "", fmt.Errorf("mkfifo :%v", err)
 		}
-		_, err := d.pachClient.InspectFile(d.pipelineInfo.Pipeline.Name, d.pipelineInfo.OutputBranch, "marker")
-		if err != nil && strings.Contains(err.Error(), "not found") {
-			if err := puller.Pull(d.pachClient, filepath.Join(scratchPath, "marker"), d.pipelineInfo.Pipeline.Name, d.pipelineInfo.OutputBranch, "/marker", false, false, concurrency, nil, ""); err != nil {
-				return "", err
+		if d.PipelineInfo().Spout.Marker != "" {
+			// check if we have a marker file in the /pfs/out directory
+			_, err := d.PachClient().InspectFile(d.PipelineInfo().Pipeline.Name, ppsconsts.SpoutMarkerBranch, d.PipelineInfo().Spout.Marker)
+			if err != nil {
+				// if this fails because there's no head commit on the marker branch, then we don't want to pull the marker, but it's also not an error
+				if !strings.Contains(err.Error(), "no head") {
+					// if it fails for some other reason, then fail
+					return "", err
+				}
+			} else {
+				// the file might be in the spout marker directory, and so we'll try pulling it from there
+				if err := puller.Pull(d.PachClient(), filepath.Join(outPath, d.PipelineInfo().Spout.Marker), d.PipelineInfo().Pipeline.Name,
+					ppsconsts.SpoutMarkerBranch, "/"+d.PipelineInfo().Spout.Marker, false, false, concurrency, nil, ""); err != nil {
+					// this might fail if the marker branch hasn't been created, so check for that
+					if err == nil || !strings.Contains(err.Error(), "branches") || !errutil.IsNotFoundError(err) {
+						return "", err
+					}
+					// if it just hasn't been created yet, that's fine and we should just continue as normal
+				}
 			}
 		}
 	} else {
@@ -1107,8 +1124,10 @@ func (d *driver) UploadOutput(
 		f, err := os.Open(filePath)
 		if err != nil {
 			// if the error is that the spout marker file is missing, that's fine, just skip to the next file
-			if strings.Contains(err.Error(), "out/marker") {
-				return nil
+			if d.PipelineInfo().Spout != nil {
+				if strings.Contains(err.Error(), path.Join("out", d.PipelineInfo().Spout.Marker)) {
+					return nil
+				}
 			}
 			return fmt.Errorf("os.Open(%s): %v", filePath, err)
 		}
