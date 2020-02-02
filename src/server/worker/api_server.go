@@ -63,14 +63,6 @@ type APIServer struct {
 
 	// The namespace in which pachyderm is deployed
 	namespace string
-
-	// hashtreeStorage is the where we store on disk hashtrees
-	hashtreeStorage string
-
-	// chunkCache caches chunk hashtrees during a job and can merge them (chunkStatsCache applies to stats)
-	chunkCache, chunkStatsCache *hashtree.MergeCache
-	// datumCache caches datum hashtrees during a job and can merge them (datumStatsCache applies to stats)
-	datumCache, datumStatsCache *hashtree.MergeCache
 	// clients are the worker clients (used for the shuffle step by mergers)
 	clients map[string]Client
 }
@@ -207,7 +199,7 @@ func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (*Cancel
 func (a *APIServer) GetChunk(request *GetChunkRequest, server Worker_GetChunkServer) error {
 	filter := hashtree.NewFilter(a.numShards, request.Shard)
 	if request.Stats {
-		return a.chunkStatsCache.Get(request.Id, grpcutil.NewStreamingBytesWriter(server), filter)
+		return driver.ChunkStatsCache().Get(request.JobID, request.Tag, grpcutil.NewStreamingBytesWriter(server), filter)
 	}
-	return a.chunkCache.Get(request.Id, grpcutil.NewStreamingBytesWriter(server), filter)
+	return driver.ChunkCache().Get(request.JobID, request.Tag, grpcutil.NewStreamingBytesWriter(server), filter)
 }

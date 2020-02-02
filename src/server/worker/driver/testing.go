@@ -3,6 +3,7 @@ package driver
 import (
 	"context"
 	"path"
+	"path/filepath"
 	"time"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -15,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
+	"github.com/pachyderm/pachyderm/src/server/worker/cache"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
 )
@@ -24,6 +26,7 @@ type MockOptions struct {
 	NumWorkers   int
 	EtcdPrefix   string
 	PipelineInfo *pps.PipelineInfo
+	HashtreePath string
 }
 
 // MockDriver is an implementation of the Driver interface for use by tests.
@@ -33,6 +36,8 @@ type MockDriver struct {
 	ctx        context.Context
 	options    *MockOptions
 	etcdClient *etcd.Client
+
+	chunkCache, chunkStatsCache, datumCache, datumStatsCache cache.WorkerCache
 }
 
 // Not used - forces a compile-time error in this file if MockDriver does not
@@ -48,11 +53,20 @@ func NewMockDriver(etcdClient *etcd.Client, userOptions *MockOptions) *MockDrive
 		options.NumWorkers = 1
 	}
 
-	return &MockDriver{
+	md := &MockDriver{
 		ctx:        context.Background(),
 		options:    options,
 		etcdClient: etcdClient,
 	}
+
+	if options.HashtreePath != "" {
+		md.chunkCache = cache.NewWorkerCache(filepath.Join(options.HashtreePath, "chunk"))
+		md.chunkStatsCache = cache.NewWorkerCache(filepath.Join(options.HashtreePath, "chunkStats"))
+		md.datumCache = cache.NewWorkerCache(filepath.Join(options.HashtreePath, "datum"))
+		md.datumStatsCache = cache.NewWorkerCache(filepath.Join(options.HashtreePath, "datumStats"))
+	}
+
+	return md
 }
 
 // WithCtx does nothing aside from cloning the current MockDriver since there
@@ -108,6 +122,34 @@ func (md *MockDriver) NewTaskMaster() *work.Master {
 // initialized with.
 func (md *MockDriver) PipelineInfo() *pps.PipelineInfo {
 	return md.options.PipelineInfo
+}
+
+// ChunkCache returns a cache.WorkerCache instance that can be used for caching
+// hashtrees in the worker across multiple jobs. If no hashtree storage is
+// specified in the MockDriver options, this will be nil.
+func (md *MockDriver) ChunkCache() cache.WorkerCache {
+	return md.chunkCache
+}
+
+// ChunkStatsCache returns a cache.WorkerCache instance that can be used for
+// caching hashtrees in the worker across multiple jobs. If no hashtree storage
+// is specified in the MockDriver options, this will be nil.
+func (md *MockDriver) ChunkStatsCache() cache.WorkerCache {
+	return md.chunkStatsCache
+}
+
+// DatumCache returns a cache.WorkerCache instance that can be used for caching
+// hashtrees in the worker across multiple jobs. If no hashtree storage is
+// specified in the MockDriver options, this will be nil.
+func (md *MockDriver) DatumCache() cache.WorkerCache {
+	return md.datumCache
+}
+
+// DatumStatsCache returns a cache.WorkerCache instance that can be used for
+// caching hashtrees in the worker across multiple jobs. If no hashtree storage
+// is specified in the MockDriver options, this will be nil.
+func (md *MockDriver) DatumStatsCache() cache.WorkerCache {
+	return md.datumStatsCache
 }
 
 // InputDir returns the path used to hold the input filesets. Inherit and shadow

@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -42,6 +43,7 @@ import (
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
+	"github.com/pachyderm/pachyderm/src/server/worker/cache"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
 	"github.com/pachyderm/pachyderm/src/server/worker/stats"
@@ -60,7 +62,6 @@ const (
 var (
 	errSpecialFile = errors.New("cannot upload special file")
 	statsTagSuffix = "_stats"
-)
 )
 
 func workNamespace(pipelineInfo *pps.PipelineInfo) string {
@@ -107,7 +108,7 @@ type Driver interface {
 	WithData([]*common.Input, *hashtree.Ordered, logs.TaggedLogger, func(*pps.ProcessStats) error) (*pps.ProcessStats, error)
 
 	// RunUserCode runs the pipeline's configured code
-	RunUserCode(logs.TaggedLogger, []string, *pps.ProcessStats, *types.Duration) error
+	RunUserCode(logs.TaggedLogger, []string, []*common.Input, *pps.ProcessStats, *types.Duration) error
 
 	// RunUserErrorHandlingCode runs the pipeline's configured error handling code
 	RunUserErrorHandlingCode(logs.TaggedLogger, []string, *pps.ProcessStats, *types.Duration) error
@@ -117,12 +118,23 @@ type Driver interface {
 	DeleteJob(col.STM, *pps.EtcdJobInfo) error
 	UpdateJobState(string, pps.JobState, string) error
 
+	// UploadOutput uploads the stats hashtree and pfs output directory to object
+	// storage and returns a buffer of the serialized hashtree
+	UploadOutput(string, logs.TaggedLogger, []*common.Input, *pps.ProcessStats, *hashtree.Ordered) ([]byte, error)
+
 	// TODO: figure out how to not expose this
 	ReportUploadStats(time.Time, *pps.ProcessStats, logs.TaggedLogger)
 
 	// TODO: figure out how to not expose this - currently only used for a few
 	// operations in the map spawner
 	NewSTM(func(col.STM) error) (*etcd.TxnResponse, error)
+
+	// These caches are used for storing and merging hashtrees from jobs until the
+	// job is complete
+	ChunkCache() cache.WorkerCache
+	ChunkStatsCache() cache.WorkerCache
+	DatumCache() cache.WorkerCache
+	DatumStatsCache() cache.WorkerCache
 }
 
 type driver struct {
@@ -131,6 +143,7 @@ type driver struct {
 	kubeWrapper  KubeWrapper
 	etcdClient   *etcd.Client
 	etcdPrefix   string
+	runMutex     sync.Mutex
 
 	jobs col.Collection
 
@@ -151,6 +164,10 @@ type driver struct {
 	// The directory to store input data - this is typically static but can be
 	// overridden by tests
 	inputDir string
+
+	// These caches are used for storing and merging hashtrees from jobs until the
+	// job is complete
+	chunkCache, chunkStatsCache, datumCache, datumStatsCache cache.WorkerCache
 }
 
 // NewDriver constructs a Driver object using the given clients and pipeline
@@ -163,18 +180,23 @@ func NewDriver(
 	kubeWrapper KubeWrapper,
 	etcdClient *etcd.Client,
 	etcdPrefix string,
+	hashtreeStorage string,
 ) (Driver, error) {
 	result := &driver{
-		pipelineInfo: pipelineInfo,
-		pachClient:   pachClient,
-		kubeWrapper:  kubeWrapper,
-		etcdClient:   etcdClient,
-		etcdPrefix:   etcdPrefix,
-		jobs:         ppsdb.Jobs(etcdClient, etcdPrefix),
-		pipelines:    ppsdb.Pipelines(etcdClient, etcdPrefix),
-		shards:       col.NewCollection(etcdClient, path.Join(etcdPrefix, shardPrefix, pipelineInfo.Pipeline.Name), nil, &common.ShardInfo{}, nil, nil),
-		plans:        col.NewCollection(etcdClient, path.Join(etcdPrefix, planPrefix), nil, &common.Plan{}, nil, nil),
-		inputDir:     client.PPSInputPrefix,
+		pipelineInfo:    pipelineInfo,
+		pachClient:      pachClient,
+		kubeWrapper:     kubeWrapper,
+		etcdClient:      etcdClient,
+		etcdPrefix:      etcdPrefix,
+		jobs:            ppsdb.Jobs(etcdClient, etcdPrefix),
+		pipelines:       ppsdb.Pipelines(etcdClient, etcdPrefix),
+		shards:          col.NewCollection(etcdClient, path.Join(etcdPrefix, shardPrefix, pipelineInfo.Pipeline.Name), nil, &common.ShardInfo{}, nil, nil),
+		plans:           col.NewCollection(etcdClient, path.Join(etcdPrefix, planPrefix), nil, &common.Plan{}, nil, nil),
+		inputDir:        client.PPSInputPrefix,
+		chunkCache:      cache.NewWorkerCache(filepath.Join(hashtreeStorage, "chunk")),
+		chunkStatsCache: cache.NewWorkerCache(filepath.Join(hashtreeStorage, "chunkStats")),
+		datumCache:      cache.NewWorkerCache(filepath.Join(hashtreeStorage, "datum")),
+		datumStatsCache: cache.NewWorkerCache(filepath.Join(hashtreeStorage, "datumStats")),
 	}
 
 	if pipelineInfo.Transform.User != "" {
@@ -344,6 +366,22 @@ func (d *driver) KubeWrapper() KubeWrapper {
 	return d.kubeWrapper
 }
 
+func (d *driver) ChunkCache() cache.WorkerCache {
+	return d.chunkCache
+}
+
+func (d *driver) ChunkStatsCache() cache.WorkerCache {
+	return d.chunkStatsCache
+}
+
+func (d *driver) DatumCache() cache.WorkerCache {
+	return d.datumCache
+}
+
+func (d *driver) DatumStatsCache() cache.WorkerCache {
+	return d.datumStatsCache
+}
+
 func (d *driver) GetDatumMap(ctx context.Context, object *pfs.Object) (_ map[string]bool, retErr error) {
 	if object == nil {
 		return nil, nil
@@ -376,7 +414,7 @@ func (d *driver) NewSTM(cb func(col.STM) error) (*etcd.TxnResponse, error) {
 }
 
 func (d *driver) WithData(
-	data []*common.Input,
+	inputs []*common.Input,
 	inputTree *hashtree.Ordered,
 	logger logs.TaggedLogger,
 	cb func(*pps.ProcessStats) error,
@@ -386,7 +424,7 @@ func (d *driver) WithData(
 
 	// Download input data into a temporary directory
 	// This can be interrupted via the pachClient using driver.WithCtx
-	dir, err := d.downloadData(logger, data, puller, stats, inputTree)
+	dir, err := d.downloadData(logger, inputs, puller, stats, inputTree)
 	// We run these cleanup functions no matter what, so that if
 	// downloadData partially succeeded, we still clean up the resources.
 	defer func() {
@@ -408,15 +446,6 @@ func (d *driver) WithData(
 	if err := os.MkdirAll(d.inputDir, 0777); err != nil {
 		return nil, err
 	}
-	// TODO: move the link into runusercode
-	if err := d.linkData(data, dir); err != nil {
-		return nil, fmt.Errorf("error linkData: %v", err)
-	}
-	defer func() {
-		if err := d.unlinkData(data); err != nil && retErr == nil {
-			retErr = fmt.Errorf("error unlinkData: %v", err)
-		}
-	}()
 	// If the pipeline spec set a custom user to execute the process, make sure
 	// the input directory and its content are owned by it
 	if d.uid != nil && d.gid != nil {
@@ -590,7 +619,7 @@ func (d *driver) downloadGitData(scratchPath string, input *common.Input) error 
 	return nil
 }
 
-func (d *driver) unlinkData(inputs []*common.Input) error {
+func (d *driver) unlinkData() error {
 	entries, err := ioutil.ReadDir(d.inputDir)
 	if err != nil {
 		return fmt.Errorf("ioutil.ReadDir: %v", err)
@@ -610,9 +639,22 @@ func (d *driver) unlinkData(inputs []*common.Input) error {
 func (d *driver) RunUserCode(
 	logger logs.TaggedLogger,
 	environ []string,
+	inputs []*common.Input,
 	procStats *pps.ProcessStats,
 	rawDatumTimeout *types.Duration,
 ) (retErr error) {
+	d.runMutex.Lock()
+	defer d.runMutex.Unlock()
+
+	if err := d.linkData(inputs, dir); err != nil {
+		return nil, fmt.Errorf("error linkData: %v", err)
+	}
+	defer func() {
+		if err := d.unlinkData(inputs); err != nil && retErr == nil {
+			retErr = fmt.Errorf("error unlinkData: %v", err)
+		}
+	}()
+
 	ctx := d.pachClient.Ctx()
 	d.reportUserCodeStats(logger)
 	defer func(start time.Time) { d.reportDeferredUserCodeStats(retErr, start, procStats, logger) }(time.Now())

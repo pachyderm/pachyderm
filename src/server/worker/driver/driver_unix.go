@@ -28,7 +28,7 @@ func makeCmdCredentials(uid uint32, gid uint32) *syscall.SysProcAttr {
 // unimplemented there, except for tests
 func (d *driver) linkData(inputs []*common.Input, dir string) error {
 	// Make sure that previously symlinked outputs are removed.
-	if err := d.unlinkData(inputs); err != nil {
+	if err := d.unlinkData(); err != nil {
 		return err
 	}
 	for _, input := range inputs {

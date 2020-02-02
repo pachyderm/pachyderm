@@ -74,6 +74,7 @@ func withTestEnv(cb func(*testEnv)) error {
 			env.mockKube,
 			env.EtcdClient,
 			tu.UniqueString("driverTest"),
+			path.Join(env.Directory, "hashtrees"),
 		)
 		if err != nil {
 			return err

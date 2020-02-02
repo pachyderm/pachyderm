@@ -2,15 +2,22 @@ package cache
 
 import (
 	"bytes"
+	"fmt"
 	"io"
+	"path/filepath"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 )
 
+// WorkerCache is an interface for managing hashtree MergeCaches for multiple
+// concurrent jobs
 type WorkerCache interface {
-	DownloadHashtree(jobID string, tag string) error
+	DownloadHashtree(pachClient *client.APIClient, jobID string, tag string) error
 	CacheHashtree(jobID string, tag string, r io.Reader) error
-	ClearJob(jobID string) error
+	ClearJob(jobID string)
+	Get(jobID string, tag string, w io.Writer, filter hashtree.Filter) error
+	Merge(jobID string, w *hashtree.Writer, parent io.Reader, filter hashtree.Filter) error
 }
 
 type workerCache struct {
@@ -20,18 +27,39 @@ type workerCache struct {
 	caches map[string]*hashtree.MergeCache
 }
 
-func (wc *WorkerCache) CacheHashtree(jobID string, tag string) (retErr error) {
-	return nil
+// NewWorkerCache constructs a WorkerCache for maintaining hashtree caches for
+// multiple concurrent jobs
+func NewWorkerCache(hashtreeStorage string) WorkerCache {
+	return &workerCache{
+		hashtreeStorage: hashtreeStorage,
+		caches:          make(map[string]*hashtree.MergeCache),
+	}
 }
 
-func (wc *WorkerCache) DownloadHashtree(jobID string, tag string) (retErr error) {
+func (wc *workerCache) getOrCreateCache(jobID string) *hashtree.MergeCache {
+	if cache, ok := wc.caches[jobID]; ok {
+		return cache
+	}
+	newCache := hashtree.NewMergeCache(filepath.Join(wc.hashtreeStorage, jobID))
+	wc.caches[jobID] = newCache
+	return newCache
+}
+
+func (wc *workerCache) ClearJob(jobID string) {
+	delete(wc.caches, jobID)
+}
+
+func (wc *workerCache) CacheHashtree(jobID string, tag string, r io.Reader) (retErr error) {
+	return wc.getOrCreateCache(jobID).Put(tag, r)
+}
+
+func (wc *workerCache) DownloadHashtree(pachClient *client.APIClient, jobID string, tag string) (retErr error) {
+	cache := wc.getOrCreateCache(jobID)
 	buf := &bytes.Buffer{}
-	if err := d.PachClient().GetTag(tag, buf); err != nil {
+	if err := pachClient.GetTag(tag, buf); err != nil {
 		return err
 	}
-	if err := a.datumCache.Put(tag, buf); err != nil {
-		return err
-	}
+	return cache.Put(tag, buf)
 	/* TODO: ensure a path exists for this when downloading hashtrees
 	if a.pipelineInfo.EnableStats {
 		buf.Reset()
@@ -44,5 +72,21 @@ func (wc *WorkerCache) DownloadHashtree(jobID string, tag string) (retErr error)
 		return a.datumStatsCache.Put(datumIdx, buf)
 	}
 	*/
-	return nil
+}
+
+func (wc *workerCache) Get(jobID string, tag string, w io.Writer, filter hashtree.Filter) error {
+	cache := wc.caches[jobID]
+	if cache == nil {
+		return fmt.Errorf("hashtree cache not found for job %v", jobID)
+	}
+	return cache.Get(tag, w, filter)
+}
+
+func (wc *workerCache) Merge(jobID string, w *hashtree.Writer, parent io.Reader, filter hashtree.Filter) error {
+	cache := wc.caches[jobID]
+	if cache == nil {
+		return fmt.Errorf("hashtree cache not found for job %v", jobID)
+	}
+
+	return cache.Merge(w, parent, filter)
 }

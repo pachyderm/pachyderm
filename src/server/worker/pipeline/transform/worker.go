@@ -206,7 +206,7 @@ func processDatum(
 
 	if _, err := driver.PachClient().InspectTag(driver.PachClient().Ctx(), client.NewTag(tag)); err == nil {
 		logger.Logf("skipping datum")
-		if err := driver.DownloadAndCacheHashtree(logger.JobID(), tag); err != nil {
+		if err := driver.DatumCache().DownloadHashtree(driver.PachClient(), logger.JobID(), tag); err != nil {
 			return stats, err
 		}
 		stats.DatumsSkipped++
@@ -258,7 +258,7 @@ func processDatum(
 			return err
 		}
 		// Cache datum hashtree locally
-		return driver.CacheHashtree(logger.JobID(), tag, bytes.NewReader(b))
+		return driver.DatumCache().CacheHashtree(logger.JobID(), tag, bytes.NewReader(b))
 	}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
 		failures++
 		if failures >= driver.PipelineInfo().DatumTries {
