@@ -214,8 +214,8 @@ func processDatum(
 	}
 
 	var inputTree, outputTree *hashtree.Ordered
-	var statsTree *hashtree.Unordered
 	/* TODO: enable stats
+	var statsTree *hashtree.Unordered
 	if driver.PipelineInfo().EnableStats {
 		statsRoot := path.Join("/", datumID)
 		inputTree = hashtree.NewOrdered(path.Join(statsRoot, "pfs"))
@@ -234,11 +234,11 @@ func processDatum(
 	var failures int64
 	if err := backoff.RetryUntilCancel(driver.PachClient().Ctx(), func() error {
 		var err error
-		stats.ProcessStats, err = driver.WithData(inputs, inputTree, logger, func(processStats *pps.ProcessStats) error {
+		stats.ProcessStats, err = driver.WithData(inputs, inputTree, logger, func(dir string, processStats *pps.ProcessStats) error {
 			env := userCodeEnv(logger.JobID(), outputCommit, driver.InputDir(), inputs)
 			runMutex.Lock()
 			defer runMutex.Unlock()
-			if err := driver.RunUserCode(logger, env, processStats, driver.PipelineInfo().DatumTimeout); err != nil {
+			if err := driver.RunUserCode(logger, env, dir, processStats, driver.PipelineInfo().DatumTimeout); err != nil {
 				if driver.PipelineInfo().Transform.ErrCmd != nil && failures == driver.PipelineInfo().DatumTries-1 {
 					if err = driver.RunUserErrorHandlingCode(logger, env, processStats, driver.PipelineInfo().DatumTimeout); err != nil {
 						return fmt.Errorf("error runUserErrorHandlingCode: %v", err)
@@ -258,6 +258,7 @@ func processDatum(
 			return err
 		}
 		// Cache datum hashtree locally
+		logger.Logf("datum cache: %v", driver.DatumCache())
 		return driver.DatumCache().CacheHashtree(logger.JobID(), tag, bytes.NewReader(b))
 	}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
 		failures++

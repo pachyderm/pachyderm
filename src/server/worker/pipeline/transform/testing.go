@@ -49,6 +49,7 @@ func newMockDriver(env *tu.RealEnv, pipelineInfo *pps.PipelineInfo) *mockDriver 
 		MockDriver: driver.NewMockDriver(env.EtcdClient, &driver.MockOptions{
 			NumWorkers:   1,
 			PipelineInfo: pipelineInfo,
+			HashtreePath: path.Join(env.Directory, "hashtrees"),
 		}),
 		pachClient: env.PachClient,
 	}
