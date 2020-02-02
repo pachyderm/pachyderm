@@ -42,7 +42,7 @@ const (
 	PPSInputPrefix = "/pfs"
 	// PPSScratchSpace is where pps workers store data while it's waiting to be
 	// processed.
-	PPSScratchSpace = ".scratch"
+	PPSScratchSpace = "/.pfs.scratch"
 	// PPSWorkerPortEnv is environment variable name for the port that workers
 	// use for their gRPC server
 	PPSWorkerPortEnv = "PPS_WORKER_GRPC_PORT"

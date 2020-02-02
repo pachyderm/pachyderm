@@ -304,7 +304,7 @@ func newInputData(path string, contents string) *inputData {
 	return &inputData{path: filepath.Clean(path), contents: contents}
 }
 
-func requireInputContents(t *testing.T, env *testEnv, data []*inputData) {
+func requireContents(t *testing.T, dir string, data []*inputData) {
 	checkFile := func(fullPath string, relPath string) {
 		for _, checkData := range data {
 			if checkData.path == relPath {
@@ -322,13 +322,13 @@ func requireInputContents(t *testing.T, env *testEnv, data []*inputData) {
 		require.True(t, false, "Unexpected input file found: %s", relPath)
 	}
 
-	err := filepath.Walk(env.driver.inputDir, func(path string, info os.FileInfo, err error) error {
-		if info.Name() == ".scratch" || info.Name() == ".git" {
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if info.Name() == ".git" {
 			return filepath.SkipDir
 		}
 		if !info.IsDir() {
 			path = filepath.Clean(path)
-			relPath := strings.TrimLeft(strings.TrimPrefix(path, env.driver.inputDir), "/\\")
+			relPath := strings.TrimLeft(strings.TrimPrefix(path, dir), "/\\")
 			checkFile(path, relPath)
 		}
 		return nil
@@ -348,13 +348,13 @@ func TestWithDataEmpty(t *testing.T) {
 				[]*common.Input{},
 				nil,
 				logger,
-				func(stats *pps.ProcessStats) error {
-					requireInputContents(t, env, []*inputData{})
+				func(dir string, stats *pps.ProcessStats) error {
+					requireContents(t, dir, []*inputData{})
 					return nil
 				},
 			)
 			require.NoError(t, err)
-			requireInputContents(t, env, []*inputData{})
+			requireContents(t, env.driver.InputDir(), []*inputData{})
 		})
 	})
 	require.NoError(t, err)
@@ -369,15 +369,15 @@ func TestWithDataSpout(t *testing.T) {
 				[]*common.Input{},
 				nil,
 				logger,
-				func(stats *pps.ProcessStats) error {
+				func(dir string, stats *pps.ProcessStats) error {
 					// A spout pipeline should have created a 'pfs/out` fifo for the user
 					// code to write to
-					requireInputContents(t, env, []*inputData{newInputData("out", "")})
+					requireContents(t, dir, []*inputData{newInputData("out", "")})
 					return nil
 				},
 			)
 			require.NoError(t, err)
-			requireInputContents(t, env, []*inputData{})
+			requireContents(t, env.driver.InputDir(), []*inputData{})
 		})
 	})
 	require.NoError(t, err)
@@ -421,14 +421,14 @@ func TestWithDataCancel(t *testing.T) {
 				[]*common.Input{newInput("repo", "input.txt")},
 				nil,
 				logger,
-				func(stats *pps.ProcessStats) error {
+				func(dir string, stats *pps.ProcessStats) error {
 					require.True(t, false, "Should have been canceled before the callback")
 					cancel()
 					return nil
 				},
 			)
 			require.YesError(t, err, "WithData call should have been canceled")
-			requireInputContents(t, env, []*inputData{})
+			requireContents(t, env.driver.InputDir(), []*inputData{})
 		})
 	})
 	require.NoError(t, err)
@@ -456,8 +456,8 @@ func TestWithDataDownload(t *testing.T) {
 				[]*common.Input{newInput("repoA", "input.txt"), newInput("repoB", "input.md")},
 				nil,
 				logger,
-				func(stats *pps.ProcessStats) error {
-					requireInputContents(t, env, []*inputData{
+				func(dir string, stats *pps.ProcessStats) error {
+					requireContents(t, dir, []*inputData{
 						newInputData("repoA/input.txt", "repoA-data"),
 						newInputData("repoB/input.md", "repoB-data"),
 					})
@@ -466,7 +466,7 @@ func TestWithDataDownload(t *testing.T) {
 				},
 			)
 			require.NoError(t, err)
-			requireInputContents(t, env, []*inputData{})
+			requireContents(t, env.driver.InputDir(), []*inputData{})
 		})
 	})
 	require.NoError(t, err)
@@ -490,8 +490,8 @@ func TestWithDataCleanup(t *testing.T) {
 				[]*common.Input{},
 				nil,
 				logger,
-				func(stats *pps.ProcessStats) error {
-					requireInputContents(t, env, []*inputData{})
+				func(dir string, stats *pps.ProcessStats) error {
+					requireContents(t, dir, []*inputData{})
 					logger.Logf("inner function")
 
 					create("c")
@@ -507,7 +507,7 @@ func TestWithDataCleanup(t *testing.T) {
 				},
 			)
 			require.NoError(t, err)
-			requireInputContents(t, env, []*inputData{})
+			requireContents(t, env.driver.InputDir(), []*inputData{})
 		})
 	})
 	require.NoError(t, err)
@@ -565,15 +565,15 @@ func TestWithDataGit(t *testing.T) {
 				[]*common.Input{newGitInput("artifacts", inputGitRepo)},
 				nil,
 				logger,
-				func(stats *pps.ProcessStats) error {
-					requireInputContents(t, env, []*inputData{newInputDataRegex("artifacts/readme.md", "Test Artifacts")})
+				func(dir string, stats *pps.ProcessStats) error {
+					requireContents(t, dir, []*inputData{newInputDataRegex("artifacts/readme.md", "Test Artifacts")})
 					return nil
 				},
 			)
 			require.NoError(t, err)
 			require.NotNil(t, getFileReq)
 			require.Equal(t, getFileReq.File, client.NewFile("artifacts", "commit-id-string", "commit.json"))
-			requireInputContents(t, env, []*inputData{})
+			requireContents(t, env.driver.InputDir(), []*inputData{})
 		})
 	})
 	require.NoError(t, err)
@@ -589,14 +589,14 @@ func TestWithDataGitHookError(t *testing.T) {
 				[]*common.Input{newGitInput("artifacts", inputGitRepo)},
 				nil,
 				logger,
-				func(stats *pps.ProcessStats) error {
+				func(dir string, stats *pps.ProcessStats) error {
 					require.True(t, false, "Should have errored before calling WithData callback")
 					return nil
 				},
 			)
 			require.YesError(t, err)
 			require.Matches(t, "payload does not specify", err.Error())
-			requireInputContents(t, env, []*inputData{})
+			requireContents(t, env.driver.InputDir(), []*inputData{})
 		})
 	})
 	require.NoError(t, err)
@@ -612,14 +612,14 @@ func TestWithDataGitRepoMissing(t *testing.T) {
 				[]*common.Input{newGitInput("artifacts", inputGitRepo)},
 				nil,
 				logger,
-				func(stats *pps.ProcessStats) error {
+				func(dir string, stats *pps.ProcessStats) error {
 					require.True(t, false, "Should have errored before calling WithData callback")
 					return nil
 				},
 			)
 			require.YesError(t, err)
 			require.Matches(t, "authentication required", err.Error())
-			requireInputContents(t, env, []*inputData{})
+			requireContents(t, env.driver.InputDir(), []*inputData{})
 		})
 	})
 	require.NoError(t, err)
@@ -635,14 +635,14 @@ func TestWithDataGitInvalidSHA(t *testing.T) {
 				[]*common.Input{newGitInput("artifacts", inputGitRepo)},
 				nil,
 				logger,
-				func(stats *pps.ProcessStats) error {
+				func(dir string, stats *pps.ProcessStats) error {
 					require.True(t, false, "Should have errored before calling WithData callback")
 					return nil
 				},
 			)
 			require.YesError(t, err)
 			require.Matches(t, "could not find SHA foobar", err.Error())
-			requireInputContents(t, env, []*inputData{})
+			requireContents(t, env.driver.InputDir(), []*inputData{})
 		})
 	})
 	require.NoError(t, err)
@@ -655,12 +655,7 @@ func TestRunUserCode(t *testing.T) {
 	err := withTestEnv(func(env *testEnv) {
 		env.driver.pipelineInfo.Transform.Cmd = []string{"echo", logMessage}
 		requireLogs(t, []string{logMessage}, func(logger logs.TaggedLogger) {
-			err := env.driver.RunUserCode(
-				logger,
-				[]string{},
-				nil,
-				nil,
-			)
+			err := env.driver.RunUserCode(logger, []string{}, "", nil, nil)
 			require.NoError(t, err)
 		})
 	})
@@ -672,7 +667,7 @@ func TestRunUserCodeError(t *testing.T) {
 	err := withTestEnv(func(env *testEnv) {
 		env.driver.pipelineInfo.Transform.Cmd = []string{"false"}
 		requireLogs(t, []string{"exit status 1"}, func(logger logs.TaggedLogger) {
-			err := env.driver.RunUserCode(logger, []string{}, nil, nil)
+			err := env.driver.RunUserCode(logger, []string{}, "", nil, nil)
 			require.YesError(t, err)
 		})
 	})
@@ -684,7 +679,7 @@ func TestRunUserCodeNoCommand(t *testing.T) {
 	err := withTestEnv(func(env *testEnv) {
 		env.driver.pipelineInfo.Transform.Cmd = []string{}
 		requireLogs(t, []string{"no command specified"}, func(logger logs.TaggedLogger) {
-			err := env.driver.RunUserCode(logger, []string{}, nil, nil)
+			err := env.driver.RunUserCode(logger, []string{}, "", nil, nil)
 			require.YesError(t, err)
 		})
 	})
@@ -697,7 +692,7 @@ func TestRunUserCodeTimeout(t *testing.T) {
 		env.driver.pipelineInfo.Transform.Cmd = []string{"sleep", "10"}
 		timeout := types.DurationProto(10 * time.Millisecond)
 		requireLogs(t, []string{"context deadline exceeded"}, func(logger logs.TaggedLogger) {
-			err := env.driver.RunUserCode(logger, []string{}, nil, timeout)
+			err := env.driver.RunUserCode(logger, []string{}, "", nil, timeout)
 			require.YesError(t, err)
 			require.Matches(t, "context deadline exceeded", err.Error())
 		})
@@ -710,7 +705,7 @@ func TestRunUserCodeEnv(t *testing.T) {
 	err := withTestEnv(func(env *testEnv) {
 		env.driver.pipelineInfo.Transform.Cmd = []string{"env"}
 		requireLogs(t, []string{"FOO=password", "BAR=hunter2"}, func(logger logs.TaggedLogger) {
-			err := env.driver.RunUserCode(logger, []string{"FOO=password", "BAR=hunter2"}, nil, nil)
+			err := env.driver.RunUserCode(logger, []string{"FOO=password", "BAR=hunter2"}, "", nil, nil)
 			require.NoError(t, err)
 		})
 	})
@@ -738,16 +733,16 @@ func TestRunUserCodeWithData(t *testing.T) {
 				[]*common.Input{newInput("repoA", "input.txt"), newInput("repoB", "input.md")},
 				nil,
 				logger,
-				func(stats *pps.ProcessStats) error {
-					requireInputContents(t, env, []*inputData{
+				func(dir string, stats *pps.ProcessStats) error {
+					requireContents(t, dir, []*inputData{
 						newInputData("repoA/input.txt", "repoA-data"),
 						newInputData("repoB/input.md", "repoB-data"),
 					})
 
-					err := env.driver.RunUserCode(logger, []string{}, nil, nil)
+					err := env.driver.RunUserCode(logger, []string{}, dir, nil, nil)
 					require.NoError(t, err)
 
-					requireInputContents(t, env, []*inputData{
+					requireContents(t, dir, []*inputData{
 						newInputData("repoA/input.txt", "repoA-data"),
 						newInputData("repoB/input.md", "repoB-data"),
 						newInputData("out/output.txt", "repoA-datarepoB-data"),
@@ -756,7 +751,7 @@ func TestRunUserCodeWithData(t *testing.T) {
 				},
 			)
 			require.NoError(t, err)
-			requireInputContents(t, env, []*inputData{})
+			requireContents(t, env.driver.InputDir(), []*inputData{})
 		})
 	})
 	require.NoError(t, err)
@@ -773,11 +768,3 @@ func TestUpdateJobState(t *testing.T) {
 func TestDeleteJob(t *testing.T) {
 	t.Parallel()
 }
-
-/*
-func (d *driver) RunUserCode(ctx context.Context, logger logs.TaggedLogger, environ []string, procStats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
-func (d *driver) RunUserErrorHandlingCode(ctx context.Context, logger logs.TaggedLogger, environ []string, procStats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
-
-func (d *driver) UpdateJobState(ctx context.Context, jobID string, statsCommit *pfs.Commit, state pps.JobState, reason string) error {
-func (d *driver) DeleteJob(stm col.STM, jobPtr *pps.EtcdJobInfo) error {
-*/

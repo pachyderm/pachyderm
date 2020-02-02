@@ -185,16 +185,16 @@ func (md *MockDriver) WithData(
 	data []*common.Input,
 	inputTree *hashtree.Ordered,
 	logger logs.TaggedLogger,
-	cb func(*pps.ProcessStats) error,
+	cb func(string, *pps.ProcessStats) error,
 ) (*pps.ProcessStats, error) {
 	stats := &pps.ProcessStats{}
-	err := cb(stats)
+	err := cb("", stats)
 	return stats, err
 }
 
 // RunUserCode does nothing.  Inherit and shadow this if you actually want to
 // do something for user code
-func (md *MockDriver) RunUserCode(logs.TaggedLogger, []string, *pps.ProcessStats, *types.Duration) error {
+func (md *MockDriver) RunUserCode(logs.TaggedLogger, []string, string, *pps.ProcessStats, *types.Duration) error {
 	return nil
 }
 
@@ -202,6 +202,12 @@ func (md *MockDriver) RunUserCode(logs.TaggedLogger, []string, *pps.ProcessStats
 // actually want to do something for user error-handling code
 func (md *MockDriver) RunUserErrorHandlingCode(logs.TaggedLogger, []string, *pps.ProcessStats, *types.Duration) error {
 	return nil
+}
+
+// UploadOutput does nothing. Inherit and shadow this if you actually want it to
+// do something.
+func (md *MockDriver) UploadOutput(string, logs.TaggedLogger, []*common.Input, *pps.ProcessStats, *hashtree.Ordered) ([]byte, error) {
+	return []byte{}, nil
 }
 
 // DeleteJob will delete the given job entry from etcd.

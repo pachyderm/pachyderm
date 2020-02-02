@@ -105,10 +105,12 @@ type Driver interface {
 
 	// WithData prepares the current node the code is running on to run a piece
 	// of user code by downloading the specified data, and cleans up afterwards.
-	WithData([]*common.Input, *hashtree.Ordered, logs.TaggedLogger, func(*pps.ProcessStats) error) (*pps.ProcessStats, error)
+	WithData([]*common.Input, *hashtree.Ordered, logs.TaggedLogger, func(string, *pps.ProcessStats) error) (*pps.ProcessStats, error)
 
-	// RunUserCode runs the pipeline's configured code
-	RunUserCode(logs.TaggedLogger, []string, []*common.Input, *pps.ProcessStats, *types.Duration) error
+	// RunUserCode links a specific scratch space for the active input/output
+	// data, then runs the pipeline's configured code. It uses a mutex to enforce
+	// that this is not done concurrently, and may block.
+	RunUserCode(logs.TaggedLogger, []string, string, *pps.ProcessStats, *types.Duration) error
 
 	// RunUserErrorHandlingCode runs the pipeline's configured error handling code
 	RunUserErrorHandlingCode(logs.TaggedLogger, []string, *pps.ProcessStats, *types.Duration) error
@@ -143,7 +145,7 @@ type driver struct {
 	kubeWrapper  KubeWrapper
 	etcdClient   *etcd.Client
 	etcdPrefix   string
-	runMutex     sync.Mutex
+	runMutex     *sync.Mutex
 
 	jobs col.Collection
 
@@ -417,7 +419,7 @@ func (d *driver) WithData(
 	inputs []*common.Input,
 	inputTree *hashtree.Ordered,
 	logger logs.TaggedLogger,
-	cb func(*pps.ProcessStats) error,
+	cb func(string, *pps.ProcessStats) error,
 ) (retStats *pps.ProcessStats, retErr error) {
 	puller := filesync.NewPuller()
 	stats := &pps.ProcessStats{}
@@ -457,7 +459,7 @@ func (d *driver) WithData(
 		})
 	}
 
-	if err := cb(stats); err != nil {
+	if err := cb(dir, stats); err != nil {
 		return nil, err
 	}
 
@@ -498,7 +500,7 @@ func (d *driver) downloadData(
 
 	// The scratch space is where Pachyderm stores downloaded and output data, which is
 	// then symlinked into place for the pipeline.
-	scratchPath := filepath.Join(d.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
+	scratchPath := filepath.Join(client.PPSScratchSpace, uuid.NewWithoutDashes())
 	outPath := filepath.Join(scratchPath, "out")
 	// TODO: move this up into spout code
 	if d.pipelineInfo.Spout != nil {
@@ -639,21 +641,23 @@ func (d *driver) unlinkData() error {
 func (d *driver) RunUserCode(
 	logger logs.TaggedLogger,
 	environ []string,
-	inputs []*common.Input,
+	dir string,
 	procStats *pps.ProcessStats,
 	rawDatumTimeout *types.Duration,
 ) (retErr error) {
 	d.runMutex.Lock()
 	defer d.runMutex.Unlock()
 
-	if err := d.linkData(inputs, dir); err != nil {
-		return nil, fmt.Errorf("error linkData: %v", err)
-	}
-	defer func() {
-		if err := d.unlinkData(inputs); err != nil && retErr == nil {
-			retErr = fmt.Errorf("error unlinkData: %v", err)
+	if dir != "" {
+		if err := d.linkData(dir); err != nil {
+			return fmt.Errorf("error linkData: %v", err)
 		}
-	}()
+		defer func() {
+			if err := d.unlinkData(); err != nil && retErr == nil {
+				retErr = fmt.Errorf("error unlinkData: %v", err)
+			}
+		}()
+	}
 
 	ctx := d.pachClient.Ctx()
 	d.reportUserCodeStats(logger)

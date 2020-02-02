@@ -26,11 +26,13 @@ func makeCmdCredentials(uid uint32, gid uint32) *syscall.SysProcAttr {
 
 // os.Symlink requires additional privileges on windows, so this is left
 // unimplemented there, except for tests
-func (d *driver) linkData(inputs []*common.Input, dir string) error {
+func (d *driver) linkData(dir string) error {
 	// Make sure that previously symlinked outputs are removed.
 	if err := d.unlinkData(); err != nil {
 		return err
 	}
+	return os.Symlink(dir, d.inputDir)
+	/* TODO: is it fine to skip symlinking each subdir/file?
 	for _, input := range inputs {
 		src := filepath.Join(dir, input.Name)
 		dst := filepath.Join(d.inputDir, input.Name)
@@ -45,4 +47,5 @@ func (d *driver) linkData(inputs []*common.Input, dir string) error {
 	}
 
 	return os.Symlink(filepath.Join(dir, "out"), filepath.Join(d.InputDir(), "out"))
+	*/
 }
