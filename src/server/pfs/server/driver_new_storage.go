@@ -49,22 +49,22 @@ func (d *driver) finishCommitNewStorageLayer(txnCtx *txnenv.TransactionContext, 
 	}
 	// Compact the commit changes into a diff file set.
 	commitPath := path.Join(commit.Repo.Name, commit.ID)
-	if err := d.compact(context.Background(), path.Join(commitPath, fileset.Diff), []string{commitPath}); err != nil {
+	if err := d.compact(txnCtx.Client.Ctx(), path.Join(commitPath, fileset.Diff), []string{commitPath}); err != nil {
 		return err
 	}
 	// Compact the commit changes (diff file set) into the total changes in the commit's ancestry.
 	var compactSpec *fileset.CompactSpec
 	if commitInfo.ParentCommit == nil {
-		compactSpec, err = d.storage.CompactSpec(context.Background(), commitPath)
+		compactSpec, err = d.storage.CompactSpec(txnCtx.Client.Ctx(), commitPath)
 	} else {
 		// (bryce) how to handle parent commit that is not closed?
 		parentCommitPath := path.Join(commitInfo.ParentCommit.Repo.Name, commitInfo.ParentCommit.ID)
-		compactSpec, err = d.storage.CompactSpec(context.Background(), commitPath, parentCommitPath)
+		compactSpec, err = d.storage.CompactSpec(txnCtx.Client.Ctx(), commitPath, parentCommitPath)
 	}
 	if err != nil {
 		return err
 	}
-	if err := d.compact(context.Background(), compactSpec.Output, compactSpec.Input); err != nil {
+	if err := d.compact(txnCtx.Client.Ctx(), compactSpec.Output, compactSpec.Input); err != nil {
 		return err
 	}
 	// (bryce) need size.
@@ -117,7 +117,7 @@ func (d *driver) getFileNewStorageLayer(pachClient *client.APIClient, file *pfs.
 	repo := file.Commit.Repo.Name
 	commit := file.Commit.ID
 	// (bryce) need exact match option for file path.
-	mr, err := d.storage.NewMergeReader(context.Background(), []string{path.Join(repo, commit, fileset.Compacted)}, index.WithPrefix(file.Path))
+	mr, err := d.storage.NewMergeReader(pachClient.Ctx(), []string{path.Join(repo, commit, fileset.Compacted)}, index.WithPrefix(file.Path))
 	if err != nil {
 		return err
 	}
