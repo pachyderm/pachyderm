@@ -2,7 +2,6 @@ package driver
 
 import (
 	"context"
-	"path"
 	"path/filepath"
 	"time"
 
@@ -24,6 +23,7 @@ import (
 // MockOptions is a basic data struct containing options used by the MockDriver
 type MockOptions struct {
 	NumWorkers   int
+	NumShards    int
 	EtcdPrefix   string
 	PipelineInfo *pps.PipelineInfo
 	HashtreePath string
@@ -51,6 +51,10 @@ func NewMockDriver(etcdClient *etcd.Client, userOptions *MockOptions) *MockDrive
 
 	if options.NumWorkers == 0 {
 		options.NumWorkers = 1
+	}
+
+	if options.NumShards == 0 {
+		options.NumShards = 1
 	}
 
 	md := &MockDriver{
@@ -86,26 +90,6 @@ func (md *MockDriver) Jobs() col.Collection {
 // Pipelines returns a collection for the PPS Pipelines data in etcd
 func (md *MockDriver) Pipelines() col.Collection {
 	return ppsdb.Pipelines(md.etcdClient, md.options.EtcdPrefix)
-}
-
-// Plans returns a collection for the PPS plans data in etcd
-func (md *MockDriver) Plans() col.Collection {
-	return col.NewCollection(md.etcdClient, path.Join(md.options.EtcdPrefix, planPrefix), nil, &common.Plan{}, nil, nil)
-}
-
-// Shards returns a collection for the PPS shards data in etcd
-func (md *MockDriver) Shards() col.Collection {
-	return col.NewCollection(md.etcdClient, path.Join(md.options.EtcdPrefix, shardPrefix), nil, &common.ShardInfo{}, nil, nil)
-}
-
-// Chunks returns a collection for the PPS chunks data in etcd
-func (md *MockDriver) Chunks(jobID string) col.Collection {
-	return col.NewCollection(md.etcdClient, path.Join(md.options.EtcdPrefix, chunkPrefix, jobID), nil, &common.ChunkState{}, nil, nil)
-}
-
-// Merges returns a collection for the PPS merges data in etcd
-func (md *MockDriver) Merges(jobID string) col.Collection {
-	return col.NewCollection(md.etcdClient, path.Join(md.options.EtcdPrefix, mergePrefix, jobID), nil, &common.MergeState{}, nil, nil)
 }
 
 // NewTaskWorker returns a work.Worker instance that can be used for running pipeline tasks.
@@ -178,6 +162,11 @@ func (md *MockDriver) GetExpectedNumWorkers() (int, error) {
 	return md.options.NumWorkers, nil
 }
 
+// NumShards returns the number of hashtree shards configured for the pipeline
+func (md *MockDriver) NumShards() int64 {
+	return int64(md.options.NumShards)
+}
+
 // WithData doesn't do anything except call the given callback.  Inherit and
 // shadow this if you actually want to load some data onto the filesystem.
 // Make sure to implement this in terms of the `InputDir` method.
@@ -194,7 +183,7 @@ func (md *MockDriver) WithData(
 
 // RunUserCode does nothing.  Inherit and shadow this if you actually want to
 // do something for user code
-func (md *MockDriver) RunUserCode(logs.TaggedLogger, []string, string, *pps.ProcessStats, *types.Duration) error {
+func (md *MockDriver) RunUserCode(logs.TaggedLogger, []string, *pps.ProcessStats, *types.Duration) error {
 	return nil
 }
 

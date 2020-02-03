@@ -3,14 +3,18 @@ package pipeline
 import (
 	"archive/tar"
 	"context"
+	"fmt"
 	"io"
 	"os"
+	"path"
+	"strings"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
@@ -23,11 +27,12 @@ func RunUserCode(
 	ctx context.Context,
 	driver driver.Driver,
 	logger logs.TaggedLogger,
+	dir string,
 ) error {
 	return backoff.RetryUntilCancel(ctx, func() error {
 		// TODO: shouldn't this set up env like the worker does?
 		// TODO: what about the user error handling code?
-		return driver.RunUserCode(logger, nil, &pps.ProcessStats{}, nil)
+		return driver.RunUserCode(logger, nil, dir, &pps.ProcessStats{}, nil)
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		logger.Logf("error in RunUserCode: %+v, retrying in: %+v", err, d)
 		return nil
@@ -90,24 +95,24 @@ func ReceiveSpout(
 						return err
 					}
 					// put files into pachyderm
-					if a.pipelineInfo.Spout.Marker != "" && strings.HasPrefix(path.Clean(fileHeader.Name), a.pipelineInfo.Spout.Marker) {
+					if pipelineInfo.Spout.Marker != "" && strings.HasPrefix(path.Clean(fileHeader.Name), pipelineInfo.Spout.Marker) {
 						// we'll check that this is the latest version of the spout, and then commit to it
 						// we need to do this atomically because we otherwise might hit a subtle race condition
 
 						// check to see if this spout is the latest version of this spout by seeing if its spec commit has any children
-						spec, err := a.pachClient.InspectCommit(ppsconsts.SpecRepo, a.pipelineInfo.SpecCommit.ID)
+						spec, err := pachClient.InspectCommit(ppsconsts.SpecRepo, pipelineInfo.SpecCommit.ID)
 						if err != nil && !errutil.IsNotFoundError(err) {
 							return err
 						}
 						if spec != nil && len(spec.ChildCommits) != 0 {
 							return fmt.Errorf("outdated spout, now shutting down")
 						}
-						_, err = a.pachClient.PutFileOverwrite(repo, ppsconsts.SpoutMarkerBranch, fileHeader.Name, outTar, 0)
+						_, err = pachClient.PutFileOverwrite(repo, ppsconsts.SpoutMarkerBranch, fileHeader.Name, outTar, 0)
 						if err != nil {
 							return err
 						}
 
-					} else if a.pipelineInfo.Spout.Overwrite {
+					} else if pipelineInfo.Spout.Overwrite {
 						_, err = pachClient.PutFileOverwrite(repo, commit.ID, fileHeader.Name, outTar, 0)
 						if err != nil {
 							return err

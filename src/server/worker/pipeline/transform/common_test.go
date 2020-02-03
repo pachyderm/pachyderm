@@ -18,7 +18,7 @@ func defaultPipelineInfo() *pps.PipelineInfo {
 		Pipeline:     client.NewPipeline(name),
 		OutputBranch: "master",
 		Transform: &pps.Transform{
-			Cmd: []string{"cp", path.Join("pfs", "inputRepo", "file"), "pfs/out/file"},
+			Cmd: []string{"echo", "foo", "bar"},
 		},
 		ParallelismSpec: &pps.ParallelismSpec{
 			Constant: 1,
@@ -44,8 +44,12 @@ type testEnv struct {
 	driver driver.Driver
 }
 
+// withTestEnv provides a test env with etcd and pachd instances and connected
+// clients, plus a worker driver for performing worker operations.
 func withTestEnv(pipelineInfo *pps.PipelineInfo, cb func(*testEnv) error) error {
 	return tu.WithRealEnv(func(realEnv *tu.RealEnv) error {
+		pipelineInfo.Transform.WorkingDir = realEnv.Directory
+
 		logger := logs.NewMockLogger()
 		driver, err := driver.NewDriver(
 			pipelineInfo,

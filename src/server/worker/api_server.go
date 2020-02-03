@@ -1,7 +1,6 @@
 package worker
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -68,7 +67,7 @@ type APIServer struct {
 }
 
 // NewAPIServer creates an APIServer for a given pipeline
-func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix string, pipelineInfo *pps.PipelineInfo, workerName string, namespace string, hashtreeStorage string) (*APIServer, error) {
+func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix string, pipelineInfo *pps.PipelineInfo, workerName string, namespace string, hashtreePath string) (*APIServer, error) {
 	stats.InitPrometheus()
 
 	span, ctx := extended.AddPipelineSpanToAnyTrace(pachClient.Ctx(),
@@ -89,42 +88,6 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		return nil, err
 	}
 
-	d, err := driver.NewDriver(pipelineInfo, oldPachClient, driver.NewKubeWrapper(kubeClient), etcdClient, etcdPrefix)
-	if err != nil {
-		return nil, err
-	}
-
-	server := &APIServer{
-		pachClient:      oldPachClient,
-		etcdClient:      etcdClient,
-		etcdPrefix:      etcdPrefix,
-		driver:          d,
-		workerName:      workerName,
-		namespace:       namespace,
-		hashtreeStorage: hashtreeStorage,
-		claimedShard:    make(chan context.Context, 1),
-		shard:           noShard,
-		clients:         make(map[string]Client),
-	}
-	logger := logs.NewStatlessLogger(pipelineInfo)
-
-	numShards, err := ppsutil.GetExpectedNumHashtrees(pipelineInfo.HashtreeSpec)
-	if err != nil {
-		logger.Logf("error getting number of shards, default to 1 shard: %v", err)
-		numShards = 1
-	}
-	server.numShards = numShards
-	root := filepath.Join(hashtreeStorage, uuid.NewWithoutDashes())
-	if err := os.MkdirAll(filepath.Join(root, "chunk", "stats"), 0777); err != nil {
-		return nil, err
-	}
-	if err := os.MkdirAll(filepath.Join(root, "datum", "stats"), 0777); err != nil {
-		return nil, err
-	}
-	server.chunkCache = hashtree.NewMergeCache(filepath.Join(root, "chunk"))
-	server.chunkStatsCache = hashtree.NewMergeCache(filepath.Join(root, "chunk", "stats"))
-	server.datumCache = hashtree.NewMergeCache(filepath.Join(root, "datum"))
-	server.datumStatsCache = hashtree.NewMergeCache(filepath.Join(root, "datum", "stats"))
 	var noDocker bool
 	if _, err := os.Stat("/var/run/docker.sock"); err != nil {
 		noDocker = true
@@ -144,15 +107,40 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		if pipelineInfo.Transform.WorkingDir == "" {
 			pipelineInfo.Transform.WorkingDir = image.Config.WorkingDir
 		}
-		if server.pipelineInfo.Transform.Cmd == nil {
+		if pipelineInfo.Transform.Cmd == nil {
 			if len(image.Config.Entrypoint) == 0 {
 				ppsutil.FailPipeline(ctx, etcdClient, d.Pipelines(),
 					pipelineInfo.Pipeline.Name,
 					"nothing to run: no transform.cmd and no entrypoint")
 			}
-			server.pipelineInfo.Transform.Cmd = image.Config.Entrypoint
+			pipelineInfo.Transform.Cmd = image.Config.Entrypoint
 		}
 	}
+
+	d, err := driver.NewDriver(
+		pipelineInfo,
+		oldPachClient,
+		driver.NewKubeWrapper(kubeClient),
+		etcdClient,
+		etcdPrefix,
+		filepath.Join(hashtreePath, uuid.NewWithoutDashes()),
+		client.PPSInputPrefix,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	server := &APIServer{
+		pachClient: oldPachClient,
+		etcdClient: etcdClient,
+		etcdPrefix: etcdPrefix,
+		driver:     d,
+		workerName: workerName,
+		namespace:  namespace,
+		clients:    make(map[string]Client),
+	}
+	logger := logs.NewStatlessLogger(pipelineInfo)
+
 	go server.master()
 	go server.worker()
 	return server, nil

@@ -87,13 +87,13 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 		logger = logger.WithData(data)
 
 		// TODO: do something with stats? - this isn't an output repo so there's nowhere to put them
-		_, err = driver.WithData(data, nil, logger, func(*pps.ProcessStats) error {
+		_, err = driver.WithData(data, nil, logger, func(dir string, stats *pps.ProcessStats) error {
 			if err := driver.UpdateJobState(job.ID, pps.JobState_JOB_RUNNING, ""); err != nil {
 				logger.Logf("error updating job state: %+v", err)
 			}
 
 			eg, serviceCtx := errgroup.WithContext(serviceCtx)
-			eg.Go(func() error { return pipeline.RunUserCode(serviceCtx, driver, logger) })
+			eg.Go(func() error { return pipeline.RunUserCode(serviceCtx, driver, logger, dir) })
 			if pipelineInfo.Spout != nil {
 				eg.Go(func() error { return pipeline.ReceiveSpout(serviceCtx, pachClient, pipelineInfo, logger) })
 			}

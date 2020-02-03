@@ -12,7 +12,6 @@ import (
 	"log"
 	"os"
 	"os/user"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -54,11 +53,6 @@ import (
 const (
 	// The maximum number of concurrent download/upload operations
 	concurrency = 100
-
-	chunkPrefix = "/chunk"
-	mergePrefix = "/merge"
-	planPrefix  = "/plan"
-	shardPrefix = "/shard"
 )
 
 var (
@@ -78,10 +72,6 @@ func workNamespace(pipelineInfo *pps.PipelineInfo) string {
 type Driver interface {
 	Jobs() col.Collection
 	Pipelines() col.Collection
-	Plans() col.Collection
-	Shards() col.Collection
-	Chunks(jobID string) col.Collection
-	Merges(jobID string) col.Collection
 
 	NewTaskWorker() *work.Worker
 	NewTaskMaster() *work.Master
@@ -100,6 +90,9 @@ type Driver interface {
 	// Returns the number of workers to be used based on what can be determined from kubernetes
 	GetExpectedNumWorkers() (int, error)
 
+	// Returns the number of hashtree shards for the pipeline
+	NumShards() int64
+
 	// WithCtx clones the current driver and applies the context to its
 	// pachClient. The pachClient context will be used for other blocking
 	// operations as well.
@@ -112,7 +105,7 @@ type Driver interface {
 	// RunUserCode links a specific scratch space for the active input/output
 	// data, then runs the pipeline's configured code. It uses a mutex to enforce
 	// that this is not done concurrently, and may block.
-	RunUserCode(logs.TaggedLogger, []string, string, *pps.ProcessStats, *types.Duration) error
+	RunUserCode(logs.TaggedLogger, []string, *pps.ProcessStats, *types.Duration) error
 
 	// RunUserErrorHandlingCode runs the pipeline's configured error handling code
 	RunUserErrorHandlingCode(logs.TaggedLogger, []string, *pps.ProcessStats, *types.Duration) error
@@ -142,21 +135,19 @@ type Driver interface {
 }
 
 type driver struct {
-	pipelineInfo *pps.PipelineInfo
-	pachClient   *client.APIClient
-	kubeWrapper  KubeWrapper
-	etcdClient   *etcd.Client
-	etcdPrefix   string
-	runMutex     *sync.Mutex
+	pipelineInfo    *pps.PipelineInfo
+	pachClient      *client.APIClient
+	kubeWrapper     KubeWrapper
+	etcdClient      *etcd.Client
+	etcdPrefix      string
+	activeDataMutex *sync.Mutex
+	rootDir         string
 
 	jobs col.Collection
 
 	pipelines col.Collection
 
-	plans col.Collection
-
-	// Stores available filesystem shards for a pipeline, workers will claim these
-	shards col.Collection
+	numShards int64
 
 	// User and group IDs used for running user code, determined in the constructor
 	uid *uint32
@@ -184,13 +175,17 @@ func NewDriver(
 	kubeWrapper KubeWrapper,
 	etcdClient *etcd.Client,
 	etcdPrefix string,
-	hashtreeStorage string,
+	hashtreePath string,
+	pfsPath string,
 ) (Driver, error) {
-	chunkCachePath := filepath.Join(hashtreeStorage, "chunk")
-	chunkStatsCachePath := filepath.Join(hashtreeStorage, "chunkStats")
-	datumCachePath := filepath.Join(hashtreeStorage, "datum")
-	datumStatsCachePath := filepath.Join(hashtreeStorage, "datumStats")
+	chunkCachePath := filepath.Join(hashtreePath, "chunk")
+	chunkStatsCachePath := filepath.Join(hashtreePath, "chunkStats")
+	datumCachePath := filepath.Join(hashtreePath, "datum")
+	datumStatsCachePath := filepath.Join(hashtreePath, "datumStats")
 
+	if err := os.MkdirAll(pfsPath, 0777); err != nil {
+		return nil, err
+	}
 	if err := os.MkdirAll(chunkCachePath, 0777); err != nil {
 		return nil, err
 	}
@@ -204,18 +199,23 @@ func NewDriver(
 		return nil, err
 	}
 
+	numShards, err := ppsutil.GetExpectedNumHashtrees(pipelineInfo.HashtreeSpec)
+	if err != nil {
+		logs.NewStatlessLogger(pipelineInfo).Logf("error getting number of shards, default to 1 shard: %v", err)
+		numShards = 1
+	}
+
 	result := &driver{
 		pipelineInfo:    pipelineInfo,
 		pachClient:      pachClient,
 		kubeWrapper:     kubeWrapper,
 		etcdClient:      etcdClient,
 		etcdPrefix:      etcdPrefix,
-		runMutex:        &sync.Mutex{},
+		activeDataMutex: &sync.Mutex{},
 		jobs:            ppsdb.Jobs(etcdClient, etcdPrefix),
 		pipelines:       ppsdb.Pipelines(etcdClient, etcdPrefix),
-		shards:          col.NewCollection(etcdClient, path.Join(etcdPrefix, shardPrefix, pipelineInfo.Pipeline.Name), nil, &common.ShardInfo{}, nil, nil),
-		plans:           col.NewCollection(etcdClient, path.Join(etcdPrefix, planPrefix), nil, &common.Plan{}, nil, nil),
-		inputDir:        client.PPSInputPrefix,
+		numShards:       numShards,
+		inputDir:        pfsPath,
 		chunkCache:      cache.NewWorkerCache(chunkCachePath),
 		chunkStatsCache: cache.NewWorkerCache(chunkStatsCachePath),
 		datumCache:      cache.NewWorkerCache(datumCachePath),
@@ -345,22 +345,6 @@ func (d *driver) Pipelines() col.Collection {
 	return d.pipelines
 }
 
-func (d *driver) Plans() col.Collection {
-	return d.plans
-}
-
-func (d *driver) Shards() col.Collection {
-	return d.shards
-}
-
-func (d *driver) Chunks(jobID string) col.Collection {
-	return col.NewCollection(d.etcdClient, path.Join(d.etcdPrefix, chunkPrefix, jobID), nil, &common.ChunkState{}, nil, nil)
-}
-
-func (d *driver) Merges(jobID string) col.Collection {
-	return col.NewCollection(d.etcdClient, path.Join(d.etcdPrefix, mergePrefix, jobID), nil, &common.MergeState{}, nil, nil)
-}
-
 func (d *driver) NewTaskWorker() *work.Worker {
 	return work.NewWorker(d.etcdClient, d.etcdPrefix, workNamespace(d.pipelineInfo))
 }
@@ -371,6 +355,10 @@ func (d *driver) NewTaskMaster() *work.Master {
 
 func (d *driver) GetExpectedNumWorkers() (int, error) {
 	return d.kubeWrapper.GetExpectedNumWorkers(d.pipelineInfo.ParallelismSpec)
+}
+
+func (d *driver) NumShards() int64 {
+	return d.numShards
 }
 
 func (d *driver) PipelineInfo() *pps.PipelineInfo {
@@ -466,13 +454,13 @@ func (d *driver) WithData(
 	if err != nil {
 		return nil, fmt.Errorf("error downloadData: %v", err)
 	}
-	if err := os.MkdirAll(d.inputDir, 0777); err != nil {
+	if err := os.MkdirAll(d.InputDir(), 0777); err != nil {
 		return nil, err
 	}
 	// If the pipeline spec set a custom user to execute the process, make sure
 	// the input directory and its content are owned by it
 	if d.uid != nil && d.gid != nil {
-		filepath.Walk(d.inputDir, func(name string, info os.FileInfo, err error) error {
+		filepath.Walk(dir, func(name string, info os.FileInfo, err error) error {
 			if err == nil {
 				err = os.Chown(name, int(*d.uid), int(*d.gid))
 			}
@@ -521,7 +509,15 @@ func (d *driver) downloadData(
 
 	// The scratch space is where Pachyderm stores downloaded and output data, which is
 	// then symlinked into place for the pipeline.
-	scratchPath := filepath.Join(client.PPSScratchSpace, uuid.NewWithoutDashes())
+	scratchPath := filepath.Join(d.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
+
+	// Clean up any files if an error occurs
+	defer func() {
+		if retErr != nil {
+			os.RemoveAll(scratchPath)
+		}
+	}()
+
 	outPath := filepath.Join(scratchPath, "out")
 	// TODO: move this up into spout code
 	if d.pipelineInfo.Spout != nil {
@@ -530,7 +526,7 @@ func (d *driver) downloadData(
 			return "", fmt.Errorf("mkdirall :%v", err)
 		}
 		// Fifos don't exist on windows (where we may run this code in tests), so
-		// this is broken out into a file
+		// this function is defined in a conditional-build file
 		if err := createSpoutFifo(outPath); err != nil {
 			return "", fmt.Errorf("mkfifo :%v", err)
 		}
@@ -545,8 +541,18 @@ func (d *driver) downloadData(
 				}
 			} else {
 				// the file might be in the spout marker directory, and so we'll try pulling it from there
-				if err := puller.Pull(d.PachClient(), filepath.Join(outPath, d.PipelineInfo().Spout.Marker), d.PipelineInfo().Pipeline.Name,
-					ppsconsts.SpoutMarkerBranch, "/"+d.PipelineInfo().Spout.Marker, false, false, concurrency, nil, ""); err != nil {
+				if err := puller.Pull(
+					d.PachClient(),
+					filepath.Join(outPath, d.PipelineInfo().Spout.Marker),
+					d.PipelineInfo().Pipeline.Name,
+					ppsconsts.SpoutMarkerBranch,
+					"/"+d.PipelineInfo().Spout.Marker,
+					false,
+					false,
+					concurrency,
+					nil,
+					"",
+				); err != nil {
 					// this might fail if the marker branch hasn't been created, so check for that
 					if err == nil || !strings.Contains(err.Error(), "branches") || !errutil.IsNotFoundError(err) {
 						return "", err
@@ -572,8 +578,8 @@ func (d *driver) downloadData(
 		fullInputPath := filepath.Join(scratchPath, input.Name, file.Path)
 		var statsRoot string
 		if statsTree != nil {
-			statsRoot = path.Join(input.Name, file.Path)
-			parent, _ := path.Split(statsRoot)
+			statsRoot = filepath.Join(input.Name, file.Path)
+			parent, _ := filepath.Split(statsRoot)
 			statsTree.MkdirAll(parent)
 		}
 		if err := puller.Pull(
@@ -657,44 +663,13 @@ func (d *driver) downloadGitData(scratchPath string, input *common.Input) error 
 	return nil
 }
 
-func (d *driver) unlinkData() error {
-	entries, err := ioutil.ReadDir(d.inputDir)
-	if err != nil {
-		return fmt.Errorf("ioutil.ReadDir: %v", err)
-	}
-	for _, entry := range entries {
-		if entry.Name() == client.PPSScratchSpace {
-			continue // don't delete scratch space
-		}
-		if err := os.RemoveAll(filepath.Join(d.inputDir, entry.Name())); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // Run user code and return the combined output of stdout and stderr.
 func (d *driver) RunUserCode(
 	logger logs.TaggedLogger,
 	environ []string,
-	dir string,
 	procStats *pps.ProcessStats,
 	rawDatumTimeout *types.Duration,
 ) (retErr error) {
-	d.runMutex.Lock()
-	defer d.runMutex.Unlock()
-
-	if dir != "" {
-		if err := d.linkData(dir); err != nil {
-			return fmt.Errorf("error linkData: %v", err)
-		}
-		defer func() {
-			if err := d.unlinkData(); err != nil && retErr == nil {
-				retErr = fmt.Errorf("error unlinkData: %v", err)
-			}
-		}()
-	}
-
 	ctx := d.pachClient.Ctx()
 	d.reportUserCodeStats(logger)
 	defer func(start time.Time) { d.reportDeferredUserCodeStats(retErr, start, procStats, logger) }(time.Now())
@@ -993,6 +968,22 @@ func (d *driver) reportDownloadTimeStats(
 	}
 }
 
+func (d *driver) unlinkData(inputs []*common.Input) error {
+	entries, err := ioutil.ReadDir(d.InputDir())
+	if err != nil {
+		return fmt.Errorf("ioutil.ReadDir: %v", err)
+	}
+	for _, entry := range entries {
+		if entry.Name() == client.PPSScratchSpace {
+			continue // don't delete scratch space
+		}
+		if err := os.RemoveAll(filepath.Join(d.InputDir(), entry.Name())); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (d *driver) UploadOutput(
 	tag string,
 	logger logs.TaggedLogger,
@@ -1144,7 +1135,7 @@ func (d *driver) UploadOutput(
 		if err != nil {
 			// if the error is that the spout marker file is missing, that's fine, just skip to the next file
 			if d.PipelineInfo().Spout != nil {
-				if strings.Contains(err.Error(), path.Join("out", d.PipelineInfo().Spout.Marker)) {
+				if strings.Contains(err.Error(), filepath.Join("out", d.PipelineInfo().Spout.Marker)) {
 					return nil
 				}
 			}

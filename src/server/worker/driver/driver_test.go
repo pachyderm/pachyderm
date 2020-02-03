@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -37,7 +36,7 @@ func testPipelineInfo() *pps.PipelineInfo {
 	return &pps.PipelineInfo{
 		Pipeline: client.NewPipeline("testPipeline"),
 		Transform: &pps.Transform{
-			Cmd: []string{"cp", path.Join("pfs", inputRepo, "file"), "pfs/out/file"},
+			Cmd: []string{"cp", filepath.Join("pfs", inputRepo, "file"), "pfs/out/file"},
 		},
 		ParallelismSpec: &pps.ParallelismSpec{
 			Constant: 1,
@@ -74,14 +73,14 @@ func withTestEnv(cb func(*testEnv)) error {
 			env.mockKube,
 			env.EtcdClient,
 			tu.UniqueString("driverTest"),
-			path.Join(env.Directory, "hashtrees"),
+			filepath.Clean(filepath.Join(env.Directory, "hashtrees")),
+			filepath.Clean(filepath.Join(env.Directory, "pfs")),
 		)
 		if err != nil {
 			return err
 		}
 		d = d.WithCtx(env.Context)
 		env.driver = d.(*driver)
-		env.driver.inputDir = filepath.Clean(path.Join(env.Directory, "pfs"))
 		env.driver.pipelineInfo.Transform.WorkingDir = env.Directory
 
 		cb(env)
@@ -304,6 +303,23 @@ func newInputData(path string, contents string) *inputData {
 	return &inputData{path: filepath.Clean(path), contents: contents}
 }
 
+func requireNotPresent(t *testing.T, path string) {
+	_, err := os.Stat(path)
+	if err == nil {
+		require.False(t, true, "unexpected file found: %s", path)
+	} else if !os.IsNotExist(err) {
+		require.NoError(t, err)
+	}
+}
+
+func requireEmptyScratch(t *testing.T, inputDir string) {
+	entries, err := ioutil.ReadDir(filepath.Join(inputDir, client.PPSScratchSpace))
+
+	if !os.IsNotExist(err) {
+		require.ElementsEqual(t, []os.FileInfo{}, entries)
+	}
+}
+
 func requireContents(t *testing.T, dir string, data []*inputData) {
 	checkFile := func(fullPath string, relPath string) {
 		for _, checkData := range data {
@@ -323,7 +339,8 @@ func requireContents(t *testing.T, dir string, data []*inputData) {
 	}
 
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if info.Name() == ".git" {
+		require.NoError(t, err)
+		if info.Name() == ".git" || info.Name() == client.PPSScratchSpace {
 			return filepath.SkipDir
 		}
 		if !info.IsDir() {
@@ -354,6 +371,7 @@ func TestWithDataEmpty(t *testing.T) {
 				},
 			)
 			require.NoError(t, err)
+			requireEmptyScratch(t, env.driver.InputDir())
 			requireContents(t, env.driver.InputDir(), []*inputData{})
 		})
 	})
@@ -377,6 +395,7 @@ func TestWithDataSpout(t *testing.T) {
 				},
 			)
 			require.NoError(t, err)
+			requireEmptyScratch(t, env.driver.InputDir())
 			requireContents(t, env.driver.InputDir(), []*inputData{})
 		})
 	})
@@ -428,6 +447,7 @@ func TestWithDataCancel(t *testing.T) {
 				},
 			)
 			require.YesError(t, err, "WithData call should have been canceled")
+			requireEmptyScratch(t, env.driver.InputDir())
 			requireContents(t, env.driver.InputDir(), []*inputData{})
 		})
 	})
@@ -466,6 +486,7 @@ func TestWithDataDownload(t *testing.T) {
 				},
 			)
 			require.NoError(t, err)
+			requireEmptyScratch(t, env.driver.InputDir())
 			requireContents(t, env.driver.InputDir(), []*inputData{})
 		})
 	})
@@ -474,12 +495,12 @@ func TestWithDataDownload(t *testing.T) {
 
 // Create several files and directories inside WithData and verify that they are
 // cleaned up after WithData returns.
-func TestWithDataCleanup(t *testing.T) {
+func TestWithActiveDataCleanup(t *testing.T) {
 	t.Parallel()
 	err := withTestEnv(func(env *testEnv) {
 		create := func(relPath string) {
-			fullPath := path.Join(env.driver.inputDir, relPath)
-			require.NoError(t, os.MkdirAll(path.Dir(fullPath), 0777))
+			fullPath := filepath.Join(env.driver.InputDir(), relPath)
+			require.NoError(t, os.MkdirAll(filepath.Dir(fullPath), 0777))
 			file, err := os.Create(fullPath)
 			require.NoError(t, err)
 			require.NoError(t, file.Close())
@@ -494,19 +515,33 @@ func TestWithDataCleanup(t *testing.T) {
 					requireContents(t, dir, []*inputData{})
 					logger.Logf("inner function")
 
-					create("c")
-					create("out/1")
-					create("out/2/a")
-					create("out/2/b")
-					create("out/2/3/c")
-					create("foo/barbaz")
-					create("foo/bar/baz")
-					create("floop/blarp/blazj/etc")
+					expectedContents := []*inputData{
+						newInputData("c", ""),
+						newInputData("out/1", ""),
+						newInputData("out/2/a", ""),
+						newInputData("out/2/b", ""),
+						newInputData("out/2/3/c", ""),
+						newInputData("foo/barbaz", ""),
+						newInputData("foo/bar/baz", ""),
+						newInputData("floop/blarp/blazj/etc", ""),
+					}
 
+					err := env.driver.WithActiveData([]*common.Input{}, dir, func() error {
+						for _, x := range expectedContents {
+							create(x.path)
+						}
+
+						requireContents(t, env.driver.InputDir(), expectedContents)
+						return nil
+					})
+					require.NoError(t, err)
+					requireContents(t, dir, expectedContents)
+					requireContents(t, env.driver.InputDir(), []*inputData{})
 					return nil
 				},
 			)
 			require.NoError(t, err)
+			requireEmptyScratch(t, env.driver.InputDir())
 			requireContents(t, env.driver.InputDir(), []*inputData{})
 		})
 	})
@@ -573,6 +608,7 @@ func TestWithDataGit(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, getFileReq)
 			require.Equal(t, getFileReq.File, client.NewFile("artifacts", "commit-id-string", "commit.json"))
+			requireEmptyScratch(t, env.driver.InputDir())
 			requireContents(t, env.driver.InputDir(), []*inputData{})
 		})
 	})
@@ -596,6 +632,7 @@ func TestWithDataGitHookError(t *testing.T) {
 			)
 			require.YesError(t, err)
 			require.Matches(t, "payload does not specify", err.Error())
+			requireEmptyScratch(t, env.driver.InputDir())
 			requireContents(t, env.driver.InputDir(), []*inputData{})
 		})
 	})
@@ -619,6 +656,7 @@ func TestWithDataGitRepoMissing(t *testing.T) {
 			)
 			require.YesError(t, err)
 			require.Matches(t, "authentication required", err.Error())
+			requireEmptyScratch(t, env.driver.InputDir())
 			requireContents(t, env.driver.InputDir(), []*inputData{})
 		})
 	})
@@ -642,6 +680,7 @@ func TestWithDataGitInvalidSHA(t *testing.T) {
 			)
 			require.YesError(t, err)
 			require.Matches(t, "could not find SHA foobar", err.Error())
+			requireEmptyScratch(t, env.driver.InputDir())
 			requireContents(t, env.driver.InputDir(), []*inputData{})
 		})
 	})
@@ -655,7 +694,7 @@ func TestRunUserCode(t *testing.T) {
 	err := withTestEnv(func(env *testEnv) {
 		env.driver.pipelineInfo.Transform.Cmd = []string{"echo", logMessage}
 		requireLogs(t, []string{logMessage}, func(logger logs.TaggedLogger) {
-			err := env.driver.RunUserCode(logger, []string{}, "", nil, nil)
+			err := env.driver.RunUserCode(logger, []string{}, nil, nil)
 			require.NoError(t, err)
 		})
 	})
@@ -667,7 +706,7 @@ func TestRunUserCodeError(t *testing.T) {
 	err := withTestEnv(func(env *testEnv) {
 		env.driver.pipelineInfo.Transform.Cmd = []string{"false"}
 		requireLogs(t, []string{"exit status 1"}, func(logger logs.TaggedLogger) {
-			err := env.driver.RunUserCode(logger, []string{}, "", nil, nil)
+			err := env.driver.RunUserCode(logger, []string{}, nil, nil)
 			require.YesError(t, err)
 		})
 	})
@@ -679,7 +718,7 @@ func TestRunUserCodeNoCommand(t *testing.T) {
 	err := withTestEnv(func(env *testEnv) {
 		env.driver.pipelineInfo.Transform.Cmd = []string{}
 		requireLogs(t, []string{"no command specified"}, func(logger logs.TaggedLogger) {
-			err := env.driver.RunUserCode(logger, []string{}, "", nil, nil)
+			err := env.driver.RunUserCode(logger, []string{}, nil, nil)
 			require.YesError(t, err)
 		})
 	})
@@ -692,7 +731,7 @@ func TestRunUserCodeTimeout(t *testing.T) {
 		env.driver.pipelineInfo.Transform.Cmd = []string{"sleep", "10"}
 		timeout := types.DurationProto(10 * time.Millisecond)
 		requireLogs(t, []string{"context deadline exceeded"}, func(logger logs.TaggedLogger) {
-			err := env.driver.RunUserCode(logger, []string{}, "", nil, timeout)
+			err := env.driver.RunUserCode(logger, []string{}, nil, timeout)
 			require.YesError(t, err)
 			require.Matches(t, "context deadline exceeded", err.Error())
 		})
@@ -705,7 +744,7 @@ func TestRunUserCodeEnv(t *testing.T) {
 	err := withTestEnv(func(env *testEnv) {
 		env.driver.pipelineInfo.Transform.Cmd = []string{"env"}
 		requireLogs(t, []string{"FOO=password", "BAR=hunter2"}, func(logger logs.TaggedLogger) {
-			err := env.driver.RunUserCode(logger, []string{"FOO=password", "BAR=hunter2"}, "", nil, nil)
+			err := env.driver.RunUserCode(logger, []string{"FOO=password", "BAR=hunter2"}, nil, nil)
 			require.NoError(t, err)
 		})
 	})
@@ -729,8 +768,9 @@ func TestRunUserCodeWithData(t *testing.T) {
 				return serv.Send(&types.BytesValue{Value: []byte(fmt.Sprintf("%s-data", req.File.Commit.Repo.Name))})
 			})
 
+			inputs := []*common.Input{newInput("repoA", "input.txt"), newInput("repoB", "input.md")}
 			_, err := env.driver.WithData(
-				[]*common.Input{newInput("repoA", "input.txt"), newInput("repoB", "input.md")},
+				inputs,
 				nil,
 				logger,
 				func(dir string, stats *pps.ProcessStats) error {
@@ -739,7 +779,22 @@ func TestRunUserCodeWithData(t *testing.T) {
 						newInputData("repoB/input.md", "repoB-data"),
 					})
 
-					err := env.driver.RunUserCode(logger, []string{}, dir, nil, nil)
+					err := env.driver.WithActiveData(inputs, dir, func() error {
+						requireContents(t, env.driver.InputDir(), []*inputData{
+							newInputData("repoA/input.txt", "repoA-data"),
+							newInputData("repoB/input.md", "repoB-data"),
+						})
+
+						err := env.driver.RunUserCode(logger, []string{}, nil, nil)
+						require.NoError(t, err)
+
+						requireContents(t, env.driver.InputDir(), []*inputData{
+							newInputData("repoA/input.txt", "repoA-data"),
+							newInputData("repoB/input.md", "repoB-data"),
+							newInputData("out/output.txt", "repoA-datarepoB-data"),
+						})
+						return nil
+					})
 					require.NoError(t, err)
 
 					requireContents(t, dir, []*inputData{
@@ -751,6 +806,7 @@ func TestRunUserCodeWithData(t *testing.T) {
 				},
 			)
 			require.NoError(t, err)
+			requireEmptyScratch(t, env.driver.InputDir())
 			requireContents(t, env.driver.InputDir(), []*inputData{})
 		})
 	})

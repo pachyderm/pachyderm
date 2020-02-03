@@ -24,28 +24,47 @@ func makeCmdCredentials(uid uint32, gid uint32) *syscall.SysProcAttr {
 	}
 }
 
-// os.Symlink requires additional privileges on windows, so this is left
-// unimplemented there, except for tests
-func (d *driver) linkData(dir string) error {
-	// Make sure that previously symlinked outputs are removed.
-	if err := d.unlinkData(); err != nil {
+// WithActiveData is implemented differently in unix vs windows because of how
+// symlinks work on windows. Here, we create symlinks to the scratch space
+// directory, then clean up before returning.
+func (d *driver) WithActiveData(inputs []*common.Input, dir string, cb func() error) (retErr error) {
+	d.activeDataMutex.Lock()
+	defer d.activeDataMutex.Unlock()
+
+	if err := d.linkData(inputs, dir); err != nil {
+		return fmt.Errorf("error when linking active data directory: %v", err)
+	}
+	defer func() {
+		if err := d.unlinkData(inputs); err != nil && retErr == nil {
+			retErr = fmt.Errorf("error when unlinking active data directory: %v", err)
+		}
+	}()
+
+	return cb()
+}
+
+func (d *driver) linkData(inputs []*Input, dir string) error {
+	// Make sure that the previously-symlinked outputs are removed.
+	if err := d.unlinkData(inputs); err != nil {
 		return err
 	}
-	return os.Symlink(dir, d.inputDir)
-	/* TODO: is it fine to skip symlinking each subdir/file?
+
 	for _, input := range inputs {
 		src := filepath.Join(dir, input.Name)
-		dst := filepath.Join(d.inputDir, input.Name)
+		dst := filepath.Join(d.InputDir(), input.Name)
 		if err := os.Symlink(src, dst); err != nil {
 			return err
 		}
 	}
 
-	err := os.Symlink(filepath.Join(dir, "marker"), filepath.Join(d.InputDir(), "marker"))
-	if err != nil {
-		return err
+	if d.PipelineInfo().Spout != nil && d.PipelineInfo().Spout.Marker != "" {
+		if err = os.Symlink(
+			filepath.Join(dir, d.PipelineInfo().Spout.Marker),
+			filepath.Join(d.InputDir(), d.PipelineInfo().Spout.Marker),
+		); err != nil {
+			return err
+		}
 	}
 
 	return os.Symlink(filepath.Join(dir, "out"), filepath.Join(d.InputDir(), "out"))
-	*/
 }

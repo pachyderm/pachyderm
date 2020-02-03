@@ -16,9 +16,9 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 	logger = logger.WithJob("spout")
 
 	// TODO: do something with stats?
-	_, err := driver.WithData(nil, nil, logger, func(*pps.ProcessStats) error {
+	_, err := driver.WithData(nil, nil, logger, func(dir string, stats *pps.ProcessStats) error {
 		eg, serviceCtx := errgroup.WithContext(pachClient.Ctx())
-		eg.Go(func() error { return pipeline.RunUserCode(serviceCtx, driver, logger) })
+		eg.Go(func() error { return pipeline.RunUserCode(serviceCtx, driver, logger, dir) })
 		eg.Go(func() error { return pipeline.ReceiveSpout(serviceCtx, pachClient, pipelineInfo, logger) })
 		return eg.Wait()
 	})

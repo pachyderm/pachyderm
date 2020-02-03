@@ -156,9 +156,6 @@ func handleDatumTask(driver driver.Driver, logger logs.TaggedLogger, data *Datum
 	logger.Logf("transform worker datum task: %v", data)
 	limiter := limit.New(int(driver.PipelineInfo().MaxQueueSize))
 
-	// runMutex prevents multiple user code instances from running concurrently
-	runMutex := &sync.Mutex{}
-
 	// statsMutex controls access to stats so that they can be safely merged
 	statsMutex := &sync.Mutex{}
 	data.Stats = &DatumStats{
@@ -171,7 +168,7 @@ func handleDatumTask(driver driver.Driver, logger logs.TaggedLogger, data *Datum
 		eg.Go(func() error {
 			// TODO: create new logger for this datum
 			defer limiter.Release()
-			subStats, err := processDatum(driver, logger.WithData(inputs), inputs, data.OutputCommit, runMutex)
+			subStats, err := processDatum(driver, logger.WithData(inputs), inputs, data.OutputCommit)
 
 			statsMutex.Lock()
 			defer statsMutex.Unlock()
@@ -198,7 +195,6 @@ func processDatum(
 	logger logs.TaggedLogger,
 	inputs []*common.Input,
 	outputCommit *pfs.Commit,
-	runMutex *sync.Mutex,
 ) (*DatumStats, error) {
 	stats := &DatumStats{}
 	tag := common.HashDatum(driver.PipelineInfo().Pipeline.Name, driver.PipelineInfo().Salt, inputs)
@@ -234,24 +230,33 @@ func processDatum(
 	var failures int64
 	if err := backoff.RetryUntilCancel(driver.PachClient().Ctx(), func() error {
 		var err error
-		stats.ProcessStats, err = driver.WithData(inputs, inputTree, logger, func(dir string, processStats *pps.ProcessStats) error {
-			env := userCodeEnv(logger.JobID(), outputCommit, driver.InputDir(), inputs)
-			runMutex.Lock()
-			defer runMutex.Unlock()
-			if err := driver.RunUserCode(logger, env, dir, processStats, driver.PipelineInfo().DatumTimeout); err != nil {
-				if driver.PipelineInfo().Transform.ErrCmd != nil && failures == driver.PipelineInfo().DatumTries-1 {
-					if err = driver.RunUserErrorHandlingCode(logger, env, processStats, driver.PipelineInfo().DatumTimeout); err != nil {
-						return fmt.Errorf("error runUserErrorHandlingCode: %v", err)
-					}
-					return errDatumRecovered
-				}
-				return err
-			}
 
-			b, err := driver.UploadOutput(tag, logger, inputs, stats.ProcessStats, outputTree)
-			if err != nil {
+		// WithData will download the inputs for this datum
+		stats.ProcessStats, err = driver.WithData(inputs, inputTree, logger, func(dir string, processStats *pps.ProcessStats) error {
+			hashtreeBytes := []byte{}
+
+			// WithActiveData acquires a mutex so that we don't run this section concurrently
+			return driver.WithActiveData(dir, func() error {
+				env := userCodeEnv(logger.JobID(), outputCommit, driver.InputDir(), inputs)
+				if err := driver.RunUserCode(logger, env, dir, processStats, driver.PipelineInfo().DatumTimeout); err != nil {
+					if driver.PipelineInfo().Transform.ErrCmd != nil && failures == driver.PipelineInfo().DatumTries-1 {
+						if err = driver.RunUserErrorHandlingCode(logger, env, processStats, driver.PipelineInfo().DatumTimeout); err != nil {
+							return fmt.Errorf("error RunUserErrorHandlingCode: %v", err)
+						}
+						return errDatumRecovered
+					}
+					return err
+				}
+
+				// TODO: would be nice if we could upload the output from the scratch
+				// space rather than the active data directory, but I think this breaks
+				// if they use symlinks to a path under the active data directory. If
+				// this would work, we can run the next datum while uploading previous
+				// datums.
+				var err error
+				hashtreeBytes, err = driver.UploadOutput(tag, logger, inputs, stats.ProcessStats, outputTree)
 				return err
-			}
+			})
 
 			// Cache datum hashtree locally
 			return driver.DatumCache().CacheHashtree(logger.JobID(), tag, bytes.NewReader(b))
