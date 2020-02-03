@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"path/filepath"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -15,11 +16,36 @@ import (
 	pps_pretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
 
 	prompt "github.com/c-bata/go-prompt"
-	"github.com/docker/go-units"
+	units "github.com/docker/go-units"
 )
 
+type part int
+
+const (
+	repo part = iota
+	commitOrBranch
+	file
+)
+
+func filePart(text string) part {
+	switch {
+	case !strings.ContainsRune(text, '@'):
+		return repo
+	case !strings.ContainsRune(text, ':'):
+		return commitOrBranch
+	default:
+		return file
+	}
+}
+
+func samePart(p part) CacheFunc {
+	return func(_, text string) bool {
+		return filePart(text) == p
+	}
+}
+
 // RepoCompletion completes repo parameters of the form <repo>
-func RepoCompletion(_, text string, maxCompletions int64) []prompt.Suggest {
+func RepoCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c, err := client.NewOnUserMachine("user-completion")
 	if err != nil {
 		log.Fatal(err)
@@ -36,23 +62,23 @@ func RepoCompletion(_, text string, maxCompletions int64) []prompt.Suggest {
 			Description: fmt.Sprintf("%s (%s)", ri.Description, units.BytesSize(float64(ri.SizeBytes))),
 		})
 	}
-	return result
+	return result, samePart(filePart(text))
 }
 
 // BranchCompletion completes branch parameters of the form <repo>@<branch>
-func BranchCompletion(flag, text string, maxCompletions int64) []prompt.Suggest {
+func BranchCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c, err := client.NewOnUserMachine("user-completion")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer c.Close()
 	partialFile := cmdutil.ParsePartialFile(text)
+	part := filePart(text)
 	var result []prompt.Suggest
-	if partialFile.Commit.Repo.Name == "" || // nothing typed yet
-		(len(partialFile.Commit.ID) == 0 && text[len(text)-1] != '@') { // partial repo typed
+	switch part {
+	case repo:
 		return RepoCompletion(flag, text, maxCompletions)
-	} else if partialFile.Commit.ID == "" || // repo@ typed, no commit/branch yet
-		(len(partialFile.Path) == 0 && text[len(text)-1] != ':') { // partial commit/branch typed
+	case commitOrBranch:
 		bis, err := c.ListBranch(partialFile.Commit.Repo.Name)
 		if err != nil {
 			log.Fatal(err)
@@ -68,25 +94,25 @@ func BranchCompletion(flag, text string, maxCompletions int64) []prompt.Suggest 
 			})
 		}
 	}
-	return result
+	return result, samePart(part)
 }
 
 // FileCompletion completes file parameters of the form <repo>@<branch>:/file
-func FileCompletion(flag, text string, maxCompletions int64) []prompt.Suggest {
+func FileCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c, err := client.NewOnUserMachine("user-completion")
 	if err != nil {
 		fmt.Println(err)
 	}
 	defer c.Close()
 	partialFile := cmdutil.ParsePartialFile(text)
+	part := filePart(text)
 	var result []prompt.Suggest
-	if partialFile.Commit.Repo.Name == "" || // nothing typed yet
-		(len(partialFile.Commit.ID) == 0 && text[len(text)-1] != '@') { // partial repo typed
+	switch part {
+	case repo:
 		return RepoCompletion(flag, text, maxCompletions)
-	} else if partialFile.Commit.ID == "" || // repo@ typed, no commit/branch yet
-		(len(partialFile.Path) == 0 && text[len(text)-1] != ':') { // partial commit/branch typed
+	case commitOrBranch:
 		return BranchCompletion(flag, text, maxCompletions)
-	} else { // typing the file
+	case file:
 		if err := c.GlobFileF(partialFile.Commit.Repo.Name, partialFile.Commit.ID, partialFile.Path+"*", func(fi *pfs.FileInfo) error {
 			if maxCompletions > 0 {
 				maxCompletions--
@@ -101,11 +127,11 @@ func FileCompletion(flag, text string, maxCompletions int64) []prompt.Suggest {
 			log.Fatal(err)
 		}
 	}
-	return result
+	return result, samePart(part)
 }
 
 // FilesystemCompletion completes file parameters from the local filesystem (not from pfs).
-func FilesystemCompletion(_, text string, maxCompletions int64) []prompt.Suggest {
+func FilesystemCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	dir := filepath.Dir(text)
 	fis, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -117,11 +143,13 @@ func FilesystemCompletion(_, text string, maxCompletions int64) []prompt.Suggest
 			Text: filepath.Join(dir, fi.Name()),
 		})
 	}
-	return result
+	return result, func(_, text string) bool {
+		return filepath.Dir(text) == dir
+	}
 }
 
 // PipelineCompletion completes pipeline parameters of the form <pipeline>
-func PipelineCompletion(_, text string, maxCompletions int64) []prompt.Suggest {
+func PipelineCompletion(_, _ string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c, err := client.NewOnUserMachine("user-completion")
 	if err != nil {
 		log.Fatal(err)
@@ -138,7 +166,7 @@ func PipelineCompletion(_, text string, maxCompletions int64) []prompt.Suggest {
 			Description: pi.Description,
 		})
 	}
-	return result
+	return result, CacheAll
 }
 
 func jobDesc(ji *pps.JobInfo) string {
@@ -152,7 +180,7 @@ func jobDesc(ji *pps.JobInfo) string {
 }
 
 // JobCompletion completes job parameters of the form <job>
-func JobCompletion(_, text string, maxCompletions int64) []prompt.Suggest {
+func JobCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c, err := client.NewOnUserMachine("user-completion")
 	if err != nil {
 		log.Fatal(err)
@@ -173,5 +201,5 @@ func JobCompletion(_, text string, maxCompletions int64) []prompt.Suggest {
 	}); err != nil {
 		log.Fatal(err)
 	}
-	return result
+	return result, CacheAll
 }

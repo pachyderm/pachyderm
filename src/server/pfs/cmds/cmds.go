@@ -882,14 +882,17 @@ $ {{alias}} repo@branch -i http://host/path`,
 	putFile.Flags().UintVar(&headerRecords, "header-records", 0, "the number of records that will be converted to a PFS 'header', and prepended to future retrievals of any subset of data from PFS; needs to be used with --split=(json|line|csv)")
 	putFile.Flags().BoolVarP(&putFileCommit, "commit", "c", false, "DEPRECATED: Put file(s) in a new commit.")
 	putFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
-	shell.RegisterCompletionFunc(putFile, func(flag, text string, maxCompletions int64) []prompt.Suggest {
-		if flag == "-f" || flag == "--file" || flag == "-i" || flag == "input-file" {
-			return shell.FilesystemCompletion(flag, text, maxCompletions)
-		} else if flag == "" || flag == "-c" || flag == "--commit" || flag == "-o" || flag == "--overwrite" {
-			return shell.FileCompletion(flag, text, maxCompletions)
-		}
-		return nil
-	})
+	shell.RegisterCompletionFunc(putFile,
+		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
+			if flag == "-f" || flag == "--file" || flag == "-i" || flag == "input-file" {
+				cs, cf := shell.FilesystemCompletion(flag, text, maxCompletions)
+				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
+			} else if flag == "" || flag == "-c" || flag == "--commit" || flag == "-o" || flag == "--overwrite" {
+				cs, cf := shell.FileCompletion(flag, text, maxCompletions)
+				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
+			}
+			return nil, shell.SameFlag(flag)
+		})
 	commands = append(commands, cmdutil.CreateAlias(putFile, "put file"))
 
 	copyFile := &cobra.Command{

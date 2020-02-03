@@ -371,7 +371,7 @@ func Cmds() []*cobra.Command {
 	return commands
 }
 
-func contextCompletion(_, text string, maxCompletions int64) []prompt.Suggest {
+func contextCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 	cfg, err := config.Read(false)
 	if err != nil {
 		log.Fatal(err)
@@ -401,5 +401,5 @@ func contextCompletion(_, text string, maxCompletions int64) []prompt.Suggest {
 			return result[i].Text < result[j].Text
 		}
 	})
-	return result
+	return result, shell.CacheAll
 }

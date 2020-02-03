@@ -20,9 +20,36 @@ const (
 	defaultMaxCompletions int64  = 64
 )
 
-// CompletionFunc is the type of functions which implement completions for
-// pachctl commands.
-type CompletionFunc func(flag, arg string, maxCompletions int64) []prompt.Suggest
+// CacheFunc is a function which returns whether or not cached results from a
+// previous call to a CompletionFunc can be reused.
+type CacheFunc func(flag, text string) bool
+
+// CacheAll is a CacheFunc that always returns true (always use cached results).
+func CacheAll(_, _ string) bool { return true }
+
+// CacheNone is a CacheFunc that always returns false (never cache anything).
+func CacheNone(_, _ string) bool { return false }
+
+// SameFlag is a CacheFunc that returns true if the flags are the same.
+func SameFlag(flag string) CacheFunc {
+	return func(_flag, _ string) bool {
+		return flag == _flag
+	}
+}
+
+// AndCacheFunc ands 0 or more cache funcs together.
+func AndCacheFunc(fs ...CacheFunc) CacheFunc {
+	return func(flag, text string) bool {
+		result := true
+		for _, f := range fs {
+			result = result && f(flag, text)
+		}
+		return result
+	}
+}
+
+// CompletionFunc is a function which returns completions for a command.
+type CompletionFunc func(flag, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc)
 
 var completions map[string]CompletionFunc = make(map[string]CompletionFunc)
 
@@ -67,6 +94,13 @@ func (s *shell) executor(in string) {
 	cmd.Run()
 }
 
+// variables for caching completion calls
+var (
+	completionID string
+	suggests     []prompt.Suggest
+	cacheF       CacheFunc
+)
+
 func (s *shell) suggestor(in prompt.Document) []prompt.Suggest {
 	args := strings.Fields(in.Text)
 	if len(strings.TrimSuffix(in.Text, " ")) < len(in.Text) {
@@ -105,7 +139,10 @@ func (s *shell) suggestor(in prompt.Document) []prompt.Suggest {
 	}
 	if id, ok := cmd.Annotations[completionAnnotation]; ok {
 		completionFunc := completions[id]
-		suggests := completionFunc(flag, text, s.maxCompletions)
+		if completionID != id || cacheF == nil || !cacheF(flag, text) {
+			completionID = id
+			suggests, cacheF = completionFunc(flag, text, s.maxCompletions)
+		}
 		var result []prompt.Suggest
 		for _, sug := range suggests {
 			sText := sug.Text
