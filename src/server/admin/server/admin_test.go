@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/admin"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -551,20 +552,20 @@ func TestExtractRestoreDeferredProcessing(t *testing.T) {
 	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 
-	//var ops []*admin.Op
-	//logStep("extract", func() {
-	//	var err error
-	//	ops, err = c.ExtractAll(false)
-	//	require.NoError(t, err)
-	//})
-	//require.NoError(t, c.DeleteAll())
-	//logStep("restore", func() {
-	//	require.NoError(t, c.Restore(ops))
-	//})
-	//// Do a fsck just in case.
-	//logStep("fsck", func() {
-	//	require.NoError(t, c.FsckFastExit())
-	//})
+	var ops []*admin.Op
+	logStep("extract", func() {
+		var err error
+		ops, err = c.ExtractAll(false)
+		require.NoError(t, err)
+	})
+	require.NoError(t, c.DeleteAll())
+	logStep("restore", func() {
+		require.NoError(t, c.Restore(ops))
+	})
+	// Do a fsck just in case.
+	logStep("fsck", func() {
+		require.NoError(t, c.FsckFastExit())
+	})
 	_, err = c.PutFile(dataRepo, "staging", "file2", strings.NewReader("file"))
 	require.NoError(t, err)
 	logStep("upstream branch update", func() {
