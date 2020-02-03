@@ -13,7 +13,8 @@ pachctl extract pipeline <pipeline> [flags]
 ### Options
 
 ```
-  -h, --help   help for pipeline
+  -h, --help            help for pipeline
+  -o, --output string   Output format: "json" or "yaml" (default "json")
 ```
 
 ### Options inherited from parent commands

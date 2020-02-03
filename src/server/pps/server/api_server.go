@@ -16,6 +16,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/limit"
@@ -24,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
@@ -108,7 +110,6 @@ type apiServer struct {
 	workerUsesRoot        bool
 	workerGrpcPort        uint16
 	port                  uint16
-	pprofPort             uint16
 	httpPort              uint16
 	peerPort              uint16
 	// collections
@@ -468,6 +469,29 @@ func (a *apiServer) authorizePipelineOp(pachClient *client.APIClient, operation 
 		}
 	}
 	return nil
+}
+
+func (a *apiServer) UpdateJobState(ctx context.Context, request *pps.UpdateJobStateRequest) (response *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+
+	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+		return txn.UpdateJobState(request)
+	}); err != nil {
+		return nil, err
+	}
+
+	return &types.Empty{}, nil
+}
+
+func (a *apiServer) UpdateJobStateInTransaction(txnCtx *txnenv.TransactionContext, request *pps.UpdateJobStateRequest) error {
+	jobs := a.jobs.ReadWrite(txnCtx.Stm)
+
+	jobPtr := &pps.EtcdJobInfo{}
+	if err := jobs.Get(request.Job.ID, jobPtr); err != nil {
+		return err
+	}
+	return ppsutil.UpdateJobState(a.pipelines.ReadWrite(txnCtx.Stm), jobs, jobPtr, request.State, request.Reason)
 }
 
 // CreateJob implements the protobuf pps.CreateJob RPC
@@ -1602,6 +1626,12 @@ func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo 
 		if pipelineInfo.EnableStats {
 			return fmt.Errorf("spouts are not allowed to have a stats branch")
 		}
+		if pipelineInfo.Spout.Marker != "" {
+			// we need to make sure the marker name is also a valid file name, since it is used in file names
+			if err := hashtree.ValidatePath(pipelineInfo.Spout.Marker); err != nil || pipelineInfo.Spout.Marker == "out" {
+				return fmt.Errorf("the spout marker name must be a valid filename: %v", pipelineInfo.Spout.Marker)
+			}
+		}
 	}
 	return nil
 }
@@ -1984,8 +2014,10 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			client.NewBranch(ppsconsts.SpecRepo, pipelineName))
 		outputBranch     = client.NewBranch(pipelineName, pipelineInfo.OutputBranch)
 		statsBranch      = client.NewBranch(pipelineName, "stats")
+		markerBranch     = client.NewBranch(pipelineName, ppsconsts.SpoutMarkerBranch)
 		outputBranchHead *pfs.Commit
 		statsBranchHead  *pfs.Commit
+		markerBranchHead *pfs.Commit
 	)
 	if update {
 		// Help user fix inconsistency if previous UpdatePipeline call failed
@@ -2055,7 +2087,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		}
 
 		if !request.Reprocess {
-			// don't branch the output/stats commit chain from the old pipeline (re-use old branch HEAD)
+			// don't branch the output/stats/marker commit chain from the old pipeline (re-use old branch HEAD)
 			// However it's valid to set request.Update == true even if no pipeline exists, so only
 			// set outputBranchHead if there's an old pipeline to update
 			_, err := pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: outputBranch})
@@ -2070,6 +2102,13 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				return nil, err
 			} else if err == nil {
 				statsBranchHead = client.NewCommit(pipelineName, "stats")
+			}
+
+			_, err = pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: markerBranch})
+			if err != nil && !isNotFoundErr(err) {
+				return nil, err
+			} else if err == nil {
+				markerBranchHead = client.NewCommit(pipelineName, ppsconsts.SpoutMarkerBranch)
 			}
 		}
 
@@ -2178,6 +2217,14 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			Head:       statsBranchHead,
 		}); err != nil {
 			return nil, fmt.Errorf("could not create/update stats branch: %v", err)
+		}
+	}
+	if pipelineInfo.Spout != nil && pipelineInfo.Spout.Marker != "" {
+		if _, err := pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
+			Branch: markerBranch,
+			Head:   markerBranchHead,
+		}); err != nil {
+			return nil, fmt.Errorf("could not create/update marker branch: %v", err)
 		}
 	}
 
@@ -2802,6 +2849,159 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	return &types.Empty{}, nil
 }
 
+func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (response *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+
+	pachClient := a.env.GetPachClient(ctx)
+
+	pipelineInfo, err := a.inspectPipeline(pachClient, request.Pipeline.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	if pipelineInfo.Input == nil {
+		return nil, fmt.Errorf("pipeline must have a cron input")
+	}
+	if pipelineInfo.Input.Cron == nil {
+		return nil, fmt.Errorf("pipeline must have a cron input")
+	}
+
+	cron := pipelineInfo.Input.Cron
+
+	// We need the DeleteFile and the PutFile to happen in the same commit
+	_, err = pachClient.StartCommit(cron.Repo, "master")
+	if err != nil {
+		return nil, err
+	}
+	if cron.Overwrite {
+		// get rid of any files, so the new file "overwrites" previous runs
+		err = pachClient.DeleteFile(cron.Repo, "master", "")
+		if err != nil && !isNotFoundErr(err) && !pfsServer.IsNoHeadErr(err) {
+			return nil, fmt.Errorf("delete error %v", err)
+		}
+	}
+
+	// Put in an empty file named by the timestamp
+	_, err = pachClient.PutFile(cron.Repo, "master", time.Now().Format(time.RFC3339), strings.NewReader(""))
+	if err != nil {
+		return nil, fmt.Errorf("put error %v", err)
+	}
+
+	err = pachClient.FinishCommit(cron.Repo, "master")
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.Empty{}, nil
+}
+
+// CreateSecret implements the protobuf pps.CreateSecret RPC
+func (a *apiServer) CreateSecret(ctx context.Context, request *pps.CreateSecretRequest) (response *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreateSecret")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	var s v1.Secret
+	err := json.Unmarshal(request.GetFile(), &s)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal secret: %v", err)
+	}
+
+	labels := s.GetLabels()
+	if labels["suite"] != "" && labels["suite"] != "pachyderm" {
+		return nil, fmt.Errorf("invalid suite label set on secret: suite=%s", labels["suite"])
+	}
+	if labels == nil {
+		labels = map[string]string{}
+	}
+	labels["suite"] = "pachyderm"
+	labels["secret-source"] = "pachyderm-user"
+	s.SetLabels(labels)
+
+	if _, err = a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Create(&s); err != nil {
+		return nil, fmt.Errorf("failed to create secret: %v", err)
+	}
+	return &types.Empty{}, nil
+}
+
+// DeleteSecret implements the protobuf pps.DeleteSecret RPC
+func (a *apiServer) DeleteSecret(ctx context.Context, request *pps.DeleteSecretRequest) (response *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteSecret")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	if err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Delete(request.Secret.Name, &metav1.DeleteOptions{}); err != nil {
+		return nil, fmt.Errorf("failed to delete secret: %v", err)
+	}
+	return &types.Empty{}, nil
+}
+
+// InspectSecret implements the protobuf pps.InspectSecret RPC
+func (a *apiServer) InspectSecret(ctx context.Context, request *pps.InspectSecretRequest) (response *pps.SecretInfo, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "InspectSecret")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	secret, err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Get(request.Secret.Name, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get secret: %v", err)
+	}
+	creationTimestamp, err := ptypes.TimestampProto(secret.GetCreationTimestamp().Time)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse creation timestamp")
+	}
+	return &pps.SecretInfo{
+		Secret: &pps.Secret{
+			Name: secret.Name,
+		},
+		Type: string(secret.Type),
+		CreationTimestamp: &types.Timestamp{
+			Seconds: creationTimestamp.GetSeconds(),
+			Nanos:   creationTimestamp.GetNanos(),
+		},
+	}, nil
+}
+
+// ListSecret implements the protobuf pps.ListSecret RPC
+func (a *apiServer) ListSecret(ctx context.Context, in *types.Empty) (response *pps.SecretInfos, retErr error) {
+	func() { a.Log(nil, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(nil, response, retErr, time.Since(start)) }(time.Now())
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListSecret")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	secrets, err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).List(metav1.ListOptions{
+		LabelSelector: "secret-source=pachyderm-user",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list secrets: %v", err)
+	}
+	secretInfos := []*pps.SecretInfo{}
+	for _, s := range secrets.Items {
+		creationTimestamp, err := ptypes.TimestampProto(s.GetCreationTimestamp().Time)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse creation timestamp")
+		}
+		secretInfos = append(secretInfos, &pps.SecretInfo{
+			Secret: &pps.Secret{
+				Name: s.Name,
+			},
+			Type: string(s.Type),
+			CreationTimestamp: &types.Timestamp{
+				Seconds: creationTimestamp.GetSeconds(),
+				Nanos:   creationTimestamp.GetNanos(),
+			},
+		})
+	}
+
+	return &pps.SecretInfos{
+		SecretInfo: secretInfos,
+	}, nil
+}
+
 // DeleteAll implements the protobuf pps.DeleteAll RPC
 func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
@@ -2822,6 +3022,12 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	}
 
 	if _, err := a.DeletePipeline(ctx, &pps.DeletePipelineRequest{All: true, Force: true}); err != nil {
+		return nil, err
+	}
+
+	if err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).DeleteCollection(&metav1.DeleteOptions{}, metav1.ListOptions{
+		LabelSelector: "secret-source=pachyderm-user",
+	}); err != nil {
 		return nil, err
 	}
 

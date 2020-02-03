@@ -12,6 +12,7 @@ import (
 // APIServer represents a PPS API server
 type APIServer interface {
 	ppsclient.APIServer
+	txnenv.PpsTransactionServer
 }
 
 // NewAPIServer creates an APIServer.
@@ -33,7 +34,6 @@ func NewAPIServer(
 	workerUsesRoot bool,
 	workerGrpcPort uint16,
 	port uint16,
-	pprofPort uint16,
 	httpPort uint16,
 	peerPort uint16,
 ) (APIServer, error) {
@@ -59,7 +59,6 @@ func NewAPIServer(
 		monitorCancels:        make(map[string]func()),
 		workerGrpcPort:        workerGrpcPort,
 		port:                  port,
-		pprofPort:             pprofPort,
 		httpPort:              httpPort,
 		peerPort:              peerPort,
 	}
@@ -77,7 +76,6 @@ func NewSidecarAPIServer(
 	iamRole string,
 	reporter *metrics.Reporter,
 	workerGrpcPort uint16,
-	pprofPort uint16,
 	httpPort uint16,
 	peerPort uint16,
 ) (APIServer, error) {
@@ -91,7 +89,6 @@ func NewSidecarAPIServer(
 		pipelines:      ppsdb.Pipelines(env.GetEtcdClient(), etcdPrefix),
 		jobs:           ppsdb.Jobs(env.GetEtcdClient(), etcdPrefix),
 		workerGrpcPort: workerGrpcPort,
-		pprofPort:      pprofPort,
 		httpPort:       httpPort,
 		peerPort:       peerPort,
 	}

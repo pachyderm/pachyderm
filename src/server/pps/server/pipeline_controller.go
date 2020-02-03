@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/pachyderm/pachyderm/src/client"
 	"strings"
 	"time"
+
+	"github.com/pachyderm/pachyderm/src/client"
 
 	opentracing "github.com/opentracing/opentracing-go"
 	log "github.com/sirupsen/logrus"

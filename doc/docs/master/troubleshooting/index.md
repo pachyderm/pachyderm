@@ -14,13 +14,13 @@ include the following:
 * Get the list of all Kubernetes objects:
 
   ```bash
-  $ kubectl get all
+  kubectl get all
   ```
 
 * Get the information about a pod:
 
   ```bash
-  $ kubectl describe pod <podname>
+  kubectl describe pod <podname>
   ```
 
 The sections below provide troubleshooting steps for specific

@@ -40,7 +40,7 @@ $ pachctl list job -p foo -i bar@YYY
       --no-pager          Don't pipe output into a pager (i.e. less).
   -o, --output string     List jobs with a specific output commit. format: <repo>@<branch-or-commit>
   -p, --pipeline string   Limit to jobs made by pipeline.
-      --raw               disable pretty printing, print raw json
+      --raw               Disable pretty printing; serialize data structures to an encoding such as json or yaml
 ```
 
 ### Options inherited from parent commands

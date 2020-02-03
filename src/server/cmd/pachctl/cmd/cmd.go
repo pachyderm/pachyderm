@@ -21,10 +21,12 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/juju/ansiterm"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	admincmds "github.com/pachyderm/pachyderm/src/server/admin/cmds"
 	authcmds "github.com/pachyderm/pachyderm/src/server/auth/cmds"
+	"github.com/pachyderm/pachyderm/src/server/cmd/pachctl/shell"
 	configcmds "github.com/pachyderm/pachyderm/src/server/config"
 	debugcmds "github.com/pachyderm/pachyderm/src/server/debug/cmds"
 	enterprisecmds "github.com/pachyderm/pachyderm/src/server/enterprise/cmds"
@@ -445,6 +447,25 @@ Environment variables:
 	versionCmd.Flags().AddFlagSet(rawFlags)
 	subcommands = append(subcommands, cmdutil.CreateAlias(versionCmd, "version"))
 
+	var maxCompletions int64
+	shellCmd := &cobra.Command{
+		Short: "Run the pachyderm shell.",
+		Long:  "Run the pachyderm shell.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+			cfg, err := config.Read(true)
+			if err != nil {
+				return err
+			}
+			if maxCompletions == 0 {
+				maxCompletions = cfg.V2.MaxShellCompletions
+			}
+			shell.Run(rootCmd, maxCompletions) // never returns
+			return nil
+		}),
+	}
+	shellCmd.Flags().Int64Var(&maxCompletions, "max-completions", 0, "The maximum number of completions to show in the shell, defaults to 64.")
+	subcommands = append(subcommands, cmdutil.CreateAlias(shellCmd, "shell"))
+
 	deleteAll := &cobra.Command{
 		Short: "Delete everything.",
 		Long: `Delete all repos, commits, files, pipelines and jobs.
@@ -512,61 +533,116 @@ This resets the cluster to its initial state.`,
 				fmt.Printf("WARNING: The `--namespace` flag is deprecated and will be removed in a future version. Please set the namespace in the pachyderm context instead: pachctl config update context `pachctl config get active-context` --namespace '%s'\n", namespace)
 			}
 
-			fw, err := client.NewPortForwarder(namespace)
+			cfg, err := config.Read(false)
 			if err != nil {
 				return err
 			}
-
-			if err = fw.Lock(); err != nil {
+			contextName, context, err := cfg.ActiveContext()
+			if err != nil {
 				return err
 			}
+			if context.PortForwarders != nil && len(context.PortForwarders) > 0 {
+				return errors.New("port forwarding appears to already be running for this context")
+			}
 
+			fw, err := client.NewPortForwarder(context, namespace)
+			if err != nil {
+				return err
+			}
 			defer fw.Close()
 
-			failCount := 0
+			context.PortForwarders = map[string]uint32{}
+			successCount := 0
 
 			fmt.Println("Forwarding the pachd (Pachyderm daemon) port...")
-			if err = fw.RunForDaemon(port, remotePort); err != nil {
-				fmt.Printf("%v\n", err)
-				failCount++
+			port, err := fw.RunForDaemon(port, remotePort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				context.PortForwarders["pachd"] = uint32(port)
+				successCount++
 			}
 
 			fmt.Println("Forwarding the SAML ACS port...")
-			if err = fw.RunForSAMLACS(samlPort); err != nil {
-				fmt.Printf("%v\n", err)
-				failCount++
+			port, err = fw.RunForSAMLACS(samlPort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				context.PortForwarders["saml-acs"] = uint32(port)
+				successCount++
 			}
 
 			fmt.Printf("Forwarding the dash (Pachyderm dashboard) UI port to http://localhost:%v...\n", uiPort)
-			if err = fw.RunForDashUI(uiPort); err != nil {
-				fmt.Printf("%v\n", err)
-				failCount++
+			port, err = fw.RunForDashUI(uiPort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				context.PortForwarders["dash-ui"] = uint32(port)
+				successCount++
 			}
 
 			fmt.Println("Forwarding the dash (Pachyderm dashboard) websocket port...")
-			if err = fw.RunForDashWebSocket(uiWebsocketPort); err != nil {
-				fmt.Printf("%v\n", err)
-				failCount++
+			port, err = fw.RunForDashWebSocket(uiWebsocketPort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				context.PortForwarders["dash-ws"] = uint32(port)
+				successCount++
 			}
 
 			fmt.Println("Forwarding the PFS port...")
-			if err = fw.RunForPFS(pfsPort); err != nil {
-				fmt.Printf("%v\n", err)
-				failCount++
+			port, err = fw.RunForPFS(pfsPort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				context.PortForwarders["pfs-over-http"] = uint32(port)
+				successCount++
 			}
 
 			fmt.Println("Forwarding the s3gateway port...")
-			if err = fw.RunForS3Gateway(s3gatewayPort); err != nil {
-				fmt.Printf("%v\n", err)
-				failCount++
+			port, err = fw.RunForS3Gateway(s3gatewayPort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				context.PortForwarders["s3g"] = uint32(port)
+				successCount++
 			}
 
-			if failCount < 6 {
-				fmt.Println("CTRL-C to exit")
-				ch := make(chan os.Signal, 1)
-				signal.Notify(ch, os.Interrupt)
-				<-ch
+			if successCount == 0 {
+				return errors.New("failed to start port forwarders")
 			}
+
+			if err = cfg.Write(); err != nil {
+				return err
+			}
+
+			defer func() {
+				// reload config in case changes have happened since the
+				// config was last read
+				cfg, err := config.Read(true)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "failed to read config file: %v\n", err)
+					return
+				}
+				context, ok := cfg.V2.Contexts[contextName]
+				if ok {
+					context.PortForwarders = nil
+					if err := cfg.Write(); err != nil {
+						fmt.Fprintf(os.Stderr, "failed to write config file: %v\n", err)
+					}
+				}
+			}()
+
+			fmt.Println("CTRL-C to exit")
+			ch := make(chan os.Signal, 1)
+			signal.Notify(ch, os.Interrupt)
+			<-ch
 
 			return nil
 		}),
@@ -582,54 +658,37 @@ This resets the cluster to its initial state.`,
 	subcommands = append(subcommands, cmdutil.CreateAlias(portForward, "port-forward"))
 
 	var install bool
-	var path string
-	completion := &cobra.Command{
+	var installPathBash string
+	completionBash := &cobra.Command{
 		Short: "Print or install the bash completion code.",
-		Long:  "Print or install the bash completion code. This should be placed as the file `pachctl` in the bash completion directory (by default this is `/etc/bash_completion.d`. If bash-completion was installed via homebrew, this would be `$(brew --prefix)/etc/bash_completion.d`.)",
+		Long:  "Print or install the bash completion code.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			var dest io.Writer
-
-			if install {
-				f, err := os.Create(path)
-
-				if err != nil {
-					if os.IsPermission(err) {
-						fmt.Fprintf(os.Stderr, "Permission error installing completions, rerun this command with sudo.\n")
-					}
-					return err
-				}
-
-				defer func() {
-					if err := f.Close(); err != nil && retErr == nil {
-						retErr = err
-					}
-
-					fmt.Printf("Bash completions installed in %s, you must restart bash to enable completions.\n", path)
-				}()
-
-				dest = f
-			} else {
-				dest = os.Stdout
-			}
-
-			// Remove 'hidden' flag from all commands so we can get bash completions for them as well
-			var unhide func(*cobra.Command)
-			unhide = func(cmd *cobra.Command) {
-				cmd.Hidden = false
-				for _, subcmd := range cmd.Commands() {
-					unhide(subcmd)
-				}
-			}
-			unhide(rootCmd)
-
-			return rootCmd.GenBashCompletion(dest)
+			return createCompletions(rootCmd, install, installPathBash, rootCmd.GenBashCompletion)
 		}),
 	}
-	completion.Flags().BoolVar(&install, "install", false, "Install the completion.")
-	completion.Flags().StringVar(&path, "path", "/etc/bash_completion.d/pachctl", "Path to install the completion to. This will default to `/etc/bash_completion.d/` if unspecified.")
-	subcommands = append(subcommands, cmdutil.CreateAlias(completion, "completion"))
+	completionBash.Flags().BoolVar(&install, "install", false, "Install the completion.")
+	completionBash.Flags().StringVar(&installPathBash, "path", "/etc/bash_completion.d/pachctl", "Path to install the completions to.")
+	subcommands = append(subcommands, cmdutil.CreateAlias(completionBash, "completion bash"))
+
+	var installPathZsh string
+	completionZsh := &cobra.Command{
+		Short: "Print or install the zsh completion code.",
+		Long:  "Print or install the zsh completion code.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+			return createCompletions(rootCmd, install, installPathZsh, rootCmd.GenZshCompletion)
+		}),
+	}
+	completionZsh.Flags().BoolVar(&install, "install", false, "Install the completion.")
+	completionZsh.Flags().StringVar(&installPathZsh, "path", "_pachctl", "Path to install the completions to.")
+	subcommands = append(subcommands, cmdutil.CreateAlias(completionZsh, "completion zsh"))
 
 	// Logical commands for grouping commands by verb (no run functions)
+	completionDocs := &cobra.Command{
+		Short: "Print or install terminal completion code.",
+		Long:  "Print or install terminal completion code.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(completionDocs, "completion"))
+
 	deleteDocs := &cobra.Command{
 		Short: "Delete an existing Pachyderm resource.",
 		Long:  "Delete an existing Pachyderm resource.",
@@ -883,4 +942,42 @@ Use "{{.CommandPath}} [command] --help" for more information about a command.{{e
 		template.Must(t.Parse(text))
 		return t.Execute(cmd.OutOrStderr(), cmd)
 	})
+}
+
+func createCompletions(rootCmd *cobra.Command, install bool, installPath string, f func(io.Writer) error) (retErr error) {
+	var dest io.Writer
+
+	if install {
+		f, err := os.Create(installPath)
+		if err != nil {
+			if os.IsPermission(err) {
+				return errors.New("could not install completions due to permissions - rerun this command with sudo")
+			}
+			return fmt.Errorf("could not install completions: %v", err)
+		}
+
+		defer func() {
+			if err := f.Close(); err != nil && retErr == nil {
+				retErr = err
+			} else {
+				fmt.Printf("Completions installed in %q, you must restart your terminal to enable them.\n", installPath)
+			}
+		}()
+
+		dest = f
+	} else {
+		dest = os.Stdout
+	}
+
+	// Remove 'hidden' flag from all commands so we can get completions for them as well
+	var unhide func(*cobra.Command)
+	unhide = func(cmd *cobra.Command) {
+		cmd.Hidden = false
+		for _, subcmd := range cmd.Commands() {
+			unhide(subcmd)
+		}
+	}
+	unhide(rootCmd)
+
+	return f(dest)
 }

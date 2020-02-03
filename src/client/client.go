@@ -350,35 +350,25 @@ func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress,
 	return nil, options, nil
 }
 
-func portForwarder() *PortForwarder {
-	log.Debugln("Attempting to implicitly enable port forwarding...")
-
-	// NOTE: this will always use the default namespace; if a custom
-	// namespace is required with port forwarding,
-	// `pachctl port-forward` should be explicitly called.
-	fw, err := NewPortForwarder("")
+func portForwarder(context *config.Context) (*PortForwarder, uint16, error) {
+	fw, err := NewPortForwarder(context, "")
 	if err != nil {
-		log.Infof("Implicit port forwarding was not enabled because the kubernetes config could not be read: %v", err)
-		return nil
-	}
-	if err = fw.Lock(); err != nil {
-		log.Infof("Implicit port forwarding was not enabled because the pidfile could not be written to. Most likely this means that port forwarding is running in another instance of `pachctl`: %v", err)
-		return nil
+		return nil, 0, fmt.Errorf("failed to initialize port forwarder: %v", err)
 	}
 
-	if err = fw.RunForDaemon(0, 0); err != nil {
-		log.Debugf("Implicit port forwarding for the daemon failed: %v", err)
-	}
-	if err = fw.RunForSAMLACS(0); err != nil {
-		log.Debugf("Implicit port forwarding for SAML ACS failed: %v", err)
+	port, err := fw.RunForDaemon(0, 650)
+	if err != nil {
+		return nil, 0, err
 	}
 
-	return fw
+	log.Debugf("Implicit port forwarder listening on port %d", port)
+
+	return fw, port, nil
 }
 
 // NewForTest constructs a new APIClient for tests.
 func NewForTest() (*APIClient, error) {
-	cfg, err := config.Read()
+	cfg, err := config.Read(false)
 	if err != nil {
 		return nil, fmt.Errorf("could not read config: %v", err)
 	}
@@ -412,7 +402,7 @@ func NewForTest() (*APIClient, error) {
 // (and similar) logic into src/server and have it call a NewFromOptions()
 // constructor.
 func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
-	cfg, err := config.Read()
+	cfg, err := config.Read(false)
 	if err != nil {
 		return nil, fmt.Errorf("could not read config: %v", err)
 	}
@@ -422,29 +412,38 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 	}
 
 	// create new pachctl client
-	var fw *PortForwarder
 	pachdAddress, cfgOptions, err := getUserMachineAddrAndOpts(context)
 	if err != nil {
 		return nil, err
 	}
+
+	var fw *PortForwarder
+	if pachdAddress == nil && context.PortForwarders != nil {
+		pachdLocalPort, ok := context.PortForwarders["pachd"]
+		if ok {
+			log.Debugf("Connecting to explicitly port forwarded pachd instance on port %d", pachdLocalPort)
+			pachdAddress = &grpcutil.PachdAddress{
+				Secured: false,
+				Host:    "localhost",
+				Port:    uint16(pachdLocalPort),
+			}
+		}
+	}
 	if pachdAddress == nil {
-		pachdAddress = &grpcutil.DefaultPachdAddress
-		fw = portForwarder()
+		var pachdLocalPort uint16
+		fw, pachdLocalPort, err = portForwarder(context)
+		if err != nil {
+			return nil, err
+		}
+		pachdAddress = &grpcutil.PachdAddress{
+			Secured: false,
+			Host:    "localhost",
+			Port:    pachdLocalPort,
+		}
 	}
 
 	client, err := NewFromAddress(pachdAddress.Hostname(), append(options, cfgOptions...)...)
 	if err != nil {
-		if strings.Contains(err.Error(), "context deadline exceeded") {
-			// Check for errors in approximate order of helpfulness
-			if pachdAddress.IsUnusualPort() {
-				return nil, fmt.Errorf("could not connect (note: port is usually "+
-					"%d or %d, but is currently set to %d - is this right?): %v", grpcutil.DefaultPachdNodePort, grpcutil.DefaultPachdPort, pachdAddress.Port, err)
-			} else if fw == nil && pachdAddress.IsLoopback() {
-				return nil, fmt.Errorf("could not connect (note: address %s looks "+
-					"like loopback, try unsetting it): %v",
-					pachdAddress.Qualified(), err)
-			}
-		}
 		return nil, fmt.Errorf("could not connect to pachd at %q: %v", pachdAddress.Qualified(), err)
 	}
 
@@ -455,6 +454,22 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 	}
 	if context.SessionToken != "" {
 		client.authenticationToken = context.SessionToken
+	}
+
+	// Verify cluster ID
+	clusterInfo, err := client.InspectCluster()
+	if err != nil {
+		return nil, fmt.Errorf("could not get cluster ID: %v", err)
+	}
+	if context.ClusterID != clusterInfo.ID {
+		if context.ClusterID == "" {
+			context.ClusterID = clusterInfo.ID
+			if err = cfg.Write(); err != nil {
+				return nil, fmt.Errorf("could not write config to save cluster ID: %v", err)
+			}
+		} else {
+			return nil, fmt.Errorf("connected to the wrong cluster (context cluster ID = %q vs reported cluster ID = %q)", context.ClusterID, clusterInfo.ID)
+		}
 	}
 
 	// Add port forwarding. This will set it to nil if port forwarding is

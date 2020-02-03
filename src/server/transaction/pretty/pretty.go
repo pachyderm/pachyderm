@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/transaction"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
 )
@@ -105,6 +106,31 @@ func sprintDeleteBranch(request *pfs.DeleteBranchRequest) string {
 	return fmt.Sprintf("delete branch %s@%s%s", request.Branch.Repo.Name, request.Branch.Name, force)
 }
 
+func sprintUpdateJobState(request *pps.UpdateJobStateRequest) string {
+	state := func() string {
+		switch request.State {
+		case pps.JobState_JOB_STARTING:
+			return "STARTING"
+		case pps.JobState_JOB_RUNNING:
+			return "RUNNING"
+		case pps.JobState_JOB_FAILURE:
+			return "FAILURE"
+		case pps.JobState_JOB_SUCCESS:
+			return "SUCCESS"
+		case pps.JobState_JOB_KILLED:
+			return "KILLED"
+		case pps.JobState_JOB_MERGING:
+			return "MERGING"
+		default:
+			return "<unknown state>"
+		}
+	}()
+	return fmt.Sprintf(
+		"update job %s -> %s (%s)",
+		request.Job.ID, state, request.Reason,
+	)
+}
+
 func transactionRequests(
 	requests []*transaction.TransactionRequest,
 	responses []*transaction.TransactionResponse,
@@ -134,6 +160,8 @@ func transactionRequests(
 			line = sprintCreateBranch(request.CreateBranch)
 		} else if request.DeleteBranch != nil {
 			line = sprintDeleteBranch(request.DeleteBranch)
+		} else if request.UpdateJobState != nil {
+			line = sprintUpdateJobState(request.UpdateJobState)
 		} else {
 			line = "ERROR (unknown request type)"
 		}

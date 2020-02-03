@@ -25,16 +25,6 @@ const (
 	tmpPrefix = "tmp"
 )
 
-func init() {
-	// This is kind of weird, but I think it might be necessary.
-	// Since we build our protos with gogoproto, we need to register
-	// the types that can be embedded in an Any type with the gogoproto
-	// proto package because building the protos just registers them with the
-	// normal proto package.
-	proto.RegisterType((*pfs.Compaction)(nil), "pfs.Compaction")
-	proto.RegisterType((*pfs.Shard)(nil), "pfs.Shard")
-}
-
 func (d *driver) startCommitNewStorageLayer(txnCtx *txnenv.TransactionContext, id string, parent *pfs.Commit, branch string, provenance []*pfs.CommitProvenance, description string) (*pfs.Commit, error) {
 	commit, err := d.startCommit(txnCtx, id, parent, branch, provenance, description)
 	if err != nil {

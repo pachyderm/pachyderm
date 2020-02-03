@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"reflect"
 
 	"github.com/gogo/protobuf/types"
 
@@ -15,9 +16,31 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/transaction"
 	version "github.com/pachyderm/pachyderm/src/client/version/versionpb"
-
-	"golang.org/x/sync/errgroup"
 )
+
+// linkServers can be used to default a mock server to make calls to a real api
+// server. Due to some reflection shenanigans, mockServerPtr must explicitly be
+// a pointer to the mock server instance.
+func linkServers(mockServerPtr interface{}, realServer interface{}) {
+	mockValue := reflect.ValueOf(mockServerPtr).Elem()
+	realValue := reflect.ValueOf(realServer)
+	mockType := mockValue.Type()
+	for i := 0; i < mockType.NumField(); i++ {
+		field := mockType.Field(i)
+		if field.Name != "api" {
+			mock := mockValue.FieldByName(field.Name)
+			realMethod := realValue.MethodByName(field.Name)
+
+			// We need a pointer to the mock field to call the right method
+			mockPtr := reflect.New(reflect.PtrTo(mock.Type()))
+			mockPtrValue := mockPtr.Elem()
+			mockPtrValue.Set(mock.Addr())
+
+			useFn := mockPtrValue.MethodByName("Use")
+			useFn.Call([]reflect.Value{realMethod})
+		}
+	}
+}
 
 /* Admin Server Mocks */
 
@@ -134,6 +157,7 @@ func (mock *mockGetACL) Use(cb getACLFunc)                         { mock.handle
 func (mock *mockSetACL) Use(cb setACLFunc)                         { mock.handler = cb }
 func (mock *mockGetAuthToken) Use(cb getAuthTokenFunc)             { mock.handler = cb }
 func (mock *mockExtendAuthToken) Use(cb extendAuthTokenFunc)       { mock.handler = cb }
+func (mock *mockRevokeAuthToken) Use(cb revokeAuthTokenFunc)       { mock.handler = cb }
 func (mock *mockSetGroupsForUser) Use(cb setGroupsForUserFunc)     { mock.handler = cb }
 func (mock *mockModifyMembers) Use(cb modifyMembersFunc)           { mock.handler = cb }
 func (mock *mockGetGroups) Use(cb getGroupsFunc)                   { mock.handler = cb }
@@ -663,6 +687,7 @@ type listJobStreamFunc func(*pps.ListJobRequest, pps.API_ListJobStreamServer) er
 type flushJobFunc func(*pps.FlushJobRequest, pps.API_FlushJobServer) error
 type deleteJobFunc func(context.Context, *pps.DeleteJobRequest) (*types.Empty, error)
 type stopJobFunc func(context.Context, *pps.StopJobRequest) (*types.Empty, error)
+type updateJobStateFunc func(context.Context, *pps.UpdateJobStateRequest) (*types.Empty, error)
 type inspectDatumFunc func(context.Context, *pps.InspectDatumRequest) (*pps.DatumInfo, error)
 type listDatumFunc func(context.Context, *pps.ListDatumRequest) (*pps.ListDatumResponse, error)
 type listDatumStreamFunc func(*pps.ListDatumRequest, pps.API_ListDatumStreamServer) error
@@ -674,6 +699,11 @@ type deletePipelineFunc func(context.Context, *pps.DeletePipelineRequest) (*type
 type startPipelineFunc func(context.Context, *pps.StartPipelineRequest) (*types.Empty, error)
 type stopPipelineFunc func(context.Context, *pps.StopPipelineRequest) (*types.Empty, error)
 type runPipelineFunc func(context.Context, *pps.RunPipelineRequest) (*types.Empty, error)
+type runCronFunc func(context.Context, *pps.RunCronRequest) (*types.Empty, error)
+type createSecretFunc func(context.Context, *pps.CreateSecretRequest) (*types.Empty, error)
+type deleteSecretFunc func(context.Context, *pps.DeleteSecretRequest) (*types.Empty, error)
+type inspectSecretFunc func(context.Context, *pps.InspectSecretRequest) (*pps.SecretInfo, error)
+type listSecretFunc func(context.Context, *types.Empty) (*pps.SecretInfos, error)
 type deleteAllPPSFunc func(context.Context, *types.Empty) (*types.Empty, error)
 type getLogsFunc func(*pps.GetLogsRequest, pps.API_GetLogsServer) error
 type garbageCollectFunc func(context.Context, *pps.GarbageCollectRequest) (*pps.GarbageCollectResponse, error)
@@ -686,6 +716,7 @@ type mockListJobStream struct{ handler listJobStreamFunc }
 type mockFlushJob struct{ handler flushJobFunc }
 type mockDeleteJob struct{ handler deleteJobFunc }
 type mockStopJob struct{ handler stopJobFunc }
+type mockUpdateJobState struct{ handler updateJobStateFunc }
 type mockInspectDatum struct{ handler inspectDatumFunc }
 type mockListDatum struct{ handler listDatumFunc }
 type mockListDatumStream struct{ handler listDatumStreamFunc }
@@ -697,6 +728,11 @@ type mockDeletePipeline struct{ handler deletePipelineFunc }
 type mockStartPipeline struct{ handler startPipelineFunc }
 type mockStopPipeline struct{ handler stopPipelineFunc }
 type mockRunPipeline struct{ handler runPipelineFunc }
+type mockRunCron struct{ handler runCronFunc }
+type mockCreateSecret struct{ handler createSecretFunc }
+type mockDeleteSecret struct{ handler deleteSecretFunc }
+type mockInspectSecret struct{ handler inspectSecretFunc }
+type mockListSecret struct{ handler listSecretFunc }
 type mockDeleteAllPPS struct{ handler deleteAllPPSFunc }
 type mockGetLogs struct{ handler getLogsFunc }
 type mockGarbageCollect struct{ handler garbageCollectFunc }
@@ -709,6 +745,7 @@ func (mock *mockListJobStream) Use(cb listJobStreamFunc)     { mock.handler = cb
 func (mock *mockFlushJob) Use(cb flushJobFunc)               { mock.handler = cb }
 func (mock *mockDeleteJob) Use(cb deleteJobFunc)             { mock.handler = cb }
 func (mock *mockStopJob) Use(cb stopJobFunc)                 { mock.handler = cb }
+func (mock *mockUpdateJobState) Use(cb updateJobStateFunc)   { mock.handler = cb }
 func (mock *mockInspectDatum) Use(cb inspectDatumFunc)       { mock.handler = cb }
 func (mock *mockListDatum) Use(cb listDatumFunc)             { mock.handler = cb }
 func (mock *mockListDatumStream) Use(cb listDatumStreamFunc) { mock.handler = cb }
@@ -720,6 +757,11 @@ func (mock *mockDeletePipeline) Use(cb deletePipelineFunc)   { mock.handler = cb
 func (mock *mockStartPipeline) Use(cb startPipelineFunc)     { mock.handler = cb }
 func (mock *mockStopPipeline) Use(cb stopPipelineFunc)       { mock.handler = cb }
 func (mock *mockRunPipeline) Use(cb runPipelineFunc)         { mock.handler = cb }
+func (mock *mockRunCron) Use(cb runCronFunc)                 { mock.handler = cb }
+func (mock *mockCreateSecret) Use(cb createSecretFunc)       { mock.handler = cb }
+func (mock *mockDeleteSecret) Use(cb deleteSecretFunc)       { mock.handler = cb }
+func (mock *mockInspectSecret) Use(cb inspectSecretFunc)     { mock.handler = cb }
+func (mock *mockListSecret) Use(cb listSecretFunc)           { mock.handler = cb }
 func (mock *mockDeleteAllPPS) Use(cb deleteAllPPSFunc)       { mock.handler = cb }
 func (mock *mockGetLogs) Use(cb getLogsFunc)                 { mock.handler = cb }
 func (mock *mockGarbageCollect) Use(cb garbageCollectFunc)   { mock.handler = cb }
@@ -738,6 +780,7 @@ type mockPPSServer struct {
 	FlushJob        mockFlushJob
 	DeleteJob       mockDeleteJob
 	StopJob         mockStopJob
+	UpdateJobState  mockUpdateJobState
 	InspectDatum    mockInspectDatum
 	ListDatum       mockListDatum
 	ListDatumStream mockListDatumStream
@@ -749,6 +792,11 @@ type mockPPSServer struct {
 	StartPipeline   mockStartPipeline
 	StopPipeline    mockStopPipeline
 	RunPipeline     mockRunPipeline
+	RunCron         mockRunCron
+	CreateSecret    mockCreateSecret
+	DeleteSecret    mockDeleteSecret
+	InspectSecret   mockInspectSecret
+	ListSecret      mockListSecret
 	DeleteAll       mockDeleteAllPPS
 	GetLogs         mockGetLogs
 	GarbageCollect  mockGarbageCollect
@@ -790,6 +838,12 @@ func (api *ppsServerAPI) DeleteJob(ctx context.Context, req *pps.DeleteJobReques
 		return api.mock.DeleteJob.handler(ctx, req)
 	}
 	return nil, fmt.Errorf("unhandled pachd mock pps.DeleteJob")
+}
+func (api *ppsServerAPI) UpdateJobState(ctx context.Context, req *pps.UpdateJobStateRequest) (*types.Empty, error) {
+	if api.mock.UpdateJobState.handler != nil {
+		return api.mock.UpdateJobState.handler(ctx, req)
+	}
+	return nil, fmt.Errorf("unhandled pachd mock pps.UpdateJobState")
 }
 func (api *ppsServerAPI) StopJob(ctx context.Context, req *pps.StopJobRequest) (*types.Empty, error) {
 	if api.mock.StopJob.handler != nil {
@@ -863,6 +917,36 @@ func (api *ppsServerAPI) RunPipeline(ctx context.Context, req *pps.RunPipelineRe
 	}
 	return nil, fmt.Errorf("unhandled pachd mock pps.RunPipeline")
 }
+func (api *ppsServerAPI) RunCron(ctx context.Context, req *pps.RunCronRequest) (*types.Empty, error) {
+	if api.mock.RunCron.handler != nil {
+		return api.mock.RunCron.handler(ctx, req)
+	}
+	return nil, fmt.Errorf("unhandled pachd mock pps.RunCron")
+}
+func (api *ppsServerAPI) CreateSecret(ctx context.Context, req *pps.CreateSecretRequest) (*types.Empty, error) {
+	if api.mock.CreateSecret.handler != nil {
+		return api.mock.CreateSecret.handler(ctx, req)
+	}
+	return nil, fmt.Errorf("unhandled pachd mock pps.CreateSecret")
+}
+func (api *ppsServerAPI) DeleteSecret(ctx context.Context, req *pps.DeleteSecretRequest) (*types.Empty, error) {
+	if api.mock.DeleteSecret.handler != nil {
+		return api.mock.DeleteSecret.handler(ctx, req)
+	}
+	return nil, fmt.Errorf("unhandled pachd mock pps.DeleteSecret")
+}
+func (api *ppsServerAPI) InspectSecret(ctx context.Context, req *pps.InspectSecretRequest) (*pps.SecretInfo, error) {
+	if api.mock.InspectSecret.handler != nil {
+		return api.mock.InspectSecret.handler(ctx, req)
+	}
+	return nil, fmt.Errorf("unhandled pachd mock pps.InspectSecret")
+}
+func (api *ppsServerAPI) ListSecret(ctx context.Context, in *types.Empty) (*pps.SecretInfos, error) {
+	if api.mock.ListSecret.handler != nil {
+		return api.mock.ListSecret.handler(ctx, in)
+	}
+	return nil, fmt.Errorf("unhandled pachd mock pps.ListSecret")
+}
 func (api *ppsServerAPI) DeleteAll(ctx context.Context, req *types.Empty) (*types.Empty, error) {
 	if api.mock.DeleteAll.handler != nil {
 		return api.mock.DeleteAll.handler(ctx, req)
@@ -890,6 +974,7 @@ func (api *ppsServerAPI) ActivateAuth(ctx context.Context, req *pps.ActivateAuth
 
 /* Transaction Server Mocks */
 
+type batchTransactionFunc func(context.Context, *transaction.BatchTransactionRequest) (*transaction.TransactionInfo, error)
 type startTransactionFunc func(context.Context, *transaction.StartTransactionRequest) (*transaction.Transaction, error)
 type inspectTransactionFunc func(context.Context, *transaction.InspectTransactionRequest) (*transaction.TransactionInfo, error)
 type deleteTransactionFunc func(context.Context, *transaction.DeleteTransactionRequest) (*types.Empty, error)
@@ -897,6 +982,7 @@ type listTransactionFunc func(context.Context, *transaction.ListTransactionReque
 type finishTransactionFunc func(context.Context, *transaction.FinishTransactionRequest) (*transaction.TransactionInfo, error)
 type deleteAllTransactionFunc func(context.Context, *transaction.DeleteAllRequest) (*types.Empty, error)
 
+type mockBatchTransaction struct{ handler batchTransactionFunc }
 type mockStartTransaction struct{ handler startTransactionFunc }
 type mockInspectTransaction struct{ handler inspectTransactionFunc }
 type mockDeleteTransaction struct{ handler deleteTransactionFunc }
@@ -904,6 +990,7 @@ type mockListTransaction struct{ handler listTransactionFunc }
 type mockFinishTransaction struct{ handler finishTransactionFunc }
 type mockDeleteAllTransaction struct{ handler deleteAllTransactionFunc }
 
+func (mock *mockBatchTransaction) Use(cb batchTransactionFunc)         { mock.handler = cb }
 func (mock *mockStartTransaction) Use(cb startTransactionFunc)         { mock.handler = cb }
 func (mock *mockInspectTransaction) Use(cb inspectTransactionFunc)     { mock.handler = cb }
 func (mock *mockDeleteTransaction) Use(cb deleteTransactionFunc)       { mock.handler = cb }
@@ -917,6 +1004,7 @@ type transactionServerAPI struct {
 
 type mockTransactionServer struct {
 	api                transactionServerAPI
+	BatchTransaction   mockBatchTransaction
 	StartTransaction   mockStartTransaction
 	InspectTransaction mockInspectTransaction
 	DeleteTransaction  mockDeleteTransaction
@@ -925,6 +1013,12 @@ type mockTransactionServer struct {
 	DeleteAll          mockDeleteAllTransaction
 }
 
+func (api *transactionServerAPI) BatchTransaction(ctx context.Context, req *transaction.BatchTransactionRequest) (*transaction.TransactionInfo, error) {
+	if api.mock.BatchTransaction.handler != nil {
+		return api.mock.BatchTransaction.handler(ctx, req)
+	}
+	return nil, fmt.Errorf("unhandled pachd mock transaction.BatchTransaction")
+}
 func (api *transactionServerAPI) StartTransaction(ctx context.Context, req *transaction.StartTransactionRequest) (*transaction.Transaction, error) {
 	if api.mock.StartTransaction.handler != nil {
 		return api.mock.StartTransaction.handler(ctx, req)
@@ -1205,8 +1299,8 @@ func (api *objectServerAPI) Compact(ctx context.Context, req *types.Empty) (*typ
 // API calls by providing a handler function, and later check information about
 // the mocked calls.
 type MockPachd struct {
-	cancel context.CancelFunc
-	eg     *errgroup.Group
+	cancel  context.CancelFunc
+	errchan chan error
 
 	Addr net.Addr
 
@@ -1223,10 +1317,11 @@ type MockPachd struct {
 // NewMockPachd constructs a mock Pachd API server whose behavior can be
 // controlled through the MockPachd instance. By default, all API calls will
 // error, unless a handler is specified.
-func NewMockPachd() (*MockPachd, error) {
-	mock := &MockPachd{}
+func NewMockPachd(ctx context.Context) (*MockPachd, error) {
+	mock := &MockPachd{
+		errchan: make(chan error),
+	}
 
-	ctx := context.Background()
 	ctx, mock.cancel = context.WithCancel(ctx)
 
 	mock.Object.api.mock = &mock.Object
@@ -1257,12 +1352,24 @@ func NewMockPachd() (*MockPachd, error) {
 		return nil, err
 	}
 
+	go func() {
+		mock.errchan <- server.Wait()
+		close(mock.errchan)
+	}()
+
 	mock.Addr = listener.Addr()
+
 	return mock, nil
+}
+
+// Err returns a read-only channel that will receive the first error that occurs
+// in the server group (stopping all the servers).
+func (mock *MockPachd) Err() <-chan error {
+	return mock.errchan
 }
 
 // Close will cancel the mock Pachd API server goroutine and return its result
 func (mock *MockPachd) Close() error {
 	mock.cancel()
-	return mock.eg.Wait()
+	return <-mock.errchan
 }

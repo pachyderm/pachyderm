@@ -13,8 +13,9 @@ pachctl inspect datum <job> <datum> [flags]
 ### Options
 
 ```
-  -h, --help   help for datum
-      --raw    disable pretty printing, print raw json
+  -h, --help            help for datum
+  -o, --output string   Output format when --raw is set: "json" or "yaml" (default "json")
+      --raw             Disable pretty printing; serialize data structures to an encoding such as json or yaml
 ```
 
 ### Options inherited from parent commands

@@ -83,7 +83,7 @@ To install and configure `kubectl`
 WSL `/.kube/` directory:
 
    ```bash
-   $ cp /mnt/c/Users/Svetlana/.kube/config ~/.kube/config
+   cp /mnt/c/Users/Svetlana/.kube/config ~/.kube/config
    ```
 
 1. Change the following lines in the configuration file:
@@ -102,7 +102,12 @@ WSL `/.kube/` directory:
 1. Verify that `kubectl` is configured correctly:
 
    ```bash
-   $ kubectl version
+   kubectl version
+   ```
+
+   **System Response:**
+
+   ```bash
    Client Version: version.Info{Major:"1", Minor:"17", GitVersion:"v1.17.0", GitCommit:"70132b0f130acc0bed193d9ba59dd186f0e634cf", GitTreeState:"clean", BuildDate:"2019-12-07T21:20:10Z", GoVersion:"go1.13.4", Compiler:"gc", Platform:"linux/amd64"}
    Server Version: version.Info{Major:"1", Minor:"17", GitVersion:"v1.17.0", GitCommit:"70132b0f130acc0bed193d9ba59dd186f0e634cf", GitTreeState:"clean", BuildDate:"2019-12-07T21:12:17Z", GoVersion:"go1.13.4", Compiler:"gc", Platform:"linux/amd64"}
    ```
@@ -115,7 +120,12 @@ as described in [Install pachctl](../local_installation/#install-pachctl).
 **Example:**
 
 ```bash
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.9/pachctl_1.9.9_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.12/pachctl_1.9.12_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+```
+
+**System Response:**
+
+```bash
 % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
                                  Dload  Upload   Total   Spent    Left  Speed
 100   613    0   613    0     0   2043      0 --:--:-- --:--:-- --:--:--  2043
@@ -126,4 +136,4 @@ $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/do
 
 After you complete all the steps above, start your Minikube VM by running
 `minikube start` and deploy Pachyderm in Ubuntu WSL by running
-`pachctl deploy local` as described in [Deploy Pachyderm](../local_installation/#deploy-pachyderm).
+pachctl deploy local` as described in [Deploy Pachyderm](../local_installation/#deploy-pachyderm).

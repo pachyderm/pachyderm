@@ -203,5 +203,5 @@ $ kubectl edit statefulset edtc
 ```
 
 In the `spec/template/containers/command` path, set the value for
-`max-txn-ops` to a value appropriate for your cluster, in line with
-the advice in the error above: *larger than the greater of XXXXXX or YYYYYYY*.
+`max-txn-ops` to a value appropriate for your cluster, in line
+with the advice in the error above: *larger than the greater of XXXXXX or YYYYYYY*.

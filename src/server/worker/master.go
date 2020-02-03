@@ -121,10 +121,32 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 		if err != nil {
 			return err
 		}
+		// Determine stats commit.
+		var statsCommit *pfs.Commit
+		if a.pipelineInfo.EnableStats {
+			for _, commitRange := range commitInfo.Subvenance {
+				if commitRange.Lower.Repo.Name == a.pipelineInfo.Pipeline.Name && commitRange.Upper.Repo.Name == a.pipelineInfo.Pipeline.Name {
+					statsCommit = commitRange.Lower
+				}
+			}
+		}
 		if commitInfo.Finished != nil {
+			// Finish stats commit if it has not been finished.
+			if statsCommit != nil {
+				if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
+					Commit: statsCommit,
+					Empty:  true,
+				}); err != nil && !pfsserver.IsCommitFinishedErr(err) {
+					return err
+				}
+			}
 			// Make sure that the job has been correctly finished as the commit has.
-			ji, err := pachClient.InspectJobOutputCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, true)
+			ji, err := pachClient.InspectJobOutputCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, false)
 			if err != nil {
+				// If no job was created for the commit, then we are done.
+				if strings.Contains(err.Error(), fmt.Sprintf("job with output commit %s not found", commitInfo.Commit.ID)) {
+					continue
+				}
 				return err
 			}
 			if !ppsutil.IsTerminal(ji.State) {
@@ -151,14 +173,6 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 		if len(jobInfos) > 1 {
 			return fmt.Errorf("multiple jobs found for commit: %s/%s", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
 		} else if len(jobInfos) < 1 {
-			var statsCommit *pfs.Commit
-			if a.pipelineInfo.EnableStats {
-				for _, commitRange := range commitInfo.Subvenance {
-					if commitRange.Lower.Repo.Name == a.pipelineInfo.Pipeline.Name && commitRange.Upper.Repo.Name == a.pipelineInfo.Pipeline.Name {
-						statsCommit = commitRange.Lower
-					}
-				}
-			}
 			job, err := pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit, statsCommit)
 			if err != nil {
 				return err
@@ -213,7 +227,6 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 			return fmt.Errorf("job %s's version (%d) greater than pipeline's "+
 				"version (%d), this should automatically resolve when the worker "+
 				"is updated", jobInfo.Job.ID, jobInfo.PipelineVersion, a.pipelineInfo.Version)
-			continue
 		}
 
 		// Now that the jobInfo is persisted, wait until all input commits are
@@ -428,9 +441,11 @@ func (a *APIServer) failedInputs(ctx context.Context, jobInfo *pps.JobInfo) ([]s
 				Commit:     commit,
 				BlockState: pfs.CommitState_FINISHED,
 			})
-		if err != nil && vistErr == nil {
-			vistErr = fmt.Errorf("error blocking on commit %s/%s: %v",
-				commit.Repo.Name, commit.ID, err)
+		if err != nil {
+			if vistErr == nil {
+				vistErr = fmt.Errorf("error blocking on commit %s/%s: %v",
+					commit.Repo.Name, commit.ID, err)
+			}
 			return
 		}
 		if ci.Tree == nil && ci.Trees == nil {
@@ -582,10 +597,11 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		if err != nil {
 			return err
 		}
-		parallelism, err := ppsutil.GetExpectedNumWorkers(a.kubeClient, a.pipelineInfo.ParallelismSpec)
-		if err != nil {
-			return fmt.Errorf("error from GetExpectedNumWorkers: %v", err)
+		pipelinePtr := &pps.EtcdPipelineInfo{}
+		if err := a.pipelines.ReadOnly(ctx).Get(a.pipelineInfo.Pipeline.Name, pipelinePtr); err != nil {
+			return err
 		}
+		parallelism := int(pipelinePtr.Parallelism)
 		numHashtrees, err := ppsutil.GetExpectedNumHashtrees(a.pipelineInfo.HashtreeSpec)
 		if err != nil {
 			return fmt.Errorf("error from GetExpectedNumHashtrees: %v", err)
@@ -875,7 +891,7 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 				outTar := tar.NewReader(out)
 
 				// start commit
-				commit, err := a.pachClient.PfsAPIClient.StartCommit(a.pachClient.Ctx(), &pfs.StartCommitRequest{
+				commit, err := a.pachClient.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
 					Parent:     client.NewCommit(repo, ""),
 					Branch:     a.pipelineInfo.OutputBranch,
 					Provenance: []*pfs.CommitProvenance{client.NewCommitProvenance(ppsconsts.SpecRepo, repo, a.pipelineInfo.SpecCommit.ID)},
@@ -901,7 +917,24 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 						return err
 					}
 					// put files into pachyderm
-					if a.pipelineInfo.Spout.Overwrite || strings.Contains(fileHeader.Name, "marker") {
+					if a.pipelineInfo.Spout.Marker != "" && strings.HasPrefix(path.Clean(fileHeader.Name), a.pipelineInfo.Spout.Marker) {
+						// we'll check that this is the latest version of the spout, and then commit to it
+						// we need to do this atomically because we otherwise might hit a subtle race condition
+
+						// check to see if this spout is the latest version of this spout by seeing if its spec commit has any children
+						spec, err := a.pachClient.InspectCommit(ppsconsts.SpecRepo, a.pipelineInfo.SpecCommit.ID)
+						if err != nil && !errutil.IsNotFoundError(err) {
+							return err
+						}
+						if spec != nil && len(spec.ChildCommits) != 0 {
+							return fmt.Errorf("outdated spout, now shutting down")
+						}
+						_, err = a.pachClient.PutFileOverwrite(repo, ppsconsts.SpoutMarkerBranch, fileHeader.Name, outTar, 0)
+						if err != nil {
+							return err
+						}
+
+					} else if a.pipelineInfo.Spout.Overwrite {
 						_, err = a.pachClient.PutFileOverwrite(repo, commit.ID, fileHeader.Name, outTar, 0)
 						if err != nil {
 							return err

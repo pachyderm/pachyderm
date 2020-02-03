@@ -64,16 +64,14 @@
         "watch",
         "create",
         "update",
-        "delete"
+        "delete",
+        "deletecollection"
       ],
       "apiGroups": [
         ""
       ],
       "resources": [
         "secrets"
-      ],
-      "resourceNames": [
-        "pachyderm-storage-secret"
       ]
     }
   ]
@@ -305,7 +303,7 @@
       "suite": "pachyderm"
     },
     "annotations": {
-      "prometheus.io/port": "9091",
+      "prometheus.io/port": "656",
       "prometheus.io/scrape": "true"
     }
   },
@@ -337,9 +335,9 @@
       },
       {
         "name": "api-git-port",
-        "port": 999,
+        "port": 655,
         "targetPort": 0,
-        "nodePort": 30999
+        "nodePort": 30655
       },
       {
         "name": "s3gateway-port",
@@ -405,7 +403,7 @@
         "containers": [
           {
             "name": "pachd",
-            "image": "pachyderm/pachd:1.9.9",
+            "image": "pachyderm/pachd:1.9.12",
             "ports": [
               {
                 "name": "api-grpc-port",
@@ -428,7 +426,7 @@
               },
               {
                 "name": "api-git-port",
-                "containerPort": 999,
+                "containerPort": 655,
                 "protocol": "TCP"
               },
               {
@@ -458,14 +456,14 @@
               },
               {
                 "name": "WORKER_IMAGE",
-                "value": "pachyderm/worker:1.9.9"
+                "value": "pachyderm/worker:1.9.12"
               },
               {
                 "name": "IMAGE_PULL_SECRET"
               },
               {
                 "name": "WORKER_SIDECAR_IMAGE",
-                "value": "pachyderm/pachd:1.9.9"
+                "value": "pachyderm/pachd:1.9.12"
               },
               {
                 "name": "WORKER_IMAGE_PULL_POLICY",
@@ -473,7 +471,7 @@
               },
               {
                 "name": "PACHD_VERSION",
-                "value": "1.9.9"
+                "value": "1.9.12"
               },
               {
                 "name": "METRICS",
@@ -519,6 +517,10 @@
               },
               {
                 "name": "EXPOSE_OBJECT_API",
+                "value": "false"
+              },
+              {
+                "name": "REQUIRE_CRITICAL_SERVERS_ONLY",
                 "value": "false"
               },
               {
@@ -790,6 +792,30 @@
                     "optional": true
                   }
                 }
+              },
+              {
+                "name": "DISABLE_SSL",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "disable-ssl",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "NO_VERIFY_SSL",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "no-verify-ssl",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "STORAGE_UPLOAD_CONCURRENCY_LIMIT",
+                "value": "100"
               }
             ],
             "resources": {

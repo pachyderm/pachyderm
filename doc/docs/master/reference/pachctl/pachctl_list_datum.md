@@ -13,10 +13,11 @@ pachctl list datum <job> [flags]
 ### Options
 
 ```
-  -h, --help           help for datum
-      --page int       Specify the page of results to send
-      --pageSize int   Specify the number of results sent back in a single page
-      --raw            disable pretty printing, print raw json
+  -h, --help            help for datum
+  -o, --output string   Output format when --raw is set: "json" or "yaml" (default "json")
+      --page int        Specify the page of results to send
+      --pageSize int    Specify the number of results sent back in a single page
+      --raw             Disable pretty printing; serialize data structures to an encoding such as json or yaml
 ```
 
 ### Options inherited from parent commands

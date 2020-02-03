@@ -26,6 +26,8 @@ const (
 	JobHeader = "ID\tPIPELINE\tSTARTED\tDURATION\tRESTART\tPROGRESS\tDL\tUL\tSTATE\t\n"
 	// DatumHeader is the header for datums
 	DatumHeader = "ID\tSTATUS\tTIME\t\n"
+	// SecretHeader is the header for secrets
+	SecretHeader = "NAME\tTYPE\tCREATED\t\n"
 	// jobReasonLen is the amount of the job reason that we print
 	jobReasonLen = 25
 )
@@ -52,17 +54,13 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo, fullTimestamps bool) 
 		fmt.Fprintf(w, "-\t")
 	}
 	fmt.Fprintf(w, "%d\t", jobInfo.Restart)
-	if jobInfo.DataRecovered != 0 {
-		fmt.Fprintf(w, "%d + %d + %d / %d\t", jobInfo.DataProcessed, jobInfo.DataSkipped, jobInfo.DataRecovered, jobInfo.DataTotal)
-	} else {
-		fmt.Fprintf(w, "%d + %d / %d\t", jobInfo.DataProcessed, jobInfo.DataSkipped, jobInfo.DataTotal)
-	}
+	fmt.Fprintf(w, "%s\t", Progress(jobInfo))
 	fmt.Fprintf(w, "%s\t", pretty.Size(jobInfo.Stats.DownloadBytes))
 	fmt.Fprintf(w, "%s\t", pretty.Size(jobInfo.Stats.UploadBytes))
 	if jobInfo.State == ppsclient.JobState_JOB_FAILURE {
-		fmt.Fprintf(w, "%s: %s\t", jobState(jobInfo.State), safeTrim(jobInfo.Reason, jobReasonLen))
+		fmt.Fprintf(w, "%s: %s\t", JobState(jobInfo.State), safeTrim(jobInfo.Reason, jobReasonLen))
 	} else {
-		fmt.Fprintf(w, "%s\t", jobState(jobInfo.State))
+		fmt.Fprintf(w, "%s\t", JobState(jobInfo.State))
 	}
 	fmt.Fprintln(w)
 }
@@ -77,7 +75,7 @@ func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo, fullTi
 	} else {
 		fmt.Fprintf(w, "%s\t", pretty.Ago(pipelineInfo.CreatedAt))
 	}
-	fmt.Fprintf(w, "%s / %s\t", pipelineState(pipelineInfo.State), jobState(pipelineInfo.LastJobState))
+	fmt.Fprintf(w, "%s / %s\t", pipelineState(pipelineInfo.State), JobState(pipelineInfo.LastJobState))
 	fmt.Fprintf(w, "%s\t", pipelineInfo.Description)
 	fmt.Fprintln(w)
 }
@@ -294,6 +292,11 @@ func PrintDetailedDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
 	tw.Flush()
 }
 
+// PrintSecretInfo pretty-prints secret info.
+func PrintSecretInfo(w io.Writer, secretInfo *ppsclient.SecretInfo) {
+	fmt.Fprintf(w, "%s\t%s\t%s\t\n", secretInfo.Secret.Name, secretInfo.Type, pretty.Ago(secretInfo.CreationTimestamp))
+}
+
 // PrintFileHeader prints the header for a pfs file.
 func PrintFileHeader(w io.Writer) {
 	fmt.Fprintf(w, "  REPO\tCOMMIT\tPATH\t\n")
@@ -318,7 +321,8 @@ func datumState(datumState ppsclient.DatumState) string {
 	return "-"
 }
 
-func jobState(jobState ppsclient.JobState) string {
+// JobState returns the state of a job as a pretty printed string.
+func JobState(jobState ppsclient.JobState) string {
 	switch jobState {
 	case ppsclient.JobState_JOB_STARTING:
 		return color.New(color.FgYellow).SprintFunc()("starting")
@@ -334,6 +338,14 @@ func jobState(jobState ppsclient.JobState) string {
 		return color.New(color.FgRed).SprintFunc()("killed")
 	}
 	return "-"
+}
+
+// Progress pretty prints the datum progress of a job.
+func Progress(ji *ppsclient.JobInfo) string {
+	if ji.DataRecovered != 0 {
+		return fmt.Sprintf("%d + %d + %d / %d", ji.DataProcessed, ji.DataSkipped, ji.DataRecovered, ji.DataTotal)
+	}
+	return fmt.Sprintf("%d + %d / %d", ji.DataProcessed, ji.DataSkipped, ji.DataTotal)
 }
 
 func pipelineState(pipelineState ppsclient.PipelineState) string {
@@ -391,7 +403,7 @@ func pipelineInput(pipelineInfo *ppsclient.PipelineInfo) string {
 func jobCounts(counts map[int32]int32) string {
 	var buffer bytes.Buffer
 	for i := int32(ppsclient.JobState_JOB_STARTING); i <= int32(ppsclient.JobState_JOB_SUCCESS); i++ {
-		fmt.Fprintf(&buffer, "%s: %d\t", jobState(ppsclient.JobState(i)), counts[i])
+		fmt.Fprintf(&buffer, "%s: %d\t", JobState(ppsclient.JobState(i)), counts[i])
 	}
 	return buffer.String()
 }
@@ -437,7 +449,7 @@ func ShorthandInput(input *ppsclient.Input) string {
 
 var funcMap = template.FuncMap{
 	"pipelineState":        pipelineState,
-	"jobState":             jobState,
+	"jobState":             JobState,
 	"datumState":           datumState,
 	"workerStatus":         workerStatus,
 	"pipelineInput":        pipelineInput,

@@ -43,8 +43,6 @@ rules:
   - delete
 - apiGroups:
   - ""
-  resourceNames:
-  - pachyderm-storage-secret
   resources:
   - secrets
   verbs:
@@ -54,6 +52,7 @@ rules:
   - create
   - update
   - delete
+  - deletecollection
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -193,7 +192,7 @@ apiVersion: v1
 kind: Service
 metadata:
   annotations:
-    prometheus.io/port: "9091"
+    prometheus.io/port: "656"
     prometheus.io/scrape: "true"
   creationTimestamp: null
   labels:
@@ -220,8 +219,8 @@ spec:
     port: 654
     targetPort: 0
   - name: api-git-port
-    nodePort: 30999
-    port: 999
+    nodePort: 30655
+    port: 655
     targetPort: 0
   - name: s3gateway-port
     nodePort: 30600
@@ -271,14 +270,14 @@ spec:
           value: AMAZON
         - name: STORAGE_HOST_PATH
         - name: WORKER_IMAGE
-          value: pachyderm/worker:1.9.9
+          value: pachyderm/worker:1.9.12
         - name: IMAGE_PULL_SECRET
         - name: WORKER_SIDECAR_IMAGE
-          value: pachyderm/pachd:1.9.9
+          value: pachyderm/pachd:1.9.12
         - name: WORKER_IMAGE_PULL_POLICY
           value: IfNotPresent
         - name: PACHD_VERSION
-          value: 1.9.9
+          value: 1.9.12
         - name: METRICS
           value: "true"
         - name: LOG_LEVEL
@@ -302,6 +301,8 @@ spec:
               divisor: "0"
               resource: requests.memory
         - name: EXPOSE_OBJECT_API
+          value: "false"
+        - name: REQUIRE_CRITICAL_SERVERS_ONLY
           value: "false"
         - name: GOOGLE_BUCKET
           valueFrom:
@@ -465,7 +466,21 @@ spec:
               key: max-upload-parts
               name: pachyderm-storage-secret
               optional: true
-        image: pachyderm/pachd:1.9.9
+        - name: DISABLE_SSL
+          valueFrom:
+            secretKeyRef:
+              key: disable-ssl
+              name: pachyderm-storage-secret
+              optional: true
+        - name: NO_VERIFY_SSL
+          valueFrom:
+            secretKeyRef:
+              key: no-verify-ssl
+              name: pachyderm-storage-secret
+              optional: true
+        - name: STORAGE_UPLOAD_CONCURRENCY_LIMIT
+          value: "100"
+        image: pachyderm/pachd:1.9.12
         imagePullPolicy: IfNotPresent
         name: pachd
         ports:
@@ -480,7 +495,7 @@ spec:
         - containerPort: 653
           name: peer-port
           protocol: TCP
-        - containerPort: 999
+        - containerPort: 655
           name: api-git-port
           protocol: TCP
         - containerPort: 654
@@ -587,7 +602,9 @@ data:
   amazon-secret: c3RvcmFnZS1zZWNyZXQ=
   amazon-token: ""
   custom-endpoint: c3RvcmFnZS5lbmRwb2ludA==
+  disable-ssl: ZmFsc2U=
   max-upload-parts: MTAwMDA=
+  no-verify-ssl: ZmFsc2U=
   part-size: NTI0Mjg4MA==
   retries: MTA=
   reverse: dHJ1ZQ==

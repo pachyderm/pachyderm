@@ -13,7 +13,7 @@ Pachyderm users, as well as the Pachyderm API reference docs.
 
 If you cannot find what you are looking for or have an issue that is
 not mentioned here, we'd love to hear from you either on
-[GitHub](https://github.com/pachyderm/pachyderm>), in our
+[GitHub](https://github.com/pachyderm/pachyderm/), in our
 [Users Slack channel](http://slack.pachyderm.io/), or by
 email at support@pachyderm.io.
 

@@ -64,8 +64,6 @@ const (
 	// OutputCommitIDEnv is an env var that is added to the environment of user
 	// pipelined code and indicates the id of the output commit.
 	OutputCommitIDEnv = "PACH_OUTPUT_COMMIT_ID"
-	// PProfPortEnv is the env var that sets a custom pprof port
-	PProfPortEnv = "PPROF_PORT"
 	// PeerPortEnv is the env var that sets a custom peer port
 	PeerPortEnv = "PEER_PORT"
 )
@@ -140,12 +138,27 @@ func NewUnionInput(input ...*pps.Input) *pps.Input {
 // NewCronInput returns an input which will trigger based on a timed schedule.
 // It uses cron syntax to specify the schedule. The input will be exposed to
 // jobs as `/pfs/<name>/<timestamp>`. The timestamp uses the RFC 3339 format,
-// e.g. `2006-01-02T15:04:05Z07:00`.
+// e.g. `2006-01-02T15:04:05Z07:00`. It only takes required options.
 func NewCronInput(name string, spec string) *pps.Input {
 	return &pps.Input{
 		Cron: &pps.CronInput{
 			Name: name,
 			Spec: spec,
+		},
+	}
+}
+
+// NewCronInputOpts returns an input which will trigger based on a timed schedule.
+// It uses cron syntax to specify the schedule. The input will be exposed to
+// jobs as `/pfs/<name>/<timestamp>`. The timestamp uses the RFC 3339 format,
+// e.g. `2006-01-02T15:04:05Z07:00`. It includes all the options.
+func NewCronInputOpts(name string, repo string, spec string, overwrite bool) *pps.Input {
+	return &pps.Input{
+		Cron: &pps.CronInput{
+			Name:      name,
+			Repo:      repo,
+			Spec:      spec,
+			Overwrite: overwrite,
 		},
 	}
 }
@@ -161,14 +174,6 @@ func NewJobInput(repoName string, commitID string, glob string) *pps.JobInput {
 // NewPipeline creates a pps.Pipeline.
 func NewPipeline(pipelineName string) *pps.Pipeline {
 	return &pps.Pipeline{Name: pipelineName}
-}
-
-// NewPipelineInput creates a new pps.PipelineInput
-func NewPipelineInput(repoName string, glob string) *pps.PipelineInput {
-	return &pps.PipelineInput{
-		Repo: NewRepo(repoName),
-		Glob: glob,
-	}
 }
 
 // CreateJob creates and runs a job in PPS.
@@ -656,6 +661,60 @@ func (c APIClient) RunPipeline(name string, provenance []*pfs.CommitProvenance, 
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
+}
+
+// RunCron runs a pipeline. It can be passed a list of commit provenance.
+// This will trigger a new job provenant on those commits, effectively running the pipeline on the data in those commits.
+func (c APIClient) RunCron(name string) error {
+	_, err := c.PpsAPIClient.RunCron(
+		c.Ctx(),
+		&pps.RunCronRequest{
+			Pipeline: NewPipeline(name),
+		},
+	)
+	return grpcutil.ScrubGRPC(err)
+}
+
+// CreateSecret creates a secret on the cluster.
+func (c APIClient) CreateSecret(file []byte) error {
+	_, err := c.PpsAPIClient.CreateSecret(
+		c.Ctx(),
+		&pps.CreateSecretRequest{
+			File: file,
+		},
+	)
+	return grpcutil.ScrubGRPC(err)
+}
+
+// DeleteSecret deletes a secret from the cluster.
+func (c APIClient) DeleteSecret(secret string) error {
+	_, err := c.PpsAPIClient.DeleteSecret(
+		c.Ctx(),
+		&pps.DeleteSecretRequest{
+			Secret: &pps.Secret{Name: secret},
+		},
+	)
+	return grpcutil.ScrubGRPC(err)
+}
+
+// InspectSecret returns info about a specific secret.
+func (c APIClient) InspectSecret(secret string) (*pps.SecretInfo, error) {
+	secretInfo, err := c.PpsAPIClient.InspectSecret(
+		c.Ctx(),
+		&pps.InspectSecretRequest{
+			Secret: &pps.Secret{Name: secret},
+		},
+	)
+	return secretInfo, grpcutil.ScrubGRPC(err)
+}
+
+// ListSecret returns info about all Pachyderm secrets.
+func (c APIClient) ListSecret() ([]*pps.SecretInfo, error) {
+	secretInfos, err := c.PpsAPIClient.ListSecret(
+		c.Ctx(),
+		&types.Empty{},
+	)
+	return secretInfos.SecretInfo, grpcutil.ScrubGRPC(err)
 }
 
 // CreatePipelineService creates a new pipeline service.
