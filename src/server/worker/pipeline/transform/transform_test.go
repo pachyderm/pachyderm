@@ -226,7 +226,7 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Con
 
 		// If setting the job to a terminal state, we are done
 		// TODO: this sometimes cancels the transform master too early
-		if request.State == pps.JobState_JOB_SUCCESS {
+		if ppsutil.IsTerminal(request.State) {
 			cancel()
 		}
 
@@ -243,6 +243,7 @@ func TestJob(t *testing.T) {
 	t.Parallel()
 	err := withWorkerSpawnerPair(pi, func(env *testEnv) error {
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
+		time.Sleep(10 * time.Minute)
 		ctx = withTimeout(ctx, 10*time.Second)
 		<-ctx.Done()
 		require.Equal(t, etcdJobInfo.State, pps.JobState_JOB_SUCCESS)

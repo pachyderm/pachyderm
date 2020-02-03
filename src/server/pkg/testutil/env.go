@@ -11,6 +11,7 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/embed"
+	etcdwal "github.com/coreos/etcd/wal"
 	"github.com/coreos/pkg/capnslog"
 	"golang.org/x/sync/errgroup"
 
@@ -23,6 +24,10 @@ import (
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	txnserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
 )
+
+func init() {
+	etcdwal.SegmentSizeBytes = 1 * 1000 * 1000 // 1 MB
+}
 
 // EtcdEnv contains the basic setup for running end-to-end pachyderm tests entirely
 // locally within the test process. It provides a temporary directory for

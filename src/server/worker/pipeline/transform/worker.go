@@ -247,19 +247,16 @@ func processDatum(
 				}
 				return err
 			}
-			return nil
-		})
-		if err != nil {
-			return err
-		}
 
-		b, err := driver.UploadOutput(tag, logger, inputs, stats.ProcessStats, outputTree)
-		if err != nil {
-			return err
-		}
-		// Cache datum hashtree locally
-		logger.Logf("datum cache: %v", driver.DatumCache())
-		return driver.DatumCache().CacheHashtree(logger.JobID(), tag, bytes.NewReader(b))
+			b, err := driver.UploadOutput(tag, logger, inputs, stats.ProcessStats, outputTree)
+			if err != nil {
+				return err
+			}
+
+			// Cache datum hashtree locally
+			return driver.DatumCache().CacheHashtree(logger.JobID(), tag, bytes.NewReader(b))
+		})
+		return err
 	}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
 		failures++
 		if failures >= driver.PipelineInfo().DatumTries {
@@ -292,6 +289,7 @@ func processDatum(
 	} else if err != nil {
 		stats.FailedDatumID = datumID
 		stats.DatumsFailed++
+		return stats, err
 	} else {
 		stats.DatumsProcessed++
 	}

@@ -186,21 +186,40 @@ func NewDriver(
 	etcdPrefix string,
 	hashtreeStorage string,
 ) (Driver, error) {
+	chunkCachePath := filepath.Join(hashtreeStorage, "chunk")
+	chunkStatsCachePath := filepath.Join(hashtreeStorage, "chunkStats")
+	datumCachePath := filepath.Join(hashtreeStorage, "datum")
+	datumStatsCachePath := filepath.Join(hashtreeStorage, "datumStats")
+
+	if err := os.MkdirAll(chunkCachePath, 0777); err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(chunkStatsCachePath, 0777); err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(datumCachePath, 0777); err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(datumStatsCachePath, 0777); err != nil {
+		return nil, err
+	}
+
 	result := &driver{
 		pipelineInfo:    pipelineInfo,
 		pachClient:      pachClient,
 		kubeWrapper:     kubeWrapper,
 		etcdClient:      etcdClient,
 		etcdPrefix:      etcdPrefix,
+		runMutex:        &sync.Mutex{},
 		jobs:            ppsdb.Jobs(etcdClient, etcdPrefix),
 		pipelines:       ppsdb.Pipelines(etcdClient, etcdPrefix),
 		shards:          col.NewCollection(etcdClient, path.Join(etcdPrefix, shardPrefix, pipelineInfo.Pipeline.Name), nil, &common.ShardInfo{}, nil, nil),
 		plans:           col.NewCollection(etcdClient, path.Join(etcdPrefix, planPrefix), nil, &common.Plan{}, nil, nil),
 		inputDir:        client.PPSInputPrefix,
-		chunkCache:      cache.NewWorkerCache(filepath.Join(hashtreeStorage, "chunk")),
-		chunkStatsCache: cache.NewWorkerCache(filepath.Join(hashtreeStorage, "chunkStats")),
-		datumCache:      cache.NewWorkerCache(filepath.Join(hashtreeStorage, "datum")),
-		datumStatsCache: cache.NewWorkerCache(filepath.Join(hashtreeStorage, "datumStats")),
+		chunkCache:      cache.NewWorkerCache(chunkCachePath),
+		chunkStatsCache: cache.NewWorkerCache(chunkStatsCachePath),
+		datumCache:      cache.NewWorkerCache(datumCachePath),
+		datumStatsCache: cache.NewWorkerCache(datumStatsCachePath),
 	}
 
 	if pipelineInfo.Transform.User != "" {

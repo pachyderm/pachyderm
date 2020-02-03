@@ -741,7 +741,7 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	eg := errgroup.Group{}
 
 	// Run tasks in the datumTaskChan until we are done
-	pj.logger.Logf("processJobRunning running datums tasks")
+	pj.logger.Logf("processJobRunning running datum tasks")
 	for task := range taskChan {
 		eg.Go(func() error {
 			pj.logger.Logf("processJobRunning async task running")
@@ -766,6 +766,7 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	pj.logger.Logf("processJobRunning waiting for task complete")
 	// Wait for datums to complete
 	if err := eg.Wait(); err != nil {
+		// If we have failed datums in the stats, fail the job, otherwise we can reattempt later
 		// TODO: some sort of error state?
 		return fmt.Errorf("process datum error: %v", err)
 	}

@@ -38,53 +38,35 @@ func defaultPipelineInfo() *pps.PipelineInfo {
 	}
 }
 
-// A Driver instance that provides a pachClient
-type mockDriver struct {
-	*driver.MockDriver
-	pachClient *client.APIClient
-}
-
-func newMockDriver(env *tu.RealEnv, pipelineInfo *pps.PipelineInfo) *mockDriver {
-	return &mockDriver{
-		MockDriver: driver.NewMockDriver(env.EtcdClient, &driver.MockOptions{
-			NumWorkers:   1,
-			PipelineInfo: pipelineInfo,
-			HashtreePath: path.Join(env.Directory, "hashtrees"),
-		}),
-		pachClient: env.PachClient,
-	}
-}
-
-func (md *mockDriver) PachClient() *client.APIClient {
-	return md.pachClient
-}
-
-func (md *mockDriver) WithCtx(ctx context.Context) driver.Driver {
-	result := &mockDriver{}
-	*result = *md
-	result.MockDriver = md.MockDriver.WithCtx(ctx).(*driver.MockDriver)
-	result.pachClient = md.PachClient().WithCtx(ctx)
-	return result
-}
-
 type testEnv struct {
 	*tu.RealEnv
 	logger *logs.MockLogger
-	driver *mockDriver
+	driver driver.Driver
 }
 
 func withTestEnv(pipelineInfo *pps.PipelineInfo, cb func(*testEnv) error) error {
 	return tu.WithRealEnv(func(realEnv *tu.RealEnv) error {
+		logger := logs.NewMockLogger()
+		driver, err := driver.NewDriver(
+			pipelineInfo,
+			realEnv.PachClient,
+			driver.NewMockKubeWrapper(),
+			realEnv.EtcdClient,
+			"/pachyderm_test",
+			path.Join(realEnv.Directory, "hashtrees"),
+		)
+		if err != nil {
+			return err
+		}
+
 		ctx, cancel := context.WithCancel(realEnv.PachClient.Ctx())
 		defer cancel()
-
-		mockDriver := newMockDriver(realEnv, pipelineInfo).WithCtx(ctx).(*mockDriver)
-		mockLogger := logs.NewMockLogger()
+		driver = driver.WithCtx(ctx)
 
 		env := &testEnv{
 			RealEnv: realEnv,
-			logger:  mockLogger,
-			driver:  mockDriver,
+			logger:  logger,
+			driver:  driver,
 		}
 
 		return cb(env)
