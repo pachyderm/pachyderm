@@ -38,6 +38,12 @@ fi
 # Install minikube
 # To get the latest minikube version:
 # curl https://api.github.com/repos/kubernetes/minikube/releases | jq -r .[].tag_name | sort | tail -n1
+mkdir ~/bryce-temp
+MINIKUBE_VERSION=v1.6.2
+curl -L -o minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VERSION}/minikube-linux-amd64
+chmod +x ./minikube
+mv ./minikube ~/bryce-temp/minikube
+export PATH=~/bryce-temp:$PATH
 if [ ! -f ~/cached-deps/minikube ] ; then
     MINIKUBE_VERSION=v1.6.2
     curl -L -o minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VERSION}/minikube-linux-amd64 && \
