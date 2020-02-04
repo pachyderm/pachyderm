@@ -55,9 +55,10 @@ func (d *driver) moveData(inputs []*common.Input, dir string) error {
 		return err
 	}
 
-	for _, input := range inputs {
+	for x, input := range inputs {
 		src := filepath.Join(dir, input.Name)
 		dst := filepath.Join(d.InputDir(), input.Name)
+		fmt.Printf("input %d(%s): moving %s to %s\n", x, input.Name, src, dst)
 		if err := os.Rename(src, dst); err != nil {
 			return err
 		}
@@ -71,6 +72,7 @@ func (d *driver) moveData(inputs []*common.Input, dir string) error {
 		}
 	}
 
+	fmt.Printf("moving out\n")
 	return os.Rename(filepath.Join(dir, "out"), filepath.Join(d.InputDir(), "out"))
 }
 

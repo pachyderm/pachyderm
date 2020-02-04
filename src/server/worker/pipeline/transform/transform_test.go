@@ -83,15 +83,10 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 
 		eg.Go(func() error {
 			backoff.RetryUntilCancel(env.driver.PachClient().Ctx(), func() error {
-				fmt.Printf("running task worker\n")
 				return env.driver.NewTaskWorker().Run(
 					env.driver.PachClient().Ctx(),
 					func(ctx context.Context, task *work.Task, subtask *work.Task) error {
-						fmt.Printf("Worker starting\n")
-						err := Worker(env.driver, env.logger, task, subtask)
-						fmt.Printf("Worker error: %v\n", err)
-						return err
-						// return Worker(env.driver, env.logger, task, subtask)
+						return Worker(env.driver, env.logger, task, subtask)
 					},
 				)
 			}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
@@ -130,8 +125,6 @@ func triggerJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) {
 	files, err := env.PachClient.ListFile(pi.Input.Pfs.Repo, "master", "")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(files))
-
-	fmt.Printf("trigger job input files: %v\n", files)
 }
 
 func withTimeout(ctx context.Context, duration time.Duration) context.Context {
