@@ -57,8 +57,8 @@ func withTestEnv(pipelineInfo *pps.PipelineInfo, cb func(*testEnv) error) error 
 			driver.NewMockKubeWrapper(),
 			realEnv.EtcdClient,
 			"/pachyderm_test",
-			filepath.Join(realEnv.Directory, "hashtrees"),
-			filepath.Join(realEnv.Directory, "pfs"),
+			filepath.Join(realEnv.Directory, "worker", "hashtrees"),
+			filepath.Join(realEnv.Directory, "worker", "pfs"),
 		)
 		if err != nil {
 			return err

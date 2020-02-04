@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
@@ -81,12 +82,22 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 		})
 
 		eg.Go(func() error {
-			err := env.driver.NewTaskWorker().Run(
-				env.driver.PachClient().Ctx(),
-				func(ctx context.Context, task *work.Task, subtask *work.Task) error {
-					return Worker(env.driver, env.logger, task, subtask)
-				},
-			)
+			backoff.RetryUntilCancel(env.driver.PachClient().Ctx(), func() error {
+				fmt.Printf("running task worker\n")
+				return env.driver.NewTaskWorker().Run(
+					env.driver.PachClient().Ctx(),
+					func(ctx context.Context, task *work.Task, subtask *work.Task) error {
+						fmt.Printf("Worker starting\n")
+						err := Worker(env.driver, env.logger, task, subtask)
+						fmt.Printf("Worker error: %v\n", err)
+						return err
+						// return Worker(env.driver, env.logger, task, subtask)
+					},
+				)
+			}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
+				env.logger.Logf("worker failed, retrying immediately, err: %v", err)
+				return nil
+			})
 			if isCanceledError(err) {
 				return nil
 			}

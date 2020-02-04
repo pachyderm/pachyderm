@@ -103,8 +103,10 @@ func Worker(driver driver.Driver, logger logs.TaggedLogger, task *work.Task, sub
 	datumData, err := deserializeDatumData(subtask.Data)
 	if err == nil {
 		if err = handleDatumTask(driver, logger, datumData); err != nil {
+			logger.Logf("handleDatumTask error")
 			return err
 		}
+		logger.Logf("handleDatumTask success")
 		subtask.Data, err = serializeDatumData(datumData)
 		return err
 	}
@@ -183,11 +185,8 @@ func handleDatumTask(driver driver.Driver, logger logs.TaggedLogger, data *Datum
 		return err
 	}
 
-	if err := eg.Wait(); err != nil {
-		return err
-	}
-
-	return nil
+	logger.Logf("waiting for datum processing")
+	return eg.Wait()
 }
 
 func processDatum(
@@ -236,7 +235,7 @@ func processDatum(
 			hashtreeBytes := []byte{}
 
 			// WithActiveData acquires a mutex so that we don't run this section concurrently
-			return driver.WithActiveData(inputs, dir, func() error {
+			if err := driver.WithActiveData(inputs, dir, func() error {
 				env := userCodeEnv(logger.JobID(), outputCommit, driver.InputDir(), inputs)
 				if err := driver.RunUserCode(logger, env, processStats, driver.PipelineInfo().DatumTimeout); err != nil {
 					if driver.PipelineInfo().Transform.ErrCmd != nil && failures == driver.PipelineInfo().DatumTries-1 {
@@ -256,7 +255,9 @@ func processDatum(
 				var err error
 				hashtreeBytes, err = driver.UploadOutput(tag, logger, inputs, stats.ProcessStats, outputTree)
 				return err
-			})
+			}); err != nil {
+				return err
+			}
 
 			// Cache datum hashtree locally
 			return driver.DatumCache().CacheHashtree(logger.JobID(), tag, bytes.NewReader(hashtreeBytes))

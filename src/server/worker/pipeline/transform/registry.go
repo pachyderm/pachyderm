@@ -767,6 +767,8 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	// Wait for datums to complete
 	if err := eg.Wait(); err != nil {
 		// If we have failed datums in the stats, fail the job, otherwise we can reattempt later
+		if stats.FailedDatumID != "" {
+		}
 		// TODO: some sort of error state?
 		return fmt.Errorf("process datum error: %v", err)
 	}

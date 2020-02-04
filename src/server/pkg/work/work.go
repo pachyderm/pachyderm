@@ -140,15 +140,17 @@ func (w *Worker) Run(ctx context.Context, processFunc ProcessFunc) error {
 			return err
 		}
 		if taskInfo.State == State_RUNNING {
-			return w.processTask(ctx, taskInfo.Task, processFunc)
+			if err := w.processTask(ctx, taskInfo.Task, processFunc); err != nil && err.Error() != "context canceled" {
+				return err
+			}
 		}
 		return nil
 	})
 }
 
 func (w *Worker) processTask(ctx context.Context, task *Task, processFunc ProcessFunc) error {
-	var eg errgroup.Group
 	ctx, cancel := context.WithCancel(ctx)
+	eg, ctx := errgroup.WithContext(ctx)
 	// Watch for task termination.
 	// This will handle completion, failure, and cancellation.
 	eg.Go(func() error {
@@ -160,7 +162,6 @@ func (w *Worker) processTask(ctx context.Context, task *Task, processFunc Proces
 			}
 			if taskInfo.State != State_RUNNING {
 				cancel()
-				return errutil.ErrBreak
 			}
 			return nil
 		})
@@ -188,14 +189,7 @@ func (w *Worker) processTask(ctx context.Context, task *Task, processFunc Proces
 			return w.processSubtasks(ctx, task, processFunc)
 		}, watch.WithFilterPut())
 	})
-	if err := eg.Wait(); err != nil {
-		// Work terminated.
-		if ctx.Err() == context.Canceled {
-			return nil
-		}
-		return err
-	}
-	return nil
+	return eg.Wait()
 }
 
 func (w *Worker) processSubtasks(ctx context.Context, task *Task, processFunc ProcessFunc) error {
