@@ -6,6 +6,7 @@ import (
 	"log"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -44,13 +45,25 @@ func samePart(p part) CacheFunc {
 	}
 }
 
+var (
+	pachClient     *client.APIClient
+	pachClientOnce sync.Once
+)
+
+func getPachClient() *client.APIClient {
+	pachClientOnce.Do(func() {
+		c, err := client.NewOnUserMachine("user-completion")
+		if err != nil {
+			log.Fatal(err)
+		}
+		pachClient = c
+	})
+	return pachClient
+}
+
 // RepoCompletion completes repo parameters of the form <repo>
 func RepoCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
-	c, err := client.NewOnUserMachine("user-completion")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer c.Close()
+	c := getPachClient()
 	ris, err := c.ListRepo()
 	if err != nil {
 		log.Fatal(err)
@@ -67,11 +80,7 @@ func RepoCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, Cac
 
 // BranchCompletion completes branch parameters of the form <repo>@<branch>
 func BranchCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
-	c, err := client.NewOnUserMachine("user-completion")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer c.Close()
+	c := getPachClient()
 	partialFile := cmdutil.ParsePartialFile(text)
 	part := filePart(text)
 	var result []prompt.Suggest
@@ -99,11 +108,7 @@ func BranchCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest
 
 // FileCompletion completes file parameters of the form <repo>@<branch>:/file
 func FileCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
-	c, err := client.NewOnUserMachine("user-completion")
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer c.Close()
+	c := getPachClient()
 	partialFile := cmdutil.ParsePartialFile(text)
 	part := filePart(text)
 	var result []prompt.Suggest
@@ -150,10 +155,7 @@ func FilesystemCompletion(_, text string, maxCompletions int64) ([]prompt.Sugges
 
 // PipelineCompletion completes pipeline parameters of the form <pipeline>
 func PipelineCompletion(_, _ string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
-	c, err := client.NewOnUserMachine("user-completion")
-	if err != nil {
-		log.Fatal(err)
-	}
+	c := getPachClient()
 	defer c.Close()
 	pis, err := c.ListPipeline()
 	if err != nil {
@@ -181,11 +183,7 @@ func jobDesc(ji *pps.JobInfo) string {
 
 // JobCompletion completes job parameters of the form <job>
 func JobCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
-	c, err := client.NewOnUserMachine("user-completion")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer c.Close()
+	c := getPachClient()
 	var result []prompt.Suggest
 	if err := c.ListJobF("", nil, nil, 0, false, func(ji *pps.JobInfo) error {
 		if maxCompletions > 0 {
