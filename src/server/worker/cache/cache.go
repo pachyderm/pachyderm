@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -36,25 +37,38 @@ func NewWorkerCache(hashtreeStorage string) WorkerCache {
 	}
 }
 
-func (wc *workerCache) getOrCreateCache(jobID string) *hashtree.MergeCache {
+func (wc *workerCache) getOrCreateCache(jobID string) (*hashtree.MergeCache, error) {
 	if cache, ok := wc.caches[jobID]; ok {
-		return cache
+		return cache, nil
 	}
+	cachePath := filepath.Join(wc.hashtreeStorage, jobID)
+	if err := os.MkdirAll(cachePath, 0777); err != nil {
+		return nil, err
+	}
+
 	newCache := hashtree.NewMergeCache(filepath.Join(wc.hashtreeStorage, jobID))
 	wc.caches[jobID] = newCache
-	return newCache
+	return newCache, nil
 }
 
 func (wc *workerCache) ClearJob(jobID string) {
 	delete(wc.caches, jobID)
 }
 
-func (wc *workerCache) CacheHashtree(jobID string, tag string, r io.Reader) (retErr error) {
-	return wc.getOrCreateCache(jobID).Put(tag, r)
+func (wc *workerCache) CacheHashtree(jobID string, tag string, r io.Reader) error {
+	cache, err := wc.getOrCreateCache(jobID)
+	if err != nil {
+		return err
+	}
+	return cache.Put(tag, r)
 }
 
-func (wc *workerCache) DownloadHashtree(pachClient *client.APIClient, jobID string, tag string) (retErr error) {
-	cache := wc.getOrCreateCache(jobID)
+func (wc *workerCache) DownloadHashtree(pachClient *client.APIClient, jobID string, tag string) error {
+	cache, err := wc.getOrCreateCache(jobID)
+	if err != nil {
+		return err
+	}
+
 	buf := &bytes.Buffer{}
 	if err := pachClient.GetTag(tag, buf); err != nil {
 		return err
