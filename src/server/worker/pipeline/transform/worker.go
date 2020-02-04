@@ -4,14 +4,11 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
-	// "strings"
 	"sync"
 	"time"
 
-	// "github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/sync/errgroup"
 
@@ -32,10 +29,6 @@ import (
 var (
 	errDatumRecovered = errors.New("the datum errored, and the error was handled successfully")
 )
-
-func jobDatumHashtreeTag(jobID string) *pfs.Tag {
-	return client.NewTag(fmt.Sprintf("job-%s-datum", jobID))
-}
 
 func plusDuration(x *types.Duration, y *types.Duration) (*types.Duration, error) {
 	var xd time.Duration
@@ -103,10 +96,8 @@ func Worker(driver driver.Driver, logger logs.TaggedLogger, task *work.Task, sub
 	datumData, err := deserializeDatumData(subtask.Data)
 	if err == nil {
 		if err = handleDatumTask(driver, logger, datumData); err != nil {
-			logger.Logf("handleDatumTask error")
 			return err
 		}
-		logger.Logf("handleDatumTask success")
 		subtask.Data, err = serializeDatumData(datumData)
 		return err
 	}
@@ -133,25 +124,20 @@ func forEachDatum(driver driver.Driver, object *pfs.Object, cb func([]*common.In
 	grpcReader := grpcutil.NewStreamingBytesReader(getObjectClient, nil)
 	protoReader := pbutil.NewReader(grpcReader)
 
-	defer func() {
-		if retErr == io.EOF {
-			retErr = nil
-		}
-	}()
+	allDatums := &DatumInputsList{}
 
-	datum := &DatumInputs{}
-
-	if err := protoReader.Read(datum); err != nil {
+	if err := protoReader.Read(allDatums); err != nil {
+		fmt.Printf("failed to deserialize allDatums: %v\n", err)
 		return err
 	}
 
-	for {
-		cb(datum.Inputs)
-
-		if err := protoReader.Read(datum); err != nil {
+	for _, datum := range allDatums.Datums {
+		if err := cb(datum.Inputs); err != nil {
 			return err
 		}
 	}
+
+	return nil
 }
 
 func handleDatumTask(driver driver.Driver, logger logs.TaggedLogger, data *DatumData) error {
@@ -295,7 +281,6 @@ func processDatum(
 	} else if err != nil {
 		stats.FailedDatumID = datumID
 		stats.DatumsFailed++
-		return stats, err
 	} else {
 		stats.DatumsProcessed++
 	}

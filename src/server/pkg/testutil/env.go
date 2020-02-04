@@ -25,10 +25,6 @@ import (
 	txnserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
 )
 
-func init() {
-	etcdwal.SegmentSizeBytes = 1 * 1000 * 1000 // 1 MB
-}
-
 // EtcdEnv contains the basic setup for running end-to-end pachyderm tests entirely
 // locally within the test process. It provides a temporary directory for
 // storing data, and an embedded etcd server with a connected client.
@@ -85,6 +81,12 @@ func WithEtcdEnv(cb func(*EtcdEnv) error) (err error) {
 	if err != nil {
 		return err
 	}
+
+	// NOTE: this is changing a GLOBAL variable in etcd. This function should not
+	// be run in the same process as production code where this may affect
+	// performance (but there should be little risk of that as this is only for
+	// test code).
+	etcdwal.SegmentSizeBytes = 1 * 1000 * 1000 // 1 MB
 
 	etcdConfig := embed.NewConfig()
 	etcdConfig.LogOutput = "default"

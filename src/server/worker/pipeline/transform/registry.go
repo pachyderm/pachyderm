@@ -1,6 +1,7 @@
 package transform
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -34,16 +35,24 @@ import (
 
 const maxDatumsPerTask = 10000
 
+func jobHashtreesTag(jobID string) string {
+	return fmt.Sprintf("job-%s-hashtrees", jobID)
+}
+
 type pendingJob struct {
 	client        *client.APIClient
+	commitInfo    *pfs.CommitInfo
 	cancel        context.CancelFunc
 	logger        logs.TaggedLogger
 	index         int
 	orphan        bool
 	ji            *pps.JobInfo
+	jobData       *types.Any
 	datumsAdded   map[string]struct{}
 	datumsRemoved map[string]struct{}
 	datumTaskChan chan *work.Task
+	dit           datum.Iterator
+	hashtrees     []*HashtreeInfo
 }
 
 type registry struct {
@@ -247,49 +256,46 @@ func calculateDatumSets(
 // in the pending job.
 func (reg *registry) makeDatumTask(
 	pj *pendingJob,
-	datumsAdded map[string]struct{},
-	dit datum.Iterator,
 ) (*work.Task, error) {
 	pipelineInfo := reg.driver.PipelineInfo()
 
 	var numTasks int
-	if len(datumsAdded) < reg.concurrency {
-		numTasks = len(datumsAdded)
-	} else if len(datumsAdded)/maxDatumsPerTask > reg.concurrency {
-		numTasks = len(datumsAdded) / maxDatumsPerTask
+	if len(pj.datumsAdded) < reg.concurrency {
+		numTasks = len(pj.datumsAdded)
+	} else if len(pj.datumsAdded)/maxDatumsPerTask > reg.concurrency {
+		numTasks = len(pj.datumsAdded) / maxDatumsPerTask
 	} else {
 		numTasks = reg.concurrency
 	}
-	datumsPerTask := int(math.Ceil(float64(numTasks) / float64(len(datumsAdded))))
+	datumsPerTask := int(math.Ceil(float64(numTasks) / float64(len(pj.datumsAdded))))
 
-	var putObjectWriter *client.PutObjectWriteCloserAsync
-	var protoWriter pbutil.Writer
-
-	makeWriter := func() (err error) {
-		putObjectWriter, err = reg.driver.PachClient().PutObjectAsync([]*pfs.Tag{})
-		if err != nil {
-			return err
-		}
-		protoWriter = pbutil.NewWriter(putObjectWriter)
-		return nil
-	}
-
+	datums := []*DatumInputs{}
 	subtasks := []*work.Task{}
-	taskLen := 0
 
 	// finishTask will finish the currently-writing object and append it to the
 	// subtasks, then reset all the relevant variables
 	finishTask := func() error {
-		err := putObjectWriter.Close()
-		if err != nil {
-			return err
-		}
-		datums, err := putObjectWriter.Object()
+		putObjectWriter, err := reg.driver.PachClient().PutObjectAsync([]*pfs.Tag{})
 		if err != nil {
 			return err
 		}
 
-		taskData, err := serializeDatumData(&DatumData{Datums: datums, OutputCommit: pj.ji.OutputCommit})
+		protoWriter := pbutil.NewWriter(putObjectWriter)
+		if _, err := protoWriter.Write(&DatumInputsList{Datums: datums}); err != nil {
+			putObjectWriter.Close()
+			return err
+		}
+
+		if err := putObjectWriter.Close(); err != nil {
+			return err
+		}
+
+		datumsObject, err := putObjectWriter.Object()
+		if err != nil {
+			return err
+		}
+
+		taskData, err := serializeDatumData(&DatumData{Datums: datumsObject, OutputCommit: pj.ji.OutputCommit})
 		if err != nil {
 			return err
 		}
@@ -299,57 +305,41 @@ func (reg *registry) makeDatumTask(
 			Data: taskData,
 		})
 
-		taskLen = 0
-		protoWriter = nil
-		putObjectWriter = nil
+		datums = []*DatumInputs{}
 		return nil
 	}
 
-	fmt.Printf("iterating over dit with length %d\n", dit.Len())
+	fmt.Printf("iterating over dit with length %d\n", pj.dit.Len())
 	// Iterate over the datum iterator and append the inputs for added datums to
 	// the current object
-	dit.Reset()
-	for dit.Next() {
-		fmt.Printf("dit datum: %v\n", dit.Datum())
-		inputs := dit.Datum()
+	pj.dit.Reset()
+	for pj.dit.Next() {
+		fmt.Printf("dit datum: %v\n", pj.dit.Datum())
+		inputs := pj.dit.Datum()
 		hash := common.HashDatum(pipelineInfo.Pipeline.Name, pipelineInfo.Salt, inputs)
 
-		if _, ok := datumsAdded[hash]; ok {
-			if protoWriter == nil {
-				if err := makeWriter(); err != nil {
+		if _, ok := pj.datumsAdded[hash]; ok {
+			datums = append(datums, &DatumInputs{Inputs: inputs})
+
+			// If we hit the upper threshold for task size, finish the task
+			if len(datums) == datumsPerTask {
+				if err := finishTask(); err != nil {
 					return nil, err
 				}
-			}
-			if _, err := protoWriter.Write(&DatumInputs{Inputs: inputs}); err != nil {
-				putObjectWriter.Close()
-				return nil, err
-			}
-			taskLen++
-		}
-
-		// If we hit the upper threshold for task size, finish the task
-		if taskLen == datumsPerTask {
-			if err := finishTask(); err != nil {
-				return nil, err
 			}
 		}
 	}
 
-	if taskLen > 0 {
+	if len(datums) > 0 {
 		if err := finishTask(); err != nil {
 			return nil, err
 		}
 	}
 
-	jobData, err := serializeJobData(&JobData{JobID: pj.ji.Job.ID})
-	if err != nil {
-		return nil, fmt.Errorf("failed to serialize job data: %v", err)
-	}
-
 	fmt.Printf("returning work task, subtasks: %d\n", len(subtasks))
 	return &work.Task{
 		Id:       uuid.NewWithoutDashes(),
-		Data:     jobData,
+		Data:     pj.jobData,
 		Subtasks: subtasks,
 	}, nil
 }
@@ -547,10 +537,16 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit
 	// Build the pending job to send out to workers - this will block if we have
 	// too many already
 	pj := &pendingJob{
-		client: jobClient,
-		cancel: cancel,
-		logger: reg.logger.WithJob(jobInfo.Job.ID),
-		ji:     jobInfo,
+		client:     jobClient,
+		commitInfo: commitInfo,
+		cancel:     cancel,
+		logger:     reg.logger.WithJob(jobInfo.Job.ID),
+		ji:         jobInfo,
+	}
+
+	pj.jobData, err = serializeJobData(&JobData{JobID: pj.ji.Job.ID})
+	if err != nil {
+		return fmt.Errorf("failed to serialize job data: %v", err)
 	}
 
 	// Watch output commit - if it gets finished early we need to abort
@@ -686,16 +682,20 @@ func (reg *registry) processJobStarting(pj *pendingJob) error {
 	return updateJobState(pj.client, pj.ji)
 }
 
-func (reg *registry) processJobRunning(pj *pendingJob) error {
-	// Create a datum iterator pointing at the job's inputs
-	var dit datum.Iterator
-	if err := pj.logger.LogStep("constructing datum iterator", func() error {
-		var err error
-		dit, err = datum.NewIterator(pj.client, pj.ji.Input)
-		return err
-	}); err != nil {
-		return err
+func initializeIterator(pj *pendingJob) error {
+	if pj.dit == nil {
+		// Create a datum iterator pointing at the job's inputs
+		return pj.logger.LogStep("constructing datum iterator", func() error {
+			var err error
+			pj.dit, err = datum.NewIterator(pj.client, pj.ji.Input)
+			return err
+		})
 	}
+	return nil
+}
+
+func (reg *registry) processJobRunning(pj *pendingJob) error {
+	initializeIterator(pj)
 
 	pj.logger.Logf("processJobRunning creating task channel")
 	reg.mutex.Lock()
@@ -704,13 +704,13 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	pj.logger.Logf("processJobRunning calculating datum sets")
 	pj.datumsAdded, pj.datumsRemoved, pj.orphan = calculateDatumSets(
 		reg.driver.PipelineInfo(),
-		dit,
+		pj.dit,
 		reg.jobs[0:pj.index],
 		reg.datumsBase,
 	)
 
 	pj.logger.Logf("processJobRunning making datum task")
-	datumTask, err := reg.makeDatumTask(pj, pj.datumsAdded, dit)
+	datumTask, err := reg.makeDatumTask(pj)
 	if err != nil {
 		reg.mutex.Unlock()
 		return err
@@ -737,8 +737,9 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	reg.mutex.Unlock()
 
 	stats := &DatumStats{ProcessStats: &pps.ProcessStats{}}
+	hashtrees := []*HashtreeInfo{}
 
-	eg := errgroup.Group{}
+	eg, ctx := errgroup.WithContext(reg.driver.PachClient().Ctx())
 
 	// Run tasks in the datumTaskChan until we are done
 	pj.logger.Logf("processJobRunning running datum tasks")
@@ -746,7 +747,7 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 		eg.Go(func() error {
 			pj.logger.Logf("processJobRunning async task running")
 			err := reg.workMaster.Run(
-				reg.driver.PachClient().Ctx(),
+				ctx,
 				task,
 				func(ctx context.Context, subtask *work.Task) error {
 					pj.logger.Logf("datum task complete: %v\n", subtask)
@@ -755,6 +756,9 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 						return err
 					}
 					mergeStats(stats, data.Stats)
+					if data.Hashtree != nil {
+						hashtrees = append(hashtrees, data.Hashtree)
+					}
 					return nil
 				},
 			)
@@ -768,20 +772,72 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	if err := eg.Wait(); err != nil {
 		// If we have failed datums in the stats, fail the job, otherwise we can reattempt later
 		if stats.FailedDatumID != "" {
+			pj.ji.State = pps.JobState_JOB_FAILURE
+			return updateJobState(pj.client, pj.ji)
 		}
 		// TODO: some sort of error state?
 		return fmt.Errorf("process datum error: %v", err)
 	}
 
+	if len(pj.datumsRemoved) > 0 {
+		// In order to merge, we'll need to generate hashtrees for the unprocessed datums as well
+		return fmt.Errorf("removing datums not yet implemented")
+	}
+
 	pj.logger.Logf("processJobRunning updating task to merging, total stats: %v", stats)
+	pj.hashtrees = hashtrees
 	pj.ji.State = pps.JobState_JOB_MERGING
 	return updateJobState(pj.client, pj.ji)
 }
 
 func (reg *registry) processJobMerging(pj *pendingJob) error {
+	if pj.hashtrees == nil {
+		// We are picking up an old job and don't have the hashtrees generated by
+		// the 'running' state, load them from object storage
+		buf := &bytes.Buffer{}
+		if err := pj.client.GetTag(jobHashtreesTag(pj.ji.Job.ID), buf); err != nil {
+			return err
+		}
+		protoReader := pbutil.NewReader(buf)
+
+		hashtreeObjects := &HashtreeObjects{}
+		if err := protoReader.Read(hashtreeObjects); err != nil {
+			return err
+		}
+
+		hashtreeInfos := []*HashtreeInfo{}
+		for _, obj := range hashtreeObjects.Hashtrees {
+			hashtreeInfos = append(hashtreeInfos, &HashtreeInfo{Object: obj})
+		}
+
+		pj.hashtrees = hashtreeInfos
+	}
+
+	// For jobs that can base their hashtree off of the parent hashtree, fetch the
+	// object information for the parent hashtrees
+	var parentHashtrees []*pfs.Object
+	if !pj.orphan && len(pj.datumsRemoved) == 0 {
+		parentCommitInfo, err := reg.getParentCommitInfo(pj.commitInfo)
+		if err != nil {
+			return err
+		}
+
+		parentHashtrees = parentCommitInfo.Trees
+		if len(parentHashtrees) != int(reg.numHashtrees) {
+			return fmt.Errorf("unexpected number of hashtrees between the parent commit (%d) and the pipeline spec (%d)", len(parentHashtrees), reg.numHashtrees)
+		}
+	}
+
 	mergeSubtasks := []*work.Task{}
 	for i := int64(0); i < reg.numHashtrees; i++ {
-		mergeData := &MergeData{Shard: i}
+		mergeData := &MergeData{
+			Hashtrees: append([]*HashtreeInfo{}, pj.hashtrees...),
+			Shard:     i,
+		}
+		if parentHashtrees != nil {
+			mergeData.Hashtrees = append(mergeData.Hashtrees, &HashtreeInfo{Object: parentHashtrees[i]})
+		}
+
 		data, err := serializeMergeData(mergeData)
 		if err != nil {
 			return fmt.Errorf("failed to serialize merge data: %v", err)
@@ -793,22 +849,14 @@ func (reg *registry) processJobMerging(pj *pendingJob) error {
 		})
 	}
 
-	jobData, err := serializeJobData(&JobData{JobID: pj.ji.Job.ID})
-	if err != nil {
-		return fmt.Errorf("failed to serialize job data: %v", err)
-	}
-
-	// Generate merge task
-	mergeTask := &work.Task{
-		Id:       uuid.NewWithoutDashes(),
-		Data:     jobData,
-		Subtasks: mergeSubtasks,
-	}
-
-	// Wait for merges to complete
-	err = reg.workMaster.Run(
+	// Generate merge task and wait for merges to complete
+	err := reg.workMaster.Run(
 		reg.driver.PachClient().Ctx(),
-		mergeTask,
+		&work.Task{
+			Id:       uuid.NewWithoutDashes(),
+			Data:     pj.jobData,
+			Subtasks: mergeSubtasks,
+		},
 		func(ctx context.Context, subtask *work.Task) error {
 			fmt.Printf("merge task complete: %v\n", subtask)
 			// TODO: something
