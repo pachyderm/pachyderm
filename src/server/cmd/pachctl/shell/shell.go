@@ -40,11 +40,12 @@ func SameFlag(flag string) CacheFunc {
 // AndCacheFunc ands 0 or more cache funcs together.
 func AndCacheFunc(fs ...CacheFunc) CacheFunc {
 	return func(flag, text string) bool {
-		result := true
 		for _, f := range fs {
-			result = result && f(flag, text)
+			if !f(flag, text) {
+				return false
+			}
 		}
-		return result
+		return true
 	}
 }
 

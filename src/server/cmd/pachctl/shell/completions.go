@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -106,6 +107,19 @@ func BranchCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest
 	return result, samePart(part)
 }
 
+const (
+	// filePathCacheLength is how many new characters must be typed in a file
+	// path before we go to the server for new results.
+	filePathCacheLength = 4
+)
+
+func abs(i int) int {
+	if i < 0 {
+		return -i
+	}
+	return i
+}
+
 // FileCompletion completes file parameters of the form <repo>@<branch>:/file
 func FileCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c := getPachClient()
@@ -132,7 +146,12 @@ func FileCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, 
 			log.Fatal(err)
 		}
 	}
-	return result, samePart(part)
+	return result, AndCacheFunc(samePart(part), func(_, text string) (result bool) {
+		_partialFile := cmdutil.ParsePartialFile(text)
+		return path.Dir(_partialFile.Path) == path.Dir(partialFile.Path) &&
+			abs(len(_partialFile.Path)-len(partialFile.Path)) < filePathCacheLength
+
+	})
 }
 
 // FilesystemCompletion completes file parameters from the local filesystem (not from pfs).
