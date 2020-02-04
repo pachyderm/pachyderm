@@ -454,7 +454,10 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("Admin API", func() error {
-			adminclient.RegisterAPIServer(externalServer.Server, adminserver.NewAPIServer(address, env.StorageRoot, &adminclient.ClusterInfo{ID: clusterID}))
+			adminclient.RegisterAPIServer(externalServer.Server, adminserver.NewAPIServer(address, env.StorageRoot, &adminclient.ClusterInfo{
+				ID:           clusterID,
+				DeploymentID: env.DeploymentID,
+			}))
 			return nil
 		}); err != nil {
 			return err
@@ -636,7 +639,10 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("Admin API", func() error {
-			adminclient.RegisterAPIServer(internalServer.Server, adminserver.NewAPIServer(address, env.StorageRoot, &adminclient.ClusterInfo{ID: clusterID}))
+			adminclient.RegisterAPIServer(internalServer.Server, adminserver.NewAPIServer(address, env.StorageRoot, &adminclient.ClusterInfo{
+				ID:           clusterID,
+				DeploymentID: env.DeploymentID,
+			}))
 			return nil
 		}); err != nil {
 			return err

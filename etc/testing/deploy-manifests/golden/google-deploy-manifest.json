@@ -520,6 +520,10 @@
                 "value": "false"
               },
               {
+                "name": "CLUSTER_DEPLOYMENT_ID",
+                "value": "test"
+              },
+              {
                 "name": "REQUIRE_CRITICAL_SERVERS_ONLY",
                 "value": "false"
               },
