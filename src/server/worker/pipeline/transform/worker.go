@@ -236,9 +236,9 @@ func processDatum(
 			hashtreeBytes := []byte{}
 
 			// WithActiveData acquires a mutex so that we don't run this section concurrently
-			return driver.WithActiveData(dir, func() error {
+			return driver.WithActiveData(inputs, dir, func() error {
 				env := userCodeEnv(logger.JobID(), outputCommit, driver.InputDir(), inputs)
-				if err := driver.RunUserCode(logger, env, dir, processStats, driver.PipelineInfo().DatumTimeout); err != nil {
+				if err := driver.RunUserCode(logger, env, processStats, driver.PipelineInfo().DatumTimeout); err != nil {
 					if driver.PipelineInfo().Transform.ErrCmd != nil && failures == driver.PipelineInfo().DatumTries-1 {
 						if err = driver.RunUserErrorHandlingCode(logger, env, processStats, driver.PipelineInfo().DatumTimeout); err != nil {
 							return fmt.Errorf("error RunUserErrorHandlingCode: %v", err)
@@ -259,7 +259,7 @@ func processDatum(
 			})
 
 			// Cache datum hashtree locally
-			return driver.DatumCache().CacheHashtree(logger.JobID(), tag, bytes.NewReader(b))
+			return driver.DatumCache().CacheHashtree(logger.JobID(), tag, bytes.NewReader(hashtreeBytes))
 		})
 		return err
 	}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {

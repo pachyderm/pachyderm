@@ -2,7 +2,7 @@ package transform
 
 import (
 	"context"
-	"path"
+	"path/filepath"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -57,7 +57,8 @@ func withTestEnv(pipelineInfo *pps.PipelineInfo, cb func(*testEnv) error) error 
 			driver.NewMockKubeWrapper(),
 			realEnv.EtcdClient,
 			"/pachyderm_test",
-			path.Join(realEnv.Directory, "hashtrees"),
+			filepath.Join(realEnv.Directory, "hashtrees"),
+			filepath.Join(realEnv.Directory, "pfs"),
 		)
 		if err != nil {
 			return err

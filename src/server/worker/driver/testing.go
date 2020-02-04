@@ -181,6 +181,13 @@ func (md *MockDriver) WithData(
 	return stats, err
 }
 
+// WithActiveData doesn't do anything except call the given callback. Inherit
+// and shadow this if you actually want to load some data onto the filesystem.
+// Make sure to implement this in terms of the `InputDir` method.
+func (md *MockDriver) WithActiveData(inputs []*common.Input, dir string, cb func() error) error {
+	return cb()
+}
+
 // RunUserCode does nothing.  Inherit and shadow this if you actually want to
 // do something for user code
 func (md *MockDriver) RunUserCode(logs.TaggedLogger, []string, *pps.ProcessStats, *types.Duration) error {

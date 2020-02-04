@@ -100,7 +100,14 @@ type Driver interface {
 
 	// WithData prepares the current node the code is running on to run a piece
 	// of user code by downloading the specified data, and cleans up afterwards.
+	// The temporary scratch directory that the data is stored in will be passed
+	// to the given callback.
 	WithData([]*common.Input, *hashtree.Ordered, logs.TaggedLogger, func(string, *pps.ProcessStats) error) (*pps.ProcessStats, error)
+
+	// WithActiveData swaps the given scratch directory into the 'active' input
+	// directory used when running user code. This also locks a mutex so that no
+	// two datums can be active concurrently.
+	WithActiveData([]*common.Input, string, func() error) error
 
 	// RunUserCode links a specific scratch space for the active input/output
 	// data, then runs the pipeline's configured code. It uses a mutex to enforce

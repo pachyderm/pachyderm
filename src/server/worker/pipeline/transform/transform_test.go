@@ -131,7 +131,7 @@ func withTimeout(ctx context.Context, duration time.Duration) context.Context {
 		select {
 		case <-ctx.Done():
 		case <-time.After(duration):
-			fmt.Printf("Canceling test after timeout")
+			fmt.Printf("Canceling test after timeout\n")
 			cancel()
 		}
 	}()
@@ -243,7 +243,6 @@ func TestJob(t *testing.T) {
 	t.Parallel()
 	err := withWorkerSpawnerPair(pi, func(env *testEnv) error {
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
-		time.Sleep(10 * time.Minute)
 		ctx = withTimeout(ctx, 10*time.Second)
 		<-ctx.Done()
 		require.Equal(t, etcdJobInfo.State, pps.JobState_JOB_SUCCESS)
