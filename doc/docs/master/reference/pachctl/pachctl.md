@@ -4,7 +4,6 @@
 
 ### Synopsis
 
-
 Access the Pachyderm API.
 
 Environment variables:
@@ -17,6 +16,7 @@ Environment variables:
 ### Options
 
 ```
+  -h, --help       help for pachctl
       --no-color   Turn off colors.
   -v, --verbose    Output verbose logs
 ```

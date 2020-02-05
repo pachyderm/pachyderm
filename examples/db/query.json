@@ -2,6 +2,7 @@
   "pipeline": {
     "name": "query"
   },
+  "description": "A pipeline that queries a MongoDB database located outside of Pachyderm.",
   "transform": {
     "image": "mongo",
     "cmd": [ "/bin/bash" ],

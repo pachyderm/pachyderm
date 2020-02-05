@@ -4,11 +4,10 @@ Delete a repo.
 
 ### Synopsis
 
-
 Delete a repo.
 
 ```
-pachctl delete repo <repo>
+pachctl delete repo <repo> [flags]
 ```
 
 ### Options
@@ -16,6 +15,7 @@ pachctl delete repo <repo>
 ```
       --all     remove all repos
   -f, --force   remove the repo regardless of errors; use with care
+  -h, --help    help for repo
 ```
 
 ### Options inherited from parent commands

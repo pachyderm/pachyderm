@@ -12,6 +12,7 @@ The following section walks you through deploying a Pachyderm cluster on GKE.
 
 If this is the first time you use the SDK, follow
 the [Google SDK QuickStart Guide](https://cloud.google.com/sdk/docs/quickstarts).
+
 !!! note
     When you follow the QuickStart Guide, you might update your `~/.bash_profile`
     and point your `$PATH` at the location where you extracted
@@ -23,26 +24,26 @@ the [Google SDK QuickStart Guide](https://cloud.google.com/sdk/docs/quickstarts)
     running the following command:
 
     ```bash
-    $ gcloud components install kubectl
+    gcloud components install kubectl
     ```
 
 ## Deploy Kubernetes
 
 To create a new Kubernetes cluster by using GKE, run:
 
-```bassh
-$ CLUSTER_NAME=<any unique name, e.g. "pach-cluster">
+```bash
+CLUSTER_NAME=<any unique name, e.g. "pach-cluster">
 
-$ GCP_ZONE=<a GCP availability zone. e.g. "us-west1-a">
+GCP_ZONE=<a GCP availability zone. e.g. "us-west1-a">
 
-$ gcloud config set compute/zone ${GCP_ZONE}
+gcloud config set compute/zone ${GCP_ZONE}
 
-$ gcloud config set container/cluster ${CLUSTER_NAME}
+gcloud config set container/cluster ${CLUSTER_NAME}
 
-$ MACHINE_TYPE=<machine type for the k8s nodes, we recommend "n1-standard-4" or larger>
+MACHINE_TYPE=<machine type for the k8s nodes, we recommend "n1-standard-4" or larger>
 
 # By default the following command spins up a 3-node cluster. You can change the default with `--num-nodes VAL`.
-$ gcloud container clusters create ${CLUSTER_NAME} --scopes storage-rw --machine-type ${MACHINE_TYPE}
+gcloud container clusters create ${CLUSTER_NAME} --scopes storage-rw --machine-type ${MACHINE_TYPE}
 
 # By default, GKE clusters have RBAC enabled. To allow 'pachctl deploy' to give the 'pachyderm' service account
 # the requisite privileges via clusterrolebindings, you will need to grant *your user account* the privileges
@@ -51,7 +52,7 @@ $ gcloud container clusters create ${CLUSTER_NAME} --scopes storage-rw --machine
 # Note that this command is simple and concise, but gives your user account more privileges than necessary. See
 # https://docs.pachyderm.io/en/latest/deployment/rbac.html for the complete list of privileges that the
 # pachyderm serviceaccount needs.
-$ kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value account)
+kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value account)
 ```
 
 !!! note "Important"
@@ -67,7 +68,12 @@ by running the following `kubectl` command:
 
 ```bash
 # List all pods in the kube-system namespace.
-$ kubectl get pods -n kube-system
+kubectl get pods -n kube-system
+```
+
+**System Response:**
+
+```bash
 NAME                                                     READY     STATUS    RESTARTS   AGE
 event-exporter-v0.1.7-5c4d9556cf-fd9j2                   2/2       Running   0          1m
 fluentd-gcp-v2.0.9-68vhs                                 2/2       Running   0          1m
@@ -90,7 +96,7 @@ the following command:
 
 ```bash
 # Update your kubeconfig to point at your newly created cluster.
-$ gcloud container clusters get-credentials ${CLUSTER_NAME}
+gcloud container clusters get-credentials ${CLUSTER_NAME}
 ```
 
 ## Deploy Pachyderm
@@ -113,19 +119,19 @@ commands:
 # For the persistent disk, 10GB is a good size to start with.
 # This stores PFS metadata. For reference, 1GB
 # should work fine for 1000 commits on 1000 files.
-$ STORAGE_SIZE=<the size of the volume that you are going to create, in GBs. e.g. "10">
+STORAGE_SIZE=<the size of the volume that you are going to create, in GBs. e.g. "10">
 
 # The Pachyderm bucket name needs to be globally unique across the entire GCP region.
-$ BUCKET_NAME=<The name of the GCS bucket where your data will be stored>
+BUCKET_NAME=<The name of the GCS bucket where your data will be stored>
 
 # Create the bucket.
-$ gsutil mb gs://${BUCKET_NAME}
+gsutil mb gs://${BUCKET_NAME}
 ```
 
 To check that everything has been set up correctly, run:
 
 ```bash
-$ gsutil ls
+gsutil ls
 # You should see the bucket you created.
 ```
 
@@ -135,16 +141,17 @@ $ gsutil ls
 
 ```bash
 # For macOS:
-$ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.9
+brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.9
 
 # For Linux (64 bit) or Window 10+ on WSL:
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.8/pachctl_1.9.8_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+<<<<<<< HEAD
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.12/pachctl_1.9.12_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 You can then run `pachctl version --client-only` to check that the installation was successful.
 
 ```bash
-$ pachctl version --client-only
+pachctl version --client-only
 1.9.7
 ```
 
@@ -153,7 +160,12 @@ $ pachctl version --client-only
 Now you can deploy a Pachyderm cluster by running this command:
 
 ```bash
-$ pachctl deploy google ${BUCKET_NAME} ${STORAGE_SIZE} --dynamic-etcd-nodes=1
+pachctl deploy google ${BUCKET_NAME} ${STORAGE_SIZE} --dynamic-etcd-nodes=1
+```
+
+**System Response:**
+
+```bash
 serviceaccount "pachyderm" created
 storageclass "etcd-storage-class" created
 service "etcd-headless" created
@@ -181,7 +193,12 @@ pulls containers from DockerHub. You can see the cluster status with
 `kubectl`, which should output the following when Pachyderm is up and running:
 
 ```bash
-$ kubectl get pods
+kubectl get pods
+```
+
+**System Response:**
+
+```bash
 NAME                     READY     STATUS    RESTARTS   AGE
 dash-482120938-np8cc     2/2       Running   0          4m
 etcd-0                   1/1       Running   0          4m
@@ -197,15 +214,19 @@ forward a port so that `pachctl` can talk to the cluster.
 
 ```bash
 # Forward the ports. We background this process because it blocks.
-$ pachctl port-forward &
+pachctl port-forward &
 ```
 
 And you're done! You can test to make sure the cluster is working
 by running `pachctl version` or even creating a new repo.
 
-```sh
+```bash
+pachctl version
+```
 
-$ pachctl version
+**System Response:**
+
+```bash
 COMPONENT           VERSION
 pachctl             1.9.7
 pachd               1.9.7
@@ -243,7 +264,7 @@ disk size.
 ### Increasing merge performance
 
 Performance tweaks when it comes to merges can be done directly in
-the [Pachyderm pipeline spec](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html).
+the [Pachyderm pipeline spec](../../../reference/pipeline_spec/).
 More specifically, you can increase the number of hashtrees (hashtree spec)
 in the pipeline spec. This number determines the number of shards for the
 filesystem metadata. In general this number should be lower than the number

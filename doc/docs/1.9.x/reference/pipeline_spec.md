@@ -221,11 +221,11 @@ The following text is an example of a minimum spec:
 
 `pipeline.name` is the name of the pipeline that you are creating. Each
 pipeline needs to have a unique name. Pipeline names must meet the following
-prerequisites:
+requirements:
 
 - Include only alphanumeric characters, `_` and `-`.
 - Begin or end with only alphanumeric characters (not `_` or `-`).
-- Not exceed 50 characters in length.
+- Not exceed 63 characters in length.
 
 ### Description (optional)
 
@@ -390,7 +390,11 @@ or number of datums, no single datum is allowed to exceed this value.
 
 ### Datum Tries (optional)
 
-`datum_tries` is a int (e.g. `1`, `2`, or `3`) that determines the number of retries that a job should attempt given failure was observed. Only failed datums are retries in retry attempt. The the operation succeeds in retry attempts then job is successful, otherwise the job is marked as failure.
+`datum_tries` is an integer, such as `1`, `2`, or `3`, that determines the
+number of retries that a job attempts when a failure occurs.
+Only failed datums are retried in a retry attempt. If the operation succeeds
+in retry attempts, then the job is marked as successful. Otherwise, the job
+is marked as failed.
 
 
 ### Job Timeout (optional)
@@ -422,10 +426,6 @@ these fields be set for any instantiation of the object.
 ```
 
 #### PFS Input
-
-**Note:** Atom inputs were renamed to PFS inputs in version 1.8.1. If you are using an
-older version of Pachyderm, replace every instance of `pfs` with
-`atom` in the code below.
 
 PFS inputs are the simplest inputs, they take input from a single branch on a
 single repo.
@@ -703,18 +703,26 @@ repeatedly, then the cache can speed up processing significantly.
 
 ### Enable Stats (optional)
 
-`enable_stats` turns on stat tracking for the pipeline. This will cause the
-pipeline to commit to a second branch in its output repo called `"stats"`. This
-branch will have information about each datum that is processed including:
-timing information, size information, logs and a `/pfs` snapshot. This
-information can be accessed through the `inspect datum` and `list datum`
-pachctl commands and through the webUI.
+The `enable_stats` parameter turns on statistics tracking for the pipeline.
+When you enable the statistics tracking, the pipeline automatically creates
+and commits datum processing information to a special branch in its output
+repo called `"stats"`. This branch stores information about each datum that
+the pipeline processes, including timing information, size information, logs,
+and `/pfs` snapshots. You can view this statistics by running the `pachctl
+inspect datum` and `pachctl list datum` commands, as well as through the web UI.
 
-Note: enabling stats will use extra storage for logs and timing information.
-However it will not use as much extra storage as it appears to due to the fact
-that snapshots of the `/pfs` directory, which are generally the largest thing
-stored, don't actually require extra storage because the data is already stored
-in the input repos.
+Once turned on, statistics tracking cannot be disabled for the pipeline. You can
+turn it off by deleting the pipeline, setting `enable_stats` to `false` or
+completely removing it from your pipeline spec, and recreating the pipeline from
+that updated spec file. While the pipeline that collects the stats
+exists, the storage space used by the stats cannot be released.
+
+!!! note
+    Enabling stats results in slight storage use increase for logs and timing
+    information.
+    However, stats do not use as much extra storage as it might appear because
+    snapshots of the `/pfs` directory that are the largest stored assets
+    do not require extra space.
 
 ### Service (alpha feature, optional)
 

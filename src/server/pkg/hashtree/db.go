@@ -106,7 +106,7 @@ func NewDBHashTree(storageRoot string) (HashTree, error) {
 	if err := result.PutDir("/"); err != nil {
 		return nil, err
 	}
-	return result, err
+	return result, nil
 }
 
 // DeserializeDBHashTree deserializes a hashtree into a database (bolt) backed hashtree.
@@ -184,15 +184,6 @@ func Get(rs []io.ReadCloser, filePath string) (*NodeProto, error) {
 		return nil, errorf(PathNotFound, "file \"%s\" not found", filePath)
 	}
 	return fileNode, nil
-}
-
-// dirPrefix returns the prefix that keys must have to be considered under the
-// directory at path
-func dirPrefix(path string) string {
-	if path == "" {
-		return "" // all paths are under the root
-	}
-	return path + "/"
 }
 
 // iterDir iterates through the nodes under path, it errors with PathNotFound if path doesn't exist, it errors with PathConflict if path exists but isn't a directory.
@@ -700,7 +691,12 @@ func visit(tx *bolt.Tx, path string, update updateFn) error {
 
 // PutFile appends data to a file (and creates the file if it doesn't exist).
 func (h *dbHashTree) PutFile(path string, objects []*pfs.Object, size int64) error {
-	return h.putFile(path, objects, nil, size, false)
+	return h.putFile(path, objects, nil, nil, size, false)
+}
+
+// PutFileBlockRefs is like PutFile, but it uses block refs instead of objects.
+func (h *dbHashTree) PutFileBlockRefs(path string, brs []*pfs.BlockRef, size int64) error {
+	return h.putFile(path, nil, brs, nil, size, false)
 }
 
 // PutFileOverwrite is the same as PutFile, except that instead of
@@ -708,7 +704,11 @@ func (h *dbHashTree) PutFile(path string, objects []*pfs.Object, size int64) err
 // are inserted to the given index, and the existing objects starting
 // from the given index are removed.
 func (h *dbHashTree) PutFileOverwrite(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64) error {
-	return h.putFile(path, objects, overwriteIndex, sizeDelta, false)
+	return h.putFile(path, objects, nil, overwriteIndex, sizeDelta, false)
+}
+
+func (h *dbHashTree) PutFileOverwriteBlockRefs(path string, brs []*pfs.BlockRef, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64) error {
+	return h.putFile(path, nil, brs, overwriteIndex, sizeDelta, false)
 }
 
 // PutDirHeaderFooter implements the hashtree.PutDirHeaderFooter interface
@@ -763,10 +763,10 @@ func (h *dbHashTree) PutDirHeaderFooter(path string, header, footer *pfs.Object,
 
 // PutFileHeaderFooter implements the HashTree PutFileHeaderFooter method
 func (h *dbHashTree) PutFileHeaderFooter(path string, objects []*pfs.Object, size int64) error {
-	return h.putFile(path, objects, nil, size, true)
+	return h.putFile(path, objects, nil, nil, size, true)
 }
 
-func (h *dbHashTree) putFile(path string, objects []*pfs.Object,
+func (h *dbHashTree) putFile(path string, objects []*pfs.Object, brs []*pfs.BlockRef,
 	overwriteIndex *pfs.OverwriteIndex, sizeDelta int64, hasHeaderFooter bool) error {
 	path = clean(path)
 	return h.Batch(func(tx *bolt.Tx) error {
@@ -814,12 +814,31 @@ func (h *dbHashTree) putFile(path string, objects []*pfs.Object,
 			}
 		}
 
-		// Append new objects.  Remove existing objects if overwriting.
+		// Append new objects.
+
+		// Remove existing objects if overwriting.
 		if overwriteIndex != nil && overwriteIndex.Index <= int64(len(node.FileNode.Objects)) {
 			node.FileNode.Objects = node.FileNode.Objects[:overwriteIndex.Index]
 		}
+		// Remove existing blockrefs if overwriting.
+		if overwriteIndex != nil && overwriteIndex.Index <= int64(len(node.FileNode.BlockRefs)) {
+			node.FileNode.BlockRefs = node.FileNode.BlockRefs[:overwriteIndex.Index]
+		}
 		node.SubtreeSize += sizeDelta
-		node.FileNode.Objects = append(node.FileNode.Objects, objects...)
+		if len(objects) > 0 {
+			if len(node.FileNode.BlockRefs) > 0 {
+				return errorf(MixedObjectsAndBlockRefs, "could not put block refs to regular file at %q; "+
+					"because it already has BlockRef content", path)
+			}
+			node.FileNode.Objects = append(node.FileNode.Objects, objects...)
+		}
+		if len(brs) > 0 {
+			if len(node.FileNode.Objects) > 0 {
+				return errorf(MixedObjectsAndBlockRefs, "could not put objects to regular file at %q; "+
+					"because it already has Object content", path)
+			}
+			node.FileNode.BlockRefs = append(node.FileNode.BlockRefs, brs...)
+		}
 		// Put the node
 		if err := put(tx, path, node); err != nil {
 			return err
@@ -1132,11 +1151,11 @@ func GetRangeFromIndex(r io.Reader, prefix string) (uint64, uint64, error) {
 	// Find lower
 	iter(low)
 	// Find upper
-	if upper <= 0 {
+	if upper == 0 {
 		iter(up)
 	}
 	// Handles the case when at the end of the indexes
-	if upper <= 0 {
+	if upper == 0 {
 		return lower, 0, nil
 	}
 	// Return offset and size
@@ -1146,10 +1165,7 @@ func GetRangeFromIndex(r io.Reader, prefix string) (uint64, uint64, error) {
 // NewFilter creates a filter for a hashtree shard.
 func NewFilter(numTrees int64, tree int64) Filter {
 	return func(k []byte) bool {
-		if pathToTree(k, numTrees) == uint64(tree) {
-			return true
-		}
-		return false
+		return pathToTree(k, numTrees) == uint64(tree)
 	}
 }
 
@@ -1207,7 +1223,7 @@ func (mq *mergePQ) next() ([]*MergeNode, error) {
 		return nil, err
 	}
 	// Keep popping nodes off the queue if they share the same path
-	for mq.q[1] != nil && bytes.Compare(mq.k(1), ns[0].k) == 0 {
+	for mq.q[1] != nil && bytes.Equal(mq.k(1), ns[0].k) {
 		ns = append(ns, mq.q[1].node)
 		if err := mq.fill(); err != nil {
 			return nil, err
@@ -1462,11 +1478,6 @@ func (n nodetype) String() string {
 // The *NodeProto argument is guaranteed to have DirNode set (if it's not nil)--visit
 // returns a 'PathConflict' error otherwise.
 type updateFn func(*NodeProto, string, string) error
-
-// This can be passed to visit() to detect PathConflict errors early
-func nop(*NodeProto, string, string) error {
-	return nil
-}
 
 var globRegex = regexp.MustCompile(`[*?[\]{}!()@+^]`)
 

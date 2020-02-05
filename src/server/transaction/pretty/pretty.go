@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/transaction"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
 )
@@ -65,9 +66,9 @@ func sprintDeleteRepo(request *pfs.DeleteRepoRequest) string {
 		force = " --force"
 	}
 	if request.All {
-		return fmt.Sprintf("delete repo --all%s", request.Repo.Name, force)
+		return fmt.Sprintf("delete repo --all%s", force)
 	}
-	return fmt.Sprintf("delete repo %s%s", request.Repo.Name, force)
+	return fmt.Sprintf("delete repo %s %s", request.Repo.Name, force)
 }
 
 func sprintStartCommit(request *pfs.StartCommitRequest, response *transaction.TransactionResponse) string {
@@ -105,23 +106,28 @@ func sprintDeleteBranch(request *pfs.DeleteBranchRequest) string {
 	return fmt.Sprintf("delete branch %s@%s%s", request.Branch.Repo.Name, request.Branch.Name, force)
 }
 
-func sprintCopyFile(request *pfs.CopyFileRequest) string {
-	overwrite := ""
-	if request.Overwrite {
-		overwrite = " --overwrite"
-	}
+func sprintUpdateJobState(request *pps.UpdateJobStateRequest) string {
+	state := func() string {
+		switch request.State {
+		case pps.JobState_JOB_STARTING:
+			return "STARTING"
+		case pps.JobState_JOB_RUNNING:
+			return "RUNNING"
+		case pps.JobState_JOB_FAILURE:
+			return "FAILURE"
+		case pps.JobState_JOB_SUCCESS:
+			return "SUCCESS"
+		case pps.JobState_JOB_KILLED:
+			return "KILLED"
+		case pps.JobState_JOB_MERGING:
+			return "MERGING"
+		default:
+			return "<unknown state>"
+		}
+	}()
 	return fmt.Sprintf(
-		"copy file %s@%s:%s %s@%s:%s%s",
-		request.Src.Commit.Repo.Name, request.Src.Commit.ID, request.Src.Path,
-		request.Dst.Commit.Repo.Name, request.Src.Commit.ID, request.Src.Path,
-		overwrite,
-	)
-}
-
-func sprintDeleteFile(request *pfs.DeleteFileRequest) string {
-	return fmt.Sprintf(
-		"delete file %s@%s:%s",
-		request.File.Commit.Repo.Name, request.File.Commit.ID, request.File.Path,
+		"update job %s -> %s (%s)",
+		request.Job.ID, state, request.Reason,
 	)
 }
 
@@ -154,6 +160,8 @@ func transactionRequests(
 			line = sprintCreateBranch(request.CreateBranch)
 		} else if request.DeleteBranch != nil {
 			line = sprintDeleteBranch(request.DeleteBranch)
+		} else if request.UpdateJobState != nil {
+			line = sprintUpdateJobState(request.UpdateJobState)
 		} else {
 			line = "ERROR (unknown request type)"
 		}

@@ -11,11 +11,6 @@ import (
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
-)
-
-var (
-	grpcErrorf = grpc.Errorf // needed to get passed govet
 )
 
 type apiServer struct {
@@ -42,6 +37,13 @@ func newAPIServer(
 	}
 	go func() { s.env.GetPachClient(context.Background()) }() // Begin dialing connection on startup
 	return s, nil
+}
+
+func (a *apiServer) BatchTransaction(ctx context.Context, request *transaction.BatchTransactionRequest) (response *transaction.TransactionInfo, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+
+	return a.driver.batchTransaction(ctx, request.Requests)
 }
 
 func (a *apiServer) StartTransaction(ctx context.Context, request *transaction.StartTransactionRequest) (response *transaction.Transaction, retErr error) {

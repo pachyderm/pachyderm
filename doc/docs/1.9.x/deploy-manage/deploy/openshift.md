@@ -332,7 +332,6 @@ Those must be modified to match the port numbers you set above for each port.
 There are six environment variables necessary for OpenShift
 1. `WORKER_USES_ROOT`: This controls whether worker pipelines run as the root user or not. You'll need to set it to `false`
 1. `PORT`: This is the grpc port used by pachd for communication with `pachctl` and the api.  It should be set to the same value you set for `api-grpc-port` above.
-1. `PPROF_PORT`: This is used for Prometheus. It should be set to the same value as `trace-port` above.
 1. `HTTP_PORT`: The port for the api proxy.  It should be set to `api-http-port` above.
 1. `PEER_PORT`: Used to coordinate `pachd`'s. Same as `peer-port` above.
 1. `PPS_WORKER_GRPC_PORT`: Used to talk to pipelines. Should be set to a value above 1024.  The example value of 1680 below is recommended.
@@ -348,10 +347,6 @@ The rest of the stanza is omitted for clarity.
                             {
                             "name": "PORT",
                             "value": "1650"
-                            },
-                            {
-                            "name": "PPROF_PORT",
-                            "value": "1651"
                             },
                             {
                             "name": "HTTP_PORT",

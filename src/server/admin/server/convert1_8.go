@@ -29,17 +29,6 @@ func convert1_8Commit(c *pfs1_8.Commit) *pfs.Commit {
 	}
 }
 
-func convert1_8Commits(commits []*pfs1_8.Commit) []*pfs.Commit {
-	if commits == nil {
-		return nil
-	}
-	result := make([]*pfs.Commit, 0, len(commits))
-	for _, c := range commits {
-		result = append(result, convert1_8Commit(c))
-	}
-	return result
-}
-
 func convert1_8Object(o *pfs1_8.Object) *pfs.Object {
 	if o == nil {
 		return nil
@@ -110,11 +99,11 @@ func convert1_8Pipeline(p *pps1_8.Pipeline) *pps.Pipeline {
 	}
 }
 
-func convert1_8Secret(s *pps1_8.Secret) *pps.Secret {
+func convert1_8Secret(s *pps1_8.Secret) *pps.SecretMount {
 	if s == nil {
 		return nil
 	}
-	return &pps.Secret{
+	return &pps.SecretMount{
 		Name:      s.Name,
 		Key:       s.Key,
 		MountPath: s.MountPath,
@@ -122,11 +111,11 @@ func convert1_8Secret(s *pps1_8.Secret) *pps.Secret {
 	}
 }
 
-func convert1_8Secrets(secrets []*pps1_8.Secret) []*pps.Secret {
+func convert1_8Secrets(secrets []*pps1_8.Secret) []*pps.SecretMount {
 	if secrets == nil {
 		return nil
 	}
-	result := make([]*pps.Secret, 0, len(secrets))
+	result := make([]*pps.SecretMount, 0, len(secrets))
 	for _, s := range secrets {
 		result = append(result, convert1_8Secret(s))
 	}
@@ -387,7 +376,7 @@ func convert1_8Op(op *admin.Op1_8) (*admin.Op1_9, error) {
 			},
 		}, nil
 	default:
-		return nil, fmt.Errorf("Unrecognized 1.7 op type:\n%+v", op)
+		return nil, fmt.Errorf("unrecognized 1.8 op type:\n%+v", op)
 	}
 	return nil, fmt.Errorf("internal error: convert1_8Op() didn't return a 1.9 op for:\n%+v", op)
 }

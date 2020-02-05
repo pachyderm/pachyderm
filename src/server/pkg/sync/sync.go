@@ -78,7 +78,7 @@ func (p *Puller) makeFile(path string, f func(io.Writer) error) (retErr error) {
 
 // Pull clones an entire repo at a certain commit.
 // root is the local path you want to clone to.
-// fileInfo is the file/dir we are puuling.
+// repo, commit, file specify the file/dir we are pulling.
 // pipes causes the function to create named pipes in place of files, thus
 // lazily downloading the data as it's needed.
 // emptyFiles causes the function to create empty files with no content, it's

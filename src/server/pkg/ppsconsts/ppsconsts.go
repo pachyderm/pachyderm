@@ -18,4 +18,7 @@ const (
 	// PPSTokenKey is a key (in etcd) that maps to PPS's auth token.
 	// This is the token that PPS uses to authorize spec writes.
 	PPSTokenKey = "master_token"
+
+	// SpoutMarkerBranch is the branch that spouts use for keeping track of spout marker files
+	SpoutMarkerBranch = "marker"
 )

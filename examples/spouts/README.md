@@ -1,6 +1,6 @@
 # Pachyderm Spouts Examples
 
-[Spouts](http://docs.pachyderm.io/en/latest/fundamentals/spouts.html) are a way to get streaming data from any source into Pachyderm.
+[Spouts](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/pipeline/spout/) are a way to get streaming data from any source into Pachyderm.
 To create a spout, you need three things
 
 1. A source of streaming data, such as Kafka, nifi, rabbitMQ, etc.

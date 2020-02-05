@@ -4,8 +4,13 @@ Commands for listing pachyderm config values
 
 ### Synopsis
 
-
 Commands for listing pachyderm config values
+
+### Options
+
+```
+  -h, --help   help for list
+```
 
 ### Options inherited from parent commands
 

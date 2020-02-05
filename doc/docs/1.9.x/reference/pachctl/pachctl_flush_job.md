@@ -4,11 +4,10 @@ Wait for all jobs caused by the specified commits to finish and return them.
 
 ### Synopsis
 
-
 Wait for all jobs caused by the specified commits to finish and return them.
 
 ```
-pachctl flush job <repo>@<branch-or-commit> ...
+pachctl flush job <repo>@<branch-or-commit> ... [flags]
 ```
 
 ### Examples
@@ -26,8 +25,10 @@ $ pachctl flush job foo@XXX -p bar -p baz
 
 ```
       --full-timestamps     Return absolute timestamps (as opposed to the default, relative timestamps).
+  -h, --help                help for job
+  -o, --output string       Output format when --raw is set: "json" or "yaml" (default "json")
   -p, --pipeline []string   Wait only for jobs leading to a specific set of pipelines (default [])
-      --raw                 disable pretty printing, print raw json
+      --raw                 Disable pretty printing; serialize data structures to an encoding such as json or yaml
 ```
 
 ### Options inherited from parent commands

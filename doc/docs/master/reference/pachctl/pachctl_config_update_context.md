@@ -4,11 +4,10 @@ Updates a context.
 
 ### Synopsis
 
-
 Updates an existing context config from a given name (or the currently-active context, if no name is given).
 
 ```
-pachctl config update context [context]
+pachctl config update context [context] [flags]
 ```
 
 ### Options
@@ -16,6 +15,7 @@ pachctl config update context [context]
 ```
       --auth-info string       Set a new k8s auth info.
       --cluster-name string    Set a new cluster name.
+  -h, --help                   help for context
       --namespace string       Set a new namespace.
       --pachd-address string   Set a new name pachd address.
       --server-cas string      Set new trusted CA certs.

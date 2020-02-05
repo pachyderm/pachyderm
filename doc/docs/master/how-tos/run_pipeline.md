@@ -30,7 +30,7 @@ cross-pipe` command.
 
 !!! example
     ```bash
-    $ pachctl run pipeline cross-pipe A4 B1 C2
+    pachctl run pipeline cross-pipe A4 B1 C2
     ```
 
 This command triggers a new job that creates a commit on the
@@ -41,7 +41,7 @@ in the command and specify only the `C2` and `B1` commits:
 
 !!! example
     ```
-    $ pachctl run pipeline cross-pipe C2 B1
+    pachctl run pipeline cross-pipe C2 B1
     ```
 
 Pachyderm automatically uses the head for any branch that did not have a
@@ -54,7 +54,7 @@ name.
 !!! example
 
     ```bash
-    $ pachctl run pipeline cross-pipe A B1 C2
+    pachctl run pipeline cross-pipe A B1 C2
     ```
 
 This behavior implies that if you want to re-run the pipeline on the

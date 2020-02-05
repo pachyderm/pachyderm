@@ -59,9 +59,9 @@ metadata:
   selfLink: /api/v1/namespaces/default/secrets/imap-credentials
   uid: <some-uid>
 type: Opaque
-$ echo -n `<base64-encoded-imap-login>` | base64 -d
+$ echo -n `<base64-encoded-imap-login>` | base64 -D
 <imap-login>
-$ echo -n `<base64-encoded-imap-password>` | base64 -d
+$ echo -n `<base64-encoded-imap-password>` | base64 -D
 <imap-password>
 ```
 5. Build the docker image for the imap_spout. 

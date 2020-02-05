@@ -4,11 +4,10 @@ Return info about a job.
 
 ### Synopsis
 
-
 Return info about a job.
 
 ```
-pachctl inspect job <job>
+pachctl inspect job <job> [flags]
 ```
 
 ### Options
@@ -16,7 +15,9 @@ pachctl inspect job <job>
 ```
   -b, --block             block until the job has either succeeded or failed
       --full-timestamps   Return absolute timestamps (as opposed to the default, relative timestamps).
-      --raw               disable pretty printing, print raw json
+  -h, --help              help for job
+  -o, --output string     Output format when --raw is set: "json" or "yaml" (default "json")
+      --raw               Disable pretty printing; serialize data structures to an encoding such as json or yaml
 ```
 
 ### Options inherited from parent commands

@@ -4,16 +4,16 @@ Retrieve Pachyderm's current auth configuration
 
 ### Synopsis
 
-
 Retrieve Pachyderm's current auth configuration
 
 ```
-pachctl auth get-config
+pachctl auth get-config [flags]
 ```
 
 ### Options
 
 ```
+  -h, --help                   help for get-config
   -o, --output-format string   output format ("json" or "yaml") (default "json")
 ```
 

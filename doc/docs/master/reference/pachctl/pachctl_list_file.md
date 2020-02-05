@@ -4,11 +4,10 @@ Return the files in a directory.
 
 ### Synopsis
 
-
 Return the files in a directory.
 
 ```
-pachctl list file <repo>@<branch-or-commit>[:<path/in/pfs>]
+pachctl list file <repo>@<branch-or-commit>[:<path/in/pfs>] [flags]
 ```
 
 ### Examples
@@ -40,6 +39,7 @@ $ pachctl list file foo@master --history all
 
 ```
       --full-timestamps   Return absolute timestamps (as opposed to the default, relative timestamps).
+  -h, --help              help for file
       --history string    Return revision history for files. (default "none")
       --raw               disable pretty printing, print raw json
 ```

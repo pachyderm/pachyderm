@@ -107,6 +107,15 @@ data operations in Pachyderm.
            Processing Time-Windowed Data
            </a>
           </li>
+          </li>
+           <li><a href="use-transactions-to-run-multiple-commands/" class="mdl-button mdl-button--colored mdl-js-button mdl- js-ripple-effect">
+           Use Transactions
+           </a>
+          </li>
+           <li><a href="err_cmd/" class="mdl-button mdl-button--colored mdl-js-button mdl- js-ripple-effect">
+           Skip Failed Datums
+           </a>
+          </li>
         </ul>
       </div>
     </div>

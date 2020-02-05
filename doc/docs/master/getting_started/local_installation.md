@@ -1,7 +1,7 @@
 # Local Installation
 
 This guide walks you through the steps to install Pachyderm
-on macOS®, Linux®, or Windows®. Local installation helps you to learn
+on macOS®, Linux®, or Microsoft® Windows®. Local installation helps you to learn
 some of the Pachyderm basics and is not designed to be a production
 environment.
 
@@ -19,13 +19,9 @@ programs installed on your computer:
 - Oracle® VirtualBox™ or [Docker Desktop (v18.06+)](#docker-desktop)
 - [Pachyderm Command Line Interface](#install-pachctl)
 
-If you install Pachyderm on Windows 10 or later, you must have the following
-components installed in addition to the ones listed above:
+If you want to install Pachyderm on Windows, follow the instructions in
+[Deploy Pachyderm on Windows](wsl-deploy.md).
 
-- [Windows Subsystem for Linux (WSL)](https://docs.microsoft.com/en-us/windows/wsl/install-win10)
-
-!!! note
-    For a Windows installation, use Minikube.
 
 ### Using Minikube
 
@@ -36,7 +32,8 @@ the Beginner Tutorial.
 
 To configure Minikube, follow these steps:
 
-1. Install minikube and VirtualBox in your operating system as described in the
+1. Install minikube and VirtualBox in your operating system as described in
+the
 [Kubernetes documentation](http://kubernetes.io/docs/getting-started-guides/minikube).
 1. [Install `kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/).
 1. Start `minikube`:
@@ -64,7 +61,7 @@ by following these steps:
 1. From the command prompt, confirm that Kubernetes is running:
 
    ```bash
-   $ kubectl get all
+   kubectl get all
    NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
    service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   56d
    ```
@@ -87,26 +84,31 @@ to have pachctl installed on your machine by following these steps:
    * For macOS, run:
 
      ```bash
-     $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.9
+     brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.9
      ```
 
    * For a Debian-based Linux 64-bit or Windows 10 or later running on
    WSL:
 
      ```bash
-     $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.8/pachctl_1.9.8_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+     curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.12/pachctl_1.9.12_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
      ```
 
    * For all other Linux flavors:
 
      ```bash
-     $ curl -o /tmp/pachctl.tar.gz -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.8/pachctl_1.9.8_linux_amd64.tar.gz && tar -xvf /tmp/pachctl.tar.gz -C /tmp && sudo cp /tmp/pachctl_1.9.8_linux_amd64/pachctl /usr/local/bin
+     curl -o /tmp/pachctl.tar.gz -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.12/pachctl_1.9.12_linux_amd64.tar.gz && tar -xvf /tmp/pachctl.tar.gz -C /tmp && sudo cp /tmp/pachctl_1.9.12_linux_amd64/pachctl /usr/local/bin
      ```
 
 1. Verify that installation was successful by running `pachctl version --client-only`:
 
    ```bash
-   $ pachctl version --client-only
+   pachctl version --client-only
+   ```
+
+   **System Response:**
+
+   ```bash
    COMPONENT           VERSION
    pachctl             1.9.8
    ```
@@ -122,7 +124,7 @@ deploy Pachyderm by following these steps:
 * For macOS or Linux, run:
 
    ```bash
-   $ pachctl deploy local
+   pachctl deploy local
    ```
 
    This command generates a Pachyderm manifest and deploys Pachyderm on
@@ -134,7 +136,7 @@ deploy Pachyderm by following these steps:
   1. In WSL, run:
 
      ```bash
-     $ pachctl deploy local --dry-run > pachyderm.json
+     pachctl deploy local --dry-run > pachyderm.json
      ```
 
   1. Copy the `pachyderm.json` file into your Pachyderm directory.
@@ -154,7 +156,12 @@ all Pachyderm pods must be in the **Running** status.
 
 
    ```bash
-   $ kubectl get pods
+   kubectl get pods
+   ```
+
+   **System Response:**
+
+   ```bash
    NAME                     READY     STATUS    RESTARTS   AGE
    dash-6c9dc97d9c-vb972    2/2       Running   0          6m
    etcd-7dbb489f44-9v5jj    1/1       Running   0          6m
@@ -168,7 +175,12 @@ all Pachyderm pods must be in the **Running** status.
 1. Run `pachctl version` to verify that `pachd` has been deployed.
 
    ```bash
-   $ pachctl version
+   pachctl version
+   ```
+
+   **System Response:**
+
+   ```bash
    COMPONENT           VERSION
    pachctl             1.9.5
    pachd               1.9.5
@@ -179,7 +191,7 @@ all Pachyderm pods must be in the **Running** status.
 1. Use port forwarding to access the Pachyderm dashboard.
 
    ```bash
-   $ pachctl port-forward
+   pachctl port-forward
    ```
 
    This command runs continuosly and does not exit unless you interrupt it.
@@ -190,13 +202,13 @@ the Minikube instance:
    1. Get your Minikube IP address:
 
       ```bash
-      $ minikube ip
+      minikube ip
       ```
 
    1. Configure Pachyderm to connect directly to the Minikube instance:
 
       ```bash
-     $ pachctl config update context `pachctl config get active-context` --pachd-address=`minikube ip`:30650
+      pachctl config update context `pachctl config get active-context` --pachd-address=`minikube ip`:30650
       ```
 
 ## Next Steps

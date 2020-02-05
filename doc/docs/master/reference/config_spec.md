@@ -13,10 +13,19 @@ reference. If you wish to change a config value, you should do so via
     "active_context": string,
     "contexts": {
       string: {
+        "source": int,
         "pachd_address": string,
         "server_cas": string,
         "session_token": string,
-        "active_transaction": string
+        "active_transaction": string,
+        "cluster_name": string,
+        "auth_info": string,
+        "namspace": string,
+        "cluster_id": string,
+        "port_forwarders": {
+          service_name: int,
+          ...
+        }
       },
       ...
     },
@@ -62,6 +71,11 @@ A map of context names to their configurations. Pachyderm contexts are akin to
 kubernetes contexts (and in fact reference the kubernetes context that they're
 associated with.)
 
+#### Source
+
+An integer that specifies where the config came from. This parameter is for internal use only and
+should not be modified.
+
 #### Pachd Address
 
 A `host:port` specification for connecting to pachd. If this is set, pachyderm
@@ -85,3 +99,33 @@ if pachctl actions are authorized. This is only set when auth is enabled.
 
 The currently active transaction for batching together pachctl commands. This
 can be set or cleared via many of the `pachctl * transaction` commands.
+
+#### Cluster name
+
+The name of the underlying Kubernetes cluster, extracted from the Kubernetes
+context.
+
+#### Auth info
+
+The name of the underlying Kubernetes cluster's auth credentials, extracted
+from the Kubernetes context.
+
+#### Namespace
+
+The underlying Kubernetes cluster's namespace, extracted from the Kubernetes
+context.
+
+#### Cluster ID
+
+The pachyderm cluster ID that is used to ensure the operations run on the
+expected cluster.
+
+#### Port forwarders
+
+A mapping of `service name -> local port`. This field is populated when you run
+explicit port forwarding (`pachctl port-forward`), so that subsequent
+`pachctl` operations know to use the explicit port forwarder.
+
+This field is removed when the `pachctl port-forward` operation
+completes. You might need to manually delete the field from your
+config if the process failed to remove the field automatically.

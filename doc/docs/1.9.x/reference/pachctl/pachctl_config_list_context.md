@@ -4,11 +4,16 @@ Lists contexts.
 
 ### Synopsis
 
-
 Lists contexts.
 
 ```
-pachctl config list context
+pachctl config list context [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for context
 ```
 
 ### Options inherited from parent commands

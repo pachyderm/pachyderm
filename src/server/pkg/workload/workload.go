@@ -39,9 +39,9 @@ func RunWorkload(
 // is performed
 const (
 	repo     float64 = .02 // Create a repo
-	commit           = .1  // Start or finish a commit
-	file             = .9  // Put a file
-	pipeline         = 1.0 // Create a pipeline
+	commit   float64 = .1  // Start or finish a commit
+	file     float64 = .9  // Put a file
+	pipeline float64 = 1.0 // Create a pipeline
 )
 
 type worker struct {
@@ -55,15 +55,9 @@ type worker struct {
 	// Commits that the worker has started. Modified by 'repo' and 'commit'.
 	started []*pfs.Commit
 
-	// Files that the worker has created
-	files []*pfs.File
-
 	// Jobs that the worker has started (but may not have finished). Guaranteed to
 	// be mutually exclusive with 'jobs'.
 	startedJobs []*pps.Job
-
-	// Worker jobs that have definitely finished. Modified by 'job'.
-	finishedJobs []*pps.Job
 
 	// Pipelines that the worker has created. Modified by 'pipeline'.
 	pipelines []*pps.Pipeline
@@ -79,7 +73,6 @@ func newWorker(rand *rand.Rand) *worker {
 }
 
 const maxStartedCommits = 6
-const maxStartedJobs = 6
 
 func (w *worker) work(c *client.APIClient) error {
 	// Generate a random float, and use it to choose the next operation

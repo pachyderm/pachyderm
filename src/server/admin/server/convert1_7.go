@@ -35,17 +35,6 @@ func convert1_7Commit(c *pfs1_7.Commit) *pfs1_8.Commit {
 	}
 }
 
-func convert1_7Commits(commits []*pfs1_7.Commit) []*pfs1_8.Commit {
-	if commits == nil {
-		return nil
-	}
-	result := make([]*pfs1_8.Commit, 0, len(commits))
-	for _, c := range commits {
-		result = append(result, convert1_7Commit(c))
-	}
-	return result
-}
-
 func convert1_7Object(o *pfs1_7.Object) *pfs1_8.Object {
 	if o == nil {
 		return nil
@@ -453,7 +442,7 @@ func convert1_7Op(pachClient *client.APIClient, storageRoot string, op *admin.Op
 			},
 		}, nil
 	default:
-		return nil, fmt.Errorf("Unrecognized 1.7 op type:\n%+v", op)
+		return nil, fmt.Errorf("unrecognized 1.7 op type:\n%+v", op)
 	}
 	return nil, fmt.Errorf("internal error: convert1.7Op() didn't return a 1.8 op for:\n%+v", op)
 }

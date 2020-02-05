@@ -4,17 +4,17 @@ Delete a branch
 
 ### Synopsis
 
-
 Delete a branch, while leaving the commits intact
 
 ```
-pachctl delete branch <repo>@<branch-or-commit>
+pachctl delete branch <repo>@<branch-or-commit> [flags]
 ```
 
 ### Options
 
 ```
   -f, --force   remove the branch regardless of errors; use with care
+  -h, --help    help for branch
 ```
 
 ### Options inherited from parent commands

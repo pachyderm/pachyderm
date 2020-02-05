@@ -2,7 +2,7 @@
 
 ## General requirements
 
-First, go through the general local installation instructions [here](http://docs.pachyderm.io/en/latest/getting_started/local_installation.html). Additionally, make sure you have the following installed:
+First, go through the general [Local Installation Instructions](https://docs.pachyderm.com/latest/getting_started/local_installation/). Additionally, make sure you have the following installed:
 
 - golang 1.12+
 - docker
@@ -75,9 +75,11 @@ And check it's status: `kubectl get all`.
 
 This will install the dev version of `pachctl`:
 
+```
     cd ~/workspace/pachyderm
     make install
     pachctl version
+```
 
 And make sure that `$GOPATH/bin` is on your `$PATH` somewhere
 

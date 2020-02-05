@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -49,7 +50,6 @@ type workerOptions struct {
 	workerEnv        []v1.EnvVar         // Environment vars set in the user container
 	volumes          []v1.Volume         // Volumes that we expose to the user container
 	volumeMounts     []v1.VolumeMount    // Paths where we mount each volume in 'volumes'
-	etcdPrefix       string              // the prefix in etcd to use
 	schedulingSpec   *pps.SchedulingSpec // the SchedulingSpec for the pipeline
 	podSpec          string
 	podPatch         string
@@ -84,9 +84,6 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		Name:  "PORT",
 		Value: strconv.FormatUint(uint64(a.port), 10),
 	}, {
-		Name:  "PPROF_PORT",
-		Value: strconv.FormatUint(uint64(a.pprofPort), 10),
-	}, {
 		Name:  "HTTP_PORT",
 		Value: strconv.FormatUint(uint64(a.httpPort), 10),
 	}, {
@@ -94,8 +91,13 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		Value: strconv.FormatUint(uint64(a.peerPort), 10),
 	}}
 	sidecarEnv = append(sidecarEnv, assets.GetSecretEnvVars(a.storageBackend)...)
+	storageEnvVars, err := getStorageEnvVars()
+	if err != nil {
+		return v1.PodSpec{}, err
+	}
+	sidecarEnv = append(sidecarEnv, storageEnvVars...)
 	workerEnv := options.workerEnv
-	workerEnv = append(options.workerEnv, v1.EnvVar{Name: "PACH_ROOT", Value: a.storageRoot})
+	workerEnv = append(workerEnv, v1.EnvVar{Name: "PACH_ROOT", Value: a.storageRoot})
 	workerEnv = append(workerEnv, assets.GetSecretEnvVars(a.storageBackend)...)
 	// This only happens in local deployment.  We want the workers to be
 	// able to read from/write to the hostpath volume as well.
@@ -268,6 +270,16 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	return podSpec, nil
 }
 
+func getStorageEnvVars() ([]v1.EnvVar, error) {
+	uploadConcurrencyLimit, ok := os.LookupEnv(assets.UploadConcurrencyLimitEnvVar)
+	if !ok {
+		return nil, fmt.Errorf("%s not found", assets.UploadConcurrencyLimitEnvVar)
+	}
+	return []v1.EnvVar{
+		{Name: assets.UploadConcurrencyLimitEnvVar, Value: uploadConcurrencyLimit},
+	}, nil
+}
+
 // We don't want to expose pipeline auth tokens, so we hash it. This will be
 // visible to any user with k8s cluster access
 // Note: This hash shouldn't be used for authentication in any way. We just use
@@ -361,10 +373,6 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 	workerEnv = append(workerEnv, v1.EnvVar{
 		Name:  client.PPSWorkerPortEnv,
 		Value: strconv.FormatUint(uint64(a.workerGrpcPort), 10),
-	})
-	workerEnv = append(workerEnv, v1.EnvVar{
-		Name:  client.PProfPortEnv,
-		Value: strconv.FormatUint(uint64(a.pprofPort), 10),
 	})
 	workerEnv = append(workerEnv, v1.EnvVar{
 		Name:  client.PeerPortEnv,
@@ -490,7 +498,7 @@ type noValidOptionsErr struct {
 
 func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.EtcdPipelineInfo, pipelineInfo *pps.PipelineInfo) (retErr error) {
 	log.Infof("PPS master: upserting workers for %q", pipelineInfo.Pipeline.Name)
-	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/CreateWorkerRC",
+	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/CreateWorkerRC", //lint:ignore SA4006 ctx never used, but we want the right one in scope for future uses
 		"pipeline", pipelineInfo.Pipeline.Name)
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)

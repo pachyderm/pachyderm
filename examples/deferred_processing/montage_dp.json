@@ -1,0 +1,25 @@
+{
+  "pipeline": {
+    "name": "montage_dp"
+  },
+  "input": {
+    "cross": [ {
+      "pfs": {
+        "glob": "/",
+        "repo": "images_dp_2"
+      }
+    },
+    {
+      "pfs": {
+        "glob": "/",
+        "repo": "edges_dp"
+      }
+    } ]
+  },
+  "transform": {
+    "cmd": [ "sh" ],
+    "image": "v4tech/imagemagick",
+    "stdin": [ "montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find /pfs -type f | sort) /pfs/out/montage.png" ]
+  }
+}
+

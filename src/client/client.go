@@ -308,11 +308,6 @@ func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress,
 		if err != nil {
 			return nil, nil, fmt.Errorf("could not parse 'PACHD_ADDRESS': %v", err)
 		}
-
-		if envAddr.Secured {
-			options = append(options, WithSystemCAs)
-		}
-
 		options, err := getCertOptionsFromEnv()
 		if err != nil {
 			return nil, nil, err
@@ -355,35 +350,25 @@ func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress,
 	return nil, options, nil
 }
 
-func portForwarder() *PortForwarder {
-	log.Debugln("Attempting to implicitly enable port forwarding...")
-
-	// NOTE: this will always use the default namespace; if a custom
-	// namespace is required with port forwarding,
-	// `pachctl port-forward` should be explicitly called.
-	fw, err := NewPortForwarder("")
+func portForwarder(context *config.Context) (*PortForwarder, uint16, error) {
+	fw, err := NewPortForwarder(context, "")
 	if err != nil {
-		log.Infof("Implicit port forwarding was not enabled because the kubernetes config could not be read: %v", err)
-		return nil
-	}
-	if err = fw.Lock(); err != nil {
-		log.Infof("Implicit port forwarding was not enabled because the pidfile could not be written to. Most likely this means that port forwarding is running in another instance of `pachctl`: %v", err)
-		return nil
+		return nil, 0, fmt.Errorf("failed to initialize port forwarder: %v", err)
 	}
 
-	if err = fw.RunForDaemon(0, 0); err != nil {
-		log.Debugf("Implicit port forwarding for the daemon failed: %v", err)
-	}
-	if err = fw.RunForSAMLACS(0); err != nil {
-		log.Debugf("Implicit port forwarding for SAML ACS failed: %v", err)
+	port, err := fw.RunForDaemon(0, 650)
+	if err != nil {
+		return nil, 0, err
 	}
 
-	return fw
+	log.Debugf("Implicit port forwarder listening on port %d", port)
+
+	return fw, port, nil
 }
 
 // NewForTest constructs a new APIClient for tests.
 func NewForTest() (*APIClient, error) {
-	cfg, err := config.Read()
+	cfg, err := config.Read(false)
 	if err != nil {
 		return nil, fmt.Errorf("could not read config: %v", err)
 	}
@@ -417,7 +402,7 @@ func NewForTest() (*APIClient, error) {
 // (and similar) logic into src/server and have it call a NewFromOptions()
 // constructor.
 func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
-	cfg, err := config.Read()
+	cfg, err := config.Read(false)
 	if err != nil {
 		return nil, fmt.Errorf("could not read config: %v", err)
 	}
@@ -427,29 +412,38 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 	}
 
 	// create new pachctl client
-	var fw *PortForwarder
 	pachdAddress, cfgOptions, err := getUserMachineAddrAndOpts(context)
 	if err != nil {
 		return nil, err
 	}
+
+	var fw *PortForwarder
+	if pachdAddress == nil && context.PortForwarders != nil {
+		pachdLocalPort, ok := context.PortForwarders["pachd"]
+		if ok {
+			log.Debugf("Connecting to explicitly port forwarded pachd instance on port %d", pachdLocalPort)
+			pachdAddress = &grpcutil.PachdAddress{
+				Secured: false,
+				Host:    "localhost",
+				Port:    uint16(pachdLocalPort),
+			}
+		}
+	}
 	if pachdAddress == nil {
-		pachdAddress = &grpcutil.DefaultPachdAddress
-		fw = portForwarder()
+		var pachdLocalPort uint16
+		fw, pachdLocalPort, err = portForwarder(context)
+		if err != nil {
+			return nil, err
+		}
+		pachdAddress = &grpcutil.PachdAddress{
+			Secured: false,
+			Host:    "localhost",
+			Port:    pachdLocalPort,
+		}
 	}
 
 	client, err := NewFromAddress(pachdAddress.Hostname(), append(options, cfgOptions...)...)
 	if err != nil {
-		if strings.Contains(err.Error(), "context deadline exceeded") {
-			// Check for errors in approximate order of helpfulness
-			if pachdAddress.IsUnusualPort() {
-				return nil, fmt.Errorf("could not connect (note: port is usually "+
-					"%d or %d, but is currently set to %d - is this right?): %v", grpcutil.DefaultPachdNodePort, grpcutil.DefaultPachdPort, pachdAddress.Port, err)
-			} else if fw == nil && pachdAddress.IsLoopback() {
-				return nil, fmt.Errorf("could not connect (note: address %s looks "+
-					"like loopback, try unsetting it): %v",
-					pachdAddress.Qualified(), err)
-			}
-		}
 		return nil, fmt.Errorf("could not connect to pachd at %q: %v", pachdAddress.Qualified(), err)
 	}
 
@@ -460,6 +454,22 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 	}
 	if context.SessionToken != "" {
 		client.authenticationToken = context.SessionToken
+	}
+
+	// Verify cluster ID
+	clusterInfo, err := client.InspectCluster()
+	if err != nil {
+		return nil, fmt.Errorf("could not get cluster ID: %v", err)
+	}
+	if context.ClusterID != clusterInfo.ID {
+		if context.ClusterID == "" {
+			context.ClusterID = clusterInfo.ID
+			if err = cfg.Write(); err != nil {
+				return nil, fmt.Errorf("could not write config to save cluster ID: %v", err)
+			}
+		} else {
+			return nil, fmt.Errorf("connected to the wrong cluster (context cluster ID = %q vs reported cluster ID = %q)", context.ClusterID, clusterInfo.ID)
+		}
 	}
 
 	// Add port forwarding. This will set it to nil if port forwarding is
@@ -543,10 +553,6 @@ func DefaultDialOptions() []grpc.DialOption {
 	return []grpc.DialOption{
 		// Don't return from Dial() until the connection has been established
 		grpc.WithBlock(),
-
-		// If no connection is established in 30s, fail the call
-		grpc.WithTimeout(30 * time.Second),
-
 		grpc.WithDefaultCallOptions(
 			grpc.MaxCallRecvMsgSize(grpcutil.MaxMsgSize),
 			grpc.MaxCallSendMsgSize(grpcutil.MaxMsgSize),
@@ -567,17 +573,15 @@ func (c *APIClient) connect(timeout time.Duration) error {
 		tlsCreds := credentials.NewClientTLSFromCert(c.caCerts, "")
 		dialOptions = append(dialOptions, grpc.WithTransportCredentials(tlsCreds))
 	}
-	dialOptions = append(dialOptions,
-		// TODO(msteffen) switch to grpc.DialContext instead
-		grpc.WithTimeout(timeout),
-	)
 	if tracing.IsActive() {
 		dialOptions = append(dialOptions,
 			grpc.WithUnaryInterceptor(tracing.UnaryClientInterceptor()),
 			grpc.WithStreamInterceptor(tracing.StreamClientInterceptor()),
 		)
 	}
-	clientConn, err := grpc.Dial(c.addr, dialOptions...)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	clientConn, err := grpc.DialContext(ctx, c.addr, dialOptions...)
 	if err != nil {
 		return err
 	}

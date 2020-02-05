@@ -17,7 +17,7 @@ var (
 )
 
 type meta struct {
-	hdr, copyHdr *index.Header
+	hdr *index.Header
 }
 
 // Writer writes the serialized format of a fileset.

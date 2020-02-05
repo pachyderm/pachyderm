@@ -10,7 +10,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 )
 
 // obj parses a string as an Object
@@ -30,17 +29,15 @@ func obj(s ...string) []*pfs.Object {
 // EqualOneOf
 func i(ss ...string) []string {
 	result := make([]string, len(ss))
-	for i, v := range ss {
-		result[i] = v
-	}
+	copy(result, ss)
 	return result
 }
 
 func TestFmtNodeType(t *testing.T) {
-	require.Equal(t, "directory", fmt.Sprintf("%s", directory))
-	require.Equal(t, "file", fmt.Sprintf("%s", file))
-	require.Equal(t, "none", fmt.Sprintf("%s", none))
-	require.Equal(t, "unknown", fmt.Sprintf("%s", unrecognized))
+	require.Equal(t, "directory", directory.String())
+	require.Equal(t, "file", file.String())
+	require.Equal(t, "none", none.String())
+	require.Equal(t, "unknown", unrecognized.String())
 }
 
 func getT(t *testing.T, h HashTree, path string) *NodeProto {
@@ -561,6 +558,7 @@ func TestSerialize(t *testing.T) {
 func TestListEmpty(t *testing.T) {
 	tree := newHashTree(t)
 	_, err := tree.ListAll("/")
+	require.NoError(t, err)
 	nop := func(string, *NodeProto) error { return nil }
 	require.NoError(t, tree.Glob("*", nop))
 	require.NoError(t, tree.Glob("/*", nop))
@@ -641,29 +639,55 @@ func TestCache(t *testing.T) {
 	c, err := NewCache(2)
 	require.NoError(t, err)
 
+	// Set eviction to be synchronous to avoid polling later
+	*c.syncEvict = true
+
 	h := newHashTree(t)
 	require.NoError(t, h.PutFile("foo", obj(`hash:"1d4a7"`), 1))
 	require.NoError(t, h.Hash())
 
 	// Put a hashtree into the cache
-	c.Add(1, h)
+	h1, err := c.GetOrAdd(1, func() (HashTree, error) { return h, nil })
+	require.NoError(t, err)
+	require.Equal(t, h, h1)
+	require.Equal(t, 1, c.lruCache.Len())
+
+	// Get the hashtree from the same key
+	h1, err = c.GetOrAdd(1, func() (HashTree, error) { return h, nil })
+	require.NoError(t, err)
+	require.Equal(t, h, h1)
+	require.Equal(t, 1, c.lruCache.Len())
+
+	// Fail to instantiate a hashtree for a new key
+	_, err = c.GetOrAdd(4, func() (HashTree, error) { return nil, fmt.Errorf("error") })
+	require.YesError(t, err)
+	require.Equal(t, 1, c.lruCache.Len())
 
 	// After adding a second hashtree, the first hashtree should still be in the cache
-	c.Add(2, newHashTree(t))
+	h2, err := c.GetOrAdd(2, func() (HashTree, error) { return newHashTree(t), nil })
+	require.NoError(t, err)
+	require.Equal(t, 2, c.lruCache.Len())
 	_, err = h.Get("foo")
 	require.NoError(t, err)
 
 	// But after adding a third, the first one should be evicted
-	c.Add(3, newHashTree(t))
+	h3, err := c.GetOrAdd(3, func() (HashTree, error) { return newHashTree(t), nil })
+	require.NoError(t, err)
+	require.Equal(t, 2, c.lruCache.Len())
 
-	// since it's done concurrently, we might need to wait a bit for the eviction to finish
-	require.NoError(t, backoff.Retry(func() error {
-		_, err = h.Get("foo")
-		if err == nil {
-			return fmt.Errorf("foo should be evicted, and so the Get should have failed")
-		}
-		return nil
-	}, backoff.NewTestingBackOff()))
+	_, err = h1.ListAll("")
+	require.YesError(t, err)
+	_, err = h2.ListAll("")
+	require.NoError(t, err)
+	_, err = h3.ListAll("")
+	require.NoError(t, err)
+
+	c.Close()
+	_, err = h2.ListAll("")
+	require.YesError(t, err)
+	_, err = h3.ListAll("")
+	require.YesError(t, err)
+	require.Equal(t, 0, c.lruCache.Len())
 }
 
 func blocks(ss ...string) []*pfs.BlockRef {

@@ -6,7 +6,7 @@ then stitches those pieces together to form results. This allows Pachyderm to re
 things much more efficiently than traditional systems, which are forced to compute everything from
 scratch during every job.  
 
-If you are new to the idea of Pachyderm "datums," you can learn more [here](http://pachyderm.readthedocs.io/en/latest/fundamentals/distributed_computing.html#datums).  
+If you are new to the idea of Pachyderm "datums," you can learn more [here](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/).
 
 ## Inter-datum Incrementality
 

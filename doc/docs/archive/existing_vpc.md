@@ -140,7 +140,8 @@ kops delete cluster $NAME
 
 ## How to generate k8s Pachyderm cluster manifest
 
-[This guide is a good reference](http://docs.pachyderm.io/en/latest/deployment/amazon_web_services.html)
+The [Deploy Pachyderm on Amazon AWS](https://docs.pachyderm.com/latest/deploy-manage/deploy/amazon_web_services/)
+section provides an overview of Pachyderm cluster manifest generation.
 
 But it boils down to this.
 

@@ -14,7 +14,6 @@ type GlobalConfiguration struct {
 	EtcdPort      string `env:"ETCD_SERVICE_PORT,required"`
 	PPSWorkerPort uint16 `env:"PPS_WORKER_GRPC_PORT,default=80"`
 	Port          uint16 `env:"PORT,default=650"`
-	PProfPort     uint16 `env:"PPROF_PORT,default=651"`
 	HTTPPort      uint16 `env:"HTTP_PORT,default=652"`
 	PeerPort      uint16 `env:"PEER_PORT,default=653"`
 	PPSEtcdPrefix string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
@@ -31,35 +30,37 @@ type PachdFullConfiguration struct {
 // PachdSpecificConfiguration contains the pachd specific configuration.
 type PachdSpecificConfiguration struct {
 	StorageConfiguration
-	NumShards             uint64 `env:"NUM_SHARDS,default=32"`
-	StorageBackend        string `env:"STORAGE_BACKEND,default="`
-	StorageHostPath       string `env:"STORAGE_HOST_PATH,default="`
-	EtcdPrefix            string `env:"ETCD_PREFIX,default="`
-	PFSEtcdPrefix         string `env:"PFS_ETCD_PREFIX,default=pachyderm_pfs"`
-	AuthEtcdPrefix        string `env:"PACHYDERM_AUTH_ETCD_PREFIX,default=pachyderm_auth"`
-	EnterpriseEtcdPrefix  string `env:"PACHYDERM_ENTERPRISE_ETCD_PREFIX,default=pachyderm_enterprise"`
-	KubeAddress           string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
-	Metrics               bool   `env:"METRICS,default=true"`
-	Init                  bool   `env:"INIT,default=false"`
-	BlockCacheBytes       string `env:"BLOCK_CACHE_BYTES,default=1G"`
-	PFSCacheSize          string `env:"PFS_CACHE_SIZE,default=0"`
-	WorkerImage           string `env:"WORKER_IMAGE,default="`
-	WorkerSidecarImage    string `env:"WORKER_SIDECAR_IMAGE,default="`
-	WorkerImagePullPolicy string `env:"WORKER_IMAGE_PULL_POLICY,default="`
-	LogLevel              string `env:"LOG_LEVEL,default=info"`
-	IAMRole               string `env:"IAM_ROLE,default="`
-	ImagePullSecret       string `env:"IMAGE_PULL_SECRET,default="`
-	NoExposeDockerSocket  bool   `env:"NO_EXPOSE_DOCKER_SOCKET,default=false"`
-	ExposeObjectAPI       bool   `env:"EXPOSE_OBJECT_API,default=false"`
-	MemoryRequest         string `env:"PACHD_MEMORY_REQUEST,default=1T"`
-	WorkerUsesRoot        bool   `env:"WORKER_USES_ROOT,default=true"`
-	S3GatewayPort         uint16 `env:"S3GATEWAY_PORT,default=600"`
+	NumShards                  uint64 `env:"NUM_SHARDS,default=32"`
+	StorageBackend             string `env:"STORAGE_BACKEND,default="`
+	StorageHostPath            string `env:"STORAGE_HOST_PATH,default="`
+	EtcdPrefix                 string `env:"ETCD_PREFIX,default="`
+	PFSEtcdPrefix              string `env:"PFS_ETCD_PREFIX,default=pachyderm_pfs"`
+	AuthEtcdPrefix             string `env:"PACHYDERM_AUTH_ETCD_PREFIX,default=pachyderm_auth"`
+	EnterpriseEtcdPrefix       string `env:"PACHYDERM_ENTERPRISE_ETCD_PREFIX,default=pachyderm_enterprise"`
+	KubeAddress                string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
+	Metrics                    bool   `env:"METRICS,default=true"`
+	Init                       bool   `env:"INIT,default=false"`
+	BlockCacheBytes            string `env:"BLOCK_CACHE_BYTES,default=1G"`
+	PFSCacheSize               string `env:"PFS_CACHE_SIZE,default=0"`
+	WorkerImage                string `env:"WORKER_IMAGE,default="`
+	WorkerSidecarImage         string `env:"WORKER_SIDECAR_IMAGE,default="`
+	WorkerImagePullPolicy      string `env:"WORKER_IMAGE_PULL_POLICY,default="`
+	LogLevel                   string `env:"LOG_LEVEL,default=info"`
+	IAMRole                    string `env:"IAM_ROLE,default="`
+	ImagePullSecret            string `env:"IMAGE_PULL_SECRET,default="`
+	NoExposeDockerSocket       bool   `env:"NO_EXPOSE_DOCKER_SOCKET,default=false"`
+	ExposeObjectAPI            bool   `env:"EXPOSE_OBJECT_API,default=false"`
+	MemoryRequest              string `env:"PACHD_MEMORY_REQUEST,default=1T"`
+	WorkerUsesRoot             bool   `env:"WORKER_USES_ROOT,default=true"`
+	S3GatewayPort              uint16 `env:"S3GATEWAY_PORT,default=600"`
+	RequireCriticalServersOnly bool   `env:"REQUIRE_CRITICAL_SERVERS_ONLY",default=false"`
 }
 
 // StorageConfiguration contains the storage configuration.
 type StorageConfiguration struct {
-	StorageMemoryThreshold int64 `env:"STORAGE_MEMORY_THRESHOLD"`
-	StorageShardThreshold  int64 `env:"STORAGE_SHARD_THRESHOLD"`
+	StorageMemoryThreshold        int64 `env:"STORAGE_MEMORY_THRESHOLD"`
+	StorageShardThreshold         int64 `env:"STORAGE_SHARD_THRESHOLD"`
+	StorageUploadConcurrencyLimit int   `env:"STORAGE_UPLOAD_CONCURRENCY_LIMIT,default=100"`
 }
 
 // WorkerFullConfiguration contains the full worker configuration.
@@ -89,17 +90,17 @@ type FeatureFlags struct {
 // NewConfiguration creates a generic configuration from a specific type of configuration.
 func NewConfiguration(config interface{}) *Configuration {
 	configuration := &Configuration{}
-	switch config.(type) {
+	switch v := config.(type) {
 	case *GlobalConfiguration:
-		configuration.GlobalConfiguration = config.(*GlobalConfiguration)
+		configuration.GlobalConfiguration = v
 		return configuration
 	case *PachdFullConfiguration:
-		configuration.GlobalConfiguration = &config.(*PachdFullConfiguration).GlobalConfiguration
-		configuration.PachdSpecificConfiguration = &config.(*PachdFullConfiguration).PachdSpecificConfiguration
+		configuration.GlobalConfiguration = &v.GlobalConfiguration
+		configuration.PachdSpecificConfiguration = &v.PachdSpecificConfiguration
 		return configuration
 	case *WorkerFullConfiguration:
-		configuration.GlobalConfiguration = &config.(*WorkerFullConfiguration).GlobalConfiguration
-		configuration.WorkerSpecificConfiguration = &config.(*WorkerFullConfiguration).WorkerSpecificConfiguration
+		configuration.GlobalConfiguration = &v.GlobalConfiguration
+		configuration.WorkerSpecificConfiguration = &v.WorkerSpecificConfiguration
 		return configuration
 	default:
 		return nil

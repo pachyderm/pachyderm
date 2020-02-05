@@ -1,6 +1,6 @@
 # Creating a shuffle pipeline
 
-This example demonstrates how shuffle pipelines i.e. a pipeline that shuffles, combines files without downloading/uploading can be created. For more information [see](https://pachyderm.readthedocs.io/en/latest/managing_pachyderm/data_management.html)
+This example demonstrates how shuffle pipelines i.e. a pipeline that shuffles, combines files without downloading/uploading can be created.
 
 ## Create fruits input repo
 ```bash

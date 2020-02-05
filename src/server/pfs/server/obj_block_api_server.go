@@ -771,7 +771,7 @@ func (s *objBlockAPIServer) ListBlock(request *pfsclient.ListBlockRequest, listB
 
 func (s *objBlockAPIServer) isNotFoundErr(err error) bool {
 	// GG golang
-	patterns := []string{"not found", "not exist", "NotFound", "NotExist", "404"}
+	patterns := []string{"not found", "not exist", "NotFound", "NotExist", "404", "cannot find the path"}
 	errstr := err.Error()
 	for _, pattern := range patterns {
 		if strings.Contains(errstr, pattern) {
@@ -848,14 +848,6 @@ func (s *objBlockAPIServer) Compact(ctx context.Context, request *types.Empty) (
 		return nil, err
 	}
 	return &types.Empty{}, nil
-}
-
-func (s *objBlockAPIServer) objectPrefix(prefix string) string {
-	return s.objectPath(&pfsclient.Object{Hash: prefix})
-}
-
-func (s *objBlockAPIServer) tagPrefix(prefix string) string {
-	return s.tagPath(&pfsclient.Tag{Name: prefix})
 }
 
 func (s *objBlockAPIServer) compact(ctx context.Context) (retErr error) {
@@ -1137,8 +1129,8 @@ func (s *objBlockAPIServer) objectInfoGetter(ctx groupcache.Context, key string,
 		}
 	}
 	objectIndex, _ := s.getObjectIndex(prefix)
-	// Check if the index contains a the object we're looking for, if so read
-	// it into the cache and return
+	// Check if the index contains the object we're looking for, if so read it
+	// into the cache and return
 	if blockRef, ok := objectIndex.Objects[object.Hash]; ok {
 		result.BlockRef = blockRef
 		dest.SetProto(result)

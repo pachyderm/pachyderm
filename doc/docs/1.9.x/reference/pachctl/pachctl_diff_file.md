@@ -4,11 +4,10 @@ Return a diff of two file trees.
 
 ### Synopsis
 
-
 Return a diff of two file trees.
 
 ```
-pachctl diff file <new-repo>@<new-branch-or-commit>:<new-path> [<old-repo>@<old-branch-or-commit>:<old-path>]
+pachctl diff file <new-repo>@<new-branch-or-commit>:<new-path> [<old-repo>@<old-branch-or-commit>:<old-path>] [flags]
 ```
 
 ### Examples
@@ -29,6 +28,7 @@ $ pachctl diff file foo@master:path1 bar@master:path2
 ```
       --diff-command string   Use a program other than git to diff files.
       --full-timestamps       Return absolute timestamps (as opposed to the default, relative timestamps).
+  -h, --help                  help for file
       --name-only             Show only the names of changed files.
       --no-pager              Don't pipe output into a pager (i.e. less).
   -s, --shallow               Don't descend into sub directories.

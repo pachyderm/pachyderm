@@ -55,6 +55,31 @@ func now() *types.Timestamp {
 	return t
 }
 
+func (d *driver) batchTransaction(ctx context.Context, req []*transaction.TransactionRequest) (*transaction.TransactionInfo, error) {
+	// Because we're building and running the entire transaction atomically here, there is no need to persist the TransactionInfo to etcd
+	info := &transaction.TransactionInfo{
+		Transaction: &transaction.Transaction{
+			ID: uuid.New(),
+		},
+		Requests: req,
+		Started:  now(),
+	}
+
+	var err error
+	err = d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		info, err = d.runTransaction(txnCtx, info)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return info, nil
+}
+
 func (d *driver) startTransaction(ctx context.Context) (*transaction.Transaction, error) {
 	info := &transaction.TransactionInfo{
 		Transaction: &transaction.Transaction{

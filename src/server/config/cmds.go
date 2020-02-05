@@ -6,13 +6,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"sort"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/server/cmd/pachctl/shell"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 
+	prompt "github.com/c-bata/go-prompt"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/spf13/cobra"
 )
@@ -34,7 +37,7 @@ func Cmds() []*cobra.Command {
 		Short: "Gets whether metrics are enabled.",
 		Long:  "Gets whether metrics are enabled.",
 		Run: cmdutil.Run(func(args []string) (retErr error) {
-			cfg, err := config.Read()
+			cfg, err := config.Read(false)
 			if err != nil {
 				return err
 			}
@@ -55,7 +58,7 @@ func Cmds() []*cobra.Command {
 				return errors.New("invalid argument; use either `true` or `false`")
 			}
 
-			cfg, err := config.Read()
+			cfg, err := config.Read(false)
 			if err != nil {
 				return err
 			}
@@ -70,7 +73,7 @@ func Cmds() []*cobra.Command {
 		Short: "Gets the currently active context.",
 		Long:  "Gets the currently active context.",
 		Run: cmdutil.Run(func(args []string) (retErr error) {
-			cfg, err := config.Read()
+			cfg, err := config.Read(false)
 			if err != nil {
 				return err
 			}
@@ -88,7 +91,7 @@ func Cmds() []*cobra.Command {
 		Short: "Sets the currently active context.",
 		Long:  "Sets the currently active context.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			cfg, err := config.Read()
+			cfg, err := config.Read(false)
 			if err != nil {
 				return err
 			}
@@ -99,13 +102,14 @@ func Cmds() []*cobra.Command {
 			return cfg.Write()
 		}),
 	}
+	shell.RegisterCompletionFunc(setActiveContext, contextCompletion)
 	commands = append(commands, cmdutil.CreateAlias(setActiveContext, "config set active-context"))
 
 	getContext := &cobra.Command{
 		Short: "Gets a context.",
 		Long:  "Gets the config of a context by its name.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			cfg, err := config.Read()
+			cfg, err := config.Read(false)
 			if err != nil {
 				return err
 			}
@@ -123,6 +127,7 @@ func Cmds() []*cobra.Command {
 			return nil
 		}),
 	}
+	shell.RegisterCompletionFunc(getContext, contextCompletion)
 	commands = append(commands, cmdutil.CreateAlias(getContext, "config get context"))
 
 	var overwrite bool
@@ -133,7 +138,7 @@ func Cmds() []*cobra.Command {
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			name := args[0]
 
-			cfg, err := config.Read()
+			cfg, err := config.Read(false)
 			if err != nil {
 				return err
 			}
@@ -194,6 +199,7 @@ func Cmds() []*cobra.Command {
 	}
 	setContext.Flags().BoolVar(&overwrite, "overwrite", false, "Overwrite a context if it already exists.")
 	setContext.Flags().StringVarP(&kubeContextName, "kubernetes", "k", "", "Import a given kubernetes context's values into the Pachyderm context.")
+	shell.RegisterCompletionFunc(setContext, contextCompletion)
 	commands = append(commands, cmdutil.CreateAlias(setContext, "config set context"))
 
 	var pachdAddress string
@@ -208,7 +214,7 @@ func Cmds() []*cobra.Command {
 			"currently-active context, if no name is given).",
 		Use: "context [context]",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
-			cfg, err := config.Read()
+			cfg, err := config.Read(false)
 			if err != nil {
 				return err
 			}
@@ -267,13 +273,14 @@ func Cmds() []*cobra.Command {
 	updateContext.Flags().StringVar(&authInfo, "auth-info", "", "Set a new k8s auth info.")
 	updateContext.Flags().StringVar(&serverCAs, "server-cas", "", "Set new trusted CA certs.")
 	updateContext.Flags().StringVar(&namespace, "namespace", "", "Set a new namespace.")
+	shell.RegisterCompletionFunc(updateContext, contextCompletion)
 	commands = append(commands, cmdutil.CreateAlias(updateContext, "config update context"))
 
 	deleteContext := &cobra.Command{
 		Short: "Deletes a context.",
 		Long:  "Deletes a context.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			cfg, err := config.Read()
+			cfg, err := config.Read(false)
 			if err != nil {
 				return err
 			}
@@ -287,13 +294,14 @@ func Cmds() []*cobra.Command {
 			return cfg.Write()
 		}),
 	}
+	shell.RegisterCompletionFunc(deleteContext, contextCompletion)
 	commands = append(commands, cmdutil.CreateAlias(deleteContext, "config delete context"))
 
 	listContext := &cobra.Command{
 		Short: "Lists contexts.",
 		Long:  "Lists contexts.",
 		Run: cmdutil.Run(func(args []string) (retErr error) {
-			cfg, err := config.Read()
+			cfg, err := config.Read(false)
 			if err != nil {
 				return err
 			}
@@ -361,4 +369,37 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, cmdutil.CreateAlias(configListRoot, "config list"))
 
 	return commands
+}
+
+func contextCompletion(_, text string, maxCompletions int64) []prompt.Suggest {
+	cfg, err := config.Read(false)
+	if err != nil {
+		log.Fatal(err)
+	}
+	activeContext, _, err := cfg.ActiveContext()
+	if err != nil {
+		log.Fatal(err)
+	}
+	var result []prompt.Suggest
+	for name, ctx := range cfg.V2.Contexts {
+		desc := ctx.PachdAddress
+		if name == activeContext {
+			desc += " (active)"
+		}
+		result = append(result, prompt.Suggest{
+			Text:        name,
+			Description: desc,
+		})
+	}
+	sort.Slice(result, func(i, j int) bool {
+		switch {
+		case result[i].Text == activeContext:
+			return true
+		case result[j].Text == activeContext:
+			return false
+		default:
+			return result[i].Text < result[j].Text
+		}
+	})
+	return result
 }

@@ -73,7 +73,7 @@ func (r *PGDumpReader) readHeader() error {
 }
 
 func (r *PGDumpReader) readFooter() error {
-	for true {
+	for {
 		b, err := r.rd.ReadBytes('\n')
 		r.Footer = append(r.Footer, b...)
 		if err != nil {

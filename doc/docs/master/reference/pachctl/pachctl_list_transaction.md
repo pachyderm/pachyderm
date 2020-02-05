@@ -4,17 +4,17 @@ List transactions.
 
 ### Synopsis
 
-
 List transactions.
 
 ```
-pachctl list transaction
+pachctl list transaction [flags]
 ```
 
 ### Options
 
 ```
       --full-timestamps   Return absolute timestamps (as opposed to the default, relative timestamps).
+  -h, --help              help for transaction
       --raw               disable pretty printing, print raw json
 ```
 

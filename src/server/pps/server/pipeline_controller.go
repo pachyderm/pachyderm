@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/pachyderm/pachyderm/src/client"
 	"strings"
 	"time"
+
+	"github.com/pachyderm/pachyderm/src/client"
 
 	opentracing "github.com/opentracing/opentracing-go"
 	log "github.com/sirupsen/logrus"
@@ -93,7 +94,7 @@ func (a *apiServer) step(pachClient *client.APIClient, pipeline string, keyVer, 
 		"spec-commit", op.ptr.SpecCommit)
 	if span != nil {
 		defer tracing.FinishAnySpan(span)
-		pachClient = pachClient.WithCtx(ctx)
+		pachClient = pachClient.WithCtx(ctx) //lint:ignore SA4006 pachClient is unused but we want the right one in scope in case someone uses it below in the future
 	}
 
 	// Bring 'pipeline' into the correct state by taking appropriate action

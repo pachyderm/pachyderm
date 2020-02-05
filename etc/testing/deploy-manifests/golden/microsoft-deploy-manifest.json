@@ -1,0 +1,956 @@
+{
+  "kind": "ServiceAccount",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "pachyderm",
+    "namespace": "default",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "",
+      "suite": "pachyderm"
+    }
+  }
+}
+{
+  "kind": "ClusterRole",
+  "apiVersion": "rbac.authorization.k8s.io/v1",
+  "metadata": {
+    "name": "pachyderm",
+    "namespace": "default",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "",
+      "suite": "pachyderm"
+    }
+  },
+  "rules": [
+    {
+      "verbs": [
+        "get",
+        "list",
+        "watch"
+      ],
+      "apiGroups": [
+        ""
+      ],
+      "resources": [
+        "nodes",
+        "pods",
+        "pods/log",
+        "endpoints"
+      ]
+    },
+    {
+      "verbs": [
+        "get",
+        "list",
+        "watch",
+        "create",
+        "update",
+        "delete"
+      ],
+      "apiGroups": [
+        ""
+      ],
+      "resources": [
+        "replicationcontrollers",
+        "services"
+      ]
+    },
+    {
+      "verbs": [
+        "get",
+        "list",
+        "watch",
+        "create",
+        "update",
+        "delete",
+        "deletecollection"
+      ],
+      "apiGroups": [
+        ""
+      ],
+      "resources": [
+        "secrets"
+      ]
+    }
+  ]
+}
+{
+  "kind": "ClusterRoleBinding",
+  "apiVersion": "rbac.authorization.k8s.io/v1",
+  "metadata": {
+    "name": "pachyderm",
+    "namespace": "default",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "",
+      "suite": "pachyderm"
+    }
+  },
+  "subjects": [
+    {
+      "kind": "ServiceAccount",
+      "name": "pachyderm",
+      "namespace": "default"
+    }
+  ],
+  "roleRef": {
+    "apiGroup": "",
+    "kind": "ClusterRole",
+    "name": "pachyderm"
+  }
+}
+{
+  "kind": "Service",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "etcd-headless",
+    "namespace": "default",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "etcd",
+      "suite": "pachyderm"
+    }
+  },
+  "spec": {
+    "ports": [
+      {
+        "name": "peer-port",
+        "port": 2380,
+        "targetPort": 0
+      }
+    ],
+    "selector": {
+      "app": "etcd"
+    },
+    "clusterIP": "None"
+  },
+  "status": {
+    "loadBalancer": {}
+  }
+}
+{
+  "apiVersion": "apps/v1",
+  "kind": "StatefulSet",
+  "metadata": {
+    "labels": {
+      "app": "etcd",
+      "suite": "pachyderm"
+    },
+    "name": "etcd",
+    "namespace": "default"
+  },
+  "spec": {
+    "replicas": 3,
+    "selector": {
+      "matchLabels": {
+        "app": "etcd",
+        "suite": "pachyderm"
+      }
+    },
+    "serviceName": "etcd-headless",
+    "template": {
+      "metadata": {
+        "labels": {
+          "app": "etcd",
+          "suite": "pachyderm"
+        },
+        "name": "etcd",
+        "namespace": "default"
+      },
+      "spec": {
+        "containers": [
+          {
+            "args": [
+              "\"/usr/local/bin/etcd\" \"--listen-client-urls=http://0.0.0.0:2379\" \"--advertise-client-urls=http://0.0.0.0:2379\" \"--data-dir=/var/data/etcd\" \"--auto-compaction-retention=1\" \"--max-txn-ops=10000\" \"--max-request-bytes=52428800\" \"--quota-backend-bytes=8589934592\" \"--listen-peer-urls=http://0.0.0.0:2380\" \"--initial-cluster-token=pach-cluster\" \"--initial-advertise-peer-urls=http://${ETCD_NAME}.etcd-headless.${NAMESPACE}.svc.cluster.local:2380\" \"--initial-cluster=etcd-0=http://etcd-0.etcd-headless.${NAMESPACE}.svc.cluster.local:2380,etcd-1=http://etcd-1.etcd-headless.${NAMESPACE}.svc.cluster.local:2380,etcd-2=http://etcd-2.etcd-headless.${NAMESPACE}.svc.cluster.local:2380\""
+            ],
+            "command": [
+              "/bin/sh",
+              "-c"
+            ],
+            "env": [
+              {
+                "name": "ETCD_NAME",
+                "valueFrom": {
+                  "fieldRef": {
+                    "apiVersion": "v1",
+                    "fieldPath": "metadata.name"
+                  }
+                }
+              },
+              {
+                "name": "NAMESPACE",
+                "valueFrom": {
+                  "fieldRef": {
+                    "apiVersion": "v1",
+                    "fieldPath": "metadata.namespace"
+                  }
+                }
+              }
+            ],
+            "image": "quay.io/coreos/etcd:v3.3.5",
+            "imagePullPolicy": "IfNotPresent",
+            "name": "etcd",
+            "ports": [
+              {
+                "containerPort": 2379,
+                "name": "client-port"
+              },
+              {
+                "containerPort": 2380,
+                "name": "peer-port"
+              }
+            ],
+            "resources": {
+              "requests": {
+                "cpu": "1",
+                "memory": "2G"
+              }
+            },
+            "volumeMounts": [
+              {
+                "mountPath": "/var/data/etcd",
+                "name": "etcd-storage"
+              }
+            ]
+          }
+        ],
+        "imagePullSecrets": null
+      }
+    },
+    "volumeClaimTemplates": [
+      {
+        "metadata": {
+          "labels": {
+            "app": "etcd",
+            "suite": "pachyderm"
+          },
+          "name": "etcd-storage",
+          "namespace": "default"
+        },
+        "spec": {
+          "accessModes": [
+            "ReadWriteOnce"
+          ],
+          "resources": {
+            "requests": {
+              "storage": "50Gi"
+            }
+          }
+        }
+      }
+    ]
+  }
+}
+{
+  "kind": "Service",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "etcd",
+    "namespace": "default",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "etcd",
+      "suite": "pachyderm"
+    }
+  },
+  "spec": {
+    "ports": [
+      {
+        "name": "client-port",
+        "port": 2379,
+        "targetPort": 0
+      }
+    ],
+    "selector": {
+      "app": "etcd"
+    },
+    "type": "NodePort"
+  },
+  "status": {
+    "loadBalancer": {}
+  }
+}
+{
+  "kind": "Service",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "pachd",
+    "namespace": "default",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "pachd",
+      "suite": "pachyderm"
+    },
+    "annotations": {
+      "prometheus.io/port": "656",
+      "prometheus.io/scrape": "true"
+    }
+  },
+  "spec": {
+    "ports": [
+      {
+        "name": "api-grpc-port",
+        "port": 650,
+        "targetPort": 0,
+        "nodePort": 30650
+      },
+      {
+        "name": "trace-port",
+        "port": 651,
+        "targetPort": 0,
+        "nodePort": 30651
+      },
+      {
+        "name": "api-http-port",
+        "port": 652,
+        "targetPort": 0,
+        "nodePort": 30652
+      },
+      {
+        "name": "saml-port",
+        "port": 654,
+        "targetPort": 0,
+        "nodePort": 30654
+      },
+      {
+        "name": "api-git-port",
+        "port": 655,
+        "targetPort": 0,
+        "nodePort": 30655
+      },
+      {
+        "name": "s3gateway-port",
+        "port": 600,
+        "targetPort": 0,
+        "nodePort": 30600
+      }
+    ],
+    "selector": {
+      "app": "pachd"
+    },
+    "type": "NodePort"
+  },
+  "status": {
+    "loadBalancer": {}
+  }
+}
+{
+  "kind": "Deployment",
+  "apiVersion": "apps/v1",
+  "metadata": {
+    "name": "pachd",
+    "namespace": "default",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "pachd",
+      "suite": "pachyderm"
+    }
+  },
+  "spec": {
+    "replicas": 1,
+    "selector": {
+      "matchLabels": {
+        "app": "pachd",
+        "suite": "pachyderm"
+      }
+    },
+    "template": {
+      "metadata": {
+        "name": "pachd",
+        "namespace": "default",
+        "creationTimestamp": null,
+        "labels": {
+          "app": "pachd",
+          "suite": "pachyderm"
+        },
+        "annotations": {
+          "iam.amazonaws.com/role": ""
+        }
+      },
+      "spec": {
+        "volumes": [
+          {
+            "name": "pach-disk"
+          },
+          {
+            "name": "pachyderm-storage-secret",
+            "secret": {
+              "secretName": "pachyderm-storage-secret"
+            }
+          }
+        ],
+        "containers": [
+          {
+            "name": "pachd",
+            "image": "pachyderm/pachd:1.9.12",
+            "ports": [
+              {
+                "name": "api-grpc-port",
+                "containerPort": 650,
+                "protocol": "TCP"
+              },
+              {
+                "name": "trace-port",
+                "containerPort": 651
+              },
+              {
+                "name": "api-http-port",
+                "containerPort": 652,
+                "protocol": "TCP"
+              },
+              {
+                "name": "peer-port",
+                "containerPort": 653,
+                "protocol": "TCP"
+              },
+              {
+                "name": "api-git-port",
+                "containerPort": 655,
+                "protocol": "TCP"
+              },
+              {
+                "name": "saml-port",
+                "containerPort": 654,
+                "protocol": "TCP"
+              }
+            ],
+            "env": [
+              {
+                "name": "PACH_ROOT",
+                "value": "/pach"
+              },
+              {
+                "name": "ETCD_PREFIX"
+              },
+              {
+                "name": "NUM_SHARDS",
+                "value": "16"
+              },
+              {
+                "name": "STORAGE_BACKEND",
+                "value": "MICROSOFT"
+              },
+              {
+                "name": "STORAGE_HOST_PATH"
+              },
+              {
+                "name": "WORKER_IMAGE",
+                "value": "pachyderm/worker:1.9.12"
+              },
+              {
+                "name": "IMAGE_PULL_SECRET"
+              },
+              {
+                "name": "WORKER_SIDECAR_IMAGE",
+                "value": "pachyderm/pachd:1.9.12"
+              },
+              {
+                "name": "WORKER_IMAGE_PULL_POLICY",
+                "value": "IfNotPresent"
+              },
+              {
+                "name": "PACHD_VERSION",
+                "value": "1.9.12"
+              },
+              {
+                "name": "METRICS",
+                "value": "true"
+              },
+              {
+                "name": "LOG_LEVEL",
+                "value": "info"
+              },
+              {
+                "name": "BLOCK_CACHE_BYTES",
+                "value": "1G"
+              },
+              {
+                "name": "IAM_ROLE"
+              },
+              {
+                "name": "NO_EXPOSE_DOCKER_SOCKET",
+                "value": "false"
+              },
+              {
+                "name": "PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING",
+                "value": "false"
+              },
+              {
+                "name": "PACHD_POD_NAMESPACE",
+                "valueFrom": {
+                  "fieldRef": {
+                    "apiVersion": "v1",
+                    "fieldPath": "metadata.namespace"
+                  }
+                }
+              },
+              {
+                "name": "PACHD_MEMORY_REQUEST",
+                "valueFrom": {
+                  "resourceFieldRef": {
+                    "containerName": "pachd",
+                    "resource": "requests.memory",
+                    "divisor": "0"
+                  }
+                }
+              },
+              {
+                "name": "EXPOSE_OBJECT_API",
+                "value": "false"
+              },
+              {
+                "name": "REQUIRE_CRITICAL_SERVERS_ONLY",
+                "value": "false"
+              },
+              {
+                "name": "GOOGLE_BUCKET",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "google-bucket",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "GOOGLE_CRED",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "google-cred",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "MICROSOFT_CONTAINER",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "microsoft-container",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "MICROSOFT_ID",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "microsoft-id",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "MICROSOFT_SECRET",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "microsoft-secret",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "MINIO_BUCKET",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "minio-bucket",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "MINIO_ENDPOINT",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "minio-endpoint",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "MINIO_ID",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "minio-id",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "MINIO_SECRET",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "minio-secret",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "MINIO_SECURE",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "minio-secure",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "MINIO_SIGNATURE",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "minio-signature",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "AMAZON_REGION",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "amazon-region",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "AMAZON_BUCKET",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "amazon-bucket",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "AMAZON_ID",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "amazon-id",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "AMAZON_SECRET",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "amazon-secret",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "AMAZON_TOKEN",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "amazon-token",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "AMAZON_VAULT_ADDR",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "amazon-vault-addr",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "AMAZON_VAULT_ROLE",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "amazon-vault-role",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "AMAZON_VAULT_TOKEN",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "amazon-vault-token",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "AMAZON_DISTRIBUTION",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "amazon-distribution",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "CUSTOM_ENDPOINT",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "custom-endpoint",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "RETRIES",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "retries",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "TIMEOUT",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "timeout",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "UPLOAD_ACL",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "upload-acl",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "REVERSE",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "reverse",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "PART_SIZE",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "part-size",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "MAX_UPLOAD_PARTS",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "max-upload-parts",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "DISABLE_SSL",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "disable-ssl",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "NO_VERIFY_SSL",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "no-verify-ssl",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "STORAGE_UPLOAD_CONCURRENCY_LIMIT",
+                "value": "100"
+              }
+            ],
+            "resources": {
+              "limits": {
+                "cpu": "1",
+                "memory": "3G"
+              },
+              "requests": {
+                "cpu": "1",
+                "memory": "3G"
+              }
+            },
+            "volumeMounts": [
+              {
+                "name": "pach-disk",
+                "mountPath": "/pach"
+              },
+              {
+                "name": "pachyderm-storage-secret",
+                "mountPath": "/pachyderm-storage-secret"
+              }
+            ],
+            "readinessProbe": {
+              "exec": {
+                "command": [
+                  "/pachd",
+                  "--readiness"
+                ]
+              }
+            },
+            "imagePullPolicy": "IfNotPresent"
+          }
+        ],
+        "serviceAccountName": "pachyderm"
+      }
+    },
+    "strategy": {}
+  },
+  "status": {}
+}
+{
+  "kind": "Service",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "dash",
+    "namespace": "default",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "dash",
+      "suite": "pachyderm"
+    }
+  },
+  "spec": {
+    "ports": [
+      {
+        "name": "dash-http",
+        "port": 8080,
+        "targetPort": 0,
+        "nodePort": 30080
+      },
+      {
+        "name": "grpc-proxy-http",
+        "port": 8081,
+        "targetPort": 0,
+        "nodePort": 30081
+      }
+    ],
+    "selector": {
+      "app": "dash",
+      "suite": "pachyderm"
+    },
+    "type": "NodePort"
+  },
+  "status": {
+    "loadBalancer": {}
+  }
+}
+{
+  "kind": "Deployment",
+  "apiVersion": "apps/v1",
+  "metadata": {
+    "name": "dash",
+    "namespace": "default",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "dash",
+      "suite": "pachyderm"
+    }
+  },
+  "spec": {
+    "selector": {
+      "matchLabels": {
+        "app": "dash",
+        "suite": "pachyderm"
+      }
+    },
+    "template": {
+      "metadata": {
+        "name": "dash",
+        "namespace": "default",
+        "creationTimestamp": null,
+        "labels": {
+          "app": "dash",
+          "suite": "pachyderm"
+        }
+      },
+      "spec": {
+        "containers": [
+          {
+            "name": "dash",
+            "image": "pachyderm/dash:1.9.0",
+            "ports": [
+              {
+                "name": "dash-http",
+                "containerPort": 8080
+              }
+            ],
+            "resources": {},
+            "imagePullPolicy": "IfNotPresent"
+          },
+          {
+            "name": "grpc-proxy",
+            "image": "pachyderm/grpc-proxy:0.4.10",
+            "ports": [
+              {
+                "name": "grpc-proxy-http",
+                "containerPort": 8081
+              }
+            ],
+            "resources": {},
+            "imagePullPolicy": "IfNotPresent"
+          }
+        ]
+      }
+    },
+    "strategy": {}
+  },
+  "status": {}
+}
+{
+  "kind": "Secret",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "pachyderm-storage-secret",
+    "namespace": "default",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "pachyderm-storage-secret",
+      "suite": "pachyderm"
+    }
+  },
+  "data": {
+    "microsoft-container": "cGFjaC1jb250YWluZXI=",
+    "microsoft-id": "cGFjaC1hY2NvdW50",
+    "microsoft-secret": "Y0dGamFDMWhZMk52ZFc1MExXdGxlUT09"
+  }
+}

@@ -424,9 +424,9 @@ func TestYAMLConfig(t *testing.T) {
 		pachctl auth get-config -o yaml \
 		  | match 'live_config_version: 1' \
 		  | match 'id_providers:' \
-		  | match '  - name: GitHub' \
-		  | match '    description: oauth-based authentication with github.com' \
-		  | match '    github: {}'
+		  | match 'name: GitHub' \
+		  | match 'description: oauth-based authentication with github.com' \
+		  | match 'github: {}'
 		`).Run())
 }
 

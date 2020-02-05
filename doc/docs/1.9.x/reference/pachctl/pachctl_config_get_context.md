@@ -4,11 +4,16 @@ Gets a context.
 
 ### Synopsis
 
-
 Gets the config of a context by its name.
 
 ```
-pachctl config get context
+pachctl config get context [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for context
 ```
 
 ### Options inherited from parent commands

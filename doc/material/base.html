@@ -185,6 +185,9 @@
                       {{ file }}
                     </a>
                   {% endif %}
+                  {% if page.meta.git_revision_date_localized %}
+                  <small><i>Last updated: {{ page.meta.git_revision_date_localized }}</i></small>
+                  {% endif %}
                 {% endblock %}
               {% endblock %}
               {% block disqus %}

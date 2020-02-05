@@ -10,6 +10,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+
+	"github.com/cevaris/ordered_map"
 )
 
 // DatumIterator is an interface which allows you to iterate through the datums
@@ -98,6 +100,40 @@ func (d *pfsDatumIterator) Next() bool {
 	return d.location < len(d.inputs)
 }
 
+type listDatumIterator struct {
+	inputs   []*Input
+	location int
+}
+
+func newListDatumIterator(pachClient *client.APIClient, inputs []*Input) (DatumIterator, error) {
+	result := &listDatumIterator{}
+	// make sure it gets initialized properly
+	result.Reset()
+	result.inputs = inputs
+	return result, nil
+}
+
+func (d *listDatumIterator) Reset() {
+	d.location = -1
+}
+
+func (d *listDatumIterator) Len() int {
+	return len(d.inputs)
+}
+
+func (d *listDatumIterator) Datum() []*Input {
+	return []*Input{d.inputs[d.location]}
+}
+
+func (d *listDatumIterator) DatumN(n int) []*Input {
+	return []*Input{d.inputs[n]}
+}
+
+func (d *listDatumIterator) Next() bool {
+	d.location++
+	return d.location < len(d.inputs)
+}
+
 type unionDatumIterator struct {
 	iterators []DatumIterator
 	unionIdx  int
@@ -170,6 +206,20 @@ func newCrossDatumIterator(pachClient *client.APIClient, cross []*pps.Input) (Da
 	defer result.Reset()
 	for _, iterator := range cross {
 		datumIterator, err := NewDatumIterator(pachClient, iterator)
+		if err != nil {
+			return nil, err
+		}
+		result.iterators = append(result.iterators, datumIterator)
+	}
+	result.location = -1
+	return result, nil
+}
+
+func newCrossListDatumIterator(pachClient *client.APIClient, cross [][]*Input) (DatumIterator, error) {
+	result := &crossDatumIterator{}
+	defer result.Reset()
+	for _, iterator := range cross {
+		datumIterator, err := newListDatumIterator(pachClient, iterator)
 		if err != nil {
 			return nil, err
 		}
@@ -255,19 +305,39 @@ type joinDatumIterator struct {
 }
 
 func newJoinDatumIterator(pachClient *client.APIClient, join []*pps.Input) (DatumIterator, error) {
-	cross, err := newCrossDatumIterator(pachClient, join)
-	if err != nil {
-		return nil, err
-	}
 	result := &joinDatumIterator{}
-	for cross.Next() {
-		tuple := cross.Datum()
-		count := make(map[string]int)
-		for _, input := range tuple {
-			count[input.JoinOn]++
+	om := ordered_map.NewOrderedMap()
+
+	for i, input := range join {
+		datumIterator, err := NewDatumIterator(pachClient, input)
+		if err != nil {
+			return nil, err
 		}
-		if len(count) == 1 {
-			result.datums = append(result.datums, tuple)
+		for datumIterator.Next() {
+			x := datumIterator.Datum()
+			for _, k := range x {
+				tupleI, ok := om.Get(k.JoinOn)
+				var tuple [][]*Input
+				if !ok {
+					tuple = make([][]*Input, len(join))
+				} else {
+					tuple = tupleI.([][]*Input)
+				}
+				tuple[i] = append(tuple[i], k)
+				om.Set(k.JoinOn, tuple)
+			}
+		}
+	}
+
+	iter := om.IterFunc()
+	for kv, ok := iter(); ok; kv, ok = iter() {
+		tuple := kv.Value.([][]*Input)
+		cross, err := newCrossListDatumIterator(pachClient, tuple)
+		if err != nil {
+			return nil, err
+		}
+		for cross.Next() {
+			result.datums = append(result.datums, cross.Datum())
 		}
 	}
 	result.location = -1
@@ -289,9 +359,7 @@ func (d *joinDatumIterator) Next() bool {
 
 func (d *joinDatumIterator) Datum() []*Input {
 	var result []*Input
-	for _, datum := range d.datums[d.location] {
-		result = append(result, datum)
-	}
+	result = append(result, d.datums[d.location]...)
 	sortInputs(result)
 	return result
 }

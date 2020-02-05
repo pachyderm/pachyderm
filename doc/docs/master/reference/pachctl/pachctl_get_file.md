@@ -4,11 +4,10 @@ Return the contents of a file.
 
 ### Synopsis
 
-
 Return the contents of a file.
 
 ```
-pachctl get file <repo>@<branch-or-commit>:<path/in/pfs>
+pachctl get file <repo>@<branch-or-commit>:<path/in/pfs> [flags]
 ```
 
 ### Examples
@@ -30,6 +29,7 @@ $ pachctl get file foo@master^2:XXX
 ### Options
 
 ```
+  -h, --help              help for file
   -o, --output string     The path where data will be downloaded.
   -p, --parallelism int   The maximum number of files that can be downloaded in parallel (default 10)
   -r, --recursive         Recursively download a directory.

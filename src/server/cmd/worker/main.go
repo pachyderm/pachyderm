@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/http"
-	_ "net/http/pprof"
 	"os"
 	"path"
 	"path/filepath"
@@ -127,12 +125,8 @@ func getPipelineInfo(pachClient *client.APIClient, env *serviceenv.ServiceEnv) (
 }
 
 func do(config interface{}) error {
-	tracing.InstallJaegerTracerFromEnv() // must run before InitWithKube
+	tracing.InstallJaegerTracerFromEnv() // must run before InitServiceEnv
 	env := serviceenv.InitServiceEnv(serviceenv.NewConfiguration(config))
-	// Expose PProf service
-	go func() {
-		log.Println(http.ListenAndServe(fmt.Sprintf(":%d", env.PProfPort), nil))
-	}()
 
 	// Construct a client that connects to the sidecar.
 	pachClient := env.GetPachClient(context.Background())
@@ -158,7 +152,7 @@ func do(config interface{}) error {
 
 	worker.RegisterWorkerServer(server.Server, apiServer)
 	versionpb.RegisterAPIServer(server.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
-	debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(env.PodName, env.GetEtcdClient(), env.PPSEtcdPrefix, env.PPSWorkerPort))
+	debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(env.PodName, env.GetEtcdClient(), env.PPSEtcdPrefix, env.PPSWorkerPort, ""))
 
 	// Put our IP address into etcd, so pachd can discover us
 	key := path.Join(env.PPSEtcdPrefix, worker.WorkerEtcdPrefix, workerRcName, env.PPSWorkerIP)

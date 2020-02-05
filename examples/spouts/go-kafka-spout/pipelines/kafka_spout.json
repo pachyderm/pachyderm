@@ -5,6 +5,7 @@
   "spout": {
     "overwrite": true
   },
+  "description": "A spout pipeline that connects to a Kafka queue and reads a topic.",
   "transform": {
     "cmd": [
       "go",

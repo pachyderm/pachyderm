@@ -4,11 +4,10 @@ Start a new commit.
 
 ### Synopsis
 
-
 Start a new commit with parent-commit as the parent, or start a commit on the given branch; if the branch does not exist, it will be created.
 
 ```
-pachctl start commit <repo>@<branch-or-commit>
+pachctl start commit <repo>@<branch-or-commit> [flags]
 ```
 
 ### Examples
@@ -31,6 +30,7 @@ $ pachctl start commit test -p XXX
 
 ```
       --description string   A description of this commit's contents (synonym for --message)
+  -h, --help                 help for commit
   -m, --message string       A description of this commit's contents
   -p, --parent string        The parent of the new commit, unneeded if branch is specified and you want to use the previous head of the branch as the parent.
 ```
