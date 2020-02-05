@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
@@ -39,6 +41,19 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 		eg, ctx := errgroup.WithContext(env.driver.PachClient().Ctx())
 		env.PachClient = env.PachClient.WithCtx(ctx)
 		env.driver = env.driver.WithCtx(ctx)
+
+		// Set env vars that the object storage layer expects in the env
+		if err := os.Setenv(obj.StorageBackendEnvVar, obj.Local); err != nil {
+			return err
+		}
+
+		localStoragePath := filepath.Join(env.Directory, "localStorage")
+		if err := os.MkdirAll(localStoragePath, 0777); err != nil {
+			return err
+		}
+		if err := os.Setenv(obj.PachRootEnvVar, localStoragePath); err != nil {
+			return err
+		}
 
 		// TODO: for debugging purposes, remove
 		env.logger.Writer = os.Stdout
