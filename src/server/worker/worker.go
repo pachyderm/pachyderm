@@ -2,16 +2,22 @@ package worker
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"path"
+	"path/filepath"
 	"time"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	docker "github.com/fsouza/go-dockerclient"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 	"github.com/pachyderm/pachyderm/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
@@ -28,8 +34,9 @@ const (
 
 // The Worker object represents
 type Worker struct {
-	driver    driver.Driver // Provides common functions used by worker code
-	namespace string        // The namespace in which pachyderm is deployed - TODO: what is this for?
+	driver    driver.Driver     // Provides common functions used by worker code
+	apiServer *server.APIServer // Provides rpcs for other nodes in the cluster
+	namespace string            // The namespace in which pachyderm is deployed - TODO: what is this for?
 }
 
 // NewWorker constructs a Worker object that provides all worker functionality:
@@ -53,6 +60,18 @@ func NewWorker(
 		hasDocker = false
 	}
 
+	driver, err := driver.NewDriver(
+		pipelineInfo,
+		pachClient,
+		etcdClient,
+		etcdPrefix,
+		filepath.Join(hashtreePath, uuid.NewWithoutDashes()),
+		client.PPSInputPrefix,
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	if pipelineInfo.Transform.Image != "" && hasDocker {
 		docker, err := docker.NewClientFromEnv()
 		if err != nil {
@@ -70,7 +89,7 @@ func NewWorker(
 		}
 		if pipelineInfo.Transform.Cmd == nil {
 			if len(image.Config.Entrypoint) == 0 {
-				ppsutil.FailPipeline(ctx, etcdClient, d.Pipelines(),
+				ppsutil.FailPipeline(pachClient.Ctx(), etcdClient, driver.Pipelines(),
 					pipelineInfo.Pipeline.Name,
 					"nothing to run: no transform.cmd and no entrypoint")
 			}
@@ -78,66 +97,16 @@ func NewWorker(
 		}
 	}
 
-	d, err := driver.NewDriver(
-		pipelineInfo,
-		pachClient,
-		etcdClient,
-		etcdPrefix,
-		filepath.Join(hashtreePath, uuid.NewWithoutDashes()),
-		client.PPSInputPrefix,
-	)
-	if err != nil {
-		return nil, err
-	}
-
 	worker := &Worker{
-		driver:    d,
+		driver:    driver,
 		namespace: namespace,
 	}
 
-	worker.apiServer = server.NewAPIServer(worker, d, workerName)
+	worker.apiServer = server.NewAPIServer(driver, worker, workerName)
 
-	masterLock := dlock.NewDLock(etcdClient, path.Join(etcdPrefix, masterLockPath, w.pipelineInfo.Pipeline.Name, w.pipelineInfo.Salt))
-	go worker.master()
+	go worker.master(etcdClient, etcdPrefix)
 	go worker.worker()
 	return worker, nil
-}
-
-// Status returns the status of the current worker.
-func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (*pps.WorkerStatus, error) {
-	a.statusMu.Lock()
-	defer a.statusMu.Unlock()
-	started, err := types.TimestampProto(a.started)
-	if err != nil {
-		return nil, err
-	}
-	result := &pps.WorkerStatus{
-		JobID:     a.jobID,
-		WorkerID:  a.workerName,
-		Started:   started,
-		Data:      nil, // TODO: implement this
-		QueueSize: atomic.LoadInt64(&a.queueSize),
-	}
-	return result, nil
-}
-
-// Cancel cancels the currently running datum
-func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (*CancelResponse, error) {
-	a.statusMu.Lock()
-	defer a.statusMu.Unlock()
-	if request.JobID != a.jobID {
-		return &CancelResponse{Success: false}, nil
-	}
-	if !common.MatchDatum(request.DataFilters, a.datum()) {
-		return &CancelResponse{Success: false}, nil
-	}
-	a.cancel()
-	// clear the status since we're no longer processing this datum
-	a.jobID = ""
-	a.data = nil
-	a.started = time.Time{}
-	a.cancel = nil
-	return &CancelResponse{Success: true}, nil
 }
 
 func (w *Worker) worker() {
@@ -157,8 +126,11 @@ func (w *Worker) worker() {
 	})
 }
 
-func (w *Worker) master(masterLock *dlock.DLock) {
-	logger := logs.NewMasterLogger(w.pipelineInfo)
+func (w *Worker) master(etcdClient *etcd.Client, etcdPrefix string) {
+	pipelineInfo := w.driver.PipelineInfo()
+	logger := logs.NewMasterLogger(pipelineInfo)
+	lockPath := path.Join(etcdPrefix, masterLockPath, pipelineInfo.Pipeline.Name, pipelineInfo.Salt)
+	masterLock := dlock.NewDLock(etcdClient, lockPath)
 
 	b := backoff.NewInfiniteBackOff()
 	// Setting a high backoff so that when this master fails, the other
@@ -172,7 +144,7 @@ func (w *Worker) master(masterLock *dlock.DLock) {
 	b.InitialInterval = 10 * time.Second
 	backoff.RetryNotify(func() error {
 		// We use pachClient.Ctx here because it contains auth information.
-		ctx, cancel := context.WithCancel(w.pachClient.Ctx())
+		ctx, cancel := context.WithCancel(w.driver.PachClient().Ctx())
 		defer cancel() // make sure that everything this loop might spawn gets cleaned up
 		ctx, err := masterLock.Lock(ctx)
 		if err != nil {
@@ -184,10 +156,14 @@ func (w *Worker) master(masterLock *dlock.DLock) {
 		return runSpawner(w.driver.WithCtx(ctx), logger)
 	}, b, func(err error, d time.Duration) error {
 		if auth.IsErrNotAuthorized(err) {
-			logger.Logf("failing %q due to auth rejection", w.pipelineInfo.Pipeline.Name)
-			return ppsutil.FailPipeline(w.pachClient.Ctx(), w.etcdClient, w.driver.Pipelines(),
-				w.pipelineInfo.Pipeline.Name, "worker master could not access output "+
-					"repo to watch for new commits")
+			logger.Logf("failing %q due to auth rejection", pipelineInfo.Pipeline.Name)
+			return ppsutil.FailPipeline(
+				w.driver.PachClient().Ctx(),
+				etcdClient,
+				w.driver.Pipelines(),
+				pipelineInfo.Pipeline.Name,
+				"worker master could not access output repo to watch for new commits",
+			)
 		}
 		logger.Logf("master: error running the master process, retrying in %v: %v", d, err)
 		return nil
