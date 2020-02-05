@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
@@ -32,9 +33,13 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 		return fmt.Errorf("invalid pipeline, only a single PFS input is supported")
 	}
 
-	eg := &errgroup.Group{}
+	var eg *errgroup.Group
 
 	err := withTestEnv(pipelineInfo, func(env *testEnv) error {
+		eg, ctx := errgroup.WithContext(env.driver.PachClient().Ctx())
+		env.PachClient = env.PachClient.WithCtx(ctx)
+		env.driver = env.driver.WithCtx(ctx)
+
 		// TODO: for debugging purposes, remove
 		env.logger.Writer = os.Stdout
 
@@ -73,8 +78,21 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 			return err
 		}
 
+		// Put the pipeline info into etcd (which is read by the master)
+		if _, err = env.driver.NewSTM(func(stm col.STM) error {
+			etcdPipelineInfo := &pps.EtcdPipelineInfo{
+				State:       pps.PipelineState_PIPELINE_STARTING,
+				SpecCommit:  pipelineInfo.SpecCommit,
+				Parallelism: 1,
+			}
+			return env.driver.Pipelines().ReadWrite(stm).Put(pipelineInfo.Pipeline.Name, etcdPipelineInfo)
+		}); err != nil {
+			return err
+		}
+
 		eg.Go(func() error {
 			err := Run(env.driver, env.logger)
+			fmt.Printf("Master error: %v\n", err)
 			if isCanceledError(err) {
 				return nil
 			}
@@ -82,7 +100,7 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 		})
 
 		eg.Go(func() error {
-			backoff.RetryUntilCancel(env.driver.PachClient().Ctx(), func() error {
+			err := backoff.RetryUntilCancel(env.driver.PachClient().Ctx(), func() error {
 				return env.driver.NewTaskWorker().Run(
 					env.driver.PachClient().Ctx(),
 					func(ctx context.Context, task *work.Task, subtask *work.Task) error {
@@ -93,6 +111,7 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 				env.logger.Logf("worker failed, retrying immediately, err: %v", err)
 				return nil
 			})
+			fmt.Printf("Worker error: %v\n", err)
 			if isCanceledError(err) {
 				return nil
 			}

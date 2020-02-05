@@ -358,8 +358,10 @@ func (d *driver) NewTaskMaster() *work.Master {
 func (d *driver) GetExpectedNumWorkers() (int, error) {
 	pipelinePtr := &pps.EtcdPipelineInfo{}
 	if err := d.Pipelines().ReadOnly(d.PachClient().Ctx()).Get(d.PipelineInfo().Pipeline.Name, pipelinePtr); err != nil {
+		fmt.Printf("GetExpectedNumWorkers failed, err: %v\n", err)
 		return 0, err
 	}
+	fmt.Printf("GetExpectedNumWorkers success: %v\n", pipelinePtr.Parallelism)
 	return int(pipelinePtr.Parallelism), nil
 }
 
