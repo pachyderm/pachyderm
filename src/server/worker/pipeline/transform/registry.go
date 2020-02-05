@@ -800,14 +800,14 @@ func (reg *registry) processJobMerging(pj *pendingJob) error {
 		}
 		protoReader := pbutil.NewReader(buf)
 
-		hashtreeObjects := &HashtreeObjects{}
-		if err := protoReader.Read(hashtreeObjects); err != nil {
+		hashtreeTags := &HashtreeTags{}
+		if err := protoReader.Read(hashtreeTags); err != nil {
 			return err
 		}
 
 		hashtreeInfos := []*HashtreeInfo{}
-		for _, obj := range hashtreeObjects.Hashtrees {
-			hashtreeInfos = append(hashtreeInfos, &HashtreeInfo{Object: obj})
+		for _, tag := range hashtreeTags.Tags {
+			hashtreeInfos = append(hashtreeInfos, &HashtreeInfo{Tag: tag})
 		}
 
 		pj.hashtrees = hashtreeInfos
@@ -826,19 +826,17 @@ func (reg *registry) processJobMerging(pj *pendingJob) error {
 		if len(parentHashtrees) != int(reg.numHashtrees) {
 			return fmt.Errorf("unexpected number of hashtrees between the parent commit (%d) and the pipeline spec (%d)", len(parentHashtrees), reg.numHashtrees)
 		}
-		pj.logger.Logf("merging %d hashtrees across %d shards", len(pj.hashtrees)+1, reg.numHashtrees)
+		pj.logger.Logf("merging %d hashtrees with parent hashtree across %d shards", len(pj.hashtrees), reg.numHashtrees)
 	} else {
 		pj.logger.Logf("merging %d hashtrees across %d shards", len(pj.hashtrees), reg.numHashtrees)
 	}
 
 	mergeSubtasks := []*work.Task{}
 	for i := int64(0); i < reg.numHashtrees; i++ {
-		mergeData := &MergeData{
-			Hashtrees: append([]*HashtreeInfo{}, pj.hashtrees...),
-			Shard:     i,
-		}
+		mergeData := &MergeData{Hashtrees: pj.hashtrees, Shard: i}
+
 		if parentHashtrees != nil {
-			mergeData.Hashtrees = append(mergeData.Hashtrees, &HashtreeInfo{Object: parentHashtrees[i]})
+			mergeData.Parent = &HashtreeInfo{Object: parentHashtrees[i]}
 		}
 
 		data, err := serializeMergeData(mergeData)

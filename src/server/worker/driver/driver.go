@@ -81,6 +81,10 @@ type Driver interface {
 	// Returns the path that will contain the input filesets for the job
 	InputDir() string
 
+	// Returns the base path used for hashtree storage. Users should scope their
+	// hashtrees to some unique subdirectory to avoid collisions.
+	HashtreeDir() string
+
 	// Returns the pachd API client for the driver
 	PachClient() *client.APIClient
 
@@ -135,8 +139,8 @@ type Driver interface {
 
 	// These caches are used for storing and merging hashtrees from jobs until the
 	// job is complete
-	ChunkCache() cache.WorkerCache
-	ChunkStatsCache() cache.WorkerCache
+	ChunkCaches() cache.WorkerCache
+	ChunkStatsCaches() cache.WorkerCache
 
 	// WithDatumCache calls the given callback with two hashtree merge caches, one
 	// for datums and one for datum stats. The lifetime of these caches will be
@@ -151,7 +155,6 @@ type driver struct {
 	etcdClient      *etcd.Client
 	etcdPrefix      string
 	activeDataMutex *sync.Mutex
-	rootDir         string
 
 	jobs col.Collection
 
@@ -170,10 +173,13 @@ type driver struct {
 	// overridden by tests
 	inputDir string
 
+	// The directory to store hashtrees in. Users should scope their hashtrees to
+	// some unique subdirectory to avoid collisions.
+	hashtreeDir string
+
 	// These caches are used for storing and merging hashtrees from jobs until the
 	// job is complete
-	chunkCache, chunkStatsCache         cache.WorkerCache
-	datumCachePath, datumStatsCachePath string
+	chunkCaches, chunkStatsCaches cache.WorkerCache
 }
 
 // NewDriver constructs a Driver object using the given clients and pipeline
@@ -209,20 +215,19 @@ func NewDriver(
 	}
 
 	result := &driver{
-		pipelineInfo:        pipelineInfo,
-		pachClient:          pachClient,
-		kubeWrapper:         kubeWrapper,
-		etcdClient:          etcdClient,
-		etcdPrefix:          etcdPrefix,
-		activeDataMutex:     &sync.Mutex{},
-		jobs:                ppsdb.Jobs(etcdClient, etcdPrefix),
-		pipelines:           ppsdb.Pipelines(etcdClient, etcdPrefix),
-		numShards:           numShards,
-		inputDir:            pfsPath,
-		chunkCache:          cache.NewWorkerCache(chunkCachePath),
-		chunkStatsCache:     cache.NewWorkerCache(chunkStatsCachePath),
-		datumCachePath:      filepath.Join(hashtreePath, "datum"),
-		datumStatsCachePath: filepath.Join(hashtreePath, "datumStats"),
+		pipelineInfo:     pipelineInfo,
+		pachClient:       pachClient,
+		kubeWrapper:      kubeWrapper,
+		etcdClient:       etcdClient,
+		etcdPrefix:       etcdPrefix,
+		activeDataMutex:  &sync.Mutex{},
+		jobs:             ppsdb.Jobs(etcdClient, etcdPrefix),
+		pipelines:        ppsdb.Pipelines(etcdClient, etcdPrefix),
+		numShards:        numShards,
+		inputDir:         pfsPath,
+		hashtreeDir:      hashtreePath,
+		chunkCaches:      cache.NewWorkerCache(chunkCachePath),
+		chunkStatsCaches: cache.NewWorkerCache(chunkStatsCachePath),
 	}
 
 	if pipelineInfo.Transform.User != "" {
@@ -372,6 +377,10 @@ func (d *driver) InputDir() string {
 	return d.inputDir
 }
 
+func (d *driver) HashtreeDir() string {
+	return d.hashtreeDir
+}
+
 func (d *driver) PachClient() *client.APIClient {
 	return d.pachClient
 }
@@ -380,18 +389,20 @@ func (d *driver) KubeWrapper() KubeWrapper {
 	return d.kubeWrapper
 }
 
-func (d *driver) ChunkCache() cache.WorkerCache {
-	return d.chunkCache
+func (d *driver) ChunkCaches() cache.WorkerCache {
+	return d.chunkCaches
 }
 
-func (d *driver) ChunkStatsCache() cache.WorkerCache {
-	return d.chunkStatsCache
+func (d *driver) ChunkStatsCaches() cache.WorkerCache {
+	return d.chunkStatsCaches
 }
 
-func (d *driver) WithDatumCache(cb func(*hashtree.MergeCache, *hashtree.MergeCache) error) (retErr error) {
+// This is broken out into its own function because its scope is small and it
+// can easily be used by the mock driver for testing purposes.
+func withDatumCache(storageRoot string, cb func(*hashtree.MergeCache, *hashtree.MergeCache) error) (retErr error) {
 	cacheID := uuid.NewWithoutDashes()
-	datumCachePath := filepath.Join(d.datumCachePath, cacheID)
-	statsCachePath := filepath.Join(d.datumStatsCachePath, cacheID)
+	datumCachePath := filepath.Join(storageRoot, "datum", cacheID)
+	statsCachePath := filepath.Join(storageRoot, "datumStats", cacheID)
 
 	if err := os.MkdirAll(datumCachePath, 0777); err != nil {
 		return err
@@ -415,6 +426,10 @@ func (d *driver) WithDatumCache(cb func(*hashtree.MergeCache, *hashtree.MergeCac
 	statsCache := hashtree.NewMergeCache(statsCachePath)
 
 	return cb(datumCache, statsCache)
+}
+
+func (d *driver) WithDatumCache(cb func(*hashtree.MergeCache, *hashtree.MergeCache) error) (retErr error) {
+	return withDatumCache(d.HashtreeDir(), cb)
 }
 
 func (d *driver) GetDatumMap(ctx context.Context, object *pfs.Object) (_ map[string]bool, retErr error) {

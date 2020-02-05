@@ -76,7 +76,7 @@ func NewWorker(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix
 
 	d, err := driver.NewDriver(
 		pipelineInfo,
-		oldPachClient,
+		pachClient,
 		driver.NewKubeWrapper(kubeClient),
 		etcdClient,
 		etcdPrefix,
@@ -88,13 +88,14 @@ func NewWorker(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix
 	}
 
 	worker := &Worker{
-		pachClient: oldPachClient,
+		pachClient: pachClient,
 		etcdClient: etcdClient,
 		etcdPrefix: etcdPrefix,
 		driver:     d,
 		namespace:  namespace,
-		apiServer:  server.NewAPIServer(d, workerName),
 	}
+
+	apiServer:  server.NewAPIServer(d, workerName),
 
 	go worker.master()
 	go worker.worker()

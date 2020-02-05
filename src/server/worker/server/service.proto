@@ -17,14 +17,15 @@ message CancelResponse {
   bool success = 1;
 }
 
+message GetChunkRequest {
+  string job_id = 1 [(gogoproto.customname) = "JobID"];
+  string tag = 2;
+  int64 shard = 3;
+  bool stats = 4;
+}
+
 service Worker {
   rpc Status(google.protobuf.Empty) returns (pps.WorkerStatus) {}
   rpc Cancel(CancelRequest) returns (CancelResponse) {}
   rpc GetChunk(GetChunkRequest) returns (stream google.protobuf.BytesValue) {}
-}
-
-message GetChunkRequest {
-  int64 id = 1;
-  int64 shard = 2;
-  bool stats = 3;
 }

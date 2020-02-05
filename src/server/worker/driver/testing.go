@@ -2,7 +2,6 @@ package driver
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 	"time"
 
@@ -15,7 +14,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 	"github.com/pachyderm/pachyderm/src/server/worker/cache"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
@@ -39,7 +37,7 @@ type MockDriver struct {
 	options    *MockOptions
 	etcdClient *etcd.Client
 
-	chunkCache, chunkStatsCache cache.WorkerCache
+	chunkCaches, chunkStatsCaches cache.WorkerCache
 }
 
 // Not used - forces a compile-time error in this file if MockDriver does not
@@ -66,8 +64,8 @@ func NewMockDriver(etcdClient *etcd.Client, userOptions *MockOptions) *MockDrive
 	}
 
 	if options.HashtreePath != "" {
-		md.chunkCache = cache.NewWorkerCache(filepath.Join(options.HashtreePath, "chunk"))
-		md.chunkStatsCache = cache.NewWorkerCache(filepath.Join(options.HashtreePath, "chunkStats"))
+		md.chunkCaches = cache.NewWorkerCache(filepath.Join(options.HashtreePath, "chunk"))
+		md.chunkStatsCaches = cache.NewWorkerCache(filepath.Join(options.HashtreePath, "chunkStats"))
 	}
 
 	return md
@@ -108,52 +106,25 @@ func (md *MockDriver) PipelineInfo() *pps.PipelineInfo {
 	return md.options.PipelineInfo
 }
 
-// ChunkCache returns a cache.WorkerCache instance that can be used for caching
+// ChunkCaches returns a cache.WorkerCache instance that can be used for caching
 // hashtrees in the worker across multiple jobs. If no hashtree storage is
 // specified in the MockDriver options, this will be nil.
-func (md *MockDriver) ChunkCache() cache.WorkerCache {
-	return md.chunkCache
+func (md *MockDriver) ChunkCaches() cache.WorkerCache {
+	return md.chunkCaches
 }
 
-// ChunkStatsCache returns a cache.WorkerCache instance that can be used for
+// ChunkStatsCaches returns a cache.WorkerCache instance that can be used for
 // caching hashtrees in the worker across multiple jobs. If no hashtree storage
 // is specified in the MockDriver options, this will be nil.
-func (md *MockDriver) ChunkStatsCache() cache.WorkerCache {
-	return md.chunkStatsCache
+func (md *MockDriver) ChunkStatsCaches() cache.WorkerCache {
+	return md.chunkStatsCaches
 }
 
 // WithDatumCache calls the given callback with two hashtree merge caches, one
 // for datums and one for datum stats. The lifetime of these caches will be
 // bound to the callback, and any resources will be cleaned up upon return.
 func (md *MockDriver) WithDatumCache(cb func(*hashtree.MergeCache, *hashtree.MergeCache) error) (retErr error) {
-	// TODO: this doesn't depend on much state, use a common function between this
-	// and the real driver, parameterized on the storage root(s)
-	cacheID := uuid.NewWithoutDashes()
-	datumCachePath := filepath.Join(md.options.HashtreePath, "datum", cacheID)
-	statsCachePath := filepath.Join(md.options.HashtreePath, "datumStats", cacheID)
-
-	if err := os.MkdirAll(datumCachePath, 0777); err != nil {
-		return err
-	}
-	defer func() {
-		if err := os.RemoveAll(datumCachePath); retErr == nil {
-			retErr = err
-		}
-	}()
-
-	if err := os.MkdirAll(statsCachePath, 0777); err != nil {
-		return err
-	}
-	defer func() {
-		if err := os.RemoveAll(statsCachePath); retErr == nil {
-			retErr = err
-		}
-	}()
-
-	datumCache := hashtree.NewMergeCache(datumCachePath)
-	statsCache := hashtree.NewMergeCache(statsCachePath)
-
-	return cb(datumCache, statsCache)
+	return withDatumCache(md.options.HashtreePath, cb)
 }
 
 // InputDir returns the path used to hold the input filesets. Inherit and shadow
@@ -161,6 +132,12 @@ func (md *MockDriver) WithDatumCache(cb func(*hashtree.MergeCache, *hashtree.Mer
 // unique so that tests don't collide).
 func (md *MockDriver) InputDir() string {
 	return "/pfs"
+}
+
+// HashtreeDir returns the path used to hold hashtrees. This is set in the
+// options.
+func (md *MockDriver) HashtreeDir() string {
+	return md.options.HashtreePath
 }
 
 // PachClient returns the pachd API client for the driver. This is always `nil`

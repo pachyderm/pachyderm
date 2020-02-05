@@ -27,12 +27,11 @@ func RunUserCode(
 	ctx context.Context,
 	driver driver.Driver,
 	logger logs.TaggedLogger,
-	dir string,
 ) error {
 	return backoff.RetryUntilCancel(ctx, func() error {
 		// TODO: shouldn't this set up env like the worker does?
 		// TODO: what about the user error handling code?
-		return driver.RunUserCode(logger, nil, dir, &pps.ProcessStats{}, nil)
+		return driver.RunUserCode(logger, nil, &pps.ProcessStats{}, nil)
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		logger.Logf("error in RunUserCode: %+v, retrying in: %+v", err, d)
 		return nil
