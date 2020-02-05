@@ -1,0 +1,12 @@
+{
+  "pipeline": {
+    "name": "spoutmarker"
+  },
+  "transform": {
+    "cmd": [ "python3", "/spout-marker-example.py" ],
+    "image": "spout-marker:v10"
+  },
+  "spout": {
+    "marker": "mymark"
+  }
+}
