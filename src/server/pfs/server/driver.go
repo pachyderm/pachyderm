@@ -893,29 +893,30 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool, cb func(*pfs.FsckR
 	}
 	if fix {
 		var cisToSend []*pfs.CommitInfo
-		batchSize := 1000
+		batchSize := 100
 		send := func() error {
-			if len(cisToSend) > batchSize {
-				_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-					for _, ci := range cisToSend {
-						// We've observed users getting ErrExists from this create,
-						// which doesn't make a lot of sense, but we insulate against
-						// it anyways so it doesn't prevent the command from working.
-						if err := d.commits(ci.Commit.Repo.Name).ReadWrite(stm).Create(ci.Commit.ID, ci); err != nil && !col.IsErrExists(err) {
-							return err
-						}
+			if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+				for _, ci := range cisToSend {
+					// We've observed users getting ErrExists from this create,
+					// which doesn't make a lot of sense, but we insulate against
+					// it anyways so it doesn't prevent the command from working.
+					if err := d.commits(ci.Commit.Repo.Name).ReadWrite(stm).Create(ci.Commit.ID, ci); err != nil && !col.IsErrExists(err) {
+						return err
 					}
-					return nil
-				})
-				cisToSend = nil
+				}
+				return nil
+			}); err != nil {
 				return err
 			}
+			cisToSend = nil
 			return nil
 		}
 		for _, ci := range newCommitInfos {
 			cisToSend = append(cisToSend, ci)
-			if err := send(); err != nil {
-				return err
+			if len(cisToSend) > batchSize {
+				if err := send(); err != nil {
+					return err
+				}
 			}
 		}
 		if err := send(); err != nil {
