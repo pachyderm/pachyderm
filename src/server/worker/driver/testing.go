@@ -147,13 +147,6 @@ func (md *MockDriver) PachClient() *client.APIClient {
 	return nil
 }
 
-// KubeWrapper returns an interface for performing kubernetes operations in the
-// worker. This defaults to a regular MockKubeWrapper instance, but you can
-// inherit and shadow this if you want some other value.
-func (md *MockDriver) KubeWrapper() KubeWrapper {
-	return NewMockKubeWrapper()
-}
-
 // GetExpectedNumWorkers returns the configured number of workers
 func (md *MockDriver) GetExpectedNumWorkers() (int, error) {
 	return md.options.NumWorkers, nil
@@ -231,20 +224,4 @@ func (md *MockDriver) ReportUploadStats(time.Time, *pps.ProcessStats, logs.Tagge
 // client.
 func (md *MockDriver) NewSTM(cb func(col.STM) error) (*etcd.TxnResponse, error) {
 	return col.NewSTM(md.ctx, md.etcdClient, cb)
-}
-
-// MockKubeWrapper is an alternate implementation of the KubeWrapper interface
-// for use with tests.
-type MockKubeWrapper struct{}
-
-// NewMockKubeWrapper constructs a MockKubeWrapper for use with testing drivers
-// without a kubeClient dependency.
-func NewMockKubeWrapper() KubeWrapper {
-	return &MockKubeWrapper{}
-}
-
-// GetExpectedNumWorkers returns the number of workers the pipeline should be using.
-// Inherit and shadow this if you want anything other than 1.
-func (mkw *MockKubeWrapper) GetExpectedNumWorkers(*pps.ParallelismSpec) (int, error) {
-	return 1, nil
 }

@@ -249,7 +249,7 @@ func TestJob(t *testing.T) {
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
 		ctx = withTimeout(ctx, 10*time.Second)
 		<-ctx.Done()
-		require.Equal(t, etcdJobInfo.State, pps.JobState_JOB_SUCCESS)
+		require.Equal(t, pps.JobState_JOB_SUCCESS, etcdJobInfo.State)
 		return nil
 	})
 	require.NoError(t, err)

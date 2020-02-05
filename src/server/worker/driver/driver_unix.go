@@ -3,6 +3,7 @@
 package driver
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -43,7 +44,7 @@ func (d *driver) WithActiveData(inputs []*common.Input, dir string, cb func() er
 	return cb()
 }
 
-func (d *driver) linkData(inputs []*Input, dir string) error {
+func (d *driver) linkData(inputs []*common.Input, dir string) error {
 	// Make sure that the previously-symlinked outputs are removed.
 	if err := d.unlinkData(inputs); err != nil {
 		return err
@@ -58,7 +59,7 @@ func (d *driver) linkData(inputs []*Input, dir string) error {
 	}
 
 	if d.PipelineInfo().Spout != nil && d.PipelineInfo().Spout.Marker != "" {
-		if err = os.Symlink(
+		if err := os.Symlink(
 			filepath.Join(dir, d.PipelineInfo().Spout.Marker),
 			filepath.Join(d.InputDir(), d.PipelineInfo().Spout.Marker),
 		); err != nil {

@@ -55,7 +55,6 @@ func withTestEnv(pipelineInfo *pps.PipelineInfo, cb func(*testEnv) error) error 
 		driver, err := driver.NewDriver(
 			pipelineInfo,
 			realEnv.PachClient,
-			driver.NewMockKubeWrapper(),
 			realEnv.EtcdClient,
 			"/pachyderm_test",
 			filepath.Join(realEnv.Directory, "worker", "hashtrees"),

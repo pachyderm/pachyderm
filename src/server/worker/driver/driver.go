@@ -88,10 +88,7 @@ type Driver interface {
 	// Returns the pachd API client for the driver
 	PachClient() *client.APIClient
 
-	// Returns an interface for kubernetes operations
-	KubeWrapper() KubeWrapper
-
-	// Returns the number of workers to be used based on what can be determined from kubernetes
+	// Returns the number of workers to be used
 	GetExpectedNumWorkers() (int, error)
 
 	// Returns the number of hashtree shards for the pipeline
@@ -151,7 +148,6 @@ type Driver interface {
 type driver struct {
 	pipelineInfo    *pps.PipelineInfo
 	pachClient      *client.APIClient
-	kubeWrapper     KubeWrapper
 	etcdClient      *etcd.Client
 	etcdPrefix      string
 	activeDataMutex *sync.Mutex
@@ -189,7 +185,6 @@ type driver struct {
 func NewDriver(
 	pipelineInfo *pps.PipelineInfo,
 	pachClient *client.APIClient,
-	kubeWrapper KubeWrapper,
 	etcdClient *etcd.Client,
 	etcdPrefix string,
 	hashtreePath string,
@@ -217,7 +212,6 @@ func NewDriver(
 	result := &driver{
 		pipelineInfo:     pipelineInfo,
 		pachClient:       pachClient,
-		kubeWrapper:      kubeWrapper,
 		etcdClient:       etcdClient,
 		etcdPrefix:       etcdPrefix,
 		activeDataMutex:  &sync.Mutex{},
@@ -362,7 +356,11 @@ func (d *driver) NewTaskMaster() *work.Master {
 }
 
 func (d *driver) GetExpectedNumWorkers() (int, error) {
-	return d.kubeWrapper.GetExpectedNumWorkers(d.pipelineInfo.ParallelismSpec)
+	pipelinePtr := &pps.EtcdPipelineInfo{}
+	if err := d.Pipelines().ReadOnly(d.PachClient().Ctx()).Get(d.PipelineInfo().Pipeline.Name, pipelinePtr); err != nil {
+		return 0, err
+	}
+	return int(pipelinePtr.Parallelism), nil
 }
 
 func (d *driver) NumShards() int64 {
@@ -383,10 +381,6 @@ func (d *driver) HashtreeDir() string {
 
 func (d *driver) PachClient() *client.APIClient {
 	return d.pachClient
-}
-
-func (d *driver) KubeWrapper() KubeWrapper {
-	return d.kubeWrapper
 }
 
 func (d *driver) ChunkCaches() cache.WorkerCache {

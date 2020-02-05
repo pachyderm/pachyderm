@@ -51,8 +51,7 @@ func testPipelineInfo() *pps.PipelineInfo {
 
 type testEnv struct {
 	tu.MockEnv
-	mockKube *MockKubeWrapper
-	driver   *driver
+	driver *driver
 }
 
 func withTestEnv(cb func(*testEnv)) error {
@@ -64,13 +63,10 @@ func withTestEnv(cb func(*testEnv)) error {
 			return &enterprise.GetStateResponse{State: enterprise.State_NONE}, nil
 		})
 
-		env.mockKube = NewMockKubeWrapper().(*MockKubeWrapper)
-
 		var d Driver
 		d, err = NewDriver(
 			testPipelineInfo(),
 			env.PachClient,
-			env.mockKube,
 			env.EtcdClient,
 			tu.UniqueString("driverTest"),
 			filepath.Clean(filepath.Join(env.Directory, "hashtrees")),

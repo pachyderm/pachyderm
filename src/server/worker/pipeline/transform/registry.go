@@ -56,15 +56,14 @@ type pendingJob struct {
 }
 
 type registry struct {
-	driver       driver.Driver
-	logger       logs.TaggedLogger
-	workMaster   *work.Master
-	mutex        sync.Mutex
-	concurrency  int
-	numHashtrees int64
-	limiter      limit.ConcurrencyLimiter
-	datumsBase   map[string]struct{}
-	jobs         []*pendingJob
+	driver      driver.Driver
+	logger      logs.TaggedLogger
+	workMaster  *work.Master
+	mutex       sync.Mutex
+	concurrency int
+	limiter     limit.ConcurrencyLimiter
+	datumsBase  map[string]struct{}
+	jobs        []*pendingJob
 }
 
 // Returns the registry or lazily instantiates it
@@ -73,23 +72,17 @@ func newRegistry(
 	driver driver.Driver,
 ) (*registry, error) {
 	// Determine the maximum number of concurrent tasks we will allow
-	concurrency, err := driver.KubeWrapper().GetExpectedNumWorkers(driver.PipelineInfo().ParallelismSpec)
-	if err != nil {
-		return nil, err
-	}
-
-	numHashtrees, err := ppsutil.GetExpectedNumHashtrees(driver.PipelineInfo().HashtreeSpec)
+	concurrency, err := driver.GetExpectedNumWorkers()
 	if err != nil {
 		return nil, err
 	}
 
 	return &registry{
-		driver:       driver,
-		logger:       logger,
-		concurrency:  concurrency,
-		numHashtrees: numHashtrees,
-		workMaster:   driver.NewTaskMaster(),
-		limiter:      limit.New(concurrency),
+		driver:      driver,
+		logger:      logger,
+		concurrency: concurrency,
+		workMaster:  driver.NewTaskMaster(),
+		limiter:     limit.New(concurrency),
 	}, nil
 }
 
@@ -823,16 +816,16 @@ func (reg *registry) processJobMerging(pj *pendingJob) error {
 		}
 
 		parentHashtrees = parentCommitInfo.Trees
-		if len(parentHashtrees) != int(reg.numHashtrees) {
-			return fmt.Errorf("unexpected number of hashtrees between the parent commit (%d) and the pipeline spec (%d)", len(parentHashtrees), reg.numHashtrees)
+		if len(parentHashtrees) != int(reg.driver.NumShards()) {
+			return fmt.Errorf("unexpected number of hashtrees between the parent commit (%d) and the pipeline spec (%d)", len(parentHashtrees), reg.driver.NumShards())
 		}
-		pj.logger.Logf("merging %d hashtrees with parent hashtree across %d shards", len(pj.hashtrees), reg.numHashtrees)
+		pj.logger.Logf("merging %d hashtrees with parent hashtree across %d shards", len(pj.hashtrees), reg.driver.NumShards())
 	} else {
-		pj.logger.Logf("merging %d hashtrees across %d shards", len(pj.hashtrees), reg.numHashtrees)
+		pj.logger.Logf("merging %d hashtrees across %d shards", len(pj.hashtrees), reg.driver.NumShards())
 	}
 
 	mergeSubtasks := []*work.Task{}
-	for i := int64(0); i < reg.numHashtrees; i++ {
+	for i := int64(0); i < reg.driver.NumShards(); i++ {
 		mergeData := &MergeData{Hashtrees: pj.hashtrees, Shard: i}
 
 		if parentHashtrees != nil {

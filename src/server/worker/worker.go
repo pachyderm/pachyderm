@@ -5,6 +5,9 @@ import (
 	"path"
 	"time"
 
+	etcd "github.com/coreos/etcd/clientv3"
+
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
@@ -16,40 +19,41 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/worker/pipeline/spout"
 	"github.com/pachyderm/pachyderm/src/server/worker/pipeline/transform"
 	"github.com/pachyderm/pachyderm/src/server/worker/server"
+	"github.com/pachyderm/pachyderm/src/server/worker/stats"
 )
 
 const (
 	masterLockPath = "_master_worker_lock"
 )
 
+// The Worker object represents
 type Worker struct {
-	pachClient      *client.APIClient // TODO: does this need to be separate from driver.PachClient()?
-	etcdClient      *etcd.Client
-	etcdPrefix      string
-	driver          driver.Driver // Provides common functions used by worker code
-	namespace       string        // The namespace in which pachyderm is deployed
-	transformWorker *transform.Worker
+	driver    driver.Driver // Provides common functions used by worker code
+	namespace string        // The namespace in which pachyderm is deployed - TODO: what is this for?
 }
 
-func NewWorker(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix string, pipelineInfo *pps.PipelineInfo, workerName string, namespace string, hashtreePath string) (*Worker, error) {
+// NewWorker constructs a Worker object that provides all worker functionality:
+//  1. a master goroutine that attempts to obtain the master lock for the pipeline workers and direct jobs
+//  2. a worker goroutine that gets tasks from the master and processes them
+//  3. an api server that serves requests for status or cross-worker communication
+//  4. a driver that provides common functionality between the above components
+func NewWorker(
+	pachClient *client.APIClient,
+	etcdClient *etcd.Client,
+	etcdPrefix string,
+	pipelineInfo *pps.PipelineInfo,
+	workerName string,
+	namespace string,
+	hashtreePath string,
+) (*Worker, error) {
 	stats.InitPrometheus()
 
-	cfg, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	kubeClient, err := kube.NewForConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	var noDocker bool
+	hasDocker := true
 	if _, err := os.Stat("/var/run/docker.sock"); err != nil {
-		noDocker = true
+		hasDocker = false
 	}
 
-	if pipelineInfo.Transform.Image != "" && !noDocker {
+	if pipelineInfo.Transform.Image != "" && hasDocker {
 		docker, err := docker.NewClientFromEnv()
 		if err != nil {
 			return nil, err
@@ -77,7 +81,6 @@ func NewWorker(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix
 	d, err := driver.NewDriver(
 		pipelineInfo,
 		pachClient,
-		driver.NewKubeWrapper(kubeClient),
 		etcdClient,
 		etcdPrefix,
 		filepath.Join(hashtreePath, uuid.NewWithoutDashes()),
@@ -88,15 +91,13 @@ func NewWorker(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix
 	}
 
 	worker := &Worker{
-		pachClient: pachClient,
-		etcdClient: etcdClient,
-		etcdPrefix: etcdPrefix,
-		driver:     d,
-		namespace:  namespace,
+		driver:    d,
+		namespace: namespace,
 	}
 
-	apiServer:  server.NewAPIServer(d, workerName),
+	worker.apiServer = server.NewAPIServer(worker, d, workerName)
 
+	masterLock := dlock.NewDLock(etcdClient, path.Join(etcdPrefix, masterLockPath, w.pipelineInfo.Pipeline.Name, w.pipelineInfo.Salt))
 	go worker.master()
 	go worker.worker()
 	return worker, nil
@@ -156,10 +157,9 @@ func (w *Worker) worker() {
 	})
 }
 
-func (w *Worker) master() {
+func (w *Worker) master(masterLock *dlock.DLock) {
 	logger := logs.NewMasterLogger(w.pipelineInfo)
 
-	masterLock := dlock.NewDLock(w.etcdClient, path.Join(w.etcdPrefix, masterLockPath, w.pipelineInfo.Pipeline.Name, w.pipelineInfo.Salt))
 	b := backoff.NewInfiniteBackOff()
 	// Setting a high backoff so that when this master fails, the other
 	// workers are more likely to become the master.
