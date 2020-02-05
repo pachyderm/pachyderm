@@ -137,8 +137,11 @@ type Driver interface {
 	// job is complete
 	ChunkCache() cache.WorkerCache
 	ChunkStatsCache() cache.WorkerCache
-	DatumCache() cache.WorkerCache
-	DatumStatsCache() cache.WorkerCache
+
+	// WithDatumCache calls the given callback with two hashtree merge caches, one
+	// for datums and one for datum stats. The lifetime of these caches will be
+	// bound to the callback, and any resources will be cleaned up upon return.
+	WithDatumCache(func(*hashtree.MergeCache, *hashtree.MergeCache) error) error
 }
 
 type driver struct {
@@ -169,7 +172,8 @@ type driver struct {
 
 	// These caches are used for storing and merging hashtrees from jobs until the
 	// job is complete
-	chunkCache, chunkStatsCache, datumCache, datumStatsCache cache.WorkerCache
+	chunkCache, chunkStatsCache         cache.WorkerCache
+	datumCachePath, datumStatsCachePath string
 }
 
 // NewDriver constructs a Driver object using the given clients and pipeline
@@ -187,8 +191,6 @@ func NewDriver(
 ) (Driver, error) {
 	chunkCachePath := filepath.Join(hashtreePath, "chunk")
 	chunkStatsCachePath := filepath.Join(hashtreePath, "chunkStats")
-	datumCachePath := filepath.Join(hashtreePath, "datum")
-	datumStatsCachePath := filepath.Join(hashtreePath, "datumStats")
 
 	if err := os.MkdirAll(pfsPath, 0777); err != nil {
 		return nil, err
@@ -199,12 +201,6 @@ func NewDriver(
 	if err := os.MkdirAll(chunkStatsCachePath, 0777); err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(datumCachePath, 0777); err != nil {
-		return nil, err
-	}
-	if err := os.MkdirAll(datumStatsCachePath, 0777); err != nil {
-		return nil, err
-	}
 
 	numShards, err := ppsutil.GetExpectedNumHashtrees(pipelineInfo.HashtreeSpec)
 	if err != nil {
@@ -213,20 +209,20 @@ func NewDriver(
 	}
 
 	result := &driver{
-		pipelineInfo:    pipelineInfo,
-		pachClient:      pachClient,
-		kubeWrapper:     kubeWrapper,
-		etcdClient:      etcdClient,
-		etcdPrefix:      etcdPrefix,
-		activeDataMutex: &sync.Mutex{},
-		jobs:            ppsdb.Jobs(etcdClient, etcdPrefix),
-		pipelines:       ppsdb.Pipelines(etcdClient, etcdPrefix),
-		numShards:       numShards,
-		inputDir:        pfsPath,
-		chunkCache:      cache.NewWorkerCache(chunkCachePath),
-		chunkStatsCache: cache.NewWorkerCache(chunkStatsCachePath),
-		datumCache:      cache.NewWorkerCache(datumCachePath),
-		datumStatsCache: cache.NewWorkerCache(datumStatsCachePath),
+		pipelineInfo:        pipelineInfo,
+		pachClient:          pachClient,
+		kubeWrapper:         kubeWrapper,
+		etcdClient:          etcdClient,
+		etcdPrefix:          etcdPrefix,
+		activeDataMutex:     &sync.Mutex{},
+		jobs:                ppsdb.Jobs(etcdClient, etcdPrefix),
+		pipelines:           ppsdb.Pipelines(etcdClient, etcdPrefix),
+		numShards:           numShards,
+		inputDir:            pfsPath,
+		chunkCache:          cache.NewWorkerCache(chunkCachePath),
+		chunkStatsCache:     cache.NewWorkerCache(chunkStatsCachePath),
+		datumCachePath:      filepath.Join(hashtreePath, "datum"),
+		datumStatsCachePath: filepath.Join(hashtreePath, "datumStats"),
 	}
 
 	if pipelineInfo.Transform.User != "" {
@@ -392,12 +388,33 @@ func (d *driver) ChunkStatsCache() cache.WorkerCache {
 	return d.chunkStatsCache
 }
 
-func (d *driver) DatumCache() cache.WorkerCache {
-	return d.datumCache
-}
+func (d *driver) WithDatumCache(cb func(*hashtree.MergeCache, *hashtree.MergeCache) error) (retErr error) {
+	cacheID := uuid.NewWithoutDashes()
+	datumCachePath := filepath.Join(d.datumCachePath, cacheID)
+	statsCachePath := filepath.Join(d.datumStatsCachePath, cacheID)
 
-func (d *driver) DatumStatsCache() cache.WorkerCache {
-	return d.datumStatsCache
+	if err := os.MkdirAll(datumCachePath, 0777); err != nil {
+		return err
+	}
+	defer func() {
+		if err := os.RemoveAll(datumCachePath); retErr == nil {
+			retErr = err
+		}
+	}()
+
+	if err := os.MkdirAll(statsCachePath, 0777); err != nil {
+		return err
+	}
+	defer func() {
+		if err := os.RemoveAll(statsCachePath); retErr == nil {
+			retErr = err
+		}
+	}()
+
+	datumCache := hashtree.NewMergeCache(datumCachePath)
+	statsCache := hashtree.NewMergeCache(statsCachePath)
+
+	return cb(datumCache, statsCache)
 }
 
 func (d *driver) GetDatumMap(ctx context.Context, object *pfs.Object) (_ map[string]bool, retErr error) {

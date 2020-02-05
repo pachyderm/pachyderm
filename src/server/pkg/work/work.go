@@ -70,7 +70,7 @@ func (m *Master) Run(ctx context.Context, task *Task, collectFunc CollectFunc) (
 	}()
 	// Collect the results from the processing of the subtasks.
 	for _, subtask := range task.Subtasks {
-		subtaskKey := path.Join(task.Id, subtask.Id)
+		subtaskKey := path.Join(task.ID, subtask.ID)
 		if err := m.subtaskCol.ReadOnly(ctx).WatchOneF(subtaskKey, func(e *watch.Event) error {
 			var key string
 			subtaskInfo := &TaskInfo{}
@@ -102,7 +102,7 @@ func (m *Master) Run(ctx context.Context, task *Task, collectFunc CollectFunc) (
 
 func (m *Master) updateTaskInfo(ctx context.Context, taskInfo *TaskInfo) error {
 	_, err := col.NewSTM(ctx, m.etcdClient, func(stm col.STM) error {
-		return m.taskCol.ReadWrite(stm).Put(taskInfo.Task.Id, taskInfo)
+		return m.taskCol.ReadWrite(stm).Put(taskInfo.Task.ID, taskInfo)
 	})
 	return err
 }
@@ -154,7 +154,7 @@ func (w *Worker) processTask(ctx context.Context, task *Task, processFunc Proces
 	// Watch for task termination.
 	// This will handle completion, failure, and cancellation.
 	eg.Go(func() error {
-		return w.taskCol.ReadOnly(ctx).WatchOneF(task.Id, func(e *watch.Event) error {
+		return w.taskCol.ReadOnly(ctx).WatchOneF(task.ID, func(e *watch.Event) error {
 			var id string
 			taskInfo := &TaskInfo{}
 			if err := e.Unmarshal(&id, taskInfo); err != nil {
@@ -175,7 +175,7 @@ func (w *Worker) processTask(ctx context.Context, task *Task, processFunc Proces
 		//defer func() {
 		//	// Attempt to cleanup subtask entries.
 		//	if _, err := col.NewSTM(context.Background(), w.etcdClient, func(stm col.STM) error {
-		//		w.subtaskCol.ReadWrite(stm).DeleteAllPrefix(work.Id)
+		//		w.subtaskCol.ReadWrite(stm).DeleteAllPrefix(work.ID)
 		//		return nil
 		//	}); err != nil && retErr == nil {
 		//		retErr = err
@@ -185,7 +185,7 @@ func (w *Worker) processTask(ctx context.Context, task *Task, processFunc Proces
 			return err
 		}
 		// Wait for a deletion event (ttl expired) before attempting to process the subtasks again.
-		return w.subtaskCol.ReadOnly(ctx).WatchOneF(task.Id, func(e *watch.Event) error {
+		return w.subtaskCol.ReadOnly(ctx).WatchOneF(task.ID, func(e *watch.Event) error {
 			return w.processSubtasks(ctx, task, processFunc)
 		}, watch.WithFilterPut())
 	})
@@ -194,7 +194,7 @@ func (w *Worker) processTask(ctx context.Context, task *Task, processFunc Proces
 
 func (w *Worker) processSubtasks(ctx context.Context, task *Task, processFunc ProcessFunc) error {
 	for _, subtask := range task.Subtasks {
-		subtaskKey := path.Join(task.Id, subtask.Id)
+		subtaskKey := path.Join(task.ID, subtask.ID)
 		subtaskInfo := &TaskInfo{}
 		if err := w.subtaskCol.Claim(ctx, subtaskKey, subtaskInfo, func(ctx context.Context) error {
 			if err := processFunc(ctx, task, subtask); err != nil {

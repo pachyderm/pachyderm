@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 	"github.com/pachyderm/pachyderm/src/server/worker/cache"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
@@ -37,7 +39,7 @@ type MockDriver struct {
 	options    *MockOptions
 	etcdClient *etcd.Client
 
-	chunkCache, chunkStatsCache, datumCache, datumStatsCache cache.WorkerCache
+	chunkCache, chunkStatsCache cache.WorkerCache
 }
 
 // Not used - forces a compile-time error in this file if MockDriver does not
@@ -66,8 +68,6 @@ func NewMockDriver(etcdClient *etcd.Client, userOptions *MockOptions) *MockDrive
 	if options.HashtreePath != "" {
 		md.chunkCache = cache.NewWorkerCache(filepath.Join(options.HashtreePath, "chunk"))
 		md.chunkStatsCache = cache.NewWorkerCache(filepath.Join(options.HashtreePath, "chunkStats"))
-		md.datumCache = cache.NewWorkerCache(filepath.Join(options.HashtreePath, "datum"))
-		md.datumStatsCache = cache.NewWorkerCache(filepath.Join(options.HashtreePath, "datumStats"))
 	}
 
 	return md
@@ -122,18 +122,38 @@ func (md *MockDriver) ChunkStatsCache() cache.WorkerCache {
 	return md.chunkStatsCache
 }
 
-// DatumCache returns a cache.WorkerCache instance that can be used for caching
-// hashtrees in the worker across multiple jobs. If no hashtree storage is
-// specified in the MockDriver options, this will be nil.
-func (md *MockDriver) DatumCache() cache.WorkerCache {
-	return md.datumCache
-}
+// WithDatumCache calls the given callback with two hashtree merge caches, one
+// for datums and one for datum stats. The lifetime of these caches will be
+// bound to the callback, and any resources will be cleaned up upon return.
+func (md *MockDriver) WithDatumCache(cb func(*hashtree.MergeCache, *hashtree.MergeCache) error) (retErr error) {
+	// TODO: this doesn't depend on much state, use a common function between this
+	// and the real driver, parameterized on the storage root(s)
+	cacheID := uuid.NewWithoutDashes()
+	datumCachePath := filepath.Join(md.options.HashtreePath, "datum", cacheID)
+	statsCachePath := filepath.Join(md.options.HashtreePath, "datumStats", cacheID)
 
-// DatumStatsCache returns a cache.WorkerCache instance that can be used for
-// caching hashtrees in the worker across multiple jobs. If no hashtree storage
-// is specified in the MockDriver options, this will be nil.
-func (md *MockDriver) DatumStatsCache() cache.WorkerCache {
-	return md.datumStatsCache
+	if err := os.MkdirAll(datumCachePath, 0777); err != nil {
+		return err
+	}
+	defer func() {
+		if err := os.RemoveAll(datumCachePath); retErr == nil {
+			retErr = err
+		}
+	}()
+
+	if err := os.MkdirAll(statsCachePath, 0777); err != nil {
+		return err
+	}
+	defer func() {
+		if err := os.RemoveAll(statsCachePath); retErr == nil {
+			retErr = err
+		}
+	}()
+
+	datumCache := hashtree.NewMergeCache(datumCachePath)
+	statsCache := hashtree.NewMergeCache(statsCachePath)
+
+	return cb(datumCache, statsCache)
 }
 
 // InputDir returns the path used to hold the input filesets. Inherit and shadow

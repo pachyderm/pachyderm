@@ -160,6 +160,11 @@ func (c *MergeCache) Delete(id string) error {
 	return c.Cache.Delete(id)
 }
 
+// Has returns true if the given id is present in the cache, false otherwise.
+func (c *MergeCache) Has(id string) bool {
+	return c.Cache.Has(id)
+}
+
 // Merge does a filtered merge of the hashtrees in the cache.
 // The results are written to the passed in *Writer.
 // The base field is used as the base hashtree if it is non-nil

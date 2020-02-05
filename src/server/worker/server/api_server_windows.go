@@ -1,6 +1,6 @@
 // +build windows
 
-package worker
+package server
 
 import (
 	"fmt"

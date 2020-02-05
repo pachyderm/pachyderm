@@ -115,7 +115,7 @@ func (d *driver) getFileNewStorageLayer(pachClient *client.APIClient, file *pfs.
 func (d *driver) merge(ctx context.Context, outputPath string, prefixes []string) error {
 	// (bryce) need to add a resiliency measure for existing incomplete merge for the prefix (master crashed).
 	// Setup task.
-	task := &work.Task{Id: prefixes[0]}
+	task := &work.Task{ID: prefixes[0]}
 	var err error
 	task.Data, err = serializeMerge(&pfs.Merge{Prefixes: prefixes})
 	if err != nil {
@@ -132,7 +132,7 @@ func (d *driver) merge(ctx context.Context, outputPath string, prefixes []string
 			return err
 		}
 		task.Subtasks = append(task.Subtasks, &work.Task{
-			Id:   strconv.Itoa(len(task.Subtasks)),
+			ID:   strconv.Itoa(len(task.Subtasks)),
 			Data: shard,
 		})
 		return nil
@@ -194,7 +194,7 @@ func (d *driver) mergeWorker() {
 		if err != nil {
 			return err
 		}
-		outputPath := path.Join(tmpPrefix, task.Id, subtask.Id)
+		outputPath := path.Join(tmpPrefix, task.ID, subtask.ID)
 		pathRange := &index.PathRange{
 			Lower: shard.Range.Lower,
 			Upper: shard.Range.Upper,

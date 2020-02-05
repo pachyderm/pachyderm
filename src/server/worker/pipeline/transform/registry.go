@@ -301,7 +301,7 @@ func (reg *registry) makeDatumTask(
 		}
 
 		subtasks = append(subtasks, &work.Task{
-			Id:   uuid.NewWithoutDashes(),
+			ID:   uuid.NewWithoutDashes(),
 			Data: taskData,
 		})
 
@@ -338,7 +338,7 @@ func (reg *registry) makeDatumTask(
 
 	fmt.Printf("returning work task, subtasks: %d\n", len(subtasks))
 	return &work.Task{
-		Id:       uuid.NewWithoutDashes(),
+		ID:       uuid.NewWithoutDashes(),
 		Data:     pj.jobData,
 		Subtasks: subtasks,
 	}, nil
@@ -826,6 +826,9 @@ func (reg *registry) processJobMerging(pj *pendingJob) error {
 		if len(parentHashtrees) != int(reg.numHashtrees) {
 			return fmt.Errorf("unexpected number of hashtrees between the parent commit (%d) and the pipeline spec (%d)", len(parentHashtrees), reg.numHashtrees)
 		}
+		pj.logger.Logf("merging %d hashtrees across %d shards", len(pj.hashtrees)+1, reg.numHashtrees)
+	} else {
+		pj.logger.Logf("merging %d hashtrees across %d shards", len(pj.hashtrees), reg.numHashtrees)
 	}
 
 	mergeSubtasks := []*work.Task{}
@@ -844,7 +847,7 @@ func (reg *registry) processJobMerging(pj *pendingJob) error {
 		}
 
 		mergeSubtasks = append(mergeSubtasks, &work.Task{
-			Id:   uuid.NewWithoutDashes(),
+			ID:   uuid.NewWithoutDashes(),
 			Data: data,
 		})
 	}
@@ -853,7 +856,7 @@ func (reg *registry) processJobMerging(pj *pendingJob) error {
 	err := reg.workMaster.Run(
 		reg.driver.PachClient().Ctx(),
 		&work.Task{
-			Id:       uuid.NewWithoutDashes(),
+			ID:       uuid.NewWithoutDashes(),
 			Data:     pj.jobData,
 			Subtasks: mergeSubtasks,
 		},

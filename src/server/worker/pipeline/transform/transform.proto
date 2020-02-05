@@ -33,6 +33,7 @@ message HashtreeInfo {
 
   // Address used for fetching a cached version directly from the worker
   string address = 2;
+  string tag = 3;
 }
 
 message JobData {

@@ -30,6 +30,10 @@ var (
 	errDatumRecovered = errors.New("the datum errored, and the error was handled successfully")
 )
 
+func jobChunkTag(jobID string, subtaskID string) string {
+	return fmt.Sprintf("job-%s-chunk-%s", jobID, subtaskID)
+}
+
 func plusDuration(x *types.Duration, y *types.Duration) (*types.Duration, error) {
 	var xd time.Duration
 	var yd time.Duration
@@ -95,7 +99,7 @@ func Worker(driver driver.Driver, logger logs.TaggedLogger, task *work.Task, sub
 	// Handle 'process datum' tasks
 	datumData, err := deserializeDatumData(subtask.Data)
 	if err == nil {
-		if err = handleDatumTask(driver, logger, datumData); err != nil {
+		if err = handleDatumTask(driver, logger, datumData, jobChunkTag(jobData.JobID, subtask.ID)); err != nil {
 			return err
 		}
 		subtask.Data, err = serializeDatumData(datumData)
@@ -140,39 +144,77 @@ func forEachDatum(driver driver.Driver, object *pfs.Object, cb func([]*common.In
 	return nil
 }
 
-func handleDatumTask(driver driver.Driver, logger logs.TaggedLogger, data *DatumData) error {
-	logger.Logf("transform worker datum task: %v", data)
-	limiter := limit.New(int(driver.PipelineInfo().MaxQueueSize))
+func handleDatumTask(driver driver.Driver, logger logs.TaggedLogger, data *DatumData, tag string) error {
+	return driver.WithDatumCache(func(datumCache *hashtree.MergeCache, statsCache *hashtree.MergeCache) error {
+		logger.Logf("transform worker datum task: %v", data)
+		limiter := limit.New(int(driver.PipelineInfo().MaxQueueSize))
 
-	// statsMutex controls access to stats so that they can be safely merged
-	statsMutex := &sync.Mutex{}
-	data.Stats = &DatumStats{
-		ProcessStats: &pps.ProcessStats{},
-	}
+		// statsMutex controls access to stats so that they can be safely merged
+		statsMutex := &sync.Mutex{}
+		data.Stats = &DatumStats{
+			ProcessStats: &pps.ProcessStats{},
+		}
 
-	var eg errgroup.Group
-	if err := forEachDatum(driver, data.Datums, func(inputs []*common.Input) error {
-		limiter.Acquire()
-		eg.Go(func() error {
-			// TODO: create new logger for this datum
-			defer limiter.Release()
-			subStats, err := processDatum(driver, logger.WithData(inputs), inputs, data.OutputCommit)
+		var eg errgroup.Group
+		if err := forEachDatum(driver, data.Datums, func(inputs []*common.Input) error {
+			limiter.Acquire()
+			eg.Go(func() error {
+				// TODO: create new logger for this datum
+				defer limiter.Release()
+				subStats, err := processDatum(driver, logger.WithData(inputs), inputs, data.OutputCommit, datumCache)
 
-			statsMutex.Lock()
-			defer statsMutex.Unlock()
-			statsErr := mergeStats(data.Stats, subStats)
-			if err != nil {
-				return err
-			}
-			return statsErr
-		})
-		return nil
-	}); err != nil {
-		return err
-	}
+				statsMutex.Lock()
+				defer statsMutex.Unlock()
+				statsErr := mergeStats(data.Stats, subStats)
+				if err != nil {
+					return err
+				}
+				return statsErr
+			})
+			return nil
+		}); err != nil {
+			return err
+		}
 
-	logger.Logf("waiting for datum processing")
-	return eg.Wait()
+		// Merge the datums for this job into a chunk
+		buf := &bytes.Buffer{}
+		if err := datumCache.Merge(hashtree.NewWriter(buf), nil, nil); err != nil {
+			return err
+		}
+
+		// Cache the hashtree in the chunk cache for this job
+		if err := driver.ChunkCache().CacheHashtree(logger.JobID(), tag, buf); err != nil {
+			return err
+		}
+
+		// Upload the hashtree for this subtask to the given tag
+		putObjectWriter, err := driver.PachClient().PutObjectAsync([]*pfs.Tag{client.NewTag(tag)})
+		if err != nil {
+			return err
+		}
+
+		if _, err := putObjectWriter.Write(buf.Bytes()); err != nil {
+			return err
+		}
+
+		if err := putObjectWriter.Close(); err != nil {
+			return err
+		}
+
+		hashtreeObject, err := putObjectWriter.Object()
+		if err != nil {
+			return err
+		}
+
+		data.Hashtree = &HashtreeInfo{
+			Object:  hashtreeObject,
+			Address: os.Getenv(client.PPSWorkerIPEnv),
+			Tag:     tag,
+		}
+
+		logger.Logf("waiting for datum processing")
+		return eg.Wait()
+	})
 }
 
 func processDatum(
@@ -180,6 +222,7 @@ func processDatum(
 	logger logs.TaggedLogger,
 	inputs []*common.Input,
 	outputCommit *pfs.Commit,
+	datumCache *hashtree.MergeCache,
 ) (*DatumStats, error) {
 	stats := &DatumStats{}
 	tag := common.HashDatum(driver.PipelineInfo().Pipeline.Name, driver.PipelineInfo().Salt, inputs)
@@ -187,7 +230,12 @@ func processDatum(
 
 	if _, err := driver.PachClient().InspectTag(driver.PachClient().Ctx(), client.NewTag(tag)); err == nil {
 		logger.Logf("skipping datum")
-		if err := driver.DatumCache().DownloadHashtree(driver.PachClient(), logger.JobID(), tag); err != nil {
+		buf := &bytes.Buffer{}
+		// TODO: should we count the size of 'buf' here towards downloaded data?
+		if err := driver.PachClient().GetTag(tag, buf); err != nil {
+			return stats, err
+		}
+		if err := datumCache.Put(tag, buf); err != nil {
 			return stats, err
 		}
 		stats.DatumsSkipped++
@@ -246,7 +294,7 @@ func processDatum(
 			}
 
 			// Cache datum hashtree locally
-			return driver.DatumCache().CacheHashtree(logger.JobID(), tag, bytes.NewReader(hashtreeBytes))
+			return datumCache.Put(tag, bytes.NewReader(hashtreeBytes))
 		})
 		return err
 	}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
@@ -379,8 +427,68 @@ func writeStats(
 }
 */
 
+func fetchChunkFromWorker(driver driver.Driver, logger logs.TaggedLogger, address string, tag string, shard int64) (io.Reader, error) {
+	// TODO: cache cross-worker clients at the driver level
+	port, err := strconv.Atoi(os.Getenv(client.PPSWorkerPortEnv))
+	if err != nil {
+		return nil, err
+	}
+
+	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", address, port),
+		append(client.DefaultDialOptions(), grpc.WithInsecure())...)
+	if err != nil {
+		return nil, err
+	}
+
+	return newClient(conn), nil
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithCancel(c.Ctx())
+	getChunkClient, err := c.GetChunk(ctx, &.GetObject(
+		ctx,
+		&pfs.Object{Hash: hash},
+	)
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+
+	return grpcutil.NewStreamingBytesReader(getObjectClient, cancel), nil
+}
+
+func fetchChunk(driver driver.Driver, logger logs.TaggedLogger, info *HashtreeInfo, shard int64) (io.Reader, error) {
+	reader, err := fetchChunkFromWorker(driver, logger, info.Address, info.Tag, shard)
+	if err == nil {
+		return reader, nil
+	}
+	logger.Logf("error when fetching chunk (%s) from worker (%s): %v", info.Tag, info.Address, err)
+
+	if err != nil {
+		return nil, err
+	}
+}
+
 func handleMergeTask(driver driver.Driver, logger logs.TaggedLogger, data *MergeData) error {
 	logger.Logf("transform worker merge task: %v", data)
+
+	// TODO: parallelize this
+	for _, hashtreeInfo := range data.Hashtrees {
+		if !driver.ChunkCache().Has(logger.JobID(), hashtreeInfo.Tag) {
+			reader, err := fetchChunk(driver, logger, hashtreeInfo, data.Shard)
+			if err != nil {
+				return err
+			}
+			if err := driver.ChunkCache().CacheHashtree(logger.JobID(), hashtreeInfo.Tag, reader); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Download each hashtree into the job's chunk cache
+	// filter the chunk cache into the hashtree shard
+	// store the hashtree shard under the appropriate tag
+	// return the final hashtree
 	return nil
 }
 

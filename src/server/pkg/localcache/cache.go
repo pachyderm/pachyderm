@@ -62,6 +62,14 @@ func (c *Cache) Get(key string) (io.ReadCloser, error) {
 	return f, nil
 }
 
+// Has returns true if the given key is in the cache, false otherwise.
+func (c *Cache) Has(key string) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	_, ok := c.keys[key]
+	return ok
+}
+
 // Keys returns the keys in sorted order.
 func (c *Cache) Keys() []string {
 	c.mu.Lock()
