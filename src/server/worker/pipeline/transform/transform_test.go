@@ -38,7 +38,8 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 	var eg *errgroup.Group
 
 	err := withTestEnv(pipelineInfo, func(env *testEnv) error {
-		eg, ctx := errgroup.WithContext(env.driver.PachClient().Ctx())
+		var ctx context.Context
+		eg, ctx = errgroup.WithContext(env.driver.PachClient().Ctx())
 		env.PachClient = env.PachClient.WithCtx(ctx)
 		env.driver = env.driver.WithCtx(ctx)
 
