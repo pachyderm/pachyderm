@@ -192,7 +192,7 @@ func (md *MockDriver) RunUserErrorHandlingCode(logs.TaggedLogger, []string, *pps
 
 // UploadOutput does nothing. Inherit and shadow this if you actually want it to
 // do something.
-func (md *MockDriver) UploadOutput(string, logs.TaggedLogger, []*common.Input, *pps.ProcessStats, *hashtree.Ordered) ([]byte, error) {
+func (md *MockDriver) UploadOutput(string, string, logs.TaggedLogger, []*common.Input, *pps.ProcessStats, *hashtree.Ordered) ([]byte, error) {
 	return []byte{}, nil
 }
 

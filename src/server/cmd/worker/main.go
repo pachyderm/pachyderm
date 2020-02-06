@@ -10,6 +10,8 @@ import (
 	"time"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	log "github.com/sirupsen/logrus"
+
 	"github.com/pachyderm/pachyderm/src/client"
 	debugclient "github.com/pachyderm/pachyderm/src/client/debug"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
@@ -23,8 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/worker"
-
-	log "github.com/sirupsen/logrus"
+	workerserver "github.com/pachyderm/pachyderm/src/server/worker/server"
 )
 
 func main() {
@@ -139,7 +140,7 @@ func do(config interface{}) error {
 
 	// Construct worker API server.
 	workerRcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-	apiServer, err := worker.NewAPIServer(pachClient, env.GetEtcdClient(), env.PPSEtcdPrefix, pipelineInfo, env.PodName, env.Namespace, env.StorageRoot)
+	workerInstance, err := worker.NewWorker(pachClient, env.GetEtcdClient(), env.PPSEtcdPrefix, pipelineInfo, env.PodName, env.Namespace, env.StorageRoot)
 	if err != nil {
 		return err
 	}
@@ -150,17 +151,18 @@ func do(config interface{}) error {
 		return err
 	}
 
-	worker.RegisterWorkerServer(server.Server, apiServer)
+	workerserver.RegisterWorkerServer(server.Server, workerInstance.APIServer)
 	versionpb.RegisterAPIServer(server.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
 	debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(env.PodName, env.GetEtcdClient(), env.PPSEtcdPrefix, env.PPSWorkerPort, ""))
 
 	// Put our IP address into etcd, so pachd can discover us
-	key := path.Join(env.PPSEtcdPrefix, worker.WorkerEtcdPrefix, workerRcName, env.PPSWorkerIP)
+	key := path.Join(env.PPSEtcdPrefix, workerserver.WorkerEtcdPrefix, workerRcName, env.PPSWorkerIP)
 
 	// Prepare to write "key" into etcd by creating lease -- if worker dies, our
 	// IP will be removed from etcd
 	ctx, cancel := context.WithTimeout(pachClient.Ctx(), 10*time.Second)
 	defer cancel()
+
 	resp, err := env.GetEtcdClient().Grant(ctx, 10 /* seconds */)
 	if err != nil {
 		return fmt.Errorf("error granting lease: %v", err)

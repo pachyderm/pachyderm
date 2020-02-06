@@ -195,8 +195,10 @@ func handleDatumTask(driver driver.Driver, logger logs.TaggedLogger, data *Datum
 		if err := logger.LogStep("processing datums", func() error {
 			return status.withStats(data.Stats.ProcessStats, &queueSize, func() error {
 				ctx, cancel := context.WithCancel(driver.PachClient().Ctx())
+				defer cancel()
+
 				eg, ctx := errgroup.WithContext(ctx)
-				driver = driver.WithCtx(ctx)
+				driver := driver.WithCtx(ctx)
 				if err := forEachDatum(driver, data.Datums, func(inputs []*common.Input) error {
 					limiter.Acquire()
 					atomic.AddInt64(&queueSize, 1)
@@ -229,7 +231,6 @@ func handleDatumTask(driver driver.Driver, logger logs.TaggedLogger, data *Datum
 		}
 
 		return logger.LogStep("uploading hashtree chunk", func() error {
-			logger.Logf("uploading datum hashtree chunk")
 			if err := uploadChunk(driver, datumCache, logger.JobID(), tag); err != nil {
 				return err
 			}
@@ -290,11 +291,12 @@ func processDatum(
 
 		// WithData will download the inputs for this datum
 		stats.ProcessStats, err = driver.WithData(inputs, inputTree, logger, func(dir string, processStats *pps.ProcessStats) error {
-			hashtreeBytes := []byte{}
 
 			// WithActiveData acquires a mutex so that we don't run this section concurrently
 			if err := driver.WithActiveData(inputs, dir, func() error {
 				ctx, cancel := context.WithCancel(driver.PachClient().Ctx())
+				defer cancel()
+
 				driver := driver.WithCtx(ctx)
 
 				return status.withDatum(inputs, cancel, func() error {
@@ -308,17 +310,14 @@ func processDatum(
 						}
 						return err
 					}
-
-					// TODO: would be nice if we could upload the output from the scratch
-					// space rather than the active data directory, but I think this breaks
-					// if they use symlinks to a path under the active data directory. If
-					// this would work, we can run the next datum while uploading previous
-					// datums.
-					var err error
-					hashtreeBytes, err = driver.UploadOutput(tag, logger, inputs, stats.ProcessStats, outputTree)
-					return err
+					return nil
 				})
 			}); err != nil {
+				return err
+			}
+
+			hashtreeBytes, err := driver.UploadOutput(dir, tag, logger, inputs, processStats, outputTree)
+			if err != nil {
 				return err
 			}
 

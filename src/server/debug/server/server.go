@@ -11,7 +11,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client/debug"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/server/worker"
+	workerserver "github.com/pachyderm/pachyderm/src/server/worker/server"
 )
 
 const (
@@ -53,7 +53,7 @@ func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpSe
 	}
 	if !request.Recursed {
 		request.Recursed = true
-		cs, err := worker.Clients(server.Context(), "", s.etcdClient, s.etcdPrefix, s.workerGrpcPort)
+		cs, err := workerserver.Clients(server.Context(), "", s.etcdClient, s.etcdPrefix, s.workerGrpcPort)
 		if err != nil {
 			return err
 		}

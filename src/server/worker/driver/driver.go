@@ -125,7 +125,7 @@ type Driver interface {
 
 	// UploadOutput uploads the stats hashtree and pfs output directory to object
 	// storage and returns a buffer of the serialized hashtree
-	UploadOutput(string, logs.TaggedLogger, []*common.Input, *pps.ProcessStats, *hashtree.Ordered) ([]byte, error)
+	UploadOutput(string, string, logs.TaggedLogger, []*common.Input, *pps.ProcessStats, *hashtree.Ordered) ([]byte, error)
 
 	// TODO: figure out how to not expose this
 	ReportUploadStats(time.Time, *pps.ProcessStats, logs.TaggedLogger)
@@ -1020,6 +1020,7 @@ func (d *driver) unlinkData(inputs []*common.Input) error {
 }
 
 func (d *driver) UploadOutput(
+	dir string,
 	tag string,
 	logger logs.TaggedLogger,
 	inputs []*common.Input,
@@ -1047,7 +1048,7 @@ func (d *driver) UploadOutput(
 	}); err != nil {
 		return nil, err
 	}
-	outputPath := filepath.Join(d.InputDir(), "out")
+	outputPath := filepath.Join(dir, "out")
 	buf := grpcutil.GetBuffer()
 	defer grpcutil.PutBuffer(buf)
 	var offset uint64
@@ -1095,13 +1096,13 @@ func (d *driver) UploadOutput(
 			if err != nil {
 				return err
 			}
-			if strings.HasPrefix(realPath, d.InputDir()) {
+			if strings.HasPrefix(realPath, dir) {
 				var pathWithInput string
 				var err error
 				if strings.HasPrefix(realPath, relPath) {
 					pathWithInput, err = filepath.Rel(relPath, realPath)
 				} else {
-					pathWithInput, err = filepath.Rel(d.InputDir(), realPath)
+					pathWithInput, err = filepath.Rel(dir, realPath)
 				}
 				if err == nil {
 					// We can only skip the upload if the real path is
