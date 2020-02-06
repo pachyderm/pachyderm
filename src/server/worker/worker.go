@@ -37,6 +37,7 @@ type Worker struct {
 	driver    driver.Driver     // Provides common functions used by worker code
 	apiServer *server.APIServer // Provides rpcs for other nodes in the cluster
 	namespace string            // The namespace in which pachyderm is deployed - TODO: what is this for?
+	status    *transform.Status // An interface for inspecting and canceling the actively running task
 }
 
 // NewWorker constructs a Worker object that provides all worker functionality:
@@ -100,9 +101,10 @@ func NewWorker(
 	worker := &Worker{
 		driver:    driver,
 		namespace: namespace,
+		status:    &transform.Status{},
 	}
 
-	worker.apiServer = server.NewAPIServer(driver, worker, workerName)
+	worker.apiServer = server.NewAPIServer(driver, worker.status, workerName)
 
 	go worker.master(etcdClient, etcdPrefix)
 	go worker.worker()
@@ -117,7 +119,7 @@ func (w *Worker) worker() {
 		return w.driver.NewTaskWorker().Run(
 			w.driver.PachClient().Ctx(),
 			func(ctx context.Context, task *work.Task, subtask *work.Task) error {
-				return transform.Worker(w.driver, logger, task, subtask)
+				return transform.Worker(w.driver, logger, task, subtask, w.status)
 			},
 		)
 	}, backoff.NewConstantBackOff(200*time.Millisecond), func(err error, d time.Duration) error {

@@ -119,7 +119,8 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 				return env.driver.NewTaskWorker().Run(
 					env.driver.PachClient().Ctx(),
 					func(ctx context.Context, task *work.Task, subtask *work.Task) error {
-						return Worker(env.driver, env.logger, task, subtask)
+						status := &Status{}
+						return Worker(env.driver, env.logger, task, subtask, status)
 					},
 				)
 			}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -85,48 +86,42 @@ func mergeStats(x, y *DatumStats) error {
 	return nil
 }
 
-// Worker does the following:
-//  - claims filesystem shards as they become available
-//  - watches for new jobs (jobInfos in the jobs collection)
-//  - claims chunks from the chunk layout it finds in the chunks collection
-//  - claims those chunks with acquireDatums
-//  - processes the chunks with processDatums
-//  - merges the chunks with mergeDatums
-func Worker(driver driver.Driver, logger logs.TaggedLogger, task *work.Task, subtask *work.Task) error {
+func Worker(driver driver.Driver, logger logs.TaggedLogger, task *work.Task, subtask *work.Task, status *Status) error {
 	jobData, err := deserializeJobData(task.Data)
 	if err != nil {
 		return err
 	}
 
 	logger = logger.WithJob(jobData.JobID)
+	return status.withJob(jobData.JobID, func() error {
+		// Handle 'process datum' tasks
+		datumData, err := deserializeDatumData(subtask.Data)
+		if err == nil {
+			if err := logger.LogStep("datum task", func() error {
+				return handleDatumTask(driver, logger, datumData, jobChunkTag(jobData.JobID, subtask.ID), status)
+			}); err != nil {
+				return err
+			}
 
-	// Handle 'process datum' tasks
-	datumData, err := deserializeDatumData(subtask.Data)
-	if err == nil {
-		if err := logger.LogStep("datum task", func() error {
-			return handleDatumTask(driver, logger, datumData, jobChunkTag(jobData.JobID, subtask.ID))
-		}); err != nil {
+			subtask.Data, err = serializeDatumData(datumData)
 			return err
 		}
 
-		subtask.Data, err = serializeDatumData(datumData)
-		return err
-	}
+		// Handle 'merge hashtrees' tasks
+		mergeData, err := deserializeMergeData(subtask.Data)
+		if err == nil {
+			if err := logger.LogStep("merge task", func() error {
+				return handleMergeTask(driver, logger, mergeData)
+			}); err != nil {
+				return err
+			}
 
-	// Handle 'merge hashtrees' tasks
-	mergeData, err := deserializeMergeData(subtask.Data)
-	if err == nil {
-		if err := logger.LogStep("merge task", func() error {
-			return handleMergeTask(driver, logger, mergeData)
-		}); err != nil {
+			subtask.Data, err = serializeMergeData(mergeData)
 			return err
 		}
 
-		subtask.Data, err = serializeMergeData(mergeData)
-		return err
-	}
-
-	return fmt.Errorf("worker task format unrecognized")
+		return fmt.Errorf("worker task format unrecognized")
+	})
 }
 
 func forEachDatum(driver driver.Driver, object *pfs.Object, cb func([]*common.Input) error) (retErr error) {
@@ -184,7 +179,7 @@ func uploadChunk(driver driver.Driver, cache *hashtree.MergeCache, jobID string,
 	return putObjectWriter.Close()
 }
 
-func handleDatumTask(driver driver.Driver, logger logs.TaggedLogger, data *DatumData, tag string) error {
+func handleDatumTask(driver driver.Driver, logger logs.TaggedLogger, data *DatumData, tag string, status *Status) error {
 	return driver.WithDatumCache(func(datumCache *hashtree.MergeCache, statsCache *hashtree.MergeCache) error {
 		logger.Logf("transform worker datum task: %v", data)
 		limiter := limit.New(int(driver.PipelineInfo().MaxQueueSize))
@@ -195,39 +190,53 @@ func handleDatumTask(driver driver.Driver, logger logs.TaggedLogger, data *Datum
 			ProcessStats: &pps.ProcessStats{},
 		}
 
-		var eg errgroup.Group
-		if err := forEachDatum(driver, data.Datums, func(inputs []*common.Input) error {
-			limiter.Acquire()
-			eg.Go(func() error {
-				// TODO: create new logger for this datum
-				defer limiter.Release()
-				subStats, err := processDatum(driver, logger.WithData(inputs), inputs, data.OutputCommit, datumCache)
+		queueSize := int64(0)
+		// TODO: the status.GetStatus call may read the process stats without having a lock, it this ~ok?
+		if err := logger.LogStep("processing datums", func() error {
+			return status.withStats(data.Stats.ProcessStats, &queueSize, func() error {
+				ctx, cancel := context.WithCancel(driver.PachClient().Ctx())
+				eg, ctx := errgroup.WithContext(ctx)
+				driver = driver.WithCtx(ctx)
+				if err := forEachDatum(driver, data.Datums, func(inputs []*common.Input) error {
+					limiter.Acquire()
+					atomic.AddInt64(&queueSize, 1)
+					eg.Go(func() error {
+						defer limiter.Release()
+						defer atomic.AddInt64(&queueSize, -1)
 
-				statsMutex.Lock()
-				defer statsMutex.Unlock()
-				statsErr := mergeStats(data.Stats, subStats)
-				if err != nil {
+						// subStats is still valid even on an error, merge those in before proceeding
+						subStats, err := processDatum(driver, logger.WithData(inputs), inputs, data.OutputCommit, datumCache, status)
+
+						statsMutex.Lock()
+						defer statsMutex.Unlock()
+						statsErr := mergeStats(data.Stats, subStats)
+						if err != nil {
+							return err
+						}
+						return statsErr
+					})
+					return nil
+				}); err != nil {
+					cancel()
+					eg.Wait()
 					return err
 				}
-				return statsErr
+
+				return eg.Wait()
 			})
-			return nil
 		}); err != nil {
 			return err
 		}
 
-		logger.Logf("waiting for datum processing")
-		if err := eg.Wait(); err != nil {
-			return err
-		}
+		return logger.LogStep("uploading hashtree chunk", func() error {
+			logger.Logf("uploading datum hashtree chunk")
+			if err := uploadChunk(driver, datumCache, logger.JobID(), tag); err != nil {
+				return err
+			}
 
-		logger.Logf("uploading datum hashtree chunk")
-		if err := uploadChunk(driver, datumCache, logger.JobID(), tag); err != nil {
-			return err
-		}
-
-		data.Hashtree = &HashtreeInfo{Address: os.Getenv(client.PPSWorkerIPEnv), Tag: tag}
-		return nil
+			data.Hashtree = &HashtreeInfo{Address: os.Getenv(client.PPSWorkerIPEnv), Tag: tag}
+			return nil
+		})
 	})
 }
 
@@ -237,6 +246,7 @@ func processDatum(
 	inputs []*common.Input,
 	outputCommit *pfs.Commit,
 	datumCache *hashtree.MergeCache,
+	status *Status,
 ) (*DatumStats, error) {
 	stats := &DatumStats{}
 	tag := common.HashDatum(driver.PipelineInfo().Pipeline.Name, driver.PipelineInfo().Salt, inputs)
@@ -284,25 +294,30 @@ func processDatum(
 
 			// WithActiveData acquires a mutex so that we don't run this section concurrently
 			if err := driver.WithActiveData(inputs, dir, func() error {
-				env := userCodeEnv(logger.JobID(), outputCommit, driver.InputDir(), inputs)
-				if err := driver.RunUserCode(logger, env, processStats, driver.PipelineInfo().DatumTimeout); err != nil {
-					if driver.PipelineInfo().Transform.ErrCmd != nil && failures == driver.PipelineInfo().DatumTries-1 {
-						if err = driver.RunUserErrorHandlingCode(logger, env, processStats, driver.PipelineInfo().DatumTimeout); err != nil {
-							return fmt.Errorf("error RunUserErrorHandlingCode: %v", err)
-						}
-						return errDatumRecovered
-					}
-					return err
-				}
+				ctx, cancel := context.WithCancel(driver.PachClient().Ctx())
+				driver := driver.WithCtx(ctx)
 
-				// TODO: would be nice if we could upload the output from the scratch
-				// space rather than the active data directory, but I think this breaks
-				// if they use symlinks to a path under the active data directory. If
-				// this would work, we can run the next datum while uploading previous
-				// datums.
-				var err error
-				hashtreeBytes, err = driver.UploadOutput(tag, logger, inputs, stats.ProcessStats, outputTree)
-				return err
+				return status.withDatum(inputs, cancel, func() error {
+					env := userCodeEnv(logger.JobID(), outputCommit, driver.InputDir(), inputs)
+					if err := driver.RunUserCode(logger, env, processStats, driver.PipelineInfo().DatumTimeout); err != nil {
+						if driver.PipelineInfo().Transform.ErrCmd != nil && failures == driver.PipelineInfo().DatumTries-1 {
+							if err = driver.RunUserErrorHandlingCode(logger, env, processStats, driver.PipelineInfo().DatumTimeout); err != nil {
+								return fmt.Errorf("error RunUserErrorHandlingCode: %v", err)
+							}
+							return errDatumRecovered
+						}
+						return err
+					}
+
+					// TODO: would be nice if we could upload the output from the scratch
+					// space rather than the active data directory, but I think this breaks
+					// if they use symlinks to a path under the active data directory. If
+					// this would work, we can run the next datum while uploading previous
+					// datums.
+					var err error
+					hashtreeBytes, err = driver.UploadOutput(tag, logger, inputs, stats.ProcessStats, outputTree)
+					return err
+				})
 			}); err != nil {
 				return err
 			}
