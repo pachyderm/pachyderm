@@ -8,7 +8,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
@@ -17,7 +16,6 @@ import (
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 	"golang.org/x/net/context"
-	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -73,51 +71,26 @@ func (d *driver) finishCommitNewStorageLayer(txnCtx *txnenv.TransactionContext, 
 	return d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo)
 }
 
-func (d *driver) putFilesNewStorageLayer(pachClient *client.APIClient, server *putFileServer) (retErr error) {
-	// (bryce) how to handle no commit started?
-	// (bryce) a failed put (crash/error) should result with any serialized sub file sets getting
-	// cleaned up.
-	// (bryce) piping is not ideal, but easy for getting integration started.
-	// we will want to eventually just read raw bytes from the grpc stream.
-	r, w := io.Pipe()
-	var eg errgroup.Group
-	var fs *fileset.FileSet
-	fsChan := make(chan *fileset.FileSet)
-	eg.Go(func() (retErr error) {
-		fs = <-fsChan
-		defer func() {
-			if err := fs.Close(); err != nil {
-				retErr = err
-			}
-		}()
-		return fs.Put(r)
-	})
-	eg.Go(func() error {
-		var fs *fileset.FileSet
-		for req, err := server.Recv(); err == nil; req, err = server.Recv() {
-			if fs == nil {
-				repo := req.File.Commit.Repo.Name
-				commit := req.File.Commit.ID
-				subFileSetStr := fileset.SubFileSetStr(d.subFileSet)
-				fsChan <- d.storage.New(pachClient.Ctx(), path.Join(repo, commit, subFileSetStr), subFileSetStr)
-				// (bryce) subFileSet will need to be incremented through etcd eventually.
-				d.subFileSet++
-			}
-			if _, err := w.Write(req.Value); err != nil {
-				return err
-			}
+// (bryce) add commit validation.
+// (bryce) a failed put (crash/error) should result with any serialized sub file sets getting
+// cleaned up.
+func (d *driver) putFilesNewStorageLayer(ctx context.Context, repo, commit string, r io.Reader) (retErr error) {
+	subFileSetStr := fileset.SubFileSetStr(d.subFileSet)
+	fs := d.storage.New(ctx, path.Join(repo, commit, subFileSetStr), subFileSetStr)
+	defer func() {
+		if err := fs.Close(); err != nil && retErr == nil {
+			retErr = err
 		}
-		return w.Close()
-	})
-	return eg.Wait()
+	}()
+	// (bryce) subFileSet will need to be incremented through etcd eventually.
+	d.subFileSet++
+	return fs.Put(r)
 }
 
-func (d *driver) getFileNewStorageLayer(pachClient *client.APIClient, file *pfs.File, w io.Writer) error {
-	// (bryce) path should be cleaned in option function
-	repo := file.Commit.Repo.Name
-	commit := file.Commit.ID
-	// (bryce) need exact match option for file path.
-	mr, err := d.storage.NewMergeReader(pachClient.Ctx(), []string{path.Join(repo, commit, fileset.Compacted)}, index.WithPrefix(file.Path))
+func (d *driver) getFilesNewStorageLayer(ctx context.Context, repo, commit, glob string, w io.Writer) error {
+	// (bryce) glob should be cleaned in option function
+	// (bryce) need exact match option for file glob.
+	mr, err := d.storage.NewMergeReader(ctx, []string{path.Join(repo, commit, fileset.Compacted)}, index.WithPrefix(glob))
 	if err != nil {
 		return err
 	}

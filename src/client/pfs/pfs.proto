@@ -484,6 +484,18 @@ message FsckResponse {
   string error = 2;
 }
 
+// Messages specific to the new storage layer.
+
+message PutTarRequest {
+  Commit commit = 1;
+  bytes data = 2;
+}
+
+message GetTarRequest {
+  Commit commit = 1;
+  string glob = 2;
+}
+
 service API {
   // Repo rpcs
   // CreateRepo creates a new repo.
@@ -560,6 +572,10 @@ service API {
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
   // Fsck does a file system consistency check for pfs
   rpc Fsck(FsckRequest) returns (stream FsckResponse) {}
+
+  // RPCs specific to the new storage layer. 
+  rpc PutTar(stream PutTarRequest) returns (google.protobuf.Empty) {}
+  rpc GetTar(GetTarRequest) returns (stream google.protobuf.BytesValue) {}
 }
 
 message PutObjectRequest {

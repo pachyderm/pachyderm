@@ -42,11 +42,7 @@ func TestCompaction(t *testing.T) {
 			require.NoError(t, tw.Flush())
 		}
 		require.NoError(t, tw.Close())
-		pfc, err := c.NewPutFileClient()
-		require.NoError(t, err)
-		_, err = pfc.PutFile(repo, commit.ID, "", buf)
-		require.NoError(t, err)
-		require.NoError(t, pfc.Close())
+		require.NoError(t, c.PutTar(repo, commit.ID, buf))
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
 	}
 	tarBuf := &bytes.Buffer{}
@@ -59,12 +55,12 @@ func TestCompaction(t *testing.T) {
 		require.NoError(t, err)
 		return contentBuf.String()
 	}
-	require.NoError(t, c.GetFile(repo, commit.ID, "/file0", 0, 0, tarBuf))
+	require.NoError(t, c.GetTar(repo, commit.ID, "/file0", tarBuf))
 	require.Equal(t, "0", getContent())
 	tarBuf.Reset()
-	require.NoError(t, c.GetFile(repo, commit.ID, "/file50", 0, 0, tarBuf))
+	require.NoError(t, c.GetTar(repo, commit.ID, "/file50", tarBuf))
 	require.Equal(t, "50", getContent())
 	tarBuf.Reset()
-	require.NoError(t, c.GetFile(repo, commit.ID, "/file99", 0, 0, tarBuf))
+	require.NoError(t, c.GetTar(repo, commit.ID, "/file99", tarBuf))
 	require.Equal(t, "99", getContent())
 }
