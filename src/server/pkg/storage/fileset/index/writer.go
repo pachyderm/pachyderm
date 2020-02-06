@@ -54,7 +54,7 @@ func (w *Writer) WriteIndexes(idxs []*Index) error {
 func (w *Writer) setupLevels() {
 	// Setup the first index level.
 	if w.levels == nil {
-		cw := w.chunks.NewWriter(w.ctx, averageBits, w.callback(0), 0)
+		cw := w.chunks.NewWriter(w.ctx, averageBits, 0, w.callback(0))
 		w.levels = append(w.levels, &levelWriter{
 			cw:  cw,
 			pbw: pbutil.NewWriter(cw),
@@ -115,7 +115,7 @@ func (w *Writer) callback(level int) chunk.WriterFunc {
 		}
 		// Create next index level if it does not exist.
 		if level == len(w.levels)-1 {
-			cw := w.chunks.NewWriter(w.ctx, averageBits, w.callback(level+1), int64(level+1))
+			cw := w.chunks.NewWriter(w.ctx, averageBits, int64(level+1), w.callback(level+1))
 			w.levels = append(w.levels, &levelWriter{
 				cw:  cw,
 				pbw: pbutil.NewWriter(cw),

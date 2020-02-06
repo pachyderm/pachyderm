@@ -147,7 +147,7 @@ func (tr *TagReader) Iterate(f func(*DataReader) error) error {
 		}
 		// Limit the current data reader if it has more than one tag.
 		if len(tags) > 1 {
-			dr = dr.LimitReader(tags[1].Id)
+			dr = dr.BoundReader(tags[1].Id)
 		}
 		if err := f(dr); err != nil {
 			return err
@@ -254,6 +254,9 @@ func (dr *DataReader) Iterate(f func(*Tag, io.Reader) error, tagUpperBound ...st
 			return nil
 		}
 		if err := f(tag, bytes.NewReader(dr.chunk[dr.offset:dr.offset+tag.SizeBytes])); err != nil {
+			if err == errutil.ErrBreak {
+				return nil
+			}
 			return err
 		}
 		dr.tags = dr.tags[1:]
@@ -313,11 +316,11 @@ func (dr *DataReader) Get(w io.Writer) error {
 	return nil
 }
 
-// LimitReader creates a new data reader that reads a subset of the remaining tags in the current data reader.
+// BoundReader creates a new data reader that reads a subset of the remaining tags in the current data reader.
 // This tag subset is determined by the optional parameter tagUpperBound which specifies the upper bound (exclusive) of the new data reader.
-// LimitReader will progress the current data reader past the tags in the tag subset.
+// BoundReader will progress the current data reader past the tags in the tag subset.
 // Data in the tag subset is fetched lazily by the new data reader.
-func (dr *DataReader) LimitReader(tagUpperBound ...string) *DataReader {
+func (dr *DataReader) BoundReader(tagUpperBound ...string) *DataReader {
 	offset := dr.offset
 	var tags []*Tag
 	for {

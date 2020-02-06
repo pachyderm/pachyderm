@@ -29,7 +29,7 @@ const (
 	// DefaultLevelZeroSize is the default size for level zero in the compacted
 	// representation of a file set.
 	DefaultLevelZeroSize = 1 * chunk.MB
-	// DefaultLevelSizeBase is the default base for the exponential growth function
+	// DefaultLevelSizeBase is the default base of the exponential growth function
 	// for level sizes in the compacted representation of a file set.
 	DefaultLevelSizeBase = 10
 	// Diff is the suffix of a path that points to the diff of the prefix.

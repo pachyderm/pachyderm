@@ -272,7 +272,7 @@ func (tsmr *TagSetMergeReader) WriteTo(w *Writer) error {
 				next = []string{paddingTag}
 			}
 			return tss[0].fr.Iterate(func(dr *chunk.DataReader) error {
-				return w.CopyTags(dr.LimitReader(next...))
+				return w.CopyTags(dr.BoundReader(next...))
 			}, next...)
 		}
 		// Create tag merge reader and call its WriteTo function.

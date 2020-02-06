@@ -35,7 +35,7 @@ func newWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path
 		iw:    index.NewWriter(ctx, objC, chunks, path),
 		first: true,
 	}
-	cw := chunks.NewWriter(ctx, averageBits, w.callback(), math.MaxInt64)
+	cw := chunks.NewWriter(ctx, averageBits, math.MaxInt64, w.callback())
 	w.cw = cw
 	w.tw = tar.NewWriter(cw)
 	return w

@@ -48,7 +48,7 @@ func (s *Storage) NewReader(ctx context.Context, dataRefs ...*DataRef) *Reader {
 // Chunks are created based on the content, then hashed and deduplicated/uploaded to
 // object storage.
 // The callback arguments are the chunk hash and annotations.
-func (s *Storage) NewWriter(ctx context.Context, averageBits int, f WriterFunc, seed int64) *Writer {
+func (s *Storage) NewWriter(ctx context.Context, averageBits int, seed int64, f WriterFunc) *Writer {
 	return newWriter(ctx, s.objC, averageBits, f, seed)
 }
 

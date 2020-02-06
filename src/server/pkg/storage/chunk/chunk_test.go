@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
+	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"modernc.org/mathutil"
 )
@@ -19,16 +20,22 @@ const (
 	averageBits = 23
 )
 
-var tests = []struct {
+type test struct {
 	maxAnnotationSize int
 	maxTagSize        int
 	n                 int
-}{
-	{1 * KB, 1 * KB, 1 * KB},
-	{1 * KB, 1 * KB, 1 * MB},
-	{1 * MB, 1 * KB, 100 * MB},
-	{1 * MB, 1 * MB, 100 * MB},
-	{10 * MB, 1 * MB, 100 * MB},
+}
+
+func (t test) name() string {
+	return fmt.Sprintf("Max Annotation Size: %v, Max Tag Size: %v, Data Size: %v", units.BytesSize(float64(t.maxAnnotationSize)), units.BytesSize(float64(t.maxTagSize)), units.BytesSize(float64(t.n)))
+}
+
+var tests = []test{
+	test{1 * KB, 1 * KB, 1 * KB},
+	test{1 * KB, 1 * KB, 1 * MB},
+	test{1 * MB, 1 * KB, 100 * MB},
+	test{1 * MB, 1 * MB, 100 * MB},
+	test{10 * MB, 1 * MB, 100 * MB},
 }
 
 func TestWriteThenRead(t *testing.T) {
@@ -39,11 +46,13 @@ func TestWriteThenRead(t *testing.T) {
 	rand.Seed(seed)
 	msg := seedStr(seed)
 	for _, test := range tests {
-		// Generate set of annotations.
-		as := generateAnnotations(test.maxAnnotationSize, test.maxTagSize, test.n)
-		// Write then read the set of annotations.
-		writeAnnotations(t, chunks, as, msg)
-		readAnnotations(t, chunks, as, msg)
+		t.Run(test.name(), func(t *testing.T) {
+			// Generate set of annotations.
+			as := generateAnnotations(test)
+			// Write then read the set of annotations.
+			writeAnnotations(t, chunks, as, msg)
+			readAnnotations(t, chunks, as, msg)
+		})
 	}
 }
 
@@ -55,39 +64,41 @@ func TestCopy(t *testing.T) {
 	rand.Seed(seed)
 	msg := seedStr(seed)
 	for _, test := range tests {
-		// Generate two sets of annotations.
-		as1 := generateAnnotations(test.maxAnnotationSize, test.maxTagSize, test.n)
-		as2 := generateAnnotations(test.maxAnnotationSize, test.maxTagSize, test.n)
-		// Write the two sets of annotations.
-		writeAnnotations(t, chunks, as1, msg)
-		writeAnnotations(t, chunks, as2, msg)
-		// Initial chunk count.
-		var initialChunkCount int64
-		require.NoError(t, chunks.List(context.Background(), func(_ string) error {
-			initialChunkCount++
-			return nil
-		}), msg)
-		// Copy the annotations from the two sets of annotations.
-		as := append(as1, as2...)
-		f := func(annotations []*Annotation) error {
-			for _, a := range annotations {
-				testA := a.Data.(*testAnnotation)
-				testA.dataRefs = append(testA.dataRefs, a.NextDataRef)
+		t.Run(test.name(), func(t *testing.T) {
+			// Generate two sets of annotations.
+			as1 := generateAnnotations(test)
+			as2 := generateAnnotations(test)
+			// Write the two sets of annotations.
+			writeAnnotations(t, chunks, as1, msg)
+			writeAnnotations(t, chunks, as2, msg)
+			// Initial chunk count.
+			var initialChunkCount int64
+			require.NoError(t, chunks.List(context.Background(), func(_ string) error {
+				initialChunkCount++
+				return nil
+			}), msg)
+			// Copy the annotations from the two sets of annotations.
+			as := append(as1, as2...)
+			f := func(annotations []*Annotation) error {
+				for _, a := range annotations {
+					testA := a.Data.(*testAnnotation)
+					testA.dataRefs = append(testA.dataRefs, a.NextDataRef)
+				}
+				return nil
 			}
-			return nil
-		}
-		w := chunks.NewWriter(context.Background(), averageBits, f, 0)
-		copyAnnotations(t, chunks, w, as, msg)
-		require.NoError(t, w.Close(), msg)
-		// Check that the annotations were correctly copied.
-		readAnnotations(t, chunks, as, msg)
-		// Check that only one new chunk was created when connecting the two sets of annotations.
-		var finalChunkCount int64
-		require.NoError(t, chunks.List(context.Background(), func(_ string) error {
-			finalChunkCount++
-			return nil
-		}), msg)
-		require.Equal(t, initialChunkCount+1, finalChunkCount, msg)
+			w := chunks.NewWriter(context.Background(), averageBits, 0, f)
+			copyAnnotations(t, chunks, w, as, msg)
+			require.NoError(t, w.Close(), msg)
+			// Check that the annotations were correctly copied.
+			readAnnotations(t, chunks, as, msg)
+			// Check that only one new chunk was created when connecting the two sets of annotations.
+			var finalChunkCount int64
+			require.NoError(t, chunks.List(context.Background(), func(_ string) error {
+				finalChunkCount++
+				return nil
+			}), msg)
+			require.Equal(t, initialChunkCount+1, finalChunkCount, msg)
+		})
 	}
 }
 
@@ -99,7 +110,7 @@ func BenchmarkWriter(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		f := func(_ []*Annotation) error { return nil }
-		w := chunks.NewWriter(context.Background(), averageBits, f, 0)
+		w := chunks.NewWriter(context.Background(), averageBits, 0, f)
 		for i := 0; i < 100; i++ {
 			w.Annotate(&Annotation{
 				NextDataRef: &DataRef{},
@@ -140,13 +151,13 @@ type testAnnotation struct {
 	dataRefs []*DataRef
 }
 
-func generateAnnotations(maxAnnotationSize, maxTagSize, n int) []*testAnnotation {
+func generateAnnotations(t test) []*testAnnotation {
 	var as []*testAnnotation
-	for n > 0 {
+	for t.n > 0 {
 		a := &testAnnotation{}
-		a.data = RandSeq(mathutil.Min(rand.Intn(maxAnnotationSize)+1, n))
-		a.tags = generateTags(maxTagSize, len(a.data))
-		n -= len(a.data)
+		a.data = RandSeq(mathutil.Min(rand.Intn(t.maxAnnotationSize)+1, t.n))
+		a.tags = generateTags(t.maxTagSize, len(a.data))
+		t.n -= len(a.data)
 		as = append(as, a)
 	}
 	return as
@@ -174,7 +185,7 @@ func writeAnnotations(t *testing.T, chunks *Storage, annotations []*testAnnotati
 			}
 			return nil
 		}
-		w := chunks.NewWriter(context.Background(), averageBits, f, 0)
+		w := chunks.NewWriter(context.Background(), averageBits, 0, f)
 		for _, a := range annotations {
 			w.Annotate(&Annotation{
 				NextDataRef: &DataRef{},
@@ -203,7 +214,7 @@ func copyAnnotations(t *testing.T, chunks *Storage, w *Writer, annotations []*te
 				Data:        a,
 			})
 			require.NoError(t, r.Iterate(func(dr *DataReader) error {
-				return w.Copy(dr.LimitReader())
+				return w.Copy(dr.BoundReader())
 			}), msg)
 		}
 	})
