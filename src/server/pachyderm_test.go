@@ -3006,18 +3006,21 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 	dataRepo := tu.UniqueString("TestUpdateStoppedPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	pipelineName := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
-		pipelineName,
-		"",
-		[]string{"bash"},
-		[]string{"cp /pfs/*/file /pfs/out/file"},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewPFSInput(dataRepo, "/*"),
-		"",
-		false,
-	))
+
+	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &pps.Transform{
+				Cmd:   []string{"bash"},
+				Stdin: []string{"cp /pfs/*/file /pfs/out/file"},
+			},
+			Input:       client.NewPFSInput(dataRepo, "/*"),
+			EnableStats: true,
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+		})
+	require.NoError(t, err)
 
 	commits, err := c.ListCommit(pipelineName, "master", "", 0)
 	require.NoError(t, err)
@@ -3036,7 +3039,14 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 		[]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, 2, len(commitInfos))
+
+	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("long"))
+	require.NoError(t, err)
+
+	commits, err = c.ListCommit(pipelineName, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commits))
 
 	// Stop the pipeline (and confirm that it's stopped)
 	require.NoError(t, c.StopPipeline(pipelineName))
@@ -3057,21 +3067,25 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 
 	commits, err = c.ListCommit(pipelineName, "master", "", 0)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(commits))
+	require.Equal(t, 2, len(commits))
 
 	// Update shouldn't restart it (wait for version to increment)
-	require.NoError(t, c.CreatePipeline(
-		pipelineName,
-		"",
-		[]string{"bash"},
-		[]string{"cp /pfs/*/file /pfs/out/file"},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewPFSInput(dataRepo, "/*"),
-		"",
-		true,
-	))
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &pps.Transform{
+				Cmd:   []string{"bash"},
+				Stdin: []string{"cp /pfs/*/file /pfs/out/file"},
+			},
+			Input:       client.NewPFSInput(dataRepo, "/*"),
+			EnableStats: true,
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Update: true,
+		})
+	require.NoError(t, err)
+
 	time.Sleep(10 * time.Second)
 	require.NoError(t, backoff.Retry(func() error {
 		pipelineInfo, err = c.InspectPipeline(pipelineName)
@@ -3091,12 +3105,16 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 
 	commits, err = c.ListCommit(pipelineName, "master", "", 0)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(commits))
+	require.Equal(t, 2, len(commits))
 
 	// Create a commit (to give the pipeline pending work), then start the pipeline
 	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("bar"))
 	require.NoError(t, err)
 	require.NoError(t, c.StartPipeline(pipelineName))
+
+	jis, err := c.ListJob(pipelineName, nil, nil, -1, false)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jis))
 
 	// Pipeline should start and create a job should succeed -- fix
 	// https://github.com/pachyderm/pachyderm/issues/3934)
@@ -3104,7 +3122,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 		[]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 	commitInfos = collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, 2, len(commitInfos))
 	commits, err = c.ListCommit(pipelineName, "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commits))
