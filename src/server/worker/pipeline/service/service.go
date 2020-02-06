@@ -108,6 +108,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 
 			// Only want to update this stuff if we were canceled due to a new commit
 			if common.IsDone(serviceCtx) {
+				// TODO: do this in a transaction
 				if err := driver.UpdateJobState(job.ID, pps.JobState_JOB_SUCCESS, ""); err != nil {
 					logger.Logf("error updating job progress: %+v", err)
 				}
