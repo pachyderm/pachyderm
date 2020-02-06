@@ -1513,10 +1513,7 @@ func forEachDiffFile(newFiles, oldFiles []*pfsclient.FileInfo, f func(newFile, o
 			oI++
 		}
 		if err := f(nFI, oFI); err != nil {
-			if err == errutil.ErrBreak {
-				return nil
-			}
-			return err
+			return errutil.CatchErrBreak(err)
 		}
 	}
 }

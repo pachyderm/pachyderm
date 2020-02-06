@@ -666,10 +666,7 @@ func (c *readonlyCollection) watchF(watcher watch.Watcher, f func(e *watch.Event
 		// (bryce) should the check for error events be here?
 		case e := <-watcher.Watch():
 			if err := f(e); err != nil {
-				if err == errutil.ErrBreak {
-					return nil
-				}
-				return err
+				return errutil.CatchErrBreak(err)
 			}
 		case <-c.ctx.Done():
 			return c.ctx.Err()

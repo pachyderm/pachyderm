@@ -1991,7 +1991,7 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 			sort.Slice(cis, func(i, j int) bool { return len(cis[i].Provenance) > len(cis[j].Provenance) })
 			for i, ci := range cis {
 				if number == 0 {
-					return errutil.ErrBreak
+					return nil
 				}
 				number--
 
@@ -1999,7 +1999,7 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 					ci = cis[len(cis)-1-i]
 				}
 				if err := f(ci); err != nil {
-					return err
+					return errutil.CatchErrBreak(err)
 				}
 			}
 			cis = nil
@@ -2033,10 +2033,7 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 				return err
 			}
 			if err := f(&commitInfo); err != nil {
-				if err == errutil.ErrBreak {
-					return nil
-				}
-				return err
+				return errutil.CatchErrBreak(err)
 			}
 			cursor = commitInfo.ParentCommit
 			number--
@@ -2114,7 +2111,7 @@ func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, b
 					return err
 				}
 				if err := f(commitInfo); err != nil {
-					return err
+					return errutil.CatchErrBreak(err)
 				}
 				seen[commitInfo.Commit.ID] = true
 			}
@@ -2177,7 +2174,7 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 			return err
 		}
 		if err := f(finishedCommitInfo); err != nil {
-			return err
+			return errutil.CatchErrBreak(err)
 		}
 	}
 	// Now wait for the root commits to finish. These are not passed to `f`
@@ -3918,13 +3915,13 @@ func (d *driver) fileHistory(pachClient *client.APIClient, file *pfs.File, histo
 		_fi, err := d.inspectFile(pachClient, file)
 		if err != nil {
 			if _, ok := err.(pfsserver.ErrFileNotFound); ok {
-				return f(fi)
+				return errutil.CatchErrBreak(f(fi))
 			}
 			return err
 		}
 		if fi != nil && !bytes.Equal(fi.Hash, _fi.Hash) {
 			if err := f(fi); err != nil {
-				return err
+				return errutil.CatchErrBreak(err)
 			}
 			if history > 0 {
 				history--
@@ -3939,7 +3936,7 @@ func (d *driver) fileHistory(pachClient *client.APIClient, file *pfs.File, histo
 			return err
 		}
 		if ci.ParentCommit == nil {
-			return f(fi)
+			return errutil.CatchErrBreak(f(fi))
 		}
 		file.Commit = ci.ParentCommit
 	}

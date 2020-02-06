@@ -12,6 +12,15 @@ var (
 	ErrBreak = fmt.Errorf("BREAK")
 )
 
+// CatchErrBreak takes an error and returns it, unless it's ErrBreak in which
+// case it returns nil.
+func CatchErrBreak(err error) error {
+	if err == ErrBreak {
+		return nil
+	}
+	return err
+}
+
 // IsAlreadyExistError returns true if err is due to trying to create a
 // resource that already exists. It uses simple string matching, it's not
 // terribly smart.

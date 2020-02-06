@@ -322,10 +322,7 @@ func (c APIClient) ListCommitF(repoName string, to string, from string, number u
 			return grpcutil.ScrubGRPC(err)
 		}
 		if err := f(ci); err != nil {
-			if err == errutil.ErrBreak {
-				return nil
-			}
-			return err
+			return errutil.CatchErrBreak(err)
 		}
 	}
 	return nil
@@ -812,10 +809,7 @@ func (c APIClient) ListTag(f func(*pfs.ListTagsResponse) error) error {
 			return grpcutil.ScrubGRPC(err)
 		}
 		if err := f(listTagResponse); err != nil {
-			if err == errutil.ErrBreak {
-				return nil
-			}
-			return err
+			return errutil.CatchErrBreak(err)
 		}
 	}
 }
@@ -835,10 +829,7 @@ func (c APIClient) ListBlock(f func(*pfs.Block) error) error {
 			return grpcutil.ScrubGRPC(err)
 		}
 		if err := f(block); err != nil {
-			if err == errutil.ErrBreak {
-				return nil
-			}
-			return err
+			return errutil.CatchErrBreak(err)
 		}
 	}
 }
@@ -1255,10 +1246,7 @@ func (c APIClient) ListFileF(repoName string, commitID string, path string, hist
 			return grpcutil.ScrubGRPC(err)
 		}
 		if err := f(fi); err != nil {
-			if err == errutil.ErrBreak {
-				return nil
-			}
-			return err
+			return errutil.CatchErrBreak(err)
 		}
 	}
 }
@@ -1312,10 +1300,7 @@ func (c APIClient) GlobFileF(repoName string, commitID string, pattern string, f
 			return grpcutil.ScrubGRPC(err)
 		}
 		if err := f(fi); err != nil {
-			if err == errutil.ErrBreak {
-				return nil
-			}
-			return err
+			return errutil.CatchErrBreak(err)
 		}
 	}
 }
@@ -1368,10 +1353,7 @@ func (c APIClient) Walk(repoName string, commitID string, path string, f WalkFn)
 			return grpcutil.ScrubGRPC(err)
 		}
 		if err := f(fi); err != nil {
-			if err == errutil.ErrBreak {
-				return nil
-			}
-			return err
+			return errutil.CatchErrBreak(err)
 		}
 	}
 }
@@ -1415,10 +1397,7 @@ func (c APIClient) Fsck(fix bool, cb func(*pfs.FsckResponse) error) error {
 			return grpcutil.ScrubGRPC(err)
 		}
 		if err := cb(resp); err != nil {
-			if err == errutil.ErrBreak {
-				break
-			}
-			return err
+			return errutil.CatchErrBreak(err)
 		}
 	}
 	return nil

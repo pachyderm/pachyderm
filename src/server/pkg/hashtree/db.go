@@ -199,10 +199,7 @@ func iterDir(tx *bolt.Tx, path string, f func(k, v []byte, c *bolt.Cursor) error
 	c := NewChildCursor(tx, path)
 	for k, v := c.K(), c.V(); k != nil; k, v = c.Next() {
 		if err := f(k, v, c.c); err != nil {
-			if err == errutil.ErrBreak {
-				return nil
-			}
-			return err
+			return errutil.CatchErrBreak(err)
 		}
 	}
 	return nil
@@ -262,7 +259,10 @@ func glob(tx *bolt.Tx, pattern string, f func(string, *NodeProto) error) error {
 		if err != nil {
 			return err
 		}
-		return f(externalDefault(pattern), node)
+		if err := f(externalDefault(pattern), node); err != nil {
+			return errutil.CatchErrBreak(err)
+		}
+		return nil
 	}
 
 	g, err := globlib.Compile(pattern, '/')
@@ -277,10 +277,7 @@ func glob(tx *bolt.Tx, pattern string, f func(string, *NodeProto) error) error {
 				return err
 			}
 			if err := f(externalDefault(s(k)), node); err != nil {
-				if err == errutil.ErrBreak {
-					return nil
-				}
-				return err
+				return errutil.CatchErrBreak(err)
 			}
 		}
 	}
@@ -304,7 +301,10 @@ func Glob(rs []io.ReadCloser, pattern string, f func(string, *NodeProto) error) 
 	}
 	return nodes(rs, func(path string, node *NodeProto) error {
 		if g.Match(path) {
-			return f(externalDefault(path), node)
+			if err := f(externalDefault(path), node); err != nil {
+				return errutil.CatchErrBreak(err)
+			}
+			return nil
 		}
 		return nil
 	})
@@ -338,10 +338,7 @@ func (h *dbHashTree) Walk(path string, f func(path string, node *NodeProto) erro
 				continue
 			}
 			if err := f(nodePath, node); err != nil {
-				if err == errutil.ErrBreak {
-					return nil
-				}
-				return err
+				return errutil.CatchErrBreak(err)
 			}
 		}
 		return nil
@@ -359,10 +356,7 @@ func Walk(rs []io.ReadCloser, walkPath string, f func(path string, node *NodePro
 			return nil
 		}
 		if err := f(path, node); err != nil {
-			if err == errutil.ErrBreak {
-				return nil
-			}
-			return err
+			return errutil.CatchErrBreak(err)
 		}
 		return nil
 	})
@@ -385,7 +379,7 @@ func diff(newTx, oldTx *bolt.Tx, newPath string, oldPath string, recursiveDepth 
 	if newNode != nil {
 		if newNode.FileNode != nil || recursiveDepth == 0 {
 			if err := f(newPath, newNode, true); err != nil {
-				return err
+				return errutil.CatchErrBreak(err)
 			}
 		} else if newNode.DirNode != nil {
 			newC = NewChildCursor(newTx, newPath)
@@ -395,7 +389,7 @@ func diff(newTx, oldTx *bolt.Tx, newPath string, oldPath string, recursiveDepth 
 	if oldNode != nil {
 		if oldNode.FileNode != nil || recursiveDepth == 0 {
 			if err := f(oldPath, oldNode, false); err != nil {
-				return err
+				return errutil.CatchErrBreak(err)
 			}
 		} else if oldNode.DirNode != nil {
 			oldC = NewChildCursor(oldTx, newPath)
@@ -1351,7 +1345,7 @@ func nodes(rs []io.ReadCloser, f func(path string, nodeProto *NodeProto) error) 
 			return err
 		}
 		if err := f(s(n.k), n.nodeProto); err != nil {
-			return err
+			return errutil.CatchErrBreak(err)
 		}
 	}
 	return nil

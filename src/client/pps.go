@@ -283,10 +283,7 @@ func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit,
 			return grpcutil.ScrubGRPC(err)
 		}
 		if err := f(ji); err != nil {
-			if err == errutil.ErrBreak {
-				return nil
-			}
-			return err
+			return errutil.CatchErrBreak(err)
 		}
 	}
 }
@@ -422,10 +419,7 @@ func (c APIClient) ListDatumF(jobID string, pageSize int64, page int64, f func(d
 			return grpcutil.ScrubGRPC(err)
 		}
 		if err := f(resp.DatumInfo); err != nil {
-			if err == errutil.ErrBreak {
-				return nil
-			}
-			return err
+			return errutil.CatchErrBreak(err)
 		}
 	}
 }
