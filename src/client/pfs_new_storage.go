@@ -7,6 +7,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 )
 
+// PutTar puts a tar stream into PFS.
+// Note: this should only be used for testing the new storage layer.
 func (c APIClient) PutTar(repo, commit string, r io.Reader) (retErr error) {
 	ptc, err := c.PfsAPIClient.PutTar(c.Ctx())
 	if err != nil {
@@ -32,6 +34,8 @@ func (c APIClient) PutTar(repo, commit string, r io.Reader) (retErr error) {
 	return err
 }
 
+// GetTar gets a tar stream out of PFS.
+// Note: this should only be used for testing the new storage layer.
 func (c APIClient) GetTar(repo, commit, glob string, w io.Writer) error {
 	req := &pfs.GetTarRequest{
 		Commit: NewCommit(repo, commit),
