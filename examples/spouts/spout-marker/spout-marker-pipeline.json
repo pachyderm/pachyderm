@@ -4,7 +4,7 @@
   },
   "transform": {
     "cmd": [ "python3", "/spout-marker-example.py" ],
-    "image": "spout-marker:v10"
+    "image": "spout-marker:v1"
   },
   "spout": {
     "marker": "mymark"

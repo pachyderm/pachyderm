@@ -36,14 +36,14 @@ how the spout continues to update records without interruption.
 Before you begin, verify that you have the following components
 installed on your machine:
 
-* Pachyderm 1.9.10 or later
+* Pachyderm 1.9.12 or later
 * Terminal
 
 ## Pipeline Overview
 
 In this example, we will use a simple spout pipeline that
 will add dots into a spout marker file. Here is how the
-spout file will look like:
+marker file will look like:
 
 ```bash
 .
@@ -158,7 +158,10 @@ To create a spout pipeline, complete the following steps:
    ```
 
    **Note:** In the `spout` section, you have a key-value pair
-   `"marker": "mymark"`. This file will track your records.
+   `"marker": "mymark"`. `mymark` is the name of your marker file.
+   If you configure to use multiple marker files, `mymark` will be a
+   prefix of all your marker files that might be named as `mymark01`,
+   `mymark02`, and so on.
 
 1. View the list of pipelines:
 
