@@ -159,8 +159,8 @@ To create a spout pipeline, complete the following steps:
 
    **Note:** In the `spout` section, you have a key-value pair
    `"marker": "mymark"`. `mymark` is the name of your marker file.
-   If you configure to use multiple marker files, `mymark` will be a
-   prefix of all your marker files that might be named as `mymark01`,
+   If you use multiple marker files, `mymark` will be a
+   prefix of all marker files that might be named as `mymark01`,
    `mymark02`, and so on.
 
 1. View the list of pipelines:
