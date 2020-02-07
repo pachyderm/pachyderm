@@ -3041,18 +3041,19 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 
-	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("long"))
+	jis, err := c.ListJob(pipelineName, nil, nil, -1, false)
 	require.NoError(t, err)
+	require.Equal(t, 1, len(jis))
 
 	commits, err = c.ListCommit(pipelineName, "master", "", 0)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(commits))
+	require.Equal(t, 1, len(commits))
 
 	// Stop the pipeline (and confirm that it's stopped)
 	require.NoError(t, c.StopPipeline(pipelineName))
 	pipelineInfo, err := c.InspectPipeline(pipelineName)
 	require.NoError(t, err)
-	require.Equal(t, true, pipelineInfo.Stopped)
+	// require.Equal(t, true, pipelineInfo.Stopped)
 	require.NoError(t, backoff.Retry(func() error {
 		pipelineInfo, err = c.InspectPipeline(pipelineName)
 		if err != nil {
@@ -3067,7 +3068,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 
 	commits, err = c.ListCommit(pipelineName, "master", "", 0)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(commits))
+	require.Equal(t, 1, len(commits))
 
 	// Update shouldn't restart it (wait for version to increment)
 	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
@@ -3105,14 +3106,23 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 
 	commits, err = c.ListCommit(pipelineName, "master", "", 0)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(commits))
+	require.Equal(t, 1, len(commits))
 
 	// Create a commit (to give the pipeline pending work), then start the pipeline
 	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("bar"))
 	require.NoError(t, err)
+
 	require.NoError(t, c.StartPipeline(pipelineName))
 
-	jis, err := c.ListJob(pipelineName, nil, nil, -1, false)
+	// do another stop/start pipeline pair without anything in between, to make sure it doesn't create extra jobs
+	time.Sleep(10 * time.Second)
+	require.NoError(t, c.StopPipeline(pipelineName))
+	time.Sleep(10 * time.Second)
+	require.NoError(t, c.StartPipeline(pipelineName))
+	time.Sleep(30 * time.Second)
+
+	// make sure we have the expected number of jobs
+	jis, err = c.ListJob(pipelineName, nil, nil, -1, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jis))
 
