@@ -93,17 +93,19 @@ To keep the history of changes, so that the spout can
 continue where it left off after the restart, you can
 configure a record tracking `marker` file for your spout.
 
-When you specify the `marker` parameter in the
-`transform` section of your pipeline, Pachyderm creates
-the `marker` file or directory. The current spout marker
-is stored in `pfs/out/marker`. The previous marker is stored
-in `pfs/marker`. If a spout container crashes and then starts
+When you specify the `marker` parameter as a subfield in the
+`spout` section of your pipeline, Pachyderm creates
+the `marker` file or directory. The file or directory is named
+according to the provided value. For example, if you specify
+`"marker": "offset"`, Pachyderm stores the current marker
+in `pfs/out/offset` and the previous marker in `pfs/offset`.
+If a spout container crashes and then starts
 again, it can read the `marker` file and resume where it left
 off instead of starting over.
 
 Markers are useful if you want to leverage a record tracking
 functionality of an external messaging system, such as
-Apache@ Kafka offset management or similar.
+Apache® Kafka offset management or similar.
 
 If you want to check how a marker works in Pahcyderm, see
 the [Resuming a Spout Pipeline example](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/spout-marker).
