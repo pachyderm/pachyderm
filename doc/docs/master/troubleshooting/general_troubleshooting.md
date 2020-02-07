@@ -76,3 +76,19 @@ Any `pachctl put file` or `pachctl get file` commands are slow.
 
 If you do not explicitly set the pachd address config value, `pachctl` will default to using port forwarding, which throttles traffic to ~1MB/s. If you need to do large downloads/uploads you should consider using pachd address config value. You'll also want to make sure you've allowed ingress access through any firewalls to your k8s cluster.
 
+### Naming a Repo with an Unsupported Symbol
+
+#### Symptom
+
+A Pachyderm repo was accidentally named starting with a (`-`) and the repository is treated as
+a flag instead of a repository.
+
+#### Recourse
+
+Pachyderm supports standard `bash` utilities that you can
+use to resolve this and similar problems. For example, in this case,
+you can specify double dashes (`--`) to delete the repository. Double dashes
+signify the end of the options and tell the shell to process the
+rest arguments as filenames and objects.
+
+For more information, see `man bash`.
