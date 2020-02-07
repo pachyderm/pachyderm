@@ -29,7 +29,7 @@ try:
 except:
     lines = []
 while True:
-    lines.append((lines[-1] if len(lines) > 0 else "") + "*")
+    lines.append((lines[-1] if len(lines) > 0 else "") + ".")
     contents = "\n".join(lines).encode("utf-8")
     time.sleep(30)
     attempts = 0
