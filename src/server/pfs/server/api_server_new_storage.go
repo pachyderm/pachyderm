@@ -56,8 +56,8 @@ func (a *apiServer) GetTar(request *pfs.GetTarRequest, server pfs.API_GetTarServ
 	}
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	repo := request.Commit.Repo.Name
-	commit := request.Commit.ID
-	glob := request.Glob
+	repo := request.File.Commit.Repo.Name
+	commit := request.File.Commit.ID
+	glob := request.File.Path
 	return a.driver.getFilesNewStorageLayer(server.Context(), repo, commit, glob, grpcutil.NewStreamingBytesWriter(server))
 }

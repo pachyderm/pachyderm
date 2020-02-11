@@ -492,8 +492,7 @@ message PutTarRequest {
 }
 
 message GetTarRequest {
-  Commit commit = 1;
-  string glob = 2;
+  File file = 1;
 }
 
 service API {

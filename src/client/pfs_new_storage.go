@@ -36,10 +36,9 @@ func (c APIClient) PutTar(repo, commit string, r io.Reader) (retErr error) {
 
 // GetTar gets a tar stream out of PFS.
 // Note: this should only be used for testing the new storage layer.
-func (c APIClient) GetTar(repo, commit, glob string, w io.Writer) error {
+func (c APIClient) GetTar(repo, commit, path string, w io.Writer) error {
 	req := &pfs.GetTarRequest{
-		Commit: NewCommit(repo, commit),
-		Glob:   glob,
+		File: NewFile(repo, commit, path),
 	}
 	gtc, err := c.PfsAPIClient.GetTar(c.Ctx(), req)
 	if err != nil {
