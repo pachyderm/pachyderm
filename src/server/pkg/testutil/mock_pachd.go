@@ -396,6 +396,8 @@ type diffFileFunc func(context.Context, *pfs.DiffFileRequest) (*pfs.DiffFileResp
 type deleteFileFunc func(context.Context, *pfs.DeleteFileRequest) (*types.Empty, error)
 type deleteAllPFSFunc func(context.Context, *types.Empty) (*types.Empty, error)
 type fsckFunc func(*pfs.FsckRequest, pfs.API_FsckServer) error
+type putTarFunc func(pfs.API_PutTarServer) error
+type getTarFunc func(*pfs.GetTarRequest, pfs.API_GetTarServer) error
 
 type mockCreateRepo struct{ handler createRepoFunc }
 type mockInspectRepo struct{ handler inspectRepoFunc }
@@ -427,6 +429,8 @@ type mockDiffFile struct{ handler diffFileFunc }
 type mockDeleteFile struct{ handler deleteFileFunc }
 type mockDeleteAllPFS struct{ handler deleteAllPFSFunc }
 type mockFsck struct{ handler fsckFunc }
+type mockPutTar struct{ handler putTarFunc }
+type mockGetTar struct{ handler getTarFunc }
 
 func (mock *mockCreateRepo) Use(cb createRepoFunc)             { mock.handler = cb }
 func (mock *mockInspectRepo) Use(cb inspectRepoFunc)           { mock.handler = cb }
@@ -458,6 +462,8 @@ func (mock *mockDiffFile) Use(cb diffFileFunc)                 { mock.handler = 
 func (mock *mockDeleteFile) Use(cb deleteFileFunc)             { mock.handler = cb }
 func (mock *mockDeleteAllPFS) Use(cb deleteAllPFSFunc)         { mock.handler = cb }
 func (mock *mockFsck) Use(cb fsckFunc)                         { mock.handler = cb }
+func (mock *mockPutTar) Use(cb putTarFunc)                     { mock.handler = cb }
+func (mock *mockGetTar) Use(cb getTarFunc)                     { mock.handler = cb }
 
 type pfsServerAPI struct {
 	mock *mockPFSServer
@@ -495,6 +501,8 @@ type mockPFSServer struct {
 	DeleteFile       mockDeleteFile
 	DeleteAll        mockDeleteAllPFS
 	Fsck             mockFsck
+	PutTar           mockPutTar
+	GetTar           mockGetTar
 }
 
 func (api *pfsServerAPI) CreateRepo(ctx context.Context, req *pfs.CreateRepoRequest) (*types.Empty, error) {
@@ -676,6 +684,18 @@ func (api *pfsServerAPI) Fsck(req *pfs.FsckRequest, serv pfs.API_FsckServer) err
 		return api.mock.Fsck.handler(req, serv)
 	}
 	return fmt.Errorf("unhandled pachd mock pfs.Fsck")
+}
+func (api *pfsServerAPI) PutTar(serv pfs.API_PutTarServer) error {
+	if api.mock.PutTar.handler != nil {
+		return api.mock.PutTar.handler(serv)
+	}
+	return fmt.Errorf("unhandled pachd mock pfs.PutTar")
+}
+func (api *pfsServerAPI) GetTar(req *pfs.GetTarRequest, serv pfs.API_GetTarServer) error {
+	if api.mock.GetTar.handler != nil {
+		return api.mock.GetTar.handler(req, serv)
+	}
+	return fmt.Errorf("unhandled pachd mock pfs.GetTar")
 }
 
 /* PPS Server Mocks */

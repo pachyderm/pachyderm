@@ -1,6 +1,7 @@
 package chunk
 
 import (
+	"bytes"
 	"context"
 	"path"
 
@@ -11,13 +12,15 @@ const (
 	prefix = "chunks"
 )
 
-// Annotation is used to associate information with a set of bytes
+// Annotation is used to associate information with data
 // written into the chunk storage layer.
 type Annotation struct {
-	Offset      int64
 	RefDataRefs []*DataRef
 	NextDataRef *DataRef
-	Meta        interface{}
+	Data        interface{}
+	buf         *bytes.Buffer
+	tags        []*Tag
+	drs         []*DataReader
 }
 
 // Storage is the abstraction that manages chunk storage.
@@ -36,19 +39,16 @@ func NewStorage(objC obj.Client, opts ...StorageOption) *Storage {
 	return s
 }
 
-// NewReader creates an io.ReadCloser for a chunk.
-// (bryce) The whole chunk is in-memory right now. Could be a problem with
-// concurrency, particularly the merge process.
-// May want to handle concurrency here (pass in multiple data refs)
-func (s *Storage) NewReader(ctx context.Context, f ...ReaderFunc) *Reader {
-	return newReader(ctx, s.objC, f...)
+// NewReader creates a new Reader.
+func (s *Storage) NewReader(ctx context.Context, dataRefs ...*DataRef) *Reader {
+	return newReader(ctx, s.objC, dataRefs...)
 }
 
-// NewWriter creates an io.WriteCloser for a stream of bytes to be chunked.
+// NewWriter creates a new Writer for a stream of bytes to be chunked.
 // Chunks are created based on the content, then hashed and deduplicated/uploaded to
 // object storage.
-// The callback arguments are the chunk hash and content.
-func (s *Storage) NewWriter(ctx context.Context, averageBits int, f WriterFunc, seed int64) *Writer {
+// The callback arguments are the chunk hash and annotations.
+func (s *Storage) NewWriter(ctx context.Context, averageBits int, seed int64, f WriterFunc) *Writer {
 	return newWriter(ctx, s.objC, averageBits, f, seed)
 }
 

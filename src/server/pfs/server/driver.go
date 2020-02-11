@@ -60,9 +60,6 @@ const (
 
 	// Makes calls to ListRepo and InspectRepo more legible
 	includeAuth = true
-
-	// tmpPrefix is for temporary object paths that store merged shards.
-	tmpPrefix = "tmp"
 )
 
 // IsPermissionError returns true if a given error is a permission error.
@@ -115,8 +112,8 @@ type driver struct {
 	putObjectLimiter limit.ConcurrencyLimiter
 
 	// New storage layer.
-	storage *fileset.Storage
-	fs      *fileset.FileSet
+	storage    *fileset.Storage
+	subFileSet int64
 }
 
 // newDriver is used to create a new Driver instance
@@ -176,7 +173,7 @@ func newDriver(
 		}
 		chunkStorage := chunk.NewStorage(objC, chunk.ServiceEnvToOptions(env)...)
 		d.storage = fileset.NewStorage(objC, chunkStorage, fileset.ServiceEnvToOptions(env)...)
-		go d.mergeWorker()
+		go d.compactionWorker()
 	}
 	return d, nil
 }

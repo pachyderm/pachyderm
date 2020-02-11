@@ -61,6 +61,8 @@ type PachdSpecificConfiguration struct {
 type StorageConfiguration struct {
 	StorageMemoryThreshold        int64 `env:"STORAGE_MEMORY_THRESHOLD"`
 	StorageShardThreshold         int64 `env:"STORAGE_SHARD_THRESHOLD"`
+	StorageLevelZeroSize          int64 `env:"STORAGE_LEVEL_ZERO_SIZE"`
+	StorageLevelSizeBase          int   `env:"STORAGE_LEVEL_SIZE_BASE"`
 	StorageUploadConcurrencyLimit int   `env:"STORAGE_UPLOAD_CONCURRENCY_LIMIT,default=100"`
 }
 
