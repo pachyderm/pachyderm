@@ -24,25 +24,25 @@ import (
 type part int
 
 const (
-	repo part = iota
-	commitOrBranch
-	file
+	repoPart part = iota
+	commitOrBranchPart
+	filePart
 )
 
-func filePart(text string) part {
+func parsePart(text string) part {
 	switch {
 	case !strings.ContainsRune(text, '@'):
-		return repo
+		return repoPart
 	case !strings.ContainsRune(text, ':'):
-		return commitOrBranch
+		return commitOrBranchPart
 	default:
-		return file
+		return filePart
 	}
 }
 
 func samePart(p part) CacheFunc {
 	return func(_, text string) bool {
-		return filePart(text) == p
+		return parsePart(text) == p
 	}
 }
 
@@ -83,19 +83,19 @@ func RepoCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, Cac
 			Description: fmt.Sprintf("%s (%s)", ri.Description, units.BytesSize(float64(ri.SizeBytes))),
 		})
 	}
-	return result, samePart(filePart(text))
+	return result, samePart(parsePart(text))
 }
 
 // BranchCompletion completes branch parameters of the form <repo>@<branch>
 func BranchCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c := getPachClient()
 	partialFile := cmdutil.ParsePartialFile(text)
-	part := filePart(text)
+	part := parsePart(text)
 	var result []prompt.Suggest
 	switch part {
-	case repo:
+	case repoPart:
 		return RepoCompletion(flag, text, maxCompletions)
-	case commitOrBranch:
+	case commitOrBranchPart:
 		bis, err := c.ListBranch(partialFile.Commit.Repo.Name)
 		if err != nil {
 			log.Fatal(err)
@@ -131,14 +131,14 @@ func abs(i int) int {
 func FileCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c := getPachClient()
 	partialFile := cmdutil.ParsePartialFile(text)
-	part := filePart(text)
+	part := parsePart(text)
 	var result []prompt.Suggest
 	switch part {
-	case repo:
+	case repoPart:
 		return RepoCompletion(flag, text, maxCompletions)
-	case commitOrBranch:
+	case commitOrBranchPart:
 		return BranchCompletion(flag, text, maxCompletions)
-	case file:
+	case filePart:
 		if err := c.GlobFileF(partialFile.Commit.Repo.Name, partialFile.Commit.ID, partialFile.Path+"*", func(fi *pfs.FileInfo) error {
 			if maxCompletions > 0 {
 				maxCompletions--
