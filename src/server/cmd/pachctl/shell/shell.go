@@ -75,6 +75,11 @@ func RegisterCompletionFunc(cmd *cobra.Command, completionFunc CompletionFunc) {
 type shell struct {
 	rootCmd        *cobra.Command
 	maxCompletions int64
+
+	// variables for caching completion calls
+	completionID string
+	suggests     []prompt.Suggest
+	cacheF       CacheFunc
 }
 
 func newShell(rootCmd *cobra.Command, maxCompletions int64) *shell {
@@ -94,13 +99,6 @@ func (s *shell) executor(in string) {
 	cmd.Stderr = os.Stderr
 	cmd.Run()
 }
-
-// variables for caching completion calls
-var (
-	completionID string
-	suggests     []prompt.Suggest
-	cacheF       CacheFunc
-)
 
 func (s *shell) suggestor(in prompt.Document) []prompt.Suggest {
 	args := strings.Fields(in.Text)
@@ -140,12 +138,12 @@ func (s *shell) suggestor(in prompt.Document) []prompt.Suggest {
 	}
 	if id, ok := cmd.Annotations[completionAnnotation]; ok {
 		completionFunc := completions[id]
-		if completionID != id || cacheF == nil || !cacheF(flag, text) {
-			completionID = id
-			suggests, cacheF = completionFunc(flag, text, s.maxCompletions)
+		if s.completionID != id || s.cacheF == nil || !s.cacheF(flag, text) {
+			s.completionID = id
+			s.suggests, s.cacheF = completionFunc(flag, text, s.maxCompletions)
 		}
 		var result []prompt.Suggest
-		for _, sug := range suggests {
+		for _, sug := range s.suggests {
 			sText := sug.Text
 			if len(text) < len(sText) {
 				sText = sText[:len(text)]
