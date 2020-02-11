@@ -74,7 +74,7 @@ func RepoCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, Cac
 	c := getPachClient()
 	ris, err := c.ListRepo()
 	if err != nil {
-		log.Fatal(err)
+		return nil, CacheNone
 	}
 	var result []prompt.Suggest
 	for _, ri := range ris {
@@ -98,7 +98,7 @@ func BranchCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest
 	case commitOrBranchPart:
 		bis, err := c.ListBranch(partialFile.Commit.Repo.Name)
 		if err != nil {
-			log.Fatal(err)
+			return nil, CacheNone
 		}
 		for _, bi := range bis {
 			head := "-"
@@ -108,6 +108,13 @@ func BranchCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest
 			result = append(result, prompt.Suggest{
 				Text:        fmt.Sprintf("%s@%s:", partialFile.Commit.Repo.Name, bi.Branch.Name),
 				Description: fmt.Sprintf("(%s)", head),
+			})
+		}
+		if len(result) == 0 {
+			// Master should show up even if it doesn't exist yet
+			result = append(result, prompt.Suggest{
+				Text:        fmt.Sprintf("%s@master", partialFile.Commit.Repo.Name),
+				Description: fmt.Sprintf("(nil)"),
 			})
 		}
 	}
@@ -150,7 +157,7 @@ func FileCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, 
 			})
 			return nil
 		}); err != nil {
-			log.Fatal(err)
+			return nil, CacheNone
 		}
 	}
 	return result, AndCacheFunc(samePart(part), func(_, text string) (result bool) {
@@ -166,7 +173,7 @@ func FilesystemCompletion(_, text string, maxCompletions int64) ([]prompt.Sugges
 	dir := filepath.Dir(text)
 	fis, err := ioutil.ReadDir(dir)
 	if err != nil {
-		log.Fatal(err)
+		return nil, CacheNone
 	}
 	var result []prompt.Suggest
 	for _, fi := range fis {
@@ -184,7 +191,7 @@ func PipelineCompletion(_, _ string, maxCompletions int64) ([]prompt.Suggest, Ca
 	c := getPachClient()
 	pis, err := c.ListPipeline()
 	if err != nil {
-		log.Fatal(err)
+		return nil, CacheNone
 	}
 	var result []prompt.Suggest
 	for _, pi := range pis {
@@ -222,7 +229,7 @@ func JobCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, Cach
 		})
 		return nil
 	}); err != nil {
-		log.Fatal(err)
+		return nil, CacheNone
 	}
 	return result, CacheAll
 }
