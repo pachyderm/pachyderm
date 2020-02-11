@@ -248,9 +248,9 @@ $ {{alias}} foo@XXX -p bar -p baz`,
 			if !raw {
 				writer = tabwriter.NewWriter(os.Stdout, pretty.JobHeader)
 			}
+			e := encoder(output)
 			if err := c.FlushJob(commits, pipelines, func(ji *ppsclient.JobInfo) error {
 				if raw {
-					e := encoder(output)
 					if err := e.EncodeProto(ji); err != nil {
 						return err
 					}
