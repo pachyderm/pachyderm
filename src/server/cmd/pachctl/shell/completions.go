@@ -62,6 +62,13 @@ func getPachClient() *client.APIClient {
 	return pachClient
 }
 
+func closePachClient() error {
+	if pachClient == nil {
+		return nil
+	}
+	return pachClient.Close()
+}
+
 // RepoCompletion completes repo parameters of the form <repo>
 func RepoCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c := getPachClient()
@@ -175,7 +182,6 @@ func FilesystemCompletion(_, text string, maxCompletions int64) ([]prompt.Sugges
 // PipelineCompletion completes pipeline parameters of the form <pipeline>
 func PipelineCompletion(_, _ string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c := getPachClient()
-	defer c.Close()
 	pis, err := c.ListPipeline()
 	if err != nil {
 		log.Fatal(err)

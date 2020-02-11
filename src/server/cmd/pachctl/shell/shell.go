@@ -181,6 +181,9 @@ func (s *shell) run() {
 			return fmt.Sprintf("context:(%s) >>> ", activeContext), true
 		}),
 	).Run()
+	if err := closePachClient(); err != nil {
+		log.Fatal(err)
+	}
 }
 
 // Run runs a prompt, it does not return.
