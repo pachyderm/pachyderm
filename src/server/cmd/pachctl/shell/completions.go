@@ -21,15 +21,15 @@ import (
 	units "github.com/docker/go-units"
 )
 
-type part int
+type partEnum int
 
 const (
-	repoPart part = iota
+	repoPart partEnum = iota
 	commitOrBranchPart
 	filePart
 )
 
-func parsePart(text string) part {
+func parsePart(text string) partEnum {
 	switch {
 	case !strings.ContainsRune(text, '@'):
 		return repoPart
@@ -40,7 +40,7 @@ func parsePart(text string) part {
 	}
 }
 
-func samePart(p part) CacheFunc {
+func samePart(p partEnum) CacheFunc {
 	return func(_, text string) bool {
 		return parsePart(text) == p
 	}
