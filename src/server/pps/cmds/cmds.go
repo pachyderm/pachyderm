@@ -231,6 +231,9 @@ $ {{alias}} foo@XXX bar@YYY
 # Return jobs caused by foo@XXX leading to pipelines bar and baz.
 $ {{alias}} foo@XXX -p bar -p baz`,
 		Run: cmdutil.Run(func(args []string) error {
+			if output != "" && !raw {
+				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
+			}
 			commits, err := cmdutil.ParseCommits(args)
 			if err != nil {
 				return err
@@ -241,29 +244,27 @@ $ {{alias}} foo@XXX -p bar -p baz`,
 				return err
 			}
 			defer c.Close()
-
-			jobInfos, err := c.FlushJobAll(commits, pipelines)
-			if err != nil {
-				return err
+			var writer *tabwriter.Writer
+			if !raw {
+				writer = tabwriter.NewWriter(os.Stdout, pretty.JobHeader)
 			}
-
-			if raw {
-				e := encoder(output)
-				for _, jobInfo := range jobInfos {
-					if err := e.EncodeProto(jobInfo); err != nil {
+			e := encoder(output)
+			if err := c.FlushJob(commits, pipelines, func(ji *ppsclient.JobInfo) error {
+				if raw {
+					if err := e.EncodeProto(ji); err != nil {
 						return err
 					}
+					return nil
 				}
+				pretty.PrintJobInfo(writer, ji, fullTimestamps)
 				return nil
-			} else if output != "" {
-				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
+			}); err != nil {
+				return err
 			}
-			writer := tabwriter.NewWriter(os.Stdout, pretty.JobHeader)
-			for _, jobInfo := range jobInfos {
-				pretty.PrintJobInfo(writer, jobInfo, fullTimestamps)
+			if !raw {
+				return writer.Flush()
 			}
-
-			return writer.Flush()
+			return nil
 		}),
 	}
 	flushJob.Flags().VarP(&pipelines, "pipeline", "p", "Wait only for jobs leading to a specific set of pipelines")
