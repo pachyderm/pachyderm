@@ -20,12 +20,14 @@ package collection
 import (
 	"bytes"
 	"fmt"
+	"runtime"
 	"sort"
 	"strings"
 
 	v3 "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 )
 
@@ -256,6 +258,23 @@ func (s *stm) commit() *v3.TxnResponse {
 	cmps := s.cmps()
 	writes := s.writes()
 	txnresp, err := s.client.Txn(ctx).If(cmps...).Then(writes...).Commit()
+
+	pc := make([]uintptr, 5)
+	runtime.Callers(4, pc)
+	frames := runtime.CallersFrames(pc)
+	frame, ok := frames.Next()
+	fields := logrus.Fields{}
+	if ok {
+		split := strings.Split(frame.Function, ".")
+		method := split[len(split)-1]
+		fields["method"] = method
+	} else {
+		fields["warn"] = "failed to resolve method"
+	}
+	fields["cmps"] = len(cmps)
+	fields["writes"] = len(writes)
+	logrus.WithFields(fields).Debug("check for large txns")
+
 	if err == rpctypes.ErrTooManyOps {
 		panic(stmError{
 			fmt.Errorf(
