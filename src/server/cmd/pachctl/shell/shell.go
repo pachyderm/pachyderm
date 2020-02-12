@@ -160,6 +160,12 @@ func (s *shell) suggestor(in prompt.Document) []prompt.Suggest {
 	return nil
 }
 
+func (s *shell) clearCache() {
+	s.completionID = ""
+	s.suggests = nil
+	s.cacheF = nil
+}
+
 func (s *shell) run() {
 	color.NoColor = true // color doesn't work in terminal
 	prompt.New(
@@ -167,6 +173,10 @@ func (s *shell) run() {
 		s.suggestor,
 		prompt.OptionPrefix(">>> "),
 		prompt.OptionTitle("Pachyderm Shell"),
+		prompt.OptionAddKeyBind(prompt.KeyBind{
+			Key: prompt.F5,
+			Fn:  func(*prompt.Buffer) { s.clearCache() },
+		}),
 		prompt.OptionLivePrefix(func() (string, bool) {
 			cfg, err := config.Read(true)
 			if err != nil {
