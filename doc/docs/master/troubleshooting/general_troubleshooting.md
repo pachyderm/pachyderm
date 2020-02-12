@@ -80,15 +80,15 @@ If you do not explicitly set the pachd address config value, `pachctl` will defa
 
 #### Symptom
 
-A Pachyderm repo was accidentally named starting with a (`-`) and the repository is treated as
-a flag instead of a repository.
+A Pachyderm repo was accidentally named starting with a dash (`-`) and the repository
+is treated as a command flag instead of a repository.
 
 #### Recourse
 
 Pachyderm supports standard `bash` utilities that you can
 use to resolve this and similar problems. For example, in this case,
 you can specify double dashes (`--`) to delete the repository. Double dashes
-signify the end of the options and tell the shell to process the
+signify the end of options and tell the shell to process the
 rest arguments as filenames and objects.
 
 For more information, see `man bash`.
