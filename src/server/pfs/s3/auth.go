@@ -18,8 +18,6 @@ func (c *controller) SecretKey(r *http.Request, accessKey string, region *string
 		// Some S3 clients (like minio) require the use of authenticated
 		// requests, so in the case that auth is not enabled on pachyderm,
 		// just allow any access credentials.
-
-		// allow any access key when auth is disabled
 		if auth.IsErrNotActivated(err) {
 			blankAccessKey := ""
 			return &blankAccessKey, nil
