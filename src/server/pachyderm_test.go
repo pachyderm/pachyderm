@@ -3124,7 +3124,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 	// make sure we have the expected number of jobs
 	jis, err = c.ListJob(pipelineName, nil, nil, -1, false)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jis))
+	require.Equal(t, 2, len(jis))
 
 	// Pipeline should start and create a job should succeed -- fix
 	// https://github.com/pachyderm/pachyderm/issues/3934)

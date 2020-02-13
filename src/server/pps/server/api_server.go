@@ -2665,7 +2665,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 	// Replace missing branch provenance (removed by StopPipeline)
 	provenance := append(branchProvenance(pipelineInfo.Input),
 		client.NewBranch(ppsconsts.SpecRepo, pipelineInfo.Pipeline.Name))
-	provenance = branchProvenance(pipelineInfo.Input)
+	// provenance = branchProvenance(pipelineInfo.Input)
 	if err := pachClient.CreateBranch(
 		request.Pipeline.Name,
 		pipelineInfo.OutputBranch,
