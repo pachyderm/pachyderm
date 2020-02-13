@@ -1,6 +1,6 @@
-# Using Pachyderm Shell
+# Using the Pachyderm Shell
 
-Pachctl Shell is a special-purpose shell for Pachyderm that provides
+The Pachyderm Shell is a special-purpose shell for Pachyderm that provides
 auto-suggesting as you type. New Pachyderm users will find this user-friendly
 shell especially appealing as it helps to learn `pachctl`, type commands
 faster, and displays useful information about the objects you are interacting
@@ -9,7 +9,7 @@ in your standard terminal, but is a compelling convenience for power users
 and beginners alike. If you prefer to use just `pachctl`, you can continue to
 do so.
 
-To enter Pachctl Shell, type:
+To enter the Pachyderm Shell, type:
 
 ```bash
 pachctl shell
@@ -24,7 +24,7 @@ drop-down list.
 To scroll through the list, press `TAB` and then use arrows to move up or
 down. Press `SPACE` to select a command.
 
-When in Pachctl Shell, you do not need to prepend your commands with
+When in the Pachyderm Shell, you do not need to prepend your commands with
 `pachctl` because Pachyderm does that for you automatically behind the
 scenes. For example, instead of running `pachctl list repo`, run `list
 repo`:
@@ -41,11 +41,18 @@ Similarly, you can select a commit:
 
 ![Pachyderm Shell list commit](../../assets/images/s_pach_shell_list_commit.png)
 
+To exit the Pachyderm Shell, press `CTRL-D`.
 
-To exit Pachctl Shell, press `CTRL-D`.
+### Clearing Cached Completions
+
+To optimize performance and achieve faster response time,
+the Pachyderm Shell caches completion results. You can clear this cache
+by pressing **F5** forcing the Pachyderm Shell to send requests to the
+server for new completions.
+
 
 ## Limitations
 
-Pachctl shell does not support standard UNIX commands or `kubectl` commands.
-To run them, exit Pachctl Shell or run the commands in a different terminal
+The Pachyderm Shell does not support standard UNIX commands or `kubectl` commands.
+To run them, exit the Pachyderm Shell or run the commands in a different terminal
 window.
