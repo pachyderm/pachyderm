@@ -28,7 +28,7 @@ message HashtreeTags {
 }
 
 message RecoveredDatums {
-  repeated string datum_hashes = 1;
+  repeated string hashes = 1;
 }
 
 message RecoveredDatumTags {
