@@ -190,6 +190,9 @@ func (d *driver) runTransaction(txnCtx *txnenv.TransactionContext, info *transac
 		} else if request.DeleteBranch != nil {
 			err = directTxn.DeleteBranch(request.DeleteBranch)
 			response = &transaction.TransactionResponse{}
+		} else if request.UpdateJobState != nil {
+			err = directTxn.UpdateJobState(request.UpdateJobState)
+			response = &transaction.TransactionResponse{}
 		} else if request.DeleteAll != nil {
 			// TODO: extend this to delete everything through PFS, PPS, Auth and
 			// update the client DeleteAll call to use only this, then remove unused

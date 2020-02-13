@@ -228,12 +228,14 @@ func WithMockEnv(cb func(*MockEnv) error) error {
 type RealEnv struct {
 	MockEnv
 
-	treeCache *hashtree.Cache
+	LocalStorageDirectory string
+	treeCache             *hashtree.Cache
 
-	AuthServer        authserver.APIServer
-	PFSBlockServer    pfsserver.BlockAPIServer
-	PFSServer         pfsserver.APIServer
-	TransactionServer txnserver.APIServer
+	AuthServer               authserver.APIServer
+	PFSBlockServer           pfsserver.BlockAPIServer
+	PFSServer                pfsserver.APIServer
+	TransactionServer        txnserver.APIServer
+	MockPPSTransactionServer *MockPPSTransactionServer
 }
 
 const (
@@ -266,8 +268,9 @@ func WithRealEnv(cb func(*RealEnv) error) error {
 		config.PeerPort = uint16(realEnv.MockPachd.Addr.(*net.TCPAddr).Port)
 		servEnv := serviceenv.InitServiceEnv(config)
 
+		realEnv.LocalStorageDirectory = path.Join(realEnv.Directory, "localStorage")
 		realEnv.PFSBlockServer, err = pfsserver.NewBlockAPIServer(
-			path.Join(realEnv.Directory, "objects"),
+			realEnv.LocalStorageDirectory,
 			localBlockServerCacheBytes,
 			pfsserver.LocalBackendEnvVar,
 			net.JoinHostPort(config.EtcdHost, config.EtcdPort),
@@ -290,7 +293,7 @@ func WithRealEnv(cb func(*RealEnv) error) error {
 			txnEnv,
 			etcdPrefix,
 			realEnv.treeCache,
-			path.Join(realEnv.Directory, "pfs"),
+			realEnv.LocalStorageDirectory,
 			64*1024*1024,
 		)
 		if err != nil {
@@ -304,7 +307,9 @@ func WithRealEnv(cb func(*RealEnv) error) error {
 			return err
 		}
 
-		txnEnv.Initialize(servEnv, realEnv.TransactionServer, realEnv.AuthServer, realEnv.PFSServer, txnenv.NewMockPpsTransactionServer())
+		realEnv.MockPPSTransactionServer = NewMockPPSTransactionServer()
+
+		txnEnv.Initialize(servEnv, realEnv.TransactionServer, realEnv.AuthServer, realEnv.PFSServer, &realEnv.MockPPSTransactionServer.api)
 
 		linkServers(&realEnv.MockPachd.Object, realEnv.PFSBlockServer)
 		linkServers(&realEnv.MockPachd.PFS, realEnv.PFSServer)

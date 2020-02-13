@@ -79,7 +79,7 @@ func mergeStats(x, y *DatumStats) error {
 	x.DatumsProcessed += y.DatumsProcessed
 	x.DatumsSkipped += y.DatumsSkipped
 	x.DatumsFailed += y.DatumsFailed
-	x.RecoveredDatums = append(x.RecoveredDatums, y.RecoveredDatums...)
+	x.DatumsRecovered += y.DatumsRecovered
 	if x.FailedDatumID == "" {
 		x.FailedDatumID = y.FailedDatumID
 	}
@@ -353,7 +353,7 @@ func processDatum(
 		return nil
 	}); err == errDatumRecovered {
 		// keep track of the recovered datums
-		stats.RecoveredDatums = append(stats.RecoveredDatums, datumID)
+		stats.DatumsRecovered++ = append(stats.RecoveredDatums, datumID)
 	} else if err != nil {
 		stats.FailedDatumID = datumID
 		stats.DatumsFailed++

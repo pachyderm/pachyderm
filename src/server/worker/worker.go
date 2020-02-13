@@ -189,10 +189,7 @@ func runSpawner(driver driver.Driver, logger logs.TaggedLogger) error {
 		}
 	}()
 
-	logger.Logf("Launching %v spawner process", pipelineType)
-	err := runFn(driver, logger)
-	if err != nil {
-		logger.Logf("error running the %v spawner process: %v", pipelineType, err)
-	}
-	return err
+	return logger.LogStep(fmt.Sprintf("%v spawner process", pipelineType), func() error {
+		return runFn(driver, logger)
+	})
 }

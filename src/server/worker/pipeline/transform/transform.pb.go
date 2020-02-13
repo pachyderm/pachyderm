@@ -173,6 +173,100 @@ func (m *HashtreeTags) GetTags() []string {
 	return nil
 }
 
+type RecoveredDatums struct {
+	DatumHashes          []string `protobuf:"bytes,1,rep,name=datum_hashes,json=datumHashes,proto3" json:"datum_hashes,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *RecoveredDatums) Reset()         { *m = RecoveredDatums{} }
+func (m *RecoveredDatums) String() string { return proto.CompactTextString(m) }
+func (*RecoveredDatums) ProtoMessage()    {}
+func (*RecoveredDatums) Descriptor() ([]byte, []int) {
+	return fileDescriptor_21583a759eb7fa97, []int{3}
+}
+func (m *RecoveredDatums) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *RecoveredDatums) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_RecoveredDatums.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *RecoveredDatums) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RecoveredDatums.Merge(m, src)
+}
+func (m *RecoveredDatums) XXX_Size() int {
+	return m.Size()
+}
+func (m *RecoveredDatums) XXX_DiscardUnknown() {
+	xxx_messageInfo_RecoveredDatums.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RecoveredDatums proto.InternalMessageInfo
+
+func (m *RecoveredDatums) GetDatumHashes() []string {
+	if m != nil {
+		return m.DatumHashes
+	}
+	return nil
+}
+
+type RecoveredDatumTags struct {
+	Tags                 []string `protobuf:"bytes,1,rep,name=tags,proto3" json:"tags,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *RecoveredDatumTags) Reset()         { *m = RecoveredDatumTags{} }
+func (m *RecoveredDatumTags) String() string { return proto.CompactTextString(m) }
+func (*RecoveredDatumTags) ProtoMessage()    {}
+func (*RecoveredDatumTags) Descriptor() ([]byte, []int) {
+	return fileDescriptor_21583a759eb7fa97, []int{4}
+}
+func (m *RecoveredDatumTags) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *RecoveredDatumTags) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_RecoveredDatumTags.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *RecoveredDatumTags) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RecoveredDatumTags.Merge(m, src)
+}
+func (m *RecoveredDatumTags) XXX_Size() int {
+	return m.Size()
+}
+func (m *RecoveredDatumTags) XXX_DiscardUnknown() {
+	xxx_messageInfo_RecoveredDatumTags.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RecoveredDatumTags proto.InternalMessageInfo
+
+func (m *RecoveredDatumTags) GetTags() []string {
+	if m != nil {
+		return m.Tags
+	}
+	return nil
+}
+
 type HashtreeInfo struct {
 	// Address used for fetching a cached version directly from the worker
 	Address string `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
@@ -189,7 +283,7 @@ func (m *HashtreeInfo) Reset()         { *m = HashtreeInfo{} }
 func (m *HashtreeInfo) String() string { return proto.CompactTextString(m) }
 func (*HashtreeInfo) ProtoMessage()    {}
 func (*HashtreeInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21583a759eb7fa97, []int{3}
+	return fileDescriptor_21583a759eb7fa97, []int{5}
 }
 func (m *HashtreeInfo) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -250,7 +344,7 @@ func (m *JobData) Reset()         { *m = JobData{} }
 func (m *JobData) String() string { return proto.CompactTextString(m) }
 func (*JobData) ProtoMessage()    {}
 func (*JobData) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21583a759eb7fa97, []int{4}
+	return fileDescriptor_21583a759eb7fa97, []int{6}
 }
 func (m *JobData) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -291,8 +385,8 @@ type DatumStats struct {
 	DatumsProcessed      int64             `protobuf:"varint,2,opt,name=datums_processed,json=datumsProcessed,proto3" json:"datums_processed,omitempty"`
 	DatumsSkipped        int64             `protobuf:"varint,3,opt,name=datums_skipped,json=datumsSkipped,proto3" json:"datums_skipped,omitempty"`
 	DatumsFailed         int64             `protobuf:"varint,5,opt,name=datums_failed,json=datumsFailed,proto3" json:"datums_failed,omitempty"`
-	RecoveredDatums      []string          `protobuf:"bytes,6,rep,name=recovered_datums,json=recoveredDatums,proto3" json:"recovered_datums,omitempty"`
-	FailedDatumID        string            `protobuf:"bytes,7,opt,name=failed_datum_id,json=failedDatumId,proto3" json:"failed_datum_id,omitempty"`
+	DatumsRecovered      int64             `protobuf:"varint,6,opt,name=datums_recovered,json=datumsRecovered,proto3" json:"datums_recovered,omitempty"`
+	FailedDatumID        string            `protobuf:"bytes,8,opt,name=failed_datum_id,json=failedDatumId,proto3" json:"failed_datum_id,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -302,7 +396,7 @@ func (m *DatumStats) Reset()         { *m = DatumStats{} }
 func (m *DatumStats) String() string { return proto.CompactTextString(m) }
 func (*DatumStats) ProtoMessage()    {}
 func (*DatumStats) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21583a759eb7fa97, []int{5}
+	return fileDescriptor_21583a759eb7fa97, []int{7}
 }
 func (m *DatumStats) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -359,11 +453,11 @@ func (m *DatumStats) GetDatumsFailed() int64 {
 	return 0
 }
 
-func (m *DatumStats) GetRecoveredDatums() []string {
+func (m *DatumStats) GetDatumsRecovered() int64 {
 	if m != nil {
-		return m.RecoveredDatums
+		return m.DatumsRecovered
 	}
-	return nil
+	return 0
 }
 
 func (m *DatumStats) GetFailedDatumID() string {
@@ -380,6 +474,7 @@ type DatumData struct {
 	// Outputs
 	Stats                *DatumStats   `protobuf:"bytes,3,opt,name=stats,proto3" json:"stats,omitempty"`
 	Hashtree             *HashtreeInfo `protobuf:"bytes,4,opt,name=hashtree,proto3" json:"hashtree,omitempty"`
+	RecoveredDatumsTag   string        `protobuf:"bytes,7,opt,name=recovered_datums_tag,json=recoveredDatumsTag,proto3" json:"recovered_datums_tag,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -389,7 +484,7 @@ func (m *DatumData) Reset()         { *m = DatumData{} }
 func (m *DatumData) String() string { return proto.CompactTextString(m) }
 func (*DatumData) ProtoMessage()    {}
 func (*DatumData) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21583a759eb7fa97, []int{6}
+	return fileDescriptor_21583a759eb7fa97, []int{8}
 }
 func (m *DatumData) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -446,6 +541,13 @@ func (m *DatumData) GetHashtree() *HashtreeInfo {
 	return nil
 }
 
+func (m *DatumData) GetRecoveredDatumsTag() string {
+	if m != nil {
+		return m.RecoveredDatumsTag
+	}
+	return ""
+}
+
 type MergeData struct {
 	// Inputs
 	Hashtrees []*HashtreeInfo `protobuf:"bytes,1,rep,name=hashtrees,proto3" json:"hashtrees,omitempty"`
@@ -463,7 +565,7 @@ func (m *MergeData) Reset()         { *m = MergeData{} }
 func (m *MergeData) String() string { return proto.CompactTextString(m) }
 func (*MergeData) ProtoMessage()    {}
 func (*MergeData) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21583a759eb7fa97, []int{7}
+	return fileDescriptor_21583a759eb7fa97, []int{9}
 }
 func (m *MergeData) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -531,6 +633,8 @@ func init() {
 	proto.RegisterType((*DatumInputs)(nil), "pachyderm.worker.pipeline.transform.DatumInputs")
 	proto.RegisterType((*DatumInputsList)(nil), "pachyderm.worker.pipeline.transform.DatumInputsList")
 	proto.RegisterType((*HashtreeTags)(nil), "pachyderm.worker.pipeline.transform.HashtreeTags")
+	proto.RegisterType((*RecoveredDatums)(nil), "pachyderm.worker.pipeline.transform.RecoveredDatums")
+	proto.RegisterType((*RecoveredDatumTags)(nil), "pachyderm.worker.pipeline.transform.RecoveredDatumTags")
 	proto.RegisterType((*HashtreeInfo)(nil), "pachyderm.worker.pipeline.transform.HashtreeInfo")
 	proto.RegisterType((*JobData)(nil), "pachyderm.worker.pipeline.transform.JobData")
 	proto.RegisterType((*DatumStats)(nil), "pachyderm.worker.pipeline.transform.DatumStats")
@@ -543,48 +647,51 @@ func init() {
 }
 
 var fileDescriptor_21583a759eb7fa97 = []byte{
-	// 651 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x54, 0xc1, 0x4e, 0xdb, 0x4c,
-	0x10, 0x96, 0x49, 0x62, 0xf0, 0x24, 0xf9, 0x03, 0x2b, 0x0e, 0x11, 0xbf, 0x04, 0xd4, 0x11, 0x12,
-	0x55, 0x25, 0x9b, 0xd2, 0xaa, 0x52, 0xaf, 0x90, 0x56, 0x04, 0x15, 0x41, 0x97, 0x9e, 0xda, 0x83,
-	0xb5, 0xb6, 0x37, 0x8e, 0x81, 0x78, 0x57, 0xbb, 0x1b, 0xaa, 0xf2, 0x36, 0x7d, 0x9b, 0x1e, 0xfb,
-	0x04, 0xa8, 0xca, 0x53, 0x54, 0xea, 0xa5, 0xda, 0x5d, 0x3b, 0x98, 0xf6, 0x50, 0xc4, 0xc1, 0xf2,
-	0xec, 0x37, 0xdf, 0x7c, 0xf1, 0x7c, 0x33, 0x59, 0xd8, 0x93, 0x54, 0x5c, 0x53, 0x11, 0x7e, 0x66,
-	0xe2, 0x92, 0x8a, 0x90, 0xe7, 0x9c, 0x5e, 0xe5, 0x05, 0x0d, 0x95, 0x20, 0x85, 0x1c, 0x33, 0x31,
-	0xbd, 0x8b, 0x02, 0x2e, 0x98, 0x62, 0x68, 0xc0, 0x49, 0x32, 0xf9, 0x92, 0x52, 0x31, 0x0d, 0x6c,
-	0x51, 0x50, 0x15, 0x05, 0x0b, 0xea, 0xc6, 0x7a, 0xc6, 0x32, 0x66, 0xf8, 0xa1, 0x8e, 0x6c, 0xe9,
-	0xc6, 0x7a, 0x72, 0x95, 0xd3, 0x42, 0x85, 0x7c, 0x2c, 0xf5, 0xf3, 0x27, 0xca, 0xa5, 0x7e, 0x4a,
-	0xf4, 0xc9, 0xfd, 0x0f, 0x4b, 0xd8, 0x74, 0xca, 0x8a, 0xf2, 0x65, 0x29, 0xfe, 0x4b, 0x68, 0x0f,
-	0x89, 0x9a, 0x4d, 0x47, 0x05, 0x9f, 0x29, 0x89, 0x76, 0xc0, 0xcd, 0x4d, 0xd4, 0x77, 0xb6, 0x1b,
-	0xbb, 0xed, 0xfd, 0x6e, 0x50, 0xb2, 0x4d, 0x1e, 0x97, 0x49, 0xff, 0x13, 0xf4, 0x6a, 0x55, 0xef,
-	0x72, 0xa9, 0xd0, 0x11, 0xb8, 0xa9, 0x86, 0xaa, 0xca, 0xbd, 0xe0, 0x01, 0x3d, 0x06, 0x35, 0x15,
-	0x5c, 0xd6, 0xfb, 0x3e, 0x74, 0x8e, 0x88, 0x9c, 0x28, 0x41, 0xe9, 0x07, 0x92, 0x49, 0x84, 0xa0,
-	0xa9, 0x48, 0x66, 0x75, 0x3d, 0x6c, 0x62, 0x3f, 0xba, 0xe3, 0x8c, 0x8a, 0x31, 0x43, 0x7d, 0x58,
-	0x26, 0x69, 0x2a, 0xa8, 0xd4, 0x34, 0x67, 0xd7, 0xc3, 0xd5, 0x11, 0xad, 0x42, 0x43, 0x91, 0xac,
-	0xbf, 0x64, 0x50, 0x1d, 0xa2, 0x01, 0xb8, 0x2c, 0xbe, 0xa0, 0x89, 0xea, 0x37, 0xb6, 0x9d, 0xdd,
-	0xf6, 0x7e, 0x3b, 0xd0, 0x3e, 0x9e, 0x1a, 0x08, 0x97, 0x29, 0xff, 0x19, 0x2c, 0x1f, 0xb3, 0x78,
-	0x48, 0x14, 0x41, 0xdb, 0xe0, 0x5e, 0xb0, 0x38, 0xca, 0x53, 0x2b, 0x7d, 0xe0, 0xcd, 0x6f, 0xb7,
-	0x5a, 0xc7, 0x2c, 0x1e, 0x0d, 0x71, 0xeb, 0x82, 0xc5, 0xa3, 0xd4, 0xff, 0xba, 0x04, 0x60, 0x3a,
-	0x39, 0x57, 0x44, 0x49, 0xf4, 0x0a, 0xba, 0x5c, 0xb0, 0x84, 0x4a, 0x19, 0x49, 0x0d, 0x98, 0xba,
-	0xf6, 0xfe, 0x5a, 0xa0, 0x27, 0x73, 0x66, 0x33, 0x86, 0x89, 0x3b, 0xbc, 0x76, 0x42, 0x4f, 0x61,
-	0xd5, 0x5a, 0x10, 0x95, 0x30, 0x4d, 0xcd, 0x77, 0x37, 0x70, 0xcf, 0xe2, 0x67, 0x15, 0x8c, 0x76,
-	0xe0, 0xbf, 0x92, 0x2a, 0x2f, 0x73, 0xce, 0x69, 0x6a, 0x7a, 0x69, 0xe0, 0xae, 0x45, 0xcf, 0x2d,
-	0x88, 0x06, 0x50, 0x02, 0xd1, 0x98, 0xe4, 0x57, 0x34, 0xed, 0xb7, 0x0c, 0xab, 0x63, 0xc1, 0xb7,
-	0x06, 0xd3, 0x3f, 0x2b, 0x68, 0xc2, 0xae, 0xa9, 0xa0, 0x69, 0x54, 0xce, 0xd0, 0x35, 0x5e, 0xf7,
-	0x16, 0xb8, 0xe9, 0x4e, 0xa2, 0xd7, 0xd0, 0xb3, 0x42, 0x96, 0xa7, 0x3d, 0x59, 0x36, 0x9e, 0xac,
-	0xcd, 0x6f, 0xb7, 0xba, 0x56, 0xcf, 0x8e, 0x74, 0x88, 0xbb, 0xe3, 0xda, 0x31, 0xf5, 0x7f, 0x3a,
-	0xe0, 0x99, 0xd8, 0x78, 0x3a, 0xa8, 0x6d, 0xcb, 0xdf, 0x33, 0xb0, 0x29, 0xb4, 0x07, 0x5d, 0x36,
-	0x53, 0x7c, 0xa6, 0x22, 0xbd, 0x84, 0xb9, 0x32, 0x66, 0x54, 0xdc, 0x43, 0x03, 0xe1, 0x8e, 0x65,
-	0xd8, 0x13, 0x7a, 0x03, 0x2d, 0xeb, 0xb8, 0x9d, 0x6c, 0xf8, 0xf0, 0x1d, 0xb4, 0xf3, 0xb0, 0xd5,
-	0xe8, 0x04, 0x56, 0x26, 0xe5, 0x76, 0xf5, 0x9b, 0x46, 0xe9, 0xf9, 0x83, 0x94, 0xea, 0x2b, 0x89,
-	0x17, 0x12, 0xfe, 0x2f, 0x07, 0xbc, 0x13, 0x2a, 0x32, 0x6a, 0x5a, 0x3f, 0x05, 0xaf, 0xca, 0x54,
-	0xff, 0x95, 0x47, 0xa8, 0xdf, 0x69, 0xa0, 0x11, 0xb8, 0x9c, 0x08, 0x5a, 0x54, 0xfe, 0x3c, 0x42,
-	0xad, 0x14, 0x40, 0xeb, 0xd0, 0x92, 0x13, 0x22, 0xaa, 0x6d, 0xb2, 0x07, 0xb4, 0x05, 0xcd, 0x9a,
-	0x15, 0xf7, 0x46, 0x65, 0x12, 0xe8, 0x7f, 0xf0, 0xf4, 0x3b, 0x92, 0xf9, 0x0d, 0x35, 0x2b, 0xd6,
-	0xc4, 0x2b, 0x1a, 0x38, 0xcf, 0x6f, 0xe8, 0xc1, 0xfb, 0x6f, 0xf3, 0x4d, 0xe7, 0xfb, 0x7c, 0xd3,
-	0xf9, 0x31, 0xdf, 0x74, 0x3e, 0x1e, 0x66, 0xb9, 0x9a, 0xcc, 0x62, 0x7d, 0xad, 0x84, 0x8b, 0xcf,
-	0xac, 0x45, 0x52, 0x24, 0xe1, 0xbf, 0xae, 0xd3, 0xd8, 0x35, 0x77, 0xd7, 0x8b, 0xdf, 0x01, 0x00,
-	0x00, 0xff, 0xff, 0x4e, 0xa5, 0xb7, 0xe1, 0x79, 0x05, 0x00, 0x00,
+	// 700 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x54, 0xcf, 0x4e, 0xdb, 0x4e,
+	0x10, 0x56, 0xc8, 0x1f, 0xc8, 0x24, 0xf9, 0x05, 0x56, 0x39, 0x58, 0xfc, 0x24, 0xfe, 0x38, 0x42,
+	0x4a, 0x55, 0xc9, 0x4e, 0x29, 0xaa, 0xd4, 0x2b, 0xa4, 0x15, 0x41, 0x45, 0xd0, 0x85, 0x53, 0x7b,
+	0xb0, 0x36, 0xf1, 0xc6, 0x31, 0x90, 0xac, 0xb5, 0xbb, 0xa1, 0x2a, 0x6f, 0xd3, 0x6b, 0x9f, 0xa4,
+	0xc7, 0x3e, 0x01, 0xaa, 0xf2, 0x1a, 0xbd, 0x54, 0x3b, 0x6b, 0x07, 0xa7, 0x55, 0x55, 0xc4, 0xc1,
+	0xf2, 0xec, 0x37, 0xdf, 0x7c, 0x1e, 0x7f, 0x33, 0x36, 0x74, 0x15, 0x97, 0xb7, 0x5c, 0xfa, 0x9f,
+	0x84, 0xbc, 0xe6, 0xd2, 0x4f, 0xe2, 0x84, 0xdf, 0xc4, 0x53, 0xee, 0x6b, 0xc9, 0xa6, 0x6a, 0x24,
+	0xe4, 0xe4, 0x21, 0xf2, 0x12, 0x29, 0xb4, 0x20, 0xed, 0x84, 0x0d, 0xc7, 0x9f, 0x43, 0x2e, 0x27,
+	0x9e, 0x2d, 0xf2, 0xb2, 0x22, 0x6f, 0x41, 0xdd, 0x6c, 0x45, 0x22, 0x12, 0xc8, 0xf7, 0x4d, 0x64,
+	0x4b, 0x37, 0x5b, 0xc3, 0x9b, 0x98, 0x4f, 0xb5, 0x9f, 0x8c, 0x94, 0xb9, 0x7e, 0x47, 0x13, 0x65,
+	0xae, 0x14, 0xdd, 0x5d, 0x6e, 0x6c, 0x28, 0x26, 0x13, 0x31, 0x4d, 0x6f, 0x96, 0xe2, 0x1e, 0x40,
+	0xad, 0xc7, 0xf4, 0x6c, 0xd2, 0x9f, 0x26, 0x33, 0xad, 0xc8, 0x1e, 0x54, 0x62, 0x8c, 0x9c, 0xc2,
+	0x4e, 0xb1, 0x53, 0xdb, 0x6f, 0x78, 0x29, 0x1b, 0xf3, 0x34, 0x4d, 0xba, 0x1f, 0xa1, 0x99, 0xab,
+	0x7a, 0x17, 0x2b, 0x4d, 0x8e, 0xa1, 0x12, 0x1a, 0x28, 0xab, 0xec, 0x7a, 0x8f, 0x78, 0x47, 0x2f,
+	0xa7, 0x42, 0xd3, 0x7a, 0xd7, 0x85, 0xfa, 0x31, 0x53, 0x63, 0x2d, 0x39, 0xbf, 0x64, 0x91, 0x22,
+	0x04, 0x4a, 0x9a, 0x45, 0x56, 0xb7, 0x4a, 0x31, 0x76, 0x0f, 0xa0, 0x49, 0xf9, 0x50, 0xdc, 0x72,
+	0xc9, 0x43, 0xd4, 0x50, 0x64, 0x17, 0xea, 0x28, 0x10, 0x8c, 0x99, 0x1a, 0xf3, 0x8c, 0x5e, 0x43,
+	0xec, 0x18, 0x21, 0xb7, 0x03, 0x64, 0xb9, 0xea, 0xaf, 0xfa, 0xc1, 0x43, 0x0f, 0xfd, 0xe9, 0x48,
+	0x10, 0x07, 0x56, 0x59, 0x18, 0x4a, 0xae, 0x0c, 0xad, 0xd0, 0xa9, 0xd2, 0xec, 0x48, 0xd6, 0xa1,
+	0xa8, 0x59, 0xe4, 0xac, 0x20, 0x6a, 0x42, 0xd2, 0x86, 0x8a, 0x18, 0x5c, 0xf1, 0xa1, 0x76, 0x8a,
+	0x3b, 0x85, 0x4e, 0x6d, 0xbf, 0xe6, 0x99, 0x39, 0x9d, 0x21, 0x44, 0xd3, 0x94, 0xfb, 0x1c, 0x56,
+	0x4f, 0xc4, 0xa0, 0xc7, 0x34, 0x23, 0x3b, 0x50, 0xb9, 0x12, 0x83, 0x20, 0x0e, 0xad, 0xf4, 0x61,
+	0x75, 0x7e, 0xbf, 0x5d, 0x3e, 0x11, 0x83, 0x7e, 0x8f, 0x96, 0xaf, 0xc4, 0xa0, 0x1f, 0xba, 0x5f,
+	0x56, 0x00, 0xb0, 0xdf, 0x0b, 0xcd, 0xb4, 0x22, 0xaf, 0xa0, 0x91, 0x48, 0x31, 0xe4, 0x4a, 0x05,
+	0xca, 0x00, 0x58, 0x57, 0xdb, 0xdf, 0xf0, 0xcc, 0xe4, 0xcf, 0x6d, 0x06, 0x99, 0xb4, 0x9e, 0xe4,
+	0x4e, 0xe4, 0x19, 0xac, 0x5b, 0x8b, 0x83, 0x14, 0xe6, 0x21, 0xf6, 0x5d, 0xa4, 0x4d, 0x8b, 0x9f,
+	0x67, 0x30, 0xd9, 0x83, 0xff, 0x52, 0xaa, 0xba, 0x8e, 0x93, 0x84, 0x87, 0xf8, 0x2e, 0x45, 0xda,
+	0xb0, 0xe8, 0x85, 0x05, 0x49, 0x1b, 0x52, 0x20, 0x18, 0xb1, 0xf8, 0x86, 0x87, 0x4e, 0x19, 0x59,
+	0x76, 0x10, 0xea, 0x2d, 0x62, 0xb9, 0xc7, 0xca, 0xcc, 0x7c, 0xa7, 0x92, 0x7f, 0xec, 0x62, 0x26,
+	0xe4, 0x35, 0x34, 0xad, 0x50, 0x60, 0x47, 0x19, 0x87, 0xce, 0x1a, 0x7a, 0xb2, 0x31, 0xbf, 0xdf,
+	0x6e, 0x58, 0x3d, 0xbb, 0x32, 0x3d, 0xda, 0x18, 0xe5, 0x8e, 0xa1, 0xfb, 0x75, 0x05, 0xaa, 0x18,
+	0xa3, 0xa7, 0xed, 0xdc, 0x36, 0xfe, 0x39, 0x03, 0x9b, 0x22, 0x5d, 0x68, 0x88, 0x99, 0x4e, 0x66,
+	0x3a, 0x30, 0x4b, 0x1e, 0x6b, 0x34, 0x23, 0xe3, 0x1e, 0x21, 0x44, 0xeb, 0x96, 0x61, 0x4f, 0xe4,
+	0x0d, 0x94, 0xad, 0xe3, 0x76, 0xb2, 0xfe, 0xe3, 0x77, 0xdc, 0xce, 0xc3, 0x56, 0x93, 0x53, 0x58,
+	0x1b, 0xa7, 0xdb, 0xe5, 0x94, 0x50, 0xe9, 0xc5, 0xa3, 0x94, 0xf2, 0x2b, 0x49, 0x17, 0x12, 0xa4,
+	0x0b, 0xad, 0x85, 0xb3, 0x41, 0x6a, 0xb5, 0xd9, 0xc9, 0x55, 0xdc, 0x49, 0x22, 0x97, 0x3f, 0x94,
+	0x4b, 0x16, 0xb9, 0x3f, 0x0b, 0x50, 0x3d, 0xe5, 0x32, 0xe2, 0x68, 0xd6, 0x19, 0x54, 0x33, 0xad,
+	0xec, 0xeb, 0x7d, 0x42, 0x3f, 0x0f, 0x1a, 0xa4, 0x0f, 0x95, 0x84, 0x49, 0x3e, 0xcd, 0x1c, 0x7d,
+	0x82, 0x5a, 0x2a, 0x40, 0x5a, 0x50, 0x56, 0x63, 0x26, 0xb3, 0xfd, 0xb3, 0x07, 0xb2, 0x0d, 0xa5,
+	0x9c, 0x79, 0x4b, 0xc3, 0xc5, 0x04, 0xf9, 0x1f, 0xaa, 0xe6, 0x1e, 0xa8, 0xf8, 0x8e, 0xe3, 0x52,
+	0x96, 0xe8, 0x9a, 0x01, 0x2e, 0xe2, 0x3b, 0x7e, 0xf8, 0xfe, 0xdb, 0x7c, 0xab, 0xf0, 0x7d, 0xbe,
+	0x55, 0xf8, 0x31, 0xdf, 0x2a, 0x7c, 0x38, 0x8a, 0x62, 0x3d, 0x9e, 0x0d, 0xcc, 0x8f, 0xce, 0x5f,
+	0xb4, 0x99, 0x8b, 0x94, 0x1c, 0xfa, 0xff, 0xfa, 0xc1, 0x0f, 0x2a, 0xf8, 0x37, 0x7d, 0xf9, 0x2b,
+	0x00, 0x00, 0xff, 0xff, 0xa9, 0xff, 0x2f, 0xcb, 0x0b, 0x06, 0x00, 0x00,
 }
 
 func (m *DatumInputs) Marshal() (dAtA []byte, err error) {
@@ -685,6 +792,78 @@ func (m *HashtreeTags) MarshalTo(dAtA []byte) (int, error) {
 }
 
 func (m *HashtreeTags) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Tags) > 0 {
+		for iNdEx := len(m.Tags) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Tags[iNdEx])
+			copy(dAtA[i:], m.Tags[iNdEx])
+			i = encodeVarintTransform(dAtA, i, uint64(len(m.Tags[iNdEx])))
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *RecoveredDatums) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *RecoveredDatums) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *RecoveredDatums) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.DatumHashes) > 0 {
+		for iNdEx := len(m.DatumHashes) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.DatumHashes[iNdEx])
+			copy(dAtA[i:], m.DatumHashes[iNdEx])
+			i = encodeVarintTransform(dAtA, i, uint64(len(m.DatumHashes[iNdEx])))
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *RecoveredDatumTags) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *RecoveredDatumTags) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *RecoveredDatumTags) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -821,16 +1000,12 @@ func (m *DatumStats) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		copy(dAtA[i:], m.FailedDatumID)
 		i = encodeVarintTransform(dAtA, i, uint64(len(m.FailedDatumID)))
 		i--
-		dAtA[i] = 0x3a
+		dAtA[i] = 0x42
 	}
-	if len(m.RecoveredDatums) > 0 {
-		for iNdEx := len(m.RecoveredDatums) - 1; iNdEx >= 0; iNdEx-- {
-			i -= len(m.RecoveredDatums[iNdEx])
-			copy(dAtA[i:], m.RecoveredDatums[iNdEx])
-			i = encodeVarintTransform(dAtA, i, uint64(len(m.RecoveredDatums[iNdEx])))
-			i--
-			dAtA[i] = 0x32
-		}
+	if m.DatumsRecovered != 0 {
+		i = encodeVarintTransform(dAtA, i, uint64(m.DatumsRecovered))
+		i--
+		dAtA[i] = 0x30
 	}
 	if m.DatumsFailed != 0 {
 		i = encodeVarintTransform(dAtA, i, uint64(m.DatumsFailed))
@@ -885,6 +1060,13 @@ func (m *DatumData) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	if m.XXX_unrecognized != nil {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.RecoveredDatumsTag) > 0 {
+		i -= len(m.RecoveredDatumsTag)
+		copy(dAtA[i:], m.RecoveredDatumsTag)
+		i = encodeVarintTransform(dAtA, i, uint64(len(m.RecoveredDatumsTag)))
+		i--
+		dAtA[i] = 0x3a
 	}
 	if m.Hashtree != nil {
 		{
@@ -1077,6 +1259,42 @@ func (m *HashtreeTags) Size() (n int) {
 	return n
 }
 
+func (m *RecoveredDatums) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.DatumHashes) > 0 {
+		for _, s := range m.DatumHashes {
+			l = len(s)
+			n += 1 + l + sovTransform(uint64(l))
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *RecoveredDatumTags) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.Tags) > 0 {
+		for _, s := range m.Tags {
+			l = len(s)
+			n += 1 + l + sovTransform(uint64(l))
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
 func (m *HashtreeInfo) Size() (n int) {
 	if m == nil {
 		return 0
@@ -1136,11 +1354,8 @@ func (m *DatumStats) Size() (n int) {
 	if m.DatumsFailed != 0 {
 		n += 1 + sovTransform(uint64(m.DatumsFailed))
 	}
-	if len(m.RecoveredDatums) > 0 {
-		for _, s := range m.RecoveredDatums {
-			l = len(s)
-			n += 1 + l + sovTransform(uint64(l))
-		}
+	if m.DatumsRecovered != 0 {
+		n += 1 + sovTransform(uint64(m.DatumsRecovered))
 	}
 	l = len(m.FailedDatumID)
 	if l > 0 {
@@ -1172,6 +1387,10 @@ func (m *DatumData) Size() (n int) {
 	}
 	if m.Hashtree != nil {
 		l = m.Hashtree.Size()
+		n += 1 + l + sovTransform(uint64(l))
+	}
+	l = len(m.RecoveredDatumsTag)
+	if l > 0 {
 		n += 1 + l + sovTransform(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
@@ -1421,6 +1640,178 @@ func (m *HashtreeTags) Unmarshal(dAtA []byte) error {
 		}
 		if fieldNum <= 0 {
 			return fmt.Errorf("proto: HashtreeTags: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Tags", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTransform
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTransform
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTransform
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Tags = append(m.Tags, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTransform(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthTransform
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthTransform
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *RecoveredDatums) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTransform
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: RecoveredDatums: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: RecoveredDatums: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DatumHashes", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTransform
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTransform
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTransform
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.DatumHashes = append(m.DatumHashes, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTransform(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthTransform
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthTransform
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *RecoveredDatumTags) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTransform
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: RecoveredDatumTags: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: RecoveredDatumTags: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -1843,10 +2234,10 @@ func (m *DatumStats) Unmarshal(dAtA []byte) error {
 				}
 			}
 		case 6:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field RecoveredDatums", wireType)
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DatumsRecovered", wireType)
 			}
-			var stringLen uint64
+			m.DatumsRecovered = 0
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowTransform
@@ -1856,25 +2247,12 @@ func (m *DatumStats) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
+				m.DatumsRecovered |= int64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthTransform
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthTransform
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.RecoveredDatums = append(m.RecoveredDatums, string(dAtA[iNdEx:postIndex]))
-			iNdEx = postIndex
-		case 7:
+		case 8:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field FailedDatumID", wireType)
 			}
@@ -2103,6 +2481,38 @@ func (m *DatumData) Unmarshal(dAtA []byte) error {
 			if err := m.Hashtree.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			iNdEx = postIndex
+		case 7:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RecoveredDatumsTag", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTransform
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTransform
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTransform
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.RecoveredDatumsTag = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex

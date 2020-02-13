@@ -61,14 +61,12 @@ func forEachCommit(
 						if len(ci.Trees) == 0 {
 							ji.State = pps.JobState_JOB_KILLED
 							ji.Reason = "output commit is finished without data, but job state has not been updated"
-							if err := updateJobState(pachClient, ji); err != nil {
-								return fmt.Errorf("could not kill job with finished output commit: %v", err)
-							}
 						} else {
 							ji.State = pps.JobState_JOB_SUCCESS
-							if err := updateJobState(pachClient, ji); err != nil {
-								return fmt.Errorf("could not mark job with finished output commit as successful: %v", err)
-							}
+						}
+
+						if err := finishJob(pachClient, ji, ji.State, ji.Reason, nil, nil, 0, nil, 0); err != nil {
+							return fmt.Errorf("could not update job with finished output commit: %v", err)
 						}
 					}
 				}

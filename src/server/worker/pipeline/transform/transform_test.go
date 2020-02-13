@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -20,6 +19,7 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
+	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 )
@@ -48,11 +48,10 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 			return err
 		}
 
-		localStoragePath := filepath.Join(env.Directory, "localStorage")
-		if err := os.MkdirAll(localStoragePath, 0777); err != nil {
+		if err := os.MkdirAll(env.LocalStorageDirectory, 0777); err != nil {
 			return err
 		}
-		if err := os.Setenv(obj.PachRootEnvVar, localStoragePath); err != nil {
+		if err := os.Setenv(obj.PachRootEnvVar, env.LocalStorageDirectory); err != nil {
 			return err
 		}
 
@@ -260,16 +259,29 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Con
 		}, nil
 	})
 
-	env.MockPachd.PPS.UpdateJobState.Use(func(ctx context.Context, request *pps.UpdateJobStateRequest) (*types.Empty, error) {
+	updateJobState := func(request *pps.UpdateJobStateRequest) {
 		etcdJobInfo.State = request.State
 		etcdJobInfo.Reason = request.Reason
 
 		// If setting the job to a terminal state, we are done
-		// TODO: this sometimes cancels the transform master too early
 		if ppsutil.IsTerminal(request.State) {
-			cancel()
+			fmt.Printf("updating job to terminal state: %v\n", request.State)
+			// TODO: this sometimes cancels the transform master too early (but the
+			// test still passes) - the delay helps
+			go func() {
+				time.Sleep(100 * time.Millisecond)
+				cancel()
+			}()
 		}
+	}
 
+	env.MockPPSTransactionServer.UpdateJobStateInTransaction.Use(func(txnctx *txnenv.TransactionContext, request *pps.UpdateJobStateRequest) error {
+		updateJobState(request)
+		return nil
+	})
+
+	env.MockPachd.PPS.UpdateJobState.Use(func(ctx context.Context, request *pps.UpdateJobStateRequest) (*types.Empty, error) {
+		updateJobState(request)
 		return &types.Empty{}, nil
 	})
 
@@ -286,6 +298,23 @@ func TestJob(t *testing.T) {
 		ctx = withTimeout(ctx, 10*time.Second)
 		<-ctx.Done()
 		require.Equal(t, pps.JobState_JOB_SUCCESS, etcdJobInfo.State)
+
+		// Ensure the output commit is successful
+		outputCommitID := etcdJobInfo.OutputCommit.ID
+		outputCommitInfo, err := env.PachClient.InspectCommit(pi.Pipeline.Name, outputCommitID)
+		require.NoError(t, err)
+		require.NotNil(t, outputCommitInfo.Finished)
+
+		branchInfo, err := env.PachClient.InspectBranch(pi.Pipeline.Name, pi.OutputBranch)
+		require.NoError(t, err)
+		require.NotNil(t, branchInfo)
+
+		// Find the output file in the output branch
+		files, err := env.PachClient.ListFile(pi.Pipeline.Name, pi.OutputBranch, "/")
+		require.NoError(t, err)
+		require.Equal(t, len(files), 1)
+		fmt.Printf("files: %v\n", files)
+
 		return nil
 	})
 	require.NoError(t, err)
