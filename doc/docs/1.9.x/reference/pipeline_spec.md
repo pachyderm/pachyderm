@@ -319,7 +319,10 @@ Kubernetes cluster has 10 nodes, and you set `"coefficient": 0.5`, Pachyderm
 starts five workers. If you set it to 2.0, Pachyderm starts 20 workers
 (two per Kubernetes node).
 
-The default if left unset is "constant=1".
+The default value is "constant=1" .
+
+Because spouts and services are designed to be single instances, do not
+modify the default `parallism_spec` value for these pipelines.
 
 ### Resource Requests (optional)
 
