@@ -418,6 +418,11 @@ message PipelineInfo {
   SchedulingSpec scheduling_spec = 40;
   string pod_spec = 41;
   string pod_patch = 44;
+  // workers is the number of workers that this pipeline currently has
+  int64 workers = 47;
+  // workers_requested is the number of workers that this pipeline has
+  // requested form k8s
+  int64 workers_requested = 48;
 }
 
 message PipelineInfos {
