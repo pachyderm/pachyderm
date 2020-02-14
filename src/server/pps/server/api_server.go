@@ -189,10 +189,20 @@ func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName str
 						"already creates /pfs/out to collect job output")
 				case input.Pfs.Repo == "":
 					return fmt.Errorf("input must specify a repo")
+				case input.Pfs.Repo == "out" && input.Pfs.Name == "":
+					return fmt.Errorf("inputs based on repos named \"out\" must have " +
+						"'name' set, as pachyderm already creates /pfs/out to collect " +
+						"job output")
 				case input.Pfs.Branch == "" && !job:
 					return fmt.Errorf("input must specify a branch")
 				case len(input.Pfs.Glob) == 0:
 					return fmt.Errorf("input must specify a glob")
+				case input.Pfs.S3 && input.Pfs.Glob != "":
+					return fmt.Errorf("input cannot specify both 's3' and 'glob, as " +
+						"the first exposes repo contents via the S3 gateway, while the " +
+						"second exposes repo contents via the filesystem")
+				case input.Pfs.S3:
+					return fmt.Errorf("'s3' inputs are not supported yet")
 				}
 				// Note that input.Pfs.Commit is empty if a) this is a job b) one of
 				// the job pipeline's input branches has no commits yet
