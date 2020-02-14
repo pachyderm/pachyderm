@@ -3014,8 +3014,8 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 				Cmd:   []string{"bash"},
 				Stdin: []string{"cp /pfs/*/file /pfs/out/file"},
 			},
-			Input:       client.NewPFSInput(dataRepo, "/*"),
-			EnableStats: true,
+			Input: client.NewPFSInput(dataRepo, "/*"),
+			// EnableStats: true,
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
@@ -3039,7 +3039,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 		[]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 2, len(commitInfos))
+	require.Equal(t, 1, len(commitInfos))
 
 	jis, err := c.ListJob(pipelineName, nil, nil, -1, false)
 	require.NoError(t, err)
@@ -3078,8 +3078,8 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 				Cmd:   []string{"bash"},
 				Stdin: []string{"cp /pfs/*/file /pfs/out/file"},
 			},
-			Input:       client.NewPFSInput(dataRepo, "/*"),
-			EnableStats: true,
+			Input: client.NewPFSInput(dataRepo, "/*"),
+			// EnableStats: true,
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
