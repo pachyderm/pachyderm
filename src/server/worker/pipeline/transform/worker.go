@@ -402,6 +402,7 @@ func processDatum(
 	} else {
 		stats.DatumsProcessed++
 	}
+	fmt.Printf("datum processStats: %v\n", stats)
 	return stats, recoveredDatumTags, nil
 }
 

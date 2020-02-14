@@ -45,6 +45,7 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 		env.driver = env.driver.WithCtx(ctx)
 
 		// Set env vars that the object storage layer expects in the env
+		// This is global but it should be fine because all tests use the same value.
 		if err := os.Setenv(obj.StorageBackendEnvVar, obj.Local); err != nil {
 			return err
 		}
@@ -52,6 +53,7 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 		if err := os.MkdirAll(env.LocalStorageDirectory, 0777); err != nil {
 			return err
 		}
+		// TODO: this is global and complicates running tests in parallel
 		if err := os.Setenv(obj.PachRootEnvVar, env.LocalStorageDirectory); err != nil {
 			return err
 		}

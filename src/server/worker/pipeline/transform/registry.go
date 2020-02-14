@@ -290,37 +290,39 @@ func (reg *registry) initializeDatumsBase(commitInfo *pfs.CommitInfo) error {
 	reg.mutex.Lock()
 	defer reg.mutex.Unlock()
 
-	// Get the most recent successful commit starting from the given commit
-	parentCommitInfo, err := reg.getParentCommitInfo(commitInfo)
-	if err != nil {
-		return err
-	}
-
-	// Initialize the datumsBase value in the registry
-	if parentCommitInfo != nil {
-		var err error
-		reg.datumsBase, err = reg.getDatumSet(parentCommitInfo.Datums)
+	if reg.datumsBase == nil {
+		// Get the most recent successful commit starting from the given commit
+		parentCommitInfo, err := reg.getParentCommitInfo(commitInfo)
 		if err != nil {
 			return err
 		}
-	} else {
-		reg.datumsBase = make(map[string]struct{})
+
+		// Initialize the datumsBase value in the registry
+		if parentCommitInfo != nil {
+			var err error
+			reg.datumsBase, err = reg.getDatumSet(parentCommitInfo.Datums)
+			if err != nil {
+				return err
+			}
+		} else {
+			reg.datumsBase = make(map[string]struct{})
+		}
 	}
 
 	return nil
 }
 
-func isDatumNew(hash string, parentJobs []*pendingJob, datumsBase map[string]struct{}) bool {
-	for i := len(parentJobs) - 1; i >= 0; i-- {
-		if _, ok := parentJobs[i].datumsAdded[hash]; ok {
+func isDatumNew(hash string, ancestorJobs []*pendingJob, datumsBase map[string]struct{}) bool {
+	for i := len(ancestorJobs) - 1; i >= 0; i-- {
+		if _, ok := ancestorJobs[i].datumsAdded[hash]; ok {
 			return false
 		}
-		if parentJobs[i].orphan {
+		if ancestorJobs[i].orphan {
 			// No other jobs matter since this job doesn't depend on any previous
 			// hashtree, so we can shortcut out
 			return true
 		}
-		if _, ok := parentJobs[i].datumsRemoved[hash]; ok {
+		if _, ok := ancestorJobs[i].datumsRemoved[hash]; ok {
 			return true
 		}
 	}
@@ -337,14 +339,14 @@ func isDatumNew(hash string, parentJobs []*pendingJob, datumsBase map[string]str
 // it is removed then readded.
 func calculateRemovedDatums(
 	allDatums map[string]struct{},
-	parentJobs []*pendingJob,
+	ancestorJobs []*pendingJob,
 	datumsBase map[string]struct{},
 ) map[string]struct{} {
 	removed := make(map[string]struct{})
 	skip := make(map[string]struct{})
 
-	for i := len(parentJobs) - 1; i >= 0; i-- {
-		for hash := range parentJobs[i].datumsAdded {
+	for i := len(ancestorJobs) - 1; i >= 0; i-- {
+		for hash := range ancestorJobs[i].datumsAdded {
 			if _, ok := skip[hash]; !ok {
 				skip[hash] = struct{}{}
 				if _, ok := allDatums[hash]; !ok {
@@ -352,12 +354,12 @@ func calculateRemovedDatums(
 				}
 			}
 		}
-		if parentJobs[i].orphan {
+		if ancestorJobs[i].orphan {
 			// No other jobs matter since this job doesn't depend on any previous
 			// hashtree, so we can shortcut out
 			return removed
 		}
-		for hash := range parentJobs[i].datumsRemoved {
+		for hash := range ancestorJobs[i].datumsRemoved {
 			skip[hash] = struct{}{}
 		}
 	}
@@ -380,7 +382,7 @@ func calculateRemovedDatums(
 func calculateDatumSets(
 	pipelineInfo *pps.PipelineInfo,
 	dit datum.Iterator,
-	parentJobs []*pendingJob,
+	ancestorJobs []*pendingJob,
 	datumsBase map[string]struct{},
 ) (datumsAdded map[string]struct{}, datumsRemoved map[string]struct{}, orphan bool) {
 	allDatums := make(map[string]struct{})
@@ -395,7 +397,7 @@ func calculateDatumSets(
 		allDatums[hash] = struct{}{}
 
 		// Check if the hash was added or removed in any upstream jobs
-		if isDatumNew(hash, parentJobs, datumsBase) {
+		if isDatumNew(hash, ancestorJobs, datumsBase) {
 			datumsAdded[hash] = struct{}{}
 		}
 	}
@@ -403,7 +405,7 @@ func calculateDatumSets(
 	// If datumsAdded == allDatums, this job does not depend on a parent job, unlink it
 	orphan = len(datumsAdded) == len(allDatums)
 
-	return datumsAdded, calculateRemovedDatums(allDatums, parentJobs, datumsBase), orphan
+	return datumsAdded, calculateRemovedDatums(allDatums, ancestorJobs, datumsBase), orphan
 }
 
 // Generate a datum task (and split it up into subtasks) for the added datums
@@ -421,7 +423,7 @@ func (reg *registry) makeDatumTask(
 	} else {
 		numTasks = reg.concurrency
 	}
-	datumsPerTask := int(math.Ceil(float64(numTasks) / float64(len(pj.datumsAdded))))
+	datumsPerTask := int(math.Ceil(float64(len(pj.datumsAdded)) / float64(numTasks)))
 
 	datums := []*DatumInputs{}
 	subtasks := []*work.Task{}
@@ -637,10 +639,8 @@ func (reg *registry) ensureJob(
 }
 
 func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit) error {
-	if reg.datumsBase == nil {
-		if err := reg.initializeDatumsBase(commitInfo); err != nil {
-			return err
-		}
+	if err := reg.initializeDatumsBase(commitInfo); err != nil {
+		return err
 	}
 
 	jobInfo, err := reg.ensureJob(commitInfo, metaCommit)

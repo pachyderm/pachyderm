@@ -729,9 +729,10 @@ func mergeNode(path, hash string, size int64) *MergeNode {
 }
 
 func TestMergeFiles(t *testing.T) {
-	c := NewMergeCache("")
+	c, err := NewMergeCache("merge-cache-test")
+	require.NoError(t, err)
 	defer func() {
-		require.NoError(t, c.Clear())
+		require.NoError(t, c.Close())
 	}()
 
 	l, r := NewUnordered(""), NewUnordered("")
@@ -746,8 +747,8 @@ func TestMergeFiles(t *testing.T) {
 	lBuf, rBuf, resultBuf := &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}
 	require.NoError(t, l.Ordered().Serialize(lBuf))
 	require.NoError(t, r.Ordered().Serialize(rBuf))
-	require.NoError(t, c.Put(0, lBuf))
-	require.NoError(t, c.Put(1, rBuf))
+	require.NoError(t, c.Put("0", lBuf))
+	require.NoError(t, c.Put("1", rBuf))
 	require.NoError(t, c.Merge(NewWriter(resultBuf), nil, nil))
 
 	expectedBuf := &bytes.Buffer{}

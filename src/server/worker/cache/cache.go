@@ -3,6 +3,7 @@ package cache
 import (
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 )
@@ -16,6 +17,8 @@ type WorkerCache interface {
 }
 
 type workerCache struct {
+	mutex sync.Mutex
+
 	// hashtreeStorage is the where we store on disk hashtrees
 	hashtreeStorage string
 
@@ -32,20 +35,26 @@ func NewWorkerCache(hashtreeStorage string) WorkerCache {
 }
 
 func (wc *workerCache) GetOrCreateCache(jobID string) (*hashtree.MergeCache, error) {
+	wc.mutex.Lock()
+	defer wc.mutex.Unlock()
+
 	if cache, ok := wc.caches[jobID]; ok {
 		return cache, nil
 	}
-	cachePath := filepath.Join(wc.hashtreeStorage, jobID)
-	if err := os.MkdirAll(cachePath, 0777); err != nil {
+
+	newCache, err := hashtree.NewMergeCache(filepath.Join(wc.hashtreeStorage, jobID))
+	if err != nil {
 		return nil, err
 	}
 
-	newCache := hashtree.NewMergeCache(filepath.Join(wc.hashtreeStorage, jobID))
 	wc.caches[jobID] = newCache
 	return newCache, nil
 }
 
 func (wc *workerCache) RemoveCache(jobID string) error {
+	wc.mutex.Lock()
+	defer wc.mutex.Unlock()
+
 	if _, ok := wc.caches[jobID]; ok {
 		if err := os.RemoveAll(filepath.Join(wc.hashtreeStorage, jobID)); err != nil {
 			return err
@@ -56,5 +65,16 @@ func (wc *workerCache) RemoveCache(jobID string) error {
 }
 
 func (wc *workerCache) GetCache(jobID string) *hashtree.MergeCache {
+	wc.mutex.Lock()
+	defer wc.mutex.Unlock()
+
 	return wc.caches[jobID]
+}
+
+func (wc *workerCache) Close() error {
+	wc.mutex.Lock()
+	defer wc.mutex.Unlock()
+
+	wc.caches = make(map[string]*hashtree.MergeCache)
+	return os.RemoveAll(wc.hashtreeStorage)
 }

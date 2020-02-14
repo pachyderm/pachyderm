@@ -32,7 +32,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
@@ -365,10 +364,8 @@ func (d *driver) NewTaskMaster() *work.Master {
 func (d *driver) GetExpectedNumWorkers() (int, error) {
 	pipelinePtr := &pps.EtcdPipelineInfo{}
 	if err := d.Pipelines().ReadOnly(d.PachClient().Ctx()).Get(d.PipelineInfo().Pipeline.Name, pipelinePtr); err != nil {
-		fmt.Printf("GetExpectedNumWorkers failed, err: %v\n", err)
 		return 0, err
 	}
-	fmt.Printf("GetExpectedNumWorkers success: %v\n", pipelinePtr.Parallelism)
 	return int(pipelinePtr.Parallelism), nil
 }
 
@@ -400,62 +397,32 @@ func (d *driver) ChunkStatsCaches() cache.WorkerCache {
 // can easily be used by the mock driver for testing purposes.
 func withDatumCache(storageRoot string, cb func(*hashtree.MergeCache, *hashtree.MergeCache) error) (retErr error) {
 	cacheID := uuid.NewWithoutDashes()
-	datumCachePath := filepath.Join(storageRoot, "datum", cacheID)
-	statsCachePath := filepath.Join(storageRoot, "datumStats", cacheID)
 
-	if err := os.MkdirAll(datumCachePath, 0777); err != nil {
+	datumCache, err := hashtree.NewMergeCache(filepath.Join(storageRoot, "datum", cacheID))
+	if err != nil {
 		return err
 	}
 	defer func() {
-		if err := os.RemoveAll(datumCachePath); retErr == nil {
+		if err := datumCache.Close(); retErr == nil {
 			retErr = err
 		}
 	}()
 
-	if err := os.MkdirAll(statsCachePath, 0777); err != nil {
+	datumStatsCache, err := hashtree.NewMergeCache(filepath.Join(storageRoot, "datumStats", cacheID))
+	if err != nil {
 		return err
 	}
 	defer func() {
-		if err := os.RemoveAll(statsCachePath); retErr == nil {
+		if err := datumStatsCache.Close(); retErr == nil {
 			retErr = err
 		}
 	}()
 
-	datumCache := hashtree.NewMergeCache(datumCachePath)
-	statsCache := hashtree.NewMergeCache(statsCachePath)
-
-	return cb(datumCache, statsCache)
+	return cb(datumCache, datumStatsCache)
 }
 
 func (d *driver) WithDatumCache(cb func(*hashtree.MergeCache, *hashtree.MergeCache) error) (retErr error) {
 	return withDatumCache(d.hashtreeDir, cb)
-}
-
-func (d *driver) GetDatumMap(ctx context.Context, object *pfs.Object) (_ map[string]bool, retErr error) {
-	if object == nil {
-		return nil, nil
-	}
-	r, err := d.pachClient.GetObjectReader(object.Hash)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err := r.Close(); err != nil && retErr != nil {
-			retErr = err
-		}
-	}()
-	pbr := pbutil.NewReader(r)
-	datums := make(map[string]bool)
-	for {
-		k, err := pbr.ReadBytes()
-		if err != nil {
-			if err == io.EOF {
-				return datums, nil
-			}
-			return nil, err
-		}
-		datums[string(k)] = true
-	}
 }
 
 func (d *driver) NewSTM(cb func(col.STM) error) (*etcd.TxnResponse, error) {
@@ -929,10 +896,10 @@ func (d *driver) reportDeferredUserCodeStats(
 	procStats *pps.ProcessStats,
 	logger logs.TaggedLogger,
 ) {
-	if d.exportStats {
-		duration := time.Since(start)
-		procStats.ProcessTime = types.DurationProto(duration)
+	duration := time.Since(start)
+	procStats.ProcessTime = types.DurationProto(duration)
 
+	if d.exportStats {
 		state := "errored"
 		if err == nil {
 			state = "finished"
@@ -955,10 +922,10 @@ func (d *driver) ReportUploadStats(
 	procStats *pps.ProcessStats,
 	logger logs.TaggedLogger,
 ) {
-	if d.exportStats {
-		duration := time.Since(start)
-		procStats.UploadTime = types.DurationProto(duration)
+	duration := time.Since(start)
+	procStats.UploadTime = types.DurationProto(duration)
 
+	if d.exportStats {
 		d.updateHistogram(stats.DatumUploadTime, logger, "", func(hist prometheus.Observer) {
 			hist.Observe(duration.Seconds())
 		})
@@ -993,9 +960,10 @@ func (d *driver) reportDownloadTimeStats(
 	procStats *pps.ProcessStats,
 	logger logs.TaggedLogger,
 ) {
+	duration := time.Since(start)
+	procStats.DownloadTime = types.DurationProto(duration)
+
 	if d.exportStats {
-		duration := time.Since(start)
-		procStats.DownloadTime = types.DurationProto(duration)
 
 		d.updateHistogram(stats.DatumDownloadTime, logger, "", func(hist prometheus.Observer) {
 			hist.Observe(duration.Seconds())

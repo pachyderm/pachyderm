@@ -12,7 +12,7 @@ import (
 )
 
 // Status is a struct representing the current status of the transform worker,
-// its public interface only allows getting the status of a task an canceling
+// its public interface only allows getting the status of a task and canceling
 // the currently-processing datum.
 type Status struct {
 	mutex     sync.Mutex

@@ -28,7 +28,7 @@ type localClient struct {
 
 func (c *localClient) normPath(path string) string {
 	path = filepath.Clean(path)
-	if !filepath.IsAbs(path) || !strings.HasPrefix(path, c.root) {
+	if !filepath.IsAbs(path) {
 		return filepath.Join(c.root, path)
 	}
 	return path

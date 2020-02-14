@@ -19,11 +19,15 @@ type Cache struct {
 }
 
 // NewCache creates a new cache.
-func NewCache(root string) *Cache {
+func NewCache(root string) (*Cache, error) {
+	if err := os.MkdirAll(root, 0777); err != nil {
+		return nil, err
+	}
+
 	return &Cache{
 		root: root,
 		keys: make(map[string]bool),
-	}
+	}, nil
 }
 
 // Put puts a key/value pair in the cache and reads the value from an io.Reader.
@@ -106,4 +110,11 @@ func (c *Cache) Clear() error {
 		}
 	}
 	return nil
+}
+
+func (c *Cache) Close() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.keys = make(map[string]bool)
+	return os.RemoveAll(c.root)
 }

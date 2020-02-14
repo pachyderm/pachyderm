@@ -130,10 +130,13 @@ type MergeCache struct {
 }
 
 // NewMergeCache creates a new cache.
-func NewMergeCache(root string) *MergeCache {
-	return &MergeCache{
-		Cache: localcache.NewCache(root),
+func NewMergeCache(root string) (*MergeCache, error) {
+	cache, err := localcache.NewCache(root)
+	if err != nil {
+		return nil, err
 	}
+
+	return &MergeCache{Cache: cache}, nil
 }
 
 // Put puts an id/hashtree pair in the cache and reads the hashtree from the passed in io.Reader.
