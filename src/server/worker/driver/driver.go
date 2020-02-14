@@ -81,10 +81,6 @@ type Driver interface {
 	// Returns the path that will contain the input filesets for the job
 	InputDir() string
 
-	// Returns the base path used for hashtree storage. Users should scope their
-	// hashtrees to some unique subdirectory to avoid collisions.
-	HashtreeDir() string
-
 	// Returns the pachd API client for the driver
 	PachClient() *client.APIClient
 
@@ -165,12 +161,16 @@ type driver struct {
 	// We only export application statistics if enterprise is enabled
 	exportStats bool
 
+	// The root directory to use when setting the user code path. This is normally
+	// "/", but can be overridden by tests.
+	rootDir string
+
 	// The directory to store input data - this is typically static but can be
-	// overridden by tests
+	// overridden by tests.
 	inputDir string
 
-	// The directory to store hashtrees in. Users should scope their hashtrees to
-	// some unique subdirectory to avoid collisions.
+	// The directory to store hashtrees in. This will be cleared when starting to
+	// avoid artifacts from previous runs.
 	hashtreeDir string
 
 	// These caches are used for storing and merging hashtrees from jobs until the
@@ -188,8 +188,14 @@ func NewDriver(
 	etcdClient *etcd.Client,
 	etcdPrefix string,
 	hashtreePath string,
-	pfsPath string,
+	rootPath string,
 ) (Driver, error) {
+	// Delete the hashtree path (if it exists) in case it is left over from a previous run
+	if err := os.RemoveAll(hashtreePath); err != nil {
+		return nil, err
+	}
+
+	pfsPath := filepath.Join(rootPath, client.PPSInputPrefix)
 	chunkCachePath := filepath.Join(hashtreePath, "chunk")
 	chunkStatsCachePath := filepath.Join(hashtreePath, "chunkStats")
 
@@ -218,6 +224,7 @@ func NewDriver(
 		jobs:             ppsdb.Jobs(etcdClient, etcdPrefix),
 		pipelines:        ppsdb.Pipelines(etcdClient, etcdPrefix),
 		numShards:        numShards,
+		rootDir:          rootPath,
 		inputDir:         pfsPath,
 		hashtreeDir:      hashtreePath,
 		chunkCaches:      cache.NewWorkerCache(chunkCachePath),
@@ -377,10 +384,6 @@ func (d *driver) InputDir() string {
 	return d.inputDir
 }
 
-func (d *driver) HashtreeDir() string {
-	return d.hashtreeDir
-}
-
 func (d *driver) PachClient() *client.APIClient {
 	return d.pachClient
 }
@@ -425,7 +428,7 @@ func withDatumCache(storageRoot string, cb func(*hashtree.MergeCache, *hashtree.
 }
 
 func (d *driver) WithDatumCache(cb func(*hashtree.MergeCache, *hashtree.MergeCache) error) (retErr error) {
-	return withDatumCache(d.HashtreeDir(), cb)
+	return withDatumCache(d.hashtreeDir, cb)
 }
 
 func (d *driver) GetDatumMap(ctx context.Context, object *pfs.Object) (_ map[string]bool, retErr error) {
@@ -741,7 +744,7 @@ func (d *driver) RunUserCode(
 	if d.uid != nil && d.gid != nil {
 		cmd.SysProcAttr = makeCmdCredentials(*d.uid, *d.gid)
 	}
-	cmd.Dir = d.pipelineInfo.Transform.WorkingDir
+	cmd.Dir = filepath.Join(d.rootDir, d.pipelineInfo.Transform.WorkingDir)
 	err := cmd.Start()
 	if err != nil {
 		return fmt.Errorf("error cmd.Start: %v", err)

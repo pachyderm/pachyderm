@@ -1,6 +1,7 @@
 package transform
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -290,7 +291,7 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Con
 	return ctx, etcdJobInfo
 }
 
-func TestJob(t *testing.T) {
+func TestJobSuccess(t *testing.T) {
 	pi := defaultPipelineInfo()
 	t.Parallel()
 	err := withWorkerSpawnerPair(pi, func(env *testEnv) error {
@@ -312,9 +313,30 @@ func TestJob(t *testing.T) {
 		// Find the output file in the output branch
 		files, err := env.PachClient.ListFile(pi.Pipeline.Name, pi.OutputBranch, "/")
 		require.NoError(t, err)
-		require.Equal(t, len(files), 1)
-		fmt.Printf("files: %v\n", files)
+		require.Equal(t, 1, len(files))
+		require.Equal(t, "/file", files[0].File.Path)
+		require.Equal(t, uint64(6), files[0].SizeBytes)
 
+		buffer := &bytes.Buffer{}
+		err = env.PachClient.GetFile(pi.Pipeline.Name, pi.OutputBranch, "/file", 0, 0, buffer)
+		require.NoError(t, err)
+		require.Equal(t, "foobar", buffer.String())
+
+		return nil
+	})
+	require.NoError(t, err)
+}
+
+func TestJobFailedDatum(t *testing.T) {
+	pi := defaultPipelineInfo()
+	pi.Transform.Cmd = []string{"bash", "-c", "(exit 1)"}
+	t.Parallel()
+	err := withWorkerSpawnerPair(pi, func(env *testEnv) error {
+		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
+		ctx = withTimeout(ctx, 10*time.Second)
+		<-ctx.Done()
+		require.Equal(t, pps.JobState_JOB_FAILURE, etcdJobInfo.State)
+		// TODO: check job stats
 		return nil
 	})
 	require.NoError(t, err)

@@ -18,7 +18,8 @@ func defaultPipelineInfo() *pps.PipelineInfo {
 		Pipeline:     client.NewPipeline(name),
 		OutputBranch: "master",
 		Transform: &pps.Transform{
-			Cmd: []string{"echo", "foo", "bar"},
+			Cmd:        []string{"cp", "inputRepo/*", "out"},
+			WorkingDir: client.PPSInputPrefix,
 		},
 		ParallelismSpec: &pps.ParallelismSpec{
 			Constant: 1,
@@ -49,16 +50,15 @@ type testEnv struct {
 // clients, plus a worker driver for performing worker operations.
 func withTestEnv(pipelineInfo *pps.PipelineInfo, cb func(*testEnv) error) error {
 	return tu.WithRealEnv(func(realEnv *tu.RealEnv) error {
-		pipelineInfo.Transform.WorkingDir = realEnv.Directory
-
 		logger := logs.NewMockLogger()
+		workerDir := filepath.Join(realEnv.Directory, "worker")
 		driver, err := driver.NewDriver(
 			pipelineInfo,
 			realEnv.PachClient,
 			realEnv.EtcdClient,
 			"/pachyderm_test",
-			filepath.Join(realEnv.Directory, "worker", "hashtrees"),
-			filepath.Join(realEnv.Directory, "worker", "pfs"),
+			filepath.Join(workerDir, "hashtrees"),
+			workerDir,
 		)
 		if err != nil {
 			return err

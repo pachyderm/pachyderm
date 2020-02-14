@@ -53,6 +53,7 @@ func NewWorker(
 	workerName string,
 	namespace string,
 	hashtreePath string,
+	rootPath string,
 ) (*Worker, error) {
 	stats.InitPrometheus()
 
@@ -66,8 +67,8 @@ func NewWorker(
 		pachClient,
 		etcdClient,
 		etcdPrefix,
-		filepath.Join(hashtreePath, uuid.NewWithoutDashes()),
-		client.PPSInputPrefix,
+		hashtreePath,
+		rootPath,
 	)
 	if err != nil {
 		return nil, err

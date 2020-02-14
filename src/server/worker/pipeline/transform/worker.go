@@ -35,6 +35,9 @@ var (
 	errDatumRecovered = errors.New("the datum errored, and the error was handled successfully")
 )
 
+// TODO: would be nice to have these have a deterministic ID rather than based
+// off the subtask ID so we can shortcut processing if we get interrupted and
+// restarted
 func jobRecoveredDatumsTag(jobID string, subtaskID string) string {
 	return fmt.Sprintf("%s-recovered-%s", jobTagPrefix(jobID), subtaskID)
 }
@@ -164,6 +167,7 @@ func uploadRecoveredDatums(driver driver.Driver, logger logs.TaggedLogger, recov
 			return nil
 		}
 
+		// TODO: may need to delete the tag first, supposedly this will fail if it already exists
 		_, _, err := driver.PachClient().PutObject(buf, tag)
 		return err
 	})
@@ -188,6 +192,7 @@ func uploadChunk(driver driver.Driver, logger logs.TaggedLogger, cache *hashtree
 		}
 
 		// Upload the hashtree for this subtask to the given tag
+		// TODO: may need to delete the tag first, supposedly this will fail if it already exists
 		putObjectWriter, err := driver.PachClient().PutObjectAsync([]*pfs.Tag{client.NewTag(tag)})
 		if err != nil {
 			return err
@@ -202,6 +207,7 @@ func uploadChunk(driver driver.Driver, logger logs.TaggedLogger, cache *hashtree
 }
 
 func handleDatumTask(driver driver.Driver, logger logs.TaggedLogger, data *DatumData, subtaskID string, status *Status) error {
+	// TODO: check for existing tagged output files - continue with processing if any are missing
 	return driver.WithDatumCache(func(datumCache *hashtree.MergeCache, statsCache *hashtree.MergeCache) error {
 		logger.Logf("transform worker datum task: %v", data)
 		limiter := limit.New(int(driver.PipelineInfo().MaxQueueSize))
@@ -254,20 +260,23 @@ func handleDatumTask(driver driver.Driver, logger logs.TaggedLogger, data *Datum
 			return err
 		}
 
-		if len(recoveredDatums) > 0 {
-			recoveredDatumsTag := jobRecoveredDatumsTag(logger.JobID(), subtaskID)
-			if err := uploadRecoveredDatums(driver, logger, recoveredDatums, recoveredDatumsTag); err != nil {
+		if data.Stats.DatumsFailed == 0 {
+			if len(recoveredDatums) > 0 {
+				recoveredDatumsTag := jobRecoveredDatumsTag(logger.JobID(), subtaskID)
+				if err := uploadRecoveredDatums(driver, logger, recoveredDatums, recoveredDatumsTag); err != nil {
+					return err
+				}
+				data.RecoveredDatumsTag = recoveredDatumsTag
+			}
+
+			chunkTag := jobChunkTag(logger.JobID(), subtaskID)
+			if err := uploadChunk(driver, logger, datumCache, chunkTag); err != nil {
 				return err
 			}
-			data.RecoveredDatumsTag = recoveredDatumsTag
+
+			data.Hashtree = &HashtreeInfo{Address: os.Getenv(client.PPSWorkerIPEnv), Tag: chunkTag}
 		}
 
-		chunkTag := jobChunkTag(logger.JobID(), subtaskID)
-		if err := uploadChunk(driver, logger, datumCache, chunkTag); err != nil {
-			return err
-		}
-
-		data.Hashtree = &HashtreeInfo{Address: os.Getenv(client.PPSWorkerIPEnv), Tag: chunkTag}
 		return nil
 	})
 }
