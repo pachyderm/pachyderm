@@ -18,7 +18,6 @@ env:
     - PATH="${HOME}/cached-deps:$(python3 -c 'import site; print(site.USER_BASE)')/bin:${PATH}"
     - PPS_BUCKETS=6
     - AUTH_BUCKETS=2
-    - GOPROXY=https://proxy.golang.org
   matrix:
     - BUCKET=MISC
     # If you want to update the number of PPS or auth buckets, you'll neet to
