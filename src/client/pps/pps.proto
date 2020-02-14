@@ -60,12 +60,16 @@ enum JobState {
   JOB_MERGING = 5;
 }
 
+message Metadata {
+  map<string, string> annotations = 1;
+  map<string, string> labels = 2;
+}
+
 message Service {
   int32 internal_port = 1;
   int32 external_port = 2;
   string ip = 3 [(gogoproto.customname) = "IP"];
   string type = 4;
-  map<string, string> annotations = 5;
 }
 
 message Spout {
@@ -425,6 +429,7 @@ message PipelineInfo {
   string pod_spec = 41;
   string pod_patch = 44;
   bool s3_out = 47;
+  Metadata metadata = 48;
 }
 
 message PipelineInfos {
@@ -647,6 +652,7 @@ message CreatePipelineRequest {
   string pod_spec = 30; // deprecated, use pod_patch below
   string pod_patch = 32; // a json patch will be applied to the pipeline's pod_spec before it's created;
   pfs.Commit spec_commit = 34;
+  Metadata metadata = 46;
 }
 
 message InspectPipelineRequest {

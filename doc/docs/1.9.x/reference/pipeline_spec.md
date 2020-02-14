@@ -12,6 +12,14 @@ create pipeline](pachctl/pachctl_create_pipeline.md) section.
     "name": string
   },
   "description": string,
+  "metadata": {
+    "annotations": {
+        "foo": "bar"
+    },
+    "labels": {
+        "baz": "baq"
+    }
+  },
   "transform": {
     "image": string,
     "cmd": [ string ],
@@ -80,10 +88,7 @@ create pipeline](pachctl/pachctl_create_pipeline.md) section.
   \\ Optionally, you can combine a spout with a service:
   "service": {
         "internal_port": int,
-        "external_port": int,
-        "annotations": {
-            "foo": "bar"
-        }
+        "external_port": int
     }
   },
   "max_queue_size": int,

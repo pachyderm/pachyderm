@@ -746,6 +746,9 @@ func (c APIClient) CreatePipelineService(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
 			Pipeline: NewPipeline(name),
+			Metadata: &pps.Metadata{
+				Annotations: annotations,
+			},
 			Transform: &pps.Transform{
 				Image: image,
 				Cmd:   cmd,
@@ -757,7 +760,6 @@ func (c APIClient) CreatePipelineService(
 			Service: &pps.Service{
 				InternalPort: internalPort,
 				ExternalPort: externalPort,
-				Annotations:  annotations,
 			},
 		},
 	)
