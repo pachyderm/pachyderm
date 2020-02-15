@@ -148,23 +148,6 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 	return err
 }
 
-func triggerJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) {
-	_, err := env.PachClient.PutFile(pi.Input.Pfs.Repo, "master", "file", strings.NewReader("foobar"))
-	require.NoError(t, err)
-
-	inputCommitInfo, err := env.PachClient.InspectCommit(pi.Input.Pfs.Repo, "master")
-	require.NoError(t, err)
-	require.Equal(t, int64(1), inputCommitInfo.SubvenantCommitsTotal)
-	require.Equal(t, inputCommitInfo.Subvenance[0].Lower, inputCommitInfo.Subvenance[0].Upper)
-
-	outputCommit := inputCommitInfo.Subvenance[0].Lower
-	require.Equal(t, pi.Pipeline.Name, outputCommit.Repo.Name)
-
-	files, err := env.PachClient.ListFile(pi.Input.Pfs.Repo, "master", "")
-	require.NoError(t, err)
-	require.Equal(t, 1, len(files))
-}
-
 func withTimeout(ctx context.Context, duration time.Duration) context.Context {
 	// Create a context that the caller can wait on
 	ctx, cancel := context.WithCancel(ctx)
@@ -288,9 +271,20 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Con
 		return &types.Empty{}, nil
 	})
 
-	triggerJob(t, env, pi)
-
 	return ctx, etcdJobInfo
+}
+
+func triggerJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo, filepath string, data string) {
+	_, err := env.PachClient.PutFile(pi.Input.Pfs.Repo, "master", filepath, strings.NewReader(data))
+	require.NoError(t, err)
+
+	inputCommitInfo, err := env.PachClient.InspectCommit(pi.Input.Pfs.Repo, "master")
+	require.NoError(t, err)
+	require.Equal(t, int64(1), inputCommitInfo.SubvenantCommitsTotal)
+	require.Equal(t, inputCommitInfo.Subvenance[0].Lower, inputCommitInfo.Subvenance[0].Upper)
+
+	outputCommit := inputCommitInfo.Subvenance[0].Lower
+	require.Equal(t, pi.Pipeline.Name, outputCommit.Repo.Name)
 }
 
 func TestJobSuccess(t *testing.T) {
@@ -298,6 +292,7 @@ func TestJobSuccess(t *testing.T) {
 	t.Parallel()
 	err := withWorkerSpawnerPair(pi, func(env *testEnv) error {
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
+		triggerJob(t, env, pi, "file", "foobar")
 		ctx = withTimeout(ctx, 10*time.Second)
 		<-ctx.Done()
 		require.Equal(t, pps.JobState_JOB_SUCCESS, etcdJobInfo.State)
@@ -335,10 +330,54 @@ func TestJobFailedDatum(t *testing.T) {
 	t.Parallel()
 	err := withWorkerSpawnerPair(pi, func(env *testEnv) error {
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
+		triggerJob(t, env, pi, "file", "foobar")
 		ctx = withTimeout(ctx, 10*time.Second)
 		<-ctx.Done()
 		require.Equal(t, pps.JobState_JOB_FAILURE, etcdJobInfo.State)
 		// TODO: check job stats
+		return nil
+	})
+	require.NoError(t, err)
+}
+
+func TestJobSerial(t *testing.T) {
+	pi := defaultPipelineInfo()
+	t.Parallel()
+	err := withWorkerSpawnerPair(pi, func(env *testEnv) error {
+		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
+		triggerJob(t, env, pi, "a", "foobar")
+		ctx = withTimeout(ctx, 10*time.Second)
+		<-ctx.Done()
+		require.Equal(t, pps.JobState_JOB_SUCCESS, etcdJobInfo.State)
+
+		ctx, etcdJobInfo = mockBasicJob(t, env, pi)
+		triggerJob(t, env, pi, "b", "foobar")
+		ctx = withTimeout(ctx, 10*time.Second)
+		<-ctx.Done()
+		require.Equal(t, pps.JobState_JOB_SUCCESS, etcdJobInfo.State)
+
+		// Ensure the output commit is successful
+		outputCommitID := etcdJobInfo.OutputCommit.ID
+		outputCommitInfo, err := env.PachClient.InspectCommit(pi.Pipeline.Name, outputCommitID)
+		require.NoError(t, err)
+		require.NotNil(t, outputCommitInfo.Finished)
+
+		branchInfo, err := env.PachClient.InspectBranch(pi.Pipeline.Name, pi.OutputBranch)
+		require.NoError(t, err)
+		require.NotNil(t, branchInfo)
+
+		// Find the output file in the output branch
+		files, err := env.PachClient.ListFile(pi.Pipeline.Name, pi.OutputBranch, "/")
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+		require.Equal(t, "/file", files[0].File.Path)
+		require.Equal(t, uint64(6), files[0].SizeBytes)
+
+		buffer := &bytes.Buffer{}
+		err = env.PachClient.GetFile(pi.Pipeline.Name, pi.OutputBranch, "/file", 0, 0, buffer)
+		require.NoError(t, err)
+		require.Equal(t, "foobar", buffer.String())
+
 		return nil
 	})
 	require.NoError(t, err)
