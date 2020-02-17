@@ -27,6 +27,7 @@
   clear: both;
 }
 
+
 /* Responsive columns - one column layout (vertical) on small screens */
 @media screen and (max-width: 600px) {
   .column {
@@ -48,6 +49,15 @@
   background: #4B2A5C;
   padding-left: 10px;
 }
+
+.button-2 {
+  background-color: #4B2A5C;
+  font-family: 'Montserrat', sans-serif;
+  font-color: white;
+  font-size: 16px;
+  padding: 15px 32px;
+  text-decoration: none;
+  border: none;
 
 .mdl-card__actions {
   line-height: 1.4;
@@ -190,7 +200,7 @@
     .mdc-component__buttons .mdc-component__containers__primary .mdc-button,
     .mdc-component__buttons .mdc-component__containers__primary .mdc-fab {
       background-color: #4B2A5C;
-      color: #ffffff;
+      color: #4B2A5C;
     }
 
     .mdc-component__buttons .mdc-component__containers__primary .mdc-button--plain,
