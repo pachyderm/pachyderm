@@ -733,9 +733,9 @@ from commits with 'get file'.`,
 	var putFileCommit bool
 	var overwrite bool
 	putFile := &cobra.Command{
-		Use:   "{{alias}} <repo>@<branch-or-commit>[:<path/in/pfs>]",
+		Use:   "{{alias}} <repo>@<branch-or-commit>[:<path/to/file>]",
 		Short: "Put a file into the filesystem.",
-		Long:  "Put a file into the filesystem.  This supports a number of ways to insert data into pfs.",
+		Long:  "Put a file into the filesystem.  This command supports a number of ways to insert data into PFS.",
 		Example: `
 # Put data from stdin as repo/branch/path:
 $ echo "data" | {{alias}} repo@branch:/path
