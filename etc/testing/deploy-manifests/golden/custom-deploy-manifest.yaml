@@ -232,6 +232,26 @@ spec:
 status:
   loadBalancer: {}
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: pachd
+    suite: pachyderm
+  name: pachd-peer
+  namespace: pachyderm
+spec:
+  ports:
+  - name: api-grpc-peer-port
+    port: 30653
+    targetPort: 653
+  selector:
+    app: pachd
+  type: ClusterIP
+status:
+  loadBalancer: {}
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
