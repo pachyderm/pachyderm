@@ -20,9 +20,37 @@ const (
 	defaultMaxCompletions int64  = 64
 )
 
-// CompletionFunc is the type of functions which implement completions for
-// pachctl commands.
-type CompletionFunc func(flag, arg string, maxCompletions int64) []prompt.Suggest
+// CacheFunc is a function which returns whether or not cached results from a
+// previous call to a CompletionFunc can be reused.
+type CacheFunc func(flag, text string) bool
+
+// CacheAll is a CacheFunc that always returns true (always use cached results).
+func CacheAll(_, _ string) bool { return true }
+
+// CacheNone is a CacheFunc that always returns false (never cache anything).
+func CacheNone(_, _ string) bool { return false }
+
+// SameFlag is a CacheFunc that returns true if the flags are the same.
+func SameFlag(flag string) CacheFunc {
+	return func(_flag, _ string) bool {
+		return flag == _flag
+	}
+}
+
+// AndCacheFunc ands 0 or more cache funcs together.
+func AndCacheFunc(fs ...CacheFunc) CacheFunc {
+	return func(flag, text string) bool {
+		for _, f := range fs {
+			if !f(flag, text) {
+				return false
+			}
+		}
+		return true
+	}
+}
+
+// CompletionFunc is a function which returns completions for a command.
+type CompletionFunc func(flag, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc)
 
 var completions map[string]CompletionFunc = make(map[string]CompletionFunc)
 
@@ -47,6 +75,11 @@ func RegisterCompletionFunc(cmd *cobra.Command, completionFunc CompletionFunc) {
 type shell struct {
 	rootCmd        *cobra.Command
 	maxCompletions int64
+
+	// variables for caching completion calls
+	completionID string
+	suggests     []prompt.Suggest
+	cacheF       CacheFunc
 }
 
 func newShell(rootCmd *cobra.Command, maxCompletions int64) *shell {
@@ -105,9 +138,12 @@ func (s *shell) suggestor(in prompt.Document) []prompt.Suggest {
 	}
 	if id, ok := cmd.Annotations[completionAnnotation]; ok {
 		completionFunc := completions[id]
-		suggests := completionFunc(flag, text, s.maxCompletions)
+		if s.completionID != id || s.cacheF == nil || !s.cacheF(flag, text) {
+			s.completionID = id
+			s.suggests, s.cacheF = completionFunc(flag, text, s.maxCompletions)
+		}
 		var result []prompt.Suggest
-		for _, sug := range suggests {
+		for _, sug := range s.suggests {
 			sText := sug.Text
 			if len(text) < len(sText) {
 				sText = sText[:len(text)]
@@ -124,6 +160,12 @@ func (s *shell) suggestor(in prompt.Document) []prompt.Suggest {
 	return nil
 }
 
+func (s *shell) clearCache() {
+	s.completionID = ""
+	s.suggests = nil
+	s.cacheF = nil
+}
+
 func (s *shell) run() {
 	color.NoColor = true // color doesn't work in terminal
 	prompt.New(
@@ -131,6 +173,10 @@ func (s *shell) run() {
 		s.suggestor,
 		prompt.OptionPrefix(">>> "),
 		prompt.OptionTitle("Pachyderm Shell"),
+		prompt.OptionAddKeyBind(prompt.KeyBind{
+			Key: prompt.F5,
+			Fn:  func(*prompt.Buffer) { s.clearCache() },
+		}),
 		prompt.OptionLivePrefix(func() (string, bool) {
 			cfg, err := config.Read(true)
 			if err != nil {
@@ -143,6 +189,9 @@ func (s *shell) run() {
 			return fmt.Sprintf("context:(%s) >>> ", activeContext), true
 		}),
 	).Run()
+	if err := closePachClient(); err != nil {
+		log.Fatal(err)
+	}
 }
 
 // Run runs a prompt, it does not return.
