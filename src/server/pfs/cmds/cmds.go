@@ -1503,10 +1503,10 @@ func forEachDiffFile(newFiles, oldFiles []*pfsclient.FileInfo, f func(newFile, o
 		var oFI *pfsclient.FileInfo
 		var nFI *pfsclient.FileInfo
 		switch {
-		case oI == len(oldFiles) || newFiles[nI].File.Path < oldFiles[oI].File.Path:
+		case oI == len(oldFiles) || (nI < len(newFiles) && newFiles[nI].File.Path < oldFiles[oI].File.Path):
 			nFI = newFiles[nI]
 			nI++
-		case nI == len(newFiles) || oldFiles[oI].File.Path < newFiles[nI].File.Path:
+		case nI == len(newFiles) || (oI < len(oldFiles) && oldFiles[oI].File.Path < newFiles[nI].File.Path):
 			oFI = oldFiles[oI]
 			oI++
 		case newFiles[nI].File.Path == oldFiles[oI].File.Path:
