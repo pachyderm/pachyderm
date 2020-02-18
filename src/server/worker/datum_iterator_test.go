@@ -194,8 +194,11 @@ func TestDatumIterators(t *testing.T) {
 	in17 := client.NewJoinInput(in11, client.NewS3PFSInput("", dataRepo2, ""))
 	t.Run("S3OnlyCrossUnionJoin", func(t *testing.T) {
 		s3CrossItr, err := NewDatumIterator(c, in15)
+		require.NoError(t, err)
 		s3UnionItr, err := NewDatumIterator(c, in16)
+		require.NoError(t, err)
 		s3JoinItr, err := NewDatumIterator(c, in17)
+		require.NoError(t, err)
 		require.NoError(t, err)
 		validateDI(t, s3CrossItr, "")
 		validateDI(t, s3UnionItr, "")
@@ -210,6 +213,7 @@ func TestDatumIterators(t *testing.T) {
 	in19 := client.NewCrossInput(in1)
 	t.Run("NestedS3", func(t *testing.T) {
 		s3InnerMixedCrossItr, err := NewDatumIterator(c, in18)
+		require.NoError(t, err)
 		s3InnerS3OnlyCrossItr, err := NewDatumIterator(c, in19)
 		require.NoError(t, err)
 		validateDI(t, s3InnerMixedCrossItr,
