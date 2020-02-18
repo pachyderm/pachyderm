@@ -74,8 +74,9 @@ type registry struct {
 	mutex       sync.Mutex
 	concurrency int
 	limiter     limit.ConcurrencyLimiter
-	datumsBase  map[string]struct{}
-	jobs        []*pendingJob
+
+	datumsBase map[string]struct{}
+	jobs       []*pendingJob
 }
 
 // Returns the registry or lazily instantiates it
@@ -225,25 +226,47 @@ func (reg *registry) succeedJob(
 		return err
 	}
 
-	// Assert this is the first job in the queue (or is an orphan) and merge the added/removed datums into the registry's base datums
-	reg.mutex.Lock()
-	defer reg.mutex.Unlock()
-	if pj.index != 0 || reg.jobs[0] != pj {
-		return fmt.Errorf("unexpected job ordering, aborting")
+	recoveredDatums, err := pj.loadRecoveredDatums()
+	if err != nil {
+		return err
 	}
 
+	reg.mutex.Lock()
+	defer reg.mutex.Unlock()
 	// For a successful job, we must merge added and removed datums into the registry's base datum set
+	if pj.orphan {
+		reg.datumsBase = pj.datumsAdded
+	} else {
+		// TODO: it is possible for the child of an orphan job to finish before the first job in the queue
+		if pj.index != 0 || reg.jobs[0] != pj {
+			return fmt.Errorf("unexpected job ordering, aborting")
+		}
+
+		for hash, _ := range pj.datumsAdded {
+			reg.datumsBase[hash] = struct{}{}
+		}
+
+		for hash, _ := range pj.datumsRemoved {
+			delete(reg.datumsBase[hash])
+		}
+	}
+
+	for hash, _ := range recoveredDatums {
+		delete(reg.datumsBase[hash])
+	}
+
 	// Recovered datums must be passed on to the next job
-	/*
-		recoveredDatums, err := pj.loadRecoveredDatums()
+	if len(reg.jobs) > 0 && len(recoveredDatums) > 0 {
+		err := pj.initializeIterator()
 		if err != nil {
 			return err
 		}
 
-		for _, _ := range recoveredDatums {
-			// TODO: construct tasks for downstream jobs
+		// TODO: construct tasks for downstream jobs
+		for hash, _ := range recoveredDatums {
+
 		}
-	*/
+	}
 
 	return nil
 }
@@ -690,45 +713,13 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit
 		return fmt.Errorf("failed to serialize job data: %v", err)
 	}
 
-	// Watch output commit - if it gets finished early we need to abort
-	go func() {
-		pj.logger.Logf("master watching for output commit closure")
-		backoff.RetryUntilCancel(pj.driver.PachClient().Ctx(), func() error {
-			commitInfo, err := pj.driver.PachClient().PfsAPIClient.InspectCommit(pj.driver.PachClient().Ctx(),
-				&pfs.InspectCommitRequest{
-					Commit:     pj.ji.OutputCommit,
-					BlockState: pfs.CommitState_FINISHED,
-				})
-			pj.logger.Logf("master got output commit, info: %v, err: %v", commitInfo, err)
-			if err != nil {
-				if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
-					defer pj.cancel() // whether we return error or nil, job is done
-					// Output commit was deleted. Delete job as well
-					// TODO: this isn't tied to the right ctx
-					if _, err := reg.driver.NewSTM(func(stm col.STM) error {
-						// Delete the job if no other worker has deleted it yet
-						jobPtr := &pps.EtcdJobInfo{}
-						if err := reg.driver.Jobs().ReadWrite(stm).Get(pj.ji.Job.ID, jobPtr); err != nil {
-							return err
-						}
-						return reg.driver.DeleteJob(stm, jobPtr)
-					}); err != nil && !col.IsErrNotFound(err) {
-						return err
-					}
-					return nil
-				}
-				return err
-			}
-			if commitInfo.Trees == nil {
-				defer pj.cancel() // whether job state update succeeds or not, job is done
-				// TODO: make sure stats commit and job are finished
-			}
-			return nil
-		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-			return nil // retry again
-		})
-		pj.logger.Logf("master done watching for output commit closure")
-	}()
+	if err := pj.logger.LogStep("waiting for job inputs (JOB_STARTING)", func() error {
+		return reg.processJobStarting(pj)
+	}); err != nil {
+		return err
+	}
+
+	// TODO: cancel job if output commit is finished early
 
 	reg.limiter.Acquire()
 	reg.mutex.Lock()
@@ -783,9 +774,7 @@ func (reg *registry) processJob(pj *pendingJob) error {
 		pj.cancel()
 		return errutil.ErrBreak
 	case state == pps.JobState_JOB_STARTING:
-		return pj.logger.LogStep("waiting for job inputs (JOB_STARTING)", func() error {
-			return reg.processJobStarting(pj)
-		})
+		return fmt.Errorf("job should have been moved out of the STARTING state before processJob")
 	case state == pps.JobState_JOB_RUNNING:
 		return pj.logger.LogStep("processing job datums (JOB_RUNNING)", func() error {
 			return reg.processJobRunning(pj)
