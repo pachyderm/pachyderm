@@ -713,6 +713,9 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 			}
 		}
 		if jobInfo.EnableStats {
+			if jobInfo.StatsCommit == nil {
+				panic("on onoetenoentosuhaonteuhoaidu")
+			}
 			if _, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
 				Commit:    jobInfo.StatsCommit,
 				Trees:     statsTrees,
