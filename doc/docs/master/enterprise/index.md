@@ -1,11 +1,15 @@
 # Enterprise Edition
 
+<div class="btn">
+  <div class="center-screen">
+    <a href="https://share.hsforms.com/1kC3bWgvMQve902wrlyh8RA2ttwt">Request Demo</a>
+  </div>
+</div>
+
 This section describes features available in the enterprise
 edition of Pachyderm. You can try them by enabling a
 14-day free-trial by logging in to the Pachyderm UI and
 providing your email address.
-
-<div class="button2"><a href="https://share.hsforms.com/1kC3bWgvMQve902wrlyh8RA2ttwt">Request Demo</a></div>
 
 <div class="row">
   <div class="column-2">

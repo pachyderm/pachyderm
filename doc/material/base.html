@@ -2,23 +2,14 @@
   This file was automatically generated - do not edit
 -#}
 {% import "partials/language.html" as lang with context %}
-{% import "@material/button/mdc-button" %}
-{% import {MDCRipple} from '@material/ripple' %}
 {% set feature = config.theme.feature %}
 {% set palette = config.theme.palette %}
 {% set font = config.theme.font %}
 <!doctype html>
 <html lang="{{ lang.t('language') }}" class="no-js">
   <head>
-    <!-- Global site tag (gtag.js) - Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=UA-158483597-1"></script>
-    <script>
-     window.dataLayer = window.dataLayer || [];
-     function gtag(){dataLayer.push(arguments);}
-     gtag('js', new Date());
-
-     gtag('config', 'UA-158483597-1');
-    </script>
+    <script>function gtag(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],gtag("js",new Date),gtag("config","UA-158483597-1")</script>
     {% block site_meta %}
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -67,7 +58,7 @@
       {% endif %}
     {% endblock %}
     {% block styles %}
-      <link rel="stylesheet" href="{{ 'assets/stylesheets/application.09561c5e.css' | url }}">
+      <link rel="stylesheet" href="{{ 'assets/stylesheets/application.a4cf4c91.css' | url }}">
       {% if palette.primary or palette.accent %}
         <link rel="stylesheet" href="{{ 'assets/stylesheets/application-palette.da41b4c0.css' | url }}">
       {% endif %}
@@ -105,7 +96,7 @@
       {% endif %}
     {% endblock %}
     {% block extrahead %}{% endblock %}
-    <meta name="google-site-verification" content="2dR4Z3tPUkh0ulaPwy4yU_BJyfXzSfzMsMvv7Vcdmg8" />
+    <meta name="google-site-verification" content="2dR4Z3tPUkh0ulaPwy4yU_BJyfXzSfzMsMvv7Vcdmg8">
   </head>
   {% if palette.primary or palette.accent %}
     {% set primary = palette.primary | replace(" ", "-") | lower %}
@@ -197,8 +188,8 @@
                     </a>
                   {% endif %}
                   {% if page.meta.git_revision_date_localized %}
-                  <small><i>Last updated: {{ page.meta.git_revision_date_localized }}</i></small>
-                  {% endif %}
+-                  <small><i>Last updated: {{ page.meta.git_revision_date_localized }}</i></small>
+-                 {% endif %}
                 {% endblock %}
               {% endblock %}
               {% block disqus %}
@@ -213,7 +204,7 @@
       {% endblock %}
     </div>
     {% block scripts %}
-      <script src="{{ 'assets/javascripts/application.9683018d.js' | url }}"></script>
+      <script src="{{ 'assets/javascripts/application.02255d7d.js' | url }}"></script>
       {% if lang.t("search.language") != "en" %}
         {% set languages = lang.t("search.language").split(",") %}
         {% if languages | length and languages[0] != "" %}
