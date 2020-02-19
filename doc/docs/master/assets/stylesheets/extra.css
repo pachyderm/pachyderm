@@ -50,32 +50,6 @@
   padding-left: 10px;
 }
 
-.button1{
- display:inline-block;
- padding:0.35em 1.2em;
- border:0.1em solid #FFFFFF;
- margin:0 0.3em 0.3em 0;
- border-radius:0.12em;
- box-sizing: border-box;
- text-decoration:none;
- font-family:'Roboto',sans-serif;
- font-weight:300;
- text-color:#FFFFFF;
- text-align:center;
- transition: all 0.2s;
-}
-
-.button1:hover{
- color:#000000;
- background-color:#FFFFFF;
-}
-@media all and (max-width:30em){
- .button1{
-  display:block;
-  margin:0.4em auto;
- }
-}
-
 .mdl-card__actions {
   line-height: 1.4;
 }
@@ -217,7 +191,7 @@
     .mdc-component__buttons .mdc-component__containers__primary .mdc-button,
     .mdc-component__buttons .mdc-component__containers__primary .mdc-fab {
       background-color: #4B2A5C;
-      color: #4B2A5C;
+      color: #ffffff;
     }
 
     .mdc-component__buttons .mdc-component__containers__primary .mdc-button--plain,
