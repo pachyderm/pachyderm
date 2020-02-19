@@ -86,6 +86,12 @@ message PFSInput {
   // presented as empty files. This is useful in shuffle pipelines where you
   // want to read the names of files and reorganize them using symlinks.
   bool empty_files = 7;
+  // S3, if true, will cause the worker to NOT download or link files from this
+  // input into the /pfs directory. Instead, an instance of our S3 gateway
+  // service will run on each of the sidecars, and data can be retrieved from
+  // this input by querying
+  // http://<pipeline>-s3.<namespace>/<job id>.<input>/my/file
+  bool s3 = 9;
 }
 
 message CronInput {
@@ -612,6 +618,12 @@ message CreatePipelineRequest {
   Egress egress = 9;
   bool update = 5;
   string output_branch = 10;
+  // s3_out, if set, requires a pipeline's user to write to its output repo
+  // via Pachyderm's s3 gateway (if set, workers will serve Pachyderm's s3
+  // gateway API at http://<pipeline>-s3.<namespace>/<job id>.out/my/file).
+  // In this mode /pfs/out won't be walked or uploaded, and the s3 gateway
+  // service in the workers will allow writes to the job's output commit
+  bool s3_out = 36;
   ResourceSpec resource_requests = 12;
   ResourceSpec resource_limits = 22;
   Input input = 13;
