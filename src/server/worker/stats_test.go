@@ -45,7 +45,7 @@ func activateEnterprise(c *client.APIClient) error {
 }
 
 func TestPrometheusStats(t *testing.T) {
-	c := getPachClient(t)
+	c := tu.GetPachClient(t)
 	defer require.NoError(t, c.DeleteAll())
 	require.NoError(t, activateEnterprise(c))
 
@@ -258,7 +258,7 @@ func TestPrometheusStats(t *testing.T) {
 // Regression: stats commits would not close when there were no input datums.
 //For more info, see github.com/pachyderm/pachyderm/issues/3337
 func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
-	c := getPachClient(t)
+	c := tu.GetPachClient(t)
 	defer require.NoError(t, c.DeleteAll())
 	require.NoError(t, activateEnterprise(c))
 

@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"sync"
 	"testing"
 	"time"
 
@@ -13,6 +11,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
 const (
@@ -25,26 +24,8 @@ const (
 	vaultMaxDurationSeconds = 2592000
 )
 
-var pachClient *client.APIClient
-var getPachClientOnce sync.Once
-
-func getPachClient(t testing.TB) *client.APIClient {
-	getPachClientOnce.Do(func() {
-		var err error
-		if addr := os.Getenv("PACHD_PORT_650_TCP_ADDR"); addr != "" {
-			pachClient, err = client.NewInCluster()
-		} else {
-			pachClient, err = client.NewForTest()
-		}
-		if err != nil {
-			t.Fatalf(err.Error())
-		}
-	})
-	return pachClient
-}
-
 func configurePlugin(t *testing.T, v *vault.Client, ttl string) error {
-	c := getPachClient(t)
+	c := testutil.GetPachClient(t)
 	resp, err := c.Authenticate(
 		context.Background(),
 		&auth.AuthenticateRequest{GitHubToken: "admin"})
@@ -85,7 +66,7 @@ func TestBadConfig(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 	v.SetToken("root")
-	c := getPachClient(t)
+	c := testutil.GetPachClient(t)
 	resp, err := c.Authenticate(
 		context.Background(),
 		&auth.AuthenticateRequest{GitHubToken: "admin"})
@@ -120,7 +101,7 @@ func TestBadConfig(t *testing.T) {
 }
 
 func TestMinimalConfig(t *testing.T) {
-	c := getPachClient(t)
+	c := testutil.GetPachClient(t)
 	vaultClientConfig := vault.DefaultConfig()
 	vaultClientConfig.Address = vaultAddress
 	v, err := vault.NewClient(vaultClientConfig)
@@ -216,7 +197,7 @@ func loginHelper(t *testing.T, ttl string) (*client.APIClient, *vault.Client, *v
 func TestLogin(t *testing.T) {
 	// Negative control: before we have a valid pach token, we should not
 	// be able to list admins
-	c := getPachClient(t)
+	c := testutil.GetPachClient(t)
 	_, err := c.AuthAPIClient.GetAdmins(context.Background(), &auth.GetAdminsRequest{})
 	if err == nil {
 		t.Fatalf("client could list admins before using auth token. this is likely a bug")
