@@ -1145,7 +1145,7 @@ func TestRunPipeline(t *testing.T) {
 		require.NoError(t, err)
 
 		// we'll know it crashed if this causes it to hang
-		require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		require.NoErrorWithinTRetry(t, 80*time.Second, func() error {
 			collectCommitInfos(t, commitIter)
 			return nil
 		})
