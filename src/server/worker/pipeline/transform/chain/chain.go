@@ -94,6 +94,15 @@ func (jc *jobChain) Initialize(baseDatums DatumSet) error {
 }
 
 func (jdi *jobDatumIterator) recalculate(baseDatums DatumSet, allAncestors []*jobDatumIterator) {
+	jobIndex, _ := jdi.jc.indexOf(jdi.data)
+	fmt.Printf("recalc of job %d\n", jobIndex)
+	for _, ancestor := range allAncestors {
+		jobIndex, _ = jdi.jc.indexOf(ancestor.data)
+		fmt.Printf(" ancestor: %d\n", jobIndex)
+	}
+
+	jdi.ancestors = []*jobDatumIterator{}
+	//fmt.Printf("recalculating job with %d ancestors\n", len(allAncestors))
 	interestingAncestors := map[*jobDatumIterator]struct{}{}
 	for hash := range jdi.allDatums {
 		if _, ok := jdi.yielded[hash]; ok {
@@ -119,11 +128,18 @@ func (jdi *jobDatumIterator) recalculate(baseDatums DatumSet, allAncestors []*jo
 		}
 	}
 
-	// If this job is additive-only from the parent job, we should mark it now - loop over parent datums to see if they are all present
+	// Find the datum set of
 	parentDatums := baseDatums
-	if len(allAncestors) > 0 {
-		parentDatums = allAncestors[len(allAncestors)-1].allDatums
+	for i := len(allAncestors) - 1; i >= 0; i-- {
+		ancestor := allAncestors[i]
+		if !ancestor.finished || ancestor.success {
+			// TODO: this should be allDatums - recoveredDatums.  remove recoveredDatums in the Success call
+			parentDatums = ancestor.allDatums
+		}
 	}
+
+	// If this job is additive-only from the parent job, we should mark it now -
+	// loop over parent datums to see if they are all present
 	jdi.additiveOnly = true
 	for hash := range parentDatums {
 		if _, ok := jdi.allDatums[hash]; !ok {
@@ -229,7 +245,6 @@ func (jc *jobChain) Fail(jd JobData) error {
 	}
 
 	jdi := jc.jobs[index]
-	jdi.allDatums = nil
 	jdi.finished = true
 	jdi.success = false
 
@@ -313,7 +328,7 @@ func (jdi *jobDatumIterator) Next(ctx context.Context) (bool, error) {
 			ancestor := jdi.ancestors[index]
 			jdi.ancestors = append(jdi.ancestors[:index], jdi.ancestors[index+1:]...)
 
-			fmt.Printf("Job (%p) finished wait (on %p), %d remaining dependencies\n", jdi, ancestor, len(jdi.ancestors))
+			//fmt.Printf("Job (%p) finished wait (on %p), %d remaining dependencies\n", jdi, ancestor, len(jdi.ancestors))
 			if jdi.additiveOnly {
 				if len(jdi.ancestors) != 0 {
 					return false, fmt.Errorf("additive-only job had multiple ancestors")
@@ -327,6 +342,7 @@ func (jdi *jobDatumIterator) Next(ctx context.Context) (bool, error) {
 						jdi.yielding[hash] = struct{}{}
 					}
 				} else {
+					printState(jdi.jc)
 					if err := func() error {
 						jdi.jc.mutex.Lock()
 						defer jdi.jc.mutex.Unlock()
@@ -334,21 +350,41 @@ func (jdi *jobDatumIterator) Next(ctx context.Context) (bool, error) {
 						if err != nil {
 							return err
 						}
+
+						jdi.additiveOnly = false
 						jdi.recalculate(jdi.jc.baseDatums, jdi.jc.jobs[:index])
 						return nil
 					}(); err != nil {
 						return false, err
 					}
+					printState(jdi.jc)
+					panic("foobar")
+					/*
+						fmt.Printf("add-only parent job failed, recalculated, len(unyielded): %d, len(yielding): %d, len(yielded): %d, len(ancestors): %d\n",
+							len(jdi.unyielded), len(jdi.yielding), len(jdi.yielded), len(jdi.ancestors))
+						fmt.Printf("%v\n", jdi.unyielded)
+						fmt.Printf("%v\n", jdi.yielding)
+						fmt.Printf("%v\n", jdi.yielded)
+						fmt.Printf("%v\n", jdi.ancestors)
+					*/
 				}
 			}
 
-			// TODO: update 'yielding' from 'unyielded'
+			/*
+				if len(jdi.ancestors) == 1 {
+					fmt.Printf("comparing unyielded against ancestor.allDatums:\n%v\n%v\n", jdi.unyielded, jdi.ancestors[0].allDatums)
+				}
+			*/
 			for hash := range jdi.unyielded {
 				if safeToProcess(hash, jdi.ancestors) {
 					delete(jdi.unyielded, hash)
 					jdi.yielding[hash] = struct{}{}
 				}
 			}
+			/*
+				fmt.Printf("jdi.Next reiterating, len(unyielded): %d, len(yielding): %d, len(yielded): %d, len(ancestors): %d\n",
+					len(jdi.unyielded), len(jdi.yielding), len(jdi.yielded), len(jdi.ancestors))
+			*/
 
 			jdi.dit.Reset()
 		}
