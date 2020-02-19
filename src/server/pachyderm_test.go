@@ -10914,6 +10914,47 @@ func TestCopyOutToIn(t *testing.T) {
 	require.Equal(t, "bar", buf.String())
 }
 
+func TestKeepRepo(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestSimplePipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	_, err := c.PutFile(dataRepo, "master", "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	pipeline := tu.UniqueString("TestSimplePipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(dataRepo, "/*"),
+		"",
+		false,
+	))
+
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	_, err = c.PpsAPIClient.DeletePipeline(c.Ctx(), &pps.DeletePipelineRequest{
+		Pipeline: client.NewPipeline(pipeline),
+		KeepRepo: true,
+	})
+	require.NoError(t, err)
+	_, err = c.InspectRepo(pipeline)
+	require.NoError(t, err)
+}
+
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
 	pipelineInfos, err := pachClient.ListPipeline()
 	require.NoError(t, err)
