@@ -120,7 +120,6 @@ func requireIteratorContents(t *testing.T, jdi JobDatumIterator, expected []stri
 		require.NoError(t, err)
 		found = append(found, datum)
 	}
-	fmt.Printf("expected: %v\nfound: %v\n", expected, found)
 	require.ElementsEqual(t, expected, found)
 	requireIteratorDone(t, jdi)
 }
@@ -202,8 +201,26 @@ loop:
 	require.ElementsEqual(t, expected, actual)
 
 	select {
-	case x := <-datumChan:
-		require.NoError(t, fmt.Errorf("datum channel contains extra datum: %s", x))
+	case x, ok := <-datumChan:
+		require.False(t, ok, "datum channel contains extra datum: %s", x)
+	default:
+	}
+}
+
+func requireChannelClosed(t *testing.T, c <-chan string) {
+	select {
+	case x, ok := <-c:
+		require.False(t, ok, "datum channel should be closed, but found extra datum: %s", x)
+	case <-time.After(time.Second):
+		require.True(t, false, "datum channel should be closed, but it is blocked")
+	}
+}
+
+func requireChannelBlocked(t *testing.T, c <-chan string) {
+	select {
+	case x, ok := <-c:
+		require.True(t, ok, "datum channel should be blocked, but it is closed")
+		require.True(t, false, "datum channel should be blocked, but it contains datum: %s", x)
 	default:
 	}
 }
@@ -214,6 +231,7 @@ func superviseTestJob(ctx context.Context, eg *errgroup.Group, jdi JobDatumItera
 
 	datumsChan := make(chan string)
 	eg.Go(func() error {
+		defer close(datumsChan)
 		for ok, err := jdi.Next(ctx); ok; ok, err = jdi.Next(ctx) {
 			if err != nil {
 				fmt.Printf("next1 error: %s\n", err)
@@ -252,10 +270,72 @@ func superviseTestJob(ctx context.Context, eg *errgroup.Group, jdi JobDatumItera
 	return datumsChan
 }
 
-// Job 1: AB
-// Job 2:  BC
-// Job 3:  BCD
-func TestFailureSplit(t *testing.T) {
+// Job 1: AB   -> 1. Succeed
+// Job 2: ABC  -> 2. Succeed
+func TestAdditiveSuccess(t *testing.T) {
+	chain := newTestChain(t, []string{})
+	job1 := newTestJob([]string{"a", "b"})
+	job2 := newTestJob([]string{"a", "b", "c"})
+
+	eg, ctx := errgroup.WithContext(context.Background())
+
+	jdi1, err := chain.Start(job1)
+	require.NoError(t, err)
+	datums1 := superviseTestJob(ctx, eg, jdi1)
+
+	jdi2, err := chain.Start(job2)
+	require.NoError(t, err)
+	datums2 := superviseTestJob(ctx, eg, jdi2)
+
+	requireDatums(t, datums1, []string{"a", "b"})
+	requireDatums(t, datums2, []string{"c"})
+
+	requireChannelClosed(t, datums1)
+	requireChannelBlocked(t, datums2)
+	require.NoError(t, chain.Succeed(job1, make(DatumSet)))
+
+	requireChannelClosed(t, datums2)
+	require.NoError(t, chain.Succeed(job2, make(DatumSet)))
+
+	require.NoError(t, eg.Wait())
+}
+
+// Job 1: AB   -> 1. Fail
+// Job 2: ABC  -> 2. Succeed
+func TestAdditiveFail(t *testing.T) {
+	chain := newTestChain(t, []string{})
+	job1 := newTestJob([]string{"a", "b"})
+	job2 := newTestJob([]string{"a", "b", "c"})
+
+	eg, ctx := errgroup.WithContext(context.Background())
+
+	jdi1, err := chain.Start(job1)
+	require.NoError(t, err)
+	datums1 := superviseTestJob(ctx, eg, jdi1)
+
+	jdi2, err := chain.Start(job2)
+	require.NoError(t, err)
+	datums2 := superviseTestJob(ctx, eg, jdi2)
+
+	requireDatums(t, datums1, []string{"a", "b"})
+	requireDatums(t, datums2, []string{"c"})
+
+	requireChannelClosed(t, datums1)
+	requireChannelBlocked(t, datums2)
+	require.NoError(t, chain.Fail(job1))
+
+	requireDatums(t, datums2, []string{"a", "b"})
+	requireChannelClosed(t, datums2)
+	require.NoError(t, chain.Succeed(job2, make(DatumSet)))
+
+	require.NoError(t, eg.Wait())
+}
+
+// TODO: test that an error occurs if a job succeeds before it is done iterating
+// Job 1: AB   -> 1. Succeed
+// Job 2:  BC  -> 2. Succeed
+// Job 3:  BCD -> 3. Succeed
+func TestCascadeSuccess(t *testing.T) {
 	chain := newTestChain(t, []string{})
 	job1 := newTestJob([]string{"a", "b"})
 	job2 := newTestJob([]string{"b", "c"})
@@ -279,23 +359,64 @@ func TestFailureSplit(t *testing.T) {
 	requireDatums(t, datums2, []string{"c"})
 	requireDatums(t, datums3, []string{"d"})
 
-	require.NoError(t, chain.Fail(job2))
-
-	requireDatums(t, datums1, []string{})
-	requireDatums(t, datums2, []string{})
-	requireDatums(t, datums3, []string{"c"})
-
+	requireChannelClosed(t, datums1)
+	requireChannelBlocked(t, datums2)
+	requireChannelBlocked(t, datums3)
 	require.NoError(t, chain.Succeed(job1, make(DatumSet)))
 
-	requireDatums(t, datums1, []string{})
-	requireDatums(t, datums2, []string{})
-	requireDatums(t, datums3, []string{"b"})
+	requireDatums(t, datums2, []string{"b"})
+	requireChannelClosed(t, datums2)
+	requireChannelBlocked(t, datums3)
+	require.NoError(t, chain.Succeed(job2, make(DatumSet)))
 
+	requireChannelClosed(t, datums3)
 	require.NoError(t, chain.Succeed(job3, make(DatumSet)))
 
-	requireDatums(t, datums1, []string{})
-	requireDatums(t, datums2, []string{})
-	requireDatums(t, datums3, []string{})
+	require.NoError(t, eg.Wait())
+}
+
+// Job 1: AB   -> 2. Succeed
+// Job 2:  BC  -> 1. Fail
+// Job 3:  BCD -> 3. Succeed
+func TestSplitFail(t *testing.T) {
+	chain := newTestChain(t, []string{})
+	job1 := newTestJob([]string{"a", "b"})
+	job2 := newTestJob([]string{"b", "c"})
+	job3 := newTestJob([]string{"b", "c", "d"})
+
+	eg, ctx := errgroup.WithContext(context.Background())
+
+	jdi1, err := chain.Start(job1)
+	require.NoError(t, err)
+	datums1 := superviseTestJob(ctx, eg, jdi1)
+
+	jdi2, err := chain.Start(job2)
+	require.NoError(t, err)
+	datums2 := superviseTestJob(ctx, eg, jdi2)
+
+	jdi3, err := chain.Start(job3)
+	require.NoError(t, err)
+	datums3 := superviseTestJob(ctx, eg, jdi3)
+
+	requireDatums(t, datums1, []string{"a", "b"})
+	requireDatums(t, datums2, []string{"c"})
+	requireDatums(t, datums3, []string{"d"})
+
+	requireChannelClosed(t, datums1)
+	requireChannelBlocked(t, datums2)
+	requireChannelBlocked(t, datums3)
+	require.NoError(t, chain.Fail(job2))
+
+	requireDatums(t, datums3, []string{"c"})
+
+	requireChannelClosed(t, datums2)
+	requireChannelBlocked(t, datums3)
+	require.NoError(t, chain.Succeed(job1, make(DatumSet)))
+
+	requireDatums(t, datums3, []string{"b"})
+
+	requireChannelClosed(t, datums3)
+	require.NoError(t, chain.Succeed(job3, make(DatumSet)))
 
 	require.NoError(t, eg.Wait())
 }
