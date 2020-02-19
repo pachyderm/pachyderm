@@ -169,6 +169,8 @@ func (jc *jobChain) Start(jd JobData) (JobDatumIterator, error) {
 		jdi.ancestors = append(jdi.ancestors, ancestor)
 	}
 
+	fmt.Printf("Started job with %d dependencies\n", len(jdi.ancestors))
+
 	jc.jobs = append(jc.jobs, jdi)
 	return jdi, nil
 }
