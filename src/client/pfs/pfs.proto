@@ -390,6 +390,7 @@ message PutFileRequest {
   // overwrite_index is the object index where the write starts from.  All
   // existing objects starting from the index are deleted.
   OverwriteIndex overwrite_index = 10;
+  string split_func = 12;
 }
 
 // PutFileRecord is used to record PutFile requests in etcd temporarily.
