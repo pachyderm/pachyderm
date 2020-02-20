@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -44,7 +45,7 @@ func printState(jc *jobChain) {
 			flags += " additive"
 		}
 		if jdi.finished {
-			if jdi.success {
+			if jdi.allDatums != nil {
 				flags += " succeeded"
 			} else {
 				flags += " failed"
@@ -63,7 +64,6 @@ func printState(jc *jobChain) {
 		fmt.Printf("ancestors: %v\n", ancestors)
 
 		printDatumSet(jc, "allDatums", jdi.allDatums)
-		printDatumSet(jc, "unyielded", jdi.unyielded)
 		printDatumSet(jc, "yielding", jdi.yielding)
 		printDatumSet(jc, "yielded", jdi.yielded)
 	}
@@ -296,26 +296,39 @@ func requireChannelBlocked(t *testing.T, c <-chan string) {
 	}
 }
 
-func superviseTestJob(ctx context.Context, eg *errgroup.Group, jdi JobDatumIterator) <-chan string {
+func superviseTestJobWithError(
+	ctx context.Context,
+	eg *errgroup.Group,
+	jdi JobDatumIterator,
+	expectedErr string,
+) <-chan string {
 	canceledCtx, cancel := context.WithCancel(context.Background())
 	cancel()
 
 	datumsChan := make(chan string)
-	eg.Go(func() error {
+	eg.Go(func() (retErr error) {
+		defer func() {
+			if retErr != nil && expectedErr != "" && strings.Contains(retErr.Error(), expectedErr) {
+				retErr = nil
+			}
+		}()
+
 		defer close(datumsChan)
-		for ok, err := jdi.Next(ctx); ok; ok, err = jdi.Next(ctx) {
+		for {
+			ok, err := jdi.Next(ctx)
 			if err != nil {
-				fmt.Printf("next1 error: %s\n", err)
 				return err
 			}
+			if !ok {
+				break
+			}
+
 			for {
 				datum, err := inputsToDatum(jdi.Datum())
 				if err != nil {
-					fmt.Printf("inputsToDatum error: %s\n", err)
 					return err
 				}
 
-				fmt.Printf("job (%p) got datum: %s\n", jdi, datum)
 				datumsChan <- datum
 
 				if jdi.NumAvailable() == 0 {
@@ -325,20 +338,21 @@ func superviseTestJob(ctx context.Context, eg *errgroup.Group, jdi JobDatumItera
 				// canceledCtx to make sure
 				ok, err := jdi.Next(canceledCtx)
 				if err != nil {
-					fmt.Printf("next2 error: %s\n", err)
 					return err
 				}
 				if !ok {
-					fmt.Printf("incorrect count error\n")
 					return fmt.Errorf("iterator should have had more available")
 				}
 			}
 		}
-		fmt.Printf("iterator done\n")
 		return nil
 	})
 
 	return datumsChan
+}
+
+func superviseTestJob(ctx context.Context, eg *errgroup.Group, jdi JobDatumIterator) <-chan string {
+	return superviseTestJobWithError(ctx, eg, jdi, "")
 }
 
 // Job 1: ABCD   -> 1. Succeed
@@ -587,7 +601,7 @@ func TestSplitFail(t *testing.T) {
 
 	jdi2, err := chain.Start(job2)
 	require.NoError(t, err)
-	datums2 := superviseTestJob(ctx, eg, jdi2)
+	datums2 := superviseTestJobWithError(ctx, eg, jdi2, "job failed")
 
 	jdi3, err := chain.Start(job3)
 	require.NoError(t, err)
@@ -600,22 +614,17 @@ func TestSplitFail(t *testing.T) {
 	requireChannelBlocked(t, datums2)
 	requireChannelBlocked(t, datums3)
 
-	printState(chain.(*jobChain))
 	require.NoError(t, chain.Fail(job2))
-	time.Sleep(time.Second)
-	printState(chain.(*jobChain))
-	/*
-		requireDatums(t, datums3, []string{"c"})
-		requireChannelClosed(t, datums2)
-		requireChannelBlocked(t, datums3)
+	requireDatums(t, datums3, []string{"c"})
+	//requireChannelClosed(t, datums2)
+	requireChannelBlocked(t, datums3)
 
-		require.NoError(t, chain.Succeed(job1, make(DatumSet)))
-		requireDatums(t, datums3, []string{"b"})
-		requireChannelClosed(t, datums3)
+	require.NoError(t, chain.Succeed(job1, make(DatumSet)))
+	requireDatums(t, datums3, []string{"b"})
+	requireChannelClosed(t, datums3)
 
-		require.NoError(t, chain.Succeed(job3, make(DatumSet)))
-		require.NoError(t, eg.Wait())
-	*/
+	require.NoError(t, chain.Succeed(job3, make(DatumSet)))
+	require.NoError(t, eg.Wait())
 }
 
 // Job 1: AB   -> 1. Succeed (A and B recovered)
@@ -662,9 +671,21 @@ func TestRecoveredDatums(t *testing.T) {
 }
 
 func TestEarlySuccess(t *testing.T) {
-	// TODO: test that an error occurs if a job succeeds before it is done iterating
+	chain := newTestChain(t, []string{})
+	job1 := newTestJob([]string{"a", "b"})
+
+	_, err := chain.Start(job1)
+	require.NoError(t, err)
+
+	require.YesError(t, chain.Succeed(job1, make(DatumSet)), "items remaining")
 }
 
 func TestEarlyFail(t *testing.T) {
-	// TODO: test that an error does not occur if a job fails before it is done iterating
+	chain := newTestChain(t, []string{})
+	job1 := newTestJob([]string{"a", "b"})
+
+	_, err := chain.Start(job1)
+	require.NoError(t, err)
+
+	require.NoError(t, chain.Fail(job1))
 }
