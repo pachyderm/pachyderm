@@ -26,8 +26,7 @@ secret key to the same value. They are both the Pachyderm auth token used
 to issue the relevant PFS calls.
 
 If auth is not enabled on the Pachyderm cluster, you can use any credentials,
-even if they do not exist, empty credentials, or no
-credentials at all.
+even if they do not exist, or empty credentials.
 
 ## Buckets
 
