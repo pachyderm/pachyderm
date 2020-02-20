@@ -25,8 +25,8 @@ not work in the browser. When you use authentication, set the access and
 secret key to the same value. They are both the Pachyderm auth token used
 to issue the relevant PFS calls.
 
-If auth is not enabled on the Pachyderm cluster, you can use any credentials,
-even if they do not exist, or empty credentials.
+If auth is not enabled on the Pachyderm cluster, you can use empty credentials
+or any non-empty credentials, even if they do not exist.
 
 ## Buckets
 
