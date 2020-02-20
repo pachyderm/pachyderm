@@ -10928,7 +10928,7 @@ func TestKeepRepo(t *testing.T) {
 	_, err := c.PutFile(dataRepo, "master", "file", strings.NewReader("foo"))
 	require.NoError(t, err)
 
-	pipeline := tu.UniqueString("TestSimplePipeline")
+	pipeline := tu.UniqueString("TestKeepRepo")
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
 		"",
@@ -10946,12 +10946,33 @@ func TestKeepRepo(t *testing.T) {
 
 	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
+	require.NoError(t, err)
 	_, err = c.PpsAPIClient.DeletePipeline(c.Ctx(), &pps.DeletePipelineRequest{
 		Pipeline: client.NewPipeline(pipeline),
 		KeepRepo: true,
 	})
 	require.NoError(t, err)
 	_, err = c.InspectRepo(pipeline)
+	require.NoError(t, err)
+
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(dataRepo, "/*"),
+		"",
+		false,
+	))
+
+	_, err = c.PutFile(dataRepo, "master", "file2", strings.NewReader("foo"))
+	require.NoError(t, err)
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 }
 
