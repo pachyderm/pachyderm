@@ -19,14 +19,15 @@ access, use the PFS gRPC interface instead, or one of the
 ## Authentication
 
 If auth is enabled on the Pachyderm cluster, credentials must be passed with
-each s3 gateway endpoint using AWS' signature v2 or v4 methods. Object store
+each S3 gateway endpoint using AWS' signature v2 or v4 methods. Object store
 tools and libraries provide built-in support for these methods, but they do
-not work in the browser. When you use authentication, set the access and secret key
-to the same value; they are both the Pachyderm auth token used
+not work in the browser. When you use authentication, set the access and
+secret key to the same value. They are both the Pachyderm auth token used
 to issue the relevant PFS calls.
 
-If auth is not enabled on the Pachyderm cluster, no credentials need to be
-passed to s3gateway requests.
+If auth is not enabled on the Pachyderm cluster, access credentials are
+ignored. You can not pass an authorization header, or if you do, any
+values for the access and secret keys are ignored.
 
 ## Buckets
 
