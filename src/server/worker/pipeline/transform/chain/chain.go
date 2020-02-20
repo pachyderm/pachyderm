@@ -59,8 +59,7 @@ type jobDatumIterator struct {
 
 	finished     bool
 	additiveOnly bool
-	// TODO: have a 'doneProcessing' (for additive-subtractive descendents) and 'doneMerging' (for additive-only decendents)
-	done chan struct{}
+	done         chan struct{}
 }
 
 type jobChain struct {
@@ -70,12 +69,12 @@ type jobChain struct {
 	baseDatums DatumSet
 }
 
-func NewJobChain(hasher DatumHasher) (JobChain, error) {
+func NewJobChain(hasher DatumHasher) JobChain {
 	return &jobChain{
 		hasher:     hasher,
 		jobs:       []*jobDatumIterator{},
 		baseDatums: nil,
-	}, nil
+	}
 }
 
 func (jc *jobChain) Initialized() bool {
@@ -148,7 +147,7 @@ func (jdi *jobDatumIterator) recalculate(baseDatums DatumSet, allAncestors []*jo
 
 	if jdi.additiveOnly {
 		// If this is additive-only, we only need to enqueue new datums (since the parent job)
-		for hash := range jdi.allDatums {
+		for hash := range jdi.yielding {
 			if _, ok := parentJob.allDatums[hash]; ok {
 				delete(jdi.yielding, hash)
 			}

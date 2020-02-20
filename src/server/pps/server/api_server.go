@@ -493,6 +493,15 @@ func (a *apiServer) UpdateJobStateInTransaction(txnCtx *txnenv.TransactionContex
 	if err := jobs.Get(request.Job.ID, jobPtr); err != nil {
 		return err
 	}
+
+	jobPtr.Restart = request.Restart
+	jobPtr.DataProcessed = request.DataProcessed
+	jobPtr.DataSkipped = request.DataSkipped
+	jobPtr.DataFailed = request.DataFailed
+	jobPtr.DataRecovered = request.DataRecovered
+	jobPtr.DataTotal = request.DataTotal
+	jobPtr.Stats = request.Stats
+
 	return ppsutil.UpdateJobState(a.pipelines.ReadWrite(txnCtx.Stm), jobs, jobPtr, request.State, request.Reason)
 }
 
@@ -569,7 +578,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 			return nil, fmt.Errorf("job with output commit %s not found", request.OutputCommit.ID)
 		}
 	}
-
+	//
 	if request.BlockState {
 		watcher, err := jobs.WatchOne(request.Job.ID)
 		if err != nil {
