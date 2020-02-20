@@ -46,6 +46,10 @@ provider, or in our fully managed service, Pachyderm Hub.
           Deploy Locally
           </a>
           </li>
+          <li><a href="install-pachctl-completion/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          Install pachctl Autocompletion
+          </a>
+          </li>
           <li><a href="beginner_tutorial/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
           Beginner Tutorial
           </a>

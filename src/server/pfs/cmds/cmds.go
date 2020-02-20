@@ -733,9 +733,9 @@ from commits with 'get file'.`,
 	var putFileCommit bool
 	var overwrite bool
 	putFile := &cobra.Command{
-		Use:   "{{alias}} <repo>@<branch-or-commit>[:<path/in/pfs>]",
+		Use:   "{{alias}} <repo>@<branch-or-commit>[:<path/to/file>]",
 		Short: "Put a file into the filesystem.",
-		Long:  "Put a file into the filesystem.  This supports a number of ways to insert data into pfs.",
+		Long:  "Put a file into the filesystem.  This command supports a number of ways to insert data into PFS.",
 		Example: `
 # Put data from stdin as repo/branch/path:
 $ echo "data" | {{alias}} repo@branch:/path
@@ -1503,10 +1503,10 @@ func forEachDiffFile(newFiles, oldFiles []*pfsclient.FileInfo, f func(newFile, o
 		var oFI *pfsclient.FileInfo
 		var nFI *pfsclient.FileInfo
 		switch {
-		case oI == len(oldFiles) || newFiles[nI].File.Path < oldFiles[oI].File.Path:
+		case oI == len(oldFiles) || (nI < len(newFiles) && newFiles[nI].File.Path < oldFiles[oI].File.Path):
 			nFI = newFiles[nI]
 			nI++
-		case nI == len(newFiles) || oldFiles[oI].File.Path < newFiles[nI].File.Path:
+		case nI == len(newFiles) || (oI < len(oldFiles) && oldFiles[oI].File.Path < newFiles[nI].File.Path):
 			oFI = oldFiles[oI]
 			oI++
 		case newFiles[nI].File.Path == oldFiles[oI].File.Path:

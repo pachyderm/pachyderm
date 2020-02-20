@@ -26,6 +26,10 @@ deployment options and related topics:
           Deploy Locally
           </a>
           </li>
+          <li><a href="../../getting_started/install-pachctl-completion/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          Install pachctl Autocompletion
+          </a>
+          </li>
         </ul>
       </div>
     </div>
