@@ -13,22 +13,15 @@ func (c *controller) SecretKey(r *http.Request, accessKey string, region *string
 		return nil, fmt.Errorf("could not create a pach client for auth: %s", err)
 	}
 
-	// Some S3 clients (like minio) require the use of authenticated requests,
-	// but there's no use for auth in clusters that don't have it enabled.
-	// This allows the use of empty access and secret keys in the case where
-	// auth is not enabled on the cluster.
-	if accessKey == "" {
-		active, err := pc.IsAuthActive()
-		if err != nil {
-			return nil, fmt.Errorf("could not check whether auth is active: %s", err)
-		}
-		if !active {
-			return &accessKey, nil
-		}
-	}
-
 	_, err = pc.WhoAmI(pc.Ctx(), &auth.WhoAmIRequest{})
 	if err != nil {
+		// Some S3 clients (like minio) require the use of authenticated
+		// requests, so in the case that auth is not enabled on pachyderm,
+		// just allow any access credentials.
+		if auth.IsErrNotActivated(err) {
+			blankAccessKey := ""
+			return &blankAccessKey, nil
+		}
 		return nil, nil
 	}
 	return &accessKey, nil
