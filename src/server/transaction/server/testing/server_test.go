@@ -180,6 +180,47 @@ func TestDependency(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// This is a regression test for a bug in PFS where creating a branch would
+// inspect the new commit outside of the transaction STM and fail to find it.
+func TestCreateBranch(t *testing.T) {
+	t.Parallel()
+	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+		txn, err := env.PachClient.StartTransaction()
+		require.NoError(t, err)
+
+		repo := "foo"
+		branchA := "master"
+		branchB := "bar"
+
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateBranch(repo, branchA, "", nil))
+		require.NoError(t, env.PachClient.CreateBranch(repo, branchB, "", nil))
+
+		txnClient := env.PachClient.WithTransaction(txn)
+		commit, err := txnClient.StartCommit(repo, branchB)
+		require.NoError(t, err)
+		require.NoError(t, txnClient.CreateBranch(repo, branchA, branchB, nil))
+
+		info, err := txnClient.FinishTransaction(txn)
+		require.NoError(t, err)
+
+		// Double-check each response value
+		requireCommitResponse(t, info.Responses[0], commit)
+		requireEmptyResponse(t, info.Responses[1])
+
+		commitInfo, err := env.PachClient.InspectCommit(repo, branchA)
+		require.NoError(t, err)
+		require.Equal(t, commitInfo.Commit.ID, commit.ID)
+
+		commitInfo, err = env.PachClient.InspectCommit(repo, branchB)
+		require.NoError(t, err)
+		require.Equal(t, commitInfo.Commit.ID, commit.ID)
+
+		return nil
+	})
+	require.NoError(t, err)
+}
+
 func TestDeleteAllTransactions(t *testing.T) {
 	t.Parallel()
 	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
