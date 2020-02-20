@@ -133,8 +133,7 @@ func inputsToDatum(inputs []*common.Input) (string, error) {
 
 func newTestChain(t *testing.T, datums []string) JobChain {
 	hasher := &testHasher{}
-	chain, err := NewJobChain(hasher)
-	require.NoError(t, err)
+	chain := NewJobChain(hasher)
 	require.False(t, chain.Initialized())
 
 	baseDatums := datumsToSet(datums)
@@ -179,12 +178,13 @@ func (tj *testJob) Iterator() (datum.Iterator, error) {
 }
 
 func requireIteratorContents(t *testing.T, jdi JobDatumIterator, expected []string) {
+	count, err := jdi.NextBatch(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, len(expected), count)
+
 	found := []string{}
 	for range expected {
-		hasNext, err := jdi.Next(context.Background())
-		require.NoError(t, err)
-		require.True(t, hasNext)
-		datum, err := inputsToDatum(jdi.Datum())
+		datum, err := inputsToDatum(jdi.NextDatum())
 		require.NoError(t, err)
 		found = append(found, datum)
 	}
@@ -193,23 +193,23 @@ func requireIteratorContents(t *testing.T, jdi JobDatumIterator, expected []stri
 }
 
 func requireIteratorDone(t *testing.T, jdi JobDatumIterator) {
-	hasNext, err := jdi.Next(context.Background())
+	count, err := jdi.NextBatch(context.Background())
 	require.NoError(t, err)
-	require.False(t, hasNext)
+	require.Equal(t, 0, count)
 }
 
 func requireIteratorContentsNonBlocking(t *testing.T, jdi JobDatumIterator, expected []string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
+	count, err := jdi.NextBatch(ctx)
+	require.NoError(t, err)
+	require.Equal(t, len(expected), count)
+
 	found := []string{}
 
-	require.Equal(t, len(expected), jdi.NumAvailable())
 	for range expected {
-		hasNext, err := jdi.Next(ctx)
-		require.NoError(t, err)
-		require.True(t, hasNext)
-		datum, err := inputsToDatum(jdi.Datum())
+		datum, err := inputsToDatum(jdi.NextDatum())
 		require.NoError(t, err)
 		found = append(found, datum)
 	}
@@ -302,9 +302,6 @@ func superviseTestJobWithError(
 	jdi JobDatumIterator,
 	expectedErr string,
 ) <-chan string {
-	canceledCtx, cancel := context.WithCancel(context.Background())
-	cancel()
-
 	datumsChan := make(chan string)
 	eg.Go(func() (retErr error) {
 		defer func() {
@@ -315,37 +312,23 @@ func superviseTestJobWithError(
 
 		defer close(datumsChan)
 		for {
-			ok, err := jdi.Next(ctx)
+			count, err := jdi.NextBatch(ctx)
 			if err != nil {
 				return err
 			}
-			if !ok {
-				break
+			if count == 0 {
+				return nil
 			}
 
-			for {
-				datum, err := inputsToDatum(jdi.Datum())
+			for i := 0; i < count; i++ {
+				datum, err := inputsToDatum(jdi.NextDatum())
 				if err != nil {
 					return err
 				}
 
 				datumsChan <- datum
-
-				if jdi.NumAvailable() == 0 {
-					break
-				}
-				// Because we have more available, this should never block, so use the
-				// canceledCtx to make sure
-				ok, err := jdi.Next(canceledCtx)
-				if err != nil {
-					return err
-				}
-				if !ok {
-					return fmt.Errorf("iterator should have had more available")
-				}
 			}
 		}
-		return nil
 	})
 
 	return datumsChan

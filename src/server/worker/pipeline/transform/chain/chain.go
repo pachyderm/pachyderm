@@ -24,11 +24,11 @@ type JobData interface {
 }
 
 type JobDatumIterator interface {
-	Next(context.Context) (bool, error)
-	Datum() []*common.Input
-	NumAvailable() int
+	NextBatch(context.Context) (int, error)
+	NextDatum() []*common.Input
 	AdditiveOnly() bool
 	DatumSet() DatumSet
+	Reset()
 }
 
 type JobChain interface {
@@ -286,66 +286,73 @@ func safeToProcess(hash string, ancestors []*jobDatumIterator) bool {
 	return true
 }
 
-func (jdi *jobDatumIterator) Next(ctx context.Context) (bool, error) {
-	for {
-		for len(jdi.yielding) == 0 {
-			if len(jdi.ancestors) == 0 {
-				return false, nil
-			}
-
-			// Wait on an ancestor job
-			cases := make([]reflect.SelectCase, 0, len(jdi.ancestors)+1)
-			for _, x := range jdi.ancestors {
-				cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(x.done)})
-			}
-			cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ctx.Done())})
-
-			// Wait for an ancestor job to finish, then remove it from our dependencies
-			selectIndex, _, _ := reflect.Select(cases)
-			if selectIndex == len(cases)-1 {
-				return false, ctx.Err()
-			}
-
-			if err := func() error {
-				jdi.jc.mutex.Lock()
-				defer jdi.jc.mutex.Unlock()
-
-				if jdi.finished {
-					return fmt.Errorf("stopping datum iteration because job failed")
-				}
-
-				index, err := jdi.jc.indexOf(jdi.data)
-				if err != nil {
-					return err
-				}
-
-				jdi.recalculate(jdi.jc.baseDatums, jdi.jc.jobs[:index])
-				return nil
-			}(); err != nil {
-				return false, err
-			}
-
-			jdi.dit.Reset()
+// TODO: iteration should return a chunk of 'known' new datums before other
+// datums (to optimize for distributing processing across workers). This should
+// still be true even after resetting the iterator.
+func (jdi *jobDatumIterator) NextBatch(ctx context.Context) (int, error) {
+	for len(jdi.yielding) == 0 {
+		if len(jdi.ancestors) == 0 {
+			return 0, nil
 		}
 
-		for jdi.dit.Next() {
-			inputs := jdi.dit.Datum()
-			hash := jdi.jc.hasher.Hash(inputs)
-			if _, ok := jdi.yielding[hash]; ok {
-				delete(jdi.yielding, hash)
-				jdi.yielded[hash] = struct{}{}
-				return true, nil
-			}
+		// Wait on an ancestor job
+		cases := make([]reflect.SelectCase, 0, len(jdi.ancestors)+1)
+		for _, x := range jdi.ancestors {
+			cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(x.done)})
+		}
+		cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ctx.Done())})
+
+		// Wait for an ancestor job to finish, then remove it from our dependencies
+		selectIndex, _, _ := reflect.Select(cases)
+		if selectIndex == len(cases)-1 {
+			return 0, ctx.Err()
 		}
 
-		if len(jdi.yielding) != 0 {
-			return false, fmt.Errorf("%d unhandled datums were not yielded during iteration", len(jdi.yielding))
+		if err := func() error {
+			jdi.jc.mutex.Lock()
+			defer jdi.jc.mutex.Unlock()
+
+			if jdi.finished {
+				return fmt.Errorf("stopping datum iteration because job failed")
+			}
+
+			index, err := jdi.jc.indexOf(jdi.data)
+			if err != nil {
+				return err
+			}
+
+			jdi.recalculate(jdi.jc.baseDatums, jdi.jc.jobs[:index])
+			return nil
+		}(); err != nil {
+			return 0, err
 		}
+
+		jdi.dit.Reset()
 	}
+
+	return len(jdi.yielding), nil
 }
 
-func (jdi *jobDatumIterator) NumAvailable() int {
-	return len(jdi.yielding)
+func (jdi *jobDatumIterator) NextDatum() []*common.Input {
+	for jdi.dit.Next() {
+		inputs := jdi.dit.Datum()
+		hash := jdi.jc.hasher.Hash(inputs)
+		if _, ok := jdi.yielding[hash]; ok {
+			delete(jdi.yielding, hash)
+			jdi.yielded[hash] = struct{}{}
+			return inputs
+		}
+	}
+
+	return nil
+}
+
+func (jdi *jobDatumIterator) Reset() {
+	jdi.dit.Reset()
+	for hash := range jdi.yielded {
+		delete(jdi.yielded, hash)
+		jdi.yielding[hash] = struct{}{}
+	}
 }
 
 func (jdi *jobDatumIterator) Datum() []*common.Input {

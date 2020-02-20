@@ -20,7 +20,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
-	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
@@ -291,10 +290,8 @@ func (reg *registry) initializeJobChain(commitInfo *pfs.CommitInfo) error {
 
 // Generate a datum task (and split it up into subtasks) for the added datums
 // in the pending job.
-func (reg *registry) makeDatumTask(ctx context.Context, pj *pendingJob) (*work.Task, error) {
+func (reg *registry) makeDatumTask(ctx context.Context, pj *pendingJob, numDatums int) (*work.Task, error) {
 	driver := pj.driver.WithCtx(ctx)
-
-	numDatums := pj.jdit.NumAvailable()
 	var numTasks int
 	if numDatums < reg.concurrency {
 		numTasks = numDatums
@@ -347,21 +344,18 @@ func (reg *registry) makeDatumTask(ctx context.Context, pj *pendingJob) (*work.T
 
 	// Build up chunks to be put into work tasks from the datum iterator
 	for i := 0; i < numDatums; i++ {
-		datums = append(datums, &DatumInputs{Inputs: pj.jdit.Datum()})
+		datum := pj.jdit.NextDatum()
+		if datum == nil {
+			return nil, fmt.Errorf("job datum iterator returned a nil datum")
+		}
+
+		datums = append(datums, &DatumInputs{Inputs: datum})
 
 		// If we hit the upper threshold for task size, finish the task
 		if len(datums) == datumsPerTask {
 			if err := finishTask(); err != nil {
 				return nil, err
 			}
-		}
-
-		ok, err := pj.jdit.Next(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if !ok {
-			return nil, fmt.Errorf("incorrect number of datums in iterator")
 		}
 	}
 
@@ -602,25 +596,19 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit
 		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 			pj.logger.Logf("processJob failed: %v; retrying in %v", err, d)
 
-			// Increment the job's restart count
-			_, err = pj.driver.NewSTM(func(stm col.STM) error {
-				jobs := pj.driver.Jobs().ReadWrite(stm)
-				jobID := pj.ji.Job.ID
-				jobPtr := &pps.EtcdJobInfo{}
-				if err := jobs.Get(jobID, jobPtr); err != nil {
-					return err
-				}
-				jobPtr.Restart++
-				// TODO: copy the up-to-date etcd job info into the pj.ji struct, we may
-				// be recovering from a failed update
+			pj.jdit.Reset()
 
-				// TODO: reset pj.jdit
-
-				return jobs.Put(jobID, jobPtr)
-			})
+			// Get job state, increment restarts, write job state
+			pj.ji, err = pj.driver.PachClient().InspectJob(pj.ji.Job.ID, false)
 			if err != nil {
-				pj.logger.Logf("error incrementing restart count for job (%s)", pj.ji.Job.ID)
+				return err
 			}
+
+			pj.ji.Restart++
+			if err := pj.writeJobInfo(); err != nil {
+				pj.logger.Logf("error incrementing restart count for job (%s): %v", pj.ji.Job.ID, err)
+			}
+
 			return nil
 		})
 		pj.logger.Logf("master done running processJobs")
@@ -693,16 +681,17 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	eg.Go(func() error {
 		defer close(datumTaskChan)
 		for {
-			// TODO: this is probably skipping things
-			ok, err := pj.jdit.Next(ctx)
+			pj.logger.Logf("processJobRunning making datum task")
+
+			numDatums, err := pj.jdit.NextBatch(ctx)
 			if err != nil {
 				return err
 			}
-			if !ok {
+			if numDatums == 0 {
 				return nil
 			}
-			pj.logger.Logf("processJobRunning making datum task")
-			datumTask, err := reg.makeDatumTask(ctx, pj)
+
+			datumTask, err := reg.makeDatumTask(ctx, pj, numDatums)
 			if err != nil {
 				return err
 			}
