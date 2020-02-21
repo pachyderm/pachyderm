@@ -2540,7 +2540,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 		// Determine if this is a provenance update
 		sameTarget := branch.Repo.Name == commit.Repo.Name && branch.Name == commit.ID
 		if !sameTarget && provenance != nil {
-			ci, err = d.inspectCommit(txnCtx.Client, commit, pfs.CommitState_STARTED)
+			ci, err = d.resolveCommit(txnCtx.Stm, commit)
 			if err != nil {
 				return err
 			}
@@ -2598,7 +2598,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	if err := repos.Update(branch.Repo.Name, repoInfo, func() error {
 		add(&repoInfo.Branches, branch)
 		if branch.Name == "master" && commit != nil {
-			ci, err := d.inspectCommit(txnCtx.Client, commit, pfs.CommitState_STARTED)
+			ci, err := d.resolveCommit(txnCtx.Stm, commit)
 			if err != nil {
 				return err
 			}
