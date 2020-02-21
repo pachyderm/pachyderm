@@ -20,36 +20,49 @@ func (c *controller) GetObject(r *http.Request, bucket, file, version string) (*
 	if err != nil {
 		return nil, err
 	}
-	repo, branch, err := bucketArgs(r, bucket)
-	if err != nil {
-		return nil, err
-	}
 
-	branchInfo, err := pc.InspectBranch(repo, branch)
-	if err != nil {
-		return nil, maybeNotFoundError(r, err)
-	}
-	if branchInfo.Head == nil {
-		return nil, s2.NoSuchKeyError(r)
-	}
 	if strings.HasSuffix(file, "/") {
 		return nil, invalidFilePathError(r)
 	}
 
-	var commitInfo *pfsClient.CommitInfo
-	commitID := branch
-	if version != "" {
-		commitInfo, err = pc.InspectCommit(repo, version)
+	var repo string
+	var commit string
+	if c.inputBuckets != nil {
+		inputRepo := c.inputBuckets.namesMap[bucket]
+		if inputRepo == nil {
+			return nil, s2.NoSuchBucketError(r)
+		}
+		repo = inputRepo.Repo
+		commit = inputRepo.CommitID
+	} else {
+		var err error
+		repo, commit, err = bucketArgs(r, bucket)
+		if err != nil {
+			return nil, err
+		}
+
+		branchInfo, err := pc.InspectBranch(repo, commit)
 		if err != nil {
 			return nil, maybeNotFoundError(r, err)
 		}
-		if commitInfo.Branch.Name != branch {
-			return nil, s2.NoSuchVersionError(r)
+		if branchInfo.Head == nil {
+			return nil, s2.NoSuchKeyError(r)
 		}
-		commitID = commitInfo.Commit.ID
+
+		var commitInfo *pfsClient.CommitInfo
+		if version != "" {
+			commitInfo, err = pc.InspectCommit(repo, version)
+			if err != nil {
+				return nil, maybeNotFoundError(r, err)
+			}
+			if commitInfo.Branch.Name != commit {
+				return nil, s2.NoSuchVersionError(r)
+			}
+			commit = commitInfo.Commit.ID
+		}
 	}
 
-	fileInfo, err := pc.InspectFile(branchInfo.Branch.Repo.Name, commitID, file)
+	fileInfo, err := pc.InspectFile(repo, commit, file)
 	if err != nil {
 		return nil, maybeNotFoundError(r, err)
 	}
@@ -59,7 +72,7 @@ func (c *controller) GetObject(r *http.Request, bucket, file, version string) (*
 		return nil, err
 	}
 
-	content, err := pc.GetFileReadSeeker(branchInfo.Branch.Repo.Name, commitID, file)
+	content, err := pc.GetFileReadSeeker(repo, commit, file)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +81,7 @@ func (c *controller) GetObject(r *http.Request, bucket, file, version string) (*
 		ModTime:      modTime,
 		Content:      content,
 		ETag:         fmt.Sprintf("%x", fileInfo.Hash),
-		Version:      commitID,
+		Version:      commit,
 		DeleteMarker: false,
 	}
 
@@ -81,6 +94,12 @@ func (c *controller) PutObject(r *http.Request, bucket, file string, reader io.R
 	if err != nil {
 		return nil, err
 	}
+
+	// s3g is read-only when there's input buckets
+	if c.inputBuckets != nil {
+		return nil, s2.AccessDeniedError(r)
+	}
+
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
 		return nil, err
@@ -122,6 +141,12 @@ func (c *controller) DeleteObject(r *http.Request, bucket, file, version string)
 	if err != nil {
 		return nil, err
 	}
+
+	// s3g is read-only when there's input buckets
+	if c.inputBuckets != nil {
+		return nil, s2.AccessDeniedError(r)
+	}
+
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
 		return nil, err

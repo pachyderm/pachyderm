@@ -8,9 +8,31 @@ import (
 )
 
 type InputBucket struct {
-	Repo string
+	Repo     string
 	CommitID string
-	Name string
+	Name     string
+}
+
+type InputBuckets struct {
+	values   []InputBucket
+	reposMap map[string]*InputBucket
+	namesMap map[string]*InputBucket
+}
+
+func NewInputBuckets(inputBuckets ...InputBucket) *InputBuckets {
+	reposMap := map[string]*InputBucket{}
+	namesMap := map[string]*InputBucket{}
+
+	for _, ib := range inputBuckets {
+		reposMap[ib.Repo] = &ib
+		namesMap[ib.Name] = &ib
+	}
+
+	return &InputBuckets{
+		values:   inputBuckets,
+		reposMap: reposMap,
+		namesMap: namesMap,
+	}
 }
 
 type controller struct {
@@ -27,7 +49,7 @@ type controller struct {
 
 	// A list of buckets to serve, referencing specific commit IDs. If nil,
 	// all PFS branches are served.
-	inputBuckets []InputBucket
+	inputBuckets *InputBuckets
 }
 
 func (c *controller) pachClient(authToken string) (*client.APIClient, error) {

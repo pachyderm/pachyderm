@@ -38,12 +38,21 @@ func newCommonPrefixes(dir string) s2.CommonPrefixes {
 	}
 }
 
-func (c controller) GetLocation(r *http.Request, bucket string) (string, error) {
+func (c *controller) GetLocation(r *http.Request, bucket string) (string, error) {
 	vars := mux.Vars(r)
 	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
 		return "", err
 	}
+
+	if c.inputBuckets != nil {
+		inputRepo := c.inputBuckets.namesMap[bucket]
+		if inputRepo == nil {
+			return "", s2.NoSuchBucketError(r)
+		}
+		return globalLocation, nil
+	}
+
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
 		return "", err
@@ -57,13 +66,9 @@ func (c controller) GetLocation(r *http.Request, bucket string) (string, error) 
 	return globalLocation, nil
 }
 
-func (c controller) ListObjects(r *http.Request, bucket, prefix, marker, delimiter string, maxKeys int) (*s2.ListObjectsResult, error) {
+func (c *controller) ListObjects(r *http.Request, bucket, prefix, marker, delimiter string, maxKeys int) (*s2.ListObjectsResult, error) {
 	vars := mux.Vars(r)
 	pc, err := c.pachClient(vars["authAccessKey"])
-	if err != nil {
-		return nil, err
-	}
-	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
 		return nil, err
 	}
@@ -77,14 +82,30 @@ func (c controller) ListObjects(r *http.Request, bucket, prefix, marker, delimit
 		CommonPrefixes: []s2.CommonPrefixes{},
 	}
 
-	// ensure the branch exists and has a head
-	branchInfo, err := pc.InspectBranch(repo, branch)
-	if err != nil {
-		return nil, maybeNotFoundError(r, err)
-	}
-	if branchInfo.Head == nil {
-		// if there's no head commit, just print an empty list of files
-		return &result, nil
+	var repo string
+	var commit string
+	if c.inputBuckets != nil {
+		inputRepo := c.inputBuckets.namesMap[bucket]
+		if inputRepo == nil {
+			return nil, s2.NoSuchBucketError(r)
+		}
+		repo = inputRepo.Repo
+		commit = inputRepo.CommitID
+	} else {
+		var err error
+		repo, commit, err = bucketArgs(r, bucket)
+		if err != nil {
+			return nil, err
+		}
+		// ensure the branch exists and has a head
+		branchInfo, err := pc.InspectBranch(repo, commit)
+		if err != nil {
+			return nil, maybeNotFoundError(r, err)
+		}
+		if branchInfo.Head == nil {
+			// if there's no head commit, just print an empty list of files
+			return &result, nil
+		}
 	}
 
 	recursive := delimiter == ""
@@ -95,7 +116,7 @@ func (c controller) ListObjects(r *http.Request, bucket, prefix, marker, delimit
 		pattern = fmt.Sprintf("%s*", glob.QuoteMeta(prefix))
 	}
 
-	err = pc.GlobFileF(repo, branch, pattern, func(fileInfo *pfsClient.FileInfo) error {
+	err = pc.GlobFileF(repo, commit, pattern, func(fileInfo *pfsClient.FileInfo) error {
 		if fileInfo.FileType == pfsClient.FileType_DIR {
 			if fileInfo.File.Path == "/" {
 				// skip the root directory
@@ -142,12 +163,18 @@ func (c controller) ListObjects(r *http.Request, bucket, prefix, marker, delimit
 	return &result, err
 }
 
-func (c controller) CreateBucket(r *http.Request, bucket string) error {
+func (c *controller) CreateBucket(r *http.Request, bucket string) error {
 	vars := mux.Vars(r)
 	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
 		return err
 	}
+
+	// s3g is read-only when there's input buckets
+	if c.inputBuckets != nil {
+		return s2.AccessDeniedError(r)
+	}
+
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
 		return err
@@ -185,12 +212,18 @@ func (c controller) CreateBucket(r *http.Request, bucket string) error {
 	return nil
 }
 
-func (c controller) DeleteBucket(r *http.Request, bucket string) error {
+func (c *controller) DeleteBucket(r *http.Request, bucket string) error {
 	vars := mux.Vars(r)
 	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
 		return err
 	}
+
+	// s3g is read-only when there's input buckets
+	if c.inputBuckets != nil {
+		return s2.AccessDeniedError(r)
+	}
+
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
 		return err
@@ -248,6 +281,9 @@ func (c *controller) ListObjectVersions(r *http.Request, repo, prefix, keyMarker
 }
 
 func (c *controller) GetBucketVersioning(r *http.Request, repo string) (string, error) {
+	if c.inputBuckets != nil {
+		return s2.VersioningDisabled, nil
+	}
 	return s2.VersioningEnabled, nil
 }
 

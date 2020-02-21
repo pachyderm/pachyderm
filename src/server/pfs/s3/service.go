@@ -31,11 +31,23 @@ func (c *controller) ListBuckets(r *http.Request) (*s2.ListBucketsResult, error)
 			return nil, err
 		}
 
-		for _, branch := range repo.Branches {
+		if c.inputBuckets != nil {
+			inputRepo := c.inputBuckets.reposMap[repo.Repo.Name]
+			if inputRepo == nil {
+				continue
+			}
+
 			result.Buckets = append(result.Buckets, s2.Bucket{
-				Name:         fmt.Sprintf("%s.%s", branch.Name, branch.Repo.Name),
+				Name:         inputRepo.Name,
 				CreationDate: t,
 			})
+		} else {
+			for _, branch := range repo.Branches {
+				result.Buckets = append(result.Buckets, s2.Bucket{
+					Name:         fmt.Sprintf("%s.%s", branch.Name, branch.Repo.Name),
+					CreationDate: t,
+				})
+			}
 		}
 	}
 

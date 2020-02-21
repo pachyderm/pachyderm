@@ -41,7 +41,7 @@ const (
 // Note: In `s3cmd`, you must set the access key and secret key, even though
 // this API will ignore them - otherwise, you'll get an opaque config error:
 // https://github.com/s3tools/s3cmd/issues/845#issuecomment-464885959
-func Server(port, pachdPort uint16, inputBuckets []InputBucket) (*http.Server, error) {
+func Server(port, pachdPort uint16, inputBuckets *InputBuckets) (*http.Server, error) {
 	logger := logrus.WithFields(logrus.Fields{
 		"source": "s3gateway",
 	})
@@ -59,7 +59,11 @@ func Server(port, pachdPort uint16, inputBuckets []InputBucket) (*http.Server, e
 	s3Server.Service = c
 	s3Server.Bucket = c
 	s3Server.Object = c
-	s3Server.Multipart = c
+	// if `inputBuckets` is specified, all exposed buckets will be read-only,
+	// so we fully disable access to multipart
+	if inputBuckets == nil {
+		s3Server.Multipart = c
+	}
 	router := s3Server.Router()
 
 	server := &http.Server{
