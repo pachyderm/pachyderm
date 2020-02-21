@@ -11,7 +11,7 @@ independently with a single execution of the user code and
 then the results of all the datums are merged together to
 create the final output commit.
 
-A datum defines the input data. An input can take one or multiple
+Datums define what input data is seen by your code. An input can take one or multiple
 repositories. Pachyderm has the following types of inputs that
 combine multiple repositories:
 
@@ -31,7 +31,7 @@ combine multiple repositories:
 **Join**
 :    A join input enables you to join files that are stored
      in different Pachyderm repositories and match a particular
-     file path pattern. Conceptually, joins are similar to the
+     file path pattern. Joins are similar to `cross`, except instead of matching every pair of datums from each input, it only matches specific ones based on file paths. Conceptually, joins are similar to the
      database’s inner join operations, although they only match
      on file paths, not the actual file content.
 
