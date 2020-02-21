@@ -274,9 +274,27 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Con
 	return ctx, etcdJobInfo
 }
 
-func triggerJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo, filepath string, data string) {
-	_, err := env.PachClient.PutFile(pi.Input.Pfs.Repo, "master", filepath, strings.NewReader(data))
+type inputFile struct {
+	path     string
+	contents string
+}
+
+func newInput(path string, contents string) *inputFile {
+	return &inputFile{
+		path:     path,
+		contents: contents,
+	}
+}
+
+func triggerJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []*inputFile) {
+	pfc, err := env.PachClient.NewPutFileClient()
 	require.NoError(t, err)
+
+	for _, f := range files {
+		_, err := pfc.PutFile(pi.Input.Pfs.Repo, "master", f.path, strings.NewReader(f.contents))
+		require.NoError(t, err)
+	}
+	require.NoError(t, pfc.Close())
 
 	inputCommitInfo, err := env.PachClient.InspectCommit(pi.Input.Pfs.Repo, "master")
 	require.NoError(t, err)
@@ -292,7 +310,7 @@ func TestJobSuccess(t *testing.T) {
 	t.Parallel()
 	err := withWorkerSpawnerPair(pi, func(env *testEnv) error {
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
-		triggerJob(t, env, pi, "file", "foobar")
+		triggerJob(t, env, pi, []*inputFile{newInput("file", "foobar")})
 		ctx = withTimeout(ctx, 10*time.Second)
 		<-ctx.Done()
 		require.Equal(t, pps.JobState_JOB_SUCCESS, etcdJobInfo.State)
@@ -330,7 +348,7 @@ func TestJobFailedDatum(t *testing.T) {
 	t.Parallel()
 	err := withWorkerSpawnerPair(pi, func(env *testEnv) error {
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
-		triggerJob(t, env, pi, "file", "foobar")
+		triggerJob(t, env, pi, []*inputFile{newInput("file", "foobar")})
 		ctx = withTimeout(ctx, 10*time.Second)
 		<-ctx.Done()
 		require.Equal(t, pps.JobState_JOB_FAILURE, etcdJobInfo.State)
@@ -340,18 +358,12 @@ func TestJobFailedDatum(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestJobSerial(t *testing.T) {
+func TestJobMultiDatum(t *testing.T) {
 	pi := defaultPipelineInfo()
 	t.Parallel()
 	err := withWorkerSpawnerPair(pi, func(env *testEnv) error {
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
-		triggerJob(t, env, pi, "a", "foobar")
-		ctx = withTimeout(ctx, 10*time.Second)
-		<-ctx.Done()
-		require.Equal(t, pps.JobState_JOB_SUCCESS, etcdJobInfo.State)
-
-		ctx, etcdJobInfo = mockBasicJob(t, env, pi)
-		triggerJob(t, env, pi, "b", "foobar")
+		triggerJob(t, env, pi, []*inputFile{newInput("a", "foobar"), newInput("b", "barfoo")})
 		ctx = withTimeout(ctx, 10*time.Second)
 		<-ctx.Done()
 		require.Equal(t, pps.JobState_JOB_SUCCESS, etcdJobInfo.State)
@@ -369,14 +381,71 @@ func TestJobSerial(t *testing.T) {
 		// Find the output file in the output branch
 		files, err := env.PachClient.ListFile(pi.Pipeline.Name, pi.OutputBranch, "/")
 		require.NoError(t, err)
-		require.Equal(t, 1, len(files))
-		require.Equal(t, "/file", files[0].File.Path)
+		require.Equal(t, 2, len(files))
+		require.Equal(t, "/a", files[0].File.Path)
 		require.Equal(t, uint64(6), files[0].SizeBytes)
+		require.Equal(t, "/b", files[1].File.Path)
+		require.Equal(t, uint64(6), files[1].SizeBytes)
 
 		buffer := &bytes.Buffer{}
-		err = env.PachClient.GetFile(pi.Pipeline.Name, pi.OutputBranch, "/file", 0, 0, buffer)
+		err = env.PachClient.GetFile(pi.Pipeline.Name, pi.OutputBranch, "/a", 0, 0, buffer)
 		require.NoError(t, err)
 		require.Equal(t, "foobar", buffer.String())
+
+		buffer = &bytes.Buffer{}
+		err = env.PachClient.GetFile(pi.Pipeline.Name, pi.OutputBranch, "/b", 0, 0, buffer)
+		require.NoError(t, err)
+		require.Equal(t, "barfoo", buffer.String())
+
+		return nil
+	})
+	require.NoError(t, err)
+}
+
+func TestJobSerial(t *testing.T) {
+	pi := defaultPipelineInfo()
+	t.Parallel()
+	err := withWorkerSpawnerPair(pi, func(env *testEnv) error {
+		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
+		triggerJob(t, env, pi, []*inputFile{newInput("a", "foobar")})
+		ctx = withTimeout(ctx, 10*time.Second)
+		<-ctx.Done()
+		require.Equal(t, pps.JobState_JOB_SUCCESS, etcdJobInfo.State)
+
+		ctx, etcdJobInfo = mockBasicJob(t, env, pi)
+		triggerJob(t, env, pi, []*inputFile{newInput("b", "barfoo")})
+		ctx = withTimeout(ctx, 10*time.Second)
+		<-ctx.Done()
+		require.Equal(t, pps.JobState_JOB_SUCCESS, etcdJobInfo.State)
+
+		// Ensure the output commit is successful
+		outputCommitID := etcdJobInfo.OutputCommit.ID
+		outputCommitInfo, err := env.PachClient.InspectCommit(pi.Pipeline.Name, outputCommitID)
+		require.NoError(t, err)
+		require.NotNil(t, outputCommitInfo.Finished)
+
+		branchInfo, err := env.PachClient.InspectBranch(pi.Pipeline.Name, pi.OutputBranch)
+		require.NoError(t, err)
+		require.NotNil(t, branchInfo)
+
+		// Find the output file in the output branch
+		files, err := env.PachClient.ListFile(pi.Pipeline.Name, pi.OutputBranch, "/")
+		require.NoError(t, err)
+		require.Equal(t, 2, len(files))
+		require.Equal(t, "/a", files[0].File.Path)
+		require.Equal(t, uint64(6), files[0].SizeBytes)
+		require.Equal(t, "/b", files[1].File.Path)
+		require.Equal(t, uint64(6), files[1].SizeBytes)
+
+		buffer := &bytes.Buffer{}
+		err = env.PachClient.GetFile(pi.Pipeline.Name, pi.OutputBranch, "/a", 0, 0, buffer)
+		require.NoError(t, err)
+		require.Equal(t, "foobar", buffer.String())
+
+		buffer = &bytes.Buffer{}
+		err = env.PachClient.GetFile(pi.Pipeline.Name, pi.OutputBranch, "/b", 0, 0, buffer)
+		require.NoError(t, err)
+		require.Equal(t, "barfoo", buffer.String())
 
 		return nil
 	})

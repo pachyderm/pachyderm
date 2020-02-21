@@ -144,7 +144,6 @@ func forEachDatum(driver driver.Driver, object *pfs.Object, cb func([]*common.In
 	allDatums := &DatumInputsList{}
 
 	if err := protoReader.Read(allDatums); err != nil {
-		fmt.Printf("failed to deserialize allDatums: %v\n", err)
 		return err
 	}
 
@@ -516,13 +515,13 @@ func fetchChunkFromWorker(driver driver.Driver, logger logs.TaggedLogger, addres
 }
 
 func fetchChunk(driver driver.Driver, logger logs.TaggedLogger, info *HashtreeInfo, shard int64) (io.ReadCloser, error) {
-	reader, err := fetchChunkFromWorker(driver, logger, info.Address, info.Tag, shard)
-	if err == nil {
-		return reader, nil
-	}
-	logger.Logf("error when fetching cached chunk (%s) from worker (%s) - fetching from object store instead: %v", info.Tag, info.Address, err)
-
 	if info.Tag != "" {
+		reader, err := fetchChunkFromWorker(driver, logger, info.Address, info.Tag, shard)
+		if err == nil {
+			return reader, nil
+		}
+		logger.Logf("error when fetching cached chunk (%s) from worker (%s) - fetching from object store instead: %v", info.Tag, info.Address, err)
+
 		return driver.PachClient().GetTagReader(info.Tag)
 	}
 
@@ -535,6 +534,7 @@ func handleMergeTask(driver driver.Driver, logger logs.TaggedLogger, data *Merge
 		return err
 	}
 
+	var parentReader io.ReadCloser
 	logger.LogStep("download hashtree chunks", func() error {
 		eg, _ := errgroup.WithContext(driver.PachClient().Ctx())
 
@@ -555,21 +555,20 @@ func handleMergeTask(driver driver.Driver, logger logs.TaggedLogger, data *Merge
 			}
 		}
 
+		if data.Parent != nil {
+			parentReader, err := fetchChunk(driver, logger, data.Parent, data.Shard)
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := parentReader.Close(); retErr == nil {
+					retErr = err
+				}
+			}()
+		}
+
 		return eg.Wait()
 	})
-
-	var parentReader io.ReadCloser
-	if data.Parent != nil {
-		parentReader, err := fetchChunk(driver, logger, data.Parent, data.Shard)
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if err := parentReader.Close(); retErr == nil {
-				retErr = err
-			}
-		}()
-	}
 
 	return logger.LogStep("merge hashtree chunks", func() error {
 		tree, size, err := merge(driver, parentReader, cache, data.Shard)
