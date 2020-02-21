@@ -20,7 +20,13 @@ const (
 )
 
 // Server runs an HTTP server with an S3-like API for PFS. This allows you to
-// use s3 clients to acccess PFS contents.
+// use s3 clients to access PFS contents.
+//
+// `inputBuckets` specifies which buckets should be served, referencing
+// specific commit IDs. If nil, all PFS branches will be served as separate
+// buckets, of the form `<branch name>.<bucket name>`. Some s3 features are
+// enabled when all PFS branches are served as well; e.g. we add support for
+// some s3 versioning functionality.
 //
 // This returns an `http.Server` instance. It is the responsibility of the
 // caller to start the returned server. It's possible for the caller to
@@ -35,7 +41,7 @@ const (
 // Note: In `s3cmd`, you must set the access key and secret key, even though
 // this API will ignore them - otherwise, you'll get an opaque config error:
 // https://github.com/s3tools/s3cmd/issues/845#issuecomment-464885959
-func Server(port, pachdPort uint16) (*http.Server, error) {
+func Server(port, pachdPort uint16, inputBuckets []InputBucket) (*http.Server, error) {
 	logger := logrus.WithFields(logrus.Fields{
 		"source": "s3gateway",
 	})
@@ -45,6 +51,7 @@ func Server(port, pachdPort uint16) (*http.Server, error) {
 		logger:          logger,
 		repo:            multipartRepo,
 		maxAllowedParts: maxAllowedParts,
+		inputBuckets:    inputBuckets,
 	}
 
 	s3Server := s2.NewS2(logger, maxRequestBodyLength, readBodyTimeout)

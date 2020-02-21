@@ -7,6 +7,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+type InputBucket struct {
+	Repo string
+	CommitID string
+	Name string
+}
+
 type controller struct {
 	pachdPort uint16
 
@@ -18,6 +24,10 @@ type controller struct {
 	// the maximum number of allowed parts that can be associated with any
 	// given file
 	maxAllowedParts int
+
+	// A list of buckets to serve, referencing specific commit IDs. If nil,
+	// all PFS branches are served.
+	inputBuckets []InputBucket
 }
 
 func (c *controller) pachClient(authToken string) (*client.APIClient, error) {
