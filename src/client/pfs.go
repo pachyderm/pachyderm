@@ -917,6 +917,11 @@ type PutFileClient interface {
 	// delimiter is used to tell PFS how to break the input into blocks.
 	PutFileSplit(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, headerRecords int64, overwrite bool, reader io.Reader) (_ int, retErr error)
 
+	// PutFileSplitCustom writes a file to PFS from a reader.
+	// SplitFunc is used to tell PFS how to break the input into blocks.
+	// See bufio.SplitFunc for an explanation of the the signature of splitFunc.
+	PutFileSplitCustom(repoName string, commitID string, path string, splitFunc string, targetFileDatums int64, targetFileBytes int64, headerRecords int64, overwrite bool, reader io.Reader) (int, error)
+
 	// PutFileURL puts a file using the content found at a URL.
 	// The URL is sent to the server which performs the request.
 	// recursive allows for recursive scraping of some types URLs. For example on s3:// urls.
@@ -998,6 +1003,24 @@ func (c *putFileClient) PutFileOverwrite(repoName string, commitID string, path 
 // delimiter is used to tell PFS how to break the input into blocks
 func (c *putFileClient) PutFileSplit(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, headerRecords int64, overwrite bool, reader io.Reader) (_ int, retErr error) {
 	writer, err := c.PutFileSplitWriter(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes, headerRecords, overwrite)
+	if err != nil {
+		return 0, grpcutil.ScrubGRPC(err)
+	}
+	defer func() {
+		if err := writer.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	buf := grpcutil.GetBuffer()
+	defer grpcutil.PutBuffer(buf)
+	written, err := io.CopyBuffer(writer, reader, buf)
+	return int(written), grpcutil.ScrubGRPC(err)
+}
+
+func (c *putFileClient) PutFileSplitCustom(repoName string, commitID string, path string,
+	splitFunc string, targetFileDatums int64, targetFileBytes int64, headerRecords int64,
+	overwrite bool, reader io.Reader) (_ int, retErr error) {
+	writer, err := c.PutFileSplitWriter(repoName, commitID, path, pfs.Delimiter_NONE, targetFileDatums, targetFileBytes, headerRecords, overwrite)
 	if err != nil {
 		return 0, grpcutil.ScrubGRPC(err)
 	}
@@ -1101,6 +1124,16 @@ func (c APIClient) PutFileSplit(repoName string, commitID string, path string, d
 		return 0, err
 	}
 	return pfc.PutFileSplit(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes, headerRecords, overwrite, reader)
+}
+
+func (c APIClient) PutFileSplitCustom(repoName string, commitID string, path string,
+	splitFunc string, targetFileDatums int64, targetFileBytes int64, headerRecords int64,
+	overwrite bool, reader io.Reader) (int, error) {
+	pfc, err := c.newOneoffPutFileClient()
+	if err != nil {
+		return 0, err
+	}
+	return pfc.PutFileSplitCustom(repoName, commitID, path, splitFunc, targetFileDatums, targetFileBytes, headerRecords, overwrite, reader)
 }
 
 // PutFileURL puts a file using the content found at a URL.

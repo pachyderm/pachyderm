@@ -46,11 +46,12 @@ import (
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
-	"github.com/sirupsen/logrus"
 
+	"github.com/containous/yaegi/interp"
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -2829,8 +2830,8 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 	var putFileRecords []*pfs.PutFileRecords
 	var mu sync.Mutex
 	oneOff, repo, branch, err := d.forEachPutFile(pachClient, s, func(req *pfs.PutFileRequest, r io.Reader) error {
-		records, err := d.putFile(pachClient, req.File, req.Delimiter, req.TargetFileDatums,
-			req.TargetFileBytes, req.HeaderRecords, req.OverwriteIndex, r)
+		records, err := d.putFile(pachClient, req.File, req.Delimiter, req.SplitFunc,
+			req.TargetFileDatums, req.TargetFileBytes, req.HeaderRecords, req.OverwriteIndex, r)
 		if err != nil {
 			return err
 		}
@@ -2863,9 +2864,9 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 	return nil
 }
 
-func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter pfs.Delimiter,
-	targetFileDatums, targetFileBytes, headerRecords int64, overwriteIndex *pfs.OverwriteIndex,
-	reader io.Reader) (*pfs.PutFileRecords, error) {
+func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File,
+	delimiter pfs.Delimiter, splitFuncSrc string, targetFileDatums, targetFileBytes,
+	headerRecords int64, overwriteIndex *pfs.OverwriteIndex, reader io.Reader) (*pfs.PutFileRecords, error) {
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return nil, err
 	}
@@ -2885,7 +2886,7 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 		return nil, err
 	}
 
-	if delimiter == pfs.Delimiter_NONE {
+	if delimiter == pfs.Delimiter_NONE && splitFuncSrc == "" {
 		d.putObjectLimiter.Acquire()
 		defer d.putObjectLimiter.Release()
 		objects, size, err := pachClient.PutObjectSplit(reader)
@@ -2940,7 +2941,21 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 			// stale pointer)
 			indexToRecord = make(map[int]*pfs.PutFileRecord)
 			mu            sync.Mutex
+			scanner       *bufio.Scanner
 		)
+		if splitFuncSrc != "" {
+			i := interp.New(interp.Options{})
+			_, err := i.Eval(splitFuncSrc)
+			if err != nil {
+				return nil, err
+			}
+			v, err := i.Eval("split.SplitFunc")
+			if err != nil {
+				return nil, err
+			}
+			scanner = bufio.NewScanner(reader)
+			scanner.Split(v.Interface().(bufio.SplitFunc))
+		}
 		csvReader.FieldsPerRecord = -1 // ignore unexpected # of fields, for now
 		csvReader.ReuseRecord = true   // returned rows are written to buffer immediately
 		for !EOF {
@@ -2948,6 +2963,13 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 			var value []byte
 			var csvRow []string // only used if delimiter == CSV
 			switch delimiter {
+			case pfs.Delimiter_NONE:
+				if scanner == nil {
+					return nil, fmt.Errorf("unexpected nil scanner (this is likely a bug)")
+				}
+				if EOF = scanner.Scan(); !EOF {
+					value = scanner.Bytes()
+				}
 			case pfs.Delimiter_JSON:
 				var jsonValue json.RawMessage
 				err = decoder.Decode(&jsonValue)

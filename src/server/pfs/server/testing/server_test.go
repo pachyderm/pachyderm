@@ -3285,6 +3285,32 @@ func TestPutFileSplitSQL(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestPutFileSplitCustom(t *testing.T) {
+	t.Parallel()
+	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+		// create repos
+		repo := tu.UniqueString("TestPutFileSplitCustom")
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+		_, err := env.PachClient.PutFileSplit(repo, "master", "data", pfs.Delimiter_CSV, 0, 0, 0, false,
+			// Weird, but this is actually two lines ("is\na" is quoted, so one cell)
+			strings.NewReader("this,is,a,test\n"+
+				"\"\"\"this\"\"\",\"is\nonly\",\"a,test\"\n"))
+		require.NoError(t, err)
+		fileInfos, err := env.PachClient.ListFile(repo, "master", "/data")
+		require.NoError(t, err)
+		require.Equal(t, 2, len(fileInfos))
+		var contents bytes.Buffer
+		env.PachClient.GetFile(repo, "master", "/data/0000000000000000", 0, 0, &contents)
+		require.Equal(t, "this,is,a,test\n", contents.String())
+		contents.Reset()
+		env.PachClient.GetFile(repo, "master", "/data/0000000000000001", 0, 0, &contents)
+		require.Equal(t, "\"\"\"this\"\"\",\"is\nonly\",\"a,test\"\n", contents.String())
+
+		return nil
+	})
+	require.NoError(t, err)
+}
+
 func TestPutFileHeaderRecordsBasic(t *testing.T) {
 	t.Parallel()
 	err := tu.WithRealEnv(func(env *tu.RealEnv) error {

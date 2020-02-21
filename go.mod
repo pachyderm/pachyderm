@@ -19,7 +19,7 @@ require (
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd // indirect
 	github.com/containerd/containerd v1.3.2 // indirect
-	github.com/containous/yaegi v0.7.6 // indirect
+	github.com/containous/yaegi v0.7.6
 	github.com/coreos/bbolt v1.3.3
 	github.com/coreos/etcd v3.3.13+incompatible
 	github.com/coreos/go-etcd v2.0.0+incompatible
