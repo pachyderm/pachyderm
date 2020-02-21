@@ -320,7 +320,7 @@ func superviseTestJobWithError(
 				return nil
 			}
 
-			for i := 0; i < count; i++ {
+			for i := uint64(0); i < count; i++ {
 				datum, err := inputsToDatum(jdi.NextDatum())
 				if err != nil {
 					return err

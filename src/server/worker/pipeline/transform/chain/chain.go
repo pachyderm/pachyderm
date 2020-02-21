@@ -24,7 +24,7 @@ type JobData interface {
 }
 
 type JobDatumIterator interface {
-	NextBatch(context.Context) (int, error)
+	NextBatch(context.Context) (uint64, error)
 	NextDatum() []*common.Input
 	AdditiveOnly() bool
 	DatumSet() DatumSet
@@ -289,7 +289,7 @@ func safeToProcess(hash string, ancestors []*jobDatumIterator) bool {
 // TODO: iteration should return a chunk of 'known' new datums before other
 // datums (to optimize for distributing processing across workers). This should
 // still be true even after resetting the iterator.
-func (jdi *jobDatumIterator) NextBatch(ctx context.Context) (int, error) {
+func (jdi *jobDatumIterator) NextBatch(ctx context.Context) (uint64, error) {
 	for len(jdi.yielding) == 0 {
 		if len(jdi.ancestors) == 0 {
 			return 0, nil
@@ -330,7 +330,7 @@ func (jdi *jobDatumIterator) NextBatch(ctx context.Context) (int, error) {
 		jdi.dit.Reset()
 	}
 
-	return len(jdi.yielding), nil
+	return uint64(len(jdi.yielding)), nil
 }
 
 func (jdi *jobDatumIterator) NextDatum() []*common.Input {

@@ -84,7 +84,7 @@ type Driver interface {
 	PachClient() *client.APIClient
 
 	// Returns the number of workers to be used
-	GetExpectedNumWorkers() (int, error)
+	GetExpectedNumWorkers() (uint64, error)
 
 	// Returns the number of hashtree shards for the pipeline
 	NumShards() int64
@@ -361,12 +361,16 @@ func (d *driver) NewTaskMaster() *work.Master {
 	return work.NewMaster(d.etcdClient, d.etcdPrefix, workNamespace(d.pipelineInfo))
 }
 
-func (d *driver) GetExpectedNumWorkers() (int, error) {
+func (d *driver) GetExpectedNumWorkers() (uint64, error) {
 	pipelinePtr := &pps.EtcdPipelineInfo{}
 	if err := d.Pipelines().ReadOnly(d.PachClient().Ctx()).Get(d.PipelineInfo().Pipeline.Name, pipelinePtr); err != nil {
 		return 0, err
 	}
-	return int(pipelinePtr.Parallelism), nil
+	numWorkers := pipelinePtr.Parallelism
+	if numWorkers == 0 {
+		numWorkers = 1
+	}
+	return numWorkers, nil
 }
 
 func (d *driver) NumShards() int64 {

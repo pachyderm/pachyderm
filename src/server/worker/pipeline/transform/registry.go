@@ -33,8 +33,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/worker/pipeline/transform/chain"
 )
 
-const maxDatumsPerTask = 10000
-
 func jobTagPrefix(jobID string) string {
 	return fmt.Sprintf("job-%s", jobID)
 }
@@ -67,7 +65,7 @@ type registry struct {
 	logger      logs.TaggedLogger
 	workMaster  *work.Master
 	mutex       sync.Mutex
-	concurrency int
+	concurrency uint64
 	limiter     limit.ConcurrencyLimiter
 	hasher      chain.DatumHasher
 	jobChain    chain.JobChain
@@ -105,7 +103,7 @@ func newRegistry(
 		logger:      logger,
 		concurrency: concurrency,
 		workMaster:  driver.NewTaskMaster(),
-		limiter:     limit.New(concurrency),
+		limiter:     limit.New(int(concurrency)),
 		hasher:      hasher,
 		jobChain:    chain.NewJobChain(hasher),
 	}, nil
@@ -290,18 +288,26 @@ func (reg *registry) initializeJobChain(commitInfo *pfs.CommitInfo) error {
 
 // Generate a datum task (and split it up into subtasks) for the added datums
 // in the pending job.
-func (reg *registry) makeDatumTask(ctx context.Context, pj *pendingJob, numDatums int) (*work.Task, error) {
+func (reg *registry) makeDatumTask(ctx context.Context, pj *pendingJob, numDatums uint64) (*work.Task, error) {
+	chunkSpec := pj.ji.ChunkSpec
+	if chunkSpec == nil {
+		chunkSpec = &pps.ChunkSpec{}
+	}
+
+	maxDatumsPerTask := uint64(chunkSpec.Number)
+	maxBytesPerTask := uint64(chunkSpec.SizeBytes)
 	driver := pj.driver.WithCtx(ctx)
-	var numTasks int
+	var numTasks uint64
 	if numDatums < reg.concurrency {
 		numTasks = numDatums
-	} else if numDatums/maxDatumsPerTask > reg.concurrency {
+	} else if maxDatumsPerTask > 0 && numDatums/maxDatumsPerTask > reg.concurrency {
 		numTasks = numDatums / maxDatumsPerTask
 	} else {
 		numTasks = reg.concurrency
 	}
-	datumsPerTask := int(math.Ceil(float64(numDatums) / float64(numTasks)))
+	datumsPerTask := uint64(math.Ceil(float64(numDatums) / float64(numTasks)))
 
+	datumsSize := uint64(0)
 	datums := []*DatumInputs{}
 	subtasks := []*work.Task{}
 
@@ -338,21 +344,34 @@ func (reg *registry) makeDatumTask(ctx context.Context, pj *pendingJob, numDatum
 			Data: taskData,
 		})
 
+		datumsSize = 0
 		datums = []*DatumInputs{}
 		return nil
 	}
 
 	// Build up chunks to be put into work tasks from the datum iterator
-	for i := 0; i < numDatums; i++ {
-		datum := pj.jdit.NextDatum()
-		if datum == nil {
-			return nil, fmt.Errorf("job datum iterator returned a nil datum")
+	for i := uint64(0); i < numDatums; i++ {
+		inputs := pj.jdit.NextDatum()
+		if inputs == nil {
+			return nil, fmt.Errorf("job datum iterator returned nil inputs")
 		}
 
-		datums = append(datums, &DatumInputs{Inputs: datum})
+		datums = append(datums, &DatumInputs{Inputs: inputs})
+
+		// If we have enough input bytes, finish the task
+		if maxBytesPerTask != 0 {
+			for _, input := range inputs {
+				datumsSize += input.FileInfo.SizeBytes
+			}
+			if datumsSize >= maxBytesPerTask {
+				if err := finishTask(); err != nil {
+					return nil, err
+				}
+			}
+		}
 
 		// If we hit the upper threshold for task size, finish the task
-		if len(datums) == datumsPerTask {
+		if uint64(len(datums)) >= datumsPerTask {
 			if err := finishTask(); err != nil {
 				return nil, err
 			}
