@@ -1,11 +1,40 @@
 # Datum
 
+!!! note "TL;DR"
+    Datums define what input data is seen by your code. It can be
+    all data at once, each directory independently, individual
+    files one by one, or combined data from multiple inputs together.
+
 A datum is the smallest indivisible unit of computation within a
 job.
 A job can have one, many or no datums. Each datum is processed
 independently with a single execution of the user code and
 then the results of all the datums are merged together to
 create the final output commit.
+
+A datum defines the input data. An input can take one or multiple
+repositories. Pachyderm has the following types of inputs that
+combine multiple repositories:
+
+**Union**
+:    A union input can take multiple repositories as inputs and
+     combine them as a single set of datums. The pipeline process
+     the datums without any particular order and the output
+     repository includes files from all sources.
+
+
+**Cross**
+:    A cross input creates a cross-product of multiple repositories.
+     Therefore, each datum from one repository is combined with each
+     datum from the other repository.
+
+
+**Join**
+ :   A join input enables you to join files that are stored
+     in different Pachyderm repositories and match a particular
+     file path pattern. Conceptually, joins are similar to the
+     database’s inner join operations, although they only match
+     on file paths, not the actual file content.
 
 The number of datums for a job is defined by the
 [glob pattern](glob-pattern.md) which you specify for each input. Think of
