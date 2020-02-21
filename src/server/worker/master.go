@@ -713,7 +713,9 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 			}
 		}
 		if jobInfo.EnableStats {
-			if _, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+			if jobInfo.StatsCommit == nil {
+				logger.Logf("stats are enabled, but the job has a nil stats commit")
+			} else if _, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
 				Commit:    jobInfo.StatsCommit,
 				Trees:     statsTrees,
 				SizeBytes: statsSize,

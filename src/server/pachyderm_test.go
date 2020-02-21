@@ -1099,6 +1099,58 @@ func TestRunPipeline(t *testing.T) {
 		require.NoError(t, c.DeletePipeline(pipeline, false))
 		require.NoError(t, c.DeletePipeline(pipeline, false))
 	})
+	// Test with stats enabled pipeline
+	t.Run("RunPipelineStats", func(t *testing.T) {
+		dataRepo := tu.UniqueString("TestRunPipeline_data")
+		require.NoError(t, c.CreateRepo(dataRepo))
+
+		branchA := "branchA"
+
+		pipeline := tu.UniqueString("stats-pipeline")
+		_, err := c.PpsAPIClient.CreatePipeline(
+			context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd: []string{"bash"},
+					Stdin: []string{
+						"cat /pfs/branch-a/file >> /pfs/out/file",
+
+						"echo ran-pipeline",
+					},
+				},
+				EnableStats: true,
+				Input:       client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", false),
+			})
+		require.NoError(t, err)
+
+		commitA, err := c.StartCommit(dataRepo, branchA)
+		require.NoError(t, err)
+		c.PutFile(dataRepo, commitA.ID, "/file", strings.NewReader("data A\n"))
+		c.FinishCommit(dataRepo, commitA.ID)
+
+		// wait for the commit to finish before calling RunPipeline
+		_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, commitA.ID)}, nil)
+		require.NoError(t, err)
+
+		// now run the pipeline
+		require.NoError(t, backoff.Retry(func() error {
+			return c.RunPipeline(pipeline, []*pfs.CommitProvenance{
+				client.NewCommitProvenance(dataRepo, branchA, commitA.ID),
+			}, "")
+		}, backoff.NewTestingBackOff()))
+
+		// make sure the pipeline didn't crash
+		commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commitA.ID)}, nil)
+		require.NoError(t, err)
+
+		// we'll know it crashed if this causes it to hang
+		require.NoErrorWithinTRetry(t, 80*time.Second, func() error {
+			collectCommitInfos(t, commitIter)
+			return nil
+		})
+
+	})
 
 }
 func TestPipelineFailure(t *testing.T) {

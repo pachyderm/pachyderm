@@ -2845,7 +2845,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	specProvenance := client.NewCommitProvenance(ppsconsts.SpecRepo, request.Pipeline.Name, specCommit.Commit.ID)
 	provenance = append(provenance, specProvenance)
 
-	_, err = pfsClient.StartCommit(ctx, &pfs.StartCommitRequest{
+	newCommit, err := pfsClient.StartCommit(ctx, &pfs.StartCommitRequest{
 		Parent: &pfs.Commit{
 			Repo: &pfs.Repo{
 				Name: request.Pipeline.Name,
@@ -2855,6 +2855,24 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	// if stats are enabled, then create a stats commit for the job as well
+	if pipelineInfo.EnableStats {
+		// it needs to additionally be provenant on the commit we just created
+		newCommitProv := client.NewCommitProvenance(newCommit.Repo.Name, "", newCommit.ID)
+		_, err = pfsClient.StartCommit(ctx, &pfs.StartCommitRequest{
+			Parent: &pfs.Commit{
+				Repo: &pfs.Repo{
+					Name: request.Pipeline.Name,
+				},
+			},
+			Branch:     "stats",
+			Provenance: append(provenance, newCommitProv),
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &types.Empty{}, nil
 }

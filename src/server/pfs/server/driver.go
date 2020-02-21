@@ -1336,7 +1336,8 @@ func (d *driver) makeCommit(
 
 		// ensure the commit provenance is consistent with the branch provenance
 		if len(branchProvMap) != 0 {
-			if prov.Branch.Repo.Name != ppsconsts.SpecRepo && !branchProvMap[key(prov.Branch.Repo.Name, prov.Branch.Name)] {
+			// the check for empty branch names is for the run pipeline case in which a commit with no branch are expected in the stats commit provenance
+			if prov.Branch.Repo.Name != ppsconsts.SpecRepo && prov.Branch.Name != "" && !branchProvMap[key(prov.Branch.Repo.Name, prov.Branch.Name)] {
 				return nil, fmt.Errorf("the commit provenance contains a branch which the branch is not provenant on")
 			}
 		}
