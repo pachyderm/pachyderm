@@ -45,22 +45,9 @@ func (c *controller) GetLocation(r *http.Request, bucket string) (string, error)
 		return "", err
 	}
 
-	if c.inputBuckets != nil {
-		inputRepo := c.inputBuckets.namesMap[bucket]
-		if inputRepo == nil {
-			return "", s2.NoSuchBucketError(r)
-		}
-		return globalLocation, nil
-	}
-
-	repo, branch, err := bucketArgs(r, bucket)
+	_, _, err = c.driver.DereferenceBucket(pc, r, bucket, true)
 	if err != nil {
 		return "", err
-	}
-
-	_, err = pc.InspectBranch(repo, branch)
-	if err != nil {
-		return "", maybeNotFoundError(r, err)
 	}
 
 	return globalLocation, nil
@@ -77,35 +64,14 @@ func (c *controller) ListObjects(r *http.Request, bucket, prefix, marker, delimi
 		return nil, invalidDelimiterError(r)
 	}
 
+	repo, commit, err := c.driver.DereferenceBucket(pc, r, bucket, true)
+	if err != nil {
+		return nil, err
+	}
+
 	result := s2.ListObjectsResult{
 		Contents:       []s2.Contents{},
 		CommonPrefixes: []s2.CommonPrefixes{},
-	}
-
-	var repo string
-	var commit string
-	if c.inputBuckets != nil {
-		inputRepo := c.inputBuckets.namesMap[bucket]
-		if inputRepo == nil {
-			return nil, s2.NoSuchBucketError(r)
-		}
-		repo = inputRepo.Repo
-		commit = inputRepo.CommitID
-	} else {
-		var err error
-		repo, commit, err = bucketArgs(r, bucket)
-		if err != nil {
-			return nil, err
-		}
-		// ensure the branch exists and has a head
-		branchInfo, err := pc.InspectBranch(repo, commit)
-		if err != nil {
-			return nil, maybeNotFoundError(r, err)
-		}
-		if branchInfo.Head == nil {
-			// if there's no head commit, just print an empty list of files
-			return &result, nil
-		}
 	}
 
 	recursive := delimiter == ""
@@ -164,18 +130,17 @@ func (c *controller) ListObjects(r *http.Request, bucket, prefix, marker, delimi
 }
 
 func (c *controller) CreateBucket(r *http.Request, bucket string) error {
+	if !c.driver.CanModifyBuckets() {
+		return s2.NotImplementedError(r)
+	}
+
 	vars := mux.Vars(r)
 	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
 		return err
 	}
 
-	// s3g is read-only when there's input buckets
-	if c.inputBuckets != nil {
-		return s2.AccessDeniedError(r)
-	}
-
-	repo, branch, err := bucketArgs(r, bucket)
+	repo, branch, err := c.driver.DereferenceBucket(pc, r, bucket, false)
 	if err != nil {
 		return err
 	}
@@ -213,18 +178,17 @@ func (c *controller) CreateBucket(r *http.Request, bucket string) error {
 }
 
 func (c *controller) DeleteBucket(r *http.Request, bucket string) error {
+	if !c.driver.CanModifyBuckets() {
+		return s2.NotImplementedError(r)
+	}
+
 	vars := mux.Vars(r)
 	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
 		return err
 	}
 
-	// s3g is read-only when there's input buckets
-	if c.inputBuckets != nil {
-		return s2.AccessDeniedError(r)
-	}
-
-	repo, branch, err := bucketArgs(r, bucket)
+	repo, branch, err := c.driver.DereferenceBucket(pc, r, bucket, false)
 	if err != nil {
 		return err
 	}
@@ -281,9 +245,8 @@ func (c *controller) ListObjectVersions(r *http.Request, repo, prefix, keyMarker
 }
 
 func (c *controller) GetBucketVersioning(r *http.Request, repo string) (string, error) {
-	if c.inputBuckets != nil {
-		return s2.VersioningDisabled, nil
-	}
+	// TODO: should this be changed? versioning doesn't really work in PPS
+	// mode.
 	return s2.VersioningEnabled, nil
 }
 

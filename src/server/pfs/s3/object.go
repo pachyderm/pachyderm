@@ -8,7 +8,6 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/gorilla/mux"
-	pfsClient "github.com/pachyderm/pachyderm/src/client/pfs"
 	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/s2"
@@ -25,41 +24,20 @@ func (c *controller) GetObject(r *http.Request, bucket, file, version string) (*
 		return nil, invalidFilePathError(r)
 	}
 
-	var repo string
-	var commit string
-	if c.inputBuckets != nil {
-		inputRepo := c.inputBuckets.namesMap[bucket]
-		if inputRepo == nil {
-			return nil, s2.NoSuchBucketError(r)
-		}
-		repo = inputRepo.Repo
-		commit = inputRepo.CommitID
-	} else {
-		var err error
-		repo, commit, err = bucketArgs(r, bucket)
-		if err != nil {
-			return nil, err
-		}
+	repo, commit, err := c.driver.DereferenceBucket(pc, r, bucket, true)
+	if err != nil {
+		return nil, err
+	}
 
-		branchInfo, err := pc.InspectBranch(repo, commit)
+	if c.driver.CanGetHistoricObject() && version != "" {
+		commitInfo, err := pc.InspectCommit(repo, version)
 		if err != nil {
 			return nil, maybeNotFoundError(r, err)
 		}
-		if branchInfo.Head == nil {
-			return nil, s2.NoSuchKeyError(r)
+		if commitInfo.Branch.Name != commit {
+			return nil, s2.NoSuchVersionError(r)
 		}
-
-		var commitInfo *pfsClient.CommitInfo
-		if version != "" {
-			commitInfo, err = pc.InspectCommit(repo, version)
-			if err != nil {
-				return nil, maybeNotFoundError(r, err)
-			}
-			if commitInfo.Branch.Name != commit {
-				return nil, s2.NoSuchVersionError(r)
-			}
-			commit = commitInfo.Commit.ID
-		}
+		commit = commitInfo.Commit.ID
 	}
 
 	fileInfo, err := pc.InspectFile(repo, commit, file)
@@ -95,25 +73,16 @@ func (c *controller) PutObject(r *http.Request, bucket, file string, reader io.R
 		return nil, err
 	}
 
-	// s3g is read-only when there's input buckets
-	if c.inputBuckets != nil {
-		return nil, s2.AccessDeniedError(r)
-	}
-
-	repo, branch, err := bucketArgs(r, bucket)
-	if err != nil {
-		return nil, err
-	}
-
-	branchInfo, err := pc.InspectBranch(repo, branch)
-	if err != nil {
-		return nil, maybeNotFoundError(r, err)
-	}
 	if strings.HasSuffix(file, "/") {
 		return nil, invalidFilePathError(r)
 	}
 
-	_, err = pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file, reader, 0)
+	repo, commit, err := c.driver.DereferenceBucket(pc, r, bucket, true)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = pc.PutFileOverwrite(repo, commit, file, reader, 0)
 	if err != nil {
 		if errutil.IsWriteToOutputBranchError(err) {
 			return nil, writeToOutputBranchError(r)
@@ -121,7 +90,7 @@ func (c *controller) PutObject(r *http.Request, bucket, file string, reader io.R
 		return nil, err
 	}
 
-	fileInfo, err := pc.InspectFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file)
+	fileInfo, err := pc.InspectFile(repo, commit, file)
 	if err != nil && !pfsServer.IsOutputCommitNotFinishedErr(err) {
 		return nil, err
 	}
@@ -142,23 +111,6 @@ func (c *controller) DeleteObject(r *http.Request, bucket, file, version string)
 		return nil, err
 	}
 
-	// s3g is read-only when there's input buckets
-	if c.inputBuckets != nil {
-		return nil, s2.AccessDeniedError(r)
-	}
-
-	repo, branch, err := bucketArgs(r, bucket)
-	if err != nil {
-		return nil, err
-	}
-
-	branchInfo, err := pc.InspectBranch(repo, branch)
-	if err != nil {
-		return nil, maybeNotFoundError(r, err)
-	}
-	if branchInfo.Head == nil {
-		return nil, s2.NoSuchKeyError(r)
-	}
 	if strings.HasSuffix(file, "/") {
 		return nil, invalidFilePathError(r)
 	}
@@ -166,7 +118,12 @@ func (c *controller) DeleteObject(r *http.Request, bucket, file, version string)
 		return nil, s2.NotImplementedError(r)
 	}
 
-	if err = pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file); err != nil {
+	repo, commit, err := c.driver.DereferenceBucket(pc, r, bucket, true)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = pc.DeleteFile(repo, commit, file); err != nil {
 		if errutil.IsWriteToOutputBranchError(err) {
 			return nil, writeToOutputBranchError(r)
 		}
