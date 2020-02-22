@@ -12,6 +12,7 @@ import (
 )
 
 type Driver interface {
+	// TODO(ys): make these methods private?
 	ListBuckets(pc *client.APIClient, buckets *[]s2.Bucket) error
 	// TODO(ys): consider moving validation logic out
 	DereferenceBucket(pc *client.APIClient, r *http.Request, bucket string, validateBranch, validateHead bool) (string, string, error)
