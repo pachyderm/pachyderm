@@ -200,7 +200,7 @@ func (r *request) outData() unsafe.Pointer {
 func (r *request) serializeHeader(flatDataSize int) (header []byte) {
 	var dataLength uintptr
 	if r.handler != nil {
-	  dataLength = r.handler.OutputSize
+		dataLength = r.handler.OutputSize
 	}
 
 	if r.status > OK {
