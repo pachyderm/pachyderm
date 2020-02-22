@@ -556,7 +556,8 @@ func handleMergeTask(driver driver.Driver, logger logs.TaggedLogger, data *Merge
 		}
 
 		if data.Parent != nil {
-			parentReader, err := fetchChunk(driver, logger, data.Parent, data.Shard)
+			var err error
+			parentReader, err = fetchChunk(driver, logger, data.Parent, data.Shard)
 			if err != nil {
 				return err
 			}
@@ -590,6 +591,7 @@ func merge(driver driver.Driver, parent io.Reader, cache *hashtree.MergeCache, s
 		if err != nil {
 			return err
 		}
+
 		w := hashtree.NewWriter(objW)
 		filter := hashtree.NewFilter(driver.NumShards(), shard)
 		err = cache.Merge(w, parent, filter)
