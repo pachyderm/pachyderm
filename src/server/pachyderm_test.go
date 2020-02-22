@@ -10974,6 +10974,8 @@ func TestKeepRepo(t *testing.T) {
 	require.NoError(t, err)
 	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
+
+	require.NoError(t, c.DeletePipeline(pipeline, false))
 }
 
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
