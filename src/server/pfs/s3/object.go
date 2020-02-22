@@ -24,7 +24,7 @@ func (c *controller) GetObject(r *http.Request, bucket, file, version string) (*
 		return nil, invalidFilePathError(r)
 	}
 
-	repo, commit, err := c.driver.DereferenceBucket(pc, r, bucket, true)
+	repo, commit, err := c.driver.DereferenceBucket(pc, r, bucket, true, true)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func (c *controller) PutObject(r *http.Request, bucket, file string, reader io.R
 		return nil, invalidFilePathError(r)
 	}
 
-	repo, commit, err := c.driver.DereferenceBucket(pc, r, bucket, true)
+	repo, commit, err := c.driver.DereferenceBucket(pc, r, bucket, true, false)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func (c *controller) DeleteObject(r *http.Request, bucket, file, version string)
 		return nil, s2.NotImplementedError(r)
 	}
 
-	repo, commit, err := c.driver.DereferenceBucket(pc, r, bucket, true)
+	repo, commit, err := c.driver.DereferenceBucket(pc, r, bucket, true, true)
 	if err != nil {
 		return nil, err
 	}

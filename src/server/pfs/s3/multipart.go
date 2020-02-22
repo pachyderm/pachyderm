@@ -98,7 +98,7 @@ func (c *controller) ListMultipart(r *http.Request, bucket, keyMarker, uploadIDM
 		return nil, err
 	}
 
-	repo, commit, err := c.driver.DereferenceBucket(pc, r, bucket, true)
+	repo, commit, err := c.driver.DereferenceBucket(pc, r, bucket, true, false)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +155,7 @@ func (c *controller) InitMultipart(r *http.Request, bucket, key string) (string,
 		return "", err
 	}
 	
-	repo, commit, err := c.driver.DereferenceBucket(pc, r, bucket, true)
+	repo, commit, err := c.driver.DereferenceBucket(pc, r, bucket, true, false)
 	if err != nil {
 		return "", err
 	}
@@ -181,7 +181,7 @@ func (c *controller) AbortMultipart(r *http.Request, bucket, key, uploadID strin
 		return err
 	}
 	
-	repo, commit, err := c.driver.DereferenceBucket(pc, r, bucket, true)
+	repo, commit, err := c.driver.DereferenceBucket(pc, r, bucket, true, false)
 	if err != nil {
 		return err
 	}
@@ -210,7 +210,7 @@ func (c *controller) CompleteMultipart(r *http.Request, bucket, key, uploadID st
 		return nil, err
 	}
 	
-	repo, commit, err := c.driver.DereferenceBucket(pc, r, bucket, true)
+	repo, commit, err := c.driver.DereferenceBucket(pc, r, bucket, true, false)
 	if err != nil {
 		return nil, err
 	}
@@ -301,7 +301,7 @@ func (c *controller) ListMultipartChunks(r *http.Request, bucket, key, uploadID 
 		return nil, err
 	}
 	
-	repo, commit, err := c.driver.DereferenceBucket(pc, r, bucket, true)
+	repo, commit, err := c.driver.DereferenceBucket(pc, r, bucket, true, false)
 	if err != nil {
 		return nil, err
 	}
@@ -353,7 +353,7 @@ func (c *controller) UploadMultipartChunk(r *http.Request, bucket, key, uploadID
 		return "", err
 	}
 	
-	repo, commit, err := c.driver.DereferenceBucket(pc, r, bucket, true)
+	repo, commit, err := c.driver.DereferenceBucket(pc, r, bucket, true, false)
 	if err != nil {
 		return "", err
 	}
@@ -391,7 +391,7 @@ func (c *controller) DeleteMultipartChunk(r *http.Request, bucket, key, uploadID
 		return err
 	}
 	
-	repo, commit, err := c.driver.DereferenceBucket(pc, r, bucket, true)
+	repo, commit, err := c.driver.DereferenceBucket(pc, r, bucket, true, false)
 	if err != nil {
 		return err
 	}

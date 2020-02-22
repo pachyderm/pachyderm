@@ -13,12 +13,17 @@ import (
 
 type Driver interface {
 	ListBuckets(pc *client.APIClient, buckets *[]s2.Bucket) error
-	DereferenceBucket(pc *client.APIClient, r *http.Request, bucket string, validate bool) (string, string, error)
+	// TODO(ys): consider moving validation logic out
+	DereferenceBucket(pc *client.APIClient, r *http.Request, bucket string, validateBranch, validateHead bool) (string, string, error)
 	CanModifyBuckets() bool
 	CanGetHistoricObject() bool
 }
 
 type PFSDriver struct {}
+
+func NewPFSDriver() *PFSDriver {
+	return &PFSDriver{}
+}
 
 func (d *PFSDriver) ListBuckets(pc *client.APIClient, buckets *[]s2.Bucket) error {
 	repos, err := pc.ListRepo()
@@ -42,7 +47,7 @@ func (d *PFSDriver) ListBuckets(pc *client.APIClient, buckets *[]s2.Bucket) erro
 	return nil
 }
 
-func (d *PFSDriver) DereferenceBucket(pc *client.APIClient, r *http.Request, name string, validate bool) (string, string, error) {
+func (d *PFSDriver) DereferenceBucket(pc *client.APIClient, r *http.Request, name string, validateBranch, validateHead bool) (string, string, error) {
 	parts := strings.SplitN(name, ".", 2)
 	if len(parts) != 2 {
 		return "", "", s2.InvalidBucketNameError(r)
@@ -50,12 +55,12 @@ func (d *PFSDriver) DereferenceBucket(pc *client.APIClient, r *http.Request, nam
 	repo := parts[1]
 	branch := parts[0]
 
-	if validate {
+	if validateBranch {
 		branchInfo, err := pc.InspectBranch(repo, branch)
 		if err != nil {
 			return "", "", maybeNotFoundError(r, err)
 		}
-		if branchInfo.Head == nil {
+		if validateHead && branchInfo.Head == nil {
 			return "", "", s2.NoSuchKeyError(r)
 		}
 	}

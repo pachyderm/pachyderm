@@ -678,7 +678,7 @@ func doFullMode(config interface{}) (retErr error) {
 		return githook.RunGitHookServer(address, etcdAddress, path.Join(env.EtcdPrefix, env.PPSEtcdPrefix))
 	})
 	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
-		server, err := s3.Server(env.S3GatewayPort, env.Port, nil)
+		server, err := s3.Server(env.S3GatewayPort, env.Port, s3.NewPFSDriver())
 		if err != nil {
 			return err
 		}
