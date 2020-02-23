@@ -166,7 +166,6 @@ nav:
             - Deploy on Azure: deploy-manage/deploy/azure.md
             - Deploy on OpenShift: deploy-manage/deploy/openshift.md
             - Deploy On-Premises: deploy-manage/deploy/on_premises.md
-            - Deploy Pachyderm with JupyterHub: deploy-manage/deploy/deploy-pachyderm-jupyterhub.md
             - Create a Custom Deployment:
                 - Overview: deploy-manage/deploy/deploy_custom/index.md
                 - Before You Begin: deploy-manage/deploy/deploy_custom/deploy_custom_before_you_begin.md
