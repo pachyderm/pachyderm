@@ -535,7 +535,15 @@ func handleMergeTask(driver driver.Driver, logger logs.TaggedLogger, data *Merge
 	}
 
 	var parentReader io.ReadCloser
-	logger.LogStep("download hashtree chunks", func() error {
+	defer func() {
+		if parentReader != nil {
+			if err := parentReader.Close(); retErr == nil {
+				retErr = err
+			}
+		}
+	}()
+
+	if err := logger.LogStep("download hashtree chunks", func() error {
 		eg, _ := errgroup.WithContext(driver.PachClient().Ctx())
 
 		for _, hashtreeInfo := range data.Hashtrees {
@@ -556,20 +564,17 @@ func handleMergeTask(driver driver.Driver, logger logs.TaggedLogger, data *Merge
 		}
 
 		if data.Parent != nil {
-			var err error
-			parentReader, err = fetchChunk(driver, logger, data.Parent, data.Shard)
-			if err != nil {
+			eg.Go(func() error {
+				var err error
+				parentReader, err = fetchChunk(driver, logger, data.Parent, data.Shard)
 				return err
-			}
-			defer func() {
-				if err := parentReader.Close(); retErr == nil {
-					retErr = err
-				}
-			}()
+			})
 		}
 
 		return eg.Wait()
-	})
+	}); err != nil {
+		return err
+	}
 
 	return logger.LogStep("merge hashtree chunks", func() error {
 		tree, size, err := merge(driver, parentReader, cache, data.Shard)
