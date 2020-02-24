@@ -76,13 +76,16 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 	if err != nil {
 		return nil, err
 	}
-	if !bucketCaps.Readable {
-		return nil, s2.NotImplementedError(r)
-	}
 
 	result := s2.ListObjectsResult{
 		Contents:       []s2.Contents{},
 		CommonPrefixes: []s2.CommonPrefixes{},
+	}
+
+	if !bucketCaps.Readable {
+		// serve empty results if we can't read the bucket; this helps with s3
+		// conformance
+		return &result, nil
 	}
 
 	recursive := delimiter == ""
