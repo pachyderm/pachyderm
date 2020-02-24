@@ -45,7 +45,7 @@ func (c *controller) GetLocation(r *http.Request, bucketName string) (string, er
 		return "", err
 	}
 
-	_, err = c.driver.GetBucket(pc, r, bucketName)
+	_, err = c.driver.Bucket(pc, r, bucketName)
 	if err != nil {
 		return "", err
 	}
@@ -64,7 +64,7 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 		return nil, invalidDelimiterError(r)
 	}
 
-	bucket, err := c.driver.GetBucket(pc, r, bucketName)
+	bucket, err := c.driver.Bucket(pc, r, bucketName)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +140,7 @@ func (c *controller) CreateBucket(r *http.Request, bucketName string) error {
 		return err
 	}
 
-	bucket, err := c.driver.GetBucket(pc, r, bucketName)
+	bucket, err := c.driver.Bucket(pc, r, bucketName)
 	if err != nil {
 		return err
 	}
@@ -188,7 +188,7 @@ func (c *controller) DeleteBucket(r *http.Request, bucketName string) error {
 		return err
 	}
 
-	bucket, err := c.driver.GetBucket(pc, r, bucketName)
+	bucket, err := c.driver.Bucket(pc, r, bucketName)
 	if err != nil {
 		return err
 	}
@@ -244,10 +244,26 @@ func (c *controller) ListObjectVersions(r *http.Request, repo, prefix, keyMarker
 	return nil, s2.NotImplementedError(r)
 }
 
-func (c *controller) GetBucketVersioning(r *http.Request, repo string) (string, error) {
-	// TODO: should this be changed? versioning doesn't really work in PPS
-	// mode.
-	return s2.VersioningEnabled, nil
+func (c *controller) GetBucketVersioning(r *http.Request, bucketName string) (string, error) {
+	vars := mux.Vars(r)
+	pc, err := c.pachClient(vars["authAccessKey"])
+	if err != nil {
+		return "", err
+	}
+
+	bucket, err := c.driver.Bucket(pc, r, bucketName)
+	if err != nil {
+		return "", err
+	}
+	bucketCaps, err := c.driver.BucketCapabilities(pc, r, bucket)
+	if err != nil {
+		return "", err
+	}
+
+	if bucketCaps.HistoricVersions {
+		return s2.VersioningEnabled, nil
+	}
+	return s2.VersioningDisabled, nil
 }
 
 func (c *controller) SetBucketVersioning(r *http.Request, repo, status string) error {

@@ -24,12 +24,17 @@ func (c *controller) GetObject(r *http.Request, bucketName, file, version string
 		return nil, invalidFilePathError(r)
 	}
 
-	bucket, err := c.driver.GetBucket(pc, r, bucketName)
+	bucket, err := c.driver.Bucket(pc, r, bucketName)
 	if err != nil {
 		return nil, err
 	}
 
-	if c.driver.CanGetHistoricObject() && version != "" {
+	bucketCaps, err := c.driver.BucketCapabilities(pc, r, bucket)
+	if err != nil {
+		return nil, err
+	}
+
+	if bucketCaps.HistoricVersions && version != "" {
 		commitInfo, err := pc.InspectCommit(bucket.Repo, version)
 		if err != nil {
 			return nil, maybeNotFoundError(r, err)
@@ -77,7 +82,7 @@ func (c *controller) PutObject(r *http.Request, bucketName, file string, reader 
 		return nil, invalidFilePathError(r)
 	}
 
-	bucket, err := c.driver.GetBucket(pc, r, bucketName)
+	bucket, err := c.driver.Bucket(pc, r, bucketName)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +123,7 @@ func (c *controller) DeleteObject(r *http.Request, bucketName, file, version str
 		return nil, s2.NotImplementedError(r)
 	}
 
-	bucket, err := c.driver.GetBucket(pc, r, bucketName)
+	bucket, err := c.driver.Bucket(pc, r, bucketName)
 	if err != nil {
 		return nil, err
 	}

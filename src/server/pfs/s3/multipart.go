@@ -98,7 +98,7 @@ func (c *controller) ListMultipart(r *http.Request, bucketName, keyMarker, uploa
 		return nil, err
 	}
 
-	bucket, err := c.driver.GetBucket(pc, r, bucketName)
+	bucket, err := c.driver.Bucket(pc, r, bucketName)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +155,7 @@ func (c *controller) InitMultipart(r *http.Request, bucketName, key string) (str
 		return "", err
 	}
 
-	bucket, err := c.driver.GetBucket(pc, r, bucketName)
+	bucket, err := c.driver.Bucket(pc, r, bucketName)
 	if err != nil {
 		return "", err
 	}
@@ -181,7 +181,7 @@ func (c *controller) AbortMultipart(r *http.Request, bucketName, key, uploadID s
 		return err
 	}
 
-	bucket, err := c.driver.GetBucket(pc, r, bucketName)
+	bucket, err := c.driver.Bucket(pc, r, bucketName)
 	if err != nil {
 		return err
 	}
@@ -210,7 +210,7 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 		return nil, err
 	}
 
-	bucket, err := c.driver.GetBucket(pc, r, bucketName)
+	bucket, err := c.driver.Bucket(pc, r, bucketName)
 	if err != nil {
 		return nil, err
 	}
@@ -301,7 +301,7 @@ func (c *controller) ListMultipartChunks(r *http.Request, bucketName, key, uploa
 		return nil, err
 	}
 
-	bucket, err := c.driver.GetBucket(pc, r, bucketName)
+	bucket, err := c.driver.Bucket(pc, r, bucketName)
 	if err != nil {
 		return nil, err
 	}
@@ -353,7 +353,7 @@ func (c *controller) UploadMultipartChunk(r *http.Request, bucketName, key, uplo
 		return "", err
 	}
 
-	bucket, err := c.driver.GetBucket(pc, r, bucketName)
+	bucket, err := c.driver.Bucket(pc, r, bucketName)
 	if err != nil {
 		return "", err
 	}
@@ -391,7 +391,7 @@ func (c *controller) DeleteMultipartChunk(r *http.Request, bucketName, key, uplo
 		return err
 	}
 
-	bucket, err := c.driver.GetBucket(pc, r, bucketName)
+	bucket, err := c.driver.Bucket(pc, r, bucketName)
 	if err != nil {
 		return err
 	}

@@ -18,12 +18,18 @@ type Bucket struct {
 	Name   string
 }
 
+type BucketCapabilities struct {
+	Readable         bool
+	Writable         bool
+	HistoricVersions bool
+}
+
 type Driver interface {
 	// TODO(ys): make these methods private?
 	ListBuckets(pc *client.APIClient, r *http.Request, buckets *[]s2.Bucket) error
-	GetBucket(pc *client.APIClient, r *http.Request, name string) (Bucket, error)
+	Bucket(pc *client.APIClient, r *http.Request, name string) (*Bucket, error)
+	BucketCapabilities(pc *client.APIClient, r *http.Request, bucket *Bucket) (BucketCapabilities, error)
 	CanModifyBuckets() bool
-	CanGetHistoricObject() bool
 }
 
 type MasterDriver struct{}
@@ -54,25 +60,34 @@ func (d *MasterDriver) ListBuckets(pc *client.APIClient, r *http.Request, bucket
 	return nil
 }
 
-func (d *MasterDriver) GetBucket(pc *client.APIClient, r *http.Request, name string) (Bucket, error) {
+func (d *MasterDriver) Bucket(pc *client.APIClient, r *http.Request, name string) (*Bucket, error) {
 	parts := strings.SplitN(name, ".", 2)
 	if len(parts) != 2 {
-		return Bucket{}, s2.InvalidBucketNameError(r)
+		return nil, s2.InvalidBucketNameError(r)
 	}
 	repo := parts[1]
 	branch := parts[0]
-	return Bucket{
+	return &Bucket{
 		Repo:   repo,
 		Commit: branch,
 		Name:   name,
 	}, nil
 }
 
-func (d *MasterDriver) CanModifyBuckets() bool {
-	return true
+func (d *MasterDriver) BucketCapabilities(pc *client.APIClient, r *http.Request, bucket *Bucket) (BucketCapabilities, error) {
+	branchInfo, err := pc.InspectBranch(bucket.Repo, bucket.Commit)
+	if err != nil {
+		return BucketCapabilities{}, maybeNotFoundError(r, err)
+	}
+
+	return BucketCapabilities{
+		Readable:         branchInfo.Head != nil,
+		Writable:         true,
+		HistoricVersions: true,
+	}, nil
 }
 
-func (d *MasterDriver) CanGetHistoricObject() bool {
+func (d *MasterDriver) CanModifyBuckets() bool {
 	return true
 }
 
@@ -128,18 +143,33 @@ func (d *WorkerDriver) ListBuckets(pc *client.APIClient, r *http.Request, bucket
 	return nil
 }
 
-func (d *WorkerDriver) GetBucket(pc *client.APIClient, r *http.Request, name string) (Bucket, error) {
+func (d *WorkerDriver) Bucket(pc *client.APIClient, r *http.Request, name string) (*Bucket, error) {
 	bucket := d.namesMap[name]
 	if bucket == nil {
-		return Bucket{}, s2.NoSuchBucketError(r)
+		return &Bucket{
+			Name: name,
+		}, nil
 	}
-	return *bucket, nil
+	return bucket, nil
+}
+
+func (d *WorkerDriver) BucketCapabilities(pc *client.APIClient, r *http.Request, bucket *Bucket) (BucketCapabilities, error) {
+	if bucket.Repo == "" || bucket.Commit == "" {
+		return BucketCapabilities{}, s2.NoSuchBucketError(r)
+	} else if bucket == d.outputBucket {
+		return BucketCapabilities{
+			Readable:         false,
+			Writable:         true,
+			HistoricVersions: false,
+		}, nil
+	}
+	return BucketCapabilities{
+		Readable:         true,
+		Writable:         false,
+		HistoricVersions: false,
+	}, nil
 }
 
 func (d *WorkerDriver) CanModifyBuckets() bool {
-	return false
-}
-
-func (d *WorkerDriver) CanGetHistoricObject() bool {
 	return false
 }
