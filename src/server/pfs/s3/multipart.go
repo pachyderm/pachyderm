@@ -87,7 +87,7 @@ func (c *controller) ensureRepo(pc *client.APIClient) error {
 	return nil
 }
 
-func (c *controller) ListMultipart(r *http.Request, bucket, keyMarker, uploadIDMarker string, maxUploads int) (*s2.ListMultipartResult, error) {
+func (c *controller) ListMultipart(r *http.Request, bucketName, keyMarker, uploadIDMarker string, maxUploads int) (*s2.ListMultipartResult, error) {
 	vars := mux.Vars(r)
 	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
@@ -98,7 +98,7 @@ func (c *controller) ListMultipart(r *http.Request, bucket, keyMarker, uploadIDM
 		return nil, err
 	}
 
-	ref, err := c.driver.DereferenceBucket(pc, r, bucket)
+	bucket, err := c.driver.GetBucket(pc, r, bucketName)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +107,7 @@ func (c *controller) ListMultipart(r *http.Request, bucket, keyMarker, uploadIDM
 		Uploads: []s2.Upload{},
 	}
 
-	globPattern := path.Join(ref.repo, ref.commit, "*", "*", ".keep")
+	globPattern := path.Join(bucket.Repo, bucket.Commit, "*", "*", ".keep")
 	err = pc.GlobFileF(c.repo, "master", globPattern, func(fileInfo *pfsClient.FileInfo) error {
 		_, _, key, uploadID, err := multipartKeepArgs(fileInfo.File.Path)
 		if err != nil {
@@ -144,7 +144,7 @@ func (c *controller) ListMultipart(r *http.Request, bucket, keyMarker, uploadIDM
 	return &result, err
 }
 
-func (c *controller) InitMultipart(r *http.Request, bucket, key string) (string, error) {
+func (c *controller) InitMultipart(r *http.Request, bucketName, key string) (string, error) {
 	vars := mux.Vars(r)
 	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
@@ -155,14 +155,14 @@ func (c *controller) InitMultipart(r *http.Request, bucket, key string) (string,
 		return "", err
 	}
 	
-	ref, err := c.driver.DereferenceBucket(pc, r, bucket)
+	bucket, err := c.driver.GetBucket(pc, r, bucketName)
 	if err != nil {
 		return "", err
 	}
 
 	uploadID := uuid.NewWithoutDashes()
 
-	_, err = pc.PutFileOverwrite(c.repo, "master", keepPath(ref.repo, ref.commit, key, uploadID), strings.NewReader(""), 0)
+	_, err = pc.PutFileOverwrite(c.repo, "master", keepPath(bucket.Repo, bucket.Commit, key, uploadID), strings.NewReader(""), 0)
 	if err != nil {
 		return "", err
 	}
@@ -170,7 +170,7 @@ func (c *controller) InitMultipart(r *http.Request, bucket, key string) (string,
 	return uploadID, nil
 }
 
-func (c *controller) AbortMultipart(r *http.Request, bucket, key, uploadID string) error {
+func (c *controller) AbortMultipart(r *http.Request, bucketName, key, uploadID string) error {
 	vars := mux.Vars(r)
 	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
@@ -181,17 +181,17 @@ func (c *controller) AbortMultipart(r *http.Request, bucket, key, uploadID strin
 		return err
 	}
 	
-	ref, err := c.driver.DereferenceBucket(pc, r, bucket)
+	bucket, err := c.driver.GetBucket(pc, r, bucketName)
 	if err != nil {
 		return err
 	}
 
-	_, err = pc.InspectFile(c.repo, "master", keepPath(ref.repo, ref.commit, key, uploadID))
+	_, err = pc.InspectFile(c.repo, "master", keepPath(bucket.Repo, bucket.Commit, key, uploadID))
 	if err != nil {
 		return s2.NoSuchUploadError(r)
 	}
 
-	err = pc.DeleteFile(c.repo, "master", parentDirPath(ref.repo, ref.commit, key, uploadID))
+	err = pc.DeleteFile(c.repo, "master", parentDirPath(bucket.Repo, bucket.Commit, key, uploadID))
 	if err != nil {
 		return s2.InternalError(r, err)
 	}
@@ -199,7 +199,7 @@ func (c *controller) AbortMultipart(r *http.Request, bucket, key, uploadID strin
 	return nil
 }
 
-func (c *controller) CompleteMultipart(r *http.Request, bucket, key, uploadID string, parts []s2.Part) (*s2.CompleteMultipartResult, error) {
+func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadID string, parts []s2.Part) (*s2.CompleteMultipartResult, error) {
 	vars := mux.Vars(r)
 	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
@@ -210,12 +210,12 @@ func (c *controller) CompleteMultipart(r *http.Request, bucket, key, uploadID st
 		return nil, err
 	}
 	
-	ref, err := c.driver.DereferenceBucket(pc, r, bucket)
+	bucket, err := c.driver.GetBucket(pc, r, bucketName)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = pc.InspectFile(c.repo, "master", keepPath(ref.repo, ref.commit, key, uploadID))
+	_, err = pc.InspectFile(c.repo, "master", keepPath(bucket.Repo, bucket.Commit, key, uploadID))
 	if err != nil {
 		if pfsServer.IsFileNotFoundErr(err) {
 			return nil, s2.NoSuchUploadError(r)
@@ -224,11 +224,11 @@ func (c *controller) CompleteMultipart(r *http.Request, bucket, key, uploadID st
 	}
 
 	// check if the destination file already exists, and if so, delete it
-	_, err = pc.InspectFile(ref.repo, ref.commit, key)
+	_, err = pc.InspectFile(bucket.Repo, bucket.Commit, key)
 	if err != nil && !pfsServer.IsFileNotFoundErr(err) && !pfsServer.IsNoHeadErr(err) {
 		return nil, err
 	} else if err == nil {
-		err = pc.DeleteFile(ref.repo, ref.commit, key)
+		err = pc.DeleteFile(bucket.Repo, bucket.Commit, key)
 		if err != nil {
 			if errutil.IsWriteToOutputBranchError(err) {
 				return nil, writeToOutputBranchError(r)
@@ -238,7 +238,7 @@ func (c *controller) CompleteMultipart(r *http.Request, bucket, key, uploadID st
 	}
 
 	for i, part := range parts {
-		srcPath := chunkPath(ref.repo, ref.commit, key, uploadID, part.PartNumber)
+		srcPath := chunkPath(bucket.Repo, bucket.Commit, key, uploadID, part.PartNumber)
 
 		fileInfo, err := pc.InspectFile(c.repo, "master", srcPath)
 		if err != nil {
@@ -262,7 +262,7 @@ func (c *controller) CompleteMultipart(r *http.Request, bucket, key, uploadID st
 			return nil, s2.EntityTooSmallError(r)
 		}
 
-		err = pc.CopyFile(c.repo, "master", srcPath, ref.repo, ref.commit, key, false)
+		err = pc.CopyFile(c.repo, "master", srcPath, bucket.Repo, bucket.Commit, key, false)
 		if err != nil {
 			if errutil.IsWriteToOutputBranchError(err) {
 				return nil, writeToOutputBranchError(r)
@@ -271,12 +271,12 @@ func (c *controller) CompleteMultipart(r *http.Request, bucket, key, uploadID st
 		}
 	}
 
-	err = pc.DeleteFile(c.repo, "master", parentDirPath(ref.repo, ref.commit, key, uploadID))
+	err = pc.DeleteFile(c.repo, "master", parentDirPath(bucket.Repo, bucket.Commit, key, uploadID))
 	if err != nil {
 		return nil, err
 	}
 
-	fileInfo, err := pc.InspectFile(ref.repo, ref.commit, key)
+	fileInfo, err := pc.InspectFile(bucket.Repo, bucket.Commit, key)
 	if err != nil && !pfsServer.IsOutputCommitNotFinishedErr(err) {
 		return nil, err
 	}
@@ -290,7 +290,7 @@ func (c *controller) CompleteMultipart(r *http.Request, bucket, key, uploadID st
 	return &result, nil
 }
 
-func (c *controller) ListMultipartChunks(r *http.Request, bucket, key, uploadID string, partNumberMarker, maxParts int) (*s2.ListMultipartChunksResult, error) {
+func (c *controller) ListMultipartChunks(r *http.Request, bucketName, key, uploadID string, partNumberMarker, maxParts int) (*s2.ListMultipartChunksResult, error) {
 	vars := mux.Vars(r)
 	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
@@ -301,7 +301,7 @@ func (c *controller) ListMultipartChunks(r *http.Request, bucket, key, uploadID 
 		return nil, err
 	}
 	
-	ref, err := c.driver.DereferenceBucket(pc, r, bucket)
+	bucket, err := c.driver.GetBucket(pc, r, bucketName)
 	if err != nil {
 		return nil, err
 	}
@@ -313,7 +313,7 @@ func (c *controller) ListMultipartChunks(r *http.Request, bucket, key, uploadID 
 		Parts:        []s2.Part{},
 	}
 
-	globPattern := path.Join(parentDirPath(ref.repo, ref.commit, key, uploadID), "*")
+	globPattern := path.Join(parentDirPath(bucket.Repo, bucket.Commit, key, uploadID), "*")
 	err = pc.GlobFileF(c.repo, "master", globPattern, func(fileInfo *pfsClient.FileInfo) error {
 		_, _, _, _, partNumber, err := multipartChunkArgs(fileInfo.File.Path)
 		if err != nil {
@@ -342,7 +342,7 @@ func (c *controller) ListMultipartChunks(r *http.Request, bucket, key, uploadID 
 	return &result, err
 }
 
-func (c *controller) UploadMultipartChunk(r *http.Request, bucket, key, uploadID string, partNumber int, reader io.Reader) (string, error) {
+func (c *controller) UploadMultipartChunk(r *http.Request, bucketName, key, uploadID string, partNumber int, reader io.Reader) (string, error) {
 	vars := mux.Vars(r)
 	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
@@ -353,12 +353,12 @@ func (c *controller) UploadMultipartChunk(r *http.Request, bucket, key, uploadID
 		return "", err
 	}
 	
-	ref, err := c.driver.DereferenceBucket(pc, r, bucket)
+	bucket, err := c.driver.GetBucket(pc, r, bucketName)
 	if err != nil {
 		return "", err
 	}
 
-	_, err = pc.InspectFile(c.repo, "master", keepPath(ref.repo, ref.commit, key, uploadID))
+	_, err = pc.InspectFile(c.repo, "master", keepPath(bucket.Repo, bucket.Commit, key, uploadID))
 	if err != nil {
 		if pfsServer.IsFileNotFoundErr(err) {
 			return "", s2.NoSuchUploadError(r)
@@ -366,7 +366,7 @@ func (c *controller) UploadMultipartChunk(r *http.Request, bucket, key, uploadID
 		return "", err
 	}
 
-	path := chunkPath(ref.repo, ref.commit, key, uploadID, partNumber)
+	path := chunkPath(bucket.Repo, bucket.Commit, key, uploadID, partNumber)
 	_, err = pc.PutFileOverwrite(c.repo, "master", path, reader, 0)
 	if err != nil {
 		return "", err
@@ -380,7 +380,7 @@ func (c *controller) UploadMultipartChunk(r *http.Request, bucket, key, uploadID
 	return fmt.Sprintf("%x", fileInfo.Hash), nil
 }
 
-func (c *controller) DeleteMultipartChunk(r *http.Request, bucket, key, uploadID string, partNumber int) error {
+func (c *controller) DeleteMultipartChunk(r *http.Request, bucketName, key, uploadID string, partNumber int) error {
 	vars := mux.Vars(r)
 	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
@@ -391,16 +391,16 @@ func (c *controller) DeleteMultipartChunk(r *http.Request, bucket, key, uploadID
 		return err
 	}
 	
-	ref, err := c.driver.DereferenceBucket(pc, r, bucket)
+	bucket, err := c.driver.GetBucket(pc, r, bucketName)
 	if err != nil {
 		return err
 	}
 
-	_, err = pc.InspectFile(c.repo, "master", keepPath(ref.repo, ref.commit, key, uploadID))
+	_, err = pc.InspectFile(c.repo, "master", keepPath(bucket.Repo, bucket.Commit, key, uploadID))
 	if err != nil {
 		return s2.NoSuchUploadError(r)
 	}
 
-	path := chunkPath(ref.repo, ref.commit, key, uploadID, partNumber)
+	path := chunkPath(bucket.Repo, bucket.Commit, key, uploadID, partNumber)
 	return pc.DeleteFile(c.repo, "master", path)
 }

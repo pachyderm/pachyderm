@@ -11,16 +11,16 @@ import (
 	"github.com/gogo/protobuf/types"
 )
 
-type RepoReference struct {
-	repo string
-	commit string
+type Bucket struct {
+	Repo   string
+	Commit string
+	Name   string
 }
 
 type Driver interface {
 	// TODO(ys): make these methods private?
-	ListBuckets(pc *client.APIClient, buckets *[]s2.Bucket) error
-	// TODO(ys): consider moving validation logic out
-	DereferenceBucket(pc *client.APIClient, r *http.Request, bucket string) (RepoReference, error)
+	ListBuckets(pc *client.APIClient, r *http.Request, buckets *[]s2.Bucket) error
+	GetBucket(pc *client.APIClient, r *http.Request, name string) (*Bucket, error)
 	CanModifyBuckets() bool
 	CanGetHistoricObject() bool
 }
@@ -31,7 +31,7 @@ func NewMasterDriver() *MasterDriver {
 	return &MasterDriver{}
 }
 
-func (d *MasterDriver) ListBuckets(pc *client.APIClient, buckets *[]s2.Bucket) error {
+func (d *MasterDriver) ListBuckets(pc *client.APIClient, r *http.Request, buckets *[]s2.Bucket) error {
 	repos, err := pc.ListRepo()
 	if err != nil {
 		return err
@@ -53,16 +53,17 @@ func (d *MasterDriver) ListBuckets(pc *client.APIClient, buckets *[]s2.Bucket) e
 	return nil
 }
 
-func (d *MasterDriver) DereferenceBucket(pc *client.APIClient, r *http.Request, name string) (RepoReference, error) {
+func (d *MasterDriver) GetBucket(pc *client.APIClient, r *http.Request, name string) (Bucket, error) {
 	parts := strings.SplitN(name, ".", 2)
 	if len(parts) != 2 {
-		return RepoReference{}, s2.InvalidBucketNameError(r)
+		return Bucket{}, s2.InvalidBucketNameError(r)
 	}
 	repo := parts[1]
 	branch := parts[0]
-	return RepoReference{
-		repo:   repo,
-		commit: branch,
+	return Bucket{
+		Repo:   repo,
+		Commit: branch,
+		Name:   name,
 	}, nil
 }
 
@@ -74,20 +75,14 @@ func (d *MasterDriver) CanGetHistoricObject() bool {
 	return true
 }
 
-type WorkerBucket struct {
-	Repo   string
-	Commit string
-	Name   string
-}
-
 type WorkerDriver struct {
-	inputBuckets []WorkerBucket
-	outputBucket *WorkerBucket
-	namesMap map[string]*WorkerBucket
+	inputBuckets []Bucket
+	outputBucket *Bucket
+	namesMap map[string]*Bucket
 }
 
-func NewWorkerDriver(inputBuckets []WorkerBucket, outputBucket *WorkerBucket) *WorkerDriver {
-	namesMap := map[string]*WorkerBucket{}
+func NewWorkerDriver(inputBuckets []Bucket, outputBucket *Bucket) *WorkerDriver {
+	namesMap := map[string]*Bucket{}
 	
 	for _, ib := range inputBuckets {
 		namesMap[ib.Name] = &ib
@@ -104,7 +99,7 @@ func NewWorkerDriver(inputBuckets []WorkerBucket, outputBucket *WorkerBucket) *W
 	}
 }
 
-func (d *WorkerDriver) ListBuckets(pc *client.APIClient, buckets *[]s2.Bucket) error {
+func (d *WorkerDriver) ListBuckets(pc *client.APIClient, r *http.Request, buckets *[]s2.Bucket) error {
 	repos, err := pc.ListRepo()
 	if err != nil {
 		return err
@@ -132,15 +127,12 @@ func (d *WorkerDriver) ListBuckets(pc *client.APIClient, buckets *[]s2.Bucket) e
 	return nil
 }
 
-func (d *WorkerDriver) DereferenceBucket(pc *client.APIClient, r *http.Request, name string) (RepoReference, error) {
+func (d *WorkerDriver) GetBucket(pc *client.APIClient, r *http.Request, name string) (Bucket, error) {
 	bucket := d.namesMap[name]
 	if bucket == nil {
-		return RepoReference{}, s2.NoSuchBucketError(r)
+		return Bucket{}, s2.NoSuchBucketError(r)
 	}
-	return RepoReference {
-		repo: bucket.Repo,
-		commit: bucket.Commit,
-	}, nil
+	return bucket, nil
 }
 
 func (d *WorkerDriver) CanModifyBuckets() bool {

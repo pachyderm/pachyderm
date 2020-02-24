@@ -13,7 +13,7 @@ import (
 	"github.com/pachyderm/s2"
 )
 
-func (c *controller) GetObject(r *http.Request, bucket, file, version string) (*s2.GetObjectResult, error) {
+func (c *controller) GetObject(r *http.Request, bucketName, file, version string) (*s2.GetObjectResult, error) {
 	vars := mux.Vars(r)
 	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
@@ -24,23 +24,23 @@ func (c *controller) GetObject(r *http.Request, bucket, file, version string) (*
 		return nil, invalidFilePathError(r)
 	}
 
-	ref, err := c.driver.DereferenceBucket(pc, r, bucket)
+	bucket, err := c.driver.GetBucket(pc, r, bucketName)
 	if err != nil {
 		return nil, err
 	}
 
 	if c.driver.CanGetHistoricObject() && version != "" {
-		commitInfo, err := pc.InspectCommit(ref.repo, version)
+		commitInfo, err := pc.InspectCommit(bucket.Repo, version)
 		if err != nil {
 			return nil, maybeNotFoundError(r, err)
 		}
-		if commitInfo.Branch.Name != ref.commit {
+		if commitInfo.Branch.Name != bucket.Commit {
 			return nil, s2.NoSuchVersionError(r)
 		}
-		ref.commit = commitInfo.Commit.ID
+		bucket.Commit = commitInfo.Commit.ID
 	}
 
-	fileInfo, err := pc.InspectFile(ref.repo, ref.commit, file)
+	fileInfo, err := pc.InspectFile(bucket.Repo, bucket.Commit, file)
 	if err != nil {
 		return nil, maybeNotFoundError(r, err)
 	}
@@ -50,7 +50,7 @@ func (c *controller) GetObject(r *http.Request, bucket, file, version string) (*
 		return nil, err
 	}
 
-	content, err := pc.GetFileReadSeeker(ref.repo, ref.commit, file)
+	content, err := pc.GetFileReadSeeker(bucket.Repo, bucket.Commit, file)
 	if err != nil {
 		return nil, err
 	}
@@ -59,14 +59,14 @@ func (c *controller) GetObject(r *http.Request, bucket, file, version string) (*
 		ModTime:      modTime,
 		Content:      content,
 		ETag:         fmt.Sprintf("%x", fileInfo.Hash),
-		Version:      ref.commit,
+		Version:      bucket.Commit,
 		DeleteMarker: false,
 	}
 
 	return &result, nil
 }
 
-func (c *controller) PutObject(r *http.Request, bucket, file string, reader io.Reader) (*s2.PutObjectResult, error) {
+func (c *controller) PutObject(r *http.Request, bucketName, file string, reader io.Reader) (*s2.PutObjectResult, error) {
 	vars := mux.Vars(r)
 	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
@@ -77,12 +77,12 @@ func (c *controller) PutObject(r *http.Request, bucket, file string, reader io.R
 		return nil, invalidFilePathError(r)
 	}
 
-	ref, err := c.driver.DereferenceBucket(pc, r, bucket)
+	bucket, err := c.driver.GetBucket(pc, r, bucketName)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = pc.PutFileOverwrite(ref.repo, ref.commit, file, reader, 0)
+	_, err = pc.PutFileOverwrite(bucket.Repo, bucket.Commit, file, reader, 0)
 	if err != nil {
 		if errutil.IsWriteToOutputBranchError(err) {
 			return nil, writeToOutputBranchError(r)
@@ -90,7 +90,7 @@ func (c *controller) PutObject(r *http.Request, bucket, file string, reader io.R
 		return nil, err
 	}
 
-	fileInfo, err := pc.InspectFile(ref.repo, ref.commit, file)
+	fileInfo, err := pc.InspectFile(bucket.Repo, bucket.Commit, file)
 	if err != nil && !pfsServer.IsOutputCommitNotFinishedErr(err) {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ func (c *controller) PutObject(r *http.Request, bucket, file string, reader io.R
 	return &result, nil
 }
 
-func (c *controller) DeleteObject(r *http.Request, bucket, file, version string) (*s2.DeleteObjectResult, error) {
+func (c *controller) DeleteObject(r *http.Request, bucketName, file, version string) (*s2.DeleteObjectResult, error) {
 	vars := mux.Vars(r)
 	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
@@ -118,12 +118,12 @@ func (c *controller) DeleteObject(r *http.Request, bucket, file, version string)
 		return nil, s2.NotImplementedError(r)
 	}
 
-	ref, err := c.driver.DereferenceBucket(pc, r, bucket)
+	bucket, err := c.driver.GetBucket(pc, r, bucketName)
 	if err != nil {
 		return nil, err
 	}
 
-	if err = pc.DeleteFile(ref.repo, ref.commit, file); err != nil {
+	if err = pc.DeleteFile(bucket.Repo, bucket.Commit, file); err != nil {
 		if errutil.IsWriteToOutputBranchError(err) {
 			return nil, writeToOutputBranchError(r)
 		}

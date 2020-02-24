@@ -38,14 +38,14 @@ func newCommonPrefixes(dir string) s2.CommonPrefixes {
 	}
 }
 
-func (c *controller) GetLocation(r *http.Request, bucket string) (string, error) {
+func (c *controller) GetLocation(r *http.Request, bucketName string) (string, error) {
 	vars := mux.Vars(r)
 	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
 		return "", err
 	}
 
-	_, err = c.driver.DereferenceBucket(pc, r, bucket)
+	_, err = c.driver.GetBucket(pc, r, bucketName)
 	if err != nil {
 		return "", err
 	}
@@ -53,7 +53,7 @@ func (c *controller) GetLocation(r *http.Request, bucket string) (string, error)
 	return globalLocation, nil
 }
 
-func (c *controller) ListObjects(r *http.Request, bucket, prefix, marker, delimiter string, maxKeys int) (*s2.ListObjectsResult, error) {
+func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, delimiter string, maxKeys int) (*s2.ListObjectsResult, error) {
 	vars := mux.Vars(r)
 	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
@@ -64,7 +64,7 @@ func (c *controller) ListObjects(r *http.Request, bucket, prefix, marker, delimi
 		return nil, invalidDelimiterError(r)
 	}
 
-	ref, err := c.driver.DereferenceBucket(pc, r, bucket)
+	bucket, err := c.driver.GetBucket(pc, r, bucketName)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func (c *controller) ListObjects(r *http.Request, bucket, prefix, marker, delimi
 		pattern = fmt.Sprintf("%s*", glob.QuoteMeta(prefix))
 	}
 
-	err = pc.GlobFileF(ref.repo, ref.commit, pattern, func(fileInfo *pfsClient.FileInfo) error {
+	err = pc.GlobFileF(bucket.Repo, bucket.Commit, pattern, func(fileInfo *pfsClient.FileInfo) error {
 		if fileInfo.FileType == pfsClient.FileType_DIR {
 			if fileInfo.File.Path == "/" {
 				// skip the root directory
@@ -129,7 +129,7 @@ func (c *controller) ListObjects(r *http.Request, bucket, prefix, marker, delimi
 	return &result, err
 }
 
-func (c *controller) CreateBucket(r *http.Request, bucket string) error {
+func (c *controller) CreateBucket(r *http.Request, bucketName string) error {
 	if !c.driver.CanModifyBuckets() {
 		return s2.NotImplementedError(r)
 	}
@@ -140,18 +140,18 @@ func (c *controller) CreateBucket(r *http.Request, bucket string) error {
 		return err
 	}
 
-	ref, err := c.driver.DereferenceBucket(pc, r, bucket)
+	bucket, err := c.driver.GetBucket(pc, r, bucketName)
 	if err != nil {
 		return err
 	}
 
-	err = pc.CreateRepo(ref.repo)
+	err = pc.CreateRepo(bucket.Repo)
 	if err != nil {
 		if errutil.IsAlreadyExistError(err) {
 			// Bucket already exists - this is not an error so long as the
 			// branch being created is new. Verify if that is the case now,
 			// since PFS' `CreateBranch` won't error out.
-			_, err := pc.InspectBranch(ref.repo, ref.commit)
+			_, err := pc.InspectBranch(bucket.Repo, bucket.Commit)
 			if err != nil {
 				if !pfsServer.IsBranchNotFoundErr(err) {
 					return s2.InternalError(r, err)
@@ -166,7 +166,7 @@ func (c *controller) CreateBucket(r *http.Request, bucket string) error {
 		}
 	}
 
-	err = pc.CreateBranch(ref.repo, ref.commit, "", nil)
+	err = pc.CreateBranch(bucket.Repo, bucket.Commit, "", nil)
 	if err != nil {
 		if ancestry.IsInvalidNameError(err) {
 			return s2.InvalidBucketNameError(r)
@@ -177,7 +177,7 @@ func (c *controller) CreateBucket(r *http.Request, bucket string) error {
 	return nil
 }
 
-func (c *controller) DeleteBucket(r *http.Request, bucket string) error {
+func (c *controller) DeleteBucket(r *http.Request, bucketName string) error {
 	if !c.driver.CanModifyBuckets() {
 		return s2.NotImplementedError(r)
 	}
@@ -188,7 +188,7 @@ func (c *controller) DeleteBucket(r *http.Request, bucket string) error {
 		return err
 	}
 
-	ref, err := c.driver.DereferenceBucket(pc, r, bucket)
+	bucket, err := c.driver.GetBucket(pc, r, bucketName)
 	if err != nil {
 		return err
 	}
@@ -196,7 +196,7 @@ func (c *controller) DeleteBucket(r *http.Request, bucket string) error {
 	// `DeleteBranch` does not return an error if a non-existing branch is
 	// deleting. So first, we verify that the branch exists so we can
 	// otherwise return a 404.
-	branchInfo, err := pc.InspectBranch(ref.repo, ref.commit)
+	branchInfo, err := pc.InspectBranch(bucket.Repo, bucket.Commit)
 	if err != nil {
 		return maybeNotFoundError(r, err)
 	}
@@ -219,19 +219,19 @@ func (c *controller) DeleteBucket(r *http.Request, bucket string) error {
 		}
 	}
 
-	err = pc.DeleteBranch(ref.repo, ref.commit, false)
+	err = pc.DeleteBranch(bucket.Repo, bucket.Commit, false)
 	if err != nil {
 		return s2.InternalError(r, err)
 	}
 
-	repoInfo, err := pc.InspectRepo(ref.repo)
+	repoInfo, err := pc.InspectRepo(bucket.Repo)
 	if err != nil {
 		return s2.InternalError(r, err)
 	}
 
 	// delete the repo if this was the last branch
 	if len(repoInfo.Branches) == 0 {
-		err = pc.DeleteRepo(ref.repo, false)
+		err = pc.DeleteRepo(bucket.Repo, false)
 		if err != nil {
 			return s2.InternalError(r, err)
 		}
