@@ -45,7 +45,11 @@ func (c *controller) GetLocation(r *http.Request, bucketName string) (string, er
 		return "", err
 	}
 
-	_, err = c.driver.Bucket(pc, r, bucketName)
+	bucket, err := c.driver.Bucket(pc, r, bucketName)
+	if err != nil {
+		return "", err
+	}
+	_, err = c.driver.BucketCapabilities(pc, r, bucket)
 	if err != nil {
 		return "", err
 	}
@@ -67,6 +71,13 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 	bucket, err := c.driver.Bucket(pc, r, bucketName)
 	if err != nil {
 		return nil, err
+	}
+	bucketCaps, err := c.driver.BucketCapabilities(pc, r, bucket)
+	if err != nil {
+		return nil, err
+	}
+	if !bucketCaps.Readable {
+		return nil, s2.NotImplementedError(r)
 	}
 
 	result := s2.ListObjectsResult{

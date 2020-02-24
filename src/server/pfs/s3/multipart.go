@@ -159,6 +159,13 @@ func (c *controller) InitMultipart(r *http.Request, bucketName, key string) (str
 	if err != nil {
 		return "", err
 	}
+	bucketCaps, err := c.driver.BucketCapabilities(pc, r, bucket)
+	if err != nil {
+		return "", err
+	}
+	if !bucketCaps.Writable {
+		return "", s2.NotImplementedError(r)
+	}
 
 	uploadID := uuid.NewWithoutDashes()
 
@@ -213,6 +220,13 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 	bucket, err := c.driver.Bucket(pc, r, bucketName)
 	if err != nil {
 		return nil, err
+	}
+	bucketCaps, err := c.driver.BucketCapabilities(pc, r, bucket)
+	if err != nil {
+		return nil, err
+	}
+	if !bucketCaps.Writable {
+		return nil, s2.NotImplementedError(r)
 	}
 
 	_, err = pc.InspectFile(c.repo, "master", keepPath(bucket.Repo, bucket.Commit, key, uploadID))

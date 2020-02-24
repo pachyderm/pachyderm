@@ -28,10 +28,12 @@ func (c *controller) GetObject(r *http.Request, bucketName, file, version string
 	if err != nil {
 		return nil, err
 	}
-
 	bucketCaps, err := c.driver.BucketCapabilities(pc, r, bucket)
 	if err != nil {
 		return nil, err
+	}
+	if !bucketCaps.Readable {
+		return nil, s2.NoSuchKeyError(r)
 	}
 
 	if bucketCaps.HistoricVersions && version != "" {
@@ -86,6 +88,13 @@ func (c *controller) PutObject(r *http.Request, bucketName, file string, reader 
 	if err != nil {
 		return nil, err
 	}
+	bucketCaps, err := c.driver.BucketCapabilities(pc, r, bucket)
+	if err != nil {
+		return nil, err
+	}
+	if !bucketCaps.Writable {
+		return nil, s2.NotImplementedError(r)
+	}
 
 	_, err = pc.PutFileOverwrite(bucket.Repo, bucket.Commit, file, reader, 0)
 	if err != nil {
@@ -126,6 +135,13 @@ func (c *controller) DeleteObject(r *http.Request, bucketName, file, version str
 	bucket, err := c.driver.Bucket(pc, r, bucketName)
 	if err != nil {
 		return nil, err
+	}
+	bucketCaps, err := c.driver.BucketCapabilities(pc, r, bucket)
+	if err != nil {
+		return nil, err
+	}
+	if !bucketCaps.Writable {
+		return nil, s2.NotImplementedError(r)
 	}
 
 	if err = pc.DeleteFile(bucket.Repo, bucket.Commit, file); err != nil {
