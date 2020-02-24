@@ -87,23 +87,19 @@ type WorkerDriver struct {
 }
 
 func NewWorkerDriver(inputBuckets []WorkerBucket, outputBucket *WorkerBucket) *WorkerDriver {
-	reposMap := map[string]*WorkerBucket{}
 	namesMap := map[string]*WorkerBucket{}
 	
 	for _, ib := range inputBuckets {
-		reposMap[ib.Repo] = &ib
 		namesMap[ib.Name] = &ib
 	}
 
 	if outputBucket != nil {
-		reposMap[outputBucket.Repo] = outputBucket
 		namesMap[outputBucket.Name] = outputBucket
 	}
 
 	return &WorkerDriver{
 		inputBuckets: inputBuckets,
 		outputBucket: outputBucket,
-		reposMap: reposMap,
 		namesMap: namesMap,
 	}
 }
@@ -113,21 +109,23 @@ func (d *WorkerDriver) ListBuckets(pc *client.APIClient, buckets *[]s2.Bucket) e
 	if err != nil {
 		return err
 	}
-
+	timestamps := map[string]time.Time{}
 	for _, repo := range repos {
-		inputRepo := d.reposMap[repo.Repo.Name]
-		if inputRepo == nil {
-			continue
-		}
-
-		t, err := types.TimestampFromProto(repo.Created)
+		timestamp, err := types.TimestampFromProto(repo.Created)
 		if err != nil {
 			return err
 		}
+		timestamps[repo.Repo.Name] = timestamp
+	}
 
+	for _, bucket := range d.namesMap {
+		timestamp, ok := timestamps[bucket.Repo]
+		if !ok {
+			return fmt.Errorf("worker s3gateway configuration includes repo %q, which does not exist", bucket.Repo)
+		}
 		*buckets = append(*buckets, s2.Bucket{
 			Name:         inputRepo.Name,
-			CreationDate: t,
+			CreationDate: timestamp,
 		})
 	}
 
