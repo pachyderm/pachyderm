@@ -25,13 +25,13 @@ type Driver interface {
 	CanGetHistoricObject() bool
 }
 
-type PFSDriver struct {}
+type MasterDriver struct {}
 
-func NewPFSDriver() *PFSDriver {
-	return &PFSDriver{}
+func NewMasterDriver() *MasterDriver {
+	return &MasterDriver{}
 }
 
-func (d *PFSDriver) ListBuckets(pc *client.APIClient, buckets *[]s2.Bucket) error {
+func (d *MasterDriver) ListBuckets(pc *client.APIClient, buckets *[]s2.Bucket) error {
 	repos, err := pc.ListRepo()
 	if err != nil {
 		return err
@@ -53,7 +53,7 @@ func (d *PFSDriver) ListBuckets(pc *client.APIClient, buckets *[]s2.Bucket) erro
 	return nil
 }
 
-func (d *PFSDriver) DereferenceBucket(pc *client.APIClient, r *http.Request, name string, validateBranch, validateHead bool) (RepoReference, error) {
+func (d *MasterDriver) DereferenceBucket(pc *client.APIClient, r *http.Request, name string, validateBranch, validateHead bool) (RepoReference, error) {
 	parts := strings.SplitN(name, ".", 2)
 	if len(parts) != 2 {
 		return RepoReference{}, s2.InvalidBucketNameError(r)
@@ -77,30 +77,30 @@ func (d *PFSDriver) DereferenceBucket(pc *client.APIClient, r *http.Request, nam
 	}, nil
 }
 
-func (d *PFSDriver) CanModifyBuckets() bool {
+func (d *MasterDriver) CanModifyBuckets() bool {
 	return true
 }
 
-func (d *PFSDriver) CanGetHistoricObject() bool {
+func (d *MasterDriver) CanGetHistoricObject() bool {
 	return true
 }
 
-type PPSBucket struct {
+type WorkerBucket struct {
 	Repo   string
 	Commit string
 	Name   string
 }
 
-type PPSDriver struct {
-	inputBuckets []PPSBucket
-	outputBucket *PPSBucket
-	reposMap map[string]*PPSBucket
-	namesMap map[string]*PPSBucket
+type WorkerDriver struct {
+	inputBuckets []WorkerBucket
+	outputBucket *WorkerBucket
+	reposMap map[string]*WorkerBucket
+	namesMap map[string]*WorkerBucket
 }
 
-func NewPPSDriver(inputBuckets []PPSBucket, outputBucket *PPSBucket) *PPSDriver {
-	reposMap := map[string]*PPSBucket{}
-	namesMap := map[string]*PPSBucket{}
+func NewWorkerDriver(inputBuckets []WorkerBucket, outputBucket *WorkerBucket) *WorkerDriver {
+	reposMap := map[string]*WorkerBucket{}
+	namesMap := map[string]*WorkerBucket{}
 	
 	for _, ib := range inputBuckets {
 		reposMap[ib.Repo] = &ib
@@ -112,7 +112,7 @@ func NewPPSDriver(inputBuckets []PPSBucket, outputBucket *PPSBucket) *PPSDriver 
 		namesMap[outputBucket.Name] = outputBucket
 	}
 
-	return &PPSDriver{
+	return &WorkerDriver{
 		inputBuckets: inputBuckets,
 		outputBucket: outputBucket,
 		reposMap: reposMap,
@@ -120,7 +120,7 @@ func NewPPSDriver(inputBuckets []PPSBucket, outputBucket *PPSBucket) *PPSDriver 
 	}
 }
 
-func (d *PPSDriver) ListBuckets(pc *client.APIClient, buckets *[]s2.Bucket) error {
+func (d *WorkerDriver) ListBuckets(pc *client.APIClient, buckets *[]s2.Bucket) error {
 	repos, err := pc.ListRepo()
 	if err != nil {
 		return err
@@ -146,7 +146,7 @@ func (d *PPSDriver) ListBuckets(pc *client.APIClient, buckets *[]s2.Bucket) erro
 	return nil
 }
 
-func (d *PPSDriver) DereferenceBucket(pc *client.APIClient, r *http.Request, name string, validate bool) (RepoReference, error) {
+func (d *WorkerDriver) DereferenceBucket(pc *client.APIClient, r *http.Request, name string, validate bool) (RepoReference, error) {
 	bucket := d.namesMap[name]
 	if bucket == nil {
 		return RepoReference{}, s2.NoSuchBucketError(r)
@@ -157,10 +157,10 @@ func (d *PPSDriver) DereferenceBucket(pc *client.APIClient, r *http.Request, nam
 	}, nil
 }
 
-func (d *PPSDriver) CanModifyBuckets() bool {
+func (d *WorkerDriver) CanModifyBuckets() bool {
 	return false
 }
 
-func (d *PPSDriver) CanGetHistoricObject() bool {
+func (d *WorkerDriver) CanGetHistoricObject() bool {
 	return false
 }
