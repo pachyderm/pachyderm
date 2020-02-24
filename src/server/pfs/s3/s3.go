@@ -16,7 +16,16 @@ const (
 	maxRequestBodyLength = 128 * 1024 * 1024 //128mb
 	requestTimeout       = 10 * time.Second
 	readBodyTimeout      = 5 * time.Second
+
+	// The S3 storage class that all PFS content will be reported to be stored in
+	globalStorageClass = "STANDARD"
+
+	// The S3 location served back
+	globalLocation = "PACHYDERM"
 )
+
+// The S3 user associated with all PFS content
+var defaultUser = s2.User{ID: "00000000000000000000000000000000", DisplayName: "pachyderm"}
 
 // Server runs an HTTP server with an S3-like API for PFS. This allows you to
 // use s3 clients to access PFS contents.
