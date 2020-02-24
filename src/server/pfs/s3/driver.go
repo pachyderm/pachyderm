@@ -11,11 +11,16 @@ import (
 	"github.com/gogo/protobuf/types"
 )
 
+type RepoReference struct {
+	repo string
+	commit string
+}
+
 type Driver interface {
 	// TODO(ys): make these methods private?
 	ListBuckets(pc *client.APIClient, buckets *[]s2.Bucket) error
 	// TODO(ys): consider moving validation logic out
-	DereferenceBucket(pc *client.APIClient, r *http.Request, bucket string, validateBranch, validateHead bool) (string, string, error)
+	DereferenceBucket(pc *client.APIClient, r *http.Request, bucket string, validateBranch, validateHead bool) (RepoReference, error)
 	CanModifyBuckets() bool
 	CanGetHistoricObject() bool
 }
@@ -48,10 +53,10 @@ func (d *PFSDriver) ListBuckets(pc *client.APIClient, buckets *[]s2.Bucket) erro
 	return nil
 }
 
-func (d *PFSDriver) DereferenceBucket(pc *client.APIClient, r *http.Request, name string, validateBranch, validateHead bool) (string, string, error) {
+func (d *PFSDriver) DereferenceBucket(pc *client.APIClient, r *http.Request, name string, validateBranch, validateHead bool) (RepoReference, error) {
 	parts := strings.SplitN(name, ".", 2)
 	if len(parts) != 2 {
-		return "", "", s2.InvalidBucketNameError(r)
+		return RepoReference{}, s2.InvalidBucketNameError(r)
 	}
 	repo := parts[1]
 	branch := parts[0]
@@ -59,14 +64,17 @@ func (d *PFSDriver) DereferenceBucket(pc *client.APIClient, r *http.Request, nam
 	if validateBranch {
 		branchInfo, err := pc.InspectBranch(repo, branch)
 		if err != nil {
-			return "", "", maybeNotFoundError(r, err)
+			return RepoReference{}, maybeNotFoundError(r, err)
 		}
 		if validateHead && branchInfo.Head == nil {
-			return "", "", s2.NoSuchKeyError(r)
+			return RepoReference{}, s2.NoSuchKeyError(r)
 		}
 	}
 
-	return repo, branch, nil
+	return RepoReference{
+		repo:   repo,
+		commit: branch,
+	}, nil
 }
 
 func (d *PFSDriver) CanModifyBuckets() bool {
@@ -78,9 +86,9 @@ func (d *PFSDriver) CanGetHistoricObject() bool {
 }
 
 type PPSBucket struct {
-	Repo     string
-	CommitID string
-	Name     string
+	Repo   string
+	Commit string
+	Name   string
 }
 
 type PPSDriver struct {
@@ -138,12 +146,15 @@ func (d *PPSDriver) ListBuckets(pc *client.APIClient, buckets *[]s2.Bucket) erro
 	return nil
 }
 
-func (d *PPSDriver) DereferenceBucket(pc *client.APIClient, r *http.Request, name string, validate bool) (string, string, error) {
+func (d *PPSDriver) DereferenceBucket(pc *client.APIClient, r *http.Request, name string, validate bool) (RepoReference, error) {
 	bucket := d.namesMap[name]
 	if bucket == nil {
-		return "", "", s2.NoSuchBucketError(r)
+		return RepoReference{}, s2.NoSuchBucketError(r)
 	}
-	return bucket.Repo, bucket.CommitID, nil
+	return RepoReference {
+		repo: bucket.Repo,
+		commit: bucket.Commit,
+	}, nil
 }
 
 func (d *PPSDriver) CanModifyBuckets() bool {

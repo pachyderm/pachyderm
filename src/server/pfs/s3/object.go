@@ -24,23 +24,23 @@ func (c *controller) GetObject(r *http.Request, bucket, file, version string) (*
 		return nil, invalidFilePathError(r)
 	}
 
-	repo, commit, err := c.driver.DereferenceBucket(pc, r, bucket, true, true)
+	ref, err := c.driver.DereferenceBucket(pc, r, bucket, true, true)
 	if err != nil {
 		return nil, err
 	}
 
 	if c.driver.CanGetHistoricObject() && version != "" {
-		commitInfo, err := pc.InspectCommit(repo, version)
+		commitInfo, err := pc.InspectCommit(ref.repo, version)
 		if err != nil {
 			return nil, maybeNotFoundError(r, err)
 		}
-		if commitInfo.Branch.Name != commit {
+		if commitInfo.Branch.Name != ref.commit {
 			return nil, s2.NoSuchVersionError(r)
 		}
-		commit = commitInfo.Commit.ID
+		ref.commit = commitInfo.Commit.ID
 	}
 
-	fileInfo, err := pc.InspectFile(repo, commit, file)
+	fileInfo, err := pc.InspectFile(ref.repo, ref.commit, file)
 	if err != nil {
 		return nil, maybeNotFoundError(r, err)
 	}
@@ -50,7 +50,7 @@ func (c *controller) GetObject(r *http.Request, bucket, file, version string) (*
 		return nil, err
 	}
 
-	content, err := pc.GetFileReadSeeker(repo, commit, file)
+	content, err := pc.GetFileReadSeeker(ref.repo, ref.commit, file)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,7 @@ func (c *controller) GetObject(r *http.Request, bucket, file, version string) (*
 		ModTime:      modTime,
 		Content:      content,
 		ETag:         fmt.Sprintf("%x", fileInfo.Hash),
-		Version:      commit,
+		Version:      ref.commit,
 		DeleteMarker: false,
 	}
 
@@ -77,12 +77,12 @@ func (c *controller) PutObject(r *http.Request, bucket, file string, reader io.R
 		return nil, invalidFilePathError(r)
 	}
 
-	repo, commit, err := c.driver.DereferenceBucket(pc, r, bucket, true, false)
+	ref, err := c.driver.DereferenceBucket(pc, r, bucket, true, false)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = pc.PutFileOverwrite(repo, commit, file, reader, 0)
+	_, err = pc.PutFileOverwrite(ref.repo, ref.commit, file, reader, 0)
 	if err != nil {
 		if errutil.IsWriteToOutputBranchError(err) {
 			return nil, writeToOutputBranchError(r)
@@ -90,7 +90,7 @@ func (c *controller) PutObject(r *http.Request, bucket, file string, reader io.R
 		return nil, err
 	}
 
-	fileInfo, err := pc.InspectFile(repo, commit, file)
+	fileInfo, err := pc.InspectFile(ref.repo, ref.commit, file)
 	if err != nil && !pfsServer.IsOutputCommitNotFinishedErr(err) {
 		return nil, err
 	}
@@ -118,12 +118,12 @@ func (c *controller) DeleteObject(r *http.Request, bucket, file, version string)
 		return nil, s2.NotImplementedError(r)
 	}
 
-	repo, commit, err := c.driver.DereferenceBucket(pc, r, bucket, true, true)
+	ref, err := c.driver.DereferenceBucket(pc, r, bucket, true, true)
 	if err != nil {
 		return nil, err
 	}
 
-	if err = pc.DeleteFile(repo, commit, file); err != nil {
+	if err = pc.DeleteFile(ref.repo, ref.commit, file); err != nil {
 		if errutil.IsWriteToOutputBranchError(err) {
 			return nil, writeToOutputBranchError(r)
 		}

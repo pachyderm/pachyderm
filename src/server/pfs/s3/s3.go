@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/s2"
 	"github.com/sirupsen/logrus"
 )
