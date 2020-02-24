@@ -154,7 +154,7 @@ func (c *controller) InitMultipart(r *http.Request, bucketName, key string) (str
 	if err = c.ensureRepo(pc); err != nil {
 		return "", err
 	}
-	
+
 	bucket, err := c.driver.GetBucket(pc, r, bucketName)
 	if err != nil {
 		return "", err
@@ -176,11 +176,11 @@ func (c *controller) AbortMultipart(r *http.Request, bucketName, key, uploadID s
 	if err != nil {
 		return err
 	}
-	
+
 	if err = c.ensureRepo(pc); err != nil {
 		return err
 	}
-	
+
 	bucket, err := c.driver.GetBucket(pc, r, bucketName)
 	if err != nil {
 		return err
@@ -205,11 +205,11 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if err = c.ensureRepo(pc); err != nil {
 		return nil, err
 	}
-	
+
 	bucket, err := c.driver.GetBucket(pc, r, bucketName)
 	if err != nil {
 		return nil, err
@@ -296,11 +296,11 @@ func (c *controller) ListMultipartChunks(r *http.Request, bucketName, key, uploa
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if err = c.ensureRepo(pc); err != nil {
 		return nil, err
 	}
-	
+
 	bucket, err := c.driver.GetBucket(pc, r, bucketName)
 	if err != nil {
 		return nil, err
@@ -348,11 +348,11 @@ func (c *controller) UploadMultipartChunk(r *http.Request, bucketName, key, uplo
 	if err != nil {
 		return "", err
 	}
-	
+
 	if err = c.ensureRepo(pc); err != nil {
 		return "", err
 	}
-	
+
 	bucket, err := c.driver.GetBucket(pc, r, bucketName)
 	if err != nil {
 		return "", err
@@ -386,11 +386,11 @@ func (c *controller) DeleteMultipartChunk(r *http.Request, bucketName, key, uplo
 	if err != nil {
 		return err
 	}
-	
+
 	if err = c.ensureRepo(pc); err != nil {
 		return err
 	}
-	
+
 	bucket, err := c.driver.GetBucket(pc, r, bucketName)
 	if err != nil {
 		return err

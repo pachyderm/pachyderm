@@ -21,6 +21,6 @@ func (c *controller) ListBuckets(r *http.Request) (*s2.ListBucketsResult, error)
 	if err = c.driver.ListBuckets(pc, r, &result.Buckets); err != nil {
 		return nil, err
 	}
-	
+
 	return &result, nil
 }

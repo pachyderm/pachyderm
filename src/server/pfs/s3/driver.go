@@ -2,13 +2,14 @@ package s3
 
 import (
 	"fmt"
-	"strings"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
 
-	"github.com/pachyderm/s2"
 	"github.com/gogo/protobuf/types"
+	"github.com/pachyderm/s2"
 )
 
 type Bucket struct {
@@ -20,12 +21,12 @@ type Bucket struct {
 type Driver interface {
 	// TODO(ys): make these methods private?
 	ListBuckets(pc *client.APIClient, r *http.Request, buckets *[]s2.Bucket) error
-	GetBucket(pc *client.APIClient, r *http.Request, name string) (*Bucket, error)
+	GetBucket(pc *client.APIClient, r *http.Request, name string) (Bucket, error)
 	CanModifyBuckets() bool
 	CanGetHistoricObject() bool
 }
 
-type MasterDriver struct {}
+type MasterDriver struct{}
 
 func NewMasterDriver() *MasterDriver {
 	return &MasterDriver{}
@@ -78,12 +79,12 @@ func (d *MasterDriver) CanGetHistoricObject() bool {
 type WorkerDriver struct {
 	inputBuckets []Bucket
 	outputBucket *Bucket
-	namesMap map[string]*Bucket
+	namesMap     map[string]*Bucket
 }
 
 func NewWorkerDriver(inputBuckets []Bucket, outputBucket *Bucket) *WorkerDriver {
 	namesMap := map[string]*Bucket{}
-	
+
 	for _, ib := range inputBuckets {
 		namesMap[ib.Name] = &ib
 	}
@@ -95,7 +96,7 @@ func NewWorkerDriver(inputBuckets []Bucket, outputBucket *Bucket) *WorkerDriver 
 	return &WorkerDriver{
 		inputBuckets: inputBuckets,
 		outputBucket: outputBucket,
-		namesMap: namesMap,
+		namesMap:     namesMap,
 	}
 }
 
@@ -119,7 +120,7 @@ func (d *WorkerDriver) ListBuckets(pc *client.APIClient, r *http.Request, bucket
 			return fmt.Errorf("worker s3gateway configuration includes repo %q, which does not exist", bucket.Repo)
 		}
 		*buckets = append(*buckets, s2.Bucket{
-			Name:         inputRepo.Name,
+			Name:         bucket.Name,
 			CreationDate: timestamp,
 		})
 	}
@@ -132,7 +133,7 @@ func (d *WorkerDriver) GetBucket(pc *client.APIClient, r *http.Request, name str
 	if bucket == nil {
 		return Bucket{}, s2.NoSuchBucketError(r)
 	}
-	return bucket, nil
+	return *bucket, nil
 }
 
 func (d *WorkerDriver) CanModifyBuckets() bool {

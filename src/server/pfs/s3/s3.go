@@ -50,7 +50,7 @@ func Server(port, pachdPort uint16, driver Driver) (*http.Server, error) {
 		logger:          logger,
 		repo:            multipartRepo,
 		maxAllowedParts: maxAllowedParts,
-		driver: driver,
+		driver:          driver,
 	}
 
 	s3Server := s2.NewS2(logger, maxRequestBodyLength, readBodyTimeout)
