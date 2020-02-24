@@ -20,7 +20,7 @@ type Driver interface {
 	// TODO(ys): make these methods private?
 	ListBuckets(pc *client.APIClient, buckets *[]s2.Bucket) error
 	// TODO(ys): consider moving validation logic out
-	DereferenceBucket(pc *client.APIClient, r *http.Request, bucket string, validateBranch, validateHead bool) (RepoReference, error)
+	DereferenceBucket(pc *client.APIClient, r *http.Request, bucket string) (RepoReference, error)
 	CanModifyBuckets() bool
 	CanGetHistoricObject() bool
 }
@@ -53,24 +53,13 @@ func (d *MasterDriver) ListBuckets(pc *client.APIClient, buckets *[]s2.Bucket) e
 	return nil
 }
 
-func (d *MasterDriver) DereferenceBucket(pc *client.APIClient, r *http.Request, name string, validateBranch, validateHead bool) (RepoReference, error) {
+func (d *MasterDriver) DereferenceBucket(pc *client.APIClient, r *http.Request, name string) (RepoReference, error) {
 	parts := strings.SplitN(name, ".", 2)
 	if len(parts) != 2 {
 		return RepoReference{}, s2.InvalidBucketNameError(r)
 	}
 	repo := parts[1]
 	branch := parts[0]
-
-	if validateBranch {
-		branchInfo, err := pc.InspectBranch(repo, branch)
-		if err != nil {
-			return RepoReference{}, maybeNotFoundError(r, err)
-		}
-		if validateHead && branchInfo.Head == nil {
-			return RepoReference{}, s2.NoSuchKeyError(r)
-		}
-	}
-
 	return RepoReference{
 		repo:   repo,
 		commit: branch,
@@ -94,7 +83,6 @@ type WorkerBucket struct {
 type WorkerDriver struct {
 	inputBuckets []WorkerBucket
 	outputBucket *WorkerBucket
-	reposMap map[string]*WorkerBucket
 	namesMap map[string]*WorkerBucket
 }
 
@@ -146,7 +134,7 @@ func (d *WorkerDriver) ListBuckets(pc *client.APIClient, buckets *[]s2.Bucket) e
 	return nil
 }
 
-func (d *WorkerDriver) DereferenceBucket(pc *client.APIClient, r *http.Request, name string, validate bool) (RepoReference, error) {
+func (d *WorkerDriver) DereferenceBucket(pc *client.APIClient, r *http.Request, name string) (RepoReference, error) {
 	bucket := d.namesMap[name]
 	if bucket == nil {
 		return RepoReference{}, s2.NoSuchBucketError(r)

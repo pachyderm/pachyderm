@@ -45,7 +45,7 @@ func (c *controller) GetLocation(r *http.Request, bucket string) (string, error)
 		return "", err
 	}
 
-	_, err = c.driver.DereferenceBucket(pc, r, bucket, true, false)
+	_, err = c.driver.DereferenceBucket(pc, r, bucket)
 	if err != nil {
 		return "", err
 	}
@@ -64,7 +64,7 @@ func (c *controller) ListObjects(r *http.Request, bucket, prefix, marker, delimi
 		return nil, invalidDelimiterError(r)
 	}
 
-	ref, err := c.driver.DereferenceBucket(pc, r, bucket, true, true)
+	ref, err := c.driver.DereferenceBucket(pc, r, bucket)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +140,7 @@ func (c *controller) CreateBucket(r *http.Request, bucket string) error {
 		return err
 	}
 
-	ref, err := c.driver.DereferenceBucket(pc, r, bucket, false, false)
+	ref, err := c.driver.DereferenceBucket(pc, r, bucket)
 	if err != nil {
 		return err
 	}
@@ -188,7 +188,7 @@ func (c *controller) DeleteBucket(r *http.Request, bucket string) error {
 		return err
 	}
 
-	ref, err := c.driver.DereferenceBucket(pc, r, bucket, false, false)
+	ref, err := c.driver.DereferenceBucket(pc, r, bucket)
 	if err != nil {
 		return err
 	}

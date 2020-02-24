@@ -98,7 +98,7 @@ func (c *controller) ListMultipart(r *http.Request, bucket, keyMarker, uploadIDM
 		return nil, err
 	}
 
-	ref, err := c.driver.DereferenceBucket(pc, r, bucket, true, false)
+	ref, err := c.driver.DereferenceBucket(pc, r, bucket)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +155,7 @@ func (c *controller) InitMultipart(r *http.Request, bucket, key string) (string,
 		return "", err
 	}
 	
-	ref, err := c.driver.DereferenceBucket(pc, r, bucket, true, false)
+	ref, err := c.driver.DereferenceBucket(pc, r, bucket)
 	if err != nil {
 		return "", err
 	}
@@ -181,7 +181,7 @@ func (c *controller) AbortMultipart(r *http.Request, bucket, key, uploadID strin
 		return err
 	}
 	
-	ref, err := c.driver.DereferenceBucket(pc, r, bucket, true, false)
+	ref, err := c.driver.DereferenceBucket(pc, r, bucket)
 	if err != nil {
 		return err
 	}
@@ -210,7 +210,7 @@ func (c *controller) CompleteMultipart(r *http.Request, bucket, key, uploadID st
 		return nil, err
 	}
 	
-	ref, err := c.driver.DereferenceBucket(pc, r, bucket, true, false)
+	ref, err := c.driver.DereferenceBucket(pc, r, bucket)
 	if err != nil {
 		return nil, err
 	}
@@ -301,7 +301,7 @@ func (c *controller) ListMultipartChunks(r *http.Request, bucket, key, uploadID 
 		return nil, err
 	}
 	
-	ref, err := c.driver.DereferenceBucket(pc, r, bucket, true, false)
+	ref, err := c.driver.DereferenceBucket(pc, r, bucket)
 	if err != nil {
 		return nil, err
 	}
@@ -353,7 +353,7 @@ func (c *controller) UploadMultipartChunk(r *http.Request, bucket, key, uploadID
 		return "", err
 	}
 	
-	ref, err := c.driver.DereferenceBucket(pc, r, bucket, true, false)
+	ref, err := c.driver.DereferenceBucket(pc, r, bucket)
 	if err != nil {
 		return "", err
 	}
@@ -391,7 +391,7 @@ func (c *controller) DeleteMultipartChunk(r *http.Request, bucket, key, uploadID
 		return err
 	}
 	
-	ref, err := c.driver.DereferenceBucket(pc, r, bucket, true, false)
+	ref, err := c.driver.DereferenceBucket(pc, r, bucket)
 	if err != nil {
 		return err
 	}
