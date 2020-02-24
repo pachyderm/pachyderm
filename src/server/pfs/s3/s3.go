@@ -67,19 +67,8 @@ func Server(port, pachdPort uint16, driver Driver) (*http.Server, error) {
 		ReadTimeout:  requestTimeout,
 		WriteTimeout: requestTimeout,
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Set a request ID, if it hasn't been set by the client already.
-			// This can be used for tracing, and is included in error
-			// responses.
-			requestID := r.Header.Get("X-Request-ID")
-			if requestID == "" {
-				requestID = uuid.NewWithoutDashes()
-				r.Header.Set("X-Request-ID", requestID)
-			}
-			w.Header().Set("x-amz-request-id", requestID)
-
 			// Log that a request was made
 			logger.Infof("http request: %s %s", r.Method, r.RequestURI)
-
 			router.ServeHTTP(w, r)
 		}),
 		// NOTE: this is not closed. If the standard logger gets customized, this will need to be fixed
