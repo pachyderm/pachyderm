@@ -93,5 +93,5 @@ A minimum pipeline specification must include the following parameters:
 }
 ```
 
-!!! note "See also"
+!!! note "See Also:"
     [Pipeline Specification](../../../reference/pipeline_spec.md)

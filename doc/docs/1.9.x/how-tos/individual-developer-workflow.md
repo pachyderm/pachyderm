@@ -170,7 +170,7 @@ To create a Pipeline, complete the following steps:
    location, such as a GitHub repository. For example,
    `https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json`.
 
-**See also:**
+!!! note "See Also:"
 
 - [Pipeline Specification](../reference/pipeline_spec.md)
 <!-- - [Running Pachyderm in Production](TBA)-->

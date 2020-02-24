@@ -210,7 +210,7 @@ To deploy Kubernetes on Azure, complete the following steps:
    Server Version: version.Info{Major:"1", Minor:"13", GitVersion:"v1.13.4", GitCommit:"c27b913fddd1a6c480c229191a087698aa92f0b1", GitTreeState:"clean", BuildDate:"2019-02-28T13:30:26Z", GoVersion:"go1.11.5", Compiler:"gc", Platform:"linux/amd64"}
    ```
 
-!!! note "See also:"
+!!! note "See Also:"
     - [Azure Virtual Machine sizes](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/sizes-general)
 
 
@@ -332,7 +332,7 @@ To create these resources, follow these steps:
              --account-key "${STORAGE_KEY}"
    ```
 
-!!! note "See also:"
+!!! note "See Also:"
     - [Azure Storage](https://azure.microsoft.com/documentation/articles/storage-introduction/)
 
 

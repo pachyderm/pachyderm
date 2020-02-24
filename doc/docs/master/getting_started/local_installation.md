@@ -228,5 +228,5 @@ Alternatively, if you cannot connect directly, enable port forwarding
 by running `pachctl port-forward`, and then point your browser to
 `localhost:30080`.
 
-!!! note "See also:"
+!!! note "See Also:"
     [General Troubleshooting](../troubleshooting/general_troubleshooting.md)
