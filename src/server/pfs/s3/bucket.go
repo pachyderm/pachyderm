@@ -40,7 +40,7 @@ func newCommonPrefixes(dir string) s2.CommonPrefixes {
 
 func (c *controller) GetLocation(r *http.Request, bucketName string) (string, error) {
 	vars := mux.Vars(r)
-	pc, err := c.pachClient(vars["authAccessKey"])
+	pc, err := c.clientFactory.Client(vars["authAccessKey"])
 	if err != nil {
 		return "", err
 	}
@@ -59,7 +59,7 @@ func (c *controller) GetLocation(r *http.Request, bucketName string) (string, er
 
 func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, delimiter string, maxKeys int) (*s2.ListObjectsResult, error) {
 	vars := mux.Vars(r)
-	pc, err := c.pachClient(vars["authAccessKey"])
+	pc, err := c.clientFactory.Client(vars["authAccessKey"])
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +149,7 @@ func (c *controller) CreateBucket(r *http.Request, bucketName string) error {
 	}
 
 	vars := mux.Vars(r)
-	pc, err := c.pachClient(vars["authAccessKey"])
+	pc, err := c.clientFactory.Client(vars["authAccessKey"])
 	if err != nil {
 		return err
 	}
@@ -197,7 +197,7 @@ func (c *controller) DeleteBucket(r *http.Request, bucketName string) error {
 	}
 
 	vars := mux.Vars(r)
-	pc, err := c.pachClient(vars["authAccessKey"])
+	pc, err := c.clientFactory.Client(vars["authAccessKey"])
 	if err != nil {
 		return err
 	}
@@ -260,7 +260,7 @@ func (c *controller) ListObjectVersions(r *http.Request, repo, prefix, keyMarker
 
 func (c *controller) GetBucketVersioning(r *http.Request, bucketName string) (string, error) {
 	vars := mux.Vars(r)
-	pc, err := c.pachClient(vars["authAccessKey"])
+	pc, err := c.clientFactory.Client(vars["authAccessKey"])
 	if err != nil {
 		return "", err
 	}

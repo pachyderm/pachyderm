@@ -89,7 +89,7 @@ func (c *controller) ensureRepo(pc *client.APIClient) error {
 
 func (c *controller) ListMultipart(r *http.Request, bucketName, keyMarker, uploadIDMarker string, maxUploads int) (*s2.ListMultipartResult, error) {
 	vars := mux.Vars(r)
-	pc, err := c.pachClient(vars["authAccessKey"])
+	pc, err := c.clientFactory.Client(vars["authAccessKey"])
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +146,7 @@ func (c *controller) ListMultipart(r *http.Request, bucketName, keyMarker, uploa
 
 func (c *controller) InitMultipart(r *http.Request, bucketName, key string) (string, error) {
 	vars := mux.Vars(r)
-	pc, err := c.pachClient(vars["authAccessKey"])
+	pc, err := c.clientFactory.Client(vars["authAccessKey"])
 	if err != nil {
 		return "", err
 	}
@@ -179,7 +179,7 @@ func (c *controller) InitMultipart(r *http.Request, bucketName, key string) (str
 
 func (c *controller) AbortMultipart(r *http.Request, bucketName, key, uploadID string) error {
 	vars := mux.Vars(r)
-	pc, err := c.pachClient(vars["authAccessKey"])
+	pc, err := c.clientFactory.Client(vars["authAccessKey"])
 	if err != nil {
 		return err
 	}
@@ -208,7 +208,7 @@ func (c *controller) AbortMultipart(r *http.Request, bucketName, key, uploadID s
 
 func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadID string, parts []s2.Part) (*s2.CompleteMultipartResult, error) {
 	vars := mux.Vars(r)
-	pc, err := c.pachClient(vars["authAccessKey"])
+	pc, err := c.clientFactory.Client(vars["authAccessKey"])
 	if err != nil {
 		return nil, err
 	}
@@ -306,7 +306,7 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 
 func (c *controller) ListMultipartChunks(r *http.Request, bucketName, key, uploadID string, partNumberMarker, maxParts int) (*s2.ListMultipartChunksResult, error) {
 	vars := mux.Vars(r)
-	pc, err := c.pachClient(vars["authAccessKey"])
+	pc, err := c.clientFactory.Client(vars["authAccessKey"])
 	if err != nil {
 		return nil, err
 	}
@@ -358,7 +358,7 @@ func (c *controller) ListMultipartChunks(r *http.Request, bucketName, key, uploa
 
 func (c *controller) UploadMultipartChunk(r *http.Request, bucketName, key, uploadID string, partNumber int, reader io.Reader) (string, error) {
 	vars := mux.Vars(r)
-	pc, err := c.pachClient(vars["authAccessKey"])
+	pc, err := c.clientFactory.Client(vars["authAccessKey"])
 	if err != nil {
 		return "", err
 	}
@@ -396,7 +396,7 @@ func (c *controller) UploadMultipartChunk(r *http.Request, bucketName, key, uplo
 
 func (c *controller) DeleteMultipartChunk(r *http.Request, bucketName, key, uploadID string, partNumber int) error {
 	vars := mux.Vars(r)
-	pc, err := c.pachClient(vars["authAccessKey"])
+	pc, err := c.clientFactory.Client(vars["authAccessKey"])
 	if err != nil {
 		return err
 	}

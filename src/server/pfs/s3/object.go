@@ -15,7 +15,7 @@ import (
 
 func (c *controller) GetObject(r *http.Request, bucketName, file, version string) (*s2.GetObjectResult, error) {
 	vars := mux.Vars(r)
-	pc, err := c.pachClient(vars["authAccessKey"])
+	pc, err := c.clientFactory.Client(vars["authAccessKey"])
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func (c *controller) GetObject(r *http.Request, bucketName, file, version string
 
 func (c *controller) PutObject(r *http.Request, bucketName, file string, reader io.Reader) (*s2.PutObjectResult, error) {
 	vars := mux.Vars(r)
-	pc, err := c.pachClient(vars["authAccessKey"])
+	pc, err := c.clientFactory.Client(vars["authAccessKey"])
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +120,7 @@ func (c *controller) PutObject(r *http.Request, bucketName, file string, reader 
 
 func (c *controller) DeleteObject(r *http.Request, bucketName, file, version string) (*s2.DeleteObjectResult, error) {
 	vars := mux.Vars(r)
-	pc, err := c.pachClient(vars["authAccessKey"])
+	pc, err := c.clientFactory.Client(vars["authAccessKey"])
 	if err != nil {
 		return nil, err
 	}

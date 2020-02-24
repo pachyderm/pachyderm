@@ -9,7 +9,7 @@ import (
 
 func (c *controller) ListBuckets(r *http.Request) (*s2.ListBucketsResult, error) {
 	vars := mux.Vars(r)
-	pc, err := c.pachClient(vars["authAccessKey"])
+	pc, err := c.clientFactory.Client(vars["authAccessKey"])
 	if err != nil {
 		return nil, err
 	}

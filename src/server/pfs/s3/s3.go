@@ -27,6 +27,21 @@ const (
 // The S3 user associated with all PFS content
 var defaultUser = s2.User{ID: "00000000000000000000000000000000", DisplayName: "pachyderm"}
 
+type controller struct {
+	logger *logrus.Entry
+
+	// Name of the PFS repo holding multipart content
+	repo string
+
+	// the maximum number of allowed parts that can be associated with any
+	// given file
+	maxAllowedParts int
+
+	driver Driver
+
+	clientFactory ClientFactory
+}
+
 // Server runs an HTTP server with an S3-like API for PFS. This allows you to
 // use s3 clients to access PFS contents.
 //
@@ -49,17 +64,17 @@ var defaultUser = s2.User{ID: "00000000000000000000000000000000", DisplayName: "
 // Note: In `s3cmd`, you must set the access key and secret key, even though
 // this API will ignore them - otherwise, you'll get an opaque config error:
 // https://github.com/s3tools/s3cmd/issues/845#issuecomment-464885959
-func Server(port, pachdPort uint16, driver Driver) (*http.Server, error) {
+func Server(port uint16, driver Driver, clientFactory ClientFactory) (*http.Server, error) {
 	logger := logrus.WithFields(logrus.Fields{
 		"source": "s3gateway",
 	})
 
 	c := &controller{
-		pachdPort:       pachdPort,
 		logger:          logger,
 		repo:            multipartRepo,
 		maxAllowedParts: maxAllowedParts,
 		driver:          driver,
+		clientFactory:   clientFactory,
 	}
 
 	s3Server := s2.NewS2(logger, maxRequestBodyLength, readBodyTimeout)
