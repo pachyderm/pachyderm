@@ -1,13 +1,10 @@
 package s3
 
 import (
-    // "fmt"
-    // "io"
-    // "io/ioutil"
-    // "os"
+    "io/ioutil"
+    "os"
     "strings"
     "testing"
-    // "time"
 
     minio "github.com/minio/minio-go"
 
@@ -102,57 +99,43 @@ func workerRemoveObjectInputRepo(t *testing.T, s *workerTestState) {
 	require.Equal(t, "This functionality is not implemented.", err.Error())
 }
 
-// // Tests inserting and getting files over 64mb in size
-// func workerLargeObjects(t *testing.T, s *workerTestState) {
-//     // test repos: repo1 exists, repo2 does not
-//     repo1 := tu.UniqueString("testlargeobject1")
-//     repo2 := tu.UniqueString("testlargeobject2")
-//     require.NoError(t, s.pachClient.CreateRepo(repo1))
-//     require.NoError(t, s.pachClient.CreateBranch(repo1, "master", "", nil))
+// Tests inserting and getting files over 64mb in size
+func workerLargeObjects(t *testing.T, s *workerTestState) {
+    // create a temporary file to put ~65mb of contents into it
+    inputFile, err := ioutil.TempFile("", "pachyderm-test-large-objects-input-*")
+    require.NoError(t, err)
+    defer os.Remove(inputFile.Name())
+    n, err := inputFile.WriteString(strings.Repeat("no tv and no beer make homer something something.\n", 1363149))
+    require.NoError(t, err)
+    require.Equal(t, n, 68157450)
+    require.NoError(t, inputFile.Sync())
 
-//     // create a temporary file to put ~65mb of contents into it
-//     inputFile, err := ioutil.TempFile("", "pachyderm-test-large-objects-input-*")
-//     require.NoError(t, err)
-//     defer os.Remove(inputFile.Name())
-//     n, err := inputFile.WriteString(strings.Repeat("no tv and no beer make homer something something.\n", 1363149))
-//     require.NoError(t, err)
-//     require.Equal(t, n, 68157450)
-//     require.NoError(t, inputFile.Sync())
+    // first ensure that putting into a repo that doesn't exist triggers an
+    // error
+    _, err = s.minioClient.FPutObject("foobar", "file", inputFile.Name(), minio.PutObjectOptions{
+        ContentType: "text/plain",
+    })
+    bucketNotFoundError(t, err)
 
-//     // first ensure that putting into a repo that doesn't exist triggers an
-//     // error
-//     _, err = s.minioClient.FPutObject(fmt.Sprintf("master.%s", repo2), "file", inputFile.Name(), minio.PutObjectOptions{
-//         ContentType: "text/plain",
-//     })
-//     bucketNotFoundError(t, err)
+    // now try putting into a legit repo
+    l, err := s.minioClient.FPutObject("out", "file", inputFile.Name(), minio.PutObjectOptions{
+        ContentType: "text/plain",
+    })
+    require.NoError(t, err)
+    require.Equal(t, int(l), 68157450)
 
-//     // now try putting into a legit repo
-//     l, err := s.minioClient.FPutObject(fmt.Sprintf("master.%s", repo1), "file", inputFile.Name(), minio.PutObjectOptions{
-//         ContentType: "text/plain",
-//     })
-//     require.NoError(t, err)
-//     require.Equal(t, int(l), 68157450)
+    // try getting an object that does not exist
+    err = s.minioClient.FGetObject("foobar", "file", "foo", minio.GetObjectOptions{})
+    bucketNotFoundError(t, err)
 
-//     // try getting an object that does not exist
-//     err = s.minioClient.FGetObject(fmt.Sprintf("master.%s", repo2), "file", "foo", minio.GetObjectOptions{})
-//     bucketNotFoundError(t, err)
-
-//     // get the file that does exist
-//     outputFile, err := ioutil.TempFile("", "pachyderm-test-large-objects-output-*")
-//     require.NoError(t, err)
-//     defer os.Remove(outputFile.Name())
-//     err = s.minioClient.FGetObject(fmt.Sprintf("master.%s", repo1), "file", outputFile.Name(), minio.GetObjectOptions{})
-//     require.True(t, err == nil || err == io.EOF, fmt.Sprintf("unexpected error: %s", err))
-
-//     // compare the files and ensure they're the same
-//     // NOTE: Because minio's `FGetObject` does a rename from a buffer file
-//     // to the given filepath, `outputFile` will refer to an empty, overwritten
-//     // file. We can still use `outputFile.Name()` though.
-//     inputFileSize, inputFileHash := fileHash(t, inputFile.Name())
-//     outputFileSize, outputFileHash := fileHash(t, inputFile.Name())
-//     require.Equal(t, inputFileSize, outputFileSize)
-//     require.Equal(t, inputFileHash, outputFileHash)
-// }
+    // get the file that does exist, doesn't work because we're reading from
+    // an output repo
+    outputFile, err := ioutil.TempFile("", "pachyderm-test-large-objects-output-*")
+    require.NoError(t, err)
+    defer os.Remove(outputFile.Name())
+    err = s.minioClient.FGetObject("out", "file", outputFile.Name(), minio.GetObjectOptions{})
+    keyNotFoundError(t, err)
+}
 
 // func workerGetObjectNoRepo(t *testing.T, s *workerTestState) {
 //     repo := tu.UniqueString("testgetobjectnorepo")
@@ -394,9 +377,9 @@ func TestWorkerDriver(t *testing.T) {
         t.Run("RemoveObjectInputRepo", func(t *testing.T) {
             workerRemoveObjectInputRepo(t, s)
         })
-        // t.Run("LargeObjects", func(t *testing.T) {
-        //     workerLargeObjects(t, s)
-        // })
+        t.Run("LargeObjects", func(t *testing.T) {
+            workerLargeObjects(t, s)
+        })
         // t.Run("GetObjectNoRepo", func(t *testing.T) {
         //     workerGetObjectNoRepo(t, s)
         // })
