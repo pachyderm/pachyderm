@@ -20,7 +20,6 @@ combine multiple repositories:
      Therefore, each datum from one repository is combined with each
      datum from the other repository.
 
-
 **Join**
 :    A join input enables you to join files that are stored
      in different Pachyderm repositories and match a particular
