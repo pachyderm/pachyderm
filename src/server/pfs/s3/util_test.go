@@ -112,6 +112,13 @@ func keyNotFoundError(t *testing.T, err error) {
 	require.Equal(t, "The specified key does not exist.", err.Error())
 }
 
+// TODO(ys): uncomment
+// func notImplementedError(t *testing.T, err error) {
+// 	t.Helper()
+// 	require.YesError(t, err)
+// 	require.Equal(t, "This functionality is not implemented.", err.Error())
+// }
+
 func fileHash(t *testing.T, name string) (int64, []byte) {
 	t.Helper()
 

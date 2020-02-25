@@ -81,26 +81,34 @@ func workerPutObject(t *testing.T, s *workerTestState) {
 func workerPutObjectInputRepo(t *testing.T, s *workerTestState) {
     r := strings.NewReader("content1")
     _, err := s.minioClient.PutObject("in1", "file", r, int64(r.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
+    // notImplementedError(t, err) TODO(ys): use this method instead
     require.YesError(t, err)
 	require.Equal(t, "This functionality is not implemented.", err.Error())
 }
 
-// func workerRemoveObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-//     _, err := pachClient.PutFile("out", "master", "file", strings.NewReader("content"))
-//     require.NoError(t, err)
+func workerRemoveObject(t *testing.T, s *workerTestState) {
+    _, err := s.pachClient.PutFile(s.outputRepo, s.outputCommit.ID, "file", strings.NewReader("content"))
+    require.NoError(t, err)
 
-//     // as per PFS semantics, the second delete should be a no-op
-//     require.NoError(t, minioClient.RemoveObject("out", "file"))
-//     require.NoError(t, minioClient.RemoveObject("out", "file"))
-// }
+    // as per PFS semantics, the second delete should be a no-op
+    require.NoError(t, s.minioClient.RemoveObject("out", "file"))
+    require.NoError(t, s.minioClient.RemoveObject("out", "file"))
+}
+
+func workerRemoveObjectInputRepo(t *testing.T, s *workerTestState) {
+    err := s.minioClient.RemoveObject("in1", "file")
+    // notImplementedError(t, err) TODO(ys): use this method instead
+    require.YesError(t, err)
+	require.Equal(t, "This functionality is not implemented.", err.Error())
+}
 
 // // Tests inserting and getting files over 64mb in size
-// func workerLargeObjects(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+// func workerLargeObjects(t *testing.T, s *workerTestState) {
 //     // test repos: repo1 exists, repo2 does not
 //     repo1 := tu.UniqueString("testlargeobject1")
 //     repo2 := tu.UniqueString("testlargeobject2")
-//     require.NoError(t, pachClient.CreateRepo(repo1))
-//     require.NoError(t, pachClient.CreateBranch(repo1, "master", "", nil))
+//     require.NoError(t, s.pachClient.CreateRepo(repo1))
+//     require.NoError(t, s.pachClient.CreateBranch(repo1, "master", "", nil))
 
 //     // create a temporary file to put ~65mb of contents into it
 //     inputFile, err := ioutil.TempFile("", "pachyderm-test-large-objects-input-*")
@@ -113,27 +121,27 @@ func workerPutObjectInputRepo(t *testing.T, s *workerTestState) {
 
 //     // first ensure that putting into a repo that doesn't exist triggers an
 //     // error
-//     _, err = minioClient.FPutObject(fmt.Sprintf("master.%s", repo2), "file", inputFile.Name(), minio.PutObjectOptions{
+//     _, err = s.minioClient.FPutObject(fmt.Sprintf("master.%s", repo2), "file", inputFile.Name(), minio.PutObjectOptions{
 //         ContentType: "text/plain",
 //     })
 //     bucketNotFoundError(t, err)
 
 //     // now try putting into a legit repo
-//     l, err := minioClient.FPutObject(fmt.Sprintf("master.%s", repo1), "file", inputFile.Name(), minio.PutObjectOptions{
+//     l, err := s.minioClient.FPutObject(fmt.Sprintf("master.%s", repo1), "file", inputFile.Name(), minio.PutObjectOptions{
 //         ContentType: "text/plain",
 //     })
 //     require.NoError(t, err)
 //     require.Equal(t, int(l), 68157450)
 
 //     // try getting an object that does not exist
-//     err = minioClient.FGetObject(fmt.Sprintf("master.%s", repo2), "file", "foo", minio.GetObjectOptions{})
+//     err = s.minioClient.FGetObject(fmt.Sprintf("master.%s", repo2), "file", "foo", minio.GetObjectOptions{})
 //     bucketNotFoundError(t, err)
 
 //     // get the file that does exist
 //     outputFile, err := ioutil.TempFile("", "pachyderm-test-large-objects-output-*")
 //     require.NoError(t, err)
 //     defer os.Remove(outputFile.Name())
-//     err = minioClient.FGetObject(fmt.Sprintf("master.%s", repo1), "file", outputFile.Name(), minio.GetObjectOptions{})
+//     err = s.minioClient.FGetObject(fmt.Sprintf("master.%s", repo1), "file", outputFile.Name(), minio.GetObjectOptions{})
 //     require.True(t, err == nil || err == io.EOF, fmt.Sprintf("unexpected error: %s", err))
 
 //     // compare the files and ensure they're the same
@@ -146,65 +154,65 @@ func workerPutObjectInputRepo(t *testing.T, s *workerTestState) {
 //     require.Equal(t, inputFileHash, outputFileHash)
 // }
 
-// func workerGetObjectNoRepo(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+// func workerGetObjectNoRepo(t *testing.T, s *workerTestState) {
 //     repo := tu.UniqueString("testgetobjectnorepo")
-//     _, err := getObject(t, minioClient, repo, "master", "file")
+//     _, err := getObject(t, s.minioClient, repo, "master", "file")
 //     bucketNotFoundError(t, err)
 // }
 
-// func workerMakeBucket(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+// func workerMakeBucket(t *testing.T, s *workerTestState) {
 //     repo := tu.UniqueString("testmakebucket")
-//     require.NoError(t, minioClient.MakeBucket(fmt.Sprintf("master.%s", repo), ""))
+//     require.NoError(t, s.minioClient.MakeBucket(fmt.Sprintf("master.%s", repo), ""))
 
-//     repoInfo, err := pachClient.InspectRepo(repo)
+//     repoInfo, err := s.pachClient.InspectRepo(repo)
 //     require.NoError(t, err)
 //     require.Equal(t, len(repoInfo.Branches), 1)
 //     require.Equal(t, repoInfo.Branches[0].Name, "master")
 // }
 
-// func workerBucketExists(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+// func workerBucketExists(t *testing.T, s *workerTestState) {
 //     repo := tu.UniqueString("testbucketexists")
 
-//     exists, err := minioClient.BucketExists(fmt.Sprintf("master.%s", repo))
+//     exists, err := s.minioClient.BucketExists(fmt.Sprintf("master.%s", repo))
 //     require.NoError(t, err)
 //     require.False(t, exists)
 
 //     // repo exists, but branch doesn't: should be false
-//     require.NoError(t, pachClient.CreateRepo(repo))
-//     exists, err = minioClient.BucketExists(fmt.Sprintf("master.%s", repo))
+//     require.NoError(t, s.pachClient.CreateRepo(repo))
+//     exists, err = s.minioClient.BucketExists(fmt.Sprintf("master.%s", repo))
 //     require.NoError(t, err)
 //     require.False(t, exists)
 
 //     // repo and branch exists: should be true
-//     require.NoError(t, pachClient.CreateBranch(repo, "master", "", nil))
-//     exists, err = minioClient.BucketExists(fmt.Sprintf("master.%s", repo))
+//     require.NoError(t, s.pachClient.CreateBranch(repo, "master", "", nil))
+//     exists, err = s.minioClient.BucketExists(fmt.Sprintf("master.%s", repo))
 //     require.NoError(t, err)
 //     require.True(t, exists)
 
 //     // repo exists, but branch doesn't: should be false
-//     exists, err = minioClient.BucketExists(fmt.Sprintf("branch.%s", repo))
+//     exists, err = s.minioClient.BucketExists(fmt.Sprintf("branch.%s", repo))
 //     require.NoError(t, err)
 //     require.False(t, exists)
 
 //     // repo and branch exists: should be true
-//     require.NoError(t, pachClient.CreateBranch(repo, "branch", "", nil))
-//     exists, err = minioClient.BucketExists(fmt.Sprintf("branch.%s", repo))
+//     require.NoError(t, s.pachClient.CreateBranch(repo, "branch", "", nil))
+//     exists, err = s.minioClient.BucketExists(fmt.Sprintf("branch.%s", repo))
 //     require.NoError(t, err)
 //     require.True(t, exists)
 // }
 
-// func workerRemoveBucket(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+// func workerRemoveBucket(t *testing.T, s *workerTestState) {
 //     repo := tu.UniqueString("testremovebucket")
 
-//     require.NoError(t, pachClient.CreateRepo(repo))
-//     require.NoError(t, pachClient.CreateBranch(repo, "master", "", nil))
-//     require.NoError(t, pachClient.CreateBranch(repo, "branch", "", nil))
+//     require.NoError(t, s.pachClient.CreateRepo(repo))
+//     require.NoError(t, s.pachClient.CreateBranch(repo, "master", "", nil))
+//     require.NoError(t, s.pachClient.CreateBranch(repo, "branch", "", nil))
 
-//     require.NoError(t, minioClient.RemoveBucket(fmt.Sprintf("master.%s", repo)))
-//     require.NoError(t, minioClient.RemoveBucket(fmt.Sprintf("branch.%s", repo)))
+//     require.NoError(t, s.minioClient.RemoveBucket(fmt.Sprintf("master.%s", repo)))
+//     require.NoError(t, s.minioClient.RemoveBucket(fmt.Sprintf("branch.%s", repo)))
 // }
 
-// func workerListObjectsPaginated(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+// func workerListObjectsPaginated(t *testing.T, s *workerTestState) {
 //     // create a bunch of files - enough to require the use of paginated
 //     // requests when browsing all files. One file will be included on a
 //     // separate branch to ensure it's not returned when querying against the
@@ -214,22 +222,22 @@ func workerPutObjectInputRepo(t *testing.T, s *workerTestState) {
 //     // each to tolerate the node time not being the same as the host time.
 //     startTime := time.Now().Add(time.Duration(-5) * time.Minute)
 //     repo := tu.UniqueString("testlistobjectspaginated")
-//     require.NoError(t, pachClient.CreateRepo(repo))
-//     commit, err := pachClient.StartCommit(repo, "master")
+//     require.NoError(t, s.pachClient.CreateRepo(repo))
+//     commit, err := s.pachClient.StartCommit(repo, "master")
 //     require.NoError(t, err)
 //     for i := 0; i <= 1000; i++ {
-//         putListFileTestObject(t, pachClient, repo, commit.ID, "", i)
+//         putListFileTestObject(t, s.pachClient, repo, commit.ID, "", i)
 //     }
 //     for i := 0; i < 10; i++ {
-//         putListFileTestObject(t, pachClient, repo, commit.ID, "dir/", i)
+//         putListFileTestObject(t, s.pachClient, repo, commit.ID, "dir/", i)
 //         require.NoError(t, err)
 //     }
-//     putListFileTestObject(t, pachClient, repo, "branch", "", 1001)
-//     require.NoError(t, pachClient.FinishCommit(repo, commit.ID))
+//     putListFileTestObject(t, s.pachClient, repo, "branch", "", 1001)
+//     require.NoError(t, s.pachClient.FinishCommit(repo, commit.ID))
 //     endTime := time.Now().Add(time.Duration(5) * time.Minute)
 
 //     // Request that will list all files in master's root
-//     ch := minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "", false, make(chan struct{}))
+//     ch := s.minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "", false, make(chan struct{}))
 //     expectedFiles := []string{}
 //     for i := 0; i <= 1000; i++ {
 //         expectedFiles = append(expectedFiles, fmt.Sprintf("%d", i))
@@ -237,7 +245,7 @@ func workerPutObjectInputRepo(t *testing.T, s *workerTestState) {
 //     checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{"dir/"})
 
 //     // Request that will list all files in master starting with 1
-//     ch = minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "1", false, make(chan struct{}))
+//     ch = s.minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "1", false, make(chan struct{}))
 //     expectedFiles = []string{}
 //     for i := 0; i <= 1000; i++ {
 //         file := fmt.Sprintf("%d", i)
@@ -248,7 +256,7 @@ func workerPutObjectInputRepo(t *testing.T, s *workerTestState) {
 //     checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
 
 //     // Request that will list all files in a directory in master
-//     ch = minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "dir/", false, make(chan struct{}))
+//     ch = s.minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "dir/", false, make(chan struct{}))
 //     expectedFiles = []string{}
 //     for i := 0; i < 10; i++ {
 //         expectedFiles = append(expectedFiles, fmt.Sprintf("dir/%d", i))
@@ -256,47 +264,47 @@ func workerPutObjectInputRepo(t *testing.T, s *workerTestState) {
 //     checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
 // }
 
-// func workerListObjectsRecursive(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+// func workerListObjectsRecursive(t *testing.T, s *workerTestState) {
 //     // `startTime` and `endTime` will be used to ensure that an object's
 //     // `LastModified` date is correct. A few minutes are subtracted/added to
 //     // each to tolerate the node time not being the same as the host time.
 //     startTime := time.Now().Add(time.Duration(-5) * time.Minute)
 //     repo := tu.UniqueString("testlistobjectsrecursive")
-//     require.NoError(t, pachClient.CreateRepo(repo))
-//     require.NoError(t, pachClient.CreateBranch(repo, "branch", "", nil))
-//     require.NoError(t, pachClient.CreateBranch(repo, "emptybranch", "", nil))
-//     commit, err := pachClient.StartCommit(repo, "master")
+//     require.NoError(t, s.pachClient.CreateRepo(repo))
+//     require.NoError(t, s.pachClient.CreateBranch(repo, "branch", "", nil))
+//     require.NoError(t, s.pachClient.CreateBranch(repo, "emptybranch", "", nil))
+//     commit, err := s.pachClient.StartCommit(repo, "master")
 //     require.NoError(t, err)
-//     putListFileTestObject(t, pachClient, repo, commit.ID, "", 0)
-//     putListFileTestObject(t, pachClient, repo, commit.ID, "rootdir/", 1)
-//     putListFileTestObject(t, pachClient, repo, commit.ID, "rootdir/subdir/", 2)
-//     putListFileTestObject(t, pachClient, repo, "branch", "", 3)
-//     require.NoError(t, pachClient.FinishCommit(repo, commit.ID))
+//     putListFileTestObject(t, s.pachClient, repo, commit.ID, "", 0)
+//     putListFileTestObject(t, s.pachClient, repo, commit.ID, "rootdir/", 1)
+//     putListFileTestObject(t, s.pachClient, repo, commit.ID, "rootdir/subdir/", 2)
+//     putListFileTestObject(t, s.pachClient, repo, "branch", "", 3)
+//     require.NoError(t, s.pachClient.FinishCommit(repo, commit.ID))
 //     endTime := time.Now().Add(time.Duration(5) * time.Minute)
 
 //     // Request that will list all files in master
 //     expectedFiles := []string{"0", "rootdir/1", "rootdir/subdir/2"}
-//     ch := minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "", true, make(chan struct{}))
+//     ch := s.minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "", true, make(chan struct{}))
 //     checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
 
 //     // Requests that will list all files in rootdir
 //     expectedFiles = []string{"rootdir/1", "rootdir/subdir/2"}
-//     ch = minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "r", true, make(chan struct{}))
+//     ch = s.minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "r", true, make(chan struct{}))
 //     checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
-//     ch = minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir", true, make(chan struct{}))
+//     ch = s.minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir", true, make(chan struct{}))
 //     checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
-//     ch = minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/", true, make(chan struct{}))
+//     ch = s.minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/", true, make(chan struct{}))
 //     checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
 
 //     // Requests that will list all files in subdir
 //     expectedFiles = []string{"rootdir/subdir/2"}
-//     ch = minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/s", true, make(chan struct{}))
+//     ch = s.minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/s", true, make(chan struct{}))
 //     checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
-//     ch = minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/subdir", true, make(chan struct{}))
+//     ch = s.minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/subdir", true, make(chan struct{}))
 //     checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
-//     ch = minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/subdir/", true, make(chan struct{}))
+//     ch = s.minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/subdir/", true, make(chan struct{}))
 //     checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
-//     ch = minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/subdir/2", true, make(chan struct{}))
+//     ch = s.minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/subdir/2", true, make(chan struct{}))
 //     checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
 // }
 
@@ -380,29 +388,32 @@ func TestWorkerDriver(t *testing.T) {
         t.Run("PutObjectInputRepo", func(t *testing.T) {
             workerPutObjectInputRepo(t, s)
         })
-        // t.Run("RemoveObject", func(t *testing.T) {
-        //     workerRemoveObject(t, pachClient, minioClient)
-        // })
+        t.Run("RemoveObject", func(t *testing.T) {
+            workerRemoveObject(t, s)
+        })
+        t.Run("RemoveObjectInputRepo", func(t *testing.T) {
+            workerRemoveObjectInputRepo(t, s)
+        })
         // t.Run("LargeObjects", func(t *testing.T) {
-        //     workerLargeObjects(t, pachClient, minioClient)
+        //     workerLargeObjects(t, s)
         // })
         // t.Run("GetObjectNoRepo", func(t *testing.T) {
-        //     workerGetObjectNoRepo(t, pachClient, minioClient)
+        //     workerGetObjectNoRepo(t, s)
         // })
         // t.Run("MakeBucket", func(t *testing.T) {
-        //     workerMakeBucket(t, pachClient, minioClient)
+        //     workerMakeBucket(t, s)
         // })
         // t.Run("BucketExists", func(t *testing.T) {
-        //     workerBucketExists(t, pachClient, minioClient)
+        //     workerBucketExists(t, s)
         // })
         // t.Run("RemoveBucket", func(t *testing.T) {
-        //     workerRemoveBucket(t, pachClient, minioClient)
+        //     workerRemoveBucket(t, s)
         // })
         // t.Run("ListObjectsPaginated", func(t *testing.T) {
-        //     workerListObjectsPaginated(t, pachClient, minioClient)
+        //     workerListObjectsPaginated(t, s)
         // })
         // t.Run("ListObjectsRecursive", func(t *testing.T) {
-        //     workerListObjectsRecursive(t, pachClient, minioClient)
+        //     workerListObjectsRecursive(t, s)
         // })
     })
 }
