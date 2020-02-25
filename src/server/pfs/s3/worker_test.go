@@ -138,36 +138,19 @@ func workerMakeBucket(t *testing.T, s *workerTestState) {
     notImplementedError(t, s.minioClient.MakeBucket(repo, ""))
 }
 
-// func workerBucketExists(t *testing.T, s *workerTestState) {
-//     repo := tu.UniqueString("testbucketexists")
+func workerBucketExists(t *testing.T, s *workerTestState) {
+    exists, err := s.minioClient.BucketExists("in1")
+    require.NoError(t, err)
+    require.True(t, exists)
 
-//     exists, err := s.minioClient.BucketExists(fmt.Sprintf("master.%s", repo))
-//     require.NoError(t, err)
-//     require.False(t, exists)
+    exists, err = s.minioClient.BucketExists("out")
+    require.NoError(t, err)
+    require.True(t, exists)
 
-//     // repo exists, but branch doesn't: should be false
-//     require.NoError(t, s.pachClient.CreateRepo(repo))
-//     exists, err = s.minioClient.BucketExists(fmt.Sprintf("master.%s", repo))
-//     require.NoError(t, err)
-//     require.False(t, exists)
-
-//     // repo and branch exists: should be true
-//     require.NoError(t, s.pachClient.CreateBranch(repo, "master", "", nil))
-//     exists, err = s.minioClient.BucketExists(fmt.Sprintf("master.%s", repo))
-//     require.NoError(t, err)
-//     require.True(t, exists)
-
-//     // repo exists, but branch doesn't: should be false
-//     exists, err = s.minioClient.BucketExists(fmt.Sprintf("branch.%s", repo))
-//     require.NoError(t, err)
-//     require.False(t, exists)
-
-//     // repo and branch exists: should be true
-//     require.NoError(t, s.pachClient.CreateBranch(repo, "branch", "", nil))
-//     exists, err = s.minioClient.BucketExists(fmt.Sprintf("branch.%s", repo))
-//     require.NoError(t, err)
-//     require.True(t, exists)
-// }
+    exists, err = s.minioClient.BucketExists("foobar")
+    require.NoError(t, err)
+    require.False(t, exists)
+}
 
 // func workerRemoveBucket(t *testing.T, s *workerTestState) {
 //     repo := tu.UniqueString("testremovebucket")
@@ -368,9 +351,9 @@ func TestWorkerDriver(t *testing.T) {
         t.Run("MakeBucket", func(t *testing.T) {
             workerMakeBucket(t, s)
         })
-        // t.Run("BucketExists", func(t *testing.T) {
-        //     workerBucketExists(t, s)
-        // })
+        t.Run("BucketExists", func(t *testing.T) {
+            workerBucketExists(t, s)
+        })
         // t.Run("RemoveBucket", func(t *testing.T) {
         //     workerRemoveBucket(t, s)
         // })
