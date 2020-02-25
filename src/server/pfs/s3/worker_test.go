@@ -152,16 +152,10 @@ func workerBucketExists(t *testing.T, s *workerTestState) {
     require.False(t, exists)
 }
 
-// func workerRemoveBucket(t *testing.T, s *workerTestState) {
-//     repo := tu.UniqueString("testremovebucket")
-
-//     require.NoError(t, s.pachClient.CreateRepo(repo))
-//     require.NoError(t, s.pachClient.CreateBranch(repo, "master", "", nil))
-//     require.NoError(t, s.pachClient.CreateBranch(repo, "branch", "", nil))
-
-//     require.NoError(t, s.minioClient.RemoveBucket(fmt.Sprintf("master.%s", repo)))
-//     require.NoError(t, s.minioClient.RemoveBucket(fmt.Sprintf("branch.%s", repo)))
-// }
+func workerRemoveBucket(t *testing.T, s *workerTestState) {
+    notImplementedError(t, s.minioClient.RemoveBucket("in1"))
+    notImplementedError(t, s.minioClient.RemoveBucket("out"))
+}
 
 // func workerListObjectsPaginated(t *testing.T, s *workerTestState) {
 //     // create a bunch of files - enough to require the use of paginated
@@ -354,9 +348,9 @@ func TestWorkerDriver(t *testing.T) {
         t.Run("BucketExists", func(t *testing.T) {
             workerBucketExists(t, s)
         })
-        // t.Run("RemoveBucket", func(t *testing.T) {
-        //     workerRemoveBucket(t, s)
-        // })
+        t.Run("RemoveBucket", func(t *testing.T) {
+            workerRemoveBucket(t, s)
+        })
         // t.Run("ListObjectsPaginated", func(t *testing.T) {
         //     workerListObjectsPaginated(t, s)
         // })
