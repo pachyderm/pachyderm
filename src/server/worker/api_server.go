@@ -24,7 +24,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/LK4D4/joincontext"
-	etcd "github.com/coreos/etcd/clientv3"
+	etcd "go.etcd.io/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"

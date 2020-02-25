@@ -11,6 +11,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"runtime/pprof"
 	"sort"
 	"strconv"
 	"strings"
@@ -6172,4 +6173,46 @@ func TestFuzzProvenance(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err)
+}
+
+func TestEtcdLoad(t *testing.T) {
+	t.Parallel()
+	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+		require.NoError(t, os.MkdirAll("profiles", 0775))
+		c := env.PachClient
+		numRepos := 100
+		input := ""
+		for i := 0; i < numRepos; i++ {
+			repo := fmt.Sprintf("%d", i)
+			require.NoError(t, c.CreateRepo(repo))
+			if input != "" {
+				require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", []*pfs.Branch{pclient.NewBranch(input, "master")}))
+			}
+			input = repo
+		}
+		numCommits := 200
+		for i := 0; i < numCommits; i++ {
+			_, err := c.StartCommit("0", "master")
+			require.NoError(t, err)
+			for j := 0; j < numRepos; j++ {
+				require.NoError(t, c.FinishCommit(fmt.Sprintf("%d", j), "master"))
+			}
+			require.NoError(t, writeHeapProfile(fmt.Sprintf("profiles/commit-%d", i)))
+		}
+		return nil
+	})
+	require.NoError(t, err)
+}
+
+func writeHeapProfile(name string) (retErr error) {
+	f, err := os.Create(name)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := f.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	return pprof.WriteHeapProfile(f)
 }

@@ -1,6 +1,6 @@
 // Package watch implements better watch semantics on top of etcd.
 // See this issue for the reasoning behind the package:
-// https://github.com/coreos/etcd/issues/7362
+// https://go.etcd.io/etcd/issues/7362
 package watch
 
 import (
@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"reflect"
 
-	etcd "github.com/coreos/etcd/clientv3"
+	etcd "go.etcd.io/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
 )
 

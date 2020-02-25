@@ -49,7 +49,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 
 	"github.com/brianvoe/gofakeit"
-	etcd "github.com/coreos/etcd/clientv3"
+	etcd "go.etcd.io/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"

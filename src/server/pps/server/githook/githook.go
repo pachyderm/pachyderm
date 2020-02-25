@@ -18,7 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 
-	etcd "github.com/coreos/etcd/clientv3"
+	etcd "go.etcd.io/etcd/clientv3"
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"gopkg.in/go-playground/webhooks.v5/github"
