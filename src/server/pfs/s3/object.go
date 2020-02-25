@@ -24,19 +24,19 @@ func (c *controller) GetObject(r *http.Request, bucketName, file, version string
 		return nil, invalidFilePathError(r)
 	}
 
-	bucket, err := c.driver.Bucket(pc, r, bucketName)
+	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {
 		return nil, err
 	}
-	bucketCaps, err := c.driver.BucketCapabilities(pc, r, bucket)
+	bucketCaps, err := c.driver.bucketCapabilities(pc, r, bucket)
 	if err != nil {
 		return nil, err
 	}
-	if !bucketCaps.Readable {
+	if !bucketCaps.readable {
 		return nil, s2.NoSuchKeyError(r)
 	}
 
-	if bucketCaps.HistoricVersions && version != "" {
+	if bucketCaps.historicVersions && version != "" {
 		commitInfo, err := pc.InspectCommit(bucket.Repo, version)
 		if err != nil {
 			return nil, maybeNotFoundError(r, err)
@@ -84,15 +84,15 @@ func (c *controller) PutObject(r *http.Request, bucketName, file string, reader 
 		return nil, invalidFilePathError(r)
 	}
 
-	bucket, err := c.driver.Bucket(pc, r, bucketName)
+	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {
 		return nil, err
 	}
-	bucketCaps, err := c.driver.BucketCapabilities(pc, r, bucket)
+	bucketCaps, err := c.driver.bucketCapabilities(pc, r, bucket)
 	if err != nil {
 		return nil, err
 	}
-	if !bucketCaps.Writable {
+	if !bucketCaps.writable {
 		return nil, s2.NotImplementedError(r)
 	}
 
@@ -132,15 +132,15 @@ func (c *controller) DeleteObject(r *http.Request, bucketName, file, version str
 		return nil, s2.NotImplementedError(r)
 	}
 
-	bucket, err := c.driver.Bucket(pc, r, bucketName)
+	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {
 		return nil, err
 	}
-	bucketCaps, err := c.driver.BucketCapabilities(pc, r, bucket)
+	bucketCaps, err := c.driver.bucketCapabilities(pc, r, bucket)
 	if err != nil {
 		return nil, err
 	}
-	if !bucketCaps.Writable {
+	if !bucketCaps.writable {
 		return nil, s2.NotImplementedError(r)
 	}
 

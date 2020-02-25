@@ -18,18 +18,17 @@ type Bucket struct {
 	Name   string
 }
 
-type BucketCapabilities struct {
-	Readable         bool
-	Writable         bool
-	HistoricVersions bool
+type bucketCapabilities struct {
+	readable         bool
+	writable         bool
+	historicVersions bool
 }
 
 type Driver interface {
-	// TODO(ys): make these methods private?
-	ListBuckets(pc *client.APIClient, r *http.Request, buckets *[]s2.Bucket) error
-	Bucket(pc *client.APIClient, r *http.Request, name string) (*Bucket, error)
-	BucketCapabilities(pc *client.APIClient, r *http.Request, bucket *Bucket) (BucketCapabilities, error)
-	CanModifyBuckets() bool
+	listBuckets(pc *client.APIClient, r *http.Request, buckets *[]s2.Bucket) error
+	bucket(pc *client.APIClient, r *http.Request, name string) (*Bucket, error)
+	bucketCapabilities(pc *client.APIClient, r *http.Request, bucket *Bucket) (bucketCapabilities, error)
+	canModifyBuckets() bool
 }
 
 type MasterDriver struct{}
@@ -38,7 +37,7 @@ func NewMasterDriver() *MasterDriver {
 	return &MasterDriver{}
 }
 
-func (d *MasterDriver) ListBuckets(pc *client.APIClient, r *http.Request, buckets *[]s2.Bucket) error {
+func (d *MasterDriver) listBuckets(pc *client.APIClient, r *http.Request, buckets *[]s2.Bucket) error {
 	repos, err := pc.ListRepo()
 	if err != nil {
 		return err
@@ -60,7 +59,7 @@ func (d *MasterDriver) ListBuckets(pc *client.APIClient, r *http.Request, bucket
 	return nil
 }
 
-func (d *MasterDriver) Bucket(pc *client.APIClient, r *http.Request, name string) (*Bucket, error) {
+func (d *MasterDriver) bucket(pc *client.APIClient, r *http.Request, name string) (*Bucket, error) {
 	parts := strings.SplitN(name, ".", 2)
 	if len(parts) != 2 {
 		return nil, s2.InvalidBucketNameError(r)
@@ -74,20 +73,20 @@ func (d *MasterDriver) Bucket(pc *client.APIClient, r *http.Request, name string
 	}, nil
 }
 
-func (d *MasterDriver) BucketCapabilities(pc *client.APIClient, r *http.Request, bucket *Bucket) (BucketCapabilities, error) {
+func (d *MasterDriver) bucketCapabilities(pc *client.APIClient, r *http.Request, bucket *Bucket) (bucketCapabilities, error) {
 	branchInfo, err := pc.InspectBranch(bucket.Repo, bucket.Commit)
 	if err != nil {
-		return BucketCapabilities{}, maybeNotFoundError(r, err)
+		return bucketCapabilities{}, maybeNotFoundError(r, err)
 	}
 
-	return BucketCapabilities{
-		Readable:         branchInfo.Head != nil,
-		Writable:         true,
-		HistoricVersions: true,
+	return bucketCapabilities{
+		readable:         branchInfo.Head != nil,
+		writable:         true,
+		historicVersions: true,
 	}, nil
 }
 
-func (d *MasterDriver) CanModifyBuckets() bool {
+func (d *MasterDriver) canModifyBuckets() bool {
 	return true
 }
 
@@ -115,7 +114,7 @@ func NewWorkerDriver(inputBuckets []*Bucket, outputBucket *Bucket) *WorkerDriver
 	}
 }
 
-func (d *WorkerDriver) ListBuckets(pc *client.APIClient, r *http.Request, buckets *[]s2.Bucket) error {
+func (d *WorkerDriver) listBuckets(pc *client.APIClient, r *http.Request, buckets *[]s2.Bucket) error {
 	repos, err := pc.ListRepo()
 	if err != nil {
 		return err
@@ -143,7 +142,7 @@ func (d *WorkerDriver) ListBuckets(pc *client.APIClient, r *http.Request, bucket
 	return nil
 }
 
-func (d *WorkerDriver) Bucket(pc *client.APIClient, r *http.Request, name string) (*Bucket, error) {
+func (d *WorkerDriver) bucket(pc *client.APIClient, r *http.Request, name string) (*Bucket, error) {
 	bucket := d.namesMap[name]
 	if bucket == nil {
 		return &Bucket{
@@ -153,23 +152,23 @@ func (d *WorkerDriver) Bucket(pc *client.APIClient, r *http.Request, name string
 	return bucket, nil
 }
 
-func (d *WorkerDriver) BucketCapabilities(pc *client.APIClient, r *http.Request, bucket *Bucket) (BucketCapabilities, error) {
+func (d *WorkerDriver) bucketCapabilities(pc *client.APIClient, r *http.Request, bucket *Bucket) (bucketCapabilities, error) {
 	if bucket.Repo == "" || bucket.Commit == "" {
-		return BucketCapabilities{}, s2.NoSuchBucketError(r)
+		return bucketCapabilities{}, s2.NoSuchBucketError(r)
 	} else if bucket == d.outputBucket {
-		return BucketCapabilities{
-			Readable:         false,
-			Writable:         true,
-			HistoricVersions: false,
+		return bucketCapabilities{
+			readable:         false,
+			writable:         true,
+			historicVersions: false,
 		}, nil
 	}
-	return BucketCapabilities{
-		Readable:         true,
-		Writable:         false,
-		HistoricVersions: false,
+	return bucketCapabilities{
+		readable:         true,
+		writable:         false,
+		historicVersions: false,
 	}, nil
 }
 
-func (d *WorkerDriver) CanModifyBuckets() bool {
+func (d *WorkerDriver) canModifyBuckets() bool {
 	return false
 }

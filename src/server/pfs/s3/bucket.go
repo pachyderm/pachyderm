@@ -45,11 +45,11 @@ func (c *controller) GetLocation(r *http.Request, bucketName string) (string, er
 		return "", err
 	}
 
-	bucket, err := c.driver.Bucket(pc, r, bucketName)
+	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {
 		return "", err
 	}
-	_, err = c.driver.BucketCapabilities(pc, r, bucket)
+	_, err = c.driver.bucketCapabilities(pc, r, bucket)
 	if err != nil {
 		return "", err
 	}
@@ -68,11 +68,11 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 		return nil, invalidDelimiterError(r)
 	}
 
-	bucket, err := c.driver.Bucket(pc, r, bucketName)
+	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {
 		return nil, err
 	}
-	bucketCaps, err := c.driver.BucketCapabilities(pc, r, bucket)
+	bucketCaps, err := c.driver.bucketCapabilities(pc, r, bucket)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 		CommonPrefixes: []s2.CommonPrefixes{},
 	}
 
-	if !bucketCaps.Readable {
+	if !bucketCaps.readable {
 		// serve empty results if we can't read the bucket; this helps with s3
 		// conformance
 		return &result, nil
@@ -144,7 +144,7 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 }
 
 func (c *controller) CreateBucket(r *http.Request, bucketName string) error {
-	if !c.driver.CanModifyBuckets() {
+	if !c.driver.canModifyBuckets() {
 		return s2.NotImplementedError(r)
 	}
 
@@ -154,7 +154,7 @@ func (c *controller) CreateBucket(r *http.Request, bucketName string) error {
 		return err
 	}
 
-	bucket, err := c.driver.Bucket(pc, r, bucketName)
+	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {
 		return err
 	}
@@ -192,7 +192,7 @@ func (c *controller) CreateBucket(r *http.Request, bucketName string) error {
 }
 
 func (c *controller) DeleteBucket(r *http.Request, bucketName string) error {
-	if !c.driver.CanModifyBuckets() {
+	if !c.driver.canModifyBuckets() {
 		return s2.NotImplementedError(r)
 	}
 
@@ -202,7 +202,7 @@ func (c *controller) DeleteBucket(r *http.Request, bucketName string) error {
 		return err
 	}
 
-	bucket, err := c.driver.Bucket(pc, r, bucketName)
+	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {
 		return err
 	}
@@ -265,16 +265,16 @@ func (c *controller) GetBucketVersioning(r *http.Request, bucketName string) (st
 		return "", err
 	}
 
-	bucket, err := c.driver.Bucket(pc, r, bucketName)
+	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {
 		return "", err
 	}
-	bucketCaps, err := c.driver.BucketCapabilities(pc, r, bucket)
+	bucketCaps, err := c.driver.bucketCapabilities(pc, r, bucket)
 	if err != nil {
 		return "", err
 	}
 
-	if bucketCaps.HistoricVersions {
+	if bucketCaps.historicVersions {
 		return s2.VersioningEnabled, nil
 	}
 	return s2.VersioningDisabled, nil

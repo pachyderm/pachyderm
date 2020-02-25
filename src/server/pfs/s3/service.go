@@ -18,7 +18,7 @@ func (c *controller) ListBuckets(r *http.Request) (*s2.ListBucketsResult, error)
 		Owner:   &defaultUser,
 		Buckets: []s2.Bucket{},
 	}
-	if err = c.driver.ListBuckets(pc, r, &result.Buckets); err != nil {
+	if err = c.driver.listBuckets(pc, r, &result.Buckets); err != nil {
 		return nil, err
 	}
 
