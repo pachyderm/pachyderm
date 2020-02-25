@@ -29,7 +29,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
-	pfs_sync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 )
 
@@ -713,7 +712,9 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 			}
 		}
 		if jobInfo.EnableStats {
-			if _, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+			if jobInfo.StatsCommit == nil {
+				logger.Logf("stats are enabled, but the job has a nil stats commit")
+			} else if _, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
 				Commit:    jobInfo.StatsCommit,
 				Trees:     statsTrees,
 				SizeBytes: statsSize,
@@ -854,7 +855,7 @@ func (a *APIServer) egress(pachClient *client.APIClient, logger *taggedLogger, j
 			if err != nil {
 				return err
 			}
-			if err := pfs_sync.PushObj(pachClient, jobInfo.OutputCommit, objClient, url.Object); err != nil {
+			if err := filesync.PushObj(pachClient, jobInfo.OutputCommit, objClient, url.Object); err != nil {
 				return err
 			}
 			logger.Logf("Completed egress upload for job (%v), duration (%v)", jobInfo, time.Since(start))

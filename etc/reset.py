@@ -93,8 +93,7 @@ class BaseDriver:
         pass
 
 class DockerDesktopDriver(BaseDriver):
-    def update_config(self):
-        run("pachctl", "config", "update", "context", "--pachd-address=localhost:30650")
+    pass
 
 class MinikubeDriver(BaseDriver):
     def clear(self):

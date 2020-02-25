@@ -286,6 +286,9 @@ func getPachClientP(tb testing.TB, subject string, checkConfig bool) *client.API
 		}
 		if curAdminClient == nil {
 			tb.Fatal("cluster has no GitHub admins; no way for auth test to grant itself admin access")
+			// staticcheck does not realize tb.Fatal will not return (because it is an
+			// interface), see https://github.com/dominikh/go-tools/issues/635
+			return nil
 		}
 		_, err := curAdminClient.ModifyAdmins(curAdminClient.Ctx(), modifyRequest)
 		require.NoError(tb, err)
