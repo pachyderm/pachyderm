@@ -78,9 +78,7 @@ func workerPutObject(t *testing.T, s *workerTestState) {
 func workerPutObjectInputRepo(t *testing.T, s *workerTestState) {
     r := strings.NewReader("content1")
     _, err := s.minioClient.PutObject("in1", "file", r, int64(r.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
-    // notImplementedError(t, err) TODO(ys): use this method instead
-    require.YesError(t, err)
-	require.Equal(t, "This functionality is not implemented.", err.Error())
+    notImplementedError(t, err)
 }
 
 func workerRemoveObject(t *testing.T, s *workerTestState) {
@@ -94,9 +92,7 @@ func workerRemoveObject(t *testing.T, s *workerTestState) {
 
 func workerRemoveObjectInputRepo(t *testing.T, s *workerTestState) {
     err := s.minioClient.RemoveObject("in1", "file")
-    // notImplementedError(t, err) TODO(ys): use this method instead
-    require.YesError(t, err)
-	require.Equal(t, "This functionality is not implemented.", err.Error())
+    notImplementedError(t, err)
 }
 
 // Tests inserting and getting files over 64mb in size
@@ -137,21 +133,10 @@ func workerLargeObjects(t *testing.T, s *workerTestState) {
     keyNotFoundError(t, err)
 }
 
-// func workerGetObjectNoRepo(t *testing.T, s *workerTestState) {
-//     repo := tu.UniqueString("testgetobjectnorepo")
-//     _, err := getObject(t, s.minioClient, repo, "master", "file")
-//     bucketNotFoundError(t, err)
-// }
-
-// func workerMakeBucket(t *testing.T, s *workerTestState) {
-//     repo := tu.UniqueString("testmakebucket")
-//     require.NoError(t, s.minioClient.MakeBucket(fmt.Sprintf("master.%s", repo), ""))
-
-//     repoInfo, err := s.pachClient.InspectRepo(repo)
-//     require.NoError(t, err)
-//     require.Equal(t, len(repoInfo.Branches), 1)
-//     require.Equal(t, repoInfo.Branches[0].Name, "master")
-// }
+func workerMakeBucket(t *testing.T, s *workerTestState) {
+    repo := tu.UniqueString("testmakebucket")
+    notImplementedError(t, s.minioClient.MakeBucket(repo, ""))
+}
 
 // func workerBucketExists(t *testing.T, s *workerTestState) {
 //     repo := tu.UniqueString("testbucketexists")
@@ -380,12 +365,9 @@ func TestWorkerDriver(t *testing.T) {
         t.Run("LargeObjects", func(t *testing.T) {
             workerLargeObjects(t, s)
         })
-        // t.Run("GetObjectNoRepo", func(t *testing.T) {
-        //     workerGetObjectNoRepo(t, s)
-        // })
-        // t.Run("MakeBucket", func(t *testing.T) {
-        //     workerMakeBucket(t, s)
-        // })
+        t.Run("MakeBucket", func(t *testing.T) {
+            workerMakeBucket(t, s)
+        })
         // t.Run("BucketExists", func(t *testing.T) {
         //     workerBucketExists(t, s)
         // })
