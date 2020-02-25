@@ -1,6 +1,6 @@
 # Use Transactions
 
-!!! note "Summary"
+!!! note "TL;DR"
     Use transactions to run multiple Pachyderm commands
     simultaneously in one job run.
 
