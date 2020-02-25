@@ -6,14 +6,11 @@ package s3
 // names. Otherwise minio complains that the bucket name is not valid.
 
 import (
-	"crypto/md5"
 	"net"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
-	"path/filepath"
-	"sort"
 	"strings"
 	"testing"
 	"context"
@@ -25,125 +22,7 @@ import (
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
-var (
-	pachClient  *client.APIClient
-	minioClient *minio.Client
-)
-
-type TestClientFactory struct {}
-
-func (f *TestClientFactory) Client(authToken string) (*client.APIClient, error) {
-	c, err := client.NewForTest()
-	if err != nil {
-		return nil, err
-	}
-	if authToken != "" {
-		c.SetAuthToken(authToken)
-	}
-	return c, nil
-}
-
-func getObject(t *testing.T, repo, branch, file string) (string, error) {
-	t.Helper()
-
-	obj, err := minioClient.GetObject(fmt.Sprintf("%s.%s", branch, repo), file, minio.GetObjectOptions{})
-	if err != nil {
-		return "", err
-	}
-	defer func() { err = obj.Close() }()
-	bytes, err := ioutil.ReadAll(obj)
-	if err != nil {
-		return "", err
-	}
-	return string(bytes), err
-}
-
-func checkListObjects(t *testing.T, ch <-chan minio.ObjectInfo, startTime time.Time, endTime time.Time, expectedFiles []string, expectedDirs []string) {
-	t.Helper()
-
-	// sort expected files/dirs, as the S3 gateway should always return
-	// results in sorted order
-	sort.Strings(expectedFiles)
-	sort.Strings(expectedDirs)
-
-	actualFiles := []minio.ObjectInfo{}
-	actualDirs := []minio.ObjectInfo{}
-	for obj := range ch {
-		require.NoError(t, obj.Err)
-
-		if strings.HasSuffix(obj.Key, "/") {
-			actualDirs = append(actualDirs, obj)
-		} else {
-			actualFiles = append(actualFiles, obj)
-		}
-	}
-
-	require.Equal(t, len(expectedFiles), len(actualFiles), "unexpected number of files")
-	require.Equal(t, len(expectedDirs), len(actualDirs), "unexpected number of dirs")
-
-	for i, expectedFilename := range expectedFiles {
-		actualFile := actualFiles[i]
-		require.Equal(t, expectedFilename, actualFile.Key)
-		require.True(t, len(actualFile.ETag) > 0, fmt.Sprintf("unexpected empty etag for %s", expectedFilename))
-		expectedLen := int64(len(filepath.Base(expectedFilename)) + 1)
-		require.Equal(t, expectedLen, actualFile.Size, fmt.Sprintf("unexpected file length for %s", expectedFilename))
-		require.True(t, startTime.Before(actualFile.LastModified), fmt.Sprintf("unexpected last modified for %s", expectedFilename))
-		require.True(t, endTime.After(actualFile.LastModified), fmt.Sprintf("unexpected last modified for %s", expectedFilename))
-	}
-
-	for i, expectedDirname := range expectedDirs {
-		actualDir := actualDirs[i]
-		require.Equal(t, expectedDirname, actualDir.Key)
-		require.True(t, len(actualDir.ETag) == 0, fmt.Sprintf("unexpected etag for %s: %s", expectedDirname, actualDir.ETag))
-		require.Equal(t, int64(0), actualDir.Size)
-		require.True(t, actualDir.LastModified.IsZero(), fmt.Sprintf("unexpected last modified for %s", expectedDirname))
-	}
-}
-
-func putListFileTestObject(t *testing.T, repo string, commitID string, dir string, i int) {
-	t.Helper()
-	_, err := pachClient.PutFile(
-		repo,
-		commitID,
-		fmt.Sprintf("%s%d", dir, i),
-		strings.NewReader(fmt.Sprintf("%d\n", i)),
-	)
-	require.NoError(t, err)
-}
-
-func bucketNotFoundError(t *testing.T, err error) {
-	t.Helper()
-	require.YesError(t, err)
-	require.Equal(t, "The specified bucket does not exist.", err.Error())
-}
-
-func keyNotFoundError(t *testing.T, err error) {
-	t.Helper()
-	require.YesError(t, err)
-	require.Equal(t, "The specified key does not exist.", err.Error())
-}
-
-func fileHash(t *testing.T, name string) (int64, []byte) {
-	t.Helper()
-
-	f, err := os.Open(name)
-	require.NoError(t, err)
-
-	fi, err := f.Stat()
-	require.NoError(t, err)
-
-	hash := md5.New()
-	_, err = io.Copy(hash, f)
-	require.NoError(t, err)
-
-	// make sure it's not the hash of an empty string
-	hashSum := hash.Sum(nil)
-	require.NotEqual(t, hashSum, []byte{0xd4, 0x1d, 0x8c, 0xd9, 0x8f, 0x0, 0xb2, 0x4, 0xe9, 0x80, 0x9, 0x98, 0xec, 0xf8, 0x42, 0x7e})
-
-	return fi.Size(), hashSum
-}
-
-func testListBuckets(t *testing.T) {
+func testListBuckets(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	// `startTime` and `endTime` will be used to ensure that an object's
 	// `LastModified` date is correct. A few minutes are subtracted/added to
 	// each to tolerate the node time not being the same as the host time.
@@ -177,7 +56,7 @@ func testListBuckets(t *testing.T) {
 	require.True(t, hasBranch)
 }
 
-func testListBucketsBranchless(t *testing.T) {
+func testListBucketsBranchless(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo1 := tu.UniqueString("testlistbucketsbranchless1")
 	require.NoError(t, pachClient.CreateRepo(repo1))
 	repo2 := tu.UniqueString("testlistbucketsbranchless2")
@@ -192,30 +71,30 @@ func testListBucketsBranchless(t *testing.T) {
 	}
 }
 
-func testGetObject(t *testing.T) {
+func testGetObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testgetobject")
 	require.NoError(t, pachClient.CreateRepo(repo))
 	_, err := pachClient.PutFile(repo, "master", "file", strings.NewReader("content"))
 	require.NoError(t, err)
 
-	fetchedContent, err := getObject(t, repo, "master", "file")
+	fetchedContent, err := getObject(t, minioClient, repo, "master", "file")
 	require.NoError(t, err)
 	require.Equal(t, "content", fetchedContent)
 }
 
-func testGetObjectInBranch(t *testing.T) {
+func testGetObjectInBranch(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testgetobjectinbranch")
 	require.NoError(t, pachClient.CreateRepo(repo))
 	require.NoError(t, pachClient.CreateBranch(repo, "branch", "", nil))
 	_, err := pachClient.PutFile(repo, "branch", "file", strings.NewReader("content"))
 	require.NoError(t, err)
 
-	fetchedContent, err := getObject(t, repo, "branch", "file")
+	fetchedContent, err := getObject(t, minioClient, repo, "branch", "file")
 	require.NoError(t, err)
 	require.Equal(t, "content", fetchedContent)
 }
 
-func testStatObject(t *testing.T) {
+func testStatObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("teststatobject")
 	require.NoError(t, pachClient.CreateRepo(repo))
 	_, err := pachClient.PutFile(repo, "master", "file", strings.NewReader("content"))
@@ -238,7 +117,7 @@ func testStatObject(t *testing.T) {
 	require.Equal(t, int64(11), info.Size)
 }
 
-func testPutObject(t *testing.T) {
+func testPutObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testputobject")
 	require.NoError(t, pachClient.CreateRepo(repo))
 	require.NoError(t, pachClient.CreateBranch(repo, "branch", "", nil))
@@ -252,12 +131,12 @@ func testPutObject(t *testing.T) {
 	_, err = minioClient.PutObject(fmt.Sprintf("branch.%s", repo), "file", r2, int64(r2.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
 	require.NoError(t, err)
 
-	fetchedContent, err := getObject(t, repo, "branch", "file")
+	fetchedContent, err := getObject(t, minioClient, repo, "branch", "file")
 	require.NoError(t, err)
 	require.Equal(t, "content2", fetchedContent)
 }
 
-func testRemoveObject(t *testing.T) {
+func testRemoveObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testremoveobject")
 	require.NoError(t, pachClient.CreateRepo(repo))
 	_, err := pachClient.PutFile(repo, "master", "file", strings.NewReader("content"))
@@ -268,12 +147,12 @@ func testRemoveObject(t *testing.T) {
 	require.NoError(t, minioClient.RemoveObject(fmt.Sprintf("master.%s", repo), "file"))
 
 	// make sure the object no longer exists
-	_, err = getObject(t, repo, "master", "file")
+	_, err = getObject(t, minioClient, repo, "master", "file")
 	keyNotFoundError(t, err)
 }
 
 // Tests inserting and getting files over 64mb in size
-func testLargeObjects(t *testing.T) {
+func testLargeObjects(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	// test repos: repo1 exists, repo2 does not
 	repo1 := tu.UniqueString("testlargeobject1")
 	repo2 := tu.UniqueString("testlargeobject2")
@@ -324,30 +203,30 @@ func testLargeObjects(t *testing.T) {
 	require.Equal(t, inputFileHash, outputFileHash)
 }
 
-func testGetObjectNoHead(t *testing.T) {
+func testGetObjectNoHead(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testgetobjectnohead")
 	require.NoError(t, pachClient.CreateRepo(repo))
 	require.NoError(t, pachClient.CreateBranch(repo, "branch", "", nil))
 
-	_, err := getObject(t, repo, "branch", "file")
+	_, err := getObject(t, minioClient, repo, "branch", "file")
 	keyNotFoundError(t, err)
 }
 
-func testGetObjectNoBranch(t *testing.T) {
+func testGetObjectNoBranch(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testgetobjectnobranch")
 	require.NoError(t, pachClient.CreateRepo(repo))
 
-	_, err := getObject(t, repo, "branch", "file")
+	_, err := getObject(t, minioClient, repo, "branch", "file")
 	bucketNotFoundError(t, err)
 }
 
-func testGetObjectNoRepo(t *testing.T) {
+func testGetObjectNoRepo(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testgetobjectnorepo")
-	_, err := getObject(t, repo, "master", "file")
+	_, err := getObject(t, minioClient, repo, "master", "file")
 	bucketNotFoundError(t, err)
 }
 
-func testMakeBucket(t *testing.T) {
+func testMakeBucket(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testmakebucket")
 	require.NoError(t, minioClient.MakeBucket(fmt.Sprintf("master.%s", repo), ""))
 
@@ -357,7 +236,7 @@ func testMakeBucket(t *testing.T) {
 	require.Equal(t, repoInfo.Branches[0].Name, "master")
 }
 
-func testMakeBucketWithBranch(t *testing.T) {
+func testMakeBucketWithBranch(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testmakebucketwithbranch")
 	require.NoError(t, minioClient.MakeBucket(fmt.Sprintf("branch.%s", repo), ""))
 
@@ -367,14 +246,14 @@ func testMakeBucketWithBranch(t *testing.T) {
 	require.Equal(t, repoInfo.Branches[0].Name, "branch")
 }
 
-func testMakeBucketWithRegion(t *testing.T) {
+func testMakeBucketWithRegion(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testmakebucketwithregion")
 	require.NoError(t, minioClient.MakeBucket(fmt.Sprintf("master.%s", repo), "us-east-1"))
 	_, err := pachClient.InspectRepo(repo)
 	require.NoError(t, err)
 }
 
-func testMakeBucketRedundant(t *testing.T) {
+func testMakeBucketRedundant(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testmakebucketredundant")
 	require.NoError(t, minioClient.MakeBucket(fmt.Sprintf("master.%s", repo), ""))
 	err := minioClient.MakeBucket(fmt.Sprintf("master.%s", repo), "")
@@ -382,13 +261,13 @@ func testMakeBucketRedundant(t *testing.T) {
 	require.Equal(t, err.Error(), "The bucket you tried to create already exists, and you own it.")
 }
 
-func testMakeBucketDifferentBranches(t *testing.T) {
+func testMakeBucketDifferentBranches(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testmakebucketdifferentbranches")
 	require.NoError(t, minioClient.MakeBucket(fmt.Sprintf("master.%s", repo), ""))
 	require.NoError(t, minioClient.MakeBucket(fmt.Sprintf("branch.%s", repo), ""))
 }
 
-func testBucketExists(t *testing.T) {
+func testBucketExists(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testbucketexists")
 
 	exists, err := minioClient.BucketExists(fmt.Sprintf("master.%s", repo))
@@ -419,7 +298,7 @@ func testBucketExists(t *testing.T) {
 	require.True(t, exists)
 }
 
-func testRemoveBucket(t *testing.T) {
+func testRemoveBucket(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testremovebucket")
 
 	require.NoError(t, pachClient.CreateRepo(repo))
@@ -430,7 +309,7 @@ func testRemoveBucket(t *testing.T) {
 	require.NoError(t, minioClient.RemoveBucket(fmt.Sprintf("branch.%s", repo)))
 }
 
-func testRemoveBucketBranchless(t *testing.T) {
+func testRemoveBucketBranchless(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testremovebucketbranchless")
 
 	// should error out because the repo doesn't have a branch
@@ -438,7 +317,7 @@ func testRemoveBucketBranchless(t *testing.T) {
 	bucketNotFoundError(t, minioClient.RemoveBucket(fmt.Sprintf("master.%s", repo)))
 }
 
-func testListObjectsPaginated(t *testing.T) {
+func testListObjectsPaginated(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	// create a bunch of files - enough to require the use of paginated
 	// requests when browsing all files. One file will be included on a
 	// separate branch to ensure it's not returned when querying against the
@@ -452,13 +331,13 @@ func testListObjectsPaginated(t *testing.T) {
 	commit, err := pachClient.StartCommit(repo, "master")
 	require.NoError(t, err)
 	for i := 0; i <= 1000; i++ {
-		putListFileTestObject(t, repo, commit.ID, "", i)
+		putListFileTestObject(t, pachClient, repo, commit.ID, "", i)
 	}
 	for i := 0; i < 10; i++ {
-		putListFileTestObject(t, repo, commit.ID, "dir/", i)
+		putListFileTestObject(t, pachClient, repo, commit.ID, "dir/", i)
 		require.NoError(t, err)
 	}
-	putListFileTestObject(t, repo, "branch", "", 1001)
+	putListFileTestObject(t, pachClient, repo, "branch", "", 1001)
 	require.NoError(t, pachClient.FinishCommit(repo, commit.ID))
 	endTime := time.Now().Add(time.Duration(5) * time.Minute)
 
@@ -490,7 +369,7 @@ func testListObjectsPaginated(t *testing.T) {
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
 }
 
-func testListObjectsHeadlessBranch(t *testing.T) {
+func testListObjectsHeadlessBranch(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testlistobjectsheadlessbranch")
 	require.NoError(t, pachClient.CreateRepo(repo))
 	require.NoError(t, pachClient.CreateBranch(repo, "emptybranch", "", nil))
@@ -500,7 +379,7 @@ func testListObjectsHeadlessBranch(t *testing.T) {
 	checkListObjects(t, ch, time.Now(), time.Now(), []string{}, []string{})
 }
 
-func testListObjectsRecursive(t *testing.T) {
+func testListObjectsRecursive(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	// `startTime` and `endTime` will be used to ensure that an object's
 	// `LastModified` date is correct. A few minutes are subtracted/added to
 	// each to tolerate the node time not being the same as the host time.
@@ -511,10 +390,10 @@ func testListObjectsRecursive(t *testing.T) {
 	require.NoError(t, pachClient.CreateBranch(repo, "emptybranch", "", nil))
 	commit, err := pachClient.StartCommit(repo, "master")
 	require.NoError(t, err)
-	putListFileTestObject(t, repo, commit.ID, "", 0)
-	putListFileTestObject(t, repo, commit.ID, "rootdir/", 1)
-	putListFileTestObject(t, repo, commit.ID, "rootdir/subdir/", 2)
-	putListFileTestObject(t, repo, "branch", "", 3)
+	putListFileTestObject(t, pachClient, repo, commit.ID, "", 0)
+	putListFileTestObject(t, pachClient, repo, commit.ID, "rootdir/", 1)
+	putListFileTestObject(t, pachClient, repo, commit.ID, "rootdir/subdir/", 2)
+	putListFileTestObject(t, pachClient, repo, "branch", "", 3)
 	require.NoError(t, pachClient.FinishCommit(repo, commit.ID))
 	endTime := time.Now().Add(time.Duration(5) * time.Minute)
 
@@ -544,7 +423,7 @@ func testListObjectsRecursive(t *testing.T) {
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
 }
 
-func testAuthV2(t *testing.T) {
+func testAuthV2(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	// The other tests use auth V4, versus this which checks auth V2
 	minioClientV2, err := minio.NewV2("127.0.0.1:30600", "", "", false)
 	require.NoError(t, err)
@@ -571,35 +450,81 @@ func TestS3Gateway(t *testing.T) {
 
 	port := listener.Addr().(*net.TCPAddr).Port
 
-	pachClient, err = client.NewForTest()
+	pachClient, err := client.NewForTest()
 	require.NoError(t, err)
 
-	minioClient, err = minio.NewV4(fmt.Sprintf("127.0.0.1:%d", port), "", "", false)
+	minioClient, err := minio.NewV4(fmt.Sprintf("127.0.0.1:%d", port), "", "", false)
 	require.NoError(t, err)
 
-	t.Run("s3gateway", func(t *testing.T) {
-		t.Run("testListBuckets", testListBuckets)
-		t.Run("testListBucketsBranchless", testListBucketsBranchless)
-		t.Run("testGetObject", testGetObject)
-		t.Run("testGetObjectInBranch", testGetObjectInBranch)
-		t.Run("testStatObject", testStatObject)
-		t.Run("testPutObject", testPutObject)
-		t.Run("testRemoveObject", testRemoveObject)
-		t.Run("testLargeObjects", testLargeObjects)
-		t.Run("testGetObjectNoHead", testGetObjectNoHead)
-		t.Run("testGetObjectNoBranch", testGetObjectNoBranch)
-		t.Run("testGetObjectNoRepo", testGetObjectNoRepo)
-		t.Run("testMakeBucket", testMakeBucket)
-		t.Run("testMakeBucketWithBranch", testMakeBucketWithBranch)
-		t.Run("testMakeBucketWithRegion", testMakeBucketWithRegion)
-		t.Run("testMakeBucketRedundant", testMakeBucketRedundant)
-		t.Run("testMakeBucketDifferentBranches", testMakeBucketDifferentBranches)
-		t.Run("testBucketExists", testBucketExists)
-		t.Run("testRemoveBucket", testRemoveBucket)
-		t.Run("testRemoveBucketBranchless", testRemoveBucketBranchless)
-		t.Run("testListObjectsPaginated", testListObjectsPaginated)
-		t.Run("testListObjectsHeadlessBranch", testListObjectsHeadlessBranch)
-		t.Run("testListObjectsRecursive", testListObjectsRecursive)
-		t.Run("testAuthV2", testAuthV2)
+	t.Run("master", func(t *testing.T) {
+		t.Run("testListBuckets", func(t *testing.T) {
+			testListBuckets(t, pachClient, minioClient)
+		})
+		t.Run("testListBucketsBranchless", func(t *testing.T) {
+			testListBucketsBranchless(t, pachClient, minioClient)
+		})
+		t.Run("testGetObject", func(t *testing.T) {
+			testGetObject(t, pachClient, minioClient)
+		})
+		t.Run("testGetObjectInBranch", func(t *testing.T) {
+			testGetObjectInBranch(t, pachClient, minioClient)
+		})
+		t.Run("testStatObject", func(t *testing.T) {
+			testStatObject(t, pachClient, minioClient)
+		})
+		t.Run("testPutObject", func(t *testing.T) {
+			testPutObject(t, pachClient, minioClient)
+		})
+		t.Run("testRemoveObject", func(t *testing.T) {
+			testRemoveObject(t, pachClient, minioClient)
+		})
+		t.Run("testLargeObjects", func(t *testing.T) {
+			testLargeObjects(t, pachClient, minioClient)
+		})
+		t.Run("testGetObjectNoHead", func(t *testing.T) {
+			testGetObjectNoHead(t, pachClient, minioClient)
+		})
+		t.Run("testGetObjectNoBranch", func(t *testing.T) {
+			testGetObjectNoBranch(t, pachClient, minioClient)
+		})
+		t.Run("testGetObjectNoRepo", func(t *testing.T) {
+			testGetObjectNoRepo(t, pachClient, minioClient)
+		})
+		t.Run("testMakeBucket", func(t *testing.T) {
+			testMakeBucket(t, pachClient, minioClient)
+		})
+		t.Run("testMakeBucketWithBranch", func(t *testing.T) {
+			testMakeBucketWithBranch(t, pachClient, minioClient)
+		})
+		t.Run("testMakeBucketWithRegion", func(t *testing.T) {
+			testMakeBucketWithRegion(t, pachClient, minioClient)
+		})
+		t.Run("testMakeBucketRedundant", func(t *testing.T) {
+			testMakeBucketRedundant(t, pachClient, minioClient)
+		})
+		t.Run("testMakeBucketDifferentBranches", func(t *testing.T) {
+			testMakeBucketDifferentBranches(t, pachClient, minioClient)
+		})
+		t.Run("testBucketExists", func(t *testing.T) {
+			testBucketExists(t, pachClient, minioClient)
+		})
+		t.Run("testRemoveBucket", func(t *testing.T) {
+			testRemoveBucket(t, pachClient, minioClient)
+		})
+		t.Run("testRemoveBucketBranchless", func(t *testing.T) {
+			testRemoveBucketBranchless(t, pachClient, minioClient)
+		})
+		t.Run("testListObjectsPaginated", func(t *testing.T) {
+			testListObjectsPaginated(t, pachClient, minioClient)
+		})
+		t.Run("testListObjectsHeadlessBranch", func(t *testing.T) {
+			testListObjectsHeadlessBranch(t, pachClient, minioClient)
+		})
+		t.Run("testListObjectsRecursive", func(t *testing.T) {
+			testListObjectsRecursive(t, pachClient, minioClient)
+		})
+		t.Run("testAuthV2", func(t *testing.T) {
+			testAuthV2(t, pachClient, minioClient)
+		})
 	})
 }
