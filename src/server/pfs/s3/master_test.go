@@ -70,7 +70,7 @@ func masterGetObject(t *testing.T, pachClient *client.APIClient, minioClient *mi
 	_, err := pachClient.PutFile(repo, "master", "file", strings.NewReader("content"))
 	require.NoError(t, err)
 
-	fetchedContent, err := getObject(t, minioClient, repo, "master", "file")
+	fetchedContent, err := getObject(t, minioClient, fmt.Sprintf("master.%s", repo), "file")
 	require.NoError(t, err)
 	require.Equal(t, "content", fetchedContent)
 }
@@ -82,7 +82,7 @@ func masterGetObjectInBranch(t *testing.T, pachClient *client.APIClient, minioCl
 	_, err := pachClient.PutFile(repo, "branch", "file", strings.NewReader("content"))
 	require.NoError(t, err)
 
-	fetchedContent, err := getObject(t, minioClient, repo, "branch", "file")
+	fetchedContent, err := getObject(t, minioClient, fmt.Sprintf("branch.%s", repo), "file")
 	require.NoError(t, err)
 	require.Equal(t, "content", fetchedContent)
 }
@@ -124,7 +124,7 @@ func masterPutObject(t *testing.T, pachClient *client.APIClient, minioClient *mi
 	_, err = minioClient.PutObject(fmt.Sprintf("branch.%s", repo), "file", r2, int64(r2.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
 	require.NoError(t, err)
 
-	fetchedContent, err := getObject(t, minioClient, repo, "branch", "file")
+	fetchedContent, err := getObject(t, minioClient, fmt.Sprintf("branch.%s", repo), "file")
 	require.NoError(t, err)
 	require.Equal(t, "content2", fetchedContent)
 }
@@ -140,7 +140,7 @@ func masterRemoveObject(t *testing.T, pachClient *client.APIClient, minioClient 
 	require.NoError(t, minioClient.RemoveObject(fmt.Sprintf("master.%s", repo), "file"))
 
 	// make sure the object no longer exists
-	_, err = getObject(t, minioClient, repo, "master", "file")
+	_, err = getObject(t, minioClient, fmt.Sprintf("master.%s", repo), "file")
 	keyNotFoundError(t, err)
 }
 
@@ -201,7 +201,7 @@ func masterGetObjectNoHead(t *testing.T, pachClient *client.APIClient, minioClie
 	require.NoError(t, pachClient.CreateRepo(repo))
 	require.NoError(t, pachClient.CreateBranch(repo, "branch", "", nil))
 
-	_, err := getObject(t, minioClient, repo, "branch", "file")
+	_, err := getObject(t, minioClient, fmt.Sprintf("branch.%s", repo), "file")
 	keyNotFoundError(t, err)
 }
 
@@ -209,13 +209,13 @@ func masterGetObjectNoBranch(t *testing.T, pachClient *client.APIClient, minioCl
 	repo := tu.UniqueString("testgetobjectnobranch")
 	require.NoError(t, pachClient.CreateRepo(repo))
 
-	_, err := getObject(t, minioClient, repo, "branch", "file")
+	_, err := getObject(t, minioClient, fmt.Sprintf("branch.%s", repo), "file")
 	bucketNotFoundError(t, err)
 }
 
 func masterGetObjectNoRepo(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testgetobjectnorepo")
-	_, err := getObject(t, minioClient, repo, "master", "file")
+	_, err := getObject(t, minioClient, fmt.Sprintf("master.%s", repo), "file")
 	bucketNotFoundError(t, err)
 }
 

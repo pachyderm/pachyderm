@@ -32,10 +32,10 @@ func (f *TestClientFactory) Client(authToken string) (*client.APIClient, error) 
 	return c, nil
 }
 
-func getObject(t *testing.T, minioClient *minio.Client, repo, branch, file string) (string, error) {
+func getObject(t *testing.T, minioClient *minio.Client, bucket, file string) (string, error) {
 	t.Helper()
 
-	obj, err := minioClient.GetObject(fmt.Sprintf("%s.%s", branch, repo), file, minio.GetObjectOptions{})
+	obj, err := minioClient.GetObject(bucket, file, minio.GetObjectOptions{})
 	if err != nil {
 		return "", err
 	}
