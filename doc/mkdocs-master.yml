@@ -180,6 +180,7 @@ nav:
                 - Create a Complete Configuration: deploy-manage/deploy/deploy_custom/deploy_custom_complete_example_invocation.md
                 - Additional flags: deploy-manage/deploy/deploy_custom/deploy_custom_additional_flags.md
             - Additional Customizations:
+                - Import a Kubernetes Context: deploy-manage/deploy/import-kubernetes-context.md
                 - Deploy Pachyderm with TLS: deploy-manage/deploy/deploy_w_tls.md
                 - Deploy in a Custom Namespace: deploy-manage/deploy/namespaces.md
                 - Deploy a Custom Object Store: deploy-manage/deploy/non-cloud-object-stores.md
@@ -190,6 +191,7 @@ nav:
         - Manage Pachyderm:
             - Overview: deploy-manage/manage/index.md
             - Manage Cluster Access: deploy-manage/manage/cluster-access.md
+            - Using Pachctl Shell: deploy-manage/manage/pachctl_shell.md
             - Autoscale your Cluster: deploy-manage/manage/autoscaling.md
             - Backup and Restore: deploy-manage/manage/backup_restore.md
             - Storage Use Optimization: deploy-manage/manage/data_management.md
@@ -226,6 +228,8 @@ nav:
             - reference/pachctl/pachctl_auth_use-auth-token.md
             - reference/pachctl/pachctl_auth_whoami.md
             - reference/pachctl/pachctl_completion.md
+            - reference/pachctl/pachctl_completion_bash.md
+            - reference/pachctl/pachctl_completion_zsh.md
             - reference/pachctl/pachctl_config.md
             - reference/pachctl/pachctl_config_delete.md
             - reference/pachctl/pachctl_config_delete_context.md
@@ -247,6 +251,7 @@ nav:
             - reference/pachctl/pachctl_create_branch.md
             - reference/pachctl/pachctl_create_pipeline.md
             - reference/pachctl/pachctl_create_repo.md
+            - reference/pachctl/pachctl_create_secret.md
             - reference/pachctl/pachctl_debug.md
             - reference/pachctl/pachctl_debug_binary.md
             - reference/pachctl/pachctl_debug_dump.md
@@ -260,6 +265,7 @@ nav:
             - reference/pachctl/pachctl_delete_job.md
             - reference/pachctl/pachctl_delete_pipeline.md
             - reference/pachctl/pachctl_delete_repo.md
+            - reference/pachctl/pachctl_delete_secret.md
             - reference/pachctl/pachctl_delete_transaction.md
             - reference/pachctl/pachctl_deploy.md
             - reference/pachctl/pachctl_deploy_amazon.md
@@ -298,6 +304,7 @@ nav:
             - reference/pachctl/pachctl_glob.md
             - reference/pachctl/pachctl_glob_file.md
             - reference/pachctl/pachctl_inspect.md
+            - reference/pachctl/pachctl_inspect_branch.md
             - reference/pachctl/pachctl_inspect_cluster.md
             - reference/pachctl/pachctl_inspect_commit.md
             - reference/pachctl/pachctl_inspect_datum.md
@@ -305,6 +312,7 @@ nav:
             - reference/pachctl/pachctl_inspect_job.md
             - reference/pachctl/pachctl_inspect_pipeline.md
             - reference/pachctl/pachctl_inspect_repo.md
+            - reference/pachctl/pachctl_inspect_secret.md
             - reference/pachctl/pachctl_inspect_transaction.md
             - reference/pachctl/pachctl_list.md
             - reference/pachctl/pachctl_list_branch.md
@@ -314,6 +322,7 @@ nav:
             - reference/pachctl/pachctl_list_job.md
             - reference/pachctl/pachctl_list_pipeline.md
             - reference/pachctl/pachctl_list_repo.md
+            - reference/pachctl/pachctl_list_secret.md
             - reference/pachctl/pachctl_list_transaction.md
             - reference/pachctl/pachctl_logs.md
             - reference/pachctl/pachctl_mount.md
@@ -326,7 +335,9 @@ nav:
             - reference/pachctl/pachctl_resume.md
             - reference/pachctl/pachctl_resume_transaction.md
             - reference/pachctl/pachctl_run.md
+            - reference/pachctl/pachctl_run_cron.md
             - reference/pachctl/pachctl_run_pipeline.md
+            - reference/pachctl/pachctl_shell.md
             - reference/pachctl/pachctl_start.md
             - reference/pachctl/pachctl_start_commit.md
             - reference/pachctl/pachctl_start_pipeline.md

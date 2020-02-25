@@ -1,9 +1,10 @@
 # Import a Kubernetes Context
 
-**Note:** The steps in this section apply to your configuration only
-if you deployed Pachyderm from a manifest created by the `pachctl deploy`
-command with the `--dry-run` flag. If you did not use the `--dry-run` flag,
-skip this section.
+!!! note
+    The steps in this section apply to your configuration only
+    if you have deployed Pachyderm from a manifest created by the `pachctl deploy`
+    command with the `--dry-run` flag. If you did not use the `--dry-run` flag,
+    skip this section.
 
 When you run the `pachctl deploy` command with `--dry-run` flag, instead of
 immediately deploying a cluster, the command creates a Kubernetes
