@@ -249,6 +249,7 @@ func PipelineReqFromInfo(pipelineInfo *pps.PipelineInfo) *pps.CreatePipelineRequ
 		SchedulingSpec:   pipelineInfo.SchedulingSpec,
 		DatumTries:       pipelineInfo.DatumTries,
 		Standby:          pipelineInfo.Standby,
+		S3Out:            pipelineInfo.S3Out,
 	}
 }
 
