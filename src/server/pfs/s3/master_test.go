@@ -1,14 +1,12 @@
 package s3
 
 import (
-	"net"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
-	"context"
 	"time"
 
 	minio "github.com/minio/minio-go"
@@ -431,27 +429,7 @@ func TestS3Gateway(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	server, err := Server(0, NewMasterDriver(), &TestClientFactory{})
-	require.NoError(t, err)
-	listener, err := net.Listen("tcp", ":0")
-	require.NoError(t, err)
-
-	go func() {
-		server.Serve(listener)
-	}()
-	defer func() {
-		require.NoError(t, server.Shutdown(context.Background()))
-	}()
-
-	port := listener.Addr().(*net.TCPAddr).Port
-
-	pachClient, err := client.NewForTest()
-	require.NoError(t, err)
-
-	minioClient, err := minio.NewV4(fmt.Sprintf("127.0.0.1:%d", port), "", "", false)
-	require.NoError(t, err)
-
-	t.Run("master", func(t *testing.T) {
+	testRunner(t, "master", NewMasterDriver(), func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 		t.Run("ListBuckets", func(t *testing.T) {
 			masterListBuckets(t, pachClient, minioClient)
 		})
