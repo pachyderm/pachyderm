@@ -52,24 +52,26 @@ func workerStatObject(t *testing.T, pachClient *client.APIClient, minioClient *m
     require.Equal(t, int64(3), info.Size)
 }
 
-// func workerPutObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-//     repo := tu.UniqueString("testputobject")
-//     require.NoError(t, pachClient.CreateRepo(repo))
-//     require.NoError(t, pachClient.CreateBranch(repo, "branch", "", nil))
+func workerPutObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+    r := strings.NewReader("content1")
+    _, err := minioClient.PutObject("out", "file", r, int64(r.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
+    require.NoError(t, err)
 
-//     r := strings.NewReader("content1")
-//     _, err := minioClient.PutObject(fmt.Sprintf("branch.%s", repo), "file", r, int64(r.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
-//     require.NoError(t, err)
+    // this should act as a PFS PutFileOverwrite
+    r2 := strings.NewReader("content2")
+    _, err = minioClient.PutObject("out", "file", r2, int64(r2.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
+    require.NoError(t, err)
 
-//     // this should act as a PFS PutFileOverwrite
-//     r2 := strings.NewReader("content2")
-//     _, err = minioClient.PutObject(fmt.Sprintf("branch.%s", repo), "file", r2, int64(r2.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
-//     require.NoError(t, err)
+    _, err = getObject(t, minioClient, "out", "file")
+    keyNotFoundError(t, err)
+}
 
-//     fetchedContent, err := getObject(t, minioClient, repo, "branch", "file")
-//     require.NoError(t, err)
-//     require.Equal(t, "content2", fetchedContent)
-// }
+func workerPutObjectInputRepo(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+    r := strings.NewReader("content1")
+    _, err := minioClient.PutObject("in1", "file", r, int64(r.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
+    require.YesError(t, err)
+	require.Equal(t, "This functionality is not implemented.", err.Error())
+}
 
 // func workerRemoveObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 //     repo := tu.UniqueString("testremoveobject")
@@ -356,9 +358,12 @@ func TestWorkerDriver(t *testing.T) {
         t.Run("StatObject", func(t *testing.T) {
             workerStatObject(t, pachClient, minioClient)
         })
-        // t.Run("PutObject", func(t *testing.T) {
-        //     workerPutObject(t, pachClient, minioClient)
-        // })
+        t.Run("PutObject", func(t *testing.T) {
+            workerPutObject(t, pachClient, minioClient)
+        })
+        t.Run("PutObjectInputRepo", func(t *testing.T) {
+            workerPutObjectInputRepo(t, pachClient, minioClient)
+        })
         // t.Run("RemoveObject", func(t *testing.T) {
         //     workerRemoveObject(t, pachClient, minioClient)
         // })
