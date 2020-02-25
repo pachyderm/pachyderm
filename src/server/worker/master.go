@@ -29,7 +29,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
-	pfs_sync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 )
 
@@ -856,7 +855,7 @@ func (a *APIServer) egress(pachClient *client.APIClient, logger *taggedLogger, j
 			if err != nil {
 				return err
 			}
-			if err := pfs_sync.PushObj(pachClient, jobInfo.OutputCommit, objClient, url.Object); err != nil {
+			if err := filesync.PushObj(pachClient, jobInfo.OutputCommit, objClient, url.Object); err != nil {
 				return err
 			}
 			logger.Logf("Completed egress upload for job (%v), duration (%v)", jobInfo, time.Since(start))

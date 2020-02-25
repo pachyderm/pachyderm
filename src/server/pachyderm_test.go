@@ -494,8 +494,8 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 		[]string{"bash"},
 		[]string{
 			"cat /pfs/out/file",
-			fmt.Sprintf("cat /pfs/dirA/dirA/file >> /pfs/out/file"),
-			fmt.Sprintf("cat /pfs/dirB/dirB/file >> /pfs/out/file"),
+			"cat /pfs/dirA/dirA/file >> /pfs/out/file",
+			"cat /pfs/dirB/dirB/file >> /pfs/out/file",
 		},
 		nil,
 		client.NewCrossInput(
@@ -2931,7 +2931,7 @@ func TestManyPipelineUpdate(t *testing.T) {
 
 			dataRepo := tu.UniqueString("input-")
 			require.NoError(t, c.CreateRepo(dataRepo))
-			_, err := c.PutFile(dataRepo, "master", "file", strings.NewReader(fmt.Sprintf("-")))
+			_, err := c.PutFile(dataRepo, "master", "file", strings.NewReader("-"))
 			require.NoError(t, err)
 
 			pipeline := "p"
@@ -10998,6 +10998,7 @@ func getAllTags(t testing.TB, c *client.APIClient) []string {
 	return tags
 }
 
+//lint:ignore U1000 false positive from staticcheck
 func restartAll(t *testing.T) {
 	k := tu.GetKubeClient(t)
 	podsInterface := k.CoreV1().Pods(v1.NamespaceDefault)
@@ -11014,6 +11015,7 @@ func restartAll(t *testing.T) {
 	waitForReadiness(t)
 }
 
+//lint:ignore U1000 false positive from staticcheck
 func restartOne(t *testing.T) {
 	k := tu.GetKubeClient(t)
 	podsInterface := k.CoreV1().Pods(v1.NamespaceDefault)
@@ -11186,13 +11188,17 @@ func getPachClient(t testing.TB) *client.APIClient {
 	return pachClient
 }
 
+//lint:ignore U1000 false positive from staticcheck
 var etcdClient *etcd.Client
+
+//lint:ignore U1000 false positive from staticcheck
 var getEtcdClientOnce sync.Once
 
 const (
 	etcdAddress = "localhost:32379" // etcd must already be serving at this address
 )
 
+//lint:ignore U1000 false positive from staticcheck
 func getEtcdClient(t testing.TB) *etcd.Client {
 	getEtcdClientOnce.Do(func() {
 		var err error
