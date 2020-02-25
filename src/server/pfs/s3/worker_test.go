@@ -74,18 +74,12 @@ func workerPutObjectInputRepo(t *testing.T, pachClient *client.APIClient, minioC
 }
 
 // func workerRemoveObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-//     repo := tu.UniqueString("testremoveobject")
-//     require.NoError(t, pachClient.CreateRepo(repo))
-//     _, err := pachClient.PutFile(repo, "master", "file", strings.NewReader("content"))
+//     _, err := pachClient.PutFile("out", "master", "file", strings.NewReader("content"))
 //     require.NoError(t, err)
 
 //     // as per PFS semantics, the second delete should be a no-op
-//     require.NoError(t, minioClient.RemoveObject(fmt.Sprintf("master.%s", repo), "file"))
-//     require.NoError(t, minioClient.RemoveObject(fmt.Sprintf("master.%s", repo), "file"))
-
-//     // make sure the object no longer exists
-//     _, err = getObject(t, minioClient, repo, "master", "file")
-//     keyNotFoundError(t, err)
+//     require.NoError(t, minioClient.RemoveObject("out", "file"))
+//     require.NoError(t, minioClient.RemoveObject("out", "file"))
 // }
 
 // // Tests inserting and getting files over 64mb in size
