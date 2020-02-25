@@ -189,10 +189,20 @@ func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName str
 						"already creates /pfs/out to collect job output")
 				case input.Pfs.Repo == "":
 					return fmt.Errorf("input must specify a repo")
+				case input.Pfs.Repo == "out" && input.Pfs.Name == "":
+					return fmt.Errorf("inputs based on repos named \"out\" must have " +
+						"'name' set, as pachyderm already creates /pfs/out to collect " +
+						"job output")
 				case input.Pfs.Branch == "" && !job:
 					return fmt.Errorf("input must specify a branch")
 				case len(input.Pfs.Glob) == 0:
 					return fmt.Errorf("input must specify a glob")
+				case input.Pfs.S3 && input.Pfs.Glob != "":
+					return fmt.Errorf("input cannot specify both 's3' and 'glob, as " +
+						"the first exposes repo contents via the S3 gateway, while the " +
+						"second exposes repo contents via the filesystem")
+				case input.Pfs.S3:
+					return fmt.Errorf("'s3' inputs are not supported yet")
 				}
 				// Note that input.Pfs.Commit is empty if a) this is a job b) one of
 				// the job pipeline's input branches has no commits yet
@@ -2835,17 +2845,41 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	specProvenance := client.NewCommitProvenance(ppsconsts.SpecRepo, request.Pipeline.Name, specCommit.Commit.ID)
 	provenance = append(provenance, specProvenance)
 
-	_, err = pfsClient.StartCommit(ctx, &pfs.StartCommitRequest{
-		Parent: &pfs.Commit{
-			Repo: &pfs.Repo{
-				Name: request.Pipeline.Name,
+	if _, err := pachClient.ExecuteInTransaction(func(txnClient *client.APIClient) error {
+		newCommit, err := txnClient.PfsAPIClient.StartCommit(txnClient.Ctx(), &pfs.StartCommitRequest{
+			Parent: &pfs.Commit{
+				Repo: &pfs.Repo{
+					Name: request.Pipeline.Name,
+				},
 			},
-		},
-		Provenance: provenance,
-	})
-	if err != nil {
+			Provenance: provenance,
+		})
+		if err != nil {
+			return err
+		}
+
+		// if stats are enabled, then create a stats commit for the job as well
+		if pipelineInfo.EnableStats {
+			// it needs to additionally be provenant on the commit we just created
+			newCommitProv := client.NewCommitProvenance(newCommit.Repo.Name, "", newCommit.ID)
+			_, err = txnClient.PfsAPIClient.StartCommit(txnClient.Ctx(), &pfs.StartCommitRequest{
+				Parent: &pfs.Commit{
+					Repo: &pfs.Repo{
+						Name: request.Pipeline.Name,
+					},
+				},
+				Branch:     "stats",
+				Provenance: append(provenance, newCommitProv),
+			})
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
 		return nil, err
 	}
+
 	return &types.Empty{}, nil
 }
 

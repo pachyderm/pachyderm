@@ -121,7 +121,6 @@ nav:
             - Pipeline:
                 - Overview: concepts/pipeline-concepts/pipeline/index.md
                 - Cron: concepts/pipeline-concepts/pipeline/cron.md
-                - Join: concepts/pipeline-concepts/pipeline/join.md
                 - Service: concepts/pipeline-concepts/pipeline/service.md
                 - Spout: concepts/pipeline-concepts/pipeline/spout.md
             - Job: concepts/pipeline-concepts/job.md
@@ -129,7 +128,8 @@ nav:
                 - Overview: concepts/pipeline-concepts/datum/index.md
                 - Glob Patterns: concepts/pipeline-concepts/datum/glob-pattern.md
                 - Datum Processing: concepts/pipeline-concepts/datum/relationship-between-datums.md
-                - Cross and Union Inputs: concepts/pipeline-concepts/datum/cross-union.md
+                - Cross and Union: concepts/pipeline-concepts/datum/cross-union.md
+                - Join: concepts/pipeline-concepts/datum/join.md
                 - Datum Processing States: concepts/pipeline-concepts/datum/datum-processing-states.md
         - Advanced Concepts:
             - Deferred Processing of Data: concepts/advanced-concepts/deferred_processing.md

@@ -234,7 +234,7 @@ func (d *driver) finishTransaction(ctx context.Context, txn *transaction.Transac
 type transactionConflictError struct{}
 
 func (e *transactionConflictError) Error() string {
-	return fmt.Sprintf("transaction could not be modified due to concurrent modifications")
+	return "transaction could not be modified due to concurrent modifications"
 }
 
 func (d *driver) appendTransaction(

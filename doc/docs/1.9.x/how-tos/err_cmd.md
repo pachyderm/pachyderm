@@ -1,6 +1,6 @@
 # Skip Failed Datums
 
-!!! note "Summary"
+!!! note "TL;DR"
     The `err_cmd` parameter enables you to fail a datum without failing the
     whole job.
 
