@@ -12,10 +12,14 @@ import (
 	"github.com/pachyderm/s2"
 )
 
+// Bucket represents an S3 bucket
 type Bucket struct {
-	Repo   string
+	// Repo is the PFS repo that this bucket points to
+	Repo string
+	// Commit is the PFS commit that this repo points to
 	Commit string
-	Name   string
+	// Name is the name of the bucket
+	Name string
 }
 
 type bucketCapabilities struct {
@@ -24,6 +28,8 @@ type bucketCapabilities struct {
 	historicVersions bool
 }
 
+// Driver implementations drive the underlying bucket-related functionality
+// for an s3gateway instance
 type Driver interface {
 	listBuckets(pc *client.APIClient, r *http.Request, buckets *[]s2.Bucket) error
 	bucket(pc *client.APIClient, r *http.Request, name string) (*Bucket, error)
@@ -31,8 +37,11 @@ type Driver interface {
 	canModifyBuckets() bool
 }
 
+// MasterDriver is the driver for the s3gateway instance running on pachd
+// master
 type MasterDriver struct{}
 
+// NewMasterDriver constructs a new master driver
 func NewMasterDriver() *MasterDriver {
 	return &MasterDriver{}
 }
@@ -90,12 +99,18 @@ func (d *MasterDriver) canModifyBuckets() bool {
 	return true
 }
 
+// WorkerDriver is the driver for the s3gateway instance running on pachd
+// workers
 type WorkerDriver struct {
 	inputBuckets []*Bucket
 	outputBucket *Bucket
 	namesMap     map[string]*Bucket
 }
 
+// NewWorkerDriver creates a new worker driver. `inputBuckets` is a list of
+// whitelisted buckets to be served from input repos. `outputBucket` is the
+// whitelisted bucket to be served from an output repo. If `nil`, no output
+// bucket will be available.
 func NewWorkerDriver(inputBuckets []*Bucket, outputBucket *Bucket) *WorkerDriver {
 	namesMap := map[string]*Bucket{}
 
