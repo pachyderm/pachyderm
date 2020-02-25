@@ -480,7 +480,7 @@ func TestRevoke(t *testing.T) {
 	// Revoke the vault lease in 'secret'
 	vl := v.Logical()
 	_, err = vl.Write(
-		fmt.Sprintf("/sys/leases/revoke"),
+		"/sys/leases/revoke",
 		map[string]interface{}{"lease_id": secret.LeaseID},
 	)
 	if err != nil {
