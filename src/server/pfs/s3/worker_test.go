@@ -10,19 +10,31 @@ import (
     // "time"
 
     minio "github.com/minio/minio-go"
+
+    tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
     "github.com/pachyderm/pachyderm/src/client"
     "github.com/pachyderm/pachyderm/src/client/pkg/require"
-    tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+    "github.com/pachyderm/pachyderm/src/client/pfs"
 )
 
-func workerListBuckets(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+type workerTestState struct {
+	pachClient *client.APIClient
+	minioClient *minio.Client
+	inputRepo string
+	outputRepo string
+	inputMasterCommit *pfs.Commit
+	inputDevelopCommit *pfs.Commit
+	outputCommit *pfs.Commit
+}
+
+func workerListBuckets(t *testing.T, s *workerTestState) {
 	// create a repo - this should not show up list buckets with the worker
 	// driver
     repo := tu.UniqueString("testlistbuckets1")
-    require.NoError(t, pachClient.CreateRepo(repo))
-    require.NoError(t, pachClient.CreateBranch(repo, "master", "", nil))
+    require.NoError(t, s.pachClient.CreateRepo(repo))
+    require.NoError(t, s.pachClient.CreateBranch(repo, "master", "", nil))
 
-    buckets, err := minioClient.ListBuckets()
+    buckets, err := s.minioClient.ListBuckets()
     require.NoError(t, err)
 
     actualBucketNames := []string{}
@@ -33,42 +45,42 @@ func workerListBuckets(t *testing.T, pachClient *client.APIClient, minioClient *
     require.ElementsEqual(t, []string{"in1", "in2", "out"}, actualBucketNames)
 }
 
-func workerGetObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-    fetchedContent, err := getObject(t, minioClient, "in1", "file")
+func workerGetObject(t *testing.T, s *workerTestState) {
+    fetchedContent, err := getObject(t, s.minioClient, "in1", "file")
     require.NoError(t, err)
     require.Equal(t, "foo", fetchedContent)
 }
 
-func workerGetObjectOutputRepo(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-    _, err := getObject(t, minioClient, "out", "file")
+func workerGetObjectOutputRepo(t *testing.T, s *workerTestState) {
+    _, err := getObject(t, s.minioClient, "out", "file")
     keyNotFoundError(t, err)
 }
 
-func workerStatObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-    info, err := minioClient.StatObject("in1", "file", minio.StatObjectOptions{})
+func workerStatObject(t *testing.T, s *workerTestState) {
+    info, err := s.minioClient.StatObject("in1", "file", minio.StatObjectOptions{})
     require.NoError(t, err)
     require.True(t, len(info.ETag) > 0)
     require.Equal(t, "text/plain; charset=utf-8", info.ContentType)
     require.Equal(t, int64(3), info.Size)
 }
 
-func workerPutObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+func workerPutObject(t *testing.T, s *workerTestState) {
     r := strings.NewReader("content1")
-    _, err := minioClient.PutObject("out", "file", r, int64(r.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
+    _, err := s.minioClient.PutObject("out", "file", r, int64(r.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
     require.NoError(t, err)
 
     // this should act as a PFS PutFileOverwrite
     r2 := strings.NewReader("content2")
-    _, err = minioClient.PutObject("out", "file", r2, int64(r2.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
+    _, err = s.minioClient.PutObject("out", "file", r2, int64(r2.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
     require.NoError(t, err)
 
-    _, err = getObject(t, minioClient, "out", "file")
+    _, err = getObject(t, s.minioClient, "out", "file")
     keyNotFoundError(t, err)
 }
 
-func workerPutObjectInputRepo(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+func workerPutObjectInputRepo(t *testing.T, s *workerTestState) {
     r := strings.NewReader("content1")
-    _, err := minioClient.PutObject("in1", "file", r, int64(r.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
+    _, err := s.minioClient.PutObject("in1", "file", r, int64(r.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
     require.YesError(t, err)
 	require.Equal(t, "This functionality is not implemented.", err.Error())
 }
@@ -340,23 +352,33 @@ func TestWorkerDriver(t *testing.T) {
     )
 
     testRunner(t, "worker", driver, func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+    	s := &workerTestState{
+			pachClient: pachClient,
+			minioClient: minioClient,
+			inputRepo: inputRepo,
+			outputRepo: outputRepo,
+			inputMasterCommit: inputMasterCommit,
+			inputDevelopCommit: inputDevelopCommit,
+			outputCommit: outputCommit,
+    	}
+
         t.Run("ListBuckets", func(t *testing.T) {
-            workerListBuckets(t, pachClient, minioClient)
+            workerListBuckets(t, s)
         })
         t.Run("GetObject", func(t *testing.T) {
-            workerGetObject(t, pachClient, minioClient)
+            workerGetObject(t, s)
         })
         t.Run("GetObjectOutputRepo", func(t *testing.T) {
-            workerGetObjectOutputRepo(t, pachClient, minioClient)
+            workerGetObjectOutputRepo(t, s)
         })
         t.Run("StatObject", func(t *testing.T) {
-            workerStatObject(t, pachClient, minioClient)
+            workerStatObject(t, s)
         })
         t.Run("PutObject", func(t *testing.T) {
-            workerPutObject(t, pachClient, minioClient)
+            workerPutObject(t, s)
         })
         t.Run("PutObjectInputRepo", func(t *testing.T) {
-            workerPutObjectInputRepo(t, pachClient, minioClient)
+            workerPutObjectInputRepo(t, s)
         })
         // t.Run("RemoveObject", func(t *testing.T) {
         //     workerRemoveObject(t, pachClient, minioClient)
