@@ -92,16 +92,16 @@ func (d *MasterDriver) CanModifyBuckets() bool {
 }
 
 type WorkerDriver struct {
-	inputBuckets []Bucket
+	inputBuckets []*Bucket
 	outputBucket *Bucket
 	namesMap     map[string]*Bucket
 }
 
-func NewWorkerDriver(inputBuckets []Bucket, outputBucket *Bucket) *WorkerDriver {
+func NewWorkerDriver(inputBuckets []*Bucket, outputBucket *Bucket) *WorkerDriver {
 	namesMap := map[string]*Bucket{}
 
 	for _, ib := range inputBuckets {
-		namesMap[ib.Name] = &ib
+		namesMap[ib.Name] = ib
 	}
 
 	if outputBucket != nil {

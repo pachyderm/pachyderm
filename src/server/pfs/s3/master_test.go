@@ -424,7 +424,7 @@ func masterAuthV2(t *testing.T, pachClient *client.APIClient, minioClient *minio
 	require.NoError(t, err)
 }
 
-func TestS3Gateway(t *testing.T) {
+func TestMasterDriver(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
