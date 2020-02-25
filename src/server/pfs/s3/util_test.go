@@ -1,16 +1,16 @@
 package s3
 
 import (
+	"context"
 	"crypto/md5"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
-	"net"
-	"context"
 	"testing"
 	"time"
 
@@ -19,7 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
 
-type TestClientFactory struct {}
+type TestClientFactory struct{}
 
 func (f *TestClientFactory) Client(authToken string) (*client.APIClient, error) {
 	c, err := client.NewForTest()
@@ -80,7 +80,7 @@ func checkListObjects(t *testing.T, ch <-chan minio.ObjectInfo, startTime *time.
 		if startTime != nil {
 			require.True(t, startTime.Before(actualFile.LastModified), fmt.Sprintf("unexpected last modified for %s", expectedFilename))
 		}
-		
+
 		if endTime != nil {
 			require.True(t, endTime.After(actualFile.LastModified), fmt.Sprintf("unexpected last modified for %s", expectedFilename))
 		}

@@ -1,28 +1,28 @@
 package s3
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
-	"fmt"
 
 	minio "github.com/minio/minio-go"
 
-	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
 type workerTestState struct {
-	pachClient *client.APIClient
-	minioClient *minio.Client
-	inputRepo string
-	outputRepo string
-	inputMasterCommit *pfs.Commit
+	pachClient         *client.APIClient
+	minioClient        *minio.Client
+	inputRepo          string
+	outputRepo         string
+	inputMasterCommit  *pfs.Commit
 	inputDevelopCommit *pfs.Commit
-	outputCommit *pfs.Commit
+	outputCommit       *pfs.Commit
 }
 
 func workerListBuckets(t *testing.T, s *workerTestState) {
@@ -253,32 +253,32 @@ func TestWorkerDriver(t *testing.T) {
 	driver := NewWorkerDriver(
 		[]*Bucket{
 			&Bucket{
-				Repo: inputRepo,
+				Repo:   inputRepo,
 				Commit: inputMasterCommit.ID,
-				Name: "in1",
+				Name:   "in1",
 			},
 			&Bucket{
-				Repo: inputRepo,
+				Repo:   inputRepo,
 				Commit: inputDevelopCommit.ID,
-				Name: "in2",
+				Name:   "in2",
 			},
 		},
 		&Bucket{
-			Repo: outputRepo,
+			Repo:   outputRepo,
 			Commit: outputCommit.ID,
-			Name: "out",
+			Name:   "out",
 		},
 	)
 
 	testRunner(t, "worker", driver, func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 		s := &workerTestState{
-			pachClient: pachClient,
-			minioClient: minioClient,
-			inputRepo: inputRepo,
-			outputRepo: outputRepo,
-			inputMasterCommit: inputMasterCommit,
+			pachClient:         pachClient,
+			minioClient:        minioClient,
+			inputRepo:          inputRepo,
+			outputRepo:         outputRepo,
+			inputMasterCommit:  inputMasterCommit,
 			inputDevelopCommit: inputDevelopCommit,
-			outputCommit: outputCommit,
+			outputCommit:       outputCommit,
 		}
 
 		t.Run("ListBuckets", func(t *testing.T) {
