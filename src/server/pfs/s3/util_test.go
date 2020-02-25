@@ -47,7 +47,7 @@ func getObject(t *testing.T, minioClient *minio.Client, bucket, file string) (st
 	return string(bytes), err
 }
 
-func checkListObjects(t *testing.T, ch <-chan minio.ObjectInfo, startTime time.Time, endTime time.Time, expectedFiles []string, expectedDirs []string) {
+func checkListObjects(t *testing.T, ch <-chan minio.ObjectInfo, startTime *time.Time, endTime *time.Time, expectedFiles []string, expectedDirs []string) {
 	t.Helper()
 
 	// sort expected files/dirs, as the S3 gateway should always return
@@ -76,8 +76,14 @@ func checkListObjects(t *testing.T, ch <-chan minio.ObjectInfo, startTime time.T
 		require.True(t, len(actualFile.ETag) > 0, fmt.Sprintf("unexpected empty etag for %s", expectedFilename))
 		expectedLen := int64(len(filepath.Base(expectedFilename)) + 1)
 		require.Equal(t, expectedLen, actualFile.Size, fmt.Sprintf("unexpected file length for %s", expectedFilename))
-		require.True(t, startTime.Before(actualFile.LastModified), fmt.Sprintf("unexpected last modified for %s", expectedFilename))
-		require.True(t, endTime.After(actualFile.LastModified), fmt.Sprintf("unexpected last modified for %s", expectedFilename))
+
+		if startTime != nil {
+			require.True(t, startTime.Before(actualFile.LastModified), fmt.Sprintf("unexpected last modified for %s", expectedFilename))
+		}
+		
+		if endTime != nil {
+			require.True(t, endTime.After(actualFile.LastModified), fmt.Sprintf("unexpected last modified for %s", expectedFilename))
+		}
 	}
 
 	for i, expectedDirname := range expectedDirs {

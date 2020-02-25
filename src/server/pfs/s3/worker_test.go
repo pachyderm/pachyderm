@@ -5,6 +5,7 @@ import (
     "os"
     "strings"
     "testing"
+    "fmt"
 
     minio "github.com/minio/minio-go"
 
@@ -157,57 +158,34 @@ func workerRemoveBucket(t *testing.T, s *workerTestState) {
     notImplementedError(t, s.minioClient.RemoveBucket("out"))
 }
 
-// func workerListObjectsPaginated(t *testing.T, s *workerTestState) {
-//     // create a bunch of files - enough to require the use of paginated
-//     // requests when browsing all files. One file will be included on a
-//     // separate branch to ensure it's not returned when querying against the
-//     // master branch.
-//     // `startTime` and `endTime` will be used to ensure that an object's
-//     // `LastModified` date is correct. A few minutes are subtracted/added to
-//     // each to tolerate the node time not being the same as the host time.
-//     startTime := time.Now().Add(time.Duration(-5) * time.Minute)
-//     repo := tu.UniqueString("testlistobjectspaginated")
-//     require.NoError(t, s.pachClient.CreateRepo(repo))
-//     commit, err := s.pachClient.StartCommit(repo, "master")
-//     require.NoError(t, err)
-//     for i := 0; i <= 1000; i++ {
-//         putListFileTestObject(t, s.pachClient, repo, commit.ID, "", i)
-//     }
-//     for i := 0; i < 10; i++ {
-//         putListFileTestObject(t, s.pachClient, repo, commit.ID, "dir/", i)
-//         require.NoError(t, err)
-//     }
-//     putListFileTestObject(t, s.pachClient, repo, "branch", "", 1001)
-//     require.NoError(t, s.pachClient.FinishCommit(repo, commit.ID))
-//     endTime := time.Now().Add(time.Duration(5) * time.Minute)
+func workerListObjectsPaginated(t *testing.T, s *workerTestState) {
+    // Request that will list all files in root
+    ch := s.minioClient.ListObjects("in2", "", false, make(chan struct{}))
+    expectedFiles := []string{}
+    for i := 0; i <= 1000; i++ {
+        expectedFiles = append(expectedFiles, fmt.Sprintf("%d", i))
+    }
+    checkListObjects(t, ch, nil, nil, expectedFiles, []string{"dir/"})
 
-//     // Request that will list all files in master's root
-//     ch := s.minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "", false, make(chan struct{}))
-//     expectedFiles := []string{}
-//     for i := 0; i <= 1000; i++ {
-//         expectedFiles = append(expectedFiles, fmt.Sprintf("%d", i))
-//     }
-//     checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{"dir/"})
+    // Request that will list all files starting with 1
+    ch = s.minioClient.ListObjects("in2", "1", false, make(chan struct{}))
+    expectedFiles = []string{}
+    for i := 0; i <= 1000; i++ {
+        file := fmt.Sprintf("%d", i)
+        if strings.HasPrefix(file, "1") {
+            expectedFiles = append(expectedFiles, file)
+        }
+    }
+    checkListObjects(t, ch, nil, nil, expectedFiles, []string{})
 
-//     // Request that will list all files in master starting with 1
-//     ch = s.minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "1", false, make(chan struct{}))
-//     expectedFiles = []string{}
-//     for i := 0; i <= 1000; i++ {
-//         file := fmt.Sprintf("%d", i)
-//         if strings.HasPrefix(file, "1") {
-//             expectedFiles = append(expectedFiles, file)
-//         }
-//     }
-//     checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
-
-//     // Request that will list all files in a directory in master
-//     ch = s.minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "dir/", false, make(chan struct{}))
-//     expectedFiles = []string{}
-//     for i := 0; i < 10; i++ {
-//         expectedFiles = append(expectedFiles, fmt.Sprintf("dir/%d", i))
-//     }
-//     checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
-// }
+    // Request that will list all files in a directory
+    ch = s.minioClient.ListObjects("in2", "dir/", false, make(chan struct{}))
+    expectedFiles = []string{}
+    for i := 0; i < 10; i++ {
+        expectedFiles = append(expectedFiles, fmt.Sprintf("dir/%d", i))
+    }
+    checkListObjects(t, ch, nil, nil, expectedFiles, []string{})
+}
 
 // func workerListObjectsRecursive(t *testing.T, s *workerTestState) {
 //     // `startTime` and `endTime` will be used to ensure that an object's
@@ -276,8 +254,12 @@ func TestWorkerDriver(t *testing.T) {
 	// create a develop branch on the input repo
     inputDevelopCommit, err := pachClient.StartCommit(inputRepo, "develop")
 	require.NoError(t, err)
-	_, err = pachClient.PutFile(inputRepo, inputDevelopCommit.ID, "file", strings.NewReader("foo"))
-	require.NoError(t, err)
+	for i := 0; i <= 1000; i++ {
+        putListFileTestObject(t, pachClient, inputRepo, inputDevelopCommit.ID, "", i)
+    }
+    for i := 0; i < 10; i++ {
+        putListFileTestObject(t, pachClient, inputRepo, inputDevelopCommit.ID, "dir/", i)
+    }
 	require.NoError(t, pachClient.FinishCommit(inputRepo, inputDevelopCommit.ID))
 
 	// create the output branch
@@ -351,9 +333,9 @@ func TestWorkerDriver(t *testing.T) {
         t.Run("RemoveBucket", func(t *testing.T) {
             workerRemoveBucket(t, s)
         })
-        // t.Run("ListObjectsPaginated", func(t *testing.T) {
-        //     workerListObjectsPaginated(t, s)
-        // })
+        t.Run("ListObjectsPaginated", func(t *testing.T) {
+            workerListObjectsPaginated(t, s)
+        })
         // t.Run("ListObjectsRecursive", func(t *testing.T) {
         //     workerListObjectsRecursive(t, s)
         // })

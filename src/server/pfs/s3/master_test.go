@@ -328,7 +328,6 @@ func masterListObjectsPaginated(t *testing.T, pachClient *client.APIClient, mini
 	}
 	for i := 0; i < 10; i++ {
 		putListFileTestObject(t, pachClient, repo, commit.ID, "dir/", i)
-		require.NoError(t, err)
 	}
 	putListFileTestObject(t, pachClient, repo, "branch", "", 1001)
 	require.NoError(t, pachClient.FinishCommit(repo, commit.ID))
@@ -340,7 +339,7 @@ func masterListObjectsPaginated(t *testing.T, pachClient *client.APIClient, mini
 	for i := 0; i <= 1000; i++ {
 		expectedFiles = append(expectedFiles, fmt.Sprintf("%d", i))
 	}
-	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{"dir/"})
+	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{"dir/"})
 
 	// Request that will list all files in master starting with 1
 	ch = minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "1", false, make(chan struct{}))
@@ -351,7 +350,7 @@ func masterListObjectsPaginated(t *testing.T, pachClient *client.APIClient, mini
 			expectedFiles = append(expectedFiles, file)
 		}
 	}
-	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
+	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
 
 	// Request that will list all files in a directory in master
 	ch = minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "dir/", false, make(chan struct{}))
@@ -359,7 +358,7 @@ func masterListObjectsPaginated(t *testing.T, pachClient *client.APIClient, mini
 	for i := 0; i < 10; i++ {
 		expectedFiles = append(expectedFiles, fmt.Sprintf("dir/%d", i))
 	}
-	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
+	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
 }
 
 func masterListObjectsHeadlessBranch(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
@@ -369,7 +368,7 @@ func masterListObjectsHeadlessBranch(t *testing.T, pachClient *client.APIClient,
 
 	// Request into branch that has no head
 	ch := minioClient.ListObjects(fmt.Sprintf("emptybranch.%s", repo), "", false, make(chan struct{}))
-	checkListObjects(t, ch, time.Now(), time.Now(), []string{}, []string{})
+	checkListObjects(t, ch, nil, nil, []string{}, []string{})
 }
 
 func masterListObjectsRecursive(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
@@ -393,27 +392,27 @@ func masterListObjectsRecursive(t *testing.T, pachClient *client.APIClient, mini
 	// Request that will list all files in master
 	expectedFiles := []string{"0", "rootdir/1", "rootdir/subdir/2"}
 	ch := minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "", true, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
+	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
 
 	// Requests that will list all files in rootdir
 	expectedFiles = []string{"rootdir/1", "rootdir/subdir/2"}
 	ch = minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "r", true, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
+	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
 	ch = minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir", true, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
+	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
 	ch = minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/", true, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
+	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
 
 	// Requests that will list all files in subdir
 	expectedFiles = []string{"rootdir/subdir/2"}
 	ch = minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/s", true, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
+	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
 	ch = minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/subdir", true, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
+	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
 	ch = minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/subdir/", true, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
+	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
 	ch = minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/subdir/2", true, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
+	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
 }
 
 func masterAuthV2(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
