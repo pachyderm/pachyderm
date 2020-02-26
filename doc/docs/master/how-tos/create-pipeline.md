@@ -1,10 +1,9 @@
 # Create a Pipeline
 
-Pipelines are computational entities that run your code. A standard
-pipeline injects data from an input repository into your code, runs
-your code against that data, and places the results into an output
-repository within the Pachyderm file system. To create a pipeline,
-you need to define a pipeline specification in the JSON or YAML file
+A Pachyderm ipeline is transformation step that reads data from one
+or more input repositories, runs your code, and places the results
+into an output repository within the Pachyderm file system. To create a
+pipeline, you need to define a pipeline specification in the JSON or YAML file
 format.
 
 This is a simple example of a Pachyderm pipeline specification:

@@ -13,8 +13,10 @@ When you delete a pipeline, all attributes, such as the output repository
 and the job history is deleted as well.
 You can use the `--keep repo` flag that preserves the output repo with
 all its branches and provenance. Only the information about the pipeline
-history itself is erased. Later, you can recreate the pipeline, and it
-will resume provenance from the last record.
+history itself is erased. Later, you can recreate the pipeline by using
+the `pachctl create pipeline` command. If the repository by the same
+name as the pipeline exists, the pipeline will use it as its output repository
+keeping all the commit history and provenance.
 
 When Pachyderm cannot delete a pipeline with the standard command,
 you might need to enforce deletion by using the `--force` flag. Because this
