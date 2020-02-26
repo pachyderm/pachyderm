@@ -1507,7 +1507,7 @@ func (a *APIServer) merge(pachClient *client.APIClient, objClient obj.Client, st
 		if err != nil {
 			return err
 		}
-		return writeIndex(pachClient, objClient, tree, idx)
+		return writeIndex(a.getWorkerLogger(), pachClient, objClient, tree, idx)
 	}(); err != nil {
 		return nil, 0, err
 	}
@@ -1642,25 +1642,32 @@ func (a *APIServer) getParentHashTree(ctx context.Context, pachClient *client.AP
 	return objClient.Reader(ctx, path, 0, 0)
 }
 
-func writeIndex(pachClient *client.APIClient, objClient obj.Client, tree *pfs.Object, idx []byte) (retErr error) {
+func writeIndex(logger *taggedLogger, pachClient *client.APIClient, objClient obj.Client, tree *pfs.Object, idx []byte) (retErr error) {
+	logger.Logf("writeIndex with tree: %v, idx: %d bytes", tree, len(idx))
 	info, err := pachClient.InspectObject(tree.Hash)
+	logger.Logf("writeIndex got object info: %v", info)
 	if err != nil {
 		return err
 	}
 	path, err := obj.BlockPathFromEnv(info.BlockRef.Block)
+	logger.Logf("writeIndex got path from env: %v, err: %v", path, err)
 	if err != nil {
 		return err
 	}
 	idxW, err := objClient.Writer(pachClient.Ctx(), path+hashtree.IndexPath)
+	logger.Logf("writeIndex constructed writer for path: %v, err: %v", path+hashtree.IndexPath, err)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		if err := idxW.Close(); err != nil && retErr == nil {
+		err := idxW.Close()
+		logger.Logf("writeIndex closed writer, err: %v", err)
+		if err != nil && retErr == nil {
 			retErr = err
 		}
 	}()
 	_, err = idxW.Write(idx)
+	logger.Logf("writeIndex wrote index, err: %v", err)
 	return err
 }
 
