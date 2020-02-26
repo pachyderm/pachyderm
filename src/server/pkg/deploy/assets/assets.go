@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
-	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 
@@ -259,15 +257,6 @@ func replicas(r int32) *int32 {
 	return &r
 }
 
-// Kubernetes doesn't work well with windows path separators
-func kubeFilepathJoin(paths ...string) string {
-	joined := filepath.Join(paths...)
-	if runtime.GOOS != "windows" {
-		return joined
-	}
-	return strings.ReplaceAll(joined, "\\", "/")
-}
-
 // fillDefaultResourceRequests sets any of:
 //   opts.BlockCacheSize
 //   opts.PachdNonCacheMemRequest
@@ -504,7 +493,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 	var storageHostPath string
 	switch objectStoreBackend {
 	case localBackend:
-		storageHostPath = kubeFilepathJoin(hostPath, "pachd")
+		storageHostPath = path.Join(hostPath, "pachd")
 		pathType := v1.HostPathDirectoryOrCreate
 		volumes[0].HostPath = &v1.HostPathVolumeSource{
 			Path: storageHostPath,
@@ -768,7 +757,7 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 				Name: "etcd-storage",
 				VolumeSource: v1.VolumeSource{
 					HostPath: &v1.HostPathVolumeSource{
-						Path: kubeFilepathJoin(hostPath, "etcd"),
+						Path: path.Join(hostPath, "etcd"),
 						Type: &pathType,
 					},
 				},
@@ -921,7 +910,7 @@ func EtcdVolume(persistentDiskBackend backend, opts *AssetOpts,
 		pathType := v1.HostPathDirectoryOrCreate
 		spec.Spec.PersistentVolumeSource = v1.PersistentVolumeSource{
 			HostPath: &v1.HostPathVolumeSource{
-				Path: kubeFilepathJoin(hostPath, "etcd"),
+				Path: path.Join(hostPath, "etcd"),
 				Type: &pathType,
 			},
 		}
