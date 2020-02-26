@@ -10922,7 +10922,7 @@ func TestKeepRepo(t *testing.T) {
 	c := getPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
-	dataRepo := tu.UniqueString("TestSimplePipeline_data")
+	dataRepo := tu.UniqueString("TestKeepRepo_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	_, err := c.PutFile(dataRepo, "master", "file", strings.NewReader("foo"))
@@ -10955,6 +10955,10 @@ func TestKeepRepo(t *testing.T) {
 	_, err = c.InspectRepo(pipeline)
 	require.NoError(t, err)
 
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(pipeline, "master", "file", 0, 0, &buf))
+	require.Equal(t, "foo", buf.String())
+
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
 		"",
@@ -10970,10 +10974,17 @@ func TestKeepRepo(t *testing.T) {
 		false,
 	))
 
-	_, err = c.PutFile(dataRepo, "master", "file2", strings.NewReader("foo"))
+	_, err = c.PutFile(dataRepo, "master", "file2", strings.NewReader("bar"))
 	require.NoError(t, err)
 	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
+
+	buf.Reset()
+	require.NoError(t, c.GetFile(pipeline, "master", "file", 0, 0, &buf))
+	require.Equal(t, "foo", buf.String())
+	buf.Reset()
+	require.NoError(t, c.GetFile(pipeline, "master", "file2", 0, 0, &buf))
+	require.Equal(t, "bar", buf.String())
 
 	require.NoError(t, c.DeletePipeline(pipeline, false))
 }
