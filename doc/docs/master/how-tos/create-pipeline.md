@@ -28,15 +28,15 @@ This is a simple example of a Pachyderm pipeline specification:
 }
 ```
 
-At the very minimum, a standard pipeline needs to have a name, a
-transformation code, a Docker image with your code, and an input
-repository with a branch and glob pattern specified. Special types
+At the very minimum, a standard pipeline needs to have a name, a user code
+in the `transform` section, and an input
+repository with a glob pattern specified. Special types
 of pipelines, such as service, cron, and spout,
 have other requirements.
 For more information, see [Pipelines](../concepts/pipeline-concepts/pipeline/).
 
-When you have a pipeline spec ready, you need to use it to create a pipeline
-pod or pods that will run your code.
+After you have your pipeline spec ready, you need to pass that configuration
+to Pachyderm so that it creates a Kubernetes pod or pods that will run your code.
 
 For more information about property fields that you can define in a pipeline,
 see [Pipeline Specification](../reference/pipeline_spec/).
@@ -51,7 +51,7 @@ To create a pipeline, complete the following steps:
 1. Create a pipeline specification. For more information, see
 [Pipeline Specification](../reference/pipeline_spec/).
 
-1. Create a pipeline pod:
+1. Create a pipeline by passing the pipeline configuration to Pachyderm:
 
    ```bash
    pachctl create pipeline -f <pipeline_spec>
@@ -87,6 +87,7 @@ To create a pipeline, complete the following steps:
    ```
 
    You should see a pod named after your pipeline in the list of pods.
+   In this case, it is `pipeline-edges-v1-qhd4f`.
 
 !!! note "See Also:"
     - [Pipelines](../concepts/pipeline-concepts/pipeline/)
