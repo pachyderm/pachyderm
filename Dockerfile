@@ -1,33 +1,16 @@
-FROM ubuntu:18.04
-LABEL maintainer="jdoliner@pachyderm.io"
+# TODO: pull in from etc/compile/GO_VERSION
+FROM golang:1.13.8 AS builder
 
-RUN \
-  apt-get update -yq && \
-  apt-get install -yq --no-install-recommends \
-    build-essential \
-    ca-certificates \
-    curl \
-    git \
-    libssl-dev \
-    pkg-config && \
-  apt-get clean && \
-  rm -rf /var/lib/apt
-COPY etc/compile/GO_VERSION GO_VERSION
-RUN \
-  curl -fsSL https://get.docker.com/builds/Linux/x86_64/docker-1.12.1.tgz | tar -C /bin -xz docker/docker --strip-components=1 && \
-  chmod +x /bin/docker
-RUN \
-  curl -sSL https://storage.googleapis.com/golang/$(cat GO_VERSION).linux-amd64.tar.gz | tar -C /tmp -xz && \
-  mkdir -p /usr/local/go && \
-  mv /tmp/go/bin /usr/local/go && \
-  mv /tmp/go/src /usr/local/go && \
-  mkdir -p /usr/local/go/pkg/tool/linux_amd64 && \
-  mv /tmp/go/pkg/include /usr/local/go/pkg && \
-  mv /tmp/go/pkg/tool/linux_amd64/compile /usr/local/go/pkg/tool/linux_amd64 && \
-  mv /tmp/go/pkg/tool/linux_amd64/asm /usr/local/go/pkg/tool/linux_amd64 && \
-  mv /tmp/go/pkg/tool/linux_amd64/link /usr/local/go/pkg/tool/linux_amd64 && \
-  rm -rf /tmp/go && \
-  mkdir -p /go/bin
-ENV PATH /go/bin:/usr/local/go/bin:$PATH
-ENV GOPATH /go
-RUN go get github.com/kisielk/errcheck golang.org/x/lint/golint
+WORKDIR /app
+COPY . .
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux go build "src/server/cmd/pachd/main.go" && \
+    mv main pachd && \
+    CGO_ENABLED=0 GOOS=linux go build "src/server/cmd/worker/main.go" && \
+    mv main worker
+
+FROM debian:buster
+WORKDIR /app
+COPY --from=builder /app/pachd .
+COPY --from=builder /app/worker .

@@ -134,6 +134,9 @@ release-pachd:
 release-worker:
 	@VERSION="$(shell pachctl version --client-only)" ./etc/build/release_worker
 
+docker-buildkit:
+	DOCKER_BUILDKIT=1 docker build -t pachyderm_test .
+
 docker-build-compile:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_compile .
 
