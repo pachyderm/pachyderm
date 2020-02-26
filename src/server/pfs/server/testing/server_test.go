@@ -1113,6 +1113,37 @@ func TestProvenance(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestStartCommitWithGrandparentProvenance(t *testing.T) {
+	t.Parallel()
+	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+		require.NoError(t, env.PachClient.CreateRepo("A"))
+		require.NoError(t, env.PachClient.CreateRepo("B"))
+		require.NoError(t, env.PachClient.CreateRepo("C"))
+
+		require.NoError(t, env.PachClient.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
+		require.NoError(t, env.PachClient.CreateBranch("C", "master", "", []*pfs.Branch{pclient.NewBranch("B", "master")}))
+
+		masterCommit, err := env.PachClient.StartCommit("A", "master")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.FinishCommit("A", masterCommit.ID))
+
+		bCommitInfo, err := env.PachClient.InspectCommit("B", "master")
+		require.NoError(t, err)
+
+		_, err = env.PachClient.PfsAPIClient.StartCommit(env.Context, &pfs.StartCommitRequest{
+			Parent: pclient.NewCommit("C", ""),
+			Provenance: []*pfs.CommitProvenance{
+				pclient.NewCommitProvenance("A", "master", "master"),
+				pclient.NewCommitProvenance("B", "master", bCommitInfo.Commit.ID),
+			},
+		})
+		require.NoError(t, err)
+
+		return nil
+	})
+	require.NoError(t, err)
+}
+
 func TestCommitBranch(t *testing.T) {
 	t.Parallel()
 	err := tu.WithRealEnv(func(env *tu.RealEnv) error {

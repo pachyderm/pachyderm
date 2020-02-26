@@ -2763,9 +2763,8 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	if err != nil {
 		return nil, err
 	}
-	provenance := request.Provenance
-	provenanceMap := make(map[string]*pfs.CommitProvenance)
 
+	provenance := request.Provenance
 	if request.JobID != "" {
 		jobInfo, err := ppsClient.InspectJob(ctx, &pps.InspectJobRequest{
 			Job: client.NewJob(request.JobID),
@@ -2782,39 +2781,57 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 		provenance = append(provenance, jobOutputCommit.Provenance...)
 	}
 
+	provenanceConstraints := make(map[string][]*pfs.CommitRange)
 	for _, prov := range provenance {
 		if prov == nil {
 			return nil, fmt.Errorf("request should not contain nil provenance")
 		}
-		branch := prov.Branch
-		if branch == nil {
-			if prov.Commit == nil {
+
+		if prov.Commit == nil {
+			if prov.Branch == nil {
 				return nil, fmt.Errorf("request provenance cannot have both a nil commit and nil branch")
 			}
-			provCommit, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
-				Commit: prov.Commit,
-			})
+
+			branchInfo, err := pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: prov.Branch})
 			if err != nil {
 				return nil, err
 			}
-			branch = provCommit.Branch
-			prov.Commit = provCommit.Commit
+			if branchInfo.Head == nil {
+				return nil, fmt.Errorf("cannot be provenant on a branch with no commits: %s@%s",
+					branchInfo.Branch.Repo.Name, branchInfo.Branch.Name)
+			}
+			prov.Commit = branchInfo.Head
 		}
-		if branch.Repo == nil {
-			return nil, fmt.Errorf("request provenance branch must have a non nil repo")
-		}
-		_, err := pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{Repo: branch.Repo})
+
+		commitInfo, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+			Commit: prov.Commit,
+		})
 		if err != nil {
 			return nil, err
 		}
 
 		// ensure the commit provenance is consistent with the branch provenance
 		if len(branchProvMap) != 0 {
-			if branch.Repo.Name != ppsconsts.SpecRepo && !branchProvMap[key(branch.Repo.Name, branch.Name)] {
+			if commitInfo.Branch.Repo.Name != ppsconsts.SpecRepo &&
+				!branchProvMap[key(commitInfo.Branch.Repo.Name, commitInfo.Branch.Name)] {
 				return nil, fmt.Errorf("the commit provenance contains a branch which the pipeline's branch is not provenant on")
 			}
 		}
-		provenanceMap[key(branch.Repo.Name, branch.Name)] = prov
+
+		for _, subvRange := range commitInfo.Subvenance {
+			commitInfo, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{Commit: subvRange.Lower})
+			if err != nil {
+				return nil, err
+			}
+
+			if branch := commitInfo.Branch; branch != nil {
+				if existing, ok := provenanceConstraints[key(branch.Repo.Name, branch.Name)]; ok {
+					provenanceConstraints[key(branch.Repo.Name, branch.Name)] = append(existing, subvRange)
+				} else {
+					provenanceConstraints[key(branch.Repo.Name, branch.Name)] = []*pfs.CommitRange{subvRange}
+				}
+			}
+		}
 	}
 
 	for _, branchProv := range append(branch.Provenance, branch.Branch) {
