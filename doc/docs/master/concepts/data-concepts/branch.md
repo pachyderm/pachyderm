@@ -14,8 +14,14 @@ used as extensively as in source code version-control systems.
 
 Each branch has a `HEAD` which references the latest commit in the
 branch. Pachyderm pipelines look at the `HEAD` of the branch
-for changes and, if they detect new changes, trigger a job. When you commit a new
-change, the `HEAD` of the branch moves to the latest commit.
+for changes and, if they detect new changes, trigger a job. When you
+commit a new change, the `HEAD` of the branch moves to the latest commit.
+
+Sometimes you might see no `HEAD` in a branch. This happens when a branch
+does not have any commits yet or if all commits were deleted.
+This can also occur if you create a pipeline that takes an
+input that does not yet exist. In the example below, the `test` branch
+does not have a `HEAD`.
 
 To view a list of branches in a repo, run the `pachctl list branch` command.
 
@@ -28,5 +34,6 @@ To view a list of branches in a repo, run the `pachctl list branch` command.
 
     ```bash
     BRANCH HEAD
-    master bb41c5fb83a14b69966a21c78a3c3b24
+    test   -
+    master c32879ae0e6f4b629a43429b7ec10ccc
     ```
