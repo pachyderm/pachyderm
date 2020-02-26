@@ -27,6 +27,7 @@
   clear: both;
 }
 
+
 /* Responsive columns - one column layout (vertical) on small screens */
 @media screen and (max-width: 600px) {
   .column {

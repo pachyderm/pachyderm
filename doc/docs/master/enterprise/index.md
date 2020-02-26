@@ -3,7 +3,17 @@
 This section describes features available in the enterprise
 edition of Pachyderm. You can try them by enabling a
 14-day free-trial by logging in to the Pachyderm UI and
-providing your email address.
+providing your email address. If you are interested in
+purchasing Pachyderm Enterprise, contact our sales team.
+
+<div class="btn">
+  <div class="center-screen">
+    <a href="https://share.hsforms.com/1kC3bWgvMQve902wrlyh8RA2ttwt">Contact Sales</a>
+  </div>
+</div>
+
+Read about how you can use Pachyderm Enterprise features in the following
+sections.
 
 <div class="row">
   <div class="column-2">

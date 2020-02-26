@@ -1336,7 +1336,8 @@ func (d *driver) makeCommit(
 
 		// ensure the commit provenance is consistent with the branch provenance
 		if len(branchProvMap) != 0 {
-			if prov.Branch.Repo.Name != ppsconsts.SpecRepo && !branchProvMap[key(prov.Branch.Repo.Name, prov.Branch.Name)] {
+			// the check for empty branch names is for the run pipeline case in which a commit with no branch are expected in the stats commit provenance
+			if prov.Branch.Repo.Name != ppsconsts.SpecRepo && prov.Branch.Name != "" && !branchProvMap[key(prov.Branch.Repo.Name, prov.Branch.Name)] {
 				return nil, fmt.Errorf("the commit provenance contains a branch which the branch is not provenant on")
 			}
 		}
@@ -2539,7 +2540,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 		// Determine if this is a provenance update
 		sameTarget := branch.Repo.Name == commit.Repo.Name && branch.Name == commit.ID
 		if !sameTarget && provenance != nil {
-			ci, err = d.inspectCommit(txnCtx.Client, commit, pfs.CommitState_STARTED)
+			ci, err = d.resolveCommit(txnCtx.Stm, commit)
 			if err != nil {
 				return err
 			}
@@ -2597,7 +2598,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	if err := repos.Update(branch.Repo.Name, repoInfo, func() error {
 		add(&repoInfo.Branches, branch)
 		if branch.Name == "master" && commit != nil {
-			ci, err := d.inspectCommit(txnCtx.Client, commit, pfs.CommitState_STARTED)
+			ci, err := d.resolveCommit(txnCtx.Stm, commit)
 			if err != nil {
 				return err
 			}

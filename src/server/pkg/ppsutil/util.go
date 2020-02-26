@@ -26,7 +26,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
-	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 
@@ -40,7 +39,7 @@ import (
 )
 
 // PipelineRepo creates a pfs repo for a given pipeline.
-func PipelineRepo(pipeline *ppsclient.Pipeline) *pfs.Repo {
+func PipelineRepo(pipeline *pps.Pipeline) *pfs.Repo {
 	return &pfs.Repo{Name: pipeline.Name}
 }
 
@@ -131,7 +130,7 @@ func getNumNodes(kubeClient *kube.Clientset) (int, error) {
 // pachyderm will start given the ParallelismSpec 'spec'.
 //
 // This is only exported for testing
-func GetExpectedNumWorkers(kubeClient *kube.Clientset, spec *ppsclient.ParallelismSpec) (int, error) {
+func GetExpectedNumWorkers(kubeClient *kube.Clientset, spec *pps.ParallelismSpec) (int, error) {
 	if spec == nil || (spec.Constant == 0 && spec.Coefficient == 0) {
 		return 1, nil
 	} else if spec.Constant > 0 && spec.Coefficient == 0 {
@@ -150,7 +149,7 @@ func GetExpectedNumWorkers(kubeClient *kube.Clientset, spec *ppsclient.Paralleli
 
 // GetExpectedNumHashtrees computes the expected number of hashtrees that
 // Pachyderm will create given the HashtreeSpec 'spec'.
-func GetExpectedNumHashtrees(spec *ppsclient.HashtreeSpec) (int64, error) {
+func GetExpectedNumHashtrees(spec *pps.HashtreeSpec) (int64, error) {
 	if spec == nil || spec.Constant == 0 {
 		return 1, nil
 	} else if spec.Constant > 0 {
@@ -224,8 +223,8 @@ func JobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.CommitInfo) 
 }
 
 // PipelineReqFromInfo converts a PipelineInfo into a CreatePipelineRequest.
-func PipelineReqFromInfo(pipelineInfo *ppsclient.PipelineInfo) *ppsclient.CreatePipelineRequest {
-	return &ppsclient.CreatePipelineRequest{
+func PipelineReqFromInfo(pipelineInfo *pps.PipelineInfo) *pps.CreatePipelineRequest {
+	return &pps.CreatePipelineRequest{
 		Pipeline:         pipelineInfo.Pipeline,
 		Transform:        pipelineInfo.Transform,
 		ParallelismSpec:  pipelineInfo.ParallelismSpec,

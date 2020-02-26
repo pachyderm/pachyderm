@@ -324,6 +324,14 @@ To create these resources, follow these steps:
    ]
    ```
 
+1. Create a new storage container within your storage account:
+
+   ```bash
+   az storage container create --name ${CONTAINER_NAME} \
+             --account-name ${STORAGE_ACCOUNT} \
+             --account-key "${STORAGE_KEY}"
+   ```
+
 !!! note "See also:"
     - [Azure Storage](https://azure.microsoft.com/documentation/articles/storage-introduction/)
 
