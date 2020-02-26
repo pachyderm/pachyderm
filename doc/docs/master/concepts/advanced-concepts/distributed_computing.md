@@ -1,4 +1,4 @@
-# Configure Distributed Computing
+# Distributed Computing
 
 Distributing your computations across multiple workers
 is a fundamental part of any big data processing.

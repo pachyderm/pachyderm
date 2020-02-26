@@ -424,6 +424,7 @@ message PipelineInfo {
   SchedulingSpec scheduling_spec = 40;
   string pod_spec = 41;
   string pod_patch = 44;
+  bool s3_out = 47;
 }
 
 message PipelineInfos {
