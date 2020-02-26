@@ -34,7 +34,7 @@
     {
       "label": "docker-build-pull",
       "type": "shell",
-      "command": "eval $(minikube docker-env --shell bash); docker pull pachyderm/compile:go1.12.1"
+      "command": "eval $(docker-machine env --shell bash); docker pull pachyderm/compile:go1.12.1"
     },
     {
       "label": "docker-build-all",
