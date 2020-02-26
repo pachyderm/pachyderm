@@ -11050,6 +11050,79 @@ func TestKeepRepo(t *testing.T) {
 	require.NoError(t, c.DeletePipeline(pipeline, false))
 }
 
+func TestS3PipelineErrors(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	repo1, repo2 := tu.UniqueString(t.Name()+"_data"), tu.UniqueString(t.Name()+"_data")
+	require.NoError(t, c.CreateRepo(repo1))
+	require.NoError(t, c.CreateRepo(repo2))
+
+	pipeline := tu.UniqueString("Pipeline")
+	err := c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			"ls -R /pfs >/pfs/out/files",
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		&pps.Input{
+			Union: []*pps.Input{
+				{Pfs: &pps.PFSInput{
+					Repo:   repo1,
+					Branch: "master",
+					S3:     true,
+				}},
+				{Pfs: &pps.PFSInput{
+					Repo:   repo2,
+					Branch: "master",
+					Glob:   "/*",
+				}},
+			},
+		},
+		"",
+		false,
+	)
+	require.YesError(t, err)
+	require.Matches(t, "union", err.Error())
+	err = c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			"ls -R /pfs >/pfs/out/files",
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		&pps.Input{
+			Join: []*pps.Input{
+				{Pfs: &pps.PFSInput{
+					Repo:   repo1,
+					Branch: "master",
+					S3:     true,
+				}},
+				{Pfs: &pps.PFSInput{
+					Repo:   repo2,
+					Branch: "master",
+					Glob:   "/*",
+				}},
+			},
+		},
+		"",
+		false,
+	)
+	require.YesError(t, err)
+	require.Matches(t, "join", err.Error())
+}
+
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
 	pipelineInfos, err := c.ListPipeline()
 	require.NoError(t, err)

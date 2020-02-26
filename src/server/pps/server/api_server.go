@@ -235,12 +235,23 @@ func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName str
 					return fmt.Errorf("multiple input types set")
 				}
 				set = true
+				if ppsutil.ContainsS3Inputs(input) {
+					// The best datum semantics for s3 inputs embedded in join expressions
+					// are not yet clear, and we see no use case for them yet, so block
+					// them until we know how they should work
+					return fmt.Errorf("S3 inputs in join expressions are not supported")
+				}
 			}
 			if input.Union != nil {
 				if set {
 					return fmt.Errorf("multiple input types set")
 				}
 				set = true
+				if ppsutil.ContainsS3Inputs(input) {
+					// See above for "joins"; block s3 inputs in union expressions until
+					// we know how they should work
+					return fmt.Errorf("S3 inputs in union expressions are not supported")
+				}
 			}
 			if input.Cron != nil {
 				if set {
