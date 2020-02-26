@@ -483,6 +483,14 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 // This should be used to access Pachyderm from within a Kubernetes cluster
 // with Pachyderm running on it.
 func NewInCluster(options ...Option) (*APIClient, error) {
+	// first try the pachd peer service (only supported on pachyderm >= 1.10),
+	// which will work when TLS is enabled
+	internalHost := os.Getenv("PACHD_PEER_SERVICE_HOST")
+	internalPort := os.Getenv("PACHD_PEER_SERVICE_PORT")
+	if internalHost != "" && internalPort != "" {
+		return NewFromAddress(fmt.Sprintf("%s:%s", internalHost, internalPort), options...)
+	}
+
 	host, ok := os.LookupEnv("PACHD_SERVICE_HOST")
 	if !ok {
 		return nil, fmt.Errorf("PACHD_SERVICE_HOST not set")

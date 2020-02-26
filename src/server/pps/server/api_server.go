@@ -1549,6 +1549,9 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	if request.TFJob != nil {
 		return goerr.New("embedding TFJobs in pipelines is not supported yet")
 	}
+	if request.S3Out {
+		return goerr.New("s3 gateway services for PPS pipelines are not supported yet")
+	}
 	if request.Transform == nil {
 		return fmt.Errorf("pipeline must specify a transform")
 	}
@@ -1967,6 +1970,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		SchedulingSpec:   request.SchedulingSpec,
 		PodSpec:          request.PodSpec,
 		PodPatch:         request.PodPatch,
+		S3Out:            request.S3Out,
 	}
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
 		return nil, err
