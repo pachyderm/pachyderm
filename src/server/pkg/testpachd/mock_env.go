@@ -6,7 +6,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	foo "github.com/pachyderm/pachyderm/src/server/pkg/testetcd"
+	"github.com/pachyderm/pachyderm/src/server/pkg/testetcd"
 )
 
 // MockEnv contains the basic setup for running end-to-end pachyderm tests
@@ -14,7 +14,7 @@ import (
 // for storing data, an embedded etcd server with a connected client, as well as
 // a local mock pachd instance which allows a test to hook into any pachd calls.
 type MockEnv struct {
-	foo.EtcdEnv
+	testetcd.EtcdEnv
 	MockPachd  *MockPachd
 	PachClient *client.APIClient
 }

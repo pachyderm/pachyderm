@@ -1,4 +1,4 @@
-package tetcd
+package testetcd
 
 import (
 	"context"
