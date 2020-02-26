@@ -21,4 +21,5 @@ message Task {
 message TaskInfo {
   Task task = 1;
   State state = 2;
+  string reason = 3;
 }

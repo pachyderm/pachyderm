@@ -2,9 +2,7 @@ package server
 
 import (
 	"io"
-	"log"
 	"path"
-	"strconv"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -14,7 +12,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
-	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 	"golang.org/x/net/context"
 )
 
@@ -99,42 +96,43 @@ func (d *driver) getFilesNewStorageLayer(ctx context.Context, repo, commit, glob
 }
 
 func (d *driver) compact(ctx context.Context, outputPath string, prefixes []string) error {
-	// (bryce) need some cleanup improvements, probably garbage collection.
-	if err := d.storage.Delete(ctx, tmpPrefix); err != nil {
-		return err
-	}
-	// (bryce) need to add a resiliency measure for existing incomplete compaction for the prefix (master crashed).
-	// Setup task.
-	task := &work.Task{ID: prefixes[0]}
-	var err error
-	task.Data, err = serializeCompaction(&pfs.Compaction{Prefixes: prefixes})
-	if err != nil {
-		return err
-	}
-	if err := d.storage.Shard(ctx, prefixes, func(pathRange *index.PathRange) error {
-		shard, err := serializeShard(&pfs.Shard{
-			Range: &pfs.PathRange{
-				Lower: pathRange.Lower,
-				Upper: pathRange.Upper,
-			},
-		})
-		if err != nil {
-			return err
-		}
-		task.Subtasks = append(task.Subtasks, &work.Task{
-			ID:   strconv.Itoa(len(task.Subtasks)),
-			Data: shard,
-		})
-		return nil
-	}); err != nil {
-		return err
-	}
-	// Setup and run master.
-	m := work.NewMaster(d.etcdClient, d.prefix, storageTaskNamespace)
-	if err := m.Run(ctx, task, func(_ context.Context, _ *work.Task) error { return nil }); err != nil {
-		return err
-	}
-	return d.storage.Compact(ctx, outputPath, []string{tmpPrefix})
+	//	// (bryce) need some cleanup improvements, probably garbage collection.
+	//	if err := d.storage.Delete(ctx, tmpPrefix); err != nil {
+	//		return err
+	//	}
+	//	// (bryce) need to add a resiliency measure for existing incomplete compaction for the prefix (master crashed).
+	//	// Setup task.
+	//	task := &work.Task{ID: prefixes[0]}
+	//	var err error
+	//	task.Data, err = serializeCompaction(&pfs.Compaction{Prefixes: prefixes})
+	//	if err != nil {
+	//		return err
+	//	}
+	//	if err := d.storage.Shard(ctx, prefixes, func(pathRange *index.PathRange) error {
+	//		shard, err := serializeShard(&pfs.Shard{
+	//			Range: &pfs.PathRange{
+	//				Lower: pathRange.Lower,
+	//				Upper: pathRange.Upper,
+	//			},
+	//		})
+	//		if err != nil {
+	//			return err
+	//		}
+	//		task.Subtasks = append(task.Subtasks, &work.Task{
+	//			ID:   strconv.Itoa(len(task.Subtasks)),
+	//			Data: shard,
+	//		})
+	//		return nil
+	//	}); err != nil {
+	//		return err
+	//	}
+	//	// Setup and run master.
+	//	m := work.NewMaster(d.etcdClient, d.prefix, storageTaskNamespace)
+	//	if err := m.Run(ctx, task, func(_ context.Context, _ *work.Task) error { return nil }); err != nil {
+	//		return err
+	//	}
+	//	return d.storage.Compact(ctx, outputPath, []string{tmpPrefix})
+	return nil
 }
 
 func serializeCompaction(compaction *pfs.Compaction) (*types.Any, error) {
@@ -175,19 +173,19 @@ func deserialize(compactionAny, shardAny *types.Any) (*pfs.Compaction, *pfs.Shar
 // because each pachd instance that errors here will lose its compaction worker without an obvious
 // notification for the user (outside of the log message).
 func (d *driver) compactionWorker() {
-	w := work.NewWorker(d.etcdClient, d.prefix, storageTaskNamespace)
-	if err := w.Run(context.Background(), func(ctx context.Context, task, subtask *work.Task) error {
-		compaction, shard, err := deserialize(task.Data, subtask.Data)
-		if err != nil {
-			return err
-		}
-		outputPath := path.Join(tmpPrefix, task.ID, subtask.ID)
-		pathRange := &index.PathRange{
-			Lower: shard.Range.Lower,
-			Upper: shard.Range.Upper,
-		}
-		return d.storage.Compact(ctx, outputPath, compaction.Prefixes, index.WithRange(pathRange))
-	}); err != nil {
-		log.Printf("error in compaction worker: %v", err)
-	}
+	//	w := work.NewWorker(d.etcdClient, d.prefix, storageTaskNamespace)
+	//	if err := w.Run(context.Background(), func(ctx context.Context, task, subtask *work.Task) error {
+	//		compaction, shard, err := deserialize(task.Data, subtask.Data)
+	//		if err != nil {
+	//			return err
+	//		}
+	//		outputPath := path.Join(tmpPrefix, task.ID, subtask.ID)
+	//		pathRange := &index.PathRange{
+	//			Lower: shard.Range.Lower,
+	//			Upper: shard.Range.Upper,
+	//		}
+	//		return d.storage.Compact(ctx, outputPath, compaction.Prefixes, index.WithRange(pathRange))
+	//	}); err != nil {
+	//		log.Printf("error in compaction worker: %v", err)
+	//	}
 }
