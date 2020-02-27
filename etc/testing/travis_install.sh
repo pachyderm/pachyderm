@@ -70,3 +70,6 @@ if [ ! -f ~/cached-deps/kubeval ]; then
       mv ./kubeval ~/cached-deps/kubeval
 fi
 
+# enable experimental mode on docker
+echo '{"experimental":true}' | sudo tee /etc/docker/daemon.json
+sudo service docker restart
