@@ -179,7 +179,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 			{
 				Name:            "init",
 				Image:           workerImage,
-				Command:         []string{"/app/worker.sh"},
+				Command:         []string{"/pach/worker.sh"},
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
 				VolumeMounts:    options.volumeMounts,
 			},
@@ -188,7 +188,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 			{
 				Name:            client.PPSWorkerUserContainerName,
 				Image:           options.userImage,
-				Command:         []string{"/app/worker"},
+				Command:         []string{"/pach-bin/worker"},
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
 				Env:             workerEnv,
 				Resources: v1.ResourceRequirements{
