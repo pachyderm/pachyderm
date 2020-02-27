@@ -552,8 +552,14 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 			}
 		}
 	} else {
-		if err := os.MkdirAll(outPath, 0777); err != nil {
-			return "", err
+		if a.pipelineInfo.S3Out {
+			if err := os.RemoveAll(outPath); err != nil {
+				return "", fmt.Errorf("couldn't remove %q for s3-out pipeline: %v", outPath, err)
+			}
+		} else {
+			if err := os.MkdirAll(outPath, 0777); err != nil {
+				return "", fmt.Errorf("couldn't create %q: %v", outPath, err)
+			}
 		}
 	}
 	for _, input := range inputs {
@@ -2148,6 +2154,9 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				}
 				atomic.AddUint64(&subStats.DownloadBytes, uint64(downSize))
 				a.reportDownloadSizeStats(float64(downSize), logger)
+				if a.pipelineInfo.S3Out {
+					return nil // no output to upload if using s3 gateway for output
+				}
 				return a.uploadOutput(pachClient, dir, tag, logger, data, subStats, outputTree, datumIdx)
 			}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
 				if isDone(ctx) {
