@@ -12,9 +12,7 @@ ifndef TESTPKGS
 endif
 
 RUN= # used by go tests to decide which tests to run (i.e. passed to -run)
-COMPILE_RUN_ARGS = -d -v /var/run/docker.sock:/var/run/docker.sock --privileged=true
 # Label it w the go version we bundle in:
-COMPILE_IMAGE = "pachyderm/compile:$(shell cat etc/compile/GO_VERSION)"
 export VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
 LD_FLAGS = -X github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
 export GC_FLAGS = "all=-trimpath=${PWD}"
@@ -123,103 +121,27 @@ release-pachctl:
 	@# Run pachctl release script w deploy branch name
 	@VERSION="$(shell pachctl version --client-only)" ./etc/build/release_pachctl
 
-release-helper: check-docker-version release-version release-pachd release-worker
+release-helper: check-docker-version release-version release-image
 
 release-version: install-clean
 	@./etc/build/repo_ready_for_release.sh
 
-release-pachd:
-	@VERSION="$(shell pachctl version --client-only)" ./etc/build/release_pachd
+release-images:
+	docker tag pachyderm_pachd:latest pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
+	docker push pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
+	docker tag pachyderm_worker:latest pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
+	docker push pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
 
-release-worker:
-	@VERSION="$(shell pachctl version --client-only)" ./etc/build/release_worker
+docker-build: enterprise-code-checkin-test
+	DOCKER_BUILDKIT=1 docker build -t pachyderm_build -f Dockerfile.build .
+	# TODO(ys): look into combining pachyderm_(pachd|worker) images
+	docker build -t pachyderm_pachd -f Dockerfile.pachd .
+	docker tag pachyderm_pachd pachyderm/pachd:local
+	docker build -t pachyderm_worker -f Dockerfile.worker .
+	docker tag pachyderm_worker pachyderm/worker:local
 
-docker-buildkit:
-	DOCKER_BUILDKIT=1 docker build -t pachyderm_test .
-
-docker-build-compile:
-	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_compile .
-
-# To bump this, update the etc/compile/GO_VERSION file
-publish-compile: docker-build-compile
-	docker tag pachyderm_compile $(COMPILE_IMAGE)
-	docker push $(COMPILE_IMAGE)
-
-docker-clean-worker:
-	rm -rf docker_build_worker.tmpdir
-	docker stop worker_compile || true
-	docker rm worker_compile || true
-
-docker-build-worker: docker-clean-worker
-	docker run \
-		--env=CALLING_OS=$$(uname) \
-		--env=CALLING_USER_ID=$$(id -u $$USER) \
-		--env=DOCKER_GROUP_ID=$$(cat /etc/group | grep docker | cut -d: -f3) \
-		--env=DOCKER_BUILD_FLAGS="$(DOCKER_BUILD_FLAGS)" \
-		-v $$PWD:/pachyderm \
-		-v $$GOPATH/pkg:/go/pkg \
-		-v $$HOME/.cache/go-build:/root/.cache/go-build \
-		--name worker_compile \
-		$(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) \
-		/pachyderm/etc/compile/compile.sh worker "$(LD_FLAGS)"
-
-
-docker-wait-worker:
-	etc/compile/wait.sh worker_compile
-
-docker-clean-pachd:
-	rm -rf docker_build_worker.tmpdir
-	docker stop pachd_compile || true
-	docker rm pachd_compile || true
-
-docker-build-pachd: docker-clean-pachd
-	docker run  \
-		--env=CALLING_OS=$$(uname) \
-		--env=CALLING_USER_ID=$$(id -u $$USER) \
-		--env=DOCKER_GROUP_ID=$$(cat /etc/group | grep docker | cut -d: -f3) \
-		--env=DOCKER_BUILD_FLAGS="$(DOCKER_BUILD_FLAGS)" \
-		-v $$PWD:/pachyderm \
-		-v $$GOPATH/pkg:/go/pkg \
-		-v $$HOME/.cache/go-build:/root/.cache/go-build \
-		--name pachd_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /pachyderm/etc/compile/compile.sh pachd "$(LD_FLAGS)"
-
-docker-clean-test:
-	docker stop test_compile || true
-	docker rm test_compile || true
-
-docker-build-test: docker-clean-test docker-build-compile
-	@# build the pachyderm_test_buildenv container
-	etc/compile/compile_test.sh --make-env
-	mkdir ./_tmp || true
-	@# build pachyderm_test container (don't use COMPILE_RUN_ARGS b/c we don't
-	@# want to run this as a daemon container
-	docker run \
-	  --attach stdout \
-	  --attach stderr \
-	  --rm \
-	  -w /pachyderm \
-	  -v $$PWD:/pachyderm \
-	  -v $$HOME/.cache/go-build:/root/.cache/go-build \
-	  -v /var/run/docker.sock:/var/run/docker.sock \
-	  --privileged=true \
-	  --name test_compile \
-	  pachyderm_test_buildenv sh /pachyderm/etc/compile/compile_test.sh
-	docker tag pachyderm_test:latest pachyderm/test:`git rev-list HEAD --max-count=1`
-
-docker-push-test:
-	docker push pachyderm/test:`git rev-list HEAD --max-count=1`
-
-docker-wait-pachd:
-	etc/compile/wait.sh pachd_compile
-
-docker-build-helper: enterprise-code-checkin-test
-	@# run these in separate make process so that if
-	@# 'enterprise-code-checkin-test' fails, the rest of the build process aborts
-	@make docker-build-worker docker-build-pachd docker-wait-worker docker-wait-pachd
-
-docker-build:
-	docker pull $(COMPILE_IMAGE)
-	make docker-build-helper
+docker-build-test:
+	DOCKER_BUILDKIT=1 docker build -t pachyderm_test -f Dockerfile.test .
 
 docker-build-proto:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_proto etc/proto
@@ -262,26 +184,21 @@ check-kubectl:
 check-kubectl-connection:
 	kubectl $(KUBECTLFLAGS) get all > /dev/null
 
-launch-dev-bench: docker-build docker-build-test install
+launch-dev-bench: install
 	@# Put it here so sudo can see it
 	rm /usr/local/bin/pachctl || true
 	ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 	make launch-bench
 
-build-bench-images: docker-build docker-build-test
-
 push-bench-images: install-bench tag-images push-images
-	# We need the pachyderm_compile image to be up to date
-	docker tag pachyderm_test pachyderm/bench:`git rev-list HEAD --max-count=1`
+	docker tag pachyderm/test pachyderm/bench:`git rev-list HEAD --max-count=1`
 	docker push pachyderm/bench:`git rev-list HEAD --max-count=1`
 
 tag-images: install
-	docker tag pachyderm_pachd pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
-	docker tag pachyderm_worker pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
+	docker tag pachyderm pachyderm/pachyderm:`$(GOPATH)/bin/pachctl version --client-only`
 
 push-images: tag-images
-	docker push pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
-	docker push pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
+	docker push pachyderm/pachyderm:`$(GOPATH)/bin/pachctl version --client-only`
 
 launch-bench:
 	@# Make launches each process in its own shell process, so we have to structure
@@ -301,7 +218,7 @@ install-bench: install
 	rm /usr/local/bin/pachctl || true
 	[ -f /usr/local/bin/pachctl ] || sudo ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 
-launch-dev-test: docker-build-test docker-push-test
+launch-dev-test:
 	kubectl run pachyderm-test --image=pachyderm/test:`git rev-list HEAD --max-count=1` \
 	  --rm \
 	  --restart=Never \
@@ -330,7 +247,7 @@ run-bench:
 delete-all-launch-bench:
 	etc/testing/deploy/$(BENCH_CLOUD_PROVIDER).sh --delete-all
 
-bench: clean-launch-bench build-bench-images push-bench-images launch-bench run-bench clean-launch-bench
+bench: clean-launch-bench push-bench-images launch-bench run-bench clean-launch-bench
 
 launch-kube: check-kubectl
 	etc/kube/start-minikube.sh
@@ -410,12 +327,6 @@ proto: docker-build-proto
 
 proto-no-cache: docker-build-proto-no-cache
 	./etc/proto/build.sh
-
-# Use this to grab a binary for profiling purposes
-pachd-profiling-binary: docker-clean-pachd docker-build-compile
-	docker run -i $(COMPILE_IMAGE) sh etc/compile/compile.sh pachd "$(LD_FLAGS)" PROFILE \
-	| tar xf -
-	# Binary emitted to ./pachd
 
 pretest:
 	go get -v github.com/kisielk/errcheck
@@ -670,19 +581,10 @@ goxc-build:
 	homebrew \
 	release \
 	release-helper \
-	release-worker \
 	release-manifest \
 	release-pachctl-custom \
-	release-pachd \
 	release-version \
 	docker-build \
-	docker-build-compile \
-	docker-build-worker \
-	docker-build-pachd \
-	docker-build-proto \
-	docker-push-worker \
-	docker-push-pachd \
-	docker-push \
 	launch-kube \
 	clean-launch-kube \
 	kube-cluster-assets \

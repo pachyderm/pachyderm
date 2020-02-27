@@ -1,0 +1,5 @@
+FROM debian:buster
+WORKDIR /pach
+COPY --from=pachyderm_build /pach/pachd .
+COPY --from=pachyderm_build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+ENTRYPOINT ["/pach/pachd"]

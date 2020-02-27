@@ -1,0 +1,19 @@
+# syntax=docker/dockerfile:1.0-experimental
+# TODO: pull in from etc/compile/GO_VERSION
+FROM golang:1.13.8
+WORKDIR /app
+COPY . .
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go test -c -o pachyderm_test ./src/server && \
+    go test -c -o pfs_server_test ./src/server/pfs/server && \
+    go test -c -o pfs_cmds_test ./src/server/pfs/cmds && \
+    go test -c -o pps_cmds_test ./src/server/pps/cmds && \
+    go test -c -o auth_server_test ./src/server/auth/server && \
+    go test -c -o auth_cmds_test ./src/server/auth/cmds && \
+    go test -c -o enterprise_server_test ./src/server/enterprise/server && \
+    go test -c -o worker_test ./src/server/worker && \
+    go test -c -o collection_test ./src/server/pkg/collection && \
+    go test -c -o hashtree_test ./src/server/pkg/hashtree && \
+    go test -c -o cert_test ./src/server/pkg/cert && \
+    go test -c -o vault_test ./src/plugin/vault
