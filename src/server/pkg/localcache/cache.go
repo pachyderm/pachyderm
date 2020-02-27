@@ -26,6 +26,13 @@ func NewCache(root string) *Cache {
 	}
 }
 
+// Has returns true if the key is present in the cache, false otherwise.
+func (c *Cache) Has(key string) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.keys[key]
+}
+
 // Put puts a key/value pair in the cache and reads the value from an io.Reader.
 func (c *Cache) Put(key string, value io.Reader) (retErr error) {
 	c.mu.Lock()
