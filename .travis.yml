@@ -1,9 +1,5 @@
 dist: xenial
 sudo: required
-addons:
-  apt:
-    packages:
-      - docker-ce
 cache:
   directories:
     # If any directories are added here, they must also be added to
