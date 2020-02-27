@@ -41,7 +41,6 @@ install:
   - etc/testing/travis_install.sh
 before_script:
   - docker version
-  - docker version -f '{{.Server.Experimental}}'
 script:
   - etc/testing/travis.sh
 before_cache:
