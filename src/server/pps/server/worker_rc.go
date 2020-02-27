@@ -179,7 +179,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 			{
 				Name:            "init",
 				Image:           workerImage,
-				Command:         []string{"/pach/worker.sh"},
+				Command:         []string{"/app/worker.sh"},
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
 				VolumeMounts:    options.volumeMounts,
 			},
@@ -188,7 +188,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 			{
 				Name:            client.PPSWorkerUserContainerName,
 				Image:           options.userImage,
-				Command:         []string{"/pach-bin/worker"},
+				Command:         []string{"/app/worker"},
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
 				Env:             workerEnv,
 				Resources: v1.ResourceRequirements{
@@ -202,7 +202,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 			{
 				Name:            client.PPSWorkerSidecarContainerName,
 				Image:           a.workerSidecarImage,
-				Command:         []string{"/pachd", "--mode", "sidecar"},
+				Command:         []string{"/app/pachd", "--mode", "sidecar"},
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
 				Env:             sidecarEnv,
 				VolumeMounts:    sidecarVolumeMounts,

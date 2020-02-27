@@ -4,7 +4,7 @@
 # TODO(ys): ignore files that don't need to be synced
 # TODO(ys): experiment with bind mount types instead of copying the local directory structure
 FROM golang:1.13.8
-WORKDIR /pach
+WORKDIR /app
 COPY . .
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \

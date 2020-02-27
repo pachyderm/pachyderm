@@ -650,7 +650,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 							ReadinessProbe: &v1.Probe{
 								Handler: v1.Handler{
 									Exec: &v1.ExecAction{
-										Command: []string{"/pachd", "--readiness"},
+										Command: []string{"/app/pachd", "--readiness"},
 									},
 								},
 							},
