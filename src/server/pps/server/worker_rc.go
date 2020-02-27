@@ -147,7 +147,44 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	cpuZeroQuantity := resource.MustParse("0")
 	memDefaultQuantity := resource.MustParse("64M")
 	memSidecarQuantity := resource.MustParse(options.cacheSize)
-
+	workerResources := v1.ResourceRequirements{
+		Requests: v1.ResourceList{
+			v1.ResourceCPU:    cpuZeroQuantity,
+			v1.ResourceMemory: memDefaultQuantity,
+		},
+	}
+	// copy over any explicit requests/limits, but don't unset any defaults
+	if options.resourceRequests != nil {
+		for k, v := range *options.resourceRequests {
+			workerResources.Requests[k] = v
+		}
+	}
+	if options.resourceLimits != nil {
+		workerResources.Limits = make(v1.ResourceList)
+		for k, v := range *options.resourceLimits {
+			workerResources.Limits[k] = v
+		}
+	}
+	initResources := v1.ResourceRequirements{
+		Requests: v1.ResourceList{
+			v1.ResourceCPU:    cpuZeroQuantity,
+			v1.ResourceMemory: memDefaultQuantity,
+		},
+	}
+	// Copy over settings from the user to init container. We don't apply GPU
+	// requests because of FUD. The init container shouldn't run concurrently with
+	// the user container, so there should be no contention here.
+	for _, k := range []v1.ResourceName{v1.ResourceCPU, v1.ResourceMemory, v1.ResourceEphemeralStorage} {
+		if val, ok := workerResources.Requests[k]; ok {
+			initResources.Requests[k] = val
+		}
+	}
+	sidecarResources := v1.ResourceRequirements{
+		Requests: v1.ResourceList{
+			v1.ResourceCPU:    cpuZeroQuantity,
+			v1.ResourceMemory: memSidecarQuantity,
+		},
+	}
 	if !a.noExposeDockerSocket {
 		options.volumes = append(options.volumes, v1.Volume{
 			Name: "docker",
@@ -183,12 +220,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 				Command:         []string{"/pach/worker.sh"},
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
 				VolumeMounts:    options.volumeMounts,
-				Resources: v1.ResourceRequirements{
-					Requests: v1.ResourceList{
-						v1.ResourceCPU:    cpuZeroQuantity,
-						v1.ResourceMemory: memDefaultQuantity,
-					},
-				},
+				Resources:       initResources,
 			},
 		},
 		Containers: []v1.Container{
@@ -198,13 +230,8 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 				Command:         []string{"/pach-bin/worker"},
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
 				Env:             workerEnv,
-				Resources: v1.ResourceRequirements{
-					Requests: v1.ResourceList{
-						v1.ResourceCPU:    cpuZeroQuantity,
-						v1.ResourceMemory: memDefaultQuantity,
-					},
-				},
-				VolumeMounts: userVolumeMounts,
+				Resources:       workerResources,
+				VolumeMounts:    userVolumeMounts,
 			},
 			{
 				Name:            client.PPSWorkerSidecarContainerName,
@@ -213,12 +240,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
 				Env:             sidecarEnv,
 				VolumeMounts:    sidecarVolumeMounts,
-				Resources: v1.ResourceRequirements{
-					Requests: v1.ResourceList{
-						v1.ResourceCPU:    cpuZeroQuantity,
-						v1.ResourceMemory: memSidecarQuantity,
-					},
-				},
+				Resources:       sidecarResources,
 			},
 		},
 		RestartPolicy:                 "Always",
@@ -230,28 +252,6 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	if options.schedulingSpec != nil {
 		podSpec.NodeSelector = options.schedulingSpec.NodeSelector
 		podSpec.PriorityClassName = options.schedulingSpec.PriorityClassName
-	}
-
-	if options.resourceRequests != nil {
-		for k, v := range *options.resourceRequests {
-			podSpec.Containers[0].Resources.Requests[k] = v
-		}
-	}
-
-	// Copy over some settings from the user to init container. We don't apply GPU
-	// requests because of FUD. The init container shouldn't run concurrently with
-	// the user container, so there should be no contention here.
-	for _, k := range []v1.ResourceName{v1.ResourceCPU, v1.ResourceMemory, v1.ResourceEphemeralStorage} {
-		if val, ok := podSpec.Containers[0].Resources.Requests[k]; ok {
-			podSpec.InitContainers[0].Resources.Requests[k] = val
-		}
-	}
-
-	if options.resourceLimits != nil {
-		podSpec.Containers[0].Resources.Limits = make(v1.ResourceList)
-		for k, v := range *options.resourceLimits {
-			podSpec.Containers[0].Resources.Limits[k] = v
-		}
 	}
 
 	if options.podSpec != "" || options.podPatch != "" {
