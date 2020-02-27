@@ -75,12 +75,20 @@ data operations in Pachyderm.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
+           <li><a href="create-pipeline/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+            Create a Pipeline
+           </a>
+           </li>
            <li><a href="updating_pipelines/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
            Update a Pipeline
            </a>
            </li>
            <li><a href="run_pipeline/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
            Run a Pipeline on a Specific Commit
+           </a>
+           </li>
+           <li><a href="delete-pipeline/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           Delete a Pipeline
            </a>
            </li>
         </ul>

@@ -63,7 +63,7 @@ the following steps:
    $ pachctl deploy storage amazon <region> <access-key-id> <secret-access-key> [<session-token>]
    ```
 
-!!! note "See also:"
+!!! note "See Also:"
     - [Custom Object Store](../deploy-manage/deploy/custom_object_stores.md)
     - [Create a Custom Pachyderm Deployment](../deploy-manage/deploy/deploy_custom/index.md)
     - [Pipeline Specification](../reference/pipeline_spec.md)
