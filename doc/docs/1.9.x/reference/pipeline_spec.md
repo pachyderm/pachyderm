@@ -82,8 +82,8 @@ create pipeline](pachctl/pachctl_create_pipeline.md) section.
         "internal_port": int,
         "external_port": int,
         "annotations": {
-             "foo": "bar"
-         }
+            "foo": "bar"
+        }
     }
   },
   "max_queue_size": int,
