@@ -8,7 +8,7 @@ format.
 
 This is a simple example of a Pachyderm pipeline specification:
 
-```# edges.json
+```json
 {
   "pipeline": {
     "name": "edges"
