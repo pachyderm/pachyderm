@@ -3132,7 +3132,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 		[]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 	commitInfos = collectCommitInfos(t, commitIter)
-	require.Equal(t, 2, len(commitInfos))
+	require.Equal(t, 1, len(commitInfos))
 	commits, err = c.ListCommit(pipelineName, "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commits))

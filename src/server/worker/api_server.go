@@ -1375,8 +1375,11 @@ func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APICl
 }
 
 func (a *APIServer) getChunk(ctx context.Context, id int64, address string, failed bool) error {
-	// If this worker processed the chunk, then it is already in the chunk cache
+	// If this worker processed the chunk, make sure it is already in the chunk cache
 	if address == os.Getenv(client.PPSWorkerIPEnv) {
+		if !a.chunkCache.Has(id) {
+			return fmt.Errorf("chunk (%d) missing from local chunk cache", id)
+		}
 		return nil
 	}
 	if _, ok := a.clients[address]; !ok {
