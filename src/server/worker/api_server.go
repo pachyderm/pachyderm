@@ -1125,10 +1125,15 @@ func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (*Cancel
 // GetChunk returns the merged datum hashtrees of a particular chunk (if available)
 func (a *APIServer) GetChunk(request *GetChunkRequest, server Worker_GetChunkServer) error {
 	filter := hashtree.NewFilter(a.numShards, request.Shard)
+	cache := a.chunkCache
 	if request.Stats {
-		return a.chunkStatsCache.Get(request.Id, grpcutil.NewStreamingBytesWriter(server), filter)
+		cache = a.chunkStatsCache
 	}
-	return a.chunkCache.Get(request.Id, grpcutil.NewStreamingBytesWriter(server), filter)
+
+	if !cache.Has(request.Id) {
+		return fmt.Errorf("chunk (%d) missing from cache", request.Id)
+	}
+	return cache.Get(request.Id, grpcutil.NewStreamingBytesWriter(server), filter)
 }
 
 func (a *APIServer) datum() []*pps.InputFile {
@@ -1374,8 +1379,13 @@ func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APICl
 }
 
 func (a *APIServer) getChunk(ctx context.Context, id int64, address string, failed bool) error {
-	// If this worker processed the chunk, then it is already in the chunk cache
+	// If we think this worker processed the chunk, make sure it is already in the
+	// chunk cache, otherwise we may have cleared the cache since datum
+	// processing, or the IP was recycled.
 	if address == os.Getenv(client.PPSWorkerIPEnv) {
+		if !a.chunkCache.Has(id) {
+			return fmt.Errorf("chunk (%d) missing from local chunk cache", id)
+		}
 		return nil
 	}
 	if _, ok := a.clients[address]; !ok {
