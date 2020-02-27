@@ -37,6 +37,15 @@
   }
 }
 
+  @media screen and (max-width: 600px) {
+  .column-2 {
+    width: 100%;
+    display: block;
+    margin-bottom: 20px;
+  }
+}
+
+
 .card-square.mdl-card {
   width: auto;
   height: 260px;

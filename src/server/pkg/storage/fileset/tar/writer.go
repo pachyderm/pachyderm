@@ -463,6 +463,7 @@ func (tw *Writer) Skip(n int64) error {
 //
 // TODO(dsnet): Re-export this when adding sparse file support.
 // See https://golang.org/issue/22735
+// lint:ignore U1000 false positive from staticcheck
 func (tw *Writer) readFrom(r io.Reader) (int64, error) {
 	if tw.err != nil {
 		return 0, tw.err

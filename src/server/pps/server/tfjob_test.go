@@ -3,8 +3,6 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"os"
-	"sync"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -13,22 +11,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/serde"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
-
-var pachClient *client.APIClient
-var getPachClientOnce sync.Once
-
-func getPachClient(t testing.TB) *client.APIClient {
-	getPachClientOnce.Do(func() {
-		var err error
-		if addr := os.Getenv("PACHD_PORT_650_TCP_ADDR"); addr != "" {
-			pachClient, err = client.NewInCluster()
-		} else {
-			pachClient, err = client.NewForTest()
-		}
-		require.NoError(t, err)
-	})
-	return pachClient
-}
 
 func YAMLToJSONString(t *testing.T, yamlStr string) string {
 	holder := make(map[string]interface{})
@@ -47,7 +29,7 @@ func TestTFJobBasic(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := getPachClient(t)
+	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestSimplePipeline_data")

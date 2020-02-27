@@ -1,4 +1,4 @@
-# Configure Distributed Computing
+# Distributed Computing
 
 Distributing your computations across multiple workers
 is a fundamental part of any big data processing.
@@ -79,7 +79,7 @@ can set in the pipeline spec:
 By default, Pachyderm sets `parallelism` to `“constant": 1`, which means
 that it spawns one worker per Kubernetes node for this pipeline.
 
-!!! note "See also:"
+!!! note "See Also:"
 
 * [Glob Pattern](..//pipeline-concepts/datum/glob-pattern)
 * [Pipeline Specification](../../reference/pipeline_spec.md)

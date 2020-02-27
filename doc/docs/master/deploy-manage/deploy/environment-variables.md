@@ -21,7 +21,7 @@ You can access all the variables in the Pachyderm manifest that
 is generated when you run `pachctl deploy` with the --dry-run`
 flag.
 
-!!! note "See also"
+!!! note "See Also:"
     [Deploy Pachyderm](../../../getting_started/local_installation/#deploy-pachyderm)
 
 ## `pachd` Environment Variables

@@ -2,44 +2,19 @@ package server
 
 import (
 	"fmt"
-	"os"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"
 
-	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
-var (
-	pachClient *client.APIClient
-	clientOnce sync.Once
-)
-
 const year = 365 * 24 * time.Hour
-
-// getPachClient creates a seed client with a grpc connection to a pachyderm
-// cluster
-func getPachClient(t testing.TB) *client.APIClient {
-	clientOnce.Do(func() {
-		var err error
-		if _, ok := os.LookupEnv("PACHD_PORT_650_TCP_ADDR"); ok {
-			pachClient, err = client.NewInCluster()
-		} else {
-			pachClient, err = client.NewForTest()
-		}
-		if err != nil {
-			t.Fatalf("error getting Pachyderm client: %s", err.Error())
-		}
-	})
-	return pachClient
-}
 
 func TestValidateActivationCode(t *testing.T) {
 	_, err := validateActivationCode(testutil.GetTestEnterpriseCode())
@@ -50,7 +25,7 @@ func TestGetState(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	client := getPachClient(t)
+	client := testutil.GetPachClient(t)
 
 	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
 	_, err := client.Enterprise.Activate(context.Background(),
@@ -115,7 +90,7 @@ func TestDeactivate(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	client := getPachClient(t)
+	client := testutil.GetPachClient(t)
 
 	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
 	_, err := client.Enterprise.Activate(context.Background(),
@@ -157,7 +132,7 @@ func TestDoubleDeactivate(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	client := getPachClient(t)
+	client := testutil.GetPachClient(t)
 
 	// Deactivate cluster and make sure its state is NONE (enterprise might be
 	// active at the start of this test?)

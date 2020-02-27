@@ -65,5 +65,5 @@ Pachyderm, see [Datum processing](../datum/index.md).
       }
     ```
 
-!!! note "See also"
+!!! note "See Also:"
     [Periodic Ingress from MongoDB](https://github.com/pachyderm/pachyderm/tree/master/examples/db)

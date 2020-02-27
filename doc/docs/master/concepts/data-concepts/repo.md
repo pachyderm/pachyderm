@@ -65,7 +65,7 @@ of a specified repository.
     ```
 
 If you need to delete a repository, you can run the
-`pachctl delete command`. This command deletes all
+`pachctl delete repo` command. This command deletes all
 data and the information about the specified
 repository, such as commit history. The delete
 operation is irreversible and results in a
@@ -73,5 +73,5 @@ complete cleanup of your Pachyderm cluster.
 If you run the delete command with the `--all` flag, all
 repositories will be deleted.
 
-!!! note "See also:"
+!!! note "See Also:"
     [Pipeline](../pipeline-concepts/pipeline/index.md)

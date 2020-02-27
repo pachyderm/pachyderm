@@ -4,6 +4,11 @@ Welcome to the beginner tutorial for Pachyderm! If you have already installed
 Pachyderm, this tutorial should take about 15. This tutorial
 introduces basic Pachyderm concepts.
 
+!!! tip
+    If you are new to Pachyderm, try [Pachyderm Shell](../deploy-manage/manage/pachctl_shell/).
+    This handy tool suggests you `pachctl` commands as you type and
+    helps you learn Pachyderm faster.
+
 ## Image processing with OpenCV
 
 This tutorial walks you through the deployment of a Pachyderm pipeline
@@ -128,7 +133,7 @@ We can check to make sure the data we just added is in Pachyderm.
   **System response:**
 
   ```bash
-  COMMIT                           NAME         TYPE COMMITTED          SIZE     
+  COMMIT                           NAME         TYPE COMMITTED          SIZE 
   d89758a7496a4c56920b0eaa7d7d3255 /liberty.png file About a minute ago 57.27KiB
   ```
 
@@ -419,7 +424,7 @@ are several interesting ways to combine data in Pachyderm, which are
 discussed
 [here](../../reference/pipeline_spec/#input-required)
 and
-[here](../concepts/pipeline-concepts/pipeline/join.md).
+[here](../concepts/pipeline-concepts/datum/join/).
 
 We create the `montage` pipeline as before, with `pachctl`:
 

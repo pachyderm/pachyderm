@@ -273,6 +273,7 @@ func validateSparseEntries(sp []sparseEntry, size int64) bool {
 // Even though the Go tar Reader and the BSD tar utility can handle entries
 // with arbitrary offsets and lengths, the GNU tar utility can only handle
 // offsets and lengths that are multiples of blockSize.
+// lint:ignore U1000 false positive from staticcheck
 func alignSparseEntries(src []sparseEntry, size int64) []sparseEntry {
 	dst := src[:0]
 	for _, s := range src {
