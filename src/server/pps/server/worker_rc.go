@@ -65,6 +65,8 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	if pullPolicy == "" {
 		pullPolicy = "IfNotPresent"
 	}
+
+	// Set up sidecar env vars
 	sidecarEnv := []v1.EnvVar{{
 		Name:  "BLOCK_CACHE_BYTES",
 		Value: options.cacheSize,
