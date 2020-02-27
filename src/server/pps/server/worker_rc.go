@@ -38,7 +38,8 @@ const (
 // Parameters used when creating the kubernetes replication controller in charge
 // of a job or pipeline's workers
 type workerOptions struct {
-	rcName string // Name of the replication controller managing workers
+	rcName     string // Name of the replication controller managing workers
+	specCommit string // Pipeline spec commit ID (needed for s3 inputs)
 
 	userImage        string              // The user's pipeline/job image
 	labels           map[string]string   // k8s labels attached to the RC and workers
@@ -91,6 +92,9 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	}, {
 		Name:  "PEER_PORT",
 		Value: strconv.FormatUint(uint64(a.peerPort), 10),
+	}, {
+		Name:  client.PPSSpecCommitEnv,
+		Value: options.specCommit,
 	}}
 	sidecarEnv = append(sidecarEnv, assets.GetSecretEnvVars(a.storageBackend)...)
 	storageEnvVars, err := getStorageEnvVars()
@@ -98,9 +102,15 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		return v1.PodSpec{}, err
 	}
 	sidecarEnv = append(sidecarEnv, storageEnvVars...)
-	workerEnv := options.workerEnv
+
+	// Set up worker env vars
+	workerEnv := append(options.workerEnv, v1.EnvVar{
+		Name:  client.PPSSpecCommitEnv,
+		Value: options.specCommit,
+	})
 	workerEnv = append(workerEnv, v1.EnvVar{Name: "PACH_ROOT", Value: a.storageRoot})
 	workerEnv = append(workerEnv, assets.GetSecretEnvVars(a.storageBackend)...)
+
 	// This only happens in local deployment.  We want the workers to be
 	// able to read from/write to the hostpath volume as well.
 	storageVolumeName := "pach-disk"
@@ -382,10 +392,6 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 		Value: a.namespace,
 	})
 	workerEnv = append(workerEnv, v1.EnvVar{
-		Name:  client.PPSSpecCommitEnv,
-		Value: ptr.SpecCommit.ID,
-	})
-	workerEnv = append(workerEnv, v1.EnvVar{
 		Name:  client.PPSPipelineNameEnv,
 		Value: pipelineInfo.Pipeline.Name,
 	})
@@ -500,6 +506,7 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 	// Generate options for new RC
 	return &workerOptions{
 		rcName:           rcName,
+		specCommit:       ptr.SpecCommit.ID,
 		labels:           labels,
 		annotations:      annotations,
 		parallelism:      int32(0), // pipelines start w/ 0 workers & are scaled up
