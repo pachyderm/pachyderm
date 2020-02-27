@@ -6,8 +6,6 @@ FROM golang:${GO_VERSION}
 WORKDIR /app
 COPY . .
 ARG LD_FLAGS
-RUN go version
-RUN ls
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 go build -ldflags "${LD_FLAGS}" -o pachd "src/server/cmd/pachd/main.go" && \
