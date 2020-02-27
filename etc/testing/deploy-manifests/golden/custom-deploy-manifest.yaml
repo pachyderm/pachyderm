@@ -526,7 +526,7 @@ spec:
         readinessProbe:
           exec:
             command:
-            - /pachd
+            - /app/pachd
             - --readiness
         resources:
           limits:
