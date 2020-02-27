@@ -5,7 +5,7 @@ When you no longer need a pipeline, you can delete it by using the
 you delete a pipeline, Pachyderm destroys the following components:
 
 * The pipeline Kubernetes pod
-* The output repository with all data
+* The output repository **with all data**
 
 Only authorized users can delete pipelines.
 
@@ -14,8 +14,8 @@ and the job history is deleted as well.
 You can use the `--keep repo` flag that preserves the output repo with
 all its branches and provenance. Only the information about the pipeline
 history itself is erased. Later, you can recreate the pipeline by using
-the `pachctl create pipeline` command. If the repository by the same
-name as the pipeline exists, the pipeline will use it as its output repository
+the `pachctl create pipeline` command. If the input repository by the same
+name as the pipeline exists, the pipeline will use it
 keeping all the commit history and provenance.
 
 When Pachyderm cannot delete a pipeline with the standard command,
