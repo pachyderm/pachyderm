@@ -14,10 +14,10 @@ create pipeline](pachctl/pachctl_create_pipeline.md) section.
   "description": string,
   "metadata": {
     "annotations": {
-        "foo": "bar"
+        "annotation": string
     },
     "labels": {
-        "baz": "baq"
+        "label": string
     }
   },
   "transform": {
