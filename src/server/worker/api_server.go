@@ -1125,10 +1125,15 @@ func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (*Cancel
 // GetChunk returns the merged datum hashtrees of a particular chunk (if available)
 func (a *APIServer) GetChunk(request *GetChunkRequest, server Worker_GetChunkServer) error {
 	filter := hashtree.NewFilter(a.numShards, request.Shard)
+	cache := a.chunkCache
 	if request.Stats {
-		return a.chunkStatsCache.Get(request.Id, grpcutil.NewStreamingBytesWriter(server), filter)
+		cache = a.chunkStatsCache
 	}
-	return a.chunkCache.Get(request.Id, grpcutil.NewStreamingBytesWriter(server), filter)
+
+	if !cache.Has(request.Id) {
+		return fmt.Errorf("chunk (%d) missing from cache", request.Id)
+	}
+	return cache.Get(request.Id, grpcutil.NewStreamingBytesWriter(server), filter)
 }
 
 func (a *APIServer) datum() []*pps.InputFile {
