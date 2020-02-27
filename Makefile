@@ -137,7 +137,7 @@ docker-build: enterprise-code-checkin-test
 	DOCKER_BUILDKIT=1 docker build \
 		--build-arg GO_VERSION=`cat etc/compile/GO_VERSION` \
 		--build-arg LD_FLAGS="$(LD_FLAGS)" \
-		-t pachyderm_build -f Dockerfile.build .
+		--progress plain -t pachyderm_build -f Dockerfile.build .
 	# TODO(ys): look into combining pachyderm_(pachd|worker) images
 	docker build -t pachyderm_pachd -f Dockerfile.pachd .
 	docker tag pachyderm_pachd pachyderm/pachd:local
