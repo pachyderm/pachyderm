@@ -77,7 +77,7 @@ To create a pipeline, complete the following steps:
 
    **System Response:**
 
-   ```bash hl_lines="5"
+   ```bash
    NAME                      READY   STATUS    RESTARTS   AGE
    dash-676d6cdf6f-lmfc5     2/2     Running   2          17d
    etcd-79ffc76f58-ppf28     1/1     Running   1          17d
