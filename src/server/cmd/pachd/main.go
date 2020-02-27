@@ -73,6 +73,7 @@ func init() {
 }
 
 func main() {
+	fmt.Println("!!!!!!!!!")
 	log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
 
 	switch {

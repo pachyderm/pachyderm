@@ -125,6 +125,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			if err := pachClient.GetBlock(block.Hash, w); err != nil {
 				return err
 			}
+			fmt.Println("get block", block.Hash)
 			return w.Close()
 		}); err != nil {
 			return err
@@ -275,6 +276,7 @@ func sortPipelineInfos(pis []*pps.PipelineInfo) []*pps.PipelineInfo {
 }
 
 func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error) {
+	fmt.Println("restore")
 	func() { a.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.getPachClient().WithCtx(restoreServer.Context())
@@ -342,6 +344,7 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 		}
 
 		// apply op
+		fmt.Println("apply op")
 		if op.Op1_7 != nil {
 			if op.Op1_7.Object != nil {
 				extractReader := &extractObjectReader{
@@ -406,6 +409,7 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 					return fmt.Errorf("error putting object: %v", err)
 				}
 			} else if op.Op1_9.Block != nil {
+				fmt.Println("restore block", op.Op1_9.Block.Block.Hash)
 				if len(op.Op1_9.Block.Value) == 0 {
 					// Empty block
 					if _, err := pachClient.PutBlock(op.Op1_9.Block.Block.Hash, bytes.NewReader(nil)); err != nil {

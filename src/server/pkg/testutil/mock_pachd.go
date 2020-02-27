@@ -72,6 +72,7 @@ type mockAdminServer struct {
 }
 
 func (api *adminServerAPI) Extract(req *admin.ExtractRequest, serv admin.API_ExtractServer) error {
+	fmt.Println("Extract mock")
 	if api.mock.Extract.handler != nil {
 		return api.mock.Extract.handler(req, serv)
 	}
