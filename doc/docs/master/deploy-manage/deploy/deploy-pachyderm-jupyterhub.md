@@ -149,5 +149,5 @@ you can access your cluster on port 80. For more information, see
 the documentation for your cloud platform in
 [Zero to JupyterHub with Kubernetes](https://zero-to-jupyterhub.readthedocs.io/en/latest/create-k8s-cluster.html).
 
-!!! note "See also:"
+!!! note "See Also:"
     - [Use JupyterHub](../../how-tos/use-jupyterhub/index.md)

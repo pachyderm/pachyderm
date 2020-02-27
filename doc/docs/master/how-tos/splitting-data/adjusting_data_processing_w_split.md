@@ -413,5 +413,5 @@ To complete this example, follow these steps:
    Zero
    ```
 
-!!! note "See also:"
+!!! note "See Also:"
     [Splitting Data](splitting.md)

@@ -104,6 +104,6 @@ steps:
 
    `pachctl` autocomplete should now be enabled in your system.
 
-!!! note "See Also"
+!!! note "See Also:"
 
-    [Pachyderm Shell](TBA)
+    [Pachyderm Shell](../deploy-manage/manage/pachctl_shell/)
