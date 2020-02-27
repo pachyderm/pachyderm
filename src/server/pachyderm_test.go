@@ -10971,7 +10971,7 @@ func TestKeepRepo(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := getPachClient(t)
+	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestKeepRepo_data")
