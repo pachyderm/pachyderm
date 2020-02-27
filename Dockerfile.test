@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.0-experimental
-# TODO: pull in from etc/compile/GO_VERSION
-FROM golang:1.13.8
+ARG GO_VERSION
+FROM golang:${GO_VERSION}
 WORKDIR /app
 COPY . .
 RUN --mount=type=cache,target=/go/pkg/mod \

@@ -133,7 +133,10 @@ release-images:
 	docker push pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
 
 docker-build: enterprise-code-checkin-test
-	DOCKER_BUILDKIT=1 docker build -t pachyderm_build -f Dockerfile.build .
+	DOCKER_BUILDKIT=1 docker build \
+		--build-arg GO_VERSION=`cat etc/compile/GO_VERSION` \
+		--build-arg LD_FLAGS="$(LD_FLAGS)" \
+		-t pachyderm_build -f Dockerfile.build .
 	# TODO(ys): look into combining pachyderm_(pachd|worker) images
 	docker build -t pachyderm_pachd -f Dockerfile.pachd .
 	docker tag pachyderm_pachd pachyderm/pachd:local
@@ -141,7 +144,9 @@ docker-build: enterprise-code-checkin-test
 	docker tag pachyderm_worker pachyderm/worker:local
 
 docker-build-test:
-	DOCKER_BUILDKIT=1 docker build -t pachyderm_test -f Dockerfile.test .
+	DOCKER_BUILDKIT=1 docker build \
+		--build-arg GO_VERSION=`cat etc/compile/GO_VERSION` \
+		-t pachyderm_test -f Dockerfile.test .
 
 docker-build-proto:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_proto etc/proto
