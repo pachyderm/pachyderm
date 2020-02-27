@@ -277,7 +277,7 @@ func doFullMode(config interface{}) (retErr error) {
 			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
 		}
 	}()
-	// must run InstallJaegerTracer before InitWithKube
+	// must run InstallJaegerTracer before InitWithKube/pach client initialization
 	if endpoint := tracing.InstallJaegerTracerFromEnv(); endpoint != "" {
 		log.Printf("connecting to Jaeger at %q", endpoint)
 	} else {
