@@ -398,7 +398,7 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 				}
 			}
 		} else if op.Op1_9 != nil {
-			fmt.Println("restore 1.9 op")
+			// fmt.Println("restore 1.9 op")
 			if op.Op1_9.Object != nil {
 				extractReader := &extractObjectReader{
 					adminAPIRestoreServer: restoreServer,
@@ -410,7 +410,7 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 					return fmt.Errorf("error putting object: %v", err)
 				}
 			} else if op.Op1_9.Block != nil {
-				fmt.Println("restore block", op.Op1_9.Block.Block.Hash)
+				// fmt.Println("restore block", op.Op1_9.Block.Block.Hash)
 				if len(op.Op1_9.Block.Value) == 0 {
 					// Empty block
 					if _, err := pachClient.PutBlock(op.Op1_9.Block.Block.Hash, bytes.NewReader(nil)); err != nil {
@@ -437,7 +437,7 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 				}
 			}
 		} else if op.Op1_10 != nil {
-			fmt.Println("restore 1.10 op")
+			// fmt.Println("restore 1.10 op")
 			if op.Op1_10.Object != nil {
 				extractReader := &extractObjectReader{
 					adminAPIRestoreServer: restoreServer,
@@ -449,7 +449,7 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 					return fmt.Errorf("error putting object: %v", err)
 				}
 			} else if op.Op1_10.Block != nil {
-				fmt.Println("restore block 1.10", op.Op1_10.Block.Block.Hash)
+				// fmt.Println("restore block 1.10", op.Op1_10.Block.Block.Hash)
 				if len(op.Op1_10.Block.Value) == 0 {
 					// Empty block
 					if _, err := pachClient.PutBlock(op.Op1_10.Block.Block.Hash, bytes.NewReader(nil)); err != nil {
