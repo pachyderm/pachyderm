@@ -127,6 +127,7 @@ release-version: install-clean
 	@./etc/build/repo_ready_for_release.sh
 
 release-images:
+	exit 1 # TODO(ys): remove this, it's a guard to ensure we don't accidentally push these new image types
 	docker tag pachyderm_pachd:latest pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
 	docker push pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
 	docker tag pachyderm_worker:latest pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
