@@ -137,12 +137,6 @@ docker-build: enterprise-code-checkin-test
 	docker build -t pachyderm/worker -f Dockerfile.worker .
 	docker tag pachyderm/worker pachyderm/worker:local
 
-docker-build-test:
-	DOCKER_BUILDKIT=1 docker build \
-		--build-arg GO_VERSION=`cat etc/compile/GO_VERSION` \
-		-t pachyderm_test -f Dockerfile.test .
-	docker tag pachyderm_test pachyderm/test
-
 docker-build-proto:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_proto etc/proto
 
