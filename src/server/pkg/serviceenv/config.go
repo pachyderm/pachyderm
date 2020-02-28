@@ -87,7 +87,8 @@ type WorkerSpecificConfiguration struct {
 
 // FeatureFlags contains the configuration for feature flags.
 type FeatureFlags struct {
-	NewStorageLayer bool `env:"NEW_STORAGE_LAYER,default=false"`
+	NewStorageLayer              bool `env:"NEW_STORAGE_LAYER,default=false"`
+	DisableCommitProgressCounter bool `env:"DISABLE_COMMIT_PROGRESS_COUNTER,default=false"`
 }
 
 // NewConfiguration creates a generic configuration from a specific type of configuration.
