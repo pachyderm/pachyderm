@@ -1,0 +1,91 @@
+# Create an S3-enabled Pipeline 
+
+Pachyderm can deploy the S3 gateway either together with the `pachd` pod or
+as a sidecar next to your pipeline worker pod. The former is
+typically used when you need to configure an ingress or egress with
+object storage tooling, such as MinIO, boto3, and others. The latter
+is needed when you use Pachyderm with external data processing
+platforms that interact with object stores but do not work with local
+file systems, such as Kubeflow or Apache Spark.
+
+Platforms like Kubeflow run their own set of pods. If you enable an
+S3 gateway next to `pachd`, these pods connect to this *master* S3
+gateway and read files from there. The master S3 gateway lives
+independently and outside of the pipeline lifecycle. Therefore, if
+Kubeflow connects through the master S3 gateway, the Pachyderm pipelines
+created in Kubeflow do not properly maintain data provenance. When the
+S3 functionality is exposed through a sidecar instance in the
+pipeline worker pod, Kubeflow can access the files stored in S3 buckets
+in the pipeline pod, which ensures the provenance is maintained
+correctly. The S3 gateway sidecar instance is created together with the
+pipeline and shut down when the pipeline is destroyed.
+
+## Limitations
+
+Pipelines exposed through a sidecar S3 gateway have the following limitations:
+
+* Because of PFS limitations, you cannot write to the input repos exposed
+through the S3 gateway instance. Similarly, you cannot read files from
+the output bucket that you enabled by using the `s3_out` parameter in the
+pipeline spec. This limitation guarantees that pipeline provenance is
+preserved.
+
+* The `glob` field in the pipeline spec should not be specified. The glob
+pattern is explicitly set to `\` and all files are processed as a single
+datum. In this configuration, already processed datums are not skipped which
+could be a performance consideration for some deployments.
+
+* You can create a single or a cross input. Join and union inputs are not
+supported. However, if you combine an S3-enabled input with a non-S3 input,
+you can specify a glob pattern for the latter.
+
+## Expose a Pipeline through an S3 Gateway in a Sidecar
+
+When you work with platforms like Kubeflow or Apache Spark, you need
+to spin up an S3 gateway instance that runs alongside the pipeline worker
+pod as a sidecar container. To do so, set the `s3` parameter in the `input`
+part of your pipeline specification to `true`. When enabled, this parameter
+mounts S3 buckets for input repositories in the S3 gateway sidecar instance
+instead of in `/pfs/`. You can set this property for each PFS input in
+a pipeline. The address of the input repository will be `s3://<input_repo>`.
+
+You can also expose the output repository through the same S3 gateway
+instance by setting the `s3_out` property to `true` in the `root` of
+the pipeline spec.  If set to `true`, Pachyderm creates another S3 bucket
+on the sidecar, and the output files will be written there instead of
+`/pfs/out`. By default, `s3_out` is set to `false`. The address of the
+output repository will be `s3://<output_repo>`.
+
+You can connect to the S3 gateway sidecar instance through its Kubernetes
+service. To access the sidecar instance and the buckets on it, you need
+to know the address of the buckets. Because PPS handles all permissions,
+no special authentication configuration is needed.
+
+Both the master and sidecar gateways can run concurrently, as well as
+repositories can be accessed through both of them.
+
+The following text is an example of a pipeline exposed through a sidecar
+S3 gateway instance:
+
+```json
+{
+	 "pipeline": {
+	    "name": "test"
+	 },
+	 "input": {
+	    "pfs": {
+	       "glob": "/*",
+	       "repo": "test-repo",
+           "s3": "true"
+	 },
+	 "transform": {
+	    "cmd": [ "python3", "/test.py" ],
+	    "image": "pachyderm/test"
+	 },
+     "s3_out": "true"
+}
+```
+
+!!! note "See Also:"
+    - [Pipeline Specification](../../../reference/pipeline_spec/#s3)
+    - [Configure Environment Variables](../../deploy/environment-variables/)
