@@ -671,6 +671,7 @@ message DeletePipelineRequest {
   Pipeline pipeline = 1;
   bool all = 4;
   bool force = 5;
+  bool keep_repo = 6;
 }
 
 message StartPipelineRequest {
