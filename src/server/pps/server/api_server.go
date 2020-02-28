@@ -2784,7 +2784,16 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 		return nil, err
 	}
 
-	provenance := request.Provenance
+	provenanceConstraints := make(map[string][]*pfs.CommitRange)
+	addConstraint := func(branchName string, commitRange *pfs.CommitRange) {
+		branchKey := key(commitRange.Lower.Repo.Name, branchName)
+		if existing, ok := provenanceConstraints[branchKey]; ok {
+			provenanceConstraints[branchKey] = append(existing, commitRange)
+		} else {
+			provenanceConstraints[branchKey] = []*pfs.CommitRange{commitRange}
+		}
+	}
+
 	if request.JobID != "" {
 		jobInfo, err := ppsClient.InspectJob(ctx, &pps.InspectJobRequest{
 			Job: client.NewJob(request.JobID),
@@ -2792,17 +2801,20 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 		if err != nil {
 			return nil, err
 		}
+
 		jobOutputCommit, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
 			Commit: jobInfo.OutputCommit,
 		})
 		if err != nil {
 			return nil, err
 		}
-		provenance = append(provenance, jobOutputCommit.Provenance...)
+
+		for _, prov := range jobOutputCommit.Provenance {
+			addConstraint(prov.Branch.Name, &pfs.CommitRange{Upper: prov.Commit, Lower: prov.Commit})
+		}
 	}
 
-	provenanceConstraints := make(map[string][]*pfs.CommitRange)
-	for _, prov := range provenance {
+	for _, prov := range request.Provenance {
 		if prov == nil {
 			return nil, fmt.Errorf("request should not contain nil provenance")
 		}
@@ -2839,13 +2851,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 		}
 
 		// For provenances specified by the request, set a zero-range of constraints
-		provKey := key(commitInfo.Branch.Repo.Name, commitInfo.Branch.Name)
-		provRange := &pfs.CommitRange{Upper: commitInfo.Commit, Lower: commitInfo.Commit}
-		if existing, ok := provenanceConstraints[provKey]; ok {
-			provenanceConstraints[provKey] = append(existing, provRange)
-		} else {
-			provenanceConstraints[provKey] = []*pfs.CommitRange{provRange}
-		}
+		addConstraint(commitInfo.Branch.Name, &pfs.CommitRange{Upper: commitInfo.Commit, Lower: commitInfo.Commit})
 
 		// Set constraint commit ranges for all subvenant commits
 		for _, subvRange := range commitInfo.Subvenance {
@@ -2855,12 +2861,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 			}
 
 			if branch := commitInfo.Branch; branch != nil {
-				branchKey := key(branch.Repo.Name, branch.Name)
-				if existing, ok := provenanceConstraints[branchKey]; ok {
-					provenanceConstraints[branchKey] = append(existing, subvRange)
-				} else {
-					provenanceConstraints[branchKey] = []*pfs.CommitRange{subvRange}
-				}
+				addConstraint(branch.Name, subvRange)
 			}
 		}
 	}
@@ -2903,7 +2904,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	specKey := key(ppsconsts.SpecRepo, request.Pipeline.Name)
 	provenanceMap[specKey] = client.NewCommitProvenance(ppsconsts.SpecRepo, request.Pipeline.Name, specCommit.Commit.ID)
 
-	provenance = []*pfs.CommitProvenance{}
+	provenance := []*pfs.CommitProvenance{}
 	for _, prov := range provenanceMap {
 		provenance = append(provenance, prov)
 	}
