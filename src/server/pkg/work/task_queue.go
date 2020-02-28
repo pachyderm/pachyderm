@@ -4,166 +4,101 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/cevaris/ordered_map"
-	"github.com/pachyderm/pachyderm/src/client/limit"
-	"golang.org/x/sync/errgroup"
 )
 
-type taskFunc func(context.Context, *Task) error
-type subtaskFunc func()
+const (
+	waitTime = 100 * time.Millisecond
+)
 
-type task struct {
-	taskCtx, errCtx context.Context
-	cancel          context.CancelFunc
-	eg              *errgroup.Group
-	subtaskChan     chan subtaskFunc
-}
+type subtaskFunc func(context.Context) error
 
 // (bryce) need a remap operation for task queue because the in memory maps
 // do not free memory after deletions.
 type taskQueue struct {
-	tasks   *ordered_map.OrderedMap
-	limiter limit.ConcurrencyLimiter
-	ready   chan struct{}
-	mu      sync.Mutex
+	tasks *ordered_map.OrderedMap
+	mu    sync.Mutex
 }
 
-func newTaskQueue(ctx context.Context, taskParallelism int) *taskQueue {
+func newTaskQueue(ctx context.Context) *taskQueue {
 	tq := &taskQueue{
-		tasks:   ordered_map.NewOrderedMap(),
-		limiter: limit.New(taskParallelism),
-		ready:   make(chan struct{}, taskParallelism),
+		tasks: ordered_map.NewOrderedMap(),
 	}
-	// (bryce) safety measure for this returning?
 	go func() {
+	NextSubtask:
 		for {
 			select {
-			case <-tq.ready:
-				tq.processNextSubtask()
 			case <-ctx.Done():
-				return
+				fmt.Printf("task queue context canceled: %v\n", ctx.Err())
+			default:
 			}
+			tq.mu.Lock()
+			iter := tq.tasks.IterFunc()
+			for kv, ok := iter(); ok; kv, ok = iter() {
+				taskChans := kv.Value.(*taskChans)
+				select {
+				case f := <-taskChans.subtaskFuncChan:
+					tq.mu.Unlock()
+					taskChans.errChan <- f(taskChans.ctx)
+					continue NextSubtask
+				default:
+				}
+			}
+			tq.mu.Unlock()
+			time.Sleep(waitTime)
 		}
 	}()
 	return tq
 }
 
-func (tq *taskQueue) processNextSubtask() {
+func (tq *taskQueue) createTask(ctx context.Context, taskID string) (*taskChans, error) {
 	tq.mu.Lock()
-	iter := tq.tasks.IterFunc()
-	for kv, ok := iter(); ok; kv, ok = iter() {
-		task := kv.Value.(*task)
-		select {
-		case f := <-task.subtaskChan:
-			tq.mu.Unlock()
-			f()
-			return
-		default:
-		}
+	defer tq.mu.Unlock()
+	if _, ok := tq.tasks.Get(taskID); ok {
+		return nil, fmt.Errorf("errored creating task %v, which already exists", taskID)
 	}
-	tq.mu.Unlock()
+	ctx, cancel := context.WithCancel(ctx)
+	taskChans := &taskChans{
+		ctx:             ctx,
+		cancel:          cancel,
+		subtaskFuncChan: make(chan subtaskFunc, 1),
+		errChan:         make(chan error, 1),
+	}
+	tq.tasks.Set(taskID, taskChans)
+	return taskChans, nil
 }
 
-func (tq *taskQueue) createTask(ctx context.Context, taskID string, f func(context.Context)) {
-	if _, ok := tq.getTask(taskID); ok {
-		return
-	}
-	// Acquire the right to proceed.
-	tq.limiter.Acquire()
-	// Create a context and cancel function for the new task.
-	// Also, create an errgroup and context for errors.
-	taskCtx, cancel := context.WithCancel(ctx)
-	eg, errCtx := errgroup.WithContext(taskCtx)
-	task := &task{
-		taskCtx:     taskCtx,
-		errCtx:      errCtx,
-		cancel:      cancel,
-		eg:          eg,
-		subtaskChan: make(chan subtaskFunc, 1),
-	}
-	tq.setTask(taskID, task)
-	go f(task.errCtx)
+type taskChans struct {
+	ctx             context.Context
+	cancel          context.CancelFunc
+	subtaskFuncChan chan subtaskFunc
+	errChan         chan error
 }
 
-func (tq *taskQueue) sendSubtaskBatch(taskID string, subtasks *Task, f taskFunc) error {
-	task, ok := tq.getTask(taskID)
-	if !ok {
-		return fmt.Errorf("error sending subtasks for task %v, which does not exist", taskID)
+func (t *taskChans) processSubtask(subtask subtaskFunc) error {
+	select {
+	case t.subtaskFuncChan <- subtask:
+	case <-t.ctx.Done():
+		return t.ctx.Err()
 	}
-	task.eg.Go(func() error {
-		return filterTaskContextCanceledError(task.taskCtx, func() error {
-			for _, subtask := range subtasks.Subtasks {
-				select {
-				case task.subtaskChan <- tq.subtaskFunc(task, subtask, f):
-				case <-task.errCtx.Done():
-					return task.errCtx.Err()
-				}
-				select {
-				case tq.ready <- struct{}{}:
-				case <-task.errCtx.Done():
-					return task.errCtx.Err()
-				}
-			}
-			return nil
-		})
-	})
-	return nil
-}
-
-func (tq *taskQueue) subtaskFunc(task *task, subtask *Task, f taskFunc) subtaskFunc {
-	return func() {
-		task.eg.Go(func() error {
-			return filterTaskContextCanceledError(task.taskCtx, func() error {
-				return f(task.errCtx, subtask)
-			})
-		})
+	select {
+	case err := <-t.errChan:
+		return err
+	case <-t.ctx.Done():
+		return t.ctx.Err()
 	}
-}
-
-func (tq *taskQueue) waitTask(taskID string) error {
-	task, ok := tq.getTask(taskID)
-	if !ok {
-		return fmt.Errorf("error waiting task %v, which does not exist", taskID)
-	}
-	return task.eg.Wait()
 }
 
 func (tq *taskQueue) deleteTask(taskID string) error {
-	task, ok := tq.getTask(taskID)
-	if !ok {
-		return fmt.Errorf("error deleting task %v, which does not exist", taskID)
-	}
-	defer func() {
-		tq.mu.Lock()
-		tq.tasks.Delete(taskID)
-		tq.mu.Unlock()
-		tq.limiter.Release()
-	}()
-	// Cancel the context for the task and wait for the goroutines.
-	task.cancel()
-	return task.eg.Wait()
-}
-
-func (tq *taskQueue) getTask(taskID string) (*task, bool) {
 	tq.mu.Lock()
 	defer tq.mu.Unlock()
-	val, ok := tq.tasks.Get(taskID)
+	tc, ok := tq.tasks.Get(taskID)
 	if !ok {
-		return nil, ok
+		return fmt.Errorf("errored deleting task %v, which does not exist", taskID)
 	}
-	return val.(*task), ok
-}
-
-func (tq *taskQueue) setTask(taskID string, task *task) {
-	tq.mu.Lock()
-	defer tq.mu.Unlock()
-	tq.tasks.Set(taskID, task)
-}
-
-func filterTaskContextCanceledError(ctx context.Context, f func() error) error {
-	if err := f(); err != nil && ctx.Err() != context.Canceled {
-		return err
-	}
+	tc.(*taskChans).cancel()
+	tq.tasks.Delete(taskID)
 	return nil
 }

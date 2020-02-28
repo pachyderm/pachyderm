@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
+	"golang.org/x/sync/errgroup"
 )
 
 // generateRandomString is a helper function for getPachClient
@@ -23,20 +24,26 @@ func generateRandomString(n int) string {
 	return string(b)
 }
 
-func TestWork(t *testing.T) {
+func TestTaskQueue(t *testing.T) {
 	require.NoError(t, testutil.WithEtcdEnv(func(env *testutil.EtcdEnv) error {
 		etcdPrefix := generateRandomString(32)
-		taskID := "task"
+		numTasks := 10
 		numSubtasks := 10
 		numWorkers := 5
 		// Setup maps for checking creation, processing, and collection.
-		subtasksCreated := make(map[string]bool)
-		subtasksProcessed := make(map[string]bool)
+		taskMapsFunc := func() []map[string]bool {
+			var taskMaps []map[string]bool
+			for i := 0; i < numTasks; i++ {
+				taskMaps = append(taskMaps, make(map[string]bool))
+			}
+			return taskMaps
+		}
+		subtasksCreated := taskMapsFunc()
+		subtasksProcessed := taskMapsFunc()
 		var processMu sync.Mutex
-		subtasksCollected := make(map[string]bool)
+		subtasksCollected := taskMapsFunc()
 		// Setup workers.
-		// (bryce) bump back up when changing subtask layout.
-		failProb := 0.0
+		failProb := 0.1
 		for i := 0; i < numWorkers; i++ {
 			go func() {
 				for {
@@ -46,8 +53,11 @@ func TestWork(t *testing.T) {
 						if rand.Float64() < failProb {
 							cancel()
 						} else {
+							i, err := strconv.Atoi(task.ID)
+							require.NoError(t, err)
 							processMu.Lock()
-							subtasksProcessed[subtask.ID] = true
+							require.False(t, subtasksProcessed[i][subtask.ID])
+							subtasksProcessed[i][subtask.ID] = true
 							processMu.Unlock()
 						}
 						return nil
@@ -60,26 +70,30 @@ func TestWork(t *testing.T) {
 				}
 			}()
 		}
-		// Setup master.
-		m := work.NewMaster(context.Background(), env.EtcdClient, etcdPrefix, "")
-		// Create task.
-		var subtasks []*work.Task
-		for i := 0; i < numSubtasks; i++ {
-			id := strconv.Itoa(i)
-			subtasks = append(subtasks, &work.Task{ID: id})
-			subtasksCreated[id] = true
+		tq := work.NewTaskQueue(context.Background(), env.EtcdClient, etcdPrefix, "")
+		var eg errgroup.Group
+		for i := 0; i < numTasks; i++ {
+			i := i
+			taskID := strconv.Itoa(i)
+			m, err := tq.CreateTask(context.Background(), &work.Task{ID: taskID})
+			require.NoError(t, err)
+			eg.Go(func() error {
+				m.Collect(func(_ context.Context, subtaskInfo *work.TaskInfo) error {
+					subtasksCollected[i][subtaskInfo.Task.ID] = true
+					return nil
+				})
+				// Create subtasks.
+				for j := 0; j < numSubtasks; j++ {
+					subtaskID := strconv.Itoa(j)
+					require.NoError(t, m.CreateSubtask(&work.Task{ID: subtaskID}))
+					subtasksCreated[i][subtaskID] = true
+				}
+				require.NoError(t, m.Wait())
+				require.NoError(t, tq.DeleteTask(context.Background(), taskID))
+				return nil
+			})
 		}
-		task := &work.Task{
-			ID:       taskID,
-			Subtasks: subtasks,
-		}
-		require.NoError(t, m.CreateTask(context.Background(), task, func(_ context.Context) {}))
-		require.NoError(t, m.SendSubtaskBatch(context.Background(), task.ID, task, func(_ context.Context, subtaskInfo *work.TaskInfo) error {
-			subtasksCollected[subtaskInfo.Task.ID] = true
-			return nil
-		}))
-		require.NoError(t, m.WaitTask(context.Background(), task.ID))
-		//require.NoError(t, m.WaitTask(context.Background(), task.ID))
+		require.NoError(t, eg.Wait())
 		require.Equal(t, subtasksCreated, subtasksProcessed, subtasksCollected)
 		return nil
 	}))

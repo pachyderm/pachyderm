@@ -4,115 +4,158 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"sync/atomic"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/gogo/protobuf/proto"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
 	taskPrefix    = "/task"
 	subtaskPrefix = "/subtask"
+	claimPrefix   = "/claim"
 )
 
-// CollectFunc is a callback that is used for collecting the results
-// from a subtask that has been processed.
-type CollectFunc func(context.Context, *TaskInfo) error
-
-type Master struct {
-	etcdClient          *etcd.Client
-	taskCol, subtaskCol col.Collection
-	taskQueue           *taskQueue
+type TaskQueue struct {
+	*taskEtcd
+	taskQueue *taskQueue
 }
 
-func NewMaster(ctx context.Context, etcdClient *etcd.Client, etcdPrefix string, taskNamespace string) *Master {
-	return &Master{
-		etcdClient: etcdClient,
-		taskCol:    collection(etcdClient, path.Join(etcdPrefix, taskPrefix, taskNamespace)),
-		subtaskCol: collection(etcdClient, path.Join(etcdPrefix, subtaskPrefix, taskNamespace)),
-		taskQueue:  newTaskQueue(ctx, 100),
+type taskEtcd struct {
+	etcdClient                    *etcd.Client
+	taskCol, subtaskCol, claimCol col.Collection
+}
+
+func NewTaskQueue(ctx context.Context, etcdClient *etcd.Client, etcdPrefix string, taskNamespace string) *TaskQueue {
+	return &TaskQueue{
+		taskEtcd:  newTaskEtcd(etcdClient, etcdPrefix, taskNamespace),
+		taskQueue: newTaskQueue(ctx),
 	}
 }
 
-func collection(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
+func newTaskEtcd(etcdClient *etcd.Client, etcdPrefix string, taskNamespace string) *taskEtcd {
+	return &taskEtcd{
+		etcdClient: etcdClient,
+		taskCol:    newCollection(etcdClient, path.Join(etcdPrefix, taskPrefix, taskNamespace), &Task{}),
+		subtaskCol: newCollection(etcdClient, path.Join(etcdPrefix, subtaskPrefix, taskNamespace), &TaskInfo{}),
+		claimCol:   newCollection(etcdClient, path.Join(etcdPrefix, claimPrefix, taskNamespace), &Claim{}),
+	}
+}
+
+func newCollection(etcdClient *etcd.Client, etcdPrefix string, template proto.Message) col.Collection {
 	return col.NewCollection(
 		etcdClient,
 		etcdPrefix,
 		nil,
-		&TaskInfo{},
+		template,
 		nil,
 		nil,
 	)
 }
 
-func (m *Master) CreateTask(ctx context.Context, task *Task, f func(context.Context)) error {
-	// (bryce) probably should validate that subtasks are not set here.
-	// or change up the protos.
-	if _, err := col.NewSTM(ctx, m.etcdClient, func(stm col.STM) error {
-		return m.taskCol.ReadWrite(stm).Put(task.ID, &TaskInfo{Task: task})
+func (tq *TaskQueue) CreateTask(ctx context.Context, task *Task) (*Master, error) {
+	if _, err := col.NewSTM(ctx, tq.etcdClient, func(stm col.STM) error {
+		return tq.taskCol.ReadWrite(stm).Put(task.ID, task)
 	}); err != nil {
-		return err
+		return nil, err
 	}
-	m.taskQueue.createTask(ctx, task.ID, f)
-	return nil
+	taskChans, err := tq.taskQueue.createTask(ctx, task.ID)
+	if err != nil {
+		return nil, err
+	}
+	return &Master{
+		taskEtcd:  tq.taskEtcd,
+		taskID:    task.ID,
+		taskChans: taskChans,
+		done:      make(chan struct{}),
+	}, nil
 }
 
-func (m *Master) SendSubtaskBatch(ctx context.Context, taskID string, subtasks *Task, collectFunc CollectFunc) error {
-	taskInfo := &TaskInfo{}
-	if _, err := col.NewSTM(ctx, m.etcdClient, func(stm col.STM) error {
-		return m.taskCol.ReadWrite(stm).Update(taskID, taskInfo, func() error {
-			taskInfo.Task.Subtasks = append(taskInfo.Task.Subtasks, subtasks)
-			return nil
-		})
-	}); err != nil {
-		return err
-	}
-	m.taskQueue.sendSubtaskBatch(taskID, subtasks, func(ctx context.Context, subtask *Task) error {
-		// Collect the results from the processing of the subtasks.
-		subtaskKey := path.Join(taskID, subtask.ID)
-		return m.subtaskCol.ReadOnly(ctx).WatchOneF(subtaskKey, func(e *watch.Event) error {
+type Master struct {
+	*taskEtcd
+	taskID    string
+	taskChans *taskChans
+	eg        errgroup.Group
+	count     int64
+	done      chan struct{}
+}
+
+// CollectFunc is a callback that is used for collecting the results
+// from a subtask that has been processed.
+type CollectFunc func(context.Context, *TaskInfo) error
+
+func (m *Master) Collect(collectFunc CollectFunc) {
+	m.eg.Go(func() error {
+		return m.subtaskCol.ReadOnly(m.taskChans.ctx).WatchOneF(m.taskID, func(e *watch.Event) error {
 			var key string
 			subtaskInfo := &TaskInfo{}
 			if err := e.Unmarshal(&key, subtaskInfo); err != nil {
 				return err
-			}
-			// Check that the full key matched the subtask key.
-			if key != subtaskKey {
-				return nil
 			}
 			// Check that the subtask state is terminal.
 			if subtaskInfo.State == State_RUNNING {
 				return nil
 			}
 			if collectFunc != nil {
-				if err := collectFunc(ctx, subtaskInfo); err != nil {
+				if err := m.taskChans.processSubtask(func(ctx context.Context) error {
+					return collectFunc(ctx, subtaskInfo)
+				}); err != nil {
 					return err
 				}
 			}
-			return errutil.ErrBreak
-		}, watch.WithFilterDelete())
+			atomic.AddInt64(&m.count, -1)
+			select {
+			case <-m.done:
+				// (bryce) it might be worth the memory cost to just keep a map of ids for subtasks that were created,
+				// rather than relying on the correct etcd events?
+				if m.count == 0 {
+					return errutil.ErrBreak
+				}
+			default:
+			}
+			return nil
+		})
 	})
+}
+
+func (m *Master) CreateSubtask(subtask *Task) error {
+	subtaskKey := path.Join(m.taskID, subtask.ID)
+	subtaskInfo := &TaskInfo{Task: subtask}
+	if _, err := col.NewSTM(m.taskChans.ctx, m.etcdClient, func(stm col.STM) error {
+		return m.subtaskCol.ReadWrite(stm).Put(subtaskKey, subtaskInfo)
+	}); err != nil {
+		return err
+	}
+	atomic.AddInt64(&m.count, 1)
 	return nil
 }
 
-func (m *Master) WaitTask(ctx context.Context, taskID string) (retErr error) {
-	return m.taskQueue.waitTask(taskID)
+func (m *Master) Wait() error {
+	close(m.done)
+	return m.eg.Wait()
 }
 
-func (m *Master) DeleteTask(ctx context.Context, taskID string) (retErr error) {
-	defer func() {
-		if _, err := col.NewSTM(ctx, m.etcdClient, func(stm col.STM) error {
-			return m.taskCol.ReadWrite(stm).Delete(taskID)
-		}); retErr == nil {
-			retErr = err
-		}
-	}()
-	return m.taskQueue.deleteTask(taskID)
+func (tq *TaskQueue) DeleteTask(ctx context.Context, taskID string) error {
+	if err := tq.taskQueue.deleteTask(taskID); err != nil {
+		return err
+	}
+	// Cleanup task entry.
+	if _, err := col.NewSTM(ctx, tq.etcdClient, func(stm col.STM) error {
+		return tq.taskCol.ReadWrite(stm).Delete(taskID)
+	}); err != nil {
+		return err
+	}
+	// Cleanup subtask entries.
+	_, err := col.NewSTM(ctx, tq.etcdClient, func(stm col.STM) error {
+		tq.subtaskCol.ReadWrite(stm).DeleteAllPrefix(taskID)
+		return nil
+	})
+	return err
 }
-
-// ProcessFunc is a callback that is used for processing a subtask in a task.
-type ProcessFunc func(context.Context, *Task, *Task) error
 
 // Worker is a worker that will process subtasks in a task.
 // The worker will watch the task collection for tasks added by a master.
@@ -121,96 +164,131 @@ type ProcessFunc func(context.Context, *Task, *Task) error
 // The processFunc callback will be called for each subtask that needs to be processed
 // in the task.
 type Worker struct {
-	etcdClient          *etcd.Client
-	taskCol, subtaskCol col.Collection
-	taskQueue           *taskQueue
+	*taskEtcd
+	taskQueue *taskQueue
 }
 
 // NewWorker creates a new worker.
 func NewWorker(ctx context.Context, etcdClient *etcd.Client, etcdPrefix string, taskNamespace string) *Worker {
 	return &Worker{
-		etcdClient: etcdClient,
-		taskCol:    collection(etcdClient, path.Join(etcdPrefix, taskPrefix, taskNamespace)),
-		subtaskCol: collection(etcdClient, path.Join(etcdPrefix, subtaskPrefix, taskNamespace)),
-		taskQueue:  newTaskQueue(ctx, 100),
+		taskEtcd:  newTaskEtcd(etcdClient, etcdPrefix, taskNamespace),
+		taskQueue: newTaskQueue(ctx),
 	}
 }
+
+// ProcessFunc is a callback that is used for processing a subtask in a task.
+type ProcessFunc func(context.Context, *Task, *Task) error
 
 // Run runs the worker with the given context.
 // The worker will continue to watch the task collection until the context is cancelled.
 func (w *Worker) Run(ctx context.Context, processFunc ProcessFunc) error {
 	return w.taskCol.ReadOnly(ctx).WatchF(func(e *watch.Event) (retErr error) {
 		var taskID string
-		taskInfo := &TaskInfo{}
-		if err := e.Unmarshal(&taskID, taskInfo); err != nil {
+		task := &Task{}
+		if err := e.Unmarshal(&taskID, task); err != nil {
 			return err
 		}
 		if e.Type == watch.EventDelete {
-			defer func() {
-				// Attempt to cleanup the subtask entries.
-				//if _, err := col.NewSTM(ctx, w.etcdClient, func(stm col.STM) error {
-				//	w.subtaskCol.ReadWrite(stm).DeleteAllPrefix(taskID)
-				//	return nil
-				//}); retErr == nil {
-				//	retErr = err
-				//}
-			}()
 			return w.taskQueue.deleteTask(taskID)
 		}
-		// Create the task if it has not already been created.
-		w.taskQueue.createTask(ctx, taskID, func(ctx context.Context) {
-			if err := w.subtaskCol.ReadOnly(ctx).WatchOneF(taskID, func(e *watch.Event) error {
-				if e.Type == watch.EventDelete {
-					var subtaskKey string
-					subtaskInfo := &TaskInfo{}
-					if err := e.Unmarshal(&subtaskKey, subtaskInfo); err != nil {
-						return err
-					}
-					w.taskQueue.sendSubtaskBatch(taskID, &Task{Subtasks: []*Task{subtaskInfo.Task}}, w.taskFunc(taskInfo.Task, processFunc))
-				}
-				return nil
-			}, watch.WithFilterPut()); err != nil && ctx.Err() != context.Canceled {
-				// (bryce) how should logging work?
-				fmt.Printf("errored in task callback")
-			}
-		})
-		// Send the subtask batch to the task queue.
-		if len(taskInfo.Task.Subtasks) > 0 {
-			nextSubtasks := taskInfo.Task.Subtasks[len(taskInfo.Task.Subtasks)-1]
-			w.taskQueue.sendSubtaskBatch(taskID, nextSubtasks, w.taskFunc(taskInfo.Task, processFunc))
+		taskChans, err := w.taskQueue.createTask(ctx, taskID)
+		if err != nil {
+			return err
 		}
+		go func() {
+			if err := w.taskFunc(task, taskChans, processFunc); err != nil && taskChans.ctx.Err() != context.Canceled {
+				// (bryce) how should logging work?
+				fmt.Printf("errored in task callback: %v\n", err)
+			}
+		}()
 		return nil
 	})
 }
 
-func (w *Worker) taskFunc(task *Task, processFunc ProcessFunc) taskFunc {
-	return func(ctx context.Context, subtask *Task) error {
-		subtaskKey := path.Join(task.ID, subtask.ID)
+func (w *Worker) taskFunc(task *Task, taskChans *taskChans, processFunc ProcessFunc) error {
+	claimWatch, err := w.claimCol.ReadOnly(taskChans.ctx).WatchOne(task.ID, watch.WithFilterPut())
+	if err != nil {
+		return err
+	}
+	subtaskWatch, err := w.subtaskCol.ReadOnly(taskChans.ctx).WatchOne(task.ID, watch.WithFilterDelete())
+	if err != nil {
+		return err
+	}
+	for {
+		select {
+		case e := <-claimWatch.Watch():
+			if e.Type == watch.EventError {
+				return err
+			}
+			if e.Type != watch.EventDelete {
+				continue
+			}
+			var subtaskKey string
+			if err := e.Unmarshal(&subtaskKey, &Claim{}); err != nil {
+				return err
+			}
+			if err := taskChans.processSubtask(w.subtaskFunc(task, subtaskKey, processFunc)); err != nil {
+				return err
+			}
+		case e := <-subtaskWatch.Watch():
+			if e.Type == watch.EventError {
+				return err
+			}
+			var subtaskKey string
+			if err := e.Unmarshal(&subtaskKey, &TaskInfo{}); err != nil {
+				return err
+			}
+			if err := taskChans.processSubtask(w.subtaskFunc(task, subtaskKey, processFunc)); err != nil {
+				return err
+			}
+		case <-taskChans.ctx.Done():
+			return taskChans.ctx.Err()
+		}
+	}
+}
+
+func (w *Worker) subtaskFunc(task *Task, subtaskKey string, processFunc ProcessFunc) subtaskFunc {
+	return func(ctx context.Context) error {
+		// (bryce) this should be refactored to have the check and claim in the same stm.
+		// there is a rare race condition that does not affect correctness, but it is less
+		// than ideal because a subtask could get run once more than necessary.
 		subtaskInfo := &TaskInfo{}
-		if err := w.subtaskCol.Claim(ctx, subtaskKey, subtaskInfo, func(claimCtx context.Context) (retErr error) {
-			defer func() {
-				// If the task was cancelled or the claim was lost, just return with no error.
-				// (bryce) figure out what logging this should look like.
-				if claimCtx.Err() == context.Canceled {
-					retErr = nil
-					return
-				}
-				subtaskInfo.Task = subtask
-				subtaskInfo.State = State_SUCCESS
-				if retErr != nil {
-					subtaskInfo.State = State_FAILURE
-					subtaskInfo.Reason = retErr.Error()
-					retErr = nil
-				}
-				if _, err := col.NewSTM(claimCtx, w.etcdClient, func(stm col.STM) error {
-					return w.subtaskCol.ReadWrite(stm).Put(subtaskKey, subtaskInfo)
-				}); retErr == nil {
-					retErr = err
-				}
-			}()
-			return processFunc(claimCtx, task, subtask)
-		}); err != nil && err != col.ErrNotClaimed {
+		if _, err := col.NewSTM(ctx, w.etcdClient, func(stm col.STM) error {
+			return w.subtaskCol.ReadWrite(stm).Get(subtaskKey, subtaskInfo)
+		}); err != nil {
 			return err
+		}
+		if subtaskInfo.State == State_RUNNING {
+			if err := w.claimCol.Claim(ctx, subtaskKey, &Claim{}, func(claimCtx context.Context) (retErr error) {
+				defer func() {
+					// If the task was cancelled or the claim was lost, just return with no error.
+					if claimCtx.Err() == context.Canceled {
+						retErr = nil
+						return
+					}
+					subtaskInfo := &TaskInfo{}
+					if _, err := col.NewSTM(claimCtx, w.etcdClient, func(stm col.STM) error {
+						return w.subtaskCol.ReadWrite(stm).Update(subtaskKey, subtaskInfo, func() error {
+							// (bryce) remove when check and claim are in the same stm.
+							if subtaskInfo.State != State_RUNNING {
+								return nil
+							}
+							subtaskInfo.State = State_SUCCESS
+							if retErr != nil {
+								subtaskInfo.State = State_FAILURE
+								subtaskInfo.Reason = retErr.Error()
+								retErr = nil
+							}
+							return nil
+						})
+					}); retErr == nil {
+						retErr = err
+					}
+				}()
+				return processFunc(claimCtx, task, subtaskInfo.Task)
+			}); err != nil && err != col.ErrNotClaimed {
+				return err
+			}
 		}
 		return nil
 	}

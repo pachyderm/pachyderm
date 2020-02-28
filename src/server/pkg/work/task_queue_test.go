@@ -2,10 +2,11 @@ package work
 
 import (
 	"context"
-	"math/rand"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
 
 type testTask struct {
@@ -22,20 +23,35 @@ func TestTaskQueue(t *testing.T) {
 			subtaskChan: make(chan struct{}),
 		})
 	}
-	tq := newTaskQueue(context.Background(), numTasks)
+	tq := newTaskQueue(context.Background())
+	var tcs []*taskChans
 	for i := 0; i < numTasks; i++ {
-		tq.createTask(context.Background(), strconv.Itoa(i), func(_ context.Context) {})
+		tc, err := tq.createTask(context.Background(), strconv.Itoa(i))
+		require.NoError(t, err)
+		tcs = append(tcs, tc)
 	}
 	for j := 0; j < numSubtasks; j++ {
-		for i := 0; i < numTasks; i++ {
-			i := i
-			tq.sendSubtaskBatch(strconv.Itoa(i), &Task{Subtasks: []*Task{&Task{ID: strconv.Itoa(j)}}}, func(_ context.Context, _ *Task) error {
-				time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond)
-				testTasks[i].subtaskChan <- struct{}{}
+		// Set up a subtask that sleeps for a bit to allow us to queue up some subtasks.
+		readyChan := make(chan struct{})
+		go func() {
+			tcs[0].processSubtask(func(_ context.Context) error {
+				close(readyChan)
+				time.Sleep(1 * time.Second)
 				return nil
 			})
+		}()
+		<-readyChan
+		// Queue up some subtasks, and confirm that they are completed in the correct order.
+		for i := 1; i < len(tcs); i++ {
+			i := i
+			go func() {
+				tcs[i].processSubtask(func(_ context.Context) error {
+					testTasks[i].subtaskChan <- struct{}{}
+					return nil
+				})
+			}()
 		}
-		for i := 0; i < numTasks; i++ {
+		for i := 1; i < len(tcs); i++ {
 			select {
 			case <-testTasks[i].subtaskChan:
 			}
