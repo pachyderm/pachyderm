@@ -1116,7 +1116,7 @@ func TestProvenance(t *testing.T) {
 
 func TestStartCommitWithBranchNameProvenance(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		require.NoError(t, env.PachClient.CreateRepo("B"))
 		require.NoError(t, env.PachClient.CreateRepo("C"))
