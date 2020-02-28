@@ -449,6 +449,23 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 	if a.iamRole != "" {
 		annotations["iam.amazonaws.com/role"] = a.iamRole
 	}
+
+	// add the user's custom metadata (annotations and labels).
+	metadata := pipelineInfo.GetMetadata()
+	if metadata != nil {
+		for k, v := range metadata.Annotations {
+			if annotations[k] == "" {
+				annotations[k] = v
+			}
+		}
+
+		for k, v := range metadata.Labels {
+			if labels[k] == "" {
+				labels[k] = v
+			}
+		}
+	}
+
 	// A service can be present either directly on the pipeline spec
 	// or on the spout field of the spec.
 	var service *pps.Service
@@ -458,13 +475,6 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 		service = pipelineInfo.Spout.Service
 	} else {
 		service = pipelineInfo.Service
-	}
-	if service != nil {
-		for k, v := range service.Annotations {
-			if k != "pipelineName" && k != "iam.amazonaws.com/role" {
-				annotations[k] = v
-			}
-		}
 	}
 
 	// Generate options for new RC

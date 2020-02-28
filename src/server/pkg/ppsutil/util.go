@@ -32,7 +32,7 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube "k8s.io/client-go/kubernetes"
@@ -250,6 +250,7 @@ func PipelineReqFromInfo(pipelineInfo *pps.PipelineInfo) *pps.CreatePipelineRequ
 		DatumTries:       pipelineInfo.DatumTries,
 		Standby:          pipelineInfo.Standby,
 		S3Out:            pipelineInfo.S3Out,
+		Metadata:         pipelineInfo.Metadata,
 	}
 }
 

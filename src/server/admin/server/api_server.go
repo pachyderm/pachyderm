@@ -48,6 +48,7 @@ const (
 	v1_7
 	v1_8
 	v1_9
+	v1_10
 )
 
 func (v opVersion) String() string {
@@ -58,6 +59,8 @@ func (v opVersion) String() string {
 		return "1.8"
 	case v1_9:
 		return "1.9"
+	case v1_10:
+		return "1.10"
 	}
 	return "undefined"
 }
@@ -70,6 +73,8 @@ func version(op *admin.Op) opVersion {
 		return v1_8
 	case op.Op1_9 != nil:
 		return v1_9
+	case op.Op1_10 != nil:
+		return v1_10
 	default:
 		return undefined
 	}
@@ -125,7 +130,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			return err
 		}
 		if err := pachClient.ListObject(func(oi *pfs.ObjectInfo) error {
-			return writeOp(&admin.Op{Op1_9: &admin.Op1_9{CreateObject: &pfs.CreateObjectRequest{
+			return writeOp(&admin.Op{Op1_10: &admin.Op1_10{CreateObject: &pfs.CreateObjectRequest{
 				Object:   oi.Object,
 				BlockRef: oi.BlockRef,
 			}}})
@@ -133,7 +138,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			return err
 		}
 		if err := pachClient.ListTag(func(resp *pfs.ListTagsResponse) error {
-			return writeOp(&admin.Op{Op1_9: &admin.Op1_9{
+			return writeOp(&admin.Op{Op1_10: &admin.Op1_10{
 				Tag: &pfs.TagObjectRequest{
 					Object: resp.Object,
 					Tags:   []*pfs.Tag{resp.Tag},
@@ -151,7 +156,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		ris = append(ris, &pfs.RepoInfo{Repo: &pfs.Repo{Name: ppsconsts.SpecRepo}})
 		for i := range ris {
 			ri := ris[len(ris)-1-i]
-			if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{
+			if err := writeOp(&admin.Op{Op1_10: &admin.Op1_10{
 				Repo: &pfs.CreateRepoRequest{
 					Repo:        ri.Repo,
 					Description: ri.Description,
@@ -164,7 +169,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			if ci.ParentCommit == nil {
 				ci.ParentCommit = client.NewCommit(ci.Commit.Repo.Name, "")
 			}
-			return writeOp(&admin.Op{Op1_9: &admin.Op1_9{Commit: &pfs.BuildCommitRequest{
+			return writeOp(&admin.Op{Op1_10: &admin.Op1_10{Commit: &pfs.BuildCommitRequest{
 				Parent:     ci.ParentCommit,
 				Tree:       ci.Tree,
 				ID:         ci.Commit.ID,
@@ -186,7 +191,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			return err
 		}
 		for _, bi := range bis.BranchInfo {
-			if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{
+			if err := writeOp(&admin.Op{Op1_10: &admin.Op1_10{
 				Branch: &pfs.CreateBranchRequest{
 					Head:       bi.Head,
 					Branch:     bi.Branch,
@@ -206,11 +211,11 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		for _, pi := range pis {
 			cPR := ppsutil.PipelineReqFromInfo(pi)
 			cPR.SpecCommit = pi.SpecCommit
-			if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{Pipeline: cPR}}); err != nil {
+			if err := writeOp(&admin.Op{Op1_10: &admin.Op1_10{Pipeline: cPR}}); err != nil {
 				return err
 			}
 			if err := pachClient.ListJobF(pi.Pipeline.Name, nil, nil, -1, false, func(ji *pps.JobInfo) error {
-				return writeOp(&admin.Op{Op1_9: &admin.Op1_9{Job: &pps.CreateJobRequest{
+				return writeOp(&admin.Op{Op1_10: &admin.Op1_10{Job: &pps.CreateJobRequest{
 					Pipeline:      pi.Pipeline,
 					OutputCommit:  ji.OutputCommit,
 					Restart:       ji.Restart,
@@ -242,7 +247,7 @@ func (a *apiServer) ExtractPipeline(ctx context.Context, request *admin.ExtractP
 	if err != nil {
 		return nil, err
 	}
-	return &admin.Op{Op1_9: &admin.Op1_9{Pipeline: ppsutil.PipelineReqFromInfo(pi)}}, nil
+	return &admin.Op{Op1_10: &admin.Op1_10{Pipeline: ppsutil.PipelineReqFromInfo(pi)}}, nil
 }
 
 func sortPipelineInfos(pis []*pps.PipelineInfo) []*pps.PipelineInfo {
@@ -353,7 +358,11 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 				if err != nil {
 					return err
 				}
-				newOp, err := convert1_8Op(newOp1_8)
+				newOp1_9, err := convert1_8Op(newOp1_8)
+				if err != nil {
+					return err
+				}
+				newOp, err := convert1_9Op(newOp1_9)
 				if err != nil {
 					return err
 				}
@@ -373,7 +382,11 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 					return fmt.Errorf("error putting object: %v", err)
 				}
 			} else {
-				newOp, err := convert1_8Op(op.Op1_8)
+				newOp1_9, err := convert1_8Op(op.Op1_8)
+				if err != nil {
+					return err
+				}
+				newOp, err := convert1_9Op(newOp1_9)
 				if err != nil {
 					return err
 				}
@@ -410,7 +423,44 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 					}
 				}
 			} else {
-				if err := a.applyOp(pachClient, op.Op1_9); err != nil {
+				newOp, err := convert1_9Op(op.Op1_9)
+				if err != nil {
+					return err
+				}
+				if err := a.applyOp(pachClient, newOp); err != nil {
+					return err
+				}
+			}
+		} else if op.Op1_10 != nil {
+			if op.Op1_10.Object != nil {
+				extractReader := &extractObjectReader{
+					adminAPIRestoreServer: restoreServer,
+					restoreURLReader:      r,
+					version:               v1_10,
+				}
+				extractReader.buf.Write(op.Op1_10.Object.Value)
+				if _, _, err := pachClient.PutObject(extractReader); err != nil {
+					return fmt.Errorf("error putting object: %v", err)
+				}
+			} else if op.Op1_10.Block != nil {
+				if len(op.Op1_10.Block.Value) == 0 {
+					// Empty block
+					if _, err := pachClient.PutBlock(op.Op1_10.Block.Block.Hash, bytes.NewReader(nil)); err != nil {
+						return fmt.Errorf("error putting block: %v", err)
+					}
+				} else {
+					extractReader := &extractBlockReader{
+						adminAPIRestoreServer: restoreServer,
+						restoreURLReader:      r,
+						version:               v1_10,
+					}
+					extractReader.buf.Write(op.Op1_10.Block.Value)
+					if _, err := pachClient.PutBlock(op.Op1_10.Block.Block.Hash, extractReader); err != nil {
+						return fmt.Errorf("error putting block: %v", err)
+					}
+				}
+			} else {
+				if err := a.applyOp(pachClient, op.Op1_10); err != nil {
 					return err
 				}
 			}
@@ -418,7 +468,7 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 	}
 }
 
-func (a *apiServer) applyOp(pachClient *client.APIClient, op *admin.Op1_9) error {
+func (a *apiServer) applyOp(pachClient *client.APIClient, op *admin.Op1_10) error {
 	switch {
 	case op.CreateObject != nil:
 		if _, err := pachClient.ObjectAPIClient.CreateObject(pachClient.Ctx(), op.CreateObject); err != nil {
@@ -575,7 +625,7 @@ func (w extractBlockWriter) Write(p []byte) (int, error) {
 		if len(value) > chunkSize {
 			value = value[:chunkSize]
 		}
-		if err := w.f(&admin.Op{Op1_9: &admin.Op1_9{Block: &pfs.PutBlockRequest{Block: w.block, Value: value}}}); err != nil {
+		if err := w.f(&admin.Op{Op1_10: &admin.Op1_10{Block: &pfs.PutBlockRequest{Block: w.block, Value: value}}}); err != nil {
 			return n, err
 		}
 		w.block = nil // only need to send block on the first request
@@ -585,7 +635,7 @@ func (w extractBlockWriter) Write(p []byte) (int, error) {
 }
 
 func (w extractBlockWriter) Close() error {
-	return w.f(&admin.Op{Op1_9: &admin.Op1_9{Block: &pfs.PutBlockRequest{Block: w.block}}})
+	return w.f(&admin.Op{Op1_10: &admin.Op1_10{Block: &pfs.PutBlockRequest{Block: w.block}}})
 }
 
 type extractBlockReader struct {
@@ -645,11 +695,16 @@ func (r *extractBlockReader) Read(p []byte) (int, error) {
 			return 0, fmt.Errorf("invalid version 1.7 doesn't have extracted blocks")
 		} else if r.version == v1_8 {
 			return 0, fmt.Errorf("invalid version 1.8 doesn't have extracted blocks")
-		} else {
+		} else if r.version == v1_9 {
 			if op.Op1_9.Block == nil {
 				return 0, fmt.Errorf("expected a block, but got: %v", op)
 			}
 			value = op.Op1_9.Block.Value
+		} else {
+			if op.Op1_10.Block == nil {
+				return 0, fmt.Errorf("expected a block, but got: %v", op)
+			}
+			value = op.Op1_10.Block.Value
 		}
 
 		if len(value) == 0 {

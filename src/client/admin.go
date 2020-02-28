@@ -84,10 +84,10 @@ func (c APIClient) ExtractPipeline(pipelineName string) (*pps.CreatePipelineRequ
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
-	if op.Op1_9 == nil || op.Op1_9.Pipeline == nil {
+	if op.Op1_10 == nil || op.Op1_10.Pipeline == nil {
 		return nil, fmt.Errorf("malformed response is missing pipeline")
 	}
-	return op.Op1_9.Pipeline, nil
+	return op.Op1_10.Pipeline, nil
 }
 
 // Restore cluster state from an extract series of operations.
