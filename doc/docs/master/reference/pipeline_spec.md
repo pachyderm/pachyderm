@@ -12,6 +12,14 @@ create pipeline](pachctl/pachctl_create_pipeline.md) section.
     "name": string
   },
   "description": string,
+  "metadata": {
+    "annotations": {
+        "annotation": string
+    },
+    "labels": {
+        "label": string
+    }
+  },
   "transform": {
     "image": string,
     "cmd": [ string ],
@@ -80,10 +88,7 @@ create pipeline](pachctl/pachctl_create_pipeline.md) section.
   \\ Optionally, you can combine a spout with a service:
   "service": {
         "internal_port": int,
-        "external_port": int,
-        "annotations": {
-            "foo": "bar"
-        }
+        "external_port": int
     }
   },
   "max_queue_size": int,
@@ -231,6 +236,14 @@ requirements:
 
 `description` is an optional text field where you can add information
 about the pipeline.
+
+### Metadata
+
+This parameter enables you to add metadata to your pipeline pods by using Kubernetes' `labels` and `annotations`. Labels help you to organize and keep track of your cluster objects by creating groups of pods based on the application they run, resources they use, or other parameters. Labels simplify the querying of Kubernetes objects and are handy in operations.
+
+Similarly to labels, you can add metadata through annotations. The difference is that you can specify any arbitrary metadata through annotations.
+
+Both parameters require a key-value pair.  Do not confuse this parameter with `pod_patch` which adds metadata to the user container of the pipeline pod. For more information, see [Labels and Selectors](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/) and [Kubernetes Annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/) in the Kubernetes documentation.
 
 ### Transform (required)
 
@@ -387,9 +400,12 @@ on the subject.
 
 ### Datum Timeout (optional)
 
-`datum_timeout` is a string (e.g. `1s`, `5m`, or `15h`) that determines the
-maximum execution time allowed per datum. So no matter what your parallelism
-or number of datums, no single datum is allowed to exceed this value.
+`datum_timeout` determines the maximum execution time allowed for each
+datum. The value must be a string that represents a time value, such as
+`1s`, `5m`, or `15h`. This parameter takes precedence over the parallelism
+or number of datums, therefore, no single datum is allowed to exceed
+this value. By default, `datum_timeout` is not set, and the datum continues to
+be processed as long as needed.
 
 ### Datum Tries (optional)
 
@@ -402,13 +418,18 @@ is marked as failed.
 
 ### Job Timeout (optional)
 
-`job_timeout` is a string (e.g. `1s`, `5m`, or `15h`) that determines the
-maximum execution time allowed for a job. It differs from `datum_timeout`
-in that the limit gets applied across all workers and all datums. That
-means that you'll need to keep in mind the parallelism, total number of
-datums, and execution time per datum when setting this value. Keep in
-mind that the number of datums may change over jobs. Some new commits may
-have a bunch of new files (and so new datums). Some may have fewer.
+`job_timeout` determines the maximum execution time allowed for a job. It
+differs from `datum_timeout` in that the limit is applied across all
+workers and all datums. This is the *wall time*, which means that if
+you set `job_timeout` to one hour and the job does not finish the work
+in one hour, it will be interrupted.
+When you set this value, you need to
+consider the parallelism, total number of datums, and execution time per
+datum. The value must be a string that represents a time value, such as
+`1s`, `5m`, or `15h`. In addition, the number of datums might change over
+jobs. Some new commits might have more files, and therefore, more datums.
+Similarly, other commits might have fewer files and datums. If this
+parameter is not set, the job will run indefinitely until it succeeds or fails.
 
 ### Input (required)
 

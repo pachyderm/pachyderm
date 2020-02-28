@@ -9688,6 +9688,9 @@ func TestSpout(t *testing.T) {
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
 				Pipeline: client.NewPipeline(pipeline),
+				Metadata: &pps.Metadata{
+					Annotations: annotations,
+				},
 				Transform: &pps.Transform{
 					Image: "pachyderm/ubuntuplusnetcat:latest",
 					Cmd:   []string{"sh"},
@@ -9704,7 +9707,6 @@ func TestSpout(t *testing.T) {
 					Service: &pps.Service{
 						InternalPort: 8000,
 						ExternalPort: 31800,
-						Annotations:  annotations,
 					},
 				},
 			})
@@ -10622,6 +10624,13 @@ func TestExtractPipeline(t *testing.T) {
 	// and we want them to match.
 	request.Input.Pfs.Name = "input"
 	request.Input.Pfs.Branch = "master"
+	// Remove S3 inputs
+	pps.VisitInput(request.Input, func(in *pps.Input) {
+		if in.Pfs != nil {
+			in.Pfs.S3 = false
+		}
+	})
+	request.S3Out = false
 	// Can't set both parallelism spec values
 	request.ParallelismSpec.Coefficient = 0
 	// If service, can only set as Constant:1
@@ -10964,6 +10973,81 @@ func TestCopyOutToIn(t *testing.T) {
 	buf.Reset()
 	require.NoError(t, c.GetFile(pipeline, "master", "dir/file4", 0, 0, &buf))
 	require.Equal(t, "bar", buf.String())
+}
+
+func TestKeepRepo(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestKeepRepo_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	_, err := c.PutFile(dataRepo, "master", "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	pipeline := tu.UniqueString("TestKeepRepo")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(dataRepo, "/*"),
+		"",
+		false,
+	))
+
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	require.NoError(t, err)
+	_, err = c.PpsAPIClient.DeletePipeline(c.Ctx(), &pps.DeletePipelineRequest{
+		Pipeline: client.NewPipeline(pipeline),
+		KeepRepo: true,
+	})
+	require.NoError(t, err)
+	_, err = c.InspectRepo(pipeline)
+	require.NoError(t, err)
+
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(pipeline, "master", "file", 0, 0, &buf))
+	require.Equal(t, "foo", buf.String())
+
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(dataRepo, "/*"),
+		"",
+		false,
+	))
+
+	_, err = c.PutFile(dataRepo, "master", "file2", strings.NewReader("bar"))
+	require.NoError(t, err)
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+
+	buf.Reset()
+	require.NoError(t, c.GetFile(pipeline, "master", "file", 0, 0, &buf))
+	require.Equal(t, "foo", buf.String())
+	buf.Reset()
+	require.NoError(t, c.GetFile(pipeline, "master", "file2", 0, 0, &buf))
+	require.Equal(t, "bar", buf.String())
+
+	require.NoError(t, c.DeletePipeline(pipeline, false))
 }
 
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
