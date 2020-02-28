@@ -131,10 +131,10 @@ docker-build: enterprise-code-checkin-test
 	DOCKER_BUILDKIT=1 docker build \
 		--build-arg GO_VERSION=`cat etc/compile/GO_VERSION` \
 		--build-arg LD_FLAGS="$(LD_FLAGS)" \
-		--progress plain -t pachyderm_build -f Dockerfile.build .
-	docker build -t pachyderm/pachd -f Dockerfile.pachd .
+		--progress plain -t pachyderm_build .
+	docker build -t pachyderm/pachd etc/pachd
 	docker tag pachyderm/pachd pachyderm/pachd:local
-	docker build -t pachyderm/worker -f Dockerfile.worker .
+	docker build -t pachyderm/worker etc/worker
 	docker tag pachyderm/worker pachyderm/worker:local
 
 docker-build-proto:
