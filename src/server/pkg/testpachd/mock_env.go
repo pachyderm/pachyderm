@@ -23,7 +23,7 @@ type MockEnv struct {
 // then cleans up everything in the environment, regardless of if an assertion
 // fails.
 func WithMockEnv(cb func(*MockEnv) error) error {
-	return foo.WithEtcdEnv(func(etcdEnv *foo.EtcdEnv) (err error) {
+	return testetcd.WithEtcdEnv(func(etcdEnv *testetcd.EtcdEnv) (err error) {
 		// Use an error group with a cancelable context to supervise every component
 		// and cancel everything if one fails
 		ctx, cancel := context.WithCancel(etcdEnv.Context)
