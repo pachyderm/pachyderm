@@ -2784,8 +2784,11 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 		return nil, err
 	}
 
+	mutex := &sync.Mutex{}
 	provenanceConstraints := make(map[string][]*pfs.CommitRange)
 	addConstraint := func(branchName string, commitRange *pfs.CommitRange) {
+		mutex.Lock()
+		defer mutex.Unlock()
 		branchKey := key(commitRange.Lower.Repo.Name, branchName)
 		if existing, ok := provenanceConstraints[branchKey]; ok {
 			provenanceConstraints[branchKey] = append(existing, commitRange)
@@ -2814,90 +2817,108 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 		}
 	}
 
+	eg, egCtx := errgroup.WithContext(ctx)
 	for _, prov := range request.Provenance {
 		if prov == nil {
 			return nil, fmt.Errorf("request should not contain nil provenance")
 		}
 
-		if prov.Commit == nil {
-			if prov.Branch == nil {
-				return nil, fmt.Errorf("request provenance cannot have both a nil commit and nil branch")
+		eg.Go(func() error {
+			if prov.Commit == nil {
+				if prov.Branch == nil {
+					return fmt.Errorf("request provenance cannot have both a nil commit and nil branch")
+				}
+
+				branchInfo, err := pfsClient.InspectBranch(egCtx, &pfs.InspectBranchRequest{Branch: prov.Branch})
+				if err != nil {
+					return err
+				}
+				if branchInfo.Head == nil {
+					return fmt.Errorf("cannot be provenant on a branch with no commits: %s@%s",
+						branchInfo.Branch.Repo.Name, branchInfo.Branch.Name)
+				}
+				prov.Commit = branchInfo.Head
 			}
 
-			branchInfo, err := pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: prov.Branch})
+			commitInfo, err := pfsClient.InspectCommit(egCtx, &pfs.InspectCommitRequest{
+				Commit: prov.Commit,
+			})
 			if err != nil {
-				return nil, err
+				return err
 			}
-			if branchInfo.Head == nil {
-				return nil, fmt.Errorf("cannot be provenant on a branch with no commits: %s@%s",
-					branchInfo.Branch.Repo.Name, branchInfo.Branch.Name)
-			}
-			prov.Commit = branchInfo.Head
-		}
 
-		commitInfo, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
-			Commit: prov.Commit,
+			// ensure the commit provenance is consistent with the branch provenance
+			if len(branchProvMap) != 0 {
+				if commitInfo.Branch.Repo.Name != ppsconsts.SpecRepo &&
+					!branchProvMap[key(commitInfo.Branch.Repo.Name, commitInfo.Branch.Name)] {
+					return fmt.Errorf("the commit provenance contains a branch which the pipeline's branch is not provenant on")
+				}
+			}
+
+			// For provenances specified by the request, set a zero-range of constraints
+			addConstraint(commitInfo.Branch.Name, &pfs.CommitRange{Upper: commitInfo.Commit, Lower: commitInfo.Commit})
+
+			// Set constraint commit ranges for all subvenant commits
+			for _, subvRange := range commitInfo.Subvenance {
+				commitInfo, err := pfsClient.InspectCommit(egCtx, &pfs.InspectCommitRequest{Commit: subvRange.Lower})
+				if err != nil {
+					return err
+				}
+
+				if branch := commitInfo.Branch; branch != nil {
+					addConstraint(branch.Name, subvRange)
+				}
+			}
+
+			return nil
 		})
-		if err != nil {
-			return nil, err
-		}
-
-		// ensure the commit provenance is consistent with the branch provenance
-		if len(branchProvMap) != 0 {
-			if commitInfo.Branch.Repo.Name != ppsconsts.SpecRepo &&
-				!branchProvMap[key(commitInfo.Branch.Repo.Name, commitInfo.Branch.Name)] {
-				return nil, fmt.Errorf("the commit provenance contains a branch which the pipeline's branch is not provenant on")
-			}
-		}
-
-		// For provenances specified by the request, set a zero-range of constraints
-		addConstraint(commitInfo.Branch.Name, &pfs.CommitRange{Upper: commitInfo.Commit, Lower: commitInfo.Commit})
-
-		// Set constraint commit ranges for all subvenant commits
-		for _, subvRange := range commitInfo.Subvenance {
-			commitInfo, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{Commit: subvRange.Lower})
-			if err != nil {
-				return nil, err
-			}
-
-			if branch := commitInfo.Branch; branch != nil {
-				addConstraint(branch.Name, subvRange)
-			}
-		}
 	}
 
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+
+	eg, egCtx = errgroup.WithContext(ctx)
 	provenanceMap := make(map[string]*pfs.CommitProvenance)
 	for _, branchProv := range branch.Provenance {
-		branchKey := key(branchProv.Repo.Name, branchProv.Name)
-		if _, ok := provenanceMap[branchKey]; ok {
-			continue
-		}
+		eg.Go(func() error {
+			branchKey := key(branchProv.Repo.Name, branchProv.Name)
+			if _, ok := provenanceMap[branchKey]; ok {
+				return nil
+			}
 
-		if constraints, ok := provenanceConstraints[branchKey]; ok {
-			commitInfo, err := a.latestCommitInRanges(ctx, constraints, branchProv.Name)
-			if err != nil {
-				return nil, err
+			var err error
+			var commitInfo *pfs.CommitInfo
+			if constraints, ok := provenanceConstraints[branchKey]; ok {
+				commitInfo, err = a.latestCommitInRanges(egCtx, constraints, branchProv.Name)
+			} else {
+				// Take the latest commit from the given branch since there are no constraints
+				var branchInfo *pfs.BranchInfo
+				branchInfo, err = pfsClient.InspectBranch(egCtx, &pfs.InspectBranchRequest{
+					Branch: client.NewBranch(branchProv.Repo.Name, branchProv.Name),
+				})
+				if err != nil {
+					return err
+				}
+				if branchInfo.Head == nil {
+					return nil
+				}
+				commitInfo, err = pfsClient.InspectCommit(egCtx, &pfs.InspectCommitRequest{
+					Commit: client.NewCommit(branchProv.Repo.Name, branchInfo.Head.ID),
+				})
 			}
+			if err != nil {
+				return err
+			}
+			mutex.Lock()
+			defer mutex.Unlock()
 			provenanceMap[branchKey] = client.NewCommitProvenance(commitInfo.Commit.Repo.Name, commitInfo.Branch.Name, commitInfo.Commit.ID)
-		} else {
-			// Take the latest commit from the given branch since there are no constraints
-			branchInfo, err := pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{
-				Branch: client.NewBranch(branchProv.Repo.Name, branchProv.Name),
-			})
-			if err != nil {
-				return nil, err
-			}
-			if branchInfo.Head == nil {
-				continue
-			}
-			headCommit, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
-				Commit: client.NewCommit(branchProv.Repo.Name, branchInfo.Head.ID),
-			})
-			if err != nil {
-				return nil, err
-			}
-			provenanceMap[branchKey] = client.NewCommitProvenance(headCommit.Commit.Repo.Name, headCommit.Branch.Name, headCommit.Commit.ID)
-		}
+			return nil
+		})
+	}
+
+	if err := eg.Wait(); err != nil {
+		return nil, err
 	}
 
 	// we need to include the spec commit in the provenance, so that the new job is represented by the correct spec commit
@@ -2956,6 +2977,7 @@ func (a *apiServer) latestCommitInRanges(ctx context.Context, ranges []*pfs.Comm
 	}
 
 	// Walk through all commit ranges in parallel and find which commits are in all the ranges
+	mutex := &sync.Mutex{}
 	eg, ctx := errgroup.WithContext(ctx)
 	pachClient = pachClient.WithCtx(ctx)
 
@@ -2963,6 +2985,8 @@ func (a *apiServer) latestCommitInRanges(ctx context.Context, ranges []*pfs.Comm
 	for _, r := range ranges {
 		eg.Go(func() error {
 			return pachClient.ListCommitF(r.Upper.Repo.Name, r.Lower.ID, r.Upper.ID, 0, false, func(ci *pfs.CommitInfo) error {
+				mutex.Lock()
+				defer mutex.Unlock()
 				foundCommits[ci.Commit.ID]++
 				return nil
 			})
