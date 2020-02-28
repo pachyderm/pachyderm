@@ -39,37 +39,9 @@ ifndef TIMEOUT
 endif
 endif
 
-echo-timeout:
-	echo $(TIMEOUT)
-
-all: build
-
-version:
-	@echo 'package main; import "github.com/pachyderm/pachyderm/src/client/version"; func main() { println(version.PrettyPrintVersion(version.Version)) }' > /tmp/pachyderm_version.go
-	go run /tmp/pachyderm_version.go
-
-deps:
-	go get -d -v ./src/... ./.
-
-update-deps:
-	go get -d -v -u ./src/... ./.
-
-build:
-	go build $$(go list ./src/client/... | grep -v '/src/client$$')
-
-pachd:
-	go build ./src/server/cmd/pachd
-
-worker:
-	go build ./src/server/cmd/worker
-
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
 	go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
-
-install-mac:
-	# Result will be in $GOPATH/bin/darwin_amd64/pachctl (if building on linux)
-	GOOS=darwin GOARCH=amd64 go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
 
 install-clean:
 	@# Need to blow away pachctl binary if its already there
@@ -78,16 +50,6 @@ install-clean:
 
 install-doc:
 	go install -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl-doc
-
-check-docker-version:
-	# The latest docker client requires server api version >= 1.24.
-	# However, minikube uses 1.23, so if you're connected to minikube, releases
-	# may break
-	@ \
-		docker_major="$$(docker version -f "{{.Server.APIVersion}}" | cut -d. -f1)"; \
-		docker_minor="$$(docker version -f "{{.Server.APIVersion}}" | cut -d. -f2)"; \
-		echo "docker version = $${docker_major}.$${docker_minor}, need at least 1.24"; \
-		test \( "$${docker_major}" -gt 1 \) -o \( "$${docker_minor}" -ge 24 \)
 
 point-release:
 	@make VERSION_ADDITIONAL= release-helper
@@ -121,7 +83,7 @@ release-pachctl:
 	@# Run pachctl release script w deploy branch name
 	@VERSION="$(shell pachctl version --client-only)" ./etc/build/release_pachctl
 
-release-helper: check-docker-version release-version release-image
+release-helper: release-version release-image
 
 release-version: install-clean
 	@./etc/build/repo_ready_for_release.sh
@@ -131,17 +93,15 @@ docker-build: enterprise-code-checkin-test
 	DOCKER_BUILDKIT=1 docker build \
 		--build-arg GO_VERSION=`cat etc/compile/GO_VERSION` \
 		--build-arg LD_FLAGS="$(LD_FLAGS)" \
+		$(DOCKER_BUILD_FLAGS) \
 		--progress plain -t pachyderm_build .
-	docker build -t pachyderm/pachd etc/pachd
+	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm/pachd etc/pachd
 	docker tag pachyderm/pachd pachyderm/pachd:local
-	docker build -t pachyderm/worker etc/worker
+	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm/worker etc/worker
 	docker tag pachyderm/worker pachyderm/worker:local
 
 docker-build-proto:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_proto etc/proto
-
-docker-build-proto-no-cache:
-	docker build $(DOCKER_BUILD_FLAGS) --no-cache -t pachyderm_proto etc/proto
 
 docker-build-netcat:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_netcat etc/netcat
@@ -306,11 +266,8 @@ full-clean-launch: check-kubectl
 integration-tests:
 	CGOENABLED=0 go test -v -count=1 ./src/server $(TESTFLAGS) -timeout $(TIMEOUT)
 
-staticcheck:
-	staticcheck ./...
-
 test-proto-static:
-	./etc/proto/test_no_changes.sh || echo "Protos need to be recompiled; run make proto-no-cache."
+	./etc/proto/test_no_changes.sh || echo "Protos need to be recompiled; run 'DOCKER_BUILD_FLAGS=--no-cache make proto'."
 
 test-deploy-manifests: install
 	./etc/testing/deploy-manifests/validate.sh
@@ -320,22 +277,6 @@ regenerate-test-deploy-manifests: install
 
 proto: docker-build-proto
 	./etc/proto/build.sh
-
-proto-no-cache: docker-build-proto-no-cache
-	./etc/proto/build.sh
-
-pretest:
-	go get -v github.com/kisielk/errcheck
-	go vet -n ./src/... | while read line; do \
-		modified=$$(echo $$line | sed "s/ [a-z0-9_/]*\.pb\.gw\.go//g"); \
-		$$modified; \
-		if [ -n "$$($$modified)" ]; then \
-		exit 1; \
-		fi; \
-		done
-	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
-
-local-test: docker-build launch-dev test-pfs clean-launch-dev
 
 # Run all the tests. Note! This is no longer the test entrypoint for travis
 test: clean-launch-dev launch-dev lint enterprise-code-checkin-test docker-build test-pfs-server test-cmds test-libs test-vault test-auth test-enterprise test-worker test-admin test-pps
@@ -469,22 +410,11 @@ launch-logging: check-kubectl check-kubectl-connection
 	cd etc/plugin/logging && ./deploy.sh
 	kubectl --namespace=monitoring port-forward `kubectl --namespace=monitoring get pods -l k8s-app=kibana-logging -o json | jq '.items[0].metadata.name' -r` 35601:5601 &
 
-grep-data:
-	go run examples/grep/generate.go >examples/grep/set1.txt
-	go run examples/grep/generate.go >examples/grep/set2.txt
-
-grep-example:
-	sh examples/grep/run.sh
-
 logs: check-kubectl
 	kubectl $(KUBECTLFLAGS) get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'echo pod && kubectl $(KUBECTLFLAGS) logs pod'
 
 follow-logs: check-kubectl
 	kubectl $(KUBECTLFLAGS) get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'echo pod && kubectl $(KUBECTLFLAGS) logs -f pod'
-
-kubectl:
-	gcloud config set container/cluster $(CLUSTER_NAME)
-	gcloud container clusters get-credentials $(CLUSTER_NAME)
 
 google-cluster-manifest:
 	@pachctl deploy --dry-run google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
@@ -538,9 +468,6 @@ microsoft-cluster:
 clean-microsoft-cluster:
 	azure group delete $(AZURE_RESOURCE_GROUP) -q
 
-install-go-bindata:
-	go get -u github.com/jteeuwen/go-bindata/...
-
 lint:
 	etc/testing/lint.sh
 
@@ -566,44 +493,88 @@ goxc-build:
 	sed 's/%%VERSION_ADDITIONAL%%/$(VERSION_ADDITIONAL)/' .goxc.json.template > .goxc.json
 	goxc -build-gcflags="$(GC_FLAGS)" -tasks=xc -wd=./src/server/cmd/pachctl
 
-.PHONY: all \
-	version \
-	deps \
-	update-deps \
-	build \
+.PHONY: \
 	install \
 	install-clean \
 	install-doc \
-	homebrew \
-	release \
-	release-helper \
-	release-manifest \
+	point-release \
+	release-candidate \
+	custom-release \
 	release-pachctl-custom \
+	release-pachctl \
+	release-helper \
 	release-version \
 	docker-build \
+	docker-build-proto \
+	docker-build-netcat \
+	docker-build-gpu \
+	docker-build-kafka \
+	docker-push-gpu \
+	docker-push-gpu-dev \
+	docker-gpu \
+	docker-gpu-dev \
+	docker-build-test-entrypoint \
+	check-kubectl \
+	check-kubectl-connection \
+	launch-dev-bench \
+	push-bench-images \
+	tag-images \
+	push-images \
+	launch-bench \
+	clean-launch-bench \
+	install-bench \
+	launch-dev-test \
+	aws-test \
+	run-bench \
+	delete-all-launch-bench \
+	bench \
 	launch-kube \
+	launch-dev-vm \
+	launch-release-vm \
 	clean-launch-kube \
-	kube-cluster-assets \
 	launch \
 	launch-dev \
-	clean-launch-dev \
 	clean-launch \
+	clean-launch-dev \
 	full-clean-launch \
 	integration-tests \
+	test-proto-static \
+	test-deploy-manifests \
+	regenerate-test-deploy-manifests \
 	proto \
-	pretest \
 	test \
+	enterprise-code-checkin-test \
+	test-pfs-server \
+	test-pfs-storage \
+	test-pps \
+	test-cmds \
+	test-transaction \
 	test-client \
+	test-libs \
+	test-vault \
 	test-s3gateway-conformance \
 	test-s3gateway-integration \
 	test-fuse \
 	test-local \
+	test-auth \
+	test-admin \
+	test-enterprise \
+	test-tls \
+	test-worker \
+	test-worker-helper \
 	clean \
+	doc-custom \
 	doc \
-	grep-data \
-	grep-example \
+	clean-launch-kafka \
+	launch-kafka \
+	clean-launch-stats \
+	launch-stats \
+	clean-launch-monitoring \
+	launch-monitoring \
+	clean-launch-logging \
+	launch-logging \
 	logs \
-	kubectl \
+	follow-logs \
 	google-cluster-manifest \
 	google-cluster \
 	clean-google-cluster \
@@ -612,9 +583,11 @@ goxc-build:
 	amazon-clean-cluster \
 	amazon-clean-launch \
 	amazon-clean \
-	install-go-bindata \
-	assets \
+	microsoft-cluster-manifest \
+	microsoft-cluster \
+	clean-microsoft-cluster \
 	lint \
+	spellcheck \
 	goxc-generate-local \
 	goxc-release \
 	goxc-build
