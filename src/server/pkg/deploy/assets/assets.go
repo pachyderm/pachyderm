@@ -610,9 +610,10 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
-							Name:  pachdName,
-							Image: image,
-							Env:   envVars,
+							Name:    pachdName,
+							Image:   image,
+							Command: []string{"/app/pachd"},
+							Env:     envVars,
 							Ports: []v1.ContainerPort{
 								{
 									ContainerPort: opts.PachdPort, // also set in cmd/pachd/main.go
