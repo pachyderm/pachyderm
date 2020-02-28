@@ -126,24 +126,16 @@ release-helper: check-docker-version release-version release-image
 release-version: install-clean
 	@./etc/build/repo_ready_for_release.sh
 
-release-images:
-	exit 1 # TODO(ys): remove this, it's a guard to ensure we don't accidentally push these new image types
-	docker tag pachyderm_pachd:latest pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
-	docker push pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
-	docker tag pachyderm_worker:latest pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
-	docker push pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
-
 docker-build: enterprise-code-checkin-test
 	# TODO(ys): see if caching docker stuff will speed up travisci runs: https://github.com/travis-ci/travis-ci/issues/5358
 	DOCKER_BUILDKIT=1 docker build \
 		--build-arg GO_VERSION=`cat etc/compile/GO_VERSION` \
 		--build-arg LD_FLAGS="$(LD_FLAGS)" \
 		--progress plain -t pachyderm_build -f Dockerfile.build .
-	# TODO(ys): look into combining pachyderm_(pachd|worker) images
-	docker build -t pachyderm_pachd -f Dockerfile.pachd .
-	docker tag pachyderm_pachd pachyderm/pachd:local
-	docker build -t pachyderm_worker -f Dockerfile.worker .
-	docker tag pachyderm_worker pachyderm/worker:local
+	docker build -t pachyderm/pachd -f Dockerfile.pachd .
+	docker tag pachyderm/pachd pachyderm/pachd:local
+	docker build -t pachyderm/worker -f Dockerfile.worker .
+	docker tag pachyderm/worker pachyderm/worker:local
 
 docker-build-test:
 	DOCKER_BUILDKIT=1 docker build \
@@ -203,10 +195,12 @@ push-bench-images: install-bench tag-images push-images
 	docker push pachyderm/bench:`git rev-list HEAD --max-count=1`
 
 tag-images: install
-	docker tag pachyderm pachyderm/pachyderm:`$(GOPATH)/bin/pachctl version --client-only`
+	docker tag pachyderm/pachd pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
+	docker tag pachyderm/worker pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
 
 push-images: tag-images
-	docker push pachyderm/pachyderm:`$(GOPATH)/bin/pachctl version --client-only`
+	docker push pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
+	docker push pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
 
 launch-bench:
 	@# Make launches each process in its own shell process, so we have to structure

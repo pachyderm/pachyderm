@@ -16,8 +16,10 @@ function get_images {
     make install || die "could not build pachctl"
     make docker-build || die "could not build pachd/worker"
   else
-    echo docker pull pachyderm/pachyderm:${PACH_VERSION}
-    docker pull pachyderm/pachyderm:${PACH_VERSION}
+    echo docker pull pachyderm/pachd:${PACH_VERSION}
+    docker pull pachyderm/pachd:${PACH_VERSION}
+    echo docker pull pachyderm/worker:${PACH_VERSION}
+    docker pull pachyderm/worker:${PACH_VERSION}
   fi
 }
 export -f get_images
@@ -80,7 +82,8 @@ etcd_image="quay.io/coreos/etcd:v3.3.5"
 docker pull ${etcd_image}
 docker pull ${grpc_proxy_image}
 docker pull ${dash_image}
-etc/kube/push-to-minikube.sh pachyderm/pachyderm:${PACH_VERSION}
+etc/kube/push-to-minikube.sh pachyderm/pachd:${PACH_VERSION}
+etc/kube/push-to-minikube.sh pachyderm/worker:${PACH_VERSION}
 etc/kube/push-to-minikube.sh ${etcd_image}
 
 # Deploy Pachyderm
