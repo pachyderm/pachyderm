@@ -16,6 +16,7 @@ type GlobalConfiguration struct {
 	Port          uint16 `env:"PORT,default=650"`
 	HTTPPort      uint16 `env:"HTTP_PORT,default=652"`
 	PeerPort      uint16 `env:"PEER_PORT,default=653"`
+	S3GatewayPort uint16 `env:"S3GATEWAY_PORT,default=600"`
 	PPSEtcdPrefix string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
 	Namespace     string `env:"PACHD_POD_NAMESPACE,default=default"`
 	StorageRoot   string `env:"PACH_ROOT,default=/pach"`
@@ -59,7 +60,6 @@ type PachdSpecificConfiguration struct {
 	ExposeObjectAPI            bool   `env:"EXPOSE_OBJECT_API,default=false"`
 	MemoryRequest              string `env:"PACHD_MEMORY_REQUEST,default=1T"`
 	WorkerUsesRoot             bool   `env:"WORKER_USES_ROOT,default=true"`
-	S3GatewayPort              uint16 `env:"S3GATEWAY_PORT,default=600"`
 	DeploymentID               string `env:"CLUSTER_DEPLOYMENT_ID,default="`
 	RequireCriticalServersOnly bool   `env:"REQUIRE_CRITICAL_SERVERS_ONLY",default=false"`
 }

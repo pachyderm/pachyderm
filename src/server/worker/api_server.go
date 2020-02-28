@@ -1176,6 +1176,18 @@ func (a *APIServer) userCodeEnv(jobID string, outputCommitID string, data []*Inp
 	}
 	result = append(result, fmt.Sprintf("%s=%s", client.JobIDEnv, jobID))
 	result = append(result, fmt.Sprintf("%s=%s", client.OutputCommitIDEnv, outputCommitID))
+	if ppsutil.ContainsS3Inputs(a.pipelineInfo.Input) || a.pipelineInfo.S3Out {
+		// TODO(msteffen) Instead of reading S3GATEWAY_PORT directly, worker/main.go
+		// should pass its ServiceEnv to worker.NewAPIServer, which should store it
+		// in 'a'. However, requiring worker.APIServer to have a ServiceEnv would
+		// break the worker.APIServer initialization in newTestAPIServer (in
+		// worker/worker_test.go), which uses mock clients but has no good way to
+		// mock a ServiceEnv. Once we can create mock ServiceEnvs, we should store
+		// a ServiceEnv in worker.APIServer, rewrite newTestAPIServer and
+		// NewAPIServer, and then change this code.
+		result = append(result, fmt.Sprintf("S3_ENDPOINT=http://%s:%s",
+			ppsutil.SidecarS3GatewayService(jobID), os.Getenv("S3GATEWAY_PORT")))
+	}
 	return result
 }
 
