@@ -1971,6 +1971,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		PodSpec:          request.PodSpec,
 		PodPatch:         request.PodPatch,
 		S3Out:            request.S3Out,
+		Metadata:         request.Metadata,
 	}
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
 		return nil, err

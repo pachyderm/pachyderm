@@ -135,10 +135,10 @@ $ gsutil ls
 
 ```bash
 # For macOS:
-$ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.9
+$ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.10
 
 # For Linux (64 bit) or Window 10+ on WSL:
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.12/pachctl_1.9.12_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.10.0/pachctl_1.10.0_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 You can then run `pachctl version --client-only` to check that the installation was successful.

@@ -9688,6 +9688,9 @@ func TestSpout(t *testing.T) {
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
 				Pipeline: client.NewPipeline(pipeline),
+				Metadata: &pps.Metadata{
+					Annotations: annotations,
+				},
 				Transform: &pps.Transform{
 					Image: "pachyderm/ubuntuplusnetcat:latest",
 					Cmd:   []string{"sh"},
@@ -9704,7 +9707,6 @@ func TestSpout(t *testing.T) {
 					Service: &pps.Service{
 						InternalPort: 8000,
 						ExternalPort: 31800,
-						Annotations:  annotations,
 					},
 				},
 			})

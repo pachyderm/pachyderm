@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/testpachd"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 )
 
 func TestPutGet(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		object, _, err := env.PachClient.PutObject(strings.NewReader("foo"))
 		require.NoError(t, err)
 		value, err := env.PachClient.ReadObject(object.Hash)
@@ -31,7 +31,7 @@ func TestPutGet(t *testing.T) {
 
 func TestTags(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		object, _, err := env.PachClient.PutObject(strings.NewReader("foo"), "bar", "fizz")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.TagObject(object.Hash, "buzz"))
@@ -57,7 +57,7 @@ func TestTags(t *testing.T) {
 
 func TestShortTag(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		object, _, err := env.PachClient.PutObject(strings.NewReader("content"), "t")
 		require.NoError(t, err)
 
@@ -75,7 +75,7 @@ func TestShortTag(t *testing.T) {
 
 func TestManyObjects(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		var objects []string
 		for i := 0; i < 25; i++ {
 			object, _, err := env.PachClient.PutObject(strings.NewReader(string(i)), fmt.Sprint(i))
@@ -98,7 +98,7 @@ func TestManyObjects(t *testing.T) {
 
 func TestBigObject(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		r := workload.NewReader(rand.New(rand.NewSource(time.Now().UnixNano())), 50*1024*1024)
 		object, _, err := env.PachClient.PutObject(r)
 		require.NoError(t, err)
@@ -116,7 +116,7 @@ func TestBigObject(t *testing.T) {
 
 func TestReadObjects(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		fooObject, _, err := env.PachClient.PutObject(strings.NewReader("foo"))
 		require.NoError(t, err)
 		barObject, _, err := env.PachClient.PutObject(strings.NewReader("bar"))
