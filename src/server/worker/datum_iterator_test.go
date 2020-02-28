@@ -12,7 +12,7 @@ import (
 )
 
 func TestDatumIterators(t *testing.T) {
-	c := getPachClient(t)
+	c := tu.GetPachClient(t)
 	defer require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString(t.Name() + "_data")
@@ -227,7 +227,7 @@ func TestDatumIterators(t *testing.T) {
 }
 
 func benchmarkDatumIterators(j int, b *testing.B) {
-	c := getPachClient(b)
+	c := tu.GetPachClient(b)
 	defer require.NoError(b, c.DeleteAll())
 	require.NoError(b, activateEnterprise(c))
 

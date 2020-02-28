@@ -3,7 +3,6 @@ package worker
 import (
 	"context"
 	"fmt"
-	"os"
 	"path"
 	"sync"
 	"testing"
@@ -17,12 +16,13 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
+	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
 func TestAcquireDatums(t *testing.T) {
 	t.Skip()
-	c := getPachClient(t)
+	c := testutil.GetPachClient(t)
 	etcdClient := getEtcdClient(t)
 
 	plans := col.NewCollection(etcdClient, path.Join("", planPrefix), nil, &Plan{}, nil, nil)
@@ -87,22 +87,6 @@ func getEtcdClient(t *testing.T) *etcd.Client {
 		}, backoff.NewTestingBackOff()))
 	})
 	return etcdClient
-}
-
-var pachClient *client.APIClient
-var getPachClientOnce sync.Once
-
-func getPachClient(t testing.TB) *client.APIClient {
-	getPachClientOnce.Do(func() {
-		var err error
-		if addr := os.Getenv("PACHD_PORT_650_TCP_ADDR"); addr != "" {
-			pachClient, err = client.NewInCluster()
-		} else {
-			pachClient, err = client.NewForTest()
-		}
-		require.NoError(t, err)
-	})
-	return pachClient
 }
 
 //lint:ignore U1000 false positive from staticcheck

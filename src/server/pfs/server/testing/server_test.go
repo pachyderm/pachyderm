@@ -1113,7 +1113,11 @@ func TestProvenance(t *testing.T) {
 	require.NoError(t, err)
 }
 
+<<<<<<< HEAD
 func TestStartCommitWithGrandparentProvenance(t *testing.T) {
+=======
+func TestStartCommitWithBranchNameProvenance(t *testing.T) {
+>>>>>>> master
 	t.Parallel()
 	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("A"))
@@ -1127,17 +1131,40 @@ func TestStartCommitWithGrandparentProvenance(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.FinishCommit("A", masterCommit.ID))
 
+		masterCommitInfo, err := env.PachClient.InspectCommit(masterCommit.Repo.Name, masterCommit.ID)
+		require.NoError(t, err)
+
 		bCommitInfo, err := env.PachClient.InspectCommit("B", "master")
 		require.NoError(t, err)
 
-		_, err = env.PachClient.PfsAPIClient.StartCommit(env.Context, &pfs.StartCommitRequest{
+		// We're specifying the same commit three times - once by branch name, once
+		// by commit ID, and once indirectly through B, these should be collapsed to
+		// one provenance entry.
+		newCommit, err := env.PachClient.PfsAPIClient.StartCommit(env.Context, &pfs.StartCommitRequest{
 			Parent: pclient.NewCommit("C", ""),
 			Provenance: []*pfs.CommitProvenance{
 				pclient.NewCommitProvenance("A", "master", "master"),
+				pclient.NewCommitProvenance("A", "master", masterCommitInfo.Commit.ID),
 				pclient.NewCommitProvenance("B", "master", bCommitInfo.Commit.ID),
 			},
 		})
 		require.NoError(t, err)
+
+		newCommitInfo, err := env.PachClient.InspectCommit(newCommit.Repo.Name, newCommit.ID)
+		require.NoError(t, err)
+		fmt.Printf("%v\n", newCommitInfo.Provenance)
+
+		// Stupid require.ElementsEqual can't handle arrays of pointers
+		expectedProvenanceA := &pfs.CommitProvenance{Commit: masterCommitInfo.Commit, Branch: masterCommitInfo.Branch}
+		expectedProvenanceB := &pfs.CommitProvenance{Commit: bCommitInfo.Commit, Branch: bCommitInfo.Branch}
+		require.Equal(t, 2, len(newCommitInfo.Provenance))
+		if newCommitInfo.Provenance[0].Commit.Repo.Name == "A" {
+			require.Equal(t, expectedProvenanceA, newCommitInfo.Provenance[0])
+			require.Equal(t, expectedProvenanceB, newCommitInfo.Provenance[1])
+		} else {
+			require.Equal(t, expectedProvenanceB, newCommitInfo.Provenance[0])
+			require.Equal(t, expectedProvenanceA, newCommitInfo.Provenance[1])
+		}
 
 		return nil
 	})
