@@ -533,7 +533,8 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 			// check if we have a marker file in the /pfs/out directory
 			_, err := pachClient.InspectFile(a.pipelineInfo.Pipeline.Name, ppsconsts.SpoutMarkerBranch, a.pipelineInfo.Spout.Marker)
 			if err != nil {
-				// if this fails because there's no head commit on the marker branch, then we don't want to pull the marker, but it's also not an error
+				// if this fails because there's no head commit on the marker branch,
+				// then we don't want to pull the marker, but it's also not an error
 				if !strings.Contains(err.Error(), "no head") {
 					// if it fails for some other reason, then fail
 					return "", err
@@ -562,6 +563,9 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 			}
 			continue
 		}
+		if input.S3 {
+			continue // don't download any data
+		}
 		file := input.FileInfo.File
 		root := filepath.Join(dir, input.Name, file.Path)
 		var statsRoot string
@@ -584,6 +588,9 @@ func (a *APIServer) linkData(inputs []*Input, dir string) error {
 		return err
 	}
 	for _, input := range inputs {
+		if input.S3 {
+			continue
+		}
 		src := filepath.Join(dir, input.Name)
 		dst := filepath.Join(client.PPSInputPrefix, input.Name)
 		if err := os.Symlink(src, dst); err != nil {
@@ -592,13 +599,20 @@ func (a *APIServer) linkData(inputs []*Input, dir string) error {
 	}
 
 	if a.pipelineInfo.Spout != nil && a.pipelineInfo.Spout.Marker != "" {
-		err = os.Symlink(filepath.Join(dir, a.pipelineInfo.Spout.Marker), filepath.Join(client.PPSInputPrefix, a.pipelineInfo.Spout.Marker))
+		err = os.Symlink(filepath.Join(dir, a.pipelineInfo.Spout.Marker),
+			filepath.Join(client.PPSInputPrefix, a.pipelineInfo.Spout.Marker))
 		if err != nil {
 			return err
 		}
 	}
 
-	return os.Symlink(filepath.Join(dir, "out"), filepath.Join(client.PPSInputPrefix, "out"))
+	if a.pipelineInfo.S3Out {
+		// Remove /pfs/out to avoid an attractive nuisance, but we can't remove /pfs
+		// entirely, even if it's empty, as that will mess with datum cleanup
+		return os.RemoveAll(filepath.Join(client.PPSInputPrefix, "out"))
+	} else {
+		return os.Symlink(filepath.Join(dir, "out"), filepath.Join(client.PPSInputPrefix, "out"))
+	}
 }
 
 func (a *APIServer) unlinkData(inputs []*Input) error {
