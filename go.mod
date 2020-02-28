@@ -134,7 +134,7 @@ require (
 	modernc.org/mathutil v1.0.0
 )
 
-replace go.etcd.io/etcd => go.etcd.io/etcd v0.0.0-20191023171146-3cf2f69b5738
+replace go.etcd.io/etcd => go.etcd.io/etcd v0.0.0-20200224211402-c65a9e2dd1fd
 
 // Holy shit, the docker library versions are a clusterfuck, see https://github.com/moby/moby/issues/39302
 // For the moment, the windows build requires a fix that has not been tagged with an official release
