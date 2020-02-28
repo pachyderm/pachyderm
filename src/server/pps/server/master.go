@@ -53,7 +53,7 @@ func (a *apiServer) master() {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		// Note: 'pachClient' is unauthenticated. This will use the PPS token (via
-		// a.sudo())to authenticate requests.
+		// a.sudo()) to authenticate requests.
 		pachClient := a.env.GetPachClient(ctx)
 		ctx, err := masterLock.Lock(ctx)
 		if err != nil {
