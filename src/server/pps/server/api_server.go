@@ -29,6 +29,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
@@ -2837,6 +2838,16 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 			}
 		}
 
+		// For provenances specified by the request, set a zero-range of constraints
+		provKey := key(commitInfo.Branch.Repo.Name, commitInfo.Branch.Name)
+		provRange := &pfs.CommitRange{Upper: commitInfo.Commit, Lower: commitInfo.Commit}
+		if existing, ok := provenanceConstraints[provKey]; ok {
+			provenanceConstraints[provKey] = append(existing, provRange)
+		} else {
+			provenanceConstraints[provKey] = []*pfs.CommitRange{provRange}
+		}
+
+		// Set constraint commit ranges for all subvenant commits
 		for _, subvRange := range commitInfo.Subvenance {
 			commitInfo, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{Commit: subvRange.Lower})
 			if err != nil {
@@ -2844,17 +2855,31 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 			}
 
 			if branch := commitInfo.Branch; branch != nil {
-				if existing, ok := provenanceConstraints[key(branch.Repo.Name, branch.Name)]; ok {
-					provenanceConstraints[key(branch.Repo.Name, branch.Name)] = append(existing, subvRange)
+				branchKey := key(branch.Repo.Name, branch.Name)
+				if existing, ok := provenanceConstraints[branchKey]; ok {
+					provenanceConstraints[branchKey] = append(existing, subvRange)
 				} else {
-					provenanceConstraints[key(branch.Repo.Name, branch.Name)] = []*pfs.CommitRange{subvRange}
+					provenanceConstraints[branchKey] = []*pfs.CommitRange{subvRange}
 				}
 			}
 		}
 	}
 
-	for _, branchProv := range append(branch.Provenance, branch.Branch) {
-		if _, ok := provenanceMap[key(branchProv.Repo.Name, branchProv.Name)]; !ok {
+	provenanceMap := make(map[string]*pfs.CommitProvenance)
+	for _, branchProv := range branch.Provenance {
+		branchKey := key(branchProv.Repo.Name, branchProv.Name)
+		if _, ok := provenanceMap[branchKey]; ok {
+			continue
+		}
+
+		if constraints, ok := provenanceConstraints[branchKey]; ok {
+			commitInfo, err := a.latestCommitInRanges(ctx, constraints, branchProv.Name)
+			if err != nil {
+				return nil, err
+			}
+			provenanceMap[branchKey] = client.NewCommitProvenance(commitInfo.Commit.Repo.Name, commitInfo.Branch.Name, commitInfo.Commit.ID)
+		} else {
+			// Take the latest commit from the given branch since there are no constraints
 			branchInfo, err := pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{
 				Branch: client.NewBranch(branchProv.Repo.Name, branchProv.Name),
 			})
@@ -2870,16 +2895,18 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 			if err != nil {
 				return nil, err
 			}
-			for _, headProv := range headCommit.Provenance {
-				if _, ok := provenanceMap[key(headProv.Branch.Repo.Name, headProv.Branch.Name)]; !ok {
-					provenance = append(provenance, headProv)
-				}
-			}
+			provenanceMap[branchKey] = client.NewCommitProvenance(headCommit.Commit.Repo.Name, headCommit.Branch.Name, headCommit.Commit.ID)
 		}
 	}
+
 	// we need to include the spec commit in the provenance, so that the new job is represented by the correct spec commit
-	specProvenance := client.NewCommitProvenance(ppsconsts.SpecRepo, request.Pipeline.Name, specCommit.Commit.ID)
-	provenance = append(provenance, specProvenance)
+	specKey := key(ppsconsts.SpecRepo, request.Pipeline.Name)
+	provenanceMap[specKey] = client.NewCommitProvenance(ppsconsts.SpecRepo, request.Pipeline.Name, specCommit.Commit.ID)
+
+	provenance = []*pfs.CommitProvenance{}
+	for _, prov := range provenanceMap {
+		provenance = append(provenance, prov)
+	}
 
 	if _, err := pachClient.ExecuteInTransaction(func(txnClient *client.APIClient) error {
 		newCommit, err := txnClient.PfsAPIClient.StartCommit(txnClient.Ctx(), &pfs.StartCommitRequest{
@@ -2917,6 +2944,61 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	}
 
 	return &types.Empty{}, nil
+}
+
+func (a *apiServer) latestCommitInRanges(ctx context.Context, ranges []*pfs.CommitRange, branch string) (*pfs.CommitInfo, error) {
+	pachClient := a.env.GetPachClient(ctx)
+
+	// If there's only one range, take the latest commit in that range
+	if len(ranges) == 1 {
+		return pachClient.InspectCommit(ranges[0].Upper.Repo.Name, ranges[0].Upper.ID)
+	}
+
+	// Walk through all commit ranges in parallel and find which commits are in all the ranges
+	eg, ctx := errgroup.WithContext(ctx)
+	pachClient = pachClient.WithCtx(ctx)
+
+	foundCommits := make(map[string]int)
+	for _, r := range ranges {
+		eg.Go(func() error {
+			return pachClient.ListCommitF(r.Upper.Repo.Name, r.Lower.ID, r.Upper.ID, 0, false, func(ci *pfs.CommitInfo) error {
+				foundCommits[ci.Commit.ID]++
+				return nil
+			})
+		})
+	}
+
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+
+	// Discard any commits which were not found in all ranges
+	for k, v := range foundCommits {
+		if v != len(ranges) {
+			delete(foundCommits, k)
+		}
+	}
+
+	if len(foundCommits) == 0 {
+		return nil, fmt.Errorf("could not find a commit that satisfied all provenance constraints for %s@%s", ranges[0].Upper.Repo.Name, branch)
+	}
+
+	var latestCommitInfo *pfs.CommitInfo
+	if err := pachClient.ListCommitF(ranges[0].Upper.Repo.Name, ranges[0].Lower.ID, ranges[0].Upper.ID, 0, false, func(ci *pfs.CommitInfo) error {
+		if _, ok := foundCommits[ci.Commit.ID]; ok {
+			latestCommitInfo = ci
+			return errutil.ErrBreak
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	if latestCommitInfo == nil {
+		return nil, fmt.Errorf("could not find a commit that satisfied all provenance constraints for %s@%s", ranges[0].Upper.Repo.Name, branch)
+	}
+
+	return latestCommitInfo, nil
 }
 
 func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (response *types.Empty, retErr error) {

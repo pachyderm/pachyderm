@@ -1113,11 +1113,7 @@ func TestProvenance(t *testing.T) {
 	require.NoError(t, err)
 }
 
-<<<<<<< HEAD
-func TestStartCommitWithGrandparentProvenance(t *testing.T) {
-=======
 func TestStartCommitWithBranchNameProvenance(t *testing.T) {
->>>>>>> master
 	t.Parallel()
 	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("A"))

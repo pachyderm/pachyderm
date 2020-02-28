@@ -602,6 +602,7 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 	require.NoError(t, c.GetFile(commits[0].Commit.Repo.Name, commits[0].Commit.ID, "file", 0, 0, &buffer))
 	require.Equal(t, "data A\ndata B\n", buffer.String())
 }
+
 func TestRunPipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -855,7 +856,7 @@ func TestRunPipeline(t *testing.T) {
 		require.NoError(t, c.GetFile(commits[0].Commit.Repo.Name, commits[0].Commit.ID, "file", 0, 0, &buffer))
 		require.Equal(t, "data A\ndata B\n", buffer.String())
 
-		// and make sure we can attatch a downstream pipeline
+		// and make sure we can attach a downstream pipeline
 		downstreamPipeline := tu.UniqueString("downstream-pipeline")
 		require.NoError(t, c.CreatePipeline(
 			downstreamPipeline,
@@ -942,7 +943,7 @@ func TestRunPipeline(t *testing.T) {
 		// no commit to branch-b so "file" should not exist
 		require.YesError(t, c.GetFile(commits[0].Commit.Repo.Name, commits[0].Commit.ID, "file", 0, 0, &buffer))
 
-		// and make sure we can attatch a downstream pipeline
+		// and make sure we can attach a downstream pipeline
 		downstreamPipeline := tu.UniqueString("pipelinedownstream")
 		require.NoError(t, c.CreatePipeline(
 			downstreamPipeline,
@@ -1151,8 +1152,8 @@ func TestRunPipeline(t *testing.T) {
 		})
 
 	})
-
 }
+
 func TestPipelineFailure(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -9519,7 +9520,7 @@ func TestSpout(t *testing.T) {
 		err = c.DeleteCommit(pipeline, "master")
 		require.NoError(t, err)
 
-		// and make sure we can attatch a downstream pipeline
+		// and make sure we can attach a downstream pipeline
 		downstreamPipeline := tu.UniqueString("pipelinespoutdownstream")
 		require.NoError(t, c.CreatePipeline(
 			downstreamPipeline,
