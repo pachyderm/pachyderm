@@ -375,7 +375,7 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 				extractReader := &extractObjectReader{
 					adminAPIRestoreServer: restoreServer,
 					restoreURLReader:      r,
-					version:               v1_9,
+					version:               v1_8,
 				}
 				extractReader.buf.Write(op.Op1_8.Object.Value)
 				if _, _, err := pachClient.PutObject(extractReader); err != nil {
