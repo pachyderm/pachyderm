@@ -675,6 +675,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	commands = append(commands, cmdutil.CreateAlias(extractPipeline, "extract pipeline"))
 
 	var editor string
+	var editorArgs []string
 	editPipeline := &cobra.Command{
 		Use:   "{{alias}} <pipeline>",
 		Short: "Edit the manifest for a pipeline in your text editor.",
@@ -707,11 +708,13 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if editor == "" {
 				editor = "vim"
 			}
+			editorArgs = strings.Split(editor, " ")
+			editorArgs = append(editorArgs, f.Name())
 			if err := cmdutil.RunIO(cmdutil.IO{
 				Stdin:  os.Stdin,
 				Stdout: os.Stdout,
 				Stderr: os.Stderr,
-			}, editor, f.Name()); err != nil {
+			}, editorArgs...); err != nil {
 				return err
 			}
 			pipelineReader, err := ppsutil.NewPipelineManifestReader(f.Name())

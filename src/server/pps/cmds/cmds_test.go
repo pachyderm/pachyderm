@@ -475,7 +475,7 @@ func TestEditPipeline(t *testing.T) {
 		EOF
 		`).Run())
 	require.NoError(t, tu.BashCmd(`
-		EDITOR=cat pachctl edit pipeline my-pipeline -o yaml \
+		EDITOR="cat -u" pachctl edit pipeline my-pipeline -o yaml \
 		| match 'name: my-pipeline' \
 		| match 'repo: data' \
 		| match 'cmd:' \
