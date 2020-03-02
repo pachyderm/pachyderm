@@ -22,4 +22,4 @@ fi
 
 go get honnef.co/go/tools/cmd/staticcheck
 staticcheck "${GIT_REPO_DIR}/..."
-shellcheck -e SC2010 -e SC2219 "$(find . -name "*.sh")"
+shellcheck -e SC2010 -e SC2219 $(find . -name "*.sh")
