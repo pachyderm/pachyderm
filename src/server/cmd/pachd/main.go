@@ -56,7 +56,6 @@ import (
 	flag "github.com/spf13/pflag"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	v1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -187,6 +186,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 		ppsAPIServer, err = pps_server.NewSidecarAPIServer(
 			env,
 			path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
+			env.Namespace,
 			env.IAMRole,
 			reporter,
 			env.PPSWorkerPort,
@@ -343,7 +343,7 @@ func doFullMode(config interface{}) (retErr error) {
 	if err != nil {
 		return fmt.Errorf("lru.New: %v", err)
 	}
-	kubeNamespace := getNamespace()
+	kubeNamespace := env.Namespace
 	// Setup External Pachd GRPC Server.
 	externalServer, err := grpcutil.NewServer(context.Background(), true)
 	if err != nil {
@@ -720,15 +720,6 @@ func getClusterID(client *etcd.Client) (string, error) {
 	}
 
 	return getClusterID(client)
-}
-
-// getNamespace returns the kubernetes namespace that this pachd pod runs in
-func getNamespace() string {
-	namespace := os.Getenv("PACHD_POD_NAMESPACE")
-	if namespace != "" {
-		return namespace
-	}
-	return v1.NamespaceDefault
 }
 
 func logGRPCServerSetup(name string, f func() error) (retErr error) {

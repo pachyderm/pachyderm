@@ -17,7 +17,7 @@ type GlobalConfiguration struct {
 	HTTPPort      uint16 `env:"HTTP_PORT,default=652"`
 	PeerPort      uint16 `env:"PEER_PORT,default=653"`
 	PPSEtcdPrefix string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
-	Namespace     string `env:"NAMESPACE,default=default"`
+	Namespace     string `env:"PACHD_POD_NAMESPACE,default=default"`
 	StorageRoot   string `env:"PACH_ROOT,default=/pach"`
 }
 
