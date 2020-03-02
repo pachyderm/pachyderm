@@ -1,6 +1,7 @@
+#!/bin/bash
 set -Ee
 
-cat /etc/kubernetes/manifests/master.json | jq '.spec.containers[1].command |= . + [ "--storage-backend=etcd2" ]' >/etc/kubernetes/manifests/master2.json
+jq '.spec.containers[1].command |= . + [ "--storage-backend=etcd2" ]' </etc/kubernetes/manifests/master.json >/etc/kubernetes/manifests/master2.json
 mv /etc/kubernetes/manifests/master2.json /etc/kubernetes/manifests/master.json
 /hyperkube kubelet \
     --containerized \
