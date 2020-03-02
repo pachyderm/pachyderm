@@ -21,7 +21,6 @@ gcloud config set compute/zone ${GCP_ZONE}
 
 # Process args
 new_opt="$( getopt --long="create,delete:,delete-all" -- "${0}" "${@}" )"
-# shellcheck disable=SC2181
 [[ "$?" -eq 0 ]] || exit 1
 eval "set -- ${new_opt}"
 
