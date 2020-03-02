@@ -20,13 +20,14 @@ PREFIX=pachyderm-batch-test
 gcloud config set compute/zone ${GCP_ZONE}
 
 # Process args
-new_opt="$( getopt --long="create,delete:,delete-all" -- ${0} "${@}" )"
+new_opt="$( getopt --long="create,delete:,delete-all" -- "${0}" "${@}" )"
+# shellcheck disable=SC2181
 [[ "$?" -eq 0 ]] || exit 1
 eval "set -- ${new_opt}"
 
-KEY_FILE="$(dirname ${0})/../pach-travis-86b9f180aa16.json"
+KEY_FILE="$(dirname "${0}")/../pach-travis-86b9f180aa16.json"
 set -x
-gcloud auth activate-service-account --key-file=${KEY_FILE}
+gcloud auth activate-service-account --key-file="${KEY_FILE}"
 gcloud config set project "${PROJECT}"
 set +x
 
@@ -34,23 +35,23 @@ case "${1}" in
   --delete-all)
     set -x
     gcloud container clusters list | grep ${PREFIX} | awk '{print $1}' \
-        | while read c; do
+        | while read -r c; do
             ID=${c#${PREFIX}-}
             ID=${ID%-cluster}
             CLUSTER_NAME=${PREFIX}-${ID}-cluster
             STORAGE_NAME=${PREFIX}-${ID}-disk
             BUCKET_NAME=${PREFIX}-${ID}-bucket
-            echo "Y" | gcloud container clusters delete ${CLUSTER_NAME}
-            echo "Y" | gcloud compute disks delete ${STORAGE_NAME}
-            gsutil rb gs://${BUCKET_NAME}
+            echo "Y" | gcloud container clusters delete "${CLUSTER_NAME}"
+            echo "Y" | gcloud compute disks delete "${STORAGE_NAME}"
+            gsutil rb "gs://${BUCKET_NAME}"
         done
     gcloud compute disks list | grep ${PREFIX} | awk '{print $1}' \
-      | while read d; do
-          echo "y" | gcloud compute disks delete ${d}
+      | while read -r d; do
+          echo "y" | gcloud compute disks delete "${d}"
         done
     gsutil ls | grep ${PREFIX} \
-      | while read b; do
-          gsutil rb ${b};
+      | while read -r b; do
+          gsutil rb "${b}";
         done
     set +x
     ;;
@@ -60,9 +61,9 @@ case "${1}" in
     CLUSTER_NAME=${PREFIX}-${ID}-cluster
     STORAGE_NAME=${PREFIX}-${ID}-disk
     BUCKET_NAME=${PREFIX}-${ID}-bucket
-    echo "Y" | gcloud container clusters delete ${CLUSTER_NAME}
-    echo "Y" | gcloud compute disks delete ${STORAGE_NAME}
-    gsutil rb gs://${BUCKET_NAME}
+    echo "Y" | gcloud container clusters delete "${CLUSTER_NAME}"
+    echo "Y" | gcloud compute disks delete "${STORAGE_NAME}"
+    gsutil rb "gs://${BUCKET_NAME}"
     set +x
     ;;
   --create)
@@ -72,13 +73,13 @@ case "${1}" in
     STORAGE_NAME=${PREFIX}-${ID}-disk
     BUCKET_NAME=${PREFIX}-${ID}-bucket
 
-    gcloud config set container/cluster ${CLUSTER_NAME}
-    gcloud container clusters create ${CLUSTER_NAME} --scopes storage-rw --machine-type=${MACHINE_TYPE} --num-nodes=${NUM_NODES}
-    gcloud compute disks create --size=${STORAGE_SIZE}GB ${STORAGE_NAME}
-    gsutil mb gs://${BUCKET_NAME}
-    pachctl deploy google ${BUCKET_NAME} ${STORAGE_SIZE} --static-etcd-volume=${STORAGE_NAME}
+    gcloud config set container/cluster "${CLUSTER_NAME}"
+    gcloud container clusters create "${CLUSTER_NAME}" --scopes storage-rw --machine-type="${MACHINE_TYPE}" --num-nodes="${NUM_NODES}"
+    gcloud compute disks create --size="${STORAGE_SIZE}GB" "${STORAGE_NAME}"
+    gsutil mb "gs://${BUCKET_NAME}"
+    pachctl deploy google "${BUCKET_NAME}" "${STORAGE_SIZE}" --static-etcd-volume="${STORAGE_NAME}"
     set +x
-    echo ${ID}
+    echo "${ID}"
     ;;
 esac
 
