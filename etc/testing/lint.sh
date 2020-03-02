@@ -9,17 +9,17 @@ for file in $(find "${GIT_REPO_DIR}/src" -name '*.go' | grep -v '\.pb\.go'); do
     if [[ $file == *fileset/tar* ]]; then
         continue
     fi
-    golint -set_exit_status $file;
+    golint -set_exit_status "$file";
 done;
 
-files=$(gofmt -l ${GIT_REPO_DIR}/src || true)
+files=$(gofmt -l "${GIT_REPO_DIR}/src" || true)
 
 if [[ $files ]]; then
     echo Files not passing gofmt:
-    tr ' ' '\n'  <<< $files
+    tr ' ' '\n'  <<< "$files"
     exit 1
 fi
 
 go get honnef.co/go/tools/cmd/staticcheck
-staticcheck ${GIT_REPO_DIR}/...
-shellcheck -e SC2010 -e SC2219 `find . -name '*.sh'`
+staticcheck "${GIT_REPO_DIR}/..."
+shellcheck -e SC2010 -e SC2219 "$(find . -name "*.sh")"
