@@ -24,7 +24,7 @@ cat <<EOF >material/partials/versions.html
     ">
         <option style="color:white;background-color:#4b2a5c;" value="latest">latest (${latest_version})</option>
 EOF
-for d in $(ls docs); do
+for d in docs/*; do
     # don't rebuild archive dir
     if [[ "${d}" == "archive" ]]; then
         continue
@@ -44,12 +44,11 @@ cat <<EOF >>material/partials/versions.html
 EOF
 
 # Rebuild all docs versions
-for d in $(ls docs); do
+for d in docs/*; do
     # don't rebuild archive dir
     if [[ "${d}" == "archive" ]]; then
         continue
     fi
-    in_dir="docs/${d}"
     out_dir="site/${d}"
 
     # Check for mkdocs file
