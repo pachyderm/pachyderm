@@ -280,7 +280,9 @@ spec:
       namespace: pachyderm
     spec:
       containers:
-      - env:
+      - command:
+        - /app/pachd
+        env:
         - name: PACH_ROOT
           value: /pach
         - name: ETCD_PREFIX

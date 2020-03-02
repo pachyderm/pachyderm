@@ -433,6 +433,9 @@
           {
             "name": "pachd",
             "image": "pachyderm/pachd:1.9.12",
+            "command": [
+              "/app/pachd"
+            ],
             "ports": [
               {
                 "name": "api-grpc-port",
