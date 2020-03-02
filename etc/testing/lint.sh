@@ -23,4 +23,4 @@ fi
 go get honnef.co/go/tools/cmd/staticcheck
 staticcheck "${GIT_REPO_DIR}/..."
 # shellcheck disable=SC2046
-shellcheck -e SC2010 -e SC2219 -e SC2181 $(find . -name "*.sh")
+shellcheck -e SC2010 -e SC2219 -e SC2181 -e SC2004 $(find . -name "*.sh")

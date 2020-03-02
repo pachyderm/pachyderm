@@ -34,7 +34,6 @@ while true; do
   fi
   printf "."
   sleep 1
-  # shellcheck disable=SC2004
   runtime=$(($(date +%s)-$start_time))
   if [ $runtime -ge 120 ]; then
     (>&2 echo "Timed out waiting for kube-dns (120s)")
