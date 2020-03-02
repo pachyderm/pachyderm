@@ -2,8 +2,8 @@
 
 if git diff-index --quiet HEAD --; then
 	# No changes
-	VERSION=`$GOPATH/bin/pachctl version --client-only`
-	if [ -z $VERSION ]; then
+	VERSION=$("$GOPATH/bin/pachctl" version --client-only)
+	if [ -z "$VERSION" ]; then
 		echo "Missing version information. Exiting."
 		exit 1
 	fi
