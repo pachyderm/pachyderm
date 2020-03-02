@@ -73,6 +73,7 @@ func NewAPIServer(
 func NewSidecarAPIServer(
 	env *serviceenv.ServiceEnv,
 	etcdPrefix string,
+	namespace string,
 	iamRole string,
 	reporter *metrics.Reporter,
 	workerGrpcPort uint16,
@@ -85,6 +86,7 @@ func NewSidecarAPIServer(
 		etcdPrefix:     etcdPrefix,
 		iamRole:        iamRole,
 		reporter:       reporter,
+		namespace:      namespace,
 		workerUsesRoot: true,
 		pipelines:      ppsdb.Pipelines(env.GetEtcdClient(), etcdPrefix),
 		jobs:           ppsdb.Jobs(env.GetEtcdClient(), etcdPrefix),
