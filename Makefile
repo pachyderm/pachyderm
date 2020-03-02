@@ -77,11 +77,11 @@ custom-release: release-helper release-pachctl-custom
 
 release-pachctl-custom:
 	@# Run pachctl release script w deploy branch name
-	@VERSION="$(shell pachctl version --client-only)" ./etc/build/release_pachctl $$(pachctl version --client-only)
+	@VERSION="$(shell pachctl version --client-only)" ./etc/build/release_pachctl.sh $$(pachctl version --client-only)
 
 release-pachctl:
 	@# Run pachctl release script w deploy branch name
-	@VERSION="$(shell pachctl version --client-only)" ./etc/build/release_pachctl
+	@VERSION="$(shell pachctl version --client-only)" ./etc/build/release_pachctl.sh
 
 release-helper: release-version release-image
 
@@ -370,7 +370,7 @@ test-worker-helper:
 clean: clean-launch clean-launch-kube
 
 doc-custom: install-doc release-version
-	./etc/build/doc
+	./etc/build/doc.sh
 
 doc:
 	@make VERSION_ADDITIONAL= doc-custom
