@@ -20,7 +20,7 @@ dirs=(
 for dir in "${dirs[@]}"; do
   if [[ -d "${dir}" ]]; then
     # change ownership on directory, in case it's owned by root
-    sudo chown -R ${USER}:${USER} "${dir}"
+    sudo chown -R "${USER}:${USER}" "${dir}"
   else
     # create directory
     mkdir -p "${dir}"
