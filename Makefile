@@ -143,15 +143,16 @@ launch-dev-bench: install
 	ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 	make launch-bench
 
-push-bench-images: install-bench tag-images push-images
+# TODO(ys): fix this
+push-bench-images: install-bench docker-tag docker-push
 	docker tag pachyderm/test pachyderm/bench:`git rev-list HEAD --max-count=1`
 	docker push pachyderm/bench:`git rev-list HEAD --max-count=1`
 
-tag-images: install
+docker-tag: install
 	docker tag pachyderm/pachd pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
 	docker tag pachyderm/worker pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
 
-push-images: tag-images
+docker-push: docker-tag
 	docker push pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
 	docker push pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
 
@@ -173,6 +174,7 @@ install-bench: install
 	rm /usr/local/bin/pachctl || true
 	[ -f /usr/local/bin/pachctl ] || sudo ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 
+# TODO(ys): fix this
 launch-dev-test:
 	kubectl run pachyderm-test --image=pachyderm/test:`git rev-list HEAD --max-count=1` \
 	  --rm \
@@ -180,12 +182,6 @@ launch-dev-test:
 	  --attach=true \
 	  -- \
 	  ./test -test.v
-
-aws-test: tag-images push-images
-	ZONE=sa-east-1a etc/testing/deploy/aws.sh --create
-	$(MAKE) launch-dev-test
-	rm $(HOME)/.pachyderm/config.json
-	ZONE=sa-east-1a etc/testing/deploy/aws.sh --delete
 
 run-bench:
 	kubectl scale --replicas=4 deploy/pachd
@@ -517,13 +513,12 @@ goxc-build:
 	check-kubectl-connection \
 	launch-dev-bench \
 	push-bench-images \
-	tag-images \
-	push-images \
+	docker-tag \
+	docker-push \
 	launch-bench \
 	clean-launch-bench \
 	install-bench \
 	launch-dev-test \
-	aws-test \
 	run-bench \
 	delete-all-launch-bench \
 	bench \
