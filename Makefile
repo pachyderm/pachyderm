@@ -101,7 +101,6 @@ point-release:
 release-candidate:
 	@make release-helper
 	@make release-pachctl-custom
-	@make doc
 	@echo "Release completed"
 
 custom-release: release-helper release-pachctl-custom
