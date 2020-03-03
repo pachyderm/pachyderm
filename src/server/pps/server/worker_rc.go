@@ -141,10 +141,11 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)
 	userVolumeMounts = append(userVolumeMounts, secretMount)
 
-	// Explicitly set CPU, MEM and DISK requests to zero because some cloud
-	// providers set their own defaults which are usually not what we want.
+	// Explicitly set CPU requests to zero because some cloud providers set their
+	// own defaults which are usually not what we want. Mem request defaults to
+	// 64M, but is overridden by the CacheSize setting for the sidecar.
 	cpuZeroQuantity := resource.MustParse("0")
-	memZeroQuantity := resource.MustParse("0M")
+	memDefaultQuantity := resource.MustParse("64M")
 	memSidecarQuantity := resource.MustParse(options.cacheSize)
 
 	if !a.noExposeDockerSocket {
@@ -182,6 +183,12 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 				Command:         []string{"/pach/worker.sh"},
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
 				VolumeMounts:    options.volumeMounts,
+				Resources: v1.ResourceRequirements{
+					Requests: v1.ResourceList{
+						v1.ResourceCPU:    cpuZeroQuantity,
+						v1.ResourceMemory: memDefaultQuantity,
+					},
+				},
 			},
 		},
 		Containers: []v1.Container{
@@ -192,9 +199,9 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
 				Env:             workerEnv,
 				Resources: v1.ResourceRequirements{
-					Requests: map[v1.ResourceName]resource.Quantity{
+					Requests: v1.ResourceList{
 						v1.ResourceCPU:    cpuZeroQuantity,
-						v1.ResourceMemory: memZeroQuantity,
+						v1.ResourceMemory: memDefaultQuantity,
 					},
 				},
 				VolumeMounts: userVolumeMounts,
@@ -207,7 +214,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 				Env:             sidecarEnv,
 				VolumeMounts:    sidecarVolumeMounts,
 				Resources: v1.ResourceRequirements{
-					Requests: map[v1.ResourceName]resource.Quantity{
+					Requests: v1.ResourceList{
 						v1.ResourceCPU:    cpuZeroQuantity,
 						v1.ResourceMemory: memSidecarQuantity,
 					},
@@ -224,19 +231,29 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		podSpec.NodeSelector = options.schedulingSpec.NodeSelector
 		podSpec.PriorityClassName = options.schedulingSpec.PriorityClassName
 	}
-	resourceRequirements := v1.ResourceRequirements{
-		Requests: map[v1.ResourceName]resource.Quantity{
-			v1.ResourceCPU:    cpuZeroQuantity,
-			v1.ResourceMemory: memZeroQuantity,
-		},
-	}
+
 	if options.resourceRequests != nil {
-		resourceRequirements.Requests = *options.resourceRequests
+		for k, v := range *options.resourceRequests {
+			podSpec.Containers[0].Resources.Requests[k] = v
+		}
 	}
+
+	// Copy over some settings from the user to init container. We don't apply GPU
+	// requests because of FUD. The init container shouldn't run concurrently with
+	// the user container, so there should be no contention here.
+	for _, k := range []v1.ResourceName{v1.ResourceCPU, v1.ResourceMemory, v1.ResourceEphemeralStorage} {
+		if val, ok := podSpec.Containers[0].Resources.Requests[k]; ok {
+			podSpec.InitContainers[0].Resources.Requests[k] = val
+		}
+	}
+
 	if options.resourceLimits != nil {
-		resourceRequirements.Limits = *options.resourceLimits
+		podSpec.Containers[0].Resources.Limits = make(v1.ResourceList)
+		for k, v := range *options.resourceLimits {
+			podSpec.Containers[0].Resources.Limits[k] = v
+		}
 	}
-	podSpec.Containers[0].Resources = resourceRequirements
+
 	if options.podSpec != "" || options.podPatch != "" {
 		jsonPodSpec, err := json.Marshal(&podSpec)
 		if err != nil {

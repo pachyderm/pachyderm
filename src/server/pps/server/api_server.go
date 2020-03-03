@@ -2273,11 +2273,6 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
 	if pipelineInfo.CacheSize == "" {
 		pipelineInfo.CacheSize = "64M"
 	}
-	if pipelineInfo.ResourceRequests == nil && pipelineInfo.CacheSize != "" {
-		pipelineInfo.ResourceRequests = &pps.ResourceSpec{
-			Memory: pipelineInfo.CacheSize,
-		}
-	}
 	if pipelineInfo.MaxQueueSize < 1 {
 		pipelineInfo.MaxQueueSize = 1
 	}
