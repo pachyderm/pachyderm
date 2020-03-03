@@ -1,70 +1,47 @@
-# Migration
+# Migrate to a Minor or Major Version
 
 !!! info
-    If you need to upgrade Pachyderm from one minor version
-    to another, such as from 1.9.4 to 1.9.5, see
+    If you need to upgrade Pachyderm from one patch
+    to another, such as from x.xx.0 to x.xx.1, see
     [Upgrade Pachyderm](upgrades.md).
 
-- [Introduction](#introduction)
-- [Note about 1.7 to 1.8 migrations](#note-about-1-7-to-1-8-migrations]
-- [General migration procedure](#general-migration-procedure)
-  - [Before you start: backups](#before-you-start-backups)
-  - [Migration steps](#migration-steps)
-    - [1. Pause all pipeline and data loading operations](#1-pause-all-pipeline-and-data-loading-operations)
-    - [2. Extract a pachyderm backup with the --no-objects flag](#2-extract-a-pachyderm-backup-with-the-no-objects-flag)
-    - [3. Clone your object store bucket](#3-clone-your-object-store-bucket)
-    - [4. Restart all pipeline and data loading ops](#4-restart-all-pipeline-and-data-loading-ops)
-    - [5. Deploy a 1.X Pachyderm cluster with cloned bucket](#5-deploy-a-1x-pachyderm-cluster-with-cloned-bucket)
-    - [6. Restore the new 1.X Pachyderm cluster from your backup](#6-restore-the-new-1x-pachyderm-cluster-from-your-backup)
-    - [7. Load transactional data from checkpoint into new cluster](#7-load-transactional-data-from-checkpoint-into-new-cluster)
-    - [8. Disable the old cluster](#8-disable-the-old-cluster)
-    - [9. Reconfigure new cluster as necessary](#9-reconfigure-new-cluster-as-necessary)
+As new versions of Pachyderm are released, you may need to update your
+cluster to get access to bug fixes and new features.
 
-## Introduction
+Migrations involve moving between major releases, such as 1.8.6 to
+1.9.0 or minor releases.
 
-As new versions of Pachyderm are released, you may need to update your cluster to get access to bug fixes and new features. 
-These updates fall into two categories, upgrades and migrations.
+Pachyderm stores all of its state in two places:
 
-An upgrade is moving between point releases within the same major release, 
-like 1.7.2 to 1.7.3.
-Upgrades are typically a simple process that require little to no downtime.
+* In `etcd` which in turn stores its state in one or more persistent volumes,
+which were created when the Pachyderm cluster was deployed.
 
-Migrations involve moving between major releases, 
-like 1.8.6 to 1.9.0.
-Migration is covered in this document. 
+* In an object store bucket, such as AWS S3, MinIO, or Azure Blob Storage.
 
-In general, 
-Pachyderm stores all of its state in two places: 
-`etcd` 
-(which in turn stores its state in one or more persistent volumes,
-which were created when the Pachyderm cluster was deployed) 
-and an object store bucket 
-(something like AWS S3, MinIO, or Azure Blob Storage).
+In a migration, the data structures stored in those locations need to be
+read, transformed, and rewritten. Therefore, this process involves the
+following steps:
 
-In a migration, 
-the data structures stored in those locations need to be read, transformed, and rewritten, so the process involves:
-
-1. bringing up a new Pachyderm cluster adjacent to the old pachyderm cluster
-1. exporting the old Pachdyerm cluster's repos, pipelines, and input commits
-1. importing the old cluster's repos, commits, and pipelines into the new
+1. Back up your cluster
+1. Bring up a new Pachyderm cluster adjacent to the old pachyderm cluster.
+1. Expor the old Pachdyerm cluster's repos, pipelines, and input commits.
+1. Import the old cluster's repos, commits, and pipelines into the new
    cluster.
 
-*You must perform a migration to move between major releases*,
-such as 1.8.7 to 1.9.0.
+!!! warning
+    Whether you are upgrading or migrating your cluster, you must back it up
+    to guarantee that you can restore it after migration.
 
-Whether you're doing an upgrade or migration, it is recommended you [backup Pachyderm](../backup_restore/#general-backup-procedure) prior.
-That will guarantee you can restore your cluster to its previous, good state.
+## Migrating from Version 1.7.0
 
-## Note about 1.7 to 1.8 migrations
+In Pachyderm 1.8, some core parts of the platform were rearchitected to
+improve speed and scalability. Migrating from 1.7.x to 1.8.x by using the
+procedure below can be a fairly lengthy process. It might be easier to
+create a new cluster from the latest Pachyderm release and reload your
+source data into your input repositories.
 
-In Pachyderm 1.8,
-we rearchitected core parts of the platform to [improve speed and scalability](http://www.pachyderm.io/2018/11/15/performance-improvements.html).
-Migrating from 1.7.x to 1.8.x using the procedure below can a fairly lengthy process.
-If your requirements fit, it may be easier to create a new 1.8 or greater cluster and reload your latest source data into your input repositories.
-
-You may wish to keep your original 1.7 cluster around in a suspended state, reactivating it in case you need access to that provenance data.
-
-## General migration procedure
+You may wish to keep your original 1.7 cluster around in a suspended
+state, reactivating it in case you need access to that provenance data.
 
 ### Before you start: backups
 
