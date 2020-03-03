@@ -89,7 +89,6 @@ release-version: install-clean
 	@./etc/build/repo_ready_for_release.sh
 
 docker-build: enterprise-code-checkin-test
-	# TODO(ys): see if caching docker stuff will speed up travisci runs: https://github.com/travis-ci/travis-ci/issues/5358
 	DOCKER_BUILDKIT=1 docker build \
 		--build-arg GO_VERSION=`cat etc/compile/GO_VERSION` \
 		--build-arg LD_FLAGS="$(LD_FLAGS)" \
