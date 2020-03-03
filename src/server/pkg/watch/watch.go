@@ -1,6 +1,6 @@
 // Package watch implements better watch semantics on top of etcd.
 // See this issue for the reasoning behind the package:
-// https://go.etcd.io/etcd/issues/7362
+// https://github.com/coreos/etcd/issues/7362
 package watch
 
 import (
@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"reflect"
 
-	etcd "go.etcd.io/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
+	etcd "go.etcd.io/etcd/clientv3"
 )
 
 // EventType is the type of event
