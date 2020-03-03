@@ -39,8 +39,8 @@ an S3 tool sees `images@master` as the `master.images` S3 bucket.
 ## Versioning
 
 Most operations act on the `HEAD` of the given branch. However, if your object
-store library or tool supports versioning, you can get objects in non-HEAD
-commits by using the commit ID as the version.
+store library or tool supports versioning, you can get objects in non-`HEAD`
+commits by using the commit ID as the S3 object version ID.
 
 ## Port Forwarding
 

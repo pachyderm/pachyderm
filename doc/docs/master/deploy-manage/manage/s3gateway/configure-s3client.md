@@ -38,7 +38,7 @@ the following command:
    You should see a configuration similar to the following:
 
    * For a minikube deployment, verify the
-   `local` host configuration:
+   `local` configuration:
 
      ```
      "local": {
@@ -52,7 +52,7 @@ the following command:
 
      Set the access key and secret key to your
      Pachyderm authentication token. If authentication is not enabled
-     on the cluster, both parameters must be empty strings.
+     on the cluster, you can put any values.
 
 ## Configure the AWS CLI
 

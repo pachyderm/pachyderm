@@ -1,4 +1,4 @@
-# Create an S3-enabled Pipeline 
+# Create an S3-enabled Pipeline
 
 Pachyderm can deploy the S3 gateway either together with the `pachd` pod or
 as a sidecar next to your pipeline worker pod. The former is
@@ -31,13 +31,16 @@ pipeline spec. This limitation guarantees that pipeline provenance is
 preserved.
 
 * The `glob` field in the pipeline spec should not be specified. The glob
-pattern is explicitly set to `\` and all files are processed as a single
+pattern is automatically set to `\` and all files are processed as a single
 datum. In this configuration, already processed datums are not skipped which
 could be a performance consideration for some deployments.
 
-* You can create a single or a cross input. Join and union inputs are not
-supported. However, if you combine an S3-enabled input with a non-S3 input,
-you can specify a glob pattern for the latter.
+* Join and union inputs are not supported, but you can create union or
+specify an individual input.
+
+While you cannot create a join, you can create a union of an S3-enabled
+input with a non-S3 input. For a non-S3 input you can still specify a
+glob pattern.
 
 ## Expose a Pipeline through an S3 Gateway in a Sidecar
 
@@ -50,7 +53,7 @@ instead of in `/pfs/`. You can set this property for each PFS input in
 a pipeline. The address of the input repository will be `s3://<input_repo>`.
 
 You can also expose the output repository through the same S3 gateway
-instance by setting the `s3_out` property to `true` in the `root` of
+instance by setting the `s3_out` property to `true` in the root of
 the pipeline spec.  If set to `true`, Pachyderm creates another S3 bucket
 on the sidecar, and the output files will be written there instead of
 `/pfs/out`. By default, `s3_out` is set to `false`. The address of the
@@ -61,26 +64,24 @@ service. To access the sidecar instance and the buckets on it, you need
 to know the address of the buckets. Because PPS handles all permissions,
 no special authentication configuration is needed.
 
-Both the master and sidecar gateways can run concurrently, as well as
-repositories can be accessed through both of them.
-
 The following text is an example of a pipeline exposed through a sidecar
 S3 gateway instance:
 
 ```json
 {
 	 "pipeline": {
-	    "name": "test"
+	   "name": "test"
 	 },
 	 "input": {
-	    "pfs": {
-	       "glob": "/*",
-	       "repo": "test-repo",
-           "s3": "true"
-	 },
+	   "pfs": {
+	     "glob": "/*",
+	     "repo": "images",
+         "s3": "true"
+	   }
+     },
 	 "transform": {
-	    "cmd": [ "python3", "/test.py" ],
-	    "image": "pachyderm/test"
+	   "cmd": [ "python3", "/edges.py" ],
+	   "image": "pachyderm/opencv"
 	 },
      "s3_out": "true"
 }

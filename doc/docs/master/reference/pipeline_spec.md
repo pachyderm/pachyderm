@@ -439,9 +439,10 @@ parameter is not set, the job will run indefinitely until it succeeds or fails.
 
 ### S3 Output Repository
 
-`s3_out` defines whether you want to store the Pachyderm output repository
-in an S3 bucket in an S3 instance deployed as a sidecar in the pipeline
-pod. When this parameter is set to `true`, Pachyderm deploys a sidecar
+`s3_out` defines whether to store the Pachyderm output repository
+in an S3 bucket in an S3 instance deployed in a sidecar container
+alongside the pipeline pod. When this parameter is set to `true`, Pachyderm
+includes a sidecar S3 gateway instance
 container in the same pod as the pipeline container. The address of the
 output repository will be `s3://<output_repo>`. If you want to expose
 an input repository through an S3 gateway, see `input.pfs.s3`
@@ -525,8 +526,8 @@ set to `true`, it causes files from this PFS to be presented as empty files.
 This is useful in shuffle pipelines where you want to read the names of
 files and reorganize them by using symlinks.
 
-`input.pfs.s3` defines whether to deploy an S3 gateway instance as a
-sidecar container in the pipeline pod. This option enables an S3 gateway
+`input.pfs.s3` sets whether the sidecar in the pipeline worker pod
+should include a sidecar S3 gateway instance. This option enables an S3 gateway
 to serve on a pipeline-level basis and, therefore, ensure provenance tracking
 for pipelines that integrate with external systems, such as Kubeflow. When
 this option is set to `true`, Pachyderm deploys an S3 gateway instance
@@ -534,7 +535,7 @@ alongside the pipeline container and creates an S3 bucket for the pipeline
 input repo in that sidecar instead of `/pfs/out`. The address of the
 input repository will be `s3://<input_repo>`. When you enable this
 parameter, you cannot use glob patterns. All files will be processed
-as one datum. Do not set the `glob` field for an S3 PFS input.
+as one datum.
 
 Another limitation for S3-enabled pipelines is that you can only use
 either a single input or a cross input. Join and union inputs are not
