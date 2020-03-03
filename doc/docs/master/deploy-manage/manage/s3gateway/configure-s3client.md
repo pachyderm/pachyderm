@@ -23,7 +23,7 @@ the following command:
 
    **System Response:**
 
-   ```bash
+   ```
    Version: 2019-07-11T19:31:28Z
    Release-tag: RELEASE.2019-07-11T19-31-28Z
    Commit-id: 31e5ac02bdbdbaf20a87683925041f406307cfb9
@@ -40,7 +40,7 @@ the following command:
    * For a minikube deployment, verify the
    `local` host configuration:
 
-     ```bash
+     ```
      "local": {
                "url": "http://localhost:30600",
                "accessKey": "YOUR-PACHYDERM-AUTH-TOKEN",
@@ -68,7 +68,7 @@ in the [AWS documentation](https://docs.aws.amazon.com/cli/latest/userguide/cli-
 1. Verify that the AWS CLI is installed:
 
    ```bash
-   aws --version aws-cli/1.16.204 Python/2.7.16 Darwin/17.7.0 botocore/1.12.194
+   aws --version
    ```
 
 1. Configure AWS CLI:
@@ -79,7 +79,7 @@ in the [AWS documentation](https://docs.aws.amazon.com/cli/latest/userguide/cli-
 
    **System Response:**
 
-   ```bash
+   ```
    AWS Access Key ID: YOUR-PACHYDERM-AUTH-TOKEN
    AWS Secret Access Key: YOUR-PACHYDERM-AUTH-TOKEN
    Default region name:
@@ -123,7 +123,7 @@ For example, in macOS, run:
 
    **Example:**
 
-   ```bash
+   ```
    New settings:
    Access Key: "YOUR-PACHYDERM-AUTH-TOKEN"
    Secret Key: "YOUR-PACHYDERM-AUTH-TOKEN"
@@ -139,4 +139,4 @@ For example, in macOS, run:
 
    Set the access key and secret key to your
    Pachyderm authentication token. If authentication is not
-   enabled on the cluster, both parameters must be empty strings.
+   enabled on the cluster, you can put any value.
