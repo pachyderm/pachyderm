@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/fatih/camelcase"
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 )
@@ -234,6 +235,20 @@ func (l *logger) LogAtLevelFromDepth(request interface{}, response interface{}, 
 	if err != nil {
 		// "err" itself might be a code or even an empty struct
 		fields["error"] = err.Error()
+		if err, ok := err.(interface {
+			StackTrace() errors.StackTrace
+		}); ok {
+			var frames []string
+			for _, frame := range err.StackTrace() {
+				text, err := frame.MarshalText()
+				if err != nil {
+					frames = append(frames, fmt.Sprintf("frame.MarshalText: %v", err))
+				} else {
+					frames = append(frames, string(text))
+				}
+			}
+			fields["stack"] = frames
+		}
 	}
 	if duration > 0 {
 		fields["duration"] = duration
