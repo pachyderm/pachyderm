@@ -1,4 +1,4 @@
-FROM debian:buster
+FROM alpine:3
 WORKDIR /pach
 COPY --from=pachyderm_build /app/worker .
 COPY --from=pachyderm_build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
