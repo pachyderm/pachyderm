@@ -22,8 +22,6 @@ CLUSTER_NAME?=pachyderm
 CLUSTER_MACHINE_TYPE?=n1-standard-4
 CLUSTER_SIZE?=4
 
-BENCH_CLOUD_PROVIDER=aws
-
 MINIKUBE_MEM=8192 # MB of memory allocated to minikube
 MINIKUBE_CPU=4 # Number of CPUs allocated to minikube
 
@@ -61,35 +59,33 @@ point-release:
 release-candidate:
 	@make release-helper
 	@make release-pachctl-custom
-	@make doc
 	@echo "Release completed"
 
 custom-release: release-helper release-pachctl-custom
 	@echo 'For brew install, do:'
-	@echo "$$ brew install https://raw.githubusercontent.com/pachyderm/homebrew-tap/$(shell pachctl version --client-only)-$$(git log --pretty=format:%H | head -n 1)/pachctl@$(shell pachctl version --client-only | cut -f -2 -d\.).rb"
+	@echo "$$ brew install https://raw.githubusercontent.com/pachyderm/homebrew-tap/$(shell $(GOPATH)/bin/pachctl version --client-only)/pachctl@$(shell $(GOPATH)/bin/pachctl version --client-only | cut -f -2 -d\.).rb"
 	@echo 'For linux install, do:'
-	@echo "$$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v$(shell pachctl version --client-only)/pachctl_$(shell pachctl version --client-only)_amd64.deb && sudo dpkg -i /tmp/pachctl.deb"
+	@echo "$$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v$(shell $(GOPATH)/bin/pachctl version --client-only)/pachctl_$(shell $(GOPATH)/bin/pachctl version --client-only)_amd64.deb && sudo dpkg -i /tmp/pachctl.deb"
 	# Workaround for https://github.com/laher/goxc/issues/112
-	@git push origin :v$(shell pachctl version --client-only)
-	@git tag v$(shell pachctl version --client-only)
-	@git push origin --tags
+	@git push origin :v$(shell $(GOPATH)/bin/pachctl version --client-only)
+	@git tag v$(shell $(GOPATH)/bin/pachctl version --client-only)
+	@git push origin v$(shell $(GOPATH)/bin/pachctl version --client-only)
 	@echo "Release completed"
 
 release-pachctl-custom:
 	@# Run pachctl release script w deploy branch name
-	@VERSION="$(shell pachctl version --client-only)" ./etc/build/release_pachctl.sh $$(pachctl version --client-only)
+	@VERSION="$(shell $(GOPATH)/bin/pachctl version --client-only)" ./etc/build/release_pachctl.sh $(shell $(GOPATH)/bin/pachctl version --client-only)
 
 release-pachctl:
 	@# Run pachctl release script w deploy branch name
-	@VERSION="$(shell pachctl version --client-only)" ./etc/build/release_pachctl.sh
+	@VERSION="$(shell $(GOPATH)/bin/pachctl version --client-only)" ./etc/build/release_pachctl.sh
 
-release-helper: release-version release-image
+release-helper: release-version docker-build docker-push
 
 release-version: install-clean
 	@./etc/build/repo_ready_for_release.sh
 
 docker-build: enterprise-code-checkin-test
-	# TODO(ys): see if caching docker stuff will speed up travisci runs: https://github.com/travis-ci/travis-ci/issues/5358
 	DOCKER_BUILDKIT=1 docker build \
 		--build-arg GO_VERSION=`cat etc/compile/GO_VERSION` \
 		--build-arg LD_FLAGS="$(LD_FLAGS)" \
@@ -138,72 +134,13 @@ check-kubectl:
 check-kubectl-connection:
 	kubectl $(KUBECTLFLAGS) get all > /dev/null
 
-launch-dev-bench: install
-	@# Put it here so sudo can see it
-	rm /usr/local/bin/pachctl || true
-	ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
-	make launch-bench
-
-push-bench-images: install-bench tag-images push-images
-	docker tag pachyderm/test pachyderm/bench:`git rev-list HEAD --max-count=1`
-	docker push pachyderm/bench:`git rev-list HEAD --max-count=1`
-
-tag-images: install
+docker-tag: install
 	docker tag pachyderm/pachd pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
 	docker tag pachyderm/worker pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
 
-push-images: tag-images
+docker-push: docker-tag
 	docker push pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
 	docker push pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
-
-launch-bench:
-	@# Make launches each process in its own shell process, so we have to structure
-	@# these to run these as one command
-	ID=$$( etc/testing/deploy/$(BENCH_CLOUD_PROVIDER).sh --create | tail -n 1); \
-	@echo To delete this cluster, run etc/testing/deploy/$(BENCH_CLOUD_PROVIDER).sh --delete=$${ID}; \
-	echo etc/testing/deploy/$(BENCH_CLOUD_PROVIDER).sh --delete=$${ID} >./clean_current_bench_cluster.sh; \
-	until timeout 10s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done; \
-	cat ~/.kube/config;
-
-clean-launch-bench:
-	./clean_current_bench_cluster.sh || true
-
-install-bench: install
-	@# Since bench is run as sudo, pachctl needs to be under
-	@# the secure path
-	rm /usr/local/bin/pachctl || true
-	[ -f /usr/local/bin/pachctl ] || sudo ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
-
-launch-dev-test:
-	kubectl run pachyderm-test --image=pachyderm/test:`git rev-list HEAD --max-count=1` \
-	  --rm \
-	  --restart=Never \
-	  --attach=true \
-	  -- \
-	  ./test -test.v
-
-aws-test: tag-images push-images
-	ZONE=sa-east-1a etc/testing/deploy/aws.sh --create
-	$(MAKE) launch-dev-test
-	rm $(HOME)/.pachyderm/config.json
-	ZONE=sa-east-1a etc/testing/deploy/aws.sh --delete
-
-run-bench:
-	kubectl scale --replicas=4 deploy/pachd
-	echo "waiting for pachd to scale up" && sleep 15
-	kubectl delete --ignore-not-found po/bench && \
-	    kubectl run bench \
-	        --image=pachyderm/bench:`git rev-list HEAD --max-count=1` \
-	        --image-pull-policy=Always \
-	        --restart=Never \
-	        --attach=true \
-	        -- \
-	        PACH_TEST_CLOUD=true ./test -test.v -test.bench=BenchmarkDaily -test.run=`etc/testing/passing_test_regex.sh`
-
-delete-all-launch-bench:
-	etc/testing/deploy/$(BENCH_CLOUD_PROVIDER).sh --delete-all
-
-bench: clean-launch-bench push-bench-images launch-bench run-bench clean-launch-bench
 
 launch-kube: check-kubectl
 	etc/kube/start-minikube.sh
@@ -370,7 +307,7 @@ test-worker-helper:
 clean: clean-launch clean-launch-kube
 
 doc-custom: install-doc release-version
-	./etc/build/doc.sh
+	./etc/build/doc
 
 doc:
 	@make VERSION_ADDITIONAL= doc-custom
@@ -516,18 +453,6 @@ goxc-build:
 	docker-build-test-entrypoint \
 	check-kubectl \
 	check-kubectl-connection \
-	launch-dev-bench \
-	push-bench-images \
-	tag-images \
-	push-images \
-	launch-bench \
-	clean-launch-bench \
-	install-bench \
-	launch-dev-test \
-	aws-test \
-	run-bench \
-	delete-all-launch-bench \
-	bench \
 	launch-kube \
 	launch-dev-vm \
 	launch-release-vm \

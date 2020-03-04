@@ -14,6 +14,7 @@ dirs=(
   "${HOME}/.cache"
   "${HOME}/cached-deps"
   "${GOPATH}/pkg"
+  "${HOME}/docker"
   "$(python3 -c 'import site; print(site.USER_BASE)')" # $HOME/.local
 )
 
