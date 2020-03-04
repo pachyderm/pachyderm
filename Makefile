@@ -74,7 +74,7 @@ custom-release: release-helper release-pachctl-custom
 
 release-pachctl-custom:
 	@# Run pachctl release script w deploy branch name
-	@VERSION="$(shell $(GOPATH)/bin/pachctl version --client-only)" ./etc/build/release_pachctl $$(pachctl version --client-only)
+	@VERSION="$(shell $(GOPATH)/bin/pachctl version --client-only)" ./etc/build/release_pachctl $(shell $(GOPATH)/bin/pachctl version --client-only)
 
 release-pachctl:
 	@# Run pachctl release script w deploy branch name
