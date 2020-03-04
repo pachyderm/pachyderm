@@ -144,6 +144,11 @@ func (c *MergeCache) Put(id string, tree io.Reader) (retErr error) {
 	return c.Cache.Put(id, tree)
 }
 
+// Has returns true if the key is present in the cache, false otherwise.
+func (c *MergeCache) Has(id int64) bool {
+	return c.Cache.Has(fmt.Sprint(id))
+}
+
 // Get does a filtered write of id's hashtree to the passed in io.Writer.
 func (c *MergeCache) Get(id string, w io.Writer, filter Filter) (retErr error) {
 	r, err := c.Cache.Get(id)

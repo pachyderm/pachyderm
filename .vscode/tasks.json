@@ -8,6 +8,12 @@
       "problemMatcher": []
     },
     {
+      "label": "docker-build-proto-no-cache",
+      "type": "shell",
+      "command": "eval $(docker-machine env --shell bash); docker build --no-cache -t pachyderm_proto etc/proto",
+      "problemMatcher": []
+    },
+    {
       "label": "build-proto",
       "type": "shell",
       "command": "eval $(docker-machine env --shell bash); find src -regex \".*\\.proto\" | xargs tar cf - | docker run -i pachyderm_proto | tar xf -",
@@ -18,6 +24,15 @@
       "dependsOrder": "sequence",
       "dependsOn": [
         "docker-build-proto",
+        "build-proto"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "proto-no-cache",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "docker-build-proto-no-cache",
         "build-proto"
       ],
       "problemMatcher": []
@@ -34,7 +49,7 @@
     {
       "label": "docker-build-pull",
       "type": "shell",
-      "command": "eval $(minikube docker-env --shell bash); docker pull pachyderm/compile:go1.12.1"
+      "command": "eval $(docker-machine env --shell bash); docker pull pachyderm/compile:go1.12.1"
     },
     {
       "label": "docker-build-all",

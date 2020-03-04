@@ -59,9 +59,6 @@ const (
 
 	// Makes calls to ListRepo and InspectRepo more legible
 	includeAuth = true
-
-	// tmpPrefix is for temporary object paths that store merged shards.
-	tmpPrefix = "tmp"
 )
 
 // IsPermissionError returns true if a given error is a permission error.
@@ -114,8 +111,8 @@ type driver struct {
 	putObjectLimiter limit.ConcurrencyLimiter
 
 	// New storage layer.
-	storage *fileset.Storage
-	fs      *fileset.FileSet
+	storage    *fileset.Storage
+	subFileSet int64
 }
 
 // newDriver is used to create a new Driver instance
@@ -175,7 +172,7 @@ func newDriver(
 		}
 		chunkStorage := chunk.NewStorage(objC, chunk.ServiceEnvToOptions(env)...)
 		d.storage = fileset.NewStorage(objC, chunkStorage, fileset.ServiceEnvToOptions(env)...)
-		go d.mergeWorker()
+		go d.compactionWorker()
 	}
 	return d, nil
 }
@@ -1309,11 +1306,11 @@ func (d *driver) makeCommit(
 	// commitInfo.Provenance
 	newCommitProv := make(map[string]*pfs.CommitProvenance)
 	for _, prov := range provenance {
-		newCommitProv[prov.Commit.ID] = prov
 		provCommitInfo, err := d.resolveCommit(txnCtx.Stm, prov.Commit)
 		if err != nil {
 			return nil, err
 		}
+		newCommitProv[prov.Commit.ID] = prov
 
 		for _, c := range provCommitInfo.Provenance {
 			newCommitProv[c.Commit.ID] = c
@@ -1338,7 +1335,8 @@ func (d *driver) makeCommit(
 
 		// ensure the commit provenance is consistent with the branch provenance
 		if len(branchProvMap) != 0 {
-			if prov.Branch.Repo.Name != ppsconsts.SpecRepo && !branchProvMap[key(prov.Branch.Repo.Name, prov.Branch.Name)] {
+			// the check for empty branch names is for the run pipeline case in which a commit with no branch are expected in the stats commit provenance
+			if prov.Branch.Repo.Name != ppsconsts.SpecRepo && prov.Branch.Name != "" && !branchProvMap[key(prov.Branch.Repo.Name, prov.Branch.Name)] {
 				return nil, fmt.Errorf("the commit provenance contains a branch which the branch is not provenant on")
 			}
 		}
@@ -2541,7 +2539,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 		// Determine if this is a provenance update
 		sameTarget := branch.Repo.Name == commit.Repo.Name && branch.Name == commit.ID
 		if !sameTarget && provenance != nil {
-			ci, err = d.inspectCommit(txnCtx.Client, commit, pfs.CommitState_STARTED)
+			ci, err = d.resolveCommit(txnCtx.Stm, commit)
 			if err != nil {
 				return err
 			}
@@ -2599,7 +2597,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	if err := repos.Update(branch.Repo.Name, repoInfo, func() error {
 		add(&repoInfo.Branches, branch)
 		if branch.Name == "master" && commit != nil {
-			ci, err := d.inspectCommit(txnCtx.Client, commit, pfs.CommitState_STARTED)
+			ci, err := d.resolveCommit(txnCtx.Stm, commit)
 			if err != nil {
 				return err
 			}

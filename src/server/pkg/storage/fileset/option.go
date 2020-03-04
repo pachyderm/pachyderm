@@ -21,6 +21,22 @@ func WithShardThreshold(threshold int64) StorageOption {
 	}
 }
 
+// WithLevelZeroSize sets the size for level zero in the compacted
+// representation of a file set.
+func WithLevelZeroSize(size int64) StorageOption {
+	return func(s *Storage) {
+		s.levelZeroSize = size
+	}
+}
+
+// WithLevelSizeBase sets the base of the exponential growth function
+// for level sizes in the compacted representation of a file set.
+func WithLevelSizeBase(base int) StorageOption {
+	return func(s *Storage) {
+		s.levelSizeBase = base
+	}
+}
+
 // Option configures a file set.
 type Option func(f *FileSet)
 
@@ -40,6 +56,12 @@ func ServiceEnvToOptions(env *serviceenv.ServiceEnv) []StorageOption {
 	}
 	if env.StorageShardThreshold > 0 {
 		opts = append(opts, WithShardThreshold(env.StorageShardThreshold))
+	}
+	if env.StorageLevelZeroSize > 0 {
+		opts = append(opts, WithLevelZeroSize(env.StorageLevelZeroSize))
+	}
+	if env.StorageLevelSizeBase > 0 {
+		opts = append(opts, WithLevelSizeBase(env.StorageLevelSizeBase))
 	}
 	return opts
 }

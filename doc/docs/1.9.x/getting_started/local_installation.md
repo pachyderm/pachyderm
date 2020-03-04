@@ -84,20 +84,20 @@ to have pachctl installed on your machine by following these steps:
    * For macOS, run:
 
      ```bash
-     $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.9
+     $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.10
      ```
 
    * For a Debian-based Linux 64-bit or Windows 10 or later running on
    WSL:
 
      ```bash
-     $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.12/pachctl_1.9.12_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+     $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.10.0-rc3/pachctl_1.10.0-rc3_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
      ```
 
    * For all other Linux flavors:
 
      ```bash
-     $ curl -o /tmp/pachctl.tar.gz -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.12/pachctl_1.9.12_linux_amd64.tar.gz && tar -xvf /tmp/pachctl.tar.gz -C /tmp && sudo cp /tmp/pachctl_1.9.12_linux_amd64/pachctl /usr/local/bin
+     $ curl -o /tmp/pachctl.tar.gz -L https://github.com/pachyderm/pachyderm/releases/download/v1.10.0-rc3/pachctl_1.10.0-rc3_linux_amd64.tar.gz && tar -xvf /tmp/pachctl.tar.gz -C /tmp && sudo cp /tmp/pachctl_1.10.0-rc3_linux_amd64/pachctl /usr/local/bin
      ```
 
 1. Verify that installation was successful by running `pachctl version --client-only`:
@@ -213,5 +213,5 @@ Alternatively, if you cannot connect directly, enable port forwarding
 by running `pachctl port-forward`, and then point your browser to
 `localhost:30080`.
 
-!!! note "See also:"
+!!! note "See Also:"
     [General Troubleshooting](../troubleshooting/general_troubleshooting.md)

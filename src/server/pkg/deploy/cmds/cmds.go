@@ -27,6 +27,7 @@ import (
 	_metrics "github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serde"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/spf13/cobra"
 )
@@ -78,6 +79,33 @@ func kubectlCreate(dryRun bool, manifest []byte, opts *assets.AssetOpts) error {
 	return nil
 }
 
+// findEquivalentContext searches for a context in the existing config that
+// references the same cluster as the context passed in. If no such context
+// was found, default values are returned instead.
+func findEquivalentContext(cfg *config.Config, to *config.Context) (string, *config.Context) {
+	// first check the active context
+	activeContextName, activeContext, _ := cfg.ActiveContext()
+	if to.EqualClusterReference(activeContext) {
+		return activeContextName, activeContext
+	}
+
+	// failing that, search all contexts (sorted by name to be deterministic)
+	contextNames := []string{}
+	for contextName := range cfg.V2.Contexts {
+		contextNames = append(contextNames, contextName)
+	}
+	sort.Strings(contextNames)
+	for _, contextName := range contextNames {
+		existingContext := cfg.V2.Contexts[contextName]
+
+		if to.EqualClusterReference(existingContext) {
+			return contextName, existingContext
+		}
+	}
+
+	return "", nil
+}
+
 func contextCreate(namePrefix, namespace, serverCert string) error {
 	kubeConfig, err := config.RawKubeConfig()
 	if err != nil {
@@ -105,32 +133,13 @@ func contextCreate(namePrefix, namespace, serverCert string) error {
 		ServerCAs:   serverCert,
 	}
 
-	// if the new context is the same as the active context, just update
-	// fields on the existing context
-	_, activeContext, _ := cfg.ActiveContext()
-	if newContext.EqualClusterReference(activeContext) {
-		activeContext.ClusterID = ""
-		activeContext.ServerCAs = serverCert
+	equivalentContextName, equivalentContext := findEquivalentContext(cfg, newContext)
+	if equivalentContext != nil {
+		cfg.V2.ActiveContext = equivalentContextName
+		equivalentContext.Source = newContext.Source
+		equivalentContext.ClusterDeploymentID = ""
+		equivalentContext.ServerCAs = newContext.ServerCAs
 		return cfg.Write()
-	}
-
-	// try to find an existing context that is the same as the new context,
-	// in which case we just switch contexts rather than creating a new one
-	contextNames := []string{}
-	for contextName := range cfg.V2.Contexts {
-		contextNames = append(contextNames, contextName)
-	}
-	sort.Strings(contextNames)
-
-	for _, contextName := range contextNames {
-		existingContext := cfg.V2.Contexts[contextName]
-
-		if newContext.EqualClusterReference(existingContext) {
-			cfg.V2.ActiveContext = contextName
-			existingContext.ClusterID = ""
-			existingContext.ServerCAs = serverCert
-			return cfg.Write()
-		}
 	}
 
 	// we couldn't find an existing context that is the same as the new one,
@@ -218,7 +227,7 @@ func deployCmds() []*cobra.Command {
 			return nil
 		}),
 	}
-	deployLocal.Flags().StringVar(&hostPath, "host-path", localHostPath(), "Location on the host machine where PFS metadata will be stored.")
+	deployLocal.Flags().StringVar(&hostPath, "host-path", "/var/pachyderm", "Location on the host machine where PFS metadata will be stored.")
 	deployLocal.Flags().BoolVarP(&dev, "dev", "d", false, "Deploy pachd with local version tags, disable metrics, expose Pachyderm's object/block API, and use an insecure authentication mechanism (do not set on any cluster with sensitive data)")
 	commands = append(commands, cmdutil.CreateAlias(deployLocal, "deploy local"))
 
@@ -710,6 +719,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	var registry string
 	var tlsCertKey string
 	var uploadConcurrencyLimit int
+	var clusterDeploymentID string
 	var requireCriticalServersOnly bool
 	deploy := &cobra.Command{
 		Short: "Deploy a Pachyderm cluster.",
@@ -724,7 +734,8 @@ If <object store backend> is \"s3\", then the arguments are:
 				kubeConfig := config.KubeConfig(nil)
 				namespace, _, err = kubeConfig.Namespace()
 				if err != nil {
-					return err
+					log.Errorf("couldn't load kubernetes config (using \"default\"): %v", err)
+					namespace = "default"
 				}
 			}
 
@@ -759,6 +770,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				Namespace:                  namespace,
 				NoExposeDockerSocket:       noExposeDockerSocket,
 				ExposeObjectAPI:            exposeObjectAPI,
+				ClusterDeploymentID:        clusterDeploymentID,
 				RequireCriticalServersOnly: requireCriticalServersOnly,
 			}
 			if tlsCertKey != "" {
@@ -794,7 +806,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	deploy.PersistentFlags().StringVar(&registry, "registry", "", "The registry to pull images from.")
 	deploy.PersistentFlags().StringVar(&imagePullSecret, "image-pull-secret", "", "A secret in Kubernetes that's needed to pull from your private registry.")
 	deploy.PersistentFlags().StringVar(&dashImage, "dash-image", "", "Image URL for pachyderm dashboard")
-	deploy.PersistentFlags().BoolVar(&noGuaranteed, "no-guaranteed", false, "Don't use guaranteed QoS for etcd and pachd deployments. Turning this on (turning guaranteed QoS off) can lead to more stable local clusters (such as a on Minikube), it should normally be used for production clusters.")
+	deploy.PersistentFlags().BoolVar(&noGuaranteed, "no-guaranteed", false, "Don't use guaranteed QoS for etcd and pachd deployments. Turning this on (turning guaranteed QoS off) can lead to more stable local clusters (such as on Minikube), it should normally be used for production clusters.")
 	deploy.PersistentFlags().BoolVar(&noRBAC, "no-rbac", false, "Don't deploy RBAC roles for Pachyderm. (for k8s versions prior to 1.8)")
 	deploy.PersistentFlags().BoolVar(&localRoles, "local-roles", false, "Use namespace-local roles instead of cluster roles. Ignored if --no-rbac is set.")
 	deploy.PersistentFlags().StringVar(&namespace, "namespace", "", "Kubernetes namespace to deploy Pachyderm to.")
@@ -803,6 +815,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	deploy.PersistentFlags().StringVar(&tlsCertKey, "tls", "", "string of the form \"<cert path>,<key path>\" of the signed TLS certificate and private key that Pachd should use for TLS authentication (enables TLS-encrypted communication with Pachd)")
 	deploy.PersistentFlags().BoolVar(&newStorageLayer, "new-storage-layer", false, "(feature flag) Do not set, used for testing.")
 	deploy.PersistentFlags().IntVar(&uploadConcurrencyLimit, "upload-concurrency-limit", assets.DefaultUploadConcurrencyLimit, "The maximum number of concurrent object storage uploads per Pachd instance.")
+	deploy.PersistentFlags().StringVar(&clusterDeploymentID, "cluster-deployment-id", "", "Set an ID for the cluster deployment. Defaults to a random value.")
 	deploy.PersistentFlags().StringVarP(&contextName, "context", "c", "", "Name of the context to add to the pachyderm config. If unspecified, a context name will automatically be derived.")
 	deploy.PersistentFlags().BoolVar(&createContext, "create-context", false, "Create a context, even with `--dry-run`.")
 	deploy.PersistentFlags().BoolVar(&requireCriticalServersOnly, "require-critical-servers-only", assets.DefaultRequireCriticalServersOnly, "Only require the critical Pachd servers to startup and run without errors.")
@@ -850,6 +863,10 @@ func Cmds() []*cobra.Command {
 		Short: "Tear down a deployed Pachyderm cluster.",
 		Long:  "Tear down a deployed Pachyderm cluster.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			// TODO(ys): remove the `--namespace` flag here eventually
+			if namespace != "" {
+				fmt.Printf("WARNING: The `--namespace` flag is deprecated and will be removed in a future version. Please set the namespace in the pachyderm context instead: pachctl config update context `pachctl config get active-context` --namespace '%s'\n", namespace)
+			}
 			if all {
 				fmt.Printf(`
 By using the --all flag, you are going to delete everything, including the
@@ -872,7 +889,8 @@ underlying volume will not be removed.
 					kubeConfig := config.KubeConfig(nil)
 					namespace, _, err = kubeConfig.Namespace()
 					if err != nil {
-						return err
+						log.Errorf("couldn't load kubernetes config (using \"default\"): %v", err)
+						namespace = "default"
 					}
 				}
 
@@ -900,6 +918,46 @@ underlying volume will not be removed.
 				for _, asset := range assets {
 					if err := cmdutil.RunIO(io, "kubectl", "delete", asset, "-l", "suite=pachyderm", "--namespace", namespace); err != nil {
 						return err
+					}
+				}
+
+				if all {
+					// remove the context from the config
+					kubeConfig, err := config.RawKubeConfig()
+					if err != nil {
+						return err
+					}
+					kubeContext := kubeConfig.Contexts[kubeConfig.CurrentContext]
+					if kubeContext != nil {
+						cfg, err := config.Read(true)
+						if err != nil {
+							return err
+						}
+						ctx := &config.Context{
+							ClusterName: kubeContext.Cluster,
+							AuthInfo:    kubeContext.AuthInfo,
+							Namespace:   namespace,
+						}
+
+						// remove _all_ contexts associated with this
+						// deployment
+						configUpdated := false
+						for {
+							contextName, _ := findEquivalentContext(cfg, ctx)
+							if contextName == "" {
+								break
+							}
+							configUpdated = true
+							delete(cfg.V2.Contexts, contextName)
+							if contextName == cfg.V2.ActiveContext {
+								cfg.V2.ActiveContext = ""
+							}
+						}
+						if configUpdated {
+							if err = cfg.Write(); err != nil {
+								return err
+							}
+						}
 					}
 				}
 			}

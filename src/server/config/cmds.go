@@ -207,6 +207,7 @@ func Cmds() []*cobra.Command {
 	var authInfo string
 	var serverCAs string
 	var namespace string
+	var removeClusterDeploymentID bool
 	var updateContext *cobra.Command // standalone declaration so Run() can refer
 	updateContext = &cobra.Command{
 		Short: "Updates a context.",
@@ -264,6 +265,9 @@ func Cmds() []*cobra.Command {
 			if updateContext.Flags().Changed("namespace") {
 				context.Namespace = namespace
 			}
+			if removeClusterDeploymentID {
+				context.ClusterDeploymentID = ""
+			}
 
 			return cfg.Write()
 		}),
@@ -273,6 +277,7 @@ func Cmds() []*cobra.Command {
 	updateContext.Flags().StringVar(&authInfo, "auth-info", "", "Set a new k8s auth info.")
 	updateContext.Flags().StringVar(&serverCAs, "server-cas", "", "Set new trusted CA certs.")
 	updateContext.Flags().StringVar(&namespace, "namespace", "", "Set a new namespace.")
+	updateContext.Flags().BoolVar(&removeClusterDeploymentID, "remove-cluster-deployment-id", false, "Remove the cluster deployment ID field, which will be repopulated on the next `pachctl` call using this context.")
 	shell.RegisterCompletionFunc(updateContext, contextCompletion)
 	commands = append(commands, cmdutil.CreateAlias(updateContext, "config update context"))
 
@@ -371,7 +376,7 @@ func Cmds() []*cobra.Command {
 	return commands
 }
 
-func contextCompletion(_, text string, maxCompletions int64) []prompt.Suggest {
+func contextCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 	cfg, err := config.Read(false)
 	if err != nil {
 		log.Fatal(err)
@@ -401,5 +406,5 @@ func contextCompletion(_, text string, maxCompletions int64) []prompt.Suggest {
 			return result[i].Text < result[j].Text
 		}
 	})
-	return result
+	return result, shell.CacheAll
 }

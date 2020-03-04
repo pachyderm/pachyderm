@@ -101,7 +101,6 @@ point-release:
 release-candidate:
 	@make release-helper
 	@make release-pachctl-custom
-	@make doc
 	@echo "Release completed"
 
 custom-release: release-helper release-pachctl-custom
@@ -464,7 +463,7 @@ test-cmds:
 	go test -v -count=1 ./src/server/auth/cmds -timeout $(TIMEOUT)
 
 test-transaction:
-	go test -count=1 ./src/server/transaction/server -timeout $(TIMEOUT)
+	go test -count=1 ./src/server/transaction/server/testing -timeout $(TIMEOUT)
 
 test-client:
 	go test -count=1 -cover $$(go list ./src/client/...)

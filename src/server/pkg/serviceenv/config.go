@@ -53,6 +53,7 @@ type PachdSpecificConfiguration struct {
 	MemoryRequest              string `env:"PACHD_MEMORY_REQUEST,default=1T"`
 	WorkerUsesRoot             bool   `env:"WORKER_USES_ROOT,default=true"`
 	S3GatewayPort              uint16 `env:"S3GATEWAY_PORT,default=600"`
+	DeploymentID               string `env:"CLUSTER_DEPLOYMENT_ID,default="`
 	RequireCriticalServersOnly bool   `env:"REQUIRE_CRITICAL_SERVERS_ONLY",default=false"`
 }
 
@@ -60,6 +61,8 @@ type PachdSpecificConfiguration struct {
 type StorageConfiguration struct {
 	StorageMemoryThreshold        int64 `env:"STORAGE_MEMORY_THRESHOLD"`
 	StorageShardThreshold         int64 `env:"STORAGE_SHARD_THRESHOLD"`
+	StorageLevelZeroSize          int64 `env:"STORAGE_LEVEL_ZERO_SIZE"`
+	StorageLevelSizeBase          int   `env:"STORAGE_LEVEL_SIZE_BASE"`
 	StorageUploadConcurrencyLimit int   `env:"STORAGE_UPLOAD_CONCURRENCY_LIMIT,default=100"`
 }
 

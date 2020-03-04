@@ -211,12 +211,14 @@ $ {{alias}} -p foo -i bar@YYY`,
 	listJob.Flags().AddFlagSet(fullTimestampsFlags)
 	listJob.Flags().AddFlagSet(noPagerFlags)
 	listJob.Flags().StringVar(&history, "history", "none", "Return jobs from historical versions of pipelines.")
-	shell.RegisterCompletionFunc(listJob, func(flag, text string, maxCompletions int64) []prompt.Suggest {
-		if flag == "-p" || flag == "--pipeline" {
-			return shell.PipelineCompletion(flag, text, maxCompletions)
-		}
-		return nil
-	})
+	shell.RegisterCompletionFunc(listJob,
+		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
+			if flag == "-p" || flag == "--pipeline" {
+				cs, cf := shell.PipelineCompletion(flag, text, maxCompletions)
+				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
+			}
+			return nil, shell.SameFlag(flag)
+		})
 	commands = append(commands, cmdutil.CreateAlias(listJob, "list job"))
 
 	var pipelines cmdutil.RepeatedStringArg
@@ -231,6 +233,9 @@ $ {{alias}} foo@XXX bar@YYY
 # Return jobs caused by foo@XXX leading to pipelines bar and baz.
 $ {{alias}} foo@XXX -p bar -p baz`,
 		Run: cmdutil.Run(func(args []string) error {
+			if output != "" && !raw {
+				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
+			}
 			commits, err := cmdutil.ParseCommits(args)
 			if err != nil {
 				return err
@@ -241,41 +246,42 @@ $ {{alias}} foo@XXX -p bar -p baz`,
 				return err
 			}
 			defer c.Close()
-
-			jobInfos, err := c.FlushJobAll(commits, pipelines)
-			if err != nil {
-				return err
+			var writer *tabwriter.Writer
+			if !raw {
+				writer = tabwriter.NewWriter(os.Stdout, pretty.JobHeader)
 			}
-
-			if raw {
-				e := encoder(output)
-				for _, jobInfo := range jobInfos {
-					if err := e.EncodeProto(jobInfo); err != nil {
+			e := encoder(output)
+			if err := c.FlushJob(commits, pipelines, func(ji *ppsclient.JobInfo) error {
+				if raw {
+					if err := e.EncodeProto(ji); err != nil {
 						return err
 					}
+					return nil
 				}
+				pretty.PrintJobInfo(writer, ji, fullTimestamps)
 				return nil
-			} else if output != "" {
-				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw")
+			}); err != nil {
+				return err
 			}
-			writer := tabwriter.NewWriter(os.Stdout, pretty.JobHeader)
-			for _, jobInfo := range jobInfos {
-				pretty.PrintJobInfo(writer, jobInfo, fullTimestamps)
+			if !raw {
+				return writer.Flush()
 			}
-
-			return writer.Flush()
+			return nil
 		}),
 	}
 	flushJob.Flags().VarP(&pipelines, "pipeline", "p", "Wait only for jobs leading to a specific set of pipelines")
 	flushJob.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
 	flushJob.Flags().AddFlagSet(outputFlags)
 	flushJob.Flags().AddFlagSet(fullTimestampsFlags)
-	shell.RegisterCompletionFunc(flushJob, func(flag, text string, maxCompletions int64) []prompt.Suggest {
-		if flag == "--pipeline" || flag == "-p" {
-			return shell.PipelineCompletion(flag, text, maxCompletions)
-		}
-		return shell.BranchCompletion(flag, text, maxCompletions)
-	})
+	shell.RegisterCompletionFunc(flushJob,
+		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
+			if flag == "--pipeline" || flag == "-p" {
+				cs, cf := shell.PipelineCompletion(flag, text, maxCompletions)
+				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
+			}
+			cs, cf := shell.BranchCompletion(flag, text, maxCompletions)
+			return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
+		})
 	commands = append(commands, cmdutil.CreateAlias(flushJob, "flush job"))
 
 	deleteJob := &cobra.Command{
@@ -499,15 +505,18 @@ $ {{alias}} --pipeline=filter --inputs=/apple.txt,123aef`,
 	getLogs.Flags().BoolVar(&raw, "raw", false, "Return log messages verbatim from server.")
 	getLogs.Flags().BoolVarP(&follow, "follow", "f", false, "Follow logs as more are created.")
 	getLogs.Flags().Int64VarP(&tail, "tail", "t", 0, "Lines of recent logs to display.")
-	shell.RegisterCompletionFunc(getLogs, func(flag, text string, maxCompletions int64) []prompt.Suggest {
-		if flag == "--pipeline" || flag == "-p" {
-			return shell.PipelineCompletion(flag, text, maxCompletions)
-		}
-		if flag == "--job" || flag == "-j" {
-			return shell.JobCompletion(flag, text, maxCompletions)
-		}
-		return nil
-	})
+	shell.RegisterCompletionFunc(getLogs,
+		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
+			if flag == "--pipeline" || flag == "-p" {
+				cs, cf := shell.PipelineCompletion(flag, text, maxCompletions)
+				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
+			}
+			if flag == "--job" || flag == "-j" {
+				cs, cf := shell.JobCompletion(flag, text, maxCompletions)
+				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
+			}
+			return nil, shell.SameFlag(flag)
+		})
 	commands = append(commands, cmdutil.CreateAlias(getLogs, "logs"))
 
 	pipelineDocs := &cobra.Command{
@@ -666,6 +675,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	commands = append(commands, cmdutil.CreateAlias(extractPipeline, "extract pipeline"))
 
 	var editor string
+	var editorArgs []string
 	editPipeline := &cobra.Command{
 		Use:   "{{alias}} <pipeline>",
 		Short: "Edit the manifest for a pipeline in your text editor.",
@@ -698,11 +708,13 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if editor == "" {
 				editor = "vim"
 			}
+			editorArgs = strings.Split(editor, " ")
+			editorArgs = append(editorArgs, f.Name())
 			if err := cmdutil.RunIO(cmdutil.IO{
 				Stdin:  os.Stdin,
 				Stdout: os.Stdout,
 				Stderr: os.Stderr,
-			}, editor, f.Name()); err != nil {
+			}, editorArgs...); err != nil {
 				return err
 			}
 			pipelineReader, err := ppsutil.NewPipelineManifestReader(f.Name())
@@ -794,8 +806,11 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	listPipeline.Flags().StringVar(&history, "history", "none", "Return revision history for pipelines.")
 	commands = append(commands, cmdutil.CreateAlias(listPipeline, "list pipeline"))
 
-	var all bool
-	var force bool
+	var (
+		all      bool
+		force    bool
+		keepRepo bool
+	)
 	deletePipeline := &cobra.Command{
 		Use:   "{{alias}} (<pipeline>|--all)",
 		Short: "Delete a pipeline.",
@@ -812,17 +827,15 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if len(args) == 0 && !all {
 				return fmt.Errorf("either a pipeline name or the --all flag needs to be provided")
 			}
-			if all {
-				_, err = client.PpsAPIClient.DeletePipeline(
-					client.Ctx(),
-					&ppsclient.DeletePipelineRequest{
-						All:   all,
-						Force: force,
-					})
-			} else {
-				err = client.DeletePipeline(args[0], force)
+			req := &ppsclient.DeletePipelineRequest{
+				All:      all,
+				Force:    force,
+				KeepRepo: keepRepo,
 			}
-			if err != nil {
+			if len(args) > 0 {
+				req.Pipeline = pachdclient.NewPipeline(args[0])
+			}
+			if _, err = client.PpsAPIClient.DeletePipeline(client.Ctx(), req); err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
 			return nil
@@ -830,6 +843,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	}
 	deletePipeline.Flags().BoolVar(&all, "all", false, "delete all pipelines")
 	deletePipeline.Flags().BoolVarP(&force, "force", "f", false, "delete the pipeline regardless of errors; use with care")
+	deletePipeline.Flags().BoolVar(&keepRepo, "keep-repo", false, "delete the pipeline, but keep the output repo around (the pipeline can be recreated later and use the same repo)")
 	commands = append(commands, cmdutil.CreateAlias(deletePipeline, "delete pipeline"))
 
 	startPipeline := &cobra.Command{

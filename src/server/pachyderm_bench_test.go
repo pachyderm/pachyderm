@@ -69,7 +69,7 @@ func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, l
 	r := getRand()
 
 	repo := tu.UniqueString("BenchmarkPachydermFiles")
-	c := getPachClient(b)
+	c := tu.GetPachClient(b)
 	require.NoError(b, c.CreateRepo(repo))
 
 	commit, err := c.StartCommit(repo, "master")
@@ -200,7 +200,7 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 
 	numTotalFiles := numTarballs * numFilesPerTarball
 	dataRepo := tu.UniqueString("BenchmarkDataShuffle")
-	c := getPachClient(b)
+	c := tu.GetPachClient(b)
 	require.NoError(b, c.CreateRepo(dataRepo))
 
 	var lastIndex int
@@ -260,7 +260,7 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 				return nil
 			})
 			writeEg.Go(func() error {
-				c := getPachClient(b)
+				c := tu.GetPachClient(b)
 				_, err = c.PutFile(dataRepo, commit.ID, tarName, pr)
 				fmt.Printf("Finished putting file %s\n", tarName)
 				return err
@@ -440,7 +440,7 @@ func benchmarkPutManyFilesSingleCommitFinishCommit(numFiles int, b *testing.B) {
 	// At first we couldn't support this at all (correctness), but this has been fixed
 	// This bench is to see how fast we can handle this
 
-	c := getPachClient(b)
+	c := tu.GetPachClient(b)
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
 		require.NoError(b, c.DeleteAll())
@@ -474,7 +474,7 @@ func benchmarkPutManyFilesSingleCommit(numFiles int, b *testing.B) {
 	// At first we couldn't support this at all (correctness), but this has been fixed
 	// This bench is to see how fast we can handle this
 
-	c := getPachClient(b)
+	c := tu.GetPachClient(b)
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
 		require.NoError(b, c.DeleteAll())
