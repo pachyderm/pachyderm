@@ -11,6 +11,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"os/user"
 	"path"
@@ -1912,6 +1913,25 @@ func (a *APIServer) worker() {
 				jobInfo, err = pachClient.InspectJob(jobID, false)
 				if err != nil {
 					return err
+				}
+				// If the pipeline uses the S3 gateway, make sure the job's s3 gateway
+				// endpoint is up
+				if ppsutil.ContainsS3Inputs(a.pipelineInfo.Input) || a.pipelineInfo.S3Out {
+					if err := backoff.RetryNotify(func() error {
+						endpoint := fmt.Sprintf("http://%s:%s/",
+							ppsutil.SidecarS3GatewayService(jobInfo.Job.ID),
+							os.Getenv("S3GATEWAY_PORT"))
+						if _, err := (&http.Client{Timeout: 5 * time.Second}).Get(endpoint); err != nil {
+							return err
+						}
+						logger.Logf("checking s3 gateway service for job %q: %v", jobInfo.Job.ID, err)
+						return err
+					}, backoff.New60sBackOff(), func(err error, d time.Duration) error {
+						logger.Logf("worker could not connect to s3 gateway for %q: %v", jobInfo.Job.ID, err)
+						return nil
+					}); err != nil {
+						return fmt.Errorf("worker could not connect to s3 gateway for %q: %v", jobInfo.Job.ID, err)
+					}
 				}
 				eg, ctx := errgroup.WithContext(jobCtx)
 				// If a datum fails, acquireDatums updates the relevant lock in
