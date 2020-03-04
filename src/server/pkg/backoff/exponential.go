@@ -143,7 +143,7 @@ func NewTestingBackOff() *ExponentialBackOff {
 // NewExponentialBackOff. The Max Elapsed time for this backoff is 10s, and the
 // initial backoff is 100ms (instead of 500). Therefore this will retry at most
 // 10 times and then fail (depending on RPC timeout), and may be more useful
-// for interactive RPCs than the default timeout of 60s.
+// for interactive RPCs than NewExponentialBackOff.
 func New10sBackOff() *ExponentialBackOff {
 	b := &ExponentialBackOff{
 		InitialInterval:     100 * time.Millisecond,
@@ -151,6 +151,23 @@ func New10sBackOff() *ExponentialBackOff {
 		Multiplier:          DefaultMultiplier,
 		MaxInterval:         2 * time.Second,
 		MaxElapsedTime:      10 * time.Second,
+		Clock:               SystemClock,
+	}
+	return b.withCanonicalRandomizationFactor().withReset()
+}
+
+// New60sBackOff returns a backoff that's slightly more aggressive than
+// NewExponentialBackOff. The Max Elapsed time for this backoff is 60s, and the
+// initial backoff is 100ms (instead of 500). This may be more useful for
+// watcher and controllers (e.g. the PPS master or the worker) than
+// NewExponentialBackOff
+func New60sBackOff() *ExponentialBackOff {
+	b := &ExponentialBackOff{
+		InitialInterval:     100 * time.Millisecond,
+		RandomizationFactor: DefaultRandomizationFactor,
+		Multiplier:          DefaultMultiplier,
+		MaxInterval:         2 * time.Second,
+		MaxElapsedTime:      60 * time.Second,
 		Clock:               SystemClock,
 	}
 	return b.withCanonicalRandomizationFactor().withReset()
