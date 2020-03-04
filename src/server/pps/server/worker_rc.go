@@ -5,14 +5,13 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"os"
 	"strconv"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	client "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
@@ -290,7 +289,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 func getStorageEnvVars() ([]v1.EnvVar, error) {
 	uploadConcurrencyLimit, ok := os.LookupEnv(assets.UploadConcurrencyLimitEnvVar)
 	if !ok {
-		return nil, fmt.Errorf("%s not found", assets.UploadConcurrencyLimitEnvVar)
+		return nil, errors.Errorf("%s not found", assets.UploadConcurrencyLimitEnvVar)
 	}
 	return []v1.EnvVar{
 		{Name: assets.UploadConcurrencyLimitEnvVar, Value: uploadConcurrencyLimit},
@@ -317,14 +316,14 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 		var err error
 		resourceRequests, err = ppsutil.GetRequestsResourceListFromPipeline(pipelineInfo)
 		if err != nil {
-			return nil, fmt.Errorf("could not determine resource request: %v", err)
+			return nil, errors.Wrapf(err, "could not determine resource request:")
 		}
 	}
 	if pipelineInfo.ResourceLimits != nil {
 		var err error
 		resourceLimits, err = ppsutil.GetLimitsResourceListFromPipeline(pipelineInfo)
 		if err != nil {
-			return nil, fmt.Errorf("could not determine resource limit: %v", err)
+			return nil, errors.Wrapf(err, "could not determine resource limit:")
 		}
 	}
 
@@ -685,7 +684,7 @@ func getGithookService(kubeClient *kube.Clientset, namespace string) (*v1.Servic
 	}
 	if len(serviceList.Items) != 1 {
 		return nil, &errGithookServiceNotFound{
-			fmt.Errorf("expected 1 githook service but found %v", len(serviceList.Items)),
+			errors.Errorf("expected 1 githook service but found %v", len(serviceList.Items)),
 		}
 	}
 	return &serviceList.Items[0], nil

@@ -1,7 +1,6 @@
 package worker
 
 import (
-	"fmt"
 	"io"
 	"sort"
 
@@ -9,6 +8,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 
 	"github.com/cevaris/ordered_map"
@@ -549,7 +549,7 @@ func removeS3Components(in *pps.Input) (*pps.Input, error) {
 		in.Pfs != nil && !in.Pfs.S3:
 		return in, nil
 	}
-	return nil, fmt.Errorf("could not sanitize unrecognized input type: %v", in)
+	return nil, errors.Errorf("could not sanitize unrecognized input type: %v", in)
 }
 
 // NewDatumIterator creates a datumIterator for an input.
@@ -575,7 +575,7 @@ func NewDatumIterator(pachClient *client.APIClient, input *pps.Input) (DatumIter
 	case input.Git != nil:
 		return newGitDatumIterator(pachClient, input.Git)
 	}
-	return nil, fmt.Errorf("unrecognized input type: %v", input)
+	return nil, errors.Errorf("unrecognized input type: %v", input)
 }
 
 func sortInputs(inputs []*Input) {

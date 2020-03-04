@@ -2,7 +2,6 @@ package pachyderm
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/hashicorp/vault/logical/framework"
 	pclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 // Renew renews the caller's credentials (and extends the TTL of their Pachyderm
@@ -26,11 +26,11 @@ func (b *backend) Renew(ctx context.Context, req *logical.Request, d *framework.
 	// Extract pachyderm token from vault secret
 	tokenIface, ok := req.Secret.InternalData["user_token"]
 	if !ok {
-		return nil, fmt.Errorf("secret is missing user_token")
+		return nil, errors.Errorf("secret is missing user_token")
 	}
 	userToken, ok := tokenIface.(string)
 	if !ok {
-		return nil, fmt.Errorf("secret.user_token has wrong type (expected string but was %T)", tokenIface)
+		return nil, errors.Errorf("secret.user_token has wrong type (expected string but was %T)", tokenIface)
 	}
 
 	// Get pach address and admin token from config
@@ -50,7 +50,7 @@ func (b *backend) Renew(ctx context.Context, req *logical.Request, d *framework.
 	if ttl == 0 {
 		ttl, maxTTL, err = sanitizeTTLStr(config.TTL, maxTTL.String())
 		if err != nil {
-			return nil, fmt.Errorf("%v: could not sanitize config TTL", err)
+			return nil, errors.Wrapf(err, "could not sanitize config TTL")
 		}
 	}
 

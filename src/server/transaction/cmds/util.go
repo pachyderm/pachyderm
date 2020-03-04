@@ -6,6 +6,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/transaction"
 )
 
@@ -15,11 +16,11 @@ import (
 func getActiveTransaction() (*transaction.Transaction, error) {
 	cfg, err := config.Read(false)
 	if err != nil {
-		return nil, fmt.Errorf("error reading Pachyderm config: %v", err)
+		return nil, errors.Wrapf(err, "error reading Pachyderm config:")
 	}
 	_, context, err := cfg.ActiveContext()
 	if err != nil {
-		return nil, fmt.Errorf("error getting the active context: %v", err)
+		return nil, errors.Wrapf(err, "error getting the active context:")
 	}
 	if context.ActiveTransaction == "" {
 		return nil, nil
@@ -32,7 +33,7 @@ func requireActiveTransaction() (*transaction.Transaction, error) {
 	if err != nil {
 		return nil, err
 	} else if txn == nil {
-		return nil, fmt.Errorf("no active transaction")
+		return nil, errors.Errorf("no active transaction")
 	}
 	return txn, nil
 }
@@ -40,11 +41,11 @@ func requireActiveTransaction() (*transaction.Transaction, error) {
 func setActiveTransaction(txn *transaction.Transaction) error {
 	cfg, err := config.Read(false)
 	if err != nil {
-		return fmt.Errorf("error reading Pachyderm config: %v", err)
+		return errors.Wrapf(err, "error reading Pachyderm config:")
 	}
 	_, context, err := cfg.ActiveContext()
 	if err != nil {
-		return fmt.Errorf("error getting the active context: %v", err)
+		return errors.Wrapf(err, "error getting the active context:")
 	}
 	if txn == nil {
 		context.ActiveTransaction = ""
@@ -52,7 +53,7 @@ func setActiveTransaction(txn *transaction.Transaction) error {
 		context.ActiveTransaction = txn.ID
 	}
 	if err := cfg.Write(); err != nil {
-		return fmt.Errorf("error writing Pachyderm config: %v", err)
+		return errors.Wrapf(err, "error writing Pachyderm config:")
 	}
 	return nil
 }

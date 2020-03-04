@@ -1,9 +1,10 @@
 package tls
 
 import (
-	"fmt"
 	"os"
 	"path"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 const (
@@ -24,13 +25,13 @@ const (
 func GetCertPaths() (certPath string, keyPath string, err error) {
 	certPath = path.Join(VolumePath, CertFile)
 	if _, err = os.Stat(certPath); err != nil {
-		err = fmt.Errorf("could not stat public cert at %s: %v", certPath, err)
+		err = errors.Wrapf(err, "could not stat public cert at %s", certPath)
 		return
 	}
 
 	keyPath = path.Join(VolumePath, KeyFile)
 	if _, err = os.Stat(keyPath); err != nil {
-		err = fmt.Errorf("could not stat private key at %s: %v", keyPath, err)
+		err = errors.Wrapf(err, "could not stat private key at %s", keyPath)
 		return
 	}
 	return

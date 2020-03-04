@@ -1,13 +1,13 @@
 package localcache
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"sort"
 	"sync"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 )
 
@@ -60,7 +60,7 @@ func (c *Cache) Get(key string) (io.ReadCloser, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if !c.keys[key] {
-		return nil, fmt.Errorf("key %v not found in cache", key)
+		return nil, errors.Errorf("key %v not found in cache", key)
 	}
 	f, err := os.Open(filepath.Join(c.root, key))
 	if err != nil {

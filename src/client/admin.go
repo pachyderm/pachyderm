@@ -1,11 +1,11 @@
 package client
 
 import (
-	"fmt"
 	"io"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client/admin"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -70,7 +70,7 @@ func (c APIClient) ExtractURL(url string) error {
 	}
 	resp, err := extractClient.Recv()
 	if err == nil {
-		return fmt.Errorf("unexpected response from extract: %v", resp)
+		return errors.Errorf("unexpected response from extract: %v", resp)
 	}
 	if err != io.EOF {
 		return err
@@ -85,7 +85,7 @@ func (c APIClient) ExtractPipeline(pipelineName string) (*pps.CreatePipelineRequ
 		return nil, grpcutil.ScrubGRPC(err)
 	}
 	if op.Op1_10 == nil || op.Op1_10.Pipeline == nil {
-		return nil, fmt.Errorf("malformed response is missing pipeline")
+		return nil, errors.Errorf("malformed response is missing pipeline")
 	}
 	return op.Op1_10.Pipeline, nil
 }

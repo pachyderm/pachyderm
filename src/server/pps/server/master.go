@@ -19,6 +19,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -69,7 +70,7 @@ func (a *apiServer) master() {
 		// fresh values for each event anyway
 		pipelineWatcher, err := a.pipelines.ReadOnly(ctx).Watch()
 		if err != nil {
-			return fmt.Errorf("error creating watch: %+v", err)
+			return errors.Wrapf(err, "error creating watch")
 		}
 		defer pipelineWatcher.Close()
 
@@ -98,7 +99,7 @@ func (a *apiServer) master() {
 			select {
 			case event := <-pipelineWatcher.Watch():
 				if event.Err != nil {
-					return fmt.Errorf("event err: %+v", event.Err)
+					return errors.Wrapf(event.Err, "event err")
 				}
 				switch event.Type {
 				case watch.EventPut:
@@ -199,23 +200,23 @@ func (a *apiServer) deletePipelineResources(ctx context.Context, pipelineName st
 	}
 	services, err := kubeClient.CoreV1().Services(a.namespace).List(metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
-		return fmt.Errorf("could not list services: %v", err)
+		return errors.Wrapf(err, "could not list services")
 	}
 	for _, service := range services.Items {
 		if err := kubeClient.CoreV1().Services(a.namespace).Delete(service.Name, opts); err != nil {
 			if !isNotFoundErr(err) {
-				return fmt.Errorf("could not delete service %q: %v", service.Name, err)
+				return errors.Wrapf(err, "could not delete service %q", service.Name)
 			}
 		}
 	}
 	rcs, err := kubeClient.CoreV1().ReplicationControllers(a.namespace).List(metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
-		return fmt.Errorf("could not list RCs: %v", err)
+		return errors.Wrapf(err, "could not list RCs")
 	}
 	for _, rc := range rcs.Items {
 		if err := kubeClient.CoreV1().ReplicationControllers(a.namespace).Delete(rc.Name, opts); err != nil {
 			if !isNotFoundErr(err) {
-				return fmt.Errorf("could not delete RC %q: %v", rc.Name, err)
+				return errors.Wrapf(err, "could not delete RC %q: %v", rc.Name)
 			}
 		}
 	}
@@ -451,14 +452,14 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 			// get rid of any files, so the new file "overwrites" previous runs
 			err = pachClient.DeleteFile(in.Cron.Repo, "master", "")
 			if err != nil && !isNotFoundErr(err) && !pfsServer.IsNoHeadErr(err) {
-				return fmt.Errorf("delete error %v", err)
+				return errors.Wrapf(err, "delete error")
 			}
 		}
 
 		// Put in an empty file named by the timestamp
 		_, err = pachClient.PutFile(in.Cron.Repo, "master", next.Format(time.RFC3339), strings.NewReader(""))
 		if err != nil {
-			return fmt.Errorf("put error %v", err)
+			return errors.Wrapf(err, "put error")
 		}
 
 		err = pachClient.FinishCommit(in.Cron.Repo, "master")
