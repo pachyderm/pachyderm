@@ -69,7 +69,7 @@ custom-release: release-helper release-pachctl-custom
 	# Workaround for https://github.com/laher/goxc/issues/112
 	@git push origin :v$(shell $(GOPATH)/bin/pachctl version --client-only)
 	@git tag v$(shell $(GOPATH)/bin/pachctl version --client-only)
-	@git push origin --tags
+	@git push origin v$(shell $(GOPATH)/bin/pachctl version --client-only)
 	@echo "Release completed"
 
 release-pachctl-custom:
