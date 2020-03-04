@@ -1514,7 +1514,7 @@ func TestEmptyFiles(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
-					fmt.Sprintf("if [ -s /pfs/%s/file]; then exit 1; fi", dataRepo),
+					fmt.Sprintf("if [ -s /pfs/%s/file ]; then exit 1; fi", dataRepo),
 					fmt.Sprintf("ln -s /pfs/%s/file /pfs/out/file", dataRepo),
 				},
 			},

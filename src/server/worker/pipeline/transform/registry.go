@@ -215,10 +215,15 @@ func (reg *registry) succeedJob(
 	statsTrees []*pfs.Object,
 	statsSize uint64,
 ) error {
-	newState := pps.JobState_JOB_SUCCESS
-	if pj.ji.Egress != nil {
+	var newState pps.JobState
+	if pj.ji.Egress == nil {
+		pj.logger.Logf("job successful, closing commits")
+		newState = pps.JobState_JOB_SUCCESS
+	} else {
+		pj.logger.Logf("job successful, advancing to egress")
 		newState = pps.JobState_JOB_EGRESS
 	}
+
 	if err := finishJob(pj.driver.PachClient(), pj.ji, newState, "", datums, trees, size, statsTrees, statsSize); err != nil {
 		return err
 	}
@@ -235,6 +240,8 @@ func (reg *registry) failJob(
 	pj *pendingJob,
 	reason string,
 ) error {
+	pj.logger.Logf("failing job with reason: %s", reason)
+
 	if err := finishJob(pj.driver.PachClient(), pj.ji, pps.JobState_JOB_FAILURE, reason, nil, nil, 0, nil, 0); err != nil {
 		return err
 	}
@@ -259,6 +266,7 @@ func writeJobInfo(pachClient *client.APIClient, jobInfo *pps.JobInfo) error {
 }
 
 func (pj *pendingJob) writeJobInfo() error {
+	pj.logger.Logf("updating job info, state: %s", pj.ji.State)
 	return writeJobInfo(pj.driver.PachClient(), pj.ji)
 }
 
@@ -605,13 +613,11 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit
 		defer reg.limiter.Release()
 		defer pj.cancel()
 		backoff.RetryUntilCancel(pj.driver.PachClient().Ctx(), func() error {
-			for {
-				err := reg.processJob(pj)
-				pj.logger.Logf("processJob result: %v, state: %v", err, pj.ji.State)
-				if err != nil {
-					return err
-				}
+			var err error
+			for err == nil {
+				err = reg.processJob(pj)
 			}
+			return err
 		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 			pj.logger.Logf("processJob failed: %v; retrying in %v", err, d)
 
@@ -646,15 +652,15 @@ func (reg *registry) processJob(pj *pendingJob) error {
 	case state == pps.JobState_JOB_STARTING:
 		return fmt.Errorf("job should have been moved out of the STARTING state before processJob")
 	case state == pps.JobState_JOB_RUNNING:
-		return pj.logger.LogStep("processing job datums (JOB_RUNNING)", func() error {
+		return pj.logger.LogStep("processing job datums", func() error {
 			return reg.processJobRunning(pj)
 		})
 	case state == pps.JobState_JOB_MERGING:
-		return pj.logger.LogStep("merging job hashtrees (JOB_MERGING)", func() error {
+		return pj.logger.LogStep("merging job hashtrees", func() error {
 			return reg.processJobMerging(pj)
 		})
 	case state == pps.JobState_JOB_EGRESS:
-		return pj.logger.LogStep("egressing job data (JOB_EGRESS)", func() error {
+		return pj.logger.LogStep("egressing job data", func() error {
 			return reg.processJobEgress(pj)
 		})
 	}
@@ -762,7 +768,6 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	if err := eg.Wait(); err != nil {
 		// If we have failed datums in the stats, fail the job, otherwise we can reattempt later
 		if stats.FailedDatumID != "" {
-			fmt.Printf("failing job\n")
 			return reg.failJob(pj, "datum failed")
 		}
 		return fmt.Errorf("process datum error: %v", err)
