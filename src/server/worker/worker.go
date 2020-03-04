@@ -60,8 +60,6 @@ func NewWorker(
 		hasDocker = false
 	}
 
-	fmt.Printf("worker\n")
-
 	driver, err := driver.NewDriver(
 		pipelineInfo,
 		pachClient,

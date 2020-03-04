@@ -189,14 +189,22 @@ func NewDriver(
 	hashtreePath string,
 	rootPath string,
 ) (Driver, error) {
-	// Delete the hashtree path (if it exists) in case it is left over from a previous run
-	if err := os.RemoveAll(hashtreePath); err != nil {
-		return nil, err
-	}
 
 	pfsPath := filepath.Join(rootPath, client.PPSInputPrefix)
 	chunkCachePath := filepath.Join(hashtreePath, "chunk")
 	chunkStatsCachePath := filepath.Join(hashtreePath, "chunkStats")
+
+	// Delete the hashtree path (if it exists) in case it is left over from a previous run
+	fmt.Printf("removing hashtree path: %s\n", chunkCachePath)
+	if err := os.RemoveAll(chunkCachePath); err != nil {
+		return nil, err
+	}
+	fmt.Printf("removing hashtree path: %s\n", chunkStatsCachePath)
+	if err := os.RemoveAll(chunkStatsCachePath); err != nil {
+		return nil, err
+	}
+
+	fmt.Printf("making hashtree caches")
 
 	if err := os.MkdirAll(pfsPath, 0777); err != nil {
 		return nil, err

@@ -933,6 +933,8 @@ func (reg *registry) processJobMerging(pj *pendingJob) error {
 	trees := make([]*pfs.Object, reg.driver.NumShards())
 	size := uint64(0)
 
+	pj.logger.Logf("sending out %d merge tasks", len(trees))
+
 	// Generate merge task and wait for merges to complete
 	if err := reg.workMaster.Run(
 		reg.driver.PachClient().Ctx(),
@@ -990,7 +992,7 @@ func (reg *registry) storeJobDatums(pj *pendingJob) (*pfs.Object, error) {
 
 func (reg *registry) processJobEgress(pj *pendingJob) error {
 	if err := reg.egress(pj); err != nil {
-		return err
+		return reg.failJob(pj, fmt.Sprintf("egress error: %v", err))
 	}
 
 	pj.ji.State = pps.JobState_JOB_SUCCESS
