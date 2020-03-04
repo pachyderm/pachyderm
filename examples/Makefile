@@ -106,6 +106,9 @@ object-detection-delete: object-detection-delete
 	-pachctl delete repo training
 	-pachctl delete repo images
 
+opencv-object-detection-testing: opencv-testing object-detection-testing
+opencv-object-detection-testing-delete: object-detection-testing-delete opencv-delete
+
 hyperparameter-common:
 	pachctl create repo raw_data
 	pachctl create repo parameters
