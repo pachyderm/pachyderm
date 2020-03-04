@@ -96,7 +96,7 @@ func (a *apiServer) ServeSidecarS3G() {
 		a.ServeSidecarS3G()
 	}
 	if !ppsutil.ContainsS3Inputs(s.pipelineInfo.Input) && !s.pipelineInfo.S3Out {
-		return nil // break early (nothing to serve via S3 gateway)
+		return // break early (nothing to serve via S3 gateway)
 	}
 
 	// begin creating k8s services and s3 gateway instances for each job
