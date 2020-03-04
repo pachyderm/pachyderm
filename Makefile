@@ -63,7 +63,7 @@ release-candidate:
 
 custom-release: release-helper release-pachctl-custom
 	@echo 'For brew install, do:'
-	@echo "$$ brew install https://raw.githubusercontent.com/pachyderm/homebrew-tap/$(shell $(GOPATH)/bin/pachctl version --client-only)-$$(git log --pretty=format:%H | head -n 1)/pachctl@$(shell $(GOPATH)/bin/pachctl version --client-only | cut -f -2 -d\.).rb"
+	@echo "$$ brew install https://raw.githubusercontent.com/pachyderm/homebrew-tap/$(shell $(GOPATH)/bin/pachctl version --client-only)/pachctl@$(shell $(GOPATH)/bin/pachctl version --client-only | cut -f -2 -d\.).rb"
 	@echo 'For linux install, do:'
 	@echo "$$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v$(shell $(GOPATH)/bin/pachctl version --client-only)/pachctl_$(shell $(GOPATH)/bin/pachctl version --client-only)_amd64.deb && sudo dpkg -i /tmp/pachctl.deb"
 	# Workaround for https://github.com/laher/goxc/issues/112
