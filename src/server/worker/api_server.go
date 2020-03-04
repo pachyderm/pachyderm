@@ -2129,7 +2129,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				// file.
 				downSize, err := puller.CleanUp()
 				if err != nil {
-					logger.Logf("puller encountered an error while cleaning up: %+v", err)
+					logger.Logf("puller encountered an error while cleaning up: %v", err)
 					return err
 				}
 				atomic.AddUint64(&subStats.DownloadBytes, uint64(downSize))
