@@ -2,7 +2,6 @@ package work
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"math/rand"
 	"net"
@@ -13,6 +12,7 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 )
@@ -101,7 +101,7 @@ func getEtcdClient() (*etcd.Client, error) {
 			MaxCallRecvMsgSize: math.MaxInt32,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to initialize etcd client: %v", err)
+			return errors.Wrapf(err, "failed to initialize etcd client")
 		}
 		return nil
 	}, backoff.RetryEvery(time.Second).For(time.Minute)); err != nil {

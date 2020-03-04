@@ -6,11 +6,11 @@ package watch
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"reflect"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 // EventType is the type of event
@@ -193,7 +193,7 @@ func CheckType(template proto.Message, val interface{}) error {
 	if template != nil {
 		valType, templateType := reflect.TypeOf(val), reflect.TypeOf(template)
 		if valType != templateType {
-			return fmt.Errorf("invalid type, got: %s, expected: %s", valType, templateType)
+			return errors.Errorf("invalid type, got: %s, expected: %s", valType, templateType)
 		}
 	}
 	return nil

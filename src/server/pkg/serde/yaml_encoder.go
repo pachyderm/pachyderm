@@ -3,8 +3,9 @@ package serde
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -51,7 +52,7 @@ func (e *YAMLEncoder) EncodeTransform(v interface{}, f func(map[string]interface
 	var buf bytes.Buffer
 	j := json.NewEncoder(&buf)
 	if err := j.Encode(v); err != nil {
-		return fmt.Errorf("serialization error while canonicalizing output: %v", err)
+		return errors.Wrapf(err, "serialization error while canonicalizing output")
 	}
 
 	return e.jsonToYAMLTransform(buf.Bytes(), f)
@@ -70,7 +71,7 @@ func (e *YAMLEncoder) EncodeProtoTransform(v proto.Message, f func(map[string]in
 		OrigName: e.origName,
 	}
 	if err := m.Marshal(&buf, v); err != nil {
-		return fmt.Errorf("serialization error while canonicalizing output: %v", err)
+		return errors.Wrapf(err, "serialization error while canonicalizing output")
 	}
 
 	return e.jsonToYAMLTransform(buf.Bytes(), f)
@@ -81,7 +82,7 @@ func (e *YAMLEncoder) jsonToYAMLTransform(intermediateJSON []byte,
 	// Unmarshal from JSON to intermediate map ('holder')
 	holder := map[string]interface{}{}
 	if err := json.Unmarshal(intermediateJSON, &holder); err != nil {
-		return fmt.Errorf("deserialization error while canonicalizing output: %v", err)
+		return errors.Wrapf(err, "deserialization error while canonicalizing output")
 	}
 
 	// transform 'holder' (e.g. de-stringifying TFJob)
@@ -93,7 +94,7 @@ func (e *YAMLEncoder) jsonToYAMLTransform(intermediateJSON []byte,
 
 	// Encode 'holder' to YAML
 	if err := e.e.Encode(holder); err != nil {
-		return fmt.Errorf("serialization error while canonicalizing yaml: %v", err)
+		return errors.Wrapf(err, "serialization error while canonicalizing yaml")
 	}
 	return nil
 }

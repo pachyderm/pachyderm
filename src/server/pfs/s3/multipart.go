@@ -1,7 +1,6 @@
 package s3
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,9 +13,11 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsClient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+
 	"github.com/pachyderm/s2"
 )
 
@@ -37,7 +38,7 @@ func multipartChunkArgs(path string) (repo string, branch string, key string, up
 	uploadID = match[4]
 	partNumber, err = strconv.Atoi(match[5])
 	if err != nil {
-		err = fmt.Errorf("invalid file path found in multipath bucket: %s", err)
+		err = errors.Wrapf(err, "invalid file path found in multipath bucket")
 		return
 	}
 	return

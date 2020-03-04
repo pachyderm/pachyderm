@@ -1,9 +1,8 @@
 package server
 
 import (
-	"fmt"
-
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 )
@@ -31,7 +30,7 @@ func (a *apiServer) NewPropagater(stm col.STM) txnenv.PfsPropagater {
 // successfully ends.  This will be performed by the Run function.
 func (t *Propagater) PropagateCommit(branch *pfs.Branch, isNewCommit bool) error {
 	if branch == nil {
-		return fmt.Errorf("cannot propagate nil branch")
+		return errors.Errorf("cannot propagate nil branch")
 	}
 	t.branches = append(t.branches, branch)
 	t.isNewCommit = isNewCommit

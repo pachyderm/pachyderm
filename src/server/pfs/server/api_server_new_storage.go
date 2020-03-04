@@ -2,17 +2,17 @@ package server
 
 import (
 	"bytes"
-	"fmt"
 	"time"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 )
 
 func (a *apiServer) PutTar(server pfs.API_PutTarServer) (retErr error) {
 	if !a.env.NewStorageLayer {
-		return fmt.Errorf("new storage layer disabled")
+		return errors.Errorf("new storage layer disabled")
 	}
 	request, err := server.Recv()
 	if err != nil {
@@ -52,7 +52,7 @@ func (ptr *putTarReader) Read(data []byte) (int, error) {
 
 func (a *apiServer) GetTar(request *pfs.GetTarRequest, server pfs.API_GetTarServer) (retErr error) {
 	if !a.env.NewStorageLayer {
-		return fmt.Errorf("new storage layer disabled")
+		return errors.Errorf("new storage layer disabled")
 	}
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())

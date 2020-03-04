@@ -22,6 +22,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/storagegateway"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	log "github.com/sirupsen/logrus"
@@ -79,19 +80,19 @@ func (v *vaultCredentialsProvider) Retrieve() (credentials.Value, error) {
 	// retrieve AWS creds from vault
 	vaultSecret, err := v.vaultClient.Logical().Read(path.Join("aws", "creds", v.vaultRole))
 	if err != nil {
-		return emptyCreds, fmt.Errorf("could not retrieve creds from vault: %v", err)
+		return emptyCreds, errors.Wrapf(err, "could not retrieve creds from vault")
 	}
 	accessKeyIface, accessKeyOk := vaultSecret.Data["access_key"]
 	awsSecretIface, awsSecretOk := vaultSecret.Data["secret_key"]
 	if !accessKeyOk || !awsSecretOk {
-		return emptyCreds, fmt.Errorf("aws creds not present in vault response")
+		return emptyCreds, errors.Errorf("aws creds not present in vault response")
 	}
 
 	// Convert access key & secret in response to strings
 	result.AccessKeyID, accessKeyOk = accessKeyIface.(string)
 	result.SecretAccessKey, awsSecretOk = awsSecretIface.(string)
 	if !accessKeyOk || !awsSecretOk {
-		return emptyCreds, fmt.Errorf("aws creds in vault response were not both strings (%T and %T)", accessKeyIface, awsSecretIface)
+		return emptyCreds, errors.Errorf("aws creds in vault response were not both strings (%T and %T)", accessKeyIface, awsSecretIface)
 	}
 
 	// update the lease values in 'v', and spawn a goroutine to renew the lease
@@ -178,7 +179,7 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 			Address: creds.VaultAddress,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("error creating vault client: %v", err)
+			return nil, errors.Wrapf(err, "error creating vault client")
 		}
 		vaultClient.SetToken(creds.VaultToken)
 		awsConfig.Credentials = credentials.NewCredentials(&vaultCredentialsProvider{
@@ -221,7 +222,7 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 		}
 		block, _ := pem.Decode(bytes.TrimSpace([]byte(rawCloudfrontPrivateKey)))
 		if block == nil || block.Type != "RSA PRIVATE KEY" {
-			return nil, fmt.Errorf("block undefined or wrong type: type is (%v) should be (RSA PRIVATE KEY)", block.Type)
+			return nil, errors.Errorf("block undefined or wrong type: type is (%v) should be (RSA PRIVATE KEY)", block.Type)
 		}
 		cloudfrontPrivateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
 		if err != nil {
@@ -322,7 +323,7 @@ func (c *amazonClient) Reader(ctx context.Context, name string, offset uint64, s
 		}
 		if resp.StatusCode >= 300 {
 			// Cloudfront returns 200s, and 206s as success codes
-			return nil, fmt.Errorf("cloudfront returned HTTP error code %v for url %v", resp.Status, url)
+			return nil, errors.Errorf("cloudfront returned HTTP error code %v for url %v", resp.Status, url)
 		}
 		reader = resp.Body
 	} else {

@@ -9,7 +9,8 @@ import (
 	"time"
 
 	"github.com/fatih/camelcase"
-	"github.com/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	go_errors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 )
@@ -236,16 +237,11 @@ func (l *logger) LogAtLevelFromDepth(request interface{}, response interface{}, 
 		// "err" itself might be a code or even an empty struct
 		fields["error"] = err.Error()
 		if err, ok := err.(interface {
-			StackTrace() errors.StackTrace
+			StackTrace() go_errors.StackTrace
 		}); ok {
 			var frames []string
 			for _, frame := range err.StackTrace() {
-				text, err := frame.MarshalText()
-				if err != nil {
-					frames = append(frames, fmt.Sprintf("frame.MarshalText: %v", err))
-				} else {
-					frames = append(frames, string(text))
-				}
+				frames = append(frames, fmt.Sprintf("%+v", frame))
 			}
 			fields["stack"] = frames
 		}
@@ -294,7 +290,7 @@ func Pretty(entry *logrus.Entry) ([]byte, error) {
 		}
 		data, err := json.Marshal(entry.Data)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal fields to JSON, %v", err)
+			return nil, errors.Wrapf(err, "failed to marshal fields to JSON")
 		}
 		serialized = append(serialized, []byte(string(data))...)
 		serialized = append(serialized, ' ')

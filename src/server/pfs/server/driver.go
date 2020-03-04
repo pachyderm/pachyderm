@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/csv"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -22,14 +21,12 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/sync/errgroup"
-	"golang.org/x/sync/semaphore"
-
 	globlib "github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
@@ -46,11 +43,13 @@ import (
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
-	"github.com/sirupsen/logrus"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 )
 
 const (
@@ -127,7 +126,7 @@ func newDriver(
 ) (*driver, error) {
 	// Validate arguments
 	if treeCache == nil {
-		return nil, fmt.Errorf("cannot initialize driver with nil treeCache")
+		return nil, errors.Errorf("cannot initialize driver with nil treeCache")
 	}
 	// Initialize driver
 	etcdClient := env.GetEtcdClient()
@@ -189,8 +188,7 @@ func (d *driver) checkIsAuthorizedInTransaction(txnCtx *txnenv.TransactionContex
 	req := &auth.AuthorizeRequest{Repo: r.Name, Scope: s}
 	resp, err := txnCtx.Auth().AuthorizeInTransaction(txnCtx, req)
 	if err != nil {
-		return fmt.Errorf("error during authorization check for operation on \"%s\": %v",
-			r.Name, grpcutil.ScrubGRPC(err))
+		return errors.Wrapf(grpcutil.ScrubGRPC(err), "error during authorization check for operation on \"%s\"", r.Name)
 	}
 	if !resp.Authorized {
 		return &auth.ErrNotAuthorized{Subject: me.Username, Repo: r.Name, Required: s}
@@ -210,8 +208,7 @@ func (d *driver) checkIsAuthorized(pachClient *client.APIClient, r *pfs.Repo, s 
 	req := &auth.AuthorizeRequest{Repo: r.Name, Scope: s}
 	resp, err := pachClient.AuthAPIClient.Authorize(ctx, req)
 	if err != nil {
-		return fmt.Errorf("error during authorization check for operation on \"%s\": %v",
-			r.Name, grpcutil.ScrubGRPC(err))
+		return errors.Wrapf(grpcutil.ScrubGRPC(err), "error during authorization check for operation on \"%s\"", r.Name)
 	}
 	if !resp.Authorized {
 		return &auth.ErrNotAuthorized{Subject: me.Username, Repo: r.Name, Required: s}
@@ -238,8 +235,7 @@ func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, d
 	whoAmI, err := txnCtx.Client.WhoAmI(txnCtx.ClientContext, &auth.WhoAmIRequest{})
 	authIsActivated := !auth.IsErrNotActivated(err)
 	if authIsActivated && err != nil {
-		return fmt.Errorf("error authenticating (must log in to create a repo): %v",
-			grpcutil.ScrubGRPC(err))
+		return errors.Wrapf(grpcutil.ScrubGRPC(err), "error authenticating (must log in to create a repo)")
 	}
 	if err := ancestry.ValidateName(repo.Name); err != nil {
 		return err
@@ -253,10 +249,9 @@ func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, d
 	var existingRepoInfo pfs.RepoInfo
 	err = repos.Get(repo.Name, &existingRepoInfo)
 	if err != nil && !col.IsErrNotFound(err) {
-		return fmt.Errorf("error checking whether \"%s\" exists: %v",
-			repo.Name, err)
+		return errors.Wrapf(err, "error checking whether \"%s\" exists", repo.Name)
 	} else if err == nil && !update {
-		return fmt.Errorf("cannot create \"%s\" as it already exists", repo.Name)
+		return errors.Errorf("cannot create \"%s\" as it already exists", repo.Name)
 	}
 	created := now()
 	if err == nil {
@@ -276,8 +271,7 @@ func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, d
 			}},
 		})
 		if err != nil {
-			return fmt.Errorf("could not create ACL for new repo \"%s\": %v",
-				repo.Name, grpcutil.ScrubGRPC(err))
+			return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not create ACL for new repo \"%s\"", repo.Name)
 		}
 	}
 
@@ -315,8 +309,7 @@ func (d *driver) inspectRepo(
 			if auth.IsErrNotActivated(err) {
 				return result, nil
 			}
-			return nil, fmt.Errorf("error getting access level for \"%s\": %v",
-				repo.Name, grpcutil.ScrubGRPC(err))
+			return nil, errors.Wrapf(grpcutil.ScrubGRPC(err), "error getting access level for \"%s\"", repo.Name)
 		}
 		result.AuthInfo = &pfs.RepoAuthInfo{AccessLevel: accessLevel}
 	}
@@ -337,7 +330,7 @@ func (d *driver) getAccessLevel(pachClient *client.APIClient, repo *pfs.Repo) (a
 		return auth.Scope_NONE, err
 	}
 	if len(resp.Scopes) != 1 {
-		return auth.Scope_NONE, fmt.Errorf("too many results from GetScope: %#v", resp)
+		return auth.Scope_NONE, errors.Errorf("too many results from GetScope: %#v", resp)
 	}
 	return resp.Scopes[0], nil
 }
@@ -922,8 +915,7 @@ func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool) (*pfs.
 			} else if auth.IsErrNotActivated(err) {
 				authSeemsActive = false
 			} else {
-				return fmt.Errorf("error getting access level for \"%s\": %v",
-					repoName, grpcutil.ScrubGRPC(err))
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error getting access level for \"%s\"", repoName)
 			}
 		}
 		result.RepoInfo = append(result.RepoInfo, proto.Clone(repoInfo).(*pfs.RepoInfo))
@@ -944,7 +936,7 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 	// recreate the PPS spec repo, then uncomment this block to prevent users from
 	// deleting it and breaking their cluster
 	// if repo.Name == ppsconsts.SpecRepo {
-	// 	return fmt.Errorf("cannot delete the special PPS repo %s", ppsconsts.SpecRepo)
+	// 	return errors.Errorf("cannot delete the special PPS repo %s", ppsconsts.SpecRepo)
 	// }
 	repos := d.repos.ReadWrite(txnCtx.Stm)
 
@@ -955,8 +947,7 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 	err := repos.Get(repo.Name, &existingRepoInfo)
 	if err != nil {
 		if !col.IsErrNotFound(err) {
-			return fmt.Errorf("error checking whether \"%s\" exists: %v",
-				repo.Name, err)
+			return errors.Wrapf(err, "error checking whether \"%s\" exists", repo.Name)
 		}
 	}
 
@@ -968,7 +959,7 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 	repoInfo := new(pfs.RepoInfo)
 	if err := repos.Get(repo.Name, repoInfo); err != nil {
 		if !col.IsErrNotFound(err) {
-			return fmt.Errorf("repos.Get: %v", err)
+			return errors.Wrapf(err, "repos.Get")
 		}
 	}
 
@@ -997,7 +988,7 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 			ri := new(pfs.RepoInfo)
 			if err := repos.Get(prov.Commit.Repo.Name, ri); err != nil {
 				if !col.IsErrNotFound(err) {
-					return fmt.Errorf("repo %v was not found: %v", prov.Commit.Repo.Name, err)
+					return errors.Wrapf(err, "repo %v was not found", prov.Commit.Repo.Name)
 				}
 				continue
 			}
@@ -1017,7 +1008,7 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 						// and traverse parent
 						curInfo := &pfs.CommitInfo{}
 						if err := d.commits(subv.Lower.Repo.Name).ReadWrite(txnCtx.Stm).Get(cur, curInfo); err != nil {
-							return fmt.Errorf("error reading commitInfo for subvenant \"%s/%s\": %v", subv.Lower.Repo.Name, cur, err)
+							return errors.Wrapf(err, "error reading commitInfo for subvenant \"%s/%s\"", subv.Lower.Repo.Name, cur)
 						}
 						if curInfo.ParentCommit == nil {
 							break
@@ -1054,7 +1045,7 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 				provCI.Subvenance = provCI.Subvenance[:subvTo]
 				return nil
 			}); err != nil {
-				return fmt.Errorf("err fixing subvenance of upstream commit %s/%s: %v", prov.Commit.Repo.Name, prov.Commit.ID, err)
+				return errors.Wrapf(err, "err fixing subvenance of upstream commit %s/%s", prov.Commit.Repo.Name, prov.Commit.ID)
 			}
 		}
 	}
@@ -1063,7 +1054,7 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 	for _, branch := range repoInfo.Branches {
 		bi, err := d.inspectBranch(txnCtx, branch)
 		if err != nil {
-			return fmt.Errorf("error inspecting branch %s: %v", branch, err)
+			return errors.Wrapf(err, "error inspecting branch %s", branch)
 		}
 		branchInfos = append(branchInfos, bi)
 	}
@@ -1075,7 +1066,7 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 		// delete them in the right order.
 		branch := branchInfos[len(branchInfos)-1-i].Branch
 		if err := d.deleteBranch(txnCtx, branch, force); err != nil {
-			return fmt.Errorf("delete branch %s: %v", branch, err)
+			return errors.Wrapf(err, "delete branch %s", branch)
 		}
 	}
 	// Despite the fact that we already deleted each branch with
@@ -1088,7 +1079,7 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 	commitsX := d.commits(repo.Name).ReadWrite(txnCtx.Stm)
 	commitsX.DeleteAll()
 	if err := repos.Delete(repo.Name); err != nil && !col.IsErrNotFound(err) {
-		return fmt.Errorf("repos.Delete: %v", err)
+		return errors.Wrapf(err, "repos.Delete")
 	}
 
 	if _, err = txnCtx.Auth().SetACLInTransaction(txnCtx, &auth.SetACLRequest{
@@ -1145,7 +1136,7 @@ func (d *driver) makeCommit(
 ) (*pfs.Commit, error) {
 	// Validate arguments:
 	if parent == nil {
-		return nil, fmt.Errorf("parent cannot be nil")
+		return nil, errors.Errorf("parent cannot be nil")
 	}
 
 	// Check that caller is authorized
@@ -1233,7 +1224,7 @@ func (d *driver) makeCommit(
 			}
 
 			if provenanceCount > 0 && treeRef == nil && !hasSpec {
-				return fmt.Errorf("cannot start a commit on an output branch")
+				return errors.Errorf("cannot start a commit on an output branch")
 			}
 			// Point 'branch' at the new commit
 			branchInfo.Name = branch // set in case 'branch' is new
@@ -1330,7 +1321,7 @@ func (d *driver) makeCommit(
 		}
 		// there should only be one representative of each branch in the commit provenance
 		if _, ok := provenantBranches[key(prov.Branch.Repo.Name, prov.Branch.Name)]; ok {
-			return nil, fmt.Errorf("the commit provenance contains multiple commits from the same branch")
+			return nil, errors.Errorf("the commit provenance contains multiple commits from the same branch")
 		}
 		provenantBranches[key(prov.Branch.Repo.Name, prov.Branch.Name)] = true
 
@@ -1338,7 +1329,7 @@ func (d *driver) makeCommit(
 		if len(branchProvMap) != 0 {
 			// the check for empty branch names is for the run pipeline case in which a commit with no branch are expected in the stats commit provenance
 			if prov.Branch.Repo.Name != ppsconsts.SpecRepo && prov.Branch.Name != "" && !branchProvMap[key(prov.Branch.Repo.Name, prov.Branch.Name)] {
-				return nil, fmt.Errorf("the commit provenance contains a branch which the branch is not provenant on")
+				return nil, errors.Errorf("the commit provenance contains a branch which the branch is not provenant on")
 			}
 		}
 
@@ -1360,11 +1351,11 @@ func (d *driver) makeCommit(
 		// 'parent.ID')
 		parentCommitInfo, err := d.resolveCommit(txnCtx.Stm, parent)
 		if err != nil {
-			return nil, fmt.Errorf("parent commit not found: %v", err)
+			return nil, errors.Wrapf(err, "parent commit not found")
 		}
 		// fail if the parent commit has not been finished
 		if parentCommitInfo.Finished == nil {
-			return nil, fmt.Errorf("parent commit %s has not been finished", parent.ID)
+			return nil, errors.Errorf("parent commit %s has not been finished", parent.ID)
 		}
 		if err := commits.Update(parent.ID, parentCommitInfo, func() error {
 			newCommitInfo.ParentCommit = parent
@@ -1377,7 +1368,7 @@ func (d *driver) makeCommit(
 		}); err != nil {
 			// Note: error is emitted if parent.ID is a missing/invalid branch OR a
 			// missing/invalid commit ID
-			return nil, fmt.Errorf("could not resolve parent commit \"%s\": %v", parent.ID, err)
+			return nil, errors.Wrapf(err, "could not resolve parent commit \"%s\"", parent.ID)
 		}
 	}
 
@@ -1486,7 +1477,7 @@ func (d *driver) finishOutputCommit(txnCtx *txnenv.TransactionContext, commit *p
 		return err
 	}
 	if commitInfo.Finished != nil {
-		return fmt.Errorf("commit %s has already been finished", commit.FullID())
+		return errors.Errorf("commit %s has already been finished", commit.FullID())
 	}
 	commitInfo.Trees = trees
 	commitInfo.Datums = datums
@@ -1525,7 +1516,7 @@ func (d *driver) writeFinishedCommit(stm col.STM, commit *pfs.Commit, commitInfo
 		return err
 	}
 	if err := d.openCommits.ReadWrite(stm).Delete(commit.ID); err != nil {
-		return fmt.Errorf("could not confirm that commit %s is open; this is likely a bug. err: %v", commit.ID, err)
+		return errors.Wrapf(err, "could not confirm that commit %s is open; this is likely a bug. err", commit.ID)
 	}
 	// update the repo size if this is the head of master
 	repos := d.repos.ReadWrite(stm)
@@ -1623,7 +1614,7 @@ nextSubvBI:
 			// get the branch info from the provenance branch
 			provOfSubvBI := &pfs.BranchInfo{}
 			if err := d.branches(provOfSubvB.Repo.Name).ReadWrite(stm).Get(provOfSubvB.Name, provOfSubvBI); err != nil && !col.IsErrNotFound(err) {
-				return fmt.Errorf("could not read branch %s/%s: %v", provOfSubvB.Repo.Name, provOfSubvB.Name, err)
+				return errors.Wrapf(err, "could not read branch %s/%s", provOfSubvB.Repo.Name, provOfSubvB.Name)
 			}
 			// if provOfSubvB has no head commit, then it doesn't contribute to newCommit
 			if provOfSubvBI.Head == nil {
@@ -1649,8 +1640,8 @@ nextSubvBI:
 			for _, provProv := range provOfSubvBHeadInfo.Provenance {
 				newProvProv, err := d.resolveCommitProvenance(stm, provProv)
 				if err != nil {
-					return fmt.Errorf("could not resolve provenant commit %s@%s (%s): %v",
-						provProv.Commit.Repo.Name, provProv.Commit.ID, provProv.Branch.Name, err)
+					return errors.Wrapf(err, "could not resolve provenant commit %s@%s (%s)",
+						provProv.Commit.Repo.Name, provProv.Commit.ID, provProv.Branch.Name)
 				}
 				provProv = newProvProv
 				newCommitProvMap[key(provProv.Commit.ID, provProv.Branch.Name)] = provProv
@@ -1768,7 +1759,7 @@ nextSubvBI:
 func (d *driver) inspectCommit(pachClient *client.APIClient, commit *pfs.Commit, blockState pfs.CommitState) (*pfs.CommitInfo, error) {
 	ctx := pachClient.Ctx()
 	if commit == nil {
-		return nil, fmt.Errorf("cannot inspect nil commit")
+		return nil, errors.Errorf("cannot inspect nil commit")
 	}
 	if err := d.checkIsAuthorized(pachClient, commit.Repo, auth.Scope_READER); err != nil {
 		return nil, err
@@ -1808,7 +1799,7 @@ func (d *driver) inspectCommit(pachClient *client.APIClient, commit *pfs.Commit,
 					return event.Err
 				case watch.EventPut:
 					if err := event.Unmarshal(&commitID, _commitInfo); err != nil {
-						return fmt.Errorf("unmarshal: %v", err)
+						return errors.Wrapf(err, "unmarshal")
 					}
 				case watch.EventDelete:
 					return pfsserver.ErrCommitDeleted{commit}
@@ -1832,10 +1823,10 @@ func (d *driver) inspectCommit(pachClient *client.APIClient, commit *pfs.Commit,
 // inconsistent call to d.inspectCommit()
 func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.CommitInfo, error) {
 	if userCommit == nil {
-		return nil, fmt.Errorf("cannot resolve nil commit")
+		return nil, errors.Errorf("cannot resolve nil commit")
 	}
 	if userCommit.ID == "" {
-		return nil, fmt.Errorf("cannot resolve commit with no ID or branch")
+		return nil, errors.Errorf("cannot resolve commit with no ID or branch")
 	}
 	commit := proto.Clone(userCommit).(*pfs.Commit) // back up user commit, for error reporting
 	// Extract any ancestor tokens from 'commit.ID' (i.e. ~, ^ and .)
@@ -1934,7 +1925,7 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 		return err
 	}
 	if from != nil && from.Repo.Name != repo.Name || to != nil && to.Repo.Name != repo.Name {
-		return fmt.Errorf("`from` and `to` commits need to be from repo %s", repo.Name)
+		return errors.Errorf("`from` and `to` commits need to be from repo %s", repo.Name)
 	}
 
 	// Make sure that the repo exists
@@ -1973,7 +1964,7 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 	ci := &pfs.CommitInfo{}
 
 	if from != nil && to == nil {
-		return fmt.Errorf("cannot use `from` commit without `to` commit")
+		return errors.Errorf("cannot use `from` commit without `to` commit")
 	} else if from == nil && to == nil {
 		// if neither from and to is given, we list all commits in
 		// the repo, sorted by revision timestamp (or reversed if so requested.)
@@ -2022,7 +2013,7 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 		}
 	} else {
 		if reverse {
-			return fmt.Errorf("cannot use 'Reverse' while also using 'From' or 'To'")
+			return errors.Errorf("cannot use 'Reverse' while also using 'From' or 'To'")
 		}
 		cursor := to
 		for number != 0 && cursor != nil && (from == nil || cursor.ID != from.ID) {
@@ -2050,7 +2041,7 @@ func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, b
 		return errors.New("repo cannot be nil")
 	}
 	if from != nil && from.Repo.Name != repo.Name {
-		return fmt.Errorf("the `from` commit needs to be from repo %s", repo.Name)
+		return errors.Errorf("the `from` commit needs to be from repo %s", repo.Name)
 	}
 
 	commits := d.commits(repo.Name).ReadOnly(pachClient.Ctx())
@@ -2075,10 +2066,10 @@ func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, b
 			return event.Err
 		case watch.EventPut:
 			if err := event.Unmarshal(&commitID, commitInfo); err != nil {
-				return fmt.Errorf("unmarshal: %v", err)
+				return errors.Wrapf(err, "unmarshal")
 			}
 			if commitInfo == nil {
-				return fmt.Errorf("commit info is empty for id: %v", commitID)
+				return errors.Errorf("commit info is empty for id: %v", commitID)
 			}
 
 			// if provenance is provided, ensure that the returned commits have the commit in their provenance
@@ -2124,7 +2115,7 @@ func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, b
 
 func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Commit, toRepos []*pfs.Repo, f func(*pfs.CommitInfo) error) error {
 	if len(fromCommits) == 0 {
-		return fmt.Errorf("fromCommits cannot be empty")
+		return errors.Errorf("fromCommits cannot be empty")
 	}
 
 	// First compute intersection of the fromCommits subvenant commits, those
@@ -2214,7 +2205,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 	// 1) re-read CommitInfo inside txn
 	userCommitInfo, err := d.resolveCommit(txnCtx.Stm, userCommit)
 	if err != nil {
-		return fmt.Errorf("resolveCommit: %v", err)
+		return errors.Wrapf(err, "resolveCommit")
 	}
 
 	// 2) Define helper for deleting commits. 'lower' corresponds to
@@ -2222,7 +2213,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 	deleteCommit := func(lower, upper *pfs.Commit) error {
 		// Validate arguments
 		if lower.Repo.Name != upper.Repo.Name {
-			return fmt.Errorf("cannot delete commit range with mismatched repos \"%s\" and \"%s\"", lower.Repo.Name, upper.Repo.Name)
+			return errors.Errorf("cannot delete commit range with mismatched repos \"%s\" and \"%s\"", lower.Repo.Name, upper.Repo.Name)
 		}
 		affectedRepos[lower.Repo.Name] = struct{}{}
 		commits := d.commits(lower.Repo.Name).ReadWrite(txnCtx.Stm)
@@ -2231,7 +2222,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 		commit := upper
 		for {
 			if commit == nil {
-				return fmt.Errorf("encountered nil parent commit in %s/%s...%s", lower.Repo.Name, lower.ID, upper.ID)
+				return errors.Errorf("encountered nil parent commit in %s/%s...%s", lower.Repo.Name, lower.ID, upper.ID)
 			}
 			// Store commitInfo in 'deleted' and remove commit from etcd
 			commitInfo := &pfs.CommitInfo{}
@@ -2255,7 +2246,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 
 	// 3) Validate the commit (check that it has no provenance) and delete it
 	if provenantOnInput(userCommitInfo.Provenance) {
-		return fmt.Errorf("cannot delete the commit \"%s/%s\" because it has non-empty provenance", userCommit.Repo.Name, userCommit.ID)
+		return errors.Errorf("cannot delete the commit \"%s/%s\" because it has non-empty provenance", userCommit.Repo.Name, userCommit.ID)
 	}
 	deleteCommit(userCommitInfo.Commit, userCommitInfo.Commit)
 
@@ -2295,7 +2286,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 						if !ok {
 							curInfo = &pfs.CommitInfo{}
 							if err := d.commits(subv.Lower.Repo.Name).ReadWrite(txnCtx.Stm).Get(cur, curInfo); err != nil {
-								return fmt.Errorf("error reading commitInfo for subvenant \"%s/%s\": %v", subv.Lower.Repo.Name, cur, err)
+								return errors.Wrapf(err, "error reading commitInfo for subvenant \"%s/%s\"", subv.Lower.Repo.Name, cur)
 							}
 						}
 						if curInfo.ParentCommit == nil {
@@ -2333,7 +2324,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 				provCI.Subvenance = provCI.Subvenance[:subvTo]
 				return nil
 			}); err != nil {
-				return fmt.Errorf("err fixing subvenance of upstream commit %s/%s: %v", prov.Commit.Repo.Name, prov.Commit.ID, err)
+				return errors.Wrapf(err, "err fixing subvenance of upstream commit %s/%s", prov.Commit.Repo.Name, prov.Commit.ID)
 			}
 		}
 	}
@@ -2388,7 +2379,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 				commitInfo.ParentCommit = parent
 				return nil
 			}); err != nil {
-				return fmt.Errorf("err updating child commit %v: %v", lowestCommitInfo.Commit, err)
+				return errors.Wrapf(err, "err updating child commit %v", lowestCommitInfo.Commit)
 			}
 		}
 		if parent != nil {
@@ -2409,7 +2400,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 				}
 				return nil
 			}); err != nil {
-				return fmt.Errorf("err rewriting children of ancestor commit %v: %v", lowestCommitInfo.Commit, err)
+				return errors.Wrapf(err, "err rewriting children of ancestor commit %v", lowestCommitInfo.Commit)
 			}
 		}
 	}
@@ -2446,7 +2437,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 			}); err != nil && !col.IsErrNotFound(err) {
 				// If err is NotFound, branch is in downstream provenance but
 				// doesn't exist yet--nothing to update
-				return fmt.Errorf("error updating branch %v/%v: %v", brokenBranch.Repo.Name, brokenBranch.Name, err)
+				return errors.Wrapf(err, "error updating branch %v/%v", brokenBranch.Repo.Name, brokenBranch.Name)
 			}
 
 			// Update repo size if this is the master branch
@@ -2488,7 +2479,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 // inconsistent call to d.inspectCommit()
 func (d *driver) resolveCommitProvenance(stm col.STM, userCommitProvenance *pfs.CommitProvenance) (*pfs.CommitProvenance, error) {
 	if userCommitProvenance == nil {
-		return nil, fmt.Errorf("cannot resolve nil commit provenance")
+		return nil, errors.Errorf("cannot resolve nil commit provenance")
 	}
 	// resolve the commit in case the commit is actually a branch name
 	userCommitProvInfo, err := d.resolveCommit(stm, userCommitProvenance.Commit)
@@ -2555,7 +2546,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 				}
 				for _, provC := range ci.Provenance {
 					if proto.Equal(provBranch, provC.Branch) && !proto.Equal(provBranchInfo.Head, provC.Commit) {
-						return fmt.Errorf("cannot create branch %q with commit %q as head because commit has \"%s/%s\" as provenance but that commit is not the head of branch \"%s/%s\"", branch.Name, commit.ID, provC.Commit.Repo.Name, provC.Commit.ID, provC.Branch.Repo.Name, provC.Branch.Name)
+						return errors.Errorf("cannot create branch %q with commit %q as head because commit has \"%s/%s\" as provenance but that commit is not the head of branch \"%s/%s\"", branch.Name, commit.ID, provC.Commit.Repo.Name, provC.Commit.ID, provC.Branch.Repo.Name, provC.Branch.Name)
 					}
 				}
 			}
@@ -2569,7 +2560,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 			// possible that branch exists but has no head commit. This is fine, but
 			// branchInfo.Head must also be nil
 			if !isNoHeadErr(err) {
-				return fmt.Errorf("unable to inspect %s@%s: %v", commit.Repo.Name, commit.ID, err)
+				return errors.Wrapf(err, "unable to inspect %s@%s", commit.Repo.Name, commit.ID)
 			}
 			commit = nil
 		}
@@ -2585,7 +2576,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 		branchInfo.DirectProvenance = nil
 		for _, provBranch := range provenance {
 			if provBranch.Repo.Name == branch.Repo.Name && provBranch.Name == branch.Name {
-				return fmt.Errorf("branch %s@%s cannot be in its own provenance", branch.Repo.Name, branch.Name)
+				return errors.Errorf("branch %s@%s cannot be in its own provenance", branch.Repo.Name, branch.Name)
 			}
 			add(&branchInfo.DirectProvenance, provBranch)
 		}
@@ -2636,7 +2627,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 			}
 			provBranchInfo := &pfs.BranchInfo{}
 			if err := d.branches(provBranch.Repo.Name).ReadWrite(txnCtx.Stm).Get(provBranch.Name, provBranchInfo); err != nil {
-				return fmt.Errorf("error getting prov branch: %v", err)
+				return errors.Wrapf(err, "error getting prov branch")
 			}
 			for _, provBranch := range provBranchInfo.Provenance {
 				// add provBranch to branchInfo.Provenance, and branchInfo.Branch to
@@ -2764,17 +2755,17 @@ func (d *driver) deleteBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	branchInfo := &pfs.BranchInfo{}
 	if err := branches.Get(branch.Name, branchInfo); err != nil {
 		if !col.IsErrNotFound(err) {
-			return fmt.Errorf("branches.Get: %v", err)
+			return errors.Wrapf(err, "branches.Get")
 		}
 	}
 	if branchInfo.Branch != nil {
 		if !force {
 			if len(branchInfo.Subvenance) > 0 {
-				return fmt.Errorf("branch %s has %v as subvenance, deleting it would break those branches", branch.Name, branchInfo.Subvenance)
+				return errors.Errorf("branch %s has %v as subvenance, deleting it would break those branches", branch.Name, branchInfo.Subvenance)
 			}
 		}
 		if err := branches.Delete(branch.Name); err != nil {
-			return fmt.Errorf("branches.Delete: %v", err)
+			return errors.Wrapf(err, "branches.Delete")
 		}
 		for _, provBranch := range branchInfo.Provenance {
 			provBranchInfo := &pfs.BranchInfo{}
@@ -2782,7 +2773,7 @@ func (d *driver) deleteBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 				del(&provBranchInfo.Subvenance, branch)
 				return nil
 			}); err != nil && !isNotFoundErr(err) {
-				return fmt.Errorf("error deleting subvenance: %v", err)
+				return errors.Wrapf(err, "error deleting subvenance")
 			}
 		}
 	}
@@ -2808,7 +2799,7 @@ func (d *driver) scratchCommitPrefix(commit *pfs.Commit) string {
 func (d *driver) checkFilePath(path string) error {
 	path = filepath.Clean(path)
 	if strings.HasPrefix(path, "../") {
-		return fmt.Errorf("path (%s) invalid: traverses above root", path)
+		return errors.Errorf("path (%s) invalid: traverses above root", path)
 	}
 	return nil
 }
@@ -2873,7 +2864,7 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 	//  validation -- make sure the various putFileSplit options are coherent
 	hasPutFileOptions := targetFileBytes != 0 || targetFileDatums != 0 || headerRecords != 0
 	if hasPutFileOptions && delimiter == pfs.Delimiter_NONE {
-		return nil, fmt.Errorf("cannot set split options--targetFileBytes, targetFileDatums, or headerRecords--with delimiter == NONE, split disabled")
+		return nil, errors.Errorf("cannot set split options--targetFileBytes, targetFileDatums, or headerRecords--with delimiter == NONE, split disabled")
 	}
 	records := &pfs.PutFileRecords{}
 	if overwriteIndex != nil && overwriteIndex.Index == 0 {
@@ -2971,15 +2962,15 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 				csvBuffer.Reset()
 				if csvRow, err = csvReader.Read(); err == nil {
 					if err := csvWriter.Write(csvRow); err != nil {
-						return nil, fmt.Errorf("error parsing csv record: %v", err)
+						return nil, errors.Wrapf(err, "error parsing csv record")
 					}
 					if csvWriter.Flush(); csvWriter.Error() != nil {
-						return nil, fmt.Errorf("error copying csv record: %v", csvWriter.Error())
+						return nil, errors.Wrapf(csvWriter.Error(), "error copying csv record")
 					}
 					value = csvBuffer.Bytes()
 				}
 			default:
-				return nil, fmt.Errorf("unrecognized delimiter %s", delimiter.String())
+				return nil, errors.Errorf("unrecognized delimiter %s", delimiter.String())
 			}
 			if err != nil {
 				if err == io.EOF {
@@ -3111,10 +3102,10 @@ func appendRecords(pfr *pfs.PutFileRecords, node *hashtree.NodeProto) {
 // regular putFile codepath.
 func headerDirToPutFileRecords(tree hashtree.HashTree, path string, node *hashtree.NodeProto) (*pfs.PutFileRecords, error) {
 	if tree == nil {
-		return nil, fmt.Errorf("called headerDirToPutFileRecords with nil tree (this is likely a bug")
+		return nil, errors.Errorf("called headerDirToPutFileRecords with nil tree (this is likely a bug)")
 	}
 	if node.DirNode == nil || node.DirNode.Shared == nil {
-		return nil, fmt.Errorf("headerDirToPutFileRecords only works on header/footer dirs")
+		return nil, errors.Errorf("headerDirToPutFileRecords only works on header/footer dirs")
 	}
 	s := node.DirNode.Shared
 	pfr := &pfs.PutFileRecords{
@@ -3134,7 +3125,7 @@ func headerDirToPutFileRecords(tree hashtree.HashTree, path string, node *hashtr
 	}
 	if err := tree.List(path, func(child *hashtree.NodeProto) error {
 		if child.FileNode == nil {
-			return fmt.Errorf("header/footer dir contains child subdirectory, " +
+			return errors.Errorf("header/footer dir contains child subdirectory, " +
 				"which is invalid--header/footer dirs must be created by PutFileSplit")
 		}
 		appendRecords(pfr, child)
@@ -3210,7 +3201,7 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 	cb := func(walkPath string, node *hashtree.NodeProto) error {
 		relPath, err := filepath.Rel(src.Path, walkPath)
 		if err != nil {
-			return fmt.Errorf("error from filepath.Rel (likely a bug): %v", err)
+			return errors.Wrapf(err, "error from filepath.Rel (likely a bug)")
 		}
 		target := client.NewFile(dst.Commit.Repo.Name, dst.Commit.ID, path.Clean(path.Join(dst.Path, relPath)))
 		// Populate 'record' appropriately for this node (or skip it)
@@ -3306,7 +3297,7 @@ func (d *driver) getTreeForCommit(txnCtx *txnenv.TransactionContext, commit *pfs
 			return nil, err
 		}
 		if commitInfo.Finished == nil {
-			return nil, fmt.Errorf("cannot read from an open commit")
+			return nil, errors.Errorf("cannot read from an open commit")
 		}
 		treeRef := commitInfo.Tree
 
@@ -3566,16 +3557,15 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 					// then they all should
 					parentNode, err := tree.Get(parentPath)
 					if err != nil {
-						return fmt.Errorf("file %q has a header, but could not "+
-							"retrieve parent node at %q to get header content: %v", p,
-							parentPath, err)
+						return errors.Wrapf(err, "file %q has a header, but could not "+
+							"retrieve parent node at %q to get header content", p, parentPath)
 					}
 					if parentNode.DirNode == nil {
-						return fmt.Errorf("parent of %q is not a directory—this is "+
+						return errors.Errorf("parent of %q is not a directory—this is "+
 							"likely an internal error", p)
 					}
 					if parentNode.DirNode.Shared == nil {
-						return fmt.Errorf("file %q has a shared header or footer, "+
+						return errors.Errorf("file %q has a shared header or footer, "+
 							"but parent directory does not permit shared data", p)
 					}
 					if parentNode.DirNode.Shared.Header != nil {
@@ -3723,7 +3713,7 @@ func nodeToFileInfoHeaderFooter(ci *pfs.CommitInfo, filePath string,
 	// validate baseFileInfo for logic below--if input hashtrees start using
 	// blockrefs instead of objects, this logic will need to be adjusted
 	if node.FileNode.Objects == nil {
-		return nil, fmt.Errorf("input commit node uses blockrefs; cannot apply header")
+		return nil, errors.Errorf("input commit node uses blockrefs; cannot apply header")
 	}
 
 	// 'file' includes header from parent—construct synthetic file info that
@@ -3731,16 +3721,16 @@ func nodeToFileInfoHeaderFooter(ci *pfs.CommitInfo, filePath string,
 	parentPath := path.Dir(filePath)
 	parentNode, err := tree.Get(parentPath)
 	if err != nil {
-		return nil, fmt.Errorf("file %q has a header, but could not "+
-			"retrieve parent node at %q to get header content: %v", filePath,
-			parentPath, err)
+		return nil, errors.Wrapf(err, "file %q has a header, but could not "+
+			"retrieve parent node at %q to get header content", filePath,
+			parentPath)
 	}
 	if parentNode.DirNode == nil {
-		return nil, fmt.Errorf("parent of %q is not a directory; this is "+
+		return nil, errors.Errorf("parent of %q is not a directory; this is "+
 			"likely an internal error", filePath)
 	}
 	if parentNode.DirNode.Shared == nil {
-		return nil, fmt.Errorf("file %q has a shared header or footer, "+
+		return nil, errors.Errorf("file %q has a shared header or footer, "+
 			"but parent directory does not permit shared data", filePath)
 	}
 
@@ -4224,7 +4214,7 @@ func (d *driver) upsertPutFileRecords(
 		// Dumb check to make sure the unmarshalled value exists (and matches the current ID)
 		// to denote that the current commit is indeed open
 		if commit.ID != file.Commit.ID {
-			return fmt.Errorf("commit %v is not open", file.Commit.ID)
+			return errors.Errorf("commit %v is not open", file.Commit.ID)
 		}
 		recordsCol := d.putFileRecords.ReadWrite(stm)
 		var existingRecords pfs.PutFileRecords
@@ -4299,7 +4289,7 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 		if len(nodes) > 0 {
 			indexOffset, err = strconv.ParseInt(path.Base(nodes[len(nodes)-1].Name), splitSuffixBase, splitSuffixWidth)
 			if err != nil {
-				return fmt.Errorf("error parsing filename %s as int, this likely means you're "+
+				return errors.Errorf("error parsing filename %s as int, this likely means you're "+
 					"using split on a directory which contains other data that wasn't put with split",
 					path.Base(nodes[len(nodes)-1].Name))
 			}
@@ -4368,7 +4358,7 @@ func branchKey(branch *pfs.Branch) string {
 
 func (d *driver) addBranchProvenance(branchInfo *pfs.BranchInfo, provBranch *pfs.Branch, stm col.STM) error {
 	if provBranch.Repo.Name == branchInfo.Branch.Repo.Name && provBranch.Name == branchInfo.Branch.Name {
-		return fmt.Errorf("provenance loop, branch %s/%s cannot be provenance for itself", provBranch.Repo.Name, provBranch.Name)
+		return errors.Errorf("provenance loop, branch %s/%s cannot be provenance for itself", provBranch.Repo.Name, provBranch.Name)
 	}
 	add(&branchInfo.Provenance, provBranch)
 	provBranchInfo := &pfs.BranchInfo{}
@@ -4537,10 +4527,10 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 				}
 				commitID = commit.ID
 			} else if req.File.Commit.ID != rawCommitID {
-				err = fmt.Errorf("all requests in a put files call must have the same commit ID; expected '%s', got '%s'", rawCommitID, req.File.Commit.ID)
+				err = errors.Errorf("all requests in a put files call must have the same commit ID; expected '%s', got '%s'", rawCommitID, req.File.Commit.ID)
 				return false, "", "", err
 			} else if req.File.Commit.Repo.Name != repo {
-				err = fmt.Errorf("all requests in a put files call must have the same repo name; expected '%s', got '%s'", repo, req.File.Commit.Repo.Name)
+				err = errors.Errorf("all requests in a put files call must have the same repo name; expected '%s', got '%s'", repo, req.File.Commit.Repo.Name)
 				return false, "", "", err
 			} else {
 				req.File.Commit.ID = commitID
@@ -4560,7 +4550,7 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 					if err != nil {
 						return false, "", "", err
 					} else if resp.StatusCode >= 400 {
-						return false, "", "", fmt.Errorf("error retrieving content from %q: %s", req.Url, resp.Status)
+						return false, "", "", errors.Errorf("error retrieving content from %q: %s", req.Url, resp.Status)
 					}
 					eg.Go(func() (retErr error) {
 						defer limiter.Release()
@@ -4574,7 +4564,7 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 				default:
 					url, err := obj.ParseURL(req.Url)
 					if err != nil {
-						err = fmt.Errorf("error parsing url %v: %v", req.Url, err)
+						err = errors.Wrapf(err, "error parsing url %v", req.Url)
 						return false, "", "", err
 					}
 					objClient, err := obj.NewClientFromURLAndSecret(url, false)

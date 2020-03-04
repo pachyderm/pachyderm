@@ -2,11 +2,12 @@ package cmdutil
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os/exec"
 	"strings"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 // IO defines the inputs and outputs for a command.
@@ -39,11 +40,11 @@ func RunIODirPath(ioObj IO, dirPath string, args ...string) error {
 	cmd.Stderr = stderr
 	cmd.Dir = dirPath
 	if err := cmd.Run(); err != nil {
-		data, _ := ioutil.ReadAll(debugStderr)
-		if len(data) > 0 {
-			return fmt.Errorf("%s: %s\n%s", strings.Join(args, " "), err.Error(), string(data))
+		stderrContent, _ := ioutil.ReadAll(debugStderr)
+		if len(stderrContent) > 0 {
+			return errors.Wrapf(err, "%s\nStderr\nError%s", strings.Join(args, " "), err.Error(), string(stderrContent))
 		}
-		return fmt.Errorf("%s: %s", strings.Join(args, " "), err.Error())
+		return errors.Wrapf(err, "%s", strings.Join(args, " "))
 	}
 	return nil
 }

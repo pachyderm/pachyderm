@@ -7,7 +7,6 @@ package tar
 import (
 	"bytes"
 	"crypto/md5"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -19,6 +18,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 func TestReader(t *testing.T) {
@@ -760,7 +761,7 @@ type reader struct{ io.Reader }
 type readSeeker struct{ io.ReadSeeker }
 type readBadSeeker struct{ io.ReadSeeker }
 
-func (rbs *readBadSeeker) Seek(int64, int) (int64, error) { return 0, fmt.Errorf("illegal seek") }
+func (rbs *readBadSeeker) Seek(int64, int) (int64, error) { return 0, errors.Errorf("illegal seek") }
 
 // TestReadTruncation test the ending condition on various truncated files and
 // that truncated files are still detected even if the underlying io.Reader

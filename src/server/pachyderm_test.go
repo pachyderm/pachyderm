@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -32,6 +31,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	pfspretty "github.com/pachyderm/pachyderm/src/server/pfs/pretty"
@@ -671,7 +671,7 @@ func TestRunPipeline(t *testing.T) {
 			jobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
 			require.NoError(t, err)
 			if len(jobInfos) != 3 {
-				return fmt.Errorf("expected 3 jobs, got %d", len(jobInfos))
+				return errors.Errorf("expected 3 jobs, got %d", len(jobInfos))
 			}
 			return nil
 		}, backoff.NewTestingBackOff()))
@@ -688,7 +688,7 @@ func TestRunPipeline(t *testing.T) {
 			jobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
 			require.NoError(t, err)
 			if len(jobInfos) != 4 {
-				return fmt.Errorf("expected 4 jobs, got %d", len(jobInfos))
+				return errors.Errorf("expected 4 jobs, got %d", len(jobInfos))
 			}
 			return nil
 		}, backoff.NewTestingBackOff()))
@@ -1083,13 +1083,13 @@ func TestRunPipeline(t *testing.T) {
 			jobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
 			require.NoError(t, err)
 			if len(jobInfos) != 2 {
-				return fmt.Errorf("expected 2 jobs, got %d", len(jobInfos))
+				return errors.Errorf("expected 2 jobs, got %d", len(jobInfos))
 			}
 
 			// but both of these jobs should fail
 			for i, job := range jobInfos {
 				if job.State.String() != "JOB_FAILURE" {
-					return fmt.Errorf("expected job %v to fail, but got %v", i, job.State.String())
+					return errors.Errorf("expected job %v to fail, but got %v", i, job.State.String())
 				}
 			}
 			return nil
@@ -1188,7 +1188,7 @@ func TestPipelineFailure(t *testing.T) {
 		jobInfos, err = c.ListJob(pipeline, nil, nil, -1, true)
 		require.NoError(t, err)
 		if len(jobInfos) != 1 {
-			return fmt.Errorf("expected 1 jobs, got %d", len(jobInfos))
+			return errors.Errorf("expected 1 jobs, got %d", len(jobInfos))
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -1371,7 +1371,7 @@ func TestEgressFailure(t *testing.T) {
 		jobInfos, err = c.ListJob(pipeline, nil, nil, -1, true)
 		require.NoError(t, err)
 		if len(jobInfos) != 1 {
-			return fmt.Errorf("expected 1 jobs, got %d", len(jobInfos))
+			return errors.Errorf("expected 1 jobs, got %d", len(jobInfos))
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -1600,7 +1600,7 @@ func TestLazyPipelineCPPipes(t *testing.T) {
 			return err
 		}
 		if len(jobInfos) != 1 {
-			return fmt.Errorf("len(jobInfos) should be 1")
+			return errors.Errorf("len(jobInfos) should be 1")
 		}
 		jobID = jobInfos[0].Job.ID
 		jobInfo, err := c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{
@@ -1611,7 +1611,7 @@ func TestLazyPipelineCPPipes(t *testing.T) {
 			return err
 		}
 		if jobInfo.State != pps.JobState_JOB_FAILURE {
-			return fmt.Errorf("job did not fail, even though it tried to copy " +
+			return errors.Errorf("job did not fail, even though it tried to copy " +
 				"pipes, which should be disallowed by Pachyderm")
 		}
 		return nil
@@ -2137,7 +2137,7 @@ func TestDeletePipeline(t *testing.T) {
 				names = append(names, fmt.Sprintf("(%s, %s)", pi.Pipeline.Name, pi.State))
 			}
 			if len(pipelineInfos) != 2 {
-				return fmt.Errorf("Expected two pipelines, but got: %+v", names)
+				return errors.Errorf("Expected two pipelines, but got: %+v", names)
 			}
 			// make sure second pipeline is running
 			pipelineInfo, err := c.InspectPipeline(pipelines[1])
@@ -2145,7 +2145,7 @@ func TestDeletePipeline(t *testing.T) {
 				return err
 			}
 			if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
-				return fmt.Errorf("no running pipeline (only %+v)", names)
+				return errors.Errorf("no running pipeline (only %+v)", names)
 			}
 			return nil
 		})
@@ -2160,7 +2160,7 @@ func TestDeletePipeline(t *testing.T) {
 		require.NoError(t, backoff.Retry(func() error {
 			_, err := c.InspectPipeline(pipeline)
 			if err == nil {
-				return fmt.Errorf("expected pipeline to be missing, but it's still present")
+				return errors.Errorf("expected pipeline to be missing, but it's still present")
 			}
 			return nil
 		}, backoff.NewTestingBackOff()))
@@ -2218,7 +2218,7 @@ func TestPipelineState(t *testing.T) {
 			return err
 		}
 		if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
-			return fmt.Errorf("pipeline should be in state running, not: %s", pipelineInfo.State.String())
+			return errors.Errorf("pipeline should be in state running, not: %s", pipelineInfo.State.String())
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -2232,7 +2232,7 @@ func TestPipelineState(t *testing.T) {
 			return err
 		}
 		if !pipelineInfo.Stopped {
-			return fmt.Errorf("pipeline never paused, even though StopPipeline() was called, state: %s", pipelineInfo.State.String())
+			return errors.Errorf("pipeline never paused, even though StopPipeline() was called, state: %s", pipelineInfo.State.String())
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -2246,7 +2246,7 @@ func TestPipelineState(t *testing.T) {
 			return err
 		}
 		if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
-			return fmt.Errorf("pipeline never restarted, even though StartPipeline() was called, state: %s", pipelineInfo.State.String())
+			return errors.Errorf("pipeline never restarted, even though StartPipeline() was called, state: %s", pipelineInfo.State.String())
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -2411,7 +2411,7 @@ func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
 			return err
 		}
 		if len(jobInfos) < 1 {
-			return fmt.Errorf("job not spawned")
+			return errors.Errorf("job not spawned")
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -2958,7 +2958,7 @@ func TestManyPipelineUpdate(t *testing.T) {
 					_, err = iter.Next()
 					if err != nil {
 						if err == io.EOF {
-							return fmt.Errorf("expected %d commits, but only got %d", jobsSeen+1, i)
+							return errors.Errorf("expected %d commits, but only got %d", jobsSeen+1, i)
 						}
 						return err
 					}
@@ -2966,7 +2966,7 @@ func TestManyPipelineUpdate(t *testing.T) {
 					jis, err := c.ListJob(pipeline, []*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil, 0, false)
 					require.NoError(t, err)
 					if len(jis) < 1 {
-						return fmt.Errorf("expected to see %d jobs, but only saw %d", jobsSeen+1, len(jis))
+						return errors.Errorf("expected to see %d jobs, but only saw %d", jobsSeen+1, len(jis))
 					}
 					jobsSeen = len(jis)
 					return nil
@@ -3101,7 +3101,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 			return err
 		}
 		if pipelineInfo.State != pps.PipelineState_PIPELINE_PAUSED {
-			return fmt.Errorf("expected pipeline to be in state PAUSED, but was in %s",
+			return errors.Errorf("expected pipeline to be in state PAUSED, but was in %s",
 				pipelineInfo.State)
 		}
 		return nil
@@ -3131,11 +3131,11 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 			return err
 		}
 		if pipelineInfo.State != pps.PipelineState_PIPELINE_PAUSED {
-			return fmt.Errorf("expected pipeline to be in state PAUSED, but was in %s",
+			return errors.Errorf("expected pipeline to be in state PAUSED, but was in %s",
 				pipelineInfo.State)
 		}
 		if pipelineInfo.Version != 2 {
-			return fmt.Errorf("expected pipeline to be on v2, but was on v%d",
+			return errors.Errorf("expected pipeline to be on v2, but was on v%d",
 				pipelineInfo.Version)
 		}
 		return nil
@@ -3215,13 +3215,13 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 			return err
 		}
 		if len(jobInfos) != 1 {
-			return fmt.Errorf("wrong number of jobs")
+			return errors.Errorf("wrong number of jobs")
 		}
 
 		state := jobInfos[0].State
 
 		if state != pps.JobState_JOB_RUNNING && state != pps.JobState_JOB_MERGING {
-			return fmt.Errorf("wrong state: %v for %s", state, jobInfos[0].Job.ID)
+			return errors.Errorf("wrong state: %v for %s", state, jobInfos[0].Job.ID)
 		}
 		return nil
 	}, b))
@@ -3426,7 +3426,7 @@ func TestStandby(t *testing.T) {
 				}
 			}
 			if standby != numPipelines {
-				return fmt.Errorf("should have %d pipelines in standby, not %d", numPipelines, standby)
+				return errors.Errorf("should have %d pipelines in standby, not %d", numPipelines, standby)
 			}
 			return nil
 		})
@@ -4122,13 +4122,13 @@ func TestStopJob(t *testing.T) {
 		jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
 		require.NoError(t, err)
 		if len(jobInfos) != 1 {
-			return fmt.Errorf("len(jobInfos) should be 1")
+			return errors.Errorf("len(jobInfos) should be 1")
 		}
 		jobID = jobInfos[0].Job.ID
 		state := jobInfos[0].State
 
 		if state != pps.JobState_JOB_RUNNING && state != pps.JobState_JOB_MERGING {
-			return fmt.Errorf("jobInfos[0] has the wrong state")
+			return errors.Errorf("jobInfos[0] has the wrong state")
 		}
 		return nil
 	}, b))
@@ -4146,7 +4146,7 @@ func TestStopJob(t *testing.T) {
 		jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
 		require.NoError(t, err)
 		if len(jobInfos) != 2 {
-			return fmt.Errorf("len(jobInfos) should be 2")
+			return errors.Errorf("len(jobInfos) should be 2")
 		}
 		jobID = jobInfos[0].Job.ID
 		return nil
@@ -4315,7 +4315,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 		for {
 			havePathLog, haveHexLog, haveBase64Log := pathLog.Next(), hexLog.Next(), base64Log.Next()
 			if havePathLog != haveHexLog || haveHexLog != haveBase64Log {
-				return fmt.Errorf("Unequal log lengths")
+				return errors.Errorf("Unequal log lengths")
 			}
 			if !havePathLog {
 				break
@@ -4323,7 +4323,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 			numLogs++
 			if pathLog.Message().Message != hexLog.Message().Message ||
 				hexLog.Message().Message != base64Log.Message().Message {
-				return fmt.Errorf(
+				return errors.Errorf(
 					"unequal logs, pathLogs: \"%s\" hexLog: \"%s\" base64Log: \"%s\"",
 					pathLog.Message().Message,
 					hexLog.Message().Message,
@@ -4336,7 +4336,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 			}
 		}
 		if numLogs == 0 {
-			return fmt.Errorf("no logs found")
+			return errors.Errorf("no logs found")
 		}
 
 		// Filter logs based on input (using file that doesn't exist). There should
@@ -4475,14 +4475,14 @@ func TestDatumStatusRestart(t *testing.T) {
 			jobs, err := c.ListJob(pipeline, nil, nil, -1, true)
 			require.NoError(t, err)
 			if len(jobs) == 0 {
-				return fmt.Errorf("no jobs found")
+				return errors.Errorf("no jobs found")
 			}
 
 			jobID = jobs[0].Job.ID
 			jobInfo, err := c.InspectJob(jobs[0].Job.ID, false)
 			require.NoError(t, err)
 			if len(jobInfo.WorkerStatus) == 0 {
-				return fmt.Errorf("no worker statuses")
+				return errors.Errorf("no worker statuses")
 			}
 			if jobInfo.WorkerStatus[0].JobID == jobInfo.Job.ID {
 				// The first time this function is called, datumStarted is zero
@@ -4493,7 +4493,7 @@ func TestDatumStatusRestart(t *testing.T) {
 				datumStarted = _datumStarted
 				return nil
 			}
-			return fmt.Errorf("worker status from wrong job")
+			return errors.Errorf("worker status from wrong job")
 		}, backoff.RetryEvery(time.Second).For(30*time.Second)))
 	}
 	checkStatus()
@@ -4546,17 +4546,17 @@ func TestUseMultipleWorkers(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		jobs, err := c.ListJob(pipeline, nil, nil, -1, true)
 		if err != nil {
-			return fmt.Errorf("could not list job: %s", err.Error())
+			return errors.Wrapf(err, "could not list job")
 		}
 		if len(jobs) == 0 {
-			return fmt.Errorf("failed to find job")
+			return errors.Errorf("failed to find job")
 		}
 		jobInfo, err := c.InspectJob(jobs[0].Job.ID, false)
 		if err != nil {
-			return fmt.Errorf("could not inspect job: %s", err.Error())
+			return errors.Wrapf(err, "could not inspect job")
 		}
 		if len(jobInfo.WorkerStatus) != 2 {
-			return fmt.Errorf("incorrect number of statuses: %v", len(jobInfo.WorkerStatus))
+			return errors.Errorf("incorrect number of statuses: %v", len(jobInfo.WorkerStatus))
 		}
 		return nil
 	}, backoff.RetryEvery(500*time.Millisecond).For(20*time.Second)))
@@ -4603,7 +4603,7 @@ func TestSystemResourceRequests(t *testing.T) {
 				return err
 			}
 			if len(podList.Items) < 1 {
-				return fmt.Errorf("could not find pod for %s", app) // retry
+				return errors.Errorf("could not find pod for %s", app) // retry
 			}
 			c = podList.Items[0].Spec.Containers[0]
 			return nil
@@ -4679,7 +4679,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 			return err // retry
 		}
 		if len(podList.Items) != 1 || len(podList.Items[0].Spec.Containers) == 0 {
-			return fmt.Errorf("could not find single container for pipeline %s", pipelineInfo.Pipeline.Name)
+			return errors.Errorf("could not find single container for pipeline %s", pipelineInfo.Pipeline.Name)
 		}
 		container = podList.Items[0].Spec.Containers[0]
 		return nil // no more retries
@@ -4749,7 +4749,7 @@ func TestPipelineResourceLimit(t *testing.T) {
 			return err // retry
 		}
 		if len(podList.Items) != 1 || len(podList.Items[0].Spec.Containers) == 0 {
-			return fmt.Errorf("could not find single container for pipeline %s", pipelineInfo.Pipeline.Name)
+			return errors.Errorf("could not find single container for pipeline %s", pipelineInfo.Pipeline.Name)
 		}
 		container = podList.Items[0].Spec.Containers[0]
 		return nil // no more retries
@@ -4813,7 +4813,7 @@ func TestPipelineResourceLimitDefaults(t *testing.T) {
 			return err // retry
 		}
 		if len(podList.Items) != 1 || len(podList.Items[0].Spec.Containers) == 0 {
-			return fmt.Errorf("could not find single container for pipeline %s", pipelineInfo.Pipeline.Name)
+			return errors.Errorf("could not find single container for pipeline %s", pipelineInfo.Pipeline.Name)
 		}
 		container = podList.Items[0].Spec.Containers[0]
 		return nil // no more retries
@@ -4895,7 +4895,7 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 			pipelineInfo, err := c.InspectPipeline(fmt.Sprintf("%s-%d", pipelineName, i))
 			require.NoError(t, err)
 			if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
-				return fmt.Errorf("pipeline not in running state")
+				return errors.Errorf("pipeline not in running state")
 			}
 		}
 		return nil
@@ -4999,7 +4999,7 @@ func TestPodOpts(t *testing.T) {
 				return err // retry
 			}
 			if len(podList.Items) != 1 || len(podList.Items[0].Spec.Containers) == 0 {
-				return fmt.Errorf("could not find single container for pipeline %s", pipelineInfo.Pipeline.Name)
+				return errors.Errorf("could not find single container for pipeline %s", pipelineInfo.Pipeline.Name)
 			}
 			pod = podList.Items[0]
 			return nil // no more retries
@@ -5059,7 +5059,7 @@ func TestPodOpts(t *testing.T) {
 				return err // retry
 			}
 			if len(podList.Items) != 1 || len(podList.Items[0].Spec.Containers) == 0 {
-				return fmt.Errorf("could not find single container for pipeline %s", pipelineInfo.Pipeline.Name)
+				return errors.Errorf("could not find single container for pipeline %s", pipelineInfo.Pipeline.Name)
 			}
 			pod = podList.Items[0]
 			return nil // no more retries
@@ -5551,10 +5551,10 @@ func TestGarbageCollection(t *testing.T) {
 			jobInfos, err := c.FlushJobAll([]*pfs.Commit{commit}, nil)
 			require.NoError(t, err)
 			if len(jobInfos) != 1 {
-				return fmt.Errorf("expected one job but got %d", len(jobInfos))
+				return errors.Errorf("expected one job but got %d", len(jobInfos))
 			}
 			if jobInfos[0].State != pps.JobState_JOB_SUCCESS {
-				return fmt.Errorf("Expected job in state SUCCESS but was in %s", jobInfos[0].State)
+				return errors.Errorf("Expected job in state SUCCESS but was in %s", jobInfos[0].State)
 			}
 			return nil
 		})
@@ -5616,7 +5616,7 @@ func TestGarbageCollection(t *testing.T) {
 		// one datum.
 		tagsAfter = getAllTags(t, c)
 		if dTags := len(tagsBefore) - len(tagsAfter); dTags != 1 {
-			return fmt.Errorf("expected 1 tag after GC but found %d", dTags)
+			return errors.Errorf("expected 1 tag after GC but found %d", dTags)
 		}
 
 		// We should've deleted 2 objects:
@@ -5628,7 +5628,7 @@ func TestGarbageCollection(t *testing.T) {
 		// Note that deleting a pipeline doesn't delete the spec commits
 		objectsAfter = getAllObjects(t, c)
 		if dObjects := len(objectsBefore) - len(objectsAfter); dObjects != 2 {
-			return fmt.Errorf("expected 3 objects but found %d", dObjects)
+			return errors.Errorf("expected 3 objects but found %d", dObjects)
 		}
 		// The 9 remaining objects are:
 		// - hashtree for input commit
@@ -5636,7 +5636,7 @@ func TestGarbageCollection(t *testing.T) {
 		// - 6 objects in __spec__:
 		//   (hashtree + /spec file) * (2 'pipeline' commits + 1 'failurePipeline' commit)
 		if len(objectsAfter) != 9 {
-			return fmt.Errorf("expected 9 objects remaining, but found %d", len(objectsAfter))
+			return errors.Errorf("expected 9 objects remaining, but found %d", len(objectsAfter))
 		}
 		return nil
 	})
@@ -5940,7 +5940,7 @@ func TestPipelineWithStatsPaginated(t *testing.T) {
 		jobs, err = c.ListJob(pipeline, nil, nil, -1, true)
 		require.NoError(t, err)
 		if len(jobs) != 1 {
-			return fmt.Errorf("expected 1 jobs, got %d", len(jobs))
+			return errors.Errorf("expected 1 jobs, got %d", len(jobs))
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -6636,7 +6636,7 @@ func TestPipelineBadImage(t *testing.T) {
 				return err
 			}
 			if pipelineInfo.State != pps.PipelineState_PIPELINE_FAILURE {
-				return fmt.Errorf("pipeline %s should have failed", pipeline)
+				return errors.Errorf("pipeline %s should have failed", pipeline)
 			}
 			require.True(t, pipelineInfo.Reason != "")
 		}
@@ -6677,7 +6677,7 @@ func TestFixPipeline(t *testing.T) {
 		jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
 		require.NoError(t, err)
 		if len(jobInfos) != 1 {
-			return fmt.Errorf("expected 1 jobs, got %d", len(jobInfos))
+			return errors.Errorf("expected 1 jobs, got %d", len(jobInfos))
 		}
 		jobInfo, err := c.InspectJob(jobInfos[0].Job.ID, true)
 		require.NoError(t, err)
@@ -6704,7 +6704,7 @@ func TestFixPipeline(t *testing.T) {
 		jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
 		require.NoError(t, err)
 		if len(jobInfos) != 2 {
-			return fmt.Errorf("expected 2 jobs, got %d", len(jobInfos))
+			return errors.Errorf("expected 2 jobs, got %d", len(jobInfos))
 		}
 		jobInfo, err := c.InspectJob(jobInfos[0].Job.ID, true)
 		require.NoError(t, err)
@@ -6755,14 +6755,14 @@ func TestListJobOutput(t *testing.T) {
 			return err
 		}
 		if len(jobInfos) != 1 {
-			return fmt.Errorf("expected 1 job")
+			return errors.Errorf("expected 1 job")
 		}
 		jobInfos, err = c.ListJob("", nil, client.NewCommit(pipeline, "master"), -1, true)
 		if err != nil {
 			return err
 		}
 		if len(jobInfos) != 1 {
-			return fmt.Errorf("expected 1 job")
+			return errors.Errorf("expected 1 job")
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -6813,10 +6813,10 @@ func TestListJobTruncated(t *testing.T) {
 			return err
 		}
 		if len(liteJobInfos) != 1 {
-			return fmt.Errorf("expected 1 job from truncated ListJob")
+			return errors.Errorf("expected 1 job from truncated ListJob")
 		}
 		if len(fullJobInfos) != 1 {
-			return fmt.Errorf("expected 1 job from ListJob")
+			return errors.Errorf("expected 1 job from ListJob")
 		}
 		// Check that fields stored in PFS are missing, but fields stored in etcd
 		// are not
@@ -6925,17 +6925,17 @@ func TestMaxQueueSize(t *testing.T) {
 		require.NoError(t, backoff.Retry(func() error {
 			jobs, err := c.ListJob(pipeline, nil, nil, -1, true)
 			if err != nil {
-				return fmt.Errorf("could not list job: %s", err.Error())
+				return errors.Wrapf(err, "could not list job")
 			}
 			if len(jobs) == 0 {
-				return fmt.Errorf("failed to find job")
+				return errors.Errorf("failed to find job")
 			}
 			jobInfo, err = c.InspectJob(jobs[0].Job.ID, false)
 			if err != nil {
-				return fmt.Errorf("could not inspect job: %s", err.Error())
+				return errors.Wrapf(err, "could not inspect job")
 			}
 			if len(jobInfo.WorkerStatus) != 2 {
-				return fmt.Errorf("incorrect number of statuses: %v", len(jobInfo.WorkerStatus))
+				return errors.Errorf("incorrect number of statuses: %v", len(jobInfo.WorkerStatus))
 			}
 			return nil
 		}, backoff.RetryEvery(500*time.Millisecond).For(60*time.Second)))
@@ -7129,7 +7129,7 @@ func TestService(t *testing.T) {
 				actualAnnotations := svc.Annotations
 				delete(actualAnnotations, "pipelineName")
 				if !reflect.DeepEqual(actualAnnotations, annotations) {
-					return fmt.Errorf(
+					return errors.Errorf(
 						"expected service annotations map %#v, got %#v",
 						annotations,
 						actualAnnotations,
@@ -7138,7 +7138,7 @@ func TestService(t *testing.T) {
 
 				return nil
 			}
-			return fmt.Errorf("no matching k8s service found")
+			return errors.Errorf("no matching k8s service found")
 		}, backoff.NewTestingBackOff())
 
 		require.NotEqual(t, "", address)
@@ -7151,14 +7151,14 @@ func TestService(t *testing.T) {
 			return err
 		}
 		if resp.StatusCode != 200 {
-			return fmt.Errorf("GET returned %d", resp.StatusCode)
+			return errors.Errorf("GET returned %d", resp.StatusCode)
 		}
 		content, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			return err
 		}
 		if string(content) != "foo" {
-			return fmt.Errorf("wrong content for file1: expected foo, got %s", string(content))
+			return errors.Errorf("wrong content for file1: expected foo, got %s", string(content))
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -7178,14 +7178,14 @@ func TestService(t *testing.T) {
 			return err
 		}
 		if resp.StatusCode != 200 {
-			return fmt.Errorf("GET returned %d", resp.StatusCode)
+			return errors.Errorf("GET returned %d", resp.StatusCode)
 		}
 		content, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			return err
 		}
 		if string(content) != "foo" {
-			return fmt.Errorf("wrong content for file1: expected foo, got %s", string(content))
+			return errors.Errorf("wrong content for file1: expected foo, got %s", string(content))
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -7202,14 +7202,14 @@ func TestService(t *testing.T) {
 			return err
 		}
 		if resp.StatusCode != 200 {
-			return fmt.Errorf("GET returned %d", resp.StatusCode)
+			return errors.Errorf("GET returned %d", resp.StatusCode)
 		}
 		content, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			return err
 		}
 		if string(content) != "bar" {
-			return fmt.Errorf("wrong content for file2: expected bar, got %s", string(content))
+			return errors.Errorf("wrong content for file2: expected bar, got %s", string(content))
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -8474,7 +8474,7 @@ func TestCancelJob(t *testing.T) {
 				return err
 			}
 			if len(jobInfos) != 1 {
-				return fmt.Errorf("Expected one job, but got %d: %v", len(jobInfos), jobInfos)
+				return errors.Errorf("Expected one job, but got %d: %v", len(jobInfos), jobInfos)
 			}
 			jobInfo = jobInfos[0]
 			return nil
@@ -8492,7 +8492,7 @@ func TestCancelJob(t *testing.T) {
 				return err
 			}
 			if updatedJobInfo.State != pps.JobState_JOB_KILLED {
-				return fmt.Errorf("job %s is still running, but should be KILLED", jobInfo.Job.ID)
+				return errors.Errorf("job %s is still running, but should be KILLED", jobInfo.Job.ID)
 			}
 			return nil
 		}, backoff.NewTestingBackOff())
@@ -8575,7 +8575,7 @@ func TestCancelManyJobs(t *testing.T) {
 					return err
 				}
 				if len(jobInfos) != 1 {
-					return fmt.Errorf("Expected one job, but got %d: %v", len(jobInfos), jobInfos)
+					return errors.Errorf("Expected one job, but got %d: %v", len(jobInfos), jobInfos)
 				}
 				jobInfo = jobInfos[0]
 				return nil
@@ -8596,7 +8596,7 @@ func TestCancelManyJobs(t *testing.T) {
 					return err
 				}
 				if updatedJobInfo.State != pps.JobState_JOB_KILLED {
-					return fmt.Errorf("job %s is still running, but should be KILLED", jobInfo.Job.ID)
+					return errors.Errorf("job %s is still running, but should be KILLED", jobInfo.Job.ID)
 				}
 				return nil
 			}, backoff.NewTestingBackOff())
@@ -8764,15 +8764,15 @@ func TestDeleteCommitRunsJob(t *testing.T) {
 				return err
 			}
 			if len(jobInfos) != 1 {
-				return fmt.Errorf("Expected one job, but got %d: %v", len(jobInfos), jobInfos)
+				return errors.Errorf("Expected one job, but got %d: %v", len(jobInfos), jobInfos)
 			}
 			pps.VisitInput(jobInfos[0].Input, func(input *pps.Input) {
 				if input.Pfs == nil {
-					err = fmt.Errorf("expected a single PFS input, but got: %v", jobInfos[0].Input)
+					err = errors.Errorf("expected a single PFS input, but got: %v", jobInfos[0].Input)
 					return
 				}
 				if input.Pfs.Commit != commit2.ID {
-					err = fmt.Errorf("expected job to process %s, but instead processed: %s", commit2.ID, jobInfos[0].Input)
+					err = errors.Errorf("expected job to process %s, but instead processed: %s", commit2.ID, jobInfos[0].Input)
 					return
 				}
 			})
@@ -8793,15 +8793,15 @@ func TestDeleteCommitRunsJob(t *testing.T) {
 				return err
 			}
 			if len(jobInfos) != 1 {
-				return fmt.Errorf("Expected one job, but got %d: %v", len(jobInfos), jobInfos)
+				return errors.Errorf("Expected one job, but got %d: %v", len(jobInfos), jobInfos)
 			}
 			pps.VisitInput(jobInfos[0].Input, func(input *pps.Input) {
 				if input.Pfs == nil {
-					err = fmt.Errorf("expected a single PFS input, but got: %v", jobInfos[0].Input)
+					err = errors.Errorf("expected a single PFS input, but got: %v", jobInfos[0].Input)
 					return
 				}
 				if input.Pfs.Commit != commit1.ID {
-					err = fmt.Errorf("expected job to process %s, but instead processed: %s", commit1.ID, jobInfos[0].Input)
+					err = errors.Errorf("expected job to process %s, but instead processed: %s", commit1.ID, jobInfos[0].Input)
 					return
 				}
 			})
@@ -9222,14 +9222,14 @@ func TestRapidUpdatePipelines(t *testing.T) {
 			return err
 		}
 		if len(jis) < 6 {
-			return fmt.Errorf("should have more than 6 jobs in 5 minutes")
+			return errors.Errorf("should have more than 6 jobs in 5 minutes")
 		}
 		for i := 0; i+1 < len(jis); i++ {
 			difference := jis[i].Started.Seconds - jis[i+1].Started.Seconds
 			if difference < 15 {
-				return fmt.Errorf("jobs too close together")
+				return errors.Errorf("jobs too close together")
 			} else if difference > 45 {
-				return fmt.Errorf("jobs too far apart")
+				return errors.Errorf("jobs too far apart")
 			}
 		}
 		return nil
@@ -9943,7 +9943,7 @@ func TestSpout(t *testing.T) {
 	// finally, let's make sure that the provenance is in a consistent state after running all of the spout tests
 	require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
 		if resp.Error != "" {
-			return fmt.Errorf("%v", resp.Error)
+			return errors.Errorf(resp.Error)
 		}
 		return nil
 	}))
@@ -10404,7 +10404,7 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 			return err
 		}
 		if pi.State == pps.PipelineState_PIPELINE_FAILURE {
-			return fmt.Errorf("%q should be in state FAILURE but is in %q", pipeline, pi.State.String())
+			return errors.Errorf("%q should be in state FAILURE but is in %q", pipeline, pi.State.String())
 		}
 		return nil
 	})
@@ -10436,7 +10436,7 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 		if err == io.EOF {
 			return nil // expected--with no output repo, FlushCommit can't return anything
 		}
-		return fmt.Errorf("unexpected error value: %v", err)
+		return errors.Wrapf(err, "unexpected error value")
 	})
 
 	// Create a new pipeline, make sure FlushCommit eventually returns, and check
@@ -10563,7 +10563,7 @@ func TestCreatePipelineErrorNoCmd(t *testing.T) {
 			return err
 		}
 		if pipelineInfo.State != pps.PipelineState_PIPELINE_FAILURE {
-			return fmt.Errorf("pipeline should be in state FAILURE, not: %s", pipelineInfo.State.String())
+			return errors.Errorf("pipeline should be in state FAILURE, not: %s", pipelineInfo.State.String())
 		}
 		return nil
 	})
@@ -10762,7 +10762,7 @@ func TestPodPatchUnmarshalling(t *testing.T) {
 			return err // retry
 		}
 		if len(podList.Items) != 1 || len(podList.Items[0].Spec.Volumes) == 0 {
-			return fmt.Errorf("could not find volumes for pipeline %s", pipelineInfo.Pipeline.Name)
+			return errors.Errorf("could not find volumes for pipeline %s", pipelineInfo.Pipeline.Name)
 		}
 		volumes = podList.Items[0].Spec.Volumes
 		return nil // no more retries
@@ -11140,7 +11140,7 @@ func podRunningAndReady(e watch.Event) (bool, error) {
 	}
 	pod, ok := e.Object.(*v1.Pod)
 	if !ok {
-		return false, fmt.Errorf("unexpected object type in watch.Event")
+		return false, errors.Errorf("unexpected object type in watch.Event")
 	}
 	return pod.Status.Phase == v1.PodRunning, nil
 }

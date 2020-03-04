@@ -22,11 +22,12 @@
 package serde
 
 import (
-	"fmt"
 	"io"
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 // EncoderOption modifies the behavior of new encoders and can be passed to
@@ -88,7 +89,7 @@ func GetEncoder(encoding string, w io.Writer, opts ...EncoderOption) (Encoder, e
 	case "json":
 		return NewJSONEncoder(w, opts...), nil
 	default:
-		return nil, fmt.Errorf("unrecognized encoding: %q (must be \"yaml\" or \"json\")", encoding)
+		return nil, errors.Errorf("unrecognized encoding: %q (must be \"yaml\" or \"json\")", encoding)
 	}
 }
 

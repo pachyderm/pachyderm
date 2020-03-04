@@ -424,7 +424,7 @@ $ pachctl diff-file foo master path1 bar master path2`,
 			hasRepo := len(parts) > 0 && parts[0] != ""
 			hasCommit := len(parts) == 2 && parts[1] != ""
 			if hasCommit && !hasRepo {
-				return nil, fmt.Errorf("invalid commit id \"%s\": repo cannot be empty", arg)
+				return nil, errors.Errorf("invalid commit id \"%s\": repo cannot be empty", arg)
 			}
 			commit := &pfs.Commit{
 				Repo: &pfs.Repo{
@@ -600,7 +600,7 @@ Provenance: {{range .Provenance}} {{.Repo.Name}}/{{.ID}}{{end}}{{end}}
 				return err
 			}
 			if commitInfo == nil {
-				return fmt.Errorf("commit %s not found", args[1])
+				return errors.Errorf("commit %s not found", args[1])
 			}
 			if raw {
 				marshaller := &jsonpb.Marshaler{Indent: "  "}

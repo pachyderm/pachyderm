@@ -2,11 +2,11 @@
 package pfsdb
 
 import (
-	"fmt"
 	"path"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
@@ -71,7 +71,7 @@ func Branches(etcdClient *etcd.Client, etcdPrefix string, repo string) col.Colle
 		&pfs.BranchInfo{},
 		func(key string) error {
 			if uuid.IsUUIDWithoutDashes(key) {
-				return fmt.Errorf("branch name cannot be a UUID V4")
+				return errors.Errorf("branch name cannot be a UUID V4")
 			}
 			return nil
 		},

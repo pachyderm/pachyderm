@@ -2,10 +2,11 @@ package obj
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"math/rand"
 	"strings"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 var (
@@ -13,7 +14,7 @@ var (
 	enabled    bool
 	localRand  *rand.Rand
 	failProb   float64
-	errMsg     = fmt.Errorf("object storage slipped on a banana")
+	errMsg     = errors.Errorf("object storage slipped on a banana")
 )
 
 // InitMonkeyTest sets up this package for monkey testing.
