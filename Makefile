@@ -80,7 +80,7 @@ release-pachctl:
 	@# Run pachctl release script w deploy branch name
 	@VERSION="$(shell $(GOPATH)/bin/pachctl version --client-only)" ./etc/build/release_pachctl
 
-release-helper: release-version release-image
+release-helper: release-version docker-build docker-push
 
 release-version: install-clean
 	@./etc/build/repo_ready_for_release.sh
