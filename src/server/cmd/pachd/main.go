@@ -93,6 +93,7 @@ func doReadinessCheck(config interface{}) error {
 }
 
 func doSidecarMode(config interface{}) (retErr error) {
+	fmt.Printf("doSidecarMode\n")
 	defer func() {
 		if retErr != nil {
 			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
