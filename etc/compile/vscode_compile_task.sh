@@ -33,6 +33,7 @@ if [[ "${OS}" == "Windows_NT" ]]; then
   # On windows, we need to copy over the environment variables for connecting to docker
   eval $(minikube docker-env --shell bash)
   DOCKER_OPTS+=("--env DOCKER_HOST=${DOCKER_HOST}")
+  DOCKER_OPTS+=("--env CALLING_OS=Windows")
 
   if [[ "${DOCKER_TLS_VERIFY}" -eq "1" ]]; then
     DOCKER_OPTS+=("--env DOCKER_TLS_VERIFY=1")

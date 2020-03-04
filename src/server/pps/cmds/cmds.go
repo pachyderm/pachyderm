@@ -675,6 +675,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	commands = append(commands, cmdutil.CreateAlias(extractPipeline, "extract pipeline"))
 
 	var editor string
+	var editorArgs []string
 	editPipeline := &cobra.Command{
 		Use:   "{{alias}} <pipeline>",
 		Short: "Edit the manifest for a pipeline in your text editor.",
@@ -707,11 +708,13 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if editor == "" {
 				editor = "vim"
 			}
+			editorArgs = strings.Split(editor, " ")
+			editorArgs = append(editorArgs, f.Name())
 			if err := cmdutil.RunIO(cmdutil.IO{
 				Stdin:  os.Stdin,
 				Stdout: os.Stdout,
 				Stderr: os.Stderr,
-			}, editor, f.Name()); err != nil {
+			}, editorArgs...); err != nil {
 				return err
 			}
 			pipelineReader, err := ppsutil.NewPipelineManifestReader(f.Name())
@@ -803,8 +806,11 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	listPipeline.Flags().StringVar(&history, "history", "none", "Return revision history for pipelines.")
 	commands = append(commands, cmdutil.CreateAlias(listPipeline, "list pipeline"))
 
-	var all bool
-	var force bool
+	var (
+		all      bool
+		force    bool
+		keepRepo bool
+	)
 	deletePipeline := &cobra.Command{
 		Use:   "{{alias}} (<pipeline>|--all)",
 		Short: "Delete a pipeline.",
@@ -821,17 +827,15 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if len(args) == 0 && !all {
 				return fmt.Errorf("either a pipeline name or the --all flag needs to be provided")
 			}
-			if all {
-				_, err = client.PpsAPIClient.DeletePipeline(
-					client.Ctx(),
-					&ppsclient.DeletePipelineRequest{
-						All:   all,
-						Force: force,
-					})
-			} else {
-				err = client.DeletePipeline(args[0], force)
+			req := &ppsclient.DeletePipelineRequest{
+				All:      all,
+				Force:    force,
+				KeepRepo: keepRepo,
 			}
-			if err != nil {
+			if len(args) > 0 {
+				req.Pipeline = pachdclient.NewPipeline(args[0])
+			}
+			if _, err = client.PpsAPIClient.DeletePipeline(client.Ctx(), req); err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
 			return nil
@@ -839,6 +843,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	}
 	deletePipeline.Flags().BoolVar(&all, "all", false, "delete all pipelines")
 	deletePipeline.Flags().BoolVarP(&force, "force", "f", false, "delete the pipeline regardless of errors; use with care")
+	deletePipeline.Flags().BoolVar(&keepRepo, "keep-repo", false, "delete the pipeline, but keep the output repo around (the pipeline can be recreated later and use the same repo)")
 	commands = append(commands, cmdutil.CreateAlias(deletePipeline, "delete pipeline"))
 
 	startPipeline := &cobra.Command{

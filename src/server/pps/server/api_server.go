@@ -1549,6 +1549,9 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	if request.TFJob != nil {
 		return goerr.New("embedding TFJobs in pipelines is not supported yet")
 	}
+	if request.S3Out {
+		return goerr.New("s3 gateway services for PPS pipelines are not supported yet")
+	}
 	if request.Transform == nil {
 		return fmt.Errorf("pipeline must specify a transform")
 	}
@@ -1967,6 +1970,8 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		SchedulingSpec:   request.SchedulingSpec,
 		PodSpec:          request.PodSpec,
 		PodPatch:         request.PodPatch,
+		S3Out:            request.S3Out,
+		Metadata:         request.Metadata,
 	}
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
 		return nil, err
@@ -2284,11 +2289,6 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
 	if pipelineInfo.CacheSize == "" {
 		pipelineInfo.CacheSize = "64M"
 	}
-	if pipelineInfo.ResourceRequests == nil && pipelineInfo.CacheSize != "" {
-		pipelineInfo.ResourceRequests = &pps.ResourceSpec{
-			Memory: pipelineInfo.CacheSize,
-		}
-	}
 	if pipelineInfo.MaxQueueSize < 1 {
 		pipelineInfo.MaxQueueSize = 1
 	}
@@ -2548,9 +2548,22 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 		if err := a.authorizePipelineOp(pachClient, pipelineOpDelete, pipelineInfo.Input, pipelineInfo.Pipeline.Name); err != nil {
 			return nil, err
 		}
-		// delete the pipeline's output repo
-		if err := pachClient.DeleteRepo(request.Pipeline.Name, request.Force); err != nil {
-			return nil, err
+		if request.KeepRepo {
+			// Remove branch provenance (pass branch twice so that it continues to point
+			// at the same commit, but also pass empty provenance slice)
+			if err := pachClient.CreateBranch(
+				request.Pipeline.Name,
+				pipelineInfo.OutputBranch,
+				pipelineInfo.OutputBranch,
+				nil,
+			); err != nil {
+				return nil, err
+			}
+		} else {
+			// delete the pipeline's output repo
+			if err := pachClient.DeleteRepo(request.Pipeline.Name, request.Force); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -2618,13 +2631,15 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 		return nil
 	})
 	// Delete cron input repos
-	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
-		if input.Cron != nil {
-			eg.Go(func() error {
-				return pachClient.DeleteRepo(input.Cron.Repo, request.Force)
-			})
-		}
-	})
+	if !request.KeepRepo {
+		pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
+			if input.Cron != nil {
+				eg.Go(func() error {
+					return pachClient.DeleteRepo(input.Cron.Repo, request.Force)
+				})
+			}
+		})
+	}
 	if err := eg.Wait(); err != nil {
 		return nil, err
 	}

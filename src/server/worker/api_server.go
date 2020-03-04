@@ -43,6 +43,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
@@ -1125,10 +1126,15 @@ func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (*Cancel
 // GetChunk returns the merged datum hashtrees of a particular chunk (if available)
 func (a *APIServer) GetChunk(request *GetChunkRequest, server Worker_GetChunkServer) error {
 	filter := hashtree.NewFilter(a.numShards, request.Shard)
+	cache := a.chunkCache
 	if request.Stats {
-		return a.chunkStatsCache.Get(request.Id, grpcutil.NewStreamingBytesWriter(server), filter)
+		cache = a.chunkStatsCache
 	}
-	return a.chunkCache.Get(request.Id, grpcutil.NewStreamingBytesWriter(server), filter)
+
+	if !cache.Has(request.Id) {
+		return fmt.Errorf("chunk (%d) missing from cache", request.Id)
+	}
+	return cache.Get(request.Id, grpcutil.NewStreamingBytesWriter(server), filter)
 }
 
 func (a *APIServer) datum() []*pps.InputFile {
@@ -1374,8 +1380,13 @@ func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APICl
 }
 
 func (a *APIServer) getChunk(ctx context.Context, id int64, address string, failed bool) error {
-	// If this worker processed the chunk, then it is already in the chunk cache
+	// If we think this worker processed the chunk, make sure it is already in the
+	// chunk cache, otherwise we may have cleared the cache since datum
+	// processing, or the IP was recycled.
 	if address == os.Getenv(client.PPSWorkerIPEnv) {
+		if !a.chunkCache.Has(id) {
+			return fmt.Errorf("chunk (%d) missing from local chunk cache", id)
+		}
 		return nil
 	}
 	if _, ok := a.clients[address]; !ok {
@@ -1515,7 +1526,6 @@ func (a *APIServer) merge(pachClient *client.APIClient, objClient obj.Client, st
 }
 
 func (a *APIServer) getParentCommitInfo(ctx context.Context, pachClient *client.APIClient, commit *pfs.Commit) (*pfs.CommitInfo, error) {
-	outputCommitID := commit.ID
 	commitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
 		&pfs.InspectCommitRequest{
 			Commit: commit,
@@ -1524,17 +1534,23 @@ func (a *APIServer) getParentCommitInfo(ctx context.Context, pachClient *client.
 		return nil, err
 	}
 	for commitInfo.ParentCommit != nil {
-		a.getWorkerLogger().Logf("blocking on parent commit %q before writing to output commit %q",
-			commitInfo.ParentCommit.ID, outputCommitID)
 		parentCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
 			&pfs.InspectCommitRequest{
-				Commit:     commitInfo.ParentCommit,
-				BlockState: pfs.CommitState_FINISHED,
+				Commit: commitInfo.ParentCommit,
 			})
 		if err != nil {
 			return nil, err
 		}
-		if parentCommitInfo.Trees != nil {
+		// If the parent commit isn't finished, then finish it and continue the traversal.
+		// If the parent commit is finished and has output, then return it.
+		if parentCommitInfo.Finished == nil {
+			if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
+				Commit: parentCommitInfo.Commit,
+				Empty:  true,
+			}); err != nil && !pfsserver.IsCommitFinishedErr(err) {
+				return nil, err
+			}
+		} else if parentCommitInfo.Trees != nil {
 			return parentCommitInfo, nil
 		}
 		commitInfo = parentCommitInfo

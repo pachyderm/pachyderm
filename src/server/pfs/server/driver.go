@@ -1307,11 +1307,11 @@ func (d *driver) makeCommit(
 	// commitInfo.Provenance
 	newCommitProv := make(map[string]*pfs.CommitProvenance)
 	for _, prov := range provenance {
-		newCommitProv[prov.Commit.ID] = prov
 		provCommitInfo, err := d.resolveCommit(txnCtx.Stm, prov.Commit)
 		if err != nil {
 			return nil, err
 		}
+		newCommitProv[prov.Commit.ID] = prov
 
 		for _, c := range provCommitInfo.Provenance {
 			newCommitProv[c.Commit.ID] = c
