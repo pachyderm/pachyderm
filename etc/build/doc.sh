@@ -2,7 +2,7 @@
 
 set -e
 
-version="$($(GOPATH)/bin/pachctl version --client-only)"
+version="$("$(GOPATH)/bin/pachctl" version --client-only)"
 major_minor=$(echo "$version" | cut -f -2 -d ".")
 
 # Set sed options for GNU/BSD sed

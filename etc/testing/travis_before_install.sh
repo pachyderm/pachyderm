@@ -1,4 +1,4 @@
 #!/bin/bash
 if [[ -d $HOME/docker ]]; then
-    ls $HOME/docker/*.tar.gz | xargs -I {file} sh -c "zcat {file} | docker load"
+    find "$HOME/docker" -name "*.tar.gz" -print0 | xargs -I "{file}" sh -c "zcat {file} | docker load"
 fi
