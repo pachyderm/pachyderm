@@ -1,8 +1,11 @@
-# Backup and Restore
+# Backup Your Cluster
 
-Pachyderm provides the `pachctl extract` and `pachctl restore` commands to backup and restore the state of a Pachyderm cluster.
+Pachyderm provides the `pachctl extract` and `pachctl restore` commands to
+back up and restore the state of a Pachyderm cluster.
 
-The `pachctl extract` command requires that all pipeline and data loading activity into Pachyderm stop before the extract occurs.  This enables Pachyderm to create a consistent, point-in-time backup.  In this document, we'll talk about how to create such a backup and restore it to another Pachyderm instance.
+The `pachctl extract` command requires that all pipeline and data loading
+activity into Pachyderm stop before the extract occurs. This enables
+Pachyderm to create a consistent, point-in-time backup.  In this document, we'll talk about how to create such a backup and restore it to another Pachyderm instance.
 
 Extract and restore commands are currently used to migrate between minor and major releases of Pachyderm, so it's important to understand how to perform them properly.   In addition, there are a few design points and operational techniques that data engineers should take into consideration when creating complex pachyderm deployments to minimize disruptions to production pipelines.
 
@@ -89,6 +92,8 @@ Using the `pachctl extract` command, create the backup you need.
 `pachctl extract > path/to/your/backup/file`
 
 You can also use the `-u` or `--url` flag to put the backup directly into an object store.
+The bucket must exist and have the same Permissions policy as the one are using for the
+existing Pachyderm cluster.
 
 `pachctl extract --url s3://...`
 
