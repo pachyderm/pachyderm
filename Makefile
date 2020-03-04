@@ -22,8 +22,6 @@ CLUSTER_NAME?=pachyderm
 CLUSTER_MACHINE_TYPE?=n1-standard-4
 CLUSTER_SIZE?=4
 
-BENCH_CLOUD_PROVIDER=aws
-
 MINIKUBE_MEM=8192 # MB of memory allocated to minikube
 MINIKUBE_CPU=4 # Number of CPUs allocated to minikube
 
@@ -137,17 +135,6 @@ check-kubectl:
 check-kubectl-connection:
 	kubectl $(KUBECTLFLAGS) get all > /dev/null
 
-launch-dev-bench: install
-	@# Put it here so sudo can see it
-	rm /usr/local/bin/pachctl || true
-	ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
-	make launch-bench
-
-# TODO(ys): fix this
-push-bench-images: install-bench docker-tag docker-push
-	docker tag pachyderm/test pachyderm/bench:`git rev-list HEAD --max-count=1`
-	docker push pachyderm/bench:`git rev-list HEAD --max-count=1`
-
 docker-tag: install
 	docker tag pachyderm/pachd pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
 	docker tag pachyderm/worker pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
@@ -155,50 +142,6 @@ docker-tag: install
 docker-push: docker-tag
 	docker push pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
 	docker push pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
-
-launch-bench:
-	@# Make launches each process in its own shell process, so we have to structure
-	@# these to run these as one command
-	ID=$$( etc/testing/deploy/$(BENCH_CLOUD_PROVIDER).sh --create | tail -n 1); \
-	@echo To delete this cluster, run etc/testing/deploy/$(BENCH_CLOUD_PROVIDER).sh --delete=$${ID}; \
-	echo etc/testing/deploy/$(BENCH_CLOUD_PROVIDER).sh --delete=$${ID} >./clean_current_bench_cluster.sh; \
-	until timeout 10s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done; \
-	cat ~/.kube/config;
-
-clean-launch-bench:
-	./clean_current_bench_cluster.sh || true
-
-install-bench: install
-	@# Since bench is run as sudo, pachctl needs to be under
-	@# the secure path
-	rm /usr/local/bin/pachctl || true
-	[ -f /usr/local/bin/pachctl ] || sudo ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
-
-# TODO(ys): fix this
-launch-dev-test:
-	kubectl run pachyderm-test --image=pachyderm/test:`git rev-list HEAD --max-count=1` \
-	  --rm \
-	  --restart=Never \
-	  --attach=true \
-	  -- \
-	  ./test -test.v
-
-run-bench:
-	kubectl scale --replicas=4 deploy/pachd
-	echo "waiting for pachd to scale up" && sleep 15
-	kubectl delete --ignore-not-found po/bench && \
-	    kubectl run bench \
-	        --image=pachyderm/bench:`git rev-list HEAD --max-count=1` \
-	        --image-pull-policy=Always \
-	        --restart=Never \
-	        --attach=true \
-	        -- \
-	        PACH_TEST_CLOUD=true ./test -test.v -test.bench=BenchmarkDaily -test.run=`etc/testing/passing_test_regex.sh`
-
-delete-all-launch-bench:
-	etc/testing/deploy/$(BENCH_CLOUD_PROVIDER).sh --delete-all
-
-bench: clean-launch-bench push-bench-images launch-bench run-bench clean-launch-bench
 
 launch-kube: check-kubectl
 	etc/kube/start-minikube.sh
@@ -511,17 +454,6 @@ goxc-build:
 	docker-build-test-entrypoint \
 	check-kubectl \
 	check-kubectl-connection \
-	launch-dev-bench \
-	push-bench-images \
-	docker-tag \
-	docker-push \
-	launch-bench \
-	clean-launch-bench \
-	install-bench \
-	launch-dev-test \
-	run-bench \
-	delete-all-launch-bench \
-	bench \
 	launch-kube \
 	launch-dev-vm \
 	launch-release-vm \
