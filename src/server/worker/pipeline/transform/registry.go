@@ -364,6 +364,8 @@ func (reg *registry) makeDatumTask(ctx context.Context, pj *pendingJob, numDatum
 			return nil, fmt.Errorf("job datum iterator returned nil inputs")
 		}
 
+		fmt.Printf("job datum: %v\n", inputs)
+
 		datums = append(datums, &DatumInputs{Inputs: inputs})
 
 		// If we have enough input bytes, finish the task

@@ -1079,19 +1079,12 @@ func (d *driver) UploadOutput(
 			if err != nil {
 				return err
 			}
-			if strings.HasPrefix(realPath, dir) {
-				var pathWithInput string
-				var err error
-				if strings.HasPrefix(realPath, relPath) {
-					pathWithInput, err = filepath.Rel(relPath, realPath)
-				} else {
-					pathWithInput, err = filepath.Rel(dir, realPath)
-				}
-				if err == nil {
-					// We can only skip the upload if the real path is
-					// under /pfs, meaning that it's a file that already
-					// exists in PFS.
 
+			// We can only skip the upload if the real path is
+			// under /pfs, meaning that it's a file that already
+			// exists in PFS.
+			if strings.HasPrefix(realPath, d.InputDir()) {
+				if pathWithInput, err := filepath.Rel(dir, realPath); err == nil {
 					// The name of the input
 					inputName := strings.Split(pathWithInput, string(os.PathSeparator))[0]
 					var input *common.Input
@@ -1101,7 +1094,7 @@ func (d *driver) UploadOutput(
 						}
 					}
 					// this changes realPath from `/pfs/input/...` to `/scratch/<id>/input/...`
-					realPath = filepath.Join(relPath, pathWithInput)
+					realPath = filepath.Join(dir, pathWithInput)
 					if input != nil {
 						return filepath.Walk(realPath, func(filePath string, info os.FileInfo, err error) error {
 							if err != nil {
@@ -1113,7 +1106,7 @@ func (d *driver) UploadOutput(
 							}
 							subRelPath := filepath.Join(relPath, rel)
 							// The path of the input file
-							pfsPath, err := filepath.Rel(filepath.Join(relPath, input.Name), filePath)
+							pfsPath, err := filepath.Rel(filepath.Join(dir, input.Name), filePath)
 							if err != nil {
 								return err
 							}

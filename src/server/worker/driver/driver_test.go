@@ -23,6 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/testpachd"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
@@ -50,12 +51,12 @@ func testPipelineInfo() *pps.PipelineInfo {
 }
 
 type testEnv struct {
-	tu.MockEnv
+	testpachd.MockEnv
 	driver *driver
 }
 
 func withTestEnv(cb func(*testEnv)) error {
-	return tu.WithMockEnv(func(mockEnv *tu.MockEnv) (err error) {
+	return testpachd.WithMockEnv(func(mockEnv *testpachd.MockEnv) (err error) {
 		env := &testEnv{MockEnv: *mockEnv}
 
 		// Mock out the enterprise.GetState call that happens during driver construction

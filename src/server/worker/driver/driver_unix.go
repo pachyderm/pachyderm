@@ -48,6 +48,8 @@ func (d *driver) WithActiveData(inputs []*common.Input, dir string, cb func() er
 	return cb()
 }
 
+// splitPath will split the given path into an array containing each directory
+// component followed by the filename
 func splitPath(path string) []string {
 	result := []string{}
 	for {
