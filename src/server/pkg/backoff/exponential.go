@@ -156,11 +156,10 @@ func New10sBackOff() *ExponentialBackOff {
 	return b.withCanonicalRandomizationFactor().withReset()
 }
 
-// New60sBackOff returns a backoff that's slightly more aggressive than
-// NewExponentialBackOff. The Max Elapsed time for this backoff is 60s, and the
-// initial backoff is 100ms (instead of 500). This may be more useful for
-// watcher and controllers (e.g. the PPS master or the worker) than
-// NewExponentialBackOff
+// New60sBackOff returns a backoff identical to New10sBackOff except with a
+// longer MaxElapsedTime This may be more useful for watcher and controllers
+// (e.g. the PPS master or the worker) than New10sBackOff, which is a length of
+// time that makes more sense for the critical paths of slow RPCs (e.g. PutFile)
 func New60sBackOff() *ExponentialBackOff {
 	b := &ExponentialBackOff{
 		InitialInterval:     100 * time.Millisecond,
