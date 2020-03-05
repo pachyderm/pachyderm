@@ -9943,7 +9943,7 @@ func TestSpout(t *testing.T) {
 	// finally, let's make sure that the provenance is in a consistent state after running all of the spout tests
 	require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
 		if resp.Error != "" {
-			return errors.Errorf(resp.Error)
+			return errors.New(resp.Error)
 		}
 		return nil
 	}))
