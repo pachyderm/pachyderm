@@ -1569,6 +1569,9 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	if request.S3Out && ((request.Service != nil) || (request.Spout != nil)) {
 		return goerr.New("s3 output is not supported in spouts or services")
 	}
+	if request.S3Out && request.EnableStats {
+		return goerr.New("stats are not supported for pipelines that output via Pachyderm's S3 gateway")
+	}
 	if request.Transform == nil {
 		return fmt.Errorf("pipeline must specify a transform")
 	}
