@@ -203,17 +203,6 @@ func convert1_9Secrets(secrets []*pps1_9.Secret) []*pps.SecretMount {
 	return result
 }
 
-func copyStringSlice(ss []string) []string {
-	if ss == nil {
-		return nil
-	}
-	result := make([]string, 0, len(ss))
-	for _, s := range ss {
-		result = append(result, s)
-	}
-	return result
-}
-
 func convert1_9Transform(t *pps1_9.Transform) *pps.Transform {
 	if t == nil {
 		return nil
@@ -221,12 +210,12 @@ func convert1_9Transform(t *pps1_9.Transform) *pps.Transform {
 	return &pps.Transform{
 		Image:            t.Image,
 		Cmd:              t.Cmd,
-		ErrCmd:           copyStringSlice(t.ErrCmd),
+		ErrCmd:           t.ErrCmd,
 		Env:              t.Env,
 		Secrets:          convert1_9Secrets(t.Secrets),
 		ImagePullSecrets: t.ImagePullSecrets,
 		Stdin:            t.Stdin,
-		ErrStdin:         copyStringSlice(t.ErrStdin),
+		ErrStdin:         t.ErrStdin,
 		AcceptReturnCode: t.AcceptReturnCode,
 		Debug:            t.Debug,
 		User:             t.User,
