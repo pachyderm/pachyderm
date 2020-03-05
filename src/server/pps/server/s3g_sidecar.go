@@ -122,7 +122,7 @@ type jobHandler struct {
 	OnCreate func(ctx context.Context, jobInfo *pps.JobInfo)
 
 	// OnTerminate runs when a job ends. Should be idempotent
-	OnTerminate func(jobID string)
+	OnTerminate func(ctx context.Context, jobID string)
 }
 
 func (s *sidecarS3G) serveS3Instances() {
@@ -234,7 +234,7 @@ func NewS3InstanceCreatingJobHandler(s *sidecarS3G) *jobHandler {
 			s.servers[jobID] = server
 		},
 
-		OnTerminate: func(jobID string) {
+		OnTerminate: func(jobCtx context.Context, jobID string) {
 			s.serversMu.Lock()
 			defer s.serversMu.Unlock()
 			server, ok := s.servers[jobID]
@@ -243,13 +243,23 @@ func NewS3InstanceCreatingJobHandler(s *sidecarS3G) *jobHandler {
 			}
 
 			// kill server
-			backoff.RetryNotify(func() error {
-				return server.Close()
-			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+			b := backoff.New60sBackOff()
+			// be extra slow, because this panics if it can't release the port
+			b.MaxElapsedTime = 2 * time.Minute
+			if err := backoff.RetryNotify(func() error {
+				timeoutCtx, cancel := context.WithTimeout(jobCtx, 10*time.Second)
+				defer cancel()
+				return server.Shutdown(timeoutCtx)
+			}, b, func(err error, d time.Duration) error {
 				logrus.Errorf("could not kill sidecar s3 gateway server for job %q: %v; retrying in %v", jobID, err, d)
 				return nil
-			})
-			delete(s.servers, jobID)
+			}); err != nil {
+				// panic here instead of ignoring the error and moving on because
+				// otherwise the worker process won't release the s3 gateway port and
+				// all future s3 jobs will fail.
+				panic("could not kill sidecar s3 gateway server for job %q: %v; giving up", jobID, err)
+			}
+			delete(s.servers, jobID) // remove server from map no matter what
 		},
 	}
 }
@@ -304,7 +314,7 @@ func NewK8SServiceCreatingJobHandler(s *sidecarS3G) *jobHandler {
 			}
 		},
 
-		OnTerminate: func(jobID string) {
+		OnTerminate: func(_ context.Context, jobID string) {
 			if !ppsutil.ContainsS3Inputs(s.pipelineInfo.Input) && !s.pipelineInfo.S3Out {
 				return // Nothing to delete; this isn't an s3 pipeline (shouldn't happen)
 			}
@@ -401,7 +411,7 @@ func (h *jobHandler) processJobEvent(jobCtx context.Context, t watch.EventType, 
 		// service may never have been created (see IsErrNotFound under InspectJob
 		// below), so no error is returned if jobID is not in s.servers
 		if h.OnTerminate != nil {
-			h.OnTerminate(jobID)
+			h.OnTerminate(jobCtx, jobID)
 		}
 		return
 	}
@@ -445,7 +455,7 @@ func (h *jobHandler) processJobEvent(jobCtx context.Context, t watch.EventType, 
 	}
 	if ppsutil.IsTerminal(jobInfo.State) {
 		if h.OnTerminate != nil {
-			h.OnTerminate(jobID)
+			h.OnTerminate(jobCtx, jobID)
 		}
 		return
 	}
