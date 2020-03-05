@@ -8,10 +8,10 @@ import (
 	"os"
 	"time"
 
-	etcd "go.etcd.io/etcd/clientv3"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	log "github.com/sirupsen/logrus"
+	etcd "go.etcd.io/etcd/clientv3"
 	"google.golang.org/grpc"
 	kube "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"

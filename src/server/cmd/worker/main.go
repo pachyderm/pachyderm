@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"time"
 
-	etcd "go.etcd.io/etcd/clientv3"
 	"github.com/pachyderm/pachyderm/src/client"
 	debugclient "github.com/pachyderm/pachyderm/src/client/debug"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
@@ -23,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/worker"
+	etcd "go.etcd.io/etcd/clientv3"
 
 	log "github.com/sirupsen/logrus"
 )

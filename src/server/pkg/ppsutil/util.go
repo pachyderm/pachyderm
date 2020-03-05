@@ -29,8 +29,8 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 
-	etcd "go.etcd.io/etcd/clientv3"
 	log "github.com/sirupsen/logrus"
+	etcd "go.etcd.io/etcd/clientv3"
 	"golang.org/x/net/context"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"

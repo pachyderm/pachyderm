@@ -10,7 +10,6 @@ import (
 	"runtime/pprof"
 	"strconv"
 
-	etcd "go.etcd.io/etcd/clientv3"
 	units "github.com/docker/go-units"
 	adminclient "github.com/pachyderm/pachyderm/src/client/admin"
 	authclient "github.com/pachyderm/pachyderm/src/client/auth"
@@ -49,6 +48,7 @@ import (
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	txnserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
+	etcd "go.etcd.io/etcd/clientv3"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/tls"
 	"github.com/prometheus/client_golang/prometheus/promhttp"

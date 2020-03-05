@@ -23,9 +23,9 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	v3 "go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/etcdserver/api/v3rpc/rpctypes"
-	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"golang.org/x/net/context"
 )
 

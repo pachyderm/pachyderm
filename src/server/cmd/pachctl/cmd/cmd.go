@@ -15,7 +15,6 @@ import (
 	"time"
 	"unicode"
 
-	etcd "go.etcd.io/etcd/clientv3"
 	"github.com/fatih/color"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
@@ -38,6 +37,7 @@ import (
 	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
 	txncmds "github.com/pachyderm/pachyderm/src/server/transaction/cmds"
 	prefixed "github.com/x-cray/logrus-prefixed-formatter"
+	etcd "go.etcd.io/etcd/clientv3"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"

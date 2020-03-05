@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"path"
 
-	etcd "go.etcd.io/etcd/clientv3"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	etcd "go.etcd.io/etcd/clientv3"
 )
 
 const (

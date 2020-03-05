@@ -6,9 +6,9 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	etcd "go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/mvcc/mvccpb"
-	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
