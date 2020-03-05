@@ -236,11 +236,16 @@ func (l *logger) LogAtLevelFromDepth(request interface{}, response interface{}, 
 	if err != nil {
 		// "err" itself might be a code or even an empty struct
 		fields["error"] = err.Error()
-		if err, ok := err.(interface {
-			StackTrace() go_errors.StackTrace
-		}); ok {
+		var st go_errors.StackTrace
+		for err != nil {
+			if err, ok := err.(errors.StackTracer); ok {
+				st = err.StackTrace()
+			}
+			err = go_errors.Unwrap(err)
+		}
+		if st != nil {
 			var frames []string
-			for _, frame := range err.StackTrace() {
+			for _, frame := range st {
 				frames = append(frames, fmt.Sprintf("%+v", frame))
 			}
 			fields["stack"] = frames

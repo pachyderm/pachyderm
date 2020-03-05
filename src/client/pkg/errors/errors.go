@@ -26,3 +26,10 @@ func Callers() errors.StackTrace {
 	}
 	return st
 }
+
+// StackTracer is an interface for errors that can return stack traces.
+// Unfortuantely github.com/pkg/errors makes us define this ourselves rather
+// than defining it for us.
+type StackTracer interface {
+	StackTrace() errors.StackTrace
+}
