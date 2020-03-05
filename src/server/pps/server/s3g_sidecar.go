@@ -208,28 +208,30 @@ func NewS3InstanceCreatingJobHandler(s *sidecarS3G) *jobHandler {
 			port := s.apiServer.env.S3GatewayPort
 			strport := strconv.FormatInt(int64(port), 10)
 			var server *http.Server
-			var listener net.Listener
 			err := backoff.RetryNotify(func() error {
 				var err error
 				server, err = s3.Server(port, driver, s)
 				if err != nil {
 					return fmt.Errorf("couldn't initialize s3 gateway server: %v", err)
 				}
-				listener, err = net.Listen("tcp", ":"+strport)
-				if err != nil {
-					return fmt.Errorf("could not serve on port %q: %v", strport, err)
-				}
-				return nil
+				server.Addr = ":" + strport
 			}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
-				logrus.Errorf("error creating sidecar s3 gateway handler: %v; retrying in %v", err, d)
+				logrus.Errorf("error creating sidecar s3 gateway handler for %q: %v; retrying in %v", jobID, err, d)
 				return nil
 			})
 			if err != nil {
-				logrus.Errorf("could not create service for %q: %v", jobInfo.Job.ID, err)
-				return
+				logrus.Errorf("permanent error creating sidecar s3 gateway handler for %q: %v", jobID, err)
+				return // give up. Worker will fail the job
 			}
 			go func() {
-				server.Serve(listener)
+				for i := 0; i < 2; i++ {
+					err := server.ListenAndServe()
+					if err == nil {
+						break // server was shutdown
+					}
+					logrus.Errorf("error serving sidecar s3 gateway handler for %q: %v; strike %d/3", jobID, err, i+1)
+				}
+				return // If too many errors, the worker will fail the job
 			}()
 			s.servers[jobID] = server
 		},
