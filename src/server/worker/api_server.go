@@ -1923,7 +1923,17 @@ func (a *APIServer) worker() {
 						logger.Logf("worker could not connect to s3 gateway for %q: %v", jobInfo.Job.ID, err)
 						return nil
 					}); err != nil {
-						return fmt.Errorf("worker could not connect to s3 gateway for %q: %v", jobInfo.Job.ID, err)
+						reason := fmt.Sprintf("could not connect to s3 gateway for %q: %v", jobInfo.Job.ID, err)
+						if err := a.updateJobState(jobCtx, jobInfo, pps.JobState_JOB_FAILURE, reason); err != nil {
+							return err
+						}
+						if _, err = pachClient.PfsAPIClient.FinishCommit(jobCtx, &pfs.FinishCommitRequest{
+							Commit: jobInfo.OutputCommit,
+							Empty:  true,
+						}); err != nil && !pfsserver.IsCommitFinishedErr(err) {
+							return err
+						}
+						return nil // don't retry, just continue to next job
 					}
 				}
 				eg, ctx := errgroup.WithContext(jobCtx)
