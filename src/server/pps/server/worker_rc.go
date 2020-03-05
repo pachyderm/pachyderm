@@ -316,7 +316,7 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 		var err error
 		resourceRequests, err = ppsutil.GetRequestsResourceListFromPipeline(pipelineInfo)
 		if err != nil {
-			return nil, errors.Wrapf(err, "could not determine resource request:")
+			return nil, errors.Wrapf(err, "could not determine resource request")
 		}
 	}
 	if pipelineInfo.ResourceLimits != nil {
