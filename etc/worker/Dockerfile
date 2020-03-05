@@ -1,5 +1,5 @@
 FROM alpine:3
-WORKDIR /pach
+WORKDIR /app
 COPY --from=pachyderm_build /app/worker .
 COPY --from=pachyderm_build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY worker.sh .
