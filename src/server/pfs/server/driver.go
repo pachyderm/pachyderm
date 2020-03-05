@@ -1516,7 +1516,7 @@ func (d *driver) writeFinishedCommit(stm col.STM, commit *pfs.Commit, commitInfo
 		return err
 	}
 	if err := d.openCommits.ReadWrite(stm).Delete(commit.ID); err != nil {
-		return errors.Wrapf(err, "could not confirm that commit %s is open; this is likely a bug. err", commit.ID)
+		return errors.Wrapf(err, "could not confirm that commit %s is open; this is likely a bug", commit.ID)
 	}
 	// update the repo size if this is the head of master
 	repos := d.repos.ReadWrite(stm)
