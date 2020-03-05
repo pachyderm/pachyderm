@@ -553,11 +553,7 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 			}
 		}
 	} else {
-		if a.pipelineInfo.S3Out {
-			if err := os.RemoveAll(outPath); err != nil {
-				return "", fmt.Errorf("couldn't remove %q for s3-out pipeline: %v", outPath, err)
-			}
-		} else {
+		if !a.pipelineInfo.S3Out {
 			if err := os.MkdirAll(outPath, 0777); err != nil {
 				return "", fmt.Errorf("couldn't create %q: %v", outPath, err)
 			}
@@ -613,13 +609,10 @@ func (a *APIServer) linkData(inputs []*Input, dir string) error {
 		}
 	}
 
-	if a.pipelineInfo.S3Out {
-		// Remove /pfs/out to avoid an attractive nuisance, but we can't remove /pfs
-		// entirely, even if it's empty, as that will mess with datum cleanup
-		return os.RemoveAll(filepath.Join(client.PPSInputPrefix, "out"))
-	} else {
+	if !a.pipelineInfo.S3Out {
 		return os.Symlink(filepath.Join(dir, "out"), filepath.Join(client.PPSInputPrefix, "out"))
 	}
+	return nil
 }
 
 func (a *APIServer) unlinkData(inputs []*Input) error {
