@@ -96,7 +96,7 @@ func TestS3PipelineErrors(t *testing.T) {
 	require.Matches(t, "join", err.Error())
 }
 
-func TestS3Inputs(t *testing.T) {
+func TestS3Input(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -129,6 +129,7 @@ func TestS3Inputs(t *testing.T) {
 				Repo:   repo,
 				Branch: "master",
 				S3:     true,
+				Glob:   "/",
 			},
 		},
 		"",
@@ -159,6 +160,148 @@ func TestS3Inputs(t *testing.T) {
 	buf.Reset()
 	c.GetFile(pipeline, "master", "s3_files", 0, 0, &buf)
 	require.Matches(t, "foo", buf.String())
+
+	// Check that no service is left over
+	k := tu.GetKubeClient(t)
+	svcs, err := k.CoreV1().Services(v1.NamespaceDefault).List(metav1.ListOptions{})
+	require.NoError(t, err)
+	for _, s := range svcs.Items {
+		require.NotEqual(t, s.ObjectMeta.Name, ppsutil.SidecarS3GatewayService(jobInfo.Job.ID))
+	}
+}
+
+func TestFullS3(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	repo := tu.UniqueString(t.Name() + "_data")
+	require.NoError(t, c.CreateRepo(repo))
+
+	_, err := c.PutFile(repo, "master", "foo", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	pipeline := tu.UniqueString("Pipeline")
+	err = c.CreatePipeline(
+		pipeline,
+		"pachyderm/ubuntus3clients:v0.0.1",
+		[]string{"bash", "-x"},
+		[]string{
+			"ls -R /pfs >/pfs/out/pfs_files",
+			"aws --endpoint=${S3_ENDPOINT} s3 ls >/pfs/out/s3_buckets",
+			"aws --endpoint=${S3_ENDPOINT} s3 ls s3://input_repo >/pfs/out/s3_files",
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		&pps.Input{
+			Pfs: &pps.PFSInput{
+				Name:   "input_repo",
+				Repo:   repo,
+				Branch: "master",
+				S3:     true,
+				Glob:   "/",
+			},
+		},
+		"",
+		false,
+	)
+
+	jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jis))
+	jobInfo := jis[0]
+	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
+
+	// check files in /pfs
+	var buf bytes.Buffer
+	c.GetFile(pipeline, "master", "pfs_files", 0, 0, &buf)
+	require.True(t,
+		strings.Contains(buf.String(), "out") && !strings.Contains(buf.String(), "input_repo"),
+		"expected \"out\" but not \"input_repo\" in %q", buf.String())
+
+	// check s3 buckets
+	buf.Reset()
+	c.GetFile(pipeline, "master", "s3_buckets", 0, 0, &buf)
+	require.True(t,
+		strings.Contains(buf.String(), "input_repo") && !strings.Contains(buf.String(), "out"),
+		"expected \"input_repo\" but not \"out\" in %q", buf.String())
+
+	// Check files in input_repo
+	buf.Reset()
+	c.GetFile(pipeline, "master", "s3_files", 0, 0, &buf)
+	require.Matches(t, "foo", buf.String())
+
+	// Check that no service is left over
+	k := tu.GetKubeClient(t)
+	svcs, err := k.CoreV1().Services(v1.NamespaceDefault).List(metav1.ListOptions{})
+	require.NoError(t, err)
+	for _, s := range svcs.Items {
+		require.NotEqual(t, s.ObjectMeta.Name, ppsutil.SidecarS3GatewayService(jobInfo.Job.ID))
+	}
+}
+
+func TestS3Output(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	repo := tu.UniqueString(t.Name() + "_data")
+	require.NoError(t, c.CreateRepo(repo))
+
+	_, err := c.PutFile(repo, "master", "foo", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	pipeline := tu.UniqueString("Pipeline")
+	err = c.CreatePipeline(
+		pipeline,
+		"pachyderm/ubuntus3clients:v0.0.1",
+		[]string{"bash", "-x"},
+		[]string{
+			"ls -R /pfs | aws --endpoint=${S3_ENDPOINT} s3 - s3://out/pfs_files",
+			"aws --endpoint=${S3_ENDPOINT} s3 ls | s3 - s3://out/s3_buckets",
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		&pps.Input{
+			Pfs: &pps.PFSInput{
+				Name:   "input_repo",
+				Repo:   repo,
+				Branch: "master",
+				S3:     true,
+				Glob:   "/",
+			},
+		},
+		"",
+		false,
+	)
+
+	jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jis))
+	jobInfo := jis[0]
+	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
+
+	// check files in /pfs
+	var buf bytes.Buffer
+	c.GetFile(pipeline, "master", "pfs_files", 0, 0, &buf)
+	require.True(t,
+		!strings.Contains(buf.String(), "input_repo") && !strings.Contains(buf.String(), "out"),
+		"expected neither \"out\" nor \"input_repo\" in %q", buf.String())
+
+	// check s3 buckets
+	buf.Reset()
+	c.GetFile(pipeline, "master", "s3_buckets", 0, 0, &buf)
+	require.True(t,
+		strings.Contains(buf.String(), "out") && strings.Contains(buf.String(), "input_repo"),
+		"expected both \"input_repo\" and \"out\" in %q", buf.String())
 
 	// Check that no service is left over
 	k := tu.GetKubeClient(t)
