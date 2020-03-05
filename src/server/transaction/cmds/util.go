@@ -41,7 +41,7 @@ func requireActiveTransaction() (*transaction.Transaction, error) {
 func setActiveTransaction(txn *transaction.Transaction) error {
 	cfg, err := config.Read(false)
 	if err != nil {
-		return errors.Wrapf(err, "error reading Pachyderm config:")
+		return errors.Wrapf(err, "error reading Pachyderm config")
 	}
 	_, context, err := cfg.ActiveContext()
 	if err != nil {
