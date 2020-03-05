@@ -56,24 +56,29 @@ func PipelineRcName(name string, version uint64) string {
 // GetRequestsResourceListFromPipeline returns a list of resources that the pipeline,
 // minimally requires.
 func GetRequestsResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*v1.ResourceList, error) {
-	return getResourceListFromSpec(pipelineInfo.ResourceRequests, pipelineInfo.CacheSize)
+	return getResourceListFromSpec(pipelineInfo.ResourceRequests)
 }
 
-func getResourceListFromSpec(resources *pps.ResourceSpec, cacheSize string) (*v1.ResourceList, error) {
-	var result v1.ResourceList = make(map[v1.ResourceName]resource.Quantity)
-	cpuStr := fmt.Sprintf("%f", resources.Cpu)
-	cpuQuantity, err := resource.ParseQuantity(cpuStr)
-	if err != nil {
-		log.Warnf("error parsing cpu string: %s: %+v", cpuStr, err)
-	} else {
-		result[v1.ResourceCPU] = cpuQuantity
+func getResourceListFromSpec(resources *pps.ResourceSpec) (*v1.ResourceList, error) {
+	result := make(v1.ResourceList)
+
+	if resources.Cpu != 0 {
+		cpuStr := fmt.Sprintf("%f", resources.Cpu)
+		cpuQuantity, err := resource.ParseQuantity(cpuStr)
+		if err != nil {
+			log.Warnf("error parsing cpu string: %s: %+v", cpuStr, err)
+		} else {
+			result[v1.ResourceCPU] = cpuQuantity
+		}
 	}
 
-	memQuantity, err := resource.ParseQuantity(resources.Memory)
-	if err != nil {
-		log.Warnf("error parsing memory string: %s: %+v", resources.Memory, err)
-	} else {
-		result[v1.ResourceMemory] = memQuantity
+	if resources.Memory != "" {
+		memQuantity, err := resource.ParseQuantity(resources.Memory)
+		if err != nil {
+			log.Warnf("error parsing memory string: %s: %+v", resources.Memory, err)
+		} else {
+			result[v1.ResourceMemory] = memQuantity
+		}
 	}
 
 	if resources.Disk != "" { // needed because not all versions of k8s support disk resources
@@ -83,15 +88,6 @@ func getResourceListFromSpec(resources *pps.ResourceSpec, cacheSize string) (*v1
 		} else {
 			result[v1.ResourceEphemeralStorage] = diskQuantity
 		}
-	}
-
-	// Here we are sanity checking.  A pipeline should request at least
-	// as much memory as it needs for caching.
-	cacheQuantity, err := resource.ParseQuantity(cacheSize)
-	if err != nil {
-		log.Warnf("error parsing cache string: %s: %+v", cacheSize, err)
-	} else if cacheQuantity.Cmp(memQuantity) > 0 {
-		result[v1.ResourceMemory] = cacheQuantity
 	}
 
 	if resources.Gpu != nil {
@@ -110,7 +106,7 @@ func getResourceListFromSpec(resources *pps.ResourceSpec, cacheSize string) (*v1
 // GetLimitsResourceListFromPipeline returns a list of resources that the pipeline,
 // maximally is limited to.
 func GetLimitsResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*v1.ResourceList, error) {
-	return getResourceListFromSpec(pipelineInfo.ResourceLimits, pipelineInfo.CacheSize)
+	return getResourceListFromSpec(pipelineInfo.ResourceLimits)
 }
 
 // getNumNodes attempts to retrieve the number of nodes in the current k8s
