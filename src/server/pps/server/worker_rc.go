@@ -174,7 +174,6 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	memDefaultQuantity := resource.MustParse("64M")
 	memSidecarQuantity := resource.MustParse(options.cacheSize)
 
-
 	// possibly expose s3 gateway port in the sidecar container
 	var sidecarPorts []v1.ContainerPort
 	if options.s3GatewayPort != 0 {
@@ -253,7 +252,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 						v1.ResourceMemory: memSidecarQuantity,
 					},
 				},
-				Ports:           sidecarPorts,
+				Ports: sidecarPorts,
 			},
 		},
 		ServiceAccountName:            assets.WorkerSAName,
@@ -527,8 +526,6 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 	}
 	var s3GatewayPort int32
 	if ppsutil.ContainsS3Inputs(pipelineInfo.Input) || pipelineInfo.S3Out {
-		// TODO(msteffen) do we need a separate option for the sidecar port?
-		// env.S3GatewayPort was originally added for main pachd.
 		s3GatewayPort = int32(a.env.S3GatewayPort)
 	}
 
