@@ -9,11 +9,11 @@ package serde
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 // DecodeJSON is a convenience function that decodes json data using a
@@ -47,7 +47,7 @@ func (d *JSONDecoder) DecodeTransform(v interface{}, f func(map[string]interface
 
 	// parse transformed JSON into 'v'
 	if err := json.Unmarshal(jsonBytes, v); err != nil {
-		return fmt.Errorf("parse error while canonicalizing json: %v", err)
+		return errors.Wrapf(err, "parse error while canonicalizing json")
 	}
 	return nil
 }
@@ -69,7 +69,7 @@ func (d *JSONDecoder) DecodeProtoTransform(v proto.Message, f func(map[string]in
 	// parse transformed JSON into 'v'
 	decoder := json.NewDecoder(bytes.NewReader(jsonBytes))
 	if err := jsonpb.UnmarshalNext(decoder, v); err != nil {
-		return fmt.Errorf("error canonicalizing json while parsing to proto: %v", err)
+		return errors.Wrapf(err, "error canonicalizing json while parsing to proto")
 	}
 	return nil
 }
@@ -81,7 +81,7 @@ func (d *JSONDecoder) transformDecode(f func(map[string]interface{}) error) ([]b
 		if err == io.EOF {
 			return nil, err
 		}
-		return nil, fmt.Errorf("could not parse json: %v", err)
+		return nil, errors.Wrapf(err, "could not parse json")
 	}
 
 	// transform 'holder' (e.g. stringifying TFJob)
@@ -94,7 +94,7 @@ func (d *JSONDecoder) transformDecode(f func(map[string]interface{}) error) ([]b
 	// serialize 'holder' to json
 	jsonBytes, err := json.Marshal(holder)
 	if err != nil {
-		return nil, fmt.Errorf("serialization error while canonicalizing json: %v", err)
+		return nil, errors.Wrapf(err, "serialization error while canonicalizing json")
 	}
 	return jsonBytes, nil
 }

@@ -38,7 +38,7 @@ func Code(err error) ErrCode {
 	return hte.code
 }
 
-// errorf is analogous to fmt.Errorf, but generates hashTreeErrors instead of
+// errorf is analogous to errors.Errorf, but generates hashTreeErrors instead of
 // errorStrings.
 func errorf(c ErrCode, fmtStr string, args ...interface{}) error {
 	return &hashTreeError{
