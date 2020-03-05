@@ -40,13 +40,9 @@ func newPFSDatumIterator(pachClient *client.APIClient, input *pps.PFSInput) (Dat
 		// before all commits have inputs
 		return result, nil
 	}
-	impliedGlob := input.Glob
-	if input.S3 {
-		impliedGlob = "/"
-	}
 	fs, err := pachClient.GlobFileStream(pachClient.Ctx(), &pfs.GlobFileRequest{
 		Commit:  client.NewCommit(input.Repo, input.Commit),
-		Pattern: impliedGlob,
+		Pattern: input.Glob,
 	})
 	if err != nil {
 		return nil, err

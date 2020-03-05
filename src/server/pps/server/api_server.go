@@ -197,10 +197,10 @@ func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName str
 					return fmt.Errorf("input must specify a branch")
 				case !input.Pfs.S3 && len(input.Pfs.Glob) == 0:
 					return fmt.Errorf("input must specify a glob")
-				case input.Pfs.S3 && input.Pfs.Glob != "":
-					return fmt.Errorf("input cannot specify both 's3' and 'glob', as " +
-						"the first exposes repo contents via the S3 gateway, while the " +
-						"second exposes repo contents via the filesystem")
+				case input.Pfs.S3 && input.Pfs.Glob != "/":
+					return fmt.Errorf("inputs that set 's3' to 'true' must also set " +
+						"'glob', to \"/\", as the S3 gateway is only able to expose data " +
+						"at the commit level")
 				case input.Pfs.S3 && input.Pfs.Lazy:
 					return fmt.Errorf("input cannot specify both 's3' and 'lazy', as " +
 						"'s3' requires input data to be accessed via Pachyderm's S3 " +
