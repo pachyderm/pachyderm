@@ -1887,7 +1887,7 @@ func (a *apiServer) fixPipelineInputRepoACLs(pachClient *client.APIClient, pipel
 		})
 	}
 	if err := eg.Wait(); err != nil {
-		return errors.Wrapf(grpcutil.ScrubGRPC(eg.Wait()), "error fixing ACLs on \"%s\"'s input repos", pipelineName)
+		return errors.Wrapf(grpcutil.ScrubGRPC(err), "error fixing ACLs on \"%s\"'s input repos", pipelineName)
 	}
 	return nil
 }
