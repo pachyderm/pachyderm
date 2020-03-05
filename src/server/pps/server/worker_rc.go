@@ -163,34 +163,15 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		})
 	}
 	zeroVal := int64(0)
-	workerImage := a.workerImage
 	var securityContext *v1.PodSecurityContext
 	if a.workerUsesRoot {
 		securityContext = &v1.PodSecurityContext{RunAsUser: &zeroVal}
 	}
-	resp, err := a.env.GetPachClient(context.Background()).Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
+	_, err = a.env.GetPachClient(context.Background()).Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
 	if err != nil {
 		return v1.PodSpec{}, err
 	}
-	if resp.State != enterprise.State_ACTIVE {
-		workerImage = assets.AddRegistry("", workerImage)
-	}
 	podSpec := v1.PodSpec{
-		InitContainers: []v1.Container{
-			{
-				Name:            "init",
-				Image:           workerImage,
-				Command:         []string{"/app/worker.sh"},
-				ImagePullPolicy: v1.PullPolicy(pullPolicy),
-				VolumeMounts:    options.volumeMounts,
-				Resources: v1.ResourceRequirements{
-					Requests: v1.ResourceList{
-						v1.ResourceCPU:    cpuZeroQuantity,
-						v1.ResourceMemory: memDefaultQuantity,
-					},
-				},
-			},
-		},
 		Containers: []v1.Container{
 			{
 				Name:            client.PPSWorkerUserContainerName,
