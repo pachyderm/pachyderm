@@ -51,7 +51,7 @@ func NewLocalLogger(service string) Logger {
 }
 
 func newLogger(service string, exportStats bool) Logger {
-	l := logrus.New()
+	l := logrus.StandardLogger()
 	l.Formatter = FormatterFunc(Pretty)
 	newLogger := &logger{
 		l.WithFields(logrus.Fields{"service": service}),
@@ -195,20 +195,7 @@ func (l *logger) ReportMetric(method string, duration time.Duration, err error) 
 }
 
 func (l *logger) LogAtLevel(entry *logrus.Entry, level logrus.Level, args ...interface{}) {
-	switch level {
-	case logrus.PanicLevel:
-		entry.Panic(args)
-	case logrus.FatalLevel:
-		entry.Fatal(args)
-	case logrus.ErrorLevel:
-		entry.Error(args)
-	case logrus.WarnLevel:
-		entry.Warn(args)
-	case logrus.InfoLevel:
-		entry.Info(args)
-	case logrus.DebugLevel:
-		entry.Debug(args)
-	}
+	entry.Log(level, args)
 }
 
 func (l *logger) LogAtLevelFromDepth(request interface{}, response interface{}, err error, duration time.Duration, level logrus.Level, depth int) {
