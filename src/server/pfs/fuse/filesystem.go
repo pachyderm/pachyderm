@@ -1,7 +1,6 @@
 package fuse
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
 	"path"
@@ -13,6 +12,7 @@ import (
 	"github.com/hanwen/go-fuse/fuse/pathfs"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
