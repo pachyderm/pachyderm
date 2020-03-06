@@ -15,5 +15,8 @@ func (c *Context) EqualClusterReference(other *Context) bool {
 	if c.Namespace != other.Namespace {
 		return false
 	}
+	if c.PachdAddress != other.PachdAddress {
+		return false
+	}
 	return true
 }
