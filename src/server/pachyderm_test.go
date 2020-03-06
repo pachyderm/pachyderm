@@ -5173,14 +5173,14 @@ func TestJoinInput(t *testing.T) {
 	}
 }
 
-func TestUnionRegression4xxx(t *testing.T) {
+func TestUnionRegression4688(t *testing.T) {
 	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
-	repoA := tu.UniqueString("TestUnionRegression4xxx")
+	repoA := tu.UniqueString("TestUnionRegression4688")
 	require.NoError(t, c.CreateRepo(repoA))
 
-	repoB := tu.UniqueString("TestUnionRegression4xxx")
+	repoB := tu.UniqueString("TestUnionRegression4688")
 	require.NoError(t, c.CreateRepo(repoB))
 
 	fileName := []string{"file-0", "file-1"}
