@@ -745,8 +745,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 			files := df.DatumN(i)
 			datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
 			// recovered datums were not processed, and thus should not be skipped
-			count := recoveredDatums[a.DatumID(files)]
-			if count > 0 {
+			if count := recoveredDatums[a.DatumID(files)]; count > 0 {
 				recoveredDatums[a.DatumID(files)]--
 				continue // so we won't write them to the processed datums object
 			}
