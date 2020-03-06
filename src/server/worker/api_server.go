@@ -1246,7 +1246,7 @@ func (a *APIServer) processChunk(ctx context.Context, jobID string, low, high in
 }
 
 func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APIClient, jobInfo *pps.JobInfo, jobID string,
-	plan *Plan, logger *taggedLogger, df DatumIterator, skip map[string]uint64, useParentHashTree bool) (retErr error) {
+	plan *Plan, logger *taggedLogger, df DatumIterator, skip map[string]bool, useParentHashTree bool) (retErr error) {
 	for {
 		if err := func() error {
 			// if this worker is not responsible for a shard, it waits to be assigned one or for the job to finish
@@ -1435,13 +1435,13 @@ func (a *APIServer) getChunk(ctx context.Context, id int64, address string, fail
 	return nil
 }
 
-func (a *APIServer) computeTags(df DatumIterator, low, high int64, skip map[string]uint64, useParentHashTree bool) []*pfs.Tag {
+func (a *APIServer) computeTags(df DatumIterator, low, high int64, skip map[string]bool, useParentHashTree bool) []*pfs.Tag {
 	var tags []*pfs.Tag
 	for i := low; i < high; i++ {
 		files := df.DatumN(int(i))
 		datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
 		// Skip datum if it is in the parent hashtree and the parent hashtree is being used in the merge
-		if _, ok := skip[datumHash]; ok && useParentHashTree {
+		if skip[datumHash] && useParentHashTree {
 			continue
 		}
 		tags = append(tags, client.NewTag(datumHash))
@@ -1846,7 +1846,7 @@ func (a *APIServer) worker() {
 				}
 
 				// Compute the datums to skip
-				skip := make(map[string]uint64)
+				skip := make(map[string]bool)
 				var useParentHashTree bool
 				if err := logger.LogStep("computing datums to skip", func() error {
 					parentCommitInfo, err := a.getParentCommitInfo(jobCtx, pachClient, jobInfo.OutputCommit)
@@ -1855,32 +1855,25 @@ func (a *APIServer) worker() {
 					}
 					if parentCommitInfo != nil {
 						var err error
-						skip, err = a.getDatumMap(jobCtx, pachClient, parentCommitInfo.Datums)
+						parentCounts, err := a.getDatumMap(jobCtx, pachClient, parentCommitInfo.Datums)
 						if err != nil {
 							return err
 						}
-						var count int
+
 						for i := 0; i < df.Len(); i++ {
 							files := df.DatumN(i)
 							datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
-							if _, ok := skip[datumHash]; ok {
-								count++
+							if _, ok := parentCounts[datumHash]; ok {
+								parentCounts[datumHash]--
 							}
 						}
 
-						// We cannot use the parent hashtree if there are any duplicated
-						// datums because we cannot guarantee that these datums will be
-						// added the correct number of times by each chunk in the plan.
-						multiDatums := false
-						for _, datumCount := range skip {
-							if datumCount > 1 {
-								multiDatums = true
-								break
+						useParentHashTree = true
+						for hash, count := range parentCounts {
+							skip[hash] = true
+							if count != 0 {
+								useParentHashTree = false
 							}
-						}
-
-						if !multiDatums && len(skip) == count {
-							useParentHashTree = true
 						}
 					}
 					return nil
@@ -1973,7 +1966,7 @@ func (a *APIServer) claimShard(ctx context.Context) {
 // returns the id of the failed datum it also may return a variety of errors
 // such as network errors.
 func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo,
-	df DatumIterator, low, high int64, skip map[string]uint64, useParentHashTree bool) (result *processResult, retErr error) {
+	df DatumIterator, low, high int64, skip map[string]bool, useParentHashTree bool) (result *processResult, retErr error) {
 	defer func() {
 		if err := a.datumCache.Clear(); err != nil && retErr == nil {
 			logger.Logf("error clearing datum cache: %v", err)
@@ -2010,7 +2003,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 			}
 			// Hash inputs
 			tag := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, data)
-			if _, ok := skip[tag]; ok {
+			if skip[tag] {
 				if !useParentHashTree {
 					if err := a.cacheHashtree(pachClient, tag, datumIdx); err != nil {
 						return err
