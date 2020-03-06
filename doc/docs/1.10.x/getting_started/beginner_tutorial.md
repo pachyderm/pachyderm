@@ -106,7 +106,7 @@ We can check to make sure the data we just added is in Pachyderm.
 
   **System response:**
 
-  ```bash
+  ```
   NAME   CREATED            SIZE (MASTER)
   images About a minute ago 57.27KiB
   ```
@@ -119,7 +119,7 @@ We can check to make sure the data we just added is in Pachyderm.
 
   **System response:**
 
-  ```bash
+  ```
   REPO   COMMIT                           PARENT STARTED        DURATION           SIZE
   images d89758a7496a4c56920b0eaa7d7d3255 <none> 29 seconds ago Less than a second 57.27KiB
   ```
@@ -132,7 +132,7 @@ We can check to make sure the data we just added is in Pachyderm.
 
   **System response:**
 
-  ```bash
+  ```
   COMMIT                           NAME         TYPE COMMITTED          SIZE 
   d89758a7496a4c56920b0eaa7d7d3255 /liberty.png file About a minute ago 57.27KiB
   ```
@@ -268,7 +268,7 @@ pachctl list job
 
 **System response:**
 
-```
+```bash
 ID                               PIPELINE STARTED        DURATION           RESTART PROGRESS  DL       UL       STATE
 0f6a53829eeb4ca193bb7944fe693700 edges    16 seconds ago Less than a second 0       1 + 0 / 1 57.27KiB 22.22KiB success
 ```
@@ -336,7 +336,7 @@ new outputs.
 
 View the list of jobs that have started:
 
-```bash
+``` bash
 pachctl list job
 ```
 
@@ -435,11 +435,11 @@ current HEAD commits of the input repos:
 
 ```bash
 pachctl list job
- ```
+```
 
 **System response:**
 
-```
+```bash
 ID                                  STARTED        DURATION           RESTART PROGRESS  DL       UL       STATE
 92cecc40c3144fd5b4e07603bb24b104    45 seconds ago 6 seconds          0       1 + 0 / 1 371.9KiB 1.284MiB success
 81ae47a802f14038b95f8f248cddbed2    2 minutes ago  Less than a second 0       1 + 2 / 3 102.4KiB 74.21KiB success
