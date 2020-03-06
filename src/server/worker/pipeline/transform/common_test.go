@@ -7,7 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
-	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/testpachd"
 	"github.com/pachyderm/pachyderm/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
 )
@@ -41,7 +41,7 @@ func defaultPipelineInfo() *pps.PipelineInfo {
 }
 
 type testEnv struct {
-	*tu.RealEnv
+	*testpachd.RealEnv
 	logger *logs.MockLogger
 	driver driver.Driver
 }
@@ -49,7 +49,7 @@ type testEnv struct {
 // withTestEnv provides a test env with etcd and pachd instances and connected
 // clients, plus a worker driver for performing worker operations.
 func withTestEnv(pipelineInfo *pps.PipelineInfo, cb func(*testEnv) error) error {
-	return tu.WithRealEnv(func(realEnv *tu.RealEnv) error {
+	return testpachd.WithRealEnv(func(realEnv *testpachd.RealEnv) error {
 		logger := logs.NewMockLogger()
 		workerDir := filepath.Join(realEnv.Directory, "worker")
 		driver, err := driver.NewDriver(

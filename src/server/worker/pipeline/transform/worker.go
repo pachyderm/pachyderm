@@ -24,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/driver"
@@ -300,7 +301,7 @@ func processDatum(
 		if err := driver.PachClient().GetTag(tag, buf); err != nil {
 			return stats, recoveredDatumTags, err
 		}
-		if err := datumCache.Put(tag, buf); err != nil {
+		if err := datumCache.Put(uuid.NewWithoutDashes(), buf); err != nil {
 			return stats, recoveredDatumTags, err
 		}
 		stats.DatumsSkipped++
@@ -362,7 +363,7 @@ func processDatum(
 			}
 
 			// Cache datum hashtree locally
-			return datumCache.Put(tag, bytes.NewReader(hashtreeBytes))
+			return datumCache.Put(uuid.NewWithoutDashes(), bytes.NewReader(hashtreeBytes))
 		})
 		return err
 	}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {

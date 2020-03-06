@@ -474,7 +474,7 @@ func (reg *registry) getDatumSet(datumsObj *pfs.Object) (_ chain.DatumSet, retEr
 			}
 			return nil, err
 		}
-		datums[string(k)] = struct{}{}
+		datums[string(k)]++
 	}
 }
 
@@ -881,7 +881,7 @@ func (pj *pendingJob) loadRecoveredDatums() (chain.DatumSet, error) {
 		}
 
 		for _, hash := range recoveredDatums.Hashes {
-			datumSet[hash] = struct{}{}
+			datumSet[hash]++
 		}
 	}
 
@@ -988,9 +988,11 @@ func (reg *registry) storeJobDatums(pj *pendingJob) (*pfs.Object, error) {
 	// Write out the datums processed/skipped and merged for this job
 	buf := &bytes.Buffer{}
 	pbw := pbutil.NewWriter(buf)
-	for hash := range pj.jdit.DatumSet() {
-		if _, err := pbw.WriteBytes([]byte(hash)); err != nil {
-			return nil, err
+	for hash, count := range pj.jdit.DatumSet() {
+		for i := uint64(0); i < count; i++ {
+			if _, err := pbw.WriteBytes([]byte(hash)); err != nil {
+				return nil, err
+			}
 		}
 	}
 	datums, _, err := pj.driver.PachClient().PutObject(buf)
