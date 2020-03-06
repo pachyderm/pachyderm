@@ -34,7 +34,7 @@ func main() {
 	//
 	// If an error occurs, don't hard-fail, but do record if any certs are
 	// known to be missing so we can inform the user.
-	if err := assets.RestoreAssets("/etc/ssl/certs", "/etc/ssl/certs"); err != nil {
+	if err := assets.RestoreAssets("/", "etc/ssl/certs"); err != nil {
 		log.Warnf("failed to inject TLS certs: %v", err)
 	}
 
