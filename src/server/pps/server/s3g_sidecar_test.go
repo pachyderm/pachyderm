@@ -10,6 +10,7 @@ package server
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -17,6 +18,8 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -31,7 +34,7 @@ import (
 // auth on or off. It reads env vars into here and adjusts tests to make sure
 // our s3 gateway feature works in those contexts
 var Namespace string
-var PachAuthToken string
+var adminToken string
 
 func init() {
 	var ok bool
@@ -39,7 +42,59 @@ func init() {
 	if !ok {
 		Namespace = v1.NamespaceDefault
 	}
-	PachAuthToken = os.Getenv("PACH_AUTH_TOKEN")
+}
+
+// TODO(msteffen) much of the point of factoring GetPachClient into testutil was
+// to avoid test-local helpers like this. For expediency, and because I don't
+// have a clear vision of how to generalize this yet, I'm subverting that vision
+// and creating a helper specific to this test that works with auth both on or
+// off. It's a simpler but more brittle implementation of the code in
+// s/s/auth/server/testing/auth_test.go. CI will not run this suite with auth
+// activated.
+//
+// At some point, we might want to factor a lot of the auth activation code out
+// of src/server/auth/server/testing/auth_test.go into a hypothetical auth
+// activation library and then factor this code into testutil (and make
+// PACH_TEST_WITH_AUTH a standard env variable across tests). Then it would be
+// easier to run all tests with auth either on or off, and we could possibly
+// wrap our auth tests in calls to this hypothetical auth activation library but
+// have them rely on the hypothetical future implementation of
+// tu.GetAuthenticatedPachClient()
+func initPachClient(t testing.TB) (*client.APIClient, string) {
+	// t.Helper()
+	c := tu.GetPachClient(t)
+	if adminToken != "" {
+		// Use the admin token to clear the cluster and get a non-admin user token,
+		// which will be returned. Note that c is shared across tests, but the pach
+		// admin token shouldn't change.
+		c.SetAuthToken(adminToken)
+	}
+	require.NoError(t, c.DeleteAll())
+	if _, ok := os.LookupEnv("PACH_TEST_WITH_AUTH"); !ok {
+		return c, ""
+	}
+	// Activate Pachyderm Enterprise (if it's not already active)
+	_, err := c.Enterprise.Activate(context.Background(),
+		&enterprise.ActivateRequest{
+			ActivationCode: tu.GetTestEnterpriseCode(),
+		})
+	require.NoError(t, err)
+	activateResp, err := c.AuthAPIClient.Activate(context.Background(),
+		&auth.ActivateRequest{Subject: "robot:admin"},
+	)
+	require.NoError(t, err)
+	c.SetAuthToken(activateResp.PachToken)
+	adminToken = activateResp.PachToken
+
+	// Create new user auth token
+	user := tu.UniqueString("user-")
+	resp, err := c.GetAuthToken(c.Ctx(), &auth.GetAuthTokenRequest{
+		Subject: user,
+	})
+	require.NoError(t, err)
+	userClient := c.WithCtx(context.Background())
+	userClient.SetAuthToken(resp.Token)
+	return userClient, resp.Token
 }
 
 func TestS3PipelineErrors(t *testing.T) {
@@ -47,8 +102,7 @@ func TestS3PipelineErrors(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	c, _ := initPachClient(t)
 
 	repo1, repo2 := tu.UniqueString(t.Name()+"_data"), tu.UniqueString(t.Name()+"_data")
 	require.NoError(t, c.CreateRepo(repo1))
@@ -122,8 +176,7 @@ func TestS3Input(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	c, userToken := initPachClient(t)
 
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(repo))
@@ -132,19 +185,23 @@ func TestS3Input(t *testing.T) {
 	require.NoError(t, err)
 
 	pipeline := tu.UniqueString("Pipeline")
-	require.NoError(t, c.CreatePipeline(
-		pipeline,
-		"pachyderm/ubuntus3clients:v0.0.1",
-		[]string{"bash", "-x"},
-		[]string{
-			"ls -R /pfs >/pfs/out/pfs_files",
-			"aws --endpoint=${S3_ENDPOINT} s3 ls >/pfs/out/s3_buckets",
-			"aws --endpoint=${S3_ENDPOINT} s3 ls s3://input_repo >/pfs/out/s3_files",
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline: client.NewPipeline(pipeline),
+		Transform: &pps.Transform{
+			Image: "pachyderm/ubuntus3clients:v0.0.1",
+			Cmd:   []string{"bash", "-x"},
+			Stdin: []string{
+				"ls -R /pfs >/pfs/out/pfs_files",
+				"aws --endpoint=${S3_ENDPOINT} s3 ls >/pfs/out/s3_buckets",
+				"aws --endpoint=${S3_ENDPOINT} s3 ls s3://input_repo >/pfs/out/s3_files",
+			},
+			Env: map[string]string{
+				"AWS_ACCESS_KEY_ID":     userToken,
+				"AWS_SECRET_ACCESS_KEY": userToken,
+			},
 		},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		&pps.Input{
+		ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
+		Input: &pps.Input{
 			Pfs: &pps.PFSInput{
 				Name:   "input_repo",
 				Repo:   repo,
@@ -153,9 +210,8 @@ func TestS3Input(t *testing.T) {
 				Glob:   "/",
 			},
 		},
-		"",
-		false,
-	))
+	})
+	require.NoError(t, err)
 
 	jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
 	require.NoError(t, err)
@@ -204,8 +260,7 @@ func TestS3Output(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	c, userToken := initPachClient(t)
 
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(repo))
@@ -222,6 +277,10 @@ func TestS3Output(t *testing.T) {
 			Stdin: []string{
 				"ls -R /pfs | aws --endpoint=${S3_ENDPOINT} s3 cp - s3://out/pfs_files",
 				"aws --endpoint=${S3_ENDPOINT} s3 ls | aws --endpoint=${S3_ENDPOINT} s3 cp - s3://out/s3_buckets",
+			},
+			Env: map[string]string{
+				"AWS_ACCESS_KEY_ID":     userToken,
+				"AWS_SECRET_ACCESS_KEY": userToken,
 			},
 		},
 		ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
@@ -279,8 +338,7 @@ func TestFullS3(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	c, userToken := initPachClient(t)
 
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(repo))
@@ -297,6 +355,10 @@ func TestFullS3(t *testing.T) {
 			Stdin: []string{
 				"ls -R /pfs | aws --endpoint=${S3_ENDPOINT} s3 cp - s3://out/pfs_files",
 				"aws --endpoint=${S3_ENDPOINT} s3 ls | aws --endpoint=${S3_ENDPOINT} s3 cp - s3://out/s3_buckets",
+			},
+			Env: map[string]string{
+				"AWS_ACCESS_KEY_ID":     userToken,
+				"AWS_SECRET_ACCESS_KEY": userToken,
 			},
 		},
 		ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
@@ -356,8 +418,7 @@ func TestS3SkippedDatums(t *testing.T) {
 	}
 	name := t.Name()
 
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	c, userToken := initPachClient(t)
 
 	t.Run("S3Inputs", func(t *testing.T) {
 		s3in := tu.UniqueString(name + "_s3_data")
@@ -374,25 +435,29 @@ func TestS3SkippedDatums(t *testing.T) {
 		require.NoError(t, err)
 
 		pipeline := tu.UniqueString("Pipeline")
-		require.NoError(t, c.CreatePipeline(
-			pipeline,
-			"pachyderm/ubuntus3clients:v0.0.1",
-			[]string{"bash", "-x"},
-			[]string{
-				fmt.Sprintf(
-					// access background repo via regular s3g (not S3_ENDPOINT, which can
-					// only access inputs)
-					"aws --endpoint=http://pachd.%s:600 s3 cp s3://master.%s/round /tmp/bg",
-					Namespace, background,
-				),
-				"aws --endpoint=${S3_ENDPOINT} s3 cp s3://s3g_in/file /tmp/s3in",
-				"cat /pfs/pfs_in/* >/tmp/pfsin",
-				"echo \"$(cat /tmp/bg) $(cat /tmp/pfsin) $(cat /tmp/s3in)\" >/pfs/out/out",
+		_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Image: "pachyderm/ubuntus3clients:v0.0.1",
+				Cmd:   []string{"bash", "-x"},
+				Stdin: []string{
+					fmt.Sprintf(
+						// access background repo via regular s3g (not S3_ENDPOINT, which can
+						// only access inputs)
+						"aws --endpoint=http://pachd.%s:600 s3 cp s3://master.%s/round /tmp/bg",
+						Namespace, background,
+					),
+					"aws --endpoint=${S3_ENDPOINT} s3 cp s3://s3g_in/file /tmp/s3in",
+					"cat /pfs/pfs_in/* >/tmp/pfsin",
+					"echo \"$(cat /tmp/bg) $(cat /tmp/pfsin) $(cat /tmp/s3in)\" >/pfs/out/out",
+				},
+				Env: map[string]string{
+					"AWS_ACCESS_KEY_ID":     userToken,
+					"AWS_SECRET_ACCESS_KEY": userToken,
+				},
 			},
-			&pps.ParallelismSpec{
-				Constant: 1,
-			},
-			&pps.Input{
+			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
+			Input: &pps.Input{
 				Cross: []*pps.Input{
 					{Pfs: &pps.PFSInput{
 						Name:   "pfs_in",
@@ -408,9 +473,8 @@ func TestS3SkippedDatums(t *testing.T) {
 						Glob:   "/",
 					}},
 				}},
-			"",
-			false,
-		))
+		})
+		require.NoError(t, err)
 
 		jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(s3in, "master")}, nil)
 		require.NoError(t, err)
@@ -524,35 +588,37 @@ func TestS3SkippedDatums(t *testing.T) {
 		require.NoError(t, c.CreateRepo(background))
 
 		pipeline := tu.UniqueString("Pipeline")
-		require.NoError(t, c.CreatePipeline(
-			pipeline,
-			"pachyderm/ubuntus3clients:v0.0.1",
-			[]string{"bash", "-x"},
-			[]string{
-				fmt.Sprintf(
-					// access background repo via regular s3g (not S3_ENDPOINT, which can
-					// only access inputs)
-					"aws --endpoint=http://pachd.%s:600 s3 cp s3://master.%s/round /tmp/bg",
-					Namespace, background,
-				),
-				"cat /pfs/in/* >/tmp/pfsin",
-				"echo \"$(cat /tmp/bg) $(cat /tmp/pfsin)\" >/pfs/out/out",
+		_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Image: "pachyderm/ubuntus3clients:v0.0.1",
+				Cmd:   []string{"bash", "-x"},
+				Stdin: []string{
+					fmt.Sprintf(
+						// access background repo via regular s3g (not S3_ENDPOINT, which can
+						// only access inputs)
+						"aws --endpoint=http://pachd.%s:600 s3 cp s3://master.%s/round /tmp/bg",
+						Namespace, background,
+					),
+					"cat /pfs/in/* >/tmp/pfsin",
+					"echo \"$(cat /tmp/bg) $(cat /tmp/pfsin)\" >/pfs/out/out",
+				},
+				Env: map[string]string{
+					"AWS_ACCESS_KEY_ID":     userToken,
+					"AWS_SECRET_ACCESS_KEY": userToken,
+				},
 			},
-			&pps.ParallelismSpec{
-				Constant: 1,
+			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
+			Input: &pps.Input{
+				Pfs: &pps.PFSInput{
+					Name:   "in",
+					Repo:   repo,
+					Branch: "master",
+					Glob:   "/*",
+				},
 			},
-			&pps.Input{
-				Cross: []*pps.Input{
-					{Pfs: &pps.PFSInput{
-						Name:   "in",
-						Repo:   repo,
-						Branch: "master",
-						Glob:   "/*",
-					}},
-				}},
-			"",
-			false,
-		))
+		})
+		require.NoError(t, err)
 
 		// Add files to 'repo'. Old files in 'repo' should be reprocessed in every
 		// job, changing the 'background' field in the output
