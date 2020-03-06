@@ -38,4 +38,4 @@ Mgoogle/protobuf/any.proto=github.com/gogo/protobuf/types,\
     "${i}" >/dev/stderr
 done
 
-find src -regex ".*\.go" -print0 | xargs tar cf -
+find src -regex ".*\.go" -print0 | xargs -0 tar cf -
