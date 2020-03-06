@@ -24,23 +24,23 @@ pipeline and shut down when the pipeline is destroyed.
 
 Pipelines exposed through a sidecar S3 gateway have the following limitations:
 
-* Because of PFS limitations, you cannot write to the input repos exposed
-through the S3 gateway instance. Similarly, you cannot read files from
-the output bucket that you enabled by using the `s3_out` parameter in the
-pipeline spec. This limitation guarantees that pipeline provenance is
-preserved.
+* As with a standard Pachyderm pipeline, in which the input repo is read-only
+and output is write-only, the same applies to using the S3 gateway within
+pipelines. The input bucket(s) are read-only and the output bucket that
+you define using the `s3_out` parameter is write-only. This limitation
+guarantees that pipeline provenance is preserved just as it is with normal
+Pachyderm pipelines.
 
 * The `glob` field in the pipeline spec should not be specified. The glob
 pattern is automatically set to `\` and all files are processed as a single
 datum. In this configuration, already processed datums are not skipped which
-could be a performance consideration for some deployments.
+could be an important performance consideration for some processing steps.
 
-* Join and union inputs are not supported, but you can create union or
-specify an individual input.
+* Join and union inputs are not supported, but you can create a cross or
+a single input.
 
-While you cannot create a join, you can create a union of an S3-enabled
-input with a non-S3 input. For a non-S3 input you can still specify a
-glob pattern.
+* You can create a cross of an S3-enabled input with a non-S3 input.
+For a non-S3 input in such a cross you can still specify a glob pattern.
 
 ## Expose a Pipeline through an S3 Gateway in a Sidecar
 

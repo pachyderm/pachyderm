@@ -1,6 +1,6 @@
 # Configure the S3 client
 
-Before you can work with the S3 gateway, configure your S3 client
+Before you can work with the S3 gateway, you need to configure your S3 client
 to access Pachyderm. Complete the steps in one of the sections below that
 correspond to your S3 client.
 
