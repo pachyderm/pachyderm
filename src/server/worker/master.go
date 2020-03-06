@@ -149,7 +149,7 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 				return err
 			}
 			if !ppsutil.IsTerminal(ji.State) {
-				if len(commitInfo.Trees) == 0 {
+				if commitInfo.Trees == nil {
 					if err := a.updateJobState(pachClient.Ctx(), ji,
 						pps.JobState_JOB_KILLED, "output commit is finished without data, but job state has not been updated"); err != nil {
 						return fmt.Errorf("could not kill job with finished output commit: %v", err)
