@@ -120,7 +120,7 @@ type jobHandler struct {
 	// OnCreate runs when a job is created. Should be idempotent.
 	OnCreate func(ctx context.Context, jobInfo *pps.JobInfo)
 
-	// OnTerminate runs when a job ends. Should be idempotent
+	// OnTerminate runs when a job ends. Should be idempotent.
 	OnTerminate func(ctx context.Context, jobID string)
 }
 
