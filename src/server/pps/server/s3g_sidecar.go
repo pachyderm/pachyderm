@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"net"
 	"net/http"
 	"path"
 	"strconv"
@@ -215,6 +214,7 @@ func NewS3InstanceCreatingJobHandler(s *sidecarS3G) *jobHandler {
 					return fmt.Errorf("couldn't initialize s3 gateway server: %v", err)
 				}
 				server.Addr = ":" + strport
+				return nil
 			}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
 				logrus.Errorf("error creating sidecar s3 gateway handler for %q: %v; retrying in %v", jobID, err, d)
 				return nil
@@ -259,7 +259,7 @@ func NewS3InstanceCreatingJobHandler(s *sidecarS3G) *jobHandler {
 				// panic here instead of ignoring the error and moving on because
 				// otherwise the worker process won't release the s3 gateway port and
 				// all future s3 jobs will fail.
-				panic("could not kill sidecar s3 gateway server for job %q: %v; giving up", jobID, err)
+				panic(fmt.Sprintf("could not kill sidecar s3 gateway server for job %q: %v; giving up", jobID, err))
 			}
 			delete(s.servers, jobID) // remove server from map no matter what
 		},
@@ -406,8 +406,6 @@ establish_watch:
 }
 
 func (h *jobHandler) processJobEvent(jobCtx context.Context, t watch.EventType, jobID string) {
-	logrus.Infof("sidecar s3 gateway processing job event %s %s\n",
-		[]string{"PUT", "DELETE", "ERROR"}[t], jobID)
 	if t == watch.EventDelete {
 		// Job was deleted, e.g. because input commit was deleted. Note that the
 		// service may never have been created (see IsErrNotFound under InspectJob
