@@ -1955,11 +1955,13 @@ func (a *APIServer) worker() {
 						)
 					})
 				})
-				eg.Go(func() error {
-					return logger.LogStep("merge worker", func() error {
-						return a.mergeDatums(ctx, pachClient, jobInfo, jobID, plan, logger, df, skip, useParentHashTree)
+				if !a.pipelineInfo.S3Out {
+					eg.Go(func() error {
+						return logger.LogStep("merge worker", func() error {
+							return a.mergeDatums(ctx, pachClient, jobInfo, jobID, plan, logger, df, skip, useParentHashTree)
+						})
 					})
-				})
+				}
 				if err := eg.Wait(); err != nil {
 					if jobCtx.Err() == context.Canceled {
 						return nil
@@ -2189,10 +2191,11 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				}
 				atomic.AddUint64(&subStats.DownloadBytes, uint64(downSize))
 				a.reportDownloadSizeStats(float64(downSize), logger)
-				if a.pipelineInfo.S3Out {
-					return nil // no output to upload if using s3 gateway for output
+				if !a.pipelineInfo.S3Out {
+					// Only upload output for jobs not writing via the S3 gateway
+					return a.uploadOutput(pachClient, dir, tag, logger, data, subStats, outputTree, datumIdx)
 				}
-				return a.uploadOutput(pachClient, dir, tag, logger, data, subStats, outputTree, datumIdx)
+				return nil
 			}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
 				if isDone(ctx) {
 					return ctx.Err() // timeout or cancelled job, err out and don't retry
@@ -2279,9 +2282,11 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 		return nil, err
 	}
 	result.datumsProcessed = high - low - result.datumsSkipped - result.datumsFailed - result.datumsRecovered
-	// Merge datum hashtrees into a chunk hashtree, then cache it.
-	if err := a.mergeChunk(logger, high, result); err != nil {
-		return nil, err
+	if !a.pipelineInfo.S3Out {
+		// Merge datum hashtrees into a chunk hashtree, then cache it.
+		if err := a.mergeChunk(logger, high, result); err != nil {
+			return nil, err
+		}
 	}
 	return result, nil
 }
