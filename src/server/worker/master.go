@@ -680,50 +680,6 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 				return err
 			}
 		}
-		if err := a.updateJobState(ctx, jobInfo, pps.JobState_JOB_MERGING, ""); err != nil {
-			return err
-		}
-		var trees []*pfs.Object
-		var size uint64
-		var statsTrees []*pfs.Object
-		var statsSize uint64
-		if failedDatumID == "" || jobInfo.EnableStats {
-			// Wait for all merges to happen.
-			merges := a.merges(jobInfo.Job.ID).ReadOnly(ctx)
-			for merge := int64(0); merge < plan.Merges; merge++ {
-				mergeState := &MergeState{}
-				if err := merges.WatchOneF(fmt.Sprint(merge), func(e *watch.Event) error {
-					var key string
-					if err := e.Unmarshal(&key, mergeState); err != nil {
-						return err
-					}
-					if key != fmt.Sprint(merge) {
-						return nil
-					}
-					if mergeState.State != State_RUNNING {
-						trees = append(trees, mergeState.Tree)
-						size += mergeState.SizeBytes
-						statsTrees = append(statsTrees, mergeState.StatsTree)
-						statsSize += mergeState.StatsSizeBytes
-						return errutil.ErrBreak
-					}
-					return nil
-				}); err != nil {
-					return err
-				}
-			}
-		}
-		if jobInfo.EnableStats {
-			if jobInfo.StatsCommit == nil {
-				logger.Logf("stats are enabled, but the job has a nil stats commit")
-			} else if _, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
-				Commit:    jobInfo.StatsCommit,
-				Trees:     statsTrees,
-				SizeBytes: statsSize,
-			}); err != nil && !pfsserver.IsCommitFinishedErr(err) {
-				return err
-			}
-		}
 		// If the job failed we finish the commit with an empty tree but only
 		// after we've set the state, otherwise the job will be considered
 		// killed.
@@ -758,13 +714,63 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		if err != nil {
 			return err
 		}
-		// Finish the job's output commit
-		_, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
-			Commit:    jobInfo.OutputCommit,
-			Trees:     trees,
-			SizeBytes: size,
-			Datums:    datums,
-		})
+		oc := jobInfo.OutputCommit
+		logger.Logf("finishing output commit %v@%v", oc.Repo.Name, oc.ID)
+		if a.pipelineInfo.S3Out {
+			err = pachClient.FinishCommit(oc.Repo.Name, oc.ID)
+		} else {
+			if err := a.updateJobState(ctx, jobInfo, pps.JobState_JOB_MERGING, ""); err != nil {
+				return err
+			}
+			var trees []*pfs.Object
+			var size uint64
+			var statsTrees []*pfs.Object
+			var statsSize uint64
+			if failedDatumID == "" || jobInfo.EnableStats {
+				// Wait for all merges to happen.
+				merges := a.merges(jobInfo.Job.ID).ReadOnly(ctx)
+				for merge := int64(0); merge < plan.Merges; merge++ {
+					mergeState := &MergeState{}
+					if err := merges.WatchOneF(fmt.Sprint(merge), func(e *watch.Event) error {
+						var key string
+						if err := e.Unmarshal(&key, mergeState); err != nil {
+							return err
+						}
+						if key != fmt.Sprint(merge) {
+							return nil
+						}
+						if mergeState.State != State_RUNNING {
+							trees = append(trees, mergeState.Tree)
+							size += mergeState.SizeBytes
+							statsTrees = append(statsTrees, mergeState.StatsTree)
+							statsSize += mergeState.StatsSizeBytes
+							return errutil.ErrBreak
+						}
+						return nil
+					}); err != nil {
+						return err
+					}
+				}
+			}
+			if jobInfo.EnableStats {
+				if jobInfo.StatsCommit == nil {
+					logger.Logf("stats are enabled, but the job has a nil stats commit")
+				} else if _, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+					Commit:    jobInfo.StatsCommit,
+					Trees:     statsTrees,
+					SizeBytes: statsSize,
+				}); err != nil && !pfsserver.IsCommitFinishedErr(err) {
+					return err
+				}
+			}
+			// Finish the job's output commit
+			_, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+				Commit:    oc,
+				Trees:     trees,
+				SizeBytes: size,
+				Datums:    datums,
+			})
+		}
 		if err != nil && !pfsserver.IsCommitFinishedErr(err) {
 			if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
 				// output commit was deleted during e.g. FinishCommit, which means this job
