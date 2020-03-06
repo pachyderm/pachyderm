@@ -343,7 +343,7 @@ func (h *jobHandler) start() {
 	defer func() {
 		logrus.Errorf("sidecar s3 gateway: start() is exiting; this should not happen")
 		panic(
-			fmt.Sprintf("!sidecar s3 gateway start() is exiting; this should never happen"),
+			fmt.Sprintf("sidecar s3 gateway start() is exiting; this should never happen"),
 		)
 	}()
 establish_watch:
