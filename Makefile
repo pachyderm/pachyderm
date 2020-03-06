@@ -101,7 +101,7 @@ point-release:
 release-candidate:
 	@if [ "$(shell echo $(VERSION_ADDITIONAL) | head -c 1)" != "-" ]; \
 	then \
-	  echo "VERSION_ADDITIONAL must be specified and start with a \"-\" character. Eg. make VERSION_ADDITIONAL=-rc2 release-custom"; \
+	  echo "VERSION_ADDITIONAL must be specified and start with a \"-\" character. Eg make VERSION_ADDITIONAL=-rc2 release-custom"; \
 	  exit 1; \
 	fi
 	@make release-helper
