@@ -1246,7 +1246,7 @@ func (a *APIServer) processChunk(ctx context.Context, jobID string, low, high in
 }
 
 func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APIClient, jobInfo *pps.JobInfo, jobID string,
-	plan *Plan, logger *taggedLogger, df DatumIterator, skip map[string]bool, useParentHashTree bool) (retErr error) {
+	plan *Plan, logger *taggedLogger, df DatumIterator, skip map[string]uint64, useParentHashTree bool) (retErr error) {
 	for {
 		if err := func() error {
 			// if this worker is not responsible for a shard, it waits to be assigned one or for the job to finish
@@ -1435,13 +1435,13 @@ func (a *APIServer) getChunk(ctx context.Context, id int64, address string, fail
 	return nil
 }
 
-func (a *APIServer) computeTags(df DatumIterator, low, high int64, skip map[string]bool, useParentHashTree bool) []*pfs.Tag {
+func (a *APIServer) computeTags(df DatumIterator, low, high int64, skip map[string]uint64, useParentHashTree bool) []*pfs.Tag {
 	var tags []*pfs.Tag
 	for i := low; i < high; i++ {
 		files := df.DatumN(int(i))
 		datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
 		// Skip datum if it is in the parent hashtree and the parent hashtree is being used in the merge
-		if skip[datumHash] && useParentHashTree {
+		if _, ok := skip[datumHash]; ok && useParentHashTree {
 			continue
 		}
 		tags = append(tags, client.NewTag(datumHash))
@@ -1611,7 +1611,7 @@ func (a *APIServer) getHashtrees(ctx context.Context, pachClient *client.APIClie
 	return rs, nil
 }
 
-func (a *APIServer) getDatumMap(ctx context.Context, pachClient *client.APIClient, object *pfs.Object) (_ map[string]bool, retErr error) {
+func (a *APIServer) getDatumMap(ctx context.Context, pachClient *client.APIClient, object *pfs.Object) (_ map[string]uint64, retErr error) {
 	if object == nil {
 		return nil, nil
 	}
@@ -1625,7 +1625,7 @@ func (a *APIServer) getDatumMap(ctx context.Context, pachClient *client.APIClien
 		}
 	}()
 	pbr := pbutil.NewReader(r)
-	datums := make(map[string]bool)
+	datums := make(map[string]uint64)
 	for {
 		k, err := pbr.ReadBytes()
 		if err != nil {
@@ -1634,7 +1634,7 @@ func (a *APIServer) getDatumMap(ctx context.Context, pachClient *client.APIClien
 			}
 			return nil, err
 		}
-		datums[string(k)] = true
+		datums[string(k)]++
 	}
 	return datums, nil
 }
@@ -1846,7 +1846,7 @@ func (a *APIServer) worker() {
 				}
 
 				// Compute the datums to skip
-				skip := make(map[string]bool)
+				skip := make(map[string]uint64)
 				var useParentHashTree bool
 				if err := logger.LogStep("computing datums to skip", func() error {
 					parentCommitInfo, err := a.getParentCommitInfo(jobCtx, pachClient, jobInfo.OutputCommit)
@@ -1863,11 +1863,23 @@ func (a *APIServer) worker() {
 						for i := 0; i < df.Len(); i++ {
 							files := df.DatumN(i)
 							datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
-							if skip[datumHash] {
+							if _, ok := skip[datumHash]; ok {
 								count++
 							}
 						}
-						if len(skip) == count {
+
+						// We cannot use the parent hashtree if there are any duplicated
+						// datums because we cannot guarantee that these datums will be
+						// added the correct number of times by each chunk in the plan.
+						multiDatums := false
+						for _, datumCount := range skip {
+							if datumCount > 1 {
+								multiDatums = true
+								break
+							}
+						}
+
+						if !multiDatums && len(skip) == count {
 							useParentHashTree = true
 						}
 					}
@@ -1961,7 +1973,7 @@ func (a *APIServer) claimShard(ctx context.Context) {
 // returns the id of the failed datum it also may return a variety of errors
 // such as network errors.
 func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo,
-	df DatumIterator, low, high int64, skip map[string]bool, useParentHashTree bool) (result *processResult, retErr error) {
+	df DatumIterator, low, high int64, skip map[string]uint64, useParentHashTree bool) (result *processResult, retErr error) {
 	defer func() {
 		if err := a.datumCache.Clear(); err != nil && retErr == nil {
 			logger.Logf("error clearing datum cache: %v", err)
@@ -1998,7 +2010,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 			}
 			// Hash inputs
 			tag := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, data)
-			if skip[tag] {
+			if _, ok := skip[tag]; ok {
 				if !useParentHashTree {
 					if err := a.cacheHashtree(pachClient, tag, datumIdx); err != nil {
 						return err
