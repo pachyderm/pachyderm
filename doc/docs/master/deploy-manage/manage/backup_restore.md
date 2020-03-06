@@ -5,106 +5,200 @@ back up and restore the state of a Pachyderm cluster.
 
 The `pachctl extract` command requires that all pipeline and data loading
 activity into Pachyderm stop before the extract occurs. This enables
-Pachyderm to create a consistent, point-in-time backup.  In this document, we'll talk about how to create such a backup and restore it to another Pachyderm instance.
+Pachyderm to create a consistent, point-in-time backup.
 
-Extract and restore commands are currently used to migrate between minor and major releases of Pachyderm, so it's important to understand how to perform them properly.   In addition, there are a few design points and operational techniques that data engineers should take into consideration when creating complex pachyderm deployments to minimize disruptions to production pipelines.
+Extract and restore commands are used to migrate between minor
+and major releases of Pachyderm. In addition, there are a few design
+points and operational techniques that data engineers should take
+into consideration when creating complex pachyderm deployments to
+minimize disruptions to production pipelines.
 
-In this document, we'll take you through the steps to backup and restore a cluster, migrate an existing cluster to a newer minor or major release, and elaborate on some of those design and operations considerations.
+Backing up Pachyderm involves the persistent volume (PV) that
+`etcd` uses for administrative data and the object store bucket that
+holds Pachyderm's actual data.
+Restoring involves populating that PV and object store with data to
+recreate a Pachyderm cluster.
 
-## Backup and restore concepts
-Backing up Pachyderm involves the persistent volume (PV) that `etcd` uses for administrative data
-and the object store bucket that holds Pachyderm's actual data. 
-Restoring involves populating that PV and object store with data to recreate a Pachyderm cluster.
+## Before You Begin
 
-## General backup procedure
+Before you begin, you need to pause all the pipelines and data operations
+that run in your cluster. You can do so either by running a multi-line
+shell script or by running the `pachctl stop pipeline` command for each
+pipeline individually.
 
-### 1. Pause all pipeline and data loading/unloading operations
+If you decide to use a shell script below, you need to have `jq` and
+`xargs` installed on your system. Also, you might need to install
+the `watch` and `kubectl` commands on your system, and configure
+`kubectl` to point at the cluster that Pachyderm is running in.
 
-Before you begin, you need to pause all pipelines and data operations.
+To stop a running pipeline, complete the following steps:
 
-#### Pausing pipelines
-From the directed acyclic graphs (DAG) that define your pachyderm cluster, stop each pipeline.  You can either run a multiline shell command, shown below, or you must, for each pipeline, manually run the `pachctl stop pipeline` command.
+1. Stop each pipeline individually by repeatedly running the following
+command:
 
-`pachctl stop pipeline <pipeline-name>`
+   ```bash
+   pachctl stop pipeline <pipeline-name>
+   ```
 
-You can confirm each pipeline is paused using the `pachctl list pipeline` command
+   * Alternatively, use this shell script that pauses all pipelines at
+   once:
 
-`pachctl list pipeline`
+   ```bash
+    pachctl list pipeline --raw \
+   | jq -r '.pipeline.name' \
+   | xargs -P3 -n1 -I{} pachctl stop pipeline {}
+   ```
 
-Alternatively, a useful shell script for running `stop pipeline` on all pipelines is included below.   It may be necessary to install the utilities used in the script, like `jq` and `xargs`, on your system.
+   * Optionally, run the `watch` command to monitor the pods
+   terminating:
 
-```
-pachctl list pipeline --raw \
-  | jq -r '.pipeline.name' \
-  | xargs -P3 -n1 -I{} pachctl stop pipeline {}
-```
+   ```bash
+   watch -n 5 kubectl get pods
+   ```
 
-It's also a useful practice, for simple to moderately complex deployments, to keep a terminal window up showing the state of all running kubernetes pods.
+1. Confirm that pipelines are paused:
 
-`watch -n 5 kubectl get pods`
+   ```bash
+   pachctl list pipeline
+   ```
 
-You may need to install the `watch` and `kubectl` commands on your system, and configure `kubectl` to point at the cluster that Pachyderm is running in.
+## Pause External Data Loading Operations
 
-#### Pausing data loading operations
+**Input repositories** or **input repos** in pachyderm are
+repositories created with the `pachctl create repo` command.
+They are designed to be the repos at the top of a directed
+acyclic graph of pipelines. Pipelines have their own output
+repos associated with them. These repos are different from
+input repos.
 
-**Input repositories** or **input repos** in pachyderm are repositories created with the `pachctl create repo` command.  They're designed to be the repos at the top of a directed acyclic graph of pipelines. Pipelines have their own output repos associated with them, and are not considered input repos. If there are any processes external to pachyderm that put data into input repos using any method (the Pachyderm APIs, `pachctl put file`, etc.), they need to be paused.  See [Loading data from other sources into pachyderm](#loading-data-from-other-sources-into-pachyderm) below for design considerations for those processes that will minimize downtime during a restore or migration.
+If you have any processes external to Pachyderm
+that put data into input repos using any supported method,
+such as the Pachyderm APIs, `pachctl put file`, or other,
+you need to pause those processes.
 
-Alternatively, you can use the following commands to stop all data loading into Pachyderm from outside processes.
+When an external system writes data into Pachyderm
+input repos, you need to provide ways of *pausing*
+output while queueing any data output
+requests to be output when the systems are *resumed*.
+This allows all Pachyderm processing to be stopped while
+the extract takes place.
 
-```
-# Once you have stopped all running pachyderm pipelines, such as with this command,
-# pachctl list pipeline --raw \
-#   | jq -r '.pipeline.name' \
-#   | xargs -P3 -n1 -I{} pachctl stop pipeline {}
+In addition, it is desirable for systems that load data
+into Pachyderm have a mechanism for replaying a queue
+from any checkpoint in time.
+This is useful when doing migrations from one release
+to another, where you want to minimize downtime
+of a production Pachyderm system. After an extract,
+the old system is kept running with the checkpoint
+established while a duplicate, upgraded Pachyderm
+cluster is being migrated with duplicated data.
+Transactions that occur while the migrated,
+upgraded cluster is being brought up are not lost.
 
-# all pipelines in your cluster should be suspended. To stop all
-# data loading processes, we're going to modify the pachd Kubernetes service so that
-# it only accepts traffic on port 30649 (instead of the usual 30650). This way,
-# any background users and services that send requests to your Pachyderm cluster
-# while 'extract' is running will not interfere with the process
-#
-# Backup the Pachyderm service spec, in case you need to restore it quickly
-kubectl get svc/pachd -o json >pach_service_backup_30650.json
+If you are not using any external way of pausing input
+from internal systems, you can use the following commands to stop
+all data loading into Pachyderm from outside processes.
+To stop all data loading processes, you need to modify
+the `pachd` Kubernetes service so that it only accepts
+traffic on port 30649 instead of the usual 30650. This way,
+any background users and services that send requests to
+your Pachyderm cluster while `pachctl extract` is
+running will not interfere with the process.
 
-# Modify the service to accept traffic on port 30649
-# Note that you'll likely also need to modify your cloud provider's firewall
-# rules to allow traffic on this port
-kubectl get svc/pachd -o json | sed 's/30650/30649/g' | kubectl apply -f -
+To pause external data loading operations, complete the
+following steps:
 
-# Modify your environment so that *you* can talk to pachd on this new port
-pachctl config update context `pachctl config get active-context` --pachd-address=<cluster ip>:30649
+1. Verify that all Pachyderm pipelines are paused:
 
-# Make sure you can talk to pachd (if not, firewall rules are a common culprit)
-pachctl version
-COMPONENT           VERSION
-pachctl             1.9.5
-pachd               1.9.5
-```
+   ```bash
+   pachctl list pipeline
+   ```
 
-### 2. Extract a pachyderm backup
+1. For safery, save the Pachyderm service spec in a `json`:
 
-You can use `pachctl extract` alone or in combination with cloning/snapshotting services.
+   ```bash
+   kubectl get svc/pachd -o json >pach_service_backup_30650.json
+   ```
 
-#### Using `pachctl extract`
+1. Modify the `pachd` service to accept traffic on port 30649:
 
-Using the `pachctl extract` command, create the backup you need.
+   ```bash
+   kubectl get svc/pachd -o json | sed 's/30650/30649/g' | kubectl apply -f -
+   ```
 
-`pachctl extract > path/to/your/backup/file`
+   Most likely, you will need to modify your cloud provider's firewall
+   rules to allow traffic on this port.
 
-You can also use the `-u` or `--url` flag to put the backup directly into an object store.
-The bucket must exist and have the same Permissions policy as the one are using for the
-existing Pachyderm cluster.
+1. Modify your environment so that you can access `pachd` on this new
+port
 
-`pachctl extract --url s3://...`
+   ```bash
+   pachctl config update context `pachctl config get active-context` --pachd-address=<cluster ip>:30649
+   ```
 
-If you are planning on backing up the object store using its own built-in clone operation, be sure to add the `--no-objects` flag to the `pachctl extract` command.
+1. Verify that you can talk to `pachd`: (if not, firewall rules are a common culprit)
 
-#### Using your cloud provider's clone and snapshot services
+   ```bash
+   pachctl version
+   COMPONENT           VERSION
+   pachctl             1.10.0
+   pachd               1.10.0
+   ```
+
+## Back up Your Pachyderm Cluster
+
+After you pause all your pipelines and external data operations,
+you can use the `pachctl extract` command to back up your data.
+You can use `pachctl extract` alone or in combination with
+cloning or snapshotting services.
+
+The backup includes the following:
+
+* Your data that is typically stored in an object store
+* Information about Pachyderm primitives, such as pipelines, repositories,
+commits, provenance and so on. This information is stored in etcd.
+
+You can back up everything in one local file or you can back up
+Pachyderm primitives in the local file and use object store's
+capabilities to clone the data itself. The latter is preferred for
+large volumes of data. Use the `--no-objects` flag to separate
+backups.
+
+In addition, you can extract your partial or full backup into a
+separate S3 bucket. The bucket must have the same permissions policy as
+the one you have configured when you originally deployed Pachyderm.
+
+To back up your Pachyderm cluster, run one of the following commands:
+
+* To create a partial back up of metada-only, run:
+
+  ```bash
+  pachctl extract --no-objects > path/to/your/backup/file
+  ```
+
+  * If you want to save this partial backup in an object store by using the
+  `--url` flag, run:
+
+    ```bash
+    pachctl extract --url s3://...
+    ```
+
+* To back up everything in one local file:
+
+  ```bash
+  pachctl extract > path/to/your/backup/file
+  ```
+
+  Similarly, this backup can be saved in an object store with the `--url`
+  flag.
+
+## Using your cloud provider's clone and snapshot services
 
 You should follow your cloud provider's recommendation
 for backing up these resources. Here are some pointers to the relevant documentation.
 
 ##### Snapshotting persistent volumes
+
 For example, here are official guides on creating snapshots of persistent volumes on Google Cloud Platform, Amazon Web Services (AWS) and Microsoft Azure, respectively:
 
 - [Creating snapshots of GCE persistent volumes](https://cloud.google.com/compute/docs/disks/create-snapshots)
@@ -114,6 +208,7 @@ For example, here are official guides on creating snapshots of persistent volume
 For on-premises Kubernetes deployments,  check the vendor documentation for your PV implementation on backing up and restoring.
 
 ##### Cloning object stores
+
 Below, we give an example using the Amazon Web Services CLI to clone one bucket to another, [taken from the documentation for that command](https://docs.aws.amazon.com/cli/latest/reference/s3/sync.html).  Similar commands are available for [Google Cloud](https://cloud.google.com/storage/docs/gsutil/commands/cp) and [Azure blob storage](https://docs.microsoft.com/en-us/azure/storage/common/storage-use-azcopy-linux?toc=%2fazure%2fstorage%2ffiles%2ftoc.json).
 
 `aws s3 sync s3://mybucket s3://mybucket2`
@@ -189,16 +284,3 @@ You can also use the `-u` or `--url` flag to get the backup directly from the ob
 
 `pachctl restore --url s3://...`
 
-
-### Loading data from other sources into Pachyderm
-
-When writing systems that place data into Pachyderm input repos (see [above](#pausing-data-loading-operations) for a definition of 'input repo'), 
-it is important to provide ways of 'pausing' output while queueing any data output requests to be output when the systems are 'resumed'.
-This allows all Pachyderm processing to be stopped while the extract takes place.
-
-In addition, it is desirable for systems that load data into Pachyderm have a mechanism for replaying a queue from any checkpoint in time.
-This is useful when doing migrations from one release to another, where you would like to minimize downtime of a production Pachyderm system. 
-After an extract, 
-the old system is kept running with the checkpoint established while a duplicate, upgraded pachyderm cluster is migrated with duplicated data. 
-Transactions that occur while the migrated, 
-upgraded cluster is being brought up are not lost, 
