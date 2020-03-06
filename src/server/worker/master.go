@@ -149,7 +149,7 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 				return err
 			}
 			if !ppsutil.IsTerminal(ji.State) {
-				if commitInfo.Trees == nil {
+				if commitInfo.Trees == nil && commitInfo.Tree == nil {
 					if err := a.updateJobState(pachClient.Ctx(), ji,
 						pps.JobState_JOB_KILLED, "output commit is finished without data, but job state has not been updated"); err != nil {
 						return fmt.Errorf("could not kill job with finished output commit: %v", err)
@@ -500,7 +500,9 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 				}
 				return err
 			}
-			if commitInfo.Trees == nil {
+			// commitInfo.Trees is set by non-S3-output jobs, while commitInfo.Tree is
+			// set by S3-output jobs
+			if commitInfo.Trees == nil && commitInfo.Tree == nil {
 				defer cancel() // whether job state update succeeds or not, job is done
 				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 					// Read an up to date version of the jobInfo so that we
