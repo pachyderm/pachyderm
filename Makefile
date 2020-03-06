@@ -101,7 +101,7 @@ point-release:
 release-candidate:
 	@if [ "$(shell echo $(VERSION_ADDITIONAL) | head -c 1)" != "-" ]; \
 	then \
-	  echo "Specify VERSION_ADDITIONAL must start with a \"-\" character"; \
+	  echo "VERSION_ADDITIONAL must be specified and start with a \"-\" character. Eg. make VERSION_ADDITIONAL=-rc2 release-custom"; \
 	  exit 1; \
 	fi
 	@make release-helper
@@ -525,7 +525,7 @@ clean: clean-launch clean-launch-kube
 doc-custom: install-doc release-version
 	@if [ -n "$(VERSION_ADDITIONAL)" ] && [ "$(shell echo $(VERSION_ADDITIONAL) | head -c 1)" != "-" ]; \
 	then \
-	  echo "Specify VERSION_ADDITIONAL must start with a \"-\" character"; \
+	  echo "If VERSION_ADDITIONAL is specified, it must start with a \"-\" character. Eg make VERSION_ADDITIONAL=-rc2 doc-custom"; \
 	  exit 1; \
 	fi
 	./etc/build/doc
