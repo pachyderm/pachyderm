@@ -5,27 +5,34 @@
     to another, such as from x.xx.0 to x.xx.1, see
     [Upgrade Pachyderm](upgrades.md).
 
-As new versions of Pachyderm are released, you may need to update your
+As new versions of Pachyderm are released, you might need to update your
 cluster to get access to bug fixes and new features.
 
-Migrations involve moving between major releases, such as 1.8.6 to
-1.9.0 or minor releases.
+Migrations involve moving between major releases, such as 1.x.x to
+2.x.x or minor releases, such as 1.9.x to 1.10.0.
 
-Pachyderm stores all of its state in two places:
+!!! tip
+    Pachyderm follows the [Semantic Versioning](https://semver.org/)
+    specification to manage the release process.
+
+Pachyderm stores all of its states in the following places:
 
 * In `etcd` which in turn stores its state in one or more persistent volumes,
-which were created when the Pachyderm cluster was deployed.
+which were created when the Pachyderm cluster was deployed. `etcd` stores
+metadata about your pipelines, repositories, and other Pachyderm primitives.
 
 * In an object store bucket, such as AWS S3, MinIO, or Azure Blob Storage.
+Actual data is stored here.
 
 In a migration, the data structures stored in those locations need to be
 read, transformed, and rewritten. Therefore, this process involves the
 following steps:
 
-1. Back up your cluster
-1. Bring up a new Pachyderm cluster adjacent to the old pachyderm cluster.
-1. Expor the old Pachdyerm cluster's repos, pipelines, and input commits.
-1. Import the old cluster's repos, commits, and pipelines into the new
+1. Back up your cluster by exporting the existing Pachyderm cluster's repos,
+pipelines, and input commits to a backup file and optionally to an S3 bucket.
+1. Bring up a new Pachyderm cluster adjacent to the old pachyderm cluster either
+in a separate namespace or in a separate Kubernetes cluster.
+1. Restore the old cluster's repos, commits, and pipelines into the new
    cluster.
 
 !!! warning
