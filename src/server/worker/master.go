@@ -782,7 +782,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		}
 		return a.updateJobState(ctx, jobInfo, pps.JobState_JOB_SUCCESS, "")
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		logger.Logf("error in waitJob %v, retrying in %v", err, d)
+		logger.Logf("error in waitJob: %v, retrying in %v", err, d)
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
