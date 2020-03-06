@@ -51,14 +51,16 @@ echo "--- Updating homebrew formula to use binaries at version $VERSION"
 
 rm -rf homebrew-tap || true
 git clone git@github.com:pachyderm/homebrew-tap
-cd homebrew-tap
+
+pushd homebrew-tap
     git checkout -b "$BRANCH" || git checkout "$BRANCH"
     VERSION=$VERSION ./update-formula.sh
     git add "pachctl@$MAJOR_MINOR.rb"
     git commit -a -m "[Automated] Update formula to release version $VERSION"
     git pull origin "$BRANCH" || true
     git push origin "$BRANCH"
-cd ..
+popd
+
 rm -rf homebrew-tap
 
 echo "--- Updating compatability file"
