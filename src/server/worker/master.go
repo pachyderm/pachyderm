@@ -637,6 +637,8 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 					chunksCol := a.chunks(jobID).ReadWrite(stm)
 					chunksCol.DeleteAll()
+					mergesCol := a.merges(jobID).ReadWrite(stm)
+					mergesCol.DeleteAll()
 					plansCol := a.plans.ReadWrite(stm)
 					return plansCol.Delete(jobID)
 				}); err != nil {
