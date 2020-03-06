@@ -5282,7 +5282,7 @@ func TestUnionRegression4688(t *testing.T) {
 	// was present or missing. The worker would then skip every datum during
 	// processing and produce an identical hashtree to the parent commit.
 
-	file0, err = c.InspectFile(outCommit.Repo.Name, outCommit.ID, fileName[0])
+	_, err = c.InspectFile(outCommit.Repo.Name, outCommit.ID, fileName[0])
 	require.YesError(t, err, "not found")
 
 	file1, err = c.InspectFile(outCommit.Repo.Name, outCommit.ID, fileName[1])
