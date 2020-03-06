@@ -117,7 +117,7 @@ func (a *apiServer) ServeSidecarS3G() {
 type jobHandler struct {
 	s3g *sidecarS3G
 
-	// OnCreate runs when a job is created. Should be idempotent
+	// OnCreate runs when a job is created. Should be idempotent.
 	OnCreate func(ctx context.Context, jobInfo *pps.JobInfo)
 
 	// OnTerminate runs when a job ends. Should be idempotent
