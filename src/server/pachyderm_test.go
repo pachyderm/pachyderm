@@ -5234,10 +5234,6 @@ func TestUnionRegression4688(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(fileInfos))
 
-	for _, fi := range fileInfos {
-		fmt.Printf("file path: %v, size: %v\n", fi.File.Path, fi.SizeBytes)
-	}
-
 	file0, err := c.InspectFile(outCommit.Repo.Name, outCommit.ID, fileName[0])
 	require.NoError(t, err)
 	require.Equal(t, uint64(2), file0.SizeBytes)
@@ -5277,7 +5273,7 @@ func TestUnionRegression4688(t *testing.T) {
 	outCommit = commitInfos[0].Commit
 	fileInfos, err = c.ListFile(outCommit.Repo.Name, outCommit.ID, "")
 	require.NoError(t, err)
-	require.Equal(t, 2, len(fileInfos))
+	require.Equal(t, 1, len(fileInfos))
 
 	// Regression testing for a bug in skipping datums which did not handle
 	// identical datums very well (which is very possible in a union pipeline). It
@@ -5287,8 +5283,7 @@ func TestUnionRegression4688(t *testing.T) {
 	// processing and produce an identical hashtree to the parent commit.
 
 	file0, err = c.InspectFile(outCommit.Repo.Name, outCommit.ID, fileName[0])
-	require.NoError(t, err)
-	require.Equal(t, uint64(0), file0.SizeBytes)
+	require.YesError(t, err, "not found")
 
 	file1, err = c.InspectFile(outCommit.Repo.Name, outCommit.ID, fileName[1])
 	require.NoError(t, err)
