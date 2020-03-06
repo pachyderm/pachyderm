@@ -104,6 +104,9 @@ docker-build-gpu:
 docker-build-kafka:
 	docker build -t kafka-demo etc/testing/kafka
 
+docker-build-spout-test:
+	docker build -t spout-test etc/testing/spout
+
 docker-push-gpu:
 	docker push pachyderm/nvidia_driver_install
 

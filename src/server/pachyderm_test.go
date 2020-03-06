@@ -10352,6 +10352,44 @@ func TestSpout(t *testing.T) {
 		require.YesError(t, err)
 	})
 
+	t.Run("SpoutRapidOpenClose", func(t *testing.T) {
+		dataRepo := tu.UniqueString("TestSpoutRapidOpenClose_data")
+		require.NoError(t, c.CreateRepo(dataRepo))
+
+		// create a spout pipeline
+		pipeline := tu.UniqueString("pipelinespoutroc")
+		_, err := c.PpsAPIClient.CreatePipeline(
+			c.Ctx(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Image: "spout-test:latest",
+					Cmd:   []string{"go", "run", "./main.go"},
+				},
+				Spout: &pps.Spout{}, // this needs to be non-nil to make it a spout
+			})
+		require.NoError(t, err)
+
+		// get 10 succesive commits, and ensure that the each file name we expect appears without any skips
+		iter, err := c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED)
+		require.NoError(t, err)
+
+		for i := 0; i < 10; i++ {
+			commitInfo, err := iter.Next()
+			require.NoError(t, err)
+			files, err := c.ListFile(pipeline, commitInfo.Commit.ID, "")
+			require.NoError(t, err)
+			require.Equal(t, i+1, len(files))
+			var buf bytes.Buffer
+			err = c.GetFile(pipeline, "master", fmt.Sprintf("test%v", i), 0, 0, &buf)
+			if err != nil {
+				t.Errorf("Could not get file %v", err)
+			}
+		}
+
+		require.NoError(t, c.DeleteAll())
+	})
+
 	// finally, let's make sure that the provenance is in a consistent state after running all of the spout tests
 	require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
 		if resp.Error != "" {

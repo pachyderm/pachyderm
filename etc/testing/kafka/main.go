@@ -3,6 +3,7 @@ package main
 import (
 	"archive/tar"
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -10,44 +11,62 @@ import (
 	kafka "github.com/segmentio/kafka-go"
 )
 
+const defaultGroupID = "test"
+const defaultTimeout = 5
+const defaultNamedPipe = "/pfs/out"
+
 func main() {
 	// Get the connection info from the ENV vars
 	host := os.Getenv("HOST")
 	port := os.Getenv("PORT")
 	topic := os.Getenv("TOPIC")
 
+	// Set the default values of the configurable variables
+	var (
+		group_id = defaultGroupID
+		timeout  = defaultTimeout
+		pipe     = defaultNamedPipe
+	)
+
 	// And create a new kafka reader
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:  []string{host + ":" + port},
 		Topic:    topic,
+		GroupID:  group_id,
 		MinBytes: 10e1,
 		MaxBytes: 10e6,
 	})
 	defer reader.Close()
 
-	// Open the /pfs/out pipe with write only permissons (the pachyderm spout will be reading at the other end of this)
-	// Note: it won't work if you try to open this with read, or read/write permissions
-	out, err := os.OpenFile("/pfs/out", os.O_WRONLY, 0644)
-	if err != nil {
-		panic(err)
-	}
-	defer out.Close()
-
-	// this is the file loop
 	for {
 		if err := func() error {
-			tw := tar.NewWriter(out)
-			defer tw.Close()
-			// this is the message loop
 			// read a message
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
+			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
+			defer func() {
+				cancel()
+			}()
 			m, err := reader.ReadMessage(ctx)
 			if err != nil {
 				return err
 			}
+
+			// Open the /pfs/out pipe with write only permissons (the pachyderm spout will be reading at the other end of this)
+			// Note: it won't work if you try to open this with read, or read/write permissions
+			out, err := os.OpenFile(pipe, os.O_WRONLY, 0644)
+			if err != nil {
+				panic(err)
+			}
+			defer func() {
+				out.Close()
+			}()
+
+			tw := tar.NewWriter(out)
+			defer func() {
+				tw.Close()
+			}()
+
 			// give it a unique name
-			name := topic + time.Now().Format(time.RFC3339Nano)
+			name := fmt.Sprintf("%v-%v", m.Topic, m.Offset)
 			// write the header
 			for err = tw.WriteHeader(&tar.Header{
 				Name: name,
@@ -58,7 +77,7 @@ func main() {
 					return err
 				}
 				// if there's a broken pipe, just give it some time to get ready for the next message
-				time.Sleep(5 * time.Millisecond)
+				time.Sleep(time.Duration(timeout) * time.Millisecond)
 			}
 			// and the message
 			for _, err = tw.Write(m.Value); err != nil; {
@@ -66,7 +85,7 @@ func main() {
 					return err
 				}
 				// if there's a broken pipe, just give it some time to get ready for the next message
-				time.Sleep(5 * time.Millisecond)
+				time.Sleep(time.Duration(timeout) * time.Millisecond)
 			}
 			return nil
 		}(); err != nil {
