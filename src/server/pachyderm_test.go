@@ -4245,7 +4245,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 		}
 
 		// Get logs from pipeline, using pipeline (tailing the last two log lines)
-		iter = c.GetLogs(pipelineName, "", nil, "", false, false, 2)
+		iter = c.GetLogs(pipelineName, "", nil, "", true, false, 2)
 		numLogs = 0
 		loglines = []string{}
 		for iter.Next() {

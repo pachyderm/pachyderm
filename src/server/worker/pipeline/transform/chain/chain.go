@@ -40,7 +40,7 @@ type JobChain interface {
 	Fail(jd JobData) error
 }
 
-type DatumSet map[string]struct{}
+type DatumSet map[string]uint64
 
 type jobDatumIterator struct {
 	data JobData
@@ -63,17 +63,15 @@ type jobDatumIterator struct {
 }
 
 type jobChain struct {
-	mutex      sync.Mutex
-	hasher     DatumHasher
-	jobs       []*jobDatumIterator
-	baseDatums DatumSet
+	mutex  sync.Mutex
+	hasher DatumHasher
+	jobs   []*jobDatumIterator
 }
 
 func NewJobChain(hasher DatumHasher) JobChain {
 	return &jobChain{
-		hasher:     hasher,
-		jobs:       []*jobDatumIterator{},
-		baseDatums: nil,
+		hasher: hasher,
+		jobs:   []*jobDatumIterator{},
 	}
 }
 
@@ -101,11 +99,16 @@ func (jc *jobChain) Initialize(baseDatums DatumSet) error {
 	return nil
 }
 
-func (jdi *jobDatumIterator) recalculate(baseDatums DatumSet, allAncestors []*jobDatumIterator) {
+// recalculate is called whenever jdi.yielding is empty (either at init or when
+// a blocking ancestor job has finished), to repopulate it.
+func (jdi *jobDatumIterator) recalculate(allAncestors []*jobDatumIterator) {
 	jdi.ancestors = []*jobDatumIterator{}
 	interestingAncestors := map[*jobDatumIterator]struct{}{}
-	for hash := range jdi.allDatums {
-		if _, ok := jdi.yielded[hash]; ok {
+	for hash, count := range jdi.allDatums {
+		if yieldedCount, ok := jdi.yielded[hash]; ok {
+			if count-yieldedCount > 0 {
+				jdi.yielding[hash] = count - yieldedCount
+			}
 			continue
 		}
 
@@ -122,7 +125,7 @@ func (jdi *jobDatumIterator) recalculate(baseDatums DatumSet, allAncestors []*jo
 		}
 
 		if safeToProcess {
-			jdi.yielding[hash] = struct{}{}
+			jdi.yielding[hash] = count
 		}
 	}
 
@@ -138,8 +141,8 @@ func (jdi *jobDatumIterator) recalculate(baseDatums DatumSet, allAncestors []*jo
 	// If this job is additive-only from the parent job, we should mark it now -
 	// loop over parent datums to see if they are all present
 	jdi.additiveOnly = true
-	for hash := range parentJob.allDatums {
-		if _, ok := jdi.allDatums[hash]; !ok {
+	for hash, parentCount := range parentJob.allDatums {
+		if count, ok := jdi.allDatums[hash]; !ok || count < parentCount {
 			jdi.additiveOnly = false
 			break
 		}
@@ -147,9 +150,13 @@ func (jdi *jobDatumIterator) recalculate(baseDatums DatumSet, allAncestors []*jo
 
 	if jdi.additiveOnly {
 		// If this is additive-only, we only need to enqueue new datums (since the parent job)
-		for hash := range jdi.yielding {
-			if _, ok := parentJob.allDatums[hash]; ok {
-				delete(jdi.yielding, hash)
+		for hash, count := range jdi.yielding {
+			if parentCount, ok := parentJob.allDatums[hash]; ok {
+				if count == parentCount {
+					delete(jdi.yielding, hash)
+				} else {
+					jdi.yielding[hash] = count - parentCount
+				}
 			}
 		}
 		// An additive-only job can only progress once its parent job has finished.
@@ -187,16 +194,17 @@ func (jc *jobChain) Start(jd JobData) (JobDatumIterator, error) {
 	}
 
 	jdi.dit.Reset()
-	for i := 0; i < jdi.dit.Len(); i++ {
-		inputs := jdi.dit.DatumN(i)
+	for jdi.dit.Next() {
+		inputs := jdi.dit.Datum()
 		hash := jc.hasher.Hash(inputs)
-		jdi.allDatums[hash] = struct{}{}
+		jdi.allDatums[hash]++
 	}
+	jdi.dit.Reset()
 
 	jc.mutex.Lock()
 	defer jc.mutex.Unlock()
 
-	jdi.recalculate(jc.baseDatums, jc.jobs)
+	jdi.recalculate(jc.jobs)
 
 	jc.jobs = append(jc.jobs, jdi)
 	return jdi, nil
@@ -208,7 +216,6 @@ func (jc *jobChain) indexOf(jd JobData) (int, error) {
 			return i, nil
 		}
 	}
-	panic("job not found in job chain")
 	return 0, fmt.Errorf("job not found in job chain")
 }
 
@@ -265,11 +272,6 @@ func (jc *jobChain) Succeed(jd JobData, recoveredDatums DatumSet) error {
 
 	jdi.finished = true
 
-	if index == 0 {
-		jc.jobs = jc.jobs[1:]
-		jc.baseDatums = jdi.allDatums
-	}
-
 	close(jdi.done)
 
 	jc.cleanFinishedJobs()
@@ -321,7 +323,7 @@ func (jdi *jobDatumIterator) NextBatch(ctx context.Context) (uint64, error) {
 				return err
 			}
 
-			jdi.recalculate(jdi.jc.baseDatums, jdi.jc.jobs[:index])
+			jdi.recalculate(jdi.jc.jobs[:index])
 			return nil
 		}(); err != nil {
 			return 0, err
@@ -330,16 +332,25 @@ func (jdi *jobDatumIterator) NextBatch(ctx context.Context) (uint64, error) {
 		jdi.dit.Reset()
 	}
 
-	return uint64(len(jdi.yielding)), nil
+	batchSize := uint64(0)
+	for _, count := range jdi.yielding {
+		batchSize += count
+	}
+
+	return batchSize, nil
 }
 
 func (jdi *jobDatumIterator) NextDatum() []*common.Input {
 	for jdi.dit.Next() {
 		inputs := jdi.dit.Datum()
 		hash := jdi.jc.hasher.Hash(inputs)
-		if _, ok := jdi.yielding[hash]; ok {
-			delete(jdi.yielding, hash)
-			jdi.yielded[hash] = struct{}{}
+		if count, ok := jdi.yielding[hash]; ok {
+			if count == 1 {
+				delete(jdi.yielding, hash)
+			} else {
+				jdi.yielding[hash]--
+			}
+			jdi.yielded[hash]++
 			return inputs
 		}
 	}
@@ -349,9 +360,9 @@ func (jdi *jobDatumIterator) NextDatum() []*common.Input {
 
 func (jdi *jobDatumIterator) Reset() {
 	jdi.dit.Reset()
-	for hash := range jdi.yielded {
+	for hash, count := range jdi.yielded {
 		delete(jdi.yielded, hash)
-		jdi.yielding[hash] = struct{}{}
+		jdi.yielding[hash] += count
 	}
 }
 

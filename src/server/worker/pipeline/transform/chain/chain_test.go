@@ -71,12 +71,12 @@ func printState(jc *jobChain) {
 
 func printDatumSet(jc *jobChain, name string, set DatumSet) {
 	arr := []string{}
-	for hash := range set {
+	for hash, count := range set {
 		name := datumIndex[hash]
 		if name == "" {
 			name = "unknown"
 		}
-		arr = append(arr, name)
+		arr = append(arr, fmt.Sprintf("%s: %d", name, count))
 	}
 	sort.Strings(arr)
 	fmt.Printf(" %s (%d): %v\n", name, len(set), arr)
@@ -96,7 +96,7 @@ func (ti *testIterator) Len() int {
 }
 
 func (ti *testIterator) Next() bool {
-	if ti.index < len(ti.inputs)-1 {
+	if ti.index < len(ti.inputs) {
 		ti.index++
 	}
 
@@ -104,6 +104,9 @@ func (ti *testIterator) Next() bool {
 }
 
 func (ti *testIterator) Datum() []*common.Input {
+	if ti.index >= len(ti.inputs) {
+		return nil
+	}
 	return ti.inputs[ti.index]
 }
 
@@ -156,7 +159,19 @@ func datumsToSet(datums []string) DatumSet {
 	hasher := &testHasher{}
 	result := make(DatumSet)
 	for _, datum := range datums {
-		result[hasher.Hash(datumToInputs(datum))] = struct{}{}
+		result[hasher.Hash(datumToInputs(datum))]++
+	}
+	return result
+}
+
+func setToDatums(t *testing.T, datumSet DatumSet) []string {
+	result := []string{}
+	for hash, count := range datumSet {
+		name := datumIndex[hash]
+		require.NotEqual(t, "", name)
+		for i := uint64(0); i < count; i++ {
+			result = append(result, name)
+		}
 	}
 	return result
 }
@@ -177,10 +192,16 @@ func (tj *testJob) Iterator() (datum.Iterator, error) {
 	return tj.dit, nil
 }
 
+func requireChainEmpty(t *testing.T, chain JobChain, expectedBaseDatums []string) {
+	jc := chain.(*jobChain)
+	require.Equal(t, 1, len(jc.jobs))
+	require.ElementsEqual(t, expectedBaseDatums, setToDatums(t, jc.jobs[0].allDatums))
+}
+
 func requireIteratorContents(t *testing.T, jdi JobDatumIterator, expected []string) {
 	count, err := jdi.NextBatch(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, len(expected), count)
+	require.Equal(t, uint64(len(expected)), count)
 
 	found := []string{}
 	for range expected {
@@ -195,7 +216,7 @@ func requireIteratorContents(t *testing.T, jdi JobDatumIterator, expected []stri
 func requireIteratorDone(t *testing.T, jdi JobDatumIterator) {
 	count, err := jdi.NextBatch(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, 0, count)
+	require.Equal(t, uint64(0), count)
 }
 
 func requireIteratorContentsNonBlocking(t *testing.T, jdi JobDatumIterator, expected []string) {
@@ -204,7 +225,7 @@ func requireIteratorContentsNonBlocking(t *testing.T, jdi JobDatumIterator, expe
 
 	count, err := jdi.NextBatch(ctx)
 	require.NoError(t, err)
-	require.Equal(t, len(expected), count)
+	require.Equal(t, uint64(len(expected)), count)
 
 	found := []string{}
 
@@ -224,14 +245,21 @@ func TestEmptyBase(t *testing.T) {
 	jdi, err := chain.Start(job)
 	require.NoError(t, err)
 	requireIteratorContents(t, jdi, jobDatums)
+
+	require.NoError(t, chain.Succeed(job, make(DatumSet)))
+	requireChainEmpty(t, chain, jobDatums)
 }
 
 func TestAdditiveOnBase(t *testing.T) {
+	jobDatums := []string{"a", "b", "c"}
 	chain := newTestChain(t, []string{"a"})
-	job := newTestJob([]string{"a", "b", "c"})
+	job := newTestJob(jobDatums)
 	jdi, err := chain.Start(job)
 	require.NoError(t, err)
 	requireIteratorContents(t, jdi, []string{"b", "c"})
+
+	require.NoError(t, chain.Succeed(job, make(DatumSet)))
+	requireChainEmpty(t, chain, jobDatums)
 }
 
 func TestSubtractiveOnBase(t *testing.T) {
@@ -241,6 +269,9 @@ func TestSubtractiveOnBase(t *testing.T) {
 	jdi, err := chain.Start(job)
 	require.NoError(t, err)
 	requireIteratorContents(t, jdi, jobDatums)
+
+	require.NoError(t, chain.Succeed(job, make(DatumSet)))
+	requireChainEmpty(t, chain, jobDatums)
 }
 
 func TestAdditiveSubtractiveOnBase(t *testing.T) {
@@ -250,6 +281,9 @@ func TestAdditiveSubtractiveOnBase(t *testing.T) {
 	jdi, err := chain.Start(job)
 	require.NoError(t, err)
 	requireIteratorContents(t, jdi, jobDatums)
+
+	require.NoError(t, chain.Succeed(job, make(DatumSet)))
+	requireChainEmpty(t, chain, jobDatums)
 }
 
 // Read from a channel until we have the expected datums, then verify they
@@ -379,6 +413,8 @@ func TestSuccess(t *testing.T) {
 
 	require.NoError(t, chain.Succeed(job3, make(DatumSet)))
 	require.NoError(t, eg.Wait())
+
+	requireChainEmpty(t, chain, []string{"a", "b", "d", "e", "g", "h"})
 }
 
 // Job 1: ABCD   -> 1. Fail
@@ -422,6 +458,8 @@ func TestFail(t *testing.T) {
 
 	require.NoError(t, chain.Succeed(job3, make(DatumSet)))
 	require.NoError(t, eg.Wait())
+
+	requireChainEmpty(t, chain, []string{"a", "b", "d", "e", "g", "h"})
 }
 
 // Job 1: AB   -> 1. Succeed
@@ -451,6 +489,8 @@ func TestAdditiveSuccess(t *testing.T) {
 
 	require.NoError(t, chain.Succeed(job2, make(DatumSet)))
 	require.NoError(t, eg.Wait())
+
+	requireChainEmpty(t, chain, []string{"a", "b", "c"})
 }
 
 // Job 1: AB   -> 1. Fail
@@ -481,6 +521,8 @@ func TestAdditiveFail(t *testing.T) {
 
 	require.NoError(t, chain.Succeed(job2, make(DatumSet)))
 	require.NoError(t, eg.Wait())
+
+	requireChainEmpty(t, chain, []string{"a", "b", "c"})
 }
 
 // Job 1: AB   -> 1. Succeed
@@ -523,6 +565,8 @@ func TestCascadeSuccess(t *testing.T) {
 
 	require.NoError(t, chain.Succeed(job3, make(DatumSet)))
 	require.NoError(t, eg.Wait())
+
+	requireChainEmpty(t, chain, []string{"b", "c", "d"})
 }
 
 // Job 1: AB   -> 1. Succeed
@@ -565,6 +609,8 @@ func TestCascadeFail(t *testing.T) {
 
 	require.NoError(t, chain.Succeed(job3, make(DatumSet)))
 	require.NoError(t, eg.Wait())
+
+	requireChainEmpty(t, chain, []string{"a", "b", "c", "d"})
 }
 
 // Job 1: AB   -> 2. Succeed
@@ -608,6 +654,8 @@ func TestSplitFail(t *testing.T) {
 
 	require.NoError(t, chain.Succeed(job3, make(DatumSet)))
 	require.NoError(t, eg.Wait())
+
+	requireChainEmpty(t, chain, []string{"b", "c", "d"})
 }
 
 // Job 1: AB   -> 1. Succeed (A and B recovered)
@@ -649,8 +697,10 @@ func TestRecoveredDatums(t *testing.T) {
 	requireDatums(t, datums3, []string{"a", "c"})
 	requireChannelClosed(t, datums3)
 
-	require.NoError(t, chain.Succeed(job3, make(DatumSet)))
+	require.NoError(t, chain.Succeed(job3, datumsToSet([]string{"c", "d"})))
 	require.NoError(t, eg.Wait())
+
+	requireChainEmpty(t, chain, []string{"a", "b"})
 }
 
 func TestEarlySuccess(t *testing.T) {
@@ -664,11 +714,72 @@ func TestEarlySuccess(t *testing.T) {
 }
 
 func TestEarlyFail(t *testing.T) {
-	chain := newTestChain(t, []string{})
-	job1 := newTestJob([]string{"a", "b"})
+	chain := newTestChain(t, []string{"e", "f"})
+	job := newTestJob([]string{"a", "b"})
 
-	_, err := chain.Start(job1)
+	_, err := chain.Start(job)
 	require.NoError(t, err)
 
-	require.NoError(t, chain.Fail(job1))
+	require.NoError(t, chain.Fail(job))
+	requireChainEmpty(t, chain, []string{"e", "f"})
+}
+
+func TestRepeatedDatumAdditiveSubtractiveOnBase(t *testing.T) {
+	jobDatums := []string{"c", "c", "b"}
+	chain := newTestChain(t, []string{"a", "b", "a", "b", "c"})
+	job := newTestJob(jobDatums)
+
+	jdi, err := chain.Start(job)
+	require.NoError(t, err)
+
+	requireIteratorContents(t, jdi, jobDatums)
+	require.NoError(t, chain.Succeed(job, make(DatumSet)))
+
+	requireChainEmpty(t, chain, jobDatums)
+}
+
+func TestRepeatedDatumSubtractiveOnBase(t *testing.T) {
+	jobDatums := []string{"a", "a"}
+	chain := newTestChain(t, []string{"a", "b", "a", "b", "c"})
+	job := newTestJob(jobDatums)
+
+	jdi, err := chain.Start(job)
+	require.NoError(t, err)
+
+	requireIteratorContents(t, jdi, jobDatums)
+	require.NoError(t, chain.Succeed(job, make(DatumSet)))
+
+	requireChainEmpty(t, chain, jobDatums)
+}
+
+func TestRepeatedDatumAdditiveOnBase(t *testing.T) {
+	baseDatums := []string{"a", "b", "a", "b", "c"}
+	newDatums := []string{"a", "c", "d"}
+	jobDatums := append([]string{}, baseDatums...)
+	jobDatums = append(jobDatums, newDatums...)
+
+	chain := newTestChain(t, baseDatums)
+	job := newTestJob(jobDatums)
+
+	jdi, err := chain.Start(job)
+	require.NoError(t, err)
+
+	requireIteratorContents(t, jdi, newDatums)
+	require.NoError(t, chain.Succeed(job, make(DatumSet)))
+
+	requireChainEmpty(t, chain, jobDatums)
+}
+
+func TestRepeatedDatumWithoutBase(t *testing.T) {
+	jobDatums := []string{"a", "b", "c", "a", "b", "a"}
+	chain := newTestChain(t, []string{})
+	job := newTestJob(jobDatums)
+
+	jdi, err := chain.Start(job)
+	require.NoError(t, err)
+
+	requireIteratorContents(t, jdi, jobDatums)
+	require.NoError(t, chain.Succeed(job, make(DatumSet)))
+
+	requireChainEmpty(t, chain, jobDatums)
 }
