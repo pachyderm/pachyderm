@@ -20,7 +20,7 @@ require (
 	github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd // indirect
 	github.com/containerd/containerd v1.3.2 // indirect
 	github.com/coreos/bbolt v1.3.3
-	github.com/coreos/etcd v3.3.13+incompatible
+	github.com/coreos/etcd v3.3.18+incompatible
 	github.com/coreos/go-etcd v2.0.0+incompatible
 	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf // indirect
@@ -47,6 +47,7 @@ require (
 	github.com/golang/snappy v0.0.1
 	github.com/google/go-github v17.0.0+incompatible
 	github.com/google/go-querystring v1.0.0 // indirect
+	github.com/google/uuid v1.1.1 // indirect
 	github.com/googleapis/gnostic v0.2.0 // indirect
 	github.com/gophercloud/gophercloud v0.2.0 // indirect
 	github.com/gorilla/mux v1.7.3
