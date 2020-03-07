@@ -345,7 +345,6 @@ func (h *jobHandler) start() {
 			fmt.Sprintf("sidecar s3 gateway start() is exiting; this should never happen"),
 		)
 	}()
-establish_watch:
 	for { // reestablish watch in a loop, in case there's a watch error
 		var watcher watch.Watcher
 		backoff.Retry(func() error {
@@ -363,7 +362,7 @@ establish_watch:
 			jobID := string(e.Key)
 			if e.Type == watch.EventError {
 				logrus.Errorf("sidecar s3 gateway watch error: %v", e.Err)
-				continue establish_watch
+				break // reestablish watch
 			}
 
 			// create new ctx for this job
@@ -380,7 +379,6 @@ establish_watch:
 // end watches 'jobID' and calls h.OnTerminate() when the job finishes.
 func (h *jobHandler) end(ctx context.Context, cancel func(), jobID string) {
 	defer cancel()
-establish_watch:
 	for { // reestablish watch in a loop, in case there's a watch error
 		var watcher watch.Watcher
 		backoff.Retry(func() error {
@@ -397,7 +395,7 @@ establish_watch:
 			jobID := string(e.Key)
 			if e.Type == watch.EventError {
 				logrus.Errorf("sidecar s3 gateway watch job %q error: %v", jobID, e.Err)
-				continue establish_watch
+				break // reestablish watch
 			}
 			h.processJobEvent(ctx, e.Type, jobID)
 		}
