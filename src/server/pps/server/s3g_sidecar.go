@@ -256,10 +256,14 @@ func NewS3InstanceCreatingJobHandler(s *sidecarS3G) *jobHandler {
 				logrus.Errorf("could not kill sidecar s3 gateway server for job %q: %v; retrying in %v", jobID, err, d)
 				return nil
 			}); err != nil {
-				// panic here instead of ignoring the error and moving on because
-				// otherwise the worker process won't release the s3 gateway port and
-				// all future s3 jobs will fail.
-				panic(fmt.Sprintf("could not kill sidecar s3 gateway server for job %q: %v; giving up", jobID, err))
+				// last chance -- try calling Close(), and if that doesn't work, force
+				// the http server to shut down by panicking
+				if err := server.Close(); err != nil {
+					// panic here instead of ignoring the error and moving on because
+					// otherwise the worker process won't release the s3 gateway port and
+					// all future s3 jobs will fail.
+					panic(fmt.Sprintf("could not kill sidecar s3 gateway server for job %q: %v; giving up", jobID, err))
+				}
 			}
 			delete(s.servers, jobID) // remove server from map no matter what
 		},
