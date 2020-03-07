@@ -341,7 +341,6 @@ func NewK8SServiceCreatingJobHandler(s *sidecarS3G) *jobHandler {
 
 func (h *jobHandler) start() {
 	defer func() {
-		logrus.Errorf("sidecar s3 gateway: start() is exiting; this should not happen")
 		panic(
 			fmt.Sprintf("sidecar s3 gateway start() is exiting; this should never happen"),
 		)
