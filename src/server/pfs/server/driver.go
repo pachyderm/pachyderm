@@ -48,9 +48,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 	"github.com/sirupsen/logrus"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	etcd "go.etcd.io/etcd/clientv3"
 )
 
 const (
@@ -88,6 +88,7 @@ type CommitStream interface {
 type collectionFactory func(string) col.Collection
 
 type driver struct {
+	env *serviceenv.ServiceEnv
 	// etcdClient and prefix write repo and other metadata to etcd
 	etcdClient *etcd.Client
 	txnEnv     *txnenv.TransactionEnv
@@ -132,6 +133,7 @@ func newDriver(
 	// Initialize driver
 	etcdClient := env.GetEtcdClient()
 	d := &driver{
+		env:            env,
 		txnEnv:         txnEnv,
 		etcdClient:     etcdClient,
 		prefix:         etcdPrefix,
@@ -1345,7 +1347,7 @@ func (d *driver) makeCommit(
 		newCommitInfo.Provenance = append(newCommitInfo.Provenance, prov)
 		provCommitInfo := &pfs.CommitInfo{}
 		if err := d.commits(prov.Commit.Repo.Name).ReadWrite(txnCtx.Stm).Update(prov.Commit.ID, provCommitInfo, func() error {
-			appendSubvenance(provCommitInfo, newCommitInfo)
+			d.appendSubvenance(provCommitInfo, newCommitInfo)
 			return nil
 		}); err != nil {
 			return nil, err
@@ -1499,6 +1501,9 @@ func (d *driver) finishOutputCommit(txnCtx *txnenv.TransactionContext, commit *p
 }
 
 func (d *driver) updateProvenanceProgress(txnCtx *txnenv.TransactionContext, success bool, ci *pfs.CommitInfo) error {
+	if d.env.DisableCommitProgressCounter {
+		return nil
+	}
 	for _, provC := range ci.Provenance {
 		provCi := &pfs.CommitInfo{}
 		if err := d.commits(provC.Commit.Repo.Name).ReadWrite(txnCtx.Stm).Update(provC.Commit.ID, provCi, func() error {
@@ -1743,7 +1748,7 @@ nextSubvBI:
 			// update subvenance of 'prov'
 			provCommitInfo := &pfs.CommitInfo{}
 			if err := d.commits(prov.Commit.Repo.Name).ReadWrite(stm).Update(prov.Commit.ID, provCommitInfo, func() error {
-				appendSubvenance(provCommitInfo, newCommitInfo)
+				d.appendSubvenance(provCommitInfo, newCommitInfo)
 				return nil
 			}); err != nil {
 				return err
@@ -4388,7 +4393,7 @@ func (d *driver) addBranchProvenance(branchInfo *pfs.BranchInfo, provBranch *pfs
 	})
 }
 
-func appendSubvenance(commitInfo *pfs.CommitInfo, subvCommitInfo *pfs.CommitInfo) {
+func (d *driver) appendSubvenance(commitInfo *pfs.CommitInfo, subvCommitInfo *pfs.CommitInfo) {
 	if subvCommitInfo.ParentCommit != nil {
 		for _, subvCommitRange := range commitInfo.Subvenance {
 			if subvCommitRange.Upper.ID == subvCommitInfo.ParentCommit.ID {
@@ -4401,7 +4406,9 @@ func appendSubvenance(commitInfo *pfs.CommitInfo, subvCommitInfo *pfs.CommitInfo
 		Lower: subvCommitInfo.Commit,
 		Upper: subvCommitInfo.Commit,
 	})
-	commitInfo.SubvenantCommitsTotal++
+	if !d.env.DisableCommitProgressCounter {
+		commitInfo.SubvenantCommitsTotal++
+	}
 }
 
 type branchSet []*pfs.Branch

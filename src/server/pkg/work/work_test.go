@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	etcd "go.etcd.io/etcd/clientv3"
 )
 
 const (

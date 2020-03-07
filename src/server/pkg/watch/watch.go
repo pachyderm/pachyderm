@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"reflect"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
+	etcd "go.etcd.io/etcd/clientv3"
 )
 
 // EventType is the type of event

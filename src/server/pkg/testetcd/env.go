@@ -9,9 +9,9 @@ import (
 	"os"
 	"path"
 
-	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/embed"
 	"github.com/coreos/pkg/capnslog"
+	etcd "go.etcd.io/etcd/clientv3"
+	"go.etcd.io/etcd/embed"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -75,7 +75,7 @@ func WithEtcdEnv(cb func(*EtcdEnv) error) (err error) {
 	}
 
 	etcdConfig := embed.NewConfig()
-	etcdConfig.LogOutput = "default"
+	etcdConfig.LogOutputs = []string{"default"}
 	etcdConfig.MaxTxnOps = 10000
 
 	// Create test dirs for etcd data

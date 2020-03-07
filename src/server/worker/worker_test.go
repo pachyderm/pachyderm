@@ -9,7 +9,6 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -18,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	etcd "go.etcd.io/etcd/clientv3"
 )
 
 func TestAcquireDatums(t *testing.T) {

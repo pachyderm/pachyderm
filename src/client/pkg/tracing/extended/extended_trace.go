@@ -9,10 +9,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
 	log "github.com/sirupsen/logrus"
+	etcd "go.etcd.io/etcd/clientv3"
 	"google.golang.org/grpc/metadata"
 )
 

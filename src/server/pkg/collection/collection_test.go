@@ -17,8 +17,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/types"
+	etcd "go.etcd.io/etcd/clientv3"
 )
 
 var (

@@ -16,9 +16,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
-	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/mvcc/mvccpb"
 	"github.com/gogo/protobuf/proto"
+	etcd "go.etcd.io/etcd/clientv3"
+	"go.etcd.io/etcd/mvcc/mvccpb"
 )
 
 // defaultLimit was experimentally determined to be the highest value that could work

@@ -20,7 +20,6 @@ require (
 	github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd // indirect
 	github.com/containerd/containerd v1.3.2 // indirect
 	github.com/coreos/bbolt v1.3.3
-	github.com/coreos/etcd v3.3.13+incompatible
 	github.com/coreos/go-etcd v2.0.0+incompatible
 	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf // indirect
@@ -105,7 +104,7 @@ require (
 	github.com/willf/bloom v2.0.3+incompatible
 	github.com/x-cray/logrus-prefixed-formatter v0.5.2
 	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
-	go.etcd.io/bbolt v1.3.3 // indirect
+	go.etcd.io/etcd v3.3.10+incompatible
 	go.uber.org/multierr v1.4.0 // indirect
 	go.uber.org/zap v1.12.0 // indirect
 	golang.org/x/crypto v0.0.0-20191206172530-e9b2fee46413
@@ -118,7 +117,7 @@ require (
 	golang.org/x/tools v0.0.0-20200226180945-26f6a1b6802d // indirect
 	google.golang.org/api v0.6.0
 	google.golang.org/appengine v1.6.5 // indirect
-	google.golang.org/grpc v1.24.0
+	google.golang.org/grpc v1.26.0
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 	gopkg.in/go-playground/webhooks.v5 v5.11.0
 	gopkg.in/inf.v0 v0.9.1 // indirect
@@ -133,8 +132,9 @@ require (
 	k8s.io/client-go v11.0.1-0.20190918222721-c0e3722d5cf0+incompatible
 	k8s.io/utils v0.0.0-20191114200735-6ca3b61696b6 // indirect
 	modernc.org/mathutil v1.0.0
-	sigs.k8s.io/yaml v1.1.0 // indirect
 )
+
+replace go.etcd.io/etcd => go.etcd.io/etcd v0.0.0-20200224211402-c65a9e2dd1fd
 
 // Holy shit, the docker library versions are a clusterfuck, see https://github.com/moby/moby/issues/39302
 // For the moment, the windows build requires a fix that has not been tagged with an official release
