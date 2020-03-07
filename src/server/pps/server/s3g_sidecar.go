@@ -226,8 +226,8 @@ func NewS3InstanceCreatingJobHandler(s *sidecarS3G) *jobHandler {
 			go func() {
 				for i := 0; i < 2; i++ {
 					err := server.ListenAndServe()
-					if err == nil {
-						break // server was shutdown
+					if err == nil || err == http.ErrServerClosed {
+						break // server was shutdown/closed
 					}
 					logrus.Errorf("error serving sidecar s3 gateway handler for %q: %v; strike %d/3", jobID, err, i+1)
 				}
