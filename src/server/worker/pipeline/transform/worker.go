@@ -544,7 +544,7 @@ func handleMergeTask(driver driver.Driver, logger logs.TaggedLogger, data *Merge
 		}
 	}()
 
-	if err := logger.LogStep("download hashtree chunks", func() error {
+	if err := logger.LogStep("downloading hashtree chunks", func() error {
 		eg, _ := errgroup.WithContext(driver.PachClient().Ctx())
 
 		for _, hashtreeInfo := range data.Hashtrees {

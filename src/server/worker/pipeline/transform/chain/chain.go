@@ -36,7 +36,8 @@ type JobChain interface {
 	Initialize(baseDatums DatumSet) error
 
 	Start(jd JobData) (JobDatumIterator, error)
-	Succeed(jd JobData, recoveredDatums DatumSet) error
+	RecoveredDatums(jd JobData, recoveredDatums DatumSet) error
+	Succeed(jd JobData) error
 	Fail(jd JobData) error
 }
 
@@ -248,7 +249,25 @@ func (jc *jobChain) Fail(jd JobData) error {
 	return nil
 }
 
-func (jc *jobChain) Succeed(jd JobData, recoveredDatums DatumSet) error {
+func (jc *jobChain) RecoveredDatums(jd JobData, recoveredDatums DatumSet) error {
+	jc.mutex.Lock()
+	defer jc.mutex.Unlock()
+
+	index, err := jc.indexOf(jd)
+	if err != nil {
+		return err
+	}
+
+	jdi := jc.jobs[index]
+
+	for hash := range recoveredDatums {
+		delete(jdi.allDatums, hash)
+	}
+
+	return nil
+}
+
+func (jc *jobChain) Succeed(jd JobData) error {
 	jc.mutex.Lock()
 	defer jc.mutex.Unlock()
 
@@ -266,16 +285,9 @@ func (jc *jobChain) Succeed(jd JobData, recoveredDatums DatumSet) error {
 		)
 	}
 
-	for hash := range recoveredDatums {
-		delete(jdi.allDatums, hash)
-	}
-
 	jdi.finished = true
-
-	close(jdi.done)
-
 	jc.cleanFinishedJobs()
-
+	close(jdi.done)
 	return nil
 }
 

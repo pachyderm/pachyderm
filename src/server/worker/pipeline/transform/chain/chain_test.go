@@ -246,7 +246,7 @@ func TestEmptyBase(t *testing.T) {
 	require.NoError(t, err)
 	requireIteratorContents(t, jdi, jobDatums)
 
-	require.NoError(t, chain.Succeed(job, make(DatumSet)))
+	require.NoError(t, chain.Succeed(job))
 	requireChainEmpty(t, chain, jobDatums)
 }
 
@@ -258,7 +258,7 @@ func TestAdditiveOnBase(t *testing.T) {
 	require.NoError(t, err)
 	requireIteratorContents(t, jdi, []string{"b", "c"})
 
-	require.NoError(t, chain.Succeed(job, make(DatumSet)))
+	require.NoError(t, chain.Succeed(job))
 	requireChainEmpty(t, chain, jobDatums)
 }
 
@@ -270,7 +270,7 @@ func TestSubtractiveOnBase(t *testing.T) {
 	require.NoError(t, err)
 	requireIteratorContents(t, jdi, jobDatums)
 
-	require.NoError(t, chain.Succeed(job, make(DatumSet)))
+	require.NoError(t, chain.Succeed(job))
 	requireChainEmpty(t, chain, jobDatums)
 }
 
@@ -282,7 +282,7 @@ func TestAdditiveSubtractiveOnBase(t *testing.T) {
 	require.NoError(t, err)
 	requireIteratorContents(t, jdi, jobDatums)
 
-	require.NoError(t, chain.Succeed(job, make(DatumSet)))
+	require.NoError(t, chain.Succeed(job))
 	requireChainEmpty(t, chain, jobDatums)
 }
 
@@ -402,16 +402,16 @@ func TestSuccess(t *testing.T) {
 	requireChannelBlocked(t, datums2)
 	requireChannelBlocked(t, datums3)
 
-	require.NoError(t, chain.Succeed(job1, make(DatumSet)))
+	require.NoError(t, chain.Succeed(job1))
 	requireDatums(t, datums2, []string{"c", "d"})
 	requireDatums(t, datums3, []string{"a", "b"})
 	requireChannelClosed(t, datums2)
 
-	require.NoError(t, chain.Succeed(job2, make(DatumSet)))
+	require.NoError(t, chain.Succeed(job2))
 	requireDatums(t, datums3, []string{"d", "e"})
 	requireChannelClosed(t, datums3)
 
-	require.NoError(t, chain.Succeed(job3, make(DatumSet)))
+	require.NoError(t, chain.Succeed(job3))
 	require.NoError(t, eg.Wait())
 
 	requireChainEmpty(t, chain, []string{"a", "b", "d", "e", "g", "h"})
@@ -456,7 +456,7 @@ func TestFail(t *testing.T) {
 	requireDatums(t, datums3, []string{"d", "e"})
 	requireChannelClosed(t, datums3)
 
-	require.NoError(t, chain.Succeed(job3, make(DatumSet)))
+	require.NoError(t, chain.Succeed(job3))
 	require.NoError(t, eg.Wait())
 
 	requireChainEmpty(t, chain, []string{"a", "b", "d", "e", "g", "h"})
@@ -484,10 +484,10 @@ func TestAdditiveSuccess(t *testing.T) {
 	requireChannelClosed(t, datums1)
 	requireChannelBlocked(t, datums2)
 
-	require.NoError(t, chain.Succeed(job1, make(DatumSet)))
+	require.NoError(t, chain.Succeed(job1))
 	requireChannelClosed(t, datums2)
 
-	require.NoError(t, chain.Succeed(job2, make(DatumSet)))
+	require.NoError(t, chain.Succeed(job2))
 	require.NoError(t, eg.Wait())
 
 	requireChainEmpty(t, chain, []string{"a", "b", "c"})
@@ -519,7 +519,7 @@ func TestAdditiveFail(t *testing.T) {
 	requireDatums(t, datums2, []string{"a", "b"})
 	requireChannelClosed(t, datums2)
 
-	require.NoError(t, chain.Succeed(job2, make(DatumSet)))
+	require.NoError(t, chain.Succeed(job2))
 	require.NoError(t, eg.Wait())
 
 	requireChainEmpty(t, chain, []string{"a", "b", "c"})
@@ -555,15 +555,15 @@ func TestCascadeSuccess(t *testing.T) {
 	requireChannelBlocked(t, datums2)
 	requireChannelBlocked(t, datums3)
 
-	require.NoError(t, chain.Succeed(job1, make(DatumSet)))
+	require.NoError(t, chain.Succeed(job1))
 	requireDatums(t, datums2, []string{"b"})
 	requireChannelClosed(t, datums2)
 	requireChannelBlocked(t, datums3)
 
-	require.NoError(t, chain.Succeed(job2, make(DatumSet)))
+	require.NoError(t, chain.Succeed(job2))
 	requireChannelClosed(t, datums3)
 
-	require.NoError(t, chain.Succeed(job3, make(DatumSet)))
+	require.NoError(t, chain.Succeed(job3))
 	require.NoError(t, eg.Wait())
 
 	requireChainEmpty(t, chain, []string{"b", "c", "d"})
@@ -599,7 +599,7 @@ func TestCascadeFail(t *testing.T) {
 	requireChannelBlocked(t, datums2)
 	requireChannelBlocked(t, datums3)
 
-	require.NoError(t, chain.Succeed(job1, make(DatumSet)))
+	require.NoError(t, chain.Succeed(job1))
 	requireChannelClosed(t, datums2)
 	requireChannelBlocked(t, datums3)
 
@@ -607,7 +607,7 @@ func TestCascadeFail(t *testing.T) {
 	requireDatums(t, datums3, []string{"c"})
 	requireChannelClosed(t, datums3)
 
-	require.NoError(t, chain.Succeed(job3, make(DatumSet)))
+	require.NoError(t, chain.Succeed(job3))
 	require.NoError(t, eg.Wait())
 
 	requireChainEmpty(t, chain, []string{"a", "b", "c", "d"})
@@ -648,11 +648,11 @@ func TestSplitFail(t *testing.T) {
 	//requireChannelClosed(t, datums2)
 	requireChannelBlocked(t, datums3)
 
-	require.NoError(t, chain.Succeed(job1, make(DatumSet)))
+	require.NoError(t, chain.Succeed(job1))
 	requireDatums(t, datums3, []string{"b"})
 	requireChannelClosed(t, datums3)
 
-	require.NoError(t, chain.Succeed(job3, make(DatumSet)))
+	require.NoError(t, chain.Succeed(job3))
 	require.NoError(t, eg.Wait())
 
 	requireChainEmpty(t, chain, []string{"b", "c", "d"})
@@ -688,16 +688,19 @@ func TestRecoveredDatums(t *testing.T) {
 	requireChannelBlocked(t, datums2)
 	requireChannelBlocked(t, datums3)
 
-	require.NoError(t, chain.Succeed(job1, datumsToSet([]string{"a", "b"})))
+	require.NoError(t, chain.RecoveredDatums(job1, datumsToSet([]string{"a", "b"})))
+	require.NoError(t, chain.Succeed(job1))
 	requireDatums(t, datums2, []string{"a", "b"})
 	requireChannelClosed(t, datums2)
 	requireChannelBlocked(t, datums3)
 
-	require.NoError(t, chain.Succeed(job2, datumsToSet([]string{"a", "c"})))
+	require.NoError(t, chain.RecoveredDatums(job2, datumsToSet([]string{"a", "c"})))
+	require.NoError(t, chain.Succeed(job2))
 	requireDatums(t, datums3, []string{"a", "c"})
 	requireChannelClosed(t, datums3)
 
-	require.NoError(t, chain.Succeed(job3, datumsToSet([]string{"c", "d"})))
+	require.NoError(t, chain.RecoveredDatums(job3, datumsToSet([]string{"c", "d"})))
+	require.NoError(t, chain.Succeed(job3))
 	require.NoError(t, eg.Wait())
 
 	requireChainEmpty(t, chain, []string{"a", "b"})
@@ -710,7 +713,7 @@ func TestEarlySuccess(t *testing.T) {
 	_, err := chain.Start(job1)
 	require.NoError(t, err)
 
-	require.YesError(t, chain.Succeed(job1, make(DatumSet)), "items remaining")
+	require.YesError(t, chain.Succeed(job1), "items remaining")
 }
 
 func TestEarlyFail(t *testing.T) {
@@ -733,7 +736,7 @@ func TestRepeatedDatumAdditiveSubtractiveOnBase(t *testing.T) {
 	require.NoError(t, err)
 
 	requireIteratorContents(t, jdi, jobDatums)
-	require.NoError(t, chain.Succeed(job, make(DatumSet)))
+	require.NoError(t, chain.Succeed(job))
 
 	requireChainEmpty(t, chain, jobDatums)
 }
@@ -747,7 +750,7 @@ func TestRepeatedDatumSubtractiveOnBase(t *testing.T) {
 	require.NoError(t, err)
 
 	requireIteratorContents(t, jdi, jobDatums)
-	require.NoError(t, chain.Succeed(job, make(DatumSet)))
+	require.NoError(t, chain.Succeed(job))
 
 	requireChainEmpty(t, chain, jobDatums)
 }
@@ -765,7 +768,7 @@ func TestRepeatedDatumAdditiveOnBase(t *testing.T) {
 	require.NoError(t, err)
 
 	requireIteratorContents(t, jdi, newDatums)
-	require.NoError(t, chain.Succeed(job, make(DatumSet)))
+	require.NoError(t, chain.Succeed(job))
 
 	requireChainEmpty(t, chain, jobDatums)
 }
@@ -779,7 +782,7 @@ func TestRepeatedDatumWithoutBase(t *testing.T) {
 	require.NoError(t, err)
 
 	requireIteratorContents(t, jdi, jobDatums)
-	require.NoError(t, chain.Succeed(job, make(DatumSet)))
+	require.NoError(t, chain.Succeed(job))
 
 	requireChainEmpty(t, chain, jobDatums)
 }

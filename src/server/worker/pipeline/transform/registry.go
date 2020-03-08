@@ -209,12 +209,16 @@ func recoverFinishedJob(
 // dependent jobs in the jobChain.
 func (reg *registry) succeedJob(
 	pj *pendingJob,
-	datums *pfs.Object,
 	trees []*pfs.Object,
 	size uint64,
 	statsTrees []*pfs.Object,
 	statsSize uint64,
 ) error {
+	datums, err := reg.storeJobDatums(pj)
+	if err != nil {
+		return err
+	}
+
 	var newState pps.JobState
 	if pj.ji.Egress == nil {
 		pj.logger.Logf("job successful, closing commits")
@@ -228,12 +232,7 @@ func (reg *registry) succeedJob(
 		return err
 	}
 
-	recoveredDatums, err := pj.loadRecoveredDatums()
-	if err != nil {
-		return err
-	}
-
-	return reg.jobChain.Succeed(pj, recoveredDatums)
+	return reg.jobChain.Succeed(pj)
 }
 
 func (reg *registry) failJob(
@@ -767,7 +766,9 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 
 	pj.logger.Logf("processJobRunning waiting for task complete")
 	// Wait for datums to complete
-	if err := eg.Wait(); err != nil {
+	err := eg.Wait()
+	pj.saveJobStats(stats)
+	if err != nil {
 		// If we have failed datums in the stats, fail the job, otherwise we can reattempt later
 		if stats.FailedDatumID != "" {
 			return reg.failJob(pj, "datum failed")
@@ -786,6 +787,15 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	pj.logger.Logf("processJobRunning updating task to merging, total stats: %v", stats)
 	pj.ji.State = pps.JobState_JOB_MERGING
 	return pj.writeJobInfo()
+}
+
+func (pj *pendingJob) saveJobStats(stats *DatumStats) {
+	pj.ji.DataProcessed = stats.DatumsProcessed
+	pj.ji.DataSkipped = stats.DatumsSkipped
+	pj.ji.DataFailed = stats.DatumsFailed
+	pj.ji.DataRecovered = stats.DatumsRecovered
+	pj.ji.DataTotal = stats.DatumsProcessed + stats.DatumsSkipped + stats.DatumsFailed + stats.DatumsRecovered
+	pj.ji.Stats = stats.ProcessStats
 }
 
 func (pj *pendingJob) storeHashtreeInfos(hashtrees []*HashtreeInfo) error {
@@ -967,12 +977,7 @@ func (reg *registry) processJobMerging(pj *pendingJob) error {
 		return fmt.Errorf("merge error: %v", err)
 	}
 
-	datums, err := reg.storeJobDatums(pj)
-	if err != nil {
-		return err
-	}
-
-	if err := reg.succeedJob(pj, datums, trees, size, []*pfs.Object{}, 0); err != nil {
+	if err := reg.succeedJob(pj, trees, size, []*pfs.Object{}, 0); err != nil {
 		return err
 	}
 
@@ -985,6 +990,16 @@ func (reg *registry) processJobMerging(pj *pendingJob) error {
 }
 
 func (reg *registry) storeJobDatums(pj *pendingJob) (*pfs.Object, error) {
+	// Update recovered datums through the job chain, which will update its internal DatumSet
+	recoveredDatums, err := pj.loadRecoveredDatums()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := reg.jobChain.RecoveredDatums(pj, recoveredDatums); err != nil {
+		return nil, err
+	}
+
 	// Write out the datums processed/skipped and merged for this job
 	buf := &bytes.Buffer{}
 	pbw := pbutil.NewWriter(buf)
