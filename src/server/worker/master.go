@@ -770,7 +770,13 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 			return err
 		}
 		if a.pipelineInfo.S3Out {
-			err = pachClient.FinishCommit(oc.Repo.Name, oc.ID)
+			_, err = pachClient.PfsAPIClient.FinishCommit(
+				pachClient.Ctx(),
+				&pfs.FinishCommitRequest{
+					Commit: oc,
+					Datums: datums,
+				},
+			)
 		} else {
 			// Finish the job's output commit
 			_, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
