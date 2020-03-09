@@ -682,50 +682,19 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 				return err
 			}
 		}
-		// If the job failed we finish the commit with an empty tree but only
-		// after we've set the state, otherwise the job will be considered
-		// killed.
-		if failedDatumID != "" {
-			reason := fmt.Sprintf("failed to process datum: %v", failedDatumID)
-			if err := a.updateJobState(ctx, jobInfo, pps.JobState_JOB_FAILURE, reason); err != nil {
-				return err
-			}
-			if _, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
-				Commit: jobInfo.OutputCommit,
-				Empty:  true,
-			}); err != nil && !pfsserver.IsCommitFinishedErr(err) {
-				return err
-			}
-			return nil
-		}
 		oc := jobInfo.OutputCommit
+		// trees and size are only set if !a.pipelineInfo.S3out
+		var trees []*pfs.Object
+		var size uint64
 		logger.Logf("finishing output commit %v@%v", oc.Repo.Name, oc.ID)
-		if a.pipelineInfo.S3Out {
-			err = pachClient.FinishCommit(oc.Repo.Name, oc.ID)
-		} else {
-			// Write out the datums processed/skipped and merged for this job
-			buf := &bytes.Buffer{}
-			pbw := pbutil.NewWriter(buf)
-			for i := 0; i < df.Len(); i++ {
-				files := df.DatumN(i)
-				datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
-				// recovered datums were not processed, and thus should not be skipped
-				if recoveredDatums[a.DatumID(files)] {
-					continue // so we won't write them to the processed datums object
-				}
-				if _, err := pbw.WriteBytes([]byte(datumHash)); err != nil {
-					return err
-				}
-			}
-			datums, _, err := pachClient.PutObject(buf)
-			if err != nil {
-				return err
-			}
+		if !a.pipelineInfo.S3Out {
+			// only merge & write out stats for non-s3-out jobs. S3 jobs use
+			// input-commit-style commits (hashtree stored in etcd), so we don't do a
+			// merge. With S3-out jobs, we also can't tie output data to input datums,
+			// so we can't store stats (blocked by CreatePipeline).
 			if err := a.updateJobState(ctx, jobInfo, pps.JobState_JOB_MERGING, ""); err != nil {
 				return err
 			}
-			var trees []*pfs.Object
-			var size uint64
 			var statsTrees []*pfs.Object
 			var statsSize uint64
 			if failedDatumID == "" || jobInfo.EnableStats {
@@ -765,6 +734,44 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 					return err
 				}
 			}
+		}
+		// If the job failed we finish the commit with an empty tree but only
+		// after we've set the state, otherwise the job will be considered
+		// killed.
+		if failedDatumID != "" {
+			reason := fmt.Sprintf("failed to process datum: %v", failedDatumID)
+			if err := a.updateJobState(ctx, jobInfo, pps.JobState_JOB_FAILURE, reason); err != nil {
+				return err
+			}
+			if _, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+				Commit: jobInfo.OutputCommit,
+				Empty:  true,
+			}); err != nil && !pfsserver.IsCommitFinishedErr(err) {
+				return err
+			}
+			return nil
+		}
+		// Write out the datums processed/skipped and merged for this job
+		buf := &bytes.Buffer{}
+		pbw := pbutil.NewWriter(buf)
+		for i := 0; i < df.Len(); i++ {
+			files := df.DatumN(i)
+			datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
+			// recovered datums were not processed, and thus should not be skipped
+			if recoveredDatums[a.DatumID(files)] {
+				continue // so we won't write them to the processed datums object
+			}
+			if _, err := pbw.WriteBytes([]byte(datumHash)); err != nil {
+				return err
+			}
+		}
+		datums, _, err := pachClient.PutObject(buf)
+		if err != nil {
+			return err
+		}
+		if a.pipelineInfo.S3Out {
+			err = pachClient.FinishCommit(oc.Repo.Name, oc.ID)
+		} else {
 			// Finish the job's output commit
 			_, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
 				Commit:    oc,
