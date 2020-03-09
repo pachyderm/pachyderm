@@ -12,6 +12,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -579,6 +580,13 @@ func TestS3SkippedDatums(t *testing.T) {
 
 		// check output
 		var buf bytes.Buffer
+		// Flush commit so that GetFile doesn't accidentally run after the job
+		// finishes but before the commit finishes
+		ciIter, err := c.FlushCommit(
+			[]*pfs.Commit{client.NewCommit(s3in, "master")},
+			[]*pfs.Repo{client.NewRepo(pipeline)})
+		for _, err := ciIter.Next(); err != io.EOF; _, err = ciIter.Next() {
+		}
 		c.GetFile(pipeline, "master", "out", 0, 0, &buf)
 		s := bufio.NewScanner(&buf)
 		var seen [10]bool // One per file in 'pfsin'
