@@ -1927,10 +1927,7 @@ func (a *APIServer) worker() {
 						if err := a.updateJobState(jobCtx, jobInfo, pps.JobState_JOB_FAILURE, reason); err != nil {
 							return err
 						}
-						if _, err = pachClient.PfsAPIClient.FinishCommit(jobCtx, &pfs.FinishCommitRequest{
-							Commit: jobInfo.OutputCommit,
-							Empty:  true,
-						}); err != nil && !pfsserver.IsCommitFinishedErr(err) {
+						if err := pachClient.StopJob(jobInfo.Job.ID); err != nil && !pfsserver.IsCommitFinishedErr(err) {
 							return err
 						}
 						return nil // don't retry, just continue to next job
