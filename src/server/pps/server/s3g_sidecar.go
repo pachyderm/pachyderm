@@ -171,7 +171,6 @@ func (s *sidecarS3G) createK8sServices() {
 	panic("sidecar s3 gateway: createK8sServices() is exiting, which shouldn't happen")
 }
 
-
 type s3InstanceCreatingJobHandler struct {
 	s *sidecarS3G
 }
