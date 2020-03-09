@@ -2,13 +2,12 @@ package chunk
 
 import (
 	"bytes"
-	"context"
+	"io/ioutil"
 	"math/rand"
 	"os"
-	"testing"
+	"path"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )
 
@@ -19,20 +18,37 @@ const (
 	MB = 1024 * KB
 )
 
-// LocalStorage creates a local chunk storage instance.
-// Useful for storage layer tests.
-func LocalStorage(tb testing.TB) (obj.Client, *Storage) {
-	wd, err := os.Getwd()
-	require.NoError(tb, err)
-	objC, err := obj.NewLocalClient(wd)
-	require.NoError(tb, err)
-	return objC, NewStorage(objC)
+// WithLocalStorage constructs a local storage instance for testing during the lifetime of
+// the callback.
+func WithLocalStorage(f func(objC obj.Client, chunks *Storage) error) error {
+	return WithLocalClient(func(objC obj.Client) error {
+		return f(objC, NewStorage(objC))
+	})
+
 }
 
-// Cleanup cleans up a local chunk storage instance.
-func Cleanup(objC obj.Client, chunks *Storage) {
-	chunks.DeleteAll(context.Background())
-	objC.Delete(context.Background(), prefix)
+// WithLocalClient constructs a local object storage client for testing during the lifetime of
+// the callback.
+// (bryce) this should be somewhere else (probably testutil).
+func WithLocalClient(f func(objC obj.Client) error) (retErr error) {
+	dirBase := path.Join(os.TempDir(), "pachyderm_test")
+	if err := os.MkdirAll(dirBase, 0700); err != nil {
+		return err
+	}
+	dir, err := ioutil.TempDir(dirBase, "")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := os.RemoveAll(dir); retErr == nil {
+			retErr = err
+		}
+	}()
+	objC, err := obj.NewLocalClient(dir)
+	if err != nil {
+		return err
+	}
+	return f(objC)
 }
 
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")

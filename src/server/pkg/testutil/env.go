@@ -238,7 +238,7 @@ const (
 // server instances for supported operations. PPS requires a kubernetes
 // environment in order to spin up pipelines, which is not yet supported by this
 // package, but the other API servers work.
-func WithRealEnv(cb func(*RealEnv) error) error {
+func WithRealEnv(cb func(*RealEnv) error, customConfig ...*serviceenv.PachdFullConfiguration) error {
 	return WithMockEnv(func(mockEnv *MockEnv) (err error) {
 		realEnv := &RealEnv{MockEnv: *mockEnv}
 
@@ -249,6 +249,9 @@ func WithRealEnv(cb func(*RealEnv) error) error {
 		}()
 
 		config := serviceenv.NewConfiguration(&serviceenv.PachdFullConfiguration{})
+		if len(customConfig) > 0 {
+			config = serviceenv.NewConfiguration(customConfig[0])
+		}
 		etcdClientURL, err := url.Parse(realEnv.EtcdClient.Endpoints()[0])
 		if err != nil {
 			return err

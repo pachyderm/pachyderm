@@ -63,15 +63,20 @@ func NewStorage(objC obj.Client, chunks *chunk.Storage, opts ...StorageOption) *
 	return s
 }
 
+// ChunkStorage returns the underlying chunk storage instance for this storage instance.
+func (s *Storage) ChunkStorage() *chunk.Storage {
+	return s.chunks
+}
+
 // New creates a new in-memory fileset.
 func (s *Storage) New(ctx context.Context, fileSet, tag string, opts ...Option) *FileSet {
 	fileSet = applyPrefix(fileSet)
 	return newFileSet(ctx, s, fileSet, s.memThreshold, tag, opts...)
 }
 
-func (s *Storage) newWriter(ctx context.Context, fileSet string) *Writer {
+func (s *Storage) newWriter(ctx context.Context, fileSet string, indexFunc func(*index.Index) error) *Writer {
 	fileSet = applyPrefix(fileSet)
-	return newWriter(ctx, s.objC, s.chunks, fileSet)
+	return newWriter(ctx, s.objC, s.chunks, fileSet, indexFunc)
 }
 
 // (bryce) expose some notion of read ahead (read a certain number of chunks in parallel).
@@ -96,6 +101,33 @@ func (s *Storage) NewMergeReader(ctx context.Context, fileSets []string, opts ..
 	return newMergeReader(rs), nil
 }
 
+// MergeRead performs a merge read of a set of filesets.
+// MergeRead takes a callback that will be called for each file that is encountered.
+// The callback will receive a file merge reader for the file (which lazily downloads the file content).
+func (s *Storage) MergeRead(ctx context.Context, fileSets []string, f func(*FileMergeReader) error, opts ...index.Option) error {
+	mr, err := s.NewMergeReader(ctx, fileSets, opts...)
+	if err != nil {
+		return err
+	}
+	hashMr, err := s.NewMergeReader(ctx, fileSets, opts...)
+	if err != nil {
+		return err
+	}
+	w := s.newWriter(ctx, "", func(idx *index.Index) error {
+		fmr, err := mr.Next()
+		if err != nil {
+			return err
+		}
+		// (bryce) validate that the paths are the same
+		fmr.fullIdx = idx
+		return f(fmr)
+	})
+	if err := hashMr.WriteTo(w); err != nil {
+		return err
+	}
+	return w.Close()
+}
+
 // Shard shards the merge of the file sets with the passed in prefix into file ranges.
 // (bryce) this should be extended to be more configurable (different criteria
 // for creating shards).
@@ -112,7 +144,7 @@ func (s *Storage) Shard(ctx context.Context, fileSets []string, shardFunc ShardF
 func (s *Storage) Compact(ctx context.Context, outputFileSet string, inputFileSets []string, opts ...index.Option) error {
 	outputFileSet = applyPrefix(outputFileSet)
 	inputFileSets = applyPrefixes(inputFileSets)
-	w := s.newWriter(ctx, outputFileSet)
+	w := s.newWriter(ctx, outputFileSet, nil)
 	mr, err := s.NewMergeReader(ctx, inputFileSets, opts...)
 	if err != nil {
 		return err

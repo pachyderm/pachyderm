@@ -1,6 +1,7 @@
 package server
 
 import (
+	"archive/tar"
 	"io"
 	"log"
 	"path"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
@@ -90,11 +92,63 @@ func (d *driver) putFilesNewStorageLayer(ctx context.Context, repo, commit strin
 func (d *driver) getFilesNewStorageLayer(ctx context.Context, repo, commit, glob string, w io.Writer) error {
 	// (bryce) glob should be cleaned in option function
 	// (bryce) need exact match option for file glob.
-	mr, err := d.storage.NewMergeReader(ctx, []string{path.Join(repo, commit, fileset.Compacted)}, index.WithPrefix(glob))
+	compactedPath := path.Join(repo, commit, fileset.Compacted)
+	mr, err := d.storage.NewMergeReader(ctx, []string{compactedPath}, index.WithPrefix(glob))
 	if err != nil {
 		return err
 	}
 	return mr.Get(w)
+}
+
+func (d *driver) getFilesConditional(ctx context.Context, repo, commit, glob string, f func(*FileReader) error) error {
+	compactedPath := path.Join(repo, commit, fileset.Compacted)
+	return d.storage.MergeRead(ctx, []string{compactedPath}, func(fmr *fileset.FileMergeReader) error {
+		return f(newFileReader(client.NewFile(repo, commit, fmr.Index().Path), fmr))
+	}, index.WithPrefix(glob))
+}
+
+// FileReader is a PFS wrapper for a fileset.MergeReader.
+// The primary purpose of this abstraction is to convert from index.Index to
+// pfs.FileInfoNewStorage and to convert a set of index hashes to a file hash.
+type FileReader struct {
+	file *pfs.File
+	fmr  *fileset.FileMergeReader
+}
+
+func newFileReader(file *pfs.File, fmr *fileset.FileMergeReader) *FileReader {
+	return &FileReader{
+		file: file,
+		fmr:  fmr,
+	}
+}
+
+// Info returns the info for the file.
+func (fr *FileReader) Info() *pfs.FileInfoNewStorage {
+	return indexToInfo(fr.file, fr.fmr.Index())
+}
+
+func indexToInfo(file *pfs.File, idx *index.Index) *pfs.FileInfoNewStorage {
+	return &pfs.FileInfoNewStorage{
+		File: file,
+		Hash: computeHash(idx),
+	}
+}
+
+func computeHash(idx *index.Index) string {
+	h := pfs.NewHash()
+	for _, dataRef := range idx.DataOp.DataRefs {
+		h.Write([]byte(dataRef.Hash))
+	}
+	return pfs.EncodeHash(h.Sum(nil))
+}
+
+// Get writes a tar stream that contains the file.
+func (fr *FileReader) Get(w io.Writer) error {
+	if err := fr.fmr.Get(w); err != nil {
+		return err
+	}
+	// Close a tar writer to create tar EOF padding.
+	return tar.NewWriter(w).Close()
 }
 
 func (d *driver) compact(ctx context.Context, outputPath string, prefixes []string) error {

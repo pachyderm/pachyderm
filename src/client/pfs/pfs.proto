@@ -486,6 +486,11 @@ message FsckResponse {
 
 // Messages specific to the new storage layer.
 
+message FileInfoNewStorage {
+  File file = 1;
+  string hash = 2; 
+}
+
 message PutTarRequest {
   Commit commit = 1;
   bytes data = 2;
@@ -493,6 +498,17 @@ message PutTarRequest {
 
 message GetTarRequest {
   File file = 1;
+}
+
+message GetTarConditionalRequest {
+  File file = 1;
+  bool skip = 2;
+}
+
+message GetTarConditionalResponse {
+  FileInfoNewStorage file_info = 1;
+  bytes data = 2;
+  bool done = 3;
 }
 
 service API {
@@ -575,6 +591,7 @@ service API {
   // RPCs specific to the new storage layer. 
   rpc PutTar(stream PutTarRequest) returns (google.protobuf.Empty) {}
   rpc GetTar(GetTarRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc GetTarConditional(stream GetTarConditionalRequest) returns (stream GetTarConditionalResponse) {}
 }
 
 message PutObjectRequest {
