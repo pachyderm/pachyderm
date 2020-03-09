@@ -73,9 +73,9 @@ function test_bucket {
     # Determine the offset and length of the sub-array of tests we want to run
     # The last bucket may have a few extra tests, to accommodate rounding
     # errors from bucketing:
-    ((bucket_size=total_tests/num_buckets))
-    ((start=bucket_size * (bucket_num-1)))
-    ((bucket_size+=bucket_num < num_buckets ? 0 : total_tests%num_buckets))
+    let "bucket_size=total_tests/num_buckets" \
+        "start=bucket_size * (bucket_num-1)" \
+        "bucket_size+=bucket_num < num_buckets ? 0 : total_tests%num_buckets"
     test_regex="$(IFS=\|; echo "${tests[*]:start:bucket_size}")"
     echo "Running ${bucket_size} tests of ${total_tests} total tests"
     make RUN="-run=\"${test_regex}\"" "${target}"
