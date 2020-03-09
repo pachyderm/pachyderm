@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
@@ -248,11 +249,16 @@ func TestS3Input(t *testing.T) {
 
 	// Check that no service is left over
 	k := tu.GetKubeClient(t)
-	svcs, err := k.CoreV1().Services(Namespace).List(metav1.ListOptions{})
-	require.NoError(t, err)
-	for _, s := range svcs.Items {
-		require.NotEqual(t, s.ObjectMeta.Name, ppsutil.SidecarS3GatewayService(jobInfo.Job.ID))
-	}
+	require.NoErrorWithinTRetry(t, 68*time.Second, func() error {
+		svcs, err := k.CoreV1().Services(Namespace).List(metav1.ListOptions{})
+		require.NoError(t, err)
+		for _, s := range svcs.Items {
+			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.ID) {
+				return fmt.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
+			}
+		}
+		return nil
+	})
 }
 
 func TestS3Output(t *testing.T) {
@@ -326,11 +332,16 @@ func TestS3Output(t *testing.T) {
 
 	// Check that no service is left over
 	k := tu.GetKubeClient(t)
-	svcs, err := k.CoreV1().Services(Namespace).List(metav1.ListOptions{})
-	require.NoError(t, err)
-	for _, s := range svcs.Items {
-		require.NotEqual(t, s.ObjectMeta.Name, ppsutil.SidecarS3GatewayService(jobInfo.Job.ID))
-	}
+	require.NoErrorWithinTRetry(t, 68*time.Second, func() error {
+		svcs, err := k.CoreV1().Services(Namespace).List(metav1.ListOptions{})
+		require.NoError(t, err)
+		for _, s := range svcs.Items {
+			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.ID) {
+				return fmt.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
+			}
+		}
+		return nil
+	})
 }
 
 func TestFullS3(t *testing.T) {
@@ -405,11 +416,16 @@ func TestFullS3(t *testing.T) {
 
 	// Check that no service is left over
 	k := tu.GetKubeClient(t)
-	svcs, err := k.CoreV1().Services(Namespace).List(metav1.ListOptions{})
-	require.NoError(t, err)
-	for _, s := range svcs.Items {
-		require.NotEqual(t, s.ObjectMeta.Name, ppsutil.SidecarS3GatewayService(jobInfo.Job.ID))
-	}
+	require.NoErrorWithinTRetry(t, 68*time.Second, func() error {
+		svcs, err := k.CoreV1().Services(Namespace).List(metav1.ListOptions{})
+		require.NoError(t, err)
+		for _, s := range svcs.Items {
+			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.ID) {
+				return fmt.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
+			}
+		}
+		return nil
+	})
 }
 
 func TestS3SkippedDatums(t *testing.T) {
@@ -549,11 +565,16 @@ func TestS3SkippedDatums(t *testing.T) {
 
 			// Check that no service is left over
 			k := tu.GetKubeClient(t)
-			svcs, err := k.CoreV1().Services(Namespace).List(metav1.ListOptions{})
-			require.NoError(t, err)
-			for _, s := range svcs.Items {
-				require.NotEqual(t, s.ObjectMeta.Name, ppsutil.SidecarS3GatewayService(jis[j].Job.ID))
-			}
+			require.NoErrorWithinTRetry(t, 68*time.Second, func() error {
+				svcs, err := k.CoreV1().Services(Namespace).List(metav1.ListOptions{})
+				require.NoError(t, err)
+				for _, s := range svcs.Items {
+					if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jis[j].Job.ID) {
+						return fmt.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
+					}
+				}
+				return nil
+			})
 		}
 
 		// check output
