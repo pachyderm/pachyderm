@@ -42,7 +42,6 @@ message HashtreeInfo {
   // The tag can be used to fetch the object from object storage or when getting
   // the cached hashtree directly from the worker
   string tag = 2;
-  pfs.Object object = 3;
 }
 
 message JobData {
@@ -72,7 +71,7 @@ message DatumData {
 message MergeData {
   // Inputs
   repeated HashtreeInfo hashtrees = 1;
-  HashtreeInfo parent = 2;
+  pfs.Object parent = 2;
   int64 shard = 3;
 
   // Outputs

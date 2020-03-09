@@ -516,17 +516,13 @@ func fetchChunkFromWorker(driver driver.Driver, logger logs.TaggedLogger, addres
 }
 
 func fetchChunk(driver driver.Driver, logger logs.TaggedLogger, info *HashtreeInfo, shard int64) (io.ReadCloser, error) {
-	if info.Tag != "" {
-		reader, err := fetchChunkFromWorker(driver, logger, info.Address, info.Tag, shard)
-		if err == nil {
-			return reader, nil
-		}
-		logger.Logf("error when fetching cached chunk (%s) from worker (%s) - fetching from object store instead: %v", info.Tag, info.Address, err)
-
-		return driver.PachClient().GetTagReader(info.Tag)
+	reader, err := fetchChunkFromWorker(driver, logger, info.Address, info.Tag, shard)
+	if err == nil {
+		return reader, nil
 	}
+	logger.Logf("error when fetching cached chunk (%s) from worker (%s) - fetching from object store instead: %v", info.Tag, info.Address, err)
 
-	return driver.PachClient().GetObjectReader(info.Object.Hash)
+	return driver.PachClient().GetTagReader(info.Tag)
 }
 
 func handleMergeTask(driver driver.Driver, logger logs.TaggedLogger, data *MergeData) (retErr error) {
@@ -549,6 +545,7 @@ func handleMergeTask(driver driver.Driver, logger logs.TaggedLogger, data *Merge
 
 		for _, hashtreeInfo := range data.Hashtrees {
 			if !cache.Has(hashtreeInfo.Tag) {
+				hashtreeInfo := hashtreeInfo
 				eg.Go(func() (retErr error) {
 					reader, err := fetchChunk(driver, logger, hashtreeInfo, data.Shard)
 					if err != nil {
@@ -559,6 +556,7 @@ func handleMergeTask(driver driver.Driver, logger logs.TaggedLogger, data *Merge
 							retErr = err
 						}
 					}()
+
 					return cache.Put(hashtreeInfo.Tag, reader)
 				})
 			}
@@ -567,7 +565,7 @@ func handleMergeTask(driver driver.Driver, logger logs.TaggedLogger, data *Merge
 		if data.Parent != nil {
 			eg.Go(func() error {
 				var err error
-				parentReader, err = fetchChunk(driver, logger, data.Parent, data.Shard)
+				parentReader, err = driver.PachClient().GetObjectReader(data.Parent.Hash)
 				return err
 			})
 		}

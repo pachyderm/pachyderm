@@ -113,7 +113,7 @@ type Driver interface {
 	// RunUserErrorHandlingCode runs the pipeline's configured error handling code
 	RunUserErrorHandlingCode(logs.TaggedLogger, []string, *pps.ProcessStats, *types.Duration) error
 
-	// TODO: provide a more generic interface for modifying jobs/plans/etc, and
+	// TODO: provide a more generic interface for modifying jobs, and
 	// some quality-of-life functions for common operations.
 	DeleteJob(col.STM, *pps.EtcdJobInfo) error
 	UpdateJobState(string, pps.JobState, string) error

@@ -7315,7 +7315,7 @@ func TestLongDatums(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			"sleep 1m",
+			"sleep 2s",
 			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 		},
 		&pps.ParallelismSpec{
@@ -8699,7 +8699,7 @@ func TestDeleteCommitPropagation(t *testing.T) {
 // creates a pipeline. Creating the pipeline will spawn a job and while that
 // job is running, this test deletes the HEAD commit of the input branch, which
 // deletes the job's output commit and cancels the job. This should start
-// another pipeline that processes the original input HEAD commit's parent.
+// another job that processes the original input HEAD commit's parent.
 func TestDeleteCommitRunsJob(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")

@@ -136,15 +136,8 @@ func inputsToDatum(inputs []*common.Input) (string, error) {
 
 func newTestChain(t *testing.T, datums []string) JobChain {
 	hasher := &testHasher{}
-	chain := NewJobChain(hasher)
-	require.False(t, chain.Initialized())
-
 	baseDatums := datumsToSet(datums)
-
-	require.NoError(t, chain.Initialize(baseDatums))
-	require.True(t, chain.Initialized())
-
-	return chain
+	return NewJobChain(hasher, baseDatums)
 }
 
 func datumsToInputs(datums []string) [][]*common.Input {

@@ -10,37 +10,87 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/worker/datum"
 )
 
-// Interface - put job into black box
-// only for jobs in the running state
-// black box returns datum.Iterator of datums to be processed as they are safe to be processed
-// Notify black box when a job succeeds or fails so it can propagate datums to downstream jobs
-
+// DatumHasher is an interface to provide datum hashing without any external
+// dependencies (such as on the pipelineInfo).
 type DatumHasher interface {
+	// Hash should essentially wrap the common.HashDatum function, but other
+	// implementations may be useful in tests.
 	Hash([]*common.Input) string
 }
 
+// JobData is an interface which is used as a key to refer to a job within the
+// JobChain. It must provide a constructor for the datum iterator used by the
+// chain to produce the JobDatumIterator.
 type JobData interface {
+	// Iterator constructs the datum.Iterator associated with the job
 	Iterator() (datum.Iterator, error)
 }
 
+// JobDatumIterator is the interface returned by the JobChain corresponding to a
+// JobData. This acts similarly to a datum.Iterator, but has slightly different
+// semantics. This iterator works in batches, although iteration is still
+// performed one datum at a time, the batch sizes let the user know how many
+// datums can be consumed without blocking on upstream jobs. This iterator does
+// not support random access, although it can be reset if the user needs to
+// reiterate over the datums.
 type JobDatumIterator interface {
+	// NextBatch blocks until the next batch of datums are available
+	// (corresponding to an upstream job finishing in some way), and returns the
+	// number of datums that can now be iterated through.
 	NextBatch(context.Context) (uint64, error)
+
+	// NextDatum advances the iterator and returns the next available datum. If no
+	// such datum is immediately available, nil will be returned.
 	NextDatum() []*common.Input
+
+	// AdditiveOnly indicates if the job output can be merged with the parent
+	// job's output commit. If this is true, the iterator will not provide all
+	// datums for the output commit, but rather the set of datums that have been
+	// added.
 	AdditiveOnly() bool
+
+	// DatumSet returns the set of datums that have been produced for this job. If
+	// any datums have been recovered (see JobChain.RecoveredDatums), they will be
+	// excluded from this set.
 	DatumSet() DatumSet
+
+	// MaxLen returns the length of the underlying datum.Iterator. This kinda
+	// sucks but is necessary to know how many datums were skipped in the case of
+	// AdditiveOnly=true.
+	MaxLen() uint64
+
+	// Reset will reset the underlying data structures so that iteration can be
+	// performed from the start again. There is no guarantee that the datums will
+	// be provided in the same order, as some datums may no longer be blocked on
+	// subsequent iterations.
 	Reset()
 }
 
+// JobChain is an for coordinating concurrency between jobs. It tracks multiple
+// jobs via their JobData interface, and provides a JobDatumIterator for them to
+// safely process datums without worrying about work being duplicated or
+// invalidated. Dependencies between jobs are based on the order in which they
+// are added, so care should be taken to not introduce race conditions when
+// starting jobs.
 type JobChain interface {
-	Initialized() bool
-	Initialize(baseDatums DatumSet) error
-
+	// Start adds a new job to the chain and returns the corresponding
+	// JobDatumIterator
 	Start(jd JobData) (JobDatumIterator, error)
+
+	// RecoveredDatums indicates the set of recovered datums for the job. This can
+	// be called multiple times.
 	RecoveredDatums(jd JobData, recoveredDatums DatumSet) error
+
+	// Succeed indicates that the job has finished successfully
 	Succeed(jd JobData) error
+
+	// Fail indicates that the job has finished unsuccessfully
 	Fail(jd JobData) error
 }
 
+// DatumSet is a data structure used to track the set of datums in a job.
+// Multiple identical datums may be present in a job (so this is more of a
+// Multiset), but w/e.
 type DatumSet map[string]uint64
 
 type jobDatumIterator struct {
@@ -69,20 +119,10 @@ type jobChain struct {
 	jobs   []*jobDatumIterator
 }
 
-func NewJobChain(hasher DatumHasher) JobChain {
-	return &jobChain{
+// NewJobChain constructs a JobChain
+func NewJobChain(hasher DatumHasher, baseDatums DatumSet) JobChain {
+	jc := &jobChain{
 		hasher: hasher,
-		jobs:   []*jobDatumIterator{},
-	}
-}
-
-func (jc *jobChain) Initialized() bool {
-	return len(jc.jobs) > 0
-}
-
-func (jc *jobChain) Initialize(baseDatums DatumSet) error {
-	if jc.Initialized() {
-		return fmt.Errorf("cannot reinitialize JobChain")
 	}
 
 	// Insert a dummy job representing the given base datum set
@@ -93,11 +133,10 @@ func (jc *jobChain) Initialize(baseDatums DatumSet) error {
 		finished:  true,
 		done:      make(chan struct{}),
 	}
-
 	close(jdi.done)
-	jc.jobs = append(jc.jobs, jdi)
 
-	return nil
+	jc.jobs = []*jobDatumIterator{jdi}
+	return jc
 }
 
 // recalculate is called whenever jdi.yielding is empty (either at init or when
@@ -174,10 +213,6 @@ func (jdi *jobDatumIterator) recalculate(allAncestors []*jobDatumIterator) {
 }
 
 func (jc *jobChain) Start(jd JobData) (JobDatumIterator, error) {
-	if !jc.Initialized() {
-		return nil, fmt.Errorf("JobChain is not initialized")
-	}
-
 	dit, err := jd.Iterator()
 	if err != nil {
 		return nil, err
@@ -376,6 +411,10 @@ func (jdi *jobDatumIterator) Reset() {
 		delete(jdi.yielded, hash)
 		jdi.yielding[hash] += count
 	}
+}
+
+func (jdi *jobDatumIterator) MaxLen() uint64 {
+	return uint64(jdi.dit.Len())
 }
 
 func (jdi *jobDatumIterator) Datum() []*common.Input {
