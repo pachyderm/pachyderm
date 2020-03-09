@@ -1,5 +1,11 @@
-FROM alpine:3
-WORKDIR /pach
+ARG GO_VERSION
+FROM golang:${GO_VERSION} AS worker_build
+WORKDIR /app
+COPY init.go .
+ARG LD_FLAGS
+RUN CGO_ENABLED=0 go build -ldflags "${LD_FLAGS}" -o init "init.go"
+
+FROM scratch
+WORKDIR /app
 COPY --from=pachyderm_build /app/worker .
-COPY --from=pachyderm_build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY worker.sh .
+COPY --from=worker_build /app/init .

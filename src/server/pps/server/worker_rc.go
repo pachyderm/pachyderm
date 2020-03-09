@@ -180,7 +180,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 			{
 				Name:            "init",
 				Image:           workerImage,
-				Command:         []string{"/pach/worker.sh"},
+				Command:         []string{"/app/init"},
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
 				VolumeMounts:    options.volumeMounts,
 				Resources: v1.ResourceRequirements{
