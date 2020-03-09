@@ -190,7 +190,7 @@ func TestS3Input(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 		Pipeline: client.NewPipeline(pipeline),
 		Transform: &pps.Transform{
-			Image: "pachyderm/ubuntus3clients:v0.0.1",
+			Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
 			Cmd:   []string{"bash", "-x"},
 			Stdin: []string{
 				"ls -R /pfs >/pfs/out/pfs_files",
@@ -279,7 +279,7 @@ func TestS3Output(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 		Pipeline: client.NewPipeline(pipeline),
 		Transform: &pps.Transform{
-			Image: "pachyderm/ubuntus3clients:v0.0.1",
+			Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
 			Cmd:   []string{"bash", "-x"},
 			Stdin: []string{
 				"ls -R /pfs | aws --endpoint=${S3_ENDPOINT} s3 cp - s3://out/pfs_files",
@@ -362,7 +362,7 @@ func TestFullS3(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 		Pipeline: client.NewPipeline(pipeline),
 		Transform: &pps.Transform{
-			Image: "pachyderm/ubuntus3clients:v0.0.1",
+			Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
 			Cmd:   []string{"bash", "-x"},
 			Stdin: []string{
 				"ls -R /pfs | aws --endpoint=${S3_ENDPOINT} s3 cp - s3://out/pfs_files",
@@ -455,7 +455,7 @@ func TestS3SkippedDatums(t *testing.T) {
 		_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipeline),
 			Transform: &pps.Transform{
-				Image: "pachyderm/ubuntus3clients:v0.0.1",
+				Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
 				Cmd:   []string{"bash", "-x"},
 				Stdin: []string{
 					fmt.Sprintf(
@@ -620,7 +620,7 @@ func TestS3SkippedDatums(t *testing.T) {
 		_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipeline),
 			Transform: &pps.Transform{
-				Image: "pachyderm/ubuntus3clients:v0.0.1",
+				Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
 				Cmd:   []string{"bash", "-x"},
 				Stdin: []string{
 					fmt.Sprintf(

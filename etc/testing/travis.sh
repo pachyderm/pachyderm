@@ -123,7 +123,7 @@ case "${BUCKET}" in
     make test-pfs-storage
     ;;
  PPS?)
-    pushd src/testing/images/ubuntu+aws
+    pushd etc/testing/images/ubuntu_with_s3_clients
     make push-to-minikube
     popd
     make docker-build-kafka

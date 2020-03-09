@@ -1,5 +1,5 @@
 VERSION=v0.0.1
-IMAGE=pachyderm/ubuntus3clients:$(VERSION)
+IMAGE=pachyderm/ubuntu-with-s3-clients:$(VERSION)
 
 image:
 	docker build -t $(IMAGE) .
