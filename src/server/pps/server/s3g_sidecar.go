@@ -128,7 +128,6 @@ func (s *sidecarS3G) serveS3Instances() {
 		s: s,
 		h: &s3InstanceCreatingJobHandler{s},
 	}).start()
-	panic("sidecar s3 gateway: serveS3Instances() is exiting, which shouldn't happen")
 }
 
 func (s *sidecarS3G) createK8sServices() {
@@ -168,7 +167,6 @@ func (s *sidecarS3G) createK8sServices() {
 		logrus.Errorf("sidecar s3 gateway: %v; retrying in %v", err, d)
 		return nil
 	})
-	panic("sidecar s3 gateway: createK8sServices() is exiting, which shouldn't happen")
 }
 
 type s3InstanceCreatingJobHandler struct {
