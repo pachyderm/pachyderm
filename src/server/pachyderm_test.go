@@ -10624,13 +10624,6 @@ func TestExtractPipeline(t *testing.T) {
 	// and we want them to match.
 	request.Input.Pfs.Name = "input"
 	request.Input.Pfs.Branch = "master"
-	// Remove S3 inputs
-	pps.VisitInput(request.Input, func(in *pps.Input) {
-		if in.Pfs != nil {
-			in.Pfs.S3 = false
-		}
-	})
-	request.S3Out = false
 	// Can't set both parallelism spec values
 	request.ParallelismSpec.Coefficient = 0
 	// If service, can only set as Constant:1
