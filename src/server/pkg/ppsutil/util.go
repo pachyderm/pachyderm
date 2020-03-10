@@ -26,21 +26,20 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
-	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube "k8s.io/client-go/kubernetes"
 )
 
 // PipelineRepo creates a pfs repo for a given pipeline.
-func PipelineRepo(pipeline *ppsclient.Pipeline) *pfs.Repo {
+func PipelineRepo(pipeline *pps.Pipeline) *pfs.Repo {
 	return &pfs.Repo{Name: pipeline.Name}
 }
 
@@ -57,24 +56,29 @@ func PipelineRcName(name string, version uint64) string {
 // GetRequestsResourceListFromPipeline returns a list of resources that the pipeline,
 // minimally requires.
 func GetRequestsResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*v1.ResourceList, error) {
-	return getResourceListFromSpec(pipelineInfo.ResourceRequests, pipelineInfo.CacheSize)
+	return getResourceListFromSpec(pipelineInfo.ResourceRequests)
 }
 
-func getResourceListFromSpec(resources *pps.ResourceSpec, cacheSize string) (*v1.ResourceList, error) {
-	var result v1.ResourceList = make(map[v1.ResourceName]resource.Quantity)
-	cpuStr := fmt.Sprintf("%f", resources.Cpu)
-	cpuQuantity, err := resource.ParseQuantity(cpuStr)
-	if err != nil {
-		log.Warnf("error parsing cpu string: %s: %+v", cpuStr, err)
-	} else {
-		result[v1.ResourceCPU] = cpuQuantity
+func getResourceListFromSpec(resources *pps.ResourceSpec) (*v1.ResourceList, error) {
+	result := make(v1.ResourceList)
+
+	if resources.Cpu != 0 {
+		cpuStr := fmt.Sprintf("%f", resources.Cpu)
+		cpuQuantity, err := resource.ParseQuantity(cpuStr)
+		if err != nil {
+			log.Warnf("error parsing cpu string: %s: %+v", cpuStr, err)
+		} else {
+			result[v1.ResourceCPU] = cpuQuantity
+		}
 	}
 
-	memQuantity, err := resource.ParseQuantity(resources.Memory)
-	if err != nil {
-		log.Warnf("error parsing memory string: %s: %+v", resources.Memory, err)
-	} else {
-		result[v1.ResourceMemory] = memQuantity
+	if resources.Memory != "" {
+		memQuantity, err := resource.ParseQuantity(resources.Memory)
+		if err != nil {
+			log.Warnf("error parsing memory string: %s: %+v", resources.Memory, err)
+		} else {
+			result[v1.ResourceMemory] = memQuantity
+		}
 	}
 
 	if resources.Disk != "" { // needed because not all versions of k8s support disk resources
@@ -84,15 +88,6 @@ func getResourceListFromSpec(resources *pps.ResourceSpec, cacheSize string) (*v1
 		} else {
 			result[v1.ResourceEphemeralStorage] = diskQuantity
 		}
-	}
-
-	// Here we are sanity checking.  A pipeline should request at least
-	// as much memory as it needs for caching.
-	cacheQuantity, err := resource.ParseQuantity(cacheSize)
-	if err != nil {
-		log.Warnf("error parsing cache string: %s: %+v", cacheSize, err)
-	} else if cacheQuantity.Cmp(memQuantity) > 0 {
-		result[v1.ResourceMemory] = cacheQuantity
 	}
 
 	if resources.Gpu != nil {
@@ -111,7 +106,7 @@ func getResourceListFromSpec(resources *pps.ResourceSpec, cacheSize string) (*v1
 // GetLimitsResourceListFromPipeline returns a list of resources that the pipeline,
 // maximally is limited to.
 func GetLimitsResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*v1.ResourceList, error) {
-	return getResourceListFromSpec(pipelineInfo.ResourceLimits, pipelineInfo.CacheSize)
+	return getResourceListFromSpec(pipelineInfo.ResourceLimits)
 }
 
 // getNumNodes attempts to retrieve the number of nodes in the current k8s
@@ -131,7 +126,7 @@ func getNumNodes(kubeClient *kube.Clientset) (int, error) {
 // pachyderm will start given the ParallelismSpec 'spec'.
 //
 // This is only exported for testing
-func GetExpectedNumWorkers(kubeClient *kube.Clientset, spec *ppsclient.ParallelismSpec) (int, error) {
+func GetExpectedNumWorkers(kubeClient *kube.Clientset, spec *pps.ParallelismSpec) (int, error) {
 	if spec == nil || (spec.Constant == 0 && spec.Coefficient == 0) {
 		return 1, nil
 	} else if spec.Constant > 0 && spec.Coefficient == 0 {
@@ -150,7 +145,7 @@ func GetExpectedNumWorkers(kubeClient *kube.Clientset, spec *ppsclient.Paralleli
 
 // GetExpectedNumHashtrees computes the expected number of hashtrees that
 // Pachyderm will create given the HashtreeSpec 'spec'.
-func GetExpectedNumHashtrees(spec *ppsclient.HashtreeSpec) (int64, error) {
+func GetExpectedNumHashtrees(spec *pps.HashtreeSpec) (int64, error) {
 	if spec == nil || spec.Constant == 0 {
 		return 1, nil
 	} else if spec.Constant > 0 {
@@ -224,8 +219,8 @@ func JobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.CommitInfo) 
 }
 
 // PipelineReqFromInfo converts a PipelineInfo into a CreatePipelineRequest.
-func PipelineReqFromInfo(pipelineInfo *ppsclient.PipelineInfo) *ppsclient.CreatePipelineRequest {
-	return &ppsclient.CreatePipelineRequest{
+func PipelineReqFromInfo(pipelineInfo *pps.PipelineInfo) *pps.CreatePipelineRequest {
+	return &pps.CreatePipelineRequest{
 		Pipeline:         pipelineInfo.Pipeline,
 		Transform:        pipelineInfo.Transform,
 		ParallelismSpec:  pipelineInfo.ParallelismSpec,
@@ -250,6 +245,8 @@ func PipelineReqFromInfo(pipelineInfo *ppsclient.PipelineInfo) *ppsclient.Create
 		SchedulingSpec:   pipelineInfo.SchedulingSpec,
 		DatumTries:       pipelineInfo.DatumTries,
 		Standby:          pipelineInfo.Standby,
+		S3Out:            pipelineInfo.S3Out,
+		Metadata:         pipelineInfo.Metadata,
 	}
 }
 

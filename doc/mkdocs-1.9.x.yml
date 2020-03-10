@@ -120,7 +120,6 @@ nav:
             - Pipeline:
                 - Overview: concepts/pipeline-concepts/pipeline/index.md
                 - Cron: concepts/pipeline-concepts/pipeline/cron.md
-                - Join: concepts/pipeline-concepts/pipeline/join.md
                 - Service: concepts/pipeline-concepts/pipeline/service.md
                 - Spout: concepts/pipeline-concepts/pipeline/spout.md
             - Job: concepts/pipeline-concepts/job.md
@@ -128,7 +127,8 @@ nav:
                 - Overview: concepts/pipeline-concepts/datum/index.md
                 - Glob Patterns: concepts/pipeline-concepts/datum/glob-pattern.md
                 - Datum Processing: concepts/pipeline-concepts/datum/relationship-between-datums.md
-                - Cross and Union Inputs: concepts/pipeline-concepts/datum/cross-union.md
+                - Cross and Union: concepts/pipeline-concepts/datum/cross-union.md
+                - Join: concepts/pipeline-concepts/datum/join.md
                 - Datum Processing States: concepts/pipeline-concepts/datum/datum-processing-states.md
         - Advanced Concepts:
             - Deferred Processing of Data: concepts/advanced-concepts/deferred_processing.md
@@ -144,9 +144,6 @@ nav:
             - Splitting Data for Distributed Processing: how-tos/splitting-data/splitting.md
             - Adjusting Data Processing by Splitting Data: how-tos/splitting-data/adjusting_data_processing_w_split.md
         - Create a Machine Learning Workflow: how-tos/create-ml-workflow.md
-        - Use JupyterHub:
-            - Overview: how-tos/use-jupyterhub/index.md
-            - Using python-pachyderm in JupyterHub: how-tos/use-jupyterhub/using-jupyterhub.md
         - Run a Pipeline on a Specific Commit: how-tos/run_pipeline.md
         - Update a Pipeline: how-tos/updating_pipelines.md
         - Processing Time-Windowed Data: how-tos/time_windows.md
@@ -169,7 +166,6 @@ nav:
             - Deploy on Azure: deploy-manage/deploy/azure.md
             - Deploy on OpenShift: deploy-manage/deploy/openshift.md
             - Deploy On-Premises: deploy-manage/deploy/on_premises.md
-            - Deploy Pachyderm with JupyterHub: deploy-manage/deploy/deploy-pachyderm-jupyterhub.md
             - Create a Custom Deployment:
                 - Overview: deploy-manage/deploy/deploy_custom/index.md
                 - Before You Begin: deploy-manage/deploy/deploy_custom/deploy_custom_before_you_begin.md
@@ -362,5 +358,5 @@ nav:
 
 # Google Analytics
 google_analytics:
-  - !!python/object/apply:os.getenv ["GOOGLE_ANALYTICS_KEY"]
+  - !!python/object/apply:os.getenv ["UA-158483597-1"]
   - autosite_name: Pachyderm Documentation

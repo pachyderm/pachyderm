@@ -189,10 +189,20 @@ func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName str
 						"already creates /pfs/out to collect job output")
 				case input.Pfs.Repo == "":
 					return fmt.Errorf("input must specify a repo")
+				case input.Pfs.Repo == "out" && input.Pfs.Name == "":
+					return fmt.Errorf("inputs based on repos named \"out\" must have " +
+						"'name' set, as pachyderm already creates /pfs/out to collect " +
+						"job output")
 				case input.Pfs.Branch == "" && !job:
 					return fmt.Errorf("input must specify a branch")
 				case len(input.Pfs.Glob) == 0:
 					return fmt.Errorf("input must specify a glob")
+				case input.Pfs.S3 && input.Pfs.Glob != "":
+					return fmt.Errorf("input cannot specify both 's3' and 'glob, as " +
+						"the first exposes repo contents via the S3 gateway, while the " +
+						"second exposes repo contents via the filesystem")
+				case input.Pfs.S3:
+					return fmt.Errorf("'s3' inputs are not supported yet")
 				}
 				// Note that input.Pfs.Commit is empty if a) this is a job b) one of
 				// the job pipeline's input branches has no commits yet
@@ -1539,6 +1549,9 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	if request.TFJob != nil {
 		return goerr.New("embedding TFJobs in pipelines is not supported yet")
 	}
+	if request.S3Out {
+		return goerr.New("s3 gateway services for PPS pipelines are not supported yet")
+	}
 	if request.Transform == nil {
 		return fmt.Errorf("pipeline must specify a transform")
 	}
@@ -1957,6 +1970,8 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		SchedulingSpec:   request.SchedulingSpec,
 		PodSpec:          request.PodSpec,
 		PodPatch:         request.PodPatch,
+		S3Out:            request.S3Out,
+		Metadata:         request.Metadata,
 	}
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
 		return nil, err
@@ -2274,11 +2289,6 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
 	if pipelineInfo.CacheSize == "" {
 		pipelineInfo.CacheSize = "64M"
 	}
-	if pipelineInfo.ResourceRequests == nil && pipelineInfo.CacheSize != "" {
-		pipelineInfo.ResourceRequests = &pps.ResourceSpec{
-			Memory: pipelineInfo.CacheSize,
-		}
-	}
 	if pipelineInfo.MaxQueueSize < 1 {
 		pipelineInfo.MaxQueueSize = 1
 	}
@@ -2538,9 +2548,22 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 		if err := a.authorizePipelineOp(pachClient, pipelineOpDelete, pipelineInfo.Input, pipelineInfo.Pipeline.Name); err != nil {
 			return nil, err
 		}
-		// delete the pipeline's output repo
-		if err := pachClient.DeleteRepo(request.Pipeline.Name, request.Force); err != nil {
-			return nil, err
+		if request.KeepRepo {
+			// Remove branch provenance (pass branch twice so that it continues to point
+			// at the same commit, but also pass empty provenance slice)
+			if err := pachClient.CreateBranch(
+				request.Pipeline.Name,
+				pipelineInfo.OutputBranch,
+				pipelineInfo.OutputBranch,
+				nil,
+			); err != nil {
+				return nil, err
+			}
+		} else {
+			// delete the pipeline's output repo
+			if err := pachClient.DeleteRepo(request.Pipeline.Name, request.Force); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -2608,13 +2631,15 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 		return nil
 	})
 	// Delete cron input repos
-	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
-		if input.Cron != nil {
-			eg.Go(func() error {
-				return pachClient.DeleteRepo(input.Cron.Repo, request.Force)
-			})
-		}
-	})
+	if !request.KeepRepo {
+		pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
+			if input.Cron != nil {
+				eg.Go(func() error {
+					return pachClient.DeleteRepo(input.Cron.Repo, request.Force)
+				})
+			}
+		})
+	}
 	if err := eg.Wait(); err != nil {
 		return nil, err
 	}
@@ -2835,17 +2860,41 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	specProvenance := client.NewCommitProvenance(ppsconsts.SpecRepo, request.Pipeline.Name, specCommit.Commit.ID)
 	provenance = append(provenance, specProvenance)
 
-	_, err = pfsClient.StartCommit(ctx, &pfs.StartCommitRequest{
-		Parent: &pfs.Commit{
-			Repo: &pfs.Repo{
-				Name: request.Pipeline.Name,
+	if _, err := pachClient.ExecuteInTransaction(func(txnClient *client.APIClient) error {
+		newCommit, err := txnClient.PfsAPIClient.StartCommit(txnClient.Ctx(), &pfs.StartCommitRequest{
+			Parent: &pfs.Commit{
+				Repo: &pfs.Repo{
+					Name: request.Pipeline.Name,
+				},
 			},
-		},
-		Provenance: provenance,
-	})
-	if err != nil {
+			Provenance: provenance,
+		})
+		if err != nil {
+			return err
+		}
+
+		// if stats are enabled, then create a stats commit for the job as well
+		if pipelineInfo.EnableStats {
+			// it needs to additionally be provenant on the commit we just created
+			newCommitProv := client.NewCommitProvenance(newCommit.Repo.Name, "", newCommit.ID)
+			_, err = txnClient.PfsAPIClient.StartCommit(txnClient.Ctx(), &pfs.StartCommitRequest{
+				Parent: &pfs.Commit{
+					Repo: &pfs.Repo{
+						Name: request.Pipeline.Name,
+					},
+				},
+				Branch:     "stats",
+				Provenance: append(provenance, newCommitProv),
+			})
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
 		return nil, err
 	}
+
 	return &types.Empty{}, nil
 }
 

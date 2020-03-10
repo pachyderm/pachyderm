@@ -244,6 +244,26 @@ spec:
 status:
   loadBalancer: {}
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: pachd
+    suite: pachyderm
+  name: pachd-peer
+  namespace: default
+spec:
+  ports:
+  - name: api-grpc-peer-port
+    port: 30653
+    targetPort: 653
+  selector:
+    app: pachd
+  type: ClusterIP
+status:
+  loadBalancer: {}
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -282,14 +302,14 @@ spec:
           value: GOOGLE
         - name: STORAGE_HOST_PATH
         - name: WORKER_IMAGE
-          value: pachyderm/worker:1.9.12
+          value: pachyderm/worker:1.10.0
         - name: IMAGE_PULL_SECRET
         - name: WORKER_SIDECAR_IMAGE
-          value: pachyderm/pachd:1.9.12
+          value: pachyderm/pachd:1.10.0
         - name: WORKER_IMAGE_PULL_POLICY
           value: IfNotPresent
         - name: PACHD_VERSION
-          value: 1.9.12
+          value: 1.10.0
         - name: METRICS
           value: "true"
         - name: LOG_LEVEL
@@ -494,7 +514,7 @@ spec:
               optional: true
         - name: STORAGE_UPLOAD_CONCURRENCY_LIMIT
           value: "100"
-        image: pachyderm/pachd:1.9.12
+        image: pachyderm/pachd:1.10.0
         imagePullPolicy: IfNotPresent
         name: pachd
         ports:

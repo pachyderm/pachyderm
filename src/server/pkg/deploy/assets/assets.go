@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
-	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 
@@ -259,15 +257,6 @@ func replicas(r int32) *int32 {
 	return &r
 }
 
-// Kubernetes doesn't work well with windows path separators
-func kubeFilepathJoin(paths ...string) string {
-	joined := filepath.Join(paths...)
-	if runtime.GOOS != "windows" {
-		return joined
-	}
-	return strings.ReplaceAll(joined, "\\", "/")
-}
-
 // fillDefaultResourceRequests sets any of:
 //   opts.BlockCacheSize
 //   opts.PachdNonCacheMemRequest
@@ -504,7 +493,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 	var storageHostPath string
 	switch objectStoreBackend {
 	case localBackend:
-		storageHostPath = kubeFilepathJoin(hostPath, "pachd")
+		storageHostPath = path.Join(hostPath, "pachd")
 		pathType := v1.HostPathDirectoryOrCreate
 		volumes[0].HostPath = &v1.HostPathVolumeSource{
 			Path: storageHostPath,
@@ -720,6 +709,33 @@ func PachdService(opts *AssetOpts) *v1.Service {
 	}
 }
 
+// PachdPeerService returns an internal pachd service. This service will
+// reference the PeerPorr, which does not employ TLS even if cluster TLS is
+// enabled. Because of this, the service is a `ClusterIP` type (i.e. not
+// exposed outside of the cluster.)
+func PachdPeerService(opts *AssetOpts) *v1.Service {
+	return &v1.Service{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: objectMeta(fmt.Sprintf("%s-peer", pachdName), labels(pachdName), map[string]string{}, opts.Namespace),
+		Spec: v1.ServiceSpec{
+			Type: v1.ServiceTypeClusterIP,
+			Selector: map[string]string{
+				"app": pachdName,
+			},
+			Ports: []v1.ServicePort{
+				{
+					Port:       30653,
+					Name:       "api-grpc-peer-port",
+					TargetPort: intstr.FromInt(653), // also set in cmd/pachd/main.go
+				},
+			},
+		},
+	}
+}
+
 // GithookService returns a k8s service that exposes a public IP
 func GithookService(namespace string) *v1.Service {
 	name := "githook"
@@ -768,7 +784,7 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 				Name: "etcd-storage",
 				VolumeSource: v1.VolumeSource{
 					HostPath: &v1.HostPathVolumeSource{
-						Path: kubeFilepathJoin(hostPath, "etcd"),
+						Path: path.Join(hostPath, "etcd"),
 						Type: &pathType,
 					},
 				},
@@ -921,7 +937,7 @@ func EtcdVolume(persistentDiskBackend backend, opts *AssetOpts,
 		pathType := v1.HostPathDirectoryOrCreate
 		spec.Spec.PersistentVolumeSource = v1.PersistentVolumeSource{
 			HostPath: &v1.HostPathVolumeSource{
-				Path: kubeFilepathJoin(hostPath, "etcd"),
+				Path: path.Join(hostPath, "etcd"),
 				Type: &pathType,
 			},
 		}
@@ -1471,6 +1487,9 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend back
 	}
 
 	if err := encoder.Encode(PachdService(opts)); err != nil {
+		return err
+	}
+	if err := encoder.Encode(PachdPeerService(opts)); err != nil {
 		return err
 	}
 	if err := encoder.Encode(PachdDeployment(opts, objectStoreBackend, hostPath)); err != nil {

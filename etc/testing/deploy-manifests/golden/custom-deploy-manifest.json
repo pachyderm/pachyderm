@@ -340,6 +340,35 @@
   }
 }
 {
+  "kind": "Service",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "pachd-peer",
+    "namespace": "pachyderm",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "pachd",
+      "suite": "pachyderm"
+    }
+  },
+  "spec": {
+    "ports": [
+      {
+        "name": "api-grpc-peer-port",
+        "port": 30653,
+        "targetPort": 653
+      }
+    ],
+    "selector": {
+      "app": "pachd"
+    },
+    "type": "ClusterIP"
+  },
+  "status": {
+    "loadBalancer": {}
+  }
+}
+{
   "kind": "Deployment",
   "apiVersion": "apps/v1",
   "metadata": {
@@ -387,7 +416,7 @@
         "containers": [
           {
             "name": "pachd",
-            "image": "pachyderm/pachd:1.9.12",
+            "image": "pachyderm/pachd:1.10.0",
             "ports": [
               {
                 "name": "api-grpc-port",
@@ -440,14 +469,14 @@
               },
               {
                 "name": "WORKER_IMAGE",
-                "value": "pachyderm/worker:1.9.12"
+                "value": "pachyderm/worker:1.10.0"
               },
               {
                 "name": "IMAGE_PULL_SECRET"
               },
               {
                 "name": "WORKER_SIDECAR_IMAGE",
-                "value": "pachyderm/pachd:1.9.12"
+                "value": "pachyderm/pachd:1.10.0"
               },
               {
                 "name": "WORKER_IMAGE_PULL_POLICY",
@@ -455,7 +484,7 @@
               },
               {
                 "name": "PACHD_VERSION",
-                "value": "1.9.12"
+                "value": "1.10.0"
               },
               {
                 "name": "METRICS",
