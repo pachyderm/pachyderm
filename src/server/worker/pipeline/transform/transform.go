@@ -76,11 +76,6 @@ func forEachCommit(
 	)
 }
 
-// dumb function to get a job and associated commits into a consistent state in case something broke it
-func recoverFinishJob(jobInfo *pps.JobInfo, jobState *pps.JobState) error {
-	return nil
-}
-
 // Run will run a transform pipeline until the driver is canceled.
 func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 	reg, err := newRegistry(logger, driver)

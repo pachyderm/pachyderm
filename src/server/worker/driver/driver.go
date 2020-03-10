@@ -56,7 +56,6 @@ const (
 
 var (
 	errSpecialFile = errors.New("cannot upload special file")
-	statsTagSuffix = "_stats"
 )
 
 func workNamespace(pipelineInfo *pps.PipelineInfo) string {
@@ -633,11 +632,11 @@ func (d *driver) downloadGitData(scratchPath string, input *common.Input) error 
 	}
 
 	if payload.Repository.CloneURL == "" {
-		return fmt.Errorf("Git hook payload does not specify the upstream URL")
+		return fmt.Errorf("git hook payload does not specify the upstream URL")
 	} else if payload.Ref == "" {
-		return fmt.Errorf("Git hook payload does not specify the updated ref")
+		return fmt.Errorf("git hook payload does not specify the updated ref")
 	} else if payload.After == "" {
-		return fmt.Errorf("Git hook payload does not specify the commit SHA")
+		return fmt.Errorf("git hook payload does not specify the commit SHA")
 	}
 
 	// Clone checks out a reference, not a SHA. Github does not support fetching

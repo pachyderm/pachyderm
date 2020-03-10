@@ -18,11 +18,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/worker/pipeline"
 )
 
-type serviceItem struct {
-	serviceCtx context.Context
-	commitInfo *pfs.CommitInfo
-}
-
 // Runs the given callback with the latest commit for the pipeline.  The given
 // context will be canceled if a newer commit is ready.
 func forLatestCommit(

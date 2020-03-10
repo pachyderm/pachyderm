@@ -4,10 +4,10 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
 	"github.com/pachyderm/pachyderm/src/server/worker/pipeline"
-	"github.com/pachyderm/pachyderm/src/server/worker/common"
 )
 
 // Run will run a spout pipeline until the driver is canceled.

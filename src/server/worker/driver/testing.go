@@ -217,7 +217,6 @@ func (md *MockDriver) UpdateJobState(jobID string, state pps.JobState, reason st
 
 // ReportUploadStats does nothing.
 func (md *MockDriver) ReportUploadStats(time.Time, *pps.ProcessStats, logs.TaggedLogger) {
-	return
 }
 
 // NewSTM calls the given callback under a new STM using the configured etcd

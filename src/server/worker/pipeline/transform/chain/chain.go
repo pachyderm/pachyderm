@@ -326,15 +326,6 @@ func (jc *jobChain) Succeed(jd JobData) error {
 	return nil
 }
 
-func safeToProcess(hash string, ancestors []*jobDatumIterator) bool {
-	for _, ancestor := range ancestors {
-		if _, ok := ancestor.allDatums[hash]; ok {
-			return false
-		}
-	}
-	return true
-}
-
 // TODO: iteration should return a chunk of 'known' new datums before other
 // datums (to optimize for distributing processing across workers). This should
 // still be true even after resetting the iterator.

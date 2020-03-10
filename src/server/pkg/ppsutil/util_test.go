@@ -32,7 +32,7 @@ func TestGetExpectedNumWorkers(t *testing.T) {
 
 	// Constant and Coefficient cannot both be non-zero
 	parallelismSpec.Coefficient = 0.5
-	workers, err = GetExpectedNumWorkers(kubeClient, parallelismSpec)
+	_, err = GetExpectedNumWorkers(kubeClient, parallelismSpec)
 	require.YesError(t, err)
 
 	// No parallelism spec should default to 1 worker

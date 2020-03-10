@@ -99,7 +99,7 @@ func collectLogs(cb func(logs.TaggedLogger)) []string {
 
 	cb(logger)
 
-	logStmts := strings.Split(string(buffer.Bytes()), "\n")
+	logStmts := strings.Split(buffer.String(), "\n")
 	if len(logStmts) > 0 && logStmts[len(logStmts)-1] == "" {
 		return logStmts[0 : len(logStmts)-1]
 	}
@@ -298,15 +298,6 @@ func newInputDataRegex(path string, regex string) *inputData {
 
 func newInputData(path string, contents string) *inputData {
 	return &inputData{path: filepath.Clean(path), contents: contents}
-}
-
-func requireNotPresent(t *testing.T, path string) {
-	_, err := os.Stat(path)
-	if err == nil {
-		require.False(t, true, "unexpected file found: %s", path)
-	} else if !os.IsNotExist(err) {
-		require.NoError(t, err)
-	}
 }
 
 func requireEmptyScratch(t *testing.T, inputDir string) {
@@ -808,16 +799,4 @@ func TestRunUserCodeWithData(t *testing.T) {
 		})
 	})
 	require.NoError(t, err)
-}
-
-func TestRunUserErrorHandlingCode(t *testing.T) {
-	t.Parallel()
-}
-
-func TestUpdateJobState(t *testing.T) {
-	t.Parallel()
-}
-
-func TestDeleteJob(t *testing.T) {
-	t.Parallel()
 }

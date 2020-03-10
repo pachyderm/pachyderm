@@ -3,7 +3,6 @@ package chain
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -34,6 +33,8 @@ func makeIndex() map[string]string {
 }
 
 var datumIndex = makeIndex()
+
+/* Useful functions for debugging, commented out to appease lint
 
 func printState(jc *jobChain) {
 	jc.mutex.Lock()
@@ -81,6 +82,7 @@ func printDatumSet(jc *jobChain, name string, set DatumSet) {
 	sort.Strings(arr)
 	fmt.Printf(" %s (%d): %v\n", name, len(set), arr)
 }
+*/
 
 type testIterator struct {
 	index  int
@@ -210,25 +212,6 @@ func requireIteratorDone(t *testing.T, jdi JobDatumIterator) {
 	count, err := jdi.NextBatch(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, uint64(0), count)
-}
-
-func requireIteratorContentsNonBlocking(t *testing.T, jdi JobDatumIterator, expected []string) {
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-
-	count, err := jdi.NextBatch(ctx)
-	require.NoError(t, err)
-	require.Equal(t, uint64(len(expected)), count)
-
-	found := []string{}
-
-	for range expected {
-		datum, err := inputsToDatum(jdi.NextDatum())
-		require.NoError(t, err)
-		found = append(found, datum)
-	}
-
-	require.ElementsEqual(t, expected, found)
 }
 
 func TestEmptyBase(t *testing.T) {

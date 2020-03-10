@@ -47,14 +47,13 @@ func jobRecoveredDatumTagsTag(jobID string) string {
 }
 
 type pendingJob struct {
-	driver        driver.Driver
-	commitInfo    *pfs.CommitInfo
-	cancel        context.CancelFunc
-	logger        logs.TaggedLogger
-	ji            *pps.JobInfo
-	jobData       *types.Any
-	datumTaskChan chan *work.Task
-	jdit          chain.JobDatumIterator
+	driver     driver.Driver
+	commitInfo *pfs.CommitInfo
+	cancel     context.CancelFunc
+	logger     logs.TaggedLogger
+	ji         *pps.JobInfo
+	jobData    *types.Any
+	jdit       chain.JobDatumIterator
 
 	// These are filled in when the RUNNING phase completes, but may be re-fetched
 	// from object storage.
@@ -68,10 +67,7 @@ type registry struct {
 	mutex       sync.Mutex
 	concurrency uint64
 	limiter     limit.ConcurrencyLimiter
-	hasher      chain.DatumHasher
 	jobChain    chain.JobChain
-
-	datumsBase map[string]struct{}
 }
 
 type hasher struct {
@@ -94,18 +90,12 @@ func newRegistry(
 		return nil, err
 	}
 
-	hasher := &hasher{
-		name: driver.PipelineInfo().Pipeline.Name,
-		salt: driver.PipelineInfo().Salt,
-	}
-
 	return &registry{
 		driver:      driver,
 		logger:      logger,
 		concurrency: concurrency,
 		workMaster:  driver.NewTaskMaster(),
 		limiter:     limit.New(int(concurrency)),
-		hasher:      hasher,
 		jobChain:    nil,
 	}, nil
 }
@@ -301,7 +291,13 @@ func (reg *registry) initializeJobChain(commitInfo *pfs.CommitInfo) error {
 			baseDatums = make(chain.DatumSet)
 		}
 
-		reg.jobChain = chain.NewJobChain(hasher, baseDatums)
+		reg.jobChain = chain.NewJobChain(
+			&hasher{
+				name: reg.driver.PipelineInfo().Pipeline.Name,
+				salt: reg.driver.PipelineInfo().Salt,
+			},
+			baseDatums,
+		)
 	}
 
 	return nil

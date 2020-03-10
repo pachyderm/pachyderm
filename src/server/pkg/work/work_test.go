@@ -57,7 +57,7 @@ func TestWork(t *testing.T) {
 						cancel()
 					} else {
 						processMu.Lock()
-						subtasksProcessed[subtask.Id] = true
+						subtasksProcessed[subtask.ID] = true
 						processMu.Unlock()
 					}
 					return nil
@@ -76,18 +76,18 @@ func TestWork(t *testing.T) {
 	var subtasks []*Task
 	for i := 0; i < numSubtasks; i++ {
 		id := strconv.Itoa(i)
-		subtasks = append(subtasks, &Task{Id: id})
+		subtasks = append(subtasks, &Task{ID: id})
 		subtasksCreated[id] = true
 	}
 	task := &Task{
-		Id:       taskID,
+		ID:       taskID,
 		Subtasks: subtasks,
 	}
 	require.NoError(t, m.Run(
 		context.Background(),
 		task,
 		func(_ context.Context, subtask *Task) error {
-			subtasksCollected[subtask.Id] = true
+			subtasksCollected[subtask.ID] = true
 			return nil
 		}),
 	)
