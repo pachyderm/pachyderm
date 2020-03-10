@@ -33,23 +33,20 @@ the `watch` and `kubectl` commands on your system, and configure
 
 To stop a running pipeline, complete the following steps:
 
-1. Stop each pipeline individually by repeatedly running the following
-command:
+1. Pause each pipeline individually by repeatedly running the single
+`pachctl` command or by running a script:
 
-   ```bash
+   ```pachctl tab="Command"
    pachctl stop pipeline <pipeline-name>
    ```
 
-   * Alternatively, use this shell script that pauses all pipelines at
-   once:
-
-   ```bash
-    pachctl list pipeline --raw \
+   ```script tab="Script"
+   pachctl list pipeline --raw \
    | jq -r '.pipeline.name' \
    | xargs -P3 -n1 -I{} pachctl stop pipeline {}
    ```
 
-   * Optionally, run the `watch` command to monitor the pods
+1. Optionally, run the `watch` command to monitor the pods
    terminating:
 
    ```bash
@@ -62,7 +59,7 @@ command:
    pachctl list pipeline
    ```
 
-## Pause External Data Loading Operations
+### Pause External Data Loading Operations
 
 **Input repositories** or **input repos** in pachyderm are
 repositories created with the `pachctl create repo` command.
@@ -103,7 +100,8 @@ the `pachd` Kubernetes service so that it only accepts
 traffic on port 30649 instead of the usual 30650. This way,
 any background users and services that send requests to
 your Pachyderm cluster while `pachctl extract` is
-running will not interfere with the process.
+running will not interfere with the process. Use this port switching
+technique to minimize downtime during the migration.
 
 To pause external data loading operations, complete the
 following steps:
@@ -129,6 +127,29 @@ following steps:
    Most likely, you will need to modify your cloud provider's firewall
    rules to allow traffic on this port.
 
+   Depending on your deployment, you might need to switch
+   additional ports:
+
+   1. Back up the `etcd` and dashboard manifests:
+
+   ```bash
+   kubectl get svc/etcd -o json >etcd_svc_backup_32379.json
+   kubectl get svc/dash -o json >dash_svc_backup_30080.json
+   ```
+
+   1. Switch the `etcd` and dashboard manifests:
+
+      ```bash
+      kubectl get svc/pachd -o json | sed 's/30651/30648/g' | kubectl apply -f -
+      kubectl get svc/pachd -o json | sed 's/30652/30647/g' | kubectl apply -f -
+      kubectl get svc/pachd -o json | sed 's/30654/30646/g' | kubectl apply -f -
+      kubectl get svc/pachd -o json | sed 's/30655/30644/g' | kubectl apply -f -
+      kubectl get svc/etcd -o json | sed 's/32379/32378/g' | kubectl apply -f -
+      kubectl get svc/dash -o json | sed 's/30080/30079/g' | kubectl apply -f -
+      kubectl get svc/dash -o json | sed 's/30081/30078/g' | kubectl apply -f -
+      kubectl get svc/pachd -o json | sed 's/30600/30611/g' | kubectl apply -f -
+      ```
+
 1. Modify your environment so that you can access `pachd` on this new
 port
 
@@ -140,17 +161,50 @@ port
 
    ```bash
    pachctl version
+   ```
+
+   **System Response:**
+
+   ```
    COMPONENT           VERSION
    pachctl             1.10.0
    pachd               1.10.0
    ```
 
+??? note "pause-pipelines.sh"
+    Alternatively, you can run **Steps 1 - 3** by using the following script:
+
+    ```bash
+    #!/bin/bash
+    # Stop all pipelines:
+    pachctl list pipeline --raw \
+    | jq -r '.pipeline.name' \
+    | xargs -P3 -n1 -I{} pachctl stop pipeline {}
+
+    # Backup the Pachyderm service spec, in case you need to restore it quickly
+    kubectl get svc/pachd -o json >pach_service_backup_30650.json
+    kubectl get svc/etcd -o json >etcd_svc_backup_32379.json
+    kubectl get svc/dash -o json >dash_svc_backup_30080.json
+
+    # Modify the service to accept traffic on port 30649
+    kubectl get svc/pachd -o json | sed 's/30650/30649/g' | kubectl apply -f -
+    kubectl get svc/pachd -o json | sed 's/30651/30648/g' | kubectl apply -f -
+    kubectl get svc/pachd -o json | sed 's/30652/30647/g' | kubectl apply -f -
+    kubectl get svc/pachd -o json | sed 's/30654/30646/g' | kubectl apply -f -
+    kubectl get svc/pachd -o json | sed 's/30655/30644/g' | kubectl apply -f -
+    kubectl get svc/etcd -o json | sed 's/32379/32378/g' | kubectl apply -f -
+    kubectl get svc/dash -o json | sed 's/30080/30079/g' | kubectl apply -f -
+    kubectl get svc/dash -o json | sed 's/30081/30078/g' | kubectl apply -f -
+    kubectl get svc/pachd -o json | sed 's/30600/30611/g' | kubectl apply -f -
+    ```
+
+
 ## Back up Your Pachyderm Cluster
 
-After you pause all your pipelines and external data operations,
+After you pause all pipelines and external data operations,
 you can use the `pachctl extract` command to back up your data.
 You can use `pachctl extract` alone or in combination with
-cloning or snapshotting services.
+cloning or snapshotting services offered by your cloud provider.
 
 The backup includes the following:
 
@@ -158,11 +212,12 @@ The backup includes the following:
 * Information about Pachyderm primitives, such as pipelines, repositories,
 commits, provenance and so on. This information is stored in etcd.
 
-You can back up everything in one local file or you can back up
-Pachyderm primitives in the local file and use object store's
-capabilities to clone the data itself. The latter is preferred for
-large volumes of data. Use the `--no-objects` flag to separate
-backups.
+You can back up everything to one local file or you can back up
+Pachyderm primitives to a local file and use object store's
+capabilities to clone the data stored in object store buckets.
+The latter is preferred for large volumes of data and minimizing
+the downtime during the upgrade. Use the
+`--no-objects` flag to separate backups.
 
 In addition, you can extract your partial or full backup into a
 separate S3 bucket. The bucket must have the same permissions policy as
@@ -170,7 +225,7 @@ the one you have configured when you originally deployed Pachyderm.
 
 To back up your Pachyderm cluster, run one of the following commands:
 
-* To create a partial back up of metada-only, run:
+* To create a partial back up of metadata-only, run:
 
   ```bash
   pachctl extract --no-objects > path/to/your/backup/file
@@ -192,95 +247,49 @@ To back up your Pachyderm cluster, run one of the following commands:
   Similarly, this backup can be saved in an object store with the `--url`
   flag.
 
-## Using your cloud provider's clone and snapshot services
+## Using your Cloud Provider's Clone and Snapshot Services
 
-You should follow your cloud provider's recommendation
-for backing up these resources. Here are some pointers to the relevant documentation.
+Follow your cloud provider's recommendation
+for backing up persistent volumes and object stores. Here are some pointers to the relevant documentation:
 
-##### Snapshotting persistent volumes
+* Creating a snapshot of persistent volumes:
 
-For example, here are official guides on creating snapshots of persistent volumes on Google Cloud Platform, Amazon Web Services (AWS) and Microsoft Azure, respectively:
+  - [Creating snapshots of GCE persistent volumes](https://cloud.google.com/compute/docs/disks/create-snapshots)
+  - [Creating snapshots of Elastic Block Store (EBS) volumes](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-creating-snapshot.html)
+  - [Creating snapshots of Azure Virtual Hard Disk volumes](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/snapshot-copy-managed-disk)
 
-- [Creating snapshots of GCE persistent volumes](https://cloud.google.com/compute/docs/disks/create-snapshots)
-- [Creating snapshots of Elastic Block Store (EBS) volumes](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-creating-snapshot.html)
-- [Creating snapshots of Azure Virtual Hard Disk volumes](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/snapshot-copy-managed-disk)
+    For on-premises Kubernetes deployments, check the vendor documentation for
+    your PV implementation on backing up and restoring.
 
-For on-premises Kubernetes deployments,  check the vendor documentation for your PV implementation on backing up and restoring.
+* Cloning object stores:
 
-##### Cloning object stores
+  - [Using AWS CLI](https://docs.aws.amazon.com/cli/latest/reference/s3/sync.html)
+  - [Using gsutil](https://cloud.google.com/storage/docs/gsutil/commands/cp)
+  - [Using azcopy](https://docs.microsoft.com/en-us/azure/storage/common/storage-use-azcopy-linux?toc=%2fazure%2fstorage%2ffiles%2ftoc.json).
 
-Below, we give an example using the Amazon Web Services CLI to clone one bucket to another, [taken from the documentation for that command](https://docs.aws.amazon.com/cli/latest/reference/s3/sync.html).  Similar commands are available for [Google Cloud](https://cloud.google.com/storage/docs/gsutil/commands/cp) and [Azure blob storage](https://docs.microsoft.com/en-us/azure/storage/common/storage-use-azcopy-linux?toc=%2fazure%2fstorage%2ffiles%2ftoc.json).
+    For on-premises Kubernetes deployments, check the vendor documentation
+    for your on-premises object store for details on  backing up and
+    restoring a bucket.
 
-`aws s3 sync s3://mybucket s3://mybucket2`
+# Restore your Cluster from a Backup:
 
-For on-premises Kubernetes deployments,  check the vendor documentation for your on-premises object store for details on  backing up and restoring a bucket.
+After you backup your cluster, you can restore it by using the
+`pachctl restore` command. Typically, you would deploy a new Pachyderm cluster
+either in another Kubernetes namespace or in a completely separate Kubernetes cluster.
 
-#### Combining cloning, snapshots and extract/restore
+To restore your Cluster from a Backup, run the following command:
 
-You can use `pachctl extract` command with the `--no-objects` flag to exclude the object store, and use an object store snapshot or clone command to back up the object store. You can run the two commands at the same time.  For example, on Amazon Web Services, the following commands can be run simultaneously.
+* If you have backed up your cluster to a local file:, run:
 
-`aws s3 sync s3://mybucket s3://mybucket2`
+  ```bash
+  pachctl restore < path/to/your/backup/file
+  ```
 
-`pachctl extract --no-objects --url s3://anotherbucket`
+* If you have backed up your cluster to an object store, run:
 
-#### Use case: minimizing downtime during a migration
-The above cloning/snapshotting technique is recommended when doing a migration where minimizing downtime is desirable, as it allows the duplicated object store to be the basis of the upgraded, new cluster instead of requiring Pachyderm to extract the data from object store.
+  ```bash
+  pachctl restore --url s3://<path-to-backup>>
+  ```
 
-### 3. Restart all pipeline and data loading operations
-
-Once the backup is complete, restart all paused pipelines and data loading operations.
-
-From the directed acyclic graphs (DAG) that define your pachyderm cluster, start each pipeline.    You can either run a multiline shell command, shown below, or you must, for each pipeline, manually run the `pachctl start pipeline` command.
-
-`pachctl start pipeline <pipeline-name>`
-
-You can confirm each pipeline is started using the `list pipeline` command
-
-`pachctl list pipeline`
-
-A useful shell script for running `start pipeline` on all pipelines is included below.  It may be necessary to install the utilities used in the script, like `jq` and `xargs`, on your system.
-
-```
-pachctl list pipeline --raw \
-  | jq -r '.pipeline.name' \
-  | xargs -P3 -n1 -I{} pachctl start pipeline {}
-```
-
-If you used the port-changing technique, [above](#pausing-data-loading-operations), to stop all data loading into Pachyderm from outside processes, you should change the ports back.
-
-```
-# Once you have restarted all running pachyderm pipelines, such as with this command,
-# pachctl list pipeline --raw \
-#   | jq -r '.pipeline.name' \
-#   | xargs -P3 -n1 -I{} pachctl start pipeline {}
-
-# all pipelines in your cluster should be restarted. To restart all data loading 
-# processes, we're going to change the pachd Kubernetes service so that
-# it only accepts traffic on port 30650 again (from 30649). 
-#
-# Backup the Pachyderm service spec, in case you need to restore it quickly
-kubectl get svc/pachd -o json >pach_service_backup_30649.json
-
-# Modify the service to accept traffic on port 30650, again
-kubectl get svc/pachd -o json | sed 's/30649/30650/g' | kubectl apply -f -
-
-# Modify your environment so that *you* can talk to pachd on the old port
-pachctl config update context `pachctl config get active-context` --pachd-address=<cluster ip>:30650
-
-# Make sure you can talk to pachd (if not, firewall rules are a common culprit)
-pachctl version
-COMPONENT           VERSION
-pachctl             1.9.5
-pachd               1.9.5
-```
-## General restore procedure
-### Restore your backup to a pachyderm cluster, same version
-
-Spin up a Pachyderm cluster and run `pachctl restore` with the backup you created earlier.
-
-`pachctl restore < path/to/your/backup/file`
-
-You can also use the `-u` or `--url` flag to get the backup directly from the object store you placed it in
-
-`pachctl restore --url s3://...`
-
+!!! note "See Also:"
+    - [Migrate Your Cluster](migrations.md)
