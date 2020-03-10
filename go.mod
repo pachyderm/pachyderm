@@ -109,13 +109,13 @@ require (
 	go.uber.org/multierr v1.4.0 // indirect
 	go.uber.org/zap v1.12.0 // indirect
 	golang.org/x/crypto v0.0.0-20191206172530-e9b2fee46413
-	golang.org/x/lint v0.0.0-20200130185559-910be7a94367 // indirect
-	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553
+	golang.org/x/lint v0.0.0-20200302205851-738671d3881b // indirect
+	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
 	golang.org/x/oauth2 v0.0.0-20191202225959-858c2ad4c8b6
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/sys v0.0.0-20191210023423-ac6580df4449 // indirect
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
-	golang.org/x/tools v0.0.0-20200226180945-26f6a1b6802d // indirect
+	golang.org/x/tools v0.0.0-20200310211204-3e041465ccae // indirect
 	google.golang.org/api v0.6.0
 	google.golang.org/appengine v1.6.5 // indirect
 	google.golang.org/grpc v1.24.0

@@ -6,12 +6,14 @@ import (
 	"path"
 	"sync"
 
+	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
 	types "github.com/gogo/protobuf/types"
-	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
-	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -104,10 +106,22 @@ func (m *master) Clear(ctx context.Context) error {
 	return err
 }
 
-func (m *master) WithTask(cb func(task Task) error) error {
+func (m *master) WithTask(cb func(task Task) error) (retErr error) {
+	id := uuid.NewWithoutDashes()
+
+	// Remove all subtasks once the task goes out of scope
+	defer func() {
+		if _, err := col.NewSTM(context.Background(), m.etcdClient, func(stm col.STM) error {
+			m.subtasks.ReadWrite(stm).DeleteAllPrefix(id)
+			return nil
+		}); retErr == nil {
+			retErr = err
+		}
+	}()
+
 	return cb(&task{
 		master:    m,
-		id:        uuid.NewWithoutDashes(),
+		id:        id,
 		timestamp: types.TimestampNow(),
 	})
 }
@@ -119,13 +133,11 @@ type subtaskEntry struct {
 	cancel    context.CancelFunc
 }
 
-func (w *worker) runSubtasks(ctx context.Context, subtaskQueue []*subtaskEntry, mutex *sync.Mutex, cb func(context.Context, *types.Any) error) error {
+func (w *worker) runSubtasks(ctx context.Context, subtaskQueue []*subtaskEntry, cb func(context.Context, *types.Any) error) error {
 	// Loop through subtasks, attempt to claim one
 	for _, entry := range subtaskQueue {
+		fmt.Printf("worker claiming entry: %v\n", entry.id)
 		if err := w.claims.Claim(ctx, entry.id, &Claim{}, func(ctx context.Context) (retErr error) {
-			mutex.Unlock()
-			defer mutex.Lock()
-
 			// Read out the claimed subtask
 			subtask := &Subtask{}
 			if err := w.subtasks.ReadOnly(ctx).Get(entry.id, subtask); err != nil {
@@ -163,14 +175,14 @@ func (w *worker) runSubtasks(ctx context.Context, subtaskQueue []*subtaskEntry, 
 			}()
 
 			// We need a different ctx that will be canceled if the task gets deleted
-			ctx, cancel := context.WithCancel(ctx)
+			userCtx, cancel := context.WithCancel(ctx)
 			go func() {
 				<-entry.ctx.Done()
 				cancel()
 			}()
 			defer entry.cancel()
 
-			return cb(ctx, subtask.UserData)
+			return cb(userCtx, subtask.UserData)
 		}); err == nil {
 			// We processed a subtask - abort this loop and resume from the start of subtasks again
 			return nil
@@ -188,18 +200,12 @@ func (w *worker) Run(
 	eg, ctx := errgroup.WithContext(ctx)
 
 	mutex := sync.Mutex{}
-	cond := sync.NewCond(&mutex)
-	done := false
+	subtaskQueue := []*subtaskEntry{}
+	changeChan := make(chan struct{}, 1)
 
 	// Watch subtasks collection for subtasks in the RUNNING state, organize by task timestamp
-	subtaskQueue := []*subtaskEntry{}
 	eg.Go(func() (retErr error) {
-		defer func() {
-			mutex.Lock()
-			defer mutex.Unlock()
-			done = true
-			cond.Signal()
-		}()
+		defer close(changeChan)
 
 		if err := w.subtasks.ReadOnly(ctx).WatchF(func(e *watch.Event) error {
 			if e.Type == watch.EventError {
@@ -222,6 +228,7 @@ func (w *worker) Run(
 					break
 				}
 			}
+			fmt.Printf("worker got event: %v %v %v\n", e.Type, subtaskKey, subtask.State)
 
 			if e.Type == watch.EventPut && subtask.State == State_RUNNING {
 				if index == -1 {
@@ -235,12 +242,16 @@ func (w *worker) Run(
 					})
 				}
 			} else if index != -1 {
+				fmt.Printf("removing subtask: %d of %d\n", index, len(subtaskQueue))
 				// Subtask is not valid, cancel and remove it
 				subtaskQueue[index].cancel()
 				subtaskQueue = append(subtaskQueue[:index], subtaskQueue[index+1:]...)
 			}
 
-			cond.Signal()
+			select {
+			case changeChan <- struct{}{}:
+			default:
+			}
 			return nil
 		}); err != nil && err != context.Canceled {
 			return err
@@ -249,24 +260,34 @@ func (w *worker) Run(
 	})
 
 	eg.Go(func() (retErr error) {
-		mutex.Lock()
-		defer mutex.Unlock()
-
-		for !done {
+		// We looped over all known subtasks and didn't get any claims, wait for
+		// something to change
+		for {
+			if _, ok := <-changeChan; !ok {
+				fmt.Printf("worker second coroutine exiting, changeChan closed\n")
+				break
+			}
 			fmt.Printf("worker coroutine looping\n")
-			if err := w.runSubtasks(ctx, subtaskQueue, &mutex, cb); err != nil {
+			queueCopy := []*subtaskEntry{}
+			func() {
+				mutex.Lock()
+				defer mutex.Unlock()
+				queueCopy = append(queueCopy, subtaskQueue...)
+			}()
+
+			if err := w.runSubtasks(ctx, queueCopy, cb); err != nil {
+				fmt.Printf("worker second coroutine returning: %v\n", err)
 				return err
 			}
-
-			// We looped over all known subtasks and didn't get any claims, wait for
-			// something to change
-			cond.Wait()
 		}
 
+		fmt.Printf("worker second coroutine returning nil\n")
 		return nil
 	})
 
-	return eg.Wait()
+	err := eg.Wait()
+	fmt.Printf("worker returning err: %v\n", err)
+	return err
 }
 
 func (t *task) Run(
@@ -278,20 +299,11 @@ func (t *task) Run(
 
 	subtaskIDChan := make(chan string)
 
-	// Remove all subtasks in case we exit early
-	defer func() {
-		if _, err := col.NewSTM(ctx, t.master.etcdClient, func(stm col.STM) error {
-			t.master.subtasks.ReadWrite(stm).DeleteAllPrefix(t.id)
-			return nil
-		}); retErr == nil {
-			retErr = err
-		}
-	}()
-
 	eg.Go(func() (retErr error) {
 		defer close(subtaskIDChan)
 
 		for userData := range subtaskData {
+			fmt.Printf("master received subtask: %v\n", subtaskData)
 			subtask := &Subtask{
 				ID:       fmt.Sprintf("%s-%s", t.id, uuid.NewWithoutDashes()),
 				UserData: userData,
@@ -300,6 +312,7 @@ func (t *task) Run(
 			}
 
 			if _, err := col.NewSTM(egCtx, t.master.etcdClient, func(stm col.STM) error {
+				fmt.Printf("master writing subtask: %v\n", subtask.ID)
 				return t.master.subtasks.ReadWrite(stm).Put(subtask.ID, subtask)
 			}); err != nil {
 				return err
@@ -348,7 +361,10 @@ func (t *task) Run(
 					// If the subtask is done, advance to the next one
 					if subtask.State == State_SUCCESS {
 						index++
-						return collect(egCtx, subtask.UserData)
+						if err := collect(egCtx, subtask.UserData); err != nil {
+							return err
+						}
+						return errutil.ErrBreak
 					}
 
 					return nil
@@ -364,5 +380,7 @@ func (t *task) Run(
 		return nil
 	})
 
-	return eg.Wait()
+	err := eg.Wait()
+	fmt.Printf("master returning err: %v\n", err)
+	return err
 }

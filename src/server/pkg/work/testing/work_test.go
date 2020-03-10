@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	subtaskFailure = fmt.Errorf("subtask failure")
+	errSubtaskFailure = fmt.Errorf("subtask failure")
 )
 
 func seedStr(seed int64) string {
@@ -71,7 +71,7 @@ func test(t *testing.T, workerFailProb, taskCancelProb, subtaskFailProb float64)
 								require.False(t, subtasksProcessed[i][subtask.ID], msg)
 								if rand.Float64() < subtaskFailProb {
 									delete(subtasksCreated[i], subtask.ID)
-									return subtaskFailure
+									return errSubtaskFailure
 								}
 								subtasksProcessed[i][subtask.ID] = true
 							}
@@ -97,7 +97,7 @@ func test(t *testing.T, workerFailProb, taskCancelProb, subtaskFailProb float64)
 			eg.Go(func() error {
 				m.Collect(func(_ context.Context, subtaskInfo *work.TaskInfo) error {
 					if subtaskInfo.State == work.State_FAILURE {
-						require.Equal(t, subtaskFailure.Error(), subtaskInfo.Reason, msg)
+						require.Equal(t, errSubtaskFailure.Error(), subtaskInfo.Reason, msg)
 						return nil
 					}
 					subtasksCollected[i][subtaskInfo.Task.ID] = true
