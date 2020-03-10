@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package work2;
+option go_package = "github.com/pachyderm/pachyderm/src/server/pkg/work2";
+
+import "google/protobuf/timestamp.proto";
+import "gogoproto/gogo.proto";
+import "google/protobuf/any.proto";
+
+message Subtask {
+  string id = 1 [(gogoproto.customname) = "ID"];
+  google.protobuf.Any user_data = 2;
+  google.protobuf.Timestamp task_time = 3;
+  State state = 4;
+  string reason = 5;
+}
+
+enum State {
+  RUNNING = 0;
+  SUCCESS = 1;
+  FAILURE = 2;
+}
+
+message Claim {}
