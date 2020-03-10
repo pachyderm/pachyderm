@@ -585,7 +585,9 @@ func TestS3SkippedDatums(t *testing.T) {
 		ciIter, err := c.FlushCommit(
 			[]*pfs.Commit{client.NewCommit(s3in, "master")},
 			[]*pfs.Repo{client.NewRepo(pipeline)})
-		for _, err := ciIter.Next(); err != io.EOF; _, err = ciIter.Next() {
+		require.NoError(t, err)
+		for _, err := ciIter.Next(); err != io.EOF; {
+			_, err = ciIter.Next()
 		}
 		c.GetFile(pipeline, "master", "out", 0, 0, &buf)
 		s := bufio.NewScanner(&buf)

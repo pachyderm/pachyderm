@@ -140,6 +140,7 @@ func (s *sidecarS3G) createK8sServices() {
 				s3gSidecarLockPath,
 				s.pipelineInfo.Pipeline.Name,
 				s.pipelineInfo.Salt))
+		//lint:ignore SA4006 'env' is passed to 'Unlock' below
 		ctx, err := masterLock.Lock(s.pachClient.Ctx())
 		if err != nil {
 			// retry obtaining lock
@@ -195,7 +196,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 		}
 	})
 	var outputBucket *s3.Bucket
-	if s.s.pipelineInfo.S3Out == true {
+	if s.s.pipelineInfo.S3Out {
 		outputBucket = &s3.Bucket{
 			Repo:   jobInfo.OutputCommit.Repo.Name,
 			Commit: jobInfo.OutputCommit.ID,
@@ -227,14 +228,13 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 		return // give up. Worker will fail the job
 	}
 	go func() {
-		for i := 0; i < 2; i++ {
+		for i := 0; i < 2; i++ { // If too many errors, the worker will fail the job
 			err := server.ListenAndServe()
 			if err == nil || err == http.ErrServerClosed {
 				break // server was shutdown/closed
 			}
 			logrus.Errorf("error serving sidecar s3 gateway handler for %q: %v; strike %d/3", jobID, err, i+1)
 		}
-		return // If too many errors, the worker will fail the job
 	}()
 	s.s.servers[jobID] = server
 }
@@ -269,10 +269,6 @@ func (s *s3InstanceCreatingJobHandler) OnTerminate(jobCtx context.Context, jobID
 		}
 	}
 	delete(s.s.servers, jobID) // remove server from map no matter what
-}
-
-func newS3InstanceCreatingJobHandler(s *sidecarS3G) jobHandler {
-	return &s3InstanceCreatingJobHandler{s: s}
 }
 
 type k8sServiceCreatingJobHandler struct {
@@ -358,9 +354,7 @@ type handleJobsCtx struct {
 
 func (h *handleJobsCtx) start() {
 	defer func() {
-		panic(
-			fmt.Sprintf("sidecar s3 gateway start() is exiting; this should never happen"),
-		)
+		panic("sidecar s3 gateway: start() is exiting; this should never happen")
 	}()
 	for { // reestablish watch in a loop, in case there's a watch error
 		var watcher watch.Watcher
@@ -468,7 +462,6 @@ func (h *handleJobsCtx) processJobEvent(jobCtx context.Context, t watch.EventTyp
 	}
 
 	h.h.OnCreate(jobCtx, jobInfo)
-	return
 }
 
 // Client implements the S3 gateway ClientFactory interface, so that we can
