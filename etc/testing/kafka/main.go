@@ -23,16 +23,16 @@ func main() {
 
 	// Set the default values of the configurable variables
 	var (
-		group_id = defaultGroupID
-		timeout  = defaultTimeout
-		pipe     = defaultNamedPipe
+		groupID = defaultGroupID
+		timeout = defaultTimeout
+		pipe    = defaultNamedPipe
 	)
 
 	// And create a new kafka reader
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:  []string{host + ":" + port},
 		Topic:    topic,
-		GroupID:  group_id,
+		GroupID:  groupID,
 		MinBytes: 10e1,
 		MaxBytes: 10e6,
 	})
@@ -56,14 +56,10 @@ func main() {
 			if err != nil {
 				panic(err)
 			}
-			defer func() {
-				out.Close()
-			}()
+			defer out.Close()
 
 			tw := tar.NewWriter(out)
-			defer func() {
-				tw.Close()
-			}()
+			defer tw.Close()
 
 			// give it a unique name
 			name := fmt.Sprintf("%v-%v", m.Topic, m.Offset)

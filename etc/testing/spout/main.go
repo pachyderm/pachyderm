@@ -19,14 +19,10 @@ func main() {
 			if err != nil {
 				panic(err)
 			}
-			defer func() {
-				out.Close()
-			}()
+			defer out.Close()
 
 			tw := tar.NewWriter(out)
-			defer func() {
-				tw.Close()
-			}()
+			defer tw.Close()
 
 			name := fmt.Sprintf("test%v", x)
 			// write the header
