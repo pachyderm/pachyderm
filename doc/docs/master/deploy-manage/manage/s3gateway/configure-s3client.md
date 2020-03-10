@@ -88,7 +88,7 @@ in the [AWS documentation](https://docs.aws.amazon.com/cli/latest/userguide/cli-
 
    Both the access key and secret key should be set to your
    Pachyderm authentication token. If authentication is not enabled
-   on the cluster, both parameters must be empty strings.
+   on the cluster, you can pass any value.
 
 ## Configure S3cmd
 

@@ -439,10 +439,9 @@ parameter is not set, the job will run indefinitely until it succeeds or fails.
 
 ### S3 Output Repository
 
-`s3_out` defines whether to store the Pachyderm output repository
-in an S3 bucket in an S3 instance deployed in a sidecar container
-alongside the pipeline pod. When this parameter is set to `true`, Pachyderm
-includes a sidecar S3 gateway instance
+`s3_out` allows your pipeline code to write results out to an S3 gateway
+endpoint instead of the typical `pfs/out` directory. When this parameter
+is set to `true`, Pachyderm includes a sidecar S3 gateway instance
 container in the same pod as the pipeline container. The address of the
 output repository will be `s3://<output_repo>`. If you want to expose
 an input repository through an S3 gateway, see `input.pfs.s3`
@@ -532,7 +531,7 @@ to serve on a pipeline-level basis and, therefore, ensure provenance tracking
 for pipelines that integrate with external systems, such as Kubeflow. When
 this option is set to `true`, Pachyderm deploys an S3 gateway instance
 alongside the pipeline container and creates an S3 bucket for the pipeline
-input repo in that sidecar instead of `/pfs/out`. The address of the
+input repo. The address of the
 input repository will be `s3://<input_repo>`. When you enable this
 parameter, you cannot use glob patterns. All files will be processed
 as one datum.

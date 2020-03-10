@@ -31,9 +31,9 @@ you define using the `s3_out` parameter is write-only. This limitation
 guarantees that pipeline provenance is preserved just as it is with normal
 Pachyderm pipelines.
 
-* The `glob` field in the pipeline spec should not be specified. The glob
-pattern is automatically set to `\` and all files are processed as a single
-datum. In this configuration, already processed datums are not skipped which
+* The `glob` field in the pipeline must be set to `"glob": "/"`. All files
+are processed as a single datum. In this configuration, already processed
+datums are not skipped which
 could be an important performance consideration for some processing steps.
 
 * Join and union inputs are not supported, but you can create a cross or
@@ -57,7 +57,8 @@ instance by setting the `s3_out` property to `true` in the root of
 the pipeline spec.  If set to `true`, Pachyderm creates another S3 bucket
 on the sidecar, and the output files will be written there instead of
 `/pfs/out`. By default, `s3_out` is set to `false`. The address of the
-output repository will be `s3://<output_repo>`.
+output repository will be `s3://<output_repo>`, which is always the name
+of the pipeline.
 
 You can connect to the S3 gateway sidecar instance through its Kubernetes
 service. To access the sidecar instance and the buckets on it, you need
@@ -69,21 +70,21 @@ S3 gateway instance:
 
 ```json
 {
-	 "pipeline": {
-	   "name": "test"
-	 },
-	 "input": {
-	   "pfs": {
-	     "glob": "/*",
-	     "repo": "images",
-         "s3": "true"
-	   }
-     },
-	 "transform": {
-	   "cmd": [ "python3", "/edges.py" ],
-	   "image": "pachyderm/opencv"
-	 },
-     "s3_out": "true"
+  "pipeline": {
+    "name": "test"
+  },
+  "input": {
+    "pfs": {
+      "glob": "/",
+      "repo": "s3://images",
+      "s3": "true"
+    }
+  },
+  "transform": {
+    "cmd": [ "python3", "/edges.py" ],
+    "image": "pachyderm/opencv"
+  },
+  "s3_out": "true"
 }
 ```
 
