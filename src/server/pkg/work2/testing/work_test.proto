@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package testing;
+option go_package = "github.com/pachyderm/pachyderm/src/server/pkg/work2/testing";
+
+import "gogoproto/gogo.proto";
+
+message TestData {
+  string key = 1;
+}
