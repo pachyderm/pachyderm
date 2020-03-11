@@ -79,27 +79,8 @@ func NewWatcher(ctx context.Context, client *etcd.Client, trimPrefix, prefix str
 			getOptions = append(getOptions, etcd.OpOption(opt.Get))
 		}
 	}
-	resp, err := client.Get(ctx, prefix, getOptions...)
-	if err != nil {
-		return nil, err
-	}
-	nextRevision := resp.Header.Revision + 1
-	watchOptions := []etcd.OpOption{etcd.WithPrefix(), etcd.WithRev(nextRevision)}
-	for _, opt := range opts {
-		if opt.Watch != nil {
-			watchOptions = append(watchOptions, etcd.OpOption(opt.Watch))
-		}
-	}
-
-	etcdWatcher := etcd.NewWatcher(client)
-	// Issue a watch that uses the revision timestamp returned by the
-	// Get request earlier.  That way even if some items are added between
-	// when we list the collection and when we start watching the collection,
-	// we won't miss any items.
-
-	rch := etcdWatcher.Watch(ctx, prefix, watchOptions...)
-
 	go func() (retErr error) {
+		etcdWatcher := etcd.NewWatcher(client)
 		defer func() {
 			if retErr != nil {
 				select {
@@ -113,62 +94,70 @@ func NewWatcher(ctx context.Context, client *etcd.Client, trimPrefix, prefix str
 			close(eventCh)
 			etcdWatcher.Close()
 		}()
-		for _, etcdKv := range resp.Kvs {
-			eventCh <- &Event{
-				Key:      bytes.TrimPrefix(etcdKv.Key, []byte(trimPrefix)),
-				Value:    etcdKv.Value,
-				Type:     EventPut,
-				Rev:      etcdKv.ModRevision,
-				Ver:      etcdKv.Version,
-				Template: template,
-			}
-		}
 		for {
-			var resp etcd.WatchResponse
-			var ok bool
-			select {
-			case resp, ok = <-rch:
-			case <-done:
-				return nil
-			}
-			if !ok {
-				if err := etcdWatcher.Close(); err != nil {
-					return err
-				}
-				etcdWatcher = etcd.NewWatcher(client)
-				// use new "nextRevision"
-				options := []etcd.OpOption{etcd.WithPrefix(), etcd.WithRev(nextRevision)}
-				for _, opt := range opts {
-					if opt.Watch != nil {
-						options = append(options, etcd.OpOption(opt.Watch))
-					}
-				}
-				rch = etcdWatcher.Watch(ctx, prefix, options...)
-				continue
-			}
-			if err := resp.Err(); err != nil {
+			resp, err := client.Get(ctx, prefix, getOptions...)
+			if err != nil {
 				return err
 			}
-			for _, etcdEv := range resp.Events {
-				ev := &Event{
-					Key:      bytes.TrimPrefix(etcdEv.Kv.Key, []byte(trimPrefix)),
-					Value:    etcdEv.Kv.Value,
-					Rev:      etcdEv.Kv.ModRevision,
-					Ver:      etcdEv.Kv.Version,
+			nextRevision := resp.Header.Revision + 1
+			watchOptions := []etcd.OpOption{etcd.WithPrefix(), etcd.WithRev(nextRevision)}
+			for _, opt := range opts {
+				if opt.Watch != nil {
+					watchOptions = append(watchOptions, etcd.OpOption(opt.Watch))
+				}
+			}
+
+			// Issue a watch that uses the revision timestamp returned by the
+			// Get request earlier.  That way even if some items are added between
+			// when we list the collection and when we start watching the collection,
+			// we won't miss any items.
+			rch := etcdWatcher.Watch(ctx, prefix, watchOptions...)
+
+			for _, etcdKv := range resp.Kvs {
+				eventCh <- &Event{
+					Key:      bytes.TrimPrefix(etcdKv.Key, []byte(trimPrefix)),
+					Value:    etcdKv.Value,
+					Type:     EventPut,
+					Rev:      etcdKv.ModRevision,
+					Ver:      etcdKv.Version,
 					Template: template,
 				}
-				if etcdEv.Type == etcd.EventTypePut {
-					ev.Type = EventPut
-				} else {
-					ev.Type = EventDelete
-				}
+			}
+			for {
+				var resp etcd.WatchResponse
+				var ok bool
 				select {
-				case eventCh <- ev:
+				case resp, ok = <-rch:
 				case <-done:
 					return nil
 				}
+				if !ok {
+					break
+				}
+				if err := resp.Err(); err != nil {
+					return err
+				}
+				for _, etcdEv := range resp.Events {
+					ev := &Event{
+						Key:      bytes.TrimPrefix(etcdEv.Kv.Key, []byte(trimPrefix)),
+						Value:    etcdEv.Kv.Value,
+						Rev:      etcdEv.Kv.ModRevision,
+						Ver:      etcdEv.Kv.Version,
+						Template: template,
+					}
+					if etcdEv.Type == etcd.EventTypePut {
+						ev.Type = EventPut
+					} else {
+						ev.Type = EventDelete
+					}
+					select {
+					case eventCh <- ev:
+					case <-done:
+						return nil
+					}
+				}
+				nextRevision = resp.Header.Revision + 1
 			}
-			nextRevision = resp.Header.Revision + 1
 		}
 	}()
 
