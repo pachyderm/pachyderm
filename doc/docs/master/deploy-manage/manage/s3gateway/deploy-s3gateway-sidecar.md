@@ -1,15 +1,21 @@
 # Create an S3-enabled Pipeline
 
+If you want to use Pachyderm with such platforms like Kubeflow or
+Apache™ Spark, you need to create an S3-enabled Pachyderm pipeline.
+Such a pipeline ensures that data provenance of the pipelines that
+run in those external systems is properly preserved and is tied to
+corresponding Pachyderm jobs.
+
 Pachyderm can deploy the S3 gateway either together with the `pachd` pod or
 as a sidecar next to your pipeline worker pod. The former is
 typically used when you need to configure an ingress or egress with
 object storage tooling, such as MinIO, boto3, and others. The latter
 is needed when you use Pachyderm with external data processing
-platforms that interact with object stores but do not work with local
-file systems, such as Kubeflow or Apache Spark.
+platforms, such as Kubeflow or Apache Spark, that interact with
+object stores but do not work with local file systems.
 
-Platforms like Kubeflow run their own set of pods. If you enable an
-S3 gateway next to `pachd`, these pods connect to this *master* S3
+Platforms like Kubeflow run their own set of Kubernetes pods. If you
+enable an S3 gateway next to `pachd`, these pods connect to this *master* S3
 gateway and read files from there. The master S3 gateway lives
 independently and outside of the pipeline lifecycle. Therefore, if
 Kubeflow connects through the master S3 gateway, the Pachyderm pipelines
@@ -19,6 +25,11 @@ pipeline worker pod, Kubeflow can access the files stored in S3 buckets
 in the pipeline pod, which ensures the provenance is maintained
 correctly. The S3 gateway sidecar instance is created together with the
 pipeline and shut down when the pipeline is destroyed.
+
+The following diagram shows communication between the S3 gateway
+deployed in a sidecar and the Kubeflow pod.
+
+![Kubeflow S3 gateway](../../../../../assets/images/d_kubeflow_sidecar.png)
 
 ## Limitations
 
@@ -84,7 +95,7 @@ S3 gateway instance:
     "cmd": [ "python3", "/edges.py" ],
     "image": "pachyderm/opencv"
   },
-  "s3_out": "true"
+  "s3_out": true
 }
 ```
 
