@@ -37,12 +37,12 @@ Install the following prerequisites:
  * To install on macOS by using `brew`, run the following command:
 
    ```bash
-   $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.9
+   $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.10
    ```
  * To install on Linux 64-bit or Windows 10 or later, run the following command:
 
    ```bash
-   $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.12/pachctl_1.9.12_amd64.deb &&  sudo dpkg -i /tmp/pachctl.deb
+   $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.10.0-rc5/pachctl_1.10.0-rc5_amd64.deb &&  sudo dpkg -i /tmp/pachctl.deb
    ```
 
  1. Verify your installation by running `pachctl version`:
@@ -185,7 +185,7 @@ To deploy Kubernetes on Azure, complete the following steps:
    Server Version: version.Info{Major:"1", Minor:"13", GitVersion:"v1.13.4", GitCommit:"c27b913fddd1a6c480c229191a087698aa92f0b1", GitTreeState:"clean", BuildDate:"2019-02-28T13:30:26Z", GoVersion:"go1.11.5", Compiler:"gc", Platform:"linux/amd64"}
    ```
 
-**See also:**
+**See Also:**
 
 - [Azure Virtual Machine sizes](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/sizes-general)
 
@@ -295,7 +295,15 @@ To create these resources, follow these steps:
    ]
    ```
 
-**See Also**
+1. Create a new storage container within your storage account:
+
+   ```bash
+   $ az storage container create --name ${CONTAINER_NAME} \
+             --account-name ${STORAGE_ACCOUNT} \
+             --account-key "${STORAGE_KEY}"
+   ```
+
+**See Also:**
 
 - [Azure Storage](https://azure.microsoft.com/documentation/articles/storage-introduction/)
 

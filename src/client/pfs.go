@@ -276,6 +276,7 @@ func (c APIClient) inspectCommit(repoName string, commitID string, blockState pf
 // are considered.
 // If `from` is given, only the descendents of `from`, including `from`
 // itself, are considered.
+// If `to` and `from` are the same commit, no commits will be returned.
 // `number` determines how many commits are returned.  If `number` is 0,
 // all commits that match the aforementioned criteria are returned.
 func (c APIClient) ListCommit(repoName string, to string, from string, number uint64) ([]*pfs.CommitInfo, error) {
@@ -295,6 +296,7 @@ func (c APIClient) ListCommit(repoName string, to string, from string, number ui
 // are considered.
 // If `from` is given, only the descendents of `from`, including `from`
 // itself, are considered.
+// If `to` and `from` are the same commit, no commits will be returned.
 // `number` determines how many commits are returned.  If `number` is 0,
 // `reverse` lists the commits from oldest to newest, rather than newest to oldest
 // all commits that match the aforementioned criteria are passed to f.

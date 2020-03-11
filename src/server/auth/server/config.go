@@ -470,16 +470,17 @@ func (a *apiServer) getSAMLSP() (*canonicalConfig, *saml.ServiceProvider) {
 	defer a.configMu.Unlock()
 	a.samlSPMu.Lock()
 	defer a.samlSPMu.Unlock()
-	var sp *saml.ServiceProvider
+	var sp saml.ServiceProvider
 	if a.samlSP != nil {
-		sp = a.samlSP
+		sp = *a.samlSP
 	}
-	var cfg *canonicalConfig
+	var cfg canonicalConfig
 	if a.configCache != nil {
-		cfg = a.configCache
+		cfg = *a.configCache
 	}
+
 	// copy config to avoid data races
-	return &(*cfg), &(*sp)
+	return &cfg, &sp
 }
 
 // watchConfig waits for config updates in etcd and then copies new config

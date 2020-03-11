@@ -38,7 +38,9 @@ const (
 // Parameters used when creating the kubernetes replication controller in charge
 // of a job or pipeline's workers
 type workerOptions struct {
-	rcName string // Name of the replication controller managing workers
+	rcName        string // Name of the replication controller managing workers
+	specCommit    string // Pipeline spec commit ID (needed for s3 inputs)
+	s3GatewayPort int32  // s3 gateway port (if any s3 pipeline inputs)
 
 	userImage        string              // The user's pipeline/job image
 	labels           map[string]string   // k8s labels attached to the RC and workers
@@ -65,6 +67,8 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	if pullPolicy == "" {
 		pullPolicy = "IfNotPresent"
 	}
+
+	// Set up sidecar env vars
 	sidecarEnv := []v1.EnvVar{{
 		Name:  "BLOCK_CACHE_BYTES",
 		Value: options.cacheSize,
@@ -89,6 +93,12 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	}, {
 		Name:  "PEER_PORT",
 		Value: strconv.FormatUint(uint64(a.peerPort), 10),
+	}, {
+		Name:  client.PPSSpecCommitEnv,
+		Value: options.specCommit,
+	}, {
+		Name:  "PACHD_POD_NAMESPACE",
+		Value: a.namespace,
 	}}
 	sidecarEnv = append(sidecarEnv, assets.GetSecretEnvVars(a.storageBackend)...)
 	storageEnvVars, err := getStorageEnvVars()
@@ -96,9 +106,25 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		return v1.PodSpec{}, err
 	}
 	sidecarEnv = append(sidecarEnv, storageEnvVars...)
-	workerEnv := options.workerEnv
+
+	// Set up worker env vars
+	workerEnv := append(options.workerEnv, v1.EnvVar{
+		Name:  client.PPSSpecCommitEnv,
+		Value: options.specCommit,
+	})
 	workerEnv = append(workerEnv, v1.EnvVar{Name: "PACH_ROOT", Value: a.storageRoot})
 	workerEnv = append(workerEnv, assets.GetSecretEnvVars(a.storageBackend)...)
+	if options.s3GatewayPort != 0 {
+		workerEnv = append(workerEnv, v1.EnvVar{
+			Name:  "S3GATEWAY_PORT",
+			Value: strconv.FormatUint(uint64(options.s3GatewayPort), 10),
+		})
+		sidecarEnv = append(sidecarEnv, v1.EnvVar{
+			Name:  "S3GATEWAY_PORT",
+			Value: strconv.FormatUint(uint64(options.s3GatewayPort), 10),
+		})
+	}
+
 	// This only happens in local deployment.  We want the workers to be
 	// able to read from/write to the hostpath volume as well.
 	storageVolumeName := "pach-disk"
@@ -141,12 +167,20 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)
 	userVolumeMounts = append(userVolumeMounts, secretMount)
 
-	// Explicitly set CPU, MEM and DISK requests to zero because some cloud
-	// providers set their own defaults which are usually not what we want.
+	// Explicitly set CPU requests to zero because some cloud providers set their
+	// own defaults which are usually not what we want. Mem request defaults to
+	// 64M, but is overridden by the CacheSize setting for the sidecar.
 	cpuZeroQuantity := resource.MustParse("0")
-	memZeroQuantity := resource.MustParse("0M")
+	memDefaultQuantity := resource.MustParse("64M")
 	memSidecarQuantity := resource.MustParse(options.cacheSize)
 
+	// possibly expose s3 gateway port in the sidecar container
+	var sidecarPorts []v1.ContainerPort
+	if options.s3GatewayPort != 0 {
+		sidecarPorts = append(sidecarPorts, v1.ContainerPort{
+			ContainerPort: options.s3GatewayPort,
+		})
+	}
 	if !a.noExposeDockerSocket {
 		options.volumes = append(options.volumes, v1.Volume{
 			Name: "docker",
@@ -182,6 +216,12 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 				Command:         []string{"/pach/worker.sh"},
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
 				VolumeMounts:    options.volumeMounts,
+				Resources: v1.ResourceRequirements{
+					Requests: v1.ResourceList{
+						v1.ResourceCPU:    cpuZeroQuantity,
+						v1.ResourceMemory: memDefaultQuantity,
+					},
+				},
 			},
 		},
 		Containers: []v1.Container{
@@ -192,9 +232,9 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
 				Env:             workerEnv,
 				Resources: v1.ResourceRequirements{
-					Requests: map[v1.ResourceName]resource.Quantity{
+					Requests: v1.ResourceList{
 						v1.ResourceCPU:    cpuZeroQuantity,
-						v1.ResourceMemory: memZeroQuantity,
+						v1.ResourceMemory: memDefaultQuantity,
 					},
 				},
 				VolumeMounts: userVolumeMounts,
@@ -207,13 +247,15 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 				Env:             sidecarEnv,
 				VolumeMounts:    sidecarVolumeMounts,
 				Resources: v1.ResourceRequirements{
-					Requests: map[v1.ResourceName]resource.Quantity{
+					Requests: v1.ResourceList{
 						v1.ResourceCPU:    cpuZeroQuantity,
 						v1.ResourceMemory: memSidecarQuantity,
 					},
 				},
+				Ports: sidecarPorts,
 			},
 		},
+		ServiceAccountName:            assets.WorkerSAName,
 		RestartPolicy:                 "Always",
 		Volumes:                       options.volumes,
 		ImagePullSecrets:              options.imagePullSecrets,
@@ -224,19 +266,29 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		podSpec.NodeSelector = options.schedulingSpec.NodeSelector
 		podSpec.PriorityClassName = options.schedulingSpec.PriorityClassName
 	}
-	resourceRequirements := v1.ResourceRequirements{
-		Requests: map[v1.ResourceName]resource.Quantity{
-			v1.ResourceCPU:    cpuZeroQuantity,
-			v1.ResourceMemory: memZeroQuantity,
-		},
-	}
+
 	if options.resourceRequests != nil {
-		resourceRequirements.Requests = *options.resourceRequests
+		for k, v := range *options.resourceRequests {
+			podSpec.Containers[0].Resources.Requests[k] = v
+		}
 	}
+
+	// Copy over some settings from the user to init container. We don't apply GPU
+	// requests because of FUD. The init container shouldn't run concurrently with
+	// the user container, so there should be no contention here.
+	for _, k := range []v1.ResourceName{v1.ResourceCPU, v1.ResourceMemory, v1.ResourceEphemeralStorage} {
+		if val, ok := podSpec.Containers[0].Resources.Requests[k]; ok {
+			podSpec.InitContainers[0].Resources.Requests[k] = val
+		}
+	}
+
 	if options.resourceLimits != nil {
-		resourceRequirements.Limits = *options.resourceLimits
+		podSpec.Containers[0].Resources.Limits = make(v1.ResourceList)
+		for k, v := range *options.resourceLimits {
+			podSpec.Containers[0].Resources.Limits[k] = v
+		}
 	}
-	podSpec.Containers[0].Resources = resourceRequirements
+
 	if options.podSpec != "" || options.podPatch != "" {
 		jsonPodSpec, err := json.Marshal(&podSpec)
 		if err != nil {
@@ -362,10 +414,6 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 		Value: a.namespace,
 	})
 	workerEnv = append(workerEnv, v1.EnvVar{
-		Name:  client.PPSSpecCommitEnv,
-		Value: ptr.SpecCommit.ID,
-	})
-	workerEnv = append(workerEnv, v1.EnvVar{
 		Name:  client.PPSPipelineNameEnv,
 		Value: pipelineInfo.Pipeline.Name,
 	})
@@ -449,6 +497,23 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 	if a.iamRole != "" {
 		annotations["iam.amazonaws.com/role"] = a.iamRole
 	}
+
+	// add the user's custom metadata (annotations and labels).
+	metadata := pipelineInfo.GetMetadata()
+	if metadata != nil {
+		for k, v := range metadata.Annotations {
+			if annotations[k] == "" {
+				annotations[k] = v
+			}
+		}
+
+		for k, v := range metadata.Labels {
+			if labels[k] == "" {
+				labels[k] = v
+			}
+		}
+	}
+
 	// A service can be present either directly on the pipeline spec
 	// or on the spout field of the spec.
 	var service *pps.Service
@@ -459,17 +524,16 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 	} else {
 		service = pipelineInfo.Service
 	}
-	if service != nil {
-		for k, v := range service.Annotations {
-			if k != "pipelineName" && k != "iam.amazonaws.com/role" {
-				annotations[k] = v
-			}
-		}
+	var s3GatewayPort int32
+	if ppsutil.ContainsS3Inputs(pipelineInfo.Input) || pipelineInfo.S3Out {
+		s3GatewayPort = int32(a.env.S3GatewayPort)
 	}
 
 	// Generate options for new RC
 	return &workerOptions{
 		rcName:           rcName,
+		s3GatewayPort:    s3GatewayPort,
+		specCommit:       ptr.SpecCommit.ID,
 		labels:           labels,
 		annotations:      annotations,
 		parallelism:      int32(0), // pipelines start w/ 0 workers & are scaled up

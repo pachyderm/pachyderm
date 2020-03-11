@@ -14,7 +14,6 @@ import (
 	"reflect"
 	"sort"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -35,22 +34,6 @@ const (
 	KB = 1024
 	MB = 1024 * KB
 )
-
-var pachClient *client.APIClient
-var getPachClientOnce sync.Once
-
-func getPachClient(t testing.TB) *client.APIClient {
-	getPachClientOnce.Do(func() {
-		var err error
-		if addr := os.Getenv("PACHD_PORT_650_TCP_ADDR"); addr != "" {
-			pachClient, err = client.NewInCluster()
-		} else {
-			pachClient, err = client.NewForTest()
-		}
-		require.NoError(t, err)
-	})
-	return pachClient
-}
 
 func collectCommitInfos(t testing.TB, commitInfoIter client.CommitInfoIterator) []*pfs.CommitInfo {
 	var commitInfos []*pfs.CommitInfo
@@ -77,7 +60,7 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := getPachClient(t)
+	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestExtractRestoreObjects-in-")
@@ -195,7 +178,7 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 	require.Equal(t, numPipelines, len(commitInfos))
 
 	// Confirm all the recreated jobs passed
-	jis, err := pachClient.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 	// One job per pipeline, as above
 	require.Equal(t, numPipelines, len(jis))
@@ -246,11 +229,11 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 	require.ElementsEqual(t, fileHashes, restoredFileHashes)
 
 	// Check that spec commits made it ok
-	pis, err := pachClient.ListPipeline()
+	pis, err := c.ListPipeline()
 	require.NoError(t, err)
 	require.Equal(t, numPipelines, len(pis))
 	for _, pi := range pis {
-		pachClient.GetFile(pi.SpecCommit.Repo.Name, pi.SpecCommit.ID, ppsconsts.SpecFile, 0, 0, ioutil.Discard)
+		c.GetFile(pi.SpecCommit.Repo.Name, pi.SpecCommit.ID, ppsconsts.SpecFile, 0, 0, ioutil.Discard)
 	}
 
 	// make more commits
@@ -287,7 +270,7 @@ func TestExtractRestoreHeadlessBranches(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := getPachClient(t)
+	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestExtractRestore_data")
@@ -314,7 +297,7 @@ func TestExtractVersion(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := getPachClient(t)
+	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestExtractRestore_data")
@@ -373,7 +356,7 @@ func TestMigrateFrom1_7(t *testing.T) {
 	}
 
 	// Clear pachyderm cluster (so that next cluster starts up in a clean environment)
-	c := getPachClient(t)
+	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
 	// Restore dumped metadata (now that objects are present)
@@ -428,7 +411,7 @@ func TestExtractRestorePipelineUpdate(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := getPachClient(t)
+	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
 	input1 := tu.UniqueString("TestExtractRestorePipelineUpdate_data")
@@ -504,7 +487,7 @@ func TestExtractRestoreDeferredProcessing(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := getPachClient(t)
+	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestExtractRestoreDeferredProcessing_data")
@@ -575,7 +558,7 @@ func TestExtractRestoreStats(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := getPachClient(t)
+	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestExtractRestoreStats_data")
