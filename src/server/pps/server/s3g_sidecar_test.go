@@ -459,8 +459,8 @@ func TestS3SkippedDatums(t *testing.T) {
 				Cmd:   []string{"bash", "-x"},
 				Stdin: []string{
 					fmt.Sprintf(
-						// access background repo via regular s3g (not S3_ENDPOINT, which can
-						// only access inputs)
+						// access background repo via regular s3g (not S3_ENDPOINT, which
+						// can only access inputs)
 						"aws --endpoint=http://pachd.%s:600 s3 cp s3://master.%s/round /tmp/bg",
 						Namespace, background,
 					),
@@ -626,13 +626,16 @@ func TestS3SkippedDatums(t *testing.T) {
 				Cmd:   []string{"bash", "-x"},
 				Stdin: []string{
 					fmt.Sprintf(
-						// access background repo via regular s3g (not S3_ENDPOINT, which can
-						// only access inputs)
+						// access background repo via regular s3g (not S3_ENDPOINT, which
+						// can only access inputs)
 						"aws --endpoint=http://pachd.%s:600 s3 cp s3://master.%s/round /tmp/bg",
 						Namespace, background,
 					),
 					"cat /pfs/in/* >/tmp/pfsin",
-					"echo \"$(cat /tmp/bg) $(cat /tmp/pfsin)\" >/pfs/out/out",
+					// Write the "background" value to a new file in every datum; as
+					// 'aws s3 cp' is destructive, datums will overwrite each others
+					// values unless they all write to a unique key.
+					"aws --endpoint=${S3_ENDPOINT} s3 cp /tmp/bg s3://out/\"$(cat /tmp/pfsin)\"",
 				},
 				Env: map[string]string{
 					"AWS_ACCESS_KEY_ID":     userToken,
@@ -648,6 +651,7 @@ func TestS3SkippedDatums(t *testing.T) {
 					Glob:   "/*",
 				},
 			},
+			S3Out: true,
 		})
 		require.NoError(t, err)
 
@@ -655,7 +659,7 @@ func TestS3SkippedDatums(t *testing.T) {
 		// job, changing the 'background' field in the output
 		for i := 0; i < 10; i++ {
 			// Increment "/round" in 'background'
-			iS := fmt.Sprintf("%d", i)
+			iS := strconv.Itoa(i)
 			bgc, err := c.StartCommit(background, "master")
 			require.NoError(t, err)
 			c.DeleteFile(background, bgc.ID, "/round")
@@ -677,16 +681,12 @@ func TestS3SkippedDatums(t *testing.T) {
 			}
 
 			// check output
-			var buf bytes.Buffer
-			c.GetFile(pipeline, "master", "out", 0, 0, &buf)
-			s := bufio.NewScanner(&buf)
-			for i := 0; s.Scan(); i++ {
-				// [0] = bg, [1] = repo
-				p := strings.Split(s.Text(), " ")
-				// check that bg is being updated in every line, meaning every datum is
-				// being reprocessed even though only new files are being added.
-				require.Equal(t, p[0], strconv.Itoa(i), "line: "+s.Text())
-				require.Equal(t, p[1], strconv.Itoa(i), "line: "+s.Text())
+			for j := 0; j <= i; j++ {
+				var buf bytes.Buffer
+				require.NoError(t, c.GetFile(pipeline, "master", strconv.Itoa(j), 0, 0, &buf))
+				// buf.Text() contains the background value; this should be updated in every
+				// datum by every job, because this is an S3Out pipeline
+				require.Equal(t, iS, buf.String())
 			}
 		}
 	})
