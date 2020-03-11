@@ -769,7 +769,9 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 					return err
 				}
 			}
-			datums, _, err := pachClient.PutObject(buf)
+
+			var datums *pfs.Object
+			datums, _, err = pachClient.PutObject(buf)
 			if err != nil {
 				return err
 			}
