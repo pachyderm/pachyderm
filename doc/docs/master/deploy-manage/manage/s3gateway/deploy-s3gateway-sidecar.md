@@ -6,19 +6,18 @@ Such a pipeline ensures that data provenance of the pipelines that
 run in those external systems is properly preserved and is tied to
 corresponding Pachyderm jobs.
 
-Pachyderm can deploy the S3 gateway either together with the `pachd` pod or
-as a sidecar next to your pipeline worker pod. The former is
+Pachyderm can deploys the S3 gateway in the `pachd` pod. Also,
+you can deploy a separate S3 gateway instance as a sidecar container
+in your pipeline worker pod. The former is
 typically used when you need to configure an ingress or egress with
 object storage tooling, such as MinIO, boto3, and others. The latter
 is needed when you use Pachyderm with external data processing
 platforms, such as Kubeflow or Apache Spark, that interact with
 object stores but do not work with local file systems.
 
-Platforms like Kubeflow run their own set of Kubernetes pods. If you
-enable an S3 gateway next to `pachd`, these pods connect to this *master* S3
-gateway and read files from there. The master S3 gateway lives
-independently and outside of the pipeline lifecycle. Therefore, if
-Kubeflow connects through the master S3 gateway, the Pachyderm pipelines
+The master S3 gateway exists independently and outside of the
+pipeline lifecycle. Therefore, if a
+Kubeflow pod connects through the master S3 gateway, the Pachyderm pipelines
 created in Kubeflow do not properly maintain data provenance. When the
 S3 functionality is exposed through a sidecar instance in the
 pipeline worker pod, Kubeflow can access the files stored in S3 buckets

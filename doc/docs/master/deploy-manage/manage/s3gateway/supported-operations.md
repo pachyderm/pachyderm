@@ -27,7 +27,7 @@ To list filesystem objects, complete the following steps:
 
      **System Response:**
 
-     ```bash
+     ```
      [2019-07-12 15:09:50 PDT]      0B master.train/
      [2019-07-12 14:58:50 PDT]      0B master.pre_process/
      [2019-07-12 14:58:09 PDT]      0B master.split/
@@ -43,7 +43,7 @@ To list filesystem objects, complete the following steps:
 
      **System Response:**
 
-     ```bash
+     ```
      2019-07-12 15:09:50 master.train
      2019-07-12 14:58:50 master.pre_process
      2019-07-12 14:58:09 master.split
@@ -59,7 +59,7 @@ To list filesystem objects, complete the following steps:
 
      **System Response:**
 
-     ```bash
+     ```
      2019-07-12 15:09 master.train
      2019-07-12 14:58 master.pre_process
      2019-07-12 14:58 master.split
@@ -77,7 +77,7 @@ To list filesystem objects, complete the following steps:
 
      **System Response:**
 
-     ```bash
+     ```
      [2019-07-19 12:11:37 PDT]  2.6MiB github_issues_medium.csv
      ```
 
@@ -89,7 +89,7 @@ To list filesystem objects, complete the following steps:
 
      **System Response:**
 
-     ```bash
+     ```
      2019-07-26 11:22:23    2685061 github_issues_medium.csv
      ```
 
@@ -101,7 +101,7 @@ To list filesystem objects, complete the following steps:
 
      **System Response:**
 
-     ```bash
+     ```
      2019-07-26 11:22 2685061 s3://master.raw_data/github_issues_medium.csv
      ```
 ## Create an S3 Bucket
@@ -113,7 +113,7 @@ in Pachyderm.
 
 To create an S3 bucket, complete the following steps:
 
-1. Use the `mb <host/branch.repo>` command to create a new
+1. Use a corresponding command below to create a new
 S3 bucket, which is a repository with a branch in Pachyderm.
 
    * If you are using MinIO, type:
@@ -124,7 +124,7 @@ S3 bucket, which is a repository with a branch in Pachyderm.
 
      **System Response:**
 
-     ```bash
+     ```
      Bucket created successfully `local/master.test`.
      ```
 
@@ -136,7 +136,7 @@ S3 bucket, which is a repository with a branch in Pachyderm.
 
      **System Response:**
 
-     ```bash
+     ```
      make_bucket: master.test
      ```
 
@@ -158,7 +158,7 @@ S3 bucket, which is a repository with a branch in Pachyderm.
 
      **System Response:**
 
-     ```bash
+     ```
      [2019-07-18 13:32:44 PDT]      0B master.test/
      [2019-07-12 15:09:50 PDT]      0B master.train/
      [2019-07-12 14:58:50 PDT]      0B master.pre_process/
@@ -175,7 +175,7 @@ S3 bucket, which is a repository with a branch in Pachyderm.
 
      **System Response:**
 
-     ```bash
+     ```
      2019-07-26 11:35:28 master.test
      2019-07-12 14:58:50 master.pre_process
      2019-07-12 14:58:09 master.split
@@ -190,7 +190,7 @@ S3 bucket, which is a repository with a branch in Pachyderm.
 
      **System Response:**
 
-     ```bash
+     ```
      2019-07-26 11:35 master.test
      2019-07-12 14:58 master.pre_process
      2019-07-12 14:58 master.split
@@ -207,7 +207,7 @@ S3 bucket, which is a repository with a branch in Pachyderm.
 
      **System Response:**
 
-     ```bash
+     ```
      NAME               CREATED                    SIZE (MASTER)
      test               About an hour ago          0B
      train              6 days ago                 68.57MiB
@@ -220,8 +220,13 @@ S3 bucket, which is a repository with a branch in Pachyderm.
 
 ### Delete an S3 Bucket
 
-You can delete an S3 bucket in Pachyderm from the AWS CLI or
-MinIO client by running the following command:
+You can delete an empty S3 bucket in Pachyderm by running a corresponding
+command for your S3 client. The bucket must be empty and have no versioned
+objects. You can also use the `--force` flag to delete all objects in the
+bucket and the bucket itself. The objects versioned by the S3 service
+might not be deleted.
+
+To remove an S3 bucket, run one of the following commands:
 
 * If you are using MinIO, type:
 
@@ -231,7 +236,7 @@ MinIO client by running the following command:
 
   **System Response:**
 
-  ```bash
+  ```
   Removed `local/master.test` successfully.
   ```
 
@@ -243,7 +248,7 @@ MinIO client by running the following command:
 
   **System Response:**
 
-  ```bash
+  ```
   remove_bucket: master.test
   ```
 
@@ -260,8 +265,6 @@ to and download files from the repository.
 When you add files, Pachyderm automatically overwrites the previous
 version of the file if it already exists.
 
-Uploading new files is not supported for output repositories,
-these are the repositories that are the output of a pipeline.
 Not all the repositories that you see in the results of the `ls` command are
 input repositories that can be written to. Some of them might be read-only
 output repos. Check your pipeline specification to verify which
@@ -279,7 +282,7 @@ To add a file to a repository, complete the following steps:
 
      **System Response:**
 
-     ```bash
+     ```
      test.csv:                  62 B / 62 B  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓  100.00% 206 B/s 0s
      ```
 
@@ -291,7 +294,7 @@ To add a file to a repository, complete the following steps:
 
      **System Response:**
 
-     ```bash
+     ```
      upload: ./test.csv to s3://master.raw_data/test.csv
      ```
 
@@ -314,7 +317,7 @@ To add a file to a repository, complete the following steps:
 
      **System Response:**
 
-     ```bash
+     ```
      [2019-07-19 12:11:37 PDT]  2.6MiB github_issues_medium.csv
      [2019-07-19 12:11:37 PDT]     62B test.csv
      ```
@@ -327,7 +330,7 @@ To add a file to a repository, complete the following steps:
 
      **System Response:**
 
-     ```bash
+     ```
      2019-07-19 12:11:37  2685061 github_issues_medium.csv
      2019-07-19 12:11:37       62 test.csv
      ```
@@ -340,7 +343,7 @@ To add a file to a repository, complete the following steps:
 
      **System Response:**
 
-     ```bash
+     ```
      2019-07-19 12:11  2685061 github_issues_medium.csv
      2019-07-19 12:11       62 test.csv
      ```
@@ -356,7 +359,7 @@ current directory by running the following commands:
 
      **System Response:**
 
-     ```bash
+     ```
      ...hub_issues_medium.csv:  2.56 MiB / 2.56 MiB  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ 100.00% 1.26 MiB/s 2s
      ```
 
@@ -368,7 +371,7 @@ current directory by running the following commands:
 
      **System Response:**
 
-     ```bash
+     ```
      download: s3://master.raw_data/test.csv to ./test.csv
      ```
 
@@ -392,7 +395,7 @@ MinIO command-line interface:
 
      **System Response:**
 
-     ```bash
+     ```
      [2019-07-19 12:11:37 PDT]  2.6MiB github_issues_medium.csv
      [2019-07-19 12:11:37 PDT]     62B test.csv
      ```
@@ -405,7 +408,7 @@ MinIO command-line interface:
 
      **System Response:**
 
-     ```bash
+     ```
      2019-07-19 12:11:37    2685061 github_issues_medium.csv
      2019-07-19 12:11:37         62 test.csv
      ```
@@ -418,7 +421,7 @@ MinIO command-line interface:
 
      **System Response:**
 
-     ```bash
+     ```
      2019-07-19 12:11    2685061 github_issues_medium.csv
      2019-07-19 12:11         62 test.csv
      ```
@@ -433,7 +436,7 @@ MinIO command-line interface:
 
      **System Response:**
 
-     ```bash
+     ```
      Removing `local/master.raw_data/test.csv`.
      ```
 
@@ -445,7 +448,7 @@ MinIO command-line interface:
 
      **System Response:**
 
-     ```bash
+     ```
      delete: s3://master.raw_data/test.csv
      ```
 
