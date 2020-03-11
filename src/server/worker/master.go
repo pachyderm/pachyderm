@@ -172,6 +172,18 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 		if len(jobInfos) > 1 {
 			return fmt.Errorf("multiple jobs found for commit: %s/%s", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
 		} else if len(jobInfos) < 1 {
+			if a.pipelineInfo.S3Out && commitInfo.ParentCommit != nil {
+				// We don't want S3-out pipelines to merge datum output with the parent
+				// commit, so we create a PutFile record to delete '/'. Doing it before
+				// we create the job guarantees that 1) workers can't run unless
+				// DeleteFile('/') has run and 2) DeleteFile('/') won't run after work
+				// has started
+				if err := pachClient.DeleteFile(
+					commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "/",
+				); err != nil {
+					return fmt.Errorf("couldn't prepare output commit for S3-out job: %v", err)
+				}
+			}
 			job, err := pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit, statsCommit)
 			if err != nil {
 				return err
@@ -751,34 +763,30 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 			}
 			return nil
 		}
-		// Write out the datums processed/skipped and merged for this job
-		buf := &bytes.Buffer{}
-		pbw := pbutil.NewWriter(buf)
-		for i := 0; i < df.Len(); i++ {
-			files := df.DatumN(i)
-			datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
-			// recovered datums were not processed, and thus should not be skipped
-			if count := recoveredDatums[a.DatumID(files)]; count > 0 {
-				recoveredDatums[a.DatumID(files)]--
-				continue // so we won't write them to the processed datums object
+		if a.pipelineInfo.S3Out {
+			err = pachClient.FinishCommit(oc.Repo.Name, oc.ID)
+		} else {
+			// Write out the datums processed/skipped and merged for this job
+			buf := &bytes.Buffer{}
+			pbw := pbutil.NewWriter(buf)
+			for i := 0; i < df.Len(); i++ {
+				files := df.DatumN(i)
+				datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
+				// recovered datums were not processed, and thus should not be skipped
+				if count := recoveredDatums[a.DatumID(files)]; count > 0 {
+					recoveredDatums[a.DatumID(files)]--
+					continue // so we won't write them to the processed datums object
+				}
+				if _, err := pbw.WriteBytes([]byte(datumHash)); err != nil {
+					return err
+				}
 			}
-			if _, err := pbw.WriteBytes([]byte(datumHash)); err != nil {
+
+			var datums *pfs.Object
+			datums, _, err = pachClient.PutObject(buf)
+			if err != nil {
 				return err
 			}
-		}
-		datums, _, err := pachClient.PutObject(buf)
-		if err != nil {
-			return err
-		}
-		if a.pipelineInfo.S3Out {
-			_, err = pachClient.PfsAPIClient.FinishCommit(
-				pachClient.Ctx(),
-				&pfs.FinishCommitRequest{
-					Commit: oc,
-					Datums: datums,
-				},
-			)
-		} else {
 			// Finish the job's output commit
 			_, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
 				Commit:    oc,

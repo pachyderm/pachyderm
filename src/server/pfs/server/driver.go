@@ -4168,6 +4168,9 @@ func (d *driver) deleteFile(pachClient *client.APIClient, file *pfs.File) error 
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
+	if err := d.checkFilePath(file.Path); err != nil {
+		return err
+	}
 	branch := ""
 	if !uuid.IsUUIDWithoutDashes(file.Commit.ID) {
 		branch = file.Commit.ID

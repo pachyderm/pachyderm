@@ -459,8 +459,8 @@ func TestS3SkippedDatums(t *testing.T) {
 				Cmd:   []string{"bash", "-x"},
 				Stdin: []string{
 					fmt.Sprintf(
-						// access background repo via regular s3g (not S3_ENDPOINT, which can
-						// only access inputs)
+						// access background repo via regular s3g (not S3_ENDPOINT, which
+						// can only access inputs)
 						"aws --endpoint=http://pachd.%s:600 s3 cp s3://master.%s/round /tmp/bg",
 						Namespace, background,
 					),
@@ -586,7 +586,7 @@ func TestS3SkippedDatums(t *testing.T) {
 			[]*pfs.Commit{client.NewCommit(s3in, "master")},
 			[]*pfs.Repo{client.NewRepo(pipeline)})
 		require.NoError(t, err)
-		for _, err := ciIter.Next(); err != io.EOF; {
+		for err != io.EOF {
 			_, err = ciIter.Next()
 		}
 		c.GetFile(pipeline, "master", "out", 0, 0, &buf)
@@ -626,13 +626,21 @@ func TestS3SkippedDatums(t *testing.T) {
 				Cmd:   []string{"bash", "-x"},
 				Stdin: []string{
 					fmt.Sprintf(
-						// access background repo via regular s3g (not S3_ENDPOINT, which can
-						// only access inputs)
+						// access background repo via regular s3g (not S3_ENDPOINT, which
+						// can only access inputs)
 						"aws --endpoint=http://pachd.%s:600 s3 cp s3://master.%s/round /tmp/bg",
 						Namespace, background,
 					),
 					"cat /pfs/in/* >/tmp/pfsin",
-					"echo \"$(cat /tmp/bg) $(cat /tmp/pfsin)\" >/pfs/out/out",
+					// Write the "background" value to a new file in every datum. As
+					// 'aws s3 cp' is destructive, datums will overwrite each others
+					// values unless each datum writes to a unique key. This way, we
+					// should see a file for every datum processed written in every job
+					"aws --endpoint=${S3_ENDPOINT} s3 cp /tmp/bg s3://out/\"$(cat /tmp/pfsin)\"",
+					// Also write a file that is itself named for the background value.
+					// Because S3-out jobs don't merge their outputs with their parent's
+					// outputs, we should only see one such file in every job's output.
+					"aws --endpoint=${S3_ENDPOINT} s3 cp /tmp/bg s3://out/bg/\"$(cat /tmp/bg)\"",
 				},
 				Env: map[string]string{
 					"AWS_ACCESS_KEY_ID":     userToken,
@@ -648,6 +656,7 @@ func TestS3SkippedDatums(t *testing.T) {
 					Glob:   "/*",
 				},
 			},
+			S3Out: true,
 		})
 		require.NoError(t, err)
 
@@ -655,7 +664,7 @@ func TestS3SkippedDatums(t *testing.T) {
 		// job, changing the 'background' field in the output
 		for i := 0; i < 10; i++ {
 			// Increment "/round" in 'background'
-			iS := fmt.Sprintf("%d", i)
+			iS := strconv.Itoa(i)
 			bgc, err := c.StartCommit(background, "master")
 			require.NoError(t, err)
 			c.DeleteFile(background, bgc.ID, "/round")
@@ -677,17 +686,37 @@ func TestS3SkippedDatums(t *testing.T) {
 			}
 
 			// check output
-			var buf bytes.Buffer
-			c.GetFile(pipeline, "master", "out", 0, 0, &buf)
-			s := bufio.NewScanner(&buf)
-			for i := 0; s.Scan(); i++ {
-				// [0] = bg, [1] = repo
-				p := strings.Split(s.Text(), " ")
-				// check that bg is being updated in every line, meaning every datum is
-				// being reprocessed even though only new files are being added.
-				require.Equal(t, p[0], strconv.Itoa(i), "line: "+s.Text())
-				require.Equal(t, p[1], strconv.Itoa(i), "line: "+s.Text())
+			// ------------
+			// Flush commit so that GetFile doesn't accidentally run after the job
+			// finishes but before the commit finishes
+			ciIter, err := c.FlushCommit(
+				[]*pfs.Commit{client.NewCommit(repo, "master")},
+				[]*pfs.Repo{client.NewRepo(pipeline)})
+			require.NoError(t, err)
+			for err != io.EOF {
+				_, err = ciIter.Next()
 			}
+			for j := 0; j <= i; j++ {
+				var buf bytes.Buffer
+				require.NoError(t, c.GetFile(pipeline, "master", strconv.Itoa(j), 0, 0, &buf))
+				// buf contains the background value; this should be updated in every
+				// datum by every job, because this is an S3Out pipeline
+				require.Equal(t, iS, buf.String())
+			}
+
+			// Make sure that there's exactly one file in 'bg/'--this confirms that
+			// the output commit isn't merged with its parent, it only contains the
+			// result of processing all datums
+			// -------------------------------
+			// check no extra files
+			fis, err := c.ListFile(pipeline, "master", "/bg")
+			require.NoError(t, err)
+			require.Equal(t, 1, len(fis))
+			// check that expected file exists
+			fis, err = c.ListFile(pipeline, "master", fmt.Sprintf("/bg/%d", i))
+			require.NoError(t, err)
+			require.Equal(t, 1, len(fis))
+
 		}
 	})
 }
