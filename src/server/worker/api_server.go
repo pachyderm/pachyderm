@@ -1637,7 +1637,7 @@ func (a *APIServer) getHashtrees(ctx context.Context, pachClient *client.APIClie
 	return rs, nil
 }
 
-func (a *APIServer) getDatumMap(ctx context.Context, pachClient *client.APIClient, object *pfs.Object) (_ map[string]bool, retErr error) {
+func (a *APIServer) getDatumMap(ctx context.Context, pachClient *client.APIClient, object *pfs.Object) (_ map[string]uint64, retErr error) {
 	if object == nil {
 		return nil, nil
 	}
@@ -1651,7 +1651,7 @@ func (a *APIServer) getDatumMap(ctx context.Context, pachClient *client.APIClien
 		}
 	}()
 	pbr := pbutil.NewReader(r)
-	datums := make(map[string]bool)
+	datums := make(map[string]uint64)
 	for {
 		k, err := pbr.ReadBytes()
 		if err != nil {
@@ -1660,7 +1660,7 @@ func (a *APIServer) getDatumMap(ctx context.Context, pachClient *client.APIClien
 			}
 			return nil, err
 		}
-		datums[string(k)] = true
+		datums[string(k)]++
 	}
 	return datums, nil
 }
@@ -1881,20 +1881,25 @@ func (a *APIServer) worker() {
 					}
 					if parentCommitInfo != nil {
 						var err error
-						skip, err = a.getDatumMap(jobCtx, pachClient, parentCommitInfo.Datums)
+						parentCounts, err := a.getDatumMap(jobCtx, pachClient, parentCommitInfo.Datums)
 						if err != nil {
 							return err
 						}
-						var count int
+
 						for i := 0; i < df.Len(); i++ {
 							files := df.DatumN(i)
 							datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
-							if skip[datumHash] {
-								count++
+							if _, ok := parentCounts[datumHash]; ok {
+								parentCounts[datumHash]--
 							}
 						}
-						if len(skip) == count {
-							useParentHashTree = true
+
+						useParentHashTree = true
+						for hash, count := range parentCounts {
+							skip[hash] = true
+							if count != 0 {
+								useParentHashTree = false
+							}
 						}
 					}
 					return nil
