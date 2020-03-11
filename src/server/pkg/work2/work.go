@@ -99,22 +99,23 @@ func NewWorker(etcdClient *etcd.Client, etcdPrefix string, taskNamespace string)
 }
 
 func (m *master) Clear(ctx context.Context) error {
-	_, err := col.NewSTM(ctx, m.etcdClient, func(stm col.STM) error {
-		m.subtasks.ReadWrite(stm).DeleteAll()
+	return m.clear(ctx, "")
+}
+
+func (m *master) clear(ctx context.Context, prefix string) error {
+	_, err := col.NewSTM(context.Background(), m.etcdClient, func(stm col.STM) error {
+		m.subtasks.ReadWrite(stm).DeleteAllPrefix(prefix)
 		return nil
 	})
 	return err
 }
 
 func (m *master) WithTask(cb func(task Task) error) (retErr error) {
-	id := uuid.NewWithoutDashes()
+	id := fmt.Sprintf("task-%s", uuid.NewWithoutDashes())
 
 	// Remove all subtasks once the task goes out of scope
 	defer func() {
-		if _, err := col.NewSTM(context.Background(), m.etcdClient, func(stm col.STM) error {
-			m.subtasks.ReadWrite(stm).DeleteAllPrefix(id)
-			return nil
-		}); retErr == nil {
+		if err := m.clear(context.Background(), id); retErr == nil {
 			retErr = err
 		}
 	}()
@@ -276,6 +277,9 @@ func (w *worker) Run(
 			}()
 
 			if err := w.runSubtasks(ctx, queueCopy, cb); err != nil {
+				if err == context.Canceled {
+					return nil
+				}
 				fmt.Printf("worker second coroutine returning: %v\n", err)
 				return err
 			}
@@ -295,17 +299,41 @@ func (t *task) Run(
 	subtaskData chan *types.Any,
 	collect func(ctx context.Context, subtask *types.Any) error,
 ) (retErr error) {
-	eg, egCtx := errgroup.WithContext(ctx)
+	runID := path.Join(t.id, fmt.Sprintf("run-%s", uuid.NewWithoutDashes()))
 
-	subtaskIDChan := make(chan string)
+	// Remove all subtasks from this run when we return
+	defer func() {
+		subtask := &Subtask{}
+		t.master.subtasks.ReadOnly(ctx).ListPrefix(runID, subtask, &col.Options{}, func(key string) error {
+			fmt.Printf("subtask remaining in etcd: %v\n", key)
+			return nil
+		})
+
+		if err := t.master.clear(context.Background(), runID); retErr == nil {
+			retErr = err
+		}
+
+		t.master.subtasks.ReadOnly(ctx).ListPrefix(runID, subtask, &col.Options{}, func(key string) error {
+			fmt.Printf("subtask remaining in etcd: %v\n", key)
+			return nil
+		})
+	}()
+
+	egCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	eg, egCtx := errgroup.WithContext(egCtx)
+	numSubtasks := 0
+	subtasksReady := make(chan struct{})
 
 	eg.Go(func() (retErr error) {
-		defer close(subtaskIDChan)
+		count := 0
+		defer close(subtasksReady)
 
 		for userData := range subtaskData {
 			fmt.Printf("master received subtask: %v\n", subtaskData)
 			subtask := &Subtask{
-				ID:       fmt.Sprintf("%s-%s", t.id, uuid.NewWithoutDashes()),
+				ID:       path.Join(runID, fmt.Sprintf("subtask-%s", uuid.NewWithoutDashes())),
 				UserData: userData,
 				TaskTime: t.timestamp,
 				State:    State_RUNNING,
@@ -317,70 +345,73 @@ func (t *task) Run(
 			}); err != nil {
 				return err
 			}
-
-			subtaskIDChan <- subtask.ID
+			count++
 		}
+
+		// If there are no etcd events to watch for, we need to cancel the other goroutine
+		if count == 0 {
+			cancel()
+		}
+
+		numSubtasks = count
 		return nil
 	})
 
 	eg.Go(func() (retErr error) {
-		subtaskIDs := []string{}
-	ReadSubtaskIDs:
-		for {
-			select {
-			case id, ok := <-subtaskIDChan:
-				fmt.Printf("got subtask id (ok: %v): %v\n", ok, id)
-				if !ok {
-					break ReadSubtaskIDs
+		finishedSubtasks := 0
+		return t.master.subtasks.ReadOnly(egCtx).WatchPrefixF(runID, func(e *watch.Event) error {
+			switch e.Type {
+			case watch.EventError:
+				return e.Err
+			case watch.EventPut:
+				var subtaskKey string
+				subtask := Subtask{}
+				if err := e.Unmarshal(&subtaskKey, &subtask); err != nil {
+					return err
 				}
-				subtaskIDs = append(subtaskIDs, id)
-			case <-egCtx.Done():
-				return egCtx.Err()
-			}
-		}
 
-		fmt.Printf("waiting on %d subtasks\n", len(subtaskIDs))
+				if subtask.State == State_FAILURE {
+					return fmt.Errorf("%s", subtask.Reason)
+				}
 
-		index := 0
-		for index < len(subtaskIDs) {
-			if err := t.master.subtasks.ReadOnly(egCtx).WatchOneF(subtaskIDs[index], func(e *watch.Event) error {
-				switch e.Type {
-				case watch.EventError:
-					return e.Err
-				case watch.EventPut:
-					var subtaskKey string
-					subtask := Subtask{}
-					if err := e.Unmarshal(&subtaskKey, &subtask); err != nil {
+				if subtask.State == State_SUCCESS {
+					if err := collect(egCtx, subtask.UserData); err != nil {
 						return err
 					}
 
-					if subtask.State == State_FAILURE {
-						return fmt.Errorf("%s", subtask.Reason)
-					}
+					finishedSubtasks++
 
-					// If the subtask is done, advance to the next one
-					if subtask.State == State_SUCCESS {
-						index++
-						if err := collect(egCtx, subtask.UserData); err != nil {
-							return err
-						}
+					// If we've finished with all the subtasks, we can break
+					if isDone(subtasksReady) && finishedSubtasks == numSubtasks {
 						return errutil.ErrBreak
 					}
-
-					return nil
-				case watch.EventDelete:
-					return fmt.Errorf("subtask was unexpectedly deleted")
 				}
-				return fmt.Errorf("unrecognized watch event: %v", e.Type)
-			}); err != nil {
-				return err
-			}
-		}
 
-		return nil
+				return nil
+			case watch.EventDelete:
+				return fmt.Errorf("subtask was unexpectedly deleted")
+			}
+			return fmt.Errorf("unrecognized watch event: %v", e.Type)
+		})
 	})
 
 	err := eg.Wait()
+
+	// Handle the shitty corner case cancelling for when we didn't get any subtasks
+	if err == context.Canceled && !isDone(ctx.Done()) {
+		fmt.Printf("master returning err: nil\n")
+		return nil
+	}
+
 	fmt.Printf("master returning err: %v\n", err)
 	return err
+}
+
+func isDone(channel <-chan struct{}) bool {
+	select {
+	case <-channel:
+		return true
+	default:
+		return false
+	}
 }

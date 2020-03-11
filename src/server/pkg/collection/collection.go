@@ -660,6 +660,22 @@ func (c *readonlyCollection) WatchF(f func(e *watch.Event) error, opts ...watch.
 	return c.watchF(watcher, f)
 }
 
+// Watch a subset of the collection, returning the current content of the
+// collection as well as any future additions.
+func (c *readonlyCollection) WatchPrefix(prefix string, opts ...watch.OpOption) (watch.Watcher, error) {
+	return watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.Path(prefix), c.template, opts...)
+}
+
+// WatchF watches a collection and executes a callback function each time an event occurs.
+func (c *readonlyCollection) WatchPrefixF(prefix string, f func(e *watch.Event) error, opts ...watch.OpOption) error {
+	watcher, err := c.WatchPrefix(prefix, opts...)
+	if err != nil {
+		return err
+	}
+	defer watcher.Close()
+	return c.watchF(watcher, f)
+}
+
 func (c *readonlyCollection) watchF(watcher watch.Watcher, f func(e *watch.Event) error) error {
 	for {
 		select {

@@ -296,5 +296,102 @@ func TestParallelRun(t *testing.T) {
 func TestExecutionOrder(t *testing.T) {
 }
 
+func TestCancel(t *testing.T) {
+}
+
+func TestSubtaskWorkerFailure(t *testing.T) {
+	errorTask := "failMe"
+	expectedTasks := []string{"a", "b", "c"}
+	runTasks := []string{}
+	collectedTasks := []string{}
+
+	err := runWorkerMasterPair(
+		t, TestOptions{Tasks: 1, Workers: 1},
+		func(ctx context.Context, i int, task work2.Task, ncc *nonConcurrentCheck) error {
+			subtaskChan := make(chan *types.Any, 10)
+			require.NoError(t, sendSubtasks([]string{errorTask}, subtaskChan))
+			close(subtaskChan)
+
+			// Fail the first run
+			err := task.Run(ctx, subtaskChan, wrapCallback(ncc, func(ctx context.Context, data *TestData) error {
+				require.True(t, false, "should not have gotten a successful run")
+				return nil
+			}))
+			require.YesError(t, err)
+			require.Matches(t, "expected error", err.Error())
+
+			subtaskChan = make(chan *types.Any, 10)
+			require.NoError(t, sendSubtasks(expectedTasks, subtaskChan))
+			close(subtaskChan)
+
+			// Succeed the second run
+			return task.Run(ctx, subtaskChan, wrapCallback(ncc, func(ctx context.Context, data *TestData) error {
+				fmt.Printf("master collecting second-round task: %v\n", data.Key)
+				collectedTasks = append(collectedTasks, data.Key)
+				return nil
+			}))
+		},
+		func(ctx context.Context, data *TestData) error {
+			fmt.Printf("worker running task: %v\n", data.Key)
+			if data.Key == errorTask {
+				return fmt.Errorf("expected error")
+			}
+			runTasks = append(runTasks, data.Key)
+			return nil
+		},
+	)
+	require.NoError(t, err)
+	require.ElementsEqual(t, expectedTasks, runTasks)
+	require.ElementsEqual(t, expectedTasks, collectedTasks)
+}
+
+func TestSubtaskCollectFailure(t *testing.T) {
+	expectedTasks := []string{"a", "b", "c"}
+	runTasks := []string{}
+	collectedTasks := []string{}
+
+	err := runWorkerMasterPair(
+		t, TestOptions{Tasks: 1, Workers: 1},
+		func(ctx context.Context, i int, task work2.Task, ncc *nonConcurrentCheck) error {
+			subtaskChan := make(chan *types.Any, 10)
+			require.NoError(t, sendSubtasks(expectedTasks, subtaskChan))
+			close(subtaskChan)
+
+			// Fail the first run
+			err := task.Run(ctx, subtaskChan, wrapCallback(ncc, func(ctx context.Context, data *TestData) error {
+				return fmt.Errorf("expected failure")
+			}))
+			require.YesError(t, err)
+			require.Matches(t, "expected failure", err.Error())
+
+			// TODO: this part may be racy
+			require.True(t, len(runTasks) > 0)
+			runTasks = []string{}
+
+			subtaskChan = make(chan *types.Any, 10)
+			require.NoError(t, sendSubtasks(expectedTasks, subtaskChan))
+			close(subtaskChan)
+
+			// Succeed the second run
+			return task.Run(ctx, subtaskChan, wrapCallback(ncc, func(ctx context.Context, data *TestData) error {
+				fmt.Printf("master collecting second-round task: %v\n", data.Key)
+				collectedTasks = append(collectedTasks, data.Key)
+				return nil
+			}))
+		},
+		func(ctx context.Context, data *TestData) error {
+			fmt.Printf("worker running task: %v\n", data.Key)
+			runTasks = append(runTasks, data.Key)
+			return nil
+		},
+	)
+	require.NoError(t, err)
+	require.ElementsEqual(t, expectedTasks, runTasks)
+	require.ElementsEqual(t, expectedTasks, collectedTasks)
+}
+
 func TestClear(t *testing.T) {
+}
+
+func TestEarlyError(t *testing.T) {
 }
