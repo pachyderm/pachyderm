@@ -301,3 +301,27 @@ func UpdateJobState(pipelines col.ReadWriteCollection, jobs col.ReadWriteCollect
 	jobPtr.Reason = reason
 	return jobs.Put(jobPtr.Job.ID, jobPtr)
 }
+
+// ContainsS3Inputs returns 'true' if 'in' is or contains any PFS inputs with
+// 'S3' set to true. Any pipelines with s3 inputs lj
+func ContainsS3Inputs(in *pps.Input) bool {
+	var found bool
+	pps.VisitInput(in, func(in *pps.Input) {
+		if found {
+			return
+		}
+		if in.Pfs != nil && in.Pfs.S3 {
+			found = true
+		}
+	})
+	return found
+}
+
+// SidecarS3GatewayService returns the name of the kubernetes service created
+// for the job 'jobID' to hand sidecar s3 gateway requests. This helper is in
+// ppsutil because both PPS (which creates the service, in the s3 gateway
+// sidecar server) and the worker (which passes the endpoint to the user code)
+// need to know it.
+func SidecarS3GatewayService(jobID string) string {
+	return "s3-" + jobID
+}

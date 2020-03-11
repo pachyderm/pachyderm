@@ -8,7 +8,7 @@ import (
 )
 
 func (c *controller) SecretKey(r *http.Request, accessKey string, region *string) (*string, error) {
-	pc, err := c.pachClient(accessKey)
+	pc, err := c.clientFactory.Client(accessKey)
 	if err != nil {
 		return nil, fmt.Errorf("could not create a pach client for auth: %s", err)
 	}
@@ -28,7 +28,7 @@ func (c *controller) SecretKey(r *http.Request, accessKey string, region *string
 }
 
 func (c *controller) CustomAuth(r *http.Request) (bool, error) {
-	pc, err := c.pachClient("")
+	pc, err := c.clientFactory.Client("")
 	if err != nil {
 		return false, fmt.Errorf("could not create a pach client for auth: %s", err)
 	}

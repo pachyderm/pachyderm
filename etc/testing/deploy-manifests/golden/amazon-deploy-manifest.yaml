@@ -8,6 +8,16 @@ metadata:
   name: pachyderm
   namespace: default
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  creationTimestamp: null
+  labels:
+    app: ""
+    suite: pachyderm
+  name: pachyderm-worker
+  namespace: default
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -70,6 +80,45 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: pachyderm
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  creationTimestamp: null
+  labels:
+    app: ""
+    suite: pachyderm
+  name: pachyderm-worker
+  namespace: default
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - update
+  - create
+  - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  creationTimestamp: null
+  labels:
+    app: ""
+    suite: pachyderm
+  name: pachyderm-worker
+  namespace: default
+roleRef:
+  apiGroup: ""
+  kind: Role
+  name: pachyderm-worker
+subjects:
+- kind: ServiceAccount
+  name: pachyderm-worker
   namespace: default
 ---
 apiVersion: storage.k8s.io/v1
@@ -302,14 +351,14 @@ spec:
           value: AMAZON
         - name: STORAGE_HOST_PATH
         - name: WORKER_IMAGE
-          value: pachyderm/worker:1.10.0
+          value: pachyderm/worker:1.10.0-rc5
         - name: IMAGE_PULL_SECRET
         - name: WORKER_SIDECAR_IMAGE
-          value: pachyderm/pachd:1.10.0
+          value: pachyderm/pachd:1.10.0-rc5
         - name: WORKER_IMAGE_PULL_POLICY
           value: IfNotPresent
         - name: PACHD_VERSION
-          value: 1.10.0
+          value: 1.10.0-rc5
         - name: METRICS
           value: "true"
         - name: LOG_LEVEL
@@ -514,7 +563,7 @@ spec:
               optional: true
         - name: STORAGE_UPLOAD_CONCURRENCY_LIMIT
           value: "100"
-        image: pachyderm/pachd:1.10.0
+        image: pachyderm/pachd:1.10.0-rc5
         imagePullPolicy: IfNotPresent
         name: pachd
         ports:
