@@ -684,7 +684,7 @@ func TestS3SkippedDatums(t *testing.T) {
 			for j := 0; j <= i; j++ {
 				var buf bytes.Buffer
 				require.NoError(t, c.GetFile(pipeline, "master", strconv.Itoa(j), 0, 0, &buf))
-				// buf.Text() contains the background value; this should be updated in every
+				// buf contains the background value; this should be updated in every
 				// datum by every job, because this is an S3Out pipeline
 				require.Equal(t, iS, buf.String())
 			}
