@@ -434,10 +434,10 @@ If <object store backend> is \"s3\", then the arguments are:
 				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[2])
 			}
 			if strings.TrimSpace(cloudfrontDistribution) != "" {
-				fmt.Fprintf(os.Stderr, "WARNING: You specified a cloudfront "+
-					"distribution. Deploying on AWS with cloudfront is currently an "+
-					"alpha feature. No security restrictions have been applied to "+
-					"cloudfront, making all data public (obscured but not secured)\n")
+				log.Warningf("you specified a cloudfront distribution; deploying on " +
+					"AWS with cloudfront is currently an alpha feature. No security " +
+					"restrictions have been applied to cloudfront, making all data " +
+					"public (obscured but not secured)\n")
 			}
 			bucket, region := strings.TrimPrefix(args[0], "s3://"), args[1]
 			if !awsRegionRE.MatchString(region) {
@@ -727,7 +727,8 @@ If <object store backend> is \"s3\", then the arguments are:
 		PersistentPreRun: cmdutil.Run(func([]string) error {
 			cfg, err := config.Read(false)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "WARNING: could not read config to check whether cluster metrics will be enabled: %v.\n", err)
+				log.Warningf("could not read config to check whether cluster metrics "+
+					"will be enabled: %v.\n", err)
 			}
 
 			if namespace == "" {
@@ -735,7 +736,8 @@ If <object store backend> is \"s3\", then the arguments are:
 				var err error
 				namespace, _, err = kubeConfig.Namespace()
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "WARNING: using namespace \"default\" (couldn't load namespace from kubernetes config: %v)\n", err)
+					log.Warningf("using namespace \"default\" (couldn't load namespace "+
+						"from kubernetes config: %v)\n", err)
 					namespace = "default"
 				}
 			}
