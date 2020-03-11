@@ -172,6 +172,18 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 		if len(jobInfos) > 1 {
 			return fmt.Errorf("multiple jobs found for commit: %s/%s", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
 		} else if len(jobInfos) < 1 {
+			if a.pipelineInfo.S3Out && commitInfo.ParentCommit != nil {
+				// We don't want S3-out pipelines to merge datum output with the parent
+				// commit, so we create a PutFile record to delete '/'. Doing it before
+				// we create the job guarantees that 1) workers can't run unless
+				// DeleteFile('/') has run and 2) DeleteFile('/') won't run after work
+				// has started
+				if err := pachClient.DeleteFile(
+					commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "/",
+				); err != nil {
+					return fmt.Errorf("couldn't prepare output commit for S3-out job: %v", err)
+				}
+			}
 			job, err := pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit, statsCommit)
 			if err != nil {
 				return err

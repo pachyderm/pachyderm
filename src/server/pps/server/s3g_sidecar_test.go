@@ -586,7 +586,7 @@ func TestS3SkippedDatums(t *testing.T) {
 			[]*pfs.Commit{client.NewCommit(s3in, "master")},
 			[]*pfs.Repo{client.NewRepo(pipeline)})
 		require.NoError(t, err)
-		for _, err := ciIter.Next(); err != io.EOF; {
+		for err != io.EOF {
 			_, err = ciIter.Next()
 		}
 		c.GetFile(pipeline, "master", "out", 0, 0, &buf)
@@ -632,10 +632,15 @@ func TestS3SkippedDatums(t *testing.T) {
 						Namespace, background,
 					),
 					"cat /pfs/in/* >/tmp/pfsin",
-					// Write the "background" value to a new file in every datum; as
+					// Write the "background" value to a new file in every datum. As
 					// 'aws s3 cp' is destructive, datums will overwrite each others
-					// values unless they all write to a unique key.
+					// values unless each datum writes to a unique key. This way, we
+					// should see a file for every datum processed written in every job
 					"aws --endpoint=${S3_ENDPOINT} s3 cp /tmp/bg s3://out/\"$(cat /tmp/pfsin)\"",
+					// Also write a file that is itself named for the background value.
+					// Because S3-out jobs don't merge their outputs with their parent's
+					// outputs, we should only see one such file in every job's output.
+					"aws --endpoint=${S3_ENDPOINT} s3 cp /tmp/bg s3://out/bg/\"$(cat /tmp/bg)\"",
 				},
 				Env: map[string]string{
 					"AWS_ACCESS_KEY_ID":     userToken,
@@ -681,6 +686,16 @@ func TestS3SkippedDatums(t *testing.T) {
 			}
 
 			// check output
+			// ------------
+			// Flush commit so that GetFile doesn't accidentally run after the job
+			// finishes but before the commit finishes
+			ciIter, err := c.FlushCommit(
+				[]*pfs.Commit{client.NewCommit(repo, "master")},
+				[]*pfs.Repo{client.NewRepo(pipeline)})
+			require.NoError(t, err)
+			for err != io.EOF {
+				_, err = ciIter.Next()
+			}
 			for j := 0; j <= i; j++ {
 				var buf bytes.Buffer
 				require.NoError(t, c.GetFile(pipeline, "master", strconv.Itoa(j), 0, 0, &buf))
@@ -688,6 +703,20 @@ func TestS3SkippedDatums(t *testing.T) {
 				// datum by every job, because this is an S3Out pipeline
 				require.Equal(t, iS, buf.String())
 			}
+
+			// Make sure that there's exactly one file in 'bg/'--this confirms that
+			// the output commit isn't merged with its parent, it only contains the
+			// result of processing all datums
+			// -------------------------------
+			// check no extra files
+			fis, err := c.ListFile(pipeline, "master", "/bg")
+			require.NoError(t, err)
+			require.Equal(t, 1, len(fis))
+			// check that expected file exists
+			fis, err = c.ListFile(pipeline, "master", fmt.Sprintf("/bg/%d", i))
+			require.NoError(t, err)
+			require.Equal(t, 1, len(fis))
+
 		}
 	})
 }
