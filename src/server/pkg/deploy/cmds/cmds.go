@@ -735,7 +735,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				var err error
 				namespace, _, err = kubeConfig.Namespace()
 				if err != nil {
-					fmt.Fprintf("WARNING: using namespace \"default\" (couldn't load namespace from kubernetes config: %v)\n", err)
+					fmt.Fprintf(os.Stderr, "WARNING: using namespace \"default\" (couldn't load namespace from kubernetes config: %v)\n", err)
 					namespace = "default"
 				}
 			}
