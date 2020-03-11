@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alb-ingress-controller
+  labels:
+    missing: label
+spec:
+  selector:
+    matchLabels:
+      missing: label
+  template:
+    metadata:
+      labels:
+        missing: label
+    spec:
+      containers:
+        - name: alb-ingress-controller
+          args:
+            # AWS VPC ID this ingress controller will use to create AWS resources.
+            # If unspecified, it will be discovered from ec2metadata.
+            - --aws-vpc-id=$(VPC_ID)
+
+            # AWS region this ingress controller will operate in.
+            # If unspecified, it will be discovered from ec2metadata.
+            # List of regions: http://docs.aws.amazon.com/general/latest/gr/rande.html#vpc_region
+            - --aws-region=$(REGION)

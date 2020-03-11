@@ -1,0 +1,30 @@
+bindings:
+- members:
+  - serviceAccount:data-lineage-example2-admin@nick-dev-216218.iam.gserviceaccount.com
+  roles:
+  - roles/source.admin
+  - roles/servicemanagement.admin
+  - roles/compute.networkAdmin
+- members:
+  - serviceAccount:data-lineage-example2-user@nick-dev-216218.iam.gserviceaccount.com
+  roles:
+  - roles/cloudbuild.builds.editor
+  - roles/viewer
+  - roles/source.admin
+  - roles/storage.admin
+  - roles/bigquery.admin
+  - roles/dataflow.admin
+  - roles/ml.admin
+  - roles/dataproc.editor
+  - roles/cloudsql.admin
+- members:
+  - serviceAccount:data-lineage-example2-vm@nick-dev-216218.iam.gserviceaccount.com
+  roles:
+  - roles/logging.logWriter
+  - roles/monitoring.metricWriter
+  - roles/monitoring.viewer
+  - roles/storage.objectViewer
+- members:
+  - user:nick@pachyderm.io
+  roles:
+  - roles/iap.httpsResourceAccessor

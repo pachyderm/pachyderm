@@ -1,0 +1,21 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    app: cert-manager
+  name: cert-manager
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: cert-manager
+    spec:
+      containers:
+      - args:
+        - --cluster-resource-namespace=kubeflow
+        - --leader-election-namespace=kubeflow
+        image: quay.io/jetstack/cert-manager-controller:v0.4.0
+        imagePullPolicy: IfNotPresent
+        name: cert-manager
+      serviceAccountName: cert-manager

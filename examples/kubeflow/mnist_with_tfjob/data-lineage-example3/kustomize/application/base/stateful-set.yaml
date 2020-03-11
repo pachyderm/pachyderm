@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: stateful-set
+spec:
+  serviceName: service
+  template:
+    spec:
+      containers:
+      - name: manager
+        command:
+        - /root/manager
+        image: gcr.io/kubeflow-images-public/kubernetes-sigs/application
+        imagePullPolicy: Always
+        env:
+        - name: project
+          value: $(project)
+      serviceAccountName: service-account
+  volumeClaimTemplates: []

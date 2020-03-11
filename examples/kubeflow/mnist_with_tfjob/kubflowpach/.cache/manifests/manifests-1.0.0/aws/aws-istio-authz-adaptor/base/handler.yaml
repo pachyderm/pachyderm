@@ -1,0 +1,10 @@
+apiVersion: config.istio.io/v1alpha2
+kind: handler
+metadata:
+  name: authzadaptor-handler
+spec:
+  adapter: authzadaptor
+  connection:
+    address: authzadaptor:9070
+  params:
+    valid_duration: 1s

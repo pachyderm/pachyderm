@@ -1,0 +1,28 @@
+namespace: kubeflow
+resources:
+- katib-ui-deployment.yaml
+- katib-ui-rbac.yaml
+- katib-ui-service.yaml
+configMapGenerator:
+- name: katib-parameters
+  env: params.env
+generatorOptions:
+  disableNameSuffixHash: true
+images:
+  - name: gcr.io/kubeflow-images-public/katib/katib-ui
+    newTag: v0.1.2-alpha-157-g3d4cd04
+vars:
+- name: clusterDomain
+  objref:
+    kind: ConfigMap
+    name: katib-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.clusterDomain
+- name: namespace
+  objref:
+    kind: Service
+    name: katib-ui
+    apiVersion: v1
+  fieldref:
+    fieldpath: metadata.namespace

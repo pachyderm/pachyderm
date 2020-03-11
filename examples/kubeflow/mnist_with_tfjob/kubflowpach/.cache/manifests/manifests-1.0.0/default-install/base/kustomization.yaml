@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- profile-instance.yaml
+configMapGenerator:
+- name: default-install-parameters
+  env: params.env
+vars:
+- name: user
+  objref:
+    kind: ConfigMap
+    name: default-install-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.user
+- name: profile-name
+  objref:
+    kind: ConfigMap
+    name: default-install-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.profile-name
+configurations:
+- params.yaml

@@ -1,0 +1,23 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    run: authzadaptor
+  name: authzadaptor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: authzadaptor
+  template:
+    metadata:
+      labels:
+        run: authzadaptor
+    spec:
+      containers:
+      - image: seedjeffwan/istio-adapter:0.1
+        imagePullPolicy: Always
+        name: authzadaptor
+        ports:
+        - containerPort: 9070
+          protocol: TCP

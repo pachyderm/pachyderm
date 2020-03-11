@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: kube-system
+resources:
+- daemonset.yaml
+commonLabels:
+  kustomize.component: nvidia-device-plugin
+images:
+- name: nvidia/k8s-device-plugin
+  newName: nvidia/k8s-device-plugin
+  newTag: 1.0.0-beta

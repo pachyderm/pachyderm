@@ -1,0 +1,77 @@
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: efs-csi-node
+spec:
+  selector:
+    matchLabels:
+      app: efs-csi-node
+  template:
+    metadata:
+      labels:
+        app: efs-csi-node
+    spec:
+      serviceAccount: efs-csi-node-sa
+      hostNetwork: true
+      containers:
+        - name: efs-plugin
+          securityContext:
+            privileged: true
+          image: amazon/aws-efs-csi-driver:latest
+          imagePullPolicy: Always
+          args:
+            - --endpoint=$(CSI_ENDPOINT)
+            - --logtostderr
+            - --v=5
+          env:
+            - name: CSI_ENDPOINT
+              value: unix:/csi/csi.sock
+          volumeMounts:
+            - name: kubelet-dir
+              mountPath: /var/lib/kubelet
+              mountPropagation: "Bidirectional"
+            - name: plugin-dir
+              mountPath: /csi
+            - name: device-dir
+              mountPath: /dev
+        - name: csi-driver-registrar
+          image: quay.io/k8scsi/driver-registrar:v0.4.2
+          imagePullPolicy: Always
+          args:
+            - --csi-address=$(ADDRESS)
+            - --mode=node-register
+            - --driver-requires-attachment=true
+            - --pod-info-mount-version="v1"
+            - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
+            - --v=5
+          env:
+            - name: ADDRESS
+              value: /csi/csi.sock
+            - name: DRIVER_REG_SOCK_PATH
+              value: /var/lib/kubelet/plugins/efs.csi.aws.com/csi.sock
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          volumeMounts:
+            - name: plugin-dir
+              mountPath: /csi
+            - name: registration-dir
+              mountPath: /registration
+      volumes:
+        - name: kubelet-dir
+          hostPath:
+            path: /var/lib/kubelet
+            type: Directory
+        - name: plugin-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins/efs.csi.aws.com/
+            type: DirectoryOrCreate
+        - name: registration-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins/
+            type: Directory
+        - name: device-dir
+          hostPath:
+            path: /dev
+            type: Directory

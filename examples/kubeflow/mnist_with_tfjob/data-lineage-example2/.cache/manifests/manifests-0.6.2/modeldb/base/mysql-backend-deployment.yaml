@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: modeldb
+  name: modeldb-mysql-backend
+spec:
+  selector:
+    matchLabels:
+      app: modeldb
+      tier: mysql
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: modeldb
+        tier: mysql
+    spec:
+      containers:
+      - args:
+        - --ignore-db-dir=lost+found
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: root
+        image: mysql:5.7
+        imagePullPolicy: Always
+        name: modeldb-mysql-backend
+        ports:
+        - containerPort: 3306
+        volumeMounts:
+        - mountPath: /var/lib/mysql
+          name: modeldb-mysql-persistent-storage
+      volumes:
+      - name: modeldb-mysql-persistent-storage
+        persistentVolumeClaim:
+          claimName: modeldb-mysql-pv-claim

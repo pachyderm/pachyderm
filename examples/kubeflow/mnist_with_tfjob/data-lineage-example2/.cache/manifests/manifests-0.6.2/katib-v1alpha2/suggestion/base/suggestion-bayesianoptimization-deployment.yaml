@@ -1,0 +1,23 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: katib-suggestion-bayesianoptimization
+  labels:
+    app: katib
+    component: suggestion-bayesianoptimization
+spec:
+  replicas: 1
+  template:
+    metadata:
+      name: katib-suggestion-bayesianoptimization
+      labels:
+        app: katib
+        component: suggestion-bayesianoptimization
+    spec:
+      containers:
+      - name: katib-suggestion-bayesianoptimization
+        image: gcr.io/kubeflow-images-public/katib/v1alpha2/suggestion-bayesianoptimization:v0.1.2-alpha-289-g14dad8b
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: api
+          containerPort: 6789

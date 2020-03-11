@@ -1,0 +1,39 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- istio-noauth.yaml
+namespace: kubeflow
+images:
+- name: docker.io/istio/kubectl
+  newName: docker.io/istio/kubectl
+  newTag: 1.1.6
+- name: docker.io/istio/galley
+  newName: docker.io/istio/galley
+  newTag: 1.1.6
+- name: docker.io/istio/proxyv2
+  newName: docker.io/istio/proxyv2
+  newTag: 1.1.6
+- name: grafana/grafana
+  newName: grafana/grafana
+  newTag: 6.0.2
+- name: docker.io/kiali/kiali
+  newName: docker.io/kiali/kiali
+  newTag: v0.16
+- name: docker.io/istio/mixer
+  newName: docker.io/istio/mixer
+  newTag: 1.1.6
+- name: docker.io/istio/pilot
+  newName: docker.io/istio/pilot
+  newTag: 1.1.6
+- name: docker.io/prom/prometheus
+  newName: docker.io/prom/prometheus
+  newTag: v2.3.1
+- name: docker.io/istio/citadel
+  newName: docker.io/istio/citadel
+  newTag: 1.1.6
+- name: docker.io/istio/sidecar_injector
+  newName: docker.io/istio/sidecar_injector
+  newTag: 1.1.6
+- name: docker.io/jaegertracing/all-in-one
+  newName: docker.io/jaegertracing/all-in-one
+  newTag: '1.9'

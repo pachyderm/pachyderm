@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: cert-manager
+  labels:
+    app: cert-manager
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      port: 9402
+      targetPort: 9402
+  selector:
+    app: cert-manager
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cert-manager-webhook
+  labels:
+    app: webhook
+spec:
+  type: ClusterIP
+  ports:
+  - name: https
+    port: 443
+    targetPort: 6443
+  selector:
+    app: webhook

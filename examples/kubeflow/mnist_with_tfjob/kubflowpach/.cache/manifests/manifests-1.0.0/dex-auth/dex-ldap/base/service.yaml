@@ -1,0 +1,31 @@
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: ldap
+spec:
+  ports:
+  - name: ldap
+    port: 389
+    targetPort: 389
+  - name: ldap-ssl
+    port: 636
+    targetPort: 636
+  selector:
+    app: ldap
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: ldap-admin
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    targetPort: 80
+    nodePort: 32006
+  selector:
+    app: ldap

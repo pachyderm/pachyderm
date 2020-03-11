@@ -1,0 +1,58 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cluster-read-all-role
+rules:
+  -
+    apiGroups:
+      - ""
+      - apps
+      - autoscaling
+      - batch
+      - extensions
+      - policy
+      - networking.k8s.io
+      - rbac.authorization.k8s.io
+      - storage.k8s.io
+    resources:
+      - componentstatuses
+      - configmaps
+      - cronjobs
+      - daemonsets
+      - deployments
+      - events
+      - endpoints
+      - horizontalpodautoscalers
+      - ingress
+      - ingresses
+      - jobs
+      - limitranges
+      - namespaces
+      - nodes
+      - pods
+      - pods/log
+      - pods/exec
+      - persistentvolumes
+      - persistentvolumeclaims
+      - resourcequotas
+      - replicasets
+      - replicationcontrollers
+      - serviceaccounts
+      - services
+      - statefulsets
+      - storageclasses
+      - clusterroles
+      - roles
+      - tfjobs
+    verbs:
+      - get
+      - watch
+      - list
+  - nonResourceURLs: ["*"]
+    verbs:
+      - get
+      - watch
+      - list
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]

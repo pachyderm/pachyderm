@@ -1,0 +1,32 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: kubeflow
+resources:
+- cluster-role-binding.yaml
+- cluster-role.yaml
+- config-map.yaml
+- secret.yaml
+- statefulset.yaml
+- service.yaml
+commonLabels:
+  kustomize.component: kfserving
+configMapGenerator:
+- name: kfserving-parameters
+  env: params.env
+vars:
+- name: registry
+  objref:
+    kind: ConfigMap
+    name: kfserving-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.registry
+configurations:
+- params.yaml
+images:
+- name: gcr.io/kubebuilder/kube-rbac-proxy
+  newName: gcr.io/kubebuilder/kube-rbac-proxy
+  newTag: v0.4.0
+- name: $(registry)/kfserving-controller
+  newName: $(registry)/kfserving-controller
+  newTag: 0.2.2

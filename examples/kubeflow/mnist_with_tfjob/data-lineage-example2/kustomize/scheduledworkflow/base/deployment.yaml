@@ -1,0 +1,17 @@
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: ml-pipeline-scheduledworkflow
+spec:
+  template:
+    spec:
+      containers:
+      - name: ml-pipeline-scheduledworkflow
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        image: gcr.io/ml-pipeline/scheduledworkflow:0.1.23
+        imagePullPolicy: IfNotPresent
+      serviceAccountName: ml-pipeline-scheduledworkflow

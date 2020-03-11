@@ -1,0 +1,46 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: kubeflow
+resources:
+- deployment.yaml
+- role-binding.yaml
+- role.yaml
+- service-account.yaml
+- service.yaml
+configMapGenerator:
+- name: ui-parameters
+  env: params.env
+images:
+- name: gcr.io/ml-pipeline/frontend
+  newTag: '0.1.23'
+vars:
+- name: ui-namespace
+  objref:
+    kind: Service
+    name: ml-pipeline-ui
+    apiVersion: v1
+  fieldref:
+    fieldpath: metadata.namespace
+- name: ui-clusterDomain
+  objref:
+    kind: ConfigMap
+    name: ui-parameters
+    version: v1
+  fieldref:
+    fieldpath: data.uiClusterDomain
+- name: service
+  objref:
+    kind: Service
+    name: ml-pipeline-ui
+    apiVersion: v1
+  fieldref:
+    fieldpath: metadata.name
+- name: tensorboard-service
+  objref:
+    kind: Service
+    name: ml-pipeline-tensorboard-ui
+    apiVersion: v1
+  fieldref:
+    fieldpath: metadata.name
+configurations:
+- params.yaml

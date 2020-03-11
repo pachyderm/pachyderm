@@ -1,0 +1,46 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- kflogin-deployment.yaml
+- gatekeeper-deployment.yaml
+- gatekeeper-service.yaml
+- kflogin-service.yaml
+commonLabels:
+  kustomize.component: basic-auth
+namespace: kubeflow
+images:
+- name: gcr.io/kubeflow-images-public/kflogin-ui
+  newName: gcr.io/kubeflow-images-public/kflogin-ui
+  newTag: v0.5.0
+- name: gcr.io/kubeflow-images-public/gatekeeper
+  newName: gcr.io/kubeflow-images-public/gatekeeper
+  newTag: v0.5.0
+generatorOptions:
+  disableNameSuffixHash: true
+configMapGenerator:
+- name: basic-auth-parameters
+  env: params.env
+vars:
+- name: service-namespace
+  objref:
+    kind: Service
+    name: basic-auth-login
+    apiVersion: v1
+  fieldref:
+    fieldpath: metadata.namespace
+- name: authSecretName
+  objref:
+    kind: ConfigMap
+    name: basic-auth-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.authSecretName
+- name: clusterDomain
+  objref:
+    kind: ConfigMap
+    name: basic-auth-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.clusterDomain
+configurations:
+- params.yaml

@@ -1,0 +1,39 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: katib-manager
+  labels:
+    app: katib
+    component: manager
+spec:
+  replicas: 1
+  template:
+    metadata:
+      name: katib-manager
+      labels:
+        app: katib
+        component: manager
+    spec:
+      containers:
+      - name: katib-manager
+        image: gcr.io/kubeflow-images-public/katib/v1alpha2/katib-manager:v0.1.2-alpha-289-g14dad8b
+        imagePullPolicy: IfNotPresent
+        env:
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: katib-db-secrets
+                key: MYSQL_ROOT_PASSWORD
+        command:
+          - './katib-manager'
+        ports:
+        - name: api
+          containerPort: 6789
+        readinessProbe:
+          exec:
+            command: ["/bin/grpc_health_probe", "-addr=:6789"]
+          initialDelaySeconds: 5
+        livenessProbe:
+          exec:
+            command: ["/bin/grpc_health_probe", "-addr=:6789"]
+          initialDelaySeconds: 10

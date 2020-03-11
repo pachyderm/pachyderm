@@ -1,0 +1,119 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- namespace.yaml
+- crds.yaml
+- cluster-role-binding.yaml
+- cluster-role.yaml
+- config-map.yaml
+- pod-security-policy.yaml
+- service-account.yaml
+- service.yaml
+- deployment.yaml
+namespace: tekton-pipelines
+configMapGenerator:
+- name: tektoncd-parameters
+  env: params.env
+generatorOptions:
+  disableNameSuffixHash: true
+vars:
+- name: registry
+  objref:
+    kind: ConfigMap
+    name: tektoncd-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.registry
+- name: entrypoint
+  objref:
+    kind: ConfigMap
+    name: tektoncd-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.entrypoint
+- name: nop
+  objref:
+    kind: ConfigMap
+    name: tektoncd-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.nop
+- name: webhook
+  objref:
+    kind: ConfigMap
+    name: tektoncd-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.webhook
+- name: gcs-fetcher
+  objref:
+    kind: ConfigMap
+    name: tektoncd-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.gcs-fetcher
+- name: gsutil
+  objref:
+    kind: ConfigMap
+    name: tektoncd-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.gsutil
+- name: bash
+  objref:
+    kind: ConfigMap
+    name: tektoncd-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.bash
+- name: git-init
+  objref:
+    kind: ConfigMap
+    name: tektoncd-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.git-init
+- name: creds-init
+  objref:
+    kind: ConfigMap
+    name: tektoncd-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.creds-init
+- name: pullrequest-init
+  objref:
+    kind: ConfigMap
+    name: tektoncd-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.pullrequest-init
+- name: imagedigestexporter
+  objref:
+    kind: ConfigMap
+    name: tektoncd-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.imagedigestexporter
+- name: kubeconfigwriter
+  objref:
+    kind: ConfigMap
+    name: tektoncd-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.kubeconfigwriter
+- name: controller
+  objref:
+    kind: ConfigMap
+    name: tektoncd-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.controller
+configurations:
+- params.yaml
+images:
+- name: $(registry)/$(controller)
+  newName: $(registry)/$(controller)
+  newTag: latest
+- name: $(registry)/$(webhook)
+  newName: $(registry)/$(webhook)
+  newTag: latest

@@ -1,0 +1,19 @@
+namePrefix: modeldb-
+
+resources:
+- artifact-store-deployment.yaml
+- artifact-store-service.yaml
+- backend-deployment.yaml
+- backend-proxy-service.yaml
+- backend-service.yaml
+- configmap.yaml
+- mysql-backend-deployment.yaml
+- mysql-service.yaml
+- persistent-volume-claim.yaml
+- proxy-deployment.yaml
+- secret.yaml
+- webapp-deplyment.yaml
+- webapp-service.yaml
+
+commonLabels:
+  kustomize.component: modeldb

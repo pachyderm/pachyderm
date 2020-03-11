@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: katib-db-manager
+  labels:
+    app: katib
+    component: db-manager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: katib
+      component: db-manager
+  template:
+    metadata:
+      name: katib-db-manager
+      labels:
+        app: katib
+        component: db-manager
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      containers:
+      - name: katib-db-manager
+        image: gcr.io/kubeflow-images-public/katib/v1alpha3/katib-db-manager
+        imagePullPolicy: IfNotPresent
+        env:
+          - name : DB_NAME
+            value: "mysql"
+          - name: DB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: katib-mysql-secrets
+                key: MYSQL_ROOT_PASSWORD
+        command:
+          - './katib-db-manager'
+        ports:
+        - name: api
+          containerPort: 6789
+        readinessProbe:
+          exec:
+            command: ["/bin/grpc_health_probe", "-addr=:6789"]
+          initialDelaySeconds: 5
+        livenessProbe:
+          exec:
+            command: ["/bin/grpc_health_probe", "-addr=:6789"]
+          initialDelaySeconds: 10
+          periodSeconds: 60
+          failureThreshold: 5

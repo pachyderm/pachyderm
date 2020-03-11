@@ -1,0 +1,37 @@
+apiVersion: rbac.authorization.k8s.io/v1beta1
+# TODO: Does this need to be changed to a clusterrole?
+# see  manifests in kubeflow/pipelines
+kind: Role
+metadata:
+  name: ml-pipeline
+rules:
+- apiGroups:
+  - argoproj.io
+  resources:
+  - workflows
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - kubeflow.org
+  resources:
+  - scheduledworkflows
+  verbs:
+  - create
+  - get
+  - list
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - delete
+

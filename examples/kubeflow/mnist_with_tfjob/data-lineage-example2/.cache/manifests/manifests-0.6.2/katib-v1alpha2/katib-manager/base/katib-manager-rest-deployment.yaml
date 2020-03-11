@@ -1,0 +1,25 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: katib-manager-rest
+  labels:
+    app: katib
+    component: manager-rest
+spec:
+  replicas: 1
+  template:
+    metadata:
+      name: katib-manager-rest
+      labels:
+        app: katib
+        component: manager-rest
+    spec:
+      containers:
+      - name: katib-manager-rest
+        image: gcr.io/kubeflow-images-public/katib/v1alpha2/katib-manager-rest:v0.1.2-alpha-289-g14dad8b
+        imagePullPolicy: IfNotPresent
+        command:
+          - './katib-manager-rest'
+        ports:
+        - name: api
+          containerPort: 80

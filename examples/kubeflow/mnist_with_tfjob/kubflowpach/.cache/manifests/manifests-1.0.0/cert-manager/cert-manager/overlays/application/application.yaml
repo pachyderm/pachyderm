@@ -1,0 +1,35 @@
+apiVersion: app.k8s.io/v1beta1
+kind: Application
+metadata:
+  name: cert-manager
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cert-manager
+      app.kubernetes.io/instance: cert-manager-v1.0.0
+      app.kubernetes.io/managed-by: kfctl
+      app.kubernetes.io/component: cert-manager
+      app.kubernetes.io/part-of: kubeflow
+      app.kubernetes.io/version: v1.0.0
+  componentKinds:
+  - group: rbac
+    kind: ClusterRole
+  - group: rbac
+    kind: ClusterRoleBinding
+  - group: core
+    kind: Namespace
+  - group: core
+    kind: Service
+  - group: apps
+    kind: Deployment
+  - group: core
+    kind: ServiceAccount
+  descriptor:
+    type: ""
+    version: "v0.10.0"
+    description: "Automatically provision and manage TLS certificates in Kubernetes https://jetstack.io."
+    keywords:
+    - cert-manager
+    links:
+    - description: About
+      url: "https://github.com/jetstack/cert-manager"

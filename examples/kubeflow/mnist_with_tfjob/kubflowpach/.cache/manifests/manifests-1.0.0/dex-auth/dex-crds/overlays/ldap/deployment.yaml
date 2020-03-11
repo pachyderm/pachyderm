@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: dex
+  name: dex
+spec:
+  template:
+    spec:
+      serviceAccountName: dex
+      containers:
+      - name: dex
+        volumeMounts:
+        - name: tls
+          mountPath: /etc/dex/tls
+      volumes:
+      - name: tls
+        secret:
+          secretName: $(dex_domain).tls

@@ -1,0 +1,17 @@
+apiVersion: v1
+data:
+  config.yaml: |-
+    #ArtifactStore Properties
+    artifactStore_grpcServer:
+      port: 8086
+
+    artifactStoreConfig:
+      initializeBuckets: false
+      storageTypeName: amazonS3 #amazonS3, googleCloudStorage, nfs
+      #nfsRootPath: /path/to/my/nfs/storage/location
+      bucket_names:
+        - artifactstoredemo
+kind: ConfigMap
+metadata:
+  name: modeldb-artifact-store-config
+type: Opaque

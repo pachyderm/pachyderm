@@ -1,0 +1,37 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: vizier-core
+  labels:
+    component: core
+spec:
+  replicas: 1
+  template:
+    metadata:
+      name: vizier-core
+      labels:
+        component: core
+    spec:
+      serviceAccountName: vizier-core
+      containers:
+      - name: vizier-core
+        image: gcr.io/kubeflow-images-public/katib/vizier-core:v0.1.2-alpha-156-g4ab3dbd
+        env:
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: vizier-db-secrets
+                key: MYSQL_ROOT_PASSWORD
+        command:
+          - './vizier-manager'
+        ports:
+        - name: api
+          containerPort: 6789
+        readinessProbe:
+          exec:
+            command: ["/bin/grpc_health_probe", "-addr=:6789"]
+          initialDelaySeconds: 5
+        livenessProbe:
+          exec:
+            command: ["/bin/grpc_health_probe", "-addr=:6789"]
+          initialDelaySeconds: 10

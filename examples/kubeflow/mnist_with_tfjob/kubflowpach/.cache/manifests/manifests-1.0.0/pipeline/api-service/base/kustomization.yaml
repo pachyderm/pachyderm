@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+commonLabels:
+  app: ml-pipeline
+resources:
+- config-map.yaml
+- deployment.yaml
+- role-binding.yaml
+- role.yaml
+- service-account.yaml
+- service.yaml
+images:
+- name: gcr.io/ml-pipeline/api-server
+  newTag: 0.2.0
+  newName: gcr.io/ml-pipeline/api-server

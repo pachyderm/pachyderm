@@ -1,0 +1,91 @@
+ambassador:
+  enabled: true
+  singleNamespace: false
+certManager:
+  enabled: true
+controllerId: ''
+crd:
+  create: true
+credentials:
+  gcs:
+    gcsCredentialFileName: gcloud-application-credentials.json
+  s3:
+    s3AccessKeyIDName: awsAccessKeyID
+    s3SecretAccessKeyName: awsSecretAccessKey
+engine:
+  grpc:
+    port: 5001
+  image:
+    pullPolicy: IfNotPresent
+    registry: docker.io
+    repository: seldonio/engine
+    tag: 1.0.1
+  logMessagesExternally: false
+  port: 8000
+  prometheus:
+    path: prometheus
+  securityContext:
+    enabled: true
+  serviceAccount:
+    name: default
+  user: 8888
+image:
+  pullPolicy: IfNotPresent
+  registry: docker.io
+  repository: seldonio/seldon-core-operator
+  tag: 1.0.1
+istio:
+  enabled: true
+  gateway: kubeflow-gateway
+  tlsMode: ''
+predictiveUnit:
+  port: 9000
+predictor_servers:
+  MLFLOW_SERVER:
+    grpc:
+      defaultImageVersion: '0.2'
+      image: seldonio/mlflowserver_grpc
+    rest:
+      defaultImageVersion: '0.2'
+      image: seldonio/mlflowserver_rest
+  SKLEARN_SERVER:
+    grpc:
+      defaultImageVersion: '0.2'
+      image: seldonio/sklearnserver_grpc
+    rest:
+      defaultImageVersion: '0.2'
+      image: seldonio/sklearnserver_rest
+  TENSORFLOW_SERVER:
+    grpc:
+      defaultImageVersion: '0.7'
+      image: seldonio/tfserving-proxy_grpc
+    rest:
+      defaultImageVersion: '0.7'
+      image: seldonio/tfserving-proxy_rest
+    tensorflow: true
+    tfImage: tensorflow/serving:latest
+  XGBOOST_SERVER:
+    grpc:
+      defaultImageVersion: '0.2'
+      image: seldonio/xgboostserver_grpc
+    rest:
+      defaultImageVersion: '0.2'
+      image: seldonio/xgboostserver_rest
+rbac:
+  configmap:
+    create: true
+  create: true
+serviceAccount:
+  create: true
+  name: seldon-manager
+singleNamespace: false
+storageInitializer:
+  cpuLimit: '1'
+  cpuRequest: 100m
+  image: gcr.io/kfserving/storage-initializer:0.2.1
+  memoryLimit: 1Gi
+  memoryRequest: 100Mi
+usageMetrics:
+  enabled: false
+webhook:
+  port: 443

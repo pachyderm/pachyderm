@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: workflow-controller-configmap
+  namespace: kubeflow
+data:
+  config: |
+    {
+    executorImage: $(executorImage),
+    artifactRepository:
+    {
+        s3: {
+            bucket: $(artifactRepositoryBucket),
+            keyPrefix: $(artifactRepositoryKeyPrefix),
+            endpoint: $(artifactRepositoryEndpoint),
+            insecure: $(artifactRepositoryInsecure),
+            accessKeySecret: {
+                name: $(artifactRepositoryAccessKeySecretName),
+                key: $(artifactRepositoryAccessKeySecretKey)
+            },
+            secretKeySecret: {
+                name: $(artifactRepositorySecretKeySecretName),
+                key: $(artifactRepositorySecretKeySecretKey)
+            }
+        }
+    }
+    }

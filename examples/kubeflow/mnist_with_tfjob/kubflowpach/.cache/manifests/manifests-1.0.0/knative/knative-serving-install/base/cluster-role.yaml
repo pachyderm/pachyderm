@@ -1,0 +1,265 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    duck.knative.dev/addressable: "true"
+    serving.knative.dev/release: "v0.11.1"
+  name: knative-serving-addressable-resolver
+rules:
+  - apiGroups:
+      - serving.knative.dev
+    resources:
+      - routes
+      - routes/status
+      - services
+      - services/status
+    verbs:
+      - get
+      - list
+      - watch
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    autoscaling.knative.dev/metric-provider: custom-metrics
+    serving.knative.dev/release: "v0.11.1"
+  name: custom-metrics-server-resources
+rules:
+  - apiGroups:
+      - custom.metrics.k8s.io
+    resources:
+      - '*'
+    verbs:
+      - '*'
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+    serving.knative.dev/release: "v0.11.1"
+  name: knative-serving-namespaced-admin
+rules:
+  - apiGroups:
+      - serving.knative.dev
+      - networking.internal.knative.dev
+      - autoscaling.internal.knative.dev
+      - caching.internal.knative.dev
+    resources:
+      - '*'
+    verbs:
+      - '*'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
+    serving.knative.dev/release: "v0.11.1"
+  name: knative-serving-namespaced-edit
+rules:
+  - apiGroups:
+      - serving.knative.dev
+      - networking.internal.knative.dev
+      - autoscaling.internal.knative.dev
+      - caching.internal.knative.dev
+    resources:
+      - '*'
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-view: "true"
+    serving.knative.dev/release: "v0.11.1"
+  name: knative-serving-namespaced-view
+rules:
+  - apiGroups:
+      - serving.knative.dev
+      - networking.internal.knative.dev
+      - autoscaling.internal.knative.dev
+      - caching.internal.knative.dev
+    resources:
+      - '*'
+    verbs:
+      - get
+      - list
+      - watch
+
+---
+aggregationRule:
+  clusterRoleSelectors:
+    - matchLabels:
+        serving.knative.dev/controller: "true"
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    serving.knative.dev/release: "v0.11.1"
+  name: knative-serving-admin
+rules: []
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    serving.knative.dev/controller: "true"
+    serving.knative.dev/release: "v0.11.1"
+  name: knative-serving-core
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+      - namespaces
+      - secrets
+      - configmaps
+      - endpoints
+      - services
+      - events
+      - serviceaccounts
+    verbs:
+      - get
+      - list
+      - create
+      - update
+      - delete
+      - patch
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - endpoints/restricted
+    verbs:
+      - create
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+      - deployments/finalizers
+    verbs:
+      - get
+      - list
+      - create
+      - update
+      - delete
+      - patch
+      - watch
+  - apiGroups:
+      - admissionregistration.k8s.io
+    resources:
+      - mutatingwebhookconfigurations
+      - validatingwebhookconfigurations
+    verbs:
+      - get
+      - list
+      - create
+      - update
+      - delete
+      - patch
+      - watch
+  - apiGroups:
+      - apiextensions.k8s.io
+    resources:
+      - customresourcedefinitions
+    verbs:
+      - get
+      - list
+      - create
+      - update
+      - delete
+      - patch
+      - watch
+  - apiGroups:
+      - autoscaling
+    resources:
+      - horizontalpodautoscalers
+    verbs:
+      - get
+      - list
+      - create
+      - update
+      - delete
+      - patch
+      - watch
+  - apiGroups:
+      - serving.knative.dev
+      - autoscaling.internal.knative.dev
+      - networking.internal.knative.dev
+    resources:
+      - '*'
+      - '*/status'
+      - '*/finalizers'
+    verbs:
+      - get
+      - list
+      - create
+      - update
+      - delete
+      - deletecollection
+      - patch
+      - watch
+  - apiGroups:
+      - caching.internal.knative.dev
+    resources:
+      - images
+    verbs:
+      - get
+      - list
+      - create
+      - update
+      - delete
+      - patch
+      - watch
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    duck.knative.dev/podspecable: "true"
+    serving.knative.dev/release: "v0.11.1"
+  name: knative-serving-podspecable-binding
+rules:
+  - apiGroups:
+      - serving.knative.dev
+    resources:
+      - configurations
+      - services
+    verbs:
+      - list
+      - watch
+      - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    networking.knative.dev/ingress-provider: istio
+    serving.knative.dev/controller: "true"
+    serving.knative.dev/release: "v0.11.1"
+  name: knative-serving-istio
+rules:
+  - apiGroups:
+      - networking.istio.io
+    resources:
+      - virtualservices
+      - gateways
+    verbs:
+      - get
+      - list
+      - create
+      - update
+      - delete
+      - patch
+      - watch

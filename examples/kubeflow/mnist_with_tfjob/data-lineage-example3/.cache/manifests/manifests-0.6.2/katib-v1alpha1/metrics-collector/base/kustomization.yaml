@@ -1,0 +1,9 @@
+namespace: kubeflow
+resources:
+- metrics-collector-rbac.yaml
+- metrics-collector-template-configmap.yaml
+generatorOptions:
+  disableNameSuffixHash: true
+images:
+  - name: gcr.io/kubeflow-images-public/katib/metrics-collector
+    newTag: v0.1.2-alpha-157-g3d4cd04

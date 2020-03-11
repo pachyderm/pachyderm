@@ -1,0 +1,46 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+bases:
+- base
+commonLabels:
+  app.kubernetes.io/component: metadata
+  app.kubernetes.io/instance: metadata-0.2.1
+  app.kubernetes.io/managed-by: kfctl
+  app.kubernetes.io/name: metadata
+  app.kubernetes.io/part-of: kubeflow
+  app.kubernetes.io/version: 0.2.1
+  kustomize.component: metadata
+configMapGenerator:
+- behavior: unspecified
+  env: overlays/db/params.env
+  name: metadata-db-parameters
+configurations:
+- overlays/istio/params.yaml
+generatorOptions:
+  disableNameSuffixHash: true
+images:
+- name: mysql
+  newName: mysql
+  newTag: 8.0.3
+kind: Kustomization
+namespace: kubeflow
+patchesStrategicMerge:
+- overlays/db/metadata-deployment.yaml
+resources:
+- overlays/istio/virtual-service.yaml
+- overlays/istio/virtual-service-metadata-grpc.yaml
+- overlays/application/application.yaml
+- overlays/db/metadata-db-pvc.yaml
+- overlays/db/metadata-db-deployment.yaml
+- overlays/db/metadata-db-service.yaml
+secretGenerator:
+- behavior: unspecified
+  env: overlays/db/secrets.env
+  name: metadata-db-secrets
+vars:
+- fieldref:
+    fieldPath: metadata.name
+  name: metadata-db-service
+  objref:
+    apiVersion: v1
+    kind: Service
+    name: metadata-db

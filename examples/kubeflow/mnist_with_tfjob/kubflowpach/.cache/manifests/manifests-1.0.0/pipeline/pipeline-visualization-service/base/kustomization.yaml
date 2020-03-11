@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+nameprefix: ml-pipeline-
+commonLabels:
+  app: ml-pipeline-visualizationserver
+resources:
+- deployment.yaml
+- service.yaml
+images:
+- name: gcr.io/ml-pipeline/visualization-server
+  newTag: 0.2.0
+  newName: gcr.io/ml-pipeline/visualization-server

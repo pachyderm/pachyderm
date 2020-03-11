@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: $(mysqlPvName)
+spec:
+  capacity:
+    storage: 20Gi
+  accessModes:
+  - ReadWriteOnce
+  gcePersistentDisk:
+    pdName: $(mysqlPd)
+    fsType: ext4

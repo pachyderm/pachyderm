@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: tensorboard
+  name: tensorboard
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: tensorboard
+    spec:
+      containers:
+      - args:
+        - --logdir=logs
+        - --port=6006
+        command:
+        - /usr/local/bin/tensorboard
+        image: tensorflow/tensorflow:1.8.0
+        imagePullPolicy: IfNotPresent
+        name: tensorboard
+        ports:
+        - containerPort: 6006
+        resources:
+          limits:
+            cpu: "4"
+            memory: 4Gi
+          requests:
+            cpu: "1"
+            memory: 1Gi

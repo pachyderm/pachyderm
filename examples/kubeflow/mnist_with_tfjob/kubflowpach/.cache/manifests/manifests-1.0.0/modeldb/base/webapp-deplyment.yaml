@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: modeldb
+  name: modeldb-webapp
+spec:
+  selector:
+    matchLabels:
+      app: modeldb
+      tier: webapp
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: modeldb
+        tier: webapp
+    spec:
+      containers:
+      - image: vertaaiofficial/modeldb-frontend:kubeflow
+        imagePullPolicy: Always
+        name: modeldb-webapp
+        ports:
+        - containerPort: 3000

@@ -1,0 +1,20 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: vizier-suggestion-grid
+  labels:
+    component: suggestion-grid
+spec:
+  replicas: 1
+  template:
+    metadata:
+      name: vizier-suggestion-grid
+      labels:
+        component: suggestion-grid
+    spec:
+      containers:
+      - name: vizier-suggestion-grid
+        image: gcr.io/kubeflow-images-public/katib/suggestion-grid:v0.1.2-alpha-156-g4ab3dbd
+        ports:
+        - name: api
+          containerPort: 6789

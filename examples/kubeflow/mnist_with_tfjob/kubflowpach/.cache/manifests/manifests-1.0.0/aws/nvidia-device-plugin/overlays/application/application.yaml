@@ -1,0 +1,33 @@
+apiVersion: app.k8s.io/v1beta1
+kind: Application
+metadata:
+  name: nvidia-device-plugin
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nvidia-device-plugin
+      app.kubernetes.io/instance: nvidia-device-plugin-1.0.0-beta
+      app.kubernetes.io/managed-by: kfctl
+      app.kubernetes.io/component: nvidia-device-plugin
+      app.kubernetes.io/part-of: kubeflow
+      app.kubernetes.io/version: v1.0.0-beta
+  componentKinds:
+  - group: core
+    kind: ConfigMap
+  - group: apps
+    kind: DaemonSet
+  descriptor:
+    type: nvidia-device-plugin
+    version: v1beta1
+    description: Nvidia Device Plugin for aws
+    maintainers: []
+    owners: []
+    keywords:
+     - aws
+     - nvidia
+     - kubeflow
+    links:
+    - description: About
+      url: https://github.com/kubernetes/kops/tree/master/hooks/nvidia-device-plugin
+  addOwnerRef: true
+

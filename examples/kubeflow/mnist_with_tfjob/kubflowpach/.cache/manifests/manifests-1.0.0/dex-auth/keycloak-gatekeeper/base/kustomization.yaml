@@ -1,0 +1,73 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: auth
+
+resources:
+- config-map.yaml
+- namespace.yaml
+- deployment.yaml
+- service.yaml
+- virtualservice.yaml
+
+configMapGenerator:
+- name: keycloak-gatekeeper-parameters
+  env: params.env
+generatorOptions:
+  disableNameSuffixHash: true
+
+vars:
+- name: client_id
+  objref:
+    kind: ConfigMap
+    name: keycloak-gatekeeper-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.client_id
+- name: client_secret
+  objref:
+    kind: ConfigMap
+    name: keycloak-gatekeeper-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.client_secret
+- name: secure_cookie
+  objref:
+    kind: ConfigMap
+    name: keycloak-gatekeeper-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.secure_cookie
+- name: discovery_url
+  objref:
+    kind: ConfigMap
+    name: keycloak-gatekeeper-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.discovery_url
+- name: upstream_url
+  objref:
+    kind: ConfigMap
+    name: keycloak-gatekeeper-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.upstream_url
+- name: redirection_url
+  objref:
+    kind: ConfigMap
+    name: keycloak-gatekeeper-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.redirection_url
+- name: encryption_key
+  objref:
+    kind: ConfigMap
+    name: keycloak-gatekeeper-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.encryption_key
+configurations:
+- params.yaml
+images:
+- name: keycloak/keycloak-gatekeeper
+  newName: keycloak/keycloak-gatekeeper
+  newTag: 5.0.0

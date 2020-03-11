@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mpi-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mpi-operator
+  template:
+    metadata:
+      labels:
+        app: mpi-operator
+    spec:
+      containers:
+      - args:
+        - --gpus-per-node
+        - "8"
+        - --kubectl-delivery-image
+        - $(kubectl-delivery-image)
+        image: mpioperator/mpi-operator:0.1.0
+        imagePullPolicy: Always
+        name: mpi-operator
+      serviceAccountName: mpi-operator

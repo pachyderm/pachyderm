@@ -1,0 +1,41 @@
+apiVersion: app.k8s.io/v1beta1
+kind: Application
+metadata:
+  name: seldon-core-operator
+spec:
+  componentKinds:
+  - group: apps/v1
+    kind: StatefulSet
+  - group: v1
+    kind: Service
+  - group: apps/v1
+    kind: Deployment
+  - group: v1
+    kind: Secret
+  - group: v1
+    kind: ConfigMap
+  description: Seldon allows users to create ML Inference Graphs to deploy their models
+    and serve predictions
+  icons: null
+  keywords:
+  - seldon
+  - inference
+  links:
+  - description: Docs
+    url: https://docs.seldon.io/projects/seldon-core/en/v1.0.1/
+  maintainers:
+  - email: dev@seldon.io
+    name: Seldon
+  owners:
+  - email: dev@seldon.io
+    name: Seldon
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: seldon
+      app.kubernetes.io/instance: seldon-1.15
+      app.kubernetes.io/managed-by: kfctl
+      app.kubernetes.io/name: seldon
+      app.kubernetes.io/part-of: kubeflow
+      app.kubernetes.io/version: '1.15'
+  type: seldon-core-operator
+  version: v1

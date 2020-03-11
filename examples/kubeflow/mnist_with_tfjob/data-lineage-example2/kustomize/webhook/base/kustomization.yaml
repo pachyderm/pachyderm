@@ -1,0 +1,48 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- cluster-role-binding.yaml
+- cluster-role.yaml
+- deployment.yaml
+- mutating-webhook-configuration.yaml
+- service-account.yaml
+- service.yaml
+- crd.yaml
+commonLabels:
+  kustomize.component: admission-webhook
+  app: admission-webhook
+namePrefix: admission-webhook- 
+images:
+  - name: gcr.io/kubeflow-images-public/admission-webhook
+    newName: gcr.io/kubeflow-images-public/admission-webhook
+    newTag: v20190520-v0-139-gcee39dbc-dirty-0d8f4c
+namespace: kubeflow  
+configMapGenerator:
+- name: admission-webhook-parameters
+  env: params.env
+generatorOptions:
+  disableNameSuffixHash: true
+vars:
+- name: namespace
+  objref:
+    kind: ConfigMap
+    name: admission-webhook-parameters 
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.namespace	
+- name: serviceName
+  objref:
+    kind: Service
+    name: service
+    apiVersion: v1
+  fieldref:
+    fieldpath: metadata.name
+- name: deploymentName
+  objref:
+    kind: Deployment
+    name: deployment
+    apiVersion: extensions/v1beta1
+  fieldref:
+    fieldpath: metadata.name
+configurations:
+- params.yaml

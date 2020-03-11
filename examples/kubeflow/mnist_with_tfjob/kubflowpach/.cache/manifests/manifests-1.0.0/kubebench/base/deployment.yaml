@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubebench-operator
+spec:
+  selector:
+    matchLabels:
+      app: kubebench-operator
+  template:
+    metadata:
+      labels:
+        app: kubebench-operator
+    spec:
+      volumes:
+      - name: kubebench-config
+        configMap:
+          name: kubebench-config
+      containers:
+      - image: gcr.io/kubeflow-images-public/kubebench/kubebench-operator-v1alpha2
+        name: kubebench-operator
+        command:
+        - /app/kubebench-operator-v1alpha2
+        args:
+        - --config=/config/kubebenchconfig.yaml
+        volumeMounts:
+        - mountPath: /config
+          name: kubebench-config
+      serviceAccountName: kubebench-operator

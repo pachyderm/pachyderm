@@ -1,0 +1,13 @@
+# Added to allow all requests to istio-ingressgateway
+# Refer issue: https://github.com/istio/istio/issues/14885
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+metadata:
+  name: istio-ingressgateway
+spec:
+  subjects:
+  - user: "*"
+
+  roleRef:
+    kind: ServiceRole
+    name: "istio-ingressgateway"

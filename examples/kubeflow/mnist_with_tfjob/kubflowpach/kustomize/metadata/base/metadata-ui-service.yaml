@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ui
+  labels:
+    app: metadata-ui
+spec:
+  ports:
+  - port: 80
+    targetPort: 3000
+  selector:
+    app: metadata-ui

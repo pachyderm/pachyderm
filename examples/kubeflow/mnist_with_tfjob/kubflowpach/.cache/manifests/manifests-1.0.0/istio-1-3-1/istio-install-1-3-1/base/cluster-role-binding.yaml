@@ -1,0 +1,149 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: security
+  name: istio-citadel-$(namespace)
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-citadel-$(namespace)
+subjects:
+- kind: ServiceAccount
+  name: istio-citadel-service-account
+  namespace: $(namespace)
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: galley
+  name: istio-galley-admin-role-binding-$(namespace)
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-galley-$(namespace)
+subjects:
+- kind: ServiceAccount
+  name: istio-galley-service-account
+  namespace: $(namespace)
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: mixer
+  name: istio-mixer-admin-role-binding-$(namespace)
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-mixer-$(namespace)
+subjects:
+- kind: ServiceAccount
+  name: istio-mixer-service-account
+  namespace: $(namespace)
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: istio-multi
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-reader
+subjects:
+- kind: ServiceAccount
+  name: istio-multi
+  namespace: $(namespace)
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: nodeagent
+  name: istio-nodeagent-$(namespace)
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-nodeagent-$(namespace)
+subjects:
+- kind: ServiceAccount
+  name: istio-nodeagent-service-account
+  namespace: $(namespace)
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: pilot
+  name: istio-pilot-$(namespace)
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-pilot-$(namespace)
+subjects:
+- kind: ServiceAccount
+  name: istio-pilot-service-account
+  namespace: $(namespace)
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: security
+  name: istio-security-post-install-role-binding-$(namespace)
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-security-post-install-$(namespace)
+subjects:
+- kind: ServiceAccount
+  name: istio-security-post-install-account
+  namespace: $(namespace)
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: sidecarInjectorWebhook
+    istio: sidecar-injector
+  name: istio-sidecar-injector-admin-role-binding-$(namespace)
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-sidecar-injector-$(namespace)
+subjects:
+- kind: ServiceAccount
+  name: istio-sidecar-injector-service-account
+  namespace: $(namespace)
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: prometheus
+  name: prometheus-$(namespace)
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus-$(namespace)
+subjects:
+- kind: ServiceAccount
+  name: prometheus
+  namespace: $(namespace)

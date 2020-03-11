@@ -1,0 +1,30 @@
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: cert-manager
+rules:
+- apiGroups:
+  - certmanager.k8s.io
+  resources:
+  - certificates
+  - issuers
+  - clusterissuers
+  verbs:
+  - '*'
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  - events
+  - endpoints
+  - services
+  - pods
+  - configmaps
+  verbs:
+  - '*'
+- apiGroups:
+  - extensions
+  resources:
+  - ingresses
+  verbs:
+  - '*'

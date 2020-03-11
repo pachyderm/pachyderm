@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+commonLabels:
+  app: ml-pipeline
+resources:
+- deployment.yaml
+- role-binding.yaml
+- role.yaml
+- service-account.yaml
+- service.yaml
+images:
+- name: gcr.io/ml-pipeline/api-server
+  newTag: '0.1.23'

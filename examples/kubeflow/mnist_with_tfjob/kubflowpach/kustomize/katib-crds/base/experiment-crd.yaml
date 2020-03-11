@@ -1,0 +1,25 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: experiments.kubeflow.org
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.conditions[-1:].type
+    name: Status
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  group: kubeflow.org
+  version: v1alpha3
+  scope: Namespaced
+  subresources:
+    status: {}
+  names:
+    kind: Experiment
+    singular: experiment
+    plural: experiments
+    categories:
+    - all
+    - kubeflow
+    - katib

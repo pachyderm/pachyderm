@@ -1,0 +1,63 @@
+apiVersion: app.k8s.io/v1beta1
+kind: Application
+metadata:
+  name: katib-controller
+spec:
+  addOwnerRef: true
+  componentKinds:
+  - group: core
+    kind: Service
+  - group: apps
+    kind: Deployment
+  - group: core
+    kind: Secret
+  - group: core
+    kind: ServiceAccount
+  - group: kubeflow.org
+    kind: Experiment
+  - group: kubeflow.org
+    kind: Suggestion
+  - group: kubeflow.org
+    kind: Trial
+  descriptor:
+    description: Katib is a service for hyperparameter tuning and neural architecture
+      search.
+    keywords:
+    - katib
+    - katib-controller
+    - hyperparameter tuning
+    links:
+    - description: About
+      url: https://github.com/kubeflow/katib
+    maintainers:
+    - email: gaoce@caicloud.io
+      name: Ce Gao
+    - email: johnugeo@cisco.com
+      name: Johnu George
+    - email: liuhougang6@126.com
+      name: Hougang Liu
+    - email: ricliu@google.com
+      name: Richard Liu
+    - email: yuji.oshima0x3fd@gmail.com
+      name: YujiOshima
+    owners:
+    - email: gaoce@caicloud.io
+      name: Ce Gao
+    - email: johnugeo@cisco.com
+      name: Johnu George
+    - email: liuhougang6@126.com
+      name: Hougang Liu
+    - email: ricliu@google.com
+      name: Richard Liu
+    - email: yuji.oshima0x3fd@gmail.com
+      name: YujiOshima
+    type: katib
+    version: v1alpha3
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: katib
+      app.kubernetes.io/instance: katib-controller-0.8.0
+      app.kubernetes.io/managed-by: kfctl
+      app.kubernetes.io/name: katib-controller
+      app.kubernetes.io/part-of: kubeflow
+      app.kubernetes.io/version: 0.8.0

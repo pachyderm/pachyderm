@@ -1,0 +1,18 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: extensions.dashboard.tekton.dev
+spec:
+  group: dashboard.tekton.dev
+  names:
+    kind: Extension
+    plural: extensions
+    categories:
+      - all
+      - tekton-pipelines
+  scope: Namespaced
+  # Opt into the status subresource so metadata.generation
+  # starts to increment
+  subresources:
+    status: {}
+  version: v1alpha1

@@ -1,0 +1,26 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: katib-ui
+  labels:
+    app: katib
+    component: ui
+spec:
+  replicas: 1
+  template:
+    metadata:
+      name: katib-ui
+      labels:
+        app: katib
+        component: ui
+    spec:
+      containers:
+      - name: katib-ui
+        image: gcr.io/kubeflow-images-public/katib/v1alpha2/katib-ui:v0.1.2-alpha-289-g14dad8b
+        imagePullPolicy: IfNotPresent
+        command:
+          - './katib-ui'
+        ports:
+        - name: ui
+          containerPort: 80
+      serviceAccountName: katib-ui

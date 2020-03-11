@@ -1,0 +1,28 @@
+apiVersion: app.k8s.io/v1beta1
+kind: Application
+metadata:
+  name: "jupyter"
+spec:
+  type: "Notebook"
+  componentKinds:
+    - group: core
+      kind: Service
+    - group: apps
+      kind: StatefulSet
+    - group: kubeflow.org
+      kind: Notebook  
+  version: "v1alpha1"
+  description: "Jupyter server whcih enables users to create jupyter notebooks on Kubeflow cluster"
+  icons:
+  maintainers:
+    - name: Zahra Abbasi
+      email: zahraabbasi@google.com
+  owners:
+    - name: Zahra Abbasi
+      email: zahraabbasi@gogle.com
+  keywords:
+   - "jupyter"
+   - "notebook"
+  links:
+    - description: Docs
+      url: "https://www.kubeflow.org/docs/notebooks"

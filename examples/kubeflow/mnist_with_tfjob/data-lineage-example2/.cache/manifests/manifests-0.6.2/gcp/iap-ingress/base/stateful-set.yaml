@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    service: backend-updater
+  name: backend-updater
+spec:
+  serviceName: backend-updater
+  selector:
+    matchLabels:
+      service: backend-updater
+  template:
+    metadata:
+      labels:
+        service: backend-updater
+    spec:
+      containers:
+      - command:
+        - bash
+        - /var/envoy-config/update_backend.sh
+        env:
+        - name: NAMESPACE
+          value: $(istioNamespace)
+        - name: SERVICE
+          value: istio-ingressgateway
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: /var/run/secrets/sa/admin-gcp-sa.json
+        - name: INGRESS_NAME
+          value: $(ingressName)
+        - name: USE_ISTIO
+          value: "true"
+        image: gcr.io/kubeflow-images-public/ingress-setup:latest
+        name: backend-updater
+        volumeMounts:
+        - mountPath: /var/envoy-config/
+          name: config-volume
+        - mountPath: /var/run/secrets/sa
+          name: sa-key
+          readOnly: true
+      serviceAccountName: envoy
+      volumes:
+      - configMap:
+          name: envoy-config
+        name: config-volume
+      - name: sa-key
+        secret:
+          secretName: admin-gcp-sa
+  volumeClaimTemplates: []

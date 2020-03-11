@@ -1,0 +1,20 @@
+# This file configures the workflows to trigger in our Prow jobs.
+# see kubeflow/testing/py/run_e2e_workflow.py
+workflows:
+  - app_dir: kubeflow/manifests/tests/workflows
+    component: workflows
+    name: e2e
+    job_types:
+      - presubmit
+  # Run kfctl E2E
+  - app_dir: kubeflow/manifests/tests/workflows
+    component: kfctl_go_test
+    name: kfctl-go
+    job_types:
+      - presubmit
+    params:
+      platform: gke
+      gkeApiVersion: v1
+      workflowName: kfctl-go
+      useIstio: true
+      version: master

@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: authservice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: authservice
+  serviceName: authservice
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+      labels:
+        app: authservice
+    spec:
+      containers:
+      - name: authservice
+        image: gcr.io/arrikto/kubeflow/oidc-authservice:6ac9400
+        imagePullPolicy: Always
+        ports:
+        - name: http-api
+          containerPort: 8080
+        env:
+          - name: USERID_HEADER
+            value: $(userid-header)
+          - name: USERID_PREFIX
+            value: $(userid-prefix)
+          - name: USERID_CLAIM
+            value: email
+          - name: OIDC_PROVIDER
+            value: $(oidc_provider)
+          - name: OIDC_AUTH_URL
+            value: $(oidc_auth_url)
+          - name: OIDC_SCOPES
+            value: "profile email groups"
+          - name: REDIRECT_URL
+            value: $(oidc_redirect_uri)
+          - name: SKIP_AUTH_URI
+            value: $(skip_auth_uri)
+          - name: PORT
+            value: "8080"
+          - name: CLIENT_ID
+            value: $(client_id)
+          - name: CLIENT_SECRET
+            value: $(application_secret)
+          - name: STORE_PATH
+            value: /var/lib/authservice/data.db
+        volumeMounts:
+          - name: data
+            mountPath: /var/lib/authservice
+        readinessProbe:
+            httpGet:
+              path: /
+              port: 8081
+      securityContext:
+        fsGroup: 111
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+              claimName: authservice-pvc          

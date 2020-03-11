@@ -1,0 +1,99 @@
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  labels:
+    app: galley
+    istio: galley
+  name: istio-galley
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: galley
+      istio: galley
+
+---
+
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  labels:
+    app: istio-ingressgateway
+    istio: ingressgateway
+  name: istio-ingressgateway
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: istio-ingressgateway
+      istio: ingressgateway
+
+---
+
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  labels:
+    app: pilot
+    istio: pilot
+  name: istio-pilot
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: pilot
+      istio: pilot
+
+---
+
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  labels:
+    app: policy
+    istio: mixer
+    istio-mixer-type: policy
+    version: 1.1.0
+  name: istio-policy
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: policy
+      istio: mixer
+      istio-mixer-type: policy
+
+---
+
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  labels:
+    app: sidecarInjectorWebhook
+    istio: sidecar-injector
+  name: istio-sidecar-injector
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: sidecarInjectorWebhook
+      istio: sidecar-injector
+
+---
+
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  labels:
+    app: telemetry
+    istio: mixer
+    istio-mixer-type: telemetry
+    version: 1.1.0
+  name: istio-telemetry
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: telemetry
+      istio: mixer
+      istio-mixer-type: telemetry

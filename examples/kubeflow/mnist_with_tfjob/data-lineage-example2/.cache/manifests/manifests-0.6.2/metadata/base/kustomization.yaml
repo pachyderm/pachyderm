@@ -1,0 +1,43 @@
+namePrefix: metadata-
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+commonLabels:
+  kustomize.component: metadata
+configMapGenerator:
+- name: ui-parameters
+  env: params.env
+resources:
+- metadata-db-pvc.yaml
+- metadata-db-secret.yaml
+- metadata-db-deployment.yaml
+- metadata-db-service.yaml
+- metadata-deployment.yaml
+- metadata-service.yaml
+- metadata-ui-deployment.yaml
+- metadata-ui-role.yaml
+- metadata-ui-rolebinding.yaml
+- metadata-ui-sa.yaml
+- metadata-ui-service.yaml
+namespace: kubeflow
+vars:
+- name: ui-namespace
+  objref:
+    kind: Service
+    name: ui
+    apiVersion: v1
+  fieldref:
+    fieldpath: metadata.namespace
+- name: ui-clusterDomain
+  objref:
+    kind: ConfigMap
+    name: ui-parameters
+    version: v1
+  fieldref:
+    fieldpath: data.uiClusterDomain
+- name: service
+  objref:
+    kind: Service
+    name: ui
+    apiVersion: v1
+  fieldref:
+    fieldpath: metadata.name

@@ -1,0 +1,33 @@
+apiVersion: tekton.dev/v1alpha1
+kind: Pipeline
+metadata:
+  name: pipeline0
+spec:
+  resources:
+  - name: git-source
+    type: git
+  params:
+  - name: pathToResourceFiles
+    description: The path to the resource files to apply
+    default: /workspace/git-source
+  - name: apply-directory
+    description: The directory from which resources are to be applied
+    default: "."
+  - name: target-namespace
+    description: The namespace in which to create the resources being imported
+    default: tekton-pipelines
+  tasks:
+  - name: pipeline0-task
+    taskRef:
+      name: pipeline0-task
+    params:
+    - name: pathToResourceFiles
+      value: ${params.pathToResourceFiles}
+    - name: apply-directory
+      value: ${params.apply-directory}
+    - name: target-namespace
+      value: ${params.target-namespace}
+    resources:
+      inputs:
+      - name: git-source
+        resource: git-source

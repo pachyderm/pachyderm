@@ -1,0 +1,31 @@
+apiVersion: app.k8s.io/v1beta1
+kind: Application
+metadata:
+  name: knative-serving-install
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: knative-serving-install
+      app.kubernetes.io/instance: knative-serving-install-v0.11.1
+      app.kubernetes.io/managed-by: kfctl
+      app.kubernetes.io/component: knative-serving-install
+      app.kubernetes.io/part-of: kubeflow
+      app.kubernetes.io/version: v0.11.1
+  componentKinds:
+  - group: core
+    kind: ConfigMap
+  - group: apps
+    kind: Deployment
+  descriptor:
+    type: knative-serving-install
+    version: v1beta1
+    description: ""
+    maintainers: []
+    owners: []
+    keywords:
+     - knative-serving-install
+     - kubeflow
+    links:
+    - description: About
+      url: ""
+  addOwnerRef: true

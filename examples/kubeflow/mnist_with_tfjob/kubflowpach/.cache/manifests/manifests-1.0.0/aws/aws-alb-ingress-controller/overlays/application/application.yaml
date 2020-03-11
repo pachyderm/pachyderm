@@ -1,0 +1,34 @@
+apiVersion: app.k8s.io/v1beta1
+kind: Application
+metadata:
+  name: jupyter-web-app
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: aws-alb-ingress-controller
+      app.kubernetes.io/instance: aws-alb-ingress-controller-v1.0.0
+      app.kubernetes.io/managed-by: kfctl
+      app.kubernetes.io/component: aws-alb-ingress-controller
+      app.kubernetes.io/part-of: kubeflow
+      app.kubernetes.io/version: v1.0.0
+  componentKinds:
+  - group: core
+    kind: ConfigMap
+  - group: apps
+    kind: Deployment
+  - group: core
+    kind: ServiceAccount
+  descriptor:
+    type: aws-alb-ingress-controller
+    version: v1beta1
+    description: Application Load Balancer (ALB) Ingress Controller Deployment Manifest provides sensible defaults for deploying an ALB Ingress Controller
+    maintainers: []
+    owners: []
+    keywords:
+     - aws
+     - kubeflow
+    links:
+    - description: About
+      url: https://github.com/kubernetes-sigs/aws-alb-ingress-controller
+  addOwnerRef: true
+

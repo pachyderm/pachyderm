@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trial-template
+data:
+  defaultTrialTemplate.yaml : |-
+    apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: {{.Trial}}
+      namespace: {{.NameSpace}}
+    spec:
+      template:
+        spec:
+          containers:
+          - name: {{.Trial}}
+            image: docker.io/kubeflowkatib/mxnet-mnist
+            command:
+            - "python3"
+            - "/opt/mxnet-mnist/mnist.py"
+            - "--batch-size=64"
+            {{- with .HyperParameters}}
+            {{- range .}}
+            - "{{.Name}}={{.Value}}"
+            {{- end}}
+            {{- end}}
+          restartPolicy: Never

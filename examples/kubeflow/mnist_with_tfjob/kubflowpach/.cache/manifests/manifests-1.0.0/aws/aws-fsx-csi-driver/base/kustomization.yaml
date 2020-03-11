@@ -1,0 +1,32 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: kubeflow
+resources:
+- csi-controller-stateful-set.yaml
+- csi-attacher-cluster-role.yaml
+- csi-attacher-cluster-role-binding.yaml
+- csi-controller-cluster-role.yaml
+- csi-controller-cluster-role-binding.yaml
+- csi-controller-sa.yaml
+- csi-node-cluster-role.yaml
+- csi-node-cluster-role-binding.yaml
+- csi-node-daemonset.yaml
+- csi-node-sa.yaml
+- csi-provisioner-cluster-role.yaml
+- csi-provisioner-cluster-role-binding.yaml
+- csi-default-storage.yaml
+generatorOptions:
+  disableNameSuffixHash: true
+images:
+- name: amazon/aws-fsx-csi-driver
+  newName: amazon/aws-fsx-csi-driver
+  newTag: latest
+- name: quay.io/k8scsi/driver-registrar
+  newName: quay.io/k8scsi/driver-registrar
+  newTag: v0.4.2
+- name: quay.io/k8scsi/csi-provisioner
+  newName: quay.io/k8scsi/csi-provisioner
+  newTag: v0.4.2
+- name: quay.io/k8scsi/csi-attacher
+  newName: quay.io/k8scsi/csi-attacher
+  newTag: v0.4.2

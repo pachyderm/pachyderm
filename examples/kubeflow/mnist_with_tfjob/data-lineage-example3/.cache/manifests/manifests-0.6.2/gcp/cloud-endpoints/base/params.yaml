@@ -1,0 +1,7 @@
+varReference:
+- path: spec/template/spec/volumes/secret/secretName
+  kind: Deployment
+- path: spec/clientConfig/service/namespace
+  kind: CompositeController
+- path: spec/hooks/sync/webhook/url
+  kind: CompositeController

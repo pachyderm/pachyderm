@@ -1,0 +1,23 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: katib-suggestion-random
+  labels:
+    app: katib
+    component: suggestion-random
+spec:
+  replicas: 1
+  template:
+    metadata:
+      name: katib-suggestion-random
+      labels:
+        app: katib
+        component: suggestion-random
+    spec:
+      containers:
+      - name: katib-suggestion-random
+        image: gcr.io/kubeflow-images-public/katib/v1alpha2/suggestion-random:v0.1.2-alpha-289-g14dad8b
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: api
+          containerPort: 6789

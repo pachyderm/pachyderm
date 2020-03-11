@@ -1,0 +1,11 @@
+namespace: kubeflow
+resources:
+- vizier-db-deployment.yaml
+- vizier-db-pvc.yaml
+- vizier-db-secret.yaml
+- vizier-db-service.yaml
+generatorOptions:
+  disableNameSuffixHash: true
+images:
+  - name: mysql
+    newTag: 8.0.3

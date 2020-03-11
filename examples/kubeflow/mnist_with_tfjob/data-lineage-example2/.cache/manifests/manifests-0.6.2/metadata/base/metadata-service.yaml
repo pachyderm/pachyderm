@@ -1,0 +1,14 @@
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    app: metadata
+  name: service
+spec:
+  selector:
+    component: server
+  type: ClusterIP
+  ports:
+  - port: 8080
+    protocol: TCP
+    name: backendapi

@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: modeldb
+  name: modeldb-backend
+spec:
+  selector:
+    matchLabels:
+      app: modeldb
+      tier: backend
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: modeldb
+        tier: backend
+    spec:
+      containers:
+      - env:
+        - name: VERTA_MODELDB_CONFIG
+          value: /config-backend/config.yaml
+        image: vertaaiofficial/modeldb-backend:kubeflow
+        imagePullPolicy: Always
+        name: modeldb-backend
+        ports:
+        - containerPort: 8085
+        volumeMounts:
+        - mountPath: /config-backend
+          name: modeldb-backend-secret-volume
+          readOnly: true
+      volumes:
+      - name: modeldb-backend-secret-volume
+        secret:
+          secretName: modeldb-backend-config-secret

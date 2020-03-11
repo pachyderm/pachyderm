@@ -1,0 +1,20 @@
+imports:
+- path: storage.jinja
+resources:
+- name: kubeflow
+  properties:
+    createPipelinePersistentStorage: true
+    database:
+      name: mlpipeline
+    dbUser:
+      user: root
+    disks:
+    - diskType: pd-standard
+      sizeGb: 20
+      usage: metadata-store
+    - diskType: pd-standard
+      sizeGb: 200
+      usage: artifact-store
+    enable_cloudsql: false
+    zone: us-east1-b
+  type: storage.jinja

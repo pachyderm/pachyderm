@@ -1,0 +1,43 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: ml-pipeline-tensorboard-ui
+spec:
+  gateways:
+  - kubeflow-gateway
+  hosts:
+  - '*'
+  http:
+  - match:
+    - uri:
+        prefix: /data
+    rewrite:
+      uri: /data
+    route:
+    - destination:
+        host: $(tensorboard-service).$(ui-namespace).svc.$(ui-clusterDomain)
+        port:
+          number: 80
+    timeout: 300s
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: ml-pipeline-ui
+spec:
+  gateways:
+  - kubeflow-gateway
+  hosts:
+  - '*'
+  http:
+  - match:
+    - uri:
+        prefix: /pipeline
+    rewrite:
+      uri: /pipeline
+    route:
+    - destination:
+        host: $(service).$(ui-namespace).svc.$(ui-clusterDomain)
+        port:
+          number: 80
+    timeout: 300s

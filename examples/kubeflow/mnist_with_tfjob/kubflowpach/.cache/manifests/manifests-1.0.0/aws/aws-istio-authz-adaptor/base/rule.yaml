@@ -1,0 +1,17 @@
+apiVersion: config.istio.io/v1alpha2
+kind: rule
+metadata:
+  name: authzadaptor-rule
+spec:
+  # restrict the rule to the ingress gateway proxy workload only
+  match: context.reporter.kind == "outbound" && source.labels["istio"] == "ingressgateway"
+  actions:
+  - handler: authzadaptor-handler.$(namespace)
+    instances: ["authzadaptor-instance"]
+    # assign a name to the action
+    name: action
+  requestHeaderOperations:
+  # set  header to the output value of action "action" in the request
+  - name: $(custom-header)
+    values:
+    - action.output.email

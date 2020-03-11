@@ -1,0 +1,11 @@
+apiVersion: rbac.istio.io/v1alpha1
+kind: ServiceRoleBinding
+metadata:
+  name: istio-service-role-binding
+  namespace: knative-serving
+spec:
+  roleRef:
+    kind: ServiceRole
+    name: istio-service-role
+  subjects:
+  - user: '*'

@@ -1,0 +1,39 @@
+ambassador:
+  enabled: true
+  singleNamespace: false
+engine:
+  grpc:
+    port: 5001
+  image:
+    pullPolicy: IfNotPresent
+    registry: docker.io
+    repository: seldonio/engine
+    tag: 0.3.0
+  port: 8000
+  prometheus:
+    path: prometheus
+  securityContext:
+    enabled: true
+  #by default use default service account
+  serviceAccount:
+    name: default
+  user: 8888
+image:
+  pullPolicy: Always
+  registry: docker.io
+  repository: seldonio/seldon-core-operator
+  tag: 0.3.0
+istio:
+  enabled: true
+  gateway: kubeflow-gateway
+predictiveUnit:
+  port: 9000
+rbac:
+  create: true
+serviceAccount:
+  #by default create service account
+  create: true
+  name: seldon-manager
+usageMetrics:
+  database: http://seldon-core-stats.seldon.io
+  enabled: false

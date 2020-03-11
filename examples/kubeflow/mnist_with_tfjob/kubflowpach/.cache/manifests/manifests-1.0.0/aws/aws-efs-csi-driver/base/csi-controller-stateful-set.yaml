@@ -1,0 +1,51 @@
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  name: efs-csi-controller
+spec:
+  serviceName: efs-csi-controller
+  replicas: 1
+  selector:
+    matchLabels:
+      app: efs-csi-controller
+  template:
+    metadata:
+      labels:
+        app: efs-csi-controller
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccount: efs-csi-controller-sa
+      #priorityClassName: system-cluster-critical
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Exists
+      containers:
+        - name: efs-plugin
+          image: amazon/aws-efs-csi-driver:latest
+          imagePullPolicy: Always
+          args :
+            - --endpoint=$(CSI_ENDPOINT)
+            - --logtostderr
+            - --v=5
+          env:
+            - name: CSI_ENDPOINT
+              value: unix:///var/lib/csi/sockets/pluginproxy/csi.sock
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /var/lib/csi/sockets/pluginproxy/
+        - name: csi-attacher
+          image: quay.io/k8scsi/csi-attacher:v0.4.2
+          imagePullPolicy: Always
+          args:
+            - --csi-address=$(ADDRESS)
+            - --v=5
+          env:
+            - name: ADDRESS
+              value: /var/lib/csi/sockets/pluginproxy/csi.sock
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /var/lib/csi/sockets/pluginproxy/
+      volumes:
+        - name: socket-dir
+          emptyDir: {}

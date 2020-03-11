@@ -1,0 +1,11 @@
+namespace: kubeflow
+resources:
+- katib-db-deployment.yaml
+- katib-db-pvc.yaml
+- katib-db-secret.yaml
+- katib-db-service.yaml
+generatorOptions:
+  disableNameSuffixHash: true
+images:
+  - name: mysql
+    newTag: 8.0.3

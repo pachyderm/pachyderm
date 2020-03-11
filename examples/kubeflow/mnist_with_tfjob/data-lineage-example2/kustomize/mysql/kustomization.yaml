@@ -1,0 +1,32 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+bases:
+- base
+configMapGenerator:
+- behavior: merge
+  env: overlays/mysqlPd/params.env
+  name: pipeline-mysql-parameters
+configurations:
+- overlays/mysqlPd/params.yaml
+generatorOptions:
+  disableNameSuffixHash: true
+kind: Kustomization
+namespace: kubeflow
+patchesStrategicMerge:
+- overlays/mysqlPd/persistent-volume-claim.yaml
+resources:
+- overlays/mysqlPd/persistent-volume.yaml
+vars:
+- fieldref:
+    fieldPath: data.mysqlPd
+  name: mysqlPd
+  objref:
+    apiVersion: v1
+    kind: ConfigMap
+    name: pipeline-mysql-parameters
+- fieldref:
+    fieldPath: data.mysqlPvName
+  name: mysqlPvName
+  objref:
+    apiVersion: v1
+    kind: ConfigMap
+    name: pipeline-mysql-parameters

@@ -1,0 +1,10 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: tekton-dashboard
+spec:
+  ports:
+    - name: http
+      protocol: TCP
+      port: 9097
+      targetPort: 9097

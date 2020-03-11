@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: katib-controller
+  labels:
+    app: katib-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: katib-controller
+  template:
+    metadata:
+      labels:
+        app: katib-controller
+    spec:
+      serviceAccountName: katib-controller
+      containers:
+      - name: katib-controller
+        image: gcr.io/kubeflow-images-public/katib/v1alpha2/katib-controller:v0.1.2-alpha-289-g14dad8b
+        imagePullPolicy: IfNotPresent
+        command: ["./katib-controller"]
+        ports:
+        - containerPort: 443
+          name: webhook
+          protocol: TCP
+        env:
+        - name: KATIB_CORE_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        volumeMounts:
+        - mountPath: /tmp/cert
+          name: cert
+          readOnly: true
+      volumes:
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: katib-controller

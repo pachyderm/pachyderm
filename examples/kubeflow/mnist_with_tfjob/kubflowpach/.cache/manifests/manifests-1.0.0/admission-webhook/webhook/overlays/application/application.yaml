@@ -1,0 +1,38 @@
+apiVersion: app.k8s.io/v1beta1
+kind: Application
+metadata:
+  name: webhook
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: webhook
+      app.kubernetes.io/instance: webhook-v1.0.0
+      app.kubernetes.io/managed-by: kfctl
+      app.kubernetes.io/component: bootstrap
+      app.kubernetes.io/part-of: webhook
+      app.kubernetes.io/version: v1.0.0
+  componentKinds:
+  # Do not select any cluster scoped resources
+  # as that will cause problems.
+  - group: core
+    kind: ConfigMap
+  - group: apps
+    kind: StatefulSet
+  - group: core
+    kind: Service
+  - group: core
+    kind: ServiceAccount
+  descriptor:
+    type: bootstrap
+    version: v1beta1
+    description: injects volume, volume mounts, env vars into PodDefault
+    maintainers: []
+    owners: []
+    keywords: 
+     - admission-webhook
+     - kubeflow
+    links:
+    - description: About
+      url: https://github.com/kubeflow/kubeflow/tree/master/components/admission-webhook
+  addOwnerRef: true
+

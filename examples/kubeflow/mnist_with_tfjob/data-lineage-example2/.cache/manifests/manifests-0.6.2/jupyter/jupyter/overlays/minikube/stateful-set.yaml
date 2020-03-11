@@ -1,0 +1,30 @@
+apiVersion: apps/v1beta2
+kind: StatefulSet
+metadata:
+  name: jupyter
+spec:
+  selector:
+    matchLabels:
+      k8s-app: jupyter
+  replicas: 1
+  serviceName: ""
+  template:
+    spec:
+      containers:
+      - name: jupyter
+        env:
+        - name: NOTEBOOK_UID
+          valueFrom:
+            configMapKeyRef:
+              name: parameters
+              key: NOTEBOOK_UID
+        - name: NOTEBOOK_GID
+          valueFrom:
+            configMapKeyRef:
+              name: parameters
+              key: NOTEBOOK_GID
+        - name: ACCESS_LOCAL_FS
+          valueFrom:
+            configMapKeyRef:
+              name: parameters
+              key: ACCESS_LOCAL_FS

@@ -1,0 +1,11 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: katib-mysql
+spec:
+  template:
+    spec:
+      containers:
+      - name: katib-mysql
+        # Base's livenessProbe created some kernel errors on non-POSIX filesystem
+        livenessProbe: null

@@ -1,0 +1,32 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: deployment
+  labels:
+    component: server
+spec:
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        component: server
+    spec:
+      containers:
+      - name: container
+        image: gcr.io/kubeflow-images-public/metadata:v0.1.8
+        env:
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: metadata-db-secrets
+                key: MYSQL_ROOT_PASSWORD
+        command: ["./server/server",
+                  "--http_port=8080",
+                  "--mysql_service_host=metadata-db.kubeflow",
+                  "--mysql_service_port=3306",
+                  "--mysql_service_user=root",
+                  "--mysql_service_password=$(MYSQL_ROOT_PASSWORD)",
+                  "--mlmd_db_name=metadb"]
+        ports:
+        - name: backendapi
+          containerPort: 8080

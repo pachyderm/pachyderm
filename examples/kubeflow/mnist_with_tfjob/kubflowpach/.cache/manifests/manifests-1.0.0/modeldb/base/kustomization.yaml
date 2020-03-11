@@ -1,0 +1,35 @@
+namePrefix: modeldb-
+
+resources:
+- artifact-store-deployment.yaml
+- artifact-store-service.yaml
+- backend-deployment.yaml
+- backend-proxy-service.yaml
+- backend-service.yaml
+- configmap.yaml
+- mysql-backend-deployment.yaml
+- mysql-service.yaml
+- persistent-volume-claim.yaml
+- proxy-deployment.yaml
+- secret.yaml
+- webapp-deplyment.yaml
+- webapp-service.yaml
+
+commonLabels:
+  kustomize.component: modeldb
+images:
+- name: vertaaiofficial/modeldb-frontend
+  newName: vertaaiofficial/modeldb-frontend
+  newTag: kubeflow
+- name: vertaaiofficial/modeldb-backend
+  newName: vertaaiofficial/modeldb-backend
+  newTag: kubeflow
+- name: vertaaiofficial/modeldb-artifact-store
+  newName: vertaaiofficial/modeldb-artifact-store
+  newTag: kubeflow
+- name: mysql
+  newName: mysql
+  newTag: '5.7'
+- name: vertaaiofficial/modeldb-backend-proxy
+  newName: vertaaiofficial/modeldb-backend-proxy
+  newTag: kubeflow

@@ -1,0 +1,11 @@
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: pipeline-runner
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: pipeline-runner
+subjects:
+- kind: ServiceAccount
+  name: pipeline-runner

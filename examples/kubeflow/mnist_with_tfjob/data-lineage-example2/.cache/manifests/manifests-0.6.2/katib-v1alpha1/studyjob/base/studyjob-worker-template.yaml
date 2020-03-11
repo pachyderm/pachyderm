@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: worker-template
+data:
+  defaultWorkerTemplate.yaml : |-
+    apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: {{.WorkerID}}
+      namespace: {{.NameSpace}}
+    spec:
+      template:
+        spec:
+          containers:
+          - name: {{.WorkerID}}
+            image: alpine
+          restartPolicy: Never

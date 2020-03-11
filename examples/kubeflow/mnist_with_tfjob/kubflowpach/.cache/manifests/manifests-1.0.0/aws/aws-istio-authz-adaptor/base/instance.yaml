@@ -1,0 +1,8 @@
+apiVersion: config.istio.io/v1alpha2
+kind: instance
+metadata:
+  name: authzadaptor-instance
+spec:
+  template: authzadaptor
+  params:
+    key: request.headers["x-amzn-oidc-data"] | "unknown"

@@ -1,0 +1,134 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  labels:
+    app: mixer
+  name: istio-policy
+spec:
+  host: istio-policy.$(namespace).svc.cluster.local
+  trafficPolicy:
+    connectionPool:
+      http:
+        http2MaxRequests: 10000
+        maxRequestsPerConnection: 10000
+    portLevelSettings:
+    - port:
+        number: 15004
+      tls:
+        mode: ISTIO_MUTUAL
+
+---
+
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  labels:
+    app: mixer
+  name: istio-telemetry
+spec:
+  host: istio-telemetry.$(namespace).svc.cluster.local
+  trafficPolicy:
+    connectionPool:
+      http:
+        http2MaxRequests: 10000
+        maxRequestsPerConnection: 10000
+    portLevelSettings:
+    - port:
+        number: 15004
+      tls:
+        mode: ISTIO_MUTUAL
+
+---
+
+apiVersion: config.istio.io/v1alpha2
+kind: rule
+metadata:
+  labels:
+    app: mixer
+  name: kubeattrgenrulerule
+spec:
+  actions:
+  - handler: kubernetesenv
+    instances:
+    - attributes
+
+---
+
+apiVersion: config.istio.io/v1alpha2
+kind: rule
+metadata:
+  labels:
+    app: mixer
+  name: promhttp
+spec:
+  actions:
+  - handler: prometheus
+    instances:
+    - requestcount
+    - requestduration
+    - requestsize
+    - responsesize
+  match: (context.protocol == "http" || context.protocol == "grpc") && (match((request.useragent
+    | "-"), "kube-probe*") == false) && (match((request.useragent | "-"), "Prometheus*")
+    == false)
+
+---
+
+apiVersion: config.istio.io/v1alpha2
+kind: rule
+metadata:
+  labels:
+    app: mixer
+  name: promtcp
+spec:
+  actions:
+  - handler: prometheus
+    instances:
+    - tcpbytesent
+    - tcpbytereceived
+  match: context.protocol == "tcp"
+
+---
+
+apiVersion: config.istio.io/v1alpha2
+kind: rule
+metadata:
+  labels:
+    app: mixer
+  name: promtcpconnectionclosed
+spec:
+  actions:
+  - handler: prometheus
+    instances:
+    - tcpconnectionsclosed
+  match: context.protocol == "tcp" && ((connection.event | "na") == "close")
+
+---
+
+apiVersion: config.istio.io/v1alpha2
+kind: rule
+metadata:
+  labels:
+    app: mixer
+  name: promtcpconnectionopen
+spec:
+  actions:
+  - handler: prometheus
+    instances:
+    - tcpconnectionsopened
+  match: context.protocol == "tcp" && ((connection.event | "na") == "open")
+
+---
+
+apiVersion: config.istio.io/v1alpha2
+kind: rule
+metadata:
+  labels:
+    app: mixer
+  name: tcpkubeattrgenrulerule
+spec:
+  actions:
+  - handler: kubernetesenv
+    instances:
+    - attributes
+  match: context.protocol == "tcp"

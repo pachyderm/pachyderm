@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluentd-cloudwatch
+  labels:
+    k8s-app: fluentd-cloudwatch
+spec:
+  template:
+    metadata:
+      labels:
+        k8s-app: fluentd-cloudwatch
+    spec:
+      serviceAccountName: fluentd
+      terminationGracePeriodSeconds: 30
+      # Because the image's entrypoint requires to write on /fluentd/etc but we mount configmap there which is read-only,
+      # this initContainers workaround or other is needed.
+      # See https://github.com/fluent/fluentd-kubernetes-daemonset/issues/90
+      initContainers:
+        - name: copy-fluentd-config
+          image: busybox
+          command: ['sh', '-c', 'cp /config-volume/..data/* /fluentd/etc']
+          volumeMounts:
+            - name: config-volume
+              mountPath: /config-volume
+            - name: fluentdconf
+              mountPath: /fluentd/etc
+      containers:
+        - name: fluentd-cloudwatch
+          image: fluent/fluentd-kubernetes-daemonset:v1.1-debian-cloudwatch
+          env:
+            - name: REGION
+              value: $(REGION)
+            - name: CLUSTER_NAME
+              value: $(CLUSTER_NAME)
+          resources:
+            limits:
+              memory: 200Mi
+            requests:
+              cpu: 100m
+              memory: 200Mi
+          volumeMounts:
+            - name: config-volume
+              mountPath: /config-volume
+            - name: fluentdconf
+              mountPath: /fluentd/etc
+            - name: varlog
+              mountPath: /var/log
+            - name: varlibdockercontainers
+              mountPath: /var/lib/docker/containers
+              readOnly: true
+            - name: runlogjournal
+              mountPath: /run/log/journal
+              readOnly: true
+      volumes:
+        - name: config-volume
+          configMap:
+            name: fluentd-config
+        - name: fluentdconf
+          emptyDir: {}
+        - name: varlog
+          hostPath:
+            path: /var/log
+        - name: varlibdockercontainers
+          hostPath:
+            path: /var/lib/docker/containers
+        - name: runlogjournal
+          hostPath:
+            path: /run/log/journal

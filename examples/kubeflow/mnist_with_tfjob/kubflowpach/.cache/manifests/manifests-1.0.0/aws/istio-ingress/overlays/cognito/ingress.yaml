@@ -1,0 +1,12 @@
+apiVersion: extensions/v1beta1 # networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: istio-ingress
+  namespace: istio-system
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/auth-type: cognito
+    alb.ingress.kubernetes.io/auth-idp-cognito: '{"UserPoolArn":"$(CognitoUserPoolArn)","UserPoolClientId":"$(CognitoAppClientId)", "UserPoolDomain":"$(CognitoUserPoolDomain)"}'
+    alb.ingress.kubernetes.io/certificate-arn: $(certArn)
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'

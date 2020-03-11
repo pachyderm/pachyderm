@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: metricscollector-template
+data:
+  defaultMetricsCollectorTemplate.yaml : |-
+    apiVersion: batch/v1beta1
+    kind: CronJob
+    metadata:
+      name: {{.WorkerID}}
+      namespace: {{.NameSpace}}
+    spec:
+      schedule: "*/1 * * * *"
+      successfulJobsHistoryLimit: 0
+      failedJobsHistoryLimit: 1
+      jobTemplate:
+        spec:
+          backoffLimit: 0
+          template:
+            spec:
+              serviceAccountName: metrics-collector
+              containers:
+              - name: {{.WorkerID}}
+                image: gcr.io/kubeflow-images-public/katib/metrics-collector:v0.1.2-alpha-156-g4ab3dbd
+                args:
+                - "./metricscollector"
+                - "-s"
+                - "{{.StudyID}}"
+                - "-t"
+                - "{{.TrialID}}"
+                - "-w"
+                - "{{.WorkerID}}"
+                - "-k"
+                - "{{.WorkerKind}}"
+                - "-n"
+                - "{{.NameSpace}}"
+                - "-m"
+                - "{{.ManagerSerivce}}"
+              restartPolicy: Never

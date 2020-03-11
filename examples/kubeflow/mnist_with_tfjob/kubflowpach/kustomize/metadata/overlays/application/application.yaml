@@ -1,0 +1,40 @@
+apiVersion: app.k8s.io/v1beta1
+kind: Application
+metadata:
+  name: metadata
+spec:
+  addOwnerRef: true
+  componentKinds:
+  - group: core
+    kind: Service
+  - group: apps
+    kind: Deployment
+  - group: core
+    kind: ConfigMap
+  - group: core
+    kind: ServiceAccount
+  descriptor:
+    description: Tracking and managing metadata of machine learning workflows in Kubeflow.
+    keywords:
+    - metadata
+    links:
+    - description: Docs
+      url: https://www.kubeflow.org/docs/components/misc/metadata/
+    maintainers:
+    - email: zhenghui@google.com
+      name: Zhenghui Wang
+    owners:
+    - email: ajaygopinathan@google.com
+      name: Ajay Gopinathan
+    - email: zhenghui@google.com
+      name: Zhenghui Wang
+    type: metadata
+    version: alpha
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: metadata
+      app.kubernetes.io/instance: metadata-0.2.1
+      app.kubernetes.io/managed-by: kfctl
+      app.kubernetes.io/name: metadata
+      app.kubernetes.io/part-of: kubeflow
+      app.kubernetes.io/version: 0.2.1

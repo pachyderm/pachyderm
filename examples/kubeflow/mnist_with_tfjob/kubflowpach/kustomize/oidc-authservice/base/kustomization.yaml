@@ -1,0 +1,87 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- service.yaml
+- statefulset.yaml
+- envoy-filter.yaml
+- pvc.yaml
+
+namespace: istio-system
+
+configMapGenerator:
+- name: oidc-authservice-parameters
+  env: params.env
+generatorOptions:
+  disableNameSuffixHash: true
+
+vars:
+- name: client_id
+  objref:
+    kind: ConfigMap
+    name: oidc-authservice-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.client_id
+- name: oidc_provider
+  objref:
+    kind: ConfigMap
+    name: oidc-authservice-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.oidc_provider
+- name: oidc_redirect_uri
+  objref:
+    kind: ConfigMap
+    name: oidc-authservice-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.oidc_redirect_uri
+- name: oidc_auth_url
+  objref:
+    kind: ConfigMap
+    name: oidc-authservice-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.oidc_auth_url
+- name: application_secret
+  objref:
+    kind: ConfigMap
+    name: oidc-authservice-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.application_secret
+- name: skip_auth_uri
+  objref:
+    kind: ConfigMap
+    name: oidc-authservice-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.skip_auth_uri
+- name: userid-header
+  objref:
+    kind: ConfigMap
+    name: oidc-authservice-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.userid-header
+- name: userid-prefix
+  objref:
+    kind: ConfigMap
+    name: oidc-authservice-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.userid-prefix
+- name: namespace
+  objref:
+    kind: ConfigMap
+    name: oidc-authservice-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.namespace
+configurations:
+- params.yaml
+images:
+- name: gcr.io/arrikto/kubeflow/oidc-authservice
+  newName: gcr.io/arrikto/kubeflow/oidc-authservice
+  newTag: 28c59ef

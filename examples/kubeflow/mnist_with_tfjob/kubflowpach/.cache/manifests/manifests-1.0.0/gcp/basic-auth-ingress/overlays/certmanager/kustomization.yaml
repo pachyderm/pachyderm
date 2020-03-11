@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+bases:
+- ../../base
+resources:
+- job.yaml
+- certificate.yaml
+namespace: kubeflow
+commonLabels:
+  kustomize.component: basic-auth-ingress
+images:
+- name: gcr.io/kubeflow-images-public/ingress-setup
+  newName: gcr.io/kubeflow-images-public/ingress-setup
+  newTag: latest

@@ -1,0 +1,30 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: studyjob-controller
+  labels:
+    app: studyjob-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: studyjob-controller
+  template:
+    metadata:
+      labels:
+        app: studyjob-controller
+    spec:
+      serviceAccountName: studyjob-controller
+      containers:
+      - name: studyjob-controller
+        image: gcr.io/kubeflow-images-public/katib/studyjob-controller:v0.1.2-alpha-156-g4ab3dbd
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 443
+          name: validating
+          protocol: TCP
+        env:
+        - name: VIZIER_CORE_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace

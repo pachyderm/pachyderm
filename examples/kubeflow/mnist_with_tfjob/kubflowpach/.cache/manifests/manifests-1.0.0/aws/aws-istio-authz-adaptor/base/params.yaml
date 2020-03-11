@@ -1,0 +1,7 @@
+varReference:
+- path: spec/actions/handler
+  kind: rule
+- path: spec/requestHeaderOperations/name
+  kind: rule
+- path: spec/params/key
+  kind: instance

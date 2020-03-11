@@ -1,0 +1,35 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- cluster-role-binding.yaml
+- cluster-role.yaml
+- deployment.yaml
+- service-account.yaml
+commonLabels:
+  kustomize.component: cert-manager
+images:
+  - name: quay.io/jetstack/cert-manager-controller
+    newName: quay.io/jetstack/cert-manager-controller
+    newTag: v0.4.0
+configMapGenerator:
+- name: cert-manager-parameters
+  env: params.env
+generatorOptions:
+  disableNameSuffixHash: true
+vars:
+- name: acmeEmail
+  objref:
+    kind: ConfigMap
+    name: cert-manager-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.acmeEmail
+- name: acmeUrl
+  objref:
+    kind: ConfigMap
+    name: cert-manager-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.acmeUrl
+configurations:
+- params.yaml

@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubebench-config
+data:
+  kubebenchconfig.yaml: |
+    """
+    defaultWorkflowAgent:
+      container:
+        name: kubebench-workflow-agent
+        image: gcr.io/kubeflow-images-public/kubebench/workflow-agent:v0.5.0-11-gea53ad5
+    defaultManagedVolumes:
+      experimentVolume:
+        name: kubebench-experiment-volume
+        emptyDir: {}
+      workflowVolume:
+        name: kubebench-workflow-volume
+        emptyDir: {}
+    """

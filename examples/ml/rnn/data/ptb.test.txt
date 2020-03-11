@@ -1,0 +1,764 @@
+ <open-exp> First scene opens with three Rangers riding through a tunnel , leaving the Wall , and going into the woods <eos> (Eerie music in background) One Ranger splits off and finds a campsite full of mutilated bodies , including a child hanging from a tree branch <eos> A birds-eye view shows the bodies arranged in a shield-like pattern <eos> The Ranger rides back to the other two <eos> <close-exp>
+ <boname> WAYMAR_ROYCE <eoname> What d 'you expect <question> They 're savages <eos> One lot steals a goat from another lot and before you know it , they 're ripping each other to pieces <eos>
+ <boname> WILL <eoname> I 've never seen wildlings do a thing like this <eos> I 've never seen a thing like this , not ever in my life <eos>
+ <boname> WAYMAR_ROYCE <eoname> How close did you get <question>
+ <boname> WILL <eoname> Close as any man would <eos>
+ <boname> GARED <eoname> We should head back to the wall <eos>
+ <boname> ROYCE <eoname> Do the dead frighten you <question>
+ <boname> GARED <eoname> Our orders were to track the wildlings <eos> We tracked them <eos> They won 't trouble us no more <eos>
+ <boname> ROYCE <eoname> You don 't think he 'll ask us how they died <question> Get back on your horse <eos>
+ <open-exp> GARED grumbles <eos> <close-exp>
+ <boname> WILL <eoname> Whatever did it to them could do it to us <eos> They even killed the children <eos>
+ <boname> ROYCE <eoname> It 's a good thing we 're not children <eos> You want to run away south , run away <eos> Of course , they will behead you as a deserter <ellipsis> If I don 't catch you first <eos> Get back on your horse <eos> I won 't say it again <eos>
+ <open-exp> WILL glares , but obeys <eos> Sometime later , the three Rangers return to the campsite , which is now completely cleared <eos> <close-exp>
+ <boname> ROYCE <eoname> Your dead men seem to have moved camp <eos>
+ <boname> WILL <eoname> They were here <eos>
+ <boname> GARED <eoname> See where they went <eos>
+ <open-exp> The three look around , swords drawn <eos> They hear the wind and eerie calls <eos> GARED finds a red cloth in the snow <eos> <close-exp>
+ <boname> ROYCE <eoname> What is it <question>
+ <boname> GARED <eoname> It 's <ellipsis>
+ <open-exp>  <close-exp>
+ <open-exp> GARED is also fleeing , and we hear strange growls and catch glimpses of the CREATURE <eos> Both terrified RANGERS stop , some distance apart , to catch their breath <eos> WILL sees a CREATURE behead GARED <eos> WILL sinks to his knees and the CREATURE tosses GARED 'S head to him <eos> <close-exp>
+ <open-exp> Blackout / Opening credits <close-exp>
+ <open-exp> Riders from Winterfell come up behind a dazed WILL <eos> The scene shifts to the castle , where BRAN is practicing archery and getting frustrated , under the eyes of JON SNOW and ROBB STARK <eos> JON pats BRAN 'S shoulder <eos> <close-exp>
+ <boname> JON <eoname> Go on <eos> Father 's watching <eos>
+ <open-exp> We see NED and CATELYN STARK watching from above <eos> <close-exp>
+ <boname> JON <eoname> And your mother <eos>
+ <open-exp> Scene shifts to needlework practice with the girls inside the castle <eos> <close-exp>
+ <boname> SEPTA_MORDANE <eoname> Fine work , as always <eos> Well done <eos>
+ <boname> SANSA <eoname> Thank you <eos>
+ <boname> SEPTA_MORDANE <eoname> I love the detail that you 've managed to get in this corners <eos> <ellipsis> Quite beautiful <ellipsis> the stitching <ellipsis>
+ <open-exp> As she murmurs to SANSA about the embroidery , ARYA struggles with her needlework and listens to the arrows hitting and the male laughter outside <eos> <close-exp>
+ <open-exp> Outside , BRAN tries and misses again <eos> Everyone laughs <eos> <close-exp>
+ <boname> NED <eoname> And which one of you was a marksman at ten <question> Keep practicing , Bran <eos> Go on <eos>
+ <boname> JON <eoname> Don 't think too much , Bran <eos>
+ <boname> ROBB <eoname> Relax your bow arm <eos>
+ <open-exp> BRAN pulls the arrow back <eos> An arrow hits the bullseye <eos> BRAN (still with his arrow) , JON , and ROBB turn in surprise to see ARYA , who curtsies after her perfect shot <eos> ROBB and JON laugh as Bran takes out after ARYA <eos> <close-exp>
+ <open-exp> RODRICK CASSEL and THEON GREYJOY approach NED and CATELYN on the balcony <eos> <close-exp>
+ <boname> CASSEL <eoname> Lord Stark <eos> My lady <eos> A guardsman just rode in from the hills <eos> They 've captured a deserter from the Night 's Watch <eos>
+ <open-exp> NED grimaces <eos> <close-exp>
+ <boname> NED <eoname> Get the lads to saddle their horses <eos>
+ <open-exp> THEON departs <eos> <close-exp>
+ <boname> CATELYN <eoname> Do you have to <question>
+ <boname> NED <eoname> He swore an oath , Cat <eos>
+ <boname> CASSEL <eoname> The law is law , my lady <eos>
+ <boname> NED <eoname> Tell Bran he 's coming , too <eos>
+ <open-exp> CASSEL nods and departs <eos> <close-exp>
+ <boname> CATELYN <eoname> Ned <eos> Ten is too young to see such things <eos>
+ <boname> NED <eoname> He won 't be a boy forever <eos> And winter is coming <eos>
+ <open-exp> NED departs <eos> In the courtyard , ROBB and JON gather the arrows <eos> CATELYN turns and glares down on JON <eos> He looks at her and walks away <eos> <close-exp>
+ <boname> ROBB <eoname> Lad , go run back and get the rest <eos>
+ <open-exp> Scene shifts , and we see WILL being taken to the block <eos> <close-exp>
+ <boname> WILL <eoname> White Walkers <eos> I saw the White Walkers <eos> White Walkers <eos> The White Walkers , I saw them <eos>
+ <open-exp> He and NED face each other <eos> <close-exp>
+ <boname> WILL <eoname> I know I broke my oath <eos> And I know I 'm a deserter <eos> I should have gone back to the Wall and warned them <eos> But I saw what I saw <eos> I saw the White Walkers <eos> People need to know <eos> If you can get word to my family , tell them I 'm no coward <eos> Tell them I 'm sorry <eos>
+ <open-exp> NED draws Ice from a scabbard held by Theon <eos> <close-exp>
+ <boname> WILL <eoname> Forgive me , lord <eos>
+ <open-exp> NED bows his head over ICE <eos> <close-exp>
+ <boname> NED <eoname> In the name of Robert of the House Baratheon , first of his name <ellipsis>
+ <boname> JON <eoname> Don 't look away <eos>
+ <boname> NED <eoname> King of the Andals and the First Men <ellipsis>
+ <boname> JON <eoname> Father will know if you do <eos>
+ <boname> NED <eoname> Lord of the Seven Kingdoms and protector of the realm , I , Eddard of the House Stark , Lord of Winterfell and Warden of the North , sentence you to die <eos>
+ <open-exp> NED swings ICE and beheads WILL <eos> BRAN does not look away <eos> <close-exp>
+ <boname> JON <eoname> You did well <eos>
+ <open-exp> He walks away <eos> ROBB turns and puts his arm around BRAN and they go to their horses together <eos> NED approaches BRAN <eos> <close-exp>
+ <boname> NED <eoname> You understand why I did it <question>
+ <boname> BRAN <eoname> Jon said he was a deserter <eos>
+ <boname> NED <eoname> But do you understand why I had to kill him <question>
+ <boname> BRAN <eoname> Our way is the old way <question>
+ <boname> NED <eoname> The man who passes the sentence should swing the sword <eos>
+ <boname> BRAN <eoname> Is it true he saw the White Walkers <question>
+ <boname> NED <eoname> The White Walkers have been gone for thousands of years <eos>
+ <boname> BRAN <eoname> So he was lying <question>
+ <boname> NED <eoname> A madman sees what he sees <eos>
+ <open-exp> Scene shifts to a dead stag 's head <eos> The Winterfell men gather on the bridge They see a ravaged deer before them <eos> <close-exp>
+ <boname> JON <eoname> What is it <question>
+ <boname> THEON <eoname> Mountain lion <question>
+ <boname> NED <eoname> There are no mountain lions in these woods <eos>
+ <open-exp> With swords out , they begin to search <eos> NED finds a dead direwolf with antlers through her throat <eos> Her pups are whimpering around her <eos> <close-exp>
+ <boname> THEON <eoname> It 's a freak <eos>
+ <boname> NED <eoname> It 's a direwolf <eos>
+ <open-exp> NED and CASSEL glance at each other <eos> <close-exp>
+ <boname> NED <eoname> Tough old beast <eos>
+ <open-exp> He pulls out the antlers <eos> <close-exp>
+ <boname> ROBB <eoname> There are no direwolves south of the Wall <eos>
+ <boname> JON <eoname> Now there are five <eos>
+ <open-exp> Jon picks up a pup and offers it to BRAN <eos> <close-exp>
+ <boname> JON <eoname> You want to hold it <question>
+ <boname> BRAN <eoname> Where will they go <question> Their mother 's dead <eos>
+ <boname> CASSEL <eoname> They don 't belong down here <eos>
+ <boname> NED <eoname> Better a quick death <eos> They won 't last without their mother <eos>
+ <boname> THEON <eoname> Right <eos> Give it here <eos>
+ <boname> BRAN <eoname> NO <exclamation>
+ <boname> ROBB <eoname> Put away your blade <eos>
+ <boname> THEON <eoname> I take orders from your father , not you <eos>
+ <boname> BRAN <eoname> Please , father <exclamation>
+ <boname> NED <eoname> I 'm sorry , Bran <eos>
+ <boname> JON <eoname> Lord Stark <question> There are five pups <eos> One for each of the Stark children <eos> The direwolf is the sigil of your House <eos> They were meant to have them <eos>
+ <open-exp> Everyone looks at NED , BRAN with great hope <eos> <close-exp>
+ <boname> NED <eoname> You will train them yourselves <eos> You will feed them yourselves <eos> And if they die , you will bury them yourselves <eos>
+ <open-exp> BRAN cradles his pup as JON hands more pups to ROBB <eos> <close-exp>
+ <boname> BRAN <eoname> What about you <question>
+ <boname> JON <eoname> I 'm not a Stark <eos> Get on <eos>
+ <open-exp> JON walks away , pauses , and hears another whimper <eos> <close-exp>
+ <boname> ROBB <eoname> What is it <question>
+ <open-exp> JON pulls up a white wolf pup <eos> <close-exp>
+ <boname> THEON <eoname> The runt of the litter <eos> That one 's yours , Snow <eos>
+ <open-exp> Scene shifts to bells ringing at Kings Landing <eos> In front of the Iron Throne , surrounded by druidical looking celebrants , lies the body of JON ARRYN <eos> Up in the balcony , CERSEI watches the scene below as JAIME approaches <eos> <close-exp>
+ <boname> JAIME <eoname> As your brother , I feel it 's my duty to warn you You worry too much <eos> It 's starting to show <eos>
+ <boname> CERSEI <eoname> And you never worry about anything <eos> When we were seven , you jumped off the cliffs as Casterly Rock <eos> One hundred foot drop into the water <eos> And you were never afraid <eos>
+ <boname> JAIME <eoname> There was nothing to be afraid of until you told father <eos> <open-brack> In a whisper , mimicking <close-brack> We 're Lannisters <eos> Lannisters don 't act like fools <eos>
+ <boname> CERSEI <eoname> What if Jon Arryn told someone <question>
+ <boname> JAIME <eoname> But who would he tell <question>
+ <boname> CERSEI <eoname> My husband <eos>
+ <boname> JAIME <eoname> If he told the king , both our heads would be skewered on the city gates by now <eos> Whatever Jon Arryn knew or didn 't know , it died with him <eos> And Robert will choose a new Hand of the king , someone to do his job while he 's off fucking boars and hunting whores <eos> Or is it the other way around <question> And life will go on <eos>
+ <boname> CERSEI <eoname> You should be the Hand of the king <eos>
+ <boname> JAIME <eoname> That 's an honor I can do without <eos> Their days are too long , their lives are too short <eos>
+ <open-exp> CATELYN crosses a busy courtyard and finds NED in the godswood <eos> <close-exp>
+ <boname> CATELYN <eoname> All these years and I still feel like an outsider when I come here <eos>
+ <boname> NED <eoname> You have five northern children <eos> You 're not an outsider <eos>
+ <boname> CATELYN <eoname> I wonder if the old gods agree <eos>
+ <boname> NED <eoname> It 's your gods with all the rules <eos>
+ <boname> CATELYN <eoname> I am so sorry , my love <eos>
+ <boname> NED <eoname> Tell me <eos>
+ <boname> CATELYN <eoname> There was a raven from Kings Landing <eos> Jon Arryn is dead <eos> A fever took him <eos> I know he was like a father to you <eos>
+ <boname> NED <eoname> Your sister <eos> The boy <ellipsis>
+ <boname> CATELYN <eoname> They both have their health <eos> Gods be good <eos> <open-brack> pause <close-brack> The raven brought more news <eos> The king rides for Winterfell <eos> With the queen and all the rest of them <eos>
+ <boname> NED <eoname> He 's coming this far North , there 's only one thing he 's after <eos>
+ <boname> CATELYN <eoname> You can always say no , Ned <eos>
+ <open-exp> Scene shifts to the Winterfell great hall where a great banquet is being prepared <eos> <close-exp>
+ <boname> CATELYN <eoname> We need plenty of candles for Lord Tyrion 's chamber <eos> I 'm told he reads all night <eos>
+ <boname> MAESTER_LUWIN <eoname> I 'm told he drinks all night <eos>
+ <boname> CATELYN <eoname> How much could he possibly drink <question> A man of his <ellipsis> stature <eos>
+ <boname> LUWIN <eoname> We 've brought up eight barrels of ale from the cellar <eos> Perhaps we 'll find out <eos>
+ <boname> CATELYN <eoname> In any case , candles <eos>
+ <open-exp> Scene shifts to Robb , Theon , and Jon getting barbered <eos> <close-exp>
+ <boname> JON <eoname> Why 's your mother so dead-set on us getting pretty for the king <question>
+ <boname> THEON <eoname> It 's for the queen , I bet <eos> I hear she 's <open-brack> sleek as a mink <question> <close-brack>
+ <boname> ROBB <eoname> I hear the prince is a right royal prick <eos>
+ <boname> THEON <eoname> Think of all those southern girls he gets to stab with his right royal prick <eos>
+ <boname> ROBB <eoname> Go on , Tommy , shave him good <eos> He 's never met a girl he likes better than his own hair <eos>
+ <open-exp> Scene shifts to the royal procession approaching Winterfell <eos> Bran sees them from his perch high atop a castle wall and clambers nimbly down to tell everyone <eos> CATELYN and LUWIN walk to the courtyard , passing BRAN 's wolf pup <eos> <close-exp>
+ <boname> CATELYN <eoname> Gods , but they grow fast <eos> <open-brack> Seeing BRAN on the wall <close-brack> Brandon <exclamation>
+ <boname> BRAN <eoname> I saw the king <exclamation> He 's got hundreds of people <exclamation>
+ <boname> CATELYN <eoname> How many times have I told you No climbing <exclamation>
+ <boname> BRAN <eoname> But he 's coming right now <exclamation> Down our road <exclamation>
+ <boname> CATELYN <eoname> I want you to promise me No more climbing <eos>
+ <boname> BRAN <eoname> I promise <eos>
+ <boname> CATELYN <eoname> D 'you know what <question>
+ <boname> BRAN <eoname> What <question>
+ <boname> CATELYN <eoname> You always look at your feet before you lie <eos> Run and find your father <eos> Tell him the king is close <eos>
+ <open-exp> BRAN runs off , followed by his wolf pup <eos> <close-exp>
+ <open-exp> Scene shifts to grand entry of the king 's horses and men <eos> ARYA , wearing a helm and cloak , pushes her way into a tall wagon for a better look <eos> In rides JOFFREY , followed by the HOUND <eos> The other Starks wait in a greeting line <eos> <close-exp>
+ <boname> CATELYN <eoname> Where 's Arya <question> Sansa , where 's your sister <question>
+ <open-exp> More riders with banners <eos> ARYA scoots past her parents to get in the receiving line <eos> <close-exp>
+ <boname> NED <eoname> Hey , , hey , hey , hey <eos> What are you doing with that on <question> <open-brack> Pulls off ARYA 's helm <close-brack>
+ <boname> ARYA <eoname> Move <exclamation>
+ <open-exp> JOFFREY rides up , SANSA smiles at him , ROBB glares at JOFFREY <eos> The HOUND pulls up his helm <eos> The coach carrying CERSEI lumbers in , followed by KING ROBERT <eos> All kneel <eos> ROBERT heaves himself off his horse <eos> NED looks shocked at the sight of his old friend , now fat and red-faced <eos> ROBERT signals for all to rise and looks at NED <eos> <close-exp>
+ <boname> NED <eoname> Your Grace <eos>
+ <boname> ROBERT <eoname> You 've got fat <eos>
+ <open-exp> NED gives ROBERT a <boquote>What about you <question><eoquote> look <eos> They start laughing <eos> <close-exp>
+ <boname> ROBERT <eoname> Cat <exclamation>
+ <boname> CATELYN <eoname> Your Grace <eos>
+ <boname> ROBERT <eoname> Nine years <eos> Why haven 't I seen you <question> Where the hell have you been <question>
+ <boname> NED <eoname> Guarding the North for you , Your Grace <eos> Winterfell is yours <eos>
+ <open-exp> CERSEI and her other children descend from the coach <eos> <close-exp>
+ <boname> ARYA <eoname> Where 's the Imp <question>
+ <boname> SANSA <eoname> Will you shut up <question>
+ <boname> ROBERT <eoname> Who have we here <question> You must be Robb <eos> (To Sansa) My , you 're a pretty one <eos> (To Arya) Your name is <question>
+ <boname> ARYA <eoname> Arya <eos>
+ <open-exp> ROBERT (to BRAN) Ooh <eos> Show us your muscles <eos> You 'll be a soldier <eos> <close-exp>
+ <open-exp> JAIME removes his helm <eos> <close-exp>
+ <boname> ARYA <eoname> That 's Jaime Lannister <eos> The queen 's twin brother <eos>
+ <boname> SANSA <eoname> Would you please shut up <eos>
+ <open-exp> CERSEI approaches <eos> <close-exp>
+ <boname> NED <eoname> My queen <eos>
+ <boname> CATELYN <eoname> My queen <eos>
+ <boname> ROBERT <eoname> Take me to your crypt <eos> I want to pay my respects <eos>
+ <boname> CERSEI <eoname> We 've been riding for a month , my love <eos> Surely the dead can wait <eos>
+ <boname> ROBERT <eoname> Ned <eos>
+ <boname> ARYA <eoname> Where 's the Imp <question>
+ <open-exp> CERSEI , humiliated in front of all , walks back to JAIME <eos> <close-exp>
+ <boname> CERSEI <eoname> Where is our brother <question> Go find the little beast <eos>
+ <open-exp> Scene changes to the crypt <eos> <close-exp>
+ <boname> NED <eoname> Tell me about Jon Arryn <eos>
+ <boname> ROBERT <eoname> One minute he was fine , and then <ellipsis> Burned right through him , whatever it was <eos> I loved that man <eos>
+ <boname> NED <eoname> We both did <eos>
+ <boname> ROBERT <eoname> He never had to teach you much , but me <ellipsis> You remember me at 16 <question> All I wanted to do was crack skulls and fuck girls <eos> He showed me what was what <eos>
+ <boname> NED <eoname> Aye <eos>
+ <boname> ROBERT <eoname> Don 't look at me like that <eos> Not his fault I didn 't listen <eos> (They laugh <eos> ROBERT sighs <eos>) I need you , Ned <eos> Down at Kings Landing <eos> Not up here , where you 're no damn use to anybody <eos> Lord Eddard Stark , I would name you the Hand of the king <eos>
+ <open-exp> NED kneels <eos> <close-exp>
+ <boname> NED <eoname> I 'm not worthy of the honor <eos>
+ <boname> ROBERT <eoname> I 'm not trying to honor you <eos> I 'm trying to get you to run my kingdom while I eat , drink , and whore my way to an early grave <eos> Damn it , Ned , stand up <eos> You helped me win the Iron Throne , now help me keep the damn thing <eos> We were meant to rule together <eos> If your sister had lived , we would have been bound by blood <eos> Well , it 's not too late <eos> I have a son , you have a daughter <eos> We 'll join our Houses <eos>
+ <open-exp> Scene changes to JAIME in the Winterfell settlement <eos> We see Tyrion inside a whorehouse , swilling liquor and laughing as a woman pops into view after servicing him <eos> <close-exp>
+ <boname> TYRION <eoname> Mmh <eos> It is true what they say about the Northern girls <eos>
+ <boname> ROS <eoname> Did you hear the king 's in Winterfell <question>
+ <boname> TYRION <eoname> I did hear something about that <eos>
+ <boname> ROS <eoname> And the queen <eos> And her twin brother <eos> They say that he is the most handsome man in the Seven Kingdoms <eos>
+ <boname> TYRION <eoname> And the other brother <question>
+ <boname> ROS <eoname> The queen has two brothers <question>
+ <boname> TYRION <eoname> There 's the pretty one <eos> And there 's the clever one <eos>
+ <boname> ROS <eoname> I hear they call him the Imp <eos>
+ <boname> TYRION <eoname> I hear he hates that nickname <eos>
+ <boname> ROS <eoname> Oh <question> I hear he 's more than earned it <eos> I hear he 's a drunken little lecher into all manner of perversions <eos>
+ <boname> TYRION <eoname> Clever girl <eos>
+ <boname> ROS <eoname> We 've been expecting you , Lord Tyrion <eos>
+ <boname> TYRION <eoname> Have you <question>
+ <boname> TYRION <eoname> The gods gave me one blessing <eos>
+ <open-exp> She climbs on TYRION <eos> JAIME walks in without knocking <eos> <close-exp>
+ <boname> JAIME <eoname> Don 't get up <eos>
+ <boname> ROS <eoname> M 'lord <eos>
+ <boname> TYRION <eoname> Should I explain to you the meaning of a closed door in a whorehouse , brother <question>
+ <boname> JAIME <eoname> You 've much to teach me , no doubt <eos> But our sister craves your attention <eos>
+ <boname> TYRION <eoname> She has odd cravings , our sister <eos>
+ <boname> JAIME <eoname> A family trait <eos> Now , the Starks are feasting us at sundown <eos> Don 't leave me alone with these people <eos>
+ <boname> TYRION <eoname> I 'm sorry , I 've begun the feast a bit early <eos> And this is the first of many courses <eos>
+ <boname> JAIME <eoname> I thought you might say that <eos> But since we 're short on time , (he opens the door; a bevy of whores enter and descend on TYRION) Come on , girls <eos> See you at sundown <eos>
+ <open-exp> JAIME leaves <eos> <close-exp>
+ <boname> TYRION <eoname> Close the door <exclamation>
+ <open-exp> Scene changes to the Winterfell crypt , at Lyanna 's tomb <eos> Robert places a feather in the hand of her statue <eos> <close-exp>
+ <boname> ROBERT <eoname> Did you have to bury her in a place like this <question> She should be on a hill somewhere with the sun and the clouds above her <eos>
+ <boname> NED <eoname> She was my sister <eos> This is where she belongs <eos>
+ <boname> ROBERT <eoname> She belonged with me <eos>
+ <open-exp> He touches Lyanna 's face <eos> <close-exp>
+ <boname> ROBERT <eoname> In my dreams , I kill him every night <eos>
+ <boname> NED <eoname> It 's done , Your Grace <eos> The Targaryens are gone <eos>
+ <boname> ROBERT <eoname> Not all of them <eos>
+ <open-exp> Scene shifts to Daenerys on a balcony in Pentos , across the Narrow Sea <eos> <close-exp>
+ <boname> VISERYS <eoname> Daenerys <exclamation>
+ <open-exp> He enters a large chamber <eos> <close-exp>
+ <boname> VISERYS <eoname> Daenerys <exclamation> There 's our bride to be <exclamation> Look – a gift from Illyrio <eos> Touch it <eos> Come on <eos> Feel the fabric <eos> Mmmm <eos> Isn 't he a gracious host <question>
+ <boname> DAENERYS <eoname> We 've been his guests for over a year and he 's never asked us for anything <eos>
+ <boname> VISERYS <eoname> Illyrio is no fool <eos> He knows I won 't forget my friends when I come into my throne <eos> You still slouch <eos> Let me see <eos> (He pulls off her gown <eos>) You have a woman 's body now <eos> (She endures it as he strokes her breast <eos>) I need you to be perfect today <eos> Can you do that for me <question> You don 't want to wake the dragon , do you <question>
+ <boname> DAENERYS <eoname> No <eos>
+ <open-exp> VISERYS nods and starts to leave the chamber <eos> He turns <eos> <close-exp>
+ <boname> VISERYS <eoname> When they write the history of my reign , sweet sister , they will say it began today <eos>
+ <open-exp> Daenerys turns and steps into a steaming hot bath with a despairing look on her face <eos> <close-exp>
+ <boname> MAID <eoname> It 's too hot , my lady <eos>
+ <open-exp> But DAENERYS keeps stepping deeper <eos> The scene shifts to ILLYRIOS , DAENERYS , AND VISERYS outside the mansion , awaiting Khal Drogo <eos> <close-exp>
+ <boname> VISERYS <eoname> Where is he <question>
+ <boname> ILLYRIO <eoname> The Dothraki are not known for their punctuality <eos>
+ <open-exp> A host of Dothraki come riding up <eos> Khal Drogo wheels his stallion into the front <eos> <close-exp>
+ <boname> ILLYRIO <eoname> (Greets them in Dothraki <eos>) May I present my honored guests <question> Viserys of House Targaryen , the third of his name <eos> The rightful King of the Andals and the First Men <eos> And his sister , Daenerys , of the House Targaryen <eos>
+ <open-exp> VISERYS (to DAENERYS) Do you see how long his hair is <question> When Dothraki are defeated in combat , they cut off their braid so the whole world can see their shame <eos> Khal Drogo has never been defeated <eos> He 's a savage , of course , but he 's one of the finest killers alive <eos> And you will be his queen <eos> <close-exp>
+ <boname> ILLYRIO <eoname> Come forward , my dear <eos>
+ <open-exp> KHAL DROGO watches as DAENERYS walks toward him <eos> She does not hesitate and looks straight at him , although there is fear on her face <eos> KHAL DROGO gazes at her and then leads his horsemen on a charge away <eos> <close-exp>
+ <boname> VISERYS <eoname> Where 's he going <question>
+ <boname> ILLYRIO <eoname> The ceremony is over <eos>
+ <boname> VISERYS <eoname> But he didn 't say anything <eos> Did he like her <question>
+ <boname> ILLYRIO <eoname> Trust me , Your Grace <eos> If he didn 't like her , we 'd know <eos>
+ <open-exp> The scene shifts to ILLYRIO , VISERYS , AND DAENERYS ON A GARDEN BALCONY OVERLOOKING THE SEA <eos> <close-exp>
+ <boname> ILLYRIO <eoname> It won 't be long now <eos> Soon you will cross the Narrow Sea and take back your father 's throne <eos> The people drink secret toasts to your health <eos> They cry out for their true king <eos>
+ <boname> VISERYS <eoname> When will they be married <question>
+ <boname> ILLYRIO <eoname> Soon <eos> The Dothraki never stay still for long <eos>
+ <boname> VISERYS <eoname> Is it true they lie with their horses <question>
+ <boname> ILLYRIO <eoname> I wouldn 't ask Khal Drogo <eos>
+ <boname> VISERYS <eoname> Do you take me for a fool <question>
+ <boname> ILLYRIO <eoname> I take you for a king <eos> Kings lack the caution of common men <eos> My apologies if I 've given offense <eos>
+ <boname> VISERYS <eoname> I know how to play a man like Drogo <eos> I give him a queen and he gives me an army <eos>
+ <open-exp> DAENERYS (pleadingly) I don 't want to be his queen <eos> I want to go home <eos> <close-exp>
+ <boname> VISERYS <eoname> So do I <eos> I want us both to go home <eos> But they took it from us <eos> So tell me , sweet sister , how do we go home <question>
+ <boname> DAENERYS <eoname> I don 't know <eos>
+ <boname> VISERYS <eoname> We go home with an army <eos> With Khal Drogo 's army <eos> I would let his whole tribe fuck you , all 40 , 000 men and their horses too , if that 's what it took <eos>
+ <open-exp> He gives DAENERYS a brotherly kiss on the forehead and walks away <eos> The scene shifts to a bedroom in Winterfell , where CATELYN is fixing SANSA 'S hair <eos> <close-exp>
+ <boname> SANSA <eoname> Do you think Joffrey will like me <question> What if he thinks I 'm ugly <question>
+ <boname> CATELYN <eoname> Then he is the stupidest prince that ever lived <eos>
+ <boname> SANSA <eoname> He 's so handsome <eos>
+ <open-exp> CATELYN rolls her eyes <eos> <close-exp>
+ <boname> SANSA <eoname> When would we be married <question> Soon or do we have to wait <question>
+ <boname> CATELYN <eoname> Hush now <eos> Your father hasn 't even said yes <eos>
+ <boname> SANSA <eoname> Why would he say no <question> He 'd be the second most powerful man in the kingdoms <eos>
+ <boname> CATELYN <eoname> He 'd have to leave home <eos> He 'd have to leave me <eos> And so would you <eos>
+ <boname> SANSA <eoname> You left your home to come here <eos> And I 'd be queen someday <eos> Please make father say yes <eos>
+ <boname> CATELYN <eoname> Sansa<ellipsis>
+ <boname> SANSA <eoname> Please , please <eos> It 's the only thing I ever wanted <eos>
+ <open-exp> Scene shifts to the Winterfell banquet <eos> Laughter , music , KING ROBERT getting bawdy with a wench <eos> CATELYN and CERSEI watch , CATELYN embarrassed for CERSEI , who looks disgusted <eos> Out in the courtyard , JON takes out his frustration on a fencing dummy <eos> His uncle BENJEN rides up <eos> <close-exp>
+ <boname> BENJEN <eoname> Is he dead yet <question>
+ <boname> JON <eoname> Uncle Benjen <exclamation>
+ <open-exp> They hug <eos> <close-exp>
+ <boname> BENJEN <eoname> You got bigger <eos> I rode all day <eos> Didn 't want to leave you alone with the Lannisters <eos> Why aren 't you at the feast <question>
+ <boname> JON <eoname> Lady Stark thought it might insult the royal family to seat a bastard in their midst <eos>
+ <boname> BENJEN <eoname> Well , you 're always welcome on the wall <eos> No bastard was ever refused a seat there <eos>
+ <boname> JON <eoname> So take me with you when you go back <eos>
+ <boname> BENJEN <eoname> Jon<ellipsis>
+ <boname> JON <eoname> Father will let me if you ask him , I know he will <eos>
+ <boname> BENJEN <eoname> The Wall isn 't going anywhere <eos>
+ <boname> JON <eoname> I 'm ready to swear your oath <eos>
+ <boname> BENJEN <eoname> You don 't understand what you 'd be giving up <eos> We have no families <eos> None of us will ever father sons <eos>
+ <boname> JON <eoname> I don 't care about that <eos>
+ <boname> BENJEN <eoname> You might , if you knew what it meant <eos> <ellipsis> I 'd better get inside <eos> Rescue your father from his guests <eos> We 'll talk later <eos>
+ <open-exp> BENJEN goes to the banquet <eos> <close-exp>
+ <boname> TYRION <eoname> Your uncle 's in the Night 's Watch <eos>
+ <boname> JON <eoname> What 're you doing back there <question>
+ <boname> TYRION <eoname> Preparing for a night with your family <eos> I 've always wanted to see the Wall <eos>
+ <boname> JON <eoname> You 're Tyrion Lannister <eos> The queen 's brother <question>
+ <boname> TYRION <eoname> My greatest accomplishment <eos> You – you 're Ned Stark 's bastard , aren 't you <question>
+ <open-exp> JON looks angry and turns away <eos> <close-exp>
+ <boname> TYRION <eoname> Did I offend you <question> Sorry <eos> You are the bastard , though <eos>
+ <boname> JON <eoname> Lord Eddard Stark is my father <eos>
+ <boname> TYRION <eoname> And Lady Stark is not your mother <eos> Making you a bastard <eos> Let me give you some advice , bastard <eos> Never forget what you are <eos> The rest of the world will not <eos> Wear it like armor <eos> Then it can never be used to hurt you <eos>
+ <boname> JON <eoname> What the hell do you know about being a bastard <question>
+ <boname> TYRION <eoname> All dwarves are bastards in their fathers ' eyes <eos>
+ <open-exp> TYRION departs <eos> JON picks up his sword and attacks the dummy with new ferocity <eos> <close-exp>
+ <open-exp> The scene shifts back to the banquet , in full raucous swing <eos> NED is off to himself; BENJEN comes up to him <eos> <close-exp>
+ <boname> BENJEN <eoname> You at a feast -- It 's like a bear in a trap <eos>
+ <boname> NED <eoname> The boy I beheaded <eos> Did you know him <question>
+ <boname> BENJEN <eoname> Of course I did <eos> Just a lad <eos> But he was tough , Ned <eos> A true Ranger <eos>
+ <boname> NED <eoname> He was talking madness <eos> Said the Walkers slaughtered his friends <eos>
+ <boname> BENJEN <eoname> The two he was with are still missing <eos>
+ <boname> NED <eoname> A wildling ambush <eos>
+ <boname> BENJEN <eoname> Maybe <eos> Direwolves south of the wall <eos> Talk of the Walkers <eos> My brother might be the next Hand to the king <eos> Winter is coming <eos>
+ <boname> NED <eoname> Winter is coming <eos>
+ <open-exp> ROBB approaches <eos> <close-exp>
+ <boname> ROBB <eoname> Uncle Benjen <eos>
+ <boname> BENJEN <eoname> Robb boy <eos> How are ye <question>
+ <boname> ROBB <eoname> I 'm good <eos>
+ <open-exp> KING ROBERT gets even more bawdy with a wench <eos> <close-exp>
+ <open-exp> CATELYN (in desperation) Is this your first time in the North , Your Grace <question> <close-exp>
+ <boname> CERSEI <eoname> Yes <eos> Lovely country <eos>
+ <open-exp> They observe SANSA <eos> <close-exp>
+ <boname> CATELYN <eoname> I 'm sure it 's very grim , after Kings Landing <eos> I remember how scared I was when Ned brought me up here for the first time <eos>
+ <open-exp> SANSA approaches and smiles shyly at CERSEI <eos> <close-exp>
+ <boname> CERSEI <eoname> Hello , little dove <eos> But you are a beauty <eos> How old are you <question>
+ <boname> SANSA <eoname> Thirteen , Your Grace <eos>
+ <boname> CERSEI <eoname> You 're tall <eos> Still growing <question>
+ <boname> SANSA <eoname> I think so , Your Grace <eos>
+ <boname> CERSEI <eoname> And have you bled yet <question>
+ <boname> SANSA <eoname> No , Your Grace <eos>
+ <boname> CERSEI <eoname> And your dress <eos> Did you make it <question>
+ <open-exp> SANSA nods yes <eos> <close-exp>
+ <boname> CERSEI <eoname> Such talent <eos> You must make something for me <eos>
+ <open-exp> SANSA departs <eos> <close-exp>
+ <boname> CATELYN <eoname> I hear the same <eos>
+ <boname> CERSEI <eoname> Your daughter will do well in the capital <eos> Such a beauty shouldn 't stay hidden up here forever <eos>
+ <open-exp> SANSA and JOFFREY catch each other 's eye <eos> JOFFREY smiles at her and she turns to her friend <eos> <close-exp>
+ <open-exp> JAIME and NED meet up <eos> JAIME blocks their path <eos> <close-exp>
+ <boname> NED <eoname> Your pardon <eos>
+ <boname> JAIME <eoname> I hear we might be neighbors soon <eos> I hope it 's true <eos>
+ <boname> NED <eoname> Yes , the king has honored me with his offer <eos>
+ <boname> JAIME <eoname> I 'm sure we 'll have a tournament to celebrate the new title , if you accept <eos> It would be good to have you in the field <eos> The competition has become a bit stale <eos>
+ <boname> NED <eoname> I don 't fight in tournaments <eos>
+ <boname> JAIME <eoname> No <question> Getting a little old for it <question>
+ <boname> NED <eoname> I don 't fight in tournaments because when I fight a man for real , I don 't want him to know what I can do <eos>
+ <boname> JAIME <eoname> Well said <eos>
+ <open-exp> ARYA flips food onto SANSA 's face <eos> <close-exp>
+ <boname> SANSA <eoname> Arya <exclamation>
+ <open-exp> CATELYN signals a laughing ROBB to deal with the girls <eos> He hoists up ARYA <eos> <close-exp>
+ <boname> ROBB <eoname> Time for bed <eos>
+ <open-exp> The scene shifts to after the banquet <eos> NED and CATELYN are in their bed <eos> <close-exp>
+ <boname> NED <eoname> I 'm a Northman <eos> I belong here with you , not down south in that rat 's nest they call a capital <eos>
+ <boname> CATELYN <eoname> I won 't let him take you <eos>
+ <boname> NED <eoname> The king takes what he wants <eos> That 's why he 's king <eos>
+ <boname> CATELYN <eoname> I 'll say , ‘Listen , fat man , you are not taking my husband anywhere <eos> He belongs to me now <eos> '
+ <boname> NED <eoname> How did he get so fat <question>
+ <boname> CATELYN <eoname> He only stops eating when it 's time for a drink <eos>
+ <open-exp> There 's a knock at the door <eos> <close-exp>
+ <boname> A_VOICE <eoname> It 's Maester Luwin , my lord <eos>
+ <boname> NED <eoname> Send him in <eos>
+ <boname> LUWIN <eoname> Pardon , my lord , my lady <eos> A rider in the night from your sister <eos>
+ <open-exp> He hands CATELYN a sealed note <eos> <close-exp>
+ <boname> NED <eoname> Stay <eos>
+ <boname> CATELYN <eoname> This was sent from the Eyrie <eos> What 's she doing at the Eyrie <question> She hasn 't been back there since her wedding <eos>
+ <open-exp> CATELYN reads the note , looks up in alarm , and then burns it <eos> <close-exp>
+ <boname> NED <eoname> What news <question>
+ <boname> CATELYN <eoname> She 's fled the capital <eos> She says Jon Arryn was murdered <eos> By the Lannisters <eos> She says the king is in danger <eos>
+ <boname> NED <eoname> She 's fresh widowed , Cat <eos> She doesn 't know what she 's saying <eos>
+ <boname> CATELYN <eoname> Lysa 's head would be on a spike right now if the wrong people had found that letter <eos> Do you think she would risk her life , her son 's life , if she wasn 't certain her husband was murdered <question>
+ <boname> LUWIN <eoname> If this news is true , and the Lannisters conspire against the throne , who but you can protect the king <question>
+ <boname> CATELYN <eoname> They murdered the last Hand <eos> Now you want Ned to take the job <eos>
+ <boname> LUWIN <eoname> The king rode for a month to ask Lord Stark 's help <eos> He 's the only one he trusts <eos> You swore the king an oath , my lord <eos>
+ <boname> CATELYN <eoname> He spent half his life fighting Robert 's wars <eos> He owes him nothing <eos> (To NED) Your father and brother rode south once on a king 's demand <eos>
+ <boname> LUWIN <eoname> A different time <eos> Different king <eos>
+ <open-exp> The scene shifts to the wild wedding celebration of KHAL DROGO and DAENERYS <eos> Fighting and fornication <eos> DAENERYS looks stricken at everything around her <eos> <close-exp>
+ <boname> VISERYS <eoname> When do I meet with the Khal <question> We need to begin planning the invasion <eos>
+ <boname> ILLYRIO <eoname> If Khal Drogo has promised you a crown , you shall have it <eos>
+ <boname> VISERYS <eoname> When <question>
+ <boname> ILLYRIO <eoname> When their omens favor war <eos>
+ <boname> VISERYS <eoname> I piss on Dothraki omens <eos> I waited 17 years to get my throne back <eos>
+ <open-exp> The sex and violence intensify <eos> Two men fight to the death over a woman each is trying to rape <eos> KHAL DROGO watches avidly <eos> <close-exp>
+ <boname> ILLYRIO <eoname> A Dothraki wedding without at least three deaths is considered a dull affair <eos>
+ <open-exp> A knight in Westerosi garb appears <eos> KHAL DROGO greets him in Dothraki <eos> It is JORAH MORMONT , bearing books <eos> <close-exp>
+ <boname> JORAH <eoname> A small gift for the new Khaleesi <eos> Songs and histories from the Seven Kingdoms <eos>
+ <boname> DAENERYS <eoname> Thank you , ser <eos> Are you from my country <question>
+ <boname> JORAH <eoname> Ser Jorah Mormont of Bear Island <eos> I served your father for many years <eos> Gods be good , I hope to always serve the rightful king <eos>
+ <open-exp> DANY is presented with a chest with three dragon eggs in it <eos> <close-exp>
+ <boname> ILLYRIO <eoname> Dragons ' eggs , Daenerys <eos> From the Shadow Lands beyond Asshai <eos> The ages have turned them to stone , but they will always be beautiful <eos>
+ <boname> DAENERYS <eoname> Thank you , Magister <eos>
+ <open-exp> KHAL DROGO rises and strides forward <eos> DAENERYS follows him , looking sick with fear <eos> The Dothraki crowd behind her as she goes <eos> The KHAL leads her to a white mare <eos> <close-exp>
+ <boname> DAENERYS <eoname> She 's beautiful <eos> <ellipsis> Ser Jorah , I don 't know how to say ‘thank you ' in Dothraki <eos>
+ <boname> JORAH <eoname> There is no word for ‘thank you ' in Dothraki <eos>
+ <open-exp> The KHAL puts DANY on her horse and mounts his <eos> <close-exp>
+ <boname> VISERYS <eoname> Make him happy <eos>
+ <open-exp> The scene shifts to the seaside at sunset <eos> The KHAL begins to unwrap DANY 's dress <eos> She is sobbing <eos> He touches the tears on her face <eos> <close-exp>
+ <boname> KHAL_DROGO <eoname> No <eos>
+ <boname> DAENERYS <eoname> Do you know the Common Tongue <question>
+ <boname> KHAL_DROGO <eoname> No <eos>
+ <boname> DAENERYS <eoname> Is ‘no ' the only word that you know <question>
+ <boname> KHAL_DROGO <eoname> No <eos>
+ <open-exp> He takes off her gown and bends her down <eos> <close-exp>
+ <open-exp> The scene shifts to Winterfell <eos> Tyrion and the Hound are seated outside the day after the banquet <eos> <close-exp>
+ <boname> THE_HOUND <eoname> Rough night , Imp <question>
+ <boname> TYRION <eoname> If I get through this without squirting from one end or the other , it will be a miracle <eos>
+ <boname> THE_HOUND <eoname> I didn 't pick you for a hunter <eos>
+ <boname> TYRION <eoname> The greatest in the land <eos> My spear never misses <eos>
+ <boname> THE_HOUND <eoname> It 's not hunting if you pay for it <eos>
+ <open-exp> The king and Ned come into view <eos> <close-exp>
+ <boname> ROBERT <eoname> Are you as good with a spear as you used to be <question>
+ <boname> NED <eoname> No , but I 'm still better than you <eos>
+ <boname> ROBERT <eoname> I know what I 'm putting you through <eos> Thank you for saying yes <eos> I only ask you because I need you <eos> You 're a loyal friend <eos> You hear me <question> A loyal friend <eos> The last one I 've got <eos>
+ <boname> NED <eoname> I hope I 'll serve you well <eos>
+ <boname> ROBERT <eoname> You will <eos> And I 'll make sure you don 't look so fucking grim all the time <eos> Come on , boys , let 's go kill some boar <exclamation>
+ <open-exp> The king 's party rides off , NED nodding goodbye to BRAN , whose wolf pup begins sniffing at his feet <eos> <close-exp>
+ <boname> BRAN <eoname> Come on , you <eos>
+ <open-exp> BRAN begins climbing , his wolf pup crying at the bottom of the castle wall <eos> As he nears the top , he hears a woman and man moaning <eos> Peering in the window , he sees CERSEI and JAIME having sex <eos> CERSEI sees BRAN <eos> <close-exp>
+ <boname> CERSEI <eoname> Stop <eos> STOP <eos>
+ <open-exp> JAIME runs and grabs BRAN at the window <eos> <close-exp>
+ <boname> JAIME <eoname> Are you completely mad <question>
+ <boname> CERSEI <eoname> He saw us <eos>
+ <boname> JAIME <eoname> It 's all right <eos> It 's all right <eos>
+ <boname> CERSEI <eoname> He saw us <exclamation>
+ <boname> JAIME <eoname> I heard you the first time <eos> (To BRAN) Quite the little climber , aren 't you <question> How old are you , boy <question>
+ <boname> BRAN <eoname> Ten
+ <open-exp> <eos> <close-exp>
+ <boname> JAIME <eoname> Ten <eos>
+ <open-exp> JAIME looks at CERSEI , who gazes back imploringly <eos> <close-exp>
+ <boname> JAIME <eoname> The things I do for love <eos>
+ <open-exp> He shoves BRAN out the window <eos> <close-exp>
+ <open-exp> <BLACKOUT> <close-exp>
+<eoepisode> <open-exp> enerys on horseback looking at Drogo and his people <eos> <close-exp>
+ <boname> JORAH_MORMONT <eoname> You need to drink , child <eos> <eos> <eos> And eat <eos>
+ <boname> DAENERYS_TARGARYEN <eoname> Isn 't there anything else <question>
+ <boname> JORAH_MORMONT <eoname> The Dothraki have two things in abundance grass and horses <eos> People can 't live on grass <eos> <eos> <eos> In the Shadow Lands beyond Asshai , they say there are fields of ghost grass with stalks as pale as milk that glow in the night <eos> It murders all other grass <eos> The Dothraki believe that one day it will cover everything <eos> That 's the way the world will end<ellipsis> It 'll get easier <eos>
+ <open-exp> Arriving at camp , Daenerys looks exhausted from riding <eos> <close-exp>
+ <boname> DOREAH <eoname> Khaleesi <exclamation>
+ <boname> IRRI <eoname> Your hands <eos>
+ <open-exp> After Daenerys is escorted away , Jorah and Viserys are alone <eos> <close-exp>
+ <boname> JORAH_MORMONT <eoname> We 're still not far from Pentos , your Grace <eos> Magister Illyrio has extended his hospitality <eos> You 'd be more comfortable there <eos>
+ <boname> VISERYS_TARGARYEN <eoname> I have no interest in hospitality or comfort <eos> I 'll stay with Drogo until he fulfils his end of the bargain and I have my crown <eos>
+ <boname> JORAH_MORMONT <eoname> As you wish , your Grace <eos>
+ <boname> VISERYS_TARGARYEN <eoname> Well , Mormont , as brutish as this life is , I suppose it is preferable to beheading <eos> What did Ned Stark want you for <question> Buying from a slaver <question>
+ <boname> JORAH_MORMONT <eoname> Selling to one <eos> <eos> <eos> Some poachers I caught on my land <eos>
+ <boname> VISERYS_TARGARYEN <eoname> Under my reign , you won 't be punished for such nonsense <eos> You can rest assured of that <eos>
+ <open-exp> - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - <close-exp>
+ <open-exp> Joffrey finding Tyrion asleep in the dog 's pen of Winterfell <eos> <close-exp>
+ <boname> JOFFREY_BARATHEON <eoname> Better-looking bitches than you 're used to , Uncle <eos> My mother 's been looking for you <eos> We ride for King 's Landing today <eos>
+ <boname> TYRION_LANNISTER <eoname> Before you go , you will call on Lord and Lady Stark and offer your sympathies <eos>
+ <boname> JOFFREY_BARATHEON <eoname> What good will my sympathies do them <question>
+ <boname> TYRION_LANNISTER <eoname> None <eos> But it is expected of you <eos> Your absence has already been noted <eos>
+ <boname> JOFFREY_BARATHEON <eoname> The boy means nothing to me <eos> And I can 't stand the wailing of women <eos>
+ <boname> TYRION_LANNISTER <eoname> One word and I 'll hit you again <eos>
+ <boname> JOFFREY_BARATHEON <eoname> I 'm telling mother <exclamation>
+ <boname> TYRION_LANNISTER <eoname> Go <exclamation> Tell her <eos> But first you will get to Lord and Lady Stark and you will fall on your knees in front of them and tell them how very sorry you are , that you are at their service , and that all your prayers are with them <eos> Do you understand <question>
+ <boname> JOFFREY_BARATHEON <eoname> You can 't <eos> <eos> <eos>
+ <boname> TYRION_LANNISTER <eoname> Do you understand <question>
+ <boname> SANDOR_CLEGANE <eoname> The Prince will remember that , little lord <eos>
+ <boname> TYRION_LANNISTER <eoname> I hope so <eos> If he forgets , be a good dog and remind him <eos> Time for breakfast <eos> <eos> <eos>
+ <open-exp> Tyrion walks from the courtyard to the dining hall where his family is eating breakfast <eos> <close-exp>
+ <boname> TYRION_LANNISTER <eoname> Bread <eos> And two of those little fish <eos> And a mug of dark beer to wash it down <eos> And bacon , burnt black <eos>
+ <boname> JAIME_LANNISTER <eoname> Little brother <eos>
+ <boname> TYRION_LANNISTER <eoname> Beloved siblings <eos>
+ <boname> MYRCELLA_BARATHEON <eoname> Is Bran going to die <question>
+ <boname> TYRION_LANNISTER <eoname> Apparently not <eos>
+ <boname> CERSEI_BARATHEON <eoname> What do you mean <question>
+ <boname> TYRION_LANNISTER <eoname> The Maester says the boy may live <eos>
+ <boname> CERSEI_BARATHEON <eoname> It 's no mercy , letting a child linger in such pain <eos>
+ <boname> TYRION_LANNISTER <eoname> Only the gods know for certain <eos> All the rest of us can do is pray <eos> The charms of the north seem entirely lost on you <eos>
+ <boname> CERSEI_BARATHEON <eoname> I still can 't believe you 're going <eos> It 's ridiculous even for you <eos>
+ <boname> TYRION_LANNISTER <eoname> Where 's your sense of wonder <question> The greatest structure ever built , the intrepid men of the Night 's Watch , the wintry abode of the White Walkers <eos>
+ <boname> JAIME_LANNISTER <eoname> Tell me you 're not thinking of taking the black <eos>
+ <boname> TYRION_LANNISTER <eoname> And go celibate <question> The whores would go begging from Dorne to Casterly Rock <eos> I just want to stand on top of the Wall and piss off the edge of the world <eos>
+ <boname> CERSEI_BARATHEON <eoname> The children don 't need to hear your filth <eos> Come <eos>
+ <boname> JAIME_LANNISTER <eoname> Even if the boy lives , he 'll be a cripple , a grotesque <eos> Give me a good clean death any day <eos>
+ <boname> TYRION_LANNISTER <eoname> Speaking for the grotesques , I 'd have to disagree <eos> Death is so final , whereas life <eos> <eos> <eos> Life is full of possibilities <eos> I hope the boy does wake <eos> I 'd be very interested to hear what he has to say <eos>
+ <boname> JAIME_LANNISTER <eoname> My dear brother , there are times you make me wonder whose side you 're on <eos>
+ <boname> TYRION_LANNISTER <eoname> My dear brother , you wound me <eos> You know how much I love my family <eos>
+ <open-exp> - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - <close-exp>
+ <open-exp> In Bran 's room with Catelyn at his bedside , Cersei coming to console <eos> <close-exp>
+ <boname> CERSEI_BARATHEON <eoname> Please <eos>
+ <boname> CATELYN_STARK <eoname> I would have dressed , your Grace <eos>
+ <boname> CERSEI_BARATHEON <eoname> This is your home <eos> I 'm your guest <eos> Handsome one , isn 't he <question> I lost my first boy , a little black-haired beauty <eos> He was a fighter too <eos> <eos> <eos> Tried to beat the fever that took him <eos> Forgive me <eos> It 's the last thing you need to hear right now <eos>
+ <boname> CATELYN_STARK <eoname> I never knew <eos>
+ <boname> CERSEI_BARATHEON <eoname> It was years ago <eos> Robert was crazed , beat his hands bloody on the wall , all the things men do to show you how much they care <eos> <eos> <eos> The boy looked just like him <eos> Such a little thing <eos> <eos> <eos> A bird without feathers <eos> They came to take his body away and Robert held me <eos> I screamed and I battled , but he held me <eos> That little bundle <eos> They took him away and I never saw him again <eos> Never have visited the crypt , never <eos> I pray to the Mother every morning and night that she return your child to you <eos>
+ <boname> CATELYN_STARK <eoname> I am grateful <eos> <eos>
+ <boname> CERSEI_BARATHEON <eoname> Perhaps this time she 'll listen <eos>
+ <open-exp> - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - <close-exp>
+ <open-exp> Near the Smith in a courtyard of Winterfell <eos> <close-exp>
+ <boname> JAIME_LANNISTER <eoname> A sword for the wall <question>
+ <boname> JON_SNOW <eoname> I already have one <eos>
+ <boname> JAIME_LANNISTER <eoname> Good man <eos> Have you swung it yet <question>
+ <boname> JON_SNOW <eoname> Of course I have <eos>
+ <boname> JAIME_LANNISTER <eoname> At someone , I mean <eos> It 's a strange thing , the first time you cut a man <eos> You realize we 're nothing but sacks of meat and blood and some bone to keep it all standing <eos> Let me thank you ahead of time for guarding us all from the perils beyond the Wall <eos> <eos> <eos> Wildlings and White Walkers and whatnot <eos> We 're grateful to have good , strong men like you protecting us <eos>
+ <boname> JON_SNOW <eoname> We 've guarded the Kingdoms for 8 000 years <eos>
+ <boname> JAIME_LANNISTER <eoname> Is it "we" already <question> Have you taken your vows then <question>
+ <boname> JON_SNOW <eoname> Soon enough <eos>
+ <boname> JAIME_LANNISTER <eoname> Give my regards to the Night 's Watch <eos> I 'm sure it will be thrilling to serve in such an elite force <eos> And if not , It 's only for life <eos>
+ <open-exp> - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - <close-exp>
+ <open-exp> Arya 's room , packing things for her trip to King 's Landing , having her direwolf assist her <eos> Jon comes in to say goodbye before he leaves for the Night 's Watch <eos> <close-exp>
+ <boname> ARYA_STARK <eoname> Thank you , Nymeria <eos> Septa Mordane says I have to do it again <eos> "My things weren 't properly folded" , she says <eos> Who cares how they 're folded <question> <exclamation> They 're going to get all messed up anyway <eos>
+ <boname> JON_SNOW <eoname> It 's good you 've got help <eos>
+ <boname> ARYA_STARK <eoname> Watch <eos> Nymeria , gloves <eos>
+ <boname> JON_SNOW <eoname> Impressive <eos>
+ <boname> ARYA_STARK <eoname> Shut up <eos> Nymeria , gloves <exclamation>
+ <boname> JON_SNOW <eoname> I have something for you <eos> And it has to be packed very carefully <eos>
+ <boname> ARYA_STARK <eoname> A present <question>
+ <boname> JON_SNOW <eoname> Close the door <eos> This is no toy <eos> Be careful you don 't cut yourself <eos>
+ <boname> ARYA_STARK <eoname> It 's so skinny <eos>
+ <boname> JON_SNOW <eoname> So are you <eos> I had the blacksmith make it for you special <eos> It won 't hack a man 's head off , but it can poke him full of holes if you 're quick enough <eos>
+ <boname> ARYA_STARK <eoname> I can be quick <eos>
+ <boname> JON_SNOW <eoname> You 'll have to work at it every day <eos> How does it feel <question> Do you like the balance <question>
+ <boname> ARYA_STARK <eoname> I think so <eos>
+ <boname> JON_SNOW <eoname> First lesson Stick them with the pointy end <eos>
+ <boname> ARYA_STARK <eoname> I know which end to use <eos>
+ <boname> JON_SNOW <eoname> I 'm going to miss you <eos> <eos> <eos> Careful <eos> <eos> <eos> All the best swords have names , you know <eos>
+ <boname> ARYA_STARK <eoname> Sansa can keep her sewing needles <eos> I 've got a needle of my own <eos>
+ <open-exp> - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - <close-exp>
+ <open-exp> Jon walks into Bran 's room , where Catelyn is still at his bedside <eos> <close-exp>
+ <boname> JON_SNOW <eoname> I came to say goodbye to Bran <eos>
+ <boname> CATELYN_STARK <eoname> You 've said it <eos>
+ <boname> JON_SNOW <eoname> I wish I could be here when you wake up <eos> I 'm going north with Uncle Benjen <eos> I 'm taking the black <eos> I know we always talked about seeing the Wall together , but you 'll be able to come visit me at Castle Black when you 're better <eos> I 'll know my way around by then <eos> I 'll be a sworn brother of the Night 's Watch <eos> We can go out walking beyond the Wall , if you 're not afraid <eos>
+ <boname> CATELYN_STARK <eoname> I want you to leave <eos>
+ <open-exp> Eddard walks into the room , Jon kisses Brandon on the forehead and exits <eos> <close-exp>
+ <boname> CATELYN_STARK <eoname> 17 years ago you rode off with Robert Baratheon <eos> You came back a year later with another woman 's son <eos> And now you 're leaving again <eos>
+ <boname> EDDARD_STARK <eoname> I have no choice <eos>
+ <boname> CATELYN_STARK <eoname> That 's what men always say when honor calls <eos> That 's what you tell your families , tell yourselves <eos> You do have a choice <eos> And you 've made it <eos> I can 't do it , Ned <eos> I really can 't <eos>
+ <boname> EDDARD_STARK <eoname> You can <eos> You must <eos>
+ <open-exp> - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - <close-exp>
+ <open-exp> In the courtyard , Jon prepping his horse to leave for the Wall <eos> <close-exp>
+ <boname> ROBB_STARK <eoname> You 've said goodbye to Bran <question> He 's not going to die <eos> I know it <eos>
+ <boname> JON_SNOW <eoname> You Starks are hard to kill <eos>
+ <boname> ROBB_STARK <eoname> My mother <question>
+ <boname> JON_SNOW <eoname> She was very kind <eos>
+ <boname> ROBB_STARK <eoname> Good <eos> Next time I see you , you 'll be all in black <eos>
+ <boname> JON_SNOW <eoname> It was always my color <eos>
+ <boname> ROBB_STARK <eoname> Farewell , Snow <eos>
+ <boname> JON_SNOW <eoname> And you , Stark <eos>
+ <open-exp> - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - <close-exp>
+ <open-exp> At the split between the Kingsroad and the road that will take Benjen and Jon to the Wall <eos> <close-exp>
+ <boname> EDDARD_STARK <eoname> There 's great honor serving in the Night 's Watch <eos> The Starks have manned the Wall for thousands of years <eos> And you are a Stark <eos> You might not have my name , but you have my blood <eos>
+ <boname> JON_SNOW <eoname> Is my mother alive <question> Does she know about me <question> Where I am , where I 'm going <question> Does she care <question>
+ <boname> EDDARD_STARK <eoname> The next time we see each other , we 'll talk about your mother <eos> I promise <eos>
+ <open-exp> - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - <close-exp>
+ <open-exp> Stopping for rest along the Kingsroad <eos> Robert has a mini table set up full of wine and food <eos> <close-exp>
+ <boname> ROBERT_BARATHEON <eoname> Gods , this is country <exclamation> I 've half a mind to leave them all behind and keep going <eos>
+ <boname> EDDARD_STARK <eoname> I 've half a mind to go with you <eos>
+ <boname> ROBERT_BARATHEON <eoname> What do you say , just you and me on the Kingsroad , swords at our sides , a couple of tavern wenches to warm our beds tonight <eos>
+ <boname> EDDARD_STARK <eoname> You should have asked me 20 years ago <eos>
+ <boname> ROBERT_BARATHEON <eoname> There were wars to fight , women to marry <eos> <eos> <eos> We never had the chance to be young <eos>
+ <boname> EDDARD_STARK <eoname> I recall a few chances <eos>
+ <boname> ROBERT_BARATHEON <eoname> There was that one <eos> <eos> <eos> Oh , what was her name <question> That common girl of yours <question> Becca <question> With the great big tits you could bury your face in <eos>
+ <boname> EDDARD_STARK <eoname> Bessie <eos> She was one of yours <eos>
+ <boname> ROBERT_BARATHEON <eoname> Bessie <exclamation> Thank the gods for Bessie and her tits <eos> Yours was <eos> <eos> <eos> Aleena <question> No <eos> You told me once <eos> Meryl <question> Your bastard 's mother <question>
+ <boname> EDDARD_STARK <eoname> Wylla <eos>
+ <boname> ROBERT_BARATHEON <eoname> That 's it <eos> She must have been a rare wench to make Lord Eddard Stark forget his honor <eos> You never told me what she looked like <eos>
+ <boname> EDDARD_STARK <eoname> Nor will I <eos>
+ <boname> ROBERT_BARATHEON <eoname> We were at war <eos> None of us knew if we were gonna go back home again <eos> You 're too hard on yourself <eos> You always have been <eos> I swear if I weren 't your King , you 'd have hit me already <eos>
+ <boname> EDDARD_STARK <eoname> The worst thing about your coronation <eos> <eos> <eos> I 'll never get to hit you again <eos>
+ <boname> ROBERT_BARATHEON <eoname> Trust me , that 's not the worst thing <eos> There was a rider in the night <eos>
+ <boname> EDDARD_STARK <eoname> Daenerys Targaryen has wed some Dothraki horselord <eos> What of it <question> Should we send her a wedding gift <question>
+ <boname> ROBERT_BARATHEON <eoname> A knife perhaps , a good sharp one , and a bold man to wield it <eos>
+ <boname> EDDARD_STARK <eoname> She 's little more than a child <eos>
+ <boname> ROBERT_BARATHEON <eoname> Soon enough that child will spread her legs and start breeding <eos>
+ <boname> EDDARD_STARK <eoname> Tell me we 're not speaking of this <eos>
+ <boname> ROBERT_BARATHEON <eoname> Oh , it 's unspeakable to you <question> What her father did to your family <eos> <eos> <eos> That was unspeakable <eos> What Rhaegar Targaryen did to your sister <eos> <eos> <eos> the woman I loved <eos> I 'll kill every Targaryen I get my hands on <eos>
+ <boname> EDDARD_STARK <eoname> But you can 't get your hands on this one , can you <question>
+ <boname> ROBERT_BARATHEON <eoname> This Khal Drogo , it 's said he has 100 , 000 men in his horde <eos>
+ <boname> EDDARD_STARK <eoname> Even a million Dothraki are no threat to the realm , as long as they remain on the other side of the Narrow Sea <eos> They have no ships , Robert <eos>
+ <boname> ROBERT_BARATHEON <eoname> There are still those in the Seven Kingdoms who call me Usurper <eos> If the Targaryen boy crosses with a Dothraki horde at his back , the scum will join him <eos>
+ <boname> EDDARD_STARK <eoname> He will not cross <eos> And if by chance he does , we 'll throw him back into the sea <eos>
+ <boname> ROBERT_BARATHEON <eoname> There 's a war coming , Ned <eos> I don 't know when , I don 't know who we 'll be fighting , but it 's coming <eos>
+ <open-exp> - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - <close-exp>
+ <open-exp> Back across the sea , Drogo fornicates with Daenerys , she 's clearly not enjoying it <eos> <close-exp>
+ <open-exp> - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - <close-exp>
+ <open-exp> On their way to the Wall , stopping to set up camp for the night <eos> <close-exp>
+ <boname> BENJEN_STARK <eoname> Sit <eos> You 'll be fed <eos> Untie them <eos>
+ <boname> TYRION_LANNISTER <eoname> Rapers <eos> They were given a choice no doubt <eos> <eos> <eos> Castration or the Wall <eos> Most choose the knife <eos> Not impressed by your new brothers <question> Lovely thing about the Watch <eos> <eos> <eos> You discard your old family and get a whole new one <eos>
+ <boname> JON_SNOW <eoname> Why do you read so much <question>
+ <boname> TYRION_LANNISTER <eoname> Look at me and tell me what you see <eos>
+ <boname> JON_SNOW <eoname> Is this a trick <question>
+ <boname> TYRION_LANNISTER <eoname> What you see is a dwarf <eos> If I 'd been born a peasant they might 've left me out in the woods to die <eos> Alas , I was born a Lannister of Casterly Rock <eos> Things are expected of me <eos> My father was the Hand of the King for 20 years <eos>
+ <boname> JON_SNOW <eoname> Until your brother killed that King <eos>
+ <boname> TYRION_LANNISTER <eoname> Yes , until my brother killed him <eos> Life is full of these little ironies <eos> My sister married the new King and my repulsive nephew will be King after him <eos> I must do my part for the honor of my house , wouldn 't you agree <question> But how <question> Well , my brother has his sword and I have my mind <eos> And a mind needs books like a sword needs a whetstone <eos> That 's why I read so much <eos> And you <question> What 's your story , bastard <question>
+ <boname> JON_SNOW <eoname> Ask me nicely and maybe I 'll tell you , dwarf <eos>
+ <boname> TYRION_LANNISTER <eoname> A bastard boy with nothing to inherit , off to join the ancient order of the Night 's Watch , alongside his valiant brothers-in-arms <eos>
+ <boname> JON_SNOW <eoname> The Night 's Watch protects the realm from <eos> <eos> <eos>
+ <boname> TYRION_LANNISTER <eoname> Yes yes , against grumpkins and snarks and all the other monsters your wet nurse warned you about <eos> You 're a smart boy <eos> You don 't believe that nonsense <eos> <eos> <eos> Everything 's better with some wine in the belly <eos>
+ <open-exp> - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - <close-exp>
+ <open-exp> Bran 's bedroom , Catelyn still at his bedside , Maester Luwin walks in <eos> <close-exp>
+ <boname> MAESTER_LUWIN <eoname> It 's time we reviewed the accounts , my lady <eos> You 'll want to know how much this royal visit has cost us <eos>
+ <boname> CATELYN_STARK <eoname> Talk to Poole about it <eos>
+ <boname> MAESTER_LUWIN <eoname> Poole went south with Lord Stark , my lady <eos> We need a new steward , and there are several other appointments that require our immediate attention <eos> <eos> <eos>
+ <boname> CATELYN_STARK <eoname> I don 't care about appointments <exclamation>
+ <boname> ROBB_STARK <eoname> I 'll make the appointments <eos> We 'll talk about it first thing in the morning <eos>
+ <boname> MAESTER_LUWIN <eoname> Very good , my Lord <eos> My Lady <eos>
+ <boname> ROBB_STARK <eoname> When was the last time you left this room <question>
+ <boname> CATELYN_STARK <eoname> I have to take care of him <eos>
+ <boname> ROBB_STARK <eoname> He 's not going to die , mother <eos> Maester Luwin says the most dangerous time has passed <eos>
+ <boname> CATELYN_STARK <eoname> What if he 's wrong <question> Bran needs me <eos>
+ <boname> ROBB_STARK <eoname> Rickon needs you <eos> He 's six <eos> He doesn 't know what 's happening <eos> He follows me around all day , clutching my leg , crying <eos> <eos> <eos>
+ <boname> CATELYN_STARK <eoname> Close the windows <exclamation> I can 't stand it <exclamation> Please make them stop <exclamation> (Wolf 's howling repeatedly)
+ <boname> ROBB_STARK <eoname> Fire <eos> You stay here <eos> I 'll come back <eos>
+ <boname> ASSASSIN <eoname> You 're not supposed to be here <eos> No one is supposed to be here <eos> It 's a mercy <eos> He 's dead already <eos>
+ <boname> CATELYN_STARK <eoname> No <exclamation>
+ <open-exp> The man is an assassin , when he draws his blade , Catelyn begins to fend him off <eos> In the process her hands are both sliced <eos> The man walks within inches of Bran and his direwolf comes in and mauls the assassin <eos> <close-exp>
+ <open-exp> - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - <close-exp>
+ <open-exp> In Daenerys ' tent across the Narrow Sea <eos> <close-exp>
+ <boname> DAENERYS_TARGARYEN <eoname> Have you ever seen a dragon <question>
+ <boname> IRRI <eoname> Dragon gone , Khaleesi <eos>
+ <boname> DAENERYS_TARGARYEN <eoname> Everywhere <question> Even in the east <question>
+ <boname> IRRI <eoname> No dragon <eos> Brave men kill them <eos> It is known <eos>
+ <boname> JHIQUI <eoname> It is known <eos>
+ <boname> DOREAH <eoname> A trader from Garth told me that dragons come from the moon <eos>
+ <boname> DAENERYS_TARGARYEN <eoname> The moon <question>
+ <boname> DOREAH <eoname> He told me the moon was an egg , Khaleesi , that once there were two moons in the sky <eos> But one wandered too close to the sun and it cracked from the heat <eos> Out of it poured a thousand thousand dragons and they drank the sun 's fire <eos>
+ <boname> IRRI <eoname> Moon is no egg <eos> Moon is goddess <eos> <eos> <eos> wife of sun <eos> It is known <eos>
+ <boname> JHIQUI <eoname> It is known <eos>
+ <boname> DAENERYS_TARGARYEN <eoname> Leave me with her <eos> Why did the trader from Garth tell you these stories <question>
+ <open-exp> Irri leaves the tent <eos> <close-exp>
+ <boname> DOREAH <eoname> Men like to talk when they 're happy <eos> Before your brother bought me for you , it was my job to make men happy <eos>
+ <boname> DAENERYS_TARGARYEN <eoname> How old were you <question>
+ <boname> DOREAH <eoname> I was nine when my mother sold me to the pleasure house <eos>
+ <boname> DAENERYS_TARGARYEN <eoname> Nine <question> <exclamation>
+ <boname> DOREAH <eoname> I did not touch a man for three years , Khaleesi <eos> First you must learn <eos>
+ <boname> DAENERYS_TARGARYEN <eoname> Can you teach me how to make the Khal happy <question>
+ <boname> DOREAH <eoname> Yes <eos>
+ <boname> DAENERYS_TARGARYEN <eoname> Will it take three years <question>
+ <boname> DOREAH <eoname> No <eos>
+ <open-exp> - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - <close-exp>
+ <open-exp> Jon , Tyrion , Benjen and company arrive at the wall and look at it from afar <eos> <close-exp>
+ <boname> BENJEN_STARK <eoname> Welcome <eos>
+ <open-exp> - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - <close-exp>
+ <open-exp> Catelyn is on the ground where Bran 's body was discovered , below the tower he fell from <eos> She looks up and sees the window <eos> She now is looking through that same window where Bran fell <eos> She investigates the room , noticing a cleared patch on some flooring , finding a long blonde hair <eos> <close-exp>
+ <open-exp> Catelyn holds council in the Godswood with Robb , Theon Greyjoy , Rodrick and Maester Luwin <eos> <close-exp>
+ <boname> CATELYN_STARK <eoname> What I am about to tell you must remain between us <eos> I don 't think Bran fell from that tower <eos> I think he was thrown <eos>
+ <boname> MAESTER_LUWIN <eoname> The boy was always sure-footed before <eos>
+ <boname> CATELYN_STARK <eoname> Someone tried to kill him twice <eos> Why <question> Why murder an innocent child <question> Unless he saw something he wasn 't meant to see <eos>
+ <boname> THEON_GREYJOY <eoname> Saw what , my lady <question>
+ <boname> CATELYN_STARK <eoname> I don 't know <eos> But I would stake my life the Lannisters are involved <eos> We already have reason to suspect their loyalty to the crown <eos>
+ <boname> RODRICK_CASSEL <eoname> Did you notice the dagger the killer used <question> It 's too fine a weapon for such a man <eos> The blade is Valyrian steel , the handle dragonbone <eos> Someone gave it to him <eos>
+ <boname> ROBB_STARK <eoname> They come into our home and try to murder my brother <question> If it 's war they want <eos> <eos> <eos>
+ <boname> THEON_GREYJOY <eoname> If it comes to that , you know I 'll stand behind you <eos>
+ <boname> MAESTER_LUWIN <eoname> What , is there going to be a battle in the Godswood <question> Too easily words of war become acts of war <eos> We don 't know the truth yet <eos> Lord Stark must be told of this <eos>
+ <boname> CATELYN_STARK <eoname> I don 't trust a raven to carry these words <eos>
+ <boname> ROBB_STARK <eoname> I 'll ride to King 's Landing <eos>
+ <boname> CATELYN_STARK <eoname> No <eos> There must always be a Stark in Winterfell <eos> I will go myself <eos>
+ <boname> ROBB_STARK <eoname> Mother , you can 't <eos>
+ <boname> CATELYN_STARK <eoname> I must <eos>
+ <boname> RODRICK_CASSEL <eoname> I 'll send Hal with a squad of guardsmen to escort you <eos>
+ <boname> CATELYN_STARK <eoname> Too large a party attracts unwanted attention <eos> I don 't want the Lannisters to know I 'm coming <eos>
+ <boname> RODRICK_CASSEL <eoname> Let me accompany you at least <eos> The Kingsroad can be a dangerous place for a woman alone <eos>
+ <boname> ROBB_STARK <eoname> What about Bran <question>
+ <boname> CATELYN_STARK <eoname> I have prayed to the Seven for more than a month <eos> Bran 's life is in their hands now <eos>
+ <open-exp> - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - <close-exp>
+ <open-exp> Back at Daenerys ' tent , Doreah is on top of her , <boquote>teaching<eoquote> Daenerys how to please Khal Drogo <eos> <close-exp>
+ <boname> DOREAH <eoname> No , Khaleesi <eos> You must look in his eyes always <eos> Love comes in at the eyes <eos> It is said that Irogenia of Lys could finish a man with nothing but her eyes <eos>
+ <boname> DAENERYS_TARGARYEN <eoname> Finish a man <question>
+ <boname> DOREAH <eoname> Kings traveled across the world for a night with Irogenia <eos> Magisters sold their palaces <eos> Khals burned her enemies just to have her for a few hours <eos> They say a thousand men proposed to her and she refused them all <eos>
+ <boname> DAENERYS_TARGARYEN <eoname> Well , she sounds like an interesting woman <eos> I don 't think that Drogo will like it with me on top <eos>
+ <boname> DOREAH <eoname> You will make him like it , Khaleesi <eos> Men want what they 've never had <eos> And the Dothraki take slaves like a hound takes a bitch <eos> Are you a slave , Khaleesi <question> Then don 't make love like a slave <eos> Very good , Khaleesi <eos> Out there he is the mighty Khal , but in this tent , he belongs to you <eos>
+ <boname> DAENERYS_TARGARYEN <eoname> I don 't think that this is the Dothraki way <eos>
+ <boname> DOREAH <eoname> If he wanted the Dothraki way , why did he marry you <question>
+ <boname> DAENERYS_TARGARYEN <eoname> No <eos> No <eos> Tonight I would look upon your face <eos>
+ <open-exp> - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - <close-exp>
+ <open-exp> The Lannisters , traveling Starks and all royal guards have stopped for the evening to rest on their way to King 's Landing <eos> <close-exp>
+ <boname> SANSA_STARK <eoname> Pardon me , Ser <eos>
+ <boname> SANDOR_CLEGANE <eoname> Do I frighten you so much , girl <question> Or is it him there making you shake <question> He frightens me too <eos> Look at that face <eos>
+ <boname> SANSA_STARK <eoname> I 'm sorry if I offended you , Ser <eos> Why won 't he speak to me <question>
+ <boname> SANDOR_CLEGANE <eoname> He hasn 't been very talkative these last 20 years <eos> Since the mad King had his tongue ripped out with hot pincers <eos>
+ <boname> JOFFREY_BARATHEON <eoname> He speaks damn well with his sword though <eos> Ser Ilyn Payne , the King 's justice <eos> The royal executioner <eos> What is it , sweet lady <question> Does the hound frighten you <question> Away with you , dog <eos> You 're scaring my lady <eos> I don 't like to see you upset <eos> The sun is finally shining <eos> Come walk with me <eos>
+ <boname> SANSA_STARK <eoname> Stay , Lady <eos> I probably shouldn 't have any more <eos> Father only lets us have one cup at feasts <eos>
+ <boname> JOFFREY_BARATHEON <eoname> My princess can drink as much as she wants <eos> Don 't worry <eos> <eos> <eos> You 're safe with me <eos>
+ <open-exp> In a field next to a river , off from where everyone else is <eos> <close-exp>
+ <boname> MYCAH <eoname> I 'll get you <exclamation>
+ <boname> SANSA_STARK <eoname> Arya <exclamation>
+ <boname> ARYA_STARK <eoname> What are you doing here <question> Go away <eos>
+ <boname> JOFFREY_BARATHEON <eoname> Your sister <question> And who are you , boy <question>
+ <boname> MYCAH <eoname> Mycah , my Lord <eos>
+ <boname> SANSA_STARK <eoname> He the butcher 's boy <eos>
+ <boname> ARYA_STARK <eoname> He 's my friend <eos>
+ <boname> JOFFREY_BARATHEON <eoname> A butcher 's boy who wants to be a Knight , eh <question> Pick up your sword , butcher 's boy <eos> Let 's see how good you are <eos>
+ <boname> MYCAH <eoname> She asked me to , my Lord <eos> She asked me to <eos>
+ <boname> JOFFREY_BARATHEON <eoname> I 'm your prince , not your lord , and I said pick up your sword <eos>
+ <boname> MYCAH <eoname> It 's not a sword , my prince <eos> It 's only a stick <eos>
+ <boname> JOFFREY_BARATHEON <eoname> And you 're not a Knight <eos> Only a butcher 's boy <eos> That was my lady 's sister you were hitting , do you know that <question>
+ <boname> ARYA_STARK <eoname> Stop it <exclamation>
+ <boname> SANSA_STARK <eoname> Arya , stay out of this <eos>
+ <boname> JOFFREY_BARATHEON <eoname> I won 't hurt him <eos> <eos> <eos> Much <eos> Filthy little bitch <exclamation>
+ <boname> SANSA_STARK <eoname> No no , stop it , stop it , both of you <eos> You 're spoiling it <eos> You 're spoiling everything <exclamation>
+ <boname> JOFFREY_BARATHEON <eoname> I 'll gut you , you little cunt <exclamation>
+ <boname> SANSA_STARK <eoname> Arya <exclamation>
+ <open-exp> Arya then steps in and fights with Joffrey , disarming him and putting him on his back <eos> Her direwolf sees this as a thread and runs in to defend <eos> <close-exp>
+ <boname> ARYA_STARK <eoname> Nymeria <exclamation>
+ <boname> JOFFREY_BARATHEON <eoname> Please don 't <eos>
+ <boname> SANSA_STARK <eoname> Arya , leave him alone <eos> My prince , my poor prince , look what they did to you <eos> Stay here , I 'll go back to the inn and bring help <eos>
+ <boname> JOFFREY_BARATHEON <eoname> Then go <exclamation> Don 't touch me <eos>
+ <open-exp> - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - <close-exp>
+ <open-exp> A hunt has begun for the direwolf that attacked Joffrey <eos> <close-exp>
+ <boname> SOLDIER_1 <eoname> The wolf 's not here <eos> Look down by the stream <eos>
+ <open-exp> Arya hidden from everyone telling her direwolf to leave <eos> <close-exp>
+ <boname> ARYA_STARK <eoname> You 've got to go <eos> They 'll kill you for what you did to Joffrey <eos> Go on <eos> <eos> <eos> run <eos> Go <exclamation> Leave now <exclamation>
+ <boname> SOLDIER_2 <eoname> It 's a direwolf <eos>
+ <boname> SOLDIER_1 <eoname> I 'll check down here <eos>
+ <boname> SOLDIER_2 <eoname> I think I heard a noise <eos>
+ <boname> ARYA_STARK <eoname> Go <exclamation>
+ <open-exp> Jory comes to tell Ned that his daughter has been found <eos> <close-exp>
+ <boname> JORY_CASSEL <eoname> My lord <exclamation> My lord <exclamation> They found her <eos> She 's unharmed <eos>
+ <boname> EDDARD_STARK <eoname> Where is she <question>
+ <boname> JORY_CASSEL <eoname> She 's been taken directly before the King <eos>
+ <boname> EDDARD_STARK <eoname> Who took her <question>
+ <boname> JORY_CASSEL <eoname> The Lannisters found her <eos>
+ <boname> EDDARD_STARK <eoname> Right , get back <eos>
+ <boname> JORY_CASSEL <eoname> The Queen ordered them to bring her straight to him <eos>
+ <boname> EDDARD_STARK <eoname> Back <exclamation> Back to the inn <eos> All back <exclamation>
+ <open-exp> - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - <close-exp>
+ <open-exp> Now back at the Inn where everyone is staying <eos> <close-exp>
+ <boname> ARYA_STARK <eoname> I 'm sorry <eos>
+ <boname> EDDARD_STARK <eoname> Are you hurt <question>
+ <boname> ARYA_STARK <eoname> No <eos>
+ <boname> EDDARD_STARK <eoname> It 's all right <eos> What is the meaning of this <question> Why was my daughter not brought to me at once <question>
+ <boname> CERSEI_BARATHEON <eoname> How dare you speak to your King in that manner <question>
+ <boname> ROBERT_BARATHEON <eoname> Quiet , woman <eos> Sorry , Ned <eos> I never meant to frighten the girl <eos> But we need to get this business done quickly <eos>
+ <boname> CERSEI_BARATHEON <eoname> Your girl and that butcher 's boy attacked my son <eos> That animal of hers nearly tore his arm off <eos>
+ <boname> ARYA_STARK <eoname> That 's not true <exclamation> She just <eos> <eos> <eos> Bit him a little <eos> He was hurting Mycah <eos>
+ <boname> CERSEI_BARATHEON <eoname> Joffrey told us what happened <eos> You and that boy beat him with clubs while you set your wolf on him <eos>
+ <boname> ARYA_STARK <eoname> That 's not what happened <exclamation>
+ <boname> JOFFREY_BARATHEON <eoname> Yes it is <exclamation> They all attacked me and she threw my sword in the river <eos>
+ <boname> ARYA_STARK <eoname> Liar <exclamation>
+ <boname> JOFFREY_BARATHEON <eoname> Shut up <exclamation>
+ <boname> ROBERT_BARATHEON <eoname> Enough <exclamation> He tells me one thing , she tells me another <eos> Seven hells <exclamation> What am I to make of this <question> Where 's your other daughter , Ned <question>
+ <boname> EDDARD_STARK <eoname> In bed asleep <eos>
+ <boname> CERSEI_BARATHEON <eoname> She 's not <eos> Sansa , come here , darling <eos>
+ <boname> ROBERT_BARATHEON <eoname> Now , child <eos> <eos> <eos> Tell me what happened <eos> Tell it all and tell it true <eos> It 's a great crime to lie to a King <eos>
+ <boname> SANSA_STARK <eoname> I don 't know <eos> I don 't remember <eos> Everything happened so fast <eos> I didn 't see <eos>
+ <boname> ARYA_STARK <eoname> Liar <exclamation> Liar liar liar <exclamation>
+ <boname> SANSA_STARK <eoname> Arya <exclamation>
+ <boname> EDDARD_STARK <eoname> Stop it <exclamation> That 's enough of that <eos>
+ <boname> ARYA_STARK <eoname> Liar liar liar <exclamation>
+ <boname> EDDARD_STARK <eoname> Stop <exclamation> Arya <exclamation>
+ <boname> CERSEI_BARATHEON <eoname> She 's as wild as that animal of hers <eos> I want her punished <eos>
+ <boname> ROBERT_BARATHEON <eoname> What would you have me do , whip her through the streets <question> Damn it , children fight <eos> It 's over <eos>
+ <boname> CERSEI_BARATHEON <eoname> Joffrey will bear these scars for the rest of his life <eos>
+ <boname> ROBERT_BARATHEON <eoname> You let that little girl disarm you <question> See to it that your daughter is disciplined <eos> I 'll do the same with my son <eos>
+ <boname> EDDARD_STARK <eoname> Gladly , your Grace <eos>
+ <boname> CERSEI_BARATHEON <eoname> And what of the direwolf <question> What of the beast that savaged your son <question>
+ <boname> ROBERT_BARATHEON <eoname> I 'd forgot the damned wolf <eos>
+ <boname> SOLDIER <eoname> We found no trace of the direwolf , your Grace <eos>
+ <boname> ROBERT_BARATHEON <eoname> So be it <eos>
+ <boname> CERSEI_BARATHEON <eoname> We have another wolf <eos>
+ <boname> ROBERT_BARATHEON <eoname> As you will <eos>
+ <boname> EDDARD_STARK <eoname> You can 't mean it <eos>
+ <boname> ROBERT_BARATHEON <eoname> A direwolf 's no pet <eos> Get her a dog <eos> She 'll be happier for it <eos>
+ <boname> SANSA_STARK <eoname> He doesn 't mean Lady , does he <question> No no , not Lady <exclamation> Lady didn 't bite anyone <exclamation> She 's good <exclamation>
+ <boname> ARYA_STARK <eoname> Lady wasn 't there <exclamation> You leave her alone <exclamation>
+ <boname> SANSA_STARK <eoname> Stop them <eos> Don 't let them do it <eos> Please <exclamation> It wasn 't Lady <exclamation>
+ <boname> EDDARD_STARK <eoname> s this your command <eos> <eos> <eos> your Grace <question>
+ <boname> CERSEI_BARATHEON <eoname> Where is the beast <question>
+ <boname> SOLDIER <eoname> Chained up outside , your Grace <eos>
+ <boname> CERSEI_BARATHEON <eoname> Ser Ilyn , do me the honor <eos>
+ <boname> EDDARD_STARK <eoname> No <eos> Jory <eos> <eos> <eos> Take the girls to their rooms <eos> If it must be done , then I 'll do it myself <eos>
+ <boname> CERSEI_BARATHEON <eoname> Is this some trick <question>
+ <boname> EDDARD_STARK <eoname> The wolf is of the north <eos> She deserves better than a butcher <eos>
+ <open-exp> Once outside , before Eddard lays to rest the direwolf <eos> <close-exp>
+ <boname> EDDARD_STARK <eoname> The butcher 's boy <eos> <eos> <eos> You rode him down <question>
+ <boname> SANDOR_CLEGANE <eoname> He ran <eos> <eos> <eos> Not very fast <eos>
+ <open-exp> Eddard kills the direwolf on the King 's orders <eos> <close-exp>

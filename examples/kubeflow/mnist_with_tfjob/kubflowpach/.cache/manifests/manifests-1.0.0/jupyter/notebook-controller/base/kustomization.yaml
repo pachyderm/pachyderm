@@ -1,0 +1,46 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- cluster-role-binding.yaml
+- cluster-role.yaml
+- crd.yaml
+- deployment.yaml
+- service-account.yaml
+- service.yaml
+namePrefix: notebook-controller-
+namespace: kubeflow
+commonLabels:
+  app: notebook-controller
+  kustomize.component: notebook-controller
+images:
+- name: gcr.io/kubeflow-images-public/notebook-controller
+  newName: gcr.io/kubeflow-images-public/notebook-controller
+  newTag: v1.0.0-gcd65ce25
+configMapGenerator:
+- envs:
+  - params.env
+  name: parameters
+generatorOptions:
+  disableNameSuffixHash: true
+vars:
+- fieldref:
+    fieldPath: data.POD_LABELS
+  name: POD_LABELS
+  objref:
+    apiVersion: v1
+    kind: ConfigMap
+    name: parameters
+- fieldref:
+    fieldPath: data.USE_ISTIO
+  name: USE_ISTIO
+  objref:
+    apiVersion: v1
+    kind: ConfigMap
+    name: parameters
+- fieldref:
+    fieldPath: data.ISTIO_GATEWAY
+  name: ISTIO_GATEWAY
+  objref:
+    apiVersion: v1
+    kind: ConfigMap
+    name: parameters

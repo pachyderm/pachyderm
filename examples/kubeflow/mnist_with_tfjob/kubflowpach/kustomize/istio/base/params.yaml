@@ -1,0 +1,5 @@
+varReference:
+- path: spec/mode
+  kind: ClusterRbacConfig
+- path: spec/selector
+  kind: Gateway

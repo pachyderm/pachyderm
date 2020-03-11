@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: basic-auth
+spec:
+  selector:
+    matchLabels:
+      app: basic-auth
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: basic-auth
+    spec:
+      containers:
+      - name: app
+        args:
+        - --username=$(USERNAME)
+        - --pwhash=$(PASSWORDHASH)
+        command:
+        - /opt/kubeflow/gatekeeper
+        env:
+        - name: USERNAME
+          valueFrom:
+            secretKeyRef:
+              key: username
+              name: $(authSecretName)
+        - name: PASSWORDHASH
+          valueFrom:
+            secretKeyRef:
+              key: passwordhash
+              name: $(authSecretName)
+        image: gcr.io/kubeflow-images-public/gatekeeper:v0.5.0
+        ports:
+        - containerPort: 8085
+        workingDir: /opt/kubeflow

@@ -1,0 +1,8 @@
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: ml-pipeline-viewer
+  namespace: kubeflow
+spec:
+  rules:
+  - services: ["ml-pipeline.kubeflow.svc.cluster.local"]

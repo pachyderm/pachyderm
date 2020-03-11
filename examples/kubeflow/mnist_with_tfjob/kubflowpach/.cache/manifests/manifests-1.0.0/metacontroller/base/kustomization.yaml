@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- cluster-role-binding.yaml
+- crd.yaml
+- service-account.yaml
+- stateful-set.yaml
+commonLabels:
+  kustomize.component: metacontroller
+images:
+- name: metacontroller/metacontroller
+  newName: metacontroller/metacontroller
+  newTag: v0.3.0

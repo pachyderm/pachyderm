@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: stateful-set
+spec:
+  serviceName: service
+  selector:
+    matchLabels:
+      app: application-controller
+  template:
+    metadata:
+      labels:
+        app: application-controller
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      containers:
+      - name: manager
+        command:
+        - /root/manager
+        image: gcr.io/kubeflow-images-public/kubernetes-sigs/application
+        imagePullPolicy: Always
+        env:
+        - name: project
+          value: $(project)
+      serviceAccountName: service-account
+  volumeClaimTemplates: []

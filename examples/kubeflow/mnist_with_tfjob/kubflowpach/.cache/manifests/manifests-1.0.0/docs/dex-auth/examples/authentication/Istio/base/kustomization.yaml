@@ -1,0 +1,36 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: kubeflow
+
+resources:
+- policy.yaml
+
+configMapGenerator:
+- name: auth-parameters
+  env: params.env
+
+vars:
+- name: issuer
+  objref:
+    kind: ConfigMap
+    name: auth-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.issuer
+- name: jwks_uri
+  objref:
+    kind: ConfigMap
+    name: auth-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.jwks_uri
+- name: client_id
+  objref:
+    kind: ConfigMap
+    name: auth-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.client_id
+
+configurations:
+ - params.yaml

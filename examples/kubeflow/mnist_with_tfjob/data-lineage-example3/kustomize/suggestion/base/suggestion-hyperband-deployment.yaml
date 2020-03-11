@@ -1,0 +1,23 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: katib-suggestion-hyperband
+  labels:
+    app: katib
+    component: suggestion-hyperband
+spec:
+  replicas: 1
+  template:
+    metadata:
+      name: katib-suggestion-hyperband
+      labels:
+        app: katib
+        component: suggestion-hyperband
+    spec:
+      containers:
+      - name: katib-suggestion-hyperband
+        image: gcr.io/kubeflow-images-public/katib/v1alpha2/suggestion-hyperband:v0.1.2-alpha-289-g14dad8b
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: api
+          containerPort: 6789

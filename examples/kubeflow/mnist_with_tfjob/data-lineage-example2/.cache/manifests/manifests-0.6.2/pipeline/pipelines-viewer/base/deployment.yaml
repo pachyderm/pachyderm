@@ -1,0 +1,17 @@
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: controller-deployment
+spec:
+  template:
+    spec:
+      containers:
+      - env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        image: gcr.io/ml-pipeline/viewer-crd-controller:0.1.23
+        imagePullPolicy: Always
+        name: ml-pipeline-viewer-controller
+      serviceAccountName: crd-service-account

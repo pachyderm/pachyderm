@@ -1,0 +1,12 @@
+apiVersion: extensions/v1beta1 # networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: istio-ingress
+  namespace: istio-system
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/auth-type: oidc
+    alb.ingress.kubernetes.io/auth-idp-cognito: '{"Issuer":"$(oidcIssuer)","AuthorizationEndpoint":"$(oidcAuthorizationEndpoint)","TokenEndpoint":"$(oidcTokenEndpoint)","UserInfoEndpoint":"$(oidcUserInfoEndpoint)","SecretName":"$(oidcSecretName)"}'
+    alb.ingress.kubernetes.io/certificate-arn: $(certArn)
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'

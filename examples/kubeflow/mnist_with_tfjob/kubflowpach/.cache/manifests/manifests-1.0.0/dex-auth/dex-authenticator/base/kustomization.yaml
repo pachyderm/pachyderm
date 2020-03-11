@@ -1,0 +1,67 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: auth
+resources:
+- namespace.yaml
+- config-map.yaml
+- deployment.yaml
+- service.yaml
+configMapGenerator:
+- name: dex-authn-parameters
+  env: params.env
+vars:
+- name: issuer
+  objref:
+    kind: ConfigMap
+    name: dex-authn-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.issuer
+- name: client_id
+  objref:
+    kind: ConfigMap
+    name: dex-authn-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.client_id
+- name: application_secret
+  objref:
+    kind: ConfigMap
+    name: dex-authn-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.application_secret
+- name: cluster_name
+  objref:
+    kind: ConfigMap
+    name: dex-authn-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.cluster_name
+- name: k8s_master_uri
+  objref:
+    kind: ConfigMap
+    name: dex-authn-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.k8s_master_uri
+- name: client_redirect_uri
+  objref:
+    kind: ConfigMap
+    name: dex-authn-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.client_redirect_uri
+- name: client_listen_addr
+  objref:
+    kind: ConfigMap
+    name: dex-authn-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.client_listen_addr
+configurations:
+- params.yaml
+images:
+- name: mintel/dex-k8s-authenticator
+  newName: mintel/dex-k8s-authenticator
+  newTag: 1.2.0

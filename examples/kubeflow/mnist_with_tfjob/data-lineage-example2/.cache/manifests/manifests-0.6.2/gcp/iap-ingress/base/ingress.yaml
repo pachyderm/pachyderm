@@ -1,0 +1,18 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    certmanager.k8s.io/issuer: $(issuer)
+    ingress.kubernetes.io/ssl-redirect: "true"
+    kubernetes.io/ingress.global-static-ip-name: $(ipName)
+    kubernetes.io/tls-acme: "true"
+  name: envoy-ingress
+spec:
+  rules:
+  - host: $(hostname)
+    http:
+      paths:
+      - backend:
+          serviceName: istio-ingressgateway
+          servicePort: 80
+        path: /*

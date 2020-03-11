@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: katib-ui
+  labels:
+    app: katib
+    component: ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: katib
+      component: ui
+  template:
+    metadata:
+      name: katib-ui
+      labels:
+        app: katib
+        component: ui
+    spec:
+      containers:
+      - name: katib-ui
+        image: gcr.io/kubeflow-images-public/katib/v1alpha3/katib-ui
+        imagePullPolicy: IfNotPresent
+        command:
+          - './katib-ui'
+        args:
+          - '--port=8080'
+        env:
+        - name: KATIB_CORE_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        ports:
+        - name: ui
+          containerPort: 8080
+      serviceAccountName: katib-ui

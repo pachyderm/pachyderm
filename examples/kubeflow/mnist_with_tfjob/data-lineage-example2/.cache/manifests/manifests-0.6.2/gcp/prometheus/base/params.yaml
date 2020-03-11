@@ -1,0 +1,4 @@
+varReference:
+- path: data/prometheus.yml
+  kind: ConfigMap
+

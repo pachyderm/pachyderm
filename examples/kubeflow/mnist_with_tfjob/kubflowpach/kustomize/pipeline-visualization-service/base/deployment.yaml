@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: ml-pipeline-visualizationserver
+  name: ml-pipeline-visualizationserver
+spec:
+  selector:
+    matchLabels:
+      app: ml-pipeline-visualizationserver
+  template:
+    metadata:
+      labels:
+        app: ml-pipeline-visualizationserver
+    spec:
+      containers:
+      - image: gcr.io/ml-pipeline/visualization-server
+        imagePullPolicy: IfNotPresent
+        name: ml-pipeline-visualizationserver
+        ports:
+        - containerPort: 8888

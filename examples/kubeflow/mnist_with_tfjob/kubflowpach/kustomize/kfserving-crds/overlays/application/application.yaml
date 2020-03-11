@@ -1,0 +1,31 @@
+apiVersion: app.k8s.io/v1beta1
+kind: Application
+metadata:
+  name: kfserving-crds
+spec:
+  addOwnerRef: true
+  componentKinds:
+  - group: core
+    kind: ConfigMap
+  - group: apps
+    kind: Deployment
+  descriptor:
+    description: ''
+    keywords:
+    - kfserving-crds
+    - kubeflow
+    links:
+    - description: About
+      url: ''
+    maintainers: []
+    owners: []
+    type: kfserving-crds
+    version: v1beta1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: kfserving-crds
+      app.kubernetes.io/instance: kfserving-crds-0.2.2
+      app.kubernetes.io/managed-by: kfctl
+      app.kubernetes.io/name: kfserving-crds
+      app.kubernetes.io/part-of: kubeflow
+      app.kubernetes.io/version: 0.2.2

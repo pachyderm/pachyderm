@@ -1,0 +1,41 @@
+apiVersion: app.k8s.io/v1beta1
+kind: Application
+metadata:
+  name: kfserving
+spec:
+  componentKinds:
+  - group: apps/v1
+    kind: StatefulSet
+  - group: v1
+    kind: Service
+  - group: apps/v1
+    kind: Deployment
+  - group: v1
+    kind: Secret
+  - group: v1
+    kind: ConfigMap
+  description: KFServing provides a Kubernetes Custom Resource Definition for serving
+    ML Models on arbitrary frameworks
+  icons: null
+  keywords:
+  - kfserving
+  - inference
+  links:
+  - description: About
+    url: https://github.com/kubeflow/kfserving
+  maintainers:
+  - email: johnugeo@cisco.com
+    name: Johnu George
+  owners:
+  - email: johnugeo@cisco.com
+    name: Johnu George
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: kfserving-install
+      app.kubernetes.io/instance: kfserving-install-0.2.2
+      app.kubernetes.io/managed-by: kfctl
+      app.kubernetes.io/name: kfserving-install
+      app.kubernetes.io/part-of: kubeflow
+      app.kubernetes.io/version: 0.2.2
+  type: kfserving
+  version: v1alpha2

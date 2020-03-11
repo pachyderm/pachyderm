@@ -1,0 +1,20 @@
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: istio-jwt
+  namespace: istio-system
+spec:
+  targets:
+  - name: istio-ingressgateway
+    ports:
+    - number: 80
+  origins:
+  - jwt:
+      issuer: "https://cognito-idp.us-west-2.amazonaws.com/us-west-2_xxxxx"
+      jwksUri: "https://cognito-idp.us-west-2.amazonaws.com/us-west-2_xxxxx/.well-known/jwks.json"
+      jwtHeaders:
+      - "x-amzn-oidc-accesstoken"
+      triggerRules:
+      - excludedPaths:
+        - exact: /health_check
+  principalBinding: USE_ORIGIN

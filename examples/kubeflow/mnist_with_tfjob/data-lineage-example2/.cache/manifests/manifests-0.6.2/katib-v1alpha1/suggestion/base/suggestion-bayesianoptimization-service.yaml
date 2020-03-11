@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: vizier-suggestion-bayesianoptimization
+  labels:
+    component: suggestion-bayesianoptimization
+spec:
+  type: ClusterIP
+  ports:
+    - port: 6789
+      protocol: TCP
+      name: api
+  selector:
+    component: suggestion-bayesianoptimization

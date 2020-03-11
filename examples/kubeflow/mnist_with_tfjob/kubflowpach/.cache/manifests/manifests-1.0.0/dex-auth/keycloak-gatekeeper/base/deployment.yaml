@@ -1,0 +1,61 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak-gatekeeper
+spec:
+  replicas: 1
+  revisionHistoryLimit: 0
+  selector:
+    matchLabels:
+      app: keycloak-gatekeeper
+  template:
+    metadata:
+      labels:
+        app: keycloak-gatekeeper
+      annotations:
+        checksum/config: 485074e1c0607eca69f97a813313e55bce27515a65f57b11036c8dd074ea3a30
+    spec:
+      securityContext:
+        fsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+      - name: main
+        image: keycloak/keycloak-gatekeeper:5.0.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 3000
+          protocol: TCP
+        args:
+        - --listen=:3000
+        - --client-id=$(client_id)
+        - --client-secret=$(client_secret)
+        - --secure-cookie=$(secure_cookie)
+        - --discovery-url=$(discovery_url)
+        - --upstream-url=$(upstream_url)
+        - --redirection-url=$(redirection_url)
+        - --scopes=groups
+        - --sign-in-page=/opt/templates/sign_in.html.tmpl
+        - --forbidden-page=/opt/templates/forbidden.html.tmpl
+        - --enable-refresh-tokens=true
+        - --http-only-cookie=true
+        - --preserve-host=true
+        - --enable-encrypted-token=true
+        - --encryption-key=$(encryption_key)
+        - --enable-authorization-header
+        - --resources=uri=/*
+        volumeMounts:
+        - name: page-templates
+          mountPath: /opt/templates/forbidden.html.tmpl
+          subPath: forbidden-page
+        - name: page-templates
+          mountPath: /opt/templates/sign_in.html.tmpl
+          subPath: login-page
+        securityContext:
+            readOnlyRootFilesystem: true
+      volumes:
+      - name: page-templates
+        configMap:
+          name: keycloak-gatekeeper-page-templates

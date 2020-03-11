@@ -1,0 +1,17 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cluster-role
+rules:
+- apiGroups:
+  - kubeflow.org
+  resources:
+  - poddefaults
+  verbs:
+  - get
+  - watch
+  - list
+  - update
+  - create
+  - patch
+  - delete

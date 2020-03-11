@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mxnet-operator
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: mxnet-operator
+    spec:
+      containers:
+      - command:
+        - /opt/kubeflow/mxnet-operator.v1beta1
+        - --alsologtostderr
+        - -v=1
+        env:
+        - name: MY_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        image: mxjob/mxnet-operator:v1beta1
+        imagePullPolicy: Always
+        name: mxnet-operator
+      serviceAccountName: mxnet-operator

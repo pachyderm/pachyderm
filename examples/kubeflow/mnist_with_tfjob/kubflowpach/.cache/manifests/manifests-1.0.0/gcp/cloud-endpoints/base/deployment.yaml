@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloud-endpoints-controller
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: cloud-endpoints-controller
+    spec:
+      containers:
+      - image: gcr.io/cloud-solutions-group/cloud-endpoints-controller:0.2.1
+        imagePullPolicy: Always
+        name: cloud-endpoints-controller
+        readinessProbe:
+          failureThreshold: 2
+          httpGet:
+            path: /healthz
+            port: 80
+            scheme: HTTP
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 5
+      serviceAccountName: kf-admin
+      terminationGracePeriodSeconds: 5

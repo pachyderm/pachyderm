@@ -1,0 +1,28 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- cluster-role-binding.yaml
+- cluster-role.yaml
+- deployment.yaml
+- service-account.yaml
+commonLabels:
+  kustomize.component: spartakus
+images:
+- name: gcr.io/google_containers/spartakus-amd64
+  newName: gcr.io/google_containers/spartakus-amd64
+  newTag: v1.1.0
+configMapGenerator:
+- name: spartakus-parameters
+  env: params.env
+generatorOptions:
+  disableNameSuffixHash: true
+vars:
+- name: usageId
+  objref:
+    kind: ConfigMap
+    name: spartakus-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.usageId
+configurations:
+- params.yaml

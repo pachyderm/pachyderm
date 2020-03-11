@@ -1,0 +1,5 @@
+varReference:
+- path: spec/acme/email
+  kind: ClusterIssuer
+- path: spec/acme/server
+  kind: ClusterIssuer

@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    control-plane: seldon-controller-manager
+    controller-tools.k8s.io: "1.0"
+  name: seldon-operator-controller-manager
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: seldon-core-operator
+      app.kubernetes.io/name: seldon-core-operator
+      control-plane: seldon-controller-manager
+      controller-tools.k8s.io: "1.0"
+  serviceName: seldon-operator-controller-manager-service
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+      labels:
+        app.kubernetes.io/instance: seldon-core-operator
+        app.kubernetes.io/name: seldon-core-operator
+        control-plane: seldon-controller-manager
+        controller-tools.k8s.io: "1.0"
+    spec:
+      containers:
+      - command:
+        - /manager
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: SECRET_NAME
+          value: seldon-operator-webhook-server-secret
+        - name: AMBASSADOR_ENABLED
+          value: "true"
+        - name: AMBASSADOR_SINGLE_NAMESPACE
+          value: "false"
+        - name: ENGINE_CONTAINER_IMAGE_AND_VERSION
+          value: docker.io/seldonio/engine:0.3.0
+        - name: ENGINE_CONTAINER_IMAGE_PULL_POLICY
+          value: IfNotPresent
+        - name: ENGINE_CONTAINER_SERVICE_ACCOUNT_NAME
+          value: default
+        - name: ENGINE_CONTAINER_USER
+          value: "8888"
+        - name: PREDICTIVE_UNIT_SERVICE_PORT
+          value: "9000"
+        - name: ENGINE_SERVER_GRPC_PORT
+          value: "5001"
+        - name: ENGINE_SERVER_PORT
+          value: "8000"
+        - name: ENGINE_PROMETHEUS_PATH
+          value: prometheus
+        - name: ISTIO_ENABLED
+          value: "true"
+        - name: ISTIO_GATEWAY
+          value: kubeflow-gateway
+        image: docker.io/seldonio/seldon-core-operator:0.3.1
+        imagePullPolicy: Always
+        name: manager
+        ports:
+        - containerPort: 8080
+          name: metrics
+          protocol: TCP
+        - containerPort: 9876
+          name: webhook-server
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 100m
+            memory: 20Mi
+        volumeMounts:
+        - mountPath: /tmp/cert
+          name: cert
+          readOnly: true
+      serviceAccountName: seldon-manager
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: seldon-operator-webhook-server-secret
+  volumeClaimTemplates: []

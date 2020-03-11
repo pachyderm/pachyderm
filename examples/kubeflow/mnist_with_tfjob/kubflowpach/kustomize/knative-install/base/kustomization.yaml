@@ -1,0 +1,39 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: knative-serving
+resources:
+- gateway.yaml
+- cluster-role.yaml
+- cluster-role-binding.yaml
+- service-role.yaml
+- service-role-binding.yaml
+- role-binding.yaml
+- config-map.yaml
+- deployment.yaml
+- service-account.yaml
+- service.yaml
+- apiservice.yaml
+- image.yaml
+- hpa.yaml
+- webhook-configuration.yaml
+commonLabels:
+  kustomize.component: knative
+images:
+- name: gcr.io/knative-releases/knative.dev/serving/cmd/activator
+  newName: gcr.io/knative-releases/knative.dev/serving/cmd/activator
+  digest: sha256:8e606671215cc029683e8cd633ec5de9eabeaa6e9a4392ff289883304be1f418
+- name: gcr.io/knative-releases/knative.dev/serving/cmd/autoscaler-hpa
+  newName: gcr.io/knative-releases/knative.dev/serving/cmd/autoscaler-hpa
+  digest: sha256:5e0fadf574e66fb1c893806b5c5e5f19139cc476ebf1dff9860789fe4ac5f545
+- name: gcr.io/knative-releases/knative.dev/serving/cmd/autoscaler
+  newName: gcr.io/knative-releases/knative.dev/serving/cmd/autoscaler
+  digest: sha256:ef1f01b5fb3886d4c488a219687aac72d28e72f808691132f658259e4e02bb27
+- name: gcr.io/knative-releases/knative.dev/serving/cmd/networking/istio
+  newName: gcr.io/knative-releases/knative.dev/serving/cmd/networking/istio
+  digest: sha256:727a623ccb17676fae8058cb1691207a9658a8d71bc7603d701e23b1a6037e6c
+- name: gcr.io/knative-releases/knative.dev/serving/cmd/webhook
+  newName: gcr.io/knative-releases/knative.dev/serving/cmd/webhook
+  digest: sha256:1ef3328282f31704b5802c1136bd117e8598fd9f437df8209ca87366c5ce9fcb
+- name: gcr.io/knative-releases/knative.dev/serving/cmd/controller
+  newName: gcr.io/knative-releases/knative.dev/serving/cmd/controller
+  digest: sha256:5ca13e5b3ce5e2819c4567b75c0984650a57272ece44bc1dabf930f9fe1e19a1

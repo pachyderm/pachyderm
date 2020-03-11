@@ -1,0 +1,43 @@
+ 
+apiVersion: app.k8s.io/v1beta1
+kind: Application
+metadata:
+  name: oidc-authservice
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: oidc-authservice
+      app.kubernetes.io/instance: oidc-authservice-v1.0.0
+      app.kubernetes.io/managed-by: kfctl
+      app.kubernetes.io/component: oidc-authservice
+      app.kubernetes.io/part-of: kubeflow
+      app.kubernetes.io/version: v1.0.0
+  componentKinds:
+  - group: apps
+    kind: StatefulSet
+  - group: core
+    kind: Service
+  - group: core
+    kind: PersistentVolumeClaim
+  - group: networking.istio.io
+    kind: EnvoyFilter
+  descriptor:
+    type: oidc-authservice
+    version: v1beta1
+    description: Provides OIDC-based authentication for Kubeflow Applications, at the Istio Gateway.
+    maintainers:
+    - name: Yannis Zarkadas
+      email: yanniszark@arrikto.com
+    owners:
+    - name: Yannis Zarkadas
+      email: yanniszark@arrikto.com
+    keywords:
+     - oidc
+     - authservice
+     - authentication  
+    links:
+    - description: About
+      url: https://github.com/kubeflow/kubeflow/tree/master/components/oidc-authservice
+    - description: Docs
+      url: https://www.kubeflow.org/docs/started/k8s/kfctl-existing-arrikto
+  addOwnerRef: true

@@ -1,0 +1,33 @@
+apiVersion: app.k8s.io/v1beta1
+kind: Application
+metadata:
+  name: $(generateName)
+spec:
+  componentKinds:
+  - group: apps
+    kind: Deployment
+  - group: core
+    kind: ServiceAccount
+  - group: core
+    kind: Service
+  - group: tekton.dev
+    kind: Pipeline
+  - group: tekton.dev
+    kind: Task
+  descriptor: 
+    type: tektoncd-dashboard
+    version: v1beta1
+    description: installs tektoncd pipeline dashboard
+    maintainers:
+    - name: Kam Kasravi
+      email: kam.d.kasravi@intel.com
+    owners:
+    - name: Kam Kasravi
+      email: kam.d.kasravi@intel.com
+    keywords:
+     - tektoncd-dashboard
+     - kubeflow
+    links:
+    - description: About
+      url: "https://kubeflow.org"
+  addOwnerRef: true

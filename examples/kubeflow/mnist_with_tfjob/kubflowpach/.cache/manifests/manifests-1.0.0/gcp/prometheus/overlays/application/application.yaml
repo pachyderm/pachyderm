@@ -1,0 +1,31 @@
+apiVersion: app.k8s.io/v1beta1
+kind: Application
+metadata:
+  name: prometheus
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: prometheus
+      app.kubernetes.io/instance: prometheus-v1.0.0
+      app.kubernetes.io/managed-by: kfctl
+      app.kubernetes.io/component: prometheus
+      app.kubernetes.io/part-of: kubeflow
+      app.kubernetes.io/version: v1.0.0
+  componentKinds:
+  - group: core
+    kind: ConfigMap
+  - group: apps
+    kind: Deployment
+  descriptor:
+    type: prometheus
+    version: v1beta1
+    description: ""
+    maintainers: []
+    owners: []
+    keywords:
+     - prometheus
+     - kubeflow
+    links:
+    - description: About
+      url: ""
+  addOwnerRef: true

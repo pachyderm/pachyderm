@@ -1,0 +1,40 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: cert-manager
+resources:
+- namespace.yaml
+- api-service.yaml
+- cluster-role-binding.yaml
+- cluster-role.yaml
+- deployment.yaml
+- mutating-webhook-configuration.yaml
+- service-account.yaml
+- service.yaml
+- validating-webhook-configuration.yaml
+commonLabels:
+  kustomize.component: cert-manager
+images:
+- name: quay.io/jetstack/cert-manager-controller
+  newName: quay.io/jetstack/cert-manager-controller
+  newTag: v0.11.0
+- name: quay.io/jetstack/cert-manager-webhook
+  newName: quay.io/jetstack/cert-manager-webhook
+  newTag: v0.11.0
+- name: quay.io/jetstack/cert-manager-cainjector
+  newName: quay.io/jetstack/cert-manager-cainjector
+  newTag: v0.11.0
+configMapGenerator:
+- name: cert-manager-parameters
+  env: params.env
+generatorOptions:
+  disableNameSuffixHash: true
+vars:
+- name: namespace
+  objref:
+    kind: ConfigMap
+    name: cert-manager-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.namespace
+configurations:
+- params.yaml

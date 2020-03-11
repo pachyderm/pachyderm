@@ -1,0 +1,70 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- cluster-role-binding.yaml
+- cluster-role.yaml
+- config-map.yaml
+- deployment.yaml
+- role-binding.yaml
+- role.yaml
+- service-account.yaml
+- service.yaml
+namePrefix: jupyter-web-app-
+namespace: kubeflow
+commonLabels:
+  app: jupyter-web-app
+  kustomize.component: jupyter-web-app
+images:
+  - name: gcr.io/kubeflow-images-public/jupyter-web-app
+    newName: gcr.io/kubeflow-images-public/jupyter-web-app
+    newTag: 9419d4d
+configMapGenerator:
+- name: parameters
+  env: params.env
+generatorOptions:
+  disableNameSuffixHash: true
+vars:
+- name: policy
+  objref:
+    kind: ConfigMap
+    name: parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.policy
+- name: prefix
+  objref:
+    kind: ConfigMap
+    name: parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.prefix
+- name: clusterDomain
+  objref:
+    kind: ConfigMap
+    name: parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.clusterDomain
+- name: namespace
+  objref:
+    kind: Service
+    name: service
+    apiVersion: v1
+  fieldref:
+    fieldpath: metadata.namespace
+- name: userid-header
+  objref:
+    kind: ConfigMap
+    name: parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.userid-header
+- name: userid-prefix
+  objref:
+    kind: ConfigMap
+    name: parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.userid-prefix
+configurations:
+- params.yaml

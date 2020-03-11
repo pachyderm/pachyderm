@@ -1,0 +1,20 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: argo-ui
+spec:
+  gateways:
+  - kubeflow-gateway
+  hosts:
+  - '*'
+  http:
+  - match:
+    - uri:
+        prefix: /argo/
+    rewrite:
+      uri: /
+    route:
+    - destination:
+        host: argo-ui.$(namespace).svc.$(clusterDomain)
+        port:
+          number: 80

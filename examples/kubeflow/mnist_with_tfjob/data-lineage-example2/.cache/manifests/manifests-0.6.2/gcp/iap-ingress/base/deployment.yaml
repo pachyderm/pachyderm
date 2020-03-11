@@ -1,0 +1,75 @@
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: whoami-app
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: whoami
+    spec:
+      containers:
+      - env:
+        - name: PORT
+          value: "8081"
+        image: gcr.io/cloud-solutions-group/esp-sample-app:1.0.0
+        name: app
+        ports:
+        - containerPort: 8081
+        readinessProbe:
+          failureThreshold: 2
+          httpGet:
+            path: /healthz
+            port: 8081
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: iap-enabler
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        service: iap-enabler
+    spec:
+      containers:
+      - command:
+        - bash
+        - /var/envoy-config/setup_backend.sh
+        env:
+        - name: NAMESPACE
+          value: $(istioNamespace)
+        - name: SERVICE
+          value: istio-ingressgateway
+        - name: INGRESS_NAME
+          value: $(ingressName)
+        - name: ENVOY_ADMIN
+          value: http://localhost:8001
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: /var/run/secrets/sa/admin-gcp-sa.json
+        - name: USE_ISTIO
+          value: "true"
+        image: gcr.io/kubeflow-images-public/ingress-setup:latest
+        name: iap
+        volumeMounts:
+        - mountPath: /var/envoy-config/
+          name: config-volume
+        - mountPath: /var/run/secrets/sa
+          name: sa-key
+          readOnly: true
+      restartPolicy: Always
+      serviceAccountName: envoy
+      volumes:
+      - configMap:
+          name: envoy-config
+        name: config-volume
+      - name: sa-key
+        secret:
+          secretName: $(adminSaSecretName)

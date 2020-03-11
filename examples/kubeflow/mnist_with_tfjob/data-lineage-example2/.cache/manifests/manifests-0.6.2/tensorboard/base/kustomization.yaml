@@ -1,0 +1,28 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: kubeflow
+resources:
+- deployment.yaml
+- service.yaml
+commonLabels:
+  kustomize.component: tensorboard
+configMapGenerator:
+- name: parameters
+  env: params.env
+vars:
+- name: namespace
+  objref:
+    kind: Service
+    name: tensorboard
+    apiVersion: v1
+  fieldref:
+    fieldpath: metadata.namespace
+- name: clusterDomain
+  objref:
+    kind: ConfigMap
+    name: parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.clusterDomain
+configurations:
+- params.yaml

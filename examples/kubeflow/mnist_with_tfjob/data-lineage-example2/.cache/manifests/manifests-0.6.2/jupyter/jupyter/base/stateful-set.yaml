@@ -1,0 +1,54 @@
+apiVersion: apps/v1beta2
+kind: StatefulSet
+metadata:
+  name: jupyter
+spec:
+  selector:
+    matchLabels:
+      k8s-app: jupyter
+  replicas: 1
+  serviceName: ""
+  template:
+    metadata:
+      labels:
+        app: jupyter
+    spec:
+      containers:
+      - command:
+        - jupyterhub
+        - -f
+        - /etc/config/jupyter_config.py
+        env:
+        - name: KF_AUTHENTICATOR
+          valueFrom:
+            configMapKeyRef:
+              name: parameters
+              key: KF_AUTHENTICATOR
+        - name: DEFAULT_JUPYTERLAB
+          valueFrom:
+            configMapKeyRef:
+              name: parameters
+              key: DEFAULT_JUPYTERLAB
+        - name: STORAGE_CLASS
+          valueFrom:
+            configMapKeyRef:
+              name: parameters
+              key: STORAGE_CLASS
+        - name: ROK_SECRET_NAME
+          value: secret-rok-{username}
+        image: gcr.io/kubeflow/jupyterhub-k8s:v20180531-3bb991b1
+        name: jupyter
+        ports:
+        - containerPort: 8000
+        - containerPort: 8081
+        volumeMounts:
+        - mountPath: /etc/config
+          name: config-volume
+      serviceAccountName: jupyter
+      volumes:
+      - configMap:
+          name: jupyter-config
+        name: config-volume
+  updateStrategy:
+    type: RollingUpdate
+  volumeClaimTemplates: []

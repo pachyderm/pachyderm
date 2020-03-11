@@ -1,0 +1,66 @@
+namePrefix: metadata-
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+commonLabels:
+  kustomize.component: metadata
+configMapGenerator:
+- name: ui-parameters
+  env: params.env
+- name: metadata-grpc-configmap
+  env: grpc-params.env
+resources:
+- metadata-deployment.yaml
+- metadata-service.yaml
+- metadata-ui-deployment.yaml
+- metadata-ui-role.yaml
+- metadata-ui-rolebinding.yaml
+- metadata-ui-sa.yaml
+- metadata-ui-service.yaml
+- metadata-envoy-deployment.yaml
+- metadata-envoy-service.yaml
+namespace: kubeflow
+vars:
+- name: ui-namespace
+  objref:
+    kind: Service
+    name: ui
+    apiVersion: v1
+  fieldref:
+    fieldpath: metadata.namespace
+- name: ui-clusterDomain
+  objref:
+    kind: ConfigMap
+    name: ui-parameters
+    version: v1
+  fieldref:
+    fieldpath: data.uiClusterDomain
+- name: service
+  objref:
+    kind: Service
+    name: ui
+    apiVersion: v1
+  fieldref:
+    fieldpath: metadata.name
+- name: metadata-envoy-service
+  objref:
+    kind: Service
+    name: envoy-service
+    apiVersion: v1
+  fieldref:
+    fieldpath: metadata.name
+images:
+- name: gcr.io/kubeflow-images-public/metadata
+  newName: gcr.io/kubeflow-images-public/metadata
+  newTag: v0.1.11
+- name: gcr.io/tfx-oss-public/ml_metadata_store_server
+  newName: gcr.io/tfx-oss-public/ml_metadata_store_server
+  newTag: v0.21.1
+- name: gcr.io/ml-pipeline/envoy
+  newName: gcr.io/ml-pipeline/envoy
+  newTag: metadata-grpc
+- name: mysql
+  newName: mysql
+  newTag: 8.0.3
+- name: gcr.io/kubeflow-images-public/metadata-frontend
+  newName: gcr.io/kubeflow-images-public/metadata-frontend
+  newTag: v0.1.8

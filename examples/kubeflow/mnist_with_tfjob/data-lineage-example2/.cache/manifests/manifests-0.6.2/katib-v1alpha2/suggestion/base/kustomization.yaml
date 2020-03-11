@@ -1,0 +1,25 @@
+namespace: kubeflow
+resources:
+- suggestion-bayesianoptimization-deployment.yaml
+- suggestion-bayesianoptimization-service.yaml
+- suggestion-grid-deployment.yaml
+- suggestion-grid-service.yaml
+- suggestion-hyperband-deployment.yaml
+- suggestion-hyperband-service.yaml
+- suggestion-nasrl-deployment.yaml
+- suggestion-nasrl-service.yaml
+- suggestion-random-deployment.yaml
+- suggestion-random-service.yaml
+generatorOptions:
+  disableNameSuffixHash: true
+images:
+  - name: gcr.io/kubeflow-images-public/katib/v1alpha2/suggestion-hyperband
+    newTag: v0.6.0-rc.0
+  - name: gcr.io/kubeflow-images-public/katib/v1alpha2/suggestion-bayesianoptimization
+    newTag: v0.6.0-rc.0
+  - name: gcr.io/kubeflow-images-public/katib/v1alpha2/suggestion-grid
+    newTag: v0.6.0-rc.0
+  - name: gcr.io/kubeflow-images-public/katib/v1alpha2/suggestion-random
+    newTag: v0.6.0-rc.0
+  - name: gcr.io/kubeflow-images-public/katib/v1alpha2/suggestion-nasrl
+    newTag: v0.6.0-rc.0

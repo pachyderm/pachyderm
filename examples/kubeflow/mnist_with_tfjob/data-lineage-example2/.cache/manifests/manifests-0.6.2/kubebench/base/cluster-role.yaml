@@ -1,0 +1,42 @@
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: kubebench-operator
+rules:
+- apiGroups:
+  - kubebench.operator
+  resources:
+  - kubebenchjobs.kubebench.operator
+  - kubebenchjobs
+  verbs:
+  - create
+  - update
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - pods
+  - pods/exec
+  - services
+  - endpoints
+  - persistentvolumeclaims
+  - events
+  - secrets
+  verbs:
+  - '*'
+- apiGroups:
+  - kubeflow.org
+  resources:
+  - tfjobs
+  - pytorchjobs
+  verbs:
+  - '*'
+- apiGroups:
+  - argoproj.io
+  resources:
+  - workflows
+  verbs:
+  - '*'

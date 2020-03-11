@@ -1,0 +1,93 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dex-authenticator-cm
+  labels:
+    app: dex-authenticator
+data:
+  config.yaml: |-
+    clusters:
+      # Specify 1 or more clusters
+      - name: $(cluster_name)
+
+        # Descriptions used in the WebUI
+        short_description: "Dex Cluster"
+        description: "Dex Server for Kubeflow"
+
+        # Redirect Url pointing to dex-k8s-authenticator callback for this cluster
+        # This should be configured in Dex as part of the staticClients
+        # redirectURIs option
+        redirect_uri: $(client_redirect_uri)
+
+        # Client Secret - should match value in Dex
+        client_secret: $(application_secret)
+
+        # Client ID - should match value in Dex
+        client_id: $(client_id)
+
+        # Dex Issuer - Must be resolvable
+        issuer: $(issuer)
+
+        # Url to k8s API endpoint - used in WebUI instructions for generating
+        # kubeconfig
+        k8s_master_uri: $(k8s_master_uri)
+
+        # don't use username for context
+        static_context_name: false
+
+        # CA for your k8s cluster - used in WebUI instructions for generating
+        # kubeconfig
+        # Both k8s_ca_uri and k8s_ca_pem are optional - you typically specifiy
+        # one or the other if required
+        #
+        # Provides a link to the CA from a hosted site
+        # k8s_ca_uri: http://url-to-your-ca.crt
+        #
+        # Provides abililty to specify CA inline
+        # k8s_ca_pem: |
+        #   -----BEGIN CERTIFICATE-----
+        #   ...
+        #   -----END CERTIFICATE-----
+        k8s_ca_pem_file: /app/k8s_ca.pem
+
+    # Specify multiple extra root CA files to be loaded
+    # trusted_root_ca:
+    #   -|
+    #     -----BEGIN CERTIFICATE-----
+    #     ...
+    #     -----END CERTIFICATE-----
+    trusted_root_ca_file: /app/idp_ca.pem
+
+    # Specify path to tls_cert and tls_key - if enabled, set liten to use https
+    # tls_cert: /path/to/dex-client.crt
+    # tls_key: /path/to/dex-client.key
+
+    # CA for your IDP - used in WebUI instructions for generating
+    # kubeconfig
+    # Both idp_ca_uri and idp_ca_pem are optional - you typically specifiy
+    # one or the other if required
+    #
+    # Provides a link to the CA from a hosted site
+    # idp_ca_uri: http://url-to-your-ca.crt
+    #
+    # Provides abililty to specify CA inline
+    # idp_ca_pem: |
+    #   -----BEGIN CERTIFICATE-----
+    #   ...
+    #   -----END CERTIFICATE-----
+    idp_ca_pem_file: /app/idp_ca.pem
+
+    # Which address to listen on (set to https if tls configured)
+    listen: $(client_listen_addr)
+
+    # A path-prefix from which to serve requests and assets
+    web_path_prefix: /
+
+    # Optional kubectl version which provides a download link to the the binary
+    kubectl_version: v1.11.2
+
+    # Optional Url to display a logo image
+    # logo_uri: http://<path-to-your-logo.png>
+
+    # Enable more debug
+    debug: false

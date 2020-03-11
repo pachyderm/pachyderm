@@ -1,0 +1,45 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    prometheus.io/scrape: "true"
+  name: jupyter-0
+spec:
+  clusterIP: None
+  ports:
+  - name: hub
+    port: 8000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    getambassador.io/config: |-
+      ---
+      apiVersion: ambassador/v0
+      kind:  Mapping
+      name: jupyter-lb-hub-mapping
+      prefix: /hub/
+      rewrite: /hub/
+      timeout_ms: 300000
+      service: jupyter-lb.$(namespace)
+      use_websocket: true
+      ---
+      apiVersion: ambassador/v0
+      kind:  Mapping
+      name: jupyter-lb-user-mapping
+      prefix: /user/
+      rewrite: /user/
+      timeout_ms: 300000
+      service: jupyter-lb.$(namespace)
+      use_websocket: true
+  labels:
+    app: jupyter-lb
+  name: jupyter-lb
+spec:
+  ports:
+  - name: hub
+    port: 80
+    targetPort: 8000
+  type: $(serviceType)

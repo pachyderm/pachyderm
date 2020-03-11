@@ -1,0 +1,49 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: vizier-db
+  labels:
+    component: db
+spec:
+  replicas: 1
+  template:
+    metadata:
+      name: vizier-db
+      labels:
+        component: db
+    spec:
+      containers:
+      - name: vizier-db
+        image: mysql:8.0.3
+        args:
+        - --datadir
+        - /var/lib/mysql/datadir
+        env:
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: vizier-db-secrets
+                key: MYSQL_ROOT_PASSWORD
+          - name: MYSQL_ALLOW_EMPTY_PASSWORD
+            value: "true"
+          - name: MYSQL_DATABASE
+            value: "vizier"
+        ports:
+        - name: dbapi
+          containerPort: 3306
+        readinessProbe:
+          exec:
+            command:
+            - "/bin/bash"
+            - "-c"
+            - "mysql -D $$MYSQL_DATABASE -p$$MYSQL_ROOT_PASSWORD -e 'SELECT 1'"
+          initialDelaySeconds: 5
+          periodSeconds: 2
+          timeoutSeconds: 1
+        volumeMounts:
+        - name: katib-mysql
+          mountPath: /var/lib/mysql
+      volumes:
+      - name: katib-mysql
+        persistentVolumeClaim:
+          claimName: katib-mysql

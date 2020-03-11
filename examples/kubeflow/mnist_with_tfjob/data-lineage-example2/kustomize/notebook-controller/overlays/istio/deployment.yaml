@@ -1,0 +1,12 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: deployment
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        env:
+          - name: USE_ISTIO
+            value: $(USE_ISTIO)

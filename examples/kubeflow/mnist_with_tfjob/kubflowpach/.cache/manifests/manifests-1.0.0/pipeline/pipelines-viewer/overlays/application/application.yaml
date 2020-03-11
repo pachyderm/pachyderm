@@ -1,0 +1,31 @@
+apiVersion: app.k8s.io/v1beta1
+kind: Application
+metadata:
+  name: pipelines-viewer
+spec:
+  addOwnerRef: true
+  componentKinds:
+  - group: core
+    kind: ConfigMap
+  - group: apps
+    kind: Deployment
+  descriptor:
+    description: ''
+    keywords:
+    - pipelines-viewer
+    - kubeflow
+    links:
+    - description: About
+      url: ''
+    maintainers: []
+    owners: []
+    type: pipelines-viewer
+    version: v1beta1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: pipelines-viewer
+      app.kubernetes.io/instance: pipelines-viewer-0.2.0
+      app.kubernetes.io/managed-by: kfctl
+      app.kubernetes.io/name: pipelines-viewer
+      app.kubernetes.io/part-of: kubeflow
+      app.kubernetes.io/version: 0.2.0

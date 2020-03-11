@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: vizier-core
+  labels:
+    component: core
+spec:
+  type: NodePort
+  ports:
+    - port: 6789
+      protocol: TCP
+      nodePort: 30678
+      name: api
+  selector:
+    component: core

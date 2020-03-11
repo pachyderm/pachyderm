@@ -1,0 +1,9 @@
+varReference:
+- path: spec/gcePersistentDisk/pdName
+  kind: PersistentVolume
+- path: metadata/name
+  kind: PersistentVolume
+- path: spec/volumeName
+  kind: PersistentVolumeClaim
+- path: metadata/name
+  kind: PersistentVolumeClaim

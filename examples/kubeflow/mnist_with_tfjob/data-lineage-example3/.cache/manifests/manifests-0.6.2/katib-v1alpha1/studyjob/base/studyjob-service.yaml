@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: studyjob-controller
+spec:
+  ports:
+  - port: 443
+    protocol: TCP
+    targetPort: 443
+  selector:
+    app: studyjob-controller

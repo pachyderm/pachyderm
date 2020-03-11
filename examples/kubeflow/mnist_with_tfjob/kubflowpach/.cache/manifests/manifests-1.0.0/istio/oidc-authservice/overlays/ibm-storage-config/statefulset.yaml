@@ -1,0 +1,15 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: authservice
+spec:
+  template:
+    spec:
+      initContainers:
+      - name: fix-permission
+        image: busybox
+        command: ['sh', '-c']
+        args: ['chmod -R 777 /var/lib/authservice;']
+        volumeMounts:
+        - mountPath: /var/lib/authservice
+          name: data

@@ -1,0 +1,14 @@
+namespace: kubeflow
+resources:
+- experiment-crd.yaml
+- katib-controller-deployment.yaml
+- katib-controller-rbac.yaml
+- katib-controller-secret.yaml
+- katib-controller-service.yaml
+- trial-crd.yaml
+- trial-template.yaml
+generatorOptions:
+  disableNameSuffixHash: true
+images:
+  - name: gcr.io/kubeflow-images-public/katib/v1alpha2/katib-controller
+    newTag: v0.6.0-rc.0

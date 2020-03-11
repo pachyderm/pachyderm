@@ -1,0 +1,114 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- backend-config.yaml
+- certificate.yaml
+- cloud-endpoint.yaml
+- cluster-role-binding.yaml
+- cluster-role.yaml
+- config-map.yaml
+- deployment.yaml
+- ingress.yaml
+- job.yaml
+- policy.yaml
+- service-account.yaml
+- service.yaml
+- stateful-set.yaml
+namespace: kubeflow
+commonLabels:
+  kustomize.component: iap-ingress
+images:
+  - name: gcr.io/kubeflow-images-public/envoy
+    newName: gcr.io/kubeflow-images-public/envoy
+    newTag: v20180309-0fb4886b463698702b6a08955045731903a18738
+  - name: gcr.io/kubeflow-images-public/ingress-setup
+    newName: gcr.io/kubeflow-images-public/ingress-setup
+    newTag: latest
+  - name: gcr.io/cloud-solutions-group/esp-sample-app
+    newName: gcr.io/cloud-solutions-group/esp-sample-app
+    newTag: 1.0.0
+configMapGenerator:
+- name: parameters
+  env: params.env
+generatorOptions:
+  disableNameSuffixHash: true
+vars:
+- name: namespace
+  objref:
+    kind: ConfigMap
+    name: parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.namespace
+- name: appName
+  objref:
+    kind: ConfigMap
+    name: parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.appName
+- name: hostname
+  objref:
+    kind: ConfigMap
+    name: parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.hostname
+- name: ipName
+  objref:
+    kind: ConfigMap
+    name: parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.ipName
+- name: ingressName
+  objref:
+    kind: ConfigMap
+    name: parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.ingressName
+- name: issuer
+  objref:
+    kind: ConfigMap
+    name: parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.issuer
+- name: oauthSecretName
+  objref:
+    kind: ConfigMap
+    name: parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.oauthSecretName
+- name: project
+  objref:
+    kind: ConfigMap
+    name: parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.project
+- name: adminSaSecretName
+  objref:
+    kind: ConfigMap
+    name: parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.adminSaSecretName
+- name: tlsSecretName
+  objref:
+    kind: ConfigMap
+    name: parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.tlsSecretName
+- name: istioNamespace
+  objref:
+    kind: ConfigMap
+    name: parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.istioNamespace
+configurations:
+- params.yaml

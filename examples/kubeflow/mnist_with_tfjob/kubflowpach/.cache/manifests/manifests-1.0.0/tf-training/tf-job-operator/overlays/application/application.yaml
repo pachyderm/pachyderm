@@ -1,0 +1,42 @@
+apiVersion: app.k8s.io/v1beta1
+kind: Application
+metadata:
+  name: tf-job-operator
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tf-job-operator
+      app.kubernetes.io/instance: tf-job-operator-v1.0.0
+      app.kubernetes.io/managed-by: kfctl
+      app.kubernetes.io/component: tfjob
+      app.kubernetes.io/part-of: kubeflow
+      app.kubernetes.io/version: v1.0.0
+  componentKinds:
+  - group: core
+    kind: Service
+  - group: apps
+    kind: Deployment
+  - group: core
+    kind: ServiceAccount
+  - group: kubeflow.org
+    kind: TFJob
+  descriptor:
+    type: "tf-job-operator"
+    version: "v1"
+    description: "Tf-operator allows users to create and manage the \"TFJob\" custom resource."
+    maintainers:
+    - name: Richard Liu
+      email: ricliu@google.com
+    owners:
+    - name: Richard Liu
+      email: ricliu@google.com
+    keywords:
+    - "tfjob"
+    - "tf-operator"
+    - "tf-training"
+    links:
+    - description: About
+      url: "https://github.com/kubeflow/tf-operator"
+    - description: Docs
+      url: "https://www.kubeflow.org/docs/reference/tfjob/v1/tensorflow/"
+  addOwnerRef: true

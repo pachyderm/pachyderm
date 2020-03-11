@@ -1,0 +1,88 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- backend-config.yaml
+- cloud-endpoint.yaml
+- cluster-role-binding.yaml
+- cluster-role.yaml
+- config-map.yaml
+- deployment.yaml
+- ingress.yaml
+- istio-mapping-svc.yaml
+- service-account.yaml
+- service.yaml
+- stateful-set.yaml
+namespace: kubeflow
+commonLabels:
+  kustomize.component: basic-auth-ingress
+images:
+- name: gcr.io/kubeflow-images-public/ingress-setup
+  newName: gcr.io/kubeflow-images-public/ingress-setup
+  newTag: latest
+- name: gcr.io/cloud-solutions-group/esp-sample-app
+  newName: gcr.io/cloud-solutions-group/esp-sample-app
+  newTag: 1.0.0
+configMapGenerator:
+- name: basic-auth-ingress-parameters
+  env: params.env
+generatorOptions:
+  disableNameSuffixHash: true
+vars:
+- name: secretName
+  objref:
+    kind: ConfigMap
+    name: basic-auth-ingress-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.secretName
+- name: appName
+  objref:
+    kind: ConfigMap
+    name: basic-auth-ingress-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.appName
+- name: namespace
+  objref:
+    kind: ConfigMap
+    name: basic-auth-ingress-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: metadata.namespace
+- name: hostname
+  objref:
+    kind: ConfigMap
+    name: basic-auth-ingress-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.hostname
+- name: project
+  objref:
+    kind: ConfigMap
+    name: basic-auth-ingress-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.project
+- name: ipName
+  objref:
+    kind: ConfigMap
+    name: basic-auth-ingress-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.ipName
+- name: ingressName
+  objref:
+    kind: ConfigMap
+    name: basic-auth-ingress-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.ingressName
+- name: istioNamespace
+  objref:
+    kind: ConfigMap
+    name: basic-auth-ingress-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.istioNamespace
+configurations:
+- params.yaml

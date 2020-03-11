@@ -1,0 +1,31 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: kubeflow
+# Labels to add to all resources and selectors.
+commonLabels:
+  kustomize.component: spark-operator
+  app.kubernetes.io/instance: spark-operator
+  app.kubernetes.io/name: sparkoperator
+
+# Images modify the tags for images without
+# creating patches.
+images:
+- name: gcr.io/spark-operator/spark-operator
+  newTag: v1beta2-1.0.0-2.4.4
+
+# Value of this field is prepended to the
+# names of all resources
+  newName: gcr.io/spark-operator/spark-operator
+namePrefix: spark-operator
+
+# List of resource files that kustomize reads, modifies
+# and emits as a YAML string
+resources:
+- spark-sa.yaml
+- cr-clusterrole.yaml
+- crb.yaml
+- crd-cleanup-job.yaml
+- deploy.yaml
+- operator-sa.yaml
+- sparkapplications.sparkoperator.k8s.io-crd.yaml
+- scheduledsparkapplications.sparkoperator.k8s.io-crd.yaml

@@ -1,0 +1,12 @@
+apiVersion: v1
+appVersion: v1beta2-1.0.0-2.4.4
+description: Spark operator based on https://github.com/GoogleCloudPlatform/spark-on-k8s-operator
+home: https://github.com/kubeflow/manifests/spark-operator
+keywords:
+- spark
+kubeVersion: '>=1.8.0-0'
+maintainers:
+- email: holden.karau@gmail.com
+  name: holdenk
+name: sparkoperator
+version: 0.4.0

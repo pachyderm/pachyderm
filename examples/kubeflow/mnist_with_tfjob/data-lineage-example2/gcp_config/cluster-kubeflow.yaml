@@ -1,0 +1,41 @@
+imports:
+- path: cluster.jinja
+resources:
+- name: kubeflow
+  properties:
+    autoprovisioning-config:
+      enabled: true
+      max-accelerator:
+      - count: 8
+        type: nvidia-tesla-k80
+      max-cpu: 20
+      max-memory: 200
+    cluster-version: "1.12"
+    cpu-pool-enable-autoscaling: true
+    cpu-pool-initialNodeCount: 2
+    cpu-pool-machine-type: n1-standard-8
+    cpu-pool-max-nodes: 10
+    cpu-pool-min-nodes: 0
+    enable_tpu: false
+    gkeApiVersion: v1beta1
+    gpu-number-per-node: 1
+    gpu-pool-enable-autoscaling: true
+    gpu-pool-initialNodeCount: 0
+    gpu-pool-machine-type: n1-standard-8
+    gpu-pool-max-nodes: 0
+    gpu-pool-min-nodes: 0
+    gpu-type: nvidia-tesla-k80
+    ipName: data-lineage-example2-ip
+    pool-version: v1
+    securityConfig:
+      masterAuthorizedNetworksConfigCidr:
+      - cidrBlock: 1.2.3.4/32
+      masterAuthorizedNetworksConfigEnabled: false
+      masterIpv4CidrBlock: 172.16.0.16/28
+      podSecurityPolicy: false
+      privatecluster: false
+      secureNodeMetadata: false
+    users:
+    - user:nick@pachyderm.io
+    zone: us-east1-b
+  type: cluster.jinja

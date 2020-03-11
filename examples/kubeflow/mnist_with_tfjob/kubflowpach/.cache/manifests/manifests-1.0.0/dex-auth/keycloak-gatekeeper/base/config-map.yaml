@@ -1,0 +1,70 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-gatekeeper-page-templates
+data:
+  forbidden-page: |
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Forbidden</title>
+        <style>
+        body { margin:0; padding:0; }
+        .fullscreen { position:fixed; margin:0; padding:0; height:100vh; width:100vw; text-align:center; }
+        .bg { z-index:1; }
+        .fg { z-index:2; }
+        .textwall { font-size:35vw; color: lavender; line-height:100vh; vertical-align:middle; }
+        .textblock { position:absolute; width: 100vw; top:50%; transform:translate(0,-50%); }
+        .textblock h1,p { padding: 1em 0 1em 0; margin:0; background-color: rgba(255,255,255,0.6); }
+        </style>
+    </head>
+    <body>
+
+    <div class="fullscreen bg textwall">(°◇°)</div>
+    <div class="fullscreen fg">
+      <div class="textblock">
+        <h1>Access forbidden</h1>
+        <p>You do not have sufficient privileges to access this resource.</p>
+      </div>
+    </div>
+
+    </body>
+    </html>
+  login-page: |
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Redirecting to SSO login page...</title>
+        <style>
+        body { margin:0; padding:0; }
+        .fullscreen { position:fixed; margin:0; padding:0; height:100vh; width:100vw; text-align:center; }
+        .bg { z-index:1; }
+        .fg { z-index:2; }
+        .textwall { font-size:35vw; color: lavender; line-height:100vh; vertical-align:middle; }
+        .textblock { position:absolute; width: 100vw; top:50%; transform:translate(0,-50%); }
+        .textblock h1,p { padding: 1em 0 1em 0; margin:0; background-color: rgba(255,255,255,0.6); }
+        </style>
+        <script>
+        function redirectToLoginPage() {
+          let loginPageURL = "{{ .redirect }}"
+          window.location.replace(loginPageURL);
+        }
+        setTimeout(redirectToLoginPage,3000);
+        </script>
+    </head>
+    <body>
+
+    <div class="fullscreen bg textwall">¯\_(ツ)_/¯</div>
+    <div class="fullscreen fg">
+      <div class="textblock">
+        <h1>Access token expired</h1>
+        <p>You will be automatically redirected to your SSO provider's Sign In page for this app.</p>
+        <p>If not, <a href="{{ .redirect }}">click here to sign in</a>.</p>
+      </div>
+    </div>
+
+    </body>
+    </html>

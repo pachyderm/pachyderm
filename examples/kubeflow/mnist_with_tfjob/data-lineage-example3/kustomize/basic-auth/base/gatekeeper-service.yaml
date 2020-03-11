@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    getambassador.io/config: |-
+      ---
+      apiVersion: ambassador/v0
+      kind:  AuthService
+      name: basic-auth
+      auth_service: basic-auth.$(service-namespace):8085
+      allowed_headers:
+      - "x-from-login"
+  labels:
+    app: basic-auth
+  name: basic-auth
+spec:
+  ports:
+  - port: 8085
+    targetPort: 8085
+  selector:
+    app: basic-auth
+  type: ClusterIP

@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    control-plane: seldon-controller-manager
+    controller-tools.k8s.io: "1.0"
+  name: seldon-operator-controller-manager-service
+spec:
+  ports:
+  - port: 443
+  selector:
+    control-plane: seldon-controller-manager
+    controller-tools.k8s.io: "1.0"

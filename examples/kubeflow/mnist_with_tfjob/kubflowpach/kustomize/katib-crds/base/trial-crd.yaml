@@ -1,0 +1,28 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: trials.kubeflow.org
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.conditions[-1:].type
+    name: Type
+    type: string
+  - JSONPath: .status.conditions[-1:].status
+    name: Status
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  group: kubeflow.org
+  version: v1alpha3
+  scope: Namespaced
+  subresources:
+    status: {}
+  names:
+    kind: Trial
+    singular: trial
+    plural: trials
+    categories:
+    - all
+    - kubeflow
+    - katib

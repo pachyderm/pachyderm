@@ -1,0 +1,49 @@
+apiVersion: apps/v1beta2
+kind: StatefulSet
+metadata:
+  labels:
+    service: backend-updater
+  name: backend-updater
+spec:
+  selector:
+    matchLabels:
+      service: backend-updater
+  serviceName: "backend-updater"
+  template:
+    metadata:
+      labels:
+        service: backend-updater
+    spec:
+      containers:
+      - command:
+        - bash
+        - /var/envoy-config/update_backend.sh
+        env:
+        - name: NAMESPACE
+          value: $(namespace)
+        - name: SERVICE
+          value: ambassador
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: /var/run/secrets/sa/admin-gcp-sa.json
+        - name: HEALTHCHECK_PATH
+          value: /whoami
+        - name: INGRESS_NAME
+          value: $(ingressName)
+        image: gcr.io/kubeflow-images-public/ingress-setup:latest
+        name: backend-updater
+        volumeMounts:
+        - mountPath: /var/envoy-config/
+          name: config-volume
+        - mountPath: /var/run/secrets/sa
+          name: sa-key
+          readOnly: true
+      serviceAccountName: envoy
+      volumes:
+      - configMap:
+          name: envoy-config
+        name: config-volume
+      - name: sa-key
+        secret:
+          secretName: admin-gcp-sa
+  # Workaround for https://github.com/kubernetes-sigs/kustomize/issues/677
+  volumeClaimTemplates: []

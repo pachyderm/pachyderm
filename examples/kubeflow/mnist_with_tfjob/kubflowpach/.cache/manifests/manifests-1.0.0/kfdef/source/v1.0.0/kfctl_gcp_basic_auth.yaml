@@ -1,0 +1,13 @@
+# Please set project and email!
+apiVersion: kfdef.apps.kubeflow.org/v1
+kind: KfDef
+metadata:
+  name: kfctl-gcp-basic-auth
+spec:
+  repos:
+  - name: manifests
+    uri: https://github.com/kubeflow/manifests/archive/v1.0-branch.tar.gz
+    # To get manifest at a PR:
+    #uri: https://github.com/kubeflow/manifests/archive/pull/235/head.tar.gz
+  version: v1.0.0
+

@@ -1,0 +1,3 @@
+varReference:
+- path: spec/type
+  kind: Service

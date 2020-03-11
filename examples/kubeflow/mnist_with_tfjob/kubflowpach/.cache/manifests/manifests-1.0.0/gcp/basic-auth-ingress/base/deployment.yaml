@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: whoami-app
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: whoami
+    spec:
+      containers:
+      - env:
+        - name: PORT
+          value: "8081"
+        image: gcr.io/cloud-solutions-group/esp-sample-app:1.0.0
+        name: app
+        ports:
+        - containerPort: 8081
+        readinessProbe:
+          failureThreshold: 2
+          httpGet:
+            path: /healthz
+            port: 8081
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5

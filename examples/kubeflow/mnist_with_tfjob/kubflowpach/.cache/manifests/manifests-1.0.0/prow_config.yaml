@@ -1,0 +1,33 @@
+# This file configures the workflows to trigger in our Prow jobs.
+# see kubeflow/testing/py/run_e2e_workflow.py
+python_paths:
+  # Need to place kubeflow/testing in front of kubeflow/testing so that the package can
+  # be correctly located.
+  - kubeflow/testing/py
+  - kubeflow/kfctl/py
+workflows:
+  - app_dir: kubeflow/manifests/tests/workflows
+    component: workflows
+    name: unit
+    job_types:
+      - presubmit
+      - postsubmit
+      - periodic    
+
+  # Run the e2e tests to ensure that changes to manifests don't break deployments.
+  - py_func: kubeflow.kfctl.testing.ci.kfctl_e2e_workflow.create_workflow
+    name: kfctl-go-iap
+    job_types:
+      - presubmit
+      - postsubmit
+      - periodic    
+    kwargs:
+      use_basic_auth: false
+      # Run build and then apply rather than just apply
+      build_and_apply: true
+      # test_endpoint flag is actually deprecated; we use pytest annotations to skip on
+      # presubmit.
+      test_endpoint: true
+      # The path for the config should depend on the commit we are testing manifests on.
+      # so we use the local path which will be checked out to the correct commit
+      config_path: "{srcrootdir}/kubeflow/manifests/kfdef/kfctl_gcp_iap.yaml"

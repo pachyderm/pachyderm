@@ -1,0 +1,31 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tf-job-operator
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: tf-job-operator
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      containers:
+      - args:
+        - --alsologtostderr
+        - -v=1
+        - --monitoring-port=8443
+        env:
+        - name: MY_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        image: gcr.io/kubeflow-images-public/tf_operator:kubeflow-tf-operator-postsubmit-v1-5adee6f-6109-a25c
+        name: tf-job-operator
+      serviceAccountName: tf-job-operator

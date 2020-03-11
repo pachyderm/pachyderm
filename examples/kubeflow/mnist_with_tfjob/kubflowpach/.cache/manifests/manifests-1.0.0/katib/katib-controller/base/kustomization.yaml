@@ -1,0 +1,52 @@
+namespace: kubeflow
+resources:
+- katib-configmap.yaml
+- katib-controller-deployment.yaml
+- katib-controller-rbac.yaml
+- katib-controller-secret.yaml
+- katib-controller-service.yaml
+- katib-mysql-deployment.yaml
+- katib-mysql-pvc.yaml
+- katib-mysql-secret.yaml
+- katib-mysql-service.yaml
+- katib-db-manager-deployment.yaml
+- katib-db-manager-service.yaml
+- katib-ui-deployment.yaml
+- katib-ui-rbac.yaml
+- katib-ui-service.yaml
+- trial-template-configmap.yaml
+configMapGenerator:
+- name: katib-parameters
+  env: params.env
+generatorOptions:
+  disableNameSuffixHash: true
+images:
+- name: gcr.io/kubeflow-images-public/katib/v1alpha3/katib-controller
+  newTag: v0.8.0
+  newName: gcr.io/kubeflow-images-public/katib/v1alpha3/katib-controller
+- name: gcr.io/kubeflow-images-public/katib/v1alpha3/katib-db-manager
+  newTag: v0.8.0
+  newName: gcr.io/kubeflow-images-public/katib/v1alpha3/katib-db-manager
+- name: gcr.io/kubeflow-images-public/katib/v1alpha3/katib-ui
+  newTag: v0.8.0
+  newName: gcr.io/kubeflow-images-public/katib/v1alpha3/katib-ui
+- name: mysql
+  newTag: "8"
+  newName: mysql
+vars:
+- name: clusterDomain
+  objref:
+    kind: ConfigMap
+    name: katib-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.clusterDomain
+- name: namespace
+  objref:
+    kind: Service
+    name: katib-ui
+    apiVersion: v1
+  fieldref:
+    fieldpath: metadata.namespace
+configurations:
+- params.yaml

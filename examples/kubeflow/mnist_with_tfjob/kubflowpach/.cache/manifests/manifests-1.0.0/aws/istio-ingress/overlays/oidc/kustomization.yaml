@@ -1,0 +1,57 @@
+bases:
+- ../../base
+patchesStrategicMerge:
+- ingress.yaml
+#- oidc-secret.yaml
+secretGenerator:
+- name: istio-oidc-secret
+  env: secrets.env
+  namespace: istio-system
+configMapGenerator:
+- name: istio-ingress-oidc-parameters
+  env: params.env
+vars:
+- name: oidcIssuer
+  objref:
+    kind: ConfigMap
+    name: istio-ingress-oidc-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.oidcIssuer
+- name: oidcAuthorizationEndpoint
+  objref:
+    kind: ConfigMap
+    name: istio-ingress-oidc-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.oidcAuthorizationEndpoint
+- name: oidcTokenEndpoint
+  objref:
+    kind: ConfigMap
+    name: istio-ingress-oidc-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.oidcTokenEndpoint
+- name: oidcUserInfoEndpoint
+  objref:
+    kind: ConfigMap
+    name: istio-ingress-oidc-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.oidcUserInfoEndpoint
+- name: oidcSecretName
+  objref:
+    kind: ConfigMap
+    name: istio-ingress-oidc-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.oidcSecretName
+- name: certArn
+  objref:
+    kind: ConfigMap
+    name: istio-ingress-oidc-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.certArn
+configurations:
+- params.yaml

@@ -1,0 +1,63 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app: security
+  name: istio-security-post-install-release-1.3-latest-daily
+spec:
+  template:
+    metadata:
+      labels:
+        app: security
+      name: istio-security-post-install
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+            weight: 2
+          - preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - ppc64le
+            weight: 2
+          - preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - s390x
+            weight: 2
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+                - ppc64le
+                - s390x
+      containers:
+      - command:
+        - /bin/bash
+        - /tmp/security/istio-security-run.sh
+        - /tmp/security/istio-security-custom-resources.yaml
+        image: gcr.io/istio-release/kubectl:release-1.3-latest-daily
+        imagePullPolicy: IfNotPresent
+        name: kubectl
+        volumeMounts:
+        - mountPath: /tmp/security
+          name: tmp-configmap-security
+      restartPolicy: OnFailure
+      serviceAccountName: istio-security-post-install-account
+      volumes:
+      - configMap:
+          name: istio-security-custom-resources
+        name: tmp-configmap-security

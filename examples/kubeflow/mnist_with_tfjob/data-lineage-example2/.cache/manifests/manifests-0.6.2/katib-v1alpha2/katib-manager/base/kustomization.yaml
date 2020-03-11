@@ -1,0 +1,13 @@
+namespace: kubeflow
+resources:
+- katib-manager-deployment.yaml
+- katib-manager-rest-deployment.yaml
+- katib-manager-rest-service.yaml
+- katib-manager-service.yaml
+generatorOptions:
+  disableNameSuffixHash: true
+images:
+  - name: gcr.io/kubeflow-images-public/katib/v1alpha2/katib-manager
+    newTag: v0.6.0-rc.0
+  - name: gcr.io/kubeflow-images-public/katib/v1alpha2/katib-manager-rest
+    newTag: v0.6.0-rc.0

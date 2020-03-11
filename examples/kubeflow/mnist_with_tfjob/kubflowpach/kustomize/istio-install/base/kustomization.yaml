@@ -1,0 +1,61 @@
+# Each entry in this list results in the creation of
+# one ConfigMap resource (it's a generator of n maps).
+configMapGenerator:
+- name: istio-install-parameters
+  env: params.env
+
+# Images modify the tags for images without
+# creating patches.
+images:
+- name: docker.io/prom/prometheus
+  newTag: v2.8.0
+- name: gcr.io/istio-release/citadel
+  newTag: release-1.3-latest-daily
+- name: gcr.io/istio-release/galley
+  newTag: release-1.3-latest-daily
+- name: gcr.io/istio-release/kubectl
+  newTag: release-1.3-latest-daily
+- name: gcr.io/istio-release/mixer
+  newTag: release-1.3-latest-daily
+- name: gcr.io/istio-release/node-agent-k8s
+  newTag: release-1.3-latest-daily
+- name: gcr.io/istio-release/pilot
+  newTag: release-1.3-latest-daily
+- name: gcr.io/istio-release/proxyv2
+  newTag: release-1.3-latest-daily
+- name: gcr.io/istio-release/sidecar_injector
+  newTag: release-1.3-latest-daily
+
+resources:
+- namespace.yaml
+- attribute-manifest.yaml
+- config-map.yaml
+- cluster-role.yaml
+- cluster-role-binding.yaml
+- daemon-set.yaml
+- deployment.yaml
+- handler.yaml
+- horizontal-pod-autoscaler.yaml
+- instance.yaml
+- job.yaml
+- mutating-webhook-configuration.yaml
+- pod-disruption-budget.yaml
+- role.yaml
+- role-binding.yaml
+- rule.yaml
+- service.yaml
+- service-account.yaml
+- service-role.yaml
+- service-role-binding.yaml
+
+vars:
+- name: namespace
+  objref:
+    kind: ConfigMap
+    name: istio-install-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.namespace
+
+configurations:
+- params.yaml

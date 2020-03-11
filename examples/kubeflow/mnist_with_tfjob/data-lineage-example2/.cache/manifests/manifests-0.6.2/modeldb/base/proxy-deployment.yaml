@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: modeldb
+  name: modeldb-backend-proxy
+spec:
+  selector:
+    matchLabels:
+      app: modeldb
+      tier: backend-proxy
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: modeldb
+        tier: backend-proxy
+    spec:
+      containers:
+      - args:
+        - -project_endpoint
+        - modeldb-backend:8085
+        - -experiment_endpoint
+        - modeldb-backend:8085
+        - -experiment_run_endpoint
+        - modeldb-backend:8085
+        command:
+        - /go/bin/proxy
+        image: vertaaiofficial/modeldb-backend-proxy:kubeflow
+        imagePullPolicy: Always
+        name: modeldb-backend-proxy
+        ports:
+        - containerPort: 8080

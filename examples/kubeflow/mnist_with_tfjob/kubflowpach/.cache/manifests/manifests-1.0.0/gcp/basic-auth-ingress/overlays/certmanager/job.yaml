@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ingress-bootstrap
+spec:
+  template:
+    spec:
+      containers:
+      - command:
+        - /var/ingress-config/ingress_bootstrap.sh
+        env:
+        - name: NAMESPACE
+          value: $(namespace)
+        - name: TLS_SECRET_NAME
+          value: $(secretName)
+        - name: TLS_HOST_NAME
+          value: $(hostname)
+        - name: INGRESS_NAME
+          value: $(ingressName)
+        image: gcr.io/kubeflow-images-public/ingress-setup:latest
+        name: bootstrap
+        volumeMounts:
+        - mountPath: /var/ingress-config/
+          name: ingress-config
+      restartPolicy: OnFailure
+      serviceAccountName: kf-admin
+      volumes:
+      - configMap:
+          defaultMode: 493
+          name: ingress-bootstrap-config
+        name: ingress-config

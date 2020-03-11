@@ -1,0 +1,7 @@
+apiVersion: cloud.google.com/v1beta1
+kind: BackendConfig
+metadata:
+  name: basicauth-backendconfig
+spec:
+  # Jupyter uses websockets so we want to increase the timeout.
+  timeoutSec: 3600

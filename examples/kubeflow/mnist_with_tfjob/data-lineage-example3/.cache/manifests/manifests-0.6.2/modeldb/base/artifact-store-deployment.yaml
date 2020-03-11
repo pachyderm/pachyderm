@@ -1,0 +1,37 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: modeldb
+  name: modeldb-artifact-store
+spec:
+  selector:
+    matchLabels:
+      app: modeldb
+      tier: artifact-store
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: modeldb
+        tier: artifact-store
+    spec:
+      containers:
+      - env:
+        - name: VERTA_ARTIFACT_CONFIG
+          value: /config/config.yaml
+        image: vertaaiofficial/modeldb-artifact-store:kubeflow
+        imagePullPolicy: Always
+        name: modeldb-artifact-store
+        ports:
+        - containerPort: 8086
+        volumeMounts:
+        - mountPath: /config
+          name: modeldb-artifact-store-config
+          readOnly: true
+      volumes:
+      - configMap:
+          name: modeldb-artifact-store-config
+        name: modeldb-artifact-store-config

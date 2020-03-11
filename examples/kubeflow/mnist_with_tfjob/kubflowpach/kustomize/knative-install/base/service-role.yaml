@@ -1,0 +1,13 @@
+apiVersion: rbac.istio.io/v1alpha1
+kind: ServiceRole
+metadata:
+  name: istio-service-role
+  namespace: knative-serving
+spec:
+  rules:
+  - methods:
+    - '*'
+    services:
+    - '*'
+
+

@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app: nodeagent
+    istio: nodeagent
+  name: istio-nodeagent
+spec:
+  selector:
+    matchLabels:
+      istio: nodeagent
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+      labels:
+        app: nodeagent
+        istio: nodeagent
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+            weight: 2
+          - preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - ppc64le
+            weight: 2
+          - preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - s390x
+            weight: 2
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+                - ppc64le
+                - s390x
+      containers:
+      - env:
+        - name: CA_ADDR
+          value: istio-citadel:8060
+        - name: CA_PROVIDER
+          value: Citadel
+        - name: PLUGINS
+          value: ""
+        - name: VALID_TOKEN
+          value: "true"
+        - name: TRUST_DOMAIN
+          value: ""
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        image: gcr.io/istio-release/node-agent-k8s:release-1.3-latest-daily
+        imagePullPolicy: IfNotPresent
+        name: nodeagent
+        volumeMounts:
+        - mountPath: /var/run/sds
+          name: sdsudspath
+      serviceAccountName: istio-nodeagent-service-account
+      volumes:
+      - hostPath:
+          path: /var/run/sds
+        name: sdsudspath
+  updateStrategy:
+    type: RollingUpdate

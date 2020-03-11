@@ -1,0 +1,10 @@
+# Added to allow all requests to istio-ingressgateway
+# Refer issue: https://github.com/istio/istio/issues/14885
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: istio-ingressgateway
+spec:
+  rules:
+  - services:
+    - istio-ingressgateway.$(namespace).svc.cluster.local

@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: stateful-set
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        image: gcr.io/$(project)/application-controller:latest
+        command: 
+        - /go/bin/dlv
+        args: 
+        - --listen=:2345
+        - --headless=true
+        - --api-version=2
+        - exec
+        - /go/src/github.com/kubernetes-sigs/application/manager
+        ports:
+        - containerPort: 2345
+        securityContext:
+          privileged: true

@@ -1,0 +1,18 @@
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: $(secretName)
+spec:
+  acme:
+    config:
+    - domains:
+      - $(hostname)
+      http01:
+        ingress: $(ingressName)
+  commonName: $(hostname)
+  dnsNames:
+  - $(hostname)
+  issuerRef:
+    kind: ClusterIssuer
+    name: $(issuer)
+  secretName: $(secretName)

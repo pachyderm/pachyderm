@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+bases:
+- ../../base
+resources:
+- application.yaml
+commonLabels:
+  app.kubernetes.io/name: aws-alb-ingress-controller
+  app.kubernetes.io/instance: aws-alb-ingress-controller-v1.0.0
+  app.kubernetes.io/managed-by: kfctl
+  app.kubernetes.io/component: aws-alb-ingress-controller
+  app.kubernetes.io/part-of: kubeflow
+  app.kubernetes.io/version: v1.0.0
+

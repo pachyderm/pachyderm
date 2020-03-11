@@ -1,0 +1,158 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cluster-local-gateway
+  labels:
+    app: cluster-local-gateway
+    istio: cluster-local-gateway
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: cluster-local-gateway
+        istio: cluster-local-gateway
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: cluster-local-gateway-service-account
+      containers:
+        - name: istio-proxy
+          image: "docker.io/istio/proxyv2:1.1.6"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+            - containerPort: 443
+            - containerPort: 31400
+            - containerPort: 15011
+            - containerPort: 8060
+            - containerPort: 15029
+            - containerPort: 15030
+            - containerPort: 15031
+            - containerPort: 15032
+            - containerPort: 15090
+              protocol: TCP
+              name: http-envoy-prom
+          args:
+          - proxy
+          - router
+          - --domain
+          - $(POD_NAMESPACE).svc.cluster.local
+          - --log_output_level=default:info
+          - --drainDuration
+          - '45s' #drainDuration
+          - --parentShutdownDuration
+          - '1m0s' #parentShutdownDuration
+          - --connectTimeout
+          - '10s' #connectTimeout
+          - --serviceCluster
+          - cluster-local-gateway
+          - --zipkinAddress
+          - zipkin.$(namespace):9411
+          - --proxyAdminPort
+          - "15000"
+          - --statusPort
+          - "15020"
+          - --controlPlaneAuthPolicy
+          - NONE
+          - --discoveryAddress
+          - istio-pilot.$(namespace):15010
+          readinessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /healthz/ready
+              port: 15020
+              scheme: HTTP
+            initialDelaySeconds: 1
+            periodSeconds: 2
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            requests:
+              cpu: 10m
+          env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: INSTANCE_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.podIP
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.hostIP
+          - name: ISTIO_META_POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: ISTIO_META_CONFIG_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          volumeMounts:
+          - name: istio-certs
+            mountPath: /etc/certs
+            readOnly: true
+          - name: clusterlocalgateway-certs
+            mountPath: "/etc/istio/clusterlocalgateway-certs"
+            readOnly: true
+          - name: clusterlocalgateway-ca-certs
+            mountPath: "/etc/istio/clusterlocalgateway-ca-certs"
+            readOnly: true
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.cluster-local-gateway-service-account
+          optional: true
+      - name: clusterlocalgateway-certs
+        secret:
+          secretName: "istio-clusterlocalgateway-certs"
+          optional: true
+      - name: clusterlocalgateway-ca-certs
+        secret:
+          secretName: "istio-clusterlocalgateway-ca-certs"
+          optional: true
+      affinity:      
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+                - ppc64le
+                - s390x
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - ppc64le
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - s390x

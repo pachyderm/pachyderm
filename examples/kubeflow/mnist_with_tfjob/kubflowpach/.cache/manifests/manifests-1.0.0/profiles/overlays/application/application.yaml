@@ -1,0 +1,43 @@
+apiVersion: app.k8s.io/v1beta1
+kind: Application
+metadata:
+  name: profiles
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: profiles
+      app.kubernetes.io/instance: profiles-v1.0.0
+      app.kubernetes.io/managed-by: kfctl
+      app.kubernetes.io/component: profiles
+      app.kubernetes.io/part-of: kubeflow
+      app.kubernetes.io/version: v1.0.0
+  componentKinds:
+  # Do not select any cluster scoped resources
+  # as that will cause problems.
+  - group: apps
+    kind: Deployment
+  - group: core
+    kind: ServiceAccount
+  - group: core
+    kind: Service
+  - group: kubeflow.org
+    kind: Profile
+  descriptor:
+    type: profiles
+    version: v1
+    description: ""
+    maintainers:
+    - name: Kunming Qu
+      email: kunming@google.com
+    owners:
+    - name: Kunming Qu
+      email: kunming@google.com
+    keywords:
+     - profiles
+     - kubeflow
+    links:
+    - description: profiles
+      url: "https://github.com/kubeflow/kubeflow/tree/master/components/profile-controller"
+    - description: kfam
+      url: "https://github.com/kubeflow/kubeflow/tree/master/components/access-management"
+  addOwnerRef: true

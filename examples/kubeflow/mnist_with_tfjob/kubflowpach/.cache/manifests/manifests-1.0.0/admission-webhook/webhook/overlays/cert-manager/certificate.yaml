@@ -1,0 +1,14 @@
+apiVersion: cert-manager.io/v1alpha2
+kind: Certificate
+metadata:
+  name: admission-webhook-cert
+spec:
+  isCA: true
+  commonName: $(serviceName).$(namespace).svc
+  dnsNames:
+  - $(serviceName).$(namespace).svc
+  - $(serviceName).$(namespace).svc.cluster.local
+  issuerRef:
+    kind: ClusterIssuer
+    name: $(issuer)
+  secretName: webhook-certs

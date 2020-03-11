@@ -1,0 +1,36 @@
+bases:
+- ../../base
+
+resources:
+- certificate.yaml
+
+patchesStrategicMerge:
+- mutating-webhook-configuration.yaml
+- deployment.yaml
+
+configMapGenerator:
+- name: admission-webhook-parameters
+  behavior: merge
+  env: params.env
+generatorOptions:
+  disableNameSuffixHash: true
+
+vars:
+- name: issuer
+  objref:
+    kind: ConfigMap
+    name: admission-webhook-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.issuer
+- name: cert_name
+  objref:
+      kind: Certificate
+      group: cert-manager.io
+      version: v1alpha2
+      name: admission-webhook-cert
+  fieldref:
+    fieldpath: metadata.name
+
+configurations:
+- params.yaml

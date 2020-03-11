@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment
+  labels:
+    component: server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: server
+  template:
+    metadata:
+      labels:
+        component: server
+    spec:
+      containers:
+      - name: container
+        image: gcr.io/kubeflow-images-public/metadata:v0.1.11
+        command: ["./server/server",
+                  "--http_port=8080"]
+        ports:
+        - name: backendapi
+          containerPort: 8080
+
+        readinessProbe:
+          httpGet:
+            path: /api/v1alpha1/artifact_types
+            port: backendapi
+            httpHeaders:
+            - name: ContentType
+              value: application/json
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          timeoutSeconds: 2
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grpc-deployment
+  labels:
+    component: grpc-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: grpc-server
+  template:
+    metadata:
+      labels:
+        component: grpc-server
+    spec:
+      containers:
+        - name: container
+          envFrom:
+          - configMapRef:
+              name: metadata-grpc-configmap
+          image: gcr.io/tfx-oss-public/ml_metadata_store_server:v0.21.1
+          command: ["/bin/metadata_store_server"]
+          args: ["--grpc_port=$(METADATA_GRPC_SERVICE_PORT)"]
+          ports:
+            - name: grpc-backendapi
+              containerPort: 8080 #The value of the port number needs to be in sync with value  specified in grpc-params.env

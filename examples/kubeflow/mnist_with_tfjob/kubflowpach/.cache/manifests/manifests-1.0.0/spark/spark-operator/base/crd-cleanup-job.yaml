@@ -1,0 +1,27 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: crd-cleanup
+  namespace: default
+spec:
+  template:
+    spec:
+      containers:
+      - command:
+        - /bin/sh
+        - -c
+        - 'curl -ik -X DELETE -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)"
+          -H "Accept: application/json" -H "Content-Type: application/json" https://kubernetes.default.svc/apis/apiextensions.k8s.io/v1beta1/customresourcedefinitions/sparkapplications.sparkoperator.k8s.io'
+        image: gcr.io/spark-operator/spark-operator:v1beta2-1.0.0-2.4.4
+        imagePullPolicy: IfNotPresent
+        name: delete-sparkapp-crd
+      - command:
+        - /bin/sh
+        - -c
+        - 'curl -ik -X DELETE -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)"
+          -H "Accept: application/json" -H "Content-Type: application/json" https://kubernetes.default.svc/apis/apiextensions.k8s.io/v1beta1/customresourcedefinitions/scheduledsparkapplications.sparkoperator.k8s.io'
+        image: gcr.io/spark-operator/spark-operator:v1beta2-1.0.0-2.4.4
+        imagePullPolicy: IfNotPresent
+        name: delete-scheduledsparkapp-crd
+      restartPolicy: OnFailure
+      serviceAccountName: operator-sa

@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: kubeflow
+commonLabels:
+  app: ml-pipeline-scheduledworkflow
+resources:
+- crd.yaml
+- deployment.yaml
+- role-binding.yaml
+- role.yaml
+- service-account.yaml
+images:
+- name: gcr.io/ml-pipeline/scheduledworkflow
+  newTag: '0.1.23'

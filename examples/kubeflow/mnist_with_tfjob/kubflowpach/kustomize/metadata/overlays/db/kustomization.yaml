@@ -1,0 +1,34 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+commonLabels:
+  kustomize.component: metadata
+namespace: kubeflow
+generatorOptions:
+  # name suffix hash is not propagated correctly to base resources
+  disableNameSuffixHash: true
+configMapGenerator:
+- name: metadata-db-parameters
+  env: params.env
+secretGenerator:
+- name: metadata-db-secrets
+  env: secrets.env
+bases:
+- ../../base
+resources:
+- metadata-db-pvc.yaml
+- metadata-db-deployment.yaml
+- metadata-db-service.yaml
+patchesStrategicMerge:
+- metadata-deployment.yaml
+images:
+- name: mysql
+  newName: mysql
+  newTag: 8.0.3
+vars:
+- name: metadata-db-service
+  objref:
+    kind: Service
+    name: metadata-db
+    apiVersion: v1
+  fieldref:
+    fieldpath: metadata.name

@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: authzadaptor
+spec:
+  ports:
+  - port: 9070
+    protocol: TCP
+    targetPort: 9070
+  selector:
+    run: authzadaptor
+  type: ClusterIP

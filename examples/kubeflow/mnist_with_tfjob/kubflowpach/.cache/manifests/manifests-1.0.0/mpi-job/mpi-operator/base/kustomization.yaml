@@ -1,0 +1,28 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: kubeflow
+resources:
+- cluster-role-binding.yaml
+- cluster-role.yaml
+- crd.yaml
+- deployment.yaml
+- service-account.yaml
+commonLabels:
+  kustomize.component: mpi-operator
+images:
+- name: mpioperator/mpi-operator
+  newName: mpioperator/mpi-operator
+  newTag: 0.1.0
+configMapGenerator:
+- name: mpi-operator-config
+  env: params.env
+generatorOptions:
+  disableNameSuffixHash: true
+vars:
+- name: kubectl-delivery-image
+  objref:
+    kind: ConfigMap
+    name: mpi-operator-config
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.kubectl-delivery-image

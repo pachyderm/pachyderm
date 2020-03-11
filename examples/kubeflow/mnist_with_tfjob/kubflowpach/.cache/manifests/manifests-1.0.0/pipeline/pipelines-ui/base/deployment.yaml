@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: ml-pipeline-ui
+  name: ml-pipeline-ui
+spec:
+  selector:
+    matchLabels:
+      app: ml-pipeline-ui
+  template:
+    metadata:
+      labels:
+        app: ml-pipeline-ui
+    spec:
+      containers:
+      - name: ml-pipeline-ui
+        image: gcr.io/ml-pipeline/frontend
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3000
+      serviceAccountName: ml-pipeline-ui

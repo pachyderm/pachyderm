@@ -1,0 +1,34 @@
+apiVersion: app.k8s.io/v1beta1
+kind: Application
+metadata:
+  name: aws-istio-authz-adaptor
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: aws-istio-authz-adaptor
+      app.kubernetes.io/instance: aws-istio-authz-adaptor-0.1
+      app.kubernetes.io/managed-by: kfctl
+      app.kubernetes.io/component: aws-istio-authz-adaptor
+      app.kubernetes.io/part-of: kubeflow
+      app.kubernetes.io/version: "0.1"
+  componentKinds:
+  - group: apps
+    kind: Service
+  - group: apps
+    kind: Deployment
+  descriptor:
+    type: aws-istio-authz-adaptor
+    version: "0.1"
+    description: Authorization adpator to append header for AWS application load balancer
+    maintainers: []
+    owners: []
+    keywords:
+     - aws
+     - istio
+     - mixer
+     - adaptor
+    links:
+    - description: About
+      url: https://github.com/istio/istio/tree/master/mixer/adapter
+  addOwnerRef: true
+

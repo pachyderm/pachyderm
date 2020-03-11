@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: katib-ui
+  labels:
+    app: katib
+    component: ui
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      protocol: TCP
+      name: ui
+  selector:
+    app: katib
+    component: ui

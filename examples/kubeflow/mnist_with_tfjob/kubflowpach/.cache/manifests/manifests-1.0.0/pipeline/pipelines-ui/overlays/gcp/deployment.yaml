@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-pipeline-ui
+spec:
+  template:
+    spec:
+      volumes:
+      - name: gcp-sa-token
+        secret:
+          secretName: user-gcp-sa
+      containers:
+      - name: ml-pipeline-ui
+        env:
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: /etc/credentials/user-gcp-sa.json
+        volumeMounts:
+        - name: gcp-sa-token
+          mountPath: "/etc/credentials"
+          readOnly: true

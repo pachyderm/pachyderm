@@ -1,0 +1,37 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- cluster-role-binding.yaml
+- cluster-role.yaml
+- deployment.yaml
+- service-account.yaml
+- service.yaml
+namespace: istio-system
+commonLabels:
+  kustomize.component: ambassador
+images:
+- name: quay.io/datawire/ambassador
+  newName: quay.io/datawire/ambassador
+  newTag: 0.37.0
+configMapGenerator:
+- name: ambassador-parameters
+  env: params.env
+generatorOptions:
+  disableNameSuffixHash: true
+patchesJson6902:
+- target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: ambassador
+  path: deployment-ambassador-patch.yaml
+vars:
+- name: ambassadorServiceType
+  objref:
+    kind: ConfigMap
+    name: ambassador-parameters
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.ambassadorServiceType
+configurations:
+- params.yaml

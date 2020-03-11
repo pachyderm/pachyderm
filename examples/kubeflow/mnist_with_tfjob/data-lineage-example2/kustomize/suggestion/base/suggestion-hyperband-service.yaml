@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: katib-suggestion-hyperband
+  labels:
+    app: katib
+    component: suggestion-hyperband
+spec:
+  type: ClusterIP
+  ports:
+    - port: 6789
+      protocol: TCP
+      name: api
+  selector:
+    app: katib
+    component: suggestion-hyperband

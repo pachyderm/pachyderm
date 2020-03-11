@@ -1,0 +1,21 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: kubebench-operator
+spec:
+  selector:
+    matchLabels:
+      app: kubebench-operator
+  volumes:
+    - name: kubebench-config
+      configMap:
+        name: kubebench-config
+  template:
+    metadata:
+      labels:
+        app: kubebench-operator
+    spec:
+      containers:
+      - image: gcr.io/kubeflow-images-public/kubebench/kubebench-operator-v1alpha2:v0.5.0-11-gea53ad5
+        name: kubebench-operator
+      serviceAccountName: kubebench-operator

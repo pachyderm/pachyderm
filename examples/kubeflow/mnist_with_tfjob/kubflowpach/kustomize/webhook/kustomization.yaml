@@ -1,0 +1,42 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+bases:
+- base
+commonLabels:
+  app.kubernetes.io/component: webhook
+  app.kubernetes.io/instance: webhook-v1.0.0
+  app.kubernetes.io/managed-by: kfctl
+  app.kubernetes.io/name: webhook
+  app.kubernetes.io/part-of: kubeflow
+  app.kubernetes.io/version: v1.0.0
+configMapGenerator:
+- behavior: merge
+  env: overlays/cert-manager/params.env
+  name: admission-webhook-parameters
+configurations:
+- overlays/cert-manager/params.yaml
+generatorOptions:
+  disableNameSuffixHash: true
+kind: Kustomization
+namespace: kubeflow
+patchesStrategicMerge:
+- overlays/cert-manager/mutating-webhook-configuration.yaml
+- overlays/cert-manager/deployment.yaml
+resources:
+- overlays/cert-manager/certificate.yaml
+- overlays/application/application.yaml
+vars:
+- fieldref:
+    fieldPath: data.issuer
+  name: issuer
+  objref:
+    apiVersion: v1
+    kind: ConfigMap
+    name: admission-webhook-parameters
+- fieldref:
+    fieldPath: metadata.name
+  name: cert_name
+  objref:
+    group: cert-manager.io
+    kind: Certificate
+    name: admission-webhook-cert
+    version: v1alpha2

@@ -1,0 +1,23 @@
+---
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  labels:
+    serving.knative.dev/release: "v0.11.1"
+  name: activator
+  namespace: knative-serving
+spec:
+  maxReplicas: 20
+  metrics:
+    - resource:
+        name: cpu
+        targetAverageUtilization: 100
+      type: Resource
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: activator
+---
+
+

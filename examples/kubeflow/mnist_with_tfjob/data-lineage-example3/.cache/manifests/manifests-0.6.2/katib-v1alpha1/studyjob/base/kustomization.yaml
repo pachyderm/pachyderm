@@ -1,0 +1,12 @@
+namespace: kubeflow
+resources:
+- studyjob-controller-deployment.yaml
+- studyjob-crd.yaml
+- studyjob-rbac.yaml
+- studyjob-service.yaml
+- studyjob-worker-template.yaml
+generatorOptions:
+  disableNameSuffixHash: true
+images:
+  - name: gcr.io/kubeflow-images-public/katib/studyjob-controller
+    newTag: v0.1.2-alpha-157-g3d4cd04

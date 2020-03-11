@@ -1,0 +1,22 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: vizier-core-rest
+  labels:
+    component: core-rest
+spec:
+  replicas: 1
+  template:
+    metadata:
+      name: vizier-core-rest
+      labels:
+        component: core-rest
+    spec:
+      containers:
+      - name: vizier-core-rest
+        image: gcr.io/kubeflow-images-public/katib/vizier-core-rest:v0.1.2-alpha-156-g4ab3dbd
+        command:
+          - './vizier-manager-rest'
+        ports:
+        - name: api
+          containerPort: 80

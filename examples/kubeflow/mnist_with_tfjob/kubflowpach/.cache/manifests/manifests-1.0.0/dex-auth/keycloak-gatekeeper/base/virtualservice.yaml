@@ -1,0 +1,21 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: keycloak-gatekeeper
+spec:
+  gateways:
+  - kubeflow/kubeflow-gateway
+  hosts:
+  - '*'
+  http:
+  - match:
+    - port: 5554
+      uri:
+        prefix: /
+    rewrite:
+      uri: /
+    route:
+    - destination:
+        host: keycloak-gatekeeper.auth.svc.cluster.local
+        port:
+          number: 5554

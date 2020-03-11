@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    service: backend-updater
+  name: backend-updater
+spec:
+  serviceName: backend-updater
+  selector:
+    matchLabels:
+      service: backend-updater
+  template:
+    metadata:
+      labels:
+        service: backend-updater
+    spec:
+      containers:
+      - command:
+        - bash
+        - /var/envoy-config/update_backend.sh
+        env:
+        - name: NAMESPACE
+          value: $(istioNamespace)
+        - name: SERVICE
+          value: istio-ingressgateway
+        - name: INGRESS_NAME
+          value: $(ingressName)
+        - name: USE_ISTIO
+          value: "true"
+        image: gcr.io/kubeflow-images-public/ingress-setup:latest
+        name: backend-updater
+        volumeMounts:
+        - mountPath: /var/envoy-config/
+          name: config-volume
+      serviceAccountName: kf-admin
+      volumes:
+      - configMap:
+          name: envoy-config
+        name: config-volume
+  volumeClaimTemplates: []

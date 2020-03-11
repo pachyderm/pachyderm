@@ -1,0 +1,18 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: scheduledworkflows.kubeflow.org
+spec:
+  group: kubeflow.org
+  names:
+    kind: ScheduledWorkflow
+    listKind: ScheduledWorkflowList
+    plural: scheduledworkflows
+    shortNames:
+    - swf
+    singular: scheduledworkflow
+  scope: Namespaced
+  versions:
+  - name: v1beta1
+    served: true
+    storage: true
