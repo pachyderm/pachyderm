@@ -484,7 +484,7 @@
         "containers": [
           {
             "name": "pachd",
-            "image": "pachyderm/pachd:1.10.0-rc5",
+            "image": "pachyderm/pachd:1.10.0",
             "ports": [
               {
                 "name": "api-grpc-port",
@@ -537,14 +537,14 @@
               },
               {
                 "name": "WORKER_IMAGE",
-                "value": "pachyderm/worker:1.10.0-rc5"
+                "value": "pachyderm/worker:1.10.0"
               },
               {
                 "name": "IMAGE_PULL_SECRET"
               },
               {
                 "name": "WORKER_SIDECAR_IMAGE",
-                "value": "pachyderm/pachd:1.10.0-rc5"
+                "value": "pachyderm/pachd:1.10.0"
               },
               {
                 "name": "WORKER_IMAGE_PULL_POLICY",
@@ -552,7 +552,7 @@
               },
               {
                 "name": "PACHD_VERSION",
-                "value": "1.10.0-rc5"
+                "value": "1.10.0"
               },
               {
                 "name": "METRICS",
