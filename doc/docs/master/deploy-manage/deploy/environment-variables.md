@@ -138,7 +138,7 @@ particularly useful:
 | `HOME`                     | The path to the home directory. The default value is `/root` |
 | `<input-repo>=<path/to/input/repo>` | The path to the filesystem that is defined in the `input` in your pipeline specification. Pachyderm defines such a variable for each input. The path is defined by the `glob` pattern in the spec. For example, if you have an input `images` and a glob pattern of `/`, Pachyderm defines the `images=/pfs/images` variable. If you have a glob pattern of `/*`, Pachyderm matches the files in the `images` repository and, therefore, the path is `images=/pfs/images/liberty.png`. |
 | `input_COMMIT`             | The ID of the commit that is used for the input. For example, `images_COMMIT=fa765b5454e3475f902eadebf83eac34`. |
-| `PACH_S3_ENDPOINT`         | A Pachyderm S3 gateway sidecar container endpoint. If you have an S3 enabled pipeline, this parameter specifies a URL that you can use to access the pipeline's repositories state when a particular job was run. The URL has the following format `http://<job-ID>-s3:600`. |
+| `S3_ENDPOINT`         | A Pachyderm S3 gateway sidecar container endpoint. If you have an S3 enabled pipeline, this parameter specifies a URL that you can use to access the pipeline's repositories state when a particular job was run. The URL has the following format `http://<job-ID>-s3:600`. An example of accessing the data by using AWS CLI looks like this: `echo foo_data | aws --endpoint=${S3_ENDPOINT} s3 cp - s3://out/foo_file`. |
 
 In addition to these environment variables, Kubernetes injects others for
 Services that run inside the cluster. These variables enable you to connect to

@@ -53,6 +53,10 @@ a single input.
 * You can create a cross of an S3-enabled input with a non-S3 input.
 For a non-S3 input in such a cross you can still specify a glob pattern.
 
+* Statistics collection for S3-enabled pipelines is not supported. If you
+set `"s3_out": true`, you need to disable the `enable_stats`
+parameter in your pipeline. 
+
 ## Expose a Pipeline through an S3 Gateway in a Sidecar
 
 When you work with platforms like Kubeflow or Apache Spark, you need
