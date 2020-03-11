@@ -64,7 +64,7 @@ type TestOptions struct {
 func runWorkerMasterPair(
 	t *testing.T,
 	options TestOptions,
-	taskCb func(context.Context, work2.Task, *nonConcurrentCheck) error,
+	taskCb func(context.Context, int, work2.Task, *nonConcurrentCheck) error,
 	workerCb func(context.Context, *TestData) error,
 ) error {
 	return testetcd.WithEtcdEnv(func(env *testetcd.EtcdEnv) error {
@@ -85,10 +85,11 @@ func runWorkerMasterPair(
 
 			master := work2.NewMaster(env.EtcdClient, "", "")
 			for i := 0; i < options.Tasks; i++ {
+				i := i
 				taskEg.Go(func() error {
 					taskCheck := newConcurrentCheck(t)
 					return master.WithTask(func(task work2.Task) error {
-						return taskCb(ctx, task, taskCheck)
+						return taskCb(ctx, i, task, taskCheck)
 					})
 				})
 			}
@@ -105,7 +106,7 @@ func runWorkerMasterPair(
 func TestNoSubtasks(t *testing.T) {
 	err := runWorkerMasterPair(
 		t, TestOptions{Tasks: 1, Workers: 1},
-		func(ctx context.Context, task work2.Task, ncc *nonConcurrentCheck) error {
+		func(ctx context.Context, i int, task work2.Task, ncc *nonConcurrentCheck) error {
 			subtaskChan := make(chan *types.Any)
 			close(subtaskChan)
 
@@ -134,36 +135,75 @@ func sendSubtasks(keys []string, subtaskChan chan *types.Any) error {
 	return nil
 }
 
-func TestBasic(t *testing.T) {
-	expectedTasks := []string{"a", "b"}
+func doTest(t *testing.T, numWorkers int, tasks [][]string) {
+	allTasks := []string{}
+	for _, subtasks := range tasks {
+		allTasks = append(allTasks, subtasks...)
+	}
 	runTasks := []string{}
 	collectedTasks := []string{}
 
 	err := runWorkerMasterPair(
-		t, TestOptions{Tasks: 1, Workers: 1},
-		func(ctx context.Context, task work2.Task, ncc *nonConcurrentCheck) error {
-			subtaskChan := make(chan *types.Any, 10)
-			require.NoError(t, sendSubtasks(expectedTasks, subtaskChan))
-			fmt.Printf("master closing subtaskChan\n")
-			close(subtaskChan)
+		t, TestOptions{Tasks: len(tasks), Workers: numWorkers},
+		func(ctx context.Context, i int, task work2.Task, ncc *nonConcurrentCheck) error {
+			eg := errgroup.Group{}
+			eg.Go(func() error {
+				subtaskChan := make(chan *types.Any, 10)
+				require.NoError(t, sendSubtasks(tasks[i], subtaskChan))
+				close(subtaskChan)
 
-			return task.Run(ctx, subtaskChan, wrapCallback(ncc, func(ctx context.Context, data *TestData) error {
-				fmt.Printf("master collecting task: %v\n", data.Key)
-				collectedTasks = append(collectedTasks, data.Key)
-				time.Sleep(5 * time.Millisecond)
-				return nil
-			}))
+				return task.Run(ctx, subtaskChan, wrapCallback(ncc, func(ctx context.Context, data *TestData) error {
+					fmt.Printf("master collecting first-round task: %v\n", data.Key)
+					collectedTasks = append(collectedTasks, data.Key)
+					time.Sleep(5 * time.Millisecond) // Leave a window to check that this isn't run concurrently
+					return nil
+				}))
+			})
+
+			return eg.Wait()
 		},
 		func(ctx context.Context, data *TestData) error {
 			fmt.Printf("worker running task: %v\n", data.Key)
 			runTasks = append(runTasks, data.Key)
-			time.Sleep(5 * time.Millisecond)
+			time.Sleep(5 * time.Millisecond) // Leave a window to check that this isn't run concurrently
 			return nil
 		},
 	)
 	require.NoError(t, err)
-	require.ElementsEqual(t, expectedTasks, runTasks)
-	require.ElementsEqual(t, expectedTasks, collectedTasks)
+	require.ElementsEqual(t, allTasks, runTasks)
+	require.ElementsEqual(t, allTasks, collectedTasks)
+}
+
+func TestBasic(t *testing.T) {
+	doTest(t, 1, [][]string{
+		{"a", "b"},
+	})
+}
+
+func TestMultiTask(t *testing.T) {
+	doTest(t, 1, [][]string{
+		{"a", "b"},
+		{"c", "d"},
+		{"e"},
+		{},
+		{"f", "g", "h", "i"},
+	})
+}
+
+func TestMultiWorker(t *testing.T) {
+	doTest(t, 4, [][]string{
+		{"a", "b", "c", "d", "e"},
+	})
+}
+
+func TestMultiTaskAndWorker(t *testing.T) {
+	doTest(t, 4, [][]string{
+		{"a", "b"},
+		{"c", "d"},
+		{"e"},
+		{},
+		{"f", "g", "h", "i"},
+	})
 }
 
 func TestMultiRun(t *testing.T) {
@@ -173,7 +213,7 @@ func TestMultiRun(t *testing.T) {
 
 	err := runWorkerMasterPair(
 		t, TestOptions{Tasks: 1, Workers: 1},
-		func(ctx context.Context, task work2.Task, ncc *nonConcurrentCheck) error {
+		func(ctx context.Context, i int, task work2.Task, ncc *nonConcurrentCheck) error {
 			subtaskChan := make(chan *types.Any, 10)
 			require.NoError(t, sendSubtasks(expectedTasks[0:2], subtaskChan))
 			close(subtaskChan)
@@ -208,12 +248,49 @@ func TestMultiRun(t *testing.T) {
 }
 
 func TestParallelRun(t *testing.T) {
-}
+	expectedTasks := []string{"a", "b", "c", "d", "e"}
+	runTasks := []string{}
+	collectedTasks := []string{}
 
-func TestMultiTask(t *testing.T) {
-}
+	err := runWorkerMasterPair(
+		t, TestOptions{Tasks: 1, Workers: 1},
+		func(ctx context.Context, i int, task work2.Task, ncc *nonConcurrentCheck) error {
+			eg := errgroup.Group{}
+			eg.Go(func() error {
+				subtaskChan := make(chan *types.Any, 10)
+				require.NoError(t, sendSubtasks(expectedTasks[0:2], subtaskChan))
+				close(subtaskChan)
 
-func TestMultiWorker(t *testing.T) {
+				return task.Run(ctx, subtaskChan, wrapCallback(ncc, func(ctx context.Context, data *TestData) error {
+					fmt.Printf("master collecting first-round task: %v\n", data.Key)
+					collectedTasks = append(collectedTasks, data.Key)
+					return nil
+				}))
+			})
+
+			eg.Go(func() error {
+				subtaskChan := make(chan *types.Any, 10)
+				require.NoError(t, sendSubtasks(expectedTasks[2:], subtaskChan))
+				close(subtaskChan)
+
+				return task.Run(ctx, subtaskChan, wrapCallback(ncc, func(ctx context.Context, data *TestData) error {
+					fmt.Printf("master collecting second-round task: %v\n", data.Key)
+					collectedTasks = append(collectedTasks, data.Key)
+					return nil
+				}))
+			})
+
+			return eg.Wait()
+		},
+		func(ctx context.Context, data *TestData) error {
+			fmt.Printf("worker running task: %v\n", data.Key)
+			runTasks = append(runTasks, data.Key)
+			return nil
+		},
+	)
+	require.NoError(t, err)
+	require.ElementsEqual(t, expectedTasks, runTasks)
+	require.ElementsEqual(t, expectedTasks, collectedTasks)
 }
 
 func TestExecutionOrder(t *testing.T) {
