@@ -78,7 +78,7 @@ If you're doing a custom release (off a branch that isn't master), [skip to the 
     > git push origin master
     ```
 
-8) Regenerate the golden deployment manifests: `./etc/testing/deploy-manifests/validate.sh --regenerate`
+8) Regenerate the golden deployment manifests: `make regenerate-test-deploy-manifests`
 
 9) Commit the changes:
 
