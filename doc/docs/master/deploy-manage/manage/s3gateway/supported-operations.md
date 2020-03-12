@@ -221,9 +221,7 @@ S3 bucket, which is a repository with a branch in Pachyderm.
 ### Delete an S3 Bucket
 
 You can delete an empty S3 bucket in Pachyderm by running a corresponding
-command for your S3 client. The bucket must be empty and have no versioned
-objects. For AWS, you can also use the `--force` flag to delete all objects
-in the bucket and the bucket itself.
+command for your S3 client. The bucket must be completely empty.
 
 To remove an S3 bucket, run one of the following commands:
 
