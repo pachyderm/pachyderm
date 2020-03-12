@@ -213,13 +213,27 @@ message AggregateProcessStats {
 }
 
 message WorkerStatus {
+  // General data that's present regardless of what type of work the worker is doing:
   string worker_id = 1 [(gogoproto.customname) = "WorkerID"];
   string job_id = 2 [(gogoproto.customname) = "JobID"];
+
+  // Processing data that's present if the worker is processing datums:
   repeated pps.InputFile data = 3;
   // Started is the time processing on the current datum began.
   google.protobuf.Timestamp started = 4;
   ProcessStats stats = 5;
   int64 queue_size = 6;
+
+  // Merging data that's present the worker is merging datums:
+  // shard this worker has been assigned
+  int64 shard = 8;
+  // chunk this worker is currently downloading
+  int64 chunk = 9;
+  // peer (other worker) this chunk is being downloaded from
+  string peer = 10;
+  // tags currently being d/l from obj store, if this is set it means that downloading from the peer failed
+  repeated pfs.Tag tags = 11;
+  ProcessStats merge_stats = 12;
 }
 
 // ResourceSpec describes the amount of resources that pipeline pods should
