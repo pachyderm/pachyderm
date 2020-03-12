@@ -15,8 +15,6 @@ from tensorflow.python.keras.utils.data_utils import get_file
 tf.__version__
 
 
-# this is the Pachyderm repo & branch we'll copy files from
-input_bucket = os.getenv('INPUT_BUCKET', 'input')
 # this is local directory we'll copy the files to
 data_dir  = os.getenv('DATA_DIR', "/data")
 # this is the training data file in the input repo
@@ -78,11 +76,9 @@ if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='Copy data from an S3 input bucket, operate on it, and copy the data to a different S3 bucket.')
 
   parser.add_argument('-i', '--input_bucket', required=False,
-                      help="The bucket where files will be copied from. This overrides the environment variable INPUT_BUCKET. Default is {}".format(input_bucket),
-                      default=input_bucket)
+                      help="The bucket where files will be copied from")
   parser.add_argument('--s3_endpoint', required=False,
-                      help="The endpoint used when communicating with S3. This overrides the environment variable S3_ENDPOINT. Default is {}".format(s3_endpoint),
-                      default=output_bucket)
+                      help="The endpoint used when communicating with S3")
   parser.add_argument('-d', '--datadir', required=False,
                       help="The local directory where data will be copied to.  This overrides the environment variable DATA_DIR. Default is {}".format(data_dir),
                       default=data_dir)

@@ -13,11 +13,12 @@ def mnist_pipeline(s3_endpoint='',
   """
   train = kfp.ContainerOp(
       name='mnist',
-      image='pachyderm/mnist_klflow_example@sha256_',
+      image='pachyderm/mnist_klflow_example@sha256:824651c1ba03faa1d7d0ec2899d77fad7da4f84c4ad60aa6df8fee042f6cb7e2',
       arguments=[
-          "python3" "/app/tfjob.py",
+          "python3",
+          "/app/tfjob.py",
           "--s3_endpoint", s3_endpoint,
-          "--input_bucket", input_bucket,
+          "--input_bucket", "input",
       ]
   )
 
