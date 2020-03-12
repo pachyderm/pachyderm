@@ -1,12 +1,12 @@
 pipeline:
   name: trigger-kubeflow
 transform:
-  image: pachyderm/kubeflow_demo_trigger@sha256:46596fc299b9eeff6d9a4e08fd3a00e424e8a75ff22ceb73d2a01223e08d8054
+  image: pachyderm/kubeflow_demo_trigger@sha256:d47ccae34cbcb93c018ae01613f151758a1a4bdec8e72cb865e62913017039dd
   cmd: [ /bin/trigger.sh ]
   env:
-    # PIPELINE_NAME is set in the UI when you create the pipeline. The value in 
-    # pipeline.py is not used AFAICT
-    PIPELINE_NAME: "mnist_pipeline"
+    # KF_PIPELINE_NAME is set in the UI when you create the pipeline. The value
+    # in pipeline.py is not used AFAICT
+    KF_PIPELINE_NAME: "mnist_pipeline"
     # Pipeline parameter that sets your pipeline's S3 endpoint
     S3_ENDPOINT_PARAM_NAME: "s3_endpoint" # s3_endpoint is the default--optional
     # The namespace where kubeflow is deployed
