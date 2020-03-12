@@ -6,8 +6,10 @@ import kfp.dsl as kfp
   name="mnist pipeline",
   description="Train neural net on MNIST"
 )
-def mnist_pipeline(s3_endpoint='',
-                   input_bucket='input'):
+def mnist_pipeline(
+  s3_endpoint : str = '',
+  input_bucket : str ='input'
+):
   """
   Train neural net on 'mnist'
   """
@@ -18,7 +20,7 @@ def mnist_pipeline(s3_endpoint='',
           "python3",
           "/app/tfjob.py",
           "--s3_endpoint", s3_endpoint,
-          "--input_bucket", "input",
+          "--input_bucket", input_bucket,
       ]
   )
 
