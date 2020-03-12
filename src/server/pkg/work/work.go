@@ -57,40 +57,77 @@ func newCollection(etcdClient *etcd.Client, etcdPrefix string, template proto.Me
 	)
 }
 
-func (tq *TaskQueue) CreateTask(ctx context.Context, task *Task) (*Master, error) {
+// RunTask runs a task in the task queue.
+// The task code should be contained within the passed in callback.
+// The callback will receive a Master, which should be used for running subtasks in the task queue.
+// The task state will be cleaned up upon return of the callback.
+func (tq *TaskQueue) RunTask(ctx context.Context, task *Task, f func(*Master)) (retErr error) {
 	if _, err := col.NewSTM(ctx, tq.etcdClient, func(stm col.STM) error {
 		return tq.taskCol.ReadWrite(stm).Put(task.ID, task)
 	}); err != nil {
-		return nil, err
+		return err
 	}
-	taskChans, err := tq.taskQueue.createTask(ctx, task.ID)
-	if err != nil {
-		return nil, err
-	}
-	return &Master{
-		taskEtcd:  tq.taskEtcd,
-		taskID:    task.ID,
-		taskChans: taskChans,
-		done:      make(chan struct{}),
-	}, nil
+	defer func() {
+		if retErr != nil {
+			if err := tq.deleteTask(task.ID); err != nil {
+				fmt.Printf("errored deleting task %v: %v\n", task.ID, err)
+			}
+		}
+	}()
+	return tq.taskQueue.runTask(ctx, task.ID, func(te *taskEntry) {
+		defer func() {
+			if err := tq.deleteTask(task.ID); err != nil {
+				fmt.Printf("errored deleting task %v: %v\n", task.ID, err)
+			}
+		}()
+		f(&Master{
+			taskEtcd:  tq.taskEtcd,
+			taskID:    task.ID,
+			taskEntry: te,
+		})
+	})
 }
 
 type Master struct {
 	*taskEtcd
 	taskID    string
-	taskChans *taskChans
-	eg        errgroup.Group
-	count     int64
-	done      chan struct{}
+	taskEntry *taskEntry
 }
 
 // CollectFunc is a callback that is used for collecting the results
 // from a subtask that has been processed.
 type CollectFunc func(context.Context, *TaskInfo) error
 
-func (m *Master) Collect(collectFunc CollectFunc) {
-	m.eg.Go(func() error {
-		return m.subtaskCol.ReadOnly(m.taskChans.ctx).WatchOneF(m.taskID, func(e *watch.Event) error {
+// RunSubtasks runs a set of subtasks and collects the results with the passed in callback.
+func (m *Master) RunSubtasks(subtasks []*Task, collectFunc CollectFunc) error {
+	var eg errgroup.Group
+	subtaskChan := make(chan *Task)
+	eg.Go(func() error {
+		return m.RunSubtasksChan(subtaskChan, collectFunc)
+	})
+	for _, subtask := range subtasks {
+		select {
+		case subtaskChan <- subtask:
+		case <-m.taskEntry.ctx.Done():
+			return m.taskEntry.ctx.Err()
+		}
+	}
+	close(subtaskChan)
+	return eg.Wait()
+}
+
+// RunSubtasks runs a set of subtasks (provided through a channel) and collects the results with the passed in callback.
+func (m *Master) RunSubtasksChan(subtaskChan chan *Task, collectFunc CollectFunc) error {
+	defer func() {
+		if err := m.deleteSubtasks(); err != nil {
+			fmt.Printf("errored deleting subtasks for task %v: %v\n", m.taskID, err)
+		}
+	}()
+	var eg errgroup.Group
+	var count int64
+	done := make(chan struct{})
+	eg.Go(func() error {
+		return m.subtaskCol.ReadOnly(m.taskEntry.ctx).WatchOneF(m.taskID, func(e *watch.Event) error {
 			var key string
 			subtaskInfo := &TaskInfo{}
 			if err := e.Unmarshal(&key, subtaskInfo); err != nil {
@@ -101,18 +138,16 @@ func (m *Master) Collect(collectFunc CollectFunc) {
 				return nil
 			}
 			if collectFunc != nil {
-				if err := m.taskChans.processSubtask(func(ctx context.Context) error {
+				if err := m.taskEntry.runSubtask(func(ctx context.Context) error {
 					return collectFunc(ctx, subtaskInfo)
 				}); err != nil {
 					return err
 				}
 			}
-			atomic.AddInt64(&m.count, -1)
+			atomic.AddInt64(&count, -1)
 			select {
-			case <-m.done:
-				// (bryce) it might be worth the memory cost to just keep a map of ids for subtasks that were created,
-				// rather than relying on the correct etcd events?
-				if m.count == 0 {
+			case <-done:
+				if count == 0 {
 					return errutil.ErrBreak
 				}
 			default:
@@ -120,39 +155,39 @@ func (m *Master) Collect(collectFunc CollectFunc) {
 			return nil
 		})
 	})
+	for subtask := range subtaskChan {
+		if err := m.createSubtask(subtask); err != nil {
+			return err
+		}
+		atomic.AddInt64(&count, 1)
+	}
+	close(done)
+	return eg.Wait()
 }
 
-func (m *Master) CreateSubtask(subtask *Task) error {
+func (m *Master) createSubtask(subtask *Task) error {
 	subtaskKey := path.Join(m.taskID, subtask.ID)
 	subtaskInfo := &TaskInfo{Task: subtask}
-	if _, err := col.NewSTM(m.taskChans.ctx, m.etcdClient, func(stm col.STM) error {
+	if _, err := col.NewSTM(m.taskEntry.ctx, m.etcdClient, func(stm col.STM) error {
 		return m.subtaskCol.ReadWrite(stm).Put(subtaskKey, subtaskInfo)
 	}); err != nil {
 		return err
 	}
-	atomic.AddInt64(&m.count, 1)
 	return nil
 }
 
-func (m *Master) Wait() error {
-	close(m.done)
-	return m.eg.Wait()
+func (m *Master) deleteSubtasks() error {
+	_, err := col.NewSTM(context.Background(), m.etcdClient, func(stm col.STM) error {
+		m.subtaskCol.ReadWrite(stm).DeleteAllPrefix(m.taskID)
+		return nil
+	})
+	return err
 }
 
-func (tq *TaskQueue) DeleteTask(ctx context.Context, taskID string) error {
-	if err := tq.taskQueue.deleteTask(taskID); err != nil {
-		return err
-	}
-	// Cleanup task entry.
-	if _, err := col.NewSTM(ctx, tq.etcdClient, func(stm col.STM) error {
-		return tq.taskCol.ReadWrite(stm).Delete(taskID)
-	}); err != nil {
-		return err
-	}
-	// Cleanup subtask entries.
-	_, err := col.NewSTM(ctx, tq.etcdClient, func(stm col.STM) error {
+func (tq *TaskQueue) deleteTask(taskID string) error {
+	_, err := col.NewSTM(context.Background(), tq.etcdClient, func(stm col.STM) error {
 		tq.subtaskCol.ReadWrite(stm).DeleteAllPrefix(taskID)
-		return nil
+		return tq.taskCol.ReadWrite(stm).Delete(taskID)
 	})
 	return err
 }
@@ -165,15 +200,11 @@ func (tq *TaskQueue) DeleteTask(ctx context.Context, taskID string) error {
 // in the task.
 type Worker struct {
 	*taskEtcd
-	taskQueue *taskQueue
 }
 
 // NewWorker creates a new worker.
 func NewWorker(ctx context.Context, etcdClient *etcd.Client, etcdPrefix string, taskNamespace string) *Worker {
-	return &Worker{
-		taskEtcd:  newTaskEtcd(etcdClient, etcdPrefix, taskNamespace),
-		taskQueue: newTaskQueue(ctx),
-	}
+	return &Worker{taskEtcd: newTaskEtcd(etcdClient, etcdPrefix, taskNamespace)}
 }
 
 // ProcessFunc is a callback that is used for processing a subtask in a task.
@@ -182,6 +213,7 @@ type ProcessFunc func(context.Context, *Task, *Task) error
 // Run runs the worker with the given context.
 // The worker will continue to watch the task collection until the context is cancelled.
 func (w *Worker) Run(ctx context.Context, processFunc ProcessFunc) error {
+	taskQueue := newTaskQueue(ctx)
 	return w.taskCol.ReadOnly(ctx).WatchF(func(e *watch.Event) (retErr error) {
 		var taskID string
 		task := &Task{}
@@ -189,28 +221,23 @@ func (w *Worker) Run(ctx context.Context, processFunc ProcessFunc) error {
 			return err
 		}
 		if e.Type == watch.EventDelete {
-			return w.taskQueue.deleteTask(taskID)
+			taskQueue.deleteTask(taskID)
+			return
 		}
-		taskChans, err := w.taskQueue.createTask(ctx, taskID)
-		if err != nil {
-			return err
-		}
-		go func() {
-			if err := w.taskFunc(task, taskChans, processFunc); err != nil && taskChans.ctx.Err() != context.Canceled {
-				// (bryce) how should logging work?
+		return taskQueue.runTask(ctx, taskID, func(taskEntry *taskEntry) {
+			if err := w.taskFunc(task, taskEntry, processFunc); err != nil && taskEntry.ctx.Err() != context.Canceled {
 				fmt.Printf("errored in task callback: %v\n", err)
 			}
-		}()
-		return nil
+		})
 	})
 }
 
-func (w *Worker) taskFunc(task *Task, taskChans *taskChans, processFunc ProcessFunc) error {
-	claimWatch, err := w.claimCol.ReadOnly(taskChans.ctx).WatchOne(task.ID, watch.WithFilterPut())
+func (w *Worker) taskFunc(task *Task, taskEntry *taskEntry, processFunc ProcessFunc) error {
+	claimWatch, err := w.claimCol.ReadOnly(taskEntry.ctx).WatchOne(task.ID, watch.WithFilterPut())
 	if err != nil {
 		return err
 	}
-	subtaskWatch, err := w.subtaskCol.ReadOnly(taskChans.ctx).WatchOne(task.ID, watch.WithFilterDelete())
+	subtaskWatch, err := w.subtaskCol.ReadOnly(taskEntry.ctx).WatchOne(task.ID, watch.WithFilterDelete())
 	if err != nil {
 		return err
 	}
@@ -218,7 +245,7 @@ func (w *Worker) taskFunc(task *Task, taskChans *taskChans, processFunc ProcessF
 		select {
 		case e := <-claimWatch.Watch():
 			if e.Type == watch.EventError {
-				return err
+				return e.Err
 			}
 			if e.Type != watch.EventDelete {
 				continue
@@ -227,22 +254,22 @@ func (w *Worker) taskFunc(task *Task, taskChans *taskChans, processFunc ProcessF
 			if err := e.Unmarshal(&subtaskKey, &Claim{}); err != nil {
 				return err
 			}
-			if err := taskChans.processSubtask(w.subtaskFunc(task, subtaskKey, processFunc)); err != nil {
+			if err := taskEntry.runSubtask(w.subtaskFunc(task, subtaskKey, processFunc)); err != nil {
 				return err
 			}
 		case e := <-subtaskWatch.Watch():
 			if e.Type == watch.EventError {
-				return err
+				return e.Err
 			}
 			var subtaskKey string
 			if err := e.Unmarshal(&subtaskKey, &TaskInfo{}); err != nil {
 				return err
 			}
-			if err := taskChans.processSubtask(w.subtaskFunc(task, subtaskKey, processFunc)); err != nil {
+			if err := taskEntry.runSubtask(w.subtaskFunc(task, subtaskKey, processFunc)); err != nil {
 				return err
 			}
-		case <-taskChans.ctx.Done():
-			return taskChans.ctx.Err()
+		case <-taskEntry.ctx.Done():
+			return taskEntry.ctx.Err()
 		}
 	}
 }

@@ -24,34 +24,37 @@ func TestTaskQueue(t *testing.T) {
 		})
 	}
 	tq := newTaskQueue(context.Background())
-	var tcs []*taskChans
+	var readyChans, doneChans []chan struct{}
+	for i := 0; i < numSubtasks; i++ {
+		readyChans = append(readyChans, make(chan struct{}))
+		doneChans = append(doneChans, make(chan struct{}))
+	}
 	for i := 0; i < numTasks; i++ {
-		tc, err := tq.createTask(context.Background(), strconv.Itoa(i))
-		require.NoError(t, err)
-		tcs = append(tcs, tc)
+		i := i
+		require.NoError(t, tq.runTask(context.Background(), strconv.Itoa(i), func(taskEntry *taskEntry) {
+			for j := 0; j < numSubtasks; j++ {
+				if i == 0 {
+					require.NoError(t, taskEntry.runSubtask(func(_ context.Context) error {
+						close(readyChans[j])
+						time.Sleep(1 * time.Second)
+						return nil
+					}))
+				} else {
+					<-readyChans[j]
+					require.NoError(t, taskEntry.runSubtask(func(_ context.Context) error {
+						testTasks[i].subtaskChan <- struct{}{}
+						return nil
+					}))
+					if i == numTasks-1 {
+						close(doneChans[j])
+					}
+				}
+				<-doneChans[j]
+			}
+		}))
 	}
 	for j := 0; j < numSubtasks; j++ {
-		// Set up a subtask that sleeps for a bit to allow us to queue up some subtasks.
-		readyChan := make(chan struct{})
-		go func() {
-			tcs[0].processSubtask(func(_ context.Context) error {
-				close(readyChan)
-				time.Sleep(1 * time.Second)
-				return nil
-			})
-		}()
-		<-readyChan
-		// Queue up some subtasks, and confirm that they are completed in the correct order.
-		for i := 1; i < len(tcs); i++ {
-			i := i
-			go func() {
-				tcs[i].processSubtask(func(_ context.Context) error {
-					testTasks[i].subtaskChan <- struct{}{}
-					return nil
-				})
-			}()
-		}
-		for i := 1; i < len(tcs); i++ {
+		for i := 1; i < numTasks; i++ {
 			select {
 			case <-testTasks[i].subtaskChan:
 			}

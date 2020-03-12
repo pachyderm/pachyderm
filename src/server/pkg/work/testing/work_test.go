@@ -12,7 +12,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
-	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -57,8 +56,8 @@ func test(t *testing.T, workerFailProb, taskCancelProb, subtaskFailProb float64)
 		for i := 0; i < numWorkers; i++ {
 			go func() {
 				for {
-					ctx, cancel := context.WithCancel(context.Background())
 					w := work.NewWorker(context.Background(), env.EtcdClient, etcdPrefix, "")
+					ctx, cancel := context.WithCancel(context.Background())
 					if err := w.Run(ctx, func(_ context.Context, task, subtask *work.Task) error {
 						if rand.Float64() < workerFailProb {
 							cancel()
@@ -87,44 +86,44 @@ func test(t *testing.T, workerFailProb, taskCancelProb, subtaskFailProb float64)
 			}()
 		}
 		tq := work.NewTaskQueue(context.Background(), env.EtcdClient, etcdPrefix, "")
-		var eg errgroup.Group
+		var doneChans []chan struct{}
 		for i := 0; i < numTasks; i++ {
 			i := i
 			taskID := strconv.Itoa(i)
 			ctx, cancel := context.WithCancel(context.Background())
-			m, err := tq.CreateTask(ctx, &work.Task{ID: taskID})
-			require.NoError(t, err, msg)
-			eg.Go(func() error {
-				m.Collect(func(_ context.Context, subtaskInfo *work.TaskInfo) error {
+			doneChans = append(doneChans, make(chan struct{}))
+			require.NoError(t, tq.RunTask(ctx, &work.Task{ID: taskID}, func(m *work.Master) {
+				// Create subtasks.
+				var subtasks []*work.Task
+				for j := 0; j < numSubtasks; j++ {
+					subtaskID := strconv.Itoa(j)
+					subtasks = append(subtasks, &work.Task{ID: subtaskID})
+					subtasksCreated[i][subtaskID] = true
+				}
+				if rand.Float64() < taskCancelProb {
+					cancel()
+					subtasksCreated[i] = nil
+					processMu.Lock()
+					subtasksProcessed[i] = nil
+					processMu.Unlock()
+					subtasksCollected[i] = nil
+					close(doneChans[i])
+					return
+				}
+				require.NoError(t, m.RunSubtasks(subtasks, func(_ context.Context, subtaskInfo *work.TaskInfo) error {
 					if subtaskInfo.State == work.State_FAILURE {
 						require.Equal(t, subtaskFailure.Error(), subtaskInfo.Reason, msg)
 						return nil
 					}
 					subtasksCollected[i][subtaskInfo.Task.ID] = true
 					return nil
-				})
-				// Create subtasks.
-				for j := 0; j < numSubtasks; j++ {
-					subtaskID := strconv.Itoa(j)
-					require.NoError(t, m.CreateSubtask(&work.Task{ID: subtaskID}), msg)
-					subtasksCreated[i][subtaskID] = true
-				}
-				if rand.Float64() < taskCancelProb {
-					cancel()
-					require.Equal(t, ctx.Err(), m.Wait(), msg)
-					subtasksCreated[i] = nil
-					processMu.Lock()
-					subtasksProcessed[i] = nil
-					processMu.Unlock()
-					subtasksCollected[i] = nil
-				} else {
-					require.NoError(t, m.Wait(), msg)
-				}
-				require.NoError(t, tq.DeleteTask(context.Background(), taskID), msg)
-				return nil
-			})
+				}))
+				close(doneChans[i])
+			}), msg)
 		}
-		require.NoError(t, eg.Wait(), msg)
+		for i := 0; i < numTasks; i++ {
+			<-doneChans[i]
+		}
 		require.Equal(t, subtasksCreated, subtasksProcessed, subtasksCollected, msg)
 		return nil
 	}), msg)
