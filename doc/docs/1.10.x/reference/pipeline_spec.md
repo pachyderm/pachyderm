@@ -840,7 +840,7 @@ formatted patch by diffing the two pod specs.
 
 ## The Input Glob Pattern
 
-Each PFS input needs to specify a [glob pattern](../concepts/pipeline-concepts/datum/glob-pattern/).
+Each PFS input needs to specify a [glob pattern](../../concepts/pipeline-concepts/datum/glob-pattern/).
 
 Pachyderm uses the glob pattern to determine how many "datums" an input
 consists of.  Datums are the unit of parallelism in Pachyderm.  That is,
