@@ -62,7 +62,7 @@ additional options:
 
 * By using the S3 gateway. This option is great to use with the existing tools
 and libraries that interact with S3-compatible object stores.
-See [Using the S3 Gateway](./s3gateway.md).
+See [Using the S3 Gateway](../s3gateway/).
 
 * By using the Pachyderm dashboard. The Pachyderm Enterprise dashboard
 provides a convenient way to upload data right from the UI.

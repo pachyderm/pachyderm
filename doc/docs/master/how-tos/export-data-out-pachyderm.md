@@ -37,7 +37,7 @@ data exporting methods in a Pachyderm pipeline:
 * By using the S3 gateway. Pachyderm Enterprise users can reuse
   their existing tools and libraries that work with object store
   to export their data with the S3 gateway.<br>
-  See [Using the S3 Gateway](./s3gateway.md).
+  See [Using the S3 Gateway](../s3gateway/).
 
 ## Export Your Data with `pachctl`
 
