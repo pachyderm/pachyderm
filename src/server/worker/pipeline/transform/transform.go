@@ -42,7 +42,7 @@ func forEachCommit(
 		"",
 		pfs.CommitState_READY,
 		func(ci *pfs.CommitInfo) error {
-			statsCommit := getStatsCommit(driver.PipelineInfo(), ci)
+			statsCommit := getStatsCommit(pi, ci)
 			// TODO: ensure ci and statsCommit are in a consistent state
 			if ci.Finished == nil {
 				// Inspect the commit and check again if it has been finished (it may have
@@ -58,14 +58,14 @@ func forEachCommit(
 						return err
 					}
 					if !ppsutil.IsTerminal(ji.State) {
-						if len(ci.Trees) == 0 {
+						if ci.Trees == nil && ci.Tree == nil {
 							ji.State = pps.JobState_JOB_KILLED
 							ji.Reason = "output commit is finished without data, but job state has not been updated"
 						} else {
 							ji.State = pps.JobState_JOB_SUCCESS
 						}
 
-						if err := finishJob(pachClient, ji, ji.State, ji.Reason, nil, nil, 0, nil, 0); err != nil {
+						if err := finishJob(pi, pachClient, ji, ji.State, ji.Reason, nil, nil, 0, nil, 0); err != nil {
 							return fmt.Errorf("could not update job with finished output commit: %v", err)
 						}
 					}

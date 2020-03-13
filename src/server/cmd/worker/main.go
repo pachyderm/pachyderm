@@ -126,14 +126,13 @@ func getPipelineInfo(pachClient *client.APIClient, env *serviceenv.ServiceEnv) (
 }
 
 func do(config interface{}) error {
-	tracing.InstallJaegerTracerFromEnv() // must run before InitServiceEnv
+	// must run InstallJaegerTracer before InitWithKube/pach client initialization
+	tracing.InstallJaegerTracerFromEnv()
 	env := serviceenv.InitServiceEnv(serviceenv.NewConfiguration(config))
 
 	// Construct a client that connects to the sidecar.
 	pachClient := env.GetPachClient(context.Background())
-
-	// Get etcd client, so we can register our IP (so pachd can discover us)
-	pipelineInfo, err := getPipelineInfo(pachClient, env)
+	pipelineInfo, err := getPipelineInfo(pachClient, env) // get pipeline creds for pachClient
 	if err != nil {
 		return fmt.Errorf("error getting pipelineInfo: %v", err)
 	}

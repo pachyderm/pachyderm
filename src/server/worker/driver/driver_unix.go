@@ -121,6 +121,9 @@ func (d *driver) linkData(inputs []*common.Input, dir string) error {
 	}
 
 	for _, input := range inputs {
+		if input.S3 {
+			continue // S3 data is not downloaded
+		}
 		src := filepath.Join(dir, input.Name)
 		dst := filepath.Join(d.InputDir(), input.Name)
 		if err := os.Symlink(src, dst); err != nil {
@@ -137,5 +140,11 @@ func (d *driver) linkData(inputs []*common.Input, dir string) error {
 		}
 	}
 
-	return os.Symlink(filepath.Join(dir, "out"), filepath.Join(d.InputDir(), "out"))
+	if !d.PipelineInfo().S3Out {
+		if err := os.Symlink(filepath.Join(dir, "out"), filepath.Join(d.InputDir(), "out")); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

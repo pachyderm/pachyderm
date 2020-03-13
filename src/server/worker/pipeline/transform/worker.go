@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
@@ -24,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
@@ -206,7 +208,38 @@ func uploadChunk(driver driver.Driver, logger logs.TaggedLogger, cache *hashtree
 	})
 }
 
+func checkS3Gateway(driver driver.Driver, logger logs.TaggedLogger) error {
+	return backoff.RetryNotify(func() error {
+		endpoint := fmt.Sprintf("http://%s:%s/",
+			ppsutil.SidecarS3GatewayService(logger.JobID()),
+			os.Getenv("S3GATEWAY_PORT"),
+		)
+
+		_, err := (&http.Client{Timeout: 5 * time.Second}).Get(endpoint)
+		logger.Logf("checking s3 gateway service for job %q: %v", logger.JobID(), err)
+		return err
+	}, backoff.New60sBackOff(), func(err error, d time.Duration) error {
+		logger.Logf("worker could not connect to s3 gateway for %q: %v", logger.JobID(), err)
+		return nil
+	})
+	// TODO: `master` implementation fails the job here, we may need to do the same
+	// We would need to load the jobInfo first for this:
+	// }); err != nil {
+	//   reason := fmt.Sprintf("could not connect to s3 gateway for %q: %v", logger.JobID(), err)
+	//   logger.Logf("failing job with reason: %s", reason)
+	//   // NOTE: this is the only place a worker will reach over and change the job state, this should not generally be done.
+	//   return finishJob(driver.PipelineInfo(), driver.PachClient(), jobInfo, pps.JobState_JOB_FAILURE, reason, nil, nil, 0, nil, 0)
+	// }
+	// return nil
+}
+
 func handleDatumTask(driver driver.Driver, logger logs.TaggedLogger, data *DatumData, subtaskID string, status *Status) error {
+	if ppsutil.ContainsS3Inputs(driver.PipelineInfo().Input) || driver.PipelineInfo().S3Out {
+		if err := checkS3Gateway(driver, logger); err != nil {
+			return err
+		}
+	}
+
 	// TODO: check for existing tagged output files - continue with processing if any are missing
 	return driver.WithDatumCache(func(datumCache *hashtree.MergeCache, statsCache *hashtree.MergeCache) error {
 		logger.Logf("transform worker datum task: %v", data)
@@ -260,7 +293,7 @@ func handleDatumTask(driver driver.Driver, logger logs.TaggedLogger, data *Datum
 			return err
 		}
 
-		if data.Stats.DatumsFailed == 0 {
+		if data.Stats.DatumsFailed == 0 && !driver.PipelineInfo().S3Out {
 			if len(recoveredDatums) > 0 {
 				recoveredDatumsTag := jobRecoveredDatumsTag(logger.JobID(), subtaskID)
 				if err := uploadRecoveredDatums(driver, logger, recoveredDatums, recoveredDatumsTag); err != nil {
@@ -341,7 +374,7 @@ func processDatum(
 				driver := driver.WithCtx(ctx)
 
 				return status.withDatum(inputs, cancel, func() error {
-					env := userCodeEnv(logger.JobID(), outputCommit, driver.InputDir(), inputs)
+					env := userCodeEnv(driver.PipelineInfo(), logger.JobID(), outputCommit, driver.InputDir(), inputs)
 					if err := driver.RunUserCode(logger, env, processStats, driver.PipelineInfo().DatumTimeout); err != nil {
 						if driver.PipelineInfo().Transform.ErrCmd != nil && failures == driver.PipelineInfo().DatumTries-1 {
 							if err = driver.RunUserErrorHandlingCode(logger, env, processStats, driver.PipelineInfo().DatumTimeout); err != nil {
@@ -355,6 +388,10 @@ func processDatum(
 				})
 			}); err != nil {
 				return err
+			}
+
+			if driver.PipelineInfo().S3Out {
+				return nil // S3Out pipelines do not store data in worker hashtrees
 			}
 
 			hashtreeBytes, err := driver.UploadOutput(dir, tag, logger, inputs, processStats, outputTree)
@@ -406,7 +443,13 @@ func processDatum(
 	return stats, recoveredDatumTags, nil
 }
 
-func userCodeEnv(jobID string, outputCommit *pfs.Commit, inputDir string, inputs []*common.Input) []string {
+func userCodeEnv(
+	pipelineInfo *pps.PipelineInfo,
+	jobID string,
+	outputCommit *pfs.Commit,
+	inputDir string,
+	inputs []*common.Input,
+) []string {
 	result := os.Environ()
 	for _, input := range inputs {
 		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(inputDir, input.Name, input.FileInfo.File.Path)))
@@ -414,6 +457,23 @@ func userCodeEnv(jobID string, outputCommit *pfs.Commit, inputDir string, inputs
 	}
 	result = append(result, fmt.Sprintf("%s=%s", client.JobIDEnv, jobID))
 	result = append(result, fmt.Sprintf("%s=%s", client.OutputCommitIDEnv, outputCommit.ID))
+	if ppsutil.ContainsS3Inputs(pipelineInfo.Input) || pipelineInfo.S3Out {
+		// TODO(msteffen) Instead of reading S3GATEWAY_PORT directly, worker/main.go
+		// should pass its ServiceEnv to worker.NewAPIServer, which should store it
+		// in 'a'. However, requiring worker.APIServer to have a ServiceEnv would
+		// break the worker.APIServer initialization in newTestAPIServer (in
+		// worker/worker_test.go), which uses mock clients but has no good way to
+		// mock a ServiceEnv. Once we can create mock ServiceEnvs, we should store
+		// a ServiceEnv in worker.APIServer, rewrite newTestAPIServer and
+		// NewAPIServer, and then change this code.
+		result = append(
+			result,
+			fmt.Sprintf("S3_ENDPOINT=http://%s:%s",
+				ppsutil.SidecarS3GatewayService(jobID),
+				os.Getenv("S3GATEWAY_PORT"),
+			),
+		)
+	}
 	return result
 }
 

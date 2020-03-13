@@ -15,6 +15,7 @@ message Input {
   string branch = 4;
   string git_url = 6 [(gogoproto.customname) = "GitURL"];
   bool empty_files = 7;
+  bool s3 = 9; // If set, workers won't create an input directory for this input
 }
 
 enum State {

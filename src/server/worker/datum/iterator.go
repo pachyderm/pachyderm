@@ -64,6 +64,7 @@ func newPFSIterator(pachClient *client.APIClient, input *pps.PFSInput) (Iterator
 			Lazy:       input.Lazy,
 			Branch:     input.Branch,
 			EmptyFiles: input.EmptyFiles,
+			S3:         input.S3,
 		})
 	}
 	// We sort the inputs so that the order is deterministic. Note that it's
@@ -441,55 +442,6 @@ func (d *gitIterator) DatumN(n int) []*common.Input {
 	return d.Datum()
 }
 
-// unitIterator is a DatumIterator that logically contains a single datum
-// with no files (i.e. a "unit" datum, a la the Unit in SML or Haskell).
-//
-// This is currently only used in the case where all of a job's inputs are S3
-// inputs. An S3 input never causes a worker to download or link any files, but
-// if *all* of a job's inputs are S3 inputs, we still want the user code to run
-// once. Thus, in that case, we use the unitIterator to give the worker a
-// single datum to claim, tell it to download no files, and let it run the user
-// code which will presumably access whatever files it's interested in via our
-// S3 gateway.
-type unitIterator struct {
-	location int8
-}
-
-func newUnitIterator() (Iterator, error) {
-	u := &unitIterator{}
-	u.Reset() // set u.location = -1
-	return u, nil
-}
-
-func (u *unitIterator) Reset() {
-	u.location = -1
-}
-
-func (u *unitIterator) Len() int {
-	return 1
-}
-
-func (u *unitIterator) Next() bool {
-	if u.location < 1 {
-		u.location++ // don't overflow little tiny int
-	}
-	return u.location < 1
-}
-
-func (u *unitIterator) Datum() []*common.Input {
-	if u.location != 0 {
-		panic("index out of bounds")
-	}
-	return []*common.Input{}
-}
-
-func (u *unitIterator) DatumN(n int) []*common.Input {
-	if n != 0 {
-		panic("index out of bounds")
-	}
-	return []*common.Input{}
-}
-
 func newCronIterator(pachClient *client.APIClient, input *pps.CronInput) (Iterator, error) {
 	return newPFSIterator(pachClient, &pps.PFSInput{
 		Name:   input.Name,
@@ -500,69 +452,8 @@ func newCronIterator(pachClient *client.APIClient, input *pps.CronInput) (Iterat
 	})
 }
 
-// removeS3Components removes all inputs underneath 'in' that are "s3 inputs":
-// 1. they are a PFS inputs with S3 = true
-// 2. they are a Cross, Union, or Join input, whose components are all "s3 inputs"
-// If "in" itself is an s3 input, then this returns nil.
-func removeS3Components(in *pps.Input) (*pps.Input, error) {
-	// removeInnerS3Inputs is an internal helper for Union, Cross, and Join inputs
-	removeAllS3Inputs := func(inputs []*pps.Input) ([]*pps.Input, error) {
-		var result []*pps.Input // result should be 'nil' if all inputs are s3
-		for _, input := range inputs {
-			switch input, err := removeS3Components(input); {
-			case err != nil:
-				return nil, err
-			case input == nil:
-				continue // 'input' was an s3 input--don't add it to 'result'
-			}
-			result = append(result, input)
-		}
-		return result, nil
-	}
-
-	var err error
-	switch {
-	case in.Pfs != nil && in.Pfs.S3:
-		return nil, nil
-	case in.Union != nil:
-		if in.Union, err = removeAllS3Inputs(in.Union); err != nil {
-			return nil, err
-		} else if len(in.Union) == 0 {
-			return nil, nil
-		}
-		return in, nil
-	case in.Cross != nil:
-		if in.Cross, err = removeAllS3Inputs(in.Cross); err != nil {
-			return nil, err
-		} else if len(in.Cross) == 0 {
-			return nil, nil
-		}
-		return in, nil
-	case in.Join != nil:
-		if in.Join, err = removeAllS3Inputs(in.Join); err != nil {
-			return nil, err
-		} else if len(in.Join) == 0 {
-			return nil, nil
-		}
-		return in, nil
-	case in.Cron != nil,
-		in.Git != nil,
-		in.Pfs != nil && !in.Pfs.S3:
-		return in, nil
-	}
-	return nil, fmt.Errorf("could not sanitize unrecognized input type: %v", in)
-}
-
 // NewIterator creates an Iterator for an input.
 func NewIterator(pachClient *client.APIClient, input *pps.Input) (Iterator, error) {
-	input, err := removeS3Components(input)
-	if err != nil {
-		return nil, err
-	}
-	if input == nil {
-		return newUnitIterator() // all elements are s3 inputs
-	}
-
 	switch {
 	case input.Pfs != nil:
 		return newPFSIterator(pachClient, input.Pfs)

@@ -102,6 +102,7 @@ func newRegistry(
 
 // Helper function for succeedJob and failJob, do not use directly
 func finishJob(
+	pipelineInfo *pps.PipelineInfo,
 	pachClient *client.APIClient,
 	jobInfo *pps.JobInfo,
 	state pps.JobState,
@@ -118,25 +119,31 @@ func finishJob(
 	jobInfo.Reason = reason
 
 	if _, err := pachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
-		if jobInfo.StatsCommit != nil {
+		if pipelineInfo.S3Out {
+			if err := builder.FinishCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID); err != nil {
+				return err
+			}
+		} else {
+			if jobInfo.StatsCommit != nil {
+				if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
+					Commit:    jobInfo.StatsCommit,
+					Empty:     statsTrees == nil,
+					Trees:     statsTrees,
+					SizeBytes: statsSize,
+				}); err != nil {
+					return err
+				}
+			}
+
 			if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-				Commit:    jobInfo.StatsCommit,
-				Empty:     statsTrees == nil,
-				Trees:     statsTrees,
-				SizeBytes: statsSize,
+				Commit:    jobInfo.OutputCommit,
+				Empty:     trees == nil,
+				Datums:    datums,
+				Trees:     trees,
+				SizeBytes: size,
 			}); err != nil {
 				return err
 			}
-		}
-
-		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-			Commit:    jobInfo.OutputCommit,
-			Empty:     trees == nil,
-			Datums:    datums,
-			Trees:     trees,
-			SizeBytes: size,
-		}); err != nil {
-			return err
 		}
 
 		return writeJobInfo(&builder.APIClient, jobInfo)
@@ -145,7 +152,7 @@ func finishJob(
 			// For certain types of errors, we want to reattempt these operations
 			// outside of a transaction (in case the job or commits were affected by
 			// some non-transactional code elsewhere, we can attempt to recover)
-			return recoverFinishedJob(pachClient, jobInfo, state, reason, datums, trees, size, statsTrees, statsSize)
+			return recoverFinishedJob(pipelineInfo, pachClient, jobInfo, state, reason, datums, trees, size, statsTrees, statsSize)
 		}
 		// For other types of errors, we want to fail the job supervision and let it
 		// reattempt later
@@ -158,6 +165,7 @@ func finishJob(
 // transaction in an attempt to get everything in a consistent state if they
 // were modified non-transactionally elsewhere.
 func recoverFinishedJob(
+	pipelineInfo *pps.PipelineInfo,
 	pachClient *client.APIClient,
 	jobInfo *pps.JobInfo,
 	state pps.JobState,
@@ -168,28 +176,34 @@ func recoverFinishedJob(
 	statsTrees []*pfs.Object,
 	statsSize uint64,
 ) error {
-	if jobInfo.StatsCommit != nil {
+	if pipelineInfo.S3Out {
+		if err := pachClient.FinishCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID); err != nil {
+			return err
+		}
+	} else {
+		if jobInfo.StatsCommit != nil {
+			if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
+				Commit:    jobInfo.StatsCommit,
+				Empty:     statsTrees == nil,
+				Trees:     statsTrees,
+				SizeBytes: statsSize,
+			}); err != nil {
+				if !pfsserver.IsCommitFinishedErr(err) && !pfsserver.IsCommitNotFoundErr(err) && !pfsserver.IsCommitDeletedErr(err) {
+					return err
+				}
+			}
+		}
+
 		if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-			Commit:    jobInfo.StatsCommit,
-			Empty:     statsTrees == nil,
-			Trees:     statsTrees,
-			SizeBytes: statsSize,
+			Commit:    jobInfo.OutputCommit,
+			Empty:     trees == nil,
+			Datums:    datums,
+			Trees:     trees,
+			SizeBytes: size,
 		}); err != nil {
 			if !pfsserver.IsCommitFinishedErr(err) && !pfsserver.IsCommitNotFoundErr(err) && !pfsserver.IsCommitDeletedErr(err) {
 				return err
 			}
-		}
-	}
-
-	if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-		Commit:    jobInfo.OutputCommit,
-		Empty:     trees == nil,
-		Datums:    datums,
-		Trees:     trees,
-		SizeBytes: size,
-	}); err != nil {
-		if !pfsserver.IsCommitFinishedErr(err) && !pfsserver.IsCommitNotFoundErr(err) && !pfsserver.IsCommitDeletedErr(err) {
-			return err
 		}
 	}
 
@@ -219,7 +233,7 @@ func (reg *registry) succeedJob(
 		newState = pps.JobState_JOB_EGRESS
 	}
 
-	if err := finishJob(pj.driver.PachClient(), pj.ji, newState, "", datums, trees, size, statsTrees, statsSize); err != nil {
+	if err := finishJob(pj.driver.PipelineInfo(), pj.driver.PachClient(), pj.ji, newState, "", datums, trees, size, statsTrees, statsSize); err != nil {
 		return err
 	}
 
@@ -232,7 +246,7 @@ func (reg *registry) failJob(
 ) error {
 	pj.logger.Logf("failing job with reason: %s", reason)
 
-	if err := finishJob(pj.driver.PachClient(), pj.ji, pps.JobState_JOB_FAILURE, reason, nil, nil, 0, nil, 0); err != nil {
+	if err := finishJob(pj.driver.PipelineInfo(), pj.driver.PachClient(), pj.ji, pps.JobState_JOB_FAILURE, reason, nil, nil, 0, nil, 0); err != nil {
 		return err
 	}
 
@@ -245,7 +259,7 @@ func (reg *registry) killJob(
 ) error {
 	pj.logger.Logf("killing job with reason: %s", reason)
 
-	if err := finishJob(pj.driver.PachClient(), pj.ji, pps.JobState_JOB_KILLED, reason, nil, nil, 0, nil, 0); err != nil {
+	if err := finishJob(pj.driver.PipelineInfo(), pj.driver.PachClient(), pj.ji, pps.JobState_JOB_KILLED, reason, nil, nil, 0, nil, 0); err != nil {
 		return err
 	}
 
@@ -504,6 +518,7 @@ func (reg *registry) getParentCommitInfo(commitInfo *pfs.CommitInfo) (*pfs.Commi
 		if err != nil {
 			return nil, err
 		}
+		// TODO: should we be checking `.Tree` here as well?
 		if parentCommitInfo.Trees != nil {
 			return parentCommitInfo, nil
 		}
@@ -572,7 +587,7 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit
 	switch {
 	case ppsutil.IsTerminal(jobInfo.State):
 		// Make sure the output commits are closed
-		if err := recoverFinishedJob(pj.driver.PachClient(), pj.ji, jobInfo.State, "", nil, nil, 0, nil, 0); err != nil {
+		if err := recoverFinishedJob(pj.driver.PipelineInfo(), pj.driver.PachClient(), pj.ji, jobInfo.State, "", nil, nil, 0, nil, 0); err != nil {
 			return err
 		}
 		// ignore finished jobs (e.g. old pipeline & already killed)
@@ -708,7 +723,10 @@ func (reg *registry) superviseJob(pj *pendingJob) error {
 		}
 		return err
 	}
-	if commitInfo.Trees == nil {
+	// commitInfo.Trees is set by non-S3-output jobs, while commitInfo.Tree is
+	// set by S3-output jobs
+	// TODO: why don't we cancel in all cases?
+	if commitInfo.Trees == nil && commitInfo.Tree == nil {
 		defer pj.cancel() // whether job state update succeeds or not, job is done
 		return reg.killJob(pj, "output commit closed")
 	}
@@ -750,6 +768,21 @@ func (reg *registry) processJobStarting(pj *pendingJob) error {
 	if len(failed) > 0 {
 		reason := fmt.Sprintf("inputs failed: %s", strings.Join(failed, ", "))
 		return reg.failJob(pj, reason)
+	}
+
+	if pj.driver.PipelineInfo().S3Out && pj.commitInfo.ParentCommit != nil {
+		// We don't want S3-out pipelines to merge datum output with the parent
+		// commit, so we create a PutFile record to delete "/". Doing it before
+		// we move the job to the RUNNING state ensures that:
+		// 1) workers can't process datums unless DeleteFile("/") has run
+		// 2) DeleteFile("/") won't run after work has started
+		if err := pj.driver.PachClient().DeleteFile(
+			pj.commitInfo.Commit.Repo.Name,
+			pj.commitInfo.Commit.ID,
+			"/",
+		); err != nil {
+			return fmt.Errorf("couldn't prepare output commit for S3-out job: %v", err)
+		}
 	}
 
 	pj.ji.State = pps.JobState_JOB_RUNNING
@@ -849,6 +882,13 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 			return reg.failJob(pj, "datum failed")
 		}
 		return fmt.Errorf("process datum error: %v", err)
+	}
+
+	// S3Out pipelines don't use hashtrees, so skip over the MERGING state - this
+	// will go to EGRESS, if applicable.
+	if pj.driver.PipelineInfo().S3Out {
+		pj.logger.Logf("processJobRunning succeeding s3out job, total stats: %v", stats)
+		return reg.succeedJob(pj, nil, 0, nil, 0)
 	}
 
 	// Write the hashtrees list and recovered datums list to object storage

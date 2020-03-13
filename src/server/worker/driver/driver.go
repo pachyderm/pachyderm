@@ -497,7 +497,7 @@ func (d *driver) WithData(
 	// TODO: do we really need two puller.CleanUps?
 	downSize, err := puller.CleanUp()
 	if err != nil {
-		logger.Logf("puller encountered an error while cleaning up: %+v", err)
+		logger.Logf("puller encountered an error while cleaning up: %v", err)
 		return nil, err
 	}
 
@@ -577,10 +577,10 @@ func (d *driver) downloadData(
 				}
 			}
 		}
-	} else {
+	} else if !d.PipelineInfo().S3Out {
 		// Create output directory (typically /pfs/out)
 		if err := os.MkdirAll(outPath, 0777); err != nil {
-			return "", err
+			return "", fmt.Errorf("couldn't create %q: %v", outPath, err)
 		}
 	}
 	for _, input := range inputs {
@@ -589,6 +589,9 @@ func (d *driver) downloadData(
 				return "", err
 			}
 			continue
+		}
+		if input.S3 {
+			continue // don't download any data
 		}
 		file := input.FileInfo.File
 		fullInputPath := filepath.Join(scratchPath, input.Name, file.Path)

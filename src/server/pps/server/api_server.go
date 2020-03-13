@@ -197,14 +197,20 @@ func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName str
 						"job output")
 				case input.Pfs.Branch == "" && !job:
 					return fmt.Errorf("input must specify a branch")
-				case len(input.Pfs.Glob) == 0:
+				case !input.Pfs.S3 && len(input.Pfs.Glob) == 0:
 					return fmt.Errorf("input must specify a glob")
-				case input.Pfs.S3 && input.Pfs.Glob != "":
-					return fmt.Errorf("input cannot specify both 's3' and 'glob, as " +
-						"the first exposes repo contents via the S3 gateway, while the " +
-						"second exposes repo contents via the filesystem")
-				case input.Pfs.S3:
-					return fmt.Errorf("'s3' inputs are not supported yet")
+				case input.Pfs.S3 && input.Pfs.Glob != "/":
+					return fmt.Errorf("inputs that set 's3' to 'true' must also set " +
+						"'glob', to \"/\", as the S3 gateway is only able to expose data " +
+						"at the commit level")
+				case input.Pfs.S3 && input.Pfs.Lazy:
+					return fmt.Errorf("input cannot specify both 's3' and 'lazy', as " +
+						"'s3' requires input data to be accessed via Pachyderm's S3 " +
+						"gateway rather than the file system")
+				case input.Pfs.S3 && input.Pfs.EmptyFiles:
+					return fmt.Errorf("input cannot specify both 's3' and " +
+						"'empty_files', as 's3' requires input data to be accessed via " +
+						"Pachyderm's S3 gateway rather than the file system")
 				}
 				// Note that input.Pfs.Commit is empty if a) this is a job b) one of
 				// the job pipeline's input branches has no commits yet
@@ -231,12 +237,25 @@ func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName str
 					return fmt.Errorf("multiple input types set")
 				}
 				set = true
+				if ppsutil.ContainsS3Inputs(input) {
+					// The best datum semantics for s3 inputs embedded in join expressions
+					// are not yet clear, and we see no use case for them yet, so block
+					// them until we know how they should work
+					//lint:ignore ST1005 error message capitalized b/c "S3"=proper noun
+					return fmt.Errorf("S3 inputs in join expressions are not supported")
+				}
 			}
 			if input.Union != nil {
 				if set {
 					return fmt.Errorf("multiple input types set")
 				}
 				set = true
+				if ppsutil.ContainsS3Inputs(input) {
+					// See above for "joins"; block s3 inputs in union expressions until
+					// we know how they should work
+					//lint:ignore ST1005 error message capitalized b/c "S3"=proper noun
+					return fmt.Errorf("S3 inputs in union expressions are not supported")
+				}
 			}
 			if input.Cron != nil {
 				if set {
@@ -1560,8 +1579,11 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	if request.TFJob != nil {
 		return goerr.New("embedding TFJobs in pipelines is not supported yet")
 	}
-	if request.S3Out {
-		return goerr.New("s3 gateway services for PPS pipelines are not supported yet")
+	if request.S3Out && ((request.Service != nil) || (request.Spout != nil)) {
+		return goerr.New("s3 output is not supported in spouts or services")
+	}
+	if request.S3Out && request.EnableStats {
+		return goerr.New("stats are not supported for pipelines that output via Pachyderm's S3 gateway")
 	}
 	if request.Transform == nil {
 		return fmt.Errorf("pipeline must specify a transform")

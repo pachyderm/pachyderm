@@ -1,7 +1,9 @@
-<img src='doc/docs/master/assets/images/pachyderm_factory_gh.png' height='225' title='Pachyderm'> 
+<p align="center">
+	<img src='doc/docs/master/assets/images/Pachyderm-Character_600.png' height='225' title='Pachyderm'>
+</p>
 
 [![GitHub release](https://img.shields.io/github/release/pachyderm/pachyderm.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/releases)
-[![GitHub license](https://img.shields.io/badge/license-apache-blue.svg)](https://github.com/pachyderm/pachyderm/blob/master/LICENSE)
+[![GitHub license](https://img.shields.io/badge/license-Pachyderm-blue)](https://github.com/pachyderm/pachyderm/blob/master/LICENSE)
 [![GoDoc](https://godoc.org/github.com/pachyderm/pachyderm?status.svg)](https://godoc.org/github.com/pachyderm/pachyderm/src/client)
 [![Go Report Card](https://goreportcard.com/badge/github.com/pachyderm/pachyderm)](https://goreportcard.com/report/github.com/pachyderm/pachyderm)
 [![Slack Status](http://slack.pachyderm.io/badge.svg)](http://slack.pachyderm.io)
@@ -45,20 +47,20 @@ If you'd like to see some examples and learn about core use cases for Pachyderm:
 
 ## Community
 Keep up to date and get Pachyderm support via:
-- [![Twitter](https://img.shields.io/twitter/url/https/twitter.com/pachydermio.svg?style=social&label=Follow%20%40pachydermio)](https://twitter.com/pachyderminc) Follow us on Twitter.
+- [![Twitter](https://img.shields.io/twitter/follow/pachyderminc?style=social)](https://twitter.com/pachyderminc) Follow us on Twitter.
 - [![Slack Status](http://slack.pachyderm.io/badge.svg)](http://slack.pachyderm.io) Join our community [Slack Channel](http://slack.pachyderm.io) to get help from the Pachyderm team and other users.
 
-### Contributing
+## Contributing
 
-To get started, sign the [Contributor License Agreement](https://pachyderm.wufoo.com/forms/pachyderm-contributor-license-agreement).
+To get started, sign the [Contributor License Agreement](https://cla-assistant.io/pachyderm/pachyderm).
 
 You should also check out our [contributing guide](https://docs.pachyderm.com/latest/contributing/setup/).
 
 Send us PRs, we would love to see what you do! You can also check our GH issues for things labeled "help-wanted" as a good place to start. We're sometimes bad about keeping that label up-to-date, so if you don't see any, just let us know.
 
-### Join Us
+## Join Us
 
-WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our open positions](https://jobs.lever.co/pachyderm/) or email us at jobs@pachyderm.io.
+WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our open positions](https://jobs.lever.co/pachyderm/)
 
 ## Usage Metrics
 
@@ -66,3 +68,12 @@ Pachyderm automatically reports anonymized usage metrics. These metrics help us
 understand how people are using Pachyderm and make it better.  They can be
 disabled by setting the env variable `METRICS` to `false` in the pachd
 container.
+
+## License Information
+Pachyderm has moved some components of Pachyderm Platform to a [source-available limited license](LICENSE). 
+
+We remain committed to the culture of open source, developing our product transparently and collaboratively with our community, and giving our community and customers source code access and the ability to study and change the software to suit their needs.
+
+Under the Pachyderm Community License, you can access the source code and modify or redistribute it; there is only one thing you cannot do, and that is use it to make a competing offering. 
+
+Check out our [License FAQ Page](https://pachyderm.com/about/pachyderm-community-license-faq/) for more information.

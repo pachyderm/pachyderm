@@ -74,6 +74,7 @@ func NewSidecarAPIServer(
 	env *serviceenv.ServiceEnv,
 	txnEnv *txnenv.TransactionEnv,
 	etcdPrefix string,
+	namespace string,
 	iamRole string,
 	reporter *metrics.Reporter,
 	workerGrpcPort uint16,
@@ -87,6 +88,7 @@ func NewSidecarAPIServer(
 		etcdPrefix:     etcdPrefix,
 		iamRole:        iamRole,
 		reporter:       reporter,
+		namespace:      namespace,
 		workerUsesRoot: true,
 		pipelines:      ppsdb.Pipelines(env.GetEtcdClient(), etcdPrefix),
 		jobs:           ppsdb.Jobs(env.GetEtcdClient(), etcdPrefix),
@@ -94,5 +96,6 @@ func NewSidecarAPIServer(
 		httpPort:       httpPort,
 		peerPort:       peerPort,
 	}
+	go apiServer.ServeSidecarS3G()
 	return apiServer, nil
 }

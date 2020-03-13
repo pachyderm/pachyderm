@@ -8,6 +8,16 @@ metadata:
   name: pachyderm
   namespace: pachyderm
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  creationTimestamp: null
+  labels:
+    app: ""
+    suite: pachyderm
+  name: pachyderm-worker
+  namespace: pachyderm
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -70,6 +80,45 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: pachyderm
+  namespace: pachyderm
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  creationTimestamp: null
+  labels:
+    app: ""
+    suite: pachyderm
+  name: pachyderm-worker
+  namespace: pachyderm
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - update
+  - create
+  - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  creationTimestamp: null
+  labels:
+    app: ""
+    suite: pachyderm
+  name: pachyderm-worker
+  namespace: pachyderm
+roleRef:
+  apiGroup: ""
+  kind: Role
+  name: pachyderm-worker
+subjects:
+- kind: ServiceAccount
+  name: pachyderm-worker
   namespace: pachyderm
 ---
 apiVersion: v1

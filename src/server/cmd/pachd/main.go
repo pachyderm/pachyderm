@@ -56,7 +56,6 @@ import (
 	flag "github.com/spf13/pflag"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	v1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -189,6 +188,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 			env,
 			txnEnv,
 			path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
+			env.Namespace,
 			env.IAMRole,
 			reporter,
 			env.PPSWorkerPort,
@@ -279,7 +279,7 @@ func doFullMode(config interface{}) (retErr error) {
 			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
 		}
 	}()
-	// must run InstallJaegerTracer before InitWithKube
+	// must run InstallJaegerTracer before InitWithKube/pach client initialization
 	if endpoint := tracing.InstallJaegerTracerFromEnv(); endpoint != "" {
 		log.Printf("connecting to Jaeger at %q", endpoint)
 	} else {
@@ -345,7 +345,7 @@ func doFullMode(config interface{}) (retErr error) {
 	if err != nil {
 		return fmt.Errorf("lru.New: %v", err)
 	}
-	kubeNamespace := getNamespace()
+	kubeNamespace := env.Namespace
 	// Setup External Pachd GRPC Server.
 	externalServer, err := grpcutil.NewServer(context.Background(), true)
 	if err != nil {
@@ -680,7 +680,7 @@ func doFullMode(config interface{}) (retErr error) {
 		return githook.RunGitHookServer(address, etcdAddress, path.Join(env.EtcdPrefix, env.PPSEtcdPrefix))
 	})
 	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
-		server, err := s3.Server(env.S3GatewayPort, env.Port)
+		server, err := s3.Server(env.S3GatewayPort, s3.NewMasterDriver(), s3.NewLocalClientFactory(env.PeerPort))
 		if err != nil {
 			return err
 		}
@@ -722,15 +722,6 @@ func getClusterID(client *etcd.Client) (string, error) {
 	}
 
 	return getClusterID(client)
-}
-
-// getNamespace returns the kubernetes namespace that this pachd pod runs in
-func getNamespace() string {
-	namespace := os.Getenv("PACHD_POD_NAMESPACE")
-	if namespace != "" {
-		return namespace
-	}
-	return v1.NamespaceDefault
 }
 
 func logGRPCServerSetup(name string, f func() error) (retErr error) {

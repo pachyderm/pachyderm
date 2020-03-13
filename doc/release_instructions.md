@@ -59,7 +59,7 @@ If you're doing a custom release (off a branch that isn't master), [skip to the 
   > git push origin master
   ```
 
-6) Run `make point-release` or `make VERSION_ADDITIONAL=rc1 release-candidate`
+6) Run `make point-release` or `make VERSION_ADDITIONAL=-rc1 release-candidate`
 
 7) Commit the changes (the dash compatibility file will have been newly created), e.g.:
 
@@ -78,7 +78,7 @@ If you're doing a custom release (off a branch that isn't master), [skip to the 
     > git push origin master
     ```
 
-8) Regenerate the golden deployment manifests: `./etc/testing/deploy-manifests/validate.sh --regenerate`
+8) Regenerate the golden deployment manifests: `make regenerate-test-deploy-manifests`
 
 9) Commit the changes:
 
@@ -135,7 +135,7 @@ Which will create a release like `v1.2.3-2342345aefda9879e87ad`
 Which can be installed like:
 
 ```
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.10.0-rc3/pachctl_1.10.0-rc3_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.10.0/pachctl_1.10.0_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 Or for mac/brew:
