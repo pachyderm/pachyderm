@@ -1919,9 +1919,7 @@ func (a *APIServer) worker() {
 						endpoint := fmt.Sprintf("http://%s:%s/",
 							ppsutil.SidecarS3GatewayService(jobInfo.Job.ID),
 							os.Getenv("S3GATEWAY_PORT"))
-						if _, err := (&http.Client{Timeout: 5 * time.Second}).Get(endpoint); err != nil {
-							return err
-						}
+						_, err := (&http.Client{Timeout: 5 * time.Second}).Get(endpoint)
 						logger.Logf("checking s3 gateway service for job %q: %v", jobInfo.Job.ID, err)
 						return err
 					}, backoff.New60sBackOff(), func(err error, d time.Duration) error {
