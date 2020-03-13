@@ -14,7 +14,7 @@ def kubeflow_pipeline(s3_endpoint, input_bucket):
 
     pipeline = kfp.ContainerOp(
         name='mnist',
-        image='ysimonson/mnist_kubeflow_pipeline:v1.0.1',
+        image='ysimonson/mnist_kubeflow_pipeline:v1.0.6',
         arguments=["python3", "/app/tfjob.py"]
     )
 

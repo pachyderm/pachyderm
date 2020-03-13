@@ -4,25 +4,30 @@ import os
 import sys
 import tempfile
 
+import boto3
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.python.lib.io import file_io
 
 def main(_):
     # TODO: remove
     for k, v in sorted(os.environ.items()):
-        print("%s=%s".format(k, v))
+        print("{}={}".format(k, v))
+
+    s3_client = boto3.client(
+        's3',
+        endpoint_url=os.environ["S3_ENDPOINT"],
+        aws_access_key_id='',
+        aws_secret_access_key=''
+    )
 
     input_bucket = os.getenv('INPUT_BUCKET', "input")
-    input_url = "s3://{}/".format(input_bucket)
 
-    with tempfile.TemporaryDirectory(suffix="pachyderm-mnist-with-tfjob") as data_dir:
+    with tempfile.TemporaryDirectory(suffix="pachyderm-mnist") as data_dir:
         # first, we copy files from pachyderm into a convenient
         # local directory for processing.
-        training_data_url = os.path.join(input_url, "mnist.npz")
         training_data_path = os.path.join(data_dir, "mnist.npz")
-        print("copying {} to {}".format(training_data_url, training_data_path))
-        file_io.copy(training_data_url, training_data_path, True)
+        print("copying from {} to {}".format(input_bucket, training_data_path))
+        s3_client.download_file(input_bucket, "mnist.npz", training_data_path)
 
         (train_images, train_labels), (test_images, test_labels) = tf.keras.datasets.mnist.load_data(path=training_data_path)
         train_labels = train_labels[:1000]
@@ -52,9 +57,8 @@ def main(_):
         model_path = os.path.join(data_dir, "my_model.h5")
         model.save(model_path)
         # Copy file over to Pachyderm
-        model_url = os.path.join("s3://out/", "my_model.h5")
         print("copying {} to {}".format(model_path, model_url))
-        file_io.copy(model_path, model_url, True)
+        s3_client.put_object(model_path, "out", "my_model.h5")
 
 if __name__ == '__main__':
     tf.compat.v1.app.run(main=main, argv=[sys.argv[0]])
