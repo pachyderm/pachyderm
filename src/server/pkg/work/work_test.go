@@ -56,7 +56,7 @@ func test(t *testing.T, workerFailProb, taskCancelProb, subtaskFailProb float64)
 	seed := time.Now().UTC().UnixNano()
 	rand.Seed(seed)
 	msg := seedStr(seed)
-	require.NoError(t, testetcd.WithEtcdEnv(func(env *testetcd.EtcdEnv) error {
+	require.NoError(t, testetcd.WithEnv(func(env *testetcd.Env) error {
 		numTasks := 10
 		numSubtasks := 10
 		numWorkers := 5
