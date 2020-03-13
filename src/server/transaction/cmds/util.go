@@ -16,7 +16,7 @@ import (
 func getActiveTransaction() (*transaction.Transaction, error) {
 	cfg, err := config.Read(false)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error reading Pachyderm config:")
+		return nil, errors.Wrapf(err, "error reading Pachyderm config")
 	}
 	_, context, err := cfg.ActiveContext()
 	if err != nil {
