@@ -42,7 +42,7 @@ func RunIODirPath(ioObj IO, dirPath string, args ...string) error {
 	if err := cmd.Run(); err != nil {
 		stderrContent, _ := ioutil.ReadAll(debugStderr)
 		if len(stderrContent) > 0 {
-			return errors.Wrapf(err, "%s\nStderr\nError%s", strings.Join(args, " "), err.Error(), string(stderrContent))
+			return errors.Wrapf(err, "%s\nStderr: %s\nError", strings.Join(args, " "), string(stderrContent))
 		}
 		return errors.Wrapf(err, "%s", strings.Join(args, " "))
 	}
