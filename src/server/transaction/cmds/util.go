@@ -53,7 +53,7 @@ func setActiveTransaction(txn *transaction.Transaction) error {
 		context.ActiveTransaction = txn.ID
 	}
 	if err := cfg.Write(); err != nil {
-		return errors.Wrapf(err, "error writing Pachyderm config:")
+		return errors.Wrapf(err, "error writing Pachyderm config")
 	}
 	return nil
 }
