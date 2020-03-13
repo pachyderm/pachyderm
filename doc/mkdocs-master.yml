@@ -103,6 +103,7 @@ nav:
     - Getting Started:
         - Overview: getting_started/index.md
         - Local Installation: getting_started/local_installation.md
+        - Install pachctl Autocompletion: getting_started/install-pachctl-completion.md
         - Deploy Pachyderm on Windows: getting_started/wsl-deploy.md
         - Beginner Tutorial: getting_started/beginner_tutorial.md
     - Concepts:
@@ -120,7 +121,6 @@ nav:
             - Pipeline:
                 - Overview: concepts/pipeline-concepts/pipeline/index.md
                 - Cron: concepts/pipeline-concepts/pipeline/cron.md
-                - Join: concepts/pipeline-concepts/pipeline/join.md
                 - Service: concepts/pipeline-concepts/pipeline/service.md
                 - Spout: concepts/pipeline-concepts/pipeline/spout.md
             - Job: concepts/pipeline-concepts/job.md
@@ -128,7 +128,8 @@ nav:
                 - Overview: concepts/pipeline-concepts/datum/index.md
                 - Glob Patterns: concepts/pipeline-concepts/datum/glob-pattern.md
                 - Datum Processing: concepts/pipeline-concepts/datum/relationship-between-datums.md
-                - Cross and Union Inputs: concepts/pipeline-concepts/datum/cross-union.md
+                - Cross and Union: concepts/pipeline-concepts/datum/cross-union.md
+                - Join: concepts/pipeline-concepts/datum/join.md
                 - Datum Processing States: concepts/pipeline-concepts/datum/datum-processing-states.md
         - Advanced Concepts:
             - Deferred Processing of Data: concepts/advanced-concepts/deferred_processing.md
@@ -147,8 +148,11 @@ nav:
         - Use JupyterHub:
             - Overview: how-tos/use-jupyterhub/index.md
             - Using python-pachyderm in JupyterHub: how-tos/use-jupyterhub/using-jupyterhub.md
-        - Run a Pipeline on a Specific Commit: how-tos/run_pipeline.md
-        - Update a Pipeline: how-tos/updating_pipelines.md
+        - Pipeline Operations:
+            - Create a Pipeline: how-tos/create-pipeline.md
+            - Run a Pipeline on a Specific Commit: how-tos/run_pipeline.md
+            - Update a Pipeline: how-tos/updating_pipelines.md
+            - Delete a Pipeline: how-tos/delete-pipeline.md
         - Processing Time-Windowed Data: how-tos/time_windows.md
         - Use Transactions: how-tos/use-transactions-to-run-multiple-commands.md
         - Delete Data: how-tos/removing_data_from_pachyderm.md
@@ -179,6 +183,7 @@ nav:
                 - Create a Complete Configuration: deploy-manage/deploy/deploy_custom/deploy_custom_complete_example_invocation.md
                 - Additional flags: deploy-manage/deploy/deploy_custom/deploy_custom_additional_flags.md
             - Additional Customizations:
+                - Import a Kubernetes Context: deploy-manage/deploy/import-kubernetes-context.md
                 - Deploy Pachyderm with TLS: deploy-manage/deploy/deploy_w_tls.md
                 - Deploy in a Custom Namespace: deploy-manage/deploy/namespaces.md
                 - Deploy a Custom Object Store: deploy-manage/deploy/non-cloud-object-stores.md
@@ -189,6 +194,7 @@ nav:
         - Manage Pachyderm:
             - Overview: deploy-manage/manage/index.md
             - Manage Cluster Access: deploy-manage/manage/cluster-access.md
+            - Using Pachctl Shell: deploy-manage/manage/pachctl_shell.md
             - Autoscale your Cluster: deploy-manage/manage/autoscaling.md
             - Backup and Restore: deploy-manage/manage/backup_restore.md
             - Storage Use Optimization: deploy-manage/manage/data_management.md
@@ -199,7 +205,12 @@ nav:
                 - Migrate to a Major Version: deploy-manage/manage/migrations.md
                 - Upgrade your Cluster: deploy-manage/manage/upgrades.md
             - Disable Usage Metrics: deploy-manage/manage/disable-metrics.md
-            - Using the S3 Gateway: how-tos/s3gateway.md
+            - Using the S3 Gateway:
+                - Overview: deploy-manage/manage/s3gateway/index.md
+                - Configure the S3 Gateway: deploy-manage/manage/s3gateway/configure-s3client.md
+                - Create an S3-enabled Pipeline: deploy-manage/manage/s3gateway/deploy-s3gateway-sidecar.md
+                - Supported Operations: deploy-manage/manage/s3gateway/supported-operations.md
+                - Unsupported Operations: deploy-manage/manage/s3gateway/unsupported-operations.md
     - Reference:
         - Overview: reference/index.md
         - Pipeline Specification: reference/pipeline_spec.md
@@ -225,6 +236,8 @@ nav:
             - reference/pachctl/pachctl_auth_use-auth-token.md
             - reference/pachctl/pachctl_auth_whoami.md
             - reference/pachctl/pachctl_completion.md
+            - reference/pachctl/pachctl_completion_bash.md
+            - reference/pachctl/pachctl_completion_zsh.md
             - reference/pachctl/pachctl_config.md
             - reference/pachctl/pachctl_config_delete.md
             - reference/pachctl/pachctl_config_delete_context.md
@@ -246,6 +259,7 @@ nav:
             - reference/pachctl/pachctl_create_branch.md
             - reference/pachctl/pachctl_create_pipeline.md
             - reference/pachctl/pachctl_create_repo.md
+            - reference/pachctl/pachctl_create_secret.md
             - reference/pachctl/pachctl_debug.md
             - reference/pachctl/pachctl_debug_binary.md
             - reference/pachctl/pachctl_debug_dump.md
@@ -259,6 +273,7 @@ nav:
             - reference/pachctl/pachctl_delete_job.md
             - reference/pachctl/pachctl_delete_pipeline.md
             - reference/pachctl/pachctl_delete_repo.md
+            - reference/pachctl/pachctl_delete_secret.md
             - reference/pachctl/pachctl_delete_transaction.md
             - reference/pachctl/pachctl_deploy.md
             - reference/pachctl/pachctl_deploy_amazon.md
@@ -297,6 +312,7 @@ nav:
             - reference/pachctl/pachctl_glob.md
             - reference/pachctl/pachctl_glob_file.md
             - reference/pachctl/pachctl_inspect.md
+            - reference/pachctl/pachctl_inspect_branch.md
             - reference/pachctl/pachctl_inspect_cluster.md
             - reference/pachctl/pachctl_inspect_commit.md
             - reference/pachctl/pachctl_inspect_datum.md
@@ -304,6 +320,7 @@ nav:
             - reference/pachctl/pachctl_inspect_job.md
             - reference/pachctl/pachctl_inspect_pipeline.md
             - reference/pachctl/pachctl_inspect_repo.md
+            - reference/pachctl/pachctl_inspect_secret.md
             - reference/pachctl/pachctl_inspect_transaction.md
             - reference/pachctl/pachctl_list.md
             - reference/pachctl/pachctl_list_branch.md
@@ -313,6 +330,7 @@ nav:
             - reference/pachctl/pachctl_list_job.md
             - reference/pachctl/pachctl_list_pipeline.md
             - reference/pachctl/pachctl_list_repo.md
+            - reference/pachctl/pachctl_list_secret.md
             - reference/pachctl/pachctl_list_transaction.md
             - reference/pachctl/pachctl_logs.md
             - reference/pachctl/pachctl_mount.md
@@ -325,7 +343,9 @@ nav:
             - reference/pachctl/pachctl_resume.md
             - reference/pachctl/pachctl_resume_transaction.md
             - reference/pachctl/pachctl_run.md
+            - reference/pachctl/pachctl_run_cron.md
             - reference/pachctl/pachctl_run_pipeline.md
+            - reference/pachctl/pachctl_shell.md
             - reference/pachctl/pachctl_start.md
             - reference/pachctl/pachctl_start_commit.md
             - reference/pachctl/pachctl_start_pipeline.md
@@ -362,5 +382,5 @@ nav:
 
 # Google Analytics
 google_analytics:
-  - !!python/object/apply:os.getenv ["GOOGLE_ANALYTICS_KEY"]
+  - !!python/object/apply:os.getenv ["UA-158483597-1"]
   - autosite_name: Pachyderm Documentation

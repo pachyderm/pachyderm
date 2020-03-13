@@ -155,9 +155,11 @@ func (w *microsoftWriter) writeBlock(block []byte) (retErr error) {
 	blockID := blockID(w.numBlocks)
 	w.numBlocks++
 	w.limiter.Acquire()
+
+	//lint:ignore SA6002 []byte is sufficiently pointer-like for our purposes
 	w.eg.Go(func() error {
 		defer w.limiter.Release()
-		defer bufPool.Put(block[:cap(block)]) //lint:ignore SA6002 []byte is sufficiently pointer-like for our purposes
+		defer bufPool.Put(block[:cap(block)])
 		if err := w.blob.PutBlock(blockID, block, nil); err != nil {
 			w.err = err
 			return err

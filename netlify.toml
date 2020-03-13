@@ -42,9 +42,27 @@ publish = "doc/site"
 
 [[redirects]]
   from = "/en/latest/concepts/pipeline-concepts/pipeline/join.html"
-  to = "https://docs.pachyderm.com/latest/concepts/pipeline-concepts/pipeline/join/"
+  to = "https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/join/"
   status = 301
   force = true
+
+[[redirects]]
+   from = "/latest/concepts/pipeline-concepts/pipeline/join/"
+   to = "https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/join/"
+   status = 301
+   force = true
+
+[[redirects]]
+   from = "/master/concepts/pipeline-concepts/pipeline/join/"
+   to = "/master/concepts/pipeline-concepts/datum/join/"
+   status = 301
+   force = true
+
+[[redirects]]
+   from = "/1.9.x/concepts/pipeline-concepts/pipeline/join/"
+   to = "/1.9.x/concepts/pipeline-concepts/datum/join/"
+   status = 301
+   force = true
 
 [[redirects]]
   from = "/en/latest/enterprise/"
@@ -1875,6 +1893,12 @@ publish = "doc/site"
 [[redirects]]
   from = "/deploy-manage/manage/cluster-access/"
   to = "/latest/deploy-manage/manage/cluster-access/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/how-tos/s3gateway/"
+  to = "/deploy-manage/manage/s3gateway/"
   status = 301
   force = true
 

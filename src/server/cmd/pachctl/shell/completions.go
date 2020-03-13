@@ -114,7 +114,7 @@ func BranchCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest
 			// Master should show up even if it doesn't exist yet
 			result = append(result, prompt.Suggest{
 				Text:        fmt.Sprintf("%s@master", partialFile.Commit.Repo.Name),
-				Description: fmt.Sprintf("(nil)"),
+				Description: "(nil)",
 			})
 		}
 	}
