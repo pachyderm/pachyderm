@@ -20,7 +20,7 @@ func getActiveTransaction() (*transaction.Transaction, error) {
 	}
 	_, context, err := cfg.ActiveContext()
 	if err != nil {
-		return nil, errors.Wrapf(err, "error getting the active context:")
+		return nil, errors.Wrapf(err, "error getting the active context")
 	}
 	if context.ActiveTransaction == "" {
 		return nil, nil
