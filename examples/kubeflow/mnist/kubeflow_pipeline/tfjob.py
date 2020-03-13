@@ -26,7 +26,7 @@ def main(_):
         # first, we copy files from pachyderm into a convenient
         # local directory for processing.
         training_data_path = os.path.join(data_dir, "mnist.npz")
-        print("copying from {} to {}".format(input_bucket, training_data_path))
+        print("copying from s3g to {}".format(training_data_path))
         s3_client.download_file(input_bucket, "mnist.npz", training_data_path)
 
         (train_images, train_labels), (test_images, test_labels) = tf.keras.datasets.mnist.load_data(path=training_data_path)
@@ -57,8 +57,8 @@ def main(_):
         model_path = os.path.join(data_dir, "my_model.h5")
         model.save(model_path)
         # Copy file over to Pachyderm
-        print("copying {} to {}".format(model_path, model_url))
-        s3_client.put_object(model_path, "out", "my_model.h5")
+        print("copying {} to s3g".format(model_path))
+        s3_client.upload_file(model_path, "out", "my_model.h5")
 
 if __name__ == '__main__':
     tf.compat.v1.app.run(main=main, argv=[sys.argv[0]])
