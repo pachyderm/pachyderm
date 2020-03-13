@@ -1,7 +1,7 @@
 pipeline:
   name: mnist
 transform:
-  image: ysimonson/mnist_pachyderm_pipeline:v1.0.1
+  image: ysimonson/mnist_pachyderm_pipeline:v1.0.5
   cmd: [ /app/trigger.sh ]
   env:
     # KF_PIPELINE_NAME is set in the UI when you create the pipeline. The value
