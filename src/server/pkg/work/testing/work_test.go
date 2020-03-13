@@ -12,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -31,100 +32,129 @@ func generateRandomString(n int) string {
 	return string(b)
 }
 
+type subtaskMaps struct {
+	created, processed, collected []map[string]bool
+	mu                            sync.Mutex
+}
+
+func newSubtaskMaps(numTasks int) *subtaskMaps {
+	// Setup maps for checking creation, processing, and collection.
+	taskMapsFunc := func() []map[string]bool {
+		var taskMaps []map[string]bool
+		for i := 0; i < numTasks; i++ {
+			taskMaps = append(taskMaps, make(map[string]bool))
+		}
+		return taskMaps
+	}
+	return &subtaskMaps{
+		created:   taskMapsFunc(),
+		processed: taskMapsFunc(),
+		collected: taskMapsFunc(),
+	}
+}
+
 func test(t *testing.T, workerFailProb, taskCancelProb, subtaskFailProb float64) {
 	seed := time.Now().UTC().UnixNano()
 	rand.Seed(seed)
 	msg := seedStr(seed)
 	require.NoError(t, testutil.WithEtcdEnv(func(env *testutil.EtcdEnv) error {
-		etcdPrefix := generateRandomString(32)
 		numTasks := 10
 		numSubtasks := 10
 		numWorkers := 5
-		// Setup maps for checking creation, processing, and collection.
-		taskMapsFunc := func() []map[string]bool {
-			var taskMaps []map[string]bool
-			for i := 0; i < numTasks; i++ {
-				taskMaps = append(taskMaps, make(map[string]bool))
-			}
-			return taskMaps
-		}
-		subtasksCreated := taskMapsFunc()
-		subtasksProcessed := taskMapsFunc()
-		var processMu sync.Mutex
-		subtasksCollected := taskMapsFunc()
+		sms := newSubtaskMaps(numTasks)
 		// Setup workers.
+		workerCtx, workerCancel := context.WithCancel(context.Background())
+		eg, errCtx := errgroup.WithContext(workerCtx)
 		for i := 0; i < numWorkers; i++ {
-			go func() {
+			eg.Go(func() error {
+				w := work.NewWorker(errCtx, env.EtcdClient, "", "")
 				for {
-					w := work.NewWorker(context.Background(), env.EtcdClient, etcdPrefix, "")
-					ctx, cancel := context.WithCancel(context.Background())
+					ctx, cancel := context.WithCancel(errCtx)
 					if err := w.Run(ctx, func(_ context.Context, task, subtask *work.Task) error {
 						if rand.Float64() < workerFailProb {
 							cancel()
 						} else {
 							i, err := strconv.Atoi(task.ID)
-							require.NoError(t, err, msg)
-							processMu.Lock()
-							defer processMu.Unlock()
-							if subtasksProcessed[i] != nil {
-								require.False(t, subtasksProcessed[i][subtask.ID], msg)
+							if err != nil {
+								t.Logf("errored parsing task ID: %v", err)
+								t.Fail()
+							}
+							sms.mu.Lock()
+							defer sms.mu.Unlock()
+							if sms.processed[i] != nil {
+								if sms.processed[i][subtask.ID] {
+									t.Logf("claimed subtask should not be processed")
+									t.Fail()
+								}
 								if rand.Float64() < subtaskFailProb {
-									delete(subtasksCreated[i], subtask.ID)
+									delete(sms.created[i], subtask.ID)
 									return subtaskFailure
 								}
-								subtasksProcessed[i][subtask.ID] = true
+								sms.processed[i][subtask.ID] = true
 							}
 						}
 						return nil
 					}); err != nil {
+						if workerCtx.Err() == context.Canceled {
+							return nil
+						}
 						if ctx.Err() == context.Canceled {
 							continue
 						}
-						break
+						return err
 					}
 				}
-			}()
+				return nil
+			})
 		}
-		tq := work.NewTaskQueue(context.Background(), env.EtcdClient, etcdPrefix, "")
+		tq, err := work.NewTaskQueue(errCtx, env.EtcdClient, "", "")
+		require.NoError(t, err)
 		var doneChans []chan struct{}
 		for i := 0; i < numTasks; i++ {
 			i := i
 			taskID := strconv.Itoa(i)
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(errCtx)
 			doneChans = append(doneChans, make(chan struct{}))
 			require.NoError(t, tq.RunTask(ctx, &work.Task{ID: taskID}, func(m *work.Master) {
-				// Create subtasks.
-				var subtasks []*work.Task
-				for j := 0; j < numSubtasks; j++ {
-					subtaskID := strconv.Itoa(j)
-					subtasks = append(subtasks, &work.Task{ID: subtaskID})
-					subtasksCreated[i][subtaskID] = true
-				}
-				if rand.Float64() < taskCancelProb {
-					cancel()
-					subtasksCreated[i] = nil
-					processMu.Lock()
-					subtasksProcessed[i] = nil
-					processMu.Unlock()
-					subtasksCollected[i] = nil
-					close(doneChans[i])
-					return
-				}
-				require.NoError(t, m.RunSubtasks(subtasks, func(_ context.Context, subtaskInfo *work.TaskInfo) error {
-					if subtaskInfo.State == work.State_FAILURE {
-						require.Equal(t, subtaskFailure.Error(), subtaskInfo.Reason, msg)
+				eg.Go(func() error {
+					defer close(doneChans[i])
+					// Create subtasks.
+					var subtasks []*work.Task
+					for j := 0; j < numSubtasks; j++ {
+						subtaskID := strconv.Itoa(j)
+						subtasks = append(subtasks, &work.Task{ID: subtaskID})
+						sms.created[i][subtaskID] = true
+					}
+					//
+					if rand.Float64() < taskCancelProb {
+						cancel()
+						sms.mu.Lock()
+						defer sms.mu.Unlock()
+						sms.created[i] = nil
+						sms.processed[i] = nil
+						sms.collected[i] = nil
 						return nil
 					}
-					subtasksCollected[i][subtaskInfo.Task.ID] = true
-					return nil
-				}))
-				close(doneChans[i])
+					return m.RunSubtasks(subtasks, func(_ context.Context, subtaskInfo *work.TaskInfo) error {
+						if subtaskInfo.State == work.State_FAILURE {
+							if subtaskInfo.Reason != subtaskFailure.Error() {
+								return fmt.Errorf("subtask failure reason does not equal subtask failure error message")
+							}
+							return nil
+						}
+						sms.collected[i][subtaskInfo.Task.ID] = true
+						return nil
+					})
+				})
+				<-doneChans[i]
 			}), msg)
 		}
-		for i := 0; i < numTasks; i++ {
-			<-doneChans[i]
+		for _, doneChan := range doneChans {
+			<-doneChan
 		}
-		require.Equal(t, subtasksCreated, subtasksProcessed, subtasksCollected, msg)
+		workerCancel()
+		require.NoError(t, eg.Wait(), msg)
+		require.Equal(t, sms.created, sms.processed, sms.collected, msg)
 		return nil
 	}), msg)
 }

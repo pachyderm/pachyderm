@@ -20,6 +20,9 @@ const (
 	claimPrefix   = "/claim"
 )
 
+// TaskQueue manages a set of parallel tasks, and provides an interface for running tasks.
+// Priority of tasks (and therefore subtasks) is based on task creation time, so tasks created
+// earlier will be prioritized over tasks that were created later.
 type TaskQueue struct {
 	*taskEtcd
 	taskQueue *taskQueue
@@ -30,11 +33,17 @@ type taskEtcd struct {
 	taskCol, subtaskCol, claimCol col.Collection
 }
 
-func NewTaskQueue(ctx context.Context, etcdClient *etcd.Client, etcdPrefix string, taskNamespace string) *TaskQueue {
-	return &TaskQueue{
+// NewTaskQueue sets up a new task queue.
+func NewTaskQueue(ctx context.Context, etcdClient *etcd.Client, etcdPrefix string, taskNamespace string) (*TaskQueue, error) {
+	tq := &TaskQueue{
 		taskEtcd:  newTaskEtcd(etcdClient, etcdPrefix, taskNamespace),
 		taskQueue: newTaskQueue(ctx),
 	}
+	// Clear etcd key space.
+	if err := tq.deleteAllTasks(); err != nil {
+		return nil, err
+	}
+	return tq, nil
 }
 
 func newTaskEtcd(etcdClient *etcd.Client, etcdPrefix string, taskNamespace string) *taskEtcd {
@@ -88,6 +97,7 @@ func (tq *TaskQueue) RunTask(ctx context.Context, task *Task, f func(*Master)) (
 	})
 }
 
+// Master manages subtasks in the task queue, and provides an interface for running subtasks.
 type Master struct {
 	*taskEtcd
 	taskID    string
@@ -99,12 +109,18 @@ type Master struct {
 type CollectFunc func(context.Context, *TaskInfo) error
 
 // RunSubtasks runs a set of subtasks and collects the results with the passed in callback.
-func (m *Master) RunSubtasks(subtasks []*Task, collectFunc CollectFunc) error {
+func (m *Master) RunSubtasks(subtasks []*Task, collectFunc CollectFunc) (retErr error) {
 	var eg errgroup.Group
 	subtaskChan := make(chan *Task)
 	eg.Go(func() error {
 		return m.RunSubtasksChan(subtaskChan, collectFunc)
 	})
+	defer func() {
+		close(subtaskChan)
+		if err := eg.Wait(); retErr == nil {
+			retErr = err
+		}
+	}()
 	for _, subtask := range subtasks {
 		select {
 		case subtaskChan <- subtask:
@@ -112,17 +128,11 @@ func (m *Master) RunSubtasks(subtasks []*Task, collectFunc CollectFunc) error {
 			return m.taskEntry.ctx.Err()
 		}
 	}
-	close(subtaskChan)
-	return eg.Wait()
+	return nil
 }
 
 // RunSubtasks runs a set of subtasks (provided through a channel) and collects the results with the passed in callback.
-func (m *Master) RunSubtasksChan(subtaskChan chan *Task, collectFunc CollectFunc) error {
-	defer func() {
-		if err := m.deleteSubtasks(); err != nil {
-			fmt.Printf("errored deleting subtasks for task %v: %v\n", m.taskID, err)
-		}
-	}()
+func (m *Master) RunSubtasksChan(subtaskChan chan *Task, collectFunc CollectFunc) (retErr error) {
 	var eg errgroup.Group
 	var count int64
 	done := make(chan struct{})
@@ -155,14 +165,22 @@ func (m *Master) RunSubtasksChan(subtaskChan chan *Task, collectFunc CollectFunc
 			return nil
 		})
 	})
+	defer func() {
+		close(done)
+		if err := eg.Wait(); retErr == nil {
+			retErr = err
+		}
+		if err := m.deleteSubtasks(); err != nil {
+			fmt.Printf("errored deleting subtasks for task %v: %v\n", m.taskID, err)
+		}
+	}()
 	for subtask := range subtaskChan {
 		if err := m.createSubtask(subtask); err != nil {
 			return err
 		}
 		atomic.AddInt64(&count, 1)
 	}
-	close(done)
-	return eg.Wait()
+	return nil
 }
 
 func (m *Master) createSubtask(subtask *Task) error {
@@ -192,10 +210,19 @@ func (tq *TaskQueue) deleteTask(taskID string) error {
 	return err
 }
 
+func (tq *TaskQueue) deleteAllTasks() error {
+	_, err := col.NewSTM(context.Background(), tq.etcdClient, func(stm col.STM) error {
+		tq.subtaskCol.ReadWrite(stm).DeleteAll()
+		tq.taskCol.ReadWrite(stm).DeleteAll()
+		return nil
+	})
+	return err
+}
+
 // Worker is a worker that will process subtasks in a task.
-// The worker will watch the task collection for tasks added by a master.
-// When a task is added, the worker will claim and process subtasks associated
-// with that task.
+// A worker watches the task collection for tasks to be created / deleted and appropriately
+// runs / deletes tasks in the internal task queue with a function that watches the
+// subtask and claim collections for subtasks that need to be processed.
 // The processFunc callback will be called for each subtask that needs to be processed
 // in the task.
 type Worker struct {
@@ -282,7 +309,7 @@ func (w *Worker) subtaskFunc(task *Task, subtaskKey string, processFunc ProcessF
 		subtaskInfo := &TaskInfo{}
 		if _, err := col.NewSTM(ctx, w.etcdClient, func(stm col.STM) error {
 			return w.subtaskCol.ReadWrite(stm).Get(subtaskKey, subtaskInfo)
-		}); err != nil {
+		}); err != nil && !col.IsErrNotFound(err) {
 			return err
 		}
 		if subtaskInfo.State == State_RUNNING {
