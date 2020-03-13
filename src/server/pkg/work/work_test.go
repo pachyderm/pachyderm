@@ -1,4 +1,4 @@
-package testing
+package work
 
 import (
 	"context"
@@ -10,8 +10,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/work"
+	"github.com/pachyderm/pachyderm/src/server/pkg/testetcd"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -57,7 +56,7 @@ func test(t *testing.T, workerFailProb, taskCancelProb, subtaskFailProb float64)
 	seed := time.Now().UTC().UnixNano()
 	rand.Seed(seed)
 	msg := seedStr(seed)
-	require.NoError(t, testutil.WithEtcdEnv(func(env *testutil.EtcdEnv) error {
+	require.NoError(t, testetcd.WithEtcdEnv(func(env *testetcd.EtcdEnv) error {
 		numTasks := 10
 		numSubtasks := 10
 		numWorkers := 5
@@ -67,10 +66,10 @@ func test(t *testing.T, workerFailProb, taskCancelProb, subtaskFailProb float64)
 		eg, errCtx := errgroup.WithContext(workerCtx)
 		for i := 0; i < numWorkers; i++ {
 			eg.Go(func() error {
-				w := work.NewWorker(errCtx, env.EtcdClient, "", "")
+				w := NewWorker(errCtx, env.EtcdClient, "", "")
 				for {
 					ctx, cancel := context.WithCancel(errCtx)
-					if err := w.Run(ctx, func(_ context.Context, task, subtask *work.Task) error {
+					if err := w.Run(ctx, func(_ context.Context, task, subtask *Task) error {
 						if rand.Float64() < workerFailProb {
 							cancel()
 						} else {
@@ -107,7 +106,7 @@ func test(t *testing.T, workerFailProb, taskCancelProb, subtaskFailProb float64)
 				return nil
 			})
 		}
-		tq, err := work.NewTaskQueue(errCtx, env.EtcdClient, "", "")
+		tq, err := NewTaskQueue(errCtx, env.EtcdClient, "", "")
 		require.NoError(t, err)
 		var doneChans []chan struct{}
 		for i := 0; i < numTasks; i++ {
@@ -115,14 +114,14 @@ func test(t *testing.T, workerFailProb, taskCancelProb, subtaskFailProb float64)
 			taskID := strconv.Itoa(i)
 			ctx, cancel := context.WithCancel(errCtx)
 			doneChans = append(doneChans, make(chan struct{}))
-			require.NoError(t, tq.RunTask(ctx, &work.Task{ID: taskID}, func(m *work.Master) {
+			require.NoError(t, tq.RunTask(ctx, &Task{ID: taskID}, func(m *Master) {
 				eg.Go(func() error {
 					defer close(doneChans[i])
 					// Create subtasks.
-					var subtasks []*work.Task
+					var subtasks []*Task
 					for j := 0; j < numSubtasks; j++ {
 						subtaskID := strconv.Itoa(j)
-						subtasks = append(subtasks, &work.Task{ID: subtaskID})
+						subtasks = append(subtasks, &Task{ID: subtaskID})
 						sms.created[i][subtaskID] = true
 					}
 					//
@@ -135,8 +134,8 @@ func test(t *testing.T, workerFailProb, taskCancelProb, subtaskFailProb float64)
 						sms.collected[i] = nil
 						return nil
 					}
-					return m.RunSubtasks(subtasks, func(_ context.Context, subtaskInfo *work.TaskInfo) error {
-						if subtaskInfo.State == work.State_FAILURE {
+					return m.RunSubtasks(subtasks, func(_ context.Context, subtaskInfo *TaskInfo) error {
+						if subtaskInfo.State == State_FAILURE {
 							if subtaskInfo.Reason != subtaskFailure.Error() {
 								return fmt.Errorf("subtask failure reason does not equal subtask failure error message")
 							}
