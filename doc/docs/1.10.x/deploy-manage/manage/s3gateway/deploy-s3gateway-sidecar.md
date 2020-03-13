@@ -103,5 +103,5 @@ S3 gateway instance:
 ```
 
 !!! note "See Also:"
-    - [Pipeline Specification](../../../reference/pipeline_spec/#s3)
-    - [Configure Environment Variables](../../deploy/environment-variables/)
+    - [Pipeline Specification](../../../reference/pipeline_spec/#input-required)
+    - [Configure Environment Variables](../../../deploy/environment-variables/)
