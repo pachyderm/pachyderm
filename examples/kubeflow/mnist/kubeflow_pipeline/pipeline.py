@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 
+import json
+
 import kfp.dsl as kfp
 from kubernetes.client.models import V1EnvVar
 
@@ -12,11 +14,13 @@ def kubeflow_pipeline(s3_endpoint, input_bucket):
     Train neural net on 'mnist'
     """
 
-    pipeline = kfp.ContainerOp(
-        name='mnist',
-        image='ysimonson/mnist_kubeflow_pipeline:v1.0.6',
-        arguments=["python3", "/app/tfjob.py"]
-    )
+    with open("../version.json") as f:
+        j = json.load(f)
+        pipeline = kfp.ContainerOp(
+            name='mnist',
+            image='ysimonson/mnist_kubeflow_pipeline:v{}'.format(j["kubeflow_pipeline"]),
+            arguments=["python3", "/app/tfjob.py"]
+        )
 
     pipeline = pipeline.add_env_variable(V1EnvVar(name='S3_ENDPOINT', value=s3_endpoint))
     pipeline = pipeline.add_env_variable(V1EnvVar(name='INPUT_BUCKET', value=input_bucket))
