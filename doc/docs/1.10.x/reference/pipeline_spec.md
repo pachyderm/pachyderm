@@ -72,6 +72,7 @@ create pipeline](pachctl/pachctl_create_pipeline.md) section.
   "input": {
     <"pfs", "cross", "union", "cron", or "git" see below>
   },
+  "s3_out": bool,
   "output_branch": string,
   "egress": {
     "URL": "s3://bucket/dir"
@@ -114,7 +115,8 @@ create pipeline](pachctl/pachctl_create_pipeline.md) section.
   "branch": string,
   "glob": string,
   "lazy" bool,
-  "empty_files": bool
+  "empty_files": bool,
+  "s3": bool
 }
 
 ------------------------------------
@@ -130,6 +132,7 @@ create pipeline](pachctl/pachctl_create_pipeline.md) section.
       "glob": string,
       "lazy" bool,
       "empty_files": bool
+      "s3": bool
     }
   },
   {
@@ -140,6 +143,7 @@ create pipeline](pachctl/pachctl_create_pipeline.md) section.
       "glob": string,
       "lazy" bool,
       "empty_files": bool
+      "s3": bool
     }
   }
   ...
@@ -173,6 +177,7 @@ create pipeline](pachctl/pachctl_create_pipeline.md) section.
       "join_on": string
       "lazy": bool
       "empty_files": bool
+      "s3": bool
     }
   },
   {
@@ -184,6 +189,7 @@ create pipeline](pachctl/pachctl_create_pipeline.md) section.
        "join_on": string
        "lazy": bool
        "empty_files": bool
+       "s3": bool
     }
   }
 ]
@@ -431,6 +437,21 @@ jobs. Some new commits might have more files, and therefore, more datums.
 Similarly, other commits might have fewer files and datums. If this
 parameter is not set, the job will run indefinitely until it succeeds or fails.
 
+### S3 Output Repository
+
+`s3_out` allows your pipeline code to write results out to an S3 gateway
+endpoint instead of the typical `pfs/out` directory. When this parameter
+is set to `true`, Pachyderm includes a sidecar S3 gateway instance
+container in the same pod as the pipeline container. The address of the
+output repository will be `s3://<output_repo>`. If you enable `s3_out`,
+verify that the `enable_stats` parameter is disabled.
+
+If you want to expose an input repository through an S3 gateway, see
+`input.pfs.s3` in [PFS Input](#pfs-input). 
+
+!!! note "See Also:"
+    [Environment Variables](../../deploy-manage/deploy/environment-variables/)
+
 ### Input (required)
 
 `input` specifies repos that will be visible to the jobs during runtime.
@@ -462,6 +483,7 @@ single repo.
     "glob": string,
     "lazy" bool,
     "empty_files": bool
+    "s3": bool
 }
 ```
 
@@ -499,13 +521,32 @@ with pipes must use them since they are more performant. The difference will
 be especially notable if the job only reads a subset of the files that are
 available to it.
 
-**Note:** `lazy` currently does not support datums that
-contain more than 10000 files.
+!!! note
+    `lazy` does not support datums that
+    contain more than 10000 files.
 
 `input.pfs.empty_files` controls how files are exposed to jobs. If
 set to `true`, it causes files from this PFS to be presented as empty files.
 This is useful in shuffle pipelines where you want to read the names of
 files and reorganize them by using symlinks.
+
+`input.pfs.s3` sets whether the sidecar in the pipeline worker pod
+should include a sidecar S3 gateway instance. This option enables an S3 gateway
+to serve on a pipeline-level basis and, therefore, ensure provenance tracking
+for pipelines that integrate with external systems, such as Kubeflow. When
+this option is set to `true`, Pachyderm deploys an S3 gateway instance
+alongside the pipeline container and creates an S3 bucket for the pipeline
+input repo. The address of the
+input repository will be `s3://<input_repo>`. When you enable this
+parameter, you cannot use glob patterns. All files will be processed
+as one datum.
+
+Another limitation for S3-enabled pipelines is that you can only use
+either a single input or a cross input. Join and union inputs are not
+supported.
+
+If you want to expose an output repository through an S3
+gateway, see [S3 Output Repository](#s3-output-repository).
 
 #### Union Input
 
@@ -513,7 +554,7 @@ Union inputs take the union of other inputs. In the example
 below, each input includes individual datums, such as if  `foo` and `bar`
 were in the same repository with the glob pattern set to `/*`.
 Alternatively, each of these datums might have come from separate repositories
-with the glob pattern set to `/` and being the only filesystm objects in these
+with the glob pattern set to `/` and being the only file system objects in these
 repositories.
 
 ```
@@ -546,7 +587,7 @@ a cross input creates tuples of the datums in the inputs. In the example
 below, each input includes individual datums, such as if  `foo` and `bar`
 were in the same repository with the glob pattern set to `/*`.
 Alternatively, each of these datums might have come from separate repositories
-with the glob pattern set to `/` and being the only filesystm objects in these
+with the glob pattern set to `/` and being the only file system objects in these
 repositories.
 
 ```
@@ -734,6 +775,7 @@ repo called `"stats"`. This branch stores information about each datum that
 the pipeline processes, including timing information, size information, logs,
 and `/pfs` snapshots. You can view this statistics by running the `pachctl
 inspect datum` and `pachctl list datum` commands, as well as through the web UI.
+Do not enable statistics tracking for S3-enabled pipelines.
 
 Once turned on, statistics tracking cannot be disabled for the pipeline. You can
 turn it off by deleting the pipeline, setting `enable_stats` to `false` or

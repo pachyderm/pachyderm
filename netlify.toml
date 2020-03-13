@@ -1897,6 +1897,12 @@ publish = "doc/site"
   force = true
 
 [[redirects]]
+  from = "/how-tos/s3gateway/"
+  to = "/deploy-manage/manage/s3gateway/"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/deploy-manage/manage/autoscaling/"
   to = "/latest/deploy-manage/manage/autoscaling/"
   status = 301

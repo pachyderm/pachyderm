@@ -205,7 +205,12 @@ nav:
                 - Migrate to a Major Version: deploy-manage/manage/migrations.md
                 - Upgrade your Cluster: deploy-manage/manage/upgrades.md
             - Disable Usage Metrics: deploy-manage/manage/disable-metrics.md
-            - Using the S3 Gateway: how-tos/s3gateway.md
+            - Using the S3 Gateway:
+              - Overview: deploy-manage/manage/s3gateway/index.md
+              - Configure the S3 Gateway: deploy-manage/manage/s3gateway/configure-s3client.md
+              - Create an S3-enabled Pipeline: deploy-manage/manage/s3gateway/deploy-s3gateway-sidecar.md
+              - Supported Operations: deploy-manage/manage/s3gateway/supported-operations.md
+              - Unsupported Operations: deploy-manage/manage/s3gateway/unsupported-operations.md
     - Reference:
         - Overview: reference/index.md
         - Pipeline Specification: reference/pipeline_spec.md
