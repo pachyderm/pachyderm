@@ -4,25 +4,13 @@ import os
 import sys
 import tempfile
 
-import python_pachyderm
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.python.lib.io import file_io
 
 def main(_):
-    # this is the Pachyderm repo we'll copy files from
-    input_repo = os.getenv('INPUT_REPO', "inputrepo")
-    # this is the Pachyderm branch we'll copy files from
-    input_branch = os.getenv('INPUT_BRANCH', "master")
-    # this is the Pachyderm repo we'll copy the files to
-    output_repo = os.getenv('OUTPUT_REPO', "outputrepo")
-    # this is the Pachyderm branch we'll copy the files to
-    output_branch = os.getenv('OUTPUT_BRANCH', "master")
-
-    client = python_pachyderm.Client.new_in_cluster()
-
-    input_url = "s3://{}.{}/".format(input_branch, input_repo)
-    output_url = "s3://{}.{}/".format(output_branch, output_repo)
+    input_bucket = os.getenv('INPUT_BUCKET', "input")
+    input_url = "s3://{}/".format(input_bucket)
 
     with tempfile.TemporaryDirectory(suffix="pachyderm-mnist-with-tfjob") as data_dir:
         # first, we copy files from pachyderm into a convenient
@@ -60,7 +48,7 @@ def main(_):
         model_path = os.path.join(data_dir, "my_model.h5")
         model.save(model_path)
         # Copy file over to Pachyderm
-        model_url = os.path.join(output_url, "my_model.h5")
+        model_url = os.path.join("s3://out/", "my_model.h5")
         print("copying {} to {}".format(model_path, model_url))
         file_io.copy(model_path, model_url, True)
 

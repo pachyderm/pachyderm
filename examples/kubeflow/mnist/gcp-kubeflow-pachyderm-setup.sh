@@ -1,11 +1,22 @@
+#!/bin/bash
+
+set -ex
+
 # NOTE: GKE Resources cost Money. Proceed with care.
 # This script is intended for guidance only and may not
 # execute correctly in all environments.  Try
 # setting all the environment variables here and
 # executing the commands one-by-one to debug issues.
-export CLUSTER_NAME="data-lineage-example2"
+export CLUSTER_NAME="kubeflow-test6"
 export GCP_ZONE="us-east1-b"
-export MACHINE_TYPE="n1-standard-8" 
+export MACHINE_TYPE="n1-standard-8"
+export KF_NAME="kubflowpach"
+export BASE_DIR="./"
+export KF_DIR=${BASE_DIR}/${KF_NAME}
+
+# Replace this with the CONFIG_URI listed on https://www.kubeflow.org/docs/started/getting-started/#configuration-quick-reference
+# CREDENTIALS FOR THE DEFAULT USER ARE admin@kubeflow.org:12341234
+export CONFIG_URI="https://raw.githubusercontent.com/kubeflow/manifests/v1.0-branch/kfdef/kfctl_istio_dex.v1.0.0.yaml"
 
 # For the persistent disk, 10GB is a good size to start with.
 # This stores PFS metadata. For reference, 1GB
@@ -14,9 +25,6 @@ export STORAGE_SIZE=10
 
 # The Pachyderm bucket name needs to be globally unique across the entire GCP region.
 export BUCKET_NAME=${CLUSTER_NAME}-bucket
-
-export KUBEFLOW_USERNAME='pachyderm'
-export KUBEFLOW_PASSWORD='pachyderm'
 
 # The following command is optional, to make kfctl binary easier to use.
 #export PATH=$PATH:<path to kfctl in your kubeflow installation>
@@ -66,16 +74,14 @@ gcloud container clusters get-credentials ${CLUSTER_NAME}
 gsutil mb gs://${BUCKET_NAME}
 
 kubectl create namespace kubeflow
-
 pachctl deploy google ${BUCKET_NAME} ${STORAGE_SIZE} --dynamic-etcd-nodes=1 --namespace kubeflow
+
 # Default uses Cloud IAP:
 #kfctl init ${KFAPP} --platform gcp --project ${PROJECT}
 # Alternatively, use this command if you want to use basic authentication:
 #kfctl init ${KFAPP} --platform gcp --project ${PROJECT} --use_basic_auth -V
-export CONFIG_URI="https://raw.githubusercontent.com/kubeflow/manifests/v0.7-branch/kfdef/kfctl_gcp_basic_auth.0.7.0.yaml"
-kfctl init ${KFAPP} --platform gcp --project ${PROJECT} --config=${CONFIG} --skip-init-gcp-project --use_basic_auth -V
+# kfctl init ${KFAPP} --platform gcp --project ${PROJECT} --skip-init-gcp-project --use_basic_auth -V
 
-cd ${KFAPP}
-kfctl generate all -V --zone ${GCP_ZONE}
-kfctl apply all -V
-
+mkdir -p ${KF_DIR}
+cd ${KF_DIR}
+kfctl apply -V -f ${CONFIG_URI}

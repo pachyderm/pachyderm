@@ -35,7 +35,7 @@ With everything configured and working, we're going to grab our data and then ch
 `➜ pachctl create repo outputrepo`
 
 3. Add `mnist.npz` to `inputrepo`:  
-`pachctl put file inputrepo@master:/data/mnist.npz -f mnist.npz`  
+`pachctl put file inputrepo@master:/data/mnist.npz -f mnist.npz`
 
 This command copies the minst dataset from your local machine to your Pachyderm repo `inputrepo` and Pachyderm will assign it a commit ID. Congratulations! Your data now has a HEAD commit, and Pachyderm has begun version-controlling the data!
 
@@ -99,7 +99,7 @@ we can copy it back out again.
 And, 
 thanks to Pachyderm, 
 we can maintain some sense of lineage. 
-If you take a look at the `tfjob_mist.py`and scroll towards the bottom,
+If you take a look at the `tfjob_mist.py` and scroll towards the bottom,
 you'll see that the code is just copying the `my_model.h5` to the Pachyderm S3 Gateway `outputrepo` via `url:s3://<pachyderminstance>/master.outputrepo:/data/`
 ```python
 # Save entire model to a HDF5 file
