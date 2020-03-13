@@ -12,6 +12,19 @@
   }
 }
 {
+  "kind": "ServiceAccount",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "pachyderm-worker",
+    "namespace": "default",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "",
+      "suite": "pachyderm"
+    }
+  }
+}
+{
   "kind": "ClusterRole",
   "apiVersion": "rbac.authorization.k8s.io/v1",
   "metadata": {
@@ -99,6 +112,61 @@
     "apiGroup": "",
     "kind": "ClusterRole",
     "name": "pachyderm"
+  }
+}
+{
+  "kind": "Role",
+  "apiVersion": "rbac.authorization.k8s.io/v1",
+  "metadata": {
+    "name": "pachyderm-worker",
+    "namespace": "default",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "",
+      "suite": "pachyderm"
+    }
+  },
+  "rules": [
+    {
+      "verbs": [
+        "get",
+        "list",
+        "update",
+        "create",
+        "delete"
+      ],
+      "apiGroups": [
+        ""
+      ],
+      "resources": [
+        "services"
+      ]
+    }
+  ]
+}
+{
+  "kind": "RoleBinding",
+  "apiVersion": "rbac.authorization.k8s.io/v1",
+  "metadata": {
+    "name": "pachyderm-worker",
+    "namespace": "default",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "",
+      "suite": "pachyderm"
+    }
+  },
+  "subjects": [
+    {
+      "kind": "ServiceAccount",
+      "name": "pachyderm-worker",
+      "namespace": "default"
+    }
+  ],
+  "roleRef": {
+    "apiGroup": "",
+    "kind": "Role",
+    "name": "pachyderm-worker"
   }
 }
 {

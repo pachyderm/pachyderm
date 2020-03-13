@@ -71,7 +71,7 @@ for platform in custom google amazon microsoft; do
     # - strip additional version info so that pachctl builds from the same
     #   version all work
     # - Use an empty pach config so that e.g. metrics don't change the output
-    pachctl deploy "${platform}" "${args[@]}" -o "${fmt}" --dry-run \
+    ${GOPATH}/bin/pachctl deploy "${platform}" "${args[@]}" -o "${fmt}" --dry-run \
       | sed 's/\([0-9]\{1,4\}\.[0-9]\{1,4\}\.[0-9]\{1,4\}\)-[0-9a-f]\{40\}/\1/g' >"${output}"
     rm -f "${pach_config}" # remove cfg from next run (or diff dir, or golden/)
     if [[ ! "${is_regenerate}" ]]; then

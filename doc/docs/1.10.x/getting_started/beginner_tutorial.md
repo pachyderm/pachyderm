@@ -106,7 +106,7 @@ We can check to make sure the data we just added is in Pachyderm.
 
   **System response:**
 
-  ```bash
+  ```
   NAME   CREATED            SIZE (MASTER)
   images About a minute ago 57.27KiB
   ```
@@ -115,11 +115,11 @@ We can check to make sure the data we just added is in Pachyderm.
 
   ```bash
   pachctl list commit images
-   ```
+  ```
 
   **System response:**
 
-  ```bash
+  ```
   REPO   COMMIT                           PARENT STARTED        DURATION           SIZE
   images d89758a7496a4c56920b0eaa7d7d3255 <none> 29 seconds ago Less than a second 57.27KiB
   ```
@@ -132,7 +132,7 @@ We can check to make sure the data we just added is in Pachyderm.
 
   **System response:**
 
-  ```bash
+  ```
   COMMIT                           NAME         TYPE COMMITTED          SIZE 
   d89758a7496a4c56920b0eaa7d7d3255 /liberty.png file About a minute ago 57.27KiB
   ```
@@ -342,14 +342,12 @@ pachctl list job
 
 **System response:**
 
-```bash
+```
 ID                                STARTED        DURATION           RESTART PROGRESS  DL       UL       STATE
 81ae47a802f14038b95f8f248cddbed2  7 seconds ago  Less than a second 0       1 + 2 / 3 102.4KiB 74.21KiB success
 ce448c12d0dd4410b3a5ae0c0f07e1f9  16 seconds ago Less than a second 0       1 + 1 / 2 78.7KiB  37.15KiB success
 490a28be32de491e942372018cd42460  9 minutes ago  35 seconds         0       1 + 0 / 1 57.27KiB 22.22KiB success
 ```
-
-``` bash
 
 View the output data
 
@@ -379,7 +377,7 @@ montage of images:
 
 Below is the pipeline spec for this new pipeline:
 
-``` bash
+```bash
 # montage.json
 {
   "pipeline": {
@@ -424,7 +422,7 @@ are several interesting ways to combine data in Pachyderm, which are
 discussed
 [here](../../reference/pipeline_spec/#input-required)
 and
-[here](../concepts/pipeline-concepts/datum/join/).
+[here](../../concepts/pipeline-concepts/datum/join/).
 
 We create the `montage` pipeline as before, with `pachctl`:
 
@@ -437,7 +435,7 @@ current HEAD commits of the input repos:
 
 ```bash
 pachctl list job
- ```
+```
 
 **System response:**
 

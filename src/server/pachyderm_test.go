@@ -5173,6 +5173,123 @@ func TestJoinInput(t *testing.T) {
 	}
 }
 
+func TestUnionRegression4688(t *testing.T) {
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	repoA := tu.UniqueString("TestUnionRegression4688")
+	require.NoError(t, c.CreateRepo(repoA))
+
+	repoB := tu.UniqueString("TestUnionRegression4688")
+	require.NoError(t, c.CreateRepo(repoB))
+
+	fileName := []string{"file-0", "file-1"}
+	fileData := []string{"0", "1"}
+
+	// Put file-0 into both repos and file-1 into repoA
+	commitA, err := c.StartCommit(repoA, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(repoA, "master", fileName[0], strings.NewReader(fileData[0]))
+	require.NoError(t, err)
+	_, err = c.PutFile(repoA, "master", fileName[1], strings.NewReader(fileData[1]))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repoA, "master"))
+
+	commitB, err := c.StartCommit(repoB, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(repoB, "master", fileName[0], strings.NewReader(fileData[0]))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repoB, "master"))
+
+	pipeline := tu.UniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			"cp -r /pfs/in/* /pfs/out",
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewUnionInput(
+			client.NewPFSInputOpts("in", repoA, "", "/*", "", false),
+			client.NewPFSInputOpts("in", repoB, "", "/*", "", false),
+		),
+		"",
+		false,
+	))
+
+	// We now have:
+	//  repoA: file-0 file-1
+	//  repoB: file-0
+
+	commits := []*pfs.Commit{commitA, commitB}
+	commitIter, err := c.FlushCommit(commits, []*pfs.Repo{client.NewRepo(pipeline)})
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+	outCommit := commitInfos[0].Commit
+	fileInfos, err := c.ListFile(outCommit.Repo.Name, outCommit.ID, "")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos))
+
+	file0, err := c.InspectFile(outCommit.Repo.Name, outCommit.ID, fileName[0])
+	require.NoError(t, err)
+	require.Equal(t, uint64(2), file0.SizeBytes)
+
+	file1, err := c.InspectFile(outCommit.Repo.Name, outCommit.ID, fileName[1])
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), file1.SizeBytes)
+
+	// Remove file-0 from both repos and add file-1 to repoB
+	_, err = c.ExecuteInTransaction(func(c *client.APIClient) error {
+		var err error
+		commitA, err = c.StartCommit(repoA, "master")
+		require.NoError(t, err)
+		commitB, err = c.StartCommit(repoB, "master")
+		require.NoError(t, err)
+		return nil
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, c.DeleteFile(repoA, "master", fileName[0]))
+	require.NoError(t, c.FinishCommit(repoA, "master"))
+
+	require.NoError(t, c.DeleteFile(repoB, "master", fileName[0]))
+	_, err = c.PutFile(repoB, "master", fileName[1], strings.NewReader(fileData[1]))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repoB, "master"))
+
+	// We now have:
+	//  repoA:        file-1
+	//  repoB:        file-1
+
+	commits = []*pfs.Commit{commitA, commitB}
+	commitIter, err = c.FlushCommit(commits, []*pfs.Repo{client.NewRepo(pipeline)})
+	require.NoError(t, err)
+	commitInfos = collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+	outCommit = commitInfos[0].Commit
+	fileInfos, err = c.ListFile(outCommit.Repo.Name, outCommit.ID, "")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(fileInfos))
+
+	// Regression testing for a bug in skipping datums which did not handle
+	// identical datums very well (which is very possible in a union pipeline). It
+	// would assume no datums had been removed from the parent commit because it
+	// merely counted the hash matches rather than the number of each datum that
+	// was present or missing. The worker would then skip every datum during
+	// processing and produce an identical hashtree to the parent commit.
+
+	_, err = c.InspectFile(outCommit.Repo.Name, outCommit.ID, fileName[0])
+	require.YesError(t, err, "not found")
+
+	file1, err = c.InspectFile(outCommit.Repo.Name, outCommit.ID, fileName[1])
+	require.NoError(t, err)
+	require.Equal(t, uint64(2), file1.SizeBytes)
+}
+
 func TestUnionInput(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -10624,13 +10741,6 @@ func TestExtractPipeline(t *testing.T) {
 	// and we want them to match.
 	request.Input.Pfs.Name = "input"
 	request.Input.Pfs.Branch = "master"
-	// Remove S3 inputs
-	pps.VisitInput(request.Input, func(in *pps.Input) {
-		if in.Pfs != nil {
-			in.Pfs.S3 = false
-		}
-	})
-	request.S3Out = false
 	// Can't set both parallelism spec values
 	request.ParallelismSpec.Coefficient = 0
 	// If service, can only set as Constant:1
