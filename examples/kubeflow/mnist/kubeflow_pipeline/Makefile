@@ -10,4 +10,4 @@ docker-push: docker-build
 
 kubeflow-build:
 	dsl-compile --py pipeline.py --output pipeline.tar.gz
-	@echo "pipeline built, please upload ${PWD}/pipelint.tar.gz to kubeflow"
+	@echo "pipeline built, please upload ${PWD}/pipeline.tar.gz to kubeflow"
