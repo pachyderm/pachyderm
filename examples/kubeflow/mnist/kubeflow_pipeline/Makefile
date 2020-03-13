@@ -1,7 +1,13 @@
-.PHONY: docker-build docker-push
+VERSION = $(shell jq -r .kubeflow_pipeline ../version.json)
+
+.PHONY: docker-build docker-push kubeflow-build
 
 docker-build:
-	docker build --tag ysimonson/mnist_kubeflow_pipeline:v1.0.0 .
+	docker build --tag ysimonson/mnist_kubeflow_pipeline:v$(VERSION) .
 
 docker-push: docker-build
-	docker push ysimonson/mnist_kubeflow_pipeline:v1.0.0
+	docker push ysimonson/mnist_kubeflow_pipeline:v$(VERSION)
+
+kubeflow-build:
+	dsl-compile --py pipeline.py --output pipeline.tar.gz
+	@echo "pipeline built, please upload ${PWD}/pipelint.tar.gz to kubeflow"

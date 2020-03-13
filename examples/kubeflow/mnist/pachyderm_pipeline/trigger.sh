@@ -72,7 +72,7 @@ fi
 
 time
 set +x
-echo Waiting for kubeflow pipeline to finish...
+echo "\nWaiting for kubeflow pipeline to finish..."
 # TODO(msteffen) At this point, we could also try to terminate the kubeflow run
 # if the Pachyderm job is killed.  There's an API for this at
 # /apis/v1beta1/runs/{run_id}/terminate, and we could use a Pachyderm

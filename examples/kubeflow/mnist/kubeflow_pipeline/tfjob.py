@@ -9,6 +9,10 @@ from tensorflow import keras
 from tensorflow.python.lib.io import file_io
 
 def main(_):
+    # TODO: remove
+    for k, v in sorted(os.environ.items()):
+        print("%s=%s".format(k, v))
+
     input_bucket = os.getenv('INPUT_BUCKET', "input")
     input_url = "s3://{}/".format(input_bucket)
 
