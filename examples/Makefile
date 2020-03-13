@@ -1,17 +1,9 @@
 .PHONY: opencv object_detection delete minikube gatk hyperparameter
 
-JQ := jq
-JQFLAGS :=
-DOCKER := docker
-ECHO := echo
-TOUCH := touch
-CP := cp
-RM := rm
-STATS := .enable_stats=true
-DETECTMODEL := .pipeline.name="object-detect"|.input.cross[1].pfs.repo="object-model"|.input.cross[1].pfs.name="model"
-HYPERPSPLIT := .input.cross[0].pfs.repo="hp-split"|.input.cross[0].pfs.name="split"
-HYPERPMODEL := .input.cross[1].pfs.repo="hp-model"|.input.cross[1].pfs.name="model"
-HYPERPTEST := .input.cross[0].pfs.repo="hp-test"|.input.cross[0].pfs.name="test"
+PACHCTL := /usr/local/bin/pachctl
+TAR := /usr/bin/tar
+WGET := /usr/local/bin/wget
+RM := /bin/rm
 
 
 GATK_GERMLINE_FILES	=	gatk/GATK_Germline/data/ref/ref.dict \
@@ -43,155 +35,117 @@ GATK_GERMLINE_FILES	=	gatk/GATK_Germline/data/ref/ref.dict \
 				gatk/GATK_Germline/data/bams/son.bai \
 				gatk/GATK_Germline/data/bams/son.bam
 
-opencv:
-	pachctl create repo images
-	pachctl create pipeline -f opencv/edges.json
-	pachctl create pipeline -f opencv/montage.json
-	pachctl put file images@master -i opencv/images.txt
-	pachctl put file images@master -i opencv/images2.txt
+opencv-base:
+	$(PACHCTL) create repo images
+	$(PACHCTL) create pipeline -f opencv/edges.json
+	$(PACHCTL) create pipeline -f opencv/montage.json
 
-opencv-testing: 
-	pachctl create repo images
-	$(JQ) "$(STATS)" opencv/edges.json | pachctl create pipeline -f -
-	$(JQ) "$(STATS)" opencv/montage.json | pachctl create pipeline -f -
-	pachctl start transaction
-	pachctl start commit images@master
-	pachctl finish transaction
-	pachctl put file images@master -i opencv/images.txt
-	pachctl put file images@master -i opencv/images2.txt
-	pachctl put file images@master -i opencv/images3.txt
-	pachctl put file images@master -i opencv/images4.txt
-	pachctl delete file images@master:/w7RVTsv.jpg
-	pachctl finish commit images@master
+opencv: opencv-base
+	$(PACHCTL) put file images@master -i opencv/images.txt
+	$(PACHCTL) put file images@master -i opencv/images2.txt
 
-opencv-testing-delete:
-	-pachctl delete pipeline montage
-	-pachctl delete pipeline edges
-
-opencv-delete: opencv-testing-delete
-	-pachctl delete repo images
+opencv-delete:
+	$(PACHCTL) delete pipeline montage
+	$(PACHCTL) delete pipeline edges
+	$(PACHCTL) delete repo images
 
 ml/object-detection/frozen_inference_graph.pb:
-	wget -p http://download.tensorflow.org/models/object_detection/ssd_mobilenet_v1_coco_11_06_2017.tar.gz --directory-prefix /tmp
-	tar -C ml/object-detection --strip-components 1 -xvf /tmp/download.tensorflow.org/models/object_detection/ssd_mobilenet_v1_coco_11_06_2017.tar.gz ssd_mobilenet_v1_coco_11_06_2017/frozen_inference_graph.pb
+	$(WGET) -p http://download.tensorflow.org/models/object_detection/ssd_mobilenet_v1_coco_11_06_2017.tar.gz --directory-prefix /tmp
+	$(TAR) -C ml/object-detection --strip-components 1 -xvf /tmp/download.tensorflow.org/models/object_detection/ssd_mobilenet_v1_coco_11_06_2017.tar.gz ssd_mobilenet_v1_coco_11_06_2017/frozen_inference_graph.pb
 
+OBJECT_MODEL_PIPELINE = pachctl create pipeline -f ml/object-detection/model.json
+OBJECT_DETECT_PIPELINE = pachctl create pipeline -f ml/object-detection/detect.json
+object-detection-base: 
+	@$(OBJECT_IMAGES)
+	$(PACHCTL) create repo training
+	@$(OBJECT_MODEL_PIPELINE)
+	@$(OBJECT_DETECT_PIPELINE)
 
-object-detection-images-repo: ml/object-detection/frozen_inference_graph.pb
-	pachctl create repo images
+object-detection-data: ml/object-detection/frozen_inference_graph.pb
+	$(PACHCTL) put file training@master:frozen_inference_graph.pb -f ml/object-detection/frozen_inference_graph.pb
+	$(PACHCTL) put file images@master:dogs.jpg -f ml/object-detection/images/dogs.jpg
 
-object-detection-no-images-repo: ml/object-detection/frozen_inference_graph.pb
-
-object-detection-demo: object-detection-no-images-repo
-	pachctl create repo training
-	pachctl put file training@master:frozen_inference_graph.pb -f ml/object-detection/frozen_inference_graph.pb
-	pachctl put file images@master:dogs.jpg -f ml/object-detection/images/dogs.jpg
-
-object-detection:  object-detection-images-repo object-detection-demo
-	pachctl create pipeline -f ml/object-detection/model.json
-	pachctl create pipeline -f ml/object-detection/detect.json
-
-object-detection-testing:  object-detection-demo
-	$(JQ) '$(STATS)|.pipeline.name="object-model"'  ml/object-detection/model.json | pachctl create pipeline -f -
-	$(JQ) '$(STATS)|$(DETECTMODEL)'  ml/object-detection/detect.json | pachctl create pipeline -f -
-	pachctl put file images@master:airplane.jpg -f ml/object-detection/images/airplane.jpg
-
-object-detection-testing-delete:
-	-pachctl delete pipeline object-detect
-	-pachctl delete pipeline object-model
-	-pachctl delete repo training
+object-detection: OBJECT_IMAGES = pachctl create repo images
+object-detection:  object-detection-base object-detection-data
 
 object-detection-delete: object-detection-delete
-	-pachctl delete pipeline detect
-	-pachctl delete pipeline model
-	-pachctl delete repo training
-	-pachctl delete repo images
-
-opencv-object-detection-testing: opencv-testing object-detection-testing
-opencv-object-detection-testing-delete: object-detection-testing-delete opencv-delete
+	-$(PACHCTL) delete pipeline detect
+	-$(PACHCTL) delete pipeline model
+	-$(PACHCTL) delete repo training
+	-$(PACHCTL) delete repo images
 
 hyperparameter-common:
-	pachctl create repo raw_data
-	pachctl create repo parameters
-	pachctl put file raw_data@master:iris.csv -f ml/hyperparameter/data/noisy_iris.csv
-	pachctl put file parameters@master:c_parameters.txt -f ml/hyperparameter/data/parameters/c_parameters.txt --split line --target-file-datums 1
-	pachctl put file parameters@master:gamma_parameters.txt -f ml/hyperparameter/data/parameters/gamma_parameters.txt --split line --target-file-datums 1
+	$(PACHCTL) create repo raw_data
+	$(PACHCTL) create repo parameters
 
-hyperparameter: hyperparameter-common
-	pachctl create pipeline -f ml/hyperparameter/split.json
-	pachctl create pipeline -f ml/hyperparameter/model.json
-	pachctl create pipeline -f ml/hyperparameter/test.json
-	pachctl create pipeline -f ml/hyperparameter/select.json
+hyperparameter-base: hyperparameter-common
+	$(PACHCTL) create pipeline -f ml/hyperparameter/split.json
+	$(PACHCTL) create pipeline -f ml/hyperparameter/model.json
+	$(PACHCTL) create pipeline -f ml/hyperparameter/test.json
+	$(PACHCTL) create pipeline -f ml/hyperparameter/select.json
 
-hyperparameter-testing: hyperparameter-common
-	$(JQ) '$(STATS)|.pipeline.name="hp-split"' ml/hyperparameter/split.json | pachctl create pipeline -f -
-	$(JQ) '$(STATS)|.pipeline.name="hp-model"' ml/hyperparameter/model.json | pachctl create pipeline -f -
-	$(JQ) '$(STATS)|.pipeline.name="hp-test"|$(HYPERPSPLIT)|$(HYPERPMODEL)' ml/hyperparameter/test.json | pachctl create pipeline -f -
-	$(JQ) '$(STATS)|.pipeline.name="hp-select"|$(HYPERPTEST)|$(HYPERPMODEL)'  ml/hyperparameter/select.json | pachctl create pipeline -f -
+hyperparameter-data: 
+	$(PACHCTL) start transaction
+	$(PACHCTL) start commit raw_data@master
+	$(PACHCTL) start commit parameters@master
+	$(PACHCTL) finish transaction
+	$(PACHCTL) put file raw_data@master:iris.csv -f ml/hyperparameter/data/noisy_iris.csv
+	$(PACHCTL) put file parameters@master:c_parameters.txt -f ml/hyperparameter/data/parameters/c_parameters.txt --split line --target-file-datums 1
+	$(PACHCTL) put file parameters@master:gamma_parameters.txt -f ml/hyperparameter/data/parameters/gamma_parameters.txt --split line --target-file-datums 1
+	$(PACHCTL) finish commit raw_data@master
+	$(PACHCTL) finish commit parameters@master
 
-hyperparameter-testing-delete:
-	-pachctl delete pipeline hp-select
-	-pachctl delete pipeline hp-test
-	-pachctl delete pipeline hp-split
-	-pachctl delete pipeline hp-model
-	-pachctl delete repo parameters
-	-pachctl delete repo raw_data
+hyperparameter: hyperparameter-common hyperparameter-base hyperparameter-data
 
 hyperparameter-delete:
-	-pachctl delete pipeline select
-	-pachctl delete pipeline test
-	-pachctl delete pipeline split
-	-pachctl delete pipeline model
-	-pachctl delete repo parameters
-	-pachctl delete repo raw_data
+	-$(PACHCTL) delete pipeline select
+	-$(PACHCTL) delete pipeline test
+	-$(PACHCTL) delete pipeline split
+	-$(PACHCTL) delete pipeline model
+	-$(PACHCTL) delete repo parameters
+	-$(PACHCTL) delete repo raw_data
 
 $(GATK_GERMLINE_FILES): 
 	mkdir -p gatk/GATK_Germline
 	wget -p https://s3-us-west-1.amazonaws.com/pachyderm.io/Examples_Data_Repo/GATK_Germline.zip --directory-prefix=/tmp
 	unzip -o /tmp/s3-us-west-1.amazonaws.com/pachyderm.io/Examples_Data_Repo/GATK_Germline.zip  data/ref/ref.dict data/ref/ref.fasta data/ref/ref.fasta.fai data/ref/refSDF/* data/bams/*  -d gatk/GATK_Germline
 
-gatk: $(GATK_GERMLINE_FILES)
-	pachctl create repo reference
-	pachctl put file reference@master:ref.dict  -f gatk/GATK_Germline/data/ref/ref.dict
-	pachctl put file reference@master:ref.fasta -f gatk/GATK_Germline/data/ref/ref.fasta
-	pachctl put file reference@master:ref.fasta.fai -f gatk/GATK_Germline/data/ref/ref.fasta.fai
-	pachctl put file reference@master:refSDF -r -f gatk/GATK_Germline/data/ref/refSDF
-	pachctl create repo samples
-	pachctl start commit samples@master
-	pachctl put file samples@master:mother/mother.bam -f gatk/GATK_Germline/data/bams/mother.bam
-	pachctl put file samples@master:mother/mother.bai -f gatk/GATK_Germline/data/bams/mother.bai
-	pachctl finish commit samples@master
-	pachctl start commit samples@master
-	pachctl put file samples@master:father/father.bam -f gatk/GATK_Germline/data/bams/father.bam
-	pachctl put file samples@master:father/father.bai -f gatk/GATK_Germline/data/bams/father.bai	
-	pachctl finish commit samples@master
-	pachctl create pipeline -f gatk/likelihoods.json
-	pachctl create pipeline -f gatk/joint-call.json
+gatk-base: 
+	$(PACHCTL) create repo reference
+	$(PACHCTL) create repo samples
+	$(PACHCTL) create pipeline -f gatk/likelihoods.json
+	$(PACHCTL) create pipeline -f gatk/joint-call.json
 
-gatk-testing: gatk
-	pachctl start commit samples@master
-	pachctl put file samples@master:son/son.bam -f gatk/GATK_Germline/data/bams/son.bam
-	pachctl put file samples@master:son/son.bai -f gatk/GATK_Germline/data/bams/son.bai	
-	pachctl finish commit samples@master
+gatk-data: $(GATK_GERMLINE_FILES)
+	$(PACHCTL) start transaction
+	$(PACHCTL) start commit reference@master
+	$(PACHCTL) start commit samples@master
+	$(PACHCTL) finish transaction
+	$(PACHCTL) put file reference@master:ref.dict  -f gatk/GATK_Germline/data/ref/ref.dict
+	$(PACHCTL) put file reference@master:ref.fasta -f gatk/GATK_Germline/data/ref/ref.fasta
+	$(PACHCTL) put file reference@master:ref.fasta.fai -f gatk/GATK_Germline/data/ref/ref.fasta.fai
+	$(PACHCTL) put file reference@master:refSDF -r -f gatk/GATK_Germline/data/ref/refSDF
+	$(PACHCTL) put file samples@master:mother/mother.bam -f gatk/GATK_Germline/data/bams/mother.bam
+	$(PACHCTL) put file samples@master:mother/mother.bai -f gatk/GATK_Germline/data/bams/mother.bai
+	$(PACHCTL) put file samples@master:father/father.bam -f gatk/GATK_Germline/data/bams/father.bam
+	$(PACHCTL) put file samples@master:father/father.bai -f gatk/GATK_Germline/data/bams/father.bai	
+	$(PACHCTL) finish commit reference@master
+	$(PACHCTL) finish commit samples@master
+
+gatk: gatk-base gatk-data
 
 gatk-delete:
-	-pachctl delete pipeline joint_call
-	-pachctl delete pipeline likelihoods
-	-pachctl delete repo reference
-	-pachctl delete repo samples
-
-gatk-testing-delete: gatk-delete
-
-testing-delete: gatk-testing-delete hyperparameter-testing-delete object-detection-testing-delete opencv-testing-delete
-	-pachctl delete repo images
-
-testing: opencv-testing object-detection-testing hyperparameter-testing gatk-testing
+	-$(PACHCTL) delete pipeline joint_call
+	-$(PACHCTL) delete pipeline likelihoods
+	-$(PACHCTL) delete repo reference
+	-$(PACHCTL) delete repo samples
 
 delete:
-	yes | pachctl delete all
+	yes | $(PACHCTL) delete all
 
 clean: delete
-	rm -fr gatk/GATK_Germline
-	rm -f  ml/object-detection/frozen_inference_graph.pb
+	$(RM) -fr gatk/GATK_Germline
+	$(RM) -f  ml/object-detection/frozen_inference_graph.pb
 
 minikube:echo hi
 	minikube start
