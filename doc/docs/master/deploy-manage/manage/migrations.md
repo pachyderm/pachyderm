@@ -51,12 +51,12 @@ file and then restore from that file.
 To back up your cluster, complete the following steps:
 
 1. Back up your cluster by running the `pachctl export` command with the
-`--no-object` flag as described in [Back up Your Cluster](backup-restore/).
+`--no-object` flag as described in [Back up Your Cluster](../backup-restore/).
 
 1. In your cloud provider, create a new S3 bucket with the same Permissions
 policy that you assigned to the original cluster bucket. For example,
 if your cluster is on EKS, create the same Permissions policy as described
-in [Deploy Pachyderm with an IAM Role](../../deploy-manage/deploy/amazon_web_services/aws-deploy-pachyderm/#deploy-pachyderm-with-an-iam-role).
+in [Deploy Pachyderm with an IAM Role](../../deploy/amazon_web_services/aws-deploy-pachyderm/#deploy-pachyderm-with-an-iam-role).
 
 1. Clone your S3 bucket that you used for the olf cluster to this new bucket.
    Follow the instructions for your cloud provider:
@@ -113,16 +113,25 @@ To restore all paused pipelines, complete the following steps:
         kubectl get svc/dash -o json >dash_svc_backup_30080.json
         ```
 
-     1. Modify the services to accept traffic on the corresponding ports:
+     1. Modify the services to accept traffic on the corresponding ports to
+     avoid collisions with the migration cluster:
 
         ```bash
+        # Modify the pachd API endpoint to run on 30650:
         kubectl get svc/pachd -o json | sed 's/30649/30650/g' | kubectl apply -f -
+        # Modify the pachd trace port to run on 30651:
         kubectl get svc/pachd -o json | sed 's/30648/30651/g' | kubectl apply -f -
+        # Modify the pachd api-over-http port to run on 30652:
         kubectl get svc/pachd -o json | sed 's/30647/30652/g' | kubectl apply -f -
+        # Modify the pachd SAML authentication port to run on 30654:
         kubectl get svc/pachd -o json | sed 's/30646/30654/g' | kubectl apply -f -
+        # Modify the pachd git API callback port to run on 30655:
         kubectl get svc/pachd -o json | sed 's/30644/30655/g' | kubectl apply -f -
+        # Modify the pachd s3 port to run on 30600:
         kubectl get svc/pachd -o json | sed 's/30611/30600/g' | kubectl apply -f -
+        # Modify the etcd client port to run on 32378:
         kubectl get svc/etcd -o json | sed 's/32378/32379/g' | kubectl apply -f -
+        # Modify the dashboard ports to run on 30081 and 30080:
         kubectl get svc/dash -o json | sed 's/30079/30080/g' | kubectl apply -f -
         kubectl get svc/dash -o json | sed 's/30078/30081/g' | kubectl apply -f -
         ```
@@ -207,7 +216,7 @@ cluster by using a `pachctl deploy` command for your cloud provider with the
    ```
 
    **Note:** Parameters for your Pachyderm cluster deployment might be different.
-   For more information, see [Deploy Pachyderm](deploy-manage/deploy/).
+   For more information, see [Deploy Pachyderm](../../deploy/).
 
 1. Verify that your cluster has been deployed:
 
@@ -262,7 +271,7 @@ Kubernetes cluster as your old cluster, verify that you on the correct namespace
    pachctl list repo & pachctl list pipeline
    ```
 
-   You should get and empty output.
+   You should get empty output.
 
 1. Restore your cluster from the backup you have created in
 [Step 1](#step-1-back-up-your-cluster):

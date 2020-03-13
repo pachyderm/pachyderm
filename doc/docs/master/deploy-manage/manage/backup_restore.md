@@ -181,23 +181,31 @@ port
     | jq -r '.pipeline.name' \
     | xargs -P3 -n1 -I{} pachctl stop pipeline {}
 
-    # Backup the Pachyderm service spec, in case you need to restore it quickly
+    # Backup the Pachyderm services specs, in case you need to restore them:
     kubectl get svc/pachd -o json >pach_service_backup_30650.json
     kubectl get svc/etcd -o json >etcd_svc_backup_32379.json
     kubectl get svc/dash -o json >dash_svc_backup_30080.json
 
-    # Modify the service to accept traffic on port 30649
+    # Modify all ports of all the Pachyderm service to avoid collissions
+    # with the migration cluster:
+    # Modify the pachd API endpoint to run on 30649:
     kubectl get svc/pachd -o json | sed 's/30650/30649/g' | kubectl apply -f -
+    # Modify the pachd trace port to run on 30648:
     kubectl get svc/pachd -o json | sed 's/30651/30648/g' | kubectl apply -f -
+    # Modify the pachd api-over-http port to run on 30647:
     kubectl get svc/pachd -o json | sed 's/30652/30647/g' | kubectl apply -f -
+    # Modify the pachd saml authentication port to run on 30646:
     kubectl get svc/pachd -o json | sed 's/30654/30646/g' | kubectl apply -f -
+    # Modify the pachd git api callback port to run on 30644:
     kubectl get svc/pachd -o json | sed 's/30655/30644/g' | kubectl apply -f -
+    # Modify the etcd client port to run on 32378:
     kubectl get svc/etcd -o json | sed 's/32379/32378/g' | kubectl apply -f -
+    # Modify the dashboard ports to run on 30079 and 30078:
     kubectl get svc/dash -o json | sed 's/30080/30079/g' | kubectl apply -f -
     kubectl get svc/dash -o json | sed 's/30081/30078/g' | kubectl apply -f -
+    # Modify the pachd s3 port to run on 30611:
     kubectl get svc/pachd -o json | sed 's/30600/30611/g' | kubectl apply -f -
     ```
-
 
 ## Back up Your Pachyderm Cluster
 
@@ -235,7 +243,7 @@ To back up your Pachyderm cluster, run one of the following commands:
   `--url` flag, run:
 
     ```bash
-    pachctl extract --url s3://...
+    pachctl extract --no-objects --url s3://...
     ```
 
 * To back up everything in one local file:
@@ -292,4 +300,4 @@ To restore your Cluster from a Backup, run the following command:
   ```
 
 !!! note "See Also:"
-    - [Migrate Your Cluster](migrations.md)
+    - [Migrate Your Cluster](../migrations/)
