@@ -5,7 +5,7 @@
 # cd <source-location>/examples ;  make -s -f Makefile.testing dirty-testing-cluster
 # That target, "dirty-testing-cluster" is the first workhorse testing target that's been developed.
 # It will create a cluster that has failed jobs, failed commmits, and deleted commits.
-# Invoking it with "-s" will produce terse, informative output on the steps its taking to create the
+# Invoking it with "-s" will produce terse, informative output on the steps it's taking to create the
 # cluster as it's working.  You might want to run a "watch -n 2 kubectl get pods" and a
 # "watch -n 2 pachctl list job" in other windows so you can understand what's happening as it runs.
 # At the end, it will print a message telling you the cluster is ready for your testing, and you
