@@ -7,10 +7,23 @@ import (
 )
 
 var (
-	New       = errors.New
-	Errorf    = errors.Errorf
-	Wrap      = errors.Wrap
-	Wrapf     = errors.Wrapf
+	// New returns an error with the supplied message.
+	// New also records the stack trace at the point it was called.
+	New = errors.New
+	// Errorf formats according to a format specifier and returns the string
+	// as a value that satisfies error.
+	// Errorf also records the stack trace at the point it was called.
+	Errorf = errors.Errorf
+	// Wrap returns an error annotating err with a stack trace
+	// at the point Wrap is called, and the supplied message.
+	// If err is nil, Wrap returns nil.
+	Wrap = errors.Wrap
+	// Wrapf returns an error annotating err with a stack trace
+	// at the point Wrapf is called, and the format specifier.
+	// If err is nil, Wrapf returns nil.
+	Wrapf = errors.Wrapf
+	// WithStack annotates err with a stack trace at the point WithStack was called.
+	// If err is nil, WithStack returns nil.
 	WithStack = errors.WithStack
 )
 
