@@ -57,3 +57,8 @@ src/cmd/ppsd/ppsd
 
 .bucket
 .cluster_name
+
+# python stuff
+*.pyc
+__pycache__
+
