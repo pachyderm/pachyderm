@@ -14,7 +14,7 @@ import (
 // for storing data, an embedded etcd server with a connected client, as well as
 // a local mock pachd instance which allows a test to hook into any pachd calls.
 type MockEnv struct {
-	testetcd.EtcdEnv
+	testetcd.Env
 	MockPachd  *MockPachd
 	PachClient *client.APIClient
 }
@@ -23,14 +23,14 @@ type MockEnv struct {
 // then cleans up everything in the environment, regardless of if an assertion
 // fails.
 func WithMockEnv(cb func(*MockEnv) error) error {
-	return testetcd.WithEtcdEnv(func(etcdEnv *testetcd.EtcdEnv) (err error) {
+	return testetcd.WithEnv(func(etcdEnv *testetcd.Env) (err error) {
 		// Use an error group with a cancelable context to supervise every component
 		// and cancel everything if one fails
 		ctx, cancel := context.WithCancel(etcdEnv.Context)
 		defer cancel()
 		eg, ctx := errgroup.WithContext(ctx)
 
-		mockEnv := &MockEnv{EtcdEnv: *etcdEnv}
+		mockEnv := &MockEnv{Env: *etcdEnv}
 		mockEnv.Context = ctx
 
 		// Cleanup any state when we return
