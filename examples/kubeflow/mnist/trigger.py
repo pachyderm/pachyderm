@@ -9,6 +9,11 @@ import kfp.components
 from kubernetes.client.models import V1EnvVar
 
 def mnist(s3_endpoint: str, input_bucket: str):
+    # install boto3 - kinda nasty, but this is the way to do it in kubeflow's
+    # lightweight components
+    import sys, subprocess
+    subprocess.run([sys.executable, '-m', 'pip', 'install', 'boto3'])
+
     # imports are done here because it's required for kubeflow's lightweight
     # components:
     # https://www.kubeflow.org/docs/pipelines/sdk/lightweight-python-components/
