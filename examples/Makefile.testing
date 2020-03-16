@@ -2,19 +2,19 @@
 
 # This makefile is for creating clusters filled with repos and pipelines for end-to-end and functional testing.
 # It builds on targets in the main Makefile.  You would invoke it by running the
-# cd <source-location>/examples ;  make -s -f Makefile.testing dirty-testing-cluster
+# "cd <source-location>/examples  ; make -s -f Makefile.testing dirty-testing-cluster" commands
 # That target, "dirty-testing-cluster" is the first workhorse testing target that's been developed.
 # It will create a cluster that has failed jobs, failed commmits, and deleted commits.
 # Invoking it with "-s" will produce terse, informative output on the steps it's taking to create the
 # cluster as it's working.  You might want to run a "watch -n 2 kubectl get pods" and a
-# "watch -n 2 pachctl list job" in other windows so you can understand what's happening as it runs.
+# "watch -n 2 pachctl list job" in other windows so that you can understand what's happening as it runs.
 # At the end, it will print a message telling you the cluster is ready for your testing, and you
 # can use it to test extract/restore or for whatever other testing purposes you want.
-# There are some top-level functions defined, like pipeline-status and wait-for-jobs, that make it easier
+# There are some top-level functions defined, like "pipeline-status" and "wait-for-jobs", that make it easier
 # to write targets that methodically create a cluster that's useful for testing.
-# The executable paths below are for macOS.  A future revision will set them correctly for other target OS's.
+# The executable paths below are for macOS.
 # Modify them for your system by setting environment variables, using a command like this
-# env PACHCTL=./pachctl  make -e  -f Makefile.testing dirty-testing-cluster 
+# "env PACHCTL=./pachctl  make -e  -f Makefile.testing dirty-testing-cluster"
 
 include Makefile
 
@@ -51,8 +51,8 @@ pipeline-status = $$(CURRENT_STATUS=`$(KUBECTL) get pod -l suite=pachyderm,pipel
 # $(1) the jq search filter: the filter '.state!="JOB_SUCCESS"' (without single quotes) will wait until all jobs are successful
 #                            the filter '.state!="JOB_SUCCESS" and .state!="JOB_FAILURE" will wait until all jobs have
 #                               either succeeded or failed.
-#                            You can put any jq filter in her that will work with the --raw output of list job to produce
-#                               a list of job id's.
+#                            You can put any jq filter that will work with the "--raw" output of "list job" to produce
+#                               a list of job IDs.
 # $(2) description: some text that will inform the user what kind of jobs are done.
 wait-for-jobs = while JOBS=`$(PACHCTL) list job --raw | $(JQ) 'select($(1))|.job.id'` && \
 			NUMJOBS=`$(ECHO) -n $${JOBS} | $(WC) -w` && \
@@ -205,7 +205,6 @@ dirty-testing-cluster: opencv-base  ml/object-detection/frozen_inference_graph.p
 		$(ECHO) -e "could not create commit in samples@master..." ; \
 	fi
 	$(call wait-for-jobs,.state!="JOB_SUCCESS",cluster ready for testing:)
-
 
 
 
