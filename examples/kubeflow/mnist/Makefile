@@ -1,4 +1,4 @@
-.PHONY: docker-build docker-push delete-old-kubeflow-jobs mnist
+.PHONY: docker-build docker-push clean mnist
 
 PACHYDERM_PIPELINE_VERSION = $(shell jq -r .pachyderm_pipeline version.json)
 
@@ -9,7 +9,6 @@ docker-push: docker-build
 	docker push ysimonson/mnist_pachyderm_pipeline:v$(PACHYDERM_PIPELINE_VERSION)
 
 clean:
-	kubectl delete pod $$(kubectl get pod --output=json | jq '.items[].metadata.name' -r | grep mnist-kubeflow-pipeline) || exit 0
 	echo "y\n" | pachctl delete all
 
 mnist:
