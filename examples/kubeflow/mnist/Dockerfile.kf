@@ -1,3 +1,0 @@
-FROM tensorflow/tensorflow:1.14.0-py3
-# TODO: verify that these are actually used
-RUN pip install h5py pyyaml seaborn boto3

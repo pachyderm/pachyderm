@@ -70,12 +70,9 @@ def mnist(s3_endpoint: str, input_bucket: str):
     description="Train neural net on MNIST"
 )
 def kubeflow_pipeline(s3_endpoint: str, input_bucket: str):
-    with open("version.json") as f:
-        base_image_version = json.load(f)["kubeflow_pipeline"]
-
     op = kfp.components.func_to_container_op(
         mnist,
-        base_image='ysimonson/mnist_kubeflow_pipeline:v{}'.format(base_image_version)
+        base_image='tensorflow/tensorflow:1.14.0-py3'
     )
 
     pipeline = op(s3_endpoint, input_bucket) \
