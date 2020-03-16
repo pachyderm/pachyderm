@@ -52,9 +52,8 @@ func (a *apiServer) master() {
 	backoff.RetryNotify(func() error {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		// Use the PPS token to authenticate requests. Note that all requests
-		// performed in this function are performed as a cluster admin, so do not
-		// pass any unvalidated user input to any requests
+		// Note: 'pachClient' is unauthenticated. This will use the PPS token (via
+		// a.sudo()) to authenticate requests.
 		pachClient := a.env.GetPachClient(ctx)
 		ctx, err := masterLock.Lock(ctx)
 		if err != nil {
@@ -65,7 +64,7 @@ func (a *apiServer) master() {
 
 		log.Infof("PPS master: launching master process")
 
-		// TODO(msteffen) requestly only keys, since pipeline_controller.go reads
+		// TODO(msteffen) request only keys, since pipeline_controller.go reads
 		// fresh values for each event anyway
 		pipelineWatcher, err := a.pipelines.ReadOnly(ctx).Watch()
 		if err != nil {
@@ -244,8 +243,12 @@ func (a *apiServer) setPipelineState(pachClient *client.APIClient, pipelineInfo 
 		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
 	}()
+	parallelism, err := ppsutil.GetExpectedNumWorkers(a.env.GetKubeClient(), pipelineInfo.ParallelismSpec)
+	if err != nil {
+		return err
+	}
 	log.Infof("moving pipeline %s to %s", pipelineInfo.Pipeline.Name, state.String())
-	_, err := col.NewSTM(pachClient.Ctx(), a.env.GetEtcdClient(), func(stm col.STM) error {
+	_, err = col.NewSTM(pachClient.Ctx(), a.env.GetEtcdClient(), func(stm col.STM) error {
 		pipelines := a.pipelines.ReadWrite(stm)
 		pipelinePtr := &pps.EtcdPipelineInfo{}
 		if err := pipelines.Get(pipelineInfo.Pipeline.Name, pipelinePtr); err != nil {
@@ -257,6 +260,7 @@ func (a *apiServer) setPipelineState(pachClient *client.APIClient, pipelineInfo 
 		}
 		pipelinePtr.State = state
 		pipelinePtr.Reason = reason
+		pipelinePtr.Parallelism = uint64(parallelism)
 		return pipelines.Put(pipelineInfo.Pipeline.Name, pipelinePtr)
 	})
 	return err
@@ -378,6 +382,29 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 	}
 }
 
+func (a *apiServer) getLatestCronTime(pachClient *client.APIClient, in *pps.Input) (time.Time, error) {
+	var latestTime time.Time
+	files, err := pachClient.ListFile(in.Cron.Repo, "master", "")
+	if err != nil && !pfsServer.IsNoHeadErr(err) {
+		return latestTime, err
+	} else if err != nil || len(files) == 0 {
+		// File not found, this happens the first time the pipeline is run
+		latestTime, err = types.TimestampFromProto(in.Cron.Start)
+		if err != nil {
+			return latestTime, err
+		}
+	} else {
+		// Take the name of the most recent file as the latest timestamp
+		// ListFile returns the files in lexicographical order, and the RFC3339 format goes
+		// from largest unit of time to smallest, so the most recent file will be the last one
+		latestTime, err = time.Parse(time.RFC3339, path.Base(files[len(files)-1].File.Path))
+		if err != nil {
+			return latestTime, err
+		}
+	}
+	return latestTime, nil
+}
+
 // makeCronCommits makes commits to a single cron input's repo. It's
 // a helper function called by monitorPipeline.
 func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input) error {
@@ -396,24 +423,9 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 		}
 	}
 
-	var latestTime time.Time
-	files, err := pachClient.ListFile(in.Cron.Repo, "master", "")
-	if err != nil && !pfsServer.IsNoHeadErr(err) {
+	latestTime, err := a.getLatestCronTime(pachClient, in)
+	if err != nil {
 		return err
-	} else if err != nil || len(files) == 0 {
-		// File not found, this happens the first time the pipeline is run
-		latestTime, err = types.TimestampFromProto(in.Cron.Start)
-		if err != nil {
-			return err
-		}
-	} else {
-		// Take the name of the most recent file as the latest timestamp
-		// ListFile returns the files in lexicographical order, and the RFC3339 format goes
-		// from largest unit of time to smallest, so the most recent file will be the last one
-		latestTime, err = time.Parse(time.RFC3339, path.Base(files[len(files)-1].File.Path))
-		if err != nil {
-			return err
-		}
 	}
 
 	for {
@@ -435,8 +447,8 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 			return err
 		}
 		if in.Cron.Overwrite {
-			// If we want to "overwrite" the file, we need to delete the file with the previous time
-			err := pachClient.DeleteFile(in.Cron.Repo, "master", latestTime.Format(time.RFC3339))
+			// get rid of any files, so the new file "overwrites" previous runs
+			err = pachClient.DeleteFile(in.Cron.Repo, "master", "")
 			if err != nil && !isNotFoundErr(err) && !pfsServer.IsNoHeadErr(err) {
 				return fmt.Errorf("delete error %v", err)
 			}

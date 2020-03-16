@@ -6,9 +6,6 @@ func (c *Context) EqualClusterReference(other *Context) bool {
 	if other == nil {
 		return false
 	}
-	if c.Source != other.Source {
-		return false
-	}
 	if c.ClusterName != other.ClusterName {
 		return false
 	}
@@ -16,6 +13,9 @@ func (c *Context) EqualClusterReference(other *Context) bool {
 		return false
 	}
 	if c.Namespace != other.Namespace {
+		return false
+	}
+	if c.PachdAddress != other.PachdAddress {
 		return false
 	}
 	return true

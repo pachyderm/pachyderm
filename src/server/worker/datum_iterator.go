@@ -33,7 +33,7 @@ type pfsDatumIterator struct {
 
 func newPFSDatumIterator(pachClient *client.APIClient, input *pps.PFSInput) (DatumIterator, error) {
 	result := &pfsDatumIterator{}
-	// make sure it gets initialized properly
+	// make sure it gets initialized properly (location = -1)
 	result.Reset()
 	if input.Commit == "" {
 		// this can happen if a pipeline with multiple inputs has been triggered
@@ -63,6 +63,7 @@ func newPFSDatumIterator(pachClient *client.APIClient, input *pps.PFSInput) (Dat
 			Lazy:       input.Lazy,
 			Branch:     input.Branch,
 			EmptyFiles: input.EmptyFiles,
+			S3:         input.S3,
 		})
 	}
 	// We sort the inputs so that the order is deterministic. Note that it's
@@ -96,7 +97,9 @@ func (d *pfsDatumIterator) DatumN(n int) []*Input {
 }
 
 func (d *pfsDatumIterator) Next() bool {
-	d.location++
+	if d.location < len(d.inputs) {
+		d.location++
+	}
 	return d.location < len(d.inputs)
 }
 
@@ -130,7 +133,9 @@ func (d *listDatumIterator) DatumN(n int) []*Input {
 }
 
 func (d *listDatumIterator) Next() bool {
-	d.location++
+	if d.location < len(d.inputs) {
+		d.location++
+	}
 	return d.location < len(d.inputs)
 }
 
@@ -196,14 +201,14 @@ func (d *unionDatumIterator) DatumN(n int) []*Input {
 }
 
 type crossDatumIterator struct {
-	iterators []DatumIterator
-	started   bool
-	location  int
+	iterators     []DatumIterator
+	started, done bool
+	location      int
 }
 
 func newCrossDatumIterator(pachClient *client.APIClient, cross []*pps.Input) (DatumIterator, error) {
 	result := &crossDatumIterator{}
-	defer result.Reset()
+	defer result.Reset() // Call Next() on all inner iterators once
 	for _, iterator := range cross {
 		datumIterator, err := NewDatumIterator(pachClient, iterator)
 		if err != nil {
@@ -242,6 +247,7 @@ func (d *crossDatumIterator) Reset() {
 	}
 	d.location = -1
 	d.started = !inhabited
+	d.done = d.started
 }
 
 func (d *crossDatumIterator) Len() int {
@@ -259,7 +265,12 @@ func (d *crossDatumIterator) Next() bool {
 	if !d.started {
 		d.started = true
 		d.location++
+		// First call to Next() does nothing, as Reset() calls Next() on all inner
+		// datums once already
 		return true
+	}
+	if d.done {
+		return false
 	}
 	for _, input := range d.iterators {
 		// if we're at the end of the "row"
@@ -274,6 +285,7 @@ func (d *crossDatumIterator) Next() bool {
 			return true
 		}
 	}
+	d.done = true
 	return false
 }
 
@@ -353,7 +365,9 @@ func (d *joinDatumIterator) Len() int {
 }
 
 func (d *joinDatumIterator) Next() bool {
-	d.location++
+	if d.location < len(d.datums) {
+		d.location++
+	}
 	return d.location < len(d.datums)
 }
 
@@ -411,7 +425,9 @@ func (d *gitDatumIterator) Datum() []*Input {
 }
 
 func (d *gitDatumIterator) Next() bool {
-	d.location++
+	if d.location < len(d.inputs) {
+		d.location++
+	}
 	return d.location < len(d.inputs)
 }
 
@@ -451,7 +467,7 @@ func NewDatumIterator(pachClient *client.APIClient, input *pps.Input) (DatumIter
 	case input.Git != nil:
 		return newGitDatumIterator(pachClient, input.Git)
 	}
-	return nil, fmt.Errorf("unrecognized input type")
+	return nil, fmt.Errorf("unrecognized input type: %v", input)
 }
 
 func sortInputs(inputs []*Input) {

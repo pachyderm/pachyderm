@@ -1,7 +1,5 @@
 dist: xenial
 sudo: required
-services:
-  - docker
 cache:
   directories:
     # If any directories are added here, they must also be added to
@@ -9,6 +7,7 @@ cache:
     - ${HOME}/.cache
     - ${HOME}/cached-deps
     - ${HOME}/gopath/pkg/mod
+    - ${HOME}/docker
     - "$(python3 -c 'import site; print(site.USER_BASE)')"
 language: go
 go:
@@ -37,6 +36,7 @@ env:
 before_install:
   # Make sure cache dirs exist and are writable
   - etc/testing/travis_cache.sh
+  - etc/testing/travis_before_install.sh
 install:
   - etc/testing/travis_install.sh
 before_script:
@@ -47,6 +47,7 @@ before_cache:
   # Make sure cache dirs have the necessary permissions for Travis to traverse
   # & copy them all elsewhere
   - etc/testing/travis_cache.sh
+  - etc/testing/travis_before_cache.sh
 after_failure:
   - kubectl version
   - kubectl get all
@@ -60,7 +61,10 @@ branches:
   only:
   # Trigger only for PR's to master
   - master
-  # Trigger CI tess for all branches that end with "-ci-trigger"
+  # Trigger CI tests for all release branches
+  # Eg. 1.9.x, 1.10.x
+  - /^\d+\.\d+\.x/
+  # Trigger CI tests for all branches that end with "-ci-trigger"
   # ruby reg-ex except for things before/after "/"
   - /.*(?i:ci-trigger)$/
   # For all branches uncomment the line below or remove the "branches" section

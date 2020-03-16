@@ -3,6 +3,7 @@ package obj
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -157,10 +158,18 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 	if err != nil {
 		return nil, err
 	}
+	httpClient := &http.Client{Timeout: timeout}
+	// If NoVerifySSL is true, then configure the transport to skip ssl verification (enables self-signed certificates).
+	if advancedConfig.NoVerifySSL {
+		transport := http.DefaultTransport.(*http.Transport).Clone()
+		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+		httpClient.Transport = transport
+	}
 	awsConfig := &aws.Config{
 		Region:     aws.String(region),
 		MaxRetries: aws.Int(advancedConfig.Retries),
-		HTTPClient: &http.Client{Timeout: timeout},
+		HTTPClient: httpClient,
+		DisableSSL: aws.Bool(advancedConfig.DisableSSL),
 	}
 	if creds.ID != "" {
 		awsConfig.Credentials = credentials.NewStaticCredentials(creds.ID, creds.Secret, creds.Token)

@@ -18,7 +18,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c := getPachClient(t)
+	c := tu.GetPachClient(t)
 
 	// Set up repo
 	dataRepo := tu.UniqueString("TestDuplicatedJob_data")
@@ -66,7 +66,7 @@ func TestPipelineThatUseNonexistentInputs(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c := getPachClient(t)
+	c := tu.GetPachClient(t)
 	pipelineName := tu.UniqueString("pipeline")
 	require.YesError(t, c.CreatePipeline(
 		pipelineName,
@@ -88,7 +88,7 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c := getPachClient(t)
+	c := tu.GetPachClient(t)
 
 	dataRepo := tu.UniqueString("TestPipelineNamesThatContainUnderscoresAndHyphens")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -125,7 +125,7 @@ func TestPipelineInvalidParallelism(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c := getPachClient(t)
+	c := tu.GetPachClient(t)
 
 	// Set up repo
 	dataRepo := tu.UniqueString("TestPipelineInvalidParallelism")

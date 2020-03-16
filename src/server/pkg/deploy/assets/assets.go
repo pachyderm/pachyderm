@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
-	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 
@@ -15,6 +13,7 @@ import (
 	pfs "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serde"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -22,6 +21,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+)
+
+const (
+	// WorkerSAName is the name of the service account that pachyderm
+	// pipelines use to create an s3 gateway service for each job
+	WorkerSAName          = "pachyderm-worker"
+	workerRoleName        = "pachyderm-worker" // Role given to worker SA
+	workerRoleBindingName = "pachyderm-worker" // Binding worker role to SA
 )
 
 var (
@@ -50,7 +57,7 @@ var (
 	grpcProxyName               = "grpc-proxy"
 	pachdName                   = "pachd"
 	// PrometheusPort hosts the prometheus stats for scraping
-	PrometheusPort = 9091
+	PrometheusPort = 656
 
 	// Role & binding names, used for Roles or ClusterRoles and their associated
 	// bindings.
@@ -66,10 +73,9 @@ var (
 		Verbs:     []string{"get", "list", "watch", "create", "update", "delete"},
 		Resources: []string{"replicationcontrollers", "services"},
 	}, {
-		APIGroups:     []string{""},
-		Verbs:         []string{"get", "list", "watch", "create", "update", "delete"},
-		Resources:     []string{"secrets"},
-		ResourceNames: []string{client.StorageSecretName},
+		APIGroups: []string{""},
+		Verbs:     []string{"get", "list", "watch", "create", "update", "delete", "deletecollection"},
+		Resources: []string{"secrets"},
 	}}
 
 	// The name of the local volume (mounted kubernetes secret) where pachd
@@ -121,9 +127,39 @@ type FeatureFlags struct {
 	NewStorageLayer bool
 }
 
+const (
+	// UploadConcurrencyLimitEnvVar is the environment variable for the upload concurrency limit.
+	UploadConcurrencyLimitEnvVar = "STORAGE_UPLOAD_CONCURRENCY_LIMIT"
+)
+
+const (
+	// DefaultUploadConcurrencyLimit is the default maximum number of concurrent object storage uploads.
+	// (bryce) this default is set here and in the service env config, need to figure out how to refactor
+	// this to be in one place.
+	DefaultUploadConcurrencyLimit = 100
+)
+
+// StorageOpts are options that are applicable to the storage layer.
+type StorageOpts struct {
+	UploadConcurrencyLimit int
+}
+
+const (
+	// RequireCriticalServersOnlyEnvVar is the environment variable for requiring critical servers only.
+	RequireCriticalServersOnlyEnvVar = "REQUIRE_CRITICAL_SERVERS_ONLY"
+)
+
+const (
+	// DefaultRequireCriticalServersOnly is the default for requiring critical servers only.
+	// (bryce) this default is set here and in the service env config, need to figure out how to refactor
+	// this to be in one place.
+	DefaultRequireCriticalServersOnly = false
+)
+
 // AssetOpts are options that are applicable to all the asset types.
 type AssetOpts struct {
 	FeatureFlags
+	StorageOpts
 	PachdShards uint64
 	Version     string
 	LogLevel    string
@@ -213,21 +249,20 @@ type AssetOpts struct {
 	// placed into a Kubernetes secret and used by pachd nodes to authenticate
 	// during TLS
 	TLS *TLSOpts
+
+	// Sets the cluster deployment ID. If unset, this will be a randomly
+	// generated UUID without dashes.
+	ClusterDeploymentID string
+
+	// RequireCriticalServersOnly is true when only the critical Pachd servers
+	// are required to startup and run without error.
+	RequireCriticalServersOnly bool
 }
 
 // replicas lets us create a pointer to a non-zero int32 in-line. This is
 // helpful because the Replicas field of many specs expectes an *int32
 func replicas(r int32) *int32 {
 	return &r
-}
-
-// Kubernetes doesn't work well with windows path separators
-func kubeFilepathJoin(paths ...string) string {
-	joined := filepath.Join(paths...)
-	if runtime.GOOS != "windows" {
-		return joined
-	}
-	return strings.ReplaceAll(joined, "\\", "/")
 }
 
 // fillDefaultResourceRequests sets any of:
@@ -281,14 +316,26 @@ func fillDefaultResourceRequests(opts *AssetOpts, persistentDiskBackend backend)
 	}
 }
 
-// ServiceAccount returns a kubernetes service account for use with Pachyderm.
-func ServiceAccount(opts *AssetOpts) *v1.ServiceAccount {
-	return &v1.ServiceAccount{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ServiceAccount",
-			APIVersion: "v1",
+// ServiceAccounts returns a kubernetes service account for use with Pachyderm.
+func ServiceAccounts(opts *AssetOpts) []*v1.ServiceAccount {
+	return []*v1.ServiceAccount{
+		// Pachd service account
+		{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "ServiceAccount",
+				APIVersion: "v1",
+			},
+			ObjectMeta: objectMeta(ServiceAccountName, labels(""), nil, opts.Namespace),
 		},
-		ObjectMeta: objectMeta(ServiceAccountName, labels(""), nil, opts.Namespace),
+
+		// worker service account
+		{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "ServiceAccount",
+				APIVersion: "v1",
+			},
+			ObjectMeta: objectMeta(WorkerSAName, labels(""), nil, opts.Namespace),
+		},
 	}
 }
 
@@ -337,6 +384,23 @@ func Role(opts *AssetOpts) *rbacv1.Role {
 	}
 }
 
+// workerRole returns a Role bound to the Pachyderm worker service account
+// (used by workers to create an s3 gateway k8s service for each job)
+func workerRole(opts *AssetOpts) *rbacv1.Role {
+	return &rbacv1.Role{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Role",
+			APIVersion: "rbac.authorization.k8s.io/v1",
+		},
+		ObjectMeta: objectMeta(workerRoleName, labels(""), nil, opts.Namespace),
+		Rules: []rbacv1.PolicyRule{{
+			APIGroups: []string{""},
+			Verbs:     []string{"get", "list", "update", "create", "delete"},
+			Resources: []string{"services"},
+		}},
+	}
+}
+
 // RoleBinding returns a RoleBinding that binds Pachyderm's Role to its
 // ServiceAccount.
 func RoleBinding(opts *AssetOpts) *rbacv1.RoleBinding {
@@ -354,6 +418,27 @@ func RoleBinding(opts *AssetOpts) *rbacv1.RoleBinding {
 		RoleRef: rbacv1.RoleRef{
 			Kind: "Role",
 			Name: roleName,
+		},
+	}
+}
+
+// RoleBinding returns a RoleBinding that binds Pachyderm's workerRole to its
+// worker service account (WorkerSAName)
+func workerRoleBinding(opts *AssetOpts) *rbacv1.RoleBinding {
+	return &rbacv1.RoleBinding{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "RoleBinding",
+			APIVersion: "rbac.authorization.k8s.io/v1",
+		},
+		ObjectMeta: objectMeta(workerRoleBindingName, labels(""), nil, opts.Namespace),
+		Subjects: []rbacv1.Subject{{
+			Kind:      "ServiceAccount",
+			Name:      WorkerSAName,
+			Namespace: opts.Namespace,
+		}},
+		RoleRef: rbacv1.RoleRef{
+			Kind: "Role",
+			Name: workerRoleName,
 		},
 	}
 }
@@ -400,6 +485,12 @@ func GetSecretEnvVars(storageBackend string) []v1.EnvVar {
 		})
 	}
 	return envVars
+}
+
+func getStorageEnvVars(opts *AssetOpts) []v1.EnvVar {
+	return []v1.EnvVar{
+		{Name: UploadConcurrencyLimitEnvVar, Value: strconv.Itoa(opts.StorageOpts.UploadConcurrencyLimit)},
+	}
 }
 
 func versionedPachdImage(opts *AssetOpts) string {
@@ -460,7 +551,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 	var storageHostPath string
 	switch objectStoreBackend {
 	case localBackend:
-		storageHostPath = kubeFilepathJoin(hostPath, "pachd")
+		storageHostPath = path.Join(hostPath, "pachd")
 		pathType := v1.HostPathDirectoryOrCreate
 		volumes[0].HostPath = &v1.HostPathVolumeSource{
 			Path: storageHostPath,
@@ -505,6 +596,50 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 			v1.ResourceMemory: mem,
 		}
 	}
+	if opts.ClusterDeploymentID == "" {
+		opts.ClusterDeploymentID = uuid.NewWithoutDashes()
+	}
+	envVars := []v1.EnvVar{
+		{Name: "PACH_ROOT", Value: "/pach"},
+		{Name: "ETCD_PREFIX", Value: opts.EtcdPrefix},
+		{Name: "NUM_SHARDS", Value: fmt.Sprintf("%d", opts.PachdShards)},
+		{Name: "STORAGE_BACKEND", Value: backendEnvVar},
+		{Name: "STORAGE_HOST_PATH", Value: storageHostPath},
+		{Name: "WORKER_IMAGE", Value: AddRegistry(opts.Registry, versionedWorkerImage(opts))},
+		{Name: "IMAGE_PULL_SECRET", Value: opts.ImagePullSecret},
+		{Name: "WORKER_SIDECAR_IMAGE", Value: image},
+		{Name: "WORKER_IMAGE_PULL_POLICY", Value: "IfNotPresent"},
+		{Name: "PACHD_VERSION", Value: opts.Version},
+		{Name: "METRICS", Value: strconv.FormatBool(opts.Metrics)},
+		{Name: "LOG_LEVEL", Value: opts.LogLevel},
+		{Name: "BLOCK_CACHE_BYTES", Value: opts.BlockCacheSize},
+		{Name: "IAM_ROLE", Value: opts.IAMRole},
+		{Name: "NO_EXPOSE_DOCKER_SOCKET", Value: strconv.FormatBool(opts.NoExposeDockerSocket)},
+		{Name: auth.DisableAuthenticationEnvVar, Value: strconv.FormatBool(opts.DisableAuthentication)},
+		{
+			Name: "PACHD_POD_NAMESPACE",
+			ValueFrom: &v1.EnvVarSource{
+				FieldRef: &v1.ObjectFieldSelector{
+					APIVersion: "v1",
+					FieldPath:  "metadata.namespace",
+				},
+			},
+		},
+		{
+			Name: "PACHD_MEMORY_REQUEST",
+			ValueFrom: &v1.EnvVarSource{
+				ResourceFieldRef: &v1.ResourceFieldSelector{
+					ContainerName: "pachd",
+					Resource:      "requests.memory",
+				},
+			},
+		},
+		{Name: "EXPOSE_OBJECT_API", Value: strconv.FormatBool(opts.ExposeObjectAPI)},
+		{Name: "CLUSTER_DEPLOYMENT_ID", Value: opts.ClusterDeploymentID},
+		{Name: RequireCriticalServersOnlyEnvVar, Value: strconv.FormatBool(opts.RequireCriticalServersOnly)},
+	}
+	envVars = append(envVars, GetSecretEnvVars("")...)
+	envVars = append(envVars, getStorageEnvVars(opts)...)
 	return &apps.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
@@ -522,45 +657,10 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
-							Name:  pachdName,
-							Image: image,
-							Env: append([]v1.EnvVar{
-								{Name: "PACH_ROOT", Value: "/pach"},
-								{Name: "ETCD_PREFIX", Value: opts.EtcdPrefix},
-								{Name: "NUM_SHARDS", Value: fmt.Sprintf("%d", opts.PachdShards)},
-								{Name: "STORAGE_BACKEND", Value: backendEnvVar},
-								{Name: "STORAGE_HOST_PATH", Value: storageHostPath},
-								{Name: "WORKER_IMAGE", Value: AddRegistry(opts.Registry, versionedWorkerImage(opts))},
-								{Name: "IMAGE_PULL_SECRET", Value: opts.ImagePullSecret},
-								{Name: "WORKER_SIDECAR_IMAGE", Value: image},
-								{Name: "WORKER_IMAGE_PULL_POLICY", Value: "IfNotPresent"},
-								{Name: "PACHD_VERSION", Value: opts.Version},
-								{Name: "METRICS", Value: strconv.FormatBool(opts.Metrics)},
-								{Name: "LOG_LEVEL", Value: opts.LogLevel},
-								{Name: "BLOCK_CACHE_BYTES", Value: opts.BlockCacheSize},
-								{Name: "IAM_ROLE", Value: opts.IAMRole},
-								{Name: "NO_EXPOSE_DOCKER_SOCKET", Value: strconv.FormatBool(opts.NoExposeDockerSocket)},
-								{Name: auth.DisableAuthenticationEnvVar, Value: strconv.FormatBool(opts.DisableAuthentication)},
-								{
-									Name: "PACHD_POD_NAMESPACE",
-									ValueFrom: &v1.EnvVarSource{
-										FieldRef: &v1.ObjectFieldSelector{
-											APIVersion: "v1",
-											FieldPath:  "metadata.namespace",
-										},
-									},
-								},
-								{
-									Name: "PACHD_MEMORY_REQUEST",
-									ValueFrom: &v1.EnvVarSource{
-										ResourceFieldRef: &v1.ResourceFieldSelector{
-											ContainerName: "pachd",
-											Resource:      "requests.memory",
-										},
-									},
-								},
-								{Name: "EXPOSE_OBJECT_API", Value: strconv.FormatBool(opts.ExposeObjectAPI)},
-							}, GetSecretEnvVars("")...),
+							Name:    pachdName,
+							Image:   image,
+							Command: []string{"/app/pachd"},
+							Env:     envVars,
 							Ports: []v1.ContainerPort{
 								{
 									ContainerPort: opts.PachdPort, // also set in cmd/pachd/main.go
@@ -598,7 +698,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 							ReadinessProbe: &v1.Probe{
 								Handler: v1.Handler{
 									Exec: &v1.ExecAction{
-										Command: []string{"/pachd", "--readiness"},
+										Command: []string{"/app/pachd", "--readiness"},
 									},
 								},
 							},
@@ -668,6 +768,33 @@ func PachdService(opts *AssetOpts) *v1.Service {
 	}
 }
 
+// PachdPeerService returns an internal pachd service. This service will
+// reference the PeerPorr, which does not employ TLS even if cluster TLS is
+// enabled. Because of this, the service is a `ClusterIP` type (i.e. not
+// exposed outside of the cluster.)
+func PachdPeerService(opts *AssetOpts) *v1.Service {
+	return &v1.Service{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: objectMeta(fmt.Sprintf("%s-peer", pachdName), labels(pachdName), map[string]string{}, opts.Namespace),
+		Spec: v1.ServiceSpec{
+			Type: v1.ServiceTypeClusterIP,
+			Selector: map[string]string{
+				"app": pachdName,
+			},
+			Ports: []v1.ServicePort{
+				{
+					Port:       30653,
+					Name:       "api-grpc-peer-port",
+					TargetPort: intstr.FromInt(653), // also set in cmd/pachd/main.go
+				},
+			},
+		},
+	}
+}
+
 // GithookService returns a k8s service that exposes a public IP
 func GithookService(namespace string) *v1.Service {
 	name := "githook"
@@ -716,7 +843,7 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 				Name: "etcd-storage",
 				VolumeSource: v1.VolumeSource{
 					HostPath: &v1.HostPathVolumeSource{
-						Path: kubeFilepathJoin(hostPath, "etcd"),
+						Path: path.Join(hostPath, "etcd"),
 						Type: &pathType,
 					},
 				},
@@ -869,7 +996,7 @@ func EtcdVolume(persistentDiskBackend backend, opts *AssetOpts,
 		pathType := v1.HostPathDirectoryOrCreate
 		spec.Spec.PersistentVolumeSource = v1.PersistentVolumeSource{
 			HostPath: &v1.HostPathVolumeSource{
-				Path: kubeFilepathJoin(hostPath, "etcd"),
+				Path: path.Join(hostPath, "etcd"),
 				Type: &pathType,
 			},
 		}
@@ -1292,6 +1419,8 @@ func amazonBasicSecret(region, bucket, distribution string, advancedConfig *obj.
 		"reverse":             []byte(strconv.FormatBool(advancedConfig.Reverse)),
 		"part-size":           []byte(strconv.FormatInt(advancedConfig.PartSize, 10)),
 		"max-upload-parts":    []byte(strconv.Itoa(advancedConfig.MaxUploadParts)),
+		"disable-ssl":         []byte(strconv.FormatBool(advancedConfig.DisableSSL)),
+		"no-verify-ssl":       []byte(strconv.FormatBool(advancedConfig.NoVerifySSL)),
 	}
 }
 
@@ -1343,8 +1472,10 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend back
 		return nil
 	}
 
-	if err := encoder.Encode(ServiceAccount(opts)); err != nil {
-		return err
+	for _, sa := range ServiceAccounts(opts) {
+		if err := encoder.Encode(sa); err != nil {
+			return err
+		}
 	}
 	if !opts.NoRBAC {
 		if opts.LocalRoles {
@@ -1361,6 +1492,12 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend back
 			if err := encoder.Encode(ClusterRoleBinding(opts)); err != nil {
 				return err
 			}
+		}
+		if err := encoder.Encode(workerRole(opts)); err != nil {
+			return err
+		}
+		if err := encoder.Encode(workerRoleBinding(opts)); err != nil {
+			return err
 		}
 	}
 
@@ -1417,6 +1554,9 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend back
 	}
 
 	if err := encoder.Encode(PachdService(opts)); err != nil {
+		return err
+	}
+	if err := encoder.Encode(PachdPeerService(opts)); err != nil {
 		return err
 	}
 	if err := encoder.Encode(PachdDeployment(opts, objectStoreBackend, hostPath)); err != nil {

@@ -28,10 +28,10 @@ section.
    **Example:**
 
    ```bash
-   $ brew upgrade pachyderm/tap/pachctl@1.9
+   $ brew upgrade pachyderm/tap/pachctl@1.10
    ==> Upgrading 1 outdated package:
-   pachyderm/tap/pachctl@1.9
-   ==> Upgrading pachyderm/tap/pachctl@1.9
+   pachyderm/tap/pachctl@1.10
+   ==> Upgrading pachyderm/tap/pachctl@1.10
    ...
    ```
 

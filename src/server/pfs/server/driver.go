@@ -60,14 +60,6 @@ const (
 
 	// Makes calls to ListRepo and InspectRepo more legible
 	includeAuth = true
-
-	// tmpPrefix is for temporary object paths that store merged shards.
-	tmpPrefix = "tmp"
-)
-
-var (
-	// Limit the number of outstanding put object requests
-	putObjectLimiter = limit.New(100)
 )
 
 // IsPermissionError returns true if a given error is a permission error.
@@ -96,6 +88,7 @@ type CommitStream interface {
 type collectionFactory func(string) col.Collection
 
 type driver struct {
+	env *serviceenv.ServiceEnv
 	// etcdClient and prefix write repo and other metadata to etcd
 	etcdClient *etcd.Client
 	txnEnv     *txnenv.TransactionEnv
@@ -116,10 +109,12 @@ type driver struct {
 
 	// memory limiter (useful for limiting operations that could use a lot of memory)
 	memoryLimiter *semaphore.Weighted
+	// put object limiter (useful for limiting put object requests)
+	putObjectLimiter limit.ConcurrencyLimiter
 
 	// New storage layer.
-	storage *fileset.Storage
-	fs      *fileset.FileSet
+	storage    *fileset.Storage
+	subFileSet int64
 }
 
 // newDriver is used to create a new Driver instance
@@ -138,6 +133,7 @@ func newDriver(
 	// Initialize driver
 	etcdClient := env.GetEtcdClient()
 	d := &driver{
+		env:            env,
 		txnEnv:         txnEnv,
 		etcdClient:     etcdClient,
 		prefix:         etcdPrefix,
@@ -153,7 +149,8 @@ func newDriver(
 		treeCache:   treeCache,
 		storageRoot: storageRoot,
 		// Allow up to a third of the requested memory to be used for memory intensive operations
-		memoryLimiter: semaphore.NewWeighted(memoryRequest / 3),
+		memoryLimiter:    semaphore.NewWeighted(memoryRequest / 3),
+		putObjectLimiter: limit.New(env.StorageUploadConcurrencyLimit),
 	}
 
 	// Create spec repo (default repo)
@@ -178,7 +175,7 @@ func newDriver(
 		}
 		chunkStorage := chunk.NewStorage(objC, chunk.ServiceEnvToOptions(env)...)
 		d.storage = fileset.NewStorage(objC, chunkStorage, fileset.ServiceEnvToOptions(env)...)
-		go d.mergeWorker()
+		go d.compactionWorker()
 	}
 	return d, nil
 }
@@ -1312,11 +1309,11 @@ func (d *driver) makeCommit(
 	// commitInfo.Provenance
 	newCommitProv := make(map[string]*pfs.CommitProvenance)
 	for _, prov := range provenance {
-		newCommitProv[prov.Commit.ID] = prov
 		provCommitInfo, err := d.resolveCommit(txnCtx.Stm, prov.Commit)
 		if err != nil {
 			return nil, err
 		}
+		newCommitProv[prov.Commit.ID] = prov
 
 		for _, c := range provCommitInfo.Provenance {
 			newCommitProv[c.Commit.ID] = c
@@ -1341,7 +1338,8 @@ func (d *driver) makeCommit(
 
 		// ensure the commit provenance is consistent with the branch provenance
 		if len(branchProvMap) != 0 {
-			if prov.Branch.Repo.Name != ppsconsts.SpecRepo && !branchProvMap[key(prov.Branch.Repo.Name, prov.Branch.Name)] {
+			// the check for empty branch names is for the run pipeline case in which a commit with no branch are expected in the stats commit provenance
+			if prov.Branch.Repo.Name != ppsconsts.SpecRepo && prov.Branch.Name != "" && !branchProvMap[key(prov.Branch.Repo.Name, prov.Branch.Name)] {
 				return nil, fmt.Errorf("the commit provenance contains a branch which the branch is not provenant on")
 			}
 		}
@@ -1349,7 +1347,7 @@ func (d *driver) makeCommit(
 		newCommitInfo.Provenance = append(newCommitInfo.Provenance, prov)
 		provCommitInfo := &pfs.CommitInfo{}
 		if err := d.commits(prov.Commit.Repo.Name).ReadWrite(txnCtx.Stm).Update(prov.Commit.ID, provCommitInfo, func() error {
-			appendSubvenance(provCommitInfo, newCommitInfo)
+			d.appendSubvenance(provCommitInfo, newCommitInfo)
 			return nil
 		}); err != nil {
 			return nil, err
@@ -1503,7 +1501,9 @@ func (d *driver) finishOutputCommit(txnCtx *txnenv.TransactionContext, commit *p
 }
 
 func (d *driver) updateProvenanceProgress(txnCtx *txnenv.TransactionContext, success bool, ci *pfs.CommitInfo) error {
-	fmt.Println("updateProvenanceProgress")
+	if d.env.DisableCommitProgressCounter {
+		return nil
+	}
 	for _, provC := range ci.Provenance {
 		provCi := &pfs.CommitInfo{}
 		if err := d.commits(provC.Commit.Repo.Name).ReadWrite(txnCtx.Stm).Update(provC.Commit.ID, provCi, func() error {
@@ -1748,7 +1748,7 @@ nextSubvBI:
 			// update subvenance of 'prov'
 			provCommitInfo := &pfs.CommitInfo{}
 			if err := d.commits(prov.Commit.Repo.Name).ReadWrite(stm).Update(prov.Commit.ID, provCommitInfo, func() error {
-				appendSubvenance(provCommitInfo, newCommitInfo)
+				d.appendSubvenance(provCommitInfo, newCommitInfo)
 				return nil
 			}); err != nil {
 				return err
@@ -2545,7 +2545,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 		// Determine if this is a provenance update
 		sameTarget := branch.Repo.Name == commit.Repo.Name && branch.Name == commit.ID
 		if !sameTarget && provenance != nil {
-			ci, err = d.inspectCommit(txnCtx.Client, commit, pfs.CommitState_STARTED)
+			ci, err = d.resolveCommit(txnCtx.Stm, commit)
 			if err != nil {
 				return err
 			}
@@ -2603,7 +2603,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	if err := repos.Update(branch.Repo.Name, repoInfo, func() error {
 		add(&repoInfo.Branches, branch)
 		if branch.Name == "master" && commit != nil {
-			ci, err := d.inspectCommit(txnCtx.Client, commit, pfs.CommitState_STARTED)
+			ci, err := d.resolveCommit(txnCtx.Stm, commit)
 			if err != nil {
 				return err
 			}
@@ -2892,6 +2892,8 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 	}
 
 	if delimiter == pfs.Delimiter_NONE {
+		d.putObjectLimiter.Acquire()
+		defer d.putObjectLimiter.Release()
 		objects, size, err := pachClient.PutObjectSplit(reader)
 		if err != nil {
 			return nil, err
@@ -3012,9 +3014,9 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 					index := filesPut
 					filesPut++
 					d.memoryLimiter.Acquire(pachClient.Ctx(), _bufferLen)
-					putObjectLimiter.Acquire()
+					d.putObjectLimiter.Acquire()
 					eg.Go(func() error {
-						defer putObjectLimiter.Release()
+						defer d.putObjectLimiter.Release()
 						defer d.memoryLimiter.Release(_bufferLen)
 						object, size, err := pachClient.PutObject(_buffer)
 						if err != nil {
@@ -3049,9 +3051,9 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 			// that the parent dir is a header/footer dir
 			*hf = &pfs.PutFileRecord{}
 			if len(value) > 0 {
-				putObjectLimiter.Acquire()
+				d.putObjectLimiter.Acquire()
 				eg.Go(func() error {
-					defer putObjectLimiter.Release()
+					defer d.putObjectLimiter.Release()
 					object, size, err := pachClient.PutObject(bytes.NewReader(value))
 					if err != nil {
 						return err
@@ -3075,6 +3077,31 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 	return records, nil
 }
 
+func appendRecords(pfr *pfs.PutFileRecords, node *hashtree.NodeProto) {
+	for i, object := range node.FileNode.Objects {
+		// We only have the whole file size in src file, so mark the first object
+		// as the size of the whole file and all the rest as size 0; applyWrite
+		// will compute the right sum size for the target file
+		// TODO(msteffen): this is a bit of a hack--either PutFileRecords should
+		// only record the sum size of all PutFileRecord messages as well, or
+		// FileNodeProto should record the size of every object
+		var size int64
+		if i == 0 {
+			size = node.SubtreeSize
+		}
+		pfr.Records = append(pfr.Records, &pfs.PutFileRecord{
+			SizeBytes:  size,
+			ObjectHash: object.Hash,
+		})
+	}
+	for _, blockRef := range node.FileNode.BlockRefs {
+		pfr.Records = append(pfr.Records, &pfs.PutFileRecord{
+			BlockRef:  blockRef,
+			SizeBytes: int64(blockRef.Range.Upper - blockRef.Range.Lower),
+		})
+	}
+}
+
 // headerDirToPutFileRecords is a helper for copyFile that handles copying
 // header/footer directories.
 //
@@ -3088,6 +3115,9 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 // will correctly convert back to a header dir in the target hashtree via the
 // regular putFile codepath.
 func headerDirToPutFileRecords(tree hashtree.HashTree, path string, node *hashtree.NodeProto) (*pfs.PutFileRecords, error) {
+	if tree == nil {
+		return nil, fmt.Errorf("called headerDirToPutFileRecords with nil tree (this is likely a bug")
+	}
 	if node.DirNode == nil || node.DirNode.Shared == nil {
 		return nil, fmt.Errorf("headerDirToPutFileRecords only works on header/footer dirs")
 	}
@@ -3112,20 +3142,7 @@ func headerDirToPutFileRecords(tree hashtree.HashTree, path string, node *hashtr
 			return fmt.Errorf("header/footer dir contains child subdirectory, " +
 				"which is invalid--header/footer dirs must be created by PutFileSplit")
 		}
-		for i, o := range child.FileNode.Objects {
-			// same hack as copyFile--set size of first object to the size of the
-			// whole subtree (and size of other objects to 0). I don't think
-			// PutFileSplit files can have more than one object, but that invariant
-			// isn't necessary to this code's correctness, so don't verify it.
-			var size int64
-			if i == 0 {
-				size = child.SubtreeSize
-			}
-			pfr.Records = append(pfr.Records, &pfs.PutFileRecord{
-				SizeBytes:  size,
-				ObjectHash: o.Hash,
-			})
-		}
+		appendRecords(pfr, child)
 		return nil
 	}); err != nil {
 		return nil, err
@@ -3133,7 +3150,7 @@ func headerDirToPutFileRecords(tree hashtree.HashTree, path string, node *hashtr
 	return pfr, nil // TODO(msteffen) put something real here
 }
 
-func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.File, overwrite bool) error {
+func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.File, overwrite bool) (retErr error) {
 	// Validate arguments
 	if src == nil {
 		return errors.New("src cannot be nil")
@@ -3193,17 +3210,9 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 			records = append(records, &pfs.PutFileRecords{Tombstone: true})
 		}
 	}
-	srcTree, err := d.getTreeForFile(pachClient, src)
-	if err != nil {
-		return err
-	}
-	defer destroyHashtree(srcTree)
-	// This is necessary so we can call filepath.Rel below
-	if !strings.HasPrefix(src.Path, "/") {
-		src.Path = "/" + src.Path
-	}
 	var eg errgroup.Group
-	if err := srcTree.Walk(src.Path, func(walkPath string, node *hashtree.NodeProto) error {
+	var srcTree hashtree.HashTree
+	cb := func(walkPath string, node *hashtree.NodeProto) error {
 		relPath, err := filepath.Rel(src.Path, walkPath)
 		if err != nil {
 			return fmt.Errorf("error from filepath.Rel (likely a bug): %v", err)
@@ -3222,22 +3231,7 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 		} else if node.FileNode.HasHeaderFooter {
 			return nil // parent dir will be copied as a PutFileRecord w/ Split==true
 		} else {
-			for i, object := range node.FileNode.Objects {
-				// We only have the whole file size in src file, so mark the first object
-				// as the size of the whole file and all the rest as size 0; applyWrite
-				// will compute the right sum size for the target file
-				// TODO(msteffen): this is a bit of a hack--either PutFileRecords should
-				// only record the sum size of all PutFileRecord messages as well, or
-				// FileNodeProto should record the size of every object
-				var size int64
-				if i == 0 {
-					size = node.SubtreeSize
-				}
-				record.Records = append(record.Records, &pfs.PutFileRecord{
-					SizeBytes:  size,
-					ObjectHash: object.Hash,
-				})
-			}
+			appendRecords(record, node)
 		}
 
 		// Either upsert 'record' to etcd (if 'dst' is in an open commit) or add it
@@ -3251,8 +3245,40 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 			records = append(records, record)
 		}
 		return nil
-	}); err != nil {
+	}
+	// This is necessary so we can call filepath.Rel
+	if !strings.HasPrefix(src.Path, "/") {
+		src.Path = "/" + src.Path
+	}
+	srcCi, err := d.inspectCommit(pachClient, src.Commit, pfs.CommitState_STARTED)
+	if err != nil {
 		return err
+	}
+	if !provenantOnInput(srcCi.Provenance) || srcCi.Tree != nil {
+		// handle input commits
+		srcTree, err = d.getTreeForFile(pachClient, src)
+		if err != nil {
+			return err
+		}
+		defer destroyHashtree(srcTree)
+		if err := srcTree.Walk(src.Path, cb); err != nil {
+			return err
+		}
+	} else {
+		rs, err := d.getTree(pachClient, srcCi, src.Path)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			for _, r := range rs {
+				if err := r.Close(); err != nil && retErr != nil {
+					retErr = err
+				}
+			}
+		}()
+		if err := hashtree.Walk(rs, src.Path, cb); err != nil {
+			return err
+		}
 	}
 	if err := eg.Wait(); err != nil {
 		return err
@@ -3519,6 +3545,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 		var (
 			pathsFound int
 			objects    []*pfs.Object
+			brs        []*pfs.BlockRef
 			totalSize  uint64
 			footer     *pfs.Object
 			prevDir    string
@@ -3565,6 +3592,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 				}
 			}
 			objects = append(objects, node.FileNode.Objects...)
+			brs = append(brs, node.FileNode.BlockRefs...)
 			totalSize += uint64(node.SubtreeSize)
 			return nil
 		}); err != nil {
@@ -3578,6 +3606,20 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 		}
 
 		// retrieve the content of all objects in 'objects'
+		if len(brs) > 0 {
+			getBlocksClient, err := pachClient.ObjectAPIClient.GetBlocks(
+				ctx,
+				&pfs.GetBlocksRequest{
+					BlockRefs:   brs,
+					OffsetBytes: uint64(offset),
+					SizeBytes:   uint64(size),
+					TotalSize:   uint64(totalSize),
+				})
+			if err != nil {
+				return nil, err
+			}
+			return grpcutil.NewStreamingBytesReader(getBlocksClient, nil), nil
+		}
 		getObjectsClient, err := pachClient.ObjectAPIClient.GetObjects(
 			ctx,
 			&pfs.GetObjectsRequest{
@@ -4126,6 +4168,9 @@ func (d *driver) deleteFile(pachClient *client.APIClient, file *pfs.File) error 
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
+	if err := d.checkFilePath(file.Path); err != nil {
+		return err
+	}
 	branch := ""
 	if !uuid.IsUUIDWithoutDashes(file.Commit.ID) {
 		branch = file.Commit.ID
@@ -4232,12 +4277,24 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 					}
 				}
 
-				if err := tree.PutFileOverwrite(key, []*pfs.Object{{Hash: record.ObjectHash}}, record.OverwriteIndex, delta); err != nil {
-					return err
+				if record.ObjectHash != "" {
+					if err := tree.PutFileOverwrite(key, []*pfs.Object{{Hash: record.ObjectHash}}, record.OverwriteIndex, delta); err != nil {
+						return err
+					}
+				} else if record.BlockRef != nil {
+					if err := tree.PutFileOverwriteBlockRefs(key, []*pfs.BlockRef{record.BlockRef}, record.OverwriteIndex, delta); err != nil {
+						return err
+					}
 				}
 			} else {
-				if err := tree.PutFile(key, []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
-					return err
+				if record.ObjectHash != "" {
+					if err := tree.PutFile(key, []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
+						return err
+					}
+				} else if record.BlockRef != nil {
+					if err := tree.PutFileBlockRefs(key, []*pfs.BlockRef{record.BlockRef}, record.SizeBytes); err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -4285,8 +4342,14 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 					return err
 				}
 			} else {
-				if err := tree.PutFile(path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))), []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
-					return err
+				if record.ObjectHash != "" {
+					if err := tree.PutFile(path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))), []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
+						return err
+					}
+				} else if record.BlockRef != nil {
+					if err := tree.PutFileBlockRefs(path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))), []*pfs.BlockRef{record.BlockRef}, record.SizeBytes); err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -4333,7 +4396,7 @@ func (d *driver) addBranchProvenance(branchInfo *pfs.BranchInfo, provBranch *pfs
 	})
 }
 
-func appendSubvenance(commitInfo *pfs.CommitInfo, subvCommitInfo *pfs.CommitInfo) {
+func (d *driver) appendSubvenance(commitInfo *pfs.CommitInfo, subvCommitInfo *pfs.CommitInfo) {
 	if subvCommitInfo.ParentCommit != nil {
 		for _, subvCommitRange := range commitInfo.Subvenance {
 			if subvCommitRange.Upper.ID == subvCommitInfo.ParentCommit.ID {
@@ -4346,7 +4409,9 @@ func appendSubvenance(commitInfo *pfs.CommitInfo, subvCommitInfo *pfs.CommitInfo
 		Lower: subvCommitInfo.Commit,
 		Upper: subvCommitInfo.Commit,
 	})
-	commitInfo.SubvenantCommitsTotal++
+	if !d.env.DisableCommitProgressCounter {
+		commitInfo.SubvenantCommitsTotal++
+	}
 }
 
 type branchSet []*pfs.Branch

@@ -21,7 +21,7 @@ You can access all the variables in the Pachyderm manifest that
 is generated when you run `pachctl deploy` with the --dry-run`
 flag.
 
-!!! note "See also"
+!!! note "See Also:"
     [Deploy Pachyderm](../../../getting_started/local_installation/#deploy-pachyderm)
 
 ## `pachd` Environment Variables
@@ -30,7 +30,7 @@ You can find the list of `pachd` environment variables in the
 `pachd` manifest by running the following command:
 
 ```bash
-$ kubectl get deploy pachd -o yaml
+kubectl get deploy pachd -o yaml
 ```
 
 The following tables list all the `pachd`
@@ -44,7 +44,6 @@ environment variables.
 | `ETCD_SERVICE_PORT`    | N/A               | The etcd port number.                    |
 | `PPS_WORKER_GRPC_PORT` | `80`              | The GRPs port number.                    |
 | `PORT`                 | `650`             | The `pachd` port number. |
-| `PPROF_PORT`            | `651`             | The port number for the `pprof` tool.     |
 | `HTTP_PORT`             | `652`             | The HTTP port number.   |
 | `PEER_PORT`             | `653`             | The port for pachd-to-pachd communication. |
 | `PPS_ETCD_PREFIX`        | `pachyderm_pps`   | ???  |
@@ -111,7 +110,7 @@ Run this pipeline and upon completion you can view the log with
 variables by running the following command:
 
 ```bash
-$ pachctl logs --pipeline=env
+pachctl logs --pipeline=env
 PPS_WORKER_IP=172.17.0.7
 DASH_PORT_8081_TCP_PROTO=tcp
 PACHD_PORT_600_TCP_PORT=600
@@ -139,6 +138,7 @@ particularly useful:
 | `HOME`                     | The path to the home directory. The default value is `/root` |
 | `<input-repo>=<path/to/input/repo>` | The path to the filesystem that is defined in the `input` in your pipeline specification. Pachyderm defines such a variable for each input. The path is defined by the `glob` pattern in the spec. For example, if you have an input `images` and a glob pattern of `/`, Pachyderm defines the `images=/pfs/images` variable. If you have a glob pattern of `/*`, Pachyderm matches the files in the `images` repository and, therefore, the path is `images=/pfs/images/liberty.png`. |
 | `input_COMMIT`             | The ID of the commit that is used for the input. For example, `images_COMMIT=fa765b5454e3475f902eadebf83eac34`. |
+| `S3_ENDPOINT`         | A Pachyderm S3 gateway sidecar container endpoint. If you have an S3 enabled pipeline, this parameter specifies a URL that you can use to access the pipeline's repositories state when a particular job was run. The URL has the following format `http://<job-ID>-s3:600`. An example of accessing the data by using AWS CLI looks like this: `echo foo_data | aws --endpoint=${S3_ENDPOINT} s3 cp - s3://out/foo_file`. |
 
 In addition to these environment variables, Kubernetes injects others for
 Services that run inside the cluster. These variables enable you to connect to

@@ -386,6 +386,12 @@ func (c *pfsBuilderClient) DeleteAll(ctx context.Context, req *types.Empty, opts
 func (c *pfsBuilderClient) Fsck(ctx context.Context, req *pfs.FsckRequest, opts ...grpc.CallOption) (pfs.API_FsckClient, error) {
 	return nil, unsupportedError("Fsck")
 }
+func (c *pfsBuilderClient) PutTar(ctx context.Context, opts ...grpc.CallOption) (pfs.API_PutTarClient, error) {
+	return nil, unsupportedError("PutTar")
+}
+func (c *pfsBuilderClient) GetTar(ctx context.Context, req *pfs.GetTarRequest, opts ...grpc.CallOption) (pfs.API_GetTarClient, error) {
+	return nil, unsupportedError("GetTar")
+}
 
 func (c *objectBuilderClient) PutObject(ctx context.Context, opts ...grpc.CallOption) (pfs.ObjectAPI_PutObjectClient, error) {
 	return nil, unsupportedError("PutObject")
@@ -516,6 +522,18 @@ func (c *ppsBuilderClient) ActivateAuth(ctx context.Context, req *pps.ActivateAu
 }
 func (c *ppsBuilderClient) RunCron(ctx context.Context, req *pps.RunCronRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("RunCron")
+}
+func (c *ppsBuilderClient) CreateSecret(ctx context.Context, req *pps.CreateSecretRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("CreateSecret")
+}
+func (c *ppsBuilderClient) DeleteSecret(ctx context.Context, req *pps.DeleteSecretRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("DeleteSecret")
+}
+func (c *ppsBuilderClient) InspectSecret(ctx context.Context, req *pps.InspectSecretRequest, opt ...grpc.CallOption) (*pps.SecretInfo, error) {
+	return nil, unsupportedError("InspectSecret")
+}
+func (c *ppsBuilderClient) ListSecret(ctx context.Context, in *types.Empty, opt ...grpc.CallOption) (*pps.SecretInfos, error) {
+	return nil, unsupportedError("ListSecret")
 }
 
 func (c *authBuilderClient) Activate(ctx context.Context, req *auth.ActivateRequest, opts ...grpc.CallOption) (*auth.ActivateResponse, error) {

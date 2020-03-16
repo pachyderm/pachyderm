@@ -8,6 +8,16 @@ metadata:
   name: pachyderm
   namespace: pachyderm
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  creationTimestamp: null
+  labels:
+    app: ""
+    suite: pachyderm
+  name: pachyderm-worker
+  namespace: pachyderm
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -43,8 +53,6 @@ rules:
   - delete
 - apiGroups:
   - ""
-  resourceNames:
-  - pachyderm-storage-secret
   resources:
   - secrets
   verbs:
@@ -54,6 +62,7 @@ rules:
   - create
   - update
   - delete
+  - deletecollection
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -71,6 +80,45 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: pachyderm
+  namespace: pachyderm
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  creationTimestamp: null
+  labels:
+    app: ""
+    suite: pachyderm
+  name: pachyderm-worker
+  namespace: pachyderm
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - update
+  - create
+  - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  creationTimestamp: null
+  labels:
+    app: ""
+    suite: pachyderm
+  name: pachyderm-worker
+  namespace: pachyderm
+roleRef:
+  apiGroup: ""
+  kind: Role
+  name: pachyderm-worker
+subjects:
+- kind: ServiceAccount
+  name: pachyderm-worker
   namespace: pachyderm
 ---
 apiVersion: v1
@@ -193,7 +241,7 @@ apiVersion: v1
 kind: Service
 metadata:
   annotations:
-    prometheus.io/port: "9091"
+    prometheus.io/port: "656"
     prometheus.io/scrape: "true"
   creationTimestamp: null
   labels:
@@ -220,8 +268,8 @@ spec:
     port: 654
     targetPort: 0
   - name: api-git-port
-    nodePort: 30999
-    port: 999
+    nodePort: 30655
+    port: 655
     targetPort: 0
   - name: s3gateway-port
     nodePort: 30600
@@ -230,6 +278,26 @@ spec:
   selector:
     app: pachd
   type: NodePort
+status:
+  loadBalancer: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: pachd
+    suite: pachyderm
+  name: pachd-peer
+  namespace: pachyderm
+spec:
+  ports:
+  - name: api-grpc-peer-port
+    port: 30653
+    targetPort: 653
+  selector:
+    app: pachd
+  type: ClusterIP
 status:
   loadBalancer: {}
 ---
@@ -261,7 +329,9 @@ spec:
       namespace: pachyderm
     spec:
       containers:
-      - env:
+      - command:
+        - /app/pachd
+        env:
         - name: PACH_ROOT
           value: /pach
         - name: ETCD_PREFIX
@@ -271,14 +341,14 @@ spec:
           value: AMAZON
         - name: STORAGE_HOST_PATH
         - name: WORKER_IMAGE
-          value: pachyderm/worker:1.9.10
+          value: pachyderm/worker:1.10.0
         - name: IMAGE_PULL_SECRET
         - name: WORKER_SIDECAR_IMAGE
-          value: pachyderm/pachd:1.9.10
+          value: pachyderm/pachd:1.10.0
         - name: WORKER_IMAGE_PULL_POLICY
           value: IfNotPresent
         - name: PACHD_VERSION
-          value: 1.9.10
+          value: 1.10.0
         - name: METRICS
           value: "true"
         - name: LOG_LEVEL
@@ -302,6 +372,10 @@ spec:
               divisor: "0"
               resource: requests.memory
         - name: EXPOSE_OBJECT_API
+          value: "false"
+        - name: CLUSTER_DEPLOYMENT_ID
+          value: test
+        - name: REQUIRE_CRITICAL_SERVERS_ONLY
           value: "false"
         - name: GOOGLE_BUCKET
           valueFrom:
@@ -465,7 +539,21 @@ spec:
               key: max-upload-parts
               name: pachyderm-storage-secret
               optional: true
-        image: pachyderm/pachd:1.9.10
+        - name: DISABLE_SSL
+          valueFrom:
+            secretKeyRef:
+              key: disable-ssl
+              name: pachyderm-storage-secret
+              optional: true
+        - name: NO_VERIFY_SSL
+          valueFrom:
+            secretKeyRef:
+              key: no-verify-ssl
+              name: pachyderm-storage-secret
+              optional: true
+        - name: STORAGE_UPLOAD_CONCURRENCY_LIMIT
+          value: "100"
+        image: pachyderm/pachd:1.10.0
         imagePullPolicy: IfNotPresent
         name: pachd
         ports:
@@ -480,7 +568,7 @@ spec:
         - containerPort: 653
           name: peer-port
           protocol: TCP
-        - containerPort: 999
+        - containerPort: 655
           name: api-git-port
           protocol: TCP
         - containerPort: 654
@@ -489,7 +577,7 @@ spec:
         readinessProbe:
           exec:
             command:
-            - /pachd
+            - /app/pachd
             - --readiness
         resources:
           limits:
@@ -587,7 +675,9 @@ data:
   amazon-secret: c3RvcmFnZS1zZWNyZXQ=
   amazon-token: ""
   custom-endpoint: c3RvcmFnZS5lbmRwb2ludA==
+  disable-ssl: ZmFsc2U=
   max-upload-parts: MTAwMDA=
+  no-verify-ssl: ZmFsc2U=
   part-size: NTI0Mjg4MA==
   retries: MTA=
   reverse: dHJ1ZQ==

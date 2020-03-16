@@ -34,7 +34,6 @@ func NewAPIServer(
 	workerUsesRoot bool,
 	workerGrpcPort uint16,
 	port uint16,
-	pprofPort uint16,
 	httpPort uint16,
 	peerPort uint16,
 ) (APIServer, error) {
@@ -60,7 +59,6 @@ func NewAPIServer(
 		monitorCancels:        make(map[string]func()),
 		workerGrpcPort:        workerGrpcPort,
 		port:                  port,
-		pprofPort:             pprofPort,
 		httpPort:              httpPort,
 		peerPort:              peerPort,
 	}
@@ -75,10 +73,10 @@ func NewAPIServer(
 func NewSidecarAPIServer(
 	env *serviceenv.ServiceEnv,
 	etcdPrefix string,
+	namespace string,
 	iamRole string,
 	reporter *metrics.Reporter,
 	workerGrpcPort uint16,
-	pprofPort uint16,
 	httpPort uint16,
 	peerPort uint16,
 ) (APIServer, error) {
@@ -88,13 +86,14 @@ func NewSidecarAPIServer(
 		etcdPrefix:     etcdPrefix,
 		iamRole:        iamRole,
 		reporter:       reporter,
+		namespace:      namespace,
 		workerUsesRoot: true,
 		pipelines:      ppsdb.Pipelines(env.GetEtcdClient(), etcdPrefix),
 		jobs:           ppsdb.Jobs(env.GetEtcdClient(), etcdPrefix),
 		workerGrpcPort: workerGrpcPort,
-		pprofPort:      pprofPort,
 		httpPort:       httpPort,
 		peerPort:       peerPort,
 	}
+	go apiServer.ServeSidecarS3G()
 	return apiServer, nil
 }

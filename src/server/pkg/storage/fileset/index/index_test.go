@@ -2,14 +2,12 @@ package index
 
 import (
 	"context"
-	"io"
 	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
 )
 
 const (
@@ -19,31 +17,23 @@ const (
 func write(tb testing.TB, objC obj.Client, chunks *chunk.Storage, fileNames []string) {
 	iw := NewWriter(context.Background(), objC, chunks, testPath)
 	for _, fileName := range fileNames {
-		hdr := &Header{
-			Hdr: &tar.Header{Name: fileName},
-			Idx: &Index{
-				DataOp: &DataOp{},
-			},
+		idx := &Index{
+			Path:   fileName,
+			DataOp: &DataOp{},
 		}
-		require.NoError(tb, iw.WriteHeaders([]*Header{hdr}))
+		require.NoError(tb, iw.WriteIndexes([]*Index{idx}))
 	}
 	require.NoError(tb, iw.Close())
 }
 
 func actualFiles(tb testing.TB, objC obj.Client, chunks *chunk.Storage, opts ...Option) []string {
 	ir := NewReader(context.Background(), objC, chunks, testPath, opts...)
-	defer func() {
-		require.NoError(tb, ir.Close())
-	}()
 	result := []string{}
-	for {
-		hdr, err := ir.Next()
-		if err == io.EOF {
-			return result
-		}
-		require.NoError(tb, err)
-		result = append(result, hdr.Hdr.Name)
-	}
+	require.NoError(tb, ir.Iterate(func(idx *Index) error {
+		result = append(result, idx.Path)
+		return nil
+	}))
+	return result
 }
 
 func expectedFiles(fileNames []string, prefix string) []string {

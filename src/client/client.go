@@ -456,19 +456,19 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 		client.authenticationToken = context.SessionToken
 	}
 
-	// Verify cluster ID
+	// Verify cluster deployment ID
 	clusterInfo, err := client.InspectCluster()
 	if err != nil {
 		return nil, fmt.Errorf("could not get cluster ID: %v", err)
 	}
-	if context.ClusterID != clusterInfo.ID {
-		if context.ClusterID == "" {
-			context.ClusterID = clusterInfo.ID
+	if context.ClusterDeploymentID != clusterInfo.DeploymentID {
+		if context.ClusterDeploymentID == "" {
+			context.ClusterDeploymentID = clusterInfo.DeploymentID
 			if err = cfg.Write(); err != nil {
-				return nil, fmt.Errorf("could not write config to save cluster ID: %v", err)
+				return nil, fmt.Errorf("could not write config to save cluster deployment ID: %v", err)
 			}
 		} else {
-			return nil, fmt.Errorf("connected to the wrong cluster (context cluster ID = %q vs reported cluster ID = %q)", context.ClusterID, clusterInfo.ID)
+			return nil, fmt.Errorf("connected to the wrong cluster (context cluster deployment ID = %q vs reported cluster deployment ID = %q)", context.ClusterDeploymentID, clusterInfo.DeploymentID)
 		}
 	}
 
@@ -483,6 +483,14 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 // This should be used to access Pachyderm from within a Kubernetes cluster
 // with Pachyderm running on it.
 func NewInCluster(options ...Option) (*APIClient, error) {
+	// first try the pachd peer service (only supported on pachyderm >= 1.10),
+	// which will work when TLS is enabled
+	internalHost := os.Getenv("PACHD_PEER_SERVICE_HOST")
+	internalPort := os.Getenv("PACHD_PEER_SERVICE_PORT")
+	if internalHost != "" && internalPort != "" {
+		return NewFromAddress(fmt.Sprintf("%s:%s", internalHost, internalPort), options...)
+	}
+
 	host, ok := os.LookupEnv("PACHD_SERVICE_HOST")
 	if !ok {
 		return nil, fmt.Errorf("PACHD_SERVICE_HOST not set")

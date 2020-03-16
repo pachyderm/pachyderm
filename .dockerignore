@@ -1,2 +1,4 @@
-*
-!etc/compile/GO_VERSION
+/.git
+/doc
+/etc
+/examples

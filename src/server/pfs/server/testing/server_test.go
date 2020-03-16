@@ -29,6 +29,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sql"
 	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
+	"github.com/pachyderm/pachyderm/src/server/pkg/testpachd"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 
@@ -82,7 +83,7 @@ func FileInfoToPath(fileInfo interface{}) interface{} {
 
 func TestInvalidRepo(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		require.YesError(t, env.PachClient.CreateRepo("/repo"))
 
 		require.NoError(t, env.PachClient.CreateRepo("lenny"))
@@ -102,7 +103,7 @@ func TestInvalidRepo(t *testing.T) {
 
 func TestCreateSameRepoInParallel(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		numGoros := 1000
 		errCh := make(chan error)
 		for i := 0; i < numGoros; i++ {
@@ -131,7 +132,7 @@ func TestCreateSameRepoInParallel(t *testing.T) {
 
 func TestCreateDifferentRepoInParallel(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		numGoros := 1000
 		errCh := make(chan error)
 		for i := 0; i < numGoros; i++ {
@@ -160,7 +161,7 @@ func TestCreateDifferentRepoInParallel(t *testing.T) {
 
 func TestCreateRepoDeleteRepoRace(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		for i := 0; i < 100; i++ {
 			require.NoError(t, env.PachClient.CreateRepo("foo"))
 			require.NoError(t, env.PachClient.CreateRepo("bar"))
@@ -188,7 +189,7 @@ func TestCreateRepoDeleteRepoRace(t *testing.T) {
 
 func TestBranch(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		_, err := env.PachClient.StartCommit(repo, "master")
@@ -212,7 +213,7 @@ func TestBranch(t *testing.T) {
 
 func TestToggleBranchProvenance(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("in"))
 		require.NoError(t, env.PachClient.CreateRepo("out"))
 		require.NoError(t, env.PachClient.CreateBranch("out", "master", "", []*pfs.Branch{
@@ -288,7 +289,7 @@ func TestToggleBranchProvenance(t *testing.T) {
 
 func TestRecreateBranchProvenance(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("in"))
 		require.NoError(t, env.PachClient.CreateRepo("out"))
 		require.NoError(t, env.PachClient.CreateBranch("out", "master", "", []*pfs.Branch{pclient.NewBranch("in", "master")}))
@@ -312,7 +313,7 @@ func TestRecreateBranchProvenance(t *testing.T) {
 
 func TestCreateAndInspectRepo(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -338,7 +339,7 @@ func TestCreateAndInspectRepo(t *testing.T) {
 
 func TestListRepo(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		numRepos := 10
 		var repoNames []string
 		for i := 0; i < numRepos; i++ {
@@ -359,7 +360,7 @@ func TestListRepo(t *testing.T) {
 // Make sure that commits of deleted repos do not resurface
 func TestCreateDeletedRepo(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -401,7 +402,7 @@ func TestCreateDeletedRepo(t *testing.T) {
 // d1      d2
 func TestUpdateProvenance(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		prov1 := "prov1"
 		require.NoError(t, env.PachClient.CreateRepo(prov1))
 		prov2 := "prov2"
@@ -447,7 +448,7 @@ func TestUpdateProvenance(t *testing.T) {
 
 func TestPutFileIntoOpenCommit(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -478,7 +479,7 @@ func TestPutFileIntoOpenCommit(t *testing.T) {
 // See here for more details: https://github.com/pachyderm/pachyderm/pull/3346
 func TestRegressionPutFileIntoOpenCommit(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("repo"))
 
 		_, err := env.PachClient.StartCommit("repo", "master")
@@ -507,7 +508,7 @@ func TestRegressionPutFileIntoOpenCommit(t *testing.T) {
 
 func TestPutFileDirectoryTraversal(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		var fileInfos []*pfs.FileInfo
 		require.NoError(t, env.PachClient.CreateRepo("repo"))
 
@@ -554,7 +555,7 @@ func TestPutFileDirectoryTraversal(t *testing.T) {
 
 func TestCreateInvalidBranchName(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -569,7 +570,7 @@ func TestCreateInvalidBranchName(t *testing.T) {
 
 func TestDeleteRepo(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		numRepos := 10
 		repoNames := make(map[string]bool)
 		for i := 0; i < numRepos; i++ {
@@ -604,7 +605,7 @@ func TestDeleteRepo(t *testing.T) {
 
 func TestDeleteRepoProvenance(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		// Create two repos, one as another's provenance
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		require.NoError(t, env.PachClient.CreateRepo("B"))
@@ -651,7 +652,7 @@ func TestDeleteRepoProvenance(t *testing.T) {
 
 func TestInspectCommit(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -701,7 +702,7 @@ func TestInspectCommit(t *testing.T) {
 
 func TestInspectCommitBlock(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "TestInspectCommitBlock"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit, err := env.PachClient.StartCommit(repo, "")
@@ -726,7 +727,7 @@ func TestInspectCommitBlock(t *testing.T) {
 
 func TestDeleteCommit(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -764,7 +765,7 @@ func TestDeleteCommit(t *testing.T) {
 
 func TestDeleteCommitOnlyCommitInBranch(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -794,7 +795,7 @@ func TestDeleteCommitOnlyCommitInBranch(t *testing.T) {
 
 func TestDeleteCommitFinished(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -825,7 +826,7 @@ func TestDeleteCommitFinished(t *testing.T) {
 
 func TestCleanPath(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "TestCleanPath"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit, err := env.PachClient.StartCommit(repo, "master")
@@ -843,7 +844,7 @@ func TestCleanPath(t *testing.T) {
 
 func TestBasicFile(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -871,7 +872,7 @@ func TestBasicFile(t *testing.T) {
 
 func TestSimpleFile(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -915,7 +916,7 @@ func TestSimpleFile(t *testing.T) {
 
 func TestStartCommitWithUnfinishedParent(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -936,7 +937,7 @@ func TestStartCommitWithUnfinishedParent(t *testing.T) {
 
 func TestAncestrySyntax(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -1068,7 +1069,7 @@ func TestAncestrySyntax(t *testing.T) {
 
 func TestProvenance(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		require.NoError(t, env.PachClient.CreateRepo("B"))
 		require.NoError(t, env.PachClient.CreateRepo("C"))
@@ -1113,9 +1114,63 @@ func TestProvenance(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestStartCommitWithBranchNameProvenance(t *testing.T) {
+	t.Parallel()
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		require.NoError(t, env.PachClient.CreateRepo("A"))
+		require.NoError(t, env.PachClient.CreateRepo("B"))
+		require.NoError(t, env.PachClient.CreateRepo("C"))
+
+		require.NoError(t, env.PachClient.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
+		require.NoError(t, env.PachClient.CreateBranch("C", "master", "", []*pfs.Branch{pclient.NewBranch("B", "master")}))
+
+		masterCommit, err := env.PachClient.StartCommit("A", "master")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.FinishCommit("A", masterCommit.ID))
+
+		masterCommitInfo, err := env.PachClient.InspectCommit(masterCommit.Repo.Name, masterCommit.ID)
+		require.NoError(t, err)
+
+		bCommitInfo, err := env.PachClient.InspectCommit("B", "master")
+		require.NoError(t, err)
+
+		// We're specifying the same commit three times - once by branch name, once
+		// by commit ID, and once indirectly through B, these should be collapsed to
+		// one provenance entry.
+		newCommit, err := env.PachClient.PfsAPIClient.StartCommit(env.Context, &pfs.StartCommitRequest{
+			Parent: pclient.NewCommit("C", ""),
+			Provenance: []*pfs.CommitProvenance{
+				pclient.NewCommitProvenance("A", "master", "master"),
+				pclient.NewCommitProvenance("A", "master", masterCommitInfo.Commit.ID),
+				pclient.NewCommitProvenance("B", "master", bCommitInfo.Commit.ID),
+			},
+		})
+		require.NoError(t, err)
+
+		newCommitInfo, err := env.PachClient.InspectCommit(newCommit.Repo.Name, newCommit.ID)
+		require.NoError(t, err)
+		fmt.Printf("%v\n", newCommitInfo.Provenance)
+
+		// Stupid require.ElementsEqual can't handle arrays of pointers
+		expectedProvenanceA := &pfs.CommitProvenance{Commit: masterCommitInfo.Commit, Branch: masterCommitInfo.Branch}
+		expectedProvenanceB := &pfs.CommitProvenance{Commit: bCommitInfo.Commit, Branch: bCommitInfo.Branch}
+		require.Equal(t, 2, len(newCommitInfo.Provenance))
+		if newCommitInfo.Provenance[0].Commit.Repo.Name == "A" {
+			require.Equal(t, expectedProvenanceA, newCommitInfo.Provenance[0])
+			require.Equal(t, expectedProvenanceB, newCommitInfo.Provenance[1])
+		} else {
+			require.Equal(t, expectedProvenanceB, newCommitInfo.Provenance[0])
+			require.Equal(t, expectedProvenanceA, newCommitInfo.Provenance[1])
+		}
+
+		return nil
+	})
+	require.NoError(t, err)
+}
+
 func TestCommitBranch(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("repo"))
 		// Make two branches provenant on the master branch
 		require.NoError(t, env.PachClient.CreateBranch("repo", "A", "", []*pfs.Branch{pclient.NewBranch("repo", "master")}))
@@ -1147,7 +1202,7 @@ func TestCommitBranch(t *testing.T) {
 
 func TestCommitOnTwoBranchesProvenance(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("repo"))
 
 		parentCommit, err := env.PachClient.StartCommit("repo", "master")
@@ -1198,7 +1253,7 @@ func TestCommitOnTwoBranchesProvenance(t *testing.T) {
 
 func TestSimple(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit1, err := env.PachClient.StartCommit(repo, "master")
@@ -1232,7 +1287,7 @@ func TestSimple(t *testing.T) {
 
 func TestBranch1(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit, err := env.PachClient.StartCommit(repo, "master")
@@ -1277,7 +1332,7 @@ func TestBranch1(t *testing.T) {
 
 func TestPutFileBig(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -1307,7 +1362,7 @@ func TestPutFileBig(t *testing.T) {
 
 func TestPutFile(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -1372,7 +1427,7 @@ func TestPutFile(t *testing.T) {
 
 func TestPutFile2(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit1, err := env.PachClient.StartCommit(repo, "master")
@@ -1430,7 +1485,7 @@ func TestPutFile2(t *testing.T) {
 
 func TestPutFileLongName(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -1453,7 +1508,7 @@ func TestPutFileLongName(t *testing.T) {
 
 func TestPutSameFileInParallel(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -1480,7 +1535,7 @@ func TestPutSameFileInParallel(t *testing.T) {
 
 func TestInspectFile(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -1543,7 +1598,7 @@ func TestInspectFile(t *testing.T) {
 
 func TestInspectFile2(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -1592,7 +1647,7 @@ func TestInspectFile2(t *testing.T) {
 
 func TestInspectDir(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -1632,7 +1687,7 @@ func TestInspectDir(t *testing.T) {
 
 func TestInspectDir2(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -1685,7 +1740,7 @@ func TestInspectDir2(t *testing.T) {
 
 func TestListFileTwoCommits(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -1734,7 +1789,7 @@ func TestListFileTwoCommits(t *testing.T) {
 
 func TestListFile(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -1770,7 +1825,7 @@ func TestListFile(t *testing.T) {
 
 func TestListFile2(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -1820,7 +1875,7 @@ func TestListFile2(t *testing.T) {
 
 func TestListFile3(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -1879,7 +1934,7 @@ func TestListFile3(t *testing.T) {
 
 func TestPutFileTypeConflict(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -1904,7 +1959,7 @@ func TestPutFileTypeConflict(t *testing.T) {
 
 func TestRootDirectory(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -1932,7 +1987,7 @@ func TestRootDirectory(t *testing.T) {
 
 func TestDeleteFile(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -2016,7 +2071,7 @@ func TestDeleteFile(t *testing.T) {
 
 func TestDeleteDir(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -2104,7 +2159,7 @@ func TestDeleteDir(t *testing.T) {
 
 func TestDeleteFile2(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -2149,7 +2204,7 @@ func TestDeleteFile2(t *testing.T) {
 
 func TestListCommit(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -2223,7 +2278,7 @@ func TestListCommit(t *testing.T) {
 
 func TestOffsetRead(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "TestOffsetRead"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit, err := env.PachClient.StartCommit(repo, "")
@@ -2251,7 +2306,7 @@ func TestOffsetRead(t *testing.T) {
 
 func TestBranch2(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -2299,7 +2354,7 @@ func TestBranch2(t *testing.T) {
 
 func TestDeleteNonexistentBranch(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "TestDeleteNonexistentBranch"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		require.NoError(t, env.PachClient.DeleteBranch(repo, "doesnt_exist", false))
@@ -2311,7 +2366,7 @@ func TestDeleteNonexistentBranch(t *testing.T) {
 
 func TestSubscribeCommit(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -2365,7 +2420,7 @@ func TestSubscribeCommit(t *testing.T) {
 
 func TestInspectRepoSimple(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -2395,7 +2450,7 @@ func TestInspectRepoSimple(t *testing.T) {
 
 func TestInspectRepoComplex(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -2439,7 +2494,7 @@ func TestInspectRepoComplex(t *testing.T) {
 
 func TestCreate(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit, err := env.PachClient.StartCommit(repo, "")
@@ -2458,7 +2513,7 @@ func TestCreate(t *testing.T) {
 
 func TestGetFile(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := tu.UniqueString("test")
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit, err := env.PachClient.StartCommit(repo, "")
@@ -2487,7 +2542,7 @@ func TestGetFile(t *testing.T) {
 
 func TestManyPutsSingleFileSingleCommit(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		if testing.Short() {
 			t.Skip("Skipping long tests in short mode")
 		}
@@ -2537,7 +2592,7 @@ func TestManyPutsSingleFileSingleCommit(t *testing.T) {
 
 func TestPutFileValidCharacters(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -2574,7 +2629,7 @@ func TestPutFileValidCharacters(t *testing.T) {
 
 func TestPutFileURL(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		if testing.Short() {
 			t.Skip("Skipping integration tests in short mode")
 		}
@@ -2596,7 +2651,7 @@ func TestPutFileURL(t *testing.T) {
 
 func TestBigListFile(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "TestBigListFile"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit, err := env.PachClient.StartCommit(repo, "")
@@ -2627,7 +2682,7 @@ func TestBigListFile(t *testing.T) {
 
 func TestStartCommitLatestOnBranch(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -2655,7 +2710,7 @@ func TestStartCommitLatestOnBranch(t *testing.T) {
 
 func TestSetBranchTwice(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -2683,7 +2738,7 @@ func TestSetBranchTwice(t *testing.T) {
 
 func TestSyncPullPush(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo1 := "repo1"
 		require.NoError(t, env.PachClient.CreateRepo(repo1))
 
@@ -2764,7 +2819,7 @@ func TestSyncPullPush(t *testing.T) {
 
 func TestSyncFile(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -2817,7 +2872,7 @@ func TestSyncFile(t *testing.T) {
 
 func TestSyncEmptyDir(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -2846,7 +2901,7 @@ func TestSyncEmptyDir(t *testing.T) {
 
 func TestFlush(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		require.NoError(t, env.PachClient.CreateRepo("B"))
 		require.NoError(t, env.PachClient.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
@@ -2869,7 +2924,7 @@ func TestFlush(t *testing.T) {
 // A ─▶ B ─▶ C ─▶ D
 func TestFlush2(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		require.NoError(t, env.PachClient.CreateRepo("B"))
 		require.NoError(t, env.PachClient.CreateRepo("C"))
@@ -2918,7 +2973,7 @@ func TestFlush2(t *testing.T) {
 // B
 func TestFlush3(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		require.NoError(t, env.PachClient.CreateRepo("B"))
 		require.NoError(t, env.PachClient.CreateRepo("C"))
@@ -2954,7 +3009,7 @@ func TestFlush3(t *testing.T) {
 
 func TestFlushRedundant(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		ACommit, err := env.PachClient.StartCommit("A", "master")
 		require.NoError(t, err)
@@ -2972,7 +3027,7 @@ func TestFlushRedundant(t *testing.T) {
 
 func TestFlushCommitWithNoDownstreamRepos(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		commit, err := env.PachClient.StartCommit(repo, "master")
@@ -2991,7 +3046,7 @@ func TestFlushCommitWithNoDownstreamRepos(t *testing.T) {
 
 func TestFlushOpenCommit(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		require.NoError(t, env.PachClient.CreateRepo("B"))
 		require.NoError(t, env.PachClient.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
@@ -3019,7 +3074,7 @@ func TestFlushOpenCommit(t *testing.T) {
 
 func TestEmptyFlush(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		commitIter, err := env.PachClient.FlushCommit(nil, nil)
 		require.NoError(t, err)
 		_, err = collectCommitInfos(commitIter)
@@ -3032,7 +3087,7 @@ func TestEmptyFlush(t *testing.T) {
 
 func TestFlushNonExistentCommit(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		iter, err := env.PachClient.FlushCommit([]*pfs.Commit{pclient.NewCommit("fake-repo", "fake-commit")}, nil)
 		require.NoError(t, err)
 		_, err = collectCommitInfos(iter)
@@ -3051,7 +3106,7 @@ func TestFlushNonExistentCommit(t *testing.T) {
 
 func TestPutFileSplit(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		if testing.Short() {
 			t.Skip("Skipping integration tests in short mode")
 		}
@@ -3162,7 +3217,7 @@ func TestPutFileSplit(t *testing.T) {
 
 func TestPutFileSplitBig(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		if testing.Short() {
 			t.Skip("Skipping integration tests in short mode")
 		}
@@ -3194,7 +3249,7 @@ func TestPutFileSplitBig(t *testing.T) {
 
 func TestPutFileSplitCSV(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		// create repos
 		repo := tu.UniqueString("TestPutFileSplitCSV")
 		require.NoError(t, env.PachClient.CreateRepo(repo))
@@ -3220,7 +3275,7 @@ func TestPutFileSplitCSV(t *testing.T) {
 
 func TestPutFileSplitSQL(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		// create repos
 		repo := tu.UniqueString("TestPutFileSplitSQL")
 		require.NoError(t, env.PachClient.CreateRepo(repo))
@@ -3287,7 +3342,7 @@ func TestPutFileSplitSQL(t *testing.T) {
 
 func TestPutFileHeaderRecordsBasic(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		// create repos
 		repo := tu.UniqueString("TestPutFileHeaderRecordsBasic")
 		require.NoError(t, env.PachClient.CreateRepo(repo))
@@ -3375,7 +3430,7 @@ func TestPutFileHeaderRecordsBasic(t *testing.T) {
 // a_header + a/1 + ... + a/N + a_footer + b_header + b/1 + ... + b/N + b_footer
 func TestGetFileGlobMultipleHeaders(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		// create repos
 		repo := tu.UniqueString("TestGetFileGlobMultipleHeaders")
 		require.NoError(t, env.PachClient.CreateRepo(repo))
@@ -3422,7 +3477,7 @@ func TestGetFileGlobMultipleHeaders(t *testing.T) {
 
 func TestDiff(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		if testing.Short() {
 			t.Skip("Skipping integration tests in short mode")
 		}
@@ -3561,7 +3616,7 @@ func TestDiff(t *testing.T) {
 
 func TestGlobFile(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		if testing.Short() {
 			t.Skip("Skipping integration tests in short mode")
 		}
@@ -3709,7 +3764,7 @@ func TestGlobFile(t *testing.T) {
 
 func TestGlobFileF(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		if testing.Short() {
 			t.Skip("Skipping integration tests in short mode")
 		}
@@ -3753,7 +3808,7 @@ func TestGlobFileF(t *testing.T) {
 // file matching 'glob', file2 is the next lowest, etc.
 func TestGetFileGlobOrder(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		// create repos
 		repo := tu.UniqueString("TestGetFileGlobOrder")
 		require.NoError(t, env.PachClient.CreateRepo(repo))
@@ -3779,7 +3834,7 @@ func TestGetFileGlobOrder(t *testing.T) {
 
 func TestApplyWriteOrder(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		if testing.Short() {
 			t.Skip("Skipping integration tests in short mode")
 		}
@@ -3807,7 +3862,7 @@ func TestApplyWriteOrder(t *testing.T) {
 
 func TestOverwrite(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		if testing.Short() {
 			t.Skip("Skipping integration tests in short mode")
 		}
@@ -3856,7 +3911,7 @@ func TestOverwrite(t *testing.T) {
 
 func TestCopyFile(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		if testing.Short() {
 			t.Skip("Skipping integration tests in short mode")
 		}
@@ -3899,7 +3954,7 @@ func TestCopyFile(t *testing.T) {
 
 func TestCopyFileHeaderFooter(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		if testing.Short() {
 			t.Skip("Skipping integration tests in short mode")
 		}
@@ -3976,7 +4031,7 @@ func TestCopyFileHeaderFooter(t *testing.T) {
 
 func TestBuildCommit(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		if testing.Short() {
 			t.Skip("Skipping integration tests in short mode")
 		}
@@ -4023,7 +4078,7 @@ func TestBuildCommit(t *testing.T) {
 
 func TestPropagateCommit(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo1 := tu.UniqueString("TestPropagateCommit1")
 		require.NoError(t, env.PachClient.CreateRepo(repo1))
 		repo2 := tu.UniqueString("TestPropagateCommit2")
@@ -4052,7 +4107,7 @@ func TestPropagateCommit(t *testing.T) {
 // B ──▶ D
 func TestBackfillBranch(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		require.NoError(t, env.PachClient.CreateRepo("B"))
 		require.NoError(t, env.PachClient.CreateRepo("C"))
@@ -4093,7 +4148,7 @@ func TestBackfillBranch(t *testing.T) {
 //
 func TestUpdateBranch(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		require.NoError(t, env.PachClient.CreateRepo("B"))
 		require.NoError(t, env.PachClient.CreateRepo("C"))
@@ -4124,7 +4179,7 @@ func TestUpdateBranch(t *testing.T) {
 
 func TestBranchProvenance(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		tests := [][]struct {
 			name       string
 			directProv []string
@@ -4278,7 +4333,7 @@ func TestBranchProvenance(t *testing.T) {
 
 func TestChildCommits(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		require.NoError(t, env.PachClient.CreateBranch("A", "master", "", nil))
 
@@ -4378,7 +4433,7 @@ func TestChildCommits(t *testing.T) {
 
 func TestStartCommitFork(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		require.NoError(t, env.PachClient.CreateBranch("A", "master", "", nil))
 		commit, err := env.PachClient.StartCommit("A", "master")
@@ -4412,7 +4467,7 @@ func TestStartCommitFork(t *testing.T) {
 // C should create a new output commit to process its unprocessed inputs in B
 func TestUpdateBranchNewOutputCommit(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		require.NoError(t, env.PachClient.CreateRepo("B"))
 		require.NoError(t, env.PachClient.CreateRepo("C"))
@@ -4463,7 +4518,7 @@ func TestUpdateBranchNewOutputCommit(t *testing.T) {
 // 4. Delete parent commit -> child rewritten to point to nil
 func TestDeleteCommitBigSubvenance(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		// two input repos, one with many commits (logs), and one with few (schema)
 		require.NoError(t, env.PachClient.CreateRepo("logs"))
 		require.NoError(t, env.PachClient.CreateRepo("schema"))
@@ -4654,7 +4709,7 @@ func TestDeleteCommitBigSubvenance(t *testing.T) {
 //   a
 func TestDeleteCommitMultipleChildrenSingleCommit(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("repo"))
 		require.NoError(t, env.PachClient.CreateBranch("repo", "master", "", nil))
 
@@ -4744,7 +4799,7 @@ func TestDeleteCommitMultipleChildrenSingleCommit(t *testing.T) {
 //  nil
 func TestDeleteCommitMultiLevelChildrenNilParent(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("upstream1"))
 		require.NoError(t, env.PachClient.CreateRepo("upstream2"))
 		// commit to both inputs
@@ -4887,7 +4942,7 @@ func TestDeleteCommitMultiLevelChildrenNilParent(t *testing.T) {
 // if appropriate
 func TestDeleteCommitMultiLevelChildren(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("upstream1"))
 		require.NoError(t, env.PachClient.CreateRepo("upstream2"))
 		// commit to both inputs
@@ -5037,7 +5092,7 @@ func TestDeleteCommitMultiLevelChildren(t *testing.T) {
 // 4. The entire subvenance range is deleted
 func TestDeleteCommitShrinkSubvRange(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		// two input repos, one with many commits (logs), and one with few (schema)
 		require.NoError(t, env.PachClient.CreateRepo("logs"))
 		require.NoError(t, env.PachClient.CreateRepo("schema"))
@@ -5133,7 +5188,7 @@ func TestDeleteCommitShrinkSubvRange(t *testing.T) {
 
 func TestCommitState(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		// two input repos, one with many commits (logs), and one with few (schema)
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		require.NoError(t, env.PachClient.CreateRepo("B"))
@@ -5182,7 +5237,7 @@ func TestCommitState(t *testing.T) {
 
 func TestSubscribeStates(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		require.NoError(t, env.PachClient.CreateRepo("B"))
 		require.NoError(t, env.PachClient.CreateRepo("C"))
@@ -5234,7 +5289,7 @@ func TestSubscribeStates(t *testing.T) {
 
 func TestPutFileCommit(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		numFiles := 25
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
@@ -5293,7 +5348,7 @@ func TestPutFileCommit(t *testing.T) {
 
 func TestPutFileCommitNilBranch(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", nil))
@@ -5308,7 +5363,7 @@ func TestPutFileCommitNilBranch(t *testing.T) {
 
 func TestPutFileCommitOverwrite(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		numFiles := 5
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
@@ -5329,7 +5384,7 @@ func TestPutFileCommitOverwrite(t *testing.T) {
 
 func TestStartCommitOutputBranch(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("in"))
 		require.NoError(t, env.PachClient.CreateRepo("out"))
 		require.NoError(t, env.PachClient.CreateBranch("out", "master", "", []*pfs.Branch{pclient.NewBranch("in", "master")}))
@@ -5343,7 +5398,7 @@ func TestStartCommitOutputBranch(t *testing.T) {
 
 func TestWalk(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 		_, err := env.PachClient.PutFile(repo, "master", "dir/bar", strings.NewReader("bar"))
@@ -5369,7 +5424,7 @@ func TestWalk(t *testing.T) {
 
 func TestReadSizeLimited(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("test"))
 		_, err := env.PachClient.PutFile("test", "master", "file", strings.NewReader(strings.Repeat("a", 100*MB)))
 		require.NoError(t, err)
@@ -5389,7 +5444,7 @@ func TestReadSizeLimited(t *testing.T) {
 
 func TestPutFiles(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("repo"))
 		pfclient, err := env.PachClient.PfsAPIClient.PutFile(context.Background())
 		require.NoError(t, err)
@@ -5420,7 +5475,7 @@ func TestPutFiles(t *testing.T) {
 
 func TestPutFilesURL(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("repo"))
 		pfclient, err := env.PachClient.PfsAPIClient.PutFile(context.Background())
 		require.NoError(t, err)
@@ -5461,7 +5516,7 @@ func writeObj(t *testing.T, c obj.Client, path, content string) {
 
 func TestPutFilesObjURL(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		paths := []string{"files/foo", "files/bar", "files/fizz"}
 		wd, err := os.Getwd()
 		require.NoError(t, err)
@@ -5514,7 +5569,7 @@ func TestPutFilesObjURL(t *testing.T) {
 
 func TestPutFileOutputRepo(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		inputRepo, outputRepo := "input", "output"
 		require.NoError(t, env.PachClient.CreateRepo(inputRepo))
 		require.NoError(t, env.PachClient.CreateRepo(outputRepo))
@@ -5538,7 +5593,7 @@ func TestPutFileOutputRepo(t *testing.T) {
 
 func TestFileHistory(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		var err error
 
 		repo := "test"
@@ -5582,7 +5637,7 @@ func TestFileHistory(t *testing.T) {
 
 func TestUpdateRepo(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		var err error
 		repo := "test"
 		_, err = env.PachClient.PfsAPIClient.CreateRepo(
@@ -5621,7 +5676,7 @@ func TestUpdateRepo(t *testing.T) {
 
 func TestPutObjectAsync(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		// Write and tag an object greater than grpc max message size.
 		tag := &pfs.Tag{Name: "tag"}
 		w, err := env.PachClient.PutObjectAsync([]*pfs.Tag{tag})
@@ -5643,7 +5698,7 @@ func TestPutObjectAsync(t *testing.T) {
 
 func TestDeferredProcessing(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("input"))
 		require.NoError(t, env.PachClient.CreateRepo("output1"))
 		require.NoError(t, env.PachClient.CreateRepo("output2"))
@@ -5684,7 +5739,7 @@ func TestDeferredProcessing(t *testing.T) {
 // the branch being propagated*
 func TestMultiInputWithDeferredProcessing(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("input1"))
 		require.NoError(t, env.PachClient.CreateRepo("deferred-output"))
 		require.NoError(t, env.PachClient.CreateRepo("input2"))
@@ -5781,7 +5836,7 @@ func TestMultiInputWithDeferredProcessing(t *testing.T) {
 
 func TestCommitProgress(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("in"))
 		require.NoError(t, env.PachClient.CreateRepo("out"))
 		require.NoError(t, env.PachClient.CreateBranch("out", "master", "", []*pfs.Branch{pclient.NewBranch("in", "master")}))
@@ -5806,7 +5861,7 @@ func TestCommitProgress(t *testing.T) {
 
 func TestListAll(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		require.NoError(t, env.PachClient.CreateRepo("repo1"))
 		require.NoError(t, env.PachClient.CreateRepo("repo2"))
 		_, err := env.PachClient.PutFile("repo1", "master", "file1", strings.NewReader("1"))
@@ -5833,7 +5888,7 @@ func TestListAll(t *testing.T) {
 
 func TestPutBlock(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		_, err := env.PachClient.PutBlock("test", strings.NewReader("foo"))
 		require.NoError(t, err)
 
@@ -5859,7 +5914,7 @@ func monkeyRetry(t *testing.T, f func() error, errMsg string) {
 func TestMonkeyObjectStorage(t *testing.T) {
 	// This test cannot be done in parallel because the monkey object client
 	// modifies global state.
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		seed := time.Now().UTC().UnixNano()
 		obj.InitMonkeyTest(seed)
 		iterations := 25
@@ -5924,7 +5979,7 @@ func TestMonkeyObjectStorage(t *testing.T) {
 
 func TestFsckFix(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		input := "input"
 		output1 := "output1"
 		output2 := "output2"
@@ -5968,7 +6023,7 @@ const (
 
 func TestFuzzProvenance(t *testing.T) {
 	t.Parallel()
-	err := tu.WithRealEnv(func(env *tu.RealEnv) error {
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		seed := time.Now().UnixNano()
 		t.Log("Random seed is", seed)
 		r := rand.New(rand.NewSource(seed))

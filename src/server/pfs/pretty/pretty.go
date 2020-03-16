@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/docker/go-units"
+	units "github.com/docker/go-units"
 	"github.com/fatih/color"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
@@ -116,10 +116,14 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamps boo
 		fmt.Fprintf(w, "<none>\t")
 	}
 	fmt.Fprintf(w, "%s\t", commitInfo.Commit.ID)
-	if fullTimestamps {
-		fmt.Fprintf(w, "%s\t", commitInfo.Finished.String())
+	if commitInfo.Finished == nil {
+		fmt.Fprintf(w, "-\t")
 	} else {
-		fmt.Fprintf(w, "%s\t", pretty.Ago(commitInfo.Finished))
+		if fullTimestamps {
+			fmt.Fprintf(w, "%s\t", commitInfo.Finished.String())
+		} else {
+			fmt.Fprintf(w, "%s\t", pretty.Ago(commitInfo.Finished))
+		}
 	}
 	if commitInfo.Finished == nil {
 		fmt.Fprintf(w, "-\t")

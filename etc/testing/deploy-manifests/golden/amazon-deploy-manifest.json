@@ -12,6 +12,19 @@
   }
 }
 {
+  "kind": "ServiceAccount",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "pachyderm-worker",
+    "namespace": "default",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "",
+      "suite": "pachyderm"
+    }
+  }
+}
+{
   "kind": "ClusterRole",
   "apiVersion": "rbac.authorization.k8s.io/v1",
   "metadata": {
@@ -64,16 +77,14 @@
         "watch",
         "create",
         "update",
-        "delete"
+        "delete",
+        "deletecollection"
       ],
       "apiGroups": [
         ""
       ],
       "resources": [
         "secrets"
-      ],
-      "resourceNames": [
-        "pachyderm-storage-secret"
       ]
     }
   ]
@@ -101,6 +112,61 @@
     "apiGroup": "",
     "kind": "ClusterRole",
     "name": "pachyderm"
+  }
+}
+{
+  "kind": "Role",
+  "apiVersion": "rbac.authorization.k8s.io/v1",
+  "metadata": {
+    "name": "pachyderm-worker",
+    "namespace": "default",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "",
+      "suite": "pachyderm"
+    }
+  },
+  "rules": [
+    {
+      "verbs": [
+        "get",
+        "list",
+        "update",
+        "create",
+        "delete"
+      ],
+      "apiGroups": [
+        ""
+      ],
+      "resources": [
+        "services"
+      ]
+    }
+  ]
+}
+{
+  "kind": "RoleBinding",
+  "apiVersion": "rbac.authorization.k8s.io/v1",
+  "metadata": {
+    "name": "pachyderm-worker",
+    "namespace": "default",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "",
+      "suite": "pachyderm"
+    }
+  },
+  "subjects": [
+    {
+      "kind": "ServiceAccount",
+      "name": "pachyderm-worker",
+      "namespace": "default"
+    }
+  ],
+  "roleRef": {
+    "apiGroup": "",
+    "kind": "Role",
+    "name": "pachyderm-worker"
   }
 }
 {
@@ -305,7 +371,7 @@
       "suite": "pachyderm"
     },
     "annotations": {
-      "prometheus.io/port": "9091",
+      "prometheus.io/port": "656",
       "prometheus.io/scrape": "true"
     }
   },
@@ -337,9 +403,9 @@
       },
       {
         "name": "api-git-port",
-        "port": 999,
+        "port": 655,
         "targetPort": 0,
-        "nodePort": 30999
+        "nodePort": 30655
       },
       {
         "name": "s3gateway-port",
@@ -352,6 +418,35 @@
       "app": "pachd"
     },
     "type": "NodePort"
+  },
+  "status": {
+    "loadBalancer": {}
+  }
+}
+{
+  "kind": "Service",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "pachd-peer",
+    "namespace": "default",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "pachd",
+      "suite": "pachyderm"
+    }
+  },
+  "spec": {
+    "ports": [
+      {
+        "name": "api-grpc-peer-port",
+        "port": 30653,
+        "targetPort": 653
+      }
+    ],
+    "selector": {
+      "app": "pachd"
+    },
+    "type": "ClusterIP"
   },
   "status": {
     "loadBalancer": {}
@@ -405,7 +500,10 @@
         "containers": [
           {
             "name": "pachd",
-            "image": "pachyderm/pachd:1.9.10",
+            "image": "pachyderm/pachd:1.10.0",
+            "command": [
+              "/app/pachd"
+            ],
             "ports": [
               {
                 "name": "api-grpc-port",
@@ -428,7 +526,7 @@
               },
               {
                 "name": "api-git-port",
-                "containerPort": 999,
+                "containerPort": 655,
                 "protocol": "TCP"
               },
               {
@@ -458,14 +556,14 @@
               },
               {
                 "name": "WORKER_IMAGE",
-                "value": "pachyderm/worker:1.9.10"
+                "value": "pachyderm/worker:1.10.0"
               },
               {
                 "name": "IMAGE_PULL_SECRET"
               },
               {
                 "name": "WORKER_SIDECAR_IMAGE",
-                "value": "pachyderm/pachd:1.9.10"
+                "value": "pachyderm/pachd:1.10.0"
               },
               {
                 "name": "WORKER_IMAGE_PULL_POLICY",
@@ -473,7 +571,7 @@
               },
               {
                 "name": "PACHD_VERSION",
-                "value": "1.9.10"
+                "value": "1.10.0"
               },
               {
                 "name": "METRICS",
@@ -519,6 +617,14 @@
               },
               {
                 "name": "EXPOSE_OBJECT_API",
+                "value": "false"
+              },
+              {
+                "name": "CLUSTER_DEPLOYMENT_ID",
+                "value": "test"
+              },
+              {
+                "name": "REQUIRE_CRITICAL_SERVERS_ONLY",
                 "value": "false"
               },
               {
@@ -790,6 +896,30 @@
                     "optional": true
                   }
                 }
+              },
+              {
+                "name": "DISABLE_SSL",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "disable-ssl",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "NO_VERIFY_SSL",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "pachyderm-storage-secret",
+                    "key": "no-verify-ssl",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "STORAGE_UPLOAD_CONCURRENCY_LIMIT",
+                "value": "100"
               }
             ],
             "resources": {
@@ -815,7 +945,7 @@
             "readinessProbe": {
               "exec": {
                 "command": [
-                  "/pachd",
+                  "/app/pachd",
                   "--readiness"
                 ]
               }
@@ -949,7 +1079,9 @@
     "amazon-secret": "YXdzc2VjcmV0K2F3c3NlY3JldCthd3NzZWNyZXQrYXdzc2VjcmV0Kw==",
     "amazon-token": "",
     "custom-endpoint": "",
+    "disable-ssl": "ZmFsc2U=",
     "max-upload-parts": "MTAwMDA=",
+    "no-verify-ssl": "ZmFsc2U=",
     "part-size": "NTI0Mjg4MA==",
     "retries": "MTA=",
     "reverse": "dHJ1ZQ==",

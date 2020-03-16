@@ -16,6 +16,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/limit"
@@ -109,7 +110,6 @@ type apiServer struct {
 	workerUsesRoot        bool
 	workerGrpcPort        uint16
 	port                  uint16
-	pprofPort             uint16
 	httpPort              uint16
 	peerPort              uint16
 	// collections
@@ -189,10 +189,26 @@ func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName str
 						"already creates /pfs/out to collect job output")
 				case input.Pfs.Repo == "":
 					return fmt.Errorf("input must specify a repo")
+				case input.Pfs.Repo == "out" && input.Pfs.Name == "":
+					return fmt.Errorf("inputs based on repos named \"out\" must have " +
+						"'name' set, as pachyderm already creates /pfs/out to collect " +
+						"job output")
 				case input.Pfs.Branch == "" && !job:
 					return fmt.Errorf("input must specify a branch")
-				case len(input.Pfs.Glob) == 0:
+				case !input.Pfs.S3 && len(input.Pfs.Glob) == 0:
 					return fmt.Errorf("input must specify a glob")
+				case input.Pfs.S3 && input.Pfs.Glob != "/":
+					return fmt.Errorf("inputs that set 's3' to 'true' must also set " +
+						"'glob', to \"/\", as the S3 gateway is only able to expose data " +
+						"at the commit level")
+				case input.Pfs.S3 && input.Pfs.Lazy:
+					return fmt.Errorf("input cannot specify both 's3' and 'lazy', as " +
+						"'s3' requires input data to be accessed via Pachyderm's S3 " +
+						"gateway rather than the file system")
+				case input.Pfs.S3 && input.Pfs.EmptyFiles:
+					return fmt.Errorf("input cannot specify both 's3' and " +
+						"'empty_files', as 's3' requires input data to be accessed via " +
+						"Pachyderm's S3 gateway rather than the file system")
 				}
 				// Note that input.Pfs.Commit is empty if a) this is a job b) one of
 				// the job pipeline's input branches has no commits yet
@@ -219,12 +235,25 @@ func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName str
 					return fmt.Errorf("multiple input types set")
 				}
 				set = true
+				if ppsutil.ContainsS3Inputs(input) {
+					// The best datum semantics for s3 inputs embedded in join expressions
+					// are not yet clear, and we see no use case for them yet, so block
+					// them until we know how they should work
+					//lint:ignore ST1005 error message capitalized b/c "S3"=proper noun
+					return fmt.Errorf("S3 inputs in join expressions are not supported")
+				}
 			}
 			if input.Union != nil {
 				if set {
 					return fmt.Errorf("multiple input types set")
 				}
 				set = true
+				if ppsutil.ContainsS3Inputs(input) {
+					// See above for "joins"; block s3 inputs in union expressions until
+					// we know how they should work
+					//lint:ignore ST1005 error message capitalized b/c "S3"=proper noun
+					return fmt.Errorf("S3 inputs in union expressions are not supported")
+				}
 			}
 			if input.Cron != nil {
 				if set {
@@ -1539,6 +1568,12 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	if request.TFJob != nil {
 		return goerr.New("embedding TFJobs in pipelines is not supported yet")
 	}
+	if request.S3Out && ((request.Service != nil) || (request.Spout != nil)) {
+		return goerr.New("s3 output is not supported in spouts or services")
+	}
+	if request.S3Out && request.EnableStats {
+		return goerr.New("stats are not supported for pipelines that output via Pachyderm's S3 gateway")
+	}
 	if request.Transform == nil {
 		return fmt.Errorf("pipeline must specify a transform")
 	}
@@ -1625,6 +1660,12 @@ func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo 
 	if pipelineInfo.Spout != nil {
 		if pipelineInfo.EnableStats {
 			return fmt.Errorf("spouts are not allowed to have a stats branch")
+		}
+		if pipelineInfo.Spout.Marker != "" {
+			// we need to make sure the marker name is also a valid file name, since it is used in file names
+			if err := hashtree.ValidatePath(pipelineInfo.Spout.Marker); err != nil || pipelineInfo.Spout.Marker == "out" {
+				return fmt.Errorf("the spout marker name must be a valid filename: %v", pipelineInfo.Spout.Marker)
+			}
 		}
 	}
 	return nil
@@ -1951,6 +1992,8 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		SchedulingSpec:   request.SchedulingSpec,
 		PodSpec:          request.PodSpec,
 		PodPatch:         request.PodPatch,
+		S3Out:            request.S3Out,
+		Metadata:         request.Metadata,
 	}
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
 		return nil, err
@@ -2008,8 +2051,10 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			client.NewBranch(ppsconsts.SpecRepo, pipelineName))
 		outputBranch     = client.NewBranch(pipelineName, pipelineInfo.OutputBranch)
 		statsBranch      = client.NewBranch(pipelineName, "stats")
+		markerBranch     = client.NewBranch(pipelineName, ppsconsts.SpoutMarkerBranch)
 		outputBranchHead *pfs.Commit
 		statsBranchHead  *pfs.Commit
+		markerBranchHead *pfs.Commit
 	)
 	if update {
 		// Help user fix inconsistency if previous UpdatePipeline call failed
@@ -2079,7 +2124,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		}
 
 		if !request.Reprocess {
-			// don't branch the output/stats commit chain from the old pipeline (re-use old branch HEAD)
+			// don't branch the output/stats/marker commit chain from the old pipeline (re-use old branch HEAD)
 			// However it's valid to set request.Update == true even if no pipeline exists, so only
 			// set outputBranchHead if there's an old pipeline to update
 			_, err := pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: outputBranch})
@@ -2094,6 +2139,13 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				return nil, err
 			} else if err == nil {
 				statsBranchHead = client.NewCommit(pipelineName, "stats")
+			}
+
+			_, err = pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: markerBranch})
+			if err != nil && !isNotFoundErr(err) {
+				return nil, err
+			} else if err == nil {
+				markerBranchHead = client.NewCommit(pipelineName, ppsconsts.SpoutMarkerBranch)
 			}
 		}
 
@@ -2204,6 +2256,14 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			return nil, fmt.Errorf("could not create/update stats branch: %v", err)
 		}
 	}
+	if pipelineInfo.Spout != nil && pipelineInfo.Spout.Marker != "" {
+		if _, err := pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
+			Branch: markerBranch,
+			Head:   markerBranchHead,
+		}); err != nil {
+			return nil, fmt.Errorf("could not create/update marker branch: %v", err)
+		}
+	}
 
 	return &types.Empty{}, nil
 }
@@ -2250,11 +2310,6 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
 	}
 	if pipelineInfo.CacheSize == "" {
 		pipelineInfo.CacheSize = "64M"
-	}
-	if pipelineInfo.ResourceRequests == nil && pipelineInfo.CacheSize != "" {
-		pipelineInfo.ResourceRequests = &pps.ResourceSpec{
-			Memory: pipelineInfo.CacheSize,
-		}
 	}
 	if pipelineInfo.MaxQueueSize < 1 {
 		pipelineInfo.MaxQueueSize = 1
@@ -2515,9 +2570,22 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 		if err := a.authorizePipelineOp(pachClient, pipelineOpDelete, pipelineInfo.Input, pipelineInfo.Pipeline.Name); err != nil {
 			return nil, err
 		}
-		// delete the pipeline's output repo
-		if err := pachClient.DeleteRepo(request.Pipeline.Name, request.Force); err != nil {
-			return nil, err
+		if request.KeepRepo {
+			// Remove branch provenance (pass branch twice so that it continues to point
+			// at the same commit, but also pass empty provenance slice)
+			if err := pachClient.CreateBranch(
+				request.Pipeline.Name,
+				pipelineInfo.OutputBranch,
+				pipelineInfo.OutputBranch,
+				nil,
+			); err != nil {
+				return nil, err
+			}
+		} else {
+			// delete the pipeline's output repo
+			if err := pachClient.DeleteRepo(request.Pipeline.Name, request.Force); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -2585,13 +2653,15 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 		return nil
 	})
 	// Delete cron input repos
-	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
-		if input.Cron != nil {
-			eg.Go(func() error {
-				return pachClient.DeleteRepo(input.Cron.Repo, request.Force)
-			})
-		}
-	})
+	if !request.KeepRepo {
+		pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
+			if input.Cron != nil {
+				eg.Go(func() error {
+					return pachClient.DeleteRepo(input.Cron.Repo, request.Force)
+				})
+			}
+		})
+	}
 	if err := eg.Wait(); err != nil {
 		return nil, err
 	}
@@ -2812,17 +2882,41 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	specProvenance := client.NewCommitProvenance(ppsconsts.SpecRepo, request.Pipeline.Name, specCommit.Commit.ID)
 	provenance = append(provenance, specProvenance)
 
-	_, err = pfsClient.StartCommit(ctx, &pfs.StartCommitRequest{
-		Parent: &pfs.Commit{
-			Repo: &pfs.Repo{
-				Name: request.Pipeline.Name,
+	if _, err := pachClient.ExecuteInTransaction(func(txnClient *client.APIClient) error {
+		newCommit, err := txnClient.PfsAPIClient.StartCommit(txnClient.Ctx(), &pfs.StartCommitRequest{
+			Parent: &pfs.Commit{
+				Repo: &pfs.Repo{
+					Name: request.Pipeline.Name,
+				},
 			},
-		},
-		Provenance: provenance,
-	})
-	if err != nil {
+			Provenance: provenance,
+		})
+		if err != nil {
+			return err
+		}
+
+		// if stats are enabled, then create a stats commit for the job as well
+		if pipelineInfo.EnableStats {
+			// it needs to additionally be provenant on the commit we just created
+			newCommitProv := client.NewCommitProvenance(newCommit.Repo.Name, "", newCommit.ID)
+			_, err = txnClient.PfsAPIClient.StartCommit(txnClient.Ctx(), &pfs.StartCommitRequest{
+				Parent: &pfs.Commit{
+					Repo: &pfs.Repo{
+						Name: request.Pipeline.Name,
+					},
+				},
+				Branch:     "stats",
+				Provenance: append(provenance, newCommitProv),
+			})
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
 		return nil, err
 	}
+
 	return &types.Empty{}, nil
 }
 
@@ -2846,34 +2940,14 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 
 	cron := pipelineInfo.Input.Cron
 
-	var latestTime time.Time
-	files, err := pachClient.ListFile(cron.Repo, "master", "")
-	if err != nil && !pfsServer.IsNoHeadErr(err) {
-		return nil, err
-	} else if err != nil || len(files) == 0 {
-		// File not found, this happens the first time the pipeline is run
-		latestTime, err = types.TimestampFromProto(cron.Start)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		// Take the name of the most recent file as the latest timestamp
-		// ListFile returns the files in lexicographical order, and the RFC3339 format goes
-		// from largest unit of time to smallest, so the most recent file will be the last one
-		latestTime, err = time.Parse(time.RFC3339, path.Base(files[len(files)-1].File.Path))
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	// We need the DeleteFile and the PutFile to happen in the same commit
 	_, err = pachClient.StartCommit(cron.Repo, "master")
 	if err != nil {
 		return nil, err
 	}
 	if cron.Overwrite {
-		// If we want to "overwrite" the file, we need to delete the file with the previous time
-		err := pachClient.DeleteFile(cron.Repo, "master", latestTime.Format(time.RFC3339))
+		// get rid of any files, so the new file "overwrites" previous runs
+		err = pachClient.DeleteFile(cron.Repo, "master", "")
 		if err != nil && !isNotFoundErr(err) && !pfsServer.IsNoHeadErr(err) {
 			return nil, fmt.Errorf("delete error %v", err)
 		}
@@ -2891,6 +2965,112 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 	}
 
 	return &types.Empty{}, nil
+}
+
+// CreateSecret implements the protobuf pps.CreateSecret RPC
+func (a *apiServer) CreateSecret(ctx context.Context, request *pps.CreateSecretRequest) (response *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreateSecret")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	var s v1.Secret
+	err := json.Unmarshal(request.GetFile(), &s)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal secret: %v", err)
+	}
+
+	labels := s.GetLabels()
+	if labels["suite"] != "" && labels["suite"] != "pachyderm" {
+		return nil, fmt.Errorf("invalid suite label set on secret: suite=%s", labels["suite"])
+	}
+	if labels == nil {
+		labels = map[string]string{}
+	}
+	labels["suite"] = "pachyderm"
+	labels["secret-source"] = "pachyderm-user"
+	s.SetLabels(labels)
+
+	if _, err = a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Create(&s); err != nil {
+		return nil, fmt.Errorf("failed to create secret: %v", err)
+	}
+	return &types.Empty{}, nil
+}
+
+// DeleteSecret implements the protobuf pps.DeleteSecret RPC
+func (a *apiServer) DeleteSecret(ctx context.Context, request *pps.DeleteSecretRequest) (response *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteSecret")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	if err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Delete(request.Secret.Name, &metav1.DeleteOptions{}); err != nil {
+		return nil, fmt.Errorf("failed to delete secret: %v", err)
+	}
+	return &types.Empty{}, nil
+}
+
+// InspectSecret implements the protobuf pps.InspectSecret RPC
+func (a *apiServer) InspectSecret(ctx context.Context, request *pps.InspectSecretRequest) (response *pps.SecretInfo, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "InspectSecret")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	secret, err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).Get(request.Secret.Name, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get secret: %v", err)
+	}
+	creationTimestamp, err := ptypes.TimestampProto(secret.GetCreationTimestamp().Time)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse creation timestamp")
+	}
+	return &pps.SecretInfo{
+		Secret: &pps.Secret{
+			Name: secret.Name,
+		},
+		Type: string(secret.Type),
+		CreationTimestamp: &types.Timestamp{
+			Seconds: creationTimestamp.GetSeconds(),
+			Nanos:   creationTimestamp.GetNanos(),
+		},
+	}, nil
+}
+
+// ListSecret implements the protobuf pps.ListSecret RPC
+func (a *apiServer) ListSecret(ctx context.Context, in *types.Empty) (response *pps.SecretInfos, retErr error) {
+	func() { a.Log(nil, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(nil, response, retErr, time.Since(start)) }(time.Now())
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListSecret")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	secrets, err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).List(metav1.ListOptions{
+		LabelSelector: "secret-source=pachyderm-user",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list secrets: %v", err)
+	}
+	secretInfos := []*pps.SecretInfo{}
+	for _, s := range secrets.Items {
+		creationTimestamp, err := ptypes.TimestampProto(s.GetCreationTimestamp().Time)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse creation timestamp")
+		}
+		secretInfos = append(secretInfos, &pps.SecretInfo{
+			Secret: &pps.Secret{
+				Name: s.Name,
+			},
+			Type: string(s.Type),
+			CreationTimestamp: &types.Timestamp{
+				Seconds: creationTimestamp.GetSeconds(),
+				Nanos:   creationTimestamp.GetNanos(),
+			},
+		})
+	}
+
+	return &pps.SecretInfos{
+		SecretInfo: secretInfos,
+	}, nil
 }
 
 // DeleteAll implements the protobuf pps.DeleteAll RPC
@@ -2913,6 +3093,12 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	}
 
 	if _, err := a.DeletePipeline(ctx, &pps.DeletePipelineRequest{All: true, Force: true}); err != nil {
+		return nil, err
+	}
+
+	if err := a.env.GetKubeClient().CoreV1().Secrets(a.namespace).DeleteCollection(&metav1.DeleteOptions{}, metav1.ListOptions{
+		LabelSelector: "secret-source=pachyderm-user",
+	}); err != nil {
 		return nil, err
 	}
 

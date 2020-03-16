@@ -11,7 +11,7 @@ import "gogoproto/gogo.proto";
 
 import "client/pfs/pfs.proto";
 
-message Secret {
+message SecretMount {
   // Name must be the name of the secret in kubernetes.
   string name = 1;
   // Key of the secret to load into env_var, this field only has meaning if EnvVar != "".
@@ -25,7 +25,7 @@ message Transform {
   repeated string cmd = 2;
   repeated string err_cmd = 13;
   map<string, string> env = 3;
-  repeated Secret secrets = 4;
+  repeated SecretMount secrets = 4;
   repeated string image_pull_secrets = 9;
   repeated string stdin = 5;
   repeated string err_stdin = 14;
@@ -60,17 +60,22 @@ enum JobState {
   JOB_MERGING = 5;
 }
 
+message Metadata {
+  map<string, string> annotations = 1;
+  map<string, string> labels = 2;
+}
+
 message Service {
   int32 internal_port = 1;
   int32 external_port = 2;
   string ip = 3 [(gogoproto.customname) = "IP"];
   string type = 4;
-  map<string, string> annotations = 5;
 }
 
 message Spout {
   bool overwrite = 1;
   Service service = 2;
+  string marker = 3;
 }
 
 message PFSInput {
@@ -85,6 +90,12 @@ message PFSInput {
   // presented as empty files. This is useful in shuffle pipelines where you
   // want to read the names of files and reorganize them using symlinks.
   bool empty_files = 7;
+  // S3, if true, will cause the worker to NOT download or link files from this
+  // input into the /pfs directory. Instead, an instance of our S3 gateway
+  // service will run on each of the sidecars, and data can be retrieved from
+  // this input by querying
+  // http://<pipeline>-s3.<namespace>/<job id>.<input>/my/file
+  bool s3 = 9;
 }
 
 message CronInput {
@@ -360,6 +371,7 @@ message EtcdPipelineInfo {
   map<int32, int32> job_counts = 3;
   string auth_token = 5;
   JobState last_job_state = 6;
+  uint64 parallelism = 7;
 }
 
 message PipelineInfo {
@@ -416,6 +428,8 @@ message PipelineInfo {
   SchedulingSpec scheduling_spec = 40;
   string pod_spec = 41;
   string pod_patch = 44;
+  bool s3_out = 47;
+  Metadata metadata = 48;
 }
 
 message PipelineInfos {
@@ -610,6 +624,12 @@ message CreatePipelineRequest {
   Egress egress = 9;
   bool update = 5;
   string output_branch = 10;
+  // s3_out, if set, requires a pipeline's user to write to its output repo
+  // via Pachyderm's s3 gateway (if set, workers will serve Pachyderm's s3
+  // gateway API at http://<pipeline>-s3.<namespace>/<job id>.out/my/file).
+  // In this mode /pfs/out won't be walked or uploaded, and the s3 gateway
+  // service in the workers will allow writes to the job's output commit
+  bool s3_out = 36;
   ResourceSpec resource_requests = 12;
   ResourceSpec resource_limits = 22;
   Input input = 13;
@@ -632,6 +652,7 @@ message CreatePipelineRequest {
   string pod_spec = 30; // deprecated, use pod_patch below
   string pod_patch = 32; // a json patch will be applied to the pipeline's pod_spec before it's created;
   pfs.Commit spec_commit = 34;
+  Metadata metadata = 46;
 }
 
 message InspectPipelineRequest {
@@ -656,6 +677,7 @@ message DeletePipelineRequest {
   Pipeline pipeline = 1;
   bool all = 4;
   bool force = 5;
+  bool keep_repo = 6;
 }
 
 message StartPipelineRequest {
@@ -677,6 +699,31 @@ message RunCronRequest {
   Pipeline pipeline = 1;
 }
 
+message CreateSecretRequest {
+  bytes file = 1;
+}
+
+message DeleteSecretRequest {
+  Secret secret  = 1;
+}
+
+message InspectSecretRequest {
+  Secret secret = 1;
+}
+
+message Secret {
+  string name = 1;
+}
+
+message SecretInfo {
+  Secret secret = 1;
+  string type = 2;
+  google.protobuf.Timestamp creation_timestamp = 3;
+}
+
+message SecretInfos {
+  repeated SecretInfo secret_info = 1;
+}
 
 message GarbageCollectRequest {
     // Memory is how much memory to use in computing which objects are alive. A
@@ -716,6 +763,11 @@ service API {
   rpc StopPipeline(StopPipelineRequest) returns (google.protobuf.Empty) {}
   rpc RunPipeline(RunPipelineRequest) returns (google.protobuf.Empty) {}
   rpc RunCron(RunCronRequest) returns (google.protobuf.Empty) {}
+
+  rpc CreateSecret(CreateSecretRequest) returns (google.protobuf.Empty) {}
+  rpc DeleteSecret(DeleteSecretRequest) returns (google.protobuf.Empty) {}
+  rpc ListSecret(google.protobuf.Empty) returns (SecretInfos) {}
+  rpc InspectSecret(InspectSecretRequest) returns (SecretInfo) {}
 
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
