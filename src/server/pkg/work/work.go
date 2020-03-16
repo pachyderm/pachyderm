@@ -314,6 +314,7 @@ func (w *Worker) subtaskFunc(task *Task, subtaskKey string, processFunc ProcessF
 		}
 		if subtaskInfo.State == State_RUNNING {
 			if err := w.claimCol.Claim(ctx, subtaskKey, &Claim{}, func(claimCtx context.Context) (retErr error) {
+				subtask := subtaskInfo.Task
 				defer func() {
 					// If the task was cancelled or the claim was lost, just return with no error.
 					if claimCtx.Err() == context.Canceled {
@@ -327,6 +328,7 @@ func (w *Worker) subtaskFunc(task *Task, subtaskKey string, processFunc ProcessF
 							if subtaskInfo.State != State_RUNNING {
 								return nil
 							}
+							subtaskInfo.Task = subtask
 							subtaskInfo.State = State_SUCCESS
 							if retErr != nil {
 								subtaskInfo.State = State_FAILURE
@@ -339,7 +341,7 @@ func (w *Worker) subtaskFunc(task *Task, subtaskKey string, processFunc ProcessF
 						retErr = err
 					}
 				}()
-				return processFunc(claimCtx, task, subtaskInfo.Task)
+				return processFunc(claimCtx, task, subtask)
 			}); err != nil && err != col.ErrNotClaimed {
 				return err
 			}
