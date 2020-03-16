@@ -36,7 +36,6 @@ _cgo_export.*
 _testmain.go
 
 *.exe
-*.test
 
 *.swp
 *.swo
