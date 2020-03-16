@@ -1,4 +1,4 @@
 {
     "kubeflow_pipeline": "1.0.9",
-    "pachyderm_pipeline": "1.0.5"
+    "pachyderm_pipeline": "1.0.6"
 }

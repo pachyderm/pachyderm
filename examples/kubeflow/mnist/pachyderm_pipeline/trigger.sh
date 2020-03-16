@@ -73,7 +73,7 @@ fi
 time
 set +x
 echo
-echo "Waiting for kubeflow pipeline to finish..."
+echo "Waiting for kubeflow pipeline to finish run ID ${run_id}"
 # TODO(msteffen) At this point, we could also try to terminate the kubeflow run
 # if the Pachyderm job is killed.  There's an API for this at
 # /apis/v1beta1/runs/{run_id}/terminate, and we could use a Pachyderm
@@ -82,13 +82,13 @@ while true; do
   status="$(curl http://ml-pipeline.${KUBEFLOW_NAMESPACE}:8888/apis/v1beta1/runs \
     | jq ".runs[] | select(.id == \"${run_id}\") | .status")"
 
-  echo "status: ${status}"
+  echo "status: $status"
 
   if [[ "${status}" == "Failure" ]]; then
     echo "Error during kubeflow run ${run_id} (see kubeflow)"
     exit 1
   fi
-  if [[ "${status}" != "" ]] && [[ "${status}" != "Running" ]]; then
+  if [[ "${status}" == "" ]]; then
     break # Finish the Pachyderm job & close the output commit
   fi
   sleep 1
