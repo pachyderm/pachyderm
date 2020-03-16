@@ -1,8 +1,8 @@
 pipeline:
   name: mnist
 transform:
-  image: ysimonson/mnist_pachyderm_pipeline:v1.1.8
-  cmd: [ /app/trigger.py ]
+  image: ysimonson/mnist_pachyderm_pipeline:v1.1.9
+  cmd: [ /app/pipeline.py ]
 s3_out: true  # Must be set
 input:
   pfs:

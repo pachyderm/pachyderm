@@ -1,15 +1,10 @@
-.PHONY: docker-build docker-push clean mnist
-
-PACHYDERM_PIPELINE_VERSION = $(shell jq -r .pachyderm_pipeline version.json)
+.PHONY: docker-build docker-push mnist
 
 docker-build:
-	docker build -t ysimonson/mnist_pachyderm_pipeline:v1.1.8 .
+	docker build -t ysimonson/mnist_pachyderm_pipeline:v1.1.9 .
 
 docker-push: docker-build
-	docker push ysimonson/mnist_pachyderm_pipeline:v1.1.8
-
-clean:
-	echo "y\n" | pachctl delete all
+	docker push ysimonson/mnist_pachyderm_pipeline:v1.1.9
 
 mnist:
 	pachctl create repo input-repo
