@@ -222,7 +222,7 @@ func loadTest(c obj.Client) error {
 				return err
 			}
 			if !bytes.Equal(data, buf) {
-				return errors.Errorf("data writen does not equal data read for object %v", i)
+				return errors.Errorf("data written does not equal data read for object %v", i)
 			}
 			return c.Delete(ctx, name)
 		})

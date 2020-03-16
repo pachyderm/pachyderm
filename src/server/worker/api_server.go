@@ -385,7 +385,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		}
 		image, err := docker.InspectImage(pipelineInfo.Transform.Image)
 		if err != nil {
-			return nil, errors.Wrapf(err, "error inspecting image %s", err)
+			return nil, errors.Wrapf(err, "error inspecting image %s", pipelineInfo.Transform.Image)
 		}
 		if pipelineInfo.Transform.User == "" {
 			pipelineInfo.Transform.User = image.Config.User
