@@ -106,4 +106,4 @@ steps:
 
 !!! note "See Also:"
 
-    [Pachyderm Shell](../deploy-manage/manage/pachctl_shell/)
+    [Pachyderm Shell](../../deploy-manage/manage/pachctl_shell/)
