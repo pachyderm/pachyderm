@@ -18,7 +18,7 @@ else
 fi
 
 system_version="$(pachctl version --client-only)"
-built_version="$(${GOPATH}/bin/pachctl version --client-only)"
+built_version=$("${GOPATH}/bin/pachctl" version --client-only)
 if [[ "${system_version}" != "${built_version}" ]]; then
   echo "'pachctl version' disagrees with '\${GOPATH}/bin/pachctl version'"
   echo "pachctl version:               \"${system_version}\""
