@@ -80,11 +80,7 @@ def kubeflow_pipeline(s3_endpoint: str, input_bucket: str):
         base_image='tensorflow/tensorflow:1.14.0-py3'
     )
 
-    pipeline = op(s3_endpoint, input_bucket) \
-        .add_env_variable(V1EnvVar(name='S3_ENDPOINT', value=s3_endpoint)) \
-        .add_env_variable(V1EnvVar(name='INPUT_BUCKET', value=input_bucket))
-    
-    return pipeline
+    return op(s3_endpoint, input_bucket)
 
 def main():
     client = kfp.Client()
