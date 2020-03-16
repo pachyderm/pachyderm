@@ -1,7 +1,7 @@
 .PHONY:
 
 # This makefile is for creating clusters filled with repos and pipelines for end-to-end and functional testing.
-# It builds on targets in the main Makefile.  You would invoke it like this
+# It builds on targets in the main Makefile.  You would invoke it by running the
 # cd <source-location>/examples ;  make -s -f Makefile.testing dirty-testing-cluster
 # That target, "dirty-testing-cluster" is the first workhorse testing target that's been developed.
 # It will create a cluster that has failed jobs, failed commmits, and deleted commits.
@@ -205,7 +205,6 @@ dirty-testing-cluster: opencv-base  ml/object-detection/frozen_inference_graph.p
 		$(ECHO) -e "could not create commit in samples@master..." ; \
 	fi
 	$(call wait-for-jobs,.state!="JOB_SUCCESS",cluster ready for testing:)
-
 
 
 
