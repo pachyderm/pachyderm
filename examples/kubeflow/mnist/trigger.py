@@ -1,26 +1,31 @@
-from __future__ import absolute_import, division, print_function, unicode_literals
+#!/usr/bin/env python3
 
 import os
-import sys
-import tempfile
+import json
 
-import boto3
-import tensorflow as tf
-from tensorflow import keras
+import kfp
+import kfp.dsl
+import kfp.components
+from kubernetes.client.models import V1EnvVar
 
-def main(_):
-    # TODO: remove
-    for k, v in sorted(os.environ.items()):
-        print("{}={}".format(k, v))
+def mnist(s3_endpoint: str, input_bucket: str):
+    # imports are done here because it's required for kubeflow's lightweight
+    # components:
+    # https://www.kubeflow.org/docs/pipelines/sdk/lightweight-python-components/
+    import os
+    import sys
+    import tempfile
+
+    import boto3
+    import tensorflow as tf
+    from tensorflow import keras
 
     s3_client = boto3.client(
         's3',
-        endpoint_url=os.environ["S3_ENDPOINT"],
+        endpoint_url=s3_endpoint,
         aws_access_key_id='',
         aws_secret_access_key=''
     )
-
-    input_bucket = os.getenv('INPUT_BUCKET', "input")
 
     with tempfile.TemporaryDirectory(suffix="pachyderm-mnist") as data_dir:
         # first, we copy files from pachyderm into a convenient
@@ -60,5 +65,41 @@ def main(_):
         print("copying {} to s3g".format(model_path))
         s3_client.upload_file(model_path, "out", "my_model.h5")
 
-if __name__ == '__main__':
-    tf.compat.v1.app.run(main=main, argv=[sys.argv[0]])
+@kfp.dsl.pipeline(
+    name="mnist kubeflow pipeline",
+    description="Train neural net on MNIST"
+)
+def kubeflow_pipeline(s3_endpoint: str, input_bucket: str):
+    with open("version.json") as f:
+        base_image_version = json.load(f)["kubeflow_pipeline"]
+
+    op = kfp.components.func_to_container_op(
+        mnist,
+        base_image='ysimonson/mnist_kubeflow_pipeline:v{}'.format(base_image_version)
+    )
+
+    pipeline = op(s3_endpoint, input_bucket) \
+        .add_env_variable(V1EnvVar(name='S3_ENDPOINT', value=s3_endpoint)) \
+        .add_env_variable(V1EnvVar(name='INPUT_BUCKET', value=input_bucket))
+    
+    return pipeline
+
+def main():
+    client = kfp.Client()
+
+    run_id = client.create_run_from_pipeline_func(
+        kubeflow_pipeline,
+        arguments={
+            "s3_endpoint": os.environ["S3_ENDPOINT"],
+            "input_bucket": "input",
+        }
+    ).run_id
+
+    print("run id: {}".format(run_id))
+
+    j = client.wait_for_run_completion(run_id, 60)
+    print("status: {}".format(j.run.status))
+    assert j.run.status != 'Failed'
+
+if __name__ == "__main__":
+    main()

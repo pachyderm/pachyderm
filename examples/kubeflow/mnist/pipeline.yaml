@@ -1,0 +1,12 @@
+pipeline:
+  name: mnist
+transform:
+  image: ysimonson/mnist_pachyderm_pipeline:v1.1.5
+  cmd: [ /app/trigger.py ]
+s3_out: true  # Must be set
+input:
+  pfs:
+    name: input      # Name of the input bucket
+    repo: input-repo # Pachyderm repo accessed via this bucket
+    glob: /          # Must be exactly this
+    s3: true         # Must be set
