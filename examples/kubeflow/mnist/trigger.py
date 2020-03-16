@@ -100,8 +100,7 @@ def main():
     print("run id: {}".format(run_id))
 
     j = client.wait_for_run_completion(run_id, 60)
-    print("status: {}".format(j.run.status))
-    assert j.run.status != 'Failed'
+    assert j.run.status == 'Succeeded'
 
 if __name__ == "__main__":
     main()
