@@ -150,79 +150,73 @@ func TestDatumIterators(t *testing.T) {
 
 	// in11 is an S3 input
 	in11 := client.NewS3PFSInput("", dataRepo, "")
+	in11.Pfs.Commit = commit.ID
 	t.Run("PlainS3", func(t *testing.T) {
 		s3itr, err := NewDatumIterator(c, in11)
 		require.NoError(t, err)
-		validateDI(t, s3itr, "")
+		validateDI(t, s3itr, "/")
+
+		// Check that every datum has an S3 input
+		s3itr, _ = NewDatumIterator(c, in11)
+		var checked, s3Count int
+		for s3itr.Next() {
+			checked++
+			require.Equal(t, 1, len(s3itr.Datum()))
+			if s3itr.Datum()[0].S3 {
+				s3Count++
+				break
+			}
+		}
+		require.True(t, checked > 0 && checked == s3Count,
+			"checked: %v, s3Count: %v", checked, s3Count)
 	})
 
-	// in12 and in13 are a cross and union that contain an S3 input and two non-s3
-	// inputs
+	// in12 is a cross that contains an S3 input and two non-s3 inputs
 	in12 := client.NewCrossInput(in1, in2, in11)
-	in13 := client.NewUnionInput(in1, in2, in11)
-	in14 := client.NewJoinInput(in8, in9, in11)
-	t.Run("S3MixedCrossUnionJoin", func(t *testing.T) {
+	t.Run("S3MixedCross", func(t *testing.T) {
 		s3CrossItr, err := NewDatumIterator(c, in12)
 		require.NoError(t, err)
-		s3UnionItr, err := NewDatumIterator(c, in13)
-		require.NoError(t, err)
-		s3JoinItr, err := NewDatumIterator(c, in14)
-		require.NoError(t, err)
-		require.NoError(t, err)
 		validateDI(t, s3CrossItr,
-			"/foo11/foo12", "/foo21/foo12", "/foo31/foo12", "/foo41/foo12",
-			"/foo11/foo2", "/foo21/foo2", "/foo31/foo2", "/foo41/foo2",
-			"/foo11/foo22", "/foo21/foo22", "/foo31/foo22", "/foo41/foo22",
-			"/foo11/foo32", "/foo21/foo32", "/foo31/foo32", "/foo41/foo32",
-			"/foo11/foo42", "/foo21/foo42", "/foo31/foo42", "/foo41/foo42",
+			"/foo11/foo12/", "/foo21/foo12/", "/foo31/foo12/", "/foo41/foo12/",
+			"/foo11/foo2/", "/foo21/foo2/", "/foo31/foo2/", "/foo41/foo2/",
+			"/foo11/foo22/", "/foo21/foo22/", "/foo31/foo22/", "/foo41/foo22/",
+			"/foo11/foo32/", "/foo21/foo32/", "/foo31/foo32/", "/foo41/foo32/",
+			"/foo11/foo42/", "/foo21/foo42/", "/foo31/foo42/", "/foo41/foo42/",
 		)
-		validateDI(t, s3UnionItr, "/foo11", "/foo21", "/foo31", "/foo41",
-			"/foo12", "/foo2", "/foo22", "/foo32", "/foo42")
-		validateDI(t, s3JoinItr,
-			"/foo11/foo11", "/foo12/foo21", "/foo13/foo31", "/foo14/foo41",
-			"/foo21/foo12", "/foo22/foo22", "/foo23/foo32", "/foo24/foo42",
-			"/foo31/foo13", "/foo32/foo23", "/foo33/foo33", "/foo34/foo43",
-			"/foo41/foo14", "/foo42/foo24", "/foo43/foo34", "/foo44/foo44")
+
+		s3CrossItr, _ = NewDatumIterator(c, in12)
+		var checked, s3Count int
+		for s3CrossItr.Next() {
+			checked++
+			for _, d := range s3CrossItr.Datum() {
+				if d.S3 {
+					s3Count++
+				}
+			}
+		}
+		require.True(t, checked > 0 && checked == s3Count,
+			"checked: %v, s3Count: %v", checked, s3Count)
 	})
 
-	// in15 is a cross consisting of exclusively S3 inputs, and in16 is a union
-	// consisting of exclusively s3 inputs.
-	dataRepo2 := tu.UniqueString(t.Name() + "_2_data")
-	require.NoError(t, c.CreateRepo(dataRepo2))
-	in15 := client.NewCrossInput(in11, client.NewS3PFSInput("", dataRepo2, ""))
-	in16 := client.NewUnionInput(in11, client.NewS3PFSInput("", dataRepo2, ""))
-	in17 := client.NewJoinInput(in11, client.NewS3PFSInput("", dataRepo2, ""))
+	// in13 is a cross consisting of exclusively S3 inputs
+	in13 := client.NewCrossInput(in11, in11, in11)
 	t.Run("S3OnlyCrossUnionJoin", func(t *testing.T) {
-		s3CrossItr, err := NewDatumIterator(c, in15)
+		s3CrossItr, err := NewDatumIterator(c, in13)
 		require.NoError(t, err)
-		s3UnionItr, err := NewDatumIterator(c, in16)
-		require.NoError(t, err)
-		s3JoinItr, err := NewDatumIterator(c, in17)
-		require.NoError(t, err)
-		require.NoError(t, err)
-		validateDI(t, s3CrossItr, "")
-		validateDI(t, s3UnionItr, "")
-		validateDI(t, s3JoinItr, "")
-	})
+		validateDI(t, s3CrossItr, "///")
 
-	// in18 and in19 are crosses containing another cross. In in18, the inner
-	// cross is mixed (some S3 inputs, some not) and in in19, the inner cross
-	// consists of exclusively s3 inputs.
-	in18 := client.NewCrossInput(in1, client.NewCrossInput(
-		in11, in1))
-	in19 := client.NewCrossInput(in1)
-	t.Run("NestedS3", func(t *testing.T) {
-		s3InnerMixedCrossItr, err := NewDatumIterator(c, in18)
-		require.NoError(t, err)
-		s3InnerS3OnlyCrossItr, err := NewDatumIterator(c, in19)
-		require.NoError(t, err)
-		validateDI(t, s3InnerMixedCrossItr,
-			"/foo11/foo11", "/foo21/foo11", "/foo31/foo11", "/foo41/foo11",
-			"/foo11/foo21", "/foo21/foo21", "/foo31/foo21", "/foo41/foo21",
-			"/foo11/foo31", "/foo21/foo31", "/foo31/foo31", "/foo41/foo31",
-			"/foo11/foo41", "/foo21/foo41", "/foo31/foo41", "/foo41/foo41",
-		)
-		validateDI(t, s3InnerS3OnlyCrossItr, "/foo11", "/foo21", "/foo31", "/foo41")
+		s3CrossItr, _ = NewDatumIterator(c, in13)
+		var checked, s3Count int
+		for s3CrossItr.Next() {
+			checked++
+			for _, d := range s3CrossItr.Datum() {
+				if d.S3 {
+					s3Count++
+				}
+			}
+		}
+		require.True(t, checked > 0 && 3*checked == s3Count,
+			"checked: %v, s3Count: %v", checked, s3Count)
 	})
 }
 
@@ -341,7 +335,7 @@ func validateDI(t testing.TB, di DatumIterator, datums ...string) {
 		}
 
 		if len(datums) > 0 {
-			require.Equal(t, key, datums[i])
+			require.Equal(t, datums[i], key)
 		}
 		require.Equal(t, key, key2)
 		i++

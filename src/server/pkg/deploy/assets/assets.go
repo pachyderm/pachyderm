@@ -23,6 +23,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+const (
+	// WorkerSAName is the name of the service account that pachyderm
+	// pipelines use to create an s3 gateway service for each job
+	WorkerSAName          = "pachyderm-worker"
+	workerRoleName        = "pachyderm-worker" // Role given to worker SA
+	workerRoleBindingName = "pachyderm-worker" // Binding worker role to SA
+)
+
 var (
 	suite = "pachyderm"
 
@@ -308,14 +316,26 @@ func fillDefaultResourceRequests(opts *AssetOpts, persistentDiskBackend backend)
 	}
 }
 
-// ServiceAccount returns a kubernetes service account for use with Pachyderm.
-func ServiceAccount(opts *AssetOpts) *v1.ServiceAccount {
-	return &v1.ServiceAccount{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ServiceAccount",
-			APIVersion: "v1",
+// ServiceAccounts returns a kubernetes service account for use with Pachyderm.
+func ServiceAccounts(opts *AssetOpts) []*v1.ServiceAccount {
+	return []*v1.ServiceAccount{
+		// Pachd service account
+		{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "ServiceAccount",
+				APIVersion: "v1",
+			},
+			ObjectMeta: objectMeta(ServiceAccountName, labels(""), nil, opts.Namespace),
 		},
-		ObjectMeta: objectMeta(ServiceAccountName, labels(""), nil, opts.Namespace),
+
+		// worker service account
+		{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "ServiceAccount",
+				APIVersion: "v1",
+			},
+			ObjectMeta: objectMeta(WorkerSAName, labels(""), nil, opts.Namespace),
+		},
 	}
 }
 
@@ -364,6 +384,23 @@ func Role(opts *AssetOpts) *rbacv1.Role {
 	}
 }
 
+// workerRole returns a Role bound to the Pachyderm worker service account
+// (used by workers to create an s3 gateway k8s service for each job)
+func workerRole(opts *AssetOpts) *rbacv1.Role {
+	return &rbacv1.Role{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Role",
+			APIVersion: "rbac.authorization.k8s.io/v1",
+		},
+		ObjectMeta: objectMeta(workerRoleName, labels(""), nil, opts.Namespace),
+		Rules: []rbacv1.PolicyRule{{
+			APIGroups: []string{""},
+			Verbs:     []string{"get", "list", "update", "create", "delete"},
+			Resources: []string{"services"},
+		}},
+	}
+}
+
 // RoleBinding returns a RoleBinding that binds Pachyderm's Role to its
 // ServiceAccount.
 func RoleBinding(opts *AssetOpts) *rbacv1.RoleBinding {
@@ -381,6 +418,27 @@ func RoleBinding(opts *AssetOpts) *rbacv1.RoleBinding {
 		RoleRef: rbacv1.RoleRef{
 			Kind: "Role",
 			Name: roleName,
+		},
+	}
+}
+
+// RoleBinding returns a RoleBinding that binds Pachyderm's workerRole to its
+// worker service account (WorkerSAName)
+func workerRoleBinding(opts *AssetOpts) *rbacv1.RoleBinding {
+	return &rbacv1.RoleBinding{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "RoleBinding",
+			APIVersion: "rbac.authorization.k8s.io/v1",
+		},
+		ObjectMeta: objectMeta(workerRoleBindingName, labels(""), nil, opts.Namespace),
+		Subjects: []rbacv1.Subject{{
+			Kind:      "ServiceAccount",
+			Name:      WorkerSAName,
+			Namespace: opts.Namespace,
+		}},
+		RoleRef: rbacv1.RoleRef{
+			Kind: "Role",
+			Name: workerRoleName,
 		},
 	}
 }
@@ -1414,8 +1472,10 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend back
 		return nil
 	}
 
-	if err := encoder.Encode(ServiceAccount(opts)); err != nil {
-		return err
+	for _, sa := range ServiceAccounts(opts) {
+		if err := encoder.Encode(sa); err != nil {
+			return err
+		}
 	}
 	if !opts.NoRBAC {
 		if opts.LocalRoles {
@@ -1432,6 +1492,12 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend back
 			if err := encoder.Encode(ClusterRoleBinding(opts)); err != nil {
 				return err
 			}
+		}
+		if err := encoder.Encode(workerRole(opts)); err != nil {
+			return err
+		}
+		if err := encoder.Encode(workerRoleBinding(opts)); err != nil {
+			return err
 		}
 	}
 

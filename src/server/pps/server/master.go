@@ -52,9 +52,8 @@ func (a *apiServer) master() {
 	backoff.RetryNotify(func() error {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		// Use the PPS token to authenticate requests. Note that all requests
-		// performed in this function are performed as a cluster admin, so do not
-		// pass any unvalidated user input to any requests
+		// Note: 'pachClient' is unauthenticated. This will use the PPS token (via
+		// a.sudo()) to authenticate requests.
 		pachClient := a.env.GetPachClient(ctx)
 		ctx, err := masterLock.Lock(ctx)
 		if err != nil {
@@ -65,7 +64,7 @@ func (a *apiServer) master() {
 
 		log.Infof("PPS master: launching master process")
 
-		// TODO(msteffen) requestly only keys, since pipeline_controller.go reads
+		// TODO(msteffen) request only keys, since pipeline_controller.go reads
 		// fresh values for each event anyway
 		pipelineWatcher, err := a.pipelines.ReadOnly(ctx).Watch()
 		if err != nil {

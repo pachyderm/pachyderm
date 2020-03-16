@@ -29,6 +29,9 @@ for d in docs/*; do
     if [[ "${d}" == "archive" ]]; then
         continue
     fi
+    if [[ "${d}" == "master" ]]; then
+         continue
+    fi
     cat <<EOF >>material/partials/versions.html
         <option style="color:white;background-color:#4b2a5c;" value="${d}">${d}</option>"
 EOF
@@ -47,6 +50,9 @@ EOF
 for d in docs/*; do
     # don't rebuild archive dir
     if [[ "${d}" == "archive" ]]; then
+        continue
+    fi
+    if [[ "${d}" == "master" ]]; then
         continue
     fi
     out_dir="site/${d}"

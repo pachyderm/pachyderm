@@ -17,3 +17,12 @@ else
 	exit 1
 fi
 
+system_version="$(pachctl version --client-only)"
+built_version="$(${GOPATH}/bin/pachctl version --client-only)"
+if [[ "${system_version}" != "${built_version}" ]]; then
+  echo "'pachctl version' disagrees with '\${GOPATH}/bin/pachctl version'"
+  echo "pachctl version:               \"${system_version}\""
+  echo "\${GOPATH}/bin/pachctl version: \"${built_version}\""
+  echo "'pachctl version' disagrees with '${GOPATH}/bin/pachctl version'"
+  exit 1
+fi
