@@ -1,9 +1,14 @@
 .PHONY: opencv object_detection delete minikube gatk hyperparameter
 
-PACHCTL := /usr/local/bin/pachctl
-TAR := /usr/bin/tar
-WGET := /usr/local/bin/wget
-RM := /bin/rm
+# The executable paths below are set to generic values.
+# Modify them for your system by setting environment variables, using a command like this
+# to both fetch the version of pachyderm you want to use and execute it.
+# "../etc/fetch_release_pachctl.py 1.10.0 ; env PACHCTL=${GOPATH}/bin/pachctl make -e  -f Makefile.testing dirty-testing-cluster)"
+
+PACHCTL := pachctl
+TAR := tar
+WGET := wget
+RM := rm
 
 
 GATK_GERMLINE_FILES	=	gatk/GATK_Germline/data/ref/ref.dict \
@@ -53,8 +58,12 @@ ml/object-detection/frozen_inference_graph.pb:
 	$(WGET) -p http://download.tensorflow.org/models/object_detection/ssd_mobilenet_v1_coco_11_06_2017.tar.gz --directory-prefix /tmp
 	$(TAR) -C ml/object-detection --strip-components 1 -xvf /tmp/download.tensorflow.org/models/object_detection/ssd_mobilenet_v1_coco_11_06_2017.tar.gz ssd_mobilenet_v1_coco_11_06_2017/frozen_inference_graph.pb
 
-OBJECT_MODEL_PIPELINE = pachctl create pipeline -f ml/object-detection/model.json
-OBJECT_DETECT_PIPELINE = pachctl create pipeline -f ml/object-detection/detect.json
+# This target is not intended to be invoked directly, it's intended for other targets to be built on.
+# OBJECT_IMAGES is set to no operation by default, so this pipeline can use the images repo of
+# opencv when used for testing.  If invoked from the intended object-detection target, below,
+# a separate images repo will be created for object-detection.
+OBJECT_MODEL_PIPELINE = $(PACHCTL) create pipeline -f ml/object-detection/model.json
+OBJECT_DETECT_PIPELINE = $(PACHCTL) create pipeline -f ml/object-detection/detect.json
 object-detection-base: 
 	@$(OBJECT_IMAGES)
 	$(PACHCTL) create repo training
@@ -65,7 +74,7 @@ object-detection-data: ml/object-detection/frozen_inference_graph.pb
 	$(PACHCTL) put file training@master:frozen_inference_graph.pb -f ml/object-detection/frozen_inference_graph.pb
 	$(PACHCTL) put file images@master:dogs.jpg -f ml/object-detection/images/dogs.jpg
 
-object-detection: OBJECT_IMAGES = pachctl create repo images
+object-detection: OBJECT_IMAGES = $(PACHCTL) create repo images
 object-detection:  object-detection-base object-detection-data
 
 object-detection-delete: object-detection-delete

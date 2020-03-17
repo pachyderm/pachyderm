@@ -12,25 +12,26 @@
 # can use it to test extract/restore or for whatever other testing purposes you want.
 # There are some top-level functions defined, like "pipeline-status" and "wait-for-jobs", that make it easier
 # to write targets that methodically create a cluster that's useful for testing.
-# The executable paths below are for macOS.
+# The executable paths below are set to generic values.
 # Modify them for your system by setting environment variables, using a command like this
-# "env PACHCTL=./pachctl  make -e  -f Makefile.testing dirty-testing-cluster"
+# to both fetch the version of pachyderm you want to test and execute it.
+# "../etc/fetch_release_pachctl.py 1.10.0 ; env PACHCTL=${GOPATH}/bin/pachctl make -e  -f Makefile.testing dirty-testing-cluster)"
 
 include Makefile
 
-CP := /bin/cp
-DOCKER := /usr/local/bin/docker
-ECHO := /usr/local/opt/coreutils/libexec/gnubin/echo
-JQ := /usr/local/bin/jq
+CP := cp
+DOCKER := docker
+ECHO := echo
+JQ := jq
 JQFLAGS :=
-KUBECTL := /usr/local/bin/kubectl
-PACHCTL := /usr/local/bin/pachctl
-RM := /bin/rm
-SLEEP := /bin/sleep
-SORT := /usr/bin/sort
-TOUCH := /usr/bin/touch
-UNIQ  := /usr/bin/uniq
-WC := /usr/bin/wc
+KUBECTL := kubectl
+PACHCTL := pachctl
+RM := rm
+SLEEP := sleep
+SORT := sort
+TOUCH := touch
+UNIQ  := uniq
+WC := wc
 
 STATS := .enable_stats=true
 DETECTMODEL := .pipeline.name="object-detect"|.input.cross[1].pfs.repo="object-model"|.input.cross[1].pfs.name="model"
