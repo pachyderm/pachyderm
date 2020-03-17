@@ -7,7 +7,7 @@ set -ex
 # execute correctly in all environments.  Try
 # setting all the environment variables here and
 # executing the commands one-by-one to debug issues.
-export CLUSTER_NAME="kubeflow-test6"
+export CLUSTER_NAME="<yourclustername>"
 export GCP_ZONE="us-east1-b"
 export MACHINE_TYPE="n1-standard-8"
 export KF_NAME="kubflowpach"
