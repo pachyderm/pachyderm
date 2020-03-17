@@ -2,25 +2,25 @@
 
 set -euo pipefail
 
-which match || {
+command -v match || {
   here="$(dirname "${0}")"
   go install -v "${here}/../../src/testing/match"
 }
 
-address=$(pachctl config get context `pachctl config get active-context` | jq -r .pachd_address)
+address=$(pachctl config get context "$(pachctl config get active-context)" | jq -r .pachd_address)
 if [[ "${address}" = "null" ]]; then
   echo "pachd_address must be set on the active context"
   exit 1
 fi
-hostport=$(echo $address | sed -e 's/grpcs:\/\///g' -e 's/grpc:\/\///g')
+hostport=$(echo "$address" | sed -e 's/grpcs:\/\///g' -e 's/grpc:\/\///g')
 
 set -x
 
 # Generate self-signed cert and private key
-etc/deploy/gen_pachd_tls.sh $hostport ""
+etc/deploy/gen_pachd_tls.sh "$hostport" ""
 
 # Restart pachyderm with the given certs
-etc/deploy/restart_with_tls.sh $hostport ${PWD}/pachd.pem ${PWD}/pachd.key
+etc/deploy/restart_with_tls.sh "$hostport" "${PWD}/pachd.pem" "${PWD}/pachd.key"
 
 set +x # Do not log our activation code when running this script in Travis
 pachctl enterprise activate "$(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -)" && echo
