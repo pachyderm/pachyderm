@@ -230,7 +230,7 @@ type Worker struct {
 }
 
 // NewWorker creates a new worker.
-func NewWorker(ctx context.Context, etcdClient *etcd.Client, etcdPrefix string, taskNamespace string) *Worker {
+func NewWorker(etcdClient *etcd.Client, etcdPrefix string, taskNamespace string) *Worker {
 	return &Worker{taskEtcd: newTaskEtcd(etcdClient, etcdPrefix, taskNamespace)}
 }
 

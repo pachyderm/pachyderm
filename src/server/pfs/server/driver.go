@@ -46,6 +46,7 @@ import (
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 	"github.com/sirupsen/logrus"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -113,8 +114,9 @@ type driver struct {
 	putObjectLimiter limit.ConcurrencyLimiter
 
 	// New storage layer.
-	storage    *fileset.Storage
-	subFileSet int64
+	storage         *fileset.Storage
+	subFileSet      int64
+	compactionQueue *work.TaskQueue
 }
 
 // newDriver is used to create a new Driver instance
@@ -175,6 +177,10 @@ func newDriver(
 		}
 		chunkStorage := chunk.NewStorage(objC, chunk.ServiceEnvToOptions(env)...)
 		d.storage = fileset.NewStorage(objC, chunkStorage, fileset.ServiceEnvToOptions(env)...)
+		d.compactionQueue, err = work.NewTaskQueue(context.Background(), d.etcdClient, d.prefix, storageTaskNamespace)
+		if err != nil {
+			return nil, err
+		}
 		go d.compactionWorker()
 	}
 	return d, nil
