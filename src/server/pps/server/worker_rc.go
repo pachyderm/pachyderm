@@ -100,6 +100,12 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		Name:  "PACHD_POD_NAMESPACE",
 		Value: a.namespace,
 	}}
+	if a.env.NewStorageLayer {
+		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "NEW_STORAGE_LAYER", Value: "true"})
+	}
+	if a.env.DisableCommitProgressCounter {
+		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "DISABLE_COMMIT_PROGRESS_COUNTER", Value: "true"})
+	}
 	sidecarEnv = append(sidecarEnv, assets.GetSecretEnvVars(a.storageBackend)...)
 	storageEnvVars, err := getStorageEnvVars()
 	if err != nil {
