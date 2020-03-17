@@ -30,7 +30,8 @@ export BUCKET_NAME=${CLUSTER_NAME}-bucket
 #export PATH=$PATH:<path to kfctl in your kubeflow installation>
 #export ZONE=${GCP_ZONE}  #where the deployment will be created
 
-export PROJECT=$(gcloud config get-value project)
+PROJECT="$(gcloud config get-value project)"
+export PROJECT
 export KFAPP=$CLUSTER_NAME
 
 # from macOS, this would allow you to run "open $KF_URL" from this
@@ -64,7 +65,7 @@ gcloud container clusters create ${CLUSTER_NAME} --scopes storage-rw --machine-t
 # Note that this command is simple and concise, but gives your user account more privileges than necessary. See
 # https://docs.pachyderm.com/latest/deploy-manage/deploy/rbac/ for the complete list of privileges that the
 # pachyderm serviceaccount needs.
-kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value account)
+kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user="$(gcloud config get-value account)"
 
 
 gcloud container clusters get-credentials ${CLUSTER_NAME}

@@ -53,6 +53,12 @@ publish = "doc/site"
    force = true
 
 [[redirects]]
+   from = "https://docs.pachyderm.com/getting-started/local_installation"
+   to = "/latest/getting-started/local_installation/"
+   status = 301
+   force = true
+
+[[redirects]]
    from = "/master/concepts/pipeline-concepts/pipeline/join/"
    to = "/master/concepts/pipeline-concepts/datum/join/"
    status = 301
@@ -1669,8 +1675,230 @@ publish = "doc/site"
   force = true
 
 [[redirects]]
+  from = "https://docs.pachyderm.com/concepts/advanced-concepts/distributed_computing/"
+  to = "/latest/concepts/advanced-concepts/distributed_computing/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/concepts/pipeline-concepts/datum/datum-processing-states/"
+  to = "/latest/concepts/pipeline-concepts/datum/datum-processing-states/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/concepts/pipeline-concepts/datum/join/"
+  to = "/latest/concepts/pipeline-concepts/datum/join/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/contributing/windows/"
+  to = "/latest/contributing/windows/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/deploy-manage/"
+  to = "/latest/deploy-manage/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/deploy-manage/deploy/configuring_k8s_ingress/"
+  to = "/latest/deploy-manage/deploy/configuring_k8s_ingress/"
+  tatus = 301
+  force = true
+
+[[redirects]]
   from = "/how-tos/distributed_computing/"
   to = "/latest/concepts/pipeline-concepts/distributed_computing/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/deploy-manage/deploy/deploy-pachyderm-jupyterhub/"
+  to = "/latest/deploy-manage/deploy/deploy-pachyderm-jupyterhub/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/deploy-manage/deploy/deploy_w_tls/"
+  to = "/latest/deploy-manage/deploy/deploy_w_tls/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/deploy-manage/deploy/docker_registries/"
+  to = "/latest/deploy-manage/deploy/docker_registries/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/deploy-manage/deploy/environment-variables/"
+  to = "/latest/deploy-manage/deploy/environment-variables/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/deploy-manage/deploy/import-kubernetes-context/"
+  to = "/latest/deploy-manage/deploy/import-kubernetes-context/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/latest/deploy-manage/manage/batching_pachyderm_with_transactions/"
+  to = "/latest/how-tos/use-transactions-to-run-multiple-commands/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/deploy-manage/manage/disable-metrics/"
+  to = "/latest/deploy-manage/manage/disable-metrics/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/deploy-manage/manage/migrations/"
+  to = "/latest/deploy-manage/manage/migrations/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/deploy-manage/manage/pachctl_shell/"
+  to = "/latest/deploy-manage/manage/pachctl_shell/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/enterprise/overview/"
+  to = "/latest/enterprise/overview/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/getting_started/install-pachctl-completion/"
+  to = "/latest/getting_started/install-pachctl-completion/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/getting_started/wsl-deploy/"
+  to = "/latest/getting_started/wsl-deploy/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/how-tos/delete-pipeline/"
+  to = "/latest/how-tos/delete-pipeline/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/how-tos/err_cmd/"
+  to = "/latest/how-tos/err_cmd/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/how-tos/ingressing_from_diff_cloud/"
+  to = "/latest/how-tos/ingressing_from_diff_cloud/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/how-tos/s3gateway/"
+  to = "/latest/how-tos/s3gateway/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/how-tos/use-jupyterhub/"
+  to = "/latest/how-tos/use-jupyterhub/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/how-tos/use-jupyterhub/using-jupyterhub/"
+  to = "/latest/how-tos/use-jupyterhub/using-jupyterhub/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/how-tos/use-transactions-to-run-multiple-commands/"
+  to = "/latest/how-tos/use-transactions-to-run-multiple-commands/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/reference/"
+  to = "/latest/reference/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/reference/pachctl/pachctl_auth_get-otp/"
+  to = "/latest/reference/pachctl/pachctl_auth_get-otp/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/reference/pachctl/pachctl_completion_bash/"
+  to = "/latest/reference/pachctl/pachctl_completion_bash/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/reference/pachctl/pachctl_completion_zsh/"
+  to = "/latest/reference/pachctl/pachctl_completion_zsh/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/reference/pachctl/pachctl_create_secret/"
+  to = "/latest/reference/pachctl/pachctl_create_secret/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/reference/pachctl/pachctl_delete_secret/"
+  to = "/latest/reference/pachctl/pachctl_delete_secret/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/reference/pachctl/pachctl_inspect_branch/"
+  to = "/latest/reference/pachctl/pachctl_inspect_branch/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/reference/pachctl/pachctl_inspect_secret/"
+  to = "/latest/reference/pachctl/pachctl_inspect_secret/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/reference/pachctl/pachctl_list_secret/"
+  to = "/latest/reference/pachctl/pachctl_list_secret/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/reference/pachctl/pachctl_run_cron/"
+  to = "/latest/reference/pachctl/pachctl_run_cron/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/reference/pachctl/pachctl_shell/"
+  to = "/latest/reference/pachctl/pachctl_shell/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/troubleshooting/"
+  to = "/latest/troubleshooting/"
   status = 301
   force = true
 
@@ -1683,6 +1911,12 @@ publish = "doc/site"
 [[redirects]]
   from = "/how-tos/team-developer-workflow/"
   to = "/latest/how-tos/team-developer-workflow/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/how-tos/deferred_processing/"
+  to = "/latest/how-tos/deferred_processing/"
   status = 301
   force = true
 

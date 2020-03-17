@@ -2,8 +2,8 @@
 
 set -e
 
-version="$($GOPATH/bin/pachctl version --client-only)"
-major_minor=`echo $version | cut -f -2 -d "."`
+version="$("$GOPATH/bin/pachctl" version --client-only)"
+major_minor=$(echo "$version" | cut -f -2 -d ".")
 echo "--- Updating docs for version: $version"
 
 # Set sed options for GNU/BSD sed
@@ -52,7 +52,7 @@ sed "${sed_opts[@]}" -e "s#docs_dir: docs/master/#docs_dir: docs/${major_minor}.
 sed "${sed_opts[@]}" -e "s#site_dir: site/master/#site_dir: site/${major_minor}.x#g" "${doc_root}/mkdocs-${major_minor}.x.yml"
 
 version_size="$(
-  wc -c ${doc_root}/docs/master/reference/pachctl/pachctl_version.md \
+  wc -c "${doc_root}/docs/master/reference/pachctl/pachctl_version.md" \
     | awk '{print $1}'
 )"
 if [[ "${version_size}" -lt 10 ]]; then

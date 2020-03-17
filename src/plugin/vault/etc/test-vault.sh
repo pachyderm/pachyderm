@@ -7,9 +7,9 @@ export PLUGIN_PATH=$PLUGIN_NAME
 
 # Build it
 pachctl version
-which aws || pip install awscli --upgrade --user
+command -v aws || pip install awscli --upgrade --user
 if [[ "$(pachctl enterprise get-state)" = "No Pachyderm Enterprise token was found" ]]; then
-  pachctl enterprise activate  $(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -)
+  pachctl enterprise activate "$(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -)"
 fi
 if ! pachctl auth list-admins; then
   yes | pachctl auth activate -u admin
@@ -21,15 +21,17 @@ echo 'root' | vault login -
 vault secrets disable $PLUGIN_PATH
 
 # Enable the plugin
-export SHASUM=$(shasum -a 256 "/tmp/vault-plugins/$PLUGIN_NAME" | cut -d " " -f1)
-echo $SHASUM
+SHASUM=$(shasum -a 256 "/tmp/vault-plugins/$PLUGIN_NAME" | cut -d " " -f1)
+export SHASUM
+echo "$SHASUM"
 vault write sys/plugins/catalog/$PLUGIN_NAME sha_256="$SHASUM" command="$PLUGIN_NAME"
 vault secrets enable -path=$PLUGIN_PATH -plugin-name=$PLUGIN_NAME plugin
 
 # Set the admin token vault will use to create user creds
 yes | pachctl auth login -u admin
-export ADMIN_TOKEN=$(cat ~/.pachyderm/config.json | jq -r .v1.session_token)
-echo $ADMIN_TOKEN
+ADMIN_TOKEN=$(jq -r .v1.session_token < ~/.pachyderm/config.json)
+export ADMIN_TOKEN
+echo "$ADMIN_TOKEN"
 vault write $PLUGIN_PATH/config \
     admin_token="${ADMIN_TOKEN}" \
 	pachd_address="${PACHD_ADDRESS:-127.0.0.1}:30650"

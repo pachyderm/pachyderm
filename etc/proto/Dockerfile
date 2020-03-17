@@ -16,5 +16,5 @@ RUN go get -u github.com/gengo/grpc-gateway/protoc-gen-grpc-gateway
 RUN mkdir -p ${GOPATH}/src/github.com/pachyderm/pachyderm
 RUN date +%s >/last_run_time
 
-ADD run /
-CMD ["/run"]
+ADD run.sh /
+CMD ["/run.sh"]

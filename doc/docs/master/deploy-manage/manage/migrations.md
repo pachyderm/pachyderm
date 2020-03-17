@@ -1,285 +1,325 @@
-# Migration
+# Migrate to a Minor or Major Version
 
 !!! info
-    If you need to upgrade Pachyderm from one minor version
-    to another, such as from 1.9.4 to 1.9.5, see
+    If you need to upgrade Pachyderm from one patch
+    to another, such as from x.xx.0 to x.xx.1, see
     [Upgrade Pachyderm](upgrades.md).
 
-- [Introduction](#introduction)
-- [Note about 1.7 to 1.8 migrations](#note-about-1-7-to-1-8-migrations]
-- [General migration procedure](#general-migration-procedure)
-  - [Before you start: backups](#before-you-start-backups)
-  - [Migration steps](#migration-steps)
-    - [1. Pause all pipeline and data loading operations](#1-pause-all-pipeline-and-data-loading-operations)
-    - [2. Extract a pachyderm backup with the --no-objects flag](#2-extract-a-pachyderm-backup-with-the-no-objects-flag)
-    - [3. Clone your object store bucket](#3-clone-your-object-store-bucket)
-    - [4. Restart all pipeline and data loading ops](#4-restart-all-pipeline-and-data-loading-ops)
-    - [5. Deploy a 1.X Pachyderm cluster with cloned bucket](#5-deploy-a-1x-pachyderm-cluster-with-cloned-bucket)
-    - [6. Restore the new 1.X Pachyderm cluster from your backup](#6-restore-the-new-1x-pachyderm-cluster-from-your-backup)
-    - [7. Load transactional data from checkpoint into new cluster](#7-load-transactional-data-from-checkpoint-into-new-cluster)
-    - [8. Disable the old cluster](#8-disable-the-old-cluster)
-    - [9. Reconfigure new cluster as necessary](#9-reconfigure-new-cluster-as-necessary)
+As new versions of Pachyderm are released, you might need to update your
+cluster to get access to bug fixes and new features.
 
-## Introduction
+Migrations involve moving between major releases, such as 1.x.x to
+2.x.x or minor releases, such as 1.9.x to 1.10.0.
 
-As new versions of Pachyderm are released, you may need to update your cluster to get access to bug fixes and new features. 
-These updates fall into two categories, upgrades and migrations.
+!!! tip
+    Pachyderm follows the [Semantic Versioning](https://semver.org/)
+    specification to manage the release process.
 
-An upgrade is moving between point releases within the same major release, 
-like 1.7.2 to 1.7.3.
-Upgrades are typically a simple process that require little to no downtime.
+Pachyderm stores all of its states in the following places:
 
-Migrations involve moving between major releases, 
-like 1.8.6 to 1.9.0.
-Migration is covered in this document. 
+* In `etcd` which in turn stores its state in one or more persistent volumes,
+which were created when the Pachyderm cluster was deployed. `etcd` stores
+metadata about your pipelines, repositories, and other Pachyderm primitives.
 
-In general, 
-Pachyderm stores all of its state in two places: 
-`etcd` 
-(which in turn stores its state in one or more persistent volumes,
-which were created when the Pachyderm cluster was deployed) 
-and an object store bucket 
-(something like AWS S3, MinIO, or Azure Blob Storage).
+* In an object store bucket, such as AWS S3, MinIO, or Azure Blob Storage.
+Actual data is stored here.
 
-In a migration, 
-the data structures stored in those locations need to be read, transformed, and rewritten, so the process involves:
+In a migration, the data structures stored in those locations need to be
+read, transformed, and rewritten. Therefore, this process involves the
+following steps:
 
-1. bringing up a new Pachyderm cluster adjacent to the old pachyderm cluster
-1. exporting the old Pachdyerm cluster's repos, pipelines, and input commits
-1. importing the old cluster's repos, commits, and pipelines into the new
+1. Back up your cluster by exporting the existing Pachyderm cluster's repos,
+pipelines, and input commits to a backup file and optionally to an S3 bucket.
+1. Bring up a new Pachyderm cluster adjacent to the old pachyderm cluster either
+in a separate namespace or in a separate Kubernetes cluster.
+1. Restore the old cluster's repos, commits, and pipelines into the new
    cluster.
 
-*You must perform a migration to move between major releases*,
-such as 1.8.7 to 1.9.0.
+!!! warning
+    Whether you are upgrading or migrating your cluster, you must back it up
+    to guarantee that you can restore it after migration.
 
-Whether you're doing an upgrade or migration, it is recommended you [backup Pachyderm](../backup_restore/#general-backup-procedure) prior.
-That will guarantee you can restore your cluster to its previous, good state.
+## Step 1 - Back up Your Cluster
+
+Before migrating your cluster, create a backup that you can use to restore your
+cluster from. For large amounts of data that are stored in an S3 object store,
+we recommend that you use the cloud provider capabilities to copy your data
+into a new bucket while backing up information about Pachyderm object to a
+local file. For smaller deployments, you can copy everything into a local
+file and then restore from that file.
 
-## Note about 1.7 to 1.8 migrations
+To back up your cluster, complete the following steps:
 
-In Pachyderm 1.8,
-we rearchitected core parts of the platform to [improve speed and scalability](http://www.pachyderm.io/2018/11/15/performance-improvements.html).
-Migrating from 1.7.x to 1.8.x using the procedure below can a fairly lengthy process.
-If your requirements fit, it may be easier to create a new 1.8 or greater cluster and reload your latest source data into your input repositories.
+1. Back up your cluster by running the `pachctl export` command with the
+`--no-object` flag as described in [Back up Your Cluster](../backup-restore/).
 
-You may wish to keep your original 1.7 cluster around in a suspended state, reactivating it in case you need access to that provenance data.
+1. In your cloud provider, create a new S3 bucket with the same Permissions
+policy that you assigned to the original cluster bucket. For example,
+if your cluster is on EKS, create the same Permissions policy as described
+in [Deploy Pachyderm with an IAM Role](../../deploy/amazon_web_services/aws-deploy-pachyderm/#deploy-pachyderm-with-an-iam-role).
 
-## General migration procedure
+1. Clone your S3 bucket that you used for the olf cluster to this new bucket.
+   Follow the instructions for your cloud provider:
 
-### Before you start: backups
+   * If you use Google cloud, see the [gsutil instructions](https://cloud.google.com/storage/docs/gsutil/commands/cp).
+   * If you use Microsoft Azure, see the [azcopy instructions](https://docs.microsoft.com/en-us/azure/storage/common/storage-use-azcopy-linux?toc=%2fazure%2fstorage%2ffiles%2ftoc.json).
+   * If you use Amazon EKS, see [AWS CLI instructions](https://docs.aws.amazon.com/cli/latest/reference/s3/sync.html).
 
-Please refer to [the documentation on backing up your cluster](../backup_restore/#general-backup-procedure).
+   **Example:**
 
-### Migration steps
-#### 1. Pause all pipeline and data loading operations
+   ```bash
+   aws s3 sync s3://mybucket s3://mybucket2
+   ```
 
-From the directed acyclic graphs (DAG) that define your pachyderm cluster, stop each pipeline step.  You can either run a multiline shell command, shown below, or you must, for each pipeline, manually run the `stop pipeline` command.
+1. Proceed to [Step 2](#step-2-restore-all-paused-pipelines).
 
-`pachctl stop pipeline <pipeline-name>`
+## Step 2 - Restore All Paused Pipelines
 
-You can confirm each pipeline is paused using the `list pipeline` command
+If you want to minimize downtime and run your pipeline while you are migrating
+your cluster, you can restart all paused pipelines and data loading operations
+after the backup and clone operations are complete.
 
-`pachctl list pipeline`
+To restore all paused pipelines, complete the following steps:
 
-Alternatively, a useful shell script for running `stop pipeline` on all pipelines is included below.  It may be necessary to install the utilities used in the script, like `jq` and `xargs`, on your system.
+1. Run the `pachctl start pipeline` command on each paused pipeline or
+   use the multi-line shell script to restart all pipelines at once:
 
-```
-pachctl list pipeline --raw \
-  | jq -r '.pipeline.name' \
-  | xargs -P3 -n1 -I{} pachctl stop pipeline {}
-```
+   ```pachctl tab="Command"
+   pachctl start pipeline <pipeline-name>
+   ```
 
-It's also a useful practice, for simple to moderately complex deployments, to keep a terminal window up showing the state of all running kubernetes pods.
+   ```script tab="Script"
+   pachctl list pipeline --raw \
+   | jq -r '.pipeline.name' \
+   | xargs -P3 -n1 -I{} pachctl start pipeline {}
+   ```
 
-`watch -n 5 kubectl get pods`
+   You might need to install `jq` and other utilities to run the script.
 
-You may need to install the `watch` and `kubectl` commands on your system, and configure `kubectl` to point at the cluster that Pachyderm is running in.
+1. Confirm that each pipeline is started using the `list pipeline` command:
 
-#### Pausing data loading operations
-**Input repositories** or **input repos** in Pachyderm are repositories created with the `pachctl create repo` command.
-They're designed to be the repos at the top of a directed acyclic graph of pipelines.
-Pipelines have their own output repos associated with them, and are not considered input repos.
-If there are any processes external to pachyderm that put data into input repos using any method
-(the Pachyderm APIs, `pachctl put file`, etc.), 
-they need to be paused.  
-See [Loading data from other sources into pachyderm](../backup_restore/#loading-data-from-other-sources-into-pachyderm) below for design considerations for those processes that will minimize downtime during a restore or migration.
+   ```bash
+   pachctl list pipeline
+   ```
 
-Alternatively, you can use the following commands to stop all data loading into Pachyderm from outside processes.
+   * If you have switched the ports to stop data loading from outside sources,
+   change the ports back:
 
-```
-# Once you have stopped all running pachyderm pipelines, such as with this command,
-# pachctl list pipeline --raw \
-#   | jq -r '.pipeline.name' \
-#   | xargs -P3 -n1 -I{} pachctl stop pipeline {}
+     1. Back up the current configuration:
 
-# all pipelines in your cluster should be suspended. To stop all
-# data loading processes, we're going to modify the pachd Kubernetes service so that
-# it only accepts traffic on port 30649 (instead of the usual 30650). This way,
-# any background users and services that send requests to your Pachyderm cluster
-# while 'extract' is running will not interfere with the process
-#
-# Backup the Pachyderm service spec, in case you need to restore it quickly
-kubectl get svc/pachd -o json >pach_service_backup_30650.json
+        ```bash
+        kubectl get svc/pach -o json >pach_service_backup_30649.json
+        kubectl get svc/etcd -o json >etcd_svc_backup_32379.json
+        kubectl get svc/dash -o json >dash_svc_backup_30080.json
+        ```
 
-# Modify the service to accept traffic on port 30649
-# Note that you'll likely also need to modify your cloud provider's firewall
-# rules to allow traffic on this port
-kubectl get svc/pachd -o json | sed 's/30650/30649/g' | kc apply -f -
+     1. Modify the services to accept traffic on the corresponding ports to
+     avoid collisions with the migration cluster:
 
-# Modify your environment so that *you* can talk to pachd on this new port
-pachctl config update context `pachctl config get active-context` --pachd-address=<cluster ip>:30649
+        ```bash
+        # Modify the pachd API endpoint to run on 30650:
+        kubectl get svc/pachd -o json | sed 's/30649/30650/g' | kubectl apply -f -
+        # Modify the pachd trace port to run on 30651:
+        kubectl get svc/pachd -o json | sed 's/30648/30651/g' | kubectl apply -f -
+        # Modify the pachd api-over-http port to run on 30652:
+        kubectl get svc/pachd -o json | sed 's/30647/30652/g' | kubectl apply -f -
+        # Modify the pachd SAML authentication port to run on 30654:
+        kubectl get svc/pachd -o json | sed 's/30646/30654/g' | kubectl apply -f -
+        # Modify the pachd git API callback port to run on 30655:
+        kubectl get svc/pachd -o json | sed 's/30644/30655/g' | kubectl apply -f -
+        # Modify the pachd s3 port to run on 30600:
+        kubectl get svc/pachd -o json | sed 's/30611/30600/g' | kubectl apply -f -
+        # Modify the etcd client port to run on 32378:
+        kubectl get svc/etcd -o json | sed 's/32378/32379/g' | kubectl apply -f -
+        # Modify the dashboard ports to run on 30081 and 30080:
+        kubectl get svc/dash -o json | sed 's/30079/30080/g' | kubectl apply -f -
+        kubectl get svc/dash -o json | sed 's/30078/30081/g' | kubectl apply -f -
+        ```
 
-# Make sure you can talk to pachd (if not, firewall rules are a common culprit)
-pachctl version
-COMPONENT           VERSION
-pachctl             1.9.7
-pachd               1.9.7
-```
+1. Modify your environment so that you can access `pachd` on the old port:
 
-### 2. Extract a pachyderm backup with the --no-objects flag
+   ```bash
+   pachctl config update context `pachctl config get active-context` --pachd-address=<cluster ip>:30650
+   ```
 
-This step and the following step, [3. Clone your object store bucket](#3-clone-your-object-store-bucket), can be run simultaneously.
+1. Verify that you can access `pachd`:
 
-Using the `pachctl extract` command, create the backup you need.
+   ```bash
+   pachctl version
+   ```
 
-`pachctl extract --no-objects > path/to/your/backup/file`
+   **System Response:**
 
-You can also use the `-u` or `--url` flag to put the backup directly into an object store.
+   ```
+   COMPONENT           VERSION
+   pachctl             1.10.0
+   pachd               1.10.0
+   ```
 
-`pachctl extract --no-objects --url s3://...`
+   If the command above hangs, you might need to adjust your firewall rules.
+   Your old Pachyderm cluster can operate while you are creating a migrated
+   one.
 
-Note that this s3 bucket is different than the s3 bucket will create to clone your object store.
-This is merely a bucket you allocated to hold the pachyderm backup without objects.
+1. Proceed to [Step 3](#step-3-deploy-a-pachyderm-cluster-with-the-cloned-bucket).
 
-### 3. Clone your object store bucket
+## Step 3 - Deploy a Pachyderm Cluster with the Cloned Bucket
 
-This step and the prior step,
-[2. Extract a pachyderm backup with the --no-objects flag](#2-extract-a-pachyderm-backup-with-the-no-objects-flag),
-can be run simultaneously.
-Run the command that will clone a bucket in your object store.
+After you create a backup of your existing cluster, you need to create a new
+Pachyderm cluster by using the bucket you cloned in [Step 1](#step-1-back-up-your-cluster).
 
-Below, we give an example using the Amazon Web Services CLI to clone one bucket to another,
-[taken from the documentation for that command](https://docs.aws.amazon.com/cli/latest/reference/s3/sync.html).
-Similar commands are available for [Google Cloud](https://cloud.google.com/storage/docs/gsutil/commands/cp)
-and [Azure blob storage](https://docs.microsoft.com/en-us/azure/storage/common/storage-use-azcopy-linux?toc=%2fazure%2fstorage%2ffiles%2ftoc.json).
+This new cluster can be deployed:
 
-`aws s3 sync s3://mybucket s3://mybucket2`
+* On the same Kubernetes cluster in a separate namespace.
+* On a different Kubernetes cluster within the same cloud provider.
 
-### 4. Restart all pipeline and data loading ops
+If you are deploying in a namespace on the same Kubernetes cluster,
+you might need to modify Kubernetes ingress to Pachyderm deployment in the
+new namespace to avoid port conflicts in the same cluster.
+Consult with your Kubernetes administrator for information on avoiding
+ingress conflicts.
 
-Once the backup and clone operations are complete,
-restart all paused pipelines and data loading operations,
-setting a checkpoint for the started operations that you can use in step [7. Load transactional data from checkpoint into new cluster](#7-load-transactional-data-from-checkpoint-into-new-cluster), below.
-See [Loading data from other sources into pachyderm](../backup_restore/#loading-data-from-other-sources-into-pachyderm) to understand why designing this checkpoint into your data loading systems is important.
+If you have issues with the extracted data, rerun instructions in
+[Step 1](#step-1-back-up-your-cluster).
 
-From the directed acyclic graphs (DAG) that define your pachyderm cluster,
-start each pipeline.
-You can either run a multiline shell command, 
-shown below,
-or you must,
-for each pipeline,
-manually run the 'start pipeline' command.
+To deploy a Pachyderm cluster with a cloned bucket, complete the following
+steps:
 
-`pachctl start pipeline <pipeline-name>`
+1. Upgrade your Pachyderm version to the latest version:
 
-You can confirm each pipeline is started using the `list pipeline` command
+   ```bash
+   brew upgrade pachyderm/tap/pachctl@1.10
+   ```
 
-`pachctl list pipeline`
+   * If you are deploying your cluster in a separate Kubernetes namespace,
+   create a new namespace:
 
-A useful shell script for running `start pipeline` on all pipelines is included below.
-It may be necessary to install several of the utlilies used in the script, like jq, on your system.
+  ```bash
+  kubectl create namespace <new-cluster-namespace>
+  ```
 
-```
-pachctl list pipeline --raw \
-  | jq -r '.pipeline.name' \
-  | xargs -P3 -n1 -I{} pachctl start pipeline {}
-```
+1. Deploy your cluster in a separate namespace or on a separate Kubernetes
+cluster by using a `pachctl deploy` command for your cloud provider with the
+`--namespace` flag.
 
-If you used the port-changing technique,
-[above](#1-pause-all-pipeline-and-data-loading-operations),
-to stop all data loading into Pachyderm from outside processes,
-you should change the ports back.
+   **Examples:**
 
-```
-# Once you have restarted all running pachyderm pipelines, such as with this command,
-# pachctl list pipeline --raw \
-#   | jq -r '.pipeline.name' \
-#   | xargs -P3 -n1 -I{} pachctl start pipeline {}
+   ```pachctl tab="AWS EKS"
+   pachctl deploy amazon <bucket-name> <region> <storage-size> --dynamic-etcd-nodes=<number> --iam-role <iam-role> --namespace=<namespace-name>
+   ```
 
-# all pipelines in your cluster should be restarted. To restart all data loading 
-# processes, we're going to change the pachd Kubernetes service so that
-# it only accepts traffic on port 30650 again (from 30649). 
-#
-# Backup the Pachyderm service spec, in case you need to restore it quickly
-kubectl get svc/pach -o json >pach_service_backup_30649.json
+   ```script tab="GKE"
+   pachctl deploy google <bucket-name> <storage-size> --dynamic-etcd-nodes=1  --namespace=<namespace-name>
+   ```
 
-# Modify the service to accept traffic on port 30650, again
-kubectl get svc/pachd -o json | sed 's/30649/30650/g' | kc apply -f -
+   ```script tab="Azure"
+   pachctl deploy microsoft <account-name> <storage-account> <storage-key> <storage-size> --dynamic-etcd-nodes=<number> --namespace=<namespace-name>
+   ```
 
-# Modify your environment so that *you* can talk to pachd on the old port
-pachctl config update context `pachctl config get active-context` --pachd-address=<cluster ip>:30650
+   **Note:** Parameters for your Pachyderm cluster deployment might be different.
+   For more information, see [Deploy Pachyderm](../../deploy/).
 
-# Make sure you can talk to pachd (if not, firewall rules are a common culprit)
-pc version
-COMPONENT           VERSION
-pachctl             1.7.11
-pachd               1.7.11
-```
+1. Verify that your cluster has been deployed:
 
-Your old pachyderm cluster can operate while you're creating a migrated one.
-It's important that your data loading operations are designed to use the "[Loading data from other sources into pachyderm](../backup_restore/#loading-data-from-other-sources-into-pachyderm)" design criteria below for this to work.
+   ```pachctl tab="In a Namespace"
+   kubectl get pod --namespace=<new-cluster>
+   ```
 
-### 5. Deploy a 1.X Pachyderm cluster with cloned bucket
+   ```script tab="On a Separate Cluster"
+   kubectl get pod
+   ```
 
-Create a pachyderm cluster using the bucket you cloned in [3. Clone your object store bucket](#3-clone-your-object-store-bucket). 
+   * If you have deployed your new cluster in a namespace, Pachyderm should
+   have created a new context for this deployement. Verify that you are
+   using this.
 
-You'll want to bring up this new pachyderm cluster in a different namespace.
-You'll check at the steps below 
-to see if there was some kind of problem with the extracted data 
-and steps [2](#2-extract-a-pachyderm-backup-with-the-no-objects-flag) and
-[3](#3-clone-your-object-store-bucket) need to be run again. 
-Once your new cluster is up and you're connected to it, go on to the next step.
+1. Proceed to [Step 4](#step-4-restore-your-cluster).
 
-Note that there may be modifications needed to Kubernetes ingress to Pachyderm deployment in the new namespace to avoid port conflicts in the same cluster.
-Please consult with your Kubernetes administrator for information on avoiding ingress conflicts,
-or check with us in your Pachyderm support channel if you need help.
+## Step 4 - Restore your Cluster
 
-_Important: Use the_ `kubectl config current-config` _command to confirm you're talking to the correct kubernetes cluster configuration for the new cluster._
+After you have created a new cluster, you can restore your backup to this
+new cluster. If you have deployed your new cluster in a namespace, Pachyderm
+should have created a new context for this deployement. You need to switch to
+this new context to access the correct cluster. Before you run the
+`pachctl restore` command, your new cluster should be empty.
 
-### 6. Restore the new 1.X Pachyderm cluster from your backup
+To restore your cluster, complete the following steps:
 
-Using the Pachyderm cluster you deployed in the previous step, [5. Deploy a 1.x Pachyderm cluster with cloned bucket](#5-deploy-a-1x-pachyderm-cluster-with-cloned-bucket), run `pachctl restore` with the backup you created in [2. Extract a pachyderm backup with the --no-objects flag](#2-extract-a-pachyderm-backup-with-the-no-objects-flag).
+* If you deployed your new cluster into a different namespace on the same
+Kubernetes cluster as your old cluster, verify that you on the correct namespace:
 
-!!! note "Important"
-    Use the_ `kubectl config current-config` _command to confirm you're
-    talking to the correct kubernetes cluster configuration_.
+  ```bash
+  $ pachctl config get context `pachctl config get active-context`
+  ```
 
-`pachctl restore < path/to/your/backup/file`
+  **Example System Response:**
 
-You can also use the `-u` or `--url` flag to get the backup directly from the object store you placed it in
+  ``` hl_lines="5"
+  {
+    "source": "IMPORTED",
+    "cluster_name": "test-migration.us-east-1.eksctl.io",
+    "auth_info": "user@test-migration.us-east-1.eksctl.io",
+    "namespace": "new-cluster"
+  }
+  ```
 
-`pachctl restore --url s3://...`
+  Your active context must have the namespace you have deployed your new
+  cluster into.
 
-Note that this s3 bucket is different than the s3 bucket you cloned, above. 
-This is merely a bucket you allocated to hold the Pachyderm backup without objects.
+1. Check that the cluster does not have any exisiting Pachyderm objects:
 
-### 7. Load transactional data from checkpoint into new cluster
+   ```bash
+   pachctl list repo & pachctl list pipeline
+   ```
 
-Configure an instance of your data loading systems to point at the new, upgraded pachyderm cluster
-and play back transactions from the checkpoint you established in [4. Restart all pipeline and data loading operations](#4-restart-all-pipeline-and-data-loading-ops).
+   You should get empty output.
 
+1. Restore your cluster from the backup you have created in
+[Step 1](#step-1-back-up-your-cluster):
+
+   ```pachctl tab="From a Local File"
+   pachctl restore < path/to/your/backup/file
+   ```
+
+   ```pachctl tab="From an S3 Bucker"
+   pachctl restore --url s3://path/to/backup
+   ```
+
+   This S3 bucket is different from the s3 bucket to which you cloned
+   your Pachyderm data. This is merely a bucket you allocated to hold
+   the Pachyderm backup without objects.
+
+1. Configure any external data loading systems to point at the new,
+upgraded Pachyderm cluster and play back transactions from the checkpoint
+established at [Pause External Data Operations](./backup-migrations/#pause-external-data-loading-operations).
 Perform any reconfiguration to data loading or unloading operations.
-
 Confirm that the data output is as expected and the new cluster is operating as expected.
 
+1. Disable the old cluster:
 
-### 8. Disable the old cluster
+   * If you have deployed the new cluster on the same Kuberenetes cluster
+   switch to the old cluster's Pachyderm context:
 
-Once you've confirmed that the new cluster is operating, you can disable the old cluster.
+   ```bash
+   pachctl config set active-context <old-context>
+   ```
 
-### 9. Reconfigure new cluster as necessary
+   * If you have deployed the new cluster to a different Kubernetes cluster,
+   switch to the old cluster's Kubernetes context:
 
-You may also need to reconfigure
+   ```bash
+   kubectl config use-context <old cluster>
+   ```
 
-- data loading operations from Pachyderm to processes outside of it to work as expected
-- Kubernetes ingress and port changes taken to avoid conflicts with the old cluster
+   1. Undeploy your old cluster:
+
+      ```pachctl
+      pachctl undeploy
+      ```
+
+1. Reconfigure new cluster as necessary
+   You may need to reconfigure the following:
+
+   - Data loading operations from Pachyderm to processes outside
+   of it to work as expected.
+   - Kubernetes ingress and port changes taken to avoid conflicts
+   with the old cluster.
