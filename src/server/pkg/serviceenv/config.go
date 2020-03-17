@@ -91,6 +91,9 @@ type WorkerSpecificConfiguration struct {
 }
 
 // FeatureFlags contains the configuration for feature flags.
+// XXX: if you're adding a new feature flag then you need to make sure it gets
+// propagated to the worker sidecars, this should be done in:
+// src/server/pps/server/worker_rc.go in the workerPodSpec func.
 type FeatureFlags struct {
 	NewStorageLayer              bool `env:"NEW_STORAGE_LAYER,default=false"`
 	DisableCommitProgressCounter bool `env:"DISABLE_COMMIT_PROGRESS_COUNTER,default=false"`
