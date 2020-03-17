@@ -246,6 +246,11 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Con
 	})
 
 	updateJobState := func(request *pps.UpdateJobStateRequest) {
+		if ppsutil.IsTerminal(etcdJobInfo.State) {
+			fmt.Printf("ignoring state change as job is already in terminal state")
+			return
+		}
+
 		etcdJobInfo.State = request.State
 		etcdJobInfo.Reason = request.Reason
 
