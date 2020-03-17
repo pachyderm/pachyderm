@@ -24,7 +24,7 @@ standards to developing our own.
 ### Stylistic Conventions
 
 - We have several Go checks that run as part of CI, those should pass. You can
-run them with `make pretest` and `make lint`.
+run them with `make lint`.
 - [Go Code Review Comments](https://github.com/golang/go/wiki/CodeReviewComments)
 - [Effective Go](https://golang.org/doc/effective_go.html)
 - Command-line flags should use dashes, not underscores.

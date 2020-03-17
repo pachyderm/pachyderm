@@ -8,7 +8,7 @@ allocated to each job to optimize throughput.
 
 A Pachyderm worker is an identical Kubernetes pod that runs
 the Docker image that you specified in the
-[pipeline spec](../../reference/pipeline_spec.md). Your analysis code
+[pipeline spec](../../../reference/pipeline_spec/). Your analysis code
 does not affect how Pachyderm distributes the workload among workers.
 Instead, Pachyderm spreads out the data that needs to be processed
 across the various workers and makes that data available for your code.
@@ -58,7 +58,7 @@ How-to, but need to add a link to it here-->
 
 You can control the number of worker pods that Pachyderm runs in a
 pipeline by defining the `parallelism` parameter in the
-[pipeline specification](../../reference/pipeline_spec.md).
+[pipeline specification](../../../reference/pipeline_spec/).
 
 !!! example
     ```json
@@ -81,5 +81,5 @@ that it spawns one worker per Kubernetes node for this pipeline.
 
 !!! note "See Also:"
 
-* [Glob Pattern](..//pipeline-concepts/datum/glob-pattern)
-* [Pipeline Specification](../../reference/pipeline_spec.md)
+* [Glob Pattern](../../pipeline-concepts/datum/glob-pattern/)
+* [Pipeline Specification](../../../reference/pipeline_spec/)

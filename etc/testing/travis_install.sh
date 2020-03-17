@@ -2,10 +2,18 @@
 
 set -ex
 
+# install latest version of docker
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+sudo apt-get update -y
+sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
+
+# reconfigure & restart docker
 echo 'DOCKER_OPTS="-H unix:///var/run/docker.sock -s devicemapper"' | sudo tee /etc/default/docker > /dev/null
+echo '{"experimental":true}' | sudo tee /etc/docker/daemon.json
+sudo service docker restart
 
 # Install deps
-sudo apt-get update -y
 sudo apt-get install -y -qq \
   jq \
   silversearcher-ag \
@@ -69,4 +77,3 @@ if [ ! -f ~/cached-deps/kubeval ]; then
       | tar xzf - kubeval && \
       mv ./kubeval ~/cached-deps/kubeval
 fi
-

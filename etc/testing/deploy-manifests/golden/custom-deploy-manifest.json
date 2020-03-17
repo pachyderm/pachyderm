@@ -485,6 +485,9 @@
           {
             "name": "pachd",
             "image": "pachyderm/pachd:1.10.0",
+            "command": [
+              "/app/pachd"
+            ],
             "ports": [
               {
                 "name": "api-grpc-port",
@@ -926,7 +929,7 @@
             "readinessProbe": {
               "exec": {
                 "command": [
-                  "/pachd",
+                  "/app/pachd",
                   "--readiness"
                 ]
               }

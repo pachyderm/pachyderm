@@ -5,7 +5,7 @@ SCRIPT_DIR="$(dirname "${0}")"
 set -ex
 
 # Build pachyderm and push the relevant images
-make install && make docker-build && make push-images || exit 1
+make install && make docker-build && make docker-push || exit 1
 
 # Start kops cluster
 ${SCRIPT_DIR}/../deploy/aws.sh --create --no-pachyderm

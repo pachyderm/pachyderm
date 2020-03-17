@@ -32,13 +32,13 @@ in the `transform` section, and an input
 repository with a glob pattern specified. Special types
 of pipelines, such as service, cron, and spout,
 have other requirements.
-For more information, see [Pipelines](../concepts/pipeline-concepts/pipeline/).
+For more information, see [Pipelines](../../concepts/pipeline-concepts/pipeline/).
 
 After you have your pipeline spec ready, you need to pass that configuration
 to Pachyderm so that it creates a Kubernetes pod or pods that will run your code.
 
 For more information about property fields that you can define in a pipeline,
-see [Pipeline Specification](../reference/pipeline_spec/).
+see [Pipeline Specification](../../reference/pipeline_spec/).
 
 !!! note
     To create a pipeline, you can use either the Pachyderm UI or the CLI.
@@ -48,7 +48,7 @@ see [Pipeline Specification](../reference/pipeline_spec/).
 To create a pipeline, complete the following steps:
 
 1. Create a pipeline specification. For more information, see
-[Pipeline Specification](../reference/pipeline_spec/).
+[Pipeline Specification](../../../reference/pipeline_spec/).
 
 1. Create a pipeline by passing the pipeline configuration to Pachyderm:
 
@@ -89,7 +89,7 @@ To create a pipeline, complete the following steps:
    In this case, it is `pipeline-edges-v1-qhd4f`.
 
 !!! note "See Also:"
-    - [Pipelines](../concepts/pipeline-concepts/pipeline/)
-    - [Pipeline Specification](../reference/pipeline_spec/)
-    - [Update a Pipeline](./updating_pipelines/)
-    - [Delete a Pipelie](./delete-pipeline)
+    - [Pipelines](../../concepts/pipeline-concepts/pipeline/)
+    - [Pipeline Specification](../../reference/pipeline_spec/)
+    - [Update a Pipeline](../updating_pipelines/)
+    - [Delete a Pipelie](../delete-pipeline/)
