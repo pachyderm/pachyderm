@@ -97,17 +97,12 @@ func mergeStats(x, y *DatumStats) error {
 }
 
 // Worker handles a transform pipeline work subtask, then returns.
-func Worker(driver driver.Driver, logger logs.TaggedLogger, task *work.Task, subtask *work.Task, status *Status) error {
-	jobData, err := deserializeJobData(task.Data)
-	if err != nil {
-		return err
-	}
-
-	logger = logger.WithJob(jobData.JobID)
-	return status.withJob(jobData.JobID, func() error {
-		// Handle 'process datum' tasks
-		datumData, err := deserializeDatumData(subtask.Data)
-		if err == nil {
+func Worker(driver driver.Driver, logger logs.TaggedLogger, subtask *work.Task, status *Status) error {
+	// Handle 'process datum' tasks
+	datumData, err := deserializeDatumData(subtask.Data)
+	if err == nil {
+		return status.withJob(datumData.JobID, func() error {
+			logger = logger.WithJob(datumData.JobID)
 			if err := logger.LogStep("datum task", func() error {
 				return handleDatumTask(driver, logger, datumData, subtask.ID, status)
 			}); err != nil {
@@ -116,11 +111,14 @@ func Worker(driver driver.Driver, logger logs.TaggedLogger, task *work.Task, sub
 
 			subtask.Data, err = serializeDatumData(datumData)
 			return err
-		}
+		})
+	}
 
-		// Handle 'merge hashtrees' tasks
-		mergeData, err := deserializeMergeData(subtask.Data)
-		if err == nil {
+	// Handle 'merge hashtrees' tasks
+	mergeData, err := deserializeMergeData(subtask.Data)
+	if err == nil {
+		return status.withJob(mergeData.JobID, func() error {
+			logger = logger.WithJob(mergeData.JobID)
 			if err := logger.LogStep("merge task", func() error {
 				return handleMergeTask(driver, logger, mergeData)
 			}); err != nil {
@@ -129,10 +127,10 @@ func Worker(driver driver.Driver, logger logs.TaggedLogger, task *work.Task, sub
 
 			subtask.Data, err = serializeMergeData(mergeData)
 			return err
-		}
+		})
+	}
 
-		return fmt.Errorf("worker task format unrecognized")
-	})
+	return fmt.Errorf("worker task format unrecognized")
 }
 
 func forEachDatum(driver driver.Driver, object *pfs.Object, cb func([]*common.Input) error) (retErr error) {

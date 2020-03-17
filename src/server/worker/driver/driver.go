@@ -72,7 +72,7 @@ type Driver interface {
 	Pipelines() col.Collection
 
 	NewTaskWorker() *work.Worker
-	NewTaskMaster() *work.Master
+	NewTaskQueue() (*work.TaskQueue, error)
 
 	PipelineInfo() *pps.PipelineInfo
 
@@ -361,11 +361,11 @@ func (d *driver) Pipelines() col.Collection {
 }
 
 func (d *driver) NewTaskWorker() *work.Worker {
-	return work.NewWorker(d.etcdClient, d.etcdPrefix, workNamespace(d.pipelineInfo))
+	return work.NewWorker(d.PachClient().Ctx(), d.etcdClient, d.etcdPrefix, workNamespace(d.pipelineInfo))
 }
 
-func (d *driver) NewTaskMaster() *work.Master {
-	return work.NewMaster(d.etcdClient, d.etcdPrefix, workNamespace(d.pipelineInfo))
+func (d *driver) NewTaskQueue() (*work.TaskQueue, error) {
+	return work.NewTaskQueue(d.PachClient().Ctx(), d.etcdClient, d.etcdPrefix, workNamespace(d.pipelineInfo))
 }
 
 func (d *driver) GetExpectedNumWorkers() (uint64, error) {

@@ -44,10 +44,6 @@ message HashtreeInfo {
   string tag = 2;
 }
 
-message JobData {
-  string job_id = 1 [(gogoproto.customname) = "JobID"];
-}
-
 message DatumStats {
   pps.ProcessStats process_stats = 1;
   int64 datums_processed = 2;
@@ -59,22 +55,24 @@ message DatumStats {
 
 message DatumData {
   // Inputs
-  pfs.Object datums = 1;
-  pfs.Commit output_commit = 2;
+  string job_id = 1 [(gogoproto.customname) = "JobID"];
+  pfs.Object datums = 2;
+  pfs.Commit output_commit = 3;
 
   // Outputs
-  DatumStats stats = 3;
-  HashtreeInfo hashtree = 4;
-  string recovered_datums_tag = 7;
+  DatumStats stats = 4;
+  HashtreeInfo hashtree = 5;
+  string recovered_datums_tag = 6;
 }
 
 message MergeData {
   // Inputs
-  repeated HashtreeInfo hashtrees = 1;
-  pfs.Object parent = 2;
-  int64 shard = 3;
+  string job_id = 1 [(gogoproto.customname) = "JobID"];
+  repeated HashtreeInfo hashtrees = 2;
+  pfs.Object parent = 3;
+  int64 shard = 4;
 
   // Outputs
-  pfs.Object tree = 4;
-  uint64 tree_size = 5;
+  pfs.Object tree = 5;
+  uint64 tree_size = 6;
 }

@@ -123,7 +123,7 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 					env.driver.PachClient().Ctx(),
 					func(ctx context.Context, task *work.Task, subtask *work.Task) error {
 						status := &Status{}
-						return Worker(env.driver, env.logger, task, subtask, status)
+						return Worker(env.driver, env.logger, subtask, status)
 					},
 				)
 			}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {

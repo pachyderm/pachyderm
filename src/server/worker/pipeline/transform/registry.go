@@ -52,8 +52,8 @@ type pendingJob struct {
 	cancel     context.CancelFunc
 	logger     logs.TaggedLogger
 	ji         *pps.JobInfo
-	jobData    *types.Any
 	jdit       chain.JobDatumIterator
+	taskMaster *work.Master
 
 	// These are filled in when the RUNNING phase completes, but may be re-fetched
 	// from object storage.
@@ -63,7 +63,7 @@ type pendingJob struct {
 type registry struct {
 	driver      driver.Driver
 	logger      logs.TaggedLogger
-	workMaster  *work.Master
+	taskQueue   *work.TaskQueue
 	mutex       sync.Mutex
 	concurrency uint64
 	limiter     limit.ConcurrencyLimiter
@@ -90,11 +90,16 @@ func newRegistry(
 		return nil, err
 	}
 
+	taskQueue, err := driver.NewTaskQueue()
+	if err != nil {
+		return nil, err
+	}
+
 	return &registry{
 		driver:      driver,
 		logger:      logger,
 		concurrency: concurrency,
-		workMaster:  driver.NewTaskMaster(),
+		taskQueue:   taskQueue,
 		limiter:     limit.New(int(concurrency)),
 		jobChain:    nil,
 	}, nil
@@ -233,7 +238,8 @@ func (reg *registry) succeedJob(
 		newState = pps.JobState_JOB_EGRESS
 	}
 
-	if err := finishJob(pj.driver.PipelineInfo(), pj.driver.PachClient(), pj.ji, newState, "", datums, trees, size, statsTrees, statsSize); err != nil {
+	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
+	if err := finishJob(reg.driver.PipelineInfo(), reg.driver.PachClient(), pj.ji, newState, "", datums, trees, size, statsTrees, statsSize); err != nil {
 		return err
 	}
 
@@ -246,7 +252,8 @@ func (reg *registry) failJob(
 ) error {
 	pj.logger.Logf("failing job with reason: %s", reason)
 
-	if err := finishJob(pj.driver.PipelineInfo(), pj.driver.PachClient(), pj.ji, pps.JobState_JOB_FAILURE, reason, nil, nil, 0, nil, 0); err != nil {
+	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
+	if err := finishJob(reg.driver.PipelineInfo(), reg.driver.PachClient(), pj.ji, pps.JobState_JOB_FAILURE, reason, nil, nil, 0, nil, 0); err != nil {
 		return err
 	}
 
@@ -259,7 +266,8 @@ func (reg *registry) killJob(
 ) error {
 	pj.logger.Logf("killing job with reason: %s", reason)
 
-	if err := finishJob(pj.driver.PipelineInfo(), pj.driver.PachClient(), pj.ji, pps.JobState_JOB_KILLED, reason, nil, nil, 0, nil, 0); err != nil {
+	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
+	if err := finishJob(reg.driver.PipelineInfo(), reg.driver.PachClient(), pj.ji, pps.JobState_JOB_KILLED, reason, nil, nil, 0, nil, 0); err != nil {
 		return err
 	}
 
@@ -319,7 +327,7 @@ func (reg *registry) initializeJobChain(commitInfo *pfs.CommitInfo) error {
 
 // Generate a datum task (and split it up into subtasks) for the added datums
 // in the pending job.
-func (reg *registry) makeDatumTask(ctx context.Context, pj *pendingJob, numDatums uint64) (*work.Task, error) {
+func (reg *registry) sendDatumTasks(ctx context.Context, pj *pendingJob, numDatums uint64, subtasks chan<- *work.Task) error {
 	chunkSpec := pj.ji.ChunkSpec
 	if chunkSpec == nil {
 		chunkSpec = &pps.ChunkSpec{}
@@ -340,7 +348,6 @@ func (reg *registry) makeDatumTask(ctx context.Context, pj *pendingJob, numDatum
 
 	datumsSize := uint64(0)
 	datums := []*DatumInputs{}
-	subtasks := []*work.Task{}
 
 	// finishTask will finish the currently-writing object and append it to the
 	// subtasks, then reset all the relevant variables
@@ -365,15 +372,16 @@ func (reg *registry) makeDatumTask(ctx context.Context, pj *pendingJob, numDatum
 			return err
 		}
 
-		taskData, err := serializeDatumData(&DatumData{Datums: datumsObject, OutputCommit: pj.ji.OutputCommit})
+		taskData, err := serializeDatumData(&DatumData{Datums: datumsObject, OutputCommit: pj.ji.OutputCommit, JobID: pj.ji.Job.ID})
 		if err != nil {
 			return err
 		}
 
-		subtasks = append(subtasks, &work.Task{
-			ID:   uuid.NewWithoutDashes(),
-			Data: taskData,
-		})
+		select {
+		case subtasks <- &work.Task{ID: uuid.NewWithoutDashes(), Data: taskData}:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 
 		datumsSize = 0
 		datums = []*DatumInputs{}
@@ -384,7 +392,7 @@ func (reg *registry) makeDatumTask(ctx context.Context, pj *pendingJob, numDatum
 	for i := uint64(0); i < numDatums; i++ {
 		inputs := pj.jdit.NextDatum()
 		if inputs == nil {
-			return nil, fmt.Errorf("job datum iterator returned nil inputs")
+			return fmt.Errorf("job datum iterator returned nil inputs")
 		}
 
 		datums = append(datums, &DatumInputs{Inputs: inputs})
@@ -396,7 +404,7 @@ func (reg *registry) makeDatumTask(ctx context.Context, pj *pendingJob, numDatum
 			}
 			if datumsSize >= maxBytesPerTask {
 				if err := finishTask(); err != nil {
-					return nil, err
+					return err
 				}
 			}
 		}
@@ -404,38 +412,18 @@ func (reg *registry) makeDatumTask(ctx context.Context, pj *pendingJob, numDatum
 		// If we hit the upper threshold for task size, finish the task
 		if uint64(len(datums)) >= datumsPerTask {
 			if err := finishTask(); err != nil {
-				return nil, err
+				return err
 			}
 		}
 	}
 
 	if len(datums) > 0 {
 		if err := finishTask(); err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	return &work.Task{
-		ID:       uuid.NewWithoutDashes(),
-		Data:     pj.jobData,
-		Subtasks: subtasks,
-	}, nil
-}
-
-func serializeJobData(data *JobData) (*types.Any, error) {
-	serialized, err := types.MarshalAny(data)
-	if err != nil {
-		return nil, err
-	}
-	return serialized, nil
-}
-
-func deserializeJobData(any *types.Any) (*JobData, error) {
-	data := &JobData{}
-	if err := types.UnmarshalAny(any, data); err != nil {
-		return nil, err
-	}
-	return data, nil
+	return nil
 }
 
 func serializeDatumData(data *DatumData) (*types.Any, error) {
@@ -609,11 +597,6 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit
 			"is updated", jobInfo.Job.ID, jobInfo.PipelineVersion, reg.driver.PipelineInfo().Version)
 	}
 
-	pj.jobData, err = serializeJobData(&JobData{JobID: pj.ji.Job.ID})
-	if err != nil {
-		return fmt.Errorf("failed to serialize job data: %v", err)
-	}
-
 	// Inputs must be ready before we can construct a datum iterator, so do this
 	// synchronously to ensure correct order in the jobChain.
 	if err := pj.logger.LogStep("waiting for job inputs", func() error {
@@ -646,6 +629,7 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit
 
 	go func() {
 		defer pj.cancel()
+
 		if pj.ji.JobTimeout != nil {
 			pj.logger.Logf("cancelling job at: %+v", afterTime)
 			timer := time.AfterFunc(afterTime, func() {
@@ -662,10 +646,14 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit
 		})
 	}()
 
-	go func() {
-		pj.logger.Logf("master running processJobs")
+	// This runs the callback asynchronously
+	task := &work.Task{ID: uuid.New()}
+	return reg.taskQueue.RunTask(pj.driver.PachClient().Ctx(), task, func(master *work.Master) {
 		defer reg.limiter.Release()
 		defer pj.cancel()
+		pj.taskMaster = master
+
+		pj.logger.Logf("master running processJobs")
 		backoff.RetryUntilCancel(pj.driver.PachClient().Ctx(), func() error {
 			var err error
 			for err == nil {
@@ -691,10 +679,8 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit
 			return nil
 		})
 		pj.logger.Logf("master done running processJobs")
-		// TODO: remove job, make sure that all paths close the commit correctly
-	}()
-
-	return nil
+		// TODO: make sure that all paths close the commit correctly
+	})
 }
 
 // superviseJob watches for the output commit closing and cancels the job, or
@@ -801,15 +787,12 @@ func (pj *pendingJob) Iterator() (datum.Iterator, error) {
 
 func (reg *registry) processJobRunning(pj *pendingJob) error {
 	pj.logger.Logf("processJobRunning creating task channel")
-	datumTaskChan := make(chan *work.Task, 10)
+	subtasks := make(chan *work.Task, 10)
 
-	ctx, cancel := context.WithCancel(reg.driver.PachClient().Ctx())
-	defer cancel()
-	eg, ctx := errgroup.WithContext(ctx)
+	eg, ctx := errgroup.WithContext(reg.driver.PachClient().Ctx())
 
 	// Spawn a goroutine to emit tasks on the datum task channel
 	eg.Go(func() error {
-		defer close(datumTaskChan)
 		for {
 			pj.logger.Logf("processJobRunning making datum task")
 
@@ -818,14 +801,13 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 				return err
 			}
 			if numDatums == 0 {
+				close(subtasks)
 				return nil
 			}
 
-			datumTask, err := reg.makeDatumTask(ctx, pj, numDatums)
-			if err != nil {
+			if err := reg.sendDatumTasks(ctx, pj, numDatums, subtasks); err != nil {
 				return err
 			}
-			datumTaskChan <- datumTask
 		}
 	})
 
@@ -834,27 +816,27 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	hashtrees := []*HashtreeInfo{}
 	recoveredTags := []string{}
 
-	// Run tasks in the datumTaskChan until we are done
-	pj.logger.Logf("processJobRunning running datum tasks")
-	for task := range datumTaskChan {
-		eg.Go(func() error {
-			pj.logger.Logf("processJobRunning async task running")
-			err := reg.workMaster.Run(
-				ctx,
-				task,
-				func(ctx context.Context, subtask *work.Task) error {
-					pj.logger.Logf("datum task complete: %v\n", subtask)
-					data, err := deserializeDatumData(subtask.Data)
+	// Run subtasks until we are done
+	eg.Go(func() error {
+		return pj.logger.LogStep("running datum tasks", func() error {
+			return pj.taskMaster.RunSubtasksChan(
+				subtasks,
+				func(ctx context.Context, taskInfo *work.TaskInfo) error {
+					if taskInfo.State == work.State_FAILURE {
+						return fmt.Errorf("datum task failed: %s", taskInfo.Reason)
+					}
+
+					data, err := deserializeDatumData(taskInfo.Task.Data)
 					if err != nil {
 						return err
 					}
+					pj.logger.Logf("datum task complete: %v\n", data)
 
 					mutex.Lock()
 					defer mutex.Unlock()
 
 					mergeStats(stats, data.Stats)
 					if stats.DatumsFailed > 0 {
-						cancel() // Fail fast if any datum failed
 						return fmt.Errorf("datum processing failed on datum (%s)", stats.FailedDatumID)
 					}
 
@@ -867,13 +849,9 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 					return nil
 				},
 			)
-			pj.logger.Logf("processJobRunning async task complete")
-			return err
 		})
-	}
+	})
 
-	pj.logger.Logf("processJobRunning waiting for task complete")
-	// Wait for datums to complete
 	err := eg.Wait()
 	pj.saveJobStats(stats)
 	if err != nil {
@@ -1046,7 +1024,7 @@ func (reg *registry) processJobMerging(pj *pendingJob) error {
 
 	mergeSubtasks := []*work.Task{}
 	for i := int64(0); i < reg.driver.NumShards(); i++ {
-		mergeData := &MergeData{Hashtrees: pj.hashtrees, Shard: i}
+		mergeData := &MergeData{Hashtrees: pj.hashtrees, Shard: i, JobID: pj.ji.Job.ID}
 
 		if parentHashtrees != nil {
 			mergeData.Parent = parentHashtrees[i]
@@ -1068,22 +1046,23 @@ func (reg *registry) processJobMerging(pj *pendingJob) error {
 
 	pj.logger.Logf("sending out %d merge tasks", len(trees))
 
-	// Generate merge task and wait for merges to complete
-	if err := reg.workMaster.Run(
-		reg.driver.PachClient().Ctx(),
-		&work.Task{
-			ID:       uuid.NewWithoutDashes(),
-			Data:     pj.jobData,
-			Subtasks: mergeSubtasks,
-		},
-		func(ctx context.Context, subtask *work.Task) error {
-			data, err := deserializeMergeData(subtask.Data)
+	// Run merge subtasks and wait for them to complete
+	if err := pj.taskMaster.RunSubtasks(
+		mergeSubtasks,
+		func(ctx context.Context, taskInfo *work.TaskInfo) error {
+			if taskInfo.State == work.State_FAILURE {
+				return fmt.Errorf("merge task failed: %s", taskInfo.Reason)
+			}
+
+			data, err := deserializeMergeData(taskInfo.Task.Data)
 			if err != nil {
 				return err
 			}
+
 			if data.Tree == nil {
 				return fmt.Errorf("merge task for shard %d failed, no tree returned", data.Shard)
 			}
+
 			trees[data.Shard] = data.Tree
 			size += data.TreeSize
 			return nil

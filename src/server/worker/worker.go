@@ -118,7 +118,7 @@ func (w *Worker) worker() {
 		return w.driver.NewTaskWorker().Run(
 			w.driver.PachClient().Ctx(),
 			func(ctx context.Context, task *work.Task, subtask *work.Task) error {
-				return transform.Worker(w.driver, logger, task, subtask, w.status)
+				return transform.Worker(w.driver, logger, subtask, w.status)
 			},
 		)
 	}, backoff.NewConstantBackOff(200*time.Millisecond), func(err error, d time.Duration) error {

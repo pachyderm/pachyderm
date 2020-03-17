@@ -15,10 +15,12 @@ enum State {
 message Task {
   string id = 1 [(gogoproto.customname) = "ID"];
   google.protobuf.Any data = 2;
-  repeated Task subtasks = 3;
 }
 
 message TaskInfo {
   Task task = 1;
   State state = 2;
+  string reason = 3;
 }
+
+message Claim {}
