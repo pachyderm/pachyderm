@@ -9,7 +9,7 @@ Part of what makes [Pachyderm](https://pachyderm.com/) and [Kubeflow](https://ww
 - [Docker](https://docs.docker.com/install/)
 
 ### Deploy:
-To make it simple, we created a [bash script](https://github.com/pachyderm/pachyderm/tree/master/examples/kubeflow/mnist_with_tfjob) specifically for this post and you can use it to deploy Pachyderm and Kubeflow together on GKE in no time. However, if you prefer to do this all on your local machine, or any other infrastructure, please refer to the links below:
+To make it simple, we created a [bash script](https://github.com/pachyderm/pachyderm/tree/master/examples/kubeflow/mnist/gcp-kubeflow-pachyderm-setup.sh) specifically for this post and you can use it to deploy Pachyderm and Kubeflow together on GKE in no time. However, if you prefer to do this all on your local machine, or any other infrastructure, please refer to the links below:
 
 - [Pachyderm Install Docs](http://docs.pachyderm.com/en/latest/getting_started/local_installation.html)
 - [Kubeflow Install Docs](https://www.kubeflow.org/docs/started/getting-started/#installing-kubeflow)
@@ -32,13 +32,13 @@ With everything configured and working, it’s time to grab some data and then c
 
 `pachctl create repo input-repo`
 
-3. Similar to code, we check-in our `mnist.npz` to `input-repo`.:
+3. We check-in our `mnist.npz` to `input-repo`.:
 
 `pachctl put file input-repo@master:/mnist.npz -f mnist.npz`
 
-This command copies the minst dataset from your local machine to the Pachyderm repo input and Pachyderm will assign it a commit ID. Congratulations! Your data now has a HEAD commit, and Pachyderm has begun version-controlling the data!
+This command copies the minst dataset from your local machine to the Pachyderm repo `input-repo` and Pachyderm will assign it a commit ID. Congratulations! Your data now has a HEAD commit, and Pachyderm has begun version-controlling the data!
 
-Confirm that the data is checked-in running the following command:
+Confirm that the data is checked-in by running the following command:
 
 ```
 ➜ pachctl list file input-repo@master
@@ -57,7 +57,7 @@ Next, let’s take a look at the Pachyderm pipeline spec file `pipeline.yaml` as
 pipeline:
   name: mnist
 transform:
-  image: ysimonson/mnist_pachyderm_pipeline:v1.1.9
+  image: pachyderm/mnist_pachyderm_pipeline:v1.0.0
   cmd: [ /app/pipeline.py ]
 s3_out: true  # Must be set
 input:
@@ -68,13 +68,13 @@ input:
     s3: true         # Must be set
 ```
 
-For the most part, it’s a standard Pachyderm pipeline spec. We have our usual transform step that declares a docker image, and tells it to run pipeline.py. Below that, is where you’ll see a few of the new S3 gateway features being used, primarily, the `s3_out: true` and `s3: true`. The `s3_out: true` allows your pipeline code to write results out to an S3 gateway endpoint instead of the typical pfs/out directory. And `s3: true` is what tells Pachyderm to mount the S3 gateway instance alongside the pipeline container as a side car.
+For the most part, it’s a standard Pachyderm pipeline spec. We have our usual transform step that declares a docker image, and tells it to run pipeline.py. Below that, is where you’ll see a few of the new S3 gateway  features being used, primarily, the `s3_out: true` and `s3: true`. The `s3_out: true` allows your pipeline code to write results out to an S3 gateway bucket instead of the typical pfs/out directory. Similarly, `s3: true` is what tells Pachyderm to mount the given input as an S3 gateway bucket.
 
-Next, open up the pipeline.py file and you’ll see that apart from a few Kubeflow-specific python imports lines 1-71 is a pretty standard MNIST training example using [Tensorflow](https://www.tensorflow.org/).
+Next, open up the pipeline.py file, and you’ll see that apart from a few Kubeflow-specific bits, lines 1-71 is a pretty standard MNIST training example using [Tensorflow](https://www.tensorflow.org/).
 
 <script src="https://gist.github.com/Nick-Harvey/b353659e84e26d33b57a1ea9376ed27a.js"></script>
 
-Kubeflow users will notice that from lines 73 down, we’re just declaring a Kubeflow pipeline (KFP) using the standard [Kubeflow Pipelines SDK](https://www.kubeflow.org/docs/pipelines/sdk/sdk-overview/). Then, On line 88, we call `create_run_from_pipeline_func` to run the KFP with a couple additional arguments which declare the S3 endpoints being provided by the Pachyderm S3 gateway. In our case, this will be the `input-repo` that contains our MNIST training data, and then the KFP will output the trained back out through the Pachyderm S3 Gateway to our output repo which is called 'mnist'.
+Kubeflow users will notice that from lines 73 down, we’re just declaring a Kubeflow pipeline (KFP) using the standard [Kubeflow Pipelines SDK](https://www.kubeflow.org/docs/pipelines/sdk/sdk-overview/). Then, On line 88, we call `create_run_from_pipeline_func` to run the KFP with a couple additional arguments which declare the S3 endpoints being provided by the Pachyderm S3 gateway. In our case, this will be the `input-repo` that contains our MNIST training data, and then the KFP will output the trained back out through the Pachyderm S3 Gateway to our output repo.
 
 ## Step 4 - Data Lineage in action
 That takes care of the code. Next, let's move on deploying everything so we can train our model.
