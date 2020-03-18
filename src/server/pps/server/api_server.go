@@ -77,8 +77,8 @@ func newErrPipelineExists(pipeline string) error {
 	return errors.Errorf("pipeline %v already exists", pipeline)
 }
 
-func newErrPipelineUpdate(pipeline string, err error) error {
-	return errors.Wrapf(err, "pipeline %v update error", pipeline)
+func newErrPipelineUpdate(pipeline string, reason string) error {
+	return errors.Errorf("pipeline %v update error: %s", pipeline, reason)
 }
 
 type errGithookServiceNotFound struct {
@@ -2069,7 +2069,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 				// Cannot disable stats after it has been enabled.
 				if oldPipelineInfo.EnableStats && !pipelineInfo.EnableStats {
-					return newErrPipelineUpdate(pipelineInfo.Pipeline.Name, errors.Errorf("cannot disable stats"))
+					return newErrPipelineUpdate(pipelineInfo.Pipeline.Name, "cannot disable stats")
 				}
 
 				// Modify pipelineInfo (increment Version, and *preserve Stopped* so
