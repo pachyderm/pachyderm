@@ -108,11 +108,11 @@ func Import(opts *assets.AssetOpts, in io.Reader) error {
 			break
 		}
 		if !pushed {
-			errStr := ""
-			for _, err := range loopErr {
-				errStr += err.Error() + "\n"
+			if len(loopErr) > 0 {
+				return loopErr[0]
+			} else {
+				return errors.Errorf("failed to push images because there are no auth configs")
 			}
-			return errors.Errorf("errors pushing image %s:%s:\n%s", registryRepo, tag, errStr)
 		}
 	}
 	return nil
