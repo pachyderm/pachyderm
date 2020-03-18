@@ -110,9 +110,8 @@ func Import(opts *assets.AssetOpts, in io.Reader) error {
 		if !pushed {
 			if len(loopErr) > 0 {
 				return loopErr[0]
-			} else {
-				return errors.Errorf("failed to push images because there are no auth configs")
 			}
+			return errors.Errorf("failed to push images because there are no auth configs")
 		}
 	}
 	return nil
