@@ -1,5 +1,3 @@
-.PHONY:
-
 # This makefile is for creating clusters filled with repos and pipelines for end-to-end and functional testing.
 # It builds on targets in the main Makefile.  You would invoke it by running the
 # "cd <source-location>/examples  ; make -s -f Makefile.testing dirty-testing-cluster" commands

@@ -1,5 +1,3 @@
-.PHONY: opencv object_detection delete minikube gatk hyperparameter
-
 # The executable paths below are set to generic values.
 # Modify them for your system by setting environment variables, using a command like this
 # to both fetch the version of pachyderm you want to use and execute it.
