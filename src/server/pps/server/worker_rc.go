@@ -37,7 +37,9 @@ const (
 // Parameters used when creating the kubernetes replication controller in charge
 // of a job or pipeline's workers
 type workerOptions struct {
-	rcName string // Name of the replication controller managing workers
+	rcName        string // Name of the replication controller managing workers
+	specCommit    string // Pipeline spec commit ID (needed for s3 inputs)
+	s3GatewayPort int32  // s3 gateway port (if any s3 pipeline inputs)
 
 	userImage        string              // The user's pipeline/job image
 	labels           map[string]string   // k8s labels attached to the RC and workers
@@ -64,6 +66,8 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	if pullPolicy == "" {
 		pullPolicy = "IfNotPresent"
 	}
+
+	// Set up sidecar env vars
 	sidecarEnv := []v1.EnvVar{{
 		Name:  "BLOCK_CACHE_BYTES",
 		Value: options.cacheSize,
@@ -88,6 +92,12 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	}, {
 		Name:  "PEER_PORT",
 		Value: strconv.FormatUint(uint64(a.peerPort), 10),
+	}, {
+		Name:  client.PPSSpecCommitEnv,
+		Value: options.specCommit,
+	}, {
+		Name:  "PACHD_POD_NAMESPACE",
+		Value: a.namespace,
 	}}
 	sidecarEnv = append(sidecarEnv, assets.GetSecretEnvVars(a.storageBackend)...)
 	storageEnvVars, err := getStorageEnvVars()
@@ -95,9 +105,25 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		return v1.PodSpec{}, err
 	}
 	sidecarEnv = append(sidecarEnv, storageEnvVars...)
-	workerEnv := options.workerEnv
+
+	// Set up worker env vars
+	workerEnv := append(options.workerEnv, v1.EnvVar{
+		Name:  client.PPSSpecCommitEnv,
+		Value: options.specCommit,
+	})
 	workerEnv = append(workerEnv, v1.EnvVar{Name: "PACH_ROOT", Value: a.storageRoot})
 	workerEnv = append(workerEnv, assets.GetSecretEnvVars(a.storageBackend)...)
+	if options.s3GatewayPort != 0 {
+		workerEnv = append(workerEnv, v1.EnvVar{
+			Name:  "S3GATEWAY_PORT",
+			Value: strconv.FormatUint(uint64(options.s3GatewayPort), 10),
+		})
+		sidecarEnv = append(sidecarEnv, v1.EnvVar{
+			Name:  "S3GATEWAY_PORT",
+			Value: strconv.FormatUint(uint64(options.s3GatewayPort), 10),
+		})
+	}
+
 	// This only happens in local deployment.  We want the workers to be
 	// able to read from/write to the hostpath volume as well.
 	storageVolumeName := "pach-disk"
@@ -147,6 +173,13 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	memDefaultQuantity := resource.MustParse("64M")
 	memSidecarQuantity := resource.MustParse(options.cacheSize)
 
+	// possibly expose s3 gateway port in the sidecar container
+	var sidecarPorts []v1.ContainerPort
+	if options.s3GatewayPort != 0 {
+		sidecarPorts = append(sidecarPorts, v1.ContainerPort{
+			ContainerPort: options.s3GatewayPort,
+		})
+	}
 	if !a.noExposeDockerSocket {
 		options.volumes = append(options.volumes, v1.Volume{
 			Name: "docker",
@@ -179,7 +212,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 			{
 				Name:            "init",
 				Image:           workerImage,
-				Command:         []string{"/pach/worker.sh"},
+				Command:         []string{"/app/init"},
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
 				VolumeMounts:    options.volumeMounts,
 				Resources: v1.ResourceRequirements{
@@ -208,7 +241,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 			{
 				Name:            client.PPSWorkerSidecarContainerName,
 				Image:           a.workerSidecarImage,
-				Command:         []string{"/pachd", "--mode", "sidecar"},
+				Command:         []string{"/app/pachd", "--mode", "sidecar"},
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
 				Env:             sidecarEnv,
 				VolumeMounts:    sidecarVolumeMounts,
@@ -218,8 +251,10 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 						v1.ResourceMemory: memSidecarQuantity,
 					},
 				},
+				Ports: sidecarPorts,
 			},
 		},
+		ServiceAccountName:            assets.WorkerSAName,
 		RestartPolicy:                 "Always",
 		Volumes:                       options.volumes,
 		ImagePullSecrets:              options.imagePullSecrets,
@@ -378,10 +413,6 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 		Value: a.namespace,
 	})
 	workerEnv = append(workerEnv, v1.EnvVar{
-		Name:  client.PPSSpecCommitEnv,
-		Value: ptr.SpecCommit.ID,
-	})
-	workerEnv = append(workerEnv, v1.EnvVar{
 		Name:  client.PPSPipelineNameEnv,
 		Value: pipelineInfo.Pipeline.Name,
 	})
@@ -492,10 +523,16 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 	} else {
 		service = pipelineInfo.Service
 	}
+	var s3GatewayPort int32
+	if ppsutil.ContainsS3Inputs(pipelineInfo.Input) || pipelineInfo.S3Out {
+		s3GatewayPort = int32(a.env.S3GatewayPort)
+	}
 
 	// Generate options for new RC
 	return &workerOptions{
 		rcName:           rcName,
+		s3GatewayPort:    s3GatewayPort,
+		specCommit:       ptr.SpecCommit.ID,
 		labels:           labels,
 		annotations:      annotations,
 		parallelism:      int32(0), // pipelines start w/ 0 workers & are scaled up

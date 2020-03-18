@@ -2,10 +2,7 @@ package main
 
 import (
 	"context"
-	"io"
-	"os"
 	"path"
-	"path/filepath"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -16,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
+	"github.com/pachyderm/pachyderm/src/server/cmd/worker/assets"
 	debugserver "github.com/pachyderm/pachyderm/src/server/debug/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	logutil "github.com/pachyderm/pachyderm/src/server/pkg/log"
@@ -30,70 +28,16 @@ import (
 func main() {
 	log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
 
-	// Copy the contents of /pach-bin/certs into /etc/ssl/certs. Don't return an
-	// error (which would cause 'Walk()' to exit early) but do record if any certs
-	// are known to be missing so we can inform the user
-	copyErr := false
-	if err := filepath.Walk("/pach-bin/certs", func(inPath string, info os.FileInfo, err error) error {
-		if err != nil {
-			log.Warnf("skipping \"%s\", could not stat path: %v", inPath, err)
-			copyErr = true
-			return nil // Don't try and fix any errors encountered by Walk() itself
-		}
-		if info.IsDir() {
-			return nil // We'll just copy the children of any directories when we traverse them
-		}
-
-		// Open input file (src)
-		in, err := os.OpenFile(inPath, os.O_RDONLY, 0)
-		if err != nil {
-			log.Warnf("could not read \"%s\": %v", inPath, err)
-			copyErr = true
-			return nil
-		}
-		defer in.Close()
-
-		// Create output file (dest) and open for writing
-		outRelPath, err := filepath.Rel("/pach-bin/certs", inPath)
-		if err != nil {
-			log.Warnf("skipping \"%s\", could not extract relative path: %v", inPath, err)
-			copyErr = true
-			return nil
-		}
-		outPath := filepath.Join("/etc/ssl/certs", outRelPath)
-		outDir := filepath.Dir(outPath)
-		if err := os.MkdirAll(outDir, 0755); err != nil {
-			log.Warnf("skipping \"%s\", could not create directory \"%s\": %v", inPath, outDir, err)
-			copyErr = true
-			return nil
-		}
-		out, err := os.OpenFile(outPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, info.Mode())
-		if err != nil {
-			log.Warnf("skipping \"%s\", could not create output file \"%s\": %v", inPath, outPath, err)
-			copyErr = true
-			return nil
-		}
-		defer out.Close()
-
-		// Copy src -> dest
-		if _, err := io.Copy(out, in); err != nil {
-			log.Warnf("could not copy \"%s\" to \"%s\": %v", inPath, outPath, err)
-			copyErr = true
-			return nil
-		}
-		return nil
-	}); err != nil {
-		// Should never happen, but just log if it does
-		copyErr = true
-		log.Warnf("walk failed with: %v", err)
+	// Copy certs embedded via go-bindata to /etc/ssl/certs. Because the
+	// container running this app is user-specified, we don't otherwise have
+	// control over the certs that are available.
+	//
+	// If an error occurs, don't hard-fail, but do record if any certs are
+	// known to be missing so we can inform the user.
+	if err := assets.RestoreAssets("/", "etc/ssl/certs"); err != nil {
+		log.Warnf("failed to inject TLS certs: %v", err)
 	}
-	if copyErr {
-		log.Warnf(
-			"pachyderm's worker binary encountered errors while copying " +
-				"/pach-bin/certs to /etc/ssl/certs (see above). This might cause the " +
-				"worker binary to error while communicating with object storage for " +
-				"egress pipelines or for merging pipeline outputs")
-	}
+
 	cmdutil.Main(do, &serviceenv.WorkerFullConfiguration{})
 }
 
@@ -125,14 +69,13 @@ func getPipelineInfo(pachClient *client.APIClient, env *serviceenv.ServiceEnv) (
 }
 
 func do(config interface{}) error {
-	tracing.InstallJaegerTracerFromEnv() // must run before InitServiceEnv
+	// must run InstallJaegerTracer before InitWithKube/pach client initialization
+	tracing.InstallJaegerTracerFromEnv()
 	env := serviceenv.InitServiceEnv(serviceenv.NewConfiguration(config))
 
 	// Construct a client that connects to the sidecar.
 	pachClient := env.GetPachClient(context.Background())
-
-	// Get etcd client, so we can register our IP (so pachd can discover us)
-	pipelineInfo, err := getPipelineInfo(pachClient, env)
+	pipelineInfo, err := getPipelineInfo(pachClient, env) // get pipeline creds for pachClient
 	if err != nil {
 		return errors.Wrapf(err, "error getting pipelineInfo")
 	}

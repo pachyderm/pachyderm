@@ -14,6 +14,7 @@
 # process commits with no matching datums)
 
 HERE="$(dirname "${0}")"
+# shellcheck source=./etc/testing/migration/v1_7/deploy.sh
 source "${HERE}/deploy.sh"
 
 set -x
@@ -146,4 +147,4 @@ pachctl_1_7 delete-commit right master~9
 pachctl_1_7 delete-commit right master~8
 pachctl_1_7 delete-commit right master~7
 
-pachctl_1_7 extract >${HERE}/diagonal.dump
+pachctl_1_7 extract >"${HERE}/diagonal.dump"

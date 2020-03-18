@@ -32,5 +32,5 @@ pachctl delete pipeline <pipeine_name>
 ```
 
 !!! note "See Also"
-    - [Update a Pipeline](./updating_pipelines/)
-    - [Create a Pipeline](./create-pipeline/)
+    - [Update a Pipeline](../updating_pipelines/)
+    - [Create a Pipeline](../create-pipeline/)

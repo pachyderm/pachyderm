@@ -1,44 +1,57 @@
+#!/bin/bash
+
+set -e
+
 # NOTE: GKE Resources cost Money. Proceed with care.
 # This script is intended for guidance only and may not
 # execute correctly in all environments.  Try
 # setting all the environment variables here and
 # executing the commands one-by-one to debug issues.
-export CLUSTER_NAME="<insert a name here>"
-export GCP_ZONE="<your gcp zone>"
-export MACHINE_TYPE="n1-standard-8"
+CLUSTER_NAME="<insert a name here>"
+export CLUSTER_NAME
+GCP_ZONE="<your gcp zone>"
+export GCP_ZONE
+MACHINE_TYPE="n1-standard-8"
+export MACHINE_TYPE
 
 # For the persistent disk, 10GB is a good size to start with.
 # This stores PFS metadata. For reference, 1GB
 # should work fine for 1000 commits on 1000 files.
-export STORAGE_SIZE=10
+STORAGE_SIZE=10
+export STORAGE_SIZE
 
 # The Pachyderm bucket name needs to be globally unique across the entire GCP region.
-export BUCKET_NAME=${CLUSTER_NAME}-bucket
+BUCKET_NAME=${CLUSTER_NAME}-bucket
+export BUCKET_NAME
 
-export KUBEFLOW_USERNAME='pachyderm'
-export KUBEFLOW_PASSWORD='pachyderm'
+KUBEFLOW_USERNAME='pachyderm'
+export KUBEFLOW_USERNAME
+KUBEFLOW_PASSWORD='pachyderm'
+export KUBEFLOW_PASSWORD
 
 # The following command is optional, to make kfctl binary easier to use.
 #export PATH=$PATH:<path to kfctl in your kubeflow installation>
 #export ZONE=${GCP_ZONE}  #where the deployment will be created
 
-export PROJECT=$(gcloud config get-value project)
-export KFAPP=$CLUSTER_NAME
+PROJECT=$(gcloud config get-value project)
+export PROJECT
+KFAPP=$CLUSTER_NAME
+export KFAPP
 
 # from macOS, this would allow you to run "open $KF_URL" from this
 # command prompt to see the Kubeflow dashboard.  In Linux, the
 # command might be "xdg-open $KF_URL".
-export KF_URL="https://${KFAPP}.endpoints.${PROJECT}.cloud.goog"
+KF_URL="https://${KFAPP}.endpoints.${PROJECT}.cloud.goog"
+export KF_URL
 
 gcloud auth login
 
-gcloud config set compute/zone ${GCP_ZONE}
+gcloud config set compute/zone "${GCP_ZONE}"
 
-gcloud config set container/cluster ${CLUSTER_NAME}
-
+gcloud config set container/cluster "${CLUSTER_NAME}"
 
 # By default the following command spins up a 3-node cluster. You can change the default with `--num-nodes VAL`.
-gcloud container clusters create ${CLUSTER_NAME} --scopes storage-rw --machine-type ${MACHINE_TYPE}
+gcloud container clusters create "${CLUSTER_NAME}" --scopes storage-rw --machine-type "${MACHINE_TYPE}"
 
 # todo: investigate these issues
 # WARNING: In June 2019, node auto-upgrade will be enabled by default for newly created clusters and node pools. To disable it, use the `--no-enable-autoupgrade` flag.
@@ -56,26 +69,24 @@ gcloud container clusters create ${CLUSTER_NAME} --scopes storage-rw --machine-t
 # Note that this command is simple and concise, but gives your user account more privileges than necessary. See
 # https://docs.pachyderm.com/latest/deploy-manage/deploy/rbac/ for the complete list of privileges that the
 # pachyderm serviceaccount needs.
-kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value account)
+kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user="$(gcloud config get-value account)"
 
-
-gcloud container clusters get-credentials ${CLUSTER_NAME}
-
+gcloud container clusters get-credentials "${CLUSTER_NAME}"
 
 # Create the bucket.
-gsutil mb gs://${BUCKET_NAME}
+gsutil mb "gs://${BUCKET_NAME}"
 
 kubectl create namespace kubeflow
 
-pachctl deploy google ${BUCKET_NAME} ${STORAGE_SIZE} --dynamic-etcd-nodes=1 --namespace kubeflow
+pachctl deploy google "${BUCKET_NAME}" "${STORAGE_SIZE}" --dynamic-etcd-nodes=1 --namespace kubeflow
 # Default uses Cloud IAP:
 #kfctl init ${KFAPP} --platform gcp --project ${PROJECT}
 # Alternatively, use this command if you want to use basic authentication:
 #kfctl init ${KFAPP} --platform gcp --project ${PROJECT} --use_basic_auth -V
 
-kfctl init ${KFAPP} --platform gcp --project ${PROJECT} --skip-init-gcp-project --use_basic_auth -V
+kfctl init "${KFAPP}" --platform gcp --project "${PROJECT}" --skip-init-gcp-project --use_basic_auth -V
 
-cd ${KFAPP}
-kfctl generate all -V --zone ${GCP_ZONE}
+cd "${KFAPP}"
+kfctl generate all -V --zone "${GCP_ZONE}"
 kfctl apply all -V
 

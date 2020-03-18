@@ -28,6 +28,27 @@ func convert1_9Commit(c *pfs1_9.Commit) *pfs.Commit {
 	}
 }
 
+func convert1_9Provenance(provenance *pfs1_9.CommitProvenance) *pfs.CommitProvenance {
+	if provenance == nil {
+		return nil
+	}
+	return &pfs.CommitProvenance{
+		Commit: convert1_9Commit(provenance.Commit),
+		Branch: convert1_9Branch(provenance.Branch),
+	}
+}
+
+func convert1_9Provenances(provenances []*pfs1_9.CommitProvenance) []*pfs.CommitProvenance {
+	if provenances == nil {
+		return nil
+	}
+	result := make([]*pfs.CommitProvenance, 0, len(provenances))
+	for _, p := range provenances {
+		result = append(result, convert1_9Provenance(p))
+	}
+	return result
+}
+
 func convert1_9Job(j *pps1_9.CreateJobRequest) *pps.CreateJobRequest {
 	if j == nil {
 		return nil
@@ -39,6 +60,7 @@ func convert1_9Job(j *pps1_9.CreateJobRequest) *pps.CreateJobRequest {
 		DataProcessed: j.DataProcessed,
 		DataSkipped:   j.DataSkipped,
 		DataTotal:     j.DataTotal,
+		DataFailed:    j.DataFailed,
 		DataRecovered: j.DataRecovered,
 		Stats:         convert1_9Stats(j.Stats),
 		StatsCommit:   convert1_9Commit(j.StatsCommit),
@@ -162,7 +184,10 @@ func convert1_9Secret(s *pps1_9.Secret) *pps.SecretMount {
 		return nil
 	}
 	return &pps.SecretMount{
-		Name: s.Name,
+		Name:      s.Name,
+		Key:       s.Key,
+		MountPath: s.MountPath,
+		EnvVar:    s.EnvVar,
 	}
 }
 
@@ -184,12 +209,12 @@ func convert1_9Transform(t *pps1_9.Transform) *pps.Transform {
 	return &pps.Transform{
 		Image:            t.Image,
 		Cmd:              t.Cmd,
-		ErrCmd:           nil,
+		ErrCmd:           t.ErrCmd,
 		Env:              t.Env,
 		Secrets:          convert1_9Secrets(t.Secrets),
 		ImagePullSecrets: t.ImagePullSecrets,
 		Stdin:            t.Stdin,
-		ErrStdin:         nil,
+		ErrStdin:         t.ErrStdin,
 		AcceptReturnCode: t.AcceptReturnCode,
 		Debug:            t.Debug,
 		User:             t.User,
@@ -258,6 +283,7 @@ func convert1_9PFSInput(p *pps1_9.PFSInput) *pps.PFSInput {
 		Branch:     p.Branch,
 		Commit:     p.Commit,
 		Glob:       p.Glob,
+		JoinOn:     p.JoinOn,
 		Lazy:       p.Lazy,
 		EmptyFiles: p.EmptyFiles,
 	}
@@ -294,7 +320,6 @@ func convert1_9Input(i *pps1_9.Input) *pps.Input {
 		return nil
 	}
 	return &pps.Input{
-		// Note: this is deprecated and replaced by `PfsInput`
 		Pfs:   convert1_9PFSInput(i.Pfs),
 		Cross: convert1_9Inputs(i.Cross),
 		Union: convert1_9Inputs(i.Union),
@@ -322,6 +347,18 @@ func convert1_9Service(s *pps1_9.Service) *pps.Service {
 		InternalPort: s.InternalPort,
 		ExternalPort: s.ExternalPort,
 		IP:           s.IP,
+		Type:         s.Type,
+	}
+}
+
+func convert1_9Spout(s *pps1_9.Spout) *pps.Spout {
+	if s == nil {
+		return nil
+	}
+	return &pps.Spout{
+		Overwrite: s.Overwrite,
+		Service:   convert1_9Service(s.Service),
+		Marker:    s.Marker,
 	}
 }
 
@@ -387,12 +424,14 @@ func convert1_9Op(op *admin.Op1_9) (*admin.Op1_10, error) {
 	case op.Commit != nil:
 		return &admin.Op1_10{
 			Commit: &pfs.BuildCommitRequest{
-				Parent: convert1_9Commit(op.Commit.Parent),
-				Branch: op.Commit.Branch,
-				// Skip 'Provenance', as we only migrate input commits, so we can
-				// rebuild the output commits
-				Tree: convert1_9Object(op.Commit.Tree),
-				ID:   op.Commit.ID,
+				Parent:     convert1_9Commit(op.Commit.Parent),
+				Branch:     op.Commit.Branch,
+				Provenance: convert1_9Provenances(op.Commit.Provenance),
+				Tree:       convert1_9Object(op.Commit.Tree),
+				Trees:      convert1_9Objects(op.Commit.Trees),
+				Datums:     convert1_9Object(op.Commit.Datums),
+				ID:         op.Commit.ID,
+				SizeBytes:  op.Commit.SizeBytes,
 			},
 		}, nil
 	case op.Branch != nil:
@@ -429,15 +468,18 @@ func convert1_9Op(op *admin.Op1_9) (*admin.Op1_10, error) {
 				Reprocess:        op.Pipeline.Reprocess,
 				MaxQueueSize:     op.Pipeline.MaxQueueSize,
 				Service:          convert1_9Service(op.Pipeline.Service),
-				Metadata:         convert1_9Metadata(op.Pipeline.Service),
+				Spout:            convert1_9Spout(op.Pipeline.Spout),
 				ChunkSpec:        convert1_9ChunkSpec(op.Pipeline.ChunkSpec),
 				DatumTimeout:     op.Pipeline.DatumTimeout,
 				JobTimeout:       op.Pipeline.JobTimeout,
+				Salt:             op.Pipeline.Salt,
 				Standby:          op.Pipeline.Standby,
 				DatumTries:       op.Pipeline.DatumTries,
 				SchedulingSpec:   convert1_9SchedulingSpec(op.Pipeline.SchedulingSpec),
 				PodSpec:          op.Pipeline.PodSpec,
-				Salt:             op.Pipeline.Salt,
+				PodPatch:         op.Pipeline.PodPatch,
+				SpecCommit:       convert1_9Commit(op.Pipeline.SpecCommit),
+				Metadata:         convert1_9Metadata(op.Pipeline.Service),
 			},
 		}, nil
 	default:

@@ -4,7 +4,7 @@ set -e
 
 BRANCH=master
 
-if [ -z $VERSION ]
+if [ -z "$VERSION" ]
 then
     echo "No version found for this commit! Aborting release"
     exit 1
@@ -17,12 +17,11 @@ fi
 
 echo "--- Releasing pachctl w version: $VERSION"
 
-MAJOR_MINOR=`echo $VERSION | cut -f -2 -d "."`
+MAJOR_MINOR=$(echo "$VERSION" | cut -f -2 -d ".")
 
 set +e
-which goxc
 
-if [ $? -ne 0 ]
+if ! command -v goxc
 then
     echo "You need to install goxc. Do so by running: 'go get github.com/laher/goxc'" 
 	exit 1
@@ -36,9 +35,7 @@ then
     exit 1
 fi
 
-cat .goxc.local.json | grep "apikey"
-
-if [ $? -ne 0 ]
+if ! grep "apikey" < .goxc.local.json
 then
     echo "You haven't configured goxc. Please run: 'make GITHUB_OAUTH_TOKEN=12345 goxc-generate-local'"
     echo "You can get your personal oauth token here: https://github.com/settings/tokens"
@@ -48,25 +45,27 @@ fi
 
 set -e
 echo "--- Cross compiling pachctl for linux/mac and uploading binaries to github"
-make VERSION=$VERSION VERSION_ADDITIONAL=$VERSION_ADDITIONAL goxc-release
+make VERSION="$VERSION" VERSION_ADDITIONAL="$VERSION_ADDITIONAL" goxc-release
 
 echo "--- Updating homebrew formula to use binaries at version $VERSION"
 
 rm -rf homebrew-tap || true
 git clone git@github.com:pachyderm/homebrew-tap
-cd homebrew-tap
-    git checkout -b $BRANCH || git checkout $BRANCH
+
+pushd homebrew-tap
+    git checkout -b "$BRANCH" || git checkout "$BRANCH"
     VERSION=$VERSION ./update-formula.sh
-    git add pachctl@$MAJOR_MINOR.rb
+    git add "pachctl@$MAJOR_MINOR.rb"
     git commit -a -m "[Automated] Update formula to release version $VERSION"
-    git pull origin $BRANCH || true
-    git push origin $BRANCH
-cd ..
+    git pull origin "$BRANCH" || true
+    git push origin "$BRANCH"
+popd
+
 rm -rf homebrew-tap
 
 echo "--- Updating compatability file"
 
-touch etc/compatibility/$VERSION
-go run etc/build/get_dash_version.go >> etc/compatibility/$VERSION
+touch "etc/compatibility/$VERSION"
+go run etc/build/get_dash_version.go >> "etc/compatibility/$VERSION"
 
 echo "--- Successfully released pachctl"

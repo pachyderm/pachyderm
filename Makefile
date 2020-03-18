@@ -12,9 +12,7 @@ ifndef TESTPKGS
 endif
 
 RUN= # used by go tests to decide which tests to run (i.e. passed to -run)
-COMPILE_RUN_ARGS = -d -v /var/run/docker.sock:/var/run/docker.sock --privileged=true
 # Label it w the go version we bundle in:
-COMPILE_IMAGE = "pachyderm/compile:$(shell cat etc/compile/GO_VERSION)"
 export VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
 LD_FLAGS = -X github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
 export GC_FLAGS = "all=-trimpath=${PWD}"
@@ -23,8 +21,6 @@ export DOCKER_BUILD_FLAGS
 CLUSTER_NAME?=pachyderm
 CLUSTER_MACHINE_TYPE?=n1-standard-4
 CLUSTER_SIZE?=4
-
-BENCH_CLOUD_PROVIDER=aws
 
 MINIKUBE_MEM=8192 # MB of memory allocated to minikube
 MINIKUBE_CPU=4 # Number of CPUs allocated to minikube
@@ -41,37 +37,9 @@ ifndef TIMEOUT
 endif
 endif
 
-echo-timeout:
-	echo $(TIMEOUT)
-
-all: build
-
-version:
-	@echo 'package main; import "github.com/pachyderm/pachyderm/src/client/version"; func main() { println(version.PrettyPrintVersion(version.Version)) }' > /tmp/pachyderm_version.go
-	go run /tmp/pachyderm_version.go
-
-deps:
-	go get -d -v ./src/... ./.
-
-update-deps:
-	go get -d -v -u ./src/... ./.
-
-build:
-	go build $$(go list ./src/client/... | grep -v '/src/client$$')
-
-pachd:
-	go build ./src/server/cmd/pachd
-
-worker:
-	go build ./src/server/cmd/worker
-
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
 	go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
-
-install-mac:
-	# Result will be in $GOPATH/bin/darwin_amd64/pachctl (if building on linux)
-	GOOS=darwin GOARCH=amd64 go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
 
 install-clean:
 	@# Need to blow away pachctl binary if its already there
@@ -80,16 +48,6 @@ install-clean:
 
 install-doc:
 	go install -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl-doc
-
-check-docker-version:
-	# The latest docker client requires server api version >= 1.24.
-	# However, minikube uses 1.23, so if you're connected to minikube, releases
-	# may break
-	@ \
-		docker_major="$$(docker version -f "{{.Server.APIVersion}}" | cut -d. -f1)"; \
-		docker_minor="$$(docker version -f "{{.Server.APIVersion}}" | cut -d. -f2)"; \
-		echo "docker version = $${docker_major}.$${docker_minor}, need at least 1.24"; \
-		test \( "$${docker_major}" -gt 1 \) -o \( "$${docker_minor}" -ge 24 \)
 
 point-release:
 	@make VERSION_ADDITIONAL= release-helper
@@ -105,123 +63,45 @@ release-candidate:
 
 custom-release: release-helper release-pachctl-custom
 	@echo 'For brew install, do:'
-	@echo "$$ brew install https://raw.githubusercontent.com/pachyderm/homebrew-tap/$(shell pachctl version --client-only)-$$(git log --pretty=format:%H | head -n 1)/pachctl@$(shell pachctl version --client-only | cut -f -2 -d\.).rb"
+	@echo "$$ brew install https://raw.githubusercontent.com/pachyderm/homebrew-tap/$(shell $(GOPATH)/bin/pachctl version --client-only)/pachctl@$(shell $(GOPATH)/bin/pachctl version --client-only | cut -f -2 -d\.).rb"
 	@echo 'For linux install, do:'
-	@echo "$$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v$(shell pachctl version --client-only)/pachctl_$(shell pachctl version --client-only)_amd64.deb && sudo dpkg -i /tmp/pachctl.deb"
+	@echo "$$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v$(shell $(GOPATH)/bin/pachctl version --client-only)/pachctl_$(shell $(GOPATH)/bin/pachctl version --client-only)_amd64.deb && sudo dpkg -i /tmp/pachctl.deb"
 	# Workaround for https://github.com/laher/goxc/issues/112
-	@git push origin :v$(shell pachctl version --client-only)
-	@git tag v$(shell pachctl version --client-only)
-	@git push origin --tags
+	@git push origin :v$(shell $(GOPATH)/bin/pachctl version --client-only)
+	@git tag v$(shell $(GOPATH)/bin/pachctl version --client-only)
+	@git push origin v$(shell $(GOPATH)/bin/pachctl version --client-only)
 	@echo "Release completed"
 
 release-pachctl-custom:
 	@# Run pachctl release script w deploy branch name
-	@VERSION="$(shell pachctl version --client-only)" ./etc/build/release_pachctl $$(pachctl version --client-only)
+	@VERSION="$(shell $(GOPATH)/bin/pachctl version --client-only)" ./etc/build/release_pachctl.sh $(shell $(GOPATH)/bin/pachctl version --client-only)
 
 release-pachctl:
 	@# Run pachctl release script w deploy branch name
-	@VERSION="$(shell pachctl version --client-only)" ./etc/build/release_pachctl
+	@VERSION="$(shell $(GOPATH)/bin/pachctl version --client-only)" ./etc/build/release_pachctl.sh
 
-release-helper: check-docker-version release-version release-pachd release-worker
+release-helper: release-version docker-build docker-push
 
 release-version: install-clean
 	@./etc/build/repo_ready_for_release.sh
 
-release-pachd:
-	@VERSION="$(shell pachctl version --client-only)" ./etc/build/release_pachd
-
-release-worker:
-	@VERSION="$(shell pachctl version --client-only)" ./etc/build/release_worker
-
-docker-build-compile:
-	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_compile .
-
-# To bump this, update the etc/compile/GO_VERSION file
-publish-compile: docker-build-compile
-	docker tag pachyderm_compile $(COMPILE_IMAGE)
-	docker push $(COMPILE_IMAGE)
-
-docker-clean-worker:
-	rm -rf docker_build_worker.tmpdir
-	docker stop worker_compile || true
-	docker rm worker_compile || true
-
-docker-build-worker: docker-clean-worker
-	docker run \
-		--env=CALLING_OS=$$(uname) \
-		--env=CALLING_USER_ID=$$(id -u $$USER) \
-		--env=DOCKER_GROUP_ID=$$(cat /etc/group | grep docker | cut -d: -f3) \
-		--env=DOCKER_BUILD_FLAGS="$(DOCKER_BUILD_FLAGS)" \
-		-v $$PWD:/pachyderm \
-		-v $$GOPATH/pkg:/go/pkg \
-		-v $$HOME/.cache/go-build:/root/.cache/go-build \
-		--name worker_compile \
-		$(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) \
-		/pachyderm/etc/compile/compile.sh worker "$(LD_FLAGS)"
-
-
-docker-wait-worker:
-	etc/compile/wait.sh worker_compile
-
-docker-clean-pachd:
-	rm -rf docker_build_worker.tmpdir
-	docker stop pachd_compile || true
-	docker rm pachd_compile || true
-
-docker-build-pachd: docker-clean-pachd
-	docker run  \
-		--env=CALLING_OS=$$(uname) \
-		--env=CALLING_USER_ID=$$(id -u $$USER) \
-		--env=DOCKER_GROUP_ID=$$(cat /etc/group | grep docker | cut -d: -f3) \
-		--env=DOCKER_BUILD_FLAGS="$(DOCKER_BUILD_FLAGS)" \
-		-v $$PWD:/pachyderm \
-		-v $$GOPATH/pkg:/go/pkg \
-		-v $$HOME/.cache/go-build:/root/.cache/go-build \
-		--name pachd_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /pachyderm/etc/compile/compile.sh pachd "$(LD_FLAGS)"
-
-docker-clean-test:
-	docker stop test_compile || true
-	docker rm test_compile || true
-
-docker-build-test: docker-clean-test docker-build-compile
-	@# build the pachyderm_test_buildenv container
-	etc/compile/compile_test.sh --make-env
-	mkdir ./_tmp || true
-	@# build pachyderm_test container (don't use COMPILE_RUN_ARGS b/c we don't
-	@# want to run this as a daemon container
-	docker run \
-	  --attach stdout \
-	  --attach stderr \
-	  --rm \
-	  -w /pachyderm \
-	  -v $$PWD:/pachyderm \
-	  -v $$HOME/.cache/go-build:/root/.cache/go-build \
-	  -v /var/run/docker.sock:/var/run/docker.sock \
-	  --privileged=true \
-	  --name test_compile \
-	  pachyderm_test_buildenv sh /pachyderm/etc/compile/compile_test.sh
-	docker tag pachyderm_test:latest pachyderm/test:`git rev-list HEAD --max-count=1`
-
-docker-push-test:
-	docker push pachyderm/test:`git rev-list HEAD --max-count=1`
-
-docker-wait-pachd:
-	etc/compile/wait.sh pachd_compile
-
-docker-build-helper: enterprise-code-checkin-test
-	@# run these in separate make process so that if
-	@# 'enterprise-code-checkin-test' fails, the rest of the build process aborts
-	@make docker-build-worker docker-build-pachd docker-wait-worker docker-wait-pachd
-
-docker-build:
-	docker pull $(COMPILE_IMAGE)
-	make docker-build-helper
+docker-build: enterprise-code-checkin-test
+	DOCKER_BUILDKIT=1 docker build \
+		--build-arg GO_VERSION=`cat etc/compile/GO_VERSION` \
+		--build-arg LD_FLAGS="$(LD_FLAGS)" \
+		$(DOCKER_BUILD_FLAGS) \
+		--progress plain -t pachyderm_build .
+	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm/pachd etc/pachd
+	docker tag pachyderm/pachd pachyderm/pachd:local
+	docker build \
+		--build-arg GO_VERSION=`cat etc/compile/GO_VERSION` \
+		--build-arg LD_FLAGS="$(LD_FLAGS)" \
+		$(DOCKER_BUILD_FLAGS) \
+		-t pachyderm/worker etc/worker
+	docker tag pachyderm/worker pachyderm/worker:local
 
 docker-build-proto:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_proto etc/proto
-
-docker-build-proto-no-cache:
-	docker build $(DOCKER_BUILD_FLAGS) --no-cache -t pachyderm_proto etc/proto
 
 docker-build-netcat:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_netcat etc/netcat
@@ -258,75 +138,13 @@ check-kubectl:
 check-kubectl-connection:
 	kubectl $(KUBECTLFLAGS) get all > /dev/null
 
-launch-dev-bench: docker-build docker-build-test install
-	@# Put it here so sudo can see it
-	rm /usr/local/bin/pachctl || true
-	ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
-	make launch-bench
+docker-tag: install
+	docker tag pachyderm/pachd pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
+	docker tag pachyderm/worker pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
 
-build-bench-images: docker-build docker-build-test
-
-push-bench-images: install-bench tag-images push-images
-	# We need the pachyderm_compile image to be up to date
-	docker tag pachyderm_test pachyderm/bench:`git rev-list HEAD --max-count=1`
-	docker push pachyderm/bench:`git rev-list HEAD --max-count=1`
-
-tag-images: install
-	docker tag pachyderm_pachd pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
-	docker tag pachyderm_worker pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
-
-push-images: tag-images
+docker-push: docker-tag
 	docker push pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
 	docker push pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
-
-launch-bench:
-	@# Make launches each process in its own shell process, so we have to structure
-	@# these to run these as one command
-	ID=$$( etc/testing/deploy/$(BENCH_CLOUD_PROVIDER).sh --create | tail -n 1); \
-	@echo To delete this cluster, run etc/testing/deploy/$(BENCH_CLOUD_PROVIDER).sh --delete=$${ID}; \
-	echo etc/testing/deploy/$(BENCH_CLOUD_PROVIDER).sh --delete=$${ID} >./clean_current_bench_cluster.sh; \
-	until timeout 10s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done; \
-	cat ~/.kube/config;
-
-clean-launch-bench:
-	./clean_current_bench_cluster.sh || true
-
-install-bench: install
-	@# Since bench is run as sudo, pachctl needs to be under
-	@# the secure path
-	rm /usr/local/bin/pachctl || true
-	[ -f /usr/local/bin/pachctl ] || sudo ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
-
-launch-dev-test: docker-build-test docker-push-test
-	kubectl run pachyderm-test --image=pachyderm/test:`git rev-list HEAD --max-count=1` \
-	  --rm \
-	  --restart=Never \
-	  --attach=true \
-	  -- \
-	  ./test -test.v
-
-aws-test: tag-images push-images
-	ZONE=sa-east-1a etc/testing/deploy/aws.sh --create
-	$(MAKE) launch-dev-test
-	rm $(HOME)/.pachyderm/config.json
-	ZONE=sa-east-1a etc/testing/deploy/aws.sh --delete
-
-run-bench:
-	kubectl scale --replicas=4 deploy/pachd
-	echo "waiting for pachd to scale up" && sleep 15
-	kubectl delete --ignore-not-found po/bench && \
-	    kubectl run bench \
-	        --image=pachyderm/bench:`git rev-list HEAD --max-count=1` \
-	        --image-pull-policy=Always \
-	        --restart=Never \
-	        --attach=true \
-	        -- \
-	        PACH_TEST_CLOUD=true ./test -test.v -test.bench=BenchmarkDaily -test.run=`etc/testing/passing_test_regex.sh`
-
-delete-all-launch-bench:
-	etc/testing/deploy/$(BENCH_CLOUD_PROVIDER).sh --delete-all
-
-bench: clean-launch-bench build-bench-images push-bench-images launch-bench run-bench clean-launch-bench
 
 launch-kube: check-kubectl
 	etc/kube/start-minikube.sh
@@ -389,11 +207,8 @@ full-clean-launch: check-kubectl
 integration-tests:
 	CGOENABLED=0 go test -v -count=1 ./src/server $(TESTFLAGS) -timeout $(TIMEOUT)
 
-staticcheck:
-	staticcheck ./...
-
 test-proto-static:
-	./etc/proto/test_no_changes.sh || echo "Protos need to be recompiled; run make proto-no-cache."
+	./etc/proto/test_no_changes.sh || echo "Protos need to be recompiled; run 'DOCKER_BUILD_FLAGS=--no-cache make proto'."
 
 test-deploy-manifests: install
 	./etc/testing/deploy-manifests/validate.sh
@@ -403,28 +218,6 @@ regenerate-test-deploy-manifests: install
 
 proto: docker-build-proto
 	./etc/proto/build.sh
-
-proto-no-cache: docker-build-proto-no-cache
-	./etc/proto/build.sh
-
-# Use this to grab a binary for profiling purposes
-pachd-profiling-binary: docker-clean-pachd docker-build-compile
-	docker run -i $(COMPILE_IMAGE) sh etc/compile/compile.sh pachd "$(LD_FLAGS)" PROFILE \
-	| tar xf -
-	# Binary emitted to ./pachd
-
-pretest:
-	go get -v github.com/kisielk/errcheck
-	go vet -n ./src/... | while read line; do \
-		modified=$$(echo $$line | sed "s/ [a-z0-9_/]*\.pb\.gw\.go//g"); \
-		$$modified; \
-		if [ -n "$$($$modified)" ]; then \
-		exit 1; \
-		fi; \
-		done
-	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
-
-local-test: docker-build launch-dev test-pfs clean-launch-dev
 
 # Run all the tests. Note! This is no longer the test entrypoint for travis
 test: clean-launch-dev launch-dev lint enterprise-code-checkin-test docker-build test-pfs-server test-cmds test-libs test-vault test-auth test-enterprise test-worker test-admin test-pps
@@ -558,22 +351,11 @@ launch-logging: check-kubectl check-kubectl-connection
 	cd etc/plugin/logging && ./deploy.sh
 	kubectl --namespace=monitoring port-forward `kubectl --namespace=monitoring get pods -l k8s-app=kibana-logging -o json | jq '.items[0].metadata.name' -r` 35601:5601 &
 
-grep-data:
-	go run examples/grep/generate.go >examples/grep/set1.txt
-	go run examples/grep/generate.go >examples/grep/set2.txt
-
-grep-example:
-	sh examples/grep/run.sh
-
 logs: check-kubectl
 	kubectl $(KUBECTLFLAGS) get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'echo pod && kubectl $(KUBECTLFLAGS) logs pod'
 
 follow-logs: check-kubectl
 	kubectl $(KUBECTLFLAGS) get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'echo pod && kubectl $(KUBECTLFLAGS) logs -f pod'
-
-kubectl:
-	gcloud config set container/cluster $(CLUSTER_NAME)
-	gcloud container clusters get-credentials $(CLUSTER_NAME)
 
 google-cluster-manifest:
 	@pachctl deploy --dry-run google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
@@ -627,9 +409,6 @@ microsoft-cluster:
 clean-microsoft-cluster:
 	azure group delete $(AZURE_RESOURCE_GROUP) -q
 
-install-go-bindata:
-	go get -u github.com/jteeuwen/go-bindata/...
-
 lint:
 	etc/testing/lint.sh
 
@@ -655,53 +434,76 @@ goxc-build:
 	sed 's/%%VERSION_ADDITIONAL%%/$(VERSION_ADDITIONAL)/' .goxc.json.template > .goxc.json
 	goxc -build-gcflags="$(GC_FLAGS)" -tasks=xc -wd=./src/server/cmd/pachctl
 
-.PHONY: all \
-	version \
-	deps \
-	update-deps \
-	build \
+.PHONY: \
 	install \
 	install-clean \
 	install-doc \
-	homebrew \
-	release \
-	release-helper \
-	release-worker \
-	release-manifest \
+	point-release \
+	release-candidate \
+	custom-release \
 	release-pachctl-custom \
-	release-pachd \
+	release-pachctl \
+	release-helper \
 	release-version \
 	docker-build \
-	docker-build-compile \
-	docker-build-worker \
-	docker-build-pachd \
 	docker-build-proto \
-	docker-push-worker \
-	docker-push-pachd \
-	docker-push \
+	docker-build-netcat \
+	docker-build-gpu \
+	docker-build-kafka \
+	docker-push-gpu \
+	docker-push-gpu-dev \
+	docker-gpu \
+	docker-gpu-dev \
+	docker-build-test-entrypoint \
+	check-kubectl \
+	check-kubectl-connection \
 	launch-kube \
+	launch-dev-vm \
+	launch-release-vm \
 	clean-launch-kube \
-	kube-cluster-assets \
 	launch \
 	launch-dev \
-	clean-launch-dev \
 	clean-launch \
+	clean-launch-dev \
 	full-clean-launch \
 	integration-tests \
+	test-proto-static \
+	test-deploy-manifests \
+	regenerate-test-deploy-manifests \
 	proto \
-	pretest \
 	test \
+	enterprise-code-checkin-test \
+	test-pfs-server \
+	test-pfs-storage \
+	test-pps \
+	test-cmds \
+	test-transaction \
 	test-client \
+	test-libs \
+	test-vault \
 	test-s3gateway-conformance \
 	test-s3gateway-integration \
 	test-fuse \
 	test-local \
+	test-auth \
+	test-admin \
+	test-enterprise \
+	test-tls \
+	test-worker \
+	test-worker-helper \
 	clean \
+	doc-custom \
 	doc \
-	grep-data \
-	grep-example \
+	clean-launch-kafka \
+	launch-kafka \
+	clean-launch-stats \
+	launch-stats \
+	clean-launch-monitoring \
+	launch-monitoring \
+	clean-launch-logging \
+	launch-logging \
 	logs \
-	kubectl \
+	follow-logs \
 	google-cluster-manifest \
 	google-cluster \
 	clean-google-cluster \
@@ -710,9 +512,11 @@ goxc-build:
 	amazon-clean-cluster \
 	amazon-clean-launch \
 	amazon-clean \
-	install-go-bindata \
-	assets \
+	microsoft-cluster-manifest \
+	microsoft-cluster \
+	clean-microsoft-cluster \
 	lint \
+	spellcheck \
 	goxc-generate-local \
 	goxc-release \
 	goxc-build
