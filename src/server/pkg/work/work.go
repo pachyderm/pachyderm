@@ -202,6 +202,9 @@ func (m *Master) RunSubtasksChan(subtaskChan chan *Task, collectFunc CollectFunc
 }
 
 func (m *Master) createSubtask(subtask *Task) error {
+	if subtask.ID == "" {
+		subtask.ID = uuid.NewWithoutDashes()
+	}
 	subtaskKey := path.Join(m.taskID, subtask.ID)
 	subtaskInfo := &TaskInfo{Task: subtask}
 	if _, err := col.NewSTM(m.taskEntry.ctx, m.etcdClient, func(stm col.STM) error {

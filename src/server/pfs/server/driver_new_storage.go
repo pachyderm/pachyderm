@@ -127,10 +127,7 @@ func (d *driver) compact(master *work.Master, outputPath string, inputPrefixes [
 		if err != nil {
 			return err
 		}
-		subtasks = append(subtasks, &work.Task{
-			ID:   outputPath,
-			Data: shard,
-		})
+		subtasks = append(subtasks, &work.Task{Data: shard})
 		return nil
 	}); err != nil {
 		return err
