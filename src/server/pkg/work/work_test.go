@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"math/rand"
 	"strconv"
-	"sync"
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testetcd"
 	"golang.org/x/sync/errgroup"
@@ -31,25 +32,55 @@ func generateRandomString(n int) string {
 	return string(b)
 }
 
-type subtaskMaps struct {
-	created, processed, collected []map[string]bool
-	mu                            sync.Mutex
+func serializeTestData(testData *TestData) (*types.Any, error) {
+	serializedTestData, err := proto.Marshal(testData)
+	if err != nil {
+		return nil, err
+	}
+	return &types.Any{
+		TypeUrl: "/" + proto.MessageName(testData),
+		Value:   serializedTestData,
+	}, nil
 }
 
-func newSubtaskMaps(numTasks int) *subtaskMaps {
-	// Setup maps for checking creation, processing, and collection.
-	taskMapsFunc := func() []map[string]bool {
-		var taskMaps []map[string]bool
-		for i := 0; i < numTasks; i++ {
-			taskMaps = append(taskMaps, make(map[string]bool))
-		}
-		return taskMaps
+func deserializeTestData(testDataAny *types.Any) (*TestData, error) {
+	testData := &TestData{}
+	if err := types.UnmarshalAny(testDataAny, testData); err != nil {
+		return nil, err
 	}
-	return &subtaskMaps{
-		created:   taskMapsFunc(),
-		processed: taskMapsFunc(),
-		collected: taskMapsFunc(),
+	return testData, nil
+}
+
+func processSubtask(t *testing.T, subtask *Task) error {
+	testData, err := deserializeTestData(subtask.Data)
+	if err != nil {
+		return err
 	}
+	if testData.Processed {
+		t.Logf("claimed subtask should not already be processed")
+		t.Fail()
+	}
+	testData.Processed = true
+	subtask.Data, err = serializeTestData(testData)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func collectSubtask(subtaskInfo *TaskInfo, collected map[string]bool) error {
+	testData, err := deserializeTestData(subtaskInfo.Task.Data)
+	if err != nil {
+		return err
+	}
+	if !testData.Processed {
+		return fmt.Errorf("collected subtask should be processed")
+	}
+	collected[subtaskInfo.Task.ID] = true
+	if subtaskInfo.State == State_FAILURE && subtaskInfo.Reason != subtaskFailure.Error() {
+		return fmt.Errorf("subtask failure reason does not equal subtask failure error message")
+	}
+	return nil
 }
 
 func test(t *testing.T, workerFailProb, taskCancelProb, subtaskFailProb float64) {
@@ -60,37 +91,24 @@ func test(t *testing.T, workerFailProb, taskCancelProb, subtaskFailProb float64)
 		numTasks := 10
 		numSubtasks := 10
 		numWorkers := 5
-		sms := newSubtaskMaps(numTasks)
 		// Setup workers.
 		workerCtx, workerCancel := context.WithCancel(context.Background())
-		eg, errCtx := errgroup.WithContext(workerCtx)
+		workerEg, errCtx := errgroup.WithContext(workerCtx)
 		for i := 0; i < numWorkers; i++ {
-			eg.Go(func() error {
-				w := NewWorker(errCtx, env.EtcdClient, "", "")
+			workerEg.Go(func() error {
+				w := NewWorker(env.EtcdClient, "", "")
 				for {
 					ctx, cancel := context.WithCancel(errCtx)
-					if err := w.Run(ctx, func(_ context.Context, task, subtask *Task) error {
+					if err := w.Run(ctx, func(_ context.Context, subtask *Task) error {
 						if rand.Float64() < workerFailProb {
 							cancel()
-						} else {
-							i, err := strconv.Atoi(task.ID)
-							if err != nil {
-								t.Logf("errored parsing task ID: %v", err)
-								t.Fail()
-							}
-							sms.mu.Lock()
-							defer sms.mu.Unlock()
-							if sms.processed[i] != nil {
-								if sms.processed[i][subtask.ID] {
-									t.Logf("claimed subtask should not be processed")
-									t.Fail()
-								}
-								if rand.Float64() < subtaskFailProb {
-									delete(sms.created[i], subtask.ID)
-									return subtaskFailure
-								}
-								sms.processed[i][subtask.ID] = true
-							}
+							return nil
+						}
+						if err := processSubtask(t, subtask); err != nil {
+							return err
+						}
+						if rand.Float64() < subtaskFailProb {
+							return subtaskFailure
 						}
 						return nil
 					}); err != nil {
@@ -108,52 +126,52 @@ func test(t *testing.T, workerFailProb, taskCancelProb, subtaskFailProb float64)
 		}
 		tq, err := NewTaskQueue(errCtx, env.EtcdClient, "", "")
 		require.NoError(t, err)
-		var doneChans []chan struct{}
+		taskMapsFunc := func() []map[string]bool {
+			var taskMaps []map[string]bool
+			for i := 0; i < numTasks; i++ {
+				taskMaps = append(taskMaps, make(map[string]bool))
+			}
+			return taskMaps
+		}
+		created := taskMapsFunc()
+		collected := taskMapsFunc()
+		var taskEg errgroup.Group
 		for i := 0; i < numTasks; i++ {
 			i := i
-			taskID := strconv.Itoa(i)
-			ctx, cancel := context.WithCancel(errCtx)
-			doneChans = append(doneChans, make(chan struct{}))
-			require.NoError(t, tq.RunTask(ctx, &Task{ID: taskID}, func(m *Master) {
-				eg.Go(func() error {
-					defer close(doneChans[i])
+			taskEg.Go(func() error {
+				ctx, cancel := context.WithCancel(errCtx)
+				if err := tq.RunTaskBlock(ctx, func(m *Master) error {
+					if rand.Float64() < taskCancelProb {
+						cancel()
+						return nil
+					}
 					// Create subtasks.
 					var subtasks []*Task
 					for j := 0; j < numSubtasks; j++ {
-						subtaskID := strconv.Itoa(j)
-						subtasks = append(subtasks, &Task{ID: subtaskID})
-						sms.created[i][subtaskID] = true
-					}
-					//
-					if rand.Float64() < taskCancelProb {
-						cancel()
-						sms.mu.Lock()
-						defer sms.mu.Unlock()
-						sms.created[i] = nil
-						sms.processed[i] = nil
-						sms.collected[i] = nil
-						return nil
+						ID := strconv.Itoa(j)
+						data, err := serializeTestData(&TestData{})
+						if err != nil {
+							return err
+						}
+						subtasks = append(subtasks, &Task{
+							ID:   ID,
+							Data: data,
+						})
+						created[i][ID] = true
 					}
 					return m.RunSubtasks(subtasks, func(_ context.Context, subtaskInfo *TaskInfo) error {
-						if subtaskInfo.State == State_FAILURE {
-							if subtaskInfo.Reason != subtaskFailure.Error() {
-								return fmt.Errorf("subtask failure reason does not equal subtask failure error message")
-							}
-							return nil
-						}
-						sms.collected[i][subtaskInfo.Task.ID] = true
-						return nil
+						return collectSubtask(subtaskInfo, collected[i])
 					})
-				})
-				<-doneChans[i]
-			}), msg)
+				}); err != nil && ctx.Err() != context.Canceled {
+					return err
+				}
+				return nil
+			})
 		}
-		for _, doneChan := range doneChans {
-			<-doneChan
-		}
+		require.NoError(t, taskEg.Wait(), msg)
 		workerCancel()
-		require.NoError(t, eg.Wait(), msg)
-		require.Equal(t, sms.created, sms.processed, sms.collected, msg)
+		require.NoError(t, workerEg.Wait(), msg)
+		require.Equal(t, created, collected, msg)
 		return nil
 	}), msg)
 }

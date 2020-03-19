@@ -10,36 +10,38 @@ import (
 )
 
 const (
-	waitTime = 100 * time.Millisecond
+	waitTime = 10 * time.Millisecond
 )
 
 var (
 	remapThreshold = 10000
 )
 
-type subtaskFunc func(context.Context) error
+type subtaskFunc func(context.Context)
+type subtaskBlockFunc func(context.Context) error
 
 type taskEntry struct {
 	ctx             context.Context
 	cancel          context.CancelFunc
 	subtaskFuncChan chan subtaskFunc
-	errChan         chan error
 }
 
-// runSubtask blocks on the task queue receiving the subtask function, executing it, then returning the error state.
+// runSubtask sends a subtask to be run in the task queue.
 // The task queue will not attempt to receive a subtask function until it will be processed.
-func (te *taskEntry) runSubtask(subtask subtaskFunc) error {
+func (te *taskEntry) runSubtask(subtask subtaskFunc) {
 	select {
 	case te.subtaskFuncChan <- subtask:
 	case <-te.ctx.Done():
-		return te.ctx.Err()
 	}
-	select {
-	case err := <-te.errChan:
-		return err
-	case <-te.ctx.Done():
-		return te.ctx.Err()
-	}
+}
+
+// runSubtaskBlock is similar to runSubtask, but blocks on the subtask.
+func (te *taskEntry) runSubtaskBlock(subtask subtaskBlockFunc) error {
+	errChan := make(chan error)
+	te.runSubtask(func(ctx context.Context) {
+		errChan <- subtask(ctx)
+	})
+	return <-errChan
 }
 
 // The task queue data structure is an ordered map that stores task entries.
@@ -79,7 +81,7 @@ func newTaskQueue(ctx context.Context) *taskQueue {
 				select {
 				case f := <-te.subtaskFuncChan:
 					tq.mu.Unlock()
-					te.errChan <- f(te.ctx)
+					f(te.ctx)
 					continue NextSubtask
 				default:
 				}
@@ -107,7 +109,6 @@ func (tq *taskQueue) runTask(ctx context.Context, taskID string, f func(*taskEnt
 		ctx:             ctx,
 		cancel:          cancel,
 		subtaskFuncChan: make(chan subtaskFunc, 1),
-		errChan:         make(chan error, 1),
 	}
 	tq.tasks.Set(taskID, te)
 	go func() {

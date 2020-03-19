@@ -24,3 +24,7 @@ message TaskInfo {
 }
 
 message Claim {}
+
+message TestData {
+  bool processed = 1;
+}

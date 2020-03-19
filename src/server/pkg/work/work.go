@@ -10,6 +10,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 	"golang.org/x/sync/errgroup"
 )
@@ -70,7 +71,8 @@ func newCollection(etcdClient *etcd.Client, etcdPrefix string, template proto.Me
 // The task code should be contained within the passed in callback.
 // The callback will receive a Master, which should be used for running subtasks in the task queue.
 // The task state will be cleaned up upon return of the callback.
-func (tq *TaskQueue) RunTask(ctx context.Context, task *Task, f func(*Master)) (retErr error) {
+func (tq *TaskQueue) RunTask(ctx context.Context, f func(*Master)) (retErr error) {
+	task := &Task{ID: uuid.NewWithoutDashes()}
 	if _, err := col.NewSTM(ctx, tq.etcdClient, func(stm col.STM) error {
 		return tq.taskCol.ReadWrite(stm).Put(task.ID, task)
 	}); err != nil {
@@ -97,11 +99,27 @@ func (tq *TaskQueue) RunTask(ctx context.Context, task *Task, f func(*Master)) (
 	})
 }
 
+// RunTaskBlock is similar to RunTask, but blocks on the callback.
+func (tq *TaskQueue) RunTaskBlock(ctx context.Context, f func(*Master) error) error {
+	errChan := make(chan error)
+	if err := tq.RunTask(ctx, func(master *Master) {
+		errChan <- f(master)
+	}); err != nil {
+		return err
+	}
+	return <-errChan
+}
+
 // Master manages subtasks in the task queue, and provides an interface for running subtasks.
 type Master struct {
 	*taskEtcd
 	taskID    string
 	taskEntry *taskEntry
+}
+
+// Ctx returns the context for the master.
+func (m *Master) Ctx() context.Context {
+	return m.taskEntry.ctx
 }
 
 // CollectFunc is a callback that is used for collecting the results
@@ -148,7 +166,7 @@ func (m *Master) RunSubtasksChan(subtaskChan chan *Task, collectFunc CollectFunc
 				return nil
 			}
 			if collectFunc != nil {
-				if err := m.taskEntry.runSubtask(func(ctx context.Context) error {
+				if err := m.taskEntry.runSubtaskBlock(func(ctx context.Context) error {
 					return collectFunc(ctx, subtaskInfo)
 				}); err != nil {
 					return err
@@ -235,13 +253,13 @@ func NewWorker(etcdClient *etcd.Client, etcdPrefix string, taskNamespace string)
 }
 
 // ProcessFunc is a callback that is used for processing a subtask in a task.
-type ProcessFunc func(context.Context, *Task, *Task) error
+type ProcessFunc func(context.Context, *Task) error
 
 // Run runs the worker with the given context.
-// The worker will continue to watch the task collection until the context is cancelled.
+// The worker will continue to watch the task collection until the context is canceled.
 func (w *Worker) Run(ctx context.Context, processFunc ProcessFunc) error {
 	taskQueue := newTaskQueue(ctx)
-	return w.taskCol.ReadOnly(ctx).WatchF(func(e *watch.Event) (retErr error) {
+	return w.taskCol.ReadOnly(ctx).WatchF(func(e *watch.Event) error {
 		var taskID string
 		task := &Task{}
 		if err := e.Unmarshal(&taskID, task); err != nil {
@@ -249,7 +267,7 @@ func (w *Worker) Run(ctx context.Context, processFunc ProcessFunc) error {
 		}
 		if e.Type == watch.EventDelete {
 			taskQueue.deleteTask(taskID)
-			return
+			return nil
 		}
 		return taskQueue.runTask(ctx, taskID, func(taskEntry *taskEntry) {
 			if err := w.taskFunc(task, taskEntry, processFunc); err != nil && taskEntry.ctx.Err() != context.Canceled {
@@ -281,9 +299,7 @@ func (w *Worker) taskFunc(task *Task, taskEntry *taskEntry, processFunc ProcessF
 			if err := e.Unmarshal(&subtaskKey, &Claim{}); err != nil {
 				return err
 			}
-			if err := taskEntry.runSubtask(w.subtaskFunc(task, subtaskKey, processFunc)); err != nil {
-				return err
-			}
+			taskEntry.runSubtask(w.subtaskFunc(subtaskKey, processFunc))
 		case e := <-subtaskWatch.Watch():
 			if e.Type == watch.EventError {
 				return e.Err
@@ -292,31 +308,32 @@ func (w *Worker) taskFunc(task *Task, taskEntry *taskEntry, processFunc ProcessF
 			if err := e.Unmarshal(&subtaskKey, &TaskInfo{}); err != nil {
 				return err
 			}
-			if err := taskEntry.runSubtask(w.subtaskFunc(task, subtaskKey, processFunc)); err != nil {
-				return err
-			}
+			taskEntry.runSubtask(w.subtaskFunc(subtaskKey, processFunc))
 		case <-taskEntry.ctx.Done():
 			return taskEntry.ctx.Err()
 		}
 	}
 }
 
-func (w *Worker) subtaskFunc(task *Task, subtaskKey string, processFunc ProcessFunc) subtaskFunc {
-	return func(ctx context.Context) error {
-		// (bryce) this should be refactored to have the check and claim in the same stm.
-		// there is a rare race condition that does not affect correctness, but it is less
-		// than ideal because a subtask could get run once more than necessary.
-		subtaskInfo := &TaskInfo{}
-		if _, err := col.NewSTM(ctx, w.etcdClient, func(stm col.STM) error {
-			return w.subtaskCol.ReadWrite(stm).Get(subtaskKey, subtaskInfo)
-		}); err != nil && !col.IsErrNotFound(err) {
-			return err
-		}
-		if subtaskInfo.State == State_RUNNING {
-			if err := w.claimCol.Claim(ctx, subtaskKey, &Claim{}, func(claimCtx context.Context) (retErr error) {
+func (w *Worker) subtaskFunc(subtaskKey string, processFunc ProcessFunc) subtaskFunc {
+	return func(ctx context.Context) {
+		if err := func() error {
+			// (bryce) this should be refactored to have the check and claim in the same stm.
+			// there is a rare race condition that does not affect correctness, but it is less
+			// than ideal because a subtask could get run once more than necessary.
+			subtaskInfo := &TaskInfo{}
+			if _, err := col.NewSTM(ctx, w.etcdClient, func(stm col.STM) error {
+				return w.subtaskCol.ReadWrite(stm).Get(subtaskKey, subtaskInfo)
+			}); err != nil {
+				return err
+			}
+			if subtaskInfo.State != State_RUNNING {
+				return nil
+			}
+			return w.claimCol.Claim(ctx, subtaskKey, &Claim{}, func(claimCtx context.Context) (retErr error) {
 				subtask := subtaskInfo.Task
 				defer func() {
-					// If the task was cancelled or the claim was lost, just return with no error.
+					// If the task context was canceled or the claim was lost, just return with no error.
 					if claimCtx.Err() == context.Canceled {
 						retErr = nil
 						return
@@ -341,11 +358,15 @@ func (w *Worker) subtaskFunc(task *Task, subtaskKey string, processFunc ProcessF
 						retErr = err
 					}
 				}()
-				return processFunc(claimCtx, task, subtask)
-			}); err != nil && err != col.ErrNotClaimed {
-				return err
+				return processFunc(claimCtx, subtask)
+			})
+		}(); err != nil {
+			// If the task context was canceled or the subtask was deleted / not claimed, then no error should be logged.
+			if ctx.Err() == context.Canceled ||
+				col.IsErrNotFound(err) || err == col.ErrNotClaimed {
+				return
 			}
+			fmt.Printf("errored in subtask callback: %v\n", err)
 		}
-		return nil
 	}
 }
