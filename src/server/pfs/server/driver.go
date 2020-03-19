@@ -117,6 +117,7 @@ type driver struct {
 	storage         *fileset.Storage
 	subFileSet      int64
 	compactionQueue *work.TaskQueue
+	mu              sync.Mutex
 }
 
 // newDriver is used to create a new Driver instance

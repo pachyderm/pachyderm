@@ -184,11 +184,13 @@ message ObjectInfo {
 }
 
 message Compaction {
-  repeated string prefixes = 1;
+  repeated string input_prefixes = 2;
 }
 
 message Shard {
-  PathRange range = 1;
+  Compaction compaction = 1;
+  PathRange range = 2;
+  string output_path = 3;
 }
 
 message PathRange {
