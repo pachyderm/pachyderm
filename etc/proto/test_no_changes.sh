@@ -2,7 +2,7 @@
 # This script detects any changes to generated protobuf code
 
 set -ex
-which sha256sum
+command -v sha256sum
 
 # cd to top-level pachyderm directory
 scriptdir="$(dirname "${0}")"

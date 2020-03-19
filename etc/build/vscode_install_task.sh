@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 
+set -e
+
 # go compiler requires a relative directory or something?
-cd $(realpath $(dirname $0)/../..)
+cd "$(realpath "$(dirname "$0")/../..")"
 
 VERSION_ADDITIONAL=-$(git log --pretty=format:%H | head -n 1)
 LD_FLAGS="-X github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=${VERSION_ADDITIONAL}"

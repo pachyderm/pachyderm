@@ -1,11 +1,22 @@
+#!/bin/bash
+
+set -ex
+
 # NOTE: GKE Resources cost Money. Proceed with care.
 # This script is intended for guidance only and may not
 # execute correctly in all environments.  Try
 # setting all the environment variables here and
 # executing the commands one-by-one to debug issues.
-export CLUSTER_NAME="<insert a name here>"
-export GCP_ZONE="<your gcp zone>"
+export CLUSTER_NAME="<yourclustername>"
+export GCP_ZONE="us-east1-b"
 export MACHINE_TYPE="n1-standard-8"
+export KF_NAME="kubflowpach"
+export BASE_DIR="./"
+export KF_DIR=${BASE_DIR}/${KF_NAME}
+
+# Replace this with the CONFIG_URI listed on https://www.kubeflow.org/docs/started/getting-started/#configuration-quick-reference
+# CREDENTIALS FOR THE DEFAULT USER ARE admin@kubeflow.org:12341234
+export CONFIG_URI="https://raw.githubusercontent.com/kubeflow/manifests/v1.0-branch/kfdef/kfctl_istio_dex.v1.0.0.yaml"
 
 # For the persistent disk, 10GB is a good size to start with.
 # This stores PFS metadata. For reference, 1GB
@@ -15,14 +26,12 @@ export STORAGE_SIZE=10
 # The Pachyderm bucket name needs to be globally unique across the entire GCP region.
 export BUCKET_NAME=${CLUSTER_NAME}-bucket
 
-export KUBEFLOW_USERNAME='pachyderm'
-export KUBEFLOW_PASSWORD='pachyderm'
-
 # The following command is optional, to make kfctl binary easier to use.
 #export PATH=$PATH:<path to kfctl in your kubeflow installation>
 #export ZONE=${GCP_ZONE}  #where the deployment will be created
 
-export PROJECT=$(gcloud config get-value project)
+PROJECT="$(gcloud config get-value project)"
+export PROJECT
 export KFAPP=$CLUSTER_NAME
 
 # from macOS, this would allow you to run "open $KF_URL" from this
@@ -56,7 +65,7 @@ gcloud container clusters create ${CLUSTER_NAME} --scopes storage-rw --machine-t
 # Note that this command is simple and concise, but gives your user account more privileges than necessary. See
 # https://docs.pachyderm.com/latest/deploy-manage/deploy/rbac/ for the complete list of privileges that the
 # pachyderm serviceaccount needs.
-kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value account)
+kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user="$(gcloud config get-value account)"
 
 
 gcloud container clusters get-credentials ${CLUSTER_NAME}
@@ -66,16 +75,14 @@ gcloud container clusters get-credentials ${CLUSTER_NAME}
 gsutil mb gs://${BUCKET_NAME}
 
 kubectl create namespace kubeflow
-
 pachctl deploy google ${BUCKET_NAME} ${STORAGE_SIZE} --dynamic-etcd-nodes=1 --namespace kubeflow
+
 # Default uses Cloud IAP:
 #kfctl init ${KFAPP} --platform gcp --project ${PROJECT}
 # Alternatively, use this command if you want to use basic authentication:
 #kfctl init ${KFAPP} --platform gcp --project ${PROJECT} --use_basic_auth -V
+# kfctl init ${KFAPP} --platform gcp --project ${PROJECT} --skip-init-gcp-project --use_basic_auth -V
 
-kfctl init ${KFAPP} --platform gcp --project ${PROJECT} --skip-init-gcp-project --use_basic_auth -V
-
-cd ${KFAPP}
-kfctl generate all -V --zone ${GCP_ZONE}
-kfctl apply all -V
-
+mkdir -p ${KF_DIR}
+cd ${KF_DIR}
+kfctl apply -V -f ${CONFIG_URI}

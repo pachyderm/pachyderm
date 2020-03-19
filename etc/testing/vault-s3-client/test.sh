@@ -8,7 +8,7 @@ set -ex
 make install && make docker-build && make docker-push || exit 1
 
 # Start kops cluster
-${SCRIPT_DIR}/../deploy/aws.sh --create --no-pachyderm
+"${SCRIPT_DIR}/../deploy/aws.sh" --create --no-pachyderm
 
 # Deploy vault
 kubectl create -f -<<EOF
@@ -60,9 +60,8 @@ echo root | vault login -
 # Activate and configure the vault s3 secret engine
 vault secrets enable aws
 
-AWS_ID=`cat ~/.aws/credentials | grep aws_access_key_id  | cut -d " " -f 3`
-AWS_SECRET=`cat ~/.aws/credentials | grep aws_secret_access_key | cut -d " " -f 3`
-AWS_AVAILABILITY_ZONE=us-west-1a
+AWS_ID=$(grep aws_access_key_id < ~/.aws/credentials | cut -d " " -f 3)
+AWS_SECRET=$(grep aws_secret_access_key < ~/.aws/credentials | cut -d " " -f 3)
 AWS_REGION=us-west-1  # default region in aws.sh
 vault write aws/config/root \
   access_key="${AWS_ID}" \

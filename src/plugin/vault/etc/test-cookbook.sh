@@ -6,7 +6,7 @@
 
 ### Not in instructions. This checks the setup and creates the plugin binary ###
 set -ex
-which aws vault pachctl
+command -v aws vault pachctl
 vault read sys/health
 pachctl version
 pachctl auth list-admins # make sure auth is activated
@@ -16,13 +16,14 @@ vault secrets disable pachyderm
 
 # Build plugin
 mkdir /tmp/vault-plugins || true
-go build -o /tmp/vault-plugins/pachyderm "$(dirname ${0})/.."
+go build -o /tmp/vault-plugins/pachyderm "$(dirname "${0}")/.."
 
 ### Start the written instructions ###
 
 # Assuming the binary is in /tmp/vault-plugins/pachyderm
-export SHASUM=$(shasum -a 256 "/tmp/vault-plugins/pachyderm" | cut -d " " -f1)
-echo $SHASUM
+SHASUM=$(shasum -a 256 "/tmp/vault-plugins/pachyderm" | cut -d " " -f1)
+export SHASUM
+echo "$SHASUM"
 vault write sys/plugins/catalog/pachyderm sha_256="$SHASUM" command="pachyderm"
 vault secrets enable -path=pachyderm -plugin-name=pachyderm plugin
 

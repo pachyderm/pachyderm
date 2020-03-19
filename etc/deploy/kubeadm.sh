@@ -1,21 +1,22 @@
 #! /bin/bash
 
 # set kubectl config locations
-echo "export KUBECONFIG=/$USER/admin.conf" >> /$USER/.bashrc
+echo "export KUBECONFIG=/$USER/admin.conf" >> "/$USER/.bashrc"
 
 # start kubernetes
 kubeadm init
 
 # connect kubectl
-sudo cp /etc/kubernetes/admin.conf /$USER/
-sudo chown $USER /$USER/admin.conf
+sudo cp /etc/kubernetes/admin.conf "/$USER/"
+sudo chown "$USER" "/$USER/admin.conf"
 export KUBECONFIG=/$USER/admin.conf
 
 # master isolation
 kubectl taint nodes --all node-role.kubernetes.io/master-
 
 # install networking
-export kubever=$(kubectl version | base64 | tr -d '\n')
+kubever=$(kubectl version | base64 | tr -d '\n')
+export kubever
 kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$kubever"
 
 echo "Waiting for networking to come up"

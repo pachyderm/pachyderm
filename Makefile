@@ -74,11 +74,11 @@ custom-release: release-helper release-pachctl-custom
 
 release-pachctl-custom:
 	@# Run pachctl release script w deploy branch name
-	@VERSION="$(shell $(GOPATH)/bin/pachctl version --client-only)" ./etc/build/release_pachctl $(shell $(GOPATH)/bin/pachctl version --client-only)
+	@VERSION="$(shell $(GOPATH)/bin/pachctl version --client-only)" ./etc/build/release_pachctl.sh $(shell $(GOPATH)/bin/pachctl version --client-only)
 
 release-pachctl:
 	@# Run pachctl release script w deploy branch name
-	@VERSION="$(shell $(GOPATH)/bin/pachctl version --client-only)" ./etc/build/release_pachctl
+	@VERSION="$(shell $(GOPATH)/bin/pachctl version --client-only)" ./etc/build/release_pachctl.sh
 
 release-helper: release-version docker-build docker-push
 

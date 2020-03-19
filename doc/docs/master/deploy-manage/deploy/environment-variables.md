@@ -46,7 +46,6 @@ environment variables.
 | `PORT`                 | `650`             | The `pachd` port number. |
 | `HTTP_PORT`             | `652`             | The HTTP port number.   |
 | `PEER_PORT`             | `653`             | The port for pachd-to-pachd communication. |
-| `PPS_ETCD_PREFIX`        | `pachyderm_pps`   | ???  |
 | `NAMESPACE`            | `deafult`         | The namespace in which Pachyderm is deployed. |
 
 **pachd Configuration**
@@ -69,6 +68,7 @@ environment variables.
 | `EXPOSE_OBJECT_API`  | `false`             | Controls access to internal Pachyderm API. |
 | `WORKER_USES_ROOT`   | `true`              | Controls root access in the worker container. |
 | `S3GATEWAY_PORT`     | `600`               | The S3 gateway port number. |
+| `DISABLE_COMMIT_PROGRESS_COUNTER` | `false` | A feature flag that disables commit propagation progress counter. If you have a large DAG, setting this parameter to `true` might help improve etcd performance. You only need to set this parameter on the `pachd` pod. Pachyderm passes this parameter to worker containers automatically. |
 
 **Storage Configuration**
 
