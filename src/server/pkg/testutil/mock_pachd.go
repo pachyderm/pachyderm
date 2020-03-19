@@ -1102,6 +1102,8 @@ type inspectTagFunc func(context.Context, *pfs.Tag) (*pfs.ObjectInfo, error)
 type listTagsFunc func(*pfs.ListTagsRequest, pfs.ObjectAPI_ListTagsServer) error
 type deleteTagsFunc func(context.Context, *pfs.DeleteTagsRequest) (*pfs.DeleteTagsResponse, error)
 type compactFunc func(context.Context, *types.Empty) (*types.Empty, error)
+type putObjFunc func(pfs.ObjectAPI_PutObjServer) error
+type getObjFunc func(*pfs.GetObjRequest, pfs.ObjectAPI_GetObjServer) error
 
 type mockPutObject struct{ handler putObjectFunc }
 type mockPutObjectSplit struct{ handler putObjectSplitFunc }
@@ -1123,6 +1125,8 @@ type mockInspectTag struct{ handler inspectTagFunc }
 type mockListTags struct{ handler listTagsFunc }
 type mockDeleteTags struct{ handler deleteTagsFunc }
 type mockCompact struct{ handler compactFunc }
+type mockPutObj struct{ handler putObjFunc }
+type mockGetObj struct{ handler getObjFunc }
 
 func (mock *mockPutObject) Use(cb putObjectFunc)           { mock.handler = cb }
 func (mock *mockPutObjectSplit) Use(cb putObjectSplitFunc) { mock.handler = cb }
@@ -1144,6 +1148,8 @@ func (mock *mockInspectTag) Use(cb inspectTagFunc)         { mock.handler = cb }
 func (mock *mockListTags) Use(cb listTagsFunc)             { mock.handler = cb }
 func (mock *mockDeleteTags) Use(cb deleteTagsFunc)         { mock.handler = cb }
 func (mock *mockCompact) Use(cb compactFunc)               { mock.handler = cb }
+func (mock *mockPutObj) Use(cb putObjFunc)                 { mock.handler = cb }
+func (mock *mockGetObj) Use(cb getObjFunc)                 { mock.handler = cb }
 
 type objectServerAPI struct {
 	mock *mockObjectServer
@@ -1171,6 +1177,8 @@ type mockObjectServer struct {
 	ListTags       mockListTags
 	DeleteTags     mockDeleteTags
 	Compact        mockCompact
+	PutObj         mockPutObj
+	GetObj         mockGetObj
 }
 
 func (api *objectServerAPI) PutObject(serv pfs.ObjectAPI_PutObjectServer) error {
@@ -1292,6 +1300,18 @@ func (api *objectServerAPI) Compact(ctx context.Context, req *types.Empty) (*typ
 		return api.mock.Compact.handler(ctx, req)
 	}
 	return nil, fmt.Errorf("unhandled pachd mock object.Compact")
+}
+func (api *objectServerAPI) PutObj(serv pfs.ObjectAPI_PutObjServer) error {
+	if api.mock.PutObj.handler != nil {
+		return api.mock.PutObj.handler(serv)
+	}
+	return fmt.Errorf("unhandled pachd mock object.PutObj")
+}
+func (api *objectServerAPI) GetObj(req *pfs.GetObjRequest, serv pfs.ObjectAPI_GetObjServer) error {
+	if api.mock.GetObj.handler != nil {
+		return api.mock.GetObj.handler(req, serv)
+	}
+	return fmt.Errorf("unhandled pachd mock object.GetObj")
 }
 
 // MockPachd provides an interface for running the interface for a Pachd API

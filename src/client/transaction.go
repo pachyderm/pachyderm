@@ -447,6 +447,12 @@ func (c *objectBuilderClient) DeleteTags(ctx context.Context, req *pfs.DeleteTag
 func (c *objectBuilderClient) Compact(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("Compact")
 }
+func (c *objectBuilderClient) PutObj(ctx context.Context, opts ...grpc.CallOption) (pfs.ObjectAPI_PutObjClient, error) {
+	return nil, unsupportedError("PutObj")
+}
+func (c *objectBuilderClient) GetObj(ctx context.Context, req *pfs.GetObjRequest, opts ...grpc.CallOption) (pfs.ObjectAPI_GetObjClient, error) {
+	return nil, unsupportedError("GetObj")
+}
 
 func (c *ppsBuilderClient) CreateJob(ctx context.Context, req *pps.CreateJobRequest, opts ...grpc.CallOption) (*pps.Job, error) {
 	return nil, unsupportedError("CreateJob")
