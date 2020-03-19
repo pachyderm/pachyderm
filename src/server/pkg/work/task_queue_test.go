@@ -10,7 +10,6 @@ import (
 )
 
 type testTask struct {
-	count       int
 	subtaskChan chan struct{}
 }
 
@@ -60,9 +59,7 @@ func TestTaskQueue(t *testing.T) {
 	}
 	for j := 0; j < numSubtasks; j++ {
 		for i := 1; i < numTasks; i++ {
-			select {
-			case <-testTasks[i].subtaskChan:
-			}
+			<-testTasks[i].subtaskChan
 		}
 	}
 }

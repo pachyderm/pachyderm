@@ -149,7 +149,7 @@ func (m *Master) RunSubtasks(subtasks []*Task, collectFunc CollectFunc) (retErr 
 	return nil
 }
 
-// RunSubtasks runs a set of subtasks (provided through a channel) and collects the results with the passed in callback.
+// RunSubtasksChan runs a set of subtasks (provided through a channel) and collects the results with the passed in callback.
 func (m *Master) RunSubtasksChan(subtaskChan chan *Task, collectFunc CollectFunc) (retErr error) {
 	var eg errgroup.Group
 	var count int64

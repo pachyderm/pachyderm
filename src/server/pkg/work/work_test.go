@@ -16,20 +16,11 @@ import (
 )
 
 var (
-	subtaskFailure = fmt.Errorf("subtask failure")
+	errSubtaskFailure = fmt.Errorf("subtask failure")
 )
 
 func seedStr(seed int64) string {
 	return fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
-}
-
-func generateRandomString(n int) string {
-	rand.Seed(time.Now().UnixNano())
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = byte('a' + rand.Intn(26))
-	}
-	return string(b)
 }
 
 func serializeTestData(testData *TestData) (*types.Any, error) {
@@ -77,7 +68,7 @@ func collectSubtask(subtaskInfo *TaskInfo, collected map[string]bool) error {
 		return fmt.Errorf("collected subtask should be processed")
 	}
 	collected[subtaskInfo.Task.ID] = true
-	if subtaskInfo.State == State_FAILURE && subtaskInfo.Reason != subtaskFailure.Error() {
+	if subtaskInfo.State == State_FAILURE && subtaskInfo.Reason != errSubtaskFailure.Error() {
 		return fmt.Errorf("subtask failure reason does not equal subtask failure error message")
 	}
 	return nil
@@ -108,7 +99,7 @@ func test(t *testing.T, workerFailProb, taskCancelProb, subtaskFailProb float64)
 							return err
 						}
 						if rand.Float64() < subtaskFailProb {
-							return subtaskFailure
+							return errSubtaskFailure
 						}
 						return nil
 					}); err != nil {
