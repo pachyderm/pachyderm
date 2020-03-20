@@ -889,6 +889,23 @@ func (c APIClient) Compact() error {
 	return err
 }
 
+// GetObj gets the content of an obj.
+func (c APIClient) GetObj(obj string) (io.ReadCloser, error) {
+	getObjClient, err := c.ObjectAPIClient.GetObj(
+		c.Ctx(),
+		&pfs.GetObjRequest{Obj: obj},
+	)
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	return grpcutil.NewStreamingBytesReader(getObjClient, nil), nil
+}
+
+// PutObj puts an obj.
+func (c APIClient) PutObjWriter(obj string) (io.WriteCloser, error) {
+	return c.newPutObjWriteCloser(obj)
+}
+
 // PutFileClient is a client interface for putting files. There are 2
 // implementations, 1 that does each file as a seperate request and one that
 // does them all together in the same request.
@@ -1746,6 +1763,43 @@ func (w *putBlockWriteCloser) Write(p []byte) (int, error) {
 
 func (w *putBlockWriteCloser) Close() error {
 	if w.request.Block != nil {
+		// This happens if the block is empty in which case Write was never
+		// called, so we need to send an empty request to identify the block.
+		if err := w.client.Send(w.request); err != nil {
+			return grpcutil.ScrubGRPC(err)
+		}
+	}
+	_, err := w.client.CloseAndRecv()
+	return grpcutil.ScrubGRPC(err)
+}
+
+type putObjWriteCloser struct {
+	request *pfs.PutObjRequest
+	client  pfs.ObjectAPI_PutObjClient
+}
+
+func (c APIClient) newPutObjWriteCloser(obj string) (*putObjWriteCloser, error) {
+	client, err := c.ObjectAPIClient.PutObj(c.Ctx())
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	return &putObjWriteCloser{
+		request: &pfs.PutObjRequest{Obj: obj},
+		client:  client,
+	}, nil
+}
+
+func (w *putObjWriteCloser) Write(p []byte) (int, error) {
+	w.request.Value = p
+	if err := w.client.Send(w.request); err != nil {
+		return 0, grpcutil.ScrubGRPC(err)
+	}
+	w.request.Obj = ""
+	return len(p), nil
+}
+
+func (w *putObjWriteCloser) Close() error {
+	if w.request.Obj == "" {
 		// This happens if the block is empty in which case Write was never
 		// called, so we need to send an empty request to identify the block.
 		if err := w.client.Send(w.request); err != nil {
