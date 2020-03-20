@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"godoc_test"
 	"io"
 	"sync"
 

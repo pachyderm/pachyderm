@@ -37,6 +37,7 @@ require (
 	github.com/fatih/camelcase v1.0.0
 	github.com/fatih/color v1.7.0
 	github.com/fatih/structs v1.1.0 // indirect
+	github.com/fluhus/godoc-tricks v1.0.0 // indirect
 	github.com/fsouza/go-dockerclient v1.4.1
 	github.com/go-ini/ini v1.42.0 // indirect
 	github.com/go-test/deep v1.0.1 // indirect
