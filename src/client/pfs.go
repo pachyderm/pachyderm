@@ -890,7 +890,7 @@ func (c APIClient) Compact() error {
 }
 
 // GetObj gets the content of an obj.
-func (c APIClient) GetObj(obj string) (io.ReadCloser, error) {
+func (c APIClient) ObjReader(obj string) (io.ReadCloser, error) {
 	getObjClient, err := c.ObjectAPIClient.GetObj(
 		c.Ctx(),
 		&pfs.GetObjRequest{Obj: obj},
@@ -902,7 +902,7 @@ func (c APIClient) GetObj(obj string) (io.ReadCloser, error) {
 }
 
 // PutObj puts an obj.
-func (c APIClient) PutObjWriter(obj string) (io.WriteCloser, error) {
+func (c APIClient) ObjWriter(obj string) (io.WriteCloser, error) {
 	return c.newPutObjWriteCloser(obj)
 }
 

@@ -1562,7 +1562,7 @@ func (a *APIServer) getHashtrees(ctx context.Context, pachClient *client.APIClie
 				return err
 			}
 			// Read the full datum hashtree in memory
-			objR, err := objClient.Reader(ctx, path, 0, 0)
+			objR, err := pachClient.ObjReader(path)
 			if err != nil {
 				return err
 			}
@@ -1639,7 +1639,7 @@ func (a *APIServer) getParentHashTree(ctx context.Context, pachClient *client.AP
 	if err != nil {
 		return nil, err
 	}
-	return objClient.Reader(ctx, path, 0, 0)
+	return pachClient.ObjReader(path)
 }
 
 func writeIndex(logger *taggedLogger, pachClient *client.APIClient, objClient obj.Client, tree *pfs.Object, idx []byte) (retErr error) {
@@ -1654,7 +1654,7 @@ func writeIndex(logger *taggedLogger, pachClient *client.APIClient, objClient ob
 	if err != nil {
 		return err
 	}
-	idxW, err := objClient.Writer(pachClient.Ctx(), path+hashtree.IndexPath)
+	idxW, err := pachClient.ObjWriter(path + hashtree.IndexPath)
 	logger.Logf("writeIndex constructed writer for path: %v, err: %v", path+hashtree.IndexPath, err)
 	if err != nil {
 		return err
