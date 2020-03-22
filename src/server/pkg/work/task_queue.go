@@ -51,9 +51,9 @@ func (te *taskEntry) runSubtaskBlock(subtask subtaskBlockFunc) error {
 // significantly lower than the number of subtasks. Also, we are not concerned with the ordering of subtasks within a task,
 // only the ordering of subtasks across tasks.
 type taskQueue struct {
-	tasks           *ordered_map.OrderedMap
-	mu              sync.Mutex
-	tasksSinceRemap int
+	tasks                  *ordered_map.OrderedMap
+	mu                     sync.Mutex
+	tasksDeletedSinceRemap int
 }
 
 func newTaskQueue(ctx context.Context) *taskQueue {
@@ -103,7 +103,6 @@ func (tq *taskQueue) runTask(ctx context.Context, taskID string, f func(*taskEnt
 	if _, ok := tq.tasks.Get(taskID); ok {
 		return fmt.Errorf("errored creating task %v, which already exists", taskID)
 	}
-	tq.remap()
 	ctx, cancel := context.WithCancel(ctx)
 	te := &taskEntry{
 		ctx:             ctx,
@@ -118,19 +117,19 @@ func (tq *taskQueue) runTask(ctx context.Context, taskID string, f func(*taskEnt
 	return nil
 }
 
-// remap copies the entries in the ordered map to a new ordered map after a certain number of
-// tasks have been encountered. This is to prevent unbounded memory usage due to maps not freeing
+// maybeRemap copies the entries in the ordered map to a new ordered map after a certain number of
+// tasks have been deleted. This is to prevent unbounded memory usage due to maps not freeing
 // memory after deletions.
-func (tq *taskQueue) remap() {
-	tq.tasksSinceRemap++
-	if tq.tasksSinceRemap >= remapThreshold {
+func (tq *taskQueue) maybeRemap() {
+	tq.tasksDeletedSinceRemap++
+	if tq.tasksDeletedSinceRemap >= remapThreshold {
 		var kvs []*ordered_map.KVPair
 		iter := tq.tasks.IterFunc()
 		for kv, ok := iter(); ok; kv, ok = iter() {
 			kvs = append(kvs, kv)
 		}
 		tq.tasks = ordered_map.NewOrderedMapWithArgs(kvs)
-		tq.tasksSinceRemap = 0
+		tq.tasksDeletedSinceRemap = 0
 	}
 }
 
@@ -143,4 +142,5 @@ func (tq *taskQueue) deleteTask(taskID string) {
 	}
 	tc.(*taskEntry).cancel()
 	tq.tasks.Delete(taskID)
+	tq.maybeRemap()
 }
