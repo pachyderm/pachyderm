@@ -62,8 +62,7 @@ func newTaskQueue(ctx context.Context) *taskQueue {
 	}
 	// The next subtask to process is determined by iterating through the ordered map and checking the
 	// subtask function channel for each task entry to see if the next subtask is ready to be processed.
-	// If a subtask function is received, then it is executed and the error state is returned through
-	// the task entry error channel.
+	// If a subtask function is received, then it is executed.
 	// After processing a subtask, the iteration starts from the beginning (new subtasks from earlier
 	// tasks should be processed first).
 	go func() {
