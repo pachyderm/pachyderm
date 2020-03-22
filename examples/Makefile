@@ -1,13 +1,12 @@
 # The executable paths below are set to generic values.
 # Modify them for your system by setting environment variables, using a command like this
 # to both fetch the version of pachyderm you want to use and execute it.
-# "../etc/fetch_release_pachctl.py 1.10.0 ; env PACHCTL=${GOPATH}/bin/pachctl make -e  -f Makefile.testing dirty-testing-cluster)"
+# "../etc/fetch_release_pachctl.py 1.10.0 ; env PACHCTL=${GOPATH}/bin/pachctl make -e opencv"
 
 PACHCTL := pachctl
 TAR := tar
 WGET := wget
 RM := rm
-
 
 GATK_GERMLINE_FILES	=	gatk/GATK_Germline/data/ref/ref.dict \
 				gatk/GATK_Germline/data/ref/ref.fasta \

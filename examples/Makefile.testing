@@ -17,18 +17,14 @@
 
 include Makefile
 
-CP := cp
-DOCKER := docker
 ECHO := echo
 JQ := jq
-JQFLAGS :=
+# kubectl is called by scripts, referenced here to make clear you can override default
 KUBECTL := kubectl
 PACHCTL := pachctl
-RM := rm
+# sleep is called by scripts, referenced here to make clear you can override default
 SLEEP := sleep
-SORT := sort
-TOUCH := touch
-UNIQ  := uniq
+# wc is called by scripts, referenced here to make clear you can override default
 WC := wc
 
 STATS := .enable_stats=true
@@ -37,35 +33,6 @@ DETECTIMAGES := .input.cross[0].pfs.repo="object-images"|.input.cross[0].pfs.nam
 HYPERPSPLIT := .input.cross[0].pfs.repo="hp-split"|.input.cross[0].pfs.name="split"
 HYPERPMODEL := .input.cross[1].pfs.repo="hp-model"|.input.cross[1].pfs.name="model"
 HYPERPTEST := .input.cross[0].pfs.repo="hp-test"|.input.cross[0].pfs.name="test"
-
-# pipeline-status will wait until all pipelines report "Ready"
-# takes 0 arguments
-# Why so complicated?  Todo: explain that and * usage for items
-pipeline-status = $$(CURRENT_STATUS=`$(KUBECTL) get pod -l suite=pachyderm,pipelineName=$(1) \
-			-o jsonpath='{.items[*].status.conditions[?(@.type=="Ready")].status}'` ; \
-			if [ $$CURRENT_STATUS ] ; then $(ECHO) -n $$CURRENT_STATUS ; else $(ECHO) -n False ; fi)
-
-# wait-for-jobs will wait until there are no pachyderm jobs matching a jq filter condition
-# It takes 2 arguments.
-# $(1) the jq search filter: the filter '.state!="JOB_SUCCESS"' (without single quotes) will wait until all jobs are successful
-#                            the filter '.state!="JOB_SUCCESS" and .state!="JOB_FAILURE" will wait until all jobs have
-#                               either succeeded or failed.
-#                            You can put any jq filter that will work with the "--raw" output of "list job" to produce
-#                               a list of job IDs.
-# $(2) description: some text that will inform the user what kind of jobs are done.
-wait-for-jobs = while JOBS=`$(PACHCTL) list job --raw | $(JQ) 'select($(1))|.job.id'` && \
-			NUMJOBS=`$(ECHO) -n $${JOBS} | $(WC) -w` && \
-			[ $${NUMJOBS} -gt 0 ] ; \
-		do \
-			WHEEL=$${WHEEL:1}$${WHEEL:0:1}; \
-			if [ $${NUMJOBS} -gt 1 ] ; \
-			then STATUS_MSG="waiting for $${NUMJOBS// } jobs to finish..." ; \
-			else STATUS_MSG="waiting for $${JOBS} job to finish..." ; \
-			fi ; \
-			$(ECHO)  -en "\e[G\e[K$${WHEEL:0:1}$${STATUS_MSG}"; \
-			$(SLEEP) 1; \
-		done ; \
-		$(ECHO) -e "\e[G\e[K$${WHEEL:0:1}$(2) jobs done."
 
 opencv-testing: 
 	$(PACHCTL) create repo images
@@ -86,7 +53,7 @@ opencv-testing-delete:
 	-$(PACHCTL) delete pipeline edges
 
 
-object-detection-testing-base: OBJECT_IMAGES = $(ECHO) "object-detection will be using opencv's images repo"
+object-detection-testing-base: OBJECT_IMAGES = $(ECHO) 'The target you selected has object-detection use the same "images" repo as opencv. Hit control-C and then type "make delete" if that is not desired.'
 object-detection-testing-base: OBJECT_MODEL_PIPELINE = $(JQ) '$(STATS)|.pipeline.name="object-model"'  ml/object-detection/model.json | $(PACHCTL) create pipeline -f - >/dev/null
 object-detection-testing-base: OBJECT_DETECT_PIPELINE = $(JQ) '$(STATS)|$(DETECTMODEL)'  ml/object-detection/detect.json | $(PACHCTL) create pipeline -f - >/dev/null
 object-detection-testing-base:  object-detection-base
@@ -132,22 +99,23 @@ testing-delete: gatk-testing-delete hyperparameter-testing-delete object-detecti
 testing: opencv-testing object-detection-testing hyperparameter-testing gatk-testing
 
 dirty-testing-cluster: opencv-base  ml/object-detection/frozen_inference_graph.pb object-detection-testing-base hyperparameter-testing-base  $(GATK_GERMLINE_FILES) gatk-base
-	until $(call pipeline-status,edges) = True && \
-		$(call pipeline-status,montage) = True && \
-		$(call pipeline-status,object-model) = True && \
-		$(call pipeline-status,object-detect) = True && \
-		$(call pipeline-status,hp-split) = True && \
-		$(call pipeline-status,hp-model) = True && \
-		$(call pipeline-status,hp-test) = True && \
-		$(call pipeline-status,hp-select) = True && \
-		$(call pipeline-status,joint_call) = True && \
-		$(call pipeline-status,likelihoods) = True ; \
+	until `../etc/examples/pipeline-status.sh edges` = True && \
+		`../etc/examples/pipeline-status.sh montage` = True && \
+		`../etc/examples/pipeline-status.sh object-model` = True && \
+		`../etc/examples/pipeline-status.sh object-detect` = True && \
+		`../etc/examples/pipeline-status.sh hp-split` = True && \
+		`../etc/examples/pipeline-status.sh hp-model` = True && \
+		`../etc/examples/pipeline-status.sh hp-test` = True && \
+		`../etc/examples/pipeline-status.sh hp-select` = True && \
+		`../etc/examples/pipeline-status.sh joint_call` = True && \
+		`../etc/examples/pipeline-status.sh likelihoods` = True ; \
 	do \
 		WHEEL=$${WHEEL:1}$${WHEEL:0:1}; \
-		$(ECHO)  -en "\e[G\e[K$${WHEEL:0:1}waiting for pipelines to start..."; \
+		$(ECHO)  -en "\e[G\e[K$${WHEEL:0:1}Waiting for pipelines to start..."; \
 		$(SLEEP) 1; \
 	done
-	@$(ECHO) -e "\e[G\e[K$${WHEEL:0:1}pipelines started...";
+	@$(ECHO) -e "\e[G\e[K$${WHEEL:0:1}Pipelines started.";
+	@$(ECHO)  "Committing data to images@master and training@master in a single transaction...";
 	$(PACHCTL) start transaction > /dev/null
 	$(PACHCTL) start commit images@master > /dev/null 2>/dev/null
 	$(PACHCTL) start commit training@master > /dev/null 2>/dev/null
@@ -158,21 +126,21 @@ dirty-testing-cluster: opencv-base  ml/object-detection/frozen_inference_graph.p
 	$(PACHCTL) put file images@master -i opencv/images2.txt 
 	$(PACHCTL) finish commit images@master > /dev/null
 	$(PACHCTL) finish commit training@master > /dev/null
-	$(call wait-for-jobs,.state!="JOB_SUCCESS",first opencv and object-detection)
-	$(ECHO) -e "adding stats to edges and montage..."; 
+	../etc/examples/wait-for-jobs.sh succeeded-only "First opencv and object-detection jobs done."
+	$(ECHO) -e "Adding stats to edges and montage..."; 
 	$(JQ) "$(STATS)" opencv/edges.json | $(PACHCTL) update pipeline -f - >/dev/null
 	$(JQ) "$(STATS)" opencv/montage.json | $(PACHCTL) update pipeline -f - >/dev/null
-	@$(ECHO) -e "adding images to images@master that will produce failed jobs...";
+	@$(ECHO) -e "Adding images to images@master that will produce failed jobs...";
 	$(PACHCTL) put file images@master -i opencv/images3.txt
-	$(call wait-for-jobs,.state!="JOB_SUCCESS" and .state!="JOB_FAILURE",images into images@master that produce object-detection failures)
-	@$(ECHO) -e "modifying up object-detection to use new object-images repo and adding images...";
+	../etc/examples/wait-for-jobs.sh succeeded-or-failed  "Done inserting images into images@master that produce object-detection job failures."
+	@$(ECHO) -e "Modifying object-detection to use new object-images repo and adding images...";
 	$(PACHCTL) create repo object-images
 	$(JQ) '$(STATS)|$(DETECTMODEL)|$(DETECTIMAGES)' ml/object-detection/detect.json  | $(PACHCTL) update pipeline -f - >/dev/null
 	$(PACHCTL) put file images@master -i opencv/images4.txt
 	$(PACHCTL) put file object-images@master:dogs.jpg -f ml/object-detection/images/dogs.jpg
 	$(PACHCTL) put file object-images@master:airplane.jpg -f ml/object-detection/images/airplane.jpg
-	$(call wait-for-jobs,.state!="JOB_SUCCESS",new images in object-images@master and images@master)
-	@$(ECHO) -e "adding data to gatk...";
+	../etc/examples/wait-for-jobs.sh succeeded-only "Done adding new images in object-images@master and images@master."
+	@$(ECHO) -e "Adding data to gatk...";
 	$(PACHCTL) start transaction > /dev/null
 	$(PACHCTL) start commit reference@master > /dev/null 2>/dev/null
 	$(PACHCTL) start commit samples@master >/dev/null 2>/dev/null
@@ -185,25 +153,26 @@ dirty-testing-cluster: opencv-base  ml/object-detection/frozen_inference_graph.p
 	$(PACHCTL) put file samples@master:mother/mother.bai -f gatk/GATK_Germline/data/bams/mother.bai
 	$(PACHCTL) finish commit reference@master > /dev/null
 	$(PACHCTL) finish commit samples@master > /dev/null
-	$(call wait-for-jobs,.state!="JOB_SUCCESS",initial gatk data in references and master)
+	../etc/examples/wait-for-jobs.sh succeeded-only "Done adding initial gatk data in references and master."
 	if GATK_FATHER_COMMIT=`$(PACHCTL) start commit samples@master` && \
 	   [ -n $${GATK_FATHER_COMMIT} ] ; \
 	then \
-		$(ECHO) -e "adding father to gatk, samples@$${GATK_FATHER_COMMIT} , we will delete..." ; \
+		$(ECHO) -e "Adding father to gatk, samples@$${GATK_FATHER_COMMIT}, we will delete his data later..." ; \
 		$(PACHCTL) put file samples@master:father/father.bam -f gatk/GATK_Germline/data/bams/father.bam ; \
 		$(PACHCTL) put file samples@master:father/father.bai -f gatk/GATK_Germline/data/bams/father.bai ; \
 		$(PACHCTL) finish commit samples@master > /dev/null ; \
 		GATK_SON_COMMIT=`$(PACHCTL) start commit samples@master` ; \
-		$(ECHO) -e "adding son, samples@$${GATK_SON_COMMIT}..." ; \
+		$(ECHO) -e "Adding son, samples@$${GATK_SON_COMMIT}..." ; \
 		$(PACHCTL) put file samples@master:son/son.bam -f gatk/GATK_Germline/data/bams/son.bam ; \
 		$(PACHCTL) put file samples@master:son/son.bai -f gatk/GATK_Germline/data/bams/son.bai	; \
 		$(PACHCTL) finish commit samples@master > /dev/null ; \
-		$(ECHO) -e "deleting father commit, samples@$${GATK_FATHER_COMMIT}..." ; \
+		$(ECHO) -e "Deleting father commit, samples@$${GATK_FATHER_COMMIT}..." ; \
 		$(PACHCTL) delete commit samples@$${GATK_FATHER_COMMIT} ; \
 	else \
-		$(ECHO) -e "could not create commit in samples@master..." ; \
+		$(ECHO) -e "Error: could not create commit in samples@master." ; \
+		exit 1 ; \
 	fi
-	$(call wait-for-jobs,.state!="JOB_SUCCESS",cluster ready for testing:)
+	../etc/examples/wait-for-jobs.sh succeeded-only "All jobs finished. Inspect output above to determine if cluster ready for testing."
 
 
 
