@@ -101,28 +101,14 @@ func (s *Storage) NewMergeReader(ctx context.Context, fileSets []string, opts ..
 	return newMergeReader(rs), nil
 }
 
-// MergeRead performs a merge read of a set of filesets.
-// MergeRead takes a callback that will be called for each file that is encountered.
-// The callback will receive a file merge reader for the file (which lazily downloads the file content).
-func (s *Storage) MergeRead(ctx context.Context, fileSets []string, f func(*FileMergeReader) error, opts ...index.Option) error {
+// ResolveIndexes resolves index entries that are spread across multiple filesets.
+func (s *Storage) ResolveIndexes(ctx context.Context, fileSets []string, f func(*index.Index) error, opts ...index.Option) error {
 	mr, err := s.NewMergeReader(ctx, fileSets, opts...)
 	if err != nil {
 		return err
 	}
-	hashMr, err := s.NewMergeReader(ctx, fileSets, opts...)
-	if err != nil {
-		return err
-	}
-	w := s.newWriter(ctx, "", func(idx *index.Index) error {
-		fmr, err := mr.Next()
-		if err != nil {
-			return err
-		}
-		// (bryce) validate that the paths are the same
-		fmr.fullIdx = idx
-		return f(fmr)
-	})
-	if err := hashMr.WriteTo(w); err != nil {
+	w := s.newWriter(ctx, "", f)
+	if err := mr.WriteTo(w); err != nil {
 		return err
 	}
 	return w.Close()
