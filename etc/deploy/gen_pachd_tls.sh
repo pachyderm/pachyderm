@@ -3,7 +3,8 @@
 
 hostport=$1
 output_prefix=${2:-pachd}
-host="$(echo $hostport | sed -e 's,:.*,,g')"
+# shellcheck disable=SC2001
+host="$(echo "$hostport" | sed -e 's,:.*,,g')"
 if [[ "${host}" =~ [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+ ]]; then
   ip=${host}
 else
@@ -46,7 +47,7 @@ tls_opts=(
   -newkey rsa:2048
 
   # Output the private key here # Output the private key here
-  -keyout ${output_prefix}.key
+  -keyout "${output_prefix}.key"
 
   # Output PEM-encoded cert (this is the default, and this flag is unnecessary,
   # but PEM is required by kubernetes and this makes explicit the fact that
@@ -54,7 +55,7 @@ tls_opts=(
   -outform PEM
 
   # Output path for the self-signed cert
-  -out ${output_prefix}.pem
+  -out "${output_prefix}.pem"
 )
 
 # Generate self-signed cert

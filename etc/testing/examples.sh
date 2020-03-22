@@ -12,8 +12,8 @@ pushd examples/opencv
     pachctl put file images@master -i images2.txt
 
     # wait for everything to finish
-    commit_id=`pachctl list commit images -n 1 --raw | jq .commit.id -r`
-    pachctl flush job images@$commit_id
+    commit_id=$(pachctl list commit images -n 1 --raw | jq .commit.id -r)
+    pachctl flush job "images@$commit_id"
 
     # ensure the montage image was generated
     pachctl inspect file montage@master:montage.png
@@ -31,26 +31,26 @@ pushd examples/shuffle
     pachctl put file pricing@master -f apple.json
 
     # wait for everything to finish
-    commit_id=`pachctl list commit fruits -n 1 --raw | jq .commit.id -r`
-    pachctl flush job fruits@$commit_id
-    pachctl flush commit fruits@$commit_id
+    commit_id=$(pachctl list commit fruits -n 1 --raw | jq .commit.id -r)
+    pachctl flush job "fruits@$commit_id"
+    pachctl flush commit "fruits@$commit_id"
 
     # check downloaded and uploaded bytes
-    downloaded_bytes=`pachctl list job -p shuffle --raw | jq '.stats.download_bytes | values'`
+    downloaded_bytes=$(pachctl list job -p shuffle --raw | jq '.stats.download_bytes | values')
     if [ "$downloaded_bytes" != "" ]; then
-        echo "Unexpected downloaded bytes in shuffle repo: $DOWNLOADED_BYTES"
+        echo "Unexpected downloaded bytes in shuffle repo: $downloaded_bytes"
         exit 1
     fi
 
-    uploaded_bytes=`pachctl list job -p shuffle --raw | jq '.stats.upload_bytes | values'`
+    uploaded_bytes=$(pachctl list job -p shuffle --raw | jq '.stats.upload_bytes | values')
     if [ "$uploaded_bytes" != "" ]; then
         echo "Unexpected downloaded bytes in shuffle repo: $uploaded_bytes"
         exit 1
     fi
 
     # check that the files were made
-    files=`pachctl list file "shuffle@master:*" --raw | jq '.file.path' -r`
-    expected_files=`echo -e "/apple\n/apple/cost.json\n/apple/img.jpeg\n/mango\n/mango/cost.json\n/mango/img.jpeg"`
+    files=$(pachctl list file "shuffle@master:*" --raw | jq '.file.path' -r)
+    expected_files=$(echo -e "/apple\n/apple/cost.json\n/apple/img.jpeg\n/mango\n/mango/cost.json\n/mango/img.jpeg")
     if [ "$files" != "$expected_files" ]; then
         echo "Unexpected output files in shuffle repo: $files"
         exit 1
@@ -67,13 +67,13 @@ pushd examples/word_count
     pachctl create pipeline -f map.json
 
     # wait for everything to finish
-    commit_id=`pachctl list commit urls -n 1 --raw | jq .commit.id -r`
-    pachctl flush commit urls@$commit_id
+    commit_id=$(pachctl list commit urls -n 1 --raw | jq .commit.id -r)
+    pachctl flush commit "urls@$commit_id"
 
     # just make sure the count for the word 'wikipedia' is a valid and
     # positive int, since the specific count may vary over time
-    wikipedia_count=`pachctl get file map@master:wikipedia`
-    if [ $wikipedia_count -le 0 ]; then
+    wikipedia_count=$(pachctl get file map@master:wikipedia)
+    if [ "$wikipedia_count" -le 0 ]; then
         echo "Unexpected count for the word 'wikipedia': $wikipedia_count"
         exit 1
     fi
@@ -100,12 +100,12 @@ pushd examples/ml/hyperparameter
     pachctl create pipeline -f test.json 
     pachctl create pipeline -f select.json
 
-    commit_id=`pachctl list commit raw_data -n 1 --raw | jq .commit.id -r`
-    pachctl flush job raw_data@$commit_id
+    commit_id=$(pachctl list commit raw_data -n 1 --raw | jq .commit.id -r)
+    pachctl flush job "raw_data@$commit_id"
 
     # just make sure we outputted some files
-    selected_file_count=`pachctl list file select@master | wc -l`
-    if [ $selected_file_count -le 2 ]; then
+    selected_file_count=$(pachctl list file select@master | wc -l)
+    if [ "$selected_file_count" -le 2 ]; then
         echo "Expected some files to be outputted in the select repo"
         exit 1
     fi
@@ -130,12 +130,12 @@ pushd examples/ml/iris
     pachctl list file attributes@master
     pachctl create pipeline -f julia_infer.json
 
-    commit_id=`pachctl list commit training -n 1 --raw | jq .commit.id -r`
-    pachctl flush job training@$commit_id
+    commit_id=$(pachctl list commit training -n 1 --raw | jq .commit.id -r)
+    pachctl flush job "training@$commit_id"
 
     # just make sure we outputted some files
-    inference_file_count=`pachctl list file inference@master | wc -l`
-    if [ $inference_file_count -ne 3 ]; then
+    inference_file_count=$(pachctl list file inference@master | wc -l)
+    if [ "$inference_file_count" -ne 3 ]; then
         echo "Unexpected file count in inference repo"
         exit 1
     fi

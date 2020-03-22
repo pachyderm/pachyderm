@@ -187,7 +187,7 @@ Run 9: /pfs/A/3.txt
     In cross inputs, if you use the `name` field, your two
     inputs cannot have the same name. This could cause file system collisions.
 
-!!! note "See Also"
+!!! note "See Also:"
 
 - [Cross Input](../../../../reference/pipeline_spec/#cross-input)
 - [Union Input](../../../../reference/pipeline_spec/#union-input)

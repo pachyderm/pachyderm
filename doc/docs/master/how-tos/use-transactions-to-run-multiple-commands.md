@@ -1,6 +1,6 @@
 # Use Transactions
 
-!!! note "Summary"
+!!! note "TL;DR"
     Use transactions to run multiple Pachyderm commands
     simultaneously in one job run.
 
@@ -70,7 +70,7 @@ organizational and performance reasons.
 
 ### Switching from Staging to Master Simultaneously
 
-If you are using [deferred processing](../deferred_processing/)
+If you are using [deferred processing](../../concepts/advanced-concepts/deferred_processing/)
 in your repositories because you want to commit your changes frequently
 without triggering jobs every time, then transactions can help you
 manage deferred processing with multiple inputs. You commit your

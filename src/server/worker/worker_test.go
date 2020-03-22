@@ -3,7 +3,6 @@ package worker
 import (
 	"context"
 	"fmt"
-	"os"
 	"path"
 	"sync"
 	"testing"
@@ -12,18 +11,18 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/pachyderm/pachyderm/src/client"
-	pclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
+	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
 func TestAcquireDatums(t *testing.T) {
 	t.Skip()
-	c := getPachClient(t)
+	c := testutil.GetPachClient(t)
 	etcdClient := getEtcdClient(t)
 
 	plans := col.NewCollection(etcdClient, path.Join("", planPrefix), nil, &Plan{}, nil, nil)
@@ -62,9 +61,13 @@ func TestAcquireDatums(t *testing.T) {
 	}
 }
 
+//lint:ignore U1000 false positive from staticcheck
 var etcdClient *etcd.Client
+
+//lint:ignore U1000 false positive from staticcheck
 var etcdOnce sync.Once
 
+//lint:ignore U1000 false positive from staticcheck
 func getEtcdClient(t *testing.T) *etcd.Client {
 	// src/server/pfs/server/driver.go expects an etcd server at "localhost:32379"
 	// Try to establish a connection before proceeding with the test (which will
@@ -75,7 +78,7 @@ func getEtcdClient(t *testing.T) *etcd.Client {
 			var err error
 			etcdClient, err = etcd.New(etcd.Config{
 				Endpoints:   []string{etcdAddress},
-				DialOptions: pclient.DefaultDialOptions(),
+				DialOptions: client.DefaultDialOptions(),
 			})
 			if err != nil {
 				return fmt.Errorf("could not connect to etcd: %s", err.Error())
@@ -86,22 +89,7 @@ func getEtcdClient(t *testing.T) *etcd.Client {
 	return etcdClient
 }
 
-var pachClient *client.APIClient
-var getPachClientOnce sync.Once
-
-func getPachClient(t testing.TB) *client.APIClient {
-	getPachClientOnce.Do(func() {
-		var err error
-		if addr := os.Getenv("PACHD_PORT_650_TCP_ADDR"); addr != "" {
-			pachClient, err = client.NewInCluster()
-		} else {
-			pachClient, err = client.NewForTest()
-		}
-		require.NoError(t, err)
-	})
-	return pachClient
-}
-
+//lint:ignore U1000 false positive from staticcheck
 func newTestAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix string, t *testing.T) *APIServer {
 	return &APIServer{
 		pachClient: pachClient,

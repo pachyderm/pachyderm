@@ -49,7 +49,7 @@ func NewLocalLogger(service string) Logger {
 }
 
 func newLogger(service string, exportStats bool) Logger {
-	l := logrus.New()
+	l := logrus.StandardLogger()
 	l.Formatter = FormatterFunc(Pretty)
 	newLogger := &logger{
 		l.WithFields(logrus.Fields{"service": service}),

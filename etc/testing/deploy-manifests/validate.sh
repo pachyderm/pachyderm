@@ -4,7 +4,7 @@ set -e
 
 here="$(dirname "${0}")"
 dest_dir="test"
-rm -rf "${here}/${dest_dir}" || true
+rm -rf "${here:?}/${dest_dir:?}" || true
 mkdir -p "${here}/${dest_dir}"
 
 is_regenerate=""
@@ -21,6 +21,7 @@ fi
 
 # Generate a deployment manifest for many different targets using the local
 # build of 'pachctl'
+# shellcheck disable=SC2034
 custom_args=(
 --cluster-deployment-id test
 --secure
@@ -28,7 +29,7 @@ custom_args=(
 --etcd-storage-class storage-class
 --namespace pachyderm
 --no-expose-docker-socket
---object-store=s3
+"--object-store=s3"
   pach-volume       # <volumes>
   50                # <size of volumes (in GB)>
   pach-bucket       # <bucket>
@@ -36,12 +37,14 @@ custom_args=(
   storage-secret    # <secret>
   storage.endpoint  # <endpoint>
 )
+# shellcheck disable=SC2034
 google_args=(
 --cluster-deployment-id test
 --dynamic-etcd-nodes 3
   pach-bucket # <bucket-name>
   50          # <disk-size>
 )
+# shellcheck disable=SC2034
 amazon_args=(
 --cluster-deployment-id test
 --dynamic-etcd-nodes 3
@@ -50,13 +53,14 @@ amazon_args=(
   us-west-1   # <region>
   50          # <disk-size>
 )
+# shellcheck disable=SC2034
 microsoft_args=(
 --cluster-deployment-id test
 --dynamic-etcd-nodes 3
-  pach-container           # <container>
-  pach-account             # <account-name>
-  cGFjaC1hY2NvdW50LWtleQ== # <account-key> (base64-encoded "pach-account-key")
-  50                       # <disk-size>
+  pach-container             # <container>
+  pach-account               # <account-name>
+  "cGFjaC1hY2NvdW50LWtleQ==" # <account-key> (base64-encoded "pach-account-key")
+  50                         # <disk-size>
 )
 
 pach_config="${here}/${dest_dir}/pachconfig"
@@ -71,7 +75,8 @@ for platform in custom google amazon microsoft; do
     # - strip additional version info so that pachctl builds from the same
     #   version all work
     # - Use an empty pach config so that e.g. metrics don't change the output
-    pachctl deploy "${platform}" "${args[@]}" -o "${fmt}" --dry-run \
+    # shellcheck disable=SC2154
+    "${GOPATH}/bin/pachctl" deploy "${platform}" "${args[@]}" -o "${fmt}" --dry-run \
       | sed 's/\([0-9]\{1,4\}\.[0-9]\{1,4\}\.[0-9]\{1,4\}\)-[0-9a-f]\{40\}/\1/g' >"${output}"
     rm -f "${pach_config}" # remove cfg from next run (or diff dir, or golden/)
     if [[ ! "${is_regenerate}" ]]; then

@@ -23,7 +23,7 @@ In a `test` stage we will pair each trained/fit model in `model` with our test d
 
 ![alt text](pipeline3.png)
 
-Finally, in a `select` stage we will determine which of the evaluate metrics in `test` is the best, select out the models corresponding to those metrics, and output them to the `select` repo.
+Finally, in a `select` stage we will determine which of the evaluated metrics in `test` is the best, select out the models corresponding to those metrics, and output them to the `select` repo.
 
 ![alt text](pipeline4.png)
 

@@ -11,6 +11,7 @@
 # right: 5,...,9
 
 HERE="$(dirname "${0}")"
+# shellcheck source=./etc/testing/migration/v1_7/deploy.sh
 source "${HERE}/deploy.sh"
 
 set -x
@@ -91,4 +92,4 @@ echo "fails due to transient encoding issues, and you may need to re-run it"
 
 set -x
 
-pachctl_1_7 extract >${HERE}/sort.metadata
+pachctl_1_7 extract >"${HERE}/sort.metadata"

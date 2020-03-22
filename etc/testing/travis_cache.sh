@@ -14,13 +14,14 @@ dirs=(
   "${HOME}/.cache"
   "${HOME}/cached-deps"
   "${GOPATH}/pkg"
+  "${HOME}/docker"
   "$(python3 -c 'import site; print(site.USER_BASE)')" # $HOME/.local
 )
 
 for dir in "${dirs[@]}"; do
   if [[ -d "${dir}" ]]; then
     # change ownership on directory, in case it's owned by root
-    sudo chown -R ${USER}:${USER} "${dir}"
+    sudo chown -R "${USER}:${USER}" "${dir}"
   else
     # create directory
     mkdir -p "${dir}"

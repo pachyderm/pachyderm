@@ -8,14 +8,15 @@ set -o errexit		# exit with a nonzero exit status on any unhandled error
 
 USERNAME="${1}"
 GO_VERSION=1.7.3
-DOCKER_COMPOSE_VERSION=1.5.0rc2
 
 # to determine which Ubuntu version we're running on for updating the apt sources
+# shellcheck disable=SC1091
 . /etc/lsb-release
 
 run()
 {
 	echo "Running $*" 1>&2
+	# shellcheck disable=SC2048
 	$*
 }
 
@@ -36,9 +37,11 @@ install_go()
 # configures vagrant user's environment for go development
 setup_user_go()
 {
+	# shellcheck disable=SC2016
 	echo 'export PATH=${PATH}:/usr/local/go/bin' >> '/etc/profile'
 	su - "${USERNAME}" -c "echo mkdir -p /home/${USERNAME}/go >> /home/${USERNAME}/.profile"
 	su - "${USERNAME}" -c "echo export GOPATH=/home/${USERNAME}/go >> /home/${USERNAME}/.profile"
+	# shellcheck disable=SC2016
 	su - "${USERNAME}" -c "echo export PATH=/home/${USERNAME}/go/bin:"'${PATH}'" >> /home/${USERNAME}/.profile"
 	su - "${USERNAME}" -c "echo export GO15VENDOREXPERIMENT=1 >> /home/${USERNAME}/.profile"
 }
@@ -70,7 +73,7 @@ cleanup_apt()
 setup_user_docker()
 {
 	groupadd docker || true
-	usermod -aG docker ${USERNAME}
+	usermod -aG docker "${USERNAME}"
 	service docker restart
 }
 

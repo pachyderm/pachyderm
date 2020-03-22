@@ -88,6 +88,7 @@ type CommitStream interface {
 type collectionFactory func(string) col.Collection
 
 type driver struct {
+	env *serviceenv.ServiceEnv
 	// etcdClient and prefix write repo and other metadata to etcd
 	etcdClient *etcd.Client
 	txnEnv     *txnenv.TransactionEnv
@@ -132,6 +133,7 @@ func newDriver(
 	// Initialize driver
 	etcdClient := env.GetEtcdClient()
 	d := &driver{
+		env:            env,
 		txnEnv:         txnEnv,
 		etcdClient:     etcdClient,
 		prefix:         etcdPrefix,
@@ -1307,11 +1309,11 @@ func (d *driver) makeCommit(
 	// commitInfo.Provenance
 	newCommitProv := make(map[string]*pfs.CommitProvenance)
 	for _, prov := range provenance {
-		newCommitProv[prov.Commit.ID] = prov
 		provCommitInfo, err := d.resolveCommit(txnCtx.Stm, prov.Commit)
 		if err != nil {
 			return nil, err
 		}
+		newCommitProv[prov.Commit.ID] = prov
 
 		for _, c := range provCommitInfo.Provenance {
 			newCommitProv[c.Commit.ID] = c
@@ -1336,7 +1338,8 @@ func (d *driver) makeCommit(
 
 		// ensure the commit provenance is consistent with the branch provenance
 		if len(branchProvMap) != 0 {
-			if prov.Branch.Repo.Name != ppsconsts.SpecRepo && !branchProvMap[key(prov.Branch.Repo.Name, prov.Branch.Name)] {
+			// the check for empty branch names is for the run pipeline case in which a commit with no branch are expected in the stats commit provenance
+			if prov.Branch.Repo.Name != ppsconsts.SpecRepo && prov.Branch.Name != "" && !branchProvMap[key(prov.Branch.Repo.Name, prov.Branch.Name)] {
 				return nil, fmt.Errorf("the commit provenance contains a branch which the branch is not provenant on")
 			}
 		}
@@ -1344,7 +1347,7 @@ func (d *driver) makeCommit(
 		newCommitInfo.Provenance = append(newCommitInfo.Provenance, prov)
 		provCommitInfo := &pfs.CommitInfo{}
 		if err := d.commits(prov.Commit.Repo.Name).ReadWrite(txnCtx.Stm).Update(prov.Commit.ID, provCommitInfo, func() error {
-			appendSubvenance(provCommitInfo, newCommitInfo)
+			d.appendSubvenance(provCommitInfo, newCommitInfo)
 			return nil
 		}); err != nil {
 			return nil, err
@@ -1498,6 +1501,9 @@ func (d *driver) finishOutputCommit(txnCtx *txnenv.TransactionContext, commit *p
 }
 
 func (d *driver) updateProvenanceProgress(txnCtx *txnenv.TransactionContext, success bool, ci *pfs.CommitInfo) error {
+	if d.env.DisableCommitProgressCounter {
+		return nil
+	}
 	for _, provC := range ci.Provenance {
 		provCi := &pfs.CommitInfo{}
 		if err := d.commits(provC.Commit.Repo.Name).ReadWrite(txnCtx.Stm).Update(provC.Commit.ID, provCi, func() error {
@@ -1742,7 +1748,7 @@ nextSubvBI:
 			// update subvenance of 'prov'
 			provCommitInfo := &pfs.CommitInfo{}
 			if err := d.commits(prov.Commit.Repo.Name).ReadWrite(stm).Update(prov.Commit.ID, provCommitInfo, func() error {
-				appendSubvenance(provCommitInfo, newCommitInfo)
+				d.appendSubvenance(provCommitInfo, newCommitInfo)
 				return nil
 			}); err != nil {
 				return err
@@ -2539,7 +2545,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 		// Determine if this is a provenance update
 		sameTarget := branch.Repo.Name == commit.Repo.Name && branch.Name == commit.ID
 		if !sameTarget && provenance != nil {
-			ci, err = d.inspectCommit(txnCtx.Client, commit, pfs.CommitState_STARTED)
+			ci, err = d.resolveCommit(txnCtx.Stm, commit)
 			if err != nil {
 				return err
 			}
@@ -2597,7 +2603,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	if err := repos.Update(branch.Repo.Name, repoInfo, func() error {
 		add(&repoInfo.Branches, branch)
 		if branch.Name == "master" && commit != nil {
-			ci, err := d.inspectCommit(txnCtx.Client, commit, pfs.CommitState_STARTED)
+			ci, err := d.resolveCommit(txnCtx.Stm, commit)
 			if err != nil {
 				return err
 			}
@@ -4162,6 +4168,9 @@ func (d *driver) deleteFile(pachClient *client.APIClient, file *pfs.File) error 
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
+	if err := d.checkFilePath(file.Path); err != nil {
+		return err
+	}
 	branch := ""
 	if !uuid.IsUUIDWithoutDashes(file.Commit.ID) {
 		branch = file.Commit.ID
@@ -4387,7 +4396,7 @@ func (d *driver) addBranchProvenance(branchInfo *pfs.BranchInfo, provBranch *pfs
 	})
 }
 
-func appendSubvenance(commitInfo *pfs.CommitInfo, subvCommitInfo *pfs.CommitInfo) {
+func (d *driver) appendSubvenance(commitInfo *pfs.CommitInfo, subvCommitInfo *pfs.CommitInfo) {
 	if subvCommitInfo.ParentCommit != nil {
 		for _, subvCommitRange := range commitInfo.Subvenance {
 			if subvCommitRange.Upper.ID == subvCommitInfo.ParentCommit.ID {
@@ -4400,7 +4409,9 @@ func appendSubvenance(commitInfo *pfs.CommitInfo, subvCommitInfo *pfs.CommitInfo
 		Lower: subvCommitInfo.Commit,
 		Upper: subvCommitInfo.Commit,
 	})
-	commitInfo.SubvenantCommitsTotal++
+	if !d.env.DisableCommitProgressCounter {
+		commitInfo.SubvenantCommitsTotal++
+	}
 }
 
 type branchSet []*pfs.Branch
