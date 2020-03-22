@@ -663,8 +663,13 @@ func (c *readonlyCollection) WatchF(f func(e *watch.Event) error, opts ...watch.
 func (c *readonlyCollection) watchF(watcher watch.Watcher, f func(e *watch.Event) error) error {
 	for {
 		select {
-		// (bryce) should the check for error events be here?
-		case e := <-watcher.Watch():
+		case e, ok := <-watcher.Watch():
+			if !ok {
+				return nil
+			}
+			if e.Type == watch.EventError {
+				return e.Err
+			}
 			if err := f(e); err != nil {
 				if err == errutil.ErrBreak {
 					return nil
