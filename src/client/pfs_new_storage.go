@@ -11,39 +11,39 @@ import (
 // PutTar puts a tar stream into PFS.
 // Note: this should only be used for testing the new storage layer.
 func (c APIClient) PutTar(repo, commit string, r io.Reader) (retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
 	ptc, err := c.PfsAPIClient.PutTar(c.Ctx())
 	if err != nil {
-		return grpcutil.ScrubGRPC(err)
+		return err
 	}
 	defer func() {
-		if _, err := ptc.CloseAndRecv(); err != nil && retErr == nil {
-			retErr = grpcutil.ScrubGRPC(err)
+		if _, err := ptc.CloseAndRecv(); retErr == nil {
+			retErr = err
 		}
 	}()
-	firstReq := &pfs.PutTarRequest{
-		Commit: NewCommit(repo, commit),
+	if err := ptc.Send(&pfs.PutTarRequest{Commit: NewCommit(repo, commit)}); err != nil {
+		return err
 	}
 	_, err = grpcutil.ChunkReader(r, func(data []byte) error {
-		req := &pfs.PutTarRequest{}
-		if firstReq != nil {
-			req = firstReq
-			firstReq = nil
-		}
-		req.Data = data
-		return grpcutil.ScrubGRPC(ptc.Send(req))
+		return ptc.Send(&pfs.PutTarRequest{Data: data})
 	})
 	return err
 }
 
 // GetTar gets a tar stream out of PFS that contains files at the repo and commit that match the path.
 // Note: this should only be used for testing the new storage layer.
-func (c APIClient) GetTar(repo, commit, path string) (io.Reader, error) {
+func (c APIClient) GetTar(repo, commit, path string) (_ io.Reader, retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
 	req := &pfs.GetTarRequest{
 		File: NewFile(repo, commit, path),
 	}
 	client, err := c.PfsAPIClient.GetTar(c.Ctx(), req)
 	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
+		return nil, err
 	}
 	return grpcutil.NewStreamingBytesReader(client, nil), nil
 }
@@ -52,7 +52,10 @@ func (c APIClient) GetTar(repo, commit, path string) (io.Reader, error) {
 // GetTarConditional takes a callback that will be called for each file that matched the path.
 // The callback will receive the file information for the file and a reader that will lazily download a tar stream that contains the file.
 // Note: this should only be used for testing the new storage layer.
-func (c APIClient) GetTarConditional(repoName string, commitID string, path string, f func(fileInfo *pfs.FileInfoNewStorage, r io.Reader) error) error {
+func (c APIClient) GetTarConditional(repoName string, commitID string, path string, f func(fileInfo *pfs.FileInfoNewStorage, r io.Reader) error) (retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
 	client, err := c.PfsAPIClient.GetTarConditional(c.Ctx())
 	if err != nil {
 		return err
@@ -111,6 +114,9 @@ func (r *getTarConditionalReader) Read(data []byte) (int, error) {
 }
 
 func (r *getTarConditionalReader) nextResponse() error {
+	if r.done {
+		return io.EOF
+	}
 	resp, err := r.client.Recv()
 	if err != nil {
 		return err
@@ -124,10 +130,12 @@ func (r *getTarConditionalReader) nextResponse() error {
 }
 
 func (r *getTarConditionalReader) drain() error {
-	for !r.done {
-		if err := r.nextResponse(); err != nil && err != io.EOF {
+	for {
+		if err := r.nextResponse(); err != nil {
+			if err == io.EOF {
+				return nil
+			}
 			return err
 		}
 	}
-	return nil
 }

@@ -12,20 +12,20 @@ import (
 )
 
 func (a *apiServer) PutTar(server pfs.API_PutTarServer) (retErr error) {
-	if !a.env.NewStorageLayer {
-		return fmt.Errorf("new storage layer disabled")
-	}
 	request, err := server.Recv()
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	if err != nil {
 		return err
+	}
+	if !a.env.NewStorageLayer {
+		return fmt.Errorf("new storage layer disabled")
 	}
 	ptr := &putTarReader{
 		server: server,
 		r:      bytes.NewReader(request.Data),
 	}
 	request.Data = nil
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	repo := request.Commit.Repo.Name
 	commit := request.Commit.ID
 	if err := a.driver.putFilesNewStorageLayer(server.Context(), repo, commit, ptr); err != nil {
@@ -52,11 +52,11 @@ func (ptr *putTarReader) Read(data []byte) (int, error) {
 }
 
 func (a *apiServer) GetTar(request *pfs.GetTarRequest, server pfs.API_GetTarServer) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	if !a.env.NewStorageLayer {
 		return fmt.Errorf("new storage layer disabled")
 	}
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	repo := request.File.Commit.Repo.Name
 	commit := request.File.Commit.ID
 	glob := request.File.Path
@@ -64,15 +64,15 @@ func (a *apiServer) GetTar(request *pfs.GetTarRequest, server pfs.API_GetTarServ
 }
 
 func (a *apiServer) GetTarConditional(server pfs.API_GetTarConditionalServer) (retErr error) {
-	if !a.env.NewStorageLayer {
-		return fmt.Errorf("new storage layer disabled")
-	}
 	request, err := server.Recv()
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	if err != nil {
 		return err
 	}
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	if !a.env.NewStorageLayer {
+		return fmt.Errorf("new storage layer disabled")
+	}
 	repo := request.File.Commit.Repo.Name
 	commit := request.File.Commit.ID
 	glob := request.File.Path
