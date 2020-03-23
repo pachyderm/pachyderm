@@ -24,7 +24,6 @@ for i in src/**/*.proto; do \
         echo -e "\e[1;31mError:\e[0m missing \"go_package\" declaration in ${i}" >/dev/stderr
     fi
     protoc \
-        "-I${GOPATH}/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis" \
         "-I${GOPATH}/src/github.com/gogo/protobuf" \
         -Isrc \
         --gogofast_out=plugins=grpc,\
