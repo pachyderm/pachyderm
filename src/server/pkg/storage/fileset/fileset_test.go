@@ -210,7 +210,7 @@ func TestCopy(t *testing.T) {
 	}))
 }
 
-func TestMergeRead(t *testing.T) {
+func TestResolveIndexes(t *testing.T) {
 	require.NoError(t, WithLocalStorage(func(fileSets *Storage) error {
 		msg := seedRand()
 		numFileSets := 5
@@ -219,7 +219,12 @@ func TestMergeRead(t *testing.T) {
 		// Get the file hashes.
 		getHashes(t, fileSets, files, msg)
 		// Merge and check the files.
-		require.NoError(t, fileSets.MergeRead(context.Background(), []string{testPath}, func(fmr *FileMergeReader) error {
+		mr, err := fileSets.NewMergeReader(context.Background(), []string{testPath})
+		require.NoError(t, err)
+		require.NoError(t, fileSets.ResolveIndexes(context.Background(), []string{testPath}, func(idx *index.Index) error {
+			fmr, err := mr.Next()
+			require.NoError(t, err)
+			fmr.fullIdx = idx
 			checkFile(t, fmr, files[0], msg)
 			files = files[1:]
 			return nil
