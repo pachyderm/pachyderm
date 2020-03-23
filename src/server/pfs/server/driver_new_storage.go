@@ -224,6 +224,7 @@ func (fr *FileReader) updateFileInfo(idx *index.Index) {
 	}
 }
 
+// Info returns the info for the file.
 func (fr *FileReader) Info() *pfs.FileInfoNewStorage {
 	return &pfs.FileInfoNewStorage{
 		File: fr.file,
@@ -231,6 +232,7 @@ func (fr *FileReader) Info() *pfs.FileInfoNewStorage {
 	}
 }
 
+// Get writes a tar stream that contains the file.
 func (fr *FileReader) Get(w io.Writer) error {
 	if err := fr.fmr.Get(w); err != nil {
 		return err
