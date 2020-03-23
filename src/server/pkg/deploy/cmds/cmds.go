@@ -1131,9 +1131,7 @@ removed.`)
 				return fmt.Errorf("failed to deploy JupyterHub: %v", err)
 			}
 
-			// TODO: proper printing of release
-			// https://github.com/helm/helm/blob/master/cmd/helm/upgrade.go#L150
-			fmt.Printf("%v", rel)
+			fmt.Println(rel.Info.Notes)
 			return nil
 		}),
 	}
