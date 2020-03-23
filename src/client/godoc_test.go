@@ -487,3 +487,79 @@ func ExampleAPIClient_CreatePipeline() {
 	// Output:
 	// [pipeline:<name:"test-pipeline" > version:1 transform:<image:"ubuntu:16.04" cmd:"bash" stdin:"cp /pfs/test/* /pfs/out/" > parallelism_spec:<constant:1 > created_at:<seconds:1585783817 nanos:990814317 > output_branch:"master" input:<pfs:<name:"test" repo:"test" branch:"master" glob:"/*" > > cache_size:"64M" salt:"95e86369074f472c87d77f1116656813" max_queue_size:1 spec_commit:<repo:<name:"__spec__" > id:"7ddade34799b450db6b10231bbb287b7" > datum_tries:3 ]
 }
+
+func ExampleAPIClient_DeleteRepo() {
+
+	c, err := client.NewFromAddress("127.0.0.1:30650")
+	if err != nil {
+		panic(err)
+	}
+
+	if _, err := c.PfsAPIClient.CreateRepo(
+		c.Ctx(),
+		&pfs.CreateRepoRequest{
+			Repo:        client.NewRepo("test"),
+			Description: "A test repo",
+		},
+	); err != nil {
+		panic(err)
+	}
+
+	if _, err := c.DeleteRepo("test"); err != nil {
+		panic(err)
+	}
+}
+
+func ExampleAPIClient_ListRepo() {
+
+	c, err := client.NewFromAddress("127.0.0.1:30650")
+	if err != nil {
+		panic(err)
+	}
+
+	if _, err := c.PfsAPIClient.CreateRepo(
+		c.Ctx(),
+		&pfs.CreateRepoRequest{
+			Repo:        client.NewRepo("test"),
+			Description: "A test repo",
+		},
+	); err != nil {
+		panic(err)
+	}
+
+	repos, err := c.ListRepo()
+	if err != nil {
+		panic(err)
+	}
+	fmt.PrintIn(repos)
+}
+
+func ExampleAPIClient_PutFile() {
+
+	c, err := client.NewFromAddress("127.0.0.1:30650")
+	if err != nil {
+		panic(err)
+	}
+
+	if _, err := c.PfsAPIClient.CreateRepo(
+		c.Ctx(),
+		&pfs.CreateRepoRequest{
+			Repo:        client.NewRepo("test"),
+			Description: "A test repo",
+		},
+	); err != nil {
+		panic(err)
+	}
+	w, err := c.PutFileWriter("test", "master", "file")
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		if err := w.Close(); err != nil {
+			panic(err)
+		}
+	}()
+	if _, err := w.Writer([]byte("foo\n")); err != nil {
+		panic(err)
+	}
+}

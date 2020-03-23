@@ -21,6 +21,7 @@ import (
 	types "github.com/gogo/protobuf/types"
 	log "github.com/sirupsen/logrus"
 
+	"github.com/fluhus/godoc-tricks"
 	"github.com/pachyderm/pachyderm/src/client/admin"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/debug"
