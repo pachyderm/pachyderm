@@ -159,6 +159,11 @@ func ExampleAPIClient_NewPutFileClient() {
 	if _, err := pfc.PutFile("test", "master", "file", strings.NewReader("foo\n")); err != nil {
 		panic(err)
 	}
+	files, err := c.ListFile("test", "master", "/")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(files)
 }
 
 func ExampleAPIClient_PutFile_string() {
@@ -187,6 +192,11 @@ func ExampleAPIClient_PutFile_string() {
 	if _, err := c.PutFile("test", "master", "file", strings.NewReader("foo\n")); err != nil {
 		panic(err)
 	}
+	files, err := c.ListFile("test", "master", "/")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(files)
 
 	// Output:
 	// [file:<commit:<repo:<name:"test" > id:"3534c68a694747b6a78a6334ceae437e" > path:"/file" > file_type:FILE size_bytes:4 committed:<seconds:1584999407 nanos:25292638 > hash:"\031\375\365{\337\236\265\251`+\372\234\016m\327\35585\370\375C\035\221P\003\352\202tw\007\276f" ]
@@ -219,7 +229,12 @@ func ExampleAPIClient_PutFile_file() {
 	if err != nil {
 		panic(err)
 	}
-	if _, err := c.PutFile("test", "master", "file", f); err != nil {
+	if _, err := c.PutFile("test", "master", "text", f); err != nil {
 		panic(err)
 	}
+	files, err := c.ListFile("test", "master", "/")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(files)
 }
