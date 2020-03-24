@@ -124,6 +124,15 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 			Value: strconv.FormatUint(uint64(options.s3GatewayPort), 10),
 		})
 	}
+	// Propagate feature flags to worker and sidecar
+	if a.env.NewStorageLayer {
+		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "NEW_STORAGE_LAYER", Value: "true"})
+		workerEnv = append(workerEnv, v1.EnvVar{Name: "NEW_STORAGE_LAYER", Value: "true"})
+	}
+	if a.env.DisableCommitProgressCounter {
+		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "DISABLE_COMMIT_PROGRESS_COUNTER", Value: "true"})
+		workerEnv = append(workerEnv, v1.EnvVar{Name: "DISABLE_COMMIT_PROGRESS_COUNTER", Value: "true"})
+	}
 
 	// This only happens in local deployment.  We want the workers to be
 	// able to read from/write to the hostpath volume as well.
