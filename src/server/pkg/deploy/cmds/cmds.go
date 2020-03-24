@@ -186,8 +186,7 @@ func containsEmpty(vals []string) bool {
 	return false
 }
 
-// deployCmds returns the set of cobra.Commands used to deploy pachyderm.
-func deployCmds() []*cobra.Command {
+func standardDeployCmds() []*cobra.Command {
 	var commands []*cobra.Command
 	var opts *assets.AssetOpts
 
@@ -199,6 +198,31 @@ func deployCmds() []*cobra.Command {
 	var namespace string
 	var serverCert string
 	var createContext bool
+	var blockCacheSize string
+	var dashImage string
+	var dashOnly bool
+	var etcdCPURequest string
+	var etcdMemRequest string
+	var etcdNodes int
+	var etcdStorageClassName string
+	var etcdVolume string
+	var exposeObjectAPI bool
+	var imagePullSecret string
+	var localRoles bool
+	var logLevel string
+	var newStorageLayer bool
+	var noDash bool
+	var noExposeDockerSocket bool
+	var noGuaranteed bool
+	var noRBAC bool
+	var pachdCPURequest string
+	var pachdNonCacheMemRequest string
+	var pachdShards int
+	var registry string
+	var tlsCertKey string
+	var uploadConcurrencyLimit int
+	var clusterDeploymentID string
+	var requireCriticalServersOnly bool
 
 	deployLocal := &cobra.Command{
 		Short: "Deploy a single-node Pachyderm cluster with local metadata storage.",
@@ -717,6 +741,140 @@ If <object store backend> is \"s3\", then the arguments are:
 	}
 	commands = append(commands, cmdutil.CreateAlias(importImages, "deploy import-images"))
 
+	for _, cmd := range commands {
+		cmd.Flags().IntVar(&pachdShards, "shards", 16, "(rarely set) The maximum number of pachd nodes allowed in the cluster; increasing this number blindly can result in degraded performance.")
+		cmd.Flags().IntVar(&etcdNodes, "dynamic-etcd-nodes", 0, "Deploy etcd as a StatefulSet with the given number of pods.  The persistent volumes used by these pods are provisioned dynamically.  Note that StatefulSet is currently a beta kubernetes feature, which might be unavailable in older versions of kubernetes.")
+		cmd.Flags().StringVar(&etcdVolume, "static-etcd-volume", "", "Deploy etcd as a ReplicationController with one pod.  The pod uses the given persistent volume.")
+		cmd.Flags().StringVar(&etcdStorageClassName, "etcd-storage-class", "", "If set, the name of an existing StorageClass to use for etcd storage. Ignored if --static-etcd-volume is set.")
+		cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest. Note that a pachyderm context will not be created, unless you also use `--create-context`.")
+		cmd.Flags().StringVarP(&outputFormat, "output", "o", "json", "Output format. One of: json|yaml")
+		cmd.Flags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
+		cmd.Flags().BoolVar(&dashOnly, "dashboard-only", false, "Only deploy the Pachyderm UI (experimental), without the rest of pachyderm. This is for launching the UI adjacent to an existing Pachyderm cluster. After deployment, run \"pachctl port-forward\" to connect")
+		cmd.Flags().BoolVar(&noDash, "no-dashboard", false, "Don't deploy the Pachyderm UI alongside Pachyderm (experimental).")
+		cmd.Flags().StringVar(&registry, "registry", "", "The registry to pull images from.")
+		cmd.Flags().StringVar(&imagePullSecret, "image-pull-secret", "", "A secret in Kubernetes that's needed to pull from your private registry.")
+		cmd.Flags().StringVar(&dashImage, "dash-image", "", "Image URL for pachyderm dashboard")
+		cmd.Flags().BoolVar(&noGuaranteed, "no-guaranteed", false, "Don't use guaranteed QoS for etcd and pachd deployments. Turning this on (turning guaranteed QoS off) can lead to more stable local clusters (such as on Minikube), it should normally be used for production clusters.")
+		cmd.Flags().BoolVar(&noRBAC, "no-rbac", false, "Don't deploy RBAC roles for Pachyderm. (for k8s versions prior to 1.8)")
+		cmd.Flags().BoolVar(&localRoles, "local-roles", false, "Use namespace-local roles instead of cluster roles. Ignored if --no-rbac is set.")
+		cmd.Flags().StringVar(&namespace, "namespace", "", "Kubernetes namespace to deploy Pachyderm to.")
+		cmd.Flags().BoolVar(&noExposeDockerSocket, "no-expose-docker-socket", false, "Don't expose the Docker socket to worker containers. This limits the privileges of workers which prevents them from automatically setting the container's working dir and user.")
+		cmd.Flags().BoolVar(&exposeObjectAPI, "expose-object-api", false, "If set, instruct pachd to serve its object/block API on its public port (not safe with auth enabled, do not set in production).")
+		cmd.Flags().StringVar(&tlsCertKey, "tls", "", "string of the form \"<cert path>,<key path>\" of the signed TLS certificate and private key that Pachd should use for TLS authentication (enables TLS-encrypted communication with Pachd)")
+		cmd.Flags().BoolVar(&newStorageLayer, "new-storage-layer", false, "(feature flag) Do not set, used for testing.")
+		cmd.Flags().IntVar(&uploadConcurrencyLimit, "upload-concurrency-limit", assets.DefaultUploadConcurrencyLimit, "The maximum number of concurrent object storage uploads per Pachd instance.")
+		cmd.Flags().StringVar(&clusterDeploymentID, "cluster-deployment-id", "", "Set an ID for the cluster deployment. Defaults to a random value.")
+		cmd.Flags().StringVarP(&contextName, "context", "c", "", "Name of the context to add to the pachyderm config. If unspecified, a context name will automatically be derived.")
+		cmd.Flags().BoolVar(&createContext, "create-context", false, "Create a context, even with `--dry-run`.")
+		cmd.Flags().BoolVar(&requireCriticalServersOnly, "require-critical-servers-only", assets.DefaultRequireCriticalServersOnly, "Only require the critical Pachd servers to startup and run without errors.")
+
+		// Flags for setting pachd resource requests. These should rarely be set --
+		// only if we get the defaults wrong, or users have an unusual access pattern
+		//
+		// All of these are empty by default, because the actual default values depend
+		// on the backend to which we're. The defaults are set in
+		// s/s/pkg/deploy/assets/assets.go
+		cmd.Flags().StringVar(&pachdCPURequest,
+			"pachd-cpu-request", "", "(rarely set) The size of Pachd's CPU "+
+				"request, which we give to Kubernetes. Size is in cores (with partial "+
+				"cores allowed and encouraged).")
+		cmd.Flags().StringVar(&blockCacheSize, "block-cache-size", "",
+			"Size of pachd's in-memory cache for PFS files. Size is specified in "+
+				"bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
+		cmd.Flags().StringVar(&pachdNonCacheMemRequest,
+			"pachd-memory-request", "", "(rarely set) The size of PachD's memory "+
+				"request in addition to its block cache (set via --block-cache-size). "+
+				"Size is in bytes, with SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
+		cmd.Flags().StringVar(&etcdCPURequest,
+			"etcd-cpu-request", "", "(rarely set) The size of etcd's CPU request, "+
+				"which we give to Kubernetes. Size is in cores (with partial cores "+
+				"allowed and encouraged).")
+		cmd.Flags().StringVar(&etcdMemRequest,
+			"etcd-memory-request", "", "(rarely set) The size of etcd's memory "+
+				"request. Size is in bytes, with SI suffixes (M, K, G, Mi, Ki, Gi, "+
+				"etc).")
+		
+		cmd.PreRun = cmdutil.Run(func(args []string) error {
+			cfg, err := config.Read(false)
+			if err != nil {
+				log.Warningf("could not read config to check whether cluster metrics "+
+					"will be enabled: %v.\n", err)
+			}
+
+			if namespace == "" {
+				kubeConfig := config.KubeConfig(nil)
+				var err error
+				namespace, _, err = kubeConfig.Namespace()
+				if err != nil {
+					log.Warningf("using namespace \"default\" (couldn't load namespace "+
+						"from kubernetes config: %v)\n", err)
+					namespace = "default"
+				}
+			}
+
+			dashImage = getDefaultOrLatestDashImage(dashImage, dryRun)
+			opts = &assets.AssetOpts{
+				FeatureFlags: assets.FeatureFlags{
+					NewStorageLayer: newStorageLayer,
+				},
+				StorageOpts: assets.StorageOpts{
+					UploadConcurrencyLimit: uploadConcurrencyLimit,
+				},
+				PachdShards:                uint64(pachdShards),
+				Version:                    version.PrettyPrintVersion(version.Version),
+				LogLevel:                   logLevel,
+				Metrics:                    cfg == nil || cfg.V2.Metrics,
+				PachdCPURequest:            pachdCPURequest,
+				PachdNonCacheMemRequest:    pachdNonCacheMemRequest,
+				BlockCacheSize:             blockCacheSize,
+				EtcdCPURequest:             etcdCPURequest,
+				EtcdMemRequest:             etcdMemRequest,
+				EtcdNodes:                  etcdNodes,
+				EtcdVolume:                 etcdVolume,
+				EtcdStorageClassName:       etcdStorageClassName,
+				DashOnly:                   dashOnly,
+				NoDash:                     noDash,
+				DashImage:                  dashImage,
+				Registry:                   registry,
+				ImagePullSecret:            imagePullSecret,
+				NoGuaranteed:               noGuaranteed,
+				NoRBAC:                     noRBAC,
+				LocalRoles:                 localRoles,
+				Namespace:                  namespace,
+				NoExposeDockerSocket:       noExposeDockerSocket,
+				ExposeObjectAPI:            exposeObjectAPI,
+				ClusterDeploymentID:        clusterDeploymentID,
+				RequireCriticalServersOnly: requireCriticalServersOnly,
+			}
+			if tlsCertKey != "" {
+				// TODO(msteffen): If either the cert path or the key path contains a
+				// comma, this doesn't work
+				certKey := strings.Split(tlsCertKey, ",")
+				if len(certKey) != 2 {
+					return fmt.Errorf("could not split TLS certificate and key correctly; must have two parts but got: %#v", certKey)
+				}
+				opts.TLS = &assets.TLSOpts{
+					ServerCert: certKey[0],
+					ServerKey:  certKey[1],
+				}
+
+				serverCertBytes, err := ioutil.ReadFile(certKey[0])
+				if err != nil {
+					return fmt.Errorf("could not read server cert at %q: %v", certKey[0], err)
+				}
+				serverCert = base64.StdEncoding.EncodeToString([]byte(serverCertBytes))
+			}
+			return nil
+		})
+	}
+
+	return commands
+}
+
+// deployCmds returns the set of cobra.Commands used to deploy pachyderm.
+func deployCmds() []*cobra.Command {
+	commands := standardDeployCmds()
+
 	var lbTLSHost string
 	var lbTLSEmail string
 	deployJupyterHub := &cobra.Command{
@@ -820,159 +978,10 @@ If <object store backend> is \"s3\", then the arguments are:
 	deployJupyterHub.PersistentFlags().StringVar(&lbTLSEmail, "lb-tls-email", "", "Contact email for minting a Let's Encrypt TLS cert on the JupyterHub load balancer")
 	commands = append(commands, cmdutil.CreateAlias(deployJupyterHub, "deploy jupyterhub"))
 
-	var blockCacheSize string
-	var dashImage string
-	var dashOnly bool
-	var etcdCPURequest string
-	var etcdMemRequest string
-	var etcdNodes int
-	var etcdStorageClassName string
-	var etcdVolume string
-	var exposeObjectAPI bool
-	var imagePullSecret string
-	var localRoles bool
-	var logLevel string
-	var newStorageLayer bool
-	var noDash bool
-	var noExposeDockerSocket bool
-	var noGuaranteed bool
-	var noRBAC bool
-	var pachdCPURequest string
-	var pachdNonCacheMemRequest string
-	var pachdShards int
-	var registry string
-	var tlsCertKey string
-	var uploadConcurrencyLimit int
-	var clusterDeploymentID string
-	var requireCriticalServersOnly bool
 	deploy := &cobra.Command{
 		Short: "Deploy a Pachyderm cluster.",
 		Long:  "Deploy a Pachyderm cluster.",
-		PersistentPreRun: cmdutil.Run(func([]string) error {
-			cfg, err := config.Read(false)
-			if err != nil {
-				log.Warningf("could not read config to check whether cluster metrics "+
-					"will be enabled: %v.\n", err)
-			}
-
-			if namespace == "" {
-				kubeConfig := config.KubeConfig(nil)
-				var err error
-				namespace, _, err = kubeConfig.Namespace()
-				if err != nil {
-					log.Warningf("using namespace \"default\" (couldn't load namespace "+
-						"from kubernetes config: %v)\n", err)
-					namespace = "default"
-				}
-			}
-
-			dashImage = getDefaultOrLatestDashImage(dashImage, dryRun)
-			opts = &assets.AssetOpts{
-				FeatureFlags: assets.FeatureFlags{
-					NewStorageLayer: newStorageLayer,
-				},
-				StorageOpts: assets.StorageOpts{
-					UploadConcurrencyLimit: uploadConcurrencyLimit,
-				},
-				PachdShards:                uint64(pachdShards),
-				Version:                    version.PrettyPrintVersion(version.Version),
-				LogLevel:                   logLevel,
-				Metrics:                    cfg == nil || cfg.V2.Metrics,
-				PachdCPURequest:            pachdCPURequest,
-				PachdNonCacheMemRequest:    pachdNonCacheMemRequest,
-				BlockCacheSize:             blockCacheSize,
-				EtcdCPURequest:             etcdCPURequest,
-				EtcdMemRequest:             etcdMemRequest,
-				EtcdNodes:                  etcdNodes,
-				EtcdVolume:                 etcdVolume,
-				EtcdStorageClassName:       etcdStorageClassName,
-				DashOnly:                   dashOnly,
-				NoDash:                     noDash,
-				DashImage:                  dashImage,
-				Registry:                   registry,
-				ImagePullSecret:            imagePullSecret,
-				NoGuaranteed:               noGuaranteed,
-				NoRBAC:                     noRBAC,
-				LocalRoles:                 localRoles,
-				Namespace:                  namespace,
-				NoExposeDockerSocket:       noExposeDockerSocket,
-				ExposeObjectAPI:            exposeObjectAPI,
-				ClusterDeploymentID:        clusterDeploymentID,
-				RequireCriticalServersOnly: requireCriticalServersOnly,
-			}
-			if tlsCertKey != "" {
-				// TODO(msteffen): If either the cert path or the key path contains a
-				// comma, this doesn't work
-				certKey := strings.Split(tlsCertKey, ",")
-				if len(certKey) != 2 {
-					return fmt.Errorf("could not split TLS certificate and key correctly; must have two parts but got: %#v", certKey)
-				}
-				opts.TLS = &assets.TLSOpts{
-					ServerCert: certKey[0],
-					ServerKey:  certKey[1],
-				}
-
-				serverCertBytes, err := ioutil.ReadFile(certKey[0])
-				if err != nil {
-					return fmt.Errorf("could not read server cert at %q: %v", certKey[0], err)
-				}
-				serverCert = base64.StdEncoding.EncodeToString([]byte(serverCertBytes))
-			}
-			return nil
-		}),
 	}
-	deploy.PersistentFlags().IntVar(&pachdShards, "shards", 16, "(rarely set) The maximum number of pachd nodes allowed in the cluster; increasing this number blindly can result in degraded performance.")
-	deploy.PersistentFlags().IntVar(&etcdNodes, "dynamic-etcd-nodes", 0, "Deploy etcd as a StatefulSet with the given number of pods.  The persistent volumes used by these pods are provisioned dynamically.  Note that StatefulSet is currently a beta kubernetes feature, which might be unavailable in older versions of kubernetes.")
-	deploy.PersistentFlags().StringVar(&etcdVolume, "static-etcd-volume", "", "Deploy etcd as a ReplicationController with one pod.  The pod uses the given persistent volume.")
-	deploy.PersistentFlags().StringVar(&etcdStorageClassName, "etcd-storage-class", "", "If set, the name of an existing StorageClass to use for etcd storage. Ignored if --static-etcd-volume is set.")
-	deploy.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest. Note that a pachyderm context will not be created, unless you also use `--create-context`.")
-	deploy.PersistentFlags().StringVarP(&outputFormat, "output", "o", "json", "Output format. One of: json|yaml")
-	deploy.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
-	deploy.PersistentFlags().BoolVar(&dashOnly, "dashboard-only", false, "Only deploy the Pachyderm UI (experimental), without the rest of pachyderm. This is for launching the UI adjacent to an existing Pachyderm cluster. After deployment, run \"pachctl port-forward\" to connect")
-	deploy.PersistentFlags().BoolVar(&noDash, "no-dashboard", false, "Don't deploy the Pachyderm UI alongside Pachyderm (experimental).")
-	deploy.PersistentFlags().StringVar(&registry, "registry", "", "The registry to pull images from.")
-	deploy.PersistentFlags().StringVar(&imagePullSecret, "image-pull-secret", "", "A secret in Kubernetes that's needed to pull from your private registry.")
-	deploy.PersistentFlags().StringVar(&dashImage, "dash-image", "", "Image URL for pachyderm dashboard")
-	deploy.PersistentFlags().BoolVar(&noGuaranteed, "no-guaranteed", false, "Don't use guaranteed QoS for etcd and pachd deployments. Turning this on (turning guaranteed QoS off) can lead to more stable local clusters (such as on Minikube), it should normally be used for production clusters.")
-	deploy.PersistentFlags().BoolVar(&noRBAC, "no-rbac", false, "Don't deploy RBAC roles for Pachyderm. (for k8s versions prior to 1.8)")
-	deploy.PersistentFlags().BoolVar(&localRoles, "local-roles", false, "Use namespace-local roles instead of cluster roles. Ignored if --no-rbac is set.")
-	deploy.PersistentFlags().StringVar(&namespace, "namespace", "", "Kubernetes namespace to deploy Pachyderm to.")
-	deploy.PersistentFlags().BoolVar(&noExposeDockerSocket, "no-expose-docker-socket", false, "Don't expose the Docker socket to worker containers. This limits the privileges of workers which prevents them from automatically setting the container's working dir and user.")
-	deploy.PersistentFlags().BoolVar(&exposeObjectAPI, "expose-object-api", false, "If set, instruct pachd to serve its object/block API on its public port (not safe with auth enabled, do not set in production).")
-	deploy.PersistentFlags().StringVar(&tlsCertKey, "tls", "", "string of the form \"<cert path>,<key path>\" of the signed TLS certificate and private key that Pachd should use for TLS authentication (enables TLS-encrypted communication with Pachd)")
-	deploy.PersistentFlags().BoolVar(&newStorageLayer, "new-storage-layer", false, "(feature flag) Do not set, used for testing.")
-	deploy.PersistentFlags().IntVar(&uploadConcurrencyLimit, "upload-concurrency-limit", assets.DefaultUploadConcurrencyLimit, "The maximum number of concurrent object storage uploads per Pachd instance.")
-	deploy.PersistentFlags().StringVar(&clusterDeploymentID, "cluster-deployment-id", "", "Set an ID for the cluster deployment. Defaults to a random value.")
-	deploy.PersistentFlags().StringVarP(&contextName, "context", "c", "", "Name of the context to add to the pachyderm config. If unspecified, a context name will automatically be derived.")
-	deploy.PersistentFlags().BoolVar(&createContext, "create-context", false, "Create a context, even with `--dry-run`.")
-	deploy.PersistentFlags().BoolVar(&requireCriticalServersOnly, "require-critical-servers-only", assets.DefaultRequireCriticalServersOnly, "Only require the critical Pachd servers to startup and run without errors.")
-
-	// Flags for setting pachd resource requests. These should rarely be set --
-	// only if we get the defaults wrong, or users have an unusual access pattern
-	//
-	// All of these are empty by default, because the actual default values depend
-	// on the backend to which we're. The defaults are set in
-	// s/s/pkg/deploy/assets/assets.go
-	deploy.PersistentFlags().StringVar(&pachdCPURequest,
-		"pachd-cpu-request", "", "(rarely set) The size of Pachd's CPU "+
-			"request, which we give to Kubernetes. Size is in cores (with partial "+
-			"cores allowed and encouraged).")
-	deploy.PersistentFlags().StringVar(&blockCacheSize, "block-cache-size", "",
-		"Size of pachd's in-memory cache for PFS files. Size is specified in "+
-			"bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
-	deploy.PersistentFlags().StringVar(&pachdNonCacheMemRequest,
-		"pachd-memory-request", "", "(rarely set) The size of PachD's memory "+
-			"request in addition to its block cache (set via --block-cache-size). "+
-			"Size is in bytes, with SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
-	deploy.PersistentFlags().StringVar(&etcdCPURequest,
-		"etcd-cpu-request", "", "(rarely set) The size of etcd's CPU request, "+
-			"which we give to Kubernetes. Size is in cores (with partial cores "+
-			"allowed and encouraged).")
-	deploy.PersistentFlags().StringVar(&etcdMemRequest,
-		"etcd-memory-request", "", "(rarely set) The size of etcd's memory "+
-			"request. Size is in bytes, with SI suffixes (M, K, G, Mi, Ki, Gi, "+
-			"etc).")
-
 	commands = append(commands, cmdutil.CreateAlias(deploy, "deploy"))
 
 	return commands
