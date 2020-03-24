@@ -850,7 +850,7 @@ func (s *objBlockAPIServer) Compact(ctx context.Context, request *types.Empty) (
 	return &types.Empty{}, nil
 }
 
-func (s *objBlockAPIServer) PutObj(server pfsclient.ObjectAPI_PutObjServer) (retErr error) {
+func (s *objBlockAPIServer) PutObjDirect(server pfsclient.ObjectAPI_PutObjDirectServer) (retErr error) {
 	defer drainObjServer(server)
 	request, err := server.Recv()
 	func() { s.Log(request, nil, nil, 0) }()
@@ -883,7 +883,7 @@ func (s *objBlockAPIServer) PutObj(server pfsclient.ObjectAPI_PutObjServer) (ret
 	return err
 }
 
-func (s *objBlockAPIServer) GetObj(request *pfsclient.GetObjRequest, server pfsclient.ObjectAPI_GetObjServer) (retErr error) {
+func (s *objBlockAPIServer) GetObjDirect(request *pfsclient.GetObjDirectRequest, server pfsclient.ObjectAPI_GetObjDirectServer) (retErr error) {
 	func() { s.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	r, err := s.objClient.Reader(server.Context(), request.Obj, 0, 0)
@@ -1418,7 +1418,7 @@ func drainBlockServer(putBlockServer pfsclient.ObjectAPI_PutBlockServer) {
 }
 
 type putObjReader struct {
-	server    pfsclient.ObjectAPI_PutObjServer
+	server    pfsclient.ObjectAPI_PutObjDirectServer
 	buffer    bytes.Buffer
 	bytesRead int
 }
@@ -1437,7 +1437,7 @@ func (r *putObjReader) Read(p []byte) (int, error) {
 	return r.buffer.Read(p)
 }
 
-func drainObjServer(putObjServer pfsclient.ObjectAPI_PutObjServer) {
+func drainObjServer(putObjServer pfsclient.ObjectAPI_PutObjDirectServer) {
 	for {
 		if _, err := putObjServer.Recv(); err != nil {
 			break
