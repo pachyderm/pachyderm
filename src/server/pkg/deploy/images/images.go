@@ -43,11 +43,10 @@ func Export(opts *assets.AssetOpts, out io.Writer) error {
 			break
 		}
 		if !pulled {
-			errStr := ""
-			for _, err := range loopErr {
-				errStr += err.Error() + "\n"
+			if len(loopErr) > 0 {
+				return loopErr[0]
 			}
-			return errors.Errorf("errors pulling image %s:%s:\n%s", repository, tag, errStr)
+			return errors.Errorf("failed to pull images because there are no auth configs")
 		}
 	}
 	return client.ExportImages(docker.ExportImagesOptions{
