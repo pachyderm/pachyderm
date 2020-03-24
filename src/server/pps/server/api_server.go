@@ -2169,7 +2169,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			// Make sure that the spec commit actually exists
 			commitInfo, err := pachClient.InspectCommit(request.SpecCommit.Repo.Name, request.SpecCommit.ID)
 			if err != nil {
-				return nil, errors.Wrapf(err, "error inspecting commit: \"%s/%s\"", request.SpecCommit.Repo.Name, request.SpecCommit.ID)
+				return nil, errors.Wrapf(err, "error inspecting commit: \"%s@%s\"", request.SpecCommit.Repo.Name, request.SpecCommit.ID)
 			}
 			// It does, so we use that as the spec commit, rather than making a new one
 			commit = commitInfo.Commit
