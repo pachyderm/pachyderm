@@ -453,10 +453,10 @@ func (c *objectBuilderClient) DeleteTags(ctx context.Context, req *pfs.DeleteTag
 func (c *objectBuilderClient) Compact(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("Compact")
 }
-func (c *objectBuilderClient) PutObj(ctx context.Context, opts ...grpc.CallOption) (pfs.ObjectAPI_PutObjClient, error) {
+func (c *objectBuilderClient) PutObjDirect(ctx context.Context, opts ...grpc.CallOption) (pfs.ObjectAPI_PutObjDirectClient, error) {
 	return nil, unsupportedError("PutObj")
 }
-func (c *objectBuilderClient) GetObj(ctx context.Context, req *pfs.GetObjRequest, opts ...grpc.CallOption) (pfs.ObjectAPI_GetObjClient, error) {
+func (c *objectBuilderClient) GetObjDirect(ctx context.Context, req *pfs.GetObjDirectRequest, opts ...grpc.CallOption) (pfs.ObjectAPI_GetObjDirectClient, error) {
 	return nil, unsupportedError("GetObj")
 }
 

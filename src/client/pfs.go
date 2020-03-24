@@ -891,11 +891,13 @@ func (c APIClient) Compact() error {
 	return err
 }
 
-// ObjReader gets the content of an obj.
-func (c APIClient) ObjReader(obj string) (io.ReadCloser, error) {
-	getObjClient, err := c.ObjectAPIClient.GetObj(
+// DirectObjReader returns a reader for the contents of an obj in object
+// storage, it reads directly from object storage, bypassing the
+// content-addressing layer.
+func (c APIClient) DirectObjReader(obj string) (io.ReadCloser, error) {
+	getObjClient, err := c.ObjectAPIClient.GetObjDirect(
 		c.Ctx(),
-		&pfs.GetObjRequest{Obj: obj},
+		&pfs.GetObjDirectRequest{Obj: obj},
 	)
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
@@ -903,8 +905,9 @@ func (c APIClient) ObjReader(obj string) (io.ReadCloser, error) {
 	return grpcutil.NewStreamingBytesReader(getObjClient, nil), nil
 }
 
-// ObjWriter puts an obj.
-func (c APIClient) ObjWriter(obj string) (io.WriteCloser, error) {
+// DirectObjWriter returns a writer for an obj in object storage, it writes
+// directly to object storage, bypassing the content-addressing layer.
+func (c APIClient) DirectObjWriter(obj string) (io.WriteCloser, error) {
 	return c.newPutObjWriteCloser(obj)
 }
 
@@ -1776,17 +1779,17 @@ func (w *putBlockWriteCloser) Close() error {
 }
 
 type putObjWriteCloser struct {
-	request *pfs.PutObjRequest
-	client  pfs.ObjectAPI_PutObjClient
+	request *pfs.PutObjDirectRequest
+	client  pfs.ObjectAPI_PutObjDirectClient
 }
 
 func (c APIClient) newPutObjWriteCloser(obj string) (*putObjWriteCloser, error) {
-	client, err := c.ObjectAPIClient.PutObj(c.Ctx())
+	client, err := c.ObjectAPIClient.PutObjDirect(c.Ctx())
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
 	return &putObjWriteCloser{
-		request: &pfs.PutObjRequest{Obj: obj},
+		request: &pfs.PutObjDirectRequest{Obj: obj},
 		client:  client,
 	}, nil
 }
