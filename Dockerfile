@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1.0-experimental
 ARG GO_VERSION
 FROM golang:${GO_VERSION}
+RUN apt update && apt install ca-certificates
 RUN go get github.com/go-bindata/go-bindata/...
 WORKDIR /app
 COPY . .
