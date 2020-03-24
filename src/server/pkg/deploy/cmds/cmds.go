@@ -192,10 +192,8 @@ func standardDeployCmds() []*cobra.Command {
 
 	var dryRun bool
 	var outputFormat string
-	var contextName string
 	var namespace string
 	var serverCert string
-	var createContext bool
 	var blockCacheSize string
 	var dashImage string
 	var dashOnly bool
@@ -244,8 +242,6 @@ func standardDeployCmds() []*cobra.Command {
 		cmd.Flags().BoolVar(&newStorageLayer, "new-storage-layer", false, "(feature flag) Do not set, used for testing.")
 		cmd.Flags().IntVar(&uploadConcurrencyLimit, "upload-concurrency-limit", assets.DefaultUploadConcurrencyLimit, "The maximum number of concurrent object storage uploads per Pachd instance.")
 		cmd.Flags().StringVar(&clusterDeploymentID, "cluster-deployment-id", "", "Set an ID for the cluster deployment. Defaults to a random value.")
-		cmd.Flags().StringVarP(&contextName, "context", "c", "", "Name of the context to add to the pachyderm config. If unspecified, a context name will automatically be derived.")
-		cmd.Flags().BoolVar(&createContext, "create-context", false, "Create a context, even with `--dry-run`.")
 		cmd.Flags().BoolVar(&requireCriticalServersOnly, "require-critical-servers-only", assets.DefaultRequireCriticalServersOnly, "Only require the critical Pachd servers to startup and run without errors.")
 
 		// Flags for setting pachd resource requests. These should rarely be set --
@@ -292,6 +288,13 @@ func standardDeployCmds() []*cobra.Command {
 		cmd.Flags().IntVar(&maxUploadParts, "max-upload-parts", obj.DefaultMaxUploadParts, "(rarely set) Set a custom maximum number of upload parts.")
 		cmd.Flags().BoolVar(&disableSSL, "disable-ssl", obj.DefaultDisableSSL, "(rarely set) Disable SSL.")
 		cmd.Flags().BoolVar(&noVerifySSL, "no-verify-ssl", obj.DefaultNoVerifySSL, "(rarely set) Skip SSL certificate verification (typically used for enabling self-signed certificates).")
+	}
+
+	var contextName string
+	var createContext bool
+	appendContextFlags := func(cmd *cobra.Command) {
+		cmd.Flags().StringVarP(&contextName, "context", "c", "", "Name of the context to add to the pachyderm config. If unspecified, a context name will automatically be derived.")
+		cmd.Flags().BoolVar(&createContext, "create-context", false, "Create a context, even with `--dry-run`.")
 	}
 
 	preRun := cmdutil.Run(func(args []string) error {
@@ -419,6 +422,7 @@ func standardDeployCmds() []*cobra.Command {
 		}),
 	}
 	appendGlobalFlags(deployLocal)
+	appendContextFlags(deployLocal)
 	deployLocal.Flags().StringVar(&hostPath, "host-path", "/var/pachyderm", "Location on the host machine where PFS metadata will be stored.")
 	deployLocal.Flags().BoolVarP(&dev, "dev", "d", false, "Deploy pachd with local version tags, disable metrics, expose Pachyderm's object/block API, and use an insecure authentication mechanism (do not set on any cluster with sensitive data)")
 	commands = append(commands, cmdutil.CreateAlias(deployLocal, "deploy local"))
@@ -474,6 +478,7 @@ func standardDeployCmds() []*cobra.Command {
 		}),
 	}
 	appendGlobalFlags(deployGoogle)
+	appendContextFlags(deployGoogle)
 	commands = append(commands, cmdutil.CreateAlias(deployGoogle, "deploy google"))
 
 	var objectStoreBackend string
@@ -530,6 +535,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	}
 	appendGlobalFlags(deployCustom)
 	appendS3Flags(deployCustom)
+	appendContextFlags(deployCustom)
 	// (bryce) secure should be merged with disableSSL, but it would be a breaking change.
 	deployCustom.Flags().BoolVarP(&secure, "secure", "s", false, "Enable secure access to a Minio server.")
 	deployCustom.Flags().StringVar(&persistentDiskBackend, "persistent-disk", "aws",
@@ -664,6 +670,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	}
 	appendGlobalFlags(deployAmazon)
 	appendS3Flags(deployAmazon)
+	appendContextFlags(deployAmazon)
 	deployAmazon.Flags().StringVar(&cloudfrontDistribution, "cloudfront-distribution", "",
 		"Deploying on AWS with cloudfront is currently "+
 			"an alpha feature. No security restrictions have been"+
@@ -725,6 +732,7 @@ If <object store backend> is \"s3\", then the arguments are:
 		}),
 	}
 	appendGlobalFlags(deployMicrosoft)
+	appendContextFlags(deployMicrosoft)
 	commands = append(commands, cmdutil.CreateAlias(deployMicrosoft, "deploy microsoft"))
 
 	deployStorageSecrets := func(data map[string][]byte) error {
