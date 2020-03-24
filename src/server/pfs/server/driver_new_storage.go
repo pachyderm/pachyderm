@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"path"
@@ -14,21 +15,19 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 	"golang.org/x/net/context"
 )
 
 const (
 	// tmpPrefix is for temporary object paths that store compacted shards.
-	tmpPrefix = "tmp"
+	tmpPrefix            = "tmp"
+	storageTaskNamespace = "storage"
 )
 
 func (d *driver) startCommitNewStorageLayer(txnCtx *txnenv.TransactionContext, id string, parent *pfs.Commit, branch string, provenance []*pfs.CommitProvenance, description string) (*pfs.Commit, error) {
-	commit, err := d.startCommit(txnCtx, id, parent, branch, provenance, description)
-	if err != nil {
-		return nil, err
-	}
-	return commit, nil
+	return d.startCommit(txnCtx, id, parent, branch, provenance, description)
 }
 
 func (d *driver) finishCommitNewStorageLayer(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, description string) (retErr error) {
@@ -45,45 +44,53 @@ func (d *driver) finishCommitNewStorageLayer(txnCtx *txnenv.TransactionContext, 
 	if description != "" {
 		commitInfo.Description = description
 	}
-	// Compact the commit changes into a diff file set.
-	commitPath := path.Join(commit.Repo.Name, commit.ID)
-	if err := d.compact(txnCtx.Client.Ctx(), path.Join(commitPath, fileset.Diff), []string{commitPath}); err != nil {
-		return err
-	}
-	// Compact the commit changes (diff file set) into the total changes in the commit's ancestry.
-	var compactSpec *fileset.CompactSpec
-	if commitInfo.ParentCommit == nil {
-		compactSpec, err = d.storage.CompactSpec(txnCtx.Client.Ctx(), commitPath)
-	} else {
-		// (bryce) how to handle parent commit that is not closed?
-		parentCommitPath := path.Join(commitInfo.ParentCommit.Repo.Name, commitInfo.ParentCommit.ID)
-		compactSpec, err = d.storage.CompactSpec(txnCtx.Client.Ctx(), commitPath, parentCommitPath)
-	}
-	if err != nil {
-		return err
-	}
-	if err := d.compact(txnCtx.Client.Ctx(), compactSpec.Output, compactSpec.Input); err != nil {
-		return err
-	}
-	// (bryce) need size.
-	commitInfo.SizeBytes = uint64(0)
-	commitInfo.Finished = now()
-	return d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo)
+	// Run compaction task.
+	return d.compactionQueue.RunTaskBlock(txnCtx.Client.Ctx(), func(m *work.Master) error {
+		commitPath := path.Join(commit.Repo.Name, commit.ID)
+		// (bryce) need some cleanup improvements, probably garbage collection.
+		// (bryce) this should be a retry when garbage collection is integrated.
+		d.storage.Delete(context.Background(), path.Join(commitPath, fileset.Diff))
+		d.storage.Delete(context.Background(), path.Join(commitPath, fileset.Compacted))
+		// Compact the commit changes into a diff file set.
+		if err := d.compact(m, path.Join(commitPath, fileset.Diff), []string{commitPath}); err != nil {
+			return err
+		}
+		// Compact the commit changes (diff file set) into the total changes in the commit's ancestry.
+		var compactSpec *fileset.CompactSpec
+		if commitInfo.ParentCommit == nil {
+			compactSpec, err = d.storage.CompactSpec(m.Ctx(), commitPath)
+		} else {
+			parentCommitPath := path.Join(commitInfo.ParentCommit.Repo.Name, commitInfo.ParentCommit.ID)
+			compactSpec, err = d.storage.CompactSpec(m.Ctx(), commitPath, parentCommitPath)
+		}
+		if err != nil {
+			return err
+		}
+		if err := d.compact(m, compactSpec.Output, compactSpec.Input); err != nil {
+			return err
+		}
+		// (bryce) need size.
+		commitInfo.SizeBytes = uint64(0)
+		commitInfo.Finished = now()
+		return d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo)
+	})
 }
 
 // (bryce) add commit validation.
 // (bryce) a failed put (crash/error) should result with any serialized sub file sets getting
 // cleaned up.
 func (d *driver) putFilesNewStorageLayer(ctx context.Context, repo, commit string, r io.Reader) (retErr error) {
+	// (bryce) subFileSet will need to be incremented through etcd eventually.
+	d.mu.Lock()
 	subFileSetStr := fileset.SubFileSetStr(d.subFileSet)
 	fs := d.storage.New(ctx, path.Join(repo, commit, subFileSetStr), subFileSetStr)
+	d.subFileSet++
+	d.mu.Unlock()
 	defer func() {
 		if err := fs.Close(); err != nil && retErr == nil {
 			retErr = err
 		}
 	}()
-	// (bryce) subFileSet will need to be incremented through etcd eventually.
-	d.subFileSet++
 	return fs.Put(r)
 }
 
@@ -97,54 +104,43 @@ func (d *driver) getFilesNewStorageLayer(ctx context.Context, repo, commit, glob
 	return mr.Get(w)
 }
 
-func (d *driver) compact(ctx context.Context, outputPath string, prefixes []string) error {
-	// (bryce) need some cleanup improvements, probably garbage collection.
-	if err := d.storage.Delete(ctx, tmpPrefix); err != nil {
-		return err
-	}
-	// (bryce) need to add a resiliency measure for existing incomplete compaction for the prefix (master crashed).
-	// Setup task.
-	task := &work.Task{Id: prefixes[0]}
-	var err error
-	task.Data, err = serializeCompaction(&pfs.Compaction{Prefixes: prefixes})
-	if err != nil {
-		return err
-	}
-	if err := d.storage.Shard(ctx, prefixes, func(pathRange *index.PathRange) error {
+func (d *driver) compact(master *work.Master, outputPath string, inputPrefixes []string) (retErr error) {
+	scratch := path.Join(tmpPrefix, uuid.NewWithoutDashes())
+	defer func() {
+		// (bryce) need some cleanup improvements, probably garbage collection.
+		if err := d.storage.Delete(context.Background(), scratch); retErr == nil {
+			retErr = err
+		}
+	}()
+	compaction := &pfs.Compaction{InputPrefixes: inputPrefixes}
+	var subtasks []*work.Task
+	if err := d.storage.Shard(master.Ctx(), inputPrefixes, func(pathRange *index.PathRange) error {
+		outputPath := path.Join(scratch, strconv.Itoa(len(subtasks)))
 		shard, err := serializeShard(&pfs.Shard{
+			Compaction: compaction,
 			Range: &pfs.PathRange{
 				Lower: pathRange.Lower,
 				Upper: pathRange.Upper,
 			},
+			OutputPath: outputPath,
 		})
 		if err != nil {
 			return err
 		}
-		task.Subtasks = append(task.Subtasks, &work.Task{
-			Id:   strconv.Itoa(len(task.Subtasks)),
-			Data: shard,
-		})
+		subtasks = append(subtasks, &work.Task{Data: shard})
 		return nil
 	}); err != nil {
 		return err
 	}
-	// Setup and run master.
-	m := work.NewMaster(d.etcdClient, d.prefix, func(_ context.Context, _ *work.Task) error { return nil })
-	if err := m.Run(ctx, task); err != nil {
+	if err := master.RunSubtasks(subtasks, func(_ context.Context, taskInfo *work.TaskInfo) error {
+		if taskInfo.State == work.State_FAILURE {
+			return fmt.Errorf(taskInfo.Reason)
+		}
+		return nil
+	}); err != nil {
 		return err
 	}
-	return d.storage.Compact(ctx, outputPath, []string{tmpPrefix})
-}
-
-func serializeCompaction(compaction *pfs.Compaction) (*types.Any, error) {
-	serializedCompaction, err := proto.Marshal(compaction)
-	if err != nil {
-		return nil, err
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(compaction),
-		Value:   serializedCompaction,
-	}, nil
+	return d.storage.Compact(master.Ctx(), outputPath, []string{scratch})
 }
 
 func serializeShard(shard *pfs.Shard) (*types.Any, error) {
@@ -158,35 +154,31 @@ func serializeShard(shard *pfs.Shard) (*types.Any, error) {
 	}, nil
 }
 
-func deserialize(compactionAny, shardAny *types.Any) (*pfs.Compaction, *pfs.Shard, error) {
-	compaction := &pfs.Compaction{}
-	if err := types.UnmarshalAny(compactionAny, compaction); err != nil {
-		return nil, nil, err
-	}
+func deserializeShard(shardAny *types.Any) (*pfs.Shard, error) {
 	shard := &pfs.Shard{}
 	if err := types.UnmarshalAny(shardAny, shard); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return compaction, shard, nil
+	return shard, nil
 }
 
 // (bryce) it might potentially make sense to exit if an error occurs in this function
 // because each pachd instance that errors here will lose its compaction worker without an obvious
 // notification for the user (outside of the log message).
+// (bryce) ^ maybe just a retry would be good enough.
 func (d *driver) compactionWorker() {
-	w := work.NewWorker(d.etcdClient, d.prefix, func(ctx context.Context, task, subtask *work.Task) (retErr error) {
-		compaction, shard, err := deserialize(task.Data, subtask.Data)
+	w := work.NewWorker(d.etcdClient, d.prefix, storageTaskNamespace)
+	if err := w.Run(context.Background(), func(ctx context.Context, subtask *work.Task) error {
+		shard, err := deserializeShard(subtask.Data)
 		if err != nil {
 			return err
 		}
-		outputPath := path.Join(tmpPrefix, task.Id, subtask.Id)
 		pathRange := &index.PathRange{
 			Lower: shard.Range.Lower,
 			Upper: shard.Range.Upper,
 		}
-		return d.storage.Compact(ctx, outputPath, compaction.Prefixes, index.WithRange(pathRange))
-	})
-	if err := w.Run(context.Background()); err != nil {
+		return d.storage.Compact(ctx, shard.OutputPath, shard.Compaction.InputPrefixes, index.WithRange(pathRange))
+	}); err != nil {
 		log.Printf("error in compaction worker: %v", err)
 	}
 }
