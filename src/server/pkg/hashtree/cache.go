@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/hashicorp/golang-lru/simplelru"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/localcache"
 	"github.com/sirupsen/logrus"
 )
@@ -27,7 +28,7 @@ type Cache struct {
 func castValue(value interface{}) (HashTree, error) {
 	tree, ok := value.(HashTree)
 	if !ok {
-		return nil, fmt.Errorf("corrupted cache: expected HashTree, found: %v", reflect.TypeOf(value))
+		return nil, errors.Errorf("corrupted cache: expected HashTree, found: %v", reflect.TypeOf(value))
 	}
 	return tree, nil
 }

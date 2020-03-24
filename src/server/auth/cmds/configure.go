@@ -2,7 +2,6 @@ package cmds
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serde"
@@ -27,7 +27,7 @@ func GetConfigCmd() *cobra.Command {
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
-				return fmt.Errorf("could not connect: %v", err)
+				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
 			resp, err := c.GetConfiguration(c.Ctx(), &auth.GetConfigurationRequest{})
@@ -77,7 +77,7 @@ func SetConfigCmd() *cobra.Command {
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
-				return fmt.Errorf("could not connect: %v", err)
+				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
 			var rawConfigBytes []byte
@@ -85,13 +85,13 @@ func SetConfigCmd() *cobra.Command {
 				var err error
 				rawConfigBytes, err = ioutil.ReadAll(os.Stdin)
 				if err != nil {
-					return fmt.Errorf("could not read config from stdin: %v", err)
+					return errors.Wrapf(err, "could not read config from stdin")
 				}
 			} else if file != "" {
 				var err error
 				rawConfigBytes, err = ioutil.ReadFile(file)
 				if err != nil {
-					return fmt.Errorf("could not read config from %q: %v", file, err)
+					return errors.Wrapf(err, "could not read config from %q", file)
 				}
 			} else {
 				return errors.New("must set input file (use \"-\" to read from stdin)")
@@ -100,7 +100,7 @@ func SetConfigCmd() *cobra.Command {
 			// parse config
 			var config auth.AuthConfig
 			if err := serde.DecodeYAML(rawConfigBytes, &config); err != nil {
-				return fmt.Errorf("could not parse config: %v", err)
+				return errors.Wrapf(err, "could not parse config")
 			}
 			// TODO(msteffen): try to handle empty config?
 			_, err = c.SetConfiguration(c.Ctx(), &auth.SetConfigurationRequest{

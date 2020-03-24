@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/limit"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"golang.org/x/sync/errgroup"
@@ -90,10 +91,10 @@ func basicTest(c obj.Client) error {
 	name := "0"
 	// Confirm that an existence check and deletion for a non-existent object works correctly.
 	if c.Exists(ctx, name) {
-		return fmt.Errorf("existence check returns true when the object should not exist")
+		return errors.Errorf("existence check returns true when the object should not exist")
 	}
 	if err := c.Delete(ctx, name); err != nil {
-		return fmt.Errorf("deletion errored on non-existent object (%v)", err)
+		return errors.Wrap(err, "deletion errored on non-existent object")
 	}
 	if err := walk(ctx, c, 0, nil); err != nil {
 		return err
@@ -123,7 +124,7 @@ func basicTest(c obj.Client) error {
 	// Walk the objects and for each check the existence and delete it.
 	if err := walk(ctx, c, 5, func(name string) error {
 		if !c.Exists(ctx, name) {
-			return fmt.Errorf("existence check returns false when the object should exist")
+			return errors.Errorf("existence check returns false when the object should exist")
 		}
 		return c.Delete(ctx, name)
 	}); err != nil {
@@ -156,7 +157,7 @@ func walk(ctx context.Context, c obj.Client, expected int, f func(string) error)
 		return err
 	}
 	if objCount != expected {
-		return fmt.Errorf("walk should have returned %v objects, not %v", expected, objCount)
+		return errors.Errorf("walk should have returned %v objects, not %v", expected, objCount)
 	}
 	return nil
 }
@@ -196,7 +197,7 @@ func readTest(ctx context.Context, c obj.Client, name string, offset, size int, 
 		return err
 	}
 	if !bytes.Equal(expected, buf) {
-		return fmt.Errorf("range read for object %v incorrect (offset: %v, size: %v)", name, offset, size)
+		return errors.Errorf("range read for object %v incorrect (offset: %v, size: %v)", name, offset, size)
 	}
 	return nil
 }
@@ -221,7 +222,7 @@ func loadTest(c obj.Client) error {
 				return err
 			}
 			if !bytes.Equal(data, buf) {
-				return fmt.Errorf("data writen does not equal data read for object %v", i)
+				return errors.Errorf("data written does not equal data read for object %v", i)
 			}
 			return c.Delete(ctx, name)
 		})

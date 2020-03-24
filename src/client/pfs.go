@@ -3,12 +3,12 @@ package client
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"sync"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 )
@@ -869,14 +869,14 @@ func (c APIClient) PutBlock(hash string, _r io.Reader) (_ int64, retErr error) {
 	}
 	defer func() {
 		if err := w.Close(); err != nil && retErr == nil {
-			retErr = fmt.Errorf("Close: %v", grpcutil.ScrubGRPC(err))
+			retErr = errors.Wrap(grpcutil.ScrubGRPC(err), "Close")
 		}
 	}()
 	buf := grpcutil.GetBuffer()
 	defer grpcutil.PutBuffer(buf)
 	written, err := io.CopyBuffer(w, r, buf)
 	if err != nil {
-		return written, fmt.Errorf("CopyBuffer: %v", grpcutil.ScrubGRPC(err))
+		return written, errors.Wrap(grpcutil.ScrubGRPC(err), "CopyBuffer")
 	}
 	// return value set by deferred function
 	return written, nil
@@ -1444,7 +1444,7 @@ func (c APIClient) FsckFastExit() error {
 			return grpcutil.ScrubGRPC(err)
 		}
 		if resp.Error != "" {
-			return fmt.Errorf(resp.Error)
+			return errors.Errorf(resp.Error)
 		}
 	}
 }
@@ -1645,7 +1645,7 @@ func (w *PutObjectWriteCloserAsync) Object() (*pfs.Object, error) {
 		}
 		return w.object, nil
 	default:
-		return nil, fmt.Errorf("attempting to get object before closing object writer")
+		return nil, errors.Errorf("attempting to get object before closing object writer")
 	}
 }
 

@@ -11,12 +11,12 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"errors"
-	"fmt"
 	"math/big"
 	"net"
 	"sync/atomic"
 	"time"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 const rsaKeySize = 2048               // Recommended by SO (below) and generate_cert.go
@@ -62,7 +62,7 @@ func GenerateSelfSignedCert(address string, name *pkix.Name, ipAddresses ...stri
 	case address != "" && name.CommonName == "":
 		name.CommonName = address
 	case address != "" && name.CommonName != "" && name.CommonName != address:
-		return nil, fmt.Errorf("set address to \"%s\" but name.CommonName to \"%s\"", address, name.CommonName)
+		return nil, errors.Errorf("set address to \"%s\" but name.CommonName to \"%s\"", address, name.CommonName)
 	default:
 		// name.CommonName is already valid--nothing to do
 	}
@@ -72,7 +72,7 @@ func GenerateSelfSignedCert(address string, name *pkix.Name, ipAddresses ...stri
 	for _, strIP := range ipAddresses {
 		nextParsedIP := net.ParseIP(strIP)
 		if nextParsedIP == nil {
-			return nil, fmt.Errorf("invalid IP: %s", strIP)
+			return nil, errors.Errorf("invalid IP: %s", strIP)
 		}
 		parsedIPs = append(parsedIPs, nextParsedIP)
 	}
@@ -82,7 +82,7 @@ func GenerateSelfSignedCert(address string, name *pkix.Name, ipAddresses ...stri
 	// this only generates RSA keys
 	key, err := rsa.GenerateKey(rand.Reader, rsaKeySize)
 	if err != nil {
-		return nil, fmt.Errorf("could not generate RSA private key: %v", err)
+		return nil, errors.Wrapf(err, "could not generate RSA private key")
 	}
 
 	// Generate unsigned cert
@@ -110,11 +110,11 @@ func GenerateSelfSignedCert(address string, name *pkix.Name, ipAddresses ...stri
 	// Sign 'cert' (cert is both 'template' and 'parent' b/c it's self-signed)
 	signedCertDER, err := x509.CreateCertificate(rand.Reader, &cert, &cert, &key.PublicKey, key)
 	if err != nil {
-		return nil, fmt.Errorf("could not self-sign certificate: %v", err)
+		return nil, errors.Wrapf(err, "could not self-sign certificate")
 	}
 	signedCert, err := x509.ParseCertificate(signedCertDER)
 	if err != nil {
-		return nil, fmt.Errorf("could not parse the just-generated signed certificate: %v", err)
+		return nil, errors.Wrapf(err, "could not parse the just-generated signed certificate")
 	}
 	return &tls.Certificate{
 		Certificate: [][]byte{signedCertDER},

@@ -7,6 +7,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 )
 
@@ -28,7 +29,7 @@ func RunWorkload(
 			return err
 		}
 		if jobInfo.State != pps.JobState_JOB_SUCCESS {
-			return fmt.Errorf("job %s failed", job.ID)
+			return errors.Errorf("job %s failed", job.ID)
 		}
 	}
 	return nil
