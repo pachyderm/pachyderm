@@ -229,7 +229,7 @@ def main():
                                    "s3://pachyderm-engineering/test_enterprise_activation_code.txt", "-")
         run("pachctl", "enterprise", "activate", RedactedString(enterprise_token))
         run("pachctl", "auth", "activate", stdin="admin\n")
-        run("pachctl", "deploy-jupyterhub")
+        run("pachctl", "deploy", "jupyterhub")
 
 if __name__ == "__main__":
     main()

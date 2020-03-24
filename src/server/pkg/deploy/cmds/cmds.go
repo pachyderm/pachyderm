@@ -717,6 +717,109 @@ If <object store backend> is \"s3\", then the arguments are:
 	}
 	commands = append(commands, cmdutil.CreateAlias(importImages, "deploy import-images"))
 
+	var lbTLSHost string
+	var lbTLSEmail string
+	deployJupyterHub := &cobra.Command{
+		Short: "Deploy JupyterHub.",
+		Long:  "Deploy a JupyterHub instance alongside Pachyderm, with several Pachyderm extensions built-in.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+			cfg, err := config.Read(false)
+			if err != nil {
+				return err
+			}
+			_, activeContext, err := cfg.ActiveContext()
+			if err != nil {
+				return err
+			}
+
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return fmt.Errorf("error constructing pachyderm client: %v", err)
+			}
+			defer c.Close()
+
+			enterpriseResp, err := c.Enterprise.GetState(c.Ctx(), &enterprise.GetStateRequest{})
+			if err != nil {
+				return fmt.Errorf("could not get Enterprise status: %v", grpcutil.ScrubGRPC(err))
+			}
+
+			if enterpriseResp.State != enterprise.State_ACTIVE {
+				return errors.New("Pachyderm Enterprise must be enabled to use this feature")
+			}
+
+			authActive, err := c.IsAuthActive()
+			if err != nil {
+				return fmt.Errorf("could not check whether auth is active: %v", grpcutil.ScrubGRPC(err))
+			}
+			if !authActive {
+				return errors.New("Pachyderm auth must be enabled to use this feature")
+			}
+
+			whoamiResp, err := c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+			if err != nil {
+				return fmt.Errorf("could not get the current logged in user: %v", grpcutil.ScrubGRPC(err))
+			}
+
+			authTokenResp, err := c.GetAuthToken(c.Ctx(), &auth.GetAuthTokenRequest{
+				Subject: whoamiResp.Username,
+			})
+
+			values := map[string]interface{}{
+				"hub": map[string]interface{}{
+					"image": map[string]interface{}{
+						"name": "pachyderm/jupyterhub-pachyderm-hub",
+						"tag":  jupyterhubPachydermVersion,
+					},
+				},
+				"singleuser": map[string]interface{}{
+					"image": map[string]interface{}{
+						"name": "pachyderm/jupyterhub-pachyderm-user",
+						"tag":  jupyterhubPachydermVersion,
+					},
+				},
+				"auth": map[string]interface{}{
+					"state": map[string]interface{}{
+						"enabled":   true,
+						"cryptoKey": generateSecureToken(16),
+					},
+					"type": "custom",
+					"custom": map[string]interface{}{
+						"className": "pachyderm_authenticator.PachydermAuthenticator",
+						"config": map[string]interface{}{
+							"pach_auth_token": authTokenResp.Token,
+						},
+					},
+					"admin": map[string]interface{}{
+						"users": []string{whoamiResp.Username},
+					},
+				},
+				"proxy": map[string]interface{}{
+					"secretToken": generateSecureToken(16),
+				},
+			}
+
+			if lbTLSHost != "" && lbTLSEmail != "" {
+				values["https"] = map[string]interface{}{
+					"hosts": []string{lbTLSHost},
+					"letsencrypt": map[string]interface{}{
+						"contactEmail": lbTLSEmail,
+					},
+				}
+			}
+
+			rel, err := helm.Deploy(activeContext, "jhub", "jupyterhub/jupyterhub", jupyterhubVersion, values)
+			if err != nil {
+				return fmt.Errorf("failed to deploy JupyterHub: %v", err)
+			}
+
+			fmt.Println(rel.Info.Notes)
+			return nil
+		}),
+	}
+	deployJupyterHub.PersistentFlags().StringVar(&lbTLSHost, "lb-tls-host", "", "Hostname for minting a Let's Encrypt TLS cert on the JupyterHub load balancer")
+	deployJupyterHub.PersistentFlags().StringVar(&lbTLSEmail, "lb-tls-email", "", "Contact email for minting a Let's Encrypt TLS cert on the JupyterHub load balancer")
+	commands = append(commands, cmdutil.CreateAlias(deployJupyterHub, "deploy jupyterhub"))
+
 	var blockCacheSize string
 	var dashImage string
 	var dashOnly bool
@@ -1035,109 +1138,6 @@ removed.`)
 	updateDash.Flags().BoolVar(&updateDashDryRun, "dry-run", false, "Don't actually deploy Pachyderm Dash to Kubernetes, instead just print the manifest.")
 	updateDash.Flags().StringVarP(&updateDashOutputFormat, "output", "o", "json", "Output format. One of: json|yaml")
 	commands = append(commands, cmdutil.CreateAlias(updateDash, "update-dash"))
-
-	var lbTLSHost string
-	var lbTLSEmail string
-	deployJupyterHub := &cobra.Command{
-		Short: "Deploy JupyterHub.",
-		Long:  "Deploy a JupyterHub instance alongside Pachyderm, with several Pachyderm extensions built-in.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			cfg, err := config.Read(false)
-			if err != nil {
-				return err
-			}
-			_, activeContext, err := cfg.ActiveContext()
-			if err != nil {
-				return err
-			}
-
-			c, err := client.NewOnUserMachine("user")
-			if err != nil {
-				return fmt.Errorf("error constructing pachyderm client: %v", err)
-			}
-			defer c.Close()
-
-			enterpriseResp, err := c.Enterprise.GetState(c.Ctx(), &enterprise.GetStateRequest{})
-			if err != nil {
-				return fmt.Errorf("could not get Enterprise status: %v", grpcutil.ScrubGRPC(err))
-			}
-
-			if enterpriseResp.State != enterprise.State_ACTIVE {
-				return errors.New("Pachyderm Enterprise must be enabled to use this feature")
-			}
-
-			authActive, err := c.IsAuthActive()
-			if err != nil {
-				return fmt.Errorf("could not check whether auth is active: %v", grpcutil.ScrubGRPC(err))
-			}
-			if !authActive {
-				return errors.New("Pachyderm auth must be enabled to use this feature")
-			}
-
-			whoamiResp, err := c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
-			if err != nil {
-				return fmt.Errorf("could not get the current logged in user: %v", grpcutil.ScrubGRPC(err))
-			}
-
-			authTokenResp, err := c.GetAuthToken(c.Ctx(), &auth.GetAuthTokenRequest{
-				Subject: whoamiResp.Username,
-			})
-
-			values := map[string]interface{}{
-				"hub": map[string]interface{}{
-					"image": map[string]interface{}{
-						"name": "pachyderm/jupyterhub-pachyderm-hub",
-						"tag":  jupyterhubPachydermVersion,
-					},
-				},
-				"singleuser": map[string]interface{}{
-					"image": map[string]interface{}{
-						"name": "pachyderm/jupyterhub-pachyderm-user",
-						"tag":  jupyterhubPachydermVersion,
-					},
-				},
-				"auth": map[string]interface{}{
-					"state": map[string]interface{}{
-						"enabled":   true,
-						"cryptoKey": generateSecureToken(16),
-					},
-					"type": "custom",
-					"custom": map[string]interface{}{
-						"className": "pachyderm_authenticator.PachydermAuthenticator",
-						"config": map[string]interface{}{
-							"pach_auth_token": authTokenResp.Token,
-						},
-					},
-					"admin": map[string]interface{}{
-						"users": []string{whoamiResp.Username},
-					},
-				},
-				"proxy": map[string]interface{}{
-					"secretToken": generateSecureToken(16),
-				},
-			}
-
-			if lbTLSHost != "" && lbTLSEmail != "" {
-				values["https"] = map[string]interface{}{
-					"hosts": []string{lbTLSHost},
-					"letsencrypt": map[string]interface{}{
-						"contactEmail": lbTLSEmail,
-					},
-				}
-			}
-
-			rel, err := helm.Deploy(activeContext, "jhub", "jupyterhub/jupyterhub", jupyterhubVersion, values)
-			if err != nil {
-				return fmt.Errorf("failed to deploy JupyterHub: %v", err)
-			}
-
-			fmt.Println(rel.Info.Notes)
-			return nil
-		}),
-	}
-	deployJupyterHub.PersistentFlags().StringVar(&lbTLSHost, "lb-tls-host", "", "Hostname for minting a Let's Encrypt TLS cert on the JupyterHub load balancer")
-	deployJupyterHub.PersistentFlags().StringVar(&lbTLSEmail, "lb-tls-email", "", "Contact email for minting a Let's Encrypt TLS cert on the JupyterHub load balancer")
-	commands = append(commands, cmdutil.CreateAlias(deployJupyterHub, "deploy-jupyterhub"))
 
 	return commands
 }
