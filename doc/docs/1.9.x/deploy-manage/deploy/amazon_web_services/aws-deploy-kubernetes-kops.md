@@ -52,7 +52,7 @@ location on your computer.
 1. Configure an AWS CLI client:
 
    ```bash
-   aws configure
+   $ aws configure
    ```
 
 1. Use the access and secret keys to configure the AWSL client.
@@ -60,18 +60,13 @@ location on your computer.
 1. Create an S3 bucket for your cluster:
 
    ```bash
-   aws s3api create-bucket --bucket <name> --region <region>
+   $ aws s3api create-bucket --bucket <name> --region <region>
    ```
 
    **Example:**
 
    ```bash
-   aws s3api create-bucket --bucket test-pachyderm --region us-east-1
-   ```
-
-   **System Response:**
-
-   ```bash
+   $ aws s3api create-bucket --bucket test-pachyderm --region us-east-1
    {
         "Location": "/test-pachyderm"
    }
@@ -116,12 +111,7 @@ cluster as variables.
    similar to the following:
 
    ```bash
-   kops validate cluster
-   ```
-
-   **System Response:**
-
-   ```bash
+   $ kops validate cluster
    Using cluster from kubectl context: test-pachyderm.k8s.local
 
    Validating cluster svetkars.k8s.local

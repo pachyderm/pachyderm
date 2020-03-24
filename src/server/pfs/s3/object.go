@@ -8,48 +8,46 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/gorilla/mux"
-	pfsClient "github.com/pachyderm/pachyderm/src/client/pfs"
 	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/s2"
 )
 
-func (c *controller) GetObject(r *http.Request, bucket, file, version string) (*s2.GetObjectResult, error) {
+func (c *controller) GetObject(r *http.Request, bucketName, file, version string) (*s2.GetObjectResult, error) {
 	vars := mux.Vars(r)
-	pc, err := c.pachClient(vars["authAccessKey"])
-	if err != nil {
-		return nil, err
-	}
-	repo, branch, err := bucketArgs(r, bucket)
+	pc, err := c.clientFactory.Client(vars["authAccessKey"])
 	if err != nil {
 		return nil, err
 	}
 
-	branchInfo, err := pc.InspectBranch(repo, branch)
-	if err != nil {
-		return nil, maybeNotFoundError(r, err)
-	}
-	if branchInfo.Head == nil {
-		return nil, s2.NoSuchKeyError(r)
-	}
 	if strings.HasSuffix(file, "/") {
 		return nil, invalidFilePathError(r)
 	}
 
-	var commitInfo *pfsClient.CommitInfo
-	commitID := branch
-	if version != "" {
-		commitInfo, err = pc.InspectCommit(repo, version)
+	bucket, err := c.driver.bucket(pc, r, bucketName)
+	if err != nil {
+		return nil, err
+	}
+	bucketCaps, err := c.driver.bucketCapabilities(pc, r, bucket)
+	if err != nil {
+		return nil, err
+	}
+	if !bucketCaps.readable {
+		return nil, s2.NoSuchKeyError(r)
+	}
+
+	if bucketCaps.historicVersions && version != "" {
+		commitInfo, err := pc.InspectCommit(bucket.Repo, version)
 		if err != nil {
 			return nil, maybeNotFoundError(r, err)
 		}
-		if commitInfo.Branch.Name != branch {
+		if commitInfo.Branch.Name != bucket.Commit {
 			return nil, s2.NoSuchVersionError(r)
 		}
-		commitID = commitInfo.Commit.ID
+		bucket.Commit = commitInfo.Commit.ID
 	}
 
-	fileInfo, err := pc.InspectFile(branchInfo.Branch.Repo.Name, commitID, file)
+	fileInfo, err := pc.InspectFile(bucket.Repo, bucket.Commit, file)
 	if err != nil {
 		return nil, maybeNotFoundError(r, err)
 	}
@@ -59,7 +57,7 @@ func (c *controller) GetObject(r *http.Request, bucket, file, version string) (*
 		return nil, err
 	}
 
-	content, err := pc.GetFileReadSeeker(branchInfo.Branch.Repo.Name, commitID, file)
+	content, err := pc.GetFileReadSeeker(bucket.Repo, bucket.Commit, file)
 	if err != nil {
 		return nil, err
 	}
@@ -68,33 +66,37 @@ func (c *controller) GetObject(r *http.Request, bucket, file, version string) (*
 		ModTime:      modTime,
 		Content:      content,
 		ETag:         fmt.Sprintf("%x", fileInfo.Hash),
-		Version:      commitID,
+		Version:      bucket.Commit,
 		DeleteMarker: false,
 	}
 
 	return &result, nil
 }
 
-func (c *controller) PutObject(r *http.Request, bucket, file string, reader io.Reader) (*s2.PutObjectResult, error) {
+func (c *controller) PutObject(r *http.Request, bucketName, file string, reader io.Reader) (*s2.PutObjectResult, error) {
 	vars := mux.Vars(r)
-	pc, err := c.pachClient(vars["authAccessKey"])
-	if err != nil {
-		return nil, err
-	}
-	repo, branch, err := bucketArgs(r, bucket)
+	pc, err := c.clientFactory.Client(vars["authAccessKey"])
 	if err != nil {
 		return nil, err
 	}
 
-	branchInfo, err := pc.InspectBranch(repo, branch)
-	if err != nil {
-		return nil, maybeNotFoundError(r, err)
-	}
 	if strings.HasSuffix(file, "/") {
 		return nil, invalidFilePathError(r)
 	}
 
-	_, err = pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file, reader, 0)
+	bucket, err := c.driver.bucket(pc, r, bucketName)
+	if err != nil {
+		return nil, err
+	}
+	bucketCaps, err := c.driver.bucketCapabilities(pc, r, bucket)
+	if err != nil {
+		return nil, err
+	}
+	if !bucketCaps.writable {
+		return nil, s2.NotImplementedError(r)
+	}
+
+	_, err = pc.PutFileOverwrite(bucket.Repo, bucket.Commit, file, reader, 0)
 	if err != nil {
 		if errutil.IsWriteToOutputBranchError(err) {
 			return nil, writeToOutputBranchError(r)
@@ -102,7 +104,7 @@ func (c *controller) PutObject(r *http.Request, bucket, file string, reader io.R
 		return nil, err
 	}
 
-	fileInfo, err := pc.InspectFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file)
+	fileInfo, err := pc.InspectFile(bucket.Repo, bucket.Commit, file)
 	if err != nil && !pfsServer.IsOutputCommitNotFinishedErr(err) {
 		return nil, err
 	}
@@ -116,24 +118,13 @@ func (c *controller) PutObject(r *http.Request, bucket, file string, reader io.R
 	return &result, nil
 }
 
-func (c *controller) DeleteObject(r *http.Request, bucket, file, version string) (*s2.DeleteObjectResult, error) {
+func (c *controller) DeleteObject(r *http.Request, bucketName, file, version string) (*s2.DeleteObjectResult, error) {
 	vars := mux.Vars(r)
-	pc, err := c.pachClient(vars["authAccessKey"])
-	if err != nil {
-		return nil, err
-	}
-	repo, branch, err := bucketArgs(r, bucket)
+	pc, err := c.clientFactory.Client(vars["authAccessKey"])
 	if err != nil {
 		return nil, err
 	}
 
-	branchInfo, err := pc.InspectBranch(repo, branch)
-	if err != nil {
-		return nil, maybeNotFoundError(r, err)
-	}
-	if branchInfo.Head == nil {
-		return nil, s2.NoSuchKeyError(r)
-	}
 	if strings.HasSuffix(file, "/") {
 		return nil, invalidFilePathError(r)
 	}
@@ -141,7 +132,19 @@ func (c *controller) DeleteObject(r *http.Request, bucket, file, version string)
 		return nil, s2.NotImplementedError(r)
 	}
 
-	if err = pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file); err != nil {
+	bucket, err := c.driver.bucket(pc, r, bucketName)
+	if err != nil {
+		return nil, err
+	}
+	bucketCaps, err := c.driver.bucketCapabilities(pc, r, bucket)
+	if err != nil {
+		return nil, err
+	}
+	if !bucketCaps.writable {
+		return nil, s2.NotImplementedError(r)
+	}
+
+	if err = pc.DeleteFile(bucket.Repo, bucket.Commit, file); err != nil {
 		if errutil.IsWriteToOutputBranchError(err) {
 			return nil, writeToOutputBranchError(r)
 		}

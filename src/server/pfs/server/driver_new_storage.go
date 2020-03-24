@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"io"
 	"log"
 	"path"
@@ -9,16 +8,19 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 	"golang.org/x/net/context"
+)
+
+const (
+	// tmpPrefix is for temporary object paths that store compacted shards.
+	tmpPrefix = "tmp"
 )
 
 func (d *driver) startCommitNewStorageLayer(txnCtx *txnenv.TransactionContext, id string, parent *pfs.Commit, branch string, provenance []*pfs.CommitProvenance, description string) (*pfs.Commit, error) {
@@ -26,7 +28,6 @@ func (d *driver) startCommitNewStorageLayer(txnCtx *txnenv.TransactionContext, i
 	if err != nil {
 		return nil, err
 	}
-	d.fs = d.storage.New(context.Background(), commit.ID)
 	return commit, nil
 }
 
@@ -44,29 +45,24 @@ func (d *driver) finishCommitNewStorageLayer(txnCtx *txnenv.TransactionContext, 
 	if description != "" {
 		commitInfo.Description = description
 	}
-	// Close in-memory file set (serializes in-memory part).
-	if err := d.fs.Close(); err != nil {
+	// Compact the commit changes into a diff file set.
+	commitPath := path.Join(commit.Repo.Name, commit.ID)
+	if err := d.compact(txnCtx.Client.Ctx(), path.Join(commitPath, fileset.Diff), []string{commitPath}); err != nil {
 		return err
 	}
-	defer func() {
-		if retErr == nil {
-			d.fs = nil
-		}
-	}()
-	// Merge the commit with its parent.
-	// (bryce) this should be where the level based compaction scheme is used.
-	// right now we are eagerly compacting at every commit.
-	fileSets := []string{commitInfo.Commit.ID}
-	parentCommit := commitInfo.ParentCommit
-	if parentCommit != nil {
+	// Compact the commit changes (diff file set) into the total changes in the commit's ancestry.
+	var compactSpec *fileset.CompactSpec
+	if commitInfo.ParentCommit == nil {
+		compactSpec, err = d.storage.CompactSpec(txnCtx.Client.Ctx(), commitPath)
+	} else {
 		// (bryce) how to handle parent commit that is not closed?
-		parentCommitInfo, err := d.resolveCommit(txnCtx.Stm, parentCommit)
-		if err != nil {
-			return err
-		}
-		fileSets = append(fileSets, path.Join(parentCommitInfo.Commit.ID, fileset.Compacted))
+		parentCommitPath := path.Join(commitInfo.ParentCommit.Repo.Name, commitInfo.ParentCommit.ID)
+		compactSpec, err = d.storage.CompactSpec(txnCtx.Client.Ctx(), commitPath, parentCommitPath)
 	}
-	if err := d.merge(context.Background(), path.Join(commitInfo.Commit.ID, fileset.Compacted), fileSets); err != nil {
+	if err != nil {
+		return err
+	}
+	if err := d.compact(txnCtx.Client.Ctx(), compactSpec.Output, compactSpec.Input); err != nil {
 		return err
 	}
 	// (bryce) need size.
@@ -75,45 +71,42 @@ func (d *driver) finishCommitNewStorageLayer(txnCtx *txnenv.TransactionContext, 
 	return d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo)
 }
 
-// (bryce) should have a context going through here.
-func (d *driver) putFilesNewStorageLayer(pachClient *client.APIClient, server *putFileServer) error {
-	// (bryce) how to handle no commit started?
-	// (bryce) this will not work for large files with the current implementation.
-	for req, err := server.Recv(); err == nil; req, err = server.Recv() {
-		if err := d.fs.WriteHeader(&tar.Header{Name: req.File.Path}); err != nil {
-			return err
+// (bryce) add commit validation.
+// (bryce) a failed put (crash/error) should result with any serialized sub file sets getting
+// cleaned up.
+func (d *driver) putFilesNewStorageLayer(ctx context.Context, repo, commit string, r io.Reader) (retErr error) {
+	subFileSetStr := fileset.SubFileSetStr(d.subFileSet)
+	fs := d.storage.New(ctx, path.Join(repo, commit, subFileSetStr), subFileSetStr)
+	defer func() {
+		if err := fs.Close(); err != nil && retErr == nil {
+			retErr = err
 		}
-		if _, err := io.Copy(d.fs, bytes.NewReader(req.Value)); err != nil {
-			return err
-		}
-	}
-	return nil
+	}()
+	// (bryce) subFileSet will need to be incremented through etcd eventually.
+	d.subFileSet++
+	return fs.Put(r)
 }
 
-func (d *driver) getFileNewStorageLayer(pachClient *client.APIClient, file *pfs.File) (io.Reader, error) {
-	// (bryce) path should be cleaned in option function
-	fileSet := file.Commit.ID
-	r := d.storage.NewReader(context.Background(), path.Join(fileSet, fileset.Compacted), index.WithPrefix(file.Path))
-	hdr, err := r.Next()
+func (d *driver) getFilesNewStorageLayer(ctx context.Context, repo, commit, glob string, w io.Writer) error {
+	// (bryce) glob should be cleaned in option function
+	// (bryce) need exact match option for file glob.
+	mr, err := d.storage.NewMergeReader(ctx, []string{path.Join(repo, commit, fileset.Compacted)}, index.WithPrefix(glob))
 	if err != nil {
-		if err == io.EOF {
-			return nil, pfsserver.ErrFileNotFound{file}
-		}
-		return nil, err
+		return err
 	}
-	// (bryce) going to want an exact match option for storage layer.
-	if hdr.Hdr.Name != file.Path {
-		return nil, pfsserver.ErrFileNotFound{file}
-	}
-	return r, nil
+	return mr.Get(w)
 }
 
-func (d *driver) merge(ctx context.Context, outputPath string, prefixes []string) error {
-	// (bryce) need to add a resiliency measure for existing incomplete merge for the prefix (master crashed).
+func (d *driver) compact(ctx context.Context, outputPath string, prefixes []string) error {
+	// (bryce) need some cleanup improvements, probably garbage collection.
+	if err := d.storage.Delete(ctx, tmpPrefix); err != nil {
+		return err
+	}
+	// (bryce) need to add a resiliency measure for existing incomplete compaction for the prefix (master crashed).
 	// Setup task.
 	task := &work.Task{Id: prefixes[0]}
 	var err error
-	task.Data, err = serializeMerge(&pfs.Merge{Prefixes: prefixes})
+	task.Data, err = serializeCompaction(&pfs.Compaction{Prefixes: prefixes})
 	if err != nil {
 		return err
 	}
@@ -140,18 +133,17 @@ func (d *driver) merge(ctx context.Context, outputPath string, prefixes []string
 	if err := m.Run(ctx, task); err != nil {
 		return err
 	}
-	inputPrefix := path.Join(tmpPrefix, prefixes[0])
-	return d.storage.Merge(ctx, outputPath, []string{inputPrefix})
+	return d.storage.Compact(ctx, outputPath, []string{tmpPrefix})
 }
 
-func serializeMerge(merge *pfs.Merge) (*types.Any, error) {
-	serializedMerge, err := proto.Marshal(merge)
+func serializeCompaction(compaction *pfs.Compaction) (*types.Any, error) {
+	serializedCompaction, err := proto.Marshal(compaction)
 	if err != nil {
 		return nil, err
 	}
 	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(merge),
-		Value:   serializedMerge,
+		TypeUrl: "/" + proto.MessageName(compaction),
+		Value:   serializedCompaction,
 	}, nil
 }
 
@@ -166,24 +158,24 @@ func serializeShard(shard *pfs.Shard) (*types.Any, error) {
 	}, nil
 }
 
-func deserialize(mergeAny, shardAny *types.Any) (*pfs.Merge, *pfs.Shard, error) {
-	merge := &pfs.Merge{}
-	if err := types.UnmarshalAny(mergeAny, merge); err != nil {
+func deserialize(compactionAny, shardAny *types.Any) (*pfs.Compaction, *pfs.Shard, error) {
+	compaction := &pfs.Compaction{}
+	if err := types.UnmarshalAny(compactionAny, compaction); err != nil {
 		return nil, nil, err
 	}
 	shard := &pfs.Shard{}
 	if err := types.UnmarshalAny(shardAny, shard); err != nil {
 		return nil, nil, err
 	}
-	return merge, shard, nil
+	return compaction, shard, nil
 }
 
 // (bryce) it might potentially make sense to exit if an error occurs in this function
-// because each pachd instance that errors here will lose its merge worker without an obvious
+// because each pachd instance that errors here will lose its compaction worker without an obvious
 // notification for the user (outside of the log message).
-func (d *driver) mergeWorker() {
+func (d *driver) compactionWorker() {
 	w := work.NewWorker(d.etcdClient, d.prefix, func(ctx context.Context, task, subtask *work.Task) (retErr error) {
-		merge, shard, err := deserialize(task.Data, subtask.Data)
+		compaction, shard, err := deserialize(task.Data, subtask.Data)
 		if err != nil {
 			return err
 		}
@@ -192,9 +184,9 @@ func (d *driver) mergeWorker() {
 			Lower: shard.Range.Lower,
 			Upper: shard.Range.Upper,
 		}
-		return d.storage.Merge(ctx, outputPath, merge.Prefixes, index.WithRange(pathRange))
+		return d.storage.Compact(ctx, outputPath, compaction.Prefixes, index.WithRange(pathRange))
 	})
 	if err := w.Run(context.Background()); err != nil {
-		log.Printf("error in merge worker: %v", err)
+		log.Printf("error in compaction worker: %v", err)
 	}
 }

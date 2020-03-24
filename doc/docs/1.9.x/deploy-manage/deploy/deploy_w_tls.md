@@ -12,7 +12,7 @@ providing a path to your CA certificate and your private key by using the
 `--tls` flag with the `pachctl deploy` command.
 
 ```bash
-pachctl deploy <platform> --tls "<path/to/cert>,<path/to/key>"
+$ pachctl deploy <platform> --tls "<path/to/cert>,<path/to/key>"
 ```
 
 !!! note
@@ -31,6 +31,6 @@ You can do so by running the following command:
     pachctl config update context `p config get active-context` --pachd_address "grpcs://<cluster-ip>:31400"
     ```
 
-!!! note "See also:"
+!!! note "See Also:"
 
 - [Connect by using a Pachyderm context](../connect-to-cluster/#connect-by-using-a-pachyderm-context)

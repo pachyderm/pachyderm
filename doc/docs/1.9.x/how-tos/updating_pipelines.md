@@ -29,7 +29,7 @@ To update a pipeline specification, complete the following steps:
 1. Update the pipeline with the new configuration:
 
    ```bash
-   pachctl update pipeline -f pipeline.json
+   $ pachctl update pipeline -f pipeline.json
    ```
 
 Similar to `create pipeline`, `update pipeline` with the `-f` flag can also
@@ -80,7 +80,7 @@ To update the code in your pipeline, complete the following steps:
 1. Verify that the Docker daemon is running:
 
    ```bash
-   docker ps
+   $ docker ps
    ```
 
    * If you get an error message similar to the following:
@@ -95,7 +95,7 @@ To update the code in your pipeline, complete the following steps:
      command:
 
      ```bash
-     eval $(minikube docker-env)
+     $ eval $(minikube docker-env)
      ```
 
 1. Build, tag, and push the new image to your image registry:
@@ -105,7 +105,7 @@ To update the code in your pipeline, complete the following steps:
      1. Run the following command:
 
         ```bash
-        pachctl update pipeline -f <pipeline name> --build --registry <registry> --username <registry user>
+        $ pachctl update pipeline -f <pipeline name> --build --registry <registry> --username <registry user>
         ```
 
         If you use DockerHub, omit the `--registry` flag.
@@ -113,7 +113,7 @@ To update the code in your pipeline, complete the following steps:
         **Example:**
 
         ```bash
-        pachctl update pipeline -f edges.json --build --username testuser
+        $ pachctl update pipeline -f edges.json --build --username testuser
         ```
 
      1. When prompted, type your image registry password:
@@ -133,5 +133,5 @@ To update the code in your pipeline, complete the following steps:
      1. Update the pipeline:
 
         ```bash
-        pachctl update pipeline -f <pipeline.json>
+        $ pachctl update pipeline -f <pipeline.json>
         ```

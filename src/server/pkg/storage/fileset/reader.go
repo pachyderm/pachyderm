@@ -1,6 +1,7 @@
 package fileset
 
 import (
+	"bytes"
 	"context"
 	"io"
 
@@ -12,199 +13,101 @@ import (
 
 // Reader reads the serialized format of a fileset.
 type Reader struct {
-	ctx     context.Context
-	chunks  *chunk.Storage
-	ir      *index.Reader
-	cr      *chunk.Reader
-	tr      *tar.Reader
-	hdr     *index.Header
-	peekHdr *index.Header
-	tags    []*index.Tag
+	ctx context.Context
+	ir  *index.Reader
+	cr  *chunk.Reader
 }
 
 func newReader(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path string, opts ...index.Option) *Reader {
 	cr := chunks.NewReader(ctx)
 	return &Reader{
-		ctx:    ctx,
-		chunks: chunks,
-		ir:     index.NewReader(ctx, objC, chunks, path, opts...),
-		cr:     cr,
+		ctx: ctx,
+		ir:  index.NewReader(ctx, objC, chunks, path, opts...),
+		cr:  cr,
 	}
 }
 
-// Next returns the next header, and prepares the file's content for reading.
-func (r *Reader) Next() (*index.Header, error) {
-	var hdr *index.Header
-	if r.peekHdr != nil {
-		hdr, r.peekHdr = r.peekHdr, nil
-	} else {
-		var err error
-		hdr, err = r.next()
-		if err != nil {
+// Peek returns the next file index without progressing the reader.
+func (r *Reader) Peek() (*index.Index, error) {
+	return r.ir.Peek()
+}
+
+// Next returns the next file reader and progresses the reader.
+func (r *Reader) Next() (*FileReader, error) {
+	idx, err := r.ir.Next()
+	if err != nil {
+		return nil, err
+	}
+	r.cr.NextDataRefs(idx.DataOp.DataRefs)
+	return newFileReader(idx, r.cr), nil
+}
+
+// Iterate iterates over the file readers in the fileset.
+// pathBound is an optional parameter for specifiying the upper bound (exclusive) of the iteration.
+func (r *Reader) Iterate(f func(*FileReader) error, pathBound ...string) error {
+	return r.ir.Iterate(func(idx *index.Index) error {
+		r.cr.NextDataRefs(idx.DataOp.DataRefs)
+		return f(newFileReader(idx, r.cr))
+	}, pathBound...)
+}
+
+// Get writes the fileset.
+func (r *Reader) Get(w io.Writer) error {
+	return r.Iterate(func(fr *FileReader) error {
+		return fr.Get(w)
+	})
+}
+
+// FileReader is an abstraction for reading a file.
+type FileReader struct {
+	idx *index.Index
+	cr  *chunk.Reader
+	hdr *tar.Header
+}
+
+func newFileReader(idx *index.Index, cr *chunk.Reader) *FileReader {
+	return &FileReader{
+		idx: idx,
+		cr:  cr,
+	}
+}
+
+// Index returns the index for the file.
+func (fr *FileReader) Index() *index.Index {
+	return fr.idx
+}
+
+// Header returns the tar header for the file.
+func (fr *FileReader) Header() (*tar.Header, error) {
+	if fr.hdr == nil {
+		buf := &bytes.Buffer{}
+		if err := fr.cr.NextTagReader().Get(buf); err != nil {
 			return nil, err
 		}
+		var err error
+		fr.hdr, err = tar.NewReader(buf).Next()
+		return fr.hdr, err
 	}
-	// Store header and reset reader for if a read is attempted.
-	r.hdr = hdr
-	r.tr = nil
-	r.tags = hdr.Idx.DataOp.Tags[1:]
-	return hdr, nil
+	return fr.hdr, nil
 }
 
-func (r *Reader) next() (*index.Header, error) {
-	hdr, err := r.ir.Next()
-	if err != nil {
-		return nil, err
-	}
-	// Convert index tar header to corresponding content tar header.
-	indexToContentHeader(hdr)
-	return hdr, nil
+// PeekTag returns the next tag in the file without progressing the reader.
+func (fr *FileReader) PeekTag() (*chunk.Tag, error) {
+	return fr.cr.PeekTag()
 }
 
-// Peek returns the next header without progressing the reader.
-func (r *Reader) Peek() (*index.Header, error) {
-	if r.peekHdr != nil {
-		return r.peekHdr, nil
-	}
-	hdr, err := r.next()
-	if err != nil {
-		return nil, err
-	}
-	r.peekHdr = hdr
-	return hdr, err
+// NextTagReader returns a tag reader for the next tagged data in the file.
+func (fr *FileReader) NextTagReader() *chunk.TagReader {
+	return fr.cr.NextTagReader()
 }
 
-// PeekTag returns the next tag without progressing the reader.
-func (r *Reader) PeekTag() (*index.Tag, error) {
-	if len(r.tags) == 0 {
-		return nil, io.EOF
-	}
-	return r.tags[0], nil
+// Iterate iterates over the data readers for the data in the file.
+// tagUpperBound is an optional parameter for specifiying the upper bound (exclusive) of the iteration.
+func (fr *FileReader) Iterate(f func(*chunk.DataReader) error, tagUpperBound ...string) error {
+	return fr.cr.Iterate(f, tagUpperBound...)
 }
 
-func indexToContentHeader(idx *index.Header) {
-	idx.Hdr = &tar.Header{
-		Name: idx.Hdr.Name,
-		Size: idx.Idx.SizeBytes,
-	}
-}
-
-// Read reads from the current file in the tar stream.
-func (r *Reader) Read(data []byte) (int, error) {
-	// Lazily setup reader for underlying file.
-	if err := r.setupReader(); err != nil {
-		return 0, err
-	}
-	return r.tr.Read(data)
-}
-
-func (r *Reader) setupReader() error {
-	if r.tr == nil {
-		r.cr.NextRange(r.hdr.Idx.DataOp.DataRefs)
-		r.tr = tar.NewReader(r.cr)
-		// Remove tar header from content stream.
-		if _, err := r.tr.Next(); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-type copyFiles struct {
-	indexCopyF func() (*index.Copy, error)
-	files      []*copyTags
-}
-
-func (r *Reader) readCopyFiles(pathBound ...string) func() (*copyFiles, error) {
-	var done bool
-	return func() (*copyFiles, error) {
-		if done {
-			return nil, io.EOF
-		}
-		c := &copyFiles{}
-		// Setup index copying callback at the first split point where
-		// the next chunk will be copied.
-		var hdr *index.Header
-		r.cr.OnSplit(func() {
-			if hdr != nil && index.BeforeBound(hdr.Idx.LastPathChunk, pathBound...) {
-				c.indexCopyF = r.ir.ReadCopyFunc(pathBound...)
-			}
-		})
-		for {
-			var err error
-			hdr, err = r.Peek()
-			if err != nil {
-				if err == io.EOF {
-					done = true
-					break
-				}
-				return nil, err
-			}
-			// If the header is past the path bound, then we are done.
-			if !index.BeforeBound(hdr.Hdr.Name, pathBound...) {
-				done = true
-				break
-			}
-			if _, err := r.Next(); err != nil {
-				return nil, err
-			}
-			file, err := r.readCopyTags()
-			if err != nil {
-				return nil, err
-			}
-			c.files = append(c.files, file)
-			// Return copy information for content level, and callback
-			// for index level copying.
-			if c.indexCopyF != nil {
-				break
-			}
-		}
-		return c, nil
-	}
-}
-
-type copyTags struct {
-	hdr     *index.Header
-	content *chunk.Copy
-	tags    []*index.Tag
-}
-
-func (r *Reader) readCopyTags(tagBound ...string) (*copyTags, error) {
-	// Lazily setup reader for underlying file.
-	if err := r.setupReader(); err != nil {
-		return nil, err
-	}
-	// Determine the tags and number of bytes to copy.
-	var idx int
-	var numBytes int64
-	for i, tag := range r.tags {
-		if !index.BeforeBound(tag.Id, tagBound...) {
-			break
-		}
-		idx = i + 1
-		numBytes += tag.SizeBytes
-
-	}
-	// Setup copy struct.
-	c := &copyTags{hdr: r.hdr}
-	var err error
-	c.content, err = r.cr.ReadCopy(numBytes)
-	if err != nil {
-		return nil, err
-	}
-	c.tags = r.tags[:idx]
-	// Update reader state.
-	r.tags = r.tags[idx:]
-	if err := r.tr.Skip(numBytes); err != nil {
-		return nil, err
-	}
-	return c, nil
-}
-
-// Close closes the reader.
-func (r *Reader) Close() error {
-	if err := r.cr.Close(); err != nil {
-		return err
-	}
-	return r.ir.Close()
+// Get writes the file.
+func (fr *FileReader) Get(w io.Writer) error {
+	return fr.cr.Get(w)
 }

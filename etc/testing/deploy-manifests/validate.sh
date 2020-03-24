@@ -22,6 +22,7 @@ fi
 # Generate a deployment manifest for many different targets using the local
 # build of 'pachctl'
 custom_args=(
+--cluster-deployment-id test
 --secure
 --dynamic-etcd-nodes 3
 --etcd-storage-class storage-class
@@ -36,11 +37,13 @@ custom_args=(
   storage.endpoint  # <endpoint>
 )
 google_args=(
+--cluster-deployment-id test
 --dynamic-etcd-nodes 3
   pach-bucket # <bucket-name>
   50          # <disk-size>
 )
 amazon_args=(
+--cluster-deployment-id test
 --dynamic-etcd-nodes 3
 --credentials "AWSIDAWSIDAWSIDAWSID,awssecret+awssecret+awssecret+awssecret+"
   pach-bucket # <bucket-name>
@@ -48,6 +51,7 @@ amazon_args=(
   50          # <disk-size>
 )
 microsoft_args=(
+--cluster-deployment-id test
 --dynamic-etcd-nodes 3
   pach-container           # <container>
   pach-account             # <account-name>
@@ -67,7 +71,7 @@ for platform in custom google amazon microsoft; do
     # - strip additional version info so that pachctl builds from the same
     #   version all work
     # - Use an empty pach config so that e.g. metrics don't change the output
-    pachctl deploy "${platform}" "${args[@]}" -o "${fmt}" --dry-run \
+    ${GOPATH}/bin/pachctl deploy "${platform}" "${args[@]}" -o "${fmt}" --dry-run \
       | sed 's/\([0-9]\{1,4\}\.[0-9]\{1,4\}\.[0-9]\{1,4\}\)-[0-9a-f]\{40\}/\1/g' >"${output}"
     rm -f "${pach_config}" # remove cfg from next run (or diff dir, or golden/)
     if [[ ! "${is_regenerate}" ]]; then

@@ -2,51 +2,37 @@ package index
 
 import (
 	"context"
-	"io"
 
-	"github.com/gogo/protobuf/proto"
+	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
-)
-
-const (
-	indexType = 'i'
-	rangeType = 'r'
 )
 
 var (
 	averageBits = 20
 )
 
-// Header is a wrapper for a tar header and index.
-type Header struct {
-	Hdr *tar.Header
-	Idx *Index
-}
-
 type levelWriter struct {
 	cw      *chunk.Writer
-	tw      *tar.Writer
-	lastHdr *Header
+	pbw     pbutil.Writer
+	lastIdx *Index
 }
 
-type meta struct {
-	hdr   *Header
+type data struct {
+	idx   *Index
 	level int
 }
 
-// Writer is used for creating a multi-level index into a serialized FileSet.
-// Each index level consists of compressed tar stream chunks.
-// Each index tar entry has the full index in the content section.
+// Writer is used for creating a multilevel index into a serialized file set.
+// Each index level is a stream of byte length encoded index entries that are stored in chunk storage.
 type Writer struct {
 	ctx    context.Context
 	objC   obj.Client
 	chunks *chunk.Storage
 	path   string
-	root   *Header
 	levels []*levelWriter
 	closed bool
+	root   *Index
 }
 
 // NewWriter create a new Writer.
@@ -59,159 +45,96 @@ func NewWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path
 	}
 }
 
-// WriteHeaders writes a set of Header to the index.
-func (w *Writer) WriteHeaders(hdrs []*Header) error {
+// WriteIndexes writes a set of index entries.
+func (w *Writer) WriteIndexes(idxs []*Index) error {
 	w.setupLevels()
-	for _, hdr := range hdrs {
-		hdr.Hdr.Typeflag = indexType
-	}
-	return w.writeHeaders(hdrs, 0)
+	return w.writeIndexes(idxs, 0)
 }
 
 func (w *Writer) setupLevels() {
-	// Setup the first level.
+	// Setup the first index level.
 	if w.levels == nil {
-		cw := w.chunks.NewWriter(w.ctx, averageBits, w.callback(0), 0)
+		cw := w.chunks.NewWriter(w.ctx, averageBits, 0, w.callback(0))
 		w.levels = append(w.levels, &levelWriter{
-			cw: cw,
-			tw: tar.NewWriter(cw),
+			cw:  cw,
+			pbw: pbutil.NewWriter(cw),
 		})
 	}
 }
 
-func (w *Writer) writeHeaders(hdrs []*Header, level int) error {
+func (w *Writer) writeIndexes(idxs []*Index, level int) error {
 	l := w.levels[level]
-	for _, hdr := range hdrs {
-		// Create an annotation for each header.
+	for _, idx := range idxs {
+		// Create an annotation for each index.
 		l.cw.Annotate(&chunk.Annotation{
-			RefDataRefs: hdr.Idx.DataOp.DataRefs,
-			Meta: &meta{
-				hdr:   hdr,
+			RefDataRefs: idx.DataOp.DataRefs,
+			NextDataRef: &chunk.DataRef{},
+			Data: &data{
+				idx:   idx,
 				level: level,
 			},
 		})
-		if err := w.serialize(l.tw, hdr); err != nil {
+		if _, err := l.pbw.Write(idx); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (w *Writer) serialize(tw *tar.Writer, hdr *Header) error {
-	// Serialize and write additional metadata.
-	idx, err := proto.Marshal(hdr.Idx)
-	if err != nil {
-		return err
-	}
-	hdr.Hdr.Size = int64(len(idx))
-	if err := tw.WriteHeader(hdr.Hdr); err != nil {
-		return err
-	}
-	if _, err = tw.Write(idx); err != nil {
-		return err
-	}
-	return tw.Flush()
-}
-
 func (w *Writer) callback(level int) chunk.WriterFunc {
-	return func(chunkRef *chunk.DataRef, annotations []*chunk.Annotation) error {
+	return func(annotations []*chunk.Annotation) error {
 		if len(annotations) == 0 {
 			return nil
 		}
 		lw := w.levels[level]
-		// Extract first and last header and setup file range.
-		hdr := annotations[0].Meta.(*meta).hdr
-		offset := annotations[0].Offset
+		// Extract first and last index and setup file range.
+		idx := annotations[0].Data.(*data).idx
+		dataRef := annotations[0].NextDataRef
 		// Edge case handling.
 		if len(annotations) > 1 {
-			// Skip the first header if it started in the previous chunk.
-			if lw.lastHdr != nil && hdr.Hdr.Name == lw.lastHdr.Hdr.Name {
-				hdr = annotations[1].Meta.(*meta).hdr
-				offset = annotations[1].Offset
+			// Skip the first index if it started in the previous chunk.
+			if lw.lastIdx != nil && idx.Path == lw.lastIdx.Path {
+				idx = annotations[1].Data.(*data).idx
+				dataRef = annotations[1].NextDataRef
 			}
 		}
-		lw.lastHdr = annotations[len(annotations)-1].Meta.(*meta).hdr
-		// Set standard fields in index header.
-		var lastPath string
-		if lw.lastHdr.Hdr.Typeflag == indexType {
-			lastPath = lw.lastHdr.Hdr.Name
-		} else {
-			lastPath = lw.lastHdr.Idx.Range.LastPath
+		lw.lastIdx = annotations[len(annotations)-1].Data.(*data).idx
+		// Set standard fields in index.
+		lastPath := lw.lastIdx.Path
+		if lw.lastIdx.Range != nil {
+			lastPath = lw.lastIdx.Range.LastPath
 		}
-		hdr.Hdr.Typeflag = rangeType
-		hdr.Idx.Range = &Range{
-			Offset:   offset,
+		idx.Range = &Range{
+			Offset:   dataRef.OffsetBytes,
 			LastPath: lastPath,
 		}
-		hdr.Idx.DataOp = &DataOp{DataRefs: []*chunk.DataRef{chunkRef}}
-		hdr.Idx.LastPathChunk = lw.lastHdr.Idx.LastPathChunk
-		// Set the root header when the writer is closed and we are at the top level index.
+		idx.DataOp = &DataOp{DataRefs: []*chunk.DataRef{chunk.Reference(dataRef)}}
+		// Set the root index when the writer is closed and we are at the top index level.
 		if w.closed {
-			w.root = hdr
+			w.root = idx
 		}
 		// Create next index level if it does not exist.
 		if level == len(w.levels)-1 {
-			cw := w.chunks.NewWriter(w.ctx, averageBits, w.callback(level+1), int64(level+1))
+			cw := w.chunks.NewWriter(w.ctx, averageBits, int64(level+1), w.callback(level+1))
 			w.levels = append(w.levels, &levelWriter{
-				cw: cw,
-				tw: tar.NewWriter(cw),
+				cw:  cw,
+				pbw: pbutil.NewWriter(cw),
 			})
 		}
-		// Write index entry in next level index.
-		return w.writeHeaders([]*Header{hdr}, level+1)
+		// Write index entry in next index level.
+		return w.writeIndexes([]*Index{idx}, level+1)
 	}
 }
 
-// WriteCopyFunc executes a function for copying data to the writer.
-func (w *Writer) WriteCopyFunc(f func() (*Copy, error)) error {
-	w.setupLevels()
-	for {
-		c, err := f()
-		if err != nil {
-			if err == io.EOF {
-				return nil
-			}
-			return err
-		}
-		// Finish level below.
-		// (bryce) this is going to run twice during the copy process (going up the levels, then back down).
-		// This is probably fine, but may be worth noting.
-		if c.level > 0 {
-			lw := w.levels[c.level-1]
-			lw.tw = tar.NewWriter(lw.cw)
-			if err := lw.cw.Flush(); err != nil {
-				return err
-			}
-			lw.cw.Reset()
-		}
-		// Write the raw bytes first (handles bytes hanging over at the end)
-		if c.raw != nil {
-			if err := w.levels[c.level].cw.WriteCopy(c.raw); err != nil {
-				return err
-			}
-		}
-		// Write the headers to be copied.
-		if c.hdrs != nil {
-			if err := w.writeHeaders(c.hdrs, c.level); err != nil {
-				return err
-			}
-		}
-	}
-}
-
-// Close finishes the index, and returns the serialized top level index.
+// Close finishes the index, and returns the serialized top index level.
 func (w *Writer) Close() error {
 	w.closed = true
 	// Note: new levels can be created while closing, so the number of iterations
-	// necessary can increase as the levels are being closed. The number of ranges
-	// will decrease per level as long as the range size is in general larger than
-	// a serialized header. Levels stop getting created when the top level chunk
-	// writer has been closed and the number of ranges it has is one.
+	// necessary can increase as the levels are being closed. Levels stop getting
+	// created when the top level chunk writer has been closed and the number of
+	// annotations and chunks it has is one (one annotation in one chunk).
 	for i := 0; i < len(w.levels); i++ {
 		l := w.levels[i]
-		if err := l.tw.Flush(); err != nil {
-			return err
-		}
 		if err := l.cw.Close(); err != nil {
 			return err
 		}
@@ -226,11 +149,7 @@ func (w *Writer) Close() error {
 	if err != nil {
 		return err
 	}
-	tw := tar.NewWriter(objW)
-	if err := w.serialize(tw, w.root); err != nil {
-		return err
-	}
-	if err := tw.Close(); err != nil {
+	if _, err := pbutil.NewWriter(objW).Write(w.root); err != nil {
 		return err
 	}
 	return objW.Close()

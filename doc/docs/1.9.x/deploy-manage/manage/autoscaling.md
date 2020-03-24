@@ -15,7 +15,7 @@ Out of the box, autoscaling at the cloud provider layer doesn't work well with P
 
 ### Default Behavior with Cloud Autoscaling
 
-Normally when you create a pipeline, Pachyderm asks the k8s cluster how many nodes are available. Pachyderm then uses that number as the default value for the pipeline's parallelism. (To read more about parallelism, [refer to the distributed processing docs](../../concepts/advanced-concepts/distributed_computing.md)).
+Normally when you create a pipeline, Pachyderm asks the k8s cluster how many nodes are available. Pachyderm then uses that number as the default value for the pipeline's parallelism. (To read more about parallelism, [refer to the distributed processing docs](../../how-tos/distributed_computing.md)).
 
 If you have cloud provider autoscaling activated, it is possible that your number of nodes will be scaled down to a few or maybe even a single node.  A pipeline created on this cluster would have a default parallelism will be set to this low value (e.g., 1 or 2). Then, once the autoscale group notices that more nodes are needed, the parallelism of the pipeline won't increase, and you won't actually make effective use of those new nodes.
 

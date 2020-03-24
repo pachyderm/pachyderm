@@ -103,12 +103,7 @@ To connect to your cluster, complete the following steps:
 1. Verify your `pachctl` version:
 
    ```bash
-   pachctl version --client-only
-   ```
-
-   **System Response:**
-
-   ```bash
+   $ pachctl version --client-only
    1.9.8
    ```
 
@@ -134,12 +129,7 @@ To connect to your cluster, complete the following steps:
    1. Verify that you have set the correct context:
 
       ```bash
-      pachctl config get active-context
-      ```
-
-      **System Response:**
-
-      ```bash
+      $ pachctl config get active-context
       test-svet-cc0mi51i52
       ```
 
@@ -148,18 +138,13 @@ To connect to your cluster, complete the following steps:
    1. Create a repo called `test`:
 
       ```bash
-      pachctl create repo test
+      $ pachctl create repo test
       ```
 
    1. Verify that the repo was created:
 
       ```bash
-      pachctl list repo
-      ```
-
-      **System Response:**
-
-      ```bash
+      $ pachctl list repo
       NAME   CREATED       SIZE (MASTER) ACCESS LEVEL
       test   3 seconds ago 0B            OWNER
       ```

@@ -9,6 +9,8 @@ import "client/admin/v1_7/pfs/pfs.proto";
 import "client/admin/v1_7/pps/pps.proto";
 import "client/admin/v1_8/pfs/pfs.proto";
 import "client/admin/v1_8/pps/pps.proto";
+import "client/admin/v1_9/pfs/pfs.proto";
+import "client/admin/v1_9/pps/pps.proto";
 import "client/pfs/pfs.proto";
 import "client/pps/pps.proto";
 
@@ -31,6 +33,18 @@ message Op1_8 {
 }
 
 message Op1_9 {
+  pfs_1_9.PutObjectRequest object = 2;
+  pfs_1_9.CreateObjectRequest create_object = 9;
+  pfs_1_9.TagObjectRequest tag = 3;
+  pfs_1_9.PutBlockRequest block = 10;
+  pfs_1_9.CreateRepoRequest repo = 4;
+  pfs_1_9.BuildCommitRequest commit = 5;
+  pfs_1_9.CreateBranchRequest branch = 6;
+  pps_1_9.CreatePipelineRequest pipeline = 7;
+  pps_1_9.CreateJobRequest job = 8;
+}
+
+message Op1_10 {
   pfs.PutObjectRequest object = 2;
   pfs.CreateObjectRequest create_object = 9;
   pfs.TagObjectRequest tag = 3;
@@ -46,6 +60,7 @@ message Op {
   Op1_7 op1_7 = 1;
   Op1_8 op1_8 = 2;
   Op1_9 op1_9 = 3;
+  Op1_10 op1_10 = 4;
 }
 
 message ExtractRequest {
@@ -73,6 +88,7 @@ message RestoreRequest {
 
 message ClusterInfo {
   string id = 1 [(gogoproto.customname) = "ID"];
+  string deployment_id = 2 [(gogoproto.customname) = "DeploymentID"];
 }
 
 service API {

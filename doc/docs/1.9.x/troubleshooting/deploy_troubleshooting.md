@@ -25,7 +25,7 @@ Here are some common issues by symptom related to certain deploys.
 The pachd pod keeps crashing/restarting:
 
 ```
-kubectl get all
+$ kubectl get all
 NAME                        READY     STATUS             RESTARTS   AGE
 po/etcd-281005231-qlkzw     1/1       Running            0          7m
 po/pachd-1333950811-0sm1p   0/1       CrashLoopBackOff   6          7m
@@ -49,7 +49,7 @@ rs/pachd-1333950811   1         1         0         7m
 First describe the pod:
 
 ```
-kubectl describe po/pachd-1333950811-0sm1p
+$ kubectl describe po/pachd-1333950811-0sm1p
 ```
 
 If you see an error including `Error attaching EBS volume` or similar, see the recourse for that error here under the corresponding section below. If you don't see that error, but do see something like:
@@ -61,11 +61,10 @@ If you see an error including `Error attaching EBS volume` or similar, see the r
 it means Kubernetes tried running `pachd`, but `pachd` generated an internal error. To see the specifics of this internal error, check the logs for the `pachd` pod:
 
 ```
-kubectl logs po/pachd-1333950811-0sm1p
+$kubectl logs po/pachd-1333950811-0sm1p
 ```
 
-!!! note
-    If you're using a log aggregator service (e.g. the default in GKE), you won't see any logs when using `kubectl logs ...` in this way.  You will need to look at your logs UI (e.g. in GKE's case the stackdriver console).
+**Note**: If you're using a log aggregator service (e.g. the default in GKE), you won't see any logs when using `kubectl logs ...` in this way.  You will need to look at your logs UI (e.g. in GKE's case the stackdriver console).
 
 These logs will most likely reveal the issue directly, or at the very least, a good indicator as to what's causing the problem. For example, you might see, `BucketRegionError: incorrect region, the bucket is not in 'us-west-2' region`. In that case, your object store bucket in a different region than your pachyderm cluster and the fix would be to recreate the bucket in the same region as your pachydermm cluster.
 
@@ -92,7 +91,7 @@ For example, to resolve this issue when Pachyderm is deployed to AWS, pull up yo
 Once it's detached (and marked as available). Restart the pod by killing it, e.g:
 
 ```
-kubectl delete po/pachd-xxx
+$kubectl delete po/pachd-xxx
 ```
 
 It will take a moment for a new pod to get scheduled.

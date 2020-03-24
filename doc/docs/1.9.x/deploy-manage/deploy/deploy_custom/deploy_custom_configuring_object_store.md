@@ -65,11 +65,10 @@ In the example command above, some of the arguments might
 contain characters that the shell could interpret.
 Those are enclosed in single-quotes.
 
-!!! note
-    Because the `deploy custom` command ignores the first
-    configuration argument for the `--persistent-disk` flag,
-    you can specify any string. For more information,
-    see [Configuring Persistent Disk Parameters](./deploy_custom_configuring_persistent_disk_parameters.md)
+**Note**: Because the `deploy custom` command ignores the first
+configuration argument for the `--persistent-disk` flag,
+you can specify any string. For more information,
+see [Configuring Persistent Disk Parameters](./deploy_custom_configuring_persistent_disk_parameters.md)
 
 After completing the steps described in this section, proceed to
 [Create a Complete Configuration](./deploy_custom_complete_example_invocation.md).

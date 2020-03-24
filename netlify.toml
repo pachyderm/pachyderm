@@ -42,9 +42,27 @@ publish = "doc/site"
 
 [[redirects]]
   from = "/en/latest/concepts/pipeline-concepts/pipeline/join.html"
-  to = "https://docs.pachyderm.com/latest/concepts/pipeline-concepts/pipeline/join/"
+  to = "https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/join/"
   status = 301
   force = true
+
+[[redirects]]
+   from = "/latest/concepts/pipeline-concepts/pipeline/join/"
+   to = "https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/join/"
+   status = 301
+   force = true
+
+[[redirects]]
+   from = "/master/concepts/pipeline-concepts/pipeline/join/"
+   to = "/master/concepts/pipeline-concepts/datum/join/"
+   status = 301
+   force = true
+
+[[redirects]]
+   from = "/1.9.x/concepts/pipeline-concepts/pipeline/join/"
+   to = "/1.9.x/concepts/pipeline-concepts/datum/join/"
+   status = 301
+   force = true
 
 [[redirects]]
   from = "/en/latest/enterprise/"
@@ -187,6 +205,12 @@ publish = "doc/site"
 [[redirects]]
   from = "/en/latest/concepts/pipeline-concepts/pipeline/"
   to = "https://docs.pachyderm.com/latest/concepts/pipeline-concepts/pipeline/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/concepts/pipeline-concepts/index.html"
+  to = "/latest/concepts/pipeline-concepts/pipeline/"
   status = 301
   force = true
 

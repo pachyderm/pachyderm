@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/s2"
 	"github.com/sirupsen/logrus"
 )
@@ -17,10 +16,40 @@ const (
 	maxRequestBodyLength = 128 * 1024 * 1024 //128mb
 	requestTimeout       = 10 * time.Second
 	readBodyTimeout      = 5 * time.Second
+
+	// The S3 storage class that all PFS content will be reported to be stored in
+	globalStorageClass = "STANDARD"
+
+	// The S3 location served back
+	globalLocation = "PACHYDERM"
 )
 
+// The S3 user associated with all PFS content
+var defaultUser = s2.User{ID: "00000000000000000000000000000000", DisplayName: "pachyderm"}
+
+type controller struct {
+	logger *logrus.Entry
+
+	// Name of the PFS repo holding multipart content
+	repo string
+
+	// the maximum number of allowed parts that can be associated with any
+	// given file
+	maxAllowedParts int
+
+	driver Driver
+
+	clientFactory ClientFactory
+}
+
 // Server runs an HTTP server with an S3-like API for PFS. This allows you to
-// use s3 clients to acccess PFS contents.
+// use s3 clients to access PFS contents.
+//
+// `inputBuckets` specifies which buckets should be served, referencing
+// specific commit IDs. If nil, all PFS branches will be served as separate
+// buckets, of the form `<branch name>.<bucket name>`. Some s3 features are
+// enabled when all PFS branches are served as well; e.g. we add support for
+// some s3 versioning functionality.
 //
 // This returns an `http.Server` instance. It is the responsibility of the
 // caller to start the returned server. It's possible for the caller to
@@ -35,16 +64,17 @@ const (
 // Note: In `s3cmd`, you must set the access key and secret key, even though
 // this API will ignore them - otherwise, you'll get an opaque config error:
 // https://github.com/s3tools/s3cmd/issues/845#issuecomment-464885959
-func Server(port, pachdPort uint16) (*http.Server, error) {
+func Server(port uint16, driver Driver, clientFactory ClientFactory) (*http.Server, error) {
 	logger := logrus.WithFields(logrus.Fields{
 		"source": "s3gateway",
 	})
 
 	c := &controller{
-		pachdPort:       pachdPort,
 		logger:          logger,
 		repo:            multipartRepo,
 		maxAllowedParts: maxAllowedParts,
+		driver:          driver,
+		clientFactory:   clientFactory,
 	}
 
 	s3Server := s2.NewS2(logger, maxRequestBodyLength, readBodyTimeout)
@@ -60,19 +90,8 @@ func Server(port, pachdPort uint16) (*http.Server, error) {
 		ReadTimeout:  requestTimeout,
 		WriteTimeout: requestTimeout,
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Set a request ID, if it hasn't been set by the client already.
-			// This can be used for tracing, and is included in error
-			// responses.
-			requestID := r.Header.Get("X-Request-ID")
-			if requestID == "" {
-				requestID = uuid.NewWithoutDashes()
-				r.Header.Set("X-Request-ID", requestID)
-			}
-			w.Header().Set("x-amz-request-id", requestID)
-
 			// Log that a request was made
 			logger.Infof("http request: %s %s", r.Method, r.RequestURI)
-
 			router.ServeHTTP(w, r)
 		}),
 		// NOTE: this is not closed. If the standard logger gets customized, this will need to be fixed

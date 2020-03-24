@@ -17,59 +17,54 @@ To use tracing in Pachyderm, complete the following steps:
 
 2. Point Pachyderm at Jaeger
 
-   * For `pachctl`, run:
+    ```bash
+    # For pachctl
+    $ export JAEGER_ENDPOINT=localhost:14268
+    $ kubectl port-forward svc/jaeger-collector 14268 & # Collector service
 
-     ```bash
-     export JAEGER_ENDPOINT=localhost:14268
-     kubectl port-forward svc/jaeger-collector 14268 & # Collector service
-     ```
 
-   * For `pachd`, run:
+    # For pachd
+    $ kubectl delete po -l suite=pachyderm,app=pachd
+    ```
+    The port-forward command is necessary because `pachctl` sends traces to
+    Jaeger (it actually initiates every trace), and reads the `JAEGER_ENDPOINT`
+    environment variable for the address to which it will send the trace info.
 
-     ```
-     kubectl delete po -l suite=pachyderm,app=pachd
-     ```
+    Restarting the `pachd` pod is necessary because `pachd` also sends trace
+    information to Jaeger, but it reads the environment variables corresponding
+    to the Jaeger service[1] on startup to find Jaeger (the Jaeger service is
+    created by the `jaeger-all-in-one.yaml` manifest). Killing the pods
+    restarts them, which causes them to connect to Jaeger.
 
-     The port-forward command is necessary because `pachctl` sends traces to
-     Jaeger (it actually initiates every trace), and reads the `JAEGER_ENDPOINT`
-     environment variable for the address to which it will send the trace info.
+3. Send Pachyderm a traced request
 
-     Restarting the `pachd` pod is necessary because `pachd` also sends trace
-     information to Jaeger, but it reads the environment variables corresponding
-     to the Jaeger service[1] on startup to find Jaeger (the Jaeger service is
-     created by the `jaeger-all-in-one.yaml` manifest). Killing the pods
-     restarts them, which causes them to connect to Jaeger.
+    Just set the `PACH_TRACE` environment variable to "true" before
+    running any `pachctl` command (note that `JAEGER_ENDPOINT` must also be
+    set/exported):
+    ```
+    PACH_TRACE=true pachctl list job # for example
+    ```
 
-3. Send Pachyderm a traced request by setting the `PACH_TRACE`
-   environment variable to "true" before running any `pachctl`
-   command (note that `JAEGER_ENDPOINT` must also be
-   set/exported):
+    We generally don't recommend exporting `PACH_TRACE` because
+    tracing calls can slow them down somewhat and make interesting traces hard
+    to find in Jaeger.  Therefore you may only want to set this variable for
+    the specific calls you want to trace.
 
-   ```
-   PACH_TRACE=true pachctl list job # for example
-   ```
-
-   Pachyderm does not recommend exporting `PACH_TRACE` because
-   tracing calls can slow them down and make interesting traces hard
-   to find in Jaeger. Therefore, you might want to set this variable for
-   the specific calls you want to trace.
-
-   However, Pachyderm's client library reads this variable and implements the
-   relevant tracing, so any binary that uses Pachyderm's go client library can
-   trace calls if these variables are set.
+    However, Pachyderm's client library reads this variable and implements the
+    relevant tracing, so any binary that uses Pachyderm's go client library can
+    trace calls if these variables are set.
 
 ## View Traces
 
 To view traces, run:
+```
+$ kubectl port-forward svc/jaeger-query 16686:80 & # UI service
 
 ```
-kubectl port-forward svc/jaeger-query 16686:80 & # UI service
-```
-
-Then, connect to `localhost:16686` in your browser, and you should see all
+then connect to `localhost:16686` in your browser, and you should see all
 collected traces.
 
-!!! note "See also:"
+!!! note "See Also:"
     [Kubernetes Service Environment Variables](https://kubernetes.io/docs/concepts/services-networking/service/#environment-variables)
 
 ## Troubleshooting
@@ -83,6 +78,6 @@ collected traces.
 
     ![Trace with no children](../../assets/images/no-traces.png)
 
-    This might mean that `pachd` has not connected to Jaeger, but
-    `pachctl` has. Restart the `pachd` pods *after* creating the
-    Jaeger service in Kubernetes.
+    ...this likely means that `pachd` has not connected to Jaeger, but
+    `pachctl` has. Make sure to restart the `pachd` pods *after* creating the
+    Jaeger service in Kubernetes
