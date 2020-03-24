@@ -2,32 +2,16 @@ package helm
 
 import (
 	"fmt"
+
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
-	log "github.com/sirupsen/logrus"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
-	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/storage/driver"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
 )
 
 func Deploy(context *config.Context, installName, chartName, chartVersion string, values map[string]interface{}) (*release.Release, error) {
-	envSettings := cli.New()
-
-	actionConfig := new(action.Configuration)
-
-	configFlags := &genericclioptions.ConfigFlags{
-		ClusterName:  &context.ClusterName,
-		AuthInfoName: &context.AuthInfo,
-		Namespace:    &context.Namespace,
-	}
-
-	if err := actionConfig.Init(configFlags, context.Namespace, "", func(format string, v ...interface{}) {
-		log.Debugf(format, v...)
-	}); err != nil {
-		return nil, fmt.Errorf("could not init helm config: %v", err)
-	}
+	envSettings, actionConfig, err := configureHelm(context, "")
 
 	upgrade := action.NewUpgrade(actionConfig)
 	upgrade.Version = chartVersion

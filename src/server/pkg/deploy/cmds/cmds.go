@@ -1022,17 +1022,20 @@ func Cmds() []*cobra.Command {
 			if namespace != "" {
 				fmt.Printf("WARNING: The `--namespace` flag is deprecated and will be removed in a future version. Please set the namespace in the pachyderm context instead: pachctl config update context `pachctl config get active-context` --namespace '%s'\n", namespace)
 			}
+
 			if all {
 				fmt.Printf(`
-By using the --all flag, you are going to delete everything, including the
-persistent volumes where metadata is stored.  If your persistent volumes
-were dynamically provisioned (i.e. if you used the "--dynamic-etcd-nodes"
-flag), the underlying volumes will be removed, making metadata such repos,
-commits, pipelines, and jobs unrecoverable. If your persistent volume was
-manually provisioned (i.e. if you used the "--static-etcd-volume" flag), the
+By using the "--all" flag, you are going to delete everything, including
+JupyterHub deployments (if any), the relevant Pachyderm context(s), and
+persistent volumes where metadata is stored. If your persistent volumes were
+dynamically provisioned (i.e. if you used the "--dynamic-etcd-nodes" flag),
+the underlying volumes will be removed, making metadata such repos, commits,
+pipelines, and jobs unrecoverable. If your persistent volume was manually
+provisioned (i.e. if you used the "--static-etcd-volume" flag), the
 underlying volume will not be removed.
 `)
 			}
+			
 			fmt.Println("Are you sure you want to do this? (y/n):")
 			r := bufio.NewReader(os.Stdin)
 			bytes, err := r.ReadBytes('\n')
@@ -1040,78 +1043,92 @@ underlying volume will not be removed.
 				return err
 			}
 			if bytes[0] == 'y' || bytes[0] == 'Y' {
-				if namespace == "" {
-					kubeConfig := config.KubeConfig(nil)
-					namespace, _, err = kubeConfig.Namespace()
-					if err != nil {
-						log.Errorf("couldn't load kubernetes config (using \"default\"): %v", err)
-						namespace = "default"
-					}
-				}
+				return nil
+			}
 
-				io := cmdutil.IO{
-					Stdout: os.Stdout,
-					Stderr: os.Stderr,
+			if namespace == "" {
+				kubeConfig := config.KubeConfig(nil)
+				namespace, _, err = kubeConfig.Namespace()
+				if err != nil {
+					log.Errorf("couldn't load kubernetes config (using \"default\"): %v", err)
+					namespace = "default"
 				}
-				assets := []string{
-					"service",
-					"replicationcontroller",
+			}
+
+			io := cmdutil.IO{
+				Stdout: os.Stdout,
+				Stderr: os.Stderr,
+			}
+			assets := []string{
+				"service",
+				"replicationcontroller",
+				"deployment",
+				"serviceaccount",
+				"secret",
+				"statefulset",
+				"clusterrole",
+				"clusterrolebinding",
+			}
+			if all {
+				assets = append(assets, []string{
+					"storageclass",
+					"persistentvolumeclaim",
+					"persistentvolume",
+				}...)
+			}				
+			if err := cmdutil.RunIO(io, "kubectl", "delete", strings.Join(assets, ","), "-l", "suite=pachyderm", "--namespace", namespace); err != nil {
+				return err
+			}
+
+			if all {
+				// remove jupyterhub
+				if err = helm.Destroy(context, "jhub", namespace); err != nil {
+					log.Errorf("failed to delete helm installation: %v", err)
+				}
+				jhubAssets := []string{
+					"replicaset",
 					"deployment",
-					"serviceaccount",
-					"secret",
-					"statefulset",
-					"clusterrole",
-					"clusterrolebinding",
+					"service",
+					"pod",
 				}
-				if all {
-					assets = append(assets, []string{
-						"storageclass",
-						"persistentvolumeclaim",
-						"persistentvolume",
-					}...)
-				}
-				for _, asset := range assets {
-					if err := cmdutil.RunIO(io, "kubectl", "delete", asset, "-l", "suite=pachyderm", "--namespace", namespace); err != nil {
-						return err
-					}
+				if err = cmdutil.RunIO(io, "kubectl", "delete", strings.Join(jhubAssets, ","), "-l", "app=jupyterhub", "--namespace", namespace); err != nil {
+					return err
 				}
 
-				if all {
-					// remove the context from the config
-					kubeConfig, err := config.RawKubeConfig()
+				// remove the context from the config
+				kubeConfig, err := config.RawKubeConfig()
+				if err != nil {
+					return err
+				}
+				kubeContext := kubeConfig.Contexts[kubeConfig.CurrentContext]
+				if kubeContext != nil {
+					cfg, err := config.Read(true)
 					if err != nil {
 						return err
 					}
-					kubeContext := kubeConfig.Contexts[kubeConfig.CurrentContext]
-					if kubeContext != nil {
-						cfg, err := config.Read(true)
-						if err != nil {
-							return err
-						}
-						ctx := &config.Context{
-							ClusterName: kubeContext.Cluster,
-							AuthInfo:    kubeContext.AuthInfo,
-							Namespace:   namespace,
-						}
+					ctx := &config.Context{
+						ClusterName: kubeContext.Cluster,
+						AuthInfo:    kubeContext.AuthInfo,
+						Namespace:   namespace,
+					}
 
-						// remove _all_ contexts associated with this
-						// deployment
-						configUpdated := false
-						for {
-							contextName, _ := findEquivalentContext(cfg, ctx)
-							if contextName == "" {
-								break
-							}
-							configUpdated = true
-							delete(cfg.V2.Contexts, contextName)
-							if contextName == cfg.V2.ActiveContext {
-								cfg.V2.ActiveContext = ""
-							}
+					// remove _all_ contexts associated with this
+					// deployment
+					configUpdated := false
+					for {
+						contextName, _ := findEquivalentContext(cfg, ctx)
+						if contextName == "" {
+							break
 						}
-						if configUpdated {
-							if err = cfg.Write(); err != nil {
-								return err
-							}
+						configUpdated = true
+						delete(cfg.V2.Contexts, contextName)
+						if contextName == cfg.V2.ActiveContext {
+							cfg.V2.ActiveContext = ""
+						}
+					}
+					if configUpdated {
+						if err = cfg.Write(); err != nil {
+							return err
 						}
 					}
 				}
@@ -1120,13 +1137,13 @@ underlying volume will not be removed.
 		}),
 	}
 	undeploy.Flags().BoolVarP(&all, "all", "a", false, `
-Delete everything, including the persistent volumes where metadata
-is stored.  If your persistent volumes were dynamically provisioned (i.e. if
-you used the "--dynamic-etcd-nodes" flag), the underlying volumes will be
-removed, making metadata such repos, commits, pipelines, and jobs
-unrecoverable. If your persistent volume was manually provisioned (i.e. if
-you used the "--static-etcd-volume" flag), the underlying volume will not be
-removed.`)
+Delete everything, including JupyterHub deployments (if any), the relevant
+Pachyderm context(s), and persistent volumes where metadata is stored. If your
+persistent volumes were dynamically provisioned (i.e. if you used the
+"--dynamic-etcd-nodes" flag), the underlying volumes will be removed, making
+metadata such repos, commits, pipelines, and jobs unrecoverable. If your
+persistent volume was manually provisioned (i.e. if you used the
+"--static-etcd-volume" flag), the underlying volume will not be removed.`)
 	undeploy.Flags().StringVar(&namespace, "namespace", "", "Kubernetes namespace to undeploy Pachyderm from.")
 	commands = append(commands, cmdutil.CreateAlias(undeploy, "undeploy"))
 
