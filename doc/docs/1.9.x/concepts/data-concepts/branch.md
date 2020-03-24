@@ -21,12 +21,7 @@ To view a list of branches in a repo, run the `pachctl list branch` command.
 
 !!! example
     ```bash
-    pachctl list branch images
-    ```
-
-    **System Response:**
-
-    ```bash
+    $ pachctl list branch images
     BRANCH HEAD
     master bb41c5fb83a14b69966a21c78a3c3b24
     ```

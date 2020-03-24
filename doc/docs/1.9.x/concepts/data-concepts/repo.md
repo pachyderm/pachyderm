@@ -19,6 +19,9 @@ to add data to Pachyderm. You can create a repository with the `pachctl create r
 command, or by using the Pachyderm UI. After creating the repository, you can
 add your data by using the `pachctl put file` command.
 
+A Pachyderm repo name can include alphanumeric characters, dashes, and underscores,
+and should be no more than 63 characters long.
+
 The following types of repositories exist in Pachyderm:
 
 Input repositories
@@ -34,12 +37,7 @@ by running the `pachctl list repo` command.
 
 !!! example
     ```bash
-    pachctl list repo
-    ```
-
-    **System Response:**
-
-    ```bash
+    $ pachctl list repo
     NAME     CREATED     SIZE (MASTER)
     raw_data 6 hours ago 0B
     ```
@@ -49,12 +47,7 @@ of a specified repository.
 
 !!! example
     ```bash
-    pachctl inspect repo raw_data
-    ```
-
-    **System Response:**
-
-    ```bash
+    $ pachctl inspect repo raw_data
     Name: raw_data
     Description: A raw data repository
     Created: 6 hours ago
@@ -70,5 +63,5 @@ complete cleanup of your Pachyderm cluster.
 If you run the delete command with the `--all` flag, all
 repositories will be deleted.
 
-!!! note "See also:"
+!!! note "See Also:"
     [Pipeline](../pipeline-concepts/pipeline/index.md)

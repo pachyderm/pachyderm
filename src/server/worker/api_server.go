@@ -11,6 +11,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"os/user"
 	"path"
@@ -43,6 +44,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
@@ -532,7 +534,8 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 			// check if we have a marker file in the /pfs/out directory
 			_, err := pachClient.InspectFile(a.pipelineInfo.Pipeline.Name, ppsconsts.SpoutMarkerBranch, a.pipelineInfo.Spout.Marker)
 			if err != nil {
-				// if this fails because there's no head commit on the marker branch, then we don't want to pull the marker, but it's also not an error
+				// if this fails because there's no head commit on the marker branch,
+				// then we don't want to pull the marker, but it's also not an error
 				if !strings.Contains(err.Error(), "no head") {
 					// if it fails for some other reason, then fail
 					return "", err
@@ -550,8 +553,10 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 			}
 		}
 	} else {
-		if err := os.MkdirAll(outPath, 0777); err != nil {
-			return "", err
+		if !a.pipelineInfo.S3Out {
+			if err := os.MkdirAll(outPath, 0777); err != nil {
+				return "", fmt.Errorf("couldn't create %q: %v", outPath, err)
+			}
 		}
 	}
 	for _, input := range inputs {
@@ -560,6 +565,9 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 				return "", err
 			}
 			continue
+		}
+		if input.S3 {
+			continue // don't download any data
 		}
 		file := input.FileInfo.File
 		root := filepath.Join(dir, input.Name, file.Path)
@@ -583,6 +591,9 @@ func (a *APIServer) linkData(inputs []*Input, dir string) error {
 		return err
 	}
 	for _, input := range inputs {
+		if input.S3 {
+			continue
+		}
 		src := filepath.Join(dir, input.Name)
 		dst := filepath.Join(client.PPSInputPrefix, input.Name)
 		if err := os.Symlink(src, dst); err != nil {
@@ -591,13 +602,17 @@ func (a *APIServer) linkData(inputs []*Input, dir string) error {
 	}
 
 	if a.pipelineInfo.Spout != nil && a.pipelineInfo.Spout.Marker != "" {
-		err = os.Symlink(filepath.Join(dir, a.pipelineInfo.Spout.Marker), filepath.Join(client.PPSInputPrefix, a.pipelineInfo.Spout.Marker))
+		err = os.Symlink(filepath.Join(dir, a.pipelineInfo.Spout.Marker),
+			filepath.Join(client.PPSInputPrefix, a.pipelineInfo.Spout.Marker))
 		if err != nil {
 			return err
 		}
 	}
 
-	return os.Symlink(filepath.Join(dir, "out"), filepath.Join(client.PPSInputPrefix, "out"))
+	if !a.pipelineInfo.S3Out {
+		return os.Symlink(filepath.Join(dir, "out"), filepath.Join(client.PPSInputPrefix, "out"))
+	}
+	return nil
 }
 
 func (a *APIServer) unlinkData(inputs []*Input) error {
@@ -1125,10 +1140,15 @@ func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (*Cancel
 // GetChunk returns the merged datum hashtrees of a particular chunk (if available)
 func (a *APIServer) GetChunk(request *GetChunkRequest, server Worker_GetChunkServer) error {
 	filter := hashtree.NewFilter(a.numShards, request.Shard)
+	cache := a.chunkCache
 	if request.Stats {
-		return a.chunkStatsCache.Get(request.Id, grpcutil.NewStreamingBytesWriter(server), filter)
+		cache = a.chunkStatsCache
 	}
-	return a.chunkCache.Get(request.Id, grpcutil.NewStreamingBytesWriter(server), filter)
+
+	if !cache.Has(request.Id) {
+		return fmt.Errorf("chunk (%d) missing from cache", request.Id)
+	}
+	return cache.Get(request.Id, grpcutil.NewStreamingBytesWriter(server), filter)
 }
 
 func (a *APIServer) datum() []*pps.InputFile {
@@ -1150,6 +1170,18 @@ func (a *APIServer) userCodeEnv(jobID string, outputCommitID string, data []*Inp
 	}
 	result = append(result, fmt.Sprintf("%s=%s", client.JobIDEnv, jobID))
 	result = append(result, fmt.Sprintf("%s=%s", client.OutputCommitIDEnv, outputCommitID))
+	if ppsutil.ContainsS3Inputs(a.pipelineInfo.Input) || a.pipelineInfo.S3Out {
+		// TODO(msteffen) Instead of reading S3GATEWAY_PORT directly, worker/main.go
+		// should pass its ServiceEnv to worker.NewAPIServer, which should store it
+		// in 'a'. However, requiring worker.APIServer to have a ServiceEnv would
+		// break the worker.APIServer initialization in newTestAPIServer (in
+		// worker/worker_test.go), which uses mock clients but has no good way to
+		// mock a ServiceEnv. Once we can create mock ServiceEnvs, we should store
+		// a ServiceEnv in worker.APIServer, rewrite newTestAPIServer and
+		// NewAPIServer, and then change this code.
+		result = append(result, fmt.Sprintf("S3_ENDPOINT=http://%s:%s",
+			ppsutil.SidecarS3GatewayService(jobID), os.Getenv("S3GATEWAY_PORT")))
+	}
 	return result
 }
 
@@ -1374,8 +1406,13 @@ func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APICl
 }
 
 func (a *APIServer) getChunk(ctx context.Context, id int64, address string, failed bool) error {
-	// If this worker processed the chunk, then it is already in the chunk cache
+	// If we think this worker processed the chunk, make sure it is already in the
+	// chunk cache, otherwise we may have cleared the cache since datum
+	// processing, or the IP was recycled.
 	if address == os.Getenv(client.PPSWorkerIPEnv) {
+		if !a.chunkCache.Has(id) {
+			return fmt.Errorf("chunk (%d) missing from local chunk cache", id)
+		}
 		return nil
 	}
 	if _, ok := a.clients[address]; !ok {
@@ -1515,7 +1552,6 @@ func (a *APIServer) merge(pachClient *client.APIClient, objClient obj.Client, st
 }
 
 func (a *APIServer) getParentCommitInfo(ctx context.Context, pachClient *client.APIClient, commit *pfs.Commit) (*pfs.CommitInfo, error) {
-	outputCommitID := commit.ID
 	commitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
 		&pfs.InspectCommitRequest{
 			Commit: commit,
@@ -1524,17 +1560,23 @@ func (a *APIServer) getParentCommitInfo(ctx context.Context, pachClient *client.
 		return nil, err
 	}
 	for commitInfo.ParentCommit != nil {
-		a.getWorkerLogger().Logf("blocking on parent commit %q before writing to output commit %q",
-			commitInfo.ParentCommit.ID, outputCommitID)
 		parentCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
 			&pfs.InspectCommitRequest{
-				Commit:     commitInfo.ParentCommit,
-				BlockState: pfs.CommitState_FINISHED,
+				Commit: commitInfo.ParentCommit,
 			})
 		if err != nil {
 			return nil, err
 		}
-		if parentCommitInfo.Trees != nil {
+		// If the parent commit isn't finished, then finish it and continue the traversal.
+		// If the parent commit is finished and has output, then return it.
+		if parentCommitInfo.Finished == nil {
+			if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
+				Commit: parentCommitInfo.Commit,
+				Empty:  true,
+			}); err != nil && !pfsserver.IsCommitFinishedErr(err) {
+				return nil, err
+			}
+		} else if parentCommitInfo.Trees != nil {
 			return parentCommitInfo, nil
 		}
 		commitInfo = parentCommitInfo
@@ -1595,7 +1637,7 @@ func (a *APIServer) getHashtrees(ctx context.Context, pachClient *client.APIClie
 	return rs, nil
 }
 
-func (a *APIServer) getDatumMap(ctx context.Context, pachClient *client.APIClient, object *pfs.Object) (_ map[string]bool, retErr error) {
+func (a *APIServer) getDatumMap(ctx context.Context, pachClient *client.APIClient, object *pfs.Object) (_ map[string]uint64, retErr error) {
 	if object == nil {
 		return nil, nil
 	}
@@ -1609,7 +1651,7 @@ func (a *APIServer) getDatumMap(ctx context.Context, pachClient *client.APIClien
 		}
 	}()
 	pbr := pbutil.NewReader(r)
-	datums := make(map[string]bool)
+	datums := make(map[string]uint64)
 	for {
 		k, err := pbr.ReadBytes()
 		if err != nil {
@@ -1618,7 +1660,7 @@ func (a *APIServer) getDatumMap(ctx context.Context, pachClient *client.APIClien
 			}
 			return nil, err
 		}
-		datums[string(k)] = true
+		datums[string(k)]++
 	}
 	return datums, nil
 }
@@ -1839,20 +1881,25 @@ func (a *APIServer) worker() {
 					}
 					if parentCommitInfo != nil {
 						var err error
-						skip, err = a.getDatumMap(jobCtx, pachClient, parentCommitInfo.Datums)
+						parentCounts, err := a.getDatumMap(jobCtx, pachClient, parentCommitInfo.Datums)
 						if err != nil {
 							return err
 						}
-						var count int
+
 						for i := 0; i < df.Len(); i++ {
 							files := df.DatumN(i)
 							datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
-							if skip[datumHash] {
-								count++
+							if _, ok := parentCounts[datumHash]; ok {
+								parentCounts[datumHash]--
 							}
 						}
-						if len(skip) == count {
-							useParentHashTree = true
+
+						useParentHashTree = true
+						for hash, count := range parentCounts {
+							skip[hash] = true
+							if count != 0 {
+								useParentHashTree = false
+							}
 						}
 					}
 					return nil
@@ -1864,6 +1911,30 @@ func (a *APIServer) worker() {
 				jobInfo, err = pachClient.InspectJob(jobID, false)
 				if err != nil {
 					return err
+				}
+				// If the pipeline uses the S3 gateway, make sure the job's s3 gateway
+				// endpoint is up
+				if ppsutil.ContainsS3Inputs(a.pipelineInfo.Input) || a.pipelineInfo.S3Out {
+					if err := backoff.RetryNotify(func() error {
+						endpoint := fmt.Sprintf("http://%s:%s/",
+							ppsutil.SidecarS3GatewayService(jobInfo.Job.ID),
+							os.Getenv("S3GATEWAY_PORT"))
+						_, err := (&http.Client{Timeout: 5 * time.Second}).Get(endpoint)
+						logger.Logf("checking s3 gateway service for job %q: %v", jobInfo.Job.ID, err)
+						return err
+					}, backoff.New60sBackOff(), func(err error, d time.Duration) error {
+						logger.Logf("worker could not connect to s3 gateway for %q: %v", jobInfo.Job.ID, err)
+						return nil
+					}); err != nil {
+						reason := fmt.Sprintf("could not connect to s3 gateway for %q: %v", jobInfo.Job.ID, err)
+						if err := a.updateJobState(jobCtx, jobInfo, pps.JobState_JOB_FAILURE, reason); err != nil {
+							return err
+						}
+						if err := pachClient.StopJob(jobInfo.Job.ID); err != nil && !pfsserver.IsCommitFinishedErr(err) {
+							return err
+						}
+						return nil // don't retry, just continue to next job
+					}
 				}
 				eg, ctx := errgroup.WithContext(jobCtx)
 				// If a datum fails, acquireDatums updates the relevant lock in
@@ -1884,11 +1955,13 @@ func (a *APIServer) worker() {
 						)
 					})
 				})
-				eg.Go(func() error {
-					return logger.LogStep("merge worker", func() error {
-						return a.mergeDatums(ctx, pachClient, jobInfo, jobID, plan, logger, df, skip, useParentHashTree)
+				if !a.pipelineInfo.S3Out {
+					eg.Go(func() error {
+						return logger.LogStep("merge worker", func() error {
+							return a.mergeDatums(ctx, pachClient, jobInfo, jobID, plan, logger, df, skip, useParentHashTree)
+						})
 					})
-				})
+				}
 				if err := eg.Wait(); err != nil {
 					if jobCtx.Err() == context.Canceled {
 						return nil
@@ -2113,12 +2186,16 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				// file.
 				downSize, err := puller.CleanUp()
 				if err != nil {
-					logger.Logf("puller encountered an error while cleaning up: %+v", err)
+					logger.Logf("puller encountered an error while cleaning up: %v", err)
 					return err
 				}
 				atomic.AddUint64(&subStats.DownloadBytes, uint64(downSize))
 				a.reportDownloadSizeStats(float64(downSize), logger)
-				return a.uploadOutput(pachClient, dir, tag, logger, data, subStats, outputTree, datumIdx)
+				if !a.pipelineInfo.S3Out {
+					// Only upload output for jobs not writing via the S3 gateway
+					return a.uploadOutput(pachClient, dir, tag, logger, data, subStats, outputTree, datumIdx)
+				}
+				return nil
 			}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
 				if isDone(ctx) {
 					return ctx.Err() // timeout or cancelled job, err out and don't retry
@@ -2205,9 +2282,11 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 		return nil, err
 	}
 	result.datumsProcessed = high - low - result.datumsSkipped - result.datumsFailed - result.datumsRecovered
-	// Merge datum hashtrees into a chunk hashtree, then cache it.
-	if err := a.mergeChunk(logger, high, result); err != nil {
-		return nil, err
+	if !a.pipelineInfo.S3Out {
+		// Merge datum hashtrees into a chunk hashtree, then cache it.
+		if err := a.mergeChunk(logger, high, result); err != nil {
+			return nil, err
+		}
 	}
 	return result, nil
 }

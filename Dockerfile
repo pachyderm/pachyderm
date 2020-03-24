@@ -1,33 +1,13 @@
-FROM ubuntu:18.04
-LABEL maintainer="jdoliner@pachyderm.io"
-
-RUN \
-  apt-get update -yq && \
-  apt-get install -yq --no-install-recommends \
-    build-essential \
-    ca-certificates \
-    curl \
-    git \
-    libssl-dev \
-    pkg-config && \
-  apt-get clean && \
-  rm -rf /var/lib/apt
-COPY etc/compile/GO_VERSION GO_VERSION
-RUN \
-  curl -fsSL https://get.docker.com/builds/Linux/x86_64/docker-1.12.1.tgz | tar -C /bin -xz docker/docker --strip-components=1 && \
-  chmod +x /bin/docker
-RUN \
-  curl -sSL https://storage.googleapis.com/golang/$(cat GO_VERSION).linux-amd64.tar.gz | tar -C /tmp -xz && \
-  mkdir -p /usr/local/go && \
-  mv /tmp/go/bin /usr/local/go && \
-  mv /tmp/go/src /usr/local/go && \
-  mkdir -p /usr/local/go/pkg/tool/linux_amd64 && \
-  mv /tmp/go/pkg/include /usr/local/go/pkg && \
-  mv /tmp/go/pkg/tool/linux_amd64/compile /usr/local/go/pkg/tool/linux_amd64 && \
-  mv /tmp/go/pkg/tool/linux_amd64/asm /usr/local/go/pkg/tool/linux_amd64 && \
-  mv /tmp/go/pkg/tool/linux_amd64/link /usr/local/go/pkg/tool/linux_amd64 && \
-  rm -rf /tmp/go && \
-  mkdir -p /go/bin
-ENV PATH /go/bin:/usr/local/go/bin:$PATH
-ENV GOPATH /go
-RUN go get github.com/kisielk/errcheck golang.org/x/lint/golint
+# syntax=docker/dockerfile:1.0-experimental
+ARG GO_VERSION
+FROM golang:${GO_VERSION}
+RUN apt update && apt install ca-certificates
+RUN go get github.com/go-bindata/go-bindata/...
+WORKDIR /app
+COPY . .
+ARG LD_FLAGS
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go-bindata -o src/server/cmd/worker/assets/assets.go -pkg assets /etc/ssl/certs/... && \
+    CGO_ENABLED=0 go build -ldflags "${LD_FLAGS}" -o pachd "src/server/cmd/pachd/main.go" && \
+    CGO_ENABLED=0 go build -ldflags "${LD_FLAGS}" -o worker "src/server/cmd/worker/main.go"

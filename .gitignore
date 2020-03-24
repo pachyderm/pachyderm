@@ -36,7 +36,6 @@ _cgo_export.*
 _testmain.go
 
 *.exe
-*.test
 
 *.swp
 *.swo
@@ -57,3 +56,8 @@ src/cmd/ppsd/ppsd
 
 .bucket
 .cluster_name
+
+# python stuff
+*.pyc
+__pycache__
+

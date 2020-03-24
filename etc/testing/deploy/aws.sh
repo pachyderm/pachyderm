@@ -6,11 +6,7 @@
 
 set -euxo pipefail
 
-## Parse command-line flags
-
-set -e
-
-which jq
+command -v jq
 
 delete_resources() {
   local name="${1}"
@@ -24,13 +20,13 @@ delete_resources() {
   # Now that we might have fetched the file, try to delete the pachyderm bucket
   if [[ -f ${HOME}/.pachyderm/${name}-info.json ]]; then
     aws s3 rb \
-      --region ${REGION} \
+      --region "${REGION}" \
       --force \
-      "s3://$(jq --raw-output .pachyderm_bucket ${HOME}/.pachyderm/${name}-info.json)" \
+      "s3://$(jq --raw-output .pachyderm_bucket "${HOME}/.pachyderm/${name}-info.json")" \
       >/dev/null
     rm "${HOME}/.pachyderm/${name}-info.json"
   fi
-  kops --state=${KOPS_BUCKET} delete cluster --name=${name} --yes
+  kops --state="${KOPS_BUCKET}" delete cluster --name="${name}" --yes
   aws s3 rm "${KOPS_BUCKET}/${name}-info.json"
 }
 
@@ -43,14 +39,13 @@ len_zone_minus_one="$(( ${#ZONE} - 1 ))"
 REGION=${ZONE:0:${len_zone_minus_one}}
 
 # Process args
-new_opt="$( getopt --long="create,delete:,delete-all,list,zone:,use-cloudfront,no-pachyderm" -- ${0} "${@}" )"
-[[ "$?" -eq 0 ]] || exit 1
+new_opt="$( getopt --long="create,delete:,delete-all,list,zone:,use-cloudfront,no-pachyderm" -- "${0}" "${@}" )"
 eval "set -- ${new_opt}"
 
 while true; do
   case "${1}" in
     --list)
-      kops --state=${KOPS_BUCKET} get clusters
+      kops --state="${KOPS_BUCKET}" get clusters
       exit 0  # Shortcut
       ;;
     --delete)
@@ -101,7 +96,7 @@ case "${OP}" in
     pachctl config set metrics false
     aws_sh="$(dirname "${0}")/../../deploy/aws.sh"
     aws_sh="$(realpath "${aws_sh}")"
-    cmd=("${aws_sh}" --zone=${ZONE} --state=${KOPS_BUCKET})
+    cmd=("${aws_sh} --zone=\"${ZONE}\" --state=\"${KOPS_BUCKET}\"")
     if [[ "${DEPLOY_PACHD}" == "false" ]]; then
       cmd+=("--no-pachyderm")
     fi
@@ -115,12 +110,12 @@ case "${OP}" in
       "until timeout 1s ${check_ready} app=pachd; do sleep 1; echo -en \"\\033[F\"; done"
     ;;
   delete)
-    delete_resources ${CLUSTER_NAME}
+    delete_resources "${CLUSTER_NAME}"
     ;;
   delete-all)
-    kops --state=${KOPS_BUCKET} get clusters | tail -n+2 | awk '{print $1}' \
-      | while read name; do
-        delete_resources ${name}
+    kops --state="${KOPS_BUCKET}" get clusters | tail -n+2 | awk '{print $1}' \
+      | while read -r name; do
+        delete_resources "${name}"
       done
     ;;
   *)

@@ -163,14 +163,14 @@ To create a Pipeline, complete the following steps:
 1. Create a Pachyderm pipeline from the spec:
 
    ```bash
-   pachctl create pipeline -f my-pipeline.json
+   $ pachctl create pipeline -f my-pipeline.json
    ```
 
    You can specify a local file or a file stored in a remote
    location, such as a GitHub repository. For example,
    `https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json`.
 
-!!! note "See also:"
-    - [Pipeline Specification](../reference/pipeline_spec.md)
+!!! note "See Also:"
 
+- [Pipeline Specification](../reference/pipeline_spec.md)
 <!-- - [Running Pachyderm in Production](TBA)-->

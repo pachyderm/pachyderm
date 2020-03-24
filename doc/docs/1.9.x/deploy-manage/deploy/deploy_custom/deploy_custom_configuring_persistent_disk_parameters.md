@@ -39,11 +39,10 @@ support team.
 This flag creates a `VolumeClaimTemplate` in the `etcd` `StatefulSet`
 that uses the standard `etcd-storage-class`.
 
-!!! note
-    Consult with your Kubernetes administrator about the StorageClass
-    that you should use for `etcd` in your Kubernetes deployment.
-    If you need to use a different than the default setting,
-    you can use the `--etcd-storage-class` flag to specify the StorageClass.
+  **NOTE** Consult with your Kubernetes administrator about the StorageClass
+  that you should use for `etcd` in your Kubernetes deployment.
+  If you need to use a different than the default setting,
+  you can use the `--etcd-storage-class` flag to specify the StorageClass.
 
 * `--static-etc-volume`. The `--static-etc-volume` flag is used when
 your Kubernetes installation has not been configured to use StatefulSets.

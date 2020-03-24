@@ -15,7 +15,7 @@ grep -v '^$' "${basedir}/etc/testing/blacklist.txt" >"${tmpfile}"
 # List all tests in src/server, and put them in ${tmpfile} as well
 ls "${basedir}/src/server" \
   | grep '_test\.go$' \
-  | while read f; do
+  | while read -r f; do
       grep --no-filename '^func Test[A-Za-z_]\+(.* \*testing\.T)' "${basedir}/src/server/${f}" \
         | sed 's/^func \(Test[A-Za-z_]\+\)(.*$/\1/' >>"${tmpfile}"
     done
@@ -28,4 +28,4 @@ sort "${tmpfile}" | uniq -u | awk '
    first == 0 { pattern = pattern "|" $0 }
    first == 1 { pattern = $0; first = 0 }
    END { print pattern; }'
-rm ${tmpfile}
+rm "${tmpfile}"

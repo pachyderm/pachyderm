@@ -3,12 +3,12 @@
 set -euxo pipefail
 
 # Make sure Pachyderm is running and auth is activated
-which pachctl
+command -v pachctl
 pachctl version
 pachctl auth whoami
 
 # Make sure vault binary is present
-which vault
+command -v vault
 
 # generate an auth token for one of Pachyderm's existing admins
 admin="$(
@@ -42,16 +42,17 @@ set -o pipefail
 
 # Build the plugin binary
 (
-  cd ${GOPATH}/src/github.com/pachyderm/pachyderm/src/plugin/vault && \
+  cd "${GOPATH}/src/github.com/pachyderm/pachyderm/src/plugin/vault" && \
   make plugin
 )
 mkdir -p /tmp/vault-plugins
-cp ${GOPATH}/bin/pachyderm-plugin /tmp/vault-plugins/${PLUGIN_NAME}
+cp "${GOPATH}/bin/pachyderm-plugin" "/tmp/vault-plugins/${PLUGIN_NAME}"
 
 # Re-enable the plugin (i.e. start the new plugin process)
-export SHASUM=$(shasum -a 256 "/tmp/vault-plugins/$PLUGIN_NAME" | cut -d " " -f1)
-echo $SHASUM
+SHASUM=$(shasum -a 256 "/tmp/vault-plugins/$PLUGIN_NAME" | cut -d " " -f1)
+export SHASUM
+echo "$SHASUM"
 vault write sys/plugins/catalog/$PLUGIN_NAME sha_256="$SHASUM" command="$PLUGIN_NAME"
 vault secrets enable -path=$PLUGIN_NAME -plugin-name=$PLUGIN_NAME plugin
 
-vault write pachyderm/config admin_token=${ADMIN_TOKEN} pachd_address=$(minikube ip):30650
+vault write pachyderm/config "admin_token=${ADMIN_TOKEN}" "pachd_address=$(minikube ip):30650"

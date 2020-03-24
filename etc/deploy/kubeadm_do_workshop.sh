@@ -13,7 +13,7 @@ kubeadm init
 # connect kubectl
 sudo cp /etc/kubernetes/admin.conf /root/
 sudo cp /etc/kubernetes/admin.conf /home/pachrat/
-sudo chown $(id -u):$(id -g) /root/admin.conf
+sudo chown "$(id -u):$(id -g)" /root/admin.conf
 sudo chown pachrat /home/pachrat/admin.conf
 export KUBECONFIG=/root/admin.conf
 
@@ -21,7 +21,8 @@ export KUBECONFIG=/root/admin.conf
 kubectl taint nodes --all node-role.kubernetes.io/master-
 
 # install networking
-export kubever=$(kubectl version | base64 | tr -d '\n')
+kubever=$(kubectl version | base64 | tr -d '\n')
+export kubever
 kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$kubever"
 
 echo "Waiting for networking to come up"

@@ -280,7 +280,7 @@ pulling. For example, if you are using a private Docker registry for your
 images, you can specify it by running the following command:
 
 ```sh
-kubectl create secret docker-registry myregistrykey --docker-server=DOCKER_REGISTRY_SERVER --docker-username=DOCKER_USER --docker-password=DOCKER_PASSWORD --docker-email=DOCKER_EMAIL
+$ kubectl create secret docker-registry myregistrykey --docker-server=DOCKER_REGISTRY_SERVER --docker-username=DOCKER_USER --docker-password=DOCKER_PASSWORD --docker-email=DOCKER_EMAIL
 ```
 
 And then, notify your pipeline about it by using
@@ -319,7 +319,10 @@ Kubernetes cluster has 10 nodes, and you set `"coefficient": 0.5`, Pachyderm
 starts five workers. If you set it to 2.0, Pachyderm starts 20 workers
 (two per Kubernetes node).
 
-The default if left unset is "constant=1".
+The default value is "constant=1" .
+
+Because spouts and services are designed to be single instances, do not
+modify the default `parallism_spec` value for these pipelines.
 
 ### Resource Requests (optional)
 
@@ -816,7 +819,7 @@ formatted patch by diffing the two pod specs.
 
 ## The Input Glob Pattern
 
-Each PFS input needs to specify a [glob pattern](../concepts/advanced-concepts/distributed_computing.md).
+Each PFS input needs to specify a [glob pattern](../concepts/pipeline-concepts/distributed_computing.md).
 
 Pachyderm uses the glob pattern to determine how many "datums" an input
 consists of.  Datums are the unit of parallelism in Pachyderm.  That is,

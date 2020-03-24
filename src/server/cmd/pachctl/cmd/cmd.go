@@ -529,6 +529,7 @@ This resets the cluster to its initial state.`,
 		Short: "Forward a port on the local machine to pachd. This command blocks.",
 		Long:  "Forward a port on the local machine to pachd. This command blocks.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			// TODO(ys): remove the `--namespace` flag here eventually
 			if namespace != "" {
 				fmt.Printf("WARNING: The `--namespace` flag is deprecated and will be removed in a future version. Please set the namespace in the pachyderm context instead: pachctl config update context `pachctl config get active-context` --namespace '%s'\n", namespace)
 			}

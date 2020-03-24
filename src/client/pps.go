@@ -108,6 +108,18 @@ func NewPFSInputOpts(name string, repo string, branch string, glob string, joinO
 	}
 }
 
+// NewS3PFSInput returns a new PFS input with 'S3' set.
+func NewS3PFSInput(name string, repo string, branch string) *pps.Input {
+	return &pps.Input{
+		Pfs: &pps.PFSInput{
+			Name:   name,
+			Repo:   repo,
+			Branch: branch,
+			S3:     true,
+		},
+	}
+}
+
 // NewCrossInput returns an input which is the cross product of other inputs.
 // That means that all combination of datums will be seen by the job /
 // pipeline.
@@ -734,6 +746,9 @@ func (c APIClient) CreatePipelineService(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
 			Pipeline: NewPipeline(name),
+			Metadata: &pps.Metadata{
+				Annotations: annotations,
+			},
 			Transform: &pps.Transform{
 				Image: image,
 				Cmd:   cmd,
@@ -745,7 +760,6 @@ func (c APIClient) CreatePipelineService(
 			Service: &pps.Service{
 				InternalPort: internalPort,
 				ExternalPort: externalPort,
-				Annotations:  annotations,
 			},
 		},
 	)

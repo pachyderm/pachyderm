@@ -3,6 +3,7 @@ syntax = "proto3";
 package work;
 option go_package = "github.com/pachyderm/pachyderm/src/server/pkg/work";
 
+import "gogoproto/gogo.proto";
 import "google/protobuf/any.proto";
 
 enum State {
@@ -12,12 +13,18 @@ enum State {
 }
 
 message Task {
-  string id = 1;
+  string id = 1 [(gogoproto.customname) = "ID"];
   google.protobuf.Any data = 2;
-  repeated Task subtasks = 3;
 }
 
 message TaskInfo {
   Task task = 1;
   State state = 2;
+  string reason = 3;
+}
+
+message Claim {}
+
+message TestData {
+  bool processed = 1;
 }
