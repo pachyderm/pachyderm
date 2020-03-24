@@ -10,6 +10,11 @@ import subprocess
 
 ETCD_IMAGE = "quay.io/coreos/etcd:v3.3.5"
 
+DELETABLE_RESOURCES = [
+    "roles.rbac.authorization.k8s.io",
+    "rolebindings.rbac.authorization.k8s.io"
+]
+
 NEWLINE_SEPARATE_OBJECTS_PATTERN = re.compile(r"\}\n+\{", re.MULTILINE)
 
 GCP_KUBE_CONTEXT_NAME_PATTERN = re.compile(r"gke_([^_]+)_(.+)")
