@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"io"
 	"log"
 	"path"
@@ -11,6 +10,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
@@ -134,7 +134,7 @@ func (d *driver) compact(master *work.Master, outputPath string, inputPrefixes [
 	}
 	if err := master.RunSubtasks(subtasks, func(_ context.Context, taskInfo *work.TaskInfo) error {
 		if taskInfo.State == work.State_FAILURE {
-			return fmt.Errorf(taskInfo.Reason)
+			return errors.Errorf(taskInfo.Reason)
 		}
 		return nil
 	}); err != nil {

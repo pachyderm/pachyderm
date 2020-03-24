@@ -192,7 +192,7 @@ func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName str
 						"'name' set, as pachyderm already creates /pfs/out to collect " +
 						"job output")
 				case input.Pfs.Branch == "" && !job:
-					return fmt.Errorf("input must specify a branch")
+					return errors.Errorf("input must specify a branch")
 				case !input.Pfs.S3 && len(input.Pfs.Glob) == 0:
 					return errors.Errorf("input must specify a glob")
 				case input.Pfs.S3 && input.Pfs.Glob != "/":
@@ -238,7 +238,7 @@ func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName str
 					// are not yet clear, and we see no use case for them yet, so block
 					// them until we know how they should work
 					//lint:ignore ST1005 error message capitalized b/c "S3"=proper noun
-					return fmt.Errorf("S3 inputs in join expressions are not supported")
+					return errors.Errorf("S3 inputs in join expressions are not supported")
 				}
 			}
 			if input.Union != nil {
@@ -250,7 +250,7 @@ func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName str
 					// See above for "joins"; block s3 inputs in union expressions until
 					// we know how they should work
 					//lint:ignore ST1005 error message capitalized b/c "S3"=proper noun
-					return fmt.Errorf("S3 inputs in union expressions are not supported")
+					return errors.Errorf("S3 inputs in union expressions are not supported")
 				}
 			}
 			if input.Cron != nil {

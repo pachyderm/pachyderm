@@ -182,7 +182,7 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 				if err := pachClient.DeleteFile(
 					commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "/",
 				); err != nil {
-					return fmt.Errorf("couldn't prepare output commit for S3-out job: %v", err)
+					return errors.Wrapf(err, "couldn't prepare output commit for S3-out job")
 				}
 			}
 			job, err := pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit, statsCommit)

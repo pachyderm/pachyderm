@@ -66,11 +66,11 @@ func collectSubtask(subtaskInfo *TaskInfo, collected map[string]bool) error {
 		return err
 	}
 	if !testData.Processed {
-		return fmt.Errorf("collected subtask should be processed")
+		return errors.Errorf("collected subtask should be processed")
 	}
 	collected[subtaskInfo.Task.ID] = true
 	if subtaskInfo.State == State_FAILURE && subtaskInfo.Reason != errSubtaskFailure.Error() {
-		return fmt.Errorf("subtask failure reason does not equal subtask failure error message")
+		return errors.Errorf("subtask failure reason does not equal subtask failure error message")
 	}
 	return nil
 }

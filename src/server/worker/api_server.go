@@ -555,7 +555,7 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 	} else {
 		if !a.pipelineInfo.S3Out {
 			if err := os.MkdirAll(outPath, 0777); err != nil {
-				return "", fmt.Errorf("couldn't create %q: %v", outPath, err)
+				return "", errors.Wrapf(err, "couldn't create %q", outPath)
 			}
 		}
 	}
