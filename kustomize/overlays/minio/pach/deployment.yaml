@@ -1,0 +1,55 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pachd
+spec:
+  template:
+    spec:
+      containers:
+        - name: pachd
+          env:
+            - name: STORAGE_BACKEND
+              value: MINIO #Confirm
+            - name: MINIO_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  key: minio-bucket
+                  name: pachyderm-storage-secret
+                  optional: true
+            - name: MINIO_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  key: minio-endpoint
+                  name: pachyderm-storage-secret
+                  optional: true
+            - name: MINIO_ID
+              valueFrom:
+                secretKeyRef:
+                  key: minio-id
+                  name: pachyderm-storage-secret
+                  optional: true
+            - name: MINIO_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: minio-secret
+                  name: pachyderm-storage-secret
+                  optional: true
+            - name: MINIO_SECURE
+              valueFrom:
+                secretKeyRef:
+                  key: minio-secure
+                  name: pachyderm-storage-secret
+                  optional: true
+            - name: MINIO_SIGNATURE
+              valueFrom:
+                secretKeyRef:
+                  key: minio-signature
+                  name: pachyderm-storage-secret
+                  optional: true
+            - name: CUSTOM_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  key: custom-endpoint
+                  name: pachyderm-storage-secret
+                  optional: true

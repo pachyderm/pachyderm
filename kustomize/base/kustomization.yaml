@@ -1,0 +1,10 @@
+namespace: blah
+
+images:
+  - name: pachyderm/pachd
+    newTag: "1.11"
+
+resources:
+  - pach
+  - etcd
+  - dash

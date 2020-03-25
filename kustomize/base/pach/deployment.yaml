@@ -1,0 +1,123 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+#  labels:
+#    app: pachd
+#    suite: pachyderm
+  name: pachd
+spec:
+  replicas: 1
+  #selector:
+  #  matchLabels:
+  #    app: pachd
+  #    suite: pachyderm
+  template:
+  #  labels:
+  #    app: pachd
+  #    suite: pachyderm
+    name: pachd
+  #  namespace: default
+    spec:
+      containers:
+      - name: pachd
+        image: pachyderm/pachd:1.10.0
+        imagePullPolicy: IfNotPresent
+        env:
+          - name: PACH_ROOT
+            value: /pach
+          - name: ETCD_PREFIX
+          - name: NUM_SHARDS
+            value: "16"
+          - name: WORKER_IMAGE
+            value: pachyderm/worker:1.10.0
+          - name: IMAGE_PULL_SECRET
+          - name: WORKER_SIDECAR_IMAGE
+            value: pachyderm/pachd:1.10.0
+          - name: WORKER_IMAGE_PULL_POLICY
+            value: IfNotPresent
+          - name: PACHD_VERSION
+            value: 1.10.0
+          - name: METRICS
+            value: "true"
+          - name: LOG_LEVEL
+            value: info
+          - name: BLOCK_CACHE_BYTES
+            value: 0G
+          - name: IAM_ROLE
+          - name: NO_EXPOSE_DOCKER_SOCKET
+            value: "false"
+          - name: PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING
+            value: "false"
+          - name: PACHD_POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: PACHD_MEMORY_REQUEST
+            valueFrom:
+              resourceFieldRef:
+                containerName: pachd
+                divisor: "0"
+                resource: requests.memory
+          - name: EXPOSE_OBJECT_API
+            value: "false"
+          - name: CLUSTER_DEPLOYMENT_ID
+            value: 6690ec503e1344f5b58bdeef87f29c78
+          - name: REQUIRE_CRITICAL_SERVERS_ONLY
+            value: "false"
+          - name: DISABLE_SSL
+            valueFrom:
+              secretKeyRef:
+                key: disable-ssl
+                name: pachyderm-storage-secret
+                optional: true
+          - name: NO_VERIFY_SSL
+            valueFrom:
+              secretKeyRef:
+                key: no-verify-ssl
+                name: pachyderm-storage-secret
+                optional: true
+          - name: STORAGE_UPLOAD_CONCURRENCY_LIMIT
+            value: "100"
+        ports:
+          - containerPort: 650
+            name: api-grpc-port
+            protocol: TCP
+          - containerPort: 651
+            name: trace-port
+          - containerPort: 652
+            name: api-http-port
+            protocol: TCP
+          - containerPort: 653
+            name: peer-port
+            protocol: TCP
+          - containerPort: 655
+            name: api-git-port
+            protocol: TCP
+          - containerPort: 654
+            name: saml-port
+            protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - /pachd
+            - --readiness
+        resources:
+          limits:
+            cpu: "1"
+            memory: 2G
+          requests:
+            cpu: "1"
+            memory: 2G
+        volumeMounts:
+          - mountPath: /pach
+            name: pach-disk
+          - mountPath: /pachyderm-storage-secret
+            name: pachyderm-storage-secret
+      serviceAccountName: pachyderm
+      volumes:
+        - name: pach-disk
+        - name: pachyderm-storage-secret
+          secret:
+            secretName: pachyderm-storage-secret

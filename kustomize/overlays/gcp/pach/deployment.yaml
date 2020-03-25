@@ -1,0 +1,23 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pachd
+spec:
+  template:
+    spec:
+      containers:
+        - name: pachd
+          env:
+            - name: STORAGE_BACKEND
+              value: GOOGLE
+            - name: GOOGLE_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  key: google-bucket
+                  name: pachyderm-storage-secret
+            - name: GOOGLE_CRED
+              valueFrom:
+                secretKeyRef:
+                  key: google-cred
+                  name: pachyderm-storage-secret

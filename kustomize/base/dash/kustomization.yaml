@@ -1,0 +1,7 @@
+commonLabels:
+  app: dash
+  suite: pachyderm
+
+resources:
+  - deployment.yaml
+  - service.yaml

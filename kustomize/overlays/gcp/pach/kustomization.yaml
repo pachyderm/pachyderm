@@ -1,0 +1,8 @@
+patchesStrategicMerge:
+  - deployment.yaml
+
+bases:
+  - ../../../base
+
+resources:
+  - storage.secret.yaml

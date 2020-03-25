@@ -1,0 +1,14 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pachd
+spec:
+  template:
+    spec:
+      containers:
+        - name: pachd
+          env:
+            - name: STORAGE_BACKEND
+              value: LOCAL
+            - name: STORAGE_HOST_PATH

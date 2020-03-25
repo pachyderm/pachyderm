@@ -1,0 +1,15 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: ""
+    suite: pachyderm
+  name: pachyderm
+roleRef:
+  apiGroup: ""
+  kind: ClusterRole
+  name: pachyderm
+subjects:
+- kind: ServiceAccount
+  name: pachyderm

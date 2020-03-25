@@ -1,0 +1,8 @@
+commonLabels:
+  app: etcd
+  suite: pachyderm
+
+resources:
+  - statefulset.yaml
+  - headless.service.yaml
+  - service.yaml

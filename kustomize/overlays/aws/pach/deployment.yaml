@@ -1,0 +1,105 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pachd
+spec:
+  template:
+    metadata:
+      annotations:
+        iam.amazonaws.com/role: ""
+    spec:
+      containers:
+        - name: pachd
+          env:
+            - name: STORAGE_BACKEND
+              value: AMAZON
+            - name: AMAZON_REGION
+              valueFrom:
+                secretKeyRef:
+                  key: amazon-region
+                  name: pachyderm-storage-secret
+                  optional: true
+            - name: AMAZON_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  key: amazon-bucket
+                  name: pachyderm-storage-secret
+                  optional: true
+            - name: AMAZON_ID
+              valueFrom:
+                secretKeyRef:
+                  key: amazon-id
+                  name: pachyderm-storage-secret
+                  optional: true
+            - name: AMAZON_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: amazon-secret
+                  name: pachyderm-storage-secret
+                  optional: true
+            - name: AMAZON_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  key: amazon-token
+                  name: pachyderm-storage-secret
+                  optional: true
+            - name: AMAZON_VAULT_ADDR
+              valueFrom:
+                secretKeyRef:
+                  key: amazon-vault-addr
+                  name: pachyderm-storage-secret
+                  optional: true
+            - name: AMAZON_VAULT_ROLE
+              valueFrom:
+                secretKeyRef:
+                  key: amazon-vault-role
+                  name: pachyderm-storage-secret
+                  optional: true
+            - name: AMAZON_VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  key: amazon-vault-token
+                  name: pachyderm-storage-secret
+                  optional: true
+            - name: AMAZON_DISTRIBUTION
+              valueFrom:
+                secretKeyRef:
+                  key: amazon-distribution
+                  name: pachyderm-storage-secret
+                  optional: true
+            - name: UPLOAD_ACL
+              valueFrom:
+                secretKeyRef:
+                  key: upload-acl
+                  name: pachyderm-storage-secret
+                  optional: true
+            - name: REVERSE
+              valueFrom:
+                secretKeyRef:
+                  key: reverse
+                  name: pachyderm-storage-secret
+                  optional: true
+            - name: RETRIES
+              valueFrom:
+                secretKeyRef:
+                  key: retries
+                  name: pachyderm-storage-secret
+                  optional: true
+            - name: TIMEOUT
+              valueFrom:
+                secretKeyRef:
+                  key: timeout
+                  name: pachyderm-storage-secret
+                  optional: true
+            - name: PART_SIZE
+              valueFrom:
+                secretKeyRef:
+                  key: part-size
+                  name: pachyderm-storage-secret
+                  optional: true
+            - name: MAX_UPLOAD_PARTS
+              valueFrom:
+                secretKeyRef:
+                  key: max-upload-parts
+                  name: pachyderm-storage-secret
+                  optional: true

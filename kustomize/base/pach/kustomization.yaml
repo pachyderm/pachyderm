@@ -1,0 +1,14 @@
+commonLabels:
+  app: pachd
+  suite: pachyderm
+
+resources:
+  - clusterrolebinding.yaml
+  - clusterrole.yaml
+  - deployment.yaml
+  - peer.service.yaml
+  - service.yaml
+  - serviceaccount.yaml
+  - worker.role.yaml
+  - worker.rolebinding.yaml
+  - worker.serviceaccount.yaml

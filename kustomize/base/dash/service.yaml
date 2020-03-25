@@ -1,0 +1,19 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dash
+spec:
+  ports:
+  - name: dash-http
+    nodePort: 30080
+    port: 8080
+    targetPort: 0
+  - name: grpc-proxy-http
+    nodePort: 30081
+    port: 8081
+    targetPort: 0
+#  selector:
+#    app: dash
+#    suite: pachyderm
+  type: NodePort

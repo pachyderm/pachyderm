@@ -1,0 +1,31 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pachd
+spec:
+  template:
+    spec:
+      containers:
+        - name: pachd
+          env:
+            - name: STORAGE_BACKEND
+              value: MICROSOFT
+            - name: MICROSOFT_CONTAINER
+              valueFrom:
+                secretKeyRef:
+                  key: microsoft-container
+                  name: pachyderm-storage-secret
+                  optional: true
+            - name: MICROSOFT_ID
+              valueFrom:
+                secretKeyRef:
+                  key: microsoft-id
+                  name: pachyderm-storage-secret
+                  optional: true
+            - name: MICROSOFT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: microsoft-secret
+                  name: pachyderm-storage-secret
+                  optional: true
