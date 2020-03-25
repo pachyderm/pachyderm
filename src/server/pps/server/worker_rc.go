@@ -5,14 +5,13 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"os"
 	"strconv"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	client "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
@@ -124,6 +123,15 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 			Value: strconv.FormatUint(uint64(options.s3GatewayPort), 10),
 		})
 	}
+	// Propagate feature flags to worker and sidecar
+	if a.env.NewStorageLayer {
+		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "NEW_STORAGE_LAYER", Value: "true"})
+		workerEnv = append(workerEnv, v1.EnvVar{Name: "NEW_STORAGE_LAYER", Value: "true"})
+	}
+	if a.env.DisableCommitProgressCounter {
+		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "DISABLE_COMMIT_PROGRESS_COUNTER", Value: "true"})
+		workerEnv = append(workerEnv, v1.EnvVar{Name: "DISABLE_COMMIT_PROGRESS_COUNTER", Value: "true"})
+	}
 
 	// This only happens in local deployment.  We want the workers to be
 	// able to read from/write to the hostpath volume as well.
@@ -213,7 +221,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 			{
 				Name:            "init",
 				Image:           workerImage,
-				Command:         []string{"/pach/worker.sh"},
+				Command:         []string{"/app/init"},
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
 				VolumeMounts:    options.volumeMounts,
 				Resources: v1.ResourceRequirements{
@@ -242,7 +250,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 			{
 				Name:            client.PPSWorkerSidecarContainerName,
 				Image:           a.workerSidecarImage,
-				Command:         []string{"/pachd", "--mode", "sidecar"},
+				Command:         []string{"/app/pachd", "--mode", "sidecar"},
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
 				Env:             sidecarEnv,
 				VolumeMounts:    sidecarVolumeMounts,
@@ -325,7 +333,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 func getStorageEnvVars() ([]v1.EnvVar, error) {
 	uploadConcurrencyLimit, ok := os.LookupEnv(assets.UploadConcurrencyLimitEnvVar)
 	if !ok {
-		return nil, fmt.Errorf("%s not found", assets.UploadConcurrencyLimitEnvVar)
+		return nil, errors.Errorf("%s not found", assets.UploadConcurrencyLimitEnvVar)
 	}
 	return []v1.EnvVar{
 		{Name: assets.UploadConcurrencyLimitEnvVar, Value: uploadConcurrencyLimit},
@@ -352,14 +360,14 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 		var err error
 		resourceRequests, err = ppsutil.GetRequestsResourceListFromPipeline(pipelineInfo)
 		if err != nil {
-			return nil, fmt.Errorf("could not determine resource request: %v", err)
+			return nil, errors.Wrapf(err, "could not determine resource request")
 		}
 	}
 	if pipelineInfo.ResourceLimits != nil {
 		var err error
 		resourceLimits, err = ppsutil.GetLimitsResourceListFromPipeline(pipelineInfo)
 		if err != nil {
-			return nil, fmt.Errorf("could not determine resource limit: %v", err)
+			return nil, errors.Wrapf(err, "could not determine resource limit")
 		}
 	}
 
@@ -722,7 +730,7 @@ func getGithookService(kubeClient *kube.Clientset, namespace string) (*v1.Servic
 	}
 	if len(serviceList.Items) != 1 {
 		return nil, &errGithookServiceNotFound{
-			fmt.Errorf("expected 1 githook service but found %v", len(serviceList.Items)),
+			errors.Errorf("expected 1 githook service but found %v", len(serviceList.Items)),
 		}
 	}
 	return &serviceList.Items[0], nil

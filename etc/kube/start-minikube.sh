@@ -5,10 +5,10 @@ set -Eex
 # Parse flags
 VERSION=v1.13.0
 minikube_args=(
-  --vm-driver=none
-  --kubernetes-version="${VERSION}"
+  "--vm-driver=none"
+  "--kubernetes-version=${VERSION}"
 )
-while getopts ":v:r" opt; do
+while getopts ":v" opt; do
   case "${opt}" in
     v)
       VERSION="v${OPTARG}"
@@ -31,7 +31,7 @@ while true; do
   sudo env "PATH=$PATH" "CHANGE_MINIKUBE_NONE_USER=true" minikube start "${minikube_args[@]}"
   HEALTHY=false
   # Try to connect for one minute
-  for i in $(seq 12); do
+  for _ in $(seq 12); do
     if {
       kubectl version 2>/dev/null >/dev/null
     }; then

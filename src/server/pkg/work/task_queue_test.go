@@ -10,7 +10,6 @@ import (
 )
 
 type testTask struct {
-	count       int
 	subtaskChan chan struct{}
 }
 
@@ -38,7 +37,7 @@ func TestTaskQueue(t *testing.T) {
 				if i == 0 {
 					// The first task will create subtasks that sleep a bit to allow the the subtasks
 					// from the subsequent tasks to queue up.
-					require.NoError(t, taskEntry.runSubtask(func(_ context.Context) error {
+					require.NoError(t, taskEntry.runSubtaskBlock(func(_ context.Context) error {
 						close(readyChans[j])
 						time.Sleep(1 * time.Second)
 						return nil
@@ -46,7 +45,7 @@ func TestTaskQueue(t *testing.T) {
 				} else {
 					<-readyChans[j]
 					// The subtasks in the subsequent tasks should execute in task creation order.
-					require.NoError(t, taskEntry.runSubtask(func(_ context.Context) error {
+					require.NoError(t, taskEntry.runSubtaskBlock(func(_ context.Context) error {
 						testTasks[i].subtaskChan <- struct{}{}
 						return nil
 					}))
@@ -60,9 +59,7 @@ func TestTaskQueue(t *testing.T) {
 	}
 	for j := 0; j < numSubtasks; j++ {
 		for i := 1; i < numTasks; i++ {
-			select {
-			case <-testTasks[i].subtaskChan:
-			}
+			<-testTasks[i].subtaskChan
 		}
 	}
 }

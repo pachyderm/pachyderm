@@ -18,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	prom_api "github.com/prometheus/client_golang/api"
 	prom_api_v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	prom_model "github.com/prometheus/common/model"
@@ -38,7 +39,7 @@ func activateEnterprise(c *client.APIClient) error {
 			return err
 		}
 		if resp.State != enterprise.State_ACTIVE {
-			return fmt.Errorf("expected enterprise state to be ACTIVE but was %v", resp.State)
+			return errors.Errorf("expected enterprise state to be ACTIVE but was %v", resp.State)
 		}
 		return nil
 	}, backoff.NewTestingBackOff())

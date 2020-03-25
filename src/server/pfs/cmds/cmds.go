@@ -2,7 +2,6 @@ package cmds
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -19,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/cmd/pachctl/shell"
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
@@ -29,6 +29,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
 	txncmds "github.com/pachyderm/pachyderm/src/server/transaction/cmds"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"golang.org/x/sync/errgroup"
@@ -138,7 +139,7 @@ or type (e.g. csv, binary, images, etc).`,
 				return err
 			}
 			if repoInfo == nil {
-				return fmt.Errorf("repo %s not found", args[0])
+				return errors.Errorf("repo %s not found", args[0])
 			}
 			if raw {
 				return marshaller.Marshal(os.Stdout, repoInfo)
@@ -211,11 +212,11 @@ or type (e.g. csv, binary, images, etc).`,
 			}
 			if len(args) > 0 {
 				if all {
-					return fmt.Errorf("cannot use the --all flag with an argument")
+					return errors.Errorf("cannot use the --all flag with an argument")
 				}
 				request.Repo = client.NewRepo(args[0])
 			} else if !all {
-				return fmt.Errorf("either a repo name or the --all flag needs to be provided")
+				return errors.Errorf("either a repo name or the --all flag needs to be provided")
 			}
 
 			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
@@ -352,7 +353,7 @@ $ {{alias}} test -p XXX`,
 				return err
 			}
 			if commitInfo == nil {
-				return fmt.Errorf("commit %s not found", commit.ID)
+				return errors.Errorf("commit %s not found", commit.ID)
 			}
 			if raw {
 				return marshaller.Marshal(os.Stdout, commitInfo)
@@ -521,7 +522,7 @@ $ {{alias}} test@master --new`,
 			defer c.Close()
 
 			if newCommits && from != "" {
-				return fmt.Errorf("--new and --from cannot be used together")
+				return errors.Errorf("--new and --from cannot be used together")
 			}
 
 			if newCommits {
@@ -641,7 +642,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 				return err
 			}
 			if branchInfo == nil {
-				return fmt.Errorf("branch %s not found", args[0])
+				return errors.Errorf("branch %s not found", args[0])
 			}
 			if raw {
 				return marshaller.Marshal(os.Stdout, branchInfo)
@@ -850,7 +851,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 				if file.Path == "" {
 					// The user has not specified a path so we use source as path.
 					if source == "-" {
-						return fmt.Errorf("must specify filename when reading data from stdin")
+						return errors.Errorf("must specify filename when reading data from stdin")
 					}
 					eg.Go(func() error {
 						return putFileHelper(c, pfc, file.Commit.Repo.Name, file.Commit.ID, joinPaths("", source), source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, headerRecords, filesPut)
@@ -953,7 +954,7 @@ $ {{alias}} foo@master^2:XXX`,
 			defer c.Close()
 			if recursive {
 				if outputPath == "" {
-					return fmt.Errorf("an output path needs to be specified when using the --recursive flag")
+					return errors.Errorf("an output path needs to be specified when using the --recursive flag")
 				}
 				puller := sync.NewPuller()
 				return puller.Pull(c, outputPath, file.Commit.Repo.Name, file.Commit.ID, file.Path, false, false, parallelism, nil, "")
@@ -998,7 +999,7 @@ $ {{alias}} foo@master^2:XXX`,
 				return err
 			}
 			if fileInfo == nil {
-				return fmt.Errorf("file %s not found", file.Path)
+				return errors.Errorf("file %s not found", file.Path)
 			}
 			if raw {
 				return marshaller.Marshal(os.Stdout, fileInfo)
@@ -1042,7 +1043,7 @@ $ {{alias}} foo@master --history all`,
 			}
 			history, err := cmdutil.ParseHistory(history)
 			if err != nil {
-				return fmt.Errorf("error parsing history flag: %v", err)
+				return errors.Wrapf(err, "error parsing history flag")
 			}
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
@@ -1343,7 +1344,7 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 	}
 
 	if _, ok := filesPut.LoadOrStore(path, nil); ok {
-		return fmt.Errorf("multiple files put with the path %s, aborting, "+
+		return errors.Errorf("multiple files put with the path %s, aborting, "+
 			"some files may already have been put and should be cleaned up with "+
 			"'delete file' or 'delete commit'", path)
 	}
@@ -1375,7 +1376,7 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 		case "csv":
 			delimiter = pfsclient.Delimiter_CSV
 		default:
-			return fmt.Errorf("unrecognized delimiter '%s'; only accepts one of "+
+			return errors.Errorf("unrecognized delimiter '%s'; only accepts one of "+
 				"{json,line,sql,csv}", split)
 		}
 		_, err := pfc.PutFileSplit(repo, commit, path, delimiter, int64(targetFileDatums), int64(targetFileBytes), int64(headerRecords), overwrite, reader)
@@ -1402,7 +1403,7 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 		if err := filepath.Walk(source, func(filePath string, info os.FileInfo, err error) error {
 			// file doesn't exist
 			if info == nil {
-				return fmt.Errorf("%s doesn't exist", filePath)
+				return errors.Errorf("%s doesn't exist", filePath)
 			}
 			if info.IsDir() {
 				return nil

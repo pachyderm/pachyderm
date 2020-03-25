@@ -19,12 +19,12 @@ package collection
 
 import (
 	"bytes"
-	"fmt"
 	"sort"
 	"strings"
 
 	v3 "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"golang.org/x/net/context"
 )
@@ -198,7 +198,7 @@ func (s *stm) Put(key, val string, ttl int64, ptr uintptr) error {
 			defer tracing.FinishAnySpan(span)
 			leaseResp, err := s.client.Grant(ctx, ttl)
 			if err != nil {
-				return fmt.Errorf("error granting lease: %v", err)
+				return errors.Wrapf(err, "error granting lease")
 			}
 			lease = leaseResp.ID
 			s.newLeases[ttl] = lease
@@ -258,7 +258,7 @@ func (s *stm) commit() *v3.TxnResponse {
 	txnresp, err := s.client.Txn(ctx).If(cmps...).Then(writes...).Commit()
 	if err == rpctypes.ErrTooManyOps {
 		panic(stmError{
-			fmt.Errorf(
+			errors.Errorf(
 				"%v (%d comparisons, %d writes: hint: set --max-txn-ops on the "+
 					"ETCD cluster to at least the largest of those values)",
 				err, len(cmps), len(writes)),
@@ -413,7 +413,7 @@ func (s *stmSerializable) commit() *v3.TxnResponse {
 	txnresp, err := txn.Else(getops...).Commit()
 	if err == rpctypes.ErrTooManyOps {
 		panic(stmError{
-			fmt.Errorf(
+			errors.Errorf(
 				"%v (%d comparisons, %d writes: hint: set --max-txn-ops on the "+
 					"ETCD cluster to at least the largest of those values)",
 				err, len(cmps), len(writes)),

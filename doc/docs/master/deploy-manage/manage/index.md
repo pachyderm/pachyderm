@@ -19,10 +19,6 @@ throughout the lifetime of your cluster.
             Manage Cluster Access
           </a>
           </li>
-          <li><a href="batching_pachyderm_with_transactions/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
-            Batching Pachyderm with Transactions
-          </a>
-          </li>
         </ul>
       </div>
     </div>

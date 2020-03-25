@@ -1,14 +1,15 @@
 package collection
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 	"sync/atomic"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/mvcc/mvccpb"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -81,7 +82,7 @@ func listRevision(c *readonlyCollection, prefix string, limitPtr *int64, opts *O
 			return nil
 		}
 		if compare(resp.Kvs[0], resp.Kvs[len(resp.Kvs)-1]) == 0 {
-			return fmt.Errorf("revision contains too many objects to fit in one batch (this is likely a bug)")
+			return errors.Errorf("revision contains too many objects to fit in one batch (this is likely a bug)")
 		}
 		fromKey = kvs[len(kvs)-1]
 	}

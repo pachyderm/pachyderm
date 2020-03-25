@@ -10,6 +10,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/debug"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -64,7 +65,7 @@ func Cancel(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client,
 		}
 	}
 	if !success {
-		return fmt.Errorf("datum matching filter %+v could not be found for jobID %s", dataFilter, jobID)
+		return errors.Errorf("datum matching filter %+v could not be found for jobID %s", dataFilter, jobID)
 	}
 	return nil
 }

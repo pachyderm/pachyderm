@@ -2,9 +2,10 @@ package sql
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 	"strings"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 // PGDumpReader parses a pgdump file into a header, rows, and a footer
@@ -35,7 +36,7 @@ func (r *PGDumpReader) ReadRow() ([]byte, error) {
 	endLine := "\\.\n" // Trailing '\.' denotes the end of the row inserts
 	row, err := r.rd.ReadBytes('\n')
 	if err != nil && err != io.EOF {
-		return nil, fmt.Errorf("error reading pgdump row: %v", err)
+		return nil, errors.Wrapf(err, "error reading pgdump row")
 	}
 	// corner case: some pgdump files separate lines with \r\n (even on linux),
 	// so clean this case up so all handling below is unified
@@ -49,7 +50,7 @@ func (r *PGDumpReader) ReadRow() ([]byte, error) {
 		row = nil // The endline is part of the footer
 	}
 	if err == io.EOF && len(r.Footer) == 0 {
-		return nil, fmt.Errorf("invalid pgdump - missing footer")
+		return nil, errors.Errorf("invalid pgdump - missing footer")
 	}
 	return row, err
 }
@@ -60,7 +61,7 @@ func (r *PGDumpReader) readHeader() error {
 		b, err := r.rd.ReadBytes('\n')
 		if err != nil {
 			if err == io.EOF {
-				return fmt.Errorf("invalid header - missing row inserts")
+				return errors.Errorf("invalid header - missing row inserts")
 			}
 			return err
 		}

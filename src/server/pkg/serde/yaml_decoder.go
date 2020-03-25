@@ -6,11 +6,11 @@ package serde
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"gopkg.in/pachyderm/yaml.v3"
 )
 
@@ -45,7 +45,7 @@ func (d *YAMLDecoder) DecodeTransform(v interface{}, f func(map[string]interface
 
 	// parse transformed JSON into 'v'
 	if err := json.Unmarshal(jsonData, v); err != nil {
-		return fmt.Errorf("parse error while canonicalizing yaml: %v", err)
+		return errors.Wrapf(err, "parse error while canonicalizing yaml")
 	}
 	return nil
 }
@@ -65,7 +65,7 @@ func (d *YAMLDecoder) DecodeProtoTransform(v proto.Message, f func(map[string]in
 	// parse transformed JSON into 'v'
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	if err := jsonpb.UnmarshalNext(decoder, v); err != nil {
-		return fmt.Errorf("error canonicalizing yaml while parsing to proto: %v", err)
+		return errors.Wrapf(err, "error canonicalizing yaml while parsing to proto")
 	}
 	return nil
 }
@@ -77,7 +77,7 @@ func (d *YAMLDecoder) yamlToJSONTransform(f func(map[string]interface{}) error) 
 		if err == io.EOF {
 			return nil, err
 		}
-		return nil, fmt.Errorf("could not parse yaml: %v", err)
+		return nil, errors.Wrapf(err, "could not parse yaml")
 	}
 
 	// transform 'holder' (e.g. stringifying TFJob)
@@ -90,7 +90,7 @@ func (d *YAMLDecoder) yamlToJSONTransform(f func(map[string]interface{}) error) 
 	// serialize 'holder' to json
 	jsonData, err := json.Marshal(holder)
 	if err != nil {
-		return nil, fmt.Errorf("serialization error while canonicalizing yaml: %v", err)
+		return nil, errors.Wrapf(err, "serialization error while canonicalizing yaml")
 	}
 	return jsonData, nil
 }

@@ -1,13 +1,12 @@
 package server
 
 import (
-	"fmt"
-
 	"github.com/pachyderm/pachyderm/src/client/admin"
 	pfs1_8 "github.com/pachyderm/pachyderm/src/client/admin/v1_8/pfs"
 	pps1_8 "github.com/pachyderm/pachyderm/src/client/admin/v1_8/pps"
 	pfs1_9 "github.com/pachyderm/pachyderm/src/client/admin/v1_9/pfs"
 	pps1_9 "github.com/pachyderm/pachyderm/src/client/admin/v1_9/pps"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 func convert1_8Repo(r *pfs1_8.Repo) *pfs1_9.Repo {
@@ -305,7 +304,7 @@ func convert1_8Op(op *admin.Op1_8) (*admin.Op1_9, error) {
 	switch {
 	case op.Tag != nil:
 		if !objHashRE.MatchString(op.Tag.Object.Hash) {
-			return nil, fmt.Errorf("invalid object hash in op: %q", op)
+			return nil, errors.Errorf("invalid object hash in op: %q", op)
 		}
 		return &admin.Op1_9{
 			Tag: &pfs1_9.TagObjectRequest{
@@ -376,7 +375,7 @@ func convert1_8Op(op *admin.Op1_8) (*admin.Op1_9, error) {
 			},
 		}, nil
 	default:
-		return nil, fmt.Errorf("unrecognized 1.8 op type:\n%+v", op)
+		return nil, errors.Errorf("unrecognized 1.8 op type:\n%+v", op)
 	}
-	return nil, fmt.Errorf("internal error: convert1_8Op() didn't return a 1.9 op for:\n%+v", op)
+	return nil, errors.Errorf("internal error: convert1_8Op() didn't return a 1.9 op for:\n%+v", op)
 }

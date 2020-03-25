@@ -2,11 +2,11 @@ package pachyderm
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 // errMissingField returns a logical response error that prints a consistent
@@ -25,7 +25,7 @@ func validateFields(req *logical.Request, data *framework.FieldData) error {
 	}
 
 	if len(unknownFields) > 0 {
-		return fmt.Errorf("unknown fields: %q", unknownFields)
+		return errors.Errorf("unknown fields: %q", unknownFields)
 	}
 
 	return nil
@@ -35,10 +35,10 @@ func validateFields(req *logical.Request, data *framework.FieldData) error {
 func putConfig(ctx context.Context, s logical.Storage, cfg *config) error {
 	entry, err := logical.StorageEntryJSON("config", cfg)
 	if err != nil {
-		return fmt.Errorf("%v: failed to generate storage entry", err)
+		return errors.Wrapf(err, "failed to generate storage entry")
 	}
 	if err := s.Put(ctx, entry); err != nil {
-		return fmt.Errorf("%v: failed to write configuration to storage", err)
+		return errors.Wrapf(err, "failed to write configuration to storage")
 	}
 	return nil
 }
@@ -47,7 +47,7 @@ func putConfig(ctx context.Context, s logical.Storage, cfg *config) error {
 func getConfig(ctx context.Context, s logical.Storage) (*config, error) {
 	entry, err := s.Get(ctx, "config")
 	if err != nil {
-		return nil, fmt.Errorf("%v: failed to get config from storage", err)
+		return nil, errors.Wrapf(err, "failed to get config from storage")
 	}
 	if entry == nil || len(entry.Value) == 0 {
 		return nil, errors.New("no configuration in storage")
@@ -55,7 +55,7 @@ func getConfig(ctx context.Context, s logical.Storage) (*config, error) {
 
 	var result config
 	if err := entry.DecodeJSON(&result); err != nil {
-		return nil, fmt.Errorf("%v: failed to decode configuration", err)
+		return nil, errors.Wrapf(err, "failed to decode configuration")
 	}
 
 	return &result, nil

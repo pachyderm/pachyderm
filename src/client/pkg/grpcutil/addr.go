@@ -1,11 +1,12 @@
 package grpcutil
 
 import (
-	"errors"
 	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 const (
@@ -57,13 +58,13 @@ func ParsePachdAddress(value string) (*PachdAddress, error) {
 
 	u, err := url.Parse(value)
 	if err != nil {
-		return nil, fmt.Errorf("could not parse pachd address: %v", err)
+		return nil, errors.Wrapf(err, "could not parse pachd address")
 	}
 
 	switch u.Scheme {
 	case "grpc", "grpcs", "http", "https":
 	default:
-		return nil, fmt.Errorf("unrecognized scheme in pachd address: %s", u.Scheme)
+		return nil, errors.Errorf("unrecognized scheme in pachd address: %s", u.Scheme)
 	}
 
 	switch {
@@ -81,7 +82,7 @@ func ParsePachdAddress(value string) (*PachdAddress, error) {
 	if strport := u.Port(); strport != "" {
 		maybePort, err := strconv.ParseUint(strport, 10, 16)
 		if err != nil {
-			return nil, fmt.Errorf("could not parse port in address: %v", err)
+			return nil, errors.Wrapf(err, "could not parse port in address")
 		}
 		port = uint16(maybePort)
 	}

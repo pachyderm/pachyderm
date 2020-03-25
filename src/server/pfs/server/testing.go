@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/version"
@@ -96,7 +97,7 @@ func GetPachClient(t testing.TB, config *serviceenv.Configuration) *client.APICl
 				DialOptions: client.DefaultDialOptions(),
 			})
 			if err != nil {
-				return fmt.Errorf("could not connect to etcd: %s", err.Error())
+				return errors.Wrapf(err, "could not connect to etcd")
 			}
 			return nil
 		}, backoff.NewTestingBackOff()))

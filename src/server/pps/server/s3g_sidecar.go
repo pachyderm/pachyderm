@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pfs/s3"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -62,14 +63,14 @@ func (a *apiServer) ServeSidecarS3G() {
 			s.pipelineInfo.Reset()
 			buf := bytes.Buffer{}
 			if err := superUserClient.GetFile(ppsconsts.SpecRepo, specCommit, ppsconsts.SpecFile, 0, 0, &buf); err != nil {
-				return fmt.Errorf("could not read existing PipelineInfo from PFS: %v", err)
+				return errors.Wrapf(err, "could not read existing PipelineInfo from PFS")
 			}
 			if err := s.pipelineInfo.Unmarshal(buf.Bytes()); err != nil {
-				return fmt.Errorf("could not unmarshal PipelineInfo bytes from PFS: %v", err)
+				return errors.Wrapf(err, "could not unmarshal PipelineInfo bytes from PFS")
 			}
 			return nil
 		}); err != nil {
-			return fmt.Errorf("sidecar s3 gateway: could not read pipeline spec commit: %v", err)
+			return errors.Wrapf(err, "sidecar s3 gateway: could not read pipeline spec commit")
 		}
 		if !ppsutil.ContainsS3Inputs(s.pipelineInfo.Input) && !s.pipelineInfo.S3Out {
 			return nil // break out of backoff (nothing to serve via S3 gateway)
@@ -81,7 +82,7 @@ func (a *apiServer) ServeSidecarS3G() {
 		pipelinePtr := &pps.EtcdPipelineInfo{}
 		err := a.pipelines.ReadOnly(retryCtx).Get(pipelineName, pipelinePtr)
 		if err != nil {
-			return fmt.Errorf("could not get auth token from etcdPipelineInfo: %v", err)
+			return errors.Wrapf(err, "could not get auth token from etcdPipelineInfo")
 		}
 		s.pachClient.SetAuthToken(pipelinePtr.AuthToken)
 		return nil
@@ -144,7 +145,7 @@ func (s *sidecarS3G) createK8sServices() {
 		ctx, err := masterLock.Lock(s.pachClient.Ctx())
 		if err != nil {
 			// retry obtaining lock
-			return fmt.Errorf("error obtaining mastership: %v", err)
+			return errors.Wrapf(err, "error obtaining mastership")
 		}
 
 		// Watch for new jobs & create kubernetes service for each new job
@@ -161,7 +162,7 @@ func (s *sidecarS3G) createK8sServices() {
 			logrus.Errorf("Error releasing sidecar s3 gateway master lock: %v; retrying in %v", err, d)
 			return nil // always retry
 		}); err != nil {
-			return fmt.Errorf("permanent error releasing sidecar s3 gateway master lock: %v", err)
+			return errors.Wrapf(err, "permanent error releasing sidecar s3 gateway master lock")
 		}
 		return nil
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
@@ -215,7 +216,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 		var err error
 		server, err = s3.Server(port, driver, s.s)
 		if err != nil {
-			return fmt.Errorf("couldn't initialize s3 gateway server: %v", err)
+			return errors.Wrapf(err, "couldn't initialize s3 gateway server")
 		}
 		server.Addr = ":" + strport
 		return nil
@@ -363,7 +364,7 @@ func (h *handleJobsCtx) start() {
 			watcher, err = h.s.apiServer.jobs.ReadOnly(context.Background()).WatchByIndex(
 				ppsdb.JobsPipelineIndex, h.s.pipelineInfo.Pipeline)
 			if err != nil {
-				return fmt.Errorf("error creating watch: %v", err)
+				return errors.Wrapf(err, "error creating watch")
 			}
 			return nil
 		}, backoff.NewInfiniteBackOff())
@@ -396,7 +397,7 @@ func (h *handleJobsCtx) end(ctx context.Context, cancel func(), jobID string) {
 			var err error
 			watcher, err = h.s.apiServer.jobs.ReadOnly(ctx).WatchOne(jobID)
 			if err != nil {
-				return fmt.Errorf("error creating watch: %v", err)
+				return errors.Wrapf(err, "error creating watch")
 			}
 			return nil
 		}, backoff.NewInfiniteBackOff())

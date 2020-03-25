@@ -10,6 +10,7 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client/debug"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	workerserver "github.com/pachyderm/pachyderm/src/server/worker/server"
 )
@@ -40,7 +41,7 @@ type debugServer struct {
 func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpServer) error {
 	profile := pprof.Lookup("goroutine")
 	if profile == nil {
-		return fmt.Errorf("unable to find goroutine profile")
+		return errors.Errorf("unable to find goroutine profile")
 	}
 	w := grpcutil.NewStreamingBytesWriter(server)
 	if s.name != "" {
@@ -96,7 +97,7 @@ func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_
 	}
 	profile := pprof.Lookup(request.Profile)
 	if profile == nil {
-		return fmt.Errorf("unable to find profile %q", request.Profile)
+		return errors.Errorf("unable to find profile %q", request.Profile)
 	}
 	if err := profile.WriteTo(w, 2); err != nil {
 		return err

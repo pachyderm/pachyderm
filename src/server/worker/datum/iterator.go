@@ -1,7 +1,6 @@
 package datum
 
 import (
-	"fmt"
 	"io"
 	"sort"
 
@@ -9,6 +8,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 
@@ -468,7 +468,7 @@ func NewIterator(pachClient *client.APIClient, input *pps.Input) (Iterator, erro
 	case input.Git != nil:
 		return newGitIterator(pachClient, input.Git)
 	}
-	return nil, fmt.Errorf("unrecognized input type: %v", input)
+	return nil, errors.Errorf("unrecognized input type: %v", input)
 }
 
 func sortInputs(inputs []*common.Input) {

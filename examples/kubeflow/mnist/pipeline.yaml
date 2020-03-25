@@ -1,0 +1,12 @@
+pipeline:
+  name: mnist
+transform:
+  image: pachyderm/mnist_pipeline:v1.0.0
+  cmd: [ /app/pipeline.py ]
+s3_out: true  # Must be set
+input:
+  pfs:
+    name: input      # Name of the input bucket
+    repo: input-repo # Pachyderm repo accessed via this bucket
+    glob: /          # Must be exactly this
+    s3: true         # Must be set

@@ -10,8 +10,6 @@ import (
 	"runtime/pprof"
 	"strconv"
 
-	etcd "github.com/coreos/etcd/clientv3"
-	units "github.com/docker/go-units"
 	adminclient "github.com/pachyderm/pachyderm/src/client/admin"
 	authclient "github.com/pachyderm/pachyderm/src/client/auth"
 	debugclient "github.com/pachyderm/pachyderm/src/client/debug"
@@ -19,6 +17,7 @@ import (
 	healthclient "github.com/pachyderm/pachyderm/src/client/health"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/discovery"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
@@ -50,6 +49,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	txnserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
 
+	etcd "github.com/coreos/etcd/clientv3"
+	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tls"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
@@ -98,14 +99,6 @@ func doSidecarMode(config interface{}) (retErr error) {
 			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
 		}
 	}()
-	// must run InstallJaegerTracer before InitWithKube (otherwise InitWithKube
-	// may create a pach client before tracing is active, not install the Jaeger
-	// gRPC interceptor in the client, and not propagate traces)
-	if endpoint := tracing.InstallJaegerTracerFromEnv(); endpoint != "" {
-		log.Printf("connecting to Jaeger at %q", endpoint)
-	} else {
-		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
-	}
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 	debug.SetGCPercent(50)
 	switch env.LogLevel {
@@ -119,12 +112,20 @@ func doSidecarMode(config interface{}) (retErr error) {
 		log.Errorf("Unrecognized log level %s, falling back to default of \"info\"", env.LogLevel)
 		log.SetLevel(log.InfoLevel)
 	}
+	// must run InstallJaegerTracer before InitWithKube (otherwise InitWithKube
+	// may create a pach client before tracing is active, not install the Jaeger
+	// gRPC interceptor in the client, and not propagate traces)
+	if endpoint := tracing.InstallJaegerTracerFromEnv(); endpoint != "" {
+		log.Printf("connecting to Jaeger at %q", endpoint)
+	} else {
+		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
+	}
 	if env.EtcdPrefix == "" {
 		env.EtcdPrefix = col.DefaultPrefix
 	}
 	clusterID, err := getClusterID(env.GetEtcdClient())
 	if err != nil {
-		return fmt.Errorf("getClusterID: %v", err)
+		return errors.Wrapf(err, "getClusterID")
 	}
 	var reporter *metrics.Reporter
 	if env.Metrics {
@@ -132,14 +133,14 @@ func doSidecarMode(config interface{}) (retErr error) {
 	}
 	pfsCacheSize, err := strconv.Atoi(env.PFSCacheSize)
 	if err != nil {
-		return fmt.Errorf("atoi: %v", err)
+		return errors.Wrapf(err, "atoi")
 	}
 	if pfsCacheSize == 0 {
 		pfsCacheSize = defaultTreeCacheSize
 	}
 	treeCache, err := hashtree.NewCache(pfsCacheSize)
 	if err != nil {
-		return fmt.Errorf("lru.New: %v", err)
+		return errors.Wrapf(err, "lru.New")
 	}
 	server, err := grpcutil.NewServer(context.Background(), false)
 	if err != nil {
@@ -148,7 +149,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 	txnEnv := &txnenv.TransactionEnv{}
 	blockCacheBytes, err := units.RAMInBytes(env.BlockCacheBytes)
 	if err != nil {
-		return fmt.Errorf("units.RAMInBytes: %v", err)
+		return errors.Wrapf(err, "units.RAMInBytes")
 	}
 	if err := logGRPCServerSetup("Block API", func() error {
 		blockAPIServer, err := pfs_server.NewBlockAPIServer(env.StorageRoot, blockCacheBytes, env.StorageBackend, net.JoinHostPort(env.EtcdHost, env.EtcdPort), false)
@@ -298,12 +299,18 @@ func doFullMode(config interface{}) (retErr error) {
 		log.Errorf("Unrecognized log level %s, falling back to default of \"info\"", env.LogLevel)
 		log.SetLevel(log.InfoLevel)
 	}
+	// must run InstallJaegerTracer before InitWithKube
+	if endpoint := tracing.InstallJaegerTracerFromEnv(); endpoint != "" {
+		log.Printf("connecting to Jaeger at %q", endpoint)
+	} else {
+		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
+	}
 	if env.EtcdPrefix == "" {
 		env.EtcdPrefix = col.DefaultPrefix
 	}
 	clusterID, err := getClusterID(env.GetEtcdClient())
 	if err != nil {
-		return fmt.Errorf("getClusterID: %v", err)
+		return errors.Wrapf(err, "getClusterID")
 	}
 	var reporter *metrics.Reporter
 	if env.Metrics {
@@ -314,7 +321,7 @@ func doFullMode(config interface{}) (retErr error) {
 	etcdClientV2 := getEtcdClient(etcdAddress)
 	ip, err := netutil.ExternalIP()
 	if err != nil {
-		return fmt.Errorf("error getting pachd external ip: %v", err)
+		return errors.Wrapf(err, "error getting pachd external ip")
 	}
 	address := net.JoinHostPort(ip, fmt.Sprintf("%d", env.PeerPort))
 	sharder := shard.NewSharder(
@@ -336,14 +343,14 @@ func doFullMode(config interface{}) (retErr error) {
 	)
 	pfsCacheSize, err := strconv.Atoi(env.PFSCacheSize)
 	if err != nil {
-		return fmt.Errorf("atoi: %v", err)
+		return errors.Wrapf(err, "atoi")
 	}
 	if pfsCacheSize == 0 {
 		pfsCacheSize = defaultTreeCacheSize
 	}
 	treeCache, err := hashtree.NewCache(pfsCacheSize)
 	if err != nil {
-		return fmt.Errorf("lru.New: %v", err)
+		return errors.Wrapf(err, "lru.New")
 	}
 	kubeNamespace := env.Namespace
 	// Setup External Pachd GRPC Server.
@@ -519,7 +526,7 @@ func doFullMode(config interface{}) (retErr error) {
 		cache_pb.RegisterGroupCacheServer(internalServer.Server, cacheServer)
 		blockCacheBytes, err := units.RAMInBytes(env.BlockCacheBytes)
 		if err != nil {
-			return fmt.Errorf("units.RAMInBytes: %v", err)
+			return errors.Wrapf(err, "units.RAMInBytes")
 		}
 		if err := logGRPCServerSetup("Block API", func() error {
 			blockAPIServer, err := pfs_server.NewBlockAPIServer(
@@ -728,7 +735,7 @@ func logGRPCServerSetup(name string, f func() error) (retErr error) {
 	log.Printf("started setting up %v GRPC Server", name)
 	defer func() {
 		if retErr != nil {
-			retErr = fmt.Errorf("error setting up %v GRPC Server: %v", name, retErr)
+			retErr = errors.Wrapf(retErr, "error setting up %v GRPC Server", name)
 		} else {
 			log.Printf("finished setting up %v GRPC Server", name)
 		}
@@ -741,7 +748,7 @@ func waitForError(name string, errChan chan error, required bool, f func() error
 		if !required {
 			log.Errorf("error setting up and/or running %v: %v", name, err)
 		} else {
-			errChan <- fmt.Errorf("error setting up and/or running %v: %v (use --require-critical-servers-only deploy flag to ignore errors from noncritical servers)", name, err)
+			errChan <- errors.Wrapf(err, "error setting up and/or running %v (use --require-critical-servers-only deploy flag to ignore errors from noncritical servers)", name)
 		}
 	}
 }

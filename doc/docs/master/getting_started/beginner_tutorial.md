@@ -5,7 +5,7 @@ Pachyderm, this tutorial should take about 15. This tutorial
 introduces basic Pachyderm concepts.
 
 !!! tip
-    If you are new to Pachyderm, try [Pachyderm Shell](../deploy-manage/manage/pachctl_shell/).
+    If you are new to Pachyderm, try [Pachyderm Shell](../../deploy-manage/manage/pachctl_shell/).
     This handy tool suggests you `pachctl` commands as you type and
     helps you learn Pachyderm faster.
 

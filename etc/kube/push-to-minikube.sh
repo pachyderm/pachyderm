@@ -17,6 +17,6 @@ fi
 command -v pv >/dev/null 2>&1 || { echo >&2 "Required command 'pv' not found. Run 'sudo apt-get install pv'."; exit 1; }
 
 docker save "${1}" | pv | (
-  eval $(minikube docker-env)
+  eval "$(minikube docker-env)"
   docker load
 )

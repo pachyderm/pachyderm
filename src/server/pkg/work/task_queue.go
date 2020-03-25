@@ -2,44 +2,47 @@ package work
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 
 	"github.com/cevaris/ordered_map"
 )
 
 const (
-	waitTime = 100 * time.Millisecond
+	waitTime = 10 * time.Millisecond
 )
 
 var (
 	remapThreshold = 10000
 )
 
-type subtaskFunc func(context.Context) error
+type subtaskFunc func(context.Context)
+type subtaskBlockFunc func(context.Context) error
 
 type taskEntry struct {
 	ctx             context.Context
 	cancel          context.CancelFunc
 	subtaskFuncChan chan subtaskFunc
-	errChan         chan error
 }
 
-// runSubtask blocks on the task queue receiving the subtask function, executing it, then returning the error state.
+// runSubtask sends a subtask to be run in the task queue.
 // The task queue will not attempt to receive a subtask function until it will be processed.
-func (te *taskEntry) runSubtask(subtask subtaskFunc) error {
+func (te *taskEntry) runSubtask(subtask subtaskFunc) {
 	select {
 	case te.subtaskFuncChan <- subtask:
 	case <-te.ctx.Done():
-		return te.ctx.Err()
 	}
-	select {
-	case err := <-te.errChan:
-		return err
-	case <-te.ctx.Done():
-		return te.ctx.Err()
-	}
+}
+
+// runSubtaskBlock is similar to runSubtask, but blocks on the subtask.
+func (te *taskEntry) runSubtaskBlock(subtask subtaskBlockFunc) error {
+	errChan := make(chan error)
+	te.runSubtask(func(ctx context.Context) {
+		errChan <- subtask(ctx)
+	})
+	return <-errChan
 }
 
 // The task queue data structure is an ordered map that stores task entries.
@@ -49,9 +52,9 @@ func (te *taskEntry) runSubtask(subtask subtaskFunc) error {
 // significantly lower than the number of subtasks. Also, we are not concerned with the ordering of subtasks within a task,
 // only the ordering of subtasks across tasks.
 type taskQueue struct {
-	tasks           *ordered_map.OrderedMap
-	mu              sync.Mutex
-	tasksSinceRemap int
+	tasks                  *ordered_map.OrderedMap
+	mu                     sync.Mutex
+	tasksDeletedSinceRemap int
 }
 
 func newTaskQueue(ctx context.Context) *taskQueue {
@@ -60,8 +63,7 @@ func newTaskQueue(ctx context.Context) *taskQueue {
 	}
 	// The next subtask to process is determined by iterating through the ordered map and checking the
 	// subtask function channel for each task entry to see if the next subtask is ready to be processed.
-	// If a subtask function is received, then it is executed and the error state is returned through
-	// the task entry error channel.
+	// If a subtask function is received, then it is executed.
 	// After processing a subtask, the iteration starts from the beginning (new subtasks from earlier
 	// tasks should be processed first).
 	go func() {
@@ -79,7 +81,7 @@ func newTaskQueue(ctx context.Context) *taskQueue {
 				select {
 				case f := <-te.subtaskFuncChan:
 					tq.mu.Unlock()
-					te.errChan <- f(te.ctx)
+					f(te.ctx)
 					continue NextSubtask
 				default:
 				}
@@ -99,38 +101,35 @@ func (tq *taskQueue) runTask(ctx context.Context, taskID string, f func(*taskEnt
 	tq.mu.Lock()
 	defer tq.mu.Unlock()
 	if _, ok := tq.tasks.Get(taskID); ok {
-		return fmt.Errorf("errored creating task %v, which already exists", taskID)
+		return errors.Errorf("errored creating task %v, which already exists", taskID)
 	}
-	tq.remap()
 	ctx, cancel := context.WithCancel(ctx)
 	te := &taskEntry{
 		ctx:             ctx,
 		cancel:          cancel,
 		subtaskFuncChan: make(chan subtaskFunc, 1),
-		errChan:         make(chan error, 1),
 	}
 	tq.tasks.Set(taskID, te)
 	go func() {
-		fmt.Printf("running taskQueue callback: %p\n", f)
 		defer tq.deleteTask(taskID)
 		f(te)
 	}()
 	return nil
 }
 
-// remap copies the entries in the ordered map to a new ordered map after a certain number of
-// tasks have been encountered. This is to prevent unbounded memory usage due to maps not freeing
+// maybeRemap copies the entries in the ordered map to a new ordered map after a certain number of
+// tasks have been deleted. This is to prevent unbounded memory usage due to maps not freeing
 // memory after deletions.
-func (tq *taskQueue) remap() {
-	tq.tasksSinceRemap++
-	if tq.tasksSinceRemap >= remapThreshold {
+func (tq *taskQueue) maybeRemap() {
+	tq.tasksDeletedSinceRemap++
+	if tq.tasksDeletedSinceRemap >= remapThreshold {
 		var kvs []*ordered_map.KVPair
 		iter := tq.tasks.IterFunc()
 		for kv, ok := iter(); ok; kv, ok = iter() {
 			kvs = append(kvs, kv)
 		}
 		tq.tasks = ordered_map.NewOrderedMapWithArgs(kvs)
-		tq.tasksSinceRemap = 0
+		tq.tasksDeletedSinceRemap = 0
 	}
 }
 
@@ -143,4 +142,5 @@ func (tq *taskQueue) deleteTask(taskID string) {
 	}
 	tc.(*taskEntry).cancel()
 	tq.tasks.Delete(taskID)
+	tq.maybeRemap()
 }

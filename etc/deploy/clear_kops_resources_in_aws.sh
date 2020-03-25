@@ -29,20 +29,20 @@ if [[ -z "${AWS_AVAILABILITY_ZONE}"  ]]; then
 fi
 
 # Delete autoscaling group
-aws --region=${AWS_REGION} autoscaling describe-auto-scaling-groups \
+aws --region="${AWS_REGION}" autoscaling describe-auto-scaling-groups \
     | jq --raw-output '.AutoScalingGroups[].AutoScalingGroupName' \
-    | while read g; do \
+    | while read -r g; do \
         echo "${g}"
-        aws --region=${AWS_REGION} autoscaling delete-auto-scaling-group --auto-scaling-group-name=${g} --force-delete; \
+        aws --region="${AWS_REGION}" autoscaling delete-auto-scaling-group --auto-scaling-group-name="${g}" --force-delete; \
       done
 
 # Delete launch configurations
-aws --region=${AWS_REGION} autoscaling describe-launch-configurations \
+aws --region="${AWS_REGION}" autoscaling describe-launch-configurations \
     | jq --raw-output '.LaunchConfigurations[].LaunchConfigurationName' \
     | grep 'pachydermcluster' \
-    | while read lc; do \
+    | while read -r lc; do \
         echo "${lc}"; \
-        aws --region=${AWS_REGION} autoscaling delete-launch-configuration --launch-configuration-name=${lc}; \
+        aws --region="${AWS_REGION}" autoscaling delete-launch-configuration --launch-configuration-name="${lc}"; \
       done
 
 # Wait until all instances are terminated
@@ -55,7 +55,7 @@ spin() {
 first="true"
 while true; do
   group_count="$(
-    aws --region=${AWS_REGION} ec2 describe-instances \
+    aws --region="${AWS_REGION}" ec2 describe-instances \
       | jq --raw-output '.Reservations[].Instances[] | select(.State.Name != "terminated") | .InstanceId' \
       | wc -l
   )"
@@ -70,134 +70,134 @@ while true; do
 done
 
 # Delete volumes
-aws --region=${AWS_REGION} ec2 describe-volumes \
+aws --region="${AWS_REGION}" ec2 describe-volumes \
   | jq --raw-output .Volumes[].VolumeId \
-  | while read v; do \
-      echo ${v}; \
-      aws --region=${AWS_REGION} ec2 delete-volume --volume-id=${v}; \
+  | while read -r v; do \
+      echo "${v}"; \
+      aws --region="${AWS_REGION}" ec2 delete-volume --volume-id="${v}"; \
 done
 
 # Delete ELBs
-aws --region=${AWS_REGION} elb describe-load-balancers \
+aws --region="${AWS_REGION}" elb describe-load-balancers \
   | jq --raw-output '.LoadBalancerDescriptions[].LoadBalancerName' \
-  | while read elb; do
-      cmd=( aws elb delete-load-balancer --load-balancer-name="${elb}" )
+  | while read -r elb; do
+      cmd=( aws elb delete-load-balancer "--load-balancer-name=${elb}" )
       echo "${cmd[@]}"
       "${cmd[@]}"
 done
 
 # Delete routes
-aws --region=${AWS_REGION} ec2 describe-route-tables \
+aws --region="${AWS_REGION}" ec2 describe-route-tables \
   | jq --raw-output '.RouteTables[].RouteTableId' \
-  | while read id; do \
+  | while read -r id; do \
       aws ec2 describe-route-tables --route-table-ids="${id}" \
         | jq --raw-output '.RouteTables[].Routes[] | select(.GatewayId != "local") | .DestinationCidrBlock' \
-        | while read cidr; do \
+        | while read -r cidr; do \
             echo aws ec2 delete-route --route-table-id="${id}" --destination-cidr-block="${cidr}"
       done
 done
 
 # Delete subnets
-aws --region=${AWS_REGION} ec2 describe-subnets \
+aws --region="${AWS_REGION}" ec2 describe-subnets \
   | jq --raw-output '.Subnets[].SubnetId' \
-  | while read s; \
-      do echo ${s}; \
-      aws --region=${AWS_REGION} ec2 delete-subnet --subnet-id=${s}; \
+  | while read -r s; \
+      do echo "${s}"; \
+      aws --region="${AWS_REGION}" ec2 delete-subnet --subnet-id="${s}"; \
 done
 
 # Delete any routing tables that aren't the main routing table for their VPC
-aws --region=${AWS_REGION} ec2 describe-route-tables \
+aws --region="${AWS_REGION}" ec2 describe-route-tables \
   | jq --raw-output '.RouteTables[]
                      | select([ .Associations[].Main | not ] | all)
                      | .RouteTableId' \
-  | while read t; do \
-      echo ${t}; \
-      aws --region=${AWS_REGION} ec2 delete-route-table --route-table-id=${t}; \
+  | while read -r t; do \
+      echo "${t}"; \
+      aws --region="${AWS_REGION}" ec2 delete-route-table --route-table-id="${t}"; \
 done
 
 # Delete key pairs
-aws --region=${AWS_REGION} ec2 describe-key-pairs \
+aws --region="${AWS_REGION}" ec2 describe-key-pairs \
   | jq --raw-output '.KeyPairs[].KeyName' \
-  | while read k; do \
-      echo ${k}; \
-      aws --region=${AWS_REGION} ec2 delete-key-pair --key-name=${k}; \
+  | while read -r k; do \
+      echo "${k}"; \
+      aws --region="${AWS_REGION}" ec2 delete-key-pair --key-name="${k}"; \
 done
 
 # Detach internet gateways from their respective VPC, then delete them
-aws --region=${AWS_REGION} ec2 describe-internet-gateways \
+aws --region="${AWS_REGION}" ec2 describe-internet-gateways \
   | jq --raw-output '.InternetGateways[].InternetGatewayId' \
-  | while read g; do \
-      echo ${g}; \
-      aws --region=${AWS_REGION} ec2 detach-internet-gateway \
-        --internet-gateway-id=${g} \
-        --vpc-id=$( \
-            aws --region=${AWS_REGION} ec2 describe-internet-gateways \
-                --internet-gateway-id=${g} \
+  | while read -r g; do \
+      echo "${g}"; \
+      aws --region="${AWS_REGION}" ec2 detach-internet-gateway \
+        --internet-gateway-id="${g}" \
+        --vpc-id="$( \
+            aws --region="${AWS_REGION}" ec2 describe-internet-gateways \
+                --internet-gateway-id="${g}" \
               | jq --raw-output '.InternetGateways[].Attachments[0].VpcId'\
-          ); \
+          )"; \
 done
 
-aws --region=${AWS_REGION} ec2 describe-internet-gateways \
+aws --region="${AWS_REGION}" ec2 describe-internet-gateways \
   | jq --raw-output '.InternetGateways[].InternetGatewayId' \
-  | while read g; do \
-      echo ${g}; \
-      aws --region=${AWS_REGION} ec2 delete-internet-gateway --internet-gateway-id=${g}; \
+  | while read -r g; do \
+      echo "${g}"; \
+      aws --region="${AWS_REGION}" ec2 delete-internet-gateway --internet-gateway-id="${g}"; \
 done
 
 # Clear all security group ACLs (so that no security group is referenced by
 # another security group) and then delete all non-default security groups
-aws --region=${AWS_REGION} ec2 describe-security-groups \
+aws --region="${AWS_REGION}" ec2 describe-security-groups \
   | jq --raw-output '.SecurityGroups[].GroupId' \
-  | while read sg; do \
-      aws --region=${AWS_REGION} ec2 describe-security-groups --group-id=${sg} \
+  | while read -r sg; do \
+      aws --region="${AWS_REGION}" ec2 describe-security-groups --group-id="${sg}" \
         | jq --raw-output '.SecurityGroups[0].IpPermissions[].UserIdGroupPairs[].GroupId' \
-        | while read other; do \
+        | while read -r other; do \
             echo "${other} -> ${sg}"; \
-            aws --region=${AWS_REGION} ec2 revoke-security-group-ingress --group-id=${sg} --source-group=${other} --protocol=all; \
+            aws --region="${AWS_REGION}" ec2 revoke-security-group-ingress --group-id="${sg}" --source-group="${other}" --protocol=all; \
       done; \
 done
 
-aws --region=${AWS_REGION} ec2 describe-security-groups \
+aws --region="${AWS_REGION}" ec2 describe-security-groups \
   | jq --raw-output '.SecurityGroups[] | select(.GroupName != "default") | .GroupId' \
-  | while read sg; do \
-      echo ${sg}; \
-      aws --region=${AWS_REGION} ec2 delete-security-group --group-id=${sg}; \
+  | while read -r sg; do \
+      echo "${sg}"; \
+      aws --region="${AWS_REGION}" ec2 delete-security-group --group-id="${sg}"; \
 done
 
 # Delete all VPCs
-aws --region=${AWS_REGION} ec2 describe-vpcs \
+aws --region="${AWS_REGION}" ec2 describe-vpcs \
   | jq --raw-output .Vpcs[].VpcId \
-  | while read v; do \
-      echo ${v}; \
-      aws --region=${AWS_REGION} ec2 delete-vpc --vpc-id=${v}; \
+  | while read -r v; do \
+      echo "${v}"; \
+      aws --region="${AWS_REGION}" ec2 delete-vpc --vpc-id="${v}"; \
 done
 
 # Delete all VPC associations with the hosted zone 'kubernetes.com'
 zone_name=kubernetes.com # trailing period is omitted (here, not below)
 zone_id="$( aws route53 list-hosted-zones | jq --raw-output '.HostedZones[] | select(.Name == "'${zone_name}'.") | .Id' )"
 aws route53 get-hosted-zone  --id="${zone_id}" \
-  | jq -c --monochrome-output '.VPCs[] | select(.VPCRegion == "'${AWS_REGION}'")' \
-  | while read vpc; do \
+  | jq -c --monochrome-output ".VPCs[] | select(.VPCRegion == \"${AWS_REGION}\")" \
+  | while read -r vpc; do \
       echo "${zone_id} -> ${vpc}"; \
       aws route53 disassociate-vpc-from-hosted-zone --hosted-zone-id="${zone_id}" --vpc="${vpc}"; \
     done
 
 # Delete all route53 records in 'kubernetes.com'
 aws route53 list-resource-record-sets \
-  --hosted-zone-id=${zone_id} \
+  --hosted-zone-id="${zone_id}" \
   | jq -c --monochrome-output '.ResourceRecordSets[] | select(.Name | test("pachydermcluster\\.kubernetes\\.com"))' \
-  | while read rs; do \
-      echo ${rs}; \
+  | while read -r rs; do \
+      echo "${rs}"; \
       aws route53 change-resource-record-sets \
         --hosted-zone-id="${zone_id}" \
-        --change-batch='{
-            "Changes":[{"Action":"DELETE","ResourceRecordSet":'${rs}'}]
-          }'; \
+        --change-batch="{
+            \"Changes\":[{\"Action\":\"DELETE\",\"ResourceRecordSet\":\"${rs}\"}]
+          }"; \
 done
 
 # Delete elastic IPs
 aws ec2 describe-addresses \
   | jq -c '.Addresses[] | if .Domain == "vpc" then { AllocationId: .AllocationId } else { PublicIp: .PublicIp } end' \
-  | while read eip; do
+  | while read -r eip; do
       aws ec2 release-address --cli-input-json="${eip}"
     done

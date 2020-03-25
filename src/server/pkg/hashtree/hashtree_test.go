@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"testing"
 
-	bolt "github.com/coreos/bbolt"
 	"github.com/golang/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+
+	bolt "github.com/coreos/bbolt"
 )
 
 // obj parses a string as an Object
@@ -503,7 +505,7 @@ func TestWalk(t *testing.T) {
 // Test that HashTree methods return the right error codes
 func TestErrorCode(t *testing.T) {
 	require.Equal(t, OK, Code(nil))
-	require.Equal(t, Unknown, Code(fmt.Errorf("external error")))
+	require.Equal(t, Unknown, Code(errors.Errorf("external error")))
 
 	h := newHashTree(t)
 	_, err := h.Get("/path")
@@ -659,7 +661,7 @@ func TestCache(t *testing.T) {
 	require.Equal(t, 1, c.lruCache.Len())
 
 	// Fail to instantiate a hashtree for a new key
-	_, err = c.GetOrAdd(4, func() (HashTree, error) { return nil, fmt.Errorf("error") })
+	_, err = c.GetOrAdd(4, func() (HashTree, error) { return nil, errors.Errorf("error") })
 	require.YesError(t, err)
 	require.Equal(t, 1, c.lruCache.Len())
 

@@ -3,12 +3,12 @@ package serde
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"strings"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 // JSONEncoder is an implementation of serde.Encoder that operates on JSON data
@@ -57,7 +57,7 @@ func (e *JSONEncoder) EncodeTransform(v interface{}, f func(map[string]interface
 	var buf bytes.Buffer
 	j := json.NewEncoder(&buf)
 	if err := j.Encode(v); err != nil {
-		return fmt.Errorf("serialization error while canonicalizing output: %v", err)
+		return errors.Wrapf(err, "serialization error while canonicalizing output")
 	}
 
 	return e.encodeTransform(buf.Bytes(), f)
@@ -81,7 +81,7 @@ func (e *JSONEncoder) EncodeProtoTransform(v proto.Message, f func(map[string]in
 		OrigName: e.origName,
 	} // output text is produced by 'e.e', not 'm', so no need to set 'Indent'
 	if err := m.Marshal(&buf, v); err != nil {
-		return fmt.Errorf("serialization error while canonicalizing output: %v", err)
+		return errors.Wrapf(err, "serialization error while canonicalizing output")
 	}
 
 	return e.encodeTransform(buf.Bytes(), f)
@@ -92,7 +92,7 @@ func (e *JSONEncoder) encodeTransform(intermediateJSON []byte,
 	// Unmarshal from JSON to intermediate map ('holder')
 	holder := map[string]interface{}{}
 	if err := json.Unmarshal(intermediateJSON, &holder); err != nil {
-		return fmt.Errorf("deserialization error while canonicalizing output: %v", err)
+		return errors.Wrapf(err, "deserialization error while canonicalizing output")
 	}
 
 	// transform 'holder' (e.g. de-stringifying TFJob)
@@ -104,7 +104,7 @@ func (e *JSONEncoder) encodeTransform(intermediateJSON []byte,
 
 	// Encode 'holder' to back to JSON to be re-encoded into a struct or protobuf
 	if err := e.e.Encode(holder); err != nil {
-		return fmt.Errorf("serialization error while canonicalizing json: %v", err)
+		return errors.Wrapf(err, "serialization error while canonicalizing json")
 	}
 	return nil
 }

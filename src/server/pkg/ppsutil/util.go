@@ -25,6 +25,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
@@ -114,10 +115,10 @@ func GetLimitsResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*v1.Reso
 func getNumNodes(kubeClient *kube.Clientset) (int, error) {
 	nodeList, err := kubeClient.CoreV1().Nodes().List(metav1.ListOptions{})
 	if err != nil {
-		return 0, fmt.Errorf("unable to retrieve node list from k8s to determine parallelism: %v", err)
+		return 0, errors.Wrapf(err, "unable to retrieve node list from k8s to determine parallelism")
 	}
 	if len(nodeList.Items) == 0 {
-		return 0, fmt.Errorf("pachyderm.pps.jobserver: no k8s nodes found")
+		return 0, errors.Errorf("pachyderm.pps.jobserver: no k8s nodes found")
 	}
 	return len(nodeList.Items), nil
 }
@@ -140,7 +141,7 @@ func GetExpectedNumWorkers(kubeClient *kube.Clientset, spec *pps.ParallelismSpec
 		result := math.Floor(spec.Coefficient * float64(numNodes))
 		return int(math.Max(result, 1)), nil
 	}
-	return 0, fmt.Errorf("unable to interpret ParallelismSpec %+v", spec)
+	return 0, errors.Errorf("unable to interpret ParallelismSpec %+v", spec)
 }
 
 // GetExpectedNumHashtrees computes the expected number of hashtrees that
@@ -151,7 +152,7 @@ func GetExpectedNumHashtrees(spec *pps.HashtreeSpec) (int64, error) {
 	} else if spec.Constant > 0 {
 		return int64(spec.Constant), nil
 	}
-	return 0, fmt.Errorf("unable to interpret HashtreeSpec %+v", spec)
+	return 0, errors.Errorf("unable to interpret HashtreeSpec %+v", spec)
 }
 
 // GetPipelineInfo retrieves and returns a valid PipelineInfo from PFS. It does
@@ -160,10 +161,10 @@ func GetPipelineInfo(pachClient *client.APIClient, ptr *pps.EtcdPipelineInfo) (*
 	result := &pps.PipelineInfo{}
 	buf := bytes.Buffer{}
 	if err := pachClient.GetFile(ppsconsts.SpecRepo, ptr.SpecCommit.ID, ppsconsts.SpecFile, 0, 0, &buf); err != nil {
-		return nil, fmt.Errorf("could not read existing PipelineInfo from PFS: %v", err)
+		return nil, errors.Wrapf(err, "could not read existing PipelineInfo from PFS")
 	}
 	if err := result.Unmarshal(buf.Bytes()); err != nil {
-		return nil, fmt.Errorf("could not unmarshal PipelineInfo bytes from PFS: %v", err)
+		return nil, errors.Wrapf(err, "could not unmarshal PipelineInfo bytes from PFS")
 	}
 	result.State = ptr.State
 	result.Reason = ptr.Reason
@@ -267,7 +268,7 @@ func IsTerminal(state pps.JobState) bool {
 // UpdateJobState performs the operations involved with a job state transition.
 func UpdateJobState(pipelines col.ReadWriteCollection, jobs col.ReadWriteCollection, jobPtr *pps.EtcdJobInfo, state pps.JobState, reason string) error {
 	if jobPtr.State == pps.JobState_JOB_FAILURE {
-		return fmt.Errorf("cannot put %q in state %s as it's already in state JOB_FAILURE", jobPtr.Job.ID, state.String())
+		return errors.Errorf("cannot put %q in state %s as it's already in state JOB_FAILURE", jobPtr.Job.ID, state.String())
 	}
 
 	// Update pipeline

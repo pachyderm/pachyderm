@@ -56,6 +56,9 @@ func (d *driver) moveData(inputs []*common.Input, dir string) error {
 	}
 
 	for _, input := range inputs {
+		if input.S3 {
+			continue
+		}
 		src := filepath.Join(dir, input.Name)
 		dst := filepath.Join(d.InputDir(), input.Name)
 		if err := os.Rename(src, dst); err != nil {

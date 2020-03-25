@@ -18,26 +18,26 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 )
 
-// EtcdEnv contains the basic setup for running end-to-end pachyderm tests entirely
+// Env contains the basic setup for running end-to-end pachyderm tests entirely
 // locally within the test process. It provides a temporary directory for
 // storing data, and an embedded etcd server with a connected client.
-type EtcdEnv struct {
+type Env struct {
 	Context    context.Context
 	Directory  string
 	Etcd       *embed.Etcd
 	EtcdClient *etcd.Client
 }
 
-// WithEtcdEnv constructs a default EtcdEnv for testing during the lifetime of
+// WithEnv constructs a default Env for testing during the lifetime of
 // the callback.
-func WithEtcdEnv(cb func(*EtcdEnv) error) (err error) {
+func WithEnv(cb func(*Env) error) (err error) {
 	// Use an error group with a cancelable context to supervise every component
 	// and cancel everything if one fails
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	eg, ctx := errgroup.WithContext(ctx)
 
-	env := &EtcdEnv{Context: ctx}
+	env := &Env{Context: ctx}
 
 	// Cleanup any state when we return
 	defer func() {
