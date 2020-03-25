@@ -39,9 +39,12 @@ message HashtreeInfo {
   // Address used for fetching a cached version directly from the worker
   string address = 1;
 
-  // The tag can be used to fetch the object from object storage or when getting
-  // the cached hashtree directly from the worker
+  // The chunk-id can be used to fetch the cached hashtree directly from the worker
   string tag = 2;
+
+  // The object can be used to fetch the hashtree from object storage if the
+  // worker cannot be reached or does not have it cached.
+  pfs.Object object = 3;
 }
 
 message DatumStats {

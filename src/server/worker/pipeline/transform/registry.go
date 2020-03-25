@@ -243,6 +243,10 @@ func (reg *registry) succeedJob(
 		return err
 	}
 
+	if err := reg.cleanJobArtifacts(jobTagPrefix(pj.ji.Job.ID)); err != nil {
+		return err
+	}
+
 	return reg.jobChain.Succeed(pj)
 }
 
@@ -254,6 +258,10 @@ func (reg *registry) failJob(
 
 	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
 	if err := finishJob(reg.driver.PipelineInfo(), reg.driver.PachClient(), pj.ji, pps.JobState_JOB_FAILURE, reason, nil, nil, 0, nil, 0); err != nil {
+		return err
+	}
+
+	if err := reg.cleanJobArtifacts(jobTagPrefix(pj.ji.Job.ID)); err != nil {
 		return err
 	}
 
@@ -271,7 +279,63 @@ func (reg *registry) killJob(
 		return err
 	}
 
+	if err := reg.cleanJobArtifacts(jobTagPrefix(pj.ji.Job.ID)); err != nil {
+		return err
+	}
+
 	return reg.jobChain.Fail(pj)
+}
+
+func forEachTag(pachClient *client.APIClient, prefix string, cb func(tag *pfs.Tag, object *pfs.Object) error) error {
+	listTagClient, err := pachClient.ListTags(
+		pachClient.Ctx(),
+		&pfs.ListTagsRequest{Prefix: prefix, IncludeObject: true},
+	)
+	if err != nil {
+		return err
+	}
+
+	for {
+		response, err := listTagClient.Recv()
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return err
+		}
+		if err := cb(response.Tag, response.Object); err != nil {
+			if err == errutil.ErrBreak {
+				return nil
+			}
+			return err
+		}
+	}
+}
+
+func (reg *registry) cleanJobArtifacts(prefix string) error {
+	tags := []*pfs.Tag{}
+	objects := []*pfs.Object{}
+
+	if err := forEachTag(reg.driver.PachClient(), prefix, func(tag *pfs.Tag, object *pfs.Object) error {
+		tags = append(tags, tag)
+		objects = append(objects, object)
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	if _, err := reg.driver.PachClient().DeleteTags(
+		reg.driver.PachClient().Ctx(),
+		&pfs.DeleteTagsRequest{Tags: tags},
+	); err != nil {
+		return err
+	}
+
+	_, err := reg.driver.PachClient().DeleteObjects(
+		reg.driver.PachClient().Ctx(),
+		&pfs.DeleteObjectsRequest{Objects: objects},
+	)
+	return err
 }
 
 func writeJobInfo(pachClient *client.APIClient, jobInfo *pps.JobInfo) error {

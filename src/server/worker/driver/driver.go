@@ -559,7 +559,7 @@ func (d *driver) downloadData(
 				// the file might be in the spout marker directory, and so we'll try pulling it from there
 				if err := puller.Pull(
 					d.PachClient(),
-					filepath.Join(outPath, d.PipelineInfo().Spout.Marker),
+					filepath.Join(scratchPath, d.PipelineInfo().Spout.Marker),
 					d.PipelineInfo().Pipeline.Name,
 					ppsconsts.SpoutMarkerBranch,
 					"/"+d.PipelineInfo().Spout.Marker,

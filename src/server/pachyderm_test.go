@@ -3214,12 +3214,16 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if len(jobInfos) != 1 {
+		if len(jobInfos) != 2 {
 			return fmt.Errorf("wrong number of jobs")
 		}
 
-		state := jobInfos[0].State
+		state := jobInfos[1].State
+		if state != pps.JobState_JOB_RUNNING && state != pps.JobState_JOB_MERGING {
+			return fmt.Errorf("wrong state: %v for %s", state, jobInfos[1].Job.ID)
+		}
 
+		state = jobInfos[0].State
 		if state != pps.JobState_JOB_RUNNING && state != pps.JobState_JOB_MERGING {
 			return fmt.Errorf("wrong state: %v for %s", state, jobInfos[0].Job.ID)
 		}
@@ -3244,16 +3248,12 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 	require.NoError(t, err)
 	collectCommitInfos(t, iter)
 
-	// Currently, commits finish shortly before their respecive JobInfo documents
-	// are updated (the pipeline master receives the commit update and then
-	// updates the JobInfo document). Wait briefly for this to happen
-	time.Sleep(10 * time.Second)
-
 	jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(jobInfos))
+	require.Equal(t, 3, len(jobInfos))
 	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jobInfos[0].State.String())
 	require.Equal(t, pps.JobState_JOB_KILLED.String(), jobInfos[1].State.String())
+	require.Equal(t, pps.JobState_JOB_KILLED.String(), jobInfos[2].State.String())
 }
 
 func TestManyFilesSingleCommit(t *testing.T) {
@@ -4121,14 +4121,14 @@ func TestStopJob(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
 		require.NoError(t, err)
-		if len(jobInfos) != 1 {
-			return fmt.Errorf("len(jobInfos) should be 1")
+		if len(jobInfos) != 2 {
+			return fmt.Errorf("len(jobInfos) should be 2")
 		}
-		jobID = jobInfos[0].Job.ID
-		state := jobInfos[0].State
+		jobID = jobInfos[1].Job.ID
+		state := jobInfos[1].State
 
 		if state != pps.JobState_JOB_RUNNING && state != pps.JobState_JOB_MERGING {
-			return fmt.Errorf("jobInfos[0] has the wrong state")
+			return fmt.Errorf("jobInfos[1] has the wrong state")
 		}
 		return nil
 	}, b))
@@ -9956,7 +9956,7 @@ func TestSpout(t *testing.T) {
 						"cp /pfs/mymark/test ./test",
 						"while [ : ]",
 						"do",
-						"sleep 5",
+						"sleep 1",
 						"echo $(tail -1 test). >> test",
 						"mkdir mymark",
 						"cp test mymark/test",
