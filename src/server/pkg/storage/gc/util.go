@@ -11,6 +11,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 )
 
+func WithLocalServer(f func(c Client) error) error {
+	s := makeServer()
+}
+
 // TODO: connection options
 func openDatabase(host string, port uint16) (*gorm.DB, error) {
 	return gorm.Open("postgres", fmt.Sprintf("host=%s port=%d dbname=pgc user=pachyderm password=elephantastic sslmode=disable", host, port))

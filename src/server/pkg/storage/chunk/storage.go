@@ -6,6 +6,7 @@ import (
 	"path"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/gc"
 )
 
 const (
@@ -26,6 +27,7 @@ type Annotation struct {
 // Storage is the abstraction that manages chunk storage.
 type Storage struct {
 	objC obj.Client
+	gcC  gc.Client
 }
 
 // NewStorage creates a new Storage.
@@ -48,8 +50,8 @@ func (s *Storage) NewReader(ctx context.Context, dataRefs ...*DataRef) *Reader {
 // Chunks are created based on the content, then hashed and deduplicated/uploaded to
 // object storage.
 // The callback arguments are the chunk hash and annotations.
-func (s *Storage) NewWriter(ctx context.Context, averageBits int, seed int64, noUpload bool, f WriterFunc) *Writer {
-	return newWriter(ctx, s.objC, averageBits, f, seed, noUpload)
+func (s *Storage) NewWriter(ctx context.Context, averageBits int, seed int64, noUpload bool, tmpID string, f WriterFunc) *Writer {
+	return newWriter(ctx, s.objC, averageBits, f, seed, noUpload, tmpID)
 }
 
 // List lists all of the chunks in object storage.
@@ -67,4 +69,22 @@ func (s *Storage) DeleteAll(ctx context.Context) error {
 // Delete deletes a chunk in object storage.
 func (s *Storage) Delete(ctx context.Context, hash string) error {
 	return s.objC.Delete(ctx, path.Join(prefix, hash))
+}
+
+func (s *Storage) AddSemanticReference(ctx context.Context, name string, chunk *Chunk, tmpID string) error {
+	ref := semanticReference(name, chunk)
+	return w.gcC.UpdateReferences(w.ctx, []*gc.Reference{ref}, nil, tmpID)
+}
+
+func (s *Storage) DeleteSemanticReference(ctx context.Context, name string, chunk *Chunk, tmpID string) error {
+	ref := semanticReference(name, chunk)
+	return s.gcC.UpdateReference(ctx, nil, []*gc.Reference{ref}, tmpID)
+}
+
+func semanticReference(name string, chunk *Chunk) *gc.Reference {
+	return &gc.Reference{
+		Sourcetype: "semantic",
+		Source:     name,
+		Chunk:      chunk,
+	}
 }

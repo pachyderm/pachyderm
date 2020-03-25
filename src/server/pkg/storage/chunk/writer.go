@@ -9,6 +9,7 @@ import (
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/gc"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/hash"
 	"golang.org/x/sync/errgroup"
 )
@@ -241,6 +242,9 @@ func (w *worker) put(edge bool) error {
 	}
 	chunk := &Chunk{Hash: hash.EncodeHash(hash.Sum(chunkBytes))}
 	path := path.Join(prefix, chunk.Hash)
+	if err := w.gcC.ReserveChunks(w.ctx, w.tmpID, []chunk.Chunk{chunk}); err != nil {
+		return err
+	}
 	// If the chunk does not exist, upload it.
 	if !w.objC.Exists(w.ctx, path) {
 		if err := w.upload(path, chunkBytes); err != nil {
@@ -266,7 +270,15 @@ func (w *worker) put(edge bool) error {
 
 func (w *worker) updateAnnotations(chunkRef *DataRef) {
 	var offset int64
+	var refs []*gc.Reference
 	for _, a := range w.annotations {
+		for _, dataRef := range a.RefDataRefs {
+			refs = append(refs, &gc.Reference{
+				SoureType: "chunk",
+				Source:    chunkRef.ChunkInfo.Hash,
+				Chunk:     dataRef.ChunkInfo.Hash,
+			})
+		}
 		// (bryce) probably a better way to communicate whether to compute datarefs for an annotation.
 		if a.NextDataRef != nil {
 			a.NextDataRef.ChunkInfo = chunkRef.ChunkInfo
@@ -279,6 +291,7 @@ func (w *worker) updateAnnotations(chunkRef *DataRef) {
 		}
 		offset += int64(a.buf.Len())
 	}
+	return w.gcC.UpdateReferences(w.ctx, refs, nil, w.tmpID)
 }
 
 func (w *worker) upload(path string, chunk []byte) error {
@@ -420,12 +433,13 @@ type Writer struct {
 	stats          *stats
 }
 
-func newWriter(ctx context.Context, objC obj.Client, averageBits int, f WriterFunc, seed int64, noUpload bool) *Writer {
+func newWriter(ctx context.Context, objC obj.Client, averageBits int, f WriterFunc, seed int64, noUpload bool, tmpID string) *Writer {
 	stats := &stats{}
 	newWorkerFunc := func(ctx context.Context, prev *prevChanSet, next *nextChanSet) *worker {
 		w := &worker{
 			ctx:       ctx,
 			objC:      objC,
+			gcC:       gcC,
 			hash:      buzhash64.NewFromUint64Array(buzhash64.GenerateHashes(seed)),
 			splitMask: (1 << uint64(averageBits)) - 1,
 			first:     true,
@@ -434,6 +448,7 @@ func newWriter(ctx context.Context, objC obj.Client, averageBits int, f WriterFu
 			f:         f,
 			stats:     stats,
 			noUpload:  noUpload,
+			tmpID:     tmpID,
 		}
 		w.hash.Reset()
 		w.hash.Write(initialWindow)

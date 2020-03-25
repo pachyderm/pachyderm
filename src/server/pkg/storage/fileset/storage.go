@@ -219,6 +219,14 @@ func (s *Storage) CompactSpec(ctx context.Context, fileSet string, compactedFile
 func (s *Storage) Delete(ctx context.Context, fileSet string) error {
 	fileSet = applyPrefix(fileSet)
 	return s.objC.Walk(ctx, fileSet, func(name string) error {
+		idx, err := index.GetTopLevelIndex(ctx, s.objC, name)
+		if err != nil {
+			return err
+		}
+		chunk := w.root.DataOp.DataRefs[0].ChunkInfo.Chunk
+		if err := s.chunks.DeleteSemanticReference(ctx, name, chunk); err != nil {
+			return err
+		}
 		return s.objC.Delete(ctx, name)
 	})
 }
