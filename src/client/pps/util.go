@@ -1,12 +1,12 @@
 package pps
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"gopkg.in/src-d/go-git.v4"
 )
 
@@ -101,7 +101,7 @@ func InputBranches(input *Input) []*pfs.Branch {
 func ValidateGitCloneURL(url string) error {
 	exampleURL := "https://github.com/org/foo.git"
 	if url == "" {
-		return fmt.Errorf("clone URL is missing (example clone URL %v)", exampleURL)
+		return errors.Errorf("clone URL is missing (example clone URL %v)", exampleURL)
 	}
 	// Use the git client's validator to make sure its a valid URL
 	o := &git.CloneOptions{
@@ -117,7 +117,7 @@ func ValidateGitCloneURL(url string) error {
 	//     ssh_url: "git@github.com:sjezewski/testgithook.git",
 	//     clone_url: "https://github.com/sjezewski/testgithook.git",
 	//     svn_url: "https://github.com/sjezewski/testgithook",
-	invalidErr := fmt.Errorf("clone URL is missing .git suffix (example clone URL %v)", exampleURL)
+	invalidErr := errors.Errorf("clone URL is missing .git suffix (example clone URL %v)", exampleURL)
 
 	if !strings.HasSuffix(url, ".git") {
 		// svn_url case

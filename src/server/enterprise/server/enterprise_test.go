@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -9,6 +8,7 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
@@ -38,17 +38,17 @@ func TestGetState(t *testing.T) {
 			return err
 		}
 		if resp.State != enterprise.State_ACTIVE {
-			return fmt.Errorf("expected enterprise state to be ACTIVE but was %v", resp.State)
+			return errors.Errorf("expected enterprise state to be ACTIVE but was %v", resp.State)
 		}
 		expires, err := types.TimestampFromProto(resp.Info.Expires)
 		if err != nil {
 			return err
 		}
 		if time.Until(expires) <= year {
-			return fmt.Errorf("expected test token to expire >1yr in the future, but expires at %v (congratulations on making it to 2026!)", expires)
+			return errors.Errorf("expected test token to expire >1yr in the future, but expires at %v (congratulations on making it to 2026!)", expires)
 		}
 		if resp.ActivationCode != testutil.GetTestEnterpriseCode() {
-			return fmt.Errorf("incorrect activation code, got: %s, expected: %s", resp.ActivationCode, testutil.GetTestEnterpriseCode())
+			return errors.Errorf("incorrect activation code, got: %s, expected: %s", resp.ActivationCode, testutil.GetTestEnterpriseCode())
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -70,17 +70,17 @@ func TestGetState(t *testing.T) {
 			return err
 		}
 		if resp.State != enterprise.State_EXPIRED {
-			return fmt.Errorf("expected enterprise state to be EXPIRED but was %v", resp.State)
+			return errors.Errorf("expected enterprise state to be EXPIRED but was %v", resp.State)
 		}
 		respExpires, err := types.TimestampFromProto(resp.Info.Expires)
 		if err != nil {
 			return err
 		}
 		if expires.Unix() != respExpires.Unix() {
-			return fmt.Errorf("expected enterprise expiration to be %v, but was %v", expires, respExpires)
+			return errors.Errorf("expected enterprise expiration to be %v, but was %v", expires, respExpires)
 		}
 		if resp.ActivationCode != testutil.GetTestEnterpriseCode() {
-			return fmt.Errorf("incorrect activation code, got: %s, expected: %s", resp.ActivationCode, testutil.GetTestEnterpriseCode())
+			return errors.Errorf("incorrect activation code, got: %s, expected: %s", resp.ActivationCode, testutil.GetTestEnterpriseCode())
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -103,7 +103,7 @@ func TestDeactivate(t *testing.T) {
 			return err
 		}
 		if resp.State != enterprise.State_ACTIVE {
-			return fmt.Errorf("expected enterprise state to be ACTIVE but was %v", resp.State)
+			return errors.Errorf("expected enterprise state to be ACTIVE but was %v", resp.State)
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -119,7 +119,7 @@ func TestDeactivate(t *testing.T) {
 			return err
 		}
 		if resp.State != enterprise.State_NONE {
-			return fmt.Errorf("expected enterprise state to be NONE but was %v", resp.State)
+			return errors.Errorf("expected enterprise state to be NONE but was %v", resp.State)
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -146,7 +146,7 @@ func TestDoubleDeactivate(t *testing.T) {
 			return err
 		}
 		if resp.State != enterprise.State_NONE {
-			return fmt.Errorf("expected enterprise state to be NONE but was %v", resp.State)
+			return errors.Errorf("expected enterprise state to be NONE but was %v", resp.State)
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))

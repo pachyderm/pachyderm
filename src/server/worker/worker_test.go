@@ -2,7 +2,6 @@ package worker
 
 import (
 	"context"
-	"fmt"
 	"path"
 	"sync"
 	"testing"
@@ -11,6 +10,7 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -81,7 +81,7 @@ func getEtcdClient(t *testing.T) *etcd.Client {
 				DialOptions: client.DefaultDialOptions(),
 			})
 			if err != nil {
-				return fmt.Errorf("could not connect to etcd: %s", err.Error())
+				return errors.Wrapf(err, "could not connect to etcd")
 			}
 			return nil
 		}, backoff.NewTestingBackOff()))

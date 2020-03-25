@@ -19,10 +19,11 @@
 package hashtree
 
 import (
-	fmt "fmt"
 	"path"
 	"regexp"
 	"strings"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 // internalDefault overrides the internal defaults of many functions in the
@@ -76,11 +77,11 @@ func ValidatePath(path string) error {
 	match, _ := regexp.MatchString("^[ -~]+$", path)
 
 	if !match {
-		return fmt.Errorf("path (%v) invalid: only printable ASCII characters allowed", path)
+		return errors.Errorf("path (%v) invalid: only printable ASCII characters allowed", path)
 	}
 
 	if IsGlob(path) {
-		return fmt.Errorf("path (%v) invalid: globbing character (%v) not allowed in path", path, globRegex.FindString(path))
+		return errors.Errorf("path (%v) invalid: globbing character (%v) not allowed in path", path, globRegex.FindString(path))
 	}
 
 	return nil

@@ -2,13 +2,13 @@ package config
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	uuid "github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
@@ -33,18 +33,18 @@ func configPath() string {
 // ActiveContext gets the active context in the config
 func (c *Config) ActiveContext() (string, *Context, error) {
 	if c.V2 == nil {
-		return "", nil, fmt.Errorf("cannot get active context from non-v2 config")
+		return "", nil, errors.Errorf("cannot get active context from non-v2 config")
 	}
 	if envContext, ok := os.LookupEnv(contextEnvVar); ok {
 		context := c.V2.Contexts[envContext]
 		if context == nil {
-			return "", nil, fmt.Errorf("`%s` refers to a context (%q) that does not exist", contextEnvVar, envContext)
+			return "", nil, errors.Errorf("`%s` refers to a context (%q) that does not exist", contextEnvVar, envContext)
 		}
 		return envContext, context, nil
 	}
 	context := c.V2.Contexts[c.V2.ActiveContext]
 	if context == nil {
-		return "", nil, fmt.Errorf("pachctl config error: pachctl's active "+
+		return "", nil, errors.Errorf("pachctl config error: pachctl's active "+
 			"context is %q, but no context named %q has been configured.\n\nYou can fix "+
 			"your config by setting the active context like so: pachctl config set "+
 			"active-context <context>",
@@ -66,14 +66,14 @@ func Read(ignoreCache bool) (*Config, error) {
 		if raw, err := ioutil.ReadFile(p); err == nil {
 			err = json.Unmarshal(raw, &value)
 			if err != nil {
-				return nil, fmt.Errorf("could not parse config json at %q: %v", p, err)
+				return nil, errors.Wrapf(err, "could not parse config json at %q", p)
 			}
 		} else if os.IsNotExist(err) {
 			// File doesn't exist, so create a new config
 			log.Debugf("No config detected at %q. Generating new config...", p)
 			value = &Config{}
 		} else {
-			return nil, fmt.Errorf("could not read config at %q: %v", p, err)
+			return nil, errors.Wrapf(err, "could not read config at %q", p)
 		}
 
 		updated := false
@@ -97,7 +97,7 @@ func Read(ignoreCache bool) (*Config, error) {
 			pachdAddress, err := grpcutil.ParsePachdAddress(context.PachdAddress)
 			if err != nil {
 				if err != grpcutil.ErrNoPachdAddress {
-					return nil, fmt.Errorf("could not parse pachd address for context '%s': %v", contextName, err)
+					return nil, errors.Wrapf(err, "could not parse pachd address for context '%s'", contextName)
 				}
 			} else {
 				if qualifiedPachdAddress := pachdAddress.Qualified(); qualifiedPachdAddress != context.PachdAddress {
@@ -112,7 +112,7 @@ func Read(ignoreCache bool) (*Config, error) {
 			log.Debugf("Rewriting config at %q.", p)
 
 			if err := value.Write(); err != nil {
-				return nil, fmt.Errorf("could not rewrite config at %q: %v", p, err)
+				return nil, errors.Wrapf(err, "could not rewrite config at %q", p)
 			}
 		}
 	}
@@ -167,7 +167,7 @@ func (c *Config) Write() error {
 		// create any new directories
 		d := filepath.Dir(p)
 		if _, err := os.Stat(d); err != nil {
-			return fmt.Errorf("cannot use config at %s: could not stat parent directory (%v)", p, err)
+			return errors.Wrapf(err, "cannot use config at %s: could not stat parent directory", p)
 		}
 	} else {
 		// using the default config path, create the config directory
@@ -196,7 +196,7 @@ func (c *Config) Write() error {
 		// different device than the config path. If the rename failed, try to
 		// just copy the bytes instead.
 		if err = ioutil.WriteFile(p, rawConfig, 0644); err != nil {
-			return fmt.Errorf("failed to write config file: %v", err)
+			return errors.Wrapf(err, "failed to write config file")
 		}
 	}
 

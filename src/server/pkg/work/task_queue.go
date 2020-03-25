@@ -2,9 +2,10 @@ package work
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 
 	"github.com/cevaris/ordered_map"
 )
@@ -100,7 +101,7 @@ func (tq *taskQueue) runTask(ctx context.Context, taskID string, f func(*taskEnt
 	tq.mu.Lock()
 	defer tq.mu.Unlock()
 	if _, ok := tq.tasks.Get(taskID); ok {
-		return fmt.Errorf("errored creating task %v, which already exists", taskID)
+		return errors.Errorf("errored creating task %v, which already exists", taskID)
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	te := &taskEntry{

@@ -11,6 +11,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
@@ -53,7 +54,7 @@ func configurePluginHelper(pachClient *client.APIClient, v *vault.Client, testPa
 		return err
 	}
 	if respErr, ok := secret.Data["error"]; ok {
-		return fmt.Errorf("error in response: %v (%T)", respErr, respErr)
+		return errors.Errorf("error in response: %v (%T)", respErr, respErr)
 	}
 	return nil
 }

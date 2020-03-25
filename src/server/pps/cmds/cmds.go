@@ -15,6 +15,7 @@ import (
 
 	pachdclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
@@ -165,7 +166,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 			}
 			history, err := cmdutil.ParseHistory(history)
 			if err != nil {
-				return fmt.Errorf("error parsing history flag: %v", err)
+				return errors.Wrapf(err, "error parsing history flag")
 			}
 			var outputCommit *pfs.Commit
 			if outputCommitStr != "" {
@@ -374,10 +375,10 @@ each datum.`,
 			}
 			defer client.Close()
 			if pageSize < 0 {
-				return fmt.Errorf("pageSize must be zero or positive")
+				return errors.Errorf("pageSize must be zero or positive")
 			}
 			if page < 0 {
-				return fmt.Errorf("page must be zero or positive")
+				return errors.Errorf("page must be zero or positive")
 			}
 			if raw {
 				e := encoder(output)
@@ -453,7 +454,7 @@ $ {{alias}} --pipeline=filter --inputs=/apple.txt,123aef`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
-				return fmt.Errorf("error connecting to pachd: %v", err)
+				return errors.Wrapf(err, "error connecting to pachd")
 			}
 			defer client.Close()
 
@@ -636,7 +637,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return err
 			}
 			if pipelineInfo == nil {
-				return fmt.Errorf("pipeline %s not found", args[0])
+				return errors.Errorf("pipeline %s not found", args[0])
 			}
 			if raw {
 				return encoder(output).EncodeProto(pipelineInfo)
@@ -753,19 +754,19 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
 			// validate flags
 			if raw && spec {
-				return fmt.Errorf("cannot set both --raw and --spec")
+				return errors.Errorf("cannot set both --raw and --spec")
 			} else if !raw && !spec && output != "" {
 				cmdutil.ErrorAndExit("cannot set --output (-o) without --raw or --spec")
 			}
 			history, err := cmdutil.ParseHistory(history)
 			if err != nil {
-				return fmt.Errorf("error parsing history flag: %v", err)
+				return errors.Wrapf(err, "error parsing history flag")
 			}
 
 			// init client & get pipeline info
 			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
-				return fmt.Errorf("error connecting to pachd: %v", err)
+				return errors.Wrapf(err, "error connecting to pachd")
 			}
 			defer client.Close()
 			var pipeline string
@@ -822,10 +823,10 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			}
 			defer client.Close()
 			if len(args) > 0 && all {
-				return fmt.Errorf("cannot use the --all flag with an argument")
+				return errors.Errorf("cannot use the --all flag with an argument")
 			}
 			if len(args) == 0 && !all {
-				return fmt.Errorf("either a pipeline name or the --all flag needs to be provided")
+				return errors.Errorf("either a pipeline name or the --all flag needs to be provided")
 			}
 			req := &ppsclient.DeletePipelineRequest{
 				All:      all,
@@ -1045,7 +1046,7 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry string
 	}
 	client, err := pachdclient.NewOnUserMachine("user")
 	if err != nil {
-		return fmt.Errorf("error connecting to pachd: %v", err)
+		return errors.Wrapf(err, "error connecting to pachd")
 	}
 	defer client.Close()
 	for {
@@ -1070,7 +1071,7 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry string
 			}
 			dockerClient, err := docker.NewClientFromEnv()
 			if err != nil {
-				return fmt.Errorf("could not create a docker client from the environment: %s", err)
+				return errors.Wrapf(err, "could not create a docker client from the environment")
 			}
 			authConfig, err := dockerConfig(registry, username)
 			if err != nil {
@@ -1085,7 +1086,7 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry string
 			if build {
 				url, err := url.Parse(pipelinePath)
 				if pipelinePath == "-" || (err == nil && url.Scheme != "") {
-					return fmt.Errorf("`--build` can only be used when the pipeline path is local")
+					return errors.Errorf("`--build` can only be used when the pipeline path is local")
 				}
 				dockerfile := request.Transform.Dockerfile
 				if dockerfile == "" {
@@ -1158,14 +1159,14 @@ func dockerConfig(registry string, username string) (docker.AuthConfiguration, e
 		reader := bufio.NewReader(os.Stdin)
 		username, err = reader.ReadString('\n')
 		if err != nil {
-			return docker.AuthConfiguration{}, fmt.Errorf("could not read username: %v", err)
+			return docker.AuthConfiguration{}, errors.Wrapf(err, "could not read username")
 		}
 		username = strings.TrimRight(username, "\r\n")
 	}
 	fmt.Printf("Password for %s@%s: ", username, registry)
 	passBytes, err := terminal.ReadPassword(int(syscall.Stdin))
 	if err != nil {
-		return docker.AuthConfiguration{}, fmt.Errorf("could not read password: %v", err)
+		return docker.AuthConfiguration{}, errors.Wrapf(err, "could not read password")
 	}
 
 	// print a newline, since `ReadPassword` gobbles the user-inputted one
@@ -1191,7 +1192,7 @@ func buildImage(client *docker.Client, repo string, contextDir string, dockerfil
 	})
 
 	if err != nil {
-		return fmt.Errorf("could not build docker image: %s", err)
+		return errors.Wrapf(err, "could not build docker image")
 	}
 
 	return nil
@@ -1209,7 +1210,7 @@ func pushImage(client *docker.Client, authConfig docker.AuthConfiguration, repo 
 		Tag:     destTag,
 		Context: context.Background(),
 	}); err != nil {
-		err = fmt.Errorf("could not tag docker image: %s", err)
+		err = errors.Wrapf(err, "could not tag docker image")
 		return "", err
 	}
 
@@ -1220,7 +1221,7 @@ func pushImage(client *docker.Client, authConfig docker.AuthConfiguration, repo 
 		},
 		authConfig,
 	); err != nil {
-		err = fmt.Errorf("could not push docker image: %s", err)
+		err = errors.Wrapf(err, "could not push docker image")
 		return "", err
 	}
 

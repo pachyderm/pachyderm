@@ -10,13 +10,14 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testetcd"
 	"golang.org/x/sync/errgroup"
 )
 
 var (
-	errSubtaskFailure = fmt.Errorf("subtask failure")
+	errSubtaskFailure = errors.Errorf("subtask failure")
 )
 
 func seedStr(seed int64) string {
@@ -65,11 +66,11 @@ func collectSubtask(subtaskInfo *TaskInfo, collected map[string]bool) error {
 		return err
 	}
 	if !testData.Processed {
-		return fmt.Errorf("collected subtask should be processed")
+		return errors.Errorf("collected subtask should be processed")
 	}
 	collected[subtaskInfo.Task.ID] = true
 	if subtaskInfo.State == State_FAILURE && subtaskInfo.Reason != errSubtaskFailure.Error() {
-		return fmt.Errorf("subtask failure reason does not equal subtask failure error message")
+		return errors.Errorf("subtask failure reason does not equal subtask failure error message")
 	}
 	return nil
 }

@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tls"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	log "github.com/sirupsen/logrus"
@@ -54,7 +55,7 @@ func NewServer(ctx context.Context, publicPortTLSAllowed bool) (*Server, error) 
 			// Read TLS cert and key
 			transportCreds, err := credentials.NewServerTLSFromFile(certPath, keyPath)
 			if err != nil {
-				return nil, fmt.Errorf("couldn't build transport creds: %v", err)
+				return nil, errors.Wrapf(err, "couldn't build transport creds: %v", err)
 			}
 			opts = append(opts, grpc.Creds(transportCreds))
 		}
