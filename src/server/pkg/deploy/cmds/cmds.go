@@ -22,9 +22,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/helm"
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy"
@@ -280,7 +280,7 @@ func standardDeployCmds() []*cobra.Command {
 	var disableSSL bool
 	var noVerifySSL bool
 	appendS3Flags := func(cmd *cobra.Command) {
-	    cmd.Flags().IntVar(&retries, "retries", obj.DefaultRetries, "(rarely set) Set a custom number of retries for object storage requests.")
+		cmd.Flags().IntVar(&retries, "retries", obj.DefaultRetries, "(rarely set) Set a custom number of retries for object storage requests.")
 		cmd.Flags().StringVar(&timeout, "timeout", obj.DefaultTimeout, "(rarely set) Set a custom timeout for object storage requests.")
 		cmd.Flags().StringVar(&uploadACL, "upload-acl", obj.DefaultUploadACL, "(rarely set) Set a custom upload ACL for object storage uploads.")
 		cmd.Flags().BoolVar(&reverse, "reverse", obj.DefaultReverse, "(rarely set) Reverse object storage paths.")
@@ -373,8 +373,8 @@ func standardDeployCmds() []*cobra.Command {
 	var dev bool
 	var hostPath string
 	deployLocal := &cobra.Command{
-		Short: "Deploy a single-node Pachyderm cluster with local metadata storage.",
-		Long:  "Deploy a single-node Pachyderm cluster with local metadata storage.",
+		Short:  "Deploy a single-node Pachyderm cluster with local metadata storage.",
+		Long:   "Deploy a single-node Pachyderm cluster with local metadata storage.",
 		PreRun: preRun,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			if !dev {
@@ -770,9 +770,9 @@ If <object store backend> is \"s3\", then the arguments are:
 	}
 
 	deployStorageAmazon := &cobra.Command{
-		Use:   "{{alias}} <region> <access-key-id> <secret-access-key> [<session-token>]",
-		Short: "Deploy credentials for the Amazon S3 storage provider.",
-		Long:  "Deploy credentials for the Amazon S3 storage provider, so that Pachyderm can ingress data from and egress data to it.",
+		Use:    "{{alias}} <region> <access-key-id> <secret-access-key> [<session-token>]",
+		Short:  "Deploy credentials for the Amazon S3 storage provider.",
+		Long:   "Deploy credentials for the Amazon S3 storage provider, so that Pachyderm can ingress data from and egress data to it.",
 		PreRun: preRun,
 		Run: cmdutil.RunBoundedArgs(3, 4, func(args []string) error {
 			var token string
@@ -798,9 +798,9 @@ If <object store backend> is \"s3\", then the arguments are:
 	commands = append(commands, cmdutil.CreateAlias(deployStorageAmazon, "deploy storage amazon"))
 
 	deployStorageGoogle := &cobra.Command{
-		Use:   "{{alias}} <credentials-file>",
-		Short: "Deploy credentials for the Google Cloud storage provider.",
-		Long:  "Deploy credentials for the Google Cloud storage provider, so that Pachyderm can ingress data from and egress data to it.",
+		Use:    "{{alias}} <credentials-file>",
+		Short:  "Deploy credentials for the Google Cloud storage provider.",
+		Long:   "Deploy credentials for the Google Cloud storage provider, so that Pachyderm can ingress data from and egress data to it.",
 		PreRun: preRun,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			credBytes, err := ioutil.ReadFile(args[0])
@@ -814,9 +814,9 @@ If <object store backend> is \"s3\", then the arguments are:
 	commands = append(commands, cmdutil.CreateAlias(deployStorageGoogle, "deploy storage google"))
 
 	deployStorageAzure := &cobra.Command{
-		Use:   "{{alias}} <account-name> <account-key>",
-		Short: "Deploy credentials for the Azure storage provider.",
-		Long:  "Deploy credentials for the Azure storage provider, so that Pachyderm can ingress data from and egress data to it.",
+		Use:    "{{alias}} <account-name> <account-key>",
+		Short:  "Deploy credentials for the Azure storage provider.",
+		Long:   "Deploy credentials for the Azure storage provider, so that Pachyderm can ingress data from and egress data to it.",
 		PreRun: preRun,
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
 			return deployStorageSecrets(assets.MicrosoftSecret("", args[0], args[1]))
@@ -832,8 +832,8 @@ If <object store backend> is \"s3\", then the arguments are:
 	commands = append(commands, cmdutil.CreateAlias(deployStorage, "deploy storage"))
 
 	listImages := &cobra.Command{
-		Short: "Output the list of images in a deployment.",
-		Long:  "Output the list of images in a deployment.",
+		Short:  "Output the list of images in a deployment.",
+		Long:   "Output the list of images in a deployment.",
 		PreRun: preRun,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			for _, image := range assets.Images(opts) {
@@ -846,9 +846,9 @@ If <object store backend> is \"s3\", then the arguments are:
 	commands = append(commands, cmdutil.CreateAlias(listImages, "deploy list-images"))
 
 	exportImages := &cobra.Command{
-		Use:   "{{alias}} <output-file>",
-		Short: "Export a tarball (to stdout) containing all of the images in a deployment.",
-		Long:  "Export a tarball (to stdout) containing all of the images in a deployment.",
+		Use:    "{{alias}} <output-file>",
+		Short:  "Export a tarball (to stdout) containing all of the images in a deployment.",
+		Long:   "Export a tarball (to stdout) containing all of the images in a deployment.",
 		PreRun: preRun,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			file, err := os.Create(args[0])
@@ -867,9 +867,9 @@ If <object store backend> is \"s3\", then the arguments are:
 	commands = append(commands, cmdutil.CreateAlias(exportImages, "deploy export-images"))
 
 	importImages := &cobra.Command{
-		Use:   "{{alias}} <input-file>",
-		Short: "Import a tarball (from stdin) containing all of the images in a deployment and push them to a private registry.",
-		Long:  "Import a tarball (from stdin) containing all of the images in a deployment and push them to a private registry.",
+		Use:    "{{alias}} <input-file>",
+		Short:  "Import a tarball (from stdin) containing all of the images in a deployment and push them to a private registry.",
+		Long:   "Import a tarball (from stdin) containing all of the images in a deployment and push them to a private registry.",
 		PreRun: preRun,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			file, err := os.Open(args[0])
@@ -1035,15 +1035,24 @@ provisioned (i.e. if you used the "--static-etcd-volume" flag), the
 underlying volume will not be removed.
 `)
 			}
-			
+
 			fmt.Println("Are you sure you want to do this? (y/n):")
 			r := bufio.NewReader(os.Stdin)
 			bytes, err := r.ReadBytes('\n')
 			if err != nil {
 				return err
 			}
-			if bytes[0] == 'y' || bytes[0] == 'Y' {
+			if bytes[0] != 'y' && bytes[0] != 'Y' {
 				return nil
+			}
+
+			cfg, err := config.Read(false)
+			if err != nil {
+				return err
+			}
+			_, activeContext, err := cfg.ActiveContext()
+			if err != nil {
+				return err
 			}
 
 			if namespace == "" {
@@ -1075,14 +1084,14 @@ underlying volume will not be removed.
 					"persistentvolumeclaim",
 					"persistentvolume",
 				}...)
-			}				
+			}
 			if err := cmdutil.RunIO(io, "kubectl", "delete", strings.Join(assets, ","), "-l", "suite=pachyderm", "--namespace", namespace); err != nil {
 				return err
 			}
 
 			if all {
 				// remove jupyterhub
-				if err = helm.Destroy(context, "jhub", namespace); err != nil {
+				if err = helm.Destroy(activeContext, "jhub", namespace); err != nil {
 					log.Errorf("failed to delete helm installation: %v", err)
 				}
 				jhubAssets := []string{
