@@ -6,6 +6,15 @@ import (
 	"github.com/cheggaaa/pb"
 )
 
+var (
+	// Template is used when you know the total size of the operation (i.e.
+	// when you're reading from a file)
+	Template pb.ProgressBarTemplate = `{{string . "prefix"}}: {{counters . }} {{bar . "[" "=" ">" " " "]"}} {{percent . }} {{speed . }} {{rtime . "ETA %s"}}{{string . "suffix"}}`
+	// PipeTemplate is used when you don't know the total size of the operation
+	// (i.e. when you're reading from stdin.
+	PipeTemplate pb.ProgressBarTemplate = `{{string . "prefix"}}: {{counters . }} {{cycle . "[    ]" "[>   ]" "[=>  ]" "[==> ]" "[ ==>]" "[  ==]" "[   =]" "[    ]" "[   <]" "[  <=]" "[ <==]" "[<===]" "[=== ]" "[==  ]" "[=   ]"}} {{speed . }} {{string . "suffix"}}`
+)
+
 func NewProxyFile(bar *pb.ProgressBar, file *os.File) *File {
 	bar.Set(pb.Bytes, true)
 	return &File{

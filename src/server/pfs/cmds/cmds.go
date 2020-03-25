@@ -15,7 +15,6 @@ import (
 	gosync "sync"
 
 	prompt "github.com/c-bata/go-prompt"
-	"github.com/cheggaaa/pb"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
@@ -1390,8 +1389,9 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 		}
 		limiter.Acquire()
 		defer limiter.Release()
-		fmt.Fprintln(os.Stderr, "Reading from stdin.")
-		bar := pb.StartNew(0)
+		bar := progress.PipeTemplate.New(0)
+		bar.Set("prefix", "stdin")
+		bar.Start()
 		r := progress.NewProxyFile(bar, os.Stdin)
 		return putFile(r)
 	}
@@ -1436,7 +1436,9 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 	if err != nil {
 		return err
 	}
-	bar := pb.StartNew(int(fi.Size()))
+	bar := progress.Template.New(int(fi.Size()))
+	bar.Set("prefix", source)
+	bar.Start()
 	r := progress.NewProxyFile(bar, f)
 	defer func() {
 		bar.Finish()
