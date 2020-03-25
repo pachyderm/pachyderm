@@ -5384,6 +5384,7 @@ type APIClient interface {
 	// RPCs specific to the new storage layer.
 	PutTar(ctx context.Context, opts ...grpc.CallOption) (API_PutTarClient, error)
 	GetTar(ctx context.Context, in *GetTarRequest, opts ...grpc.CallOption) (API_GetTarClient, error)
+	// Refer to the GetTarConditionalRequest / GetTarConditionalResponse message definitions for the protocol.
 	GetTarConditional(ctx context.Context, opts ...grpc.CallOption) (API_GetTarConditionalClient, error)
 }
 
@@ -6047,6 +6048,7 @@ type APIServer interface {
 	// RPCs specific to the new storage layer.
 	PutTar(API_PutTarServer) error
 	GetTar(*GetTarRequest, API_GetTarServer) error
+	// Refer to the GetTarConditionalRequest / GetTarConditionalResponse message definitions for the protocol.
 	GetTarConditional(API_GetTarConditionalServer) error
 }
 
