@@ -1,7 +1,6 @@
 package fuse
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
 	"path"
@@ -13,6 +12,7 @@ import (
 	"github.com/hanwen/go-fuse/fuse/pathfs"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
@@ -26,7 +26,7 @@ func Mount(c *client.APIClient, mountPoint string, opts *Options) error {
 	nfs := pathfs.NewPathNodeFs(newFileSystem(c, opts.getCommits()), nil)
 	server, _, err := nodefs.MountRoot(mountPoint, nfs.Root(), opts.getFuse())
 	if err != nil {
-		return fmt.Errorf("nodefs.MountRoot: %v", err)
+		return errors.Wrapf(err, "nodefs.MountRoot")
 	}
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)

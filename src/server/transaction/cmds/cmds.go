@@ -6,6 +6,7 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/transaction"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
@@ -240,7 +241,7 @@ transaction' or cancelled with 'delete transaction'.`,
 				return grpcutil.ScrubGRPC(err)
 			}
 			if info == nil {
-				return fmt.Errorf("transaction %s not found", txn.ID)
+				return errors.Errorf("transaction %s not found", txn.ID)
 			}
 			if raw {
 				return marshaller.Marshal(os.Stdout, info)
@@ -270,7 +271,7 @@ transaction' or cancelled with 'delete transaction'.`,
 				return grpcutil.ScrubGRPC(err)
 			}
 			if info == nil {
-				return fmt.Errorf("transaction %s not found", args[0])
+				return errors.Errorf("transaction %s not found", args[0])
 			}
 
 			err = setActiveTransaction(info.Transaction)

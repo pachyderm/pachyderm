@@ -2,25 +2,24 @@ package server
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
-
-	opentracing "github.com/opentracing/opentracing-go"
-	log "github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
+
+	opentracing "github.com/opentracing/opentracing-go"
+	log "github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const maxErrCount = 3 // gives all retried operations ~4.5s total to finish
@@ -170,7 +169,7 @@ func (a *apiServer) newPipelineOp(pachClient *client.APIClient, pipeline string)
 	// get latest EtcdPipelineInfo (events can pile up, so that the current state
 	// doesn't match the event being processed)
 	if err := a.pipelines.ReadOnly(pachClient.Ctx()).Get(pipeline, op.ptr); err != nil {
-		return nil, fmt.Errorf("could not retrieve etcd pipeline info for %q: %v", pipeline, err)
+		return nil, errors.Wrapf(err, "could not retrieve etcd pipeline info for %q", pipeline)
 	}
 	// set op.pipelineInfo
 	if err := op.getPipelineInfo(); err != nil {
@@ -346,8 +345,8 @@ func (op *pipelineOp) setPipelineState(state pps.PipelineState) error {
 		return op.apiServer.setPipelineState(op.pachClient, op.pipelineInfo, state, "")
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		if errCount++; errCount >= maxErrCount {
-			return fmt.Errorf("could not set pipeline state for %q to %v: %v "+
-				"(you may need to restart pachd to un-stick the pipeline)", op.name, state, err)
+			return errors.Wrapf(err, "could not set pipeline state for %q to %v"+
+				"(you may need to restart pachd to un-stick the pipeline)", op.name, state)
 		}
 		return nil
 	})
@@ -434,7 +433,7 @@ func (op *pipelineOp) finishPipelineOutputCommits() (retErr error) {
 			return nil // already deleted
 		}
 		if err != nil {
-			return fmt.Errorf("could not list output commits of %q to finish them: %v", op.name, err)
+			return errors.Wrapf(err, "could not list output commits of %q to finish them", op.name)
 		}
 
 		var finishCommitErr error
@@ -601,7 +600,7 @@ func (op *pipelineOp) restartPipeline(reason string) error {
 			err := kubeClient.CoreV1().ReplicationControllers(namespace).Delete(
 				op.rc.Name, &metav1.DeleteOptions{OrphanDependents: &falseVal})
 			if err != nil && !isNotFoundErr(err) {
-				return fmt.Errorf("could not delete RC %q: %v", op.rc.Name, err)
+				return errors.Wrapf(err, "could not delete RC %q", op.rc.Name)
 			}
 		}
 		// create up-to-date RC
@@ -618,7 +617,7 @@ func (op *pipelineOp) restartPipeline(reason string) error {
 	}); err != nil {
 		return op.failPipeline(fmt.Sprintf("could not restart after %d attempts: %v", errCount, err))
 	}
-	return fmt.Errorf("restarting pipeline %q: %v", op.name, reason)
+	return errors.Errorf("restarting pipeline %q: %v", op.name, reason)
 }
 
 // failPipeline fails op's pipeline. failPipeline is an error-handling codepath,
@@ -634,7 +633,7 @@ func (op *pipelineOp) restartPipeline(reason string) error {
 // retrying.
 func (op *pipelineOp) failPipeline(reason string) error {
 	if err := op.apiServer.setPipelineFailure(op.pachClient.Ctx(), op.name, reason); err != nil {
-		return fmt.Errorf("error failing pipeline %q: %v", op.name, err)
+		return errors.Wrapf(err, "error failing pipeline %q", op.name)
 	}
-	return fmt.Errorf("failing pipeline %q: %v", op.name, reason)
+	return errors.Errorf("failing pipeline %q: %v", op.name, reason)
 }

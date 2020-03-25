@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/admin"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -89,10 +90,10 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 	if request.URL != "" {
 		url, err := obj.ParseURL(request.URL)
 		if err != nil {
-			return fmt.Errorf("error parsing url %v: %v", request.URL, err)
+			return errors.Wrapf(err, "error parsing url %v", request.URL)
 		}
 		if url.Object == "" {
-			return fmt.Errorf("URL must be <svc>://<bucket>/<object> (no object in %s)", request.URL)
+			return errors.Errorf("URL must be <svc>://<bucket>/<object> (no object in %s)", request.URL)
 		}
 		objClient, err := obj.NewClientFromURLAndSecret(url, false)
 		if err != nil {
@@ -304,10 +305,10 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 			if req.URL != "" {
 				url, err := obj.ParseURL(req.URL)
 				if err != nil {
-					return fmt.Errorf("error parsing url %v: %v", req.URL, err)
+					return errors.Wrapf(err, "error parsing url %v", req.URL)
 				}
 				if url.Object == "" {
-					return fmt.Errorf("URL must be <svc>://<bucket>/<object> (no object in %s)", req.URL)
+					return errors.Errorf("URL must be <svc>://<bucket>/<object> (no object in %s)", req.URL)
 				}
 				objClient, err := obj.NewClientFromURLAndSecret(url, false)
 				if err != nil {
@@ -337,7 +338,7 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 		if streamVersion == undefined {
 			streamVersion = version(op)
 		} else if streamVersion != version(op) {
-			return fmt.Errorf("cannot mix different versions of pachd operation "+
+			return errors.Errorf("cannot mix different versions of pachd operation "+
 				"within a metadata dumps (found both %s and %s)", version(op), streamVersion)
 		}
 
@@ -351,7 +352,7 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 				}
 				extractReader.buf.Write(op.Op1_7.Object.Value)
 				if _, _, err := pachClient.PutObject(extractReader); err != nil {
-					return fmt.Errorf("error putting object: %v", err)
+					return errors.Wrapf(err, "error putting object")
 				}
 			} else {
 				newOp1_8, err := convert1_7Op(pachClient, a.storageRoot, op.Op1_7)
@@ -379,7 +380,7 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 				}
 				extractReader.buf.Write(op.Op1_8.Object.Value)
 				if _, _, err := pachClient.PutObject(extractReader); err != nil {
-					return fmt.Errorf("error putting object: %v", err)
+					return errors.Wrapf(err, "error putting object")
 				}
 			} else {
 				newOp1_9, err := convert1_8Op(op.Op1_8)
@@ -403,13 +404,13 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 				}
 				extractReader.buf.Write(op.Op1_9.Object.Value)
 				if _, _, err := pachClient.PutObject(extractReader); err != nil {
-					return fmt.Errorf("error putting object: %v", err)
+					return errors.Wrapf(err, "error putting object")
 				}
 			} else if op.Op1_9.Block != nil {
 				if len(op.Op1_9.Block.Value) == 0 {
 					// Empty block
 					if _, err := pachClient.PutBlock(op.Op1_9.Block.Block.Hash, bytes.NewReader(nil)); err != nil {
-						return fmt.Errorf("error putting block: %v", err)
+						return errors.Wrapf(err, "error putting block")
 					}
 				} else {
 					extractReader := &extractBlockReader{
@@ -419,7 +420,7 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 					}
 					extractReader.buf.Write(op.Op1_9.Block.Value)
 					if _, err := pachClient.PutBlock(op.Op1_9.Block.Block.Hash, extractReader); err != nil {
-						return fmt.Errorf("error putting block: %v", err)
+						return errors.Wrapf(err, "error putting block")
 					}
 				}
 			} else {
@@ -440,13 +441,13 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 				}
 				extractReader.buf.Write(op.Op1_10.Object.Value)
 				if _, _, err := pachClient.PutObject(extractReader); err != nil {
-					return fmt.Errorf("error putting object: %v", err)
+					return errors.Wrapf(err, "error putting object")
 				}
 			} else if op.Op1_10.Block != nil {
 				if len(op.Op1_10.Block.Value) == 0 {
 					// Empty block
 					if _, err := pachClient.PutBlock(op.Op1_10.Block.Block.Hash, bytes.NewReader(nil)); err != nil {
-						return fmt.Errorf("error putting block: %v", err)
+						return errors.Wrapf(err, "error putting block")
 					}
 				} else {
 					extractReader := &extractBlockReader{
@@ -456,7 +457,7 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 					}
 					extractReader.buf.Write(op.Op1_10.Block.Value)
 					if _, err := pachClient.PutBlock(op.Op1_10.Block.Block.Hash, extractReader); err != nil {
-						return fmt.Errorf("error putting block: %v", err)
+						return errors.Wrapf(err, "error putting block")
 					}
 				}
 			} else {
@@ -472,36 +473,36 @@ func (a *apiServer) applyOp(pachClient *client.APIClient, op *admin.Op1_10) erro
 	switch {
 	case op.CreateObject != nil:
 		if _, err := pachClient.ObjectAPIClient.CreateObject(pachClient.Ctx(), op.CreateObject); err != nil {
-			return fmt.Errorf("error creating object: %v", grpcutil.ScrubGRPC(err))
+			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error creating object")
 		}
 	case op.Tag != nil:
 		if _, err := pachClient.ObjectAPIClient.TagObject(pachClient.Ctx(), op.Tag); err != nil {
-			return fmt.Errorf("error tagging object: %v", grpcutil.ScrubGRPC(err))
+			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error tagging object")
 		}
 	case op.Repo != nil:
 		op.Repo.Repo.Name = ancestry.SanitizeName(op.Repo.Repo.Name)
 		if _, err := pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(), op.Repo); err != nil && !errutil.IsAlreadyExistError(err) {
-			return fmt.Errorf("error creating repo: %v", grpcutil.ScrubGRPC(err))
+			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error creating repo")
 		}
 	case op.Commit != nil:
 		if _, err := pachClient.PfsAPIClient.BuildCommit(pachClient.Ctx(), op.Commit); err != nil && !errutil.IsAlreadyExistError(err) {
-			return fmt.Errorf("error creating commit: %v", grpcutil.ScrubGRPC(err))
+			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error creating commit")
 		}
 	case op.Branch != nil:
 		if op.Branch.Branch == nil {
 			op.Branch.Branch = client.NewBranch(op.Branch.Head.Repo.Name, ancestry.SanitizeName(op.Branch.SBranch))
 		}
 		if _, err := pachClient.PfsAPIClient.CreateBranch(pachClient.Ctx(), op.Branch); err != nil && !errutil.IsAlreadyExistError(err) {
-			return fmt.Errorf("error creating branch: %v", grpcutil.ScrubGRPC(err))
+			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error creating branch")
 		}
 	case op.Pipeline != nil:
 		sanitizePipeline(op.Pipeline)
 		if _, err := pachClient.PpsAPIClient.CreatePipeline(pachClient.Ctx(), op.Pipeline); err != nil && !errutil.IsAlreadyExistError(err) {
-			return fmt.Errorf("error creating pipeline: %v", grpcutil.ScrubGRPC(err))
+			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error creating pipeline")
 		}
 	case op.Job != nil:
 		if _, err := pachClient.PpsAPIClient.CreateJob(pachClient.Ctx(), op.Job); err != nil && !errutil.IsAlreadyExistError(err) {
-			return fmt.Errorf("error creating job: %v", grpcutil.ScrubGRPC(err))
+			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error creating job")
 		}
 	}
 	return nil
@@ -573,13 +574,13 @@ func (r *extractObjectReader) Read(p []byte) (int, error) {
 				*op = admin.Op{} // clear 'op' without making old contents into garbage
 			}
 			if err := r.restoreURLReader.Read(op); err != nil {
-				return 0, fmt.Errorf("unexpected error while restoring object: %v", err)
+				return 0, errors.Wrapf(err, "unexpected error while restoring object")
 			}
 		}
 
 		// Validate op version
 		if r.version != version(op) {
-			return 0, fmt.Errorf("cannot mix different versions of pachd operation "+
+			return 0, errors.Errorf("cannot mix different versions of pachd operation "+
 				"within a metadata dumps (found both %s and %s)", version(op), r.version)
 		}
 
@@ -587,17 +588,17 @@ func (r *extractObjectReader) Read(p []byte) (int, error) {
 		var value []byte
 		if r.version == v1_7 {
 			if op.Op1_7.Object == nil {
-				return 0, fmt.Errorf("expected an object, but got: %v", op)
+				return 0, errors.Errorf("expected an object, but got: %v", op)
 			}
 			value = op.Op1_7.Object.Value
 		} else if r.version == v1_8 {
 			if op.Op1_8.Object == nil {
-				return 0, fmt.Errorf("expected an object, but got: %v", op)
+				return 0, errors.Errorf("expected an object, but got: %v", op)
 			}
 			value = op.Op1_8.Object.Value
 		} else {
 			if op.Op1_9.Object == nil {
-				return 0, fmt.Errorf("expected an object, but got: %v", op)
+				return 0, errors.Errorf("expected an object, but got: %v", op)
 			}
 			value = op.Op1_9.Object.Value
 		}
@@ -679,30 +680,30 @@ func (r *extractBlockReader) Read(p []byte) (int, error) {
 				*op = admin.Op{} // clear 'op' without making old contents into garbage
 			}
 			if err := r.restoreURLReader.Read(op); err != nil {
-				return 0, fmt.Errorf("unexpected error while restoring object: %v", err)
+				return 0, errors.Wrapf(err, "unexpected error while restoring object")
 			}
 		}
 
 		// Validate op version
 		if r.version != version(op) {
-			return 0, fmt.Errorf("cannot mix different versions of pachd operation "+
+			return 0, errors.Errorf("cannot mix different versions of pachd operation "+
 				"within a metadata dumps (found both %s and %s)", version(op), r.version)
 		}
 
 		// extract object bytes
 		var value []byte
 		if r.version == v1_7 {
-			return 0, fmt.Errorf("invalid version 1.7 doesn't have extracted blocks")
+			return 0, errors.Errorf("invalid version 1.7 doesn't have extracted blocks")
 		} else if r.version == v1_8 {
-			return 0, fmt.Errorf("invalid version 1.8 doesn't have extracted blocks")
+			return 0, errors.Errorf("invalid version 1.8 doesn't have extracted blocks")
 		} else if r.version == v1_9 {
 			if op.Op1_9.Block == nil {
-				return 0, fmt.Errorf("expected a block, but got: %v", op)
+				return 0, errors.Errorf("expected a block, but got: %v", op)
 			}
 			value = op.Op1_9.Block.Value
 		} else {
 			if op.Op1_10.Block == nil {
-				return 0, fmt.Errorf("expected a block, but got: %v", op)
+				return 0, errors.Errorf("expected a block, but got: %v", op)
 			}
 			value = op.Op1_10.Block.Value
 		}

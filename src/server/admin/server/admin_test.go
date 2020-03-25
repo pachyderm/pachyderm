@@ -19,6 +19,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	versionlib "github.com/pachyderm/pachyderm/src/client/version"
@@ -118,12 +119,12 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 		// Pipelines were created after commits, so only the HEAD commits of the
 		// input repo should be processed by each pipeline
 		if len(jobInfos) != numPipelines {
-			return fmt.Errorf("expected %d commits, but only encountered %d",
+			return errors.Errorf("expected %d commits, but only encountered %d",
 				nCommits*numPipelines, len(jobInfos))
 		}
 		for _, ji := range jobInfos {
 			if ji.State != pps.JobState_JOB_SUCCESS {
-				return fmt.Errorf("expected job %q to be in state SUCCESS but was %q",
+				return errors.Errorf("expected job %q to be in state SUCCESS but was %q",
 					ji.Job.ID, ji.State.String())
 			}
 		}
@@ -165,7 +166,7 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 			return err
 		}
 		if len(commitInfos) != nCommits {
-			return fmt.Errorf("expected %d commits, but only encountered %d in %q",
+			return errors.Errorf("expected %d commits, but only encountered %d in %q",
 				nCommits, len(commitInfos), dataRepo)
 		}
 		return nil

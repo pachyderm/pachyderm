@@ -9,6 +9,7 @@ import (
 	"net/url"
 
 	"github.com/crewjam/saml"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 )
 
@@ -26,10 +27,10 @@ func serveIDPMetadata(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
 	log.Printf("appEnv: %v", appEnv)
 	if appEnv.PublicCert == "" {
-		return fmt.Errorf("IdP metadata server cannot start if PUBLIC_CERT env var is empty")
+		return errors.Errorf("IdP metadata server cannot start if PUBLIC_CERT env var is empty")
 	}
 	if appEnv.Port == 0 {
-		return fmt.Errorf("IdP metadata server cannot serve on port 0")
+		return errors.Errorf("IdP metadata server cannot serve on port 0")
 	}
 
 	// Create saml.IdentityProvider struct, which generates the metadata bytes
@@ -40,11 +41,11 @@ func serveIDPMetadata(appEnvObj interface{}) error {
 	block, _ := pem.Decode([]byte(appEnv.PublicCert))
 	if block == nil {
 		// no error message, unfortunately
-		return fmt.Errorf("could not parse public cert")
+		return errors.Errorf("could not parse public cert")
 	}
 	idpCert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
-		return fmt.Errorf("could not parse public cert: %v", err)
+		return errors.Wrap(err, "could not parse public cert")
 	}
 
 	idp := &saml.IdentityProvider{

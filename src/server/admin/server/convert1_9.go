@@ -1,12 +1,11 @@
 package server
 
 import (
-	"fmt"
-
 	"github.com/pachyderm/pachyderm/src/client/admin"
 	pfs1_9 "github.com/pachyderm/pachyderm/src/client/admin/v1_9/pfs"
 	pps1_9 "github.com/pachyderm/pachyderm/src/client/admin/v1_9/pps"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 )
 
@@ -407,7 +406,7 @@ func convert1_9Op(op *admin.Op1_9) (*admin.Op1_10, error) {
 		}, nil
 	case op.Tag != nil:
 		if !objHashRE.MatchString(op.Tag.Object.Hash) {
-			return nil, fmt.Errorf("invalid object hash in op: %q", op)
+			return nil, errors.Errorf("invalid object hash in op: %q", op)
 		}
 		return &admin.Op1_10{
 			Tag: &pfs.TagObjectRequest{
@@ -484,7 +483,7 @@ func convert1_9Op(op *admin.Op1_9) (*admin.Op1_10, error) {
 			},
 		}, nil
 	default:
-		return nil, fmt.Errorf("unrecognized 1.9 op type:\n%+v", op)
+		return nil, errors.Errorf("unrecognized 1.9 op type:\n%+v", op)
 	}
-	return nil, fmt.Errorf("internal error: convert1_9Op() didn't return a 1.9 op for:\n%+v", op)
+	return nil, errors.Errorf("internal error: convert1_9Op() didn't return a 1.9 op for:\n%+v", op)
 }

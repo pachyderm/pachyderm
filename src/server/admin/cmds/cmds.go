@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 
 	"github.com/golang/snappy"
@@ -69,9 +70,8 @@ $ {{alias}} -u s3://bucket/backup`,
 				err = c.RestoreReader(snappy.NewReader(os.Stdin))
 			}
 			if err != nil {
-				return fmt.Errorf("%v\nWARNING: Your cluster might be in an invalid "+
-					"state--consider deleting partially-restored data before continuing",
-					err)
+				return errors.Wrapf(err, "WARNING: Your cluster might be in an invalid "+
+					"state--consider deleting partially-restored data before continuing")
 			}
 			return nil
 		}),

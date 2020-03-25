@@ -3,11 +3,11 @@ package server
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"time"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 )
 
@@ -19,7 +19,7 @@ func (a *apiServer) PutTar(server pfs.API_PutTarServer) (retErr error) {
 		return err
 	}
 	if !a.env.NewStorageLayer {
-		return fmt.Errorf("new storage layer disabled")
+		return errors.Errorf("new storage layer disabled")
 	}
 	ptr := &putTarReader{
 		server: server,
@@ -55,7 +55,7 @@ func (a *apiServer) GetTar(request *pfs.GetTarRequest, server pfs.API_GetTarServ
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	if !a.env.NewStorageLayer {
-		return fmt.Errorf("new storage layer disabled")
+		return errors.Errorf("new storage layer disabled")
 	}
 	repo := request.File.Commit.Repo.Name
 	commit := request.File.Commit.ID
@@ -71,7 +71,7 @@ func (a *apiServer) GetTarConditional(server pfs.API_GetTarConditionalServer) (r
 		return err
 	}
 	if !a.env.NewStorageLayer {
-		return fmt.Errorf("new storage layer disabled")
+		return errors.Errorf("new storage layer disabled")
 	}
 	repo := request.File.Commit.Repo.Name
 	commit := request.File.Commit.ID
