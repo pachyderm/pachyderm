@@ -1389,11 +1389,9 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 		}
 		limiter.Acquire()
 		defer limiter.Release()
-		bar := progress.PipeTemplate.New(0)
-		bar.Set("prefix", "stdin")
-		bar.Start()
-		r := progress.NewProxyFile(bar, os.Stdin)
-		return putFile(r)
+		stdin := progress.Stdin()
+		defer stdin.Finish()
+		return putFile(stdin)
 	}
 	// try parsing the filename as a url, if it is one do a PutFileURL
 	if url, err := url.Parse(source); err == nil && url.Scheme != "" {
@@ -1428,25 +1426,16 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 	}
 	limiter.Acquire()
 	defer limiter.Release()
-	f, err := os.Open(source)
+	f, err := progress.Open(source)
 	if err != nil {
 		return err
 	}
-	fi, err := f.Stat()
-	if err != nil {
-		return err
-	}
-	bar := progress.Template.New(int(fi.Size()))
-	bar.Set("prefix", source)
-	bar.Start()
-	r := progress.NewProxyFile(bar, f)
 	defer func() {
-		bar.Finish()
 		if err := f.Close(); err != nil && retErr == nil {
 			retErr = err
 		}
 	}()
-	return putFile(r)
+	return putFile(f)
 }
 
 func joinPaths(prefix, filePath string) string {

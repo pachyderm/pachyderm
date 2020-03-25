@@ -2,8 +2,9 @@ package progress
 
 import (
 	"os"
+	"sync"
 
-	"github.com/cheggaaa/pb"
+	"github.com/cheggaaa/pb/v3"
 )
 
 var (
@@ -13,12 +14,43 @@ var (
 	// PipeTemplate is used when you don't know the total size of the operation
 	// (i.e. when you're reading from stdin.
 	PipeTemplate pb.ProgressBarTemplate = `{{string . "prefix"}}: {{counters . }} {{cycle . "[    ]" "[>   ]" "[=>  ]" "[==> ]" "[ ==>]" "[  ==]" "[   =]" "[    ]" "[   <]" "[  <=]" "[ <==]" "[<===]" "[=== ]" "[==  ]" "[=   ]"}} {{speed . }} {{string . "suffix"}}`
+
+	// mu makes sure that only one progress bar is running at a time this is
+	// necessary because multiple bars running at the same time leads to weird
+	// terminal output.
+	mu sync.Mutex
 )
 
-func NewProxyFile(bar *pb.ProgressBar, file *os.File) *File {
+func start(prefix string, bar *pb.ProgressBar) {
+	bar.Set("prefix", prefix)
 	bar.Set(pb.Bytes, true)
+	bar.Start()
+}
+
+func Open(path string) (*File, error) {
+	mu.Lock()
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	fi, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
+	bar := Template.New(int(fi.Size()))
+	start(path, bar)
 	return &File{
 		File: file,
+		bar:  bar,
+	}, nil
+}
+
+func Stdin() *File {
+	mu.Lock()
+	bar := PipeTemplate.New(0)
+	start("stdin", bar)
+	return &File{
+		File: os.Stdin,
 		bar:  bar,
 	}
 }
@@ -45,4 +77,18 @@ func (f *File) Seek(offset int64, whence int) (int64, error) {
 		f.bar.SetCurrent(offset)
 	}
 	return offset, err
+}
+
+// Close closes the wrapped file and finishes the progress bar.
+func (f *File) Close() error {
+	f.Finish()
+	return f.File.Close()
+}
+
+// Finish finishes the progress bar without closing the wrapped file, this
+// should be used if the wrapped file is something you don't want to close (for
+// example stdin), but you don't want future reads to be printed as progress.
+func (f *File) Finish() {
+	f.bar.Finish()
+	mu.Unlock()
 }
