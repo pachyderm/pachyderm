@@ -13,6 +13,7 @@ import (
 	"github.com/chmduquesne/rollinghash/buzhash64"
 	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"modernc.org/mathutil"
 )
 
@@ -38,89 +39,93 @@ var tests = []test{
 	test{10 * MB, 1 * MB, 100 * MB},
 }
 
-func TestWriteThenRead(t *testing.T) {
-	objC, chunks := LocalStorage(t)
-	defer Cleanup(objC, chunks)
-	// Setup seed.
+// (bryce) this should be somewhere else (probably testutil).
+func seedRand() string {
 	seed := time.Now().UTC().UnixNano()
 	rand.Seed(seed)
-	msg := seedStr(seed)
-	for _, test := range tests {
-		t.Run(test.name(), func(t *testing.T) {
-			// Generate set of annotations.
-			as := generateAnnotations(test)
-			// Write then read the set of annotations.
-			writeAnnotations(t, chunks, as, msg)
-			readAnnotations(t, chunks, as, msg)
-		})
-	}
+	return fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
+}
+
+func TestWriteThenRead(t *testing.T) {
+	require.NoError(t, WithLocalStorage(func(objC obj.Client, chunks *Storage) error {
+		msg := seedRand()
+		for _, test := range tests {
+			t.Run(test.name(), func(t *testing.T) {
+				// Generate set of annotations.
+				as := generateAnnotations(test)
+				// Write then read the set of annotations.
+				writeAnnotations(t, chunks, as, msg)
+				readAnnotations(t, chunks, as, msg)
+			})
+		}
+		return nil
+	}))
 }
 
 func TestCopy(t *testing.T) {
-	objC, chunks := LocalStorage(t)
-	defer Cleanup(objC, chunks)
-	// Setup seed.
-	seed := time.Now().UTC().UnixNano()
-	rand.Seed(seed)
-	msg := seedStr(seed)
-	for _, test := range tests {
-		t.Run(test.name(), func(t *testing.T) {
-			// Generate two sets of annotations.
-			as1 := generateAnnotations(test)
-			as2 := generateAnnotations(test)
-			// Write the two sets of annotations.
-			writeAnnotations(t, chunks, as1, msg)
-			writeAnnotations(t, chunks, as2, msg)
-			// Initial chunk count.
-			var initialChunkCount int64
-			require.NoError(t, chunks.List(context.Background(), func(_ string) error {
-				initialChunkCount++
-				return nil
-			}), msg)
-			// Copy the annotations from the two sets of annotations.
-			as := append(as1, as2...)
-			f := func(annotations []*Annotation) error {
-				for _, a := range annotations {
-					testA := a.Data.(*testAnnotation)
-					testA.dataRefs = append(testA.dataRefs, a.NextDataRef)
+	require.NoError(t, WithLocalStorage(func(objC obj.Client, chunks *Storage) error {
+		msg := seedRand()
+		for _, test := range tests {
+			t.Run(test.name(), func(t *testing.T) {
+				// Generate two sets of annotations.
+				as1 := generateAnnotations(test)
+				as2 := generateAnnotations(test)
+				// Write the two sets of annotations.
+				writeAnnotations(t, chunks, as1, msg)
+				writeAnnotations(t, chunks, as2, msg)
+				// Initial chunk count.
+				var initialChunkCount int64
+				require.NoError(t, chunks.List(context.Background(), func(_ string) error {
+					initialChunkCount++
+					return nil
+				}), msg)
+				// Copy the annotations from the two sets of annotations.
+				as := append(as1, as2...)
+				f := func(annotations []*Annotation) error {
+					for _, a := range annotations {
+						testA := a.Data.(*testAnnotation)
+						testA.dataRefs = append(testA.dataRefs, a.NextDataRef)
+					}
+					return nil
 				}
-				return nil
-			}
-			w := chunks.NewWriter(context.Background(), averageBits, 0, f)
-			copyAnnotations(t, chunks, w, as, msg)
-			require.NoError(t, w.Close(), msg)
-			// Check that the annotations were correctly copied.
-			readAnnotations(t, chunks, as, msg)
-			// Check that only one new chunk was created when connecting the two sets of annotations.
-			var finalChunkCount int64
-			require.NoError(t, chunks.List(context.Background(), func(_ string) error {
-				finalChunkCount++
-				return nil
-			}), msg)
-			require.Equal(t, initialChunkCount+1, finalChunkCount, msg)
-		})
-	}
+				w := chunks.NewWriter(context.Background(), averageBits, 0, false, f)
+				copyAnnotations(t, chunks, w, as, msg)
+				require.NoError(t, w.Close(), msg)
+				// Check that the annotations were correctly copied.
+				readAnnotations(t, chunks, as, msg)
+				// Check that only one new chunk was created when connecting the two sets of annotations.
+				var finalChunkCount int64
+				require.NoError(t, chunks.List(context.Background(), func(_ string) error {
+					finalChunkCount++
+					return nil
+				}), msg)
+				require.Equal(t, initialChunkCount+1, finalChunkCount, msg)
+			})
+		}
+		return nil
+	}))
 }
 
 func BenchmarkWriter(b *testing.B) {
-	objC, chunks := LocalStorage(b)
-	defer Cleanup(objC, chunks)
-	seq := RandSeq(100 * MB)
-	b.SetBytes(100 * MB)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		f := func(_ []*Annotation) error { return nil }
-		w := chunks.NewWriter(context.Background(), averageBits, 0, f)
-		for i := 0; i < 100; i++ {
-			w.Annotate(&Annotation{
-				NextDataRef: &DataRef{},
-			})
-			w.Tag(strconv.Itoa(i))
-			_, err := w.Write(seq[i*MB : (i+1)*MB])
-			require.NoError(b, err)
+	require.NoError(b, WithLocalStorage(func(objC obj.Client, chunks *Storage) error {
+		seq := RandSeq(100 * MB)
+		b.SetBytes(100 * MB)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			f := func(_ []*Annotation) error { return nil }
+			w := chunks.NewWriter(context.Background(), averageBits, 0, false, f)
+			for i := 0; i < 100; i++ {
+				w.Annotate(&Annotation{
+					NextDataRef: &DataRef{},
+				})
+				w.Tag(strconv.Itoa(i))
+				_, err := w.Write(seq[i*MB : (i+1)*MB])
+				require.NoError(b, err)
+			}
+			require.NoError(b, w.Close())
 		}
-		require.NoError(b, w.Close())
-	}
+		return nil
+	}))
 }
 
 func BenchmarkRollingHash(b *testing.B) {
@@ -139,10 +144,6 @@ func BenchmarkRollingHash(b *testing.B) {
 			}
 		}
 	}
-}
-
-func seedStr(seed int64) string {
-	return fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
 }
 
 type testAnnotation struct {
@@ -185,7 +186,7 @@ func writeAnnotations(t *testing.T, chunks *Storage, annotations []*testAnnotati
 			}
 			return nil
 		}
-		w := chunks.NewWriter(context.Background(), averageBits, 0, f)
+		w := chunks.NewWriter(context.Background(), averageBits, 0, false, f)
 		for _, a := range annotations {
 			w.Annotate(&Annotation{
 				NextDataRef: &DataRef{},
