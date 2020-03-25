@@ -95,7 +95,7 @@ func (a *apiServer) GetTarConditional(server pfs.API_GetTarConditionalServer) (r
 		if err := w.Flush(); err != nil {
 			return err
 		}
-		return server.Send(&pfs.GetTarConditionalResponse{Done: true})
+		return server.Send(&pfs.GetTarConditionalResponse{Eof: true})
 	})
 }
 

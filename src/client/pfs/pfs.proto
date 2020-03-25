@@ -510,7 +510,7 @@ message GetTarConditionalRequest {
 message GetTarConditionalResponse {
   FileInfoNewStorage file_info = 1;
   bytes data = 2;
-  bool done = 3;
+  bool eof = 3;
 }
 
 service API {

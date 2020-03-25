@@ -93,9 +93,9 @@ func (c APIClient) GetTarConditional(repoName string, commitID string, path stri
 }
 
 type getTarConditionalReader struct {
-	client      pfs.API_GetTarConditionalClient
-	r           *bytes.Reader
-	first, done bool
+	client     pfs.API_GetTarConditionalClient
+	r          *bytes.Reader
+	first, eof bool
 }
 
 func (r *getTarConditionalReader) Read(data []byte) (int, error) {
@@ -114,15 +114,15 @@ func (r *getTarConditionalReader) Read(data []byte) (int, error) {
 }
 
 func (r *getTarConditionalReader) nextResponse() error {
-	if r.done {
+	if r.eof {
 		return io.EOF
 	}
 	resp, err := r.client.Recv()
 	if err != nil {
 		return err
 	}
-	if resp.Done {
-		r.done = true
+	if resp.Eof {
+		r.eof = true
 		return io.EOF
 	}
 	r.r = bytes.NewReader(resp.Data)
