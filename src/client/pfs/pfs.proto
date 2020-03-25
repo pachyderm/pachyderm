@@ -662,6 +662,15 @@ message Objects {
   repeated Object objects = 1;
 }
 
+message PutObjDirectRequest {
+    string obj = 1;
+    bytes value = 2;
+}
+
+message GetObjDirectRequest {
+    string obj = 1;
+}
+
 service ObjectAPI {
   rpc PutObject(stream PutObjectRequest) returns (Object) {}
   rpc PutObjectSplit(stream PutObjectRequest) returns (Objects) {}
@@ -685,6 +694,12 @@ service ObjectAPI {
   rpc ListTags(ListTagsRequest) returns (stream ListTagsResponse) {}
   rpc DeleteTags(DeleteTagsRequest) returns (DeleteTagsResponse) {}
   rpc Compact(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  // PutObjDirect puts an obj directly into object store, bypassing the content
+  // addressing layer.
+  rpc PutObjDirect(stream PutObjDirectRequest) returns (google.protobuf.Empty) {}
+  // GetObjDirect gets an obj directly out of object store, bypassing the
+  // content addressing layer.
+  rpc GetObjDirect(GetObjDirectRequest) returns (stream google.protobuf.BytesValue) {}
 }
 
 message ObjectIndex {
