@@ -1335,13 +1335,13 @@ func (api *objectServerAPI) PutObjDirect(serv pfs.ObjectAPI_PutObjDirectServer) 
 	if api.mock.PutObjDirect.handler != nil {
 		return api.mock.PutObjDirect.handler(serv)
 	}
-	return fmt.Errorf("unhandled pachd mock object.PutObjDirect")
+	return errors.Errorf("unhandled pachd mock object.PutObjDirect")
 }
 func (api *objectServerAPI) GetObjDirect(req *pfs.GetObjDirectRequest, serv pfs.ObjectAPI_GetObjDirectServer) error {
 	if api.mock.GetObjDirect.handler != nil {
 		return api.mock.GetObjDirect.handler(req, serv)
 	}
-	return fmt.Errorf("unhandled pachd mock object.GetObjDirect")
+	return errors.Errorf("unhandled pachd mock object.GetObjDirect")
 }
 
 // MockPachd provides an interface for running the interface for a Pachd API
