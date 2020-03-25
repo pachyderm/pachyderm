@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
 )
 
@@ -25,7 +26,7 @@ func parseISO8601(s string) (time.Time, error) {
 	if err == nil {
 		return t, nil
 	}
-	return time.Time{}, fmt.Errorf("could not parse \"%s\" as any of %v", s, []string{time.RFC3339, "2006-01-02T15:04:05Z0700"})
+	return time.Time{}, errors.Errorf("could not parse \"%s\" as any of %v", s, []string{time.RFC3339, "2006-01-02T15:04:05Z0700"})
 }
 
 // ActivateCmd returns a cobra.Command to activate the enterprise features of
@@ -43,7 +44,7 @@ func ActivateCmd() *cobra.Command {
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
-				return fmt.Errorf("could not connect: %s", err.Error())
+				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
 			req := &enterprise.ActivateRequest{}
@@ -51,11 +52,11 @@ func ActivateCmd() *cobra.Command {
 			if expires != "" {
 				t, err := parseISO8601(expires)
 				if err != nil {
-					return fmt.Errorf("could not parse the timestamp \"%s\": %s", expires, err.Error())
+					return errors.Wrapf(err, "could not parse the timestamp \"%s\"", expires)
 				}
 				req.Expires, err = types.TimestampProto(t)
 				if err != nil {
-					return fmt.Errorf("error converting expiration time \"%s\"; %s", t.String(), err.Error())
+					return errors.Wrapf(err, "error converting expiration time \"%s\"", t.String())
 				}
 			}
 			resp, err := c.Enterprise.Activate(c.Ctx(), req)
@@ -64,8 +65,8 @@ func ActivateCmd() *cobra.Command {
 			}
 			ts, err := types.TimestampFromProto(resp.Info.Expires)
 			if err != nil {
-				return fmt.Errorf("activation request succeeded, but could not "+
-					"convert token expiration time to a timestamp: %s", err.Error())
+				return errors.Wrapf(err, "activation request succeeded, but could not "+
+					"convert token expiration time to a timestamp", err)
 			}
 			fmt.Printf("Activation succeeded. Your Pachyderm Enterprise token "+
 				"expires %s\n", ts.String())
@@ -94,7 +95,7 @@ func GetStateCmd() *cobra.Command {
 		Run: cmdutil.Run(func(args []string) error {
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
-				return fmt.Errorf("could not connect: %s", err.Error())
+				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
 			resp, err := c.Enterprise.GetState(c.Ctx(), &enterprise.GetStateRequest{})
@@ -107,8 +108,8 @@ func GetStateCmd() *cobra.Command {
 			}
 			ts, err := types.TimestampFromProto(resp.Info.Expires)
 			if err != nil {
-				return fmt.Errorf("activation request succeeded, but could not "+
-					"convert token expiration time to a timestamp: %s", err.Error())
+				return errors.Wrapf(err, "activation request succeeded, but could not "+
+					"convert token expiration time to a timestamp")
 			}
 			fmt.Printf("Pachyderm Enterprise token state: %s\nExpiration: %s\n",
 				resp.State.String(), ts.String())

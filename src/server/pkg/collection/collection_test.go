@@ -12,6 +12,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
@@ -89,16 +90,16 @@ func TestGetAfterDel(t *testing.T) {
 		}
 
 		if err := jobInfos.Get("j4", job); !IsErrNotFound(err) {
-			return fmt.Errorf("Expected ErrNotFound for key '%s', but got '%v'", "j4", err)
+			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", "j4")
 		}
 
 		jobInfos.DeleteAll()
 
 		if err := jobInfos.Get(j1.Job.ID, job); !IsErrNotFound(err) {
-			return fmt.Errorf("Expected ErrNotFound for key '%s', but got '%v'", j1.Job.ID, err)
+			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j1.Job.ID)
 		}
 		if err := jobInfos.Get(j2.Job.ID, job); !IsErrNotFound(err) {
-			return fmt.Errorf("Expected ErrNotFound for key '%s', but got '%v'", j2.Job.ID, err)
+			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j2.Job.ID)
 		}
 		return nil
 	})
@@ -148,10 +149,10 @@ func TestDeletePrefix(t *testing.T) {
 
 		jobInfos.DeleteAllPrefix("prefix/suffix")
 		if err := jobInfos.Get(j1.Job.ID, job); !IsErrNotFound(err) {
-			return fmt.Errorf("Expected ErrNotFound for key '%s', but got '%v'", j1.Job.ID, err)
+			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j1.Job.ID)
 		}
 		if err := jobInfos.Get(j2.Job.ID, job); !IsErrNotFound(err) {
-			return fmt.Errorf("Expected ErrNotFound for key '%s', but got '%v'", j2.Job.ID, err)
+			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j2.Job.ID)
 		}
 		if err := jobInfos.Get(j3.Job.ID, job); err != nil {
 			return err
@@ -162,13 +163,13 @@ func TestDeletePrefix(t *testing.T) {
 
 		jobInfos.DeleteAllPrefix("prefix")
 		if err := jobInfos.Get(j1.Job.ID, job); !IsErrNotFound(err) {
-			return fmt.Errorf("Expected ErrNotFound for key '%s', but got '%v'", j1.Job.ID, err)
+			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j1.Job.ID)
 		}
 		if err := jobInfos.Get(j2.Job.ID, job); !IsErrNotFound(err) {
-			return fmt.Errorf("Expected ErrNotFound for key '%s', but got '%v'", j2.Job.ID, err)
+			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j2.Job.ID)
 		}
 		if err := jobInfos.Get(j3.Job.ID, job); !IsErrNotFound(err) {
-			return fmt.Errorf("Expected ErrNotFound for key '%s', but got '%v'", j3.Job.ID, err)
+			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j3.Job.ID)
 		}
 		if err := jobInfos.Get(j4.Job.ID, job); err != nil {
 			return err
@@ -181,7 +182,7 @@ func TestDeletePrefix(t *testing.T) {
 
 		jobInfos.DeleteAllPrefix("prefix/suffix")
 		if err := jobInfos.Get(j1.Job.ID, job); !IsErrNotFound(err) {
-			return fmt.Errorf("Expected ErrNotFound for key '%s', but got '%v'", j1.Job.ID, err)
+			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j1.Job.ID)
 		}
 
 		jobInfos.Put(j2.Job.ID, j2)

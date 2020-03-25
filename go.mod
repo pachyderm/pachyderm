@@ -78,13 +78,13 @@ require (
 	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b // indirect
 	github.com/minio/minio-go v6.0.14+incompatible
 	github.com/mitchellh/go-testing-interface v1.0.0 // indirect
-	github.com/montanaflynn/stats v0.5.0
 	github.com/onsi/ginkgo v1.10.2 // indirect
 	github.com/onsi/gomega v1.8.1 // indirect
 	github.com/opentracing-contrib/go-grpc v0.0.0-20180928155321-4b5a12d3ff02
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/pachyderm/ohmyglob v0.0.0-20190713004043-630e5c15d4e4
 	github.com/pachyderm/s2 v0.0.0-20191119172829-5e460c076ab6
+	github.com/pkg/errors v0.9.1
 	github.com/pkg/term v0.0.0-20190109203006-aa71e9d9e942 // indirect
 	github.com/prometheus/client_golang v1.2.1
 	github.com/prometheus/common v0.7.0

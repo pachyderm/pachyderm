@@ -10,6 +10,8 @@ import (
 	"text/template"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+
 	"github.com/spf13/cobra"
 )
 
@@ -96,7 +98,7 @@ func ErrorAndExit(format string, args ...interface{}) {
 func ParseCommit(arg string) (*pfs.Commit, error) {
 	parts := strings.SplitN(arg, "@", 2)
 	if parts[0] == "" {
-		return nil, fmt.Errorf("invalid format \"%s\": repo cannot be empty", arg)
+		return nil, errors.Errorf("invalid format \"%s\": repo cannot be empty", arg)
 	}
 	commit := &pfs.Commit{
 		Repo: &pfs.Repo{
@@ -159,7 +161,7 @@ func ParseCommitProvenance(arg string) (*pfs.CommitProvenance, error) {
 
 	branchAndCommit := strings.SplitN(commit.ID, "=", 2)
 	if len(branchAndCommit) < 1 {
-		return nil, fmt.Errorf("invalid format \"%s\": a branch name or branch and commit id must be given", arg)
+		return nil, errors.Errorf("invalid format \"%s\": a branch name or branch and commit id must be given", arg)
 	}
 	branch := branchAndCommit[0]
 	commitID := branch // default to using the head commit once this commit is resolved
@@ -167,10 +169,10 @@ func ParseCommitProvenance(arg string) (*pfs.CommitProvenance, error) {
 		commitID = branchAndCommit[1]
 	}
 	if branch == "" {
-		return nil, fmt.Errorf("invalid format \"%s\": branch cannot be empty", arg)
+		return nil, errors.Errorf("invalid format \"%s\": branch cannot be empty", arg)
 	}
 	if commitID == "" {
-		return nil, fmt.Errorf("invalid format \"%s\": commit cannot be empty", arg)
+		return nil, errors.Errorf("invalid format \"%s\": commit cannot be empty", arg)
 	}
 
 	prov := &pfs.CommitProvenance{
@@ -205,7 +207,7 @@ func ParseCommitProvenances(args []string) ([]*pfs.CommitProvenance, error) {
 func ParseFile(arg string) (*pfs.File, error) {
 	repoAndRest := strings.SplitN(arg, "@", 2)
 	if repoAndRest[0] == "" {
-		return nil, fmt.Errorf("invalid format \"%s\": repo cannot be empty", arg)
+		return nil, errors.Errorf("invalid format \"%s\": repo cannot be empty", arg)
 	}
 	file := &pfs.File{
 		Commit: &pfs.Commit{
@@ -219,7 +221,7 @@ func ParseFile(arg string) (*pfs.File, error) {
 	if len(repoAndRest) > 1 {
 		commitAndPath := strings.SplitN(repoAndRest[1], ":", 2)
 		if commitAndPath[0] == "" {
-			return nil, fmt.Errorf("invalid format \"%s\": commit cannot be empty", arg)
+			return nil, errors.Errorf("invalid format \"%s\": commit cannot be empty", arg)
 		}
 		file.Commit.ID = commitAndPath[0]
 		if len(commitAndPath) > 1 {

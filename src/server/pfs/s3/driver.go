@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/s2"
@@ -146,7 +147,7 @@ func (d *WorkerDriver) listBuckets(pc *client.APIClient, r *http.Request, bucket
 	for _, bucket := range d.namesMap {
 		timestamp, ok := timestamps[bucket.Repo]
 		if !ok {
-			return fmt.Errorf("worker s3gateway configuration includes repo %q, which does not exist", bucket.Repo)
+			return errors.Errorf("worker s3gateway configuration includes repo %q, which does not exist", bucket.Repo)
 		}
 		*buckets = append(*buckets, s2.Bucket{
 			Name:         bucket.Name,

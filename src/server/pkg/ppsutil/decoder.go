@@ -2,7 +2,6 @@ package ppsutil
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -11,6 +10,7 @@ import (
 	"os"
 	"unicode"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serde"
 )
@@ -91,10 +91,10 @@ func (r *PipelineManifestReader) NextCreatePipelineRequest() (*ppsclient.CreateP
 				}
 				tfjobText, err = serde.EncodeJSON(tfjob)
 			} else {
-				err = fmt.Errorf("jsonpb parses TFJob as unexpected type %T", tfjob)
+				err = errors.Errorf("jsonpb parses TFJob as unexpected type %T", tfjob)
 			}
 			if err != nil {
-				return fmt.Errorf("could not convert TFJob to text: %v", err)
+				return errors.Wrapf(err, "could not convert TFJob to text")
 			}
 			delete(holder, key)
 			holder["tf_job"] = map[string]interface{}{
@@ -107,7 +107,7 @@ func (r *PipelineManifestReader) NextCreatePipelineRequest() (*ppsclient.CreateP
 	case err == io.EOF:
 		return nil, err
 	case err != nil:
-		return nil, fmt.Errorf("malformed pipeline spec: %v", err)
+		return nil, errors.Wrapf(err, "malformed pipeline spec")
 	default:
 		return &result, nil
 	}

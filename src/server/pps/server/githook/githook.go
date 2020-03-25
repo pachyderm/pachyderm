@@ -13,6 +13,7 @@ import (
 	"path"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
@@ -130,7 +131,7 @@ func (s *gitHookServer) findMatchingPipelineInputs(payload github.PushPayload) (
 		})
 	}
 	if len(inputs) == 0 {
-		return nil, nil, fmt.Errorf("no pipeline inputs corresponding to git URL (%v) on branch (%v) found, perhaps the git input is not set yet on a pipeline", payload.Repository.CloneURL, payloadBranch)
+		return nil, nil, errors.Errorf("no pipeline inputs corresponding to git URL (%v) on branch (%v) found, perhaps the git input is not set yet on a pipeline", payload.Repository.CloneURL, payloadBranch)
 	}
 	return pipelines, inputs, nil
 }
@@ -140,7 +141,7 @@ func (s *gitHookServer) handlePush(pl github.PushPayload) (retErr error) {
 
 	raw, err := json.Marshal(pl)
 	if err != nil {
-		return fmt.Errorf("error marshalling payload (%v): %v", pl, err)
+		return errors.Wrapf(err, "error marshalling payload (%v)", pl)
 	}
 	pipelines, gitInputs, err := s.findMatchingPipelineInputs(pl)
 	if err != nil {

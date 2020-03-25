@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 // Parse parses s for git ancestry references.
@@ -47,7 +49,7 @@ func Parse(s string) (string, int, error) {
 		if s[i] != sep {
 			// If we find a character that's not the separator, as in
 			// "master~whatever", then we return an error
-			return "", 0, fmt.Errorf("invalid ancestry syntax %q, cannot mix %c and %c characters", s, sep, s[i])
+			return "", 0, errors.Errorf("invalid ancestry syntax %q, cannot mix %c and %c characters", s, sep, s[i])
 		}
 	}
 
@@ -80,7 +82,7 @@ var (
 // with Ancestry syntax.
 func ValidateName(name string) error {
 	if !valid.MatchString(name) {
-		return fmt.Errorf("name (%v) invalid: only alphanumeric characters, underscores, and dashes are allowed", name)
+		return errors.Errorf("name (%v) invalid: only alphanumeric characters, underscores, and dashes are allowed", name)
 	}
 	return nil
 }

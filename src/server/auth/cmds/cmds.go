@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 
@@ -29,7 +30,7 @@ func githubLogin() (string, error) {
 		"from GitHub here:")
 	token, err := bufio.NewReader(os.Stdin).ReadString('\n')
 	if err != nil {
-		return "", fmt.Errorf("error reading token: %v", err)
+		return "", errors.Wrapf(err, "error reading token")
 	}
 	return strings.TrimSpace(token), nil // drop trailing newline
 }
@@ -37,16 +38,15 @@ func githubLogin() (string, error) {
 func writePachTokenToCfg(token string) error {
 	cfg, err := config.Read(false)
 	if err != nil {
-		return fmt.Errorf("error reading Pachyderm config (for cluster "+
-			"address): %v", err)
+		return errors.Wrapf(err, "error reading Pachyderm config (for cluster address)")
 	}
 	_, context, err := cfg.ActiveContext()
 	if err != nil {
-		return fmt.Errorf("error getting the active context: %v", err)
+		return errors.Wrapf(err, "error getting the active context")
 	}
 	context.SessionToken = token
 	if err := cfg.Write(); err != nil {
-		return fmt.Errorf("error writing pachyderm config: %v", err)
+		return errors.Wrapf(err, "error writing pachyderm config")
 	}
 	return nil
 }
@@ -74,7 +74,7 @@ first cluster admin`[1:],
 			// Exchange GitHub token for Pachyderm token
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
-				return fmt.Errorf("could not connect: %v", err)
+				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
 			resp, err := c.Activate(c.Ctx(),
@@ -83,8 +83,7 @@ first cluster admin`[1:],
 					Subject:     initialAdmin,
 				})
 			if err != nil {
-				return fmt.Errorf("error activating Pachyderm auth: %v",
-					grpcutil.ScrubGRPC(err))
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error activating Pachyderm auth")
 			}
 			if err := writePachTokenToCfg(resp.PachToken); err != nil {
 				return err
@@ -124,11 +123,11 @@ func DeactivateCmd() *cobra.Command {
 				return err
 			}
 			if !strings.Contains("yY", confirm[:1]) {
-				return fmt.Errorf("operation aborted")
+				return errors.Errorf("operation aborted")
 			}
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
-				return fmt.Errorf("could not connect: %v", err)
+				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
 			_, err = c.Deactivate(c.Ctx(), &auth.DeactivateRequest{})
@@ -151,7 +150,7 @@ func LoginCmd() *cobra.Command {
 		Run: cmdutil.Run(func([]string) error {
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
-				return fmt.Errorf("could not connect: %v", err)
+				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
 
@@ -163,7 +162,7 @@ func LoginCmd() *cobra.Command {
 				fmt.Println("Please enter your Pachyderm One-Time Password:")
 				code, err := bufio.NewReader(os.Stdin).ReadString('\n')
 				if err != nil {
-					return fmt.Errorf("error reading One-Time Password: %v", err)
+					return errors.Wrapf(err, "error reading One-Time Password")
 				}
 				code = strings.TrimSpace(code) // drop trailing newline
 				resp, authErr = c.Authenticate(
@@ -184,12 +183,11 @@ func LoginCmd() *cobra.Command {
 			// Write new Pachyderm token to config
 			if authErr != nil {
 				if auth.IsErrPartiallyActivated(authErr) {
-					return fmt.Errorf("%v: if pachyderm is stuck in this state, you "+
+					return errors.Wrapf(authErr, "if pachyderm is stuck in this state, you "+
 						"can revert by running 'pachctl auth deactivate' or retry by "+
-						"running 'pachctl auth activate' again", authErr)
+						"running 'pachctl auth activate' again")
 				}
-				return fmt.Errorf("error authenticating with Pachyderm cluster: %v",
-					grpcutil.ScrubGRPC(authErr))
+				return errors.Wrapf(grpcutil.ScrubGRPC(authErr), "error authenticating with Pachyderm cluster")
 			}
 			return writePachTokenToCfg(resp.PachToken)
 		}),
@@ -213,12 +211,11 @@ func LogoutCmd() *cobra.Command {
 		Run: cmdutil.Run(func([]string) error {
 			cfg, err := config.Read(false)
 			if err != nil {
-				return fmt.Errorf("error reading Pachyderm config (for cluster "+
-					"address): %v", err)
+				return errors.Wrapf(err, "error reading Pachyderm config (for cluster address)")
 			}
 			_, context, err := cfg.ActiveContext()
 			if err != nil {
-				return fmt.Errorf("error getting the active context: %v", err)
+				return errors.Wrapf(err, "error getting the active context")
 			}
 			context.SessionToken = ""
 			return cfg.Write()
@@ -237,12 +234,12 @@ func WhoamiCmd() *cobra.Command {
 		Run: cmdutil.Run(func([]string) error {
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
-				return fmt.Errorf("could not connect: %v", err)
+				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
 			resp, err := c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 			if err != nil {
-				return fmt.Errorf("error: %v", grpcutil.ScrubGRPC(err))
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error")
 			}
 			fmt.Printf("You are \"%s\"\n", resp.Username)
 			if resp.TTL > 0 {
@@ -277,7 +274,7 @@ func CheckCmd() *cobra.Command {
 			repo := args[1]
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
-				return fmt.Errorf("could not connect: %v", err)
+				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
 			resp, err := c.Authorize(c.Ctx(), &auth.AuthorizeRequest{
@@ -309,7 +306,7 @@ func GetCmd() *cobra.Command {
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
-				return fmt.Errorf("could not connect: %v", err)
+				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
 			if len(args) == 1 {
@@ -363,7 +360,7 @@ func SetScopeCmd() *cobra.Command {
 			username, repo := args[0], args[2]
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
-				return fmt.Errorf("could not connect: %v", err)
+				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
 			_, err = c.SetScope(c.Ctx(), &auth.SetScopeRequest{
@@ -422,9 +419,9 @@ func ModifyAdminsCmd() *cobra.Command {
 				Remove: remove,
 			})
 			if auth.IsErrPartiallyActivated(err) {
-				return fmt.Errorf("%v: if pachyderm is stuck in this state, you "+
+				return errors.Wrapf(err, "Errored, if pachyderm is stuck in this state, you "+
 					"can revert by running 'pachctl auth deactivate' or retry by "+
-					"running 'pachctl auth activate' again", err)
+					"running 'pachctl auth activate' again")
 			}
 			return grpcutil.ScrubGRPC(err)
 		}),
@@ -451,7 +448,7 @@ func GetAuthTokenCmd() *cobra.Command {
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
-				return fmt.Errorf("could not connect: %v", err)
+				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
 
@@ -459,7 +456,7 @@ func GetAuthTokenCmd() *cobra.Command {
 			if ttl != "" {
 				d, err := time.ParseDuration(ttl)
 				if err != nil {
-					return fmt.Errorf("could not parse duration %q: %v", ttl, err)
+					return errors.Wrapf(err, "could not parse duration %q", ttl)
 				}
 				req.TTL = int64(d.Seconds())
 			}
@@ -501,7 +498,7 @@ func UseAuthTokenCmd() *cobra.Command {
 			fmt.Println("Please paste your Pachyderm auth token:")
 			token, err := bufio.NewReader(os.Stdin).ReadString('\n')
 			if err != nil {
-				return fmt.Errorf("error reading token: %v", err)
+				return errors.Wrapf(err, "error reading token")
 			}
 			writePachTokenToCfg(strings.TrimSpace(token)) // drop trailing newline
 			return nil
@@ -525,7 +522,7 @@ func GetOneTimePasswordCmd() *cobra.Command {
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
-				return fmt.Errorf("could not connect: %v", err)
+				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
 
@@ -533,7 +530,7 @@ func GetOneTimePasswordCmd() *cobra.Command {
 			if ttl != "" {
 				d, err := time.ParseDuration(ttl)
 				if err != nil {
-					return fmt.Errorf("could not parse duration %q: %v", ttl, err)
+					return errors.Wrapf(err, "could not parse duration %q", ttl)
 				}
 				req.TTL = int64(d.Seconds())
 			}

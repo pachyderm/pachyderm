@@ -19,9 +19,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	pclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -33,6 +33,7 @@ import (
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 
+	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 )
@@ -5268,7 +5269,7 @@ func TestSubscribeStates(t *testing.T) {
 
 		require.NoErrorWithinTRetry(t, time.Second*10, func() error {
 			if atomic.LoadInt64(&readyCommits) != 1 {
-				return fmt.Errorf("wrong number of ready commits")
+				return errors.Errorf("wrong number of ready commits")
 			}
 			return nil
 		})
@@ -5277,7 +5278,7 @@ func TestSubscribeStates(t *testing.T) {
 
 		require.NoErrorWithinTRetry(t, time.Second*10, func() error {
 			if atomic.LoadInt64(&readyCommits) != 2 {
-				return fmt.Errorf("wrong number of ready commits")
+				return errors.Errorf("wrong number of ready commits")
 			}
 			return nil
 		})

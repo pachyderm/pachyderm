@@ -1,11 +1,11 @@
 package testutil
 
 import (
-	"fmt"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 
@@ -74,7 +74,7 @@ func DeletePachdPod(t testing.TB) {
 		if time.Since(startTime) > 10*time.Second {
 			return nil
 		}
-		return fmt.Errorf("waiting for old pachd pod to be killed")
+		return errors.Errorf("waiting for old pachd pod to be killed")
 	}, backoff.NewTestingBackOff()))
 
 	// Make sure pachd comes back up
@@ -89,7 +89,7 @@ func DeletePachdPod(t testing.TB) {
 			return err
 		}
 		if len(podList.Items) == 0 {
-			return fmt.Errorf("no pachd pod up yet")
+			return errors.Errorf("no pachd pod up yet")
 		}
 		return nil
 	})
@@ -105,10 +105,10 @@ func DeletePachdPod(t testing.TB) {
 			return err
 		}
 		if len(podList.Items) == 0 {
-			return fmt.Errorf("no pachd pod up yet")
+			return errors.Errorf("no pachd pod up yet")
 		}
 		if podList.Items[0].Status.Phase != v1.PodRunning {
-			return fmt.Errorf("pachd not running yet")
+			return errors.Errorf("pachd not running yet")
 		}
 		return err
 	})
@@ -141,7 +141,7 @@ func DeletePipelineRC(t testing.TB, pipeline string) {
 			return err
 		}
 		if len(rcs.Items) != 0 {
-			return fmt.Errorf("RC %q not deleted yet", pipeline)
+			return errors.Errorf("RC %q not deleted yet", pipeline)
 		}
 		return nil
 	})
