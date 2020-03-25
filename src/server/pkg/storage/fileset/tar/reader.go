@@ -9,12 +9,13 @@ package tar
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 // Reader provides sequential access to the contents of a tar archive.
@@ -764,7 +765,7 @@ func (sr *sparseFileReader) Skip(n int64) error {
 	// This code path has no use for Pachyderm. We
 	// should never be here. This is implemented
 	// just to satisfy the fileReader interface.
-	return fmt.Errorf("in Skip function of sparseFileReader - this is probably a bug")
+	return errors.Errorf("in Skip function of sparseFileReader - this is probably a bug")
 }
 
 func (sr *sparseFileReader) WriteTo(w io.Writer) (n int64, err error) {

@@ -23,6 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
@@ -255,7 +256,7 @@ func TestS3Input(t *testing.T) {
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
 			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.ID) {
-				return fmt.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
+				return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 			}
 		}
 		return nil
@@ -338,7 +339,7 @@ func TestS3Output(t *testing.T) {
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
 			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.ID) {
-				return fmt.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
+				return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 			}
 		}
 		return nil
@@ -422,7 +423,7 @@ func TestFullS3(t *testing.T) {
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
 			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.ID) {
-				return fmt.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
+				return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 			}
 		}
 		return nil
@@ -571,7 +572,7 @@ func TestS3SkippedDatums(t *testing.T) {
 				require.NoError(t, err)
 				for _, s := range svcs.Items {
 					if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jis[j].Job.ID) {
-						return fmt.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
+						return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 					}
 				}
 				return nil

@@ -1,8 +1,7 @@
 package shard
 
 import (
-	"fmt"
-
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"google.golang.org/grpc"
 )
@@ -59,7 +58,7 @@ func (r *router) GetClientConn(shard uint64, version int64) (*grpc.ClientConn, e
 		return nil, err
 	}
 	if !ok {
-		return nil, fmt.Errorf("no master found for %d", shard)
+		return nil, errors.Errorf("no master found for %d", shard)
 	}
 	return r.dialer.Dial(address)
 }

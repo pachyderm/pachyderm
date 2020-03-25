@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -19,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
@@ -54,14 +54,14 @@ func isAuthActive(tb testing.TB, checkConfig bool) bool {
 			if err := backoff.Retry(func() error {
 				resp, err := adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
 				if err != nil {
-					return fmt.Errorf("could not get config: %v", err)
+					return errors.Wrapf(err, "could not get config")
 				}
 				cfg := resp.GetConfiguration()
 				if cfg.SAMLServiceOptions != nil {
-					return fmt.Errorf("SAML config in fresh cluster: %+v", cfg)
+					return errors.Errorf("SAML config in fresh cluster: %+v", cfg)
 				}
 				if len(cfg.IDProviders) != 1 || cfg.IDProviders[0].SAML != nil || cfg.IDProviders[0].GitHub == nil || cfg.IDProviders[0].Name != "GitHub" {
-					return fmt.Errorf("problem with ID providers in config in fresh cluster: %+v", cfg)
+					return errors.Errorf("problem with ID providers in config in fresh cluster: %+v", cfg)
 				}
 				return nil
 			}, backoff.NewTestingBackOff()); err != nil {
@@ -152,7 +152,7 @@ func activateAuth(tb testing.TB) {
 		if isAuthActive(tb, true) {
 			return nil
 		}
-		return fmt.Errorf("auth not active yet")
+		return errors.Errorf("auth not active yet")
 	}, backoff.NewTestingBackOff()))
 }
 
@@ -299,7 +299,7 @@ func getPachClientP(tb testing.TB, subject string, checkConfig bool) *client.API
 				&auth.GetAdminsRequest{})
 			hasExpectedAdmin := len(getAdminsResp.Admins) == 1 && getAdminsResp.Admins[0] == admin
 			if !hasExpectedAdmin {
-				return fmt.Errorf("cluster admins haven't yet updated")
+				return errors.Errorf("cluster admins haven't yet updated")
 			}
 			return nil
 		}, backoff.NewTestingBackOff()))
@@ -1500,7 +1500,7 @@ func TestStopJob(t *testing.T) {
 			return err
 		}
 		if len(jobs) != 1 {
-			return fmt.Errorf("expected one job but got %d", len(jobs))
+			return errors.Errorf("expected one job but got %d", len(jobs))
 		}
 		jobID = jobs[0].Job.ID
 		return nil
@@ -1510,10 +1510,10 @@ func TestStopJob(t *testing.T) {
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
 		ji, err := aliceClient.InspectJob(jobID, false)
 		if err != nil {
-			return fmt.Errorf("could not inspect job %q: %v", jobID, err)
+			return errors.Wrapf(err, "could not inspect job %q", jobID)
 		}
 		if ji.State != pps.JobState_JOB_KILLED {
-			return fmt.Errorf("expected job %q to be in JOB_KILLED but was in %s", jobID, ji.State.String())
+			return errors.Errorf("expected job %q to be in JOB_KILLED but was in %s", jobID, ji.State.String())
 		}
 		return nil
 	})
@@ -2985,7 +2985,7 @@ func TestDeletePipelineMissingRepos(t *testing.T) {
 		}
 		for _, pi := range pis {
 			if pi.Pipeline.Name == pipeline {
-				return fmt.Errorf("Expected %q to be deleted, but still present", pipeline)
+				return errors.Errorf("Expected %q to be deleted, but still present", pipeline)
 			}
 		}
 		return nil

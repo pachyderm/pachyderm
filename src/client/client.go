@@ -3,7 +3,6 @@ package client
 import (
 	"crypto/x509"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -30,6 +29,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tls"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
@@ -141,7 +141,7 @@ type clientSettings struct {
 func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
 	// Validate address
 	if strings.Contains(addr, "://") {
-		return nil, fmt.Errorf("address shouldn't contain protocol (\"://\"), but is: %q", addr)
+		return nil, errors.Errorf("address shouldn't contain protocol (\"://\"), but is: %q", addr)
 	}
 	// Apply creation options
 	settings := clientSettings{
@@ -179,10 +179,10 @@ func WithMaxConcurrentStreams(streams int) Option {
 func addCertFromFile(pool *x509.CertPool, path string) error {
 	bytes, err := ioutil.ReadFile(path)
 	if err != nil {
-		return fmt.Errorf("could not read x509 cert from \"%s\": %v", path, err)
+		return errors.Wrapf(err, "could not read x509 cert from \"%s\"", path)
 	}
 	if ok := pool.AppendCertsFromPEM(bytes); !ok {
-		return fmt.Errorf("could not add %s to cert pool as PEM", path)
+		return errors.Errorf("could not add %s to cert pool as PEM", path)
 	}
 	return nil
 }
@@ -207,7 +207,7 @@ func WithAdditionalRootCAs(pemBytes []byte) Option {
 			settings.caCerts = x509.NewCertPool()
 		}
 		if ok := settings.caCerts.AppendCertsFromPEM(pemBytes); !ok {
-			return fmt.Errorf("server CA certs are present in Pachyderm config, but could not be added to client")
+			return errors.Errorf("server CA certs are present in Pachyderm config, but could not be added to client")
 		}
 		return nil
 	}
@@ -217,7 +217,7 @@ func WithAdditionalRootCAs(pemBytes []byte) Option {
 func WithSystemCAs(settings *clientSettings) error {
 	certs, err := x509.SystemCertPool()
 	if err != nil {
-		return fmt.Errorf("could not retrieve system cert pool: %v", err)
+		return errors.Wrap(err, "could not retrieve system cert pool")
 	}
 	settings.caCerts = certs
 	return nil
@@ -261,11 +261,11 @@ func getCertOptionsFromEnv() ([]Option, error) {
 
 		pachdAddress, err := grpcutil.ParsePachdAddress(pachdAddressStr)
 		if err != nil {
-			return nil, fmt.Errorf("could not parse 'PACHD_ADDRESS': %v", err)
+			return nil, errors.Wrapf(err, "could not parse 'PACHD_ADDRESS'")
 		}
 
 		if !pachdAddress.Secured {
-			return nil, fmt.Errorf("cannot set 'PACH_CA_CERTS' if 'PACHD_ADDRESS' is not using grpcs")
+			return nil, errors.Errorf("cannot set 'PACH_CA_CERTS' if 'PACHD_ADDRESS' is not using grpcs")
 		}
 
 		paths := strings.Split(certPaths, ",")
@@ -306,7 +306,7 @@ func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress,
 
 		envAddr, err := grpcutil.ParsePachdAddress(envAddrStr)
 		if err != nil {
-			return nil, nil, fmt.Errorf("could not parse 'PACHD_ADDRESS': %v", err)
+			return nil, nil, errors.Wrapf(err, "could not parse 'PACHD_ADDRESS'")
 		}
 		options, err := getCertOptionsFromEnv()
 		if err != nil {
@@ -320,7 +320,7 @@ func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress,
 	if context != nil && (context.ServerCAs != "" || context.PachdAddress != "") {
 		pachdAddress, err := grpcutil.ParsePachdAddress(context.PachdAddress)
 		if err != nil {
-			return nil, nil, fmt.Errorf("could not parse the active context's pachd address: %v", err)
+			return nil, nil, errors.Wrap(err, "could not parse the active context's pachd address")
 		}
 
 		// Proactively return an error in this case, instead of falling back to the default address below
@@ -335,7 +335,7 @@ func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress,
 		if context.ServerCAs != "" {
 			pemBytes, err := base64.StdEncoding.DecodeString(context.ServerCAs)
 			if err != nil {
-				return nil, nil, fmt.Errorf("could not decode server CA certs in config: %v", err)
+				return nil, nil, errors.Wrap(err, "could not decode server CA certs in config")
 			}
 			return pachdAddress, []Option{WithAdditionalRootCAs(pemBytes)}, nil
 		}
@@ -353,7 +353,7 @@ func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress,
 func portForwarder(context *config.Context) (*PortForwarder, uint16, error) {
 	fw, err := NewPortForwarder(context, "")
 	if err != nil {
-		return nil, 0, fmt.Errorf("failed to initialize port forwarder: %v", err)
+		return nil, 0, errors.Wrap(err, "failed to initialize port forwarder")
 	}
 
 	port, err := fw.RunForDaemon(0, 650)
@@ -370,11 +370,11 @@ func portForwarder(context *config.Context) (*PortForwarder, uint16, error) {
 func NewForTest() (*APIClient, error) {
 	cfg, err := config.Read(false)
 	if err != nil {
-		return nil, fmt.Errorf("could not read config: %v", err)
+		return nil, errors.Wrap(err, "could not read config")
 	}
 	_, context, err := cfg.ActiveContext()
 	if err != nil {
-		return nil, fmt.Errorf("could not get active context: %v", err)
+		return nil, errors.Wrap(err, "could not get active context")
 	}
 
 	// create new pachctl client
@@ -389,7 +389,7 @@ func NewForTest() (*APIClient, error) {
 
 	client, err := NewFromAddress(pachdAddress.Hostname(), cfgOptions...)
 	if err != nil {
-		return nil, fmt.Errorf("could not connect to pachd at %s: %v", pachdAddress.Qualified(), err)
+		return nil, errors.Wrapf(err, "could not connect to pachd at %s", pachdAddress.Qualified())
 	}
 	return client, nil
 }
@@ -404,11 +404,11 @@ func NewForTest() (*APIClient, error) {
 func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 	cfg, err := config.Read(false)
 	if err != nil {
-		return nil, fmt.Errorf("could not read config: %v", err)
+		return nil, errors.Wrap(err, "could not read config")
 	}
 	_, context, err := cfg.ActiveContext()
 	if err != nil {
-		return nil, fmt.Errorf("could not get active context: %v", err)
+		return nil, errors.Wrap(err, "could not get active context")
 	}
 
 	// create new pachctl client
@@ -444,7 +444,7 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 
 	client, err := NewFromAddress(pachdAddress.Hostname(), append(options, cfgOptions...)...)
 	if err != nil {
-		return nil, fmt.Errorf("could not connect to pachd at %q: %v", pachdAddress.Qualified(), err)
+		return nil, errors.Wrapf(err, "could not connect to pachd at %q", pachdAddress.Qualified())
 	}
 
 	// Add metrics info & authentication token
@@ -459,16 +459,16 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 	// Verify cluster deployment ID
 	clusterInfo, err := client.InspectCluster()
 	if err != nil {
-		return nil, fmt.Errorf("could not get cluster ID: %v", err)
+		return nil, errors.Wrap(err, "could not get cluster ID")
 	}
 	if context.ClusterDeploymentID != clusterInfo.DeploymentID {
 		if context.ClusterDeploymentID == "" {
 			context.ClusterDeploymentID = clusterInfo.DeploymentID
 			if err = cfg.Write(); err != nil {
-				return nil, fmt.Errorf("could not write config to save cluster deployment ID: %v", err)
+				return nil, errors.Wrap(err, "could not write config to save cluster deployment ID")
 			}
 		} else {
-			return nil, fmt.Errorf("connected to the wrong cluster (context cluster deployment ID = %q vs reported cluster deployment ID = %q)", context.ClusterDeploymentID, clusterInfo.DeploymentID)
+			return nil, errors.Errorf("connected to the wrong cluster (context cluster deployment ID = %q vs reported cluster deployment ID = %q)", context.ClusterDeploymentID, clusterInfo.DeploymentID)
 		}
 	}
 
@@ -493,11 +493,11 @@ func NewInCluster(options ...Option) (*APIClient, error) {
 
 	host, ok := os.LookupEnv("PACHD_SERVICE_HOST")
 	if !ok {
-		return nil, fmt.Errorf("PACHD_SERVICE_HOST not set")
+		return nil, errors.Errorf("PACHD_SERVICE_HOST not set")
 	}
 	port, ok := os.LookupEnv("PACHD_SERVICE_PORT")
 	if !ok {
-		return nil, fmt.Errorf("PACHD_SERVICE_PORT not set")
+		return nil, errors.Errorf("PACHD_SERVICE_PORT not set")
 	}
 	// create new pachctl client
 	return NewFromAddress(fmt.Sprintf("%s:%s", host, port), options...)

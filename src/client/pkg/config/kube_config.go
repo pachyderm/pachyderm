@@ -1,8 +1,7 @@
 package config
 
 import (
-	"fmt"
-
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 )
@@ -28,7 +27,7 @@ func RawKubeConfig() (api.Config, error) {
 	kubeConfig := KubeConfig(nil)
 	kubeRawConfig, err := kubeConfig.RawConfig()
 	if err != nil {
-		return api.Config{}, fmt.Errorf("could not read raw kube config: %v", err)
+		return api.Config{}, errors.Wrapf(err, "could not read raw kube config: %v", err)
 	}
 	return kubeRawConfig, nil
 }

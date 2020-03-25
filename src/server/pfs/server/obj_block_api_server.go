@@ -13,17 +13,10 @@ import (
 	"sync"
 	"time"
 
-	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
-	"github.com/golang/groupcache"
-	"github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
-	"golang.org/x/sync/errgroup"
-
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -31,6 +24,14 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+
+	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
+	"github.com/golang/groupcache"
+	"github.com/sirupsen/logrus"
+	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -142,26 +143,26 @@ func (s *objBlockAPIServer) watchGC(etcdAddress string) {
 			MaxCallRecvMsgSize: math.MaxInt32,
 		})
 		if err != nil {
-			return fmt.Errorf("error instantiating etcd client: %v", err)
+			return errors.Wrapf(err, "error instantiating etcd client")
 		}
 
 		watcher, err := watch.NewWatcher(context.Background(), etcdClient, "", client.GCGenerationKey, nil)
 		if err != nil {
-			return fmt.Errorf("error instantiating watch stream from generation number: %v", err)
+			return errors.Wrapf(err, "error instantiating watch stream from generation number")
 		}
 		defer watcher.Close()
 
 		for {
 			ev, ok := <-watcher.Watch()
 			if ev.Err != nil {
-				return fmt.Errorf("error from generation number watch: %v", ev.Err)
+				return errors.Wrapf(ev.Err, "error from generation number watch")
 			}
 			if !ok {
-				return fmt.Errorf("generation number watch stream closed unexpectedly")
+				return errors.Errorf("generation number watch stream closed unexpectedly")
 			}
 			newGen, err := strconv.Atoi(string(ev.Value))
 			if err != nil {
-				return fmt.Errorf("error converting the generation number: %v", err)
+				return errors.Wrapf(err, "error converting the generation number")
 			}
 			s.setGeneration(newGen)
 		}
@@ -353,7 +354,7 @@ func (s *objBlockAPIServer) PutObjects(server pfsclient.ObjectAPI_PutObjectsServ
 		return err
 	}
 	if request.Block == nil {
-		return fmt.Errorf("first put objects request should include a block")
+		return errors.Errorf("first put objects request should include a block")
 	}
 
 	blockPath := s.blockPath(request.Block)
@@ -486,7 +487,7 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 				return err
 			}
 			if uint64(len(data)) < offset+readSize {
-				return fmt.Errorf("undersized object (this is likely a bug)")
+				return errors.Errorf("undersized object (this is likely a bug)")
 			}
 			if err := grpcutil.WriteToStreamingBytesServer(bytes.NewReader(data[offset:offset+readSize]), getObjectsServer); err != nil {
 				return err
@@ -513,7 +514,7 @@ func (s *objBlockAPIServer) TagObject(ctx context.Context, request *pfsclient.Ta
 		return nil, err
 	}
 	if !resp.Exists {
-		return nil, fmt.Errorf("object %v does not exist", request.Object)
+		return nil, errors.Errorf("object %v does not exist", request.Object)
 	}
 	var eg errgroup.Group
 	for _, tag := range request.Tags {
@@ -600,12 +601,12 @@ func (s *objBlockAPIServer) ListTags(request *pfsclient.ListTagsRequest, server 
 				defer limiter.Release()
 				tagObjectIndex := &pfsclient.ObjectIndex{}
 				if err := s.readProto(server.Context(), key, tagObjectIndex); err != nil {
-					return fmt.Errorf("error in s.readProto: %v", err)
+					return errors.Wrapf(err, "error in s.readProto")
 				}
 				for _, object := range tagObjectIndex.Tags {
 					respCount++
 					if err := send(tag, object); err != nil {
-						return fmt.Errorf("error in ListTagsServer.Send: %v", err)
+						return errors.Wrapf(err, "error in ListTagsServer.Send")
 					}
 				}
 				return nil
@@ -658,7 +659,7 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.ObjectAPI_PutBlock
 		return err
 	}
 	if request.Block == nil {
-		return fmt.Errorf("block cannot be nil")
+		return errors.Errorf("block cannot be nil")
 	}
 	blockPath := s.blockPath(request.Block)
 	w, err := s.objClient.Writer(putBlockServer.Context(), blockPath)
@@ -739,7 +740,7 @@ func (s *objBlockAPIServer) GetBlocks(request *pfsclient.GetBlocksRequest, getBl
 				return err
 			}
 			if uint64(len(data)) < offset+readSize {
-				return fmt.Errorf("undersized object (this is likely a bug)")
+				return errors.Errorf("undersized object (this is likely a bug)")
 			}
 			if err := grpcutil.WriteToStreamingBytesServer(bytes.NewReader(data[offset:offset+readSize]), getBlockServer); err != nil {
 				return err
@@ -1067,7 +1068,7 @@ func (s *objBlockAPIServer) writeInternal(ctx context.Context, path string, data
 		retErr = func() (retErr error) {
 			if !s.objClient.Exists(ctx, path) {
 				logrus.Errorf("%s doesn't exist after write", path)
-				return fmt.Errorf("%s doesn't exist after write", path)
+				return errors.Errorf("%s doesn't exist after write", path)
 			}
 			return nil
 		}()
@@ -1088,7 +1089,7 @@ func (s *objBlockAPIServer) writeInternal(ctx context.Context, path string, data
 func (s *objBlockAPIServer) blockGetter(ctx groupcache.Context, key string, dest groupcache.Sink) (retErr error) {
 	fields := strings.Split(key, blockKeySeparator)
 	if len(fields) != 3 {
-		return fmt.Errorf("bad block key: %s", key)
+		return errors.Errorf("bad block key: %s", key)
 	}
 	lower, err := strconv.ParseUint(fields[1], 10, 64)
 	if err != nil {
@@ -1159,13 +1160,13 @@ func (s *objBlockAPIServer) tagGetter(ctx groupcache.Context, key string, dest g
 			return nil
 		}
 	}
-	return fmt.Errorf("tagGetter: tag %s not found", tag.Name)
+	return errors.Errorf("tagGetter: tag %s not found", tag.Name)
 }
 
 func (s *objBlockAPIServer) objectInfoGetter(ctx groupcache.Context, key string, dest groupcache.Sink) error {
 	splitKey := strings.Split(key, ".")
 	if len(splitKey) != 3 {
-		return fmt.Errorf("invalid key %s (this is likely a bug)", key)
+		return errors.Errorf("invalid key %s (this is likely a bug)", key)
 	}
 	prefix := splitKey[0]
 	object := &pfsclient.Object{Hash: strings.Join(splitKey[:len(splitKey)-1], "")}
@@ -1212,7 +1213,7 @@ func (s *objBlockAPIServer) objectInfoGetter(ctx groupcache.Context, key string,
 			return nil
 		}
 	}
-	return fmt.Errorf("objectInfoGetter: object %s not found", object.Hash)
+	return errors.Errorf("objectInfoGetter: object %s not found", object.Hash)
 }
 
 func (s *objBlockAPIServer) readObj(ctx context.Context, path string, offset uint64, size uint64, dest groupcache.Sink) (retErr error) {

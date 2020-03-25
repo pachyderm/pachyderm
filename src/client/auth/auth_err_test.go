@@ -1,16 +1,16 @@
 package auth
 
 import (
-	"fmt"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
 
 // grpcify returns an error e such that e.Error() is similar to what grpc
 // errors emit (though this doesn't convert 'error' to an actual GRPC error)
 func grpcify(err error) error {
-	return fmt.Errorf("rpc error: code = Unknown desc = %s", err.Error())
+	return errors.Errorf("rpc error: code = Unknown desc = %s", err.Error())
 }
 
 func TestIsErrNotActivated(t *testing.T) {

@@ -15,10 +15,12 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
@@ -166,11 +168,11 @@ var EnvVarToSecretKey = []struct {
 func StorageRootFromEnv() (string, error) {
 	storageRoot, ok := os.LookupEnv(PachRootEnvVar)
 	if !ok {
-		return "", fmt.Errorf("%s not found", PachRootEnvVar)
+		return "", errors.Errorf("%s not found", PachRootEnvVar)
 	}
 	storageBackend, ok := os.LookupEnv(StorageBackendEnvVar)
 	if !ok {
-		return "", fmt.Errorf("%s not found", StorageBackendEnvVar)
+		return "", errors.Errorf("%s not found", StorageBackendEnvVar)
 	}
 	// These storage backends do not like leading slashes
 	switch storageBackend {
@@ -245,12 +247,12 @@ func NewGoogleClientFromSecret(bucket string) (Client, error) {
 	if bucket == "" {
 		bucket, err = readSecretFile("/google-bucket")
 		if err != nil {
-			return nil, fmt.Errorf("google-bucket not found")
+			return nil, errors.Errorf("google-bucket not found")
 		}
 	}
 	cred, err := readSecretFile("/google-cred")
 	if err != nil {
-		return nil, fmt.Errorf("google-cred not found")
+		return nil, errors.Errorf("google-cred not found")
 	}
 	var opts []option.ClientOption
 	if cred != "" {
@@ -265,11 +267,11 @@ func NewGoogleClientFromSecret(bucket string) (Client, error) {
 func NewGoogleClientFromEnv() (Client, error) {
 	bucket, ok := os.LookupEnv(GoogleBucketEnvVar)
 	if !ok {
-		return nil, fmt.Errorf("%s not found", GoogleBucketEnvVar)
+		return nil, errors.Errorf("%s not found", GoogleBucketEnvVar)
 	}
 	creds, ok := os.LookupEnv(GoogleCredEnvVar)
 	if !ok {
-		return nil, fmt.Errorf("%s not found", GoogleCredEnvVar)
+		return nil, errors.Errorf("%s not found", GoogleCredEnvVar)
 	}
 	opts := []option.ClientOption{option.WithCredentialsJSON([]byte(creds))}
 	return NewGoogleClient(bucket, opts)
@@ -291,16 +293,16 @@ func NewMicrosoftClientFromSecret(container string) (Client, error) {
 	if container == "" {
 		container, err = readSecretFile("/microsoft-container")
 		if err != nil {
-			return nil, fmt.Errorf("microsoft-container not found")
+			return nil, errors.Errorf("microsoft-container not found")
 		}
 	}
 	id, err := readSecretFile("/microsoft-id")
 	if err != nil {
-		return nil, fmt.Errorf("microsoft-id not found")
+		return nil, errors.Errorf("microsoft-id not found")
 	}
 	secret, err := readSecretFile("/microsoft-secret")
 	if err != nil {
-		return nil, fmt.Errorf("microsoft-secret not found")
+		return nil, errors.Errorf("microsoft-secret not found")
 	}
 	return NewMicrosoftClient(container, id, secret)
 }
@@ -309,15 +311,15 @@ func NewMicrosoftClientFromSecret(container string) (Client, error) {
 func NewMicrosoftClientFromEnv() (Client, error) {
 	container, ok := os.LookupEnv(MicrosoftContainerEnvVar)
 	if !ok {
-		return nil, fmt.Errorf("%s not found", MicrosoftContainerEnvVar)
+		return nil, errors.Errorf("%s not found", MicrosoftContainerEnvVar)
 	}
 	id, ok := os.LookupEnv(MicrosoftIDEnvVar)
 	if !ok {
-		return nil, fmt.Errorf("%s not found", MicrosoftIDEnvVar)
+		return nil, errors.Errorf("%s not found", MicrosoftIDEnvVar)
 	}
 	secret, ok := os.LookupEnv(MicrosoftSecretEnvVar)
 	if !ok {
-		return nil, fmt.Errorf("%s not found", MicrosoftSecretEnvVar)
+		return nil, errors.Errorf("%s not found", MicrosoftSecretEnvVar)
 	}
 	return NewMicrosoftClient(container, id, secret)
 }
@@ -394,27 +396,27 @@ func NewMinioClientFromSecret(bucket string) (Client, error) {
 func NewMinioClientFromEnv() (Client, error) {
 	bucket, ok := os.LookupEnv(MinioBucketEnvVar)
 	if !ok {
-		return nil, fmt.Errorf("%s not found", MinioBucketEnvVar)
+		return nil, errors.Errorf("%s not found", MinioBucketEnvVar)
 	}
 	endpoint, ok := os.LookupEnv(MinioEndpointEnvVar)
 	if !ok {
-		return nil, fmt.Errorf("%s not found", MinioEndpointEnvVar)
+		return nil, errors.Errorf("%s not found", MinioEndpointEnvVar)
 	}
 	id, ok := os.LookupEnv(MinioIDEnvVar)
 	if !ok {
-		return nil, fmt.Errorf("%s not found", MinioIDEnvVar)
+		return nil, errors.Errorf("%s not found", MinioIDEnvVar)
 	}
 	secret, ok := os.LookupEnv(MinioSecretEnvVar)
 	if !ok {
-		return nil, fmt.Errorf("%s not found", MinioSecretEnvVar)
+		return nil, errors.Errorf("%s not found", MinioSecretEnvVar)
 	}
 	secure, ok := os.LookupEnv(MinioSecureEnvVar)
 	if !ok {
-		return nil, fmt.Errorf("%s not found", MinioSecureEnvVar)
+		return nil, errors.Errorf("%s not found", MinioSecureEnvVar)
 	}
 	isS3V2, ok := os.LookupEnv(MinioSignatureEnvVar)
 	if !ok {
-		return nil, fmt.Errorf("%s not found", MinioSignatureEnvVar)
+		return nil, errors.Errorf("%s not found", MinioSignatureEnvVar)
 	}
 	return NewMinioClient(endpoint, bucket, id, secret, secure == "1", isS3V2 == "1")
 }
@@ -426,7 +428,7 @@ func NewAmazonClientFromSecret(bucket string, reverse ...bool) (Client, error) {
 	// Get AWS region (required for constructing an AWS client)
 	region, err := readSecretFile("/amazon-region")
 	if err != nil {
-		return nil, fmt.Errorf("amazon-region not found")
+		return nil, errors.Errorf("amazon-region not found")
 	}
 
 	// Use or retrieve S3 bucket
@@ -482,11 +484,11 @@ func NewAmazonClientFromSecret(bucket string, reverse ...bool) (Client, error) {
 func NewAmazonClientFromEnv() (Client, error) {
 	region, ok := os.LookupEnv(AmazonRegionEnvVar)
 	if !ok {
-		return nil, fmt.Errorf("%s not found", AmazonRegionEnvVar)
+		return nil, errors.Errorf("%s not found", AmazonRegionEnvVar)
 	}
 	bucket, ok := os.LookupEnv(AmazonBucketEnvVar)
 	if !ok {
-		return nil, fmt.Errorf("%s not found", AmazonBucketEnvVar)
+		return nil, errors.Errorf("%s not found", AmazonBucketEnvVar)
 	}
 
 	var creds AmazonCreds
@@ -527,7 +529,7 @@ func NewClientFromURLAndSecret(url *ObjectStoreURL, reverse ...bool) (c Client, 
 	case c != nil:
 		return TracingObjClient(url.Store, c), nil
 	default:
-		return nil, fmt.Errorf("unrecognized object store: %s", url.Bucket)
+		return nil, errors.Errorf("unrecognized object store: %s", url.Bucket)
 	}
 }
 
@@ -545,7 +547,7 @@ type ObjectStoreURL struct {
 func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 	url, err := url.Parse(urlStr)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing url %v: %v", urlStr, err)
+		return nil, errors.Wrapf(err, "error parsing url %v", urlStr)
 	}
 	switch url.Scheme {
 	case "s3", "gcs", "gs", "local":
@@ -558,7 +560,7 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 		// In Azure, the first part of the path is the container name.
 		parts := strings.Split(strings.Trim(url.Path, "/"), "/")
 		if len(parts) < 1 {
-			return nil, fmt.Errorf("malformed Azure URI: %v", urlStr)
+			return nil, errors.Errorf("malformed Azure URI: %v", urlStr)
 		}
 		return &ObjectStoreURL{
 			Store:  url.Scheme,
@@ -566,14 +568,14 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 			Object: strings.Trim(path.Join(parts[1:]...), "/"),
 		}, nil
 	}
-	return nil, fmt.Errorf("unrecognized object store: %s", url.Scheme)
+	return nil, errors.Errorf("unrecognized object store: %s", url.Scheme)
 }
 
 // NewClientFromEnv creates a client based on environment variables.
 func NewClientFromEnv(storageRoot string) (c Client, err error) {
 	storageBackend, ok := os.LookupEnv(StorageBackendEnvVar)
 	if !ok {
-		return nil, fmt.Errorf("storage backend environment variable not found")
+		return nil, errors.Errorf("storage backend environment variable not found")
 	}
 	switch storageBackend {
 	case Amazon:
@@ -593,7 +595,7 @@ func NewClientFromEnv(storageRoot string) (c Client, err error) {
 	case c != nil:
 		return TracingObjClient(storageBackend, c), nil
 	default:
-		return nil, fmt.Errorf("unrecognized storage backend: %s", storageBackend)
+		return nil, errors.Errorf("unrecognized storage backend: %s", storageBackend)
 	}
 }
 
@@ -601,7 +603,7 @@ func NewClientFromEnv(storageRoot string) (c Client, err error) {
 func NewClientFromSecret(storageRoot string) (c Client, err error) {
 	storageBackend, ok := os.LookupEnv(StorageBackendEnvVar)
 	if !ok {
-		return nil, fmt.Errorf("storage backend environment variable not found")
+		return nil, errors.Errorf("storage backend environment variable not found")
 	}
 	switch storageBackend {
 	case Amazon:
@@ -621,7 +623,7 @@ func NewClientFromSecret(storageRoot string) (c Client, err error) {
 	case c != nil:
 		return TracingObjClient(storageBackend, c), nil
 	default:
-		return nil, fmt.Errorf("unrecognized storage backend: %s", storageBackend)
+		return nil, errors.Errorf("unrecognized storage backend: %s", storageBackend)
 	}
 }
 
@@ -787,7 +789,7 @@ func TestStorage(ctx context.Context, c Client) error {
 		_, err = w.Write([]byte("test"))
 		return err
 	}(); err != nil {
-		return fmt.Errorf("unable to write to object storage: %v", err)
+		return errors.Wrapf(err, "unable to write to object storage")
 	}
 	if err := func() (retErr error) {
 		r, err := c.Reader(ctx, testObj, 0, 0)
@@ -802,16 +804,16 @@ func TestStorage(ctx context.Context, c Client) error {
 		_, err = ioutil.ReadAll(r)
 		return err
 	}(); err != nil {
-		return fmt.Errorf("unable to read from object storage: %v", err)
+		return errors.Wrapf(err, "unable to read from object storage")
 	}
 	if err := c.Delete(ctx, testObj); err != nil {
-		return fmt.Errorf("unable to delete from object storage: %v", err)
+		return errors.Wrapf(err, "unable to delete from object storage")
 	}
 	// Try reading a non-existant object to make sure our IsNotExist function
 	// works.
 	_, err := c.Reader(ctx, uuid.NewWithoutDashes(), 0, 0)
 	if !c.IsNotExist(err) {
-		return fmt.Errorf("storage is unable to discern NotExist errors, \"%s\" should count as NotExist", err.Error())
+		return errors.Wrapf(err, "storage is unable to discern NotExist errors, should count as NotExist")
 	}
 	return nil
 }

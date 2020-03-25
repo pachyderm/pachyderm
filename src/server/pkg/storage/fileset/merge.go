@@ -47,6 +47,29 @@ func (mr *MergeReader) Iterate(f func(*FileMergeReader) error) error {
 	})
 }
 
+// Next gets the next file merge reader in the merge reader.
+func (mr *MergeReader) Next() (*FileMergeReader, error) {
+	ss, err := mr.pq.next()
+	if err != nil {
+		return nil, err
+	}
+	// Convert generic streams to file streams.
+	var fss []*fileStream
+	for _, s := range ss {
+		fss = append(fss, s.(*fileStream))
+	}
+	// Create file merge reader and execute callback.
+	var frs []*FileReader
+	for _, fs := range fss {
+		fr, err := fs.r.Next()
+		if err != nil {
+			return nil, err
+		}
+		frs = append(frs, fr)
+	}
+	return newFileMergeReader(frs), nil
+}
+
 // WriteTo writes the merged fileset to the passed in fileset writer.
 func (mr *MergeReader) WriteTo(w *Writer) error {
 	return mr.pq.iterate(func(ss []stream, next ...string) error {
@@ -104,9 +127,10 @@ func (fs *fileStream) key() string {
 
 // FileMergeReader is an abstraction for reading a merged file.
 type FileMergeReader struct {
-	frs  []*FileReader
-	hdr  *tar.Header
-	tsmr *TagSetMergeReader
+	frs     []*FileReader
+	hdr     *tar.Header
+	tsmr    *TagSetMergeReader
+	fullIdx *index.Index
 }
 
 func newFileMergeReader(frs []*FileReader) *FileMergeReader {
@@ -119,9 +143,10 @@ func newFileMergeReader(frs []*FileReader) *FileMergeReader {
 
 // Index returns the index for the merged file.
 func (fmr *FileMergeReader) Index() *index.Index {
-	// (bryce) need to merge and compute new hashes when client
-	// wants the stable hash for the content. Only returning
-	// returning index with path and size for now.
+	// If the full index has been computed, then return it.
+	if fmr.fullIdx != nil {
+		return fmr.fullIdx
+	}
 	idx := &index.Index{}
 	idx.Path = fmr.frs[0].Index().Path
 	for _, fr := range fmr.frs {

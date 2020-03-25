@@ -12,6 +12,7 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/metadata"
 )
@@ -70,15 +71,15 @@ func GetTraceFromCtx(ctx context.Context) (*TraceProto, error) {
 		return nil, nil // no trace
 	}
 	if len(vals) > 1 {
-		return nil, fmt.Errorf("ctx should have at most one extended trace, but found %d", len(vals))
+		return nil, errors.Errorf("ctx should have at most one extended trace, but found %d", len(vals))
 	}
 	marshalledProto, err := base64.URLEncoding.DecodeString(vals[0])
 	if err != nil {
-		return nil, fmt.Errorf("error base64-decoding marshalled ExtendedTrace proto: %v", err)
+		return nil, errors.Wrapf(err, "error base64-decoding marshalled ExtendedTrace proto")
 	}
 	extendedTrace := &TraceProto{}
 	if err := extendedTrace.Unmarshal(marshalledProto); err != nil {
-		return nil, fmt.Errorf("error unmarshalling extended trace from ctx: %v", err)
+		return nil, errors.Wrapf(err, "error unmarshalling extended trace from ctx")
 
 	}
 	return extendedTrace, nil

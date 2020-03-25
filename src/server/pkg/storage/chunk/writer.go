@@ -92,6 +92,7 @@ type worker struct {
 	prev                 *prevChanSet
 	next                 *nextChanSet
 	stats                *stats
+	noUpload             bool
 }
 
 func (w *worker) run(dataSet *dataSet) error {
@@ -281,6 +282,9 @@ func (w *worker) updateAnnotations(chunkRef *DataRef) {
 }
 
 func (w *worker) upload(path string, chunk []byte) error {
+	if w.noUpload {
+		return nil
+	}
 	objW, err := w.objC.Writer(w.ctx, path)
 	if err != nil {
 		return err
@@ -416,7 +420,7 @@ type Writer struct {
 	stats          *stats
 }
 
-func newWriter(ctx context.Context, objC obj.Client, averageBits int, f WriterFunc, seed int64) *Writer {
+func newWriter(ctx context.Context, objC obj.Client, averageBits int, f WriterFunc, seed int64, noUpload bool) *Writer {
 	stats := &stats{}
 	newWorkerFunc := func(ctx context.Context, prev *prevChanSet, next *nextChanSet) *worker {
 		w := &worker{
@@ -429,6 +433,7 @@ func newWriter(ctx context.Context, objC obj.Client, averageBits int, f WriterFu
 			next:      next,
 			f:         f,
 			stats:     stats,
+			noUpload:  noUpload,
 		}
 		w.hash.Reset()
 		w.hash.Write(initialWindow)

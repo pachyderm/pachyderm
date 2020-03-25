@@ -6,25 +6,25 @@ package server
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
-	"golang.org/x/net/context"
-
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+
+	"github.com/gogo/protobuf/types"
+	"golang.org/x/net/context"
 )
 
 const secsInYear = 365 * 24 * 60 * 60
@@ -1595,7 +1595,7 @@ func TestDeleteRCInStandby(t *testing.T) {
 			return err
 		}
 		if pi.State != pps.PipelineState_PIPELINE_STANDBY {
-			return fmt.Errorf("pipeline should be in standby, but is in %s", pi.State.String())
+			return errors.Errorf("pipeline should be in standby, but is in %s", pi.State.String())
 		}
 		return nil
 	})
@@ -1676,7 +1676,7 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 			return err
 		}
 		if pi.State == pps.PipelineState_PIPELINE_FAILURE {
-			return fmt.Errorf("%q should be in state FAILURE but is in %q", pipeline, pi.State.String())
+			return errors.Errorf("%q should be in state FAILURE but is in %q", pipeline, pi.State.String())
 		}
 		return nil
 	})
@@ -1708,7 +1708,7 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 		if err == io.EOF {
 			return nil // expected--with no output repo, FlushCommit can't return anything
 		}
-		return fmt.Errorf("unexpected error value: %v", err)
+		return errors.Wrapf(err, "unexpected error value")
 	})
 
 	// Create a new pipeline, make sure FlushCommit eventually returns, and check

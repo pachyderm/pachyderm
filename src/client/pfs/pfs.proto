@@ -488,6 +488,11 @@ message FsckResponse {
 
 // Messages specific to the new storage layer.
 
+message FileInfoNewStorage {
+  File file = 1;
+  string hash = 2; 
+}
+
 message PutTarRequest {
   Commit commit = 1;
   bytes data = 2;
@@ -495,6 +500,30 @@ message PutTarRequest {
 
 message GetTarRequest {
   File file = 1;
+}
+
+// GetTarConditional Protocol:
+//   Client sends an initial request that is similar to a GetTar request.
+//   For files that match the request:
+//     Server sends a response with the file info for the file.
+//     If the client wants to skip the file content:
+//       Client sends a request with the skip field set to true.
+//     Else
+//       Client sends a request with the skip field set to false.
+//       For file content:
+//         Server sends a response with file content in the data field.
+//       Server sends a response with the eof field set to true.
+//   Server connection is closed by returning from handler.
+
+message GetTarConditionalRequest {
+  File file = 1;
+  bool skip = 2;
+}
+
+message GetTarConditionalResponse {
+  FileInfoNewStorage file_info = 1;
+  bytes data = 2;
+  bool eof = 3;
 }
 
 service API {
@@ -577,6 +606,8 @@ service API {
   // RPCs specific to the new storage layer. 
   rpc PutTar(stream PutTarRequest) returns (google.protobuf.Empty) {}
   rpc GetTar(GetTarRequest) returns (stream google.protobuf.BytesValue) {}
+  // Refer to the GetTarConditionalRequest / GetTarConditionalResponse message definitions for the protocol.
+  rpc GetTarConditional(stream GetTarConditionalRequest) returns (stream GetTarConditionalResponse) {}
 }
 
 message PutObjectRequest {

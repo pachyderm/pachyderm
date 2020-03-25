@@ -1,10 +1,9 @@
 package health
 
 import (
-	"fmt"
-
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client/health"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"golang.org/x/net/context"
 )
 
@@ -26,7 +25,7 @@ type healthServer struct {
 // Health implements the Health method for healthServer.
 func (h *healthServer) Health(context.Context, *types.Empty) (*types.Empty, error) {
 	if !h.ready {
-		return nil, fmt.Errorf("server not ready")
+		return nil, errors.Errorf("server not ready")
 	}
 	return &types.Empty{}, nil
 }
