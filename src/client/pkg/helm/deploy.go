@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/release"
@@ -20,12 +22,12 @@ func Deploy(context *config.Context, installName, chartName, chartVersion string
 
 	chartPath, err := upgrade.ChartPathOptions.LocateChart(chartName, envSettings)
 	if err != nil {
-		return nil, fmt.Errorf("could not locate helm chart: %v", err)
+		return nil, errors.Wrapf(err, "could not locate helm chart")
 	}
 
 	chart, err := loader.Load(chartPath)
 	if err != nil {
-		return nil, fmt.Errorf("could not load helm chart: %v", err)
+		return nil, errors.Wrapf(err, "could not load helm chart")
 	}
 
 	history := action.NewHistory(actionConfig)
@@ -39,17 +41,17 @@ func Deploy(context *config.Context, installName, chartName, chartVersion string
 		install.ReleaseName = installName
 		rel, err := install.Run(chart, values)
 		if err != nil {
-			return nil, fmt.Errorf("install failed: %v", err)
+			return nil, errors.Wrapf(err, "install failed")
 		}
 		return rel, nil
 	} else if err != nil {
-		return nil, fmt.Errorf("could not fetch helm history: %v", err)
+		return nil, errors.Wrapf(err, "could not fetch helm history")
 	}
 
 	// upgrade
 	rel, err := upgrade.Run(installName, chart, values)
 	if err != nil {
-		return nil, fmt.Errorf("upgrade failed: %v", err)
+		return nil, errors.Wrapf(err, "upgrade failed")
 	}
 	return rel, nil
 }
