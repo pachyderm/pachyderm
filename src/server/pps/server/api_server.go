@@ -43,8 +43,6 @@ import (
 	workercommon "github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/datum"
 	workerserver "github.com/pachyderm/pachyderm/src/server/worker/server"
-	"github.com/robfig/cron"
-	"github.com/willf/bloom"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"

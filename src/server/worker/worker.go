@@ -118,7 +118,7 @@ func (w *Worker) worker() {
 	backoff.RetryUntilCancel(ctx, func() error {
 		return w.driver.NewTaskWorker().Run(
 			w.driver.PachClient().Ctx(),
-			func(ctx context.Context, task *work.Task, subtask *work.Task) error {
+			func(ctx context.Context, subtask *work.Task) error {
 				driver := w.driver.WithCtx(ctx)
 				return transform.Worker(driver, logger, subtask, w.status)
 			},
