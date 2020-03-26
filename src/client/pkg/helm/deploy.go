@@ -10,13 +10,13 @@ import (
 	"helm.sh/helm/v3/pkg/storage/driver"
 )
 
+// Deploy installs a helm chart.
 func Deploy(context *config.Context, installName, chartName, chartVersion string, values map[string]interface{}) (*release.Release, error) {
 	envSettings, actionConfig, err := configureHelm(context, "")
 
 	upgrade := action.NewUpgrade(actionConfig)
 	upgrade.Version = chartVersion
 	upgrade.Namespace = context.Namespace
-	// upgrade.Install = true
 
 	chartPath, err := upgrade.ChartPathOptions.LocateChart(chartName, envSettings)
 	if err != nil {
