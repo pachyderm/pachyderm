@@ -1004,7 +1004,7 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, cmdutil.CreateAlias(deploy, "deploy"))
 
 	var all bool
-	var includingStorage bool
+	var includingMetadata bool
 	var includingJupyterHub bool
 	var namespace string
 	undeploy := &cobra.Command{
@@ -1017,11 +1017,11 @@ func Cmds() []*cobra.Command {
 			}
 			// TODO(ys): remove the `--all` flag here eventually
 			if all {
-				fmt.Printf("WARNING: The `--all` flag is deprecated and will be removed in a future version. Please use `--storage` instead.\n")
-				includingStorage = true
+				fmt.Printf("WARNING: The `--all` flag is deprecated and will be removed in a future version. Please use `--metadata` instead.\n")
+				includingMetadata = true
 			}
 
-			if includingStorage {
+			if includingMetadata {
 				fmt.Printf(`
 You are going to delete persistent volumes where metadata is stored. If your
 persistent volumes were dynamically provisioned (i.e. if you used the
@@ -1065,7 +1065,7 @@ persistent volume was manually provisioned (i.e. if you used the
 				"clusterrole",
 				"clusterrolebinding",
 			}
-			if includingStorage {
+			if includingMetadata {
 				assets = append(assets, []string{
 					"storageclass",
 					"persistentvolumeclaim",
@@ -1102,7 +1102,7 @@ persistent volume was manually provisioned (i.e. if you used the
 					}
 				}
 
-				// TODO(ys): delete jupyterhub storage if `--storage`
+				// TODO(ys): delete jupyterhub metadata if `--metadata`
 			}
 
 			// remove the context from the config
@@ -1146,8 +1146,8 @@ persistent volume was manually provisioned (i.e. if you used the
 			return nil
 		}),
 	}
-	undeploy.Flags().BoolVarP(&all, "all", "a", false, "DEPRECATED: Use \"--storage\" instead.")
-	undeploy.Flags().BoolVarP(&includingStorage, "storage", "", false, `
+	undeploy.Flags().BoolVarP(&all, "all", "a", false, "DEPRECATED: Use \"--metadata\" instead.")
+	undeploy.Flags().BoolVarP(&includingMetadata, "metadata", "", false, `
 Delete persistent volumes where metadata is stored. If your persistent volumes
 were dynamically provisioned (i.e. if you used the "--dynamic-etcd-nodes"
 flag), the underlying volumes will be removed, making metadata such repos,
