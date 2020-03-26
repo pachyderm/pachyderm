@@ -81,13 +81,8 @@ func kubectlCreate(dryRun bool, manifest []byte, opts *assets.AssetOpts) error {
 		_, err := os.Stdout.Write(manifest)
 		return err
 	}
-	io := cmdutil.IO{
-		Stdin:  bytes.NewReader(manifest),
-		Stdout: os.Stdout,
-		Stderr: os.Stderr,
-	}
 	// we set --validate=false due to https://github.com/kubernetes/kubernetes/issues/53309
-	if err := cmdutil.RunIO(io, "kubectl", "apply", "-f", "-", "--validate=false", "--namespace", opts.Namespace); err != nil {
+	if err := cmdutil.RunKubectl(bytes.NewReader(manifest), nil, "apply", "-f", "-", "--validate=false", "--namespace", opts.Namespace); err != nil {
 		return err
 	}
 
@@ -736,11 +731,14 @@ If <object store backend> is \"s3\", then the arguments are:
 	commands = append(commands, cmdutil.CreateAlias(deployMicrosoft, "deploy microsoft"))
 
 	deployStorageSecrets := func(data map[string][]byte) error {
-		c, err := client.NewOnUserMachine("user")
+		cfg, err := config.Read(false)
 		if err != nil {
-			return errors.Wrapf(err, "error constructing pachyderm client")
+			return err
 		}
-		defer c.Close()
+		_, activeContext, err := cfg.ActiveContext(true)
+		if err != nil {
+			return err
+		}
 
 		// clean up any empty, but non-nil strings in the data, since those will prevent those fields from getting merged when we do the patch
 		for k, v := range data {
@@ -758,15 +756,8 @@ If <object store backend> is \"s3\", then the arguments are:
 			return err
 		}
 
-		io := cmdutil.IO{
-			Stdin:  &buf,
-			Stdout: os.Stdout,
-			Stderr: os.Stderr,
-		}
-
-		// it can't unmarshal it from stdin in the given format for some reason, so we pass it in directly
 		s := buf.String()
-		return cmdutil.RunIO(io, `kubectl`, "patch", "secret", "pachyderm-storage-secret", "-p", s, "--namespace", opts.Namespace, "--type=merge")
+		return cmdutil.RunKubectl(&buf, activeContext, "patch", "secret", "pachyderm-storage-secret", "-p", s, "--namespace", opts.Namespace, "--type=merge")
 	}
 
 	deployStorageAmazon := &cobra.Command{
@@ -1042,19 +1033,19 @@ persistent volume was manually provisioned (i.e. if you used the
 				return nil
 			}
 
-			if namespace == "" {
-				kubeConfig := config.KubeConfig(nil)
-				namespace, _, err = kubeConfig.Namespace()
-				if err != nil {
-					log.Errorf("couldn't load kubernetes config (using \"default\"): %v", err)
-					namespace = "default"
-				}
+			cfg, err := config.Read(false)
+			if err != nil {
+				return err
+			}
+			_, activeContext, err := cfg.ActiveContext(true)
+			if err != nil {
+				return err
 			}
 
-			io := cmdutil.IO{
-				Stdout: os.Stdout,
-				Stderr: os.Stderr,
+			if namespace == "" {
+				namespace = activeContext.Namespace
 			}
+
 			assets := []string{
 				"service",
 				"replicationcontroller",
@@ -1072,34 +1063,23 @@ persistent volume was manually provisioned (i.e. if you used the
 					"persistentvolume",
 				}...)
 			}
-			if err := cmdutil.RunIO(io, "kubectl", "delete", strings.Join(assets, ","), "-l", "suite=pachyderm", "--namespace", namespace); err != nil {
+			if err := cmdutil.RunKubectl(nil, activeContext, "delete", strings.Join(assets, ","), "-l", "suite=pachyderm", "--namespace", namespace); err != nil {
 				return err
 			}
 
 			if includingJupyterHub {
-				cfg, err := config.Read(false)
-				if err != nil {
-					return err
-				}
-				_, activeContext, err := cfg.ActiveContext(false)
-				if err != nil {
-					return err
-				}
-
 				// remove jupyterhub
-				if activeContext != nil {
-					if err = helm.Destroy(activeContext, "jhub", namespace); err != nil {
-						log.Errorf("failed to delete helm installation: %v", err)
-					}
-					jhubAssets := []string{
-						"replicaset",
-						"deployment",
-						"service",
-						"pod",
-					}
-					if err = cmdutil.RunIO(io, "kubectl", "delete", strings.Join(jhubAssets, ","), "-l", "app=jupyterhub", "--namespace", namespace); err != nil {
-						return err
-					}
+				if err = helm.Destroy(activeContext, "jhub", namespace); err != nil {
+					log.Errorf("failed to delete helm installation: %v", err)
+				}
+				jhubAssets := []string{
+					"replicaset",
+					"deployment",
+					"service",
+					"pod",
+				}
+				if err = cmdutil.RunKubectl(nil, activeContext, "delete", strings.Join(jhubAssets, ","), "-l", "app=jupyterhub", "--namespace", namespace); err != nil {
+					return err
 				}
 
 				// TODO(ys): delete jupyterhub metadata if `--metadata`
@@ -1164,16 +1144,21 @@ underlying volume will not be removed.`)
 		Short: "Update and redeploy the Pachyderm Dashboard at the latest compatible version.",
 		Long:  "Update and redeploy the Pachyderm Dashboard at the latest compatible version.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			cfg, err := config.Read(false)
+			if err != nil {
+				return err
+			}
+			_, activeContext, err := cfg.ActiveContext(false)
+			if err != nil {
+				return err
+			}
+
 			// Undeploy the dash
 			if !updateDashDryRun {
-				io := cmdutil.IO{
-					Stdout: os.Stdout,
-					Stderr: os.Stderr,
-				}
-				if err := cmdutil.RunIO(io, "kubectl", "delete", "deploy", "-l", "suite=pachyderm,app=dash"); err != nil {
+				if err := cmdutil.RunKubectl(nil, activeContext, "delete", "deploy", "-l", "suite=pachyderm,app=dash"); err != nil {
 					return err
 				}
-				if err := cmdutil.RunIO(io, "kubectl", "delete", "svc", "-l", "suite=pachyderm,app=dash"); err != nil {
+				if err := cmdutil.RunKubectl(nil, activeContext, "delete", "svc", "-l", "suite=pachyderm,app=dash"); err != nil {
 					return err
 				}
 			}
