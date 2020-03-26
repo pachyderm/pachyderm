@@ -4,6 +4,7 @@ import os
 import re
 import json
 import time
+import secrets
 import argparse
 import threading
 import subprocess
@@ -64,7 +65,19 @@ class BaseDriver:
         pass
 
     def create_manifest(self, include_dash):
-        args = ["pachctl", "deploy", "local", "-d", "--dry-run", "--create-context", "--no-guaranteed"]
+        # We use hostpaths for storage. On docker for mac, hostpaths aren't
+        # cleared until the VM is restarted -- I think this is the same on
+        # minikube, though it's less relevant there because we wipe the
+        # minikube VM entirely. Because of this behavior, re-deploying on the
+        # same hostpath without a restart will cause us to bring up a new
+        # pachyderm cluster with access to the old cluster volume, causing a
+        # bad state. This works around the issue by just using a different
+        # hostpath on every deployment.
+        args = [
+            "pachctl", "deploy", "local", "-d", "--dry-run",
+            "--create-context", "--no-guaranteed",
+            "--host-path", "/var/pachyderm-{}".format(secrets.token_hex(5))
+        ]
         if not include_dash:
             args.append("--no-dashboard")
         return capture(*args)
@@ -102,7 +115,7 @@ class MinikubeDriver(BaseDriver):
     def start(self):
         run("minikube", "start")
 
-        while run("minikube", "status", raise_on_error=False).returncode != 0:
+        while run("minikube", "status", raise_on_error=False, capture_output=True).returncode != 0:
             print("Waiting for minikube to come up...")
             time.sleep(1)
 
@@ -216,7 +229,7 @@ def main():
         lambda: run("make", "docker-build"),
     )
     
-    version = capture("pachctl", "version", "--client-only")
+    version = capture("pachctl", "version", "--client-only").strip()
     print_status(f"deploy pachyderm version v{version}")
 
     deployments_str = driver.create_manifest(args.dash)
@@ -225,7 +238,7 @@ def main():
     run("kubectl", "create", "-f", "-", stdin=deployments_str)
     driver.update_config()
 
-    while run("pachctl", "version", raise_on_error=False).returncode:
+    while run("pachctl", "version", raise_on_error=False, capture_output=True).returncode:
         print_status("waiting for pachyderm to come up...")
         time.sleep(1)
 

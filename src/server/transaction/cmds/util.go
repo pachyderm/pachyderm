@@ -18,7 +18,7 @@ func getActiveTransaction() (*transaction.Transaction, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "error reading Pachyderm config")
 	}
-	_, context, err := cfg.ActiveContext()
+	_, context, err := cfg.ActiveContext(true)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error getting the active context")
 	}
@@ -43,7 +43,7 @@ func setActiveTransaction(txn *transaction.Transaction) error {
 	if err != nil {
 		return errors.Wrapf(err, "error reading Pachyderm config")
 	}
-	_, context, err := cfg.ActiveContext()
+	_, context, err := cfg.ActiveContext(true)
 	if err != nil {
 		return errors.Wrapf(err, "error getting the active context")
 	}

@@ -1,8 +1,6 @@
 package helm
 
 import (
-	"fmt"
-
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 
