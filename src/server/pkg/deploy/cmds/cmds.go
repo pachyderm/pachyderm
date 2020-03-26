@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"path"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
@@ -48,7 +49,61 @@ const (
 	defaultDashImage           = "pachyderm/dash:1.9.0"
 	jupyterhubPachydermVersion = "1.0.0"
 	jupyterhubVersion          = "0.8.2"
+	configTemplate = `
+apiVersion: v1
+contexts:
+- context:
+    cluster: "%s"
+    user: "%s"
+    namespace: "%s"
+  name: pachyderm-active-context
+current-context: pachyderm-active-context
+kind: Config
+`
 )
+
+func kubectl(stdin io.Reader, context *config.Context, args ...string) error {
+	tmpfile, err := ioutil.TempFile("", "transient-kube-config-*.yaml")
+	if err != nil {
+		return errors.Wrapf(err, "failed to create transient kube config")
+	}
+	defer os.Remove(tmpfile.Name())
+	tmpfile.Write([]byte(fmt.Sprintf(configTemplate, context.ClusterName, context.AuthInfo, context.Namespace)))
+	tmpfile.Close()
+
+	var environ []string = nil
+	if context != nil {
+		kubeconfig := os.Getenv("KUBECONFIG")
+		if kubeconfig == "" {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				errors.Wrapf(err, "failed to determine user home directory")
+			}
+			kubeconfig = path.Join(home, ".kube", "config")
+		}
+		kubeconfig = fmt.Sprintf("%s:%s", kubeconfig, tmpfile.Name())
+
+		// note that this will override `KUBECONFIG` (if it is already defined) in
+		// the environment; see examples under
+		// https://golang.org/pkg/os/exec/#Command
+		environ = os.Environ()
+		environ = append(environ, fmt.Sprintf("KUBECONFIG=%s", kubeconfig))
+
+		if stdin == nil {
+			stdin = os.Stdin
+		}
+	}
+
+	ioObj := cmdutil.IO {
+		Stdin: stdin,
+		Stdout: os.Stdout,
+		Stderr: os.Stderr,
+		Environ: environ,
+	}
+
+	args = append([]string{"kubectl"}, args...)
+	return cmdutil.RunIO(ioObj, args...)
+}
 
 // Generates a random secure token, in hex
 func generateSecureToken(length int) string {
@@ -82,7 +137,7 @@ func kubectlCreate(dryRun bool, manifest []byte, opts *assets.AssetOpts) error {
 		return err
 	}
 	// we set --validate=false due to https://github.com/kubernetes/kubernetes/issues/53309
-	if err := cmdutil.RunKubectl(bytes.NewReader(manifest), nil, "apply", "-f", "-", "--validate=false", "--namespace", opts.Namespace); err != nil {
+	if err := kubectl(bytes.NewReader(manifest), nil, "apply", "-f", "-", "--validate=false", "--namespace", opts.Namespace); err != nil {
 		return err
 	}
 
@@ -757,7 +812,7 @@ If <object store backend> is \"s3\", then the arguments are:
 		}
 
 		s := buf.String()
-		return cmdutil.RunKubectl(&buf, activeContext, "patch", "secret", "pachyderm-storage-secret", "-p", s, "--namespace", opts.Namespace, "--type=merge")
+		return kubectl(&buf, activeContext, "patch", "secret", "pachyderm-storage-secret", "-p", s, "--namespace", opts.Namespace, "--type=merge")
 	}
 
 	deployStorageAmazon := &cobra.Command{
@@ -1063,7 +1118,7 @@ persistent volume was manually provisioned (i.e. if you used the
 					"persistentvolume",
 				}...)
 			}
-			if err := cmdutil.RunKubectl(nil, activeContext, "delete", strings.Join(assets, ","), "-l", "suite=pachyderm", "--namespace", namespace); err != nil {
+			if err := kubectl(nil, activeContext, "delete", strings.Join(assets, ","), "-l", "suite=pachyderm", "--namespace", namespace); err != nil {
 				return err
 			}
 
@@ -1078,7 +1133,7 @@ persistent volume was manually provisioned (i.e. if you used the
 					"service",
 					"pod",
 				}
-				if err = cmdutil.RunKubectl(nil, activeContext, "delete", strings.Join(jhubAssets, ","), "-l", "app=jupyterhub", "--namespace", namespace); err != nil {
+				if err = kubectl(nil, activeContext, "delete", strings.Join(jhubAssets, ","), "-l", "app=jupyterhub", "--namespace", namespace); err != nil {
 					return err
 				}
 
@@ -1155,10 +1210,10 @@ underlying volume will not be removed.`)
 
 			// Undeploy the dash
 			if !updateDashDryRun {
-				if err := cmdutil.RunKubectl(nil, activeContext, "delete", "deploy", "-l", "suite=pachyderm,app=dash"); err != nil {
+				if err := kubectl(nil, activeContext, "delete", "deploy", "-l", "suite=pachyderm,app=dash"); err != nil {
 					return err
 				}
-				if err := cmdutil.RunKubectl(nil, activeContext, "delete", "svc", "-l", "suite=pachyderm,app=dash"); err != nil {
+				if err := kubectl(nil, activeContext, "delete", "svc", "-l", "suite=pachyderm,app=dash"); err != nil {
 					return err
 				}
 			}
