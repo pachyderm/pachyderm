@@ -1667,6 +1667,9 @@ func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo 
 				return fmt.Errorf("the spout marker name must be a valid filename: %v", pipelineInfo.Spout.Marker)
 			}
 		}
+		if pipelineInfo.Input != nil {
+			return errors.Errorf("spout pipelines must not have an input")
+		}
 	}
 	return nil
 }
