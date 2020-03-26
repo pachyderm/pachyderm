@@ -12,12 +12,12 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
-	"path"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
@@ -49,7 +49,7 @@ const (
 	defaultDashImage           = "pachyderm/dash:1.9.0"
 	jupyterhubPachydermVersion = "1.0.0"
 	jupyterhubVersion          = "0.8.2"
-	configTemplate = `
+	configTemplate             = `
 apiVersion: v1
 contexts:
 - context:
@@ -94,10 +94,10 @@ func kubectl(stdin io.Reader, context *config.Context, args ...string) error {
 		}
 	}
 
-	ioObj := cmdutil.IO {
-		Stdin: stdin,
-		Stdout: os.Stdout,
-		Stderr: os.Stderr,
+	ioObj := cmdutil.IO{
+		Stdin:   stdin,
+		Stdout:  os.Stdout,
+		Stderr:  os.Stderr,
 		Environ: environ,
 	}
 

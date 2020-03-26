@@ -46,9 +46,9 @@ func (c *Config) ActiveContext(errorOnNoActive bool) (string, *Context, error) {
 	if context == nil {
 		if c.V2.ActiveContext == "" {
 			if errorOnNoActive {
-				return "", nil, errors.Errorf("pachctl config error: no active "+
-					"context configured.\n\nYou can fix your config by setting "+
-					"the active context like so: pachctl config set "+
+				return "", nil, errors.Errorf("pachctl config error: no active " +
+					"context configured.\n\nYou can fix your config by setting " +
+					"the active context like so: pachctl config set " +
 					"active-context <context>")
 			}
 		} else {
@@ -57,8 +57,8 @@ func (c *Config) ActiveContext(errorOnNoActive bool) (string, *Context, error) {
 				"your config by setting the active context like so: pachctl config set "+
 				"active-context <context>",
 				c.V2.ActiveContext, c.V2.ActiveContext)
-			}
-		
+		}
+
 	}
 	return c.V2.ActiveContext, context, nil
 }
