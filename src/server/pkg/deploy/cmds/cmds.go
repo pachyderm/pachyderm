@@ -1136,8 +1136,6 @@ persistent volume was manually provisioned (i.e. if you used the
 				if err = kubectl(nil, activeContext, "delete", strings.Join(jhubAssets, ","), "-l", "app=jupyterhub", "--namespace", namespace); err != nil {
 					return err
 				}
-
-				// TODO(ys): delete jupyterhub metadata if `--metadata`
 			}
 
 			// remove the context from the config
