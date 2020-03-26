@@ -890,8 +890,8 @@ If <object store backend> is \"s3\", then the arguments are:
 	return commands
 }
 
-// deployCmds returns the set of cobra.Commands used to deploy pachyderm.
-func deployCmds() []*cobra.Command {
+// Cmds returns a list of cobra commands for deploying Pachyderm clusters.
+func Cmds() []*cobra.Command {
 	commands := standardDeployCmds()
 
 	var lbTLSHost string
@@ -1002,15 +1002,6 @@ func deployCmds() []*cobra.Command {
 		Long:  "Deploy a Pachyderm cluster.",
 	}
 	commands = append(commands, cmdutil.CreateAlias(deploy, "deploy"))
-
-	return commands
-}
-
-// Cmds returns a list of cobra commands for deploying Pachyderm clusters.
-func Cmds() []*cobra.Command {
-	var commands []*cobra.Command
-
-	commands = append(commands, deployCmds()...)
 
 	var all bool
 	var includingStorage bool
