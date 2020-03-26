@@ -13,6 +13,9 @@ import (
 // Deploy installs a helm chart.
 func Deploy(context *config.Context, installName, chartName, chartVersion string, values map[string]interface{}) (*release.Release, error) {
 	envSettings, actionConfig, err := configureHelm(context, "")
+	if err != nil {
+		return nil, err
+	}
 
 	upgrade := action.NewUpgrade(actionConfig)
 	upgrade.Version = chartVersion

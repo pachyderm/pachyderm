@@ -11,6 +11,9 @@ import (
 // kubernetes resources.
 func Destroy(context *config.Context, installName, overrideNamespace string) error {
 	_, actionConfig, err := configureHelm(context, overrideNamespace)
+	if err != nil {
+		return err
+	}
 
 	uninstall := action.NewUninstall(actionConfig)
 	_, err = uninstall.Run(installName)
