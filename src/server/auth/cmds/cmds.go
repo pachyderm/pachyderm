@@ -35,6 +35,27 @@ func githubLogin() (string, error) {
 	return strings.TrimSpace(token), nil // drop trailing newline
 }
 
+func requestOIDCLogin() (string, error) {
+	// get the base URL from the IdP
+	// get the redirect URI from etcd? (i think when we activate we will require this to be entered)
+	// prepare request by filling out parameters
+
+	// print the prepared URL and promp the user to click on it
+	fmt.Println("(1) Please paste this link into a browser:\n\n" +
+		githubAuthLink + "\n\n" +
+		"(You will be directed to GitHub and asked to authorize Pachyderm's " +
+		"login app on GitHub. If you accept, you will be given a token to " +
+		"paste here, which will give you an externally verified account in " +
+		"this Pachyderm cluster)\n\n(2) Please paste the token you receive " +
+		"from GitHub here:")
+	// receive token
+	token, err := bufio.NewReader(os.Stdin).ReadString('\n')
+	if err != nil {
+		return "", fmt.Errorf("error reading token: %v", err)
+	}
+	return strings.TrimSpace(token), nil // drop trailing newline
+}
+
 func writePachTokenToCfg(token string) error {
 	cfg, err := config.Read(false)
 	if err != nil {
@@ -168,16 +189,26 @@ func LoginCmd() *cobra.Command {
 				resp, authErr = c.Authenticate(
 					c.Ctx(),
 					&auth.AuthenticateRequest{OneTimePassword: code})
+				// } else if github {
+				// 	// Exchange GitHub token for Pachyderm token
+				// 	token, err := githubLogin()
+				// 	if err != nil {
+				// 		return err
+				// 	}
+				// 	fmt.Println("Retrieving Pachyderm token...")
+				// 	resp, authErr = c.Authenticate(
+				// 		c.Ctx(),
+				// 		&auth.AuthenticateRequest{GitHubToken: token})
 			} else {
-				// Exchange GitHub token for Pachyderm token
-				token, err := githubLogin()
+				// Exchange OIDC token for Pachyderm token
+				token, err := requestOIDCLogin()
 				if err != nil {
 					return err
 				}
 				fmt.Println("Retrieving Pachyderm token...")
 				resp, authErr = c.Authenticate(
 					c.Ctx(),
-					&auth.AuthenticateRequest{GitHubToken: token})
+					&auth.AuthenticateRequest{OIDCToken: token})
 			}
 
 			// Write new Pachyderm token to config
