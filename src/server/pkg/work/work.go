@@ -341,18 +341,18 @@ func (w *Worker) subtaskFunc(subtaskKey string, processFunc ProcessFunc) subtask
 						retErr = nil
 						return
 					}
-					updateSubtaskInfo := &TaskInfo{}
+					subtaskInfo := &TaskInfo{}
 					if _, err := col.NewSTM(claimCtx, w.etcdClient, func(stm col.STM) error {
-						return w.subtaskCol.ReadWrite(stm).Update(subtaskKey, updateSubtaskInfo, func() error {
+						return w.subtaskCol.ReadWrite(stm).Update(subtaskKey, subtaskInfo, func() error {
 							// (bryce) remove when check and claim are in the same stm.
-							if updateSubtaskInfo.State != State_RUNNING {
+							if subtaskInfo.State != State_RUNNING {
 								return nil
 							}
 							subtaskInfo.Task = subtask
 							subtaskInfo.State = State_SUCCESS
 							if retErr != nil {
-								updateSubtaskInfo.State = State_FAILURE
-								updateSubtaskInfo.Reason = retErr.Error()
+								subtaskInfo.State = State_FAILURE
+								subtaskInfo.Reason = retErr.Error()
 								retErr = nil
 							}
 							return nil
