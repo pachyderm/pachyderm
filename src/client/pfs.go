@@ -891,6 +891,26 @@ func (c APIClient) Compact() error {
 	return err
 }
 
+// DirectObjReader returns a reader for the contents of an obj in object
+// storage, it reads directly from object storage, bypassing the
+// content-addressing layer.
+func (c APIClient) DirectObjReader(obj string) (io.ReadCloser, error) {
+	getObjClient, err := c.ObjectAPIClient.GetObjDirect(
+		c.Ctx(),
+		&pfs.GetObjDirectRequest{Obj: obj},
+	)
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	return grpcutil.NewStreamingBytesReader(getObjClient, nil), nil
+}
+
+// DirectObjWriter returns a writer for an obj in object storage, it writes
+// directly to object storage, bypassing the content-addressing layer.
+func (c APIClient) DirectObjWriter(obj string) (io.WriteCloser, error) {
+	return c.newPutObjWriteCloser(obj)
+}
+
 // PutFileClient is a client interface for putting files. There are 2
 // implementations, 1 that does each file as a seperate request and one that
 // does them all together in the same request.
@@ -1748,6 +1768,43 @@ func (w *putBlockWriteCloser) Write(p []byte) (int, error) {
 
 func (w *putBlockWriteCloser) Close() error {
 	if w.request.Block != nil {
+		// This happens if the block is empty in which case Write was never
+		// called, so we need to send an empty request to identify the block.
+		if err := w.client.Send(w.request); err != nil {
+			return grpcutil.ScrubGRPC(err)
+		}
+	}
+	_, err := w.client.CloseAndRecv()
+	return grpcutil.ScrubGRPC(err)
+}
+
+type putObjWriteCloser struct {
+	request *pfs.PutObjDirectRequest
+	client  pfs.ObjectAPI_PutObjDirectClient
+}
+
+func (c APIClient) newPutObjWriteCloser(obj string) (*putObjWriteCloser, error) {
+	client, err := c.ObjectAPIClient.PutObjDirect(c.Ctx())
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	return &putObjWriteCloser{
+		request: &pfs.PutObjDirectRequest{Obj: obj},
+		client:  client,
+	}, nil
+}
+
+func (w *putObjWriteCloser) Write(p []byte) (int, error) {
+	w.request.Value = p
+	if err := w.client.Send(w.request); err != nil {
+		return 0, grpcutil.ScrubGRPC(err)
+	}
+	w.request.Obj = ""
+	return len(p), nil
+}
+
+func (w *putObjWriteCloser) Close() error {
+	if w.request.Obj == "" {
 		// This happens if the block is empty in which case Write was never
 		// called, so we need to send an empty request to identify the block.
 		if err := w.client.Send(w.request); err != nil {

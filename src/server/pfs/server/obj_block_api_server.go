@@ -851,6 +851,57 @@ func (s *objBlockAPIServer) Compact(ctx context.Context, request *types.Empty) (
 	return &types.Empty{}, nil
 }
 
+func (s *objBlockAPIServer) PutObjDirect(server pfsclient.ObjectAPI_PutObjDirectServer) (retErr error) {
+	defer drainObjServer(server)
+	request, err := server.Recv()
+	func() { s.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	if err != nil {
+		return err
+	}
+	path := request.Obj
+	w, err := s.objClient.Writer(server.Context(), path)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := w.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+		if retErr == nil {
+			if err := server.SendAndClose(&types.Empty{}); err != nil {
+				retErr = err
+			}
+		}
+	}()
+	if _, err := w.Write(request.Value); err != nil {
+		return err
+	}
+	r := &putObjReader{server: server}
+	buf := grpcutil.GetBuffer()
+	defer grpcutil.PutBuffer(buf)
+	_, err = io.CopyBuffer(w, r, buf)
+	return err
+}
+
+func (s *objBlockAPIServer) GetObjDirect(request *pfsclient.GetObjDirectRequest, server pfsclient.ObjectAPI_GetObjDirectServer) (retErr error) {
+	func() { s.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	r, err := s.objClient.Reader(server.Context(), request.Obj, 0, 0)
+	if err != nil {
+		return err
+	}
+	if err := grpcutil.WriteToStreamingBytesServer(r, server); err != nil {
+		return err
+	}
+	defer func() {
+		if err := r.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	return nil
+}
+
 func (s *objBlockAPIServer) compact(ctx context.Context) (retErr error) {
 	w, err := s.newBlockWriter(ctx, &pfsclient.Block{Hash: uuid.NewWithoutDashes()})
 	if err != nil {
@@ -1362,6 +1413,34 @@ func (r *putBlockReader) Read(p []byte) (int, error) {
 func drainBlockServer(putBlockServer pfsclient.ObjectAPI_PutBlockServer) {
 	for {
 		if _, err := putBlockServer.Recv(); err != nil {
+			break
+		}
+	}
+}
+
+type putObjReader struct {
+	server    pfsclient.ObjectAPI_PutObjDirectServer
+	buffer    bytes.Buffer
+	bytesRead int
+}
+
+func (r *putObjReader) Read(p []byte) (int, error) {
+	if r.buffer.Len() == 0 {
+		request, err := r.server.Recv()
+		if err != nil {
+			return 0, err
+		}
+		r.buffer.Reset()
+		// buffer.Write cannot error
+		n, _ := r.buffer.Write(request.Value)
+		r.bytesRead += n
+	}
+	return r.buffer.Read(p)
+}
+
+func drainObjServer(putObjServer pfsclient.ObjectAPI_PutObjDirectServer) {
+	for {
+		if _, err := putObjServer.Recv(); err != nil {
 			break
 		}
 	}
