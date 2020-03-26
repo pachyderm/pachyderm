@@ -57,7 +57,7 @@ def join(*targets):
 class BaseDriver:
     def clear(self):
         join(
-            lambda: run("pachctl", "undeploy", "--include-storage", "--include-jupyterhub", stdin="y\n"),
+            lambda: run("pachctl", "undeploy", "--storage", "--jupyterhub", stdin="y\n"),
             lambda: run("kubectl", "delete", ",".join(DELETABLE_RESOURCES), "-l", "suite=pachyderm"),
         )
 

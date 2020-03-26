@@ -1026,7 +1026,7 @@ func Cmds() []*cobra.Command {
 			}
 			// TODO(ys): remove the `--all` flag here eventually
 			if all {
-				fmt.Printf("WARNING: The `--all` flag is deprecated and will be removed in a future version. Please use `--including-storage` instead.\n")
+				fmt.Printf("WARNING: The `--all` flag is deprecated and will be removed in a future version. Please use `--storage` instead.\n")
 				includingStorage = true
 			}
 
@@ -1111,7 +1111,7 @@ persistent volume was manually provisioned (i.e. if you used the
 					}
 				}
 
-				// TODO(ys): delete jupyterhub storage if `--including-storage`
+				// TODO(ys): delete jupyterhub storage if `--storage`
 			}
 
 			// remove the context from the config
@@ -1155,15 +1155,15 @@ persistent volume was manually provisioned (i.e. if you used the
 			return nil
 		}),
 	}
-	undeploy.Flags().BoolVarP(&all, "all", "a", false, "DEPRECATED: Use \"--include-storage\" instead.")
-	undeploy.Flags().BoolVarP(&includingStorage, "including-storage", "", false, `
+	undeploy.Flags().BoolVarP(&all, "all", "a", false, "DEPRECATED: Use \"--storage\" instead.")
+	undeploy.Flags().BoolVarP(&includingStorage, "storage", "", false, `
 Delete persistent volumes where metadata is stored. If your persistent volumes
 were dynamically provisioned (i.e. if you used the "--dynamic-etcd-nodes"
 flag), the underlying volumes will be removed, making metadata such repos,
 commits, pipelines, and jobs unrecoverable. If your persistent volume was
 manually provisioned (i.e. if you used the "--static-etcd-volume" flag), the
 underlying volume will not be removed.`)
-	undeploy.Flags().BoolVarP(&includingJupyterHub, "including-jupyterhub", "", false, "Delete the Pachyderm JupyterHub deployment if it exists.")
+	undeploy.Flags().BoolVarP(&includingJupyterHub, "jupyterhub", "", false, "Delete the Pachyderm JupyterHub deployment if it exists.")
 	undeploy.Flags().StringVar(&namespace, "namespace", "", "Kubernetes namespace to undeploy Pachyderm from.")
 	commands = append(commands, cmdutil.CreateAlias(undeploy, "undeploy"))
 
