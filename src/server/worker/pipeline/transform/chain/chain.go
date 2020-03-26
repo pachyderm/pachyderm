@@ -2,10 +2,10 @@ package chain
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"sync"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/datum"
 )
@@ -252,7 +252,7 @@ func (jc *jobChain) indexOf(jd JobData) (int, error) {
 			return i, nil
 		}
 	}
-	return 0, fmt.Errorf("job not found in job chain")
+	return 0, errors.New("job not found in job chain")
 }
 
 func (jc *jobChain) cleanFinishedJobs() {
@@ -314,7 +314,7 @@ func (jc *jobChain) Succeed(jd JobData) error {
 	jdi := jc.jobs[index]
 
 	if len(jdi.yielding) != 0 || len(jdi.ancestors) > 0 {
-		return fmt.Errorf(
+		return errors.Errorf(
 			"cannot succeed a job with items remaining on the iterator: %d datums and %d ancestor jobs",
 			len(jdi.yielding), len(jdi.ancestors),
 		)
@@ -353,7 +353,7 @@ func (jdi *jobDatumIterator) NextBatch(ctx context.Context) (uint64, error) {
 			defer jdi.jc.mutex.Unlock()
 
 			if jdi.finished {
-				return fmt.Errorf("stopping datum iteration because job failed")
+				return errors.New("stopping datum iteration because job failed")
 			}
 
 			index, err := jdi.jc.indexOf(jdi.data)

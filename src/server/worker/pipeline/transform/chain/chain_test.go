@@ -2,7 +2,6 @@ package chain
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/datum"
@@ -131,7 +131,7 @@ func datumToInputs(name string) []*common.Input {
 
 func inputsToDatum(inputs []*common.Input) (string, error) {
 	if len(inputs) != 1 {
-		return "", fmt.Errorf("should only have 1 input for test datums")
+		return "", errors.New("should only have 1 input for test datums")
 	}
 	return inputs[0].FileInfo.File.Path, nil
 }

@@ -1,10 +1,9 @@
 package transform
 
 import (
-	"fmt"
-
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
@@ -66,7 +65,7 @@ func forEachCommit(
 						}
 
 						if err := finishJob(pi, pachClient, ji, ji.State, ji.Reason, nil, nil, 0, nil, 0); err != nil {
-							return fmt.Errorf("could not update job with finished output commit: %v", err)
+							return errors.Wrap(err, "could not update job with finished output commit")
 						}
 					}
 				}

@@ -2,12 +2,12 @@ package service
 
 import (
 	"context"
-	"fmt"
 
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
@@ -76,7 +76,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 			return err
 		}
 		if dit.Len() != 1 {
-			return fmt.Errorf("services must have a single datum")
+			return errors.New("services must have a single datum")
 		}
 		data := dit.DatumN(0)
 		logger = logger.WithData(data)

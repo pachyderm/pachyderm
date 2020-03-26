@@ -1,11 +1,10 @@
 package server
 
 import (
-	"fmt"
-
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
@@ -65,5 +64,5 @@ func (a *APIServer) GetChunk(request *GetChunkRequest, server Worker_GetChunkSer
 			return cache.Get(request.Tag, grpcutil.NewStreamingBytesWriter(server), filter)
 		}
 	}
-	return fmt.Errorf("hashtree chunk not found")
+	return errors.New("hashtree chunk not found")
 }

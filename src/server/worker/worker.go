@@ -12,6 +12,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
@@ -79,7 +80,7 @@ func NewWorker(
 		}
 		image, err := docker.InspectImage(pipelineInfo.Transform.Image)
 		if err != nil {
-			return nil, fmt.Errorf("error inspecting image %s: %+v", pipelineInfo.Transform.Image, err)
+			return nil, errors.Wrapf(err, "error inspecting image %s", pipelineInfo.Transform.Image)
 		}
 		if pipelineInfo.Transform.User == "" {
 			pipelineInfo.Transform.User = image.Config.User

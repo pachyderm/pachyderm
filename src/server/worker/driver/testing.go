@@ -92,7 +92,7 @@ func (md *MockDriver) Pipelines() col.Collection {
 
 // NewTaskWorker returns a work.Worker instance that can be used for running pipeline tasks.
 func (md *MockDriver) NewTaskWorker() *work.Worker {
-	return work.NewWorker(md.ctx, md.etcdClient, md.options.EtcdPrefix, workNamespace(md.options.PipelineInfo))
+	return work.NewWorker(md.etcdClient, md.options.EtcdPrefix, workNamespace(md.options.PipelineInfo))
 }
 
 // NewTaskQueue returns a work.TaskQueue instance that can be used for distributing pipeline tasks.

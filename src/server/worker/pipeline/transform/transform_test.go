@@ -14,6 +14,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -33,7 +34,7 @@ func isCanceledError(err error) bool {
 func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv) error) error {
 	// We only support simple pfs input pipelines in this test suite at the moment
 	if pipelineInfo.Input == nil || pipelineInfo.Input.Pfs == nil {
-		return fmt.Errorf("invalid pipeline, only a single PFS input is supported")
+		return errors.New("invalid pipeline, only a single PFS input is supported")
 	}
 
 	var eg *errgroup.Group
@@ -121,7 +122,7 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 			err := backoff.RetryUntilCancel(env.driver.PachClient().Ctx(), func() error {
 				return env.driver.NewTaskWorker().Run(
 					env.driver.PachClient().Ctx(),
-					func(ctx context.Context, task *work.Task, subtask *work.Task) error {
+					func(ctx context.Context, subtask *work.Task) error {
 						status := &Status{}
 						return Worker(env.driver, env.logger, subtask, status)
 					},
@@ -312,7 +313,6 @@ func triggerJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []*input
 
 func TestJobSuccess(t *testing.T) {
 	pi := defaultPipelineInfo()
-	t.Parallel()
 	err := withWorkerSpawnerPair(pi, func(env *testEnv) error {
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
 		triggerJob(t, env, pi, []*inputFile{newInput("file", "foobar")})
@@ -350,7 +350,6 @@ func TestJobSuccess(t *testing.T) {
 func TestJobFailedDatum(t *testing.T) {
 	pi := defaultPipelineInfo()
 	pi.Transform.Cmd = []string{"bash", "-c", "(exit 1)"}
-	t.Parallel()
 	err := withWorkerSpawnerPair(pi, func(env *testEnv) error {
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
 		triggerJob(t, env, pi, []*inputFile{newInput("file", "foobar")})
@@ -365,7 +364,6 @@ func TestJobFailedDatum(t *testing.T) {
 
 func TestJobMultiDatum(t *testing.T) {
 	pi := defaultPipelineInfo()
-	t.Parallel()
 	err := withWorkerSpawnerPair(pi, func(env *testEnv) error {
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
 		triggerJob(t, env, pi, []*inputFile{newInput("a", "foobar"), newInput("b", "barfoo")})
@@ -409,7 +407,6 @@ func TestJobMultiDatum(t *testing.T) {
 
 func TestJobSerial(t *testing.T) {
 	pi := defaultPipelineInfo()
-	t.Parallel()
 	err := withWorkerSpawnerPair(pi, func(env *testEnv) error {
 		ctx, etcdJobInfo := mockBasicJob(t, env, pi)
 		triggerJob(t, env, pi, []*inputFile{newInput("a", "foobar")})

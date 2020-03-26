@@ -16,6 +16,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
@@ -218,7 +219,8 @@ func (logger *taggedLogger) LogStep(name string, cb func() error) (retErr error)
 	logger.Logf("started %v", name)
 	defer func() {
 		if retErr != nil {
-			retErr = fmt.Errorf("errored %v: %v", name, retErr)
+			retErr = errors.Wrap(retErr, name)
+			logger.Logf("errored %v: %v", name, retErr)
 		} else {
 			logger.Logf("finished %v", name)
 		}
@@ -247,7 +249,7 @@ func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
 			}
 			// this shouldn't technically be possible to hit io.EOF should be
 			// the only error bufio.Reader can return when using a buffer.
-			return 0, fmt.Errorf("error ReadString: %v", err)
+			return 0, errors.Wrap(err, "ReadString")
 		}
 		// We don't want to make this call as:
 		// logger.Logf(message)

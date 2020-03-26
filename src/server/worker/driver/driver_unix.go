@@ -3,12 +3,12 @@
 package driver
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"syscall"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/worker/common"
 )
 
@@ -34,14 +34,14 @@ func (d *driver) WithActiveData(inputs []*common.Input, dir string, cb func() er
 	defer d.activeDataMutex.Unlock()
 
 	if err := d.linkData(inputs, dir); err != nil {
-		return fmt.Errorf("error when linking active data directory: %v", err)
+		return errors.Wrap(err, "error when linking active data directory")
 	}
 	defer func() {
 		if err := d.rewriteSymlinks(dir); err != nil && retErr == nil {
-			retErr = fmt.Errorf("error when redirecting symlinks in the active data directory: %v", err)
+			retErr = errors.Wrap(err, "error when redirecting symlinks in the active data directory")
 		}
 		if err := d.unlinkData(inputs); err != nil && retErr == nil {
-			retErr = fmt.Errorf("error when unlinking active data directory: %v", err)
+			retErr = errors.Wrap(err, "error when unlinking active data directory")
 		}
 	}()
 

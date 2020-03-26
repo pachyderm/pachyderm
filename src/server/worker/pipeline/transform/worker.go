@@ -3,7 +3,6 @@ package transform
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -130,7 +130,7 @@ func Worker(driver driver.Driver, logger logs.TaggedLogger, subtask *work.Task, 
 		})
 	}
 
-	return fmt.Errorf("worker task format unrecognized")
+	return errors.New("worker task format unrecognized")
 }
 
 func forEachDatum(driver driver.Driver, object *pfs.Object, cb func([]*common.Input) error) (retErr error) {
@@ -376,7 +376,7 @@ func processDatum(
 					if err := driver.RunUserCode(logger, env, processStats, driver.PipelineInfo().DatumTimeout); err != nil {
 						if driver.PipelineInfo().Transform.ErrCmd != nil && failures == driver.PipelineInfo().DatumTries-1 {
 							if err = driver.RunUserErrorHandlingCode(logger, env, processStats, driver.PipelineInfo().DatumTimeout); err != nil {
-								return fmt.Errorf("error RunUserErrorHandlingCode: %v", err)
+								return errors.Wrap(err, "RunUserErrorHandlingCode")
 							}
 							return errDatumRecovered
 						}

@@ -3,7 +3,6 @@ package pipeline
 import (
 	"archive/tar"
 	"context"
-	"fmt"
 	"io"
 	"os"
 	"path"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
@@ -104,7 +104,7 @@ func ReceiveSpout(
 							return err
 						}
 						if spec != nil && len(spec.ChildCommits) != 0 {
-							return fmt.Errorf("outdated spout, now shutting down")
+							return errors.New("outdated spout, now shutting down")
 						}
 						_, err = pachClient.PutFileOverwrite(repo, ppsconsts.SpoutMarkerBranch, fileHeader.Name, outTar, 0)
 						if err != nil {

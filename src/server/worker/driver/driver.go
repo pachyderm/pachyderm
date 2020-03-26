@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -31,6 +30,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
@@ -194,16 +194,12 @@ func NewDriver(
 	chunkStatsCachePath := filepath.Join(hashtreePath, "chunkStats")
 
 	// Delete the hashtree path (if it exists) in case it is left over from a previous run
-	fmt.Printf("removing hashtree path: %s\n", chunkCachePath)
 	if err := os.RemoveAll(chunkCachePath); err != nil {
 		return nil, err
 	}
-	fmt.Printf("removing hashtree path: %s\n", chunkStatsCachePath)
 	if err := os.RemoveAll(chunkStatsCachePath); err != nil {
 		return nil, err
 	}
-
-	fmt.Printf("making hashtree caches")
 
 	if err := os.MkdirAll(pfsPath, 0777); err != nil {
 		return nil, err
@@ -319,7 +315,7 @@ func lookupDockerUser(userArg string) (_ *user.User, retErr error) {
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
 	}
-	return nil, fmt.Errorf("user %s not found", userArg)
+	return nil, errors.Errorf("user %s not found", userArg)
 }
 
 func lookupGroup(group string) (_ *user.Group, retErr error) {
@@ -342,7 +338,7 @@ func lookupGroup(group string) (_ *user.Group, retErr error) {
 			}, nil
 		}
 	}
-	return nil, fmt.Errorf("group %s not found", group)
+	return nil, errors.Errorf("group %s not found", group)
 }
 
 func (d *driver) WithCtx(ctx context.Context) Driver {
@@ -361,7 +357,7 @@ func (d *driver) Pipelines() col.Collection {
 }
 
 func (d *driver) NewTaskWorker() *work.Worker {
-	return work.NewWorker(d.PachClient().Ctx(), d.etcdClient, d.etcdPrefix, workNamespace(d.pipelineInfo))
+	return work.NewWorker(d.etcdClient, d.etcdPrefix, workNamespace(d.pipelineInfo))
 }
 
 func (d *driver) NewTaskQueue() (*work.TaskQueue, error) {
@@ -468,7 +464,7 @@ func (d *driver) WithData(
 		}
 	}()
 	if err != nil {
-		return nil, fmt.Errorf("error downloadData: %v", err)
+		return nil, errors.Wrap(err, "error downloadData")
 	}
 	if err := os.MkdirAll(d.InputDir(), 0777); err != nil {
 		return nil, err
@@ -539,12 +535,12 @@ func (d *driver) downloadData(
 	if d.pipelineInfo.Spout != nil {
 		// Spouts need to create a named pipe at /pfs/out
 		if err := os.MkdirAll(filepath.Dir(outPath), 0700); err != nil {
-			return "", fmt.Errorf("mkdirall :%v", err)
+			return "", err
 		}
 		// Fifos don't exist on windows (where we may run this code in tests), so
 		// this function is defined in a conditional-build file
 		if err := createSpoutFifo(outPath); err != nil {
-			return "", fmt.Errorf("mkfifo :%v", err)
+			return "", err
 		}
 		if d.PipelineInfo().Spout.Marker != "" {
 			// check if we have a marker file in the /pfs/out directory
@@ -580,7 +576,7 @@ func (d *driver) downloadData(
 	} else if !d.PipelineInfo().S3Out {
 		// Create output directory (typically /pfs/out)
 		if err := os.MkdirAll(outPath, 0777); err != nil {
-			return "", fmt.Errorf("couldn't create %q: %v", outPath, err)
+			return "", errors.Wrapf(err, "couldn't create %q", outPath)
 		}
 	}
 	for _, input := range inputs {
@@ -635,11 +631,11 @@ func (d *driver) downloadGitData(scratchPath string, input *common.Input) error 
 	}
 
 	if payload.Repository.CloneURL == "" {
-		return fmt.Errorf("git hook payload does not specify the upstream URL")
+		return errors.New("git hook payload does not specify the upstream URL")
 	} else if payload.Ref == "" {
-		return fmt.Errorf("git hook payload does not specify the updated ref")
+		return errors.New("git hook payload does not specify the updated ref")
 	} else if payload.After == "" {
-		return fmt.Errorf("git hook payload does not specify the commit SHA")
+		return errors.New("git hook payload does not specify the commit SHA")
 	}
 
 	// Clone checks out a reference, not a SHA. Github does not support fetching
@@ -656,7 +652,7 @@ func (d *driver) downloadGitData(scratchPath string, input *common.Input) error 
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("error fetching repo %v with ref %v from URL %v: %v", input.Name, payload.Ref, remoteURL, err)
+		return errors.Wrapf(err, "error fetching repo %v with ref %v from URL %v", input.Name, payload.Ref, remoteURL)
 	}
 
 	wt, err := gitRepo.Worktree()
@@ -667,16 +663,16 @@ func (d *driver) downloadGitData(scratchPath string, input *common.Input) error 
 	sha := payload.After
 	err = wt.Checkout(&git.CheckoutOptions{Hash: gitPlumbing.NewHash(sha)})
 	if err != nil {
-		return fmt.Errorf("error checking out SHA %v for repo %v: %v", sha, input.Name, err)
+		return errors.Wrapf(err, "error checking out SHA %v for repo %v", sha, input.Name)
 	}
 
 	// go-git will silently fail to checkout an invalid SHA and leave the HEAD at
 	// the selected ref. Verify that we are now on the correct SHA
 	rev, err := gitRepo.ResolveRevision("HEAD")
 	if err != nil {
-		return fmt.Errorf("failed to inspect HEAD SHA for repo %v: %v", input.Name, err)
+		return errors.Wrapf(err, "failed to inspect HEAD SHA for repo %v", input.Name)
 	} else if rev.String() != sha {
-		return fmt.Errorf("could not find SHA %v for repo %v", sha, input.Name)
+		return errors.Errorf("could not find SHA %v for repo %v", sha, input.Name)
 	}
 
 	return nil
@@ -711,7 +707,7 @@ func (d *driver) RunUserCode(
 	}
 
 	if len(d.pipelineInfo.Transform.Cmd) == 0 {
-		return fmt.Errorf("invalid pipeline transform, no command specified")
+		return errors.New("invalid pipeline transform, no command specified")
 	}
 
 	// Run user code
@@ -728,13 +724,13 @@ func (d *driver) RunUserCode(
 	cmd.Dir = filepath.Join(d.rootDir, d.pipelineInfo.Transform.WorkingDir)
 	err := cmd.Start()
 	if err != nil {
-		return fmt.Errorf("error cmd.Start: %v", err)
+		return errors.Wrap(err, "cmd.Start")
 	}
 	// A context with a deadline will successfully cancel/kill
 	// the running process (minus zombies)
 	state, err := cmd.Process.Wait()
 	if err != nil {
-		return fmt.Errorf("error cmd.Wait: %v", err)
+		return errors.Wrap(err, "cmd.Wait")
 	}
 	if common.IsDone(ctx) {
 		if err = ctx.Err(); err != nil {
@@ -763,7 +759,7 @@ func (d *driver) RunUserCode(
 				}
 			}
 		}
-		return fmt.Errorf("error cmd.WaitIO: %v", err)
+		return errors.Wrap(err, "cmd.WaitIO")
 	}
 	return nil
 }
@@ -793,13 +789,13 @@ func (d *driver) RunUserErrorHandlingCode(logger logs.TaggedLogger, environ []st
 	cmd.Dir = d.pipelineInfo.Transform.WorkingDir
 	err := cmd.Start()
 	if err != nil {
-		return fmt.Errorf("error cmd.Start: %v", err)
+		return errors.Wrap(err, "cmd.Start")
 	}
 	// A context w a deadline will successfully cancel/kill
 	// the running process (minus zombies)
 	state, err := cmd.Process.Wait()
 	if err != nil {
-		return fmt.Errorf("error cmd.Wait: %v", err)
+		return errors.Wrap(err, "cmd.Wait")
 	}
 	if common.IsDone(ctx) {
 		if err = ctx.Err(); err != nil {
@@ -827,7 +823,7 @@ func (d *driver) RunUserErrorHandlingCode(logger logs.TaggedLogger, environ []st
 				}
 			}
 		}
-		return fmt.Errorf("error cmd.WaitIO: %v", err)
+		return errors.Wrap(err, "cmd.WaitIO")
 	}
 	return nil
 }
@@ -991,7 +987,7 @@ func (d *driver) reportDownloadTimeStats(
 func (d *driver) unlinkData(inputs []*common.Input) error {
 	entries, err := ioutil.ReadDir(d.InputDir())
 	if err != nil {
-		return fmt.Errorf("ioutil.ReadDir: %v", err)
+		return errors.Wrap(err, "ioutil.ReadDir")
 	}
 	for _, entry := range entries {
 		if entry.Name() == client.PPSScratchSpace {
@@ -1045,7 +1041,7 @@ func (d *driver) UploadOutput(
 			return err
 		}
 		if !utf8.ValidString(filePath) {
-			return fmt.Errorf("file path is not valid utf-8: %s", filePath)
+			return errors.Errorf("file path is not valid utf-8: %s", filePath)
 		}
 		if filePath == outputPath {
 			tree = hashtree.NewOrdered("/")
@@ -1153,7 +1149,7 @@ func (d *driver) UploadOutput(
 					return nil
 				}
 			}
-			return fmt.Errorf("os.Open(%s): %v", filePath, err)
+			return errors.Wrapf(err, "os.Open(%s)", filePath)
 		}
 		defer func() {
 			if err := f.Close(); err != nil && retErr == nil {
@@ -1199,7 +1195,7 @@ func (d *driver) UploadOutput(
 		stats.UploadBytes += uint64(size)
 		return nil
 	}); err != nil {
-		return nil, fmt.Errorf("error walking output: %v", err)
+		return nil, errors.Wrap(err, "error walking output")
 	}
 	if _, err := putObjsClient.CloseAndRecv(); err != nil && err != io.EOF {
 		return nil, err

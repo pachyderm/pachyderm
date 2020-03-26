@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
@@ -456,7 +457,7 @@ func (reg *registry) sendDatumTasks(ctx context.Context, pj *pendingJob, numDatu
 	for i := uint64(0); i < numDatums; i++ {
 		inputs := pj.jdit.NextDatum()
 		if inputs == nil {
-			return fmt.Errorf("job datum iterator returned nil inputs")
+			return errors.New("job datum iterator returned nil inputs")
 		}
 
 		datums = append(datums, &DatumInputs{Inputs: inputs})
@@ -594,7 +595,7 @@ func (reg *registry) ensureJob(
 		return nil, err
 	}
 	if len(jobInfos) > 1 {
-		return nil, fmt.Errorf("multiple jobs found for commit: %s/%s", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
+		return nil, errors.Errorf("multiple jobs found for commit: %s/%s", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
 	} else if len(jobInfos) < 1 {
 		job, err := pachClient.CreateJob(reg.driver.PipelineInfo().Pipeline.Name, commitInfo.Commit, metaCommit)
 		if err != nil {
@@ -652,11 +653,11 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit
 		pj.ji.State = pps.JobState_JOB_KILLED
 		pj.ji.Reason = "pipeline has been updated"
 		if err := pj.writeJobInfo(); err != nil {
-			return fmt.Errorf("failed to kill stale job: %v", err)
+			return errors.Wrap(err, "failed to kill stale job")
 		}
 		return nil
 	case jobInfo.PipelineVersion > reg.driver.PipelineInfo().Version:
-		return fmt.Errorf("job %s's version (%d) greater than pipeline's "+
+		return errors.Errorf("job %s's version (%d) greater than pipeline's "+
 			"version (%d), this should automatically resolve when the worker "+
 			"is updated", jobInfo.Job.ID, jobInfo.PipelineVersion, reg.driver.PipelineInfo().Version)
 	}
@@ -711,8 +712,7 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit
 	}()
 
 	// This runs the callback asynchronously
-	task := &work.Task{ID: uuid.New()}
-	return reg.taskQueue.RunTask(pj.driver.PachClient().Ctx(), task, func(master *work.Master) {
+	return reg.taskQueue.RunTask(pj.driver.PachClient().Ctx(), func(master *work.Master) {
 		defer reg.limiter.Release()
 		defer pj.cancel()
 		pj.taskMaster = master
@@ -790,7 +790,7 @@ func (reg *registry) processJob(pj *pendingJob) error {
 		pj.cancel()
 		return errutil.ErrBreak
 	case state == pps.JobState_JOB_STARTING:
-		return fmt.Errorf("job should have been moved out of the STARTING state before processJob")
+		return errors.New("job should have been moved out of the STARTING state before processJob")
 	case state == pps.JobState_JOB_RUNNING:
 		return pj.logger.LogStep("processing job datums", func() error {
 			return reg.processJobRunning(pj)
@@ -805,7 +805,7 @@ func (reg *registry) processJob(pj *pendingJob) error {
 		})
 	}
 	pj.cancel()
-	return fmt.Errorf("unknown job state: %v", state)
+	return errors.Errorf("unknown job state: %v", state)
 }
 
 func (reg *registry) processJobStarting(pj *pendingJob) error {
@@ -831,7 +831,7 @@ func (reg *registry) processJobStarting(pj *pendingJob) error {
 			pj.commitInfo.Commit.ID,
 			"/",
 		); err != nil {
-			return fmt.Errorf("couldn't prepare output commit for S3-out job: %v", err)
+			return errors.Wrap(err, "couldn't prepare output commit for S3-out job")
 		}
 	}
 
@@ -887,7 +887,7 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 				subtasks,
 				func(ctx context.Context, taskInfo *work.TaskInfo) error {
 					if taskInfo.State == work.State_FAILURE {
-						return fmt.Errorf("datum task failed: %s", taskInfo.Reason)
+						return errors.Errorf("datum task failed: %s", taskInfo.Reason)
 					}
 
 					data, err := deserializeDatumData(taskInfo.Task.Data)
@@ -901,7 +901,7 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 
 					mergeStats(stats, data.Stats)
 					if stats.DatumsFailed > 0 {
-						return fmt.Errorf("datum processing failed on datum (%s)", stats.FailedDatumID)
+						return errors.Errorf("datum processing failed on datum (%s)", stats.FailedDatumID)
 					}
 
 					if data.Hashtree != nil {
@@ -923,7 +923,7 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 		if stats.FailedDatumID != "" {
 			return reg.failJob(pj, "datum failed")
 		}
-		return fmt.Errorf("process datum error: %v", err)
+		return errors.Wrap(err, "process datum error")
 	}
 
 	// S3Out pipelines don't use hashtrees, so skip over the MERGING state - this
@@ -1075,7 +1075,7 @@ func (reg *registry) processJobMerging(pj *pendingJob) error {
 		if parentCommitInfo != nil {
 			parentHashtrees = parentCommitInfo.Trees
 			if len(parentHashtrees) != int(reg.driver.NumShards()) {
-				return fmt.Errorf("unexpected number of hashtrees between the parent commit (%d) and the pipeline spec (%d)", len(parentHashtrees), reg.driver.NumShards())
+				return errors.Errorf("unexpected number of hashtrees between the parent commit (%d) and the pipeline spec (%d)", len(parentHashtrees), reg.driver.NumShards())
 			}
 		}
 	}
@@ -1096,7 +1096,7 @@ func (reg *registry) processJobMerging(pj *pendingJob) error {
 
 		data, err := serializeMergeData(mergeData)
 		if err != nil {
-			return fmt.Errorf("failed to serialize merge data: %v", err)
+			return errors.Wrap(err, "failed to serialize merge data")
 		}
 
 		mergeSubtasks = append(mergeSubtasks, &work.Task{
@@ -1115,7 +1115,7 @@ func (reg *registry) processJobMerging(pj *pendingJob) error {
 		mergeSubtasks,
 		func(ctx context.Context, taskInfo *work.TaskInfo) error {
 			if taskInfo.State == work.State_FAILURE {
-				return fmt.Errorf("merge task failed: %s", taskInfo.Reason)
+				return errors.Errorf("merge task failed: %s", taskInfo.Reason)
 			}
 
 			data, err := deserializeMergeData(taskInfo.Task.Data)
@@ -1124,7 +1124,7 @@ func (reg *registry) processJobMerging(pj *pendingJob) error {
 			}
 
 			if data.Tree == nil {
-				return fmt.Errorf("merge task for shard %d failed, no tree returned", data.Shard)
+				return errors.Errorf("merge task for shard %d failed, no tree returned", data.Shard)
 			}
 
 			trees[data.Shard] = data.Tree
@@ -1133,7 +1133,7 @@ func (reg *registry) processJobMerging(pj *pendingJob) error {
 		},
 	); err != nil {
 		// TODO: persist error to job?
-		return fmt.Errorf("merge error: %v", err)
+		return errors.Wrap(err, "merge error")
 	}
 
 	if err := reg.succeedJob(pj, trees, size, []*pfs.Object{}, 0); err != nil {
@@ -1193,8 +1193,8 @@ func failedInputs(pachClient *client.APIClient, jobInfo *pps.JobInfo) ([]string,
 			})
 		if err != nil {
 			if vistErr == nil {
-				vistErr = fmt.Errorf("error blocking on commit %s/%s: %v",
-					commit.Repo.Name, commit.ID, err)
+				vistErr = errors.Wrapf(err, "error blocking on commit %s/%s",
+					commit.Repo.Name, commit.ID)
 			}
 			return
 		}

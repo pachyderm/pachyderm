@@ -21,6 +21,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testpachd"
@@ -421,7 +422,7 @@ func TestWithDataCancel(t *testing.T) {
 			env.MockPachd.PFS.WalkFile.Use(func(req *pfs.WalkFileRequest, serv pfs.API_WalkFileServer) error {
 				cancel()
 				<-serv.Context().Done()
-				return fmt.Errorf("WalkFile canceled")
+				return errors.Errorf("WalkFile canceled")
 			})
 
 			_, err := driver.WithData(
