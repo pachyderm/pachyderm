@@ -105,8 +105,8 @@ func kubectlCreate(dryRun bool, manifest []byte, opts *assets.AssetOpts) error {
 // was found, default values are returned instead.
 func findEquivalentContext(cfg *config.Config, to *config.Context) (string, *config.Context) {
 	// first check the active context
-	activeContextName, activeContext, _ := cfg.ActiveContext()
-	if to.EqualClusterReference(activeContext) {
+	activeContextName, activeContext, _ := cfg.ActiveContext(false)
+	if activeContextName != "" && to.EqualClusterReference(activeContext) {
 		return activeContextName, activeContext
 	}
 
@@ -904,7 +904,7 @@ func deployCmds() []*cobra.Command {
 			if err != nil {
 				return err
 			}
-			_, activeContext, err := cfg.ActiveContext()
+			_, activeContext, err := cfg.ActiveContext(true)
 			if err != nil {
 				return err
 			}
@@ -1050,7 +1050,7 @@ underlying volume will not be removed.
 			if err != nil {
 				return err
 			}
-			_, activeContext, err := cfg.ActiveContext()
+			_, activeContext, err := cfg.ActiveContext(false)
 			if err != nil {
 				return err
 			}
@@ -1091,17 +1091,19 @@ underlying volume will not be removed.
 
 			if all {
 				// remove jupyterhub
-				if err = helm.Destroy(activeContext, "jhub", namespace); err != nil {
-					log.Errorf("failed to delete helm installation: %v", err)
-				}
-				jhubAssets := []string{
-					"replicaset",
-					"deployment",
-					"service",
-					"pod",
-				}
-				if err = cmdutil.RunIO(io, "kubectl", "delete", strings.Join(jhubAssets, ","), "-l", "app=jupyterhub", "--namespace", namespace); err != nil {
-					return err
+				if activeContext != nil {
+					if err = helm.Destroy(activeContext, "jhub", namespace); err != nil {
+						log.Errorf("failed to delete helm installation: %v", err)
+					}
+					jhubAssets := []string{
+						"replicaset",
+						"deployment",
+						"service",
+						"pod",
+					}
+					if err = cmdutil.RunIO(io, "kubectl", "delete", strings.Join(jhubAssets, ","), "-l", "app=jupyterhub", "--namespace", namespace); err != nil {
+						return err
+					}
 				}
 
 				// remove the context from the config

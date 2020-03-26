@@ -538,7 +538,7 @@ This resets the cluster to its initial state.`,
 			if err != nil {
 				return err
 			}
-			contextName, context, err := cfg.ActiveContext()
+			contextName, context, err := cfg.ActiveContext(true)
 			if err != nil {
 				return err
 			}
