@@ -7,6 +7,8 @@ import (
 	"helm.sh/helm/v3/pkg/action"
 )
 
+// Destroy uninstalls a helm chart. Note that it does not remove the
+// kubernetes resources.
 func Destroy(context *config.Context, installName, overrideNamespace string) error {
 	_, actionConfig, err := configureHelm(context, overrideNamespace)
 
