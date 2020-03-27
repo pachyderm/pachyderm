@@ -20,8 +20,17 @@ NEWLINE_SEPARATE_OBJECTS_PATTERN = re.compile(r"\}\n+\{", re.MULTILINE)
 
 GCP_KUBE_CONTEXT_NAME_PATTERN = re.compile(r"gke_([^_]+)_(.+)")
 
-# Resources to delete on reset, that aren't deleted by `pachctl undeploy`
+# Resources to delete on reset
 DELETABLE_RESOURCES = [
+    "replicasets",
+    "services",
+    "deployments",
+    "pods",
+    "rc",
+    "serviceaccounts",
+    "secrets",
+    "clusterrole",
+    "clusterrolebinding",
     "roles.rbac.authorization.k8s.io",
     "rolebindings.rbac.authorization.k8s.io",
 ]
@@ -56,10 +65,14 @@ def join(*targets):
 
 class BaseDriver:
     def clear(self):
-        join(
-            lambda: run("pachctl", "undeploy", "--metadata", "--jupyterhub", stdin="y\n"),
-            lambda: run("kubectl", "delete", ",".join(DELETABLE_RESOURCES), "-l", "suite=pachyderm"),
-        )
+        # ignore errors here because most likely no cluster is just deployed
+        # yet
+        try:
+            run("pachctl", "undeploy", "--metadata", "--jupyterhub", stdin="y\n")
+        except:
+            pass
+
+        run("kubectl", "delete", ",".join(DELETABLE_RESOURCES), "-l", "suite=pachyderm")
 
     def start(self):
         pass
