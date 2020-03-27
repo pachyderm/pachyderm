@@ -1668,7 +1668,7 @@ func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo 
 			}
 		}
 		if pipelineInfo.Input != nil {
-			return errors.Errorf("spout pipelines must not have an input")
+			return fmt.Errorf("spout pipelines must not have an input")
 		}
 	}
 	return nil
