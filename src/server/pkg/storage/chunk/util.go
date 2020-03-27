@@ -2,6 +2,7 @@ package chunk
 
 import (
 	"bytes"
+	"context"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/gc"
 )
 
 const (
@@ -18,11 +20,35 @@ const (
 	MB = 1024 * KB
 )
 
+type deleter struct {
+	objC obj.Client
+}
+
+func (d *deleter) Delete(ctx context.Context, chunks []string) error {
+	for _, chunk := range chunks {
+		if err := d.objC.Delete(ctx, path.Join(prefix, chunk)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// (bryce) this needs to be refactored a bit with the obj package.
+func NewLocalStorage(objC obj.Client, opts ...StorageOption) (*Storage, error) {
+	gcC, err := gc.NewLocalServer(&deleter{objC: objC})
+	if err != nil {
+		return nil, err
+	}
+	return NewStorage(objC, gcC, opts...), nil
+}
+
 // WithLocalStorage constructs a local storage instance for testing during the lifetime of
 // the callback.
 func WithLocalStorage(f func(objC obj.Client, chunks *Storage) error) error {
 	return WithLocalClient(func(objC obj.Client) error {
-		return f(objC, NewStorage(objC))
+		return gc.WithLocalServer(&deleter{objC: objC}, func(gcC gc.Client) error {
+			return f(objC, NewStorage(objC, gcC))
+		})
 	})
 
 }

@@ -9,20 +9,19 @@ import (
 	"time"
 
 	"github.com/jinzhu/gorm"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 // Server is the interface that the garbage collector service provides to clients
 type Server interface {
-	DeleteChunks(context.Context, []chunk.Chunk) error
-	FlushDeletes(context.Context, []chunk.Chunk) error
+	DeleteChunks(context.Context, []string) error
+	FlushDeletes(context.Context, []string) error
 }
 
 // Deleter is an interface that must be provided when creating the garbage
 // collector server, it handles removing chunks from the backing object storage.
 type Deleter interface {
-	Delete(context.Context, []chunk.Chunk) error
+	Delete(context.Context, []string) error
 }
 
 // wraps a sync.Cond as a one-time event trigger
@@ -97,10 +96,10 @@ func MakeServer(
 	}, nil
 }
 
-func (si *serverImpl) markChunksDeleting(ctx context.Context, chunks []chunk.Chunk) ([]chunk.Chunk, error) {
+func (si *serverImpl) markChunksDeleting(ctx context.Context, chunks []string) ([]string, error) {
 	chunkIDs := []string{}
 	for _, chunk := range chunks {
-		chunkIDs = append(chunkIDs, chunk.Hash)
+		chunkIDs = append(chunkIDs, chunk)
 	}
 	sort.Strings(chunkIDs)
 
@@ -122,10 +121,10 @@ returning chunk`, chunkIDs, refQuery).Scan(&result)
 	return convertChunks(result), nil
 }
 
-func (si *serverImpl) removeChunkRows(ctx context.Context, chunks []chunk.Chunk) ([]chunk.Chunk, error) {
+func (si *serverImpl) removeChunkRows(ctx context.Context, chunks []string) ([]string, error) {
 	chunkIDs := []string{}
 	for _, chunk := range chunks {
-		chunkIDs = append(chunkIDs, chunk.Hash)
+		chunkIDs = append(chunkIDs, chunk)
 	}
 	sort.Strings(chunkIDs)
 
@@ -170,25 +169,25 @@ func retry(name string, maxAttempts int, fn func() error) {
 	panic(fmt.Sprintf("'%s' failed %d times, latest error: %v", name, maxAttempts, err))
 }
 
-func (si *serverImpl) DeleteChunks(ctx context.Context, chunks []chunk.Chunk) (retErr error) {
+func (si *serverImpl) DeleteChunks(ctx context.Context, chunks []string) (retErr error) {
 	defer func(start time.Time) { applyRequestStats("DeleteChunks", retErr, start) }(time.Now())
 	chunkIDs := []string{}
 	for _, c := range chunks {
-		chunkIDs = append(chunkIDs, c.Hash)
+		chunkIDs = append(chunkIDs, c)
 	}
 	fmt.Printf("DeleteChunks: %v\n", strings.Join(chunkIDs, ", "))
 
 	trigger := newTrigger()
 
 	// Check if we have outstanding deletes for these chunks and save the trigger
-	candidates := func() []chunk.Chunk {
+	candidates := func() []string {
 		si.mutex.Lock()
 		defer si.mutex.Unlock()
 
-		result := []chunk.Chunk{}
+		result := []string{}
 		for _, c := range chunks {
-			if _, ok := si.deleting[c.Hash]; !ok {
-				si.deleting[c.Hash] = trigger
+			if _, ok := si.deleting[c]; !ok {
+				si.deleting[c] = trigger
 				result = append(result, c)
 			}
 		}
@@ -202,7 +201,7 @@ func (si *serverImpl) DeleteChunks(ctx context.Context, chunks []chunk.Chunk) (r
 	// Spawn goroutine to do all the remote calls async
 	go func() {
 		// set the chunks as deleting
-		toDelete := []chunk.Chunk{}
+		toDelete := []string{}
 		retry("markChunksDeleting", 10, func() (retErr error) {
 			var err error
 			toDelete, err = si.markChunksDeleting(context.Background(), candidates)
@@ -215,14 +214,14 @@ func (si *serverImpl) DeleteChunks(ctx context.Context, chunks []chunk.Chunk) (r
 				defer func(start time.Time) { applyDeleteStats(retErr, start) }(time.Now())
 				chunkIDs := []string{}
 				for _, c := range toDelete {
-					chunkIDs = append(chunkIDs, c.Hash)
+					chunkIDs = append(chunkIDs, c)
 				}
 				fmt.Printf("deleting chunks: %v\n", strings.Join(chunkIDs, ", "))
 				return si.deleter.Delete(context.Background(), toDelete)
 			})
 
 			// delete the rows from the db
-			transitiveDeletes := []chunk.Chunk{}
+			transitiveDeletes := []string{}
 			retry("removeChunkRows", 10, func() (retErr error) {
 				var err error
 				transitiveDeletes, err = si.removeChunkRows(context.Background(), toDelete)
@@ -239,7 +238,7 @@ func (si *serverImpl) DeleteChunks(ctx context.Context, chunks []chunk.Chunk) (r
 			si.mutex.Lock()
 			defer si.mutex.Unlock()
 			for _, c := range candidates {
-				delete(si.deleting, c.Hash)
+				delete(si.deleting, c)
 			}
 		}()
 
@@ -249,7 +248,7 @@ func (si *serverImpl) DeleteChunks(ctx context.Context, chunks []chunk.Chunk) (r
 	return nil
 }
 
-func (si *serverImpl) FlushDeletes(ctx context.Context, chunks []chunk.Chunk) (retErr error) {
+func (si *serverImpl) FlushDeletes(ctx context.Context, chunks []string) (retErr error) {
 	defer func(start time.Time) { applyRequestStats("FlushDeletes", retErr, start) }(time.Now())
 
 	triggers := func() []*trigger {
@@ -258,7 +257,7 @@ func (si *serverImpl) FlushDeletes(ctx context.Context, chunks []chunk.Chunk) (r
 
 		res := []*trigger{}
 		for _, chunk := range chunks {
-			trigger := si.deleting[chunk.Hash]
+			trigger := si.deleting[chunk]
 			if trigger != nil {
 				res = append(res, trigger)
 			}

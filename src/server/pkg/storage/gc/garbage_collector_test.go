@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
@@ -62,7 +61,7 @@ func printState(t *testing.T, client *clientImpl) {
 // Dummy deleter object for testing, so we don't need an object storage
 type testDeleter struct{}
 
-func (td *testDeleter) Delete(ctx context.Context, chunks []chunk.Chunk) error {
+func (td *testDeleter) Delete(ctx context.Context, chunks []string) error {
 	return nil
 }
 
@@ -134,10 +133,10 @@ func makeJobs(count int) []string {
 	return result
 }
 
-func makeChunks(count int) []chunk.Chunk {
-	result := []chunk.Chunk{}
+func makeChunks(count int) []string {
+	result := []string{}
 	for i := 0; i < count; i++ {
-		result = append(result, chunk.Chunk{Hash: testutil.UniqueString(fmt.Sprintf("chunk-%d-", i))})
+		result = append(result, testutil.UniqueString(fmt.Sprintf("chunk-%d-", i)))
 	}
 	return result
 }
@@ -162,17 +161,17 @@ func TestReserveChunks(t *testing.T) {
 	require.NoError(t, client.ReserveChunks(ctx, jobs[2], chunks))
 
 	expectedChunkRows := []chunkModel{
-		{chunks[0].Hash, nil},
-		{chunks[1].Hash, nil},
-		{chunks[2].Hash, nil},
+		{chunks[0], nil},
+		{chunks[1], nil},
+		{chunks[2], nil},
 	}
 	require.ElementsEqual(t, expectedChunkRows, allChunks(t, client))
 
 	expectedRefRows := []refModel{
-		{"job", jobs[1], chunks[0].Hash},
-		{"job", jobs[2], chunks[0].Hash},
-		{"job", jobs[2], chunks[1].Hash},
-		{"job", jobs[2], chunks[2].Hash},
+		{"job", jobs[1], chunks[0]},
+		{"job", jobs[2], chunks[0]},
+		{"job", jobs[2], chunks[1]},
+		{"job", jobs[2], chunks[2]},
 	}
 	require.ElementsEqual(t, expectedRefRows, allRefs(t, client))
 }
@@ -190,27 +189,27 @@ func TestUpdateReferences(t *testing.T) {
 	// Currently, no links between chunks:
 	// 0 1 2 3 4
 	expectedChunkRows := []chunkModel{
-		{chunks[0].Hash, nil},
-		{chunks[1].Hash, nil},
-		{chunks[2].Hash, nil},
-		{chunks[3].Hash, nil},
-		{chunks[4].Hash, nil},
+		{chunks[0], nil},
+		{chunks[1], nil},
+		{chunks[2], nil},
+		{chunks[3], nil},
+		{chunks[4], nil},
 	}
 	require.ElementsEqual(t, expectedChunkRows, allChunks(t, client))
 
 	expectedRefRows := []refModel{
-		{"job", jobs[0], chunks[0].Hash},
-		{"job", jobs[0], chunks[1].Hash},
-		{"job", jobs[0], chunks[2].Hash},
-		{"job", jobs[1], chunks[2].Hash},
-		{"job", jobs[1], chunks[3].Hash},
-		{"job", jobs[2], chunks[4].Hash},
+		{"job", jobs[0], chunks[0]},
+		{"job", jobs[0], chunks[1]},
+		{"job", jobs[0], chunks[2]},
+		{"job", jobs[1], chunks[2]},
+		{"job", jobs[1], chunks[3]},
+		{"job", jobs[2], chunks[4]},
 	}
 	require.ElementsEqual(t, expectedRefRows, allRefs(t, client))
 
 	require.NoError(t, client.UpdateReferences(
 		ctx,
-		[]Reference{{"chunk", chunks[4].Hash, chunks[0]}},
+		[]Reference{{"chunk", chunks[4], chunks[0]}},
 		[]Reference{},
 		jobs[0],
 	))
@@ -221,18 +220,18 @@ func TestUpdateReferences(t *testing.T) {
 	// |
 	// 0
 	expectedChunkRows = []chunkModel{
-		{chunks[0].Hash, nil},
-		{chunks[2].Hash, nil},
-		{chunks[3].Hash, nil},
-		{chunks[4].Hash, nil},
+		{chunks[0], nil},
+		{chunks[2], nil},
+		{chunks[3], nil},
+		{chunks[4], nil},
 	}
 	require.ElementsEqual(t, expectedChunkRows, allChunks(t, client))
 
 	expectedRefRows = []refModel{
-		{"job", jobs[1], chunks[2].Hash},
-		{"job", jobs[1], chunks[3].Hash},
-		{"job", jobs[2], chunks[4].Hash},
-		{"chunk", chunks[4].Hash, chunks[0].Hash},
+		{"job", jobs[1], chunks[2]},
+		{"job", jobs[1], chunks[3]},
+		{"job", jobs[2], chunks[4]},
+		{"chunk", chunks[4], chunks[0]},
 	}
 	require.ElementsEqual(t, expectedRefRows, allRefs(t, client))
 
@@ -241,7 +240,7 @@ func TestUpdateReferences(t *testing.T) {
 		[]Reference{
 			{"semantic", "semantic-3", chunks[3]},
 			{"semantic", "semantic-2", chunks[2]},
-			{"chunk", chunks[2].Hash, chunks[3]},
+			{"chunk", chunks[2], chunks[3]},
 		},
 		[]Reference{},
 		jobs[1],
@@ -258,26 +257,26 @@ func TestUpdateReferences(t *testing.T) {
 	// |
 	// 0
 	expectedChunkRows = []chunkModel{
-		{chunks[0].Hash, nil},
-		{chunks[2].Hash, nil},
-		{chunks[3].Hash, nil},
-		{chunks[4].Hash, nil},
+		{chunks[0], nil},
+		{chunks[2], nil},
+		{chunks[3], nil},
+		{chunks[4], nil},
 	}
 	require.ElementsEqual(t, expectedChunkRows, allChunks(t, client))
 
 	expectedRefRows = []refModel{
-		{"job", jobs[2], chunks[4].Hash},
-		{"chunk", chunks[4].Hash, chunks[0].Hash},
-		{"semantic", "semantic-2", chunks[2].Hash},
-		{"semantic", "semantic-3", chunks[3].Hash},
-		{"chunk", chunks[2].Hash, chunks[3].Hash},
+		{"job", jobs[2], chunks[4]},
+		{"chunk", chunks[4], chunks[0]},
+		{"semantic", "semantic-2", chunks[2]},
+		{"semantic", "semantic-3", chunks[3]},
+		{"chunk", chunks[2], chunks[3]},
 	}
 	require.ElementsEqual(t, expectedRefRows, allRefs(t, client))
 
 	require.NoError(t, client.UpdateReferences(
 		ctx,
-		[]Reference{{"chunk", chunks[4].Hash, chunks[2]}},
-		[]Reference{{"semantic", "semantic-3", chunks[3]}, {"chunk", chunks[2].Hash, chunks[3]}},
+		[]Reference{{"chunk", chunks[4], chunks[2]}},
+		[]Reference{{"semantic", "semantic-3", chunks[3]}, {"chunk", chunks[2], chunks[3]}},
 		jobs[2],
 	))
 	flushAllDeletes(client.server)
@@ -287,12 +286,12 @@ func TestUpdateReferences(t *testing.T) {
 	// Chunk 0 should be cleaned up later once chunk 4 has been removed
 	// 2 <- referenced semantically
 	expectedChunkRows = []chunkModel{
-		{chunks[2].Hash, nil},
+		{chunks[2], nil},
 	}
 	require.ElementsEqual(t, expectedChunkRows, allChunks(t, client))
 
 	expectedRefRows = []refModel{
-		{"semantic", "semantic-2", chunks[2].Hash},
+		{"semantic", "semantic-2", chunks[2]},
 	}
 	require.ElementsEqual(t, expectedRefRows, allRefs(t, client))
 }
@@ -302,12 +301,12 @@ type fuzzDeleter struct {
 	users map[string]int
 }
 
-func (fd *fuzzDeleter) forEach(chunks []chunk.Chunk, cb func(string) error) error {
+func (fd *fuzzDeleter) forEach(chunks []string, cb func(string) error) error {
 	fd.mutex.Lock()
 	defer fd.mutex.Unlock()
 
 	for _, chunk := range chunks {
-		if err := cb(chunk.Hash); err != nil {
+		if err := cb(chunk); err != nil {
 			return err
 		}
 	}
@@ -316,7 +315,7 @@ func (fd *fuzzDeleter) forEach(chunks []chunk.Chunk, cb func(string) error) erro
 
 // Delete will make sure that only one thing tries to delete or use the chunk
 // at one time.
-func (fd *fuzzDeleter) Delete(ctx context.Context, chunks []chunk.Chunk) error {
+func (fd *fuzzDeleter) Delete(ctx context.Context, chunks []string) error {
 	err := fd.forEach(chunks, func(hash string) error {
 		if fd.users[hash] != 0 {
 			return fmt.Errorf("Failed to delete chunk (%s), already in use: %d", hash, fd.users[hash])
@@ -341,7 +340,7 @@ func (fd *fuzzDeleter) Delete(ctx context.Context, chunks []chunk.Chunk) error {
 }
 
 // updating will make sure the chunks are not deleted during the call to cb
-func (fd *fuzzDeleter) updating(chunks []chunk.Chunk) error {
+func (fd *fuzzDeleter) updating(chunks []string) error {
 	err := fd.forEach(chunks, func(hash string) error {
 		if fd.users[hash] == -1 {
 			return fmt.Errorf("Failed to use chunk, currently being deleted")
@@ -391,14 +390,14 @@ func TestFuzz(t *testing.T) {
 		// Make a list of chunks we'll be referencing and reserve them
 		chunkMap := make(map[string]bool)
 		for _, item := range job.add {
-			chunkMap[item.Chunk.Hash] = true
+			chunkMap[item.Chunk] = true
 			if item.Sourcetype == "chunk" {
 				chunkMap[item.Source] = true
 			}
 		}
-		reservedChunks := []chunk.Chunk{}
+		reservedChunks := []string{}
 		for hash := range chunkMap {
-			reservedChunks = append(reservedChunks, chunk.Chunk{Hash: hash})
+			reservedChunks = append(reservedChunks, hash)
 		}
 
 		if err := client.ReserveChunks(ctx, job.id, reservedChunks); err != nil {
@@ -475,13 +474,13 @@ func TestFuzz(t *testing.T) {
 			dest = unusedChunkID(0)
 			ref.Sourcetype = "semantic"
 			ref.Source = testutil.UniqueString("semantic-")
-			ref.Chunk = chunk.Chunk{Hash: fmt.Sprintf("%d", dest)}
+			ref.Chunk = fmt.Sprintf("%d", dest)
 		} else if roll > 0.6 {
 			// Add a semantic reference to an existing chunk
 			dest = usedChunkID(0)
 			ref.Sourcetype = "semantic"
 			ref.Source = testutil.UniqueString("semantic-")
-			ref.Chunk = chunk.Chunk{Hash: fmt.Sprintf("%d", dest)}
+			ref.Chunk = fmt.Sprintf("%d", dest)
 		} else {
 			source := usedChunkID(0)
 			ref.Sourcetype = "chunk"
@@ -489,14 +488,14 @@ func TestFuzz(t *testing.T) {
 			if roll > 0.5 {
 				// Add a cross-chunk reference to a new chunk
 				dest = unusedChunkID(source + 1)
-				ref.Chunk = chunk.Chunk{Hash: fmt.Sprintf("%d", dest)}
+				ref.Chunk = fmt.Sprintf("%d", dest)
 			} else {
 				// Add a cross-chunk reference to an existing chunk
 				dest = usedChunkID(source + 1)
 				if dest == 0 {
 					dest = unusedChunkID(source + 1)
 				}
-				ref.Chunk = chunk.Chunk{Hash: fmt.Sprintf("%d", dest)}
+				ref.Chunk = fmt.Sprintf("%d", dest)
 			}
 		}
 
@@ -535,7 +534,7 @@ func TestFuzz(t *testing.T) {
 					refs[i] = ref
 					i++
 				} else {
-					fmt.Printf("removing chunk reference: %s/%s:%s\n", ref.Sourcetype, ref.Source, ref.Chunk.Hash)
+					fmt.Printf("removing chunk reference: %s/%s:%s\n", ref.Sourcetype, ref.Source, ref.Chunk)
 				}
 			}
 			refs = refs[:i]

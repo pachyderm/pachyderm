@@ -14,6 +14,7 @@ import (
 	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"modernc.org/mathutil"
 )
 
@@ -88,7 +89,7 @@ func TestCopy(t *testing.T) {
 					}
 					return nil
 				}
-				w := chunks.NewWriter(context.Background(), averageBits, 0, false, f)
+				w := chunks.NewWriter(context.Background(), averageBits, 0, false, uuid.NewWithoutDashes(), f)
 				copyAnnotations(t, chunks, w, as, msg)
 				require.NoError(t, w.Close(), msg)
 				// Check that the annotations were correctly copied.
@@ -113,7 +114,7 @@ func BenchmarkWriter(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			f := func(_ []*Annotation) error { return nil }
-			w := chunks.NewWriter(context.Background(), averageBits, 0, false, f)
+			w := chunks.NewWriter(context.Background(), averageBits, 0, false, uuid.NewWithoutDashes(), f)
 			for i := 0; i < 100; i++ {
 				w.Annotate(&Annotation{
 					NextDataRef: &DataRef{},
@@ -186,7 +187,7 @@ func writeAnnotations(t *testing.T, chunks *Storage, annotations []*testAnnotati
 			}
 			return nil
 		}
-		w := chunks.NewWriter(context.Background(), averageBits, 0, false, f)
+		w := chunks.NewWriter(context.Background(), averageBits, 0, false, uuid.NewWithoutDashes(), f)
 		for _, a := range annotations {
 			w.Annotate(&Annotation{
 				NextDataRef: &DataRef{},

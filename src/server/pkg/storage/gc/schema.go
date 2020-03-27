@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/jinzhu/gorm"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 )
 
 var (
@@ -31,10 +30,10 @@ func (*chunkModel) TableName() string {
 	return chunkTable
 }
 
-func convertChunks(chunks []chunkModel) []chunk.Chunk {
-	result := make([]chunk.Chunk, 0, len(chunks))
+func convertChunks(chunks []chunkModel) []string {
+	result := make([]string, 0, len(chunks))
 	for _, c := range chunks {
-		result = append(result, chunk.Chunk{Hash: c.Chunk})
+		result = append(result, c.Chunk)
 	}
 	return result
 }

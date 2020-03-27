@@ -223,8 +223,8 @@ func (s *Storage) Delete(ctx context.Context, fileSet string) error {
 		if err != nil {
 			return err
 		}
-		chunk := w.root.DataOp.DataRefs[0].ChunkInfo.Chunk
-		if err := s.chunks.DeleteSemanticReference(ctx, name, chunk); err != nil {
+		chunk := idx.DataOp.DataRefs[0].ChunkInfo.Chunk
+		if err := s.chunks.DeleteSemanticReference(ctx, name, chunk, ""); err != nil {
 			return err
 		}
 		return s.objC.Delete(ctx, name)

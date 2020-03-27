@@ -80,6 +80,7 @@ func newNextChanSet(c *chanSet) *nextChanSet {
 type worker struct {
 	ctx                  context.Context
 	objC                 obj.Client
+	gcC                  gc.Client
 	hash                 *buzhash64.Buzhash64
 	splitMask            uint64
 	first                bool
@@ -94,6 +95,7 @@ type worker struct {
 	next                 *nextChanSet
 	stats                *stats
 	noUpload             bool
+	tmpID                string
 }
 
 func (w *worker) run(dataSet *dataSet) error {
@@ -242,7 +244,7 @@ func (w *worker) put(edge bool) error {
 	}
 	chunk := &Chunk{Hash: hash.EncodeHash(hash.Sum(chunkBytes))}
 	path := path.Join(prefix, chunk.Hash)
-	if err := w.gcC.ReserveChunks(w.ctx, w.tmpID, []chunk.Chunk{chunk}); err != nil {
+	if err := w.gcC.ReserveChunks(w.ctx, w.tmpID, []string{chunk.Hash}); err != nil {
 		return err
 	}
 	// If the chunk does not exist, upload it.
@@ -260,7 +262,9 @@ func (w *worker) put(edge bool) error {
 		SizeBytes: int64(len(chunkBytes)),
 	}
 	// Update the annotations for the current chunk.
-	w.updateAnnotations(chunkRef)
+	if err := w.updateAnnotations(chunkRef); err != nil {
+		return err
+	}
 	annotations := w.annotations
 	w.fs = append(w.fs, func() error {
 		return w.f(annotations)
@@ -268,15 +272,15 @@ func (w *worker) put(edge bool) error {
 	return nil
 }
 
-func (w *worker) updateAnnotations(chunkRef *DataRef) {
+func (w *worker) updateAnnotations(chunkRef *DataRef) error {
 	var offset int64
-	var refs []*gc.Reference
+	var refs []gc.Reference
 	for _, a := range w.annotations {
 		for _, dataRef := range a.RefDataRefs {
-			refs = append(refs, &gc.Reference{
-				SoureType: "chunk",
-				Source:    chunkRef.ChunkInfo.Hash,
-				Chunk:     dataRef.ChunkInfo.Hash,
+			refs = append(refs, gc.Reference{
+				Sourcetype: "chunk",
+				Source:     chunkRef.ChunkInfo.Chunk.Hash,
+				Chunk:      dataRef.ChunkInfo.Chunk.Hash,
 			})
 		}
 		// (bryce) probably a better way to communicate whether to compute datarefs for an annotation.
@@ -291,7 +295,7 @@ func (w *worker) updateAnnotations(chunkRef *DataRef) {
 		}
 		offset += int64(a.buf.Len())
 	}
-	return w.gcC.UpdateReferences(w.ctx, refs, nil, w.tmpID)
+	return w.gcC.UpdateReferences(w.ctx, refs, nil, "")
 }
 
 func (w *worker) upload(path string, chunk []byte) error {
@@ -433,7 +437,7 @@ type Writer struct {
 	stats          *stats
 }
 
-func newWriter(ctx context.Context, objC obj.Client, averageBits int, f WriterFunc, seed int64, noUpload bool, tmpID string) *Writer {
+func newWriter(ctx context.Context, objC obj.Client, gcC gc.Client, averageBits int, f WriterFunc, seed int64, noUpload bool, tmpID string) *Writer {
 	stats := &stats{}
 	newWorkerFunc := func(ctx context.Context, prev *prevChanSet, next *nextChanSet) *worker {
 		w := &worker{

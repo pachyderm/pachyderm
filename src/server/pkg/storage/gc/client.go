@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/jinzhu/gorm"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -24,7 +23,7 @@ import (
 type Reference struct {
 	Sourcetype string
 	Source     string
-	Chunk      chunk.Chunk
+	Chunk      string
 }
 
 // Client is the interface provided by the garbage collector client, for use on
@@ -37,7 +36,7 @@ type Client interface {
 	// if they don't exist yet.  If one of the specified chunks is currently
 	// being deleted, this call will block while it flushes the deletes through
 	// the garbage collector service running in pachd.
-	ReserveChunks(ctx context.Context, jobID string, chunks []chunk.Chunk) error
+	ReserveChunks(ctx context.Context, jobID string, chunks []string) error
 
 	// UpdateReferences should be run _after_ ReserveChunks, once new chunks have
 	// be written to object storage.  This will add and remove the specified
@@ -89,10 +88,10 @@ func MakeClient(
 	}, nil
 }
 
-func (ci *clientImpl) reserveChunksInDatabase(ctx context.Context, job string, chunks []chunk.Chunk) ([]chunk.Chunk, error) {
+func (ci *clientImpl) reserveChunksInDatabase(ctx context.Context, job string, chunks []string) ([]string, error) {
 	chunkIDs := []string{}
 	for _, chunk := range chunks {
-		chunkIDs = append(chunkIDs, fmt.Sprintf("('%s')", chunk.Hash))
+		chunkIDs = append(chunkIDs, fmt.Sprintf("('%s')", chunk))
 	}
 	sort.Strings(chunkIDs)
 
@@ -129,11 +128,11 @@ select chunk from added_chunks where deleting is not null;
 	return convertChunks(chunksToFlush), nil
 }
 
-func (ci *clientImpl) ReserveChunks(ctx context.Context, job string, chunks []chunk.Chunk) (retErr error) {
+func (ci *clientImpl) ReserveChunks(ctx context.Context, job string, chunks []string) (retErr error) {
 	defer func(startTime time.Time) { applyRequestStats("ReserveChunks", retErr, startTime) }(time.Now())
 	chunkIDs := []string{}
 	for _, c := range chunks {
-		chunkIDs = append(chunkIDs, c.Hash)
+		chunkIDs = append(chunkIDs, c)
 	}
 	fmt.Printf("ReserveChunks (%s): %v\n", job, strings.Join(chunkIDs, ", "))
 	if len(chunks) == 0 {
@@ -161,10 +160,10 @@ func (ci *clientImpl) UpdateReferences(ctx context.Context, add []Reference, rem
 	addStr := []string{}
 	removeStr := []string{}
 	for _, ref := range add {
-		addStr = append(addStr, fmt.Sprintf("%s/%s:%s", ref.Sourcetype, ref.Source, ref.Chunk.Hash))
+		addStr = append(addStr, fmt.Sprintf("%s/%s:%s", ref.Sourcetype, ref.Source, ref.Chunk))
 	}
 	for _, ref := range remove {
-		removeStr = append(removeStr, fmt.Sprintf("%s/%s:%s", ref.Sourcetype, ref.Source, ref.Chunk.Hash))
+		removeStr = append(removeStr, fmt.Sprintf("%s/%s:%s", ref.Sourcetype, ref.Source, ref.Chunk))
 	}
 	fmt.Printf("UpdateReferences (%s):\n", releaseJob)
 	fmt.Printf("  add:\n")
@@ -178,12 +177,12 @@ func (ci *clientImpl) UpdateReferences(ctx context.Context, add []Reference, rem
 
 	removeValues := make([][]interface{}, 0, len(remove))
 	for _, ref := range remove {
-		removeValues = append(removeValues, []interface{}{ref.Sourcetype, ref.Source, ref.Chunk.Hash})
+		removeValues = append(removeValues, []interface{}{ref.Sourcetype, ref.Source, ref.Chunk})
 	}
 
 	addValues := make([][]interface{}, len(add))
 	for _, ref := range add {
-		addValues = append(addValues, []interface{}{ref.Sourcetype, ref.Source, ref.Chunk.Hash})
+		addValues = append(addValues, []interface{}{ref.Sourcetype, ref.Source, ref.Chunk})
 	}
 
 	var chunksToDelete []chunkModel

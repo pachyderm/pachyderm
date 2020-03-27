@@ -8,11 +8,22 @@ import (
 
 	"github.com/jinzhu/gorm"
 	"github.com/lib/pq"
-	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 )
 
-func WithLocalServer(f func(c Client) error) error {
-	s := makeServer()
+func NewLocalServer(deleter Deleter) (Client, error) {
+	server, err := MakeServer(deleter, "localhost", 32228, nil)
+	if err != nil {
+		return nil, err
+	}
+	return MakeClient(server, "localhost", 32228, nil)
+}
+
+func WithLocalServer(deleter Deleter, f func(Client) error) error {
+	client, err := NewLocalServer(deleter)
+	if err != nil {
+		return err
+	}
+	return f(client)
 }
 
 // TODO: connection options
@@ -20,14 +31,14 @@ func openDatabase(host string, port uint16) (*gorm.DB, error) {
 	return gorm.Open("postgres", fmt.Sprintf("host=%s port=%d dbname=pgc user=pachyderm password=elephantastic sslmode=disable", host, port))
 }
 
-func readChunksFromCursor(cursor *sql.Rows) []chunk.Chunk {
-	chunks := []chunk.Chunk{}
+func readChunksFromCursor(cursor *sql.Rows) []string {
+	chunks := []string{}
 	for cursor.Next() {
 		var hash string
 		if err := cursor.Scan(&hash); err != nil {
 			return nil
 		}
-		chunks = append(chunks, chunk.Chunk{Hash: hash})
+		chunks = append(chunks, hash)
 	}
 	return chunks
 }

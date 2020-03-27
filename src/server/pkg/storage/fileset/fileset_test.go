@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
@@ -159,6 +160,10 @@ func TestWriteThenRead(t *testing.T) {
 			}
 			require.NoError(t, fileSets.Delete(context.Background(), fileSet), msg)
 		}
+		time.Sleep(3 * time.Second)
+		require.NoError(t, fileSets.ChunkStorage().List(context.Background(), func(name string) error {
+			return errors.Errorf("chunk %v not deleted by garbage collection", name)
+		}))
 		return nil
 	}))
 }

@@ -31,9 +31,10 @@ type Storage struct {
 }
 
 // NewStorage creates a new Storage.
-func NewStorage(objC obj.Client, opts ...StorageOption) *Storage {
+func NewStorage(objC obj.Client, gcC gc.Client, opts ...StorageOption) *Storage {
 	s := &Storage{
 		objC: objC,
+		gcC:  gcC,
 	}
 	for _, opt := range opts {
 		opt(s)
@@ -51,7 +52,7 @@ func (s *Storage) NewReader(ctx context.Context, dataRefs ...*DataRef) *Reader {
 // object storage.
 // The callback arguments are the chunk hash and annotations.
 func (s *Storage) NewWriter(ctx context.Context, averageBits int, seed int64, noUpload bool, tmpID string, f WriterFunc) *Writer {
-	return newWriter(ctx, s.objC, averageBits, f, seed, noUpload, tmpID)
+	return newWriter(ctx, s.objC, s.gcC, averageBits, f, seed, noUpload, tmpID)
 }
 
 // List lists all of the chunks in object storage.
@@ -73,18 +74,18 @@ func (s *Storage) Delete(ctx context.Context, hash string) error {
 
 func (s *Storage) AddSemanticReference(ctx context.Context, name string, chunk *Chunk, tmpID string) error {
 	ref := semanticReference(name, chunk)
-	return w.gcC.UpdateReferences(w.ctx, []*gc.Reference{ref}, nil, tmpID)
+	return s.gcC.UpdateReferences(ctx, []gc.Reference{ref}, nil, tmpID)
 }
 
 func (s *Storage) DeleteSemanticReference(ctx context.Context, name string, chunk *Chunk, tmpID string) error {
 	ref := semanticReference(name, chunk)
-	return s.gcC.UpdateReference(ctx, nil, []*gc.Reference{ref}, tmpID)
+	return s.gcC.UpdateReferences(ctx, nil, []gc.Reference{ref}, tmpID)
 }
 
-func semanticReference(name string, chunk *Chunk) *gc.Reference {
-	return &gc.Reference{
+func semanticReference(name string, chunk *Chunk) gc.Reference {
+	return gc.Reference{
 		Sourcetype: "semantic",
 		Source:     name,
-		Chunk:      chunk,
+		Chunk:      chunk.Hash,
 	}
 }

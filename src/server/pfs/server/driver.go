@@ -175,7 +175,10 @@ func newDriver(
 		if err != nil {
 			return nil, err
 		}
-		chunkStorage := chunk.NewStorage(objC, chunk.ServiceEnvToOptions(env)...)
+		chunkStorage, err := chunk.NewLocalStorage(objC, chunk.ServiceEnvToOptions(env)...)
+		if err != nil {
+			return nil, err
+		}
 		d.storage = fileset.NewStorage(objC, chunkStorage, fileset.ServiceEnvToOptions(env)...)
 		d.compactionQueue, err = work.NewTaskQueue(context.Background(), d.etcdClient, d.prefix, storageTaskNamespace)
 		if err != nil {
