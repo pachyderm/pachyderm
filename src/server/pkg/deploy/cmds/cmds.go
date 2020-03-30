@@ -37,6 +37,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	docker "github.com/fsouza/go-dockerclient"
 )
 
 var (
@@ -47,8 +48,9 @@ var (
 
 const (
 	defaultDashImage           = "pachyderm/dash:1.9.0"
-	jupyterhubPachydermVersion = "1.0.0"
-	jupyterhubVersion          = "0.8.2"
+	defaultJupyterhubHubImage = "pachyderm/jupyterhub-pachyderm-hub:1.0.0"
+	defaultJupyterhubUserImage = "pachyderm/jupyterhub-pachyderm-user:1.0.0"
+	jupyterhubChartVersion          = "0.8.2"
 	configTemplate             = `
 apiVersion: v1
 contexts:
@@ -75,9 +77,10 @@ func kubectl(stdin io.Reader, context *config.Context, args ...string) error {
 	if context != nil {
 		kubeconfig := os.Getenv("KUBECONFIG")
 		if kubeconfig == "" {
+			// TODO(ys): gracefully handle this error
 			home, err := os.UserHomeDir()
 			if err != nil {
-				errors.Wrapf(err, "failed to determine user home directory")
+				return errors.Wrapf(err, "failed to determine user home directory")
 			}
 			kubeconfig = path.Join(home, ".kube", "config")
 		}
@@ -942,6 +945,10 @@ func Cmds() []*cobra.Command {
 
 	var lbTLSHost string
 	var lbTLSEmail string
+	var dryRun bool
+	var outputFormat string
+	var hubImage string
+	var userImage string
 	deployJupyterHub := &cobra.Command{
 		Short: "Deploy JupyterHub.",
 		Long:  "Deploy a JupyterHub instance alongside Pachyderm, with several Pachyderm extensions built-in.",
@@ -987,17 +994,20 @@ func Cmds() []*cobra.Command {
 				Subject: whoamiResp.Username,
 			})
 
+			hubImageName, hubImageTag := docker.ParseRepositoryTag(hubImage)
+			userImageName, userImageTag := docker.ParseRepositoryTag(userImage)
+
 			values := map[string]interface{}{
 				"hub": map[string]interface{}{
 					"image": map[string]interface{}{
-						"name": "pachyderm/jupyterhub-pachyderm-hub",
-						"tag":  jupyterhubPachydermVersion,
+						"name": hubImageName,
+						"tag":  hubImageTag,
 					},
 				},
 				"singleuser": map[string]interface{}{
 					"image": map[string]interface{}{
-						"name": "pachyderm/jupyterhub-pachyderm-user",
-						"tag":  jupyterhubPachydermVersion,
+						"name": userImageName,
+						"tag":  userImageTag,
 					},
 				},
 				"auth": map[string]interface{}{
@@ -1030,7 +1040,11 @@ func Cmds() []*cobra.Command {
 				}
 			}
 
-			rel, err := helm.Deploy(activeContext, "jhub", "jupyterhub/jupyterhub", jupyterhubVersion, values)
+			if dryRun {
+				// TODO(ys)
+			}
+
+			rel, err := helm.Deploy(activeContext, "jhub", "jupyterhub/jupyterhub", jupyterhubChartVersion, values)
 			if err != nil {
 				return errors.Wrapf(err, "failed to deploy JupyterHub")
 			}
@@ -1039,8 +1053,12 @@ func Cmds() []*cobra.Command {
 			return nil
 		}),
 	}
-	deployJupyterHub.PersistentFlags().StringVar(&lbTLSHost, "lb-tls-host", "", "Hostname for minting a Let's Encrypt TLS cert on the JupyterHub load balancer")
-	deployJupyterHub.PersistentFlags().StringVar(&lbTLSEmail, "lb-tls-email", "", "Contact email for minting a Let's Encrypt TLS cert on the JupyterHub load balancer")
+	deployJupyterHub.Flags().StringVar(&lbTLSHost, "lb-tls-host", "", "Hostname for minting a Let's Encrypt TLS cert on the JupyterHub load balancer")
+	deployJupyterHub.Flags().StringVar(&lbTLSEmail, "lb-tls-email", "", "Contact email for minting a Let's Encrypt TLS cert on the JupyterHub load balancer")
+	deployJupyterHub.Flags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy JupyterHub, instead just print the Helm config.")
+	deployJupyterHub.Flags().StringVarP(&outputFormat, "output", "o", "json", "Output format. One of: json|yaml")
+	deployJupyterHub.Flags().StringVar(&hubImage, "hub-image", defaultJupyterhubHubImage, "Image for JupyterHub")
+	deployJupyterHub.Flags().StringVar(&userImage, "user-image", defaultJupyterhubUserImage, "Image for Jupyter users")
 	commands = append(commands, cmdutil.CreateAlias(deployJupyterHub, "deploy jupyterhub"))
 
 	deploy := &cobra.Command{
