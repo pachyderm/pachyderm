@@ -2,7 +2,6 @@ package testpachd
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"reflect"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/transaction"
@@ -75,25 +75,25 @@ func (api *adminServerAPI) Extract(req *admin.ExtractRequest, serv admin.API_Ext
 	if api.mock.Extract.handler != nil {
 		return api.mock.Extract.handler(req, serv)
 	}
-	return fmt.Errorf("unhandled pachd mock: admin.Extract")
+	return errors.Errorf("unhandled pachd mock: admin.Extract")
 }
 func (api *adminServerAPI) ExtractPipeline(ctx context.Context, req *admin.ExtractPipelineRequest) (*admin.Op, error) {
 	if api.mock.ExtractPipeline.handler != nil {
 		return api.mock.ExtractPipeline.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock admin.ExtractPipeline")
+	return nil, errors.Errorf("unhandled pachd mock admin.ExtractPipeline")
 }
 func (api *adminServerAPI) Restore(serv admin.API_RestoreServer) error {
 	if api.mock.Restore.handler != nil {
 		return api.mock.Restore.handler(serv)
 	}
-	return fmt.Errorf("unhandled pachd mock admin.Restore")
+	return errors.Errorf("unhandled pachd mock admin.Restore")
 }
 func (api *adminServerAPI) InspectCluster(ctx context.Context, req *types.Empty) (*admin.ClusterInfo, error) {
 	if api.mock.InspectCluster.handler != nil {
 		return api.mock.InspectCluster.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock admin.InspectCluster")
+	return nil, errors.Errorf("unhandled pachd mock admin.InspectCluster")
 }
 
 /* Auth Server Mocks */
@@ -197,127 +197,127 @@ func (api *authServerAPI) Activate(ctx context.Context, req *auth.ActivateReques
 	if api.mock.Activate.handler != nil {
 		return api.mock.Activate.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock auth.Activate")
+	return nil, errors.Errorf("unhandled pachd mock auth.Activate")
 }
 func (api *authServerAPI) Deactivate(ctx context.Context, req *auth.DeactivateRequest) (*auth.DeactivateResponse, error) {
 	if api.mock.Deactivate.handler != nil {
 		return api.mock.Deactivate.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock auth.Deactivate")
+	return nil, errors.Errorf("unhandled pachd mock auth.Deactivate")
 }
 func (api *authServerAPI) GetConfiguration(ctx context.Context, req *auth.GetConfigurationRequest) (*auth.GetConfigurationResponse, error) {
 	if api.mock.GetConfiguration.handler != nil {
 		return api.mock.GetConfiguration.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock auth.GetConfiguration")
+	return nil, errors.Errorf("unhandled pachd mock auth.GetConfiguration")
 }
 func (api *authServerAPI) SetConfiguration(ctx context.Context, req *auth.SetConfigurationRequest) (*auth.SetConfigurationResponse, error) {
 	if api.mock.SetConfiguration.handler != nil {
 		return api.mock.SetConfiguration.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock auth.SetConfiguration")
+	return nil, errors.Errorf("unhandled pachd mock auth.SetConfiguration")
 }
 func (api *authServerAPI) GetAdmins(ctx context.Context, req *auth.GetAdminsRequest) (*auth.GetAdminsResponse, error) {
 	if api.mock.GetAdmins.handler != nil {
 		return api.mock.GetAdmins.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock auth.GetAdmins")
+	return nil, errors.Errorf("unhandled pachd mock auth.GetAdmins")
 }
 func (api *authServerAPI) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequest) (*auth.ModifyAdminsResponse, error) {
 	if api.mock.ModifyAdmins.handler != nil {
 		return api.mock.ModifyAdmins.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock auth.ModifyAdmins")
+	return nil, errors.Errorf("unhandled pachd mock auth.ModifyAdmins")
 }
 func (api *authServerAPI) Authenticate(ctx context.Context, req *auth.AuthenticateRequest) (*auth.AuthenticateResponse, error) {
 	if api.mock.Authenticate.handler != nil {
 		return api.mock.Authenticate.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock auth.Authenticate")
+	return nil, errors.Errorf("unhandled pachd mock auth.Authenticate")
 }
 func (api *authServerAPI) Authorize(ctx context.Context, req *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error) {
 	if api.mock.Authorize.handler != nil {
 		return api.mock.Authorize.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock auth.Authorize")
+	return nil, errors.Errorf("unhandled pachd mock auth.Authorize")
 }
 func (api *authServerAPI) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error) {
 	if api.mock.WhoAmI.handler != nil {
 		return api.mock.WhoAmI.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock auth.WhoAmI")
+	return nil, errors.Errorf("unhandled pachd mock auth.WhoAmI")
 }
 func (api *authServerAPI) GetScope(ctx context.Context, req *auth.GetScopeRequest) (*auth.GetScopeResponse, error) {
 	if api.mock.GetScope.handler != nil {
 		return api.mock.GetScope.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock auth.GetScope")
+	return nil, errors.Errorf("unhandled pachd mock auth.GetScope")
 }
 func (api *authServerAPI) SetScope(ctx context.Context, req *auth.SetScopeRequest) (*auth.SetScopeResponse, error) {
 	if api.mock.SetScope.handler != nil {
 		return api.mock.SetScope.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock auth.SetScope")
+	return nil, errors.Errorf("unhandled pachd mock auth.SetScope")
 }
 func (api *authServerAPI) GetACL(ctx context.Context, req *auth.GetACLRequest) (*auth.GetACLResponse, error) {
 	if api.mock.GetACL.handler != nil {
 		return api.mock.GetACL.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock auth.GetACL")
+	return nil, errors.Errorf("unhandled pachd mock auth.GetACL")
 }
 func (api *authServerAPI) SetACL(ctx context.Context, req *auth.SetACLRequest) (*auth.SetACLResponse, error) {
 	if api.mock.SetACL.handler != nil {
 		return api.mock.SetACL.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock auth.SetACL")
+	return nil, errors.Errorf("unhandled pachd mock auth.SetACL")
 }
 func (api *authServerAPI) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequest) (*auth.GetAuthTokenResponse, error) {
 	if api.mock.GetAuthToken.handler != nil {
 		return api.mock.GetAuthToken.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock auth.GetAuthToken")
+	return nil, errors.Errorf("unhandled pachd mock auth.GetAuthToken")
 }
 func (api *authServerAPI) ExtendAuthToken(ctx context.Context, req *auth.ExtendAuthTokenRequest) (*auth.ExtendAuthTokenResponse, error) {
 	if api.mock.ExtendAuthToken.handler != nil {
 		return api.mock.ExtendAuthToken.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock auth.ExtendAuthToken")
+	return nil, errors.Errorf("unhandled pachd mock auth.ExtendAuthToken")
 }
 func (api *authServerAPI) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error) {
 	if api.mock.RevokeAuthToken.handler != nil {
 		return api.mock.RevokeAuthToken.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock auth.RevokeAuthToken")
+	return nil, errors.Errorf("unhandled pachd mock auth.RevokeAuthToken")
 }
 func (api *authServerAPI) SetGroupsForUser(ctx context.Context, req *auth.SetGroupsForUserRequest) (*auth.SetGroupsForUserResponse, error) {
 	if api.mock.SetGroupsForUser.handler != nil {
 		return api.mock.SetGroupsForUser.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock auth.SetGroupsForUser")
+	return nil, errors.Errorf("unhandled pachd mock auth.SetGroupsForUser")
 }
 func (api *authServerAPI) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRequest) (*auth.ModifyMembersResponse, error) {
 	if api.mock.ModifyMembers.handler != nil {
 		return api.mock.ModifyMembers.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock auth.ModifyMembers")
+	return nil, errors.Errorf("unhandled pachd mock auth.ModifyMembers")
 }
 func (api *authServerAPI) GetGroups(ctx context.Context, req *auth.GetGroupsRequest) (*auth.GetGroupsResponse, error) {
 	if api.mock.GetGroups.handler != nil {
 		return api.mock.GetGroups.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock auth.GetGroups")
+	return nil, errors.Errorf("unhandled pachd mock auth.GetGroups")
 }
 func (api *authServerAPI) GetUsers(ctx context.Context, req *auth.GetUsersRequest) (*auth.GetUsersResponse, error) {
 	if api.mock.GetUsers.handler != nil {
 		return api.mock.GetUsers.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock auth.GetUsers")
+	return nil, errors.Errorf("unhandled pachd mock auth.GetUsers")
 }
 func (api *authServerAPI) GetOneTimePassword(ctx context.Context, req *auth.GetOneTimePasswordRequest) (*auth.GetOneTimePasswordResponse, error) {
 	if api.mock.GetOneTimePassword.handler != nil {
 		return api.mock.GetOneTimePassword.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock auth.GetOneTimePassword")
+	return nil, errors.Errorf("unhandled pachd mock auth.GetOneTimePassword")
 }
 
 /* Enterprise Server Mocks */
@@ -349,19 +349,19 @@ func (api *enterpriseServerAPI) Activate(ctx context.Context, req *enterprise.Ac
 	if api.mock.Activate.handler != nil {
 		return api.mock.Activate.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock enterprise.Activate")
+	return nil, errors.Errorf("unhandled pachd mock enterprise.Activate")
 }
 func (api *enterpriseServerAPI) GetState(ctx context.Context, req *enterprise.GetStateRequest) (*enterprise.GetStateResponse, error) {
 	if api.mock.GetState.handler != nil {
 		return api.mock.GetState.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock enterprise.GetState")
+	return nil, errors.Errorf("unhandled pachd mock enterprise.GetState")
 }
 func (api *enterpriseServerAPI) Deactivate(ctx context.Context, req *enterprise.DeactivateRequest) (*enterprise.DeactivateResponse, error) {
 	if api.mock.Deactivate.handler != nil {
 		return api.mock.Deactivate.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock enterprise.Deactivate")
+	return nil, errors.Errorf("unhandled pachd mock enterprise.Deactivate")
 }
 
 /* PFS Server Mocks */
@@ -398,6 +398,7 @@ type deleteAllPFSFunc func(context.Context, *types.Empty) (*types.Empty, error)
 type fsckFunc func(*pfs.FsckRequest, pfs.API_FsckServer) error
 type putTarFunc func(pfs.API_PutTarServer) error
 type getTarFunc func(*pfs.GetTarRequest, pfs.API_GetTarServer) error
+type getTarConditionalFunc func(pfs.API_GetTarConditionalServer) error
 
 type mockCreateRepo struct{ handler createRepoFunc }
 type mockInspectRepo struct{ handler inspectRepoFunc }
@@ -431,271 +432,280 @@ type mockDeleteAllPFS struct{ handler deleteAllPFSFunc }
 type mockFsck struct{ handler fsckFunc }
 type mockPutTar struct{ handler putTarFunc }
 type mockGetTar struct{ handler getTarFunc }
+type mockGetTarConditional struct{ handler getTarConditionalFunc }
 
-func (mock *mockCreateRepo) Use(cb createRepoFunc)             { mock.handler = cb }
-func (mock *mockInspectRepo) Use(cb inspectRepoFunc)           { mock.handler = cb }
-func (mock *mockListRepo) Use(cb listRepoFunc)                 { mock.handler = cb }
-func (mock *mockDeleteRepo) Use(cb deleteRepoFunc)             { mock.handler = cb }
-func (mock *mockStartCommit) Use(cb startCommitFunc)           { mock.handler = cb }
-func (mock *mockFinishCommit) Use(cb finishCommitFunc)         { mock.handler = cb }
-func (mock *mockInspectCommit) Use(cb inspectCommitFunc)       { mock.handler = cb }
-func (mock *mockListCommit) Use(cb listCommitFunc)             { mock.handler = cb }
-func (mock *mockListCommitStream) Use(cb listCommitStreamFunc) { mock.handler = cb }
-func (mock *mockDeleteCommit) Use(cb deleteCommitFunc)         { mock.handler = cb }
-func (mock *mockFlushCommit) Use(cb flushCommitFunc)           { mock.handler = cb }
-func (mock *mockSubscribeCommit) Use(cb subscribeCommitFunc)   { mock.handler = cb }
-func (mock *mockBuildCommit) Use(cb buildCommitFunc)           { mock.handler = cb }
-func (mock *mockCreateBranch) Use(cb createBranchFunc)         { mock.handler = cb }
-func (mock *mockInspectBranch) Use(cb inspectBranchFunc)       { mock.handler = cb }
-func (mock *mockListBranch) Use(cb listBranchFunc)             { mock.handler = cb }
-func (mock *mockDeleteBranch) Use(cb deleteBranchFunc)         { mock.handler = cb }
-func (mock *mockPutFile) Use(cb putFileFunc)                   { mock.handler = cb }
-func (mock *mockCopyFile) Use(cb copyFileFunc)                 { mock.handler = cb }
-func (mock *mockGetFile) Use(cb getFileFunc)                   { mock.handler = cb }
-func (mock *mockInspectFile) Use(cb inspectFileFunc)           { mock.handler = cb }
-func (mock *mockListFile) Use(cb listFileFunc)                 { mock.handler = cb }
-func (mock *mockListFileStream) Use(cb listFileStreamFunc)     { mock.handler = cb }
-func (mock *mockWalkFile) Use(cb walkFileFunc)                 { mock.handler = cb }
-func (mock *mockGlobFile) Use(cb globFileFunc)                 { mock.handler = cb }
-func (mock *mockGlobFileStream) Use(cb globFileStreamFunc)     { mock.handler = cb }
-func (mock *mockDiffFile) Use(cb diffFileFunc)                 { mock.handler = cb }
-func (mock *mockDeleteFile) Use(cb deleteFileFunc)             { mock.handler = cb }
-func (mock *mockDeleteAllPFS) Use(cb deleteAllPFSFunc)         { mock.handler = cb }
-func (mock *mockFsck) Use(cb fsckFunc)                         { mock.handler = cb }
-func (mock *mockPutTar) Use(cb putTarFunc)                     { mock.handler = cb }
-func (mock *mockGetTar) Use(cb getTarFunc)                     { mock.handler = cb }
+func (mock *mockCreateRepo) Use(cb createRepoFunc)               { mock.handler = cb }
+func (mock *mockInspectRepo) Use(cb inspectRepoFunc)             { mock.handler = cb }
+func (mock *mockListRepo) Use(cb listRepoFunc)                   { mock.handler = cb }
+func (mock *mockDeleteRepo) Use(cb deleteRepoFunc)               { mock.handler = cb }
+func (mock *mockStartCommit) Use(cb startCommitFunc)             { mock.handler = cb }
+func (mock *mockFinishCommit) Use(cb finishCommitFunc)           { mock.handler = cb }
+func (mock *mockInspectCommit) Use(cb inspectCommitFunc)         { mock.handler = cb }
+func (mock *mockListCommit) Use(cb listCommitFunc)               { mock.handler = cb }
+func (mock *mockListCommitStream) Use(cb listCommitStreamFunc)   { mock.handler = cb }
+func (mock *mockDeleteCommit) Use(cb deleteCommitFunc)           { mock.handler = cb }
+func (mock *mockFlushCommit) Use(cb flushCommitFunc)             { mock.handler = cb }
+func (mock *mockSubscribeCommit) Use(cb subscribeCommitFunc)     { mock.handler = cb }
+func (mock *mockBuildCommit) Use(cb buildCommitFunc)             { mock.handler = cb }
+func (mock *mockCreateBranch) Use(cb createBranchFunc)           { mock.handler = cb }
+func (mock *mockInspectBranch) Use(cb inspectBranchFunc)         { mock.handler = cb }
+func (mock *mockListBranch) Use(cb listBranchFunc)               { mock.handler = cb }
+func (mock *mockDeleteBranch) Use(cb deleteBranchFunc)           { mock.handler = cb }
+func (mock *mockPutFile) Use(cb putFileFunc)                     { mock.handler = cb }
+func (mock *mockCopyFile) Use(cb copyFileFunc)                   { mock.handler = cb }
+func (mock *mockGetFile) Use(cb getFileFunc)                     { mock.handler = cb }
+func (mock *mockInspectFile) Use(cb inspectFileFunc)             { mock.handler = cb }
+func (mock *mockListFile) Use(cb listFileFunc)                   { mock.handler = cb }
+func (mock *mockListFileStream) Use(cb listFileStreamFunc)       { mock.handler = cb }
+func (mock *mockWalkFile) Use(cb walkFileFunc)                   { mock.handler = cb }
+func (mock *mockGlobFile) Use(cb globFileFunc)                   { mock.handler = cb }
+func (mock *mockGlobFileStream) Use(cb globFileStreamFunc)       { mock.handler = cb }
+func (mock *mockDiffFile) Use(cb diffFileFunc)                   { mock.handler = cb }
+func (mock *mockDeleteFile) Use(cb deleteFileFunc)               { mock.handler = cb }
+func (mock *mockDeleteAllPFS) Use(cb deleteAllPFSFunc)           { mock.handler = cb }
+func (mock *mockFsck) Use(cb fsckFunc)                           { mock.handler = cb }
+func (mock *mockPutTar) Use(cb putTarFunc)                       { mock.handler = cb }
+func (mock *mockGetTar) Use(cb getTarFunc)                       { mock.handler = cb }
+func (mock *mockGetTarConditional) Use(cb getTarConditionalFunc) { mock.handler = cb }
 
 type pfsServerAPI struct {
 	mock *mockPFSServer
 }
 
 type mockPFSServer struct {
-	api              pfsServerAPI
-	CreateRepo       mockCreateRepo
-	InspectRepo      mockInspectRepo
-	ListRepo         mockListRepo
-	DeleteRepo       mockDeleteRepo
-	StartCommit      mockStartCommit
-	FinishCommit     mockFinishCommit
-	InspectCommit    mockInspectCommit
-	ListCommit       mockListCommit
-	ListCommitStream mockListCommitStream
-	DeleteCommit     mockDeleteCommit
-	FlushCommit      mockFlushCommit
-	SubscribeCommit  mockSubscribeCommit
-	BuildCommit      mockBuildCommit
-	CreateBranch     mockCreateBranch
-	InspectBranch    mockInspectBranch
-	ListBranch       mockListBranch
-	DeleteBranch     mockDeleteBranch
-	PutFile          mockPutFile
-	CopyFile         mockCopyFile
-	GetFile          mockGetFile
-	InspectFile      mockInspectFile
-	ListFile         mockListFile
-	ListFileStream   mockListFileStream
-	WalkFile         mockWalkFile
-	GlobFile         mockGlobFile
-	GlobFileStream   mockGlobFileStream
-	DiffFile         mockDiffFile
-	DeleteFile       mockDeleteFile
-	DeleteAll        mockDeleteAllPFS
-	Fsck             mockFsck
-	PutTar           mockPutTar
-	GetTar           mockGetTar
+	api               pfsServerAPI
+	CreateRepo        mockCreateRepo
+	InspectRepo       mockInspectRepo
+	ListRepo          mockListRepo
+	DeleteRepo        mockDeleteRepo
+	StartCommit       mockStartCommit
+	FinishCommit      mockFinishCommit
+	InspectCommit     mockInspectCommit
+	ListCommit        mockListCommit
+	ListCommitStream  mockListCommitStream
+	DeleteCommit      mockDeleteCommit
+	FlushCommit       mockFlushCommit
+	SubscribeCommit   mockSubscribeCommit
+	BuildCommit       mockBuildCommit
+	CreateBranch      mockCreateBranch
+	InspectBranch     mockInspectBranch
+	ListBranch        mockListBranch
+	DeleteBranch      mockDeleteBranch
+	PutFile           mockPutFile
+	CopyFile          mockCopyFile
+	GetFile           mockGetFile
+	InspectFile       mockInspectFile
+	ListFile          mockListFile
+	ListFileStream    mockListFileStream
+	WalkFile          mockWalkFile
+	GlobFile          mockGlobFile
+	GlobFileStream    mockGlobFileStream
+	DiffFile          mockDiffFile
+	DeleteFile        mockDeleteFile
+	DeleteAll         mockDeleteAllPFS
+	Fsck              mockFsck
+	PutTar            mockPutTar
+	GetTar            mockGetTar
+	GetTarConditional mockGetTarConditional
 }
 
 func (api *pfsServerAPI) CreateRepo(ctx context.Context, req *pfs.CreateRepoRequest) (*types.Empty, error) {
 	if api.mock.CreateRepo.handler != nil {
 		return api.mock.CreateRepo.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pfs.CreateRepo")
+	return nil, errors.Errorf("unhandled pachd mock pfs.CreateRepo")
 }
 func (api *pfsServerAPI) InspectRepo(ctx context.Context, req *pfs.InspectRepoRequest) (*pfs.RepoInfo, error) {
 	if api.mock.InspectRepo.handler != nil {
 		return api.mock.InspectRepo.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pfs.InspectRepo")
+	return nil, errors.Errorf("unhandled pachd mock pfs.InspectRepo")
 }
 func (api *pfsServerAPI) ListRepo(ctx context.Context, req *pfs.ListRepoRequest) (*pfs.ListRepoResponse, error) {
 	if api.mock.ListRepo.handler != nil {
 		return api.mock.ListRepo.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pfs.ListRepo")
+	return nil, errors.Errorf("unhandled pachd mock pfs.ListRepo")
 }
 func (api *pfsServerAPI) DeleteRepo(ctx context.Context, req *pfs.DeleteRepoRequest) (*types.Empty, error) {
 	if api.mock.DeleteRepo.handler != nil {
 		return api.mock.DeleteRepo.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pfs.DeleteRepo")
+	return nil, errors.Errorf("unhandled pachd mock pfs.DeleteRepo")
 }
 func (api *pfsServerAPI) StartCommit(ctx context.Context, req *pfs.StartCommitRequest) (*pfs.Commit, error) {
 	if api.mock.StartCommit.handler != nil {
 		return api.mock.StartCommit.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pfs.StartCommit")
+	return nil, errors.Errorf("unhandled pachd mock pfs.StartCommit")
 }
 func (api *pfsServerAPI) FinishCommit(ctx context.Context, req *pfs.FinishCommitRequest) (*types.Empty, error) {
 	if api.mock.FinishCommit.handler != nil {
 		return api.mock.FinishCommit.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pfs.FinishCommit")
+	return nil, errors.Errorf("unhandled pachd mock pfs.FinishCommit")
 }
 func (api *pfsServerAPI) InspectCommit(ctx context.Context, req *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
 	if api.mock.InspectCommit.handler != nil {
 		return api.mock.InspectCommit.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pfs.InspectCommit")
+	return nil, errors.Errorf("unhandled pachd mock pfs.InspectCommit")
 }
 func (api *pfsServerAPI) ListCommit(ctx context.Context, req *pfs.ListCommitRequest) (*pfs.CommitInfos, error) {
 	if api.mock.ListCommit.handler != nil {
 		return api.mock.ListCommit.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pfs.ListCommit")
+	return nil, errors.Errorf("unhandled pachd mock pfs.ListCommit")
 }
 func (api *pfsServerAPI) ListCommitStream(req *pfs.ListCommitRequest, serv pfs.API_ListCommitStreamServer) error {
 	if api.mock.ListCommitStream.handler != nil {
 		return api.mock.ListCommitStream.handler(req, serv)
 	}
-	return fmt.Errorf("unhandled pachd mock pfs.ListCommitStream")
+	return errors.Errorf("unhandled pachd mock pfs.ListCommitStream")
 }
 func (api *pfsServerAPI) DeleteCommit(ctx context.Context, req *pfs.DeleteCommitRequest) (*types.Empty, error) {
 	if api.mock.DeleteCommit.handler != nil {
 		return api.mock.DeleteCommit.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pfs.DeleteCommit")
+	return nil, errors.Errorf("unhandled pachd mock pfs.DeleteCommit")
 }
 func (api *pfsServerAPI) FlushCommit(req *pfs.FlushCommitRequest, serv pfs.API_FlushCommitServer) error {
 	if api.mock.FlushCommit.handler != nil {
 		return api.mock.FlushCommit.handler(req, serv)
 	}
-	return fmt.Errorf("unhandled pachd mock pfs.FlushCommit")
+	return errors.Errorf("unhandled pachd mock pfs.FlushCommit")
 }
 func (api *pfsServerAPI) SubscribeCommit(req *pfs.SubscribeCommitRequest, serv pfs.API_SubscribeCommitServer) error {
 	if api.mock.SubscribeCommit.handler != nil {
 		return api.mock.SubscribeCommit.handler(req, serv)
 	}
-	return fmt.Errorf("unhandled pachd mock pfs.SubscribeCommit")
+	return errors.Errorf("unhandled pachd mock pfs.SubscribeCommit")
 }
 func (api *pfsServerAPI) BuildCommit(ctx context.Context, req *pfs.BuildCommitRequest) (*pfs.Commit, error) {
 	if api.mock.BuildCommit.handler != nil {
 		return api.mock.BuildCommit.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pfs.BuildCommit")
+	return nil, errors.Errorf("unhandled pachd mock pfs.BuildCommit")
 }
 func (api *pfsServerAPI) CreateBranch(ctx context.Context, req *pfs.CreateBranchRequest) (*types.Empty, error) {
 	if api.mock.CreateBranch.handler != nil {
 		return api.mock.CreateBranch.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pfs.CreateBranch")
+	return nil, errors.Errorf("unhandled pachd mock pfs.CreateBranch")
 }
 func (api *pfsServerAPI) InspectBranch(ctx context.Context, req *pfs.InspectBranchRequest) (*pfs.BranchInfo, error) {
 	if api.mock.InspectBranch.handler != nil {
 		return api.mock.InspectBranch.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pfs.InspectBranch")
+	return nil, errors.Errorf("unhandled pachd mock pfs.InspectBranch")
 }
 func (api *pfsServerAPI) ListBranch(ctx context.Context, req *pfs.ListBranchRequest) (*pfs.BranchInfos, error) {
 	if api.mock.ListBranch.handler != nil {
 		return api.mock.ListBranch.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pfs.ListBranch")
+	return nil, errors.Errorf("unhandled pachd mock pfs.ListBranch")
 }
 func (api *pfsServerAPI) DeleteBranch(ctx context.Context, req *pfs.DeleteBranchRequest) (*types.Empty, error) {
 	if api.mock.DeleteBranch.handler != nil {
 		return api.mock.DeleteBranch.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pfs.DeleteBranch")
+	return nil, errors.Errorf("unhandled pachd mock pfs.DeleteBranch")
 }
 func (api *pfsServerAPI) PutFile(serv pfs.API_PutFileServer) error {
 	if api.mock.PutFile.handler != nil {
 		return api.mock.PutFile.handler(serv)
 	}
-	return fmt.Errorf("unhandled pachd mock pfs.PutFile")
+	return errors.Errorf("unhandled pachd mock pfs.PutFile")
 }
 func (api *pfsServerAPI) CopyFile(ctx context.Context, req *pfs.CopyFileRequest) (*types.Empty, error) {
 	if api.mock.CopyFile.handler != nil {
 		return api.mock.CopyFile.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pfs.CopyFile")
+	return nil, errors.Errorf("unhandled pachd mock pfs.CopyFile")
 }
 func (api *pfsServerAPI) GetFile(req *pfs.GetFileRequest, serv pfs.API_GetFileServer) error {
 	if api.mock.GetFile.handler != nil {
 		return api.mock.GetFile.handler(req, serv)
 	}
-	return fmt.Errorf("unhandled pachd mock pfs.GetFile")
+	return errors.Errorf("unhandled pachd mock pfs.GetFile")
 }
 func (api *pfsServerAPI) InspectFile(ctx context.Context, req *pfs.InspectFileRequest) (*pfs.FileInfo, error) {
 	if api.mock.InspectFile.handler != nil {
 		return api.mock.InspectFile.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pfs.InspectFile")
+	return nil, errors.Errorf("unhandled pachd mock pfs.InspectFile")
 }
 func (api *pfsServerAPI) ListFile(ctx context.Context, req *pfs.ListFileRequest) (*pfs.FileInfos, error) {
 	if api.mock.ListFile.handler != nil {
 		return api.mock.ListFile.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pfs.ListFile")
+	return nil, errors.Errorf("unhandled pachd mock pfs.ListFile")
 }
 func (api *pfsServerAPI) ListFileStream(req *pfs.ListFileRequest, serv pfs.API_ListFileStreamServer) error {
 	if api.mock.ListFileStream.handler != nil {
 		return api.mock.ListFileStream.handler(req, serv)
 	}
-	return fmt.Errorf("unhandled pachd mock pfs.ListFileStream")
+	return errors.Errorf("unhandled pachd mock pfs.ListFileStream")
 }
 func (api *pfsServerAPI) WalkFile(req *pfs.WalkFileRequest, serv pfs.API_WalkFileServer) error {
 	if api.mock.WalkFile.handler != nil {
 		return api.mock.WalkFile.handler(req, serv)
 	}
-	return fmt.Errorf("unhandled pachd mock pfs.WalkFile")
+	return errors.Errorf("unhandled pachd mock pfs.WalkFile")
 }
 func (api *pfsServerAPI) GlobFile(ctx context.Context, req *pfs.GlobFileRequest) (*pfs.FileInfos, error) {
 	if api.mock.GlobFile.handler != nil {
 		return api.mock.GlobFile.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pfs.GlobFile")
+	return nil, errors.Errorf("unhandled pachd mock pfs.GlobFile")
 }
 func (api *pfsServerAPI) GlobFileStream(req *pfs.GlobFileRequest, serv pfs.API_GlobFileStreamServer) error {
 	if api.mock.GlobFileStream.handler != nil {
 		return api.mock.GlobFileStream.handler(req, serv)
 	}
-	return fmt.Errorf("unhandled pachd mock pfs.GlobFileStream")
+	return errors.Errorf("unhandled pachd mock pfs.GlobFileStream")
 }
 func (api *pfsServerAPI) DiffFile(ctx context.Context, req *pfs.DiffFileRequest) (*pfs.DiffFileResponse, error) {
 	if api.mock.DiffFile.handler != nil {
 		return api.mock.DiffFile.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pfs.DiffFile")
+	return nil, errors.Errorf("unhandled pachd mock pfs.DiffFile")
 }
 func (api *pfsServerAPI) DeleteFile(ctx context.Context, req *pfs.DeleteFileRequest) (*types.Empty, error) {
 	if api.mock.DeleteFile.handler != nil {
 		return api.mock.DeleteFile.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pfs.DeleteFile")
+	return nil, errors.Errorf("unhandled pachd mock pfs.DeleteFile")
 }
 func (api *pfsServerAPI) DeleteAll(ctx context.Context, req *types.Empty) (*types.Empty, error) {
 	if api.mock.DeleteAll.handler != nil {
 		return api.mock.DeleteAll.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pfs.DeleteAll")
+	return nil, errors.Errorf("unhandled pachd mock pfs.DeleteAll")
 }
 func (api *pfsServerAPI) Fsck(req *pfs.FsckRequest, serv pfs.API_FsckServer) error {
 	if api.mock.Fsck.handler != nil {
 		return api.mock.Fsck.handler(req, serv)
 	}
-	return fmt.Errorf("unhandled pachd mock pfs.Fsck")
+	return errors.Errorf("unhandled pachd mock pfs.Fsck")
 }
 func (api *pfsServerAPI) PutTar(serv pfs.API_PutTarServer) error {
 	if api.mock.PutTar.handler != nil {
 		return api.mock.PutTar.handler(serv)
 	}
-	return fmt.Errorf("unhandled pachd mock pfs.PutTar")
+	return errors.Errorf("unhandled pachd mock pfs.PutTar")
 }
 func (api *pfsServerAPI) GetTar(req *pfs.GetTarRequest, serv pfs.API_GetTarServer) error {
 	if api.mock.GetTar.handler != nil {
 		return api.mock.GetTar.handler(req, serv)
 	}
-	return fmt.Errorf("unhandled pachd mock pfs.GetTar")
+	return errors.Errorf("unhandled pachd mock pfs.GetTar")
+}
+func (api *pfsServerAPI) GetTarConditional(serv pfs.API_GetTarConditionalServer) error {
+	if api.mock.GetTarConditional.handler != nil {
+		return api.mock.GetTarConditional.handler(serv)
+	}
+	return errors.Errorf("unhandled pachd mock pfs.GetTarConditional")
 }
 
 /* PPS Server Mocks */
@@ -827,169 +837,169 @@ func (api *ppsServerAPI) CreateJob(ctx context.Context, req *pps.CreateJobReques
 	if api.mock.CreateJob.handler != nil {
 		return api.mock.CreateJob.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pps.CreateJob")
+	return nil, errors.Errorf("unhandled pachd mock pps.CreateJob")
 }
 func (api *ppsServerAPI) InspectJob(ctx context.Context, req *pps.InspectJobRequest) (*pps.JobInfo, error) {
 	if api.mock.InspectJob.handler != nil {
 		return api.mock.InspectJob.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pps.InspectJob")
+	return nil, errors.Errorf("unhandled pachd mock pps.InspectJob")
 }
 func (api *ppsServerAPI) ListJob(ctx context.Context, req *pps.ListJobRequest) (*pps.JobInfos, error) {
 	if api.mock.ListJob.handler != nil {
 		return api.mock.ListJob.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pps.ListJob")
+	return nil, errors.Errorf("unhandled pachd mock pps.ListJob")
 }
 func (api *ppsServerAPI) ListJobStream(req *pps.ListJobRequest, serv pps.API_ListJobStreamServer) error {
 	if api.mock.ListJobStream.handler != nil {
 		return api.mock.ListJobStream.handler(req, serv)
 	}
-	return fmt.Errorf("unhandled pachd mock pps.ListJobStream")
+	return errors.Errorf("unhandled pachd mock pps.ListJobStream")
 }
 func (api *ppsServerAPI) FlushJob(req *pps.FlushJobRequest, serv pps.API_FlushJobServer) error {
 	if api.mock.FlushJob.handler != nil {
 		return api.mock.FlushJob.handler(req, serv)
 	}
-	return fmt.Errorf("unhandled pachd mock pps.FlushJob")
+	return errors.Errorf("unhandled pachd mock pps.FlushJob")
 }
 func (api *ppsServerAPI) DeleteJob(ctx context.Context, req *pps.DeleteJobRequest) (*types.Empty, error) {
 	if api.mock.DeleteJob.handler != nil {
 		return api.mock.DeleteJob.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pps.DeleteJob")
+	return nil, errors.Errorf("unhandled pachd mock pps.DeleteJob")
 }
 func (api *ppsServerAPI) UpdateJobState(ctx context.Context, req *pps.UpdateJobStateRequest) (*types.Empty, error) {
 	if api.mock.UpdateJobState.handler != nil {
 		return api.mock.UpdateJobState.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pps.UpdateJobState")
+	return nil, errors.Errorf("unhandled pachd mock pps.UpdateJobState")
 }
 func (api *ppsServerAPI) StopJob(ctx context.Context, req *pps.StopJobRequest) (*types.Empty, error) {
 	if api.mock.StopJob.handler != nil {
 		return api.mock.StopJob.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pps.StopJob")
+	return nil, errors.Errorf("unhandled pachd mock pps.StopJob")
 }
 func (api *ppsServerAPI) InspectDatum(ctx context.Context, req *pps.InspectDatumRequest) (*pps.DatumInfo, error) {
 	if api.mock.InspectDatum.handler != nil {
 		return api.mock.InspectDatum.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pps.InspectDatum")
+	return nil, errors.Errorf("unhandled pachd mock pps.InspectDatum")
 }
 func (api *ppsServerAPI) ListDatum(ctx context.Context, req *pps.ListDatumRequest) (*pps.ListDatumResponse, error) {
 	if api.mock.ListDatum.handler != nil {
 		return api.mock.ListDatum.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pps.ListDatum")
+	return nil, errors.Errorf("unhandled pachd mock pps.ListDatum")
 }
 func (api *ppsServerAPI) ListDatumStream(req *pps.ListDatumRequest, serv pps.API_ListDatumStreamServer) error {
 	if api.mock.ListDatumStream.handler != nil {
 		return api.mock.ListDatumStream.handler(req, serv)
 	}
-	return fmt.Errorf("unhandled pachd mock pps.ListDatumStream")
+	return errors.Errorf("unhandled pachd mock pps.ListDatumStream")
 }
 func (api *ppsServerAPI) RestartDatum(ctx context.Context, req *pps.RestartDatumRequest) (*types.Empty, error) {
 	if api.mock.RestartDatum.handler != nil {
 		return api.mock.RestartDatum.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pps.RestartDatum")
+	return nil, errors.Errorf("unhandled pachd mock pps.RestartDatum")
 }
 func (api *ppsServerAPI) CreatePipeline(ctx context.Context, req *pps.CreatePipelineRequest) (*types.Empty, error) {
 	if api.mock.CreatePipeline.handler != nil {
 		return api.mock.CreatePipeline.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pps.CreatePipeline")
+	return nil, errors.Errorf("unhandled pachd mock pps.CreatePipeline")
 }
 func (api *ppsServerAPI) InspectPipeline(ctx context.Context, req *pps.InspectPipelineRequest) (*pps.PipelineInfo, error) {
 	if api.mock.InspectPipeline.handler != nil {
 		return api.mock.InspectPipeline.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pps.InspectPipeline")
+	return nil, errors.Errorf("unhandled pachd mock pps.InspectPipeline")
 }
 func (api *ppsServerAPI) ListPipeline(ctx context.Context, req *pps.ListPipelineRequest) (*pps.PipelineInfos, error) {
 	if api.mock.ListPipeline.handler != nil {
 		return api.mock.ListPipeline.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pps.ListPipeline")
+	return nil, errors.Errorf("unhandled pachd mock pps.ListPipeline")
 }
 func (api *ppsServerAPI) DeletePipeline(ctx context.Context, req *pps.DeletePipelineRequest) (*types.Empty, error) {
 	if api.mock.DeletePipeline.handler != nil {
 		return api.mock.DeletePipeline.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pps.DeletePipeline")
+	return nil, errors.Errorf("unhandled pachd mock pps.DeletePipeline")
 }
 func (api *ppsServerAPI) StartPipeline(ctx context.Context, req *pps.StartPipelineRequest) (*types.Empty, error) {
 	if api.mock.StartPipeline.handler != nil {
 		return api.mock.StartPipeline.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pps.StartPipeline")
+	return nil, errors.Errorf("unhandled pachd mock pps.StartPipeline")
 }
 func (api *ppsServerAPI) StopPipeline(ctx context.Context, req *pps.StopPipelineRequest) (*types.Empty, error) {
 	if api.mock.StopPipeline.handler != nil {
 		return api.mock.StopPipeline.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pps.StopPipeline")
+	return nil, errors.Errorf("unhandled pachd mock pps.StopPipeline")
 }
 func (api *ppsServerAPI) RunPipeline(ctx context.Context, req *pps.RunPipelineRequest) (*types.Empty, error) {
 	if api.mock.RunPipeline.handler != nil {
 		return api.mock.RunPipeline.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pps.RunPipeline")
+	return nil, errors.Errorf("unhandled pachd mock pps.RunPipeline")
 }
 func (api *ppsServerAPI) RunCron(ctx context.Context, req *pps.RunCronRequest) (*types.Empty, error) {
 	if api.mock.RunCron.handler != nil {
 		return api.mock.RunCron.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pps.RunCron")
+	return nil, errors.Errorf("unhandled pachd mock pps.RunCron")
 }
 func (api *ppsServerAPI) CreateSecret(ctx context.Context, req *pps.CreateSecretRequest) (*types.Empty, error) {
 	if api.mock.CreateSecret.handler != nil {
 		return api.mock.CreateSecret.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pps.CreateSecret")
+	return nil, errors.Errorf("unhandled pachd mock pps.CreateSecret")
 }
 func (api *ppsServerAPI) DeleteSecret(ctx context.Context, req *pps.DeleteSecretRequest) (*types.Empty, error) {
 	if api.mock.DeleteSecret.handler != nil {
 		return api.mock.DeleteSecret.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pps.DeleteSecret")
+	return nil, errors.Errorf("unhandled pachd mock pps.DeleteSecret")
 }
 func (api *ppsServerAPI) InspectSecret(ctx context.Context, req *pps.InspectSecretRequest) (*pps.SecretInfo, error) {
 	if api.mock.InspectSecret.handler != nil {
 		return api.mock.InspectSecret.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pps.InspectSecret")
+	return nil, errors.Errorf("unhandled pachd mock pps.InspectSecret")
 }
 func (api *ppsServerAPI) ListSecret(ctx context.Context, in *types.Empty) (*pps.SecretInfos, error) {
 	if api.mock.ListSecret.handler != nil {
 		return api.mock.ListSecret.handler(ctx, in)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pps.ListSecret")
+	return nil, errors.Errorf("unhandled pachd mock pps.ListSecret")
 }
 func (api *ppsServerAPI) DeleteAll(ctx context.Context, req *types.Empty) (*types.Empty, error) {
 	if api.mock.DeleteAll.handler != nil {
 		return api.mock.DeleteAll.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pps.DeleteAll")
+	return nil, errors.Errorf("unhandled pachd mock pps.DeleteAll")
 }
 func (api *ppsServerAPI) GetLogs(req *pps.GetLogsRequest, serv pps.API_GetLogsServer) error {
 	if api.mock.GetLogs.handler != nil {
 		return api.mock.GetLogs.handler(req, serv)
 	}
-	return fmt.Errorf("unhandled pachd mock pps.GetLogs")
+	return errors.Errorf("unhandled pachd mock pps.GetLogs")
 }
 func (api *ppsServerAPI) GarbageCollect(ctx context.Context, req *pps.GarbageCollectRequest) (*pps.GarbageCollectResponse, error) {
 	if api.mock.GarbageCollect.handler != nil {
 		return api.mock.GarbageCollect.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pps.GarbageCollect")
+	return nil, errors.Errorf("unhandled pachd mock pps.GarbageCollect")
 }
 func (api *ppsServerAPI) ActivateAuth(ctx context.Context, req *pps.ActivateAuthRequest) (*pps.ActivateAuthResponse, error) {
 	if api.mock.ActivateAuth.handler != nil {
 		return api.mock.ActivateAuth.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock pps.ActivateAuth")
+	return nil, errors.Errorf("unhandled pachd mock pps.ActivateAuth")
 }
 
 /* Transaction Server Mocks */
@@ -1037,43 +1047,43 @@ func (api *transactionServerAPI) BatchTransaction(ctx context.Context, req *tran
 	if api.mock.BatchTransaction.handler != nil {
 		return api.mock.BatchTransaction.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock transaction.BatchTransaction")
+	return nil, errors.Errorf("unhandled pachd mock transaction.BatchTransaction")
 }
 func (api *transactionServerAPI) StartTransaction(ctx context.Context, req *transaction.StartTransactionRequest) (*transaction.Transaction, error) {
 	if api.mock.StartTransaction.handler != nil {
 		return api.mock.StartTransaction.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock transaction.StartTransaction")
+	return nil, errors.Errorf("unhandled pachd mock transaction.StartTransaction")
 }
 func (api *transactionServerAPI) InspectTransaction(ctx context.Context, req *transaction.InspectTransactionRequest) (*transaction.TransactionInfo, error) {
 	if api.mock.InspectTransaction.handler != nil {
 		return api.mock.InspectTransaction.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock transaction.InspectTransaction")
+	return nil, errors.Errorf("unhandled pachd mock transaction.InspectTransaction")
 }
 func (api *transactionServerAPI) DeleteTransaction(ctx context.Context, req *transaction.DeleteTransactionRequest) (*types.Empty, error) {
 	if api.mock.DeleteTransaction.handler != nil {
 		return api.mock.DeleteTransaction.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock transaction.DeleteTransaction")
+	return nil, errors.Errorf("unhandled pachd mock transaction.DeleteTransaction")
 }
 func (api *transactionServerAPI) ListTransaction(ctx context.Context, req *transaction.ListTransactionRequest) (*transaction.TransactionInfos, error) {
 	if api.mock.ListTransaction.handler != nil {
 		return api.mock.ListTransaction.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock transaction.ListTransaction")
+	return nil, errors.Errorf("unhandled pachd mock transaction.ListTransaction")
 }
 func (api *transactionServerAPI) FinishTransaction(ctx context.Context, req *transaction.FinishTransactionRequest) (*transaction.TransactionInfo, error) {
 	if api.mock.FinishTransaction.handler != nil {
 		return api.mock.FinishTransaction.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock transaction.FinishTransaction")
+	return nil, errors.Errorf("unhandled pachd mock transaction.FinishTransaction")
 }
 func (api *transactionServerAPI) DeleteAll(ctx context.Context, req *transaction.DeleteAllRequest) (*types.Empty, error) {
 	if api.mock.DeleteAll.handler != nil {
 		return api.mock.DeleteAll.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock transaction.DeleteAll")
+	return nil, errors.Errorf("unhandled pachd mock transaction.DeleteAll")
 }
 
 /* Version Server Mocks */
@@ -1097,7 +1107,7 @@ func (api *versionServerAPI) GetVersion(ctx context.Context, req *types.Empty) (
 	if api.mock.GetVersion.handler != nil {
 		return api.mock.GetVersion.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock version.GetVersion")
+	return nil, errors.Errorf("unhandled pachd mock version.GetVersion")
 }
 
 /* Object Server Mocks */
@@ -1122,6 +1132,8 @@ type inspectTagFunc func(context.Context, *pfs.Tag) (*pfs.ObjectInfo, error)
 type listTagsFunc func(*pfs.ListTagsRequest, pfs.ObjectAPI_ListTagsServer) error
 type deleteTagsFunc func(context.Context, *pfs.DeleteTagsRequest) (*pfs.DeleteTagsResponse, error)
 type compactFunc func(context.Context, *types.Empty) (*types.Empty, error)
+type putObjDirectFunc func(pfs.ObjectAPI_PutObjDirectServer) error
+type getObjDirectFunc func(*pfs.GetObjDirectRequest, pfs.ObjectAPI_GetObjDirectServer) error
 
 type mockPutObject struct{ handler putObjectFunc }
 type mockPutObjectSplit struct{ handler putObjectSplitFunc }
@@ -1143,6 +1155,8 @@ type mockInspectTag struct{ handler inspectTagFunc }
 type mockListTags struct{ handler listTagsFunc }
 type mockDeleteTags struct{ handler deleteTagsFunc }
 type mockCompact struct{ handler compactFunc }
+type mockPutObjDirect struct{ handler putObjDirectFunc }
+type mockGetObjDirect struct{ handler getObjDirectFunc }
 
 func (mock *mockPutObject) Use(cb putObjectFunc)           { mock.handler = cb }
 func (mock *mockPutObjectSplit) Use(cb putObjectSplitFunc) { mock.handler = cb }
@@ -1164,6 +1178,8 @@ func (mock *mockInspectTag) Use(cb inspectTagFunc)         { mock.handler = cb }
 func (mock *mockListTags) Use(cb listTagsFunc)             { mock.handler = cb }
 func (mock *mockDeleteTags) Use(cb deleteTagsFunc)         { mock.handler = cb }
 func (mock *mockCompact) Use(cb compactFunc)               { mock.handler = cb }
+func (mock *mockPutObjDirect) Use(cb putObjDirectFunc)     { mock.handler = cb }
+func (mock *mockGetObjDirect) Use(cb getObjDirectFunc)     { mock.handler = cb }
 
 type objectServerAPI struct {
 	mock *mockObjectServer
@@ -1191,127 +1207,141 @@ type mockObjectServer struct {
 	ListTags       mockListTags
 	DeleteTags     mockDeleteTags
 	Compact        mockCompact
+	PutObjDirect   mockPutObjDirect
+	GetObjDirect   mockGetObjDirect
 }
 
 func (api *objectServerAPI) PutObject(serv pfs.ObjectAPI_PutObjectServer) error {
 	if api.mock.PutObject.handler != nil {
 		return api.mock.PutObject.handler(serv)
 	}
-	return fmt.Errorf("unhandled pachd mock object.PutObject")
+	return errors.Errorf("unhandled pachd mock object.PutObject")
 }
 func (api *objectServerAPI) PutObjectSplit(serv pfs.ObjectAPI_PutObjectSplitServer) error {
 	if api.mock.PutObjectSplit.handler != nil {
 		return api.mock.PutObjectSplit.handler(serv)
 	}
-	return fmt.Errorf("unhandled pachd mock object.PutObjectSplit")
+	return errors.Errorf("unhandled pachd mock object.PutObjectSplit")
 }
 func (api *objectServerAPI) PutObjects(serv pfs.ObjectAPI_PutObjectsServer) error {
 	if api.mock.PutObjects.handler != nil {
 		return api.mock.PutObjects.handler(serv)
 	}
-	return fmt.Errorf("unhandled pachd mock object.PutObjects")
+	return errors.Errorf("unhandled pachd mock object.PutObjects")
 }
 func (api *objectServerAPI) CreateObject(ctx context.Context, serv *pfs.CreateObjectRequest) (*types.Empty, error) {
 	if api.mock.CreateObject.handler != nil {
 		return api.mock.CreateObject.handler(ctx, serv)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock object.CreateObject")
+	return nil, errors.Errorf("unhandled pachd mock object.CreateObject")
 }
 func (api *objectServerAPI) GetObject(req *pfs.Object, serv pfs.ObjectAPI_GetObjectServer) error {
 	if api.mock.GetObject.handler != nil {
 		return api.mock.GetObject.handler(req, serv)
 	}
-	return fmt.Errorf("unhandled pachd mock object.GetObject")
+	return errors.Errorf("unhandled pachd mock object.GetObject")
 }
 func (api *objectServerAPI) GetObjects(req *pfs.GetObjectsRequest, serv pfs.ObjectAPI_GetObjectsServer) error {
 	if api.mock.GetObjects.handler != nil {
 		return api.mock.GetObjects.handler(req, serv)
 	}
-	return fmt.Errorf("unhandled pachd mock object.GetObjects")
+	return errors.Errorf("unhandled pachd mock object.GetObjects")
 }
 func (api *objectServerAPI) PutBlock(serv pfs.ObjectAPI_PutBlockServer) error {
 	if api.mock.PutBlock.handler != nil {
 		return api.mock.PutBlock.handler(serv)
 	}
-	return fmt.Errorf("unhandled pachd mock object.PutBlock")
+	return errors.Errorf("unhandled pachd mock object.PutBlock")
 }
 func (api *objectServerAPI) GetBlock(req *pfs.GetBlockRequest, serv pfs.ObjectAPI_GetBlockServer) error {
 	if api.mock.GetBlock.handler != nil {
 		return api.mock.GetBlock.handler(req, serv)
 	}
-	return fmt.Errorf("unhandled pachd mock object.GetBlock")
+	return errors.Errorf("unhandled pachd mock object.GetBlock")
 }
 func (api *objectServerAPI) GetBlocks(req *pfs.GetBlocksRequest, serv pfs.ObjectAPI_GetBlocksServer) error {
 	if api.mock.GetBlocks.handler != nil {
 		return api.mock.GetBlocks.handler(req, serv)
 	}
-	return fmt.Errorf("unhandled pachd mock object.GetBlocks")
+	return errors.Errorf("unhandled pachd mock object.GetBlocks")
 }
 func (api *objectServerAPI) ListBlock(req *pfs.ListBlockRequest, serv pfs.ObjectAPI_ListBlockServer) error {
 	if api.mock.ListBlock.handler != nil {
 		return api.mock.ListBlock.handler(req, serv)
 	}
-	return fmt.Errorf("unhandled pachd mock object.ListBlock")
+	return errors.Errorf("unhandled pachd mock object.ListBlock")
 }
 func (api *objectServerAPI) TagObject(ctx context.Context, req *pfs.TagObjectRequest) (*types.Empty, error) {
 	if api.mock.TagObject.handler != nil {
 		return api.mock.TagObject.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock object.TagObject")
+	return nil, errors.Errorf("unhandled pachd mock object.TagObject")
 }
 func (api *objectServerAPI) InspectObject(ctx context.Context, req *pfs.Object) (*pfs.ObjectInfo, error) {
 	if api.mock.InspectObject.handler != nil {
 		return api.mock.InspectObject.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock object.InspectObject")
+	return nil, errors.Errorf("unhandled pachd mock object.InspectObject")
 }
 func (api *objectServerAPI) CheckObject(ctx context.Context, req *pfs.CheckObjectRequest) (*pfs.CheckObjectResponse, error) {
 	if api.mock.CheckObject.handler != nil {
 		return api.mock.CheckObject.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock object.CheckObject")
+	return nil, errors.Errorf("unhandled pachd mock object.CheckObject")
 }
 func (api *objectServerAPI) ListObjects(req *pfs.ListObjectsRequest, serv pfs.ObjectAPI_ListObjectsServer) error {
 	if api.mock.ListObjects.handler != nil {
 		return api.mock.ListObjects.handler(req, serv)
 	}
-	return fmt.Errorf("unhandled pachd mock object.ListObjects")
+	return errors.Errorf("unhandled pachd mock object.ListObjects")
 }
 func (api *objectServerAPI) DeleteObjects(ctx context.Context, req *pfs.DeleteObjectsRequest) (*pfs.DeleteObjectsResponse, error) {
 	if api.mock.DeleteObjects.handler != nil {
 		return api.mock.DeleteObjects.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock object.DeleteObjects")
+	return nil, errors.Errorf("unhandled pachd mock object.DeleteObjects")
 }
 func (api *objectServerAPI) GetTag(req *pfs.Tag, serv pfs.ObjectAPI_GetTagServer) error {
 	if api.mock.GetTag.handler != nil {
 		return api.mock.GetTag.handler(req, serv)
 	}
-	return fmt.Errorf("unhandled pachd mock object.GetTag")
+	return errors.Errorf("unhandled pachd mock object.GetTag")
 }
 func (api *objectServerAPI) InspectTag(ctx context.Context, req *pfs.Tag) (*pfs.ObjectInfo, error) {
 	if api.mock.InspectTag.handler != nil {
 		return api.mock.InspectTag.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock object.InspectTag")
+	return nil, errors.Errorf("unhandled pachd mock object.InspectTag")
 }
 func (api *objectServerAPI) ListTags(req *pfs.ListTagsRequest, serv pfs.ObjectAPI_ListTagsServer) error {
 	if api.mock.ListTags.handler != nil {
 		return api.mock.ListTags.handler(req, serv)
 	}
-	return fmt.Errorf("unhandled pachd mock object.ListTags")
+	return errors.Errorf("unhandled pachd mock object.ListTags")
 }
 func (api *objectServerAPI) DeleteTags(ctx context.Context, req *pfs.DeleteTagsRequest) (*pfs.DeleteTagsResponse, error) {
 	if api.mock.DeleteTags.handler != nil {
 		return api.mock.DeleteTags.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock object.DeleteTags")
+	return nil, errors.Errorf("unhandled pachd mock object.DeleteTags")
 }
 func (api *objectServerAPI) Compact(ctx context.Context, req *types.Empty) (*types.Empty, error) {
 	if api.mock.Compact.handler != nil {
 		return api.mock.Compact.handler(ctx, req)
 	}
-	return nil, fmt.Errorf("unhandled pachd mock object.Compact")
+	return nil, errors.Errorf("unhandled pachd mock object.Compact")
+}
+func (api *objectServerAPI) PutObjDirect(serv pfs.ObjectAPI_PutObjDirectServer) error {
+	if api.mock.PutObjDirect.handler != nil {
+		return api.mock.PutObjDirect.handler(serv)
+	}
+	return errors.Errorf("unhandled pachd mock object.PutObjDirect")
+}
+func (api *objectServerAPI) GetObjDirect(req *pfs.GetObjDirectRequest, serv pfs.ObjectAPI_GetObjDirectServer) error {
+	if api.mock.GetObjDirect.handler != nil {
+		return api.mock.GetObjDirect.handler(req, serv)
+	}
+	return errors.Errorf("unhandled pachd mock object.GetObjDirect")
 }
 
 // MockPachd provides an interface for running the interface for a Pachd API

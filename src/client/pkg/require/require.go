@@ -7,6 +7,8 @@ import (
 	"runtime/debug"
 	"testing"
 	"time"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 // Matches checks that a string matches a regular-expression.
@@ -89,17 +91,17 @@ func ElementsEqualOrErr(expecteds interface{}, actuals interface{}) error {
 	if esIsEmpty && asIsEmpty {
 		return nil
 	} else if esIsEmpty {
-		return fmt.Errorf("expected 0 elements, but got %d: %v", as.Len(), actuals)
+		return errors.Errorf("expected 0 elements, but got %d: %v", as.Len(), actuals)
 	} else if asIsEmpty {
-		return fmt.Errorf("expected %d elements, but got 0\n  expected: %v", es.Len(), expecteds)
+		return errors.Errorf("expected %d elements, but got 0\n  expected: %v", es.Len(), expecteds)
 	}
 
 	// Both slices are nonempty--compare elements
 	if es.Kind() != reflect.Slice {
-		return fmt.Errorf("\"expecteds\" must be a slice, but was %s", es.Type().String())
+		return errors.Errorf("\"expecteds\" must be a slice, but was %s", es.Type().String())
 	}
 	if as.Kind() != reflect.Slice {
-		return fmt.Errorf("\"actuals\" must be a slice, but was %s", as.Type().String())
+		return errors.Errorf("\"actuals\" must be a slice, but was %s", as.Type().String())
 	}
 
 	// Make sure expecteds and actuals are slices of the same type, modulo
@@ -114,7 +116,7 @@ func ElementsEqualOrErr(expecteds interface{}, actuals interface{}) error {
 		asElemType = as.Type().Elem().Elem()
 	}
 	if esElemType != asElemType {
-		return fmt.Errorf("expected []%s but got []%s", es.Type().Elem(), as.Type().Elem())
+		return errors.Errorf("expected []%s but got []%s", es.Type().Elem(), as.Type().Elem())
 	}
 
 	// Count up elements of expecteds
@@ -149,7 +151,7 @@ func ElementsEqualOrErr(expecteds interface{}, actuals interface{}) error {
 	}
 	if expectedCt.Len() != actualCt.Len() {
 		// slight abuse of error: contains newlines so final output prints well
-		return fmt.Errorf("expected %d distinct elements, but got %d\n  expected: %v\n  actual: %v", expectedCt.Len(), actualCt.Len(), expecteds, actuals)
+		return errors.Errorf("expected %d distinct elements, but got %d\n  expected: %v\n  actual: %v", expectedCt.Len(), actualCt.Len(), expecteds, actuals)
 	}
 	for _, key := range expectedCt.MapKeys() {
 		ec := expectedCt.MapIndex(key)
@@ -163,7 +165,7 @@ func ElementsEqualOrErr(expecteds interface{}, actuals interface{}) error {
 				acInt = ac.Int()
 			}
 			// slight abuse of error: contains newlines so final output prints well
-			return fmt.Errorf("expected %d copies of %v, but got %d copies\n  expected: %v\n  actual: %v", ecInt, key, acInt, expecteds, actuals)
+			return errors.Errorf("expected %d copies of %v, but got %d copies\n  expected: %v\n  actual: %v", ecInt, key, acInt, expecteds, actuals)
 		}
 	}
 	return nil
@@ -239,7 +241,7 @@ func oneOfEquals(sliceName string, slice interface{}, elem interface{}) (bool, e
 		sl = reflect.MakeSlice(reflect.SliceOf(e.Type()), 0, 0)
 	}
 	if sl.Kind() != reflect.Slice {
-		return false, fmt.Errorf("\"%s\" must a be a slice, but instead was %s", sliceName, sl.Type().String())
+		return false, errors.Errorf("\"%s\" must a be a slice, but instead was %s", sliceName, sl.Type().String())
 	}
 	if e.Type() != sl.Type().Elem() {
 		return false, nil

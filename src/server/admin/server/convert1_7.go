@@ -2,7 +2,6 @@ package server
 
 import (
 	"bytes"
-	"fmt"
 	pathlib "path"
 	"strings"
 
@@ -13,6 +12,7 @@ import (
 	pps1_7 "github.com/pachyderm/pachyderm/src/client/admin/v1_7/pps"
 	pfs1_8 "github.com/pachyderm/pachyderm/src/client/admin/v1_8/pfs"
 	pps1_8 "github.com/pachyderm/pachyderm/src/client/admin/v1_8/pps"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 )
 
@@ -300,7 +300,7 @@ func convert1_7HashTreeNode(old *hashtree1_7.HashTreeProto, t hashtree.HashTree,
 	path = clean1_7HashtreePath(path)
 	node, ok := old.Fs[path]
 	if !ok {
-		return fmt.Errorf("expected node at %q, but found none", path)
+		return errors.Errorf("expected node at %q, but found none", path)
 	}
 	switch {
 	case node.FileNode != nil:
@@ -309,11 +309,11 @@ func convert1_7HashTreeNode(old *hashtree1_7.HashTreeProto, t hashtree.HashTree,
 			convert1_9Objects(convert1_8Objects(convert1_7Objects(node.FileNode.Objects))),
 			node.SubtreeSize,
 		); err != nil {
-			return fmt.Errorf("could not convert file %q: %v", path, err)
+			return errors.Wrapf(err, "could not convert file %q", path)
 		}
 	case node.DirNode != nil:
 		if err := t.PutDir(path); err != nil {
-			return fmt.Errorf("could not convert directory %q: %v", path, err)
+			return errors.Wrapf(err, "could not convert directory %q", path)
 		}
 		for _, child := range node.DirNode.Children {
 			if err := convert1_7HashTreeNode(old, t, pathlib.Join(path, child)); err != nil {
@@ -327,7 +327,7 @@ func convert1_7HashTreeNode(old *hashtree1_7.HashTreeProto, t hashtree.HashTree,
 func convert1_7HashTree(storageRoot string, old *hashtree1_7.HashTreeProto) (hashtree.HashTree, error) {
 	t, err := hashtree.NewDBHashTree(storageRoot)
 	if err != nil {
-		return nil, fmt.Errorf("could not create converted hashtree: %v", err)
+		return nil, errors.Wrapf(err, "could not create converted hashtree")
 	}
 	if err := convert1_7HashTreeNode(old, t, "/"); err != nil {
 		return nil, err
@@ -340,7 +340,7 @@ func convert1_7Op(pachClient *client.APIClient, storageRoot string, op *admin.Op
 	switch {
 	case op.Tag != nil:
 		if !objHashRE.MatchString(op.Tag.Object.Hash) {
-			return nil, fmt.Errorf("invalid object hash in op: %q", op)
+			return nil, errors.Errorf("invalid object hash in op: %q", op)
 		}
 		return &admin.Op1_8{
 			Tag: &pfs1_8.TagObjectRequest{
@@ -372,15 +372,15 @@ func convert1_7Op(pachClient *client.APIClient, storageRoot string, op *admin.Op
 		// write new hashtree as an object
 		w, err := pachClient.PutObjectAsync(nil)
 		if err != nil {
-			return nil, fmt.Errorf("could not put new hashtree for commit %q: %v", op.Commit.ID, err)
+			return nil, errors.Wrapf(err, "could not put new hashtree for commit %q", op.Commit.ID)
 		}
 		newTree.Serialize(w)
 		if err := w.Close(); err != nil {
-			return nil, fmt.Errorf("could finish object containing new hashtree for commit %q: %v", op.Commit.ID, err)
+			return nil, errors.Wrapf(err, "could finish object containing new hashtree for commit %q", op.Commit.ID)
 		}
 		newTreeObj, err := w.Object()
 		if err != nil {
-			return nil, fmt.Errorf("could retrieve object reference to new hashtree for commit %q: %v", op.Commit.ID, err)
+			return nil, errors.Wrapf(err, "could retrieve object reference to new hashtree for commit %q", op.Commit.ID)
 		}
 
 		// Set op's object to new hashtree & finish building commit
@@ -442,7 +442,7 @@ func convert1_7Op(pachClient *client.APIClient, storageRoot string, op *admin.Op
 			},
 		}, nil
 	default:
-		return nil, fmt.Errorf("unrecognized 1.7 op type:\n%+v", op)
+		return nil, errors.Errorf("unrecognized 1.7 op type:\n%+v", op)
 	}
-	return nil, fmt.Errorf("internal error: convert1.7Op() didn't return a 1.8 op for:\n%+v", op)
+	return nil, errors.Errorf("internal error: convert1.7Op() didn't return a 1.8 op for:\n%+v", op)
 }

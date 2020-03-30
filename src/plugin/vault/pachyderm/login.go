@@ -2,7 +2,6 @@ package pachyderm
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/hashicorp/vault/logical/framework"
 	pclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 func (b *backend) loginPath() *framework.Path {
@@ -131,7 +131,7 @@ func sanitizeTTLStr(ttlStr, maxTTLStr string) (ttl, maxTTL time.Duration, err er
 	} else {
 		ttl, err = time.ParseDuration(ttlStr)
 		if err != nil {
-			return 0, 0, fmt.Errorf("invalid ttl: %s", err)
+			return 0, 0, errors.Wrapf(err, "invalid ttl")
 		}
 	}
 
@@ -140,7 +140,7 @@ func sanitizeTTLStr(ttlStr, maxTTLStr string) (ttl, maxTTL time.Duration, err er
 	} else {
 		maxTTL, err = time.ParseDuration(maxTTLStr)
 		if err != nil {
-			return 0, 0, fmt.Errorf("invalid max_ttl: %s", err)
+			return 0, 0, errors.Wrapf(err, "invalid max_ttl")
 		}
 	}
 

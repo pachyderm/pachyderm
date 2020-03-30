@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -42,7 +43,7 @@ func ParseScope(s string) (Scope, error) {
 			return Scope(value), nil
 		}
 	}
-	return Scope_NONE, fmt.Errorf("unrecognized scope: %s", s)
+	return Scope_NONE, errors.Errorf("unrecognized scope: %s", s)
 }
 
 var (

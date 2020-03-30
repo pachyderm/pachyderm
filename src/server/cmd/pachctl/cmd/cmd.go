@@ -3,7 +3,6 @@ package cmd
 import (
 	"bufio"
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -15,13 +14,9 @@ import (
 	"time"
 	"unicode"
 
-	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/fatih/color"
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/types"
-	"github.com/juju/ansiterm"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	admincmds "github.com/pachyderm/pachyderm/src/server/admin/cmds"
@@ -37,11 +32,16 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
 	txncmds "github.com/pachyderm/pachyderm/src/server/transaction/cmds"
-	prefixed "github.com/x-cray/logrus-prefixed-formatter"
 
+	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/fatih/color"
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/types"
+	"github.com/juju/ansiterm"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	prefixed "github.com/x-cray/logrus-prefixed-formatter"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/status"
@@ -400,7 +400,7 @@ Environment variables:
 				var timeout time.Duration
 				timeout, err = time.ParseDuration(timeoutFlag)
 				if err != nil {
-					return fmt.Errorf("could not parse timeout duration %q: %v", timeout, err)
+					return errors.Wrapf(err, "could not parse timeout duration %q", timeout)
 				}
 				pachClient, err = client.NewOnUserMachine("user", client.WithDialTimeout(timeout))
 			} else {
@@ -954,7 +954,7 @@ func createCompletions(rootCmd *cobra.Command, install bool, installPath string,
 			if os.IsPermission(err) {
 				return errors.New("could not install completions due to permissions - rerun this command with sudo")
 			}
-			return fmt.Errorf("could not install completions: %v", err)
+			return errors.Wrapf(err, "could not install completions")
 		}
 
 		defer func() {

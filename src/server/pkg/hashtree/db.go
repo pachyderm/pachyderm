@@ -13,16 +13,17 @@ import (
 	"sort"
 	"strings"
 
-	"golang.org/x/sync/errgroup"
+	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 
 	"github.com/OneOfOne/xxhash"
 	bolt "github.com/coreos/bbolt"
 	globlib "github.com/pachyderm/ohmyglob"
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -456,7 +457,7 @@ func (h *dbHashTree) Diff(oldHashTree HashTree, newPath string, oldPath string, 
 	// Setup a txn for each hashtree, this is a bit complicated because we don't want to make 2 read tx to the same tree, if we did then should someone start a write tx inbetween them we would have a deadlock
 	old := oldHashTree.(*dbHashTree)
 	if old == nil {
-		return fmt.Errorf("unrecognized HashTree type")
+		return errors.Errorf("unrecognized HashTree type")
 	}
 	rollback := func(tx *bolt.Tx) {
 		if err := tx.Rollback(); err != nil && retErr == nil {
@@ -649,7 +650,7 @@ func put(tx *bolt.Tx, path string, node *NodeProto) error {
 		return err
 	}
 	if err := changed(tx).Put(b(path), exists); err != nil {
-		return fmt.Errorf("error putting \"%s\": %v", path, err)
+		return errors.Wrapf(err, "error putting \"%s\"", path)
 	}
 	return fs(tx).Put(b(path), data)
 }

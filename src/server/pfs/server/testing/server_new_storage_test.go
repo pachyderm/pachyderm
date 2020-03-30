@@ -4,6 +4,8 @@ import (
 	"archive/tar"
 	"bytes"
 	"io"
+	"math/rand"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -15,22 +17,33 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+func writeTestFile(t *testing.T, tw *tar.Writer, testFile string) {
+	hdr := &tar.Header{
+		Name: "/" + testFile,
+		Size: int64(len(testFile)),
+	}
+	require.NoError(t, tw.WriteHeader(hdr))
+	_, err := tw.Write([]byte(testFile))
+	require.NoError(t, err)
+	require.NoError(t, tw.Flush())
+}
+
 func TestCompaction(t *testing.T) {
 	config := &serviceenv.PachdFullConfiguration{}
 	config.NewStorageLayer = true
 	config.StorageMemoryThreshold = 20
 	config.StorageShardThreshold = 20
 	config.StorageLevelZeroSize = 10
-	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+	testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		c := env.PachClient
 		repo := "test"
-		filePrefix := "/file"
 		require.NoError(t, c.CreateRepo(repo))
 		var eg errgroup.Group
 		for i := 0; i < 3; i++ {
 			branch := "test" + strconv.Itoa(i)
 			eg.Go(func() error {
 				var commit *pfs.Commit
+				var testFiles []string
 				t.Run("PutTar", func(t *testing.T) {
 					var err error
 					for i := 0; i < 10; i++ {
@@ -40,42 +53,68 @@ func TestCompaction(t *testing.T) {
 						tw := tar.NewWriter(buf)
 						// Create files.
 						for j := 0; j < 10; j++ {
-							s := strconv.Itoa(i*10 + j)
-							hdr := &tar.Header{
-								Name: filePrefix + s,
-								Size: int64(len(s)),
-							}
-							require.NoError(t, tw.WriteHeader(hdr))
-							_, err := io.Copy(tw, strings.NewReader(s))
-							require.NoError(t, err)
-							require.NoError(t, tw.Flush())
+							testFile := strconv.Itoa(i*10 + j)
+							writeTestFile(t, tw, testFile)
+							testFiles = append(testFiles, testFile)
 						}
 						require.NoError(t, tw.Close())
 						require.NoError(t, c.PutTar(repo, commit.ID, buf))
 						require.NoError(t, c.FinishCommit(repo, commit.ID))
 					}
 				})
-				tarBuf := &bytes.Buffer{}
-				getContent := func() string {
-					contentBuf := &bytes.Buffer{}
-					tr := tar.NewReader(tarBuf)
+				getTarContent := func(r io.Reader) string {
+					tr := tar.NewReader(r)
 					_, err := tr.Next()
 					require.NoError(t, err)
-					_, err = io.Copy(contentBuf, tr)
+					buf := &bytes.Buffer{}
+					_, err = io.Copy(buf, tr)
 					require.NoError(t, err)
-					return contentBuf.String()
+					return buf.String()
 				}
-				require.NoError(t, c.GetTar(repo, commit.ID, "/file0", tarBuf))
-				require.Equal(t, "0", getContent())
-				tarBuf.Reset()
-				require.NoError(t, c.GetTar(repo, commit.ID, "/file50", tarBuf))
-				require.Equal(t, "50", getContent())
-				tarBuf.Reset()
-				require.NoError(t, c.GetTar(repo, commit.ID, "/file99", tarBuf))
-				require.Equal(t, "99", getContent())
+				t.Run("GetTar", func(t *testing.T) {
+					r, err := c.GetTar(repo, commit.ID, "/0")
+					require.NoError(t, err)
+					require.Equal(t, "0", getTarContent(r))
+					r, err = c.GetTar(repo, commit.ID, "/50")
+					require.NoError(t, err)
+					require.Equal(t, "50", getTarContent(r))
+					r, err = c.GetTar(repo, commit.ID, "/99")
+					require.NoError(t, err)
+					require.Equal(t, "99", getTarContent(r))
+				})
+				t.Run("GetTarConditional", func(t *testing.T) {
+					downloadProb := 0.25
+					require.NoError(t, c.GetTarConditional(repo, commit.ID, "/*", func(fileInfo *pfs.FileInfoNewStorage, r io.Reader) error {
+						if rand.Float64() < downloadProb {
+							require.Equal(t, strings.TrimPrefix(fileInfo.File.Path, "/"), getTarContent(r))
+						}
+						return nil
+					}))
+				})
+				t.Run("GetTarConditionalDirectory", func(t *testing.T) {
+					fullBuf := &bytes.Buffer{}
+					fullTw := tar.NewWriter(fullBuf)
+					rootHdr := &tar.Header{
+						Typeflag: tar.TypeDir,
+						Name:     "/",
+					}
+					require.NoError(t, fullTw.WriteHeader(rootHdr))
+					sort.Strings(testFiles)
+					for _, testFile := range testFiles {
+						writeTestFile(t, fullTw, testFile)
+					}
+					require.NoError(t, fullTw.Close())
+					require.NoError(t, c.GetTarConditional(repo, commit.ID, "/", func(fileInfo *pfs.FileInfoNewStorage, r io.Reader) error {
+						buf := &bytes.Buffer{}
+						_, err := io.Copy(buf, r)
+						require.NoError(t, err)
+						require.Equal(t, 0, bytes.Compare(fullBuf.Bytes(), buf.Bytes()))
+						return nil
+					}))
+				})
 				return nil
 			})
 		}
 		return eg.Wait()
-	}, config))
+	}, config)
 }

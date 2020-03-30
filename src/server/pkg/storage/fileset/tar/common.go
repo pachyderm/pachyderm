@@ -11,7 +11,6 @@
 package tar
 
 import (
-	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -20,6 +19,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 // BUG: Use of the Uid and Gid fields in Header could overflow on 32-bit
@@ -656,9 +657,9 @@ func FileInfoHeader(fi os.FileInfo, link string) (*Header, error) {
 	case fm&os.ModeNamedPipe != 0:
 		h.Typeflag = TypeFifo
 	case fm&os.ModeSocket != 0:
-		return nil, fmt.Errorf("archive/tar: sockets not supported")
+		return nil, errors.Errorf("archive/tar: sockets not supported")
 	default:
-		return nil, fmt.Errorf("archive/tar: unknown file mode %v", fm)
+		return nil, errors.Errorf("archive/tar: unknown file mode %v", fm)
 	}
 	if fm&os.ModeSetuid != 0 {
 		h.Mode |= c_ISUID

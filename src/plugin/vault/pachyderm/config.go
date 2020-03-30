@@ -7,6 +7,7 @@ import (
 
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 type config struct {
@@ -64,7 +65,7 @@ func (b *backend) pathConfigRead(ctx context.Context, req *logical.Request, data
 
 	config, err := getConfig(ctx, req.Storage)
 	if err != nil {
-		return nil, fmt.Errorf("%v: failed to get configuration from storage", err)
+		return nil, errors.Wrapf(err, "failed to get configuration from storage")
 	}
 	respData := make(map[string]interface{})
 	respData["admin_token"] = config.AdminToken

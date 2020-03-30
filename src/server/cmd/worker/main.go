@@ -2,13 +2,12 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"path"
 	"time"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/pachyderm/pachyderm/src/client"
 	debugclient "github.com/pachyderm/pachyderm/src/client/debug"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -22,6 +21,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/worker"
 
+	etcd "github.com/coreos/etcd/clientv3"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -53,7 +53,7 @@ func getPipelineInfo(pachClient *client.APIClient, env *serviceenv.ServiceEnv) (
 		return nil, err
 	}
 	if len(resp.Kvs) != 1 {
-		return nil, fmt.Errorf("expected to find 1 pipeline (%s), got %d: %v", env.PPSPipelineName, len(resp.Kvs), resp)
+		return nil, errors.Errorf("expected to find 1 pipeline (%s), got %d: %v", env.PPSPipelineName, len(resp.Kvs), resp)
 	}
 	var pipelinePtr pps.EtcdPipelineInfo
 	if err := pipelinePtr.Unmarshal(resp.Kvs[0].Value); err != nil {
@@ -77,7 +77,7 @@ func do(config interface{}) error {
 	pachClient := env.GetPachClient(context.Background())
 	pipelineInfo, err := getPipelineInfo(pachClient, env) // get pipeline creds for pachClient
 	if err != nil {
-		return fmt.Errorf("error getting pipelineInfo: %v", err)
+		return errors.Wrapf(err, "error getting pipelineInfo")
 	}
 
 	// Construct worker API server.
@@ -106,19 +106,19 @@ func do(config interface{}) error {
 	defer cancel()
 	resp, err := env.GetEtcdClient().Grant(ctx, 10 /* seconds */)
 	if err != nil {
-		return fmt.Errorf("error granting lease: %v", err)
+		return errors.Wrapf(err, "error granting lease")
 	}
 
 	// keepalive forever
 	if _, err := env.GetEtcdClient().KeepAlive(context.Background(), resp.ID); err != nil {
-		return fmt.Errorf("error with KeepAlive: %v", err)
+		return errors.Wrapf(err, "error with KeepAlive")
 	}
 
 	// Actually write "key" into etcd
 	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second) // new ctx
 	defer cancel()
 	if _, err := env.GetEtcdClient().Put(ctx, key, "", etcd.WithLease(resp.ID)); err != nil {
-		return fmt.Errorf("error putting IP address: %v", err)
+		return errors.Wrapf(err, "error putting IP address")
 	}
 
 	// If server ever exits, return error

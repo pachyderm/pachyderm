@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -39,6 +38,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
@@ -254,7 +254,7 @@ func (logger *taggedLogger) LogStep(name string, f func() error) (retErr error) 
 	logger.Logf("started %v", name)
 	defer func() {
 		if retErr != nil {
-			retErr = fmt.Errorf("errored %v: %v", name, retErr)
+			retErr = errors.Wrapf(retErr, "errored %v", name)
 		} else {
 			logger.Logf("finished %v", name)
 		}
@@ -275,7 +275,7 @@ func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
 			}
 			// this shouldn't technically be possible to hit io.EOF should be
 			// the only error bufio.Reader can return when using a buffer.
-			return 0, fmt.Errorf("error ReadString: %v", err)
+			return 0, errors.Wrapf(err, "error ReadString")
 		}
 		// We don't want to make this call as:
 		// logger.Logf(message)
@@ -386,7 +386,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		}
 		image, err := docker.InspectImage(pipelineInfo.Transform.Image)
 		if err != nil {
-			return nil, fmt.Errorf("error inspecting image %s: %+v", pipelineInfo.Transform.Image, err)
+			return nil, errors.Wrapf(err, "error inspecting image %s", pipelineInfo.Transform.Image)
 		}
 		if pipelineInfo.Transform.User == "" {
 			pipelineInfo.Transform.User = image.Config.User
@@ -462,7 +462,7 @@ func (a *APIServer) downloadGitData(pachClient *client.APIClient, dir string, in
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("error cloning repo %v at SHA %v from URL %v: %v", pachydermRepoName, sha, input.GitURL, err)
+		return errors.Wrapf(err, "error cloning repo %v at SHA %v from URL %v", pachydermRepoName, sha, input.GitURL)
 	}
 	hash := gitPlumbing.NewHash(sha)
 	wt, err := r.Worktree()
@@ -471,7 +471,7 @@ func (a *APIServer) downloadGitData(pachClient *client.APIClient, dir string, in
 	}
 	err = wt.Checkout(&git.CheckoutOptions{Hash: hash})
 	if err != nil {
-		return fmt.Errorf("error checking out SHA %v from repo %v: %v", sha, pachydermRepoName, err)
+		return errors.Wrapf(err, "error checking out SHA %v from repo %v", sha, pachydermRepoName)
 	}
 	return nil
 }
@@ -525,10 +525,10 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 	if a.pipelineInfo.Spout != nil {
 		// Spouts need to create a named pipe at /pfs/out
 		if err := os.MkdirAll(filepath.Dir(outPath), 0700); err != nil {
-			return "", fmt.Errorf("mkdirall :%v", err)
+			return "", errors.Wrapf(err, "mkdirall")
 		}
 		if err := createSpoutFifo(outPath); err != nil {
-			return "", fmt.Errorf("mkfifo :%v", err)
+			return "", errors.Wrapf(err, "mkfifo")
 		}
 		if a.pipelineInfo.Spout.Marker != "" {
 			// check if we have a marker file in the /pfs/out directory
@@ -555,7 +555,7 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 	} else {
 		if !a.pipelineInfo.S3Out {
 			if err := os.MkdirAll(outPath, 0777); err != nil {
-				return "", fmt.Errorf("couldn't create %q: %v", outPath, err)
+				return "", errors.Wrapf(err, "couldn't create %q", outPath)
 			}
 		}
 	}
@@ -618,7 +618,7 @@ func (a *APIServer) linkData(inputs []*Input, dir string) error {
 func (a *APIServer) unlinkData(inputs []*Input) error {
 	dirs, err := ioutil.ReadDir(client.PPSInputPrefix)
 	if err != nil {
-		return fmt.Errorf("ioutil.ReadDir: %v", err)
+		return errors.Wrapf(err, "ioutil.ReadDir")
 	}
 	for _, d := range dirs {
 		if d.Name() == client.PPSScratchSpace {
@@ -703,13 +703,13 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	cmd.Dir = a.pipelineInfo.Transform.WorkingDir
 	err := cmd.Start()
 	if err != nil {
-		return fmt.Errorf("error cmd.Start: %v", err)
+		return errors.Wrapf(err, "error cmd.Start")
 	}
 	// A context w a deadline will successfully cancel/kill
 	// the running process (minus zombies)
 	state, err := cmd.Process.Wait()
 	if err != nil {
-		return fmt.Errorf("error cmd.Wait: %v", err)
+		return errors.Wrapf(err, "error cmd.Wait")
 	}
 	if isDone(ctx) {
 		if err = ctx.Err(); err != nil {
@@ -738,7 +738,7 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 				}
 			}
 		}
-		return fmt.Errorf("error cmd.WaitIO: %v", err)
+		return errors.Wrapf(err, "error cmd.WaitIO")
 	}
 	return nil
 }
@@ -767,13 +767,13 @@ func (a *APIServer) runUserErrorHandlingCode(ctx context.Context, logger *tagged
 	cmd.Dir = a.pipelineInfo.Transform.WorkingDir
 	err := cmd.Start()
 	if err != nil {
-		return fmt.Errorf("error cmd.Start: %v", err)
+		return errors.Wrapf(err, "error cmd.Start")
 	}
 	// A context w a deadline will successfully cancel/kill
 	// the running process (minus zombies)
 	state, err := cmd.Process.Wait()
 	if err != nil {
-		return fmt.Errorf("error cmd.Wait: %v", err)
+		return errors.Wrapf(err, "error cmd.Wait")
 	}
 	if isDone(ctx) {
 		if err = ctx.Err(); err != nil {
@@ -801,7 +801,7 @@ func (a *APIServer) runUserErrorHandlingCode(ctx context.Context, logger *tagged
 				}
 			}
 		}
-		return fmt.Errorf("error cmd.WaitIO: %v", err)
+		return errors.Wrapf(err, "error cmd.WaitIO")
 	}
 	return nil
 }
@@ -865,7 +865,7 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 			return err
 		}
 		if !utf8.ValidString(filePath) {
-			return fmt.Errorf("file path is not valid utf-8: %s", filePath)
+			return errors.Errorf("file path is not valid utf-8: %s", filePath)
 		}
 		if filePath == outputPath {
 			tree = hashtree.NewOrdered("/")
@@ -980,7 +980,7 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 					return nil
 				}
 			}
-			return fmt.Errorf("os.Open(%s): %v", filePath, err)
+			return errors.Wrapf(err, "os.Open(%s)", filePath)
 		}
 		defer func() {
 			if err := f.Close(); err != nil && retErr == nil {
@@ -1026,7 +1026,7 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 		stats.UploadBytes += uint64(size)
 		return nil
 	}); err != nil {
-		return fmt.Errorf("error walking output: %v", err)
+		return errors.Wrapf(err, "error walking output")
 	}
 	if _, err := putObjsClient.CloseAndRecv(); err != nil && err != io.EOF {
 		return err
@@ -1146,7 +1146,7 @@ func (a *APIServer) GetChunk(request *GetChunkRequest, server Worker_GetChunkSer
 	}
 
 	if !cache.Has(request.Id) {
-		return fmt.Errorf("chunk (%d) missing from cache", request.Id)
+		return errors.Errorf("chunk (%d) missing from cache", request.Id)
 	}
 	return cache.Get(request.Id, grpcutil.NewStreamingBytesWriter(server), filter)
 }
@@ -1200,7 +1200,7 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, plan *Plan,
 	chunks := a.chunks(jobID)
 	watcher, err := chunks.ReadOnly(ctx).Watch(watch.WithFilterPut())
 	if err != nil {
-		return fmt.Errorf("error creating chunk watcher: %v", err)
+		return errors.Wrapf(err, "error creating chunk watcher")
 	}
 	var complete bool
 	for !complete {
@@ -1226,7 +1226,7 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, plan *Plan,
 		select {
 		case e := <-watcher.Watch():
 			if e.Type == watch.EventError {
-				return fmt.Errorf("chunk watch error: %v", e.Err)
+				return errors.Wrapf(e.Err, "chunk watch error")
 			}
 		case <-ctx.Done():
 			return ctx.Err()
@@ -1411,7 +1411,7 @@ func (a *APIServer) getChunk(ctx context.Context, id int64, address string, fail
 	// processing, or the IP was recycled.
 	if address == os.Getenv(client.PPSWorkerIPEnv) {
 		if !a.chunkCache.Has(id) {
-			return fmt.Errorf("chunk (%d) missing from local chunk cache", id)
+			return errors.Errorf("chunk (%d) missing from local chunk cache", id)
 		}
 		return nil
 	}
@@ -1604,7 +1604,7 @@ func (a *APIServer) getHashtrees(ctx context.Context, pachClient *client.APIClie
 				return err
 			}
 			// Read the full datum hashtree in memory
-			objR, err := objClient.Reader(ctx, path, 0, 0)
+			objR, err := pachClient.DirectObjReader(path)
 			if err != nil {
 				return err
 			}
@@ -1681,7 +1681,7 @@ func (a *APIServer) getParentHashTree(ctx context.Context, pachClient *client.AP
 	if err != nil {
 		return nil, err
 	}
-	return objClient.Reader(ctx, path, 0, 0)
+	return pachClient.DirectObjReader(path)
 }
 
 func writeIndex(pachClient *client.APIClient, objClient obj.Client, tree *pfs.Object, idx []byte) (retErr error) {
@@ -1693,7 +1693,7 @@ func writeIndex(pachClient *client.APIClient, objClient obj.Client, tree *pfs.Ob
 	if err != nil {
 		return err
 	}
-	idxW, err := objClient.Writer(pachClient.Ctx(), path+hashtree.IndexPath)
+	idxW, err := pachClient.DirectObjWriter(path + hashtree.IndexPath)
 	if err != nil {
 		return err
 	}
@@ -1734,7 +1734,7 @@ func (a *APIServer) cancelCtxIfJobFails(jobCtx context.Context, jobCancel func()
 				jobCancel() // job deleted before we started--cancel the job ctx
 				return nil
 			}
-			return fmt.Errorf("worker: could not create state watcher for job %s, err is %v", jobID, err)
+			return errors.Wrapf(err, "worker: could not create state watcher for job %s", jobID)
 		}
 
 		// If any job events indicate that the job is done, cancel jobCtx
@@ -1747,7 +1747,7 @@ func (a *APIServer) cancelCtxIfJobFails(jobCtx context.Context, jobCancel func()
 					var jobID string
 					jobPtr := &pps.EtcdJobInfo{}
 					if err := e.Unmarshal(&jobID, jobPtr); err != nil {
-						return fmt.Errorf("worker: error unmarshalling while watching job state (%v)", err)
+						return errors.Wrapf(err, "worker: error unmarshalling while watching job state")
 					}
 					if ppsutil.IsTerminal(jobPtr.State) {
 						logger.Logf("job %q put in terminal state %q; cancelling", jobID, jobPtr.State)
@@ -1757,7 +1757,7 @@ func (a *APIServer) cancelCtxIfJobFails(jobCtx context.Context, jobCancel func()
 					logger.Logf("job %q deleted; cancelling", jobID)
 					jobCancel() // cancel the job
 				case watch.EventError:
-					return fmt.Errorf("job state watch error: %v", e.Err)
+					return errors.Wrapf(e.Err, "job state watch error")
 				}
 			case <-jobCtx.Done():
 				break Outer
@@ -1792,7 +1792,7 @@ func (a *APIServer) worker() {
 		defer retryCancel()
 		watcher, err := a.jobs.ReadOnly(retryCtx).WatchByIndex(ppsdb.JobsPipelineIndex, a.pipelineInfo.Pipeline)
 		if err != nil {
-			return fmt.Errorf("error creating watch: %v", err)
+			return errors.Wrapf(err, "error creating watch")
 		}
 		defer watcher.Close()
 		for e := range watcher.Watch() {
@@ -1804,7 +1804,7 @@ func (a *APIServer) worker() {
 				logger.Logf("error clearing chunk stats cache: %v", err)
 			}
 			if e.Type == watch.EventError {
-				return fmt.Errorf("worker watch error: %v", e.Err)
+				return errors.Wrapf(e.Err, "worker watch error")
 			} else if e.Type == watch.EventDelete {
 				// Job was deleted, e.g. because input commit was deleted. This is
 				// handled by cancelCtxIfJobFails goro, which was spawned when job was
@@ -1816,7 +1816,7 @@ func (a *APIServer) worker() {
 			var jobID string
 			jobPtr := &pps.EtcdJobInfo{}
 			if err := e.Unmarshal(&jobID, jobPtr); err != nil {
-				return fmt.Errorf("error unmarshalling: %v", err)
+				return errors.Wrapf(err, "error unmarshalling")
 			}
 			if ppsutil.IsTerminal(jobPtr.State) {
 				// previously-created job has finished, or job was finished during backoff
@@ -1845,14 +1845,14 @@ func (a *APIServer) worker() {
 					if col.IsErrNotFound(err) {
 						return nil
 					}
-					return fmt.Errorf("error from InspectJob(%v): %+v", jobID, err)
+					return errors.Wrapf(err, "error from InspectJob(%v)", jobID)
 				}
 				if jobInfo.PipelineVersion < a.pipelineInfo.Version {
 					logger.Logf("skipping job %v as it uses old pipeline version %d", jobID, jobInfo.PipelineVersion)
 					return nil
 				}
 				if jobInfo.PipelineVersion > a.pipelineInfo.Version {
-					return fmt.Errorf("job %s's version (%d) greater than pipeline's "+
+					return errors.Errorf("job %s's version (%d) greater than pipeline's "+
 						"version (%d), this should automatically resolve when the worker "+
 						"is updated", jobID, jobInfo.PipelineVersion, a.pipelineInfo.Version)
 				}
@@ -1860,7 +1860,7 @@ func (a *APIServer) worker() {
 				// Read the chunks laid out by the master and create the datum factory
 				plan := &Plan{}
 				if err := a.plans.ReadOnly(jobCtx).GetBlock(jobInfo.Job.ID, plan); err != nil {
-					return fmt.Errorf("error reading job chunks: %v", err)
+					return errors.Wrapf(err, "error reading job chunks")
 				}
 				var df DatumIterator
 				if err := logger.LogStep("creating datum iterator", func() error {
@@ -1966,14 +1966,14 @@ func (a *APIServer) worker() {
 					if jobCtx.Err() == context.Canceled {
 						return nil
 					}
-					return fmt.Errorf("acquire/process/merge datums for job %s exited with err: %v", jobID, err)
+					return errors.Wrapf(err, "acquire/process/merge datums for job %s exited with err", jobID)
 				}
 				return nil
 			}); err != nil {
 				return err
 			}
 		}
-		return fmt.Errorf("worker: jobs.WatchByIndex(pipeline = %s) closed unexpectedly", a.pipelineInfo.Pipeline.Name)
+		return errors.Errorf("worker: jobs.WatchByIndex(pipeline = %s) closed unexpectedly", a.pipelineInfo.Pipeline.Name)
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		logger.Logf("worker: watch closed or error running the worker process: %v; retrying in %v", err, d)
 		return nil
@@ -2132,7 +2132,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 					}
 				}()
 				if err != nil {
-					return fmt.Errorf("error downloadData: %v", err)
+					return errors.Wrapf(err, "error downloadData")
 				}
 				a.runMu.Lock()
 				defer a.runMu.Unlock()
@@ -2152,11 +2152,11 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 					return err
 				}
 				if err := a.linkData(data, dir); err != nil {
-					return fmt.Errorf("error linkData: %v", err)
+					return errors.Wrapf(err, "error linkData")
 				}
 				defer func() {
 					if err := a.unlinkData(data); err != nil && retErr == nil {
-						retErr = fmt.Errorf("error unlinkData: %v", err)
+						retErr = errors.Wrapf(err, "error unlinkData")
 					}
 				}()
 				// If the pipeline spec set a custom user to execute the
@@ -2172,11 +2172,11 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				if err := a.runUserCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
 					if a.pipelineInfo.Transform.ErrCmd != nil && failures == jobInfo.DatumTries-1 {
 						if err = a.runUserErrorHandlingCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
-							return fmt.Errorf("error runUserErrorHandlingCode: %v", err)
+							return errors.Wrapf(err, "error runUserErrorHandlingCode")
 						}
 						return errDatumRecovered
 					}
-					return fmt.Errorf("error runUserCode: %v", err)
+					return errors.Wrapf(err, "error runUserCode")
 				}
 				// CleanUp is idempotent so we can call it however many times we want.
 				// The reason we are calling it here is that the puller could've
@@ -2479,7 +2479,7 @@ func lookupDockerUser(userArg string) (_ *user.User, retErr error) {
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
 	}
-	return nil, fmt.Errorf("user %s not found", userArg)
+	return nil, errors.Errorf("user %s not found", userArg)
 }
 
 func lookupGroup(group string) (_ *user.Group, retErr error) {
@@ -2502,5 +2502,5 @@ func lookupGroup(group string) (_ *user.Group, retErr error) {
 			}, nil
 		}
 	}
-	return nil, fmt.Errorf("group %s not found", group)
+	return nil, errors.Errorf("group %s not found", group)
 }

@@ -8,12 +8,13 @@
 package tar
 
 import (
-	"fmt"
 	"io"
 	"path"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 // Writer provides sequential writing of a tar archive.
@@ -55,7 +56,7 @@ func (tw *Writer) Flush() error {
 		return tw.err
 	}
 	if nb := tw.curr.LogicalRemaining(); nb > 0 {
-		return fmt.Errorf("archive/tar: missed writing %d bytes", nb)
+		return errors.Errorf("archive/tar: missed writing %d bytes", nb)
 	}
 	if _, tw.err = tw.w.Write(zeroBlock[:tw.pad]); tw.err != nil {
 		return tw.err
@@ -594,7 +595,7 @@ func (sw *sparseFileWriter) Skip(n int64) error {
 	// This code path has no use for Pachyderm. We
 	// should never be here. This is implemented
 	// just to satisfy the fileWriter interface.
-	return fmt.Errorf("in Skip function of sparseFileWriter - this is probably a bug")
+	return errors.Errorf("in Skip function of sparseFileWriter - this is probably a bug")
 }
 
 func (sw *sparseFileWriter) ReadFrom(r io.Reader) (n int64, err error) {

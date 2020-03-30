@@ -18,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
@@ -152,11 +153,11 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 				if commitInfo.Trees == nil && commitInfo.Tree == nil {
 					if err := a.updateJobState(pachClient.Ctx(), ji,
 						pps.JobState_JOB_KILLED, "output commit is finished without data, but job state has not been updated"); err != nil {
-						return fmt.Errorf("could not kill job with finished output commit: %v", err)
+						return errors.Wrapf(err, "could not kill job with finished output commit")
 					}
 				} else {
 					if err := a.updateJobState(pachClient.Ctx(), ji, pps.JobState_JOB_SUCCESS, ""); err != nil {
-						return fmt.Errorf("could not mark job with finished output commit as successful: %v", err)
+						return errors.Wrapf(err, "could not mark job with finished output commit as successful")
 					}
 				}
 			}
@@ -170,7 +171,7 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 			return err
 		}
 		if len(jobInfos) > 1 {
-			return fmt.Errorf("multiple jobs found for commit: %s/%s", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
+			return errors.Errorf("multiple jobs found for commit: %s/%s", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
 		} else if len(jobInfos) < 1 {
 			if a.pipelineInfo.S3Out && commitInfo.ParentCommit != nil {
 				// We don't want S3-out pipelines to merge datum output with the parent
@@ -181,7 +182,7 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 				if err := pachClient.DeleteFile(
 					commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "/",
 				); err != nil {
-					return fmt.Errorf("couldn't prepare output commit for S3-out job: %v", err)
+					return errors.Wrapf(err, "couldn't prepare output commit for S3-out job")
 				}
 			}
 			job, err := pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit, statsCommit)
@@ -231,11 +232,11 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 			// parents to finish)
 			if err := a.updateJobState(pachClient.Ctx(), jobInfo,
 				pps.JobState_JOB_KILLED, "pipeline has been updated"); err != nil {
-				return fmt.Errorf("could not kill stale job: %v", err)
+				return errors.Wrapf(err, "could not kill stale job")
 			}
 			continue
 		case jobInfo.PipelineVersion > a.pipelineInfo.Version:
-			return fmt.Errorf("job %s's version (%d) greater than pipeline's "+
+			return errors.Errorf("job %s's version (%d) greater than pipeline's "+
 				"version (%d), this should automatically resolve when the worker "+
 				"is updated", jobInfo.Job.ID, jobInfo.PipelineVersion, a.pipelineInfo.Version)
 		}
@@ -256,17 +257,17 @@ func (a *APIServer) spoutSpawner(pachClient *client.APIClient) error {
 
 	logger, err := a.getTaggedLogger(pachClient, "spout", nil, false)
 	if err != nil {
-		return fmt.Errorf("getTaggedLogger: %v", err)
+		return errors.Wrapf(err, "getTaggedLogger")
 	}
 	puller := filesync.NewPuller()
 
 	if err := a.unlinkData(nil); err != nil {
-		return fmt.Errorf("unlinkData: %v", err)
+		return errors.Wrapf(err, "unlinkData")
 	}
 	// If this is our second time through the loop cleanup the old data.
 	if dir != "" {
 		if err := os.RemoveAll(dir); err != nil {
-			return fmt.Errorf("os.RemoveAll: %v", err)
+			return errors.Wrapf(err, "os.RemoveAll")
 		}
 	}
 	dir, err = a.downloadData(pachClient, logger, nil, puller, &pps.ProcessStats{}, nil)
@@ -274,7 +275,7 @@ func (a *APIServer) spoutSpawner(pachClient *client.APIClient) error {
 		return err
 	}
 	if err := a.linkData(nil, dir); err != nil {
-		return fmt.Errorf("linkData: %v", err)
+		return errors.Wrapf(err, "linkData")
 	}
 
 	err = a.runService(ctx, logger)
@@ -316,21 +317,21 @@ func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
 			return err
 		}
 		if df.Len() != 1 {
-			return fmt.Errorf("services must have a single datum")
+			return errors.Errorf("services must have a single datum")
 		}
 		data := df.DatumN(0)
 		logger, err := a.getTaggedLogger(pachClient, job.ID, data, false)
 		if err != nil {
-			return fmt.Errorf("getTaggedLogger: %v", err)
+			return errors.Wrapf(err, "getTaggedLogger")
 		}
 		puller := filesync.NewPuller()
 		// If this is our second time through the loop cleanup the old data.
 		if dir != "" {
 			if err := a.unlinkData(data); err != nil {
-				return fmt.Errorf("unlinkData: %v", err)
+				return errors.Wrapf(err, "unlinkData")
 			}
 			if err := os.RemoveAll(dir); err != nil {
-				return fmt.Errorf("os.RemoveAll: %v", err)
+				return errors.Wrapf(err, "os.RemoveAll")
 			}
 		}
 		dir, err = a.downloadData(pachClient, logger, data, puller, &pps.ProcessStats{}, nil)
@@ -341,7 +342,7 @@ func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
 			return err
 		}
 		if err := a.linkData(data, dir); err != nil {
-			return fmt.Errorf("linkData: %v", err)
+			return errors.Wrapf(err, "linkData")
 		}
 		if serviceCancel != nil {
 			serviceCancel()
@@ -454,8 +455,8 @@ func (a *APIServer) failedInputs(ctx context.Context, jobInfo *pps.JobInfo) ([]s
 			})
 		if err != nil {
 			if vistErr == nil {
-				vistErr = fmt.Errorf("error blocking on commit %s/%s: %v",
-					commit.Repo.Name, commit.ID, err)
+				vistErr = errors.Wrapf(err, "error blocking on commit %s/%s",
+					commit.Repo.Name, commit.ID)
 			}
 			return
 		}
@@ -617,7 +618,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		parallelism := int(pipelinePtr.Parallelism)
 		numHashtrees, err := ppsutil.GetExpectedNumHashtrees(a.pipelineInfo.HashtreeSpec)
 		if err != nil {
-			return fmt.Errorf("error from GetExpectedNumHashtrees: %v", err)
+			return errors.Wrapf(err, "error from GetExpectedNumHashtrees")
 		}
 		plan := &Plan{}
 		// Read the job document, and either resume (if we're recovering from a
@@ -960,7 +961,7 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 							return err
 						}
 						if spec != nil && len(spec.ChildCommits) != 0 {
-							return fmt.Errorf("outdated spout, now shutting down")
+							return errors.Errorf("outdated spout, now shutting down")
 						}
 						_, err = a.pachClient.PutFileOverwrite(repo, ppsconsts.SpoutMarkerBranch, fileHeader.Name, outTar, 0)
 						if err != nil {
