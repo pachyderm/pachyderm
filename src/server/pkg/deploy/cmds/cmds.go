@@ -77,12 +77,14 @@ func kubectl(stdin io.Reader, context *config.Context, args ...string) error {
 	if context != nil {
 		kubeconfig := os.Getenv("KUBECONFIG")
 		if kubeconfig == "" {
-			// TODO(ys): gracefully handle this error
 			home, err := os.UserHomeDir()
 			if err != nil {
-				return errors.Wrapf(err, "failed to determine user home directory")
+				return errors.Wrapf(err, "failed to discover default kube config: could not get user home directory")
 			}
 			kubeconfig = path.Join(home, ".kube", "config")
+			if _, err = os.Stat(kubeconfig); os.IsNotExist(err) {
+				return errors.Wrapf(err, "failed to discover default kube config: %q does not exist", kubeconfig)
+			}
 		}
 		kubeconfig = fmt.Sprintf("%s:%s", kubeconfig, tmpfile.Name())
 
