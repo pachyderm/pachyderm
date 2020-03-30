@@ -613,6 +613,14 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit
 		return err
 	}
 
+	reg.limiter.Acquire()
+	asyncStarted := false
+	defer func() {
+		if !asyncStarted {
+			reg.limiter.Release()
+		}
+	}()
+
 	jobInfo, err := reg.ensureJob(commitInfo, metaCommit)
 	if err != nil {
 		return err
@@ -664,9 +672,6 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit
 		return err
 	}
 
-	// TODO: cancel job if output commit is finished early
-
-	reg.limiter.Acquire()
 	// TODO: we should NOT start the job this way if it is in EGRESS
 	pj.jdit, err = reg.jobChain.Start(pj)
 	if err != nil {
@@ -706,7 +711,7 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit
 	}()
 
 	// This runs the callback asynchronously
-	return reg.taskQueue.RunTask(pj.driver.PachClient().Ctx(), func(master *work.Master) {
+	if err := reg.taskQueue.RunTask(pj.driver.PachClient().Ctx(), func(master *work.Master) {
 		defer reg.limiter.Release()
 		defer pj.cancel()
 		pj.taskMaster = master
@@ -738,7 +743,12 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit
 		})
 		pj.logger.Logf("master done running processJobs")
 		// TODO: make sure that all paths close the commit correctly
-	})
+	}); err != nil {
+		return err
+	}
+
+	asyncStarted = true
+	return nil
 }
 
 // superviseJob watches for the output commit closing and cancels the job, or
