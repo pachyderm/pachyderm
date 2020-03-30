@@ -702,15 +702,6 @@ func merge(driver driver.Driver, parent io.Reader, cache *hashtree.MergeCache, s
 }
 
 func writeIndex(driver driver.Driver, tree *pfs.Object, indexData []byte) (retErr error) {
-	storageRoot, err := obj.StorageRootFromEnv()
-	if err != nil {
-		return err
-	}
-	objClient, err := obj.NewClientFromEnv(storageRoot)
-	if err != nil {
-		return err
-	}
-
 	info, err := driver.PachClient().InspectObject(tree.Hash)
 	if err != nil {
 		return err
@@ -719,7 +710,7 @@ func writeIndex(driver driver.Driver, tree *pfs.Object, indexData []byte) (retEr
 	if err != nil {
 		return err
 	}
-	indexWriter, err := objClient.Writer(driver.PachClient().Ctx(), path+hashtree.IndexPath)
+	indexWriter, err := driver.PachClient().DirectObjWriter(path + hashtree.IndexPath)
 	if err != nil {
 		return err
 	}
