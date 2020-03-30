@@ -1043,7 +1043,13 @@ func Cmds() []*cobra.Command {
 			}
 
 			if dryRun {
-				// TODO(ys)
+				var buf bytes.Buffer
+				enc := encoder(outputFormat, &buf)
+				if err = enc.Encode(values); err != nil {
+				    return err
+				}
+				_, err = os.Stdout.Write(buf.Bytes())
+				return err
 			}
 
 			rel, err := helm.Deploy(activeContext, "jhub", "jupyterhub/jupyterhub", jupyterhubChartVersion, values)
