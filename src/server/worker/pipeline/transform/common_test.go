@@ -66,7 +66,7 @@ func withTestEnv(pipelineInfo *pps.PipelineInfo, cb func(*testEnv) error) error 
 
 		ctx, cancel := context.WithCancel(realEnv.PachClient.Ctx())
 		defer cancel()
-		driver = driver.WithCtx(ctx)
+		driver = driver.WithContext(ctx)
 
 		env := &testEnv{
 			RealEnv: realEnv,

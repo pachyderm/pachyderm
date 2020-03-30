@@ -88,10 +88,10 @@ type Driver interface {
 	// Returns the number of hashtree shards for the pipeline
 	NumShards() int64
 
-	// WithCtx clones the current driver and applies the context to its
+	// WithContext clones the current driver and applies the context to its
 	// pachClient. The pachClient context will be used for other blocking
 	// operations as well.
-	WithCtx(context.Context) Driver
+	WithContext(context.Context) Driver
 
 	// WithData prepares the current node the code is running on to run a piece
 	// of user code by downloading the specified data, and cleans up afterwards.
@@ -341,7 +341,7 @@ func lookupGroup(group string) (_ *user.Group, retErr error) {
 	return nil, errors.Errorf("group %s not found", group)
 }
 
-func (d *driver) WithCtx(ctx context.Context) Driver {
+func (d *driver) WithContext(ctx context.Context) Driver {
 	result := &driver{}
 	*result = *d
 	result.pachClient = result.pachClient.WithCtx(ctx)
@@ -446,7 +446,7 @@ func (d *driver) WithData(
 	stats := &pps.ProcessStats{}
 
 	// Download input data into a temporary directory
-	// This can be interrupted via the pachClient using driver.WithCtx
+	// This can be interrupted via the pachClient using driver.WithContext
 	dir, err := d.downloadData(logger, inputs, puller, stats, inputTree)
 	// We run these cleanup functions no matter what, so that if
 	// downloadData partially succeeded, we still clean up the resources.

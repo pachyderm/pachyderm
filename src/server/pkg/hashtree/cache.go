@@ -168,6 +168,11 @@ func (c *MergeCache) Has(id string) bool {
 	return c.Cache.Has(id)
 }
 
+// Keys returns the list of hashtree IDs in the cache.
+func (c *MergeCache) Keys() []string {
+	return c.Cache.Keys()
+}
+
 // Merge does a filtered merge of the hashtrees in the cache.
 // The results are written to the passed in *Writer.
 // The base field is used as the base hashtree if it is non-nil

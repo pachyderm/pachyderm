@@ -325,17 +325,11 @@ func (reg *registry) cleanJobArtifacts(prefix string) error {
 		return err
 	}
 
-	if _, err := reg.driver.PachClient().DeleteTags(
+	_, err := reg.driver.PachClient().DeleteTags(
 		reg.driver.PachClient().Ctx(),
 		&pfs.DeleteTagsRequest{Tags: tags},
-	); err != nil {
-		return err
-	}
-
-	_, err := reg.driver.PachClient().DeleteObjects(
-		reg.driver.PachClient().Ctx(),
-		&pfs.DeleteObjectsRequest{Objects: objects},
 	)
+
 	return err
 }
 
@@ -400,7 +394,7 @@ func (reg *registry) sendDatumTasks(ctx context.Context, pj *pendingJob, numDatu
 
 	maxDatumsPerTask := uint64(chunkSpec.Number)
 	maxBytesPerTask := uint64(chunkSpec.SizeBytes)
-	driver := pj.driver.WithCtx(ctx)
+	driver := pj.driver.WithContext(ctx)
 	var numTasks uint64
 	if numDatums < reg.concurrency {
 		numTasks = numDatums
@@ -625,7 +619,7 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit
 	}
 
 	jobCtx, cancel := context.WithCancel(reg.driver.PachClient().Ctx())
-	driver := reg.driver.WithCtx(jobCtx)
+	driver := reg.driver.WithContext(jobCtx)
 
 	// Build the pending job to send out to workers - this will block if we have
 	// too many already

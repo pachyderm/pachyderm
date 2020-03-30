@@ -42,8 +42,8 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 	err := withTestEnv(pipelineInfo, func(env *testEnv) error {
 		var ctx context.Context
 		eg, ctx = errgroup.WithContext(env.driver.PachClient().Ctx())
-		env.PachClient = env.PachClient.WithCtx(ctx)
-		env.driver = env.driver.WithCtx(ctx)
+		env.driver = env.driver.WithContext(ctx)
+		env.PachClient = env.driver.PachClient()
 
 		// Set env vars that the object storage layer expects in the env
 		// This is global but it should be fine because all tests use the same value.

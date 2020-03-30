@@ -9,6 +9,7 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	docker "github.com/fsouza/go-dockerclient"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
@@ -17,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 	"github.com/pachyderm/pachyderm/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
@@ -116,13 +118,36 @@ func (w *Worker) worker() {
 	logger := logs.NewStatlessLogger(w.driver.PipelineInfo())
 
 	backoff.RetryUntilCancel(ctx, func() error {
-		return w.driver.NewTaskWorker().Run(
-			w.driver.PachClient().Ctx(),
-			func(ctx context.Context, subtask *work.Task) error {
-				driver := w.driver.WithCtx(ctx)
-				return transform.Worker(driver, logger, subtask, w.status)
-			},
-		)
+		eg, ctx := errgroup.WithContext(ctx)
+		driver := w.driver.WithContext(ctx)
+
+		// Clean the driver hashtree cache for any jobs that are deleted
+		eg.Go(func() error {
+			return driver.Jobs().ReadOnly(ctx).WatchF(func(e *watch.Event) error {
+				var key string
+				if err := e.Unmarshal(&key, &pps.EtcdJobInfo{}); err != nil {
+					return err
+				}
+				if e.Type == watch.EventDelete {
+					driver.ChunkCaches().RemoveCache(key)
+					driver.ChunkStatsCaches().RemoveCache(key)
+				}
+				return nil
+			})
+		})
+
+		// Run any worker tasks that the master creates
+		eg.Go(func() error {
+			return driver.NewTaskWorker().Run(
+				ctx,
+				func(ctx context.Context, subtask *work.Task) error {
+					driver := w.driver.WithContext(ctx)
+					return transform.Worker(driver, logger, subtask, w.status)
+				},
+			)
+		})
+
+		return eg.Wait()
 	}, backoff.NewConstantBackOff(200*time.Millisecond), func(err error, d time.Duration) error {
 		logger.Logf("worker failed: %v; retrying in %v", err, d)
 		return nil
@@ -156,7 +181,7 @@ func (w *Worker) master(etcdClient *etcd.Client, etcdPrefix string) {
 		defer masterLock.Unlock(ctx)
 
 		// Create a new driver that uses a new cancelable pachClient
-		return runSpawner(w.driver.WithCtx(ctx), logger)
+		return runSpawner(w.driver.WithContext(ctx), logger)
 	}, b, func(err error, d time.Duration) error {
 		if auth.IsErrNotAuthorized(err) {
 			logger.Logf("failing %q due to auth rejection", pipelineInfo.Pipeline.Name)

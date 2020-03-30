@@ -187,7 +187,7 @@ func uploadChunk(driver driver.Driver, logger logs.TaggedLogger, cache *hashtree
 			return err
 		}
 
-		if err := cache.Put(tag, buf); err != nil {
+		if err := cache.Put(tag, bytes.NewBuffer(buf.Bytes())); err != nil {
 			return err
 		}
 
@@ -258,7 +258,7 @@ func handleDatumTask(driver driver.Driver, logger logs.TaggedLogger, data *Datum
 				defer cancel()
 
 				eg, ctx := errgroup.WithContext(ctx)
-				driver := driver.WithCtx(ctx)
+				driver := driver.WithContext(ctx)
 				if err := forEachDatum(driver, data.Datums, func(inputs []*common.Input) error {
 					limiter.Acquire()
 					atomic.AddInt64(&queueSize, 1)
@@ -369,7 +369,7 @@ func processDatum(
 				ctx, cancel := context.WithCancel(driver.PachClient().Ctx())
 				defer cancel()
 
-				driver := driver.WithCtx(ctx)
+				driver := driver.WithContext(ctx)
 
 				return status.withDatum(inputs, cancel, func() error {
 					env := userCodeEnv(driver.PipelineInfo(), logger.JobID(), outputCommit, driver.InputDir(), inputs)
@@ -600,23 +600,42 @@ func handleMergeTask(driver driver.Driver, logger logs.TaggedLogger, data *Merge
 
 	if err := logger.LogStep("downloading hashtree chunks", func() error {
 		eg, _ := errgroup.WithContext(driver.PachClient().Ctx())
+		limiter := limit.New(20) // TODO: base this off of configuration
+
+		cachedIDs := cache.Keys()
+		usedIDs := make(map[string]struct{})
 
 		for _, hashtreeInfo := range data.Hashtrees {
+			usedIDs[hashtreeInfo.Tag] = struct{}{}
+
 			if !cache.Has(hashtreeInfo.Tag) {
+				limiter.Acquire()
 				hashtreeInfo := hashtreeInfo
 				eg.Go(func() (retErr error) {
+					defer limiter.Release()
 					reader, err := fetchChunk(driver, logger, hashtreeInfo, data.Shard)
 					if err != nil {
 						return err
 					}
+
 					defer func() {
 						if err := reader.Close(); retErr == nil {
 							retErr = err
 						}
 					}()
 
-					return cache.Put(hashtreeInfo.Tag, reader)
+					// TODO: this only works if it is read into a buffer first?
+					buf := &bytes.Buffer{}
+					io.Copy(buf, reader)
+					return cache.Put(hashtreeInfo.Tag, bytes.NewBuffer(buf.Bytes()))
 				})
+			}
+		}
+
+		// There may be cached trees from a failed run - drop them
+		for _, id := range cachedIDs {
+			if _, ok := usedIDs[id]; !ok {
+				cache.Delete(id)
 			}
 		}
 
@@ -633,7 +652,7 @@ func handleMergeTask(driver driver.Driver, logger logs.TaggedLogger, data *Merge
 		return err
 	}
 
-	return logger.LogStep("merge hashtree chunks", func() error {
+	return logger.LogStep("merging hashtree chunks", func() error {
 		tree, size, err := merge(driver, parentReader, cache, data.Shard)
 		if err != nil {
 			return err

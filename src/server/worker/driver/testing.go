@@ -71,9 +71,9 @@ func NewMockDriver(etcdClient *etcd.Client, userOptions *MockOptions) *MockDrive
 	return md
 }
 
-// WithCtx does nothing aside from cloning the current MockDriver since there
+// WithContext does nothing aside from cloning the current MockDriver since there
 // is no pachClient configured.
-func (md *MockDriver) WithCtx(ctx context.Context) Driver {
+func (md *MockDriver) WithContext(ctx context.Context) Driver {
 	result := &MockDriver{}
 	*result = *md
 	result.ctx = ctx

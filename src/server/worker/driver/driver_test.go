@@ -77,7 +77,7 @@ func withTestEnv(cb func(*testEnv)) error {
 		if err != nil {
 			return err
 		}
-		d = d.WithCtx(env.Context)
+		d = d.WithContext(env.Context)
 		env.driver = d.(*driver)
 		env.driver.pipelineInfo.Transform.WorkingDir = env.Directory
 
@@ -416,7 +416,7 @@ func TestWithDataCancel(t *testing.T) {
 	err := withTestEnv(func(env *testEnv) {
 		requireLogs(t, []string{"errored downloading data", "context canceled"}, func(logger logs.TaggedLogger) {
 			ctx, cancel := context.WithCancel(env.Context)
-			driver := env.driver.WithCtx(ctx)
+			driver := env.driver.WithContext(ctx)
 
 			// Cancel the context during the download
 			env.MockPachd.PFS.WalkFile.Use(func(req *pfs.WalkFileRequest, serv pfs.API_WalkFileServer) error {
