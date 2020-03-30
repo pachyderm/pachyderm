@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"path"
-	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/hanwen/go-fuse/v2/fs"
@@ -14,6 +14,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 )
 
 const (
@@ -21,10 +22,42 @@ const (
 	modeDir  uint32 = fuse.S_IFDIR | 0555 // everyone can read and execute, no one can do anything else (execute permission is required to list a dir)
 )
 
+type mount struct {
+	c       *client.APIClient
+	commits map[string]string
+	mu      sync.Mutex
+}
+
+func (m *mount) commit(repo string) (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if commit, ok := m.commits[repo]; ok {
+		return commit, nil
+	}
+	bi, err := m.c.InspectBranch(repo, "master")
+	if errutil.IsNotFoundError(err) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	if bi.Head == nil {
+		m.commits[repo] = ""
+		return "", nil
+	}
+	m.commits[repo] = bi.Head.ID
+	return bi.Head.ID, nil
+}
+
 // Mount pfs to mountPoint, opts may be left nil.
 func Mount(c *client.APIClient, mountPoint string, opts *Options) error {
-	root.c = c
-	server, err := fs.Mount(mountPoint, root, opts.getFuse())
+	server, err := fs.Mount(mountPoint, &node{
+		file: client.NewFile("", "", ""),
+		m: &mount{
+			c:       c,
+			commits: opts.getCommits(),
+		},
+	}, opts.getFuse())
 	if err != nil {
 		return err
 	}
@@ -44,17 +77,14 @@ func Mount(c *client.APIClient, mountPoint string, opts *Options) error {
 type node struct {
 	fs.Inode
 	file *pfs.File
-	c    *client.APIClient
-}
-
-var root = &node{
-	file: client.NewFile("", "", ""),
+	m    *mount
 }
 
 func (n *node) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno) {
 	var result staticDirEntries
-	if n.file.Commit.Repo.Name == "" {
-		ris, err := n.c.ListRepo()
+	switch {
+	case n.file.Commit.Repo.Name == "":
+		ris, err := n.m.c.ListRepo()
 		if err != nil {
 			return nil, toErrno(err)
 		}
@@ -64,8 +94,10 @@ func (n *node) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno) {
 				Name: ri.Repo.Name,
 			})
 		}
-	} else {
-		fis, err := n.c.ListFile(n.file.Commit.Repo.Name, n.file.Commit.ID, n.file.Path)
+	case n.file.Commit.ID == "":
+		// headless branch, so we want to just return an empty result
+	default:
+		fis, err := n.m.c.ListFile(n.file.Commit.Repo.Name, n.file.Commit.ID, n.file.Path)
 		if err != nil {
 			return nil, toErrno(err)
 		}
@@ -84,28 +116,37 @@ func (n *node) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno) {
 }
 
 func (n *node) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
-	if n.file.Commit.Repo.Name == "" {
-		ri, err := n.c.InspectRepo(name)
+	switch {
+	case n.file.Commit.Repo.Name == "":
+		ri, err := n.m.c.InspectRepo(name)
+		if err != nil {
+			return nil, toErrno(err)
+		}
+		commit, err := n.m.commit(name)
 		if err != nil {
 			return nil, toErrno(err)
 		}
 		return n.NewInode(ctx, &node{
-			file: client.NewFile(ri.Repo.Name, "master", ""),
-			c:    n.c,
+			file: client.NewFile(ri.Repo.Name, commit, ""),
+			m:    n.m,
 		}, fs.StableAttr{Mode: syscall.S_IFDIR}), 0
+	case n.file.Commit.ID == "":
+		// headless branch, so we want to just return ENOENT
+		return nil, syscall.ENOENT
+	default:
+		fi, err := n.m.c.InspectFile(n.file.Commit.Repo.Name, n.file.Commit.ID, path.Join(n.file.Path, name))
+		if err != nil {
+			return nil, toErrno(err)
+		}
+		var mode uint32 = syscall.S_IFDIR
+		if fi.FileType == pfs.FileType_FILE {
+			mode = syscall.S_IFREG
+		}
+		return n.NewInode(ctx, &node{
+			file: client.NewFile(n.file.Commit.Repo.Name, n.file.Commit.ID, fi.File.Path),
+			m:    n.m,
+		}, fs.StableAttr{Mode: mode}), 0
 	}
-	fi, err := n.c.InspectFile(n.file.Commit.Repo.Name, n.file.Commit.ID, path.Join(n.file.Path, name))
-	if err != nil {
-		return nil, toErrno(err)
-	}
-	var mode uint32 = syscall.S_IFDIR
-	if fi.FileType == pfs.FileType_FILE {
-		mode = syscall.S_IFREG
-	}
-	return n.NewInode(ctx, &node{
-		file: client.NewFile(n.file.Commit.Repo.Name, n.file.Commit.ID, fi.File.Path),
-		c:    n.c,
-	}, fs.StableAttr{Mode: mode}), 0
 }
 
 func (n *node) Open(ctx context.Context, openFlags uint32) (fs.FileHandle, uint32, syscall.Errno) {
@@ -116,7 +157,7 @@ func (n *node) Open(ctx context.Context, openFlags uint32) (fs.FileHandle, uint3
 	if err := os.Remove(f.Name()); err != nil {
 		return nil, 0, toErrno(err)
 	}
-	if err := n.c.GetFile(n.file.Commit.Repo.Name, n.file.Commit.ID, n.file.Path, 0, 0, f); err != nil {
+	if err := n.m.c.GetFile(n.file.Commit.Repo.Name, n.file.Commit.ID, n.file.Path, 0, 0, f); err != nil {
 		return nil, 0, toErrno(err)
 	}
 	if _, err := f.Seek(0, 0); err != nil {
@@ -126,7 +167,7 @@ func (n *node) Open(ctx context.Context, openFlags uint32) (fs.FileHandle, uint3
 }
 
 func toErrno(err error) syscall.Errno {
-	if strings.Contains(err.Error(), "not found") {
+	if errutil.IsNotFoundError(err) {
 		return syscall.ENOENT
 	}
 	return syscall.EIO
