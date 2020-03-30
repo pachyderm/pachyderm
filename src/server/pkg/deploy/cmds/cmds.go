@@ -35,9 +35,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serde"
 
+	docker "github.com/fsouza/go-dockerclient"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	docker "github.com/fsouza/go-dockerclient"
 )
 
 var (
@@ -48,9 +48,9 @@ var (
 
 const (
 	defaultDashImage           = "pachyderm/dash:1.9.0"
-	defaultJupyterhubHubImage = "pachyderm/jupyterhub-pachyderm-hub:1.0.0"
+	defaultJupyterhubHubImage  = "pachyderm/jupyterhub-pachyderm-hub:1.0.0"
 	defaultJupyterhubUserImage = "pachyderm/jupyterhub-pachyderm-user:1.0.0"
-	jupyterhubChartVersion          = "0.8.2"
+	jupyterhubChartVersion     = "0.8.2"
 	configTemplate             = `
 apiVersion: v1
 contexts:
@@ -65,16 +65,16 @@ kind: Config
 )
 
 func kubectl(stdin io.Reader, context *config.Context, args ...string) error {
-	tmpfile, err := ioutil.TempFile("", "transient-kube-config-*.yaml")
-	if err != nil {
-		return errors.Wrapf(err, "failed to create transient kube config")
-	}
-	defer os.Remove(tmpfile.Name())
-	tmpfile.Write([]byte(fmt.Sprintf(configTemplate, context.ClusterName, context.AuthInfo, context.Namespace)))
-	tmpfile.Close()
-
 	var environ []string = nil
 	if context != nil {
+		tmpfile, err := ioutil.TempFile("", "transient-kube-config-*.yaml")
+		if err != nil {
+			return errors.Wrapf(err, "failed to create transient kube config")
+		}
+		defer os.Remove(tmpfile.Name())
+		tmpfile.Write([]byte(fmt.Sprintf(configTemplate, context.ClusterName, context.AuthInfo, context.Namespace)))
+		tmpfile.Close()
+
 		kubeconfig := os.Getenv("KUBECONFIG")
 		if kubeconfig == "" {
 			home, err := os.UserHomeDir()
@@ -1046,7 +1046,7 @@ func Cmds() []*cobra.Command {
 				var buf bytes.Buffer
 				enc := encoder(outputFormat, &buf)
 				if err = enc.Encode(values); err != nil {
-				    return err
+					return err
 				}
 				_, err = os.Stdout.Write(buf.Bytes())
 				return err
