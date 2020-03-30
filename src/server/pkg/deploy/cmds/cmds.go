@@ -65,16 +65,16 @@ kind: Config
 )
 
 func kubectl(stdin io.Reader, context *config.Context, args ...string) error {
-	tmpfile, err := ioutil.TempFile("", "transient-kube-config-*.yaml")
-	if err != nil {
-		return errors.Wrapf(err, "failed to create transient kube config")
-	}
-	defer os.Remove(tmpfile.Name())
-	tmpfile.Write([]byte(fmt.Sprintf(configTemplate, context.ClusterName, context.AuthInfo, context.Namespace)))
-	tmpfile.Close()
-
 	var environ []string = nil
 	if context != nil {
+		tmpfile, err := ioutil.TempFile("", "transient-kube-config-*.yaml")
+		if err != nil {
+			return errors.Wrapf(err, "failed to create transient kube config")
+		}
+		defer os.Remove(tmpfile.Name())
+		tmpfile.Write([]byte(fmt.Sprintf(configTemplate, context.ClusterName, context.AuthInfo, context.Namespace)))
+		tmpfile.Close()
+		
 		kubeconfig := os.Getenv("KUBECONFIG")
 		if kubeconfig == "" {
 			home, err := os.UserHomeDir()
