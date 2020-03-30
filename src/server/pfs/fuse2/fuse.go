@@ -2,6 +2,7 @@ package fuse
 
 import (
 	"context"
+	"io/ioutil"
 	"os"
 	"os/signal"
 	"path"
@@ -105,6 +106,23 @@ func (n *node) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs
 		file: client.NewFile(n.file.Commit.Repo.Name, n.file.Commit.ID, fi.File.Path),
 		c:    n.c,
 	}, fs.StableAttr{Mode: mode}), 0
+}
+
+func (n *node) Open(ctx context.Context, openFlags uint32) (fs.FileHandle, uint32, syscall.Errno) {
+	f, err := ioutil.TempFile("", "pfs-fuse")
+	if err != nil {
+		return nil, 0, toErrno(err)
+	}
+	if err := os.Remove(f.Name()); err != nil {
+		return nil, 0, toErrno(err)
+	}
+	if err := n.c.GetFile(n.file.Commit.Repo.Name, n.file.Commit.ID, n.file.Path, 0, 0, f); err != nil {
+		return nil, 0, toErrno(err)
+	}
+	if _, err := f.Seek(0, 0); err != nil {
+		return nil, 0, toErrno(err)
+	}
+	return fs.NewLoopbackFile(int(f.Fd())), 0, 0
 }
 
 func toErrno(err error) syscall.Errno {
