@@ -12,10 +12,11 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
+	"github.com/pachyderm/pachyderm/src/server/pfs/fuse2"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 
-	"github.com/hanwen/go-fuse/fuse/nodefs"
+	"github.com/hanwen/go-fuse/v2/fs"
+	gofuse "github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/spf13/cobra"
 )
 
@@ -52,8 +53,10 @@ func mountCmds() []*cobra.Command {
 				return err
 			}
 			opts := &fuse.Options{
-				Fuse: &nodefs.Options{
-					Debug: debug,
+				Fuse: &fs.Options{
+					MountOptions: gofuse.MountOptions{
+						Debug: debug,
+					},
 				},
 				Commits: commits,
 			}
