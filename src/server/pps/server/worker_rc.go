@@ -107,12 +107,62 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	sidecarEnv = append(sidecarEnv, storageEnvVars...)
 
 	// Set up worker env vars
-	workerEnv := append(options.workerEnv, v1.EnvVar{
-		Name:  client.PPSSpecCommitEnv,
-		Value: options.specCommit,
-	})
-	workerEnv = append(workerEnv, v1.EnvVar{Name: "PACH_ROOT", Value: a.storageRoot})
+	workerEnv := append(options.workerEnv, []v1.EnvVar{
+		// We use Kubernetes' "Downward API" so the workers know their IP
+		// addresses, which they will then post on etcd so the job managers
+		// can discover the workers.
+		{
+			Name: client.PPSWorkerIPEnv,
+			ValueFrom: &v1.EnvVarSource{
+				FieldRef: &v1.ObjectFieldSelector{
+					APIVersion: "v1",
+					FieldPath:  "status.podIP",
+				},
+			},
+		},
+		// Set the PPS env vars
+		{
+			Name:  client.PPSEtcdPrefixEnv,
+			Value: a.etcdPrefix,
+		},
+		{
+			Name: client.PPSPodNameEnv,
+			ValueFrom: &v1.EnvVarSource{
+				FieldRef: &v1.ObjectFieldSelector{
+					APIVersion: "v1",
+					FieldPath:  "metadata.name",
+				},
+			},
+		},
+		{
+			Name:  client.PPSSpecCommitEnv,
+			Value: options.specCommit,
+		},
+		{
+			Name:  client.PPSWorkerPortEnv,
+			Value: strconv.FormatUint(uint64(a.workerGrpcPort), 10),
+		},
+		{
+			Name:  client.PeerPortEnv,
+			Value: strconv.FormatUint(uint64(a.peerPort), 10),
+		},
+		{
+			Name:  "PACH_ROOT",
+			Value: a.storageRoot,
+		},
+		{
+			Name:  client.PPSNamespaceEnv,
+			Value: a.namespace,
+		},
+		// PACHD_POD_NAMESPACE is a duplicate of client.PPSNamespaceEnv, but
+		// serviceenv.config sets its Namespace value from this variable
+		{
+			Name:  "PACHD_POD_NAMESPACE",
+			Value: a.namespace,
+		}}...)
 	workerEnv = append(workerEnv, assets.GetSecretEnvVars(a.storageBackend)...)
+
+	// Set S3GatewayPort in the worker (for user code) and sidecar (for serving)
 	if options.s3GatewayPort != 0 {
 		workerEnv = append(workerEnv, v1.EnvVar{
 			Name:  "S3GATEWAY_PORT",
@@ -380,7 +430,10 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 		userImage = DefaultUserImage
 	}
 
-	var workerEnv []v1.EnvVar
+	workerEnv := []v1.EnvVar{{
+		Name:  client.PPSPipelineNameEnv,
+		Value: pipelineInfo.Pipeline.Name,
+	}}
 	for name, value := range transform.Env {
 		workerEnv = append(
 			workerEnv,
@@ -390,50 +443,6 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 			},
 		)
 	}
-	// We use Kubernetes' "Downward API" so the workers know their IP
-	// addresses, which they will then post on etcd so the job managers
-	// can discover the workers.
-	workerEnv = append(workerEnv, v1.EnvVar{
-		Name: client.PPSWorkerIPEnv,
-		ValueFrom: &v1.EnvVarSource{
-			FieldRef: &v1.ObjectFieldSelector{
-				APIVersion: "v1",
-				FieldPath:  "status.podIP",
-			},
-		},
-	})
-	workerEnv = append(workerEnv, v1.EnvVar{
-		Name: client.PPSPodNameEnv,
-		ValueFrom: &v1.EnvVarSource{
-			FieldRef: &v1.ObjectFieldSelector{
-				APIVersion: "v1",
-				FieldPath:  "metadata.name",
-			},
-		},
-	})
-	// Set the etcd prefix env
-	workerEnv = append(workerEnv, v1.EnvVar{
-		Name:  client.PPSEtcdPrefixEnv,
-		Value: a.etcdPrefix,
-	})
-	// Pass along the namespace
-	workerEnv = append(workerEnv, v1.EnvVar{
-		Name:  client.PPSNamespaceEnv,
-		Value: a.namespace,
-	})
-	workerEnv = append(workerEnv, v1.EnvVar{
-		Name:  client.PPSPipelineNameEnv,
-		Value: pipelineInfo.Pipeline.Name,
-	})
-	// Set the worker gRPC port
-	workerEnv = append(workerEnv, v1.EnvVar{
-		Name:  client.PPSWorkerPortEnv,
-		Value: strconv.FormatUint(uint64(a.workerGrpcPort), 10),
-	})
-	workerEnv = append(workerEnv, v1.EnvVar{
-		Name:  client.PeerPortEnv,
-		Value: strconv.FormatUint(uint64(a.peerPort), 10),
-	})
 
 	var volumes []v1.Volume
 	var volumeMounts []v1.VolumeMount

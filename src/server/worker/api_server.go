@@ -1179,8 +1179,9 @@ func (a *APIServer) userCodeEnv(jobID string, outputCommitID string, data []*Inp
 		// mock a ServiceEnv. Once we can create mock ServiceEnvs, we should store
 		// a ServiceEnv in worker.APIServer, rewrite newTestAPIServer and
 		// NewAPIServer, and then change this code.
-		result = append(result, fmt.Sprintf("S3_ENDPOINT=http://%s:%s",
-			ppsutil.SidecarS3GatewayService(jobID), os.Getenv("S3GATEWAY_PORT")))
+		result = append(result, fmt.Sprintf("S3_ENDPOINT=http://%s.%s:%s",
+			ppsutil.SidecarS3GatewayService(jobID), a.namespace,
+			os.Getenv("S3GATEWAY_PORT")))
 	}
 	return result
 }
