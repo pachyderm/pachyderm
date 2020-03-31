@@ -10057,6 +10057,33 @@ func TestSpout(t *testing.T) {
 		}
 	})
 
+	t.Run("SpoutInputValidation", func(t *testing.T) {
+		dataRepo := tu.UniqueString("TestSpoutInputValidation_data")
+		require.NoError(t, c.CreateRepo(dataRepo))
+
+		pipeline := tu.UniqueString("pipelinespoutinputvalidation")
+		_, err := c.PpsAPIClient.CreatePipeline(
+			c.Ctx(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd: []string{"/bin/sh"},
+					Stdin: []string{
+						"while [ : ]",
+						"do",
+						"sleep 2",
+						"date > date",
+						"tar -cvf /pfs/out ./date*",
+						"done"},
+				},
+				Input: client.NewPFSInput(dataRepo, "/*"),
+				Spout: &pps.Spout{
+					Overwrite: true,
+				},
+			})
+		require.YesError(t, err)
+	})
+
 	// finally, let's make sure that the provenance is in a consistent state after running all of the spout tests
 	require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
 		if resp.Error != "" {
