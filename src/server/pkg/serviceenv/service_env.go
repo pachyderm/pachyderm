@@ -63,6 +63,16 @@ type ServiceEnv struct {
 // until the client is ready.
 func InitPachOnlyEnv(config *Configuration) *ServiceEnv {
 	env := &ServiceEnv{Configuration: config}
+	// Hack - pachyderm stores its namespace in two possible variables. This
+	// ensures that env.Namespace always has it.
+	// TODO(msteffen): Can we remove one of these?
+	if ns, ok := os.LookupEnv(client.PPSNamespaceEnv); ok && ns != "" {
+		if config.Namespace != "" && config.Namespace != ns {
+			log.Warningf("PACHD_POD_NAMESPACE (%s) has a different namespace than %s (%s); ignoring the latter", config.Namespace, client.PPSNamespaceEnv, ns)
+		} else {
+			config.Namespace = ns
+		}
+	}
 	env.pachAddress = net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", env.PeerPort))
 	env.pachEg.Go(env.initPachClient)
 	return env // env is not ready yet
