@@ -74,7 +74,7 @@ func kubectl(stdin io.Reader, context *config.Context, args ...string) error {
 		defer os.Remove(tmpfile.Name())
 		tmpfile.Write([]byte(fmt.Sprintf(configTemplate, context.ClusterName, context.AuthInfo, context.Namespace)))
 		tmpfile.Close()
-		
+
 		kubeconfig := os.Getenv("KUBECONFIG")
 		if kubeconfig == "" {
 			home, err := os.UserHomeDir()
@@ -995,6 +995,9 @@ func Cmds() []*cobra.Command {
 			authTokenResp, err := c.GetAuthToken(c.Ctx(), &auth.GetAuthTokenRequest{
 				Subject: whoamiResp.Username,
 			})
+			if err != nil {
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get an auth token")
+			}
 
 			hubImageName, hubImageTag := docker.ParseRepositoryTag(hubImage)
 			userImageName, userImageTag := docker.ParseRepositoryTag(userImage)
@@ -1052,7 +1055,15 @@ func Cmds() []*cobra.Command {
 				return err
 			}
 
-			rel, err := helm.Deploy(activeContext, "jhub", "jupyterhub/jupyterhub", jupyterhubChartVersion, values)
+			rel, err := helm.Deploy(
+				activeContext,
+				"jupyterhub",
+				"https://jupyterhub.github.io/helm-chart/",
+				"jhub",
+				"jupyterhub/jupyterhub",
+				jupyterhubChartVersion,
+				values,
+			)
 			if err != nil {
 				return errors.Wrapf(err, "failed to deploy JupyterHub")
 			}
