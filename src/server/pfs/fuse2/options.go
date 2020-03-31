@@ -24,7 +24,7 @@ func (o *Options) getFuse() *fs.Options {
 
 func (o *Options) getCommits() map[string]string {
 	if o == nil {
-		return nil
+		return make(map[string]string)
 	}
 	return o.Commits
 }

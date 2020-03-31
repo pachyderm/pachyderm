@@ -2,6 +2,7 @@ package fuse
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/signal"
@@ -25,6 +26,7 @@ const (
 type mount struct {
 	c       *client.APIClient
 	commits map[string]string
+	files   map[string]string
 	mu      sync.Mutex
 }
 
@@ -56,6 +58,7 @@ func Mount(c *client.APIClient, mountPoint string, opts *Options) error {
 		m: &mount{
 			c:       c,
 			commits: opts.getCommits(),
+			files:   make(map[string]string),
 		},
 	}, opts.getFuse())
 	if err != nil {
@@ -150,18 +153,36 @@ func (n *node) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs
 }
 
 func (n *node) Open(ctx context.Context, openFlags uint32) (fs.FileHandle, uint32, syscall.Errno) {
-	f, err := ioutil.TempFile("", "pfs-fuse")
-	if err != nil {
-		return nil, 0, toErrno(err)
+	key := fileKey(n.file)
+	path := ""
+	func() {
+		n.m.mu.Lock()
+		defer n.m.mu.Unlock()
+		path = n.m.files[key]
+	}()
+	var f *os.File
+	if path != "" {
+		var err error
+		f, err = os.OpenFile(path, int(openFlags), 0755)
+		if err != nil {
+			return nil, 0, toErrno(err)
+		}
 	}
-	if err := os.Remove(f.Name()); err != nil {
-		return nil, 0, toErrno(err)
-	}
-	if err := n.m.c.GetFile(n.file.Commit.Repo.Name, n.file.Commit.ID, n.file.Path, 0, 0, f); err != nil {
-		return nil, 0, toErrno(err)
-	}
-	if _, err := f.Seek(0, 0); err != nil {
-		return nil, 0, toErrno(err)
+	if f == nil {
+		var err error
+		f, err = ioutil.TempFile("", "pfs-fuse")
+		if err != nil {
+			return nil, 0, toErrno(err)
+		}
+		if err := n.m.c.GetFile(n.file.Commit.Repo.Name, n.file.Commit.ID, n.file.Path, 0, 0, f); err != nil {
+			return nil, 0, toErrno(err)
+		}
+		if _, err := f.Seek(0, 0); err != nil {
+			return nil, 0, toErrno(err)
+		}
+		n.m.mu.Lock()
+		defer n.m.mu.Unlock()
+		n.m.files[fileKey(n.file)] = f.Name()
 	}
 	return fs.NewLoopbackFile(int(f.Fd())), 0, 0
 }
@@ -186,3 +207,7 @@ func (d *staticDirEntries) Next() (fuse.DirEntry, syscall.Errno) {
 }
 
 func (d *staticDirEntries) Close() {}
+
+func fileKey(f *pfs.File) string {
+	return fmt.Sprintf("%s@%s:%s", f.Commit.Repo.Name, f.Commit.ID, f.Path)
+}
