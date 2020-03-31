@@ -69,14 +69,17 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 
 	// Set up sidecar env vars
 	sidecarEnv := []v1.EnvVar{{
+		Name:  "PACH_ROOT",
+		Value: a.storageRoot,
+	}, {
+		Name:  "PACH_NAMESPACE",
+		Value: a.namespace,
+	}, {
 		Name:  "BLOCK_CACHE_BYTES",
 		Value: options.cacheSize,
 	}, {
 		Name:  "PFS_CACHE_SIZE",
 		Value: "16",
-	}, {
-		Name:  "PACH_ROOT",
-		Value: a.storageRoot,
 	}, {
 		Name:  "STORAGE_BACKEND",
 		Value: a.storageBackend,
@@ -95,9 +98,6 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	}, {
 		Name:  client.PPSSpecCommitEnv,
 		Value: options.specCommit,
-	}, {
-		Name:  "PACHD_POD_NAMESPACE",
-		Value: a.namespace,
 	}}
 	sidecarEnv = append(sidecarEnv, assets.GetSecretEnvVars(a.storageBackend)...)
 	storageEnvVars, err := getStorageEnvVars()
@@ -108,6 +108,15 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 
 	// Set up worker env vars
 	workerEnv := append(options.workerEnv, []v1.EnvVar{
+		// Set core pach env vars
+		{
+			Name:  "PACH_ROOT",
+			Value: a.storageRoot,
+		},
+		{
+			Name:  "PACH_NAMESPACE",
+			Value: a.namespace,
+		},
 		// We use Kubernetes' "Downward API" so the workers know their IP
 		// addresses, which they will then post on etcd so the job managers
 		// can discover the workers.
@@ -146,20 +155,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 			Name:  client.PeerPortEnv,
 			Value: strconv.FormatUint(uint64(a.peerPort), 10),
 		},
-		{
-			Name:  "PACH_ROOT",
-			Value: a.storageRoot,
-		},
-		{
-			Name:  client.PPSNamespaceEnv,
-			Value: a.namespace,
-		},
-		// PACHD_POD_NAMESPACE is a duplicate of client.PPSNamespaceEnv, but
-		// serviceenv.config sets its Namespace value from this variable
-		{
-			Name:  "PACHD_POD_NAMESPACE",
-			Value: a.namespace,
-		}}...)
+	}...)
 	workerEnv = append(workerEnv, assets.GetSecretEnvVars(a.storageBackend)...)
 
 	// Set S3GatewayPort in the worker (for user code) and sidecar (for serving)
