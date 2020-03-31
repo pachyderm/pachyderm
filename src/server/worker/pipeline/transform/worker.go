@@ -466,8 +466,9 @@ func userCodeEnv(
 		// NewAPIServer, and then change this code.
 		result = append(
 			result,
-			fmt.Sprintf("S3_ENDPOINT=http://%s:%s",
+			fmt.Sprintf("S3_ENDPOINT=http://%s.%s:%s",
 				ppsutil.SidecarS3GatewayService(jobID),
+				a.namespace,
 				os.Getenv("S3GATEWAY_PORT"),
 			),
 		)

@@ -18,7 +18,7 @@ type GlobalConfiguration struct {
 	PeerPort      uint16 `env:"PEER_PORT,default=653"`
 	S3GatewayPort uint16 `env:"S3GATEWAY_PORT,default=600"`
 	PPSEtcdPrefix string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
-	Namespace     string `env:"PACHD_POD_NAMESPACE,default=default"`
+	Namespace     string `env:"PACH_NAMESPACE,default=default"`
 	StorageRoot   string `env:"PACH_ROOT,default=/pach"`
 
 	// PPSSpecCommitID is only set for workers and sidecar pachd instances.

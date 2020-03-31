@@ -358,7 +358,7 @@ spec:
           value: "false"
         - name: PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING
           value: "false"
-        - name: PACHD_POD_NAMESPACE
+        - name: PACH_NAMESPACE
           valueFrom:
             fieldRef:
               apiVersion: v1

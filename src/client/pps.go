@@ -29,8 +29,6 @@ const (
 	// PPSPipelineNameEnv is the env var that sets the name of the pipeline
 	// that the workers are running.
 	PPSPipelineNameEnv = "PPS_PIPELINE_NAME"
-	// PPSNamespaceEnv is the namespace in which pachyderm is deployed
-	PPSNamespaceEnv = "PPS_NAMESPACE"
 	// PPSJobIDEnv is the env var that sets the ID of the job that the
 	// workers are running (if the workers belong to an orphan job, rather than a
 	// pipeline).
