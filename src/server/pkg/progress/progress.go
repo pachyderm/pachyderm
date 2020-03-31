@@ -27,6 +27,8 @@ func start(prefix string, bar *pb.ProgressBar) {
 	bar.Start()
 }
 
+// Open is identical to os.Open except that file is wrapped in a progress bar
+// that updates as you read from it .
 func Open(path string) (*File, error) {
 	mu.Lock()
 	file, err := os.Open(path)
@@ -45,6 +47,8 @@ func Open(path string) (*File, error) {
 	}, nil
 }
 
+// Stdin returns os.Stdin except that it's wrapped in a progress bar that
+// updates as you read from it.
 func Stdin() *File {
 	mu.Lock()
 	bar := PipeTemplate.New(0)
