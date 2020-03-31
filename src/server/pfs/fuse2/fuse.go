@@ -23,10 +23,16 @@ const (
 	modeDir  uint32 = fuse.S_IFDIR | 0555 // everyone can read and execute, no one can do anything else (execute permission is required to list a dir)
 )
 
+type file struct {
+	pfs   *pfs.File
+	path  string
+	dirty bool
+}
+
 type mount struct {
 	c       *client.APIClient
 	commits map[string]string
-	files   map[string]string
+	files   map[string]*file
 	mu      sync.Mutex
 }
 
@@ -53,12 +59,13 @@ func (m *mount) commit(repo string) (string, error) {
 
 // Mount pfs to mountPoint, opts may be left nil.
 func Mount(c *client.APIClient, mountPoint string, opts *Options) error {
+	files := make(map[string]*file)
 	server, err := fs.Mount(mountPoint, &node{
 		file: client.NewFile("", "", ""),
 		m: &mount{
 			c:       c,
 			commits: opts.getCommits(),
-			files:   make(map[string]string),
+			files:   files,
 		},
 	}, opts.getFuse())
 	if err != nil {
@@ -74,6 +81,9 @@ func Mount(c *client.APIClient, mountPoint string, opts *Options) error {
 		server.Unmount()
 	}()
 	server.Serve()
+	for _, file := range files {
+		fmt.Printf("%+v\n", file)
+	}
 	return nil
 }
 
@@ -152,13 +162,20 @@ func (n *node) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs
 	}
 }
 
+func allowsWrite(flags uint32) bool {
+	return (int(flags) & (os.O_WRONLY | os.O_RDWR)) != 0
+}
+
 func (n *node) Open(ctx context.Context, openFlags uint32) (fs.FileHandle, uint32, syscall.Errno) {
 	key := fileKey(n.file)
 	path := ""
 	func() {
 		n.m.mu.Lock()
 		defer n.m.mu.Unlock()
-		path = n.m.files[key]
+		if file, ok := n.m.files[key]; ok {
+			path = file.path
+			file.dirty = file.dirty || allowsWrite(openFlags)
+		}
 	}()
 	var f *os.File
 	if path != "" {
@@ -182,7 +199,11 @@ func (n *node) Open(ctx context.Context, openFlags uint32) (fs.FileHandle, uint3
 		}
 		n.m.mu.Lock()
 		defer n.m.mu.Unlock()
-		n.m.files[fileKey(n.file)] = f.Name()
+		n.m.files[fileKey(n.file)] = &file{
+			pfs:   n.file,
+			path:  f.Name(),
+			dirty: allowsWrite(openFlags),
+		}
 	}
 	return fs.NewLoopbackFile(int(f.Fd())), 0, 0
 }
