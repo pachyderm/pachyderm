@@ -76,6 +76,10 @@ func (d *driver) rewriteSymlinks(scratchSubdir string) error {
 	outputDir := filepath.Join(scratchSubdir, "out")
 	inputDirFields := splitPath(d.InputDir())
 	return filepath.Walk(outputDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
 		if (info.Mode() & os.ModeSymlink) == 0 {
 			return nil
 		}

@@ -716,7 +716,6 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit
 		defer pj.cancel()
 		pj.taskMaster = master
 
-		pj.logger.Logf("master running processJobs")
 		backoff.RetryUntilCancel(pj.driver.PachClient().Ctx(), func() error {
 			var err error
 			for err == nil {
@@ -861,22 +860,22 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 
 	// Spawn a goroutine to emit tasks on the datum task channel
 	eg.Go(func() error {
-		for {
-			pj.logger.Logf("processJobRunning making datum task")
+		return pj.logger.LogStep("collecting datums for tasks", func() error {
+			for {
+				numDatums, err := pj.jdit.NextBatch(ctx)
+				if err != nil {
+					return err
+				}
+				if numDatums == 0 {
+					close(subtasks)
+					return nil
+				}
 
-			numDatums, err := pj.jdit.NextBatch(ctx)
-			if err != nil {
-				return err
+				if err := reg.sendDatumTasks(ctx, pj, numDatums, subtasks); err != nil {
+					return err
+				}
 			}
-			if numDatums == 0 {
-				close(subtasks)
-				return nil
-			}
-
-			if err := reg.sendDatumTasks(ctx, pj, numDatums, subtasks); err != nil {
-				return err
-			}
-		}
+		})
 	})
 
 	mutex := &sync.Mutex{}

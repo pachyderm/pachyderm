@@ -154,35 +154,8 @@ func (m *Master) RunSubtasksChan(subtaskChan chan *Task, collectFunc CollectFunc
 	var eg errgroup.Group
 	var count int64
 	done := make(chan struct{})
-	eg.Go(func() error {
-		return m.subtaskCol.ReadOnly(m.taskEntry.ctx).WatchOneF(m.taskID, func(e *watch.Event) error {
-			var key string
-			subtaskInfo := &TaskInfo{}
-			if err := e.Unmarshal(&key, subtaskInfo); err != nil {
-				return err
-			}
-			// Check that the subtask state is terminal.
-			if subtaskInfo.State == State_RUNNING {
-				return nil
-			}
-			if collectFunc != nil {
-				if err := m.taskEntry.runSubtaskBlock(func(ctx context.Context) error {
-					return collectFunc(ctx, subtaskInfo)
-				}); err != nil {
-					return err
-				}
-			}
-			atomic.AddInt64(&count, -1)
-			select {
-			case <-done:
-				if count == 0 {
-					return errutil.ErrBreak
-				}
-			default:
-			}
-			return nil
-		})
-	})
+	watchStarted := false
+
 	defer func() {
 		close(done)
 		if err := eg.Wait(); retErr == nil {
@@ -192,11 +165,46 @@ func (m *Master) RunSubtasksChan(subtaskChan chan *Task, collectFunc CollectFunc
 			fmt.Printf("errored deleting subtasks for task %v: %v\n", m.taskID, err)
 		}
 	}()
+
 	for subtask := range subtaskChan {
 		if err := m.createSubtask(subtask); err != nil {
 			return err
 		}
 		atomic.AddInt64(&count, 1)
+
+		// Only start the watch if we have results to watch for (this avoids a deadlock on an empty task channel)
+		if !watchStarted {
+			watchStarted = true
+			eg.Go(func() error {
+				return m.subtaskCol.ReadOnly(m.taskEntry.ctx).WatchOneF(m.taskID, func(e *watch.Event) error {
+					var key string
+					subtaskInfo := &TaskInfo{}
+					if err := e.Unmarshal(&key, subtaskInfo); err != nil {
+						return err
+					}
+					// Check that the subtask state is terminal.
+					if subtaskInfo.State == State_RUNNING {
+						return nil
+					}
+					if collectFunc != nil {
+						if err := m.taskEntry.runSubtaskBlock(func(ctx context.Context) error {
+							return collectFunc(ctx, subtaskInfo)
+						}); err != nil {
+							return err
+						}
+					}
+					atomic.AddInt64(&count, -1)
+					select {
+					case <-done:
+						if count == 0 {
+							return errutil.ErrBreak
+						}
+					default:
+					}
+					return nil
+				})
+			})
+		}
 	}
 	return nil
 }
