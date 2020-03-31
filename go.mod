@@ -32,6 +32,7 @@ require (
 	github.com/docker/docker v1.4.2-0.20191213113251-3452f136aa68 // indirect
 	github.com/docker/go-units v0.4.0
 	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
+	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/elazarl/goproxy v0.0.0-20191011121108-aa519ddbe484 // indirect
 	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/fatih/camelcase v1.0.0
