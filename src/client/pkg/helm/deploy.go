@@ -1,39 +1,23 @@
 package helm
 
 import (
-	"strings"
-	"context"
-	"path/filepath"
-	"time"
-	"os"
 	"io/ioutil"
+	"os"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/getter"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/repo"
 	"helm.sh/helm/v3/pkg/storage/driver"
-	"helm.sh/helm/v3/pkg/cli"
-	"github.com/gofrs/flock"
 	"sigs.k8s.io/yaml"
 )
 
 func updateConfig(envSettings *cli.EnvSettings, repoName, repoURL string) (*repo.ChartRepository, error) {
-	fileLock := flock.New(strings.Replace(envSettings.RepositoryConfig, filepath.Ext(envSettings.RepositoryConfig), ".lock", 1))
-	lockCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	locked, err := fileLock.TryLockContext(lockCtx, time.Second)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to lock helm config")
-	}
-	if locked {
-		defer fileLock.Unlock()
-	}
-
 	configBytes, err := ioutil.ReadFile(envSettings.RepositoryConfig)
 	if err != nil && !os.IsNotExist(err) {
 		return nil, errors.Wrapf(err, "failed to read helm config")
