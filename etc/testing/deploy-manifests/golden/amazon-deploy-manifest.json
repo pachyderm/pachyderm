@@ -1030,7 +1030,7 @@
         "containers": [
           {
             "name": "dash",
-            "image": "pachyderm/dash:1.9.0",
+            "image": "pachyderm/dash:0.5.48",
             "ports": [
               {
                 "name": "dash-http",
