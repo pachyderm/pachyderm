@@ -106,6 +106,7 @@ func (md *MockDriver) PipelineInfo() *pps.PipelineInfo {
 	return md.options.PipelineInfo
 }
 
+// Namespace returns a fake string representing the kubernetes namespace of the deployment.
 func (md *MockDriver) Namespace() string {
 	return "namespace"
 }

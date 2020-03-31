@@ -59,6 +59,7 @@ func withTestEnv(pipelineInfo *pps.PipelineInfo, cb func(*testEnv) error) error 
 			"/pachyderm_test",
 			filepath.Join(workerDir, "hashtrees"),
 			workerDir,
+			"namespace",
 		)
 		if err != nil {
 			return err
