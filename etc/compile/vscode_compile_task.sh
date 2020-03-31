@@ -17,8 +17,8 @@ if [[ "${OS}" == "Windows_NT" ]]; then
   eval "$(minikube docker-env --shell bash)"
 fi
 
-DOCKER_BUILDKIT=1 docker build "${DOCKER_OPTS[@]}" --progress plain -t pachyderm_build ${REPO_DIR}
-docker build "${DOCKER_OPTS[@]}" -t pachyderm/pachd ${REPO_DIR}/etc/pachd
+DOCKER_BUILDKIT=1 docker build "${DOCKER_OPTS[@]}" --progress plain -t pachyderm_build "${REPO_DIR}"
+docker build "${DOCKER_OPTS[@]}" -t pachyderm/pachd "${REPO_DIR}/etc/pachd"
 docker tag pachyderm/pachd pachyderm/pachd:local
-docker build "${DOCKER_OPTS[@]}" -t pachyderm/worker ${REPO_DIR}/etc/worker
+docker build "${DOCKER_OPTS[@]}" -t pachyderm/worker "${REPO_DIR}/etc/worker"
 docker tag pachyderm/worker pachyderm/worker:local
