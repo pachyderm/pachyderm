@@ -18,8 +18,13 @@ type GlobalConfiguration struct {
 	PeerPort      uint16 `env:"PEER_PORT,default=653"`
 	S3GatewayPort uint16 `env:"S3GATEWAY_PORT,default=600"`
 	PPSEtcdPrefix string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
-	Namespace     string `env:"PACHD_POD_NAMESPACE,default=default"`
-	StorageRoot   string `env:"PACH_ROOT,default=/pach"`
+	// Namespace contains the kubernetes namespace into which Pachyderm was
+	// deployed. Note that InitPachOnlyEnv (and by extension InitServiceEnv) merge
+	// PPS_NAMESPACE into this variable as well. If this is unset and
+	// PPS_NAMESPACE is set, then Namespace will contain the value of
+	// PPS_NAMESPACE
+	Namespace   string `env:"PACHD_POD_NAMESPACE,default=default"`
+	StorageRoot string `env:"PACH_ROOT,default=/pach"`
 
 	// PPSSpecCommitID is only set for workers and sidecar pachd instances.
 	// Because both pachd and worker need to know the spec commit (the worker so
