@@ -372,7 +372,7 @@ func processDatum(
 				driver := driver.WithContext(ctx)
 
 				return status.withDatum(inputs, cancel, func() error {
-					env := userCodeEnv(driver.PipelineInfo(), logger.JobID(), outputCommit, driver.InputDir(), inputs)
+					env := userCodeEnv(driver, logger.JobID(), outputCommit, inputs)
 					if err := driver.RunUserCode(logger, env, processStats, driver.PipelineInfo().DatumTimeout); err != nil {
 						if driver.PipelineInfo().Transform.ErrCmd != nil && failures == driver.PipelineInfo().DatumTries-1 {
 							if err = driver.RunUserErrorHandlingCode(logger, env, processStats, driver.PipelineInfo().DatumTimeout); err != nil {
@@ -442,20 +442,19 @@ func processDatum(
 }
 
 func userCodeEnv(
-	pipelineInfo *pps.PipelineInfo,
+	driver driver.Driver,
 	jobID string,
 	outputCommit *pfs.Commit,
-	inputDir string,
 	inputs []*common.Input,
 ) []string {
 	result := os.Environ()
 	for _, input := range inputs {
-		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(inputDir, input.Name, input.FileInfo.File.Path)))
+		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(driver.InputDir(), input.Name, input.FileInfo.File.Path)))
 		result = append(result, fmt.Sprintf("%s_COMMIT=%s", input.Name, input.FileInfo.File.Commit.ID))
 	}
 	result = append(result, fmt.Sprintf("%s=%s", client.JobIDEnv, jobID))
 	result = append(result, fmt.Sprintf("%s=%s", client.OutputCommitIDEnv, outputCommit.ID))
-	if ppsutil.ContainsS3Inputs(pipelineInfo.Input) || pipelineInfo.S3Out {
+	if ppsutil.ContainsS3Inputs(driver.PipelineInfo().Input) || driver.PipelineInfo().S3Out {
 		// TODO(msteffen) Instead of reading S3GATEWAY_PORT directly, worker/main.go
 		// should pass its ServiceEnv to worker.NewAPIServer, which should store it
 		// in 'a'. However, requiring worker.APIServer to have a ServiceEnv would
@@ -468,7 +467,7 @@ func userCodeEnv(
 			result,
 			fmt.Sprintf("S3_ENDPOINT=http://%s.%s:%s",
 				ppsutil.SidecarS3GatewayService(jobID),
-				a.namespace,
+				driver.Namespace(),
 				os.Getenv("S3GATEWAY_PORT"),
 			),
 		)

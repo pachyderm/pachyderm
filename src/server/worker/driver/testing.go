@@ -106,6 +106,10 @@ func (md *MockDriver) PipelineInfo() *pps.PipelineInfo {
 	return md.options.PipelineInfo
 }
 
+func (md *MockDriver) Namespace() string {
+	return "namespace"
+}
+
 // ChunkCaches returns a cache.WorkerCache instance that can be used for caching
 // hashtrees in the worker across multiple jobs. If no hashtree storage is
 // specified in the MockDriver options, this will be nil.

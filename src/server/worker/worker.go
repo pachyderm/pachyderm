@@ -37,7 +37,6 @@ const (
 type Worker struct {
 	APIServer *server.APIServer // Provides rpcs for other nodes in the cluster
 	driver    driver.Driver     // Provides common functions used by worker code
-	namespace string            // The namespace in which pachyderm is deployed - TODO: what is this for?
 	status    *transform.Status // An interface for inspecting and canceling the actively running task
 }
 
@@ -70,6 +69,7 @@ func NewWorker(
 		etcdPrefix,
 		hashtreePath,
 		rootPath,
+		namespace,
 	)
 	if err != nil {
 		return nil, err
@@ -101,9 +101,8 @@ func NewWorker(
 	}
 
 	worker := &Worker{
-		driver:    driver,
-		namespace: namespace,
-		status:    &transform.Status{},
+		driver: driver,
+		status: &transform.Status{},
 	}
 
 	worker.APIServer = server.NewAPIServer(driver, worker.status, workerName)

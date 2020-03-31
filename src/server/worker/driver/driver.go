@@ -76,6 +76,9 @@ type Driver interface {
 
 	PipelineInfo() *pps.PipelineInfo
 
+	// The namespace that the worker is deployed in
+	Namespace() string
+
 	// Returns the path that will contain the input filesets for the job
 	InputDir() string
 
@@ -152,6 +155,8 @@ type driver struct {
 
 	numShards int64
 
+	namespace string
+
 	// User and group IDs used for running user code, determined in the constructor
 	uid *uint32
 	gid *uint32
@@ -187,6 +192,7 @@ func NewDriver(
 	etcdPrefix string,
 	hashtreePath string,
 	rootPath string,
+	namespace string,
 ) (Driver, error) {
 
 	pfsPath := filepath.Join(rootPath, client.PPSInputPrefix)
@@ -231,6 +237,7 @@ func NewDriver(
 		hashtreeDir:      hashtreePath,
 		chunkCaches:      cache.NewWorkerCache(chunkCachePath),
 		chunkStatsCaches: cache.NewWorkerCache(chunkStatsCachePath),
+		namespace:        namespace,
 	}
 
 	if pipelineInfo.Transform.User != "" {
@@ -382,6 +389,10 @@ func (d *driver) NumShards() int64 {
 
 func (d *driver) PipelineInfo() *pps.PipelineInfo {
 	return d.pipelineInfo
+}
+
+func (d *driver) Namespace() string {
+	return d.namespace
 }
 
 func (d *driver) InputDir() string {

@@ -73,6 +73,7 @@ func withTestEnv(cb func(*testEnv)) error {
 			tu.UniqueString("driverTest"),
 			filepath.Clean(filepath.Join(env.Directory, "hashtrees")),
 			filepath.Clean(filepath.Join(env.Directory, "pfs")),
+			"namespace",
 		)
 		if err != nil {
 			return err
