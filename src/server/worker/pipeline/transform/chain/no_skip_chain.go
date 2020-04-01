@@ -10,6 +10,7 @@ import (
 type noSkipJobDatumIterator struct {
 	dit       datum.Iterator
 	allDatums DatumSet
+	done      bool
 }
 
 type noSkipJobChain struct {
@@ -41,6 +42,7 @@ func (jc *noSkipJobChain) Start(jd JobData) (JobDatumIterator, error) {
 	return &noSkipJobDatumIterator{
 		allDatums: allDatums,
 		dit:       dit,
+		done:      false,
 	}, nil
 }
 
@@ -61,7 +63,11 @@ func (jc *noSkipJobChain) Fail(jd JobData) error {
 }
 
 func (jdi *noSkipJobDatumIterator) NextBatch(ctx context.Context) (uint64, error) {
-	return jdi.MaxLen(), nil
+	if !jdi.done {
+		jdi.done = true
+		return jdi.MaxLen(), nil
+	}
+	return 0, nil
 }
 
 func (jdi *noSkipJobDatumIterator) NextDatum() []*common.Input {
@@ -73,6 +79,7 @@ func (jdi *noSkipJobDatumIterator) NextDatum() []*common.Input {
 
 func (jdi *noSkipJobDatumIterator) Reset() {
 	jdi.dit.Reset()
+	jdi.done = false
 }
 
 func (jdi *noSkipJobDatumIterator) MaxLen() uint64 {
