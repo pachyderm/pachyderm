@@ -95,6 +95,19 @@ func allowsWrite(flags uint32) bool {
 	return (int(flags) & (os.O_WRONLY | os.O_RDWR)) != 0
 }
 
+func (n *node) downloadFile() (_ string, retErr error) {
+	f, err := ioutil.TempFile("", "pfs-fuse")
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if err := f.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	return f.Name(), n.m.c.GetFile(n.file.Commit.Repo.Name, n.file.Commit.ID, n.file.Path, 0, 0, f)
+}
+
 func (n *node) Open(ctx context.Context, openFlags uint32) (fs.FileHandle, uint32, syscall.Errno) {
 	key := fileKey(n.file)
 	path := ""
@@ -106,38 +119,37 @@ func (n *node) Open(ctx context.Context, openFlags uint32) (fs.FileHandle, uint3
 			file.dirty = file.dirty || allowsWrite(openFlags)
 		}
 	}()
-	var f *os.File
-	if path != "" {
+	if path == "" {
 		var err error
-		f, err = os.OpenFile(path, int(openFlags), 0755)
+		path, err = n.downloadFile()
 		if err != nil {
-			return nil, 0, toErrno(err)
-		}
-	}
-	if f == nil {
-		var err error
-		f, err = ioutil.TempFile("", "pfs-fuse")
-		if err != nil {
-			return nil, 0, toErrno(err)
-		}
-		if err := n.m.c.GetFile(n.file.Commit.Repo.Name, n.file.Commit.ID, n.file.Path, 0, 0, f); err != nil {
-			return nil, 0, toErrno(err)
-		}
-		if _, err := f.Seek(0, 0); err != nil {
 			return nil, 0, toErrno(err)
 		}
 		n.m.mu.Lock()
 		defer n.m.mu.Unlock()
+		// Check again if someone else added this file to the map while we were
+		// downloading.
+		if file, ok := n.m.files[key]; ok {
+			// Someone did, so we remove our copy of the file and use theirs.
+			os.Remove(path)
+			path = file.path
+			file.dirty = file.dirty || allowsWrite(openFlags)
+		}
 		n.m.files[fileKey(n.file)] = &file{
 			pfs:   n.file,
-			path:  f.Name(),
+			path:  path,
 			dirty: allowsWrite(openFlags),
 		}
 	}
-	return fs.NewLoopbackFile(int(f.Fd())), 0, 0
+	fd, err := syscall.Open(path, int(openFlags), 0)
+	if err != nil {
+		return nil, 0, toErrno(err)
+	}
+	return fs.NewLoopbackFile(fd), 0, 0
 }
 
 func toErrno(err error) syscall.Errno {
+	fmt.Println(err)
 	if errutil.IsNotFoundError(err) {
 		return syscall.ENOENT
 	}
