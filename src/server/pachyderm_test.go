@@ -4121,14 +4121,14 @@ func TestStopJob(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
 		require.NoError(t, err)
-		if len(jobInfos) != 2 {
+		if len(jobInfos) != 1 {
 			return errors.Errorf("len(jobInfos) should be 1")
 		}
-		jobID = jobInfos[1].Job.ID
-		state := jobInfos[1].State
+		jobID = jobInfos[0].Job.ID
+		state := jobInfos[0].State
 
 		if state != pps.JobState_JOB_RUNNING && state != pps.JobState_JOB_MERGING {
-			return errors.Errorf("jobInfos[1] has the wrong state")
+			return errors.Errorf("jobInfos[0] has the wrong state")
 		}
 		return nil
 	}, b))

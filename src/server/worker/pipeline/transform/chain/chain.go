@@ -408,10 +408,6 @@ func (jdi *jobDatumIterator) MaxLen() uint64 {
 	return uint64(jdi.dit.Len())
 }
 
-func (jdi *jobDatumIterator) Datum() []*common.Input {
-	return jdi.dit.Datum()
-}
-
 func (jdi *jobDatumIterator) DatumSet() DatumSet {
 	return jdi.allDatums
 }

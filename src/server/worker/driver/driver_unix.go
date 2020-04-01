@@ -37,8 +37,10 @@ func (d *driver) WithActiveData(inputs []*common.Input, dir string, cb func() er
 		return errors.Wrap(err, "error when linking active data directory")
 	}
 	defer func() {
-		if err := d.rewriteSymlinks(dir); err != nil && retErr == nil {
-			retErr = errors.Wrap(err, "error when redirecting symlinks in the active data directory")
+		if !d.PipelineInfo().S3Out {
+			if err := d.rewriteSymlinks(dir); err != nil && retErr == nil {
+				retErr = errors.Wrap(err, "error when redirecting symlinks in the active data directory")
+			}
 		}
 		if err := d.unlinkData(inputs); err != nil && retErr == nil {
 			retErr = errors.Wrap(err, "error when unlinking active data directory")
