@@ -163,5 +163,15 @@ For example, to build the master version of documentation, run:
 mkdocs serve -f mkdocs-master.yml
 ```
 
+## Generating the GO API Documentation
+
+We use `godoc` to generate Go API documentation. It is automatically
+published at godoc.org. If you are adding something new, such as
+an example and want to check that how it looks in HTML, run the following
+command from the root directory:
+
+```bash
+godoc -http=:6060 -goroot=$(pwd)
+```
 
 I hope you'll have fun with Python Markdown! :smile:
