@@ -46,7 +46,7 @@ func del(t *testing.T, c *Cache, key string) {
 }
 
 func TestSimplePutGet(t *testing.T) {
-	c, err := NewCache("")
+	c, err := NewCache(".")
 	require.NoError(t, err)
 
 	defer func() {
@@ -65,7 +65,7 @@ func TestSimplePutGet(t *testing.T) {
 }
 
 func TestKeys(t *testing.T) {
-	c, err := NewCache("")
+	c, err := NewCache(".")
 	require.NoError(t, err)
 
 	defer func() {
@@ -78,7 +78,7 @@ func TestKeys(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	c, err := NewCache("")
+	c, err := NewCache(".")
 	require.NoError(t, err)
 
 	defer func() {
@@ -100,7 +100,7 @@ func TestDelete(t *testing.T) {
 }
 
 func TestClear(t *testing.T) {
-	c, err := NewCache("")
+	c, err := NewCache(".")
 	require.NoError(t, err)
 
 	defer func() {
