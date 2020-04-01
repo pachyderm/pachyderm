@@ -648,7 +648,7 @@ spec:
       namespace: pachyderm
     spec:
       containers:
-      - image: pachyderm/dash:1.9.0
+      - image: pachyderm/dash:0.5.48
         imagePullPolicy: IfNotPresent
         name: dash
         ports:
