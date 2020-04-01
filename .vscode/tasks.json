@@ -45,7 +45,6 @@
     },
     {
       "label": "launch-dev",
-      "type": "shell",
       "dependsOrder": "sequence",
       "dependsOn": [
         "install",
@@ -54,6 +53,52 @@
         "wait-dev"
       ],
       "problemMatcher": []
+    },
+    {
+      "label": "docker-push",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "install",
+        "docker-tag-images",
+        "docker-push-images"
+      ],
+      "problemMatcher": [],
+    },
+    {
+      "label": "docker-tag-images",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "docker-tag-pachd",
+        "docker-tag-worker"
+      ],
+    },
+    {
+      "label": "docker-push-images",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "docker-push-pachd",
+        "docker-push-worker"
+      ],
+    },
+    {
+      "label": "docker-tag-pachd",
+      "type": "shell",
+      "command": "docker tag pachyderm/pachd pachyderm/pachd:`pachctl version --client-only`"
+    },
+    {
+      "label": "docker-tag-worker",
+      "type": "shell",
+      "command": "docker tag pachyderm/worker pachyderm/worker:`pachctl version --client-only`"
+    },
+    {
+      "label": "docker-push-pachd",
+      "type": "shell",
+      "command": "docker push pachyderm/pachd:`pachctl version --client-only`"
+    },
+    {
+      "label": "docker-push-worker",
+      "type": "shell",
+      "command": "docker push pachyderm/worker:`pachctl version --client-only`"
     },
     {
       "label": "install",
