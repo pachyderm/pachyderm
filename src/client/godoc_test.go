@@ -10,7 +10,7 @@ import (
 
 func ExampleAPIClient_CreateRepo() {
 
-	// Create a repo called "test"  and print the list of
+	// Create a repo called "test" and print the list of
 	// repositories.
 	c, err := client.NewFromAddress("127.0.0.1:30650")
 	if err != nil {
@@ -39,7 +39,7 @@ func ExampleAPIClient_CreateRepo() {
 
 func ExampleAPIClient_DeleteRepo() {
 
-	// Delete a repository called test.
+	// Delete a repository called "test".
 	c, err := client.NewFromAddress("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
@@ -90,7 +90,7 @@ func ExampleAPIClient_ListRepo() {
 func ExampleAPIClient_PutFileWriter() {
 
 	// This method enables you to put data into a
-	// Pachyderm repo by using an io.Writer API.
+	// Pachyderm repo by using an "io.Writer" API.
 
 	c, err := client.NewFromAddress("127.0.0.1:30650")
 	if err != nil {
@@ -129,7 +129,7 @@ func ExampleAPIClient_PutFileWriter() {
 
 func ExampleAPIClient_NewPutFileClient() {
 
-	// This method enables you to group multiple put file operations into one
+	// This method enables you to group multiple "put file" operations into one
 	// request.
 
 	c, err := client.NewFromAddress("127.0.0.1:30650")
@@ -169,7 +169,7 @@ func ExampleAPIClient_NewPutFileClient() {
 func ExampleAPIClient_PutFile_string() {
 
 	// This method provides a simple way to to put file into a Pachyderm repo
-	// by using io.Reader. In this example, Pachyderm client reads the specified
+	// by using "io.Reader". In this example, Pachyderm client reads the specified
 	// string in the scripts and adds it to a file named "file" in the "test"
 	// repository.
 
@@ -205,7 +205,7 @@ func ExampleAPIClient_PutFile_string() {
 func ExampleAPIClient_PutFile_file() {
 
 	// This method provides a simple way to to put contents of a file into a
-	// Pachyderm repo by using io.Reader. In this example the Pachyderm client
+	// Pachyderm repo by using "io.Reader". In this example the Pachyderm client
 	// opens the file named "text.md" and then uses the PutFile method to add it
 	// to the repo "test@master".
 
@@ -282,8 +282,8 @@ func ExampleAPIClient_ListCommit() {
 	// To list all commits, pass only the name of the repository. If you want
 	// to list specific commits, you can specify "to" and "from" parameters.
 	// These both parameters accept a commit ID.
-	// In the example below, the "to" parameter is left blank and the "from"
-	// parameter is set to "0" which means all commits.
+	// In the example below, the "to" parameter is left blank, and the "from"
+	// parameter is set to "0", which means all commits.
 
 	c, err := client.NewFromAddress("127.0.0.1:30650")
 	if err != nil {
@@ -328,7 +328,7 @@ func ExampleAPIClient_ListCommit() {
 func ExampleAPIClient_CreateBranch() {
 
 	// This example demonstrates how you can create a branch from a specific
-	// commit. In this example, we create branch from a commit by referring
+	// commit. In this example, we create a branch from a commit by referring
 	// to it with the commit index ("cis[1].Commit.ID"). The latest commit
 	// always has the index of "0" and the earliest commit will have a
 	// corresponding index depending on the number commits in the repo.
@@ -388,8 +388,8 @@ func ExampleAPIClient_ListCommitF() {
 
 	// ListCommitF streams information about each commit one at a time
 	// instead of returning all commits at once. Most of Pachyderm's
-	// "List" methods have this functions. This method calls an anonymous function
-	// that
+	// "List" methods have a similar function.
+
 	c, err := client.NewFromAddress("127.0.0.1:30650")
 	if err != nil {
 		panic(err)
@@ -438,7 +438,7 @@ func ExampleAPIClient_CreatePipeline() {
 	// This example shows how to create a simple pipeline
 	// called "test-pipeline" that uses a basic image and runs a
 	// bash command that copies the "/pfs/test" directory
-	// to "/pfs/out" directory. Because no image is specified
+	// to "/pfs/out" directory. Because no image is specified,
 	// Pachyderm will use the basic image. The input is defined as
 	// the repo "test" with the "/*" glob pattern.
 	c, err := client.NewFromAddress("192.168.64.2:30650")
