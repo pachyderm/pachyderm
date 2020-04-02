@@ -181,7 +181,7 @@ command from the root directory of the `pachyderm` repository:
 godoc -http=:6060 -goroot=$(pwd)
 ```
 
-To view the documentation, open localhost:6060/pkg in a web browser.
+To view the documentation, open `localhost:6060/pkg` in a web browser.
 Most of the Pachyderm API documentation, can be found under the
 `client` directory.
 
