@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -19,6 +18,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy"
@@ -27,12 +27,12 @@ import (
 	_metrics "github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serde"
-	log "github.com/sirupsen/logrus"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
-var defaultDashImage = "pachyderm/dash:1.9.0"
+var defaultDashImage = "pachyderm/dash:0.5.48"
 
 var awsAccessKeyIDRE = regexp.MustCompile("^[A-Z0-9]{20}$")
 var awsSecretRE = regexp.MustCompile("^[A-Za-z0-9/+=]{40}$")
@@ -248,7 +248,7 @@ func deployCmds() []*cobra.Command {
 			}()
 			volumeSize, err := strconv.Atoi(args[1])
 			if err != nil {
-				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[1])
+				return errors.Errorf("volume size needs to be an integer; instead got %v", args[1])
 			}
 			var buf bytes.Buffer
 			opts.BlockCacheSize = "0G" // GCS is fast so we want to disable the block cache. See issue #1650
@@ -256,7 +256,7 @@ func deployCmds() []*cobra.Command {
 			if len(args) == 3 {
 				credBytes, err := ioutil.ReadFile(args[2])
 				if err != nil {
-					return fmt.Errorf("error reading creds file %s: %v", args[2], err)
+					return errors.Wrapf(err, "error reading creds file %s", args[2])
 				}
 				cred = string(credBytes)
 			}
@@ -380,7 +380,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				finishMetricsWait()
 			}()
 			if creds == "" && vault == "" && iamRole == "" {
-				return fmt.Errorf("one of --credentials, --vault, or --iam-role needs to be provided")
+				return errors.Errorf("one of --credentials, --vault, or --iam-role needs to be provided")
 			}
 
 			// populate 'amazonCreds' & validate
@@ -389,7 +389,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			if creds != "" {
 				parts := strings.Split(creds, ",")
 				if len(parts) < 2 || len(parts) > 3 || containsEmpty(parts[:2]) {
-					return fmt.Errorf("incorrect format of --credentials")
+					return errors.Errorf("incorrect format of --credentials")
 				}
 				amazonCreds = &assets.AmazonCreds{ID: parts[0], Secret: parts[1]}
 				if len(parts) > 2 {
@@ -415,23 +415,23 @@ If <object store backend> is \"s3\", then the arguments are:
 			}
 			if vault != "" {
 				if amazonCreds != nil {
-					return fmt.Errorf("only one of --credentials, --vault, or --iam-role needs to be provided")
+					return errors.Errorf("only one of --credentials, --vault, or --iam-role needs to be provided")
 				}
 				parts := strings.Split(vault, ",")
 				if len(parts) != 3 || containsEmpty(parts) {
-					return fmt.Errorf("incorrect format of --vault")
+					return errors.Errorf("incorrect format of --vault")
 				}
 				amazonCreds = &assets.AmazonCreds{VaultAddress: parts[0], VaultRole: parts[1], VaultToken: parts[2]}
 			}
 			if iamRole != "" {
 				if amazonCreds != nil {
-					return fmt.Errorf("only one of --credentials, --vault, or --iam-role needs to be provided")
+					return errors.Errorf("only one of --credentials, --vault, or --iam-role needs to be provided")
 				}
 				opts.IAMRole = iamRole
 			}
 			volumeSize, err := strconv.Atoi(args[2])
 			if err != nil {
-				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[2])
+				return errors.Errorf("volume size needs to be an integer; instead got %v", args[2])
 			}
 			if strings.TrimSpace(cloudfrontDistribution) != "" {
 				log.Warningf("you specified a cloudfront distribution; deploying on " +
@@ -512,18 +512,18 @@ If <object store backend> is \"s3\", then the arguments are:
 				finishMetricsWait()
 			}()
 			if _, err := base64.StdEncoding.DecodeString(args[2]); err != nil {
-				return fmt.Errorf("storage-account-key needs to be base64 encoded; instead got '%v'", args[2])
+				return errors.Errorf("storage-account-key needs to be base64 encoded; instead got '%v'", args[2])
 			}
 			if opts.EtcdVolume != "" {
 				tempURI, err := url.ParseRequestURI(opts.EtcdVolume)
 				if err != nil {
-					return fmt.Errorf("volume URI needs to be a well-formed URI; instead got '%v'", opts.EtcdVolume)
+					return errors.Errorf("volume URI needs to be a well-formed URI; instead got '%v'", opts.EtcdVolume)
 				}
 				opts.EtcdVolume = tempURI.String()
 			}
 			volumeSize, err := strconv.Atoi(args[3])
 			if err != nil {
-				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[3])
+				return errors.Errorf("volume size needs to be an integer; instead got %v", args[3])
 			}
 			var buf bytes.Buffer
 			container := strings.TrimPrefix(args[0], "wasb://")
@@ -552,7 +552,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	deployStorageSecrets := func(data map[string][]byte) error {
 		c, err := client.NewOnUserMachine("user")
 		if err != nil {
-			return fmt.Errorf("error constructing pachyderm client: %v", err)
+			return errors.Wrapf(err, "error constructing pachyderm client")
 		}
 		defer c.Close()
 
@@ -623,7 +623,7 @@ If <object store backend> is \"s3\", then the arguments are:
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			credBytes, err := ioutil.ReadFile(args[0])
 			if err != nil {
-				return fmt.Errorf("error reading credentials file %s: %v", args[0], err)
+				return errors.Wrapf(err, "error reading credentials file %s", args[0])
 			}
 			return deployStorageSecrets(assets.GoogleSecret("", string(credBytes)))
 		}),
@@ -781,7 +781,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				// comma, this doesn't work
 				certKey := strings.Split(tlsCertKey, ",")
 				if len(certKey) != 2 {
-					return fmt.Errorf("could not split TLS certificate and key correctly; must have two parts but got: %#v", certKey)
+					return errors.Errorf("could not split TLS certificate and key correctly; must have two parts but got: %#v", certKey)
 				}
 				opts.TLS = &assets.TLSOpts{
 					ServerCert: certKey[0],
@@ -790,7 +790,7 @@ If <object store backend> is \"s3\", then the arguments are:
 
 				serverCertBytes, err := ioutil.ReadFile(certKey[0])
 				if err != nil {
-					return fmt.Errorf("could not read server cert at %q: %v", certKey[0], err)
+					return errors.Wrapf(err, "could not read server cert at %q", certKey[0])
 				}
 				serverCert = base64.StdEncoding.EncodeToString([]byte(serverCertBytes))
 			}

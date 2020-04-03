@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/fatih/camelcase"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	go_errors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 )
@@ -193,20 +195,7 @@ func (l *logger) ReportMetric(method string, duration time.Duration, err error) 
 }
 
 func (l *logger) LogAtLevel(entry *logrus.Entry, level logrus.Level, args ...interface{}) {
-	switch level {
-	case logrus.PanicLevel:
-		entry.Panic(args)
-	case logrus.FatalLevel:
-		entry.Fatal(args)
-	case logrus.ErrorLevel:
-		entry.Error(args)
-	case logrus.WarnLevel:
-		entry.Warn(args)
-	case logrus.InfoLevel:
-		entry.Info(args)
-	case logrus.DebugLevel:
-		entry.Debug(args)
-	}
+	entry.Log(level, args)
 }
 
 func (l *logger) LogAtLevelFromDepth(request interface{}, response interface{}, err error, duration time.Duration, level logrus.Level, depth int) {
@@ -234,6 +223,20 @@ func (l *logger) LogAtLevelFromDepth(request interface{}, response interface{}, 
 	if err != nil {
 		// "err" itself might be a code or even an empty struct
 		fields["error"] = err.Error()
+		var st go_errors.StackTrace
+		for err != nil {
+			if err, ok := err.(errors.StackTracer); ok {
+				st = err.StackTrace()
+			}
+			err = go_errors.Unwrap(err)
+		}
+		if st != nil {
+			var frames []string
+			for _, frame := range st {
+				frames = append(frames, fmt.Sprintf("%+v", frame))
+			}
+			fields["stack"] = frames
+		}
 	}
 	if duration > 0 {
 		fields["duration"] = duration
@@ -279,7 +282,7 @@ func Pretty(entry *logrus.Entry) ([]byte, error) {
 		}
 		data, err := json.Marshal(entry.Data)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal fields to JSON, %v", err)
+			return nil, errors.Wrapf(err, "failed to marshal fields to JSON")
 		}
 		serialized = append(serialized, []byte(string(data))...)
 		serialized = append(serialized, ' ')

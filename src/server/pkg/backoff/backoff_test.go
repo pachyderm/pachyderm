@@ -1,9 +1,10 @@
 package backoff
 
 import (
-	"fmt"
 	"testing"
 	"time"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 func TestNextBackOffMillis(t *testing.T) {
@@ -41,7 +42,7 @@ func TestConstantBackOffCompare(t *testing.T) {
 	err := Retry(func() error {
 		callTimes[idx] = time.Now()
 		idx++
-		return fmt.Errorf("expected error")
+		return errors.Errorf("expected error")
 	}, RetryEvery(time.Second).For(9*time.Second))
 	if err.Error() != "expected error" {
 		t.Fatalf("Retry loop didn't return internal error to caller")

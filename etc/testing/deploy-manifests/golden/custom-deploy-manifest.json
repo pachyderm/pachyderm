@@ -581,7 +581,7 @@
                 "value": "false"
               },
               {
-                "name": "PACHD_POD_NAMESPACE",
+                "name": "PACH_NAMESPACE",
                 "valueFrom": {
                   "fieldRef": {
                     "apiVersion": "v1",
@@ -1014,7 +1014,7 @@
         "containers": [
           {
             "name": "dash",
-            "image": "pachyderm/dash:1.9.0",
+            "image": "pachyderm/dash:0.5.48",
             "ports": [
               {
                 "name": "dash-http",

@@ -11,6 +11,7 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm/src/client/pkg/discovery"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
 	"golang.org/x/sync/errgroup"
@@ -23,8 +24,8 @@ var (
 	holdTTL   uint64 = 20
 	marshaler        = &jsonpb.Marshaler{}
 	// ErrCancelled is returned when an action is cancelled by the user
-	ErrCancelled = fmt.Errorf("cancelled by user")
-	errComplete  = fmt.Errorf("COMPLETE")
+	ErrCancelled = errors.Errorf("cancelled by user")
+	errComplete  = errors.Errorf("COMPLETE")
 )
 
 type sharder struct {
@@ -518,7 +519,7 @@ func decodeServerRole(encodedServerRole string) (*ServerRole, error) {
 
 func (a *sharder) getAddresses(version int64) (*Addresses, error) {
 	if version == InvalidVersion {
-		return nil, fmt.Errorf("invalid version")
+		return nil, errors.Errorf("invalid version")
 	}
 	a.addressesLock.RLock()
 	if addresses, ok := a.addresses[version]; ok {

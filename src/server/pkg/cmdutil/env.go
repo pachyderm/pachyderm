@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 // Decoder decodes an env file.
@@ -64,10 +66,10 @@ func populateInternal(reflectValue reflect.Value, decoderMap map[string]string, 
 	if reflectValue.Type().Kind() == reflect.Ptr {
 		reflectValue = reflectValue.Elem()
 	} else if !recursive {
-		return fmt.Errorf("%s: %v", expectedPointerErr, reflectValue.Type())
+		return errors.Errorf("%s: %v", expectedPointerErr, reflectValue.Type())
 	}
 	if reflectValue.Type().Kind() != reflect.Struct {
-		return fmt.Errorf("%s: %v", expectedStructErr, reflectValue.Type())
+		return errors.Errorf("%s: %v", expectedStructErr, reflectValue.Type())
 	}
 	numField := reflectValue.NumField()
 	for i := 0; i < numField; i++ {
@@ -88,7 +90,7 @@ func populateInternal(reflectValue reflect.Value, decoderMap map[string]string, 
 		value := getValue(envTag.key, envTag.defaultValue, decoderMap)
 		if value == "" {
 			if envTag.required {
-				return fmt.Errorf("%s: %s %v", envKeyNotSetWhenRequiredErr, envTag.key, reflectValue.Type())
+				return errors.Errorf("%s: %s %v", envKeyNotSetWhenRequiredErr, envTag.key, reflectValue.Type())
 			}
 			continue
 		}
@@ -155,7 +157,7 @@ func getEnvTag(structField reflect.StructField) (*envTag, error) {
 		envTag.required = true
 	case "default":
 		if len(split) != 2 {
-			return nil, fmt.Errorf("%s: %s", invalidTagErr, tag)
+			return nil, errors.Errorf("%s: %s", invalidTagErr, tag)
 		}
 		envTag.defaultValue = split[1]
 	}
@@ -171,87 +173,87 @@ func parseField(structField reflect.StructField, value string) (interface{}, err
 		}
 		parsedValue, err := strconv.ParseBool(value)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %s", cannotParseErr, err.Error())
+			return nil, errors.Wrapf(err, cannotParseErr)
 		}
 		return parsedValue, nil
 	case reflect.Int:
 		parsedValue, err := strconv.ParseInt(value, 10, 0)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %s", cannotParseErr, err.Error())
+			return nil, errors.Wrapf(err, cannotParseErr)
 		}
 		return int(parsedValue), nil
 	case reflect.Int8:
 		parsedValue, err := strconv.ParseInt(value, 10, 8)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %s", cannotParseErr, err.Error())
+			return nil, errors.Wrapf(err, cannotParseErr)
 		}
 		return int8(parsedValue), nil
 	case reflect.Int16:
 		parsedValue, err := strconv.ParseInt(value, 10, 16)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %s", cannotParseErr, err.Error())
+			return nil, errors.Wrapf(err, cannotParseErr)
 		}
 		return int16(parsedValue), nil
 	case reflect.Int32:
 		parsedValue, err := strconv.ParseInt(value, 10, 32)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %s", cannotParseErr, err.Error())
+			return nil, errors.Wrapf(err, cannotParseErr)
 		}
 		return int32(parsedValue), nil
 
 	case reflect.Int64:
 		parsedValue, err := strconv.ParseInt(value, 10, 64)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %s", cannotParseErr, err.Error())
+			return nil, errors.Wrapf(err, cannotParseErr)
 		}
 		return int64(parsedValue), nil
 	case reflect.Uint:
 		parsedValue, err := strconv.ParseUint(value, 10, 0)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %s", cannotParseErr, err.Error())
+			return nil, errors.Wrapf(err, cannotParseErr)
 		}
 		return uint(parsedValue), nil
 	case reflect.Uint8:
 		parsedValue, err := strconv.ParseUint(value, 10, 8)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %s", cannotParseErr, err.Error())
+			return nil, errors.Wrapf(err, cannotParseErr)
 		}
 		return uint8(parsedValue), nil
 	case reflect.Uint16:
 		parsedValue, err := strconv.ParseUint(value, 10, 16)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %s", cannotParseErr, err.Error())
+			return nil, errors.Wrapf(err, cannotParseErr)
 		}
 		return uint16(parsedValue), nil
 	case reflect.Uint32:
 		parsedValue, err := strconv.ParseUint(value, 10, 32)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %s", cannotParseErr, err.Error())
+			return nil, errors.Wrapf(err, cannotParseErr)
 		}
 		return uint32(parsedValue), nil
 
 	case reflect.Uint64:
 		parsedValue, err := strconv.ParseUint(value, 10, 64)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %s", cannotParseErr, err.Error())
+			return nil, errors.Wrapf(err, cannotParseErr)
 		}
 		return uint64(parsedValue), nil
 	case reflect.Float32:
 		parsedValue, err := strconv.ParseFloat(value, 32)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %s", cannotParseErr, err.Error())
+			return nil, errors.Wrapf(err, cannotParseErr)
 		}
 		return float32(parsedValue), nil
 
 	case reflect.Float64:
 		parsedValue, err := strconv.ParseFloat(value, 64)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %s", cannotParseErr, err.Error())
+			return nil, errors.Wrapf(err, cannotParseErr)
 		}
 		return float64(parsedValue), nil
 	case reflect.String:
 		return value, nil
 	default:
-		return nil, fmt.Errorf("%s: %v", fieldTypeNotAllowedErr, fieldKind)
+		return nil, errors.Errorf("%s: %v", fieldTypeNotAllowedErr, fieldKind)
 	}
 }

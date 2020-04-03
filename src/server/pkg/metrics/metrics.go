@@ -7,6 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
@@ -59,7 +60,7 @@ func getKeyFromMD(md metadata.MD, key string) (string, error) {
 	if md[key] != nil && len(md[key]) > 0 {
 		return md[key][0], nil
 	}
-	return "", fmt.Errorf("error extracting userid from metadata. userid is empty")
+	return "", errors.Errorf("error extracting userid from metadata. userid is empty")
 }
 
 func (r *Reporter) reportUserAction(ctx context.Context, action string, value interface{}) {
@@ -149,7 +150,7 @@ func (r *Reporter) reportClusterMetrics() {
 func externalMetrics(kubeClient *kube.Clientset, metrics *Metrics) error {
 	nodeList, err := kubeClient.CoreV1().Nodes().List(metav1.ListOptions{})
 	if err != nil {
-		return fmt.Errorf("externalMetrics: unable to retrieve node list from k8s: %v", err)
+		return errors.Wrapf(err, "externalMetrics: unable to retrieve node list from k8s")
 	}
 	metrics.Nodes = int64(len(nodeList.Items))
 	return nil

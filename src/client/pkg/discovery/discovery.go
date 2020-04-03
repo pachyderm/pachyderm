@@ -1,11 +1,11 @@
 package discovery
 
 import (
-	"fmt"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 // ErrCancelled is returned when an action is cancelled by the user
-var ErrCancelled = fmt.Errorf("pachyderm: cancelled by user")
+var ErrCancelled = errors.Errorf("pachyderm: cancelled by user")
 
 // Client defines Pachyderm's interface to key-value stores such as etcd.
 type Client interface {

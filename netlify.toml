@@ -1909,6 +1909,24 @@ publish = "doc/site"
   force = true
 
 [[redirects]]
+  from = "/master/deploy-manage/deploy/deploy-pachyderm-jupyterhub/"
+  to = "/latest/deploy-manage/deploy/deploy-pachyderm-jupyterhub/"
+  status = 301
+  force = true
+
+ [[redirects]]
+  from = "/master/how-tos/use-jupyterhub/using-jupyterhub/"
+  to = "/latest/how-tos/use-jupyterhub/using-jupyterhub/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/master/how-tos/use-jupyterhub/"
+  to = "/latest/how-tos/use-jupyterhub/"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/how-tos/team-developer-workflow/"
   to = "/latest/how-tos/team-developer-workflow/"
   status = 301

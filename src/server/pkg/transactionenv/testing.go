@@ -1,16 +1,15 @@
 package transactionenv
 
 import (
-	"fmt"
-
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 )
 
 func unimplementedError(name string) error {
-	return fmt.Errorf("%s is not implemented in this mock", name)
+	return errors.Errorf("%s is not implemented in this mock", name)
 }
 
 // MockPfsPropagater is a simple mock that can be used to satisfy the

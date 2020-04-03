@@ -6,8 +6,6 @@ package tar
 
 import (
 	"bytes"
-	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"math"
@@ -17,6 +15,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 type testError struct{ error }
@@ -65,7 +65,7 @@ func (f *testFile) Write(b []byte) (int, error) {
 	}
 
 	if !strings.HasPrefix(s, string(b)) {
-		return 0, testError{fmt.Errorf("got Write(%q), want Write(%q)", b, s)}
+		return 0, testError{errors.Errorf("got Write(%q), want Write(%q)", b, s)}
 	}
 	if len(s) > len(b) {
 		f.ops[0] = s[len(b):]
@@ -89,7 +89,7 @@ func (f *testFile) Seek(pos int64, whence int) (int64, error) {
 	}
 
 	if s != pos || whence != io.SeekCurrent {
-		return 0, testError{fmt.Errorf("got Seek(%d, %d), want Seek(%d, %d)", pos, whence, s, io.SeekCurrent)}
+		return 0, testError{errors.Errorf("got Seek(%d, %d), want Seek(%d, %d)", pos, whence, s, io.SeekCurrent)}
 	}
 	f.pos += s
 	f.ops = f.ops[1:]

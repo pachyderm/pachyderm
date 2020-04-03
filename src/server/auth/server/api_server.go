@@ -2,7 +2,6 @@ package server
 
 import (
 	"crypto/sha256"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -12,20 +11,10 @@ import (
 	"sync"
 	"time"
 
-	"google.golang.org/grpc/metadata"
-
-	"github.com/crewjam/saml"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
-	"github.com/google/go-github/github"
-	logrus "github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
-	"golang.org/x/oauth2"
-	"golang.org/x/sync/errgroup"
-
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	enterpriseclient "github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
@@ -37,6 +26,16 @@ import (
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+
+	"github.com/crewjam/saml"
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
+	"github.com/google/go-github/github"
+	logrus "github.com/sirupsen/logrus"
+	"golang.org/x/net/context"
+	"golang.org/x/oauth2"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/metadata"
 )
 
 const (
@@ -402,7 +401,7 @@ func (a *apiServer) getEnterpriseTokenState() (enterpriseclient.State, error) {
 	resp, err := pachClient.Enterprise.GetState(context.Background(),
 		&enterpriseclient.GetStateRequest{})
 	if err != nil {
-		return 0, fmt.Errorf("could not get Enterprise status: %v", grpcutil.ScrubGRPC(err))
+		return 0, errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get Enterprise status")
 	}
 	return resp.State, nil
 }
@@ -429,10 +428,10 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 	// cannot be activated
 	state, err := a.getEnterpriseTokenState()
 	if err != nil {
-		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
+		return nil, errors.Wrapf(err, "error confirming Pachyderm Enterprise token")
 	}
 	if state != enterpriseclient.State_ACTIVE {
-		return nil, fmt.Errorf("Pachyderm Enterprise is not active in this " + //lint:ignore ST1005 caps due to proper noun
+		return nil, errors.Errorf("Pachyderm Enterprise is not active in this " +
 			"cluster, and the Pachyderm auth API is an Enterprise-level feature")
 	}
 
@@ -441,7 +440,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 	// themselves as an admin. If activation failed in PFS, calling auth.Activate
 	// again should work (in this state, the only admin will be 'ppsUser')
 	if a.activationState() == full {
-		return nil, fmt.Errorf("already activated")
+		return nil, errors.Errorf("already activated")
 	}
 
 	// The Pachyderm token that Activate() returns will have the TTL
@@ -470,7 +469,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 			return nil, err
 		}
 		if req.Subject != "" && req.Subject != username {
-			return nil, fmt.Errorf("asserted subject \"%s\" did not match owner of GitHub token \"%s\"", req.Subject, username)
+			return nil, errors.Errorf("asserted subject \"%s\" did not match owner of GitHub token \"%s\"", req.Subject, username)
 		}
 		req.Subject = username
 	case strings.HasPrefix(req.Subject, auth.RobotPrefix):
@@ -478,7 +477,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 		// authenticate the holder as the robot account therein
 		ttlSecs = 0 // no expiration for robot tokens -- see above
 	default:
-		return nil, fmt.Errorf("invalid subject in request (must be a GitHub user or robot): \"%s\"", req.Subject)
+		return nil, errors.Errorf("invalid subject in request (must be a GitHub user or robot): \"%s\"", req.Subject)
 	}
 
 	// Hack: set the cluster admins to just {ppsUser}. This puts the auth system
@@ -496,7 +495,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 	b.MaxElapsedTime = 30 * time.Second
 	if err := backoff.Retry(func() error {
 		if a.activationState() != partial {
-			return fmt.Errorf("auth never entered \"partial\" activation state")
+			return errors.Errorf("auth never entered \"partial\" activation state")
 		}
 		return nil
 	}, b); err != nil {
@@ -543,7 +542,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 	// pods being out of date.
 	if err := backoff.Retry(func() error {
 		if a.activationState() != full {
-			return fmt.Errorf("auth never entered \"full\" activation state")
+			return errors.Errorf("auth never entered \"full\" activation state")
 		}
 		return nil
 	}, b); err != nil {
@@ -621,7 +620,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest)
 	// pods being out of date.
 	if err := backoff.Retry(func() error {
 		if a.activationState() != none {
-			return fmt.Errorf("auth still activated")
+			return errors.Errorf("auth still activated")
 		}
 		return nil
 	}, backoff.RetryEvery(time.Second)); err != nil {
@@ -656,7 +655,7 @@ func GitHubTokenToUsername(ctx context.Context, oauthToken string) (string, erro
 	// authenticated user)
 	user, _, err := gclient.Users.Get(ctx, "")
 	if err != nil {
-		return "", fmt.Errorf("error getting the authenticated user: %v", err)
+		return "", errors.Wrapf(err, "error getting the authenticated user")
 	}
 	verifiedUsername := user.GetLogin()
 	return auth.GitHubPrefix + verifiedUsername, nil
@@ -716,7 +715,7 @@ func (a *apiServer) validateModifyAdminsRequest(add []string, remove []string) e
 	// This is required so that the admin can get the cluster out of any broken
 	// state that it may enter.
 	if len(m) == 0 {
-		return fmt.Errorf("invalid request: cannot remove all cluster administrators while auth is active, to avoid unfixable cluster states")
+		return errors.Errorf("invalid request: cannot remove all cluster administrators while auth is active, to avoid unfixable cluster states")
 	}
 	return nil
 }
@@ -810,7 +809,7 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequ
 func (a *apiServer) expiredClusterAdminCheck(ctx context.Context, username string) error {
 	state, err := a.getEnterpriseTokenState()
 	if err != nil {
-		return fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
+		return errors.Wrapf(err, "error confirming Pachyderm Enterprise token")
 	}
 
 	isAdmin, err := a.isAdmin(ctx, username)
@@ -818,7 +817,7 @@ func (a *apiServer) expiredClusterAdminCheck(ctx context.Context, username strin
 		return err
 	}
 	if state != enterpriseclient.State_ACTIVE && !isAdmin {
-		return errors.New("Pachyderm Enterprise is not active in this " + //lint:ignore ST1005 caps due to proper noun
+		return errors.New("Pachyderm Enterprise is not active in this " +
 			"cluster (until Pachyderm Enterprise is re-activated or Pachyderm " +
 			"auth is deactivated, only cluster admins can perform any operations)")
 	}
@@ -872,7 +871,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 				},
 				defaultSessionTTLSecs)
 		}); err != nil {
-			return nil, fmt.Errorf("error storing auth token for user \"%s\": %v", username, err)
+			return nil, errors.Wrapf(err, "error storing auth token for user \"%s\"", username)
 		}
 
 	case req.OneTimePassword != "":
@@ -883,7 +882,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 			var otpInfo auth.OTPInfo
 			if err := otps.Get(key, &otpInfo); err != nil {
 				if col.IsErrNotFound(err) {
-					return fmt.Errorf("otp is invalid or has expired")
+					return errors.Errorf("otp is invalid or has expired")
 				}
 				return err
 			}
@@ -900,12 +899,12 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 			if otpInfo.SessionExpiration != nil {
 				expiration, err := types.TimestampFromProto(otpInfo.SessionExpiration)
 				if err != nil {
-					return fmt.Errorf("invalid timestamp in OTPInfo, could not " +
+					return errors.Errorf("invalid timestamp in OTPInfo, could not " +
 						"authenticate (try obtaining a new OTP)")
 				}
 				tokenTTLDuration := time.Until(expiration)
 				if tokenTTLDuration < minSessionTTL {
-					return fmt.Errorf("otp is invalid or has expired")
+					return errors.Errorf("otp is invalid or has expired")
 				}
 				// divide instead of calling Seconds() to avoid float-based rounding
 				// errors
@@ -926,7 +925,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		}
 
 	default:
-		return nil, fmt.Errorf("unrecognized authentication mechanism (old pachd?)")
+		return nil, errors.Errorf("unrecognized authentication mechanism (old pachd?)")
 	}
 
 	// Return new pachyderm token to caller
@@ -942,7 +941,7 @@ func (a *apiServer) getCallerTTL(ctx context.Context) (int64, error) {
 	}
 	ttl, err := a.tokens.ReadOnly(ctx).TTL(hashToken(token)) // lookup token TTL
 	if err != nil {
-		return 0, fmt.Errorf("error looking up TTL for token: %v", err)
+		return 0, errors.Wrapf(err, "error looking up TTL for token")
 	}
 	return ttl, nil
 }
@@ -964,7 +963,7 @@ func (a *apiServer) GetOneTimePassword(ctx context.Context, req *auth.GetOneTime
 		return nil, auth.ErrPartiallyActivated
 	}
 	if req.Subject == ppsUser {
-		return nil, fmt.Errorf("GetOneTimePassword.Subject is invalid")
+		return nil, errors.Errorf("GetOneTimePassword.Subject is invalid")
 	}
 
 	// Get current caller and check if they're authorized if req.Subject is set
@@ -1031,7 +1030,7 @@ func (a *apiServer) GetOneTimePassword(ctx context.Context, req *auth.GetOneTime
 		}
 		if sessionTTL <= 10 {
 			// session is too short to be meaningful -- return an error
-			return nil, fmt.Errorf("session expires too soon to get a " +
+			return nil, errors.Errorf("session expires too soon to get a " +
 				"one-time password")
 		}
 	}
@@ -1052,8 +1051,8 @@ func (a *apiServer) GetOneTimePassword(ctx context.Context, req *auth.GetOneTime
 	otpExpiration := time.Now().Add(time.Duration(req.TTL-1) * time.Second)
 	otpExpirationProto, err := types.TimestampProto(otpExpiration)
 	if err != nil {
-		return nil, fmt.Errorf("could not create OTP with expiration time %s: %v",
-			otpExpiration.String(), err)
+		return nil, errors.Wrapf(err, "could not create OTP with expiration time %s",
+			otpExpiration.String())
 	}
 	return &auth.GetOneTimePasswordResponse{
 		Code:          code,
@@ -1079,8 +1078,8 @@ func (a *apiServer) getOneTimePassword(ctx context.Context, username string, otp
 	if !sessionExpiration.IsZero() {
 		sessionExpirationProto, err := types.TimestampProto(sessionExpiration)
 		if err != nil {
-			return "", fmt.Errorf("could not create OTP with session expiration time %s: %v",
-				sessionExpiration.String(), err)
+			return "", errors.Wrapf(err, "could not create OTP with session expiration time %s",
+				sessionExpiration.String())
 		}
 		otpInfo.SessionExpiration = sessionExpirationProto
 	}
@@ -1132,11 +1131,11 @@ func (a *apiServer) AuthorizeInTransaction(
 	// authorize (and admins are already handled)
 	state, err := a.getEnterpriseTokenState()
 	if err != nil {
-		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
+		return nil, errors.Wrapf(err, "error confirming Pachyderm Enterprise token")
 	}
 	if state != enterpriseclient.State_ACTIVE &&
 		!strings.HasPrefix(callerInfo.Subject, auth.PipelinePrefix) {
-		return nil, errors.New("Pachyderm Enterprise is not active in this " + //lint:ignore ST1005 caps due to proper noun
+		return nil, errors.New("Pachyderm Enterprise is not active in this " +
 			"cluster (until Pachyderm Enterprise is re-activated or Pachyderm " +
 			"auth is deactivated, only cluster admins can perform any operations)")
 	}
@@ -1144,7 +1143,7 @@ func (a *apiServer) AuthorizeInTransaction(
 	// Get ACL to check
 	var acl auth.ACL
 	if err := a.acls.ReadWrite(txnCtx.Stm).Get(req.Repo, &acl); err != nil && !col.IsErrNotFound(err) {
-		return nil, fmt.Errorf("error getting ACL for repo \"%s\": %v", req.Repo, err)
+		return nil, errors.Wrapf(err, "error getting ACL for repo \"%s\"", req.Repo)
 	}
 
 	scope, err := a.getScope(txnCtx.ClientContext, callerInfo.Subject, &acl)
@@ -1201,7 +1200,7 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 		}
 		ttl, err = a.tokens.ReadOnly(ctx).TTL(hashToken(token)) // lookup token TTL
 		if err != nil {
-			return nil, fmt.Errorf("error looking up TTL for token: %v", err)
+			return nil, errors.Wrapf(err, "error looking up TTL for token")
 		}
 	}
 
@@ -1215,10 +1214,10 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 
 func validateSetScopeRequest(ctx context.Context, req *auth.SetScopeRequest) error {
 	if req.Username == "" {
-		return fmt.Errorf("invalid request: must set username")
+		return errors.Errorf("invalid request: must set username")
 	}
 	if req.Repo == "" {
-		return fmt.Errorf("invalid request: must set repo")
+		return errors.Errorf("invalid request: must set repo")
 	}
 	return nil
 }
@@ -1236,7 +1235,7 @@ func (a *apiServer) isAdmin(ctx context.Context, subject string) (bool, error) {
 	// Get scope based on group access
 	groups, err := a.getGroups(ctx, subject)
 	if err != nil {
-		return false, fmt.Errorf("could not retrieve caller's group memberships: %v", err)
+		return false, errors.Wrapf(err, "could not retrieve caller's group memberships")
 	}
 	for _, g := range groups {
 		if _, ok := a.adminCache[g]; ok {
@@ -1298,10 +1297,10 @@ func (a *apiServer) SetScopeInTransaction(
 		// Check if the cluster's enterprise token is expired (fail if so)
 		state, err := a.getEnterpriseTokenState()
 		if err != nil {
-			return false, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
+			return false, errors.Wrapf(err, "error confirming Pachyderm Enterprise token")
 		}
 		if state != enterpriseclient.State_ACTIVE {
-			return false, fmt.Errorf("Pachyderm Enterprise is not active in this " + //lint:ignore ST1005 caps due to proper noun
+			return false, errors.Errorf("Pachyderm Enterprise is not active in this " +
 				"cluster (only a cluster admin can set a scope)")
 		}
 
@@ -1373,8 +1372,7 @@ func (a *apiServer) getScope(ctx context.Context, subject string, acl *auth.ACL)
 	// Expand scope based on group access
 	groups, err := a.getGroups(ctx, subject)
 	if err != nil {
-		return auth.Scope_NONE, fmt.Errorf("could not retrieve caller's "+
-			"group memberships: %v", err)
+		return auth.Scope_NONE, errors.Wrapf(err, "could not retrieve caller's group memberships")
 	}
 	for _, g := range groups {
 		groupScope := acl.Entries[g]
@@ -1409,10 +1407,10 @@ func (a *apiServer) GetScopeInTransaction(
 	// admin information elsewhere, so the code is copied here
 	state, err := a.getEnterpriseTokenState()
 	if err != nil {
-		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
+		return nil, errors.Wrapf(err, "error confirming Pachyderm Enterprise token")
 	}
 	if state != enterpriseclient.State_ACTIVE && !callerIsAdmin {
-		return nil, errors.New("Pachyderm Enterprise is not active in this " + //lint:ignore ST1005 caps due to proper noun
+		return nil, errors.New("Pachyderm Enterprise is not active in this " +
 			"cluster (until Pachyderm Enterprise is re-activated or Pachyderm " +
 			"auth is deactivated, only cluster admins can perform any operations)")
 	}
@@ -1500,7 +1498,7 @@ func (a *apiServer) GetACLInTransaction(
 
 	// Validate request
 	if req.Repo == "" {
-		return nil, fmt.Errorf("invalid request: must provide name of repo to get that repo's ACL")
+		return nil, errors.Errorf("invalid request: must provide name of repo to get that repo's ACL")
 	}
 
 	// Get calling user
@@ -1559,7 +1557,7 @@ func (a *apiServer) SetACLInTransaction(
 
 	// Validate request
 	if req.Repo == "" {
-		return nil, fmt.Errorf("invalid request: must provide name of repo you want to modify")
+		return nil, errors.Errorf("invalid request: must provide name of repo you want to modify")
 	}
 
 	// Get calling user
@@ -1614,10 +1612,10 @@ func (a *apiServer) SetACLInTransaction(
 		// Check if the cluster's enterprise token is expired (fail if so)
 		state, err := a.getEnterpriseTokenState()
 		if err != nil {
-			return false, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
+			return false, errors.Wrapf(err, "error confirming Pachyderm Enterprise token")
 		}
 		if state != enterpriseclient.State_ACTIVE {
-			return false, fmt.Errorf("Pachyderm Enterprise is not active in this " + //lint:ignore ST1005 caps due to proper noun
+			return false, errors.Errorf("Pachyderm Enterprise is not active in this " +
 				"cluster (only a cluster admin can modify an ACL)")
 		}
 
@@ -1646,7 +1644,7 @@ func (a *apiServer) SetACLInTransaction(
 			return false, nil
 		} else if !strings.HasSuffix(err.Error(), "not found") {
 			// Unclear if repo exists -- return error
-			return false, fmt.Errorf("could not inspect \"%s\": %v", req.Repo, err)
+			return false, errors.Wrapf(err, "could not inspect \"%s\"", req.Repo)
 		} else if len(newACL.Entries) == 1 &&
 			newACL.Entries[callerInfo.Subject] == auth.Scope_OWNER {
 			// Special case: Repo doesn't exist, but user is creating a new Repo, and
@@ -1676,7 +1674,7 @@ func (a *apiServer) SetACLInTransaction(
 	} else {
 		err = acls.Put(req.Repo, newACL)
 		if err != nil {
-			return nil, fmt.Errorf("could not put new ACL: %v", err)
+			return nil, errors.Wrapf(err, "could not put new ACL")
 		}
 	}
 	return &auth.SetACLResponse{}, nil
@@ -1744,10 +1742,10 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 		return nil, auth.ErrNotActivated
 	}
 	if req.Subject == ppsUser {
-		return nil, fmt.Errorf("GetAuthTokenRequest.Subject is invalid")
+		return nil, errors.Errorf("GetAuthTokenRequest.Subject is invalid")
 	}
 	if req.TTL < 0 {
-		return nil, fmt.Errorf("GetAuthTokenRequest.TTL must be >= 0")
+		return nil, errors.Errorf("GetAuthTokenRequest.TTL must be >= 0")
 	}
 
 	// Get current caller and authorize them if req.Subject is set to a different
@@ -1815,9 +1813,9 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 		return a.tokens.ReadWrite(stm).PutTTL(hashToken(token), &tokenInfo, req.TTL)
 	}); err != nil {
 		if tokenInfo.Subject != ppsUser {
-			return nil, fmt.Errorf("error storing token for user \"%s\": %v", tokenInfo.Subject, err)
+			return nil, errors.Wrapf(err, "error storing token for user \"%s\"", tokenInfo.Subject)
 		}
-		return nil, fmt.Errorf("error storing token: %v", err)
+		return nil, errors.Wrapf(err, "error storing token")
 	}
 	return &auth.GetAuthTokenResponse{
 		Subject: req.Subject,
@@ -1833,7 +1831,7 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *auth.ExtendAuthTok
 		return nil, auth.ErrNotActivated
 	}
 	if req.TTL == 0 {
-		return nil, fmt.Errorf("invalid request: ExtendAuthTokenRequest.TTL must be > 0")
+		return nil, errors.Errorf("invalid request: ExtendAuthTokenRequest.TTL must be > 0")
 	}
 
 	// Only admins can extend auth tokens (for now)
@@ -1855,7 +1853,7 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *auth.ExtendAuthTok
 	// Only let people extend tokens by up to 30 days (the equivalent of logging
 	// in again)
 	if req.TTL > defaultSessionTTLSecs {
-		return nil, fmt.Errorf("can only extend tokens by at most %d seconds", defaultSessionTTLSecs)
+		return nil, errors.Errorf("can only extend tokens by at most %d seconds", defaultSessionTTLSecs)
 	}
 
 	// The token must already exist. If a token has been revoked, it can't be
@@ -1874,7 +1872,7 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *auth.ExtendAuthTok
 
 		ttl, err := tokens.TTL(hashToken(req.Token))
 		if err != nil {
-			return fmt.Errorf("error looking up TTL for token: %v", err)
+			return errors.Wrapf(err, "error looking up TTL for token")
 		}
 		// TODO(msteffen): ttl may be -1 if the token has no TTL. We deliberately do
 		// not check this case so that admins can put TTLs on tokens that don't have
@@ -2254,7 +2252,7 @@ func getAuthToken(ctx context.Context) (string, error) {
 		return "", auth.ErrNoMetadata
 	}
 	if len(md[auth.ContextTokenKey]) > 1 {
-		return "", fmt.Errorf("multiple authentication token keys found in context")
+		return "", errors.Errorf("multiple authentication token keys found in context")
 	} else if len(md[auth.ContextTokenKey]) == 0 {
 		return "", auth.ErrNotSignedIn
 	}
@@ -2353,7 +2351,7 @@ func (a *apiServer) canonicalizeSubject(ctx context.Context, subject string) (st
 	case auth.PipelinePrefix, auth.RobotPrefix:
 		break
 	default:
-		return "", fmt.Errorf("subject has unrecognized prefix: %s", subject[:colonIdx+1])
+		return "", errors.Errorf("subject has unrecognized prefix: %s", subject[:colonIdx+1])
 	}
 	return subject, nil
 }
@@ -2364,7 +2362,7 @@ func (a *apiServer) canonicalizeSubject(ctx context.Context, subject string) (st
 // to be a GitHub user).
 func canonicalizeGitHubUsername(ctx context.Context, user string) (string, error) {
 	if strings.Contains(user, ":") {
-		return "", fmt.Errorf("invalid username has multiple prefixes: %s%s", auth.GitHubPrefix, user)
+		return "", errors.Errorf("invalid username has multiple prefixes: %s%s", auth.GitHubPrefix, user)
 	}
 	if os.Getenv(DisableAuthenticationEnvVar) == "true" {
 		// authentication is off -- user might not even be real
@@ -2373,7 +2371,7 @@ func canonicalizeGitHubUsername(ctx context.Context, user string) (string, error
 	gclient := github.NewClient(http.DefaultClient)
 	u, _, err := gclient.Users.Get(ctx, strings.ToLower(user))
 	if err != nil {
-		return "", fmt.Errorf("error canonicalizing \"%s\": %v", user, err)
+		return "", errors.Wrapf(err, "error canonicalizing \"%s\"", user)
 	}
 	return auth.GitHubPrefix + u.GetLogin(), nil
 }
@@ -2486,7 +2484,7 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *auth.SetConfigura
 			}
 			liveConfigVersion := liveConfig.LiveConfigVersion
 			if reqConfigVersion > 0 && liveConfigVersion != reqConfigVersion {
-				return fmt.Errorf("expected config version %d, but live config has version %d",
+				return errors.Errorf("expected config version %d, but live config has version %d",
 					req.Configuration.LiveConfigVersion, liveConfigVersion)
 			}
 			liveConfig.Reset()

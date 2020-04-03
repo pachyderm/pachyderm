@@ -1,7 +1,6 @@
 package client
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -87,7 +87,7 @@ func (f *PortForwarder) Run(appName string, localPort, remotePort uint16) (uint1
 		return 0, err
 	}
 	if len(podList.Items) == 0 {
-		return 0, fmt.Errorf("no pods found for app %s", appName)
+		return 0, errors.Errorf("no pods found for app %s", appName)
 	}
 
 	// Choose a random pod
@@ -115,7 +115,7 @@ func (f *PortForwarder) Run(appName string, localPort, remotePort uint16) (uint1
 	f.stopChansLock.Lock()
 	if f.shutdown {
 		f.stopChansLock.Unlock()
-		return 0, fmt.Errorf("port forwarder is shutdown")
+		return 0, errors.Errorf("port forwarder is shutdown")
 	}
 	f.stopChans = append(f.stopChans, stopChan)
 	f.stopChansLock.Unlock()
@@ -130,7 +130,7 @@ func (f *PortForwarder) Run(appName string, localPort, remotePort uint16) (uint1
 
 	select {
 	case err = <-errChan:
-		return 0, fmt.Errorf("port forwarding failed: %v", err)
+		return 0, errors.Wrap(err, "port forwarding failed")
 	case <-fw.Ready:
 	}
 
@@ -142,7 +142,7 @@ func (f *PortForwarder) Run(appName string, localPort, remotePort uint16) (uint1
 	// discover the locally bound port if we don't know what it is
 	bindings, err := fw.GetPorts()
 	if err != nil {
-		return 0, fmt.Errorf("failed to fetch local bound ports: %v", err)
+		return 0, errors.Wrap(err, "failed to fetch local bound ports")
 	}
 
 	for _, binding := range bindings {

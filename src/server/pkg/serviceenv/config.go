@@ -18,7 +18,7 @@ type GlobalConfiguration struct {
 	PeerPort      uint16 `env:"PEER_PORT,default=653"`
 	S3GatewayPort uint16 `env:"S3GATEWAY_PORT,default=600"`
 	PPSEtcdPrefix string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
-	Namespace     string `env:"PACHD_POD_NAMESPACE,default=default"`
+	Namespace     string `env:"PACH_NAMESPACE,default=default"`
 	StorageRoot   string `env:"PACH_ROOT,default=/pach"`
 
 	// PPSSpecCommitID is only set for workers and sidecar pachd instances.
@@ -90,7 +90,10 @@ type WorkerSpecificConfiguration struct {
 	PodName string `env:"PPS_POD_NAME,required"`
 }
 
-// FeatureFlags contains the configuration for feature flags.
+// FeatureFlags contains the configuration for feature flags.  XXX: if you're
+// adding a new feature flag then you need to make sure it gets propagated to
+// the workers and their sidecars, this should be done in:
+// src/server/pps/server/worker_rc.go in the workerPodSpec func.
 type FeatureFlags struct {
 	NewStorageLayer              bool `env:"NEW_STORAGE_LAYER,default=false"`
 	DisableCommitProgressCounter bool `env:"DISABLE_COMMIT_PROGRESS_COUNTER,default=false"`

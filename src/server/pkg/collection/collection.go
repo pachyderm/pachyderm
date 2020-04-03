@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
@@ -32,7 +33,7 @@ const (
 var (
 	// ErrNotClaimed is an error used to indicate that a different requester beat
 	// the current requester to a key claim.
-	ErrNotClaimed = fmt.Errorf("NOT_CLAIMED")
+	ErrNotClaimed = errors.Errorf("NOT_CLAIMED")
 	ttl           = int64(30)
 )
 
@@ -246,7 +247,7 @@ func (c *readWriteCollection) TTL(key string) (int64, error) {
 
 func (c *readWriteCollection) PutTTL(key string, val proto.Message, ttl int64) error {
 	if strings.Contains(key, indexIdentifier) {
-		return fmt.Errorf("cannot put key %q which contains reserved string %q", key, indexIdentifier)
+		return errors.Errorf("cannot put key %q which contains reserved string %q", key, indexIdentifier)
 	}
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
@@ -266,7 +267,7 @@ func (c *readWriteCollection) PutTTL(key string, val proto.Message, ttl int64) e
 
 	ptr := reflect.ValueOf(val).Pointer()
 	if !c.stm.IsSafePut(c.Path(key), ptr) {
-		return fmt.Errorf("unsafe put for key %v (passed ptr did not receive updated value)", key)
+		return errors.Errorf("unsafe put for key %v (passed ptr did not receive updated value)", key)
 	}
 
 	if c.indexes != nil {
@@ -566,7 +567,7 @@ func (c *readonlyCollection) TTL(key string) (int64, error) {
 	defer tracing.FinishAnySpan(span)
 	leaseTTLResp, err := c.etcdClient.TimeToLive(ctx, leaseID)
 	if err != nil {
-		return 0, fmt.Errorf("could not fetch lease TTL: %v", err)
+		return 0, errors.Wrapf(err, "could not fetch lease TTL")
 	}
 	return leaseTTLResp.TTL, nil
 }
@@ -663,8 +664,13 @@ func (c *readonlyCollection) WatchF(f func(e *watch.Event) error, opts ...watch.
 func (c *readonlyCollection) watchF(watcher watch.Watcher, f func(e *watch.Event) error) error {
 	for {
 		select {
-		// (bryce) should the check for error events be here?
-		case e := <-watcher.Watch():
+		case e, ok := <-watcher.Watch():
+			if !ok {
+				return nil
+			}
+			if e.Type == watch.EventError {
+				return e.Err
+			}
 			if err := f(e); err != nil {
 				if err == errutil.ErrBreak {
 					return nil

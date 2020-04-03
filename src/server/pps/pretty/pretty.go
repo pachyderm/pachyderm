@@ -15,6 +15,7 @@ import (
 	"github.com/juju/ansiterm"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
 )
@@ -372,7 +373,7 @@ func jobInput(jobInfo PrintableJobInfo) string {
 	}
 	input, err := json.MarshalIndent(jobInfo.Input, "", "  ")
 	if err != nil {
-		panic(fmt.Errorf("error marshalling input: %+v", err))
+		panic(errors.Wrapf(err, "error marshalling input"))
 	}
 	return string(input) + "\n"
 }
@@ -395,7 +396,7 @@ func pipelineInput(pipelineInfo *ppsclient.PipelineInfo) string {
 	}
 	input, err := json.MarshalIndent(pipelineInfo.Input, "", "  ")
 	if err != nil {
-		panic(fmt.Errorf("error marshalling input: %+v", err))
+		panic(errors.Wrapf(err, "error marshalling input"))
 	}
 	return string(input) + "\n"
 }

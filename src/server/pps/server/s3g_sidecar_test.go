@@ -23,6 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
@@ -255,11 +256,58 @@ func TestS3Input(t *testing.T) {
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
 			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.ID) {
-				return fmt.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
+				return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 			}
 		}
 		return nil
 	})
+}
+
+func TestNamespaceInEndpoint(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c, _ := initPachClient(t)
+
+	repo := tu.UniqueString(t.Name() + "_data")
+	require.NoError(t, c.CreateRepo(repo))
+
+	_, err := c.PutFile(repo, "master", "foo", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	pipeline := tu.UniqueString("Pipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline: client.NewPipeline(pipeline),
+		Transform: &pps.Transform{
+			Cmd: []string{"bash", "-x"},
+			Stdin: []string{
+				"echo \"${S3_ENDPOINT}\" >/pfs/out/s3_endpoint",
+			},
+		},
+		ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
+		Input: &pps.Input{
+			Pfs: &pps.PFSInput{
+				Name:   "input_repo",
+				Repo:   repo,
+				Branch: "master",
+				S3:     true,
+				Glob:   "/",
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jis))
+	jobInfo := jis[0]
+	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
+
+	// check S3_ENDPOINT variable
+	var buf bytes.Buffer
+	c.GetFile(pipeline, "master", "s3_endpoint", 0, 0, &buf)
+	require.True(t, strings.Contains(buf.String(), ".default"))
 }
 
 func TestS3Output(t *testing.T) {
@@ -338,7 +386,7 @@ func TestS3Output(t *testing.T) {
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
 			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.ID) {
-				return fmt.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
+				return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 			}
 		}
 		return nil
@@ -422,7 +470,7 @@ func TestFullS3(t *testing.T) {
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
 			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.ID) {
-				return fmt.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
+				return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 			}
 		}
 		return nil
@@ -571,7 +619,7 @@ func TestS3SkippedDatums(t *testing.T) {
 				require.NoError(t, err)
 				for _, s := range svcs.Items {
 					if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jis[j].Job.ID) {
-						return fmt.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
+						return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 					}
 				}
 				return nil

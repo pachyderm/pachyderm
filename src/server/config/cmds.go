@@ -3,7 +3,6 @@ package cmds
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -11,6 +10,7 @@ import (
 	"sort"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/cmd/pachctl/shell"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
@@ -96,7 +96,7 @@ func Cmds() []*cobra.Command {
 				return err
 			}
 			if _, ok := cfg.V2.Contexts[args[0]]; !ok {
-				return fmt.Errorf("context does not exist: %s", args[0])
+				return errors.Errorf("context does not exist: %s", args[0])
 			}
 			cfg.V2.ActiveContext = args[0]
 			return cfg.Write()
@@ -116,7 +116,7 @@ func Cmds() []*cobra.Command {
 
 			context, ok := cfg.V2.Contexts[args[0]]
 			if !ok {
-				return fmt.Errorf("context does not exist: %s", args[0])
+				return errors.Errorf("context does not exist: %s", args[0])
 			}
 
 			if err = marshaller.Marshal(os.Stdout, context); err != nil {
@@ -145,7 +145,7 @@ func Cmds() []*cobra.Command {
 
 			if !overwrite {
 				if _, ok := cfg.V2.Contexts[name]; ok {
-					return fmt.Errorf("context '%s' already exists, use `--overwrite` if you wish to replace it", args[0])
+					return errors.Errorf("context '%s' already exists, use `--overwrite` if you wish to replace it", args[0])
 				}
 			}
 
@@ -158,7 +158,7 @@ func Cmds() []*cobra.Command {
 
 				kubeContext := kubeConfig.Contexts[kubeContextName]
 				if kubeContext == nil {
-					return fmt.Errorf("kubernetes context does not exist: %s", kubeContextName)
+					return errors.Errorf("kubernetes context does not exist: %s", kubeContextName)
 				}
 
 				context = config.Context{
@@ -180,7 +180,7 @@ func Cmds() []*cobra.Command {
 					if err == io.EOF {
 						return errors.New("unexpected EOF")
 					}
-					return fmt.Errorf("malformed context: %s", err)
+					return errors.Wrapf(err, "malformed context")
 				}
 
 				pachdAddress, err := grpcutil.ParsePachdAddress(context.PachdAddress)
@@ -225,7 +225,7 @@ func Cmds() []*cobra.Command {
 				var ok bool
 				context, ok = cfg.V2.Contexts[args[0]]
 				if !ok {
-					return fmt.Errorf("context does not exist: %s", args[0])
+					return errors.Errorf("context does not exist: %s", args[0])
 				}
 			} else {
 				var name string
@@ -290,7 +290,7 @@ func Cmds() []*cobra.Command {
 				return err
 			}
 			if _, ok := cfg.V2.Contexts[args[0]]; !ok {
-				return fmt.Errorf("context does not exist: %s", args[0])
+				return errors.Errorf("context does not exist: %s", args[0])
 			}
 			if cfg.V2.ActiveContext == args[0] {
 				return errors.New("cannot delete an active context")

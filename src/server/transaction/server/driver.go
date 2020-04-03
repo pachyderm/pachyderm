@@ -7,6 +7,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/transaction"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
@@ -171,7 +172,7 @@ func (d *driver) runTransaction(txnCtx *txnenv.TransactionContext, info *transac
 			if len(info.Responses) > i {
 				commit = info.Responses[i].Commit
 				if commit == nil {
-					err = fmt.Errorf("unexpected stored response type for StartCommit")
+					err = errors.Errorf("unexpected stored response type for StartCommit")
 				}
 			}
 			if err == nil {
@@ -197,11 +198,11 @@ func (d *driver) runTransaction(txnCtx *txnenv.TransactionContext, info *transac
 			err = d.deleteAll(txnCtx.ClientContext, txnCtx.Stm, info.Transaction)
 			response = &transaction.TransactionResponse{}
 		} else {
-			err = fmt.Errorf("unrecognized transaction request type")
+			err = errors.Errorf("unrecognized transaction request type")
 		}
 
 		if err != nil {
-			return nil, fmt.Errorf("error running request %d of %d: %v", i+1, len(info.Requests), err)
+			return nil, errors.Wrapf(err, "error running request %d of %d", i+1, len(info.Requests))
 		}
 
 		responses = append(responses, response)

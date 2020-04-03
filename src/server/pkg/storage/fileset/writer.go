@@ -21,21 +21,25 @@ type data struct {
 // Writer writes the serialized format of a fileset.
 // The serialized format of a fileset consists of indexes and content.
 type Writer struct {
-	ctx     context.Context
-	tw      *tar.Writer
-	cw      *chunk.Writer
-	iw      *index.Writer
-	lastIdx *index.Index
-	first   bool
+	ctx       context.Context
+	tw        *tar.Writer
+	cw        *chunk.Writer
+	iw        *index.Writer
+	indexFunc func(*index.Index) error
+	lastIdx   *index.Index
+	first     bool
 }
 
-func newWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path string) *Writer {
+func newWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path string, indexFunc func(*index.Index) error) *Writer {
 	w := &Writer{
-		ctx:   ctx,
-		iw:    index.NewWriter(ctx, objC, chunks, path),
-		first: true,
+		ctx:       ctx,
+		first:     true,
+		indexFunc: indexFunc,
 	}
-	cw := chunks.NewWriter(ctx, averageBits, math.MaxInt64, w.callback())
+	if w.indexFunc == nil {
+		w.iw = index.NewWriter(ctx, objC, chunks, path)
+	}
+	cw := chunks.NewWriter(ctx, averageBits, math.MaxInt64, indexFunc != nil, w.callback())
 	w.cw = cw
 	w.tw = tar.NewWriter(cw)
 	return w
@@ -102,6 +106,14 @@ func (w *Writer) callback() chunk.WriterFunc {
 		}
 		// Don't write out the last file index (it may have more content in the next chunk).
 		idxs = idxs[:len(idxs)-1]
+		if w.indexFunc != nil {
+			for _, idx := range idxs {
+				if err := w.indexFunc(idx); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
 		return w.iw.WriteIndexes(idxs)
 	}
 }
@@ -148,9 +160,16 @@ func (w *Writer) Close() error {
 	}
 	// Write out the last index.
 	if w.lastIdx != nil {
-		if err := w.iw.WriteIndexes([]*index.Index{w.lastIdx}); err != nil {
+		if w.indexFunc != nil {
+			if err := w.indexFunc(w.lastIdx); err != nil {
+				return err
+			}
+		} else if err := w.iw.WriteIndexes([]*index.Index{w.lastIdx}); err != nil {
 			return err
 		}
+	}
+	if w.indexFunc != nil {
+		return nil
 	}
 	// Close the index writer.
 	return w.iw.Close()

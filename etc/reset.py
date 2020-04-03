@@ -19,6 +19,8 @@ DELETABLE_RESOURCES = [
     "secrets",
     "clusterrole",
     "clusterrolebinding",
+    "roles.rbac.authorization.k8s.io",
+    "rolebindings.rbac.authorization.k8s.io"
 ]
 
 NEWLINE_SEPARATE_OBJECTS_PATTERN = re.compile(r"\}\n+\{", re.MULTILINE)

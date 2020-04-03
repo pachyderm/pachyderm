@@ -10,10 +10,12 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/hanwen/go-fuse/fuse/nodefs"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
+
+	"github.com/hanwen/go-fuse/fuse/nodefs"
 	"github.com/spf13/cobra"
 )
 
@@ -22,7 +24,7 @@ func parseCommits(args []string) (map[string]string, error) {
 	for _, arg := range args {
 		split := strings.Split(arg, "@")
 		if len(split) != 2 {
-			return nil, fmt.Errorf("malformed input %s, must be of the form repo@commit", args)
+			return nil, errors.Errorf("malformed input %s, must be of the form repo@commit", args)
 		}
 		result[split[0]] = split[1]
 	}

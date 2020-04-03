@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tls"
 	auth "github.com/pachyderm/pachyderm/src/server/auth/server"
 	pfs "github.com/pachyderm/pachyderm/src/server/pfs/server"
@@ -15,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/serde"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
+
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -617,7 +619,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 		{Name: "NO_EXPOSE_DOCKER_SOCKET", Value: strconv.FormatBool(opts.NoExposeDockerSocket)},
 		{Name: auth.DisableAuthenticationEnvVar, Value: strconv.FormatBool(opts.DisableAuthentication)},
 		{
-			Name: "PACHD_POD_NAMESPACE",
+			Name: "PACH_NAMESPACE",
 			ValueFrom: &v1.EnvVarSource{
 				FieldRef: &v1.ObjectFieldSelector{
 					APIVersion: "v1",
@@ -1001,7 +1003,7 @@ func EtcdVolume(persistentDiskBackend backend, opts *AssetOpts,
 			},
 		}
 	default:
-		return nil, fmt.Errorf("cannot generate volume spec for unknown backend \"%v\"", persistentDiskBackend)
+		return nil, errors.Errorf("cannot generate volume spec for unknown backend \"%v\"", persistentDiskBackend)
 	}
 	return spec, nil
 }
@@ -1460,7 +1462,7 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend back
 	// If either backend is "local", both must be "local"
 	if (persistentDiskBackend == localBackend || objectStoreBackend == localBackend) &&
 		persistentDiskBackend != objectStoreBackend {
-		return fmt.Errorf("if either persistentDiskBackend or objectStoreBackend "+
+		return errors.Errorf("if either persistentDiskBackend or objectStoreBackend "+
 			"is \"local\", both must be \"local\", but persistentDiskBackend==%d, \n"+
 			"and objectStoreBackend==%d", persistentDiskBackend, objectStoreBackend)
 	}
@@ -1502,7 +1504,7 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend back
 	}
 
 	if opts.EtcdNodes > 0 && opts.EtcdVolume != "" {
-		return fmt.Errorf("only one of --dynamic-etcd-nodes and --static-etcd-volume should be given, but not both")
+		return errors.Errorf("only one of --dynamic-etcd-nodes and --static-etcd-volume should be given, but not both")
 	}
 
 	// In the dynamic route, we create a storage class which dynamically
@@ -1547,7 +1549,7 @@ func WriteAssets(encoder serde.Encoder, opts *AssetOpts, objectStoreBackend back
 			return err
 		}
 	} else {
-		return fmt.Errorf("unless deploying locally, either --dynamic-etcd-nodes or --static-etcd-volume needs to be provided")
+		return errors.Errorf("unless deploying locally, either --dynamic-etcd-nodes or --static-etcd-volume needs to be provided")
 	}
 	if err := encoder.Encode(EtcdNodePortService(objectStoreBackend == localBackend, opts)); err != nil {
 		return err
@@ -1585,24 +1587,24 @@ func WriteTLSSecret(encoder serde.Encoder, opts *AssetOpts) error {
 		return nil
 	}
 	if opts.TLS == nil {
-		return fmt.Errorf("internal error: WriteTLSSecret called but opts.TLS is nil")
+		return errors.Errorf("internal error: WriteTLSSecret called but opts.TLS is nil")
 	}
 	if opts.TLS.ServerKey == "" {
-		return fmt.Errorf("internal error: WriteTLSSecret called but opts.TLS.ServerKey is \"\"")
+		return errors.Errorf("internal error: WriteTLSSecret called but opts.TLS.ServerKey is \"\"")
 	}
 	if opts.TLS.ServerCert == "" {
-		return fmt.Errorf("internal error: WriteTLSSecret called but opts.TLS.ServerCert is \"\"")
+		return errors.Errorf("internal error: WriteTLSSecret called but opts.TLS.ServerCert is \"\"")
 	}
 
 	// Attempt to copy server cert and key files into config (kubernetes client
 	// does the base64-encoding)
 	certBytes, err := ioutil.ReadFile(opts.TLS.ServerCert)
 	if err != nil {
-		return fmt.Errorf("could not open server cert at \"%s\": %v", opts.TLS.ServerCert, err)
+		return errors.Wrapf(err, "could not open server cert at \"%s\"", opts.TLS.ServerCert)
 	}
 	keyBytes, err := ioutil.ReadFile(opts.TLS.ServerKey)
 	if err != nil {
-		return fmt.Errorf("could not open server key at \"%s\": %v", opts.TLS.ServerKey, err)
+		return errors.Wrapf(err, "could not open server key at \"%s\"", opts.TLS.ServerKey)
 	}
 	secret := &v1.Secret{
 		TypeMeta: metav1.TypeMeta{
@@ -1635,11 +1637,11 @@ func WriteCustomAssets(encoder serde.Encoder, opts *AssetOpts, args []string, ob
 	switch objectStoreBackend {
 	case "s3":
 		if len(args) != s3CustomArgs {
-			return fmt.Errorf("expected %d arguments for disk+s3 backend", s3CustomArgs)
+			return errors.Errorf("expected %d arguments for disk+s3 backend", s3CustomArgs)
 		}
 		volumeSize, err := strconv.Atoi(args[1])
 		if err != nil {
-			return fmt.Errorf("volume size needs to be an integer; instead got %v", args[1])
+			return errors.Errorf("volume size needs to be an integer; instead got %v", args[1])
 		}
 		objectStoreBackend := amazonBackend
 		// (bryce) use minio if we need v2 signing enabled.
@@ -1660,7 +1662,7 @@ func WriteCustomAssets(encoder serde.Encoder, opts *AssetOpts, args []string, ob
 				return err
 			}
 		default:
-			return fmt.Errorf("did not recognize the choice of persistent-disk")
+			return errors.Errorf("did not recognize the choice of persistent-disk")
 		}
 		bucket := args[2]
 		id := args[3]
@@ -1672,7 +1674,7 @@ func WriteCustomAssets(encoder serde.Encoder, opts *AssetOpts, args []string, ob
 		// (bryce) hardcode region?
 		return WriteSecret(encoder, AmazonSecret("us-east-1", bucket, id, secret, "", "", endpoint, advancedConfig), opts)
 	default:
-		return fmt.Errorf("did not recognize the choice of object-store")
+		return errors.Errorf("did not recognize the choice of object-store")
 	}
 }
 

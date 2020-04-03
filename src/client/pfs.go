@@ -3,12 +3,12 @@ package client
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"sync"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 )
@@ -869,14 +869,14 @@ func (c APIClient) PutBlock(hash string, _r io.Reader) (_ int64, retErr error) {
 	}
 	defer func() {
 		if err := w.Close(); err != nil && retErr == nil {
-			retErr = fmt.Errorf("Close: %v", grpcutil.ScrubGRPC(err))
+			retErr = errors.Wrap(grpcutil.ScrubGRPC(err), "Close")
 		}
 	}()
 	buf := grpcutil.GetBuffer()
 	defer grpcutil.PutBuffer(buf)
 	written, err := io.CopyBuffer(w, r, buf)
 	if err != nil {
-		return written, fmt.Errorf("CopyBuffer: %v", grpcutil.ScrubGRPC(err))
+		return written, errors.Wrap(grpcutil.ScrubGRPC(err), "CopyBuffer")
 	}
 	// return value set by deferred function
 	return written, nil
@@ -889,6 +889,26 @@ func (c APIClient) Compact() error {
 		&types.Empty{},
 	)
 	return err
+}
+
+// DirectObjReader returns a reader for the contents of an obj in object
+// storage, it reads directly from object storage, bypassing the
+// content-addressing layer.
+func (c APIClient) DirectObjReader(obj string) (io.ReadCloser, error) {
+	getObjClient, err := c.ObjectAPIClient.GetObjDirect(
+		c.Ctx(),
+		&pfs.GetObjDirectRequest{Obj: obj},
+	)
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	return grpcutil.NewStreamingBytesReader(getObjClient, nil), nil
+}
+
+// DirectObjWriter returns a writer for an obj in object storage, it writes
+// directly to object storage, bypassing the content-addressing layer.
+func (c APIClient) DirectObjWriter(obj string) (io.WriteCloser, error) {
+	return c.newPutObjWriteCloser(obj)
 }
 
 // PutFileClient is a client interface for putting files. There are 2
@@ -1444,7 +1464,7 @@ func (c APIClient) FsckFastExit() error {
 			return grpcutil.ScrubGRPC(err)
 		}
 		if resp.Error != "" {
-			return fmt.Errorf(resp.Error)
+			return errors.Errorf(resp.Error)
 		}
 	}
 }
@@ -1645,7 +1665,7 @@ func (w *PutObjectWriteCloserAsync) Object() (*pfs.Object, error) {
 		}
 		return w.object, nil
 	default:
-		return nil, fmt.Errorf("attempting to get object before closing object writer")
+		return nil, errors.Errorf("attempting to get object before closing object writer")
 	}
 }
 
@@ -1748,6 +1768,43 @@ func (w *putBlockWriteCloser) Write(p []byte) (int, error) {
 
 func (w *putBlockWriteCloser) Close() error {
 	if w.request.Block != nil {
+		// This happens if the block is empty in which case Write was never
+		// called, so we need to send an empty request to identify the block.
+		if err := w.client.Send(w.request); err != nil {
+			return grpcutil.ScrubGRPC(err)
+		}
+	}
+	_, err := w.client.CloseAndRecv()
+	return grpcutil.ScrubGRPC(err)
+}
+
+type putObjWriteCloser struct {
+	request *pfs.PutObjDirectRequest
+	client  pfs.ObjectAPI_PutObjDirectClient
+}
+
+func (c APIClient) newPutObjWriteCloser(obj string) (*putObjWriteCloser, error) {
+	client, err := c.ObjectAPIClient.PutObjDirect(c.Ctx())
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	return &putObjWriteCloser{
+		request: &pfs.PutObjDirectRequest{Obj: obj},
+		client:  client,
+	}, nil
+}
+
+func (w *putObjWriteCloser) Write(p []byte) (int, error) {
+	w.request.Value = p
+	if err := w.client.Send(w.request); err != nil {
+		return 0, grpcutil.ScrubGRPC(err)
+	}
+	w.request.Obj = ""
+	return len(p), nil
+}
+
+func (w *putObjWriteCloser) Close() error {
+	if w.request.Obj == "" {
 		// This happens if the block is empty in which case Write was never
 		// called, so we need to send an empty request to identify the block.
 		if err := w.client.Send(w.request); err != nil {
