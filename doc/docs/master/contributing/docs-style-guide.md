@@ -163,7 +163,7 @@ For example, to build the master version of documentation, run:
 mkdocs serve -f mkdocs-master.yml
 ```
 
-## Generating the GO API Documentation
+## Generating the Go API Documentation
 
 We use `godoc` to generate Go API documentation. It is automatically
 published at godoc.org. If you are adding something new, such as
