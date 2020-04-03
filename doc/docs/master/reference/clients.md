@@ -31,47 +31,12 @@ The Pachyder, [godocs](https://godoc.org/github.com/pachyderm/pachyderm/src/clie
 provides examples of how you can use Go client API. You need to have a running Pachyderm cluster
 to run these examples.
 
-This is a sample Go program that you can create your copy
-of the Pachyderm repository:
-
-```go
-package main
-
-import (
-	"fmt"
-	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
-)
-
-func main() {
-
-	c, err := client.NewFromAddress("192.168.64.2:30650")
-	if err != nil {
-		panic(err)
-	}
-
-	if _, err := c.PfsAPIClient.CreateRepo(
-		c.Ctx(),
-		&pfs.CreateRepoRequest{
-			Repo:        client.NewRepo("test"),
-			Description: "A test repo",
-			Update:      true,
-		},
-	); err != nil {
-		panic(err)
-	}
-
-	repos, err := c.ListRepo()
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(repos)
-}
-```
-
-Make sure that you replace `client.NewFromAddress("192.168.64.2:30650")` with
-your `pachd_address`. For example, if you are testing on `minikube`, run
+Make sure that you use your `pachd_address` in `client.NewFromAddress("<your-pachd-address>:30650")`.
+For example, if you are testing on `minikube`, run
 `minikube ip` to get this information.
+
+See the [OpenCV Example in Go](https://github.com/pachyderm/pachyderm/tree/master/examples/opencv) for more
+information.
 
 ## Python Client
 
