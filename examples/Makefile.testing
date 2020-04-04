@@ -15,17 +15,15 @@
 # to both fetch the version of pachyderm you want to test and execute it.
 # "../etc/fetch_release_pachctl.py 1.10.0 ; env PACHCTL=${GOPATH}/bin/pachctl make -e  -f Makefile.testing dirty-testing-cluster)"
 
+
 include Makefile
 
+SHELL := /bin/bash
 ECHO := echo
-JQ := jq
 # kubectl is called by scripts, referenced here to make clear you can override default
 KUBECTL := kubectl
 PACHCTL := pachctl
-# sleep is called by scripts, referenced here to make clear you can override default
-SLEEP := sleep
-# wc is called by scripts, referenced here to make clear you can override default
-WC := wc
+
 
 STATS := .enable_stats=true
 DETECTMODEL := .pipeline.name="object-detect"|.input.cross[1].pfs.repo="object-model"|.input.cross[1].pfs.name="model"
@@ -36,8 +34,8 @@ HYPERPTEST := .input.cross[0].pfs.repo="hp-test"|.input.cross[0].pfs.name="test"
 
 opencv-testing: 
 	$(PACHCTL) create repo images
-	$(JQ) "$(STATS)" opencv/edges.json | $(PACHCTL) create pipeline -f - >/dev/null
-	$(JQ) "$(STATS)" opencv/montage.json | $(PACHCTL) create pipeline -f - >/dev/null
+	jq "$(STATS)" opencv/edges.json | $(PACHCTL) create pipeline -f - >/dev/null
+	jq "$(STATS)" opencv/montage.json | $(PACHCTL) create pipeline -f - >/dev/null
 	$(PACHCTL) start transaction
 	$(PACHCTL) start commit images@master
 	$(PACHCTL) finish transaction
@@ -54,8 +52,8 @@ opencv-testing-delete:
 
 
 object-detection-testing-base: OBJECT_IMAGES = $(ECHO) 'The target you selected has object-detection use the same "images" repo as opencv. Hit control-C and then type "make delete" if that is not desired.'
-object-detection-testing-base: OBJECT_MODEL_PIPELINE = $(JQ) '$(STATS)|.pipeline.name="object-model"'  ml/object-detection/model.json | $(PACHCTL) create pipeline -f - >/dev/null
-object-detection-testing-base: OBJECT_DETECT_PIPELINE = $(JQ) '$(STATS)|$(DETECTMODEL)'  ml/object-detection/detect.json | $(PACHCTL) create pipeline -f - >/dev/null
+object-detection-testing-base: OBJECT_MODEL_PIPELINE = jq '$(STATS)|.pipeline.name="object-model"'  ml/object-detection/model.json | $(PACHCTL) create pipeline -f - >/dev/null
+object-detection-testing-base: OBJECT_DETECT_PIPELINE = jq '$(STATS)|$(DETECTMODEL)'  ml/object-detection/detect.json | $(PACHCTL) create pipeline -f - >/dev/null
 object-detection-testing-base:  object-detection-base
 
 object-detection-testing: object-detection-testing-base
@@ -70,10 +68,10 @@ opencv-object-detection-testing: opencv-testing object-detection-testing
 opencv-object-detection-testing-delete: object-detection-testing-delete opencv-delete
 
 hyperparameter-testing-base: hyperparameter-common
-	$(JQ) '$(STATS)|.pipeline.name="hp-split"' ml/hyperparameter/split.json | $(PACHCTL) create pipeline -f - >/dev/null
-	$(JQ) '$(STATS)|.pipeline.name="hp-model"' ml/hyperparameter/model.json | $(PACHCTL) create pipeline -f - >/dev/null
-	$(JQ) '$(STATS)|.pipeline.name="hp-test"|$(HYPERPSPLIT)|$(HYPERPMODEL)' ml/hyperparameter/test.json | $(PACHCTL) create pipeline -f - >/dev/null
-	$(JQ) '$(STATS)|.pipeline.name="hp-select"|$(HYPERPTEST)|$(HYPERPMODEL)'  ml/hyperparameter/select.json | $(PACHCTL) create pipeline -f - >/dev/null
+	jq '$(STATS)|.pipeline.name="hp-split"' ml/hyperparameter/split.json | $(PACHCTL) create pipeline -f - >/dev/null
+	jq '$(STATS)|.pipeline.name="hp-model"' ml/hyperparameter/model.json | $(PACHCTL) create pipeline -f - >/dev/null
+	jq '$(STATS)|.pipeline.name="hp-test"|$(HYPERPSPLIT)|$(HYPERPMODEL)' ml/hyperparameter/test.json | $(PACHCTL) create pipeline -f - >/dev/null
+	jq '$(STATS)|.pipeline.name="hp-select"|$(HYPERPTEST)|$(HYPERPMODEL)'  ml/hyperparameter/select.json | $(PACHCTL) create pipeline -f - >/dev/null
 
 hyperparameter-testing: hyperparameter-testing-base hyperparameter-data
 
@@ -112,7 +110,7 @@ dirty-testing-cluster: opencv-base  ml/object-detection/frozen_inference_graph.p
 	do \
 		WHEEL=$${WHEEL:1}$${WHEEL:0:1}; \
 		$(ECHO)  -en "\e[G\e[K$${WHEEL:0:1}Waiting for pipelines to start..."; \
-		$(SLEEP) 1; \
+		sleep 1; \
 	done
 	@$(ECHO) -e "\e[G\e[K$${WHEEL:0:1}Pipelines started.";
 	@$(ECHO)  "Committing data to images@master and training@master in a single transaction...";
@@ -128,14 +126,14 @@ dirty-testing-cluster: opencv-base  ml/object-detection/frozen_inference_graph.p
 	$(PACHCTL) finish commit training@master > /dev/null
 	../etc/examples/wait-for-jobs.sh succeeded-only "First opencv and object-detection jobs done."
 	$(ECHO) -e "Adding stats to edges and montage..."; 
-	$(JQ) "$(STATS)" opencv/edges.json | $(PACHCTL) update pipeline -f - >/dev/null
-	$(JQ) "$(STATS)" opencv/montage.json | $(PACHCTL) update pipeline -f - >/dev/null
+	jq "$(STATS)" opencv/edges.json | $(PACHCTL) update pipeline -f - >/dev/null
+	jq "$(STATS)" opencv/montage.json | $(PACHCTL) update pipeline -f - >/dev/null
 	@$(ECHO) -e "Adding images to images@master that will produce failed jobs...";
 	$(PACHCTL) put file images@master -i opencv/images3.txt
 	../etc/examples/wait-for-jobs.sh succeeded-or-failed  "Done inserting images into images@master that produce object-detection job failures."
 	@$(ECHO) -e "Modifying object-detection to use new object-images repo and adding images...";
 	$(PACHCTL) create repo object-images
-	$(JQ) '$(STATS)|$(DETECTMODEL)|$(DETECTIMAGES)' ml/object-detection/detect.json  | $(PACHCTL) update pipeline -f - >/dev/null
+	jq '$(STATS)|$(DETECTMODEL)|$(DETECTIMAGES)' ml/object-detection/detect.json  | $(PACHCTL) update pipeline -f - >/dev/null
 	$(PACHCTL) put file images@master -i opencv/images4.txt
 	$(PACHCTL) put file object-images@master:dogs.jpg -f ml/object-detection/images/dogs.jpg
 	$(PACHCTL) put file object-images@master:airplane.jpg -f ml/object-detection/images/airplane.jpg

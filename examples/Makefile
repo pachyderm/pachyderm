@@ -3,10 +3,9 @@
 # to both fetch the version of pachyderm you want to use and execute it.
 # "../etc/fetch_release_pachctl.py 1.10.0 ; env PACHCTL=${GOPATH}/bin/pachctl make -e opencv"
 
+SHELL := /bin/bash
 PACHCTL := pachctl
-TAR := tar
-WGET := wget
-RM := rm
+KUBECTL := kubectl
 
 GATK_GERMLINE_FILES	=	gatk/GATK_Germline/data/ref/ref.dict \
 				gatk/GATK_Germline/data/ref/ref.fasta \
@@ -52,8 +51,8 @@ opencv-delete:
 	$(PACHCTL) delete repo images
 
 ml/object-detection/frozen_inference_graph.pb:
-	$(WGET) -p http://download.tensorflow.org/models/object_detection/ssd_mobilenet_v1_coco_11_06_2017.tar.gz --directory-prefix /tmp
-	$(TAR) -C ml/object-detection --strip-components 1 -xvf /tmp/download.tensorflow.org/models/object_detection/ssd_mobilenet_v1_coco_11_06_2017.tar.gz ssd_mobilenet_v1_coco_11_06_2017/frozen_inference_graph.pb
+	wget -p http://download.tensorflow.org/models/object_detection/ssd_mobilenet_v1_coco_11_06_2017.tar.gz --directory-prefix /tmp
+	tar -C ml/object-detection --strip-components 1 -xvf /tmp/download.tensorflow.org/models/object_detection/ssd_mobilenet_v1_coco_11_06_2017.tar.gz ssd_mobilenet_v1_coco_11_06_2017/frozen_inference_graph.pb
 
 # This target is not intended to be invoked directly, it's intended for other targets to be built on.
 # OBJECT_IMAGES is set to no operation by default, so this pipeline can use the images repo of
@@ -150,8 +149,8 @@ delete:
 	yes | $(PACHCTL) delete all
 
 clean: delete
-	$(RM) -fr gatk/GATK_Germline
-	$(RM) -f  ml/object-detection/frozen_inference_graph.pb
+	rm -fr gatk/GATK_Germline
+	rm -f  ml/object-detection/frozen_inference_graph.pb
 
 minikube:echo hi
 	minikube start
@@ -161,14 +160,14 @@ minikube:echo hi
 	    echo -en "\e[G\e[K$${WHEEL:0:1} waiting for minikube to start..."; \
 	    sleep 1; \
 	done
-	pachctl deploy local
+	$(PACHCTL) deploy local
 	@until "$$(
-		kc get po \
+		$(KUBECTL) get po \
 		  -l suite=pachyderm,app=dash \
 		  -o jsonpath='{.items[0].status.conditions[?(@.type=="Ready")].status}')" = True; \
 	do \
 		WHEEL=$${WHEEL:1}$${WHEEL:0:1}; \
-		echo -en "\e[G\e[K$${WHEEL:0:1} waiting for pachyderm to start..."; \
+		$(ECHO) -en "\e[G\e[K$${WHEEL:0:1} waiting for pachyderm to start..."; \
 		sleep 1; \
 	done
 	pachctl port-forward &

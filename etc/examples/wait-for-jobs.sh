@@ -42,8 +42,8 @@ else
 fi
 
 while
-    JOBS=`${PACHCTL} list job --raw | ${JQ} "select(${filter})|.job.id"` && \
-	NUMJOBS=`${ECHO} -n ${JOBS} | ${WC} -w` && \
+    JOBS=`${PACHCTL} list job --raw | jq "select(${filter})|.job.id"` && \
+	NUMJOBS=`${ECHO} -n ${JOBS} | wc -w` && \
 	[ ${NUMJOBS} -gt 0 ] 
 do
     WHEEL=${WHEEL:1}${WHEEL:0:1}
@@ -55,7 +55,7 @@ do
             STATUS_MSG="Waiting for ${JOBS} job to finish..."
 	fi
 	${ECHO}  -en "\e[G\e[K${WHEEL:0:1}${STATUS_MSG}"
-	${SLEEP} 1
+	sleep 1
 done
 
 ${ECHO} -e "\e[G\e[K${WHEEL:0:1}${2}"
