@@ -27,8 +27,8 @@ git checkout 21f8ed309495401e6fd79b3a9fd549582aed1b4c
 
 ### Running Go Examples
 
-The Pachyder, [godocs](https://godoc.org/github.com/pachyderm/pachyderm/src/client) reference
-provides examples of how you can use Go client API. You need to have a running Pachyderm cluster
+The Pachyderm [godocs](https://godoc.org/github.com/pachyderm/pachyderm/src/client) reference
+provides examples of how you can use the Go client API. You need to have a running Pachyderm cluster
 to run these examples.
 
 Make sure that you use your `pachd_address` in `client.NewFromAddress("<your-pachd-address>:30650")`.
