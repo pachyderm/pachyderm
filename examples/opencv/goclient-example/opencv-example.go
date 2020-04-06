@@ -10,7 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
-	"os"
+	//	"os"
 )
 
 func main() {
@@ -34,30 +34,15 @@ func main() {
 		panic(err)
 	}
 
-	file1, err := os.Open("examples/opencv/liberty.png")
-	if err != nil {
+	if err := c.PutFileURL("images", "master", "liberty.png", "http://imgur.com/46Q8nDz.png", false, false); err != nil {
 		panic(err)
 	}
 
-	if _, err := c.PutFile("images", "master", "liberty.png", file1); err != nil {
+	if err := c.PutFileURL("images", "master", "AT-AT.png", "http://imgur.com/8MN9Kg0.png", false, false); err != nil {
 		panic(err)
 	}
 
-	file2, err := os.Open("examples/opencv/AT-AT.png")
-	if err != nil {
-		panic(err)
-	}
-
-	if _, err := c.PutFile("images", "master", "AT-AT.png", file2); err != nil {
-		panic(err)
-	}
-
-	file3, err := os.Open("examples/opencv/kitten.png")
-	if err != nil {
-		panic(err)
-	}
-
-	if _, err := c.PutFile("images", "master", "kitten.png", file3); err != nil {
+	if err := c.PutFileURL("images", "master", "kitten.png", "http://imgur.com/g2QnNqa.png", false, false); err != nil {
 		panic(err)
 	}
 
