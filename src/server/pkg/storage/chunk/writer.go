@@ -244,7 +244,7 @@ func (w *worker) put(edge bool) error {
 	}
 	chunk := &Chunk{Hash: hash.EncodeHash(hash.Sum(chunkBytes))}
 	path := path.Join(prefix, chunk.Hash)
-	if err := w.gcC.ReserveChunks(w.ctx, w.tmpID, []string{chunk.Hash}); err != nil {
+	if err := w.gcC.ReserveChunk(w.ctx, chunk.Hash, w.tmpID); err != nil {
 		return err
 	}
 	// If the chunk does not exist, upload it.
@@ -274,14 +274,16 @@ func (w *worker) put(edge bool) error {
 
 func (w *worker) updateAnnotations(chunkRef *DataRef) error {
 	var offset int64
-	var refs []gc.Reference
 	for _, a := range w.annotations {
+		// (bryce) need to account for data refs in a chunk that reference the same chunk.
 		for _, dataRef := range a.RefDataRefs {
-			refs = append(refs, gc.Reference{
+			if err := w.gcC.AddReference(w.ctx, &gc.Reference{
 				Sourcetype: "chunk",
 				Source:     chunkRef.ChunkInfo.Chunk.Hash,
 				Chunk:      dataRef.ChunkInfo.Chunk.Hash,
-			})
+			}); err != nil {
+				return err
+			}
 		}
 		// (bryce) probably a better way to communicate whether to compute datarefs for an annotation.
 		if a.NextDataRef != nil {
@@ -295,7 +297,7 @@ func (w *worker) updateAnnotations(chunkRef *DataRef) error {
 		}
 		offset += int64(a.buf.Len())
 	}
-	return w.gcC.UpdateReferences(w.ctx, refs, nil, "")
+	return nil
 }
 
 func (w *worker) upload(path string, chunk []byte) error {

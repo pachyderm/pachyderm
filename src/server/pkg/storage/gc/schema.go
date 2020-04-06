@@ -41,11 +41,13 @@ func convertChunks(chunks []chunkModel) []string {
 func initializeDb(db *gorm.DB) error {
 	// Make sure the `reftype` enum exists
 	if err := db.Exec(`
-do $$ begin
- create type reftype as enum ('chunk', 'job', 'semantic');
-exception
- when duplicate_object then null;
-end $$
+DO $$ 
+BEGIN
+	CREATE TYPE reftype AS ENUM 
+	('chunk', 'temporary', 'semantic');
+EXCEPTION
+	WHEN duplicate_object THEN NULL;
+END $$
   `).Error; err != nil {
 		return err
 	}

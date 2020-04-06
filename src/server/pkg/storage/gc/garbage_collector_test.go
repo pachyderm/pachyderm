@@ -12,6 +12,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
 )
@@ -46,7 +47,7 @@ func printMetrics(t *testing.T, metrics prometheus.Gatherer) {
 	}
 }
 
-func printState(t *testing.T, client *clientImpl) {
+func printState(t *testing.T, client *client) {
 	fmt.Printf("Chunks table:\n")
 	for _, row := range allChunks(t, client) {
 		fmt.Printf("  %v\n", row)
@@ -66,9 +67,9 @@ func (td *testDeleter) Delete(ctx context.Context, chunks []string) error {
 }
 
 // Helper function to ensure the server is done deleting to avoid races
-func flushAllDeletes(server Server) {
+func flushAllDeletes(s Server) {
 	// bork bork
-	si := server.(*serverImpl)
+	si := s.(*server)
 	for {
 		t := func() *trigger {
 			si.mutex.Lock()
@@ -85,50 +86,50 @@ func flushAllDeletes(server Server) {
 	}
 }
 
-func makeServer(t *testing.T, deleter Deleter, metrics prometheus.Registerer) Server {
+func newServer(t *testing.T, deleter Deleter, metrics prometheus.Registerer) Server {
 	if deleter == nil {
 		deleter = &testDeleter{}
 	}
-	server, err := MakeServer(deleter, "localhost", 32228, metrics)
+	s, err := NewServer(deleter, "localhost", 32228, metrics)
 	require.NoError(t, err)
-	return server
+	return s
 }
 
-func makeClient(t *testing.T, server Server, metrics prometheus.Registerer) *clientImpl {
+func newClient(t *testing.T, server Server, metrics prometheus.Registerer) *client {
 	if server == nil {
-		server = makeServer(t, nil, metrics)
+		server = newServer(t, nil, metrics)
 	}
-	client, err := MakeClient(server, "localhost", 32228, metrics)
+	c, err := NewClient(server, "localhost", 32228, metrics)
 	require.NoError(t, err)
-	return client.(*clientImpl)
+	return c.(*client)
 }
 
-func clearData(t *testing.T, client *clientImpl) {
+func clearData(t *testing.T, client *client) {
 	require.NoError(t, client.db.Exec("delete from chunks *; delete from refs *;").Error)
 }
 
-func initialize(t *testing.T) *clientImpl {
-	client := makeClient(t, nil, nil)
+func initialize(t *testing.T) *client {
+	client := newClient(t, nil, nil)
 	clearData(t, client)
 	return client
 }
 
-func allChunks(t *testing.T, client *clientImpl) []chunkModel {
+func allChunks(t *testing.T, client *client) []chunkModel {
 	chunks := []chunkModel{}
 	require.NoError(t, client.db.Find(&chunks).Error)
 	return chunks
 }
 
-func allRefs(t *testing.T, client *clientImpl) []refModel {
+func allRefs(t *testing.T, client *client) []refModel {
 	refs := []refModel{}
 	require.NoError(t, client.db.Find(&refs).Error)
 	return refs
 }
 
-func makeJobs(count int) []string {
+func makeIDs(count int) []string {
 	result := []string{}
 	for i := 0; i < count; i++ {
-		result = append(result, fmt.Sprintf("job-%d", i))
+		result = append(result, fmt.Sprintf("temporary-%d", i))
 	}
 	return result
 }
@@ -145,20 +146,15 @@ func TestConnectivity(t *testing.T) {
 	initialize(t)
 }
 
-func TestReserveChunks(t *testing.T) {
+func TestReserveChunk(t *testing.T) {
 	ctx := context.Background()
 	client := initialize(t)
-	jobs := makeJobs(3)
 	chunks := makeChunks(3)
 
-	// No chunks
-	require.NoError(t, client.ReserveChunks(ctx, jobs[0], chunks[0:0]))
-
-	// One chunk
-	require.NoError(t, client.ReserveChunks(ctx, jobs[1], chunks[0:1]))
-
-	// Multiple chunks
-	require.NoError(t, client.ReserveChunks(ctx, jobs[2], chunks))
+	tmpID := uuid.NewWithoutDashes()
+	for _, chunk := range chunks {
+		require.NoError(t, client.ReserveChunk(ctx, chunk, tmpID))
+	}
 
 	expectedChunkRows := []chunkModel{
 		{chunks[0], nil},
@@ -168,132 +164,82 @@ func TestReserveChunks(t *testing.T) {
 	require.ElementsEqual(t, expectedChunkRows, allChunks(t, client))
 
 	expectedRefRows := []refModel{
-		{"job", jobs[1], chunks[0]},
-		{"job", jobs[2], chunks[0]},
-		{"job", jobs[2], chunks[1]},
-		{"job", jobs[2], chunks[2]},
+		{"temporary", tmpID, chunks[0]},
+		{"temporary", tmpID, chunks[1]},
+		{"temporary", tmpID, chunks[2]},
 	}
 	require.ElementsEqual(t, expectedRefRows, allRefs(t, client))
 }
 
-func TestUpdateReferences(t *testing.T) {
+func TestAddRemoveReferences(t *testing.T) {
 	ctx := context.Background()
 	client := initialize(t)
-	jobs := makeJobs(3)
-	chunks := makeChunks(5)
-
-	require.NoError(t, client.ReserveChunks(ctx, jobs[0], chunks[0:3])) // 0, 1, 2
-	require.NoError(t, client.ReserveChunks(ctx, jobs[1], chunks[2:4])) // 2, 3
-	require.NoError(t, client.ReserveChunks(ctx, jobs[2], chunks[4:5])) // 4
-
-	// Currently, no links between chunks:
-	// 0 1 2 3 4
-	expectedChunkRows := []chunkModel{
-		{chunks[0], nil},
-		{chunks[1], nil},
-		{chunks[2], nil},
-		{chunks[3], nil},
-		{chunks[4], nil},
+	chunks := makeChunks(7)
+	// Reserve chunks initially with only temporary references.
+	tmpID := uuid.NewWithoutDashes()
+	for _, chunk := range chunks {
+		require.NoError(t, client.ReserveChunk(ctx, chunk, tmpID))
+	}
+	var expectedChunkRows []chunkModel
+	for _, chunk := range chunks {
+		expectedChunkRows = append(expectedChunkRows, chunkModel{chunk, nil})
 	}
 	require.ElementsEqual(t, expectedChunkRows, allChunks(t, client))
-
-	expectedRefRows := []refModel{
-		{"job", jobs[0], chunks[0]},
-		{"job", jobs[0], chunks[1]},
-		{"job", jobs[0], chunks[2]},
-		{"job", jobs[1], chunks[2]},
-		{"job", jobs[1], chunks[3]},
-		{"job", jobs[2], chunks[4]},
+	var expectedRefRows []refModel
+	for _, chunk := range chunks {
+		expectedRefRows = append(expectedRefRows, refModel{"temporary", tmpID, chunk})
 	}
 	require.ElementsEqual(t, expectedRefRows, allRefs(t, client))
-
-	require.NoError(t, client.UpdateReferences(
-		ctx,
-		[]Reference{{"chunk", chunks[4], chunks[0]}},
-		[]Reference{},
-		jobs[0],
-	))
-	flushAllDeletes(client.server)
-
-	// Chunk 1 should be cleaned up as unreferenced
-	// 4 2 3 <- referenced by jobs
-	// |
-	// 0
-	expectedChunkRows = []chunkModel{
-		{chunks[0], nil},
-		{chunks[2], nil},
-		{chunks[3], nil},
-		{chunks[4], nil},
+	// Add cross-chunk references.
+	for i := 0; i < 3; i++ {
+		for j := 0; j < 2; j++ {
+			chunkFrom, chunkTo := chunks[i], chunks[i*2+1+j]
+			require.NoError(t, client.AddReference(
+				ctx,
+				&Reference{
+					Sourcetype: "chunk",
+					Source:     chunkFrom,
+					Chunk:      chunkTo,
+				},
+			))
+			expectedRefRows = append(expectedRefRows, refModel{"chunk", chunkFrom, chunkTo})
+		}
 	}
-	require.ElementsEqual(t, expectedChunkRows, allChunks(t, client))
-
-	expectedRefRows = []refModel{
-		{"job", jobs[1], chunks[2]},
-		{"job", jobs[1], chunks[3]},
-		{"job", jobs[2], chunks[4]},
-		{"chunk", chunks[4], chunks[0]},
-	}
-	require.ElementsEqual(t, expectedRefRows, allRefs(t, client))
-
-	require.NoError(t, client.UpdateReferences(
+	// Add a semantic reference to the root chunk.
+	semanticName := "root"
+	require.NoError(t, client.AddReference(
 		ctx,
-		[]Reference{
-			{"semantic", "semantic-3", chunks[3]},
-			{"semantic", "semantic-2", chunks[2]},
-			{"chunk", chunks[2], chunks[3]},
+		&Reference{
+			Sourcetype: "semantic",
+			Source:     semanticName,
+			Chunk:      chunks[0],
 		},
-		[]Reference{},
-		jobs[1],
 	))
-	flushAllDeletes(client.server)
-
-	// No chunks should be cleaned up, the job reference to 2 and 3 were replaced
-	// with semantic references
-	// 2 <- referenced semantically
-	// |
-	// 3 <- referenced semantically
-	//
-	// 4 <- referenced by jobs
-	// |
-	// 0
-	expectedChunkRows = []chunkModel{
-		{chunks[0], nil},
-		{chunks[2], nil},
-		{chunks[3], nil},
-		{chunks[4], nil},
-	}
-	require.ElementsEqual(t, expectedChunkRows, allChunks(t, client))
-
-	expectedRefRows = []refModel{
-		{"job", jobs[2], chunks[4]},
-		{"chunk", chunks[4], chunks[0]},
-		{"semantic", "semantic-2", chunks[2]},
-		{"semantic", "semantic-3", chunks[3]},
-		{"chunk", chunks[2], chunks[3]},
-	}
+	expectedRefRows = append(expectedRefRows, refModel{"semantic", semanticName, chunks[0]})
 	require.ElementsEqual(t, expectedRefRows, allRefs(t, client))
-
-	require.NoError(t, client.UpdateReferences(
+	// Remove the temporary reference.
+	require.NoError(t, client.RemoveReference(
 		ctx,
-		[]Reference{{"chunk", chunks[4], chunks[2]}},
-		[]Reference{{"semantic", "semantic-3", chunks[3]}, {"chunk", chunks[2], chunks[3]}},
-		jobs[2],
+		&Reference{
+			Sourcetype: "temporary",
+			Source:     tmpID,
+		},
 	))
 	flushAllDeletes(client.server)
-
-	// Chunk 3 should be cleaned up as the semantic reference was removed
-	// Chunk 4 should be cleaned up as the job reference was removed
-	// Chunk 0 should be cleaned up later once chunk 4 has been removed
-	// 2 <- referenced semantically
-	expectedChunkRows = []chunkModel{
-		{chunks[2], nil},
-	}
 	require.ElementsEqual(t, expectedChunkRows, allChunks(t, client))
-
-	expectedRefRows = []refModel{
-		{"semantic", "semantic-2", chunks[2]},
-	}
+	expectedRefRows = expectedRefRows[len(chunks):]
 	require.ElementsEqual(t, expectedRefRows, allRefs(t, client))
+	// Remove the semantic reference.
+	require.NoError(t, client.RemoveReference(
+		ctx,
+		&Reference{
+			Sourcetype: "semantic",
+			Source:     semanticName,
+		},
+	))
+	flushAllDeletes(client.server)
+	require.ElementsEqual(t, []chunkModel{}, allChunks(t, client))
+	require.ElementsEqual(t, []refModel{}, allRefs(t, client))
 }
 
 type fuzzDeleter struct {
@@ -367,8 +313,8 @@ func (fd *fuzzDeleter) updating(chunks []string) error {
 func TestFuzz(t *testing.T) {
 	metrics := prometheus.NewRegistry()
 	deleter := &fuzzDeleter{users: make(map[string]int)}
-	server := makeServer(t, deleter, metrics)
-	client := makeClient(t, server, metrics)
+	server := newServer(t, deleter, metrics)
+	client := newClient(t, server, metrics)
 	seed := time.Now().UTC().UnixNano()
 	seed = 1561162472664846205
 	rng := rand.New(rand.NewSource(seed))
@@ -400,8 +346,10 @@ func TestFuzz(t *testing.T) {
 			reservedChunks = append(reservedChunks, hash)
 		}
 
-		if err := client.ReserveChunks(ctx, job.id, reservedChunks); err != nil {
-			return err
+		for _, chunk := range reservedChunks {
+			if err := client.ReserveChunk(ctx, chunk, job.id); err != nil {
+				return err
+			}
 		}
 
 		// Check that no one deletes the chunk while we have it reserved
@@ -409,14 +357,27 @@ func TestFuzz(t *testing.T) {
 			return err
 		}
 
-		return client.UpdateReferences(ctx, job.add, job.remove, job.id)
+		for _, add := range job.add {
+			if err := client.AddReference(ctx, &add); err != nil {
+				return err
+			}
+		}
+		for _, remove := range job.remove {
+			if err := client.RemoveReference(ctx, &remove); err != nil {
+				return err
+			}
+		}
+		return client.RemoveReference(ctx, &Reference{
+			Sourcetype: "temporary",
+			Source:     job.id,
+		})
 	}
 
 	startWorkers := func(numWorkers int, jobChannel chan jobData) *errgroup.Group {
 		eg, ctx := errgroup.WithContext(context.Background())
 		for i := 0; i < numWorkers; i++ {
 			eg.Go(func() error {
-				client := makeClient(t, server, metrics)
+				client := newClient(t, server, metrics)
 				client.db.DB().SetMaxOpenConns(1)
 				client.db.DB().SetMaxIdleConns(1)
 				for x := range jobChannel {

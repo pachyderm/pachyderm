@@ -11,11 +11,11 @@ import (
 )
 
 func NewLocalServer(deleter Deleter) (Client, error) {
-	server, err := MakeServer(deleter, "localhost", 32228, nil)
+	server, err := NewServer(deleter, "localhost", 32228, nil)
 	if err != nil {
 		return nil, err
 	}
-	return MakeClient(server, "localhost", 32228, nil)
+	return NewClient(server, "localhost", 32228, nil)
 }
 
 func WithLocalServer(deleter Deleter, f func(Client) error) error {
@@ -57,25 +57,17 @@ func markChunksDeletingStats(err error, start time.Time) {
 func removeChunkRowsStats(err error, start time.Time) {
 	applySQLStats("removeChunkRows", err, start)
 }
-func reserveChunksStats(err error, start time.Time) {
-	applySQLStats("reserveChunks", err, start)
-}
-func updateReferencesStats(err error, start time.Time) {
-	applySQLStats("updateReferences", err, start)
+func reserveChunkStats(err error, start time.Time) {
+	applySQLStats("reserveChunk", err, start)
 }
 
-type stmtCallback func(*gorm.DB) *gorm.DB
+type statementFunc func(*gorm.DB) *gorm.DB
 
-func runTransaction(
-	ctx context.Context,
-	db *gorm.DB,
-	statements []stmtCallback,
-	statsCallback func(error, time.Time),
-) error {
+func runTransaction(ctx context.Context, db *gorm.DB, stmtFuncs []statementFunc, statsCallback func(error, time.Time)) error {
 	for {
-		start := time.Now()
-		err := tryTransaction(ctx, db, statements)
-		statsCallback(err, start)
+		//start := time.Now()
+		err := tryTransaction(ctx, db, stmtFuncs)
+		//statsCallback(err, start)
 		if err == nil {
 			return nil
 		} else if !isRetriableError(err) {
@@ -84,11 +76,7 @@ func runTransaction(
 	}
 }
 
-func tryTransaction(
-	ctx context.Context,
-	db *gorm.DB,
-	statements []stmtCallback,
-) error {
+func tryTransaction(ctx context.Context, db *gorm.DB, stmtFuncs []statementFunc) error {
 	txn := db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
 
 	// So we don't leak in case of a panic somewhere unexpected
@@ -102,8 +90,8 @@ func tryTransaction(
 		return err
 	}
 
-	for _, stmt := range statements {
-		if err := stmt(txn).Error; err != nil {
+	for _, stmtFunc := range stmtFuncs {
+		if err := stmtFunc(txn).Error; err != nil {
 			txn.Rollback()
 			return err
 		}

@@ -2,9 +2,6 @@ package gc
 
 import (
 	"context"
-	"fmt"
-	"sort"
-	"strings"
 	"time"
 
 	"github.com/jinzhu/gorm"
@@ -14,10 +11,10 @@ import (
 // Reference describes a reference to a chunk in chunk storage.  If a chunk has
 // no references, it will be deleted.
 //  * Sourcetype - the type of reference, one of:
-//   * 'job' - a temporary reference to the chunk, tied to the lifetime of a job
+//   * 'temporary' - a temporary reference to a chunk
 //   * 'chunk' - a cross-chunk reference, from one chunk to another
 //   * 'semantic' - a reference to a chunk by some semantic name
-//  * Source - the source of the reference, this may be a job id, chunk id, or a
+//  * Source - the source of the reference, this may be a temporary id, chunk id, or a
 //    semantic name
 //  * Chunk - the target chunk being referenced
 type Reference struct {
@@ -31,27 +28,23 @@ type Reference struct {
 // cluster's postgres database, but synchronize chunk deletions with the
 // garbage collector service running in pachd.
 type Client interface {
-	// ReserveChunks ensures that chunks are not deleted during the course of a
-	// job.  It will add a temporary reference to each of the given chunks, even
-	// if they don't exist yet.  If one of the specified chunks is currently
-	// being deleted, this call will block while it flushes the deletes through
-	// the garbage collector service running in pachd.
-	ReserveChunks(ctx context.Context, jobID string, chunks []string) error
+	// ReserveChunk ensures that a chunk is not deleted during the course of a
+	// temporary reference.  It will add a temporary reference to the given chunk, even
+	// if it doesn't exist yet.  If the specified chunk is currently
+	// being deleted, this call will block while it flushes the delete through
+	// the garbage collector service.
+	ReserveChunk(context.Context, string, string) error
 
-	// UpdateReferences should be run _after_ ReserveChunks, once new chunks have
-	// be written to object storage.  This will add and remove the specified
-	// references, and remove all references held by the given job ID.  Any
-	// chunks which are no longer referenced will be forwarded to the garbage
-	// collector service in pachd for summary destruction.
-	UpdateReferences(ctx context.Context, add []Reference, remove []Reference, releaseJobID string) error
+	AddReference(context.Context, *Reference) error
+	RemoveReference(context.Context, *Reference) error
 }
 
-type clientImpl struct {
+type client struct {
 	server Server
 	db     *gorm.DB
 }
 
-// MakeClient constructs a garbage collector server:
+// NewClient constructs a garbage collector client:
 //  * server - an object implementing the Server interface that will be
 //      called for forwarding deletion candidates and flushing deletes.
 //  * postgresHost, postgresPort - the host and port of the postgres instance
@@ -59,12 +52,7 @@ type clientImpl struct {
 //      the garbage collector clients
 //  * registry (optional) - a Prometheus stats registry for tracking usage and
 //    performance
-func MakeClient(
-	server Server,
-	postgresHost string,
-	postgresPort uint16,
-	registry prometheus.Registerer,
-) (Client, error) {
+func NewClient(server Server, postgresHost string, postgresPort uint16, registry prometheus.Registerer) (Client, error) {
 	// Opening a connection is done lazily, initialization will connect
 	db, err := openDatabase(postgresHost, postgresPort)
 	if err != nil {
@@ -82,157 +70,97 @@ func MakeClient(
 		initPrometheus(registry)
 	}
 
-	return &clientImpl{
-		db:     db,
+	return &client{
 		server: server,
+		db:     db,
 	}, nil
 }
 
-func (ci *clientImpl) reserveChunksInDatabase(ctx context.Context, job string, chunks []string) ([]string, error) {
-	chunkIDs := []string{}
-	for _, chunk := range chunks {
-		chunkIDs = append(chunkIDs, fmt.Sprintf("('%s')", chunk))
-	}
-	sort.Strings(chunkIDs)
-
-	var chunksToFlush []chunkModel
-	statements := []stmtCallback{
+func (c *client) ReserveChunk(ctx context.Context, chunk, tmpID string) (retErr error) {
+	defer func(startTime time.Time) { applyRequestStats("ReserveChunk", retErr, startTime) }(time.Now())
+	var flushChunk []chunkModel
+	stmtFuncs := []statementFunc{
 		func(txn *gorm.DB) *gorm.DB {
-			return txn.Exec("set local synchronous_commit = off;")
+			return txn.Exec("SET LOCAL synchronous_commit = off;")
 		},
 		func(txn *gorm.DB) *gorm.DB {
+			// Insert the chunk to reserve and add a temporary reference to it.
+			// If the chunk already exists, then just add a temporary reference.
+			// Return the chunk if it is being deleted (flush is necessary).
 			return txn.Raw(`
-with
-added_chunks as (
- insert into chunks (chunk) values `+strings.Join(chunkIDs, ",")+`
- on conflict (chunk) do update set chunk = excluded.chunk
- returning chunk, deleting
-), added_refs as (
- insert into refs (chunk, source, sourcetype)
-  select
-   chunk, ?, 'job'::reftype
-  from added_chunks where
-   deleting is null
-	order by 1
-)
-
-select chunk from added_chunks where deleting is not null;
-			`, job).Scan(&chunksToFlush)
+				WITH added_chunk AS (
+					INSERT INTO chunks (chunk)
+					VALUES (?)
+					ON CONFLICT (chunk) DO UPDATE SET chunk = EXCLUDED.chunk
+					RETURNING chunk, deleting
+				), added_ref AS (
+					INSERT INTO refs (chunk, source, sourcetype)
+					SELECT chunk, ?, 'temporary'::reftype
+					FROM added_chunk
+					WHERE deleting IS NULL
+				)
+				SELECT chunk
+				FROM added_chunk
+				WHERE deleting IS NOT NULL
+			`, chunk, tmpID).Scan(&flushChunk)
 		},
 	}
-
-	if err := runTransaction(ctx, ci.db, statements, reserveChunksStats); err != nil {
-		return nil, err
-	}
-
-	return convertChunks(chunksToFlush), nil
-}
-
-func (ci *clientImpl) ReserveChunks(ctx context.Context, job string, chunks []string) (retErr error) {
-	defer func(startTime time.Time) { applyRequestStats("ReserveChunks", retErr, startTime) }(time.Now())
-	chunkIDs := []string{}
-	for _, c := range chunks {
-		chunkIDs = append(chunkIDs, c)
-	}
-	fmt.Printf("ReserveChunks (%s): %v\n", job, strings.Join(chunkIDs, ", "))
-	if len(chunks) == 0 {
-		return nil
-	}
-
-	var err error
-	for len(chunks) > 0 {
-		chunks, err = ci.reserveChunksInDatabase(ctx, job, chunks)
-		if err != nil {
+	for {
+		if err := runTransaction(ctx, c.db, stmtFuncs, reserveChunkStats); err != nil {
 			return err
 		}
-
-		if len(chunks) > 0 {
-			if err := ci.server.FlushDeletes(ctx, chunks); err != nil {
-				return err
-			}
+		if len(flushChunk) == 0 {
+			return nil
+		}
+		if err := c.server.FlushDelete(ctx, chunk); err != nil {
+			return err
 		}
 	}
-	return nil
 }
 
-func (ci *clientImpl) UpdateReferences(ctx context.Context, add []Reference, remove []Reference, releaseJob string) (retErr error) {
-	defer func(startTime time.Time) { applyRequestStats("UpdateReferences", retErr, startTime) }(time.Now())
-	addStr := []string{}
-	removeStr := []string{}
-	for _, ref := range add {
-		addStr = append(addStr, fmt.Sprintf("%s/%s:%s", ref.Sourcetype, ref.Source, ref.Chunk))
-	}
-	for _, ref := range remove {
-		removeStr = append(removeStr, fmt.Sprintf("%s/%s:%s", ref.Sourcetype, ref.Source, ref.Chunk))
-	}
-	fmt.Printf("UpdateReferences (%s):\n", releaseJob)
-	fmt.Printf("  add:\n")
-	for _, x := range addStr {
-		fmt.Printf("    %v\n", x)
-	}
-	fmt.Printf("  remove:\n")
-	for _, x := range removeStr {
-		fmt.Printf("    %v\n", x)
-	}
-
-	removeValues := make([][]interface{}, 0, len(remove))
-	for _, ref := range remove {
-		removeValues = append(removeValues, []interface{}{ref.Sourcetype, ref.Source, ref.Chunk})
-	}
-
-	addValues := make([][]interface{}, len(add))
-	for _, ref := range add {
-		addValues = append(addValues, []interface{}{ref.Sourcetype, ref.Source, ref.Chunk})
-	}
-
-	var chunksToDelete []chunkModel
-	statements := []stmtCallback{
+func (c *client) AddReference(ctx context.Context, ref *Reference) (retErr error) {
+	stmtFuncs := []statementFunc{
 		func(txn *gorm.DB) *gorm.DB {
-			if len(addValues) > 0 {
-				return txn.Exec(`
-insert into refs (sourcetype, source, chunk) values ?
-on conflict do nothing
-				`, addValues)
-			}
-			return txn
+			// Insert the reference.
+			// Does nothing if the reference already exists.
+			return txn.Exec(`
+				INSERT INTO refs (sourcetype, source, chunk)
+				VALUES (?, ?, ?)
+				ON CONFLICT DO NOTHING
+			`, ref.Sourcetype, ref.Source, ref.Chunk)
 		},
-		func(txn *gorm.DB) *gorm.DB {
-			builder := txn.Table(refTable)
-			if len(removeValues) > 0 {
-				builder = builder.Where("(sourcetype, source, chunk) in (?)", removeValues)
-			} else {
-				builder = builder.Where("(sourcetype, source, chunk) in (?)", nil)
-			}
-			if releaseJob != "" {
-				builder = builder.Or("sourcetype = 'job' AND source = ?", releaseJob)
-			}
-			refQuery := builder.Order("sourcetype").Order("source").Order("chunk").QueryExpr()
+	}
+	return runTransaction(ctx, c.db, stmtFuncs, nil)
+}
 
+func (c *client) RemoveReference(ctx context.Context, ref *Reference) (retErr error) {
+	var chunksDeleted []chunkModel
+	stmtFuncs := []statementFunc{
+		func(txn *gorm.DB) *gorm.DB {
+			// Delete the references with the same sourcetype and source (chunk is ignored).
+			// Return the chunks that should be deleted (the chunks will have zero references
+			// after the references are removed).
 			return txn.Raw(`
-with del_refs as (
- delete from refs using (?) del
- where
-  refs.sourcetype = del.sourcetype and
-	refs.source = del.source and
-	refs.chunk = del.chunk
- returning refs.chunk
-), deleted as (
- select chunk, count(*) from del_refs group by 1 order by 1
-), before as (
- select chunk, count(*) as count from refs join deleted using (chunk) group by 1 order by 1
-)
-
-select chunk from before join deleted using (chunk) where before.count - deleted.count = 0
-      `, refQuery).Scan(&chunksToDelete)
+				WITH deleted_refs AS (
+					DELETE FROM refs
+					WHERE sourcetype = ?
+					AND source = ?
+					RETURNING chunk
+				)
+				SELECT deleted_refs.chunk
+				FROM deleted_refs
+				JOIN refs
+				ON deleted_refs.chunk = refs.chunk
+				GROUP BY 1
+				HAVING COUNT(*) = 1
+		      `, ref.Sourcetype, ref.Source).Scan(&chunksDeleted)
 		},
 	}
-
-	if err := runTransaction(ctx, ci.db, statements, updateReferencesStats); err != nil {
+	if err := runTransaction(ctx, c.db, stmtFuncs, nil); err != nil {
 		return err
 	}
-
-	if len(chunksToDelete) > 0 {
-		if err := ci.server.DeleteChunks(ctx, convertChunks(chunksToDelete)); err != nil {
+	for _, chunk := range chunksDeleted {
+		if err := c.server.DeleteChunk(ctx, chunk.Chunk); err != nil {
 			return err
 		}
 	}
