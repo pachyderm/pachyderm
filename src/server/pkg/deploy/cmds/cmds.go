@@ -47,7 +47,7 @@ var (
 )
 
 const (
-	defaultDashImage           = "pachyderm/dash:1.9.0"
+	defaultDashImage           = "pachyderm/dash:0.5.48"
 	defaultJupyterhubHubImage  = "pachyderm/jupyterhub-pachyderm-hub:1.0.0"
 	defaultJupyterhubUserImage = "pachyderm/jupyterhub-pachyderm-user:1.0.0"
 	jupyterhubChartVersion     = "0.8.2"

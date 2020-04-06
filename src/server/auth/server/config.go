@@ -371,7 +371,7 @@ func validateConfig(config *auth.AuthConfig, src configSource) (*canonicalConfig
 			if c.SAMLSvc.DashURL, err = url.Parse(svcCfgProto.DashURL); err != nil {
 				return nil, errors.Wrapf(err, "could not parse Pachyderm dashboard URL (%q)", svcCfgProto.DashURL)
 			} else if c.SAMLSvc.DashURL.Scheme == "" {
-				return nil, errors.Errorf("Pachyderm dashboard URL %q is invalid (no scheme)", svcCfgProto.DashURL) //lint:ignore ST1005 caps due to proper noun
+				return nil, errors.Errorf("Pachyderm dashboard URL %q is invalid (no scheme)", svcCfgProto.DashURL)
 			}
 		}
 

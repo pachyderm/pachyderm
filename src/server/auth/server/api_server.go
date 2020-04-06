@@ -431,7 +431,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 		return nil, errors.Wrapf(err, "error confirming Pachyderm Enterprise token")
 	}
 	if state != enterpriseclient.State_ACTIVE {
-		return nil, errors.Errorf("Pachyderm Enterprise is not active in this " + //lint:ignore ST1005 caps due to proper noun
+		return nil, errors.Errorf("Pachyderm Enterprise is not active in this " +
 			"cluster, and the Pachyderm auth API is an Enterprise-level feature")
 	}
 
@@ -817,7 +817,7 @@ func (a *apiServer) expiredClusterAdminCheck(ctx context.Context, username strin
 		return err
 	}
 	if state != enterpriseclient.State_ACTIVE && !isAdmin {
-		return errors.New("Pachyderm Enterprise is not active in this " + //lint:ignore ST1005 caps due to proper noun
+		return errors.New("Pachyderm Enterprise is not active in this " +
 			"cluster (until Pachyderm Enterprise is re-activated or Pachyderm " +
 			"auth is deactivated, only cluster admins can perform any operations)")
 	}
@@ -1135,7 +1135,7 @@ func (a *apiServer) AuthorizeInTransaction(
 	}
 	if state != enterpriseclient.State_ACTIVE &&
 		!strings.HasPrefix(callerInfo.Subject, auth.PipelinePrefix) {
-		return nil, errors.New("Pachyderm Enterprise is not active in this " + //lint:ignore ST1005 caps due to proper noun
+		return nil, errors.New("Pachyderm Enterprise is not active in this " +
 			"cluster (until Pachyderm Enterprise is re-activated or Pachyderm " +
 			"auth is deactivated, only cluster admins can perform any operations)")
 	}
@@ -1300,7 +1300,7 @@ func (a *apiServer) SetScopeInTransaction(
 			return false, errors.Wrapf(err, "error confirming Pachyderm Enterprise token")
 		}
 		if state != enterpriseclient.State_ACTIVE {
-			return false, errors.Errorf("Pachyderm Enterprise is not active in this " + //lint:ignore ST1005 caps due to proper noun
+			return false, errors.Errorf("Pachyderm Enterprise is not active in this " +
 				"cluster (only a cluster admin can set a scope)")
 		}
 
@@ -1410,7 +1410,7 @@ func (a *apiServer) GetScopeInTransaction(
 		return nil, errors.Wrapf(err, "error confirming Pachyderm Enterprise token")
 	}
 	if state != enterpriseclient.State_ACTIVE && !callerIsAdmin {
-		return nil, errors.New("Pachyderm Enterprise is not active in this " + //lint:ignore ST1005 caps due to proper noun
+		return nil, errors.New("Pachyderm Enterprise is not active in this " +
 			"cluster (until Pachyderm Enterprise is re-activated or Pachyderm " +
 			"auth is deactivated, only cluster admins can perform any operations)")
 	}
@@ -1615,7 +1615,7 @@ func (a *apiServer) SetACLInTransaction(
 			return false, errors.Wrapf(err, "error confirming Pachyderm Enterprise token")
 		}
 		if state != enterpriseclient.State_ACTIVE {
-			return false, errors.Errorf("Pachyderm Enterprise is not active in this " + //lint:ignore ST1005 caps due to proper noun
+			return false, errors.Errorf("Pachyderm Enterprise is not active in this " +
 				"cluster (only a cluster admin can modify an ACL)")
 		}
 
