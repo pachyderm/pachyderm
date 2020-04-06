@@ -19,6 +19,7 @@ require (
 	github.com/coreos/bbolt v1.3.3
 	github.com/coreos/etcd v3.3.13+incompatible
 	github.com/coreos/go-etcd v2.0.0+incompatible
+	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf // indirect
 	github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f
 	github.com/crewjam/saml v0.0.0-20190521120225-344d075952c9
@@ -76,6 +77,7 @@ require (
 	github.com/pachyderm/s2 v0.0.0-20200609183354-d52f35094520
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/term v0.0.0-20190109203006-aa71e9d9e942 // indirect
+	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect
 	github.com/prometheus/client_golang v1.2.1
 	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
 	github.com/prometheus/common v0.7.0

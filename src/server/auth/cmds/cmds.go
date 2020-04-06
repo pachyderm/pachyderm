@@ -2,18 +2,21 @@ package cmds
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"strings"
 	"text/template"
 	"time"
 
+	"github.com/coreos/go-oidc"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
+	"golang.org/x/oauth2"
 
 	"github.com/spf13/cobra"
 )
@@ -36,24 +39,60 @@ func githubLogin() (string, error) {
 }
 
 func requestOIDCLogin() (string, error) {
-	// get the base URL from the IdP
+	// Okta documentation: https://developer.okta.com/docs/reference/api/oidc/
+
+	idp, err := oidc.NewProvider(context.Background(), "http://localhost:8080/auth/realms/adele-testing")
+	if err != nil {
+		return "", err
+	}
+
 	// get the redirect URI from etcd? (i think when we activate we will require this to be entered)
+	redirectURL := "http://localhost:14687/authorization-code/callback"
+
+	clientID := "pachyderm"
+	// clientSecret := "YAxzH2RMFunedy1XpDz8oc8mzSFapFODaIu7QSkn"
+
+	nonce := "testing"
+	state := "abc1246"
 	// prepare request by filling out parameters
+
+	conf := oauth2.Config{
+		ClientID: clientID,
+		// ClientSecret: clientSecret,
+		RedirectURL: redirectURL,
+
+		// Discovery returns the OAuth2 endpoints.
+		Endpoint: idp.Endpoint(),
+
+		// "openid" is a required scope for OpenID Connect flows.
+		Scopes: []string{oidc.ScopeOpenID},
+	}
+
+	authURL := conf.AuthCodeURL(state,
+		oauth2.SetAuthURLParam("response_type", "code"),
+		oauth2.SetAuthURLParam("nonce", nonce))
 
 	// print the prepared URL and promp the user to click on it
 	fmt.Println("(1) Please paste this link into a browser:\n\n" +
-		githubAuthLink + "\n\n" +
-		"(You will be directed to GitHub and asked to authorize Pachyderm's " +
-		"login app on GitHub. If you accept, you will be given a token to " +
+		authURL + "\n\n" +
+		"(You will be directed to your IdP and asked to authorize Pachyderm's " +
+		"login app on your IdP. If you accept, you will be given a token to " +
 		"paste here, which will give you an externally verified account in " +
 		"this Pachyderm cluster)\n\n(2) Please paste the token you receive " +
-		"from GitHub here:")
+		"from your IdP here:")
 	// receive token
-	token, err := bufio.NewReader(os.Stdin).ReadString('\n')
+	token1, err := bufio.NewReaderSize(os.Stdin, 10000).ReadString('\n')
 	if err != nil {
 		return "", fmt.Errorf("error reading token: %v", err)
 	}
-	return strings.TrimSpace(token), nil // drop trailing newline
+	fmt.Println("\nokay cool now\n")
+	token2, err := bufio.NewReaderSize(os.Stdin, 10000).ReadString('\n')
+	if err != nil {
+		return "", fmt.Errorf("error reading token: %v", err)
+	}
+	token := strings.TrimSpace(token1) + strings.TrimSpace(token2)
+	fmt.Println(token)
+	return token, nil // drop trailing newline
 }
 
 func writePachTokenToCfg(token string) error {
@@ -85,7 +124,8 @@ first cluster admin`[1:],
 			var token string
 			var err error
 			if !strings.HasPrefix(initialAdmin, auth.RobotPrefix) {
-				token, err = githubLogin()
+				// token, err = githubLogin()
+				token, err = requestOIDCLogin()
 				if err != nil {
 					return err
 				}

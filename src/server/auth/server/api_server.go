@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/coreos/go-oidc"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	enterpriseclient "github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -275,7 +276,9 @@ func NewAuthServer(
 		// start SAML service (won't respond to
 		// anything until config is set)
 		go s.serveSAML()
+		go s.serveOIDC()
 	}
+
 	// Watch for new auth config options
 	go s.watchConfig()
 	return s, nil
@@ -661,6 +664,31 @@ func GitHubTokenToUsername(ctx context.Context, oauthToken string) (string, erro
 	return auth.GitHubPrefix + verifiedUsername, nil
 }
 
+// OIDCTokenToUsername takes a OAuth access token issued by OIDC and uses
+// it discover the username of the user who obtained the code (or verify that
+// the code belongs to OIDCUsername). This is how Pachyderm currently
+// implements authorization in a production cluster
+func OIDCTokenToUsername(ctx context.Context, oauthToken string) (string, error) {
+	idp, err := oidc.NewProvider(ctx, "http://172.17.0.2:8080/auth/realms/adele-testing")
+	if err != nil {
+		return "", err
+	}
+
+	// Use the token passed in as our token source
+	ts := oauth2.StaticTokenSource(
+		&oauth2.Token{
+			AccessToken: oauthToken,
+		},
+	)
+
+	userInfo, err := idp.UserInfo(ctx, ts)
+	if err != nil {
+		return "", err
+	}
+
+	return userInfo.Email, nil
+}
+
 // GetAdmins implements the protobuf auth.GetAdmins RPC
 func (a *apiServer) GetAdmins(ctx context.Context, req *auth.GetAdminsRequest) (resp *auth.GetAdminsResponse, retErr error) {
 	a.LogReq(req)
@@ -856,6 +884,34 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 
 		// If the cluster's enterprise token is expired, only admins may log in.
 		// Check if 'username' is an admin
+		if err := a.expiredClusterAdminCheck(ctx, username); err != nil {
+			return nil, err
+		}
+
+		// Generate a new Pachyderm token and write it
+		pachToken = uuid.NewWithoutDashes()
+		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+			tokens := a.tokens.ReadWrite(stm)
+			return tokens.PutTTL(hashToken(pachToken),
+				&auth.TokenInfo{
+					Subject: username,
+					Source:  auth.TokenInfo_AUTHENTICATE,
+				},
+				defaultSessionTTLSecs)
+		}); err != nil {
+			return nil, errors.Wrapf(err, "error storing auth token for user \"%s\"", username)
+		}
+
+	case req.OIDCToken != "":
+		// Determine caller's Pachyderm/GitHub username
+
+		username, err := OIDCTokenToUsername(ctx, req.OIDCToken)
+		if err != nil {
+			return nil, err
+		}
+
+		// // If the cluster's enterprise token is expired, only admins may log in.
+		// // Check if 'username' is an admin
 		if err := a.expiredClusterAdminCheck(ctx, username); err != nil {
 			return nil, err
 		}
