@@ -7,7 +7,7 @@
 
 HERE="$(dirname "$0")"
 # shellcheck source=./etc/examples/paths.sh
-source "${HERE}/paths.sh"
+. "${HERE}/paths.sh"
 
 if [ $# -eq 0 ]
 then

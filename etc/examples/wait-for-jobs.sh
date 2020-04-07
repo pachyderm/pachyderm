@@ -6,7 +6,7 @@
 
 HERE="$(dirname "$0")"
 # shellcheck source=./etc/examples/paths.sh
-source "${HERE}/paths.sh"
+. "${HERE}/paths.sh"
 
 # the jq search filter: the filter '.state!="JOB_SUCCESS"' (without single quotes) will wait until all jobs are successful
 #                            the filter '.state!="JOB_SUCCESS" and .state!="JOB_FAILURE" will wait until all jobs have
