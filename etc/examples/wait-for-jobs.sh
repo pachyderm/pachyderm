@@ -4,9 +4,8 @@
 # $(1) can be "succeeded-only" "succeeded-or-failed"
 # $(2) description: some text that will inform the user what kind of jobs are done.
 
-etc_dir="$(dirname "$0")"
-
-source ${etc_dir}/paths.sh    
+HERE="$(dirname "$0")"
+source "${HERE}/paths.sh"
 
 # the jq search filter: the filter '.state!="JOB_SUCCESS"' (without single quotes) will wait until all jobs are successful
 #                            the filter '.state!="JOB_SUCCESS" and .state!="JOB_FAILURE" will wait until all jobs have
@@ -30,10 +29,10 @@ then
     exit 1
 fi
 
-if [ $1 = "succeeded-only" ]
+if [ "$1" = "succeeded-only" ]
 then
     filter='.state!="JOB_SUCCESS"'
-elif [ $1 = "succeeded-or-failed" ] 
+elif [ "$1" = "succeeded-or-failed" ] 
 then
     filter='.state!="JOB_SUCCESS" and .state!="JOB_FAILURE"'
 else
@@ -42,21 +41,20 @@ else
 fi
 
 while
-    JOBS=`${PACHCTL} list job --raw | jq "select(${filter})|.job.id"` && \
-	NUMJOBS=`${ECHO} -n ${JOBS} | wc -w` && \
-	[ ${NUMJOBS} -gt 0 ] 
+    JOBS=$(${PACHCTL} list job --raw | jq "select(${filter})|.job.id") && \
+	NUMJOBS=$(${ECHO} -n "${JOBS}" | wc -w | tr -d " ") && \
+	[ "${NUMJOBS}" -gt 0 ] 
 do
-    WHEEL=${WHEEL:1}${WHEEL:0:1}
-	if
-            [ ${NUMJOBS} -gt 1 ] 
-	then
-            STATUS_MSG="Waiting for ${NUMJOBS// } jobs to finish..."
-	else
-            STATUS_MSG="Waiting for ${JOBS} job to finish..."
-	fi
-	${ECHO}  -en "\e[G\e[K${WHEEL:0:1}${STATUS_MSG}"
-	sleep 1
+    if      
+        [ "${NUMJOBS}" -gt 1 ] 
+    then
+        STATUS_MSG="Waiting for ${NUMJOBS} jobs to finish..."
+    else
+        STATUS_MSG="Waiting for ${JOBS} job to finish..."
+    fi
+    ${ECHO}  -en "\e[G\e[K${STATUS_MSG}"
+    sleep 1
 done
 
-${ECHO} -e "\e[G\e[K${WHEEL:0:1}${2}"
+${ECHO} -e "\e[G\e[K${2}"
 

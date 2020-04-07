@@ -108,11 +108,10 @@ dirty-testing-cluster: opencv-base  ml/object-detection/frozen_inference_graph.p
 		`../etc/examples/pipeline-status.sh joint_call` = True && \
 		`../etc/examples/pipeline-status.sh likelihoods` = True ; \
 	do \
-		WHEEL=$${WHEEL:1}$${WHEEL:0:1}; \
-		$(ECHO)  -en "\e[G\e[K$${WHEEL:0:1}Waiting for pipelines to start..."; \
+		$(ECHO)  -en "\e[G\e[KWaiting for pipelines to start..."; \
 		sleep 1; \
 	done
-	@$(ECHO) -e "\e[G\e[K$${WHEEL:0:1}Pipelines started.";
+	@$(ECHO) -e "\e[G\e[KPipelines started.";
 	@$(ECHO)  "Committing data to images@master and training@master in a single transaction...";
 	$(PACHCTL) start transaction > /dev/null
 	$(PACHCTL) start commit images@master > /dev/null 2>/dev/null

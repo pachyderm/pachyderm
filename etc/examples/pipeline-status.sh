@@ -5,9 +5,8 @@
 # because items[0] will produce an array bounds in kubectl error if the pipeline doesn't exist yet.
 # With .items[*], 
 
-etc_dir="$(dirname "$0")"
-
-source ${etc_dir}/paths.sh    
+HERE="$(dirname "$0")"
+source "${HERE}/paths.sh"
 
 if [ $# -eq 0 ]
 then
@@ -22,12 +21,12 @@ then
 fi
 
 
-CURRENT_STATUS=`${KUBECTL} get pod -l suite=pachyderm,pipelineName=$1 \
-			-o jsonpath='{.items[*].status.conditions[?(@.type=="Ready")].status}'`
+CURRENT_STATUS=$(${KUBECTL} get pod -l suite=pachyderm,pipelineName=$1 \
+			-o jsonpath='{.items[*].status.conditions[?(@.type=="Ready")].status}')
 
-if [ $CURRENT_STATUS ]
+if [ "$CURRENT_STATUS" ]
 then
-    ${ECHO} -n $CURRENT_STATUS
+    ${ECHO} -n "$CURRENT_STATUS"
 else
     ${ECHO} -n False
 fi
