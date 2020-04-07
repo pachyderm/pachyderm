@@ -10037,27 +10037,27 @@ func TestSpout(t *testing.T) {
 			})
 		require.NoError(t, err)
 
-		pipelineInfo, err = c.InspectPipeline(pipeline)
-		require.NoError(t, err)
-		iter, err = c.SubscribeCommit(pipeline, "",
-			client.NewCommitProvenance(ppsconsts.SpecRepo, pipeline, pipelineInfo.SpecCommit.ID),
-			"", pfs.CommitState_FINISHED)
-		require.NoError(t, err)
+		// pipelineInfo, err = c.InspectPipeline(pipeline)
+		// require.NoError(t, err)
+		// iter, err = c.SubscribeCommit(pipeline, "",
+		// 	client.NewCommitProvenance(ppsconsts.SpecRepo, pipeline, pipelineInfo.SpecCommit.ID),
+		// 	"", pfs.CommitState_FINISHED)
+		// require.NoError(t, err)
 
-		for i := 0; i < 3; i++ {
-			commitInfo, err := iter.Next()
-			require.NoError(t, err)
-			require.Equal(t, 1, len(commitInfo.Provenance))
-			provenance := commitInfo.Provenance[0].Commit
-			if i == 0 {
-				// this time, we expect our commits to have different provenance from the commits earlier
-				require.NotEqual(t, provenanceID, provenance.ID)
-				provenanceID = provenance.ID
-			} else {
-				// but they should still have the same provenance as each other
-				require.Equal(t, provenanceID, provenance.ID)
-			}
-		}
+		// for i := 0; i < 3; i++ {
+		// 	commitInfo, err := iter.Next()
+		// 	require.NoError(t, err)
+		// 	require.Equal(t, 1, len(commitInfo.Provenance))
+		// 	provenance := commitInfo.Provenance[0].Commit
+		// 	if i == 0 {
+		// 		// this time, we expect our commits to have different provenance from the commits earlier
+		// 		require.NotEqual(t, provenanceID, provenance.ID)
+		// 		provenanceID = provenance.ID
+		// 	} else {
+		// 		// but they should still have the same provenance as each other
+		// 		require.Equal(t, provenanceID, provenance.ID)
+		// 	}
+		// }
 	})
 	t.Run("ServiceSpout", func(t *testing.T) {
 		dataRepo := tu.UniqueString("TestServiceSpout_data")
