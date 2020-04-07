@@ -24,7 +24,8 @@ message DatumInputsList {
 // contains references to all generated hashtree chunks from the job, which must
 // be merged into the final hashtree.
 message HashtreeTags {
-  repeated string tags = 1;
+  repeated string chunk_tags = 1;
+  repeated string stats_tags = 2;
 }
 
 message RecoveredDatums {
@@ -64,8 +65,9 @@ message DatumData {
 
   // Outputs
   DatumStats stats = 4;
-  HashtreeInfo hashtree = 5;
-  string recovered_datums_tag = 6;
+  HashtreeInfo chunk_hashtree = 5;
+  HashtreeInfo stats_hashtree = 6;
+  string recovered_datums_tag = 7;
 }
 
 message MergeData {
@@ -74,8 +76,9 @@ message MergeData {
   repeated HashtreeInfo hashtrees = 2;
   pfs.Object parent = 3;
   int64 shard = 4;
+  bool stats = 5;
 
   // Outputs
-  pfs.Object tree = 5;
-  uint64 tree_size = 6;
+  pfs.Object tree = 6;
+  uint64 tree_size = 7;
 }

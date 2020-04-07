@@ -48,24 +48,25 @@ func jobRecoveredDatumTagsTag(jobID string) string {
 }
 
 type pendingJob struct {
-	driver     driver.Driver
-	commitInfo *pfs.CommitInfo
-	cancel     context.CancelFunc
-	logger     logs.TaggedLogger
-	ji         *pps.JobInfo
-	jdit       chain.JobDatumIterator
-	taskMaster *work.Master
+	driver          driver.Driver
+	commitInfo      *pfs.CommitInfo
+	statsCommitInfo *pfs.CommitInfo
+	cancel          context.CancelFunc
+	logger          logs.TaggedLogger
+	ji              *pps.JobInfo
+	jdit            chain.JobDatumIterator
+	taskMaster      *work.Master
 
 	// These are filled in when the RUNNING phase completes, but may be re-fetched
 	// from object storage.
-	hashtrees []*HashtreeInfo
+	chunkHashtrees []*HashtreeInfo
+	statsHashtrees []*HashtreeInfo
 }
 
 type registry struct {
 	driver      driver.Driver
 	logger      logs.TaggedLogger
 	taskQueue   *work.TaskQueue
-	mutex       sync.Mutex
 	concurrency uint64
 	limiter     limit.ConcurrencyLimiter
 	jobChain    chain.JobChain
@@ -590,7 +591,7 @@ func (reg *registry) getParentCommitInfo(commitInfo *pfs.CommitInfo) (*pfs.Commi
 // be generated.
 func (reg *registry) ensureJob(
 	commitInfo *pfs.CommitInfo,
-	metaCommit *pfs.Commit,
+	statsCommit *pfs.Commit,
 ) (*pps.JobInfo, error) {
 	pachClient := reg.driver.PachClient()
 
@@ -602,7 +603,7 @@ func (reg *registry) ensureJob(
 	if len(jobInfos) > 1 {
 		return nil, errors.Errorf("multiple jobs found for commit: %s/%s", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
 	} else if len(jobInfos) < 1 {
-		job, err := pachClient.CreateJob(reg.driver.PipelineInfo().Pipeline.Name, commitInfo.Commit, metaCommit)
+		job, err := pachClient.CreateJob(reg.driver.PipelineInfo().Pipeline.Name, commitInfo.Commit, statsCommit)
 		if err != nil {
 			return nil, err
 		}
@@ -619,7 +620,7 @@ func (reg *registry) ensureJob(
 	return pachClient.InspectJob(jobInfos[0].Job.ID, false)
 }
 
-func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit) error {
+func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commit) error {
 	if err := reg.initializeJobChain(commitInfo); err != nil {
 		return err
 	}
@@ -632,7 +633,12 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit
 		}
 	}()
 
-	jobInfo, err := reg.ensureJob(commitInfo, metaCommit)
+	jobInfo, err := reg.ensureJob(commitInfo, statsCommit)
+	if err != nil {
+		return err
+	}
+
+	statsCommitInfo, err := reg.driver.PachClient().InspectCommit(statsCommit.Repo.Name, statsCommit.ID)
 	if err != nil {
 		return err
 	}
@@ -643,11 +649,12 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, metaCommit *pfs.Commit
 	// Build the pending job to send out to workers - this will block if we have
 	// too many already
 	pj := &pendingJob{
-		driver:     driver,
-		commitInfo: commitInfo,
-		cancel:     cancel,
-		logger:     reg.logger.WithJob(jobInfo.Job.ID),
-		ji:         jobInfo,
+		driver:          driver,
+		commitInfo:      commitInfo,
+		statsCommitInfo: statsCommitInfo,
+		cancel:          cancel,
+		logger:          reg.logger.WithJob(jobInfo.Job.ID),
+		ji:              jobInfo,
 	}
 
 	switch {
@@ -891,7 +898,8 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 
 	mutex := &sync.Mutex{}
 	stats := &DatumStats{ProcessStats: &pps.ProcessStats{}}
-	hashtrees := []*HashtreeInfo{}
+	chunkHashtrees := []*HashtreeInfo{}
+	statsHashtrees := []*HashtreeInfo{}
 	recoveredTags := []string{}
 
 	// Run subtasks until we are done
@@ -918,8 +926,11 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 						return errors.Errorf("datum processing failed on datum (%s)", stats.FailedDatumID)
 					}
 
-					if data.Hashtree != nil {
-						hashtrees = append(hashtrees, data.Hashtree)
+					if data.ChunkHashtree != nil {
+						chunkHashtrees = append(chunkHashtrees, data.ChunkHashtree)
+					}
+					if data.StatsHashtree != nil {
+						statsHashtrees = append(statsHashtrees, data.StatsHashtree)
 					}
 					if data.RecoveredDatumsTag != "" {
 						recoveredTags = append(recoveredTags, data.RecoveredDatumsTag)
@@ -948,7 +959,7 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	}
 
 	// Write the hashtrees list and recovered datums list to object storage
-	if err := pj.storeHashtreeInfos(hashtrees); err != nil {
+	if err := pj.storeHashtreeInfos(chunkHashtrees, statsHashtrees); err != nil {
 		return err
 	}
 	if err := pj.storeRecoveredTags(recoveredTags); err != nil {
@@ -970,12 +981,16 @@ func (pj *pendingJob) saveJobStats(stats *DatumStats) {
 	pj.ji.Stats = stats.ProcessStats
 }
 
-func (pj *pendingJob) storeHashtreeInfos(hashtrees []*HashtreeInfo) error {
-	pj.hashtrees = hashtrees
+func (pj *pendingJob) storeHashtreeInfos(chunks []*HashtreeInfo, stats []*HashtreeInfo) error {
+	pj.chunkHashtrees = chunks
+	pj.statsHashtrees = stats
 
-	tags := &HashtreeTags{Tags: []string{}}
-	for _, info := range hashtrees {
-		tags.Tags = append(tags.Tags, info.Tag)
+	tags := &HashtreeTags{ChunkTags: []string{}, StatsTags: []string{}}
+	for _, info := range chunks {
+		tags.ChunkTags = append(tags.ChunkTags, info.Tag)
+	}
+	for _, info := range stats {
+		tags.StatsTags = append(tags.StatsTags, info.Tag)
 	}
 
 	buf := &bytes.Buffer{}
@@ -1006,7 +1021,7 @@ func (pj *pendingJob) storeRecoveredTags(recoveredTags []string) error {
 }
 
 func (pj *pendingJob) initializeHashtrees() error {
-	if pj.hashtrees == nil {
+	if pj.chunkHashtrees == nil {
 		// We are picking up an old job and don't have the hashtrees generated by
 		// the 'running' state, load them from object storage
 		buf := &bytes.Buffer{}
@@ -1020,12 +1035,15 @@ func (pj *pendingJob) initializeHashtrees() error {
 			return err
 		}
 
-		hashtreeInfos := []*HashtreeInfo{}
-		for _, tag := range hashtreeTags.Tags {
-			hashtreeInfos = append(hashtreeInfos, &HashtreeInfo{Tag: tag})
+		pj.chunkHashtrees = []*HashtreeInfo{}
+		for _, tag := range hashtreeTags.ChunkTags {
+			pj.chunkHashtrees = append(pj.chunkHashtrees, &HashtreeInfo{Tag: tag})
 		}
 
-		pj.hashtrees = hashtreeInfos
+		pj.statsHashtrees = []*HashtreeInfo{}
+		for _, tag := range hashtreeTags.StatsTags {
+			pj.statsHashtrees = append(pj.statsHashtrees, &HashtreeInfo{Tag: tag})
+		}
 	}
 	return nil
 }
@@ -1070,39 +1088,38 @@ func (pj *pendingJob) loadRecoveredDatums() (chain.DatumSet, error) {
 	return datumSet, nil
 }
 
-func (reg *registry) processJobMerging(pj *pendingJob) error {
-	if err := pj.initializeHashtrees(); err != nil {
-		return err
-	}
-
+func (reg *registry) makeMergeSubtasks(pj *pendingJob, commitInfo *pfs.CommitInfo, stats bool) ([]*work.Task, error) {
 	// For jobs that can base their hashtree off of the parent hashtree, fetch the
 	// object information for the parent hashtrees
 	// TODO: this is risky - there's no check that the parent the jobChain is
 	// thinking of is the same one we find.  Add some extra guarantees here if we can.
 	var parentHashtrees []*pfs.Object
 	if pj.jdit.AdditiveOnly() {
-		parentCommitInfo, err := reg.getParentCommitInfo(pj.commitInfo)
+		parentCommitInfo, err := reg.getParentCommitInfo(commitInfo)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		if parentCommitInfo != nil {
 			parentHashtrees = parentCommitInfo.Trees
 			if len(parentHashtrees) != int(reg.driver.NumShards()) {
-				return errors.Errorf("unexpected number of hashtrees between the parent commit (%d) and the pipeline spec (%d)", len(parentHashtrees), reg.driver.NumShards())
+				return nil, errors.Errorf(
+					"unexpected number of hashtrees between the parent commit (%d) and the pipeline spec (%d)",
+					len(parentHashtrees), reg.driver.NumShards(),
+				)
 			}
 		}
 	}
 
 	if parentHashtrees != nil {
-		pj.logger.Logf("merging %d hashtrees with parent hashtree across %d shards", len(pj.hashtrees), reg.driver.NumShards())
+		pj.logger.Logf("merging %d hashtrees with parent hashtree across %d shards", len(pj.chunkHashtrees), reg.driver.NumShards())
 	} else {
-		pj.logger.Logf("merging %d hashtrees across %d shards", len(pj.hashtrees), reg.driver.NumShards())
+		pj.logger.Logf("merging %d hashtrees across %d shards", len(pj.chunkHashtrees), reg.driver.NumShards())
 	}
 
 	mergeSubtasks := []*work.Task{}
 	for i := int64(0); i < reg.driver.NumShards(); i++ {
-		mergeData := &MergeData{Hashtrees: pj.hashtrees, Shard: i, JobID: pj.ji.Job.ID}
+		mergeData := &MergeData{Hashtrees: pj.chunkHashtrees, Shard: i, JobID: pj.ji.Job.ID, Stats: stats}
 
 		if parentHashtrees != nil {
 			mergeData.Parent = parentHashtrees[i]
@@ -1110,7 +1127,7 @@ func (reg *registry) processJobMerging(pj *pendingJob) error {
 
 		data, err := serializeMergeData(mergeData)
 		if err != nil {
-			return errors.Wrap(err, "failed to serialize merge data")
+			return nil, errors.Wrap(err, "failed to serialize merge data")
 		}
 
 		mergeSubtasks = append(mergeSubtasks, &work.Task{
@@ -1119,8 +1136,35 @@ func (reg *registry) processJobMerging(pj *pendingJob) error {
 		})
 	}
 
+	return mergeSubtasks, nil
+}
+
+func (reg *registry) processJobMerging(pj *pendingJob) error {
+	if err := pj.initializeHashtrees(); err != nil {
+		return err
+	}
+
+	mutex := &sync.Mutex{}
+	mergeSubtasks := []*work.Task{}
+
+	chunkMergeSubtasks, err := reg.makeMergeSubtasks(pj, pj.commitInfo, false)
+	if err != nil {
+		return err
+	}
+	mergeSubtasks = append(mergeSubtasks, chunkMergeSubtasks...)
+
+	if pj.statsCommitInfo != nil {
+		statsMergeSubtasks, err := reg.makeMergeSubtasks(pj, pj.statsCommitInfo, true)
+		if err != nil {
+			return err
+		}
+		mergeSubtasks = append(mergeSubtasks, statsMergeSubtasks...)
+	}
+
 	trees := make([]*pfs.Object, reg.driver.NumShards())
 	size := uint64(0)
+	statsTrees := make([]*pfs.Object, reg.driver.NumShards())
+	statsSize := uint64(0)
 
 	pj.logger.Logf("sending out %d merge tasks", len(trees))
 
@@ -1141,8 +1185,16 @@ func (reg *registry) processJobMerging(pj *pendingJob) error {
 				return errors.Errorf("merge task for shard %d failed, no tree returned", data.Shard)
 			}
 
-			trees[data.Shard] = data.Tree
-			size += data.TreeSize
+			mutex.Lock()
+			defer mutex.Unlock()
+
+			if data.Stats {
+				statsTrees[data.Shard] = data.Tree
+				statsSize += data.TreeSize
+			} else {
+				trees[data.Shard] = data.Tree
+				size += data.TreeSize
+			}
 			return nil
 		},
 	); err != nil {
@@ -1150,15 +1202,9 @@ func (reg *registry) processJobMerging(pj *pendingJob) error {
 		return errors.Wrap(err, "merge error")
 	}
 
-	if err := reg.succeedJob(pj, trees, size, []*pfs.Object{}, 0); err != nil {
+	if err := reg.succeedJob(pj, trees, size, statsTrees, statsSize); err != nil {
 		return err
 	}
-
-	reg.mutex.Lock()
-	// TODO: propagate failed datums to downstream job
-
-	// TODO: close downstream job's datumTask channel
-	defer reg.mutex.Unlock()
 	return nil
 }
 

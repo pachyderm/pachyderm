@@ -7,11 +7,14 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/sync/errgroup"
 
@@ -36,6 +39,7 @@ import (
 
 var (
 	errDatumRecovered = errors.New("the datum errored, and the error was handled successfully")
+	statsTagSuffix    = "_stats"
 )
 
 // TODO: would be nice to have these have a deterministic ID rather than based
@@ -43,6 +47,10 @@ var (
 // restarted
 func jobRecoveredDatumsTag(jobID string, subtaskID string) string {
 	return fmt.Sprintf("%s-recovered-%s", jobTagPrefix(jobID), subtaskID)
+}
+
+func jobChunkStatsTag(jobID string, subtaskID string) string {
+	return fmt.Sprintf("%s-chunk-stats-%s", jobTagPrefix(jobID), subtaskID)
 }
 
 func jobChunkTag(jobID string, subtaskID string) string {
@@ -173,26 +181,25 @@ func uploadRecoveredDatums(driver driver.Driver, logger logs.TaggedLogger, recov
 	})
 }
 
-func uploadChunk(driver driver.Driver, logger logs.TaggedLogger, cache *hashtree.MergeCache, tag string) error {
+func uploadChunk(
+	driver driver.Driver,
+	logger logs.TaggedLogger,
+	subtaskCache *hashtree.MergeCache,
+	chunkCache *hashtree.MergeCache,
+	tag string,
+) error {
 	return logger.LogStep("uploading hashtree chunk", func() error {
 		// Merge the datums for this job into a chunk
 		buf := &bytes.Buffer{}
-		if err := cache.Merge(hashtree.NewWriter(buf), nil, nil); err != nil {
+		if err := subtaskCache.Merge(hashtree.NewWriter(buf), nil, nil); err != nil {
 			return err
 		}
 
-		// Cache the hashtree in the chunk cache for this job
-		cache, err := driver.ChunkCaches().GetOrCreateCache(logger.JobID())
-		if err != nil {
-			return err
-		}
-
-		if err := cache.Put(tag, bytes.NewBuffer(buf.Bytes())); err != nil {
+		if err := chunkCache.Put(tag, bytes.NewBuffer(buf.Bytes())); err != nil {
 			return err
 		}
 
 		// Upload the hashtree for this subtask to the given tag
-		// TODO: may need to delete the tag first, supposedly this will fail if it already exists
 		putObjectWriter, err := driver.PachClient().PutObjectAsync([]*pfs.Tag{client.NewTag(tag)})
 		if err != nil {
 			return err
@@ -267,7 +274,7 @@ func handleDatumTask(driver driver.Driver, logger logs.TaggedLogger, data *Datum
 						defer atomic.AddInt64(&queueSize, -1)
 
 						// subStats is still valid even on an error, merge those in before proceeding
-						subStats, subRecovered, err := processDatum(driver, logger.WithData(inputs), inputs, data.OutputCommit, datumCache, status)
+						subStats, subRecovered, err := processDatum(driver, logger.WithData(inputs), inputs, data.OutputCommit, datumCache, statsCache, status)
 
 						statsMutex.Lock()
 						defer statsMutex.Unlock()
@@ -300,12 +307,30 @@ func handleDatumTask(driver driver.Driver, logger logs.TaggedLogger, data *Datum
 				data.RecoveredDatumsTag = recoveredDatumsTag
 			}
 
-			chunkTag := jobChunkTag(logger.JobID(), subtaskID)
-			if err := uploadChunk(driver, logger, datumCache, chunkTag); err != nil {
+			chunkCache, err := driver.ChunkCaches().GetOrCreateCache(logger.JobID())
+			if err != nil {
 				return err
 			}
 
-			data.Hashtree = &HashtreeInfo{Address: os.Getenv(client.PPSWorkerIPEnv), Tag: chunkTag}
+			chunkTag := jobChunkTag(logger.JobID(), subtaskID)
+			if err := uploadChunk(driver, logger, datumCache, chunkCache, chunkTag); err != nil {
+				return err
+			}
+
+			data.ChunkHashtree = &HashtreeInfo{Address: os.Getenv(client.PPSWorkerIPEnv), Tag: chunkTag}
+		}
+
+		if driver.PipelineInfo().EnableStats {
+			chunkStatsCache, err := driver.ChunkStatsCaches().GetOrCreateCache(logger.JobID())
+			if err != nil {
+				return err
+			}
+
+			chunkStatsTag := jobChunkStatsTag(logger.JobID(), subtaskID)
+			if err := uploadChunk(driver, logger, statsCache, chunkStatsCache, chunkStatsTag); err != nil {
+				return err
+			}
+			data.StatsHashtree = &HashtreeInfo{Address: os.Getenv(client.PPSWorkerIPEnv), Tag: chunkStatsTag}
 		}
 
 		return nil
@@ -318,8 +343,9 @@ func processDatum(
 	inputs []*common.Input,
 	outputCommit *pfs.Commit,
 	datumCache *hashtree.MergeCache,
+	datumStatsCache *hashtree.MergeCache,
 	status *Status,
-) (*DatumStats, []string, error) {
+) (_ *DatumStats, _ []string, retErr error) {
 	recoveredDatumTags := []string{}
 	stats := &DatumStats{}
 	tag := common.HashDatum(driver.PipelineInfo().Pipeline.Name, driver.PipelineInfo().Salt, inputs)
@@ -340,7 +366,6 @@ func processDatum(
 	}
 
 	var inputTree, outputTree *hashtree.Ordered
-	/* TODO: enable stats
 	var statsTree *hashtree.Unordered
 	if driver.PipelineInfo().EnableStats {
 		statsRoot := path.Join("/", datumID)
@@ -350,12 +375,11 @@ func processDatum(
 		// Write job id to stats tree
 		statsTree.PutFile(fmt.Sprintf("job:%s", logger.JobID()), nil, 0)
 		defer func() {
-			if err := writeStats(driver, logger, tag, stats.ProcessStats, inputTree, outputTree, statsTree); err != nil && retErr == nil {
+			if err := writeStats(driver, logger, stats.ProcessStats, inputTree, outputTree, statsTree, tag, datumStatsCache); err != nil && retErr == nil {
 				retErr = err
 			}
 		}()
 	}
-	*/
 
 	var failures int64
 	if err := backoff.RetryUntilCancel(driver.PachClient().Ctx(), func() error {
@@ -405,13 +429,12 @@ func processDatum(
 		failures++
 		if failures >= driver.PipelineInfo().DatumTries {
 			logger.Logf("failed to process datum with error: %+v", err)
-			/* TODO: enable stats
 			if statsTree != nil {
-				object, size, err := pachClient.PutObject(strings.NewReader(err.Error()))
+				object, size, err := driver.PachClient().PutObject(strings.NewReader(err.Error()))
 				if err != nil {
 					logger.Errf("could not put error object: %s\n", err)
 				} else {
-					objectInfo, err := pachClient.InspectObject(object.Hash)
+					objectInfo, err := driver.PachClient().InspectObject(object.Hash)
 					if err != nil {
 						return err
 					}
@@ -422,7 +445,6 @@ func processDatum(
 					statsTree.PutFile("failure", h, size, objectInfo.BlockRef)
 				}
 			}
-			*/
 			return err
 		}
 		logger.Logf("failed processing datum: %v, retrying in %v", err, d)
@@ -475,7 +497,6 @@ func userCodeEnv(
 	return result
 }
 
-/* TODO: enable stats
 func writeStats(
 	driver driver.Driver,
 	logger logs.TaggedLogger,
@@ -484,6 +505,7 @@ func writeStats(
 	outputTree *hashtree.Ordered,
 	statsTree *hashtree.Unordered,
 	tag string,
+	datumStatsCache *hashtree.MergeCache,
 ) (retErr error) {
 	// Store stats and add stats file
 	marshaler := &jsonpb.Marshaler{}
@@ -552,9 +574,8 @@ func writeStats(
 		return err
 	}
 	// Cache datum stats hashtree locally
-	return driver.CacheStatsHashtree(logger.JobID(), tag, bytes.NewReader(buf.Bytes()))
+	return datumStatsCache.Put(tag, bytes.NewReader(buf.Bytes()))
 }
-*/
 
 func fetchChunkFromWorker(driver driver.Driver, logger logs.TaggedLogger, address string, tag string, shard int64) (io.ReadCloser, error) {
 	// TODO: cache cross-worker clients at the driver level
