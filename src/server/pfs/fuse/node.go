@@ -109,6 +109,9 @@ func (n *node) downloadFile() (_ string, retErr error) {
 }
 
 func (n *node) Open(ctx context.Context, openFlags uint32) (fs.FileHandle, uint32, syscall.Errno) {
+	if allowsWrite(openFlags) {
+		return nil, 0, syscall.EROFS
+	}
 	key := fileKey(n.file)
 	path := ""
 	func() {
@@ -116,7 +119,6 @@ func (n *node) Open(ctx context.Context, openFlags uint32) (fs.FileHandle, uint3
 		defer n.m.mu.Unlock()
 		if file, ok := n.m.files[key]; ok {
 			path = file.path
-			file.dirty = file.dirty || allowsWrite(openFlags)
 		}
 	}()
 	if path == "" {
@@ -133,12 +135,10 @@ func (n *node) Open(ctx context.Context, openFlags uint32) (fs.FileHandle, uint3
 			// Someone did, so we remove our copy of the file and use theirs.
 			os.Remove(path)
 			path = file.path
-			file.dirty = file.dirty || allowsWrite(openFlags)
 		}
 		n.m.files[fileKey(n.file)] = &file{
-			pfs:   n.file,
-			path:  path,
-			dirty: allowsWrite(openFlags),
+			pfs:  n.file,
+			path: path,
 		}
 	}
 	fd, err := syscall.Open(path, int(openFlags), 0)

@@ -5,14 +5,14 @@ import (
 	"os/signal"
 	"sync"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
-	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
 const (
@@ -21,9 +21,8 @@ const (
 )
 
 type file struct {
-	pfs   *pfs.File
-	path  string
-	dirty bool
+	pfs  *pfs.File
+	path string
 }
 
 type mount struct {
@@ -79,47 +78,11 @@ func Mount(c *client.APIClient, mountPoint string, opts *Options) (retErr error)
 		server.Unmount()
 	}()
 	server.Serve()
-	pfcs := make(map[string]client.PutFileClient)
+	var eg errgroup.Group
 	for _, file := range files {
-		if file.dirty {
-			var pfc client.PutFileClient
-			if _pfc, ok := pfcs[file.pfs.Commit.Repo.Name]; ok {
-				pfc = _pfc
-			} else {
-				pfc, err = c.NewPutFileClient()
-				if err != nil {
-					return err
-				}
-				defer func() {
-					if err := pfc.Close(); err != nil && retErr == nil {
-						retErr = err
-					}
-				}()
-				pfcs[file.pfs.Commit.Repo.Name] = pfc
-			}
-			if err := func() error {
-				f, err := os.Open(file.path)
-				if err != nil {
-					return err
-				}
-				if err := os.Remove(file.path); err != nil {
-					return err
-				}
-				defer func() {
-					if err := f.Close(); err != nil && retErr == nil {
-						retErr = err
-					}
-				}()
-				branch := "master"
-				if commit, ok := commits[file.pfs.Commit.Repo.Name]; ok && !uuid.IsUUIDWithoutDashes(commit) {
-					branch = commit
-				}
-				file.pfs.Commit.ID = branch
-				return pfssync.PushFile(c, pfc, file.pfs, f)
-			}(); err != nil {
-				return err
-			}
-		}
+		eg.Go(func() error {
+			return os.Remove(file.path)
+		})
 	}
-	return nil
+	return eg.Wait()
 }
