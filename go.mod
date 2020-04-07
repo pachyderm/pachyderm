@@ -141,3 +141,5 @@ require (
 // Holy shit, the docker library versions are a clusterfuck, see https://github.com/moby/moby/issues/39302
 // For the moment, the windows build requires a fix that has not been tagged with an official release
 replace github.com/docker/docker => github.com/docker/docker v1.4.2-0.20191213113251-3452f136aa68
+
+replace github.com/hanwen/go-fuse => ./vendor/github.com/hanwen/go-fuse
