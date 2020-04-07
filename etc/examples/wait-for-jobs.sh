@@ -5,6 +5,7 @@
 # $(2) description: some text that will inform the user what kind of jobs are done.
 
 HERE="$(dirname "$0")"
+# shellcheck source=./etc/examples/paths.sh
 source "${HERE}/paths.sh"
 
 # the jq search filter: the filter '.state!="JOB_SUCCESS"' (without single quotes) will wait until all jobs are successful
