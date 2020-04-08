@@ -101,6 +101,11 @@
       "command": "docker push pachyderm/worker:`pachctl version --client-only`"
     },
     {
+      "label": "release-pachctl-custom",
+      "type": "shell",
+	    "command": "VERSION=$(pachctl version --client-only) ./etc/build/release_pachctl.sh $(pachctl version --client-only)"
+    },
+    {
       "label": "install",
       "type": "shell",
       "command": "./etc/build/vscode_install_task.sh",
@@ -109,7 +114,7 @@
     {
       "label": "undeploy-dev",
       "type": "shell",
-      "command": "pachctl undeploy"
+      "command": "yes | pachctl undeploy"
     },
     {
       "label": "deploy-dev",
