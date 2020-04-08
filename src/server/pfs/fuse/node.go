@@ -22,6 +22,11 @@ type node struct {
 	m    *mount
 }
 
+func (n *node) Statfs(ctx context.Context, out *fuse.StatfsOut) syscall.Errno {
+	out.FromStatfsT(&syscall.Statfs_t{})
+	return 0
+}
+
 func (n *node) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno) {
 	var result staticDirEntries
 	switch {
