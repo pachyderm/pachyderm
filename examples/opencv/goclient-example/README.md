@@ -10,7 +10,7 @@ root of the Pachyderm repository.
 **Example:**
 
 ```
-go run go run examples/opencv/goclient-example/opencv-example.go
+go run examples/opencv/goclient-example/opencv-example.go
 ```
 
 **System Response:**
