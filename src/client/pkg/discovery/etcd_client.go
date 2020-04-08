@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/coreos/go-etcd/etcd"
+	"github.com/sirupsen/logrus"
 )
 
 type etcdClient struct {
@@ -59,7 +60,7 @@ func customCheckRetry(cluster *etcd.Cluster, numReqs int, lastResp http.Response
 
 	// sleep some time and expect leader election finish
 	time.Sleep(time.Millisecond * 500)
-	fmt.Println("Warning: bad response status code ", lastResp.StatusCode)
+	logrus.Warnf("bad response status code from etcd: %d", lastResp.StatusCode)
 	return nil
 }
 
