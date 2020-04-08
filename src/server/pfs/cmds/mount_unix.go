@@ -35,6 +35,7 @@ func parseCommits(args []string) (map[string]string, error) {
 func mountCmds() []*cobra.Command {
 	var commands []*cobra.Command
 
+	var write bool
 	var debug bool
 	var commits cmdutil.RepeatedStringArg
 	mount := &cobra.Command{
@@ -53,6 +54,7 @@ func mountCmds() []*cobra.Command {
 				return err
 			}
 			opts := &fuse.Options{
+				Write: write,
 				Fuse: &fs.Options{
 					MountOptions: gofuse.MountOptions{
 						Debug: debug,
@@ -63,6 +65,7 @@ func mountCmds() []*cobra.Command {
 			return fuse.Mount(c, mountPoint, opts)
 		}),
 	}
+	mount.Flags().BoolVarP(&write, "write", "w", false, "Allow writing to pfs through the mount.")
 	mount.Flags().BoolVarP(&debug, "debug", "d", false, "Turn on debug messages.")
 	mount.Flags().VarP(&commits, "commits", "c", "Commits to mount for repos, arguments should be of the form \"repo@commit\"")
 	mount.MarkFlagCustom("commits", "__pachctl_get_repo_branch")

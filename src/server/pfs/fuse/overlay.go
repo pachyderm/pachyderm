@@ -5,7 +5,21 @@ import (
 	"syscall"
 )
 
-func overlay(lower, upper, workdir, target string) error {
+// unshare is a wrapper around syscall.Unshare calling this allows you to call
+// overlay without being root
+func unshare() error {
+	return syscall.Unshare(syscall.CLONE_NEWNS | syscall.CLONE_NEWUSER)
+}
+
+// overlay is a wrapper around syscall.Mount that mounts an overlay filesystem
+// `lowerdir` is the base layer which will be read from but not written to,
+// `upperdir` is where writes will go, and thus where we'll find writes once the mount is finished
+// `workdir` is a scratch space that overlay uses, overlay seems to clean it up
+// after it's unmounted leaving only empty directories, the caller should
+// cleanup those directories after unmount.
+// target is where the filesystem will be mounted
+// all of these directories should exist before calling this
+func overlay(lowerdir, upperdir, workdir, target string) error {
 	// This is the signature of syscall.Mount:
 	// func Mount(source string, target string, fstype string, flags uintptr, data string)
 	return syscall.Mount(
@@ -32,7 +46,7 @@ func overlay(lower, upper, workdir, target string) error {
 		// once the mount is finished, "workdir" is a scratch space that
 		// overlay uses, overlay seems to clean it up after it's unmounted, but
 		// it makes sense to delete it after the mount is finished.
-		fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", lower, upper, workdir),
+		fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", lowerdir, upperdir, workdir),
 	)
 
 	// mount("overlay", "/home/jdoliner/Repos/pachyderm/pfs", "overlay", MS_MGC_VAL, "lowerdir=./lower,upperdir=./uppe"...)

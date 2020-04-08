@@ -154,7 +154,6 @@ func (n *node) Open(ctx context.Context, openFlags uint32) (fs.FileHandle, uint3
 }
 
 func toErrno(err error) syscall.Errno {
-	fmt.Println(err)
 	if errutil.IsNotFoundError(err) {
 		return syscall.ENOENT
 	}

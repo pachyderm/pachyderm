@@ -9,11 +9,18 @@ import (
 // everything.
 type Options struct {
 	Fuse *fs.Options
+
+	// Write indicates that the pfs mount should allow writes.
+	// Writes will be written back to the filesystem.
+	Write bool
+
 	// commits is a map from repos to commits, if a repo is unspecified then
 	// the master commit of the repo at the time the repo is first requested
 	// will be used.
 	Commits map[string]string
 
+	// Unmount is a channel that will be closed when the filesystem has been
+	// unmounted. It can be nil in which case it's ignored.
 	Unmount chan struct{}
 }
 

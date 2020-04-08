@@ -1,6 +1,7 @@
 package fuse
 
 import (
+	"io/ioutil"
 	"os"
 	"os/signal"
 	"sync"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
+	"github.com/pkg/errors"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -53,11 +55,19 @@ func (m *mount) commit(repo string) (string, error) {
 	return bi.Head.ID, nil
 }
 
-// Mount pfs to mountPoint, opts may be left nil.
-func Mount(c *client.APIClient, mountPoint string, opts *Options) (retErr error) {
+// Mount pfs to target, opts may be left nil.
+func Mount(c *client.APIClient, target string, opts *Options) error {
 	files := make(map[string]*file)
 	commits := opts.getCommits()
-	server, err := fs.Mount(mountPoint, &node{
+	fuseTarget := target
+	if opts.Write {
+		var err error
+		fuseTarget, err = ioutil.TempDir("", "pfs-fuse-lower")
+		if err != nil {
+			return err
+		}
+	}
+	server, err := fs.Mount(fuseTarget, &node{
 		file: client.NewFile("", "", ""),
 		m: &mount{
 			c:       c,
@@ -77,6 +87,23 @@ func Mount(c *client.APIClient, mountPoint string, opts *Options) (retErr error)
 		}
 		server.Unmount()
 	}()
+	var overlayErr error
+	if opts.Write {
+		upperdir, err := ioutil.TempDir("", "pfs-fuse-upper")
+		if err != nil {
+			return err
+		}
+		workdir, err := ioutil.TempDir("", "pfs-fuse-work")
+		if err != nil {
+			return err
+		}
+		go func() {
+			if err := overlay(fuseTarget, upperdir, workdir, target); err != nil {
+				overlayErr = errors.Wrap(err, "error creating overlay mount")
+				server.Unmount()
+			}
+		}()
+	}
 	server.Serve()
 	var eg errgroup.Group
 	for _, file := range files {
