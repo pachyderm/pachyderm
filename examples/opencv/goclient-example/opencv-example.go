@@ -18,7 +18,7 @@ func main() {
 	// Replace the IP address with your `pachd` address.
 	// If running in minikube, this will be your minikube
 	// IP.
-	c, err := client.NewFromAddress("192.168.64.2:30650")
+	c, err := client.NewFromAddress("localhost:30650")
 	if err != nil {
 		panic(err)
 	}
