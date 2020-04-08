@@ -146,7 +146,7 @@ func fetchRawIDPMetadata(name string, mdURL *url.URL) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not retrieve IdP metadata for %q: %v", name, err)
 	}
-	req.Header.Set("User-Agent", "Golang; github.com/pachyderm/pachdyerm")
+	req.Header.Set("User-Agent", "Golang; github.com/pachyderm/pachyderm")
 
 	var rawMetadata []byte
 	b := backoff.NewInfiniteBackOff()
