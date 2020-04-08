@@ -1121,7 +1121,7 @@ func Cmds() []*cobra.Command {
 You are going to delete persistent volumes where metadata is stored. If your
 persistent volumes were dynamically provisioned (i.e. if you used the
 "--dynamic-etcd-nodes" flag), the underlying volumes will be removed, making
-metadata such repos, commits, pipelines, and jobs unrecoverable. If your
+metadata such as repos, commits, pipelines, and jobs unrecoverable. If your
 persistent volume was manually provisioned (i.e. if you used the
 "--static-etcd-volume" flag), the underlying volume will not be removed.
 `)
@@ -1232,7 +1232,7 @@ persistent volume was manually provisioned (i.e. if you used the
 	undeploy.Flags().BoolVarP(&includingMetadata, "metadata", "", false, `
 Delete persistent volumes where metadata is stored. If your persistent volumes
 were dynamically provisioned (i.e. if you used the "--dynamic-etcd-nodes"
-flag), the underlying volumes will be removed, making metadata such repos,
+flag), the underlying volumes will be removed, making metadata such as repos,
 commits, pipelines, and jobs unrecoverable. If your persistent volume was
 manually provisioned (i.e. if you used the "--static-etcd-volume" flag), the
 underlying volume will not be removed.`)
