@@ -155,6 +155,8 @@ github.com/fluhus/godoc-tricks v1.0.0 h1:1jIf/PnkaqMe+LLwOfYsVaCZ5dhcxUPHLAHur9g
 github.com/fluhus/godoc-tricks v1.0.0/go.mod h1:1N650FoAiSfLt9dnD/ZxopiilNjtw+H8ocjRFbPWW2E=
 github.com/flynn/go-shlex v0.0.0-20150515145356-3f9db97f8568 h1:BHsljHzVlRcyQhjrss6TZTdY2VfCqZPbv5k3iBFa2ZQ=
 github.com/flynn/go-shlex v0.0.0-20150515145356-3f9db97f8568/go.mod h1:xEzjJPgXI435gkrCt3MPfRiAkVrwSbHsst4LCFVfpJc=
+github.com/fluhus/godoc-tricks v1.0.0 h1:1jIf/PnkaqMe+LLwOfYsVaCZ5dhcxUPHLAHur9geBCk=
+github.com/fluhus/godoc-tricks v1.0.0/go.mod h1:1N650FoAiSfLt9dnD/ZxopiilNjtw+H8ocjRFbPWW2E=
 github.com/fsnotify/fsnotify v1.4.7 h1:IXs+QLmnXW2CcXuY+8Mzv/fWEsPGWxqefPtCP5CnV9I=
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
 github.com/fsouza/go-dockerclient v1.4.1 h1:W7wuJ3IB48WYZv/UBk9dCTIb9oX805+L9KIm65HcUYs=
