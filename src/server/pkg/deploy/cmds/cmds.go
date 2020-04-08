@@ -34,6 +34,7 @@ import (
 	_metrics "github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serde"
+	clientcmd "k8s.io/client-go/tools/clientcmd/api/v1"
 
 	docker "github.com/fsouza/go-dockerclient"
 	log "github.com/sirupsen/logrus"
@@ -51,17 +52,6 @@ const (
 	defaultJupyterhubHubImage  = "pachyderm/jupyterhub-pachyderm-hub:1.0.0"
 	defaultJupyterhubUserImage = "pachyderm/jupyterhub-pachyderm-user:1.0.0"
 	jupyterhubChartVersion     = "0.8.2"
-	configTemplate             = `
-apiVersion: v1
-contexts:
-- context:
-    cluster: "%s"
-    user: "%s"
-    namespace: "%s"
-  name: pachyderm-active-context
-current-context: pachyderm-active-context
-kind: Config
-`
 )
 
 func kubectl(stdin io.Reader, context *config.Context, args ...string) error {
@@ -72,7 +62,29 @@ func kubectl(stdin io.Reader, context *config.Context, args ...string) error {
 			return errors.Wrapf(err, "failed to create transient kube config")
 		}
 		defer os.Remove(tmpfile.Name())
-		tmpfile.Write([]byte(fmt.Sprintf(configTemplate, context.ClusterName, context.AuthInfo, context.Namespace)))
+
+		config := clientcmd.Config{
+			Kind:           "Config",
+			APIVersion:     "v1",
+			CurrentContext: "pachyderm-active-context",
+			Contexts: []clientcmd.NamedContext{
+				clientcmd.NamedContext{
+					Name: "pachyderm-active-context",
+					Context: clientcmd.Context{
+						Cluster:   context.ClusterName,
+						AuthInfo:  context.AuthInfo,
+						Namespace: context.Namespace,
+					},
+				},
+			},
+		}
+
+		var buf bytes.Buffer
+		if err := encoder("yaml", &buf).Encode(config); err != nil {
+			return errors.Wrapf(err, "failed to encode config")
+		}
+
+		tmpfile.Write(buf.Bytes())
 		tmpfile.Close()
 
 		kubeconfig := os.Getenv("KUBECONFIG")

@@ -25,7 +25,6 @@ require (
 	github.com/dlclark/regexp2 v1.2.0 // indirect
 	github.com/docker/go-units v0.4.0
 	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
-	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/elazarl/goproxy v0.0.0-20191011121108-aa519ddbe484 // indirect
 	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/fatih/camelcase v1.0.0
