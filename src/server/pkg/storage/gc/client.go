@@ -94,8 +94,8 @@ func (c *client) ReserveChunk(ctx context.Context, chunk, tmpID string) (retErr 
 					ON CONFLICT (chunk) DO UPDATE SET chunk = EXCLUDED.chunk
 					RETURNING chunk, deleting
 				), added_ref AS (
-					INSERT INTO refs (chunk, source, sourcetype)
-					SELECT chunk, ?, 'temporary'::reftype
+					INSERT INTO refs (sourcetype, source, chunk, created)
+					SELECT 'temporary'::reftype, ?, chunk, NOW()
 					FROM added_chunk
 					WHERE deleting IS NULL
 				)
@@ -123,9 +123,14 @@ func (c *client) AddReference(ctx context.Context, ref *Reference) (retErr error
 		func(txn *gorm.DB) *gorm.DB {
 			// Insert the reference.
 			// Does nothing if the reference already exists.
+			// (bryce) should we consider the possibility of a very slow client
+			// not adding a reference before the temporary reference times out?
+			// We could do some reachability validation, but we would probably want
+			// to do this when the semantic reference is setup to minimize the cost on
+			// the common path.
 			return txn.Exec(`
-				INSERT INTO refs (sourcetype, source, chunk)
-				VALUES (?, ?, ?)
+				INSERT INTO refs (sourcetype, source, chunk, created)
+				VALUES (?, ?, ?, NOW())
 				ON CONFLICT DO NOTHING
 			`, ref.Sourcetype, ref.Source, ref.Chunk)
 		},
@@ -160,9 +165,7 @@ func (c *client) RemoveReference(ctx context.Context, ref *Reference) (retErr er
 		return err
 	}
 	for _, chunk := range chunksDeleted {
-		if err := c.server.DeleteChunk(ctx, chunk.Chunk); err != nil {
-			return err
-		}
+		c.server.DeleteChunk(ctx, chunk.Chunk)
 	}
 	return nil
 }

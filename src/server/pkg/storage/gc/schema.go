@@ -15,6 +15,7 @@ type refModel struct {
 	Sourcetype string `sql:"type:reftype" gorm:"primary_key"`
 	Source     string `gorm:"primary_key"`
 	Chunk      string `gorm:"primary_key"`
+	Created    *time.Time
 }
 
 func (*refModel) TableName() string {

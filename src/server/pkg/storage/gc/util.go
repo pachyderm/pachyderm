@@ -11,7 +11,7 @@ import (
 )
 
 func NewLocalServer(deleter Deleter) (Client, error) {
-	server, err := NewServer(deleter, "localhost", 32228, nil)
+	server, err := NewServer(context.Background(), deleter, "localhost", 32228, nil, 0)
 	if err != nil {
 		return nil, err
 	}

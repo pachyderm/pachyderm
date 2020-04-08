@@ -3,6 +3,7 @@ package gc
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -16,6 +17,287 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
 )
+
+func TestConnectivity(t *testing.T) {
+	ctx := context.Background()
+	initialize(t, ctx, nil)
+}
+
+func TestReserveChunk(t *testing.T) {
+	ctx := context.Background()
+	client := initialize(t, ctx, nil)
+	chunks := makeChunks(3)
+	tmpID := uuid.NewWithoutDashes()
+	for _, chunk := range chunks {
+		require.NoError(t, client.ReserveChunk(ctx, chunk, tmpID))
+	}
+	expectedChunkRows := []chunkModel{
+		{chunks[0], nil},
+		{chunks[1], nil},
+		{chunks[2], nil},
+	}
+	require.ElementsEqual(t, expectedChunkRows, allChunks(t, client))
+	expectedRefRows := []refModel{
+		{"temporary", tmpID, chunks[0], nil},
+		{"temporary", tmpID, chunks[1], nil},
+		{"temporary", tmpID, chunks[2], nil},
+	}
+	require.ElementsEqual(t, expectedRefRows, allRefs(t, client))
+}
+
+func TestAddRemoveReferences(t *testing.T) {
+	ctx := context.Background()
+	client := initialize(t, ctx, nil)
+	chunks := makeChunks(7)
+	// Reserve chunks initially with only temporary references.
+	tmpID := uuid.NewWithoutDashes()
+	for _, chunk := range chunks {
+		require.NoError(t, client.ReserveChunk(ctx, chunk, tmpID))
+	}
+	var expectedChunkRows []chunkModel
+	for _, chunk := range chunks {
+		expectedChunkRows = append(expectedChunkRows, chunkModel{chunk, nil})
+	}
+	require.ElementsEqual(t, expectedChunkRows, allChunks(t, client))
+	var expectedRefRows []refModel
+	for _, chunk := range chunks {
+		expectedRefRows = append(expectedRefRows, refModel{"temporary", tmpID, chunk, nil})
+	}
+	require.ElementsEqual(t, expectedRefRows, allRefs(t, client))
+	// Add cross-chunk references.
+	for i := 0; i < 3; i++ {
+		for j := 0; j < 2; j++ {
+			chunkFrom, chunkTo := chunks[i], chunks[i*2+1+j]
+			require.NoError(t, client.AddReference(
+				ctx,
+				&Reference{
+					Sourcetype: "chunk",
+					Source:     chunkFrom,
+					Chunk:      chunkTo,
+				},
+			))
+			expectedRefRows = append(expectedRefRows, refModel{"chunk", chunkFrom, chunkTo, nil})
+		}
+	}
+	// Add a semantic reference to the root chunk.
+	semanticName := "root"
+	require.NoError(t, client.AddReference(
+		ctx,
+		&Reference{
+			Sourcetype: "semantic",
+			Source:     semanticName,
+			Chunk:      chunks[0],
+		},
+	))
+	expectedRefRows = append(expectedRefRows, refModel{"semantic", semanticName, chunks[0], nil})
+	require.ElementsEqual(t, expectedRefRows, allRefs(t, client))
+	// Remove the temporary reference.
+	require.NoError(t, client.RemoveReference(
+		ctx,
+		&Reference{
+			Sourcetype: "temporary",
+			Source:     tmpID,
+		},
+	))
+	flushAllDeletes(client.server)
+	require.ElementsEqual(t, expectedChunkRows, allChunks(t, client))
+	expectedRefRows = expectedRefRows[len(chunks):]
+	require.ElementsEqual(t, expectedRefRows, allRefs(t, client))
+	// Remove the semantic reference.
+	require.NoError(t, client.RemoveReference(
+		ctx,
+		&Reference{
+			Sourcetype: "semantic",
+			Source:     semanticName,
+		},
+	))
+	time.Sleep(3 * time.Second)
+	flushAllDeletes(client.server)
+	require.ElementsEqual(t, []chunkModel{}, allChunks(t, client))
+	require.ElementsEqual(t, []refModel{}, allRefs(t, client))
+}
+
+func TestRecovery(t *testing.T) {
+	ctx := context.Background()
+	// Create a no-op server that will not perform deletions.
+	client := initialize(t, ctx, &testServer{})
+	// Create a chunk tree.
+	semanticName := "root"
+	expectedChunkRows := makeChunkTree(t, ctx, client, semanticName, 3, 0)
+	require.ElementsEqual(t, expectedChunkRows, allChunks(t, client))
+	require.NoError(t, client.RemoveReference(
+		ctx,
+		&Reference{
+			Sourcetype: "semantic",
+			Source:     semanticName,
+		},
+	))
+	// Create a real server and confirm that it performs the deletion at startup.
+	client = newClient(t, ctx, nil, nil)
+	time.Sleep(3 * time.Second)
+	require.ElementsEqual(t, []chunkModel{}, allChunks(t, client))
+	require.ElementsEqual(t, []refModel{}, allRefs(t, client))
+}
+
+func TestTimeout(t *testing.T) {
+	ctx := context.Background()
+	server := newServer(t, ctx, nil, nil, time.Second)
+	client := initialize(t, ctx, server)
+	numTrees := 10
+	var expectedChunkRows []chunkModel
+	for i := 0; i < numTrees; i++ {
+		tmpID := uuid.NewWithoutDashes()
+		expectedChunkRows = append(expectedChunkRows, makeChunkTree(t, ctx, client, tmpID, 3, 0.2)...)
+	}
+	time.Sleep(3 * time.Second)
+	require.ElementsEqual(t, expectedChunkRows, allChunks(t, client))
+}
+
+func makeChunkTree(t *testing.T, ctx context.Context, client *client, semanticName string, levels int, failProb float64) []chunkModel {
+	chunks := makeChunks(int(math.Pow(float64(2), float64(levels))) - 1)
+	// Reserve chunks initially with only temporary references.
+	tmpID := uuid.NewWithoutDashes()
+	var expectedChunkRows []chunkModel
+	for _, chunk := range chunks {
+		require.NoError(t, client.ReserveChunk(ctx, chunk, tmpID))
+		expectedChunkRows = append(expectedChunkRows, chunkModel{chunk, nil})
+	}
+	// Add cross-chunk references.
+	nonLeafChunks := int(math.Pow(float64(2), float64(levels-1))) - 1
+	for i := 0; i < nonLeafChunks; i++ {
+		for j := 0; j < 2; j++ {
+			if rand.Float64() < failProb {
+				return nil
+			}
+			chunkFrom, chunkTo := chunks[i], chunks[i*2+1+j]
+			require.NoError(t, client.AddReference(
+				ctx,
+				&Reference{
+					Sourcetype: "chunk",
+					Source:     chunkFrom,
+					Chunk:      chunkTo,
+				},
+			))
+		}
+	}
+	// Add a semantic reference to the root chunk.
+	require.NoError(t, client.AddReference(
+		ctx,
+		&Reference{
+			Sourcetype: "semantic",
+			Source:     semanticName,
+			Chunk:      chunks[0],
+		},
+	))
+	// Remove the temporary reference.
+	require.NoError(t, client.RemoveReference(
+		ctx,
+		&Reference{
+			Sourcetype: "temporary",
+			Source:     tmpID,
+		},
+	))
+	return expectedChunkRows
+}
+
+func initialize(t *testing.T, ctx context.Context, server Server) *client {
+	client := newClient(t, ctx, server, nil)
+	clearData(t, client)
+	return client
+}
+
+func newClient(t *testing.T, ctx context.Context, server Server, metrics prometheus.Registerer) *client {
+	if server == nil {
+		server = newServer(t, ctx, nil, metrics, 0)
+	}
+	c, err := NewClient(server, "localhost", 32228, metrics)
+	require.NoError(t, err)
+	return c.(*client)
+}
+
+func newServer(t *testing.T, ctx context.Context, deleter Deleter, metrics prometheus.Registerer, timeout time.Duration) Server {
+	if deleter == nil {
+		deleter = &testDeleter{}
+	}
+	s, err := NewServer(ctx, deleter, "localhost", 32228, metrics, timeout)
+	require.NoError(t, err)
+	return s
+}
+
+func clearData(t *testing.T, client *client) {
+	require.NoError(t, client.db.Exec("delete from chunks *; delete from refs *;").Error)
+}
+
+func makeTemporaryIDs(count int) []string {
+	result := []string{}
+	for i := 0; i < count; i++ {
+		result = append(result, fmt.Sprintf("temporary-%d", i))
+	}
+	return result
+}
+
+func makeChunks(count int) []string {
+	result := []string{}
+	for i := 0; i < count; i++ {
+		result = append(result, testutil.UniqueString(fmt.Sprintf("chunk-%d-", i)))
+	}
+	return result
+}
+
+func allChunks(t *testing.T, client *client) []chunkModel {
+	chunks := []chunkModel{}
+	require.NoError(t, client.db.Find(&chunks).Error)
+	return chunks
+}
+
+func allRefs(t *testing.T, client *client) []refModel {
+	refs := []refModel{}
+	require.NoError(t, client.db.Find(&refs).Error)
+	// Clear the created field because it makes testing difficult.
+	for i := range refs {
+		refs[i].Created = nil
+	}
+	return refs
+}
+
+// Dummy deleter object for testing, so we don't need an object storage
+type testDeleter struct{}
+
+func (td *testDeleter) Delete(ctx context.Context, chunks []string) error {
+	return nil
+}
+
+// Dummy server for testing recovery.
+type testServer struct{}
+
+func (ts *testServer) DeleteChunk(_ context.Context, _ string) {}
+
+func (ts *testServer) FlushDelete(_ context.Context, _ string) error {
+	return nil
+}
+
+// Helper function to ensure the server is done deleting to avoid races
+func flushAllDeletes(s Server) {
+	if _, ok := s.(*testServer); ok {
+		return
+	}
+	// bork bork
+	si := s.(*server)
+	for {
+		t := func() *trigger {
+			si.mutex.Lock()
+			defer si.mutex.Unlock()
+			for _, t := range si.deleting {
+				return t
+			}
+			return nil
+		}()
+		if t == nil {
+			return
+		}
+		t.Wait()
+	}
+}
 
 // Helper functions for when debugging
 func printMetrics(t *testing.T, metrics prometheus.Gatherer) {
@@ -57,189 +339,6 @@ func printState(t *testing.T, client *client) {
 	for _, row := range allRefs(t, client) {
 		fmt.Printf("  %v\n", row)
 	}
-}
-
-// Dummy deleter object for testing, so we don't need an object storage
-type testDeleter struct{}
-
-func (td *testDeleter) Delete(ctx context.Context, chunks []string) error {
-	return nil
-}
-
-// Helper function to ensure the server is done deleting to avoid races
-func flushAllDeletes(s Server) {
-	// bork bork
-	si := s.(*server)
-	for {
-		t := func() *trigger {
-			si.mutex.Lock()
-			defer si.mutex.Unlock()
-			for _, t := range si.deleting {
-				return t
-			}
-			return nil
-		}()
-		if t == nil {
-			return
-		}
-		t.Wait()
-	}
-}
-
-func newServer(t *testing.T, deleter Deleter, metrics prometheus.Registerer) Server {
-	if deleter == nil {
-		deleter = &testDeleter{}
-	}
-	s, err := NewServer(deleter, "localhost", 32228, metrics)
-	require.NoError(t, err)
-	return s
-}
-
-func newClient(t *testing.T, server Server, metrics prometheus.Registerer) *client {
-	if server == nil {
-		server = newServer(t, nil, metrics)
-	}
-	c, err := NewClient(server, "localhost", 32228, metrics)
-	require.NoError(t, err)
-	return c.(*client)
-}
-
-func clearData(t *testing.T, client *client) {
-	require.NoError(t, client.db.Exec("delete from chunks *; delete from refs *;").Error)
-}
-
-func initialize(t *testing.T) *client {
-	client := newClient(t, nil, nil)
-	clearData(t, client)
-	return client
-}
-
-func allChunks(t *testing.T, client *client) []chunkModel {
-	chunks := []chunkModel{}
-	require.NoError(t, client.db.Find(&chunks).Error)
-	return chunks
-}
-
-func allRefs(t *testing.T, client *client) []refModel {
-	refs := []refModel{}
-	require.NoError(t, client.db.Find(&refs).Error)
-	return refs
-}
-
-func makeIDs(count int) []string {
-	result := []string{}
-	for i := 0; i < count; i++ {
-		result = append(result, fmt.Sprintf("temporary-%d", i))
-	}
-	return result
-}
-
-func makeChunks(count int) []string {
-	result := []string{}
-	for i := 0; i < count; i++ {
-		result = append(result, testutil.UniqueString(fmt.Sprintf("chunk-%d-", i)))
-	}
-	return result
-}
-
-func TestConnectivity(t *testing.T) {
-	initialize(t)
-}
-
-func TestReserveChunk(t *testing.T) {
-	ctx := context.Background()
-	client := initialize(t)
-	chunks := makeChunks(3)
-
-	tmpID := uuid.NewWithoutDashes()
-	for _, chunk := range chunks {
-		require.NoError(t, client.ReserveChunk(ctx, chunk, tmpID))
-	}
-
-	expectedChunkRows := []chunkModel{
-		{chunks[0], nil},
-		{chunks[1], nil},
-		{chunks[2], nil},
-	}
-	require.ElementsEqual(t, expectedChunkRows, allChunks(t, client))
-
-	expectedRefRows := []refModel{
-		{"temporary", tmpID, chunks[0]},
-		{"temporary", tmpID, chunks[1]},
-		{"temporary", tmpID, chunks[2]},
-	}
-	require.ElementsEqual(t, expectedRefRows, allRefs(t, client))
-}
-
-func TestAddRemoveReferences(t *testing.T) {
-	ctx := context.Background()
-	client := initialize(t)
-	chunks := makeChunks(7)
-	// Reserve chunks initially with only temporary references.
-	tmpID := uuid.NewWithoutDashes()
-	for _, chunk := range chunks {
-		require.NoError(t, client.ReserveChunk(ctx, chunk, tmpID))
-	}
-	var expectedChunkRows []chunkModel
-	for _, chunk := range chunks {
-		expectedChunkRows = append(expectedChunkRows, chunkModel{chunk, nil})
-	}
-	require.ElementsEqual(t, expectedChunkRows, allChunks(t, client))
-	var expectedRefRows []refModel
-	for _, chunk := range chunks {
-		expectedRefRows = append(expectedRefRows, refModel{"temporary", tmpID, chunk})
-	}
-	require.ElementsEqual(t, expectedRefRows, allRefs(t, client))
-	// Add cross-chunk references.
-	for i := 0; i < 3; i++ {
-		for j := 0; j < 2; j++ {
-			chunkFrom, chunkTo := chunks[i], chunks[i*2+1+j]
-			require.NoError(t, client.AddReference(
-				ctx,
-				&Reference{
-					Sourcetype: "chunk",
-					Source:     chunkFrom,
-					Chunk:      chunkTo,
-				},
-			))
-			expectedRefRows = append(expectedRefRows, refModel{"chunk", chunkFrom, chunkTo})
-		}
-	}
-	// Add a semantic reference to the root chunk.
-	semanticName := "root"
-	require.NoError(t, client.AddReference(
-		ctx,
-		&Reference{
-			Sourcetype: "semantic",
-			Source:     semanticName,
-			Chunk:      chunks[0],
-		},
-	))
-	expectedRefRows = append(expectedRefRows, refModel{"semantic", semanticName, chunks[0]})
-	require.ElementsEqual(t, expectedRefRows, allRefs(t, client))
-	// Remove the temporary reference.
-	require.NoError(t, client.RemoveReference(
-		ctx,
-		&Reference{
-			Sourcetype: "temporary",
-			Source:     tmpID,
-		},
-	))
-	flushAllDeletes(client.server)
-	require.ElementsEqual(t, expectedChunkRows, allChunks(t, client))
-	expectedRefRows = expectedRefRows[len(chunks):]
-	require.ElementsEqual(t, expectedRefRows, allRefs(t, client))
-	// Remove the semantic reference.
-	require.NoError(t, client.RemoveReference(
-		ctx,
-		&Reference{
-			Sourcetype: "semantic",
-			Source:     semanticName,
-		},
-	))
-	flushAllDeletes(client.server)
-	require.ElementsEqual(t, []chunkModel{}, allChunks(t, client))
-	require.ElementsEqual(t, []refModel{}, allRefs(t, client))
 }
 
 type fuzzDeleter struct {
@@ -313,8 +412,9 @@ func (fd *fuzzDeleter) updating(chunks []string) error {
 func TestFuzz(t *testing.T) {
 	metrics := prometheus.NewRegistry()
 	deleter := &fuzzDeleter{users: make(map[string]int)}
-	server := newServer(t, deleter, metrics)
-	client := newClient(t, server, metrics)
+	ctx := context.Background()
+	server := newServer(t, ctx, deleter, metrics, 0)
+	client := newClient(t, ctx, server, metrics)
 	seed := time.Now().UTC().UnixNano()
 	seed = 1561162472664846205
 	rng := rand.New(rand.NewSource(seed))
@@ -377,7 +477,7 @@ func TestFuzz(t *testing.T) {
 		eg, ctx := errgroup.WithContext(context.Background())
 		for i := 0; i < numWorkers; i++ {
 			eg.Go(func() error {
-				client := newClient(t, server, metrics)
+				client := newClient(t, ctx, server, metrics)
 				client.db.DB().SetMaxOpenConns(1)
 				client.db.DB().SetMaxIdleConns(1)
 				for x := range jobChannel {
