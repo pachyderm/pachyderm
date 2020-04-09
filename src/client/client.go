@@ -372,7 +372,7 @@ func NewForTest() (*APIClient, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read config")
 	}
-	_, context, err := cfg.ActiveContext()
+	_, context, err := cfg.ActiveContext(true)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get active context")
 	}
@@ -406,7 +406,7 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read config")
 	}
-	_, context, err := cfg.ActiveContext()
+	_, context, err := cfg.ActiveContext(true)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get active context")
 	}

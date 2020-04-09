@@ -182,7 +182,7 @@ func (s *shell) run() {
 			if err != nil {
 				return "", false
 			}
-			activeContext, _, err := cfg.ActiveContext()
+			activeContext, _, err := cfg.ActiveContext(false)
 			if err != nil {
 				return "", false
 			}
