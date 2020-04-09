@@ -1,9 +1,11 @@
 package fuse
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"sync"
 
 	"golang.org/x/sync/errgroup"
@@ -85,11 +87,17 @@ func Mount(c *client.APIClient, target string, opts *Options) error {
 		case <-sigChan:
 		case <-opts.getUnmount():
 		}
+		if opts.Write {
+			if err := unmount(target); err != nil {
+				fmt.Printf("error unmounting: %v\n", err)
+			}
+		}
 		server.Unmount()
 	}()
 	var overlayErr error
+	var upperdir string
 	if opts.Write {
-		upperdir, err := ioutil.TempDir("", "pfs-fuse-upper")
+		upperdir, err = ioutil.TempDir("", "pfs-fuse-upper")
 		if err != nil {
 			return err
 		}
@@ -105,11 +113,20 @@ func Mount(c *client.APIClient, target string, opts *Options) error {
 		}()
 	}
 	server.Serve()
+	if overlayErr != nil {
+		return overlayErr
+	}
 	var eg errgroup.Group
 	for _, file := range files {
 		eg.Go(func() error {
 			return os.Remove(file.path)
 		})
 	}
-	return eg.Wait()
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+	return filepath.Walk(upperdir, func(path string, info os.FileInfo, err error) error {
+		fmt.Printf("%s, %+v, %v\n", path, info, err)
+		return nil
+	})
 }

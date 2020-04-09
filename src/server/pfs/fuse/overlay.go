@@ -48,6 +48,8 @@ func overlay(lowerdir, upperdir, workdir, target string) error {
 		// it makes sense to delete it after the mount is finished.
 		fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", lowerdir, upperdir, workdir),
 	)
+}
 
-	// mount("overlay", "/home/jdoliner/Repos/pachyderm/pfs", "overlay", MS_MGC_VAL, "lowerdir=./lower,upperdir=./uppe"...)
+func unmount(target string) error {
+	return syscall.Unmount(target, 0)
 }
