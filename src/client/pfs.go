@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/fluhus/godoc-tricks"
 	"io"
 	"sync"
 
