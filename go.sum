@@ -152,11 +152,11 @@ github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5Kwzbycv
 github.com/fatih/structs v1.1.0 h1:Q7juDM0QtcnhCpeyLGQKyg4TOIghuNXrkL32pHAUMxo=
 github.com/fatih/structs v1.1.0/go.mod h1:9NiDSp5zOcgEDl+j00MP/WkGVPOlPRLejGD8Ga6PJ7M=
 github.com/fluhus/godoc-tricks v1.0.0 h1:1jIf/PnkaqMe+LLwOfYsVaCZ5dhcxUPHLAHur9geBCk=
+github.com/fluhus/godoc-tricks v1.0.0 h1:1jIf/PnkaqMe+LLwOfYsVaCZ5dhcxUPHLAHur9geBCk=
+github.com/fluhus/godoc-tricks v1.0.0/go.mod h1:1N650FoAiSfLt9dnD/ZxopiilNjtw+H8ocjRFbPWW2E=
 github.com/fluhus/godoc-tricks v1.0.0/go.mod h1:1N650FoAiSfLt9dnD/ZxopiilNjtw+H8ocjRFbPWW2E=
 github.com/flynn/go-shlex v0.0.0-20150515145356-3f9db97f8568 h1:BHsljHzVlRcyQhjrss6TZTdY2VfCqZPbv5k3iBFa2ZQ=
 github.com/flynn/go-shlex v0.0.0-20150515145356-3f9db97f8568/go.mod h1:xEzjJPgXI435gkrCt3MPfRiAkVrwSbHsst4LCFVfpJc=
-github.com/fluhus/godoc-tricks v1.0.0 h1:1jIf/PnkaqMe+LLwOfYsVaCZ5dhcxUPHLAHur9geBCk=
-github.com/fluhus/godoc-tricks v1.0.0/go.mod h1:1N650FoAiSfLt9dnD/ZxopiilNjtw+H8ocjRFbPWW2E=
 github.com/fsnotify/fsnotify v1.4.7 h1:IXs+QLmnXW2CcXuY+8Mzv/fWEsPGWxqefPtCP5CnV9I=
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
 github.com/fsouza/go-dockerclient v1.4.1 h1:W7wuJ3IB48WYZv/UBk9dCTIb9oX805+L9KIm65HcUYs=
@@ -634,6 +634,8 @@ golang.org/x/tools v0.0.0-20200324182314-a5e5fedfe742 h1:C4Jhhgnr4nUar2rZdLD0pSC
 golang.org/x/tools v0.0.0-20200324182314-a5e5fedfe742/go.mod h1:Sl4aGygMT6LrqrWclx+PTx3U+LnKx/seiNR+3G19Ar8=
 golang.org/x/tools v0.0.0-20200331202046-9d5940d49312 h1:2PHG+Ia3gK1K2kjxZnSylizb//eyaMG8gDFbOG7wLV8=
 golang.org/x/tools v0.0.0-20200331202046-9d5940d49312/go.mod h1:EkVYQZoAsY45+roYkvgYkIh4xh/qjgUK9TdY2XT94GE=
+golang.org/x/tools v0.0.0-20200409170454-77362c5149f0 h1:Vj4uPv+FWfJqeeBexROGL+6fhy0yL5JgwKU5B54Cu7Y=
+golang.org/x/tools v0.0.0-20200409170454-77362c5149f0/go.mod h1:EkVYQZoAsY45+roYkvgYkIh4xh/qjgUK9TdY2XT94GE=
 golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7 h1:9zdDQZ7Thm29KFXgAX/+yaf3eVbP7djjWp/dXAppNCc=
 golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
