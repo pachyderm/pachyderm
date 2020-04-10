@@ -41,7 +41,7 @@ def mnist(s3_endpoint: str, input_bucket: str):
         # first, we copy files from pachyderm into a convenient
         # local directory for processing.
         training_data_path = os.path.join(data_dir, "mnist.npz")
-        print("copying from s3://mnist.npz to {}".format(training_data_path))
+        logging.info("copying from s3://mnist.npz to {}".format(training_data_path))
         s3_client.download_file(input_bucket, "mnist.npz", training_data_path)
 
         (train_images, train_labels), (test_images, test_labels) = tf.keras.datasets.mnist.load_data(path=training_data_path)
@@ -72,7 +72,7 @@ def mnist(s3_endpoint: str, input_bucket: str):
         model_path = os.path.join(data_dir, "my_model.h5")
         model.save(model_path)
         # Copy file over to Pachyderm
-        print("copying {} to s3g".format(model_path))
+        logging.info("copying {} to s3g".format(model_path))
         s3_client.upload_file(model_path, "out", "my_model.h5")
 
 @kfp.dsl.pipeline(
@@ -173,7 +173,6 @@ def main():
                 "input_bucket": "input",
             }
         )
-        print("run_info: {}".format(vars(run_info)))
         run_id = run_info.id
     elif args.create_pipeline != "":
         # Local machine is just creating the pipeline
@@ -183,7 +182,7 @@ def main():
             pid = pipeline_id(client, args.create_pipeline)
             if pid != "":
                 client.delete_pipeline(pid)
-            print("creating pipeline: {}".format(args.create_pipeline))
+            logging.info("creating pipeline: {}".format(args.create_pipeline))
             try:
                 client.upload_pipeline(pipeline_package_path, args.create_pipeline)
             except TypeError:
@@ -203,7 +202,7 @@ def main():
         ).run_id
 
     if run_id != "":
-        print("waiting on kubeflow run id: {}".format(run_id))
+        loggin.info("waiting on kubeflow run id: {}".format(run_id))
         j = client.wait_for_run_completion(run_id, 60)
         assert j.run.status == 'Succeeded'
 
