@@ -22,6 +22,7 @@ def mnist(s3_endpoint: str, input_bucket: str):
     # imports are done here because it's required for kubeflow's lightweight
     # components:
     # https://www.kubeflow.org/docs/pipelines/sdk/lightweight-python-components/
+    import logging
     import os
     import sys
     import tempfile
