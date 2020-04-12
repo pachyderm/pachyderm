@@ -158,11 +158,11 @@ def main():
               '--create_pipeline may be set')
         sys.exit(1)
     if args.create_run_in != "":
-        logging.info('creating run in pipeline "{}"')
+        logging.info('creating run in pipeline "{}"'.format(args.create_run_in))
         pid = pipeline_id(client, args.create_run_in)
         if pid == "":
-            logging.error('could not find pipeline "{}" to create job',
-                          args.create_run_in)
+            logging.error('could not find pipeline "{}" to create job'.format(
+                args.create_run_in))
             sys.exit(1)
         # Create a run in the target pipeline using the new pipeline ID
         run_info = client.run_pipeline(
