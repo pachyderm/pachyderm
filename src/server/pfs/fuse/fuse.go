@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"golang.org/x/sync/errgroup"
@@ -58,7 +59,10 @@ func (m *mount) commit(repo string) (string, error) {
 }
 
 // Mount pfs to target, opts may be left nil.
-func Mount(c *client.APIClient, target string, opts *Options) error {
+func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
+	if err := opts.validate(); err != nil {
+		return err
+	}
 	files := make(map[string]*file)
 	commits := opts.getCommits()
 	fuseTarget := target
@@ -69,13 +73,14 @@ func Mount(c *client.APIClient, target string, opts *Options) error {
 			return err
 		}
 	}
+	mount := &mount{
+		c:       c,
+		commits: commits,
+		files:   files,
+	}
 	server, err := fs.Mount(fuseTarget, &node{
 		file: client.NewFile("", "", ""),
-		m: &mount{
-			c:       c,
-			commits: commits,
-			files:   files,
-		},
+		m:    mount,
 	}, opts.getFuse())
 	if err != nil {
 		return err
@@ -125,8 +130,41 @@ func Mount(c *client.APIClient, target string, opts *Options) error {
 	if err := eg.Wait(); err != nil {
 		return err
 	}
-	return filepath.Walk(upperdir, func(path string, info os.FileInfo, err error) error {
-		fmt.Printf("%s, %+v, %v\n", path, info, err)
+	pfc, err := c.NewPutFileClient()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := pfc.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	return filepath.Walk(upperdir, func(path string, info os.FileInfo, err error) (retErr error) {
+		if info.IsDir() {
+			return nil
+		}
+		f, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := f.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		split := strings.Split(strings.TrimPrefix(path, upperdir+"/"), "/")
+		repo := split[0]
+		file := filepath.Join(split[1:]...)
+		commit, err := mount.commit(repo)
+		if commit == "" {
+			commit = "master"
+		}
+		if err != nil {
+			return err
+		}
+		if _, err := pfc.PutFile(repo, commit, file, f); err != nil {
+			return err
+		}
 		return nil
 	})
 }

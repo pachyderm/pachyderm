@@ -2,6 +2,9 @@ package fuse
 
 import (
 	"github.com/hanwen/go-fuse/v2/fs"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
 // Options is for configuring fuse mounts. Any of the fields may be left nil
@@ -45,4 +48,18 @@ func (o *Options) getUnmount() chan struct{} {
 		return nil
 	}
 	return o.Unmount
+}
+
+func (o *Options) validate() error {
+	if o == nil {
+		return nil
+	}
+	if o.Write {
+		for _, commit := range o.Commits {
+			if uuid.IsUUIDWithoutDashes(commit) {
+				return errors.Errorf("can't mount commits %s in Write mode (mount a branch instead)", commit)
+			}
+		}
+	}
+	return nil
 }

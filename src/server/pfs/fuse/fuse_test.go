@@ -1,6 +1,7 @@
 package fuse
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"io/ioutil"
 	"math/rand"
@@ -9,6 +10,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/hanwen/go-fuse/v2/fs"
+	"github.com/hanwen/go-fuse/v2/fuse"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -134,19 +138,42 @@ func TestHeadlessBranch(t *testing.T) {
 	})
 }
 
-func withMount(tb testing.TB, c *client.APIClient, commits map[string]string, f func(mountPoint string)) {
+func TestWrite(t *testing.T) {
+	c := server.GetPachClient(t, server.GetBasicConfig())
+	require.NoError(t, c.CreateRepo("repo"))
+	withMount(t, c, &Options{
+		Fuse: &fs.Options{
+			MountOptions: fuse.MountOptions{
+				Debug: true,
+			},
+		},
+		Write: true,
+	}, func(mountPoint string) {
+		require.NoError(t, ioutil.WriteFile(filepath.Join(mountPoint, "repo", "foo"), []byte("foo\n"), 0644))
+	})
+	var b bytes.Buffer
+	require.NoError(t, c.GetFile("repo", "master", "foo", 0, 0, &b))
+	require.Equal(t, "foo\n", b.String())
+}
+
+func withMount(tb testing.TB, c *client.APIClient, opts *Options, f func(mountPoint string)) {
 	dir, err := ioutil.TempDir("", "pfs")
 	require.NoError(tb, err)
 	defer os.RemoveAll(dir)
-	opts := &Options{
-		Commits: commits,
-		Unmount: make(chan struct{}),
+	if opts == nil {
+		opts = &Options{}
 	}
+	if opts.Unmount == nil {
+		opts.Unmount = make(chan struct{})
+	}
+	unmounted := make(chan struct{})
 	defer func() {
 		close(opts.Unmount)
+		<-unmounted
 	}()
 	go func() {
 		Mount(c, dir, opts)
+		close(unmounted)
 	}()
 	// Gotta give the fuse mount time to come up.
 	time.Sleep(2 * time.Second)
