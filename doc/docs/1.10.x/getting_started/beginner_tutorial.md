@@ -141,7 +141,13 @@ Also, you can view the file you have just added to Pachyderm. Because this is an
 image, you cannot just print it out in the terminal, but the following
 commands will let you view it easily:
 
-* If you are on macOS, run:
+* If you are on macOS 10.15 (Catalina) or newer, run:
+
+  ```bash
+  pachctl get file images@master:liberty.png | open -f -a /System/Applications/Preview.app
+  ```
+
+* If you are on macOS 10.14 (Mojave) or older, run:
 
   ```bash
   pachctl get file images@master:liberty.png | open -f -a /Applications/Preview.app
@@ -296,11 +302,18 @@ images 5 minutes ago 57.27KiB
 We can view the output data from the `edges` repo in the same fashion
 that we viewed the input data.
 
-* On macOS, run:
+* On macOS 10.15 (Catalina) or newer, run:
+
+  ```bash
+  pachctl get file edges@master:liberty.png | open -f -a /System/Applications/Preview.app
+  ```
+
+* On macOS 10.14 (Mojave) or older, run:
 
   ```bash
   pachctl get file edges@master:liberty.png | open -f -a /Applications/Preview.app
   ```
+
 * On Linux, run:
 
   ```bash
