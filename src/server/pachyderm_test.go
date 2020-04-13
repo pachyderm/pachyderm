@@ -5926,7 +5926,6 @@ func TestPipelineWithStatsToggle(t *testing.T) {
 	jobs, err = c.FlushJobAll([]*pfs.Commit{commits[len(commits)-1]}, nil)
 	require.NoError(t, err)
 	// Check stats.
-	time.Sleep(3 * time.Minute)
 	resp, err = c.ListDatum(jobs[0].Job.ID, 0, 0)
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(resp.DatumInfos))

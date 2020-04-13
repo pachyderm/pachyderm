@@ -9,6 +9,7 @@ import (
 
 type noSkipJobDatumIterator struct {
 	dit       datum.Iterator
+	ditIndex  int
 	allDatums DatumSet
 	done      bool
 }
@@ -42,6 +43,7 @@ func (jc *noSkipJobChain) Start(jd JobData) (JobDatumIterator, error) {
 	return &noSkipJobDatumIterator{
 		allDatums: allDatums,
 		dit:       dit,
+		ditIndex:  -1,
 		done:      false,
 	}, nil
 }
@@ -70,11 +72,12 @@ func (jdi *noSkipJobDatumIterator) NextBatch(ctx context.Context) (uint64, error
 	return 0, nil
 }
 
-func (jdi *noSkipJobDatumIterator) NextDatum() []*common.Input {
-	if jdi.dit.Next() {
-		return jdi.dit.Datum()
+func (jdi *noSkipJobDatumIterator) NextDatum() ([]*common.Input, int64) {
+	jdi.ditIndex++
+	if jdi.ditIndex < jdi.dit.Len() {
+		return jdi.dit.Datum(), int64(jdi.ditIndex)
 	}
-	return nil
+	return nil, 0
 }
 
 func (jdi *noSkipJobDatumIterator) Reset() {

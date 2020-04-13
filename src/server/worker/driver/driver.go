@@ -475,10 +475,10 @@ func (d *driver) WithData(
 		}
 	}()
 	if err != nil {
-		return nil, errors.Wrap(err, "error downloadData")
+		return stats, errors.Wrap(err, "error downloadData")
 	}
 	if err := os.MkdirAll(d.InputDir(), 0777); err != nil {
-		return nil, err
+		return stats, errors.WithStack(err)
 	}
 	// If the pipeline spec set a custom user to execute the process, make sure
 	// the input directory and its content are owned by it
@@ -492,7 +492,7 @@ func (d *driver) WithData(
 	}
 
 	if err := cb(dir, stats); err != nil {
-		return nil, err
+		return stats, err
 	}
 
 	// CleanUp is idempotent so we can call it however many times we want.
@@ -505,7 +505,7 @@ func (d *driver) WithData(
 	downSize, err := puller.CleanUp()
 	if err != nil {
 		logger.Logf("puller encountered an error while cleaning up: %v", err)
-		return nil, err
+		return stats, err
 	}
 
 	atomic.AddUint64(&stats.DownloadBytes, uint64(downSize))

@@ -255,11 +255,13 @@ func (reg *registry) succeedJob(
 func (reg *registry) failJob(
 	pj *pendingJob,
 	reason string,
+	statsTrees []*pfs.Object,
+	statsSize uint64,
 ) error {
 	pj.logger.Logf("failing job with reason: %s", reason)
 
 	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
-	if err := finishJob(reg.driver.PipelineInfo(), reg.driver.PachClient(), pj.ji, pps.JobState_JOB_FAILURE, reason, nil, nil, 0, nil, 0); err != nil {
+	if err := finishJob(reg.driver.PipelineInfo(), reg.driver.PachClient(), pj.ji, pps.JobState_JOB_FAILURE, reason, nil, nil, 0, statsTrees, statsSize); err != nil {
 		return err
 	}
 
@@ -461,12 +463,12 @@ func (reg *registry) sendDatumTasks(ctx context.Context, pj *pendingJob, numDatu
 
 	// Build up chunks to be put into work tasks from the datum iterator
 	for i := uint64(0); i < numDatums; i++ {
-		inputs := pj.jdit.NextDatum()
+		inputs, index := pj.jdit.NextDatum()
 		if inputs == nil {
 			return errors.New("job datum iterator returned nil inputs")
 		}
 
-		datums = append(datums, &DatumInputs{Inputs: inputs})
+		datums = append(datums, &DatumInputs{Inputs: inputs, Index: index})
 
 		// If we have enough input bytes, finish the task
 		if maxBytesPerTask != 0 {
@@ -638,9 +640,12 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commi
 		return err
 	}
 
-	statsCommitInfo, err := reg.driver.PachClient().InspectCommit(statsCommit.Repo.Name, statsCommit.ID)
-	if err != nil {
-		return err
+	var statsCommitInfo *pfs.CommitInfo
+	if statsCommit != nil {
+		statsCommitInfo, err = reg.driver.PachClient().InspectCommit(statsCommit.Repo.Name, statsCommit.ID)
+		if err != nil {
+			return err
+		}
 	}
 
 	jobCtx, cancel := context.WithCancel(reg.driver.PachClient().Ctx())
@@ -838,7 +843,7 @@ func (reg *registry) processJobStarting(pj *pendingJob) error {
 
 	if len(failed) > 0 {
 		reason := fmt.Sprintf("inputs failed: %s", strings.Join(failed, ", "))
-		return reg.failJob(pj, reason)
+		return reg.failJob(pj, reason, nil, 0)
 	}
 
 	if pj.driver.PipelineInfo().S3Out && pj.commitInfo.ParentCommit != nil {
@@ -878,6 +883,7 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 
 	// Spawn a goroutine to emit tasks on the datum task channel
 	eg.Go(func() error {
+		defer close(subtasks)
 		return pj.logger.LogStep("collecting datums for tasks", func() error {
 			for {
 				numDatums, err := pj.jdit.NextBatch(ctx)
@@ -885,7 +891,6 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 					return err
 				}
 				if numDatums == 0 {
-					close(subtasks)
 					return nil
 				}
 
@@ -916,15 +921,11 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 					if err != nil {
 						return err
 					}
-					pj.logger.Logf("datum task complete: %v\n", data)
 
 					mutex.Lock()
 					defer mutex.Unlock()
 
 					mergeStats(stats, data.Stats)
-					if stats.DatumsFailed > 0 {
-						return errors.Errorf("datum processing failed on datum (%s)", stats.FailedDatumID)
-					}
 
 					if data.ChunkHashtree != nil {
 						chunkHashtrees = append(chunkHashtrees, data.ChunkHashtree)
@@ -935,6 +936,10 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 					if data.RecoveredDatumsTag != "" {
 						recoveredTags = append(recoveredTags, data.RecoveredDatumsTag)
 					}
+
+					if stats.DatumsFailed > 0 {
+						return errors.Errorf("datum processing failed on datum (%s)", stats.FailedDatumID)
+					}
 					return nil
 				},
 			)
@@ -944,16 +949,20 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	err := eg.Wait()
 	pj.saveJobStats(stats)
 	if err != nil {
-		// If we have failed datums in the stats, fail the job, otherwise we can reattempt later
-		if stats.FailedDatumID != "" {
-			return reg.failJob(pj, "datum failed")
+		if stats.FailedDatumID == "" {
+			// If these was no failed datum, we can reattempt later
+			return errors.Wrap(err, "process datum error")
 		}
-		return errors.Wrap(err, "process datum error")
+		// A datum failed, but we still may need to merge stats - discard chunk hashtrees
+		chunkHashtrees = []*HashtreeInfo{}
 	}
 
 	// S3Out pipelines don't use hashtrees, so skip over the MERGING state - this
 	// will go to EGRESS, if applicable.
 	if pj.driver.PipelineInfo().S3Out {
+		if stats.FailedDatumID != "" {
+			return reg.failJob(pj, "datum failed", nil, 0)
+		}
 		pj.logger.Logf("processJobRunning succeeding s3out job, total stats: %v", stats)
 		return reg.succeedJob(pj, nil, 0, nil, 0)
 	}
@@ -1089,6 +1098,11 @@ func (pj *pendingJob) loadRecoveredDatums() (chain.DatumSet, error) {
 }
 
 func (reg *registry) makeMergeSubtasks(pj *pendingJob, commitInfo *pfs.CommitInfo, stats bool) ([]*work.Task, error) {
+	hashtrees := pj.chunkHashtrees
+	if stats {
+		hashtrees = pj.statsHashtrees
+	}
+
 	// For jobs that can base their hashtree off of the parent hashtree, fetch the
 	// object information for the parent hashtrees
 	// TODO: this is risky - there's no check that the parent the jobChain is
@@ -1111,19 +1125,29 @@ func (reg *registry) makeMergeSubtasks(pj *pendingJob, commitInfo *pfs.CommitInf
 		}
 	}
 
-	if parentHashtrees != nil {
-		pj.logger.Logf("merging %d hashtrees with parent hashtree across %d shards", len(pj.chunkHashtrees), reg.driver.NumShards())
+	if stats {
+		if parentHashtrees != nil {
+			pj.logger.Logf("merging %d stats hashtrees with parent hashtree across %d shards", len(hashtrees), reg.driver.NumShards())
+		} else {
+			pj.logger.Logf("merging %d stats hashtrees across %d shards", len(hashtrees), reg.driver.NumShards())
+		}
 	} else {
-		pj.logger.Logf("merging %d hashtrees across %d shards", len(pj.chunkHashtrees), reg.driver.NumShards())
+		if parentHashtrees != nil {
+			pj.logger.Logf("merging %d hashtrees with parent hashtree across %d shards", len(hashtrees), reg.driver.NumShards())
+		} else {
+			pj.logger.Logf("merging %d hashtrees across %d shards", len(hashtrees), reg.driver.NumShards())
+		}
 	}
 
 	mergeSubtasks := []*work.Task{}
 	for i := int64(0); i < reg.driver.NumShards(); i++ {
-		mergeData := &MergeData{Hashtrees: pj.chunkHashtrees, Shard: i, JobID: pj.ji.Job.ID, Stats: stats}
+		mergeData := &MergeData{Hashtrees: hashtrees, Shard: i, JobID: pj.ji.Job.ID, Stats: stats}
 
 		if parentHashtrees != nil {
 			mergeData.Parent = parentHashtrees[i]
 		}
+
+		fmt.Printf("merge subtask data: %v", mergeData)
 
 		data, err := serializeMergeData(mergeData)
 		if err != nil {
@@ -1147,11 +1171,13 @@ func (reg *registry) processJobMerging(pj *pendingJob) error {
 	mutex := &sync.Mutex{}
 	mergeSubtasks := []*work.Task{}
 
-	chunkMergeSubtasks, err := reg.makeMergeSubtasks(pj, pj.commitInfo, false)
-	if err != nil {
-		return err
+	if pj.ji.DataFailed == 0 {
+		chunkMergeSubtasks, err := reg.makeMergeSubtasks(pj, pj.commitInfo, false)
+		if err != nil {
+			return err
+		}
+		mergeSubtasks = append(mergeSubtasks, chunkMergeSubtasks...)
 	}
-	mergeSubtasks = append(mergeSubtasks, chunkMergeSubtasks...)
 
 	if pj.statsCommitInfo != nil {
 		statsMergeSubtasks, err := reg.makeMergeSubtasks(pj, pj.statsCommitInfo, true)
@@ -1166,7 +1192,7 @@ func (reg *registry) processJobMerging(pj *pendingJob) error {
 	statsTrees := make([]*pfs.Object, reg.driver.NumShards())
 	statsSize := uint64(0)
 
-	pj.logger.Logf("sending out %d merge tasks", len(trees))
+	pj.logger.Logf("sending out %d merge tasks", len(mergeSubtasks))
 
 	// Run merge subtasks and wait for them to complete
 	if err := pj.taskMaster.RunSubtasks(
@@ -1202,7 +1228,13 @@ func (reg *registry) processJobMerging(pj *pendingJob) error {
 		return errors.Wrap(err, "merge error")
 	}
 
-	if err := reg.succeedJob(pj, trees, size, statsTrees, statsSize); err != nil {
+	pj.logger.Logf("merge results: %v trees (%d bytes), %v stats trees (%d bytes)", trees, size, statsTrees, statsSize)
+
+	if pj.ji.DataFailed == 0 {
+		if err := reg.succeedJob(pj, trees, size, statsTrees, statsSize); err != nil {
+			return err
+		}
+	} else if err := reg.failJob(pj, "datum failed", statsTrees, statsSize); err != nil {
 		return err
 	}
 	return nil
@@ -1235,7 +1267,7 @@ func (reg *registry) storeJobDatums(pj *pendingJob) (*pfs.Object, error) {
 
 func (reg *registry) processJobEgress(pj *pendingJob) error {
 	if err := reg.egress(pj); err != nil {
-		return reg.failJob(pj, fmt.Sprintf("egress error: %v", err))
+		return reg.failJob(pj, fmt.Sprintf("egress error: %v", err), nil, 0)
 	}
 
 	pj.ji.State = pps.JobState_JOB_SUCCESS

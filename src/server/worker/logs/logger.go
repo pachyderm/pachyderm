@@ -219,7 +219,6 @@ func (logger *taggedLogger) LogStep(name string, cb func() error) (retErr error)
 	logger.Logf("started %v", name)
 	defer func() {
 		if retErr != nil {
-			retErr = errors.Wrap(retErr, name)
 			logger.Logf("errored %v: %v", name, retErr)
 		} else {
 			logger.Logf("finished %v", name)

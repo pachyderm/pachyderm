@@ -41,7 +41,7 @@ type JobDatumIterator interface {
 
 	// NextDatum advances the iterator and returns the next available datum. If no
 	// such datum is immediately available, nil will be returned.
-	NextDatum() []*common.Input
+	NextDatum() ([]*common.Input, int64)
 
 	// AdditiveOnly indicates if the job output can be merged with the parent
 	// job's output commit. If this is true, the iterator will not provide all
@@ -107,6 +107,7 @@ type jobDatumIterator struct {
 
 	ancestors []*jobDatumIterator
 	dit       datum.Iterator
+	ditIndex  int
 
 	finished     bool
 	additiveOnly bool
@@ -132,6 +133,7 @@ func NewJobChain(hasher DatumHasher, baseDatums DatumSet) JobChain {
 		allDatums: baseDatums,
 		finished:  true,
 		done:      make(chan struct{}),
+		ditIndex:  -1,
 	}
 	close(jdi.done)
 
@@ -226,6 +228,7 @@ func (jc *jobChain) Start(jd JobData) (JobDatumIterator, error) {
 		allDatums: make(DatumSet),
 		ancestors: []*jobDatumIterator{},
 		dit:       dit,
+		ditIndex:  -1,
 		done:      make(chan struct{}),
 	}
 
@@ -367,7 +370,7 @@ func (jdi *jobDatumIterator) NextBatch(ctx context.Context) (uint64, error) {
 			return 0, err
 		}
 
-		jdi.dit.Reset()
+		jdi.ditIndex = -1
 	}
 
 	batchSize := uint64(0)
@@ -378,9 +381,10 @@ func (jdi *jobDatumIterator) NextBatch(ctx context.Context) (uint64, error) {
 	return batchSize, nil
 }
 
-func (jdi *jobDatumIterator) NextDatum() []*common.Input {
-	for jdi.dit.Next() {
-		inputs := jdi.dit.Datum()
+func (jdi *jobDatumIterator) NextDatum() ([]*common.Input, int64) {
+	jdi.ditIndex++
+	for jdi.ditIndex < jdi.dit.Len() {
+		inputs := jdi.dit.DatumN(jdi.ditIndex)
 		hash := jdi.jc.hasher.Hash(inputs)
 		if count, ok := jdi.yielding[hash]; ok {
 			if count == 1 {
@@ -389,15 +393,16 @@ func (jdi *jobDatumIterator) NextDatum() []*common.Input {
 				jdi.yielding[hash]--
 			}
 			jdi.yielded[hash]++
-			return inputs
+			return inputs, int64(jdi.ditIndex)
 		}
+		jdi.ditIndex++
 	}
 
-	return nil
+	return nil, 0
 }
 
 func (jdi *jobDatumIterator) Reset() {
-	jdi.dit.Reset()
+	jdi.ditIndex = -1
 	for hash, count := range jdi.yielded {
 		delete(jdi.yielded, hash)
 		jdi.yielding[hash] += count

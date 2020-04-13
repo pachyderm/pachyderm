@@ -200,7 +200,8 @@ func requireIteratorContents(t *testing.T, jdi JobDatumIterator, expected []stri
 
 	found := []string{}
 	for range expected {
-		datum, err := inputsToDatum(jdi.NextDatum())
+		inputs, _ := jdi.NextDatum()
+		datum, err := inputsToDatum(inputs)
 		require.NoError(t, err)
 		found = append(found, datum)
 	}
@@ -331,7 +332,8 @@ func superviseTestJobWithError(
 			}
 
 			for i := uint64(0); i < count; i++ {
-				datum, err := inputsToDatum(jdi.NextDatum())
+				inputs, _ := jdi.NextDatum()
+				datum, err := inputsToDatum(inputs)
 				if err != nil {
 					return err
 				}

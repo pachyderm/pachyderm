@@ -148,7 +148,11 @@ func (w *Worker) worker() {
 
 		return eg.Wait()
 	}, backoff.NewConstantBackOff(200*time.Millisecond), func(err error, d time.Duration) error {
-		logger.Logf("worker failed: %v; retrying in %v", err, d)
+		if st, ok := err.(errors.StackTracer); ok {
+			logger.Logf("worker failed, retrying in %v:\n%s\n%+v", d, err, st.StackTrace())
+		} else {
+			logger.Logf("worker failed, retrying in %v:\n%s", d, err)
+		}
 		return nil
 	})
 }
