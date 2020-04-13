@@ -212,9 +212,10 @@ def main():
     if "PACH_CA_CERTS" in os.environ:
         raise Exception("Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS")
 
-    kube_context = capture("kubectl", "config", "current-context").strip()
     driver = None
 
+    # derive which driver to use from the k8s context name
+    kube_context = capture("kubectl", "config", "current-context").strip()
     if kube_context == "minikube":
         print_status("using the minikube driver")
         driver = MinikubeDriver()
@@ -226,6 +227,12 @@ def main():
         if match is not None:
             print_status("using the GKE driver")
             driver = GCPDriver(match.groups()[0])
+
+    # minikube won't set the k8s context if the VM isn't running. This checks
+    # for the presence of the minikube executable as an alternate means.
+    if driver is None and run("minikube", "version", raise_on_error=False, capture_output=True).returncode == 0:
+        print_status("using the minikube driver")
+        driver = MinikubeDriver()
 
     if driver is None:
         raise Exception(f"could not derive driver from context name: {kube_context}")
