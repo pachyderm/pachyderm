@@ -26,16 +26,16 @@ type Annotation struct {
 
 // Storage is the abstraction that manages chunk storage.
 type Storage struct {
-	objC obj.Client
-	gcC  gc.Client
+	objClient obj.Client
+	gcClient  gc.Client
 }
 
 // NewStorage creates a new Storage.
-func NewStorage(objC obj.Client, gcC gc.Client, opts ...StorageOption) *Storage {
+func NewStorage(objClient obj.Client, opts ...StorageOption) *Storage {
 	s := &Storage{
-		objC: objC,
-		gcC:  gcC,
+		objClient: objClient,
 	}
+	s.gcClient = gc.NewMockClient()
 	for _, opt := range opts {
 		opt(s)
 	}
@@ -44,7 +44,7 @@ func NewStorage(objC obj.Client, gcC gc.Client, opts ...StorageOption) *Storage 
 
 // NewReader creates a new Reader.
 func (s *Storage) NewReader(ctx context.Context, dataRefs ...*DataRef) *Reader {
-	return newReader(ctx, s.objC, dataRefs...)
+	return newReader(ctx, s.objClient, dataRefs...)
 }
 
 // NewWriter creates a new Writer for a stream of bytes to be chunked.
@@ -52,45 +52,45 @@ func (s *Storage) NewReader(ctx context.Context, dataRefs ...*DataRef) *Reader {
 // object storage.
 // The callback arguments are the chunk hash and annotations.
 func (s *Storage) NewWriter(ctx context.Context, averageBits int, seed int64, noUpload bool, tmpID string, f WriterFunc) *Writer {
-	return newWriter(ctx, s.objC, s.gcC, averageBits, f, seed, noUpload, tmpID)
+	return newWriter(ctx, s.objClient, s.gcClient, averageBits, f, seed, noUpload, tmpID)
 }
 
 // List lists all of the chunks in object storage.
 func (s *Storage) List(ctx context.Context, f func(string) error) error {
-	return s.objC.Walk(ctx, prefix, f)
+	return s.objClient.Walk(ctx, prefix, f)
 }
 
 // DeleteAll deletes all of the chunks in object storage.
 func (s *Storage) DeleteAll(ctx context.Context) error {
-	return s.objC.Walk(ctx, prefix, func(hash string) error {
-		return s.objC.Delete(ctx, hash)
+	return s.objClient.Walk(ctx, prefix, func(hash string) error {
+		return s.objClient.Delete(ctx, hash)
 	})
 }
 
 // Delete deletes a chunk in object storage.
 func (s *Storage) Delete(ctx context.Context, hash string) error {
-	return s.objC.Delete(ctx, path.Join(prefix, hash))
+	return s.objClient.Delete(ctx, path.Join(prefix, hash))
 }
 
 func (s *Storage) AddSemanticReference(ctx context.Context, name string, chunk *Chunk, tmpID string) error {
-	if err := s.gcC.AddReference(ctx, semanticReference(name, chunk.Hash)); err != nil {
+	if err := s.gcClient.AddReference(ctx, semanticReference(name, chunk.Hash)); err != nil {
 		return err
 	}
 	// (bryce) removing the temporary reference will eventually be handled by gc.
-	return s.gcC.RemoveReference(ctx, &gc.Reference{
+	return s.gcClient.RemoveReference(ctx, &gc.Reference{
 		Sourcetype: "temporary",
 		Source:     tmpID,
 	})
 }
 
 func (s *Storage) RemoveSemanticReference(ctx context.Context, name string) error {
-	return s.gcC.RemoveReference(ctx, semanticReference(name, ""))
+	return s.gcClient.RemoveReference(ctx, semanticReference(name, ""))
 }
 
 func semanticReference(name, chunk string) *gc.Reference {
 	return &gc.Reference{
 		Sourcetype: "semantic",
 		Source:     name,
-		Chunk:      chunk,
+		Chunk:      path.Join(prefix, chunk),
 	}
 }

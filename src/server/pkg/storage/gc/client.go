@@ -2,10 +2,13 @@ package gc
 
 import (
 	"context"
-	"time"
 
 	"github.com/jinzhu/gorm"
-	"github.com/prometheus/client_golang/prometheus"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+)
+
+var (
+	errFlush = errors.Errorf("flushing")
 )
 
 // Reference describes a reference to a chunk in chunk storage.  If a chunk has
@@ -40,44 +43,15 @@ type Client interface {
 }
 
 type client struct {
-	server Server
-	db     *gorm.DB
+	db *gorm.DB
 }
 
-// NewClient constructs a garbage collector client:
-//  * server - an object implementing the Server interface that will be
-//      called for forwarding deletion candidates and flushing deletes.
-//  * postgresHost, postgresPort - the host and port of the postgres instance
-//      which is used for coordinating garbage collection reference counts with
-//      the garbage collector clients
-//  * registry (optional) - a Prometheus stats registry for tracking usage and
-//    performance
-func NewClient(server Server, postgresHost string, postgresPort uint16, registry prometheus.Registerer) (Client, error) {
-	// Opening a connection is done lazily, initialization will connect
-	db, err := openDatabase(postgresHost, postgresPort)
-	if err != nil {
-		return nil, err
-	}
-
-	db.LogMode(false)
-
-	err = initializeDb(db)
-	if err != nil {
-		return nil, err
-	}
-
-	if registry != nil {
-		initPrometheus(registry)
-	}
-
-	return &client{
-		server: server,
-		db:     db,
-	}, nil
+// NewClient constructs a garbage collection client.
+func NewClient(db *gorm.DB) (Client, error) {
+	return &client{db: db}, nil
 }
 
-func (c *client) ReserveChunk(ctx context.Context, chunk, tmpID string) (retErr error) {
-	defer func(startTime time.Time) { applyRequestStats("ReserveChunk", retErr, startTime) }(time.Now())
+func (c *client) ReserveChunk(ctx context.Context, chunk, tmpID string) error {
 	var flushChunk []chunkModel
 	stmtFuncs := []statementFunc{
 		func(txn *gorm.DB) *gorm.DB {
@@ -105,17 +79,15 @@ func (c *client) ReserveChunk(ctx context.Context, chunk, tmpID string) (retErr 
 			`, chunk, tmpID).Scan(&flushChunk)
 		},
 	}
-	for {
+	return retry("flush deletion", func() error {
 		if err := runTransaction(ctx, c.db, stmtFuncs, reserveChunkStats); err != nil {
 			return err
 		}
-		if len(flushChunk) == 0 {
-			return nil
+		if len(flushChunk) > 0 {
+			return errFlush
 		}
-		if err := c.server.FlushDelete(ctx, chunk); err != nil {
-			return err
-		}
-	}
+		return nil
+	})
 }
 
 func (c *client) AddReference(ctx context.Context, ref *Reference) (retErr error) {
@@ -139,33 +111,35 @@ func (c *client) AddReference(ctx context.Context, ref *Reference) (retErr error
 }
 
 func (c *client) RemoveReference(ctx context.Context, ref *Reference) (retErr error) {
-	var chunksDeleted []chunkModel
 	stmtFuncs := []statementFunc{
 		func(txn *gorm.DB) *gorm.DB {
 			// Delete the references with the same sourcetype and source (chunk is ignored).
 			// Return the chunks that should be deleted (the chunks will have zero references
 			// after the references are removed).
-			return txn.Raw(`
-				WITH deleted_refs AS (
-					DELETE FROM refs
-					WHERE sourcetype = ?
-					AND source = ?
-					RETURNING chunk
-				)
-				SELECT deleted_refs.chunk
-				FROM deleted_refs
-				JOIN refs
-				ON deleted_refs.chunk = refs.chunk
-				GROUP BY 1
-				HAVING COUNT(*) = 1
-		      `, ref.Sourcetype, ref.Source).Scan(&chunksDeleted)
+			return txn.Exec(`
+				DELETE FROM refs
+				WHERE sourcetype = ?
+				AND source = ?
+		      `, ref.Sourcetype, ref.Source)
 		},
 	}
-	if err := runTransaction(ctx, c.db, stmtFuncs, nil); err != nil {
-		return err
-	}
-	for _, chunk := range chunksDeleted {
-		c.server.DeleteChunk(ctx, chunk.Chunk)
-	}
+	return runTransaction(ctx, c.db, stmtFuncs, nil)
+}
+
+type mockClient struct{}
+
+func NewMockClient() Client {
+	return &mockClient{}
+}
+
+func (c *mockClient) ReserveChunk(ctx context.Context, chunk, tmpID string) error {
+	return nil
+}
+
+func (c *mockClient) AddReference(ctx context.Context, ref *Reference) error {
+	return nil
+}
+
+func (c *mockClient) RemoveReference(ctx context.Context, ref *Reference) error {
 	return nil
 }

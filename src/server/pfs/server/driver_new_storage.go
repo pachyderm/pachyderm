@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
@@ -52,10 +53,12 @@ func (d *driver) finishCommitNewStorageLayer(txnCtx *txnenv.TransactionContext, 
 	// Run compaction task.
 	return d.compactionQueue.RunTaskBlock(txnCtx.Client.Ctx(), func(m *work.Master) error {
 		commitPath := path.Join(commit.Repo.Name, commit.ID)
-		// (bryce) need some cleanup improvements, probably garbage collection.
-		// (bryce) this should be a retry when garbage collection is integrated.
-		d.storage.Delete(context.Background(), path.Join(commitPath, fileset.Diff))
-		d.storage.Delete(context.Background(), path.Join(commitPath, fileset.Compacted))
+		backoff.Retry(func() error {
+			if err := d.storage.Delete(context.Background(), path.Join(commitPath, fileset.Diff)); err != nil {
+				return err
+			}
+			return d.storage.Delete(context.Background(), path.Join(commitPath, fileset.Compacted))
+		}, backoff.NewInfiniteBackOff())
 		// Compact the commit changes into a diff file set.
 		if err := d.compact(m, path.Join(commitPath, fileset.Diff), []string{commitPath}); err != nil {
 			return err
@@ -264,7 +267,6 @@ func (fr *FileReader) drain() error {
 func (d *driver) compact(master *work.Master, outputPath string, inputPrefixes []string) (retErr error) {
 	scratch := path.Join(tmpPrefix, uuid.NewWithoutDashes())
 	defer func() {
-		// (bryce) need some cleanup improvements, probably garbage collection.
 		if err := d.storage.Delete(context.Background(), scratch); retErr == nil {
 			retErr = err
 		}

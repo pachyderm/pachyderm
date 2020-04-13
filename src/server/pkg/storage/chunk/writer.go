@@ -244,7 +244,7 @@ func (w *worker) put(edge bool) error {
 	}
 	chunk := &Chunk{Hash: hash.EncodeHash(hash.Sum(chunkBytes))}
 	path := path.Join(prefix, chunk.Hash)
-	if err := w.gcC.ReserveChunk(w.ctx, chunk.Hash, w.tmpID); err != nil {
+	if err := w.gcC.ReserveChunk(w.ctx, path, w.tmpID); err != nil {
 		return err
 	}
 	// If the chunk does not exist, upload it.
@@ -279,8 +279,8 @@ func (w *worker) updateAnnotations(chunkRef *DataRef) error {
 		for _, dataRef := range a.RefDataRefs {
 			if err := w.gcC.AddReference(w.ctx, &gc.Reference{
 				Sourcetype: "chunk",
-				Source:     chunkRef.ChunkInfo.Chunk.Hash,
-				Chunk:      dataRef.ChunkInfo.Chunk.Hash,
+				Source:     path.Join(prefix, chunkRef.ChunkInfo.Chunk.Hash),
+				Chunk:      path.Join(prefix, dataRef.ChunkInfo.Chunk.Hash),
 			}); err != nil {
 				return err
 			}
