@@ -141,6 +141,7 @@ func TestHeadlessBranch(t *testing.T) {
 func TestWrite(t *testing.T) {
 	c := server.GetPachClient(t, server.GetBasicConfig())
 	require.NoError(t, c.CreateRepo("repo"))
+	// First, create a file
 	withMount(t, c, &Options{
 		Fuse: &fs.Options{
 			MountOptions: fuse.MountOptions{
@@ -163,17 +164,38 @@ func TestWrite(t *testing.T) {
 		},
 		Write: true,
 	}, func(mountPoint string) {
-		f, err := os.OpenFile(filepath.Join(mountPoint, "repo", "foo"), os.O_APPEND|os.O_WRONLY, 0600)
+		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo", "foo"))
+		require.NoError(t, err)
+		require.Equal(t, "foo\n", string(data))
+		f, err := os.OpenFile(filepath.Join(mountPoint, "repo", "foo"), os.O_WRONLY, 0600)
 		require.NoError(t, err)
 		defer func() {
 			require.NoError(t, f.Close())
 		}()
+		_, err = f.Seek(0, 2)
+		require.NoError(t, err)
 		_, err = f.Write([]byte("foo\n"))
 		require.NoError(t, err)
 	})
 	b.Reset()
 	require.NoError(t, c.GetFile("repo", "master", "foo", 0, 0, &b))
 	require.Equal(t, "foo\nfoo\n", b.String())
+
+	// Now overwrite that file
+	withMount(t, c, &Options{
+		Fuse: &fs.Options{
+			MountOptions: fuse.MountOptions{
+				Debug: true,
+			},
+		},
+		Write: true,
+	}, func(mountPoint string) {
+		require.NoError(t, os.Remove(filepath.Join(mountPoint, "repo", "foo")))
+		require.NoError(t, ioutil.WriteFile(filepath.Join(mountPoint, "repo", "foo"), []byte("bar\n"), 0644))
+	})
+
+	b.Reset()
+	require.YesError(t, c.GetFile("repo", "master", "foo", 0, 0, &b))
 }
 
 func withMount(tb testing.TB, c *client.APIClient, opts *Options, f func(mountPoint string)) {
@@ -190,6 +212,14 @@ func withMount(tb testing.TB, c *client.APIClient, opts *Options, f func(mountPo
 	defer func() {
 		close(opts.Unmount)
 		<-unmounted
+	}()
+	defer func() {
+		// recover because panics leave the mount in a weird state that makes
+		// it hard to rerun the tests, mostly relevent when you're iterating on
+		// these tests, or the code they test.
+		if r := recover(); r != nil {
+			tb.Fatal(r)
+		}
 	}()
 	go func() {
 		Mount(c, dir, opts)

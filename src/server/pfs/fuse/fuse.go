@@ -130,7 +130,7 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 		split := strings.Split(strings.TrimPrefix(path, upperdir+"/"), "/")
 		repo := split[0]
 		file := filepath.Join(split[1:]...)
-		if _, err := pfc.PutFile(repo, mount.branch(repo), file, f); err != nil {
+		if _, err := pfc.PutFileOverwrite(repo, mount.branch(repo), file, f, 0); err != nil {
 			return err
 		}
 		return nil

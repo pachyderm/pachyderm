@@ -20,7 +20,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func parseCommits(args []string) (map[string]string, error) {
+func parseBranches(args []string) (map[string]string, error) {
 	result := make(map[string]string)
 	for _, arg := range args {
 		split := strings.Split(arg, "@")
@@ -37,7 +37,7 @@ func mountCmds() []*cobra.Command {
 
 	var write bool
 	var debug bool
-	var commits cmdutil.RepeatedStringArg
+	var branches cmdutil.RepeatedStringArg
 	mount := &cobra.Command{
 		Use:   "{{alias}} <path/to/mount/point>",
 		Short: "Mount pfs locally. This command blocks.",
@@ -49,7 +49,7 @@ func mountCmds() []*cobra.Command {
 			}
 			defer c.Close()
 			mountPoint := args[0]
-			commits, err := parseCommits(commits)
+			branches, err := parseBranches(branches)
 			if err != nil {
 				return err
 			}
@@ -60,14 +60,14 @@ func mountCmds() []*cobra.Command {
 						Debug: debug,
 					},
 				},
-				Commits: commits,
+				Branches: branches,
 			}
 			return fuse.Mount(c, mountPoint, opts)
 		}),
 	}
 	mount.Flags().BoolVarP(&write, "write", "w", false, "Allow writing to pfs through the mount.")
 	mount.Flags().BoolVarP(&debug, "debug", "d", false, "Turn on debug messages.")
-	mount.Flags().VarP(&commits, "commits", "c", "Commits to mount for repos, arguments should be of the form \"repo@commit\"")
+	mount.Flags().VarP(&branches, "branches", "b", "Branches (or commits) to mount, arguments should be of the form \"repo@branch\"")
 	mount.MarkFlagCustom("commits", "__pachctl_get_repo_branch")
 	commands = append(commands, cmdutil.CreateAlias(mount, "mount"))
 
