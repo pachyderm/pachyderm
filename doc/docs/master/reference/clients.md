@@ -25,6 +25,19 @@ cd $GOPATH/src/google.golang.org/grpc
 git checkout 21f8ed309495401e6fd79b3a9fd549582aed1b4c
 ```
 
+### Running Go Examples
+
+The Pachyderm [godocs](https://godoc.org/github.com/pachyderm/pachyderm/src/client) reference
+provides examples of how you can use the Go client API. You need to have a running Pachyderm cluster
+to run these examples.
+
+Make sure that you use your `pachd_address` in `client.NewFromAddress("<your-pachd-address>:30650")`.
+For example, if you are testing on `minikube`, run
+`minikube ip` to get this information.
+
+See the [OpenCV Example in Go](https://github.com/pachyderm/pachyderm/tree/master/examples/opencv) for more
+information.
+
 ## Python Client
 
 The Python client is officially supported by the Pachyderm team. It implements almost all of the functionality that is provided with the `pachctl` CLI tool, and, thus, you can easily integrated operations like `put file` into your applications.

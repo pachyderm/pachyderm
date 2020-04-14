@@ -206,6 +206,10 @@ func TestJSONStringifiedNumbers(t *testing.T) {
 		echo bar | pachctl put file input@master:/bar
 		echo baz | pachctl put file input@master:/baz
 		pachctl finish commit input@master
+		pachctl inspect pipeline first
+		sleep 30
+		pachctl inspect pipeline first
+		echo "flush commit"
 		pachctl flush commit input@master
 		pachctl get file first@master:/foo | match foo
 		pachctl get file first@master:/bar | match bar
