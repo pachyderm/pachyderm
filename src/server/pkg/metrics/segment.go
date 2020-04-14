@@ -9,21 +9,24 @@ import (
 
 const reportingInterval time.Duration = 5 * time.Minute
 
-func newPersistentClient() *analytics.Client {
-	c := newSegmentClient()
+type segmentClient struct {
+	client *analytics.Client
+}
+
+func newSegmentClient() *segmentClient {
+	c := analytics.New("hhxbyr7x50w3jtgcwcZUyOFrTf4VNMrD")
 	c.Interval = reportingInterval
 	c.Size = 100
-	return c
+
+	return &segmentClient{
+		client: c,
+	}
 }
 
-func newSegmentClient() *analytics.Client {
-	return analytics.New("hhxbyr7x50w3jtgcwcZUyOFrTf4VNMrD")
-}
-
-func reportClusterMetricsToSegment(client *analytics.Client, metrics *Metrics) {
+func (c *segmentClient) reportClusterMetrics(metrics *Metrics) {
 	// We're intentionally ignoring an error here because metrics code is
 	// non-critical
-	client.Track(&analytics.Track{
+	c.client.Track(&analytics.Track{
 		Event:       "cluster.metrics",
 		AnonymousId: metrics.ClusterID,
 		Properties: map[string]interface{}{
@@ -46,25 +49,29 @@ Segment needs us to identify a user before we report any events for that user.
 We have no way of knowing if a user has previously been identified, so we call this
 before every `Track()` call containing user data.
 */
-func identifyUser(client *analytics.Client, userID string) {
+func (c *segmentClient) identifyUser(userID string) {
 	// We're intentionally ignoring an error here because metrics code is
 	// non-critical
-	client.Identify(&analytics.Identify{
+	c.client.Identify(&analytics.Identify{
 		UserId: userID,
 	})
 }
 
-func reportUserMetricsToSegment(client *analytics.Client, userID string, prefix string, action string, value interface{}, clusterID string) {
-	identifyUser(client, userID)
+func (c *segmentClient) reportUserMetrics(userID string, prefix string, action string, value interface{}, clusterID string) {
+	c.identifyUser(userID)
 	properties := map[string]interface{}{
 		"ClusterID": clusterID,
 	}
 	properties[action] = value
 	// We're intentionally ignoring an error here because metrics code is
 	// non-critical
-	client.Track(&analytics.Track{
+	c.client.Track(&analytics.Track{
 		Event:      fmt.Sprintf("%v.usage", prefix),
 		UserId:     userID,
 		Properties: properties,
 	})
+}
+
+func (c *segmentClient) Close() {
+	c.client.Close()
 }

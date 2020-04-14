@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client"
+	pach_client "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
@@ -12,7 +12,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 
-	"github.com/segmentio/analytics-go"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,18 +20,18 @@ import (
 
 //Reporter is used to submit user & cluster metrics to segment
 type Reporter struct {
-	segmentClient *analytics.Client
-	clusterID     string
-	env           *serviceenv.ServiceEnv
+	client    client
+	clusterID string
+	env       *serviceenv.ServiceEnv
 }
 
 // NewReporter creates a new reporter and kicks off the loop to report cluster
 // metrics
 func NewReporter(clusterID string, env *serviceenv.ServiceEnv) *Reporter {
 	reporter := &Reporter{
-		segmentClient: newPersistentClient(),
-		clusterID:     clusterID,
-		env:           env,
+		client:    newSegmentClient(),
+		clusterID: clusterID,
+		env:       env,
 	}
 	go reporter.reportClusterMetrics()
 	return reporter
@@ -77,8 +76,7 @@ func (r *Reporter) reportUserAction(ctx context.Context, action string, value in
 			// metrics errors are non fatal
 			return
 		}
-		reportUserMetricsToSegment(
-			r.segmentClient,
+		r.client.reportUserMetrics(
 			userID,
 			prefix,
 			action,
@@ -99,7 +97,7 @@ func reportAndFlushUserAction(action string, value interface{}) func() {
 		if cfg == nil || cfg.UserID == "" || !cfg.V2.Metrics {
 			return
 		}
-		reportUserMetricsToSegment(client, cfg.UserID, "user", action, value, "")
+		client.reportUserMetrics(cfg.UserID, "user", action, value, "")
 		close(metricsDone)
 	}()
 	return func() {
@@ -143,7 +141,7 @@ func (r *Reporter) reportClusterMetrics() {
 		metrics.ClusterID = r.clusterID
 		metrics.PodID = uuid.NewWithoutDashes()
 		metrics.Version = version.PrettyPrintVersion(version.Version)
-		reportClusterMetricsToSegment(r.segmentClient, metrics)
+		r.client.reportClusterMetrics(metrics)
 	}
 }
 
@@ -156,7 +154,7 @@ func externalMetrics(kubeClient *kube.Clientset, metrics *Metrics) error {
 	return nil
 }
 
-func internalMetrics(pachClient *client.APIClient, metrics *Metrics) error {
+func internalMetrics(pachClient *pach_client.APIClient, metrics *Metrics) error {
 	enterpriseState, err := pachClient.Enterprise.GetState(pachClient.Ctx(), &enterprise.GetStateRequest{})
 	if err != nil {
 		return err
