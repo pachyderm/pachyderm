@@ -26,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pager"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
+	"github.com/pachyderm/pachyderm/src/server/pkg/progress"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
 	txncmds "github.com/pachyderm/pachyderm/src/server/transaction/cmds"
@@ -1389,8 +1390,9 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 		}
 		limiter.Acquire()
 		defer limiter.Release()
-		fmt.Fprintln(os.Stderr, "Reading from stdin.")
-		return putFile(os.Stdin)
+		stdin := progress.Stdin()
+		defer stdin.Finish()
+		return putFile(stdin)
 	}
 	// try parsing the filename as a url, if it is one do a PutFileURL
 	if url, err := url.Parse(source); err == nil && url.Scheme != "" {
@@ -1425,7 +1427,7 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 	}
 	limiter.Acquire()
 	defer limiter.Release()
-	f, err := os.Open(source)
+	f, err := progress.Open(source)
 	if err != nil {
 		return err
 	}

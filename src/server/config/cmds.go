@@ -77,11 +77,15 @@ func Cmds() []*cobra.Command {
 			if err != nil {
 				return err
 			}
-			activeContext, _, err := cfg.ActiveContext()
+			activeContext, _, err := cfg.ActiveContext(false)
 			if err != nil {
 				return err
 			}
-			fmt.Printf("%s\n", activeContext)
+			if activeContext == "" {
+				fmt.Println("NONE")
+			} else {
+				fmt.Printf("%s\n", activeContext)
+			}
 			return nil
 		}),
 	}
@@ -230,7 +234,7 @@ func Cmds() []*cobra.Command {
 			} else {
 				var name string
 				var err error
-				name, context, err = cfg.ActiveContext()
+				name, context, err = cfg.ActiveContext(true)
 				if err != nil {
 					return err
 				}
@@ -319,7 +323,7 @@ func Cmds() []*cobra.Command {
 			}
 			sort.Strings(keys)
 
-			activeContext, _, err := cfg.ActiveContext()
+			activeContext, _, err := cfg.ActiveContext(false)
 			if err != nil {
 				return err
 			}
@@ -381,7 +385,7 @@ func contextCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, 
 	if err != nil {
 		log.Fatal(err)
 	}
-	activeContext, _, err := cfg.ActiveContext()
+	activeContext, _, err := cfg.ActiveContext(false)
 	if err != nil {
 		log.Fatal(err)
 	}
