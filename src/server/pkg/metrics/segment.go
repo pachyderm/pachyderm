@@ -9,10 +9,13 @@ import (
 
 const reportingInterval time.Duration = 5 * time.Minute
 
-func newPersistentClient() *analytics.Client {
+func newPersistentClient(endpoint string) *analytics.Client {
 	c := newSegmentClient()
 	c.Interval = reportingInterval
 	c.Size = 100
+	if endpoint != "" {
+		c.Endpoint = endpoint
+	}
 	return c
 }
 

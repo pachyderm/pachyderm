@@ -30,7 +30,7 @@ type Reporter struct {
 // metrics
 func NewReporter(clusterID string, env *serviceenv.ServiceEnv) *Reporter {
 	reporter := &Reporter{
-		segmentClient: newPersistentClient(),
+		segmentClient: newPersistentClient(env.MetricsEndpoint),
 		clusterID:     clusterID,
 		env:           env,
 	}
