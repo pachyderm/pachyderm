@@ -154,6 +154,26 @@ func TestWrite(t *testing.T) {
 	var b bytes.Buffer
 	require.NoError(t, c.GetFile("repo", "master", "foo", 0, 0, &b))
 	require.Equal(t, "foo\n", b.String())
+
+	withMount(t, c, &Options{
+		Fuse: &fs.Options{
+			MountOptions: fuse.MountOptions{
+				Debug: true,
+			},
+		},
+		Write: true,
+	}, func(mountPoint string) {
+		f, err := os.OpenFile(filepath.Join(mountPoint, "repo", "foo"), os.O_APPEND|os.O_WRONLY, 0600)
+		require.NoError(t, err)
+		defer func() {
+			require.NoError(t, f.Close())
+		}()
+		_, err = f.Write([]byte("foo\n"))
+		require.NoError(t, err)
+	})
+	b.Reset()
+	require.NoError(t, c.GetFile("repo", "master", "foo", 0, 0, &b))
+	require.Equal(t, "foo\nfoo\n", b.String())
 }
 
 func withMount(tb testing.TB, c *client.APIClient, opts *Options, f func(mountPoint string)) {

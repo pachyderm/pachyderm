@@ -18,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
 const (
@@ -25,46 +26,19 @@ const (
 	modeDir  uint32 = fuse.S_IFDIR | 0555 // everyone can read and execute, no one can do anything else (execute permission is required to list a dir)
 )
 
-type file struct {
-	pfs  *pfs.File
-	path string
-}
-
-type mount struct {
-	c       *client.APIClient
-	commits map[string]string
-	files   map[string]*file
-	mu      sync.Mutex
-}
-
-func (m *mount) commit(repo string) (string, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if commit, ok := m.commits[repo]; ok {
-		return commit, nil
-	}
-	bi, err := m.c.InspectBranch(repo, "master")
-	if errutil.IsNotFoundError(err) {
-		return "", nil
-	}
-	if err != nil {
-		return "", err
-	}
-	if bi.Head == nil {
-		m.commits[repo] = ""
-		return "", nil
-	}
-	m.commits[repo] = bi.Head.ID
-	return bi.Head.ID, nil
-}
-
 // Mount pfs to target, opts may be left nil.
 func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 	if err := opts.validate(); err != nil {
 		return err
 	}
+	commits := make(map[string]string)
+	for repo, branch := range opts.getBranches() {
+		if uuid.IsUUIDWithoutDashes(branch) {
+			commits[repo] = branch
+		}
+	}
 	files := make(map[string]*file)
-	commits := opts.getCommits()
+	branches := opts.getBranches()
 	fuseTarget := target
 	if opts.Write {
 		var err error
@@ -74,9 +48,10 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 		}
 	}
 	mount := &mount{
-		c:       c,
-		commits: commits,
-		files:   files,
+		c:        c,
+		branches: branches,
+		commits:  commits,
+		files:    files,
 	}
 	server, err := fs.Mount(fuseTarget, &node{
 		file: client.NewFile("", "", ""),
@@ -155,16 +130,48 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 		split := strings.Split(strings.TrimPrefix(path, upperdir+"/"), "/")
 		repo := split[0]
 		file := filepath.Join(split[1:]...)
-		commit, err := mount.commit(repo)
-		if commit == "" {
-			commit = "master"
-		}
-		if err != nil {
-			return err
-		}
-		if _, err := pfc.PutFile(repo, commit, file, f); err != nil {
+		if _, err := pfc.PutFile(repo, mount.branch(repo), file, f); err != nil {
 			return err
 		}
 		return nil
 	})
+}
+
+type file struct {
+	pfs  *pfs.File
+	path string
+}
+
+type mount struct {
+	c        *client.APIClient
+	branches map[string]string
+	commits  map[string]string
+	files    map[string]*file
+	mu       sync.Mutex
+}
+
+func (m *mount) branch(repo string) string {
+	if branch, ok := m.branches[repo]; ok {
+		return branch
+	}
+	return "master"
+}
+
+func (m *mount) commit(repo string) (string, error) {
+	if commit, ok := m.commits[repo]; ok {
+		return commit, nil
+	}
+	branch := m.branch(repo)
+	bi, err := m.c.InspectBranch(repo, branch)
+	if err != nil && !errutil.IsNotFoundError(err) {
+		return "", err
+	}
+	// You can access branches that don't exist, which allows you to create
+	// branches through the fuse mount.
+	if errutil.IsNotFoundError(err) || bi.Head == nil {
+		m.commits[repo] = ""
+		return "", nil
+	}
+	m.commits[repo] = bi.Head.ID
+	return bi.Head.ID, nil
 }

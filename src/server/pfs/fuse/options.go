@@ -17,10 +17,9 @@ type Options struct {
 	// Writes will be written back to the filesystem.
 	Write bool
 
-	// commits is a map from repos to commits, if a repo is unspecified then
-	// the master commit of the repo at the time the repo is first requested
-	// will be used.
-	Commits map[string]string
+	// Branches is a map from repos to branches, if a repo is unspecified then
+	// the "master" will be used.
+	Branches map[string]string
 
 	// Unmount is a channel that will be closed when the filesystem has been
 	// unmounted. It can be nil in which case it's ignored.
@@ -36,11 +35,11 @@ func (o *Options) getFuse() *fs.Options {
 	return o.Fuse
 }
 
-func (o *Options) getCommits() map[string]string {
-	if o == nil || o.Commits == nil {
+func (o *Options) getBranches() map[string]string {
+	if o == nil || o.Branches == nil {
 		return make(map[string]string)
 	}
-	return o.Commits
+	return o.Branches
 }
 
 func (o *Options) getUnmount() chan struct{} {
@@ -55,7 +54,7 @@ func (o *Options) validate() error {
 		return nil
 	}
 	if o.Write {
-		for _, commit := range o.Commits {
+		for _, commit := range o.Branches {
 			if uuid.IsUUIDWithoutDashes(commit) {
 				return errors.Errorf("can't mount commits %s in Write mode (mount a branch instead)", commit)
 			}
