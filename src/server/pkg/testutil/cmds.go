@@ -115,7 +115,7 @@ which match >/dev/null || {
 	res := exec.Command("/bin/bash")
 	res.Stderr = os.Stderr
 	// useful for debugging, but makes travis too noisy:
-	// res.Stdout = os.Stdout
+	res.Stdout = os.Stdout
 	res.Stdin = buf
 	res.Env = os.Environ()
 	return res
