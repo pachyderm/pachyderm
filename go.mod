@@ -30,6 +30,7 @@ require (
 	github.com/fatih/camelcase v1.0.0
 	github.com/fatih/color v1.7.0
 	github.com/fatih/structs v1.1.0 // indirect
+	github.com/fluhus/godoc-tricks v1.0.0
 	github.com/fsouza/go-dockerclient v1.4.1
 	github.com/go-ini/ini v1.42.0 // indirect
 	github.com/go-test/deep v1.0.1 // indirect
@@ -105,7 +106,7 @@ require (
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/sys v0.0.0-20191210023423-ac6580df4449 // indirect
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
-	golang.org/x/tools v0.0.0-20200331202046-9d5940d49312 // indirect
+	golang.org/x/tools v0.0.0-20200409170454-77362c5149f0 // indirect
 	google.golang.org/api v0.6.0
 	google.golang.org/appengine v1.6.5 // indirect
 	google.golang.org/grpc v1.27.0
