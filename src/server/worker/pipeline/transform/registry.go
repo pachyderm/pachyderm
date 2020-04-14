@@ -936,10 +936,6 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 					if data.RecoveredDatumsTag != "" {
 						recoveredTags = append(recoveredTags, data.RecoveredDatumsTag)
 					}
-
-					if stats.DatumsFailed > 0 {
-						return errors.Errorf("datum processing failed on datum (%s)", stats.FailedDatumID)
-					}
 					return nil
 				},
 			)
@@ -949,10 +945,11 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	err := eg.Wait()
 	pj.saveJobStats(stats)
 	if err != nil {
-		if stats.FailedDatumID == "" {
-			// If these was no failed datum, we can reattempt later
-			return errors.Wrap(err, "process datum error")
-		}
+		// If these was no failed datum, we can reattempt later
+		return errors.Wrap(err, "process datum error")
+	}
+
+	if stats.FailedDatumID != "" {
 		// A datum failed, but we still may need to merge stats - discard chunk hashtrees
 		chunkHashtrees = []*HashtreeInfo{}
 	}

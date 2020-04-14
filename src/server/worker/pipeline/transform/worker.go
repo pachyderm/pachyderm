@@ -156,6 +156,8 @@ func forEachDatum(driver driver.Driver, object *pfs.Object, cb func(int64, []*co
 		return err
 	}
 
+	fmt.Printf("datum count: %d\n", len(allDatums.Datums))
+
 	for _, datum := range allDatums.Datums {
 		if err := cb(datum.Index, datum.Inputs); err != nil {
 			return err
@@ -365,12 +367,22 @@ func processDatum(
 
 	if _, err := driver.PachClient().InspectTag(driver.PachClient().Ctx(), client.NewTag(tag)); err == nil {
 		buf := &bytes.Buffer{}
-		// TODO: should we count the size of 'buf' here towards downloaded data?
 		if err := driver.PachClient().GetTag(tag, buf); err != nil {
 			return stats, recoveredDatumTags, err
 		}
 		if err := datumCache.Put(uuid.NewWithoutDashes(), buf); err != nil {
 			return stats, recoveredDatumTags, err
+		}
+		if driver.PipelineInfo().EnableStats {
+			buf.Reset()
+			if err := driver.PachClient().GetTag(tag+statsTagSuffix, buf); err != nil {
+				// We are okay with not finding the stats hashtree. This allows users to
+				// enable stats on a pipeline with pre-existing jobs.
+				return stats, recoveredDatumTags, nil
+			}
+			if err := datumStatsCache.Put(uuid.NewWithoutDashes(), buf); err != nil {
+				return stats, recoveredDatumTags, err
+			}
 		}
 		stats.DatumsSkipped++
 		return stats, recoveredDatumTags, nil
