@@ -8,12 +8,6 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
-
-	opentracing "github.com/opentracing/opentracing-go"
-	log "github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
@@ -21,6 +15,11 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
+
+	opentracing "github.com/opentracing/opentracing-go"
+	log "github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const maxErrCount = 3 // gives all retried operations ~4.5s total to finish
@@ -590,18 +589,12 @@ func (op *pipelineOp) scaleDownPipeline() (retErr error) {
 // retrying and eventually failing op's pipeline if restartPipeline can't
 // restart it.
 func (op *pipelineOp) restartPipeline(reason string) error {
-	kubeClient := op.apiServer.env.GetKubeClient()
-	namespace := op.apiServer.namespace
 	var errCount int
 	if err := backoff.RetryNotify(func() error {
 		if op.rc != nil && !op.rcIsFresh() {
-			// Cancel any running monitorPipeline call
-			op.apiServer.cancelMonitor(op.name)
-			// delete stale RC
-			err := kubeClient.CoreV1().ReplicationControllers(namespace).Delete(
-				op.rc.Name, &metav1.DeleteOptions{OrphanDependents: &falseVal})
-			if err != nil && !isNotFoundErr(err) {
-				return fmt.Errorf("could not delete RC %q: %v", op.rc.Name, err)
+			// delete old RC, monitorPipeline goro, and worker service
+			if err := op.deletePipelineResources(); err != nil {
+				return err
 			}
 		}
 		// create up-to-date RC
