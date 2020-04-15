@@ -127,7 +127,7 @@ def experiment_id(client: kfp.Client, name: str):
 
 def main(host: str, create_pipeline: str, create_run_in: str, force: bool):
     if create_pipeline != "" and create_run_in != "":
-        logging.error('only one of --create_run_in and --create_pipeline may be set')
+        logging.error('only one of --create-run-in and --create-pipeline may be set')
         return 1
 
     if host != "":
