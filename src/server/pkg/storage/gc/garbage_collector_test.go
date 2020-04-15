@@ -119,7 +119,7 @@ func TestRecovery(t *testing.T) {
 			gcClient, err := NewClient(db)
 			require.NoError(t, err)
 			semanticName := "root"
-			expectedChunkRows := makeChunkTree(t, ctx, objClient, gcClient.(*client), semanticName, 3, 0)
+			expectedChunkRows := makeChunkTree(ctx, t, objClient, gcClient.(*client), semanticName, 3, 0)
 			require.ElementsEqual(t, expectedChunkRows, allChunks(t, gcClient.(*client)))
 			require.NoError(t, gcClient.RemoveReference(
 				ctx,
@@ -144,7 +144,7 @@ func TestTimeout(t *testing.T) {
 		var expectedChunkRows []chunkModel
 		for i := 0; i < numTrees; i++ {
 			tmpID := uuid.NewWithoutDashes()
-			expectedChunkRows = append(expectedChunkRows, makeChunkTree(t, ctx, objClient, gcClient.(*client), tmpID, 3, 0.2)...)
+			expectedChunkRows = append(expectedChunkRows, makeChunkTree(ctx, t, objClient, gcClient.(*client), tmpID, 3, 0.2)...)
 		}
 		time.Sleep(3 * time.Second)
 		require.ElementsEqual(t, expectedChunkRows, allChunks(t, gcClient.(*client)))
@@ -152,7 +152,7 @@ func TestTimeout(t *testing.T) {
 	}, WithPolling(time.Second), WithTimeout(time.Second)))
 }
 
-func makeChunkTree(t *testing.T, ctx context.Context, objClient obj.Client, gcClient *client, semanticName string, levels int, failProb float64) []chunkModel {
+func makeChunkTree(ctx context.Context, t *testing.T, objClient obj.Client, gcClient *client, semanticName string, levels int, failProb float64) []chunkModel {
 	chunks := makeChunks(t, objClient, int(math.Pow(float64(2), float64(levels)))-1)
 	// Reserve chunks initially with only temporary references.
 	tmpID := uuid.NewWithoutDashes()

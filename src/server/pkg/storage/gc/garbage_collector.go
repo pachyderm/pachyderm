@@ -145,7 +145,7 @@ func (gc *garbageCollector) markChunksDeleting(ctx context.Context, chunks []str
 			`, chunks, chunks).Scan(&chunksDeleting)
 		},
 	}
-	if err := runTransaction(ctx, gc.db, stmtFuncs, markChunksDeletingStats); err != nil {
+	if err := runTransaction(ctx, gc.db, stmtFuncs, nil); err != nil {
 		return nil, err
 	}
 	return convertChunks(chunksDeleting), nil
@@ -181,7 +181,7 @@ func (gc *garbageCollector) removeChunkRows(ctx context.Context, chunks []string
 		`, chunks).Scan(&deletedChunks)
 		},
 	}
-	if err := runTransaction(ctx, gc.db, stmtFuncs, removeChunkRowsStats); err != nil {
+	if err := runTransaction(ctx, gc.db, stmtFuncs, nil); err != nil {
 		return nil, err
 	}
 	return convertChunks(deletedChunks), nil

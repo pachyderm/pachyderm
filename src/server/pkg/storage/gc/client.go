@@ -11,15 +11,15 @@ var (
 	errFlush = errors.Errorf("flushing")
 )
 
-// Reference describes a reference to a chunk in chunk storage.  If a chunk has
+// Reference describes a reference to a chunk in object storage.  If a chunk has
 // no references, it will be deleted.
 //  * Sourcetype - the type of reference, one of:
-//   * 'temporary' - a temporary reference to a chunk
-//   * 'chunk' - a cross-chunk reference, from one chunk to another
-//   * 'semantic' - a reference to a chunk by some semantic name
+//   * 'temporary' - a temporary reference to a chunk.
+//   * 'chunk' - a cross-chunk reference, from one chunk to another.
+//   * 'semantic' - a reference to a chunk by some semantic name.
 //  * Source - the source of the reference, this may be a temporary id, chunk id, or a
-//    semantic name
-//  * Chunk - the target chunk being referenced
+//    semantic name.
+//  * Chunk - the target chunk being referenced.
 type Reference struct {
 	Sourcetype string
 	Source     string
@@ -28,17 +28,17 @@ type Reference struct {
 
 // Client is the interface provided by the garbage collector client, for use on
 // worker nodes.  It will directly perform reference-counting operations on the
-// cluster's postgres database, but synchronize chunk deletions with the
-// garbage collector service running in pachd.
+// cluster's Postgres database, and block on deleting chunks.
 type Client interface {
-	// ReserveChunk ensures that a chunk is not deleted during the course of a
-	// temporary reference.  It will add a temporary reference to the given chunk, even
+	// ReserveChunk ensures that a chunk is not deleted by the garbage collector.
+	// It will add a temporary reference to the given chunk, even
 	// if it doesn't exist yet.  If the specified chunk is currently
-	// being deleted, this call will block while it flushes the delete through
-	// the garbage collector service.
+	// being deleted, this call will block while it is being deleted.
 	ReserveChunk(context.Context, string, string) error
 
+	// AddReference adds a reference.
 	AddReference(context.Context, *Reference) error
+	// RemoveReference removes a reference.
 	RemoveReference(context.Context, *Reference) error
 }
 
@@ -46,7 +46,7 @@ type client struct {
 	db *gorm.DB
 }
 
-// NewClient constructs a garbage collection client.
+// NewClient creates a new client.
 func NewClient(db *gorm.DB) (Client, error) {
 	return &client{db: db}, nil
 }
@@ -80,7 +80,7 @@ func (c *client) ReserveChunk(ctx context.Context, chunk, tmpID string) error {
 		},
 	}
 	return retry("flush deletion", func() error {
-		if err := runTransaction(ctx, c.db, stmtFuncs, reserveChunkStats); err != nil {
+		if err := runTransaction(ctx, c.db, stmtFuncs, nil); err != nil {
 			return err
 		}
 		if len(flushChunk) > 0 {
@@ -128,6 +128,7 @@ func (c *client) RemoveReference(ctx context.Context, ref *Reference) (retErr er
 
 type mockClient struct{}
 
+// NewMockClient creates a new mock client.
 func NewMockClient() Client {
 	return &mockClient{}
 }

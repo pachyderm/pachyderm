@@ -18,6 +18,7 @@ const (
 	defaultPostgresPort = 32228
 )
 
+// NewLocalDB creates a local database client.
 // (bryce) this should be somewhere else.
 // probably a db package similar to obj.
 func NewLocalDB() (*gorm.DB, error) {
@@ -35,6 +36,8 @@ func NewLocalDB() (*gorm.DB, error) {
 	return db, nil
 }
 
+// WithLocalDB creates a local database client for testing during the lifetime of
+// the callback.
 func WithLocalDB(f func(*gorm.DB) error) (retErr error) {
 	db, err := NewLocalDB()
 	if err != nil {
@@ -59,6 +62,8 @@ func clearData(db *gorm.DB) error {
 
 }
 
+// WithLocalGarbageCollector creates a local garbage collector client for testing during the lifetime of
+// the callback.
 func WithLocalGarbageCollector(f func(context.Context, obj.Client, Client) error, opts ...Option) error {
 	return obj.WithLocalClient(func(objClient obj.Client) error {
 		return WithLocalDB(func(db *gorm.DB) error {
@@ -69,6 +74,8 @@ func WithLocalGarbageCollector(f func(context.Context, obj.Client, Client) error
 	})
 }
 
+// WithGarbageCollector creates a garbage collector client for testing during the lifetime of
+// the callback.
 func WithGarbageCollector(objClient obj.Client, db *gorm.DB, f func(context.Context, Client) error, opts ...Option) error {
 	client, err := NewClient(db)
 	if err != nil {

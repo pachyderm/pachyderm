@@ -8,6 +8,8 @@ import (
 // StorageOption configures a storage.
 type StorageOption func(s *Storage)
 
+// WithGarbageCollection sets the garbage collection client
+// for the storage. The storage will use a mock client otherwise.
 func WithGarbageCollection(gcClient gc.Client) StorageOption {
 	return func(s *Storage) {
 		s.gcClient = gcClient

@@ -15,7 +15,7 @@ const (
 	MB = 1024 * KB
 )
 
-// WithLocalStorage constructs a local storage instance for testing during the lifetime of
+// WithLocalStorage creates a local storage instance for testing during the lifetime of
 // the callback.
 func WithLocalStorage(f func(obj.Client, *Storage) error, opts ...StorageOption) error {
 	return obj.WithLocalClient(func(objClient obj.Client) error {

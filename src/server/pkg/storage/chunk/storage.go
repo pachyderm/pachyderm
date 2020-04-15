@@ -72,17 +72,12 @@ func (s *Storage) Delete(ctx context.Context, hash string) error {
 	return s.objClient.Delete(ctx, path.Join(prefix, hash))
 }
 
-func (s *Storage) AddSemanticReference(ctx context.Context, name string, chunk *Chunk, tmpID string) error {
-	if err := s.gcClient.AddReference(ctx, semanticReference(name, chunk.Hash)); err != nil {
-		return err
-	}
-	// (bryce) removing the temporary reference will eventually be handled by gc.
-	return s.gcClient.RemoveReference(ctx, &gc.Reference{
-		Sourcetype: "temporary",
-		Source:     tmpID,
-	})
+// AddSemanticReference adds a semantic reference to a chunk.
+func (s *Storage) AddSemanticReference(ctx context.Context, name string, chunk *Chunk) error {
+	return s.gcClient.AddReference(ctx, semanticReference(name, chunk.Hash))
 }
 
+// RemoveSemanticReference removes a semantic reference.
 func (s *Storage) RemoveSemanticReference(ctx context.Context, name string) error {
 	return s.gcClient.RemoveReference(ctx, semanticReference(name, ""))
 }

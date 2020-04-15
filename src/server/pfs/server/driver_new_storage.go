@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	// tmpPrefix is for temporary object paths that store compacted shards.
+	// tmpPrefix is for temporary storage paths.
 	tmpPrefix            = "tmp"
 	storageTaskNamespace = "storage"
 )
@@ -50,15 +50,21 @@ func (d *driver) finishCommitNewStorageLayer(txnCtx *txnenv.TransactionContext, 
 	if description != "" {
 		commitInfo.Description = description
 	}
+	commitPath := path.Join(commit.Repo.Name, commit.ID)
+	// Clean up temporary filesets leftover from failed operations.
+	if err := d.storage.Delete(txnCtx.Client.Ctx(), path.Join(tmpPrefix, commitPath)); err != nil {
+		return err
+	}
 	// Run compaction task.
 	return d.compactionQueue.RunTaskBlock(txnCtx.Client.Ctx(), func(m *work.Master) error {
-		commitPath := path.Join(commit.Repo.Name, commit.ID)
-		backoff.Retry(func() error {
+		if err := backoff.Retry(func() error {
 			if err := d.storage.Delete(context.Background(), path.Join(commitPath, fileset.Diff)); err != nil {
 				return err
 			}
 			return d.storage.Delete(context.Background(), path.Join(commitPath, fileset.Compacted))
-		}, backoff.NewInfiniteBackOff())
+		}, backoff.NewExponentialBackOff()); err != nil {
+			return err
+		}
 		// Compact the commit changes into a diff file set.
 		if err := d.compact(m, path.Join(commitPath, fileset.Diff), []string{commitPath}); err != nil {
 			return err
@@ -84,23 +90,35 @@ func (d *driver) finishCommitNewStorageLayer(txnCtx *txnenv.TransactionContext, 
 	})
 }
 
+// (bryce) holding off on integrating with downstream commit deletion logic until global ids.
+func (d *driver) deleteCommitNewStorageLayer(txnCtx *txnenv.TransactionContext, commit *pfs.Commit) error {
+	return d.storage.Delete(txnCtx.Client.Ctx(), path.Join(commit.Repo.Name, commit.ID))
+}
+
 // (bryce) add commit validation.
-// (bryce) a failed put (crash/error) should result with any serialized sub file sets getting
-// cleaned up.
 // (bryce) probably should prevent / clean files that end with "/", since that will indicate a directory.
 func (d *driver) putFilesNewStorageLayer(ctx context.Context, repo, commit string, r io.Reader) (retErr error) {
 	// (bryce) subFileSet will need to be incremented through etcd eventually.
 	d.mu.Lock()
 	subFileSetStr := fileset.SubFileSetStr(d.subFileSet)
-	fs := d.storage.New(ctx, path.Join(repo, commit, subFileSetStr), subFileSetStr)
+	subFileSetPath := path.Join(repo, commit, subFileSetStr)
+	fs := d.storage.New(ctx, path.Join(tmpPrefix, subFileSetPath), subFileSetStr)
 	d.subFileSet++
 	d.mu.Unlock()
 	defer func() {
-		if err := fs.Close(); err != nil && retErr == nil {
+		if err := d.storage.Delete(ctx, path.Join(tmpPrefix, subFileSetPath)); retErr == nil {
 			retErr = err
 		}
 	}()
-	return fs.Put(r)
+	if err := fs.Put(r); err != nil {
+		return err
+	}
+	if err := fs.Close(); err != nil {
+		return err
+	}
+	return d.compactionQueue.RunTaskBlock(ctx, func(m *work.Master) error {
+		return d.compact(m, subFileSetPath, []string{path.Join(tmpPrefix, subFileSetPath)})
+	})
 }
 
 func (d *driver) getFilesNewStorageLayer(ctx context.Context, repo, commit, glob string, w io.Writer) error {

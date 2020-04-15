@@ -158,5 +158,5 @@ func (w *Writer) Close() error {
 		return err
 	}
 	chunk := w.root.DataOp.DataRefs[0].ChunkInfo.Chunk
-	return w.chunks.AddSemanticReference(w.ctx, w.path, chunk, w.tmpID)
+	return w.chunks.AddSemanticReference(w.ctx, w.path, chunk)
 }
