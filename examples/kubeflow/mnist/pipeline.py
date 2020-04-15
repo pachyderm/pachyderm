@@ -97,16 +97,15 @@ def pipeline_id(client: kfp.Client, name: str):
       id of the pipeline
     """
     page_token = ""
-    while True:
+    while page_token is not None:
         p = client.list_pipelines(page_token=page_token, page_size=100)
         if p.pipelines is None:
             return ""
         for p in p.pipelines:
             if p.name == name:
                 return p.id
-        if p.next_page_token is None:
-            return ""
         page_token = p.next_page_token
+    return ""
 
 def experiment_id(client: kfp.Client, name: str):
     """Gets the ID of the kubeflow experiment with the name 'name'
@@ -116,14 +115,15 @@ def experiment_id(client: kfp.Client, name: str):
       id of the experiment
     """
     page_token = ""
-    while True:
+    while page_token is not None:
         p = client.list_experiments(page_token=page_token, page_size=100)
+        if p.experiments is None:
+            return ""
         for p in p.experiments:
             if p.name == name:
                 return p.id
-        if p.next_page_token is None:
-            return ""
         page_token = p.next_page_token
+    return ""
 
 def main(host: str, create_pipeline: str, create_run_in: str, force: bool):
     if create_pipeline != "" and create_run_in != "":
