@@ -62,6 +62,7 @@ type PachdSpecificConfiguration struct {
 	WorkerUsesRoot             bool   `env:"WORKER_USES_ROOT,default=true"`
 	DeploymentID               string `env:"CLUSTER_DEPLOYMENT_ID,default="`
 	RequireCriticalServersOnly bool   `env:"REQUIRE_CRITICAL_SERVERS_ONLY",default=false"`
+	MetricsEndpoint            string `env:"METRICS_ENDPOINT",default="`
 }
 
 // StorageConfiguration contains the storage configuration.
