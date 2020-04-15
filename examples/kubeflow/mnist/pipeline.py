@@ -88,28 +88,8 @@ def kubeflow_pipeline(s3_endpoint: str, input_bucket: str):
 
     return op(s3_endpoint, input_bucket)
 
-parser = argparse.ArgumentParser(description='Create a kubeflow pipeline ' +
-    'that trains a small neural net on MNIST data')
-parser.add_argument('--remote_host',
-                    default="", metavar="http://host/path", type=str,
-                    help='The address of the kubeflow pipelines API, if '+
-                         'running outside a kubeflow cluster')
-parser.add_argument('--create_run_in',
-                    default="", metavar="pipeline_name", type=str,
-                    help='If set, this script will create a run for the '+
-                    'given kubeflow pipeline and wait for it to complete, '+
-                    'rather than uploading a new pipeline')
-parser.add_argument('--create_pipeline',
-                    default="", metavar="pipeline_name", type=str,
-                    help='If set, this script will create a kubeflow pipeline '+
-                    'with the given name, but will not create a run in that '+
-                    'pipeline. Used to create a pipeline from a local machine.')
-parser.add_argument('--force', action='store_true', default=False,
-                    help='If set, and this script tries to create a pipeline '+
-                    'where a kubeflow pipeline with the same name already '+
-                    'exists, the existing pipeline will be deleted')
 
-def pipeline_id(client : kfp.Client, name : str):
+def pipeline_id(client: kfp.Client, name: str):
     """Gets the ID of the kubeflow pipeline with the name 'name'
     Args:
       name of the pipeline
@@ -128,7 +108,7 @@ def pipeline_id(client : kfp.Client, name : str):
             return ""
         page_token = p.next_page_token
 
-def experiment_id(client : kfp.Client, name : str):
+def experiment_id(client: kfp.Client, name: str):
     """Gets the ID of the kubeflow experiment with the name 'name'
     Args:
       name of the experiment
@@ -145,28 +125,27 @@ def experiment_id(client : kfp.Client, name : str):
             return ""
         page_token = p.next_page_token
 
-def main():
-    args = parser.parse_args()
-    if args.remote_host != "":
-        client = kfp.Client(host=args.remote_host)
+def main(host: str, create_pipeline: str, create_run_in: str, force: bool):
+    if create_pipeline != "" and create_run_in != "":
+        logging.error('only one of --create_run_in and --create_pipeline may be set')
+        return 1
+
+    if host != "":
+        client = kfp.Client(host=host)
     else:
         client = kfp.Client()
 
     run_id = ""
-    if args.create_run_in != "" and args.create_pipeline != "":
-        logging.error('only one of --create_run_in and '+
-              '--create_pipeline may be set')
-        sys.exit(1)
-    if args.create_run_in != "":
-        logging.info('creating run in pipeline "{}"'.format(args.create_run_in))
-        pid = pipeline_id(client, args.create_run_in)
+    if create_run_in != "":
+        logging.info('creating run in pipeline "{}"'.format(create_run_in))
+        pid = pipeline_id(client, create_run_in)
         if pid == "":
             logging.error('could not find pipeline "{}" to create job'.format(
-                args.create_run_in))
+                create_run_in))
             sys.exit(1)
         # Create a run in the target pipeline using the new pipeline ID
         run_info = client.run_pipeline(
-            job_name="pach-job-" + os.environ["PACH_JOB_ID"],
+            job_name="pach-job-{}".format(os.environ["PACH_JOB_ID"]),
             pipeline_id=pid,
             experiment_id=experiment_id(client, "Default"),
             params = {
@@ -175,27 +154,24 @@ def main():
             }
         )
         run_id = run_info.id
-    elif args.create_pipeline != "":
+    elif create_pipeline != "":
         # Local machine is just creating the pipeline
-        try:
-            (_, pipeline_package_path) = tempfile.mkstemp(suffix='.zip')
-            compiler.Compiler().compile(kubeflow_pipeline, pipeline_package_path)
-            pid = pipeline_id(client, args.create_pipeline)
+        with tempfile.NamedTemporaryFile(suffix='.zip') as pipeline_file:
+            compiler.Compiler().compile(kubeflow_pipeline, pipeline_file.name)
+            pid = pipeline_id(client, create_pipeline)
             if pid != "":
                 client.delete_pipeline(pid)
-            logging.info("creating pipeline: {}".format(args.create_pipeline))
+            logging.info("creating pipeline: {}".format(create_pipeline))
             try:
-                client.upload_pipeline(pipeline_package_path, args.create_pipeline)
+                client.upload_pipeline(pipeline_file.name, create_pipeline)
             except TypeError:
                 pass # https://github.com/kubeflow/pipelines/issues/2764
                      # This can be removed once KF proper uses the latest KFP
-        finally:
-            os.remove(pipeline_package_path)
     else:
         # Pachyderm job is creating both the pipeline and the run
         run_id = client.create_run_from_pipeline_func(
             kubeflow_pipeline,
-            run_name="pach-job-" + os.environ["PACH_JOB_ID"],
+            run_name="pach-job-{}".format(os.environ["PACH_JOB_ID"]),
             arguments={
                 "s3_endpoint": os.environ["S3_ENDPOINT"],
                 "input_bucket": "input",
@@ -203,9 +179,33 @@ def main():
         ).run_id
 
     if run_id != "":
-        loggin.info("waiting on kubeflow run id: {}".format(run_id))
+        logging.info("waiting on kubeflow run id: {}".format(run_id))
         j = client.wait_for_run_completion(run_id, 60)
         assert j.run.status == 'Succeeded'
+    return 0
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description='Create a kubeflow pipeline ' +
+        'that trains a small neural net on MNIST data')
+    parser.add_argument('--remote-host',
+                        default="", metavar="http://host/path", type=str,
+                        help="""The address of the kubeflow pipelines API, if
+                             running outside a kubeflow cluster""")
+    parser.add_argument('--create-run-in',
+                        default="", metavar="pipeline_name", type=str,
+                        help="""If set, this script will create a run for the
+                        given kubeflow pipeline and wait for it to complete,
+                        rather than uploading a new pipeline""")
+    parser.add_argument('--create-pipeline',
+                        default="", metavar="pipeline_name", type=str,
+                        help="""If set, this script will create a kubeflow
+                        pipeline with the given name, but will not create a run
+                        in that pipeline. Used to create a pipeline from a local
+                        machine.""")
+    parser.add_argument('--force', action='store_true', default=False,
+                        help="""If set, and this script tries to create a
+                        pipeline where a kubeflow pipeline with the same name
+                        already exists, the existing pipeline will be
+                        deleted""")
+    args = parser.parse_args()
+    sys.exit(main(args.remote_host, args.create_pipeline, args.create_run_in, args.force))

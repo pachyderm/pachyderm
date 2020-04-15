@@ -4,7 +4,7 @@ transform:
   image: pachyderm/mnist_pipeline:v1.0.1
   cmd: [
     /app/pipeline.py,
-    --create_run_in=mnist_pipeline
+    --create-run-in=mnist_pipeline
   ]
 s3_out: true  # Must be set
 input:
