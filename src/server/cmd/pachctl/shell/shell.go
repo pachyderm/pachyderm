@@ -93,6 +93,10 @@ func newShell(rootCmd *cobra.Command, maxCompletions int64) *shell {
 }
 
 func (s *shell) executor(in string) {
+	if in == "exit" {
+		os.Exit(1)
+	}
+
 	cmd := exec.Command("bash")
 	cmd.Stdin = strings.NewReader("pachctl " + in)
 	cmd.Stdout = os.Stdout
@@ -167,6 +171,7 @@ func (s *shell) clearCache() {
 }
 
 func (s *shell) run() {
+	fmt.Printf("Type 'exit' or press Ctrl-D to exit\n")
 	color.NoColor = true // color doesn't work in terminal
 	prompt.New(
 		s.executor,
