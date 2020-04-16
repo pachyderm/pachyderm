@@ -2768,7 +2768,7 @@ func TestUpdatePipeline(t *testing.T) {
 
 	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
-	// create repos
+	// create repos and create the pipeline
 	dataRepo := tu.UniqueString("TestUpdatePipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	pipelineName := tu.UniqueString("pipeline")
@@ -2813,6 +2813,41 @@ func TestUpdatePipeline(t *testing.T) {
 		true,
 	))
 
+	// Confirm that k8s resources have been updated (fix #4071)
+	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
+		kc := tu.GetKubeClient(t)
+		svcs, err := kc.CoreV1().Services("default").List(metav1.ListOptions{})
+		require.NoError(t, err)
+		var newServiceSeen bool
+		for _, svc := range svcs.Items {
+			switch svc.ObjectMeta.Name {
+			case ppsutil.PipelineRcName(pipelineName, 1):
+				return fmt.Errorf("stale service encountered: %q", svc.ObjectMeta.Name)
+			case ppsutil.PipelineRcName(pipelineName, 2):
+				newServiceSeen = true
+			}
+		}
+		if !newServiceSeen {
+			return fmt.Errorf("did not find new service: %q", ppsutil.PipelineRcName(pipelineName, 2))
+		}
+		rcs, err := kc.CoreV1().ReplicationControllers("default").List(metav1.ListOptions{})
+		require.NoError(t, err)
+		var newRCSeen bool
+		for _, rc := range rcs.Items {
+			switch rc.ObjectMeta.Name {
+			case ppsutil.PipelineRcName(pipelineName, 1):
+				return fmt.Errorf("stale RC encountered: %q", rc.ObjectMeta.Name)
+			case ppsutil.PipelineRcName(pipelineName, 2):
+				newRCSeen = true
+			}
+		}
+		require.True(t, newRCSeen)
+		if !newRCSeen {
+			return fmt.Errorf("did not find new RC: %q", ppsutil.PipelineRcName(pipelineName, 2))
+		}
+		return nil
+	})
+
 	_, err = c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("2"))
@@ -2852,6 +2887,41 @@ func TestUpdatePipeline(t *testing.T) {
 			Reprocess: true,
 		})
 	require.NoError(t, err)
+
+	// Confirm that k8s resources have been updated (fix #4071)
+	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
+		kc := tu.GetKubeClient(t)
+		svcs, err := kc.CoreV1().Services("default").List(metav1.ListOptions{})
+		require.NoError(t, err)
+		var newServiceSeen bool
+		for _, svc := range svcs.Items {
+			switch svc.ObjectMeta.Name {
+			case ppsutil.PipelineRcName(pipelineName, 1):
+				return fmt.Errorf("stale service encountered: %q", svc.ObjectMeta.Name)
+			case ppsutil.PipelineRcName(pipelineName, 2):
+				newServiceSeen = true
+			}
+		}
+		if !newServiceSeen {
+			return fmt.Errorf("did not find new service: %q", ppsutil.PipelineRcName(pipelineName, 2))
+		}
+		rcs, err := kc.CoreV1().ReplicationControllers("default").List(metav1.ListOptions{})
+		require.NoError(t, err)
+		var newRCSeen bool
+		for _, rc := range rcs.Items {
+			switch rc.ObjectMeta.Name {
+			case ppsutil.PipelineRcName(pipelineName, 1):
+				return fmt.Errorf("stale RC encountered: %q", rc.ObjectMeta.Name)
+			case ppsutil.PipelineRcName(pipelineName, 2):
+				newRCSeen = true
+			}
+		}
+		require.True(t, newRCSeen)
+		if !newRCSeen {
+			return fmt.Errorf("did not find new RC: %q", ppsutil.PipelineRcName(pipelineName, 2))
+		}
+		return nil
+	})
 
 	iter, err = c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
@@ -10055,6 +10125,33 @@ func TestSpout(t *testing.T) {
 				t.Errorf("line did not have the expected form %v, '%v'", len(line), line)
 			}
 		}
+	})
+
+	t.Run("SpoutInputValidation", func(t *testing.T) {
+		dataRepo := tu.UniqueString("TestSpoutInputValidation_data")
+		require.NoError(t, c.CreateRepo(dataRepo))
+
+		pipeline := tu.UniqueString("pipelinespoutinputvalidation")
+		_, err := c.PpsAPIClient.CreatePipeline(
+			c.Ctx(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd: []string{"/bin/sh"},
+					Stdin: []string{
+						"while [ : ]",
+						"do",
+						"sleep 2",
+						"date > date",
+						"tar -cvf /pfs/out ./date*",
+						"done"},
+				},
+				Input: client.NewPFSInput(dataRepo, "/*"),
+				Spout: &pps.Spout{
+					Overwrite: true,
+				},
+			})
+		require.YesError(t, err)
 	})
 
 	// finally, let's make sure that the provenance is in a consistent state after running all of the spout tests

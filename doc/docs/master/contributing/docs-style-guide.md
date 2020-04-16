@@ -163,5 +163,26 @@ For example, to build the master version of documentation, run:
 mkdocs serve -f mkdocs-master.yml
 ```
 
+## Generating the Go API Documentation
+
+We use `godoc` to generate Go API documentation. It is automatically
+published at godoc.org. If you are adding something new, such as
+an example, and want to check how it looks in HTML, you can build the
+documentation locally. To install `godoc`, run the following command:
+
+```bash
+go get golang.org/x/tools/cmd/godoc
+```
+
+To build the documentation, run the following
+command from the root directory of the `pachyderm` repository:
+
+```bash
+godoc -http=:6060 -goroot=$(pwd)
+```
+
+To view the documentation, open `localhost:6060/pkg` in a web browser.
+Most of the Pachyderm API documentation, can be found under the
+`client` directory.
 
 I hope you'll have fun with Python Markdown! :smile:

@@ -18,7 +18,7 @@ type GlobalConfiguration struct {
 	PeerPort      uint16 `env:"PEER_PORT,default=653"`
 	S3GatewayPort uint16 `env:"S3GATEWAY_PORT,default=600"`
 	PPSEtcdPrefix string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
-	Namespace     string `env:"PACHD_POD_NAMESPACE,default=default"`
+	Namespace     string `env:"PACH_NAMESPACE,default=default"`
 	StorageRoot   string `env:"PACH_ROOT,default=/pach"`
 
 	// PPSSpecCommitID is only set for workers and sidecar pachd instances.
@@ -62,6 +62,7 @@ type PachdSpecificConfiguration struct {
 	WorkerUsesRoot             bool   `env:"WORKER_USES_ROOT,default=true"`
 	DeploymentID               string `env:"CLUSTER_DEPLOYMENT_ID,default="`
 	RequireCriticalServersOnly bool   `env:"REQUIRE_CRITICAL_SERVERS_ONLY",default=false"`
+	MetricsEndpoint            string `env:"METRICS_ENDPOINT",default="`
 }
 
 // StorageConfiguration contains the storage configuration.

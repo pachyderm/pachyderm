@@ -40,7 +40,7 @@ func writePachTokenToCfg(token string) error {
 	if err != nil {
 		return errors.Wrapf(err, "error reading Pachyderm config (for cluster address)")
 	}
-	_, context, err := cfg.ActiveContext()
+	_, context, err := cfg.ActiveContext(true)
 	if err != nil {
 		return errors.Wrapf(err, "error getting the active context")
 	}
@@ -213,7 +213,7 @@ func LogoutCmd() *cobra.Command {
 			if err != nil {
 				return errors.Wrapf(err, "error reading Pachyderm config (for cluster address)")
 			}
-			_, context, err := cfg.ActiveContext()
+			_, context, err := cfg.ActiveContext(true)
 			if err != nil {
 				return errors.Wrapf(err, "error getting the active context")
 			}
