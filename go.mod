@@ -88,7 +88,6 @@ require (
 	github.com/pkg/term v0.0.0-20190109203006-aa71e9d9e942 // indirect
 	github.com/prometheus/client_golang v1.2.1
 	github.com/prometheus/common v0.7.0
-	github.com/remyoudompheng/bigfft v0.0.0-20190728182440-6a916e37a237 // indirect
 	github.com/robfig/cron v1.2.0
 	github.com/russellhaering/goxmldsig v0.0.0-20180430223755-7acd5e4a6ef7 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
@@ -118,7 +117,7 @@ require (
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/sys v0.0.0-20191210023423-ac6580df4449 // indirect
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
-	golang.org/x/tools v0.0.0-20200324182314-a5e5fedfe742 // indirect
+	golang.org/x/tools v0.0.0-20200416061724-5744cfde56ed // indirect
 	google.golang.org/api v0.6.0
 	google.golang.org/appengine v1.6.5 // indirect
 	google.golang.org/grpc v1.24.0
@@ -135,7 +134,7 @@ require (
 	k8s.io/apimachinery v0.0.0-20190816221834-a9f1d8a9c101
 	k8s.io/client-go v11.0.1-0.20190918222721-c0e3722d5cf0+incompatible
 	k8s.io/utils v0.0.0-20191114200735-6ca3b61696b6 // indirect
-	modernc.org/mathutil v1.0.0
+	modernc.org/mathutil v1.1.0
 	sigs.k8s.io/yaml v1.1.0 // indirect
 )
 
