@@ -101,27 +101,17 @@ func isRetriableError(err error) bool {
 	return false
 }
 
-// stats callbacks for use with runTransaction
-func markChunksDeletingStats(err error, start time.Time) {
-	applySQLStats("markChunksDeleting", err, start)
-}
-func removeChunkRowsStats(err error, start time.Time) {
-	applySQLStats("removeChunkRows", err, start)
-}
-func reserveChunkStats(err error, start time.Time) {
-	applySQLStats("reserveChunk", err, start)
-}
-
 type statementFunc func(*gorm.DB) *gorm.DB
 
-func runTransaction(ctx context.Context, db *gorm.DB, stmtFuncs []statementFunc, statsCallback func(error, time.Time)) error {
+func runTransaction(ctx context.Context, db *gorm.DB, name string, stmtFuncs []statementFunc) error {
 	for {
-		err := tryTransaction(ctx, db, stmtFuncs)
-		if err == nil {
-			return nil
-		} else if !isRetriableError(err) {
-			return err
+		err := collectSQLStats(name, func() error {
+			return tryTransaction(ctx, db, stmtFuncs)
+		})
+		if isRetriableError(err) {
+			continue
 		}
+		return err
 	}
 }
 

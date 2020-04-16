@@ -14,6 +14,15 @@ const (
 	defaultTimeout = 30 * time.Minute
 )
 
+const (
+	polling                     = "polling"
+	deletingTemporaryReferences = "deleting temporary references"
+	checkingChunks              = "checking chunks"
+	markingDeletingChunks       = "marking deleting chunks"
+	deletingChunks              = "deleting chunks"
+	removingChunkRows           = "removing chunk rows"
+)
+
 type garbageCollector struct {
 	objClient        obj.Client
 	db               *gorm.DB
@@ -45,7 +54,7 @@ func (gc *garbageCollector) maybeDeleteTemporaryRefs(ctx context.Context) error 
 			`)
 		},
 	}
-	return runTransaction(ctx, gc.db, stmtFuncs, nil)
+	return runTransaction(ctx, gc.db, deletingTemporaryReferences, stmtFuncs)
 }
 
 func (gc *garbageCollector) maybeDeleteChunks(ctx context.Context) error {
@@ -61,14 +70,14 @@ func (gc *garbageCollector) maybeDeleteChunks(ctx context.Context) error {
 			`).Scan(&chunksToDelete)
 		},
 	}
-	if err := runTransaction(ctx, gc.db, stmtFuncs, nil); err != nil {
+	if err := runTransaction(ctx, gc.db, checkingChunks, stmtFuncs); err != nil {
 		return err
 	}
 	return gc.deleteChunks(ctx, convertChunks(chunksToDelete))
 }
 
 func (gc *garbageCollector) pollingFunc(ctx context.Context) error {
-	return retry("polling", func() error {
+	return retry(polling, func() error {
 		for {
 			if err := gc.maybeDeleteTemporaryRefs(ctx); err != nil {
 				return err
@@ -92,14 +101,14 @@ func (gc *garbageCollector) deleteChunks(ctx context.Context, chunks []string) e
 	// Mark the chunks as deleting.
 	var toDelete []string
 	var err error
-	if err := retry("marking chunks as deleting", func() error {
+	if err := retry(markingDeletingChunks, func() error {
 		toDelete, err = gc.markChunksDeleting(ctx, chunks)
 		return err
 	}); err != nil {
 		return err
 	}
 	// Delete the chunks from object storage.
-	if err := retry("deleting chunks", func() error {
+	if err := retry(deletingChunks, func() error {
 		chunks := toDelete
 		for len(chunks) > 0 {
 			if err := gc.objClient.Delete(ctx, chunks[0]); err != nil {
@@ -113,7 +122,7 @@ func (gc *garbageCollector) deleteChunks(ctx context.Context, chunks []string) e
 	}
 	// Remove the chunk rows.
 	transitiveDeletes := []string{}
-	if err := retry("removing chunk rows", func() error {
+	if err := retry(removingChunkRows, func() error {
 		transitiveDeletes, err = gc.removeChunkRows(ctx, toDelete)
 		return err
 	}); err != nil {
@@ -145,7 +154,7 @@ func (gc *garbageCollector) markChunksDeleting(ctx context.Context, chunks []str
 			`, chunks, chunks).Scan(&chunksDeleting)
 		},
 	}
-	if err := runTransaction(ctx, gc.db, stmtFuncs, nil); err != nil {
+	if err := runTransaction(ctx, gc.db, markingDeletingChunks, stmtFuncs); err != nil {
 		return nil, err
 	}
 	return convertChunks(chunksDeleting), nil
@@ -181,7 +190,7 @@ func (gc *garbageCollector) removeChunkRows(ctx context.Context, chunks []string
 		`, chunks).Scan(&deletedChunks)
 		},
 	}
-	if err := runTransaction(ctx, gc.db, stmtFuncs, nil); err != nil {
+	if err := runTransaction(ctx, gc.db, removingChunkRows, stmtFuncs); err != nil {
 		return nil, err
 	}
 	return convertChunks(deletedChunks), nil

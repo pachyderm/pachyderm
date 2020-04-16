@@ -7,6 +7,13 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
+const (
+	reservingChunk    = "reserving chunk"
+	flushingDeletion  = "flushing deletion"
+	addingReference   = "adding reference"
+	removingReference = "removing reference"
+)
+
 var (
 	errFlush = errors.Errorf("flushing")
 )
@@ -79,8 +86,8 @@ func (c *client) ReserveChunk(ctx context.Context, chunk, tmpID string) error {
 			`, chunk, tmpID).Scan(&flushChunk)
 		},
 	}
-	return retry("flush deletion", func() error {
-		if err := runTransaction(ctx, c.db, stmtFuncs, nil); err != nil {
+	return retry(flushingDeletion, func() error {
+		if err := runTransaction(ctx, c.db, reservingChunk, stmtFuncs); err != nil {
 			return err
 		}
 		if len(flushChunk) > 0 {
@@ -107,7 +114,7 @@ func (c *client) AddReference(ctx context.Context, ref *Reference) (retErr error
 			`, ref.Sourcetype, ref.Source, ref.Chunk)
 		},
 	}
-	return runTransaction(ctx, c.db, stmtFuncs, nil)
+	return runTransaction(ctx, c.db, addingReference, stmtFuncs)
 }
 
 func (c *client) RemoveReference(ctx context.Context, ref *Reference) (retErr error) {
@@ -123,7 +130,7 @@ func (c *client) RemoveReference(ctx context.Context, ref *Reference) (retErr er
 		      `, ref.Sourcetype, ref.Source)
 		},
 	}
-	return runTransaction(ctx, c.db, stmtFuncs, nil)
+	return runTransaction(ctx, c.db, removingReference, stmtFuncs)
 }
 
 type mockClient struct{}
