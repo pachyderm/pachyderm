@@ -299,15 +299,15 @@ that we viewed the input data.
 * On macOS prior to Catalina, run:
 
 ```macos-prior-catalina tab="macOS prior to Catalina"
-   pachctl get file edges@master:liberty.png | open -f -a /Applications/Preview.app
+pachctl get file edges@master:liberty.png | open -f -a /Applications/Preview.app
 ```
 
-```macos-catalina tab=```"macOS Catalina"
-   pachctl get file edges@master:liberty.png | open -f -a /System/Applications/Preview.app
+```macos-catalina tab="macOS Catalina"
+pachctl get file edges@master:liberty.png | open -f -a /System/Applications/Preview.app
 ```
 
-```linux tab"Linux 64-bit"
-   pachctl get file edges@master:liberty.png | display
+```linux tab="Linux 64-bit"
+pachctl get file edges@master:liberty.png | display
 ```
 
 The output should look similar to:
