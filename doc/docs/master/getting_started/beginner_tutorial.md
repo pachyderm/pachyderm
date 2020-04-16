@@ -296,16 +296,19 @@ images 5 minutes ago 57.27KiB
 We can view the output data from the `edges` repo in the same fashion
 that we viewed the input data.
 
-* On macOS, run:
+* On macOS prior to Catalina, run:
 
-  ```bash
-  pachctl get file edges@master:liberty.png | open -f -a /Applications/Preview.app
-  ```
-* On Linux, run:
+```macos-prior-catalina tab="macOS prior to Catalina"
+   pachctl get file edges@master:liberty.png | open -f -a /Applications/Preview.app
+```
 
-  ```bash
-  pachctl get file edges@master:liberty.png | display
-  ```
+```macos-catalina tab=```"macOS Catalina"
+   pachctl get file edges@master:liberty.png | open -f -a /System/Applications/Preview.app
+```
+
+```linux tab"Linux 64-bit"
+   pachctl get file edges@master:liberty.png | display
+```
 
 The output should look similar to:
 
