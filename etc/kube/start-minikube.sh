@@ -3,10 +3,8 @@
 set -Eex
 
 # Parse flags
-VERSION=v1.13.0
 minikube_args=(
   "--vm-driver=none"
-  "--kubernetes-version=${VERSION}"
 )
 while getopts ":v" opt; do
   case "${opt}" in
