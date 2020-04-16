@@ -29,9 +29,9 @@ type Reporter struct {
 func NewReporter(clusterID string, env *serviceenv.ServiceEnv) *Reporter {
 	var r *router
 	if env.MetricsEndpoint != "" {
-		newRouter(env.MetricsEndpoint)
+		r = newRouter(env.MetricsEndpoint)
 	} else {
-		newRouter()
+		r = newRouter()
 	}
 	reporter := &Reporter{
 		router:    r,
