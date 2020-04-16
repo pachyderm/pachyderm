@@ -57,7 +57,7 @@ Next, let’s take a look at the Pachyderm pipeline spec file `pipeline.yaml` as
 pipeline:
   name: mnist
 transform:
-  image: pachyderm/mnist_pachyderm_pipeline:v1.0.0
+  image: pachyderm/mnist_pachyderm_pipeline:v1.0.1
   cmd: [ /app/pipeline.py ]
 s3_out: true  # Must be set
 input:
@@ -103,3 +103,37 @@ Provenance:  __spec__@bd9f2665811f42ea9b1e3a56dc70c0b1 (mnist)  input-repo@a8dbe
 Notice the Provenance line. That right there is proof you just version-controlled your data as well as the machine learning model that was created from it.
 
 Because you incorporated data lineage into your workflow using Pachyderm, you can actually restore previous versions of your data and model. That’s incredible when you consider how often you have to answer the question “What exact data was used to train that model?” Thanks to Pachyderm, you can answer that with just one command. And when an auditor asks, “what data was used to train that model 3 months ago?” Well, that’s just one Pachyderm command away too.
+
+## Epilogue - Data Lineage for Existing Kubeflow Pipelines
+
+Some Kubeflow users might get the impression that they can only use Pachyderm if they rewrite their kubeflow pipelines to embed them in a Pachyderm pipeline. Not so! Pachyderm can run *preexisting* kubeflow pipelines, version their output, and track their data lineage as well. To illustrate, the alternative commands below show Pachyderm running an existing Kubeflow pipeline this way:
+
+```
+# Connect your local machine to kubeflow's pipeline API
+kubectl -n kubeflow port-forward svc/ml-pipeline 41888:8888 &
+
+# Create a kubeflow pipeline
+# --------------------------
+# Our pipeline.py script can also upload a standalone pipeline to an existing
+# kubeflow cluster, like so:
+./pipeline.py \
+  --remote-host=http://localhost:41888 \
+  --create-pipeline=mnist_pipeline
+
+# Create a Pachyderm  pipeline to trigger the new 'mnist_pipeline'
+pachctl create pipeline -f standalone_pipeline.yaml
+```
+
+As before, you'll see a pachyderm pipeline start, create a kubeflow run, and pass data to the newly-created kubeflow workers. Also as before, you'll see an output commit, containing the model parameters, with the input commit and trigger pipeline in its provenance:
+```
+$ pc list job
+ID        PIPELINE      STARTED            DURATION   RESTART PROGRESS  DL UL STATE
+f79...d76 trigger-mnist 16 seconds ago     15 seconds 0       1 + 0 / 1 0B 0B success
+
+$ pc list repo
+NAME          CREATED            SIZE (MASTER) DESCRIPTION
+trigger-mnist 24 seconds ago     4.684MiB      Output repo for pipeline trigger-mnist.
+input-repo    About a minute ago 10.96MiB
+```
+
+At the lowest level, the the `s3` and `s3_out` fields of our pipeline specs support this integration. If a kubeflow job can read and write data to/from an S3 bucket, then its data lineage can be tracked with Pachyderm.
