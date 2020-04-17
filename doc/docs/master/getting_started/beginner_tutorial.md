@@ -141,17 +141,18 @@ Also, you can view the file you have just added to Pachyderm. Because this is an
 image, you cannot just print it out in the terminal, but the following
 commands will let you view it easily:
 
-* If you are on macOS, run:
 
-  ```bash
-  pachctl get file images@master:liberty.png | open -f -a /Applications/Preview.app
-  ```
+```macos-prior-catalina tab="macOS prior to Catalina"
+pachctl get file images@master:liberty.png | open -f -a /Applications/Preview.app
+```
 
-* If you are on Linux, run:
+```macos-catalina tab="macOS Catalina"
+ pachctl get file images@master:liberty.png | open -f -a /System/Applications/Preview.app
+```
 
-  ```bash
-  pachctl get file images@master:liberty.png | display
-  ```
+```linux tab="Linux 64-bit"
+pachctl get file images@master:liberty.png | display
+```
 
 ### Create a Pipeline
 
@@ -296,16 +297,19 @@ images 5 minutes ago 57.27KiB
 We can view the output data from the `edges` repo in the same fashion
 that we viewed the input data.
 
-* On macOS, run:
+* On macOS prior to Catalina, run:
 
-  ```bash
-  pachctl get file edges@master:liberty.png | open -f -a /Applications/Preview.app
-  ```
-* On Linux, run:
+```macos-prior-catalina tab="macOS prior to Catalina"
+pachctl get file edges@master:liberty.png | open -f -a /Applications/Preview.app
+```
 
-  ```bash
-  pachctl get file edges@master:liberty.png | display
-  ```
+```macos-catalina tab="macOS Catalina"
+pachctl get file edges@master:liberty.png | open -f -a /System/Applications/Preview.app
+```
+
+```linux tab="Linux 64-bit"
+pachctl get file edges@master:liberty.png | display
+```
 
 The output should look similar to:
 
@@ -450,17 +454,17 @@ ce448c12d0dd4410b3a5ae0c0f07e1f9    2 minutes ago  Less than a second 0       1 
 View the generated montage image by running one of
 the following commands:
 
-* On macOS, run:
+```macos-prior-catalina tab="macOS prior to Catalina"
+pachctl get file montage@master:montage.png | open -f -a /Applications/Preview.app
+```
 
-  ```bash
-  pachctl get file montage@master:montage.png | open -f -a /Applications/Preview.app
-  ```
+```macos-catalina tab="macOS Catalina"
+pachctl get file montage@master:montage.png | open -f -a /System/Applications/Preview.app
+```
 
-* On Linux, run:
-
-  ```bash
-  pachctl get file montage@master:montage.png | display
-  ```
+```linux tab="Linux 64-bit"
+pachctl get file montage@master:montage.png | display
+```
 
   ![image](../assets/images/montage-screenshot.png)
 

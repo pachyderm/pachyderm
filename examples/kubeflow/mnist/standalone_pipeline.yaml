@@ -1,8 +1,11 @@
 pipeline:
-  name: mnist
+  name: trigger-mnist
 transform:
   image: pachyderm/mnist_pipeline:v1.0.1
-  cmd: [ /app/pipeline.py ]
+  cmd: [
+    /app/pipeline.py,
+    --create-run-in=mnist_pipeline
+  ]
 s3_out: true  # Must be set
 input:
   pfs:
