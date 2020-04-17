@@ -5,6 +5,7 @@ set -Eex
 # Parse flags
 minikube_args=(
   "--vm-driver=none"
+  "--kubernetes-version=v1.13.0"
 )
 
 if [[ -n "${TRAVIS}" ]]; then
