@@ -6,17 +6,6 @@ set -Eex
 minikube_args=(
   "--vm-driver=none"
 )
-while getopts ":v" opt; do
-  case "${opt}" in
-    v)
-      VERSION="v${OPTARG}"
-      ;;
-    \?)
-      echo "Invalid argument: ${opt}"
-      exit 1
-      ;;
-  esac
-done
 
 if [[ -n "${TRAVIS}" ]]; then
   minikube_args+=("--bootstrapper=kubeadm")
