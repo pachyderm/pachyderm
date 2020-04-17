@@ -448,6 +448,7 @@ Environment variables:
 	subcommands = append(subcommands, cmdutil.CreateAlias(versionCmd, "version"))
 	exitCmd := &cobra.Command{
 		Short: "Exit the pachctl shell.",
+		Long:  "Exit the pachctl shell.",
 		Run:   cmdutil.RunFixedArgs(0, func(args []string) error { return nil }),
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(exitCmd, "exit"))
