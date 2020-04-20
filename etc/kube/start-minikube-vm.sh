@@ -90,11 +90,13 @@ etc/kube/push-to-minikube.sh ${etcd_image}
 etc/kube/push-to-minikube.sh ${postgres_image}
 
 # Deploy Pachyderm
-if [[ "${PACH_VERSION}" = "local" ]]; then
-  pachctl deploy local -d ${DEPLOY_FLAGS}
+if [[ -n ${DEPLOY_FLAGS} ]]; then
+  pachctl deploy local -d "${DEPLOY_FLAGS}"
+elif [[ "${PACH_VERSION}" = "local" ]]; then
+  pachctl deploy local -d
 else
   # deploy with -d (disable auth, small footprint), but use official version
-  pachctl deploy local -d --dry-run  ${DEPLOY_FLAGS} | sed "s/:local/:${PACH_VERSION}/g" | kubectl create -f -
+  pachctl deploy local -d --dry-run | sed "s/:local/:${PACH_VERSION}/g" | kubectl create -f -
 fi
 
 active_kube_context=$(kubectl config current-context)
@@ -116,7 +118,9 @@ set -x
 # Kill pachctl port-forward and kubectl proxy
 killall kubectl || true
 
-# Port forward to postgres 
-POSTGRES_POD=$(kubectl get pod -l suite=pachyderm,app=postgres -o jsonpath="{.items[].metadata.name}")
-export POSTGRES_POD 
-kubectl port-forward "$POSTGRES_POD" 32228:5432 &
+if [[ "${DEPLOY_FLAGS}" = "--new-storage-layer" ]]; then
+	# Port forward to postgres
+	POSTGRES_POD=$(kubectl get pod -l suite=pachyderm,app=postgres -o jsonpath="{.items[].metadata.name}")
+	export POSTGRES_POD
+	kubectl port-forward "$POSTGRES_POD" 32228:5432 &
+fi
