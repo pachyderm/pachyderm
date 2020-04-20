@@ -78,19 +78,24 @@ func (gc *garbageCollector) maybeDeleteChunks(ctx context.Context) error {
 
 func (gc *garbageCollector) pollingFunc(ctx context.Context) error {
 	return retry(polling, func() error {
-		for {
-			if err := gc.maybeDeleteTemporaryRefs(ctx); err != nil {
-				return err
+		if err := func() error {
+			for {
+				if err := gc.maybeDeleteTemporaryRefs(ctx); err != nil {
+					return err
+				}
+				if err := gc.maybeDeleteChunks(ctx); err != nil {
+					return err
+				}
+				select {
+				case <-time.After(gc.polling):
+				case <-ctx.Done():
+					return ctx.Err()
+				}
 			}
-			if err := gc.maybeDeleteChunks(ctx); err != nil {
-				return err
-			}
-			select {
-			case <-time.After(gc.polling):
-			case <-ctx.Done():
-				return nil
-			}
+		}(); ctx.Err() != context.Canceled {
+			return err
 		}
+		return nil
 	})
 }
 
