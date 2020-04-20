@@ -74,6 +74,9 @@ class BaseDriver:
             args.append("--no-dashboard")
         return await capture(*args)
 
+    async def init_image_registry(self):
+        pass
+
     async def push_image(self, images):
         pass
 
@@ -118,12 +121,13 @@ class GCPDriver(BaseDriver):
             args.append("--no-dashboard")
         return await capture(*args)
 
-    async def push_image(self, image):
+    async def init_image_registry(self):
         docker_config_path = os.path.expanduser("~/.docker/config.json")
         await run("kubectl", "create", "secret", "generic", "regcred",
             f"--from-file=.dockerconfigjson={docker_config_path}",
             "--type=kubernetes.io/dockerconfigjson")
 
+    async def push_image(self, image):
         if image.startswith("quay.io/"):
             image_url = f"gcr.io/{self.project_id}/{image[8:]}"
         else:
@@ -223,14 +227,11 @@ async def main():
 
     await driver.clear()
 
-    bin_path = os.path.join(os.environ["GOPATH"], "bin", "pachctl")
-    if os.path.exists(bin_path):
-        os.remove(bin_path)
-
     await asyncio.gather(
         driver.start(),
         run("make", "install"),
         run("make", "docker-build"),
+        driver.init_image_registry(),
     )
     
     version = (await capture("pachctl", "version", "--client-only")).strip()
