@@ -20,7 +20,7 @@ const (
 	checkingChunks              = "checking chunks"
 	markingDeletingChunks       = "marking deleting chunks"
 	deletingChunks              = "deleting chunks"
-	removingChunkRows           = "removing chunk rows"
+	deletingChunkRows           = "deleting chunk rows"
 )
 
 type garbageCollector struct {
@@ -122,8 +122,8 @@ func (gc *garbageCollector) deleteChunks(ctx context.Context, chunks []string) e
 	}
 	// Remove the chunk rows.
 	transitiveDeletes := []string{}
-	if err := retry(removingChunkRows, func() error {
-		transitiveDeletes, err = gc.removeChunkRows(ctx, toDelete)
+	if err := retry(deletingChunkRows, func() error {
+		transitiveDeletes, err = gc.deleteChunkRows(ctx, toDelete)
 		return err
 	}); err != nil {
 		return err
@@ -160,7 +160,7 @@ func (gc *garbageCollector) markChunksDeleting(ctx context.Context, chunks []str
 	return convertChunks(chunksDeleting), nil
 }
 
-func (gc *garbageCollector) removeChunkRows(ctx context.Context, chunks []string) ([]string, error) {
+func (gc *garbageCollector) deleteChunkRows(ctx context.Context, chunks []string) ([]string, error) {
 	if len(chunks) == 0 {
 		return nil, nil
 	}
@@ -190,7 +190,7 @@ func (gc *garbageCollector) removeChunkRows(ctx context.Context, chunks []string
 		`, chunks).Scan(&deletedChunks)
 		},
 	}
-	if err := runTransaction(ctx, gc.db, removingChunkRows, stmtFuncs); err != nil {
+	if err := runTransaction(ctx, gc.db, deletingChunkRows, stmtFuncs); err != nil {
 		return nil, err
 	}
 	return convertChunks(deletedChunks), nil

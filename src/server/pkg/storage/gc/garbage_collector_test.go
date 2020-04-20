@@ -40,7 +40,7 @@ func TestReserveChunk(t *testing.T) {
 	}))
 }
 
-func TestAddRemoveReferences(t *testing.T) {
+func TestCreateDeleteReferences(t *testing.T) {
 	require.NoError(t, WithLocalGarbageCollector(func(ctx context.Context, objClient obj.Client, gcClient Client) error {
 		chunks := makeChunks(t, objClient, 7)
 		// Reserve chunks initially with only temporary references.
@@ -58,11 +58,11 @@ func TestAddRemoveReferences(t *testing.T) {
 			expectedRefRows = append(expectedRefRows, refModel{"temporary", tmpID, chunk, nil})
 		}
 		require.ElementsEqual(t, expectedRefRows, allRefs(t, gcClient.(*client)))
-		// Add cross-chunk references.
+		// Create cross-chunk references.
 		for i := 0; i < 3; i++ {
 			for j := 0; j < 2; j++ {
 				chunkFrom, chunkTo := chunks[i], chunks[i*2+1+j]
-				require.NoError(t, gcClient.AddReference(
+				require.NoError(t, gcClient.CreateReference(
 					ctx,
 					&Reference{
 						Sourcetype: "chunk",
@@ -73,9 +73,9 @@ func TestAddRemoveReferences(t *testing.T) {
 				expectedRefRows = append(expectedRefRows, refModel{"chunk", chunkFrom, chunkTo, nil})
 			}
 		}
-		// Add a semantic reference to the root chunk.
+		// Create a semantic reference to the root chunk.
 		semanticName := "root"
-		require.NoError(t, gcClient.AddReference(
+		require.NoError(t, gcClient.CreateReference(
 			ctx,
 			&Reference{
 				Sourcetype: "semantic",
@@ -85,8 +85,8 @@ func TestAddRemoveReferences(t *testing.T) {
 		))
 		expectedRefRows = append(expectedRefRows, refModel{"semantic", semanticName, chunks[0], nil})
 		require.ElementsEqual(t, expectedRefRows, allRefs(t, gcClient.(*client)))
-		// Remove the temporary reference.
-		require.NoError(t, gcClient.RemoveReference(
+		// Delete the temporary reference.
+		require.NoError(t, gcClient.DeleteReference(
 			ctx,
 			&Reference{
 				Sourcetype: "temporary",
@@ -97,8 +97,8 @@ func TestAddRemoveReferences(t *testing.T) {
 		require.ElementsEqual(t, expectedChunkRows, allChunks(t, gcClient.(*client)))
 		expectedRefRows = expectedRefRows[len(chunks):]
 		require.ElementsEqual(t, expectedRefRows, allRefs(t, gcClient.(*client)))
-		// Remove the semantic reference.
-		require.NoError(t, gcClient.RemoveReference(
+		// Delete the semantic reference.
+		require.NoError(t, gcClient.DeleteReference(
 			ctx,
 			&Reference{
 				Sourcetype: "semantic",
@@ -121,7 +121,7 @@ func TestRecovery(t *testing.T) {
 			semanticName := "root"
 			expectedChunkRows := makeChunkTree(ctx, t, objClient, gcClient.(*client), semanticName, 3, 0)
 			require.ElementsEqual(t, expectedChunkRows, allChunks(t, gcClient.(*client)))
-			require.NoError(t, gcClient.RemoveReference(
+			require.NoError(t, gcClient.DeleteReference(
 				ctx,
 				&Reference{
 					Sourcetype: "semantic",
@@ -161,7 +161,7 @@ func makeChunkTree(ctx context.Context, t *testing.T, objClient obj.Client, gcCl
 		require.NoError(t, gcClient.ReserveChunk(ctx, chunk, tmpID))
 		expectedChunkRows = append(expectedChunkRows, chunkModel{chunk, nil})
 	}
-	// Add cross-chunk references.
+	// Create cross-chunk references.
 	nonLeafChunks := int(math.Pow(float64(2), float64(levels-1))) - 1
 	for i := 0; i < nonLeafChunks; i++ {
 		for j := 0; j < 2; j++ {
@@ -169,7 +169,7 @@ func makeChunkTree(ctx context.Context, t *testing.T, objClient obj.Client, gcCl
 				return nil
 			}
 			chunkFrom, chunkTo := chunks[i], chunks[i*2+1+j]
-			require.NoError(t, gcClient.AddReference(
+			require.NoError(t, gcClient.CreateReference(
 				ctx,
 				&Reference{
 					Sourcetype: "chunk",
@@ -179,8 +179,8 @@ func makeChunkTree(ctx context.Context, t *testing.T, objClient obj.Client, gcCl
 			))
 		}
 	}
-	// Add a semantic reference to the root chunk.
-	require.NoError(t, gcClient.AddReference(
+	// Create a semantic reference to the root chunk.
+	require.NoError(t, gcClient.CreateReference(
 		ctx,
 		&Reference{
 			Sourcetype: "semantic",
@@ -188,8 +188,8 @@ func makeChunkTree(ctx context.Context, t *testing.T, objClient obj.Client, gcCl
 			Chunk:      chunks[0],
 		},
 	))
-	// Remove the temporary reference.
-	require.NoError(t, gcClient.RemoveReference(
+	// Delete the temporary reference.
+	require.NoError(t, gcClient.DeleteReference(
 		ctx,
 		&Reference{
 			Sourcetype: "temporary",

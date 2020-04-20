@@ -72,14 +72,14 @@ func (s *Storage) Delete(ctx context.Context, hash string) error {
 	return s.objClient.Delete(ctx, path.Join(prefix, hash))
 }
 
-// AddSemanticReference adds a semantic reference to a chunk.
-func (s *Storage) AddSemanticReference(ctx context.Context, name string, chunk *Chunk) error {
-	return s.gcClient.AddReference(ctx, semanticReference(name, chunk.Hash))
+// CreateSemanticReference creates a semantic reference to a chunk.
+func (s *Storage) CreateSemanticReference(ctx context.Context, name string, chunk *Chunk) error {
+	return s.gcClient.CreateReference(ctx, semanticReference(name, chunk.Hash))
 }
 
-// RemoveSemanticReference removes a semantic reference.
-func (s *Storage) RemoveSemanticReference(ctx context.Context, name string) error {
-	return s.gcClient.RemoveReference(ctx, semanticReference(name, ""))
+// DeleteSemanticReference deletes a semantic reference.
+func (s *Storage) DeleteSemanticReference(ctx context.Context, name string) error {
+	return s.gcClient.DeleteReference(ctx, semanticReference(name, ""))
 }
 
 func semanticReference(name, chunk string) *gc.Reference {

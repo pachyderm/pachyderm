@@ -10,8 +10,8 @@ import (
 const (
 	reservingChunk    = "reserving chunk"
 	flushingDeletion  = "flushing deletion"
-	addingReference   = "adding reference"
-	removingReference = "removing reference"
+	creatingReference = "creating reference"
+	deletingReference = "deleting reference"
 )
 
 var (
@@ -43,10 +43,10 @@ type Client interface {
 	// being deleted, this call will block while it is being deleted.
 	ReserveChunk(context.Context, string, string) error
 
-	// AddReference adds a reference.
-	AddReference(context.Context, *Reference) error
-	// RemoveReference removes a reference.
-	RemoveReference(context.Context, *Reference) error
+	// CreateReference creates a reference.
+	CreateReference(context.Context, *Reference) error
+	// DeleteReference deletes a reference.
+	DeleteReference(context.Context, *Reference) error
 }
 
 type client struct {
@@ -97,7 +97,7 @@ func (c *client) ReserveChunk(ctx context.Context, chunk, tmpID string) error {
 	})
 }
 
-func (c *client) AddReference(ctx context.Context, ref *Reference) (retErr error) {
+func (c *client) CreateReference(ctx context.Context, ref *Reference) (retErr error) {
 	stmtFuncs := []statementFunc{
 		func(txn *gorm.DB) *gorm.DB {
 			// Insert the reference.
@@ -114,10 +114,10 @@ func (c *client) AddReference(ctx context.Context, ref *Reference) (retErr error
 			`, ref.Sourcetype, ref.Source, ref.Chunk)
 		},
 	}
-	return runTransaction(ctx, c.db, addingReference, stmtFuncs)
+	return runTransaction(ctx, c.db, creatingReference, stmtFuncs)
 }
 
-func (c *client) RemoveReference(ctx context.Context, ref *Reference) (retErr error) {
+func (c *client) DeleteReference(ctx context.Context, ref *Reference) (retErr error) {
 	stmtFuncs := []statementFunc{
 		func(txn *gorm.DB) *gorm.DB {
 			// Delete the references with the same sourcetype and source (chunk is ignored).
@@ -130,7 +130,7 @@ func (c *client) RemoveReference(ctx context.Context, ref *Reference) (retErr er
 		      `, ref.Sourcetype, ref.Source)
 		},
 	}
-	return runTransaction(ctx, c.db, removingReference, stmtFuncs)
+	return runTransaction(ctx, c.db, deletingReference, stmtFuncs)
 }
 
 type mockClient struct{}
@@ -144,10 +144,10 @@ func (c *mockClient) ReserveChunk(ctx context.Context, chunk, tmpID string) erro
 	return nil
 }
 
-func (c *mockClient) AddReference(ctx context.Context, ref *Reference) error {
+func (c *mockClient) CreateReference(ctx context.Context, ref *Reference) error {
 	return nil
 }
 
-func (c *mockClient) RemoveReference(ctx context.Context, ref *Reference) error {
+func (c *mockClient) DeleteReference(ctx context.Context, ref *Reference) error {
 	return nil
 }
