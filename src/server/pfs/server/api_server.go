@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/metrics"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 
 	"github.com/sirupsen/logrus"
@@ -168,7 +169,13 @@ func (a *apiServer) StartCommitInTransaction(
 		id = commit.ID
 	}
 	if a.env.NewStorageLayer {
-		return a.driver.startCommitNewStorageLayer(txnCtx, id, request.Parent, request.Branch, request.Provenance, request.Description)
+		var commit *pfs.Commit
+		err := metrics.ReportRequest(func() error {
+			var err error
+			commit, err = a.driver.startCommitNewStorageLayer(txnCtx, id, request.Parent, request.Branch, request.Provenance, request.Description)
+			return err
+		})
+		return commit, err
 	}
 	return a.driver.startCommit(txnCtx, id, request.Parent, request.Branch, request.Provenance, request.Description)
 }
@@ -208,7 +215,9 @@ func (a *apiServer) FinishCommitInTransaction(
 	request *pfs.FinishCommitRequest,
 ) error {
 	if a.env.NewStorageLayer {
-		return a.driver.finishCommitNewStorageLayer(txnCtx, request.Commit, request.Description)
+		return metrics.ReportRequest(func() error {
+			return a.driver.finishCommitNewStorageLayer(txnCtx, request.Commit, request.Description)
+		})
 	}
 	if request.Trees != nil {
 		return a.driver.finishOutputCommit(txnCtx, request.Commit, request.Trees, request.Datums, request.SizeBytes)

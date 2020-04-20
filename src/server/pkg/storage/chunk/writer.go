@@ -168,6 +168,7 @@ func (w *worker) roll(a *Annotation) error {
 	if err := w.setupHash(a); err != nil {
 		return err
 	}
+	// (bryce) potentially collect metrics here (not sure about performance impact for now).
 	offset := 0
 	for i, b := range a.buf.Bytes() {
 		w.hash.Roll(b)
