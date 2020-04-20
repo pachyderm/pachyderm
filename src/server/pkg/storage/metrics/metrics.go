@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	units "github.com/docker/go-units"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -56,7 +57,7 @@ func ReportRequestWithThroughput(f func() (int64, error)) error {
 	start := time.Now()
 	return ReportRequest(func() error {
 		bytesProcessed, err := f()
-		throughput := float64(bytesProcessed) / time.Since(start).Seconds()
+		throughput := float64(bytesProcessed) / units.MB / time.Since(start).Seconds()
 		ms.requestSummaryThroughput.WithLabelValues(operation).Observe(throughput)
 		return err
 	}, 1)

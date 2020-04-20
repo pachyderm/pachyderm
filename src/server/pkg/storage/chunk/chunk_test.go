@@ -29,15 +29,15 @@ type test struct {
 }
 
 func (t test) name() string {
-	return fmt.Sprintf("Max Annotation Size: %v, Max Tag Size: %v, Data Size: %v", units.BytesSize(float64(t.maxAnnotationSize)), units.BytesSize(float64(t.maxTagSize)), units.BytesSize(float64(t.n)))
+	return fmt.Sprintf("Max Annotation Size: %v, Max Tag Size: %v, Data Size: %v", units.HumanSize(float64(t.maxAnnotationSize)), units.HumanSize(float64(t.maxTagSize)), units.HumanSize(float64(t.n)))
 }
 
 var tests = []test{
-	test{1 * KB, 1 * KB, 1 * KB},
-	test{1 * KB, 1 * KB, 1 * MB},
-	test{1 * MB, 1 * KB, 100 * MB},
-	test{1 * MB, 1 * MB, 100 * MB},
-	test{10 * MB, 1 * MB, 100 * MB},
+	test{1 * units.KB, 1 * units.KB, 1 * units.KB},
+	test{1 * units.KB, 1 * units.KB, 1 * units.MB},
+	test{1 * units.MB, 1 * units.KB, 100 * units.MB},
+	test{1 * units.MB, 1 * units.MB, 100 * units.MB},
+	test{10 * units.MB, 1 * units.MB, 100 * units.MB},
 }
 
 // (bryce) this should be somewhere else (probably testutil).
@@ -109,8 +109,8 @@ func TestCopy(t *testing.T) {
 
 func BenchmarkWriter(b *testing.B) {
 	require.NoError(b, WithLocalStorage(func(objC obj.Client, chunks *Storage) error {
-		seq := RandSeq(100 * MB)
-		b.SetBytes(100 * MB)
+		seq := RandSeq(100 * units.MB)
+		b.SetBytes(100 * units.MB)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			f := func(_ []*Annotation) error { return nil }
@@ -120,7 +120,7 @@ func BenchmarkWriter(b *testing.B) {
 					NextDataRef: &DataRef{},
 				})
 				w.Tag(strconv.Itoa(i))
-				_, err := w.Write(seq[i*MB : (i+1)*MB])
+				_, err := w.Write(seq[i*units.MB : (i+1)*units.MB])
 				require.NoError(b, err)
 			}
 			require.NoError(b, w.Close())
@@ -130,8 +130,8 @@ func BenchmarkWriter(b *testing.B) {
 }
 
 func BenchmarkRollingHash(b *testing.B) {
-	seq := RandSeq(100 * MB)
-	b.SetBytes(100 * MB)
+	seq := RandSeq(100 * units.MB)
+	b.SetBytes(100 * units.MB)
 	hash := buzhash64.New()
 	splitMask := uint64((1 << uint64(23)) - 1)
 	b.ResetTimer()

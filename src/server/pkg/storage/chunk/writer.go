@@ -8,6 +8,7 @@ import (
 	"path"
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
+	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/gc"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/hash"
@@ -18,7 +19,7 @@ const (
 	// WindowSize is the size of the rolling hash window.
 	WindowSize = 64
 	// (bryce) this should be configurable.
-	bufSize = 50 * MB
+	bufSize = 50 * units.MB
 )
 
 // initialWindow is the set of bytes used to initialize the window
