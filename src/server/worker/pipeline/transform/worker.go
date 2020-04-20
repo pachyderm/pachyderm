@@ -156,8 +156,6 @@ func forEachDatum(driver driver.Driver, object *pfs.Object, cb func(int64, []*co
 		return err
 	}
 
-	fmt.Printf("datum count: %d\n", len(allDatums.Datums))
-
 	for _, datum := range allDatums.Datums {
 		if err := cb(datum.Index, datum.Inputs); err != nil {
 			return err
@@ -497,7 +495,6 @@ func processDatum(
 	} else {
 		stats.DatumsProcessed++
 	}
-	fmt.Printf("datum processStats: %v\n", stats)
 	return stats, recoveredDatumTags, nil
 }
 

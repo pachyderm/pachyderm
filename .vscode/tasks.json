@@ -48,6 +48,7 @@
       "dependsOrder": "sequence",
       "dependsOn": [
         "install",
+        "delete-all-dev",
         "undeploy-dev",
         "deploy-dev",
         "wait-dev"
@@ -110,6 +111,11 @@
       "type": "shell",
       "command": "./etc/build/vscode_install_task.sh",
       "problemMatcher": []
+    },
+    {
+      "label": "delete-all-dev",
+      "type": "shell",
+      "command": "yes | pachctl delete all"
     },
     {
       "label": "undeploy-dev",

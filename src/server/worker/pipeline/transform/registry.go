@@ -571,6 +571,7 @@ func (reg *registry) getParentCommitInfo(commitInfo *pfs.CommitInfo) (*pfs.Commi
 			"blocking on parent commit %q before writing to output commit %q",
 			commitInfo.ParentCommit.ID, outputCommitID,
 		)
+		reg.logger.Logf("checking parent commit: %v", commitInfo.ParentCommit)
 		parentCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(),
 			&pfs.InspectCommitRequest{
 				Commit:     commitInfo.ParentCommit,
@@ -657,9 +658,16 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commi
 		driver:          driver,
 		commitInfo:      commitInfo,
 		statsCommitInfo: statsCommitInfo,
-		cancel:          cancel,
 		logger:          reg.logger.WithJob(jobInfo.Job.ID),
 		ji:              jobInfo,
+	}
+
+	pj.cancel = func() {
+		// Make sure the job is always removed from the job chain - ignore the error
+		// if the job isn't present (i.e. it already succeeded or failed, or never
+		// made it into the job chain).
+		reg.jobChain.Fail(pj)
+		cancel()
 	}
 
 	switch {
@@ -761,6 +769,19 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commi
 				pj.logger.Logf("error incrementing restart count for job (%s): %v", pj.ji.Job.ID, err)
 			}
 
+			// Reload the job's commitInfo as it may have changed
+			pj.commitInfo, err = reg.driver.PachClient().InspectCommit(pj.commitInfo.Commit.Repo.Name, pj.commitInfo.Commit.ID)
+			if err != nil {
+				return err
+			}
+
+			if statsCommit != nil {
+				pj.statsCommitInfo, err = reg.driver.PachClient().InspectCommit(statsCommit.Repo.Name, statsCommit.ID)
+				if err != nil {
+					return err
+				}
+			}
+
 			return nil
 		})
 		pj.logger.Logf("master done running processJobs")
@@ -784,6 +805,12 @@ func (reg *registry) superviseJob(pj *pendingJob) error {
 	if err != nil {
 		if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
 			defer pj.cancel() // whether we return error or nil, job is done
+
+			// Stop the job and clean up any job state in the registry
+			if err := reg.killJob(pj, "output commit missing"); err != nil {
+				return err
+			}
+
 			// Output commit was deleted. Delete job as well
 			if _, err := pj.driver.NewSTM(func(stm col.STM) error {
 				// Delete the job if no other worker has deleted it yet
