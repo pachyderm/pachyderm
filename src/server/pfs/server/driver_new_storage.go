@@ -91,9 +91,9 @@ func (d *driver) finishCommitNewStorageLayer(txnCtx *txnenv.TransactionContext, 
 }
 
 // (bryce) holding off on integrating with downstream commit deletion logic until global ids.
-func (d *driver) deleteCommitNewStorageLayer(txnCtx *txnenv.TransactionContext, commit *pfs.Commit) error {
-	return d.storage.Delete(txnCtx.Client.Ctx(), path.Join(commit.Repo.Name, commit.ID))
-}
+//func (d *driver) deleteCommitNewStorageLayer(txnCtx *txnenv.TransactionContext, commit *pfs.Commit) error {
+//	return d.storage.Delete(txnCtx.Client.Ctx(), path.Join(commit.Repo.Name, commit.ID))
+//}
 
 // (bryce) add commit validation.
 // (bryce) probably should prevent / clean files that end with "/", since that will indicate a directory.

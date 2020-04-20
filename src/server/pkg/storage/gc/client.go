@@ -8,10 +8,7 @@ import (
 )
 
 const (
-	reservingChunk    = "reserving chunk"
-	flushingDeletion  = "flushing deletion"
-	creatingReference = "creating reference"
-	deletingReference = "deleting reference"
+	flushingDeletion = "flushing deletion"
 )
 
 var (
@@ -87,7 +84,7 @@ func (c *client) ReserveChunk(ctx context.Context, chunk, tmpID string) error {
 		},
 	}
 	return retry(flushingDeletion, func() error {
-		if err := runTransaction(ctx, c.db, reservingChunk, stmtFuncs); err != nil {
+		if err := runTransaction(ctx, c.db, stmtFuncs); err != nil {
 			return err
 		}
 		if len(flushChunk) > 0 {
@@ -114,7 +111,7 @@ func (c *client) CreateReference(ctx context.Context, ref *Reference) (retErr er
 			`, ref.Sourcetype, ref.Source, ref.Chunk)
 		},
 	}
-	return runTransaction(ctx, c.db, creatingReference, stmtFuncs)
+	return runTransaction(ctx, c.db, stmtFuncs)
 }
 
 func (c *client) DeleteReference(ctx context.Context, ref *Reference) (retErr error) {
@@ -130,7 +127,7 @@ func (c *client) DeleteReference(ctx context.Context, ref *Reference) (retErr er
 		      `, ref.Sourcetype, ref.Source)
 		},
 	}
-	return runTransaction(ctx, c.db, deletingReference, stmtFuncs)
+	return runTransaction(ctx, c.db, stmtFuncs)
 }
 
 type mockClient struct{}
