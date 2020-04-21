@@ -45,7 +45,7 @@ class BaseDriver:
         # ignore errors here because most likely no cluster is just deployed
         # yet
         try:
-            await run("pachctl", "undeploy", "--metadata", "--jupyterhub", stdin="y\n")
+            await run("pachctl", "undeploy", "--metadata", "--ide", stdin="y\n")
         except:
             pass
 
@@ -205,7 +205,7 @@ def print_status(status):
 async def main():
     parser = argparse.ArgumentParser(description="Resets a pachyderm cluster.")
     parser.add_argument("--dash", action="store_true", help="Deploy dash")
-    parser.add_argument("--jupyterhub", action="store_true", help="Deploy jupyterhub")
+    parser.add_argument("--ide", action="store_true", help="Deploy IDE")
     args = parser.parse_args()
 
     if "GOPATH" not in os.environ:
@@ -264,7 +264,7 @@ async def main():
         print_status("waiting for pachyderm to come up...")
         time.sleep(1)
 
-    if args.jupyterhub:
+    if args.ide:
         enterprise_token = await capture(
             "aws", "s3", "cp",
             "s3://pachyderm-engineering/test_enterprise_activation_code.txt",
@@ -272,7 +272,7 @@ async def main():
         )
         await run("pachctl", "enterprise", "activate", RedactedString(enterprise_token))
         await run("pachctl", "auth", "activate", stdin="admin\n")
-        await run("pachctl", "deploy", "jupyterhub")
+        await run("pachctl", "deploy", "ide")
 
 if __name__ == "__main__":
     asyncio.run(main(), debug=True)

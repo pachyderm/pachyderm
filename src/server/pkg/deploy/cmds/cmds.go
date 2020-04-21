@@ -49,8 +49,8 @@ var (
 
 const (
 	defaultDashImage           = "pachyderm/dash:0.5.48"
-	defaultJupyterhubHubImage  = "pachyderm/jupyterhub-pachyderm-hub:1.1.0"
-	defaultJupyterhubUserImage = "pachyderm/jupyterhub-pachyderm-user:1.1.0"
+	defaultIDEHubImage         = "pachyderm/ide-hub:1.1.0"
+	defaultIDEUserImage        = "pachyderm/ide-user:1.1.0"
 	jupyterhubChartVersion     = "0.8.2"
 )
 
@@ -963,9 +963,9 @@ func Cmds() []*cobra.Command {
 	var outputFormat string
 	var hubImage string
 	var userImage string
-	deployJupyterHub := &cobra.Command{
-		Short: "Deploy JupyterHub.",
-		Long:  "Deploy a JupyterHub instance alongside Pachyderm, with several Pachyderm extensions built-in.",
+	deployIDE := &cobra.Command{
+		Short: "Deploy the Pachyderm IE.",
+		Long:  "Deploy a JupyterHub-based IDE alongside the Pachyderm cluster.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			cfg, err := config.Read(false)
 			if err != nil {
@@ -1071,26 +1071,26 @@ func Cmds() []*cobra.Command {
 				activeContext,
 				"jupyterhub",
 				"https://jupyterhub.github.io/helm-chart/",
-				"jhub",
+				"pachyderm-ide",
 				"jupyterhub/jupyterhub",
 				jupyterhubChartVersion,
 				values,
 			)
 			if err != nil {
-				return errors.Wrapf(err, "failed to deploy JupyterHub")
+				return errors.Wrapf(err, "failed to deploy Pachyderm IDE")
 			}
 
 			fmt.Println(rel.Info.Notes)
 			return nil
 		}),
 	}
-	deployJupyterHub.Flags().StringVar(&lbTLSHost, "lb-tls-host", "", "Hostname for minting a Let's Encrypt TLS cert on the JupyterHub load balancer")
-	deployJupyterHub.Flags().StringVar(&lbTLSEmail, "lb-tls-email", "", "Contact email for minting a Let's Encrypt TLS cert on the JupyterHub load balancer")
-	deployJupyterHub.Flags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy JupyterHub, instead just print the Helm config.")
-	deployJupyterHub.Flags().StringVarP(&outputFormat, "output", "o", "json", "Output format. One of: json|yaml")
-	deployJupyterHub.Flags().StringVar(&hubImage, "hub-image", defaultJupyterhubHubImage, "Image for JupyterHub")
-	deployJupyterHub.Flags().StringVar(&userImage, "user-image", defaultJupyterhubUserImage, "Image for Jupyter users")
-	commands = append(commands, cmdutil.CreateAlias(deployJupyterHub, "deploy jupyterhub"))
+	deployIDE.Flags().StringVar(&lbTLSHost, "lb-tls-host", "", "Hostname for minting a Let's Encrypt TLS cert on the load balancer")
+	deployIDE.Flags().StringVar(&lbTLSEmail, "lb-tls-email", "", "Contact email for minting a Let's Encrypt TLS cert on the load balancer")
+	deployIDE.Flags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy, instead just print the Helm config.")
+	deployIDE.Flags().StringVarP(&outputFormat, "output", "o", "json", "Output format. One of: json|yaml")
+	deployIDE.Flags().StringVar(&hubImage, "hub-image", defaultIDEHubImage, "Image for IDE hub")
+	deployIDE.Flags().StringVar(&userImage, "user-image", defaultIDEUserImage, "Image for IDE user environments")
+	commands = append(commands, cmdutil.CreateAlias(deployIDE, "deploy ide"))
 
 	deploy := &cobra.Command{
 		Short: "Deploy a Pachyderm cluster.",
@@ -1100,7 +1100,7 @@ func Cmds() []*cobra.Command {
 
 	var all bool
 	var includingMetadata bool
-	var includingJupyterHub bool
+	var includingIDE bool
 	var namespace string
 	undeploy := &cobra.Command{
 		Short: "Tear down a deployed Pachyderm cluster.",
@@ -1171,8 +1171,8 @@ persistent volume was manually provisioned (i.e. if you used the
 				return err
 			}
 
-			if includingJupyterHub {
-				// remove jupyterhub
+			if includingIDE {
+				// remove IDE
 				if err = helm.Destroy(activeContext, "jhub", namespace); err != nil {
 					log.Errorf("failed to delete helm installation: %v", err)
 				}
@@ -1236,7 +1236,7 @@ flag), the underlying volumes will be removed, making metadata such as repos,
 commits, pipelines, and jobs unrecoverable. If your persistent volume was
 manually provisioned (i.e. if you used the "--static-etcd-volume" flag), the
 underlying volume will not be removed.`)
-	undeploy.Flags().BoolVarP(&includingJupyterHub, "jupyterhub", "", false, "Delete the Pachyderm JupyterHub deployment if it exists.")
+	undeploy.Flags().BoolVarP(&includingIDE, "ide", "", false, "Delete the Pachyderm IDE deployment if it exists.")
 	undeploy.Flags().StringVar(&namespace, "namespace", "", "Kubernetes namespace to undeploy Pachyderm from.")
 	commands = append(commands, cmdutil.CreateAlias(undeploy, "undeploy"))
 
