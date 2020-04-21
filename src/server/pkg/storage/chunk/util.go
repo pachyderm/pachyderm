@@ -2,10 +2,7 @@ package chunk
 
 import (
 	"bytes"
-	"io/ioutil"
 	"math/rand"
-	"os"
-	"path"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
@@ -18,37 +15,12 @@ const (
 	MB = 1024 * KB
 )
 
-// WithLocalStorage constructs a local storage instance for testing during the lifetime of
+// WithLocalStorage creates a local storage instance for testing during the lifetime of
 // the callback.
-func WithLocalStorage(f func(objC obj.Client, chunks *Storage) error) error {
-	return WithLocalClient(func(objC obj.Client) error {
-		return f(objC, NewStorage(objC))
+func WithLocalStorage(f func(obj.Client, *Storage) error, opts ...StorageOption) error {
+	return obj.WithLocalClient(func(objClient obj.Client) error {
+		return f(objClient, NewStorage(objClient, opts...))
 	})
-
-}
-
-// WithLocalClient constructs a local object storage client for testing during the lifetime of
-// the callback.
-// (bryce) this should be somewhere else (probably testutil).
-func WithLocalClient(f func(objC obj.Client) error) (retErr error) {
-	dirBase := path.Join(os.TempDir(), "pachyderm_test")
-	if err := os.MkdirAll(dirBase, 0700); err != nil {
-		return err
-	}
-	dir, err := ioutil.TempDir(dirBase, "")
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := os.RemoveAll(dir); retErr == nil {
-			retErr = err
-		}
-	}()
-	objC, err := obj.NewLocalClient(dir)
-	if err != nil {
-		return err
-	}
-	return f(objC)
 }
 
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")

@@ -8,6 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
 var (
@@ -31,15 +32,16 @@ type Writer struct {
 }
 
 func newWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path string, indexFunc func(*index.Index) error) *Writer {
+	tmpID := path + uuid.NewWithoutDashes()
 	w := &Writer{
 		ctx:       ctx,
 		first:     true,
 		indexFunc: indexFunc,
 	}
 	if w.indexFunc == nil {
-		w.iw = index.NewWriter(ctx, objC, chunks, path)
+		w.iw = index.NewWriter(ctx, objC, chunks, path, tmpID)
 	}
-	cw := chunks.NewWriter(ctx, averageBits, math.MaxInt64, indexFunc != nil, w.callback())
+	cw := chunks.NewWriter(ctx, averageBits, math.MaxInt64, indexFunc != nil, tmpID, w.callback())
 	w.cw = cw
 	w.tw = tar.NewWriter(cw)
 	return w
