@@ -28,6 +28,13 @@ const (
 	trimPrefix = "github.com/pachyderm/pachyderm/src/"
 )
 
+// ReportRequest reports a request to Prometheus.
+// This function automatically registers a metric (if one does not already
+// exist) with the default register.
+// The calling function's package name is used as the subsystem name and the
+// function name is used for the operation label.
+// This function also labels the request as successful or not, and records
+// the time spent in a separate metric.
 func ReportRequest(f func() error, skip ...int) (retErr error) {
 	ci := retrieveCallInfo(skip...)
 	ms, err := maybeRegisterSubsystem(ci.packageName)
@@ -47,6 +54,8 @@ func ReportRequest(f func() error, skip ...int) (retErr error) {
 	return f()
 }
 
+// ReportRequestWithThroughput functions the same as ReportRequest, but also
+// reports the throughput in a separate metric.
 func ReportRequestWithThroughput(f func() (int64, error)) error {
 	ci := retrieveCallInfo()
 	ms, err := maybeRegisterSubsystem(ci.packageName)
