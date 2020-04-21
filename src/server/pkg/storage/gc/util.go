@@ -103,11 +103,9 @@ func isRetriableError(err error) bool {
 
 type statementFunc func(*gorm.DB) *gorm.DB
 
-func runTransaction(ctx context.Context, db *gorm.DB, name string, stmtFuncs []statementFunc) error {
+func runTransaction(ctx context.Context, db *gorm.DB, stmtFuncs []statementFunc) error {
 	for {
-		err := collectSQLStats(name, func() error {
-			return tryTransaction(ctx, db, stmtFuncs)
-		})
+		err := tryTransaction(ctx, db, stmtFuncs)
 		if isRetriableError(err) {
 			continue
 		}
@@ -117,30 +115,25 @@ func runTransaction(ctx context.Context, db *gorm.DB, name string, stmtFuncs []s
 
 func tryTransaction(ctx context.Context, db *gorm.DB, stmtFuncs []statementFunc) error {
 	txn := db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
-
 	// So we don't leak in case of a panic somewhere unexpected
 	defer func() {
 		if r := recover(); r != nil {
 			txn.Rollback()
 		}
 	}()
-
 	if err := txn.Error; err != nil {
 		return err
 	}
-
 	for _, stmtFunc := range stmtFuncs {
 		if err := stmtFunc(txn).Error; err != nil {
 			txn.Rollback()
 			return err
 		}
 	}
-
 	if err := txn.Commit().Error; err != nil {
 		txn.Rollback()
 		return err
 	}
-
 	return nil
 }
 

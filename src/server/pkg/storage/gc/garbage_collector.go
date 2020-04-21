@@ -15,12 +15,10 @@ const (
 )
 
 const (
-	polling                     = "polling"
-	deletingTemporaryReferences = "deleting temporary references"
-	checkingChunks              = "checking chunks"
-	markingDeletingChunks       = "marking deleting chunks"
-	deletingChunks              = "deleting chunks"
-	removingChunkRows           = "removing chunk rows"
+	polling               = "polling"
+	markingDeletingChunks = "marking deleting chunks"
+	deletingChunks        = "deleting chunks"
+	deletingChunkRows     = "deleting chunk rows"
 )
 
 type garbageCollector struct {
@@ -54,7 +52,7 @@ func (gc *garbageCollector) maybeDeleteTemporaryRefs(ctx context.Context) error 
 			`)
 		},
 	}
-	return runTransaction(ctx, gc.db, deletingTemporaryReferences, stmtFuncs)
+	return runTransaction(ctx, gc.db, stmtFuncs)
 }
 
 func (gc *garbageCollector) maybeDeleteChunks(ctx context.Context) error {
@@ -70,7 +68,7 @@ func (gc *garbageCollector) maybeDeleteChunks(ctx context.Context) error {
 			`).Scan(&chunksToDelete)
 		},
 	}
-	if err := runTransaction(ctx, gc.db, checkingChunks, stmtFuncs); err != nil {
+	if err := runTransaction(ctx, gc.db, stmtFuncs); err != nil {
 		return err
 	}
 	return gc.deleteChunks(ctx, convertChunks(chunksToDelete))
@@ -78,19 +76,24 @@ func (gc *garbageCollector) maybeDeleteChunks(ctx context.Context) error {
 
 func (gc *garbageCollector) pollingFunc(ctx context.Context) error {
 	return retry(polling, func() error {
-		for {
-			if err := gc.maybeDeleteTemporaryRefs(ctx); err != nil {
-				return err
+		if err := func() error {
+			for {
+				if err := gc.maybeDeleteTemporaryRefs(ctx); err != nil {
+					return err
+				}
+				if err := gc.maybeDeleteChunks(ctx); err != nil {
+					return err
+				}
+				select {
+				case <-time.After(gc.polling):
+				case <-ctx.Done():
+					return ctx.Err()
+				}
 			}
-			if err := gc.maybeDeleteChunks(ctx); err != nil {
-				return err
-			}
-			select {
-			case <-time.After(gc.polling):
-			case <-ctx.Done():
-				return nil
-			}
+		}(); ctx.Err() != context.Canceled {
+			return err
 		}
+		return nil
 	})
 }
 
@@ -122,8 +125,8 @@ func (gc *garbageCollector) deleteChunks(ctx context.Context, chunks []string) e
 	}
 	// Remove the chunk rows.
 	transitiveDeletes := []string{}
-	if err := retry(removingChunkRows, func() error {
-		transitiveDeletes, err = gc.removeChunkRows(ctx, toDelete)
+	if err := retry(deletingChunkRows, func() error {
+		transitiveDeletes, err = gc.deleteChunkRows(ctx, toDelete)
 		return err
 	}); err != nil {
 		return err
@@ -154,13 +157,13 @@ func (gc *garbageCollector) markChunksDeleting(ctx context.Context, chunks []str
 			`, chunks, chunks).Scan(&chunksDeleting)
 		},
 	}
-	if err := runTransaction(ctx, gc.db, markingDeletingChunks, stmtFuncs); err != nil {
+	if err := runTransaction(ctx, gc.db, stmtFuncs); err != nil {
 		return nil, err
 	}
 	return convertChunks(chunksDeleting), nil
 }
 
-func (gc *garbageCollector) removeChunkRows(ctx context.Context, chunks []string) ([]string, error) {
+func (gc *garbageCollector) deleteChunkRows(ctx context.Context, chunks []string) ([]string, error) {
 	if len(chunks) == 0 {
 		return nil, nil
 	}
@@ -190,7 +193,7 @@ func (gc *garbageCollector) removeChunkRows(ctx context.Context, chunks []string
 		`, chunks).Scan(&deletedChunks)
 		},
 	}
-	if err := runTransaction(ctx, gc.db, removingChunkRows, stmtFuncs); err != nil {
+	if err := runTransaction(ctx, gc.db, stmtFuncs); err != nil {
 		return nil, err
 	}
 	return convertChunks(deletedChunks), nil

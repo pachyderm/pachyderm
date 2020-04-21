@@ -279,7 +279,7 @@ func (w *worker) updateAnnotations(chunkRef *DataRef) error {
 	for _, a := range w.annotations {
 		// (bryce) need to account for data refs in a chunk that reference the same chunk.
 		for _, dataRef := range a.RefDataRefs {
-			if err := w.gcC.AddReference(w.ctx, &gc.Reference{
+			if err := w.gcC.CreateReference(w.ctx, &gc.Reference{
 				Sourcetype: "chunk",
 				Source:     path.Join(prefix, chunkRef.ChunkInfo.Chunk.Hash),
 				Chunk:      path.Join(prefix, dataRef.ChunkInfo.Chunk.Hash),
