@@ -106,7 +106,7 @@ Because you incorporated data lineage into your workflow using Pachyderm, you ca
 
 ## Epilogue - Data Lineage for Existing Kubeflow Pipelines
 
-Some Kubeflow users might get the impression that they can only use Pachyderm if they rewrite their kubeflow pipelines to embed them in a Pachyderm pipeline. Not so! Pachyderm can run *preexisting* kubeflow pipelines, version their output, and track their data lineage as well. To illustrate, the alternative commands below show Pachyderm running an existing Kubeflow pipeline this way:
+Some Kubeflow users might get the impression that they can only use Pachyderm if they rewrite their Kubeflow pipelines to embed them in a Pachyderm pipeline. Not so! Pachyderm can run *preexisting* Kubeflow pipelines, version their output, and track their data lineage as well. To illustrate, the alternative commands below show Pachyderm running an existing Kubeflow pipeline this way:
 
 ```
 # Connect your local machine to kubeflow's pipeline API
