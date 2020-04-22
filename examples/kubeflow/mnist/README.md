@@ -124,7 +124,7 @@ kubectl -n kubeflow port-forward svc/ml-pipeline 41888:8888 &
 pachctl create pipeline -f standalone_pipeline.yaml
 ```
 
-As before, you'll see a pachyderm pipeline start, create a kubeflow run, and pass data to the newly-created kubeflow workers. Also as before, you'll see an output commit, containing the model parameters, with the input commit and trigger pipeline in its provenance:
+As before, a Pachyderm pipeline starts, creates a Kubeflow run, and passes data to the newly-created Kubeflow workers. Also, you will see an output commit, containing the model parameters, with the input commit and trigger pipeline in its provenance:
 ```
 $ pc list job
 ID        PIPELINE      STARTED            DURATION   RESTART PROGRESS  DL UL STATE
@@ -136,10 +136,10 @@ trigger-mnist 24 seconds ago     4.684MiB      Output repo for pipeline trigger-
 input-repo    About a minute ago 10.96MiB
 ```
 
-At the lowest level, the the `s3` and `s3_out` fields of our pipeline specs support this integration. If a kubeflow job can read and write data to/from an S3 bucket, then its data lineage can be tracked with Pachyderm.
+At the lowest level, the `s3` and `s3_out` fields of Pachyderm's pipeline specs support this integration. If a Kubeflow job can read and write data to and from an S3 bucket, then its data lineage can be tracked with Pachyderm.
 
-To see the kubeflow pipelines UI, including the new `mnist_pipeline` created for this codelab, run
+To access the Kubeflow UI, including the new `mnist_pipeline` created for this codelab, run:
 ```
 kubectl -n kubeflow port-forward svc/ml-pipeline-ui 41880:80
 ```
-and then navigate to `localhost:41880`.
+Then, navigate to `localhost:41880`.
