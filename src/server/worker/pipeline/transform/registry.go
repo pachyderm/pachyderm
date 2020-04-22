@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -571,7 +572,6 @@ func (reg *registry) getParentCommitInfo(commitInfo *pfs.CommitInfo) (*pfs.Commi
 			"blocking on parent commit %q before writing to output commit %q",
 			commitInfo.ParentCommit.ID, outputCommitID,
 		)
-		reg.logger.Logf("checking parent commit: %v", commitInfo.ParentCommit)
 		parentCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(),
 			&pfs.InspectCommitRequest{
 				Commit:     commitInfo.ParentCommit,
@@ -628,10 +628,12 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commi
 		return err
 	}
 
+	var asyncEg *errgroup.Group
 	reg.limiter.Acquire()
-	asyncStarted := false
+
 	defer func() {
-		if !asyncStarted {
+		if asyncEg == nil {
+			// The async errgroup never got started, so give up the limiter lock
 			reg.limiter.Release()
 		}
 	}()
@@ -667,6 +669,8 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commi
 		// if the job isn't present (i.e. it already succeeded or failed, or never
 		// made it into the job chain).
 		reg.jobChain.Fail(pj)
+		pj.logger.Logf("canceling job")
+		debug.PrintStack()
 		cancel()
 	}
 
@@ -722,7 +726,9 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commi
 		afterTime = time.Until(startTime.Add(timeout))
 	}
 
-	go func() {
+	asyncEg, ctx = errgroup.WithContext(ctx)
+
+	asyncEg.Go(func() error {
 		defer pj.cancel()
 
 		if pj.ji.JobTimeout != nil {
@@ -733,64 +739,90 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commi
 			defer timer.Stop()
 		}
 
-		backoff.RetryUntilCancel(pj.driver.PachClient().Ctx(), func() error {
+		return backoff.RetryUntilCancel(pj.driver.PachClient().Ctx(), func() error {
 			return reg.superviseJob(pj)
 		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 			pj.logger.Logf("error in superviseJob: %v, retrying in %+v", err, d)
 			return nil
 		})
-	}()
+	})
 
-	// This runs the callback asynchronously
-	if err := reg.taskQueue.RunTask(pj.driver.PachClient().Ctx(), func(master *work.Master) {
-		defer reg.limiter.Release()
-		defer pj.cancel()
-		pj.taskMaster = master
+	asyncEg.Go(func() error {
+		mutex := &sync.Mutex{}
+		mutex.Lock()
+		defer mutex.Unlock()
 
-		backoff.RetryUntilCancel(pj.driver.PachClient().Ctx(), func() error {
-			var err error
-			for err == nil {
-				err = reg.processJob(pj)
-			}
-			return err
-		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-			pj.logger.Logf("processJob failed: %v; retrying in %v", err, d)
+		// This runs the callback asynchronously, but we want to block the errgroup until it completes
+		if err := reg.taskQueue.RunTask(pj.driver.PachClient().Ctx(), func(master *work.Master) {
+			defer mutex.Unlock()
+			pj.taskMaster = master
 
-			pj.jdit.Reset()
-
-			// Get job state, increment restarts, write job state
-			pj.ji, err = pj.driver.PachClient().InspectJob(pj.ji.Job.ID, false)
-			if err != nil {
+			backoff.RetryUntilCancel(pj.driver.PachClient().Ctx(), func() error {
+				var err error
+				for err == nil {
+					err = reg.processJob(pj)
+				}
+				pj.logger.Logf("processJob result: %v", err)
+				for err != nil {
+					if st, ok := err.(errors.StackTracer); ok {
+						pj.logger.Logf("error stack: %+v", st.StackTrace())
+					}
+					err = errors.Unwrap(err)
+				}
 				return err
-			}
+			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+				pj.logger.Logf("processJob failed: %v; retrying in %v", err, d)
 
-			pj.ji.Restart++
-			if err := pj.writeJobInfo(); err != nil {
-				pj.logger.Logf("error incrementing restart count for job (%s): %v", pj.ji.Job.ID, err)
-			}
+				pj.jdit.Reset()
 
-			// Reload the job's commitInfo as it may have changed
-			pj.commitInfo, err = reg.driver.PachClient().InspectCommit(pj.commitInfo.Commit.Repo.Name, pj.commitInfo.Commit.ID)
-			if err != nil {
-				return err
-			}
-
-			if statsCommit != nil {
-				pj.statsCommitInfo, err = reg.driver.PachClient().InspectCommit(statsCommit.Repo.Name, statsCommit.ID)
+				// Get job state, increment restarts, write job state
+				pj.ji, err = pj.driver.PachClient().InspectJob(pj.ji.Job.ID, false)
 				if err != nil {
 					return err
 				}
-			}
 
-			return nil
-		})
-		pj.logger.Logf("master done running processJobs")
-		// TODO: make sure that all paths close the commit correctly
-	}); err != nil {
-		return err
-	}
+				pj.ji.Restart++
+				if err := pj.writeJobInfo(); err != nil {
+					pj.logger.Logf("error incrementing restart count for job (%s): %v", pj.ji.Job.ID, err)
+				}
 
-	asyncStarted = true
+				// Reload the job's commitInfo as it may have changed
+				pj.commitInfo, err = reg.driver.PachClient().InspectCommit(pj.commitInfo.Commit.Repo.Name, pj.commitInfo.Commit.ID)
+				if err != nil {
+					return err
+				}
+
+				if statsCommit != nil {
+					pj.statsCommitInfo, err = reg.driver.PachClient().InspectCommit(statsCommit.Repo.Name, statsCommit.ID)
+					if err != nil {
+						return err
+					}
+				}
+
+				return nil
+			})
+			pj.logger.Logf("master done running processJobs")
+			// TODO: make sure that all paths close the commit correctly
+		}); err != nil {
+			return err
+		}
+
+		// This should block until the callback has completed
+		mutex.Lock()
+	})
+
+	go func() {
+		defer reg.limiter.Release()
+		defer pj.cancel()
+
+		// Make sure the job has been removed from the job chain, ignore any errors
+		defer reg.jobChain.Fail(pj)
+
+		if err := asyncEg.Wait(); err != nil {
+			pj.logger.Logf("fatal job error: %v", err)
+		}
+	}()
+
 	return nil
 }
 

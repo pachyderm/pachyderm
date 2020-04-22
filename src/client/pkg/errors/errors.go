@@ -14,6 +14,8 @@ var (
 	// as a value that satisfies error.
 	// Errorf also records the stack trace at the point it was called.
 	Errorf = errors.Errorf
+	// Unwrap returns the underlying wrapped error if it exists, or nil otherwise.
+	Unwrap = errors.Unwrap
 	// Wrap returns an error annotating err with a stack trace
 	// at the point Wrap is called, and the supplied message.
 	// If err is nil, Wrap returns nil.
