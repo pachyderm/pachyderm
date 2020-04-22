@@ -1022,6 +1022,7 @@ func Cmds() []*cobra.Command {
 					},
 					"extraConfig": map[string]interface{}{
 						"jupyterlab": "c.Spawner.cmd = ['jupyter-labhub']",
+						"templates": "c.JupyterHub.template_paths = ['/app/templates']",
 					},
 				},
 				"singleuser": map[string]interface{}{
