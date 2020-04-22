@@ -38,7 +38,7 @@ func githubLogin() (string, error) {
 	return strings.TrimSpace(token), nil // drop trailing newline
 }
 
-func requestOIDCLogin() (string, error) {
+func requestOIDCLogin(c *client.APIClient) (string, error) {
 	// Okta documentation: https://developer.okta.com/docs/reference/api/oidc/
 
 	idp, err := oidc.NewProvider(context.Background(), "http://localhost:8080/auth/realms/adele-testing")
@@ -81,18 +81,22 @@ func requestOIDCLogin() (string, error) {
 		"this Pachyderm cluster)\n\n(2) Please paste the token you receive " +
 		"from your IdP here:")
 	// receive token
-	token1, err := bufio.NewReaderSize(os.Stdin, 10000).ReadString('\n')
+	token, err := c.GetOIDCToken(c.Ctx(), &auth.GetOIDCTokenRequest{})
 	if err != nil {
-		return "", fmt.Errorf("error reading token: %v", err)
+		return "", err
 	}
-	fmt.Println("\nokay cool now\n")
-	token2, err := bufio.NewReaderSize(os.Stdin, 10000).ReadString('\n')
-	if err != nil {
-		return "", fmt.Errorf("error reading token: %v", err)
-	}
-	token := strings.TrimSpace(token1) + strings.TrimSpace(token2)
-	fmt.Println(token)
-	return token, nil // drop trailing newline
+	// token1, err := bufio.NewReaderSize(os.Stdin, 10000).ReadString('\n')
+	// if err != nil {
+	// 	return "", fmt.Errorf("error reading token: %v", err)
+	// }
+	// fmt.Println("\nokay cool now\n")
+	// token2, err := bufio.NewReaderSize(os.Stdin, 10000).ReadString('\n')
+	// if err != nil {
+	// 	return "", fmt.Errorf("error reading token: %v", err)
+	// }
+	// token := strings.TrimSpace(token1) + strings.TrimSpace(token2)
+	fmt.Println(token.Token)
+	return token.Token, nil // drop trailing newline
 }
 
 func writePachTokenToCfg(token string) error {
@@ -123,14 +127,6 @@ first cluster admin`[1:],
 		Run: cmdutil.Run(func(args []string) error {
 			var token string
 			var err error
-			if !strings.HasPrefix(initialAdmin, auth.RobotPrefix) {
-				// token, err = githubLogin()
-				token, err = requestOIDCLogin()
-				if err != nil {
-					return err
-				}
-			}
-			fmt.Println("Retrieving Pachyderm token...")
 
 			// Exchange GitHub token for Pachyderm token
 			c, err := client.NewOnUserMachine("user")
@@ -138,6 +134,17 @@ first cluster admin`[1:],
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
+
+			if !strings.HasPrefix(initialAdmin, auth.RobotPrefix) {
+				// token, err = githubLogin()
+				token, err = requestOIDCLogin(c)
+				if err != nil {
+					return err
+				}
+			}
+
+			fmt.Println("Retrieving Pachyderm token...")
+
 			resp, err := c.Activate(c.Ctx(),
 				&auth.ActivateRequest{
 					GitHubToken: token,
@@ -241,7 +248,7 @@ func LoginCmd() *cobra.Command {
 				// 		&auth.AuthenticateRequest{GitHubToken: token})
 			} else {
 				// Exchange OIDC token for Pachyderm token
-				token, err := requestOIDCLogin()
+				token, err := requestOIDCLogin(c)
 				if err != nil {
 					return err
 				}

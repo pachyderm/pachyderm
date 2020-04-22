@@ -369,6 +369,13 @@ message SetACLResponse {}
 
 //// Token API (very limited -- for pipelines)
 
+message GetOIDCTokenRequest {}
+
+message GetOIDCTokenResponse {
+  // A new auth token for the user in 'GetAuthTokenRequest.Subject' token
+  string token = 1;
+}
+
 message GetAuthTokenRequest {
   // The returned token will allow the caller to access resources as this
   // subject
@@ -486,6 +493,7 @@ service API {
   rpc SetACL(SetACLRequest) returns (SetACLResponse) {}
 
   rpc GetAuthToken(GetAuthTokenRequest) returns (GetAuthTokenResponse) {}
+  rpc GetOIDCToken(GetOIDCTokenRequest) returns (GetOIDCTokenResponse) {}
   rpc ExtendAuthToken(ExtendAuthTokenRequest) returns (ExtendAuthTokenResponse) {}
   rpc RevokeAuthToken(RevokeAuthTokenRequest) returns (RevokeAuthTokenResponse) {}
 

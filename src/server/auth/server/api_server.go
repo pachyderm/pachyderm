@@ -1880,6 +1880,17 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 	}, nil
 }
 
+// TODO: need to secure this and make it internal only
+// GetOIDCToken implements the protobuf auth.GetOIDCToken RPC
+func (a *apiServer) GetOIDCToken(ctx context.Context, req *auth.GetOIDCTokenRequest) (resp *auth.GetOIDCTokenResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	return &auth.GetOIDCTokenResponse{
+		Token: <-tokenChan,
+	}, nil
+}
+
 // ExtendAuthToken implements the protobuf auth.ExtendAuthToken RPC
 func (a *apiServer) ExtendAuthToken(ctx context.Context, req *auth.ExtendAuthTokenRequest) (resp *auth.ExtendAuthTokenResponse, retErr error) {
 	a.LogReq(req)

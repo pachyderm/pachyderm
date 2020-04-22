@@ -11,6 +11,11 @@ import (
 )
 
 // handler function
+var tokenChan chan string
+
+func init() {
+	tokenChan = make(chan string)
+}
 
 func handleExchange(w http.ResponseWriter, req *http.Request) {
 	ctx := context.Background()
@@ -35,6 +40,8 @@ func handleExchange(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	tokenChan <- tok.AccessToken
 
 	fmt.Fprintf(w, "Your access token is:\n\n%v", tok.AccessToken)
 

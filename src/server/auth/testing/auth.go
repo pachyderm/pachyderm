@@ -103,6 +103,11 @@ func (a *InactiveAPIServer) GetAuthToken(context.Context, *auth.GetAuthTokenRequ
 	return nil, auth.ErrNotActivated
 }
 
+// GetOIDCToken implements the GetOIDCToken RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetOIDCToken(context.Context, *auth.GetOIDCTokenRequest) (*auth.GetOIDCTokenResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
 // ExtendAuthToken implements the ExtendAuthToken RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) ExtendAuthToken(context.Context, *auth.ExtendAuthTokenRequest) (*auth.ExtendAuthTokenResponse, error) {
 	return nil, auth.ErrNotActivated
