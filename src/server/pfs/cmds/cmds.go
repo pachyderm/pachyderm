@@ -783,7 +783,11 @@ $ {{alias}} repo@branch -i http://host/path`,
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine("user", client.WithMaxConcurrentStreams(parallelism), client.WithGZIPCompression(compress))
+			opts := []client.Option{client.WithMaxConcurrentStreams(parallelism)}
+			if compress {
+				opts = append(opts, client.WithGZIPCompression())
+			}
+			c, err := client.NewOnUserMachine("user", opts...)
 			if err != nil {
 				return err
 			}

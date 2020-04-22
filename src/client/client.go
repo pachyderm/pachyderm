@@ -240,9 +240,9 @@ func WithDialTimeout(t time.Duration) Option {
 }
 
 // WithGZIPCompression enabled GZIP compression for data on the wire
-func WithGZIPCompression(enabled bool) Option {
+func WithGZIPCompression() Option {
 	return func(settings *clientSettings) error {
-		settings.gzipCompress = enabled
+		settings.gzipCompress = true
 		return nil
 	}
 }
