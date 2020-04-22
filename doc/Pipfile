@@ -11,6 +11,7 @@ markdown-include = "*"
 Pygments = ">=2.2"
 mdx_truly_sane_lists = ">=1.2"
 mkdocs-git-revision-date-localized-plugin = "*"
+mkdocs-pachyderm = ">=1.0.2"
 
 [dev-packages]
 mkdocs = ">=1"
