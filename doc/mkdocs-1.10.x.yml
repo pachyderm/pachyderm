@@ -14,7 +14,7 @@ copyright: 'Copyright Pachyderm Inc, 2020'
 
 # Configuration
 theme:
-  name: pachydermdoc
+  name: pachydermdocs
   custom_dir: overrides
 
   # 404 page
