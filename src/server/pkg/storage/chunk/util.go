@@ -8,13 +8,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )
 
-const (
-	// KB is Kilobyte.
-	KB = 1024
-	// MB is Megabyte.
-	MB = 1024 * KB
-)
-
 // WithLocalStorage creates a local storage instance for testing during the lifetime of
 // the callback.
 func WithLocalStorage(f func(obj.Client, *Storage) error, opts ...StorageOption) error {
