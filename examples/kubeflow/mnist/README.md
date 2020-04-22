@@ -137,3 +137,9 @@ input-repo    About a minute ago 10.96MiB
 ```
 
 At the lowest level, the the `s3` and `s3_out` fields of our pipeline specs support this integration. If a kubeflow job can read and write data to/from an S3 bucket, then its data lineage can be tracked with Pachyderm.
+
+To see the kubeflow pipelines UI, including the new `mnist_pipeline` created for this codelab, run
+```
+kubectl -n kubeflow port-forward svc/ml-pipeline-ui 41880:80
+```
+and then navigate to `localhost:41880`.
