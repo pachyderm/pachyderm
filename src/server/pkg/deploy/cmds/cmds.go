@@ -1020,12 +1020,16 @@ func Cmds() []*cobra.Command {
 						"name": hubImageName,
 						"tag":  hubImageTag,
 					},
+					"extraConfig": map[string]interface{}{
+						"jupyterlab": "c.Spawner.cmd = ['jupyter-labhub']",
+					},
 				},
 				"singleuser": map[string]interface{}{
 					"image": map[string]interface{}{
 						"name": userImageName,
 						"tag":  userImageTag,
 					},
+					"defaultUrl": "/lab",
 				},
 				"auth": map[string]interface{}{
 					"state": map[string]interface{}{
