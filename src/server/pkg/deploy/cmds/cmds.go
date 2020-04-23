@@ -1178,16 +1178,16 @@ persistent volume was manually provisioned (i.e. if you used the
 
 			if includingIDE {
 				// remove IDE
-				if err = helm.Destroy(activeContext, "jhub", namespace); err != nil {
+				if err = helm.Destroy(activeContext, "pachyderm-ide", namespace); err != nil {
 					log.Errorf("failed to delete helm installation: %v", err)
 				}
-				jhubAssets := []string{
+				ideAssets := []string{
 					"replicaset",
 					"deployment",
 					"service",
 					"pod",
 				}
-				if err = kubectl(nil, activeContext, "delete", strings.Join(jhubAssets, ","), "-l", "app=jupyterhub", "--namespace", namespace); err != nil {
+				if err = kubectl(nil, activeContext, "delete", strings.Join(ideAssets, ","), "-l", "app=jupyterhub", "--namespace", namespace); err != nil {
 					return err
 				}
 			}
