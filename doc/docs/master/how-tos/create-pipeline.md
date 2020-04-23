@@ -90,7 +90,7 @@ To create a pipeline, complete the following steps:
 
 ## Creating a Pipeline When an Output Repository Already Exists
 
-When you create a pipeline, Pachyderm automatically creates a homonymous output
+When you create a pipeline, Pachyderm automatically creates an eponymous output
 repository. However, if such a repo already exists, your pipeline will take
 over the master branch. The files that were stored in the repo before
 will not be in the `HEAD` of the branch. Instead, you might see new files
@@ -106,21 +106,22 @@ If you want to completely replace an existing pipeline, you can do so by
 following the standard pipeline creation procedure, as described above. However,
 if instead, you want to merge the old files with the new files, you could
 do so by putting your old files in a separate Pachyderm branch or repo and
-creating a [union](../concepts/pipeline-concepts/datum/cross-union/#union-input) input that combines these two branches or repos.
+creating a [union](../../concepts/pipeline-concepts/datum/cross-union/#union-input)
+input that combines these two branches or repos.
 
 To access the old files, complete the following steps:
 
 1. View the list of all commits:
 
-```bash
-pachctl list commit <repo>@<master>
-```
+   ```bash
+   pachctl list commit <repo>@<master>
+   ```
 
 1. Then, use the commit ID to access the old files:
 
-```bash
-pachctl list file <repo>@<commit_ID>
-```
+   ```bash
+   pachctl list file <repo>@<commit_ID>
+   ```
 
 !!! note "See Also:"
     - [Pipelines](../../concepts/pipeline-concepts/pipeline/)
