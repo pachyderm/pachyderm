@@ -56,24 +56,6 @@ class BaseDriver:
     async def start(self):
         pass
 
-    async def create_manifest(self, include_dash):
-        # We use hostpaths for storage. On docker for mac, hostpaths aren't
-        # cleared until the VM is restarted -- I think this is the same on
-        # minikube, though it's less relevant there because we wipe the
-        # minikube VM entirely. Because of this behavior, re-deploying on the
-        # same hostpath without a restart will cause us to bring up a new
-        # pachyderm cluster with access to the old cluster volume, causing a
-        # bad state. This works around the issue by just using a different
-        # hostpath on every deployment.
-        args = [
-            "pachctl", "deploy", "local", "-d", "--dry-run",
-            "--create-context", "--no-guaranteed",
-            "--host-path", "/var/pachyderm-{}".format(secrets.token_hex(5))
-        ]
-        if not include_dash:
-            args.append("--no-dashboard")
-        return await capture(*args)
-
     async def init_image_registry(self):
         pass
 
@@ -82,6 +64,23 @@ class BaseDriver:
 
     async def update_config(self):
         pass
+
+    def extra_deploy_args(self):
+        # We use hostpaths for storage. On docker for mac, hostpaths aren't
+        # cleared until the VM is restarted -- I think this is the same on
+        # minikube, though it's less relevant there because we wipe the
+        # minikube VM entirely. Because of this behavior, re-deploying on the
+        # same hostpath without a restart will cause us to bring up a new
+        # pachyderm cluster with access to the old cluster volume, causing a
+        # bad state. This works around the issue by just using a different
+        # hostpath on every deployment.
+        return ["--host-path", "/var/pachyderm-{}".format(secrets.token_hex(5))]
+
+    def ide_user_image(self):
+        return IDE_USER_IMAGE
+
+    def ide_hub_image(self):
+        return IDE_HUB_IMAGE
 
 class DockerDesktopDriver(BaseDriver):
     pass
@@ -108,18 +107,12 @@ class GCPDriver(BaseDriver):
     def __init__(self, project_id):
         self.project_id = project_id
 
+    def _image(self, name):
+        return f"gcr.io/{self.project_id}/{name}"
+
     async def clear(self):
         await super().clear()
         await run("kubectl", "delete", "secret", "regcred", raise_on_error=False)
-
-    async def create_manifest(self, include_dash):
-        args = [
-            "pachctl", "deploy", "local", "-d", "--dry-run", "--create-context", "--no-guaranteed",
-            "--image-pull-secret", "regcred", "--registry", f"gcr.io/{self.project_id}"
-        ]
-        if not include_dash:
-            args.append("--no-dashboard")
-        return await capture(*args)
 
     async def init_image_registry(self):
         docker_config_path = os.path.expanduser("~/.docker/config.json")
@@ -128,13 +121,18 @@ class GCPDriver(BaseDriver):
             "--type=kubernetes.io/dockerconfigjson")
 
     async def push_image(self, image):
-        if image.startswith("quay.io/"):
-            image_url = f"gcr.io/{self.project_id}/{image[8:]}"
-        else:
-            image_url = f"gcr.io/{self.project_id}/{image}"
-
+        image_url = self._image(image[8:] if image.startswith("quay.io/") else image)
         await run("docker", "tag", image, image_url)
         await run("docker", "push", image_url)
+
+    def extra_deploy_args(self):
+        return ["--image-pull-secret", "regcred", "--registry", f"gcr.io/{self.project_id}"]
+
+    def ide_user_image(self):
+        return self._image(IDE_USER_IMAGE)
+
+    def ide_hub_image(self):
+        return self._image(IDE_HUB_IMAGE)
 
 async def run(cmd, *args, raise_on_error=True, stdin=None, capture_output=False, timeout=None):
     print_args = [cmd, *[a if not isinstance(a, RedactedString) else "[redacted]" for a in args]]
@@ -237,7 +235,14 @@ async def main():
     version = (await capture("pachctl", "version", "--client-only")).strip()
     print_status(f"deploy pachyderm version v{version}")
 
-    deployments_str = await driver.create_manifest(args.dash)
+    deployment_args = [
+        "pachctl", "deploy", "local", "-d", "--dry-run", "--create-context", "--no-guaranteed",
+        *driver.extra_deploy_args()
+    ]
+    if not args.dash:
+        deployment_args.append("--no-dashboard")
+
+    deployments_str = await capture(*deployment_args)
     deployments_json = json.loads("[{}]".format(NEWLINE_SEPARATE_OBJECTS_PATTERN.sub("},{", deployments_str)))
 
     dash_spec = find_in_json(deployments_json, lambda j: \
@@ -277,8 +282,8 @@ async def main():
         await run("pachctl", "enterprise", "activate", RedactedString(enterprise_token))
         await run("pachctl", "auth", "activate", stdin="admin\n")
         await run("pachctl", "deploy", "ide", 
-            "--user-image", IDE_USER_IMAGE,
-            "--hub-image", IDE_HUB_IMAGE,
+            "--user-image", driver.ide_user_image(),
+            "--hub-image", driver.ide_hub_image(),
         )
 
 if __name__ == "__main__":
