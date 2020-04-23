@@ -98,7 +98,7 @@ func kubectl(stdin io.Reader, context *config.Context, args ...string) error {
 				return errors.Wrapf(err, "failed to discover default kube config: %q does not exist", kubeconfig)
 			}
 		}
-		kubeconfig = concatKubeConfig(kubeconfig, tmpfile.Name())
+		kubeconfig = kubeconfig + string(os.PathListSeparator) + tmpfile.Name()
 
 		// note that this will override `KUBECONFIG` (if it is already defined) in
 		// the environment; see examples under
