@@ -3429,15 +3429,18 @@ func (d *driver) downloadTree(pachClient *client.APIClient, object *pfs.Object, 
 	}
 
 	// Double-check that the size we got back from object storage was what we requested
-	if size != 0 && copiedBytes > int64(size) {
-		// If the size is too large, we can truncate, but this is a worrying thing to have happen
-		logrus.Warnf("downloaded tree size is larger than requested, truncating file, size: %v, actual: %v", size, copiedBytes)
-		if err := f.Truncate(int64(size)); err != nil {
-			return nil, err
+	if size != 0 && copiedBytes != int64(size) {
+		if copiedBytes > int64(size) {
+			// If the size is too large, we can truncate, but this is a worrying thing to have happen
+			logrus.Warnf("downloaded tree size is larger than requested, truncating file, size: %v, actual: %v", size, copiedBytes)
+			if err := f.Truncate(int64(size)); err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, errors.Errorf("downloaded tree is smaller than requested, size: %v, actual: %v", size, copiedBytes)
 		}
-	} else if copiedBytes != int64(size) {
-		return nil, errors.Errorf("downloaded tree is smaller than requested, size: %v, actual: %v", size, copiedBytes)
 	}
+
 	return f, nil
 }
 
