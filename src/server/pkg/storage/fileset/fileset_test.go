@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
@@ -18,7 +19,7 @@ import (
 )
 
 const (
-	max         = 20 * chunk.MB
+	max         = 20 * units.MB
 	maxTags     = 10
 	testPath    = "test"
 	scratchPath = "scratch"

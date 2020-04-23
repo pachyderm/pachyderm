@@ -10,6 +10,8 @@ import argparse
 import collections
 
 ETCD_IMAGE = "quay.io/coreos/etcd:v3.3.5"
+IDE_USER_IMAGE = "pachyderm/ide-user:local"
+IDE_HUB_IMAGE = "pachyderm/ide-hub:local"
 
 DELETABLE_RESOURCES = [
     "roles.rbac.authorization.k8s.io",
@@ -72,26 +74,11 @@ class BaseDriver:
             args.append("--no-dashboard")
         return await capture(*args)
 
-    async def sync_images(self, deployments):
-        dash_spec = find_in_json(deployments, lambda j: \
-            isinstance(j, dict) and j.get("name") == "dash" and j.get("image") is not None)
-        grpc_proxy_spec = find_in_json(deployments, lambda j: \
-            isinstance(j, dict) and j.get("name") == "grpc-proxy")
+    async def init_image_registry(self):
+        pass
 
-        pull_images = [run("docker", "pull", ETCD_IMAGE)]
-        if dash_spec is not None:
-            pull_images.append(run("docker", "pull", dash_spec["image"]))
-        if grpc_proxy_spec is not None:
-            pull_images.append(run("docker", "pull", grpc_proxy_spec["image"]))
-        await asyncio.gather(*pull_images)
-
-        push_images = [ETCD_IMAGE, "pachyderm/pachd:local", "pachyderm/worker:local"]
-        if dash_spec is not None:
-            push_images.append(dash_spec["image"])
-        if grpc_proxy_spec is not None:
-            push_images.append(grpc_proxy_spec["image"])
-
-        return push_images
+    async def push_image(self, images):
+        pass
 
     async def update_config(self):
         pass
@@ -110,9 +97,8 @@ class MinikubeDriver(BaseDriver):
             print("Waiting for minikube to come up...")
             time.sleep(1)
 
-    async def sync_images(self, deployments):
-        images = await super().sync_images(deployments)
-        await asyncio.gather(*[run("./etc/kube/push-to-minikube.sh", i) for i in images])
+    async def push_image(self, image):
+        await run("./etc/kube/push-to-minikube.sh", image)
 
     async def update_config(self):
         ip = (await capture("minikube", "ip")).strip()
@@ -135,20 +121,20 @@ class GCPDriver(BaseDriver):
             args.append("--no-dashboard")
         return await capture(*args)
 
-    async def sync_images(self, deployments):
+    async def init_image_registry(self):
         docker_config_path = os.path.expanduser("~/.docker/config.json")
         await run("kubectl", "create", "secret", "generic", "regcred",
             f"--from-file=.dockerconfigjson={docker_config_path}",
             "--type=kubernetes.io/dockerconfigjson")
 
-        for image in await super().sync_images(deployments):
-            if image.startswith("quay.io/"):
-                image_url = f"gcr.io/{self.project_id}/{image[8:]}"
-            else:
-                image_url = f"gcr.io/{self.project_id}/{image}"
+    async def push_image(self, image):
+        if image.startswith("quay.io/"):
+            image_url = f"gcr.io/{self.project_id}/{image[8:]}"
+        else:
+            image_url = f"gcr.io/{self.project_id}/{image}"
 
-            await run("docker", "tag", image, image_url)
-            await run("docker", "push", image_url)
+        await run("docker", "tag", image, image_url)
+        await run("docker", "push", image_url)
 
 async def run(cmd, *args, raise_on_error=True, stdin=None, capture_output=False, timeout=None):
     print_args = [cmd, *[a if not isinstance(a, RedactedString) else "[redacted]" for a in args]]
@@ -241,14 +227,11 @@ async def main():
 
     await driver.clear()
 
-    bin_path = os.path.join(os.environ["GOPATH"], "bin", "pachctl")
-    if os.path.exists(bin_path):
-        os.remove(bin_path)
-
     await asyncio.gather(
         driver.start(),
         run("make", "install"),
         run("make", "docker-build"),
+        driver.init_image_registry(),
     )
     
     version = (await capture("pachctl", "version", "--client-only")).strip()
@@ -256,7 +239,26 @@ async def main():
 
     deployments_str = await driver.create_manifest(args.dash)
     deployments_json = json.loads("[{}]".format(NEWLINE_SEPARATE_OBJECTS_PATTERN.sub("},{", deployments_str)))
-    await driver.sync_images(deployments_json)
+
+    dash_spec = find_in_json(deployments_json, lambda j: \
+        isinstance(j, dict) and j.get("name") == "dash" and j.get("image") is not None)
+    grpc_proxy_spec = find_in_json(deployments_json, lambda j: \
+        isinstance(j, dict) and j.get("name") == "grpc-proxy")
+    
+    pull_images = [run("docker", "pull", ETCD_IMAGE)]
+    if dash_spec is not None:
+        pull_images.append(run("docker", "pull", dash_spec["image"]))
+    if grpc_proxy_spec is not None:
+        pull_images.append(run("docker", "pull", grpc_proxy_spec["image"]))
+    await asyncio.gather(*pull_images)
+
+    push_images = [ETCD_IMAGE, "pachyderm/pachd:local", "pachyderm/worker:local"]
+    if dash_spec is not None:
+        push_images.append(dash_spec["image"])
+    if grpc_proxy_spec is not None:
+        push_images.append(grpc_proxy_spec["image"])
+
+    await asyncio.gather(*[driver.push_image(i) for i in push_images])
     await run("kubectl", "create", "-f", "-", stdin=deployments_str)
     await driver.update_config()
 
@@ -265,6 +267,8 @@ async def main():
         time.sleep(1)
 
     if args.ide:
+        await asyncio.gather(*[driver.push_image(i) for i in [IDE_USER_IMAGE, IDE_HUB_IMAGE]])
+
         enterprise_token = await capture(
             "aws", "s3", "cp",
             "s3://pachyderm-engineering/test_enterprise_activation_code.txt",
@@ -272,7 +276,10 @@ async def main():
         )
         await run("pachctl", "enterprise", "activate", RedactedString(enterprise_token))
         await run("pachctl", "auth", "activate", stdin="admin\n")
-        await run("pachctl", "deploy", "ide")
+        await run("pachctl", "deploy", "ide", 
+            "--user-image", IDE_USER_IMAGE,
+            "--hub-image", IDE_HUB_IMAGE,
+        )
 
 if __name__ == "__main__":
     asyncio.run(main(), debug=True)
