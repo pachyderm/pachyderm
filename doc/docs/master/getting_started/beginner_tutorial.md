@@ -142,17 +142,20 @@ image, you cannot just print it out in the terminal, but the following
 commands will let you view it easily:
 
 
-```macos-prior-catalina tab="macOS prior to Catalina"
-pachctl get file images@master:liberty.png | open -f -a /Applications/Preview.app
-```
+=== "macOS prior to Catalina"
+    ```
+    pachctl get file images@master:liberty.png | open -f -a /Applications/Preview.app
+    ```
 
-```macos-catalina tab="macOS Catalina"
- pachctl get file images@master:liberty.png | open -f -a /System/Applications/Preview.app
-```
+=== "macOS Catalina"
+    ```
+    pachctl get file images@master:liberty.png | open -f -a /System/Applications/Preview.app
+    ```
 
-```linux tab="Linux 64-bit"
-pachctl get file images@master:liberty.png | display
-```
+=== "Linux 64-bit"
+    ```
+    pachctl get file images@master:liberty.png | display
+    ```
 
 ### Create a Pipeline
 
