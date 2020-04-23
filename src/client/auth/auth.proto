@@ -367,14 +367,24 @@ message SetACLRequest {
 
 message SetACLResponse {}
 
-//// Token API (very limited -- for pipelines)
 
-message GetOIDCTokenRequest {}
+//// OIDC API
 
-message GetOIDCTokenResponse {
+message GetOIDCLoginRequest {}
+
+message GetOIDCLoginResponse {
   // A new auth token for the user in 'GetAuthTokenRequest.Subject' token
-  string token = 1;
+  string login_url = 1 [(gogoproto.customname) = "LoginURL"];
 }
+
+message GetOIDCErrorRequest {}
+
+message GetOIDCErrorResponse {
+  // A new auth token for the user in 'GetAuthTokenRequest.Subject' token
+  string error = 1;
+}
+
+//// Token API (very limited -- for pipelines)
 
 message GetAuthTokenRequest {
   // The returned token will allow the caller to access resources as this
@@ -492,8 +502,10 @@ service API {
   rpc GetACL(GetACLRequest) returns (GetACLResponse) {}
   rpc SetACL(SetACLRequest) returns (SetACLResponse) {}
 
+  rpc GetOIDCLogin(GetOIDCLoginRequest) returns (GetOIDCLoginResponse) {}
+  rpc GetOIDCError(GetOIDCErrorRequest) returns (GetOIDCErrorResponse) {}
+
   rpc GetAuthToken(GetAuthTokenRequest) returns (GetAuthTokenResponse) {}
-  rpc GetOIDCToken(GetOIDCTokenRequest) returns (GetOIDCTokenResponse) {}
   rpc ExtendAuthToken(ExtendAuthTokenRequest) returns (ExtendAuthTokenResponse) {}
   rpc RevokeAuthToken(RevokeAuthTokenRequest) returns (RevokeAuthTokenResponse) {}
 
