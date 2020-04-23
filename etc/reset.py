@@ -190,6 +190,7 @@ async def main():
     parser = argparse.ArgumentParser(description="Resets a pachyderm cluster.")
     parser.add_argument("--dash", action="store_true", help="Deploy dash")
     parser.add_argument("--ide", action="store_true", help="Deploy IDE")
+    parser.add_argument("--delete", action="store_true", help="Just delete, don't re-deploy")
     args = parser.parse_args()
 
     if "GOPATH" not in os.environ:
@@ -224,6 +225,9 @@ async def main():
         raise Exception(f"could not derive driver from context name: {kube_context}")
 
     await driver.clear()
+
+    if args.delete:
+        return
 
     await asyncio.gather(
         driver.start(),
