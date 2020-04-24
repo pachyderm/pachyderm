@@ -370,7 +370,9 @@ message SetACLResponse {}
 
 //// OIDC API
 
-message GetOIDCLoginRequest {}
+message GetOIDCLoginRequest {
+  string state = 1;
+}
 
 message GetOIDCLoginResponse {
   // A new auth token for the user in 'GetAuthTokenRequest.Subject' token
