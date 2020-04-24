@@ -45,9 +45,18 @@ func (c *microsoftClient) Writer(ctx context.Context, name string) (io.WriteClos
 func (c *microsoftClient) Reader(ctx context.Context, name string, offset uint64, size uint64) (io.ReadCloser, error) {
 	blobRange := blobRange(offset, size)
 	if blobRange == nil {
-		return c.container.GetBlobReference(name).Get(nil)
+		reader, err := c.container.GetBlobReference(name).Get(nil)
+		if err != nil {
+			return nil, err
+		}
+		return newCheckedReadCloser(size, reader), nil
 	}
-	return c.container.GetBlobReference(name).GetRange(&storage.GetBlobRangeOptions{Range: blobRange})
+
+	reader, err := c.container.GetBlobReference(name).GetRange(&storage.GetBlobRangeOptions{Range: blobRange})
+	if err != nil {
+		return nil, err
+	}
+	return newCheckedReadCloser(size, reader), nil
 }
 
 func blobRange(offset, size uint64) *storage.BlobRange {

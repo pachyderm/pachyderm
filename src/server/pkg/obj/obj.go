@@ -222,6 +222,37 @@ type Client interface {
 	IsIgnorable(err error) bool
 }
 
+type checkedReadCloser struct {
+	size  uint64
+	count uint64
+	rc    io.ReadCloser
+}
+
+func newCheckedReadCloser(size uint64, rc io.ReadCloser) io.ReadCloser {
+	return &checkedReadCloser{
+		size: size,
+		rc:   rc,
+	}
+}
+
+func (crc *checkedReadCloser) Read(p []byte) (int, error) {
+	count, err := crc.rc.Read(p)
+	crc.count += uint64(count)
+	if err != nil {
+		if errors.Is(err, io.EOF) && crc.count != crc.size {
+			return count, errors.Errorf("read stream ended after the wrong length, expected: %d, actual: %d", crc.size, crc.count)
+		}
+		return count, err
+	} else if crc.count > crc.size {
+		return count, errors.Errorf("read stream ended after the wrong length, expected: %d, actual: %d", crc.size, crc.count)
+	}
+	return count, nil
+}
+
+func (crc *checkedReadCloser) Close() error {
+	return crc.rc.Close()
+}
+
 // NewGoogleClient creates a google client with the given bucket name.
 func NewGoogleClient(bucket string, opts []option.ClientOption) (Client, error) {
 	return newGoogleClient(bucket, opts)

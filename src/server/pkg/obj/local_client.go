@@ -63,9 +63,9 @@ func (c *localClient) Reader(_ context.Context, path string, offset uint64, size
 		if _, err := file.Seek(int64(offset), 0); err != nil {
 			return nil, err
 		}
-		return file, nil
+		return newCheckedReadCloser(size, file), nil
 	}
-	return newSectionReadCloser(file, offset, size), nil
+	return newCheckedReadCloser(size, newSectionReadCloser(file, offset, size)), nil
 }
 
 func (c *localClient) Delete(_ context.Context, path string) error {
