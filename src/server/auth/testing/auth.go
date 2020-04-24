@@ -103,8 +103,13 @@ func (a *InactiveAPIServer) GetAuthToken(context.Context, *auth.GetAuthTokenRequ
 	return nil, auth.ErrNotActivated
 }
 
-// GetOIDCToken implements the GetOIDCToken RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) GetOIDCToken(context.Context, *auth.GetOIDCTokenRequest) (*auth.GetOIDCTokenResponse, error) {
+// GetOIDCLogin implements the GetOIDCLogin RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetOIDCLogin(context.Context, *auth.GetOIDCLoginRequest) (*auth.GetOIDCLoginResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
+// GetOIDCError implements the GetOIDCError RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetOIDCError(context.Context, *auth.GetOIDCErrorRequest) (*auth.GetOIDCErrorResponse, error) {
 	return nil, auth.ErrNotActivated
 }
 

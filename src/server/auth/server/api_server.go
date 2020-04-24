@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/coreos/go-oidc"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	enterpriseclient "github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -662,31 +661,6 @@ func GitHubTokenToUsername(ctx context.Context, oauthToken string) (string, erro
 	}
 	verifiedUsername := user.GetLogin()
 	return auth.GitHubPrefix + verifiedUsername, nil
-}
-
-// OIDCTokenToUsername takes a OAuth access token issued by OIDC and uses
-// it discover the username of the user who obtained the code (or verify that
-// the code belongs to OIDCUsername). This is how Pachyderm currently
-// implements authorization in a production cluster
-func OIDCTokenToUsername(ctx context.Context, oauthToken string) (string, error) {
-	idp, err := oidc.NewProvider(ctx, "http://172.17.0.2:8080/auth/realms/adele-testing")
-	if err != nil {
-		return "", err
-	}
-
-	// Use the token passed in as our token source
-	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{
-			AccessToken: oauthToken,
-		},
-	)
-
-	userInfo, err := idp.UserInfo(ctx, ts)
-	if err != nil {
-		return "", err
-	}
-
-	return userInfo.Email, nil
 }
 
 // GetAdmins implements the protobuf auth.GetAdmins RPC
@@ -1880,14 +1854,32 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 	}, nil
 }
 
-// TODO: need to secure this and make it internal only
 // GetOIDCToken implements the protobuf auth.GetOIDCToken RPC
-func (a *apiServer) GetOIDCToken(ctx context.Context, req *auth.GetOIDCTokenRequest) (resp *auth.GetOIDCTokenResponse, retErr error) {
+func (a *apiServer) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequest) (resp *auth.GetOIDCLoginResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	return &auth.GetOIDCTokenResponse{
-		Token: <-tokenChan,
+	authURL, err := getOIDCLoginURL(req.State)
+	if err != nil {
+		return nil, err
+	}
+	return &auth.GetOIDCLoginResponse{
+		LoginURL: authURL,
+	}, nil
+}
+
+// GetOIDCError implements the protobuf auth.GetOIDCToken RPC
+func (a *apiServer) GetOIDCError(ctx context.Context, req *auth.GetOIDCErrorRequest) (resp *auth.GetOIDCErrorResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	ti := <-tokenChan
+	errMsg := ""
+	if ti.err != nil {
+		errMsg = ti.err.Error()
+	}
+	return &auth.GetOIDCErrorResponse{
+		Error: errMsg,
 	}, nil
 }
 

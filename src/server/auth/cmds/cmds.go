@@ -2,24 +2,33 @@ package cmds
 
 import (
 	"bufio"
-	"context"
 	"fmt"
+	"math/rand"
 	"os"
 	"strings"
 	"text/template"
 	"time"
 
-	"github.com/coreos/go-oidc"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
-	"golang.org/x/oauth2"
 
 	"github.com/spf13/cobra"
 )
+
+var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+// TODO: make the randomness cryptographically secure?
+func randState(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
+}
 
 var githubAuthLink = `https://github.com/login/oauth/authorize?client_id=d3481e92b4f09ea74ff8&redirect_uri=https%3A%2F%2Fpachyderm.io%2Flogin-hook%2Fdisplay-token.html`
 
@@ -39,64 +48,28 @@ func githubLogin() (string, error) {
 }
 
 func requestOIDCLogin(c *client.APIClient) (string, error) {
-	// Okta documentation: https://developer.okta.com/docs/reference/api/oidc/
 
-	idp, err := oidc.NewProvider(context.Background(), "http://localhost:8080/auth/realms/adele-testing")
+	state := randState(30)
+	loginInfo, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{State: state})
 	if err != nil {
 		return "", err
 	}
-
-	// get the redirect URI from etcd? (i think when we activate we will require this to be entered)
-	redirectURL := "http://localhost:14687/authorization-code/callback"
-
-	clientID := "pachyderm"
-	// clientSecret := "YAxzH2RMFunedy1XpDz8oc8mzSFapFODaIu7QSkn"
-
-	nonce := "testing"
-	state := "abc1246"
-	// prepare request by filling out parameters
-
-	conf := oauth2.Config{
-		ClientID: clientID,
-		// ClientSecret: clientSecret,
-		RedirectURL: redirectURL,
-
-		// Discovery returns the OAuth2 endpoints.
-		Endpoint: idp.Endpoint(),
-
-		// "openid" is a required scope for OpenID Connect flows.
-		Scopes: []string{oidc.ScopeOpenID},
-	}
-
-	authURL := conf.AuthCodeURL(state,
-		oauth2.SetAuthURLParam("response_type", "code"),
-		oauth2.SetAuthURLParam("nonce", nonce))
 
 	// print the prepared URL and promp the user to click on it
 	fmt.Println("(1) Please paste this link into a browser:\n\n" +
-		authURL + "\n\n" +
+		loginInfo.LoginURL + "\n\n" +
 		"(You will be directed to your IdP and asked to authorize Pachyderm's " +
-		"login app on your IdP. If you accept, you will be given a token to " +
-		"paste here, which will give you an externally verified account in " +
-		"this Pachyderm cluster)\n\n(2) Please paste the token you receive " +
-		"from your IdP here:")
+		"login app on your IdP.)")
 	// receive token
-	token, err := c.GetOIDCToken(c.Ctx(), &auth.GetOIDCTokenRequest{})
+	authError, err := c.GetOIDCError(c.Ctx(), &auth.GetOIDCErrorRequest{})
 	if err != nil {
 		return "", err
 	}
-	// token1, err := bufio.NewReaderSize(os.Stdin, 10000).ReadString('\n')
-	// if err != nil {
-	// 	return "", fmt.Errorf("error reading token: %v", err)
-	// }
-	// fmt.Println("\nokay cool now\n")
-	// token2, err := bufio.NewReaderSize(os.Stdin, 10000).ReadString('\n')
-	// if err != nil {
-	// 	return "", fmt.Errorf("error reading token: %v", err)
-	// }
-	// token := strings.TrimSpace(token1) + strings.TrimSpace(token2)
-	fmt.Println(token.Token)
-	return token.Token, nil // drop trailing newline
+	if authError != nil {
+		fmt.Println("ahoy", authError.Error)
+	}
+
+	return state, nil // drop trailing newline
 }
 
 func writePachTokenToCfg(token string) error {
