@@ -85,14 +85,20 @@ func (n *node) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs
 		if err != nil {
 			return nil, toErrno(err)
 		}
-		var mode uint32 = syscall.S_IFDIR
-		if fi.FileType == pfs.FileType_FILE {
-			mode = syscall.S_IFREG
-		}
-		return n.NewInode(ctx, &node{
+		node := &node{
 			file: client.NewFile(n.file.Commit.Repo.Name, n.file.Commit.ID, fi.File.Path),
 			m:    n.m,
-		}, fs.StableAttr{Mode: mode}), 0
+		}
+		path, err := node.downloadFile()
+		if err != nil {
+			return nil, toErrno(err)
+		}
+		st := syscall.Stat_t{}
+		if err := syscall.Stat(path, &st); err != nil {
+			return nil, toErrno(err)
+		}
+		out.Attr.FromStat(&st)
+		return n.NewInode(ctx, node, fs.StableAttr{Mode: st.Mode, Gen: 1}), 0
 	}
 }
 
@@ -101,22 +107,6 @@ func allowsWrite(flags uint32) bool {
 }
 
 func (n *node) downloadFile() (_ string, retErr error) {
-	f, err := ioutil.TempFile("", "pfs-fuse")
-	if err != nil {
-		return "", err
-	}
-	defer func() {
-		if err := f.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	return f.Name(), n.m.c.GetFile(n.file.Commit.Repo.Name, n.file.Commit.ID, n.file.Path, 0, 0, f)
-}
-
-func (n *node) Open(ctx context.Context, openFlags uint32) (fs.FileHandle, uint32, syscall.Errno) {
-	if allowsWrite(openFlags) {
-		return nil, 0, syscall.EROFS
-	}
 	key := fileKey(n.file)
 	path := ""
 	func() {
@@ -127,24 +117,44 @@ func (n *node) Open(ctx context.Context, openFlags uint32) (fs.FileHandle, uint3
 		}
 	}()
 	if path == "" {
-		var err error
-		path, err = n.downloadFile()
+		f, err := ioutil.TempFile("", "pfs-fuse")
 		if err != nil {
-			return nil, 0, toErrno(err)
+			return "", err
 		}
+		defer func() {
+			if err := f.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		if err := n.m.c.GetFile(n.file.Commit.Repo.Name, n.file.Commit.ID, n.file.Path, 0, 0, f); err != nil {
+			return "", err
+		}
+		path = f.Name()
 		n.m.mu.Lock()
 		defer n.m.mu.Unlock()
 		// Check again if someone else added this file to the map while we were
 		// downloading.
-		if file, ok := n.m.files[key]; ok {
+		if _file, ok := n.m.files[key]; ok {
 			// Someone did, so we remove our copy of the file and use theirs.
 			os.Remove(path)
-			path = file.path
+			path = _file.path
+		} else {
+			n.m.files[fileKey(n.file)] = &file{
+				pfs:  n.file,
+				path: path,
+			}
 		}
-		n.m.files[fileKey(n.file)] = &file{
-			pfs:  n.file,
-			path: path,
-		}
+	}
+	return path, nil
+}
+
+func (n *node) Open(ctx context.Context, openFlags uint32) (fs.FileHandle, uint32, syscall.Errno) {
+	if allowsWrite(openFlags) {
+		return nil, 0, syscall.EROFS
+	}
+	path, err := n.downloadFile()
+	if err != nil {
+		return nil, 0, toErrno(err)
 	}
 	fd, err := syscall.Open(path, int(openFlags), 0)
 	if err != nil {

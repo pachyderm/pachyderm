@@ -196,6 +196,8 @@ func TestWrite(t *testing.T) {
 
 	b.Reset()
 	require.YesError(t, c.GetFile("repo", "master", "foo", 0, 0, &b))
+
+	// TODO test this nested in a directory
 }
 
 func withMount(tb testing.TB, c *client.APIClient, opts *Options, f func(mountPoint string)) {
