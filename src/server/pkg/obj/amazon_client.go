@@ -340,7 +340,7 @@ func (c *amazonClient) Reader(ctx context.Context, name string, offset uint64, s
 		}
 		reader = getObjectOutput.Body
 	}
-	return newCheckedReadCloser(size, newBackoffReadCloser(ctx, c, reader)), nil
+	return newBackoffReadCloser(ctx, c, reader), nil
 }
 
 func (c *amazonClient) Delete(_ context.Context, name string) error {

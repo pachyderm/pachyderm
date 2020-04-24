@@ -86,7 +86,7 @@ func (c *monkeyClient) Reader(ctx context.Context, path string, offset uint64, s
 	if err != nil {
 		return nil, err
 	}
-	return newCheckedReadCloser(size, &monkeyReadWriteCloser{rc: rc}), nil
+	return &monkeyReadWriteCloser{rc: rc}, nil
 }
 
 // Writer wraps the writer operation.

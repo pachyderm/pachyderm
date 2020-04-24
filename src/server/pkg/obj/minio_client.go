@@ -138,13 +138,13 @@ func (c *minioClient) Reader(ctx context.Context, name string, offset uint64, si
 		return nil, err
 	}
 	if size > 0 {
-		return newCheckedReadCloser(size, &limitReadCloser{
+		return &limitReadCloser{
 			Reader: io.LimitReader(obj, int64(size)),
 			ctx:    ctx,
 			mObj:   obj,
-		}), nil
+		}, nil
 	}
-	return newCheckedReadCloser(size, obj), nil
+	return obj, nil
 }
 
 func (c *minioClient) Delete(_ context.Context, name string) error {

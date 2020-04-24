@@ -11,15 +11,17 @@ import (
 )
 
 // NewLocalClient returns a Client that stores data on the local file system
-func NewLocalClient(root string) (Client, error) {
+func NewLocalClient(root string) (c Client, err error) {
+	defer func() { c = newWrapperClient(c) }()
+
 	if err := os.MkdirAll(root, 0755); err != nil {
 		return nil, err
 	}
-	c := &localClient{filepath.Clean(root)}
+	client := &localClient{filepath.Clean(root)}
 	if monkeyTest {
-		return &monkeyClient{c}, nil
+		return &monkeyClient{client}, nil
 	}
-	return c, nil
+	return client, nil
 }
 
 type localClient struct {
@@ -63,9 +65,9 @@ func (c *localClient) Reader(_ context.Context, path string, offset uint64, size
 		if _, err := file.Seek(int64(offset), 0); err != nil {
 			return nil, err
 		}
-		return newCheckedReadCloser(size, file), nil
+		return file, nil
 	}
-	return newCheckedReadCloser(size, newSectionReadCloser(file, offset, size)), nil
+	return newSectionReadCloser(file, offset, size), nil
 }
 
 func (c *localClient) Delete(_ context.Context, path string) error {
