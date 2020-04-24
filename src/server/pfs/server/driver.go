@@ -4501,7 +4501,7 @@ func (s *putFileServer) Peek() (*pfs.PutFileRequest, error) {
 }
 
 func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_PutFileServer, f func(*pfs.PutFileRequest, io.Reader) error) (oneOff bool, repo string, branch string, err error) {
-	limiter := limit.New(client.DefaultMaxConcurrentStreams)
+	limiter := limit.New(d.env.StorageUploadConcurrencyLimit)
 	var pr *io.PipeReader
 	var pw *io.PipeWriter
 	var req *pfs.PutFileRequest

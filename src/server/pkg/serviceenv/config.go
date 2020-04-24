@@ -67,13 +67,14 @@ type PachdSpecificConfiguration struct {
 
 // StorageConfiguration contains the storage configuration.
 type StorageConfiguration struct {
-	StorageMemoryThreshold        int64  `env:"STORAGE_MEMORY_THRESHOLD"`
-	StorageShardThreshold         int64  `env:"STORAGE_SHARD_THRESHOLD"`
-	StorageLevelZeroSize          int64  `env:"STORAGE_LEVEL_ZERO_SIZE"`
-	StorageLevelSizeBase          int    `env:"STORAGE_LEVEL_SIZE_BASE"`
-	StorageUploadConcurrencyLimit int    `env:"STORAGE_UPLOAD_CONCURRENCY_LIMIT,default=100"`
-	StorageGCPolling              string `env:"STORAGE_GC_POLLING"`
-	StorageGCTimeout              string `env:"STORAGE_GC_TIMEOUT"`
+	StorageMemoryThreshold          int64  `env:"STORAGE_MEMORY_THRESHOLD"`
+	StorageShardThreshold           int64  `env:"STORAGE_SHARD_THRESHOLD"`
+	StorageLevelZeroSize            int64  `env:"STORAGE_LEVEL_ZERO_SIZE"`
+	StorageLevelSizeBase            int    `env:"STORAGE_LEVEL_SIZE_BASE"`
+	StorageUploadConcurrencyLimit   int    `env:"STORAGE_UPLOAD_CONCURRENCY_LIMIT,default=100"`
+	StorageDownloadConcurrencyLimit int    `env:"STORAGE_DOWNLOAD_CONCURRENCY_LIMIT,default=100"`
+	StorageGCPolling                string `env:"STORAGE_GC_POLLING"`
+	StorageGCTimeout                string `env:"STORAGE_GC_TIMEOUT"`
 }
 
 // WorkerFullConfiguration contains the full worker configuration.
