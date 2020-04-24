@@ -376,28 +376,27 @@ func PushFile(c *pachclient.APIClient, pfc pachclient.PutFileClient, pfsFile *pf
 		return err
 	}
 
-	var i int
-	var object *pfs.Object
+	var matchingBlocks int64
 	if fileInfo != nil {
-		for i, object = range fileInfo.Objects {
+		for _, object := range fileInfo.Objects {
 			hash := pfs.NewHash()
 			if _, err := io.CopyN(hash, osFile, pfs.ChunkSize); err != nil {
-				if err == io.EOF {
-					break
+				if err != io.EOF {
+					return err
 				}
-				return err
 			}
 
 			if object.Hash != pfs.EncodeHash(hash.Sum(nil)) {
 				break
 			}
+			matchingBlocks += 1
 		}
 	}
 
-	if _, err := osFile.Seek(int64(i)*pfs.ChunkSize, 0); err != nil {
+	if _, err := osFile.Seek(matchingBlocks*pfs.ChunkSize, 0); err != nil {
 		return err
 	}
 
-	_, err = pfc.PutFileOverwrite(pfsFile.Commit.Repo.Name, pfsFile.Commit.ID, pfsFile.Path, osFile, int64(i))
+	_, err = pfc.PutFileOverwrite(pfsFile.Commit.Repo.Name, pfsFile.Commit.ID, pfsFile.Path, osFile, matchingBlocks)
 	return err
 }
