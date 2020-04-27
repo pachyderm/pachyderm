@@ -3,10 +3,14 @@ package testing
 import (
 	"archive/tar"
 	"bytes"
+	"fmt"
 	"io"
 	"math/rand"
 	"sort"
+	"strconv"
+	"sync"
 	"testing"
+	"time"
 
 	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/client"
@@ -19,105 +23,6 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-//func TestCompaction(t *testing.T) {
-//	config := &serviceenv.PachdFullConfiguration{}
-//	config.NewStorageLayer = true
-//	config.StorageMemoryThreshold = units.GB
-//	config.StorageShardThreshold = units.GB
-//	config.StorageLevelZeroSize = units.GB
-//	config.StorageGCPolling = "30s"
-//	testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
-//		c := env.PachClient
-//		repo := "test"
-//		require.NoError(t, c.CreateRepo(repo))
-//		var eg errgroup.Group
-//		for i := 0; i < 1; i++ {
-//			branch := "test" + strconv.Itoa(i)
-//			eg.Go(func() error {
-//				var commit *pfs.Commit
-//				var testFiles []string
-//				t.Run("PutTar", func(t *testing.T) {
-//					var err error
-//					for i := 0; i < 10; i++ {
-//						commit, err = c.StartCommit(repo, branch)
-//						require.NoError(t, err)
-//						buf := &bytes.Buffer{}
-//						tw := tar.NewWriter(buf)
-//						// Create files.
-//						for j := 0; j < 10; j++ {
-//							testFile := strconv.Itoa(i*10 + j)
-//							writeTestFile(t, tw, testFile)
-//							testFiles = append(testFiles, testFile)
-//						}
-//						require.NoError(t, tw.Close())
-//						require.NoError(t, c.PutTar(repo, commit.ID, buf))
-//						require.NoError(t, c.FinishCommit(repo, commit.ID))
-//					}
-//				})
-//				getTarContent := func(r io.Reader) string {
-//					tr := tar.NewReader(r)
-//					_, err := tr.Next()
-//					require.NoError(t, err)
-//					buf := &bytes.Buffer{}
-//					_, err = io.Copy(buf, tr)
-//					require.NoError(t, err)
-//					return buf.String()
-//				}
-//				t.Run("GetTar", func(t *testing.T) {
-//					r, err := c.GetTar(repo, commit.ID, "/0")
-//					require.NoError(t, err)
-//					require.Equal(t, "0", getTarContent(r))
-//					r, err = c.GetTar(repo, commit.ID, "/50")
-//					require.NoError(t, err)
-//					require.Equal(t, "50", getTarContent(r))
-//					r, err = c.GetTar(repo, commit.ID, "/99")
-//					require.NoError(t, err)
-//					require.Equal(t, "99", getTarContent(r))
-//				})
-//				t.Run("GetTarConditional", func(t *testing.T) {
-//					downloadProb := 0.25
-//					require.NoError(t, c.GetTarConditional(repo, commit.ID, "/*", func(fileInfo *pfs.FileInfoNewStorage, r io.Reader) error {
-//						if rand.Float64() < downloadProb {
-//							require.Equal(t, strings.TrimPrefix(fileInfo.File.Path, "/"), getTarContent(r))
-//						}
-//						return nil
-//					}))
-//				})
-//				t.Run("GetTarConditionalDirectory", func(t *testing.T) {
-//					fullBuf := &bytes.Buffer{}
-//					fullTw := tar.NewWriter(fullBuf)
-//					rootHdr := &tar.Header{
-//						Typeflag: tar.TypeDir,
-//						Name:     "/",
-//					}
-//					require.NoError(t, fullTw.WriteHeader(rootHdr))
-//					sort.Strings(testFiles)
-//					for _, testFile := range testFiles {
-//						writeTestFile(t, fullTw, testFile)
-//					}
-//					require.NoError(t, fullTw.Close())
-//					require.NoError(t, c.GetTarConditional(repo, commit.ID, "/", func(fileInfo *pfs.FileInfoNewStorage, r io.Reader) error {
-//						buf := &bytes.Buffer{}
-//						_, err := io.Copy(buf, r)
-//						require.NoError(t, err)
-//						require.Equal(t, 0, bytes.Compare(fullBuf.Bytes(), buf.Bytes()))
-//						return nil
-//					}))
-//				})
-//				return nil
-//			})
-//		}
-//		return eg.Wait()
-//	}, config)
-//}
-
-var (
-	shortLoadConfigs = []*loadConfig{
-		newLoadConfig(),
-	}
-	longLoadConfigs = []*loadConfig{}
-)
-
 type loadConfig struct {
 	pachdConfig *serviceenv.PachdFullConfiguration
 	branchGens  []branchGenerator
@@ -126,7 +31,6 @@ type loadConfig struct {
 func newLoadConfig(opts ...loadConfigOption) *loadConfig {
 	config := &loadConfig{}
 	config.pachdConfig = newPachdConfig()
-	config.branchGens = append(config.branchGens, newBranchGenerator(withCommitGenerator(newCommitGenerator())))
 	for _, opt := range opts {
 		opt(config)
 	}
@@ -135,9 +39,15 @@ func newLoadConfig(opts ...loadConfigOption) *loadConfig {
 
 type loadConfigOption func(*loadConfig)
 
-func withBranchGenerator(gen branchGenerator) loadConfigOption {
+func withPachdConfig(opts ...pachdConfigOption) loadConfigOption {
 	return func(config *loadConfig) {
-		config.branchGens = append(config.branchGens, gen)
+		config.pachdConfig = newPachdConfig(opts...)
+	}
+}
+
+func withBranchGenerator(opts ...branchGeneratorOption) loadConfigOption {
+	return func(config *loadConfig) {
+		config.branchGens = append(config.branchGens, newBranchGenerator(opts...))
 	}
 }
 
@@ -181,25 +91,19 @@ func withGCPolling(polling string) pachdConfigOption {
 	}
 }
 
-type branchGenerator func(*client.APIClient, string) error
-
-type branchConfig struct {
-	name       string
-	commitGens []commitGenerator
-	validator  *validator
-}
+type branchGenerator func(*client.APIClient, string, *loadState) error
 
 func newBranchGenerator(opts ...branchGeneratorOption) branchGenerator {
-	return func(c *client.APIClient, repo string) error {
-		config := &branchConfig{
-			name:      "master",
-			validator: newValidator(),
-		}
-		for _, opt := range opts {
-			opt(config)
-		}
+	config := &branchConfig{
+		name:      "master",
+		validator: newValidator(),
+	}
+	for _, opt := range opts {
+		opt(config)
+	}
+	return func(c *client.APIClient, repo string, state *loadState) error {
 		for _, gen := range config.commitGens {
-			if err := gen(c, repo, config.name, config.validator); err != nil {
+			if err := gen(c, repo, config.name, state, config.validator); err != nil {
 				return err
 			}
 		}
@@ -207,80 +111,144 @@ func newBranchGenerator(opts ...branchGeneratorOption) branchGenerator {
 	}
 }
 
+type branchConfig struct {
+	name       string
+	commitGens []commitGenerator
+	validator  *validator
+}
+
 type branchGeneratorOption func(config *branchConfig)
 
-func withCommitGenerator(gen commitGenerator) branchGeneratorOption {
+func withCommitGenerator(opts ...commitGeneratorOption) branchGeneratorOption {
 	return func(config *branchConfig) {
-		config.commitGens = append(config.commitGens, gen)
+		config.commitGens = append(config.commitGens, newCommitGenerator(opts...))
 	}
 }
 
-type commitGenerator func(*client.APIClient, string, string, *validator) error
-
-type commitConfig struct {
-	putTarGens []putTarGenerator
-}
+type commitGenerator func(*client.APIClient, string, string, *loadState, *validator) error
 
 func newCommitGenerator(opts ...commitGeneratorOption) commitGenerator {
-	return func(c *client.APIClient, repo, branch string, validator *validator) error {
-		config := &commitConfig{
-			putTarGens: []putTarGenerator{newPutTarGenerator(1, 3, 10*units.MB, 50*units.MB)},
-		}
-		for _, opt := range opts {
-			opt(config)
-		}
-		commit, err := c.StartCommit(repo, branch)
-		if err != nil {
-			return err
-		}
-		for _, gen := range config.putTarGens {
-			r, err := gen(validator)
+	config := &commitConfig{}
+	for _, opt := range opts {
+		opt(config)
+	}
+	return func(c *client.APIClient, repo, branch string, state *loadState, validator *validator) error {
+		for i := 0; i < config.count; i++ {
+			commit, err := c.StartCommit(repo, branch)
 			if err != nil {
 				return err
 			}
-			if err := c.PutTar(repo, commit.ID, r); err != nil {
+			for _, gen := range config.putTarGens {
+				r, err := gen(state, validator)
+				if err != nil {
+					return err
+				}
+				if err := c.PutTar(repo, commit.ID, r); err != nil {
+					return err
+				}
+			}
+			if err := c.FinishCommit(repo, commit.ID); err != nil {
+				return err
+			}
+			r, err := c.GetTar(repo, commit.ID, "/")
+			if err != nil {
+				return err
+			}
+			if err := validator.validate(r); err != nil {
 				return err
 			}
 		}
-		if err := c.FinishCommit(repo, commit.ID); err != nil {
-			return err
-		}
-		r, err := c.GetTar(repo, commit.ID, "/")
-		if err != nil {
-			return err
-		}
-		return validator.validate(r)
+		return nil
 	}
+}
+
+type commitConfig struct {
+	count      int
+	putTarGens []putTarGenerator
 }
 
 type commitGeneratorOption func(config *commitConfig)
 
-func withPutTarGenerator(gen putTarGenerator) commitGeneratorOption {
+func withCommitCount(count int) commitGeneratorOption {
 	return func(config *commitConfig) {
-		config.putTarGens = append(config.putTarGens, gen)
+		config.count = count
 	}
 }
 
-type putTarGenerator func(*validator) (io.Reader, error)
+func withPutTarGenerator(opts ...putTarGeneratorOption) commitGeneratorOption {
+	return func(config *commitConfig) {
+		config.putTarGens = append(config.putTarGens, newPutTarGenerator(opts...))
+	}
+}
 
-func newPutTarGenerator(minFiles, maxFiles, minSize, maxSize int) putTarGenerator {
-	return func(validator *validator) (io.Reader, error) {
-		numFiles := minFiles + rand.Intn(maxFiles-minFiles)
+type putTarGenerator func(*loadState, *validator) (io.Reader, error)
+
+func newPutTarGenerator(opts ...putTarGeneratorOption) putTarGenerator {
+	config := &putTarConfig{}
+	for _, opt := range opts {
+		opt(config)
+	}
+	return func(state *loadState, validator *validator) (io.Reader, error) {
 		putTarBuf := &bytes.Buffer{}
 		fileBuf := &bytes.Buffer{}
 		tw := tar.NewWriter(io.MultiWriter(putTarBuf, fileBuf))
-		for i := 0; i < numFiles; i++ {
-			name := uuid.NewWithoutDashes()
-			// Write serialized tar entry.
-			writeFile(tw, name, chunk.RandSeq(minSize+rand.Intn(maxSize-minSize)))
-			// Record serialized tar entry for validation.
-			validator.recordFile(name, fileBuf)
-			fileBuf.Reset()
+		for i := 0; i < config.count; i++ {
+			for _, gen := range config.fileGens {
+				name, err := gen(tw, state)
+				if err != nil {
+					return nil, err
+				}
+				// Record serialized tar entry for validation.
+				validator.recordFile(name, fileBuf)
+				fileBuf.Reset()
+			}
 		}
 		if err := tw.Close(); err != nil {
 			return nil, err
 		}
 		return putTarBuf, nil
+	}
+}
+
+type putTarConfig struct {
+	count    int
+	fileGens []fileGenerator
+}
+
+type putTarGeneratorOption func(config *putTarConfig)
+
+func withFileCount(count int) putTarGeneratorOption {
+	return func(config *putTarConfig) {
+		config.count = count
+	}
+}
+
+func withFileGenerator(gen fileGenerator) putTarGeneratorOption {
+	return func(config *putTarConfig) {
+		config.fileGens = append(config.fileGens, gen)
+	}
+}
+
+type fileGenerator func(*tar.Writer, *loadState) (string, error)
+
+func newRandomFileGenerator() fileGenerator {
+	return func(tw *tar.Writer, state *loadState) (string, error) {
+		name := uuid.NewWithoutDashes()
+		var min, max int
+		sizeProb := rand.Float64()
+		if sizeProb < 0.7 {
+			min, max = units.MB, 10*units.MB
+		} else {
+			min, max = 10*units.MB, 100*units.MB
+		}
+		size := min + rand.Intn(max-min)
+		state.Lock(func() {
+			if size > state.sizeLeft {
+				size = state.sizeLeft
+			}
+			state.sizeLeft -= size
+		})
+		return name, writeFile(tw, name, chunk.RandSeq(size))
 	}
 }
 
@@ -297,6 +265,65 @@ func writeFile(tw *tar.Writer, name string, data []byte) error {
 		return err
 	}
 	return tw.Flush()
+}
+
+// (bryce) this should be somewhere else (probably testutil).
+func seedRand() string {
+	seed := time.Now().UTC().UnixNano()
+	rand.Seed(seed)
+	return fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
+}
+
+func TestLoad(t *testing.T) {
+	msg := seedRand()
+	require.NoError(t, testLoad(fuzzLoad()), msg)
+}
+
+func fuzzLoad() *loadConfig {
+	return newLoadConfig(
+		withBranchGenerator(
+			withCommitGenerator(
+				withCommitCount(rand.Intn(5)),
+				withPutTarGenerator(
+					withFileCount(rand.Intn(5)),
+					withFileGenerator(newRandomFileGenerator()),
+				),
+			),
+		),
+	)
+}
+
+func testLoad(loadConfig *loadConfig) error {
+	return testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		c := env.PachClient
+		state := &loadState{
+			sizeLeft: units.GB,
+		}
+		repo := "test"
+		if err := c.CreateRepo(repo); err != nil {
+			return err
+		}
+		var eg errgroup.Group
+		for _, branchGen := range loadConfig.branchGens {
+			// (bryce) need a ctx here.
+			branchGen := branchGen
+			eg.Go(func() error {
+				return branchGen(c, repo, state)
+			})
+		}
+		return eg.Wait()
+	}, loadConfig.pachdConfig)
+}
+
+type loadState struct {
+	sizeLeft int
+	mu       sync.Mutex
+}
+
+func (ls *loadState) Lock(f func()) {
+	ls.mu.Lock()
+	defer ls.mu.Unlock()
+	f()
 }
 
 type validator struct {
@@ -344,35 +371,4 @@ func (v *validator) validate(r io.Reader) error {
 		}
 	}
 	return nil
-}
-
-func TestLoadShort(t *testing.T) {
-	for _, loadConfig := range shortLoadConfigs {
-		require.NoError(t, testLoad(loadConfig))
-	}
-}
-
-func TestLoadLong(t *testing.T) {
-	t.Skip("Skipping long load tests")
-	for _, loadConfig := range longLoadConfigs {
-		require.NoError(t, testLoad(loadConfig))
-	}
-}
-
-func testLoad(loadConfig *loadConfig) error {
-	return testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
-		c := env.PachClient
-		repo := "test"
-		if err := c.CreateRepo(repo); err != nil {
-			return err
-		}
-		var eg errgroup.Group
-		for _, branchGen := range loadConfig.branchGens {
-			// (bryce) need a ctx here.
-			eg.Go(func() error {
-				return branchGen(c, repo)
-			})
-		}
-		return eg.Wait()
-	}, loadConfig.pachdConfig)
 }
