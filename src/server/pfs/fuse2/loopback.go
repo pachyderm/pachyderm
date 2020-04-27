@@ -7,11 +7,18 @@ package fuse
 import (
 	"context"
 	"os"
+	pathpkg "path"
 	"path/filepath"
+	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
+
+	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 )
 
 type loopbackRoot struct {
@@ -19,6 +26,12 @@ type loopbackRoot struct {
 
 	rootPath string
 	rootDev  uint64
+
+	c        *client.APIClient
+	branches map[string]string
+	commits  map[string]string
+	// files    map[string]*file
+	mu sync.Mutex
 }
 
 type loopbackNode struct {
@@ -69,6 +82,10 @@ func (n *loopbackRoot) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.A
 
 func (n *loopbackNode) root() *loopbackRoot {
 	return n.Root().Operations().(*loopbackRoot)
+}
+
+func (n *loopbackNode) c() *client.APIClient {
+	return n.root().c
 }
 
 func (n *loopbackNode) path() string {
@@ -375,7 +392,7 @@ func (n *loopbackNode) Setattr(ctx context.Context, f fs.FileHandle, in *fuse.Se
 // NewLoopback returns a root node for a loopback file system whose
 // root is at the given root. This node implements all NodeXxxxer
 // operations available.
-func NewLoopbackRoot(root string) (fs.InodeEmbedder, error) {
+func NewLoopbackRoot(root string, c *client.APIClient, opts *Options) (fs.InodeEmbedder, error) {
 	var st syscall.Stat_t
 	err := syscall.Stat(root, &st)
 	if err != nil {
@@ -385,6 +402,88 @@ func NewLoopbackRoot(root string) (fs.InodeEmbedder, error) {
 	n := &loopbackRoot{
 		rootPath: root,
 		rootDev:  uint64(st.Dev),
+		c:        c,
+		branches: opts.getBranches(),
+		commits:  make(map[string]string),
 	}
 	return n, nil
+}
+
+// download files into the loopback filesystem, if meta is true then only the
+// directory structure will be created, no actual data will be downloaded,
+// files will be truncated to their actual sizes (but will be all zeros).
+func (n *loopbackNode) download(path string, meta bool) error {
+	parts := strings.Split(path, "/")
+	switch {
+	case len(parts) == 1 && parts[0] == "":
+		ris, err := n.c().ListRepo()
+		if err != nil {
+			return err
+		}
+		for _, ri := range ris {
+			if err := os.MkdirAll(filepath.Join(n.root().rootPath, ri.Repo.Name), 0777); err != nil {
+				return err
+			}
+		}
+	default:
+		commit, err := n.commit(parts[0])
+		if err != nil {
+			return err
+		}
+		if commit == "" {
+			return nil
+		}
+		if err := n.c().ListFileF(parts[0], commit, pathpkg.Join(parts[1:]...), 0,
+			func(fi *pfs.FileInfo) (retErr error) {
+				if fi.FileType == pfs.FileType_DIR {
+					return os.MkdirAll(n.filePath(fi), 0777)
+				}
+				f, err := os.Create(n.filePath(fi))
+				if err != nil {
+					return err
+				}
+				defer func() {
+					if err := f.Close(); err != nil && retErr == nil {
+						retErr = err
+					}
+				}()
+				if meta {
+					return f.Truncate(int64(fi.SizeBytes))
+				}
+				return n.c().GetFile(fi.File.Commit.Repo.Name, fi.File.Commit.ID, fi.File.Path, 0, 0, f)
+			}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (n *loopbackNode) branch(repo string) string {
+	if branch, ok := n.root().branches[repo]; ok {
+		return branch
+	}
+	return "master"
+}
+
+func (n *loopbackNode) commit(repo string) (string, error) {
+	if commit, ok := n.root().commits[repo]; ok {
+		return commit, nil
+	}
+	branch := n.root().branch(repo)
+	bi, err := n.root().c.InspectBranch(repo, branch)
+	if err != nil && !errutil.IsNotFoundError(err) {
+		return "", err
+	}
+	// You can access branches that don't exist, which allows you to create
+	// branches through the fuse mount.
+	if errutil.IsNotFoundError(err) || bi.Head == nil {
+		n.root().commits[repo] = ""
+		return "", nil
+	}
+	n.root().commits[repo] = bi.Head.ID
+	return bi.Head.ID, nil
+}
+
+func (n *loopbackNode) filePath(fi *pfs.FileInfo) string {
+	return filepath.Join(fi.File.Commit.Repo.Name, fi.File.Path)
 }
