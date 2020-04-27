@@ -139,8 +139,8 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 		// Pipelines were created after commits, so only the HEAD commits of the
 		// input repo should be processed by each pipeline
 		if len(jobInfos) != numPipelines {
-			return errors.Errorf("expected %d commits, but only encountered %d",
-				nCommits*numPipelines, len(jobInfos))
+			return errors.Errorf("expected %d jobs, but only encountered %d",
+				numPipelines, len(jobInfos))
 		}
 		for _, ji := range jobInfos {
 			if ji.State != pps.JobState_JOB_SUCCESS {
