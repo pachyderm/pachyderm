@@ -13,6 +13,7 @@ import (
 	"path"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -48,6 +49,35 @@ func collectCommitInfos(t testing.TB, commitInfoIter client.CommitInfoIterator) 
 	}
 }
 
+func addData(t testing.TB, c *client.APIClient, repo string, count int, size uint) (fileHashes []string) {
+	t.Helper()
+	// Check for existing files
+	var start int64
+	if files, err := c.ListFile(repo, "master", "/"); err == nil {
+		for _, fi := range files {
+			dashI := strings.Index(fi.File.Path, "-")
+			fileI, err := strconv.ParseInt(fi.File.Path[dashI+1:], 10, 64)
+			require.NoError(t, err)
+			if fileI > start {
+				start = fileI
+			}
+		}
+	}
+
+	// Create new files
+	r := rand.New(rand.NewSource(45 + start)) // write new data if addData called >1
+	fileHashes = make([]string, 0, count)
+	for i := 0; i < count; i++ {
+		hash := md5.New()
+		fileContent := workload.RandString(r, 40*MB)
+		_, err := c.PutFile(repo, "master", fmt.Sprintf("file-%d", i),
+			io.TeeReader(strings.NewReader(fileContent), hash))
+		require.NoError(t, err, "error creating commits in %q: %v", repo, err)
+		fileHashes = append(fileHashes, hex.EncodeToString(hash.Sum(nil)))
+	}
+	return fileHashes
+}
+
 // TODO(msteffen) equivalent to funciton in src/server/auth/server/admin_test.go.
 // These should be unified.
 func RepoInfoToName(repoInfo interface{}) interface{} {
@@ -69,16 +99,7 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 
 	// Create input data
 	nCommits := 2
-	r := rand.New(rand.NewSource(45))
-	fileHashes := make([]string, 0, nCommits)
-	for i := 0; i < nCommits; i++ {
-		hash := md5.New()
-		fileContent := workload.RandString(r, 40*MB)
-		_, err := c.PutFile(dataRepo, "master", fmt.Sprintf("file-%d", i),
-			io.TeeReader(strings.NewReader(fileContent), hash))
-		require.NoError(t, err)
-		fileHashes = append(fileHashes, hex.EncodeToString(hash.Sum(nil)))
-	}
+	fileHashes := addData(t, c, dataRepo, nCommits, 40*MB)
 
 	// Create test pipelines
 	numPipelines := 3
@@ -238,13 +259,7 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 	}
 
 	// make more commits
-	for i := nCommits; i < nCommits*2; i++ {
-		hash := md5.New()
-		fileContent := workload.RandString(r, 40*MB)
-		_, err := c.PutFile(dataRepo, "master", fmt.Sprintf("file-%d", i),
-			io.TeeReader(strings.NewReader(fileContent), hash))
-		require.NoError(t, err)
-	}
+	addData(t, c, dataRepo, nCommits, 40*MB)
 
 	// Wait for pipelines to process input data
 	commitInfos, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
