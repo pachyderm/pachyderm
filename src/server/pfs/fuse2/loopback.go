@@ -21,17 +21,27 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 )
 
+type fileState int32
+
+const (
+	none  fileState = iota // we don't know about this file
+	meta                   // we have meta information (but not content for this file)
+	full                   // we have full content for this file
+	dirty                  // we have full content for this file and the user has written to it
+)
+
 type loopbackRoot struct {
 	loopbackNode
 
 	rootPath string
 	rootDev  uint64
 
-	c        *client.APIClient
+	c *client.APIClient
+
 	branches map[string]string
 	commits  map[string]string
-	// files    map[string]*file
-	mu sync.Mutex
+	files    map[string]fileState
+	mu       sync.Mutex
 }
 
 type loopbackNode struct {
@@ -95,7 +105,7 @@ func (n *loopbackNode) path() string {
 
 func (n *loopbackNode) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
 	p := filepath.Join(n.path(), name)
-	if err := n.download(p, true); err != nil {
+	if err := n.download(p, meta); err != nil {
 		return nil, toErrno(err)
 	}
 
@@ -206,6 +216,9 @@ var _ = (fs.NodeCreater)((*loopbackNode)(nil))
 
 func (n *loopbackNode) Create(ctx context.Context, name string, flags uint32, mode uint32, out *fuse.EntryOut) (inode *fs.Inode, fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
 	p := filepath.Join(n.path(), name)
+	if err := n.download(p, full); err != nil {
+		return nil, nil, 0, toErrno(err)
+	}
 
 	fd, err := syscall.Open(p, int(flags)|os.O_CREATE, mode)
 	if err != nil {
@@ -282,7 +295,11 @@ func (n *loopbackNode) Readlink(ctx context.Context) ([]byte, syscall.Errno) {
 
 func (n *loopbackNode) Open(ctx context.Context, flags uint32) (fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
 	p := n.path()
-	if err := n.download(p, false); err != nil {
+	state := full
+	if allowsWrite(flags) {
+		state = dirty
+	}
+	if err := n.download(p, state); err != nil {
 		return nil, 0, toErrno(err)
 	}
 	f, err := syscall.Open(p, int(flags), 0)
@@ -294,7 +311,7 @@ func (n *loopbackNode) Open(ctx context.Context, flags uint32) (fh fs.FileHandle
 }
 
 func (n *loopbackNode) Opendir(ctx context.Context) syscall.Errno {
-	if err := n.download(n.path(), true); err != nil {
+	if err := n.download(n.path(), meta); err != nil {
 		return toErrno(err)
 	}
 	fd, err := syscall.Open(n.path(), syscall.O_DIRECTORY, 0755)
@@ -306,7 +323,7 @@ func (n *loopbackNode) Opendir(ctx context.Context) syscall.Errno {
 }
 
 func (n *loopbackNode) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno) {
-	if err := n.download(n.path(), true); err != nil {
+	if err := n.download(n.path(), meta); err != nil {
 		return nil, toErrno(err)
 	}
 	return fs.NewLoopbackDirStream(n.path())
@@ -317,6 +334,9 @@ func (n *loopbackNode) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.A
 		return f.(fs.FileGetattrer).Getattr(ctx, out)
 	}
 	p := n.path()
+	if err := n.download(p, meta); err != nil {
+		return toErrno(err)
+	}
 
 	var err error = nil
 	st := syscall.Stat_t{}
@@ -417,6 +437,7 @@ func NewLoopbackRoot(root string, c *client.APIClient, opts *Options) (fs.InodeE
 		c:        c,
 		branches: opts.getBranches(),
 		commits:  make(map[string]string),
+		files:    make(map[string]fileState),
 	}
 	return n, nil
 }
@@ -424,10 +445,23 @@ func NewLoopbackRoot(root string, c *client.APIClient, opts *Options) (fs.InodeE
 // download files into the loopback filesystem, if meta is true then only the
 // directory structure will be created, no actual data will be downloaded,
 // files will be truncated to their actual sizes (but will be all zeros).
-func (n *loopbackNode) download(path string, meta bool) (retErr error) {
+func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 	path = strings.TrimPrefix(path, n.root().rootPath)
 	path = strings.TrimPrefix(path, "/")
 	parts := strings.Split(path, "/")
+	n.root().mu.Lock()
+	cached := n.root().files[path] >= state
+	n.root().mu.Unlock()
+	if cached {
+		return nil
+	}
+	defer func() {
+		if retErr == nil {
+			n.root().mu.Lock()
+			defer n.root().mu.Unlock()
+			n.root().files[path] = state
+		}
+	}()
 	switch {
 	case len(parts) == 1 && parts[0] == "":
 		ris, err := n.c().ListRepo()
@@ -435,7 +469,8 @@ func (n *loopbackNode) download(path string, meta bool) (retErr error) {
 			return err
 		}
 		for _, ri := range ris {
-			if err := os.MkdirAll(n.repoPath(ri), 0777); err != nil {
+			p := n.repoPath(ri)
+			if err := os.MkdirAll(p, 0777); err != nil {
 				return err
 			}
 		}
@@ -452,7 +487,8 @@ func (n *loopbackNode) download(path string, meta bool) (retErr error) {
 				if fi.FileType == pfs.FileType_DIR {
 					return os.MkdirAll(n.filePath(fi), 0777)
 				}
-				f, err := os.Create(n.filePath(fi))
+				p := n.filePath(fi)
+				f, err := os.Create(p)
 				if err != nil {
 					return err
 				}
@@ -461,7 +497,7 @@ func (n *loopbackNode) download(path string, meta bool) (retErr error) {
 						retErr = err
 					}
 				}()
-				if meta {
+				if state < full {
 					return f.Truncate(int64(fi.SizeBytes))
 				}
 				return n.c().GetFile(fi.File.Commit.Repo.Name, fi.File.Commit.ID, fi.File.Path, 0, 0, f)
@@ -511,4 +547,8 @@ func toErrno(err error) syscall.Errno {
 		return syscall.ENOENT
 	}
 	return fs.ToErrno(err)
+}
+
+func allowsWrite(flags uint32) bool {
+	return (int(flags) & (os.O_WRONLY | os.O_RDWR)) != 0
 }

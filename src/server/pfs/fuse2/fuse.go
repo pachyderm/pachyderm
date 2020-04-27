@@ -4,7 +4,6 @@ import (
 	"io/ioutil"
 	"os"
 	"os/signal"
-	"sync"
 
 	"golang.org/x/sync/errgroup"
 
@@ -12,7 +11,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
@@ -136,38 +134,4 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 type file struct {
 	pfs  *pfs.File
 	path string
-}
-
-type mount struct {
-	c        *client.APIClient
-	branches map[string]string
-	commits  map[string]string
-	files    map[string]*file
-	mu       sync.Mutex
-}
-
-func (m *mount) branch(repo string) string {
-	if branch, ok := m.branches[repo]; ok {
-		return branch
-	}
-	return "master"
-}
-
-func (m *mount) commit(repo string) (string, error) {
-	if commit, ok := m.commits[repo]; ok {
-		return commit, nil
-	}
-	branch := m.branch(repo)
-	bi, err := m.c.InspectBranch(repo, branch)
-	if err != nil && !errutil.IsNotFoundError(err) {
-		return "", err
-	}
-	// You can access branches that don't exist, which allows you to create
-	// branches through the fuse mount.
-	if errutil.IsNotFoundError(err) || bi.Head == nil {
-		m.commits[repo] = ""
-		return "", nil
-	}
-	m.commits[repo] = bi.Head.ID
-	return bi.Head.ID, nil
 }
