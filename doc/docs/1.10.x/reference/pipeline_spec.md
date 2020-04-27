@@ -360,7 +360,8 @@ space that is set for the user container.
 - The storage container requests 0 CPU and the amount of memory set by the
 [cache_size](#cache-size-optional) parameter.
 
-The `resource_requests` enables you to overwrite these default values.
+The `resource_requests` parameter enables you to overwrite these default
+values.
 
 The `memory` field is a string that describes the amount of memory, in bytes,
 that each worker needs. Allowed SI suffixes include M, K, G, Mi, Ki, Gi, and
