@@ -6,7 +6,6 @@ package fuse
 
 import (
 	"context"
-	"fmt"
 	"os"
 	pathpkg "path"
 	"path/filepath"
@@ -97,7 +96,7 @@ func (n *loopbackNode) path() string {
 func (n *loopbackNode) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
 	p := filepath.Join(n.path(), name)
 	if err := n.download(p, true); err != nil {
-		return nil, fs.ToErrno(err)
+		return nil, toErrno(err)
 	}
 
 	st := syscall.Stat_t{}
@@ -282,10 +281,9 @@ func (n *loopbackNode) Readlink(ctx context.Context) ([]byte, syscall.Errno) {
 }
 
 func (n *loopbackNode) Open(ctx context.Context, flags uint32) (fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
-	fmt.Println("Open", n.path())
 	p := n.path()
 	if err := n.download(p, false); err != nil {
-		return nil, 0, fs.ToErrno(err)
+		return nil, 0, toErrno(err)
 	}
 	f, err := syscall.Open(p, int(flags), 0)
 	if err != nil {
@@ -296,9 +294,8 @@ func (n *loopbackNode) Open(ctx context.Context, flags uint32) (fh fs.FileHandle
 }
 
 func (n *loopbackNode) Opendir(ctx context.Context) syscall.Errno {
-	fmt.Println("Opendir", n.path())
 	if err := n.download(n.path(), true); err != nil {
-		return fs.ToErrno(err)
+		return toErrno(err)
 	}
 	fd, err := syscall.Open(n.path(), syscall.O_DIRECTORY, 0755)
 	if err != nil {
@@ -309,9 +306,8 @@ func (n *loopbackNode) Opendir(ctx context.Context) syscall.Errno {
 }
 
 func (n *loopbackNode) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno) {
-	fmt.Println("Readdir", n.path())
 	if err := n.download(n.path(), true); err != nil {
-		return nil, fs.ToErrno(err)
+		return nil, toErrno(err)
 	}
 	return fs.NewLoopbackDirStream(n.path())
 }
@@ -429,9 +425,6 @@ func NewLoopbackRoot(root string, c *client.APIClient, opts *Options) (fs.InodeE
 // directory structure will be created, no actual data will be downloaded,
 // files will be truncated to their actual sizes (but will be all zeros).
 func (n *loopbackNode) download(path string, meta bool) (retErr error) {
-	defer func() {
-		fmt.Println("download", path, retErr)
-	}()
 	path = strings.TrimPrefix(path, n.root().rootPath)
 	path = strings.TrimPrefix(path, "/")
 	parts := strings.Split(path, "/")
@@ -511,4 +504,11 @@ func (n *loopbackNode) repoPath(ri *pfs.RepoInfo) string {
 
 func (n *loopbackNode) filePath(fi *pfs.FileInfo) string {
 	return filepath.Join(n.root().rootPath, fi.File.Commit.Repo.Name, fi.File.Path)
+}
+
+func toErrno(err error) syscall.Errno {
+	if errutil.IsNotFoundError(err) {
+		return syscall.ENOENT
+	}
+	return fs.ToErrno(err)
 }
