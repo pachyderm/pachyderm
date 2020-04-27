@@ -78,13 +78,13 @@ func addData(t testing.TB, c *client.APIClient, repo string, count int, size uin
 	return fileHashes
 }
 
-// TODO(msteffen) equivalent to funciton in src/server/auth/server/admin_test.go.
+// TODO(msteffen) equivalent to function in src/server/auth/server/admin_test.go.
 // These should be unified.
 func RepoInfoToName(repoInfo interface{}) interface{} {
 	return repoInfo.(*pfs.RepoInfo).Repo.Name
 }
 
-// testExtractRestored effectively implements both TestExtractRestoreObjects
+// testExtractRestore effectively implements both TestExtractRestoreObjects
 // TestExtractRestoreNoObjects, as their logic is mostly the same
 func testExtractRestore(t *testing.T, testObjects bool) {
 	if testing.Short() {
@@ -129,7 +129,8 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 	require.Equal(t, numPipelines, len(commitInfos))
 
 	// confirm that all the jobs passed (there may be a short delay between the
-	// job's output commit closing and the job being marked successful, thus retry
+	// job's output commit closing and the job being marked successful, thus
+	// retry)
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
 		jobInfos, err := c.ListJob("", nil, nil, -1, false)
 		if err != nil {
