@@ -113,9 +113,7 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 			[]string{
 				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input),
 			},
-			&pps.ParallelismSpec{
-				Constant: 1,
-			},
+			&pps.ParallelismSpec{Constant: 1},
 			client.NewPFSInput(input, "/*"),
 			"",
 			false,
@@ -330,9 +328,7 @@ func TestExtractVersion(t *testing.T) {
 		[]string{
 			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 		},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
+		&pps.ParallelismSpec{Constant: 1},
 		client.NewPFSInput(dataRepo, "/*"),
 		"",
 		false,
@@ -440,9 +436,7 @@ func TestExtractRestorePipelineUpdate(t *testing.T) {
 		[]string{
 			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input1),
 		},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
+		&pps.ParallelismSpec{Constant: 1},
 		client.NewPFSInput(input1, "/*"),
 		"",
 		false,
@@ -462,9 +456,7 @@ func TestExtractRestorePipelineUpdate(t *testing.T) {
 		[]string{
 			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input2),
 		},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
+		&pps.ParallelismSpec{Constant: 1},
 		client.NewPFSInput(input2, "/*"),
 		"",
 		true,
@@ -530,9 +522,7 @@ func TestExtractRestoreDeferredProcessing(t *testing.T) {
 		[]string{
 			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", pipeline1),
 		},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
+		&pps.ParallelismSpec{Constant: 1},
 		client.NewPFSInput(pipeline1, "/*"),
 		"",
 		false,
