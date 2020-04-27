@@ -139,6 +139,9 @@ type FeatureFlags struct {
 const (
 	// UploadConcurrencyLimitEnvVar is the environment variable for the upload concurrency limit.
 	UploadConcurrencyLimitEnvVar = "STORAGE_UPLOAD_CONCURRENCY_LIMIT"
+
+	// DownloadConcurrencyLimitEnvVar is the environemnt variable for the download concurrency limit.
+	DownloadConcurrencyLimitEnvVar = "STORAGE_DOWNLOAD_CONCURRENCY_LIMIT"
 )
 
 const (
@@ -146,11 +149,15 @@ const (
 	// (bryce) this default is set here and in the service env config, need to figure out how to refactor
 	// this to be in one place.
 	DefaultUploadConcurrencyLimit = 100
+
+	// DefaultUploadConcurrencyLimit is the default maximum number of concurrent object downloads.
+	DefaultDownloadConcurrencyLimit = 100
 )
 
 // StorageOpts are options that are applicable to the storage layer.
 type StorageOpts struct {
-	UploadConcurrencyLimit int
+	UploadConcurrencyLimit   int
+	DownloadConcurrencyLimit int
 }
 
 const (
@@ -528,6 +535,7 @@ func GetSecretEnvVars(storageBackend string) []v1.EnvVar {
 func getStorageEnvVars(opts *AssetOpts) []v1.EnvVar {
 	return []v1.EnvVar{
 		{Name: UploadConcurrencyLimitEnvVar, Value: strconv.Itoa(opts.StorageOpts.UploadConcurrencyLimit)},
+		{Name: DownloadConcurrencyLimitEnvVar, Value: strconv.Itoa(opts.StorageOpts.DownloadConcurrencyLimit)},
 	}
 }
 
