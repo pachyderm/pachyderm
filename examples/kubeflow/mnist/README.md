@@ -70,9 +70,7 @@ input:
 
 For the most part, it’s a standard Pachyderm pipeline spec. We have our usual transform step that declares a docker image, and tells it to run pipeline.py. Below that, is where you’ll see a few of the new S3 gateway  features being used, primarily, the `s3_out: true` and `s3: true`. The `s3_out: true` allows your pipeline code to write results out to an S3 gateway bucket instead of the typical pfs/out directory. Similarly, `s3: true` is what tells Pachyderm to mount the given input as an S3 gateway bucket.
 
-Next, open up the pipeline.py file, and you’ll see that apart from a few Kubeflow-specific bits, lines 1-71 is a pretty standard MNIST training example using [Tensorflow](https://www.tensorflow.org/).
-
-<script src="https://gist.github.com/Nick-Harvey/b353659e84e26d33b57a1ea9376ed27a.js"></script>
+Next, open up the [pipeline.py file](https://gist.github.com/Nick-Harvey/b353659e84e26d33b57a1ea9376ed27a), and you’ll see that apart from a few Kubeflow-specific bits, lines 1-71 is a pretty standard MNIST training example using [Tensorflow](https://www.tensorflow.org/).
 
 Kubeflow users will notice that from lines 73 down, we’re just declaring a Kubeflow pipeline (KFP) using the standard [Kubeflow Pipelines SDK](https://www.kubeflow.org/docs/pipelines/sdk/sdk-overview/). Then, On line 88, we call `create_run_from_pipeline_func` to run the KFP with a couple additional arguments which declare the S3 endpoints being provided by the Pachyderm S3 gateway. In our case, this will be the `input-repo` that contains our MNIST training data, and then the KFP will output the trained back out through the Pachyderm S3 Gateway to our output repo.
 
@@ -83,7 +81,7 @@ That takes care of the code. Next, let's move on deploying everything so we can 
 
 You can keep an eye on progress by either running `pachctl list job` or by looking at the Experiments tab in the Kubeflow Dashboard.
 
-![Kubeflow Dashboard](/images/Releases/1.10/Kubeflow-Central-Dashboard.jpg)
+![Kubeflow Dashboard](https://github.com/pachyderm/website/blob/master/static/images/Releases/1.10/Kubeflow-Central-Dashboard.jpg)
 
 Once the job (or “run” in kubeflow terms) is complete, you should see a model file in your Pachyderm mnist repo (created automatically when we ran the `pachctl create pipeline`). You can check yourself with:
 
