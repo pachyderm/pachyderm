@@ -920,6 +920,10 @@
               {
                 "name": "STORAGE_UPLOAD_CONCURRENCY_LIMIT",
                 "value": "100"
+              },
+              {
+                "name": "STORAGE_PUT_FILE_CONCURRENCY_LIMIT",
+                "value": "100"
               }
             ],
             "resources": {
