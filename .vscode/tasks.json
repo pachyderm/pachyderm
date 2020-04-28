@@ -4,13 +4,19 @@
     {
       "label": "docker-build-proto",
       "type": "shell",
-      "command": "eval $(docker-machine env --shell bash); docker build -t pachyderm_proto etc/proto",
+      "command": "eval $(minikube docker-env --shell bash); docker build -t pachyderm_proto etc/proto",
+      "problemMatcher": []
+    },
+    {
+      "label": "docker-build-proto-no-cache",
+      "type": "shell",
+      "command": "eval $(minikube docker-env --shell bash); docker build --no-cache -t pachyderm_proto etc/proto",
       "problemMatcher": []
     },
     {
       "label": "build-proto",
       "type": "shell",
-      "command": "eval $(docker-machine env --shell bash); find src -regex \".*\\.proto\" | xargs tar cf - | docker run -i pachyderm_proto | tar xf -",
+      "command": "eval $(minikube docker-env --shell bash); find src -regex \".*\\.proto\" | xargs tar cf - | docker run -i pachyderm_proto | tar xf -",
       "problemMatcher": []
     },
     {
@@ -23,47 +29,81 @@
       "problemMatcher": []
     },
     {
-      "label": "docker-build",
+      "label": "proto-no-cache",
       "dependsOrder": "sequence",
       "dependsOn": [
-        "docker-build-pull",
-        "docker-build-all"
+        "docker-build-proto-no-cache",
+        "build-proto"
       ],
       "problemMatcher": []
     },
     {
-      "label": "docker-build-pull",
+      "label": "docker-build",
       "type": "shell",
-      "command": "eval $(docker-machine env --shell bash); docker pull pachyderm/compile:go1.12.1"
-    },
-    {
-      "label": "docker-build-all",
-      "dependsOn": [
-        "docker-build-worker",
-        "docker-build-pachd"
-      ]
-    },
-    {
-      "label": "docker-build-worker",
-      "type": "shell",
-      "command": "./etc/compile/vscode_compile_task.sh worker"
-    },
-    {
-      "label": "docker-build-pachd",
-      "type": "shell",
-      "command": "./etc/compile/vscode_compile_task.sh pachd",
+      "command": "./etc/compile/vscode_compile_task.sh",
       "problemMatcher": []
     },
     {
       "label": "launch-dev",
-      "type": "shell",
       "dependsOrder": "sequence",
       "dependsOn": [
         "install",
+        "undeploy-dev",
         "deploy-dev",
         "wait-dev"
       ],
       "problemMatcher": []
+    },
+    {
+      "label": "docker-push",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "install",
+        "docker-tag-images",
+        "docker-push-images"
+      ],
+      "problemMatcher": [],
+    },
+    {
+      "label": "docker-tag-images",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "docker-tag-pachd",
+        "docker-tag-worker"
+      ],
+    },
+    {
+      "label": "docker-push-images",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "docker-push-pachd",
+        "docker-push-worker"
+      ],
+    },
+    {
+      "label": "docker-tag-pachd",
+      "type": "shell",
+      "command": "docker tag pachyderm/pachd pachyderm/pachd:`pachctl version --client-only`"
+    },
+    {
+      "label": "docker-tag-worker",
+      "type": "shell",
+      "command": "docker tag pachyderm/worker pachyderm/worker:`pachctl version --client-only`"
+    },
+    {
+      "label": "docker-push-pachd",
+      "type": "shell",
+      "command": "docker push pachyderm/pachd:`pachctl version --client-only`"
+    },
+    {
+      "label": "docker-push-worker",
+      "type": "shell",
+      "command": "docker push pachyderm/worker:`pachctl version --client-only`"
+    },
+    {
+      "label": "release-pachctl-custom",
+      "type": "shell",
+	    "command": "VERSION=$(pachctl version --client-only) ./etc/build/release_pachctl.sh $(pachctl version --client-only)"
     },
     {
       "label": "install",
@@ -72,9 +112,19 @@
       "problemMatcher": []
     },
     {
+      "label": "delete-all-dev",
+      "type": "shell",
+      "command": "yes | pachctl delete all"
+    },
+    {
+      "label": "undeploy-dev",
+      "type": "shell",
+      "command": "yes | pachctl undeploy"
+    },
+    {
       "label": "deploy-dev",
       "type": "shell",
-      "command": "pachctl deploy local --no-guaranteed -d --dry-run | kubectl apply -f - && kubectl rollout restart deployment.apps"
+      "command": "pachctl deploy local --no-guaranteed -d --dry-run --cluster-deployment-id=dev | kubectl apply -f - && kubectl rollout restart deployment.apps"
     },
     {
       "label": "wait-dev",
