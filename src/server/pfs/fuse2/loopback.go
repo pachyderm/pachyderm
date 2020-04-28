@@ -217,8 +217,18 @@ var _ = (fs.NodeCreater)((*loopbackNode)(nil))
 func (n *loopbackNode) Create(ctx context.Context, name string, flags uint32, mode uint32, out *fuse.EntryOut) (inode *fs.Inode, fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
 	p := filepath.Join(n.path(), name)
 	if err := n.download(p, full); err != nil {
-		return nil, nil, 0, toErrno(err)
+		errno := toErrno(err)
+		if errno != syscall.ENOENT {
+			return nil, nil, 0, errno
+		}
 	}
+	defer func() {
+		if errno == 0 {
+			n.root().mu.Lock()
+			n.root().files[n.trimPath(p)] = dirty
+			n.root().mu.Unlock()
+		}
+	}()
 
 	fd, err := syscall.Open(p, int(flags)|os.O_CREATE, mode)
 	if err != nil {
@@ -446,8 +456,7 @@ func NewLoopbackRoot(root string, c *client.APIClient, opts *Options) (*loopback
 // directory structure will be created, no actual data will be downloaded,
 // files will be truncated to their actual sizes (but will be all zeros).
 func (n *loopbackNode) download(path string, state fileState) (retErr error) {
-	path = strings.TrimPrefix(path, n.root().rootPath)
-	path = strings.TrimPrefix(path, "/")
+	path = n.trimPath(path)
 	parts := strings.Split(path, "/")
 	n.root().mu.Lock()
 	cached := n.root().files[path] >= state
@@ -506,6 +515,11 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 		}
 	}
 	return nil
+}
+
+func (n *loopbackNode) trimPath(path string) string {
+	path = strings.TrimPrefix(path, n.root().rootPath)
+	return strings.TrimPrefix(path, "/")
 }
 
 func (n *loopbackNode) branch(repo string) string {
