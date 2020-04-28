@@ -424,7 +424,7 @@ func (n *loopbackNode) Setattr(ctx context.Context, f fs.FileHandle, in *fuse.Se
 // NewLoopback returns a root node for a loopback file system whose
 // root is at the given root. This node implements all NodeXxxxer
 // operations available.
-func NewLoopbackRoot(root string, c *client.APIClient, opts *Options) (fs.InodeEmbedder, error) {
+func NewLoopbackRoot(root string, c *client.APIClient, opts *Options) (*loopbackRoot, error) {
 	var st syscall.Stat_t
 	err := syscall.Stat(root, &st)
 	if err != nil {

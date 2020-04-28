@@ -4,13 +4,13 @@ import (
 	"io/ioutil"
 	"os"
 	"os/signal"
-
-	"golang.org/x/sync/errgroup"
+	pathpkg "path"
+	"path/filepath"
+	"strings"
 
 	"github.com/hanwen/go-fuse/v2/fs"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
@@ -25,7 +25,6 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 			commits[repo] = branch
 		}
 	}
-	files := make(map[string]*file)
 	// branches := opts.getBranches()
 	fuseTarget := target
 	if opts.Write {
@@ -35,12 +34,6 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 			return err
 		}
 	}
-	// mount := &mount{
-	// 	c:        c,
-	// 	branches: branches,
-	// 	commits:  commits,
-	// 	files:    files,
-	// }
 	rootDir, err := ioutil.TempDir("", "pfs")
 	if err != nil {
 		return err
@@ -60,78 +53,36 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 		case <-sigChan:
 		case <-opts.getUnmount():
 		}
-		// if opts.Write {
-		// 	if err := unmount(target); err != nil {
-		// 		fmt.Printf("error unmounting: %v\n", err)
-		// 	}
-		// }
 		server.Unmount()
 	}()
-	// var overlayErr error
-	// var upperdir string
-	// if opts.Write {
-	// 	upperdir, err = ioutil.TempDir("", "pfs-fuse-upper")
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	workdir, err := ioutil.TempDir("", "pfs-fuse-work")
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	go func() {
-	// 		if err := overlay(fuseTarget, upperdir, workdir, target); err != nil {
-	// 			overlayErr = errors.Wrap(err, "error creating overlay mount")
-	// 			server.Unmount()
-	// 		}
-	// 	}()
-	// }
 	server.Serve()
-	// if overlayErr != nil {
-	// 	return overlayErr
-	// }
-	var eg errgroup.Group
-	for _, file := range files {
-		eg.Go(func() error {
-			return os.Remove(file.path)
-		})
-	}
-	if err := eg.Wait(); err != nil {
+	pfc, err := c.NewPutFileClient()
+	if err != nil {
 		return err
 	}
+	defer func() {
+		if err := pfc.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	for path, state := range root.files {
+		if state != dirty {
+			continue
+		}
+		f, err := os.Open(filepath.Join(root.rootPath, path))
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := f.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		parts := strings.Split(path, "/")
+		if _, err := pfc.PutFileOverwrite(parts[0], root.branch(parts[0]),
+			pathpkg.Join(parts[1:]...), f, 0); err != nil {
+			return err
+		}
+	}
 	return nil
-	// pfc, err := c.NewPutFileClient()
-	// if err != nil {
-	// 	return err
-	// }
-	// defer func() {
-	// 	if err := pfc.Close(); err != nil && retErr == nil {
-	// 		retErr = err
-	// 	}
-	// }()
-	// return filepath.Walk(upperdir, func(path string, info os.FileInfo, err error) (retErr error) {
-	// 	if info.IsDir() {
-	// 		return nil
-	// 	}
-	// 	f, err := os.Open(path)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	defer func() {
-	// 		if err := f.Close(); err != nil && retErr == nil {
-	// 			retErr = err
-	// 		}
-	// 	}()
-	// 	split := strings.Split(strings.TrimPrefix(path, upperdir+"/"), "/")
-	// 	repo := split[0]
-	// 	file := filepath.Join(split[1:]...)
-	// 	if _, err := pfc.PutFileOverwrite(repo, mount.branch(repo), file, f, 0); err != nil {
-	// 		return err
-	// 	}
-	// 	return nil
-	// })
-}
-
-type file struct {
-	pfs  *pfs.File
-	path string
 }
