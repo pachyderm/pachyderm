@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
@@ -22,13 +23,13 @@ const (
 	prefix     = "pfs"
 	// DefaultMemoryThreshold is the default for the memory threshold that must
 	// be met before a file set part is serialized (excluding close).
-	DefaultMemoryThreshold = 1024 * chunk.MB
+	DefaultMemoryThreshold = 1024 * units.MB
 	// DefaultShardThreshold is the default for the size threshold that must
 	// be met before a shard is created by the shard function.
-	DefaultShardThreshold = 1024 * chunk.MB
+	DefaultShardThreshold = 1024 * units.MB
 	// DefaultLevelZeroSize is the default size for level zero in the compacted
 	// representation of a file set.
-	DefaultLevelZeroSize = 1 * chunk.MB
+	DefaultLevelZeroSize = 1 * units.MB
 	// DefaultLevelSizeBase is the default base of the exponential growth function
 	// for level sizes in the compacted representation of a file set.
 	DefaultLevelSizeBase = 10
@@ -219,6 +220,9 @@ func (s *Storage) CompactSpec(ctx context.Context, fileSet string, compactedFile
 func (s *Storage) Delete(ctx context.Context, fileSet string) error {
 	fileSet = applyPrefix(fileSet)
 	return s.objC.Walk(ctx, fileSet, func(name string) error {
+		if err := s.chunks.DeleteSemanticReference(ctx, name); err != nil {
+			return err
+		}
 		return s.objC.Delete(ctx, name)
 	})
 }

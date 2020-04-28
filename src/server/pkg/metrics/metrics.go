@@ -12,7 +12,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 
-	"github.com/segmentio/analytics-go"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,18 +20,24 @@ import (
 
 //Reporter is used to submit user & cluster metrics to segment
 type Reporter struct {
-	segmentClient *analytics.Client
-	clusterID     string
-	env           *serviceenv.ServiceEnv
+	router    *router
+	clusterID string
+	env       *serviceenv.ServiceEnv
 }
 
 // NewReporter creates a new reporter and kicks off the loop to report cluster
 // metrics
 func NewReporter(clusterID string, env *serviceenv.ServiceEnv) *Reporter {
+	var r *router
+	if env.MetricsEndpoint != "" {
+		newRouter(env.MetricsEndpoint)
+	} else {
+		newRouter()
+	}
 	reporter := &Reporter{
-		segmentClient: newPersistentClient(),
-		clusterID:     clusterID,
-		env:           env,
+		router:    r,
+		clusterID: clusterID,
+		env:       env,
 	}
 	go reporter.reportClusterMetrics()
 	return reporter
@@ -77,8 +82,7 @@ func (r *Reporter) reportUserAction(ctx context.Context, action string, value in
 			// metrics errors are non fatal
 			return
 		}
-		reportUserMetricsToSegment(
-			r.segmentClient,
+		r.router.reportUserMetricsToSegment(
 			userID,
 			prefix,
 			action,
@@ -143,7 +147,7 @@ func (r *Reporter) reportClusterMetrics() {
 		metrics.ClusterID = r.clusterID
 		metrics.PodID = uuid.NewWithoutDashes()
 		metrics.Version = version.PrettyPrintVersion(version.Version)
-		reportClusterMetricsToSegment(r.segmentClient, metrics)
+		r.router.reportClusterMetricsToSegment(metrics)
 	}
 }
 

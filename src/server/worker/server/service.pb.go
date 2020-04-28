@@ -208,7 +208,9 @@ func init() {
 	proto.RegisterType((*GetChunkRequest)(nil), "server.GetChunkRequest")
 }
 
-func init() { proto.RegisterFile("server/worker/server/service.proto", fileDescriptor_c4407c0c45dc0204) }
+func init() {
+	proto.RegisterFile("server/worker/server/service.proto", fileDescriptor_c4407c0c45dc0204)
+}
 
 var fileDescriptor_c4407c0c45dc0204 = []byte{
 	// 409 bytes of a gzipped FileDescriptorProto

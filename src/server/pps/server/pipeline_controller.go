@@ -589,18 +589,12 @@ func (op *pipelineOp) scaleDownPipeline() (retErr error) {
 // retrying and eventually failing op's pipeline if restartPipeline can't
 // restart it.
 func (op *pipelineOp) restartPipeline(reason string) error {
-	kubeClient := op.apiServer.env.GetKubeClient()
-	namespace := op.apiServer.namespace
 	var errCount int
 	if err := backoff.RetryNotify(func() error {
 		if op.rc != nil && !op.rcIsFresh() {
-			// Cancel any running monitorPipeline call
-			op.apiServer.cancelMonitor(op.name)
-			// delete stale RC
-			err := kubeClient.CoreV1().ReplicationControllers(namespace).Delete(
-				op.rc.Name, &metav1.DeleteOptions{OrphanDependents: &falseVal})
-			if err != nil && !isNotFoundErr(err) {
-				return errors.Wrapf(err, "could not delete RC %q", op.rc.Name)
+			// delete old RC, monitorPipeline goro, and worker service
+			if err := op.deletePipelineResources(); err != nil {
+				return err
 			}
 		}
 		// create up-to-date RC

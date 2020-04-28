@@ -15,7 +15,7 @@ const (
 )
 
 func write(tb testing.TB, objC obj.Client, chunks *chunk.Storage, fileNames []string) {
-	iw := NewWriter(context.Background(), objC, chunks, testPath)
+	iw := NewWriter(context.Background(), objC, chunks, testPath, "")
 	for _, fileName := range fileNames {
 		idx := &Index{
 			Path:   fileName,

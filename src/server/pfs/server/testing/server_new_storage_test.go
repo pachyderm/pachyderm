@@ -34,6 +34,7 @@ func TestCompaction(t *testing.T) {
 	config.StorageMemoryThreshold = 20
 	config.StorageShardThreshold = 20
 	config.StorageLevelZeroSize = 10
+	config.StorageGCPolling = "3s"
 	testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		c := env.PachClient
 		repo := "test"

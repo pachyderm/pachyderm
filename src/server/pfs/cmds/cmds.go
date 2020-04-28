@@ -734,6 +734,7 @@ from commits with 'get file'.`,
 	var headerRecords uint
 	var putFileCommit bool
 	var overwrite bool
+	var compress bool
 	putFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>[:<path/to/file>]",
 		Short: "Put a file into the filesystem.",
@@ -782,7 +783,11 @@ $ {{alias}} repo@branch -i http://host/path`,
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine("user", client.WithMaxConcurrentStreams(parallelism))
+			opts := []client.Option{client.WithMaxConcurrentStreams(parallelism)}
+			if compress {
+				opts = append(opts, client.WithGZIPCompression())
+			}
+			c, err := client.NewOnUserMachine("user", opts...)
 			if err != nil {
 				return err
 			}
@@ -877,6 +882,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 	putFile.Flags().StringSliceVarP(&filePaths, "file", "f", []string{"-"}, "The file to be put, it can be a local file or a URL.")
 	putFile.Flags().StringVarP(&inputFile, "input-file", "i", "", "Read filepaths or URLs from a file.  If - is used, paths are read from the standard input.")
 	putFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively put the files in a directory.")
+	putFile.Flags().BoolVarP(&compress, "compress", "", false, "Compress data during upload.")
 	putFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be uploaded in parallel.")
 	putFile.Flags().StringVar(&split, "split", "", "Split the input file into smaller files, subject to the constraints of --target-file-datums and --target-file-bytes. Permissible values are `line`, `json`, `sql` and `csv`.")
 	putFile.Flags().UintVar(&targetFileDatums, "target-file-datums", 0, "The upper bound of the number of datums that each file contains, the last file will contain fewer if the datums don't divide evenly; needs to be used with --split.")
