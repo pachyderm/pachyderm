@@ -2,6 +2,7 @@ package grpcutil
 
 import (
 	"context"
+	gotls "crypto/tls"
 	"fmt"
 	"math"
 	"net"
@@ -48,17 +49,20 @@ func NewServer(ctx context.Context, publicPortTLSAllowed bool) (*Server, error) 
 		grpc.StreamInterceptor(tracing.StreamServerInterceptor()),
 	}
 
+	var cLoader *certLoader
 	if publicPortTLSAllowed {
 		// Validate environment
 		certPath, keyPath, err := tls.GetCertPaths()
 		if err != nil {
 			log.Warnf("TLS disabled: %v", err)
 		} else {
+			cLoader = newCertLoader(certPath, keyPath, time.Hour)
 			// Read TLS cert and key
-			transportCreds, err := credentials.NewServerTLSFromFile(certPath, keyPath)
+			err := cLoader.loadAndStart()
 			if err != nil {
 				return nil, errors.Wrapf(err, "couldn't build transport creds: %v", err)
 			}
+			transportCreds := credentials.NewTLS(&gotls.Config{GetCertificate: cLoader.getCertificate})
 			opts = append(opts, grpc.Creds(transportCreds))
 		}
 	}
@@ -69,6 +73,9 @@ func NewServer(ctx context.Context, publicPortTLSAllowed bool) (*Server, error) 
 	eg.Go(func() error {
 		<-ctx.Done()
 		server.GracefulStop() // This also closes the listeners
+		if cLoader != nil {
+			cLoader.stop()
+		}
 		return nil
 	})
 
