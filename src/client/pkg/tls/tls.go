@@ -3,6 +3,7 @@ package tls
 import (
 	"os"
 	"path"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
@@ -19,6 +20,9 @@ const (
 	// KeyFile is the name of the mounted file containing a private key
 	// corresponding to the public certificate in TLSCertFile
 	KeyFile = "tls.key"
+
+	// CertCheckFrequency is how often we check for a renewed TLS certificate
+	CertCheckFrequency = time.Hour
 )
 
 // GetCertPaths gets the paths to the cert and key files within a cluster

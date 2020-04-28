@@ -1,4 +1,4 @@
-package grpcutil
+package tls
 
 import (
 	"crypto/tls"
@@ -12,8 +12,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// certLoader provides simple hot TLS certificate reloading by checking for a renewed certificate at a configurable interval
-type certLoader struct {
+// CertLoader provides simple hot TLS certificate reloading by checking for a renewed certificate at a configurable interval
+type CertLoader struct {
 	certPath        string
 	keyPath         string
 	refreshInterval time.Duration
@@ -23,8 +23,8 @@ type certLoader struct {
 	stopChan chan interface{}
 }
 
-func newCertLoader(certPath, keyPath string, refreshInterval time.Duration) *certLoader {
-	return &certLoader{
+func NewCertLoader(certPath, keyPath string, refreshInterval time.Duration) *CertLoader {
+	return &CertLoader{
 		certPath:        certPath,
 		keyPath:         keyPath,
 		refreshInterval: refreshInterval,
@@ -32,7 +32,7 @@ func newCertLoader(certPath, keyPath string, refreshInterval time.Duration) *cer
 }
 
 // loadAndStart ensures the current TLS certificate is loaded and starts the reload routine to poll for renewed certificates
-func (l *certLoader) loadAndStart() error {
+func (l *CertLoader) LoadAndStart() error {
 	if err := l.loadCertificate(); err != nil {
 		return err
 	}
@@ -41,12 +41,12 @@ func (l *certLoader) loadAndStart() error {
 }
 
 // stop signals the reloading routine to stop
-func (l *certLoader) stop() {
+func (l *CertLoader) Stop() {
 	close(l.stopChan)
 }
 
 // getCertificate gets the currently cached certificate and fulfills
-func (l *certLoader) getCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
+func (l *CertLoader) GetCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	certPtr := atomic.LoadPointer(&l.cert)
 	cert := (*tls.Certificate)(certPtr)
 	if cert == nil {
@@ -55,7 +55,7 @@ func (l *certLoader) getCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate, e
 	return cert, nil
 }
 
-func (l *certLoader) reloadRoutine() {
+func (l *CertLoader) reloadRoutine() {
 	t := time.NewTicker(l.refreshInterval)
 	select {
 	case <-t.C:
@@ -68,7 +68,7 @@ func (l *certLoader) reloadRoutine() {
 	}
 }
 
-func (l *certLoader) loadCertificate() error {
+func (l *CertLoader) loadCertificate() error {
 	log.Debugf("Reloading TLS keypair - %q %q", l.certPath, l.keyPath)
 	cert, err := tls.LoadX509KeyPair(l.certPath, l.keyPath)
 	if err != nil {

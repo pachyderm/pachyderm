@@ -694,6 +694,13 @@ func doFullMode(config interface{}) (retErr error) {
 			log.Warnf("s3gateway TLS disabled: %v", err)
 			return server.ListenAndServe()
 		}
+		// Read TLS cert and key
+		err := cLoader.LoadAndStart()
+		if err != nil {
+			return errors.Wrapf(err, "couldn't load TLS cert for s3gateway: %v", err)
+		}
+		cLoader := tls.NewCertLoader(certPath, keyPath, tls.CertCheckFrequency)
+		server.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
 		return server.ListenAndServeTLS(certPath, keyPath)
 	})
 	go waitForError("Prometheus Server", errChan, requireNoncriticalServers, func() error {
