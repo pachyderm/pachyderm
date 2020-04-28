@@ -241,10 +241,12 @@ func (crc *checkedReadCloser) Read(p []byte) (int, error) {
 	if err != nil {
 		if errors.Is(err, io.EOF) && crc.count != crc.size {
 			return count, errors.Errorf("read stream ended after the wrong length, expected: %d, actual: %d", crc.size, crc.count)
+		} else if crc.count > crc.size {
+			return count, errors.Wrapf(err, "read stream errored but also read more bytes than requested, expected: %d, actual: %d", crc.size, crc.count)
 		}
 		return count, err
 	} else if crc.count > crc.size {
-		return count, errors.Errorf("read stream ended after the wrong length, expected: %d, actual: %d", crc.size, crc.count)
+		return count, errors.Errorf("read stream read more bytes than requested, expected: %d, actual: %d", crc.size, crc.count)
 	}
 	return count, nil
 }
