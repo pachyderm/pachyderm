@@ -1212,9 +1212,9 @@ func (d *driver) makeCommit(
 				}
 			}
 
-			// if the passed in provenance for the commit itself includes a spec
-			// commit, (note the difference from the prev condition) then it was
-			// created by pps, and so we want to allow it to commit to output branches
+			// if 'provenance' includes a spec commit, (note the difference from the
+			// prev condition) then it was created by pps and is allowed to be in an
+			// output branch
 			hasSpec := false
 			for _, prov := range provenance {
 				if prov.Commit.Repo.Name == ppsconsts.SpecRepo {
