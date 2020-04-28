@@ -249,22 +249,22 @@ func (crc *checkedReadCloser) Read(p []byte) (int, error) {
 	return count, nil
 }
 
-type wrapperClient struct {
+type checkedClient struct {
 	Client
 }
 
-func newWrapperClient(c Client) Client {
+func newCheckedClient(c Client) Client {
 	if c == nil {
 		return nil
 	}
-	return &wrapperClient{Client: c}
+	return &checkedClient{Client: c}
 }
 
-func (wc *wrapperClient) Reader(ctx context.Context, name string, offset uint64, size uint64) (io.ReadCloser, error) {
+func (wc *checkedClient) Reader(ctx context.Context, name string, offset uint64, size uint64) (io.ReadCloser, error) {
 	// Modify the returned ReadCloser to use a checkedReadCloser which will error
 	// if the stream gives us too few or too many bytes
 	rc, err := wc.Client.Reader(ctx, name, offset, size)
-	if rc != nil {
+	if rc != nil && size != 0 {
 		rc = newCheckedReadCloser(size, rc)
 	}
 	return rc, err
@@ -272,7 +272,7 @@ func (wc *wrapperClient) Reader(ctx context.Context, name string, offset uint64,
 
 // NewGoogleClient creates a google client with the given bucket name.
 func NewGoogleClient(bucket string, opts []option.ClientOption) (c Client, err error) {
-	defer func() { c = newWrapperClient(c) }()
+	defer func() { c = newCheckedClient(c) }()
 	return newGoogleClient(bucket, opts)
 }
 
@@ -331,7 +331,7 @@ func NewGoogleClientFromEnv() (Client, error) {
 //	accountName - Azure Storage Account name
 // 	accountKey  - Azure Storage Account key
 func NewMicrosoftClient(container string, accountName string, accountKey string) (c Client, err error) {
-	defer func() { c = newWrapperClient(c) }()
+	defer func() { c = newCheckedClient(c) }()
 	return newMicrosoftClient(container, accountName, accountKey)
 }
 
@@ -382,7 +382,7 @@ func NewMicrosoftClientFromEnv() (Client, error) {
 //   secure - Set to true if connection is secure.
 //   isS3V2 - Set to true if client follows S3V2
 func NewMinioClient(endpoint, bucket, id, secret string, secure, isS3V2 bool) (c Client, err error) {
-	defer func() { c = newWrapperClient(c) }()
+	defer func() { c = newCheckedClient(c) }()
 	if isS3V2 {
 		return newMinioClientV2(endpoint, bucket, id, secret, secure)
 	}
@@ -399,7 +399,7 @@ func NewMinioClient(endpoint, bucket, id, secret string, secure, isS3V2 bool) (c
 //   endpoint - Custom endpoint (generally used for S3 compatible object stores)
 //   reverse - Reverse object storage paths (overwrites configured value)
 func NewAmazonClient(region, bucket string, creds *AmazonCreds, distribution string, endpoint string, reverse ...bool) (c Client, err error) {
-	defer func() { c = newWrapperClient(c) }()
+	defer func() { c = newCheckedClient(c) }()
 	advancedConfig := &AmazonAdvancedConfiguration{}
 	if err := cmdutil.Populate(advancedConfig); err != nil {
 		return nil, err

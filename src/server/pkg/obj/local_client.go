@@ -12,7 +12,7 @@ import (
 
 // NewLocalClient returns a Client that stores data on the local file system
 func NewLocalClient(root string) (c Client, err error) {
-	defer func() { c = newWrapperClient(c) }()
+	defer func() { c = newCheckedClient(c) }()
 
 	if err := os.MkdirAll(root, 0755); err != nil {
 		return nil, err
