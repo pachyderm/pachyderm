@@ -164,6 +164,11 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			if ci.ParentCommit == nil {
 				ci.ParentCommit = client.NewCommit(ci.Commit.Repo.Name, "")
 			}
+			// Restore must not create any open commits (which can interfere with
+			// restoring other commits), so started and finished are always set
+			if ci.Finished == nil {
+				ci.Finished = types.TimestampNow()
+			}
 			return writeOp(&admin.Op{Op1_9: &admin.Op1_9{Commit: &pfs.BuildCommitRequest{
 				Parent:     ci.ParentCommit,
 				Tree:       ci.Tree,
@@ -172,6 +177,8 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 				Datums:     ci.Datums,
 				SizeBytes:  ci.SizeBytes,
 				Provenance: ci.Provenance,
+				Started:    ci.Started,
+				Finished:   ci.Finished,
 			}}})
 		}); err != nil {
 			return err
