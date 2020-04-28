@@ -21,6 +21,7 @@ type CertLoader struct {
 	// cert is the current cached *tls.Certificate. It should only be accessed with atomic methods because it may be updated by the cert reloading routine.
 	cert     unsafe.Pointer
 	stopChan chan interface{}
+	stopped  bool
 }
 
 func NewCertLoader(certPath, keyPath string, refreshInterval time.Duration) *CertLoader {
@@ -31,7 +32,7 @@ func NewCertLoader(certPath, keyPath string, refreshInterval time.Duration) *Cer
 	}
 }
 
-// loadAndStart ensures the current TLS certificate is loaded and starts the reload routine to poll for renewed certificates
+// LoadAndStart ensures the current TLS certificate is loaded and starts the reload routine to poll for renewed certificates
 func (l *CertLoader) LoadAndStart() error {
 	if err := l.loadCertificate(); err != nil {
 		return err
@@ -40,12 +41,16 @@ func (l *CertLoader) LoadAndStart() error {
 	return nil
 }
 
-// stop signals the reloading routine to stop
+// Stop signals the reloading routine to stop
 func (l *CertLoader) Stop() {
+	if l.stopped {
+		return
+	}
+	l.stopped = true
 	close(l.stopChan)
 }
 
-// getCertificate gets the currently cached certificate and fulfills
+// GetCertificate gets the currently cached certificate and fulfills
 func (l *CertLoader) GetCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	certPtr := atomic.LoadPointer(&l.cert)
 	cert := (*tls.Certificate)(certPtr)
