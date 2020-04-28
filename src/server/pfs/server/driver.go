@@ -20,7 +20,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
@@ -157,7 +156,7 @@ func newDriver(
 	repo := client.NewRepo(ppsconsts.SpecRepo)
 	repoInfo := &pfs.RepoInfo{
 		Repo:    repo,
-		Created: now(),
+		Created: types.TimestampNow(),
 	}
 	if _, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
 		repos := d.repos.ReadWrite(stm)
@@ -221,14 +220,6 @@ func (d *driver) checkIsAuthorized(pachClient *client.APIClient, r *pfs.Repo, s 
 	return nil
 }
 
-func now() *types.Timestamp {
-	t, err := types.TimestampProto(time.Now())
-	if err != nil {
-		return &types.Timestamp{}
-	}
-	return t
-}
-
 func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, description string, update bool) error {
 	// Validate arguments
 	if repo == nil {
@@ -260,10 +251,7 @@ func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, d
 	} else if err == nil && !update {
 		return fmt.Errorf("cannot create \"%s\" as it already exists", repo.Name)
 	}
-	created := now()
-	if err == nil {
-		created = existingRepoInfo.Created
-	}
+	created := types.TimestampNow()
 
 	// Create ACL for new repo
 	if authIsActivated {
@@ -1166,7 +1154,7 @@ func (d *driver) makeCommit(
 	newCommitInfo := &pfs.CommitInfo{
 		Commit:      newCommit,
 		Origin:      &pfs.CommitOrigin{Kind: pfs.OriginKind_USER},
-		Started:     now(),
+		Started:     types.TimestampNow(),
 		Description: description,
 	}
 	if branch != "" {
@@ -1285,7 +1273,7 @@ func (d *driver) makeCommit(
 		newCommitInfo.Trees = treesRefs
 		newCommitInfo.Datums = datumsRef
 		newCommitInfo.SizeBytes = sizeBytes
-		newCommitInfo.Finished = now()
+		newCommitInfo.Finished = types.TimestampNow()
 
 		// If we're updating the master branch, also update the repo size (see
 		// "Update repoInfo" below)
@@ -1472,7 +1460,7 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 
 		commitInfo.SizeBytes = uint64(finishedTree.FSSize())
 	}
-	commitInfo.Finished = now()
+	commitInfo.Finished = types.TimestampNow()
 	if err := d.updateProvenanceProgress(txnCtx, !empty, commitInfo); err != nil {
 		return err
 	}
@@ -1493,7 +1481,7 @@ func (d *driver) finishOutputCommit(txnCtx *txnenv.TransactionContext, commit *p
 	commitInfo.Trees = trees
 	commitInfo.Datums = datums
 	commitInfo.SizeBytes = size
-	commitInfo.Finished = now()
+	commitInfo.Finished = types.TimestampNow()
 	if err := d.updateProvenanceProgress(txnCtx, true, commitInfo); err != nil {
 		return err
 	}
@@ -1719,7 +1707,7 @@ nextSubvBI:
 		newCommitInfo := &pfs.CommitInfo{
 			Commit:  newCommit,
 			Origin:  &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
-			Started: now(),
+			Started: types.TimestampNow(),
 		}
 
 		// Set 'newCommit's ParentCommit, 'branch.Head's ChildCommits and 'branch.Head'
