@@ -173,6 +173,83 @@ func ElementsEqualOrErr(expecteds interface{}, actuals interface{}) error {
 	return nil
 }
 
+// ImagesEqual is similar to 'ElementsEqualUnderFn', but it applies 'f' to both
+// 'expecteds' and 'actuals'. This is useful for doing before/after
+// comparisons. This can also compare 'T' and '*T' , but 'f' should expect
+// interfaces wrapping the underlying types of 'expecteds' (e.g. if 'expecteds'
+// has type []*T and 'actuals' has type []T, then 'f' should cast its argument
+// to '*T')
+//
+// Like ElementsEqual, treat 'nil' and the empty slice as equivalent (for
+// convenience)
+func ImagesEqual(tb testing.TB, expecteds interface{}, actuals interface{}, f func(interface{}) interface{}, msgAndArgs ...interface{}) {
+	tb.Helper()
+	as := reflect.ValueOf(actuals)
+	es := reflect.ValueOf(expecteds)
+
+	// Check if 'actuals' is empty; if so, just pass nil (no need to transform)
+	if actuals != nil && !as.IsNil() && as.Kind() != reflect.Slice {
+		fatal(tb, msgAndArgs, fmt.Sprintf("\"actuals\" must be a slice, but was %s", as.Type().String()))
+	} else if actuals == nil || as.IsNil() || as.Len() == 0 {
+		// Just pass 'nil' for 'actuals'
+		if err := ElementsEqualOrErr(expecteds, nil); err != nil {
+			fatal(tb, msgAndArgs, err.Error())
+		}
+		return
+	}
+
+	// Check if 'expecteds' is empty: if so, return an error (since 'actuals' is
+	// not empty)
+	if expecteds != nil && !es.IsNil() && es.Kind() != reflect.Slice {
+		fatal(tb, msgAndArgs, fmt.Sprintf("\"expecteds\" must be a slice, but was %s", as.Type().String()))
+	} else if expecteds == nil || es.IsNil() || es.Len() == 0 {
+		fatal(tb, msgAndArgs, fmt.Sprintf("expected 0 distinct elements, but got %d\n elements (before function is applied): %v", as.Len(), actuals))
+	}
+
+	// Make sure expecteds and actuals are slices of the same type, modulo
+	// pointers (*T ~= T in this function). This is better than some kind of
+	// opaque reflection error from calling 'f' on mismatched types.
+	esArePtrs := es.Type().Elem().Kind() == reflect.Ptr
+	asArePtrs := as.Type().Elem().Kind() == reflect.Ptr
+	esUnderlyingType, asUnderlyingType := es.Type().Elem(), as.Type().Elem()
+	if esArePtrs {
+		esUnderlyingType = es.Type().Elem().Elem()
+	}
+	if asArePtrs {
+		asUnderlyingType = as.Type().Elem().Elem()
+	}
+	if esUnderlyingType != asUnderlyingType {
+		fatal(tb, msgAndArgs, "expected []%s but got []%s", esUnderlyingType, asUnderlyingType)
+	}
+
+	if es.Len() != as.Len() {
+		// slight abuse of error: contains newlines so final output prints well
+		fatal(tb, msgAndArgs, "expected %d elements, but got %d\n  expected: %v\n  actual: %v",
+			es.Len(), as.Len(), expecteds, actuals)
+	}
+
+	// apply 'f' to both 'es' and 'as'. Make 'es[i]' have the same underlying
+	// type as 'as[i]' (may need to take address or dereference elements) so 'f'
+	// can apply to both.
+	newExpecteds, newActuals := make([]interface{}, 0, as.Len()), make([]interface{}, 0, as.Len())
+	for i := 0; i < es.Len(); i++ {
+		switch {
+		case asArePtrs && !esArePtrs:
+			newExpecteds = append(newExpecteds, f(es.Index(i).Addr().Interface()))
+		case !asArePtrs && esArePtrs:
+			newExpecteds = append(newExpecteds, f(es.Index(i).Elem().Interface()))
+		default:
+			newExpecteds = append(newExpecteds, f(es.Index(i).Interface()))
+		}
+	}
+	for i := 0; i < as.Len(); i++ {
+		newActuals = append(newActuals, f(as.Index(i).Interface()))
+	}
+	if err := ElementsEqualOrErr(newExpecteds, newActuals); err != nil {
+		fatal(tb, msgAndArgs, err.Error())
+	}
+}
+
 // ElementsEqualUnderFn checks that the elements of the slice 'expecteds' are
 // the same as the elements of the slice 'actuals' under 'f', ignoring order
 // (i.e.  'expecteds' and 'map(f, actuals)' are setwise-equal, but respecting
