@@ -140,7 +140,7 @@ const (
 	// UploadConcurrencyLimitEnvVar is the environment variable for the upload concurrency limit.
 	UploadConcurrencyLimitEnvVar = "STORAGE_UPLOAD_CONCURRENCY_LIMIT"
 
-	// PutFileConcurrencyLimitEnvVar is the environemnt variable for the PutFile concurrency limit.
+	// PutFileConcurrencyLimitEnvVar is the environment variable for the PutFile concurrency limit.
 	PutFileConcurrencyLimitEnvVar = "STORAGE_PUT_FILE_CONCURRENCY_LIMIT"
 )
 
