@@ -1,7 +1,6 @@
 package fuse
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"os/signal"
@@ -31,7 +30,6 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 	if err != nil {
 		return err
 	}
-	fmt.Println("Root: ", rootDir)
 	root, err := NewLoopbackRoot(rootDir, c, opts)
 	if err != nil {
 		return err
@@ -60,7 +58,6 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 		}
 	}()
 	for path, state := range root.files {
-		fmt.Println(path, state >= dirty)
 		if state < dirty {
 			continue
 		}
