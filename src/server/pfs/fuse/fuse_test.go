@@ -156,6 +156,7 @@ func TestWrite(t *testing.T) {
 	require.NoError(t, c.GetFile("repo", "master", "foo", 0, 0, &b))
 	require.Equal(t, "foo\n", b.String())
 
+	// Now append to the file
 	withMount(t, c, &Options{
 		Fuse: &fs.Options{
 			MountOptions: fuse.MountOptions{
@@ -195,6 +196,21 @@ func TestWrite(t *testing.T) {
 	})
 	b.Reset()
 	require.NoError(t, c.GetFile("repo", "master", "foo", 0, 0, &b))
+	require.Equal(t, "bar\n", b.String())
+
+	// Now link it to another location
+	withMount(t, c, &Options{
+		Fuse: &fs.Options{
+			MountOptions: fuse.MountOptions{
+				Debug: true,
+			},
+		},
+		Write: true,
+	}, func(mountPoint string) {
+		require.NoError(t, os.Link(filepath.Join(mountPoint, "repo", "foo"), filepath.Join(mountPoint, "repo", "bar")))
+	})
+	b.Reset()
+	require.NoError(t, c.GetFile("repo", "master", "bar", 0, 0, &b))
 	require.Equal(t, "bar\n", b.String())
 
 	// Now delete it

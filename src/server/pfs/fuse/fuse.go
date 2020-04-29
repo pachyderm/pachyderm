@@ -50,7 +50,6 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 		server.Unmount()
 	}()
 	server.Serve()
-	//TODO this errors if it's empty
 	pfc, err := c.NewPutFileClient()
 	if err != nil {
 		return err
