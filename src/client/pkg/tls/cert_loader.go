@@ -63,14 +63,16 @@ func (l *CertLoader) GetCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate, e
 
 func (l *CertLoader) reloadRoutine() {
 	t := time.NewTicker(l.refreshInterval)
-	select {
-	case <-t.C:
-		err := l.loadCertificate()
-		if err != nil {
-			log.Error("Unable to load TLS certificate", err)
+	for {
+		select {
+		case <-t.C:
+			err := l.loadCertificate()
+			if err != nil {
+				log.Error("Unable to load TLS certificate", err)
+			}
+		case <-l.stopChan:
+			return
 		}
-	case <-l.stopChan:
-		return
 	}
 }
 
