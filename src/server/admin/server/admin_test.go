@@ -48,6 +48,20 @@ func collectCommitInfos(t testing.TB, commitInfoIter client.CommitInfoIterator) 
 	}
 }
 
+// repoInfoSummary is a helper that converts a CommitINfo to a unique string
+// representation, for checking the repos in a cluster before/after
+// extract+restore.
+func repoInfoSummary(i interface{}) interface{} {
+	ri := i.(*pfs.RepoInfo)
+	branchNames := make([]string, 0, len(ri.Branches))
+	for _, b := range ri.Branches {
+		branchNames = append(branchNames, b.Name)
+	}
+	sort.Strings(branchNames)
+	return fmt.Sprintf("%s (%s) [Sz:%d] %v",
+		ri.Repo.Name, ri.Description, ri.SizeBytes, branchNames)
+}
+
 func addData(t testing.TB, c *client.APIClient, repo string, count int, size uint) (fileHashes []string) {
 	t.Helper()
 	// Check for existing files
@@ -150,9 +164,8 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 		return nil
 	})
 
-	ris, err := c.ListRepo()
+	risBefore, err := c.ListRepo()
 	require.NoError(t, err)
-	sort.Slice(ris, func(i, j int) bool { return ris[i].Repo.Name < ris[j].Repo.Name })
 	// Extract existing cluster state
 	ops, err := c.ExtractAll(testObjects)
 	require.NoError(t, err)
@@ -171,12 +184,7 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 
 	risAfter, err := c.ListRepo()
 	require.NoError(t, err)
-	sort.Slice(risAfter, func(i, j int) bool { return risAfter[i].Repo.Name < risAfter[j].Repo.Name })
-	require.Equal(t, len(ris), len(risAfter))
-	for i, ri := range ris {
-		require.Equal(t, ri.Repo.Name, risAfter[i].Repo.Name)
-		require.Equal(t, ri.SizeBytes, risAfter[i].SizeBytes)
-	}
+	require.ImagesEqual(t, risBefore, risAfter, repoInfoSummary)
 
 	// Make sure all commits got re-created
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
@@ -348,9 +356,8 @@ func TestExtractRestoreFailedJobs(t *testing.T) {
 	})
 
 	// Collect repos to compare after restore
-	ris, err := c.ListRepo()
+	risBefore, err := c.ListRepo()
 	require.NoError(t, err)
-	sort.Slice(ris, func(i, j int) bool { return ris[i].Repo.Name < ris[j].Repo.Name })
 
 	// Extract existing cluster state
 	ops, err := c.ExtractAll(true)
@@ -368,12 +375,7 @@ func TestExtractRestoreFailedJobs(t *testing.T) {
 
 	risAfter, err := c.ListRepo()
 	require.NoError(t, err)
-	sort.Slice(risAfter, func(i, j int) bool { return risAfter[i].Repo.Name < risAfter[j].Repo.Name })
-	require.Equal(t, len(ris), len(risAfter))
-	for i, ri := range ris {
-		require.Equal(t, ri.Repo.Name, risAfter[i].Repo.Name)
-		require.Equal(t, ri.SizeBytes, risAfter[i].SizeBytes)
-	}
+	require.ImagesEqual(t, risBefore, risAfter, repoInfoSummary)
 
 	// Make sure all commits got re-created
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
