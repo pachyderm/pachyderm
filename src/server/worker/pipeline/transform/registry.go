@@ -726,7 +726,8 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commi
 		afterTime = time.Until(startTime.Add(timeout))
 	}
 
-	asyncEg, ctx = errgroup.WithContext(ctx)
+	asyncEg, jobCtx = errgroup.WithContext(pj.driver.PachClient().Ctx())
+	pj.driver = reg.driver.WithContext(jobCtx)
 
 	asyncEg.Go(func() error {
 		defer pj.cancel()
@@ -748,6 +749,7 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commi
 	})
 
 	asyncEg.Go(func() error {
+		defer pj.cancel()
 		mutex := &sync.Mutex{}
 		mutex.Lock()
 		defer mutex.Unlock()
@@ -809,11 +811,11 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commi
 
 		// This should block until the callback has completed
 		mutex.Lock()
+		return nil
 	})
 
 	go func() {
 		defer reg.limiter.Release()
-		defer pj.cancel()
 
 		// Make sure the job has been removed from the job chain, ignore any errors
 		defer reg.jobChain.Fail(pj)

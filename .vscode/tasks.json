@@ -48,7 +48,6 @@
       "dependsOrder": "sequence",
       "dependsOn": [
         "install",
-        "delete-all-dev",
         "undeploy-dev",
         "deploy-dev",
         "wait-dev"
