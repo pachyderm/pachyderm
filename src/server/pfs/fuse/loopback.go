@@ -180,9 +180,7 @@ func (n *loopbackNode) Unlink(ctx context.Context, name string) (errno syscall.E
 	}
 	defer func() {
 		if errno == 0 {
-			n.root().mu.Lock()
-			n.root().files[n.trimPath(p)] = dirty
-			n.root().mu.Unlock()
+			n.setFileState(p, dirty)
 		}
 	}()
 	err := syscall.Unlink(p)
@@ -237,9 +235,7 @@ func (n *loopbackNode) Create(ctx context.Context, name string, flags uint32, mo
 	}
 	defer func() {
 		if errno == 0 {
-			n.root().mu.Lock()
-			n.root().files[n.trimPath(p)] = dirty
-			n.root().mu.Unlock()
+			n.setFileState(p, dirty)
 		}
 	}()
 
@@ -296,9 +292,7 @@ func (n *loopbackNode) Link(ctx context.Context, target fs.InodeEmbedder, name s
 	}
 	defer func() {
 		if errno == 0 {
-			n.root().mu.Lock()
-			n.root().files[n.trimPath(p)] = dirty
-			n.root().mu.Unlock()
+			n.setFileState(p, dirty)
 		}
 	}()
 	st := syscall.Stat_t{}
@@ -341,9 +335,7 @@ func (n *loopbackNode) Open(ctx context.Context, flags uint32) (fh fs.FileHandle
 	if isCreate(flags) {
 		defer func() {
 			if errno == 0 {
-				n.root().mu.Lock()
-				n.root().files[n.trimPath(p)] = dirty
-				n.root().mu.Unlock()
+				n.setFileState(p, dirty)
 			}
 		}()
 	}
@@ -491,19 +483,15 @@ func NewLoopbackRoot(root string, c *client.APIClient, opts *Options) (*loopback
 // directory structure will be created, no actual data will be downloaded,
 // files will be truncated to their actual sizes (but will be all zeros).
 func (n *loopbackNode) download(path string, state fileState) (retErr error) {
-	path = n.trimPath(path)
-	parts := strings.Split(path, "/")
-	n.root().mu.Lock()
-	cached := n.root().files[path] >= state
-	n.root().mu.Unlock()
-	if cached {
+	if n.getFileState(path) >= state {
+		// Already got this file, so we can just return
 		return nil
 	}
+	path = n.trimPath(path)
+	parts := strings.Split(path, "/")
 	defer func() {
 		if retErr == nil {
-			n.root().mu.Lock()
-			defer n.root().mu.Unlock()
-			n.root().files[path] = state
+			n.setFileState(path, state)
 		}
 	}()
 	switch {
@@ -603,6 +591,18 @@ func (n *loopbackNode) repoPath(ri *pfs.RepoInfo) string {
 
 func (n *loopbackNode) filePath(fi *pfs.FileInfo) string {
 	return filepath.Join(n.root().rootPath, fi.File.Commit.Repo.Name, fi.File.Path)
+}
+
+func (n *loopbackNode) getFileState(path string) fileState {
+	n.root().mu.Lock()
+	defer n.root().mu.Unlock()
+	return n.root().files[n.trimPath(path)]
+}
+
+func (n *loopbackNode) setFileState(path string, state fileState) {
+	n.root().mu.Lock()
+	defer n.root().mu.Unlock()
+	n.root().files[n.trimPath(path)] = state
 }
 
 func toErrno(err error) syscall.Errno {
