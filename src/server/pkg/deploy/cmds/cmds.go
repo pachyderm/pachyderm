@@ -284,6 +284,7 @@ func standardDeployCmds() []*cobra.Command {
 	var registry string
 	var tlsCertKey string
 	var uploadConcurrencyLimit int
+	var putFileConcurrencyLimit int
 	var clusterDeploymentID string
 	var requireCriticalServersOnly bool
 	appendGlobalFlags := func(cmd *cobra.Command) {
@@ -308,6 +309,7 @@ func standardDeployCmds() []*cobra.Command {
 		cmd.Flags().StringVar(&tlsCertKey, "tls", "", "string of the form \"<cert path>,<key path>\" of the signed TLS certificate and private key that Pachd should use for TLS authentication (enables TLS-encrypted communication with Pachd)")
 		cmd.Flags().BoolVar(&newStorageLayer, "new-storage-layer", false, "(feature flag) Do not set, used for testing.")
 		cmd.Flags().IntVar(&uploadConcurrencyLimit, "upload-concurrency-limit", assets.DefaultUploadConcurrencyLimit, "The maximum number of concurrent object storage uploads per Pachd instance.")
+		cmd.Flags().IntVar(&putFileConcurrencyLimit, "put-file-concurrency-limit", assets.DefaultPutFileConcurrencyLimit, "The maximum number of files to upload or fetch from remote sources (HTTP, blob storage) using PutFile concurrently.")
 		cmd.Flags().StringVar(&clusterDeploymentID, "cluster-deployment-id", "", "Set an ID for the cluster deployment. Defaults to a random value.")
 		cmd.Flags().BoolVar(&requireCriticalServersOnly, "require-critical-servers-only", assets.DefaultRequireCriticalServersOnly, "Only require the critical Pachd servers to startup and run without errors.")
 
@@ -388,7 +390,8 @@ func standardDeployCmds() []*cobra.Command {
 				NewStorageLayer: newStorageLayer,
 			},
 			StorageOpts: assets.StorageOpts{
-				UploadConcurrencyLimit: uploadConcurrencyLimit,
+				UploadConcurrencyLimit:  uploadConcurrencyLimit,
+				PutFileConcurrencyLimit: putFileConcurrencyLimit,
 			},
 			PachdShards:                uint64(pachdShards),
 			Version:                    version.PrettyPrintVersion(version.Version),

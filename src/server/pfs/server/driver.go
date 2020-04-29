@@ -112,6 +112,8 @@ type driver struct {
 	memoryLimiter *semaphore.Weighted
 	// put object limiter (useful for limiting put object requests)
 	putObjectLimiter limit.ConcurrencyLimiter
+	// limits the total parallelism for uploading files over GRPC or loading from external sources
+	putFileLimiter limit.ConcurrencyLimiter
 
 	// New storage layer.
 	storage         *fileset.Storage
@@ -154,6 +156,7 @@ func newDriver(
 		// Allow up to a third of the requested memory to be used for memory intensive operations
 		memoryLimiter:    semaphore.NewWeighted(memoryRequest / 3),
 		putObjectLimiter: limit.New(env.StorageUploadConcurrencyLimit),
+		putFileLimiter:   limit.New(env.StoragePutFileConcurrencyLimit),
 	}
 
 	// Create spec repo (default repo)
@@ -4501,7 +4504,6 @@ func (s *putFileServer) Peek() (*pfs.PutFileRequest, error) {
 }
 
 func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_PutFileServer, f func(*pfs.PutFileRequest, io.Reader) error) (oneOff bool, repo string, branch string, err error) {
-	limiter := limit.New(client.DefaultMaxConcurrentStreams)
 	var pr *io.PipeReader
 	var pw *io.PipeWriter
 	var req *pfs.PutFileRequest
@@ -4573,7 +4575,7 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 				case "http":
 					fallthrough
 				case "https":
-					limiter.Acquire()
+					d.putFileLimiter.Acquire()
 					resp, err := http.Get(req.Url)
 					if err != nil {
 						return false, "", "", err
@@ -4581,7 +4583,7 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 						return false, "", "", errors.Errorf("error retrieving content from %q: %s", req.Url, resp.Status)
 					}
 					eg.Go(func() (retErr error) {
-						defer limiter.Release()
+						defer d.putFileLimiter.Release()
 						defer func() {
 							if err := resp.Body.Close(); err != nil && retErr == nil {
 								retErr = err
@@ -4609,13 +4611,13 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 							}
 							req := *req // copy req so we can make changes
 							req.File = client.NewFile(req.File.Commit.Repo.Name, req.File.Commit.ID, filepath.Join(req.File.Path, strings.TrimPrefix(name, path)))
-							limiter.Acquire()
+							d.putFileLimiter.Acquire()
 							r, err := objClient.Reader(server.Context(), name, 0, 0)
 							if err != nil {
 								return err
 							}
 							eg.Go(func() (retErr error) {
-								defer limiter.Release()
+								defer d.putFileLimiter.Release()
 								defer func() {
 									if err := r.Close(); err != nil && retErr == nil {
 										retErr = err
@@ -4628,13 +4630,13 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 							return false, "", "", err
 						}
 					} else {
-						limiter.Acquire()
+						d.putFileLimiter.Acquire()
 						r, err := objClient.Reader(server.Context(), url.Object, 0, 0)
 						if err != nil {
 							return false, "", "", err
 						}
 						eg.Go(func() (retErr error) {
-							defer limiter.Release()
+							defer d.putFileLimiter.Release()
 							defer func() {
 								if err := r.Close(); err != nil && retErr == nil {
 									retErr = err
@@ -4652,9 +4654,9 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 			}
 			pr, pw = io.Pipe()
 			pr := pr
-			limiter.Acquire()
+			d.putFileLimiter.Acquire()
 			eg.Go(func() error {
-				defer limiter.Release()
+				defer d.putFileLimiter.Release()
 				if err := f(req, pr); err != nil {
 					// needed so the parent goroutine doesn't block
 					pr.CloseWithError(err)
