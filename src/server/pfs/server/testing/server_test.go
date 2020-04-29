@@ -6018,7 +6018,7 @@ func TestPutFileAtomic(t *testing.T) {
 		test := "test"
 		require.NoError(t, c.CreateRepo(test))
 
-		pfc, err := env.PachClient.NewPutFileClient()
+		pfc, err := c.NewPutFileClient()
 		require.NoError(t, err)
 		_, err = pfc.PutFile(test, "master", "file1", strings.NewReader("1"))
 		require.NoError(t, err)
@@ -6026,7 +6026,7 @@ func TestPutFileAtomic(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, pfc.Close())
 
-		cis, err := env.PachClient.ListCommit(test, "master", "", 0)
+		cis, err := c.ListCommit(test, "master", "", 0)
 		require.Equal(t, 1, len(cis))
 		var b bytes.Buffer
 		require.NoError(t, c.GetFile(test, "master", "file1", 0, 0, &b))
@@ -6035,20 +6035,27 @@ func TestPutFileAtomic(t *testing.T) {
 		require.NoError(t, c.GetFile(test, "master", "file2", 0, 0, &b))
 		require.Equal(t, "2", b.String())
 
-		pfc, err = env.PachClient.NewPutFileClient()
+		pfc, err = c.NewPutFileClient()
 		require.NoError(t, err)
 		_, err = pfc.PutFile(test, "master", "file3", strings.NewReader("3"))
 		require.NoError(t, err)
 		require.NoError(t, pfc.DeleteFile(test, "master", "file1"))
 		require.NoError(t, pfc.Close())
 
-		cis, err = env.PachClient.ListCommit(test, "master", "", 0)
+		cis, err = c.ListCommit(test, "master", "", 0)
 		require.Equal(t, 2, len(cis))
 		b.Reset()
 		require.NoError(t, c.GetFile(test, "master", "file3", 0, 0, &b))
 		require.Equal(t, "3", b.String())
 		b.Reset()
 		require.YesError(t, c.GetFile(test, "master", "file1", 0, 0, &b))
+
+		// Empty PutFileClients shouldn't error or create commits
+		pfc, err = c.NewPutFileClient()
+		require.NoError(t, err)
+		require.NoError(t, pfc.Close())
+		cis, err = c.ListCommit(test, "master", "", 0)
+		require.Equal(t, 2, len(cis))
 
 		return nil
 	})
