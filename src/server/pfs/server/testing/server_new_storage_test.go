@@ -20,7 +20,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testpachd"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
+	"modernc.org/mathutil"
 )
 
 type loadConfig struct {
@@ -139,32 +141,126 @@ func newCommitGenerator(opts ...commitGeneratorOption) commitGenerator {
 				return err
 			}
 			for _, gen := range config.putTarGens {
-				r, err := gen(state, validator)
+				fs := make(map[string][]byte)
+				r, err := gen(state, fs)
 				if err != nil {
 					return err
+				}
+				if config.putThroughputConfig != nil && rand.Float64() < config.putThroughputConfig.prob {
+					r = newThroughputLimitReader(r, config.putThroughputConfig.limit)
+				}
+				if config.putCancelConfig != nil && rand.Float64() < config.putCancelConfig.prob {
+					// (bryce) not sure if we want to do anything with errors here?
+					cancelOperation(config.putCancelConfig, c, func(c *client.APIClient) error {
+						return c.PutTar(repo, commit.ID, r)
+					})
+					continue
 				}
 				if err := c.PutTar(repo, commit.ID, r); err != nil {
 					return err
 				}
+				validator.recordFileSet(fs)
 			}
 			if err := c.FinishCommit(repo, commit.ID); err != nil {
 				return err
 			}
-			r, err := c.GetTar(repo, commit.ID, "/")
-			if err != nil {
-				return err
+			getTar := func(c *client.APIClient) error {
+				r, err := c.GetTar(repo, commit.ID, "/")
+				if err != nil {
+					return err
+				}
+				if config.getThroughputConfig != nil && rand.Float64() < config.getThroughputConfig.prob {
+					r = newThroughputLimitReader(r, config.getThroughputConfig.limit)
+				}
+				return validator.validate(r)
 			}
-			if err := validator.validate(r); err != nil {
-				return err
+			if config.getCancelConfig != nil && rand.Float64() < config.getCancelConfig.prob {
+				cancelOperation(config.getCancelConfig, c, getTar)
+				continue
 			}
+			return getTar(c)
 		}
 		return nil
 	}
 }
 
 type commitConfig struct {
-	count      int
-	putTarGens []putTarGenerator
+	count                                    int
+	putTarGens                               []putTarGenerator
+	putThroughputConfig, getThroughputConfig *throughputConfig
+	putCancelConfig, getCancelConfig         *cancelConfig
+}
+
+type throughputConfig struct {
+	limit int
+	prob  float64
+}
+
+func newThroughputConfig(limit int, prob ...float64) *throughputConfig {
+	config := &throughputConfig{
+		limit: limit,
+		prob:  1.0,
+	}
+	if len(prob) > 0 {
+		config.prob = prob[0]
+	}
+	return config
+}
+
+type throughputLimitReader struct {
+	r                               io.Reader
+	bytesSinceSleep, bytesPerSecond int
+}
+
+func newThroughputLimitReader(r io.Reader, bytesPerSecond int) *throughputLimitReader {
+	return &throughputLimitReader{
+		r:              r,
+		bytesPerSecond: bytesPerSecond,
+	}
+}
+
+func (tlr *throughputLimitReader) Read(data []byte) (int, error) {
+	var bytesRead int
+	for len(data) > 0 {
+		size := mathutil.Min(len(data), tlr.bytesPerSecond-tlr.bytesSinceSleep)
+		n, err := tlr.r.Read(data[:size])
+		data = data[n:]
+		bytesRead += n
+		if err != nil {
+			return bytesRead, err
+		}
+		if tlr.bytesSinceSleep == tlr.bytesPerSecond {
+			time.Sleep(time.Second)
+			tlr.bytesSinceSleep = 0
+		}
+	}
+	return bytesRead, nil
+}
+
+type cancelConfig struct {
+	maxTime time.Duration
+	prob    float64
+}
+
+func newCancelConfig(maxTime time.Duration, prob ...float64) *cancelConfig {
+	config := &cancelConfig{
+		maxTime: maxTime,
+		prob:    1.0,
+	}
+	if len(prob) > 0 {
+		config.prob = prob[0]
+	}
+	return config
+}
+
+func cancelOperation(cc *cancelConfig, c *client.APIClient, f func(c *client.APIClient) error) error {
+	cancelCtx, cancel := context.WithCancel(c.Ctx())
+	c = c.WithCtx(cancelCtx)
+	go func() {
+		<-time.After(time.Duration(int64(float64(int64(cc.maxTime)) * rand.Float64())))
+		cancel()
+	}()
+	return f(c)
 }
 
 type commitGeneratorOption func(config *commitConfig)
@@ -181,14 +277,38 @@ func withPutTarGenerator(opts ...putTarGeneratorOption) commitGeneratorOption {
 	}
 }
 
-type putTarGenerator func(*loadState, *validator) (io.Reader, error)
+func withPutThroughputLimit(limit int, prob ...float64) commitGeneratorOption {
+	return func(config *commitConfig) {
+		config.putThroughputConfig = newThroughputConfig(limit, prob...)
+	}
+}
+
+func withGetThroughputLimit(limit int, prob ...float64) commitGeneratorOption {
+	return func(config *commitConfig) {
+		config.getThroughputConfig = newThroughputConfig(limit, prob...)
+	}
+}
+
+func withPutCancel(maxTime time.Duration, prob ...float64) commitGeneratorOption {
+	return func(config *commitConfig) {
+		config.putCancelConfig = newCancelConfig(maxTime, prob...)
+	}
+}
+
+func withGetCancel(maxTime time.Duration, prob ...float64) commitGeneratorOption {
+	return func(config *commitConfig) {
+		config.getCancelConfig = newCancelConfig(maxTime, prob...)
+	}
+}
+
+type putTarGenerator func(*loadState, fileSet) (io.Reader, error)
 
 func newPutTarGenerator(opts ...putTarGeneratorOption) putTarGenerator {
 	config := &putTarConfig{}
 	for _, opt := range opts {
 		opt(config)
 	}
-	return func(state *loadState, validator *validator) (io.Reader, error) {
+	return func(state *loadState, files fileSet) (io.Reader, error) {
 		putTarBuf := &bytes.Buffer{}
 		fileBuf := &bytes.Buffer{}
 		tw := tar.NewWriter(io.MultiWriter(putTarBuf, fileBuf))
@@ -199,7 +319,7 @@ func newPutTarGenerator(opts ...putTarGeneratorOption) putTarGenerator {
 					return nil, err
 				}
 				// Record serialized tar entry for validation.
-				validator.recordFile(name, fileBuf)
+				files.recordFile(name, fileBuf)
 				fileBuf.Reset()
 			}
 		}
@@ -231,15 +351,25 @@ func withFileGenerator(gen fileGenerator) putTarGeneratorOption {
 
 type fileGenerator func(*tar.Writer, *loadState) (string, error)
 
-func newRandomFileGenerator() fileGenerator {
+func newRandomFileGenerator(opts ...randomFileGeneratorOption) fileGenerator {
+	config := &randomFileConfig{
+		fileSizeBuckets: defaultFileSizeBuckets,
+	}
+	for _, opt := range opts {
+		opt(config)
+	}
+	// (bryce) might want some validation for the file size buckets (total prob adds up to 1.0)
 	return func(tw *tar.Writer, state *loadState) (string, error) {
 		name := uuid.NewWithoutDashes()
-		var min, max int
+		var totalProb float64
 		sizeProb := rand.Float64()
-		if sizeProb < 0.7 {
-			min, max = units.MB, 10*units.MB
-		} else {
-			min, max = 10*units.MB, 100*units.MB
+		var min, max int
+		for _, bucket := range config.fileSizeBuckets {
+			totalProb += bucket.prob
+			if sizeProb <= totalProb {
+				min, max = bucket.min, bucket.max
+				break
+			}
 		}
 		size := min + rand.Intn(max-min)
 		state.Lock(func() {
@@ -249,6 +379,43 @@ func newRandomFileGenerator() fileGenerator {
 			state.sizeLeft -= size
 		})
 		return name, writeFile(tw, name, chunk.RandSeq(size))
+	}
+}
+
+type randomFileConfig struct {
+	fileSizeBuckets []*fileSizeBucket
+}
+
+type fileSizeBucket struct {
+	min, max int
+	prob     float64
+}
+
+var (
+	defaultFileSizeBuckets = []*fileSizeBucket{
+		&fileSizeBucket{
+			min:  10 * units.KB,
+			max:  100 * units.KB,
+			prob: 0.5,
+		},
+		&fileSizeBucket{
+			min:  1 * units.MB,
+			max:  10 * units.MB,
+			prob: 0.4,
+		},
+		&fileSizeBucket{
+			min:  10 * units.MB,
+			max:  100 * units.MB,
+			prob: 0.1,
+		},
+	}
+)
+
+type randomFileGeneratorOption func(*randomFileConfig)
+
+func withFileSizeBuckets(buckets []*fileSizeBucket) randomFileGeneratorOption {
+	return func(config *randomFileConfig) {
+		config.fileSizeBuckets = buckets
 	}
 }
 
@@ -284,6 +451,22 @@ func fuzzLoad() *loadConfig {
 		withBranchGenerator(
 			withCommitGenerator(
 				withCommitCount(rand.Intn(5)),
+				withPutThroughputLimit(
+					1*units.MB,
+					0.05,
+				),
+				withGetThroughputLimit(
+					1*units.MB,
+					0.05,
+				),
+				withPutCancel(
+					5*time.Second,
+					0.05,
+				),
+				withGetCancel(
+					5*time.Second,
+					0.05,
+				),
 				withPutTarGenerator(
 					withFileCount(rand.Intn(5)),
 					withFileGenerator(newRandomFileGenerator()),
@@ -327,7 +510,7 @@ func (ls *loadState) Lock(f func()) {
 }
 
 type validator struct {
-	files      map[string][]byte
+	files      fileSet
 	sampleProb float64
 }
 
@@ -338,14 +521,10 @@ func newValidator() *validator {
 	}
 }
 
-func (v *validator) recordFile(name string, r io.Reader) error {
-	buf := &bytes.Buffer{}
-	_, err := io.Copy(buf, r)
-	if err != nil {
-		return err
+func (v *validator) recordFileSet(files fileSet) {
+	for file, data := range files {
+		v.files.recordFile(file, bytes.NewReader(data))
 	}
-	v.files[name] = buf.Bytes()
-	return nil
 }
 
 func (v *validator) validate(r io.Reader) error {
@@ -370,5 +549,17 @@ func (v *validator) validate(r io.Reader) error {
 			return errors.Errorf("file %v's header and/or content is incorrect", file)
 		}
 	}
+	return nil
+}
+
+type fileSet map[string][]byte
+
+func (fs fileSet) recordFile(name string, r io.Reader) error {
+	buf := &bytes.Buffer{}
+	_, err := io.Copy(buf, r)
+	if err != nil {
+		return err
+	}
+	fs[name] = buf.Bytes()
 	return nil
 }
