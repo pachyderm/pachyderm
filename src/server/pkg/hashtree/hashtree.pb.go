@@ -508,7 +508,9 @@ func init() {
 	proto.RegisterType((*Index)(nil), "hashtree.Index")
 }
 
-func init() { proto.RegisterFile("server/pkg/hashtree/hashtree.proto", fileDescriptor_4bd44075bd9a7a70) }
+func init() {
+	proto.RegisterFile("server/pkg/hashtree/hashtree.proto", fileDescriptor_4bd44075bd9a7a70)
+}
 
 var fileDescriptor_4bd44075bd9a7a70 = []byte{
 	// 576 bytes of a gzipped FileDescriptorProto
