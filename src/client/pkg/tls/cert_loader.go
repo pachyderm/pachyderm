@@ -24,6 +24,7 @@ type CertLoader struct {
 	stopped  bool
 }
 
+// NewCertLoader creates a new CertLoader to refresh the specified TLS key at a fixed interval
 func NewCertLoader(certPath, keyPath string, refreshInterval time.Duration) *CertLoader {
 	return &CertLoader{
 		certPath:        certPath,
