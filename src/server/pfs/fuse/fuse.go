@@ -1,6 +1,7 @@
 package fuse
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/signal"
@@ -11,6 +12,7 @@ import (
 	"github.com/hanwen/go-fuse/v2/fs"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
@@ -26,23 +28,16 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 		}
 	}
 	// branches := opts.getBranches()
-	fuseTarget := target
-	if opts.Write {
-		var err error
-		fuseTarget, err = ioutil.TempDir("", "pfs-fuse-lower")
-		if err != nil {
-			return err
-		}
-	}
 	rootDir, err := ioutil.TempDir("", "pfs")
 	if err != nil {
 		return err
 	}
+	fmt.Println("Root: ", rootDir)
 	root, err := NewLoopbackRoot(rootDir, c, opts)
 	if err != nil {
 		return err
 	}
-	server, err := fs.Mount(fuseTarget, root, opts.getFuse())
+	server, err := fs.Mount(target, root, opts.getFuse())
 	if err != nil {
 		return err
 	}
@@ -56,32 +51,35 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 		server.Unmount()
 	}()
 	server.Serve()
+	//TODO this errors if it's empty
 	pfc, err := c.NewPutFileClient()
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "NewPutFileClient")
 	}
 	defer func() {
 		if err := pfc.Close(); err != nil && retErr == nil {
-			retErr = err
+			retErr = errors.Wrapf(err, "pfc.Close")
 		}
 	}()
 	for path, state := range root.files {
-		if state != dirty {
+		fmt.Println(path, state >= dirty)
+		if state < dirty {
 			continue
 		}
+		fmt.Printf("Open(%s)\n", filepath.Join(root.rootPath, path))
 		f, err := os.Open(filepath.Join(root.rootPath, path))
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "open")
 		}
 		defer func() {
 			if err := f.Close(); err != nil && retErr == nil {
-				retErr = err
+				retErr = errors.Wrapf(err, "close")
 			}
 		}()
 		parts := strings.Split(path, "/")
 		if _, err := pfc.PutFileOverwrite(parts[0], root.branch(parts[0]),
 			pathpkg.Join(parts[1:]...), f, 0); err != nil {
-			return err
+			return errors.Wrapf(err, "PutFile")
 		}
 	}
 	return nil

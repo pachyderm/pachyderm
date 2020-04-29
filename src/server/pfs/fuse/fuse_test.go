@@ -193,7 +193,21 @@ func TestWrite(t *testing.T) {
 		require.NoError(t, os.Remove(filepath.Join(mountPoint, "repo", "foo")))
 		require.NoError(t, ioutil.WriteFile(filepath.Join(mountPoint, "repo", "foo"), []byte("bar\n"), 0644))
 	})
+	b.Reset()
+	require.NoError(t, c.GetFile("repo", "master", "foo", 0, 0, &b))
+	require.Equal(t, "bar\n", b.String())
 
+	// Now delete it
+	withMount(t, c, &Options{
+		Fuse: &fs.Options{
+			MountOptions: fuse.MountOptions{
+				Debug: true,
+			},
+		},
+		Write: true,
+	}, func(mountPoint string) {
+		require.NoError(t, os.Remove(filepath.Join(mountPoint, "repo", "foo")))
+	})
 	b.Reset()
 	require.YesError(t, c.GetFile("repo", "master", "foo", 0, 0, &b))
 
@@ -211,9 +225,11 @@ func withMount(tb testing.TB, c *client.APIClient, opts *Options, f func(mountPo
 		opts.Unmount = make(chan struct{})
 	}
 	unmounted := make(chan struct{})
+	var mountErr error
 	defer func() {
 		close(opts.Unmount)
 		<-unmounted
+		require.NoError(tb, mountErr)
 	}()
 	defer func() {
 		// recover because panics leave the mount in a weird state that makes
@@ -224,7 +240,7 @@ func withMount(tb testing.TB, c *client.APIClient, opts *Options, f func(mountPo
 		}
 	}()
 	go func() {
-		Mount(c, dir, opts)
+		mountErr = Mount(c, dir, opts)
 		close(unmounted)
 	}()
 	// Gotta give the fuse mount time to come up.

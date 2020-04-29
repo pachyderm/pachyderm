@@ -6,6 +6,7 @@ package fuse
 
 import (
 	"context"
+	"fmt"
 	"os"
 	pathpkg "path"
 	"path/filepath"
@@ -24,10 +25,11 @@ import (
 type fileState int32
 
 const (
-	none  fileState = iota // we don't know about this file
-	meta                   // we have meta information (but not content for this file)
-	full                   // we have full content for this file
-	dirty                  // we have full content for this file and the user has written to it
+	none    fileState = iota // we don't know about this file
+	meta                     // we have meta information (but not content for this file)
+	full                     // we have full content for this file
+	dirty                    // we have full content for this file and the user has written to it
+	deleted                  // this file has been deleted (and the local version reflects this)
 )
 
 type loopbackRoot struct {
@@ -143,6 +145,12 @@ func (n *loopbackNode) Mknod(ctx context.Context, name string, mode, rdev uint32
 
 func (n *loopbackNode) Mkdir(ctx context.Context, name string, mode uint32, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
 	p := filepath.Join(n.path(), name)
+	if err := n.download(p, meta); err != nil {
+		errno := toErrno(err)
+		if errno != syscall.ENOENT {
+			return nil, errno
+		}
+	}
 	err := os.Mkdir(p, os.FileMode(mode))
 	if err != nil {
 		return nil, fs.ToErrno(err)
@@ -163,12 +171,25 @@ func (n *loopbackNode) Mkdir(ctx context.Context, name string, mode uint32, out 
 
 func (n *loopbackNode) Rmdir(ctx context.Context, name string) syscall.Errno {
 	p := filepath.Join(n.path(), name)
+	if err := n.download(p, meta); err != nil {
+		return toErrno(err)
+	}
 	err := syscall.Rmdir(p)
 	return fs.ToErrno(err)
 }
 
-func (n *loopbackNode) Unlink(ctx context.Context, name string) syscall.Errno {
+func (n *loopbackNode) Unlink(ctx context.Context, name string) (errno syscall.Errno) {
 	p := filepath.Join(n.path(), name)
+	if err := n.download(p, meta); err != nil {
+		return toErrno(err)
+	}
+	defer func() {
+		if errno == 0 {
+			n.root().mu.Lock()
+			n.root().files[n.trimPath(p)] = deleted
+			n.root().mu.Unlock()
+		}
+	}()
 	err := syscall.Unlink(p)
 	return fs.ToErrno(err)
 }
@@ -306,11 +327,23 @@ func (n *loopbackNode) Readlink(ctx context.Context) ([]byte, syscall.Errno) {
 func (n *loopbackNode) Open(ctx context.Context, flags uint32) (fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
 	p := n.path()
 	state := full
-	if allowsWrite(flags) {
+	if isWrite(flags) {
 		state = dirty
 	}
 	if err := n.download(p, state); err != nil {
-		return nil, 0, toErrno(err)
+		errno = toErrno(err)
+		if !isCreate(flags) || errno != syscall.ENOENT {
+			return nil, 0, errno
+		}
+	}
+	if isCreate(flags) {
+		defer func() {
+			if errno == 0 {
+				n.root().mu.Lock()
+				n.root().files[n.trimPath(p)] = dirty
+				n.root().mu.Unlock()
+			}
+		}()
 	}
 	f, err := syscall.Open(p, int(flags), 0)
 	if err != nil {
@@ -457,11 +490,13 @@ func NewLoopbackRoot(root string, c *client.APIClient, opts *Options) (*loopback
 // files will be truncated to their actual sizes (but will be all zeros).
 func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 	path = n.trimPath(path)
+	fmt.Println("download: ", path)
 	parts := strings.Split(path, "/")
 	n.root().mu.Lock()
 	cached := n.root().files[path] >= state
 	n.root().mu.Unlock()
 	if cached {
+		fmt.Println("cached")
 		return nil
 	}
 	defer func() {
@@ -484,6 +519,10 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 			}
 		}
 	default:
+		// Make sure the directory for the repo exists
+		if err := os.MkdirAll(filepath.Join(n.root().rootPath, parts[0]), 0777); err != nil {
+			return err
+		}
 		commit, err := n.commit(parts[0])
 		if err != nil {
 			return err
@@ -497,6 +536,11 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 					return os.MkdirAll(n.filePath(fi), 0777)
 				}
 				p := n.filePath(fi)
+				// Make sure the directory exists
+				// I think this may be unnecessary based on the
+				if err := os.MkdirAll(filepath.Dir(p), 0777); err != nil {
+					return err
+				}
 				f, err := os.Create(p)
 				if err != nil {
 					return err
@@ -563,6 +607,10 @@ func toErrno(err error) syscall.Errno {
 	return fs.ToErrno(err)
 }
 
-func allowsWrite(flags uint32) bool {
+func isWrite(flags uint32) bool {
 	return (int(flags) & (os.O_WRONLY | os.O_RDWR)) != 0
+}
+
+func isCreate(flags uint32) bool {
+	return int(flags)&os.O_CREATE != 0
 }
