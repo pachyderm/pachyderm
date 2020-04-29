@@ -263,13 +263,27 @@ func newCheckedClient(c Client) Client {
 }
 
 func (wc *checkedClient) Reader(ctx context.Context, name string, offset uint64, size uint64) (io.ReadCloser, error) {
-	// Modify the returned ReadCloser to use a checkedReadCloser which will error
-	// if the stream gives us too few or too many bytes
 	rc, err := wc.Client.Reader(ctx, name, offset, size)
-	if rc != nil && size != 0 {
-		rc = newCheckedReadCloser(size, rc)
+	if err != nil {
+		// Enforce that clients return either an error or a reader, not both
+		if rc != nil {
+			return nil, errors.Wrap(err, "object client Reader() returned a reader and an error")
+		}
+		return nil, err
 	}
-	return rc, err
+
+	// Enforce that clients return either an error or a reader, not neither
+	if rc == nil {
+		return nil, errors.New("object client Reader() returned no reader and no error")
+	}
+
+	if size != 0 {
+		// Modify the returned ReadCloser to use a checkedReadCloser which will error
+		// if the stream gives us too few or too many bytes
+		return newCheckedReadCloser(size, rc), nil
+	}
+
+	return rc, nil
 }
 
 // NewGoogleClient creates a google client with the given bucket name.
