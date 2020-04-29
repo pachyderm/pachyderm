@@ -119,6 +119,12 @@ func ElementsEqualOrErr(expecteds interface{}, actuals interface{}) error {
 		return errors.Errorf("expected []%s but got []%s", es.Type().Elem(), as.Type().Elem())
 	}
 
+	if es.Len() != as.Len() {
+		// slight abuse of error: contains newlines so final output prints well
+		return errors.Errorf("expected %d elements, but got %d\n  expected: %v\n  actual: %v",
+			es.Len(), as.Len(), expecteds, actuals)
+	}
+
 	// Count up elements of expecteds
 	intType := reflect.TypeOf(int64(0))
 	expectedCt := reflect.MakeMap(reflect.MapOf(esElemType, intType))
@@ -148,10 +154,6 @@ func ElementsEqualOrErr(expecteds interface{}, actuals interface{}) error {
 			newCt := actualCt.MapIndex(v).Int() + 1
 			actualCt.SetMapIndex(v, reflect.ValueOf(newCt))
 		}
-	}
-	if expectedCt.Len() != actualCt.Len() {
-		// slight abuse of error: contains newlines so final output prints well
-		return errors.Errorf("expected %d distinct elements, but got %d\n  expected: %v\n  actual: %v", expectedCt.Len(), actualCt.Len(), expecteds, actuals)
 	}
 	for _, key := range expectedCt.MapKeys() {
 		ec := expectedCt.MapIndex(key)
