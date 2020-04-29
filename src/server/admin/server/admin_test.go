@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -48,6 +49,18 @@ func collectCommitInfos(t testing.TB, commitInfoIter client.CommitInfoIterator) 
 	}
 }
 
+func listAllCommits(t testing.TB, c *client.APIClient) []*pfs.CommitInfo {
+	var commits []*pfs.CommitInfo
+	repos, err := c.ListRepo()
+	require.NoError(t, err)
+	for _, r := range repos {
+		cis, err := c.ListCommit(r.Repo.Name, "", "", 0)
+		require.NoError(t, err)
+		commits = append(commits, cis...)
+	}
+	return commits
+}
+
 // repoInfoSummary is a helper that converts a CommitINfo to a unique string
 // representation, for checking the repos in a cluster before/after
 // extract+restore.
@@ -60,6 +73,81 @@ func repoInfoSummary(i interface{}) interface{} {
 	sort.Strings(branchNames)
 	return fmt.Sprintf("%s (%s) [Sz:%d] %v",
 		ri.Repo.Name, ri.Description, ri.SizeBytes, branchNames)
+}
+
+// commitInfoSummary is a helper that converts a CommitInfo to a unique string
+// representation, for checking the commits in a cluster before/after
+// extract+restore.
+// TODO(msteffen) This is similar to a lot of code in
+// src/server/transaction/server/testing/server_test.go All of this should be
+// unified in a library.
+func commitInfoSummary(i interface{}) interface{} {
+	ci := i.(*pfs.CommitInfo)
+	parentCommit := "nil"
+	if ci.ParentCommit != nil {
+		parentCommit = ci.ParentCommit.ID
+	}
+	childCommits := func() []string {
+		ccs := make([]string, 0, len(ci.ChildCommits))
+		for _, c := range ci.ChildCommits {
+			ccs = append(ccs, c.ID)
+		}
+		sort.Strings(ccs)
+		return ccs
+	}()
+	prov := func() []string {
+		ps := make([]string, 0, len(ci.Provenance))
+		for _, p := range ci.Provenance {
+			ps = append(ps, fmt.Sprintf("%s (%s)", p.Commit.ID, p.Branch.Name))
+		}
+		sort.Strings(ps)
+		return ps
+	}()
+	subv := func() []string {
+		ss := make([]string, 0, len(ci.Subvenance))
+		for _, s := range ci.Subvenance {
+			ss = append(ss, fmt.Sprintf("%s:%s", s.Lower.ID, s.Upper.ID))
+		}
+		sort.Strings(ss)
+		return ss
+	}()
+	finished := "nil"
+	if ci.Finished != nil {
+		finished = types.TimestampString(ci.Finished)
+	}
+	tree := "nil"
+	if ci.Tree != nil {
+		tree = ci.Tree.Hash
+	}
+	trees := func() []string {
+		ts := make([]string, 0, len(ci.Trees))
+		for _, t := range ci.Trees {
+			ts = append(ts, t.Hash)
+		}
+		sort.Strings(ts)
+		return ts
+	}()
+	datums := "nil"
+	if ci.Datums != nil {
+		datums = ci.Datums.Hash
+	}
+	return fmt.Sprintf(`%s
+Parent: %s
+Children: %s
+Provenance: %s
+Subvenance: %s
+Started: %s
+Finished: %s
+Size: %d
+Tree: %s
+Trees: %s
+Datums: %s`,
+		ci.Commit.ID,
+		parentCommit, childCommits,
+		prov, subv,
+		types.TimestampString(ci.Started), finished,
+		ci.SizeBytes, tree, trees, datums,
+	)
 }
 
 func addData(t testing.TB, c *client.APIClient, repo string, count int, size uint) (fileHashes []string) {
@@ -166,6 +254,7 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 
 	risBefore, err := c.ListRepo()
 	require.NoError(t, err)
+	commitInfosBefore := listAllCommits(t, c)
 	// Extract existing cluster state
 	ops, err := c.ExtractAll(testObjects)
 	require.NoError(t, err)
@@ -185,6 +274,8 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 	risAfter, err := c.ListRepo()
 	require.NoError(t, err)
 	require.ImagesEqual(t, risBefore, risAfter, repoInfoSummary)
+	commitInfosAfter := listAllCommits(t, c)
+	require.ImagesEqual(t, commitInfosBefore, commitInfosAfter, commitInfoSummary)
 
 	// Make sure all commits got re-created
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
@@ -358,6 +449,7 @@ func TestExtractRestoreFailedJobs(t *testing.T) {
 	// Collect repos to compare after restore
 	risBefore, err := c.ListRepo()
 	require.NoError(t, err)
+	commitInfosBefore := listAllCommits(t, c)
 
 	// Extract existing cluster state
 	ops, err := c.ExtractAll(true)
@@ -376,6 +468,8 @@ func TestExtractRestoreFailedJobs(t *testing.T) {
 	risAfter, err := c.ListRepo()
 	require.NoError(t, err)
 	require.ImagesEqual(t, risBefore, risAfter, repoInfoSummary)
+	commitInfosAfter := listAllCommits(t, c)
+	require.ImagesEqual(t, commitInfosBefore, commitInfosAfter, commitInfoSummary)
 
 	// Make sure all commits got re-created
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
@@ -614,7 +708,7 @@ func TestExtractRestorePipelineUpdate(t *testing.T) {
 	))
 	_, err := c.PutFile(input1, "master", "file", strings.NewReader("file"))
 	require.NoError(t, err)
-	cis, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(input1, "master")}, nil)
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(input1, "master")}, nil)
 	require.NoError(t, err)
 
 	input2 := tu.UniqueString("TestExtractRestorePipelineUpdate_data")
@@ -635,11 +729,10 @@ func TestExtractRestorePipelineUpdate(t *testing.T) {
 
 	_, err = c.PutFile(input2, "master", "file", strings.NewReader("file"))
 	require.NoError(t, err)
-	_cis, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(input2, "master")}, nil)
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(input2, "master")}, nil)
 	require.NoError(t, err)
 
-	cis = append(_cis, cis...)
-
+	commitInfosBefore := listAllCommits(t, c)
 	ops, err := c.ExtractAll(false)
 	require.NoError(t, err)
 	require.NoError(t, c.DeleteAll())
@@ -648,16 +741,8 @@ func TestExtractRestorePipelineUpdate(t *testing.T) {
 	require.NoError(t, c.FsckFastExit())
 
 	// Check that commits still have the right provenance
-	postRestoreCis, err := c.ListCommit(pipeline, "", "", 0)
-	require.NoError(t, err)
-	for i, ci := range cis {
-		postCi := postRestoreCis[i]
-		require.Equal(t, ci.Commit.ID, postCi.Commit.ID)
-		// Must sort provenance field to guarantee it matches
-		sort.Slice(ci.Provenance, func(i, j int) bool { return ci.Provenance[i].Commit.ID < ci.Provenance[j].Commit.ID })
-		sort.Slice(postCi.Provenance, func(i, j int) bool { return postCi.Provenance[i].Commit.ID < postCi.Provenance[j].Commit.ID })
-		require.Equal(t, ci.Provenance, postCi.Provenance)
-	}
+	commitInfosAfter := listAllCommits(t, c)
+	require.ImagesEqual(t, commitInfosBefore, commitInfosAfter, commitInfoSummary)
 }
 
 func TestExtractRestoreDeferredProcessing(t *testing.T) {
@@ -710,12 +795,18 @@ func TestExtractRestoreDeferredProcessing(t *testing.T) {
 	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 
+	commitInfosBefore := listAllCommits(t, c)
+
 	ops, err := c.ExtractAll(false)
 	require.NoError(t, err)
 	require.NoError(t, c.DeleteAll())
 	require.NoError(t, c.Restore(ops))
 	// Do a fsck just in case.
 	require.NoError(t, c.FsckFastExit())
+
+	// Check that commits are all the same after restore
+	commitInfosAfter := listAllCommits(t, c)
+	require.ImagesEqual(t, commitInfosBefore, commitInfosAfter, commitInfoSummary)
 
 	_, err = c.PutFile(dataRepo, "staging", "file2", strings.NewReader("file"))
 	require.NoError(t, err)
@@ -763,10 +854,16 @@ func TestExtractRestoreStats(t *testing.T) {
 	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 
+	commitInfosBefore := listAllCommits(t, c)
+
 	ops, err := c.ExtractAll(false)
 	require.NoError(t, err)
 	require.NoError(t, c.DeleteAll())
 	require.NoError(t, c.Restore(ops))
+
+	// Check that commits are all the same after restore
+	commitInfosAfter := listAllCommits(t, c)
+	require.ImagesEqual(t, commitInfosBefore, commitInfosAfter, commitInfoSummary)
 
 	cis, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
