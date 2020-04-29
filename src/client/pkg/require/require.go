@@ -172,11 +172,11 @@ func ElementsEqualOrErr(expecteds interface{}, actuals interface{}) error {
 }
 
 // ElementsEqualUnderFn checks that the elements of the slice 'expecteds' are
-// exactly the images of every element of the slice 'actuals' under 'f',
-// ignoring order (i.e.  'expecteds' and 'map(f, actuals)' are setwise-equal,
-// but respecting duplicates). This is useful for cases where ElementsEqual
-// doesn't quite work, e.g. because the type in 'expecteds'/'actuals' contains a
-// pointer, or 'actuals' contains superfluous data which you wish to discard
+// the same as the elements of the slice 'actuals' under 'f', ignoring order
+// (i.e.  'expecteds' and 'map(f, actuals)' are setwise-equal, but respecting
+// duplicates). This is useful for cases where ElementsEqual doesn't quite work,
+// e.g. because the type in 'expecteds'/'actuals' contains a pointer, or
+// 'actuals' contains superfluous data which you wish to discard.
 //
 // Like ElementsEqual, treat 'nil' and the empty slice as equivalent (for
 // convenience)
