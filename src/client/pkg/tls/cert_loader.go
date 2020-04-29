@@ -56,7 +56,7 @@ func (l *CertLoader) GetCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate, e
 	certPtr := atomic.LoadPointer(&l.cert)
 	cert := (*tls.Certificate)(certPtr)
 	if cert == nil {
-		return nil, fmt.Errorf("No cached TLS certificate available")
+		return nil, fmt.Errorf("no cached TLS certificate available")
 	}
 	return cert, nil
 }
@@ -80,7 +80,7 @@ func (l *CertLoader) loadCertificate() error {
 	log.Debugf("Reloading TLS keypair - %q %q", l.certPath, l.keyPath)
 	cert, err := tls.LoadX509KeyPair(l.certPath, l.keyPath)
 	if err != nil {
-		return errors.Wrapf(err, "Unable to load keypair")
+		return errors.Wrapf(err, "unable to load keypair")
 	}
 	atomic.StorePointer(&l.cert, unsafe.Pointer(&cert))
 	return nil
