@@ -479,6 +479,28 @@ func NewLoopbackRoot(root string, c *client.APIClient, opts *Options) (*loopback
 	return n, nil
 }
 
+func (n *loopbackNode) downloadRepos() (retErr error) {
+	if n.getFileState("") != none {
+		return nil
+	}
+	defer func() {
+		if retErr == nil {
+			n.setFileState("", meta)
+		}
+	}()
+	ris, err := n.c().ListRepo()
+	if err != nil {
+		return err
+	}
+	for _, ri := range ris {
+		p := n.repoPath(ri)
+		if err := os.MkdirAll(p, 0777); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // download files into the loopback filesystem, if meta is true then only the
 // directory structure will be created, no actual data will be downloaded,
 // files will be truncated to their actual sizes (but will be all zeros).
@@ -487,6 +509,9 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 		// Already got this file, so we can just return
 		return nil
 	}
+	if err := n.downloadRepos(); err != nil {
+		return err
+	}
 	path = n.trimPath(path)
 	parts := strings.Split(path, "/")
 	defer func() {
@@ -494,62 +519,49 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 			n.setFileState(path, state)
 		}
 	}()
-	switch {
-	case len(parts) == 1 && parts[0] == "":
-		ris, err := n.c().ListRepo()
-		if err != nil {
-			return err
-		}
-		for _, ri := range ris {
-			p := n.repoPath(ri)
-			if err := os.MkdirAll(p, 0777); err != nil {
+	// Note, len(parts) < 1 should not actually be possible, but just in case
+	// no need to panic.
+	if len(parts) < 1 || parts[0] == "" {
+		return nil //already downloaded in downloadRepos
+	}
+	commit, err := n.commit(parts[0])
+	if err != nil {
+		return err
+	}
+	if commit == "" {
+		return nil
+	}
+	if err := n.c().ListFileF(parts[0], commit, pathpkg.Join(parts[1:]...), 0,
+		func(fi *pfs.FileInfo) (retErr error) {
+			if fi.FileType == pfs.FileType_DIR {
+				return os.MkdirAll(n.filePath(fi), 0777)
+			}
+			p := n.filePath(fi)
+			// Make sure the directory exists
+			// I think this may be unnecessary based on the constraints the
+			// OS imposes, but don't want to rely on that, especially
+			// because Mkdir should be pretty cheap.
+			if err := os.MkdirAll(filepath.Dir(p), 0777); err != nil {
 				return err
 			}
-		}
-	default:
-		// Make sure the directory for the repo exists
-		if err := os.MkdirAll(filepath.Join(n.root().rootPath, parts[0]), 0777); err != nil {
-			return err
-		}
-		commit, err := n.commit(parts[0])
-		if err != nil {
-			return err
-		}
-		if commit == "" {
+			f, err := os.Create(p)
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := f.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			if state < full {
+				return f.Truncate(int64(fi.SizeBytes))
+			}
+			if err := n.c().GetFile(fi.File.Commit.Repo.Name, fi.File.Commit.ID, fi.File.Path, 0, 0, f); err != nil {
+				return err
+			}
 			return nil
-		}
-		if err := n.c().ListFileF(parts[0], commit, pathpkg.Join(parts[1:]...), 0,
-			func(fi *pfs.FileInfo) (retErr error) {
-				if fi.FileType == pfs.FileType_DIR {
-					return os.MkdirAll(n.filePath(fi), 0777)
-				}
-				p := n.filePath(fi)
-				// Make sure the directory exists
-				// I think this may be unnecessary based on the constraints the
-				// OS imposes, but don't want to rely on that, especially
-				// because Mkdir should be pretty cheap.
-				if err := os.MkdirAll(filepath.Dir(p), 0777); err != nil {
-					return err
-				}
-				f, err := os.Create(p)
-				if err != nil {
-					return err
-				}
-				defer func() {
-					if err := f.Close(); err != nil && retErr == nil {
-						retErr = err
-					}
-				}()
-				if state < full {
-					return f.Truncate(int64(fi.SizeBytes))
-				}
-				if err := n.c().GetFile(fi.File.Commit.Repo.Name, fi.File.Commit.ID, fi.File.Path, 0, 0, f); err != nil {
-					return err
-				}
-				return nil
-			}); err != nil && !errutil.IsNotFoundError(err) {
-			return err
-		}
+		}); err != nil && !errutil.IsNotFoundError(err) {
+		return err
 	}
 	return nil
 }
