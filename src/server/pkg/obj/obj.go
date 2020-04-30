@@ -220,8 +220,73 @@ type Client interface {
 	IsIgnorable(err error) bool
 }
 
+type checkedReadCloser struct {
+	io.ReadCloser
+	size  uint64
+	count uint64
+}
+
+func newCheckedReadCloser(size uint64, rc io.ReadCloser) io.ReadCloser {
+	return &checkedReadCloser{
+		ReadCloser: rc,
+		size:       size,
+	}
+}
+
+func (crc *checkedReadCloser) Read(p []byte) (int, error) {
+	count, err := crc.ReadCloser.Read(p)
+	crc.count += uint64(count)
+	if err != nil {
+		if err == io.EOF && crc.count != crc.size {
+			return count, fmt.Errorf("read stream ended after the wrong length, expected: %d, actual: %d", crc.size, crc.count)
+		} else if crc.count > crc.size {
+			return count, fmt.Errorf("read stream errored but also read more bytes than requested, expected: %d, actual: %d, err: %v", crc.size, crc.count, err)
+		}
+		return count, err
+	} else if crc.count > crc.size {
+		return count, fmt.Errorf("read stream read more bytes than requested, expected: %d, actual: %d", crc.size, crc.count)
+	}
+	return count, nil
+}
+
+type checkedClient struct {
+	Client
+}
+
+func newCheckedClient(c Client) Client {
+	if c == nil {
+		return nil
+	}
+	return &checkedClient{Client: c}
+}
+
+func (wc *checkedClient) Reader(ctx context.Context, name string, offset uint64, size uint64) (io.ReadCloser, error) {
+	rc, err := wc.Client.Reader(ctx, name, offset, size)
+	if err != nil {
+		// Enforce that clients return either an error or a reader, not both
+		if rc != nil {
+			return nil, errors.Wrap(err, "object client Reader() returned a reader and an error")
+		}
+		return nil, err
+	}
+
+	// Enforce that clients return either an error or a reader, not neither
+	if rc == nil {
+		return nil, errors.New("object client Reader() returned no reader and no error")
+	}
+
+	if size != 0 {
+		// Modify the returned ReadCloser to use a checkedReadCloser which will error
+		// if the stream gives us too few or too many bytes
+		return newCheckedReadCloser(size, rc), nil
+	}
+
+	return rc, nil
+}
+
 // NewGoogleClient creates a google client with the given bucket name.
-func NewGoogleClient(bucket string, opts []option.ClientOption) (Client, error) {
+func NewGoogleClient(bucket string, opts []option.ClientOption) (c Client, err error) {
+	defer func() { c = newCheckedClient(c) }()
 	return newGoogleClient(bucket, opts)
 }
 
@@ -279,7 +344,8 @@ func NewGoogleClientFromEnv() (Client, error) {
 //	container   - Azure Blob Container name
 //	accountName - Azure Storage Account name
 // 	accountKey  - Azure Storage Account key
-func NewMicrosoftClient(container string, accountName string, accountKey string) (Client, error) {
+func NewMicrosoftClient(container string, accountName string, accountKey string) (c Client, err error) {
+	defer func() { c = newCheckedClient(c) }()
 	return newMicrosoftClient(container, accountName, accountKey)
 }
 
@@ -329,7 +395,8 @@ func NewMicrosoftClientFromEnv() (Client, error) {
 //   secret - AWS secret access key
 //   secure - Set to true if connection is secure.
 //   isS3V2 - Set to true if client follows S3V2
-func NewMinioClient(endpoint, bucket, id, secret string, secure, isS3V2 bool) (Client, error) {
+func NewMinioClient(endpoint, bucket, id, secret string, secure, isS3V2 bool) (c Client, err error) {
+	defer func() { c = newCheckedClient(c) }()
 	if isS3V2 {
 		return newMinioClientV2(endpoint, bucket, id, secret, secure)
 	}
@@ -345,7 +412,8 @@ func NewMinioClient(endpoint, bucket, id, secret string, secure, isS3V2 bool) (C
 //   region - AWS region
 //   endpoint - Custom endpoint (generally used for S3 compatible object stores)
 //   reverse - Reverse object storage paths (overwrites configured value)
-func NewAmazonClient(region, bucket string, creds *AmazonCreds, distribution string, endpoint string, reverse ...bool) (Client, error) {
+func NewAmazonClient(region, bucket string, creds *AmazonCreds, distribution string, endpoint string, reverse ...bool) (c Client, err error) {
+	defer func() { c = newCheckedClient(c) }()
 	advancedConfig := &AmazonAdvancedConfiguration{}
 	if err := cmdutil.Populate(advancedConfig); err != nil {
 		return nil, err
