@@ -48,7 +48,6 @@ func githubLogin() (string, error) {
 }
 
 func requestOIDCLogin(c *client.APIClient) (string, error) {
-
 	state := randState(30)
 	loginInfo, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{State: state})
 	if err != nil {
@@ -65,6 +64,8 @@ func requestOIDCLogin(c *client.APIClient) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	fmt.Println("Authorized!")
+
 	if authError != nil {
 		fmt.Println("ahoy", authError.Error)
 	}
@@ -91,6 +92,7 @@ func writePachTokenToCfg(token string) error {
 // ActivateCmd returns a cobra.Command to activate Pachyderm's auth system
 func ActivateCmd() *cobra.Command {
 	var initialAdmin string
+	var url string
 	activate := &cobra.Command{
 		Short: "Activate Pachyderm's auth system",
 		Long: `
@@ -98,7 +100,7 @@ Activate Pachyderm's auth system, and restrict access to existing data to the
 user running the command (or the argument to --initial-admin), who will be the
 first cluster admin`[1:],
 		Run: cmdutil.Run(func(args []string) error {
-			var token string
+			var state string
 			var err error
 
 			// Exchange GitHub token for Pachyderm token
@@ -108,9 +110,15 @@ first cluster admin`[1:],
 			}
 			defer c.Close()
 
+			// if the OIDC flag is set
+			// lookup the config
+			// if no config is set
+			// then prompt the user for the baseURL, clientID, and email
+			// write these to the configuration object
+
 			if !strings.HasPrefix(initialAdmin, auth.RobotPrefix) {
 				// token, err = githubLogin()
-				token, err = requestOIDCLogin(c)
+				state, err = requestOIDCLogin(c)
 				if err != nil {
 					return err
 				}
@@ -120,7 +128,7 @@ first cluster admin`[1:],
 
 			resp, err := c.Activate(c.Ctx(),
 				&auth.ActivateRequest{
-					GitHubToken: token,
+					GitHubToken: state,
 					Subject:     initialAdmin,
 				})
 			if err != nil {
@@ -145,6 +153,7 @@ this user once auth is active.  If you set 'initial-admin' to a robot
 user, pachctl will print that robot user's Pachyderm token; this token is
 effectively a root token, and if it's lost you will be locked out of your
 cluster`[1:])
+	activate.PersistentFlags().StringVar(&url, "url", "u", `Base URL for your identity provider (used for Open ID Connect flow)`)
 	return cmdutil.CreateAlias(activate, "auth activate")
 }
 
@@ -221,14 +230,14 @@ func LoginCmd() *cobra.Command {
 				// 		&auth.AuthenticateRequest{GitHubToken: token})
 			} else {
 				// Exchange OIDC token for Pachyderm token
-				token, err := requestOIDCLogin(c)
+				state, err := requestOIDCLogin(c)
 				if err != nil {
 					return err
 				}
 				fmt.Println("Retrieving Pachyderm token...")
 				resp, authErr = c.Authenticate(
 					c.Ctx(),
-					&auth.AuthenticateRequest{OIDCToken: token})
+					&auth.AuthenticateRequest{OIDCToken: state})
 			}
 
 			// Write new Pachyderm token to config

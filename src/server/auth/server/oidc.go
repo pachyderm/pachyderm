@@ -25,31 +25,33 @@ func init() {
 	stateToken = make(map[string]string)
 }
 
-func getOIDCLoginURL(state string) (string, error) {
-	// Okta documentation: https://developer.okta.com/docs/reference/api/oidc/
+type canonicalOIDCIDP struct {
+	Provider     *oidc.Provider
+	ClientID     string
+	RedirectURL  string
+	StateToToken map[string]chan tokenInfo
+}
 
-	idp, err := oidc.NewProvider(context.Background(), "http://172.17.0.2:8080/auth/realms/adele-testing")
-	if err != nil {
-		return "", err
+func NewOIDCIDP(ctx context.Context, issuer, clientID string) (*canonicalOIDCIDP, error) {
+	o := &canonicalOIDCIDP{}
+	var err error
+	o.Provider, err = oidc.NewProvider(ctx, issuer)
+	if o.RedirectURL == "" {
+		o.RedirectURL = "http://localhost:14687/authorization-code/callback"
 	}
+	o.ClientID = clientID
+	return o, err
+}
 
-	// get the redirect URI from etcd? (i think when we activate we will require this to be entered)
-	redirectURL := "http://localhost:14687/authorization-code/callback"
-
+func (o *canonicalOIDCIDP) GetOIDCLoginURL(state string) (string, error) {
 	clientID := "pachyderm"
-	// clientSecret := "YAxzH2RMFunedy1XpDz8oc8mzSFapFODaIu7QSkn"
-
 	nonce := "testing"
 	// prepare request by filling out parameters
-
 	conf := oauth2.Config{
-		ClientID: clientID,
-		// ClientSecret: clientSecret,
-		RedirectURL: redirectURL,
-
+		ClientID:    clientID,
+		RedirectURL: o.RedirectURL,
 		// Discovery returns the OAuth2 endpoints.
-		Endpoint: idp.Endpoint(),
-
+		Endpoint: o.Provider.Endpoint(),
 		// "openid" is a required scope for OpenID Connect flows.
 		Scopes: []string{oidc.ScopeOpenID},
 	}
@@ -57,19 +59,13 @@ func getOIDCLoginURL(state string) (string, error) {
 	return conf.AuthCodeURL(state,
 		oauth2.SetAuthURLParam("response_type", "code"),
 		oauth2.SetAuthURLParam("nonce", nonce)), nil
-
 }
 
 // OIDCTokenToUsername takes a OAuth access token issued by OIDC and uses
 // it discover the username of the user who obtained the code (or verify that
 // the code belongs to OIDCUsername). This is how Pachyderm currently
 // implements authorization in a production cluster
-func OIDCTokenToUsername(ctx context.Context, state string) (string, error) {
-	idp, err := oidc.NewProvider(ctx, "http://172.17.0.2:8080/auth/realms/adele-testing")
-	if err != nil {
-		return "", err
-	}
-
+func (o *canonicalOIDCIDP) OIDCTokenToUsername(ctx context.Context, state string) (string, error) {
 	oauthToken, ok := stateToken[state]
 	if !ok {
 		return "", fmt.Errorf("did not have a valid state")
@@ -82,27 +78,22 @@ func OIDCTokenToUsername(ctx context.Context, state string) (string, error) {
 		},
 	)
 
-	userInfo, err := idp.UserInfo(ctx, ts)
+	userInfo, err := o.Provider.UserInfo(ctx, ts)
 	if err != nil {
 		return "", err
 	}
 
-	return userInfo.Email, nil
+	return userInfo.Profile, nil
 }
 
-func handleExchange(w http.ResponseWriter, req *http.Request) {
+func (a *apiServer) handleExchange(w http.ResponseWriter, req *http.Request) {
 	ctx := context.Background()
 
-	idp, err := oidc.NewProvider(context.Background(), "http://172.17.0.2:8080/auth/realms/adele-testing")
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	conf := &oauth2.Config{
-		ClientID:    "pachyderm",
+		ClientID:    a.oidcSP.ClientID,
 		RedirectURL: "http://localhost:14687/authorization-code/callback",
 		// Scopes:       []string{"openid"},
-		Endpoint: idp.Endpoint(),
+		Endpoint: a.oidcSP.Provider.Endpoint(),
 	}
 
 	code := req.URL.Query()["code"][0]
@@ -125,8 +116,6 @@ func handleExchange(w http.ResponseWriter, req *http.Request) {
 
 func (a *apiServer) serveOIDC() {
 	// serve OIDC handler to exchange the auth code
-
-	http.HandleFunc("/authorization-code/callback", handleExchange)
-
+	http.HandleFunc("/authorization-code/callback", a.handleExchange)
 	log.Fatal(http.ListenAndServe(":14687", nil))
 }

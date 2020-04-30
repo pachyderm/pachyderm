@@ -144,6 +144,11 @@ type apiServer struct {
 	samlSP   *saml.ServiceProvider // object for parsing saml responses
 	samlSPMu sync.Mutex            // guard 'samlSP'. Always lock after 'configMu' (if using both)
 
+	// oidcSP should not be read/written directly--use setCacheConfig and
+	// getSAMLSP
+	oidcSP   *canonicalOIDCIDP // object for parsing saml responses
+	oidcSPMu sync.Mutex        // guard 'oidcSP'. Always lock after 'configMu' (if using both)
+
 	// tokens is a collection of hashedToken -> TokenInfo mappings. These tokens are
 	// returned to users by Authenticate()
 	tokens col.Collection
@@ -879,7 +884,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 	case req.OIDCToken != "":
 		// Determine caller's Pachyderm/GitHub username
 
-		username, err := OIDCTokenToUsername(ctx, req.OIDCToken)
+		username, err := a.oidcSP.OIDCTokenToUsername(ctx, req.OIDCToken)
 		if err != nil {
 			return nil, err
 		}
@@ -1858,8 +1863,15 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 func (a *apiServer) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequest) (resp *auth.GetOIDCLoginResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	var err error
 
-	authURL, err := getOIDCLoginURL(req.State)
+	// Temporary hack: a.oidcSP should be set already
+	a.oidcSP, err = NewOIDCIDP(ctx, "http://172.17.0.2:8080/auth/realms/adele-testing", "pachyderm")
+	if err != nil {
+		return nil, err
+	}
+
+	authURL, err := a.oidcSP.GetOIDCLoginURL(req.State)
 	if err != nil {
 		return nil, err
 	}
@@ -1874,6 +1886,7 @@ func (a *apiServer) GetOIDCError(ctx context.Context, req *auth.GetOIDCErrorRequ
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
 	ti := <-tokenChan
+	fmt.Println("got the token")
 	errMsg := ""
 	if ti.err != nil {
 		errMsg = ti.err.Error()
