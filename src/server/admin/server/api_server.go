@@ -563,6 +563,13 @@ func (r *restoreCtx) applyOp(op *admin.Op1_10) error {
 			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error creating repo")
 		}
 	case op.Commit != nil:
+		if op.Commit.Finished == nil {
+			// Never allow Restore() to create an unfinished commit. They can only
+			// show up in dumps due to issue #4695 and are never there deliberately.
+			// Allowing Restore() to create them can cause issues restoring subsequent
+			// commits and corrupt the entire cluster.
+			op.Commit.Finished = types.TimestampNow()
+		}
 		if _, err := c.PfsAPIClient.BuildCommit(ctx, op.Commit); err != nil && !errutil.IsAlreadyExistError(err) {
 			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error creating commit")
 		}
