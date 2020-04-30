@@ -48,10 +48,10 @@ var (
 )
 
 const (
-	defaultDashImage           = "pachyderm/dash:0.5.48"
-	defaultIDEHubImage         = "pachyderm/ide-hub:1.1.0"
-	defaultIDEUserImage        = "pachyderm/ide-user:1.1.0"
-	jupyterhubChartVersion     = "0.8.2"
+	defaultDashImage       = "pachyderm/dash:0.5.48"
+	defaultIDEHubImage     = "pachyderm/ide-hub:1.1.0"
+	defaultIDEUserImage    = "pachyderm/ide-user:1.1.0"
+	jupyterhubChartVersion = "0.8.2"
 )
 
 func kubectl(stdin io.Reader, context *config.Context, args ...string) error {
@@ -1022,7 +1022,7 @@ func Cmds() []*cobra.Command {
 					},
 					"extraConfig": map[string]interface{}{
 						"jupyterlab": "c.Spawner.cmd = ['jupyter-labhub']",
-						"templates": "c.JupyterHub.template_paths = ['/app/templates']",
+						"templates":  "c.JupyterHub.template_paths = ['/app/templates']",
 					},
 				},
 				"singleuser": map[string]interface{}{
