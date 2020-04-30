@@ -964,7 +964,7 @@ func Cmds() []*cobra.Command {
 	var hubImage string
 	var userImage string
 	deployIDE := &cobra.Command{
-		Short: "Deploy the Pachyderm IE.",
+		Short: "Deploy the Pachyderm IDE.",
 		Long:  "Deploy a JupyterHub-based IDE alongside the Pachyderm cluster.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			cfg, err := config.Read(false)
