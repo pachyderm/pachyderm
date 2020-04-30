@@ -45,6 +45,14 @@ func (d *driver) downloadTree(pachClient *client.APIClient, object *pfs.Object, 
 	if err != nil {
 		return nil, err
 	}
+
+	// Ensure we close the file if we've errored
+	defer func() {
+		if retErr != nil {
+			f.Close()
+		}
+	}()
+
 	// Mark the file for removal (Linux won't remove it until we close the file)
 	if err := os.Remove(name); err != nil {
 		return nil, err
