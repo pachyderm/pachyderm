@@ -252,7 +252,6 @@ func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, d
 	} else if err == nil && !update {
 		return fmt.Errorf("cannot create \"%s\" as it already exists", repo.Name)
 	}
-	created := types.TimestampNow()
 
 	// Create ACL for new repo
 	if authIsActivated {
@@ -274,8 +273,11 @@ func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, d
 
 	repoInfo := &pfs.RepoInfo{
 		Repo:        repo,
-		Created:     created,
+		Created:     types.TimestampNow(),
 		Description: description,
+	}
+	if update && existingRepoInfo.Created != nil {
+		repoInfo.Created = existingRepoInfo.Created
 	}
 	// Only Put the new repoInfo if something has changed.  This
 	// optimization is impactful because pps will frequently update the
