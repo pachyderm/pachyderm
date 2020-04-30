@@ -53,9 +53,6 @@ class BaseDriver:
 
         return await run("kubectl", "delete", ",".join(DELETABLE_RESOURCES), "-l", "suite=pachyderm")
 
-    async def start(self):
-        pass
-
     async def init_image_registry(self):
         pass
 
@@ -66,14 +63,12 @@ class BaseDriver:
         pass
 
     def extra_deploy_args(self):
-        # We use hostpaths for storage. On docker for mac, hostpaths aren't
-        # cleared until the VM is restarted -- I think this is the same on
-        # minikube, though it's less relevant there because we wipe the
-        # minikube VM entirely. Because of this behavior, re-deploying on the
-        # same hostpath without a restart will cause us to bring up a new
-        # pachyderm cluster with access to the old cluster volume, causing a
-        # bad state. This works around the issue by just using a different
-        # hostpath on every deployment.
+        # We use hostpaths for storage. On docker for mac and minikube,
+        # hostpaths aren't cleared until the VM is restarted. Because of this
+        # behavior, re-deploying on the same hostpath without a restart will
+        # cause us to bring up a new pachyderm cluster with access to the old
+        # cluster volume, causing a bad state. This works around the issue by
+        # just using a different hostpath on every deployment.
         return ["--host-path", "/var/pachyderm-{}".format(secrets.token_hex(5))]
 
     def ide_user_image(self):
@@ -86,16 +81,6 @@ class DockerDesktopDriver(BaseDriver):
     pass
 
 class MinikubeDriver(BaseDriver):
-    async def clear(self):
-        await run("minikube", "delete")
-
-    async def start(self):
-        await run("minikube", "start")
-
-        while (await run("minikube", "status", raise_on_error=False, capture_output=True)).rc != 0:
-            print("Waiting for minikube to come up...")
-            time.sleep(1)
-
     async def push_image(self, image):
         await run("./etc/kube/push-to-minikube.sh", image)
 
@@ -215,25 +200,18 @@ async def main():
             print_status("using the GKE driver")
             driver = GCPDriver(match.groups()[0])
 
-    # minikube won't set the k8s context if the VM isn't running. This checks
-    # for the presence of the minikube executable as an alternate means.
-    if driver is None and (await run("minikube", "version", raise_on_error=False, capture_output=True)).rc == 0:
-        print_status("using the minikube driver")
-        driver = MinikubeDriver()
-
     if driver is None:
         raise Exception(f"could not derive driver from context name: {kube_context}")
 
-    await driver.clear()
-
     if args.delete:
+        await driver.clear()
         return
 
     await asyncio.gather(
-        driver.start(),
         run("make", "install"),
         run("make", "docker-build"),
         driver.init_image_registry(),
+        driver.clear(),
     )
     
     version = (await capture("pachctl", "version", "--client-only")).strip()
