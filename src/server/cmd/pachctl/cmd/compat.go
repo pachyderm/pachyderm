@@ -294,7 +294,10 @@ $ pachctl put-file repo branch path -f http://host/path
 # Put the data from a URL as repo/branch/path:
 $ pachctl put-file repo branch -f http://host/path
 
-# Put the data from an S3 bucket as repo/branch/s3_object:
+# Put the data from an S3 bucket as repo/branch/s3_object.
+# Do not specify the cloud endpoint in the path. For example,
+# if your endpoint is 'test.data.example.org' and your bucket
+# name is 'test-bucket', then the path to your bucket is 's3://test-bucket'.
 $ pachctl put-file repo branch -r -f s3://my_bucket
 
 # Put several files or URLs that are listed in file.
