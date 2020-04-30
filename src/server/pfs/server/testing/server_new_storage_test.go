@@ -178,7 +178,9 @@ func newCommitGenerator(opts ...commitGeneratorOption) commitGenerator {
 				cancelOperation(config.getCancelConfig, c, getTar)
 				continue
 			}
-			return getTar(c)
+			if err := getTar(c); err != nil {
+				return err
+			}
 		}
 		return nil
 	}
@@ -394,8 +396,8 @@ type fileSizeBucket struct {
 var (
 	defaultFileSizeBuckets = []*fileSizeBucket{
 		&fileSizeBucket{
-			min:  10 * units.KB,
-			max:  100 * units.KB,
+			min:  1 * units.KB,
+			max:  10 * units.KB,
 			prob: 0.5,
 		},
 		&fileSizeBucket{
@@ -435,15 +437,15 @@ func writeFile(tw *tar.Writer, name string, data []byte) error {
 }
 
 // (bryce) this should be somewhere else (probably testutil).
-func seedRand() string {
+func seedRand() {
 	seed := time.Now().UTC().UnixNano()
 	rand.Seed(seed)
-	return fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
+	fmt.Println("seed: ", strconv.FormatInt(seed, 10))
 }
 
 func TestLoad(t *testing.T) {
-	msg := seedRand()
-	require.NoError(t, testLoad(fuzzLoad()), msg)
+	seedRand()
+	require.NoError(t, testLoad(fuzzLoad()))
 }
 
 func fuzzLoad() *loadConfig {
@@ -530,6 +532,10 @@ func (v *validator) recordFileSet(files fileSet) {
 func (v *validator) validate(r io.Reader) error {
 	hdr, err := tar.NewReader(r).Next()
 	if err != nil {
+		// We expect an empty tar stream if no files were uploaded.
+		if err == io.EOF && len(v.files) == 0 {
+			return nil
+		}
 		return err
 	}
 	if hdr.Name != "/" {

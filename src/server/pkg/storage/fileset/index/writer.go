@@ -129,7 +129,7 @@ func (w *Writer) callback(level int) chunk.WriterFunc {
 }
 
 // Close finishes the index, and returns the serialized top index level.
-func (w *Writer) Close() error {
+func (w *Writer) Close() (retErr error) {
 	w.closed = true
 	// Note: new levels can be created while closing, so the number of iterations
 	// necessary can increase as the levels are being closed. Levels stop getting
@@ -151,12 +151,20 @@ func (w *Writer) Close() error {
 	if err != nil {
 		return err
 	}
-	if _, err := pbutil.NewWriter(objW).Write(w.root); err != nil {
-		return err
-	}
-	if err := objW.Close(); err != nil {
+	defer func() {
+		if retErr == nil {
+			retErr = objW.Close()
+		}
+	}()
+	// Handles the empty file set case.
+	if w.root == nil {
+		_, err = pbutil.NewWriter(objW).Write(&Index{})
 		return err
 	}
 	chunk := w.root.DataOp.DataRefs[0].ChunkInfo.Chunk
-	return w.chunks.CreateSemanticReference(w.ctx, w.path, chunk)
+	if err := w.chunks.CreateSemanticReference(w.ctx, w.path, chunk); err != nil {
+		return err
+	}
+	_, err = pbutil.NewWriter(objW).Write(w.root)
+	return err
 }
