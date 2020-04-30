@@ -312,9 +312,8 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 	}
 	if req.URL != "" {
 		return r.startFromURL(req.URL)
-	} else {
-		return r.start(req.Op)
 	}
+	return r.start(req.Op)
 }
 
 // restoreCtx holds the partial results needed to restore a stream of ops to
