@@ -265,14 +265,14 @@ func (wc *checkedClient) Reader(ctx context.Context, name string, offset uint64,
 	if err != nil {
 		// Enforce that clients return either an error or a reader, not both
 		if rc != nil {
-			return nil, errors.Wrap(err, "object client Reader() returned a reader and an error")
+			return nil, fmt.Errorf("object client Reader() returned a reader and an error: %v", err)
 		}
 		return nil, err
 	}
 
 	// Enforce that clients return either an error or a reader, not neither
 	if rc == nil {
-		return nil, errors.New("object client Reader() returned no reader and no error")
+		return nil, fmt.Errorf("object client Reader() returned no reader and no error")
 	}
 
 	if size != 0 {
