@@ -1195,6 +1195,7 @@ func (d *driver) makeCommit(
 		}
 	case !started.IsZero() && !finished.IsZero():
 		if finished.Before(started) {
+			logrus.Warnf("attempted to create commit with finish time %[1]v that is before start time %[2]v, resetting start time to %[1]v", finished, started)
 			started = finished // prevent finished < started
 		}
 	}
