@@ -424,7 +424,7 @@ func (r *restoreCtx) validateAndApplyOp(op *admin.Op) error {
 	case v1_10:
 		return r.applyOp1_10(op.Op1_10)
 	default:
-		return errors.New("unrecognized stream version")
+		return errors.Errorf("unrecognized stream version: %s", r.streamVersion)
 	}
 }
 
