@@ -1402,7 +1402,7 @@ func (d *driver) makeCommit(
 		}
 		// fail if the parent commit has not been finished
 		if parentCommitInfo.Finished == nil {
-			return nil, errors.Errorf("parent commit %s has not been finished", parent.ID)
+			return nil, errors.Errorf("parent commit %s@%s has not been finished", parent.Repo.Name, parent.ID)
 		}
 		if err := commits.Update(parent.ID, parentCommitInfo, func() error {
 			newCommitInfo.ParentCommit = parent
