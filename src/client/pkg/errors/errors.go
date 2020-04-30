@@ -16,6 +16,10 @@ var (
 	Errorf = errors.Errorf
 	// Unwrap returns the underlying wrapped error if it exists, or nil otherwise.
 	Unwrap = errors.Unwrap
+	// Is reports whether any error in err's chain matches target. An error is
+	// considered to match a target if it is equal to that target or if it
+	// implements a method `Is(error) bool` such that `Is(target)` returns true.
+	Is = errors.Is
 	// Wrap returns an error annotating err with a stack trace
 	// at the point Wrap is called, and the supplied message.
 	// If err is nil, Wrap returns nil.

@@ -139,6 +139,9 @@ type FeatureFlags struct {
 const (
 	// UploadConcurrencyLimitEnvVar is the environment variable for the upload concurrency limit.
 	UploadConcurrencyLimitEnvVar = "STORAGE_UPLOAD_CONCURRENCY_LIMIT"
+
+	// PutFileConcurrencyLimitEnvVar is the environment variable for the PutFile concurrency limit.
+	PutFileConcurrencyLimitEnvVar = "STORAGE_PUT_FILE_CONCURRENCY_LIMIT"
 )
 
 const (
@@ -146,11 +149,15 @@ const (
 	// (bryce) this default is set here and in the service env config, need to figure out how to refactor
 	// this to be in one place.
 	DefaultUploadConcurrencyLimit = 100
+
+	// DefaultPutFileConcurrencyLimit is the default maximum number of concurrent files that can be uploaded over GRPC or downloaded from external sources (ex. HTTP or blob storage).
+	DefaultPutFileConcurrencyLimit = 100
 )
 
 // StorageOpts are options that are applicable to the storage layer.
 type StorageOpts struct {
-	UploadConcurrencyLimit int
+	UploadConcurrencyLimit  int
+	PutFileConcurrencyLimit int
 }
 
 const (
@@ -528,6 +535,7 @@ func GetSecretEnvVars(storageBackend string) []v1.EnvVar {
 func getStorageEnvVars(opts *AssetOpts) []v1.EnvVar {
 	return []v1.EnvVar{
 		{Name: UploadConcurrencyLimitEnvVar, Value: strconv.Itoa(opts.StorageOpts.UploadConcurrencyLimit)},
+		{Name: PutFileConcurrencyLimitEnvVar, Value: strconv.Itoa(opts.StorageOpts.PutFileConcurrencyLimit)},
 	}
 }
 
