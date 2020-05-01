@@ -76,6 +76,10 @@ class MinikubeDriver(BaseDriver):
     async def start(self):
         await run("minikube", "start")
 
+        while (await run("minikube", "status", raise_on_error=False, capture_output=True)).rc != 0:
+            print("Waiting for minikube to come up...")
+            await asyncio.sleep(1)
+
     async def push_image(self, image):
         await run("./etc/kube/push-to-minikube.sh", image)
 
