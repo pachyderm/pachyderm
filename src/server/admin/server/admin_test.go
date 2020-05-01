@@ -424,7 +424,7 @@ func TestExtractRestoreFailedJobs(t *testing.T) {
 	// confirm that all jobs are in the expected state (there may be a short delay
 	// between the job's output commit closing and the job being marked
 	// successful, thus retry)
-	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+	require.NoErrorWithinTRetry(t, 90*time.Second, func() error {
 		jobInfos, err := c.ListJob("", nil, nil, -1, false)
 		if err != nil {
 			return err
@@ -441,9 +441,15 @@ func TestExtractRestoreFailedJobs(t *testing.T) {
 		}
 		require.Equal(t, 2, len(stateCounts))
 		// First job should succeed
-		require.Equal(t, 1, stateCounts[pps.JobState_JOB_SUCCESS])
+		require.Equal(t, 1, stateCounts[pps.JobState_JOB_SUCCESS],
+			"%d Successful jobs, and %d failed jobs",
+			stateCounts[pps.JobState_JOB_SUCCESS],
+			stateCounts[pps.JobState_JOB_FAILURE])
 		// Second job should fail
-		require.Equal(t, 1, stateCounts[pps.JobState_JOB_FAILURE])
+		require.Equal(t, 1, stateCounts[pps.JobState_JOB_FAILURE],
+			"%d Successful jobs, and %d failed jobs",
+			stateCounts[pps.JobState_JOB_SUCCESS],
+			stateCounts[pps.JobState_JOB_FAILURE])
 		return nil
 	})
 
