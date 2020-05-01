@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -662,16 +661,7 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commi
 		statsCommitInfo: statsCommitInfo,
 		logger:          reg.logger.WithJob(jobInfo.Job.ID),
 		ji:              jobInfo,
-	}
-
-	pj.cancel = func() {
-		// Make sure the job is always removed from the job chain - ignore the error
-		// if the job isn't present (i.e. it already succeeded or failed, or never
-		// made it into the job chain).
-		reg.jobChain.Fail(pj)
-		pj.logger.Logf("canceling job")
-		debug.PrintStack()
-		cancel()
+		cancel:          cancel,
 	}
 
 	switch {
