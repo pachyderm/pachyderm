@@ -719,6 +719,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	var registry string
 	var tlsCertKey string
 	var uploadConcurrencyLimit int
+	var putFileConcurrencyLimit int
 	var clusterDeploymentID string
 	var requireCriticalServersOnly bool
 	deploy := &cobra.Command{
@@ -748,7 +749,8 @@ If <object store backend> is \"s3\", then the arguments are:
 					NewStorageLayer: newStorageLayer,
 				},
 				StorageOpts: assets.StorageOpts{
-					UploadConcurrencyLimit: uploadConcurrencyLimit,
+					UploadConcurrencyLimit:  uploadConcurrencyLimit,
+					PutFileConcurrencyLimit: putFileConcurrencyLimit,
 				},
 				PachdShards:                uint64(pachdShards),
 				Version:                    version.PrettyPrintVersion(version.Version),
@@ -818,6 +820,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	deploy.PersistentFlags().StringVar(&tlsCertKey, "tls", "", "string of the form \"<cert path>,<key path>\" of the signed TLS certificate and private key that Pachd should use for TLS authentication (enables TLS-encrypted communication with Pachd)")
 	deploy.PersistentFlags().BoolVar(&newStorageLayer, "new-storage-layer", false, "(feature flag) Do not set, used for testing.")
 	deploy.PersistentFlags().IntVar(&uploadConcurrencyLimit, "upload-concurrency-limit", assets.DefaultUploadConcurrencyLimit, "The maximum number of concurrent object storage uploads per Pachd instance.")
+	deploy.PersistentFlags().IntVar(&putFileConcurrencyLimit, "put-file-concurrency-limit", assets.DefaultPutFileConcurrencyLimit, "The maximum number of files to upload or fetch from remote sources (HTTP, blob storage) using PutFile concurrently.")
 	deploy.PersistentFlags().StringVar(&clusterDeploymentID, "cluster-deployment-id", "", "Set an ID for the cluster deployment. Defaults to a random value.")
 	deploy.PersistentFlags().StringVarP(&contextName, "context", "c", "", "Name of the context to add to the pachyderm config. If unspecified, a context name will automatically be derived.")
 	deploy.PersistentFlags().BoolVar(&createContext, "create-context", false, "Create a context, even with `--dry-run`.")
