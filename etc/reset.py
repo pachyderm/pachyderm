@@ -28,18 +28,19 @@ class RedactedString(str):
 
 class BaseDriver:
     async def clear(self):
-        # ignore errors here because most likely no cluster is just deployed
-        # yet
+        # Check for the presence of the pachyderm IDE to see whether it should
+        # be undeployed too. Using kubectl rather than helm here because
+        # this'll work even if the helm CLI is not installed.
         undeploy_args = []
-        if (await run("helm", "status", "pachyderm-ide", raise_on_error=False)).rc == 0:
+        jupyterhub_apps = json.loads(await capture("kubectl", "get", "pod", "-lapp=jupyterhub", "-o", "json"))
+        if len(jupyterhub_apps["items"]) > 0:
             undeploy_args.append("--ide")
 
-        try:
-            await run("pachctl", "undeploy", "--metadata", *undeploy_args, stdin="y\n")
-        except:
-            pass
-
-        return await run("kubectl", "delete", ",".join(DELETABLE_RESOURCES), "-l", "suite=pachyderm")
+         # ignore errors here because most likely no cluster is just deployed
+         # yet
+        await run("pachctl", "undeploy", "--metadata", *undeploy_args, stdin="y\n", raise_on_error=False)
+        # clear out resources not removed from the undeploy process
+        await run("kubectl", "delete", ",".join(DELETABLE_RESOURCES), "-l", "suite=pachyderm")
 
     async def init_image_registry(self):
         pass
