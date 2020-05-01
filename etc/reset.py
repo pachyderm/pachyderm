@@ -30,8 +30,12 @@ class BaseDriver:
     async def clear(self):
         # ignore errors here because most likely no cluster is just deployed
         # yet
+        undeploy_args = []
+        if (await run("helm", "status", "pachyderm-ide", raise_on_error=False)).rc == 0:
+            undeploy_args.append("--ide")
+
         try:
-            await run("pachctl", "undeploy", "--metadata", "--ide", stdin="y\n")
+            await run("pachctl", "undeploy", "--metadata", *undeploy_args, stdin="y\n")
         except:
             pass
 
