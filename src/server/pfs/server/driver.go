@@ -112,6 +112,8 @@ type driver struct {
 	memoryLimiter *semaphore.Weighted
 	// put object limiter (useful for limiting put object requests)
 	putObjectLimiter limit.ConcurrencyLimiter
+	// limits the total parallelism for uploading files over GRPC or loading from external sources
+	putFileLimiter limit.ConcurrencyLimiter
 
 	// New storage layer.
 	storage         *fileset.Storage
@@ -154,13 +156,14 @@ func newDriver(
 		// Allow up to a third of the requested memory to be used for memory intensive operations
 		memoryLimiter:    semaphore.NewWeighted(memoryRequest / 3),
 		putObjectLimiter: limit.New(env.StorageUploadConcurrencyLimit),
+		putFileLimiter:   limit.New(env.StoragePutFileConcurrencyLimit),
 	}
 
 	// Create spec repo (default repo)
 	repo := client.NewRepo(ppsconsts.SpecRepo)
 	repoInfo := &pfs.RepoInfo{
 		Repo:    repo,
-		Created: now(),
+		Created: types.TimestampNow(),
 	}
 	if _, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
 		repos := d.repos.ReadWrite(stm)
@@ -236,14 +239,6 @@ func (d *driver) checkIsAuthorized(pachClient *client.APIClient, r *pfs.Repo, s 
 	return nil
 }
 
-func now() *types.Timestamp {
-	t, err := types.TimestampProto(time.Now())
-	if err != nil {
-		return &types.Timestamp{}
-	}
-	return t
-}
-
 func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, description string, update bool) error {
 	// Validate arguments
 	if repo == nil {
@@ -273,10 +268,6 @@ func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, d
 	} else if err == nil && !update {
 		return errors.Errorf("cannot create \"%s\" as it already exists", repo.Name)
 	}
-	created := now()
-	if err == nil {
-		created = existingRepoInfo.Created
-	}
 
 	// Create ACL for new repo
 	if authIsActivated {
@@ -297,8 +288,11 @@ func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, d
 
 	repoInfo := &pfs.RepoInfo{
 		Repo:        repo,
-		Created:     created,
+		Created:     types.TimestampNow(),
 		Description: description,
+	}
+	if update && existingRepoInfo.Created != nil {
+		repoInfo.Created = existingRepoInfo.Created
 	}
 	// Only Put the new repoInfo if something has changed.  This
 	// optimization is impactful because pps will frequently update the
@@ -1113,16 +1107,17 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 // ID can be passed in for transactions, which need to ensure the ID doesn't
 // change after the commit ID has been reported to a client.
 func (d *driver) startCommit(txnCtx *txnenv.TransactionContext, ID string, parent *pfs.Commit, branch string, provenance []*pfs.CommitProvenance, description string) (*pfs.Commit, error) {
-	return d.makeCommit(txnCtx, ID, parent, branch, provenance, nil, nil, nil, nil, nil, description, 0)
+	return d.makeCommit(txnCtx, ID, parent, branch, provenance, nil, nil, nil, nil, nil, description, time.Time{}, time.Time{}, 0)
 }
 
 func (d *driver) buildCommit(ctx context.Context, ID string, parent *pfs.Commit,
 	branch string, provenance []*pfs.CommitProvenance,
-	tree *pfs.Object, trees []*pfs.Object, datums *pfs.Object, sizeBytes uint64) (*pfs.Commit, error) {
+	tree *pfs.Object, trees []*pfs.Object, datums *pfs.Object,
+	started, finished time.Time, sizeBytes uint64) (*pfs.Commit, error) {
 	commit := &pfs.Commit{}
 	err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		var err error
-		commit, err = d.makeCommit(txnCtx, ID, parent, branch, provenance, tree, trees, datums, nil, nil, "", sizeBytes)
+		commit, err = d.makeCommit(txnCtx, ID, parent, branch, provenance, tree, trees, datums, nil, nil, "", started, finished, sizeBytes)
 		return err
 	})
 	return commit, err
@@ -1152,6 +1147,8 @@ func (d *driver) makeCommit(
 	recordFiles []string,
 	records []*pfs.PutFileRecords,
 	description string,
+	started time.Time,
+	finished time.Time,
 	sizeBytes uint64,
 ) (*pfs.Commit, error) {
 	// Validate arguments:
@@ -1175,12 +1172,44 @@ func (d *driver) makeCommit(
 	newCommitInfo := &pfs.CommitInfo{
 		Commit:      newCommit,
 		Origin:      &pfs.CommitOrigin{Kind: pfs.OriginKind_USER},
-		Started:     now(),
 		Description: description,
 	}
 	if branch != "" {
 		if err := ancestry.ValidateName(branch); err != nil {
 			return nil, err
+		}
+	}
+
+	// Set newCommitInfo.Started and possibly newCommitInfo.Finished. Enforce:
+	// 1) 'started' and 'newCommitInfo.Started' must be set
+	// 2) 'started' <= 'finished'
+	switch {
+	case started.IsZero() && finished.IsZero():
+		// set 'started' to Now() && leave 'finished' unset (open commit)
+		started = time.Now()
+	case started.IsZero() && !finished.IsZero():
+		// set 'started' to 'finished'
+		started = finished
+	case !started.IsZero() && finished.IsZero():
+		if now := time.Now(); now.Before(started) {
+			logrus.Warnf("attempted to start commit at future time %v, resetting start time to now (%v)", started, now)
+			started = now // prevent finished < started (if user finishes commit soon)
+		}
+	case !started.IsZero() && !finished.IsZero():
+		if finished.Before(started) {
+			logrus.Warnf("attempted to create commit with finish time %[1]v that is before start time %[2]v, resetting start time to %[1]v", finished, started)
+			started = finished // prevent finished < started
+		}
+	}
+	var err error
+	newCommitInfo.Started, err = types.TimestampProto(started)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not convert 'started' time")
+	}
+	if !finished.IsZero() {
+		newCommitInfo.Finished, err = types.TimestampProto(finished)
+		if err != nil {
+			return nil, errors.Wrapf(err, "could not convert 'finished' time")
 		}
 	}
 
@@ -1233,9 +1262,9 @@ func (d *driver) makeCommit(
 				}
 			}
 
-			// if the passed in provenance for the commit itself includes a spec
-			// commit, (note the difference from the prev condition) then it was
-			// created by pps, and so we want to allow it to commit to output branches
+			// if 'provenance' includes a spec commit, (note the difference from the
+			// prev condition) then it was created by pps and is allowed to be in an
+			// output branch
 			hasSpec := false
 			for _, prov := range provenance {
 				if prov.Commit.Repo.Name == ppsconsts.SpecRepo {
@@ -1263,7 +1292,7 @@ func (d *driver) makeCommit(
 	// 1. Write 'newCommit' to 'openCommits' collection OR
 	// 2. Finish 'newCommit' (if treeRef != nil or records != nil); see
 	//    "FinishCommit case" above)
-	if treeRef != nil || treesRefs != nil || records != nil {
+	if treeRef != nil || treesRefs != nil || records != nil || newCommitInfo.Finished != nil {
 		if records != nil {
 			parentTree, err := d.getTreeForCommit(txnCtx, parent)
 			if err != nil {
@@ -1289,12 +1318,14 @@ func (d *driver) makeCommit(
 			sizeBytes = uint64(tree.FSSize())
 		}
 
-		// now 'treeRef' is guaranteed to be set
+		// at this point, either 'treeRef' is set OR 'newCommit' is tree-less
 		newCommitInfo.Tree = treeRef
 		newCommitInfo.Trees = treesRefs
 		newCommitInfo.Datums = datumsRef
 		newCommitInfo.SizeBytes = sizeBytes
-		newCommitInfo.Finished = now()
+		if newCommitInfo.Finished == nil {
+			newCommitInfo.Finished = types.TimestampNow()
+		}
 
 		// If we're updating the master branch, also update the repo size (see
 		// "Update repoInfo" below)
@@ -1375,7 +1406,7 @@ func (d *driver) makeCommit(
 		}
 		// fail if the parent commit has not been finished
 		if parentCommitInfo.Finished == nil {
-			return nil, errors.Errorf("parent commit %s has not been finished", parent.ID)
+			return nil, errors.Errorf("parent commit %s@%s has not been finished", parent.Repo.Name, parent.ID)
 		}
 		if err := commits.Update(parent.ID, parentCommitInfo, func() error {
 			newCommitInfo.ParentCommit = parent
@@ -1481,7 +1512,7 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 
 		commitInfo.SizeBytes = uint64(finishedTree.FSSize())
 	}
-	commitInfo.Finished = now()
+	commitInfo.Finished = types.TimestampNow()
 	if err := d.updateProvenanceProgress(txnCtx, !empty, commitInfo); err != nil {
 		return err
 	}
@@ -1502,7 +1533,7 @@ func (d *driver) finishOutputCommit(txnCtx *txnenv.TransactionContext, commit *p
 	commitInfo.Trees = trees
 	commitInfo.Datums = datums
 	commitInfo.SizeBytes = size
-	commitInfo.Finished = now()
+	commitInfo.Finished = types.TimestampNow()
 	if err := d.updateProvenanceProgress(txnCtx, true, commitInfo); err != nil {
 		return err
 	}
@@ -1728,7 +1759,7 @@ nextSubvBI:
 		newCommitInfo := &pfs.CommitInfo{
 			Commit:  newCommit,
 			Origin:  &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
-			Started: now(),
+			Started: types.TimestampNow(),
 		}
 
 		// Set 'newCommit's ParentCommit, 'branch.Head's ChildCommits and 'branch.Head'
@@ -2866,7 +2897,7 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 		// a commit with no ID, that ID will be filled in with the head of
 		// branch (if it exists).
 		return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-			_, err := d.makeCommit(txnCtx, "", client.NewCommit(repo, ""), branch, nil, nil, nil, nil, putFilePaths, putFileRecords, "", 0)
+			_, err := d.makeCommit(txnCtx, "", client.NewCommit(repo, ""), branch, nil, nil, nil, nil, putFilePaths, putFileRecords, "", time.Time{}, time.Time{}, 0)
 			return err
 		})
 	}
@@ -3295,7 +3326,7 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 	// dst is finished => all PutFileRecords are in 'records'--put in a new commit
 	if !dstIsOpenCommit {
 		return d.txnEnv.WithWriteContext(pachClient.Ctx(), func(txnCtx *txnenv.TransactionContext) error {
-			_, err = d.makeCommit(txnCtx, "", client.NewCommit(dst.Commit.Repo.Name, ""), branch, nil, nil, nil, nil, paths, records, "", 0)
+			_, err = d.makeCommit(txnCtx, "", client.NewCommit(dst.Commit.Repo.Name, ""), branch, nil, nil, nil, nil, paths, records, "", time.Time{}, time.Time{}, 0)
 			return err
 		})
 	}
@@ -3406,6 +3437,14 @@ func (d *driver) downloadTree(pachClient *client.APIClient, object *pfs.Object, 
 	if err != nil {
 		return nil, err
 	}
+
+	// Ensure we close the file if we've errored
+	defer func() {
+		if retErr != nil {
+			f.Close()
+		}
+	}()
+
 	// Mark the file for removal (Linux won't remove it until we close the file)
 	if err := os.Remove(name); err != nil {
 		return nil, err
@@ -4192,7 +4231,7 @@ func (d *driver) deleteFile(pachClient *client.APIClient, file *pfs.File) error 
 			return pfsserver.ErrCommitFinished{file.Commit}
 		}
 		return d.txnEnv.WithWriteContext(pachClient.Ctx(), func(txnCtx *txnenv.TransactionContext) error {
-			_, err := d.makeCommit(txnCtx, "", client.NewCommit(file.Commit.Repo.Name, ""), branch, nil, nil, nil, nil, []string{file.Path}, []*pfs.PutFileRecords{&pfs.PutFileRecords{Tombstone: true}}, "", 0)
+			_, err := d.makeCommit(txnCtx, "", client.NewCommit(file.Commit.Repo.Name, ""), branch, nil, nil, nil, nil, []string{file.Path}, []*pfs.PutFileRecords{&pfs.PutFileRecords{Tombstone: true}}, "", time.Time{}, time.Time{}, 0)
 			return err
 		})
 	}
@@ -4501,7 +4540,6 @@ func (s *putFileServer) Peek() (*pfs.PutFileRequest, error) {
 }
 
 func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_PutFileServer, f func(*pfs.PutFileRequest, io.Reader) error) (oneOff bool, repo string, branch string, err error) {
-	limiter := limit.New(client.DefaultMaxConcurrentStreams)
 	var pr *io.PipeReader
 	var pw *io.PipeWriter
 	var req *pfs.PutFileRequest
@@ -4573,7 +4611,7 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 				case "http":
 					fallthrough
 				case "https":
-					limiter.Acquire()
+					d.putFileLimiter.Acquire()
 					resp, err := http.Get(req.Url)
 					if err != nil {
 						return false, "", "", err
@@ -4581,7 +4619,7 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 						return false, "", "", errors.Errorf("error retrieving content from %q: %s", req.Url, resp.Status)
 					}
 					eg.Go(func() (retErr error) {
-						defer limiter.Release()
+						defer d.putFileLimiter.Release()
 						defer func() {
 							if err := resp.Body.Close(); err != nil && retErr == nil {
 								retErr = err
@@ -4609,13 +4647,13 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 							}
 							req := *req // copy req so we can make changes
 							req.File = client.NewFile(req.File.Commit.Repo.Name, req.File.Commit.ID, filepath.Join(req.File.Path, strings.TrimPrefix(name, path)))
-							limiter.Acquire()
+							d.putFileLimiter.Acquire()
 							r, err := objClient.Reader(server.Context(), name, 0, 0)
 							if err != nil {
 								return err
 							}
 							eg.Go(func() (retErr error) {
-								defer limiter.Release()
+								defer d.putFileLimiter.Release()
 								defer func() {
 									if err := r.Close(); err != nil && retErr == nil {
 										retErr = err
@@ -4628,13 +4666,13 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 							return false, "", "", err
 						}
 					} else {
-						limiter.Acquire()
+						d.putFileLimiter.Acquire()
 						r, err := objClient.Reader(server.Context(), url.Object, 0, 0)
 						if err != nil {
 							return false, "", "", err
 						}
 						eg.Go(func() (retErr error) {
-							defer limiter.Release()
+							defer d.putFileLimiter.Release()
 							defer func() {
 								if err := r.Close(); err != nil && retErr == nil {
 									retErr = err
@@ -4652,9 +4690,9 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 			}
 			pr, pw = io.Pipe()
 			pr := pr
-			limiter.Acquire()
+			d.putFileLimiter.Acquire()
 			eg.Go(func() error {
-				defer limiter.Release()
+				defer d.putFileLimiter.Release()
 				if err := f(req, pr); err != nil {
 					// needed so the parent goroutine doesn't block
 					pr.CloseWithError(err)

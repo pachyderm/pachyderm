@@ -1,48 +1,24 @@
 #!/usr/bin/env bash
-COMPILE_IMAGE="pachyderm/compile:$(cat etc/compile/GO_VERSION)"
+set -e
+
+REPO_DIR=$(git rev-parse --show-toplevel)
+COMPILE_DIR=$(dirname "${BASH_SOURCE[0]}")
+GO_VERSION=$(cat "${COMPILE_DIR}/GO_VERSION")
 VERSION_ADDITIONAL=-$(git log --pretty=format:%H | head -n 1)
 LD_FLAGS="-X github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=${VERSION_ADDITIONAL}"
 
-if [[ -z "${1}" ]]; then
-  echo "Name of target must be specified, usage: ${0} ( worker | pachd )"
-  exit 1
-fi
-
-TYPE=$1
-NAME=${TYPE}_compile
-
 DOCKER_OPTS=()
-# TODO: this is probably needed for the Makefile build to run worker/pachd in parallel
-# DOCKER_OPTS+=("-d")
-DOCKER_OPTS+=("--name ${NAME}")
-DOCKER_OPTS+=("-v ${PWD}:/pachyderm")
-DOCKER_OPTS+=("-v ${HOME}/.cache/go-build:/root/.cache/go-build")
+DOCKER_OPTS+=("--build-arg=GO_VERSION=${GO_VERSION}")
+DOCKER_OPTS+=("--build-arg=LD_FLAGS=${LD_FLAGS}")
+DOCKER_OPTS+=("--memory=3gb")
 
 if [[ "${OS}" == "Windows_NT" ]]; then
-  # Convert GOPATH from a normal windows path to a bash path
-  DOCKER_OPTS+=("-v $(realpath "${GOPATH}")/pkg:/go/pkg")
-
   # On windows, we need to copy over the environment variables for connecting to docker
   eval "$(minikube docker-env --shell bash)"
-  DOCKER_OPTS+=("--env DOCKER_HOST=${DOCKER_HOST}")
-  DOCKER_OPTS+=("--env CALLING_OS=Windows")
-
-  if [[ "${DOCKER_TLS_VERIFY}" -eq "1" ]]; then
-    DOCKER_OPTS+=("--env DOCKER_TLS_VERIFY=1")
-    DOCKER_OPTS+=("-v $(realpath "${DOCKER_CERT_PATH}"):/mnt/docker-certs")
-    DOCKER_OPTS+=("--env DOCKER_CERT_PATH=/mnt/docker-certs")
-  fi
-
-  # On windows, containers have a default 1GB memory limit, bump it because that is not enough
-  DOCKER_OPTS+=("--memory 3gb")
-else
-  # On linux we can just expose the docker socket
-  DOCKER_OPTS+=("-v /var/run/docker.sock:/var/run/docker.sock")
-  DOCKER_OPTS+=("-v ${GOPATH}/pkg:/go/pkg")
 fi
 
-docker stop "${NAME}" > /dev/null
-docker rm "${NAME}" > /dev/null
-
-MSYS_NO_PATHCONV=1 docker run "${DOCKER_OPTS[@]}" "${COMPILE_IMAGE}" \
-  /pachyderm/etc/compile/compile.sh "${TYPE}" "${LD_FLAGS}"
+DOCKER_BUILDKIT=1 docker build "${DOCKER_OPTS[@]}" --progress plain -t pachyderm_build "${REPO_DIR}"
+docker build "${DOCKER_OPTS[@]}" -t pachyderm/pachd "${REPO_DIR}/etc/pachd"
+docker tag pachyderm/pachd pachyderm/pachd:local
+docker build "${DOCKER_OPTS[@]}" -t pachyderm/worker "${REPO_DIR}/etc/worker"
+docker tag pachyderm/worker pachyderm/worker:local

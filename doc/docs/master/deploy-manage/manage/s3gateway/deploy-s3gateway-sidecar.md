@@ -28,7 +28,7 @@ pipeline and shut down when the pipeline is destroyed.
 The following diagram shows communication between the S3 gateway
 deployed in a sidecar and the Kubeflow pod.
 
-![Kubeflow S3 gateway](../../../../../assets/images/d_kubeflow_sidecar.png)
+![Kubeflow S3 gateway](../../../assets/images/d_kubeflow_sidecar.png)
 
 ## Limitations
 

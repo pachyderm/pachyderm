@@ -27,7 +27,8 @@ Pachyderm provides the following options to load data:
 development, integration with CI/CD, and for users who prefer scripting.
 See [Load Your Data by Using `pachctl`](#load-your-data-by-using-pachctl).
 
-* By creating a pipeline to pull data from an outside source.
+* By creating a special type of pipeline that pulls data from an
+outside source.
 Because Pachyderm pipelines can be any arbitrary code that runs
 in a Docker container, you can call out to external APIs or data
 sources and pull in data from there. Your pipeline code can be
@@ -36,7 +37,7 @@ continuously with the following special types of pipelines:
 
   * **Spout:** A spout enables you to continuously load
   streaming data from a streaming data source, such as a messaging system
-  or message queue into Pachyderm.
+  or message queue into Pachyderm. 
   See [Spout](../concepts/pipeline-concepts/pipeline/spout.md).
 
   * **Cron:** A cron triggers your pipeline periodically based on the

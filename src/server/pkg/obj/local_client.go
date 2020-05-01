@@ -11,15 +11,17 @@ import (
 )
 
 // NewLocalClient returns a Client that stores data on the local file system
-func NewLocalClient(root string) (Client, error) {
+func NewLocalClient(root string) (c Client, err error) {
+	defer func() { c = newCheckedClient(c) }()
+
 	if err := os.MkdirAll(root, 0755); err != nil {
 		return nil, err
 	}
-	c := &localClient{filepath.Clean(root)}
+	client := &localClient{filepath.Clean(root)}
 	if monkeyTest {
-		return &monkeyClient{c}, nil
+		return &monkeyClient{client}, nil
 	}
-	return c, nil
+	return client, nil
 }
 
 type localClient struct {
