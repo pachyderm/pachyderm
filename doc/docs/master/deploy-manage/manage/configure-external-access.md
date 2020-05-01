@@ -15,7 +15,8 @@ including the following:
 * Through a Service with `type: NodePort`. A NodePort service provides basic
 access to services. By default, the `pachd` service is deployed as `NodePort`
 to simplify interaction with your localhost. `NodePort` is a limited solution
-that might not be reliable in production deployments. 
+that might not be considered reliable or secure enough in production
+deployments. 
 
 * Through a Service with `type: LoadBalancer`. A Kubernetes service with
 `type: LoadBalancer` can perform basic load balancing. Typically, if you
@@ -54,14 +55,14 @@ following security requirements to protect your data:
   Pachyderm authentication must be enabled and access provided to a
   verified list of users. Pachyderm authentication is an additional
   security layer to protect your data from malicious attacks.
-  If you cannot use Pachyderm authentication providers, you need to
-  use Pachyderm port-forwarding. Exposing Pachyderm services through
-  an ingress without Pachyderm authentication might result in your
-  data being compromised.
+  If you cannot use Pachyderm authentication providers, we highly recommend to
+  use Pachyderm port-forwarding for security reasons. Exposing Pachyderm
+  services through an ingress without Pachyderm authentication might result in
+  your Pachyderm and Kubernetes clusters being compromised, along with your data.
 
 * **The ingress controller must support gRPC protocol and websockets**
 
-  Some of the ingress controllers that support gRPC include NGNIX and traefik.
+  Some of the ingress controllers that support gRPC include NGNIX and Traefik.
 
 ## Ingress Configuration Workflow
 
@@ -82,7 +83,7 @@ cluster includes the following steps:
   * (Recommended) Deploy an ingress controller and configure an ingress
   resource.
 
-    Pachyderm supports the [traefik](https://docs.traefik.io/)
+    Pachyderm supports the [Traefik](https://docs.traefik.io/)
     ingress controller. For more information, see
     [Expose a Pachyderm UI Through an Ingress](../expose-pach-ui-ingress/).
 

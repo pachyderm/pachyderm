@@ -13,28 +13,33 @@ See [Pachyderm Ingress Requirements](../configure-external-access/#pachyderm-ing
 
 In addition, follow these recommendations:
 
-* `DaemonSets` are generally more preferred than `Deployments`.
+* Follow the recommendations in [the Traefik Kubernetes installation documentation](https://docs.traefik.io/v1.7/user-guide/kubernetes/#deploy-traefik-using-a-deployment-or-daemonset)  that are appropriate for your situation
+for installing Traefik.
 * You can deploy the `Ingress` resource in any namespace.
 * You need to have administrative access to the hostname that you
 specify in the `hostname` field in the `Ingress` resource `.yaml`.
 * Do not create routes (`paths`) with `pachd` services or S3 services
 in the `Ingress` resource `.yaml`.
 
-This section provides an example of how to deploy a traefik ingress
+This section provides an example of how to deploy a Traefik ingress
 controller in minikube.
 
 !!! note
-    If you cannot use traefik, you can try to deploy another ingress
+    If you cannot use Traefik, you can try to deploy another ingress
     controller, such as NGINX, using the provided example.
 
-To expose the Pachyderm UI through a traefik resource, complete
+To expose the Pachyderm UI through a Traefik resource, complete
 the following steps:
 
 1. Deploy a Pachyderm cluster to a cloud provider of your choice as
 described in [Deploy Pachyderm](../../deploy/).
 For production deployments, deploy with the `--tls` flag.
 1. Enable authentication as described in [Configure Access Controls](../../../enterprise/auth/auth/).
-1. Deploy the traefik ingress controller:
+1. Deploy the Traefik ingress controlleri as described in the [Traefik Documentation](https://docs.traefik.io/v1.7/user-guide/kubernetes/):
+
+   **Note:** These commands deploy an example Traefik ingress that is
+   valid at the moment of this writing. For the latest version
+   of Traefik controller, see the Traefik documentation.
 
    ```bash
    kubectl apply -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/traefik-ingress/roles.yaml
@@ -59,13 +64,6 @@ metadata file. You need to adjust it to your deployment:
    kubectl apply -f traefik-ingress-minikube.yaml
    ```
 
-   Make sure that you modify the following parameters:
-
-   * `hostname` — an address at which the Pachyderm UI will be
-   available. For example, `example.com`.
-   * `port` — the ports on which the `grpc-proxy` and the `dash`
-   application will run. It can be the same or different ports.
-
-   After you deploy the traefik ingress, the Pachyderm service
-   must be available at the `<hostname>:<port>` that you have
+   After you deploy the Traefik ingress, the Pachyderm service
+   should be available at the `<hostname>:<port>` that you have
    specified.
