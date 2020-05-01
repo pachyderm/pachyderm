@@ -7,9 +7,6 @@ package fuse
 import (
 	"context"
 	"sync"
-
-	//	"time"
-
 	"syscall"
 
 	"github.com/hanwen/go-fuse/v2/fs"
