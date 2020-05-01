@@ -8,9 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/snappy"
-	"golang.org/x/net/context"
-
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/admin"
@@ -25,6 +22,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
+
+	"github.com/golang/snappy"
+	"github.com/sirupsen/logrus"
+	"golang.org/x/net/context"
 )
 
 var objHashRE = regexp.MustCompile("[0-9a-f]{128}")
@@ -173,6 +174,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			// Restore must not create any open commits (which can interfere with
 			// restoring other commits), so started and finished are always set
 			if ci.Finished == nil {
+				logrus.Warnf("Commit %q is not finished, so its data cannot be extracted, and any data it contains will not be restored", ci.Commit.ID)
 				ci.Finished = types.TimestampNow()
 			}
 			return writeOp(&admin.Op{Op1_10: &admin.Op1_10{Commit: &pfs.BuildCommitRequest{
