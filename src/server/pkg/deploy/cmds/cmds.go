@@ -49,8 +49,8 @@ var (
 
 const (
 	defaultDashImage       = "pachyderm/dash:0.5.48"
-	defaultIDEHubImage     = "pachyderm/ide-hub:1.1.0"
-	defaultIDEUserImage    = "pachyderm/ide-user:1.1.0"
+	defaultIDEHubImage     = "pachyderm/ide-hub:1.0.0"
+	defaultIDEUserImage    = "pachyderm/ide-user:1.0.0"
 	jupyterhubChartVersion = "0.8.2"
 )
 
