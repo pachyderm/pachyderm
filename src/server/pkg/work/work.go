@@ -185,12 +185,12 @@ func (m *Master) RunSubtasksChan(subtaskChan chan *Task, collectFunc CollectFunc
 		})
 	})
 	defer func() {
+		close(done)
 		// If the subtasks have already been collected (or there were none), then
 		// cancel the ctx for the collect goroutine.
 		if atomic.LoadInt64(&count) == 0 {
 			cancel()
 		}
-		close(done)
 		if err := eg.Wait(); retErr == nil && ctx.Err() != context.Canceled {
 			retErr = err
 		}
