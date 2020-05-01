@@ -26,7 +26,7 @@ this example will focus on the minimum needed to work with Pachyderm's S3 Gatewa
 
 ## mnist with TFJob and Pachyderm
 
-[This example](https://github.com/pachyderm/pachyderm/tree/master/examples/kubeflow/mnist_with_tfjob) 
+[This example](https://github.com/pachyderm/pachyderm/tree/master/examples/kubeflow/tfjob) 
 uses the canonical mnist dataset, Kubeflow, TFJobs, and Pachyderm to demonstrate an end-to-end machine learning workflow with data provenance.
 
 

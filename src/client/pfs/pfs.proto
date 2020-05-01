@@ -255,6 +255,11 @@ message BuildCommitRequest {
   // ID sets the ID of the created commit.
   string ID = 5;
   uint64 size_bytes = 9;
+  // 'started' and 'finished' are set by Restore() when repopulating old
+  // commits. If 'finished' is set, the commit being built is always marked
+  // finished.
+  google.protobuf.Timestamp started = 10;
+  google.protobuf.Timestamp finished = 11;
 }
 
 message FinishCommitRequest {
@@ -494,7 +499,7 @@ message FsckResponse {
 
 message FileInfoNewStorage {
   File file = 1;
-  string hash = 2; 
+  string hash = 2;
 }
 
 message PutTarRequest {
@@ -607,7 +612,7 @@ service API {
   // Fsck does a file system consistency check for pfs
   rpc Fsck(FsckRequest) returns (stream FsckResponse) {}
 
-  // RPCs specific to the new storage layer. 
+  // RPCs specific to the new storage layer.
   rpc PutTar(stream PutTarRequest) returns (google.protobuf.Empty) {}
   rpc GetTar(GetTarRequest) returns (stream google.protobuf.BytesValue) {}
   // Refer to the GetTarConditionalRequest / GetTarConditionalResponse message definitions for the protocol.

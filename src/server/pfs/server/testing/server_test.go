@@ -4077,6 +4077,51 @@ func TestBuildCommit(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// TestBuildCommitFinished tests that calling BuildCommit with req.Finished set
+// causes the resulting to have Finished set (fixing bug Extract/Restore #4695)
+func TestBuildCommitFinished(t *testing.T) {
+	t.Parallel()
+	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		if testing.Short() {
+			t.Skip("Skipping integration tests in short mode")
+		}
+
+		repo := tu.UniqueString("TestBuildCommit")
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+
+		var err error
+		// parent for initial commit, updated after each BuildCommit RPC. A commit
+		// with no ID is only useful as the 'parent' argument to BuildCommit, but is
+		// not use elsewhere in Pachyderm.
+		parent := pclient.NewCommit(repo, "")
+		for i := 0; i < 3; i++ {
+			parent, err = env.PachClient.PfsAPIClient.BuildCommit(
+				env.PachClient.Ctx(),
+				&pfs.BuildCommitRequest{
+					Parent:    parent,
+					Branch:    "master",
+					Finished:  types.TimestampNow(),
+					SizeBytes: 0,
+				},
+			)
+			require.NoError(t, err)
+		}
+
+		cis, err := env.PachClient.ListCommit(repo, "master", "", 0)
+		require.NoError(t, err)
+		parent = nil
+		for _, ci := range cis {
+			require.NotNil(t, ci.Finished)
+			if parent != nil {
+				require.Equal(t, parent.ID, ci.Commit.ID)
+			}
+			parent = ci.ParentCommit
+		}
+		require.Nil(t, parent) // final commit in result set is 1st commit in branch
+		return nil
+	}))
+}
+
 func TestPropagateCommit(t *testing.T) {
 	t.Parallel()
 	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {

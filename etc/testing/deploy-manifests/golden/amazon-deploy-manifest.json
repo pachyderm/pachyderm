@@ -597,7 +597,7 @@
                 "value": "false"
               },
               {
-                "name": "PACHD_POD_NAMESPACE",
+                "name": "PACH_NAMESPACE",
                 "valueFrom": {
                   "fieldRef": {
                     "apiVersion": "v1",
@@ -920,6 +920,10 @@
               {
                 "name": "STORAGE_UPLOAD_CONCURRENCY_LIMIT",
                 "value": "100"
+              },
+              {
+                "name": "STORAGE_PUT_FILE_CONCURRENCY_LIMIT",
+                "value": "100"
               }
             ],
             "resources": {
@@ -1030,7 +1034,7 @@
         "containers": [
           {
             "name": "dash",
-            "image": "pachyderm/dash:1.9.0",
+            "image": "pachyderm/dash:0.5.48",
             "ports": [
               {
                 "name": "dash-http",

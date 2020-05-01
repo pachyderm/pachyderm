@@ -18,7 +18,7 @@ type GlobalConfiguration struct {
 	PeerPort      uint16 `env:"PEER_PORT,default=653"`
 	S3GatewayPort uint16 `env:"S3GATEWAY_PORT,default=600"`
 	PPSEtcdPrefix string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
-	Namespace     string `env:"PACHD_POD_NAMESPACE,default=default"`
+	Namespace     string `env:"PACH_NAMESPACE,default=default"`
 	StorageRoot   string `env:"PACH_ROOT,default=/pach"`
 
 	// PPSSpecCommitID is only set for workers and sidecar pachd instances.
@@ -62,15 +62,19 @@ type PachdSpecificConfiguration struct {
 	WorkerUsesRoot             bool   `env:"WORKER_USES_ROOT,default=true"`
 	DeploymentID               string `env:"CLUSTER_DEPLOYMENT_ID,default="`
 	RequireCriticalServersOnly bool   `env:"REQUIRE_CRITICAL_SERVERS_ONLY",default=false"`
+	MetricsEndpoint            string `env:"METRICS_ENDPOINT",default="`
 }
 
 // StorageConfiguration contains the storage configuration.
 type StorageConfiguration struct {
-	StorageMemoryThreshold        int64 `env:"STORAGE_MEMORY_THRESHOLD"`
-	StorageShardThreshold         int64 `env:"STORAGE_SHARD_THRESHOLD"`
-	StorageLevelZeroSize          int64 `env:"STORAGE_LEVEL_ZERO_SIZE"`
-	StorageLevelSizeBase          int   `env:"STORAGE_LEVEL_SIZE_BASE"`
-	StorageUploadConcurrencyLimit int   `env:"STORAGE_UPLOAD_CONCURRENCY_LIMIT,default=100"`
+	StorageMemoryThreshold         int64  `env:"STORAGE_MEMORY_THRESHOLD"`
+	StorageShardThreshold          int64  `env:"STORAGE_SHARD_THRESHOLD"`
+	StorageLevelZeroSize           int64  `env:"STORAGE_LEVEL_ZERO_SIZE"`
+	StorageLevelSizeBase           int    `env:"STORAGE_LEVEL_SIZE_BASE"`
+	StorageUploadConcurrencyLimit  int    `env:"STORAGE_UPLOAD_CONCURRENCY_LIMIT,default=100"`
+	StoragePutFileConcurrencyLimit int    `env:"STORAGE_PUT_FILE_CONCURRENCY_LIMIT,default=100"`
+	StorageGCPolling               string `env:"STORAGE_GC_POLLING"`
+	StorageGCTimeout               string `env:"STORAGE_GC_TIMEOUT"`
 }
 
 // WorkerFullConfiguration contains the full worker configuration.

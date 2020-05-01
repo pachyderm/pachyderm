@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/metrics"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 
 	"github.com/sirupsen/logrus"
@@ -169,7 +170,13 @@ func (a *apiServer) StartCommitInTransaction(
 		id = commit.ID
 	}
 	if a.env.NewStorageLayer {
-		return a.driver.startCommitNewStorageLayer(txnCtx, id, request.Parent, request.Branch, request.Provenance, request.Description)
+		var commit *pfs.Commit
+		err := metrics.ReportRequest(func() error {
+			var err error
+			commit, err = a.driver.startCommitNewStorageLayer(txnCtx, id, request.Parent, request.Branch, request.Provenance, request.Description)
+			return err
+		})
+		return commit, err
 	}
 	return a.driver.startCommit(txnCtx, id, request.Parent, request.Branch, request.Provenance, request.Description)
 }
@@ -195,7 +202,24 @@ func (a *apiServer) BuildCommit(ctx context.Context, request *pfs.BuildCommitReq
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	commit, err := a.driver.buildCommit(ctx, request.ID, request.Parent, request.Branch, request.Provenance, request.Tree, request.Trees, request.Datums, request.SizeBytes)
+	var err error
+	var started, finished time.Time
+	if request.Started != nil {
+		started, err = types.TimestampFromProto(request.Started)
+		if err != nil {
+			return nil, fmt.Errorf("could not parse timestamp %q: %v",
+				types.TimestampString(request.Started), err)
+		}
+	}
+	if request.Finished != nil {
+		finished, err = types.TimestampFromProto(request.Finished)
+		if err != nil {
+			return nil, fmt.Errorf("could not parse timestamp %q: %v",
+				types.TimestampString(request.Finished), err)
+		}
+	}
+
+	commit, err := a.driver.buildCommit(ctx, request.ID, request.Parent, request.Branch, request.Provenance, request.Tree, request.Trees, request.Datums, started, finished, request.SizeBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +233,9 @@ func (a *apiServer) FinishCommitInTransaction(
 	request *pfs.FinishCommitRequest,
 ) error {
 	if a.env.NewStorageLayer {
-		return a.driver.finishCommitNewStorageLayer(txnCtx, request.Commit, request.Description)
+		return metrics.ReportRequest(func() error {
+			return a.driver.finishCommitNewStorageLayer(txnCtx, request.Commit, request.Description)
+		})
 	}
 	if request.Trees != nil {
 		return a.driver.finishOutputCommit(txnCtx, request.Commit, request.Trees, request.Datums, request.SizeBytes)

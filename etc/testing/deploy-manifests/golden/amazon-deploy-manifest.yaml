@@ -372,7 +372,7 @@ spec:
           value: "false"
         - name: PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING
           value: "false"
-        - name: PACHD_POD_NAMESPACE
+        - name: PACH_NAMESPACE
           valueFrom:
             fieldRef:
               apiVersion: v1
@@ -565,6 +565,8 @@ spec:
               optional: true
         - name: STORAGE_UPLOAD_CONCURRENCY_LIMIT
           value: "100"
+        - name: STORAGE_PUT_FILE_CONCURRENCY_LIMIT
+          value: "100"
         image: pachyderm/pachd:1.10.0
         imagePullPolicy: IfNotPresent
         name: pachd
@@ -662,7 +664,7 @@ spec:
       namespace: default
     spec:
       containers:
-      - image: pachyderm/dash:1.9.0
+      - image: pachyderm/dash:0.5.48
         imagePullPolicy: IfNotPresent
         name: dash
         ports:

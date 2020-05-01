@@ -31,24 +31,34 @@ func configPath() string {
 }
 
 // ActiveContext gets the active context in the config
-func (c *Config) ActiveContext() (string, *Context, error) {
+func (c *Config) ActiveContext(errorOnNoActive bool) (string, *Context, error) {
 	if c.V2 == nil {
 		return "", nil, errors.Errorf("cannot get active context from non-v2 config")
 	}
 	if envContext, ok := os.LookupEnv(contextEnvVar); ok {
 		context := c.V2.Contexts[envContext]
 		if context == nil {
-			return "", nil, errors.Errorf("`%s` refers to a context (%q) that does not exist", contextEnvVar, envContext)
+			return "", nil, errors.Errorf("pachctl config error: `%s` refers to a context (%q) that does not exist", contextEnvVar, envContext)
 		}
 		return envContext, context, nil
 	}
 	context := c.V2.Contexts[c.V2.ActiveContext]
 	if context == nil {
-		return "", nil, errors.Errorf("pachctl config error: pachctl's active "+
-			"context is %q, but no context named %q has been configured.\n\nYou can fix "+
-			"your config by setting the active context like so: pachctl config set "+
-			"active-context <context>",
-			c.V2.ActiveContext, c.V2.ActiveContext)
+		if c.V2.ActiveContext == "" {
+			if errorOnNoActive {
+				return "", nil, errors.Errorf("pachctl config error: no active " +
+					"context configured.\n\nYou can fix your config by setting " +
+					"the active context like so: pachctl config set " +
+					"active-context <context>")
+			}
+		} else {
+			return "", nil, errors.Errorf("pachctl config error: pachctl's active "+
+				"context is %q, but no context named %q has been configured.\n\nYou can fix "+
+				"your config by setting the active context like so: pachctl config set "+
+				"active-context <context>",
+				c.V2.ActiveContext, c.V2.ActiveContext)
+		}
+
 	}
 	return c.V2.ActiveContext, context, nil
 }
@@ -117,7 +127,14 @@ func Read(ignoreCache bool) (*Config, error) {
 		}
 	}
 
-	return proto.Clone(value).(*Config), nil
+	cloned := proto.Clone(value).(*Config)
+	// in the case of an empty map, `proto.Clone` incorrectly clones
+	// `Contexts` as nil. This fixes the issue.
+	if cloned.V2.Contexts == nil {
+		cloned.V2.Contexts = map[string]*Context{}
+	}
+
+	return cloned, nil
 }
 
 func (c *Config) initV2() error {

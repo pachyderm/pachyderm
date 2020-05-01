@@ -1,0 +1,175 @@
+# This makefile is for creating clusters filled with repos and pipelines for end-to-end and functional testing.
+# It builds on targets in the main Makefile.  You would invoke it by running the
+# "cd <source-location>/examples  ; make -s -f Makefile.testing dirty-testing-cluster" commands
+# That target, "dirty-testing-cluster" is the first workhorse testing target that's been developed.
+# It will create a cluster that has failed jobs, failed commmits, and deleted commits.
+# Invoking it with "-s" will produce terse, informative output on the steps it's taking to create the
+# cluster as it's working.  You might want to run a "watch -n 2 kubectl get pods" and a
+# "watch -n 2 pachctl list job" in other windows so that you can understand what's happening as it runs.
+# At the end, it will print a message telling you the cluster is ready for your testing, and you
+# can use it to test extract/restore or for whatever other testing purposes you want.
+# There are some top-level functions defined, like "pipeline-status" and "wait-for-jobs", that make it easier
+# to write targets that methodically create a cluster that's useful for testing.
+# The executable paths below are set to generic values.
+# Modify them for your system by setting environment variables, using a command like this
+# to both fetch the version of pachyderm you want to test and execute it.
+# "../etc/fetch_release_pachctl.py 1.10.0 ; env PACHCTL=${GOPATH}/bin/pachctl make -e  -f Makefile.testing dirty-testing-cluster)"
+
+
+include Makefile
+
+SHELL := /bin/bash
+ECHO := echo
+# kubectl is called by scripts, referenced here to make clear you can override default
+KUBECTL := kubectl
+PACHCTL := pachctl
+
+
+STATS := .enable_stats=true
+DETECTMODEL := .pipeline.name="object-detect"|.input.cross[1].pfs.repo="object-model"|.input.cross[1].pfs.name="model"
+DETECTIMAGES := .input.cross[0].pfs.repo="object-images"|.input.cross[0].pfs.name="images"
+HYPERPSPLIT := .input.cross[0].pfs.repo="hp-split"|.input.cross[0].pfs.name="split"
+HYPERPMODEL := .input.cross[1].pfs.repo="hp-model"|.input.cross[1].pfs.name="model"
+HYPERPTEST := .input.cross[0].pfs.repo="hp-test"|.input.cross[0].pfs.name="test"
+
+opencv-testing: 
+	$(PACHCTL) create repo images
+	jq "$(STATS)" opencv/edges.json | $(PACHCTL) create pipeline -f - >/dev/null
+	jq "$(STATS)" opencv/montage.json | $(PACHCTL) create pipeline -f - >/dev/null
+	$(PACHCTL) start transaction
+	$(PACHCTL) start commit images@master
+	$(PACHCTL) finish transaction
+	$(PACHCTL) put file images@master -i opencv/images.txt
+	$(PACHCTL) put file images@master -i opencv/images2.txt
+	$(PACHCTL) put file images@master -i opencv/images3.txt
+	$(PACHCTL) put file images@master -i opencv/images4.txt
+	$(PACHCTL) delete file images@master:/w7RVTsv.jpg
+	$(PACHCTL) finish commit images@master
+
+opencv-testing-delete:
+	-$(PACHCTL) delete pipeline montage
+	-$(PACHCTL) delete pipeline edges
+
+
+object-detection-testing-base: OBJECT_IMAGES = $(ECHO) 'The target you selected has object-detection use the same "images" repo as opencv. Hit control-C and then type "make delete" if that is not desired.'
+object-detection-testing-base: OBJECT_MODEL_PIPELINE = jq '$(STATS)|.pipeline.name="object-model"'  ml/object-detection/model.json | $(PACHCTL) create pipeline -f - >/dev/null
+object-detection-testing-base: OBJECT_DETECT_PIPELINE = jq '$(STATS)|$(DETECTMODEL)'  ml/object-detection/detect.json | $(PACHCTL) create pipeline -f - >/dev/null
+object-detection-testing-base:  object-detection-base
+
+object-detection-testing: object-detection-testing-base
+	$(PACHCTL) put file images@master:airplane.jpg -f ml/object-detection/images/airplane.jpg
+
+object-detection-testing-delete:
+	-$(PACHCTL) delete pipeline object-detect
+	-$(PACHCTL) delete pipeline object-model
+	-$(PACHCTL) delete repo training
+
+opencv-object-detection-testing: opencv-testing object-detection-testing
+opencv-object-detection-testing-delete: object-detection-testing-delete opencv-delete
+
+hyperparameter-testing-base: hyperparameter-common
+	jq '$(STATS)|.pipeline.name="hp-split"' ml/hyperparameter/split.json | $(PACHCTL) create pipeline -f - >/dev/null
+	jq '$(STATS)|.pipeline.name="hp-model"' ml/hyperparameter/model.json | $(PACHCTL) create pipeline -f - >/dev/null
+	jq '$(STATS)|.pipeline.name="hp-test"|$(HYPERPSPLIT)|$(HYPERPMODEL)' ml/hyperparameter/test.json | $(PACHCTL) create pipeline -f - >/dev/null
+	jq '$(STATS)|.pipeline.name="hp-select"|$(HYPERPTEST)|$(HYPERPMODEL)'  ml/hyperparameter/select.json | $(PACHCTL) create pipeline -f - >/dev/null
+
+hyperparameter-testing: hyperparameter-testing-base hyperparameter-data
+
+hyperparameter-testing-delete:
+	-$(PACHCTL) delete pipeline hp-select
+	-$(PACHCTL) delete pipeline hp-test
+	-$(PACHCTL) delete pipeline hp-split
+	-$(PACHCTL) delete pipeline hp-model
+	-$(PACHCTL) delete repo parameters
+	-$(PACHCTL) delete repo raw_data
+
+gatk-testing: gatk
+	$(PACHCTL) start commit samples@master
+	$(PACHCTL) put file samples@master:son/son.bam -f gatk/GATK_Germline/data/bams/son.bam
+	$(PACHCTL) put file samples@master:son/son.bai -f gatk/GATK_Germline/data/bams/son.bai	
+	$(PACHCTL) finish commit samples@master
+
+gatk-testing-delete: gatk-delete
+
+testing-delete: gatk-testing-delete hyperparameter-testing-delete object-detection-testing-delete opencv-testing-delete
+	-$(PACHCTL) delete repo images
+
+testing: opencv-testing object-detection-testing hyperparameter-testing gatk-testing
+
+dirty-testing-cluster: opencv-base  ml/object-detection/frozen_inference_graph.pb object-detection-testing-base hyperparameter-testing-base  $(GATK_GERMLINE_FILES) gatk-base
+	until `../etc/examples/pipeline-status.sh edges` = True && \
+		`../etc/examples/pipeline-status.sh montage` = True && \
+		`../etc/examples/pipeline-status.sh object-model` = True && \
+		`../etc/examples/pipeline-status.sh object-detect` = True && \
+		`../etc/examples/pipeline-status.sh hp-split` = True && \
+		`../etc/examples/pipeline-status.sh hp-model` = True && \
+		`../etc/examples/pipeline-status.sh hp-test` = True && \
+		`../etc/examples/pipeline-status.sh hp-select` = True && \
+		`../etc/examples/pipeline-status.sh joint_call` = True && \
+		`../etc/examples/pipeline-status.sh likelihoods` = True ; \
+	do \
+		$(ECHO)  -en "\e[G\e[KWaiting for pipelines to start..."; \
+		sleep 1; \
+	done
+	@$(ECHO) -e "\e[G\e[KPipelines started.";
+	@$(ECHO)  "Committing data to images@master and training@master in a single transaction...";
+	$(PACHCTL) start transaction > /dev/null
+	$(PACHCTL) start commit images@master > /dev/null 2>/dev/null
+	$(PACHCTL) start commit training@master > /dev/null 2>/dev/null
+	$(PACHCTL) finish transaction > /dev/null
+	$(PACHCTL) put file training@master:frozen_inference_graph.pb -f ml/object-detection/frozen_inference_graph.pb 
+	$(PACHCTL) put file images@master:airplane.jpg -f ml/object-detection/images/airplane.jpg 
+	$(PACHCTL) put file images@master -i opencv/images.txt 
+	$(PACHCTL) put file images@master -i opencv/images2.txt 
+	$(PACHCTL) finish commit images@master > /dev/null
+	$(PACHCTL) finish commit training@master > /dev/null
+	../etc/examples/wait-for-jobs.sh succeeded-only "First opencv and object-detection jobs done."
+	$(ECHO) -e "Adding stats to edges and montage..."; 
+	jq "$(STATS)" opencv/edges.json | $(PACHCTL) update pipeline -f - >/dev/null
+	jq "$(STATS)" opencv/montage.json | $(PACHCTL) update pipeline -f - >/dev/null
+	@$(ECHO) -e "Adding images to images@master that will produce failed jobs...";
+	$(PACHCTL) put file images@master -i opencv/images3.txt
+	../etc/examples/wait-for-jobs.sh succeeded-or-failed  "Done inserting images into images@master that produce object-detection job failures."
+	@$(ECHO) -e "Modifying object-detection to use new object-images repo and adding images...";
+	$(PACHCTL) create repo object-images
+	jq '$(STATS)|$(DETECTMODEL)|$(DETECTIMAGES)' ml/object-detection/detect.json  | $(PACHCTL) update pipeline -f - >/dev/null
+	$(PACHCTL) put file images@master -i opencv/images4.txt
+	$(PACHCTL) put file object-images@master:dogs.jpg -f ml/object-detection/images/dogs.jpg
+	$(PACHCTL) put file object-images@master:airplane.jpg -f ml/object-detection/images/airplane.jpg
+	../etc/examples/wait-for-jobs.sh succeeded-only "Done adding new images in object-images@master and images@master."
+	@$(ECHO) -e "Adding data to gatk...";
+	$(PACHCTL) start transaction > /dev/null
+	$(PACHCTL) start commit reference@master > /dev/null 2>/dev/null
+	$(PACHCTL) start commit samples@master >/dev/null 2>/dev/null
+	$(PACHCTL) finish transaction > /dev/null
+	$(PACHCTL) put file reference@master:ref.dict  -f gatk/GATK_Germline/data/ref/ref.dict
+	$(PACHCTL) put file reference@master:ref.fasta -f gatk/GATK_Germline/data/ref/ref.fasta
+	$(PACHCTL) put file reference@master:ref.fasta.fai -f gatk/GATK_Germline/data/ref/ref.fasta.fai
+	$(PACHCTL) put file reference@master:refSDF -r -f gatk/GATK_Germline/data/ref/refSDF
+	$(PACHCTL) put file samples@master:mother/mother.bam -f gatk/GATK_Germline/data/bams/mother.bam
+	$(PACHCTL) put file samples@master:mother/mother.bai -f gatk/GATK_Germline/data/bams/mother.bai
+	$(PACHCTL) finish commit reference@master > /dev/null
+	$(PACHCTL) finish commit samples@master > /dev/null
+	../etc/examples/wait-for-jobs.sh succeeded-only "Done adding initial gatk data in references and master."
+	if GATK_FATHER_COMMIT=`$(PACHCTL) start commit samples@master` && \
+	   [ -n $${GATK_FATHER_COMMIT} ] ; \
+	then \
+		$(ECHO) -e "Adding father to gatk, samples@$${GATK_FATHER_COMMIT}, we will delete his data later..." ; \
+		$(PACHCTL) put file samples@master:father/father.bam -f gatk/GATK_Germline/data/bams/father.bam ; \
+		$(PACHCTL) put file samples@master:father/father.bai -f gatk/GATK_Germline/data/bams/father.bai ; \
+		$(PACHCTL) finish commit samples@master > /dev/null ; \
+		GATK_SON_COMMIT=`$(PACHCTL) start commit samples@master` ; \
+		$(ECHO) -e "Adding son, samples@$${GATK_SON_COMMIT}..." ; \
+		$(PACHCTL) put file samples@master:son/son.bam -f gatk/GATK_Germline/data/bams/son.bam ; \
+		$(PACHCTL) put file samples@master:son/son.bai -f gatk/GATK_Germline/data/bams/son.bai	; \
+		$(PACHCTL) finish commit samples@master > /dev/null ; \
+		$(ECHO) -e "Deleting father commit, samples@$${GATK_FATHER_COMMIT}..." ; \
+		$(PACHCTL) delete commit samples@$${GATK_FATHER_COMMIT} ; \
+	else \
+		$(ECHO) -e "Error: could not create commit in samples@master." ; \
+		exit 1 ; \
+	fi
+	../etc/examples/wait-for-jobs.sh succeeded-only "All jobs finished. Inspect output above to determine if cluster ready for testing."
+
+
+

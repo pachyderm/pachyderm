@@ -79,15 +79,20 @@ set -x
 dash_image="$(pachctl deploy local -d --dry-run | jq -r '.. | select(.name? == "dash" and has("image")).image')"
 grpc_proxy_image="$(pachctl deploy local -d --dry-run | jq -r '.. | select(.name? == "grpc-proxy").image')"
 etcd_image="quay.io/coreos/etcd:v3.3.5"
+postgres_image="postgres:11.3"
 docker pull "${etcd_image}"
 docker pull "${grpc_proxy_image}"
 docker pull "${dash_image}"
+docker pull "${postgres_image}"
 etc/kube/push-to-minikube.sh "pachyderm/pachd:${PACH_VERSION}"
 etc/kube/push-to-minikube.sh "pachyderm/worker:${PACH_VERSION}"
 etc/kube/push-to-minikube.sh ${etcd_image}
+etc/kube/push-to-minikube.sh ${postgres_image}
 
 # Deploy Pachyderm
-if [[ "${PACH_VERSION}" = "local" ]]; then
+if [[ -n ${DEPLOY_FLAGS} ]]; then
+  pachctl deploy local -d "${DEPLOY_FLAGS}"
+elif [[ "${PACH_VERSION}" = "local" ]]; then
   pachctl deploy local -d
 else
   # deploy with -d (disable auth, small footprint), but use official version
@@ -113,7 +118,9 @@ set -x
 # Kill pachctl port-forward and kubectl proxy
 killall kubectl || true
 
-# Port forward to etcd (for pfs/server/server_test.go)
-ETCD_POD=$(kubectl get pod -l suite=pachyderm,app=etcd -o jsonpath="{.items[].metadata.name}")
-export ETCD_POD
-kubectl port-forward "$ETCD_POD" 32379:2379 &
+if [[ "${DEPLOY_FLAGS}" = "--new-storage-layer" ]]; then
+	# Port forward to postgres
+	POSTGRES_POD=$(kubectl get pod -l suite=pachyderm,app=postgres -o jsonpath="{.items[].metadata.name}")
+	export POSTGRES_POD
+	kubectl port-forward "$POSTGRES_POD" 32228:5432 &
+fi

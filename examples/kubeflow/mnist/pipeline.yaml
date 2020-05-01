@@ -1,7 +1,7 @@
 pipeline:
   name: mnist
 transform:
-  image: pachyderm/mnist_pipeline:v1.0.0
+  image: pachyderm/mnist_pipeline:v1.0.1
   cmd: [ /app/pipeline.py ]
 s3_out: true  # Must be set
 input:

@@ -1,10 +1,10 @@
 .PHONY: docker-build docker-push mnist
 
 docker-build:
-	docker build -t pachyderm/mnist_pipeline:v1.0.0 .
+	docker build -t pachyderm/mnist_pipeline:v1.0.1 .
 
 docker-push: docker-build
-	docker push pachyderm/mnist_pipeline:v1.0.0
+	docker push pachyderm/mnist_pipeline:v1.0.1
 
 mnist:
 	pachctl create repo input-repo

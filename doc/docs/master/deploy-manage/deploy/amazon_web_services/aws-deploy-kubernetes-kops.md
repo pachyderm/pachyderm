@@ -20,7 +20,7 @@ Before you can deploy Pachyderm on Amazon AWS with
 
 ## Configure `kops`
 
-[`kops`](https://github.com/kubernetes/kops/), which stands for
+[`kops`](https://github.com/kubernetes/kops/blob/master/docs/index.md), which stands for
 *Kubernetes Operations*, is an open-source tool that deploys
 a production-grade Kubernetes cluster on a cloud environment of choice.
 You need to have access to the
@@ -28,7 +28,7 @@ AWS Management console to add an Identity and Access Management (IAM) user
 for `kops`.
 
 For more information about `kops`, see
-[kops AWS documentation](https://github.com/kubernetes/kops/blob/master/docs/aws.md).
+[kops AWS documentation](https://github.com/kubernetes/kops/blob/master/docs/getting_started/aws.md).
 These instructions provide more details about configuring
 additional cluster parameters, such as enabling version control
 or encryption on your S3 bucket, and so on.
@@ -77,7 +77,7 @@ location on your computer.
    }
    ```
 
-1. Optionally, configure DNS as described in [Configure DNS](https://github.com/kubernetes/kops/blob/master/docs/aws.md#configure-dns).
+1. Optionally, configure DNS as described in [Configure DNS](https://github.com/kubernetes/kops/blob/master/docs/getting_started/aws.md#configure-dns).
 In this example, a gossip-based cluster that ends with `k8s.local`
 is deployed.
 

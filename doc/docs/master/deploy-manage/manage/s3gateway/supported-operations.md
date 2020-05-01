@@ -104,6 +104,7 @@ To list filesystem objects, complete the following steps:
      ```
      2019-07-26 11:22 2685061 s3://master.raw_data/github_issues_medium.csv
      ```
+
 ## Create an S3 Bucket
 
 You can create an S3 bucket in Pachyderm by using the AWS CLI or
@@ -181,7 +182,8 @@ S3 bucket, which is a repository with a branch in Pachyderm.
      2019-07-12 14:58:09 master.split
      2019-07-12 14:58:09 stats.split
      2019-07-12 14:36:27 master.raw_data
-          ```
+     ```
+
    * If you are using S3cmd, type:
 
      ```bash

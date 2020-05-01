@@ -26,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pager"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
+	"github.com/pachyderm/pachyderm/src/server/pkg/progress"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
 	txncmds "github.com/pachyderm/pachyderm/src/server/transaction/cmds"
@@ -733,6 +734,7 @@ from commits with 'get file'.`,
 	var headerRecords uint
 	var putFileCommit bool
 	var overwrite bool
+	var compress bool
 	putFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>[:<path/to/file>]",
 		Short: "Put a file into the filesystem.",
@@ -781,7 +783,11 @@ $ {{alias}} repo@branch -i http://host/path`,
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine("user", client.WithMaxConcurrentStreams(parallelism))
+			opts := []client.Option{client.WithMaxConcurrentStreams(parallelism)}
+			if compress {
+				opts = append(opts, client.WithGZIPCompression())
+			}
+			c, err := client.NewOnUserMachine("user", opts...)
 			if err != nil {
 				return err
 			}
@@ -876,6 +882,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 	putFile.Flags().StringSliceVarP(&filePaths, "file", "f", []string{"-"}, "The file to be put, it can be a local file or a URL.")
 	putFile.Flags().StringVarP(&inputFile, "input-file", "i", "", "Read filepaths or URLs from a file.  If - is used, paths are read from the standard input.")
 	putFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively put the files in a directory.")
+	putFile.Flags().BoolVarP(&compress, "compress", "", false, "Compress data during upload. This parameter might help you upload your uncompressed data, such as CSV files, to Pachyderm faster. Use 'compress' with caution, because if your data is already compressed, this parameter might slow down the upload speed instead of increasing.")
 	putFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be uploaded in parallel.")
 	putFile.Flags().StringVar(&split, "split", "", "Split the input file into smaller files, subject to the constraints of --target-file-datums and --target-file-bytes. Permissible values are `line`, `json`, `sql` and `csv`.")
 	putFile.Flags().UintVar(&targetFileDatums, "target-file-datums", 0, "The upper bound of the number of datums that each file contains, the last file will contain fewer if the datums don't divide evenly; needs to be used with --split.")
@@ -1389,8 +1396,9 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 		}
 		limiter.Acquire()
 		defer limiter.Release()
-		fmt.Fprintln(os.Stderr, "Reading from stdin.")
-		return putFile(os.Stdin)
+		stdin := progress.Stdin()
+		defer stdin.Finish()
+		return putFile(stdin)
 	}
 	// try parsing the filename as a url, if it is one do a PutFileURL
 	if url, err := url.Parse(source); err == nil && url.Scheme != "" {
@@ -1425,7 +1433,7 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 	}
 	limiter.Acquire()
 	defer limiter.Release()
-	f, err := os.Open(source)
+	f, err := progress.Open(source)
 	if err != nil {
 		return err
 	}
