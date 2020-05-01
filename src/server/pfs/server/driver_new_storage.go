@@ -85,7 +85,7 @@ func (d *driver) finishCommitNewStorageLayer(txnCtx *txnenv.TransactionContext, 
 		}
 		// (bryce) need size.
 		commitInfo.SizeBytes = uint64(0)
-		commitInfo.Finished = now()
+		commitInfo.Finished = types.TimestampNow()
 		return d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo)
 	})
 }
