@@ -150,10 +150,11 @@ func TestWrite(t *testing.T) {
 		},
 		Write: true,
 	}, func(mountPoint string) {
-		require.NoError(t, ioutil.WriteFile(filepath.Join(mountPoint, "repo", "foo"), []byte("foo\n"), 0644))
+		require.NoError(t, os.MkdirAll(filepath.Join(mountPoint, "repo", "dir"), 0777))
+		require.NoError(t, ioutil.WriteFile(filepath.Join(mountPoint, "repo", "dir", "foo"), []byte("foo\n"), 0644))
 	})
 	var b bytes.Buffer
-	require.NoError(t, c.GetFile("repo", "master", "foo", 0, 0, &b))
+	require.NoError(t, c.GetFile("repo", "master", "dir/foo", 0, 0, &b))
 	require.Equal(t, "foo\n", b.String())
 
 	// Now append to the file
@@ -165,10 +166,10 @@ func TestWrite(t *testing.T) {
 		},
 		Write: true,
 	}, func(mountPoint string) {
-		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo", "foo"))
+		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo", "dir", "foo"))
 		require.NoError(t, err)
 		require.Equal(t, "foo\n", string(data))
-		f, err := os.OpenFile(filepath.Join(mountPoint, "repo", "foo"), os.O_WRONLY, 0600)
+		f, err := os.OpenFile(filepath.Join(mountPoint, "repo", "dir", "foo"), os.O_WRONLY, 0600)
 		require.NoError(t, err)
 		defer func() {
 			require.NoError(t, f.Close())
@@ -179,7 +180,7 @@ func TestWrite(t *testing.T) {
 		require.NoError(t, err)
 	})
 	b.Reset()
-	require.NoError(t, c.GetFile("repo", "master", "foo", 0, 0, &b))
+	require.NoError(t, c.GetFile("repo", "master", "dir/foo", 0, 0, &b))
 	require.Equal(t, "foo\nfoo\n", b.String())
 
 	// Now overwrite that file
@@ -191,11 +192,11 @@ func TestWrite(t *testing.T) {
 		},
 		Write: true,
 	}, func(mountPoint string) {
-		require.NoError(t, os.Remove(filepath.Join(mountPoint, "repo", "foo")))
-		require.NoError(t, ioutil.WriteFile(filepath.Join(mountPoint, "repo", "foo"), []byte("bar\n"), 0644))
+		require.NoError(t, os.Remove(filepath.Join(mountPoint, "repo", "dir", "foo")))
+		require.NoError(t, ioutil.WriteFile(filepath.Join(mountPoint, "repo", "dir", "foo"), []byte("bar\n"), 0644))
 	})
 	b.Reset()
-	require.NoError(t, c.GetFile("repo", "master", "foo", 0, 0, &b))
+	require.NoError(t, c.GetFile("repo", "master", "dir/foo", 0, 0, &b))
 	require.Equal(t, "bar\n", b.String())
 
 	// Now link it to another location
@@ -207,14 +208,14 @@ func TestWrite(t *testing.T) {
 		},
 		Write: true,
 	}, func(mountPoint string) {
-		require.NoError(t, os.Link(filepath.Join(mountPoint, "repo", "foo"), filepath.Join(mountPoint, "repo", "bar")))
-		require.NoError(t, os.Symlink(filepath.Join(mountPoint, "repo", "foo"), filepath.Join(mountPoint, "repo", "buzz")))
+		require.NoError(t, os.Link(filepath.Join(mountPoint, "repo", "dir", "foo"), filepath.Join(mountPoint, "repo", "dir", "bar")))
+		require.NoError(t, os.Symlink(filepath.Join(mountPoint, "repo", "dir", "foo"), filepath.Join(mountPoint, "repo", "dir", "buzz")))
 	})
 	b.Reset()
-	require.NoError(t, c.GetFile("repo", "master", "bar", 0, 0, &b))
+	require.NoError(t, c.GetFile("repo", "master", "dir/bar", 0, 0, &b))
 	require.Equal(t, "bar\n", b.String())
 	b.Reset()
-	require.NoError(t, c.GetFile("repo", "master", "buzz", 0, 0, &b))
+	require.NoError(t, c.GetFile("repo", "master", "dir/buzz", 0, 0, &b))
 	require.Equal(t, "bar\n", b.String())
 
 	// Now delete it
@@ -226,10 +227,10 @@ func TestWrite(t *testing.T) {
 		},
 		Write: true,
 	}, func(mountPoint string) {
-		require.NoError(t, os.Remove(filepath.Join(mountPoint, "repo", "foo")))
+		require.NoError(t, os.Remove(filepath.Join(mountPoint, "repo", "dir", "foo")))
 	})
 	b.Reset()
-	require.YesError(t, c.GetFile("repo", "master", "foo", 0, 0, &b))
+	require.YesError(t, c.GetFile("repo", "master", "dir/foo", 0, 0, &b))
 
 	// TODO test this nested in a directory
 }
