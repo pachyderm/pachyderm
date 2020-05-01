@@ -36,6 +36,8 @@ type loopbackRoot struct {
 	rootPath string
 	rootDev  uint64
 
+	targetPath string
+
 	c *client.APIClient
 
 	branches map[string]string
@@ -258,8 +260,20 @@ func (n *loopbackNode) Create(ctx context.Context, name string, flags uint32, mo
 	return ch, lf, 0, 0
 }
 
-func (n *loopbackNode) Symlink(ctx context.Context, target, name string, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
+func (n *loopbackNode) Symlink(ctx context.Context, target, name string, out *fuse.EntryOut) (_ *fs.Inode, errno syscall.Errno) {
 	p := filepath.Join(n.path(), name)
+	if err := n.download(p, full); err != nil {
+		return nil, fs.ToErrno(err)
+	}
+	target = filepath.Join(n.root().rootPath, n.trimTargetPath(target))
+	if err := n.download(target, full); err != nil {
+		return nil, fs.ToErrno(err)
+	}
+	defer func() {
+		if errno == 0 {
+			n.setFileState(p, dirty)
+		}
+	}()
 	err := syscall.Symlink(target, p)
 	if err != nil {
 		return nil, fs.ToErrno(err)
@@ -461,7 +475,7 @@ func (n *loopbackNode) Setattr(ctx context.Context, f fs.FileHandle, in *fuse.Se
 // NewLoopback returns a root node for a loopback file system whose
 // root is at the given root. This node implements all NodeXxxxer
 // operations available.
-func NewLoopbackRoot(root string, c *client.APIClient, opts *Options) (*loopbackRoot, error) {
+func NewLoopbackRoot(root, target string, c *client.APIClient, opts *Options) (*loopbackRoot, error) {
 	var st syscall.Stat_t
 	err := syscall.Stat(root, &st)
 	if err != nil {
@@ -469,12 +483,13 @@ func NewLoopbackRoot(root string, c *client.APIClient, opts *Options) (*loopback
 	}
 
 	n := &loopbackRoot{
-		rootPath: root,
-		rootDev:  uint64(st.Dev),
-		c:        c,
-		branches: opts.getBranches(),
-		commits:  make(map[string]string),
-		files:    make(map[string]fileState),
+		rootPath:   root,
+		rootDev:    uint64(st.Dev),
+		targetPath: target,
+		c:          c,
+		branches:   opts.getBranches(),
+		commits:    make(map[string]string),
+		files:      make(map[string]fileState),
 	}
 	return n, nil
 }
@@ -568,6 +583,11 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 
 func (n *loopbackNode) trimPath(path string) string {
 	path = strings.TrimPrefix(path, n.root().rootPath)
+	return strings.TrimPrefix(path, "/")
+}
+
+func (n *loopbackNode) trimTargetPath(path string) string {
+	path = strings.TrimPrefix(path, n.root().targetPath)
 	return strings.TrimPrefix(path, "/")
 }
 

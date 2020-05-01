@@ -208,9 +208,13 @@ func TestWrite(t *testing.T) {
 		Write: true,
 	}, func(mountPoint string) {
 		require.NoError(t, os.Link(filepath.Join(mountPoint, "repo", "foo"), filepath.Join(mountPoint, "repo", "bar")))
+		require.NoError(t, os.Symlink(filepath.Join(mountPoint, "repo", "foo"), filepath.Join(mountPoint, "repo", "buzz")))
 	})
 	b.Reset()
 	require.NoError(t, c.GetFile("repo", "master", "bar", 0, 0, &b))
+	require.Equal(t, "bar\n", b.String())
+	b.Reset()
+	require.NoError(t, c.GetFile("repo", "master", "buzz", 0, 0, &b))
 	require.Equal(t, "bar\n", b.String())
 
 	// Now delete it
@@ -231,7 +235,7 @@ func TestWrite(t *testing.T) {
 }
 
 func withMount(tb testing.TB, c *client.APIClient, opts *Options, f func(mountPoint string)) {
-	dir, err := ioutil.TempDir("", "pfs")
+	dir, err := ioutil.TempDir("", "pfs-mount")
 	require.NoError(tb, err)
 	defer os.RemoveAll(dir)
 	if opts == nil {

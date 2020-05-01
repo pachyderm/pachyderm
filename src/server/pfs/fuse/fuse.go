@@ -30,7 +30,7 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 	if err != nil {
 		return err
 	}
-	root, err := NewLoopbackRoot(rootDir, c, opts)
+	root, err := NewLoopbackRoot(rootDir, target, c, opts)
 	if err != nil {
 		return err
 	}
@@ -58,7 +58,7 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 		}
 	}()
 	for path, state := range root.files {
-		if state < dirty {
+		if state != dirty {
 			continue
 		}
 		parts := strings.Split(path, "/")
