@@ -355,7 +355,7 @@ type fileGenerator func(*tar.Writer, *loadState) (string, error)
 
 func newRandomFileGenerator(opts ...randomFileGeneratorOption) fileGenerator {
 	config := &randomFileConfig{
-		fileSizeBuckets: defaultFileSizeBuckets,
+		fileSizeBuckets: defaultFileSizeBuckets(),
 	}
 	for _, opt := range opts {
 		opt(config)
@@ -373,7 +373,10 @@ func newRandomFileGenerator(opts ...randomFileGeneratorOption) fileGenerator {
 				break
 			}
 		}
-		size := min + rand.Intn(max-min)
+		size := min
+		if max > min {
+			size += rand.Intn(max - min)
+		}
 		state.Lock(func() {
 			if size > state.sizeLeft {
 				size = state.sizeLeft
@@ -385,7 +388,7 @@ func newRandomFileGenerator(opts ...randomFileGeneratorOption) fileGenerator {
 }
 
 type randomFileConfig struct {
-	fileSizeBuckets []*fileSizeBucket
+	fileSizeBuckets []fileSizeBucket
 }
 
 type fileSizeBucket struct {
@@ -394,28 +397,49 @@ type fileSizeBucket struct {
 }
 
 var (
-	defaultFileSizeBuckets = []*fileSizeBucket{
-		&fileSizeBucket{
-			min:  1 * units.KB,
-			max:  10 * units.KB,
-			prob: 0.5,
+	fileSizeBuckets = []fileSizeBucket{
+		fileSizeBucket{
+			min: 1 * units.KB,
+			max: 10 * units.KB,
 		},
-		&fileSizeBucket{
-			min:  1 * units.MB,
-			max:  10 * units.MB,
-			prob: 0.4,
+		fileSizeBucket{
+			min: 10 * units.KB,
+			max: 100 * units.KB,
 		},
-		&fileSizeBucket{
-			min:  10 * units.MB,
-			max:  100 * units.MB,
-			prob: 0.1,
+		fileSizeBucket{
+			min: 1 * units.MB,
+			max: 10 * units.MB,
+		},
+		fileSizeBucket{
+			min: 10 * units.MB,
+			max: 100 * units.MB,
+		},
+	}
+	edgeCaseFileSizeBuckets = []fileSizeBucket{
+		fileSizeBucket{
+			min: 0,
+		},
+		fileSizeBucket{
+			min: 1,
+		},
+		fileSizeBucket{
+			min: 1,
+			max: 100,
 		},
 	}
 )
 
+func defaultFileSizeBuckets() []fileSizeBucket {
+	buckets := append([]fileSizeBucket{}, fileSizeBuckets...)
+	buckets[0].prob = 0.4
+	buckets[1].prob = 0.4
+	buckets[2].prob = 0.2
+	return buckets
+}
+
 type randomFileGeneratorOption func(*randomFileConfig)
 
-func withFileSizeBuckets(buckets []*fileSizeBucket) randomFileGeneratorOption {
+func withFileSizeBuckets(buckets []fileSizeBucket) randomFileGeneratorOption {
 	return func(config *randomFileConfig) {
 		config.fileSizeBuckets = buckets
 	}
@@ -437,8 +461,11 @@ func writeFile(tw *tar.Writer, name string, data []byte) error {
 }
 
 // (bryce) this should be somewhere else (probably testutil).
-func seedRand() {
+func seedRand(customSeed ...int64) {
 	seed := time.Now().UTC().UnixNano()
+	if len(customSeed) > 0 {
+		seed = customSeed[0]
+	}
 	rand.Seed(seed)
 	fmt.Println("seed: ", strconv.FormatInt(seed, 10))
 }
@@ -451,31 +478,65 @@ func TestLoad(t *testing.T) {
 func fuzzLoad() *loadConfig {
 	return newLoadConfig(
 		withBranchGenerator(
-			withCommitGenerator(
-				withCommitCount(rand.Intn(5)),
-				withPutThroughputLimit(
-					1*units.MB,
-					0.05,
-				),
-				withGetThroughputLimit(
-					1*units.MB,
-					0.05,
-				),
-				withPutCancel(
-					5*time.Second,
-					0.05,
-				),
-				withGetCancel(
-					5*time.Second,
-					0.05,
-				),
-				withPutTarGenerator(
-					withFileCount(rand.Intn(5)),
-					withFileGenerator(newRandomFileGenerator()),
-				),
-			),
+			fuzzCommits()...,
 		),
 	)
+}
+
+func fuzzCommits() []branchGeneratorOption {
+	var branchOpts []branchGeneratorOption
+	for i := 0; i < 5; i++ {
+		var commitOpts []commitGeneratorOption
+		commitOpts = append(commitOpts, fuzzThroughputLimit()...)
+		commitOpts = append(commitOpts, fuzzCancel()...)
+		commitOpts = append(commitOpts,
+			withCommitCount(rand.Intn(5)),
+			withPutTarGenerator(
+				withFileCount(rand.Intn(5)),
+				withFileGenerator(fuzzFiles()),
+			),
+		)
+		branchOpts = append(branchOpts, withCommitGenerator(commitOpts...))
+	}
+	return branchOpts
+}
+
+func fuzzFiles() fileGenerator {
+	buckets := append([]fileSizeBucket{}, fileSizeBuckets...)
+	rand.Shuffle(len(buckets), func(i, j int) { buckets[i], buckets[j] = buckets[j], buckets[i] })
+	totalProb := 1.0
+	for i := 0; i < len(buckets); i++ {
+		buckets[i].prob = rand.Float64() * totalProb
+		totalProb -= buckets[i].prob
+	}
+	buckets[len(buckets)-1].prob += totalProb
+	return newRandomFileGenerator(withFileSizeBuckets(buckets))
+}
+
+func fuzzThroughputLimit() []commitGeneratorOption {
+	return []commitGeneratorOption{
+		withPutThroughputLimit(
+			1*units.MB,
+			0.05,
+		),
+		withGetThroughputLimit(
+			1*units.MB,
+			0.05,
+		),
+	}
+}
+
+func fuzzCancel() []commitGeneratorOption {
+	return []commitGeneratorOption{
+		withPutCancel(
+			5*time.Second,
+			0.05,
+		),
+		withGetCancel(
+			5*time.Second,
+			0.05,
+		),
+	}
 }
 
 func testLoad(loadConfig *loadConfig) error {
