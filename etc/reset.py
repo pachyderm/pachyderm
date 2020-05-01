@@ -21,21 +21,6 @@ NEWLINE_SEPARATE_OBJECTS_PATTERN = re.compile(r"\}\n+\{", re.MULTILINE)
 
 GCP_KUBE_CONTEXT_NAME_PATTERN = re.compile(r"gke_([^_]+)_(.+)")
 
-# Resources to delete on reset
-DELETABLE_RESOURCES = [
-    "replicasets",
-    "services",
-    "deployments",
-    "pods",
-    "rc",
-    "serviceaccounts",
-    "secrets",
-    "clusterrole",
-    "clusterrolebinding",
-    "roles.rbac.authorization.k8s.io",
-    "rolebindings.rbac.authorization.k8s.io",
-]
-
 RunResult = collections.namedtuple("RunResult", ["rc", "stdout", "stderr"])
 
 class RedactedString(str):
