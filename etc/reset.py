@@ -3,7 +3,6 @@
 import os
 import re
 import json
-import time
 import asyncio
 import secrets
 import argparse
@@ -81,6 +80,9 @@ class DockerDesktopDriver(BaseDriver):
     pass
 
 class MinikubeDriver(BaseDriver):
+    async def start(self):
+        await run("minikube", "start")
+
     async def push_image(self, image):
         await run("./etc/kube/push-to-minikube.sh", image)
 
@@ -200,6 +202,13 @@ async def main():
             print_status("using the GKE driver")
             driver = GCPDriver(match.groups()[0])
 
+    # minikube won't set the k8s context if the VM isn't running. This checks
+    # for the presence of the minikube executable as an alternate means.
+    if driver is None and (await run("minikube", "version", raise_on_error=False, capture_output=True)).rc == 0:
+        print_status("using the minikube driver")
+        driver = MinikubeDriver()
+        await driver.start()
+
     if driver is None:
         raise Exception(f"could not derive driver from context name: {kube_context}")
 
@@ -251,7 +260,7 @@ async def main():
 
     while (await run("pachctl", "version", raise_on_error=False, capture_output=True)).rc:
         print_status("waiting for pachyderm to come up...")
-        time.sleep(1)
+        await asyncio.sleep(1)
 
     if args.ide:
         await asyncio.gather(*[driver.push_image(i) for i in [IDE_USER_IMAGE, IDE_HUB_IMAGE]])
@@ -269,5 +278,4 @@ async def main():
         )
 
 if __name__ == "__main__":
-    asyncio.get_event_loop().slow_callback_duration = 2
     asyncio.run(main(), debug=True)
