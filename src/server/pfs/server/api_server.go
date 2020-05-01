@@ -194,7 +194,24 @@ func (a *apiServer) BuildCommit(ctx context.Context, request *pfs.BuildCommitReq
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	commit, err := a.driver.buildCommit(ctx, request.ID, request.Parent, request.Branch, request.Provenance, request.Tree, request.Trees, request.Datums, request.SizeBytes)
+	var err error
+	var started, finished time.Time
+	if request.Started != nil {
+		started, err = types.TimestampFromProto(request.Started)
+		if err != nil {
+			return nil, fmt.Errorf("could not parse timestamp %q: %v",
+				types.TimestampString(request.Started), err)
+		}
+	}
+	if request.Finished != nil {
+		finished, err = types.TimestampFromProto(request.Finished)
+		if err != nil {
+			return nil, fmt.Errorf("could not parse timestamp %q: %v",
+				types.TimestampString(request.Finished), err)
+		}
+	}
+
+	commit, err := a.driver.buildCommit(ctx, request.ID, request.Parent, request.Branch, request.Provenance, request.Tree, request.Trees, request.Datums, started, finished, request.SizeBytes)
 	if err != nil {
 		return nil, err
 	}

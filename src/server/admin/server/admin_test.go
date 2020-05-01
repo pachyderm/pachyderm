@@ -13,10 +13,12 @@ import (
 	"path"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -47,13 +49,143 @@ func collectCommitInfos(t testing.TB, commitInfoIter client.CommitInfoIterator) 
 	}
 }
 
-// TODO(msteffen) equivalent to funciton in src/server/auth/server/admin_test.go.
+func listAllCommits(t testing.TB, c *client.APIClient) []*pfs.CommitInfo {
+	var commits []*pfs.CommitInfo
+	repos, err := c.ListRepo()
+	require.NoError(t, err)
+	for _, r := range repos {
+		cis, err := c.ListCommit(r.Repo.Name, "", "", 0)
+		require.NoError(t, err)
+		commits = append(commits, cis...)
+	}
+	return commits
+}
+
+// repoInfoSummary is a helper that converts a CommitINfo to a unique string
+// representation, for checking the repos in a cluster before/after
+// extract+restore.
+func repoInfoSummary(i interface{}) interface{} {
+	ri := i.(*pfs.RepoInfo)
+	branchNames := make([]string, 0, len(ri.Branches))
+	for _, b := range ri.Branches {
+		branchNames = append(branchNames, b.Name)
+	}
+	sort.Strings(branchNames)
+	return fmt.Sprintf("%s (%s) [Sz:%d] %v",
+		ri.Repo.Name, ri.Description, ri.SizeBytes, branchNames)
+}
+
+// commitInfoSummary is a helper that converts a CommitInfo to a unique string
+// representation, for checking the commits in a cluster before/after
+// extract+restore.
+// TODO(msteffen) This is similar to a lot of code in
+// src/server/transaction/server/testing/server_test.go All of this should be
+// unified in a library.
+func commitInfoSummary(i interface{}) interface{} {
+	ci := i.(*pfs.CommitInfo)
+	parentCommit := "nil"
+	if ci.ParentCommit != nil {
+		parentCommit = ci.ParentCommit.ID
+	}
+	childCommits := func() []string {
+		ccs := make([]string, 0, len(ci.ChildCommits))
+		for _, c := range ci.ChildCommits {
+			ccs = append(ccs, c.ID)
+		}
+		sort.Strings(ccs)
+		return ccs
+	}()
+	prov := func() []string {
+		ps := make([]string, 0, len(ci.Provenance))
+		for _, p := range ci.Provenance {
+			ps = append(ps, fmt.Sprintf("%s (%s)", p.Commit.ID, p.Branch.Name))
+		}
+		sort.Strings(ps)
+		return ps
+	}()
+	subv := func() []string {
+		ss := make([]string, 0, len(ci.Subvenance))
+		for _, s := range ci.Subvenance {
+			ss = append(ss, fmt.Sprintf("%s:%s", s.Lower.ID, s.Upper.ID))
+		}
+		sort.Strings(ss)
+		return ss
+	}()
+	finished := "nil"
+	if ci.Finished != nil {
+		finished = types.TimestampString(ci.Finished)
+	}
+	tree := "nil"
+	if ci.Tree != nil {
+		tree = ci.Tree.Hash
+	}
+	trees := func() []string {
+		ts := make([]string, 0, len(ci.Trees))
+		for _, t := range ci.Trees {
+			ts = append(ts, t.Hash)
+		}
+		sort.Strings(ts)
+		return ts
+	}()
+	datums := "nil"
+	if ci.Datums != nil {
+		datums = ci.Datums.Hash
+	}
+	return fmt.Sprintf(`%s
+Parent: %s
+Children: %s
+Provenance: %s
+Subvenance: %s
+Started: %s
+Finished: %s
+Size: %d
+Tree: %s
+Trees: %s
+Datums: %s`,
+		ci.Commit.ID,
+		parentCommit, childCommits,
+		prov, subv,
+		types.TimestampString(ci.Started), finished,
+		ci.SizeBytes, tree, trees, datums,
+	)
+}
+
+func addData(t testing.TB, c *client.APIClient, repo string, count int, size uint) (fileHashes []string) {
+	t.Helper()
+	// Check for existing files
+	var start int64
+	if files, err := c.ListFile(repo, "master", "/"); err == nil {
+		for _, fi := range files {
+			dashI := strings.Index(fi.File.Path, "-")
+			fileI, err := strconv.ParseInt(fi.File.Path[dashI+1:], 10, 64)
+			require.NoError(t, err)
+			if fileI > start {
+				start = fileI
+			}
+		}
+	}
+
+	// Create new files
+	r := rand.New(rand.NewSource(45 + start)) // write new data if addData called >1
+	fileHashes = make([]string, 0, count)
+	for i := 0; i < count; i++ {
+		hash := md5.New()
+		fileContent := workload.RandString(r, 40*MB)
+		_, err := c.PutFile(repo, "master", fmt.Sprintf("file-%d", i),
+			io.TeeReader(strings.NewReader(fileContent), hash))
+		require.NoError(t, err, "error creating commits in %q: %v", repo, err)
+		fileHashes = append(fileHashes, hex.EncodeToString(hash.Sum(nil)))
+	}
+	return fileHashes
+}
+
+// TODO(msteffen) equivalent to function in src/server/auth/server/admin_test.go.
 // These should be unified.
 func RepoInfoToName(repoInfo interface{}) interface{} {
 	return repoInfo.(*pfs.RepoInfo).Repo.Name
 }
 
-// testExtractRestored effectively implements both TestExtractRestoreObjects
+// testExtractRestore effectively implements both TestExtractRestoreObjects
 // TestExtractRestoreNoObjects, as their logic is mostly the same
 func testExtractRestore(t *testing.T, testObjects bool) {
 	if testing.Short() {
@@ -68,16 +200,7 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 
 	// Create input data
 	nCommits := 2
-	r := rand.New(rand.NewSource(45))
-	fileHashes := make([]string, 0, nCommits)
-	for i := 0; i < nCommits; i++ {
-		hash := md5.New()
-		fileContent := workload.RandString(r, 40*MB)
-		_, err := c.PutFile(dataRepo, "master", fmt.Sprintf("file-%d", i),
-			io.TeeReader(strings.NewReader(fileContent), hash))
-		require.NoError(t, err)
-		fileHashes = append(fileHashes, hex.EncodeToString(hash.Sum(nil)))
-	}
+	fileHashes := addData(t, c, dataRepo, nCommits, 40*MB)
 
 	// Create test pipelines
 	numPipelines := 3
@@ -92,9 +215,7 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 			[]string{
 				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input),
 			},
-			&pps.ParallelismSpec{
-				Constant: 1,
-			},
+			&pps.ParallelismSpec{Constant: 1},
 			client.NewPFSInput(input, "/*"),
 			"",
 			false,
@@ -109,7 +230,8 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 	require.Equal(t, numPipelines, len(commitInfos))
 
 	// confirm that all the jobs passed (there may be a short delay between the
-	// job's output commit closing and the job being marked successful, thus retry
+	// job's output commit closing and the job being marked successful, thus
+	// retry)
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
 		jobInfos, err := c.ListJob("", nil, nil, -1, false)
 		if err != nil {
@@ -118,8 +240,8 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 		// Pipelines were created after commits, so only the HEAD commits of the
 		// input repo should be processed by each pipeline
 		if len(jobInfos) != numPipelines {
-			return fmt.Errorf("expected %d commits, but only encountered %d",
-				nCommits*numPipelines, len(jobInfos))
+			return fmt.Errorf("expected %d jobs, but only encountered %d",
+				numPipelines, len(jobInfos))
 		}
 		for _, ji := range jobInfos {
 			if ji.State != pps.JobState_JOB_SUCCESS {
@@ -130,9 +252,9 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 		return nil
 	})
 
-	ris, err := c.ListRepo()
+	risBefore, err := c.ListRepo()
 	require.NoError(t, err)
-	sort.Slice(ris, func(i, j int) bool { return ris[i].Repo.Name < ris[j].Repo.Name })
+	commitInfosBefore := listAllCommits(t, c)
 	// Extract existing cluster state
 	ops, err := c.ExtractAll(testObjects)
 	require.NoError(t, err)
@@ -151,12 +273,9 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 
 	risAfter, err := c.ListRepo()
 	require.NoError(t, err)
-	sort.Slice(risAfter, func(i, j int) bool { return risAfter[i].Repo.Name < risAfter[j].Repo.Name })
-	require.Equal(t, len(ris), len(risAfter))
-	for i, ri := range ris {
-		require.Equal(t, ri.Repo.Name, risAfter[i].Repo.Name)
-		require.Equal(t, ri.SizeBytes, risAfter[i].SizeBytes)
-	}
+	require.ImagesEqual(t, risBefore, risAfter, repoInfoSummary)
+	commitInfosAfter := listAllCommits(t, c)
+	require.ImagesEqual(t, commitInfosBefore, commitInfosAfter, commitInfoSummary)
 
 	// Make sure all commits got re-created
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
@@ -237,13 +356,7 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 	}
 
 	// make more commits
-	for i := nCommits; i < nCommits*2; i++ {
-		hash := md5.New()
-		fileContent := workload.RandString(r, 40*MB)
-		_, err := c.PutFile(dataRepo, "master", fmt.Sprintf("file-%d", i),
-			io.TeeReader(strings.NewReader(fileContent), hash))
-		require.NoError(t, err)
-	}
+	addData(t, c, dataRepo, nCommits, 40*MB)
 
 	// Wait for pipelines to process input data
 	commitInfos, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
@@ -263,6 +376,177 @@ func TestExtractRestoreNoObjects(t *testing.T) {
 // tests extracting/restoring an input repo.
 func TestExtractRestoreObjects(t *testing.T) {
 	testExtractRestore(t, true)
+}
+
+func TestExtractRestoreFailedJobs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	// Create input repo
+	dataRepo := tu.UniqueString("input-")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	// Create test pipeline
+	pipeline := tu.UniqueString("pipeline-")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			// First job/datum will fail (one file) second won't (two files)
+			"set -ex", // datum fails if 'test' fails
+			fmt.Sprintf("ls /pfs/%s/*", dataRepo),
+			fmt.Sprintf("ls /pfs/%s/* | wc -l", dataRepo),
+			fmt.Sprintf("test $( ls /pfs/%s/* | wc -l ) -gt 1", dataRepo),
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+		},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewPFSInput(dataRepo, "/"),
+		"",
+		false,
+	))
+
+	// Create input data
+	nCommits := 2
+	fileHashes := addData(t, c, dataRepo, nCommits, 40*MB)
+
+	// Wait for pipelines to process input data
+	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	// confirm that all jobs are in the expected state (there may be a short delay
+	// between the job's output commit closing and the job being marked
+	// successful, thus retry)
+	require.NoErrorWithinTRetry(t, 90*time.Second, func() error {
+		jobInfos, err := c.ListJob("", nil, nil, -1, false)
+		if err != nil {
+			return err
+		}
+		// Pipelines were created after commits, so only the HEAD commits of the
+		// input repo should be processed by each pipeline
+		if len(jobInfos) != nCommits {
+			return fmt.Errorf("expected %d jobs, but only encountered %d",
+				nCommits, len(jobInfos))
+		}
+		stateCounts := make(map[pps.JobState]int)
+		for _, ji := range jobInfos {
+			stateCounts[ji.State]++
+		}
+		require.Equal(t, 2, len(stateCounts))
+		// First job should succeed
+		require.Equal(t, 1, stateCounts[pps.JobState_JOB_SUCCESS],
+			"%d Successful jobs, and %d failed jobs",
+			stateCounts[pps.JobState_JOB_SUCCESS],
+			stateCounts[pps.JobState_JOB_FAILURE])
+		// Second job should fail
+		require.Equal(t, 1, stateCounts[pps.JobState_JOB_FAILURE],
+			"%d Successful jobs, and %d failed jobs",
+			stateCounts[pps.JobState_JOB_SUCCESS],
+			stateCounts[pps.JobState_JOB_FAILURE])
+		return nil
+	})
+
+	// Collect repos to compare after restore
+	risBefore, err := c.ListRepo()
+	require.NoError(t, err)
+	commitInfosBefore := listAllCommits(t, c)
+
+	// Extract existing cluster state
+	ops, err := c.ExtractAll(true)
+	require.NoError(t, err)
+
+	// Delete metadata & data
+	require.NoError(t, c.DeleteAll())
+	// Delete existing objects
+	require.NoError(t, c.GarbageCollect(10000))
+
+	// Restore metadata and data
+	require.NoError(t, c.Restore(ops))
+	// Do a fsck just in case.
+	require.NoError(t, c.FsckFastExit())
+
+	risAfter, err := c.ListRepo()
+	require.NoError(t, err)
+	require.ImagesEqual(t, risBefore, risAfter, repoInfoSummary)
+	commitInfosAfter := listAllCommits(t, c)
+	require.ImagesEqual(t, commitInfosBefore, commitInfosAfter, commitInfoSummary)
+
+	// Make sure all commits got re-created
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		commitInfos, err := c.ListCommit(dataRepo, "", "", 0)
+		if err != nil {
+			return err
+		}
+		if len(commitInfos) != nCommits {
+			return fmt.Errorf("expected %d commits, but only encountered %d in %q",
+				nCommits, len(commitInfos), dataRepo)
+		}
+		return nil
+	})
+
+	// Wait for re-created pipelines to process recreated input data
+	commitIter, err = c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	commitInfos = collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	// Make sure all branches were recreated
+	bis, err := c.ListBranch(dataRepo)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(bis))
+
+	// Check input data
+	// This check uses a backoff because sometimes GetFile causes pachd to OOM
+	var restoredFileHashes []string
+	require.NoError(t, backoff.Retry(func() error {
+		restoredFileHashes = make([]string, 0, nCommits)
+		for i := 0; i < nCommits; i++ {
+			hash := md5.New()
+			err := c.GetFile(dataRepo, "master", fmt.Sprintf("file-%d", i), 0, 0, hash)
+			if err != nil {
+				return err
+			}
+			restoredFileHashes = append(restoredFileHashes, hex.EncodeToString(hash.Sum(nil)))
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+	require.ElementsEqual(t, fileHashes, restoredFileHashes)
+
+	// Check output data
+	// This check uses a backoff because sometimes GetFile causes pachd to OOM
+	require.NoError(t, backoff.Retry(func() error {
+		restoredFileHashes = make([]string, 0, nCommits)
+		for i := 0; i < nCommits; i++ {
+			hash := md5.New()
+			err := c.GetFile(pipeline, "master", fmt.Sprintf("file-%d", i), 0, 0, hash)
+			if err != nil {
+				return err
+			}
+			restoredFileHashes = append(restoredFileHashes, hex.EncodeToString(hash.Sum(nil)))
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+	require.ElementsEqual(t, fileHashes, restoredFileHashes)
+
+	// Check that spec commits were all restored
+	pis, err := c.ListPipeline()
+	require.NoError(t, err)
+	require.Equal(t, 1, len(pis))
+	for _, pi := range pis {
+		c.GetFile(pi.SpecCommit.Repo.Name, pi.SpecCommit.ID, ppsconsts.SpecFile, 0, 0, ioutil.Discard)
+	}
+
+	// make more commits & wait for pipelines to process it (check cluster health)
+	addData(t, c, dataRepo, nCommits, 40*MB)
+	commitInfos, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
 }
 
 func TestExtractRestoreHeadlessBranches(t *testing.T) {
@@ -315,9 +599,7 @@ func TestExtractVersion(t *testing.T) {
 		[]string{
 			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 		},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
+		&pps.ParallelismSpec{Constant: 1},
 		client.NewPFSInput(dataRepo, "/*"),
 		"",
 		false,
@@ -425,16 +707,14 @@ func TestExtractRestorePipelineUpdate(t *testing.T) {
 		[]string{
 			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input1),
 		},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
+		&pps.ParallelismSpec{Constant: 1},
 		client.NewPFSInput(input1, "/*"),
 		"",
 		false,
 	))
 	_, err := c.PutFile(input1, "master", "file", strings.NewReader("file"))
 	require.NoError(t, err)
-	cis, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(input1, "master")}, nil)
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(input1, "master")}, nil)
 	require.NoError(t, err)
 
 	input2 := tu.UniqueString("TestExtractRestorePipelineUpdate_data")
@@ -447,9 +727,7 @@ func TestExtractRestorePipelineUpdate(t *testing.T) {
 		[]string{
 			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input2),
 		},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
+		&pps.ParallelismSpec{Constant: 1},
 		client.NewPFSInput(input2, "/*"),
 		"",
 		true,
@@ -457,11 +735,10 @@ func TestExtractRestorePipelineUpdate(t *testing.T) {
 
 	_, err = c.PutFile(input2, "master", "file", strings.NewReader("file"))
 	require.NoError(t, err)
-	_cis, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(input2, "master")}, nil)
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(input2, "master")}, nil)
 	require.NoError(t, err)
 
-	cis = append(_cis, cis...)
-
+	commitInfosBefore := listAllCommits(t, c)
 	ops, err := c.ExtractAll(false)
 	require.NoError(t, err)
 	require.NoError(t, c.DeleteAll())
@@ -470,16 +747,8 @@ func TestExtractRestorePipelineUpdate(t *testing.T) {
 	require.NoError(t, c.FsckFastExit())
 
 	// Check that commits still have the right provenance
-	postRestoreCis, err := c.ListCommit(pipeline, "", "", 0)
-	require.NoError(t, err)
-	for i, ci := range cis {
-		postCi := postRestoreCis[i]
-		require.Equal(t, ci.Commit.ID, postCi.Commit.ID)
-		// Must sort provenance field to guarantee it matches
-		sort.Slice(ci.Provenance, func(i, j int) bool { return ci.Provenance[i].Commit.ID < ci.Provenance[j].Commit.ID })
-		sort.Slice(postCi.Provenance, func(i, j int) bool { return postCi.Provenance[i].Commit.ID < postCi.Provenance[j].Commit.ID })
-		require.Equal(t, ci.Provenance, postCi.Provenance)
-	}
+	commitInfosAfter := listAllCommits(t, c)
+	require.ImagesEqual(t, commitInfosBefore, commitInfosAfter, commitInfoSummary)
 }
 
 func TestExtractRestoreDeferredProcessing(t *testing.T) {
@@ -515,9 +784,7 @@ func TestExtractRestoreDeferredProcessing(t *testing.T) {
 		[]string{
 			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", pipeline1),
 		},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
+		&pps.ParallelismSpec{Constant: 1},
 		client.NewPFSInput(pipeline1, "/*"),
 		"",
 		false,
@@ -534,12 +801,18 @@ func TestExtractRestoreDeferredProcessing(t *testing.T) {
 	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 
+	commitInfosBefore := listAllCommits(t, c)
+
 	ops, err := c.ExtractAll(false)
 	require.NoError(t, err)
 	require.NoError(t, c.DeleteAll())
 	require.NoError(t, c.Restore(ops))
 	// Do a fsck just in case.
 	require.NoError(t, c.FsckFastExit())
+
+	// Check that commits are all the same after restore
+	commitInfosAfter := listAllCommits(t, c)
+	require.ImagesEqual(t, commitInfosBefore, commitInfosAfter, commitInfoSummary)
 
 	_, err = c.PutFile(dataRepo, "staging", "file2", strings.NewReader("file"))
 	require.NoError(t, err)
@@ -587,10 +860,16 @@ func TestExtractRestoreStats(t *testing.T) {
 	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 
+	commitInfosBefore := listAllCommits(t, c)
+
 	ops, err := c.ExtractAll(false)
 	require.NoError(t, err)
 	require.NoError(t, c.DeleteAll())
 	require.NoError(t, c.Restore(ops))
+
+	// Check that commits are all the same after restore
+	commitInfosAfter := listAllCommits(t, c)
+	require.ImagesEqual(t, commitInfosBefore, commitInfosAfter, commitInfoSummary)
 
 	cis, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)

@@ -302,6 +302,7 @@ func (c APIClient) ListCommit(repoName string, to string, from string, number ui
 // all commits that match the aforementioned criteria are passed to f.
 func (c APIClient) ListCommitF(repoName string, to string, from string, number uint64, reverse bool, f func(*pfs.CommitInfo) error) error {
 	req := &pfs.ListCommitRequest{
+		// repoName may be "", but the repo object must exist
 		Repo:    NewRepo(repoName),
 		Number:  number,
 		Reverse: reverse,
