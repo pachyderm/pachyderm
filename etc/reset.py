@@ -27,6 +27,9 @@ class RedactedString(str):
     pass
 
 class BaseDriver:
+    async def start(self):
+        pass
+    
     async def clear(self):
         # Check for the presence of the pachyderm IDE to see whether it should
         # be undeployed too. Using kubectl rather than helm here because
@@ -197,10 +200,11 @@ async def main():
     if driver is None and (await run("minikube", "version", raise_on_error=False, capture_output=True)).rc == 0:
         print_status("using the minikube driver")
         driver = MinikubeDriver()
-        await driver.start()
 
     if driver is None:
         raise Exception(f"could not derive driver from context name: {kube_context}")
+
+    await driver.start()
 
     if args.skip_deploy:
         await driver.clear()
