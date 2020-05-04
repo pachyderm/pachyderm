@@ -88,9 +88,12 @@ func (f *loopbackFile) Fsync(ctx context.Context, flags uint32) (errno syscall.E
 }
 
 const (
-	_OFD_GETLK  = 36
-	_OFD_SETLK  = 37
-	_OFD_SETLKW = 38
+	// GETLK is constant for F_OFD_GETLK
+	GETLK = 36
+	// SETLK is constant for F_OFD_SETLK
+	SETLK = 37
+	// SETLKW is constant for F_OFD_SETLKW
+	SETLKW = 38
 )
 
 func (f *loopbackFile) Getlk(ctx context.Context, owner uint64, lk *fuse.FileLock, flags uint32, out *fuse.FileLock) (errno syscall.Errno) {
@@ -98,7 +101,7 @@ func (f *loopbackFile) Getlk(ctx context.Context, owner uint64, lk *fuse.FileLoc
 	defer f.mu.Unlock()
 	flk := syscall.Flock_t{}
 	lk.ToFlockT(&flk)
-	errno = fs.ToErrno(syscall.FcntlFlock(uintptr(f.fd), _OFD_GETLK, &flk))
+	errno = fs.ToErrno(syscall.FcntlFlock(uintptr(f.fd), GETLK, &flk))
 	out.FromFlockT(&flk)
 	return
 }
@@ -130,17 +133,16 @@ func (f *loopbackFile) setLock(ctx context.Context, owner uint64, lk *fuse.FileL
 			op |= syscall.LOCK_NB
 		}
 		return fs.ToErrno(syscall.Flock(f.fd, op))
-	} else {
-		flk := syscall.Flock_t{}
-		lk.ToFlockT(&flk)
-		var op int
-		if blocking {
-			op = _OFD_SETLKW
-		} else {
-			op = _OFD_SETLK
-		}
-		return fs.ToErrno(syscall.FcntlFlock(uintptr(f.fd), op, &flk))
 	}
+	flk := syscall.Flock_t{}
+	lk.ToFlockT(&flk)
+	var op int
+	if blocking {
+		op = SETLKW
+	} else {
+		op = SETLK
+	}
+	return fs.ToErrno(syscall.FcntlFlock(uintptr(f.fd), op, &flk))
 }
 
 func (f *loopbackFile) Setattr(ctx context.Context, in *fuse.SetAttrIn, out *fuse.AttrOut) syscall.Errno {

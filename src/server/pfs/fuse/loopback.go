@@ -83,10 +83,10 @@ func (n *loopbackNode) Statfs(ctx context.Context, out *fuse.StatfsOut) syscall.
 	return fs.OK
 }
 
-func (n *loopbackRoot) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
+func (r *loopbackRoot) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
 
 	st := syscall.Stat_t{}
-	err := syscall.Stat(n.rootPath, &st)
+	err := syscall.Stat(r.rootPath, &st)
 	if err != nil {
 		return fs.ToErrno(err)
 	}
@@ -503,10 +503,10 @@ func (n *loopbackNode) Setattr(ctx context.Context, f fs.FileHandle, in *fuse.Se
 	return fs.OK
 }
 
-// NewLoopback returns a root node for a loopback file system whose
+// newLoopbackRoot returns a root node for a loopback file system whose
 // root is at the given root. This node implements all NodeXxxxer
 // operations available.
-func NewLoopbackRoot(root, target string, c *client.APIClient, opts *Options) (*loopbackRoot, error) {
+func newLoopbackRoot(root, target string, c *client.APIClient, opts *Options) (*loopbackRoot, error) {
 	var st syscall.Stat_t
 	err := syscall.Stat(root, &st)
 	if err != nil {
@@ -676,13 +676,6 @@ func (n *loopbackNode) checkWrite(path string) syscall.Errno {
 		return syscall.EROFS
 	}
 	return 0
-}
-
-func toErrno(err error) syscall.Errno {
-	if errutil.IsNotFoundError(err) {
-		return syscall.ENOENT
-	}
-	return fs.ToErrno(err)
 }
 
 func isWrite(flags uint32) bool {

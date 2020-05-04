@@ -533,10 +533,8 @@ func fatal(tb testing.TB, userMsgAndArgs []interface{}, msgFmt string, msgArgs .
 			}
 			if len(st) > 0 {
 				tb.Logf("error stack:\n")
-				if st != nil {
-					for _, frame := range st {
-						tb.Logf("%+v\n", frame)
-					}
+				for _, frame := range st {
+					tb.Logf("%+v\n", frame)
 				}
 			}
 		}

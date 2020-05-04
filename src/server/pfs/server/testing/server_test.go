@@ -6072,6 +6072,7 @@ func TestPutFileAtomic(t *testing.T) {
 		require.NoError(t, pfc.Close())
 
 		cis, err := c.ListCommit(test, "master", "", 0)
+		require.NoError(t, err)
 		require.Equal(t, 1, len(cis))
 		var b bytes.Buffer
 		require.NoError(t, c.GetFile(test, "master", "file1", 0, 0, &b))
@@ -6088,6 +6089,7 @@ func TestPutFileAtomic(t *testing.T) {
 		require.NoError(t, pfc.Close())
 
 		cis, err = c.ListCommit(test, "master", "", 0)
+		require.NoError(t, err)
 		require.Equal(t, 2, len(cis))
 		b.Reset()
 		require.NoError(t, c.GetFile(test, "master", "file3", 0, 0, &b))
@@ -6100,6 +6102,7 @@ func TestPutFileAtomic(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, pfc.Close())
 		cis, err = c.ListCommit(test, "master", "", 0)
+		require.NoError(t, err)
 		require.Equal(t, 2, len(cis))
 
 		return nil
