@@ -38,6 +38,8 @@ type loopbackRoot struct {
 
 	targetPath string
 
+	write bool
+
 	c *client.APIClient
 
 	branches map[string]string
@@ -125,6 +127,9 @@ func (n *loopbackNode) Lookup(ctx context.Context, name string, out *fuse.EntryO
 
 func (n *loopbackNode) Mknod(ctx context.Context, name string, mode, rdev uint32, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
 	p := filepath.Join(n.path(), name)
+	if errno := n.checkWrite(p); errno != 0 {
+		return nil, errno
+	}
 	err := syscall.Mknod(p, mode, int(rdev))
 	if err != nil {
 		return nil, fs.ToErrno(err)
@@ -145,6 +150,9 @@ func (n *loopbackNode) Mknod(ctx context.Context, name string, mode, rdev uint32
 
 func (n *loopbackNode) Mkdir(ctx context.Context, name string, mode uint32, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
 	p := filepath.Join(n.path(), name)
+	if errno := n.checkWrite(p); errno != 0 {
+		return nil, errno
+	}
 	if err := n.download(p, meta); err != nil {
 		return nil, fs.ToErrno(err)
 	}
@@ -168,6 +176,9 @@ func (n *loopbackNode) Mkdir(ctx context.Context, name string, mode uint32, out 
 
 func (n *loopbackNode) Rmdir(ctx context.Context, name string) syscall.Errno {
 	p := filepath.Join(n.path(), name)
+	if errno := n.checkWrite(p); errno != 0 {
+		return errno
+	}
 	if err := n.download(p, meta); err != nil {
 		return fs.ToErrno(err)
 	}
@@ -177,6 +188,9 @@ func (n *loopbackNode) Rmdir(ctx context.Context, name string) syscall.Errno {
 
 func (n *loopbackNode) Unlink(ctx context.Context, name string) (errno syscall.Errno) {
 	p := filepath.Join(n.path(), name)
+	if errno := n.checkWrite(p); errno != 0 {
+		return errno
+	}
 	if err := n.download(p, meta); err != nil {
 		return fs.ToErrno(err)
 	}
@@ -205,6 +219,12 @@ func (n *loopbackNode) Rename(ctx context.Context, name string, newParent fs.Ino
 	p1 := filepath.Join(n.path(), name)
 
 	p2 := filepath.Join(newParentLoopback.path(), newName)
+	if errno := n.checkWrite(p1); errno != 0 {
+		return errno
+	}
+	if errno := n.checkWrite(p2); errno != 0 {
+		return errno
+	}
 	err := os.Rename(p1, p2)
 	return fs.ToErrno(err)
 }
@@ -232,6 +252,9 @@ var _ = (fs.NodeCreater)((*loopbackNode)(nil))
 
 func (n *loopbackNode) Create(ctx context.Context, name string, flags uint32, mode uint32, out *fuse.EntryOut) (inode *fs.Inode, fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
 	p := filepath.Join(n.path(), name)
+	if errno := n.checkWrite(p); errno != 0 {
+		return nil, nil, 0, errno
+	}
 	if err := n.download(p, full); err != nil {
 		return nil, nil, 0, fs.ToErrno(err)
 	}
@@ -262,6 +285,9 @@ func (n *loopbackNode) Create(ctx context.Context, name string, flags uint32, mo
 
 func (n *loopbackNode) Symlink(ctx context.Context, target, name string, out *fuse.EntryOut) (_ *fs.Inode, errno syscall.Errno) {
 	p := filepath.Join(n.path(), name)
+	if errno := n.checkWrite(p); errno != 0 {
+		return nil, errno
+	}
 	if err := n.download(p, full); err != nil {
 		return nil, fs.ToErrno(err)
 	}
@@ -291,8 +317,10 @@ func (n *loopbackNode) Symlink(ctx context.Context, target, name string, out *fu
 }
 
 func (n *loopbackNode) Link(ctx context.Context, target fs.InodeEmbedder, name string, out *fuse.EntryOut) (_ *fs.Inode, errno syscall.Errno) {
-
 	p := filepath.Join(n.path(), name)
+	if errno := n.checkWrite(p); errno != 0 {
+		return nil, errno
+	}
 	if err := n.download(p, full); err != nil {
 		return nil, fs.ToErrno(err)
 	}
@@ -341,6 +369,9 @@ func (n *loopbackNode) Open(ctx context.Context, flags uint32) (fh fs.FileHandle
 	p := n.path()
 	state := full
 	if isWrite(flags) {
+		if errno := n.checkWrite(p); errno != 0 {
+			return nil, 0, errno
+		}
 		state = dirty
 	}
 	if err := n.download(p, state); err != nil {
@@ -486,6 +517,7 @@ func NewLoopbackRoot(root, target string, c *client.APIClient, opts *Options) (*
 		rootPath:   root,
 		rootDev:    uint64(st.Dev),
 		targetPath: target,
+		write:      opts.getWrite(),
 		c:          c,
 		branches:   opts.getBranches(),
 		commits:    make(map[string]string),
@@ -635,6 +667,15 @@ func (n *loopbackNode) setFileState(path string, state fileState) {
 	n.root().mu.Lock()
 	defer n.root().mu.Unlock()
 	n.root().files[n.trimPath(path)] = state
+}
+
+func (n *loopbackNode) checkWrite(path string) syscall.Errno {
+	// TODO in the future it should be possible to have some repos writable but
+	// not all of them, for now it's global so we don't have any use for path
+	if !n.root().write {
+		return syscall.EROFS
+	}
+	return 0
 }
 
 func toErrno(err error) syscall.Errno {

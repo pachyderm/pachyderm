@@ -42,6 +42,13 @@ func (o *Options) getBranches() map[string]string {
 	return o.Branches
 }
 
+func (o *Options) getWrite() bool {
+	if o == nil {
+		return false
+	}
+	return o.Write
+}
+
 func (o *Options) getUnmount() chan struct{} {
 	if o == nil {
 		return nil

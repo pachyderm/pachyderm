@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	go_errors "github.com/pkg/errors"
 )
 
 // Matches checks that a string matches a regular-expression.
@@ -388,7 +389,7 @@ func NoneEquals(tb testing.TB, expected interface{}, actuals interface{}, msgAnd
 func NoError(tb testing.TB, err error, msgAndArgs ...interface{}) {
 	tb.Helper()
 	if err != nil {
-		fatal(tb, msgAndArgs, "No error is expected but got %s", err.Error())
+		fatal(tb, msgAndArgs, "No error is expected but got %v", err)
 	}
 }
 
@@ -405,7 +406,7 @@ func NoErrorWithinT(tb testing.TB, t time.Duration, f func() error, msgAndArgs .
 	select {
 	case err := <-errCh:
 		if err != nil {
-			fatal(tb, msgAndArgs, "No error is expected but got %s", err.Error())
+			fatal(tb, msgAndArgs, "No error is expected but got %v", err)
 		}
 	case <-time.After(t):
 		fatal(tb, msgAndArgs, "operation did not finish within %s", t.String())
@@ -520,5 +521,25 @@ func fatal(tb testing.TB, userMsgAndArgs []interface{}, msgFmt string, msgArgs .
 	tb.Helper()
 	logMessage(tb, userMsgAndArgs)
 	tb.Logf(msgFmt, msgArgs...)
+	if len(msgArgs) > 0 {
+		err, ok := msgArgs[0].(error)
+		if ok {
+			var st go_errors.StackTrace
+			for err != nil {
+				if err, ok := err.(errors.StackTracer); ok {
+					st = err.StackTrace()
+				}
+				err = go_errors.Unwrap(err)
+			}
+			if len(st) > 0 {
+				tb.Logf("error stack:\n")
+				if st != nil {
+					for _, frame := range st {
+						tb.Logf("%+v\n", frame)
+					}
+				}
+			}
+		}
+	}
 	tb.Fatalf("current stack:\n%s", string(debug.Stack()))
 }

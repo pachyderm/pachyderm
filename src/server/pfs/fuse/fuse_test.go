@@ -138,6 +138,20 @@ func TestHeadlessBranch(t *testing.T) {
 	})
 }
 
+func TestReadOnly(t *testing.T) {
+	c := server.GetPachClient(t, server.GetBasicConfig())
+	require.NoError(t, c.CreateRepo("repo"))
+	withMount(t, c, &Options{
+		Fuse: &fs.Options{
+			MountOptions: fuse.MountOptions{
+				Debug: true,
+			},
+		},
+	}, func(mountPoint string) {
+		require.YesError(t, ioutil.WriteFile(filepath.Join(mountPoint, "repo", "foo"), []byte("foo\n"), 0644))
+	})
+}
+
 func TestWrite(t *testing.T) {
 	c := server.GetPachClient(t, server.GetBasicConfig())
 	require.NoError(t, c.CreateRepo("repo"))
@@ -231,8 +245,6 @@ func TestWrite(t *testing.T) {
 	})
 	b.Reset()
 	require.YesError(t, c.GetFile("repo", "master", "dir/foo", 0, 0, &b))
-
-	// TODO test this nested in a directory
 }
 
 func withMount(tb testing.TB, c *client.APIClient, opts *Options, f func(mountPoint string)) {

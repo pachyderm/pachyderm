@@ -11,6 +11,7 @@ import (
 	"github.com/hanwen/go-fuse/v2/fs"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
@@ -36,7 +37,7 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 	}
 	server, err := fs.Mount(target, root, opts.getFuse())
 	if err != nil {
-		return err
+		return errors.Wrap(err, "fs.Mount")
 	}
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
@@ -68,11 +69,11 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 				if os.IsNotExist(err) {
 					return pfc.DeleteFile(parts[0], root.branch(parts[0]), pathpkg.Join(parts[1:]...))
 				}
-				return err
+				return errors.Wrap(err, "os.Open")
 			}
 			defer func() {
 				if err := f.Close(); err != nil && retErr == nil {
-					retErr = err
+					retErr = errors.Wrap(err, "f.Close")
 				}
 			}()
 			if _, err := pfc.PutFileOverwrite(parts[0], root.branch(parts[0]),
