@@ -245,7 +245,7 @@ func (reg *registry) succeedJob(
 		return err
 	}
 
-	if err := reg.cleanJobArtifacts(jobTagPrefix(pj.ji.Job.ID)); err != nil {
+	if err := reg.cleanJobArtifacts(pj.ji.Job); err != nil {
 		return err
 	}
 
@@ -265,7 +265,7 @@ func (reg *registry) failJob(
 		return err
 	}
 
-	if err := reg.cleanJobArtifacts(jobTagPrefix(pj.ji.Job.ID)); err != nil {
+	if err := reg.cleanJobArtifacts(pj.ji.Job); err != nil {
 		return err
 	}
 
@@ -283,7 +283,7 @@ func (reg *registry) killJob(
 		return err
 	}
 
-	if err := reg.cleanJobArtifacts(jobTagPrefix(pj.ji.Job.ID)); err != nil {
+	if err := reg.cleanJobArtifacts(pj.ji.Job); err != nil {
 		return err
 	}
 
@@ -316,7 +316,9 @@ func forEachTag(pachClient *client.APIClient, prefix string, cb func(tag *pfs.Ta
 	}
 }
 
-func (reg *registry) cleanJobArtifacts(prefix string) error {
+func (reg *registry) cleanJobArtifacts(job *pps.Job) error {
+	reg.logger.WithJob(job.ID).Logf("Cleaning job artifacts")
+	prefix := jobTagPrefix(job.ID)
 	tags := []*pfs.Tag{}
 	objects := []*pfs.Object{}
 

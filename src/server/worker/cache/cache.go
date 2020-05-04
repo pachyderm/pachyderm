@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 )
 
@@ -57,7 +58,7 @@ func (wc *workerCache) RemoveCache(jobID string) error {
 
 	if _, ok := wc.caches[jobID]; ok {
 		if err := os.RemoveAll(filepath.Join(wc.hashtreeStorage, jobID)); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		delete(wc.caches, jobID)
 	}
@@ -76,5 +77,5 @@ func (wc *workerCache) Close() error {
 	defer wc.mutex.Unlock()
 
 	wc.caches = make(map[string]*hashtree.MergeCache)
-	return os.RemoveAll(wc.hashtreeStorage)
+	return errors.EnsureStack(os.RemoveAll(wc.hashtreeStorage))
 }

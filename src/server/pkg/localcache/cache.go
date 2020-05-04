@@ -21,7 +21,7 @@ type Cache struct {
 // NewCache creates a new cache.
 func NewCache(root string) (*Cache, error) {
 	if err := os.MkdirAll(root, 0777); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 
 	return &Cache{
@@ -44,7 +44,7 @@ func (c *Cache) Put(key string, value io.Reader) (retErr error) {
 	defer c.mu.Unlock()
 	f, err := os.Create(filepath.Join(c.root, key))
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	defer func() {
 		if err := f.Close(); err != nil && retErr == nil {
@@ -54,7 +54,7 @@ func (c *Cache) Put(key string, value io.Reader) (retErr error) {
 	buf := grpcutil.GetBuffer()
 	defer grpcutil.PutBuffer(buf)
 	if _, err := io.CopyBuffer(f, value, buf); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	c.keys[key] = true
 	return nil
@@ -69,7 +69,7 @@ func (c *Cache) Get(key string) (io.ReadCloser, error) {
 	}
 	f, err := os.Open(filepath.Join(c.root, key))
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return f, nil
 }
@@ -94,7 +94,7 @@ func (c *Cache) Delete(key string) error {
 		return nil
 	}
 	delete(c.keys, key)
-	return os.Remove(filepath.Join(c.root, key))
+	return errors.EnsureStack(os.Remove(filepath.Join(c.root, key)))
 }
 
 // Clear clears the cache.
@@ -106,7 +106,7 @@ func (c *Cache) Clear() error {
 	}()
 	for key := range c.keys {
 		if err := os.Remove(filepath.Join(c.root, key)); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 	return nil

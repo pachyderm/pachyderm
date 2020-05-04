@@ -33,6 +33,20 @@ var (
 	WithStack = errors.WithStack
 )
 
+// EnsureStack will add a stack onto the given error only if it does not already
+// have a stack. If err is nil, EnsureStack returns nil.
+func EnsureStack(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	if _, ok := err.(StackTracer); ok {
+		return err
+	}
+
+	return WithStack(err)
+}
+
 // Callers returns an errors.StackTrace for the place at which it's called.
 func Callers() errors.StackTrace {
 	const depth = 32

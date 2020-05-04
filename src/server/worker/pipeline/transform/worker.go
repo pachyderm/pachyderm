@@ -105,7 +105,17 @@ func mergeStats(x, y *DatumStats) error {
 }
 
 // Worker handles a transform pipeline work subtask, then returns.
-func Worker(driver driver.Driver, logger logs.TaggedLogger, subtask *work.Task, status *Status) error {
+func Worker(driver driver.Driver, logger logs.TaggedLogger, subtask *work.Task, status *Status) (retErr error) {
+	defer func() {
+		err := retErr
+		for err != nil {
+			logger.Logf("error: %v", err)
+			if st, ok := err.(errors.StackTracer); ok {
+				logger.Logf("error stack: %+v", st.StackTrace())
+			}
+			err = errors.Unwrap(err)
+		}
+	}()
 	// Handle 'process datum' tasks
 	datumData, err := deserializeDatumData(subtask.Data)
 	if err == nil {
@@ -636,7 +646,11 @@ func fetchChunk(driver driver.Driver, logger logs.TaggedLogger, info *HashtreeIn
 	}
 	logger.Logf("error when fetching cached chunk (%s) from worker (%s) - fetching from object store instead: %v", info.Tag, info.Address, err)
 
-	return driver.PachClient().GetTagReader(info.Tag)
+	reader, err = driver.PachClient().GetTagReader(info.Tag)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return reader, nil
 }
 
 func handleMergeTask(driver driver.Driver, logger logs.TaggedLogger, data *MergeData) (retErr error) {
@@ -689,7 +703,7 @@ func handleMergeTask(driver driver.Driver, logger logs.TaggedLogger, data *Merge
 					// TODO: this only works if it is read into a buffer first?
 					buf := &bytes.Buffer{}
 					io.Copy(buf, reader)
-					return cache.Put(hashtreeInfo.Tag, bytes.NewBuffer(buf.Bytes()))
+					return errors.EnsureStack(cache.Put(hashtreeInfo.Tag, bytes.NewBuffer(buf.Bytes())))
 				})
 			}
 		}
@@ -705,11 +719,11 @@ func handleMergeTask(driver driver.Driver, logger logs.TaggedLogger, data *Merge
 			eg.Go(func() error {
 				var err error
 				parentReader, err = driver.PachClient().GetObjectReader(data.Parent.Hash)
-				return err
+				return errors.EnsureStack(err)
 			})
 		}
 
-		return eg.Wait()
+		return errors.EnsureStack(eg.Wait())
 	}); err != nil {
 		return err
 	}
@@ -732,7 +746,7 @@ func merge(driver driver.Driver, parent io.Reader, cache *hashtree.MergeCache, s
 	if err := func() (retErr error) {
 		objW, err := driver.PachClient().PutObjectAsync(nil)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 
 		w := hashtree.NewWriter(objW)
@@ -741,20 +755,20 @@ func merge(driver driver.Driver, parent io.Reader, cache *hashtree.MergeCache, s
 		size = w.Size()
 		if err != nil {
 			objW.Close()
-			return err
+			return errors.EnsureStack(err)
 		}
 		// Get object hash for hashtree
 		if err := objW.Close(); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		tree, err = objW.Object()
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		// Get index and write it out
 		indexData, err := w.Index()
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		return writeIndex(driver, tree, indexData)
 	}(); err != nil {
@@ -766,21 +780,21 @@ func merge(driver driver.Driver, parent io.Reader, cache *hashtree.MergeCache, s
 func writeIndex(driver driver.Driver, tree *pfs.Object, indexData []byte) (retErr error) {
 	info, err := driver.PachClient().InspectObject(tree.Hash)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	path, err := obj.BlockPathFromEnv(info.BlockRef.Block)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	indexWriter, err := driver.PachClient().DirectObjWriter(path + hashtree.IndexPath)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	defer func() {
 		if err := indexWriter.Close(); err != nil && retErr == nil {
-			retErr = err
+			retErr = errors.EnsureStack(err)
 		}
 	}()
 	_, err = indexWriter.Write(indexData)
-	return err
+	return errors.EnsureStack(err)
 }
