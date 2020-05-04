@@ -5122,7 +5122,7 @@ func TestJoinInput(t *testing.T) {
 }
 
 func TestUnionRegression4688(t *testing.T) {
-	c := tu.GetPachClient(t)
+	c := getPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
 	repoA := tu.UniqueString("TestUnionRegression4688")
