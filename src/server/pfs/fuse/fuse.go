@@ -31,6 +31,11 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err := os.RemoveAll(rootDir); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
 	root, err := NewLoopbackRoot(rootDir, target, c, opts)
 	if err != nil {
 		return err
