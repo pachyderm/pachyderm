@@ -756,16 +756,15 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commi
 				for err == nil {
 					err = reg.processJob(pj)
 				}
-				pj.logger.Logf("processJob result: %v", err)
+				return err
+			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+				pj.logger.Logf("processJob error: %v, retring in %v", err, d)
 				for err != nil {
 					if st, ok := err.(errors.StackTracer); ok {
 						pj.logger.Logf("error stack: %+v", st.StackTrace())
 					}
 					err = errors.Unwrap(err)
 				}
-				return err
-			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-				pj.logger.Logf("processJob failed: %v; retrying in %v", err, d)
 
 				pj.jdit.Reset()
 
