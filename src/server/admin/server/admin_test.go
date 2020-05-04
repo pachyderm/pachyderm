@@ -142,12 +142,18 @@ Finished: %s
 Size: %d
 Tree: %s
 Trees: %s
-Datums: %s`,
+Datums: %s
+SubvenantCommitsSuccess: %d
+SubvenantCommitsFailure: %d
+SubvenantCommitsTotal: %d`,
 		ci.Commit.ID,
 		parentCommit, childCommits,
 		prov, subv,
 		types.TimestampString(ci.Started), finished,
 		ci.SizeBytes, tree, trees, datums,
+		ci.SubvenantCommitsSuccess,
+		ci.SubvenantCommitsFailure,
+		ci.SubvenantCommitsTotal,
 	)
 }
 
@@ -277,14 +283,6 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 	require.ImagesEqual(t, risBefore, risAfter, repoInfoSummary)
 	commitInfosAfter := listAllCommits(t, c)
 	require.ImagesEqual(t, commitInfosBefore, commitInfosAfter, commitInfoSummary)
-
-	// check for a regression where tese field were not re-populated
-	for i, commitInfoBefore := range commitInfosBefore {
-		commitInfoAfter := commitInfosAfter[i]
-		require.Equal(t, commitInfoBefore.SubvenantCommitsSuccess, commitInfoAfter.SubvenantCommitsSuccess)
-		require.Equal(t, commitInfoBefore.SubvenantCommitsFailure, commitInfoAfter.SubvenantCommitsFailure)
-		require.Equal(t, commitInfoBefore.SubvenantCommitsTotal, commitInfoAfter.SubvenantCommitsTotal)
-	}
 
 	// Make sure all commits got re-created
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
