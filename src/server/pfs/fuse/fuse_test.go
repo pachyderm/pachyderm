@@ -245,6 +245,20 @@ func TestWrite(t *testing.T) {
 	})
 	b.Reset()
 	require.YesError(t, c.GetFile("repo", "master", "dir/foo", 0, 0, &b))
+
+	// Try writing to two repos at once
+	require.NoError(t, c.CreateRepo("repo2"))
+	withMount(t, c, &Options{
+		Fuse: &fs.Options{
+			MountOptions: fuse.MountOptions{
+				Debug: true,
+			},
+		},
+		Write: true,
+	}, func(mountPoint string) {
+		require.NoError(t, ioutil.WriteFile(filepath.Join(mountPoint, "repo", "file"), []byte("foo\n"), 0644))
+		require.NoError(t, ioutil.WriteFile(filepath.Join(mountPoint, "repo2", "file"), []byte("foo\n"), 0644))
+	})
 }
 
 func withMount(tb testing.TB, c *client.APIClient, opts *Options, f func(mountPoint string)) {

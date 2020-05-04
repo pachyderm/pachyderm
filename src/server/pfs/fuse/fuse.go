@@ -49,13 +49,23 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 		server.Unmount()
 	}()
 	server.Serve()
-	pfc, err := c.NewPutFileClient()
-	if err != nil {
-		return err
+	pfcs := make(map[string]client.PutFileClient)
+	pfc := func(repo string) (client.PutFileClient, error) {
+		if pfc, ok := pfcs[repo]; ok {
+			return pfc, nil
+		}
+		pfc, err := c.NewPutFileClient()
+		if err != nil {
+			return nil, err
+		}
+		pfcs[repo] = pfc
+		return pfc, nil
 	}
 	defer func() {
-		if err := pfc.Close(); err != nil && retErr == nil {
-			retErr = err
+		for _, pfc := range pfcs {
+			if err := pfc.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
 		}
 	}()
 	for path, state := range root.files {
@@ -63,6 +73,10 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 			continue
 		}
 		parts := strings.Split(path, "/")
+		pfc, err := pfc(parts[0])
+		if err != nil {
+			return err
+		}
 		if err := func() (retErr error) {
 			f, err := os.Open(filepath.Join(root.rootPath, path))
 			if err != nil {
