@@ -152,7 +152,12 @@ func newCommitGenerator(opts ...commitGeneratorOption) commitGenerator {
 				if config.putCancelConfig != nil && rand.Float64() < config.putCancelConfig.prob {
 					// (bryce) not sure if we want to do anything with errors here?
 					cancelOperation(config.putCancelConfig, c, func(c *client.APIClient) error {
-						return c.PutTar(repo, commit.ID, r)
+						err := c.PutTar(repo, commit.ID, r)
+						if err == nil {
+							validator.recordFileSet(fs)
+						}
+						return err
+
 					})
 					continue
 				}
