@@ -24,7 +24,7 @@ that shows interoperability among the three frameworks.
 Rather than use a complicated Tensorflow/Kubeflow example that shows distributed training,
 this example will focus on the minimum needed to work with Pachyderm's S3 Gateway from a Kubeflow TFJob.
 
-We will use the example Kubeflow [tfoperator example mnist_with_summaries](https://github.com/kubeflow/tf-operator/tree/master/examples/v1beta2/mnist_with_summaries) as a basis, so you can easily adapt the code for your needs.
+We will use the example Kubeflow [tfoperator example mnist_with_summaries](https://github.com/kubeflow/tf-operator/tree/master/examples/v1/mnist_with_summaries) as a basis, so you can easily adapt the code for your needs.
 For simplicity, we will use example data files from the mnist training set,
 but you can easily store any data you wish.
 Anywhere you use the Tensorflow `file_io` library,
@@ -65,7 +65,7 @@ Complete instructions for setting up and working with the S3 Gateway using vario
 [s3cmd](https://github.com/s3tools/s3cmd),
 [the AWS CLI](https://aws.amazon.com/cli/) and
 the [minio client (mc)](https://github.com/minio/mc) are available
-at the [documentation for the S3 Gateway](https://docs.pachyderm.com/latest/enterprise/s3gateway/).
+at the [documentation for the S3 Gateway](https://docs.pachyderm.com/latest/deploy-manage/manage/s3gateway/).
 
 ### Accessing Pachyderm repos from TFJobs and the Tensorflow apis
 
@@ -162,7 +162,7 @@ Kubeflow in the `kubeflow` namespace and Pachyderm in the `pachyderm` namespace.
      ```sh
      for file in $(seq 0 9)
      do pachctl put file inputrepo@master:/data/img_${file}.jpg  \
-          -f https://raw.githubusercontent.com/pachyderm/pachyderm/tree/master/examples/kubeflow/tfjob/mnist/img_${file}.jpg 
+          -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/kubeflow/tfjob/mnist/img_${file}.jpg
      done
      ```
       
