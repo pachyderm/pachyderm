@@ -235,8 +235,9 @@ func notifyCtx(ctx context.Context, name string) func(error, time.Duration) erro
 }
 
 func (a *apiServer) setPipelineState(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, state pps.PipelineState, reason string) (retErr error) {
-	span, ctx := tracing.AddSpanToAnyExisting(pachClient.Ctx(), "/pps.Master/SetPipelineState",
-		"pipeline", pipelineInfo.Pipeline.Name, "new-state", state)
+	span, ctx := tracing.AddSpanToAnyExisting(pachClient.Ctx(),
+		"/pps.Master/SetPipelineState", "pipeline", pipelineInfo.Pipeline.Name,
+		"new-state", state)
 	if span != nil {
 		pachClient = pachClient.WithCtx(ctx)
 	}
@@ -244,22 +245,77 @@ func (a *apiServer) setPipelineState(pachClient *client.APIClient, pipelineInfo 
 		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
 	}()
+	return a.setPipelineStateInternal(pachClient, pipelineInfo, nil, state, reason)
+}
+
+type pipelineTransitionError struct {
+	pipeline                  string
+	expected, target, current pps.PipelineState
+}
+
+func (p pipelineTransitionError) Error() string {
+	return fmt.Sprintf("could not transition %q from %s -> %s, as it is in %s",
+		p.pipeline, p.expected, p.target, p.current)
+}
+
+// transitionPipelineState is similar to setPipelineState, except that the
+// pipeline must already be in state 'from'. This is used for standby pipelines,
+// to prevent monitorPipeline() from putting a PAUSED or STOPPED pipeline into
+// STANDBY
+func (a *apiServer) transitionPipelineState(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, from, to pps.PipelineState, reason string) (retErr error) {
+	span, ctx := tracing.AddSpanToAnyExisting(pachClient.Ctx(),
+		"/pps.Master/TransitionPipelineState", "pipeline",
+		pipelineInfo.Pipeline.Name, "from-state", from, "to-state", to)
+	if span != nil {
+		pachClient = pachClient.WithCtx(ctx)
+	}
+	defer func() {
+		tracing.TagAnySpan(span, "err", retErr)
+		tracing.FinishAnySpan(span)
+	}()
+	return a.setPipelineStateInternal(pachClient, pipelineInfo, &from, to, reason)
+}
+
+// setPipelineStateInternal is a helper that contains the essential
+// implementation of setPipelineState and transitionPipelineState. As it doesn't
+// handle tracing, it shouldn't be called directly, and should be called via
+// those functions instead.
+func (a *apiServer) setPipelineStateInternal(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, from *pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
+	ctx := pachClient.Ctx()
 	parallelism, err := ppsutil.GetExpectedNumWorkers(a.env.GetKubeClient(), pipelineInfo.ParallelismSpec)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "could not determine expected pipeline workers")
 	}
-	log.Infof("moving pipeline %s to %s", pipelineInfo.Pipeline.Name, state.String())
-	_, err = col.NewSTM(pachClient.Ctx(), a.env.GetEtcdClient(), func(stm col.STM) error {
+	if from == nil {
+		log.Infof("moving pipeline %s to %s", pipelineInfo.Pipeline.Name, to)
+	} else {
+		log.Infof("moving pipeline %s from %s to %s", pipelineInfo.Pipeline.Name, from, to)
+	}
+	_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		pipelines := a.pipelines.ReadWrite(stm)
 		pipelinePtr := &pps.EtcdPipelineInfo{}
 		if err := pipelines.Get(pipelineInfo.Pipeline.Name, pipelinePtr); err != nil {
 			return err
 		}
-		tracing.TagAnySpan(span, "old-state", pipelinePtr.State)
+		tracing.TagAnySpan(ctx, "old-state", pipelinePtr.State)
 		if pipelinePtr.State == pps.PipelineState_PIPELINE_FAILURE {
 			return nil
 		}
-		pipelinePtr.State = state
+		// transitionPipelineState case: error if pipeline is in an unexpected
+		// state.
+		//
+		// allow transitionPipelineState to send a pipeline state to its target
+		// repeatedly (thus pipelinePtr.State == to yields no error). This will
+		// trigger additional etcd write events, but will not trigger an error.
+		if from != nil && pipelinePtr.State != *from && pipelinePtr.State != to {
+			return pipelineTransitionError{
+				pipeline: pipelineInfo.Pipeline.Name,
+				expected: *from,
+				target:   to,
+				current:  pipelinePtr.State,
+			}
+		}
+		pipelinePtr.State = to
 		pipelinePtr.Reason = reason
 		pipelinePtr.Parallelism = uint64(parallelism)
 		return pipelines.Put(pipelineInfo.Pipeline.Name, pipelinePtr)
