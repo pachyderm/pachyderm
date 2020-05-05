@@ -12,6 +12,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/server/pkg/progress"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
@@ -83,7 +84,7 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 			return err
 		}
 		if err := func() (retErr error) {
-			f, err := os.Open(filepath.Join(root.rootPath, path))
+			f, err := progress.Open(filepath.Join(root.rootPath, path))
 			if err != nil {
 				if os.IsNotExist(err) {
 					return pfc.DeleteFile(parts[0], root.branch(parts[0]), pathpkg.Join(parts[1:]...))
