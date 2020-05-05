@@ -253,6 +253,11 @@ message BuildCommitRequest {
   // ID sets the ID of the created commit.
   string ID = 5;
   uint64 size_bytes = 9;
+  // 'started' and 'finished' are set by Restore() when repopulating old
+  // commits. If 'finished' is set, the commit being built is always marked
+  // finished.
+  google.protobuf.Timestamp started = 10;
+  google.protobuf.Timestamp finished = 11;
 }
 
 message FinishCommitRequest {
