@@ -563,6 +563,8 @@ spec:
               optional: true
         - name: STORAGE_UPLOAD_CONCURRENCY_LIMIT
           value: "100"
+        - name: STORAGE_PUT_FILE_CONCURRENCY_LIMIT
+          value: "100"
         image: pachyderm/pachd:1.10.3
         imagePullPolicy: IfNotPresent
         name: pachd
