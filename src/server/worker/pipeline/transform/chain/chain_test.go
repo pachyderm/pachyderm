@@ -764,3 +764,44 @@ func TestRepeatedDatumWithoutBase(t *testing.T) {
 
 	requireChainEmpty(t, chain, jobDatums)
 }
+
+func TestNoSkipSuccess(t *testing.T) {
+	chain := NewNoSkipJobChain(&testHasher{})
+	job1 := newTestJob([]string{"a", "b", "c", "d"})
+	job2 := newTestJob([]string{"b", "c", "d", "e"})
+	job3 := newTestJob([]string{"a", "f", "g"})
+	job4 := newTestJob([]string{"h", "i"})
+
+	eg, ctx := errgroup.WithContext(context.Background())
+
+	jdi1, err := chain.Start(job1)
+	require.NoError(t, err)
+	datums1 := superviseTestJob(ctx, eg, jdi1)
+
+	jdi2, err := chain.Start(job2)
+	require.NoError(t, err)
+	datums2 := superviseTestJob(ctx, eg, jdi2)
+
+	jdi3, err := chain.Start(job3)
+	require.NoError(t, err)
+	datums3 := superviseTestJob(ctx, eg, jdi3)
+
+	jdi4, err := chain.Start(job4)
+	require.NoError(t, err)
+	datums4 := superviseTestJob(ctx, eg, jdi4)
+
+	requireDatums(t, datums1, []string{"a", "b", "c", "d"})
+	requireDatums(t, datums2, []string{"b", "c", "d", "e"})
+	requireDatums(t, datums3, []string{"a", "f", "g"})
+	requireDatums(t, datums4, []string{"h", "i"})
+	requireChannelClosed(t, datums1)
+	requireChannelClosed(t, datums2)
+	requireChannelClosed(t, datums3)
+	requireChannelClosed(t, datums4)
+
+	require.NoError(t, chain.Succeed(job1))
+	require.NoError(t, chain.Succeed(job2))
+	require.NoError(t, chain.Succeed(job3))
+	require.NoError(t, chain.Succeed(job4))
+	require.NoError(t, eg.Wait())
+}

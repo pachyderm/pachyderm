@@ -75,7 +75,7 @@ func (jdi *noSkipJobDatumIterator) NextBatch(ctx context.Context) (uint64, error
 func (jdi *noSkipJobDatumIterator) NextDatum() ([]*common.Input, int64) {
 	jdi.ditIndex++
 	if jdi.ditIndex < jdi.dit.Len() {
-		return jdi.dit.Datum(), int64(jdi.ditIndex)
+		return jdi.dit.DatumN(jdi.ditIndex), int64(jdi.ditIndex)
 	}
 	return nil, 0
 }
