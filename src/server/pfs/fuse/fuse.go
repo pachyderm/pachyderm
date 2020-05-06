@@ -18,7 +18,7 @@ import (
 
 // Mount pfs to target, opts may be left nil.
 func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
-	if err := opts.validate(); err != nil {
+	if err := opts.validate(c); err != nil {
 		return err
 	}
 	commits := make(map[string]string)

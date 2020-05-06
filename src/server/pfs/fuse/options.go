@@ -3,6 +3,7 @@ package fuse
 import (
 	"github.com/hanwen/go-fuse/v2/fs"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
@@ -17,13 +18,17 @@ type Options struct {
 	// Writes will be written back to the filesystem.
 	Write bool
 
-	// Branches is a map from repos to branches, if a repo is unspecified then
-	// the "master" will be used.
-	Branches map[string]string
+	// RepoOptions is a map from repo names to
+	RepoOptions map[string]*RepoOptions
 
 	// Unmount is a channel that will be closed when the filesystem has been
 	// unmounted. It can be nil in which case it's ignored.
 	Unmount chan struct{}
+}
+
+type RepoOptions struct {
+	Branch string
+	Write  bool
 }
 
 func (o *Options) getFuse() *fs.Options {
@@ -36,10 +41,14 @@ func (o *Options) getFuse() *fs.Options {
 }
 
 func (o *Options) getBranches() map[string]string {
-	if o == nil || o.Branches == nil {
-		return make(map[string]string)
+	result := make(map[string]string)
+	if o == nil {
+		return result
 	}
-	return o.Branches
+	for repo, opts := range o.RepoOptions {
+		result[repo] = opts.Branch
+	}
+	return result
 }
 
 func (o *Options) getWrite() bool {
@@ -56,14 +65,21 @@ func (o *Options) getUnmount() chan struct{} {
 	return o.Unmount
 }
 
-func (o *Options) validate() error {
+func (o *Options) validate(c *client.APIClient) error {
 	if o == nil {
 		return nil
 	}
-	if o.Write {
-		for _, commit := range o.Branches {
-			if uuid.IsUUIDWithoutDashes(commit) {
-				return errors.Errorf("can't mount commits %s in Write mode (mount a branch instead)", commit)
+	for repo, opts := range o.RepoOptions {
+		if opts.Write {
+			if uuid.IsUUIDWithoutDashes(opts.Branch) {
+				return errors.Errorf("can't mount commit %s@%s in Write mode (mount a branch instead)", repo, opts.Branch)
+			}
+			bi, err := c.InspectBranch(repo, opts.Branch)
+			if err != nil {
+				return err
+			}
+			if len(bi.Provenance) > 0 {
+				return errors.Errorf("can't mount branch %s@%s in Write mode because it's an output branch")
 			}
 		}
 	}

@@ -20,14 +20,40 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func parseBranches(args []string) (map[string]string, error) {
-	result := make(map[string]string)
+func parseRepoOpts(args []string) (map[string]*fuse.RepoOptions, error) {
+	result := make(map[string]*fuse.RepoOptions)
 	for _, arg := range args {
-		split := strings.Split(arg, "@")
-		if len(split) != 2 {
-			return nil, errors.Errorf("malformed input %s, must be of the form repo@commit", args)
+		var repo string
+		var flag string
+		opts := &fuse.RepoOptions{}
+		repoAndRest := strings.Split(arg, "@")
+		if len(repoAndRest) == 1 {
+			// No branch specified
+			opts.Branch = "master"
+			repoAndFlag := strings.Split(repoAndRest[0], "+")
+			repo = repoAndFlag[0]
+			if len(repoAndFlag) > 1 {
+				flag = repoAndFlag[1]
+			}
+		} else {
+			repo = repoAndRest[0]
+			branchAndFlag := strings.Split(repoAndRest[1], "+")
+			opts.Branch = branchAndFlag[0]
+			if len(branchAndFlag) > 1 {
+				flag = branchAndFlag[1]
+			}
 		}
-		result[split[0]] = split[1]
+		if flag != "" {
+			if flag == "w" || flag == "rw" {
+				opts.Write = true
+			} else if flag != "r" {
+				return nil, errors.Errorf("invalid format %q: unrecognized mode: %q", arg, flag)
+			}
+		}
+		if repo == "" {
+			return nil, errors.Errorf("invalid format %q: repo cannot be empty", arg)
+		}
+		result[repo] = opts
 	}
 	return result, nil
 }
@@ -49,7 +75,7 @@ func mountCmds() []*cobra.Command {
 			}
 			defer c.Close()
 			mountPoint := args[0]
-			branches, err := parseBranches(branches)
+			repoOpts, err := parseRepoOpts(branches)
 			if err != nil {
 				return err
 			}
@@ -60,7 +86,7 @@ func mountCmds() []*cobra.Command {
 						Debug: debug,
 					},
 				},
-				Branches: branches,
+				RepoOptions: repoOpts,
 			}
 			return fuse.Mount(c, mountPoint, opts)
 		}),
