@@ -41,11 +41,12 @@ func newLoadConfig(opts ...loadConfigOption) *loadConfig {
 
 type loadConfigOption func(*loadConfig)
 
-func withPachdConfig(opts ...pachdConfigOption) loadConfigOption {
-	return func(config *loadConfig) {
-		config.pachdConfig = newPachdConfig(opts...)
-	}
-}
+// (bryce) will use later, commenting to make linter happy.
+//func withPachdConfig(opts ...pachdConfigOption) loadConfigOption {
+//	return func(config *loadConfig) {
+//		config.pachdConfig = newPachdConfig(opts...)
+//	}
+//}
 
 func withBranchGenerator(opts ...branchGeneratorOption) loadConfigOption {
 	return func(config *loadConfig) {
@@ -69,29 +70,30 @@ func newPachdConfig(opts ...pachdConfigOption) *serviceenv.PachdFullConfiguratio
 // (bryce) this should probably be moved to the corresponding packages with configuration available
 type pachdConfigOption func(*serviceenv.PachdFullConfiguration)
 
-func withMemoryThreshold(memoryThreshold int64) pachdConfigOption {
-	return func(c *serviceenv.PachdFullConfiguration) {
-		c.StorageMemoryThreshold = memoryThreshold
-	}
-}
-
-func withShardThreshold(shardThreshold int64) pachdConfigOption {
-	return func(c *serviceenv.PachdFullConfiguration) {
-		c.StorageShardThreshold = shardThreshold
-	}
-}
-
-func withLevelZeroSize(levelZeroSize int64) pachdConfigOption {
-	return func(c *serviceenv.PachdFullConfiguration) {
-		c.StorageLevelZeroSize = levelZeroSize
-	}
-}
-
-func withGCPolling(polling string) pachdConfigOption {
-	return func(c *serviceenv.PachdFullConfiguration) {
-		c.StorageGCPolling = polling
-	}
-}
+// (bryce) will use later, commenting to make linter happy.
+//func withMemoryThreshold(memoryThreshold int64) pachdConfigOption {
+//	return func(c *serviceenv.PachdFullConfiguration) {
+//		c.StorageMemoryThreshold = memoryThreshold
+//	}
+//}
+//
+//func withShardThreshold(shardThreshold int64) pachdConfigOption {
+//	return func(c *serviceenv.PachdFullConfiguration) {
+//		c.StorageShardThreshold = shardThreshold
+//	}
+//}
+//
+//func withLevelZeroSize(levelZeroSize int64) pachdConfigOption {
+//	return func(c *serviceenv.PachdFullConfiguration) {
+//		c.StorageLevelZeroSize = levelZeroSize
+//	}
+//}
+//
+//func withGCPolling(polling string) pachdConfigOption {
+//	return func(c *serviceenv.PachdFullConfiguration) {
+//		c.StorageGCPolling = polling
+//	}
+//}
 
 type branchGenerator func(*client.APIClient, string, *loadState) error
 
@@ -420,18 +422,19 @@ var (
 			max: 100 * units.MB,
 		},
 	}
-	edgeCaseFileSizeBuckets = []fileSizeBucket{
-		fileSizeBucket{
-			min: 0,
-		},
-		fileSizeBucket{
-			min: 1,
-		},
-		fileSizeBucket{
-			min: 1,
-			max: 100,
-		},
-	}
+	// (bryce) will use later, commenting to make linter happy.
+	//edgeCaseFileSizeBuckets = []fileSizeBucket{
+	//	fileSizeBucket{
+	//		min: 0,
+	//	},
+	//	fileSizeBucket{
+	//		min: 1,
+	//	},
+	//	fileSizeBucket{
+	//		min: 1,
+	//		max: 100,
+	//	},
+	//}
 )
 
 func defaultFileSizeBuckets() []fileSizeBucket {
