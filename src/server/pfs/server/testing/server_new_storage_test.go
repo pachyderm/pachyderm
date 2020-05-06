@@ -479,6 +479,7 @@ func seedRand(customSeed ...int64) {
 }
 
 func TestLoad(t *testing.T) {
+	t.Skip("skipping load test, requires new storage layer deployment")
 	seedRand()
 	require.NoError(t, testLoad(fuzzLoad()))
 }
