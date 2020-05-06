@@ -108,45 +108,48 @@ func (a *apiServer) step(pachClient *client.APIClient, pipeline string, keyVer, 
 				return err
 			}
 		}
-		// trigger another event--once pipeline is RUNNING, step() will scale it up
 		if op.pipelineInfo.Stopped {
-			if err := op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED); err != nil {
-				return err
-			}
-		} else {
-			if err := op.setPipelineState(pps.PipelineState_PIPELINE_RUNNING); err != nil {
-				return err
-			}
+			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED)
 		}
+		// trigger another event
+		return op.setPipelineState(pps.PipelineState_PIPELINE_RUNNING)
 	case pps.PipelineState_PIPELINE_RUNNING:
 		if !op.rcIsFresh() {
 			return op.restartPipeline("stale RC") // step() will be called again after etcd write
 		}
-		op.startPipelineMonitor()
-
 		if op.pipelineInfo.Stopped {
-			// StopPipeline has been called, but pipeline hasn't been paused yet
-			if err := op.scaleDownPipeline(); err != nil {
-				return err
-			}
 			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED)
 		}
+
+		op.startPipelineMonitor()
 		// default: scale up if pipeline start hasn't propagated to etcd yet
 		// Note: mostly this should do nothing, as this runs several times per job
 		return op.scaleUpPipeline()
-	case pps.PipelineState_PIPELINE_STANDBY, pps.PipelineState_PIPELINE_PAUSED:
+	case pps.PipelineState_PIPELINE_STANDBY:
 		if !op.rcIsFresh() {
 			return op.restartPipeline("stale RC") // step() will be called again after etcd write
 		}
+		if op.pipelineInfo.Stopped {
+			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED)
+		}
+		// default: scale down if standby hasn't propagated to kube RC yet
 		op.startPipelineMonitor()
-
-		if op.ptr.State == pps.PipelineState_PIPELINE_PAUSED && !op.pipelineInfo.Stopped {
-			// StartPipeline has been called, but pipeline hasn't been started yet
+		return op.scaleDownPipeline()
+	case pps.PipelineState_PIPELINE_PAUSED:
+		if !op.rcIsFresh() {
+			return op.restartPipeline("stale RC") // step() will be called again after etcd write
+		}
+		if !op.pipelineInfo.Stopped {
+			// StartPipeline has been called (so spec commit is updated), but new spec
+			// commit hasn't been propagated to etcdPipelineInfo or RC yet
 			if err := op.scaleUpPipeline(); err != nil {
 				return err
 			}
 			return op.setPipelineState(pps.PipelineState_PIPELINE_RUNNING)
 		}
+		// don't want cron commits or STANDBY state changes while pipeline is
+		// stopped
+		op.stopPipelineMonitor()
 		// default: scale down if pause/standby hasn't propagated to etcd yet
 		return op.scaleDownPipeline()
 	case pps.PipelineState_PIPELINE_FAILURE:
@@ -398,6 +401,10 @@ func (op *pipelineOp) startPipelineMonitor() {
 				return nil
 			})
 	}
+}
+
+func (op *pipelineOp) stopPipelineMonitor() {
+	op.apiServer.cancelMonitor(op.name)
 }
 
 // finishPipelineOutputCommits finishes any output commits of
