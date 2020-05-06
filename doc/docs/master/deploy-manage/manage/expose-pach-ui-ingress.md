@@ -37,9 +37,9 @@ For production deployments, deploy with the `--tls` flag.
 1. Enable authentication as described in [Configure Access Controls](../../../enterprise/auth/auth/).
 1. Deploy the Traefik ingress controlleri as described in the [Traefik Documentation](https://docs.traefik.io/v1.7/user-guide/kubernetes/):
 
-   **Note:** These commands deploy an example Traefik ingress that is
-   valid at the moment of this writing. For the latest version
-   of Traefik controller, see the Traefik documentation.
+   **Note:** The commands below deploy an example Traefik ingress.
+   For the latest version of Traefik controller, see the
+   Traefik documentation.
 
    ```bash
    kubectl apply -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/traefik-ingress/roles.yaml
