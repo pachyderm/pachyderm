@@ -95,6 +95,9 @@ message IDProvider {
 
    // OIDCOptions describes a OIDC-based identity provider
    message OIDCOptions {
+     string provider_base_url = 1 [(gogoproto.customname) = "ProviderBaseURL"];
+     string client_id = 2 [(gogoproto.customname) = "ClientID"];
+     string email = 3;
   }
   OIDCOptions oidc = 5 [(gogoproto.customname) = "OIDC"];
 
