@@ -339,23 +339,28 @@ func deserializeShard(shardAny *types.Any) (*pfs.Shard, error) {
 	return shard, nil
 }
 
-// (bryce) it might potentially make sense to exit if an error occurs in this function
-// because each pachd instance that errors here will lose its compaction worker without an obvious
-// notification for the user (outside of the log message).
-// (bryce) ^ maybe just a retry would be good enough.
 func (d *driver) compactionWorker() {
 	w := work.NewWorker(d.etcdClient, d.prefix, storageTaskNamespace)
-	if err := w.Run(context.Background(), func(ctx context.Context, subtask *work.Task) error {
-		shard, err := deserializeShard(subtask.Data)
+	backoffStrat := backoff.NewExponentialBackOff()
+	backoffStrat.MaxElapsedTime = 0 // don't give up, compactionWorker should not exit
+
+	err := backoff.Retry(func() error {
+		err := w.Run(context.Background(), func(ctx context.Context, subtask *work.Task) error {
+			shard, err := deserializeShard(subtask.Data)
+			if err != nil {
+				return err
+			}
+			pathRange := &index.PathRange{
+				Lower: shard.Range.Lower,
+				Upper: shard.Range.Upper,
+			}
+			return d.storage.Compact(ctx, shard.OutputPath, shard.Compaction.InputPrefixes, index.WithRange(pathRange))
+		})
 		if err != nil {
-			return err
+			log.Printf("error in compaction worker: %v", err)
 		}
-		pathRange := &index.PathRange{
-			Lower: shard.Range.Lower,
-			Upper: shard.Range.Upper,
-		}
-		return d.storage.Compact(ctx, shard.OutputPath, shard.Compaction.InputPrefixes, index.WithRange(pathRange))
-	}); err != nil {
-		log.Printf("error in compaction worker: %v", err)
-	}
+		return err
+	}, backoffStrat)
+
+	panic(err) // never ending backoff should prevent us from getting here.
 }
