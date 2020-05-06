@@ -364,7 +364,18 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 				}
 				defer tracing.FinishAnySpan(span)
 
-				if err := a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_STANDBY, ""); err != nil {
+				if err := a.transitionPipelineState(pachClient, pipelineInfo,
+					pps.PipelineState_PIPELINE_RUNNING,
+					pps.PipelineState_PIPELINE_STANDBY, ""); err != nil {
+					if pte, ok := err.(pipelineTransitionError); ok &&
+						pte.current == pps.PipelineState_PIPELINE_PAUSED {
+						// pipeline is stopped, exit monitorPipeline (which pausing the
+						// pipeline should also do). monitorPipeline will be called when
+						// it transitions back to running
+						// TODO(msteffen): this should happen in the pipeline
+						// controller
+						return nil
+					}
 					return err
 				}
 				var (
@@ -393,7 +404,14 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 							pachClient = oldPachClient.WithCtx(ctx)
 						}
 
-						if err := a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
+						if err := a.transitionPipelineState(pachClient, pipelineInfo,
+							pps.PipelineState_PIPELINE_STANDBY,
+							pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
+							if pte, ok := err.(pipelineTransitionError); ok &&
+								pte.current == pps.PipelineState_PIPELINE_PAUSED {
+								// pipeline is stopped, exit monitorPipeline (see above)
+								return nil
+							}
 							return err
 						}
 
@@ -416,7 +434,17 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 							}
 						}
 
-						if err := a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_STANDBY, ""); err != nil {
+						if err := a.transitionPipelineState(pachClient, pipelineInfo,
+							pps.PipelineState_PIPELINE_RUNNING,
+							pps.PipelineState_PIPELINE_STANDBY, ""); err != nil {
+							if pte, ok := err.(pipelineTransitionError); ok &&
+								pte.current == pps.PipelineState_PIPELINE_PAUSED {
+								// pipeline is stopped; monitorPipeline will be called when it
+								// transitions back to running
+								// TODO(msteffen): this should happen in the pipeline
+								// controller
+								return nil
+							}
 							return err
 						}
 					case <-pachClient.Ctx().Done():
