@@ -343,15 +343,14 @@ func deserializeShard(shardAny *types.Any) (*pfs.Shard, error) {
 func (d *driver) compactionWorker() {
 	ctx := context.Background()
 	w := work.NewWorker(d.etcdClient, d.prefix, storageTaskNamespace)
-
+	// Configure backoff so we retry indefinitely
 	backoffStrat := backoff.NewExponentialBackOff()
-	backoffStrat.MaxElapsedTime = 0 // don't give up, compactionWorker should not exit
-
+	backoffStrat.MaxElapsedTime = 0
 	notifier := func(err error, t time.Duration) error {
 		log.Printf("error in compaction worker: %v", err)
-		return nil // non-nil shuts down retry loop
+		// non-nil shuts down retry loop
+		return nil
 	}
-
 	err := backoff.RetryNotify(func() error {
 		return w.Run(ctx, func(ctx context.Context, subtask *work.Task) error {
 			shard, err := deserializeShard(subtask.Data)
@@ -366,5 +365,6 @@ func (d *driver) compactionWorker() {
 		})
 	}, backoffStrat, notifier)
 
-	panic(err) // never ending backoff should prevent us from getting here.
+	// never ending backoff should prevent us from getting here.
+	panic(err)
 }
