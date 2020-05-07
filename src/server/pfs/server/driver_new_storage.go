@@ -8,6 +8,7 @@ import (
 	"path"
 	"regexp"
 	"strconv"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -340,12 +341,19 @@ func deserializeShard(shardAny *types.Any) (*pfs.Shard, error) {
 }
 
 func (d *driver) compactionWorker() {
+	ctx := context.Background()
 	w := work.NewWorker(d.etcdClient, d.prefix, storageTaskNamespace)
+
 	backoffStrat := backoff.NewExponentialBackOff()
 	backoffStrat.MaxElapsedTime = 0 // don't give up, compactionWorker should not exit
 
-	err := backoff.Retry(func() error {
-		err := w.Run(context.Background(), func(ctx context.Context, subtask *work.Task) error {
+	notifier := func(err error, t time.Duration) error {
+		log.Printf("error in compaction worker: %v", err)
+		return nil // non-nil shuts down retry loop
+	}
+
+	err := backoff.RetryNotify(func() error {
+		return w.Run(ctx, func(ctx context.Context, subtask *work.Task) error {
 			shard, err := deserializeShard(subtask.Data)
 			if err != nil {
 				return err
@@ -356,11 +364,7 @@ func (d *driver) compactionWorker() {
 			}
 			return d.storage.Compact(ctx, shard.OutputPath, shard.Compaction.InputPrefixes, index.WithRange(pathRange))
 		})
-		if err != nil {
-			log.Printf("error in compaction worker: %v", err)
-		}
-		return err
-	}, backoffStrat)
+	}, backoffStrat, notifier)
 
 	panic(err) // never ending backoff should prevent us from getting here.
 }
