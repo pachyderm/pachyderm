@@ -3,19 +3,12 @@ kind: StorageClass
 apiVersion: storage.k8s.io/v1
 metadata:
   name: kafka-broker
-provisioner: k8s.io/minikube-hostpath
+provisioner: docker.io/hostpath
 reclaimPolicy: Retain
 ---
 kind: StorageClass
 apiVersion: storage.k8s.io/v1
 metadata:
   name: kafka-zookeeper
-provisioner: k8s.io/minikube-hostpath
-reclaimPolicy: Retain
----
-kind: StorageClass
-apiVersion: storage.k8s.io/v1
-metadata:
-  name: kafka-zookeeper-regional
-provisioner: k8s.io/minikube-hostpath
+provisioner: docker.io/hostpath
 reclaimPolicy: Retain

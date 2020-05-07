@@ -12,7 +12,7 @@ import (
 )
 
 const defaultGroupID = "test"
-const defaultTimeout = 5
+const defaultTimeout = 20
 const defaultNamedPipe = "/pfs/out"
 
 func main() {
@@ -28,18 +28,18 @@ func main() {
 		pipe    = defaultNamedPipe
 	)
 
-	// And create a new kafka reader
-	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:  []string{host + ":" + port},
-		Topic:    topic,
-		GroupID:  groupID,
-		MinBytes: 10e1,
-		MaxBytes: 10e6,
-	})
-	defer reader.Close()
-
 	for {
 		if err := func() error {
+			// And create a new kafka reader
+			reader := kafka.NewReader(kafka.ReaderConfig{
+				Brokers:  []string{host + ":" + port},
+				Topic:    topic,
+				GroupID:  groupID,
+				MinBytes: 10e1,
+				MaxBytes: 10e6,
+			})
+			defer reader.Close()
+
 			// read a message
 			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
 			defer func() {
@@ -47,7 +47,7 @@ func main() {
 			}()
 			m, err := reader.ReadMessage(ctx)
 			if err != nil {
-				return err
+				return fmt.Errorf("read message: %v", err)
 			}
 
 			// Open the /pfs/out pipe with write only permissons (the pachyderm spout will be reading at the other end of this)
@@ -70,12 +70,14 @@ func main() {
 				Size: int64(len(m.Value)),
 			}); err != nil; {
 				if !strings.Contains(err.Error(), "broken pipe") {
-					return err
+					return fmt.Errorf("%s: %v", m.Value, err)
 				}
+				fmt.Println("broken pipe error")
 				// if there's a broken pipe, just give it some time to get ready for the next message
 				time.Sleep(time.Duration(timeout) * time.Millisecond)
 			}
 			// and the message
+			fmt.Println("writing", name)
 			for _, err = tw.Write(m.Value); err != nil; {
 				if !strings.Contains(err.Error(), "broken pipe") {
 					return err

@@ -20185,7 +20185,7 @@ func TestKafka(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer conn.Close()
-
+	fmt.Println("Dailed Kafka")
 	// create the topic
 	port := ""
 	topic := tu.UniqueString("demo")
@@ -20193,6 +20193,7 @@ func TestKafka(t *testing.T) {
 	brokers, err := conn.Brokers()
 	// so to deal with that, we try connecting to each broker
 	for i, b := range brokers {
+		fmt.Println("trying broker ", i)
 		conn, err := kafka.Dial("tcp", fmt.Sprintf("%v:%v", host, b.Port))
 		if err != nil {
 			t.Fatal(err)
@@ -20215,6 +20216,7 @@ func TestKafka(t *testing.T) {
 			// but if all of them fail, that's bad
 			t.Fatal("Can't create topic", err)
 		}
+		fmt.Println("created topic")
 		// once we found one that works, we can be done with this part
 		break
 	}
@@ -20225,7 +20227,7 @@ func TestKafka(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	fmt.Println("found leader partition")
 	// we grab the host IP and port to pass to the image
 	host = part.Leader.Host
 	port = fmt.Sprint(part.Leader.Port)
@@ -20236,27 +20238,19 @@ func TestKafka(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	fmt.Println("dialed leader")
 
 	// now we asynchronously write to the kafka topic
-	quit := make(chan bool)
-	go func(chan bool) {
-		i := 0
-		for {
-			select {
-			case <-quit:
-				return
-			default:
-				if _, err = conn.WriteMessages(
-					kafka.Message{Value: []byte(fmt.Sprintf("Now it's %v\n", i))},
-				); err != nil {
-					t.Error(err)
-				}
-				i++
+	go func() {
+		for i := 0; i <= 10; i++ {
+			if _, err = conn.WriteMessages(
+				kafka.Message{Value: []byte(fmt.Sprintf("Now it's %v\n", i))},
+			); err != nil {
+				t.Error(err)
 			}
+
+			time.Sleep(time.Second)
 		}
-	}(quit)
-	defer func() {
-		quit <- true
 	}()
 
 	// create a spout pipeline running the kafka consumer
