@@ -386,6 +386,6 @@ nav:
         - Pipeline Troubleshooting: troubleshooting/pipeline_troubleshooting.md
 
 # Google Analytics
-google_analytics:
-  - !!python/object/apply:os.getenv ["UA-158483597-1"]
-  - auto
+#google_analytics:
+#  - !!python/object/apply:os.getenv ["UA-158483597-1"]
+#  - auto
