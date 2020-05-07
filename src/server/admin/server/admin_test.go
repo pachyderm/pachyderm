@@ -132,6 +132,10 @@ func commitInfoSummary(i interface{}) interface{} {
 	if ci.Datums != nil {
 		datums = ci.Datums.Hash
 	}
+	var origin int32
+	if ci.Origin != nil {
+		origin = int32(ci.Origin.Kind)
+	}
 	return fmt.Sprintf(`%s
 Parent: %s
 Children: %s
@@ -142,12 +146,15 @@ Finished: %s
 Size: %d
 Tree: %s
 Trees: %s
-Datums: %s`,
+Datums: %s
+Origin: %d
+`,
 		ci.Commit.ID,
 		parentCommit, childCommits,
 		prov, subv,
 		types.TimestampString(ci.Started), finished,
 		ci.SizeBytes, tree, trees, datums,
+		origin,
 	)
 }
 
