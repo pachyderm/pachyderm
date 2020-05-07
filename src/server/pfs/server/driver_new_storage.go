@@ -346,11 +346,6 @@ func (d *driver) compactionWorker() {
 	// Configure backoff so we retry indefinitely
 	backoffStrat := backoff.NewExponentialBackOff()
 	backoffStrat.MaxElapsedTime = 0
-	notifier := func(err error, t time.Duration) error {
-		log.Printf("error in compaction worker: %v", err)
-		// non-nil shuts down retry loop
-		return nil
-	}
 	err := backoff.RetryNotify(func() error {
 		return w.Run(ctx, func(ctx context.Context, subtask *work.Task) error {
 			shard, err := deserializeShard(subtask.Data)
@@ -363,8 +358,11 @@ func (d *driver) compactionWorker() {
 			}
 			return d.storage.Compact(ctx, shard.OutputPath, shard.Compaction.InputPrefixes, index.WithRange(pathRange))
 		})
-	}, backoffStrat, notifier)
-
+	}, backoffStrat, func(err error, t time.Duration) error {
+		log.Printf("error in compaction worker: %v", err)
+		// non-nil shuts down retry loop
+		return nil
+	})
 	// never ending backoff should prevent us from getting here.
 	panic(err)
 }
