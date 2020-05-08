@@ -498,9 +498,22 @@ message FileInfoNewStorage {
   string hash = 2;
 }
 
+// PutTar Protocol:
+//   Client sends an initial request with only the commit field set.
+//   For each tar stream to put:
+//     If the client wants to tag the tar stream:
+//       Client sends a request with the tag field set (the first batch
+//       of data can be optionally sent with this request).
+//     For bytes in the tar stream:
+//       Client sends a request with the bytes stored in the data field.
+//     Client sends a request with the eof field set to true.
+//   Client connection is closed.
+
 message PutTarRequest {
   Commit commit = 1;
-  bytes data = 2;
+  string tag = 2;
+  bytes data = 3;
+  bool eof = 4;
 }
 
 message GetTarRequest {

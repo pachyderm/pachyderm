@@ -10,25 +10,60 @@ import (
 
 // PutTar puts a tar stream into PFS.
 // Note: this should only be used for testing the new storage layer.
-func (c APIClient) PutTar(repo, commit string, r io.Reader) (retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
-	ptc, err := c.PfsAPIClient.PutTar(c.Ctx())
+func (c APIClient) PutTar(repo, commit string, r io.Reader, tag ...string) error {
+	ptc, err := c.NewPutTarClient(repo, commit)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if _, err := ptc.CloseAndRecv(); retErr == nil {
-			retErr = err
-		}
-	}()
-	if err := ptc.Send(&pfs.PutTarRequest{Commit: NewCommit(repo, commit)}); err != nil {
+	if err := ptc.PutTar(r, tag...); err != nil {
 		return err
 	}
-	_, err = grpcutil.ChunkReader(r, func(data []byte) error {
-		return ptc.Send(&pfs.PutTarRequest{Data: data})
-	})
+	return ptc.Close()
+}
+
+// PutTarClient is used for performing a stream of put tar operations.
+// The files are not persisted until the PutTarClient is closed.
+// (bryce) might make sense to record any errors to prevent retrying with the same client.
+type PutTarClient struct {
+	client pfs.API_PutTarClient
+}
+
+// NewPutTarClient creates a new PutTarClient.
+func (c APIClient) NewPutTarClient(repo, commit string) (_ *PutTarClient, retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	client, err := c.PfsAPIClient.PutTar(c.Ctx())
+	if err != nil {
+		return nil, err
+	}
+	if err := client.Send(&pfs.PutTarRequest{
+		Commit: NewCommit(repo, commit),
+	}); err != nil {
+		return nil, err
+	}
+	return &PutTarClient{client: client}, nil
+}
+
+// PutTar puts a tar stream into PFS.
+// The files are not persisted until the PutTarClient is closed.
+func (ptc *PutTarClient) PutTar(r io.Reader, tag ...string) error {
+	if len(tag) > 0 {
+		if err := ptc.client.Send(&pfs.PutTarRequest{Tag: tag[0]}); err != nil {
+			return err
+		}
+	}
+	if _, err := grpcutil.ChunkReader(r, func(data []byte) error {
+		return ptc.client.Send(&pfs.PutTarRequest{Data: data})
+	}); err != nil {
+		return err
+	}
+	return ptc.client.Send(&pfs.PutTarRequest{Eof: true})
+}
+
+// Close closes the PutTarClient, which persists the files.
+func (ptc *PutTarClient) Close() error {
+	_, err := ptc.client.CloseAndRecv()
 	return err
 }
 
