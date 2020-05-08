@@ -4,21 +4,21 @@ robots: index
 image: assets/images/android-chrome-256x256.png
 # Tutorials
 
-Pachyderm tutorials enable you to learn Pachyderm faster in the Katacoda
-interactive environment. This enables you to learn Pachyderm without
-installing anything on your local computer or a cloud environment.
+Learn Pachyderm without installing anything on your local computer or
+cloud environment with interactive Pachyderm tutorials. Our tutorials
+are hosted in Katacoda and are avaialble to all users.
 If you are confused about any of the Pachyderm concepts, this is 
-a great place to learn and try it out.
+a good place to learn by completing our interactive challenges.
 
 <div class="images">
-    <img src="../assets/professor-pachyderm.png" alt="Professor Pachyderm" class="center">
+    <img src="assets/professor-pachyderm.png" alt="Professor Pachyderm" class="center">
 </div>
 
 ---
 
 ## Beginner Courses
 
-If you are completely new to Pachyder, start here by trying out our
+If you are completely new to Pachyderm, start here by trying out our
 **Getting Started** tutorial.
 
 <div class="row">
