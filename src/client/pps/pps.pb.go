@@ -2604,16 +2604,23 @@ func (m *Pipeline) GetName() string {
 // tracks the state of the pipeline, and points to its metadata in PFS (and,
 // by pointing to a PFS commit, de facto tracks the pipeline's version)
 type EtcdPipelineInfo struct {
-	State                PipelineState   `protobuf:"varint,1,opt,name=state,proto3,enum=pps.PipelineState" json:"state,omitempty"`
-	Reason               string          `protobuf:"bytes,4,opt,name=reason,proto3" json:"reason,omitempty"`
-	SpecCommit           *pfs.Commit     `protobuf:"bytes,2,opt,name=spec_commit,json=specCommit,proto3" json:"spec_commit,omitempty"`
-	JobCounts            map[int32]int32 `protobuf:"bytes,3,rep,name=job_counts,json=jobCounts,proto3" json:"job_counts,omitempty" protobuf_key:"varint,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3"`
-	AuthToken            string          `protobuf:"bytes,5,opt,name=auth_token,json=authToken,proto3" json:"auth_token,omitempty"`
-	LastJobState         JobState        `protobuf:"varint,6,opt,name=last_job_state,json=lastJobState,proto3,enum=pps.JobState" json:"last_job_state,omitempty"`
-	Parallelism          uint64          `protobuf:"varint,7,opt,name=parallelism,proto3" json:"parallelism,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
-	XXX_unrecognized     []byte          `json:"-"`
-	XXX_sizecache        int32           `json:"-"`
+	State        PipelineState   `protobuf:"varint,1,opt,name=state,proto3,enum=pps.PipelineState" json:"state,omitempty"`
+	Reason       string          `protobuf:"bytes,4,opt,name=reason,proto3" json:"reason,omitempty"`
+	SpecCommit   *pfs.Commit     `protobuf:"bytes,2,opt,name=spec_commit,json=specCommit,proto3" json:"spec_commit,omitempty"`
+	JobCounts    map[int32]int32 `protobuf:"bytes,3,rep,name=job_counts,json=jobCounts,proto3" json:"job_counts,omitempty" protobuf_key:"varint,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3"`
+	AuthToken    string          `protobuf:"bytes,5,opt,name=auth_token,json=authToken,proto3" json:"auth_token,omitempty"`
+	LastJobState JobState        `protobuf:"varint,6,opt,name=last_job_state,json=lastJobState,proto3,enum=pps.JobState" json:"last_job_state,omitempty"`
+	// parallelism tracks the literal number of workers that this pipeline should
+	// run. Unlike PipelineInfo.ParallelismSpec, this accounts for the number of
+	// nodes in the k8s cluster if Coefficient parallelism is used (i.e. if
+	// Coefficient is 2 and the cluster has 5 nodes, this will be set to 10 by
+	// pachd). This allows the worker master to shard work correctly without
+	// k8s privileges and without knowing the number of cluster nodes in the
+	// Coefficient case.
+	Parallelism          uint64   `protobuf:"varint,7,opt,name=parallelism,proto3" json:"parallelism,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *EtcdPipelineInfo) Reset()         { *m = EtcdPipelineInfo{} }

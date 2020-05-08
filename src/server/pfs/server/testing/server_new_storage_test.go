@@ -14,7 +14,9 @@ import (
 
 	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testpachd"
@@ -309,14 +311,14 @@ func withGetCancel(maxTime time.Duration, prob ...float64) commitGeneratorOption
 	}
 }
 
-type putTarGenerator func(*loadState, fileSet) (io.Reader, error)
+type putTarGenerator func(*loadState, fileSetSpec) (io.Reader, error)
 
 func newPutTarGenerator(opts ...putTarGeneratorOption) putTarGenerator {
 	config := &putTarConfig{}
 	for _, opt := range opts {
 		opt(config)
 	}
-	return func(state *loadState, files fileSet) (io.Reader, error) {
+	return func(state *loadState, files fileSetSpec) (io.Reader, error) {
 		putTarBuf := &bytes.Buffer{}
 		fileBuf := &bytes.Buffer{}
 		tw := tar.NewWriter(io.MultiWriter(putTarBuf, fileBuf))
@@ -584,7 +586,7 @@ func (ls *loadState) Lock(f func()) {
 }
 
 type validator struct {
-	files      fileSet
+	files      fileSetSpec
 	sampleProb float64
 }
 
@@ -595,7 +597,7 @@ func newValidator() *validator {
 	}
 }
 
-func (v *validator) recordFileSet(files fileSet) {
+func (v *validator) recordFileSet(files fileSetSpec) {
 	for file, data := range files {
 		v.files.recordFile(file, bytes.NewReader(data))
 	}
@@ -630,9 +632,9 @@ func (v *validator) validate(r io.Reader) error {
 	return nil
 }
 
-type fileSet map[string][]byte
+type fileSetSpec map[string][]byte
 
-func (fs fileSet) recordFile(name string, r io.Reader) error {
+func (fs fileSetSpec) recordFile(name string, r io.Reader) error {
 	buf := &bytes.Buffer{}
 	_, err := io.Copy(buf, r)
 	if err != nil {
@@ -640,4 +642,56 @@ func (fs fileSet) recordFile(name string, r io.Reader) error {
 	}
 	fs[name] = buf.Bytes()
 	return nil
+}
+
+func (fs fileSetSpec) makeTarStream() io.Reader {
+	buf := &bytes.Buffer{}
+	tw := tar.NewWriter(buf)
+	for name, data := range fs {
+		if err := writeFile(tw, name, data); err != nil {
+			panic(err)
+		}
+	}
+	if err := tw.Close(); err != nil {
+		panic(err)
+	}
+	return buf
+}
+
+func finfosToPaths(finfos []*pfs.FileInfoNewStorage) (paths []string) {
+	for _, finfo := range finfos {
+		paths = append(paths, finfo.File.Path)
+	}
+	return paths
+}
+
+func TestListFileNS(t *testing.T) {
+	config := &serviceenv.PachdFullConfiguration{}
+	config.NewStorageLayer = true
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		repo := "test"
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+
+		commit1, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+
+		fsSpec := fileSetSpec{
+			"dir1/file1.1": []byte{},
+			"dir1/file1.2": []byte{},
+			"dir2/file2.1": []byte{},
+			"dir2/file2.2": []byte{},
+		}
+		err = env.PachClient.PutTar(repo, commit1.ID, fsSpec.makeTarStream())
+		require.NoError(t, err)
+
+		err = env.PachClient.FinishCommit(repo, commit1.ID)
+		require.NoError(t, err)
+
+		finfos, err := env.PachClient.ListFileNS(repo, commit1.ID, "/dir1/*")
+		require.NoError(t, err)
+		t.Log(finfos)
+		require.ElementsEqual(t, []string{"/dir1/file1.1", "/dir1/file1.2"}, finfosToPaths(finfos))
+		return nil
+	}, config)
+	require.NoError(t, err)
 }
