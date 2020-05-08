@@ -88,5 +88,4 @@ func TestStripS3Prefix(t *testing.T) {
 			return // done--success
 		}
 	}
-	t.Fatalf("could not find storage secret in kubernetes manifest")
 }

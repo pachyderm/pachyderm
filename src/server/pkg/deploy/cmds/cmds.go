@@ -366,7 +366,7 @@ func standardDeployCmds() []*cobra.Command {
 		cmd.Flags().BoolVar(&createContext, "create-context", false, "Create a context, even with `--dry-run`.")
 	}
 
-	preRun := cmdutil.Run(func(args []string) error {
+	preRunInternal := func(args []string) error {
 		cfg, err := config.Read(false)
 		if err != nil {
 			log.Warningf("could not read config to check whether cluster metrics "+
@@ -438,6 +438,20 @@ func standardDeployCmds() []*cobra.Command {
 			serverCert = base64.StdEncoding.EncodeToString([]byte(serverCertBytes))
 		}
 		return nil
+	}
+	preRun := cmdutil.Run(preRunInternal)
+
+	deployPreRun := cmdutil.Run(func(args []string) error {
+		if version.IsUnstable() {
+			fmt.Printf("WARNING: The version of Pachyderm you are deploying (%s) is an unstable pre-release build and may not support data migration.\n\n", version.PrettyVersion())
+
+			if ok, err := cmdutil.InteractiveConfirm(); err != nil {
+				return err
+			} else if !ok {
+				return errors.New("deploy aborted")
+			}
+		}
+		return preRunInternal(args)
 	})
 
 	var dev bool
@@ -445,7 +459,7 @@ func standardDeployCmds() []*cobra.Command {
 	deployLocal := &cobra.Command{
 		Short:  "Deploy a single-node Pachyderm cluster with local metadata storage.",
 		Long:   "Deploy a single-node Pachyderm cluster with local metadata storage.",
-		PreRun: preRun,
+		PreRun: deployPreRun,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			if !dev {
 				start := time.Now()
@@ -504,7 +518,7 @@ func standardDeployCmds() []*cobra.Command {
   <bucket-name>: A Google Cloud Storage bucket where Pachyderm will store PFS data.
   <disk-size>: Size of Google Compute Engine persistent disks in GB (assumed to all be the same).
   <credentials-file>: A file containing the private key for the account (downloaded from Google Compute Engine).`,
-		PreRun: preRun,
+		PreRun: deployPreRun,
 		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
 			start := time.Now()
 			startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
@@ -561,7 +575,7 @@ func standardDeployCmds() []*cobra.Command {
 		Long: `Deploy a custom Pachyderm cluster configuration.
 If <object store backend> is \"s3\", then the arguments are:
     <volumes> <size of volumes (in GB)> <bucket> <id> <secret> <endpoint>`,
-		PreRun: preRun,
+		PreRun: deployPreRun,
 		Run: cmdutil.RunBoundedArgs(4, 7, func(args []string) (retErr error) {
 			start := time.Now()
 			startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
@@ -628,7 +642,7 @@ If <object store backend> is \"s3\", then the arguments are:
   <bucket-name>: An S3 bucket where Pachyderm will store PFS data.
   <region>: The AWS region where Pachyderm is being deployed (e.g. us-west-1)
   <disk-size>: Size of EBS volumes, in GB (assumed to all be the same).`,
-		PreRun: preRun,
+		PreRun: deployPreRun,
 		Run: cmdutil.RunFixedArgs(3, func(args []string) (retErr error) {
 			start := time.Now()
 			startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
@@ -756,7 +770,7 @@ If <object store backend> is \"s3\", then the arguments are:
 		Long: `Deploy a Pachyderm cluster running on Microsoft Azure.
   <container>: An Azure container where Pachyderm will store PFS data.
   <disk-size>: Size of persistent volumes, in GB (assumed to all be the same).`,
-		PreRun: preRun,
+		PreRun: deployPreRun,
 		Run: cmdutil.RunFixedArgs(4, func(args []string) (retErr error) {
 			start := time.Now()
 			startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
@@ -1135,13 +1149,9 @@ persistent volume was manually provisioned (i.e. if you used the
 `)
 			}
 
-			fmt.Println("Are you sure you want to do this? (y/n):")
-			r := bufio.NewReader(os.Stdin)
-			bytes, err := r.ReadBytes('\n')
-			if err != nil {
+			if ok, err := cmdutil.InteractiveConfirm(); err != nil {
 				return err
-			}
-			if bytes[0] != 'y' && bytes[0] != 'Y' {
+			} else if !ok {
 				return nil
 			}
 

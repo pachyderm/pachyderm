@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -505,20 +504,16 @@ This resets the cluster to its initial state.`,
 			if len(pipelines) > 0 {
 				fmt.Printf("Pipelines to delete: %s\n", strings.Join(pipelines, ", "))
 			}
-			fmt.Println("Are you sure you want to do this? (y/n):")
-			r := bufio.NewReader(os.Stdin)
-			bytes, err := r.ReadBytes('\n')
-			if err != nil {
+			if ok, err := cmdutil.InteractiveConfirm(); err != nil {
+				return err
+			} else if !ok {
+				return nil
+			}
+
+			if err := client.DeleteAll(); err != nil {
 				return err
 			}
-			if bytes[0] == 'y' || bytes[0] == 'Y' {
-				err = client.DeleteAll()
-				if err != nil {
-					return err
-				}
-				return txncmds.ClearActiveTransaction()
-			}
-			return nil
+			return txncmds.ClearActiveTransaction()
 		}),
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(deleteAll, "delete all"))
