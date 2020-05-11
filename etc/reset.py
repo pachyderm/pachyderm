@@ -74,11 +74,15 @@ class DockerDesktopDriver(BaseDriver):
 
 class MinikubeDriver(BaseDriver):
     async def start(self):
-        await run("minikube", "start")
+        async def is_minikube_running():
+            proc = await run("minikube", "status", raise_on_error=False, capture_output=True)
+            return proc.rc == 0
 
-        while (await run("minikube", "status", raise_on_error=False, capture_output=True)).rc != 0:
-            print("Waiting for minikube to come up...")
-            await asyncio.sleep(1)
+        if not (await is_minikube_running()):
+            await run("minikube", "start")
+            while not (await is_minikube_running()):
+                print("Waiting for minikube to come up...")
+                await asyncio.sleep(1)
 
     async def push_image(self, image):
         await run("./etc/kube/push-to-minikube.sh", image)
