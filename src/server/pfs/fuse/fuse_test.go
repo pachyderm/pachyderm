@@ -261,6 +261,77 @@ func TestWrite(t *testing.T) {
 	})
 }
 
+func TestRepoOpts(t *testing.T) {
+	c := server.GetPachClient(t, server.GetBasicConfig())
+	require.NoError(t, c.CreateRepo("repo1"))
+	require.NoError(t, c.CreateRepo("repo2"))
+	require.NoError(t, c.CreateRepo("repo3"))
+	_, err := c.PutFile("repo1", "master", "foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	withMount(t, c, &Options{
+		Fuse: &fs.Options{
+			MountOptions: fuse.MountOptions{
+				Debug: true,
+			},
+		},
+		RepoOptions: map[string]*RepoOptions{
+			"repo1": {},
+		},
+	}, func(mountPoint string) {
+		repos, err := ioutil.ReadDir(mountPoint)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(repos))
+		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo1", "foo"))
+		require.NoError(t, err)
+		require.Equal(t, "foo\n", string(data))
+		require.YesError(t, ioutil.WriteFile(filepath.Join(mountPoint, "repo1", "bar"), []byte("bar\n"), 0644))
+	})
+	withMount(t, c, &Options{
+		Fuse: &fs.Options{
+			MountOptions: fuse.MountOptions{
+				Debug: true,
+			},
+		},
+		RepoOptions: map[string]*RepoOptions{
+			"repo1": {Write: true},
+		},
+	}, func(mountPoint string) {
+		repos, err := ioutil.ReadDir(mountPoint)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(repos))
+		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo1", "foo"))
+		require.NoError(t, err)
+		require.Equal(t, "foo\n", string(data))
+		require.NoError(t, ioutil.WriteFile(filepath.Join(mountPoint, "repo1", "bar"), []byte("bar\n"), 0644))
+	})
+
+	_, err = c.PutFile("repo1", "staging", "buzz", strings.NewReader("buzz\n"))
+	require.NoError(t, err)
+	withMount(t, c, &Options{
+		Fuse: &fs.Options{
+			MountOptions: fuse.MountOptions{
+				Debug: true,
+			},
+		},
+		RepoOptions: map[string]*RepoOptions{
+			"repo1": {Branch: "staging", Write: true},
+		},
+	}, func(mountPoint string) {
+		repos, err := ioutil.ReadDir(mountPoint)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(repos))
+		_, err = ioutil.ReadFile(filepath.Join(mountPoint, "repo1", "foo"))
+		require.YesError(t, err)
+		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo1", "buzz"))
+		require.NoError(t, err)
+		require.Equal(t, "buzz\n", string(data))
+		require.NoError(t, ioutil.WriteFile(filepath.Join(mountPoint, "repo1", "fizz"), []byte("fizz\n"), 0644))
+	})
+	var b bytes.Buffer
+	require.NoError(t, c.GetFile("repo1", "staging", "fizz", 0, 0, &b))
+	require.Equal(t, "fizz\n", b.String())
+}
+
 func withMount(tb testing.TB, c *client.APIClient, opts *Options, f func(mountPoint string)) {
 	dir, err := ioutil.TempDir("", "pfs-mount")
 	require.NoError(tb, err)

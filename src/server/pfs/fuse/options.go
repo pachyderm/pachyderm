@@ -5,6 +5,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
@@ -40,13 +41,22 @@ func (o *Options) getFuse() *fs.Options {
 	return o.Fuse
 }
 
+func (o *Options) getRepoOpts() map[string]*RepoOptions {
+	if o == nil {
+		return make(map[string]*RepoOptions)
+	}
+	return o.RepoOptions
+}
+
 func (o *Options) getBranches() map[string]string {
 	result := make(map[string]string)
 	if o == nil {
 		return result
 	}
 	for repo, opts := range o.RepoOptions {
-		result[repo] = opts.Branch
+		if opts.Branch != "" {
+			result[repo] = opts.Branch
+		}
 	}
 	return result
 }
@@ -75,10 +85,10 @@ func (o *Options) validate(c *client.APIClient) error {
 				return errors.Errorf("can't mount commit %s@%s in Write mode (mount a branch instead)", repo, opts.Branch)
 			}
 			bi, err := c.InspectBranch(repo, opts.Branch)
-			if err != nil {
+			if err != nil && !errutil.IsNotFoundError(err) {
 				return err
 			}
-			if len(bi.Provenance) > 0 {
+			if bi != nil && len(bi.Provenance) > 0 {
 				return errors.Errorf("can't mount branch %s@%s in Write mode because it's an output branch")
 			}
 		}

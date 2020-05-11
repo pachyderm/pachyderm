@@ -63,7 +63,7 @@ func mountCmds() []*cobra.Command {
 
 	var write bool
 	var debug bool
-	var branches cmdutil.RepeatedStringArg
+	var repoOpts cmdutil.RepeatedStringArg
 	mount := &cobra.Command{
 		Use:   "{{alias}} <path/to/mount/point>",
 		Short: "Mount pfs locally. This command blocks.",
@@ -75,7 +75,7 @@ func mountCmds() []*cobra.Command {
 			}
 			defer c.Close()
 			mountPoint := args[0]
-			repoOpts, err := parseRepoOpts(branches)
+			repoOpts, err := parseRepoOpts(repoOpts)
 			if err != nil {
 				return err
 			}
@@ -93,8 +93,8 @@ func mountCmds() []*cobra.Command {
 	}
 	mount.Flags().BoolVarP(&write, "write", "w", false, "Allow writing to pfs through the mount.")
 	mount.Flags().BoolVarP(&debug, "debug", "d", false, "Turn on debug messages.")
-	mount.Flags().VarP(&branches, "branches", "b", "Branches (or commits) to mount, arguments should be of the form \"repo@branch\"")
-	mount.MarkFlagCustom("commits", "__pachctl_get_repo_branch")
+	mount.Flags().VarP(&repoOpts, "repos", "r", "Repos and branches / commits to mount, arguments should be of the form \"repo@branch+w\", where the trailing flag \"+w\" indicates write.")
+	mount.MarkFlagCustom("repos", "__pachctl_get_repo_branch")
 	commands = append(commands, cmdutil.CreateAlias(mount, "mount"))
 
 	var all bool

@@ -6,6 +6,7 @@ package fuse
 
 import (
 	"context"
+	"fmt"
 	"os"
 	pathpkg "path"
 	"path/filepath"
@@ -42,6 +43,7 @@ type loopbackRoot struct {
 
 	c *client.APIClient
 
+	repoOpts map[string]*RepoOptions
 	branches map[string]string
 	commits  map[string]string
 	files    map[string]fileState
@@ -519,6 +521,7 @@ func newLoopbackRoot(root, target string, c *client.APIClient, opts *Options) (*
 		targetPath: target,
 		write:      opts.getWrite(),
 		c:          c,
+		repoOpts:   opts.getRepoOpts(),
 		branches:   opts.getBranches(),
 		commits:    make(map[string]string),
 		files:      make(map[string]fileState),
@@ -539,8 +542,18 @@ func (n *loopbackNode) downloadRepos() (retErr error) {
 	if err != nil {
 		return err
 	}
+	ro := n.root().repoOpts
+	for repo, ro := range ro {
+		fmt.Printf("ro for %s: %+v\n", repo, ro)
+	}
 	for _, ri := range ris {
+		fmt.Printf("ri: %+v\n", ri)
+		if len(ro) > 0 && ro[ri.Repo.Name] == nil {
+			fmt.Println("continue")
+			continue
+		}
 		p := n.repoPath(ri)
+		fmt.Println("MkdirAll", p)
 		if err := os.MkdirAll(p, 0777); err != nil {
 			return err
 		}
@@ -670,8 +683,15 @@ func (n *loopbackNode) setFileState(path string, state fileState) {
 }
 
 func (n *loopbackNode) checkWrite(path string) syscall.Errno {
-	// TODO in the future it should be possible to have some repos writable but
-	// not all of them, for now it's global so we don't have any use for path
+	repo := strings.Split(n.trimPath(path), "/")[0]
+	ros := n.root().repoOpts
+	if len(ros) > 0 {
+		ro, ok := ros[repo]
+		if !ok || !ro.Write {
+			return syscall.EROFS
+		}
+		return 0
+	}
 	if !n.root().write {
 		return syscall.EROFS
 	}
