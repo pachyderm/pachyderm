@@ -1,6 +1,6 @@
 site_name: Pachyderm Documentation
 site_description: A Pachyderm documentation website that provides information on how to use Pachyderm data version control products.
-site_author: @pachyderm
+site_author: Pachyderm
 site_url: https://docs.pachyderm.com/
 docs_dir: docs/master/
 site_dir: site/master/
@@ -81,8 +81,7 @@ markdown_extensions:
   - pymdownx.critic
   - pymdownx.details
   - pymdownx.emoji:
-      emoji_index: !!python/name:materialx.emoji.twemoji
-      emoji_generator: !!python/name:materialx.emoji.to_svg
+      emoji_generator: !!python/name:pymdownx.emoji.to_svg  
   - pymdownx.inlinehilite
   - pymdownx.keys
   - pymdownx.magiclink
