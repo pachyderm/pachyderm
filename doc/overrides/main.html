@@ -37,6 +37,22 @@
   {% endfor %}
   <link rel="shortcut icon" href="{{ config.theme.favicon | url }}">
   <meta name="generator" content="mkdocs-{{ mkdocs_version }}, mkdocs-pachyderm-1.0.2">
+
+  <!-- Open graph meta tags -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="{{ title }}" />
+  <meta property="og:image" content="assets/images/Pachyderm-Character_stacked.svg">
+  <meta property="og:description" content="{{ config.site_description }}" />
+  <meta property="og:url" content="{{ page.canonical_url }}" />
+
+  <!-- Twitter meta tags -->
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:site" content="@pachyderm" />
+  <meta name="twitter:creator" content="@pachyderm" />
+  <meta name="twitter:title" content="{{ title }}" />
+  <meta name="twitter:description" content="{{ config.site_description }}" />
+  <meta name="twitter:image" content="{{ image }}" />
+
   <!-- Global site tag (gtag.js) - Google Analytics -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=UA-158483597-1"></script>
   <script>
@@ -46,4 +62,32 @@
 
     gtag('config', 'UA-158483597-1');
   </script>
+{% endblock %}
+
+{% block extrahead %}
+
+  <!-- Determine title -->
+  {% set title = config.site_name %}
+  {% if page and page.title and not page.is_homepage %}
+    {% set title = config.site_name ~ " - " ~ page.title | striptags %}
+  {% endif %}
+
+  <!-- The image needs to have an absolute URL -->
+  {% set image = config.site_url ~ 'assets/images/Pachyderm-Character_stacked.svg' %}
+
+  <!-- Open graph meta tags -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="{{ title }}" />
+  <meta property="og:image" content="{{ image }}">
+  <meta property="og:description" content="{{ config.site_description }}" />
+  <meta property="og:url" content="{{ page.canonical_url }}" />
+
+  <!-- Twitter meta tags -->
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:site" content="@pachyderm" />
+  <meta name="twitter:creator" content="@pachyderm" />
+  <meta name="twitter:title" content="{{ title }}" />
+  <meta name="twitter:description" content="{{ config.site_description }}" />
+  <meta name="twitter:image" content="{{ image }}" />
+
 {% endblock %}
