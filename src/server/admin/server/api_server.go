@@ -8,9 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/snappy"
-	"golang.org/x/net/context"
-
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/admin"
@@ -25,6 +22,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
+
+	"github.com/golang/snappy"
+	"github.com/sirupsen/logrus"
+	"golang.org/x/net/context"
 )
 
 var objHashRE = regexp.MustCompile("[0-9a-f]{128}")
@@ -170,6 +171,12 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			if ci.ParentCommit == nil {
 				ci.ParentCommit = client.NewCommit(ci.Commit.Repo.Name, "")
 			}
+			// Restore must not create any open commits (which can interfere with
+			// restoring other commits), so started and finished are always set
+			if ci.Finished == nil {
+				logrus.Warnf("Commit %q is not finished, so its data cannot be extracted, and any data it contains will not be restored", ci.Commit.ID)
+				ci.Finished = types.TimestampNow()
+			}
 			return writeOp(&admin.Op{Op1_10: &admin.Op1_10{Commit: &pfs.BuildCommitRequest{
 				Parent:     ci.ParentCommit,
 				Tree:       ci.Tree,
@@ -178,6 +185,8 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 				Datums:     ci.Datums,
 				SizeBytes:  ci.SizeBytes,
 				Provenance: ci.Provenance,
+				Started:    ci.Started,
+				Finished:   ci.Finished,
 			}}})
 		}); err != nil {
 			return err
@@ -278,7 +287,6 @@ func sortPipelineInfos(pis []*pps.PipelineInfo) []*pps.PipelineInfo {
 func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error) {
 	func() { a.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
-	pachClient := a.getPachClient().WithCtx(restoreServer.Context())
 	defer func() {
 		for {
 			_, err := restoreServer.Recv()
@@ -290,218 +298,296 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 			retErr = err
 		}
 	}()
-	var r pbutil.Reader
-	var streamVersion opVersion
+
+	// Determine if we're restoring from a URL or not
+	r := &restoreCtx{
+		a:             a,
+		restoreServer: restoreServer,
+		// TODO(msteffen): refactor admin apiServer to use serviceenv
+		pachClient: a.getPachClient().WithCtx(restoreServer.Context()),
+	}
+	req, err := restoreServer.Recv()
+	if err != nil {
+		if err == io.EOF {
+			return nil
+		}
+		return err
+	}
+	if req.URL != "" {
+		return r.startFromURL(req.URL)
+	}
+	return r.start(req.Op)
+}
+
+// restoreCtx holds the partial results needed to restore a stream of ops to
+// Pachyderm. It's designed to be called with the following flow:
+// ==========
+//   apiServer.Restore()
+//           │
+// +---------│----------------------------------------------------------+
+// |         │                   | restoreCtx |                         |
+// |         │                   +------------+                         |
+// |         ⮟                                                          |
+// | start/startFromURL // (reads ops from stream in a loop)            |
+// |         ↓                                                          |
+// | validateAndApplyOp ──┬───────────┬─────────────╮                   |
+// |         ↓            ⮟           ⮟             ⮟                   |
+// |     applyOp1_7 → applyOp1_8 → applyOp1_9 → applyOp1_10 → applyOp   |
+type restoreCtx struct {
+	a *apiServer
+
+	// invariant: pachClient.Ctx() == restoreServer.Context()
+	restoreServer admin.API_RestoreServer
+	pachClient    *client.APIClient
+
+	r pbutil.Reader // set iff restoring from URL
+
+	// streamVersion specifies the version of all ops in the stream (they must all
+	// be the same). streamVersion is set in validateAndApplyOp from first op's
+	// version
+	streamVersion opVersion
+}
+
+func (r *restoreCtx) start(initial *admin.Op) error {
+	var op *admin.Op
 	for {
-		var op *admin.Op
-		if r == nil {
-			req, err := restoreServer.Recv()
+		if initial != nil {
+			op, initial = initial, nil
+		} else {
+			req, err := r.restoreServer.Recv()
 			if err != nil {
 				if err == io.EOF {
 					return nil
 				}
 				return err
 			}
-			if req.URL != "" {
-				url, err := obj.ParseURL(req.URL)
-				if err != nil {
-					return errors.Wrapf(err, "error parsing url %v", req.URL)
-				}
-				if url.Object == "" {
-					return errors.Errorf("URL must be <svc>://<bucket>/<object> (no object in %s)", req.URL)
-				}
-				objClient, err := obj.NewClientFromURLAndSecret(url, false)
-				if err != nil {
-					return err
-				}
-				objR, err := objClient.Reader(restoreServer.Context(), url.Object, 0, 0)
-				if err != nil {
-					return err
-				}
-				snappyR := snappy.NewReader(objR)
-				r = pbutil.NewReader(snappyR)
-				continue
-			} else {
-				op = req.Op
-			}
-		} else {
-			op = &admin.Op{}
-			if err := r.Read(op); err != nil {
-				if err == io.EOF {
-					return nil
-				}
-				return err
-			}
+			op = req.Op
 		}
-
-		// validate op version
-		if streamVersion == undefined {
-			streamVersion = version(op)
-		} else if streamVersion != version(op) {
-			return errors.Errorf("cannot mix different versions of pachd operation "+
-				"within a metadata dumps (found both %s and %s)", version(op), streamVersion)
-		}
-
-		// apply op
-		if op.Op1_7 != nil {
-			if op.Op1_7.Object != nil {
-				extractReader := &extractObjectReader{
-					adminAPIRestoreServer: restoreServer,
-					restoreURLReader:      r,
-					version:               v1_7,
-				}
-				extractReader.buf.Write(op.Op1_7.Object.Value)
-				if _, _, err := pachClient.PutObject(extractReader); err != nil {
-					return errors.Wrapf(err, "error putting object")
-				}
-			} else {
-				newOp1_8, err := convert1_7Op(pachClient, a.storageRoot, op.Op1_7)
-				if err != nil {
-					return err
-				}
-				newOp1_9, err := convert1_8Op(newOp1_8)
-				if err != nil {
-					return err
-				}
-				newOp, err := convert1_9Op(newOp1_9)
-				if err != nil {
-					return err
-				}
-				if err := a.applyOp(pachClient, newOp); err != nil {
-					return err
-				}
-			}
-		} else if op.Op1_8 != nil {
-			if op.Op1_8.Object != nil {
-				extractReader := &extractObjectReader{
-					adminAPIRestoreServer: restoreServer,
-					restoreURLReader:      r,
-					version:               v1_8,
-				}
-				extractReader.buf.Write(op.Op1_8.Object.Value)
-				if _, _, err := pachClient.PutObject(extractReader); err != nil {
-					return errors.Wrapf(err, "error putting object")
-				}
-			} else {
-				newOp1_9, err := convert1_8Op(op.Op1_8)
-				if err != nil {
-					return err
-				}
-				newOp, err := convert1_9Op(newOp1_9)
-				if err != nil {
-					return err
-				}
-				if err := a.applyOp(pachClient, newOp); err != nil {
-					return err
-				}
-			}
-		} else if op.Op1_9 != nil {
-			if op.Op1_9.Object != nil {
-				extractReader := &extractObjectReader{
-					adminAPIRestoreServer: restoreServer,
-					restoreURLReader:      r,
-					version:               v1_9,
-				}
-				extractReader.buf.Write(op.Op1_9.Object.Value)
-				if _, _, err := pachClient.PutObject(extractReader); err != nil {
-					return errors.Wrapf(err, "error putting object")
-				}
-			} else if op.Op1_9.Block != nil {
-				if len(op.Op1_9.Block.Value) == 0 {
-					// Empty block
-					if _, err := pachClient.PutBlock(op.Op1_9.Block.Block.Hash, bytes.NewReader(nil)); err != nil {
-						return errors.Wrapf(err, "error putting block")
-					}
-				} else {
-					extractReader := &extractBlockReader{
-						adminAPIRestoreServer: restoreServer,
-						restoreURLReader:      r,
-						version:               v1_9,
-					}
-					extractReader.buf.Write(op.Op1_9.Block.Value)
-					if _, err := pachClient.PutBlock(op.Op1_9.Block.Block.Hash, extractReader); err != nil {
-						return errors.Wrapf(err, "error putting block")
-					}
-				}
-			} else {
-				newOp, err := convert1_9Op(op.Op1_9)
-				if err != nil {
-					return err
-				}
-				if err := a.applyOp(pachClient, newOp); err != nil {
-					return err
-				}
-			}
-		} else if op.Op1_10 != nil {
-			if op.Op1_10.Object != nil {
-				extractReader := &extractObjectReader{
-					adminAPIRestoreServer: restoreServer,
-					restoreURLReader:      r,
-					version:               v1_10,
-				}
-				extractReader.buf.Write(op.Op1_10.Object.Value)
-				if _, _, err := pachClient.PutObject(extractReader); err != nil {
-					return errors.Wrapf(err, "error putting object")
-				}
-			} else if op.Op1_10.Block != nil {
-				if len(op.Op1_10.Block.Value) == 0 {
-					// Empty block
-					if _, err := pachClient.PutBlock(op.Op1_10.Block.Block.Hash, bytes.NewReader(nil)); err != nil {
-						return errors.Wrapf(err, "error putting block")
-					}
-				} else {
-					extractReader := &extractBlockReader{
-						adminAPIRestoreServer: restoreServer,
-						restoreURLReader:      r,
-						version:               v1_10,
-					}
-					extractReader.buf.Write(op.Op1_10.Block.Value)
-					if _, err := pachClient.PutBlock(op.Op1_10.Block.Block.Hash, extractReader); err != nil {
-						return errors.Wrapf(err, "error putting block")
-					}
-				}
-			} else {
-				if err := a.applyOp(pachClient, op.Op1_10); err != nil {
-					return err
-				}
-			}
+		if err := r.validateAndApplyOp(op); err != nil {
+			return err
 		}
 	}
 }
 
-func (a *apiServer) applyOp(pachClient *client.APIClient, op *admin.Op1_10) error {
+func (r *restoreCtx) startFromURL(reqURL string) error {
+	// Initialize object client from URL
+	url, err := obj.ParseURL(reqURL)
+	if err != nil {
+		return errors.Wrapf(err, "error parsing url %v", reqURL)
+	}
+	if url.Object == "" {
+		return errors.Errorf("URL must be <svc>://<bucket>/<object> (no object in %s)", reqURL)
+	}
+	objClient, err := obj.NewClientFromURLAndSecret(url, false)
+	if err != nil {
+		return err
+	}
+	objR, err := objClient.Reader(r.pachClient.Ctx(), url.Object, 0, 0)
+	if err != nil {
+		return err
+	}
+	snappyR := snappy.NewReader(objR)
+	r.r = pbutil.NewReader(snappyR)
+	var op admin.Op
+	for {
+		op.Reset()
+		if err := r.r.Read(&op); err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return err
+		}
+		if err := r.validateAndApplyOp(&op); err != nil {
+			return err
+		}
+	}
+}
+
+// validateAndApplyOp is a helper called by start() and startFromURL(), which
+// validates the top-level 'op' and then delegates to the right version of
+// 'applyOp':
+func (r *restoreCtx) validateAndApplyOp(op *admin.Op) error {
+	// validate op version
+	opVersion := version(op)
+	if r.streamVersion == undefined {
+		r.streamVersion = opVersion
+	} else if r.streamVersion != opVersion {
+		return errors.Errorf("cannot mix different versions of pachd operation "+
+			"within a metadata dumps (found both %s and %s)", opVersion, r.streamVersion)
+	}
+	switch r.streamVersion {
+	case v1_7:
+		return r.applyOp1_7(op.Op1_7)
+	case v1_8:
+		return r.applyOp1_8(op.Op1_8)
+	case v1_9:
+		return r.applyOp1_9(op.Op1_9)
+	case v1_10:
+		return r.applyOp1_10(op.Op1_10)
+	default:
+		return errors.Errorf("unrecognized stream version: %s", r.streamVersion)
+	}
+}
+
+func (r *restoreCtx) applyOp1_7(op *admin.Op1_7) error {
+	if op.Object != nil {
+		extractReader := &extractObjectReader{
+			adminAPIRestoreServer: r.restoreServer,
+			restoreURLReader:      r.r,
+			version:               v1_7,
+		}
+		extractReader.buf.Write(op.Object.Value)
+		if _, _, err := r.pachClient.PutObject(extractReader); err != nil {
+			return errors.Wrapf(err, "error putting object")
+		}
+		return nil
+	}
+	newOp1_8, err := convert1_7Op(r.pachClient, r.a.storageRoot, op)
+	if err != nil {
+		return err
+	}
+	return r.applyOp1_8(newOp1_8)
+}
+
+func (r *restoreCtx) applyOp1_8(op *admin.Op1_8) error {
+	if op.Object != nil {
+		extractReader := &extractObjectReader{
+			adminAPIRestoreServer: r.restoreServer,
+			restoreURLReader:      r.r,
+			version:               v1_8,
+		}
+		extractReader.buf.Write(op.Object.Value)
+		if _, _, err := r.pachClient.PutObject(extractReader); err != nil {
+			return errors.Wrapf(err, "error putting object")
+		}
+		return nil
+	}
+	newOp1_9, err := convert1_8Op(op)
+	if err != nil {
+		return err
+	}
+	return r.applyOp1_9(newOp1_9)
+}
+
+func (r *restoreCtx) applyOp1_9(op *admin.Op1_9) error {
+	switch {
+	case op.Object != nil:
+		extractReader := &extractObjectReader{
+			adminAPIRestoreServer: r.restoreServer,
+			restoreURLReader:      r.r,
+			version:               v1_9,
+		}
+		extractReader.buf.Write(op.Object.Value)
+		if _, _, err := r.pachClient.PutObject(extractReader); err != nil {
+			return errors.Wrapf(err, "error putting object")
+		}
+		return nil
+	case op.Block != nil && len(op.Block.Value) > 0:
+		extractReader := &extractBlockReader{
+			adminAPIRestoreServer: r.restoreServer,
+			restoreURLReader:      r.r,
+			version:               v1_9,
+		}
+		extractReader.buf.Write(op.Block.Value)
+		if _, err := r.pachClient.PutBlock(op.Block.Block.Hash, extractReader); err != nil {
+			return errors.Wrapf(err, "error putting block")
+		}
+		return nil
+	case op.Block != nil && len(op.Block.Value) == 0:
+		// Empty block
+		if _, err := r.pachClient.PutBlock(op.Block.Block.Hash, bytes.NewReader(nil)); err != nil {
+			return errors.Wrapf(err, "error putting block")
+		}
+		return nil
+	default:
+		newOp, err := convert1_9Op(op)
+		if err != nil {
+			return err
+		}
+		if err := r.applyOp1_10(newOp); err != nil {
+			return err
+		}
+		return nil
+	}
+}
+
+func (r *restoreCtx) applyOp1_10(op *admin.Op1_10) error {
+	switch {
+	case op.Object != nil:
+		extractReader := &extractObjectReader{
+			adminAPIRestoreServer: r.restoreServer,
+			restoreURLReader:      r.r,
+			version:               v1_10,
+		}
+		extractReader.buf.Write(op.Object.Value)
+		if _, _, err := r.pachClient.PutObject(extractReader); err != nil {
+			return errors.Wrapf(err, "error putting object")
+		}
+		return nil
+	case op.Block != nil && len(op.Block.Value) > 0:
+		extractReader := &extractBlockReader{
+			adminAPIRestoreServer: r.restoreServer,
+			restoreURLReader:      r.r,
+			version:               v1_10,
+		}
+		extractReader.buf.Write(op.Block.Value)
+		if _, err := r.pachClient.PutBlock(op.Block.Block.Hash, extractReader); err != nil {
+			return errors.Wrapf(err, "error putting block")
+		}
+		return nil
+	case op.Block != nil && len(op.Block.Value) == 0:
+		// Empty block
+		if _, err := r.pachClient.PutBlock(op.Block.Block.Hash, bytes.NewReader(nil)); err != nil {
+			return errors.Wrapf(err, "error putting block")
+		}
+		return nil
+	default:
+		return r.applyOp(op)
+	}
+}
+
+func (r *restoreCtx) applyOp(op *admin.Op1_10) error {
+	c := r.pachClient
+	ctx := r.pachClient.Ctx()
 	switch {
 	case op.CreateObject != nil:
-		if _, err := pachClient.ObjectAPIClient.CreateObject(pachClient.Ctx(), op.CreateObject); err != nil {
+		if _, err := c.ObjectAPIClient.CreateObject(ctx, op.CreateObject); err != nil {
 			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error creating object")
 		}
 	case op.Tag != nil:
-		if _, err := pachClient.ObjectAPIClient.TagObject(pachClient.Ctx(), op.Tag); err != nil {
+		if _, err := c.ObjectAPIClient.TagObject(ctx, op.Tag); err != nil {
 			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error tagging object")
 		}
 	case op.Repo != nil:
 		op.Repo.Repo.Name = ancestry.SanitizeName(op.Repo.Repo.Name)
-		if _, err := pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(), op.Repo); err != nil && !errutil.IsAlreadyExistError(err) {
+		if _, err := c.PfsAPIClient.CreateRepo(ctx, op.Repo); err != nil && !errutil.IsAlreadyExistError(err) {
 			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error creating repo")
 		}
 	case op.Commit != nil:
-		if _, err := pachClient.PfsAPIClient.BuildCommit(pachClient.Ctx(), op.Commit); err != nil && !errutil.IsAlreadyExistError(err) {
+		if op.Commit.Finished == nil {
+			// Never allow Restore() to create an unfinished commit. They can only
+			// show up in dumps due to issue #4695 and are never there deliberately.
+			// Allowing Restore() to create them can cause issues restoring subsequent
+			// commits and corrupt the entire cluster.
+			op.Commit.Finished = types.TimestampNow()
+		}
+		if _, err := c.PfsAPIClient.BuildCommit(ctx, op.Commit); err != nil && !errutil.IsAlreadyExistError(err) {
 			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error creating commit")
 		}
 	case op.Branch != nil:
 		if op.Branch.Branch == nil {
 			op.Branch.Branch = client.NewBranch(op.Branch.Head.Repo.Name, ancestry.SanitizeName(op.Branch.SBranch))
 		}
-		if _, err := pachClient.PfsAPIClient.CreateBranch(pachClient.Ctx(), op.Branch); err != nil && !errutil.IsAlreadyExistError(err) {
+		if _, err := c.PfsAPIClient.CreateBranch(ctx, op.Branch); err != nil && !errutil.IsAlreadyExistError(err) {
 			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error creating branch")
 		}
 	case op.Pipeline != nil:
 		sanitizePipeline(op.Pipeline)
-		if _, err := pachClient.PpsAPIClient.CreatePipeline(pachClient.Ctx(), op.Pipeline); err != nil && !errutil.IsAlreadyExistError(err) {
+		if _, err := c.PpsAPIClient.CreatePipeline(ctx, op.Pipeline); err != nil && !errutil.IsAlreadyExistError(err) {
 			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error creating pipeline")
 		}
 	case op.Job != nil:
-		if _, err := pachClient.PpsAPIClient.CreateJob(pachClient.Ctx(), op.Job); err != nil && !errutil.IsAlreadyExistError(err) {
+		if _, err := c.PpsAPIClient.CreateJob(ctx, op.Job); err != nil && !errutil.IsAlreadyExistError(err) {
 			return errors.Wrapf(grpcutil.ScrubGRPC(err), "error creating job")
 		}
 	}

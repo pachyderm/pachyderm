@@ -8,6 +8,7 @@ import (
 	"path"
 	"regexp"
 	"strconv"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -85,7 +86,7 @@ func (d *driver) finishCommitNewStorageLayer(txnCtx *txnenv.TransactionContext, 
 		}
 		// (bryce) need size.
 		commitInfo.SizeBytes = uint64(0)
-		commitInfo.Finished = now()
+		commitInfo.Finished = types.TimestampNow()
 		return d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo)
 	})
 }
@@ -339,23 +340,29 @@ func deserializeShard(shardAny *types.Any) (*pfs.Shard, error) {
 	return shard, nil
 }
 
-// (bryce) it might potentially make sense to exit if an error occurs in this function
-// because each pachd instance that errors here will lose its compaction worker without an obvious
-// notification for the user (outside of the log message).
-// (bryce) ^ maybe just a retry would be good enough.
 func (d *driver) compactionWorker() {
+	ctx := context.Background()
 	w := work.NewWorker(d.etcdClient, d.prefix, storageTaskNamespace)
-	if err := w.Run(context.Background(), func(ctx context.Context, subtask *work.Task) error {
-		shard, err := deserializeShard(subtask.Data)
-		if err != nil {
-			return err
-		}
-		pathRange := &index.PathRange{
-			Lower: shard.Range.Lower,
-			Upper: shard.Range.Upper,
-		}
-		return d.storage.Compact(ctx, shard.OutputPath, shard.Compaction.InputPrefixes, index.WithRange(pathRange))
-	}); err != nil {
+	// Configure backoff so we retry indefinitely
+	backoffStrat := backoff.NewExponentialBackOff()
+	backoffStrat.MaxElapsedTime = 0
+	err := backoff.RetryNotify(func() error {
+		return w.Run(ctx, func(ctx context.Context, subtask *work.Task) error {
+			shard, err := deserializeShard(subtask.Data)
+			if err != nil {
+				return err
+			}
+			pathRange := &index.PathRange{
+				Lower: shard.Range.Lower,
+				Upper: shard.Range.Upper,
+			}
+			return d.storage.Compact(ctx, shard.OutputPath, shard.Compaction.InputPrefixes, index.WithRange(pathRange))
+		})
+	}, backoffStrat, func(err error, t time.Duration) error {
 		log.Printf("error in compaction worker: %v", err)
-	}
+		// non-nil shuts down retry loop
+		return nil
+	})
+	// never ending backoff should prevent us from getting here.
+	panic(err)
 }

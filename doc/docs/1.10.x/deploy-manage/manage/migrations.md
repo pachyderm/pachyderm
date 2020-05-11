@@ -51,7 +51,7 @@ file and then restore from that file.
 To back up your cluster, complete the following steps:
 
 1. Back up your cluster by running the `pachctl export` command with the
-`--no-object` flag as described in [Back up Your Cluster](../backup-restore/).
+`--no-object` flag as described in [Back up Your Cluster](../backup_restore/).
 
 1. In your cloud provider, create a new S3 bucket with the same Permissions
 policy that you assigned to the original cluster bucket. For example,
