@@ -123,14 +123,13 @@ func (d *driver) putFilesNewStorageLayer(ctx context.Context, repo, commit strin
 }
 
 func (d *driver) getFilesNewStorageLayer(ctx context.Context, repo, commit, glob string, w io.Writer) error {
-	// (bryce) glob should be cleaned in option function
-	// (bryce) need exact match option for file glob.
-	compactedPath := path.Join(repo, commit, fileset.Compacted)
-	mr, err := d.storage.NewMergeReader(ctx, []string{compactedPath}, index.WithPrefix(glob))
-	if err != nil {
+	if err := d.getFilesConditional(ctx, repo, commit, glob, func(fr *FileReader) error {
+		return fr.Get(w, true)
+	}); err != nil {
 		return err
 	}
-	return mr.Get(w)
+	// Close a tar writer to create tar EOF padding.
+	return tar.NewWriter(w).Close()
 }
 
 var globRegex = regexp.MustCompile(`[*?[\]{}!()@+^]`)
@@ -143,6 +142,7 @@ func globLiteralPrefix(glob string) string {
 	return glob[:idx[0]]
 }
 
+// (bryce) glob should be cleaned in option function
 func (d *driver) getFilesConditional(ctx context.Context, repo, commit, glob string, f func(*FileReader) error) error {
 	compactedPaths := []string{path.Join(repo, commit, fileset.Compacted)}
 	prefix := globLiteralPrefix(glob)
@@ -255,7 +255,7 @@ func (fr *FileReader) Info() *pfs.FileInfoNewStorage {
 }
 
 // Get writes a tar stream that contains the file.
-func (fr *FileReader) Get(w io.Writer) error {
+func (fr *FileReader) Get(w io.Writer, noPadding ...bool) error {
 	if err := fr.fmr.Get(w); err != nil {
 		return err
 	}
@@ -268,6 +268,9 @@ func (fr *FileReader) Get(w io.Writer) error {
 			return err
 		}
 		fr.fileCount--
+	}
+	if len(noPadding) > 0 && noPadding[0] {
+		return nil
 	}
 	// Close a tar writer to create tar EOF padding.
 	return tar.NewWriter(w).Close()
