@@ -2,6 +2,7 @@ package version
 
 import (
 	"fmt"
+	"strings"
 
 	pb "github.com/pachyderm/pachyderm/src/client/version/versionpb"
 )
@@ -31,6 +32,11 @@ var (
 		Additional: AdditionalVersion,
 	}
 )
+
+// IsUnstable will return true for alpha or beta builds, and false otherwise.
+func IsUnstable() bool {
+	return strings.Contains(Version.Additional, "beta") || strings.Contains(Version.Additional, "alpha")
+}
 
 // PrettyPrintVersion returns a version string optionally tagged with metadata.
 // For example: "1.2.3", or "1.2.3rc1" if version.Additional is "rc1".
