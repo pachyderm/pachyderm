@@ -73,12 +73,15 @@
   {% endif %}
 
   <!-- The image needs to have an absolute URL -->
-  {% set image = config.site_url ~ 'latest/assets/images/Pachyderm-Character_stacked.svg' %}
+  {% set image = config.site_url ~ 'assets/images/Pachyderm-Character_stacked--1200.png' %}
 
   <!-- Open graph meta tags -->
   <meta property="og:type" content="website" />
   <meta property="og:title" content="{{ title }}" />
-  <meta property="og:image" content="assets/images/Pachyderm-Character_stacked.svg">
+  <meta property="og:image" content="assets/images/Pachyderm-Character_stacked--1200.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
   <meta property="og:description" content="{{ config.site_description }}" />
   <meta property="og:url" content="{{ page.canonical_url }}" />
 
@@ -88,6 +91,6 @@
   <meta name="twitter:creator" content="@pachyderm" />
   <meta name="twitter:title" content="{{ title }}" />
   <meta name="twitter:description" content="{{ config.site_description }}" />
-  <meta name="twitter:image" content="assets/images/Pachyderm-Character_stacked.svg" />
+  <meta name="twitter:image" content="assets/images/Pachyderm-Character_stacked--1200.png" />
 
 {% endblock %}
