@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"os"
 	"sort"
 	"strconv"
 	"sync"
@@ -666,6 +667,11 @@ func finfosToPaths(finfos []*pfs.FileInfoNewStorage) (paths []string) {
 }
 
 func TestListFileNS(t *testing.T) {
+	// TODO: remove once postgres runs in CI
+	if os.Getenv("CI") == "true" {
+		t.SkipNow()
+	}
+
 	config := &serviceenv.PachdFullConfiguration{}
 	config.NewStorageLayer = true
 	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
