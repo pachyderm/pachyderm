@@ -12,9 +12,11 @@ This will describe the process of:
 
 ## Activation
 
-For testing, we **highly** recommend running Pachyderm in Minikube, in case the
-process of configuring your cluster doesn't go well initially and you need to
-restart the cluster.
+For testing, we **highly** recommend that you run Pachyderm in Minikube. If you
+accidentally misconfigure your cluster, you might lock yourself out of your
+cluster, and you will not be able to log in again to fix the configuration
+error. With Minikube, experimenting with authentication options is easier and
+safer and will not risk data loss.
 
 To activate Pachyderm enterprise and Pachyderm auth:
 
