@@ -3578,6 +3578,107 @@ func TestStandby(t *testing.T) {
 	})
 }
 
+func TestStopStandbyPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString(t.Name() + "_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	pipeline := tu.UniqueString(t.Name())
+	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"/bin/bash"},
+				Stdin: []string{
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out", dataRepo),
+				},
+			},
+			Input:   client.NewPFSInput(dataRepo, "/*"),
+			Standby: true,
+		},
+	)
+	require.NoError(t, err)
+
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		pi, err := c.InspectPipeline(pipeline)
+		require.NoError(t, err)
+		if pi.State != pps.PipelineState_PIPELINE_STANDBY {
+			return fmt.Errorf("expected %q to be in STANDBY, but was in %s", pipeline, pi.State)
+		}
+		return nil
+	})
+
+	// Run the pipeline once under normal conditions. It should run and then go
+	// back into standby
+	_, err = c.PutFile(dataRepo, "master", "/foo", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
+		// Let pipeline run
+		itr, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+		require.NoError(t, err)
+		collectCommitInfos(t, itr)
+		// check ending state
+		pi, err := c.InspectPipeline(pipeline)
+		require.NoError(t, err)
+		if pi.State != pps.PipelineState_PIPELINE_STANDBY {
+			return fmt.Errorf("expected %q to be in STANDBY, but was in %s", pipeline, pi.State)
+		}
+		return nil
+	})
+
+	// Stop the pipeline...
+	require.NoError(t, c.StopPipeline(pipeline))
+	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
+		pi, err := c.InspectPipeline(pipeline)
+		require.NoError(t, err)
+		if pi.State != pps.PipelineState_PIPELINE_PAUSED {
+			return fmt.Errorf("expected %q to be in PAUSED, but was in %s", pipeline,
+				pi.State)
+		}
+		return nil
+	})
+	// ...and then create several new input commits. Pipeline shouldn't run.
+	for i := 0; i < 3; i++ {
+		file := fmt.Sprintf("bar-%d", i)
+		_, err = c.PutFile(dataRepo, "master", "/"+file, strings.NewReader(file))
+	}
+	require.NoError(t, err)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	for ctx.Err() == nil {
+		pi, err := c.InspectPipeline(pipeline)
+		require.NoError(t, err)
+		require.NotEqual(t, pps.PipelineState_PIPELINE_RUNNING, pi.State)
+	}
+	cancel()
+
+	// Start pipeline--it should run and then enter standby
+	require.NoError(t, c.StartPipeline(pipeline))
+	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
+		// Let pipeline run
+		itr, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+		require.NoError(t, err)
+		collectCommitInfos(t, itr)
+		// check ending state
+		pi, err := c.InspectPipeline(pipeline)
+		require.NoError(t, err)
+		if pi.State != pps.PipelineState_PIPELINE_STANDBY {
+			return fmt.Errorf("expected %q to be in STANDBY, but was in %s", pipeline, pi.State)
+		}
+		return nil
+	})
+
+	// Finally, check that there's only two output commits
+	cis, err := c.ListCommit(pipeline, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(cis))
+}
+
 func TestPipelineEnv(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
