@@ -320,6 +320,19 @@ message JobInfo {
   string pod_patch = 44;                       // requires ListJobRequest.Full
 }
 
+// StoredCommitInfo is the data structure we store to represent a job it's not
+// part of the user facing API.
+message StoredJobInfo {
+  string id = 1 [(gogoproto.customname) = "ID"];
+  google.protobuf.Timestamp started = 2;
+  google.protobuf.Timestamp finished = 3;
+
+  // Entries is a map from pipeline names to JobInfo for this job in that
+  // pipeline. Some fields in the JobInfo are left blank because they can be
+  // computed from the other entries.
+  map<string, JobInfo> entries = 4;
+}
+
 enum WorkerState {
   POD_RUNNING = 0;
   POD_SUCCESS = 1;

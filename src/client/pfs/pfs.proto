@@ -112,9 +112,9 @@ message CommitProvenance {
   Branch branch = 2;
 }
 
-// CommitInfo is the main data structure representing a commit in etcd
+// CommitInfo is the main data structure representing a commit
 message CommitInfo {
-  reserved 6, 10;
+  reserved 6, 9,10, 16;
   Commit commit = 1;
   Branch branch = 15;
   CommitOrigin origin = 17;
@@ -126,15 +126,12 @@ message CommitInfo {
   google.protobuf.Timestamp finished = 4;
   uint64 size_bytes = 5;
 
-  // the commits and their original branches on which this commit is provenant
-  repeated CommitProvenance provenance = 16;
-
   // ReadyProvenance is the number of provenant commits which have been
   // finished, if ReadyProvenance == len(Provenance) then the commit is ready
   // to be processed by pps.
   int64 ready_provenance = 12;
+  int64 total_provenance = 21;
 
-  repeated CommitRange subvenance = 9;
   // this is the block that stores the serialized form of a tree that
   // represents the entire file system hierarchy of the repo at this commit
   // If this is nil, then the commit is either open (in which case 'finished'
@@ -147,6 +144,31 @@ message CommitInfo {
   int64 subvenant_commits_success = 18;
   int64 subvenant_commits_failure = 19;
   int64 subvenant_commits_total = 20;
+
+  // Alias is the ID for another commit (in the same repo) that this commit is
+  // an alias for.
+  string alias = 22;
+}
+
+// StoredCommitInfo is the data structure we store to represent a commit it's
+// not part of the user facing API.
+message StoredCommitInfo {
+  string id = 1 [(gogoproto.customname) = "ID"];
+  google.protobuf.Timestamp started = 2;
+  google.protobuf.Timestamp finished = 3;
+
+  // Entries is a map from repo names to an CommitInfo for this commit in
+  // that repo. Some fields in the CommitInfo are left blank because they can
+  // be computed from the other entries.
+  map<string, CommitInfo> entries = 4;
+
+  message Bitset {
+    repeated uint64 bits = 1;
+  }
+  // Provenance stores the provenance relationship between commits in Entries.
+  // The commits are enumerated in lexicographic order, Bitset[n][m] is true if
+  // m is provenance for n, and n is subvenance for m.
+  repeated Bitset provenance = 5;
 }
 
 enum FileType {
