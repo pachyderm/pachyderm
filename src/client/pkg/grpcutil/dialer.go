@@ -35,6 +35,7 @@ func newDialer(opts ...grpc.DialOption) *dialer {
 func (d *dialer) Dial(addr string) (*grpc.ClientConn, error) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
+
 	if conn, ok := d.connMap[addr]; ok {
 		return conn, nil
 	}
@@ -42,6 +43,9 @@ func (d *dialer) Dial(addr string) (*grpc.ClientConn, error) {
 		grpc.WithUnaryInterceptor(tracing.UnaryClientInterceptor()),
 		grpc.WithStreamInterceptor(tracing.StreamClientInterceptor()),
 	)
+	if (strings.Index(addr, "dns:///") == -1) {
+	    addr = "dns:///"+addr
+	}
 	conn, err := grpc.Dial(addr, opts...)
 	if err != nil {
 		return nil, err
