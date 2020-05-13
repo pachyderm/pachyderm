@@ -89,7 +89,7 @@ func (o *Options) validate(c *client.APIClient) error {
 				return err
 			}
 			if bi != nil && len(bi.Provenance) > 0 {
-				return errors.Errorf("can't mount branch %s@%s in Write mode because it's an output branch")
+				return errors.Errorf("can't mount branch %s@%s in Write mode because it's an output branch", repo, opts.Branch)
 			}
 		}
 	}
