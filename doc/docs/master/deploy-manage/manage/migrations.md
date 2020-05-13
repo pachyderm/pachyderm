@@ -108,7 +108,7 @@ To restore all paused pipelines, complete the following steps:
      1. Back up the current configuration:
 
         ```bash
-        kubectl get svc/pach -o json >pach_service_backup_30649.json
+        kubectl get svc/pachd -o json >pachd_service_backup_30649.json
         kubectl get svc/etcd -o json >etcd_svc_backup_32379.json
         kubectl get svc/dash -o json >dash_svc_backup_30080.json
         ```
