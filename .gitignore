@@ -23,6 +23,9 @@ _obj
 _test
 *.DS_Store
 
+# Python virtualenvs
+venv
+
 # Architecture specific extensions/prefixes
 ./*.[568vq]
 [568vq].out
