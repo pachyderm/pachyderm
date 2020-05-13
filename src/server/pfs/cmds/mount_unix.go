@@ -44,10 +44,13 @@ func parseRepoOpts(args []string) (map[string]*fuse.RepoOptions, error) {
 			}
 		}
 		if flag != "" {
-			if flag == "w" || flag == "rw" {
+			for _, c := range flag {
+				if c != 'w' && c != 'r' {
+					return nil, errors.Errorf("invalid format %q: unrecognized mode: %q", arg, flag)
+				}
+			}
+			if strings.Contains("w", flag) {
 				opts.Write = true
-			} else if flag != "r" {
-				return nil, errors.Errorf("invalid format %q: unrecognized mode: %q", arg, flag)
 			}
 		}
 		if repo == "" {
