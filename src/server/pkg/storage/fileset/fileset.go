@@ -139,7 +139,7 @@ func (f *FileSet) serialize() error {
 	}
 	sort.Strings(names)
 	// Serialize file set.
-	w := f.storage.newWriter(f.ctx, path.Join(f.name, SubFileSetStr(f.subFileSet)), nil)
+	w := f.storage.newWriter(f.ctx, path.Join(f.name, SubFileSetStr(f.subFileSet)))
 	for _, name := range names {
 		n := f.fs[name]
 		// (bryce) skipping serialization of deletion operations for the time being.

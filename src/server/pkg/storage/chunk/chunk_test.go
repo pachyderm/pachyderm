@@ -18,10 +18,6 @@ import (
 	"modernc.org/mathutil"
 )
 
-const (
-	averageBits = 23
-)
-
 type test struct {
 	maxAnnotationSize int
 	maxTagSize        int
@@ -89,18 +85,18 @@ func TestCopy(t *testing.T) {
 					}
 					return nil
 				}
-				w := chunks.NewWriter(context.Background(), averageBits, 0, false, uuid.NewWithoutDashes(), f)
+				w := chunks.NewWriter(context.Background(), uuid.NewWithoutDashes(), f)
 				copyAnnotations(t, chunks, w, as, msg)
 				require.NoError(t, w.Close(), msg)
 				// Check that the annotations were correctly copied.
 				readAnnotations(t, chunks, as, msg)
-				// Check that only one new chunk was created when connecting the two sets of annotations.
+				// Check that at least one chunk was copied when connecting the two sets of annotations.
 				var finalChunkCount int64
 				require.NoError(t, chunks.List(context.Background(), func(_ string) error {
 					finalChunkCount++
 					return nil
 				}), msg)
-				require.Equal(t, initialChunkCount+1, finalChunkCount, msg)
+				require.True(t, finalChunkCount < initialChunkCount*2, msg)
 			})
 		}
 		return nil
@@ -114,7 +110,7 @@ func BenchmarkWriter(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			f := func(_ []*Annotation) error { return nil }
-			w := chunks.NewWriter(context.Background(), averageBits, 0, false, uuid.NewWithoutDashes(), f)
+			w := chunks.NewWriter(context.Background(), uuid.NewWithoutDashes(), f)
 			for i := 0; i < 100; i++ {
 				w.Annotate(&Annotation{
 					NextDataRef: &DataRef{},
@@ -187,7 +183,7 @@ func writeAnnotations(t *testing.T, chunks *Storage, annotations []*testAnnotati
 			}
 			return nil
 		}
-		w := chunks.NewWriter(context.Background(), averageBits, 0, false, uuid.NewWithoutDashes(), f)
+		w := chunks.NewWriter(context.Background(), uuid.NewWithoutDashes(), f)
 		for _, a := range annotations {
 			w.Annotate(&Annotation{
 				NextDataRef: &DataRef{},

@@ -75,9 +75,9 @@ func (s *Storage) New(ctx context.Context, fileSet, tag string, opts ...Option) 
 	return newFileSet(ctx, s, fileSet, s.memThreshold, tag, opts...)
 }
 
-func (s *Storage) newWriter(ctx context.Context, fileSet string, indexFunc func(*index.Index) error) *Writer {
+func (s *Storage) newWriter(ctx context.Context, fileSet string, opts ...WriterOption) *Writer {
 	fileSet = applyPrefix(fileSet)
-	return newWriter(ctx, s.objC, s.chunks, fileSet, indexFunc)
+	return newWriter(ctx, s.objC, s.chunks, fileSet, opts...)
 }
 
 // (bryce) expose some notion of read ahead (read a certain number of chunks in parallel).
@@ -108,7 +108,7 @@ func (s *Storage) ResolveIndexes(ctx context.Context, fileSets []string, f func(
 	if err != nil {
 		return err
 	}
-	w := s.newWriter(ctx, "", f)
+	w := s.newWriter(ctx, "", WithNoUpload(f))
 	if err := mr.WriteTo(w); err != nil {
 		return err
 	}
@@ -131,7 +131,7 @@ func (s *Storage) Shard(ctx context.Context, fileSets []string, shardFunc ShardF
 func (s *Storage) Compact(ctx context.Context, outputFileSet string, inputFileSets []string, opts ...index.Option) error {
 	outputFileSet = applyPrefix(outputFileSet)
 	inputFileSets = applyPrefixes(inputFileSets)
-	w := s.newWriter(ctx, outputFileSet, nil)
+	w := s.newWriter(ctx, outputFileSet)
 	mr, err := s.NewMergeReader(ctx, inputFileSets, opts...)
 	if err != nil {
 		return err
