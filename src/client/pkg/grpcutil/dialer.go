@@ -2,6 +2,7 @@ package grpcutil
 
 import (
 	"sync"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"google.golang.org/grpc"
