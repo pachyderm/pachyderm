@@ -9,8 +9,8 @@
 
 The Pachyderm Integrated Development Environment (IDE) is
 an extension to the standard Pachyderm deployment that
-enables you to leverage JupyterLab user interface
-integrated with Pachyderm data version control system.
+enables you to leverage JupyterHub and JupyterLab user interface
+integrated with the Pachyderm data version control system.
 
 When you deploy the Pachyderm IDE, an underlying deployment script
 spins up a JupyterHub deployment in the same Kubernetes cluster
@@ -19,12 +19,12 @@ to create multiple instances of single-user Jupyter notebook
 servers on-demand for each member of your team.
 This way, each user gets a personal notebook server.
 
-JupyterLab is the newest Jupyter notebook web interface that
+JupyterLab is the newest Jupyter web interface that
 allows you to run your Jupyter notebooks in tabs and extend the
 tabs with custom applications. Our version of JupyterLab comes
 with `pachctl`, `python-pachyderm`, Pachyderm shell,
-Terminal, Python 3 Notebooks, and other useful tabs preconfigured.
-From the terminal window you can use `pachctl` commands and from 
+Terminal, Python 3 Notebooks, and other useful components preconfigured.
+From the terminal window, you can use `pachctl` commands and from 
 within the notebooks you can call 
 [Pachyderm Python client library](https://github.com/pachyderm/python-pachyderm)
 methods to manage Pachyderm directly from the
@@ -43,8 +43,7 @@ from within the Jupyter UI by using the Pachyderm Python client.
 
 ## Prerequisites
 
-Before deploying Pachyderm IDE, you need to make sure that you configure
-the following prerequisites:
+Before deploying Pachyderm IDE, configure the following prerequisites:
 
 * Deploy Pachyderm 1.11.0 or later as described in
 [Deploy Pachyderm](https://docs.pachyderm.com/latest/deploy-manage/deploy/)
@@ -76,25 +75,25 @@ might take some time.
 
 ## Log in to Pachyderm IDE
 
-After you deploy JupyterHub, you can access the JupyterHub UI
+After you deploy the Pachyderm IDE, you can access the JupyterLab UI
 in a web browser through the Pachyderm cluster hostname on port
-`80`. To get your the IP address of your JupyterHub deployment,
+`80`. To get your the IP address of the Pachyderm IDE,
 run the following command:
 
-* If you have deployed Pachyderm IDE in a cloud platform, run:
+* If you have deployed the Pachyderm IDE in a cloud platform, run:
 
   ```bash
   kubectl --namespace=default get svc proxy-public
   ```
 
-* If you have deployed Pachyderm IDE in a minikube, run:
+* If you have deployed the Pachyderm IDE in a minikube, run:
 
   ```bash
   minikube service proxy-public --url
   ```
 
 Paste the returned address in a browser to access your Pachyderm IDE.
-Use your Pachyderm token to log in.
+Use your Pachyderm authentication token to log in.
 
 If you access your Kubernetes cluster through a firewall, verify that
 you can access your cluster on port 80. For more information, see
