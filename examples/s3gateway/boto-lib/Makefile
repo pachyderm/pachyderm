@@ -1,4 +1,4 @@
-.PHONY: init
+.PHONY: init run
 
 venv:
 	virtualenv -v venv -p python3
@@ -7,5 +7,5 @@ venv:
 init: venv
 	cd ../../opencv && make opencv
 
-run:
+run: venv
 	. venv/bin/activate && ./main.py
