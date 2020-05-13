@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	go_errors "github.com/pkg/errors"
 )
 
 // Matches checks that a string matches a regular-expression.
@@ -524,19 +523,9 @@ func fatal(tb testing.TB, userMsgAndArgs []interface{}, msgFmt string, msgArgs .
 	if len(msgArgs) > 0 {
 		err, ok := msgArgs[0].(error)
 		if ok {
-			var st go_errors.StackTrace
-			for err != nil {
-				if err, ok := err.(errors.StackTracer); ok {
-					st = err.StackTrace()
-				}
-				err = go_errors.Unwrap(err)
-			}
-			if len(st) > 0 {
-				tb.Logf("error stack:\n")
-				for _, frame := range st {
-					tb.Logf("%+v\n", frame)
-				}
-			}
+			errors.ForEachStackFrame(err, func(frame errors.Frame) {
+				tb.Logf("%+v\n", frame)
+			})
 		}
 	}
 	tb.Fatalf("current stack:\n%s", string(debug.Stack()))

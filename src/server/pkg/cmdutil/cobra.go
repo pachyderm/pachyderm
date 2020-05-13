@@ -12,7 +12,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 
-	go_errors "github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -96,21 +95,10 @@ func ErrorAndExit(format string, args ...interface{}) {
 		fmt.Fprintf(os.Stderr, "%s\n", errString)
 	}
 	err, ok := args[0].(error)
-	if PrintErrorStacks {
-		if ok {
-			var st go_errors.StackTrace
-			for err != nil {
-				if err, ok := err.(errors.StackTracer); ok {
-					st = err.StackTrace()
-				}
-				err = go_errors.Unwrap(err)
-			}
-			if len(st) > 0 {
-				for _, frame := range st {
-					fmt.Fprintf(os.Stderr, "%+v\n", frame)
-				}
-			}
-		}
+	if PrintErrorStacks && ok {
+		errors.ForEachStackFrame(err, func(frame errors.Frame) {
+			fmt.Fprintf(os.Stderr, "%+v\n", frame)
+		})
 	}
 	os.Exit(1)
 }
