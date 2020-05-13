@@ -1,25 +1,38 @@
-# Deploy Pachyderm with JupyterHub
+# Deploy Pachyderm IDE
 
 !!! note
-    JupyterHub integration with Pachyderm is an
-    enterprise feature. Contact sales@pachyderm.com
-    to request enabling JupyterHub integration
-    for your Pachyderm Enterprise license.
+    Pachyderm IDE is an enterprise feature.
+    Contact sales@pachyderm.com for more
+    information.
 
-JupyterHub is an open-source platform that enables you
-to spin multiple instances of single-user Jupyter notebook
+Pachyderm integrated development environment (IDE) is
+an extension to the standard Pachyderm deployment that
+enables you to leverage JupyterLab user interface
+seamlessly integrated with Pachyderm data version control.
+The data scientists that have been using Jupyter products in
+the past can now enjoyh this new and smooth development
+experience.
+
+When you deploy the Pachyderm IDE, you spin up a JupyterHub
+deployment in the same Kubernetes cluster where Pachyderm
+runs. JupyterHub is an open-source platform that enables you
+to create multiple instances of single-user Jupyter notebook
 servers on-demand for each member of your team.
 This way, each user gets a personal notebook server.
 
-You can deploy JupyterHub alongside Pachyderm
-on the same Kubernetes cluster and use Pachyderm authentication
-and [Pachyderm Python client library](https://github.com/pachyderm/python-pachyderm)
-with JupyterHub.
-By using Pachyderm authentication, you can log in to JupyterHub with
+JupyterLab is the newest Jupyter notebook web interface that
+allows you to run your Jupyter notebooks in tabs and configure
+tabs as needed. Our version of JupyterLab comes with Pachyderm shell,
+Terminal, Python 3 Notebooks, and other useful tabs preconfigured.
+From the terminal window you can use `pachctl` commands and from 
+within the notebooks you can call [Pachyderm Python client library](https://github.com/pachyderm/python-pachyderm) methods to manage Pachyderm directly from the
+JupyterLab UI.
+
+By using Pachyderm authentication, you log in to JupyterHub with
 your Pachyderm credentials. In essence, you run your code
-in JupyterHub and use the `python-pachyderm` API to create your
+in JupyterLab and use the `python-pachyderm` API to create your
 pipelines and version your data in Pachyderm from within
-the JupyterHub UI.
+the JupyterLab UI.
 
 The following diagram shows the Pachyderm and JupyterHub deployment.
 
@@ -30,34 +43,27 @@ deployed on the same Kubernetes cluster. You deploy Pachyderm by
 using the pachctl `deploy command` and JupyterHub by running
 our deployment script as described below. After deployment, you log in
 to JupyterHub with your Pachyderm user and interact with Pachyderm
-from within the Jupyter UI by using Pachyderm Python client.
+from within the Jupyter UI by using the Pachyderm Python client.
 
 ## Prerequisites
 
-Before you can deploy JupyterHub with `python-pachyderm`, you need to
-install Pachyderm on a supported Kubernetes platform and configure
-other prerequisites listed below.
+Before deploying Pachyderm IDE, you need to make sure that you configure
+the following prerequisites:
 
-### Deploy Pachyderm
+* Deploy Pachyderm 1.11.0 or later as described in [Deploy Pachyderm](https://docs.pachyderm.com/latest/deploy-manage/deploy/) on a supported Kubernetes platforms:
 
-You need to deploy Pachyderm as described in
-[Deploy Pachyderm](../../deploy/)
-in of the supported platforms:
+  - Google Kubernetes Engine (GKE) with Kubernetes v1.13
+  - Amazon Elastic Container Service (EKS) with Kubernetes v1.13
+  - Docker Desktop for Mac with Kubernetes v1.14
 
-- Google Kubernetes Engine (GKE) with Kubernetes v1.13
-- Amazon Elastic Container Service (EKS) with Kubernetes v1.13
-- Docker Desktop for Mac with Kubernetes v1.14
+    For more information about JupyterHub requirements for Kubernetes,
+    see [Zero to JupyterHub with Kubernetes](https://zero-to-jupyterhub.readthedocs.io/en/latest/).
 
-!!! note
-    Kubernetes v1.16 is not supported, including Minikube deployments.
-    If you already have a local Pachyderm deployed with Kubernetes v1.16,
-    you might not be able to deploy JupyterHub on the same Kubernetes
-    cluster by using the Jupyter deployment script.
+* Register your Enterprise token as described in
+[Activate Pachyderm Enterprise Edition](https://docs.pachyderm.com/latest/enterprise/deployment/#activate-pachyderm-enterprise-edition).
+* Enable [Pachyderm Access Controls](https://docs.pachyderm.com/latest/enterprise/auth/auth/).
 
-For more information about JupyterHub requirements for Kubernetes,
-see [Zero to JupyterHub with Kubernetes](https://zero-to-jupyterhub.readthedocs.io/en/latest/).
-
-### Enable Pachyderm Access Controls (Optional)
+### Enable Pachyderm Access Controls (Optional) - is this now required?
 
 You can enable Pachyderm access controls to use Pachyderm credentials
 to log in to JupyterHub. However, this
@@ -76,73 +82,39 @@ To enable Pachyderm authentication, follow the steps in
     Your existing notebooks will be preserved after
     the redeploy.
 
-### Install Helm
 
-Helm is a package manager for Kubernetes that controls the JupyterHub
-installation. Our deployment script requires Helm 3 or later.
+## Deploy Pachyderm IDE
 
-To install Helm on your client machine, follow the steps in the
-[Helm Documentation](https://helm.sh/docs/intro/install/).
+After you deploy Pachyderm and enable authentication,
+deploy Pachyderm IDE by running:
 
-## Deploy JupyterHub
+```bash
+pachctl deploy ide
+```
 
-After you deploy Pachyderm in one of the supported environments and
-install Helm on your client machine, you can use the deployment script
-to deploy JupyterHub.
+The installation might take some time. 
 
-To deploy JupyterHub, complete the following steps:
-
-<!--1. Clone the [jupyterhub-pachyderm](https://github.com/pachyderm/jupyterhub-pachyderm)
-repository:
-
-   ```bash
-   git clone git@github.com:pachyderm/jupyterhub-pachyderm.git
-   ```
-
-1. Change the current directory to `jupyterhub-pachyderm/`:
-
-   ```bash
-   cd jupyterhub-pachyderm
-   ```
--->
-1. Run the `./init.py` script:
-
-   ```bash
-   ./init.py
-   ```
-
-   **System response:**
-
-   ```
-   ===> checking dependencies are installed
-   ...
-   ===> installing jupyterhub
-   Release "jhub" does not exist. Installing it now.
-   NAME: jhub
-   LAST DEPLOYED: Wed Dec 18 13:09:26 2019
-   NAMESPACE: default
-   STATUS: deployed
-   REVISION: 1
-   TEST SUITE: None
-   NOTES:
-   Thank you for installing JupyterHub!
-   ...
-   ===> notes
-   - Since Pachyderm auth doesn't appear to be enabled, JupyterHub will expect the following global password for users: XXXXXXXXXXXXXXXXXXXXX
-   ```
-
-   JupyterHub is now deployed on your Kubernetes cluster.
-
-## Log in to JupyterHub
+## Log in to Pachyderm IDE
 
 After you deploy JupyterHub, you can access the JupyterHub UI
 in a web browser through the Pachyderm cluster hostname on port
-`80`.
+`80`. To get your the IP address of your JupyterHub deployment,
+run the following command:
 
-If you have enabled Pachyderm access controls, use your Pachyderm
-token to log in. Otherwise, use the global password
-that was printed out in the terminal window when you ran the
-`./init.py` script. You can use any arbitrary username.
+* If you have deployed Pachyderm IDE in a cloud platform, run:
+
+  ```bash
+  kubectl --namespace=default get svc proxy-public
+  ```
+
+* If you have deployed Pachyderm IDE in a minikube, run:
+
+  ```bash
+  minikube service proxy-public --url
+  ```
+
+Paste the returned address in a browser to access your Pachyderm IDE.
+Use your Pachyderm token to log in.
 
 If you access your Kubernetes cluster through a firewall, verify that
 you can access your cluster on port 80. For more information, see
