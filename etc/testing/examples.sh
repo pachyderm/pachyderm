@@ -1,7 +1,7 @@
 #!/bin/bash
 
 set -ex
-# Runs various examples ot ensure they don't break. Some examples were
+# Runs various examples to ensure they don't break. Some examples were
 # designed for older versions of pachyderm and are not used here.
 
 pushd examples/opencv
@@ -17,6 +17,18 @@ pushd examples/opencv
 
     # ensure the montage image was generated
     pachctl inspect file montage@master:montage.png
+popd
+
+# these examples are dependent on some data being available, so we'll keep the
+# opencv results
+pushd examples/s3gateway
+    pushd boto-lib
+        make venv run
+    popd
+
+    pushd minio-python-lib
+        make venv run
+    popd
 popd
 
 yes | pachctl delete all
