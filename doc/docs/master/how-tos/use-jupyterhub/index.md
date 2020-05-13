@@ -1,31 +1,43 @@
-# Use JupyterHub with `python-pachyderm`
+# Use the Pachyderm IDE with `python-pachyderm`
 
 !!! note
-     JupyterHub integration with Pachyderm is an
-     enterprise feature. Contact sales@pachyderm.com
-     to request enabling JupyterHub integration
-     for your Pachyderm Enterprise license.
+    The Pachyderm IDE is an enterprise feature,
+    which is also avaialble for testing during
+    the 14-day free trial.
+    Contact sales@pachyderm.com for more information.
 
 This section describes how you can use the `python-pachyderm`
-client from within the JupyterHub UI.
+client from within the Pachyderm IDE.
 
 !!! note
-    You need to have Pachyderm and JupyterHub installed on the
-    same Kubernetes cluster as described in
-    [Deploy Pachyderm with JupyterHub](../../deploy-manage/deploy/deploy-pachyderm-jupyterhub.md).
+    You need to have Pachyderm IDE installed as described in
+    [Deploy the Pachyderm IDE](../../deploy-manage/deploy/deploy-pachyderm-jupyterhub.md).
 
 ## Overview
 
-JupyterHub is a popular data science platform that enables users
+When you deploy the Pachyderm IDE, you get JupyterHub and
+a customized JupyterLab UI running next to your Pachyderm
+cluster.
+
+Before the proceed, let's clarify the following terms
+as they might be confusing for first-time users:
+
+* JupyterHub is a popular data science platform that enables users
 to quickly spin out multiple single-tenant Jupyter Notebook server instances.
-Jupyter Notebook provides a Python interactive development environment (IDE)
+
+* Jupyter Notebook provides a Python interactive development environment (IDE)
 that is convenient for data science projects. Because of the built-in
 rich-text support, visualizations, the easy-to-use web interface, many
 enterprise users prefer Jupyter Notebooks to the classic Terminal prompt.
 JupyterHub brings all the benefits of Jupyter Notebooks without the need
 to install or configure anything on user machines except for a web browser.
 
-[python-pachyderm](https://github.com/pachyderm/python-pachyderm) is an
+* JupyterLab is a UI that enables you to run multiple Jupyter notebooks and
+other applications in tabs next to each. The tabs can be customized
+to run applications that you need to use as par of your development workflow.
+Pachyderm is one of those applications.
+
+* [python-pachyderm](https://github.com/pachyderm/python-pachyderm) is an
 official Python client for Pachyderm. For Python developers who prefer to
 communicate with Pachyderm directly through the API, rather than by using
 the `pachctl` tool, `python-pachyderm` is the right choice.
@@ -33,12 +45,9 @@ The [API Documentation](https://pachyderm.github.io/python-pachyderm/python_pach
 describes various API operations that you can execute to interact with
 Pachyderm.
 
-When you deployed JupyterHub by using our deployment script, `python-pachyderm`
-was installed in JupyterHub so that you can run API requests directly from
-your Jupyter Notebook.
+`python-pachyderm` is preinstalled in your Pachyderm IDE.
 
 ### Difference in Pipeline Creation Methods
-
 
 `python-pachyderm` supports the standard
 [create_pipeline](https://pachyderm.github.io/python-pachyderm/python_pachyderm.m.html#python_pachyderm.Client.create_pipeline)
@@ -65,9 +74,10 @@ to build a new Docker image every time you change something in your
 pipeline code. You can run your code instantly. This method is ideal for
 users who want to avoid building Docker images.
 
-While you can mix and match pipeline creation methods in JupyterHub, you might
-eventually want to pick one method that works for your use case. It is a
-matter of personal preference which method to use. While some users might
+While you can mix and match pipeline creation methods in Pachyderm IDE, you
+might eventually want to pick one method that works for your use case. It is a
+matter of personal preference which method to use. While some users, those
+who write code in Python, in particular, might
 find it convenient to avoid the Docker build workflow, others might want to
 enable Docker in JupyterHub or build Docker images from their local machines.
 
