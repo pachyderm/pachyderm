@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 )
 
@@ -49,6 +50,9 @@ func (c APIClient) NewPutTarClient(repo, commit string) (_ *PutTarClient, retErr
 // The files are not persisted until the PutTarClient is closed.
 func (ptc *PutTarClient) PutTar(r io.Reader, tag ...string) error {
 	if len(tag) > 0 {
+		if len(tag) > 1 {
+			return errors.Errorf("PutTar called with %v tags, expected 0 or 1", len(tag))
+		}
 		if err := ptc.client.Send(&pfs.PutTarRequest{Tag: tag[0]}); err != nil {
 			return err
 		}
