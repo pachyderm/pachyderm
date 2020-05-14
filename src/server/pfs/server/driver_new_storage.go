@@ -133,24 +133,15 @@ func (d *driver) getFilesNewStorageLayer(ctx context.Context, repo, commit, glob
 
 func (d *driver) listFileNS(pachClient *client.APIClient, file *pfs.File, full bool, history int64, f func(*pfs.FileInfoNewStorage) error) (retErr error) {
 	ctx := pachClient.Ctx()
-	// Validate arguments
-	if file == nil {
-		return errors.New("file cannot be nil")
+	if err := validateListFileArgs(file); err != nil {
+		return err
 	}
-	if file.Commit == nil {
-		return errors.New("file commit cannot be nil")
-	}
-	if file.Commit.Repo == nil {
-		return errors.New("file commit repo cannot be nil")
-	}
-	// auth check
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
-	err := d.getFilesConditional(ctx, file.Commit.Repo.Name, file.Commit.ID, file.Path, func(fr *FileReader) error {
+	return d.getFilesConditional(ctx, file.Commit.Repo.Name, file.Commit.ID, file.Path, func(fr *FileReader) error {
 		return f(fr.Info())
 	})
-	return err
 }
 
 var globRegex = regexp.MustCompile(`[*?[\]{}!()@+^]`)

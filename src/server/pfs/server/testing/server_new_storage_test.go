@@ -693,7 +693,11 @@ func TestListFileNS(t *testing.T) {
 		err = env.PachClient.FinishCommit(repo, commit1.ID)
 		require.NoError(t, err)
 
-		finfos, err := env.PachClient.ListFileNS(repo, commit1.ID, "/dir1/*")
+		finfos := []*pfs.FileInfoNewStorage{}
+		err = env.PachClient.ListFileNS(repo, commit1.ID, "/dir1/*", func(finfo *pfs.FileInfoNewStorage) error {
+			finfos = append(finfos, finfo)
+			return nil
+		})
 		require.NoError(t, err)
 		t.Log(finfos)
 		require.ElementsEqual(t, []string{"/dir1/file1.1", "/dir1/file1.2"}, finfosToPaths(finfos))

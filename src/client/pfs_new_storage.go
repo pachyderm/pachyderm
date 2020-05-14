@@ -131,8 +131,8 @@ func (c APIClient) GetTarConditional(repoName string, commitID string, path stri
 	return nil
 }
 
-// ListFileNS returns info about all files in a Commit under path.
-func (c APIClient) ListFileNS(repoName string, commitID string, path string) (finfos []*pfs.FileInfoNewStorage, retErr error) {
+// ListFileNS streams FileInfoNewStorage similar to ListFileF
+func (c APIClient) ListFileNS(repoName string, commitID string, path string, f func(fileInfo *pfs.FileInfoNewStorage) error) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
@@ -144,18 +144,20 @@ func (c APIClient) ListFileNS(repoName string, commitID string, path string) (fi
 	}
 	client, err := c.PfsAPIClient.ListFileNS(ctx, req)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	for {
 		finfo, err := client.Recv()
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			return nil, err
+			return err
 		}
-		finfos = append(finfos, finfo)
+		if err := f(finfo); err != nil {
+			return err
+		}
 	}
-	return finfos, nil
+	return nil
 }
 
 type getTarConditionalReader struct {
