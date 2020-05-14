@@ -8271,33 +8271,24 @@ func TestListDatumDuringJob(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
-	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 2, len(commitInfos))
+	var jobInfo *pps.JobInfo
+	require.NoErrorWithinT(t, 30*time.Second, func() error {
+		return backoff.Retry(func() error {
+			jobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
+			if err != nil {
+				return err
+			}
+			if len(jobInfos) != 1 {
+				return errors.Errorf("Expected one job, but got %d: %v", len(jobInfos), jobInfos)
+			}
+			jobInfo = jobInfos[0]
+			return nil
+		}, backoff.NewTestingBackOff())
+	})
 
-	jobs, err := c.ListJob(pipeline, nil, nil, -1, true)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(jobs))
-	// Block on the job being complete before we call ListDatum
-	jobInfo, err := c.InspectJob(jobs[0].Job.ID, true)
-	require.NoError(t, err)
-	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
-
-	// Now validate the datum timed out properly
-	resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
+	resp, err := c.ListDatum(jobInfo.Job.ID, 0, 0)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(resp.DatumInfos))
-
-	datum, err := c.InspectDatum(jobs[0].Job.ID, resp.DatumInfos[0].Datum.ID)
-	require.NoError(t, err)
-	require.Equal(t, pps.DatumState_FAILED, datum.State)
-	// ProcessTime looks like "20 seconds"
-	tokens := strings.Split(pretty.Duration(datum.Stats.ProcessTime), " ")
-	require.Equal(t, 2, len(tokens))
-	seconds, err := strconv.Atoi(tokens[0])
-	require.NoError(t, err)
-	require.Equal(t, timeout, seconds)
 }
 
 func TestPipelineWithDatumTimeoutControl(t *testing.T) {
