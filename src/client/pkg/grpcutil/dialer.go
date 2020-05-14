@@ -1,8 +1,8 @@
 package grpcutil
 
 import (
-	"sync"
 	"strings"
+	"sync"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"google.golang.org/grpc"
@@ -44,8 +44,8 @@ func (d *dialer) Dial(addr string) (*grpc.ClientConn, error) {
 		grpc.WithUnaryInterceptor(tracing.UnaryClientInterceptor()),
 		grpc.WithStreamInterceptor(tracing.StreamClientInterceptor()),
 	)
-	if (strings.Index(addr, "dns:///") == -1) {
-	    addr = "dns:///"+addr
+	if strings.Index(addr, "dns:///") == -1 {
+		addr = "dns:///" + addr
 	}
 	conn, err := grpc.Dial(addr, opts...)
 	if err != nil {
