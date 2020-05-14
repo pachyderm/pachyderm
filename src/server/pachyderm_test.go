@@ -8333,6 +8333,65 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 	require.Equal(t, timeout, seconds)
 }
 
+func TestListDatumDuringJob(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestListDatumDuringJob_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "file",
+		strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+	timeout := 20
+	pipeline := tu.UniqueString("TestListDatumDuringJob_pipeline")
+	duration, err := time.ParseDuration(fmt.Sprintf("%vs", timeout))
+	require.NoError(t, err)
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					"while true; do sleep 1; date; done",
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+				},
+			},
+			Input:        client.NewPFSInput(dataRepo, "/*"),
+			EnableStats:  true,
+			DatumTimeout: types.DurationProto(duration),
+		},
+	)
+	require.NoError(t, err)
+
+	var jobInfo *pps.JobInfo
+	require.NoErrorWithinT(t, 30*time.Second, func() error {
+		return backoff.Retry(func() error {
+			jobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
+			if err != nil {
+				return err
+			}
+			if len(jobInfos) != 1 {
+				return errors.Errorf("Expected one job, but got %d: %v", len(jobInfos), jobInfos)
+			}
+			jobInfo = jobInfos[0]
+			return nil
+		}, backoff.NewTestingBackOff())
+	})
+
+	resp, err := c.ListDatum(jobInfo.Job.ID, 0, 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(resp.DatumInfos))
+}
+
 func TestPipelineWithDatumTimeoutControl(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")

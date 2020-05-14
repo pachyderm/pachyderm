@@ -1045,8 +1045,17 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, page, 
 	if err != nil {
 		return nil, err
 	}
-	// If there's no stats commit (job not finished), compute datums using jobInfo
-	if jobInfo.StatsCommit == nil {
+
+	var statsCommitInfo *pfs.CommitInfo
+	if jobInfo.StatsCommit != nil {
+		statsCommitInfo, err = pachClient.InspectCommit(jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit.ID)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// If the stats commit is not closed, compute datums using jobInfo
+	if statsCommitInfo == nil || statsCommitInfo.Finished == nil {
 		start := 0
 		end := df.Len()
 		if pageSize > 0 {
@@ -1078,7 +1087,7 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, page, 
 		return response, nil
 	}
 
-	// There is a stats commit -- job is finished
+	// The stats commit is closed -- job is finished
 	// List the files under / in the stats branch to get all the datums
 	file := &pfs.File{
 		Commit: jobInfo.StatsCommit,
