@@ -41,10 +41,12 @@ func (a *apiServer) PutTar(server pfs.API_PutTarServer) (retErr error) {
 					server: server,
 					r:      bytes.NewReader(req.Data),
 				}
-				defer func() {
-					bytesRead += ptr.bytesRead
-				}()
-				if err := fs.Put(ptr, req.Tag); err != nil {
+				if err := func() error {
+					defer func() {
+						bytesRead += ptr.bytesRead
+					}()
+					return fs.Put(ptr, req.Tag)
+				}(); err != nil {
 					return err
 				}
 			}
