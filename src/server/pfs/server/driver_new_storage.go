@@ -97,8 +97,7 @@ func (d *driver) finishCommitNewStorageLayer(txnCtx *txnenv.TransactionContext, 
 //}
 
 // (bryce) add commit validation.
-// (bryce) probably should prevent / clean files that end with "/", since that will indicate a directory.
-func (d *driver) putFilesNewStorageLayer(ctx context.Context, repo, commit string, r io.Reader) (retErr error) {
+func (d *driver) withFileSet(ctx context.Context, repo, commit string, f func(*fileset.FileSet) error) (retErr error) {
 	// (bryce) subFileSet will need to be incremented through etcd eventually.
 	d.mu.Lock()
 	subFileSetStr := fileset.SubFileSetStr(d.subFileSet)
@@ -111,7 +110,7 @@ func (d *driver) putFilesNewStorageLayer(ctx context.Context, repo, commit strin
 			retErr = err
 		}
 	}()
-	if err := fs.Put(r); err != nil {
+	if err := f(fs); err != nil {
 		return err
 	}
 	if err := fs.Close(); err != nil {

@@ -10,13 +10,14 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/metrics"
 )
 
 func (a *apiServer) PutTar(server pfs.API_PutTarServer) (retErr error) {
-	request, err := server.Recv()
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	req, err := server.Recv()
+	func() { a.Log(req, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(req, nil, retErr, time.Since(start)) }(time.Now())
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
 		if err != nil {
 			return 0, err
@@ -24,21 +25,38 @@ func (a *apiServer) PutTar(server pfs.API_PutTarServer) (retErr error) {
 		if !a.env.NewStorageLayer {
 			return 0, errors.Errorf("new storage layer disabled")
 		}
-		ptr := &putTarReader{
-			server: server,
-			r:      bytes.NewReader(request.Data),
+		repo := req.Commit.Repo.Name
+		commit := req.Commit.ID
+		var bytesRead int64
+		if err := a.driver.withFileSet(server.Context(), repo, commit, func(fs *fileset.FileSet) error {
+			for {
+				req, err := server.Recv()
+				if err != nil {
+					if err == io.EOF {
+						return nil
+					}
+					return err
+				}
+				ptr := &putTarReader{
+					server: server,
+					r:      bytes.NewReader(req.Data),
+				}
+				if err := func() error {
+					defer func() {
+						bytesRead += ptr.bytesRead
+					}()
+					return fs.Put(ptr, req.Tag)
+				}(); err != nil {
+					return err
+				}
+			}
+		}); err != nil {
+			return bytesRead, err
 		}
-		request.Data = nil
-		repo := request.Commit.Repo.Name
-		commit := request.Commit.ID
-		if err := a.driver.putFilesNewStorageLayer(server.Context(), repo, commit, ptr); err != nil {
-			return ptr.bytesRead, err
-		}
-		return ptr.bytesRead, server.SendAndClose(&types.Empty{})
+		return bytesRead, server.SendAndClose(&types.Empty{})
 	})
 }
 
-// (bryce) this pattern might be more generally applicable (interpret the first message then stream bytes from the following)
 type putTarReader struct {
 	server    pfs.API_PutTarServer
 	r         *bytes.Reader
@@ -50,6 +68,9 @@ func (ptr *putTarReader) Read(data []byte) (int, error) {
 		req, err := ptr.server.Recv()
 		if err != nil {
 			return 0, err
+		}
+		if req.EOF {
+			return 0, io.EOF
 		}
 		ptr.r = bytes.NewReader(req.Data)
 	}
@@ -128,7 +149,7 @@ func (a *apiServer) GetTarConditional(server pfs.API_GetTarConditionalServer) (r
 			if err := w.Flush(); err != nil {
 				return err
 			}
-			return server.Send(&pfs.GetTarConditionalResponse{Eof: true})
+			return server.Send(&pfs.GetTarConditionalResponse{EOF: true})
 		})
 		return bytesWritten, err
 	})
