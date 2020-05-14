@@ -28,6 +28,7 @@ func ServiceEnvToOptions(env *serviceenv.ServiceEnv) []StorageOption {
 // WriterOption configures a chunk writer.
 type WriterOption func(w *Writer)
 
+// WithRollingHashConfig sets up the rolling hash with the passed in configuration.
 func WithRollingHashConfig(averageBits int, seed int64) WriterOption {
 	return func(w *Writer) {
 		w.chunkSize.avg = int(math.Pow(2, float64(averageBits)))
@@ -36,6 +37,7 @@ func WithRollingHashConfig(averageBits int, seed int64) WriterOption {
 	}
 }
 
+// WithMinMax sets the minimum and maximum chunk size.
 func WithMinMax(min, max int) WriterOption {
 	return func(w *Writer) {
 		w.chunkSize.min = min
@@ -43,6 +45,7 @@ func WithMinMax(min, max int) WriterOption {
 	}
 }
 
+// WithNoUpload sets the writer to no upload (will not upload chunks).
 func WithNoUpload() WriterOption {
 	return func(w *Writer) {
 		w.noUpload = true

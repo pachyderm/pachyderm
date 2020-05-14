@@ -39,7 +39,6 @@ type WriterFunc func([]*Annotation) error
 type stats struct {
 	chunkCount      int64
 	annotationCount int64
-	taggedBytesSize int64
 }
 
 // (bryce) true max is avg + max, might want to reword or apply the max as max - avg.
@@ -67,7 +66,7 @@ type Writer struct {
 	hash                    *buzhash64.Buzhash64
 	buf                     *bytes.Buffer
 	drs                     []*DataReader
-	prevChan, nextChan      chan struct{}
+	prevChan                chan struct{}
 	eg                      *errgroup.Group
 	tmpID                   string
 	f                       WriterFunc
