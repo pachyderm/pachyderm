@@ -607,7 +607,11 @@ func (c *APIClient) connect(timeout time.Duration) error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	clientConn, err := grpc.DialContext(ctx, "dns:///"+c.addr, dialOptions...)
+	addr := c.addr
+	if !strings.HasPrefix(addr, "dns:///") {
+		addr = "dns:///" + c.addr
+	}
+	clientConn, err := grpc.DialContext(ctx, addr, dialOptions...)
 	if err != nil {
 		return err
 	}

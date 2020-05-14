@@ -81,7 +81,7 @@ func Conns(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client, 
 	}
 	var result []*grpc.ClientConn
 	for _, kv := range resp.Kvs {
-		conn, err := grpc.Dial(fmt.Sprintf("dns:///%s:%d", path.Base(string(kv.Key)), workerGrpcPort),
+		conn, err := grpc.Dial(fmt.Sprintf("%s:%d", path.Base(string(kv.Key)), workerGrpcPort),
 			append(client.DefaultDialOptions(), grpc.WithInsecure())...)
 		if err != nil {
 			return nil, err
@@ -126,7 +126,7 @@ func NewClient(address string) (Client, error) {
 	if err != nil {
 		return Client{}, err
 	}
-	conn, err := grpc.Dial(fmt.Sprintf("dns:///%s:%d", address, port),
+	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", address, port),
 		append(client.DefaultDialOptions(), grpc.WithInsecure())...)
 	if err != nil {
 		return Client{}, err
