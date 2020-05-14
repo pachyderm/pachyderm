@@ -44,7 +44,7 @@ func (d *dialer) Dial(addr string) (*grpc.ClientConn, error) {
 		grpc.WithUnaryInterceptor(tracing.UnaryClientInterceptor()),
 		grpc.WithStreamInterceptor(tracing.StreamClientInterceptor()),
 	)
-	if strings.Index(addr, "dns:///") == -1 {
+	if !strings.HasPrefix(addr, "dns:///") {
 		addr = "dns:///" + addr
 	}
 	conn, err := grpc.Dial(addr, opts...)
