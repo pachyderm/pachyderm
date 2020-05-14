@@ -399,7 +399,7 @@ type fsckFunc func(*pfs.FsckRequest, pfs.API_FsckServer) error
 type putTarFunc func(pfs.API_PutTarServer) error
 type getTarFunc func(*pfs.GetTarRequest, pfs.API_GetTarServer) error
 type getTarConditionalFunc func(pfs.API_GetTarConditionalServer) error
-type listFileNSFunc func(*pfs.ListFileRequest, pfs.API_ListFileNSServer) error
+type listFileNSFunc func(*pfs.ListFileRequest, pfs.API_ListFileV2Server) error
 
 type mockCreateRepo struct{ handler createRepoFunc }
 type mockInspectRepo struct{ handler inspectRepoFunc }
@@ -434,7 +434,7 @@ type mockFsck struct{ handler fsckFunc }
 type mockPutTar struct{ handler putTarFunc }
 type mockGetTar struct{ handler getTarFunc }
 type mockGetTarConditional struct{ handler getTarConditionalFunc }
-type mockListFileNS struct{ handler listFileNSFunc }
+type mockListFileV2 struct{ handler listFileNSFunc }
 
 func (mock *mockCreateRepo) Use(cb createRepoFunc)               { mock.handler = cb }
 func (mock *mockInspectRepo) Use(cb inspectRepoFunc)             { mock.handler = cb }
@@ -469,7 +469,7 @@ func (mock *mockFsck) Use(cb fsckFunc)                           { mock.handler 
 func (mock *mockPutTar) Use(cb putTarFunc)                       { mock.handler = cb }
 func (mock *mockGetTar) Use(cb getTarFunc)                       { mock.handler = cb }
 func (mock *mockGetTarConditional) Use(cb getTarConditionalFunc) { mock.handler = cb }
-func (mock *mockListFileNS) Use(cb listFileNSFunc)               { mock.handler = cb }
+func (mock *mockListFileV2) Use(cb listFileNSFunc)               { mock.handler = cb }
 
 type pfsServerAPI struct {
 	mock *mockPFSServer
@@ -510,7 +510,7 @@ type mockPFSServer struct {
 	PutTar            mockPutTar
 	GetTar            mockGetTar
 	GetTarConditional mockGetTarConditional
-	ListFileNS        mockListFileNS
+	ListFileV2        mockListFileV2
 }
 
 func (api *pfsServerAPI) CreateRepo(ctx context.Context, req *pfs.CreateRepoRequest) (*types.Empty, error) {
@@ -711,11 +711,11 @@ func (api *pfsServerAPI) GetTarConditional(serv pfs.API_GetTarConditionalServer)
 	}
 	return errors.Errorf("unhandled pachd mock pfs.GetTarConditional")
 }
-func (api *pfsServerAPI) ListFileNS(req *pfs.ListFileRequest, serv pfs.API_ListFileNSServer) error {
-	if api.mock.ListFileNS.handler != nil {
-		return api.mock.ListFileNS.handler(req, serv)
+func (api *pfsServerAPI) ListFileV2(req *pfs.ListFileRequest, serv pfs.API_ListFileV2Server) error {
+	if api.mock.ListFileV2.handler != nil {
+		return api.mock.ListFileV2.handler(req, serv)
 	}
-	return errors.Errorf("unhandled pachd mock pfs.ListFileNS")
+	return errors.Errorf("unhandled pachd mock pfs.ListFileV2")
 }
 
 /* PPS Server Mocks */

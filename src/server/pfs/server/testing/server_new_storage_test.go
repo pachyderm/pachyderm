@@ -666,7 +666,7 @@ func finfosToPaths(finfos []*pfs.FileInfoNewStorage) (paths []string) {
 	return paths
 }
 
-func TestListFileNS(t *testing.T) {
+func TestListFileV2(t *testing.T) {
 	// TODO: remove once postgres runs in CI
 	if os.Getenv("CI") == "true" {
 		t.SkipNow()
@@ -694,7 +694,7 @@ func TestListFileNS(t *testing.T) {
 		require.NoError(t, err)
 
 		finfos := []*pfs.FileInfoNewStorage{}
-		err = env.PachClient.ListFileNS(repo, commit1.ID, "/dir1/*", func(finfo *pfs.FileInfoNewStorage) error {
+		err = env.PachClient.ListFileV2(repo, commit1.ID, "/dir1/*", func(finfo *pfs.FileInfoNewStorage) error {
 			finfos = append(finfos, finfo)
 			return nil
 		})
