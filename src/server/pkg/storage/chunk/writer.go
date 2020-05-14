@@ -76,9 +76,9 @@ type Writer struct {
 }
 
 func newWriter(ctx context.Context, objC obj.Client, gcC gc.Client, tmpID string, f WriterFunc, opts ...WriterOption) *Writer {
-	// (bryce) need to figure out error goro.
+	eg, errCtx := errgroup.WithContext(ctx)
 	w := &Writer{
-		ctx:  ctx,
+		ctx:  errCtx,
 		objC: objC,
 		gcC:  gcC,
 		chunkSize: &chunkSize{
@@ -86,7 +86,7 @@ func newWriter(ctx context.Context, objC obj.Client, gcC gc.Client, tmpID string
 			max: defaultMaxChunkSize,
 		},
 		buf:   &bytes.Buffer{},
-		eg:    &errgroup.Group{},
+		eg:    eg,
 		tmpID: tmpID,
 		f:     f,
 		stats: &stats{},
@@ -138,13 +138,24 @@ func (w *Writer) Tag(id string) {
 	lastA.tags = joinTags(lastA.tags, []*Tag{&Tag{Id: id}})
 }
 
-// (bryce) should fail fast if one of the workers errors.
 func (w *Writer) Write(data []byte) (int, error) {
+	if w.done() {
+		return 0, w.eg.Wait()
+	}
 	if err := w.flushDataReaders(); err != nil {
 		return 0, err
 	}
 	w.roll(data)
 	return len(data), nil
+}
+
+func (w *Writer) done() bool {
+	select {
+	case <-w.ctx.Done():
+		return true
+	default:
+		return false
+	}
 }
 
 func (w *Writer) roll(data []byte) {
@@ -183,7 +194,6 @@ func (w *Writer) createChunk() {
 		return w.processChunk(chunk, annotations, prevChan, nextChan)
 	})
 	w.numChunkBytesAnnotation = 0
-	// (bryce) resetting rolling hash after chunk boundary was added in the refactor.
 	w.resetHash()
 	w.buf = &bytes.Buffer{}
 }
@@ -206,6 +216,9 @@ func (w *Writer) appendToChain(f func([]*Annotation, chan struct{}, chan struct{
 
 func copyAnnotation(a *Annotation) *Annotation {
 	copyA := &Annotation{Data: a.Data}
+	if a.RefDataRefs != nil {
+		copyA.RefDataRefs = a.RefDataRefs
+	}
 	if a.NextDataRef != nil {
 		copyA.NextDataRef = &DataRef{}
 	}
@@ -266,6 +279,7 @@ func (w *Writer) maybeUpload(chunk *Chunk, chunkBytes []byte) error {
 
 func (w *Writer) processAnnotations(chunkRef *DataRef, chunkBytes []byte, annotations []*Annotation) error {
 	var offset int64
+	var prevRefChunk string
 	for _, a := range annotations {
 		// Update the annotation fields.
 		// (bryce) probably a better way to communicate whether to compute datarefs for an annotation.
@@ -285,15 +299,21 @@ func (w *Writer) processAnnotations(chunkRef *DataRef, chunkBytes []byte, annota
 			continue
 		}
 		// Create the cross chunk references.
-		// (bryce) need to account for data refs in a chunk that reference the same chunk.
+		// We keep track of the previous referenced chunk to prevent duplicate create
+		// reference calls.
 		for _, dataRef := range a.RefDataRefs {
+			refChunk := dataRef.ChunkInfo.Chunk.Hash
+			if prevRefChunk == refChunk {
+				continue
+			}
 			if err := w.gcC.CreateReference(w.ctx, &gc.Reference{
 				Sourcetype: "chunk",
 				Source:     path.Join(prefix, chunkRef.ChunkInfo.Chunk.Hash),
-				Chunk:      path.Join(prefix, dataRef.ChunkInfo.Chunk.Hash),
+				Chunk:      path.Join(prefix, refChunk),
 			}); err != nil {
 				return err
 			}
+			prevRefChunk = refChunk
 		}
 	}
 	return nil
@@ -329,6 +349,9 @@ func (w *Writer) executeFunc(annotations []*Annotation, prevChan, nextChan chan 
 // The copy will either be by reading the referenced data, or just
 // copying the data reference (cheap copy).
 func (w *Writer) Copy(dr *DataReader) error {
+	if w.done() {
+		return w.eg.Wait()
+	}
 	if err := w.maybeBufferDataReader(dr); err != nil {
 		return err
 	}
@@ -421,6 +444,9 @@ func (w *Writer) maybeCheapCopy() {
 
 // Close closes the writer.
 func (w *Writer) Close() error {
+	if w.done() {
+		return w.eg.Wait()
+	}
 	if err := w.flushDataReaders(); err != nil {
 		return err
 	}
