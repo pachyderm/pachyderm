@@ -56,7 +56,7 @@ func newFileSet(ctx context.Context, storage *Storage, name string, memThreshold
 // (bryce) probably should prevent / clean files that end with "/", since that will indicate a directory.
 func (f *FileSet) Put(r io.Reader, customTag ...string) error {
 	tag := f.defaultTag
-	if len(customTag) > 0 {
+	if len(customTag) > 0 && customTag[0] != "" {
 		tag = customTag[0]
 	}
 	tr := tar.NewReader(r)
