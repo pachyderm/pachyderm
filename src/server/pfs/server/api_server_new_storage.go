@@ -73,7 +73,7 @@ func (ptr *putTarReader) Read(data []byte) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		if req.Eof {
+		if req.EOF {
 			return 0, io.EOF
 		}
 		ptr.r = bytes.NewReader(req.Data)
@@ -153,7 +153,7 @@ func (a *apiServer) GetTarConditional(server pfs.API_GetTarConditionalServer) (r
 			if err := w.Flush(); err != nil {
 				return err
 			}
-			return server.Send(&pfs.GetTarConditionalResponse{Eof: true})
+			return server.Send(&pfs.GetTarConditionalResponse{EOF: true})
 		})
 		return bytesWritten, err
 	})

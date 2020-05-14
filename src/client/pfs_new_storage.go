@@ -58,7 +58,7 @@ func (ptc *PutTarClient) PutTar(r io.Reader, tag ...string) error {
 	}); err != nil {
 		return err
 	}
-	return ptc.client.Send(&pfs.PutTarRequest{Eof: true})
+	return ptc.client.Send(&pfs.PutTarRequest{EOF: true})
 }
 
 // Close closes the PutTarClient, which persists the files.
@@ -130,7 +130,7 @@ func (c APIClient) GetTarConditional(repoName string, commitID string, path stri
 type getTarConditionalReader struct {
 	client     pfs.API_GetTarConditionalClient
 	r          *bytes.Reader
-	first, eof bool
+	first, EOF bool
 }
 
 func (r *getTarConditionalReader) Read(data []byte) (int, error) {
@@ -149,15 +149,15 @@ func (r *getTarConditionalReader) Read(data []byte) (int, error) {
 }
 
 func (r *getTarConditionalReader) nextResponse() error {
-	if r.eof {
+	if r.EOF {
 		return io.EOF
 	}
 	resp, err := r.client.Recv()
 	if err != nil {
 		return err
 	}
-	if resp.Eof {
-		r.eof = true
+	if resp.EOF {
+		r.EOF = true
 		return io.EOF
 	}
 	r.r = bytes.NewReader(resp.Data)
