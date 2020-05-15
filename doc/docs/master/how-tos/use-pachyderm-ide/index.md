@@ -2,7 +2,7 @@
 
 !!! note
     The Pachyderm IDE is an enterprise feature,
-    which is also avaialble for testing during
+    which is also available for testing during
     the 14-day free trial.
     Contact sales@pachyderm.com for more information.
 
@@ -11,7 +11,7 @@ client from within the Pachyderm IDE.
 
 !!! note
     You need to have Pachyderm IDE installed as described in
-    [Deploy the Pachyderm IDE](../../deploy-manage/deploy/deploy-pachyderm-jupyterhub.md).
+    [Deploy the Pachyderm IDE](../../deploy-manage/deploy/deploy-pachyderm-ide.md).
 
 ## Overview
 
@@ -19,23 +19,23 @@ When you deploy the Pachyderm IDE, you get JupyterHub and
 a customized JupyterLab UI running next to your Pachyderm
 cluster.
 
-Before the proceed, let's clarify the following terms
+Before we proceed, let's clarify the following terms
 as they might be confusing for first-time users:
 
 * JupyterHub is a popular data science platform that enables users
 to quickly spin out multiple single-tenant Jupyter Notebook server instances.
 
-* Jupyter Notebook provides a Python interactive development environment (IDE)
-that is convenient for data science projects. Because of the built-in
+* Jupyter Notebook is a familiar to many data scientists tool for
+conducting experiments with data and code written in Python. Because of
+the built-in
 rich-text support, visualizations, the easy-to-use web interface, many
 enterprise users prefer Jupyter Notebooks to the classic Terminal prompt.
 JupyterHub brings all the benefits of Jupyter Notebooks without the need
 to install or configure anything on user machines except for a web browser.
 
-* JupyterLab is a UI that enables you to run multiple Jupyter notebooks and
-other applications in tabs next to each. The tabs can be customized
-to run applications that you need to use as par of your development workflow.
-Pachyderm is one of those applications.
+* JupyterLab is an alternative UI for the classic Jupyter Notebook IDE
+that enables you to author and test notebooks and
+code.
 
 * [python-pachyderm](https://github.com/pachyderm/python-pachyderm) is an
 official Python client for Pachyderm. For Python developers who prefer to
