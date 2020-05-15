@@ -2880,7 +2880,6 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 		if err != nil {
 			return err
 		}
-		fmt.Printf("path: %s, records: %+v\n", req.File.Path, records)
 		mu.Lock()
 		defer mu.Unlock()
 		files = append(files, req.File)
