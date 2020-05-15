@@ -2875,13 +2875,11 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 	var putFileRecords []*pfs.PutFileRecords
 	var mu sync.Mutex
 	oneOff, repo, branch, err := d.forEachPutFile(pachClient, s, func(req *pfs.PutFileRequest, r io.Reader) error {
-		fmt.Printf("req: %+v\n", req)
 		records, err := d.putFile(pachClient, req.File, req.Delimiter, req.TargetFileDatums,
 			req.TargetFileBytes, req.HeaderRecords, req.OverwriteIndex, req.Delete, r)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("path: %s, records: %+v\n", req.File.Path, records)
 		mu.Lock()
 		defer mu.Unlock()
 		files = append(files, req.File)
