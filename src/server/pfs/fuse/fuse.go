@@ -30,7 +30,7 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 	// branches := opts.getBranches()
 	rootDir, err := ioutil.TempDir("", "pfs")
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 	defer func() {
 		if err := os.RemoveAll(rootDir); err != nil && retErr == nil {
@@ -89,11 +89,11 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 				if os.IsNotExist(err) {
 					return pfc.DeleteFile(parts[0], root.branch(parts[0]), pathpkg.Join(parts[1:]...))
 				}
-				return errors.Wrap(err, "os.Open")
+				return errors.WithStack(err)
 			}
 			defer func() {
 				if err := f.Close(); err != nil && retErr == nil {
-					retErr = errors.Wrap(err, "f.Close")
+					retErr = errors.WithStack(err)
 				}
 			}()
 			if _, err := pfc.PutFileOverwrite(parts[0], root.branch(parts[0]),
