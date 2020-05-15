@@ -8380,7 +8380,7 @@ func TestListDatumDuringJob(t *testing.T) {
 				return err
 			}
 			if len(jobInfos) != 1 {
-				return errors.Errorf("Expected one job, but got %d: %v", len(jobInfos), jobInfos)
+				return fmt.Errorf("Expected one job, but got %d: %v", len(jobInfos), jobInfos)
 			}
 			jobInfo = jobInfos[0]
 			return nil
