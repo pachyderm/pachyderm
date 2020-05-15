@@ -371,6 +371,14 @@ message EtcdPipelineInfo {
   map<int32, int32> job_counts = 3;
   string auth_token = 5;
   JobState last_job_state = 6;
+
+  // parallelism tracks the literal number of workers that this pipeline should
+  // run. Unlike PipelineInfo.ParallelismSpec, this accounts for the number of
+  // nodes in the k8s cluster if Coefficient parallelism is used (i.e. if
+  // Coefficient is 2 and the cluster has 5 nodes, this will be set to 10 by
+  // pachd). This allows the worker master to shard work correctly without
+  // k8s privileges and without knowing the number of cluster nodes in the
+  // Coefficient case.
   uint64 parallelism = 7;
 }
 

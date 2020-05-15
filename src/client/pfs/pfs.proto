@@ -502,9 +502,22 @@ message FileInfoNewStorage {
   string hash = 2;
 }
 
+// PutTar Protocol:
+//   Client sends an initial request with only the commit field set.
+//   For each tar stream to put:
+//     If the client wants to tag the tar stream:
+//       Client sends a request with the tag field set (the first batch
+//       of data can be optionally sent with this request).
+//     For bytes in the tar stream:
+//       Client sends a request with the bytes stored in the data field.
+//     Client sends a request with the EOF field set to true.
+//   Client connection is closed.
+
 message PutTarRequest {
   Commit commit = 1;
-  bytes data = 2;
+  string tag = 2;
+  bytes data = 3;
+  bool EOF = 4;
 }
 
 message GetTarRequest {
@@ -521,7 +534,7 @@ message GetTarRequest {
 //       Client sends a request with the skip field set to false.
 //       For file content:
 //         Server sends a response with file content in the data field.
-//       Server sends a response with the eof field set to true.
+//       Server sends a response with the EOF field set to true.
 //   Server connection is closed by returning from handler.
 
 message GetTarConditionalRequest {
@@ -532,7 +545,7 @@ message GetTarConditionalRequest {
 message GetTarConditionalResponse {
   FileInfoNewStorage file_info = 1;
   bytes data = 2;
-  bool eof = 3;
+  bool EOF = 3;
 }
 
 service API {

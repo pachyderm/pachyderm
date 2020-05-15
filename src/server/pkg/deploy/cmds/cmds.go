@@ -48,10 +48,10 @@ var (
 )
 
 const (
-	defaultDashImage           = "pachyderm/dash:0.5.48"
-	defaultJupyterhubHubImage  = "pachyderm/jupyterhub-pachyderm-hub:1.1.0"
-	defaultJupyterhubUserImage = "pachyderm/jupyterhub-pachyderm-user:1.1.0"
-	jupyterhubChartVersion     = "0.8.2"
+	defaultDashImage       = "pachyderm/dash:0.5.48"
+	defaultIDEHubImage     = "pachyderm/ide-hub:1.0.0"
+	defaultIDEUserImage    = "pachyderm/ide-user:1.0.0"
+	jupyterhubChartVersion = "0.8.2"
 )
 
 func kubectl(stdin io.Reader, context *config.Context, args ...string) error {
@@ -366,7 +366,7 @@ func standardDeployCmds() []*cobra.Command {
 		cmd.Flags().BoolVar(&createContext, "create-context", false, "Create a context, even with `--dry-run`.")
 	}
 
-	preRun := cmdutil.Run(func(args []string) error {
+	preRunInternal := func(args []string) error {
 		cfg, err := config.Read(false)
 		if err != nil {
 			log.Warningf("could not read config to check whether cluster metrics "+
@@ -438,6 +438,20 @@ func standardDeployCmds() []*cobra.Command {
 			serverCert = base64.StdEncoding.EncodeToString([]byte(serverCertBytes))
 		}
 		return nil
+	}
+	preRun := cmdutil.Run(preRunInternal)
+
+	deployPreRun := cmdutil.Run(func(args []string) error {
+		if version.IsUnstable() {
+			fmt.Printf("WARNING: The version of Pachyderm you are deploying (%s) is an unstable pre-release build and may not support data migration.\n\n", version.PrettyVersion())
+
+			if ok, err := cmdutil.InteractiveConfirm(); err != nil {
+				return err
+			} else if !ok {
+				return errors.New("deploy aborted")
+			}
+		}
+		return preRunInternal(args)
 	})
 
 	var dev bool
@@ -445,7 +459,7 @@ func standardDeployCmds() []*cobra.Command {
 	deployLocal := &cobra.Command{
 		Short:  "Deploy a single-node Pachyderm cluster with local metadata storage.",
 		Long:   "Deploy a single-node Pachyderm cluster with local metadata storage.",
-		PreRun: preRun,
+		PreRun: deployPreRun,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			if !dev {
 				start := time.Now()
@@ -504,7 +518,7 @@ func standardDeployCmds() []*cobra.Command {
   <bucket-name>: A Google Cloud Storage bucket where Pachyderm will store PFS data.
   <disk-size>: Size of Google Compute Engine persistent disks in GB (assumed to all be the same).
   <credentials-file>: A file containing the private key for the account (downloaded from Google Compute Engine).`,
-		PreRun: preRun,
+		PreRun: deployPreRun,
 		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
 			start := time.Now()
 			startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
@@ -561,7 +575,7 @@ func standardDeployCmds() []*cobra.Command {
 		Long: `Deploy a custom Pachyderm cluster configuration.
 If <object store backend> is \"s3\", then the arguments are:
     <volumes> <size of volumes (in GB)> <bucket> <id> <secret> <endpoint>`,
-		PreRun: preRun,
+		PreRun: deployPreRun,
 		Run: cmdutil.RunBoundedArgs(4, 7, func(args []string) (retErr error) {
 			start := time.Now()
 			startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
@@ -628,7 +642,7 @@ If <object store backend> is \"s3\", then the arguments are:
   <bucket-name>: An S3 bucket where Pachyderm will store PFS data.
   <region>: The AWS region where Pachyderm is being deployed (e.g. us-west-1)
   <disk-size>: Size of EBS volumes, in GB (assumed to all be the same).`,
-		PreRun: preRun,
+		PreRun: deployPreRun,
 		Run: cmdutil.RunFixedArgs(3, func(args []string) (retErr error) {
 			start := time.Now()
 			startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
@@ -756,7 +770,7 @@ If <object store backend> is \"s3\", then the arguments are:
 		Long: `Deploy a Pachyderm cluster running on Microsoft Azure.
   <container>: An Azure container where Pachyderm will store PFS data.
   <disk-size>: Size of persistent volumes, in GB (assumed to all be the same).`,
-		PreRun: preRun,
+		PreRun: deployPreRun,
 		Run: cmdutil.RunFixedArgs(4, func(args []string) (retErr error) {
 			start := time.Now()
 			startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
@@ -966,9 +980,9 @@ func Cmds() []*cobra.Command {
 	var outputFormat string
 	var hubImage string
 	var userImage string
-	deployJupyterHub := &cobra.Command{
-		Short: "Deploy JupyterHub.",
-		Long:  "Deploy a JupyterHub instance alongside Pachyderm, with several Pachyderm extensions built-in.",
+	deployIDE := &cobra.Command{
+		Short: "Deploy the Pachyderm IDE.",
+		Long:  "Deploy a JupyterHub-based IDE alongside the Pachyderm cluster.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			cfg, err := config.Read(false)
 			if err != nil {
@@ -1023,12 +1037,17 @@ func Cmds() []*cobra.Command {
 						"name": hubImageName,
 						"tag":  hubImageTag,
 					},
+					"extraConfig": map[string]interface{}{
+						"jupyterlab": "c.Spawner.cmd = ['jupyter-labhub']",
+						"templates":  "c.JupyterHub.template_paths = ['/app/templates']",
+					},
 				},
 				"singleuser": map[string]interface{}{
 					"image": map[string]interface{}{
 						"name": userImageName,
 						"tag":  userImageTag,
 					},
+					"defaultUrl": "/lab",
 				},
 				"auth": map[string]interface{}{
 					"state": map[string]interface{}{
@@ -1074,26 +1093,26 @@ func Cmds() []*cobra.Command {
 				activeContext,
 				"jupyterhub",
 				"https://jupyterhub.github.io/helm-chart/",
-				"jhub",
+				"pachyderm-ide",
 				"jupyterhub/jupyterhub",
 				jupyterhubChartVersion,
 				values,
 			)
 			if err != nil {
-				return errors.Wrapf(err, "failed to deploy JupyterHub")
+				return errors.Wrapf(err, "failed to deploy Pachyderm IDE")
 			}
 
 			fmt.Println(rel.Info.Notes)
 			return nil
 		}),
 	}
-	deployJupyterHub.Flags().StringVar(&lbTLSHost, "lb-tls-host", "", "Hostname for minting a Let's Encrypt TLS cert on the JupyterHub load balancer")
-	deployJupyterHub.Flags().StringVar(&lbTLSEmail, "lb-tls-email", "", "Contact email for minting a Let's Encrypt TLS cert on the JupyterHub load balancer")
-	deployJupyterHub.Flags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy JupyterHub, instead just print the Helm config.")
-	deployJupyterHub.Flags().StringVarP(&outputFormat, "output", "o", "json", "Output format. One of: json|yaml")
-	deployJupyterHub.Flags().StringVar(&hubImage, "hub-image", defaultJupyterhubHubImage, "Image for JupyterHub")
-	deployJupyterHub.Flags().StringVar(&userImage, "user-image", defaultJupyterhubUserImage, "Image for Jupyter users")
-	commands = append(commands, cmdutil.CreateAlias(deployJupyterHub, "deploy jupyterhub"))
+	deployIDE.Flags().StringVar(&lbTLSHost, "lb-tls-host", "", "Hostname for minting a Let's Encrypt TLS cert on the load balancer")
+	deployIDE.Flags().StringVar(&lbTLSEmail, "lb-tls-email", "", "Contact email for minting a Let's Encrypt TLS cert on the load balancer")
+	deployIDE.Flags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy, instead just print the Helm config.")
+	deployIDE.Flags().StringVarP(&outputFormat, "output", "o", "json", "Output format. One of: json|yaml")
+	deployIDE.Flags().StringVar(&hubImage, "hub-image", defaultIDEHubImage, "Image for IDE hub")
+	deployIDE.Flags().StringVar(&userImage, "user-image", defaultIDEUserImage, "Image for IDE user environments")
+	commands = append(commands, cmdutil.CreateAlias(deployIDE, "deploy ide"))
 
 	deploy := &cobra.Command{
 		Short: "Deploy a Pachyderm cluster.",
@@ -1103,7 +1122,7 @@ func Cmds() []*cobra.Command {
 
 	var all bool
 	var includingMetadata bool
-	var includingJupyterHub bool
+	var includingIDE bool
 	var namespace string
 	undeploy := &cobra.Command{
 		Short: "Tear down a deployed Pachyderm cluster.",
@@ -1130,13 +1149,9 @@ persistent volume was manually provisioned (i.e. if you used the
 `)
 			}
 
-			fmt.Println("Are you sure you want to do this? (y/n):")
-			r := bufio.NewReader(os.Stdin)
-			bytes, err := r.ReadBytes('\n')
-			if err != nil {
+			if ok, err := cmdutil.InteractiveConfirm(); err != nil {
 				return err
-			}
-			if bytes[0] != 'y' && bytes[0] != 'Y' {
+			} else if !ok {
 				return nil
 			}
 
@@ -1174,18 +1189,18 @@ persistent volume was manually provisioned (i.e. if you used the
 				return err
 			}
 
-			if includingJupyterHub {
-				// remove jupyterhub
-				if err = helm.Destroy(activeContext, "jhub", namespace); err != nil {
+			if includingIDE {
+				// remove IDE
+				if err = helm.Destroy(activeContext, "pachyderm-ide", namespace); err != nil {
 					log.Errorf("failed to delete helm installation: %v", err)
 				}
-				jhubAssets := []string{
+				ideAssets := []string{
 					"replicaset",
 					"deployment",
 					"service",
 					"pod",
 				}
-				if err = kubectl(nil, activeContext, "delete", strings.Join(jhubAssets, ","), "-l", "app=jupyterhub", "--namespace", namespace); err != nil {
+				if err = kubectl(nil, activeContext, "delete", strings.Join(ideAssets, ","), "-l", "app=jupyterhub", "--namespace", namespace); err != nil {
 					return err
 				}
 			}
@@ -1239,7 +1254,7 @@ flag), the underlying volumes will be removed, making metadata such as repos,
 commits, pipelines, and jobs unrecoverable. If your persistent volume was
 manually provisioned (i.e. if you used the "--static-etcd-volume" flag), the
 underlying volume will not be removed.`)
-	undeploy.Flags().BoolVarP(&includingJupyterHub, "jupyterhub", "", false, "Delete the Pachyderm JupyterHub deployment if it exists.")
+	undeploy.Flags().BoolVarP(&includingIDE, "ide", "", false, "Delete the Pachyderm IDE deployment if it exists.")
 	undeploy.Flags().StringVar(&namespace, "namespace", "", "Kubernetes namespace to undeploy Pachyderm from.")
 	commands = append(commands, cmdutil.CreateAlias(undeploy, "undeploy"))
 

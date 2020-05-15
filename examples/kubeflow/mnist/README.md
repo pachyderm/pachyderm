@@ -124,11 +124,11 @@ pachctl create pipeline -f standalone_pipeline.yaml
 
 As before, a Pachyderm pipeline starts, creates a Kubeflow run, and passes data to the newly-created Kubeflow workers. Also, you will see an output commit, containing the model parameters, with the input commit and trigger pipeline in its provenance:
 ```
-$ pc list job
+$ pachctl list job
 ID        PIPELINE      STARTED            DURATION   RESTART PROGRESS  DL UL STATE
 f79...d76 trigger-mnist 16 seconds ago     15 seconds 0       1 + 0 / 1 0B 0B success
 
-$ pc list repo
+$ pachctl list repo
 NAME          CREATED            SIZE (MASTER) DESCRIPTION
 trigger-mnist 24 seconds ago     4.684MiB      Output repo for pipeline trigger-mnist.
 input-repo    About a minute ago 10.96MiB

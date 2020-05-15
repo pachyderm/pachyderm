@@ -8,6 +8,7 @@ import (
 	"path"
 	"regexp"
 	"strconv"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -96,8 +97,7 @@ func (d *driver) finishCommitNewStorageLayer(txnCtx *txnenv.TransactionContext, 
 //}
 
 // (bryce) add commit validation.
-// (bryce) probably should prevent / clean files that end with "/", since that will indicate a directory.
-func (d *driver) putFilesNewStorageLayer(ctx context.Context, repo, commit string, r io.Reader) (retErr error) {
+func (d *driver) withFileSet(ctx context.Context, repo, commit string, f func(*fileset.FileSet) error) (retErr error) {
 	// (bryce) subFileSet will need to be incremented through etcd eventually.
 	d.mu.Lock()
 	subFileSetStr := fileset.SubFileSetStr(d.subFileSet)
@@ -110,7 +110,7 @@ func (d *driver) putFilesNewStorageLayer(ctx context.Context, repo, commit strin
 			retErr = err
 		}
 	}()
-	if err := fs.Put(r); err != nil {
+	if err := f(fs); err != nil {
 		return err
 	}
 	if err := fs.Close(); err != nil {
@@ -122,14 +122,13 @@ func (d *driver) putFilesNewStorageLayer(ctx context.Context, repo, commit strin
 }
 
 func (d *driver) getFilesNewStorageLayer(ctx context.Context, repo, commit, glob string, w io.Writer) error {
-	// (bryce) glob should be cleaned in option function
-	// (bryce) need exact match option for file glob.
-	compactedPath := path.Join(repo, commit, fileset.Compacted)
-	mr, err := d.storage.NewMergeReader(ctx, []string{compactedPath}, index.WithPrefix(glob))
-	if err != nil {
+	if err := d.getFilesConditional(ctx, repo, commit, glob, func(fr *FileReader) error {
+		return fr.Get(w, true)
+	}); err != nil {
 		return err
 	}
-	return mr.Get(w)
+	// Close a tar writer to create tar EOF padding.
+	return tar.NewWriter(w).Close()
 }
 
 var globRegex = regexp.MustCompile(`[*?[\]{}!()@+^]`)
@@ -142,6 +141,7 @@ func globLiteralPrefix(glob string) string {
 	return glob[:idx[0]]
 }
 
+// (bryce) glob should be cleaned in option function
 func (d *driver) getFilesConditional(ctx context.Context, repo, commit, glob string, f func(*FileReader) error) error {
 	compactedPaths := []string{path.Join(repo, commit, fileset.Compacted)}
 	prefix := globLiteralPrefix(glob)
@@ -254,7 +254,7 @@ func (fr *FileReader) Info() *pfs.FileInfoNewStorage {
 }
 
 // Get writes a tar stream that contains the file.
-func (fr *FileReader) Get(w io.Writer) error {
+func (fr *FileReader) Get(w io.Writer, noPadding ...bool) error {
 	if err := fr.fmr.Get(w); err != nil {
 		return err
 	}
@@ -267,6 +267,9 @@ func (fr *FileReader) Get(w io.Writer) error {
 			return err
 		}
 		fr.fileCount--
+	}
+	if len(noPadding) > 0 && noPadding[0] {
+		return nil
 	}
 	// Close a tar writer to create tar EOF padding.
 	return tar.NewWriter(w).Close()
@@ -339,23 +342,29 @@ func deserializeShard(shardAny *types.Any) (*pfs.Shard, error) {
 	return shard, nil
 }
 
-// (bryce) it might potentially make sense to exit if an error occurs in this function
-// because each pachd instance that errors here will lose its compaction worker without an obvious
-// notification for the user (outside of the log message).
-// (bryce) ^ maybe just a retry would be good enough.
 func (d *driver) compactionWorker() {
+	ctx := context.Background()
 	w := work.NewWorker(d.etcdClient, d.prefix, storageTaskNamespace)
-	if err := w.Run(context.Background(), func(ctx context.Context, subtask *work.Task) error {
-		shard, err := deserializeShard(subtask.Data)
-		if err != nil {
-			return err
-		}
-		pathRange := &index.PathRange{
-			Lower: shard.Range.Lower,
-			Upper: shard.Range.Upper,
-		}
-		return d.storage.Compact(ctx, shard.OutputPath, shard.Compaction.InputPrefixes, index.WithRange(pathRange))
-	}); err != nil {
+	// Configure backoff so we retry indefinitely
+	backoffStrat := backoff.NewExponentialBackOff()
+	backoffStrat.MaxElapsedTime = 0
+	err := backoff.RetryNotify(func() error {
+		return w.Run(ctx, func(ctx context.Context, subtask *work.Task) error {
+			shard, err := deserializeShard(subtask.Data)
+			if err != nil {
+				return err
+			}
+			pathRange := &index.PathRange{
+				Lower: shard.Range.Lower,
+				Upper: shard.Range.Upper,
+			}
+			return d.storage.Compact(ctx, shard.OutputPath, shard.Compaction.InputPrefixes, index.WithRange(pathRange))
+		})
+	}, backoffStrat, func(err error, t time.Duration) error {
 		log.Printf("error in compaction worker: %v", err)
-	}
+		// non-nil shuts down retry loop
+		return nil
+	})
+	// never ending backoff should prevent us from getting here.
+	panic(err)
 }

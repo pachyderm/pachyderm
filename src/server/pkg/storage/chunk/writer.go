@@ -19,7 +19,7 @@ const (
 	// WindowSize is the size of the rolling hash window.
 	WindowSize = 64
 	// (bryce) this should be configurable.
-	bufSize = 50 * units.MB
+	bufSize = 100 * units.MB
 )
 
 // initialWindow is the set of bytes used to initialize the window
@@ -224,6 +224,8 @@ func (w *worker) setupHash(a *Annotation) error {
 	return nil
 }
 
+// (bryce) we are occasionally creating chunks that are 1 byte because of the initialWindow.
+// this should be addressed by min/max chunks sizes.
 func (w *worker) resetHash(a *Annotation) {
 	if w.lastAnnotation != nil && a.Data != w.lastAnnotation.Data {
 		w.hash.Reset()
@@ -245,14 +247,17 @@ func (w *worker) put(edge bool) error {
 		chunkBytes = append(chunkBytes, a.buf.Bytes()...)
 	}
 	chunk := &Chunk{Hash: hash.EncodeHash(hash.Sum(chunkBytes))}
-	path := path.Join(prefix, chunk.Hash)
-	if err := w.gcC.ReserveChunk(w.ctx, path, w.tmpID); err != nil {
-		return err
-	}
-	// If the chunk does not exist, upload it.
-	if !w.objC.Exists(w.ctx, path) {
-		if err := w.upload(path, chunkBytes); err != nil {
+	// (bryce) should probably invert this field.
+	if !w.noUpload {
+		path := path.Join(prefix, chunk.Hash)
+		if err := w.gcC.ReserveChunk(w.ctx, path, w.tmpID); err != nil {
 			return err
+		}
+		// If the chunk does not exist, upload it.
+		if !w.objC.Exists(w.ctx, path) {
+			if err := w.upload(path, chunkBytes); err != nil {
+				return err
+			}
 		}
 	}
 	chunkRef := &DataRef{
@@ -277,14 +282,17 @@ func (w *worker) put(edge bool) error {
 func (w *worker) updateAnnotations(chunkRef *DataRef) error {
 	var offset int64
 	for _, a := range w.annotations {
-		// (bryce) need to account for data refs in a chunk that reference the same chunk.
-		for _, dataRef := range a.RefDataRefs {
-			if err := w.gcC.CreateReference(w.ctx, &gc.Reference{
-				Sourcetype: "chunk",
-				Source:     path.Join(prefix, chunkRef.ChunkInfo.Chunk.Hash),
-				Chunk:      path.Join(prefix, dataRef.ChunkInfo.Chunk.Hash),
-			}); err != nil {
-				return err
+		// (bryce) should probably invert this field.
+		if !w.noUpload {
+			// (bryce) need to account for data refs in a chunk that reference the same chunk.
+			for _, dataRef := range a.RefDataRefs {
+				if err := w.gcC.CreateReference(w.ctx, &gc.Reference{
+					Sourcetype: "chunk",
+					Source:     path.Join(prefix, chunkRef.ChunkInfo.Chunk.Hash),
+					Chunk:      path.Join(prefix, dataRef.ChunkInfo.Chunk.Hash),
+				}); err != nil {
+					return err
+				}
 			}
 		}
 		// (bryce) probably a better way to communicate whether to compute datarefs for an annotation.
@@ -303,9 +311,6 @@ func (w *worker) updateAnnotations(chunkRef *DataRef) error {
 }
 
 func (w *worker) upload(path string, chunk []byte) error {
-	if w.noUpload {
-		return nil
-	}
 	objW, err := w.objC.Writer(w.ctx, path)
 	if err != nil {
 		return err
@@ -367,7 +372,7 @@ func (w *worker) copyDataReaders(a *Annotation) error {
 }
 
 func (w *worker) atSplit() bool {
-	return w.prev != nil && (!w.first && w.numBytesRolled() == 0)
+	return !w.first && w.numBytesRolled() == 0
 }
 
 func (w *worker) rollDataReader(a *Annotation, dr *DataReader) error {

@@ -42,7 +42,7 @@ func (pq *priorityQueue) key(i int) string {
 }
 
 func (pq *priorityQueue) empty() bool {
-	return pq.queue[1] == nil
+	return len(pq.queue) == 1 || pq.queue[1] == nil
 }
 
 func (pq *priorityQueue) insert(s stream) error {

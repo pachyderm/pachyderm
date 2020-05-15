@@ -1,0 +1,24 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: pachyderm
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    traefik.frontend.rule.type: PathPrefixStrip
+spec:
+  # add your TLS file path
+  tls:
+  - secretName: example1
+  rules:
+  # add your hostname
+  - host: example.com
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: dash
+          servicePort: dash-http
+      - path: /ws
+        backend:
+          serviceName: dash
+          servicePort: grpc-proxy-http

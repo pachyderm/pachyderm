@@ -28,14 +28,13 @@ type Writer struct {
 	iw        *index.Writer
 	indexFunc func(*index.Index) error
 	lastIdx   *index.Index
-	first     bool
+	priorFile bool
 }
 
 func newWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path string, indexFunc func(*index.Index) error) *Writer {
 	tmpID := path + uuid.NewWithoutDashes()
 	w := &Writer{
 		ctx:       ctx,
-		first:     true,
 		indexFunc: indexFunc,
 	}
 	if w.indexFunc == nil {
@@ -50,9 +49,10 @@ func newWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path
 // WriteHeader writes a tar header and prepares to accept the file's contents.
 func (w *Writer) WriteHeader(hdr *tar.Header) error {
 	// Finish prior file.
-	if err := w.finishFile(); err != nil {
+	if err := w.finishPriorFile(); err != nil {
 		return err
 	}
+	w.priorFile = true
 	// Setup annotation in chunk writer.
 	w.setupAnnotation(hdr.Name)
 	// Setup header tag for the file.
@@ -61,13 +61,13 @@ func (w *Writer) WriteHeader(hdr *tar.Header) error {
 	return w.tw.WriteHeader(hdr)
 }
 
-func (w *Writer) finishFile() error {
-	if w.first {
-		w.first = false
+func (w *Writer) finishPriorFile() error {
+	if !w.priorFile {
 		return nil
 	}
+	w.priorFile = false
 	w.cw.Tag(paddingTag)
-	// Flush the last file's content.
+	// Flush the prior file's content.
 	return w.tw.Flush()
 }
 
@@ -133,7 +133,7 @@ func (w *Writer) Write(data []byte) (int, error) {
 // CopyFile copies a file (header and tags included).
 func (w *Writer) CopyFile(fr *FileReader) error {
 	// Finish prior file.
-	if err := w.finishFile(); err != nil {
+	if err := w.finishPriorFile(); err != nil {
 		return err
 	}
 	w.setupAnnotation(fr.Index().Path)
@@ -153,7 +153,7 @@ func (w *Writer) CopyTags(dr *chunk.DataReader) error {
 // Close closes the writer.
 func (w *Writer) Close() error {
 	// Finish prior file.
-	if err := w.finishFile(); err != nil {
+	if err := w.finishPriorFile(); err != nil {
 		return err
 	}
 	// Close the chunk writer.
