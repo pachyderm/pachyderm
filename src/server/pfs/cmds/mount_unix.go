@@ -46,7 +46,7 @@ func parseRepoOpts(args []string) (map[string]*fuse.RepoOptions, error) {
 		if flag != "" {
 			for _, c := range flag {
 				if c != 'w' && c != 'r' {
-					return nil, errors.Errorf("invalid format %q: unrecognized mode: %q", arg, flag)
+					return nil, errors.Errorf("invalid format %q: unrecognized mode: %q", arg, c)
 				}
 			}
 			if strings.Contains("w", flag) {
