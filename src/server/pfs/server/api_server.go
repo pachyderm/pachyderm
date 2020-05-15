@@ -9,6 +9,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
@@ -405,7 +406,7 @@ func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream 
 func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {
 	s := newPutFileServer(putFileServer)
 	r, err := s.Peek()
-	if err != nil && err != io.EOF {
+	if err != nil && errors.Is(err, io.EOF) {
 		return err
 	}
 	var request pfs.PutFileRequest
