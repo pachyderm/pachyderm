@@ -13,8 +13,9 @@ import (
 
 type memFile struct {
 	hdr  *tar.Header
-	op   index.Op
+	tag  string
 	data *bytes.Buffer
+	op   index.Op
 }
 
 func (mf *memFile) Write(data []byte) (int, error) {
@@ -30,20 +31,20 @@ type FileSet struct {
 	root                       string
 	memAvailable, memThreshold int64
 	name                       string
-	tag                        string
-	fs                         map[string]*memFile
+	defaultTag                 string
+	fs                         map[string][]*memFile
 	subFileSet                 int64
 }
 
-func newFileSet(ctx context.Context, storage *Storage, name string, memThreshold int64, tag string, opts ...Option) *FileSet {
+func newFileSet(ctx context.Context, storage *Storage, name string, memThreshold int64, defaultTag string, opts ...Option) *FileSet {
 	f := &FileSet{
 		ctx:          ctx,
 		storage:      storage,
 		memAvailable: memThreshold,
 		memThreshold: memThreshold,
 		name:         name,
-		tag:          tag,
-		fs:           make(map[string]*memFile),
+		defaultTag:   defaultTag,
+		fs:           make(map[string][]*memFile),
 	}
 	for _, opt := range opts {
 		opt(f)
@@ -52,7 +53,12 @@ func newFileSet(ctx context.Context, storage *Storage, name string, memThreshold
 }
 
 // Put reads files from a tar stream and adds them to the fileset.
-func (f *FileSet) Put(r io.Reader) error {
+// (bryce) probably should prevent / clean files that end with "/", since that will indicate a directory.
+func (f *FileSet) Put(r io.Reader, customTag ...string) error {
+	tag := f.defaultTag
+	if len(customTag) > 0 && customTag[0] != "" {
+		tag = customTag[0]
+	}
 	tr := tar.NewReader(r)
 	for {
 		hdr, err := tr.Next()
@@ -62,9 +68,10 @@ func (f *FileSet) Put(r io.Reader) error {
 			}
 			return err
 		}
-		mFile := f.createFile(hdr)
+		hdr.Name = path.Join(f.root, hdr.Name)
+		mf := f.createFile(hdr, tag)
 		for {
-			n, err := io.CopyN(mFile, tr, f.memAvailable)
+			n, err := io.CopyN(mf, tr, f.memAvailable)
 			f.memAvailable -= n
 			if err != nil {
 				if err == io.EOF {
@@ -76,25 +83,23 @@ func (f *FileSet) Put(r io.Reader) error {
 				if err := f.serialize(); err != nil {
 					return err
 				}
-				mFile = f.createFile(hdr)
+				mf = f.createFile(hdr, tag)
 			}
 		}
 	}
 	return nil
 }
 
-func (f *FileSet) createFile(hdr *tar.Header) *memFile {
-	hdr.Name = path.Join(f.root, hdr.Name)
-	// Create entry for path if it does not exist.
-	if _, ok := f.fs[hdr.Name]; !ok {
-		f.createParent(hdr.Name)
-		hdr.Size = 0
-		f.fs[hdr.Name] = &memFile{
-			hdr:  hdr,
-			data: &bytes.Buffer{},
-		}
+func (f *FileSet) createFile(hdr *tar.Header, tag string) *memFile {
+	f.createParent(hdr.Name)
+	hdr.Size = 0
+	mf := &memFile{
+		hdr:  hdr,
+		tag:  tag,
+		data: &bytes.Buffer{},
 	}
-	return f.fs[hdr.Name]
+	f.fs[hdr.Name] = append(f.fs[hdr.Name], mf)
+	return mf
 }
 
 func (f *FileSet) createParent(name string) {
@@ -102,12 +107,12 @@ func (f *FileSet) createParent(name string) {
 	if _, ok := f.fs[name]; ok {
 		return
 	}
-	f.fs[name] = &memFile{
+	f.fs[name] = append(f.fs[name], &memFile{
 		hdr: &tar.Header{
 			Typeflag: tar.TypeDir,
 			Name:     name,
 		},
-	}
+	})
 	f.createParent(name)
 }
 
@@ -115,16 +120,7 @@ func (f *FileSet) createParent(name string) {
 // (bryce) might need to delete ancestor directories in certain cases.
 func (f *FileSet) Delete(name string) {
 	name = path.Join(f.root, name)
-	if _, ok := f.fs[name]; !ok {
-		f.fs[name] = &memFile{
-			hdr: &tar.Header{
-				Name: name,
-			},
-		}
-	}
-	f.fs[name].hdr.Size = 0
-	f.fs[name].op = index.Op_DELETE
-	f.fs[name].data = nil
+	f.fs[name] = []*memFile{&memFile{op: index.Op_DELETE}}
 }
 
 // serialize will be called whenever the in-memory file set is past the memory threshold.
@@ -141,18 +137,21 @@ func (f *FileSet) serialize() error {
 	// Serialize file set.
 	w := f.storage.newWriter(f.ctx, path.Join(f.name, SubFileSetStr(f.subFileSet)))
 	for _, name := range names {
-		n := f.fs[name]
+		mfs := f.fs[name]
+		sort.Slice(mfs, func(i, j int) bool {
+			return mfs[i].tag < mfs[j].tag
+		})
 		// (bryce) skipping serialization of deletion operations for the time being.
-		if n.op == index.Op_DELETE {
-			continue
-		}
-		if err := w.WriteHeader(n.hdr); err != nil {
+		hdr := mfs[len(mfs)-1].hdr
+		if err := w.WriteHeader(hdr); err != nil {
 			return err
 		}
-		if n.hdr.Typeflag != tar.TypeDir {
-			w.Tag(f.tag)
-			if _, err := w.Write(n.data.Bytes()); err != nil {
-				return err
+		if hdr.Typeflag != tar.TypeDir {
+			for _, mf := range mfs {
+				w.Tag(mf.tag)
+				if _, err := w.Write(mf.data.Bytes()); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -160,7 +159,7 @@ func (f *FileSet) serialize() error {
 		return err
 	}
 	// Reset in-memory file set.
-	f.fs = make(map[string]*memFile)
+	f.fs = make(map[string][]*memFile)
 	f.memAvailable = f.memThreshold
 	f.subFileSet++
 	return nil

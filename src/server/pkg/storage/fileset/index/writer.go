@@ -157,8 +157,8 @@ func (w *Writer) Close() (retErr error) {
 		return err
 	}
 	defer func() {
-		if retErr == nil {
-			retErr = objW.Close()
+		if err := objW.Close(); retErr == nil {
+			retErr = err
 		}
 	}()
 	// Handles the empty file set case.

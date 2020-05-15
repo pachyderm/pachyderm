@@ -91,13 +91,13 @@ to have pachctl installed on your machine by following these steps:
    WSL:
 
      ```bash
-     curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.10.0/pachctl_1.10.0_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+     curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.10.3/pachctl_1.10.3_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
      ```
 
    * For all other Linux flavors:
 
      ```bash
-     curl -o /tmp/pachctl.tar.gz -L https://github.com/pachyderm/pachyderm/releases/download/v1.10.0/pachctl_1.10.0_linux_amd64.tar.gz && tar -xvf /tmp/pachctl.tar.gz -C /tmp && sudo cp /tmp/pachctl_1.10.0_linux_amd64/pachctl /usr/local/bin
+     curl -o /tmp/pachctl.tar.gz -L https://github.com/pachyderm/pachyderm/releases/download/v1.10.3/pachctl_1.10.3_linux_amd64.tar.gz && tar -xvf /tmp/pachctl.tar.gz -C /tmp && sudo cp /tmp/pachctl_1.10.3_linux_amd64/pachctl /usr/local/bin
      ```
 
 1. Verify that installation was successful by running `pachctl version --client-only`:
@@ -110,7 +110,7 @@ to have pachctl installed on your machine by following these steps:
 
    ```bash
    COMPONENT           VERSION
-   pachctl             1.9.8
+   pachctl             1.10.3
    ```
 
    If you run `pachctl version` without `--client-only`, the command times
@@ -187,8 +187,8 @@ all Pachyderm pods must be in the **Running** status.
 
    ```bash
    COMPONENT           VERSION
-   pachctl             1.9.5
-   pachd               1.9.5
+   pachctl             1.10.3
+   pachd               1.10.3
    ```
 
 1. Open a new terminal window.

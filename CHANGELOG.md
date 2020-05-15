@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.10.3
+
+- Fixes a bug that caused an EOF in `get file` request when using azure blob storage client (#4824)
+- Fixes a bug that created messages larger than expected size which can fail some operations with `grpc: received message larger than max` error (#4822)
+- Fixes a bug that would fail a restore operation in certain scenarios when the extract operation captures commits in certain failed/incomplete states (#4840)
+
+## 1.10.2
+
+- Changes to improve warning message (#4776)
+- Added support for metric endpoint configurable via METRICS_ENDPOINT env variable (#4793)
+- Fixes a bug that would not delete Kubernetes service when a pipeline is restarted due to updates (#4796)
+
+## 1.10.1
+
+- Changes to propagate feature flags to sidecar (#4719)
+- Changes to route all object store access through the sidecar (#4740)
+- Fixes a bug that prevented access to S3 gateway when other workers are running in a different namespace than Pachyderm namespace (#4752)
+- Fixes a bug that allowed to specific inputs with spouts (#4748)
+- Updates dash version to the latest published version 0.5.48 (#4758)
+
+
 ## 1.10.0
 
 - Change Pachyderm license from Apache 2.0 to Pachyderm Community License

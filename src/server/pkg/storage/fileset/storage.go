@@ -70,9 +70,9 @@ func (s *Storage) ChunkStorage() *chunk.Storage {
 }
 
 // New creates a new in-memory fileset.
-func (s *Storage) New(ctx context.Context, fileSet, tag string, opts ...Option) *FileSet {
+func (s *Storage) New(ctx context.Context, fileSet, defaultTag string, opts ...Option) *FileSet {
 	fileSet = applyPrefix(fileSet)
-	return newFileSet(ctx, s, fileSet, s.memThreshold, tag, opts...)
+	return newFileSet(ctx, s, fileSet, s.memThreshold, defaultTag, opts...)
 }
 
 func (s *Storage) newWriter(ctx context.Context, fileSet string, opts ...WriterOption) *Writer {

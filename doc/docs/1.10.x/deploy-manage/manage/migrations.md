@@ -51,7 +51,7 @@ file and then restore from that file.
 To back up your cluster, complete the following steps:
 
 1. Back up your cluster by running the `pachctl export` command with the
-`--no-object` flag as described in [Back up Your Cluster](../backup-restore/).
+`--no-object` flag as described in [Back up Your Cluster](../backup_restore/).
 
 1. In your cloud provider, create a new S3 bucket with the same Permissions
 policy that you assigned to the original cluster bucket. For example,
@@ -108,7 +108,7 @@ To restore all paused pipelines, complete the following steps:
      1. Back up the current configuration:
 
         ```bash
-        kubectl get svc/pach -o json >pach_service_backup_30649.json
+        kubectl get svc/pachd -o json >pachd_service_backup_30649.json
         kubectl get svc/etcd -o json >etcd_svc_backup_32379.json
         kubectl get svc/dash -o json >dash_svc_backup_30080.json
         ```

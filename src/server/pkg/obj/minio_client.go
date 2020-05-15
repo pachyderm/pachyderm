@@ -145,7 +145,6 @@ func (c *minioClient) Reader(ctx context.Context, name string, offset uint64, si
 		}, nil
 	}
 	return obj, nil
-
 }
 
 func (c *minioClient) Delete(_ context.Context, name string) error {

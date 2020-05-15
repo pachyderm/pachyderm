@@ -311,7 +311,7 @@ test-worker-helper:
 clean: clean-launch clean-launch-kube
 
 doc-custom: install-doc release-version
-	./etc/build/doc
+	./etc/build/doc.sh
 
 doc:
 	@make VERSION_ADDITIONAL= doc-custom
