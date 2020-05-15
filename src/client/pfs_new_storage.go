@@ -131,7 +131,7 @@ func (c APIClient) GetTarConditional(repoName string, commitID string, path stri
 	return nil
 }
 
-// ListFileNS streams FileInfoNewStorage similar to ListFileF
+// ListFileV2 streams FileInfoNewStorage similar to ListFileF
 func (c APIClient) ListFileV2(repoName string, commitID string, path string, f func(fileInfo *pfs.FileInfoNewStorage) error) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
