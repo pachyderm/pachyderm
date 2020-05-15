@@ -1,0 +1,11 @@
+{
+	"live_config_version": 1,
+	"id_providers": [{
+	  "name": "oidc",
+	  "description": "oidc authentication",
+	  "oidc":{
+		  "provider_base_url": "http://172.17.0.2:8080/auth/realms/adele-testing",
+		  "client_id": "pachyderm"
+	    }
+    }]
+}

@@ -28,17 +28,18 @@ func main() {
 		pipe    = defaultNamedPipe
 	)
 
+	// And create a new kafka reader
+	reader := kafka.NewReader(kafka.ReaderConfig{
+		Brokers:  []string{host + ":" + port},
+		Topic:    topic,
+		GroupID:  groupID,
+		MinBytes: 10e1,
+		MaxBytes: 10e6,
+	})
+	defer reader.Close()
+
 	for {
 		if err := func() error {
-			// And create a new kafka reader
-			reader := kafka.NewReader(kafka.ReaderConfig{
-				Brokers:  []string{host + ":" + port},
-				Topic:    topic,
-				GroupID:  groupID,
-				MinBytes: 10e1,
-				MaxBytes: 10e6,
-			})
-			defer reader.Close()
 
 			// read a message
 			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)

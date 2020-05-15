@@ -24,7 +24,6 @@ import (
 	"testing"
 	"time"
 
-	kafka "github.com/segmentio/kafka-go"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -19198,7 +19197,7 @@ func TestSpout(t *testing.T) {
 			}
 			return nil
 		}))
-		require.NoError(t, c.DeleteAll())
+		// require.NoError(t, c.DeleteAll())
 	})
 
 	t.Run("SpoutOverwrite", func(t *testing.T) {
@@ -20168,143 +20167,52 @@ func TestSpout(t *testing.T) {
 		}))
 		require.NoError(t, c.DeleteAll())
 	})
-}
+	t.Run("SpoutHammer", func(t *testing.T) {
+		dataRepo := tu.UniqueString("TestSpoutHammer_data")
+		require.NoError(t, c.CreateRepo(dataRepo))
 
-func TestKafka(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
-
-	host := "localhost"
-
-	// Open a connection to the kafka cluster
-	conn, err := kafka.Dial("tcp", fmt.Sprintf("%v:%v", host, 32400))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer conn.Close()
-	fmt.Println("Dailed Kafka")
-	// create the topic
-	port := ""
-	topic := tu.UniqueString("demo")
-	// this part is kinda finnicky because sometimes the zookeeper session will timeout for one of the brokers
-	brokers, err := conn.Brokers()
-	// so to deal with that, we try connecting to each broker
-	for i, b := range brokers {
-		fmt.Println("trying broker ", i)
-		conn, err := kafka.Dial("tcp", fmt.Sprintf("%v:%v", host, b.Port))
-		if err != nil {
-			t.Fatal(err)
-		}
-		// we keep track of the port number of brokers
-		brokers, err = conn.Brokers() // this is ok since Go does the for loop over brokers as it was for the initial loop
-		require.NoError(t, err)
-		port = fmt.Sprint(b.Port)
-		// and try creating the topic
-		err = conn.CreateTopics(kafka.TopicConfig{
-			Topic:             topic,
-			NumPartitions:     1,
-			ReplicationFactor: len(brokers),
-		})
-		if err != nil {
-			// it's ok if the first n-1 fail
-			if i < len(brokers)-1 {
-				continue
-			}
-			// but if all of them fail, that's bad
-			t.Fatal("Can't create topic", err)
-		}
-		fmt.Println("created topic")
-		// once we found one that works, we can be done with this part
-		break
-	}
-
-	// now we want to connect to the leader broker with our topic
-	// so we look up the partiton which will have this information
-	part, err := kafka.LookupPartition(context.Background(), "tcp", fmt.Sprintf("%v:%v", host, port), topic, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	fmt.Println("found leader partition")
-	// we grab the host IP and port to pass to the image
-	host = part.Leader.Host
-	port = fmt.Sprint(part.Leader.Port)
-	// since kafka and pachyderm are in the same kubernetes cluster, we need to adjust the host address to "localhost" here
-	part.Leader.Host = "localhost"
-	// and we can now make a connection to the leader
-	conn, err = kafka.DialPartition(context.Background(), "tcp", fmt.Sprintf("%v:%v", "localhost", port), part)
-	if err != nil {
-		t.Fatal(err)
-	}
-	fmt.Println("dialed leader")
-
-	// now we asynchronously write to the kafka topic
-	go func() {
-		for i := 0; i <= 10; i++ {
-			if _, err = conn.WriteMessages(
-				kafka.Message{Value: []byte(fmt.Sprintf("Now it's %v\n", i))},
-			); err != nil {
-				t.Error(err)
-			}
-
-			time.Sleep(time.Second)
-		}
-	}()
-
-	// create a spout pipeline running the kafka consumer
-	_, err = c.PpsAPIClient.CreatePipeline(
-		c.Ctx(),
-		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(topic),
-			Transform: &pps.Transform{
-				Image: "kafka-demo:latest",
-				Cmd:   []string{"go", "run", "./main.go"},
-				Env: map[string]string{
-					"HOST":  host,
-					"TOPIC": topic,
-					"PORT":  port,
+		// create a spout pipeline
+		pipeline := tu.UniqueString("pipelinespoutbasic")
+		_, err := c.PpsAPIClient.CreatePipeline(
+			c.Ctx(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd: []string{"/bin/sh"},
+					Stdin: []string{
+						"while [ : ]",
+						"do",
+						"echo \"\" | /pfs/out", // open and close pipe
+						// no sleep so that it busy loops
+						"date > date",
+						"tar -cvf /pfs/out ./date*",
+						"done"},
 				},
-			},
-			Spout: &pps.Spout{}, // this needs to be non-nil to make it a spout
-		})
-	require.NoError(t, err)
-	// and verify that the spout is consuming it
-	// we'll get 5 succesive commits, and ensure that we find all the kafka messages we wrote
-	// to the first five files.
-	iter, err := c.SubscribeCommit(topic, "master", nil, "", pfs.CommitState_FINISHED)
-	require.NoError(t, err)
-	num := 1
-	for i := 0; i < 5; i++ {
-		num-- // files end in a newline so we need to decrement here inbetween iterations
-		commitInfo, err := iter.Next()
+				Spout: &pps.Spout{}, // this needs to be non-nil to make it a spout
+			})
 		require.NoError(t, err)
-		files, err := c.ListFile(topic, commitInfo.Commit.ID, "")
+
+		// get 5 succesive commits, and ensure that the file size increases each time
+		// since the spout should be appending to that file on each commit
+		iter, err := c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED)
 		require.NoError(t, err)
-		require.Equal(t, i+1, len(files))
 
-		// get the i'th file
-		var buf bytes.Buffer
-		err = c.GetFile(topic, commitInfo.Commit.ID, files[i].File.Path, 0, 0, &buf)
-		if err != nil {
-			t.Errorf("Could not get file %v", err)
-		}
+		var prevLength uint64
+		for i := 0; i < 5; i++ {
+			commitInfo, err := iter.Next()
+			require.NoError(t, err)
+			files, err := c.ListFile(pipeline, commitInfo.Commit.ID, "")
+			require.NoError(t, err)
+			require.Equal(t, 1, len(files))
 
-		// read the lines and verify that we see each line we wrote
-		for err != io.EOF {
-			line := ""
-			line, err = buf.ReadString('\n')
-			if len(line) > 0 && line != fmt.Sprintf("Now it's %v\n", num) {
-				t.Error("Missed a kafka message:", num)
+			fileLength := files[0].SizeBytes
+			if fileLength <= prevLength {
+				t.Errorf("File length was expected to increase. Prev: %v, Cur: %v", prevLength, fileLength)
 			}
-			num++
+			prevLength = fileLength
 		}
-	}
-	// we also check that at least 5 kafka messages were consumed
-	if num < 5 {
-		t.Error("Expected to process more than 5 kafka messages:", num)
-	}
+		require.NoError(t, c.DeleteAll())
+	})
 }
 
 func TestDeferredProcessing(t *testing.T) {
