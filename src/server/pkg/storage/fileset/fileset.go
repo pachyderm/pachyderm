@@ -53,7 +53,6 @@ func newFileSet(ctx context.Context, storage *Storage, name string, memThreshold
 }
 
 // Put reads files from a tar stream and adds them to the fileset.
-// (bryce) probably should prevent / clean files that end with "/", since that will indicate a directory.
 func (f *FileSet) Put(r io.Reader, customTag ...string) error {
 	tag := f.defaultTag
 	if len(customTag) > 0 && customTag[0] != "" {
@@ -117,7 +116,6 @@ func (f *FileSet) createParent(name string) {
 }
 
 // Delete deletes a file from the file set.
-// (bryce) might need to delete ancestor directories in certain cases.
 func (f *FileSet) Delete(name string) {
 	name = path.Join(f.root, name)
 	f.fs[name] = []*memFile{&memFile{op: index.Op_DELETE}}
@@ -141,7 +139,7 @@ func (f *FileSet) serialize() error {
 		sort.Slice(mfs, func(i, j int) bool {
 			return mfs[i].tag < mfs[j].tag
 		})
-		// (bryce) skipping serialization of deletion operations for the time being.
+		// TODO Serialize deletion operations.
 		hdr := mfs[len(mfs)-1].hdr
 		if err := w.WriteHeader(hdr); err != nil {
 			return err

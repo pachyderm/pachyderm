@@ -11,8 +11,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// (bryce) the metrics code should probably be reorganized at some point.
-// the current setup provides an easy way to collect metrics for both external and internal pfs/storage apis.
+// TODO The metrics code should probably be reorganized at some point.
+// The current setup provides an easy way to collect metrics for both external and internal PFS/Storage APIs.
 
 type metrics struct {
 	requestCounter                           *prometheus.CounterVec

@@ -41,7 +41,7 @@ type stats struct {
 	annotationCount int64
 }
 
-// (bryce) true max is avg + max, might want to reword or apply the max as max - avg.
+// TODO True max is avg + max, might want to reword or apply the max as max - avg.
 const (
 	defaultAverageBits  = 23
 	defaultSeed         = 1
@@ -116,6 +116,7 @@ func (w *Writer) ChunkCount() int64 {
 }
 
 // Annotate associates an annotation with the current data.
+// TODO Maybe add some validation for calling Annotate / Tag function in incorrect order.
 func (w *Writer) Annotate(a *Annotation) {
 	// Create chunks at annotation boundaries if past the average chunk size.
 	if w.buf.Len() >= w.chunkSize.avg {
@@ -131,7 +132,6 @@ func (w *Writer) Annotate(a *Annotation) {
 }
 
 // Tag starts a tag in the current annotation with the passed in id.
-// (bryce) maybe add some validation for calling annotate / tag function in incorrect order.
 func (w *Writer) Tag(id string) {
 	lastA := w.annotations[len(w.annotations)-1]
 	lastA.tags = joinTags(lastA.tags, []*Tag{&Tag{Id: id}})
@@ -198,7 +198,7 @@ func (w *Writer) createChunk() {
 }
 
 func (w *Writer) appendToChain(f func([]*Annotation, chan struct{}, chan struct{}) error, last ...bool) {
-	// (bryce) add limiter
+	// TODO Need a global limiter (associated with chunk storage) that limits upload concurrency.
 	annotations := w.annotations
 	w.annotations = []*Annotation{copyAnnotation(w.annotations[len(w.annotations)-1])}
 	prevChan := w.prevChan
@@ -217,9 +217,6 @@ func copyAnnotation(a *Annotation) *Annotation {
 	copyA := &Annotation{Data: a.Data}
 	if a.RefDataRefs != nil {
 		copyA.RefDataRefs = a.RefDataRefs
-	}
-	if a.NextDataRef != nil {
-		copyA.NextDataRef = &DataRef{}
 	}
 	if a.tags != nil {
 		lastTag := a.tags[len(a.tags)-1]
@@ -271,7 +268,7 @@ func (w *Writer) maybeUpload(chunk *Chunk, chunkBytes []byte) error {
 		return err
 	}
 	defer gzipW.Close()
-	// (bryce) Encrypt?
+	// TODO Encryption?
 	_, err = io.Copy(gzipW, bytes.NewReader(chunkBytes))
 	return err
 }
@@ -281,17 +278,16 @@ func (w *Writer) processAnnotations(chunkRef *DataRef, chunkBytes []byte, annota
 	var prevRefChunk string
 	for _, a := range annotations {
 		// Update the annotation fields.
-		// (bryce) probably a better way to communicate whether to compute datarefs for an annotation.
 		size := sizeOfTags(a.tags)
-		if a.NextDataRef != nil {
-			a.NextDataRef.ChunkInfo = chunkRef.ChunkInfo
-			if len(annotations) > 1 {
-				a.NextDataRef.Hash = hash.EncodeHash(hash.Sum(chunkBytes[offset : offset+size]))
-			}
-			a.NextDataRef.OffsetBytes = offset
-			a.NextDataRef.SizeBytes = size
-			a.NextDataRef.Tags = a.tags
+		dataRef := &DataRef{}
+		dataRef.ChunkInfo = chunkRef.ChunkInfo
+		if len(annotations) > 1 {
+			dataRef.Hash = hash.EncodeHash(hash.Sum(chunkBytes[offset : offset+size]))
 		}
+		dataRef.OffsetBytes = offset
+		dataRef.SizeBytes = size
+		dataRef.Tags = a.tags
+		a.NextDataRef = dataRef
 		offset += size
 		// Skip creating the cross chunk references if no upload is configured.
 		if w.noUpload {
@@ -388,13 +384,12 @@ func (w *Writer) maybeBufferDataReader(dr *DataReader) error {
 
 func (w *Writer) flushDataReaders() error {
 	if w.drs != nil {
-		// (bryce) this could probably be refactored, we are basically replaying the
+		// TODO This could probably be refactored, we are basically replaying the
 		// annotations and writing the buffered readers.
 		annotations := w.annotations
 		w.annotations = nil
 		for i, dr := range w.drs {
 			w.Annotate(copyAnnotation(annotations[i]))
-			// (bryce) avoid double counting.
 			w.stats.annotationCount--
 			if err := w.flushDataReader(dr); err != nil {
 				return err
@@ -402,7 +397,6 @@ func (w *Writer) flushDataReaders() error {
 		}
 		if len(annotations) > len(w.drs) {
 			w.Annotate(copyAnnotation(annotations[len(annotations)-1]))
-			// (bryce) avoid double counting.
 			w.stats.annotationCount--
 		}
 		w.drs = nil
