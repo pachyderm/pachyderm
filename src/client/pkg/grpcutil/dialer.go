@@ -1,6 +1,7 @@
 package grpcutil
 
 import (
+	"strings"
 	"sync"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
@@ -42,7 +43,11 @@ func (d *dialer) Dial(addr string) (*grpc.ClientConn, error) {
 		grpc.WithUnaryInterceptor(tracing.UnaryClientInterceptor()),
 		grpc.WithStreamInterceptor(tracing.StreamClientInterceptor()),
 	)
-	conn, err := grpc.Dial(addr, opts...)
+	daddr := addr
+	if !strings.HasPrefix(daddr, "dns:///") {
+		daddr = "dns:///" + daddr
+	}
+	conn, err := grpc.Dial(daddr, opts...)
 	if err != nil {
 		return nil, err
 	}
