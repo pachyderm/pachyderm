@@ -131,13 +131,13 @@ func (c APIClient) GetTarConditional(repoName string, commitID string, path stri
 	return nil
 }
 
-// ListFileV2 streams FileInfoNewStorage similar to ListFileF
+// ListFileV2 returns info about all files in a Commit under path, calling f with each FileInfoV2.
 func (c APIClient) ListFileV2(repoName string, commitID string, path string, f func(fileInfo *pfs.FileInfoNewStorage) error) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	ctx, cf := context.WithCancel(c.Ctx())
-	defer cf()
+	ctx, cancel := context.WithCancel(c.Ctx())
+	defer cancel()
 	req := &pfs.ListFileRequest{
 		File: NewFile(repoName, commitID, path),
 		Full: true,
@@ -148,11 +148,13 @@ func (c APIClient) ListFileV2(repoName string, commitID string, path string, f f
 	}
 	for {
 		finfo, err := client.Recv()
-		if err == io.EOF {
-			break
-		} else if err != nil {
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
 			return err
 		}
+
 		if err := f(finfo); err != nil {
 			return err
 		}

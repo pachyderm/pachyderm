@@ -3818,7 +3818,7 @@ func nodeToFileInfoHeaderFooter(ci *pfs.CommitInfo, filePath string,
 }
 
 func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (fi *pfs.FileInfo, retErr error) {
-	if err := validateListFileArgs(file); err != nil {
+	if err := validateFile(file); err != nil {
 		return nil, err
 	}
 
@@ -3868,7 +3868,7 @@ func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (fi *
 }
 
 func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full bool, history int64, f func(*pfs.FileInfo) error) (retErr error) {
-	if err := validateListFileArgs(file); err != nil {
+	if err := validateFile(file); err != nil {
 		return err
 	}
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
@@ -3945,7 +3945,7 @@ func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full boo
 	})
 }
 
-func validateListFileArgs(file *pfs.File) error {
+func validateFile(file *pfs.File) error {
 	if file == nil {
 		return errors.New("file cannot be nil")
 	}

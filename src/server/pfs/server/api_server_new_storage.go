@@ -176,7 +176,7 @@ func (w *getTarConditionalWriter) Write(data []byte) (int, error) {
 
 func (a *apiServer) ListFileV2(req *pfs.ListFileRequest, server pfs.API_ListFileV2Server) error {
 	pachClient := a.env.GetPachClient(server.Context())
-	return a.driver.listFileNS(pachClient, req.File, req.Full, req.History, func(finfo *pfs.FileInfoNewStorage) error {
+	return a.driver.listFileV2(pachClient, req.File, req.Full, req.History, func(finfo *pfs.FileInfoNewStorage) error {
 		return server.Send(finfo)
 	})
 }
