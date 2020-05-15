@@ -4,6 +4,8 @@ import (
 	"os"
 	"sync"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+
 	"github.com/cheggaaa/pb/v3"
 )
 
@@ -33,11 +35,11 @@ func Open(path string) (*File, error) {
 	mu.Lock()
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 	fi, err := file.Stat()
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 	bar := Template.New(int(fi.Size()))
 	start(path, bar)
@@ -71,7 +73,7 @@ func (f *File) Read(p []byte) (int, error) {
 	if err == nil {
 		f.bar.Add(n)
 	}
-	return n, err
+	return n, errors.WithStack(err)
 }
 
 // Seek seeks the wrapped file and updates the progress bar.
@@ -80,7 +82,7 @@ func (f *File) Seek(offset int64, whence int) (int64, error) {
 	if err == nil {
 		f.bar.SetCurrent(offset)
 	}
-	return offset, err
+	return offset, errors.WithStack(err)
 }
 
 // Close closes the wrapped file and finishes the progress bar.

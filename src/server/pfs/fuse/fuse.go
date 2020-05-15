@@ -34,7 +34,7 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 	}
 	defer func() {
 		if err := os.RemoveAll(rootDir); err != nil && retErr == nil {
-			retErr = err
+			retErr = errors.WithStack(err)
 		}
 	}()
 	root, err := newLoopbackRoot(rootDir, target, c, opts)
@@ -43,7 +43,7 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 	}
 	server, err := fs.Mount(target, root, opts.getFuse())
 	if err != nil {
-		return errors.Wrap(err, "fs.Mount")
+		return errors.WithStack(err)
 	}
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)

@@ -19,6 +19,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 )
 
@@ -512,7 +513,7 @@ func newLoopbackRoot(root, target string, c *client.APIClient, opts *Options) (*
 	var st syscall.Stat_t
 	err := syscall.Stat(root, &st)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 
 	n := &loopbackRoot{
@@ -555,7 +556,7 @@ func (n *loopbackNode) downloadRepos() (retErr error) {
 		p := n.repoPath(ri)
 		fmt.Println("MkdirAll", p)
 		if err := os.MkdirAll(p, 0777); err != nil {
-			return err
+			return errors.WithStack(err)
 		}
 	}
 	return nil
@@ -602,15 +603,15 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 			// OS imposes, but don't want to rely on that, especially
 			// because Mkdir should be pretty cheap.
 			if err := os.MkdirAll(filepath.Dir(p), 0777); err != nil {
-				return err
+				return errors.WithStack(err)
 			}
 			f, err := os.Create(p)
 			if err != nil {
-				return err
+				return errors.WithStack(err)
 			}
 			defer func() {
 				if err := f.Close(); err != nil && retErr == nil {
-					retErr = err
+					retErr = errors.WithStack(err)
 				}
 			}()
 			if state < full {
