@@ -43,9 +43,7 @@ func main() {
 
 			// read a message
 			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
-			defer func() {
-				cancel()
-			}()
+			defer cancel()
 			m, err := reader.ReadMessage(ctx)
 			if err != nil {
 				return fmt.Errorf("read message: %v", err)
@@ -73,12 +71,10 @@ func main() {
 				if !strings.Contains(err.Error(), "broken pipe") {
 					return fmt.Errorf("%s: %v", m.Value, err)
 				}
-				fmt.Println("broken pipe error")
 				// if there's a broken pipe, just give it some time to get ready for the next message
 				time.Sleep(time.Duration(timeout) * time.Millisecond)
 			}
 			// and the message
-			fmt.Println("writing", name)
 			for _, err = tw.Write(m.Value); err != nil; {
 				if !strings.Contains(err.Error(), "broken pipe") {
 					return err
