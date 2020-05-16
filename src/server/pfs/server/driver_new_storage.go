@@ -131,6 +131,19 @@ func (d *driver) getFilesNewStorageLayer(ctx context.Context, repo, commit, glob
 	return tar.NewWriter(w).Close()
 }
 
+func (d *driver) listFileV2(pachClient *client.APIClient, file *pfs.File, full bool, history int64, f func(*pfs.FileInfoNewStorage) error) (retErr error) {
+	ctx := pachClient.Ctx()
+	if err := validateFile(file); err != nil {
+		return err
+	}
+	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
+		return err
+	}
+	return d.getFilesConditional(ctx, file.Commit.Repo.Name, file.Commit.ID, file.Path, func(fr *FileReader) error {
+		return f(fr.Info())
+	})
+}
+
 var globRegex = regexp.MustCompile(`[*?[\]{}!()@+^]`)
 
 func globLiteralPrefix(glob string) string {
