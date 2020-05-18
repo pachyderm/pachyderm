@@ -145,7 +145,7 @@ func (tr *TagReader) Iterate(f func(*DataReader) error) error {
 		if tags[0].Id != tr.tag.Id {
 			return errutil.ErrBreak
 		}
-		// Limit the current data reader if it has more than one tag.
+		// Bound the current data reader if it has more than one tag.
 		if len(tags) > 1 {
 			dr = dr.BoundReader(tags[1].Id)
 		}

@@ -135,7 +135,7 @@ func (f *FileSet) serialize() error {
 	}
 	sort.Strings(names)
 	// Serialize file set.
-	w := f.storage.newWriter(f.ctx, path.Join(f.name, SubFileSetStr(f.subFileSet)), nil)
+	w := f.storage.newWriter(f.ctx, path.Join(f.name, SubFileSetStr(f.subFileSet)))
 	for _, name := range names {
 		mfs := f.fs[name]
 		sort.Slice(mfs, func(i, j int) bool {
