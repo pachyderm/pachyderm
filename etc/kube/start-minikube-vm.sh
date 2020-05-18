@@ -2,7 +2,7 @@
 
 set -e
 
-cd "${GOPATH}/src/github.com/pachyderm/pachyderm"
+cd "$(git rev-parse --show-toplevel)"
 
 function die {
   echo "error: $1" >&2
