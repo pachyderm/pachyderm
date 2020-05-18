@@ -58,7 +58,7 @@ enum JobState {
   JOB_SUCCESS = 3;
   JOB_KILLED = 4;
   JOB_MERGING = 5;
-  JOB_EGRESS = 6;
+  JOB_EGRESSING = 6;
 }
 
 message Metadata {

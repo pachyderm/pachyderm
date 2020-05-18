@@ -237,7 +237,7 @@ func (reg *registry) succeedJob(
 		newState = pps.JobState_JOB_SUCCESS
 	} else {
 		pj.logger.Logf("job successful, advancing to egress")
-		newState = pps.JobState_JOB_EGRESS
+		newState = pps.JobState_JOB_EGRESSING
 	}
 
 	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
@@ -699,7 +699,7 @@ func (reg *registry) startJob(commitInfo *pfs.CommitInfo, statsCommit *pfs.Commi
 		return err
 	}
 
-	// TODO: we should NOT start the job this way if it is in EGRESS
+	// TODO: we should NOT start the job this way if it is in EGRESSING
 	pj.jdit, err = reg.jobChain.Start(pj)
 	if err != nil {
 		return err
@@ -877,7 +877,7 @@ func (reg *registry) processJob(pj *pendingJob) error {
 		return pj.logger.LogStep("merging job hashtrees", func() error {
 			return reg.processJobMerging(pj)
 		})
-	case state == pps.JobState_JOB_EGRESS:
+	case state == pps.JobState_JOB_EGRESSING:
 		return pj.logger.LogStep("egressing job data", func() error {
 			return reg.processJobEgress(pj)
 		})
@@ -1007,7 +1007,7 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	}
 
 	// S3Out pipelines don't use hashtrees, so skip over the MERGING state - this
-	// will go to EGRESS, if applicable.
+	// will go to EGRESSING, if applicable.
 	if pj.driver.PipelineInfo().S3Out {
 		if stats.FailedDatumID != "" {
 			return reg.failJob(pj, "datum failed", nil, 0)
