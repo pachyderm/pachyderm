@@ -168,15 +168,6 @@ func (a *apiServer) StartCommitInTransaction(
 	if commit != nil {
 		id = commit.ID
 	}
-	if a.env.NewStorageLayer {
-		var commit *pfs.Commit
-		err := metrics.ReportRequest(func() error {
-			var err error
-			commit, err = a.driver.startCommitNewStorageLayer(txnCtx, id, request.Parent, request.Branch, request.Provenance, request.Description)
-			return err
-		})
-		return commit, err
-	}
 	return a.driver.startCommit(txnCtx, id, request.Parent, request.Branch, request.Provenance, request.Description)
 }
 
@@ -233,7 +224,7 @@ func (a *apiServer) FinishCommitInTransaction(
 ) error {
 	if a.env.NewStorageLayer {
 		return metrics.ReportRequest(func() error {
-			return a.driver.finishCommitNewStorageLayer(txnCtx, request.Commit, request.Description)
+			return a.driver.finishCommitV2(txnCtx, request.Commit, request.Description)
 		})
 	}
 	if request.Trees != nil {
