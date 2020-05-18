@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"io"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -128,7 +129,37 @@ func (c APIClient) GetTarConditional(repoName string, commitID string, path stri
 		}
 	}
 	return nil
+}
 
+// ListFileV2 returns info about all files in a Commit under path, calling f with each FileInfoV2.
+func (c APIClient) ListFileV2(repoName string, commitID string, path string, f func(fileInfo *pfs.FileInfoNewStorage) error) (retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	ctx, cancel := context.WithCancel(c.Ctx())
+	defer cancel()
+	req := &pfs.ListFileRequest{
+		File: NewFile(repoName, commitID, path),
+		Full: true,
+	}
+	client, err := c.PfsAPIClient.ListFileV2(ctx, req)
+	if err != nil {
+		return err
+	}
+	for {
+		finfo, err := client.Recv()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+
+		if err := f(finfo); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type getTarConditionalReader struct {

@@ -2,17 +2,12 @@ package fileset
 
 import (
 	"context"
-	"math"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
-)
-
-var (
-	averageBits = 23
 )
 
 type data struct {
@@ -31,16 +26,18 @@ type Writer struct {
 	priorFile bool
 }
 
-func newWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path string, indexFunc func(*index.Index) error) *Writer {
+func newWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path string, opts ...WriterOption) *Writer {
 	tmpID := path + uuid.NewWithoutDashes()
-	w := &Writer{
-		ctx:       ctx,
-		indexFunc: indexFunc,
+	w := &Writer{ctx: ctx}
+	for _, opt := range opts {
+		opt(w)
 	}
-	if w.indexFunc == nil {
-		w.iw = index.NewWriter(ctx, objC, chunks, path, tmpID)
+	var chunkWriterOpts []chunk.WriterOption
+	if w.indexFunc != nil {
+		chunkWriterOpts = append(chunkWriterOpts, chunk.WithNoUpload())
 	}
-	cw := chunks.NewWriter(ctx, averageBits, math.MaxInt64, indexFunc != nil, tmpID, w.callback())
+	w.iw = index.NewWriter(ctx, objC, chunks, path, tmpID)
+	cw := chunks.NewWriter(ctx, tmpID, w.callback(), chunkWriterOpts...)
 	w.cw = cw
 	w.tw = tar.NewWriter(cw)
 	return w

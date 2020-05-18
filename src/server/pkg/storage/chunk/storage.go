@@ -1,7 +1,6 @@
 package chunk
 
 import (
-	"bytes"
 	"context"
 	"path"
 
@@ -12,17 +11,6 @@ import (
 const (
 	prefix = "chunks"
 )
-
-// Annotation is used to associate information with data
-// written into the chunk storage layer.
-type Annotation struct {
-	RefDataRefs []*DataRef
-	NextDataRef *DataRef
-	Data        interface{}
-	buf         *bytes.Buffer
-	tags        []*Tag
-	drs         []*DataReader
-}
 
 // Storage is the abstraction that manages chunk storage.
 type Storage struct {
@@ -50,9 +38,8 @@ func (s *Storage) NewReader(ctx context.Context, dataRefs ...*DataRef) *Reader {
 // NewWriter creates a new Writer for a stream of bytes to be chunked.
 // Chunks are created based on the content, then hashed and deduplicated/uploaded to
 // object storage.
-// The callback arguments are the chunk hash and annotations.
-func (s *Storage) NewWriter(ctx context.Context, averageBits int, seed int64, noUpload bool, tmpID string, f WriterFunc) *Writer {
-	return newWriter(ctx, s.objClient, s.gcClient, averageBits, f, seed, noUpload, tmpID)
+func (s *Storage) NewWriter(ctx context.Context, tmpID string, f WriterFunc, opts ...WriterOption) *Writer {
+	return newWriter(ctx, s.objClient, s.gcClient, tmpID, f, opts...)
 }
 
 // List lists all of the chunks in object storage.
