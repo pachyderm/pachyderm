@@ -3816,15 +3816,8 @@ func nodeToFileInfoHeaderFooter(ci *pfs.CommitInfo, filePath string,
 }
 
 func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (fi *pfs.FileInfo, retErr error) {
-	// Validate arguments
-	if file == nil {
-		return nil, errors.New("file cannot be nil")
-	}
-	if file.Commit == nil {
-		return nil, errors.New("file commit cannot be nil")
-	}
-	if file.Commit.Repo == nil {
-		return nil, errors.New("file commit repo cannot be nil")
+	if err := validateFile(file); err != nil {
+		return nil, err
 	}
 
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
@@ -3873,17 +3866,9 @@ func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (fi *
 }
 
 func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full bool, history int64, f func(*pfs.FileInfo) error) (retErr error) {
-	// Validate arguments
-	if file == nil {
-		return errors.New("file cannot be nil")
+	if err := validateFile(file); err != nil {
+		return err
 	}
-	if file.Commit == nil {
-		return errors.New("file commit cannot be nil")
-	}
-	if file.Commit.Repo == nil {
-		return errors.New("file commit repo cannot be nil")
-	}
-
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
@@ -3956,6 +3941,19 @@ func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full boo
 		}
 		return f(nodeToFileInfo(commitInfo, path, node, full))
 	})
+}
+
+func validateFile(file *pfs.File) error {
+	if file == nil {
+		return errors.New("file cannot be nil")
+	}
+	if file.Commit == nil {
+		return errors.New("file commit cannot be nil")
+	}
+	if file.Commit.Repo == nil {
+		return errors.New("file commit repo cannot be nil")
+	}
+	return nil
 }
 
 // fileHistory calls f with FileInfos for the file, starting with how it looked

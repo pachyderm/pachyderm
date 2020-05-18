@@ -626,6 +626,7 @@ service API {
   rpc GetTarV2(GetTarRequestV2) returns (stream google.protobuf.BytesValue) {}
   // Refer to the GetTarConditionalRequest / GetTarConditionalResponse message definitions for the protocol.
   rpc GetTarConditionalV2(stream GetTarConditionalRequestV2) returns (stream GetTarConditionalResponseV2) {}
+  rpc ListFileV2(ListFileRequest) returns (stream FileInfoV2) {}
 }
 
 message PutObjectRequest {

@@ -130,6 +130,19 @@ func (d *driver) getTar(ctx context.Context, repo, commit, glob string, w io.Wri
 	return tar.NewWriter(w).Close()
 }
 
+func (d *driver) listFileV2(pachClient *client.APIClient, file *pfs.File, full bool, history int64, f func(*pfs.FileInfoV2) error) error {
+	ctx := pachClient.Ctx()
+	if err := validateFile(file); err != nil {
+		return err
+	}
+	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
+		return err
+	}
+	return d.getTarConditional(ctx, file.Commit.Repo.Name, file.Commit.ID, file.Path, func(fr *FileReader) error {
+		return f(fr.Info())
+	})
+}
+
 var globRegex = regexp.MustCompile(`[*?[\]{}!()@+^]`)
 
 func globLiteralPrefix(glob string) string {

@@ -395,6 +395,9 @@ func (c *pfsBuilderClient) GetTarV2(ctx context.Context, req *pfs.GetTarRequestV
 func (c *pfsBuilderClient) GetTarConditionalV2(ctx context.Context, opts ...grpc.CallOption) (pfs.API_GetTarConditionalV2Client, error) {
 	return nil, unsupportedError("GetTarConditionalV2")
 }
+func (c *pfsBuilderClient) ListFileV2(ctx context.Context, req *pfs.ListFileRequest, opts ...grpc.CallOption) (pfs.API_ListFileV2Client, error) {
+	return nil, unsupportedError("ListFileV2")
+}
 
 func (c *objectBuilderClient) PutObject(ctx context.Context, opts ...grpc.CallOption) (pfs.ObjectAPI_PutObjectClient, error) {
 	return nil, unsupportedError("PutObject")
