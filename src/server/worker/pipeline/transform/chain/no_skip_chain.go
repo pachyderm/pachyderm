@@ -64,7 +64,7 @@ func (jc *noSkipJobChain) Fail(jd JobData) error {
 	return nil
 }
 
-func (jdi *noSkipJobDatumIterator) NextBatch(ctx context.Context) (uint64, error) {
+func (jdi *noSkipJobDatumIterator) NextBatch(ctx context.Context) (int64, error) {
 	if !jdi.done {
 		jdi.done = true
 		return jdi.MaxLen(), nil
@@ -85,8 +85,8 @@ func (jdi *noSkipJobDatumIterator) Reset() {
 	jdi.done = false
 }
 
-func (jdi *noSkipJobDatumIterator) MaxLen() uint64 {
-	return uint64(jdi.dit.Len())
+func (jdi *noSkipJobDatumIterator) MaxLen() int64 {
+	return int64(jdi.dit.Len())
 }
 
 func (jdi *noSkipJobDatumIterator) DatumSet() DatumSet {

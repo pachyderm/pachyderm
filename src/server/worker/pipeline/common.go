@@ -87,7 +87,7 @@ func ReceiveSpout(
 				// this loops through all the files in the tar that we've read from /pfs/out
 				for {
 					fileHeader, err := outTar.Next()
-					if err == io.EOF {
+					if errors.Is(err, io.EOF) {
 						break
 					}
 					if err != nil {

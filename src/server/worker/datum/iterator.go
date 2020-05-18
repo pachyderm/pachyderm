@@ -50,7 +50,7 @@ func newPFSIterator(pachClient *client.APIClient, input *pps.PFSInput) (Iterator
 	}
 	for {
 		fileInfo, err := fs.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			return nil, err

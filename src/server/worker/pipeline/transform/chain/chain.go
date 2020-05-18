@@ -37,7 +37,7 @@ type JobDatumIterator interface {
 	// NextBatch blocks until the next batch of datums are available
 	// (corresponding to an upstream job finishing in some way), and returns the
 	// number of datums that can now be iterated through.
-	NextBatch(context.Context) (uint64, error)
+	NextBatch(context.Context) (int64, error)
 
 	// NextDatum advances the iterator and returns the next available datum. If no
 	// such datum is immediately available, nil will be returned.
@@ -57,7 +57,7 @@ type JobDatumIterator interface {
 	// MaxLen returns the length of the underlying datum.Iterator. This kinda
 	// sucks but is necessary to know how many datums were skipped in the case of
 	// AdditiveOnly=true.
-	MaxLen() uint64
+	MaxLen() int64
 
 	// Reset will reset the underlying data structures so that iteration can be
 	// performed from the start again. There is no guarantee that the datums will
@@ -91,7 +91,7 @@ type JobChain interface {
 // DatumSet is a data structure used to track the set of datums in a job.
 // Multiple identical datums may be present in a job (so this is more of a
 // Multiset), but w/e.
-type DatumSet map[string]uint64
+type DatumSet map[string]int64
 
 type jobDatumIterator struct {
 	data JobData
@@ -340,7 +340,7 @@ func (jc *jobChain) Succeed(jd JobData) error {
 // TODO: iteration should return a chunk of 'known' new datums before other
 // datums (to optimize for distributing processing across workers). This should
 // still be true even after resetting the iterator.
-func (jdi *jobDatumIterator) NextBatch(ctx context.Context) (uint64, error) {
+func (jdi *jobDatumIterator) NextBatch(ctx context.Context) (int64, error) {
 	for len(jdi.yielding) == 0 {
 		if len(jdi.ancestors) == 0 {
 			return 0, nil
@@ -381,7 +381,7 @@ func (jdi *jobDatumIterator) NextBatch(ctx context.Context) (uint64, error) {
 		jdi.ditIndex = -1
 	}
 
-	batchSize := uint64(0)
+	batchSize := int64(0)
 	for _, count := range jdi.yielding {
 		batchSize += count
 	}
@@ -417,8 +417,8 @@ func (jdi *jobDatumIterator) Reset() {
 	}
 }
 
-func (jdi *jobDatumIterator) MaxLen() uint64 {
-	return uint64(jdi.dit.Len())
+func (jdi *jobDatumIterator) MaxLen() int64 {
+	return int64(jdi.dit.Len())
 }
 
 func (jdi *jobDatumIterator) DatumSet() DatumSet {

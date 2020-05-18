@@ -113,7 +113,7 @@ func NewLogger(pipelineInfo *pps.PipelineInfo, pachClient *client.APIClient) (Ta
 				for _, chunk := range grpcutil.Chunk([]byte(msg), grpcutil.MaxMsgSize/2) {
 					if err := result.putObjClient.Send(&pfs.PutObjectRequest{
 						Value: chunk,
-					}); err != nil && err != io.EOF {
+					}); err != nil && !errors.Is(err, io.EOF) {
 						return err
 					}
 				}
@@ -242,11 +242,11 @@ func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
 	for {
 		message, err := r.ReadString('\n')
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				logger.buffer.Write([]byte(message))
 				return len(p), nil
 			}
-			// this shouldn't technically be possible to hit io.EOF should be
+			// this shouldn't technically be possible to hit - io.EOF should be
 			// the only error bufio.Reader can return when using a buffer.
 			return 0, errors.Wrap(err, "ReadString")
 		}

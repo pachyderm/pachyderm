@@ -74,9 +74,10 @@ type Driver interface {
 	NewTaskWorker() *work.Worker
 	NewTaskQueue() (*work.TaskQueue, error)
 
+	// Returns the PipelineInfo for the pipeline that this worker belongs to
 	PipelineInfo() *pps.PipelineInfo
 
-	// The namespace that the worker is deployed in
+	// Returns the kubernetes namespace that the worker is deployed in
 	Namespace() string
 
 	// Returns the path that will contain the input filesets for the job
@@ -86,7 +87,7 @@ type Driver interface {
 	PachClient() *client.APIClient
 
 	// Returns the number of workers to be used
-	GetExpectedNumWorkers() (uint64, error)
+	ExpectedNumWorkers() (int64, error)
 
 	// Returns the number of hashtree shards for the pipeline
 	NumShards() int64
@@ -201,20 +202,20 @@ func NewDriver(
 
 	// Delete the hashtree path (if it exists) in case it is left over from a previous run
 	if err := os.RemoveAll(chunkCachePath); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	if err := os.RemoveAll(chunkStatsCachePath); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 
 	if err := os.MkdirAll(pfsPath, 0777); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	if err := os.MkdirAll(chunkCachePath, 0777); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	if err := os.MkdirAll(chunkStatsCachePath, 0777); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 
 	numShards, err := ppsutil.GetExpectedNumHashtrees(pipelineInfo.HashtreeSpec)
@@ -243,20 +244,20 @@ func NewDriver(
 	if pipelineInfo.Transform.User != "" {
 		user, err := lookupDockerUser(pipelineInfo.Transform.User)
 		if err != nil && !os.IsNotExist(err) {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 		// If `user` is `nil`, `uid` and `gid` will get set, and we won't
 		// customize the user that executes the worker process.
 		if user != nil { // user is nil when os.IsNotExist(err) is true in which case we use root
 			uid, err := strconv.ParseUint(user.Uid, 10, 32)
 			if err != nil {
-				return nil, err
+				return nil, errors.EnsureStack(err)
 			}
 			uid32 := uint32(uid)
 			result.uid = &uid32
 			gid, err := strconv.ParseUint(user.Gid, 10, 32)
 			if err != nil {
-				return nil, err
+				return nil, errors.EnsureStack(err)
 			}
 			gid32 := uint32(gid)
 			result.gid = &gid32
@@ -285,11 +286,11 @@ func lookupDockerUser(userArg string) (_ *user.User, retErr error) {
 	}
 	passwd, err := os.Open("/etc/passwd")
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	defer func() {
 		if err := passwd.Close(); err != nil && retErr == nil {
-			retErr = err
+			retErr = errors.EnsureStack(err)
 		}
 	}()
 	scanner := bufio.NewScanner(passwd)
@@ -308,7 +309,7 @@ func lookupDockerUser(userArg string) (_ *user.User, retErr error) {
 					// groupOrGid is a group
 					group, err := lookupGroup(groupOrGID)
 					if err != nil {
-						return nil, err
+						return nil, errors.EnsureStack(err)
 					}
 					result.Gid = group.Gid
 				} else {
@@ -328,11 +329,11 @@ func lookupDockerUser(userArg string) (_ *user.User, retErr error) {
 func lookupGroup(group string) (_ *user.Group, retErr error) {
 	groupFile, err := os.Open("/etc/group")
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	defer func() {
 		if err := groupFile.Close(); err != nil && retErr == nil {
-			retErr = err
+			retErr = errors.EnsureStack(err)
 		}
 	}()
 	scanner := bufio.NewScanner(groupFile)
@@ -371,16 +372,16 @@ func (d *driver) NewTaskQueue() (*work.TaskQueue, error) {
 	return work.NewTaskQueue(d.PachClient().Ctx(), d.etcdClient, d.etcdPrefix, workNamespace(d.pipelineInfo))
 }
 
-func (d *driver) GetExpectedNumWorkers() (uint64, error) {
+func (d *driver) ExpectedNumWorkers() (int64, error) {
 	pipelinePtr := &pps.EtcdPipelineInfo{}
 	if err := d.Pipelines().ReadOnly(d.PachClient().Ctx()).Get(d.PipelineInfo().Pipeline.Name, pipelinePtr); err != nil {
-		return 0, err
+		return 0, errors.EnsureStack(err)
 	}
 	numWorkers := pipelinePtr.Parallelism
 	if numWorkers == 0 {
 		numWorkers = 1
 	}
-	return numWorkers, nil
+	return int64(numWorkers), nil
 }
 
 func (d *driver) NumShards() int64 {
@@ -463,7 +464,7 @@ func (d *driver) WithData(
 	// downloadData partially succeeded, we still clean up the resources.
 	defer func() {
 		if err := os.RemoveAll(dir); err != nil && retErr == nil {
-			retErr = err
+			retErr = errors.EnsureStack(err)
 		}
 	}()
 	// It's important that we run puller.CleanUp before os.RemoveAll,
@@ -471,14 +472,14 @@ func (d *driver) WithData(
 	// been deleted.
 	defer func() {
 		if _, err := puller.CleanUp(); err != nil && retErr == nil {
-			retErr = err
+			retErr = errors.EnsureStack(err)
 		}
 	}()
 	if err != nil {
-		return stats, errors.Wrap(err, "error downloadData")
+		return stats, errors.EnsureStack(err)
 	}
 	if err := os.MkdirAll(d.InputDir(), 0777); err != nil {
-		return stats, errors.WithStack(err)
+		return stats, errors.EnsureStack(err)
 	}
 	// If the pipeline spec set a custom user to execute the process, make sure
 	// the input directory and its content are owned by it
@@ -487,7 +488,7 @@ func (d *driver) WithData(
 			if err == nil {
 				err = os.Chown(name, int(*d.uid), int(*d.gid))
 			}
-			return err
+			return errors.EnsureStack(err)
 		})
 	}
 
@@ -505,7 +506,7 @@ func (d *driver) WithData(
 	downSize, err := puller.CleanUp()
 	if err != nil {
 		logger.Logf("puller encountered an error while cleaning up: %v", err)
-		return stats, err
+		return stats, errors.EnsureStack(err)
 	}
 
 	atomic.AddUint64(&stats.DownloadBytes, uint64(downSize))
@@ -546,7 +547,7 @@ func (d *driver) downloadData(
 	if d.pipelineInfo.Spout != nil {
 		// Spouts need to create a named pipe at /pfs/out
 		if err := os.MkdirAll(filepath.Dir(outPath), 0700); err != nil {
-			return "", err
+			return "", errors.EnsureStack(err)
 		}
 		// Fifos don't exist on windows (where we may run this code in tests), so
 		// this function is defined in a conditional-build file
@@ -560,7 +561,7 @@ func (d *driver) downloadData(
 				// if this fails because there's no head commit on the marker branch, then we don't want to pull the marker, but it's also not an error
 				if !strings.Contains(err.Error(), "no head") {
 					// if it fails for some other reason, then fail
-					return "", err
+					return "", errors.EnsureStack(err)
 				}
 			} else {
 				// the file might be in the spout marker directory, and so we'll try pulling it from there
@@ -578,7 +579,7 @@ func (d *driver) downloadData(
 				); err != nil {
 					// this might fail if the marker branch hasn't been created, so check for that
 					if err == nil || !strings.Contains(err.Error(), "branches") || !errutil.IsNotFoundError(err) {
-						return "", err
+						return "", errors.EnsureStack(err)
 					}
 					// if it just hasn't been created yet, that's fine and we should just continue as normal
 				}
@@ -620,7 +621,7 @@ func (d *driver) downloadData(
 			statsTree,
 			statsRoot,
 		); err != nil {
-			return "", err
+			return "", errors.EnsureStack(err)
 		}
 	}
 	return scratchPath, nil
@@ -632,13 +633,13 @@ func (d *driver) downloadGitData(scratchPath string, input *common.Input) error 
 	var rawJSON bytes.Buffer
 	err := d.pachClient.GetFile(file.Commit.Repo.Name, file.Commit.ID, file.Path, 0, 0, &rawJSON)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 
 	var payload github.PushPayload
 	err = json.Unmarshal(rawJSON.Bytes(), &payload)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 
 	if payload.Repository.CloneURL == "" {
@@ -668,7 +669,7 @@ func (d *driver) downloadGitData(scratchPath string, input *common.Input) error 
 
 	wt, err := gitRepo.Worktree()
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 
 	sha := payload.After
@@ -710,7 +711,7 @@ func (d *driver) RunUserCode(
 	if rawDatumTimeout != nil {
 		datumTimeout, err := types.DurationFromProto(rawDatumTimeout)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		datumTimeoutCtx, cancel := context.WithTimeout(ctx, datumTimeout)
 		defer cancel()
@@ -735,17 +736,17 @@ func (d *driver) RunUserCode(
 	cmd.Dir = filepath.Join(d.rootDir, d.pipelineInfo.Transform.WorkingDir)
 	err := cmd.Start()
 	if err != nil {
-		return errors.Wrap(err, "cmd.Start")
+		return errors.EnsureStack(err)
 	}
 	// A context with a deadline will successfully cancel/kill
 	// the running process (minus zombies)
 	state, err := cmd.Process.Wait()
 	if err != nil {
-		return errors.Wrap(err, "cmd.Wait")
+		return errors.EnsureStack(err)
 	}
 	if common.IsDone(ctx) {
 		if err = ctx.Err(); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 
@@ -770,7 +771,7 @@ func (d *driver) RunUserCode(
 				}
 			}
 		}
-		return errors.Wrap(err, "cmd.WaitIO")
+		return errors.EnsureStack(err)
 	}
 	return nil
 }
@@ -800,17 +801,17 @@ func (d *driver) RunUserErrorHandlingCode(logger logs.TaggedLogger, environ []st
 	cmd.Dir = d.pipelineInfo.Transform.WorkingDir
 	err := cmd.Start()
 	if err != nil {
-		return errors.Wrap(err, "cmd.Start")
+		return errors.EnsureStack(err)
 	}
 	// A context w a deadline will successfully cancel/kill
 	// the running process (minus zombies)
 	state, err := cmd.Process.Wait()
 	if err != nil {
-		return errors.Wrap(err, "cmd.Wait")
+		return errors.EnsureStack(err)
 	}
 	if common.IsDone(ctx) {
 		if err = ctx.Err(); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 	// Because of this issue: https://github.com/golang/go/issues/18874
@@ -834,7 +835,7 @@ func (d *driver) RunUserErrorHandlingCode(logger logs.TaggedLogger, environ []st
 				}
 			}
 		}
-		return errors.Wrap(err, "cmd.WaitIO")
+		return errors.EnsureStack(err)
 	}
 	return nil
 }
@@ -843,11 +844,11 @@ func (d *driver) UpdateJobState(jobID string, state pps.JobState, reason string)
 	_, err := d.NewSTM(func(stm col.STM) error {
 		jobPtr := &pps.EtcdJobInfo{}
 		if err := d.Jobs().ReadWrite(stm).Get(jobID, jobPtr); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
-		return ppsutil.UpdateJobState(d.Pipelines().ReadWrite(stm), d.Jobs().ReadWrite(stm), jobPtr, state, reason)
+		return errors.EnsureStack(ppsutil.UpdateJobState(d.Pipelines().ReadWrite(stm), d.Jobs().ReadWrite(stm), jobPtr, state, reason))
 	})
-	return err
+	return errors.EnsureStack(err)
 }
 
 // DeleteJob is identical to updateJobState, except that jobPtr points to a job
@@ -864,9 +865,9 @@ func (d *driver) DeleteJob(stm col.STM, jobPtr *pps.EtcdJobInfo) error {
 		}
 		return nil
 	}); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
-	return d.Jobs().ReadWrite(stm).Delete(jobPtr.Job.ID)
+	return errors.EnsureStack(d.Jobs().ReadWrite(stm).Delete(jobPtr.Job.ID))
 }
 
 func (d *driver) updateCounter(
@@ -998,14 +999,14 @@ func (d *driver) reportDownloadTimeStats(
 func (d *driver) unlinkData(inputs []*common.Input) error {
 	entries, err := ioutil.ReadDir(d.InputDir())
 	if err != nil {
-		return errors.Wrap(err, "ioutil.ReadDir")
+		return errors.EnsureStack(err)
 	}
 	for _, entry := range entries {
 		if entry.Name() == client.PPSScratchSpace {
 			continue // don't delete scratch space
 		}
 		if err := os.RemoveAll(filepath.Join(d.InputDir(), entry.Name())); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 	return nil
@@ -1032,13 +1033,13 @@ func (d *driver) UploadOutput(
 	// Set up client for writing file data
 	putObjsClient, err := d.pachClient.ObjectAPIClient.PutObjects(d.pachClient.Ctx())
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	block := &pfs.Block{Hash: uuid.NewWithoutDashes()}
 	if err := putObjsClient.Send(&pfs.PutObjectRequest{
 		Block: block,
 	}); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	outputPath := filepath.Join(dir, "out")
 	buf := grpcutil.GetBuffer()
@@ -1049,7 +1050,7 @@ func (d *driver) UploadOutput(
 	// Upload all files in output directory
 	if err := filepath.Walk(outputPath, func(filePath string, info os.FileInfo, err error) error {
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if !utf8.ValidString(filePath) {
 			return errors.Errorf("file path is not valid utf-8: %s", filePath)
@@ -1060,7 +1061,7 @@ func (d *driver) UploadOutput(
 		}
 		relPath, err := filepath.Rel(outputPath, filePath)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		// Put directory. Even if the directory is empty, that may be useful to
 		// users
@@ -1079,14 +1080,14 @@ func (d *driver) UploadOutput(
 		// we preemptively detect if the file is a named pipe.
 		if (info.Mode() & os.ModeNamedPipe) > 0 {
 			logger.Logf("cannot upload named pipe: %v", relPath)
-			return errSpecialFile
+			return errors.EnsureStack(errSpecialFile)
 		}
 		// If the output file is a symlink to an input file, we can skip
 		// the uploading.
 		if (info.Mode() & os.ModeSymlink) > 0 {
 			realPath, err := os.Readlink(filePath)
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 
 			// We can only skip the upload if the real path is
@@ -1107,17 +1108,17 @@ func (d *driver) UploadOutput(
 					if input != nil {
 						return filepath.Walk(realPath, func(filePath string, info os.FileInfo, err error) error {
 							if err != nil {
-								return err
+								return errors.EnsureStack(err)
 							}
 							rel, err := filepath.Rel(realPath, filePath)
 							if err != nil {
-								return err
+								return errors.EnsureStack(err)
 							}
 							subRelPath := filepath.Join(relPath, rel)
 							// The path of the input file
 							pfsPath, err := filepath.Rel(filepath.Join(dir, input.Name), filePath)
 							if err != nil {
-								return err
+								return errors.EnsureStack(err)
 							}
 							if info.IsDir() {
 								tree.PutDir(subRelPath)
@@ -1129,13 +1130,13 @@ func (d *driver) UploadOutput(
 							fc := input.FileInfo.File.Commit
 							fileInfo, err := d.pachClient.InspectFile(fc.Repo.Name, fc.ID, pfsPath)
 							if err != nil {
-								return err
+								return errors.EnsureStack(err)
 							}
 							var blockRefs []*pfs.BlockRef
 							for _, object := range fileInfo.Objects {
 								objectInfo, err := d.pachClient.InspectObject(object.Hash)
 								if err != nil {
-									return err
+									return errors.EnsureStack(err)
 								}
 								blockRefs = append(blockRefs, objectInfo.BlockRef)
 							}
@@ -1174,15 +1175,15 @@ func (d *driver) UploadOutput(
 		for {
 			n, err := r.Read(buf)
 			if n == 0 && err != nil {
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
-				return err
+				return errors.EnsureStack(err)
 			}
 			if err := putObjsClient.Send(&pfs.PutObjectRequest{
 				Value: buf[:n],
 			}); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			size += int64(n)
 		}
@@ -1208,8 +1209,8 @@ func (d *driver) UploadOutput(
 	}); err != nil {
 		return nil, errors.Wrap(err, "error walking output")
 	}
-	if _, err := putObjsClient.CloseAndRecv(); err != nil && err != io.EOF {
-		return nil, err
+	if _, err := putObjsClient.CloseAndRecv(); err != nil && !errors.Is(err, io.EOF) {
+		return nil, errors.EnsureStack(err)
 	}
 	// Serialize datum hashtree
 	b := &bytes.Buffer{}
@@ -1219,15 +1220,15 @@ func (d *driver) UploadOutput(
 	// Write datum hashtree to object storage
 	w, err := d.pachClient.PutObjectAsync([]*pfs.Tag{client.NewTag(tag)})
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	defer func() {
 		if err := w.Close(); err != nil && retErr != nil {
-			retErr = err
+			retErr = errors.EnsureStack(err)
 		}
 	}()
 	if _, err := w.Write(b.Bytes()); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return b.Bytes(), nil
 }

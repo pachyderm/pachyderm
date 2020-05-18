@@ -152,9 +152,9 @@ func (md *MockDriver) PachClient() *client.APIClient {
 	return nil
 }
 
-// GetExpectedNumWorkers returns the configured number of workers
-func (md *MockDriver) GetExpectedNumWorkers() (uint64, error) {
-	return uint64(md.options.NumWorkers), nil
+// ExpectedNumWorkers returns the configured number of workers
+func (md *MockDriver) ExpectedNumWorkers() (int64, error) {
+	return int64(md.options.NumWorkers), nil
 }
 
 // NumShards returns the number of hashtree shards configured for the pipeline

@@ -164,7 +164,7 @@ func setToDatums(t *testing.T, datumSet DatumSet) []string {
 	for hash, count := range datumSet {
 		name := datumIndex[hash]
 		require.NotEqual(t, "", name)
-		for i := uint64(0); i < count; i++ {
+		for i := int64(0); i < count; i++ {
 			result = append(result, name)
 		}
 	}
@@ -196,7 +196,7 @@ func requireChainEmpty(t *testing.T, chain JobChain, expectedBaseDatums []string
 func requireIteratorContents(t *testing.T, jdi JobDatumIterator, expected []string) {
 	count, err := jdi.NextBatch(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, uint64(len(expected)), count)
+	require.Equal(t, int64(len(expected)), count)
 
 	found := []string{}
 	for range expected {
@@ -212,7 +212,7 @@ func requireIteratorContents(t *testing.T, jdi JobDatumIterator, expected []stri
 func requireIteratorDone(t *testing.T, jdi JobDatumIterator) {
 	count, err := jdi.NextBatch(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, uint64(0), count)
+	require.Equal(t, int64(0), count)
 }
 
 func TestEmptyBase(t *testing.T) {
@@ -331,7 +331,7 @@ func superviseTestJobWithError(
 				return nil
 			}
 
-			for i := uint64(0); i < count; i++ {
+			for i := int64(0); i < count; i++ {
 				inputs, _ := jdi.NextDatum()
 				datum, err := inputsToDatum(inputs)
 				if err != nil {

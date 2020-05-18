@@ -67,7 +67,7 @@ type registry struct {
 	driver      driver.Driver
 	logger      logs.TaggedLogger
 	taskQueue   *work.TaskQueue
-	concurrency uint64
+	concurrency int64
 	limiter     limit.ConcurrencyLimiter
 	jobChain    chain.JobChain
 }
@@ -87,7 +87,7 @@ func newRegistry(
 	driver driver.Driver,
 ) (*registry, error) {
 	// Determine the maximum number of concurrent tasks we will allow
-	concurrency, err := driver.GetExpectedNumWorkers()
+	concurrency, err := driver.ExpectedNumWorkers()
 	if err != nil {
 		return nil, err
 	}
@@ -302,7 +302,7 @@ func forEachTag(pachClient *client.APIClient, prefix string, cb func(tag *pfs.Ta
 	for {
 		response, err := listTagClient.Recv()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return err
@@ -402,16 +402,16 @@ func (reg *registry) initializeJobChain(commitInfo *pfs.CommitInfo) error {
 
 // Generate a datum task (and split it up into subtasks) for the added datums
 // in the pending job.
-func (reg *registry) sendDatumTasks(ctx context.Context, pj *pendingJob, numDatums uint64, subtasks chan<- *work.Task) error {
+func (reg *registry) sendDatumTasks(ctx context.Context, pj *pendingJob, numDatums int64, subtasks chan<- *work.Task) error {
 	chunkSpec := pj.ji.ChunkSpec
 	if chunkSpec == nil {
 		chunkSpec = &pps.ChunkSpec{}
 	}
 
-	maxDatumsPerTask := uint64(chunkSpec.Number)
-	maxBytesPerTask := uint64(chunkSpec.SizeBytes)
+	maxDatumsPerTask := int64(chunkSpec.Number)
+	maxBytesPerTask := int64(chunkSpec.SizeBytes)
 	driver := pj.driver.WithContext(ctx)
-	var numTasks uint64
+	var numTasks int64
 	if numDatums < reg.concurrency {
 		numTasks = numDatums
 	} else if maxDatumsPerTask > 0 && numDatums/maxDatumsPerTask > reg.concurrency {
@@ -419,9 +419,9 @@ func (reg *registry) sendDatumTasks(ctx context.Context, pj *pendingJob, numDatu
 	} else {
 		numTasks = reg.concurrency
 	}
-	datumsPerTask := uint64(math.Ceil(float64(numDatums) / float64(numTasks)))
+	datumsPerTask := int64(math.Ceil(float64(numDatums) / float64(numTasks)))
 
-	datumsSize := uint64(0)
+	datumsSize := int64(0)
 	datums := []*DatumInputs{}
 
 	// finishTask will finish the currently-writing object and append it to the
@@ -464,7 +464,7 @@ func (reg *registry) sendDatumTasks(ctx context.Context, pj *pendingJob, numDatu
 	}
 
 	// Build up chunks to be put into work tasks from the datum iterator
-	for i := uint64(0); i < numDatums; i++ {
+	for i := int64(0); i < numDatums; i++ {
 		inputs, index := pj.jdit.NextDatum()
 		if inputs == nil {
 			return errors.New("job datum iterator returned nil inputs")
@@ -475,7 +475,7 @@ func (reg *registry) sendDatumTasks(ctx context.Context, pj *pendingJob, numDatu
 		// If we have enough input bytes, finish the task
 		if maxBytesPerTask != 0 {
 			for _, input := range inputs {
-				datumsSize += input.FileInfo.SizeBytes
+				datumsSize += int64(input.FileInfo.SizeBytes)
 			}
 			if datumsSize >= maxBytesPerTask {
 				if err := finishTask(); err != nil {
@@ -485,7 +485,7 @@ func (reg *registry) sendDatumTasks(ctx context.Context, pj *pendingJob, numDatu
 		}
 
 		// If we hit the upper threshold for task size, finish the task
-		if uint64(len(datums)) >= datumsPerTask {
+		if int64(len(datums)) >= datumsPerTask {
 			if err := finishTask(); err != nil {
 				return err
 			}
@@ -552,7 +552,7 @@ func (reg *registry) getDatumSet(datumsObj *pfs.Object) (_ chain.DatumSet, retEr
 	for {
 		k, err := pbr.ReadBytes()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return datums, retErr
 			}
 			return nil, err
@@ -1302,7 +1302,7 @@ func (reg *registry) storeJobDatums(pj *pendingJob) (*pfs.Object, error) {
 	buf := &bytes.Buffer{}
 	pbw := pbutil.NewWriter(buf)
 	for hash, count := range pj.jdit.DatumSet() {
-		for i := uint64(0); i < count; i++ {
+		for i := int64(0); i < count; i++ {
 			if _, err := pbw.WriteBytes([]byte(hash)); err != nil {
 				return nil, err
 			}
