@@ -69,7 +69,7 @@ func writeFile(t *testing.T, w *Writer, f *testFile, msg string) {
 }
 
 func writeFileSet(t *testing.T, fileSets *Storage, fileSet string, files []*testFile, msg string) {
-	w := fileSets.newWriter(context.Background(), fileSet, nil)
+	w := fileSets.newWriter(context.Background(), fileSet)
 	for _, file := range files {
 		writeFile(t, w, file, msg)
 	}
@@ -188,7 +188,7 @@ func TestCopy(t *testing.T) {
 		// Copy intial fileset to a new copy fileset.
 		r := fileSets.newReader(context.Background(), originalPath)
 		copyPath := path.Join(testPath, "copy")
-		wCopy := fileSets.newWriter(context.Background(), copyPath, nil)
+		wCopy := fileSets.newWriter(context.Background(), copyPath)
 		require.NoError(t, r.Iterate(func(fr *FileReader) error {
 			return wCopy.CopyFile(fr)
 		}), msg)
@@ -261,7 +261,7 @@ func generateFileSets(t *testing.T, fileSets *Storage, numFileSets int, prefix, 
 	// Generate the files and randomly distribute them across the filesets.
 	var ws []*Writer
 	for i := 0; i < numFileSets; i++ {
-		ws = append(ws, fileSets.newWriter(context.Background(), path.Join(prefix, strconv.Itoa(i)), nil))
+		ws = append(ws, fileSets.newWriter(context.Background(), path.Join(prefix, strconv.Itoa(i))))
 	}
 	for i, fileName := range fileNames {
 		data := chunk.RandSeq(rand.Intn(max))

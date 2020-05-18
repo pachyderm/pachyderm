@@ -1,10 +1,8 @@
 package chunk
 
 import (
-	"bytes"
 	"math/rand"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )
 
@@ -35,26 +33,6 @@ func Reference(dataRef *DataRef) *DataRef {
 	return chunkRef
 }
 
-func joinAnnotations(as []*Annotation, a *Annotation) []*Annotation {
-	if as != nil {
-		lastA := as[len(as)-1]
-		// If the annotation being added is the same as the
-		// last, then they are merged.
-		if lastA.Data == a.Data {
-			if lastA.tags != nil && a.tags != nil {
-				lastA.buf.Write(a.buf.Bytes())
-				if lastA.tags != nil {
-					lastA.tags = joinTags(lastA.tags, a.tags)
-				}
-				return as
-			} else if lastA.drs != nil && a.drs != nil {
-				return as
-			}
-		}
-	}
-	return append(as, a)
-}
-
 func joinTags(ts1, ts2 []*Tag) []*Tag {
 	if ts1 != nil {
 		lastT := ts1[len(ts1)-1]
@@ -64,48 +42,4 @@ func joinTags(ts1, ts2 []*Tag) []*Tag {
 		}
 	}
 	return append(ts1, ts2...)
-}
-
-func splitAnnotation(a *Annotation, size int) (*Annotation, *Annotation) {
-	a1 := copyAnnotation(a)
-	a2 := copyAnnotation(a)
-	if a.buf != nil {
-		a1.buf = bytes.NewBuffer(a.buf.Bytes()[:size])
-		a2.buf = bytes.NewBuffer(a.buf.Bytes()[size:])
-	}
-	if a.tags != nil {
-		a1.tags, a2.tags = splitTags(a.tags, size)
-	}
-	return a1, a2
-}
-
-func copyAnnotation(a *Annotation) *Annotation {
-	copyA := &Annotation{Data: a.Data}
-	if a.NextDataRef != nil {
-		copyA.NextDataRef = &DataRef{}
-	}
-	if a.buf != nil {
-		copyA.buf = &bytes.Buffer{}
-	}
-	return copyA
-}
-
-func splitTags(ts []*Tag, size int) ([]*Tag, []*Tag) {
-	var ts1, ts2 []*Tag
-	for _, t := range ts {
-		ts2 = append(ts2, proto.Clone(t).(*Tag))
-	}
-	for {
-		if int(ts2[0].SizeBytes) >= size {
-			t := proto.Clone(ts2[0]).(*Tag)
-			t.SizeBytes = int64(size)
-			ts1 = append(ts1, t)
-			ts2[0].SizeBytes -= int64(size)
-			break
-		}
-		size -= int(ts2[0].SizeBytes)
-		ts1 = append(ts1, ts2[0])
-		ts2 = ts2[1:]
-	}
-	return ts1, ts2
 }

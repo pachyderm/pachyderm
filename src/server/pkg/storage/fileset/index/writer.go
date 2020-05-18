@@ -12,6 +12,10 @@ var (
 	averageBits = 20
 )
 
+const (
+	indexTag = ""
+)
+
 type levelWriter struct {
 	cw      *chunk.Writer
 	pbw     pbutil.Writer
@@ -56,7 +60,7 @@ func (w *Writer) WriteIndexes(idxs []*Index) error {
 func (w *Writer) setupLevels() {
 	// Setup the first index level.
 	if w.levels == nil {
-		cw := w.chunks.NewWriter(w.ctx, averageBits, 0, false, w.tmpID, w.callback(0))
+		cw := w.chunks.NewWriter(w.ctx, w.tmpID, w.callback(0), chunk.WithRollingHashConfig(averageBits, 0))
 		w.levels = append(w.levels, &levelWriter{
 			cw:  cw,
 			pbw: pbutil.NewWriter(cw),
@@ -76,6 +80,7 @@ func (w *Writer) writeIndexes(idxs []*Index, level int) error {
 				level: level,
 			},
 		})
+		l.cw.Tag(indexTag)
 		if _, err := l.pbw.Write(idx); err != nil {
 			return err
 		}
@@ -117,7 +122,7 @@ func (w *Writer) callback(level int) chunk.WriterFunc {
 		}
 		// Create next index level if it does not exist.
 		if level == len(w.levels)-1 {
-			cw := w.chunks.NewWriter(w.ctx, averageBits, int64(level+1), false, w.tmpID, w.callback(level+1))
+			cw := w.chunks.NewWriter(w.ctx, w.tmpID, w.callback(level+1), chunk.WithRollingHashConfig(averageBits, int64(level+1)))
 			w.levels = append(w.levels, &levelWriter{
 				cw:  cw,
 				pbw: pbutil.NewWriter(cw),
@@ -129,7 +134,7 @@ func (w *Writer) callback(level int) chunk.WriterFunc {
 }
 
 // Close finishes the index, and returns the serialized top index level.
-func (w *Writer) Close() error {
+func (w *Writer) Close() (retErr error) {
 	w.closed = true
 	// Note: new levels can be created while closing, so the number of iterations
 	// necessary can increase as the levels are being closed. Levels stop getting
@@ -151,12 +156,20 @@ func (w *Writer) Close() error {
 	if err != nil {
 		return err
 	}
-	if _, err := pbutil.NewWriter(objW).Write(w.root); err != nil {
-		return err
-	}
-	if err := objW.Close(); err != nil {
+	defer func() {
+		if err := objW.Close(); retErr == nil {
+			retErr = err
+		}
+	}()
+	// Handles the empty file set case.
+	if w.root == nil {
+		_, err = pbutil.NewWriter(objW).Write(&Index{})
 		return err
 	}
 	chunk := w.root.DataOp.DataRefs[0].ChunkInfo.Chunk
-	return w.chunks.CreateSemanticReference(w.ctx, w.path, chunk)
+	if err := w.chunks.CreateSemanticReference(w.ctx, w.path, chunk); err != nil {
+		return err
+	}
+	_, err = pbutil.NewWriter(objW).Write(w.root)
+	return err
 }

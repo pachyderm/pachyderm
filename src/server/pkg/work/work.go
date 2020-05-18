@@ -154,11 +154,44 @@ func (m *Master) RunSubtasksChan(subtaskChan chan *Task, collectFunc CollectFunc
 	var eg errgroup.Group
 	var count int64
 	done := make(chan struct{})
-	watchStarted := false
-
+	ctx, cancel := context.WithCancel(m.taskEntry.ctx)
+	eg.Go(func() error {
+		return m.subtaskCol.ReadOnly(ctx).WatchOneF(m.taskID, func(e *watch.Event) error {
+			var key string
+			subtaskInfo := &TaskInfo{}
+			if err := e.Unmarshal(&key, subtaskInfo); err != nil {
+				return err
+			}
+			// Check that the subtask state is terminal.
+			if subtaskInfo.State == State_RUNNING {
+				return nil
+			}
+			if collectFunc != nil {
+				if err := m.taskEntry.runSubtaskBlock(func(ctx context.Context) error {
+					return collectFunc(ctx, subtaskInfo)
+				}); err != nil {
+					return err
+				}
+			}
+			atomic.AddInt64(&count, -1)
+			select {
+			case <-done:
+				if count == 0 {
+					return errutil.ErrBreak
+				}
+			default:
+			}
+			return nil
+		})
+	})
 	defer func() {
 		close(done)
-		if err := eg.Wait(); retErr == nil {
+		// If the subtasks have already been collected (or there were none), then
+		// cancel the ctx for the collect goroutine.
+		if atomic.LoadInt64(&count) == 0 {
+			cancel()
+		}
+		if err := eg.Wait(); retErr == nil && ctx.Err() != context.Canceled {
 			retErr = err
 		}
 		if err := m.deleteSubtasks(); err != nil {
@@ -171,40 +204,6 @@ func (m *Master) RunSubtasksChan(subtaskChan chan *Task, collectFunc CollectFunc
 			return err
 		}
 		atomic.AddInt64(&count, 1)
-
-		// Only start the watch if we have results to watch for (this avoids a deadlock on an empty task channel)
-		if !watchStarted {
-			watchStarted = true
-			eg.Go(func() error {
-				return m.subtaskCol.ReadOnly(m.taskEntry.ctx).WatchOneF(m.taskID, func(e *watch.Event) error {
-					var key string
-					subtaskInfo := &TaskInfo{}
-					if err := e.Unmarshal(&key, subtaskInfo); err != nil {
-						return err
-					}
-					// Check that the subtask state is terminal.
-					if subtaskInfo.State == State_RUNNING {
-						return nil
-					}
-					if collectFunc != nil {
-						if err := m.taskEntry.runSubtaskBlock(func(ctx context.Context) error {
-							return collectFunc(ctx, subtaskInfo)
-						}); err != nil {
-							return err
-						}
-					}
-					atomic.AddInt64(&count, -1)
-					select {
-					case <-done:
-						if count == 0 {
-							return errutil.ErrBreak
-						}
-					default:
-					}
-					return nil
-				})
-			})
-		}
 	}
 	return nil
 }

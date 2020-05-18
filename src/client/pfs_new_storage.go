@@ -2,33 +2,73 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"io"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 )
 
 // PutTar puts a tar stream into PFS.
 // Note: this should only be used for testing the new storage layer.
-func (c APIClient) PutTar(repo, commit string, r io.Reader) (retErr error) {
-	defer func() {
-		retErr = grpcutil.ScrubGRPC(retErr)
-	}()
-	ptc, err := c.PfsAPIClient.PutTar(c.Ctx())
+func (c APIClient) PutTar(repo, commit string, r io.Reader, tag ...string) error {
+	ptc, err := c.NewPutTarClient(repo, commit)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if _, err := ptc.CloseAndRecv(); retErr == nil {
-			retErr = err
-		}
-	}()
-	if err := ptc.Send(&pfs.PutTarRequest{Commit: NewCommit(repo, commit)}); err != nil {
+	if err := ptc.PutTar(r, tag...); err != nil {
 		return err
 	}
-	_, err = grpcutil.ChunkReader(r, func(data []byte) error {
-		return ptc.Send(&pfs.PutTarRequest{Data: data})
-	})
+	return ptc.Close()
+}
+
+// PutTarClient is used for performing a stream of put tar operations.
+// The files are not persisted until the PutTarClient is closed.
+// (bryce) might make sense to record any errors to prevent retrying with the same client.
+type PutTarClient struct {
+	client pfs.API_PutTarClient
+}
+
+// NewPutTarClient creates a new PutTarClient.
+func (c APIClient) NewPutTarClient(repo, commit string) (_ *PutTarClient, retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	client, err := c.PfsAPIClient.PutTar(c.Ctx())
+	if err != nil {
+		return nil, err
+	}
+	if err := client.Send(&pfs.PutTarRequest{
+		Commit: NewCommit(repo, commit),
+	}); err != nil {
+		return nil, err
+	}
+	return &PutTarClient{client: client}, nil
+}
+
+// PutTar puts a tar stream into PFS.
+// The files are not persisted until the PutTarClient is closed.
+func (ptc *PutTarClient) PutTar(r io.Reader, tag ...string) error {
+	if len(tag) > 0 {
+		if len(tag) > 1 {
+			return errors.Errorf("PutTar called with %v tags, expected 0 or 1", len(tag))
+		}
+		if err := ptc.client.Send(&pfs.PutTarRequest{Tag: tag[0]}); err != nil {
+			return err
+		}
+	}
+	if _, err := grpcutil.ChunkReader(r, func(data []byte) error {
+		return ptc.client.Send(&pfs.PutTarRequest{Data: data})
+	}); err != nil {
+		return err
+	}
+	return ptc.client.Send(&pfs.PutTarRequest{EOF: true})
+}
+
+// Close closes the PutTarClient, which persists the files.
+func (ptc *PutTarClient) Close() error {
+	_, err := ptc.client.CloseAndRecv()
 	return err
 }
 
@@ -89,13 +129,43 @@ func (c APIClient) GetTarConditional(repoName string, commitID string, path stri
 		}
 	}
 	return nil
+}
 
+// ListFileV2 returns info about all files in a Commit under path, calling f with each FileInfoV2.
+func (c APIClient) ListFileV2(repoName string, commitID string, path string, f func(fileInfo *pfs.FileInfoNewStorage) error) (retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	ctx, cancel := context.WithCancel(c.Ctx())
+	defer cancel()
+	req := &pfs.ListFileRequest{
+		File: NewFile(repoName, commitID, path),
+		Full: true,
+	}
+	client, err := c.PfsAPIClient.ListFileV2(ctx, req)
+	if err != nil {
+		return err
+	}
+	for {
+		finfo, err := client.Recv()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+
+		if err := f(finfo); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type getTarConditionalReader struct {
 	client     pfs.API_GetTarConditionalClient
 	r          *bytes.Reader
-	first, eof bool
+	first, EOF bool
 }
 
 func (r *getTarConditionalReader) Read(data []byte) (int, error) {
@@ -114,15 +184,15 @@ func (r *getTarConditionalReader) Read(data []byte) (int, error) {
 }
 
 func (r *getTarConditionalReader) nextResponse() error {
-	if r.eof {
+	if r.EOF {
 		return io.EOF
 	}
 	resp, err := r.client.Recv()
 	if err != nil {
 		return err
 	}
-	if resp.Eof {
-		r.eof = true
+	if resp.EOF {
+		r.EOF = true
 		return io.EOF
 	}
 	r.r = bytes.NewReader(resp.Data)

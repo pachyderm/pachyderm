@@ -211,7 +211,7 @@ you should change the ports back.
 # it only accepts traffic on port 30650 again (from 30649). 
 #
 # Backup the Pachyderm service spec, in case you need to restore it quickly
-$ kubectl get svc/pach -o json >pach_service_backup_30649.json
+$ kubectl get svc/pachd -o json >pachd_service_backup_30649.json
 
 # Modify the service to accept traffic on port 30650, again
 $ kubectl get svc/pachd -o json | sed 's/30649/30650/g' | kc apply -f -

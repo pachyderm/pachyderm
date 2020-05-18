@@ -160,7 +160,7 @@ func (s *streamingBytesWriter) Write(data []byte) (int, error) {
 	var bytesWritten int
 	for _, val := range Chunk(data, MaxMsgPayloadSize) {
 		if err := s.streamingBytesServer.Send(&types.BytesValue{Value: val}); err != nil {
-			return bytesWritten, nil
+			return bytesWritten, err
 		}
 		bytesWritten += len(val)
 	}

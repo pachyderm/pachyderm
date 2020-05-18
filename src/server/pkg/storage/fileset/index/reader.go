@@ -106,6 +106,10 @@ func (r *Reader) next() (*Index, error) {
 		if err := pbr.Read(idx); err != nil {
 			return nil, err
 		}
+		// (bryce) not sure if this is the best way to represent emptiness.
+		if idx.DataOp == nil {
+			return nil, io.EOF
+		}
 		// Return if done.
 		if r.atEnd(idx.Path) {
 			r.done = true
