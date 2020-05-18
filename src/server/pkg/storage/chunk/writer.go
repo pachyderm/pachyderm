@@ -29,8 +29,9 @@ var initialWindow = make([]byte, WindowSize)
 type Annotation struct {
 	RefDataRefs []*DataRef
 	NextDataRef *DataRef
-	tags        []*Tag
 	Data        interface{}
+
+	tags []*Tag
 }
 
 // WriterFunc is a callback that returns the annotations within a chunk.
@@ -57,6 +58,8 @@ type chunkSize struct {
 // Chunk split points are determined by a bit pattern in a rolling hash function (buzhash64 at https://github.com/chmduquesne/rollinghash).
 type Writer struct {
 	ctx                     context.Context
+	cancel                  context.CancelFunc
+	err                     error
 	objC                    obj.Client
 	gcC                     gc.Client
 	chunkSize               *chunkSize
@@ -75,11 +78,13 @@ type Writer struct {
 }
 
 func newWriter(ctx context.Context, objC obj.Client, gcC gc.Client, tmpID string, f WriterFunc, opts ...WriterOption) *Writer {
-	eg, errCtx := errgroup.WithContext(ctx)
+	cancelCtx, cancel := context.WithCancel(ctx)
+	eg, errCtx := errgroup.WithContext(cancelCtx)
 	w := &Writer{
-		ctx:  errCtx,
-		objC: objC,
-		gcC:  gcC,
+		ctx:    errCtx,
+		cancel: cancel,
+		objC:   objC,
+		gcC:    gcC,
 		chunkSize: &chunkSize{
 			min: defaultMinChunkSize,
 			max: defaultMaxChunkSize,
@@ -138,23 +143,37 @@ func (w *Writer) Tag(id string) {
 }
 
 func (w *Writer) Write(data []byte) (int, error) {
-	if w.done() {
-		return 0, w.eg.Wait()
-	}
-	if err := w.flushDataReaders(); err != nil {
+	if err := w.maybeDone(func() error {
+		if err := w.flushDataReaders(); err != nil {
+			return err
+		}
+		w.roll(data)
+		return nil
+	}); err != nil {
 		return 0, err
 	}
-	w.roll(data)
 	return len(data), nil
 }
 
-func (w *Writer) done() bool {
+func (w *Writer) maybeDone(f func() error) (retErr error) {
+	if w.err != nil {
+		return w.err
+	}
+	defer func() {
+		if retErr != nil {
+			w.err = retErr
+			w.cancel()
+		}
+	}()
 	select {
 	case <-w.ctx.Done():
-		return true
+		if err := w.eg.Wait(); err != nil {
+			return err
+		}
+		return w.ctx.Err()
 	default:
-		return false
 	}
+	return f()
 }
 
 func (w *Writer) roll(data []byte) {
@@ -221,7 +240,7 @@ func copyAnnotation(a *Annotation) *Annotation {
 	if a.NextDataRef != nil {
 		copyA.NextDataRef = &DataRef{}
 	}
-	if a.tags != nil {
+	if len(a.tags) != 0 {
 		lastTag := a.tags[len(a.tags)-1]
 		copyA.tags = []*Tag{&Tag{Id: lastTag.Id}}
 	}
@@ -348,14 +367,13 @@ func (w *Writer) executeFunc(annotations []*Annotation, prevChan, nextChan chan 
 // The copy will either be by reading the referenced data, or just
 // copying the data reference (cheap copy).
 func (w *Writer) Copy(dr *DataReader) error {
-	if w.done() {
-		return w.eg.Wait()
-	}
-	if err := w.maybeBufferDataReader(dr); err != nil {
-		return err
-	}
-	w.maybeCheapCopy()
-	return nil
+	return w.maybeDone(func() error {
+		if err := w.maybeBufferDataReader(dr); err != nil {
+			return err
+		}
+		w.maybeCheapCopy()
+		return nil
+	})
 }
 
 func (w *Writer) maybeBufferDataReader(dr *DataReader) error {
@@ -443,17 +461,17 @@ func (w *Writer) maybeCheapCopy() {
 
 // Close closes the writer.
 func (w *Writer) Close() error {
-	if w.done() {
+	defer w.cancel()
+	return w.maybeDone(func() error {
+		if err := w.flushDataReaders(); err != nil {
+			return err
+		}
+		if w.buf.Len() > 0 {
+			chunk := w.buf.Bytes()
+			w.appendToChain(func(annotations []*Annotation, prevChan, nextChan chan struct{}) error {
+				return w.processChunk(chunk, annotations, prevChan, nextChan)
+			}, true)
+		}
 		return w.eg.Wait()
-	}
-	if err := w.flushDataReaders(); err != nil {
-		return err
-	}
-	if w.buf.Len() > 0 {
-		chunk := w.buf.Bytes()
-		w.appendToChain(func(annotations []*Annotation, prevChan, nextChan chan struct{}) error {
-			return w.processChunk(chunk, annotations, prevChan, nextChan)
-		}, true)
-	}
-	return w.eg.Wait()
+	})
 }
