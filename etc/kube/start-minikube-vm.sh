@@ -2,7 +2,10 @@
 
 set -e
 
-cd "${GOPATH}/src/github.com/pachyderm/pachyderm"
+# only cd if go.mod is not found
+if [ ! -f "go.mod" ]; then
+  cd "${GOPATH}/src/github.com/pachyderm/pachyderm"
+fi
 
 function die {
   echo "error: $1" >&2
