@@ -277,9 +277,13 @@ func (jc *jobChain) Fail(jd JobData) error {
 	}
 
 	jdi := jc.jobs[index]
+
+	if jdi.finished {
+		return errors.New("cannot fail a job that is already finished")
+	}
+
 	jdi.allDatums = nil
 	jdi.finished = true
-
 	close(jdi.done)
 
 	jc.cleanFinishedJobs()
@@ -315,6 +319,10 @@ func (jc *jobChain) Succeed(jd JobData) error {
 	}
 
 	jdi := jc.jobs[index]
+
+	if jdi.finished {
+		return errors.New("cannot succeed a job that is already finished")
+	}
 
 	if len(jdi.yielding) != 0 || len(jdi.ancestors) > 0 {
 		return errors.Errorf(
