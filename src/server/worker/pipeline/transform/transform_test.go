@@ -26,11 +26,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 )
 
-func isCanceledError(err error) bool {
-	// TODO: comparing against context.Canceled isn't working - something is wrapping it?
-	return err != nil && err.Error() == "context canceled"
-}
-
 func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv) error) error {
 	// We only support simple pfs input pipelines in this test suite at the moment
 	if pipelineInfo.Input == nil || pipelineInfo.Input.Pfs == nil {
@@ -58,9 +53,6 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 		if err := os.Setenv(obj.PachRootEnvVar, env.LocalStorageDirectory); err != nil {
 			return err
 		}
-
-		// TODO: for debugging purposes, remove
-		env.logger.Writer = os.Stdout
 
 		// Set up repos and branches for the pipeline
 		input := pipelineInfo.Input.Pfs
@@ -111,8 +103,7 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 
 		eg.Go(func() error {
 			err := Run(env.driver, env.logger)
-			fmt.Printf("Master error: %v\n", err)
-			if isCanceledError(err) {
+			if err != nil && err.Error() == "context canceled" {
 				return nil
 			}
 			return err
@@ -131,8 +122,7 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 				env.logger.Logf("worker failed, retrying immediately, err: %v", err)
 				return nil
 			})
-			fmt.Printf("Worker error: %v\n", err)
-			if isCanceledError(err) {
+			if err != nil && err.Error() == "context canceled" {
 				return nil
 			}
 			return err
@@ -142,7 +132,6 @@ func withWorkerSpawnerPair(pipelineInfo *pps.PipelineInfo, cb func(env *testEnv)
 	})
 
 	workerSpawnerErr := eg.Wait()
-	// TODO: comparing against context.Canceled isn't working - something is wrapping it?
 	if workerSpawnerErr != nil && workerSpawnerErr.Error() != "context canceled" {
 		return workerSpawnerErr
 	}
@@ -197,16 +186,6 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Con
 		outputCommitInfo, err := env.PachClient.InspectCommit(etcdJobInfo.OutputCommit.Repo.Name, etcdJobInfo.OutputCommit.ID)
 		require.NoError(t, err)
 
-		fmt.Printf("inspecting job for commit %v\n", outputCommitInfo)
-
-		input := ppsutil.JobInput(pi, outputCommitInfo)
-		fmt.Printf("job input: %v\n", input)
-
-		files, err := env.PachClient.ListFile(input.Pfs.Repo, input.Pfs.Commit, input.Pfs.Glob)
-		require.NoError(t, err)
-
-		fmt.Printf("input files: %v\n", files)
-
 		return &pps.JobInfo{
 			Job:              etcdJobInfo.Job,
 			Pipeline:         etcdJobInfo.Pipeline,
@@ -248,7 +227,6 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Con
 
 	updateJobState := func(request *pps.UpdateJobStateRequest) {
 		if ppsutil.IsTerminal(etcdJobInfo.State) {
-			fmt.Printf("ignoring state change as job is already in terminal state")
 			return
 		}
 
@@ -257,13 +235,7 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo) (context.Con
 
 		// If setting the job to a terminal state, we are done
 		if ppsutil.IsTerminal(request.State) {
-			fmt.Printf("updating job to terminal state: %v\n", request.State)
-			// TODO: this sometimes cancels the transform master too early (but the
-			// test still passes) - the delay helps
-			go func() {
-				time.Sleep(100 * time.Millisecond)
-				cancel()
-			}()
+			cancel()
 		}
 	}
 

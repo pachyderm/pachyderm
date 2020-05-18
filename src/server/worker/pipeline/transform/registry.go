@@ -1196,8 +1196,6 @@ func (reg *registry) makeMergeSubtasks(pj *pendingJob, commitInfo *pfs.CommitInf
 			mergeData.Parent = parentHashtrees[i]
 		}
 
-		fmt.Printf("merge subtask data: %v", mergeData)
-
 		data, err := serializeMergeData(mergeData)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to serialize merge data")
