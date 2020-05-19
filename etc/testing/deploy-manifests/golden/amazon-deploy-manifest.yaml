@@ -197,7 +197,7 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
-        image: quay.io/coreos/etcd:v3.3.5
+        image: pachyderm/etcd:v3.3.5
         imagePullPolicy: IfNotPresent
         name: etcd
         ports:

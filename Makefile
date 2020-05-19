@@ -25,8 +25,6 @@ CLUSTER_SIZE?=4
 MINIKUBE_MEM=8192 # MB of memory allocated to minikube
 MINIKUBE_CPU=4 # Number of CPUs allocated to minikube
 
-ETCD_IMAGE=quay.io/coreos/etcd:v3.3.5
-
 ifdef TRAVIS_BUILD_NUMBER
 	# Upper bound for travis test timeout
 	TIMEOUT = 3600s
@@ -143,6 +141,7 @@ docker-tag: install
 	docker tag pachyderm/worker pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
 
 docker-push: docker-tag
+	docker push pachyderm/etcd:v3.3.5
 	docker push pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
 	docker push pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
 
