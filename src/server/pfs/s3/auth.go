@@ -8,6 +8,8 @@ import (
 )
 
 func (c *controller) SecretKey(r *http.Request, accessKey string, region *string) (*string, error) {
+	c.logger.Debugf("SecretKey: accessKey=%+v, region=%+v", accessKey, region)
+
 	pc, err := c.clientFactory.Client(accessKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not create a pach client for auth")
@@ -28,6 +30,8 @@ func (c *controller) SecretKey(r *http.Request, accessKey string, region *string
 }
 
 func (c *controller) CustomAuth(r *http.Request) (bool, error) {
+	c.logger.Debug("CustomAuth")
+
 	pc, err := c.clientFactory.Client("")
 	if err != nil {
 		return false, errors.Wrapf(err, "could not create a pach client for auth")

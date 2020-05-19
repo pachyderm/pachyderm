@@ -89,6 +89,8 @@ func (c *controller) ensureRepo(pc *client.APIClient) error {
 }
 
 func (c *controller) ListMultipart(r *http.Request, bucketName, keyMarker, uploadIDMarker string, maxUploads int) (*s2.ListMultipartResult, error) {
+	c.logger.Debugf("ListMultipart: bucketName=%+v, keyMarker=%+v, uploadIDMarker=%+v, maxUploads=%+v", bucketName, keyMarker, uploadIDMarker, maxUploads)
+
 	vars := mux.Vars(r)
 	pc, err := c.clientFactory.Client(vars["authAccessKey"])
 	if err != nil {
@@ -146,6 +148,8 @@ func (c *controller) ListMultipart(r *http.Request, bucketName, keyMarker, uploa
 }
 
 func (c *controller) InitMultipart(r *http.Request, bucketName, key string) (string, error) {
+	c.logger.Debugf("InitMultipart: bucketName=%+v, key=%+v", bucketName, key)
+
 	vars := mux.Vars(r)
 	pc, err := c.clientFactory.Client(vars["authAccessKey"])
 	if err != nil {
@@ -179,6 +183,8 @@ func (c *controller) InitMultipart(r *http.Request, bucketName, key string) (str
 }
 
 func (c *controller) AbortMultipart(r *http.Request, bucketName, key, uploadID string) error {
+	c.logger.Debugf("AbortMultipart: bucketName=%+v, key=%+v, uploadID=%+v", bucketName, key, uploadID)
+
 	vars := mux.Vars(r)
 	pc, err := c.clientFactory.Client(vars["authAccessKey"])
 	if err != nil {
@@ -208,6 +214,8 @@ func (c *controller) AbortMultipart(r *http.Request, bucketName, key, uploadID s
 }
 
 func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadID string, parts []*s2.Part) (*s2.CompleteMultipartResult, error) {
+	c.logger.Debugf("CompleteMultipart: bucketName=%+v, key=%+v, uploadID=%+v, parts=%+v", bucketName, key, uploadID, parts)
+
 	vars := mux.Vars(r)
 	pc, err := c.clientFactory.Client(vars["authAccessKey"])
 	if err != nil {
@@ -306,6 +314,8 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 }
 
 func (c *controller) ListMultipartChunks(r *http.Request, bucketName, key, uploadID string, partNumberMarker, maxParts int) (*s2.ListMultipartChunksResult, error) {
+	c.logger.Debugf("ListMultipartChunks: bucketName=%+v, key=%+v, uploadID=%+v, partNumberMarker=%+v, maxParts=%+v", bucketName, key, uploadID, partNumberMarker, maxParts)
+
 	vars := mux.Vars(r)
 	pc, err := c.clientFactory.Client(vars["authAccessKey"])
 	if err != nil {
@@ -358,6 +368,8 @@ func (c *controller) ListMultipartChunks(r *http.Request, bucketName, key, uploa
 }
 
 func (c *controller) UploadMultipartChunk(r *http.Request, bucketName, key, uploadID string, partNumber int, reader io.Reader) (string, error) {
+	c.logger.Debugf("UploadMultipartChunk: bucketName=%+v, key=%+v, uploadID=%+v partNumber=%+v", bucketName, key, uploadID, partNumber)
+
 	vars := mux.Vars(r)
 	pc, err := c.clientFactory.Client(vars["authAccessKey"])
 	if err != nil {
@@ -393,29 +405,4 @@ func (c *controller) UploadMultipartChunk(r *http.Request, bucketName, key, uplo
 	}
 
 	return fmt.Sprintf("%x", fileInfo.Hash), nil
-}
-
-func (c *controller) DeleteMultipartChunk(r *http.Request, bucketName, key, uploadID string, partNumber int) error {
-	vars := mux.Vars(r)
-	pc, err := c.clientFactory.Client(vars["authAccessKey"])
-	if err != nil {
-		return err
-	}
-
-	if err = c.ensureRepo(pc); err != nil {
-		return err
-	}
-
-	bucket, err := c.driver.bucket(pc, r, bucketName)
-	if err != nil {
-		return err
-	}
-
-	_, err = pc.InspectFile(c.repo, "master", keepPath(bucket.Repo, bucket.Commit, key, uploadID))
-	if err != nil {
-		return s2.NoSuchUploadError(r)
-	}
-
-	path := chunkPath(bucket.Repo, bucket.Commit, key, uploadID, partNumber)
-	return pc.DeleteFile(c.repo, "master", path)
 }

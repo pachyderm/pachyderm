@@ -8,6 +8,8 @@ import (
 )
 
 func (c *controller) ListBuckets(r *http.Request) (*s2.ListBucketsResult, error) {
+	c.logger.Debugf("ListBuckets")
+
 	vars := mux.Vars(r)
 	pc, err := c.clientFactory.Client(vars["authAccessKey"])
 	if err != nil {

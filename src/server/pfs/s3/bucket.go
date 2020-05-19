@@ -32,6 +32,8 @@ func newContents(fileInfo *pfsClient.FileInfo) (s2.Contents, error) {
 }
 
 func (c *controller) GetLocation(r *http.Request, bucketName string) (string, error) {
+	c.logger.Debugf("GetLocation: %+v", bucketName)
+
 	vars := mux.Vars(r)
 	pc, err := c.clientFactory.Client(vars["authAccessKey"])
 	if err != nil {
@@ -51,6 +53,8 @@ func (c *controller) GetLocation(r *http.Request, bucketName string) (string, er
 }
 
 func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, delimiter string, maxKeys int) (*s2.ListObjectsResult, error) {
+	c.logger.Debugf("ListObjects: bucketName=%+v, prefix=%+v, marker=%+v, delimiter=%+v, maxKeys=%+v", bucketName, prefix, marker, delimiter, maxKeys)
+
 	vars := mux.Vars(r)
 	pc, err := c.clientFactory.Client(vars["authAccessKey"])
 	if err != nil {
@@ -140,6 +144,8 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 }
 
 func (c *controller) CreateBucket(r *http.Request, bucketName string) error {
+	c.logger.Debugf("CreateBucket: %+v", bucketName)
+
 	if !c.driver.canModifyBuckets() {
 		return s2.NotImplementedError(r)
 	}
@@ -188,6 +194,8 @@ func (c *controller) CreateBucket(r *http.Request, bucketName string) error {
 }
 
 func (c *controller) DeleteBucket(r *http.Request, bucketName string) error {
+	c.logger.Debugf("DeleteBucket: %+v", bucketName)
+
 	if !c.driver.canModifyBuckets() {
 		return s2.NotImplementedError(r)
 	}
@@ -250,11 +258,14 @@ func (c *controller) DeleteBucket(r *http.Request, bucketName string) error {
 	return nil
 }
 
-func (c *controller) ListObjectVersions(r *http.Request, repo, prefix, keyMarker, versionIDMarker string, delimiter string, maxKeys int) (*s2.ListObjectVersionsResult, error) {
+func (c *controller) ListObjectVersions(r *http.Request, bucketName, prefix, keyMarker, versionIDMarker string, delimiter string, maxKeys int) (*s2.ListObjectVersionsResult, error) {
+	c.logger.Debugf("ListObjectVersions: bucketName=%+v, prefix=%+v, keyMarker=%+v, versionIDMarker=%+v, delimiter=%+v, maxKeys=%+v", bucketName, prefix, keyMarker, versionIDMarker, delimiter, maxKeys)
 	return nil, s2.NotImplementedError(r)
 }
 
 func (c *controller) GetBucketVersioning(r *http.Request, bucketName string) (string, error) {
+	c.logger.Debugf("GetBucketVersioning: %+v", bucketName)
+
 	vars := mux.Vars(r)
 	pc, err := c.clientFactory.Client(vars["authAccessKey"])
 	if err != nil {
@@ -276,6 +287,7 @@ func (c *controller) GetBucketVersioning(r *http.Request, bucketName string) (st
 	return s2.VersioningDisabled, nil
 }
 
-func (c *controller) SetBucketVersioning(r *http.Request, repo, status string) error {
+func (c *controller) SetBucketVersioning(r *http.Request, bucketName, status string) error {
+	c.logger.Debugf("SetBucketVersioning: bucketName=%+v, status=%+v", bucketName, status)
 	return s2.NotImplementedError(r)
 }
