@@ -8,7 +8,7 @@ import secrets
 import argparse
 import collections
 
-ETCD_IMAGE = "quay.io/coreos/etcd:v3.3.5"
+ETCD_IMAGE = "pachyderm/etcd:v3.3.5"
 IDE_USER_IMAGE = "pachyderm/ide-user:local"
 IDE_HUB_IMAGE = "pachyderm/ide-hub:local"
 
@@ -109,7 +109,7 @@ class GCPDriver(BaseDriver):
             "--type=kubernetes.io/dockerconfigjson")
 
     async def push_image(self, image):
-        image_url = self._image(image[8:] if image.startswith("quay.io/") else image)
+        image_url = self._image(image)
         await run("docker", "tag", image, image_url)
         await run("docker", "push", image_url)
 
