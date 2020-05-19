@@ -18,8 +18,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/worker/pipeline"
 )
 
-// Runs the given callback with the latest commit for the pipeline.  The given
-// context will be canceled if a newer commit is ready.
+// Repeatedly runs the given callback with the latest commit for the pipeline.
+// The given context will be canceled if a newer commit is ready, then this will
+// wait for the previous callback to return before calling the callback again
+// with the latest commit.
 func forLatestCommit(
 	pachClient *client.APIClient,
 	pipelineInfo *pps.PipelineInfo,
@@ -38,7 +40,7 @@ func forLatestCommit(
 		func(ci *pfs.CommitInfo) error {
 			if cancel != nil {
 				cancel()
-				if err := eg.Wait(); err != nil && err != context.Canceled {
+				if err := eg.Wait(); err != nil && !errors.Is(err, context.Canceled) {
 					return err
 				} else if common.IsDone(pachClient.Ctx()) {
 					return pachClient.Ctx().Err()

@@ -5880,17 +5880,59 @@ func TestGarbageCollection(t *testing.T) {
 	require.NoError(t, c.GetFile(pipeline, "master", "bar", 0, 0, &buf))
 	require.Equal(t, "barbar\n", buf.String())
 
-	// Check that no objects or tags have been removed, since we just ran GC
-	// without deleting anything.
+	diffSets := func(a []string, b []string) (added int, removed int) {
+		amap := make(map[string]struct{})
+		bmap := make(map[string]struct{})
+
+		for _, str := range a {
+			amap[str] = struct{}{}
+		}
+		for _, str := range b {
+			bmap[str] = struct{}{}
+		}
+
+		for k := range amap {
+			if _, ok := bmap[k]; !ok {
+				removed++
+			}
+		}
+		for k := range bmap {
+			if _, ok := amap[k]; !ok {
+				added++
+			}
+		}
+		return added, removed
+	}
+
+	diffObjects := func(a []*pfs.Object, b []*pfs.Object) (added int, removed int) {
+		aset := make([]string, 0, len(a))
+		bset := make([]string, 0, len(b))
+
+		for _, obj := range a {
+			aset = append(aset, obj.Hash)
+		}
+		for _, obj := range b {
+			bset = append(bset, obj.Hash)
+		}
+		return diffSets(aset, bset)
+	}
+
 	objectsAfter := getAllObjects(t, c)
 	tagsAfter := getAllTags(t, c)
+	specObjectCountAfter := getObjectCountForRepo(t, c, ppsconsts.SpecRepo)
 
-	require.Equal(t, len(tagsBefore), len(tagsAfter))
+	// Check that no tags have been removed, since we just ran GC without deleting
+	// anything. Temporary objects from the run of the pipeline may have been
+	// removed.
+	tagsAdded, tagsRemoved := diffSets(tagsBefore, tagsAfter)
+	require.Equal(t, 0, tagsAdded)
+	require.Equal(t, 0, tagsRemoved)
+
 	// Stopping the pipeline creates/updates the pipeline __spec__ repo, so we need
 	// to account for the number of objects we added there
-	specObjectCountAfter := getObjectCountForRepo(t, c, ppsconsts.SpecRepo)
-	expectedSpecObjectCountDelta := specObjectCountAfter - specObjectCountBefore
-	require.Equal(t, len(objectsBefore)+expectedSpecObjectCountDelta, len(objectsAfter))
+	objectsAdded, _ := diffObjects(objectsBefore, objectsAfter)
+	require.Equal(t, objectsAdded, specObjectCountAfter-specObjectCountBefore)
+
 	objectsBefore = objectsAfter
 	tagsBefore = tagsAfter
 

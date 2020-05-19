@@ -5,6 +5,7 @@ package driver
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -50,33 +51,13 @@ func (d *driver) WithActiveData(inputs []*common.Input, dir string, cb func() er
 	return cb()
 }
 
-// splitPath will split the given path into an array containing each directory
-// component followed by the filename
-func splitPath(path string) []string {
-	result := []string{}
-	for {
-		_, component := filepath.Split(path)
-		path = filepath.Dir(path)
-
-		if component == "" {
-			// reverse the result
-			for i, j := 0, len(result)-1; i < j; i, j = i+1, j-1 {
-				result[i], result[j] = result[j], result[i]
-			}
-			return result
-		}
-
-		result = append(result, component)
-	}
-}
-
 // When deactivating a data directory, there may be active symlinks from the
 // output dir to an input dir. The paths used in these symlinks may be
 // invalidated when we deactivate the output directory, so walk the output
 // directory and rewrite any such links.
 func (d *driver) rewriteSymlinks(scratchSubdir string) error {
 	outputDir := filepath.Join(scratchSubdir, "out")
-	inputDirFields := splitPath(d.InputDir())
+	inputDirFields := strings.Split(filepath.Clean(d.InputDir()), string(filepath.Separator))
 	return filepath.Walk(outputDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -98,7 +79,7 @@ func (d *driver) rewriteSymlinks(scratchSubdir string) error {
 		}
 
 		// Filter out any symlinks that aren't pointing to files in the active data
-		targetFields := splitPath(target)
+		targetFields := strings.Split(filepath.Clean(target), string(filepath.Separator))
 		for i, dirname := range inputDirFields {
 			if targetFields[i] != dirname {
 				return nil
