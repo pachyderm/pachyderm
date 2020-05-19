@@ -31,13 +31,6 @@ func newContents(fileInfo *pfsClient.FileInfo) (s2.Contents, error) {
 	}, nil
 }
 
-func newCommonPrefixes(dir string) s2.CommonPrefixes {
-	return s2.CommonPrefixes{
-		Prefix: fmt.Sprintf("%s/", dir),
-		Owner:  defaultUser,
-	}
-}
-
 func (c *controller) GetLocation(r *http.Request, bucketName string) (string, error) {
 	vars := mux.Vars(r)
 	pc, err := c.clientFactory.Client(vars["authAccessKey"])
@@ -78,8 +71,8 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 	}
 
 	result := s2.ListObjectsResult{
-		Contents:       []s2.Contents{},
-		CommonPrefixes: []s2.CommonPrefixes{},
+		Contents:       []*s2.Contents{},
+		CommonPrefixes: []*s2.CommonPrefixes{},
 	}
 
 	if !bucketCaps.readable {
@@ -132,9 +125,12 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 				return err
 			}
 
-			result.Contents = append(result.Contents, c)
+			result.Contents = append(result.Contents, &c)
 		} else {
-			result.CommonPrefixes = append(result.CommonPrefixes, newCommonPrefixes(fileInfo.File.Path))
+			result.CommonPrefixes = append(result.CommonPrefixes, &s2.CommonPrefixes{
+				Prefix: fmt.Sprintf("%s/", fileInfo.File.Path),
+				Owner:  defaultUser,
+			})
 		}
 
 		return nil

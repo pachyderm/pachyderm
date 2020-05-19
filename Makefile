@@ -281,6 +281,9 @@ test-s3gateway-conformance:
 	$(CONFORMANCE_SCRIPT_PATH) --s3tests-config=etc/testing/s3gateway/s3tests.conf --ignore-config=etc/testing/s3gateway/ignore.conf --runs-dir=etc/testing/s3gateway/runs
 
 test-s3gateway-integration:
+	$(INTEGRATION_SCRIPT_PATH) http://localhost:30600
+
+test-s3gateway-unit:
 	go test -v -count=1 ./src/server/pfs/s3 -timeout $(TIMEOUT)
 
 test-fuse:
@@ -483,6 +486,7 @@ goxc-build:
 	test-vault \
 	test-s3gateway-conformance \
 	test-s3gateway-integration \
+	test-s3gateway-unit \
 	test-fuse \
 	test-local \
 	test-auth \

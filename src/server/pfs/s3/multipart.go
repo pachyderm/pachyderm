@@ -105,7 +105,7 @@ func (c *controller) ListMultipart(r *http.Request, bucketName, keyMarker, uploa
 	}
 
 	result := s2.ListMultipartResult{
-		Uploads: []s2.Upload{},
+		Uploads: []*s2.Upload{},
 	}
 
 	globPattern := path.Join(bucket.Repo, bucket.Commit, "*", "*", ".keep")
@@ -131,7 +131,7 @@ func (c *controller) ListMultipart(r *http.Request, bucketName, keyMarker, uploa
 			return err
 		}
 
-		result.Uploads = append(result.Uploads, s2.Upload{
+		result.Uploads = append(result.Uploads, &s2.Upload{
 			Key:          key,
 			UploadID:     uploadID,
 			Initiator:    defaultUser,
@@ -207,7 +207,7 @@ func (c *controller) AbortMultipart(r *http.Request, bucketName, key, uploadID s
 	return nil
 }
 
-func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadID string, parts []s2.Part) (*s2.CompleteMultipartResult, error) {
+func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadID string, parts []*s2.Part) (*s2.CompleteMultipartResult, error) {
 	vars := mux.Vars(r)
 	pc, err := c.clientFactory.Client(vars["authAccessKey"])
 	if err != nil {
@@ -325,7 +325,7 @@ func (c *controller) ListMultipartChunks(r *http.Request, bucketName, key, uploa
 		Initiator:    &defaultUser,
 		Owner:        &defaultUser,
 		StorageClass: globalStorageClass,
-		Parts:        []s2.Part{},
+		Parts:        []*s2.Part{},
 	}
 
 	globPattern := path.Join(parentDirPath(bucket.Repo, bucket.Commit, key, uploadID), "*")
@@ -346,7 +346,7 @@ func (c *controller) ListMultipartChunks(r *http.Request, bucketName, key, uploa
 			return errutil.ErrBreak
 		}
 
-		result.Parts = append(result.Parts, s2.Part{
+		result.Parts = append(result.Parts, &s2.Part{
 			PartNumber: partNumber,
 			ETag:       fmt.Sprintf("%x", fileInfo.Hash),
 		})

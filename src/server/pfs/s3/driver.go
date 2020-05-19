@@ -32,7 +32,7 @@ type bucketCapabilities struct {
 // Driver implementations drive the underlying bucket-related functionality
 // for an s3gateway instance
 type Driver interface {
-	listBuckets(pc *client.APIClient, r *http.Request, buckets *[]s2.Bucket) error
+	listBuckets(pc *client.APIClient, r *http.Request, buckets *[]*s2.Bucket) error
 	bucket(pc *client.APIClient, r *http.Request, name string) (*Bucket, error)
 	bucketCapabilities(pc *client.APIClient, r *http.Request, bucket *Bucket) (bucketCapabilities, error)
 	canModifyBuckets() bool
@@ -47,7 +47,7 @@ func NewMasterDriver() *MasterDriver {
 	return &MasterDriver{}
 }
 
-func (d *MasterDriver) listBuckets(pc *client.APIClient, r *http.Request, buckets *[]s2.Bucket) error {
+func (d *MasterDriver) listBuckets(pc *client.APIClient, r *http.Request, buckets *[]*s2.Bucket) error {
 	repos, err := pc.ListRepo()
 	if err != nil {
 		return err
@@ -59,7 +59,7 @@ func (d *MasterDriver) listBuckets(pc *client.APIClient, r *http.Request, bucket
 			return err
 		}
 		for _, branch := range repo.Branches {
-			*buckets = append(*buckets, s2.Bucket{
+			*buckets = append(*buckets, &s2.Bucket{
 				Name:         fmt.Sprintf("%s.%s", branch.Name, branch.Repo.Name),
 				CreationDate: t,
 			})
@@ -130,7 +130,7 @@ func NewWorkerDriver(inputBuckets []*Bucket, outputBucket *Bucket) *WorkerDriver
 	}
 }
 
-func (d *WorkerDriver) listBuckets(pc *client.APIClient, r *http.Request, buckets *[]s2.Bucket) error {
+func (d *WorkerDriver) listBuckets(pc *client.APIClient, r *http.Request, buckets *[]*s2.Bucket) error {
 	repos, err := pc.ListRepo()
 	if err != nil {
 		return err
@@ -149,7 +149,7 @@ func (d *WorkerDriver) listBuckets(pc *client.APIClient, r *http.Request, bucket
 		if !ok {
 			return errors.Errorf("worker s3gateway configuration includes repo %q, which does not exist", bucket.Repo)
 		}
-		*buckets = append(*buckets, s2.Bucket{
+		*buckets = append(*buckets, &s2.Bucket{
 			Name:         bucket.Name,
 			CreationDate: timestamp,
 		})
