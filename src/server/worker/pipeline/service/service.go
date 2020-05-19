@@ -25,6 +25,7 @@ import (
 func forLatestCommit(
 	pachClient *client.APIClient,
 	pipelineInfo *pps.PipelineInfo,
+	logger logs.TaggedLogger,
 	cb func(context.Context, *pfs.CommitInfo) error,
 ) error {
 	// These are used to cancel the existing service and wait for it to finish
@@ -39,6 +40,7 @@ func forLatestCommit(
 		pfs.CommitState_READY,
 		func(ci *pfs.CommitInfo) error {
 			if cancel != nil {
+				logger.Logf("canceling previous service, new commit ready")
 				cancel()
 				if err := eg.Wait(); err != nil && !errors.Is(err, context.Canceled) {
 					return err
@@ -46,6 +48,8 @@ func forLatestCommit(
 					return pachClient.Ctx().Err()
 				}
 			}
+
+			logger.Logf("starting new service, commit: %s", ci.Commit.ID)
 
 			var ctx context.Context
 			ctx, cancel = context.WithCancel(pachClient.Ctx())
@@ -64,7 +68,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 
 	// The serviceCtx is only used for canceling user code (due to a new output
 	// commit being ready)
-	return forLatestCommit(pachClient, driver.PipelineInfo(), func(serviceCtx context.Context, commitInfo *pfs.CommitInfo) error {
+	return forLatestCommit(pachClient, driver.PipelineInfo(), logger, func(serviceCtx context.Context, commitInfo *pfs.CommitInfo) error {
 		// Create a job document matching the service's output commit
 		jobInput := ppsutil.JobInput(pipelineInfo, commitInfo)
 		job, err := pachClient.CreateJob(pipelineInfo.Pipeline.Name, commitInfo.Commit, nil)
@@ -92,7 +96,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 			eg, serviceCtx := errgroup.WithContext(serviceCtx)
 			eg.Go(func() error {
 				return driver.WithActiveData(data, dir, func() error {
-					return pipeline.RunUserCode(serviceCtx, driver, logger)
+					return pipeline.RunUserCode(driver.WithContext(serviceCtx), logger)
 				})
 			})
 			if pipelineInfo.Spout != nil {

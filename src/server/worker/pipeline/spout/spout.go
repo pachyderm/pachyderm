@@ -20,7 +20,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 	_, err := driver.WithData(nil, nil, logger, func(dir string, stats *pps.ProcessStats) error {
 		return driver.WithActiveData([]*common.Input{}, dir, func() error {
 			eg, serviceCtx := errgroup.WithContext(pachClient.Ctx())
-			eg.Go(func() error { return pipeline.RunUserCode(serviceCtx, driver, logger) })
+			eg.Go(func() error { return pipeline.RunUserCode(driver.WithContext(serviceCtx), logger) })
 			eg.Go(func() error { return pipeline.ReceiveSpout(serviceCtx, pachClient, pipelineInfo, logger) })
 			return eg.Wait()
 		})

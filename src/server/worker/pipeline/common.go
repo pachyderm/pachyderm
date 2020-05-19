@@ -24,11 +24,10 @@ import (
 // - used for services and spouts. Unlike how the transform worker runs user
 // code, this does not set environment variables or collect stats.
 func RunUserCode(
-	ctx context.Context,
 	driver driver.Driver,
 	logger logs.TaggedLogger,
 ) error {
-	return backoff.RetryUntilCancel(ctx, func() error {
+	return backoff.RetryUntilCancel(driver.PachClient().Ctx(), func() error {
 		// TODO: shouldn't this set up env like the worker does?
 		// TODO: what about the user error handling code?
 		return driver.RunUserCode(logger, nil, &pps.ProcessStats{}, nil)
