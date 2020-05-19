@@ -1,15 +1,8 @@
 #### VARIABLES
-# RUNARGS: arguments for run
-# DOCKER_OPTS: docker-compose options for run, test, launch-*
-# TESTPKGS: packages for test, default ./src/...
 # TESTFLAGS: flags for test
 # KUBECTLFLAGS: flags for kubectl
 # DOCKER_BUILD_FLAGS: flags for 'docker build'
 ####
-
-ifndef TESTPKGS
-	TESTPKGS = ./src/...
-endif
 
 RUN= # used by go tests to decide which tests to run (i.e. passed to -run)
 # Label it w the go version we bundle in:
