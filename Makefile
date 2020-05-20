@@ -281,7 +281,7 @@ test-s3gateway-integration:
 	  echo "Missing environment variable 'INTEGRATION_SCRIPT_PATH'"; \
 	  exit 1; \
 	fi
-	$(INTEGRATION_SCRIPT_PATH) http://localhost:30600
+	$(INTEGRATION_SCRIPT_PATH) http://localhost:30600 --access-key=none --secret-key=none
 
 test-s3gateway-unit:
 	go test -v -count=1 ./src/server/pfs/s3 -timeout $(TIMEOUT)
