@@ -405,6 +405,9 @@ message PipelineInfo {
   bool stopped = 38;
   string recent_error = 8;
 
+  int64 workers_requested = 49;
+  int64 workers_available = 50;
+
   // job_counts and last_job_state indicates the number of jobs within this
   // pipeline in a given state and the state of the most recently created job,
   // respectively. This is not stored in PFS along with the rest of this data
