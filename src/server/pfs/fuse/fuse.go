@@ -27,7 +27,6 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 			commits[repo] = branch
 		}
 	}
-	// branches := opts.getBranches()
 	rootDir, err := ioutil.TempDir("", "pfs")
 	if err != nil {
 		return errors.WithStack(err)
