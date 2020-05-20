@@ -10,7 +10,7 @@ import (
 // and configure a request-scoped client.
 type ClientFactory interface {
 	// Client creates a pachyderm client.
-	Client(authToken string) (*client.APIClient, error)
+	Client() (*client.APIClient, error)
 }
 
 // LocalClientFactory creates clients that connect to localhost on a
@@ -28,13 +28,6 @@ func NewLocalClientFactory(port uint16) *LocalClientFactory {
 }
 
 // Client creates a pachyderm client.
-func (f *LocalClientFactory) Client(authToken string) (*client.APIClient, error) {
-	pc, err := client.NewFromAddress(fmt.Sprintf("localhost:%d", f.port))
-	if err != nil {
-		return nil, err
-	}
-	if authToken != "" {
-		pc.SetAuthToken(authToken)
-	}
-	return pc, nil
+func (f *LocalClientFactory) Client() (*client.APIClient, error) {
+	return client.NewFromAddress(fmt.Sprintf("localhost:%d", f.port))
 }

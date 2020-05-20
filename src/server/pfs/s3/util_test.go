@@ -21,15 +21,8 @@ import (
 
 type TestClientFactory struct{}
 
-func (f *TestClientFactory) Client(authToken string) (*client.APIClient, error) {
-	c, err := client.NewForTest()
-	if err != nil {
-		return nil, err
-	}
-	if authToken != "" {
-		c.SetAuthToken(authToken)
-	}
-	return c, nil
+func (f *TestClientFactory) Client() (*client.APIClient, error) {
+	return client.NewForTest()
 }
 
 func getObject(t *testing.T, minioClient *minio.Client, bucket, file string) (string, error) {
