@@ -40,6 +40,7 @@ var (
 	failures = map[string]bool{
 		"InvalidImageName": true,
 		"ErrImagePull":     true,
+		"Unschedulable":    true,
 	}
 
 	zero     int32 // used to turn down RCs in scaleDownWorkersForPipeline
@@ -109,6 +110,7 @@ func (a *apiServer) master() {
 					}
 				}
 			case event := <-watchChan:
+				fmt.Printf("event: %+v\n", event)
 				// if we get an error we restart the watch, k8s watches seem to
 				// sometimes get stuck in a loop returning events with Type =
 				// "" we treat these as errors since otherwise we get an
@@ -143,6 +145,14 @@ func (a *apiServer) master() {
 				for _, status := range pod.Status.ContainerStatuses {
 					if status.Name == "user" && status.State.Waiting != nil && failures[status.State.Waiting.Reason] {
 						if err := a.setPipelineFailure(ctx, pod.ObjectMeta.Annotations["pipelineName"], status.State.Waiting.Message); err != nil {
+							return err
+						}
+					}
+				}
+				for _, condition := range pod.Status.Conditions {
+					if condition.Type == v1.PodScheduled &&
+						condition.Status != v1.ConditionTrue && failures[condition.Reason] {
+						if err := a.setPipelineFailure(ctx, pod.ObjectMeta.Annotations["pipelineName"], condition.Message); err != nil {
 							return err
 						}
 					}

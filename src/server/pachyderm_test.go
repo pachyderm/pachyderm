@@ -5073,6 +5073,70 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 }
 
+func TestPipelinePending(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	// create repos
+	dataRepo := tu.UniqueString("TestPipelinePending")
+	pipelineName := tu.UniqueString("TestPipelinePending_pipeline")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline("spacer"),
+			Transform: &pps.Transform{
+				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Input: &pps.Input{
+				Pfs: &pps.PFSInput{
+					Repo:   dataRepo,
+					Branch: "master",
+					Glob:   "/*",
+				},
+			},
+		})
+	require.NoError(t, err)
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &pps.Transform{
+				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			ResourceLimits: &pps.ResourceSpec{
+				Gpu: &pps.GPUSpec{
+					Type:   "nvidia.com/gpu",
+					Number: 1,
+				},
+			},
+			Input: &pps.Input{
+				Pfs: &pps.PFSInput{
+					Repo:   dataRepo,
+					Branch: "master",
+					Glob:   "/*",
+				},
+			},
+		})
+	require.NoError(t, err)
+
+	require.NoError(t, backoff.Retry(func() error {
+		pipelineInfo, err := c.InspectPipeline(pipelineName)
+		require.NoError(t, err)
+		require.Equal(t, pipelineInfo.State, pps.PipelineState_PIPELINE_FAILURE)
+		return nil
+	}, backoff.NewTestingBackOff()))
+}
+
 func TestPodOpts(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
