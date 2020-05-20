@@ -15,8 +15,9 @@ Pachyderm version control system. It combines together Jupyter,
 JupyterHub, and JupyterLab, which are familiar tools for many data
 scientists.
 
-JupyterLab is the newest Jupyter web interface that
-allows you to run your Jupyter notebooks in tabs and extend the
+JupyterLab is a web-based UI for Jupyter software projects.
+JupyterLab allows you to run your Jupyter notebooks and other
+software components in tabs and extend the
 tabs with custom applications. Our version of JupyterLab comes
 with `pachctl`, `python-pachyderm`, Pachyderm shell,
 Terminal, Python 3 Notebooks, and other useful components preconfigured.
@@ -32,10 +33,10 @@ The following diagram shows the Pachyderm and JupyterHub deployment.
 
 In the diagram above, you can see that Pachyderm and JupyterHub are
 deployed on the same Kubernetes cluster. You deploy Pachyderm by
-using the pachctl `deploy command` and JupyterHub by running
-our deployment script as described below. After deployment, you log in
-to JupyterHub with your Pachyderm user and interact with Pachyderm
-from within the Jupyter UI by using the Pachyderm Python client.
+using the `pachctl deploy` command as described below. After
+deployment, you log in to JupyterHub with your Pachyderm user
+and interact with Pachyderm from within the JupyterLab UI by
+using `pachctl` or the Pachyderm Python client.
 
 ## Prerequisites
 
@@ -45,8 +46,8 @@ Before deploying Pachyderm IDE, configure the following prerequisites:
 [Deploy Pachyderm](../../deploy-manage/deploy/)
 on a supported Kubernetes platforms:
 
-  - Google Kubernetes Engine (GKE) with Kubernetes v1.13
-  - Amazon Elastic Container Service (EKS) with Kubernetes v1.13
+  - Google Kubernetes Engine (GKE)
+  - Amazon Elastic Container Service (EKS)
   - Docker Desktop for Mac
 
     For more information about JupyterHub requirements for Kubernetes,
@@ -82,7 +83,7 @@ run the following command:
   kubectl --namespace=default get svc proxy-public
   ```
 
-* If you have deployed the Pachyderm IDE in a minikube, run:
+* If you have deployed the Pachyderm IDE in Minikube, run:
 
   ```bash
   minikube service proxy-public --url
