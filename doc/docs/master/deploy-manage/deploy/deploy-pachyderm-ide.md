@@ -15,19 +15,7 @@ Pachyderm version control system. It combines together Jupyter,
 JupyterHub, and JupyterLab, which are familiar tools for many data
 scientists.
 
-JupyterLab is a web-based UI for Jupyter software projects.
-JupyterLab allows you to run your Jupyter notebooks and other
-software components in tabs and extend the
-tabs with custom applications. Our version of JupyterLab comes
-with `pachctl`, `python-pachyderm`, Pachyderm shell,
-Terminal, Python 3 Notebooks, and other useful components preconfigured.
-From the terminal window, you can use `pachctl` commands and from 
-within the notebooks you can call 
-[Pachyderm Python client library](https://github.com/pachyderm/python-pachyderm)
-methods to manage Pachyderm directly from the
-JupyterLab UI.
-
-The following diagram shows the Pachyderm and JupyterHub deployment.
+The following diagram shows the Pachyderm IDE deployment.
 
 ![JupyterHub and Pachyderm Architecture Overview](../../assets/images/d_jupyterhub-pachyderm-arch.svg)
 
