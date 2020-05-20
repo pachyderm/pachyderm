@@ -720,7 +720,7 @@ func TestS3SkippedDatums(t *testing.T) {
 			require.NoError(t, err)
 			c.FinishCommit(background, bgc.ID)
 
-			//  Put new file in 'repo' to create a new datum and trigger a job
+			// Put new file in 'repo' to create a new datum and trigger a job
 			_, err = c.PutFile(repo, "master", iS, strings.NewReader(iS))
 			require.NoError(t, err)
 

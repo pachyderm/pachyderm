@@ -1,4 +1,4 @@
-package worker
+package stats
 
 import (
 	"fmt"
@@ -295,7 +295,7 @@ func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 
 	for {
 		_, err := commitIter.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		require.NoError(t, err)

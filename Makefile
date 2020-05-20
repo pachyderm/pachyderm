@@ -1,15 +1,8 @@
 #### VARIABLES
-# RUNARGS: arguments for run
-# DOCKER_OPTS: docker-compose options for run, test, launch-*
-# TESTPKGS: packages for test, default ./src/...
 # TESTFLAGS: flags for test
 # KUBECTLFLAGS: flags for kubectl
 # DOCKER_BUILD_FLAGS: flags for 'docker build'
 ####
-
-ifndef TESTPKGS
-	TESTPKGS = ./src/...
-endif
 
 RUN= # used by go tests to decide which tests to run (i.e. passed to -run)
 # Label it w the go version we bundle in:
@@ -24,8 +17,6 @@ CLUSTER_SIZE?=4
 
 MINIKUBE_MEM=8192 # MB of memory allocated to minikube
 MINIKUBE_CPU=4 # Number of CPUs allocated to minikube
-
-ETCD_IMAGE=quay.io/coreos/etcd:v3.3.5
 
 ifdef TRAVIS_BUILD_NUMBER
 	# Upper bound for travis test timeout
@@ -143,6 +134,7 @@ docker-tag: install
 	docker tag pachyderm/worker pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
 
 docker-push: docker-tag
+	docker push pachyderm/etcd:v3.3.5
 	docker push pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
 	docker push pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
 
