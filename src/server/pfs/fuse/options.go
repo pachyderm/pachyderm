@@ -19,7 +19,7 @@ type Options struct {
 	// Writes will be written back to the filesystem.
 	Write bool
 
-	// RepoOptions is a map from repo names to
+	// RepoOptions is a map from repo names to options associated with them.
 	RepoOptions map[string]*RepoOptions
 
 	// Unmount is a channel that will be closed when the filesystem has been
@@ -27,9 +27,12 @@ type Options struct {
 	Unmount chan struct{}
 }
 
+// RepoOptions are the options associated with a mounted repo.
 type RepoOptions struct {
+	// Branch is the branch of the repo to mount
 	Branch string
-	Write  bool
+	// Write indicates that the repo should be mounted for writing.
+	Write bool
 }
 
 func (o *Options) getFuse() *fs.Options {
