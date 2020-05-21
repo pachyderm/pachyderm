@@ -101,6 +101,8 @@ func (c *controller) PutObject(r *http.Request, bucketName, file string, reader 
 	if err != nil {
 		if errutil.IsWriteToOutputBranchError(err) {
 			return nil, writeToOutputBranchError(r)
+		} else if errutil.IsNotADirectoryError(err) {
+			return nil, invalidFileParentError(r)
 		}
 		return nil, err
 	}
