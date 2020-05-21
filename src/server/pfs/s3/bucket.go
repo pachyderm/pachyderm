@@ -254,6 +254,10 @@ func (c *controller) DeleteBucket(r *http.Request, bucketName string) error {
 }
 
 func (c *controller) ListObjectVersions(r *http.Request, bucketName, prefix, keyMarker, versionIDMarker string, delimiter string, maxKeys int) (*s2.ListObjectVersionsResult, error) {
+	// NOTE: because this endpoint isn't implemented, conformance tests will
+	// fail on teardown. It's nevertheless unimplemented because it's too
+	// expensive to pull off with PFS until this is implemented:
+	// https://github.com/pachyderm/pachyderm/issues/3896
 	c.logger.Debugf("ListObjectVersions: bucketName=%+v, prefix=%+v, keyMarker=%+v, versionIDMarker=%+v, delimiter=%+v, maxKeys=%+v", bucketName, prefix, keyMarker, versionIDMarker, delimiter, maxKeys)
 	return nil, s2.NotImplementedError(r)
 }
