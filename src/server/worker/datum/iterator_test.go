@@ -1,4 +1,4 @@
-package worker
+package datum
 
 import (
 	"fmt"
@@ -11,7 +11,7 @@ import (
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
-func TestDatumIterators(t *testing.T) {
+func TestIterators(t *testing.T) {
 	c := tu.GetPachClient(t)
 	defer require.NoError(t, c.DeleteAll())
 
@@ -32,7 +32,7 @@ func TestDatumIterators(t *testing.T) {
 	in0 := client.NewPFSInput(dataRepo, "!(**)")
 	in0.Pfs.Commit = commit.ID
 	t.Run("ZeroDatums", func(t *testing.T) {
-		pfs0, err := NewDatumIterator(c, in0)
+		pfs0, err := NewIterator(c, in0)
 		require.NoError(t, err)
 
 		validateDI(t, pfs0)
@@ -44,9 +44,9 @@ func TestDatumIterators(t *testing.T) {
 	in2 := client.NewPFSInput(dataRepo, "/foo*2")
 	in2.Pfs.Commit = commit.ID
 	t.Run("Basic", func(t *testing.T) {
-		pfs1, err := NewDatumIterator(c, in1)
+		pfs1, err := NewIterator(c, in1)
 		require.NoError(t, err)
-		pfs2, err := NewDatumIterator(c, in2)
+		pfs2, err := NewIterator(c, in2)
 		require.NoError(t, err)
 
 		// iterate through pfs0, pfs1 and pfs2 and verify they are as we expect
@@ -56,7 +56,7 @@ func TestDatumIterators(t *testing.T) {
 
 	in3 := client.NewUnionInput(in1, in2)
 	t.Run("Union", func(t *testing.T) {
-		union1, err := NewDatumIterator(c, in3)
+		union1, err := NewIterator(c, in3)
 		require.NoError(t, err)
 		validateDI(t, union1, "/foo11", "/foo21", "/foo31", "/foo41",
 			"/foo12", "/foo2", "/foo22", "/foo32", "/foo42")
@@ -64,7 +64,7 @@ func TestDatumIterators(t *testing.T) {
 
 	in4 := client.NewCrossInput(in1, in2)
 	t.Run("Cross", func(t *testing.T) {
-		cross1, err := NewDatumIterator(c, in4)
+		cross1, err := NewIterator(c, in4)
 		require.NoError(t, err)
 		validateDI(t, cross1,
 			"/foo11/foo12", "/foo21/foo12", "/foo31/foo12", "/foo41/foo12",
@@ -78,7 +78,7 @@ func TestDatumIterators(t *testing.T) {
 	// in5 is a nested cross
 	in5 := client.NewCrossInput(in3, in4)
 	t.Run("NestedCross", func(t *testing.T) {
-		cross2, err := NewDatumIterator(c, in5)
+		cross2, err := NewIterator(c, in5)
 		require.NoError(t, err)
 		validateDI(t, cross2,
 			"/foo11/foo11/foo12", "/foo21/foo11/foo12", "/foo31/foo11/foo12", "/foo41/foo11/foo12", "/foo12/foo11/foo12", "/foo2/foo11/foo12", "/foo22/foo11/foo12", "/foo32/foo11/foo12", "/foo42/foo11/foo12",
@@ -106,7 +106,7 @@ func TestDatumIterators(t *testing.T) {
 	// in6 is a cross with a zero datum input (should also be zero)
 	in6 := client.NewCrossInput(in3, in0, in2, in4)
 	t.Run("EmptyCross", func(t *testing.T) {
-		cross3, err := NewDatumIterator(c, in6)
+		cross3, err := NewIterator(c, in6)
 		require.NoError(t, err)
 		validateDI(t, cross3)
 	})
@@ -115,7 +115,7 @@ func TestDatumIterators(t *testing.T) {
 	// (should also be zero)
 	in7 := client.NewCrossInput(in6, in1)
 	t.Run("NestedEmptyCross", func(t *testing.T) {
-		cross4, err := NewDatumIterator(c, in7)
+		cross4, err := NewIterator(c, in7)
 		require.NoError(t, err)
 		validateDI(t, cross4)
 	})
@@ -127,7 +127,7 @@ func TestDatumIterators(t *testing.T) {
 	in9.Pfs.Commit = commit.ID
 	in10 := client.NewJoinInput(in8, in9)
 	t.Run("Join", func(t *testing.T) {
-		join1, err := NewDatumIterator(c, in10)
+		join1, err := NewIterator(c, in10)
 		require.NoError(t, err)
 		validateDI(t, join1,
 			"/foo11/foo11",
@@ -152,12 +152,12 @@ func TestDatumIterators(t *testing.T) {
 	in11 := client.NewS3PFSInput("", dataRepo, "")
 	in11.Pfs.Commit = commit.ID
 	t.Run("PlainS3", func(t *testing.T) {
-		s3itr, err := NewDatumIterator(c, in11)
+		s3itr, err := NewIterator(c, in11)
 		require.NoError(t, err)
 		validateDI(t, s3itr, "/")
 
 		// Check that every datum has an S3 input
-		s3itr, _ = NewDatumIterator(c, in11)
+		s3itr, _ = NewIterator(c, in11)
 		var checked, s3Count int
 		for s3itr.Next() {
 			checked++
@@ -174,7 +174,7 @@ func TestDatumIterators(t *testing.T) {
 	// in12 is a cross that contains an S3 input and two non-s3 inputs
 	in12 := client.NewCrossInput(in1, in2, in11)
 	t.Run("S3MixedCross", func(t *testing.T) {
-		s3CrossItr, err := NewDatumIterator(c, in12)
+		s3CrossItr, err := NewIterator(c, in12)
 		require.NoError(t, err)
 		validateDI(t, s3CrossItr,
 			"/foo11/foo12/", "/foo21/foo12/", "/foo31/foo12/", "/foo41/foo12/",
@@ -184,7 +184,7 @@ func TestDatumIterators(t *testing.T) {
 			"/foo11/foo42/", "/foo21/foo42/", "/foo31/foo42/", "/foo41/foo42/",
 		)
 
-		s3CrossItr, _ = NewDatumIterator(c, in12)
+		s3CrossItr, _ = NewIterator(c, in12)
 		var checked, s3Count int
 		for s3CrossItr.Next() {
 			checked++
@@ -201,11 +201,11 @@ func TestDatumIterators(t *testing.T) {
 	// in13 is a cross consisting of exclusively S3 inputs
 	in13 := client.NewCrossInput(in11, in11, in11)
 	t.Run("S3OnlyCrossUnionJoin", func(t *testing.T) {
-		s3CrossItr, err := NewDatumIterator(c, in13)
+		s3CrossItr, err := NewIterator(c, in13)
 		require.NoError(t, err)
 		validateDI(t, s3CrossItr, "///")
 
-		s3CrossItr, _ = NewDatumIterator(c, in13)
+		s3CrossItr, _ = NewIterator(c, in13)
 		var checked, s3Count int
 		for s3CrossItr.Next() {
 			checked++
@@ -220,14 +220,13 @@ func TestDatumIterators(t *testing.T) {
 	})
 }
 
-func benchmarkDatumIterators(j int, b *testing.B) {
+func benchmarkIterators(j int, b *testing.B) {
 	c := tu.GetPachClient(b)
 	defer require.NoError(b, c.DeleteAll())
-	require.NoError(b, activateEnterprise(c))
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		dataRepo := tu.UniqueString("TestDatumIteratorPFS_data")
+		dataRepo := tu.UniqueString("TestIteratorPFS_data")
 		require.NoError(b, c.CreateRepo(dataRepo))
 
 		// put files in structured in a way so that there are many ways to glob it
@@ -244,17 +243,17 @@ func benchmarkDatumIterators(j int, b *testing.B) {
 		// make one with zero datums for testing edge cases
 		in0 := client.NewPFSInput(dataRepo, "!(**)")
 		in0.Pfs.Commit = commit.ID
-		pfs0, err := NewDatumIterator(c, in0)
+		pfs0, err := NewIterator(c, in0)
 		require.NoError(b, err)
 
 		in1 := client.NewPFSInput(dataRepo, "/foo?1*")
 		in1.Pfs.Commit = commit.ID
-		pfs1, err := NewDatumIterator(c, in1)
+		pfs1, err := NewIterator(c, in1)
 		require.NoError(b, err)
 
 		in2 := client.NewPFSInput(dataRepo, "/foo*2")
 		in2.Pfs.Commit = commit.ID
-		pfs2, err := NewDatumIterator(c, in2)
+		pfs2, err := NewIterator(c, in2)
 		require.NoError(b, err)
 
 		validateDI(b, pfs0)
@@ -263,14 +262,14 @@ func benchmarkDatumIterators(j int, b *testing.B) {
 
 		b.Run("union", func(b *testing.B) {
 			in3 := client.NewUnionInput(in1, in2)
-			union1, err := NewDatumIterator(c, in3)
+			union1, err := NewIterator(c, in3)
 			require.NoError(b, err)
 			validateDI(b, union1)
 		})
 
 		b.Run("cross", func(b *testing.B) {
 			in4 := client.NewCrossInput(in1, in2)
-			cross1, err := NewDatumIterator(c, in4)
+			cross1, err := NewIterator(c, in4)
 			require.NoError(b, err)
 			validateDI(b, cross1)
 		})
@@ -280,7 +279,7 @@ func benchmarkDatumIterators(j int, b *testing.B) {
 			in8.Pfs.Commit = commit.ID
 			in9 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)*", "$2$1", false)
 			in9.Pfs.Commit = commit.ID
-			join1, err := newJoinDatumIterator(c, []*pps.Input{in8, in9})
+			join1, err := newJoinIterator(c, []*pps.Input{in8, in9})
 			require.NoError(b, err)
 			validateDI(b, join1)
 		})
@@ -290,17 +289,17 @@ func benchmarkDatumIterators(j int, b *testing.B) {
 			in4 := client.NewCrossInput(in1, in2)
 
 			in5 := client.NewCrossInput(in3, in4)
-			cross2, err := NewDatumIterator(c, in5)
+			cross2, err := NewIterator(c, in5)
 			require.NoError(b, err)
 
 			// cross with a zero datum input should also be zero
 			in6 := client.NewCrossInput(in3, in0, in2, in4)
-			cross3, err := NewDatumIterator(c, in6)
+			cross3, err := NewIterator(c, in6)
 			require.NoError(b, err)
 
 			// zero cross inside a cross should also be zero
 			in7 := client.NewCrossInput(in6, in1)
-			cross4, err := NewDatumIterator(c, in7)
+			cross4, err := NewIterator(c, in7)
 			require.NoError(b, err)
 
 			validateDI(b, cross2)
@@ -311,20 +310,20 @@ func benchmarkDatumIterators(j int, b *testing.B) {
 	}
 }
 
-func BenchmarkDI1(b *testing.B)  { benchmarkDatumIterators(1, b) }
-func BenchmarkDI2(b *testing.B)  { benchmarkDatumIterators(2, b) }
-func BenchmarkDI4(b *testing.B)  { benchmarkDatumIterators(4, b) }
-func BenchmarkDI8(b *testing.B)  { benchmarkDatumIterators(8, b) }
-func BenchmarkDI16(b *testing.B) { benchmarkDatumIterators(16, b) }
-func BenchmarkDI32(b *testing.B) { benchmarkDatumIterators(32, b) }
+func BenchmarkDI1(b *testing.B)  { benchmarkIterators(1, b) }
+func BenchmarkDI2(b *testing.B)  { benchmarkIterators(2, b) }
+func BenchmarkDI4(b *testing.B)  { benchmarkIterators(4, b) }
+func BenchmarkDI8(b *testing.B)  { benchmarkIterators(8, b) }
+func BenchmarkDI16(b *testing.B) { benchmarkIterators(16, b) }
+func BenchmarkDI32(b *testing.B) { benchmarkIterators(32, b) }
 
-func validateDI(t testing.TB, di DatumIterator, datums ...string) {
+func validateDI(t testing.TB, dit Iterator, datums ...string) {
 	t.Helper()
 	i := 0
-	clone := di
-	for di.Next() {
+	clone := dit
+	for dit.Next() {
 		key := ""
-		for _, file := range di.Datum() {
+		for _, file := range dit.Datum() {
 			key += file.FileInfo.File.Path
 		}
 
@@ -341,7 +340,7 @@ func validateDI(t testing.TB, di DatumIterator, datums ...string) {
 		i++
 	}
 	if len(datums) > 0 {
-		require.Equal(t, len(datums), di.Len())
+		require.Equal(t, len(datums), dit.Len())
 	}
-	require.Equal(t, i, di.Len())
+	require.Equal(t, i, dit.Len())
 }

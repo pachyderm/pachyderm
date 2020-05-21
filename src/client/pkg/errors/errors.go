@@ -14,6 +14,8 @@ var (
 	// as a value that satisfies error.
 	// Errorf also records the stack trace at the point it was called.
 	Errorf = errors.Errorf
+	// Unwrap returns the underlying wrapped error if it exists, or nil otherwise.
+	Unwrap = errors.Unwrap
 	// Is reports whether any error in err's chain matches target. An error is
 	// considered to match a target if it is equal to that target or if it
 	// implements a method `Is(error) bool` such that `Is(target)` returns true.
@@ -30,6 +32,20 @@ var (
 	// If err is nil, WithStack returns nil.
 	WithStack = errors.WithStack
 )
+
+// EnsureStack will add a stack onto the given error only if it does not already
+// have a stack. If err is nil, EnsureStack returns nil.
+func EnsureStack(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	if _, ok := err.(StackTracer); ok {
+		return err
+	}
+
+	return WithStack(err)
+}
 
 // Callers returns an errors.StackTrace for the place at which it's called.
 func Callers() errors.StackTrace {
