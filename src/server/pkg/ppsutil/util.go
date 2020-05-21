@@ -125,10 +125,11 @@ func GetPipelineInfo(pachClient *client.APIClient, ptr *pps.EtcdPipelineInfo) (*
 	result := &pps.PipelineInfo{}
 	buf := bytes.Buffer{}
 	if err := pachClient.GetFile(ppsconsts.SpecRepo, ptr.SpecCommit.ID, ppsconsts.SpecFile, 0, 0, &buf); err != nil {
-		return nil, errors.Wrapf(err, "could not read existing PipelineInfo from PFS")
-	}
-	if err := result.Unmarshal(buf.Bytes()); err != nil {
-		return nil, errors.Wrapf(err, "could not unmarshal PipelineInfo bytes from PFS")
+		log.Error(errors.Wrapf(err, "could not read existing PipelineInfo from PFS"))
+	} else {
+		if err := result.Unmarshal(buf.Bytes()); err != nil {
+			return nil, errors.Wrapf(err, "could not unmarshal PipelineInfo bytes from PFS")
+		}
 	}
 	result.State = ptr.State
 	result.Reason = ptr.Reason
