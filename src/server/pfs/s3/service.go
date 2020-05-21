@@ -3,15 +3,13 @@ package s3
 import (
 	"net/http"
 
-	"github.com/gorilla/mux"
 	"github.com/pachyderm/s2"
 )
 
 func (c *controller) ListBuckets(r *http.Request) (*s2.ListBucketsResult, error) {
 	c.logger.Debugf("ListBuckets")
 
-	vars := mux.Vars(r)
-	pc, err := c.clientFactory.Client(vars["authAccessKey"])
+	pc, err := c.requestClient(r)
 	if err != nil {
 		return nil, err
 	}

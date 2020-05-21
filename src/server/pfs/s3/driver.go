@@ -70,12 +70,16 @@ func (d *MasterDriver) listBuckets(pc *client.APIClient, r *http.Request, bucket
 }
 
 func (d *MasterDriver) bucket(pc *client.APIClient, r *http.Request, name string) (*Bucket, error) {
+	branch := "master"
+	var repo string
 	parts := strings.SplitN(name, ".", 2)
-	if len(parts) != 2 {
-		return nil, s2.InvalidBucketNameError(r)
+	if len(parts) == 2 {
+		branch = parts[0]
+		repo = parts[1]
+	} else {
+		repo = parts[0]
 	}
-	repo := parts[1]
-	branch := parts[0]
+
 	return &Bucket{
 		Repo:   repo,
 		Commit: branch,

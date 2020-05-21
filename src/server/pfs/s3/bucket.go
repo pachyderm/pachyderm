@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/gorilla/mux"
 	glob "github.com/pachyderm/ohmyglob"
 	pfsClient "github.com/pachyderm/pachyderm/src/client/pfs"
 	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
@@ -34,8 +33,7 @@ func newContents(fileInfo *pfsClient.FileInfo) (s2.Contents, error) {
 func (c *controller) GetLocation(r *http.Request, bucketName string) (string, error) {
 	c.logger.Debugf("GetLocation: %+v", bucketName)
 
-	vars := mux.Vars(r)
-	pc, err := c.clientFactory.Client(vars["authAccessKey"])
+	pc, err := c.requestClient(r)
 	if err != nil {
 		return "", err
 	}
@@ -55,8 +53,7 @@ func (c *controller) GetLocation(r *http.Request, bucketName string) (string, er
 func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, delimiter string, maxKeys int) (*s2.ListObjectsResult, error) {
 	c.logger.Debugf("ListObjects: bucketName=%+v, prefix=%+v, marker=%+v, delimiter=%+v, maxKeys=%+v", bucketName, prefix, marker, delimiter, maxKeys)
 
-	vars := mux.Vars(r)
-	pc, err := c.clientFactory.Client(vars["authAccessKey"])
+	pc, err := c.requestClient(r)
 	if err != nil {
 		return nil, err
 	}
@@ -150,8 +147,7 @@ func (c *controller) CreateBucket(r *http.Request, bucketName string) error {
 		return s2.NotImplementedError(r)
 	}
 
-	vars := mux.Vars(r)
-	pc, err := c.clientFactory.Client(vars["authAccessKey"])
+	pc, err := c.requestClient(r)
 	if err != nil {
 		return err
 	}
@@ -200,8 +196,7 @@ func (c *controller) DeleteBucket(r *http.Request, bucketName string) error {
 		return s2.NotImplementedError(r)
 	}
 
-	vars := mux.Vars(r)
-	pc, err := c.clientFactory.Client(vars["authAccessKey"])
+	pc, err := c.requestClient(r)
 	if err != nil {
 		return err
 	}
@@ -259,6 +254,10 @@ func (c *controller) DeleteBucket(r *http.Request, bucketName string) error {
 }
 
 func (c *controller) ListObjectVersions(r *http.Request, bucketName, prefix, keyMarker, versionIDMarker string, delimiter string, maxKeys int) (*s2.ListObjectVersionsResult, error) {
+	// NOTE: because this endpoint isn't implemented, conformance tests will
+	// fail on teardown. It's nevertheless unimplemented because it's too
+	// expensive to pull off with PFS until this is implemented:
+	// https://github.com/pachyderm/pachyderm/issues/3896
 	c.logger.Debugf("ListObjectVersions: bucketName=%+v, prefix=%+v, keyMarker=%+v, versionIDMarker=%+v, delimiter=%+v, maxKeys=%+v", bucketName, prefix, keyMarker, versionIDMarker, delimiter, maxKeys)
 	return nil, s2.NotImplementedError(r)
 }
@@ -266,8 +265,7 @@ func (c *controller) ListObjectVersions(r *http.Request, bucketName, prefix, key
 func (c *controller) GetBucketVersioning(r *http.Request, bucketName string) (string, error) {
 	c.logger.Debugf("GetBucketVersioning: %+v", bucketName)
 
-	vars := mux.Vars(r)
-	pc, err := c.clientFactory.Client(vars["authAccessKey"])
+	pc, err := c.requestClient(r)
 	if err != nil {
 		return "", err
 	}

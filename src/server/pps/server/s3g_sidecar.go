@@ -467,8 +467,6 @@ func (h *handleJobsCtx) processJobEvent(jobCtx context.Context, t watch.EventTyp
 
 // Client implements the S3 gateway ClientFactory interface, so that we can
 // initialize new instances of S3 gateway by passing 's'
-func (s *sidecarS3G) Client(authToken string) (*client.APIClient, error) {
-	newClient := s.apiServer.env.GetPachClient(s.pachClient.Ctx()) // clones s.pachClient
-	newClient.SetAuthToken(authToken)
-	return newClient, nil
+func (s *sidecarS3G) Client() (*client.APIClient, error) {
+	return s.apiServer.env.GetPachClient(s.pachClient.Ctx()), nil // clones s.pachClient
 }

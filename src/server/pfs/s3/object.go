@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/gorilla/mux"
 	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/s2"
@@ -16,8 +15,7 @@ import (
 func (c *controller) GetObject(r *http.Request, bucketName, file, version string) (*s2.GetObjectResult, error) {
 	c.logger.Debugf("GetObject: bucketName=%+v, file=%+v, version=%+v", bucketName, file, version)
 
-	vars := mux.Vars(r)
-	pc, err := c.clientFactory.Client(vars["authAccessKey"])
+	pc, err := c.requestClient(r)
 	if err != nil {
 		return nil, err
 	}
@@ -78,8 +76,7 @@ func (c *controller) GetObject(r *http.Request, bucketName, file, version string
 func (c *controller) PutObject(r *http.Request, bucketName, file string, reader io.Reader) (*s2.PutObjectResult, error) {
 	c.logger.Debugf("PutObject: bucketName=%+v, file=%+v", bucketName, file)
 
-	vars := mux.Vars(r)
-	pc, err := c.clientFactory.Client(vars["authAccessKey"])
+	pc, err := c.requestClient(r)
 	if err != nil {
 		return nil, err
 	}
@@ -104,6 +101,8 @@ func (c *controller) PutObject(r *http.Request, bucketName, file string, reader 
 	if err != nil {
 		if errutil.IsWriteToOutputBranchError(err) {
 			return nil, writeToOutputBranchError(r)
+		} else if errutil.IsNotADirectoryError(err) {
+			return nil, invalidFileParentError(r)
 		}
 		return nil, err
 	}
@@ -125,8 +124,7 @@ func (c *controller) PutObject(r *http.Request, bucketName, file string, reader 
 func (c *controller) DeleteObject(r *http.Request, bucketName, file, version string) (*s2.DeleteObjectResult, error) {
 	c.logger.Debugf("DeleteObject: bucketName=%+v, file=%+v, version=%+v", bucketName, file, version)
 
-	vars := mux.Vars(r)
-	pc, err := c.clientFactory.Client(vars["authAccessKey"])
+	pc, err := c.requestClient(r)
 	if err != nil {
 		return nil, err
 	}

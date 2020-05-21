@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/gorilla/mux"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsClient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
@@ -91,8 +90,7 @@ func (c *controller) ensureRepo(pc *client.APIClient) error {
 func (c *controller) ListMultipart(r *http.Request, bucketName, keyMarker, uploadIDMarker string, maxUploads int) (*s2.ListMultipartResult, error) {
 	c.logger.Debugf("ListMultipart: bucketName=%+v, keyMarker=%+v, uploadIDMarker=%+v, maxUploads=%+v", bucketName, keyMarker, uploadIDMarker, maxUploads)
 
-	vars := mux.Vars(r)
-	pc, err := c.clientFactory.Client(vars["authAccessKey"])
+	pc, err := c.requestClient(r)
 	if err != nil {
 		return nil, err
 	}
@@ -150,8 +148,7 @@ func (c *controller) ListMultipart(r *http.Request, bucketName, keyMarker, uploa
 func (c *controller) InitMultipart(r *http.Request, bucketName, key string) (string, error) {
 	c.logger.Debugf("InitMultipart: bucketName=%+v, key=%+v", bucketName, key)
 
-	vars := mux.Vars(r)
-	pc, err := c.clientFactory.Client(vars["authAccessKey"])
+	pc, err := c.requestClient(r)
 	if err != nil {
 		return "", err
 	}
@@ -185,8 +182,7 @@ func (c *controller) InitMultipart(r *http.Request, bucketName, key string) (str
 func (c *controller) AbortMultipart(r *http.Request, bucketName, key, uploadID string) error {
 	c.logger.Debugf("AbortMultipart: bucketName=%+v, key=%+v, uploadID=%+v", bucketName, key, uploadID)
 
-	vars := mux.Vars(r)
-	pc, err := c.clientFactory.Client(vars["authAccessKey"])
+	pc, err := c.requestClient(r)
 	if err != nil {
 		return err
 	}
@@ -216,8 +212,7 @@ func (c *controller) AbortMultipart(r *http.Request, bucketName, key, uploadID s
 func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadID string, parts []*s2.Part) (*s2.CompleteMultipartResult, error) {
 	c.logger.Debugf("CompleteMultipart: bucketName=%+v, key=%+v, uploadID=%+v, parts=%+v", bucketName, key, uploadID, parts)
 
-	vars := mux.Vars(r)
-	pc, err := c.clientFactory.Client(vars["authAccessKey"])
+	pc, err := c.requestClient(r)
 	if err != nil {
 		return nil, err
 	}
@@ -266,7 +261,7 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 		fileInfo, err := pc.InspectFile(c.repo, "master", srcPath)
 		if err != nil {
 			if pfsServer.IsFileNotFoundErr(err) {
-				return nil, s2.NoSuchUploadError(r)
+				return nil, s2.InvalidPartError(r)
 			}
 			return nil, err
 		}
@@ -316,8 +311,7 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 func (c *controller) ListMultipartChunks(r *http.Request, bucketName, key, uploadID string, partNumberMarker, maxParts int) (*s2.ListMultipartChunksResult, error) {
 	c.logger.Debugf("ListMultipartChunks: bucketName=%+v, key=%+v, uploadID=%+v, partNumberMarker=%+v, maxParts=%+v", bucketName, key, uploadID, partNumberMarker, maxParts)
 
-	vars := mux.Vars(r)
-	pc, err := c.clientFactory.Client(vars["authAccessKey"])
+	pc, err := c.requestClient(r)
 	if err != nil {
 		return nil, err
 	}
@@ -370,8 +364,7 @@ func (c *controller) ListMultipartChunks(r *http.Request, bucketName, key, uploa
 func (c *controller) UploadMultipartChunk(r *http.Request, bucketName, key, uploadID string, partNumber int, reader io.Reader) (string, error) {
 	c.logger.Debugf("UploadMultipartChunk: bucketName=%+v, key=%+v, uploadID=%+v partNumber=%+v", bucketName, key, uploadID, partNumber)
 
-	vars := mux.Vars(r)
-	pc, err := c.clientFactory.Client(vars["authAccessKey"])
+	pc, err := c.requestClient(r)
 	if err != nil {
 		return "", err
 	}
