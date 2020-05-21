@@ -31,7 +31,7 @@ using `pachctl` or the Pachyderm Python client.
 Before deploying Pachyderm IDE, configure the following prerequisites:
 
 * Deploy Pachyderm 1.11.0 or later as described in
-[Deploy Pachyderm](../../deploy-manage/deploy/)
+[Deploy Pachyderm](../)
 on a supported Kubernetes platforms:
 
   - Google Kubernetes Engine (GKE)
@@ -42,9 +42,9 @@ on a supported Kubernetes platforms:
     see [Zero to JupyterHub with Kubernetes](https://zero-to-jupyterhub.readthedocs.io/en/latest/).
 
 * Register your Enterprise token as described in
-[Activate Pachyderm Enterprise Edition](../..//enterprise/deployment/#activate-pachyderm-enterprise-edition).
+[Activate Pachyderm Enterprise Edition](../../../enterprise/deployment/#activate-pachyderm-enterprise-edition).
 
-* Enable [Pachyderm Access Controls](../../enterprise/auth/auth/).
+* Enable [Pachyderm Access Controls](../../../enterprise/auth/auth/).
 
 ## Deploy Pachyderm IDE
 
@@ -85,8 +85,6 @@ you can access your cluster on port 80. For more information, see
 the documentation for your cloud platform in
 [Zero to JupyterHub with Kubernetes](https://zero-to-jupyterhub.readthedocs.io/en/latest/create-k8s-cluster.html).
 
-
-<--- TBA Manage JL instances through the JL UI-->
 
 !!! note "See Also:"
     - [Use Pachyderm IDE](../../how-tos/use-pachyderm-ide/index.md)
