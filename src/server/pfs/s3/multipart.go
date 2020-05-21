@@ -261,7 +261,7 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 		fileInfo, err := pc.InspectFile(c.repo, "master", srcPath)
 		if err != nil {
 			if pfsServer.IsFileNotFoundErr(err) {
-				return nil, s2.NoSuchUploadError(r)
+				return nil, s2.InvalidPartError(r)
 			}
 			return nil, err
 		}
