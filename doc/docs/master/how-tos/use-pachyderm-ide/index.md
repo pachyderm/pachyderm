@@ -25,7 +25,7 @@ as they might be confusing for first-time users:
 * JupyterHub is a popular data science platform that enables users
 to quickly spin out multiple single-tenant Jupyter Notebook server instances.
 
-* Jupyter Notebook is a tool for conducting experiments with data and
+* Jupyter Notebooks provide a means for conducting experiments with data and
 code written in Python which is familiar to many data scientists. Because of
 the built-in rich-text support, visualizations, the easy-to-use web interface,
 many enterprise users prefer Jupyter Notebooks to the classic Terminal prompt.
