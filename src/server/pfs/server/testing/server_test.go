@@ -6222,6 +6222,10 @@ func TestFuzzProvenance(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// TestPutFileLeak is a regression test for when PutFile may result in a leaked
+// goroutine in pachd that would use up a limiter and never release it, in the
+// situation where the client starts uploading a file but causes a short-circuit
+// by making a protocol error in the PutFile request.
 func TestPutFileLeak(t *testing.T) {
 	t.Parallel()
 
@@ -6232,7 +6236,6 @@ func TestPutFileLeak(t *testing.T) {
 		require.NoError(t, env.PachClient.CreateRepo("repo"))
 
 		for i := 0; i < 20; i++ {
-			fmt.Printf("Iteration %d\n", i)
 			pfc, err := env.PachClient.PfsAPIClient.PutFile(env.Context)
 			if err != nil {
 				return err
