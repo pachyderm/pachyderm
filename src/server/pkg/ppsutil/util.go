@@ -176,13 +176,22 @@ func GetPipelineInfo(pachClient *client.APIClient, ptr *pps.EtcdPipelineInfo) (*
 
 // FailPipeline updates the pipeline's state to failed and sets the failure reason
 func FailPipeline(ctx context.Context, etcdClient *etcd.Client, pipelinesCollection col.Collection, pipelineName string, reason string) error {
+	return setPipelineState(ctx, etcdClient, pipelinesCollection, pipelineName, reason, pps.PipelineState_PIPELINE_FAILURE)
+}
+
+// RestartingPipeline updates the pipeline's state to restarting and sets the reason
+func RestartingPipeline(ctx context.Context, etcdClient *etcd.Client, pipelinesCollection col.Collection, pipelineName string, reason string) error {
+	return setPipelineState(ctx, etcdClient, pipelinesCollection, pipelineName, reason, pps.PipelineState_PIPELINE_RESTARTING)
+}
+
+func setPipelineState(ctx context.Context, etcdClient *etcd.Client, pipelinesCollection col.Collection, pipelineName string, reason string, state pps.PipelineState) error {
 	_, err := col.NewSTM(ctx, etcdClient, func(stm col.STM) error {
 		pipelines := pipelinesCollection.ReadWrite(stm)
 		pipelinePtr := new(pps.EtcdPipelineInfo)
 		if err := pipelines.Get(pipelineName, pipelinePtr); err != nil {
 			return err
 		}
-		pipelinePtr.State = pps.PipelineState_PIPELINE_FAILURE
+		pipelinePtr.State = state
 		pipelinePtr.Reason = reason
 		pipelines.Put(pipelineName, pipelinePtr)
 		return nil

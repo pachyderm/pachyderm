@@ -110,7 +110,6 @@ func (a *apiServer) master() {
 					}
 				}
 			case event := <-watchChan:
-				fmt.Printf("event: %+v\n", event)
 				// if we get an error we restart the watch, k8s watches seem to
 				// sometimes get stuck in a loop returning events with Type =
 				// "" we treat these as errors since otherwise we get an

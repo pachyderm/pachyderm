@@ -194,8 +194,9 @@ Description: {{.Description}}{{end}}{{if .FullTimestamps }}
 Created: {{.CreatedAt}}{{ else }}
 Created: {{prettyAgo .CreatedAt}} {{end}}
 State: {{pipelineState .State}}
-Stopped: {{ .Stopped }}
 Reason: {{.Reason}}
+Workers Available: {{.WorkersAvailable}}/{{.WorkersRequested}}
+Stopped: {{ .Stopped }}
 Parallelism Spec: {{.ParallelismSpec}}
 {{ if .ResourceRequests }}ResourceRequests:
   CPU: {{ .ResourceRequests.Cpu }}

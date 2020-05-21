@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 )
 
@@ -35,7 +36,8 @@ func Status(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client,
 	for _, workerClient := range workerClients {
 		status, err := workerClient.Status(ctx, &types.Empty{})
 		if err != nil {
-			return nil, err
+			log.Warnf("error getting worker status: %v", err)
+			continue
 		}
 		result = append(result, status)
 	}
