@@ -406,7 +406,7 @@ func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream 
 func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {
 	s := newPutFileServer(putFileServer)
 	r, err := s.Peek()
-	if err != nil && errors.Is(err, io.EOF) {
+	if err != nil && !errors.Is(err, io.EOF) {
 		return err
 	}
 	var request pfs.PutFileRequest
