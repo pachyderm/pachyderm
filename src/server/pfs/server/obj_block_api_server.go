@@ -1180,7 +1180,6 @@ func (s *objBlockAPIServer) objectInfoGetter(ctx groupcache.Context, key string,
 			return err
 		}
 	}
-	fmt.Println("updated status:", updated)
 	objectIndex, _ := s.getObjectIndex(prefix)
 	// Check if the index contains the object we're looking for, if so read it
 	// into the cache and return
