@@ -60,9 +60,9 @@ might take some time.
 
 ## Log in to Pachyderm IDE
 
-After you deploy the Pachyderm IDE, you can access the JupyterLab UI
-in a web browser through the Pachyderm cluster hostname on port
-`80`. To get the IP address of the Pachyderm IDE,
+After you deploy the Pachyderm IDE, you can access the UI
+in a web browser through its service IP on port
+`80`. To get the service IP address of the Pachyderm IDE,
 run the following command:
 
 * If you have deployed the Pachyderm IDE in a cloud platform, run:
