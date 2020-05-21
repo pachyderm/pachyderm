@@ -53,19 +53,25 @@ func TestPutFileSplit(t *testing.T) {
 		EOF
 
 		pachctl get file "{{.repo}}@master:/data/*0" \
-		  | match "name,job" \
-			| match "alice,accountant" \
-			| match -v "bob,baker"
+		  | match "name,job"
+		pachctl get file "{{.repo}}@master:/data/*0" \
+		  | match "alice,accountant"
+		pachctl get file "{{.repo}}@master:/data/*0" \
+		  | match -v "bob,baker"
 
 		pachctl get file "{{.repo}}@master:/data/*1" \
-		  | match "name,job" \
-			| match -v "alice,accountant" \
-			| match "bob,baker"
+		  | match "name,job"
+		pachctl get file "{{.repo}}@master:/data/*1" \
+		  | match "bob,baker"
+		pachctl get file "{{.repo}}@master:/data/*1" \
+		  | match -v "alice,accountant"
 
 		pachctl get file "{{.repo}}@master:/data/*" \
-		  | match "name,job" \
-			| match "alice,accountant" \
-			| match "bob,baker"
+		  | match "name,job"
+		pachctl get file "{{.repo}}@master:/data/*" \
+		  | match "alice,accountant"
+		pachctl get file "{{.repo}}@master:/data/*" \
+		  | match "bob,baker"
 		`,
 		"repo", tu.UniqueString("TestPutFileSplit-repo"),
 	).Run())
