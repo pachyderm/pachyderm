@@ -4490,6 +4490,16 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 	var rawCommitID string
 	var commitID string
 
+	defer func() {
+		if pw != nil {
+			if err != nil {
+				pw.CloseWithError(err)
+			} else {
+				pw.CloseWithError(errors.New("foobar"))
+			}
+		}
+	}()
+
 	for req, err = server.Recv(); err == nil; req, err = server.Recv() {
 		req := req
 		if req.File != nil {
@@ -4655,6 +4665,7 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 		// This may pass io.EOF to CloseWithError but that's equivalent to
 		// simply calling Close()
 		pw.CloseWithError(err) // can't error
+		pw = nil
 	}
 	if err != io.EOF {
 		return false, "", "", err
