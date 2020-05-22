@@ -60,7 +60,7 @@ func ReceiveSpout(
 	pachClient *client.APIClient,
 	pipelineInfo *pps.PipelineInfo,
 	logger logs.TaggedLogger,
-) error {
+) (retErr1 error) {
 	return backoff.RetryUntilCancel(ctx, func() error {
 		repo := pipelineInfo.Pipeline.Name
 		// open a read connection to the /pfs/out named pipe

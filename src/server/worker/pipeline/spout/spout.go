@@ -21,11 +21,11 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 	// thus spoutSpawner is called, it might hang if the commit never gets closed. So to avoid this, we
 	// delete open commits that we see here.
 	// We probably only need to check the first commit, but doing 10 to be safe
-	pachClient.ListCommitF(a.pipelineInfo.Pipeline.Name, "", "", 10, false, func(c *pfs.CommitInfo) error {
+	pachClient.ListCommitF(pipelineInfo.Pipeline.Name, "", "", 10, false, func(c *pfs.CommitInfo) error {
 		if c.Finished != nil {
 			return nil
 		}
-		return pachClient.DeleteCommit(a.pipelineInfo.Pipeline.Name, c.Commit.ID)
+		return pachClient.DeleteCommit(pipelineInfo.Pipeline.Name, c.Commit.ID)
 	})
 
 	// TODO: do something with stats?
