@@ -12,7 +12,7 @@ with the specified authentication protocols:
 
 - Okta™ with Security Assertion Markup Language(SAML)
 - Keycloak with OpenID Connect (OIDC)
-- Google™ Identity Platform with OIDC
+<!--- Google™ Identity Platform with OIDC -->
 - GitHub™ OAuth
 
 Other configurations might work as well, but the list
