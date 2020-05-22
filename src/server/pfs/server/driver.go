@@ -4503,7 +4503,7 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 		}
 
 		err := eg.Wait()
-		if retErr == nil {
+		if retErr == nil && !errors.Is(err, io.EOF) {
 			retErr = err
 		}
 	}()
@@ -4670,8 +4670,8 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 			return false, "", "", err
 		}
 	}
-	if err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		return false, "", "", err
 	}
-	return oneOff, repo, branch, err
+	return oneOff, repo, branch, nil
 }
