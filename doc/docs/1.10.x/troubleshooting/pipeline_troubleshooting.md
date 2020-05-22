@@ -93,28 +93,36 @@ Triaging system failures varies as widely as the issues do themselves. Here are 
 
 ### All your pods or jobs get evicted
 
-#### Symptom
+ #### Symptom
 
-Running:
+ After creating a pipeline, a job starts but never progresses through
+ any datums.
 
-```
-kubectl get all
-```
+ #### Recourse
 
-shows a bunch of pods that are marked `Evicted`. If you `kubectl describe ...` one of those evicted pods, you see an error saying that it was evicted due to disk pressure.
+ Run `kubectl get pods` and see if the command returns pods that
+ are marked `Evicted`. If you run `kubectl describe <pod-name>` with
+ one of those evicted pods, you might get an error saying that it was
+ evicted due to disk pressure. This means that your nodes are not
+ configured with a big enough root volume size.
+ You need to make sure that each node's root volume is big enough to
+ store the biggest datum you expect to process anywhere on your DAG plus
+ the size of the output files that will be written for that datum.
 
+ Let's say you have a repo with 100 folders. You have a single pipeline
+ with this repo as an input, and the glob pattern is `/*`. That means
+ each folder will be processed as a single datum. If the biggest folder
+ is 50GB and your pipeline's output is about three times as big, then your
+ root volume size needs to be bigger than:
 
-#### Recourse
+ ```
+ 50 GB (to accommodate the input) + 50 GB x 3 (to accommodate the output) = 200GB
+ ```
 
-Your nodes are not configured with a big enough root volume size.  You need to make sure that each node's root volume is big enough to store the biggest datum you expect to process anywhere on your DAG plus the size of the output files that will be written for that datum.
-
-Let's say you have a repo with 100 folders. You have a single pipeline with this repo as an input, and the glob pattern is `/*`. That means each folder will be processed as a single datum. If the biggest folder is 50GB and your pipeline's output is about 3 times as big, then your root volume size needs to be bigger than:
-
-```
-50 GB (to accommodate the input) + 50 GB x 3 (to accommodate the output) = 200GB
-```
-
-In this case we would recommend 250GB to be safe. If your root volume size is less than 50GB (many defaults are 20GB), this pipeline will fail when downloading the input. The pod may get evicted and rescheduled to a different node, where the same thing will happen.
+ In this case we would recommend 250GB to be safe. If your root
+ volume size is less than 50GB (many defaults are 20GB), this pipeline
+ will fail when downloading the input. The pod may get evicted and
+ rescheduled to a different node, where the same thing will happen.
 
 ### Pipeline exists but never runs
 
@@ -205,3 +213,18 @@ $ kubectl edit statefulset edtc
 In the `spec/template/containers/command` path, set the value for
 `max-txn-ops` to a value appropriate for your cluster, in line
 with the advice in the error above: *larger than the greater of XXXXXX or YYYYYYY*.
+
+### Pipeline is stuck in `starting`
+
+#### Symptom
+
+After starting a pipeline, running the `pachctl list pipeline` command returns
+the `starting` status for a very long time. The `kubectl get pods` command
+returns the pipeline pods in a pending state indefinitely.
+
+#### Recourse
+
+Run the `kubectl describe pod <pipeline-pod>` and analyze the
+information in the output of that command. Often, this type of error
+is associated with insufficient amount of CPU, memory, and GPU resources
+in your cluster.

@@ -21,9 +21,9 @@ func main() {
 	}
 
 	for _, d := range f.Decls {
-		if varDecl, ok := d.(*ast.GenDecl); ok {
-			if varDecl.Tok == token.VAR {
-				for _, rawSpec := range varDecl.Specs {
+		if decl, ok := d.(*ast.GenDecl); ok {
+			if decl.Tok == token.CONST || decl.Tok == token.VAR {
+				for _, rawSpec := range decl.Specs {
 					if spec, ok := rawSpec.(*ast.ValueSpec); ok {
 						if len(spec.Names) == 1 && spec.Names[0].Name == "defaultDashImage" {
 							rawVal := spec.Values[0]

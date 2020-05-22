@@ -306,7 +306,7 @@ func convert1_7HashTreeNode(old *hashtree1_7.HashTreeProto, t hashtree.HashTree,
 	case node.FileNode != nil:
 		if err := t.PutFile(
 			path,
-			convert1_9Objects(convert1_8Objects(convert1_7Objects(node.FileNode.Objects))),
+			convert1_10Objects(convert1_9Objects(convert1_8Objects(convert1_7Objects(node.FileNode.Objects)))),
 			node.SubtreeSize,
 		); err != nil {
 			return errors.Wrapf(err, "could not convert file %q", path)
