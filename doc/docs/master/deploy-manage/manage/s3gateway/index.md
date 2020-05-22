@@ -27,8 +27,6 @@ to issue the relevant PFS calls.
 
 If auth is disabled, you can still pass arbitrary credentials, but the
 secret key must match the access key.
-You can not pass an authorization header, or if you do, any
-values for the access and secret keys are ignored.
 
 ## Buckets
 
