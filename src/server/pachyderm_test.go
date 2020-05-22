@@ -1525,7 +1525,7 @@ func TestEmptyFiles(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
-					fmt.Sprintf("if [ -s /pfs/%s/file]; then exit 1; fi", dataRepo),
+					fmt.Sprintf("if [ -s /pfs/%s/file ]; then exit 1; fi", dataRepo),
 					fmt.Sprintf("ln -s /pfs/%s/file /pfs/out/file", dataRepo),
 				},
 			},
@@ -3295,12 +3295,16 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if len(jobInfos) != 1 {
+		if len(jobInfos) != 2 {
 			return errors.Errorf("wrong number of jobs")
 		}
 
-		state := jobInfos[0].State
+		state := jobInfos[1].State
+		if state != pps.JobState_JOB_RUNNING && state != pps.JobState_JOB_MERGING {
+			return fmt.Errorf("wrong state: %v for %s", state, jobInfos[1].Job.ID)
+		}
 
+		state = jobInfos[0].State
 		if state != pps.JobState_JOB_RUNNING && state != pps.JobState_JOB_MERGING {
 			return errors.Errorf("wrong state: %v for %s", state, jobInfos[0].Job.ID)
 		}
@@ -3325,16 +3329,12 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 	require.NoError(t, err)
 	collectCommitInfos(t, iter)
 
-	// Currently, commits finish shortly before their respecive JobInfo documents
-	// are updated (the pipeline master receives the commit update and then
-	// updates the JobInfo document). Wait briefly for this to happen
-	time.Sleep(10 * time.Second)
-
 	jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(jobInfos))
+	require.Equal(t, 3, len(jobInfos))
 	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jobInfos[0].State.String())
 	require.Equal(t, pps.JobState_JOB_KILLED.String(), jobInfos[1].State.String())
+	require.Equal(t, pps.JobState_JOB_KILLED.String(), jobInfos[2].State.String())
 }
 
 func TestManyFilesSingleCommit(t *testing.T) {
@@ -3589,6 +3589,106 @@ func TestStandby(t *testing.T) {
 	})
 }
 
+func TestStopStandbyPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString(t.Name() + "_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	pipeline := tu.UniqueString(t.Name())
+	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"/bin/bash"},
+				Stdin: []string{
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out", dataRepo),
+				},
+			},
+			Input:   client.NewPFSInput(dataRepo, "/*"),
+			Standby: true,
+		},
+	)
+	require.NoError(t, err)
+
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		pi, err := c.InspectPipeline(pipeline)
+		require.NoError(t, err)
+		if pi.State != pps.PipelineState_PIPELINE_STANDBY {
+			return fmt.Errorf("expected %q to be in STANDBY, but was in %s", pipeline, pi.State)
+		}
+		return nil
+	})
+
+	// Run the pipeline once under normal conditions. It should run and then go
+	// back into standby
+	_, err = c.PutFile(dataRepo, "master", "/foo", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
+		// Let pipeline run
+		itr, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+		require.NoError(t, err)
+		collectCommitInfos(t, itr)
+		// check ending state
+		pi, err := c.InspectPipeline(pipeline)
+		require.NoError(t, err)
+		if pi.State != pps.PipelineState_PIPELINE_STANDBY {
+			return fmt.Errorf("expected %q to be in STANDBY, but was in %s", pipeline, pi.State)
+		}
+		return nil
+	})
+
+	// Stop the pipeline...
+	require.NoError(t, c.StopPipeline(pipeline))
+	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
+		pi, err := c.InspectPipeline(pipeline)
+		require.NoError(t, err)
+		if pi.State != pps.PipelineState_PIPELINE_PAUSED {
+			return fmt.Errorf("expected %q to be in PAUSED, but was in %s", pipeline,
+				pi.State)
+		}
+		return nil
+	})
+	// ...and then create several new input commits. Pipeline shouldn't run.
+	for i := 0; i < 3; i++ {
+		file := fmt.Sprintf("bar-%d", i)
+		_, err = c.PutFile(dataRepo, "master", "/"+file, strings.NewReader(file))
+	}
+	require.NoError(t, err)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	for ctx.Err() == nil {
+		pi, err := c.InspectPipeline(pipeline)
+		require.NoError(t, err)
+		require.NotEqual(t, pps.PipelineState_PIPELINE_RUNNING, pi.State)
+	}
+	cancel()
+
+	// Start pipeline--it should run and then enter standby
+	require.NoError(t, c.StartPipeline(pipeline))
+	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
+		// Let pipeline run
+		itr, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+		require.NoError(t, err)
+		collectCommitInfos(t, itr)
+		// check ending state
+		pi, err := c.InspectPipeline(pipeline)
+		require.NoError(t, err)
+		if pi.State != pps.PipelineState_PIPELINE_STANDBY {
+			return fmt.Errorf("expected %q to be in STANDBY, but was in %s", pipeline, pi.State)
+		}
+		return nil
+	})
+
+	// Finally, check that there's only two output commits
+	cis, err := c.ListCommit(pipeline, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(cis))
+}
 func TestPipelineEnv(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -4314,7 +4414,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 		}
 
 		// Get logs from pipeline, using pipeline (tailing the last two log lines)
-		iter = c.GetLogs(pipelineName, "", nil, "", false, false, 2)
+		iter = c.GetLogs(pipelineName, "", nil, "", true, false, 2)
 		numLogs = 0
 		loglines = []string{}
 		for iter.Next() {
@@ -5778,17 +5878,59 @@ func TestGarbageCollection(t *testing.T) {
 	require.NoError(t, c.GetFile(pipeline, "master", "bar", 0, 0, &buf))
 	require.Equal(t, "barbar\n", buf.String())
 
-	// Check that no objects or tags have been removed, since we just ran GC
-	// without deleting anything.
+	diffSets := func(a []string, b []string) (added int, removed int) {
+		amap := make(map[string]struct{})
+		bmap := make(map[string]struct{})
+
+		for _, str := range a {
+			amap[str] = struct{}{}
+		}
+		for _, str := range b {
+			bmap[str] = struct{}{}
+		}
+
+		for k := range amap {
+			if _, ok := bmap[k]; !ok {
+				removed++
+			}
+		}
+		for k := range bmap {
+			if _, ok := amap[k]; !ok {
+				added++
+			}
+		}
+		return added, removed
+	}
+
+	diffObjects := func(a []*pfs.Object, b []*pfs.Object) (added int, removed int) {
+		aset := make([]string, 0, len(a))
+		bset := make([]string, 0, len(b))
+
+		for _, obj := range a {
+			aset = append(aset, obj.Hash)
+		}
+		for _, obj := range b {
+			bset = append(bset, obj.Hash)
+		}
+		return diffSets(aset, bset)
+	}
+
 	objectsAfter := getAllObjects(t, c)
 	tagsAfter := getAllTags(t, c)
+	specObjectCountAfter := getObjectCountForRepo(t, c, ppsconsts.SpecRepo)
 
-	require.Equal(t, len(tagsBefore), len(tagsAfter))
+	// Check that no tags have been removed, since we just ran GC without deleting
+	// anything. Temporary objects from the run of the pipeline may have been
+	// removed.
+	tagsAdded, tagsRemoved := diffSets(tagsBefore, tagsAfter)
+	require.Equal(t, 0, tagsAdded)
+	require.Equal(t, 0, tagsRemoved)
+
 	// Stopping the pipeline creates/updates the pipeline __spec__ repo, so we need
 	// to account for the number of objects we added there
-	specObjectCountAfter := getObjectCountForRepo(t, c, ppsconsts.SpecRepo)
-	expectedSpecObjectCountDelta := specObjectCountAfter - specObjectCountBefore
-	require.Equal(t, len(objectsBefore)+expectedSpecObjectCountDelta, len(objectsAfter))
+	objectsAdded, _ := diffObjects(objectsBefore, objectsAfter)
+	require.Equal(t, objectsAdded, specObjectCountAfter-specObjectCountBefore)
+
 	objectsBefore = objectsAfter
 	tagsBefore = tagsAfter
 
@@ -5995,7 +6137,6 @@ func TestPipelineWithStatsToggle(t *testing.T) {
 	jobs, err = c.FlushJobAll([]*pfs.Commit{commits[len(commits)-1]}, nil)
 	require.NoError(t, err)
 	// Check stats.
-	time.Sleep(3 * time.Minute)
 	resp, err = c.ListDatum(jobs[0].Job.ID, 0, 0)
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(resp.DatumInfos))
@@ -7501,7 +7642,7 @@ func TestLongDatums(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			"sleep 1m",
+			"sleep 2s",
 			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 		},
 		&pps.ParallelismSpec{
@@ -8231,6 +8372,64 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 	require.Equal(t, timeout, seconds)
 }
 
+func TestListDatumDuringJob(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestListDatumDuringJob_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "file",
+		strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+	timeout := 20
+	pipeline := tu.UniqueString("TestListDatumDuringJob_pipeline")
+	duration, err := time.ParseDuration(fmt.Sprintf("%vs", timeout))
+	require.NoError(t, err)
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					"while true; do sleep 1; date; done",
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+				},
+			},
+			Input:        client.NewPFSInput(dataRepo, "/*"),
+			EnableStats:  true,
+			DatumTimeout: types.DurationProto(duration),
+		},
+	)
+	require.NoError(t, err)
+
+	var jobInfo *pps.JobInfo
+	require.NoErrorWithinT(t, 30*time.Second, func() error {
+		return backoff.Retry(func() error {
+			jobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
+			if err != nil {
+				return err
+			}
+			if len(jobInfos) != 1 {
+				return errors.Errorf("Expected one job, but got %d: %v", len(jobInfos), jobInfos)
+			}
+			jobInfo = jobInfos[0]
+			return nil
+		}, backoff.NewTestingBackOff())
+	})
+
+	resp, err := c.ListDatum(jobInfo.Job.ID, 0, 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(resp.DatumInfos))
+}
 func TestPipelineWithDatumTimeoutControl(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
