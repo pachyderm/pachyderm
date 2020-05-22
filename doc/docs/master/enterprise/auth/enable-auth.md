@@ -23,8 +23,10 @@ To enable access controls, complete the following steps:
 1. Activate the Enterprise access control features by completing
    the steps in one of these sections:
 
-   * [Activate Access Control by Using the Dashboard](#activate-access-controls-by-using-the-dashboard)
-   * [Activate Access Control with pachctl](#activate-access-controls-with-pachctl)
+   * To activate through the Pachyderm Dashboard, follow the steps in
+   [Activate Access Control by Using the Dashboard](#activate-access-controls-by-using-the-dashboard).
+   * To activate through the CLI, follow the steps in
+   [Activate Access Control with pachctl](#activate-access-controls-with-pachctl).
 
 # Activate Access Controls by Using the Dashboard
 
