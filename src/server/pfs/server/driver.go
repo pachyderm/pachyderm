@@ -4491,22 +4491,20 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 	var rawCommitID string
 	var commitID string
 
-	// Always make sure our callbacks finish
+	// Always make sure we've closed any hanging pipes and that our callbacks finish
 	defer func() {
-		err := eg.Wait()
-		if retErr == nil {
-			retErr = err
-		}
-	}()
-
-	// Always make sure we've closed any hanging pipes
-	defer func() {
+		// Closing the pipes should be the trigger to cancel any still-running callbacks
 		if pw != nil {
 			if retErr != nil {
 				pw.CloseWithError(retErr)
 			} else {
 				pw.Close()
 			}
+		}
+
+		err := eg.Wait()
+		if retErr == nil {
+			retErr = err
 		}
 	}()
 
