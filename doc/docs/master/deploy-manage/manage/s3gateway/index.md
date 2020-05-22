@@ -25,8 +25,9 @@ not work in the browser. When you use authentication, set the access and
 secret key to the same value. They are both the Pachyderm auth token used
 to issue the relevant PFS calls.
 
-If auth is not enabled on the Pachyderm cluster, access credentials are
-ignored. You can not pass an authorization header, or if you do, any
+If auth is disabled, you can still pass arbitrary credentials, but the
+secret key must match the access key.
+You can not pass an authorization header, or if you do, any
 values for the access and secret keys are ignored.
 
 ## Buckets
