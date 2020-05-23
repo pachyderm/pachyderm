@@ -4,10 +4,15 @@ import (
 	"os"
 	"sync"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-
 	"github.com/cheggaaa/pb/v3"
 )
+
+// XXX DO NOT WRAP ERRORS IN THIS PACKAGE XXX
+// This file replicates the go file interface, as such the errors it returns
+// need to be the true errors that the os api returns, not wrapped versions of
+// them. The standard library does not unwrap errors which means that things
+// like io.Copy will start breaking if this returns wrapped versions of io.EOF
+// instead of the real io.EOF.
 
 var (
 	// Template is used when you know the total size of the operation (i.e.
@@ -35,11 +40,11 @@ func Open(path string) (*File, error) {
 	mu.Lock()
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	fi, err := file.Stat()
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	bar := Template.New(int(fi.Size()))
 	start(path, bar)
@@ -73,7 +78,7 @@ func (f *File) Read(p []byte) (int, error) {
 	if err == nil {
 		f.bar.Add(n)
 	}
-	return n, errors.WithStack(err)
+	return n, err
 }
 
 // Seek seeks the wrapped file and updates the progress bar.
@@ -82,7 +87,7 @@ func (f *File) Seek(offset int64, whence int) (int64, error) {
 	if err == nil {
 		f.bar.SetCurrent(offset)
 	}
-	return offset, errors.WithStack(err)
+	return offset, err
 }
 
 // Close closes the wrapped file and finishes the progress bar.
