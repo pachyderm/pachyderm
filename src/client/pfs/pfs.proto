@@ -397,6 +397,10 @@ message PutFileRequest {
   // overwrite_index is the object index where the write starts from.  All
   // existing objects starting from the index are deleted.
   OverwriteIndex overwrite_index = 10;
+  // delete indicates that the file should be deleted, this is redundant with
+  // DeleteFile, but is necessary because it allows you to send file deletes
+  // atomically with other PutFile operations.
+  bool delete = 12;
 }
 
 // PutFileRecord is used to record PutFile requests in etcd temporarily.

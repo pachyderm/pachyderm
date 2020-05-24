@@ -47,6 +47,9 @@ func EnsureStack(err error) error {
 	return WithStack(err)
 }
 
+// Frame is the type of a StackFrame, it is an alias for errors.Frame.
+type Frame errors.Frame
+
 // Callers returns an errors.StackTrace for the place at which it's called.
 func Callers() errors.StackTrace {
 	const depth = 32
@@ -65,4 +68,22 @@ func Callers() errors.StackTrace {
 // than defining it for us.
 type StackTracer interface {
 	StackTrace() errors.StackTrace
+}
+
+// ForEachStackFrame calls f on each Frame in the StackTrace contained in err.
+// If is a wrapper around another error it is repeatedly unwrapped and f is
+// called with frames from the stack of the innermost error.
+func ForEachStackFrame(err error, f func(Frame)) {
+	var st errors.StackTrace
+	for err != nil {
+		if err, ok := err.(StackTracer); ok {
+			st = err.StackTrace()
+		}
+		err = errors.Unwrap(err)
+	}
+	if len(st) > 0 {
+		for _, frame := range st {
+			f(Frame(frame))
+		}
+	}
 }
