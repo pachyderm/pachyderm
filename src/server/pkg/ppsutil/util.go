@@ -179,9 +179,9 @@ func FailPipeline(ctx context.Context, etcdClient *etcd.Client, pipelinesCollect
 	return setPipelineState(ctx, etcdClient, pipelinesCollection, pipelineName, reason, pps.PipelineState_PIPELINE_FAILURE)
 }
 
-// RestartingPipeline updates the pipeline's state to restarting and sets the reason
-func RestartingPipeline(ctx context.Context, etcdClient *etcd.Client, pipelinesCollection col.Collection, pipelineName string, reason string) error {
-	return setPipelineState(ctx, etcdClient, pipelinesCollection, pipelineName, reason, pps.PipelineState_PIPELINE_RESTARTING)
+// CrashingPipeline updates the pipeline's state to crashing and sets the reason
+func CrashingPipeline(ctx context.Context, etcdClient *etcd.Client, pipelinesCollection col.Collection, pipelineName string, reason string) error {
+	return setPipelineState(ctx, etcdClient, pipelinesCollection, pipelineName, reason, pps.PipelineState_PIPELINE_CRASHING)
 }
 
 func setPipelineState(ctx context.Context, etcdClient *etcd.Client, pipelinesCollection col.Collection, pipelineName string, reason string, state pps.PipelineState) error {

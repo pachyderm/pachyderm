@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
+	workerpkg "github.com/pachyderm/pachyderm/src/server/worker"
 
 	opentracing "github.com/opentracing/opentracing-go"
 	log "github.com/sirupsen/logrus"
@@ -153,11 +154,26 @@ func (a *apiServer) step(pachClient *client.APIClient, pipeline string, keyVer, 
 		// default: scale down if pause/standby hasn't propagated to etcd yet
 		return op.scaleDownPipeline()
 	case pps.PipelineState_PIPELINE_FAILURE:
-		// pipeline fails if docker image isn't found
+		// pipeline fails if it encounters an unrecoverable error
 		if err := op.finishPipelineOutputCommits(); err != nil {
 			return err
 		}
 		return op.deletePipelineResources()
+	case pps.PipelineState_PIPELINE_CRASHING:
+		if !op.rcIsFresh() {
+			return op.restartPipeline("stale RC") // step() will be called again after etcd write
+		}
+		if op.pipelineInfo.Stopped {
+			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED)
+		}
+		workersUp, err := a.allWorkersUp(pachClient, op.pipelineInfo)
+		if err != nil {
+			return err
+		}
+		if workersUp {
+			return op.setPipelineState(pps.PipelineState_PIPELINE_RUNNING)
+		}
+		return op.setPipelineState(pps.PipelineState_PIPELINE_CRASHING)
 	}
 	return nil
 }
@@ -637,4 +653,14 @@ func (op *pipelineOp) failPipeline(reason string) error {
 		return errors.Wrapf(err, "error failing pipeline %q", op.name)
 	}
 	return errors.Errorf("failing pipeline %q: %v", op.name, reason)
+}
+
+func (a *apiServer) allWorkersUp(pachClient *client.APIClient, pi *pps.PipelineInfo) (bool, error) {
+	parallelism, err := ppsutil.GetExpectedNumWorkers(a.env.GetKubeClient(), pi.ParallelismSpec)
+	if err != nil {
+		return false, err
+	}
+	workerPoolID := ppsutil.PipelineRcName(pi.Pipeline.Name, pi.Version)
+	workerStatus, err := workerpkg.Status(pachClient.Ctx(), workerPoolID, a.env.GetEtcdClient(), a.etcdPrefix, a.workerGrpcPort)
+	return parallelism == len(workerStatus), nil
 }

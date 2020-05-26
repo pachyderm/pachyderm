@@ -143,7 +143,7 @@ func (a *apiServer) master() {
 				}
 				for _, status := range pod.Status.ContainerStatuses {
 					if status.Name == "user" && status.State.Waiting != nil && failures[status.State.Waiting.Reason] {
-						if err := a.setPipelineFailure(ctx, pod.ObjectMeta.Annotations["pipelineName"], status.State.Waiting.Message); err != nil {
+						if err := a.setPipelineCrashing(ctx, pod.ObjectMeta.Annotations["pipelineName"], status.State.Waiting.Message); err != nil {
 							return err
 						}
 					}
@@ -151,7 +151,7 @@ func (a *apiServer) master() {
 				for _, condition := range pod.Status.Conditions {
 					if condition.Type == v1.PodScheduled &&
 						condition.Status != v1.ConditionTrue && failures[condition.Reason] {
-						if err := a.setPipelineFailure(ctx, pod.ObjectMeta.Annotations["pipelineName"], condition.Message); err != nil {
+						if err := a.setPipelineCrashing(ctx, pod.ObjectMeta.Annotations["pipelineName"], condition.Message); err != nil {
 							return err
 						}
 					}
@@ -174,6 +174,10 @@ func (a *apiServer) master() {
 
 func (a *apiServer) setPipelineFailure(ctx context.Context, pipelineName string, reason string) error {
 	return ppsutil.FailPipeline(ctx, a.env.GetEtcdClient(), a.pipelines, pipelineName, reason)
+}
+
+func (a *apiServer) setPipelineCrashing(ctx context.Context, pipelineName string, reason string) error {
+	return ppsutil.CrashingPipeline(ctx, a.env.GetEtcdClient(), a.pipelines, pipelineName, reason)
 }
 
 // every running pipeline with standby == true has a corresponding goroutine

@@ -364,6 +364,8 @@ func pipelineState(pipelineState ppsclient.PipelineState) string {
 		return color.New(color.FgYellow).SprintFunc()("paused")
 	case ppsclient.PipelineState_PIPELINE_STANDBY:
 		return color.New(color.FgYellow).SprintFunc()("standby")
+	case ppsclient.PipelineState_PIPELINE_CRASHING:
+		return color.New(color.FgRed).SprintFunc()("crashing")
 	}
 	return "-"
 }
