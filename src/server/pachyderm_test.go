@@ -5081,8 +5081,8 @@ func TestPipelinePending(t *testing.T) {
 	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 	// create repos
-	dataRepo := tu.UniqueString("TestPipelinePending")
-	pipelineName := tu.UniqueString("TestPipelinePending_pipeline")
+	dataRepo := tu.UniqueString("data")
+	pipelineName := tu.UniqueString("pipeline")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),

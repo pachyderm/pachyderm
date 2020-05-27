@@ -110,16 +110,16 @@ func (a *apiServer) step(pachClient *client.APIClient, pipeline string, keyVer, 
 			}
 		}
 		if op.pipelineInfo.Stopped {
-			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED)
+			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED, "")
 		}
 		// trigger another event
-		return op.setPipelineState(pps.PipelineState_PIPELINE_RUNNING)
+		return op.setPipelineState(pps.PipelineState_PIPELINE_RUNNING, "")
 	case pps.PipelineState_PIPELINE_RUNNING:
 		if !op.rcIsFresh() {
 			return op.restartPipeline("stale RC") // step() will be called again after etcd write
 		}
 		if op.pipelineInfo.Stopped {
-			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED)
+			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED, "")
 		}
 
 		op.startPipelineMonitor()
@@ -131,7 +131,7 @@ func (a *apiServer) step(pachClient *client.APIClient, pipeline string, keyVer, 
 			return op.restartPipeline("stale RC") // step() will be called again after etcd write
 		}
 		if op.pipelineInfo.Stopped {
-			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED)
+			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED, "")
 		}
 		// default: scale down if standby hasn't propagated to kube RC yet
 		op.startPipelineMonitor()
@@ -146,7 +146,7 @@ func (a *apiServer) step(pachClient *client.APIClient, pipeline string, keyVer, 
 			if err := op.scaleUpPipeline(); err != nil {
 				return err
 			}
-			return op.setPipelineState(pps.PipelineState_PIPELINE_RUNNING)
+			return op.setPipelineState(pps.PipelineState_PIPELINE_RUNNING, "")
 		}
 		// don't want cron commits or STANDBY state changes while pipeline is
 		// stopped
@@ -164,16 +164,17 @@ func (a *apiServer) step(pachClient *client.APIClient, pipeline string, keyVer, 
 			return op.restartPipeline("stale RC") // step() will be called again after etcd write
 		}
 		if op.pipelineInfo.Stopped {
-			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED)
+			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED, "")
 		}
 		workersUp, err := a.allWorkersUp(pachClient, op.pipelineInfo)
 		if err != nil {
 			return err
 		}
 		if workersUp {
-			return op.setPipelineState(pps.PipelineState_PIPELINE_RUNNING)
+			return op.setPipelineState(pps.PipelineState_PIPELINE_RUNNING, "")
 		}
-		return op.setPipelineState(pps.PipelineState_PIPELINE_CRASHING)
+		time.Sleep(10 * time.Second)
+		return op.setPipelineState(pps.PipelineState_PIPELINE_CRASHING, op.pipelineInfo.Reason)
 	}
 	return nil
 }
@@ -358,10 +359,10 @@ func (op *pipelineOp) rcIsFresh() bool {
 // error (to indicate to the caller that it shouldn't continue with other
 // operations) but doesn't fail the pipeline as the pipeline state is already
 // unsettable.
-func (op *pipelineOp) setPipelineState(state pps.PipelineState) error {
+func (op *pipelineOp) setPipelineState(state pps.PipelineState, reason string) error {
 	var errCount int
 	return backoff.RetryNotify(func() error {
-		return op.apiServer.setPipelineState(op.pachClient, op.pipelineInfo, state, "")
+		return op.apiServer.setPipelineState(op.pachClient, op.pipelineInfo, state, reason)
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		if errCount++; errCount >= maxErrCount {
 			return errors.Wrapf(err, "could not set pipeline state for %q to %v"+
@@ -624,7 +625,7 @@ func (op *pipelineOp) restartPipeline(reason string) error {
 		if err := op.createPipelineResources(); err != nil {
 			return err
 		}
-		return op.setPipelineState(pps.PipelineState_PIPELINE_RESTARTING)
+		return op.setPipelineState(pps.PipelineState_PIPELINE_RESTARTING, "")
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		if errCount++; errCount >= maxErrCount {
 			return err
