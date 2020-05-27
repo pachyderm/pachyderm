@@ -1740,15 +1740,12 @@ publish = "doc/site"
   force = true
 
 [[redirects]]
-<<<<<<< HEAD
-=======
   from = "/deploy-manage/deploy/deploy-pachyderm-jupyterhub/"
   to = "/latest/deploy-manage/deploy/deploy-pachyderm-ide/"
   status = 301
   force = true
 
 [[redirects]]
->>>>>>> parent of 55d358413... Update
   from = "/deploy-manage/deploy/deploy_w_tls/"
   to = "/latest/deploy-manage/deploy/deploy_w_tls/"
   status = 301
