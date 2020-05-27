@@ -15,7 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
-	workerpkg "github.com/pachyderm/pachyderm/src/server/worker"
+	workerserver "github.com/pachyderm/pachyderm/src/server/worker/server"
 
 	opentracing "github.com/opentracing/opentracing-go"
 	log "github.com/sirupsen/logrus"
@@ -32,6 +32,8 @@ const (
 	noRCExpected
 	rcExpected
 )
+
+const crashingBackoff = time.Second * 15
 
 func max(is ...int) int {
 	if len(is) == 0 {
@@ -173,7 +175,7 @@ func (a *apiServer) step(pachClient *client.APIClient, pipeline string, keyVer, 
 		if workersUp {
 			return op.setPipelineState(pps.PipelineState_PIPELINE_RUNNING, "")
 		}
-		time.Sleep(10 * time.Second)
+		time.Sleep(crashingBackoff)
 		return op.setPipelineState(pps.PipelineState_PIPELINE_CRASHING, op.pipelineInfo.Reason)
 	}
 	return nil
@@ -662,6 +664,6 @@ func (a *apiServer) allWorkersUp(pachClient *client.APIClient, pi *pps.PipelineI
 		return false, err
 	}
 	workerPoolID := ppsutil.PipelineRcName(pi.Pipeline.Name, pi.Version)
-	workerStatus, err := workerpkg.Status(pachClient.Ctx(), workerPoolID, a.env.GetEtcdClient(), a.etcdPrefix, a.workerGrpcPort)
+	workerStatus, err := workerserver.Status(pachClient.Ctx(), workerPoolID, a.env.GetEtcdClient(), a.etcdPrefix, a.workerGrpcPort)
 	return parallelism == len(workerStatus), nil
 }
