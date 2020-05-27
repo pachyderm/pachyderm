@@ -1920,23 +1920,23 @@ publish = "doc/site"
   status = 301
   force = true
 
-[[redirects]]
-  from = "/how-tos/splitting-data/"
-  to = "/latest/how-tos/splitting-data/"
-  status = 301
-  force = true
+#[[redirects]]
+#  from = "/how-tos/splitting-data/"
+#  to = "/latest/how-tos/splitting-data/"
+#  status = 301
+#  force = true
 
-[[redirects]]
-  from = "/how-tos/splitting-data/splitting/"
-  to = "/latest/how-tos/splitting-data/splitting/"
-  status = 301
-  force = true
+#[[redirects]]
+#  from = "/how-tos/splitting-data/splitting/"
+#  to = "/latest/how-tos/splitting-data/splitting/"
+#  status = 301
+#  force = true
 
-[[redirects]]
-  from = "/how-tos/splitting-data/adjusting_data_processing_w_split/"
-  to = "/latest/how-tos/splitting-data/adjusting_data_processing_w_split/"
-  status = 301
-  force = true
+#[[redirects]]
+#  from = "/how-tos/splitting-data/adjusting_data_processing_w_split/"
+#  to = "/latest/how-tos/splitting-data/adjusting_data_processing_w_split/"
+#  status = 301
+#  force = true
 
 [[redirects]]
   from = "/how-tos/create-ml-workflow/"
