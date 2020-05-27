@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"time"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
@@ -21,6 +22,8 @@ import (
 const (
 	// WorkerEtcdPrefix is the prefix in etcd that we use to store worker information.
 	WorkerEtcdPrefix = "workers"
+
+	defaultTimeout = time.Second * 5
 )
 
 // Status returns the statuses of workers referenced by pipelineRcName.
@@ -34,6 +37,8 @@ func Status(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client,
 	}
 	var result []*pps.WorkerStatus
 	for _, workerClient := range workerClients {
+		ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
+		defer cancel()
 		status, err := workerClient.Status(ctx, &types.Empty{})
 		if err != nil {
 			log.Warnf("error getting worker status: %v", err)
@@ -84,7 +89,8 @@ func Conns(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client, 
 	var result []*grpc.ClientConn
 	for _, kv := range resp.Kvs {
 		conn, err := grpc.Dial(fmt.Sprintf("%s:%d", path.Base(string(kv.Key)), workerGrpcPort),
-			append(client.DefaultDialOptions(), grpc.WithInsecure())...)
+			append(client.DefaultDialOptions(), grpc.WithInsecure(),
+				grpc.WithTimeout(defaultTimeout))...)
 		if err != nil {
 			return nil, err
 		}
