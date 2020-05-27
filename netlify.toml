@@ -34,23 +34,22 @@ publish = "doc/site"
   force = true
 
 [[redirects]]
-   from = "/deploy-manage/manage/batching_pachyderm_with_transactions/"
-   to = "/latest/how-tos/use-transactions-to-run-multiple-commands/"
-   status = 301
-   force = true
+  from = "/deploy-manage/manage/batching_pachyderm_with_transactions/"
+  to = "/latest/how-tos/use-transactions-to-run-multiple-commands/"
+  status = 301
+  force = true
 
 [[redirects]]
-    from = "/batching_pachyderm_with_transactions/"
-    to = "/use-transactions-to-run-multiple-commands/"
-    status = 301
-    force = true
+  from = "/batching_pachyderm_with_transactions/"
+  to = "/use-transactions-to-run-multiple-commands/"
+  status = 301
+  force = true
 
 [[redirects]]
   from = "/en/latest/getting_started/"
   to = "/latest/getting_started/"
   status = 301
   force = true
-
 
 [[redirects]]
   from = "/en/latest/how-tos/"
@@ -65,28 +64,28 @@ publish = "doc/site"
   force = true
 
 [[redirects]]
-   from = "/latest/concepts/pipeline-concepts/pipeline/join/"
-   to = "https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/join/"
-   status = 301
-   force = true
+  from = "/latest/concepts/pipeline-concepts/pipeline/join/"
+  to = "https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/join/"
+  status = 301
+  force = true
 
 [[redirects]]
-   from = "https://docs.pachyderm.com/getting-started/local_installation"
-   to = "/latest/getting-started/local_installation/"
-   status = 301
-   force = true
+  from = "https://docs.pachyderm.com/getting-started/local_installation"
+  to = "/latest/getting-started/local_installation/"
+  status = 301
+  force = true
 
 [[redirects]]
-   from = "/master/concepts/pipeline-concepts/pipeline/join/"
-   to = "/master/concepts/pipeline-concepts/datum/join/"
-   status = 301
-   force = true
+  from = "/master/concepts/pipeline-concepts/pipeline/join/"
+  to = "/master/concepts/pipeline-concepts/datum/join/"
+  status = 301
+  force = true
 
 [[redirects]]
-   from = "/1.9.x/concepts/pipeline-concepts/pipeline/join/"
-   to = "/1.9.x/concepts/pipeline-concepts/datum/join/"
-   status = 301
-   force = true
+  from = "/1.9.x/concepts/pipeline-concepts/pipeline/join/"
+  to = "/1.9.x/concepts/pipeline-concepts/datum/join/"
+  status = 301
+  force = true
 
 [[redirects]]
   from = "/en/latest/enterprise/"
@@ -1742,7 +1741,7 @@ publish = "doc/site"
 
 [[redirects]]
   from = "/deploy-manage/deploy/deploy-pachyderm-jupyterhub/"
-  to = "/latest/deploy-manage/deploy/deploy-pachyderm-jupyterhub/"
+  to = "/latest/deploy-manage/deploy/deploy-pachyderm-ide/"
   status = 301
   force = true
 
@@ -1838,13 +1837,13 @@ publish = "doc/site"
 
 [[redirects]]
   from = "/how-tos/use-jupyterhub/"
-  to = "/latest/how-tos/use-jupyterhub/"
+  to = "/latest/how-tos/use-pachyderm-ide/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/how-tos/use-jupyterhub/using-jupyterhub/"
-  to = "/latest/how-tos/use-jupyterhub/using-jupyterhub/"
+  to = "/latest/how-tos/use-pachyderm-ide/using-pachyderm-ide/"
   status = 301
   force = true
 
@@ -1934,19 +1933,19 @@ publish = "doc/site"
 
 [[redirects]]
   from = "/master/deploy-manage/deploy/deploy-pachyderm-jupyterhub/"
-  to = "/latest/deploy-manage/deploy/deploy-pachyderm-jupyterhub/"
+  to = "/latest/deploy-manage/deploy/deploy-pachyderm-ide/"
   status = 301
   force = true
 
  [[redirects]]
   from = "/master/how-tos/use-jupyterhub/using-jupyterhub/"
-  to = "/latest/how-tos/use-jupyterhub/using-jupyterhub/"
+  to = "/latest/how-tos/use-pachyderm-ide/using-pachyderm-ide/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/master/how-tos/use-jupyterhub/"
-  to = "/latest/how-tos/use-jupyterhub/"
+  to = "/latest/how-tos/use-pachyderm-ide/"
   status = 301
   force = true
 
