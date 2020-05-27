@@ -1723,19 +1723,19 @@ publish = "doc/site"
 
 [[redirects]]
   from = "/deploy-manage/deploy/deploy-pachyderm-jupyterhub/"
-  to = "/latest/deploy-manage/deploy/deploy-pachyderm-ide/"
+  to = "/latest/deploy-manage/deploy/deploy-pachyderm-jupyterhub/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/how-tos/use-jupyterhub/"
-  to = "/how-tos/use-pachyderm-ide/"
+  to = "/how-tos/use-pachyderm-jupyterhub/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/how-tos/use-jupyterhub/using-jupyterhub/"
-  to = "/how-tos/use-pachyderm-ide/using-pachyderm-ide/"
+  to = "/how-tos/use-pachyderm-jupyterhub/using-pachyderm-jupyterhub/"
   status = 301
   force = true
 
@@ -1831,13 +1831,13 @@ publish = "doc/site"
 
 [[redirects]]
   from = "/how-tos/use-jupyterhub/"
-  to = "/latest/how-tos/use-pachyderm-ide/"
+  to = "/latest/how-tos/use-jupyterhub/"
   status = 301
   force = true
 
 [[redirects]]
   from = "/how-tos/use-jupyterhub/using-jupyterhub/"
-  to = "/latest/how-tos/use-pachyderm-ide/using-pachyderm-ide/"
+  to = "/latest/how-tos/use-jupyterhub/using-jupyterhub/"
   status = 301
   force = true
 
