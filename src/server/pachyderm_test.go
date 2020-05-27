@@ -5073,7 +5073,7 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 }
 
-func TestPipelinePending(t *testing.T) {
+func TestPipelineCrashing(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -5081,29 +5081,10 @@ func TestPipelinePending(t *testing.T) {
 	c := tu.GetPachClient(t)
 	require.NoError(t, c.DeleteAll())
 	// create repos
-	dataRepo := tu.UniqueString("data")
-	pipelineName := tu.UniqueString("pipeline")
+	dataRepo := tu.UniqueString("TestPipelineCrashing_data")
+	pipelineName := tu.UniqueString("TestPipelineCrashing_pipeline")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	_, err := c.PpsAPIClient.CreatePipeline(
-		context.Background(),
-		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline("spacer"),
-			Transform: &pps.Transform{
-				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
-			},
-			ParallelismSpec: &pps.ParallelismSpec{
-				Constant: 1,
-			},
-			Input: &pps.Input{
-				Pfs: &pps.PFSInput{
-					Repo:   dataRepo,
-					Branch: "master",
-					Glob:   "/*",
-				},
-			},
-		})
-	require.NoError(t, err)
-	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipelineName),
@@ -5130,9 +5111,12 @@ func TestPipelinePending(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, backoff.Retry(func() error {
-		pipelineInfo, err := c.InspectPipeline(pipelineName)
+		pi, err := c.InspectPipeline(pipelineName)
 		require.NoError(t, err)
-		require.Equal(t, pipelineInfo.State, pps.PipelineState_PIPELINE_FAILURE)
+		if pi.State != pps.PipelineState_PIPELINE_CRASHING {
+			return errors.Errorf("pipeline in wrong state: %s", pi.State.String())
+		}
+		require.True(t, pi.Reason != "")
 		return nil
 	}, backoff.NewTestingBackOff()))
 }
@@ -7028,8 +7012,8 @@ func TestPipelineBadImage(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			if pipelineInfo.State != pps.PipelineState_PIPELINE_FAILURE {
-				return errors.Errorf("pipeline %s should have failed", pipeline)
+			if pipelineInfo.State != pps.PipelineState_PIPELINE_CRASHING {
+				return errors.Errorf("pipeline %s should be in crashing", pipeline)
 			}
 			require.True(t, pipelineInfo.Reason != "")
 		}
