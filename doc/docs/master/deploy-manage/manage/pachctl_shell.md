@@ -41,7 +41,9 @@ Similarly, you can select a commit:
 
 ![Pachyderm Shell list commit](../../assets/images/s_pach_shell_list_commit.png)
 
-To exit the Pachyderm Shell, press `CTRL-D`.
+### Exit the Pachyderm Shell
+
+To exit the Pachyderm Shell, press `CTRL-D` or type `exit`.
 
 ### Clearing Cached Completions
 

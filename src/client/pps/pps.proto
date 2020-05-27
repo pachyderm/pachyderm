@@ -58,6 +58,7 @@ enum JobState {
   JOB_SUCCESS = 3;
   JOB_KILLED = 4;
   JOB_MERGING = 5;
+  JOB_EGRESSING = 6;
 }
 
 message Metadata {
@@ -522,6 +523,13 @@ message UpdateJobStateRequest {
   Job job = 1;
   JobState state = 2;
   string reason = 3;
+  uint64 restart = 4;
+  int64 data_processed = 5;
+  int64 data_skipped = 6;
+  int64 data_failed = 7;
+  int64 data_recovered = 8;
+  int64 data_total = 9;
+  ProcessStats stats = 10;
 }
 
 message GetLogsRequest {

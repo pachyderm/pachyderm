@@ -15,6 +15,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// PrintErrorStacks should be set to true if you want to print out a stack for
+// errors that are returned by the run commands.
+var PrintErrorStacks bool
+
 // RunFixedArgs wraps a function in a function
 // that checks its exact argument count.
 func RunFixedArgs(numArgs int, run func([]string) error) func(*cobra.Command, []string) {
@@ -80,7 +84,7 @@ func RunMinimumArgs(min int, run func([]string) error) func(*cobra.Command, []st
 func Run(run func(args []string) error) func(*cobra.Command, []string) {
 	return func(_ *cobra.Command, args []string) {
 		if err := run(args); err != nil {
-			ErrorAndExit(err.Error())
+			ErrorAndExit("%v", err)
 		}
 	}
 }
@@ -89,6 +93,12 @@ func Run(run func(args []string) error) func(*cobra.Command, []string) {
 func ErrorAndExit(format string, args ...interface{}) {
 	if errString := strings.TrimSpace(fmt.Sprintf(format, args...)); errString != "" {
 		fmt.Fprintf(os.Stderr, "%s\n", errString)
+	}
+	err, ok := args[0].(error)
+	if PrintErrorStacks && ok {
+		errors.ForEachStackFrame(err, func(frame errors.Frame) {
+			fmt.Fprintf(os.Stderr, "%+v\n", frame)
+		})
 	}
 	os.Exit(1)
 }

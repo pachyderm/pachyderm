@@ -14,6 +14,12 @@
       "problemMatcher": []
     },
     {
+      "label": "docker-build-proto-no-cache",
+      "type": "shell",
+      "command": "eval $(docker-machine env --shell bash); docker build --no-cache -t pachyderm_proto etc/proto",
+      "problemMatcher": []
+    },
+    {
       "label": "build-proto",
       "type": "shell",
       "command": "eval $(minikube docker-env --shell bash); find src -regex \".*\\.proto\" | xargs tar cf - | docker run -i pachyderm_proto | tar xf -",

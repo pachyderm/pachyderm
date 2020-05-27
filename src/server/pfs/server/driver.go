@@ -12,7 +12,6 @@ import (
 	"math"
 	"net/http"
 	"net/url"
-	"os"
 	"path"
 	"path/filepath"
 	"sort"
@@ -2876,7 +2875,7 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 	var mu sync.Mutex
 	oneOff, repo, branch, err := d.forEachPutFile(pachClient, s, func(req *pfs.PutFileRequest, r io.Reader) error {
 		records, err := d.putFile(pachClient, req.File, req.Delimiter, req.TargetFileDatums,
-			req.TargetFileBytes, req.HeaderRecords, req.OverwriteIndex, r)
+			req.TargetFileBytes, req.HeaderRecords, req.OverwriteIndex, req.Delete, r)
 		if err != nil {
 			return err
 		}
@@ -2911,7 +2910,7 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 
 func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter pfs.Delimiter,
 	targetFileDatums, targetFileBytes, headerRecords int64, overwriteIndex *pfs.OverwriteIndex,
-	reader io.Reader) (*pfs.PutFileRecords, error) {
+	del bool, reader io.Reader) (*pfs.PutFileRecords, error) {
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return nil, err
 	}
@@ -2921,6 +2920,10 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 		return nil, errors.Errorf("cannot set split options--targetFileBytes, targetFileDatums, or headerRecords--with delimiter == NONE, split disabled")
 	}
 	records := &pfs.PutFileRecords{}
+	if del {
+		records.Tombstone = true
+		return records, nil
+	}
 	if overwriteIndex != nil && overwriteIndex.Index == 0 {
 		records.Tombstone = true
 	}
@@ -3404,60 +3407,6 @@ func (d *driver) getTrees(pachClient *client.APIClient, commitInfo *pfs.CommitIn
 		return nil, err
 	}
 	return rs, nil
-}
-
-func (d *driver) downloadTree(pachClient *client.APIClient, object *pfs.Object, prefix string) (r io.ReadCloser, retErr error) {
-	objClient, err := obj.NewClientFromSecret(d.storageRoot)
-	if err != nil {
-		return nil, err
-	}
-	info, err := pachClient.InspectObject(object.Hash)
-	if err != nil {
-		return nil, err
-	}
-	path, err := obj.BlockPathFromEnv(info.BlockRef.Block)
-	if err != nil {
-		return nil, err
-	}
-	offset, size, err := getTreeRange(pachClient.Ctx(), objClient, path, prefix)
-	if err != nil {
-		return nil, err
-	}
-	objR, err := objClient.Reader(pachClient.Ctx(), path, offset, size)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err := objR.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	name := filepath.Join(d.storageRoot, uuid.NewWithoutDashes())
-	f, err := os.Create(name)
-	if err != nil {
-		return nil, err
-	}
-
-	// Ensure we close the file if we've errored
-	defer func() {
-		if retErr != nil {
-			f.Close()
-		}
-	}()
-
-	// Mark the file for removal (Linux won't remove it until we close the file)
-	if err := os.Remove(name); err != nil {
-		return nil, err
-	}
-	buf := grpcutil.GetBuffer()
-	defer grpcutil.PutBuffer(buf)
-	if _, err := io.CopyBuffer(f, objR, buf); err != nil {
-		return nil, err
-	}
-	if _, err := f.Seek(0, 0); err != nil {
-		return nil, err
-	}
-	return f, nil
 }
 
 func getTreeRange(ctx context.Context, objClient obj.Client, path string, prefix string) (uint64, uint64, error) {
@@ -4537,7 +4486,12 @@ func (s *putFileServer) Peek() (*pfs.PutFileRequest, error) {
 	return req, nil
 }
 
-func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_PutFileServer, f func(*pfs.PutFileRequest, io.Reader) error) (oneOff bool, repo string, branch string, err error) {
+func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_PutFileServer, f func(*pfs.PutFileRequest, io.Reader) error) (bool, string, string, error) {
+	// return values
+	var oneOff bool
+	var repo string
+	var branch string
+
 	var pr *io.PipeReader
 	var pw *io.PipeWriter
 	var req *pfs.PutFileRequest
@@ -4545,6 +4499,7 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 	var rawCommitID string
 	var commitID string
 
+	var err error
 	for req, err = server.Recv(); err == nil; req, err = server.Recv() {
 		req := req
 		if req.File != nil {
@@ -4686,6 +4641,14 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 			if pw != nil {
 				pw.Close() // can't error
 			}
+			if req.Delete {
+				d.putFileLimiter.Acquire()
+				eg.Go(func() error {
+					defer d.putFileLimiter.Release()
+					return f(req, nil)
+				})
+				continue
+			}
 			pr, pw = io.Pipe()
 			pr := pr
 			d.putFileLimiter.Acquire()
@@ -4714,6 +4677,8 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 	if err != io.EOF {
 		return false, "", "", err
 	}
-	err = eg.Wait()
-	return oneOff, repo, branch, err
+	if err := eg.Wait(); err != nil {
+		return false, "", "", err
+	}
+	return oneOff, repo, branch, nil
 }

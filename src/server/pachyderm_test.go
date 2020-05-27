@@ -1514,7 +1514,7 @@ func TestEmptyFiles(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
-					fmt.Sprintf("if [ -s /pfs/%s/file]; then exit 1; fi", dataRepo),
+					fmt.Sprintf("if [ -s /pfs/%s/file ]; then exit 1; fi", dataRepo),
 					fmt.Sprintf("ln -s /pfs/%s/file /pfs/out/file", dataRepo),
 				},
 			},
@@ -3284,12 +3284,16 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if len(jobInfos) != 1 {
+		if len(jobInfos) != 2 {
 			return errors.Errorf("wrong number of jobs")
 		}
 
-		state := jobInfos[0].State
+		state := jobInfos[1].State
+		if state != pps.JobState_JOB_RUNNING && state != pps.JobState_JOB_MERGING {
+			return fmt.Errorf("wrong state: %v for %s", state, jobInfos[1].Job.ID)
+		}
 
+		state = jobInfos[0].State
 		if state != pps.JobState_JOB_RUNNING && state != pps.JobState_JOB_MERGING {
 			return errors.Errorf("wrong state: %v for %s", state, jobInfos[0].Job.ID)
 		}
@@ -3314,16 +3318,12 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 	require.NoError(t, err)
 	collectCommitInfos(t, iter)
 
-	// Currently, commits finish shortly before their respecive JobInfo documents
-	// are updated (the pipeline master receives the commit update and then
-	// updates the JobInfo document). Wait briefly for this to happen
-	time.Sleep(10 * time.Second)
-
 	jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(jobInfos))
+	require.Equal(t, 3, len(jobInfos))
 	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jobInfos[0].State.String())
 	require.Equal(t, pps.JobState_JOB_KILLED.String(), jobInfos[1].State.String())
+	require.Equal(t, pps.JobState_JOB_KILLED.String(), jobInfos[2].State.String())
 }
 
 func TestManyFilesSingleCommit(t *testing.T) {
@@ -4416,7 +4416,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 		}
 
 		// Get logs from pipeline, using pipeline (tailing the last two log lines)
-		iter = c.GetLogs(pipelineName, "", nil, "", false, false, 2)
+		iter = c.GetLogs(pipelineName, "", nil, "", true, false, 2)
 		numLogs = 0
 		loglines = []string{}
 		for iter.Next() {
@@ -5944,17 +5944,59 @@ func TestGarbageCollection(t *testing.T) {
 	require.NoError(t, c.GetFile(pipeline, "master", "bar", 0, 0, &buf))
 	require.Equal(t, "barbar\n", buf.String())
 
-	// Check that no objects or tags have been removed, since we just ran GC
-	// without deleting anything.
+	diffSets := func(a []string, b []string) (added int, removed int) {
+		amap := make(map[string]struct{})
+		bmap := make(map[string]struct{})
+
+		for _, str := range a {
+			amap[str] = struct{}{}
+		}
+		for _, str := range b {
+			bmap[str] = struct{}{}
+		}
+
+		for k := range amap {
+			if _, ok := bmap[k]; !ok {
+				removed++
+			}
+		}
+		for k := range bmap {
+			if _, ok := amap[k]; !ok {
+				added++
+			}
+		}
+		return added, removed
+	}
+
+	diffObjects := func(a []*pfs.Object, b []*pfs.Object) (added int, removed int) {
+		aset := make([]string, 0, len(a))
+		bset := make([]string, 0, len(b))
+
+		for _, obj := range a {
+			aset = append(aset, obj.Hash)
+		}
+		for _, obj := range b {
+			bset = append(bset, obj.Hash)
+		}
+		return diffSets(aset, bset)
+	}
+
 	objectsAfter := getAllObjects(t, c)
 	tagsAfter := getAllTags(t, c)
+	specObjectCountAfter := getObjectCountForRepo(t, c, ppsconsts.SpecRepo)
 
-	require.Equal(t, len(tagsBefore), len(tagsAfter))
+	// Check that no tags have been removed, since we just ran GC without deleting
+	// anything. Temporary objects from the run of the pipeline may have been
+	// removed.
+	tagsAdded, tagsRemoved := diffSets(tagsBefore, tagsAfter)
+	require.Equal(t, 0, tagsAdded)
+	require.Equal(t, 0, tagsRemoved)
+
 	// Stopping the pipeline creates/updates the pipeline __spec__ repo, so we need
 	// to account for the number of objects we added there
-	specObjectCountAfter := getObjectCountForRepo(t, c, ppsconsts.SpecRepo)
-	expectedSpecObjectCountDelta := specObjectCountAfter - specObjectCountBefore
-	require.Equal(t, len(objectsBefore)+expectedSpecObjectCountDelta, len(objectsAfter))
+	objectsAdded, _ := diffObjects(objectsBefore, objectsAfter)
+	require.Equal(t, objectsAdded, specObjectCountAfter-specObjectCountBefore)
+
 	objectsBefore = objectsAfter
 	tagsBefore = tagsAfter
 
@@ -6161,7 +6203,6 @@ func TestPipelineWithStatsToggle(t *testing.T) {
 	jobs, err = c.FlushJobAll([]*pfs.Commit{commits[len(commits)-1]}, nil)
 	require.NoError(t, err)
 	// Check stats.
-	time.Sleep(3 * time.Minute)
 	resp, err = c.ListDatum(jobs[0].Job.ID, 0, 0)
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(resp.DatumInfos))
@@ -7667,7 +7708,7 @@ func TestLongDatums(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			"sleep 1m",
+			"sleep 2s",
 			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 		},
 		&pps.ParallelismSpec{
@@ -9110,7 +9151,7 @@ func TestDeleteCommitPropagation(t *testing.T) {
 // creates a pipeline. Creating the pipeline will spawn a job and while that
 // job is running, this test deletes the HEAD commit of the input branch, which
 // deletes the job's output commit and cancels the job. This should start
-// another pipeline that processes the original input HEAD commit's parent.
+// another job that processes the original input HEAD commit's parent.
 func TestDeleteCommitRunsJob(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -10250,7 +10291,7 @@ func TestSpout(t *testing.T) {
 						"cp /pfs/mymark/test ./test",
 						"while [ : ]",
 						"do",
-						"sleep 5",
+						"sleep 1",
 						"echo $(tail -1 test). >> test",
 						"mkdir mymark",
 						"cp test mymark/test",

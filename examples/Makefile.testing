@@ -97,7 +97,7 @@ testing-delete: gatk-testing-delete hyperparameter-testing-delete object-detecti
 testing: opencv-testing object-detection-testing hyperparameter-testing gatk-testing
 
 dirty-testing-cluster: opencv-base  ml/object-detection/frozen_inference_graph.pb object-detection-testing-base hyperparameter-testing-base  $(GATK_GERMLINE_FILES) gatk-base
-	until `../etc/examples/pipeline-status.sh edges` = True && \
+	until [[ `../etc/examples/pipeline-status.sh edges` = True && \
 		`../etc/examples/pipeline-status.sh montage` = True && \
 		`../etc/examples/pipeline-status.sh object-model` = True && \
 		`../etc/examples/pipeline-status.sh object-detect` = True && \
@@ -106,7 +106,7 @@ dirty-testing-cluster: opencv-base  ml/object-detection/frozen_inference_graph.p
 		`../etc/examples/pipeline-status.sh hp-test` = True && \
 		`../etc/examples/pipeline-status.sh hp-select` = True && \
 		`../etc/examples/pipeline-status.sh joint_call` = True && \
-		`../etc/examples/pipeline-status.sh likelihoods` = True ; \
+		`../etc/examples/pipeline-status.sh likelihoods` = True ]]; \
 	do \
 		$(ECHO)  -en "\e[G\e[KWaiting for pipelines to start..."; \
 		sleep 1; \
