@@ -6,6 +6,7 @@ import (
 	"unsafe"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 // Reader is io.Reader for proto.Message instead of []byte.
@@ -65,7 +66,7 @@ func (r *readWriter) WriteBytes(bytes []byte) (int64, error) {
 	}
 	lenByteSize := unsafe.Sizeof(int64(len(bytes)))
 	n, err := r.w.Write(bytes)
-	return int64(lenByteSize) + int64(n), err
+	return int64(lenByteSize) + int64(n), errors.WithStack(err)
 }
 
 // Write writes val to r.
