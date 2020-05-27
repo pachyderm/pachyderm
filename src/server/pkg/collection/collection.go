@@ -115,7 +115,7 @@ func (c *collection) Claim(ctx context.Context, key string, val proto.Message, f
 		claimed = false
 		return nil
 	}); err != nil {
-		return err
+		return errors.Wrap(err, "error during claim")
 	}
 	if !claimed {
 		return ErrNotClaimed
@@ -200,10 +200,10 @@ func (c *readWriteCollection) Get(key string, val proto.Message) (retErr error) 
 		if IsErrNotFound(err) {
 			return ErrNotFound{c.prefix, key}
 		}
-		return err
+		return errors.Wrapf(err, "stm error during collection Get")
 	}
 	c.stm.SetSafePutCheck(c.Path(key), reflect.ValueOf(val).Pointer())
-	return proto.Unmarshal([]byte(valStr), val)
+	return errors.WithStack(proto.Unmarshal([]byte(valStr), val))
 }
 
 func cloneProtoMsg(original proto.Message) proto.Message {
@@ -323,7 +323,7 @@ func (c *readWriteCollection) PutTTL(key string, val proto.Message, ttl int64) e
 	}
 	bytes, err := proto.Marshal(val)
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 	return c.stm.Put(c.Path(key), string(bytes), ttl, ptr)
 }

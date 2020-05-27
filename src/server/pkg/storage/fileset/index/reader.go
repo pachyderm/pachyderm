@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
@@ -72,16 +73,16 @@ func (r *Reader) setup() error {
 func topLevel(ctx context.Context, objC obj.Client, path string) (pbr pbutil.Reader, retErr error) {
 	objR, err := objC.Reader(ctx, path, 0, 0)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error wrapping object")
 	}
 	defer func() {
 		if err := objR.Close(); err != nil && retErr == nil {
-			retErr = err
+			retErr = errors.Wrap(err, "error closing object reader")
 		}
 	}()
 	buf := &bytes.Buffer{}
 	if _, err := io.Copy(buf, objR); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error copying")
 	}
 	return pbutil.NewReader(buf), nil
 }
@@ -104,7 +105,7 @@ func (r *Reader) next() (*Index, error) {
 		pbr := r.levels[len(r.levels)-1]
 		idx := &Index{}
 		if err := pbr.Read(idx); err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "error reading pb")
 		}
 		// TODO An empty fileset is represented by the DataOp field being nil in the index
 		// stored in the semantic path for the fileset. We should probably spend some more time
@@ -215,7 +216,7 @@ func (lr *levelReader) setup() error {
 func (lr *levelReader) next() error {
 	lr.idx.Reset()
 	if err := lr.parent.Read(lr.idx); err != nil {
-		return err
+		return errors.Wrapf(err, "error reading pb")
 	}
 	lr.cr.NextDataRefs(lr.idx.DataOp.DataRefs)
 	lr.buf.Reset()

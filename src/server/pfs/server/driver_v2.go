@@ -426,7 +426,7 @@ func (d *driver) concatFileSets(ctx context.Context, outputPath string, inputPat
 func serializeShard(shard *pfs.Shard) (*types.Any, error) {
 	serializedShard, err := proto.Marshal(shard)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error serializing shard")
 	}
 	return &types.Any{
 		TypeUrl: "/" + proto.MessageName(shard),
@@ -437,7 +437,7 @@ func serializeShard(shard *pfs.Shard) (*types.Any, error) {
 func deserializeShard(shardAny *types.Any) (*pfs.Shard, error) {
 	shard := &pfs.Shard{}
 	if err := types.UnmarshalAny(shardAny, shard); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error deserializing shard")
 	}
 	return shard, nil
 }

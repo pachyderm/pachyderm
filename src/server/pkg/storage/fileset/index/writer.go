@@ -3,6 +3,7 @@ package index
 import (
 	"context"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
@@ -82,7 +83,7 @@ func (w *Writer) writeIndexes(idxs []*Index, level int) error {
 		})
 		l.cw.Tag(indexTag)
 		if _, err := l.pbw.Write(idx); err != nil {
-			return err
+			return errors.Wrapf(err, "error in pb writer")
 		}
 	}
 	return nil
