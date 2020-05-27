@@ -489,7 +489,7 @@ func TestLoad(t *testing.T) {
 	if os.Getenv("CI") == "true" {
 		t.SkipNow()
 	}
-	msg := testutil.SeedRand(1590600279704305351)
+	msg := testutil.SeedRand()
 	require.NoError(t, testLoad(fuzzLoad()), msg)
 }
 
