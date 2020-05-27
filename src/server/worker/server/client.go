@@ -88,9 +88,10 @@ func Conns(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client, 
 	}
 	var result []*grpc.ClientConn
 	for _, kv := range resp.Kvs {
-		conn, err := grpc.Dial(fmt.Sprintf("%s:%d", path.Base(string(kv.Key)), workerGrpcPort),
-			append(client.DefaultDialOptions(), grpc.WithInsecure(),
-				grpc.WithTimeout(defaultTimeout))...)
+		ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
+		defer cancel()
+		conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", path.Base(string(kv.Key)), workerGrpcPort),
+			append(client.DefaultDialOptions(), grpc.WithInsecure())...)
 		if err != nil {
 			return nil, err
 		}
