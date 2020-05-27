@@ -335,3 +335,14 @@ func ContainsS3Inputs(in *pps.Input) bool {
 func SidecarS3GatewayService(jobID string) string {
 	return "s3-" + jobID
 }
+
+// ErrorState returns true if s is an error state for a pipeline, that is, a
+// state that users should be aware of and one which will have a "Reason" set
+// for why it's in this state.
+func ErrorState(s pps.PipelineState) bool {
+	return map[pps.PipelineState]bool{
+		pps.PipelineState_PIPELINE_FAILURE:    true,
+		pps.PipelineState_PIPELINE_CRASHING:   true,
+		pps.PipelineState_PIPELINE_RESTARTING: true,
+	}[s]
+}
