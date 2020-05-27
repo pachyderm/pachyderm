@@ -1722,12 +1722,6 @@ publish = "doc/site"
   force = true
 
 [[redirects]]
-  from = "/deploy-manage/deploy/deploy-pachyderm-jupyterhub/"
-  to = "/latest/deploy-manage/deploy/deploy-pachyderm-jupyterhub/"
-  status = 301
-  force = true
-
-[[redirects]]
   from = "/deploy-manage/deploy/deploy_w_tls/"
   to = "/latest/deploy-manage/deploy/deploy_w_tls/"
   status = 301
@@ -1814,18 +1808,6 @@ publish = "doc/site"
 [[redirects]]
   from = "/how-tos/s3gateway/"
   to = "/latest/how-tos/s3gateway/"
-  status = 301
-  force = true
-
-[[redirects]]
-  from = "/how-tos/use-jupyterhub/"
-  to = "/latest/how-tos/use-jupyterhub"
-  status = 301
-  force = true
-
-[[redirects]]
-  from = "/how-tos/use-jupyterhub/using-jupyterhub/"
-  to = "/latest/how-tos/use-jupyterhub/using-jupyterhub/"
   status = 301
   force = true
 
