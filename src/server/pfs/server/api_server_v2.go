@@ -14,7 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/metrics"
 )
 
-func (a *apiServer) PutTarV2(server pfs.API_PutTarV2Server) (retErr error) {
+func (a *apiServer) FileOperationV2(server pfs.API_FileOperationV2Server) (retErr error) {
 	req, err := server.Recv()
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, nil, retErr, time.Since(start)) }(time.Now())
@@ -37,17 +37,18 @@ func (a *apiServer) PutTarV2(server pfs.API_PutTarV2Server) (retErr error) {
 					}
 					return err
 				}
-				ptr := &putTarReader{
-					server: server,
-					r:      bytes.NewReader(req.Data),
-				}
-				if err := func() error {
-					defer func() {
-						bytesRead += ptr.bytesRead
-					}()
-					return fs.Put(ptr, req.Tag)
-				}(); err != nil {
-					return err
+				// TODO Validation.
+				switch op := req.Operation.(type) {
+				case *pfs.FileOperationRequestV2_PutTar:
+					n, err := putTar(fs, server, op.PutTar)
+					bytesRead += n
+					if err != nil {
+						return err
+					}
+				case *pfs.FileOperationRequestV2_DeleteFiles:
+					if err := deleteFiles(fs, op.DeleteFiles); err != nil {
+						return err
+					}
 				}
 			}
 		}); err != nil {
@@ -57,8 +58,17 @@ func (a *apiServer) PutTarV2(server pfs.API_PutTarV2Server) (retErr error) {
 	})
 }
 
+func putTar(fs *fileset.FileSet, server pfs.API_FileOperationV2Server, req *pfs.PutTarRequestV2) (int64, error) {
+	ptr := &putTarReader{
+		server: server,
+		r:      bytes.NewReader(req.Data),
+	}
+	err := fs.Put(ptr, req.Tag)
+	return ptr.bytesRead, err
+}
+
 type putTarReader struct {
-	server    pfs.API_PutTarV2Server
+	server    pfs.API_FileOperationV2Server
 	r         *bytes.Reader
 	bytesRead int64
 }
@@ -69,14 +79,23 @@ func (ptr *putTarReader) Read(data []byte) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		if req.EOF {
+		op := req.Operation.(*pfs.FileOperationRequestV2_PutTar)
+		putTarReq := op.PutTar
+		if putTarReq.EOF {
 			return 0, io.EOF
 		}
-		ptr.r = bytes.NewReader(req.Data)
+		ptr.r = bytes.NewReader(putTarReq.Data)
 	}
 	n, err := ptr.r.Read(data)
 	ptr.bytesRead += int64(n)
 	return n, err
+}
+
+func deleteFiles(fs *fileset.FileSet, req *pfs.DeleteFilesRequestV2) error {
+	for _, file := range req.Files {
+		fs.Delete(file, req.Tag)
+	}
+	return nil
 }
 
 func (a *apiServer) GetTarV2(request *pfs.GetTarRequestV2, server pfs.API_GetTarV2Server) (retErr error) {

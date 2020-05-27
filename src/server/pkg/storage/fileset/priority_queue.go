@@ -7,6 +7,7 @@ import (
 type stream interface {
 	next() error
 	key() string
+	streamPriority() int
 }
 
 type priorityQueue struct {
@@ -37,8 +38,10 @@ func (pq *priorityQueue) iterate(f func([]stream, ...string) error) error {
 	}
 }
 
-func (pq *priorityQueue) key(i int) string {
-	return pq.queue[i].key()
+func (pq *priorityQueue) isHigherPriority(i, j int) bool {
+	si := pq.queue[i]
+	sj := pq.queue[j]
+	return si.key() < sj.key() || (si.key() == sj.key() && si.streamPriority() < sj.streamPriority())
 }
 
 func (pq *priorityQueue) empty() bool {
@@ -58,7 +61,7 @@ func (pq *priorityQueue) insert(s stream) error {
 	// Propagate insert up the queue
 	i := pq.size
 	for i > 1 {
-		if pq.key(i/2) <= pq.key(i) {
+		if pq.isHigherPriority(i/2, i) {
 			break
 		}
 		pq.swap(i/2, i)
@@ -82,7 +85,7 @@ func (pq *priorityQueue) next() ([]stream, error) {
 	ss := []stream{pq.queue[1]}
 	pq.fill()
 	// Keep popping streams off the queue if they have the same key.
-	for pq.queue[1] != nil && pq.key(1) == ss[0].key() {
+	for pq.queue[1] != nil && pq.queue[1].key() == ss[0].key() {
 		ss = append(ss, pq.queue[1])
 		pq.fill()
 	}
@@ -109,12 +112,12 @@ func (pq *priorityQueue) fill() {
 		left, right := i*2, i*2+1
 		if left > pq.size {
 			break
-		} else if right > pq.size || pq.key(left) <= pq.key(right) {
+		} else if right > pq.size || pq.isHigherPriority(left, right) {
 			next = left
 		} else {
 			next = right
 		}
-		if pq.key(i) <= pq.key(next) {
+		if pq.isHigherPriority(i, next) {
 			break
 		}
 		pq.swap(i, next)

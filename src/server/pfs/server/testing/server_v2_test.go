@@ -167,6 +167,14 @@ func newCommitGenerator(opts ...commitGeneratorOption) commitGenerator {
 				if err := c.PutTarV2(repo, commit.ID, r); err != nil {
 					return err
 				}
+				if rand.Float64() < config.deleteProb {
+					file := validator.deleteRandomFile()
+					if file != "" {
+						if err := c.DeleteFilesV2(repo, commit.ID, []string{file}); err != nil {
+							return err
+						}
+					}
+				}
 				validator.recordFileSet(fs)
 			}
 			if err := c.FinishCommit(repo, commit.ID); err != nil {
@@ -199,6 +207,7 @@ type commitConfig struct {
 	putTarGens                               []putTarGenerator
 	putThroughputConfig, getThroughputConfig *throughputConfig
 	putCancelConfig, getCancelConfig         *cancelConfig
+	deleteProb                               float64
 }
 
 type throughputConfig struct {
@@ -308,6 +317,12 @@ func withPutCancel(maxTime time.Duration, prob ...float64) commitGeneratorOption
 func withGetCancel(maxTime time.Duration, prob ...float64) commitGeneratorOption {
 	return func(config *commitConfig) {
 		config.getCancelConfig = newCancelConfig(maxTime, prob...)
+	}
+}
+
+func withDeleteProb(prob float64) commitGeneratorOption {
+	return func(config *commitConfig) {
+		config.deleteProb = prob
 	}
 }
 
@@ -474,7 +489,7 @@ func TestLoad(t *testing.T) {
 	if os.Getenv("CI") == "true" {
 		t.SkipNow()
 	}
-	msg := testutil.SeedRand()
+	msg := testutil.SeedRand(1590600279704305351)
 	require.NoError(t, testLoad(fuzzLoad()), msg)
 }
 
@@ -499,6 +514,7 @@ func fuzzCommits() []branchGeneratorOption {
 				withFileGenerator(fuzzFiles()),
 			),
 		)
+		commitOpts = append(commitOpts, fuzzDelete()...)
 		branchOpts = append(branchOpts, withCommitGenerator(commitOpts...))
 	}
 	return branchOpts
@@ -539,6 +555,12 @@ func fuzzCancel() []commitGeneratorOption {
 			5*time.Second,
 			0.05,
 		),
+	}
+}
+
+func fuzzDelete() []commitGeneratorOption {
+	return []commitGeneratorOption{
+		withDeleteProb(0.3),
 	}
 }
 
@@ -620,6 +642,14 @@ func (v *validator) validate(r io.Reader) error {
 		}
 	}
 	return nil
+}
+
+func (v *validator) deleteRandomFile() string {
+	for file := range v.files {
+		delete(v.files, file)
+		return file
+	}
+	return ""
 }
 
 type fileSetSpec map[string][]byte

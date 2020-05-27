@@ -509,11 +509,23 @@ message FileInfoV2 {
 //     Client sends a request with the EOF field set to true.
 //   Client connection is closed.
 
-message PutTarRequestV2 {
+message FileOperationRequestV2 {
   Commit commit = 1;
+  oneof operation {
+    PutTarRequestV2 put_tar = 2;
+    DeleteFilesRequestV2 delete_files = 3;
+  }
+}
+
+message PutTarRequestV2 {
+  string tag = 1;
+  bytes data = 2;
+  bool EOF = 3;
+}
+
+message DeleteFilesRequestV2 {
+  repeated string files = 1; 
   string tag = 2;
-  bytes data = 3;
-  bool EOF = 4;
 }
 
 message GetTarRequestV2 {
@@ -622,7 +634,7 @@ service API {
   rpc Fsck(FsckRequest) returns (stream FsckResponse) {}
 
   // RPCs specific to Pachyderm 2.
-  rpc PutTarV2(stream PutTarRequestV2) returns (google.protobuf.Empty) {}
+  rpc FileOperationV2(stream FileOperationRequestV2) returns (google.protobuf.Empty) {}
   rpc GetTarV2(GetTarRequestV2) returns (stream google.protobuf.BytesValue) {}
   // Refer to the GetTarConditionalRequest / GetTarConditionalResponse message definitions for the protocol.
   rpc GetTarConditionalV2(stream GetTarConditionalRequestV2) returns (stream GetTarConditionalResponseV2) {}

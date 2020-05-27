@@ -21,7 +21,10 @@ type MergeReader struct {
 func newMergeReader(rs []*Reader) *MergeReader {
 	var fileStreams []stream
 	for _, r := range rs {
-		fileStreams = append(fileStreams, &fileStream{r: r})
+		fileStreams = append(fileStreams, &fileStream{
+			r:        r,
+			priority: len(fileStreams),
+		})
 	}
 	return &MergeReader{pq: newPriorityQueue(fileStreams)}
 }
@@ -43,31 +46,81 @@ func (mr *MergeReader) Iterate(f func(*FileMergeReader) error) error {
 			}
 			frs = append(frs, fr)
 		}
-		return f(newFileMergeReader(frs))
+		frs = applyFullDeletes(frs)
+		contentTags := computeContentTags(frs)
+		if len(contentTags) == 0 {
+			return nil
+		}
+		return f(newFileMergeReader(frs, sizeOfTags(contentTags)))
 	})
+}
+
+func applyFullDeletes(frs []*FileReader) []*FileReader {
+	var result []*FileReader
+	for _, fr := range frs {
+		result = append(result, fr)
+		if len(fr.Index().DataOp.DeleteTags) > 0 && fr.Index().DataOp.DeleteTags[0].Id == headerTag {
+			return result
+		}
+	}
+	return result
+}
+
+func computeContentTags(frs []*FileReader) map[string]int64 {
+	tags := make(map[string]int64)
+	for _, fr := range frs {
+		dataOp := fr.Index().DataOp
+		for _, tag := range dataOp.DeleteTags {
+			delete(tags, tag.Id)
+		}
+		for _, dataRef := range dataOp.DataRefs {
+			for _, tag := range dataRef.Tags {
+				if tag.Id == headerTag || tag.Id == paddingTag {
+					continue
+				}
+				tags[tag.Id] += tag.SizeBytes
+			}
+		}
+	}
+	return tags
+}
+
+func sizeOfTags(tags map[string]int64) int64 {
+	var size int64
+	for _, tagSize := range tags {
+		size += tagSize
+	}
+	return size
 }
 
 // Next gets the next file merge reader in the merge reader.
 func (mr *MergeReader) Next() (*FileMergeReader, error) {
-	ss, err := mr.pq.next()
-	if err != nil {
-		return nil, err
-	}
-	// Convert generic streams to file streams.
-	var fss []*fileStream
-	for _, s := range ss {
-		fss = append(fss, s.(*fileStream))
-	}
-	// Create file merge reader and execute callback.
-	var frs []*FileReader
-	for _, fs := range fss {
-		fr, err := fs.r.Next()
+	for {
+		ss, err := mr.pq.next()
 		if err != nil {
 			return nil, err
 		}
-		frs = append(frs, fr)
+		// Convert generic streams to file streams.
+		var fss []*fileStream
+		for _, s := range ss {
+			fss = append(fss, s.(*fileStream))
+		}
+		// Create file merge reader and execute callback.
+		var frs []*FileReader
+		for _, fs := range fss {
+			fr, err := fs.r.Next()
+			if err != nil {
+				return nil, err
+			}
+			frs = append(frs, fr)
+		}
+		frs = applyFullDeletes(frs)
+		contentTags := computeContentTags(frs)
+		if len(contentTags) == 0 {
+			continue
+		}
+		return newFileMergeReader(frs, sizeOfTags(contentTags)), nil
 	}
-	return newFileMergeReader(frs), nil
 }
 
 // WriteTo writes the merged fileset to the passed in fileset writer.
@@ -93,7 +146,13 @@ func (mr *MergeReader) WriteTo(w *Writer) error {
 			}
 			frs = append(frs, fr)
 		}
-		return newFileMergeReader(frs).WriteTo(w)
+		frs = applyFullDeletes(frs)
+		contentTags := computeContentTags(frs)
+		if len(contentTags) == 0 {
+			w.DeleteFile(frs[0].Index().Path)
+			return nil
+		}
+		return newFileMergeReader(frs, sizeOfTags(contentTags)).WriteTo(w)
 	})
 }
 
@@ -111,8 +170,9 @@ func (mr *MergeReader) Get(w io.Writer) error {
 }
 
 type fileStream struct {
-	r   *Reader
-	idx *index.Index
+	r        *Reader
+	idx      *index.Index
+	priority int
 }
 
 func (fs *fileStream) next() error {
@@ -125,19 +185,24 @@ func (fs *fileStream) key() string {
 	return fs.idx.Path
 }
 
+func (fs *fileStream) streamPriority() int {
+	return fs.priority
+}
+
 // FileMergeReader is an abstraction for reading a merged file.
 type FileMergeReader struct {
 	frs     []*FileReader
 	hdr     *tar.Header
 	tsmr    *TagSetMergeReader
+	size    int64
 	fullIdx *index.Index
 }
 
-func newFileMergeReader(frs []*FileReader) *FileMergeReader {
-	// TODO Handle delete operations.
+func newFileMergeReader(frs []*FileReader, size int64) *FileMergeReader {
 	return &FileMergeReader{
 		frs:  frs,
 		tsmr: newTagSetMergeReader(frs),
+		size: size,
 	}
 }
 
@@ -149,9 +214,7 @@ func (fmr *FileMergeReader) Index() *index.Index {
 	}
 	idx := &index.Index{}
 	idx.Path = fmr.frs[0].Index().Path
-	for _, fr := range fmr.frs {
-		idx.SizeBytes += fr.Index().SizeBytes
-	}
+	idx.SizeBytes = fmr.size
 	return idx
 }
 
@@ -159,14 +222,11 @@ func (fmr *FileMergeReader) Index() *index.Index {
 func (fmr *FileMergeReader) Header() (*tar.Header, error) {
 	if fmr.hdr == nil {
 		// TODO Validate the headers being merged?
-		// Compute the size of the headers being merged.
-		var size int64
 		for _, fr := range fmr.frs {
-			hdr, err := fr.Header()
+			_, err := fr.Header()
 			if err != nil {
 				return nil, err
 			}
-			size += hdr.Size
 		}
 		// Use the header from the highest priority file
 		// reader and update the size.
@@ -176,7 +236,7 @@ func (fmr *FileMergeReader) Header() (*tar.Header, error) {
 		if err != nil {
 			return nil, err
 		}
-		fmr.hdr.Size = size
+		fmr.hdr.Size = fmr.size
 	}
 	return fmr.hdr, nil
 }
@@ -190,6 +250,11 @@ func (fmr *FileMergeReader) WriteTo(w *Writer) error {
 	// Write merged header.
 	if err := w.WriteHeader(hdr); err != nil {
 		return err
+	}
+	deleteTags := fmr.frs[len(fmr.frs)-1].Index().DataOp.DeleteTags
+	if len(deleteTags) > 0 && deleteTags[0].Id == headerTag {
+		w.DeleteTag(headerTag)
+		return nil
 	}
 	// Write merged content.
 	return fmr.tsmr.WriteTo(w)
@@ -233,7 +298,14 @@ type TagSetMergeReader struct {
 func newTagSetMergeReader(frs []*FileReader) *TagSetMergeReader {
 	var tagStreams []stream
 	for _, fr := range frs {
-		tagStreams = append(tagStreams, &tagStream{fr: fr})
+		tagStreams = append(tagStreams, &deleteTagStream{
+			tags:     fr.Index().DataOp.DeleteTags,
+			priority: len(tagStreams),
+		})
+		tagStreams = append(tagStreams, &tagStream{
+			fr:       fr,
+			priority: len(tagStreams),
+		})
 	}
 	return &TagSetMergeReader{
 		frs: frs,
@@ -247,7 +319,14 @@ func (tsmr *TagSetMergeReader) Iterate(f func(*TagMergeReader) error) error {
 		// Convert generic stream to tag stream.
 		var tss []*tagStream
 		for _, s := range ss {
+			if _, ok := s.(*deleteTagStream); ok {
+				tss = nil
+				continue
+			}
 			tss = append(tss, s.(*tagStream))
+		}
+		if len(tss) == 0 {
+			return nil
 		}
 		// Check if we are at the padding tag, which indicates we are done.
 		tag, err := tss[0].fr.PeekTag()
@@ -277,7 +356,15 @@ func (tsmr *TagSetMergeReader) WriteTo(w *Writer) error {
 		// Convert generic stream to tag stream.
 		var tss []*tagStream
 		for _, s := range ss {
+			if dts, ok := s.(*deleteTagStream); ok {
+				w.DeleteTag(dts.tag.Id)
+				tss = nil
+				continue
+			}
 			tss = append(tss, s.(*tagStream))
+		}
+		if len(tss) == 0 {
+			return nil
 		}
 		// Check if we are at the padding tag, which indicates we are done.
 		tag, err := tss[0].fr.PeekTag()
@@ -318,8 +405,9 @@ func (tsmr *TagSetMergeReader) Get(w io.Writer) error {
 }
 
 type tagStream struct {
-	fr  *FileReader
-	tag *chunk.Tag
+	fr       *FileReader
+	tag      *chunk.Tag
+	priority int
 }
 
 func (ts *tagStream) next() error {
@@ -330,6 +418,33 @@ func (ts *tagStream) next() error {
 
 func (ts *tagStream) key() string {
 	return ts.tag.Id
+}
+
+func (ts *tagStream) streamPriority() int {
+	return ts.priority
+}
+
+type deleteTagStream struct {
+	tags     []*chunk.Tag
+	tag      *chunk.Tag
+	priority int
+}
+
+func (dts *deleteTagStream) next() error {
+	if len(dts.tags) == 0 {
+		return io.EOF
+	}
+	dts.tag = dts.tags[0]
+	dts.tags = dts.tags[1:]
+	return nil
+}
+
+func (dts *deleteTagStream) key() string {
+	return dts.tag.Id
+}
+
+func (dts *deleteTagStream) streamPriority() int {
+	return dts.priority
 }
 
 // TagMergeReader is an abstraction for reading a merged tag.
@@ -381,10 +496,6 @@ func shard(mr *MergeReader, shardThreshold int64, f ShardFunc) error {
 	var size int64
 	pathRange := &index.PathRange{}
 	if err := mr.Iterate(func(fmr *FileMergeReader) error {
-		if pathRange.Lower == "" {
-			pathRange.Lower = fmr.Index().Path
-		}
-		size += fmr.Index().SizeBytes
 		// A shard is created when we have encountered more than shardThreshold content bytes.
 		if size >= shardThreshold {
 			pathRange.Upper = fmr.Index().Path
@@ -392,15 +503,14 @@ func shard(mr *MergeReader, shardThreshold int64, f ShardFunc) error {
 				return err
 			}
 			size = 0
-			pathRange = &index.PathRange{}
+			pathRange = &index.PathRange{
+				Lower: fmr.Index().Path,
+			}
 		}
+		size += fmr.Index().SizeBytes
 		return nil
 	}); err != nil {
 		return err
-	}
-	// Edge case where the last shard is created at the last file.
-	if pathRange.Lower == "" {
-		return nil
 	}
 	return f(pathRange)
 }
