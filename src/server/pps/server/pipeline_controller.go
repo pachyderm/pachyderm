@@ -96,7 +96,7 @@ func (a *apiServer) step(pachClient *client.APIClient, pipeline string, keyVer, 
 		"spec-commit", op.ptr.SpecCommit)
 	if span != nil {
 		defer tracing.FinishAnySpan(span)
-		pachClient = pachClient.WithCtx(ctx) //lint:ignore SA4006 pachClient is unused but we want the right one in scope in case someone uses it below in the future
+		pachClient = pachClient.WithCtx(ctx)
 	}
 
 	// Bring 'pipeline' into the correct state by taking appropriate action
@@ -665,5 +665,8 @@ func (a *apiServer) allWorkersUp(pachClient *client.APIClient, pi *pps.PipelineI
 	}
 	workerPoolID := ppsutil.PipelineRcName(pi.Pipeline.Name, pi.Version)
 	workerStatus, err := workerserver.Status(pachClient.Ctx(), workerPoolID, a.env.GetEtcdClient(), a.etcdPrefix, a.workerGrpcPort)
+	if err != nil {
+		return false, err
+	}
 	return parallelism == len(workerStatus), nil
 }
