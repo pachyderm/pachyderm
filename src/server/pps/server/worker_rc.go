@@ -170,7 +170,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		})
 	}
 	// Propagate feature flags to worker and sidecar
-	if a.env.NewStorageLayer {
+	if a.env.StorageV2 {
 		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "NEW_STORAGE_LAYER", Value: "true"})
 		workerEnv = append(workerEnv, v1.EnvVar{Name: "NEW_STORAGE_LAYER", Value: "true"})
 	}
