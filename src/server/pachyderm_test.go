@@ -4151,57 +4151,6 @@ func collectCommitInfos(t testing.TB, commitInfoIter client.CommitInfoIterator) 
 	}
 }
 
-func TestParallelismSpec(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	kubeclient := tu.GetKubeClient(t)
-	nodes, err := kubeclient.CoreV1().Nodes().List(metav1.ListOptions{})
-	require.NoError(t, err)
-	numNodes := len(nodes.Items)
-
-	// Test Constant strategy
-	parellelism, err := ppsutil.GetExpectedNumWorkers(tu.GetKubeClient(t), &pps.ParallelismSpec{
-		Constant: 7,
-	})
-	require.NoError(t, err)
-	require.Equal(t, 7, parellelism)
-
-	// Coefficient == 1 (basic test)
-	// TODO(msteffen): This test can fail when run against cloud providers, if the
-	// remote cluster has more than one node (in which case "Coefficient: 1" will
-	// cause more than 1 worker to start)
-	parellelism, err = ppsutil.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
-		Coefficient: 1,
-	})
-	require.NoError(t, err)
-	require.Equal(t, numNodes, parellelism)
-
-	// Coefficient > 1
-	parellelism, err = ppsutil.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
-		Coefficient: 2,
-	})
-	require.NoError(t, err)
-	require.Equal(t, 2*numNodes, parellelism)
-
-	// Make sure we start at least one worker
-	parellelism, err = ppsutil.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
-		Coefficient: 0.01,
-	})
-	require.NoError(t, err)
-	require.Equal(t, 1, parellelism)
-
-	// Test 0-initialized JobSpec
-	parellelism, err = ppsutil.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{})
-	require.NoError(t, err)
-	require.Equal(t, 1, parellelism)
-
-	// Test nil JobSpec
-	parellelism, err = ppsutil.GetExpectedNumWorkers(kubeclient, nil)
-	require.NoError(t, err)
-	require.Equal(t, 1, parellelism)
-}
-
 func TestPipelineJobDeletion(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
