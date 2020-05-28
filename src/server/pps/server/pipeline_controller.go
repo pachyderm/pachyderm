@@ -364,7 +364,8 @@ func (op *pipelineOp) rcIsFresh() bool {
 func (op *pipelineOp) setPipelineState(state pps.PipelineState, reason string) error {
 	var errCount int
 	return backoff.RetryNotify(func() error {
-		return op.apiServer.setPipelineState(op.pachClient, op.pipelineInfo, state, reason)
+		return op.apiServer.setPipelineState(op.pachClient.Ctx(),
+			op.pipelineInfo.Pipeline.Name, state, reason)
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		if errCount++; errCount >= maxErrCount {
 			return errors.Wrapf(err, "could not set pipeline state for %q to %v"+
