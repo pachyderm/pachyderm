@@ -16,7 +16,6 @@ package ppsutil
 import (
 	"bytes"
 	"fmt"
-	"math"
 	"path"
 	"strings"
 	"time"
@@ -35,8 +34,6 @@ import (
 	"golang.org/x/net/context"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kube "k8s.io/client-go/kubernetes"
 )
 
 // PipelineRepo creates a pfs repo for a given pipeline.
@@ -108,40 +105,6 @@ func getResourceListFromSpec(resources *pps.ResourceSpec) (*v1.ResourceList, err
 // maximally is limited to.
 func GetLimitsResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*v1.ResourceList, error) {
 	return getResourceListFromSpec(pipelineInfo.ResourceLimits)
-}
-
-// getNumNodes attempts to retrieve the number of nodes in the current k8s
-// cluster
-func getNumNodes(kubeClient *kube.Clientset) (int, error) {
-	nodeList, err := kubeClient.CoreV1().Nodes().List(metav1.ListOptions{})
-	if err != nil {
-		return 0, errors.Wrapf(err, "unable to retrieve node list from k8s to determine parallelism")
-	}
-	if len(nodeList.Items) == 0 {
-		return 0, errors.Errorf("pachyderm.pps.jobserver: no k8s nodes found")
-	}
-	return len(nodeList.Items), nil
-}
-
-// GetExpectedNumWorkers computes the expected number of workers that
-// pachyderm will start given the ParallelismSpec 'spec'.
-//
-// This is only exported for testing
-func GetExpectedNumWorkers(kubeClient *kube.Clientset, spec *pps.ParallelismSpec) (int, error) {
-	if spec == nil || (spec.Constant == 0 && spec.Coefficient == 0) {
-		return 1, nil
-	} else if spec.Constant > 0 && spec.Coefficient == 0 {
-		return int(spec.Constant), nil
-	} else if spec.Constant == 0 && spec.Coefficient > 0 {
-		// Start ('coefficient' * 'nodes') workers. Determine number of workers
-		numNodes, err := getNumNodes(kubeClient)
-		if err != nil {
-			return 0, err
-		}
-		result := math.Floor(spec.Coefficient * float64(numNodes))
-		return int(math.Max(result, 1)), nil
-	}
-	return 0, errors.Errorf("unable to interpret ParallelismSpec %+v", spec)
 }
 
 // GetExpectedNumHashtrees computes the expected number of hashtrees that

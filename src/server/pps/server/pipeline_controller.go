@@ -168,7 +168,7 @@ func (a *apiServer) step(pachClient *client.APIClient, pipeline string, keyVer, 
 		if op.pipelineInfo.Stopped {
 			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED, "")
 		}
-		workersUp, err := a.allWorkersUp(pachClient, op.pipelineInfo)
+		workersUp, err := op.allWorkersUp()
 		if err != nil {
 			return err
 		}
@@ -554,10 +554,9 @@ func (op *pipelineOp) scaleUpPipeline() (retErr error) {
 	}()
 
 	// compute target pipeline parallelism
-	kubeClient := op.apiServer.env.GetKubeClient()
-	parallelism, err := ppsutil.GetExpectedNumWorkers(kubeClient, op.pipelineInfo.ParallelismSpec)
-	if err != nil {
-		log.Errorf("PPS master: error getting number of workers (defaulting to 1 worker): %v", err)
+	parallelism := int(op.ptr.Parallelism)
+	if parallelism == 0 {
+		log.Errorf("PPS master: error getting number of workers (defaulting to 1 worker)")
 		parallelism = 1
 	}
 
@@ -658,13 +657,15 @@ func (op *pipelineOp) failPipeline(reason string) error {
 	return errors.Errorf("failing pipeline %q: %v", op.name, reason)
 }
 
-func (a *apiServer) allWorkersUp(pachClient *client.APIClient, pi *pps.PipelineInfo) (bool, error) {
-	parallelism, err := ppsutil.GetExpectedNumWorkers(a.env.GetKubeClient(), pi.ParallelismSpec)
-	if err != nil {
-		return false, err
+func (op *pipelineOp) allWorkersUp() (bool, error) {
+	parallelism := int(op.ptr.Parallelism)
+	if parallelism == 0 {
+		parallelism = 1
 	}
-	workerPoolID := ppsutil.PipelineRcName(pi.Pipeline.Name, pi.Version)
-	workerStatus, err := workerserver.Status(pachClient.Ctx(), workerPoolID, a.env.GetEtcdClient(), a.etcdPrefix, a.workerGrpcPort)
+	workerPoolID := ppsutil.PipelineRcName(op.name, op.pipelineInfo.Version)
+	workerStatus, err := workerserver.Status(op.pachClient.Ctx(), workerPoolID,
+		op.apiServer.env.GetEtcdClient(), op.apiServer.etcdPrefix,
+		op.apiServer.workerGrpcPort)
 	if err != nil {
 		return false, err
 	}

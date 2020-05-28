@@ -295,16 +295,12 @@ func (a *apiServer) transitionPipelineState(pachClient *client.APIClient, pipeli
 // those functions instead.
 func (a *apiServer) setPipelineStateInternal(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, from *pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
 	ctx := pachClient.Ctx()
-	parallelism, err := ppsutil.GetExpectedNumWorkers(a.env.GetKubeClient(), pipelineInfo.ParallelismSpec)
-	if err != nil {
-		return errors.Wrapf(err, "could not determine expected pipeline workers")
-	}
 	if from == nil {
 		log.Infof("moving pipeline %s to %s", pipelineInfo.Pipeline.Name, to)
 	} else {
 		log.Infof("moving pipeline %s from %s to %s", pipelineInfo.Pipeline.Name, from, to)
 	}
-	_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		pipelines := a.pipelines.ReadWrite(stm)
 		pipelinePtr := &pps.EtcdPipelineInfo{}
 		if err := pipelines.Get(pipelineInfo.Pipeline.Name, pipelinePtr); err != nil {
@@ -330,7 +326,6 @@ func (a *apiServer) setPipelineStateInternal(pachClient *client.APIClient, pipel
 		}
 		pipelinePtr.State = to
 		pipelinePtr.Reason = reason
-		pipelinePtr.Parallelism = uint64(parallelism)
 		return pipelines.Put(pipelineInfo.Pipeline.Name, pipelinePtr)
 	})
 	return err
