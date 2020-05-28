@@ -611,6 +611,8 @@ github.com/pachyderm/s2 v0.0.0-20191119172829-5e460c076ab6 h1:NcikC60ySZOrtHBKhG
 github.com/pachyderm/s2 v0.0.0-20191119172829-5e460c076ab6/go.mod h1:ElO4u0RXSPaw9RGOyFafJ9GzaWS1bteLwywxyduiGNU=
 github.com/pachyderm/s2 v0.0.0-20200519144437-470b3d6f28e8 h1:wRimEETMzju6ESQd4NmCnja8NwN5NFHkhvwj1TcTDLQ=
 github.com/pachyderm/s2 v0.0.0-20200519144437-470b3d6f28e8/go.mod h1:98ZziL+rS3SUnNMsAmmA2bo4pkfWN2vsu1ECMkUOZDk=
+github.com/pachyderm/s2 v0.0.0-20200528231500-590b33e3c716 h1:4GqYUbsbJYYN1NfDqwbZhkkw/vkr25WSIsQIsf67vb8=
+github.com/pachyderm/s2 v0.0.0-20200528231500-590b33e3c716/go.mod h1:98ZziL+rS3SUnNMsAmmA2bo4pkfWN2vsu1ECMkUOZDk=
 github.com/pborman/uuid v1.2.0/go.mod h1:X/NO0urCmaxf9VXbdlT7C2Yzkj2IKimNn4k+gtPdI/k=
 github.com/pelletier/go-buffruneio v0.2.0 h1:U4t4R6YkofJ5xHm3dJzuRpPZ0mr5MMCoAWooScCR7aA=
 github.com/pelletier/go-buffruneio v0.2.0/go.mod h1:JkE26KsDizTr40EUHkXVtNPvgGtbSNq5BcowyYOWdKo=
@@ -916,6 +918,8 @@ golang.org/x/sys v0.0.0-20191210023423-ac6580df4449 h1:gSbV7h1NRL2G1xTg/owz62CST
 golang.org/x/sys v0.0.0-20191210023423-ac6580df4449/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20200519105757-fe76b779f299 h1:DYfZAGf2WMFjMxbgTjaC+2HC7NkNAQs+6Q8b9WEB/F4=
 golang.org/x/sys v0.0.0-20200519105757-fe76b779f299/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+golang.org/x/sys v0.0.0-20200523222454-059865788121 h1:rITEj+UZHYC927n8GT97eC3zrpzXdb/voyeOuVKS46o=
+golang.org/x/sys v0.0.0-20200523222454-059865788121/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/text v0.0.0-20160726164857-2910a502d2bf/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
 golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
 golang.org/x/text v0.3.1-0.20180807135948-17ff2d5776d2/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=

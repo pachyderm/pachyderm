@@ -75,7 +75,7 @@ require (
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/otiai10/copy v1.0.2
 	github.com/pachyderm/ohmyglob v0.0.0-20190713004043-630e5c15d4e4
-	github.com/pachyderm/s2 v0.0.0-20200519144437-470b3d6f28e8
+	github.com/pachyderm/s2 v0.0.0-20200528231500-590b33e3c716
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/term v0.0.0-20190109203006-aa71e9d9e942 // indirect
 	github.com/prometheus/client_golang v1.2.1
@@ -106,7 +106,7 @@ require (
 	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
 	golang.org/x/oauth2 v0.0.0-20191202225959-858c2ad4c8b6
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
-	golang.org/x/sys v0.0.0-20200519105757-fe76b779f299 // indirect
+	golang.org/x/sys v0.0.0-20200523222454-059865788121 // indirect
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
 	golang.org/x/tools v0.0.0-20200521211927-2b542361a4fc // indirect
 	google.golang.org/api v0.6.0
