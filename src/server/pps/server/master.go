@@ -140,9 +140,10 @@ func (a *apiServer) master() {
 				if pod.Status.Phase == v1.PodFailed {
 					log.Errorf("pod failed because: %s", pod.Status.Message)
 				}
+				pipelineName := pod.ObjectMeta.Annotations["pipelineName"]
 				for _, status := range pod.Status.ContainerStatuses {
 					if status.Name == "user" && status.State.Waiting != nil && failures[status.State.Waiting.Reason] {
-						if err := a.setPipelineCrashing(ctx, pod.ObjectMeta.Annotations["pipelineName"], status.State.Waiting.Message); err != nil {
+						if err := a.setPipelineCrashing(pachClient.Ctx(), pipelineName, status.State.Waiting.Message); err != nil {
 							return err
 						}
 					}
@@ -150,7 +151,7 @@ func (a *apiServer) master() {
 				for _, condition := range pod.Status.Conditions {
 					if condition.Type == v1.PodScheduled &&
 						condition.Status != v1.ConditionTrue && failures[condition.Reason] {
-						if err := a.setPipelineCrashing(ctx, pod.ObjectMeta.Annotations["pipelineName"], condition.Message); err != nil {
+						if err := a.setPipelineCrashing(pachClient.Ctx(), pipelineName, condition.Message); err != nil {
 							return err
 						}
 					}
