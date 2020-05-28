@@ -93,27 +93,28 @@ type errGithookServiceNotFound struct {
 // including all RPCs defined in the protobuf spec.
 type apiServer struct {
 	log.Logger
-	etcdPrefix            string
-	env                   *serviceenv.ServiceEnv
-	txnEnv                *txnenv.TransactionEnv
-	namespace             string
-	workerImage           string
-	workerSidecarImage    string
-	workerImagePullPolicy string
-	storageRoot           string
-	storageBackend        string
-	storageHostPath       string
-	iamRole               string
-	imagePullSecret       string
-	noExposeDockerSocket  bool
-	reporter              *metrics.Reporter
-	monitorCancelsMu      sync.Mutex
-	monitorCancels        map[string]func()
-	workerUsesRoot        bool
-	workerGrpcPort        uint16
-	port                  uint16
-	httpPort              uint16
-	peerPort              uint16
+	etcdPrefix             string
+	env                    *serviceenv.ServiceEnv
+	txnEnv                 *txnenv.TransactionEnv
+	namespace              string
+	workerImage            string
+	workerSidecarImage     string
+	workerImagePullPolicy  string
+	storageRoot            string
+	storageBackend         string
+	storageHostPath        string
+	iamRole                string
+	imagePullSecret        string
+	noExposeDockerSocket   bool
+	reporter               *metrics.Reporter
+	monitorCancelsMu       sync.Mutex
+	monitorCancels         map[string]func()
+	crashingMonitorCancels map[string]func()
+	workerUsesRoot         bool
+	workerGrpcPort         uint16
+	port                   uint16
+	httpPort               uint16
+	peerPort               uint16
 	// collections
 	pipelines col.Collection
 	jobs      col.Collection

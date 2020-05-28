@@ -153,6 +153,7 @@ func (a *apiServer) step(pachClient *client.APIClient, pipeline string, keyVer, 
 		// don't want cron commits or STANDBY state changes while pipeline is
 		// stopped
 		op.stopPipelineMonitor()
+		op.stopCrashingPipelineMonitor()
 		// default: scale down if pause/standby hasn't propagated to etcd yet
 		return op.scaleDownPipeline()
 	case pps.PipelineState_PIPELINE_FAILURE:
@@ -168,15 +169,8 @@ func (a *apiServer) step(pachClient *client.APIClient, pipeline string, keyVer, 
 		if op.pipelineInfo.Stopped {
 			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED, "")
 		}
-		workersUp, err := op.allWorkersUp()
-		if err != nil {
-			return err
-		}
-		if workersUp {
-			return op.setPipelineState(pps.PipelineState_PIPELINE_RUNNING, "")
-		}
-		time.Sleep(crashingBackoff)
-		return op.setPipelineState(pps.PipelineState_PIPELINE_CRASHING, op.pipelineInfo.Reason)
+		// start a monitor to poll k8s and update us when it goes into a running state
+		op.startCrashingPipelineMonitor()
 	}
 	return nil
 }
@@ -408,6 +402,7 @@ func (op *pipelineOp) createPipelineResources() error {
 // updates the the pipeline state.
 // Note: this is called by every run through step(), so must be idempotent
 func (op *pipelineOp) startPipelineMonitor() {
+	op.stopCrashingPipelineMonitor()
 	op.apiServer.monitorCancelsMu.Lock()
 	defer op.apiServer.monitorCancelsMu.Unlock()
 	if _, ok := op.apiServer.monitorCancels[op.name]; !ok {
@@ -423,8 +418,23 @@ func (op *pipelineOp) startPipelineMonitor() {
 	}
 }
 
+func (op *pipelineOp) startCrashingPipelineMonitor() {
+	op.stopPipelineMonitor()
+	op.apiServer.monitorCancelsMu.Lock()
+	defer op.apiServer.monitorCancelsMu.Unlock()
+	if _, ok := op.apiServer.crashingMonitorCancels[op.name]; !ok {
+		ctx, cancel := context.WithCancel(context.Background())
+		op.apiServer.crashingMonitorCancels[op.name] = cancel
+		go op.apiServer.monitorCrashingPipeline(ctx, op)
+	}
+}
+
 func (op *pipelineOp) stopPipelineMonitor() {
 	op.apiServer.cancelMonitor(op.name)
+}
+
+func (op *pipelineOp) stopCrashingPipelineMonitor() {
+	op.apiServer.cancelCrashingMonitor(op.name)
 }
 
 // finishPipelineOutputCommits finishes any output commits of

@@ -180,16 +180,28 @@ func (a *apiServer) setPipelineCrashing(ctx context.Context, pipelineName string
 	return a.setPipelineState(ctx, pipelineName, pps.PipelineState_PIPELINE_CRASHING, reason)
 }
 
-// every running pipeline with standby == true has a corresponding goroutine
+// Every running pipeline with standby == true has a corresponding goroutine
 // running monitorPipeline() that puts the pipeline in and out of standby in
 // response to new output commits appearing in that pipeline's output repo
 func (a *apiServer) cancelMonitor(pipeline string) {
 	a.monitorCancelsMu.Lock()
+	defer a.monitorCancelsMu.Unlock()
 	if cancel, ok := a.monitorCancels[pipeline]; ok {
 		cancel()
 		delete(a.monitorCancels, pipeline)
 	}
-	a.monitorCancelsMu.Unlock()
+}
+
+// Every crashing pipeline has a corresponding goro running
+// monitorCrashingPipeline that checks to see if the issues have resolved
+// themselves and moves the pipeline out of crashing if they have.
+func (a *apiServer) cancelCrashingMonitor(pipeline string) {
+	a.monitorCancelsMu.Lock()
+	defer a.monitorCancelsMu.Unlock()
+	if cancel, ok := a.crashingMonitorCancels[pipeline]; ok {
+		cancel()
+		delete(a.crashingMonitorCancels, pipeline)
+	}
 }
 
 func (a *apiServer) deletePipelineResources(ctx context.Context, pipelineName string) (retErr error) {
@@ -418,6 +430,31 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 	}
 	if err := eg.Wait(); err != nil {
 		log.Printf("error in monitorPipeline: %v", err)
+	}
+}
+
+func (a *apiServer) monitorCrashingPipeline(ctx context.Context, op *pipelineOp) {
+	defer a.cancelMonitor(op.name)
+For:
+	for {
+		select {
+		case <-time.After(crashingBackoff):
+		case <-ctx.Done():
+			break For
+		}
+		time.Sleep(crashingBackoff)
+		workersUp, err := op.allWorkersUp()
+		if err != nil {
+			log.Printf("error in monitorCrashingPipeline: %v", err)
+			continue
+		}
+		if workersUp {
+			if err := op.setPipelineState(pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
+				log.Printf("error in monitorCrashingPipeline: %v", err)
+				continue
+			}
+			break
+		}
 	}
 }
 
