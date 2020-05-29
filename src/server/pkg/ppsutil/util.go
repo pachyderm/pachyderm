@@ -150,6 +150,8 @@ func CrashingPipeline(ctx context.Context, etcdClient *etcd.Client, pipelinesCol
 		nil, pps.PipelineState_PIPELINE_CRASHING, reason)
 }
 
+// PipelineTransitionError represents an error transitioning a pipeline from
+// one state to another.
 type PipelineTransitionError struct {
 	Pipeline                  string
 	Expected, Target, Current pps.PipelineState
