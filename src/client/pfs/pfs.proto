@@ -350,6 +350,7 @@ enum Delimiter {
   LINE = 2;
   SQL = 3;
   CSV = 4;
+  PLUGIN = 5;
 }
 
 // An OverwriteIndex specifies the index of objects from which new writes
@@ -401,6 +402,9 @@ message PutFileRequest {
   // DeleteFile, but is necessary because it allows you to send file deletes
   // atomically with other PutFile operations.
   bool delete = 12;
+  // Reference to the plugin used for custom delimiting, if 'delimiter' is
+  // 'PLUGIN'.
+  File delimiter_plugin = 13;
 }
 
 // PutFileRecord is used to record PutFile requests in etcd temporarily.

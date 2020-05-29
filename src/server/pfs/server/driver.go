@@ -12,8 +12,10 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"path/filepath"
+	"plugin"
 	"sort"
 	"strconv"
 	"strings"
@@ -52,6 +54,8 @@ import (
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 )
+
+type DelimiterPlugin = func(*bufio.Reader, chan []byte) error
 
 const (
 	splitSuffixBase  = 16
@@ -2872,18 +2876,47 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 	var files []*pfs.File
 	var putFilePaths []string
 	var putFileRecords []*pfs.PutFileRecords
-	var mu sync.Mutex
+	var delimiterPlugins map[*pfs.File]DelimiterPlugin // TODO(ys): will lookups here work fine, given pfs.File is behind a pointer?
+	var delimiterPluginsMu sync.Mutex
+	var resultsMu sync.Mutex
+
 	oneOff, repo, branch, err := d.forEachPutFile(pachClient, s, func(req *pfs.PutFileRequest, r io.Reader) error {
-		records, err := d.putFile(pachClient, req.File, req.Delimiter, req.TargetFileDatums,
-			req.TargetFileBytes, req.HeaderRecords, req.OverwriteIndex, req.Delete, r)
+		// get the delimiter plugin
+		var delimiterPlugin DelimiterPlugin
+		if req.DelimiterPlugin != nil {
+			if req.Delimiter != pfs.Delimiter_PLUGIN {
+				return errors.Errorf("cannot set the delimiter plugin file with delimiter != PLUGIN")
+			}
+
+			delimiterPluginsMu.Lock()
+			var ok bool
+			delimiterPlugin, ok = delimiterPlugins[req.DelimiterPlugin]
+			if !ok {
+				var err error
+				delimiterPlugin, err = d.getDelimiterPlugin(pachClient, req.DelimiterPlugin)
+				if err != nil {
+					delimiterPluginsMu.Unlock()
+					return err
+				}
+				delimiterPlugins[req.DelimiterPlugin] = delimiterPlugin
+			}
+			delimiterPluginsMu.Unlock()
+		} else if req.Delimiter == pfs.Delimiter_PLUGIN {
+			return errors.Errorf("must set the delimiter plugin file")
+		}
+
+		records, err := d.putFile(pachClient, req.File, req.Delimiter,
+			req.TargetFileDatums, req.TargetFileBytes, req.HeaderRecords,
+			req.OverwriteIndex, req.Delete, delimiterPlugin, r)
 		if err != nil {
 			return err
 		}
-		mu.Lock()
-		defer mu.Unlock()
+
+		resultsMu.Lock()
 		files = append(files, req.File)
 		putFilePaths = append(putFilePaths, req.File.Path)
 		putFileRecords = append(putFileRecords, records)
+		resultsMu.Unlock()
 		return nil
 	})
 	if err != nil {
@@ -2908,9 +2941,47 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 	return nil
 }
 
+func (d *driver) getDelimiterPlugin(pachClient *client.APIClient, pfsFile *pfs.File) (DelimiterPlugin, error) {
+	r, err := d.getFile(pachClient, pfsFile, 0, 0)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get delimiter plugin file")
+	}
+
+	f, err := ioutil.TempFile("pachyderm", "delimiter-plugin-*.so")
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create temporary file for storing delimiter plugin contents")
+	}
+	defer os.Remove(f.Name())
+
+	if _, err = io.Copy(f, r); err != nil {
+		return nil, errors.Wrapf(err, "failed to read PFS stored delimiter plugin file")
+	}
+
+	if err = f.Close(); err != nil {
+		return nil, errors.Wrapf(err, "failed to close locally stored delimiter plugin file")
+	}
+
+	p, err := plugin.Open(f.Name())
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to open locally stored delimiter plugin file")
+	}
+
+	s, err := p.Lookup("delimiter")
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to open locally stored delimiter plugin file")
+	}
+
+	dp, ok := s.(DelimiterPlugin)
+	if !ok {
+		return nil, errors.New("delimiter symbol a DelimiterPlugin")
+	}
+
+	return dp, nil
+}
+
 func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter pfs.Delimiter,
 	targetFileDatums, targetFileBytes, headerRecords int64, overwriteIndex *pfs.OverwriteIndex,
-	del bool, reader io.Reader) (*pfs.PutFileRecords, error) {
+	del bool, delimiterPlugin DelimiterPlugin, reader io.Reader) (*pfs.PutFileRecords, error) {
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return nil, err
 	}
@@ -2972,16 +3043,18 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 			// Note: this code generally distinguishes between nil header/footer (no
 			// header) and empty header/footer. To create a header-enabled directory
 			// with an empty header, allocate an empty slice & store it here
-			header    []byte
-			footer    []byte
-			EOF       = false
-			eg        errgroup.Group
-			bufioR    = bufio.NewReader(reader)
-			decoder   = json.NewDecoder(bufioR)
-			sqlReader = sql.NewPGDumpReader(bufioR)
-			csvReader = csv.NewReader(bufioR)
-			csvBuffer bytes.Buffer
-			csvWriter = csv.NewWriter(&csvBuffer)
+			header          []byte
+			footer          []byte
+			EOF             = false
+			eg              errgroup.Group
+			bufioR          = bufio.NewReader(reader)
+			jsonDecoder     *json.Decoder
+			sqlReader       *sql.PGDumpReader
+			csvReader       *csv.Reader
+			csvBuffer       bytes.Buffer
+			csvWriter       *csv.Writer
+			pluginBytesChan chan []byte
+			pluginErrorChan chan error
 			// indexToRecord serves as a de-facto slice of PutFileRecords. We can't
 			// use a real slice of PutFileRecords b/c indexToRecord has data appended
 			// to it by concurrent processes, and you can't append() to a slice
@@ -2990,20 +3063,24 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 			indexToRecord = make(map[int]*pfs.PutFileRecord)
 			mu            sync.Mutex
 		)
-		csvReader.FieldsPerRecord = -1 // ignore unexpected # of fields, for now
-		csvReader.ReuseRecord = true   // returned rows are written to buffer immediately
 		for !EOF {
 			var err error
 			var value []byte
 			var csvRow []string // only used if delimiter == CSV
 			switch delimiter {
 			case pfs.Delimiter_JSON:
+				if jsonDecoder == nil {
+					jsonDecoder = json.NewDecoder(bufioR)
+				}
 				var jsonValue json.RawMessage
-				err = decoder.Decode(&jsonValue)
+				err = jsonDecoder.Decode(&jsonValue)
 				value = jsonValue
 			case pfs.Delimiter_LINE:
 				value, err = bufioR.ReadBytes('\n')
 			case pfs.Delimiter_SQL:
+				if sqlReader == nil {
+					sqlReader = sql.NewPGDumpReader(bufioR)
+				}
 				value, err = sqlReader.ReadRow()
 				if err == io.EOF {
 					if header == nil {
@@ -3016,6 +3093,12 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 					footer = sqlReader.Footer
 				}
 			case pfs.Delimiter_CSV:
+				if csvReader == nil {
+					csvReader = csv.NewReader(bufioR)
+					csvReader.FieldsPerRecord = -1 // ignore unexpected # of fields, for now
+					csvReader.ReuseRecord = true   // returned rows are written to buffer immediately
+					csvWriter = csv.NewWriter(&csvBuffer)
+				}
 				csvBuffer.Reset()
 				if csvRow, err = csvReader.Read(); err == nil {
 					if err := csvWriter.Write(csvRow); err != nil {
@@ -3025,6 +3108,26 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 						return nil, errors.Wrapf(csvWriter.Error(), "error copying csv record")
 					}
 					value = csvBuffer.Bytes()
+				}
+			case pfs.Delimiter_PLUGIN:
+				if pluginBytesChan == nil {
+					pluginBytesChan = make(chan []byte, 10)
+					pluginErrorChan = make(chan error, 1)
+					go func() {
+						if err := delimiterPlugin(bufioR, pluginBytesChan); err != nil {
+							pluginErrorChan <- err
+						}
+						// closure of pluginBytesChan signifies that reading is done
+						close(pluginBytesChan)
+					}()
+				}
+				var ok bool
+				select {
+				case value, ok = <-pluginBytesChan:
+					if !ok {
+						err = io.EOF
+					}
+				case err = <-pluginErrorChan:
 				}
 			default:
 				return nil, errors.Errorf("unrecognized delimiter %s", delimiter.String())
