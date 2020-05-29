@@ -165,6 +165,11 @@ message SetConfigurationRequest {
 }
 message SetConfigurationResponse {}
 
+message ActivateConfigRequest {
+  AuthConfig configuration = 1;
+}
+message ActivateConfigResponse {}
+
 // Get the current list of cluster admins
 message GetAdminsRequest{}
 message GetAdminsResponse{
@@ -487,6 +492,7 @@ service API {
   // Activate/Deactivate the auth API. 'Activate' sets an initial set of admins
   // for the Pachyderm cluster, and 'Deactivate' removes all ACLs, tokens, and
   // admins from the Pachyderm cluster, making all data publicly accessable
+  rpc ActivateConfig(ActivateConfigRequest) returns (ActivateConfigResponse) {}
   rpc Activate(ActivateRequest) returns (ActivateResponse) {}
   rpc Deactivate(DeactivateRequest) returns (DeactivateResponse) {}
 
