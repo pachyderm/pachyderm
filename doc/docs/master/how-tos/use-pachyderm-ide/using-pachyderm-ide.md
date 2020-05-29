@@ -1,8 +1,8 @@
-# Using `python-pachyderm` in JupyterHub
+# Using `python-pachyderm` with Pachyderm IDE
 
-If you deployed JupyterHub as described in [Deploy Pachyderm with JupyterHub](../../deploy-manage/deploy/deploy-pachyderm-jupyterhub.md),
-the `python-pachyderm` client is preinstalled in your JupyterHub instance
-This section describes a few basic operations that you can execute from JupyterHub
+If you deployed Pachyderm IDE,
+the `python-pachyderm` client is preinstalled in your Pachyderm IDE instance
+This section describes a few basic operations that you can execute from Pachyderm IDE
 to interact with Pachyderm.
 
 After you log in, use the [python-pachyderm](https://pachyderm.github.io/python-pachyderm/python_pachyderm.m.html#header-functions)
@@ -11,7 +11,7 @@ client API to manage Pachyderm directly from your Jupyter notebook.
 You need to create a new Notebook and add your code in a new cell.
 To run your code, click the **Run** button.
 
-The following code initializes the Python Pachyderm client in JupyterHub:
+The following code initializes the Python Pachyderm client in Pachyderm IDE:
 
 ```python
 import python_pachyderm
@@ -30,7 +30,7 @@ client = python_pachyderm.Client.new_in_cluster()
 print(client.who_am_i())
 ```
 
-The following screenshot demonstrates how this looks in JupyterHub:
+The following screenshot demonstrates how this looks in Pachyderm IDE:
 ![JupyterHub whoami](../../assets/images/s_jupyterhub_whoami.png)
 
 !!! note
@@ -39,9 +39,9 @@ The following screenshot demonstrates how this looks in JupyterHub:
 
 ## Create a Pipeline
 
-As discussed in [Difference in Pipeline Creation Methods](../../use-jupyterhub/#difference-in-pipeline-creation-methods),
+As discussed in [Difference in Pipeline Creation Methods](../../use-pachyderm-ide/#difference-in-pipeline-creation-methods),
 you can use the standard `create_pipeline` method or `create_python_pipeline`
-function to create Pachyderm pipelines in JupyterHub. Depending on your
+function to create Pachyderm pipelines in Pachyderm IDE. Depending on your
 choice, use one of the following examples to create a pipeline:
 
 * By using the `create_python_pipeline` method:
@@ -201,10 +201,10 @@ client.list_repo()
 ## Update Your Pipeline
 
 When you need to update your pipeline, you can do so directly in the
-JupyterHub UI by modifying the corresponding notebook and running it
+Pachyderm IDE by modifying the corresponding notebook and running it
 again. If you use the `create_python_pipeline` function that uses the
 code stored in a local directory, you can update the pipeline directly
-in the JupyterHub UI by adding the `update=True` parameter to your
+in the Pachyderm IDE by adding the `update=True` parameter to your
 code into a new Jupyter notebook cell and running it.
 
 **Example:**
@@ -228,7 +228,7 @@ creation code and run `create_pipeline` with `update=True`.
 
 ## Example
 
-To get started with JupyterHub, try the
+To get started with Pachyderm IDE, try the
 [OpenCV example for JupyterHub](https://github.com/pachyderm/jupyterhub-pachyderm/blob/master/doc/opencv.md).
 
 This example walks you through the same steps as in the

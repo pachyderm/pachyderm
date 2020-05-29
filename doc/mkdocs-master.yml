@@ -149,9 +149,9 @@ nav:
             - Splitting Data for Distributed Processing: how-tos/splitting-data/splitting.md
             - Adjusting Data Processing by Splitting Data: how-tos/splitting-data/adjusting_data_processing_w_split.md
         - Create a Machine Learning Workflow: how-tos/create-ml-workflow.md
-        - Use JupyterHub:
-            - Overview: how-tos/use-jupyterhub/index.md
-            - Using python-pachyderm in JupyterHub: how-tos/use-jupyterhub/using-jupyterhub.md
+        - Use Pachyderm IDE:
+            - Overview: how-tos/use-pachyderm-ide/index.md
+            - Using the Pachyderm IDE with python-pachyderm: how-tos/use-pachyderm-ide/using-pachyderm-ide.md
         - Pipeline Operations:
             - Create a Pipeline: how-tos/create-pipeline.md
             - Run a Pipeline on a Specific Commit: how-tos/run_pipeline.md
@@ -177,7 +177,7 @@ nav:
             - Deploy on Azure: deploy-manage/deploy/azure.md
             - Deploy on OpenShift: deploy-manage/deploy/openshift.md
             - Deploy On-Premises: deploy-manage/deploy/on_premises.md
-            - Deploy Pachyderm with JupyterHub: deploy-manage/deploy/deploy-pachyderm-jupyterhub.md
+            - Deploy Pachyderm IDE: deploy-manage/deploy/deploy-pachyderm-ide.md
             - Create a Custom Deployment:
                 - Overview: deploy-manage/deploy/deploy_custom/index.md
                 - Before You Begin: deploy-manage/deploy/deploy_custom/deploy_custom_before_you_begin.md
