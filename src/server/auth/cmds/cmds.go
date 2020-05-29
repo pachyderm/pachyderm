@@ -47,9 +47,11 @@ func githubLogin() (string, error) {
 	return strings.TrimSpace(token), nil // drop trailing newline
 }
 
-func requestOIDCLogin(c *client.APIClient) (string, error) {
+func requestOIDCLogin(c *client.APIClient, email string) (string, error) {
 	state := randState(30)
-	loginInfo, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{State: state})
+	loginInfo, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{
+		State: state,
+		Email: email})
 	if err != nil {
 		return "", err
 	}

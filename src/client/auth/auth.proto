@@ -97,7 +97,6 @@ message IDProvider {
    message OIDCOptions {
      string provider_base_url = 1 [(gogoproto.customname) = "ProviderBaseURL"];
      string client_id = 2 [(gogoproto.customname) = "ClientID"];
-     string email = 3;
   }
   OIDCOptions oidc = 5 [(gogoproto.customname) = "OIDC"];
 
@@ -380,6 +379,7 @@ message SetACLResponse {}
 
 message GetOIDCLoginRequest {
   string state = 1;
+  string email = 2;
 }
 
 message GetOIDCLoginResponse {
