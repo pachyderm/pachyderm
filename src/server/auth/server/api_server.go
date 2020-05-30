@@ -146,8 +146,8 @@ type apiServer struct {
 
 	// oidcSP should not be read/written directly--use setCacheConfig and
 	// getSAMLSP
-	oidcSP   *canonicalOIDCIDP // object for parsing saml responses
-	oidcSPMu sync.Mutex        // guard 'oidcSP'. Always lock after 'configMu' (if using both)
+	oidcSP   *internalOIDCProvider // object for parsing saml responses
+	oidcSPMu sync.Mutex            // guard 'oidcSP'. Always lock after 'configMu' (if using both)
 
 	// tokens is a collection of hashedToken -> TokenInfo mappings. These tokens are
 	// returned to users by Authenticate()
@@ -425,6 +425,39 @@ func (a *apiServer) githubEnabled() bool {
 }
 
 // Activate implements the protobuf auth.Activate RPC
+func (a *apiServer) ActivateConfig(ctx context.Context, req *auth.ActivateConfigRequest) (resp *auth.ActivateConfigResponse, retErr error) {
+	pachClient := a.env.GetPachClient(ctx)
+	ctx = pachClient.Ctx() // copy auth information
+	// We don't want to actually log the request/response since they contain
+	// credentials.
+	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
+	// If the cluster's Pachyderm Enterprise token isn't active, the auth system
+	// cannot be activated
+	state, err := a.getEnterpriseTokenState()
+	if err != nil {
+		return nil, errors.Wrapf(err, "error confirming Pachyderm Enterprise token")
+	}
+	if state != enterpriseclient.State_ACTIVE {
+		return nil, errors.Errorf("Pachyderm Enterprise is not active in this " +
+			"cluster, and the Pachyderm auth API is an Enterprise-level feature")
+	}
+
+	// Activating an already activated auth service should fail, because
+	// otherwise anyone can just activate the service again and set
+	// themselves as an admin. If activation failed in PFS, calling auth.Activate
+	// again should work (in this state, the only admin will be 'ppsUser')
+	if a.activationState() == full {
+		return nil, errors.Errorf("already activated")
+	}
+
+	if err = a.setCacheConfig(req.Configuration); err != nil {
+		return nil, err
+	}
+
+	return &auth.ActivateConfigResponse{}, nil
+}
+
+// Activate implements the protobuf auth.Activate RPC
 func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (resp *auth.ActivateResponse, retErr error) {
 	pachClient := a.env.GetPachClient(ctx)
 	ctx = pachClient.Ctx() // copy auth information
@@ -464,28 +497,29 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 			return nil, err
 		}
 	}
-	switch {
-	case req.Subject == "":
-		fallthrough
-	case strings.HasPrefix(req.Subject, auth.GitHubPrefix):
-		if !a.githubEnabled() {
-			return nil, errors.New("GitHub auth is not enabled on this cluster")
-		}
-		username, err := GitHubTokenToUsername(ctx, req.GitHubToken)
-		if err != nil {
-			return nil, err
-		}
-		if req.Subject != "" && req.Subject != username {
-			return nil, errors.Errorf("asserted subject \"%s\" did not match owner of GitHub token \"%s\"", req.Subject, username)
-		}
-		req.Subject = username
-	case strings.HasPrefix(req.Subject, auth.RobotPrefix):
-		// req.Subject will be used verbatim, and the resulting code will
-		// authenticate the holder as the robot account therein
-		ttlSecs = 0 // no expiration for robot tokens -- see above
-	default:
-		return nil, errors.Errorf("invalid subject in request (must be a GitHub user or robot): \"%s\"", req.Subject)
-	}
+	req.Subject = "adele"
+	// switch {
+	// case req.Subject == "":
+	// 	fallthrough
+	// case strings.HasPrefix(req.Subject, auth.GitHubPrefix):
+	// 	if !a.githubEnabled() {
+	// 		return nil, errors.New("GitHub auth is not enabled on this cluster")
+	// 	}
+	// 	username, err := GitHubTokenToUsername(ctx, req.GitHubToken)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	if req.Subject != "" && req.Subject != username {
+	// 		return nil, errors.Errorf("asserted subject \"%s\" did not match owner of GitHub token \"%s\"", req.Subject, username)
+	// 	}
+	// 	req.Subject = username
+	// case strings.HasPrefix(req.Subject, auth.RobotPrefix):
+	// 	// req.Subject will be used verbatim, and the resulting code will
+	// 	// authenticate the holder as the robot account therein
+	// 	ttlSecs = 0 // no expiration for robot tokens -- see above
+	// default:
+	// 	return nil, errors.Errorf("invalid subject in request (must be a GitHub user or robot): \"%s\"", req.Subject)
+	// }
 
 	// Hack: set the cluster admins to just {ppsUser}. This puts the auth system
 	// in the "partial" activation state. Users cannot authenticate, but auth
@@ -1866,7 +1900,7 @@ func (a *apiServer) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequ
 	var err error
 
 	// Temporary hack: a.oidcSP should be set already
-	a.oidcSP, err = NewOIDCIDP(ctx, "http://172.17.0.2:8080/auth/realms/adele-testing", "pachyderm")
+	a.oidcSP, err = NewOIDCIDP(ctx, "http://172.17.0.3:8080/auth/realms/adele-testing", "pachyderm")
 	if err != nil {
 		return nil, err
 	}
@@ -2501,6 +2535,50 @@ func (a *apiServer) GetConfiguration(ctx context.Context, req *auth.GetConfigura
 	}, nil
 }
 
+func (a *apiServer) setConfigHelper(ctx context.Context, config *auth.AuthConfig) (*auth.SetConfigurationResponse, error) {
+	var reqConfigVersion int64
+	var configToStore *auth.AuthConfig
+	if config != nil {
+		reqConfigVersion = config.LiveConfigVersion
+		// Validate new config
+		canonicalConfig, err := validateConfig(config, external)
+		if err != nil {
+			return nil, err
+		}
+		configToStore, err = canonicalConfig.ToProto()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// Explicitly store default auth config so that config version is retained &
+		// continues increasing monotonically. Don't set reqConfigVersion, though--
+		// setting an empty config is a blind write (req.Configuration.Version == 0)
+		configToStore = proto.Clone(&DefaultAuthConfig).(*auth.AuthConfig)
+	}
+
+	// upsert new config
+	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+		var liveConfig auth.AuthConfig
+		return a.authConfig.ReadWrite(stm).Upsert(configKey, &liveConfig, func() error {
+			if liveConfig.LiveConfigVersion == 0 {
+				liveConfig = DefaultAuthConfig // no config in etcd--assume default cfg
+			}
+			liveConfigVersion := liveConfig.LiveConfigVersion
+			if reqConfigVersion > 0 && liveConfigVersion != reqConfigVersion {
+				return errors.Errorf("expected config version %d, but live config has version %d",
+					config.LiveConfigVersion, liveConfigVersion)
+			}
+			liveConfig.Reset()
+			liveConfig = *configToStore
+			liveConfig.LiveConfigVersion = liveConfigVersion + 1
+			return nil
+		})
+	}); err != nil {
+		return nil, err
+	}
+	return &auth.SetConfigurationResponse{}, nil
+}
+
 // SetConfiguration implements the protobuf auth.SetConfiguration RPC
 func (a *apiServer) SetConfiguration(ctx context.Context, req *auth.SetConfigurationRequest) (resp *auth.SetConfigurationResponse, retErr error) {
 	a.LogReq(req)
@@ -2528,45 +2606,5 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *auth.SetConfigura
 		}
 	}
 
-	var reqConfigVersion int64
-	var configToStore *auth.AuthConfig
-	if req.Configuration != nil {
-		reqConfigVersion = req.Configuration.LiveConfigVersion
-		// Validate new config
-		canonicalConfig, err := validateConfig(req.Configuration, external)
-		if err != nil {
-			return nil, err
-		}
-		configToStore, err = canonicalConfig.ToProto()
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		// Explicitly store default auth config so that config version is retained &
-		// continues increasing monotonically. Don't set reqConfigVersion, though--
-		// setting an empty config is a blind write (req.Configuration.Version == 0)
-		configToStore = proto.Clone(&DefaultAuthConfig).(*auth.AuthConfig)
-	}
-
-	// upsert new config
-	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		var liveConfig auth.AuthConfig
-		return a.authConfig.ReadWrite(stm).Upsert(configKey, &liveConfig, func() error {
-			if liveConfig.LiveConfigVersion == 0 {
-				liveConfig = DefaultAuthConfig // no config in etcd--assume default cfg
-			}
-			liveConfigVersion := liveConfig.LiveConfigVersion
-			if reqConfigVersion > 0 && liveConfigVersion != reqConfigVersion {
-				return errors.Errorf("expected config version %d, but live config has version %d",
-					req.Configuration.LiveConfigVersion, liveConfigVersion)
-			}
-			liveConfig.Reset()
-			liveConfig = *configToStore
-			liveConfig.LiveConfigVersion = liveConfigVersion + 1
-			return nil
-		})
-	}); err != nil {
-		return nil, err
-	}
-	return &auth.SetConfigurationResponse{}, nil
+	return a.setConfigHelper(ctx, req.Configuration)
 }

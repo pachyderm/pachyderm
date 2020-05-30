@@ -102,7 +102,7 @@ Activate Pachyderm's auth system, and restrict access to existing data to the
 user running the command (or the argument to --initial-admin), who will be the
 first cluster admin`[1:],
 		Run: cmdutil.Run(func(args []string) error {
-			var state string
+			// var state string
 			var err error
 
 			// Exchange GitHub token for Pachyderm token
@@ -112,17 +112,47 @@ first cluster admin`[1:],
 			}
 			defer c.Close()
 
-			// if the OIDC flag is set
-			// lookup the config
-			// if no config is set
-			// then prompt the user for the baseURL, clientID, and email
-			// write these to the configuration object
-
 			if !strings.HasPrefix(initialAdmin, auth.RobotPrefix) {
-				// token, err = githubLogin()
-				state, err = requestOIDCLogin(c)
-				if err != nil {
-					return err
+
+				// Get auth type
+				// if the OIDC flag is set
+				// lookup the config
+				// if no config is set
+				// then prompt the user for the baseURL, clientID, and email
+				// write these to the configuration object
+
+				// fmt.Println("Which authentication method would you like to use?")
+				// code, err := bufio.NewReader(os.Stdin).ReadString('\n')
+				// if err != nil {
+				// 	return errors.Wrapf(err, "error reading One-Time Password")
+				// }
+				// code = strings.TrimSpace(code) // drop trailing newline
+
+				isOIDC := true
+				url := "http://172.17.0.3:8080/auth/realms/adele-testing"
+				clientID := "pachyderm"
+				email := "adele@pachyderm.io"
+
+				if isOIDC {
+
+					c.ActivateConfig(c.Ctx(), &auth.ActivateConfigRequest{
+						Configuration: &auth.AuthConfig{
+							LiveConfigVersion: 0,
+							IDProviders: []*auth.IDProvider{&auth.IDProvider{
+								Name:        "OIDC",
+								Description: "OIDC activation config",
+								OIDC: &auth.IDProvider_OIDCOptions{
+									ProviderBaseURL: url,
+									ClientID:        clientID,
+								},
+							}},
+						},
+					})
+					// token, err = githubLogin()
+					_, err = requestOIDCLogin(c, email)
+					if err != nil {
+						return err
+					}
 				}
 			}
 
@@ -130,8 +160,8 @@ first cluster admin`[1:],
 
 			resp, err := c.Activate(c.Ctx(),
 				&auth.ActivateRequest{
-					GitHubToken: state,
-					Subject:     initialAdmin,
+					// GitHubToken: state,
+					Subject: initialAdmin,
 				})
 			if err != nil {
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error activating Pachyderm auth")
@@ -232,7 +262,8 @@ func LoginCmd() *cobra.Command {
 				// 		&auth.AuthenticateRequest{GitHubToken: token})
 			} else {
 				// Exchange OIDC token for Pachyderm token
-				state, err := requestOIDCLogin(c)
+				email := "adele@pachyderm.io"
+				state, err := requestOIDCLogin(c, email)
 				if err != nil {
 					return err
 				}

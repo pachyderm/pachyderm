@@ -554,6 +554,9 @@ func (c *authBuilderClient) Activate(ctx context.Context, req *auth.ActivateRequ
 func (c *authBuilderClient) Deactivate(ctx context.Context, req *auth.DeactivateRequest, opts ...grpc.CallOption) (*auth.DeactivateResponse, error) {
 	return nil, unsupportedError("Deactivate")
 }
+func (c *authBuilderClient) ActivateConfig(ctx context.Context, req *auth.ActivateConfigRequest, opts ...grpc.CallOption) (*auth.ActivateConfigResponse, error) {
+	return nil, unsupportedError("ActivateConfig")
+}
 func (c *authBuilderClient) GetConfiguration(ctx context.Context, req *auth.GetConfigurationRequest, opts ...grpc.CallOption) (*auth.GetConfigurationResponse, error) {
 	return nil, unsupportedError("GetConfiguration")
 }

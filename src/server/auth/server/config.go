@@ -31,6 +31,11 @@ const (
 	external
 )
 
+type tokenInfo struct {
+	token string
+	err   error
+}
+
 type canonicalSAMLIDP struct {
 	MetadataURL    *url.URL
 	Metadata       *saml.EntityDescriptor
@@ -38,6 +43,12 @@ type canonicalSAMLIDP struct {
 }
 
 type canonicalGitHubIDP struct{}
+
+type canonicalOIDCIDP struct {
+	BaseURL     string
+	ClientID    string
+	RedirectURL string
+}
 
 type canonicalIDPConfig struct {
 	Name        string
@@ -108,8 +119,19 @@ func (c *canonicalConfig) ToProto() (*auth.AuthConfig, error) {
 				samlIDP.SAML.MetadataURL = idp.SAML.MetadataURL.String()
 			}
 			idpProtos = append(idpProtos, samlIDP)
+		} else if idp.OIDC != nil {
+			oidcIDP := &auth.IDProvider{
+				Name:        idp.Name,
+				Description: idp.Description,
+				OIDC: &auth.IDProvider_OIDCOptions{
+					ProviderBaseURL: idp.OIDC.BaseURL,
+					ClientID:        idp.OIDC.ClientID,
+				},
+			}
+
+			idpProtos = append(idpProtos, oidcIDP)
 		} else {
-			return nil, errors.Errorf("could not marshal non-SAML, non-GitHub ID provider %q", idp.Name)
+			return nil, errors.Errorf("could not marshal non-SAML, non-OIDC, non-GitHub ID provider %q", idp.Name)
 		}
 	}
 
@@ -225,12 +247,9 @@ func validateIDP(idp *auth.IDProvider, src configSource) (*canonicalIDPConfig, e
 		return newIDP, nil
 
 	case idp.SAML != nil:
-		newIDP.SAML = &canonicalSAMLIDP{
-			GroupAttribute: idp.SAML.GroupAttribute,
-		}
 		return validateIDPSAML(idp, src)
 	case idp.OIDC != nil:
-		newIDP.OIDC = &canonicalOIDCIDP{}
+		return validateIDPOIDC(idp, src)
 	}
 
 	return nil, nil
@@ -325,13 +344,17 @@ func validateIDPSAML(idp *auth.IDProvider, src configSource) (*canonicalIDPConfi
 
 func validateIDPOIDC(idp *auth.IDProvider, src configSource) (*canonicalIDPConfig, error) {
 	newIDP := &canonicalIDPConfig{}
-	// newIDP.OIDC = &canonicalOIDCIDP{
-	// 	issuer: "http://172.17.0.2:8080/auth/realms/adele-testing",
-	// }
+	newIDP.Name = idp.Name
+	newIDP.Description = idp.Description
+
+	newIDP.OIDC = &canonicalOIDCIDP{
+		BaseURL:  idp.OIDC.ProviderBaseURL,
+		ClientID: idp.OIDC.ClientID}
+
+	newIDP.OIDC.RedirectURL = "http://localhost:14687/authorization-code/callback"
 
 	// TODO: validate that it's a valid URL (maybe other checks?)
 
-	// TODO: parse from user config file
 	return newIDP, nil
 }
 
@@ -350,6 +373,7 @@ func validateConfig(config *auth.AuthConfig, src configSource) (*canonicalConfig
 	// Validate all ID providers (and fetch IDP metadata for all SAML ID
 	// providers)
 	var samlIDP string
+	var oidcIDP string
 	for _, idp := range config.IDProviders {
 		if idp.SAML != nil {
 			// confirm that there is only one SAML IDP (requirement for now)
@@ -359,11 +383,23 @@ func validateConfig(config *auth.AuthConfig, src configSource) (*canonicalConfig
 			}
 			samlIDP = idp.Name
 		}
+		if idp.OIDC != nil {
+			// confirm that there is only one OIDC IDP (requirement for now)
+			if oidcIDP != "" {
+				return nil, errors.Errorf("two OIDC providers found in config, %q and %q, "+
+					"but only one is allowed", idp.Name, oidcIDP)
+			}
+			oidcIDP = idp.Name
+		}
 		canonicalIDP, err := validateIDP(idp, src)
 		if err != nil {
 			return nil, err
 		}
 		c.IDPs = append(c.IDPs, *canonicalIDP)
+	}
+
+	if samlIDP != "" && oidcIDP != "" {
+		return nil, errors.New("cannot have both an OIDC ID provider and a SAML ID provider")
 	}
 
 	// Make sure a SAML ID provider is configured if using SAML
@@ -428,12 +464,15 @@ func (a *apiServer) setCacheConfig(config *auth.AuthConfig) error {
 	defer a.configMu.Unlock()
 	a.samlSPMu.Lock()
 	defer a.samlSPMu.Unlock()
+	a.oidcSPMu.Lock()
+	defer a.oidcSPMu.Unlock()
 	if config == nil {
 		logrus.Warnf("deleting the cached config, but it should not be possible " +
 			"to delete the auth config in etcd without deactivating auth. Is that " +
 			"what's happening?")
 		a.configCache = nil
 		a.samlSP = nil
+		a.oidcSP = nil
 		return nil
 	}
 
@@ -456,6 +495,7 @@ func (a *apiServer) setCacheConfig(config *auth.AuthConfig) error {
 	// Set a.configCache and possibly a.samlSP
 	a.configCache = newConfig
 	a.samlSP = nil // overwrite if there's a SAML ID provider
+	a.oidcSP = nil
 	for _, idp := range newConfig.IDPs {
 		if idp.SAML != nil {
 			a.samlSP = &saml.ServiceProvider{
@@ -474,6 +514,12 @@ func (a *apiServer) setCacheConfig(config *auth.AuthConfig) error {
 				//                        by the Metadata service)
 			}
 		}
+		if idp.OIDC != nil {
+			a.oidcSP, err = NewOIDCIDP(a.env.GetEtcdClient().Ctx(), idp.OIDC.BaseURL, idp.OIDC.ClientID)
+			if err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
@@ -482,11 +528,11 @@ func (a *apiServer) getCacheConfig() *canonicalConfig {
 	a.configMu.Lock()
 	defer a.configMu.Unlock()
 	if a.configCache == nil {
-		defaultCononicalConfig, err := validateConfig(&DefaultAuthConfig, internal)
+		defaultCanonicalConfig, err := validateConfig(&DefaultAuthConfig, internal)
 		if err != nil {
 			panic("could not convert default auth config")
 		}
-		return defaultCononicalConfig
+		return defaultCanonicalConfig
 	}
 	// copy config to avoid data races
 	newConfig := *a.configCache
@@ -504,6 +550,27 @@ func (a *apiServer) getSAMLSP() (*canonicalConfig, *saml.ServiceProvider) {
 	var sp saml.ServiceProvider
 	if a.samlSP != nil {
 		sp = *a.samlSP
+	}
+	var cfg canonicalConfig
+	if a.configCache != nil {
+		cfg = *a.configCache
+	}
+
+	// copy config to avoid data races
+	return &cfg, &sp
+}
+
+// getOIDCSP returns apiServer's oidc.ServiceProvider and config together, to
+// avoid a race where a OIDC request is mishandled because the config is
+// modified between reading them
+func (a *apiServer) getOIDCSP() (*canonicalConfig, *internalOIDCProvider) {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
+	a.oidcSPMu.Lock()
+	defer a.oidcSPMu.Unlock()
+	var sp internalOIDCProvider
+	if a.oidcSP != nil {
+		sp = *a.oidcSP
 	}
 	var cfg canonicalConfig
 	if a.configCache != nil {
@@ -535,10 +602,10 @@ func (a *apiServer) watchConfig() {
 			}
 			b.Reset() // event successfully received
 
-			if a.activationState() != full {
-				return errors.Errorf("received config event while auth not fully " +
-					"activated (should be impossible), restarting")
-			}
+			// if a.activationState() != full {
+			// 	return errors.Errorf("received config event while auth not fully " +
+			// 		"activated (should be impossible), restarting")
+			// }
 			if err := func() error {
 				// Parse event data and potentially update configCache
 				var key string // always configKey, just need to put it somewhere

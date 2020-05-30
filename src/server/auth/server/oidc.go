@@ -12,11 +12,6 @@ import (
 
 // handler function
 
-type tokenInfo struct {
-	token string
-	err   error
-}
-
 var tokenChan chan tokenInfo
 var stateToken map[string]string
 
@@ -25,15 +20,15 @@ func init() {
 	stateToken = make(map[string]string)
 }
 
-type canonicalOIDCIDP struct {
+type internalOIDCProvider struct {
 	Provider     *oidc.Provider
 	ClientID     string
 	RedirectURL  string
 	StateToToken map[string]chan tokenInfo
 }
 
-func NewOIDCIDP(ctx context.Context, issuer, clientID string) (*canonicalOIDCIDP, error) {
-	o := &canonicalOIDCIDP{}
+func NewOIDCIDP(ctx context.Context, issuer, clientID string) (*internalOIDCProvider, error) {
+	o := &internalOIDCProvider{}
 	var err error
 	o.Provider, err = oidc.NewProvider(ctx, issuer)
 	if o.RedirectURL == "" {
@@ -43,7 +38,7 @@ func NewOIDCIDP(ctx context.Context, issuer, clientID string) (*canonicalOIDCIDP
 	return o, err
 }
 
-func (o *canonicalOIDCIDP) GetOIDCLoginURL(state string) (string, error) {
+func (o *internalOIDCProvider) GetOIDCLoginURL(state string) (string, error) {
 	clientID := "pachyderm"
 	nonce := "testing"
 	// prepare request by filling out parameters
@@ -65,7 +60,7 @@ func (o *canonicalOIDCIDP) GetOIDCLoginURL(state string) (string, error) {
 // it discover the username of the user who obtained the code (or verify that
 // the code belongs to OIDCUsername). This is how Pachyderm currently
 // implements authorization in a production cluster
-func (o *canonicalOIDCIDP) OIDCTokenToUsername(ctx context.Context, state string) (string, error) {
+func (o *internalOIDCProvider) OIDCTokenToUsername(ctx context.Context, state string) (string, error) {
 	oauthToken, ok := stateToken[state]
 	if !ok {
 		return "", fmt.Errorf("did not have a valid state")
@@ -88,12 +83,22 @@ func (o *canonicalOIDCIDP) OIDCTokenToUsername(ctx context.Context, state string
 
 func (a *apiServer) handleExchange(w http.ResponseWriter, req *http.Request) {
 	ctx := context.Background()
+	//	"http://172.17.0.2:8080/auth/realms/adele-testing"
+	cfg, sp := a.getOIDCSP()
+	if cfg == nil {
+		http.Error(w, "auth has no active config (either never set or disabled)", http.StatusConflict)
+		return
+	}
+	if sp == nil {
+		http.Error(w, "OIDC has not been configured or was disabled", http.StatusConflict)
+		return
+	}
 
 	conf := &oauth2.Config{
 		ClientID:    a.oidcSP.ClientID,
 		RedirectURL: "http://localhost:14687/authorization-code/callback",
 		// Scopes:       []string{"openid"},
-		Endpoint: a.oidcSP.Provider.Endpoint(),
+		Endpoint: sp.Provider.Endpoint(),
 	}
 
 	code := req.URL.Query()["code"][0]
