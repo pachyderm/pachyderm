@@ -9,7 +9,7 @@ import (
 )
 
 func (c *controller) SecretKey(r *http.Request, accessKey string, region *string) (*string, error) {
-	c.logger.Debugf("SecretKey: accessKey=%+v, region=%+v", accessKey, region)
+	c.logger.Debugf("SecretKey: %+v", region)
 
 	pc, err := c.clientFactory.Client()
 	if err != nil {
