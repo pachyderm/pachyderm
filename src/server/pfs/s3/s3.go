@@ -13,6 +13,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+type ClientFactory = func() (*client.APIClient, error)
+
 const (
 	multipartRepo        = "_s3gateway_multipart_"
 	maxAllowedParts      = 10000
@@ -48,7 +50,7 @@ type controller struct {
 // requestPachClient uses the clientFactory to construct a request-scoped
 // pachyderm client
 func (c *controller) requestClient(r *http.Request) (*client.APIClient, error) {
-	pc, err := c.clientFactory.Client()
+	pc, err := c.clientFactory()
 	if err != nil {
 		return nil, err
 	}

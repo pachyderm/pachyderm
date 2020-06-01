@@ -214,7 +214,9 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 	var server *http.Server
 	err := backoff.RetryNotify(func() error {
 		var err error
-		server, err = s3.Server(port, driver, s.s)
+		server, err = s3.Server(port, driver, func() (*client.APIClient, error) {
+			return s.s.apiServer.env.GetPachClient(s.s.pachClient.Ctx()), nil // clones s.pachClient
+		})
 		if err != nil {
 			return errors.Wrapf(err, "couldn't initialize s3 gateway server")
 		}
@@ -463,10 +465,4 @@ func (h *handleJobsCtx) processJobEvent(jobCtx context.Context, t watch.EventTyp
 	}
 
 	h.h.OnCreate(jobCtx, jobInfo)
-}
-
-// Client implements the S3 gateway ClientFactory interface, so that we can
-// initialize new instances of S3 gateway by passing 's'
-func (s *sidecarS3G) Client() (*client.APIClient, error) {
-	return s.apiServer.env.GetPachClient(s.pachClient.Ctx()), nil // clones s.pachClient
 }
