@@ -5833,7 +5833,7 @@ func TestGarbageCollection(t *testing.T) {
 		// run FlushJob inside a retry loop, as the pipeline may take a few moments
 		// to start the worker master and create a job
 		require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
-			jobInfos, err := c.FlushJobAll([]*pfs.Commit{commit}, nil)
+			jobInfos, err := c.FlushJobAll([]*pfs.Commit{commit}, []string{pipeline})
 			require.NoError(t, err)
 			if len(jobInfos) != 1 {
 				return errors.Errorf("expected one job but got %d", len(jobInfos))
