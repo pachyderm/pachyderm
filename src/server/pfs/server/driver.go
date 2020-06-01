@@ -156,6 +156,7 @@ func newDriver(
 		memoryLimiter:    semaphore.NewWeighted(memoryRequest / 3),
 		putObjectLimiter: limit.New(env.StorageUploadConcurrencyLimit),
 		putFileLimiter:   limit.New(env.StoragePutFileConcurrencyLimit),
+		// TODO: set maxFanIn based on downward API.
 	}
 
 	// Create spec repo (default repo)
