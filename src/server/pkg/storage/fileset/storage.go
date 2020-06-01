@@ -16,11 +16,13 @@ import (
 )
 
 const (
-	// (bryce) Not sure if these are the tags we should use, but the header and padding tag should show up before and after respectively in the
-	// lexicographical ordering of tags.
-	headerTag  = ""
+	prefix = "pfs"
+	// TODO Not sure if these are the tags we should use, but the header and padding tag should show up before and after respectively in the
+	// lexicographical ordering of file content tags.
+	// headerTag is the tag used for the tar header bytes.
+	headerTag = ""
+	// paddingTag is the tag used for the padding bytes at the end of a tar entry.
 	paddingTag = "~"
-	prefix     = "pfs"
 	// DefaultMemoryThreshold is the default for the memory threshold that must
 	// be met before a file set part is serialized (excluding close).
 	DefaultMemoryThreshold = 1024 * units.MB
@@ -80,7 +82,7 @@ func (s *Storage) newWriter(ctx context.Context, fileSet string, opts ...WriterO
 	return newWriter(ctx, s.objC, s.chunks, fileSet, opts...)
 }
 
-// (bryce) expose some notion of read ahead (read a certain number of chunks in parallel).
+// TODO Expose some notion of read ahead (read a certain number of chunks in parallel).
 // this will be necessary to speed up reading large files.
 func (s *Storage) newReader(ctx context.Context, fileSet string, opts ...index.Option) *Reader {
 	fileSet = applyPrefix(fileSet)
@@ -116,7 +118,7 @@ func (s *Storage) ResolveIndexes(ctx context.Context, fileSets []string, f func(
 }
 
 // Shard shards the merge of the file sets with the passed in prefix into file ranges.
-// (bryce) this should be extended to be more configurable (different criteria
+// TODO This should be extended to be more configurable (different criteria
 // for creating shards).
 func (s *Storage) Shard(ctx context.Context, fileSets []string, shardFunc ShardFunc) error {
 	fileSets = applyPrefixes(fileSets)

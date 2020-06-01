@@ -99,8 +99,8 @@ func (c *client) CreateReference(ctx context.Context, ref *Reference) (retErr er
 		func(txn *gorm.DB) *gorm.DB {
 			// Insert the reference.
 			// Does nothing if the reference already exists.
-			// (bryce) should we consider the possibility of a very slow client
-			// not adding a reference before the temporary reference times out?
+			// TODO We should consider the possibility of a very slow client
+			// not adding a reference before the temporary reference times out.
 			// We could do some reachability validation, but we would probably want
 			// to do this when the semantic reference is setup to minimize the cost on
 			// the common path.

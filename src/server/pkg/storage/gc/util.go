@@ -19,14 +19,13 @@ const (
 )
 
 // NewLocalDB creates a local database client.
-// (bryce) this should be somewhere else.
-// probably a db package similar to obj.
+// TODO The code for setting up a postgres client should be refactored into a db package similar to obj.
 func NewLocalDB() (*gorm.DB, error) {
 	db, err := gorm.Open("postgres", fmt.Sprintf("host=%s port=%d dbname=pgc user=pachyderm password=elephantastic sslmode=disable", defaultPostgresHost, defaultPostgresPort))
 	if err != nil {
 		return nil, err
 	}
-	// TODO: determine reasonable values for this
+	// TODO Determine reasonable defaults.
 	db.LogMode(false)
 	db.DB().SetMaxOpenConns(3)
 	db.DB().SetMaxIdleConns(2)
@@ -81,7 +80,7 @@ func WithGarbageCollector(objClient obj.Client, db *gorm.DB, f func(context.Cont
 	if err != nil {
 		return err
 	}
-	// (bryce) may want to pipe a real context through here.
+	// TODO May want to pipe a real context through here.
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	eg, gcContext := errgroup.WithContext(cancelCtx)
 	eg.Go(func() error {
