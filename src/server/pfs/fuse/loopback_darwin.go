@@ -12,8 +12,8 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
-	"github.com/hanwen/go-fuse/v2/internal/utimens"
 )
 
 func (n *loopbackNode) Getxattr(ctx context.Context, attr string, dest []byte) (uint32, syscall.Errno) {
@@ -106,13 +106,25 @@ func (f *loopbackFile) utimens(a *time.Time, m *time.Time) syscall.Errno {
 			return errno
 		}
 	}
-	tv := utimens.Fill(a, m, &attr.Attr)
+
+	if a == nil {
+		a2 := time.Unix(int64(attr.Attr.Atime), int64(attr.Attr.Atimensec))
+		a = &a2
+	}
+	if m == nil {
+		m2 := time.Unix(int64(attr.Attr.Mtime), int64(attr.Attr.Mtimensec))
+		m = &m2
+	}
+	tv := make([]syscall.Timeval, 2)
+	tv[0] = timeToTimeval(a)
+	tv[1] = timeToTimeval(m)
+
 	err := syscall.Futimes(int(f.fd), tv)
-	return ToErrno(err)
+	return fs.ToErrno(err)
 }
 
-func (n *loopbackNode) CopyFileRange(ctx context.Context, fhIn FileHandle,
-	offIn uint64, out *Inode, fhOut FileHandle, offOut uint64,
+func (n *loopbackNode) CopyFileRange(ctx context.Context, fhIn fs.FileHandle,
+	offIn uint64, out *fs.Inode, fhOut fs.FileHandle, offOut uint64,
 	len uint64, flags uint64) (uint32, syscall.Errno) {
 	return 0, syscall.ENOSYS
 }
