@@ -43,7 +43,11 @@ func (c *concurrencyLimiter) Acquire() {
 }
 
 func (c *concurrencyLimiter) Release() {
-	<-c.sem
+	select {
+	case <-c.sem:
+	default:
+		panic("Release called without matching Acquire")
+	}
 }
 
 func (c *concurrencyLimiter) Wait() {

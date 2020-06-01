@@ -7,6 +7,13 @@ import (
 	"github.com/cheggaaa/pb/v3"
 )
 
+// XXX DO NOT WRAP ERRORS IN THIS PACKAGE XXX
+// This file replicates the go file interface, as such the errors it returns
+// need to be the true errors that the os api returns, not wrapped versions of
+// them. The standard library does not unwrap errors which means that things
+// like io.Copy will start breaking if this returns wrapped versions of io.EOF
+// instead of the real io.EOF.
+
 var (
 	// Template is used when you know the total size of the operation (i.e.
 	// when you're reading from a file)

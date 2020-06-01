@@ -79,7 +79,7 @@ func (s *server) getFileHandler(w http.ResponseWriter, r *http.Request, ps httpr
 	if len(downloadValues) == 1 && downloadValues[0] == "true" {
 		w.Header().Add("Content-Disposition", fmt.Sprintf("attachment; filename=\"%v\"", fileName))
 	}
-	c := s.getPachClient()
+	c := s.getPachClient().WithCtx(ctx)
 	commitInfo, err := c.InspectCommit(ps.ByName("repoName"), ps.ByName("commitID"))
 	if err != nil {
 		httpError(w, err)

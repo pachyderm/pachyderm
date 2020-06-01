@@ -6056,6 +6056,60 @@ func TestFsckFix(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestPutFileAtomic(t *testing.T) {
+	t.Parallel()
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		c := env.PachClient
+		test := "test"
+		require.NoError(t, c.CreateRepo(test))
+
+		pfc, err := c.NewPutFileClient()
+		require.NoError(t, err)
+		_, err = pfc.PutFile(test, "master", "file1", strings.NewReader("1"))
+		require.NoError(t, err)
+		_, err = pfc.PutFile(test, "master", "file2", strings.NewReader("2"))
+		require.NoError(t, err)
+		require.NoError(t, pfc.Close())
+
+		cis, err := c.ListCommit(test, "master", "", 0)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(cis))
+		var b bytes.Buffer
+		require.NoError(t, c.GetFile(test, "master", "file1", 0, 0, &b))
+		require.Equal(t, "1", b.String())
+		b.Reset()
+		require.NoError(t, c.GetFile(test, "master", "file2", 0, 0, &b))
+		require.Equal(t, "2", b.String())
+
+		pfc, err = c.NewPutFileClient()
+		require.NoError(t, err)
+		_, err = pfc.PutFile(test, "master", "file3", strings.NewReader("3"))
+		require.NoError(t, err)
+		require.NoError(t, pfc.DeleteFile(test, "master", "file1"))
+		require.NoError(t, pfc.Close())
+
+		cis, err = c.ListCommit(test, "master", "", 0)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(cis))
+		b.Reset()
+		require.NoError(t, c.GetFile(test, "master", "file3", 0, 0, &b))
+		require.Equal(t, "3", b.String())
+		b.Reset()
+		require.YesError(t, c.GetFile(test, "master", "file1", 0, 0, &b))
+
+		// Empty PutFileClients shouldn't error or create commits
+		pfc, err = c.NewPutFileClient()
+		require.NoError(t, err)
+		require.NoError(t, pfc.Close())
+		cis, err = c.ListCommit(test, "master", "", 0)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(cis))
+
+		return nil
+	})
+	require.NoError(t, err)
+}
+
 const (
 	inputRepo          = iota // create a new input repo
 	inputBranch               // create a new branch on an existing input repo

@@ -10,7 +10,6 @@ import (
 
 	"github.com/fatih/camelcase"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	go_errors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 )
@@ -223,20 +222,11 @@ func (l *logger) LogAtLevelFromDepth(request interface{}, response interface{}, 
 	if err != nil {
 		// "err" itself might be a code or even an empty struct
 		fields["error"] = err.Error()
-		var st go_errors.StackTrace
-		for err != nil {
-			if err, ok := err.(errors.StackTracer); ok {
-				st = err.StackTrace()
-			}
-			err = go_errors.Unwrap(err)
-		}
-		if st != nil {
-			var frames []string
-			for _, frame := range st {
-				frames = append(frames, fmt.Sprintf("%+v", frame))
-			}
-			fields["stack"] = frames
-		}
+		var frames []string
+		errors.ForEachStackFrame(err, func(frame errors.Frame) {
+			frames = append(frames, fmt.Sprintf("%+v", frame))
+		})
+		fields["stack"] = frames
 	}
 	if duration > 0 {
 		fields["duration"] = duration

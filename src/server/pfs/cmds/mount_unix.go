@@ -15,18 +15,48 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 
-	"github.com/hanwen/go-fuse/fuse/nodefs"
+	"github.com/hanwen/go-fuse/v2/fs"
+	gofuse "github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/spf13/cobra"
 )
 
-func parseCommits(args []string) (map[string]string, error) {
-	result := make(map[string]string)
+func parseRepoOpts(args []string) (map[string]*fuse.RepoOptions, error) {
+	result := make(map[string]*fuse.RepoOptions)
 	for _, arg := range args {
-		split := strings.Split(arg, "@")
-		if len(split) != 2 {
-			return nil, errors.Errorf("malformed input %s, must be of the form repo@commit", args)
+		var repo string
+		var flag string
+		opts := &fuse.RepoOptions{}
+		repoAndRest := strings.Split(arg, "@")
+		if len(repoAndRest) == 1 {
+			// No branch specified
+			opts.Branch = "master"
+			repoAndFlag := strings.Split(repoAndRest[0], "+")
+			repo = repoAndFlag[0]
+			if len(repoAndFlag) > 1 {
+				flag = repoAndFlag[1]
+			}
+		} else {
+			repo = repoAndRest[0]
+			branchAndFlag := strings.Split(repoAndRest[1], "+")
+			opts.Branch = branchAndFlag[0]
+			if len(branchAndFlag) > 1 {
+				flag = branchAndFlag[1]
+			}
 		}
-		result[split[0]] = split[1]
+		if flag != "" {
+			for _, c := range flag {
+				if c != 'w' && c != 'r' {
+					return nil, errors.Errorf("invalid format %q: unrecognized mode: %q", arg, c)
+				}
+			}
+			if strings.Contains("w", flag) {
+				opts.Write = true
+			}
+		}
+		if repo == "" {
+			return nil, errors.Errorf("invalid format %q: repo cannot be empty", arg)
+		}
+		result[repo] = opts
 	}
 	return result, nil
 }
@@ -34,8 +64,9 @@ func parseCommits(args []string) (map[string]string, error) {
 func mountCmds() []*cobra.Command {
 	var commands []*cobra.Command
 
+	var write bool
 	var debug bool
-	var commits cmdutil.RepeatedStringArg
+	var repoOpts cmdutil.RepeatedStringArg
 	mount := &cobra.Command{
 		Use:   "{{alias}} <path/to/mount/point>",
 		Short: "Mount pfs locally. This command blocks.",
@@ -47,22 +78,26 @@ func mountCmds() []*cobra.Command {
 			}
 			defer c.Close()
 			mountPoint := args[0]
-			commits, err := parseCommits(commits)
+			repoOpts, err := parseRepoOpts(repoOpts)
 			if err != nil {
 				return err
 			}
 			opts := &fuse.Options{
-				Fuse: &nodefs.Options{
-					Debug: debug,
+				Write: write,
+				Fuse: &fs.Options{
+					MountOptions: gofuse.MountOptions{
+						Debug: debug,
+					},
 				},
-				Commits: commits,
+				RepoOptions: repoOpts,
 			}
 			return fuse.Mount(c, mountPoint, opts)
 		}),
 	}
+	mount.Flags().BoolVarP(&write, "write", "w", false, "Allow writing to pfs through the mount.")
 	mount.Flags().BoolVarP(&debug, "debug", "d", false, "Turn on debug messages.")
-	mount.Flags().VarP(&commits, "commits", "c", "Commits to mount for repos, arguments should be of the form \"repo@commit\"")
-	mount.MarkFlagCustom("commits", "__pachctl_get_repo_branch")
+	mount.Flags().VarP(&repoOpts, "repos", "r", "Repos and branches / commits to mount, arguments should be of the form \"repo@branch+w\", where the trailing flag \"+w\" indicates write.")
+	mount.MarkFlagCustom("repos", "__pachctl_get_repo_branch")
 	commands = append(commands, cmdutil.CreateAlias(mount, "mount"))
 
 	var all bool

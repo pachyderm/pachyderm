@@ -945,6 +945,13 @@ type PutFileClient interface {
 	// recursive allows for recursive scraping of some types URLs. For example on s3:// urls.
 	PutFileURL(repoName string, commitID string, path string, url string, recursive bool, overwrite bool) error
 
+	// DeleteFile deletes a file from a Commit.
+	// DeleteFile leaves a tombstone in the Commit, assuming the file isn't written
+	// to later attempting to get the file from the finished commit will result in
+	// not found error.
+	// The file will of course remain intact in the Commit's parent.
+	DeleteFile(repoName string, commitID string, path string) error
+
 	// Close must be called after you're done using a PutFileClient.
 	// Further requests will throw errors.
 	Close() error
@@ -1057,6 +1064,25 @@ func (c *putFileClient) PutFileURL(repoName string, commitID string, path string
 		Url:            url,
 		Recursive:      recursive,
 		OverwriteIndex: overwriteIndex,
+	}); err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	return nil
+}
+
+func (c *putFileClient) DeleteFile(repoName string, commitID string, path string) (retErr error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.oneoff {
+		defer func() {
+			if err := grpcutil.ScrubGRPC(c.Close()); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+	}
+	if err := c.c.Send(&pfs.PutFileRequest{
+		File:   NewFile(repoName, commitID, path),
+		Delete: true,
 	}); err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}
@@ -1405,13 +1431,11 @@ func (c APIClient) Walk(repoName string, commitID string, path string, f WalkFn)
 // not found error.
 // The file will of course remain intact in the Commit's parent.
 func (c APIClient) DeleteFile(repoName string, commitID string, path string) error {
-	_, err := c.PfsAPIClient.DeleteFile(
-		c.Ctx(),
-		&pfs.DeleteFileRequest{
-			File: NewFile(repoName, commitID, path),
-		},
-	)
-	return grpcutil.ScrubGRPC(err)
+	pfc, err := c.newOneoffPutFileClient()
+	if err != nil {
+		return err
+	}
+	return pfc.DeleteFile(repoName, commitID, path)
 }
 
 type putFileWriteCloser struct {

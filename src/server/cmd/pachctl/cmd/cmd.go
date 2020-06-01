@@ -344,6 +344,7 @@ Environment variables:
 					ioutil.Discard,
 					ioutil.Discard,
 				))
+				cmdutil.PrintErrorStacks = true
 			}
 		},
 		BashCompletionFunction: bashCompletionFunc,
