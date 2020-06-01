@@ -228,9 +228,9 @@ test-pfs-server:
 	./etc/testing/pfs_server.sh $(TIMEOUT)
 
 test-pfs-storage:
-	go test  -count=1 ./src/server/pkg/storage/chunk -timeout $(TIMEOUT)
-	go test  -count=1 ./src/server/pkg/storage/fileset/index -timeout $(TIMEOUT)
-	go test  -count=1 ./src/server/pkg/storage/fileset -timeout $(TIMEOUT)
+	go test -count=1 ./src/server/pkg/storage/chunk -timeout $(TIMEOUT)
+	go test -count=1 ./src/server/pkg/storage/fileset/index -timeout $(TIMEOUT)
+	go test -count=1 ./src/server/pkg/storage/fileset -timeout $(TIMEOUT)
 
 test-pps: launch-stats launch-kafka docker-build-test-entrypoint
 	@# Use the count flag to disable test caching for this test suite.
@@ -238,6 +238,9 @@ test-pps: launch-stats launch-kafka docker-build-test-entrypoint
 	  go test -v -count=1 ./src/server -parallel 1 -timeout $(TIMEOUT) $(RUN)
 
 test-cmds:
+	cd ./etc/testing/custom-splitters && \
+		docker run -v $$(pwd):/app -w /app golang:1.13.8 go build -buildmode=plugin valid.go && \
+		docker run -v $$(pwd):/app -w /app golang:1.13.8 go build -buildmode=plugin invalid.go
 	go install -v ./src/testing/match
 	CGOENABLED=0 go test -v -count=1 ./src/server/cmd/pachctl/cmd
 	go test -v -count=1 ./src/server/pkg/deploy/cmds -timeout $(TIMEOUT)

@@ -17,6 +17,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
@@ -884,7 +885,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 	putFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively put the files in a directory.")
 	putFile.Flags().BoolVarP(&compress, "compress", "", false, "Compress data during upload. This parameter might help you upload your uncompressed data, such as CSV files, to Pachyderm faster. Use 'compress' with caution, because if your data is already compressed, this parameter might slow down the upload speed instead of increasing.")
 	putFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be uploaded in parallel.")
-	putFile.Flags().StringVar(&split, "split", "", "Split the input file into smaller files, subject to the constraints of --target-file-datums and --target-file-bytes. Permissible values are `line`, `json`, `sql` and `csv`.")
+	putFile.Flags().StringVar(&split, "split", "", "Split the input file into smaller files, subject to the constraints of --target-file-datums and --target-file-bytes. Permissible values are `line`, `json`, `sql`, `csv`, and PFS file references to custom splitter libraries.")
 	putFile.Flags().UintVar(&targetFileDatums, "target-file-datums", 0, "The upper bound of the number of datums that each file contains, the last file will contain fewer if the datums don't divide evenly; needs to be used with --split.")
 	putFile.Flags().UintVar(&targetFileBytes, "target-file-bytes", 0, "The target upper bound of the number of bytes that each file contains; needs to be used with --split.")
 	putFile.Flags().UintVar(&headerRecords, "header-records", 0, "the number of records that will be converted to a PFS 'header', and prepended to future retrievals of any subset of data from PFS; needs to be used with --split=(json|line|csv)")
@@ -1372,6 +1373,7 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 			return err
 		}
 
+		var splitterFile *pfs.File
 		var delimiter pfsclient.Delimiter
 		switch split {
 		case "line":
@@ -1383,10 +1385,14 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 		case "csv":
 			delimiter = pfsclient.Delimiter_CSV
 		default:
-			return errors.Errorf("unrecognized delimiter '%s'; only accepts one of "+
-				"{json,line,sql,csv}", split)
+			var err error
+			splitterFile, err = cmdutil.ParseFile(split)
+			if err != nil {
+				return errors.Errorf("unrecognized delimiter '%s'", split)
+			}
+			delimiter = pfsclient.Delimiter_PLUGIN
 		}
-		_, err := pfc.PutFileSplit(repo, commit, path, delimiter, int64(targetFileDatums), int64(targetFileBytes), int64(headerRecords), overwrite, reader)
+		_, err := pfc.PutFileSplit(repo, commit, path, delimiter, splitterFile, int64(targetFileDatums), int64(targetFileBytes), int64(headerRecords), overwrite, reader)
 		return err
 	}
 

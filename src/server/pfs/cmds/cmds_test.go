@@ -77,6 +77,25 @@ func TestPutFileSplit(t *testing.T) {
 	).Run())
 }
 
+func TestPutFileSplitPlugin(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	require.NoError(t, tu.BashCmd(`
+		pachctl create repo {{.repo}}
+
+		pushd ../../../../etc/testing/custom-splitters
+			pachctl put file {{.repo}}@master:/ -f valid.so -f invalid.so
+			pachctl put file {{.repo}}@master:/person_valid.xml --split={{.repo}}@master:/valid.so -f person.xml
+			pachctl put file {{.repo}}@master:/person_invalid.xml --split={{.repo}}@master:/invalid.so -f person.xml
+		popd
+
+		pachctl get file {{.repo}}@master:/person_valid.xml
+		`,
+		"repo", tu.UniqueString("TestPutFileSplitPlugin-repo"),
+	).Run())
+}
+
 func TestMountParsing(t *testing.T) {
 	expected := map[string]*fuse.RepoOptions{
 		"repo1": {
