@@ -2947,7 +2947,7 @@ func (d *driver) getSplitterFunction(pachClient *client.APIClient, pfsFile *pfs.
 		return nil, errors.Wrapf(err, "failed to get delimiter plugin file")
 	}
 
-	f, err := ioutil.TempFile("pachyderm", "delimiter-plugin-*.so")
+	f, err := ioutil.TempFile("", "delimiter-plugin-*.so")
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create temporary file for storing delimiter plugin contents")
 	}
