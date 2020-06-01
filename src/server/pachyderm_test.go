@@ -3082,7 +3082,7 @@ func TestUpdateFailedPipeline(t *testing.T) {
 	time.Sleep(10 * time.Second)
 	pipelineInfo, err := c.InspectPipeline(pipelineName)
 	require.NoError(t, err)
-	require.Equal(t, pps.PipelineState_PIPELINE_FAILURE, pipelineInfo.State)
+	require.Equal(t, pps.PipelineState_PIPELINE_CRASHING.String(), pipelineInfo.State.String())
 
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
