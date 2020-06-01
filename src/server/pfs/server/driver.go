@@ -55,7 +55,7 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
-type DelimiterPlugin = func(*bufio.Reader, chan []byte) error
+type SplitFn = func(*bufio.Reader, chan []byte) error
 
 const (
 	splitSuffixBase  = 16
@@ -2876,38 +2876,38 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 	var files []*pfs.File
 	var putFilePaths []string
 	var putFileRecords []*pfs.PutFileRecords
-	var delimiterPlugins map[*pfs.File]DelimiterPlugin // TODO(ys): will lookups here work fine, given pfs.File is behind a pointer?
-	var delimiterPluginsMu sync.Mutex
+	var customSplitters map[*pfs.File]SplitFn // TODO(ys): will lookups here work fine, given pfs.File is behind a pointer?
+	var customSplittersMu sync.Mutex
 	var resultsMu sync.Mutex
 
 	oneOff, repo, branch, err := d.forEachPutFile(pachClient, s, func(req *pfs.PutFileRequest, r io.Reader) error {
 		// get the delimiter plugin
-		var delimiterPlugin DelimiterPlugin
+		var splitFn SplitFn
 		if req.DelimiterPlugin != nil {
 			if req.Delimiter != pfs.Delimiter_PLUGIN {
 				return errors.Errorf("cannot set the delimiter plugin file with delimiter != PLUGIN")
 			}
 
-			delimiterPluginsMu.Lock()
+			customSplittersMu.Lock()
 			var ok bool
-			delimiterPlugin, ok = delimiterPlugins[req.DelimiterPlugin]
+			splitFn, ok = customSplitters[req.DelimiterPlugin]
 			if !ok {
 				var err error
-				delimiterPlugin, err = d.getDelimiterPlugin(pachClient, req.DelimiterPlugin)
+				splitFn, err = d.getSplitterFunction(pachClient, req.DelimiterPlugin)
 				if err != nil {
-					delimiterPluginsMu.Unlock()
+					customSplittersMu.Unlock()
 					return err
 				}
-				delimiterPlugins[req.DelimiterPlugin] = delimiterPlugin
+				customSplitters[req.DelimiterPlugin] = splitFn
 			}
-			delimiterPluginsMu.Unlock()
+			customSplittersMu.Unlock()
 		} else if req.Delimiter == pfs.Delimiter_PLUGIN {
 			return errors.Errorf("must set the delimiter plugin file")
 		}
 
 		records, err := d.putFile(pachClient, req.File, req.Delimiter,
 			req.TargetFileDatums, req.TargetFileBytes, req.HeaderRecords,
-			req.OverwriteIndex, req.Delete, delimiterPlugin, r)
+			req.OverwriteIndex, req.Delete, splitFn, r)
 		if err != nil {
 			return err
 		}
@@ -2941,7 +2941,7 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 	return nil
 }
 
-func (d *driver) getDelimiterPlugin(pachClient *client.APIClient, pfsFile *pfs.File) (DelimiterPlugin, error) {
+func (d *driver) getSplitterFunction(pachClient *client.APIClient, pfsFile *pfs.File) (SplitFn, error) {
 	r, err := d.getFile(pachClient, pfsFile, 0, 0)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get delimiter plugin file")
@@ -2966,14 +2966,14 @@ func (d *driver) getDelimiterPlugin(pachClient *client.APIClient, pfsFile *pfs.F
 		return nil, errors.Wrapf(err, "failed to open locally stored delimiter plugin file")
 	}
 
-	s, err := p.Lookup("delimiter")
+	s, err := p.Lookup("Split")
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to open locally stored delimiter plugin file")
 	}
 
-	dp, ok := s.(DelimiterPlugin)
+	dp, ok := s.(SplitFn)
 	if !ok {
-		return nil, errors.New("delimiter symbol a DelimiterPlugin")
+		return nil, errors.New("delimiter symbol is not a SplitFn")
 	}
 
 	return dp, nil
@@ -2981,7 +2981,7 @@ func (d *driver) getDelimiterPlugin(pachClient *client.APIClient, pfsFile *pfs.F
 
 func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter pfs.Delimiter,
 	targetFileDatums, targetFileBytes, headerRecords int64, overwriteIndex *pfs.OverwriteIndex,
-	del bool, delimiterPlugin DelimiterPlugin, reader io.Reader) (*pfs.PutFileRecords, error) {
+	del bool, splitFn SplitFn, reader io.Reader) (*pfs.PutFileRecords, error) {
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return nil, err
 	}
@@ -3114,7 +3114,7 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 					pluginBytesChan = make(chan []byte, 10)
 					pluginErrorChan = make(chan error, 1)
 					go func() {
-						if err := delimiterPlugin(bufioR, pluginBytesChan); err != nil {
+						if err := splitFn(bufioR, pluginBytesChan); err != nil {
 							pluginErrorChan <- err
 						}
 						// closure of pluginBytesChan signifies that reading is done
