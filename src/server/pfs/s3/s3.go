@@ -13,6 +13,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// ClientFactory is a function called by s3g to create request-scoped
+// pachyderm clients
 type ClientFactory = func() (*client.APIClient, error)
 
 const (
