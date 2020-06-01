@@ -6,7 +6,7 @@
 
 Pachyderm Access Controls enable you to log in to Pachyderm
 with a user configured in a third-party identity management
-platform and operate as that user with the data store in
+platform and operate as that user with the data stored in
 Pachyderm. Pachyderm supports the following identity providers
 with the specified authentication protocols:
 
@@ -34,13 +34,14 @@ If you have activated access controls, in addition to the initial
 with each repository. Each ACL can include the following
 roles:
 
-- `READER` - users who can read the data versioned in the repo.
-This users can execute such Pachyderm commands, as `pachctl get file`
-`pachctl list file`, and similar.
+- `READER` - users who can consume data from the repo, but cannot edit it.
+Readers can execute such commands as `pachctl get file`
+`pachctl list file`, as well as create pipelines that use data
+from this repo. 
 - `WRITER` - users who can read and modify data in the repository by
 adding, deleting, or updating the files in the repo. Users with
-`WRITER` role can perform such operations as `pachctl put file`, and
-other.
+`WRITER` role can perform such operations as `pachctl put file`,
+`pachctl delete commit`, and others.
 - `OWNER` - users with `READER` and `WRITER` access who can also
 modify the repository's ACL.
 

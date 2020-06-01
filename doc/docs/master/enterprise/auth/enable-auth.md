@@ -4,10 +4,10 @@ Before you can enable access controls, make sure that
 you have activated Pachyderm Enterprise Edition
 as described in [Deploy Enterprise Edition](../deployment.md).
 
-When you initially enable access controls, you restrict
-access to the data stored in Pachyderm repository to the
-user that you configure, most often to yourself. This *initial admin*
-will have `admin` privileges in the Pachyderm cluster.
+When you initially enable access controls, data access
+is restricted to an *initial admin*, most often yourself.
+This *initial admin* will have `admin` privileges in the
+Pachyderm cluster.
 Then, the `admin` user can configure Pachyderm to work with
 a identity management provider (IdP) of your choice.
 
@@ -24,7 +24,7 @@ To enable access controls, complete the following steps:
    by running the following `pachctl` command:
 
    ```bash
-   pachctl enterprise get-stats
+   pachctl enterprise get-state
    ```
 
    **System response:**
@@ -45,8 +45,6 @@ To enable access controls, complete the following steps:
 
 You can configure any type of supported users through `pachctl`. For
 more information about the types of supported users, see [Account Types](../).
-Unless you are authenticating with GitHub, which is typically used for
-testing, you need to configure an initial admin that will  
 
 To activate access controls with `pachctl`, complete the following steps:
 
