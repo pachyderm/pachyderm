@@ -61,7 +61,7 @@ func withBranchGenerator(opts ...branchGeneratorOption) loadConfigOption {
 
 func newPachdConfig(opts ...pachdConfigOption) *serviceenv.PachdFullConfiguration {
 	config := &serviceenv.PachdFullConfiguration{}
-	config.NewStorageLayer = true
+	config.StorageV2 = true
 	config.StorageMemoryThreshold = units.GB
 	config.StorageShardThreshold = units.GB
 	config.StorageLevelZeroSize = units.MB
@@ -666,7 +666,7 @@ func TestListFileV2(t *testing.T) {
 	}
 
 	config := &serviceenv.PachdFullConfiguration{}
-	config.NewStorageLayer = true
+	config.StorageV2 = true
 	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
@@ -702,7 +702,7 @@ func TestCompaction(t *testing.T) {
 		t.SkipNow()
 	}
 	config := &serviceenv.PachdFullConfiguration{}
-	config.NewStorageLayer = true
+	config.StorageV2 = true
 	config.StorageCompactionMaxFanIn = 10
 	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"

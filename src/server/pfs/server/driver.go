@@ -171,13 +171,12 @@ func newDriver(
 	}); err != nil && !col.IsErrExists(err) {
 		return nil, err
 	}
-	if env.NewStorageLayer {
-		// TODO Need to setup a real object storage client here.
-		// We may also want to disable the object block api server.
-		objClient, err := obj.NewLocalClient(storageRoot)
+	if env.StorageV2 {
+		objClient, err := NewObjClient(env.Configuration)
 		if err != nil {
 			return nil, err
 		}
+		// (bryce) local db for testing.
 		db, err := gc.NewLocalDB()
 		if err != nil {
 			return nil, err
