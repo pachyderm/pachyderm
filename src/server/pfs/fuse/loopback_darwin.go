@@ -12,8 +12,9 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
-	"github.com/hanwen/go-fuse/v2/internal/utimens"
+	"github.com/pachyderm/pachyderm/src/server/pfs/fuse/utimens"
 )
 
 func (n *loopbackNode) Getxattr(ctx context.Context, attr string, dest []byte) (uint32, syscall.Errno) {
@@ -108,11 +109,11 @@ func (f *loopbackFile) utimens(a *time.Time, m *time.Time) syscall.Errno {
 	}
 	tv := utimens.Fill(a, m, &attr.Attr)
 	err := syscall.Futimes(int(f.fd), tv)
-	return ToErrno(err)
+	return fs.ToErrno(err)
 }
 
-func (n *loopbackNode) CopyFileRange(ctx context.Context, fhIn FileHandle,
-	offIn uint64, out *Inode, fhOut FileHandle, offOut uint64,
+func (n *loopbackNode) CopyFileRange(ctx context.Context, fhIn fs.FileHandle,
+	offIn uint64, out *fs.Inode, fhOut fs.FileHandle, offOut uint64,
 	len uint64, flags uint64) (uint32, syscall.Errno) {
 	return 0, syscall.ENOSYS
 }
