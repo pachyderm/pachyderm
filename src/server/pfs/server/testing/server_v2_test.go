@@ -667,7 +667,7 @@ func TestListFileV2(t *testing.T) {
 
 	config := &serviceenv.PachdFullConfiguration{}
 	config.StorageV2 = true
-	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -702,7 +702,7 @@ func TestCompaction(t *testing.T) {
 		t.SkipNow()
 	}
 	config := &serviceenv.PachdFullConfiguration{}
-	config.NewStorageLayer = true
+	config.StorageV2 = true
 	config.StorageCompactionMaxFanIn = 10
 	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
