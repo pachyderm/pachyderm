@@ -41,7 +41,7 @@ var (
 	// Using our own etcd image for now because there's a fix we need
 	// that hasn't been released, and which has been manually applied
 	// to the official v3.2.7 release.
-	etcdImage      = "quay.io/coreos/etcd:v3.3.5"
+	etcdImage      = "pachyderm/etcd:v3.3.5"
 	postgresImage  = "postgres:11.3"
 	grpcProxyImage = "pachyderm/grpc-proxy:0.4.10"
 	dashName       = "dash"
@@ -990,6 +990,7 @@ func makeStorageClass(
 			"labels":    storageClassLabels,
 			"namespace": opts.Namespace,
 		},
+		"allowVolumeExpansion": true,
 	}
 	switch backend {
 	case googleBackend:

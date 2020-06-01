@@ -2,12 +2,14 @@ package server
 
 import (
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
@@ -395,11 +397,14 @@ func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream 
 func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {
 	s := newPutFileServer(putFileServer)
 	r, err := s.Peek()
-	if err != nil {
+	if err != nil && !errors.Is(err, io.EOF) {
 		return err
 	}
-	request := *r
-	request.Value = nil
+	var request pfs.PutFileRequest
+	if r != nil {
+		request := *r
+		request.Value = nil
+	}
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	defer drainFileServer(putFileServer)

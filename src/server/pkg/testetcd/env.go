@@ -11,6 +11,7 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/embed"
+	etcdwal "github.com/coreos/etcd/wal"
 	"github.com/coreos/pkg/capnslog"
 	"golang.org/x/sync/errgroup"
 
@@ -73,6 +74,12 @@ func WithEnv(cb func(*Env) error) (err error) {
 	if err != nil {
 		return err
 	}
+
+	// NOTE: this is changing a GLOBAL variable in etcd. This function should not
+	// be run in the same process as production code where this may affect
+	// performance (but there should be little risk of that as this is only for
+	// test code).
+	etcdwal.SegmentSizeBytes = 1 * 1000 * 1000 // 1 MB
 
 	etcdConfig := embed.NewConfig()
 	etcdConfig.LogOutput = "default"

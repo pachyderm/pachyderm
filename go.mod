@@ -6,7 +6,6 @@ require (
 	cloud.google.com/go v0.40.0
 	github.com/Azure/azure-sdk-for-go v32.4.0+incompatible
 	github.com/Azure/go-autorest/autorest/to v0.3.0 // indirect
-	github.com/LK4D4/joincontext v0.0.0-20171026170139-1724345da6d5
 	github.com/OneOfOne/xxhash v1.2.5
 	github.com/aws/aws-lambda-go v1.11.1
 	github.com/aws/aws-sdk-go v1.20.3
@@ -46,7 +45,7 @@ require (
 	github.com/gorilla/websocket v1.4.1 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.1.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.12.1 // indirect
-	github.com/hanwen/go-fuse v0.0.0-20180522155540-291273cb8ce0
+	github.com/hanwen/go-fuse/v2 v2.0.2
 	github.com/hashicorp/go-cleanhttp v0.5.1 // indirect
 	github.com/hashicorp/go-hclog v0.8.0 // indirect
 	github.com/hashicorp/go-immutable-radix v1.1.0 // indirect
@@ -78,6 +77,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/term v0.0.0-20190109203006-aa71e9d9e942 // indirect
 	github.com/prometheus/client_golang v1.2.1
+	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
 	github.com/prometheus/common v0.7.0
 	github.com/robfig/cron v1.2.0
 	github.com/russellhaering/goxmldsig v0.0.0-20180430223755-7acd5e4a6ef7 // indirect
@@ -104,9 +104,9 @@ require (
 	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
 	golang.org/x/oauth2 v0.0.0-20191202225959-858c2ad4c8b6
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
-	golang.org/x/sys v0.0.0-20191210023423-ac6580df4449 // indirect
+	golang.org/x/sys v0.0.0-20191210023423-ac6580df4449
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
-	golang.org/x/tools v0.0.0-20200430221153-f26c0dd9827d // indirect
+	golang.org/x/tools v0.0.0-20200521211927-2b542361a4fc // indirect
 	google.golang.org/api v0.6.0
 	google.golang.org/appengine v1.6.5 // indirect
 	google.golang.org/grpc v1.27.0
@@ -117,7 +117,7 @@ require (
 	gopkg.in/square/go-jose.v2 v2.3.1 // indirect
 	gopkg.in/src-d/go-git.v4 v4.12.0
 	helm.sh/helm/v3 v3.1.2
-	honnef.co/go/tools v0.0.1-2020.1.3 // indirect
+	honnef.co/go/tools v0.0.1-2020.1.4 // indirect
 	k8s.io/api v0.17.4
 	k8s.io/apimachinery v0.17.4
 	k8s.io/cli-runtime v0.17.4

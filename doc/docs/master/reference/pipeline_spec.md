@@ -663,10 +663,11 @@ on matching times in the future. Format the time value according to [RFC
 `input.cron.overwrite` is a flag to specify whether you want the timestamp file
 to be overwritten on each tick. This parameter is optional, and if you do not
 specify it, it defaults to simply writing new files on each tick. By default,
-`pachd` expects only the new information to be written out on each tick
-and combines that data with the data from the previous ticks. If `"overwrite"`
-is set to `true`, it expects the full dataset to be written out for each tick and
-replaces previous outputs with the new data written out.
+when `"overwrite"` is disabled, ticks accumulate in the cron input repo. When
+`"overwrite"` is enabled, Pachyderm erases the old ticks and adds new ticks
+with each commit. If you do not add any manual ticks or run
+`pachctl run cron`, only one tick file per commit (for the latest tick)
+is added to the input repo.
 
 #### Join Input
 

@@ -98,7 +98,7 @@ func dbFile(storageRoot string) string {
 func NewDBHashTree(storageRoot string) (HashTree, error) {
 	file := dbFile(storageRoot)
 	if err := os.MkdirAll(pathlib.Dir(file), 0777); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	result, err := newDBHashTree(file)
 	if err != nil {
@@ -125,7 +125,7 @@ func DeserializeDBHashTree(storageRoot string, r io.Reader) (_ HashTree, retErr 
 func newDBHashTree(file string) (HashTree, error) {
 	db, err := bolt.Open(file, perm, nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	db.NoSync = true
 	db.NoGrowSync = true
@@ -133,12 +133,12 @@ func newDBHashTree(file string) (HashTree, error) {
 	if err := db.Batch(func(tx *bolt.Tx) error {
 		for _, bucket := range buckets {
 			if _, err := tx.CreateBucketIfNotExists(b(bucket)); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 		}
 		return nil
 	}); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &dbHashTree{db}, nil
 }
@@ -150,7 +150,7 @@ func get(tx *bolt.Tx, path string) (*NodeProto, error) {
 		return nil, errorf(PathNotFound, "file \"%s\" not found", path)
 	}
 	if err := node.Unmarshal(data); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return node, nil
 }
@@ -164,7 +164,7 @@ func (h *dbHashTree) Get(path string) (*NodeProto, error) {
 		node, err = get(tx, path)
 		return err
 	}); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return node, nil
 }
@@ -213,7 +213,7 @@ func list(tx *bolt.Tx, path string, f func(*NodeProto) error) error {
 	return iterDir(tx, path, func(_, v []byte, _ *bolt.Cursor) error {
 		node := &NodeProto{}
 		if err := node.Unmarshal(v); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		return f(node)
 	})
@@ -222,9 +222,10 @@ func list(tx *bolt.Tx, path string, f func(*NodeProto) error) error {
 // List executes a callback for each file under a directory (or a file if the path is a file).
 func (h *dbHashTree) List(path string, f func(*NodeProto) error) error {
 	path = clean(path)
-	return h.View(func(tx *bolt.Tx) error {
+	err := h.View(func(tx *bolt.Tx) error {
 		return list(tx, path, f)
 	})
+	return errors.EnsureStack(err)
 }
 
 // ListAll retrieves all the files under a directory (or a file if the path is a file).
@@ -275,7 +276,7 @@ func glob(tx *bolt.Tx, pattern string, f func(string, *NodeProto) error) error {
 		if g.Match(s(k)) {
 			node := &NodeProto{}
 			if node.Unmarshal(v); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			if err := f(externalDefault(s(k)), node); err != nil {
 				if err == errutil.ErrBreak {
@@ -291,9 +292,10 @@ func glob(tx *bolt.Tx, pattern string, f func(string, *NodeProto) error) error {
 // Glob executes a callback for each path that matches the glob pattern.
 func (h *dbHashTree) Glob(pattern string, f func(string, *NodeProto) error) error {
 	pattern = clean(pattern)
-	return h.View(func(tx *bolt.Tx) error {
+	err := h.View(func(tx *bolt.Tx) error {
 		return glob(tx, pattern, f)
 	})
+	return errors.EnsureStack(err)
 }
 
 // Glob executes a callback for each path that matches the glob pattern.
@@ -323,12 +325,12 @@ func (h *dbHashTree) FSSize() int64 {
 // Walk executes a callback against every node in the subtree of path.
 func (h *dbHashTree) Walk(path string, f func(path string, node *NodeProto) error) error {
 	path = clean(path)
-	return h.View(func(tx *bolt.Tx) error {
+	err := h.View(func(tx *bolt.Tx) error {
 		c := fs(tx).Cursor()
 		for k, v := c.Seek(b(path)); k != nil && strings.HasPrefix(s(k), path); k, v = c.Next() {
 			node := &NodeProto{}
 			if err := node.Unmarshal(v); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			nodePath := s(k)
 			if nodePath == "" {
@@ -347,6 +349,7 @@ func (h *dbHashTree) Walk(path string, f func(path string, node *NodeProto) erro
 		}
 		return nil
 	})
+	return errors.EnsureStack(err)
 }
 
 // Walk executes a callback against every node in the subtree of path.
@@ -461,7 +464,7 @@ func (h *dbHashTree) Diff(oldHashTree HashTree, newPath string, oldPath string, 
 	}
 	rollback := func(tx *bolt.Tx) {
 		if err := tx.Rollback(); err != nil && retErr == nil {
-			retErr = err
+			retErr = errors.EnsureStack(err)
 		}
 	}
 	var newTx *bolt.Tx
@@ -469,7 +472,7 @@ func (h *dbHashTree) Diff(oldHashTree HashTree, newPath string, oldPath string, 
 	if h == oldHashTree {
 		tx, err := h.Begin(false)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		newTx = tx
 		oldTx = tx
@@ -478,12 +481,12 @@ func (h *dbHashTree) Diff(oldHashTree HashTree, newPath string, oldPath string, 
 		var err error
 		newTx, err = h.Begin(false)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		defer rollback(newTx)
 		oldTx, err = old.Begin(false)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		defer rollback(oldTx)
 	}
@@ -493,30 +496,31 @@ func (h *dbHashTree) Diff(oldHashTree HashTree, newPath string, oldPath string, 
 // Serialize serializes a binary version of the hashtree.
 func (h *dbHashTree) Serialize(_w io.Writer) error {
 	w := pbutil.NewWriter(_w)
-	return h.View(func(tx *bolt.Tx) error {
+	err := h.View(func(tx *bolt.Tx) error {
 		for _, bucket := range buckets {
 			b := tx.Bucket(b(bucket))
 			if _, err := w.Write(
 				&BucketHeader{
 					Bucket: bucket,
 				}); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			if err := b.ForEach(func(k, v []byte) error {
 				if _, err := w.WriteBytes(k); err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				_, err := w.WriteBytes(v)
-				return err
+				return errors.EnsureStack(err)
 			}); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			if _, err := w.WriteBytes(SentinelByte); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 		}
 		return nil
 	})
+	return errors.EnsureStack(err)
 }
 
 type keyValue struct {
@@ -555,7 +559,7 @@ func (h *dbHashTree) Deserialize(_r io.Reader) error {
 				}
 				return nil
 			}); err != nil || copyCtx.Err() != nil {
-				return err // may return nil if copyCtx was closed
+				return errors.EnsureStack(err) // may return nil if copyCtx was closed
 			}
 			if count <= 0 {
 				return nil
@@ -568,10 +572,10 @@ func (h *dbHashTree) Deserialize(_r io.Reader) error {
 			hdr.Reset()
 			// TODO(msteffen): don't block on Read if copyCtx() is cancelled?
 			if err := r.Read(hdr); err != nil {
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
-				return err
+				return errors.EnsureStack(err)
 			}
 			bucket := b(hdr.Bucket)
 			select {
@@ -582,7 +586,7 @@ func (h *dbHashTree) Deserialize(_r io.Reader) error {
 			for {
 				_k, err := r.ReadBytes()
 				if err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				if bytes.Equal(_k, SentinelByte) {
 					break
@@ -592,7 +596,7 @@ func (h *dbHashTree) Deserialize(_r io.Reader) error {
 				copy(k, _k)
 				_v, err := r.ReadBytes()
 				if err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				v := make([]byte, len(_v))
 				copy(v, _v)
@@ -605,7 +609,7 @@ func (h *dbHashTree) Deserialize(_r io.Reader) error {
 		}
 		return nil
 	})
-	return eg.Wait()
+	return errors.EnsureStack(eg.Wait())
 }
 
 // Copy returns a copy of the hashtree.
@@ -618,7 +622,7 @@ func (h *dbHashTree) Copy() (HashTree, error) {
 	eg.Go(func() (retErr error) {
 		defer func() {
 			if err := w.Close(); err != nil && retErr == nil {
-				retErr = err
+				retErr = errors.EnsureStack(err)
 			}
 		}()
 		return h.Serialize(w)
@@ -630,7 +634,7 @@ func (h *dbHashTree) Copy() (HashTree, error) {
 		return err
 	})
 	if err := eg.Wait(); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return result, nil
 }
@@ -639,20 +643,20 @@ func (h *dbHashTree) Copy() (HashTree, error) {
 func (h *dbHashTree) Destroy() error {
 	path := h.Path()
 	if err := h.Close(); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
-	return os.Remove(path)
+	return errors.EnsureStack(os.Remove(path))
 }
 
 func put(tx *bolt.Tx, path string, node *NodeProto) error {
 	data, err := node.Marshal()
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	if err := changed(tx).Put(b(path), exists); err != nil {
 		return errors.Wrapf(err, "error putting \"%s\"", path)
 	}
-	return fs(tx).Put(b(path), data)
+	return errors.EnsureStack(fs(tx).Put(b(path), data))
 }
 
 // visit visits every ancestor of 'path' (excluding 'path' itself), leaf to
@@ -716,7 +720,7 @@ func (h *dbHashTree) PutFileOverwriteBlockRefs(path string, brs []*pfs.BlockRef,
 // method
 func (h *dbHashTree) PutDirHeaderFooter(path string, header, footer *pfs.Object, headerSize, footerSize int64) error {
 	path = clean(path)
-	return h.Batch(func(tx *bolt.Tx) error {
+	err := h.Batch(func(tx *bolt.Tx) error {
 		// validation: 'path' must point to directory (or nothing--may not be
 		// created yet)
 		node, err := get(tx, path)
@@ -760,6 +764,7 @@ func (h *dbHashTree) PutDirHeaderFooter(path string, header, footer *pfs.Object,
 		}
 		return nil
 	})
+	return errors.EnsureStack(err)
 }
 
 // PutFileHeaderFooter implements the HashTree PutFileHeaderFooter method
@@ -770,7 +775,7 @@ func (h *dbHashTree) PutFileHeaderFooter(path string, objects []*pfs.Object, siz
 func (h *dbHashTree) putFile(path string, objects []*pfs.Object, brs []*pfs.BlockRef,
 	overwriteIndex *pfs.OverwriteIndex, sizeDelta int64, hasHeaderFooter bool) error {
 	path = clean(path)
-	return h.Batch(func(tx *bolt.Tx) error {
+	err := h.Batch(func(tx *bolt.Tx) error {
 		// validation: 'path' must point to file
 		node, err := get(tx, path)
 		if err != nil && Code(err) != PathNotFound {
@@ -854,12 +859,13 @@ func (h *dbHashTree) putFile(path string, objects []*pfs.Object, brs []*pfs.Bloc
 			return nil
 		})
 	})
+	return errors.EnsureStack(err)
 }
 
 // PutDir creates a directory (or does nothing if one exists).
 func (h *dbHashTree) PutDir(path string) error {
 	path = clean(path)
-	return h.Batch(func(tx *bolt.Tx) error {
+	err := h.Batch(func(tx *bolt.Tx) error {
 		node, err := get(tx, path)
 		if err != nil && Code(err) != PathNotFound {
 			return err
@@ -888,6 +894,7 @@ func (h *dbHashTree) PutDir(path string) error {
 			return nil
 		})
 	})
+	return errors.EnsureStack(err)
 }
 
 // deleteDir deletes a directory and all the children under it
@@ -896,10 +903,10 @@ func deleteDir(tx *bolt.Tx, path string) error {
 	prefix := append(b(path), nullByte[0])
 	for k, _ := c.Seek(prefix); bytes.HasPrefix(k, prefix); k, _ = c.Next() {
 		if err := c.Delete(); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
-	return fs(tx).Delete(b(path))
+	return errors.EnsureStack(fs(tx).Delete(b(path)))
 }
 
 // DeleteFile deletes a regular file or directory (along with its children).
@@ -910,7 +917,7 @@ func (h *dbHashTree) DeleteFile(path string) error {
 	if path == "" {
 		path = "/*"
 	}
-	return h.Batch(func(tx *bolt.Tx) error {
+	err := h.Batch(func(tx *bolt.Tx) error {
 		if err := glob(tx, path, func(path string, node *NodeProto) error {
 			// Check if the file has been deleted already
 			if _, err := get(tx, path); err != nil && Code(err) == PathNotFound {
@@ -958,6 +965,7 @@ func (h *dbHashTree) DeleteFile(path string) error {
 		}
 		return nil
 	})
+	return errors.EnsureStack(err)
 }
 
 // MergeNode is a node that is typically used for merging.
@@ -984,7 +992,7 @@ func NewReader(r io.Reader, filter Filter) *Reader {
 func (r *Reader) Read() (*MergeNode, error) {
 	_k, err := r.pbr.ReadBytes()
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	if r.filter != nil {
 		for {
@@ -993,11 +1001,11 @@ func (r *Reader) Read() (*MergeNode, error) {
 			}
 			_, err = r.pbr.ReadBytes()
 			if err != nil {
-				return nil, err
+				return nil, errors.EnsureStack(err)
 			}
 			_k, err = r.pbr.ReadBytes()
 			if err != nil {
-				return nil, err
+				return nil, errors.EnsureStack(err)
 			}
 		}
 
@@ -1006,7 +1014,7 @@ func (r *Reader) Read() (*MergeNode, error) {
 	copy(k, _k)
 	_v, err := r.pbr.ReadBytes()
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	v := make([]byte, len(_v))
 	copy(v, _v)
@@ -1038,7 +1046,7 @@ func (w *Writer) Write(n *MergeNode) error {
 		var err error
 		n.v, err = n.nodeProto.Marshal()
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 	// Get size info from root node
@@ -1046,7 +1054,7 @@ func (w *Writer) Write(n *MergeNode) error {
 		if n.nodeProto == nil {
 			n.nodeProto = &NodeProto{}
 			if err := n.nodeProto.Unmarshal(n.v); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 		}
 		w.size = uint64(n.nodeProto.SubtreeSize)
@@ -1060,12 +1068,12 @@ func (w *Writer) Write(n *MergeNode) error {
 	}
 	b, err := w.pbw.WriteBytes(n.k)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	w.offset += uint64(b)
 	b, err = w.pbw.WriteBytes(n.v)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	w.offset += uint64(b)
 	return nil
@@ -1076,13 +1084,13 @@ func (w *Writer) Copy(r *Reader) error {
 	for {
 		n, err := r.Read()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			}
-			return err
+			return errors.EnsureStack(err)
 		}
 		if err := w.Write(n); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 }
@@ -1099,7 +1107,7 @@ func (w *Writer) Index() ([]byte, error) {
 	pbw := pbutil.NewWriter(buf)
 	for _, idx := range w.idxs {
 		if _, err := pbw.Write(idx); err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 	}
 	return buf.Bytes(), nil
@@ -1115,10 +1123,10 @@ func GetRangeFromIndex(r io.Reader, prefix string) (uint64, uint64, error) {
 	iter := func(f func(int) bool) error {
 		for {
 			if err := pbr.Read(idx); err != nil {
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
-				return err
+				return errors.EnsureStack(err)
 			}
 			var cmp int
 			if len(k) < len(idx.K) {
@@ -1199,10 +1207,10 @@ func (mq *mergePQ) insert(s *nodeStream) error {
 	var err error
 	s.node, err = s.r.Read()
 	if err != nil {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil
 		}
-		return err
+		return errors.EnsureStack(err)
 	}
 	mq.q[mq.size+1] = s
 	mq.size++
@@ -1241,13 +1249,13 @@ func merge(ns []*MergeNode) (*MergeNode, error) {
 	base := ns[0]
 	base.nodeProto = &NodeProto{}
 	if err := base.nodeProto.Unmarshal(base.v); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	for i := 1; i < len(ns); i++ {
 		n := ns[i]
 		n.nodeProto = &NodeProto{}
 		if err := n.nodeProto.Unmarshal(n.v); err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 		// Check for inconsistent node types
 		if base.nodeProto.nodetype() != n.nodeProto.nodetype() {
@@ -1325,7 +1333,7 @@ func Merge(w *Writer, rs []*Reader) error {
 		}
 		// Write out result
 		if err := w.Write(n); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 	return nil
@@ -1349,7 +1357,7 @@ func nodes(rs []io.ReadCloser, f func(path string, nodeProto *NodeProto) error) 
 		n := ns[0]
 		n.nodeProto = &NodeProto{}
 		if err := n.nodeProto.Unmarshal(n.v); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if err := f(s(n.k), n.nodeProto); err != nil {
 			return err
@@ -1501,39 +1509,39 @@ func GlobLiteralPrefix(pattern string) string {
 // GetHashTreeObject is a convenience function to deserialize a HashTree from an object in the object store.
 func GetHashTreeObject(pachClient *client.APIClient, storageRoot string, treeRef *pfs.Object) (HashTree, error) {
 	return getHashTree(storageRoot, func(w io.Writer) error {
-		return pachClient.GetObject(treeRef.Hash, w)
+		return errors.EnsureStack(pachClient.GetObject(treeRef.Hash, w))
 	})
 }
 
 // GetHashTreeTag is a convenience function to deserialize a HashTree from an tagged object in the object store.
 func GetHashTreeTag(pachClient *client.APIClient, storageRoot string, treeRef *pfs.Tag) (HashTree, error) {
 	return getHashTree(storageRoot, func(w io.Writer) error {
-		return pachClient.GetTag(treeRef.Name, w)
+		return errors.EnsureStack(pachClient.GetTag(treeRef.Name, w))
 	})
 }
 
 func getHashTree(storageRoot string, f func(io.Writer) error) (_ HashTree, retErr error) {
 	filePath := dbFile(storageRoot)
 	if err := os.MkdirAll(pathlib.Dir(filePath), 0777); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	file, err := os.Create(filePath)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	defer func() {
 		if err := file.Close(); err != nil && retErr == nil {
-			retErr = err
+			retErr = errors.EnsureStack(err)
 		}
 		if err := os.Remove(filePath); err != nil && retErr == nil {
-			retErr = err
+			retErr = errors.EnsureStack(err)
 		}
 	}()
 	if err := f(file); err != nil {
 		return nil, err
 	}
 	if _, err := file.Seek(0, 0); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return DeserializeDBHashTree(storageRoot, file)
 }
@@ -1545,7 +1553,7 @@ func PutHashTree(pachClient *client.APIClient, tree HashTree, tags ...string) (*
 	eg.Go(func() (retErr error) {
 		defer func() {
 			if err := w.Close(); err != nil && retErr == nil {
-				retErr = err
+				retErr = errors.EnsureStack(err)
 			}
 		}()
 		return tree.Serialize(w)
@@ -1554,10 +1562,10 @@ func PutHashTree(pachClient *client.APIClient, tree HashTree, tags ...string) (*
 	eg.Go(func() error {
 		var err error
 		treeRef, _, err = pachClient.PutObject(r, tags...)
-		return err
+		return errors.EnsureStack(err)
 	})
 	if err := eg.Wait(); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return treeRef, nil
 }
@@ -1751,7 +1759,7 @@ func (o *Ordered) Serialize(_w io.Writer) error {
 			k:         b(n.path),
 			nodeProto: n.nodeProto,
 		}); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 	return nil

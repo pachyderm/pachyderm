@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package server;
+option go_package = "github.com/pachyderm/pachyderm/src/server/worker/server";
+
+import "client/pps/pps.proto";
+import "gogoproto/gogo.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/wrappers.proto";
+
+message CancelRequest {
+  string job_id = 2 [(gogoproto.customname) = "JobID"];
+  repeated string data_filters = 1;
+}
+
+message CancelResponse {
+  bool success = 1;
+}
+
+message GetChunkRequest {
+  string job_id = 1 [(gogoproto.customname) = "JobID"];
+  string tag = 2;
+  int64 shard = 3;
+  bool stats = 4;
+}
+
+service Worker {
+  rpc Status(google.protobuf.Empty) returns (pps.WorkerStatus) {}
+  rpc Cancel(CancelRequest) returns (CancelResponse) {}
+  rpc GetChunk(GetChunkRequest) returns (stream google.protobuf.BytesValue) {}
+}
