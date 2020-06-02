@@ -456,8 +456,8 @@ For:
 				pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
 				if pte, ok := err.(ppsutil.PipelineTransitionError); ok &&
 					pte.Current == pps.PipelineState_PIPELINE_CRASHING {
-					log.Print(err)  // Pipeline has moved to STOPPED or been updated--give up
-					return nil
+					log.Print(err) // Pipeline has moved to STOPPED or been updated--give up
+					return
 				}
 				log.Printf("error in monitorCrashingPipeline: %v", err)
 				continue
