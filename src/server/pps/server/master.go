@@ -215,6 +215,8 @@ func (a *apiServer) deletePipelineResources(ctx context.Context, pipelineName st
 
 	// Cancel any running monitorPipeline call
 	a.cancelMonitor(pipelineName)
+	// Same for cancelCrashingMonitor
+	a.cancelCrashingMonitor(pipelineName)
 
 	kubeClient := a.env.GetKubeClient()
 	// Delete any services associated with op.pipeline
@@ -449,7 +451,7 @@ For:
 			continue
 		}
 		if workersUp {
-			if err := op.setPipelineState(pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
+			if err := a.transitionPipelineState(ctx, op.name, op.ptr.State, pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
 				log.Printf("error in monitorCrashingPipeline: %v", err)
 				continue
 			}
