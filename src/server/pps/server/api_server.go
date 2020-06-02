@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math"
 	"path"
 	"path/filepath"
 	"sort"
@@ -67,6 +66,8 @@ const (
 	// DefaultDatumTries is the default number of times a datum will be tried
 	// before we give up and consider the job failed.
 	DefaultDatumTries = 3
+
+	maxLogMessages = 5000
 )
 
 var (
@@ -1348,7 +1349,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		}
 		// no authorization is done to get logs from master
 		containerName, rcName = "pachd", "pachd"
-		resp, err := a.env.GetLokiClient().QueryRange(`{app="pachd"}`, math.MaxInt64, time.Time{}, time.Now(), logproto.FORWARD, 0, 0, true)
+		resp, err := a.env.GetLokiClient().QueryRange(`{app="pachd"}`, maxLogMessages, time.Time{}, time.Now(), logproto.FORWARD, 0, 0, true)
 		if err != nil {
 			return err
 		}
