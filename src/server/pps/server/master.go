@@ -451,7 +451,14 @@ For:
 			continue
 		}
 		if workersUp {
-			if err := a.transitionPipelineState(ctx, op.name, op.ptr.State, pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
+			if err := a.transitionPipelineState(ctx, op.name,
+				pps.PipelineState_PIPELINE_CRASHING,
+				pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
+				if pte, ok := err.(ppsutil.PipelineTransitionError); ok &&
+					pte.Current == pps.PipelineState_PIPELINE_CRASHING {
+					log.Print(err)  // Pipeline has moved to STOPPED or been updated--give up
+					return nil
+				}
 				log.Printf("error in monitorCrashingPipeline: %v", err)
 				continue
 			}
