@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"path"
 	"path/filepath"
 	"sort"
@@ -31,6 +32,7 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
+	"github.com/pachyderm/pachyderm/src/server/pkg/lokiutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
@@ -46,6 +48,7 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
+	"github.com/grafana/loki/pkg/logproto"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/robfig/cron"
 	logrus "github.com/sirupsen/logrus"
@@ -1345,6 +1348,15 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		}
 		// no authorization is done to get logs from master
 		containerName, rcName = "pachd", "pachd"
+		resp, err := a.env.GetLokiClient().QueryRange(`{app="pachd"}`, math.MaxInt64, time.Time{}, time.Now(), logproto.FORWARD, 0, 0, true)
+		if err != nil {
+			return err
+		}
+		return lokiutil.ForEachLine(resp, func(line string) error {
+			return apiGetLogsServer.Send(&pps.LogMessage{
+				Message: line,
+			})
+		})
 	} else {
 		containerName = client.PPSWorkerUserContainerName
 

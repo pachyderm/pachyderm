@@ -12,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	loki "github.com/grafana/loki/pkg/logcli/client"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
@@ -53,6 +54,11 @@ type ServiceEnv struct {
 	kubeClient *kube.Clientset
 	// kubeEg coordinates the initialization of kubeClient (see pachdEg)
 	kubeEg errgroup.Group
+
+	// lokiClient is a loki (log aggregator) client that is shared by all users
+	// of this environment, it doesn't require an initialization funcion, so
+	// there's no errgroup associated with it.
+	lokiClient *loki.Client
 }
 
 // InitPachOnlyEnv initializes this service environment. This dials a GRPC
@@ -78,6 +84,9 @@ func InitServiceEnv(config *Configuration) *ServiceEnv {
 	env := InitPachOnlyEnv(config)
 	env.etcdAddress = fmt.Sprintf("http://%s", net.JoinHostPort(env.EtcdHost, env.EtcdPort))
 	env.etcdEg.Go(env.initEtcdClient)
+	env.lokiClient = &loki.Client{
+		Address: fmt.Sprintf("http://%s", net.JoinHostPort(env.LokiHost, env.LokiPort)),
+	}
 	return env // env is not ready yet
 }
 
@@ -194,4 +203,10 @@ func (env *ServiceEnv) GetKubeClient() *kube.Clientset {
 		panic("service env never connected to kubernetes")
 	}
 	return env.kubeClient
+}
+
+// GetLokiClient returns the loki client, it doesn't require blocking on a
+// connection because the client is just a dumb struct with no init function.
+func (env *ServiceEnv) GetLokiClient() *loki.Client {
+	return env.lokiClient
 }
