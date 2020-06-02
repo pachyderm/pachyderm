@@ -39,7 +39,7 @@ require (
 	github.com/google/go-github v17.0.0+incompatible
 	github.com/gorilla/mux v1.7.4
 	github.com/gorilla/websocket v1.4.1 // indirect
-	github.com/grafana/loki v1.5.0 // indirect
+	github.com/grafana/loki v1.5.0
 	github.com/hanwen/go-fuse/v2 v2.0.2
 	github.com/hashicorp/go-hclog v0.8.0 // indirect
 	github.com/hashicorp/go-plugin v1.0.1 // indirect
@@ -111,3 +111,5 @@ require (
 replace github.com/docker/docker => github.com/docker/docker v1.4.2-0.20191213113251-3452f136aa68
 
 replace github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible
+
+replace google.golang.org/grpc => google.golang.org/grpc v1.26.0
