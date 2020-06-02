@@ -5807,9 +5807,9 @@ func TestGarbageCollection(t *testing.T) {
 		// presence of failed pipelines
 		require.NoError(t, c.CreatePipeline(
 			failurePipeline,
-			"nonexistant-image",
-			[]string{"bash"},
-			[]string{"exit 1"},
+			"",
+			nil,
+			nil,
 			nil,
 			client.NewPFSInput(dataRepo, "/"),
 			"",
