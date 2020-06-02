@@ -19,10 +19,19 @@ func WithGarbageCollection(gcClient gc.Client) StorageOption {
 	}
 }
 
+func WithMaxConcurrentObjects(maxUpload, maxDownload int) StorageOption {
+	return func(s *Storage) {
+		s.objClient = newLimitedObjClient(s.objClient, maxDownload, maxUpload)
+	}
+}
+
 // ServiceEnvToOptions converts a service environment configuration (specifically
 // the storage configuration) to a set of storage options.
-func ServiceEnvToOptions(env *serviceenv.ServiceEnv) []StorageOption {
-	return nil
+func ServiceEnvToOptions(env *serviceenv.ServiceEnv) (options []StorageOption) {
+	if env.StorageUploadConcurrencyLimit > 0 {
+		options = append(options, WithMaxConcurrentObjects(env.StorageUploadConcurrencyLimit, 0))
+	}
+	return options
 }
 
 // WriterOption configures a chunk writer.
