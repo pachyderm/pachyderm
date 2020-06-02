@@ -1355,7 +1355,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		}
 		return lokiutil.ForEachLine(resp, func(line string) error {
 			return apiGetLogsServer.Send(&pps.LogMessage{
-				Message: line,
+				Message: strings.TrimSuffix(line, "\n"),
 			})
 		})
 	} else {
