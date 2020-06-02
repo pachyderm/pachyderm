@@ -261,12 +261,12 @@ func Pretty(entry *logrus.Entry) ([]byte, error) {
 			strings.ToUpper(entry.Level.String()),
 		),
 	)
-	if entry.Data["service"] != nil {
+	if entry.Data["service"] != nil && entry.Data["method"] != nil {
 		serialized = append(serialized, []byte(fmt.Sprintf("%v.%v ", entry.Data["service"], entry.Data["method"]))...)
-	}
-	if len(entry.Data) > 2 {
 		delete(entry.Data, "service")
 		delete(entry.Data, "method")
+	}
+	if len(entry.Data) > 0 {
 		if entry.Data["duration"] != nil {
 			entry.Data["duration"] = entry.Data["duration"].(time.Duration).Seconds()
 		}
@@ -274,7 +274,7 @@ func Pretty(entry *logrus.Entry) ([]byte, error) {
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to marshal fields to JSON")
 		}
-		serialized = append(serialized, []byte(string(data))...)
+		serialized = append(serialized, data...)
 		serialized = append(serialized, ' ')
 	}
 

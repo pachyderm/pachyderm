@@ -678,7 +678,7 @@ func visit(tx *bolt.Tx, path string, update updateFn) error {
 		}
 		if pnode != nil && pnode.nodetype() != directory {
 			return errorf(PathConflict, "attempted to visit \"%s\", but it's not a "+
-				"directory", path)
+				"directory", parent)
 		}
 		if pnode == nil {
 			pnode = &NodeProto{}

@@ -15,6 +15,10 @@ func invalidFilePathError(r *http.Request) *s2.Error {
 	return s2.NewError(r, http.StatusBadRequest, "InvalidFilePath", "Invalid file path")
 }
 
+func invalidFileParentError(r *http.Request) *s2.Error {
+	return s2.NewError(r, http.StatusBadRequest, "InvalidFilePath", "Cannot put to a path that includes an existing, non-directory parent file path")
+}
+
 func writeToOutputBranchError(r *http.Request) *s2.Error {
 	return s2.NewError(r, http.StatusBadRequest, "WriteToOutputBranch", "You cannot write to an output branch")
 }
