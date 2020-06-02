@@ -5,10 +5,11 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math/rand"
 	"os"
+	"runtime"
 	"sort"
-	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testpachd"
+	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
@@ -35,6 +37,7 @@ type loadConfig struct {
 func newLoadConfig(opts ...loadConfigOption) *loadConfig {
 	config := &loadConfig{}
 	config.pachdConfig = newPachdConfig()
+	config.pachdConfig.StorageCompactionMaxFanIn = 2
 	for _, opt := range opts {
 		opt(config)
 	}
@@ -43,7 +46,7 @@ func newLoadConfig(opts ...loadConfigOption) *loadConfig {
 
 type loadConfigOption func(*loadConfig)
 
-// (bryce) will use later, commenting to make linter happy.
+// TODO Will use later, commenting to make linter happy.
 //func withPachdConfig(opts ...pachdConfigOption) loadConfigOption {
 //	return func(config *loadConfig) {
 //		config.pachdConfig = newPachdConfig(opts...)
@@ -58,7 +61,7 @@ func withBranchGenerator(opts ...branchGeneratorOption) loadConfigOption {
 
 func newPachdConfig(opts ...pachdConfigOption) *serviceenv.PachdFullConfiguration {
 	config := &serviceenv.PachdFullConfiguration{}
-	config.NewStorageLayer = true
+	config.StorageV2 = true
 	config.StorageMemoryThreshold = units.GB
 	config.StorageShardThreshold = units.GB
 	config.StorageLevelZeroSize = units.MB
@@ -69,10 +72,10 @@ func newPachdConfig(opts ...pachdConfigOption) *serviceenv.PachdFullConfiguratio
 	return config
 }
 
-// (bryce) this should probably be moved to the corresponding packages with configuration available
+// TODO This should probably be moved to the corresponding packages with configuration available
 type pachdConfigOption func(*serviceenv.PachdFullConfiguration)
 
-// (bryce) will use later, commenting to make linter happy.
+// TODO Will use later, commenting to make linter happy.
 //func withMemoryThreshold(memoryThreshold int64) pachdConfigOption {
 //	return func(c *serviceenv.PachdFullConfiguration) {
 //		c.StorageMemoryThreshold = memoryThreshold
@@ -154,9 +157,9 @@ func newCommitGenerator(opts ...commitGeneratorOption) commitGenerator {
 					r = newThroughputLimitReader(r, config.putThroughputConfig.limit)
 				}
 				if config.putCancelConfig != nil && rand.Float64() < config.putCancelConfig.prob {
-					// (bryce) not sure if we want to do anything with errors here?
+					// TODO Not sure if we want to do anything with errors here?
 					cancelOperation(config.putCancelConfig, c, func(c *client.APIClient) error {
-						err := c.PutTar(repo, commit.ID, r)
+						err := c.PutTarV2(repo, commit.ID, r)
 						if err == nil {
 							validator.recordFileSet(fs)
 						}
@@ -165,7 +168,7 @@ func newCommitGenerator(opts ...commitGeneratorOption) commitGenerator {
 					})
 					continue
 				}
-				if err := c.PutTar(repo, commit.ID, r); err != nil {
+				if err := c.PutTarV2(repo, commit.ID, r); err != nil {
 					return err
 				}
 				validator.recordFileSet(fs)
@@ -174,7 +177,7 @@ func newCommitGenerator(opts ...commitGeneratorOption) commitGenerator {
 				return err
 			}
 			getTar := func(c *client.APIClient) error {
-				r, err := c.GetTar(repo, commit.ID, "/")
+				r, err := c.GetTarV2(repo, commit.ID, "/")
 				if err != nil {
 					return err
 				}
@@ -369,7 +372,7 @@ func newRandomFileGenerator(opts ...randomFileGeneratorOption) fileGenerator {
 	for _, opt := range opts {
 		opt(config)
 	}
-	// (bryce) might want some validation for the file size buckets (total prob adds up to 1.0)
+	// TODO Might want some validation for the file size buckets (total prob adds up to 1.0)
 	return func(tw *tar.Writer, state *loadState) (string, error) {
 		name := uuid.NewWithoutDashes()
 		var totalProb float64
@@ -424,7 +427,7 @@ var (
 			max: 100 * units.MB,
 		},
 	}
-	// (bryce) will use later, commenting to make linter happy.
+	// TODO Will use later, commenting to make linter happy.
 	//edgeCaseFileSizeBuckets = []fileSizeBucket{
 	//	fileSizeBucket{
 	//		min: 0,
@@ -470,23 +473,13 @@ func writeFile(tw *tar.Writer, name string, data []byte) error {
 	return tw.Flush()
 }
 
-// (bryce) this should be somewhere else (probably testutil).
-func seedRand(customSeed ...int64) {
-	seed := time.Now().UTC().UnixNano()
-	if len(customSeed) > 0 {
-		seed = customSeed[0]
-	}
-	rand.Seed(seed)
-	fmt.Println("seed: ", strconv.FormatInt(seed, 10))
-}
-
 func TestLoad(t *testing.T) {
-	seedRand()
-	// (bryce) this is so dumb, but through a combination of the linter and not being
-	// able to deploy the new storage layer in CI (particularly postgres), I have decided
-	// to just ignore the error that will be produced by running TestLoad without postgres
-	// setup for the time being.
-	testLoad(fuzzLoad())
+	// TODO Remove once postgres runs in CI.
+	if os.Getenv("CI") == "true" {
+		t.SkipNow()
+	}
+	msg := testutil.SeedRand()
+	require.NoError(t, testLoad(fuzzLoad()), msg)
 }
 
 func fuzzLoad() *loadConfig {
@@ -565,7 +558,7 @@ func testLoad(loadConfig *loadConfig) error {
 		}
 		var eg errgroup.Group
 		for _, branchGen := range loadConfig.branchGens {
-			// (bryce) need a ctx here.
+			// TODO Need a ctx here.
 			branchGen := branchGen
 			eg.Go(func() error {
 				return branchGen(c, repo, state)
@@ -659,7 +652,7 @@ func (fs fileSetSpec) makeTarStream() io.Reader {
 	return buf
 }
 
-func finfosToPaths(finfos []*pfs.FileInfoNewStorage) (paths []string) {
+func finfosToPaths(finfos []*pfs.FileInfoV2) (paths []string) {
 	for _, finfo := range finfos {
 		paths = append(paths, finfo.File.Path)
 	}
@@ -673,8 +666,8 @@ func TestListFileV2(t *testing.T) {
 	}
 
 	config := &serviceenv.PachdFullConfiguration{}
-	config.NewStorageLayer = true
-	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+	config.StorageV2 = true
+	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
 
@@ -687,21 +680,78 @@ func TestListFileV2(t *testing.T) {
 			"dir2/file2.1": []byte{},
 			"dir2/file2.2": []byte{},
 		}
-		err = env.PachClient.PutTar(repo, commit1.ID, fsSpec.makeTarStream())
+		err = env.PachClient.PutTarV2(repo, commit1.ID, fsSpec.makeTarStream())
 		require.NoError(t, err)
 
 		err = env.PachClient.FinishCommit(repo, commit1.ID)
 		require.NoError(t, err)
 
-		finfos := []*pfs.FileInfoNewStorage{}
-		err = env.PachClient.ListFileV2(repo, commit1.ID, "/dir1/*", func(finfo *pfs.FileInfoNewStorage) error {
+		finfos := []*pfs.FileInfoV2{}
+		err = env.PachClient.ListFileV2(repo, commit1.ID, "/dir1/*", func(finfo *pfs.FileInfoV2) error {
 			finfos = append(finfos, finfo)
 			return nil
 		})
 		require.NoError(t, err)
-		t.Log(finfos)
 		require.ElementsEqual(t, []string{"/dir1/file1.1", "/dir1/file1.2"}, finfosToPaths(finfos))
 		return nil
+	}, config))
+}
+
+func TestCompaction(t *testing.T) {
+	if os.Getenv("CI") == "true" {
+		t.SkipNow()
+	}
+	config := &serviceenv.PachdFullConfiguration{}
+	config.StorageV2 = true
+	config.StorageCompactionMaxFanIn = 10
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		repo := "test"
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+		commit1, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+
+		const (
+			nFileSets   = 100
+			filesPer    = 10
+			fileSetSize = 1e6
+		)
+		for i := 0; i < nFileSets; i++ {
+			fsSpec := fileSetSpec{}
+			for j := 0; j < filesPer; j++ {
+				data, err := ioutil.ReadAll(randomReader(fileSetSize))
+				if err != nil {
+					return err
+				}
+
+				fsSpec[fmt.Sprintf("file%02d", j)] = data
+			}
+			if err := env.PachClient.PutTarV2(repo, commit1.ID, fsSpec.makeTarStream()); err != nil {
+				return err
+			}
+			runtime.GC()
+		}
+		if err := env.PachClient.FinishCommit(repo, commit1.ID); err != nil {
+			return err
+		}
+		return nil
 	}, config)
+	t.Log(err)
 	require.NoError(t, err)
+}
+
+var (
+	randSeed = int64(0)
+	randMu   sync.Mutex
+)
+
+func getRand() *rand.Rand {
+	randMu.Lock()
+	seed := randSeed
+	randSeed++
+	randMu.Unlock()
+	return rand.New(rand.NewSource(seed))
+}
+
+func randomReader(n int) io.Reader {
+	return io.LimitReader(getRand(), int64(n))
 }

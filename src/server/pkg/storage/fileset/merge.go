@@ -134,7 +134,7 @@ type FileMergeReader struct {
 }
 
 func newFileMergeReader(frs []*FileReader) *FileMergeReader {
-	// (bryce) need to handle delete operations.
+	// TODO Handle delete operations.
 	return &FileMergeReader{
 		frs:  frs,
 		tsmr: newTagSetMergeReader(frs),
@@ -158,6 +158,7 @@ func (fmr *FileMergeReader) Index() *index.Index {
 // Header returns the tar header for the merged file.
 func (fmr *FileMergeReader) Header() (*tar.Header, error) {
 	if fmr.hdr == nil {
+		// TODO Validate the headers being merged?
 		// Compute the size of the headers being merged.
 		var size int64
 		for _, fr := range fmr.frs {
@@ -169,7 +170,7 @@ func (fmr *FileMergeReader) Header() (*tar.Header, error) {
 		}
 		// Use the header from the highest priority file
 		// reader and update the size.
-		// (bryce) might want to copy the header?
+		// TODO Deep copy the header?
 		var err error
 		fmr.hdr, err = fmr.frs[len(fmr.frs)-1].Header()
 		if err != nil {
@@ -195,7 +196,7 @@ func (fmr *FileMergeReader) WriteTo(w *Writer) error {
 }
 
 // Get writes the merged file.
-// (bryce) it might be cleaner to check if w is of type *Writer then use WriteTo rather than Get.
+// TODO It might be cleaner to check if w is of type *Writer then use WriteTo rather than Get.
 func (fmr *FileMergeReader) Get(w io.Writer) error {
 	hdr, err := fmr.Header()
 	if err != nil {

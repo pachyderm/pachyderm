@@ -156,6 +156,7 @@ func newDriver(
 		memoryLimiter:    semaphore.NewWeighted(memoryRequest / 3),
 		putObjectLimiter: limit.New(env.StorageUploadConcurrencyLimit),
 		putFileLimiter:   limit.New(env.StoragePutFileConcurrencyLimit),
+		// TODO: set maxFanIn based on downward API.
 	}
 
 	// Create spec repo (default repo)
@@ -170,11 +171,8 @@ func newDriver(
 	}); err != nil && !col.IsErrExists(err) {
 		return nil, err
 	}
-	if env.NewStorageLayer {
-		// (bryce) local client for testing.
-		// need to figure out obj_block_api_server before this
-		// can be changed.
-		objClient, err := obj.NewLocalClient(storageRoot)
+	if env.StorageV2 {
+		objClient, err := NewObjClient(env.Configuration)
 		if err != nil {
 			return nil, err
 		}

@@ -106,7 +106,9 @@ func (r *Reader) next() (*Index, error) {
 		if err := pbr.Read(idx); err != nil {
 			return nil, err
 		}
-		// (bryce) not sure if this is the best way to represent emptiness.
+		// TODO An empty fileset is represented by the DataOp field being nil in the index
+		// stored in the semantic path for the fileset. We should probably spend some more time
+		// thinking through the implications of this representation.
 		if idx.DataOp == nil {
 			return nil, io.EOF
 		}

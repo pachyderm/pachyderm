@@ -29,15 +29,13 @@ import (
 
 const (
 	// tmpPrefix is for temporary storage paths.
+	// TODO Temporary prefix cleanup needs some work.
+	// Paths should get cleaned up in the background.
 	tmpPrefix            = "tmp"
 	storageTaskNamespace = "storage"
 )
 
-func (d *driver) startCommitNewStorageLayer(txnCtx *txnenv.TransactionContext, id string, parent *pfs.Commit, branch string, provenance []*pfs.CommitProvenance, description string) (*pfs.Commit, error) {
-	return d.startCommit(txnCtx, id, parent, branch, provenance, description)
-}
-
-func (d *driver) finishCommitNewStorageLayer(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, description string) (retErr error) {
+func (d *driver) finishCommitV2(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, description string) error {
 	if err := d.checkIsAuthorizedInTransaction(txnCtx, commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
@@ -84,21 +82,21 @@ func (d *driver) finishCommitNewStorageLayer(txnCtx *txnenv.TransactionContext, 
 		if err := d.compact(m, compactSpec.Output, compactSpec.Input); err != nil {
 			return err
 		}
-		// (bryce) need size.
+		// TODO Need to get the size from the compaction process.
 		commitInfo.SizeBytes = uint64(0)
 		commitInfo.Finished = types.TimestampNow()
 		return d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo)
 	})
 }
 
-// (bryce) holding off on integrating with downstream commit deletion logic until global ids.
-//func (d *driver) deleteCommitNewStorageLayer(txnCtx *txnenv.TransactionContext, commit *pfs.Commit) error {
+// TODO Integrate delete commit.
+//func (d *driver) deleteCommitV2(txnCtx *txnenv.TransactionContext, commit *pfs.Commit) error {
 //	return d.storage.Delete(txnCtx.Client.Ctx(), path.Join(commit.Repo.Name, commit.ID))
 //}
 
-// (bryce) add commit validation.
+// TODO Need commit validation and handling of branch names.
 func (d *driver) withFileSet(ctx context.Context, repo, commit string, f func(*fileset.FileSet) error) (retErr error) {
-	// (bryce) subFileSet will need to be incremented through etcd eventually.
+	// TODO subFileSet will need to be incremented through postgres or etcd.
 	d.mu.Lock()
 	subFileSetStr := fileset.SubFileSetStr(d.subFileSet)
 	subFileSetPath := path.Join(repo, commit, subFileSetStr)
@@ -121,8 +119,9 @@ func (d *driver) withFileSet(ctx context.Context, repo, commit string, f func(*f
 	})
 }
 
-func (d *driver) getFilesNewStorageLayer(ctx context.Context, repo, commit, glob string, w io.Writer) error {
-	if err := d.getFilesConditional(ctx, repo, commit, glob, func(fr *FileReader) error {
+// TODO Need to figure out path cleaning.
+func (d *driver) getTar(ctx context.Context, repo, commit, glob string, w io.Writer) error {
+	if err := d.getTarConditional(ctx, repo, commit, glob, func(fr *FileReader) error {
 		return fr.Get(w, true)
 	}); err != nil {
 		return err
@@ -131,7 +130,7 @@ func (d *driver) getFilesNewStorageLayer(ctx context.Context, repo, commit, glob
 	return tar.NewWriter(w).Close()
 }
 
-func (d *driver) listFileV2(pachClient *client.APIClient, file *pfs.File, full bool, history int64, f func(*pfs.FileInfoNewStorage) error) (retErr error) {
+func (d *driver) listFileV2(pachClient *client.APIClient, file *pfs.File, full bool, history int64, f func(*pfs.FileInfoV2) error) error {
 	ctx := pachClient.Ctx()
 	if err := validateFile(file); err != nil {
 		return err
@@ -139,7 +138,7 @@ func (d *driver) listFileV2(pachClient *client.APIClient, file *pfs.File, full b
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
-	return d.getFilesConditional(ctx, file.Commit.Repo.Name, file.Commit.ID, file.Path, func(fr *FileReader) error {
+	return d.getTarConditional(ctx, file.Commit.Repo.Name, file.Commit.ID, file.Path, func(fr *FileReader) error {
 		return f(fr.Info())
 	})
 }
@@ -154,8 +153,8 @@ func globLiteralPrefix(glob string) string {
 	return glob[:idx[0]]
 }
 
-// (bryce) glob should be cleaned in option function
-func (d *driver) getFilesConditional(ctx context.Context, repo, commit, glob string, f func(*FileReader) error) error {
+// TODO Need to figure out path cleaning.
+func (d *driver) getTarConditional(ctx context.Context, repo, commit, glob string, f func(*FileReader) error) error {
 	compactedPaths := []string{path.Join(repo, commit, fileset.Compacted)}
 	prefix := globLiteralPrefix(glob)
 	mr, err := d.storage.NewMergeReader(ctx, compactedPaths, index.WithPrefix(prefix))
@@ -206,7 +205,7 @@ func (d *driver) getFilesConditional(ctx context.Context, repo, commit, glob str
 }
 
 func matchFunc(glob string) (func(string) bool, error) {
-	// (bryce) this is a little weird, but it prevents the parent directory from being matched (i.e. /*).
+	// TODO Need to do a review of the globbing functionality.
 	var parentG *globlib.Glob
 	parentGlob, baseGlob := path.Split(glob)
 	if len(baseGlob) > 0 {
@@ -227,7 +226,7 @@ func matchFunc(glob string) (func(string) bool, error) {
 
 // FileReader is a PFS wrapper for a fileset.MergeReader.
 // The primary purpose of this abstraction is to convert from index.Index to
-// pfs.FileInfoNewStorage and to convert a set of index hashes to a file hash.
+// pfs.FileInfo and to convert a set of index hashes to a file hash.
 type FileReader struct {
 	file      *pfs.File
 	idx       *index.Index
@@ -259,8 +258,8 @@ func (fr *FileReader) updateFileInfo(idx *index.Index) {
 }
 
 // Info returns the info for the file.
-func (fr *FileReader) Info() *pfs.FileInfoNewStorage {
-	return &pfs.FileInfoNewStorage{
+func (fr *FileReader) Info() *pfs.FileInfoV2 {
+	return &pfs.FileInfoV2{
 		File: fr.file,
 		Hash: pfs.EncodeHash(fr.hash.Sum(nil)),
 	}
@@ -298,29 +297,102 @@ func (fr *FileReader) drain() error {
 	return nil
 }
 
-func (d *driver) compact(master *work.Master, outputPath string, inputPrefixes []string) (retErr error) {
+func (d *driver) compact(master *work.Master, outputPath string, inputPrefixes []string) error {
+	ctx := master.Ctx()
+	// resolve prefixes into paths
+	inputPaths := []string{}
+	for _, inputPrefix := range inputPrefixes {
+		if err := d.storage.WalkFileSet(ctx, inputPrefix, func(inputPath string) error {
+			inputPaths = append(inputPaths, inputPath)
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	return d.compactIter(ctx, compactSpec{
+		master:     master,
+		inputPaths: inputPaths,
+		outputPath: outputPath,
+		maxFanIn:   d.env.StorageCompactionMaxFanIn,
+	})
+}
+
+type compactSpec struct {
+	master     *work.Master
+	outputPath string
+	inputPaths []string
+	maxFanIn   int
+}
+
+// compactIter is one level of compaction.  It will only perform compaction
+// if len(inputPaths) <= params.maxFanIn otherwise it will split inputPaths recursively.
+func (d *driver) compactIter(ctx context.Context, params compactSpec) (retErr error) {
+	if len(params.inputPaths) <= params.maxFanIn {
+		return d.shardedCompact(ctx, params.master, params.outputPath, params.inputPaths)
+	}
 	scratch := path.Join(tmpPrefix, uuid.NewWithoutDashes())
 	defer func() {
-		if err := d.storage.Delete(context.Background(), scratch); retErr == nil {
+		if err := d.storage.Delete(ctx, scratch); retErr == nil {
 			retErr = err
 		}
 	}()
-	compaction := &pfs.Compaction{InputPrefixes: inputPrefixes}
+	childOutputPaths := []string{}
+	childSize := len(params.inputPaths) / params.maxFanIn
+	if len(params.inputPaths)%params.maxFanIn != 0 {
+		childSize++
+	}
+	// TODO: use an errgroup to make the recursion concurrecnt.
+	// this requires changing the master to allow multiple calls to RunSubtasks
+	// don't forget to pass the errgroups childCtx to compactIter instead of ctx.
+	for i := 0; i < params.maxFanIn; i++ {
+		start := i * childSize
+		end := (i + 1) * childSize
+		if end > len(params.inputPaths) {
+			end = len(params.inputPaths)
+		}
+		childOutputPath := path.Join(scratch, strconv.Itoa(i))
+		childOutputPaths = append(childOutputPaths, childOutputPath)
+		if err := d.compactIter(ctx, compactSpec{
+			master:     params.master,
+			inputPaths: params.inputPaths[start:end],
+			outputPath: childOutputPath,
+			maxFanIn:   params.maxFanIn,
+		}); err != nil {
+			return err
+		}
+	}
+	return d.shardedCompact(ctx, params.master, params.outputPath, childOutputPaths)
+}
+
+// shardedCompact generates shards for the fileset(s) in inputPaths,
+// gives those shards to workers, and waits for them to complete.
+// Fan in is bound by len(inputPaths), concatenating shards have
+// fan in of one because they are concatenated sequentially.
+func (d *driver) shardedCompact(ctx context.Context, master *work.Master, outputPath string, inputPaths []string) (retErr error) {
+	scratch := path.Join(tmpPrefix, uuid.NewWithoutDashes())
+	defer func() {
+		if err := d.storage.Delete(ctx, scratch); retErr == nil {
+			retErr = err
+		}
+	}()
+	compaction := &pfs.Compaction{InputPrefixes: inputPaths}
 	var subtasks []*work.Task
-	if err := d.storage.Shard(master.Ctx(), inputPrefixes, func(pathRange *index.PathRange) error {
-		outputPath := path.Join(scratch, strconv.Itoa(len(subtasks)))
+	var shardOutputs []string
+	if err := d.storage.Shard(ctx, inputPaths, func(pathRange *index.PathRange) error {
+		shardOutputPath := path.Join(scratch, strconv.Itoa(len(subtasks)))
 		shard, err := serializeShard(&pfs.Shard{
 			Compaction: compaction,
 			Range: &pfs.PathRange{
 				Lower: pathRange.Lower,
 				Upper: pathRange.Upper,
 			},
-			OutputPath: outputPath,
+			OutputPath: shardOutputPath,
 		})
 		if err != nil {
 			return err
 		}
 		subtasks = append(subtasks, &work.Task{Data: shard})
+		shardOutputs = append(shardOutputs, shardOutputPath)
 		return nil
 	}); err != nil {
 		return err
@@ -333,7 +405,22 @@ func (d *driver) compact(master *work.Master, outputPath string, inputPrefixes [
 	}); err != nil {
 		return err
 	}
-	return d.storage.Compact(master.Ctx(), outputPath, []string{scratch})
+	return d.concatFileSets(ctx, outputPath, shardOutputs)
+}
+
+// concatFileSets concatenates the filesets in inputPaths and writes the result to outputPath
+// TODO: move this to the fileset package, and error if the entries are not sorted.
+func (d *driver) concatFileSets(ctx context.Context, outputPath string, inputPaths []string) error {
+	fsw := d.storage.NewWriter(ctx, outputPath)
+	for _, inputPath := range inputPaths {
+		fsr := d.storage.NewReader(ctx, inputPath)
+		if err := fsr.Iterate(func(fr *fileset.FileReader) error {
+			return fsw.CopyFile(fr)
+		}); err != nil {
+			return err
+		}
+	}
+	return fsw.Close()
 }
 
 func serializeShard(shard *pfs.Shard) (*types.Any, error) {
@@ -358,9 +445,6 @@ func deserializeShard(shardAny *types.Any) (*pfs.Shard, error) {
 func (d *driver) compactionWorker() {
 	ctx := context.Background()
 	w := work.NewWorker(d.etcdClient, d.prefix, storageTaskNamespace)
-	// Configure backoff so we retry indefinitely
-	backoffStrat := backoff.NewExponentialBackOff()
-	backoffStrat.MaxElapsedTime = 0
 	err := backoff.RetryNotify(func() error {
 		return w.Run(ctx, func(ctx context.Context, subtask *work.Task) error {
 			shard, err := deserializeShard(subtask.Data)
@@ -373,11 +457,10 @@ func (d *driver) compactionWorker() {
 			}
 			return d.storage.Compact(ctx, shard.OutputPath, shard.Compaction.InputPrefixes, index.WithRange(pathRange))
 		})
-	}, backoffStrat, func(err error, t time.Duration) error {
+	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
 		log.Printf("error in compaction worker: %v", err)
-		// non-nil shuts down retry loop
 		return nil
 	})
-	// never ending backoff should prevent us from getting here.
+	// Never ending backoff should prevent us from getting here.
 	panic(err)
 }

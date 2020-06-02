@@ -6,9 +6,16 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gorilla/mux"
+	"github.com/pachyderm/pachyderm/src/client"
+
 	"github.com/pachyderm/s2"
 	"github.com/sirupsen/logrus"
 )
+
+// ClientFactory is a function called by s3g to create request-scoped
+// pachyderm clients
+type ClientFactory = func() (*client.APIClient, error)
 
 const (
 	multipartRepo        = "_s3gateway_multipart_"
@@ -40,6 +47,25 @@ type controller struct {
 	driver Driver
 
 	clientFactory ClientFactory
+}
+
+// requestPachClient uses the clientFactory to construct a request-scoped
+// pachyderm client
+func (c *controller) requestClient(r *http.Request) (*client.APIClient, error) {
+	pc, err := c.clientFactory()
+	if err != nil {
+		return nil, err
+	}
+
+	vars := mux.Vars(r)
+	if vars["s3gAuth"] != "disabled" {
+		accessKey := vars["authAccessKey"]
+		if accessKey != "" {
+			pc.SetAuthToken(accessKey)
+		}
+	}
+
+	return pc, nil
 }
 
 // Server runs an HTTP server with an S3-like API for PFS. This allows you to

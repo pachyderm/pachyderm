@@ -990,6 +990,7 @@ func makeStorageClass(
 			"labels":    storageClassLabels,
 			"namespace": opts.Namespace,
 		},
+		"allowVolumeExpansion": true,
 	}
 	switch backend {
 	case googleBackend:
