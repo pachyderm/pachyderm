@@ -15,6 +15,12 @@ publish = "doc/site"
   status = 301
   force = true
 
+[[redirects]]
+  from = "/en/latest/"
+  to = "/latest/"
+  status = 301
+  force = true
+
 #[[redirects]]
 #  from = "/deploy-manage/deploy/deploy-pachyderm-jupyterhub/"
 #  to = "/deploy-manage/deploy/deploy-pachyderm-ide/"
