@@ -17,7 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
-	"github.com/pachyderm/pachyderm/src/server/worker"
+	workerstats "github.com/pachyderm/pachyderm/src/server/worker/stats"
 
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -170,9 +170,9 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		})
 	}
 	// Propagate feature flags to worker and sidecar
-	if a.env.NewStorageLayer {
-		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "NEW_STORAGE_LAYER", Value: "true"})
-		workerEnv = append(workerEnv, v1.EnvVar{Name: "NEW_STORAGE_LAYER", Value: "true"})
+	if a.env.StorageV2 {
+		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "STORAGE_V2", Value: "true"})
+		workerEnv = append(workerEnv, v1.EnvVar{Name: "STORAGE_V2", Value: "true"})
 	}
 	if a.env.DisableCommitProgressCounter {
 		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "DISABLE_COMMIT_PROGRESS_COUNTER", Value: "true"})
@@ -620,7 +620,7 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.EtcdPipel
 	}
 	serviceAnnotations := map[string]string{
 		"prometheus.io/scrape": "true",
-		"prometheus.io/port":   strconv.Itoa(worker.PrometheusPort),
+		"prometheus.io/port":   strconv.Itoa(workerstats.PrometheusPort),
 	}
 
 	service := &v1.Service{
@@ -641,7 +641,7 @@ func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.EtcdPipel
 					Name: "grpc-port",
 				},
 				{
-					Port: worker.PrometheusPort,
+					Port: workerstats.PrometheusPort,
 					Name: "prometheus-metrics",
 				},
 			},

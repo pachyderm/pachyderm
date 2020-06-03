@@ -97,7 +97,7 @@ case "${BUCKET}" in
         make test-vault
         make test-enterprise
         make test-worker
-        make test-s3gateway-integration
+        make test-s3gateway-unit
         make test-proto-static
         make test-transaction
         make test-deploy-manifests

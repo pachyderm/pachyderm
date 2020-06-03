@@ -2,17 +2,20 @@ package server
 
 import (
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/metrics"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 
 	"github.com/sirupsen/logrus"
@@ -167,9 +170,6 @@ func (a *apiServer) StartCommitInTransaction(
 	if commit != nil {
 		id = commit.ID
 	}
-	if a.env.NewStorageLayer {
-		return a.driver.startCommitNewStorageLayer(txnCtx, id, request.Parent, request.Branch, request.Provenance, request.Description)
-	}
 	return a.driver.startCommit(txnCtx, id, request.Parent, request.Branch, request.Provenance, request.Description)
 }
 
@@ -194,7 +194,24 @@ func (a *apiServer) BuildCommit(ctx context.Context, request *pfs.BuildCommitReq
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	commit, err := a.driver.buildCommit(ctx, request.ID, request.Parent, request.Branch, request.Provenance, request.Tree, request.Trees, request.Datums, request.SizeBytes)
+	var err error
+	var started, finished time.Time
+	if request.Started != nil {
+		started, err = types.TimestampFromProto(request.Started)
+		if err != nil {
+			return nil, fmt.Errorf("could not parse timestamp %q: %v",
+				types.TimestampString(request.Started), err)
+		}
+	}
+	if request.Finished != nil {
+		finished, err = types.TimestampFromProto(request.Finished)
+		if err != nil {
+			return nil, fmt.Errorf("could not parse timestamp %q: %v",
+				types.TimestampString(request.Finished), err)
+		}
+	}
+
+	commit, err := a.driver.buildCommit(ctx, request.ID, request.Parent, request.Branch, request.Provenance, request.Tree, request.Trees, request.Datums, started, finished, request.SizeBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -207,8 +224,10 @@ func (a *apiServer) FinishCommitInTransaction(
 	txnCtx *txnenv.TransactionContext,
 	request *pfs.FinishCommitRequest,
 ) error {
-	if a.env.NewStorageLayer {
-		return a.driver.finishCommitNewStorageLayer(txnCtx, request.Commit, request.Description)
+	if a.env.StorageV2 {
+		return metrics.ReportRequest(func() error {
+			return a.driver.finishCommitV2(txnCtx, request.Commit, request.Description)
+		})
 	}
 	if request.Trees != nil {
 		return a.driver.finishOutputCommit(txnCtx, request.Commit, request.Trees, request.Datums, request.SizeBytes)
@@ -378,11 +397,14 @@ func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream 
 func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {
 	s := newPutFileServer(putFileServer)
 	r, err := s.Peek()
-	if err != nil {
+	if err != nil && !errors.Is(err, io.EOF) {
 		return err
 	}
-	request := *r
-	request.Value = nil
+	var request pfs.PutFileRequest
+	if r != nil {
+		request := *r
+		request.Value = nil
+	}
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	defer drainFileServer(putFileServer)

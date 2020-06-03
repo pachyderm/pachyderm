@@ -463,7 +463,9 @@ func init() {
 	proto.RegisterType((*DeactivateResponse)(nil), "enterprise.DeactivateResponse")
 }
 
-func init() { proto.RegisterFile("client/enterprise/enterprise.proto", fileDescriptor_88d07275108cec01) }
+func init() {
+	proto.RegisterFile("client/enterprise/enterprise.proto", fileDescriptor_88d07275108cec01)
+}
 
 var fileDescriptor_88d07275108cec01 = []byte{
 	// 434 bytes of a gzipped FileDescriptorProto

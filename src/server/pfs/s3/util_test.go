@@ -19,19 +19,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
 
-type TestClientFactory struct{}
-
-func (f *TestClientFactory) Client(authToken string) (*client.APIClient, error) {
-	c, err := client.NewForTest()
-	if err != nil {
-		return nil, err
-	}
-	if authToken != "" {
-		c.SetAuthToken(authToken)
-	}
-	return c, nil
-}
-
 func getObject(t *testing.T, minioClient *minio.Client, bucket, file string) (string, error) {
 	t.Helper()
 
@@ -145,7 +132,7 @@ func fileHash(t *testing.T, name string) (int64, []byte) {
 }
 
 func testRunner(t *testing.T, group string, driver Driver, runner func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client)) {
-	server, err := Server(0, driver, &TestClientFactory{})
+	server, err := Server(0, driver, client.NewForTest)
 	require.NoError(t, err)
 	listener, err := net.Listen("tcp", ":0")
 	require.NoError(t, err)

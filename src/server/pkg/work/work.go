@@ -154,8 +154,9 @@ func (m *Master) RunSubtasksChan(subtaskChan chan *Task, collectFunc CollectFunc
 	var eg errgroup.Group
 	var count int64
 	done := make(chan struct{})
+	ctx, cancel := context.WithCancel(m.taskEntry.ctx)
 	eg.Go(func() error {
-		return m.subtaskCol.ReadOnly(m.taskEntry.ctx).WatchOneF(m.taskID, func(e *watch.Event) error {
+		return m.subtaskCol.ReadOnly(ctx).WatchOneF(m.taskID, func(e *watch.Event) error {
 			var key string
 			subtaskInfo := &TaskInfo{}
 			if err := e.Unmarshal(&key, subtaskInfo); err != nil {
@@ -185,13 +186,19 @@ func (m *Master) RunSubtasksChan(subtaskChan chan *Task, collectFunc CollectFunc
 	})
 	defer func() {
 		close(done)
-		if err := eg.Wait(); retErr == nil {
+		// If the subtasks have already been collected (or there were none), then
+		// cancel the ctx for the collect goroutine.
+		if atomic.LoadInt64(&count) == 0 {
+			cancel()
+		}
+		if err := eg.Wait(); retErr == nil && ctx.Err() != context.Canceled {
 			retErr = err
 		}
 		if err := m.deleteSubtasks(); err != nil {
 			fmt.Printf("errored deleting subtasks for task %v: %v\n", m.taskID, err)
 		}
 	}()
+
 	for subtask := range subtaskChan {
 		if err := m.createSubtask(subtask); err != nil {
 			return err

@@ -7,19 +7,22 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 )
 
 // NewLocalClient returns a Client that stores data on the local file system
-func NewLocalClient(root string) (Client, error) {
+func NewLocalClient(root string) (c Client, err error) {
+	defer func() { c = newCheckedClient(c) }()
+
 	if err := os.MkdirAll(root, 0755); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
-	c := &localClient{filepath.Clean(root)}
+	client := &localClient{filepath.Clean(root)}
 	if monkeyTest {
-		return &monkeyClient{c}, nil
+		return &monkeyClient{client}, nil
 	}
-	return c, nil
+	return client, nil
 }
 
 type localClient struct {
@@ -28,7 +31,7 @@ type localClient struct {
 
 func (c *localClient) normPath(path string) string {
 	path = filepath.Clean(path)
-	if !filepath.IsAbs(path) || !strings.HasPrefix(path, c.root) {
+	if !filepath.IsAbs(path) {
 		return filepath.Join(c.root, path)
 	}
 	return path
@@ -39,12 +42,12 @@ func (c *localClient) Writer(_ context.Context, path string) (io.WriteCloser, er
 
 	// Create the directory since it may not exist
 	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 
 	file, err := os.Create(fullPath)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 
 	return file, nil
@@ -53,15 +56,15 @@ func (c *localClient) Writer(_ context.Context, path string) (io.WriteCloser, er
 func (c *localClient) Reader(_ context.Context, path string, offset uint64, size uint64) (io.ReadCloser, error) {
 	file, err := os.Open(c.normPath(path))
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	if _, err := file.Seek(int64(offset), 0); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 
 	if size == 0 {
 		if _, err := file.Seek(int64(offset), 0); err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 		return file, nil
 	}
@@ -69,7 +72,7 @@ func (c *localClient) Reader(_ context.Context, path string, offset uint64, size
 }
 
 func (c *localClient) Delete(_ context.Context, path string) error {
-	return os.Remove(c.normPath(path))
+	return errors.EnsureStack(os.Remove(c.normPath(path)))
 }
 
 func (c *localClient) Walk(_ context.Context, dir string, walkFn func(name string) error) error {
@@ -79,12 +82,12 @@ func (c *localClient) Walk(_ context.Context, dir string, walkFn func(name strin
 	if fi == nil || !fi.IsDir() {
 		dir, prefix = filepath.Split(dir)
 	}
-	return filepath.Walk(dir, func(path string, fileInfo os.FileInfo, err error) error {
+	err := filepath.Walk(dir, func(path string, fileInfo os.FileInfo, err error) error {
 		if err != nil {
 			if c.IsNotExist(err) {
 				return nil
 			}
-			return err
+			return errors.EnsureStack(err)
 		}
 		if fileInfo.IsDir() {
 			return nil
@@ -95,6 +98,7 @@ func (c *localClient) Walk(_ context.Context, dir string, walkFn func(name strin
 		}
 		return walkFn(relPath)
 	})
+	return errors.EnsureStack(err)
 }
 
 func (c *localClient) Exists(ctx context.Context, path string) bool {
@@ -129,5 +133,5 @@ func newSectionReadCloser(f *os.File, offset uint64, size uint64) *sectionReadCl
 }
 
 func (s *sectionReadCloser) Close() error {
-	return s.f.Close()
+	return errors.EnsureStack(s.f.Close())
 }

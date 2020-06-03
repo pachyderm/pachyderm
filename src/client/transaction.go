@@ -386,14 +386,17 @@ func (c *pfsBuilderClient) DeleteAll(ctx context.Context, req *types.Empty, opts
 func (c *pfsBuilderClient) Fsck(ctx context.Context, req *pfs.FsckRequest, opts ...grpc.CallOption) (pfs.API_FsckClient, error) {
 	return nil, unsupportedError("Fsck")
 }
-func (c *pfsBuilderClient) PutTar(ctx context.Context, opts ...grpc.CallOption) (pfs.API_PutTarClient, error) {
-	return nil, unsupportedError("PutTar")
+func (c *pfsBuilderClient) PutTarV2(ctx context.Context, opts ...grpc.CallOption) (pfs.API_PutTarV2Client, error) {
+	return nil, unsupportedError("PutTarV2")
 }
-func (c *pfsBuilderClient) GetTar(ctx context.Context, req *pfs.GetTarRequest, opts ...grpc.CallOption) (pfs.API_GetTarClient, error) {
-	return nil, unsupportedError("GetTar")
+func (c *pfsBuilderClient) GetTarV2(ctx context.Context, req *pfs.GetTarRequestV2, opts ...grpc.CallOption) (pfs.API_GetTarV2Client, error) {
+	return nil, unsupportedError("GetTarV2")
 }
-func (c *pfsBuilderClient) GetTarConditional(ctx context.Context, opts ...grpc.CallOption) (pfs.API_GetTarConditionalClient, error) {
-	return nil, unsupportedError("GetTarConditional")
+func (c *pfsBuilderClient) GetTarConditionalV2(ctx context.Context, opts ...grpc.CallOption) (pfs.API_GetTarConditionalV2Client, error) {
+	return nil, unsupportedError("GetTarConditionalV2")
+}
+func (c *pfsBuilderClient) ListFileV2(ctx context.Context, req *pfs.ListFileRequest, opts ...grpc.CallOption) (pfs.API_ListFileV2Client, error) {
+	return nil, unsupportedError("ListFileV2")
 }
 
 func (c *objectBuilderClient) PutObject(ctx context.Context, opts ...grpc.CallOption) (pfs.ObjectAPI_PutObjectClient, error) {

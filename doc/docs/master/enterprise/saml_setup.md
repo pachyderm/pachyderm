@@ -1,8 +1,7 @@
 # Configure SAML
 
 This guide will walk through testing Pachyderm's experimental SAML support.
-These features aren't integrated into mainline Pachyderm yet and aren't
-available in any official releases. This will describe the process of:
+This will describe the process of:
 
 1. Activating Pachyderm enterprise and Pachyderm auth
 1. Configuring Pachyderm's auth system and enabling its SAML ACS (Assertion
@@ -13,8 +12,11 @@ available in any official releases. This will describe the process of:
 
 ## Activation
 
-For testing, we **highly** recommend running Pachyderm in Minikube, in case any
-early bugs make it necessary to restart the cluster.
+For testing, we **highly** recommend that you run Pachyderm in Minikube. If you
+accidentally misconfigure your cluster, you might lock yourself out of your
+cluster, and you will not be able to log in again to fix the configuration
+error. With Minikube, experimenting with authentication options is easier and
+safer and will not risk data loss.
 
 To activate Pachyderm enterprise and Pachyderm auth:
 

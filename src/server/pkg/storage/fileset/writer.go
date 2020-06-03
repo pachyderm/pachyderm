@@ -2,16 +2,12 @@ package fileset
 
 import (
 	"context"
-	"math"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
-)
-
-var (
-	averageBits = 23
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
 type data struct {
@@ -27,19 +23,21 @@ type Writer struct {
 	iw        *index.Writer
 	indexFunc func(*index.Index) error
 	lastIdx   *index.Index
-	first     bool
+	priorFile bool
 }
 
-func newWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path string, indexFunc func(*index.Index) error) *Writer {
-	w := &Writer{
-		ctx:       ctx,
-		first:     true,
-		indexFunc: indexFunc,
+func newWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path string, opts ...WriterOption) *Writer {
+	tmpID := path + uuid.NewWithoutDashes()
+	w := &Writer{ctx: ctx}
+	for _, opt := range opts {
+		opt(w)
 	}
-	if w.indexFunc == nil {
-		w.iw = index.NewWriter(ctx, objC, chunks, path)
+	var chunkWriterOpts []chunk.WriterOption
+	if w.indexFunc != nil {
+		chunkWriterOpts = append(chunkWriterOpts, chunk.WithNoUpload())
 	}
-	cw := chunks.NewWriter(ctx, averageBits, math.MaxInt64, indexFunc != nil, w.callback())
+	w.iw = index.NewWriter(ctx, objC, chunks, path, tmpID)
+	cw := chunks.NewWriter(ctx, tmpID, w.callback(), chunkWriterOpts...)
 	w.cw = cw
 	w.tw = tar.NewWriter(cw)
 	return w
@@ -48,9 +46,10 @@ func newWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path
 // WriteHeader writes a tar header and prepares to accept the file's contents.
 func (w *Writer) WriteHeader(hdr *tar.Header) error {
 	// Finish prior file.
-	if err := w.finishFile(); err != nil {
+	if err := w.finishPriorFile(); err != nil {
 		return err
 	}
+	w.priorFile = true
 	// Setup annotation in chunk writer.
 	w.setupAnnotation(hdr.Name)
 	// Setup header tag for the file.
@@ -59,19 +58,18 @@ func (w *Writer) WriteHeader(hdr *tar.Header) error {
 	return w.tw.WriteHeader(hdr)
 }
 
-func (w *Writer) finishFile() error {
-	if w.first {
-		w.first = false
+func (w *Writer) finishPriorFile() error {
+	if !w.priorFile {
 		return nil
 	}
+	w.priorFile = false
 	w.cw.Tag(paddingTag)
-	// Flush the last file's content.
+	// Flush the prior file's content.
 	return w.tw.Flush()
 }
 
 func (w *Writer) setupAnnotation(path string) {
 	w.cw.Annotate(&chunk.Annotation{
-		NextDataRef: &chunk.DataRef{},
 		Data: &data{
 			idx: &index.Index{
 				Path:   path,
@@ -131,7 +129,7 @@ func (w *Writer) Write(data []byte) (int, error) {
 // CopyFile copies a file (header and tags included).
 func (w *Writer) CopyFile(fr *FileReader) error {
 	// Finish prior file.
-	if err := w.finishFile(); err != nil {
+	if err := w.finishPriorFile(); err != nil {
 		return err
 	}
 	w.setupAnnotation(fr.Index().Path)
@@ -151,7 +149,7 @@ func (w *Writer) CopyTags(dr *chunk.DataReader) error {
 // Close closes the writer.
 func (w *Writer) Close() error {
 	// Finish prior file.
-	if err := w.finishFile(); err != nil {
+	if err := w.finishPriorFile(); err != nil {
 		return err
 	}
 	// Close the chunk writer.

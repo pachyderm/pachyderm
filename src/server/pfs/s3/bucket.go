@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/gorilla/mux"
 	glob "github.com/pachyderm/ohmyglob"
 	pfsClient "github.com/pachyderm/pachyderm/src/client/pfs"
 	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
@@ -31,16 +30,10 @@ func newContents(fileInfo *pfsClient.FileInfo) (s2.Contents, error) {
 	}, nil
 }
 
-func newCommonPrefixes(dir string) s2.CommonPrefixes {
-	return s2.CommonPrefixes{
-		Prefix: fmt.Sprintf("%s/", dir),
-		Owner:  defaultUser,
-	}
-}
-
 func (c *controller) GetLocation(r *http.Request, bucketName string) (string, error) {
-	vars := mux.Vars(r)
-	pc, err := c.clientFactory.Client(vars["authAccessKey"])
+	c.logger.Debugf("GetLocation: %+v", bucketName)
+
+	pc, err := c.requestClient(r)
 	if err != nil {
 		return "", err
 	}
@@ -58,8 +51,9 @@ func (c *controller) GetLocation(r *http.Request, bucketName string) (string, er
 }
 
 func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, delimiter string, maxKeys int) (*s2.ListObjectsResult, error) {
-	vars := mux.Vars(r)
-	pc, err := c.clientFactory.Client(vars["authAccessKey"])
+	c.logger.Debugf("ListObjects: bucketName=%+v, prefix=%+v, marker=%+v, delimiter=%+v, maxKeys=%+v", bucketName, prefix, marker, delimiter, maxKeys)
+
+	pc, err := c.requestClient(r)
 	if err != nil {
 		return nil, err
 	}
@@ -78,8 +72,8 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 	}
 
 	result := s2.ListObjectsResult{
-		Contents:       []s2.Contents{},
-		CommonPrefixes: []s2.CommonPrefixes{},
+		Contents:       []*s2.Contents{},
+		CommonPrefixes: []*s2.CommonPrefixes{},
 	}
 
 	if !bucketCaps.readable {
@@ -132,9 +126,12 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 				return err
 			}
 
-			result.Contents = append(result.Contents, c)
+			result.Contents = append(result.Contents, &c)
 		} else {
-			result.CommonPrefixes = append(result.CommonPrefixes, newCommonPrefixes(fileInfo.File.Path))
+			result.CommonPrefixes = append(result.CommonPrefixes, &s2.CommonPrefixes{
+				Prefix: fmt.Sprintf("%s/", fileInfo.File.Path),
+				Owner:  defaultUser,
+			})
 		}
 
 		return nil
@@ -144,12 +141,13 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 }
 
 func (c *controller) CreateBucket(r *http.Request, bucketName string) error {
+	c.logger.Debugf("CreateBucket: %+v", bucketName)
+
 	if !c.driver.canModifyBuckets() {
 		return s2.NotImplementedError(r)
 	}
 
-	vars := mux.Vars(r)
-	pc, err := c.clientFactory.Client(vars["authAccessKey"])
+	pc, err := c.requestClient(r)
 	if err != nil {
 		return err
 	}
@@ -192,12 +190,13 @@ func (c *controller) CreateBucket(r *http.Request, bucketName string) error {
 }
 
 func (c *controller) DeleteBucket(r *http.Request, bucketName string) error {
+	c.logger.Debugf("DeleteBucket: %+v", bucketName)
+
 	if !c.driver.canModifyBuckets() {
 		return s2.NotImplementedError(r)
 	}
 
-	vars := mux.Vars(r)
-	pc, err := c.clientFactory.Client(vars["authAccessKey"])
+	pc, err := c.requestClient(r)
 	if err != nil {
 		return err
 	}
@@ -254,13 +253,19 @@ func (c *controller) DeleteBucket(r *http.Request, bucketName string) error {
 	return nil
 }
 
-func (c *controller) ListObjectVersions(r *http.Request, repo, prefix, keyMarker, versionIDMarker string, delimiter string, maxKeys int) (*s2.ListObjectVersionsResult, error) {
+func (c *controller) ListObjectVersions(r *http.Request, bucketName, prefix, keyMarker, versionIDMarker string, delimiter string, maxKeys int) (*s2.ListObjectVersionsResult, error) {
+	// NOTE: because this endpoint isn't implemented, conformance tests will
+	// fail on teardown. It's nevertheless unimplemented because it's too
+	// expensive to pull off with PFS until this is implemented:
+	// https://github.com/pachyderm/pachyderm/issues/3896
+	c.logger.Debugf("ListObjectVersions: bucketName=%+v, prefix=%+v, keyMarker=%+v, versionIDMarker=%+v, delimiter=%+v, maxKeys=%+v", bucketName, prefix, keyMarker, versionIDMarker, delimiter, maxKeys)
 	return nil, s2.NotImplementedError(r)
 }
 
 func (c *controller) GetBucketVersioning(r *http.Request, bucketName string) (string, error) {
-	vars := mux.Vars(r)
-	pc, err := c.clientFactory.Client(vars["authAccessKey"])
+	c.logger.Debugf("GetBucketVersioning: %+v", bucketName)
+
+	pc, err := c.requestClient(r)
 	if err != nil {
 		return "", err
 	}
@@ -280,6 +285,7 @@ func (c *controller) GetBucketVersioning(r *http.Request, bucketName string) (st
 	return s2.VersioningDisabled, nil
 }
 
-func (c *controller) SetBucketVersioning(r *http.Request, repo, status string) error {
+func (c *controller) SetBucketVersioning(r *http.Request, bucketName, status string) error {
+	c.logger.Debugf("SetBucketVersioning: bucketName=%+v, status=%+v", bucketName, status)
 	return s2.NotImplementedError(r)
 }

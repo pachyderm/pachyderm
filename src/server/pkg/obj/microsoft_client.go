@@ -56,7 +56,7 @@ func blobRange(offset, size uint64) *storage.BlobRange {
 	} else if size == 0 {
 		return &storage.BlobRange{Start: offset}
 	}
-	return &storage.BlobRange{Start: offset, End: offset + size}
+	return &storage.BlobRange{Start: offset, End: offset + size - 1}
 }
 
 func (c *microsoftClient) Delete(_ context.Context, name string) error {

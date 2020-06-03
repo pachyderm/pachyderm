@@ -4077,6 +4077,51 @@ func TestBuildCommit(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// TestBuildCommitFinished tests that calling BuildCommit with req.Finished set
+// causes the resulting to have Finished set (fixing bug Extract/Restore #4695)
+func TestBuildCommitFinished(t *testing.T) {
+	t.Parallel()
+	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		if testing.Short() {
+			t.Skip("Skipping integration tests in short mode")
+		}
+
+		repo := tu.UniqueString("TestBuildCommit")
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+
+		var err error
+		// parent for initial commit, updated after each BuildCommit RPC. A commit
+		// with no ID is only useful as the 'parent' argument to BuildCommit, but is
+		// not use elsewhere in Pachyderm.
+		parent := pclient.NewCommit(repo, "")
+		for i := 0; i < 3; i++ {
+			parent, err = env.PachClient.PfsAPIClient.BuildCommit(
+				env.PachClient.Ctx(),
+				&pfs.BuildCommitRequest{
+					Parent:    parent,
+					Branch:    "master",
+					Finished:  types.TimestampNow(),
+					SizeBytes: 0,
+				},
+			)
+			require.NoError(t, err)
+		}
+
+		cis, err := env.PachClient.ListCommit(repo, "master", "", 0)
+		require.NoError(t, err)
+		parent = nil
+		for _, ci := range cis {
+			require.NotNil(t, ci.Finished)
+			if parent != nil {
+				require.Equal(t, parent.ID, ci.Commit.ID)
+			}
+			parent = ci.ParentCommit
+		}
+		require.Nil(t, parent) // final commit in result set is 1st commit in branch
+		return nil
+	}))
+}
+
 func TestPropagateCommit(t *testing.T) {
 	t.Parallel()
 	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
@@ -6005,6 +6050,60 @@ func TestFsckFix(t *testing.T) {
 		// Deleting should now work due to fixing, must delete 2 before 1 though.
 		require.NoError(t, env.PachClient.DeleteRepo(output2, false))
 		require.NoError(t, env.PachClient.DeleteRepo(output1, false))
+
+		return nil
+	})
+	require.NoError(t, err)
+}
+
+func TestPutFileAtomic(t *testing.T) {
+	t.Parallel()
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		c := env.PachClient
+		test := "test"
+		require.NoError(t, c.CreateRepo(test))
+
+		pfc, err := c.NewPutFileClient()
+		require.NoError(t, err)
+		_, err = pfc.PutFile(test, "master", "file1", strings.NewReader("1"))
+		require.NoError(t, err)
+		_, err = pfc.PutFile(test, "master", "file2", strings.NewReader("2"))
+		require.NoError(t, err)
+		require.NoError(t, pfc.Close())
+
+		cis, err := c.ListCommit(test, "master", "", 0)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(cis))
+		var b bytes.Buffer
+		require.NoError(t, c.GetFile(test, "master", "file1", 0, 0, &b))
+		require.Equal(t, "1", b.String())
+		b.Reset()
+		require.NoError(t, c.GetFile(test, "master", "file2", 0, 0, &b))
+		require.Equal(t, "2", b.String())
+
+		pfc, err = c.NewPutFileClient()
+		require.NoError(t, err)
+		_, err = pfc.PutFile(test, "master", "file3", strings.NewReader("3"))
+		require.NoError(t, err)
+		require.NoError(t, pfc.DeleteFile(test, "master", "file1"))
+		require.NoError(t, pfc.Close())
+
+		cis, err = c.ListCommit(test, "master", "", 0)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(cis))
+		b.Reset()
+		require.NoError(t, c.GetFile(test, "master", "file3", 0, 0, &b))
+		require.Equal(t, "3", b.String())
+		b.Reset()
+		require.YesError(t, c.GetFile(test, "master", "file1", 0, 0, &b))
+
+		// Empty PutFileClients shouldn't error or create commits
+		pfc, err = c.NewPutFileClient()
+		require.NoError(t, err)
+		require.NoError(t, pfc.Close())
+		cis, err = c.ListCommit(test, "master", "", 0)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(cis))
 
 		return nil
 	})

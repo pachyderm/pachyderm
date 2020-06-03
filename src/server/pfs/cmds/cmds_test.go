@@ -1,9 +1,11 @@
 package cmds
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
@@ -51,20 +53,49 @@ func TestPutFileSplit(t *testing.T) {
 		EOF
 
 		pachctl get file "{{.repo}}@master:/data/*0" \
-		  | match "name,job" \
-			| match "alice,accountant" \
-			| match -v "bob,baker"
+		  | match "name,job"
+		pachctl get file "{{.repo}}@master:/data/*0" \
+		  | match "alice,accountant"
+		pachctl get file "{{.repo}}@master:/data/*0" \
+		  | match -v "bob,baker"
 
 		pachctl get file "{{.repo}}@master:/data/*1" \
-		  | match "name,job" \
-			| match -v "alice,accountant" \
-			| match "bob,baker"
+		  | match "name,job"
+		pachctl get file "{{.repo}}@master:/data/*1" \
+		  | match "bob,baker"
+		pachctl get file "{{.repo}}@master:/data/*1" \
+		  | match -v "alice,accountant"
 
 		pachctl get file "{{.repo}}@master:/data/*" \
-		  | match "name,job" \
-			| match "alice,accountant" \
-			| match "bob,baker"
+		  | match "name,job"
+		pachctl get file "{{.repo}}@master:/data/*" \
+		  | match "alice,accountant"
+		pachctl get file "{{.repo}}@master:/data/*" \
+		  | match "bob,baker"
 		`,
 		"repo", tu.UniqueString("TestPutFileSplit-repo"),
 	).Run())
+}
+
+func TestMountParsing(t *testing.T) {
+	expected := map[string]*fuse.RepoOptions{
+		"repo1": {
+			Branch: "branch",
+			Write:  true,
+		},
+		"repo2": {
+			Branch: "master",
+			Write:  true,
+		},
+		"repo3": {
+			Branch: "master",
+		},
+	}
+	opts, err := parseRepoOpts([]string{"repo1@branch+w", "repo2+w", "repo3"})
+	require.NoError(t, err)
+	require.Equal(t, 3, len(opts))
+	fmt.Printf("%+v\n", opts)
+	for repo, ro := range expected {
+		require.Equal(t, ro, opts[repo])
+	}
 }

@@ -3,22 +3,22 @@ package fileset
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"math/rand"
 	"path"
 	"strconv"
 	"testing"
-	"time"
 
+	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
+	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
 const (
-	max         = 20 * chunk.MB
+	max         = 20 * units.MB
 	maxTags     = 10
 	testPath    = "test"
 	scratchPath = "scratch"
@@ -68,7 +68,7 @@ func writeFile(t *testing.T, w *Writer, f *testFile, msg string) {
 }
 
 func writeFileSet(t *testing.T, fileSets *Storage, fileSet string, files []*testFile, msg string) {
-	w := fileSets.newWriter(context.Background(), fileSet, nil)
+	w := fileSets.newWriter(context.Background(), fileSet)
 	for _, file := range files {
 		writeFile(t, w, file, msg)
 	}
@@ -115,16 +115,9 @@ func dataRefsToHashes(dataRefs []*chunk.DataRef) []string {
 	return hashes
 }
 
-// (bryce) this should be somewhere else (probably testutil).
-func seedRand() string {
-	seed := time.Now().UTC().UnixNano()
-	rand.Seed(seed)
-	return fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
-}
-
 func TestWriteThenRead(t *testing.T) {
 	require.NoError(t, WithLocalStorage(func(fileSets *Storage) error {
-		msg := seedRand()
+		msg := testutil.SeedRand()
 		fileNames := index.Generate("abc")
 		files := []*testFile{}
 		for _, fileName := range fileNames {
@@ -165,7 +158,7 @@ func TestWriteThenRead(t *testing.T) {
 
 func TestCopy(t *testing.T) {
 	require.NoError(t, WithLocalStorage(func(fileSets *Storage) error {
-		msg := seedRand()
+		msg := testutil.SeedRand()
 		fileNames := index.Generate("abc")
 		files := []*testFile{}
 		// Write the initial fileset and count the chunks.
@@ -187,7 +180,7 @@ func TestCopy(t *testing.T) {
 		// Copy intial fileset to a new copy fileset.
 		r := fileSets.newReader(context.Background(), originalPath)
 		copyPath := path.Join(testPath, "copy")
-		wCopy := fileSets.newWriter(context.Background(), copyPath, nil)
+		wCopy := fileSets.newWriter(context.Background(), copyPath)
 		require.NoError(t, r.Iterate(func(fr *FileReader) error {
 			return wCopy.CopyFile(fr)
 		}), msg)
@@ -212,7 +205,7 @@ func TestCopy(t *testing.T) {
 
 func TestResolveIndexes(t *testing.T) {
 	require.NoError(t, WithLocalStorage(func(fileSets *Storage) error {
-		msg := seedRand()
+		msg := testutil.SeedRand()
 		numFileSets := 5
 		// Generate filesets.
 		files := generateFileSets(t, fileSets, numFileSets, testPath, msg)
@@ -235,7 +228,7 @@ func TestResolveIndexes(t *testing.T) {
 
 func TestCompaction(t *testing.T) {
 	require.NoError(t, WithLocalStorage(func(fileSets *Storage) error {
-		msg := seedRand()
+		msg := testutil.SeedRand()
 		numFileSets := 5
 		// Generate filesets.
 		files := generateFileSets(t, fileSets, numFileSets, testPath, msg)
@@ -260,7 +253,7 @@ func generateFileSets(t *testing.T, fileSets *Storage, numFileSets int, prefix, 
 	// Generate the files and randomly distribute them across the filesets.
 	var ws []*Writer
 	for i := 0; i < numFileSets; i++ {
-		ws = append(ws, fileSets.newWriter(context.Background(), path.Join(prefix, strconv.Itoa(i)), nil))
+		ws = append(ws, fileSets.newWriter(context.Background(), path.Join(prefix, strconv.Itoa(i))))
 	}
 	for i, fileName := range fileNames {
 		data := chunk.RandSeq(rand.Intn(max))

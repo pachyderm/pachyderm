@@ -113,25 +113,41 @@ create a repository for your project.
 For more information about building Docker images, see
 [Docker documentation](https://docs.docker.com/engine/tutorials/dockerimages/).
 
+## Step 3: Load Your Data to Pachyderm
 
-## Step 3: Create a Pipeline
+You need to add your data to Pachyderm so that your pipeline runs your code
+against it. You can do so by using one of the following methods:
+
+* By using the `pachctl put file` command
+* By using a special type of pipeline, such as a spout or cron
+* By using one of the Pachyderm's [language clients](../reference/clients/)
+* By using a compatible S3 client
+* By using the Pachyderm UI (Enterprise version or free trial)
+
+For more information, see [Load Your Data Into Pachyderm](../load-data-into-pachyderm/).
+
+## Step 4: Create a Pipeline
 
 Pachyderm's pipeline specifications store the configuration information
 about the Docker image and code that Pachyderm should run. Pipeline
 specifications are stored in JSON format. As soon as you create a pipeline,
 Pachyderm immediately spins a pod or pods on a Kubernetes worker node
-in which pipeline code runs. By default, after the pipeline finishes
+in which the pipeline code runs. By default, after the pipeline finishes
 running, the pods continue to run while waiting for the new data to be
 committed into the Pachyderm input repository. You can configure this
 parameter, as well as many others, in the pipeline specification.
 
-A minimum pipeline specification must include the following
+A standard pipeline specification must include the following
 parameters:
 
 - `name`
 - `transform`
 - `parallelism`
 - `input`
+
+!!! note
+    Some special types of pipelines, such as a spout pipeline, do not
+    require you to specify all of these parameters.
 
 You can store your pipeline locally or in a remote location, such
 as a GitHub repository.

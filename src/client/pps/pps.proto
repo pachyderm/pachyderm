@@ -58,6 +58,7 @@ enum JobState {
   JOB_SUCCESS = 3;
   JOB_KILLED = 4;
   JOB_MERGING = 5;
+  JOB_EGRESSING = 6;
 }
 
 message Metadata {
@@ -371,6 +372,14 @@ message EtcdPipelineInfo {
   map<int32, int32> job_counts = 3;
   string auth_token = 5;
   JobState last_job_state = 6;
+
+  // parallelism tracks the literal number of workers that this pipeline should
+  // run. Unlike PipelineInfo.ParallelismSpec, this accounts for the number of
+  // nodes in the k8s cluster if Coefficient parallelism is used (i.e. if
+  // Coefficient is 2 and the cluster has 5 nodes, this will be set to 10 by
+  // pachd). This allows the worker master to shard work correctly without
+  // k8s privileges and without knowing the number of cluster nodes in the
+  // Coefficient case.
   uint64 parallelism = 7;
 }
 
@@ -507,6 +516,13 @@ message UpdateJobStateRequest {
   Job job = 1;
   JobState state = 2;
   string reason = 3;
+  uint64 restart = 4;
+  int64 data_processed = 5;
+  int64 data_skipped = 6;
+  int64 data_failed = 7;
+  int64 data_recovered = 8;
+  int64 data_total = 9;
+  ProcessStats stats = 10;
 }
 
 message GetLogsRequest {

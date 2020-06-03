@@ -5,16 +5,21 @@ import (
 	"context"
 	"io"
 
+	units "github.com/docker/go-units"
 	"github.com/gogo/protobuf/types"
 )
 
 var (
-	// MaxMsgSize is used to define the GRPC frame size
-	MaxMsgSize = 20 * 1024 * 1024
+	// MaxMsgSize is used to define the GRPC frame size.
+	MaxMsgSize = 20 * units.MiB
+	// MaxMsgPayloadSize is the max message payload size.
+	// This is slightly less than MaxMsgSize to account
+	// for the GRPC message wrapping the payload.
+	MaxMsgPayloadSize = MaxMsgSize - units.MiB
 )
 
 // Chunk splits a piece of data up, this is useful for splitting up data that's
-// bigger than MaxMsgSize
+// bigger than MaxMsgPayloadSize.
 func Chunk(data []byte, chunkSize int) [][]byte {
 	var result [][]byte
 	for i := 0; i < len(data); i += chunkSize {
@@ -151,23 +156,15 @@ type streamingBytesWriter struct {
 	streamingBytesServer StreamingBytesServer
 }
 
-func (s *streamingBytesWriter) Write(p []byte) (int, error) {
-	if len(p) == 0 {
-		return 0, nil
-	}
-	for i := 0; i < len(p); i += MaxMsgSize {
-		var sp []byte
-		if i+MaxMsgSize < len(p) {
-			sp = p[i : i+MaxMsgSize]
-		} else {
-			sp = p[i:]
+func (s *streamingBytesWriter) Write(data []byte) (int, error) {
+	var bytesWritten int
+	for _, val := range Chunk(data, MaxMsgPayloadSize) {
+		if err := s.streamingBytesServer.Send(&types.BytesValue{Value: val}); err != nil {
+			return bytesWritten, err
 		}
-
-		if err := s.streamingBytesServer.Send(&types.BytesValue{Value: sp}); err != nil {
-			return 0, err
-		}
+		bytesWritten += len(val)
 	}
-	return len(p), nil
+	return bytesWritten, nil
 }
 
 // ReaderWrapper wraps a reader for the following reason: Go's io.CopyBuffer

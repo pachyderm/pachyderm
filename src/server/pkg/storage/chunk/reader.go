@@ -83,16 +83,12 @@ func (r *Reader) Iterate(f func(*DataReader) error, tagUpperBound ...string) err
 			}
 			return err
 		}
-		// (bryce) have to special case for indexing which does not use tags.
-		// maybe indexing should just use tags.
-		if len(tagUpperBound) > 0 {
-			tags, err := dr.PeekTags()
-			if err != nil {
-				return err
-			}
-			if tags != nil && !BeforeBound(tags[0].Id, tagUpperBound...) {
-				return nil
-			}
+		tags, err := dr.PeekTags()
+		if err != nil {
+			return err
+		}
+		if !BeforeBound(tags[0].Id, tagUpperBound...) {
+			return nil
 		}
 		if err := f(dr); err != nil {
 			if err == errutil.ErrBreak {
@@ -109,8 +105,6 @@ func (r *Reader) Iterate(f func(*DataReader) error, tagUpperBound ...string) err
 
 // Get writes the concatenation of the data represented by the data references
 // set in the reader.
-// (bryce) probably should make a decision on whether this should be blocked for
-// a reader that already has been partially iterated.
 func (r *Reader) Get(w io.Writer) error {
 	return r.Iterate(func(dr *DataReader) error {
 		return dr.Get(w)
@@ -145,7 +139,7 @@ func (tr *TagReader) Iterate(f func(*DataReader) error) error {
 		if tags[0].Id != tr.tag.Id {
 			return errutil.ErrBreak
 		}
-		// Limit the current data reader if it has more than one tag.
+		// Bound the current data reader if it has more than one tag.
 		if len(tags) > 1 {
 			dr = dr.BoundReader(tags[1].Id)
 		}

@@ -16,6 +16,30 @@ publish = "doc/site"
   force = true
 
 [[redirects]]
+  from = "/en/latest/"
+  to = "/latest/"
+  status = 301
+  force = true
+
+#[[redirects]]
+#  from = "/deploy-manage/deploy/deploy-pachyderm-jupyterhub/"
+#  to = "/deploy-manage/deploy/deploy-pachyderm-ide/"
+#  status = 301
+#  force = true
+
+#[[redirects]]
+#  from = "/how-tos/use-jupyterhub/"
+#  to = "/how-tos/use-pachyderm-ide/"
+#  status = 301
+#  force = true
+
+#[[redirects]]
+#  from = "/how-tos/use-jupyterhub/using-jupyterhub/"
+#  to = "/how-tos/use-pachyderm-ide/using-pachyderm-ide/"
+#  status = 301
+#  force = true
+
+[[redirects]]
    from = "/deploy-manage/manage/batching_pachyderm_with_transactions/"
    to = "/latest/how-tos/use-transactions-to-run-multiple-commands/"
    status = 301
@@ -367,6 +391,12 @@ publish = "doc/site"
 [[redirects]]
   from = "/en/latest/how-tos/deferred_processing.html"
   to = "https://docs.pachyderm.com/latest/concepts/advanced-concepts/deferred_processing/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/en/latest/getting_started/getting_started.html"
+  to = "/latest/getting-started/"
   status = 301
   force = true
 

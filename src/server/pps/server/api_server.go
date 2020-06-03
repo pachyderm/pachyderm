@@ -40,7 +40,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
-	workerpkg "github.com/pachyderm/pachyderm/src/server/worker"
+	workercommon "github.com/pachyderm/pachyderm/src/server/worker/common"
+	"github.com/pachyderm/pachyderm/src/server/worker/datum"
+	workerserver "github.com/pachyderm/pachyderm/src/server/worker/server"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
@@ -516,6 +518,15 @@ func (a *apiServer) UpdateJobStateInTransaction(txnCtx *txnenv.TransactionContex
 	if err := jobs.Get(request.Job.ID, jobPtr); err != nil {
 		return err
 	}
+
+	jobPtr.Restart = request.Restart
+	jobPtr.DataProcessed = request.DataProcessed
+	jobPtr.DataSkipped = request.DataSkipped
+	jobPtr.DataFailed = request.DataFailed
+	jobPtr.DataRecovered = request.DataRecovered
+	jobPtr.DataTotal = request.DataTotal
+	jobPtr.Stats = request.Stats
+
 	return ppsutil.UpdateJobState(a.pipelines.ReadWrite(txnCtx.Stm), jobs, jobPtr, request.State, request.Reason)
 }
 
@@ -592,7 +603,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 			return nil, errors.Errorf("job with output commit %s not found", request.OutputCommit.ID)
 		}
 	}
-
+	//
 	if request.BlockState {
 		watcher, err := jobs.WatchOne(request.Job.ID)
 		if err != nil {
@@ -637,7 +648,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 		return jobInfo, nil
 	}
 	workerPoolID := ppsutil.PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
-	workerStatus, err := workerpkg.Status(ctx, workerPoolID, a.env.GetEtcdClient(), a.etcdPrefix, a.workerGrpcPort)
+	workerStatus, err := workerserver.Status(ctx, workerPoolID, a.env.GetEtcdClient(), a.etcdPrefix, a.workerGrpcPort)
 	if err != nil {
 		logrus.Errorf("failed to get worker status with err: %s", err.Error())
 	} else {
@@ -983,7 +994,7 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 		return nil, err
 	}
 	workerPoolID := ppsutil.PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
-	if err := workerpkg.Cancel(ctx, workerPoolID, a.env.GetEtcdClient(), a.etcdPrefix, a.workerGrpcPort, request.Job.ID, request.DataFilters); err != nil {
+	if err := workerserver.Cancel(ctx, workerPoolID, a.env.GetEtcdClient(), a.etcdPrefix, a.workerGrpcPort, request.Job.ID, request.DataFilters); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -1037,27 +1048,36 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, page, 
 		return 0, 0, errors.New("getPageBounds: unreachable code")
 	}
 
-	df, err := workerpkg.NewDatumIterator(pachClient, jobInfo.Input)
+	dit, err := datum.NewIterator(pachClient, jobInfo.Input)
 	if err != nil {
 		return nil, err
 	}
-	// If there's no stats commit (job not finished), compute datums using jobInfo
-	if jobInfo.StatsCommit == nil {
+
+	var statsCommitInfo *pfs.CommitInfo
+	if jobInfo.StatsCommit != nil {
+		statsCommitInfo, err = pachClient.InspectCommit(jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit.ID)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// If the stats commit is not closed, compute datums using jobInfo
+	if statsCommitInfo == nil || statsCommitInfo.Finished == nil {
 		start := 0
-		end := df.Len()
+		end := dit.Len()
 		if pageSize > 0 {
 			var err error
-			start, end, err = getPageBounds(df.Len())
+			start, end, err = getPageBounds(dit.Len())
 			if err != nil {
 				return nil, err
 			}
 			response.Page = page
-			response.TotalPages = getTotalPages(df.Len())
+			response.TotalPages = getTotalPages(dit.Len())
 		}
 		var datumInfos []*pps.DatumInfo
 		for i := start; i < end; i++ {
-			datum := df.DatumN(i) // flattened slice of *worker.Input to job
-			id := workerpkg.HashDatum(jobInfo.Pipeline.Name, jobInfo.Salt, datum)
+			datum := dit.DatumN(i) // flattened slice of *worker.Input to job
+			id := workercommon.HashDatum(jobInfo.Pipeline.Name, jobInfo.Salt, datum)
 			datumInfo := &pps.DatumInfo{
 				Datum: &pps.Datum{
 					ID:  id,
@@ -1074,7 +1094,7 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, page, 
 		return response, nil
 	}
 
-	// There is a stats commit -- job is finished
+	// The stats commit is closed -- job is finished
 	// List the files under / in the stats branch to get all the datums
 	file := &pfs.File{
 		Commit: jobInfo.StatsCommit,
@@ -1127,7 +1147,7 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, page, 
 				// not a datum
 				return nil
 			}
-			datum, err := a.getDatum(pachClient, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, job.ID, datumHash, df)
+			datum, err := a.getDatum(pachClient, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, job.ID, datumHash, dit)
 			if err != nil {
 				return err
 			}
@@ -1202,7 +1222,7 @@ func (a *apiServer) ListDatumStream(req *pps.ListDatumRequest, resp pps.API_List
 	return nil
 }
 
-func (a *apiServer) getDatum(pachClient *client.APIClient, repo string, commit *pfs.Commit, jobID string, datumID string, df workerpkg.DatumIterator) (datumInfo *pps.DatumInfo, retErr error) {
+func (a *apiServer) getDatum(pachClient *client.APIClient, repo string, commit *pfs.Commit, jobID string, datumID string, dit datum.Iterator) (datumInfo *pps.DatumInfo, retErr error) {
 	datumInfo = &pps.DatumInfo{
 		Datum: &pps.Datum{
 			ID:  datumID,
@@ -1256,10 +1276,10 @@ func (a *apiServer) getDatum(pachClient *client.APIClient, repo string, commit *
 	if err != nil {
 		return nil, err
 	}
-	if i >= df.Len() {
+	if i >= dit.Len() {
 		return nil, errors.Errorf("index %d out of range", i)
 	}
-	inputs := df.DatumN(i)
+	inputs := dit.DatumN(i)
 	for _, input := range inputs {
 		datumInfo.Data = append(datumInfo.Data, input.FileInfo)
 	}
@@ -1295,13 +1315,13 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 	if jobInfo.StatsCommit == nil {
 		return nil, errors.Errorf("job not finished, no stats output yet")
 	}
-	df, err := workerpkg.NewDatumIterator(pachClient, jobInfo.Input)
+	dit, err := datum.NewIterator(pachClient, jobInfo.Input)
 	if err != nil {
 		return nil, err
 	}
 
 	// Populate datumInfo given a path
-	datumInfo, err := a.getDatum(pachClient, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Datum.Job.ID, request.Datum.ID, df)
+	datumInfo, err := a.getDatum(pachClient, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Datum.Job.ID, request.Datum.ID, dit)
 	if err != nil {
 		return nil, err
 	}
@@ -1448,7 +1468,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 						if request.Master != msg.Master {
 							continue
 						}
-						if !workerpkg.MatchDatum(request.DataFilters, msg.Data) {
+						if !workercommon.MatchDatum(request.DataFilters, msg.Data) {
 							continue
 						}
 					}
@@ -1528,7 +1548,7 @@ func (a *apiServer) getLogsFromStats(pachClient *client.APIClient, request *pps.
 				if request.Master != msg.Master {
 					continue
 				}
-				if !workerpkg.MatchDatum(request.DataFilters, msg.Data) {
+				if !workercommon.MatchDatum(request.DataFilters, msg.Data) {
 					continue
 				}
 

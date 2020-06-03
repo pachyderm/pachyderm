@@ -113,7 +113,6 @@ func test(t *testing.T, workerFailProb, taskCancelProb, subtaskFailProb float64)
 						return err
 					}
 				}
-				return nil
 			})
 		}
 		tq, err := NewTaskQueue(errCtx, env.EtcdClient, "", "")
@@ -186,4 +185,18 @@ func TestSubtaskFailures(t *testing.T) {
 
 func TestEverything(t *testing.T) {
 	test(t, 0.1, 0.2, 0.1)
+}
+
+func TestRunZeroSubtasks(t *testing.T) {
+	require.NoError(t, testetcd.WithEnv(func(env *testetcd.Env) error {
+		tq, err := NewTaskQueue(context.Background(), env.EtcdClient, "", "")
+		if err != nil {
+			return err
+		}
+		return tq.RunTaskBlock(context.Background(), func(m *Master) error {
+			return m.RunSubtasks(nil, func(_ context.Context, _ *TaskInfo) error {
+				return nil
+			})
+		})
+	}))
 }

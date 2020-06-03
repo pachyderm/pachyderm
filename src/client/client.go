@@ -15,6 +15,8 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	// Import registers the grpc GZIP encoder
+	_ "google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 
@@ -88,6 +90,9 @@ type APIClient struct {
 	// The trusted CAs, for authenticating a pachd server over TLS
 	caCerts *x509.CertPool
 
+	// gzipCompress configures whether to enable compression by default for all calls
+	gzipCompress bool
+
 	// clientConn is a cached grpc connection to 'addr'
 	clientConn *grpc.ClientConn
 
@@ -133,6 +138,7 @@ const DefaultDialTimeout = 30 * time.Second
 
 type clientSettings struct {
 	maxConcurrentStreams int
+	gzipCompress         bool
 	dialTimeout          time.Duration
 	caCerts              *x509.CertPool
 }
@@ -154,9 +160,10 @@ func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
 		}
 	}
 	c := &APIClient{
-		addr:    addr,
-		caCerts: settings.caCerts,
-		limiter: limit.New(settings.maxConcurrentStreams),
+		addr:         addr,
+		caCerts:      settings.caCerts,
+		limiter:      limit.New(settings.maxConcurrentStreams),
+		gzipCompress: settings.gzipCompress,
 	}
 	if err := c.connect(settings.dialTimeout); err != nil {
 		return nil, err
@@ -228,6 +235,14 @@ func WithSystemCAs(settings *clientSettings) error {
 func WithDialTimeout(t time.Duration) Option {
 	return func(settings *clientSettings) error {
 		settings.dialTimeout = t
+		return nil
+	}
+}
+
+// WithGZIPCompression enabled GZIP compression for data on the wire
+func WithGZIPCompression() Option {
+	return func(settings *clientSettings) error {
+		settings.gzipCompress = true
 		return nil
 	}
 }
@@ -587,9 +602,16 @@ func (c *APIClient) connect(timeout time.Duration) error {
 			grpc.WithStreamInterceptor(tracing.StreamClientInterceptor()),
 		)
 	}
+	if c.gzipCompress {
+		dialOptions = append(dialOptions, grpc.WithDefaultCallOptions(grpc.UseCompressor("gzip")))
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	clientConn, err := grpc.DialContext(ctx, c.addr, dialOptions...)
+	addr := c.addr
+	if !strings.HasPrefix(addr, "dns:///") {
+		addr = "dns:///" + c.addr
+	}
+	clientConn, err := grpc.DialContext(ctx, addr, dialOptions...)
 	if err != nil {
 		return err
 	}

@@ -257,7 +257,7 @@
                 }
               }
             ],
-            "image": "quay.io/coreos/etcd:v3.3.5",
+            "image": "pachyderm/etcd:v3.3.5",
             "imagePullPolicy": "IfNotPresent",
             "name": "etcd",
             "ports": [
@@ -484,7 +484,7 @@
         "containers": [
           {
             "name": "pachd",
-            "image": "pachyderm/pachd:1.10.0",
+            "image": "pachyderm/pachd:1.11.0",
             "command": [
               "/app/pachd"
             ],
@@ -540,14 +540,14 @@
               },
               {
                 "name": "WORKER_IMAGE",
-                "value": "pachyderm/worker:1.10.0"
+                "value": "pachyderm/worker:1.11.0"
               },
               {
                 "name": "IMAGE_PULL_SECRET"
               },
               {
                 "name": "WORKER_SIDECAR_IMAGE",
-                "value": "pachyderm/pachd:1.10.0"
+                "value": "pachyderm/pachd:1.11.0"
               },
               {
                 "name": "WORKER_IMAGE_PULL_POLICY",
@@ -555,7 +555,7 @@
               },
               {
                 "name": "PACHD_VERSION",
-                "value": "1.10.0"
+                "value": "1.11.0"
               },
               {
                 "name": "METRICS",
@@ -903,6 +903,10 @@
               },
               {
                 "name": "STORAGE_UPLOAD_CONCURRENCY_LIMIT",
+                "value": "100"
+              },
+              {
+                "name": "STORAGE_PUT_FILE_CONCURRENCY_LIMIT",
                 "value": "100"
               }
             ],

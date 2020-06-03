@@ -12,6 +12,11 @@ var (
 	averageBits = 20
 )
 
+// TODO might want to move this into the chunk storage layer as a default tag.
+const (
+	indexTag = ""
+)
+
 type levelWriter struct {
 	cw      *chunk.Writer
 	pbw     pbutil.Writer
@@ -30,18 +35,20 @@ type Writer struct {
 	objC   obj.Client
 	chunks *chunk.Storage
 	path   string
+	tmpID  string
 	levels []*levelWriter
 	closed bool
 	root   *Index
 }
 
 // NewWriter create a new Writer.
-func NewWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path string) *Writer {
+func NewWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path string, tmpID string) *Writer {
 	return &Writer{
 		ctx:    ctx,
 		objC:   objC,
 		chunks: chunks,
 		path:   path,
+		tmpID:  tmpID,
 	}
 }
 
@@ -54,7 +61,7 @@ func (w *Writer) WriteIndexes(idxs []*Index) error {
 func (w *Writer) setupLevels() {
 	// Setup the first index level.
 	if w.levels == nil {
-		cw := w.chunks.NewWriter(w.ctx, averageBits, 0, false, w.callback(0))
+		cw := w.chunks.NewWriter(w.ctx, w.tmpID, w.callback(0), chunk.WithRollingHashConfig(averageBits, 0))
 		w.levels = append(w.levels, &levelWriter{
 			cw:  cw,
 			pbw: pbutil.NewWriter(cw),
@@ -68,12 +75,12 @@ func (w *Writer) writeIndexes(idxs []*Index, level int) error {
 		// Create an annotation for each index.
 		l.cw.Annotate(&chunk.Annotation{
 			RefDataRefs: idx.DataOp.DataRefs,
-			NextDataRef: &chunk.DataRef{},
 			Data: &data{
 				idx:   idx,
 				level: level,
 			},
 		})
+		l.cw.Tag(indexTag)
 		if _, err := l.pbw.Write(idx); err != nil {
 			return err
 		}
@@ -108,14 +115,14 @@ func (w *Writer) callback(level int) chunk.WriterFunc {
 			Offset:   dataRef.OffsetBytes,
 			LastPath: lastPath,
 		}
-		idx.DataOp = &DataOp{DataRefs: []*chunk.DataRef{chunk.Reference(dataRef)}}
+		idx.DataOp = &DataOp{DataRefs: []*chunk.DataRef{chunk.Reference(dataRef, indexTag)}}
 		// Set the root index when the writer is closed and we are at the top index level.
 		if w.closed {
 			w.root = idx
 		}
 		// Create next index level if it does not exist.
 		if level == len(w.levels)-1 {
-			cw := w.chunks.NewWriter(w.ctx, averageBits, int64(level+1), false, w.callback(level+1))
+			cw := w.chunks.NewWriter(w.ctx, w.tmpID, w.callback(level+1), chunk.WithRollingHashConfig(averageBits, int64(level+1)))
 			w.levels = append(w.levels, &levelWriter{
 				cw:  cw,
 				pbw: pbutil.NewWriter(cw),
@@ -127,7 +134,7 @@ func (w *Writer) callback(level int) chunk.WriterFunc {
 }
 
 // Close finishes the index, and returns the serialized top index level.
-func (w *Writer) Close() error {
+func (w *Writer) Close() (retErr error) {
 	w.closed = true
 	// Note: new levels can be created while closing, so the number of iterations
 	// necessary can increase as the levels are being closed. Levels stop getting
@@ -138,8 +145,6 @@ func (w *Writer) Close() error {
 		if err := l.cw.Close(); err != nil {
 			return err
 		}
-		// (bryce) this method of terminating the index can create garbage (level
-		// above the final level).
 		if l.cw.AnnotationCount() == 1 && l.cw.ChunkCount() == 1 {
 			break
 		}
@@ -149,8 +154,20 @@ func (w *Writer) Close() error {
 	if err != nil {
 		return err
 	}
-	if _, err := pbutil.NewWriter(objW).Write(w.root); err != nil {
+	defer func() {
+		if err := objW.Close(); retErr == nil {
+			retErr = err
+		}
+	}()
+	// Handles the empty file set case.
+	if w.root == nil {
+		_, err = pbutil.NewWriter(objW).Write(&Index{})
 		return err
 	}
-	return objW.Close()
+	chunk := w.root.DataOp.DataRefs[0].ChunkInfo.Chunk
+	if err := w.chunks.CreateSemanticReference(w.ctx, w.path, chunk); err != nil {
+		return err
+	}
+	_, err = pbutil.NewWriter(objW).Write(w.root)
+	return err
 }
