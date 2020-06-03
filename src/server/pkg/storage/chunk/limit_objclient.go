@@ -39,7 +39,7 @@ func (loc limitedObjClient) Writer(ctx context.Context, name string) (io.WriteCl
 	if err != nil {
 		return nil, err
 	}
-	return releaseWriteCloser{w, loc}, nil
+	return releaseWriteCloser{w, loc.writersSem}, nil
 }
 
 func (loc limitedObjClient) Reader(ctx context.Context, name string, offset, size uint64) (io.ReadCloser, error) {
@@ -50,25 +50,25 @@ func (loc limitedObjClient) Reader(ctx context.Context, name string, offset, siz
 	if err != nil {
 		return nil, err
 	}
-	return releaseReadCloser{r, loc}, nil
+	return releaseReadCloser{r, loc.readersSem}, nil
 }
 
 type releaseWriteCloser struct {
 	io.WriteCloser
-	loc limitedObjClient
+	sem *semaphore.Weighted
 }
 
 func (rwc releaseWriteCloser) Close() error {
-	rwc.loc.writersSem.Release(1)
+	rwc.sem.Release(1)
 	return rwc.WriteCloser.Close()
 }
 
 type releaseReadCloser struct {
 	io.ReadCloser
-	loc limitedObjClient
+	sem *semaphore.Weighted
 }
 
 func (rrc releaseReadCloser) Close() error {
-	rrc.loc.readersSem.Release(1)
+	rrc.sem.Release(1)
 	return rrc.ReadCloser.Close()
 }
