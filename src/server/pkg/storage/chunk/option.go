@@ -19,6 +19,8 @@ func WithGarbageCollection(gcClient gc.Client) StorageOption {
 	}
 }
 
+// WithMaxConcurrentObjects sets the maximum number of object writers (upload)
+// and readers (download) that can be open at a time.
 func WithMaxConcurrentObjects(maxUpload, maxDownload int) StorageOption {
 	return func(s *Storage) {
 		s.objClient = newLimitedObjClient(s.objClient, maxDownload, maxUpload)
