@@ -794,6 +794,11 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				}
 				return nil
 			}
+			for _, pi := range pipelineInfos {
+				if ppsutil.ErrorState(pi.State) {
+					fmt.Println("One or more pipelines have encountered errors, use inspect pipeline to get more info.")
+				}
+			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.PipelineHeader)
 			for _, pipelineInfo := range pipelineInfos {
 				pretty.PrintPipelineInfo(writer, pipelineInfo, fullTimestamps)

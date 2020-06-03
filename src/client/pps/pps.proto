@@ -352,14 +352,18 @@ enum PipelineState {
   // After some error caused runPipeline to exit, but before the pipeline is
   // re-run. This is when the exponential backoff is in effect.
   PIPELINE_RESTARTING = 2;
-  // We have retried too many times and we have given up on this pipeline (or
-  // the pipeline image doesn't exist)
+  // The pipeline has encountered unrecoverable errors and is no longer being
+  // retried. It won't leave this state until the pipeline is updated.
   PIPELINE_FAILURE = 3;
   // The pipeline has been explicitly paused by the user (the pipeline spec's
   // Stopped field should be true if the pipeline is in this state)
   PIPELINE_PAUSED = 4;
   // The pipeline is fully functional, but there are no commits to process.
   PIPELINE_STANDBY = 5;
+  // The pipeline's workers are crashing, or failing to come up, this may
+  // resolve itself, the pipeline may make progress while in this state if the
+  // problem is only being experienced by some workers.
+  PIPELINE_CRASHING = 6;
 }
 
 // EtcdPipelineInfo is proto that Pachd stores in etcd for each pipeline. It
@@ -405,6 +409,9 @@ message PipelineInfo {
   // same for stopped field
   bool stopped = 38;
   string recent_error = 8;
+
+  int64 workers_requested = 49;
+  int64 workers_available = 50;
 
   // job_counts and last_job_state indicates the number of jobs within this
   // pipeline in a given state and the state of the most recently created job,
