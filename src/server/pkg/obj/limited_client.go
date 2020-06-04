@@ -10,13 +10,19 @@ import (
 
 var _ Client = &limitedClient{}
 
+// limitedClient is a Client which limits the number of objects open at a time
+// for reading and writing respectively.
 type limitedClient struct {
 	Client
 	writersSem *semaphore.Weighted
 	readersSem *semaphore.Weighted
 }
 
-func NewLimitedClient(client Client, maxReaders, maxWriters int) *limitedClient {
+// NewLimitedClient constructs a Client which will only ever have
+//   <= maxReaders objects open for reading
+//   <= maxWriters objects open for writing
+// if either is < 1 then that constraint is ignored.
+func NewLimitedClient(client Client, maxReaders, maxWriters int) Client {
 	if maxReaders < 1 {
 		maxReaders = int(math.MaxInt64)
 	}
