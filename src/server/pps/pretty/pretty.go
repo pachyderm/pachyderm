@@ -194,8 +194,9 @@ Description: {{.Description}}{{end}}{{if .FullTimestamps }}
 Created: {{.CreatedAt}}{{ else }}
 Created: {{prettyAgo .CreatedAt}} {{end}}
 State: {{pipelineState .State}}
-Stopped: {{ .Stopped }}
 Reason: {{.Reason}}
+Workers Available: {{.WorkersAvailable}}/{{.WorkersRequested}}
+Stopped: {{ .Stopped }}
 Parallelism Spec: {{.ParallelismSpec}}
 {{ if .ResourceRequests }}ResourceRequests:
   CPU: {{ .ResourceRequests.Cpu }}
@@ -363,6 +364,8 @@ func pipelineState(pipelineState ppsclient.PipelineState) string {
 		return color.New(color.FgYellow).SprintFunc()("paused")
 	case ppsclient.PipelineState_PIPELINE_STANDBY:
 		return color.New(color.FgYellow).SprintFunc()("standby")
+	case ppsclient.PipelineState_PIPELINE_CRASHING:
+		return color.New(color.FgRed).SprintFunc()("crashing")
 	}
 	return "-"
 }

@@ -273,9 +273,20 @@ test-vault:
 	./src/plugin/vault/etc/pach-auth.sh --delete-all
 
 test-s3gateway-conformance:
+	@if [ -z $$CONFORMANCE_SCRIPT_PATH ]; then \
+	  echo "Missing environment variable 'CONFORMANCE_SCRIPT_PATH'"; \
+	  exit 1; \
+	fi
 	$(CONFORMANCE_SCRIPT_PATH) --s3tests-config=etc/testing/s3gateway/s3tests.conf --ignore-config=etc/testing/s3gateway/ignore.conf --runs-dir=etc/testing/s3gateway/runs
 
 test-s3gateway-integration:
+	@if [ -z $$INTEGRATION_SCRIPT_PATH ]; then \
+	  echo "Missing environment variable 'INTEGRATION_SCRIPT_PATH'"; \
+	  exit 1; \
+	fi
+	$(INTEGRATION_SCRIPT_PATH) http://localhost:30600 --access-key=none --secret-key=none
+
+test-s3gateway-unit:
 	go test -v -count=1 ./src/server/pfs/s3 -timeout $(TIMEOUT)
 
 test-fuse:
@@ -478,6 +489,7 @@ goxc-build:
 	test-vault \
 	test-s3gateway-conformance \
 	test-s3gateway-integration \
+	test-s3gateway-unit \
 	test-fuse \
 	test-local \
 	test-auth \

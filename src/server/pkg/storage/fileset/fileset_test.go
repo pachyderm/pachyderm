@@ -3,19 +3,18 @@ package fileset
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"math/rand"
 	"path"
 	"strconv"
 	"testing"
-	"time"
 
 	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
+	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
 const (
@@ -116,16 +115,9 @@ func dataRefsToHashes(dataRefs []*chunk.DataRef) []string {
 	return hashes
 }
 
-// (bryce) this should be somewhere else (probably testutil).
-func seedRand() string {
-	seed := time.Now().UTC().UnixNano()
-	rand.Seed(seed)
-	return fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
-}
-
 func TestWriteThenRead(t *testing.T) {
 	require.NoError(t, WithLocalStorage(func(fileSets *Storage) error {
-		msg := seedRand()
+		msg := testutil.SeedRand()
 		fileNames := index.Generate("abc")
 		files := []*testFile{}
 		for _, fileName := range fileNames {
@@ -166,7 +158,7 @@ func TestWriteThenRead(t *testing.T) {
 
 func TestCopy(t *testing.T) {
 	require.NoError(t, WithLocalStorage(func(fileSets *Storage) error {
-		msg := seedRand()
+		msg := testutil.SeedRand()
 		fileNames := index.Generate("abc")
 		files := []*testFile{}
 		// Write the initial fileset and count the chunks.
@@ -213,7 +205,7 @@ func TestCopy(t *testing.T) {
 
 func TestResolveIndexes(t *testing.T) {
 	require.NoError(t, WithLocalStorage(func(fileSets *Storage) error {
-		msg := seedRand()
+		msg := testutil.SeedRand()
 		numFileSets := 5
 		// Generate filesets.
 		files := generateFileSets(t, fileSets, numFileSets, testPath, msg)
@@ -236,7 +228,7 @@ func TestResolveIndexes(t *testing.T) {
 
 func TestCompaction(t *testing.T) {
 	require.NoError(t, WithLocalStorage(func(fileSets *Storage) error {
-		msg := seedRand()
+		msg := testutil.SeedRand()
 		numFileSets := 5
 		// Generate filesets.
 		files := generateFileSets(t, fileSets, numFileSets, testPath, msg)

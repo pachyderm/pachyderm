@@ -12,6 +12,7 @@ var (
 	averageBits = 20
 )
 
+// TODO might want to move this into the chunk storage layer as a default tag.
 const (
 	indexTag = ""
 )
@@ -74,7 +75,6 @@ func (w *Writer) writeIndexes(idxs []*Index, level int) error {
 		// Create an annotation for each index.
 		l.cw.Annotate(&chunk.Annotation{
 			RefDataRefs: idx.DataOp.DataRefs,
-			NextDataRef: &chunk.DataRef{},
 			Data: &data{
 				idx:   idx,
 				level: level,
@@ -115,7 +115,7 @@ func (w *Writer) callback(level int) chunk.WriterFunc {
 			Offset:   dataRef.OffsetBytes,
 			LastPath: lastPath,
 		}
-		idx.DataOp = &DataOp{DataRefs: []*chunk.DataRef{chunk.Reference(dataRef)}}
+		idx.DataOp = &DataOp{DataRefs: []*chunk.DataRef{chunk.Reference(dataRef, indexTag)}}
 		// Set the root index when the writer is closed and we are at the top index level.
 		if w.closed {
 			w.root = idx
@@ -145,8 +145,6 @@ func (w *Writer) Close() (retErr error) {
 		if err := l.cw.Close(); err != nil {
 			return err
 		}
-		// (bryce) this method of terminating the index can create garbage (level
-		// above the final level).
 		if l.cw.AnnotationCount() == 1 && l.cw.ChunkCount() == 1 {
 			break
 		}

@@ -14,7 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/metrics"
 )
 
-func (a *apiServer) PutTar(server pfs.API_PutTarServer) (retErr error) {
+func (a *apiServer) PutTarV2(server pfs.API_PutTarV2Server) (retErr error) {
 	req, err := server.Recv()
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, nil, retErr, time.Since(start)) }(time.Now())
@@ -22,7 +22,7 @@ func (a *apiServer) PutTar(server pfs.API_PutTarServer) (retErr error) {
 		if err != nil {
 			return 0, err
 		}
-		if !a.env.NewStorageLayer {
+		if !a.env.StorageV2 {
 			return 0, errors.Errorf("new storage layer disabled")
 		}
 		repo := req.Commit.Repo.Name
@@ -58,7 +58,7 @@ func (a *apiServer) PutTar(server pfs.API_PutTarServer) (retErr error) {
 }
 
 type putTarReader struct {
-	server    pfs.API_PutTarServer
+	server    pfs.API_PutTarV2Server
 	r         *bytes.Reader
 	bytesRead int64
 }
@@ -79,23 +79,22 @@ func (ptr *putTarReader) Read(data []byte) (int, error) {
 	return n, err
 }
 
-func (a *apiServer) GetTar(request *pfs.GetTarRequest, server pfs.API_GetTarServer) (retErr error) {
+func (a *apiServer) GetTarV2(request *pfs.GetTarRequestV2, server pfs.API_GetTarV2Server) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
-		if !a.env.NewStorageLayer {
+		if !a.env.StorageV2 {
 			return 0, errors.Errorf("new storage layer disabled")
 		}
 		repo := request.File.Commit.Repo.Name
 		commit := request.File.Commit.ID
 		glob := request.File.Path
 		gtw := newGetTarWriter(grpcutil.NewStreamingBytesWriter(server))
-		err := a.driver.getFilesNewStorageLayer(server.Context(), repo, commit, glob, gtw)
+		err := a.driver.getTar(server.Context(), repo, commit, glob, gtw)
 		return gtw.bytesWritten, err
 	})
 }
 
-// (bryce) this is probably unecessary.
 type getTarWriter struct {
 	w            io.Writer
 	bytesWritten int64
@@ -111,7 +110,7 @@ func (gtw *getTarWriter) Write(data []byte) (int, error) {
 	return n, err
 }
 
-func (a *apiServer) GetTarConditional(server pfs.API_GetTarConditionalServer) (retErr error) {
+func (a *apiServer) GetTarConditionalV2(server pfs.API_GetTarConditionalV2Server) (retErr error) {
 	request, err := server.Recv()
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
@@ -119,15 +118,15 @@ func (a *apiServer) GetTarConditional(server pfs.API_GetTarConditionalServer) (r
 		if err != nil {
 			return 0, err
 		}
-		if !a.env.NewStorageLayer {
+		if !a.env.StorageV2 {
 			return 0, errors.Errorf("new storage layer disabled")
 		}
 		repo := request.File.Commit.Repo.Name
 		commit := request.File.Commit.ID
 		glob := request.File.Path
 		var bytesWritten int64
-		err := a.driver.getFilesConditional(server.Context(), repo, commit, glob, func(fr *FileReader) error {
-			if err := server.Send(&pfs.GetTarConditionalResponse{FileInfo: fr.Info()}); err != nil {
+		err := a.driver.getTarConditional(server.Context(), repo, commit, glob, func(fr *FileReader) error {
+			if err := server.Send(&pfs.GetTarConditionalResponseV2{FileInfo: fr.Info()}); err != nil {
 				return err
 			}
 			req, err := server.Recv()
@@ -149,25 +148,25 @@ func (a *apiServer) GetTarConditional(server pfs.API_GetTarConditionalServer) (r
 			if err := w.Flush(); err != nil {
 				return err
 			}
-			return server.Send(&pfs.GetTarConditionalResponse{EOF: true})
+			return server.Send(&pfs.GetTarConditionalResponseV2{EOF: true})
 		})
 		return bytesWritten, err
 	})
 }
 
 type getTarConditionalWriter struct {
-	server       pfs.API_GetTarConditionalServer
+	server       pfs.API_GetTarConditionalV2Server
 	bytesWritten int64
 }
 
-func newGetTarConditionalWriter(server pfs.API_GetTarConditionalServer) *getTarConditionalWriter {
+func newGetTarConditionalWriter(server pfs.API_GetTarConditionalV2Server) *getTarConditionalWriter {
 	return &getTarConditionalWriter{
 		server: server,
 	}
 }
 
 func (w *getTarConditionalWriter) Write(data []byte) (int, error) {
-	if err := w.server.Send(&pfs.GetTarConditionalResponse{Data: data}); err != nil {
+	if err := w.server.Send(&pfs.GetTarConditionalResponseV2{Data: data}); err != nil {
 		return 0, err
 	}
 	w.bytesWritten += int64(len(data))
@@ -176,7 +175,7 @@ func (w *getTarConditionalWriter) Write(data []byte) (int, error) {
 
 func (a *apiServer) ListFileV2(req *pfs.ListFileRequest, server pfs.API_ListFileV2Server) error {
 	pachClient := a.env.GetPachClient(server.Context())
-	return a.driver.listFileV2(pachClient, req.File, req.Full, req.History, func(finfo *pfs.FileInfoNewStorage) error {
+	return a.driver.listFileV2(pachClient, req.File, req.Full, req.History, func(finfo *pfs.FileInfoV2) error {
 		return server.Send(finfo)
 	})
 }

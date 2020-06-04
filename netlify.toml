@@ -16,22 +16,28 @@ publish = "doc/site"
   force = true
 
 [[redirects]]
-  from = "/deploy-manage/deploy/deploy-pachyderm-jupyterhub/"
-  to = "/deploy-manage/deploy/deploy-pachyderm-ide/"
+  from = "/en/latest/"
+  to = "/latest/"
   status = 301
   force = true
 
-[[redirects]]
-  from = "/how-tos/use-jupyterhub/"
-  to = "/how-tos/use-pachyderm-ide/"
-  status = 301
-  force = true
+#[[redirects]]
+#  from = "/deploy-manage/deploy/deploy-pachyderm-jupyterhub/"
+#  to = "/deploy-manage/deploy/deploy-pachyderm-ide/"
+#  status = 301
+#  force = true
 
-[[redirects]]
-  from = "/how-tos/use-jupyterhub/using-jupyterhub/"
-  to = "/how-tos/use-pachyderm-ide/using-pachyderm-ide/"
-  status = 301
-  force = true
+#[[redirects]]
+#  from = "/how-tos/use-jupyterhub/"
+#  to = "/how-tos/use-pachyderm-ide/"
+#  status = 301
+#  force = true
+
+#[[redirects]]
+#  from = "/how-tos/use-jupyterhub/using-jupyterhub/"
+#  to = "/how-tos/use-pachyderm-ide/using-pachyderm-ide/"
+#  status = 301
+#  force = true
 
 [[redirects]]
    from = "/deploy-manage/manage/batching_pachyderm_with_transactions/"

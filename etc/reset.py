@@ -230,7 +230,7 @@ async def main():
 
     deployment_args = [
         "pachctl", "deploy", "local", "-d", "--dry-run", "--create-context", "--no-guaranteed",
-        *driver.extra_deploy_args()
+        "--log-level=debug", *driver.extra_deploy_args()
     ]
     if not args.dash:
         deployment_args.append("--no-dashboard")

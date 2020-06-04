@@ -26,10 +26,16 @@ func RandSeq(n int) []byte {
 }
 
 // Reference creates a data reference for the full chunk referenced by a data reference.
-func Reference(dataRef *DataRef) *DataRef {
+func Reference(dataRef *DataRef, tag string) *DataRef {
 	chunkRef := &DataRef{}
 	chunkRef.ChunkInfo = dataRef.ChunkInfo
 	chunkRef.SizeBytes = dataRef.ChunkInfo.SizeBytes
+	chunkRef.Tags = []*Tag{
+		&Tag{
+			Id:        tag,
+			SizeBytes: dataRef.ChunkInfo.SizeBytes,
+		},
+	}
 	return chunkRef
 }
 

@@ -7,7 +7,6 @@ import (
 )
 
 // New creates a new hasher.
-// (bryce) make a decision on which hash to go with.
 func New() hash.Hash {
 	return sha512.New()
 }

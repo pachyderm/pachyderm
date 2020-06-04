@@ -70,7 +70,6 @@ func (w *Writer) finishPriorFile() error {
 
 func (w *Writer) setupAnnotation(path string) {
 	w.cw.Annotate(&chunk.Annotation{
-		NextDataRef: &chunk.DataRef{},
 		Data: &data{
 			idx: &index.Index{
 				Path:   path,
