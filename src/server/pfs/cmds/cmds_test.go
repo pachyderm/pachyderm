@@ -81,18 +81,29 @@ func TestPutFileSplitPlugin(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+
 	require.NoError(t, tu.BashCmd(`
 		pachctl create repo {{.repo}}
 
 		pushd ../../../../etc/testing/custom-splitters
-			pachctl put file {{.repo}}@master:/ -f valid.so -f invalid.so
+			pachctl put file {{.repo}}@master:/valid.so -f valid.so
 			pachctl put file {{.repo}}@master:/person_valid.xml --split={{.repo}}@master:/valid.so -f person.xml
-			pachctl put file {{.repo}}@master:/person_invalid.xml --split={{.repo}}@master:/invalid.so -f person.xml
 		popd
 
 		pachctl get file {{.repo}}@master:/person_valid.xml
 		`,
-		"repo", tu.UniqueString("TestPutFileSplitPlugin-repo"),
+		"repo", tu.UniqueString("TestPutFileSplitPlugin1-repo"),
+	).Run())
+
+	require.YesError(t, tu.BashCmd(`
+		pachctl create repo {{.repo}}
+
+		pushd ../../../../etc/testing/custom-splitters
+			pachctl put file {{.repo}}@master:/invalid.so -f invalid.so
+			pachctl put file {{.repo}}@master:/person_invalid.xml --split={{.repo}}@master:/invalid.so -f person.xml
+		popd
+		`,
+		"repo", tu.UniqueString("TestPutFileSplitPlugin2-repo"),
 	).Run())
 }
 
