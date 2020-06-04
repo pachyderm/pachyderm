@@ -12,12 +12,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	log "github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
-	kube "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
+	kube "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 // ServiceEnv is a struct containing connections to other services in the
@@ -127,7 +125,8 @@ func (env *ServiceEnv) initEtcdClient() error {
 			Endpoints: []string{env.etcdAddress},
 			// Use a long timeout with Etcd so that Pachyderm doesn't crash loop
 			// while waiting for etcd to come up (makes startup net faster)
-			DialOptions:        append(client.DefaultDialOptions(), grpc.WithTimeout(3*time.Minute)), //lint:ignore SA1019 can't call grpc.Dial directly
+			DialTimeout:        3 * time.Minute,
+			DialOptions:        client.DefaultDialOptions(), //lint:ignore SA1019 can't call grpc.Dial directly
 			MaxCallSendMsgSize: math.MaxInt32,
 			MaxCallRecvMsgSize: math.MaxInt32,
 		})
