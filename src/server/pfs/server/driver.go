@@ -12,10 +12,8 @@ import (
 	"math"
 	"net/http"
 	"net/url"
-	"os"
 	"path"
 	"path/filepath"
-	"plugin"
 	"sort"
 	"strconv"
 	"strings"
@@ -36,6 +34,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pfsdb"
+	"github.com/pachyderm/pachyderm/src/server/pkg/plugin"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sql"
@@ -2874,8 +2873,6 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 	var files []*pfs.File
 	var putFilePaths []string
 	var putFileRecords []*pfs.PutFileRecords
-	var customSplitters map[*pfs.File]SplitFn // TODO(ys): will lookups here work fine, given pfs.File is behind a pointer?
-	var customSplittersMu sync.Mutex
 	var resultsMu sync.Mutex
 
 	oneOff, repo, branch, err := d.forEachPutFile(pachClient, s, func(req *pfs.PutFileRequest, r io.Reader) error {
@@ -2886,19 +2883,11 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 				return errors.Errorf("cannot set the delimiter plugin file with delimiter != PLUGIN")
 			}
 
-			customSplittersMu.Lock()
-			var ok bool
-			splitFn, ok = customSplitters[req.DelimiterPlugin]
-			if !ok {
-				var err error
-				splitFn, err = d.getSplitterFunction(pachClient, req.DelimiterPlugin)
-				if err != nil {
-					customSplittersMu.Unlock()
-					return err
-				}
-				customSplitters[req.DelimiterPlugin] = splitFn
+			var err error
+			splitFn, err = d.getSplitterFunction(pachClient, req.DelimiterPlugin)
+			if err != nil {
+				return err
 			}
-			customSplittersMu.Unlock()
 		} else if req.Delimiter == pfs.Delimiter_PLUGIN {
 			return errors.Errorf("must set the delimiter plugin file")
 		}
@@ -2940,33 +2929,31 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 }
 
 func (d *driver) getSplitterFunction(pachClient *client.APIClient, pfsFile *pfs.File) (SplitFn, error) {
-	r, err := d.getFile(pachClient, pfsFile, 0, 0)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get delimiter plugin file")
-	}
+	p, err := plugin.Load(pfsFile, func(pfsFile *pfs.File) (string, error) {
+		r, err := d.getFile(pachClient, pfsFile, 0, 0)
+		if err != nil {
+			return "", errors.Wrapf(err, "failed to get delimiter plugin file")
+		}
 
-	f, err := ioutil.TempFile("", "delimiter-plugin-*.so")
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create temporary file for storing delimiter plugin contents")
-	}
-	defer os.Remove(f.Name())
+		f, err := ioutil.TempFile("", "delimiter-plugin-*.so")
+		if err != nil {
+			return "", errors.Wrapf(err, "failed to create temporary file for storing delimiter plugin contents")
+		}
 
-	if _, err = io.Copy(f, r); err != nil {
-		return nil, errors.Wrapf(err, "failed to read PFS stored delimiter plugin file")
-	}
+		if _, err = io.Copy(f, r); err != nil {
+			return "", errors.Wrapf(err, "failed to read PFS stored delimiter plugin file")
+		}
 
-	if err = f.Close(); err != nil {
-		return nil, errors.Wrapf(err, "failed to close locally stored delimiter plugin file")
-	}
+		if err = f.Close(); err != nil {
+			return "", errors.Wrapf(err, "failed to close delimiter plugin file")
+		}
 
-	p, err := plugin.Open(f.Name())
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to open locally stored delimiter plugin file")
-	}
+		return f.Name(), nil
+	})
 
 	s, err := p.Lookup("Split")
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to open locally stored delimiter plugin file")
+		return nil, errors.Wrapf(err, "failed to lookup symbol in delimiter plugin file")
 	}
 
 	dp, ok := s.(SplitFn)
