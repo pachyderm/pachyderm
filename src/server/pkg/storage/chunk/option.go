@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/gc"
 )
@@ -21,9 +22,9 @@ func WithGarbageCollection(gcClient gc.Client) StorageOption {
 
 // WithMaxConcurrentObjects sets the maximum number of object writers (upload)
 // and readers (download) that can be open at a time.
-func WithMaxConcurrentObjects(maxUpload, maxDownload int) StorageOption {
+func WithMaxConcurrentObjects(maxDownload, maxUpload int) StorageOption {
 	return func(s *Storage) {
-		s.objClient = newLimitedObjClient(s.objClient, maxDownload, maxUpload)
+		s.objClient = obj.NewLimitedClient(s.objClient, maxDownload, maxUpload)
 	}
 }
 
@@ -31,7 +32,7 @@ func WithMaxConcurrentObjects(maxUpload, maxDownload int) StorageOption {
 // the storage configuration) to a set of storage options.
 func ServiceEnvToOptions(env *serviceenv.ServiceEnv) (options []StorageOption) {
 	if env.StorageUploadConcurrencyLimit > 0 {
-		options = append(options, WithMaxConcurrentObjects(env.StorageUploadConcurrencyLimit, 0))
+		options = append(options, WithMaxConcurrentObjects(0, env.StorageUploadConcurrencyLimit))
 	}
 	return options
 }

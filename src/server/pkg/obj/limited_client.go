@@ -1,37 +1,36 @@
-package chunk
+package obj
 
 import (
 	"context"
 	io "io"
 	"math"
 
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"golang.org/x/sync/semaphore"
 )
 
-var _ obj.Client = limitedObjClient{}
+var _ Client = &limitedClient{}
 
-type limitedObjClient struct {
-	obj.Client
+type limitedClient struct {
+	Client
 	writersSem *semaphore.Weighted
 	readersSem *semaphore.Weighted
 }
 
-func newLimitedObjClient(client obj.Client, maxReaders, maxWriters int) limitedObjClient {
+func NewLimitedClient(client Client, maxReaders, maxWriters int) *limitedClient {
 	if maxReaders < 1 {
 		maxReaders = int(math.MaxInt64)
 	}
 	if maxWriters < 1 {
 		maxWriters = int(math.MaxInt64)
 	}
-	return limitedObjClient{
+	return &limitedClient{
 		Client:     client,
 		writersSem: semaphore.NewWeighted(int64(maxWriters)),
 		readersSem: semaphore.NewWeighted(int64(maxReaders)),
 	}
 }
 
-func (loc limitedObjClient) Writer(ctx context.Context, name string) (io.WriteCloser, error) {
+func (loc *limitedClient) Writer(ctx context.Context, name string) (io.WriteCloser, error) {
 	if err := loc.writersSem.Acquire(ctx, 1); err != nil {
 		return nil, err
 	}
@@ -42,7 +41,7 @@ func (loc limitedObjClient) Writer(ctx context.Context, name string) (io.WriteCl
 	return releaseWriteCloser{w, loc.writersSem}, nil
 }
 
-func (loc limitedObjClient) Reader(ctx context.Context, name string, offset, size uint64) (io.ReadCloser, error) {
+func (loc *limitedClient) Reader(ctx context.Context, name string, offset, size uint64) (io.ReadCloser, error) {
 	if err := loc.readersSem.Acquire(ctx, 1); err != nil {
 		return nil, err
 	}
