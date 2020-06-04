@@ -205,13 +205,16 @@ func (c APIClient) CreateJob(pipeline string, outputCommit, statsCommit *pfs.Com
 
 // InspectJob returns info about a specific job.
 // blockState will cause the call to block until the job reaches a terminal state (failure or success).
-func (c APIClient) InspectJob(jobID string, blockState bool) (*pps.JobInfo, error) {
-	jobInfo, err := c.PpsAPIClient.InspectJob(
-		c.Ctx(),
-		&pps.InspectJobRequest{
-			Job:        NewJob(jobID),
-			BlockState: blockState,
-		})
+// full indicates that the full job info should be returned.
+func (c APIClient) InspectJob(jobID string, blockState bool, full ...bool) (*pps.JobInfo, error) {
+	req := &pps.InspectJobRequest{
+		Job:        NewJob(jobID),
+		BlockState: blockState,
+	}
+	if len(full) > 0 {
+		req.Full = full[0]
+	}
+	jobInfo, err := c.PpsAPIClient.InspectJob(c.Ctx(), req)
 	return jobInfo, grpcutil.ScrubGRPC(err)
 }
 
