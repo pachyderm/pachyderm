@@ -13,7 +13,7 @@ func ForEachLine(resp *loghttp.QueryResponse, f func(line string) error) error {
 	// sort and display entries
 	streams, ok := resp.Data.Result.(loghttp.Streams)
 	if !ok {
-		return errors.Errorf("respo.ResultValue must be of type loghttp.Streams to call ForEachStream on it")
+		return errors.Errorf("resp.Data.Result must be of type loghttp.Streams to call ForEachStream on it")
 	}
 	allEntries := make([]streamEntryPair, 0)
 
