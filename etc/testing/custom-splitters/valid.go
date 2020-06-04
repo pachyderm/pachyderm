@@ -1,12 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"encoding/xml"
 	"fmt"
-	"io"
 )
 
-func Split(buf io.Reader, out chan []byte) error {
+func Split(buf *bufio.Reader, out chan []byte) error {
 	decoder := xml.NewDecoder(buf)
 
 	for {
