@@ -19,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 )
 
@@ -614,7 +615,8 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 				return err
 			}
 			return nil
-		}); err != nil && !errutil.IsNotFoundError(err) {
+		}); err != nil && !errutil.IsNotFoundError(err) &&
+		!pfsserver.IsOutputCommitNotFinishedErr(err) {
 		return err
 	}
 	return nil

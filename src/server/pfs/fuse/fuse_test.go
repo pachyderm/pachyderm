@@ -350,17 +350,13 @@ func TestOpenCommit(t *testing.T) {
 	}, func(mountPoint string) {
 		repos, err := ioutil.ReadDir(mountPoint)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(repos))
-		require.Equal(t, "repo", filepath.Base(repos[0].Name()))
-		files, err := ioutil.ReadDir(filepath.Join(mountPoint, "repo"))
+		require.Equal(t, 2, len(repos))
+		files, err := ioutil.ReadDir(filepath.Join(mountPoint, "in"))
 		require.NoError(t, err)
-		require.Equal(t, 2, len(files))
-		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo", "file1"))
+		require.Equal(t, 0, len(files))
+		files, err = ioutil.ReadDir(filepath.Join(mountPoint, "out"))
 		require.NoError(t, err)
-		require.Equal(t, "file1", string(data))
-		data, err = ioutil.ReadFile(filepath.Join(mountPoint, "repo", "file2"))
-		require.NoError(t, err)
-		require.Equal(t, "file2", string(data))
+		require.Equal(t, 0, len(files))
 	})
 }
 
