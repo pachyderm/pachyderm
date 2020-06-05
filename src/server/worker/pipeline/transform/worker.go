@@ -396,10 +396,10 @@ func processDatum(
 		return stats, recoveredDatumTags, nil
 	}
 
+	statsRoot := path.Join("/", datumID)
 	var inputTree, outputTree *hashtree.Ordered
 	var statsTree *hashtree.Unordered
 	if driver.PipelineInfo().EnableStats {
-		statsRoot := path.Join("/", datumID)
 		inputTree = hashtree.NewOrdered(path.Join(statsRoot, "pfs"))
 		outputTree = hashtree.NewOrdered(path.Join(statsRoot, "pfs", "out"))
 		statsTree = hashtree.NewUnordered(statsRoot)
@@ -492,6 +492,11 @@ func processDatum(
 				}
 			}
 			return err
+		}
+		// If stats is enabled, reset input and output tree on retry.
+		if statsTree != nil {
+			inputTree = hashtree.NewOrdered(path.Join(statsRoot, "pfs"))
+			outputTree = hashtree.NewOrdered(path.Join(statsRoot, "pfs", "out"))
 		}
 		logger.Logf("failed processing datum: %v, retrying in %v", err, d)
 		return nil
