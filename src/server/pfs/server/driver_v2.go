@@ -8,23 +8,34 @@ import (
 	"path"
 	"regexp"
 	"strconv"
+	"sync"
 	"time"
 
+	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	globlib "github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
+	"github.com/pachyderm/pachyderm/src/server/pkg/pfsdb"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/gc"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 	"golang.org/x/net/context"
+	"golang.org/x/sync/semaphore"
 )
 
 const (
@@ -35,7 +46,123 @@ const (
 	storageTaskNamespace = "storage"
 )
 
-func (d *driver) finishCommitV2(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, description string) error {
+type driverV2 struct {
+	*driver
+
+	env *serviceenv.ServiceEnv
+	// etcdClient and prefix write repo and other metadata to etcd
+	etcdClient *etcd.Client
+	txnEnv     *txnenv.TransactionEnv
+	prefix     string
+
+	// collections
+	repos          col.Collection
+	putFileRecords col.Collection
+	commits        collectionFactory
+	branches       collectionFactory
+	openCommits    col.Collection
+
+	// a cache for hashtrees
+	treeCache *hashtree.Cache
+
+	// storageRoot where we store hashtrees
+	storageRoot string
+
+	// memory limiter (useful for limiting operations that could use a lot of memory)
+	memoryLimiter *semaphore.Weighted
+	// put object limiter (useful for limiting put object requests)
+	putObjectLimiter limit.ConcurrencyLimiter
+	// limits the total parallelism for uploading files over GRPC or loading from external sources
+	putFileLimiter limit.ConcurrencyLimiter
+
+	// New storage layer.
+	storage         *fileset.Storage
+	subFileSet      int64
+	compactionQueue *work.TaskQueue
+	mu              sync.Mutex
+}
+
+// newDriver is used to create a new Driver instance
+func newDriverV2(
+	env *serviceenv.ServiceEnv,
+	txnEnv *txnenv.TransactionEnv,
+	etcdPrefix string,
+	treeCache *hashtree.Cache,
+	storageRoot string,
+	memoryRequest int64,
+) (*driverV2, error) {
+	d1, err := newDriver(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
+	if err != nil {
+		return nil, err
+	}
+
+	// Validate arguments
+	if treeCache == nil {
+		return nil, errors.Errorf("cannot initialize driver with nil treeCache")
+	}
+	// Initialize driver
+	etcdClient := env.GetEtcdClient()
+	d := &driverV2{
+		driver:         d1,
+		env:            env,
+		txnEnv:         txnEnv,
+		etcdClient:     etcdClient,
+		prefix:         etcdPrefix,
+		repos:          pfsdb.Repos(etcdClient, etcdPrefix),
+		putFileRecords: pfsdb.PutFileRecords(etcdClient, etcdPrefix),
+		commits: func(repo string) col.Collection {
+			return pfsdb.Commits(etcdClient, etcdPrefix, repo)
+		},
+		branches: func(repo string) col.Collection {
+			return pfsdb.Branches(etcdClient, etcdPrefix, repo)
+		},
+		openCommits: pfsdb.OpenCommits(etcdClient, etcdPrefix),
+		treeCache:   treeCache,
+		storageRoot: storageRoot,
+		// Allow up to a third of the requested memory to be used for memory intensive operations
+		memoryLimiter:    semaphore.NewWeighted(memoryRequest / 3),
+		putObjectLimiter: limit.New(env.StorageUploadConcurrencyLimit),
+		putFileLimiter:   limit.New(env.StoragePutFileConcurrencyLimit),
+		// TODO: set maxFanIn based on downward API.
+	}
+
+	// Create spec repo (default repo)
+	repo := client.NewRepo(ppsconsts.SpecRepo)
+	repoInfo := &pfs.RepoInfo{
+		Repo:    repo,
+		Created: types.TimestampNow(),
+	}
+	if _, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
+		repos := d.repos.ReadWrite(stm)
+		return repos.Create(repo.Name, repoInfo)
+	}); err != nil && !col.IsErrExists(err) {
+		return nil, err
+	}
+	objClient, err := NewObjClient(env.Configuration)
+	if err != nil {
+		return nil, err
+	}
+	// (bryce) local db for testing.
+	db, err := gc.NewLocalDB()
+	if err != nil {
+		return nil, err
+	}
+	gcClient, err := gc.NewClient(db)
+	if err != nil {
+		return nil, err
+	}
+	chunkStorageOpts := append([]chunk.StorageOption{chunk.WithGarbageCollection(gcClient)}, chunk.ServiceEnvToOptions(env)...)
+	d.storage = fileset.NewStorage(objClient, chunk.NewStorage(objClient, chunkStorageOpts...), fileset.ServiceEnvToOptions(env)...)
+	d.compactionQueue, err = work.NewTaskQueue(context.Background(), d.etcdClient, d.prefix, storageTaskNamespace)
+	if err != nil {
+		return nil, err
+	}
+	go d.master(env, objClient, db)
+	go d.compactionWorker()
+	return d, nil
+}
+
+func (d *driverV2) finishCommitV2(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, description string) error {
 	if err := d.checkIsAuthorizedInTransaction(txnCtx, commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
@@ -95,7 +222,7 @@ func (d *driver) finishCommitV2(txnCtx *txnenv.TransactionContext, commit *pfs.C
 //}
 
 // TODO Need commit validation and handling of branch names.
-func (d *driver) withFileSet(ctx context.Context, repo, commit string, f func(*fileset.FileSet) error) (retErr error) {
+func (d *driverV2) withFileSet(ctx context.Context, repo, commit string, f func(*fileset.FileSet) error) (retErr error) {
 	// TODO subFileSet will need to be incremented through postgres or etcd.
 	d.mu.Lock()
 	subFileSetStr := fileset.SubFileSetStr(d.subFileSet)
@@ -120,7 +247,7 @@ func (d *driver) withFileSet(ctx context.Context, repo, commit string, f func(*f
 }
 
 // TODO Need to figure out path cleaning.
-func (d *driver) getTar(ctx context.Context, repo, commit, glob string, w io.Writer) error {
+func (d *driverV2) getTar(ctx context.Context, repo, commit, glob string, w io.Writer) error {
 	if err := d.getTarConditional(ctx, repo, commit, glob, func(fr *FileReader) error {
 		return fr.Get(w, true)
 	}); err != nil {
@@ -130,7 +257,7 @@ func (d *driver) getTar(ctx context.Context, repo, commit, glob string, w io.Wri
 	return tar.NewWriter(w).Close()
 }
 
-func (d *driver) listFileV2(pachClient *client.APIClient, file *pfs.File, full bool, history int64, f func(*pfs.FileInfoV2) error) error {
+func (d *driverV2) listFileV2(pachClient *client.APIClient, file *pfs.File, full bool, history int64, f func(*pfs.FileInfoV2) error) error {
 	ctx := pachClient.Ctx()
 	if err := validateFile(file); err != nil {
 		return err
@@ -154,7 +281,7 @@ func globLiteralPrefix(glob string) string {
 }
 
 // TODO Need to figure out path cleaning.
-func (d *driver) getTarConditional(ctx context.Context, repo, commit, glob string, f func(*FileReader) error) error {
+func (d *driverV2) getTarConditional(ctx context.Context, repo, commit, glob string, f func(*FileReader) error) error {
 	compactedPaths := []string{path.Join(repo, commit, fileset.Compacted)}
 	prefix := globLiteralPrefix(glob)
 	mr, err := d.storage.NewMergeReader(ctx, compactedPaths, index.WithPrefix(prefix))
@@ -297,7 +424,7 @@ func (fr *FileReader) drain() error {
 	return nil
 }
 
-func (d *driver) compact(master *work.Master, outputPath string, inputPrefixes []string) error {
+func (d *driverV2) compact(master *work.Master, outputPath string, inputPrefixes []string) error {
 	ctx := master.Ctx()
 	// resolve prefixes into paths
 	inputPaths := []string{}
@@ -326,7 +453,7 @@ type compactSpec struct {
 
 // compactIter is one level of compaction.  It will only perform compaction
 // if len(inputPaths) <= params.maxFanIn otherwise it will split inputPaths recursively.
-func (d *driver) compactIter(ctx context.Context, params compactSpec) (retErr error) {
+func (d *driverV2) compactIter(ctx context.Context, params compactSpec) (retErr error) {
 	if len(params.inputPaths) <= params.maxFanIn {
 		return d.shardedCompact(ctx, params.master, params.outputPath, params.inputPaths)
 	}
@@ -368,7 +495,7 @@ func (d *driver) compactIter(ctx context.Context, params compactSpec) (retErr er
 // gives those shards to workers, and waits for them to complete.
 // Fan in is bound by len(inputPaths), concatenating shards have
 // fan in of one because they are concatenated sequentially.
-func (d *driver) shardedCompact(ctx context.Context, master *work.Master, outputPath string, inputPaths []string) (retErr error) {
+func (d *driverV2) shardedCompact(ctx context.Context, master *work.Master, outputPath string, inputPaths []string) (retErr error) {
 	scratch := path.Join(tmpPrefix, uuid.NewWithoutDashes())
 	defer func() {
 		if err := d.storage.Delete(ctx, scratch); retErr == nil {
@@ -410,7 +537,7 @@ func (d *driver) shardedCompact(ctx context.Context, master *work.Master, output
 
 // concatFileSets concatenates the filesets in inputPaths and writes the result to outputPath
 // TODO: move this to the fileset package, and error if the entries are not sorted.
-func (d *driver) concatFileSets(ctx context.Context, outputPath string, inputPaths []string) error {
+func (d *driverV2) concatFileSets(ctx context.Context, outputPath string, inputPaths []string) error {
 	fsw := d.storage.NewWriter(ctx, outputPath)
 	for _, inputPath := range inputPaths {
 		fsr := d.storage.NewReader(ctx, inputPath)
@@ -442,7 +569,7 @@ func deserializeShard(shardAny *types.Any) (*pfs.Shard, error) {
 	return shard, nil
 }
 
-func (d *driver) compactionWorker() {
+func (d *driverV2) compactionWorker() {
 	ctx := context.Background()
 	w := work.NewWorker(d.etcdClient, d.prefix, storageTaskNamespace)
 	err := backoff.RetryNotify(func() error {
@@ -463,4 +590,9 @@ func (d *driver) compactionWorker() {
 	})
 	// Never ending backoff should prevent us from getting here.
 	panic(err)
+}
+
+func (d *driverV2) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.File, overwrite bool) (retErr error) {
+	// implementation goes here
+	panic("not implemented")
 }

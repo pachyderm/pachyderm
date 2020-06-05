@@ -28,7 +28,7 @@ import (
 // request structures into normal function calls.
 type apiServer struct {
 	log.Logger
-	driver *driver
+	driver driverAPI
 	txnEnv *txnenv.TransactionEnv
 
 	// env generates clients for pachyderm's downstream services
@@ -43,9 +43,19 @@ func newAPIServer(
 	storageRoot string,
 	memoryRequest int64,
 ) (*apiServer, error) {
-	d, err := newDriver(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
-	if err != nil {
-		return nil, err
+	var d driverAPI
+	if env.StorageV2 {
+		d2, err := newDriverV2(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
+		if err != nil {
+			return nil, err
+		}
+		d = d2
+	} else {
+		d1, err := newDriver(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
+		if err != nil {
+			return nil, err
+		}
+		d = d1
 	}
 	s := &apiServer{
 		Logger: log.NewLogger("pfs.API"),
