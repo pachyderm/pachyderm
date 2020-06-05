@@ -37,6 +37,12 @@ type FileSet struct {
 }
 
 func newFileSet(ctx context.Context, storage *Storage, name string, memThreshold int64, defaultTag string, opts ...Option) *FileSet {
+	// because we don't have the option to return an error, we can't use ctx here.
+	// we have to be willing to wait indefinitely.
+	if err := storage.filesetSem.Acquire(context.Background(), 1); err != nil {
+		// should never happen because of the background context
+		panic(err)
+	}
 	f := &FileSet{
 		ctx:          ctx,
 		storage:      storage,
@@ -165,5 +171,6 @@ func (f *FileSet) serialize() error {
 
 // Close closes the file set.
 func (f *FileSet) Close() error {
+	defer f.storage.filesetSem.Release(1)
 	return f.serialize()
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
+	"golang.org/x/sync/semaphore"
 )
 
 const (
@@ -48,6 +49,7 @@ type Storage struct {
 	memThreshold, shardThreshold int64
 	levelZeroSize                int64
 	levelSizeBase                int
+	filesetSem                   *semaphore.Weighted
 }
 
 // NewStorage creates a new Storage.
@@ -59,6 +61,7 @@ func NewStorage(objC obj.Client, chunks *chunk.Storage, opts ...StorageOption) *
 		shardThreshold: DefaultShardThreshold,
 		levelZeroSize:  DefaultLevelZeroSize,
 		levelSizeBase:  DefaultLevelSizeBase,
+		filesetSem:     semaphore.NewWeighted(math.MaxInt64),
 	}
 	for _, opt := range opts {
 		opt(s)
