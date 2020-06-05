@@ -1,9 +1,9 @@
 package fuse
 
 import (
-	"time"
 	"context"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"github.com/hanwen/go-fuse/v2/fs"
