@@ -6,7 +6,6 @@ package fuse
 
 import (
 	"context"
-	"fmt"
 	"os"
 	pathpkg "path"
 	"path/filepath"
@@ -20,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 )
 
@@ -544,17 +544,11 @@ func (n *loopbackNode) downloadRepos() (retErr error) {
 		return err
 	}
 	ro := n.root().repoOpts
-	for repo, ro := range ro {
-		fmt.Printf("ro for %s: %+v\n", repo, ro)
-	}
 	for _, ri := range ris {
-		fmt.Printf("ri: %+v\n", ri)
 		if len(ro) > 0 && ro[ri.Repo.Name] == nil {
-			fmt.Println("continue")
 			continue
 		}
 		p := n.repoPath(ri)
-		fmt.Println("MkdirAll", p)
 		if err := os.MkdirAll(p, 0777); err != nil {
 			return errors.WithStack(err)
 		}
@@ -621,7 +615,8 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 				return err
 			}
 			return nil
-		}); err != nil && !errutil.IsNotFoundError(err) {
+		}); err != nil && !errutil.IsNotFoundError(err) &&
+		!pfsserver.IsOutputCommitNotFinishedErr(err) {
 		return err
 	}
 	return nil

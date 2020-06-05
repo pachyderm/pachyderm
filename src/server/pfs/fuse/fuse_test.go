@@ -332,6 +332,34 @@ func TestRepoOpts(t *testing.T) {
 	require.Equal(t, "fizz\n", b.String())
 }
 
+func TestOpenCommit(t *testing.T) {
+	c := server.GetPachClient(t, server.GetBasicConfig())
+	require.NoError(t, c.CreateRepo("in"))
+	require.NoError(t, c.CreateRepo("out"))
+	require.NoError(t, c.CreateBranch("out", "master", "", []*pfs.Branch{client.NewBranch("in", "master")}))
+	_, err := c.StartCommit("in", "master")
+	require.NoError(t, err)
+
+	withMount(t, c, &Options{
+		Fuse: &fs.Options{
+			MountOptions: fuse.MountOptions{
+				Debug: true,
+			},
+		},
+		Write: true,
+	}, func(mountPoint string) {
+		repos, err := ioutil.ReadDir(mountPoint)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(repos))
+		files, err := ioutil.ReadDir(filepath.Join(mountPoint, "in"))
+		require.NoError(t, err)
+		require.Equal(t, 0, len(files))
+		files, err = ioutil.ReadDir(filepath.Join(mountPoint, "out"))
+		require.NoError(t, err)
+		require.Equal(t, 0, len(files))
+	})
+}
+
 func withMount(tb testing.TB, c *client.APIClient, opts *Options, f func(mountPoint string)) {
 	dir, err := ioutil.TempDir("", "pfs-mount")
 	require.NoError(tb, err)
