@@ -8,6 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
@@ -89,7 +90,13 @@ func (fr *FileReader) drain() error {
 }
 
 // Source iterates over FileInfoV2s generated from a fileset.Source
-type Source struct {
+type Source interface {
+	// Iterate calls cb for each File in the underlying fileset.FileSource, with a FileInfoV2 computed
+	// during iteration, and the File.
+	Iterate(ctx context.Context, cb func(*pfs.FileInfoV2, fileset.File) error) error
+}
+
+type source struct {
 	commit        *pfs.Commit
 	getReader     func() fileset.FileSource
 	computeHashes bool
@@ -97,8 +104,8 @@ type Source struct {
 
 // NewSource creates a Source which emits FileInfoV2s with the information from commit, and the entries from readers
 // returned by getReader.  If getReader returns different Readers all bets are off.
-func NewSource(commit *pfs.Commit, computeHashes bool, getReader func() fileset.FileSource) *Source {
-	return &Source{
+func NewSource(commit *pfs.Commit, computeHashes bool, getReader func() fileset.FileSource) Source {
+	return &source{
 		commit:        commit,
 		getReader:     getReader,
 		computeHashes: computeHashes,
@@ -107,7 +114,7 @@ func NewSource(commit *pfs.Commit, computeHashes bool, getReader func() fileset.
 
 // Iterate calls cb for each File in the underlying fileset.FileSource, with a FileInfoV2 computed
 // during iteration, and the File.
-func (s *Source) Iterate(ctx context.Context, cb func(*pfs.FileInfoV2, fileset.File) error) error {
+func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfoV2, fileset.File) error) error {
 	ctx, cf := context.WithCancel(ctx)
 	defer cf()
 	fs1 := s.getReader()
@@ -197,6 +204,32 @@ func computeFileHash(idx *index.Index) []byte {
 		}
 	}
 	return h.Sum(nil)
+}
+
+type insertNotFound struct {
+	source Source
+	file   *pfs.File
+}
+
+// InsertNotFound causes iterate to return a not found error if there are no items to iterate over
+func InsertNotFound(s Source, file *pfs.File) Source {
+	return &insertNotFound{source: s, file: file}
+}
+
+// Iterate calls cb for each File in the underlying fileset.FileSource, with a FileInfoV2 computed
+// during iteration, and the File.
+func (s *insertNotFound) Iterate(ctx context.Context, cb func(*pfs.FileInfoV2, fileset.File) error) error {
+	empty := true
+	if err := s.source.Iterate(ctx, func(fi *pfs.FileInfoV2, f fileset.File) error {
+		empty = false
+		return cb(fi, f)
+	}); err != nil {
+		return err
+	}
+	if empty {
+		return &pfsserver.ErrFileNotFound{File: s.file}
+	}
+	return nil
 }
 
 type stream struct {

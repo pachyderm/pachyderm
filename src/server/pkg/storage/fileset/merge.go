@@ -256,7 +256,7 @@ func (fmr *FileMergeReader) WriteTo(w *Writer) error {
 		return nil
 	}
 	// Write merged content.
-	return fmr.tsmr.WriteTo(w)
+	return fmr.Content(w)
 }
 
 // Get writes the merged file.

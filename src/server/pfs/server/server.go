@@ -38,7 +38,11 @@ func NewAPIServer(
 	memoryRequest int64,
 ) (APIServer, error) {
 	if env.StorageV2 {
-		return newAPIServerV2(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
+		a, err := newAPIServerV2(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
+		if err != nil {
+			return nil, err
+		}
+		return newValidated(a, env), nil
 	}
 	return newAPIServer(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
 }

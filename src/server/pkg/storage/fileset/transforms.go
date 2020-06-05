@@ -58,13 +58,13 @@ func (fil *indexFilter) Iterate(ctx context.Context, cb func(File) error, stopBe
 var _ FileSource = &headerMapper{}
 
 type headerMapper struct {
-	pred func(th *tar.Header) *tar.Header
-	x    FileSource
+	fn func(th *tar.Header) *tar.Header
+	x  FileSource
 }
 
 // NewHeaderMapper filters x using pred
-func NewHeaderMapper(x FileSource, pred func(*tar.Header) *tar.Header) FileSource {
-	return &headerMapper{x: x, pred: pred}
+func NewHeaderMapper(x FileSource, fn func(*tar.Header) *tar.Header) FileSource {
+	return &headerMapper{x: x, fn: fn}
 }
 
 func (hm *headerMapper) Iterate(ctx context.Context, cb func(File) error, stopBefore ...string) error {
@@ -73,7 +73,7 @@ func (hm *headerMapper) Iterate(ctx context.Context, cb func(File) error, stopBe
 		if err != nil {
 			return err
 		}
-		y := hm.pred(x)
+		y := hm.fn(x)
 		return cb(headerMap{
 			header: y,
 			inner:  fr,

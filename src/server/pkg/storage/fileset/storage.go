@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -149,8 +150,7 @@ func (s *Storage) ResolveIndexes(ctx context.Context, fileSets []string, cb func
 // TODO This should be extended to be more configurable (different criteria
 // for creating shards).
 func (s *Storage) Shard(ctx context.Context, fileSets []string, shardFunc ShardFunc) error {
-	fileSets = applyPrefixes(fileSets)
-	mr, err := s.newMergeReader(ctx, fileSets)
+	mr, err := s.NewMergeReader(ctx, fileSets)
 	if err != nil {
 		return err
 	}
@@ -290,7 +290,7 @@ func (s *Storage) levelSize(i int) int64 {
 func applyPrefix(fileSet string) string {
 	fileSet = strings.TrimLeft(fileSet, "/")
 	if strings.HasPrefix(fileSet, prefix) {
-		return fileSet
+		log.Warn("may be double applying prefix in storage layer", fileSet)
 	}
 	return path.Join(prefix, fileSet)
 }

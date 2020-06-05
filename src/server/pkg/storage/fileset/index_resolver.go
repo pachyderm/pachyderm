@@ -2,6 +2,7 @@ package fileset
 
 import (
 	"context"
+	"io"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
@@ -49,5 +50,11 @@ func (mr *mergeResolver) Iterate(ctx context.Context, cb func(File) error, stopB
 	if err := mr1.WriteTo(w); err != nil {
 		return err
 	}
-	return w.Close()
+	if err := w.Close(); err != nil {
+		if err == io.EOF {
+			return nil
+		}
+		return err
+	}
+	return nil
 }

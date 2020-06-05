@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	globlib "github.com/pachyderm/ohmyglob"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 )
 
@@ -68,4 +70,8 @@ func pathIsChild(parent, child string) bool {
 // "/" -> "/"
 func cleanPath(x string) string {
 	return "/" + strings.Trim(x, "/")
+}
+
+func compactedCommitPath(commit *pfs.Commit) string {
+	return path.Join(commitKey(commit), fileset.Compacted)
 }

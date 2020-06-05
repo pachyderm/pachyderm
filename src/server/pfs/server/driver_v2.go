@@ -92,7 +92,7 @@ func (d *driverV2) finishCommitV2(txnCtx *txnenv.TransactionContext, commit *pfs
 	if description != "" {
 		commitInfo.Description = description
 	}
-	commitPath := path.Join(commit.Repo.Name, commit.ID)
+	commitPath := commitKey(commit)
 	// Clean up temporary filesets leftover from failed operations.
 	if err := d.storage.Delete(txnCtx.Client.Ctx(), path.Join(tmpPrefix, commitPath)); err != nil {
 		return err
@@ -116,7 +116,7 @@ func (d *driverV2) finishCommitV2(txnCtx *txnenv.TransactionContext, commit *pfs
 		if commitInfo.ParentCommit == nil {
 			compactSpec, err = d.storage.CompactSpec(m.Ctx(), commitPath)
 		} else {
-			parentCommitPath := path.Join(commitInfo.ParentCommit.Repo.Name, commitInfo.ParentCommit.ID)
+			parentCommitPath := commitKey(commitInfo.ParentCommit)
 			compactSpec, err = d.storage.CompactSpec(m.Ctx(), commitPath, parentCommitPath)
 		}
 		if err != nil {
@@ -137,24 +137,31 @@ func (d *driverV2) finishCommitV2(txnCtx *txnenv.TransactionContext, commit *pfs
 //	return d.storage.Delete(txnCtx.Client.Ctx(), path.Join(commit.Repo.Name, commit.ID))
 //}
 
-// TODO Need commit validation and handling of branch names.
-func (d *driverV2) withFileSet(ctx context.Context, repo, commit string, f func(*fileset.FileSet) error) (retErr error) {
+func (d *driverV2) getSubFileSet() int64 {
 	// TODO subFileSet will need to be incremented through postgres or etcd.
 	d.mu.Lock()
-	subFileSetStr := fileset.SubFileSetStr(d.subFileSet)
+	n := d.subFileSet
+	d.subFileSet++
+	d.mu.Unlock()
+	return n
+}
+
+// TODO Need commit validation and handling of branch names.
+func (d *driverV2) withFileSet(ctx context.Context, repo, commit string, cb func(*fileset.FileSet) error) (retErr error) {
+	n := d.getSubFileSet()
+	subFileSetStr := fileset.SubFileSetStr(n)
 	subFileSetPath := path.Join(repo, commit, subFileSetStr)
 	fs, err := d.storage.New(ctx, path.Join(tmpPrefix, subFileSetPath), subFileSetStr)
 	if err != nil {
 		return err
 	}
-	d.subFileSet++
-	d.mu.Unlock()
+
 	defer func() {
 		if err := d.storage.Delete(ctx, path.Join(tmpPrefix, subFileSetPath)); retErr == nil {
 			retErr = err
 		}
 	}()
-	if err := f(fs); err != nil {
+	if err := cb(fs); err != nil {
 		return err
 	}
 	if err := fs.Close(); err != nil {
@@ -188,17 +195,14 @@ func (d *driverV2) getTar(ctx context.Context, commit *pfs.Commit, glob string, 
 
 func (d *driverV2) listFileV2(pachClient *client.APIClient, file *pfs.File, full bool, history int64, cb func(*pfs.FileInfoV2) error) error {
 	ctx := pachClient.Ctx()
-	if err := validateFile(file); err != nil {
-		return err
-	}
-	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
-		return err
-	}
 	name := cleanPath(file.Path)
 	s := NewSource(file.Commit, true, func() fileset.FileSource {
 		x := d.storage.NewSource(ctx, compactedCommitPath(file.Commit), index.WithPrefix(name))
 		x = fileset.NewIndexResolver(x)
 		x = fileset.NewIndexFilter(x, func(idx *index.Index) bool {
+			if idx.Path == "/" {
+				return false
+			}
 			if idx.Path == name {
 				return true
 			}
@@ -219,6 +223,7 @@ func (d *driverV2) listFileV2(pachClient *client.APIClient, file *pfs.File, full
 
 // TODO Need to figure out path cleaning.
 func (d *driverV2) getTarConditional(ctx context.Context, repo, commit, glob string, f func(*FileReader) error) error {
+	glob = cleanPath(glob)
 	compactedPaths := []string{path.Join(repo, commit, fileset.Compacted)}
 	prefix := globLiteralPrefix(glob)
 	mr, err := d.storage.NewMergeReader(ctx, compactedPaths, index.WithPrefix(prefix))
@@ -397,7 +402,7 @@ func (d *driverV2) concatFileSets(ctx context.Context, outputPath string, inputP
 	}))
 	for _, inputPath := range inputPaths {
 		fsr := d.storage.NewReader(ctx, inputPath)
-		if err := fileset.CopyFiles(fsw, fsr); err != nil {
+		if err := fileset.CopyFiles(ctx, fsw, fsr); err != nil {
 			return nil, err
 		}
 	}
@@ -451,16 +456,6 @@ func (d *driverV2) compactionWorker() {
 }
 
 func (d *driverV2) globFileV2(pachClient *client.APIClient, commit *pfs.Commit, glob string, cb func(*pfs.FileInfoV2) error) (retErr error) {
-	// Validate arguments
-	if commit == nil {
-		return errors.New("commit cannot be nil")
-	}
-	if commit.Repo == nil {
-		return errors.New("commit repo cannot be nil")
-	}
-	if err := d.checkIsAuthorized(pachClient, commit.Repo, auth.Scope_READER); err != nil {
-		return err
-	}
 	ctx := pachClient.Ctx()
 	indexOpt, mf, err := parseGlob(cleanPath(glob))
 	if err != nil {
@@ -478,6 +473,53 @@ func (d *driverV2) globFileV2(pachClient *client.APIClient, commit *pfs.Commit, 
 	})
 }
 
-func compactedCommitPath(commit *pfs.Commit) string {
-	return path.Join(commitKey(commit), fileset.Compacted)
+func (d *driverV2) inspectFile(pachClient *client.APIClient, file *pfs.File) (ret *pfs.FileInfoV2, retErr error) {
+	ctx := pachClient.Ctx()
+	_, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_FINISHED)
+	if err != nil {
+		return nil, err
+	}
+	p := cleanPath(file.Path)
+	s := NewSource(file.Commit, true, func() fileset.FileSource {
+		x := d.storage.NewSource(ctx, compactedCommitPath(file.Commit), index.WithPrefix(p))
+		x = fileset.NewIndexResolver(x)
+		x = fileset.NewIndexFilter(x, func(idx *index.Index) bool {
+			return idx.Path == p || strings.HasPrefix(idx.Path, p+"/")
+		})
+		return x
+	})
+	s = InsertNotFound(s, file)
+	if err := s.Iterate(ctx, func(fi *pfs.FileInfoV2, f fileset.File) error {
+		p2 := fi.File.Path
+		if p2 == p || p2 == p+"/" {
+			ret = fi
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+func (d *driverV2) walkFile(pachClient *client.APIClient, file *pfs.File, cb func(*pfs.FileInfoV2) error) (retErr error) {
+	ctx := pachClient.Ctx()
+	_, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_FINISHED)
+	if err != nil {
+		return err
+	}
+	p := cleanPath(file.Path)
+	if p == "/" {
+		p = ""
+	}
+	s := NewSource(file.Commit, false, func() fileset.FileSource {
+		x := d.storage.NewSource(ctx, compactedCommitPath(file.Commit), index.WithPrefix(p))
+		x = fileset.NewIndexFilter(x, func(idx *index.Index) bool {
+			return idx.Path == p || strings.HasPrefix(idx.Path, p+"/")
+		})
+		return x
+	})
+	s = InsertNotFound(s, file)
+	return s.Iterate(ctx, func(fi *pfs.FileInfoV2, f fileset.File) error {
+		return cb(fi)
+	})
 }
