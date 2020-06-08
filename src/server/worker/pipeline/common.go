@@ -101,7 +101,7 @@ func ReceiveSpout(
 					}
 					if commit == nil {
 						// start commit
-						commit, err := pachClient.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
+						commit, err = pachClient.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
 							Parent:     client.NewCommit(repo, ""),
 							Branch:     pipelineInfo.OutputBranch,
 							Provenance: []*pfs.CommitProvenance{client.NewCommitProvenance(ppsconsts.SpecRepo, repo, pipelineInfo.SpecCommit.ID)},
