@@ -10,12 +10,19 @@ to monitor its status:
   state of the pipeline. If you see that a pipeline is in `running`
   state, it means that pods were spun up in the underlying Kubernetes
   cluster for this pipeline. The running state does not necessarily mean
-  that the pipeline is actively running. If you see `failed` in the `STATE`
+  that the pipeline is actively processing a job. If you see `failed` in
+  the `STATE`
   column, this means that the Kubernetes cluster failed to schedule a pod for
   this pipeline.
 
   The `LAST JOB` column shows the status of the most recent job that ran
-  for this pipelinei, which can be either `success` or `fail`.
+  for this pipeline, which can be either `success`, `failed`, or
+  `crashing`. If a pipeline is in a `failed` state, you need to find the
+  reason of the failure and fix it. The crashing state indicates that
+  the pipeline worker is failing for potentially transient reasons. The
+  most common reasons for crashing are image pull failures, such as
+  incorrect image name or registry credentials, or scheduling failures,
+  such as not enough resources on your Kubernetes cluster.
 
   **Example:**
 
