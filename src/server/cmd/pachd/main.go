@@ -256,6 +256,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 			path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
 			env.PPSWorkerPort,
 			clusterID,
+			nil,
 		))
 		return nil
 	}); err != nil {
@@ -482,6 +483,7 @@ func doFullMode(config interface{}) (retErr error) {
 				path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
 				env.PPSWorkerPort,
 				clusterID,
+				nil,
 			))
 			return nil
 		}); err != nil {

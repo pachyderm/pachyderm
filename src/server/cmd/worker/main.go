@@ -151,7 +151,7 @@ func do(config interface{}) error {
 
 	worker.RegisterWorkerServer(server.Server, apiServer)
 	versionpb.RegisterAPIServer(server.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
-	debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(env.PodName, env.GetEtcdClient(), env.PPSEtcdPrefix, env.PPSWorkerPort, ""))
+	debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(env.PodName, env.GetEtcdClient(), env.PPSEtcdPrefix, env.PPSWorkerPort, "", pachClient))
 
 	// Put our IP address into etcd, so pachd can discover us
 	key := path.Join(env.PPSEtcdPrefix, worker.WorkerEtcdPrefix, workerRcName, env.PPSWorkerIP)
