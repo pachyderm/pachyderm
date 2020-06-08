@@ -152,4 +152,4 @@ little of the Pachyderm API is idempotent, but in some specific cases it can be
 a viable approach.
 
 !!! note "See Also"
-    - [transform.env](../../reference/pipeline_spec/#transform-required)
+    - [transform.env](../../../reference/pipeline_spec/#transform-required)
