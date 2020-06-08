@@ -14,15 +14,16 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// NewLoopbackFile creates a FileHandle out of a file descriptor. All
+// newLoopbackFile creates a FileHandle out of a file descriptor. All
 // operations are implemented.
-func NewLoopbackFile(fd int) fs.FileHandle {
-	return &loopbackFile{fd: fd}
+func newLoopbackFile(fd int, root *loopbackRoot) fs.FileHandle {
+	return &loopbackFile{fd: fd, root: root}
 }
 
 type loopbackFile struct {
-	mu sync.Mutex
-	fd int
+	mu   sync.Mutex
+	fd   int
+	root *loopbackRoot
 }
 
 var _ = (fs.FileHandle)((*loopbackFile)(nil))
@@ -82,9 +83,13 @@ func (f *loopbackFile) Flush(ctx context.Context) syscall.Errno {
 func (f *loopbackFile) Fsync(ctx context.Context, flags uint32) (errno syscall.Errno) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	r := fs.ToErrno(syscall.Fsync(f.fd))
-
-	return r
+	if err := syscall.Fsync(f.fd); err != nil {
+		return fs.ToErrno(err)
+	}
+	if err := f.root.sync(false); err != nil {
+		return fs.ToErrno(err)
+	}
+	return fs.OK
 }
 
 const (

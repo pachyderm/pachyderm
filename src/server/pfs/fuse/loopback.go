@@ -6,6 +6,7 @@ package fuse
 
 import (
 	"context"
+	"io"
 	"os"
 	pathpkg "path"
 	"path/filepath"
@@ -21,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/progress"
 )
 
 type fileState int32
@@ -49,6 +51,95 @@ type loopbackRoot struct {
 	commits  map[string]string
 	files    map[string]fileState
 	mu       sync.Mutex
+}
+
+func (r *loopbackRoot) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
+	st := syscall.Stat_t{}
+	err := syscall.Stat(r.rootPath, &st)
+	if err != nil {
+		return fs.ToErrno(err)
+	}
+	out.FromStat(&st)
+	return fs.OK
+}
+
+func (r *loopbackRoot) idFromStat(st *syscall.Stat_t) fs.StableAttr {
+	// We compose an inode number by the underlying inode, and
+	// mixing in the device number. In traditional filesystems,
+	// the inode numbers are small. The device numbers are also
+	// small (typically 16 bit). Finally, we mask out the root
+	// device number of the root, so a loopback FS that does not
+	// encompass multiple mounts will reflect the inode numbers of
+	// the underlying filesystem
+	swapped := (uint64(st.Dev) << 32) | (uint64(st.Dev) >> 32)
+	swappedRootDev := (r.rootDev << 32) | (r.rootDev >> 32)
+	return fs.StableAttr{
+		Mode: uint32(st.Mode),
+		Gen:  1,
+		// This should work well for traditional backing FSes,
+		// not so much for other go-fuse FS-es
+		Ino: (swapped ^ swappedRootDev) ^ st.Ino,
+	}
+}
+
+func (r *loopbackRoot) sync(showProgress bool) (retErr error) {
+	pfcs := make(map[string]client.PutFileClient)
+	pfc := func(repo string) (client.PutFileClient, error) {
+		if pfc, ok := pfcs[repo]; ok {
+			return pfc, nil
+		}
+		pfc, err := r.c.NewPutFileClient()
+		if err != nil {
+			return nil, err
+		}
+		pfcs[repo] = pfc
+		return pfc, nil
+	}
+	defer func() {
+		for _, pfc := range pfcs {
+			if err := pfc.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}
+	}()
+	for path, state := range r.files {
+		if state != dirty {
+			continue
+		}
+		parts := strings.Split(path, "/")
+		pfc, err := pfc(parts[0])
+		if err != nil {
+			return err
+		}
+		if err := func() (retErr error) {
+			var f io.ReadCloser
+			var err error
+			if showProgress {
+				f, err = progress.Open(filepath.Join(r.rootPath, path))
+			} else {
+				f, err = os.Open(filepath.Join(r.rootPath, path))
+			}
+			if err != nil {
+				if os.IsNotExist(err) {
+					return pfc.DeleteFile(parts[0], r.branch(parts[0]), pathpkg.Join(parts[1:]...))
+				}
+				return errors.WithStack(err)
+			}
+			defer func() {
+				if err := f.Close(); err != nil && retErr == nil {
+					retErr = errors.WithStack(err)
+				}
+			}()
+			if _, err := pfc.PutFileOverwrite(parts[0], r.branch(parts[0]),
+				pathpkg.Join(parts[1:]...), f, 0); err != nil {
+				return err
+			}
+			return nil
+		}(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type loopbackNode struct {
@@ -83,17 +174,6 @@ func (n *loopbackNode) Statfs(ctx context.Context, out *fuse.StatfsOut) syscall.
 		return fs.ToErrno(err)
 	}
 	out.FromStatfsT(&s)
-	return fs.OK
-}
-
-func (r *loopbackRoot) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
-
-	st := syscall.Stat_t{}
-	err := syscall.Stat(r.rootPath, &st)
-	if err != nil {
-		return fs.ToErrno(err)
-	}
-	out.FromStat(&st)
 	return fs.OK
 }
 
@@ -232,25 +312,6 @@ func (n *loopbackNode) Rename(ctx context.Context, name string, newParent fs.Ino
 	return fs.ToErrno(err)
 }
 
-func (r *loopbackRoot) idFromStat(st *syscall.Stat_t) fs.StableAttr {
-	// We compose an inode number by the underlying inode, and
-	// mixing in the device number. In traditional filesystems,
-	// the inode numbers are small. The device numbers are also
-	// small (typically 16 bit). Finally, we mask out the root
-	// device number of the root, so a loopback FS that does not
-	// encompass multiple mounts will reflect the inode numbers of
-	// the underlying filesystem
-	swapped := (uint64(st.Dev) << 32) | (uint64(st.Dev) >> 32)
-	swappedRootDev := (r.rootDev << 32) | (r.rootDev >> 32)
-	return fs.StableAttr{
-		Mode: uint32(st.Mode),
-		Gen:  1,
-		// This should work well for traditional backing FSes,
-		// not so much for other go-fuse FS-es
-		Ino: (swapped ^ swappedRootDev) ^ st.Ino,
-	}
-}
-
 var _ = (fs.NodeCreater)((*loopbackNode)(nil))
 
 func (n *loopbackNode) Create(ctx context.Context, name string, flags uint32, mode uint32, out *fuse.EntryOut) (inode *fs.Inode, fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
@@ -280,7 +341,7 @@ func (n *loopbackNode) Create(ctx context.Context, name string, flags uint32, mo
 
 	node := &loopbackNode{}
 	ch := n.NewInode(ctx, node, n.root().idFromStat(&st))
-	lf := NewLoopbackFile(fd)
+	lf := newLoopbackFile(fd, n.root())
 
 	out.FromStat(&st)
 	return ch, lf, 0, 0
@@ -391,7 +452,7 @@ func (n *loopbackNode) Open(ctx context.Context, flags uint32) (fh fs.FileHandle
 	if err != nil {
 		return nil, 0, fs.ToErrno(err)
 	}
-	lf := NewLoopbackFile(f)
+	lf := newLoopbackFile(f, n.root())
 	return lf, 0, 0
 }
 

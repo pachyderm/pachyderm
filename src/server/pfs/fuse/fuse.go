@@ -4,15 +4,11 @@ import (
 	"io/ioutil"
 	"os"
 	"os/signal"
-	pathpkg "path"
-	"path/filepath"
-	"strings"
 
 	"github.com/hanwen/go-fuse/v2/fs"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
-	"github.com/pachyderm/pachyderm/src/server/pkg/progress"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
@@ -54,55 +50,5 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 		server.Unmount()
 	}()
 	server.Serve()
-	pfcs := make(map[string]client.PutFileClient)
-	pfc := func(repo string) (client.PutFileClient, error) {
-		if pfc, ok := pfcs[repo]; ok {
-			return pfc, nil
-		}
-		pfc, err := c.NewPutFileClient()
-		if err != nil {
-			return nil, err
-		}
-		pfcs[repo] = pfc
-		return pfc, nil
-	}
-	defer func() {
-		for _, pfc := range pfcs {
-			if err := pfc.Close(); err != nil && retErr == nil {
-				retErr = err
-			}
-		}
-	}()
-	for path, state := range root.files {
-		if state != dirty {
-			continue
-		}
-		parts := strings.Split(path, "/")
-		pfc, err := pfc(parts[0])
-		if err != nil {
-			return err
-		}
-		if err := func() (retErr error) {
-			f, err := progress.Open(filepath.Join(root.rootPath, path))
-			if err != nil {
-				if os.IsNotExist(err) {
-					return pfc.DeleteFile(parts[0], root.branch(parts[0]), pathpkg.Join(parts[1:]...))
-				}
-				return errors.WithStack(err)
-			}
-			defer func() {
-				if err := f.Close(); err != nil && retErr == nil {
-					retErr = errors.WithStack(err)
-				}
-			}()
-			if _, err := pfc.PutFileOverwrite(parts[0], root.branch(parts[0]),
-				pathpkg.Join(parts[1:]...), f, 0); err != nil {
-				return err
-			}
-			return nil
-		}(); err != nil {
-			return err
-		}
-	}
-	return nil
+	return root.sync(true)
 }

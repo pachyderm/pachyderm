@@ -360,6 +360,32 @@ func TestOpenCommit(t *testing.T) {
 	})
 }
 
+func TestSync(t *testing.T) {
+	c := server.GetPachClient(t, server.GetBasicConfig())
+	require.NoError(t, c.CreateRepo("test"))
+	withMount(t, c, &Options{
+		Fuse: &fs.Options{
+			MountOptions: fuse.MountOptions{
+				Debug: true,
+			},
+		},
+		Write: true,
+	}, func(mountPoint string) {
+		f, err := os.Create(filepath.Join(mountPoint, "test", "file"))
+		require.NoError(t, err)
+		defer func() {
+			require.NoError(t, f.Close())
+		}()
+		_, err = f.Write([]byte("test\n"))
+		require.NoError(t, err)
+		require.NoError(t, f.Sync())
+
+		var b bytes.Buffer
+		require.NoError(t, c.GetFile("test", "master", "file", 0, 0, &b))
+		require.Equal(t, "test\n", b.String())
+	})
+}
+
 func withMount(tb testing.TB, c *client.APIClient, opts *Options, f func(mountPoint string)) {
 	dir, err := ioutil.TempDir("", "pfs-mount")
 	require.NoError(tb, err)
