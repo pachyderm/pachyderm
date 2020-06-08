@@ -278,9 +278,8 @@ on `stdin`.
 Lines do not have to end in newline characters.
 
 `transform.env` is a key-value map of environment variables that
-Pachyderm injects into the container. There are environment variables that
-are automatically injected into the container. The most commonly used
-variables include:
+Pachyderm injects into the container. There are also environment variables
+that are automatically injected into the container, such as:
 
 * `PACH_JOB_ID` – the ID of the current job.
 * `PACH_OUTPUT_COMMIT_ID` – the ID of the commit in the output repo for
