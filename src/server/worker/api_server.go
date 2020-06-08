@@ -2077,10 +2077,10 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				return nil
 			}
 			subStats := &pps.ProcessStats{}
+			statsRoot := path.Join("/", logger.template.DatumID)
 			var inputTree, outputTree *hashtree.Ordered
 			var statsTree *hashtree.Unordered
 			if a.pipelineInfo.EnableStats {
-				statsRoot := path.Join("/", logger.template.DatumID)
 				inputTree = hashtree.NewOrdered(path.Join(statsRoot, "pfs"))
 				outputTree = hashtree.NewOrdered(path.Join(statsRoot, "pfs", "out"))
 				statsTree = hashtree.NewUnordered(statsRoot)
@@ -2223,6 +2223,11 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 						}
 					}
 					return err
+				}
+				// If stats is enabled, reset input and output tree on retry.
+				if statsTree != nil {
+					inputTree = hashtree.NewOrdered(path.Join(statsRoot, "pfs"))
+					outputTree = hashtree.NewOrdered(path.Join(statsRoot, "pfs", "out"))
 				}
 				logger.Logf("failed processing datum: %v, retrying in %v", err, d)
 				return nil
