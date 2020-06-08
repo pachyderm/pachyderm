@@ -4650,7 +4650,7 @@ func TestDatumStatusRestart(t *testing.T) {
 			}
 
 			jobID = jobs[0].Job.ID
-			jobInfo, err := c.InspectJob(jobs[0].Job.ID, false)
+			jobInfo, err := c.InspectJob(jobs[0].Job.ID, false, true)
 			require.NoError(t, err)
 			if len(jobInfo.WorkerStatus) == 0 {
 				return fmt.Errorf("no worker statuses")
@@ -4722,7 +4722,7 @@ func TestUseMultipleWorkers(t *testing.T) {
 		if len(jobs) == 0 {
 			return fmt.Errorf("failed to find job")
 		}
-		jobInfo, err := c.InspectJob(jobs[0].Job.ID, false)
+		jobInfo, err := c.InspectJob(jobs[0].Job.ID, false, true)
 		if err != nil {
 			return fmt.Errorf("could not inspect job: %s", err.Error())
 		}
@@ -7218,7 +7218,7 @@ func TestMaxQueueSize(t *testing.T) {
 			if len(jobs) == 0 {
 				return fmt.Errorf("failed to find job")
 			}
-			jobInfo, err = c.InspectJob(jobs[0].Job.ID, false)
+			jobInfo, err = c.InspectJob(jobs[0].Job.ID, false, true)
 			if err != nil {
 				return fmt.Errorf("could not inspect job: %s", err.Error())
 			}
