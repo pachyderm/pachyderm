@@ -638,6 +638,7 @@ func (n *loopbackNode) trimTargetPath(path string) string {
 }
 
 func (n *loopbackNode) branch(repo string) string {
+	// no need to lock mu for branches since we only ever read from it.
 	if branch, ok := n.root().branches[repo]; ok {
 		return branch
 	}
@@ -645,7 +646,12 @@ func (n *loopbackNode) branch(repo string) string {
 }
 
 func (n *loopbackNode) commit(repo string) (string, error) {
-	if commit, ok := n.root().commits[repo]; ok {
+	if commit, ok := func() (string, bool) {
+		n.root().mu.Lock()
+		defer n.root().mu.Unlock()
+		commit, ok := n.root().commits[repo]
+		return commit, ok
+	}(); ok {
 		return commit, nil
 	}
 	branch := n.root().branch(repo)
@@ -653,6 +659,9 @@ func (n *loopbackNode) commit(repo string) (string, error) {
 	if err != nil && !errutil.IsNotFoundError(err) {
 		return "", err
 	}
+	// Lock mu to assign commits
+	n.root().mu.Lock()
+	defer n.root().mu.Unlock()
 	// You can access branches that don't exist, which allows you to create
 	// branches through the fuse mount.
 	if errutil.IsNotFoundError(err) || bi.Head == nil {
