@@ -583,7 +583,6 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	if request.Job == nil && request.OutputCommit == nil {
 		return nil, errors.Errorf("must specify either a Job or an OutputCommit")
 	}
-
 	jobs := a.jobs.ReadOnly(ctx)
 	if request.OutputCommit != nil {
 		if request.Job != nil {
@@ -606,7 +605,6 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 			return nil, errors.Errorf("job with output commit %s not found", request.OutputCommit.ID)
 		}
 	}
-	//
 	if request.BlockState {
 		watcher, err := jobs.WatchOne(request.Job.ID)
 		if err != nil {
@@ -636,7 +634,6 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 			}
 		}
 	}
-
 	jobPtr := &pps.EtcdJobInfo{}
 	if err := jobs.Get(request.Job.ID, jobPtr); err != nil {
 		return nil, err
@@ -645,22 +642,24 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	if err != nil {
 		return nil, err
 	}
-	// If the job is running we fill in WorkerStatus field, otherwise we just
-	// return the jobInfo.
-	if jobInfo.State != pps.JobState_JOB_RUNNING {
-		return jobInfo, nil
-	}
-	workerPoolID := ppsutil.PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
-	workerStatus, err := workerserver.Status(ctx, workerPoolID, a.env.GetEtcdClient(), a.etcdPrefix, a.workerGrpcPort)
-	if err != nil {
-		logrus.Errorf("failed to get worker status with err: %s", err.Error())
-	} else {
-		// It's possible that the workers might be working on datums for other
-		// jobs, we omit those since they're not part of the status for this
-		// job.
-		for _, status := range workerStatus {
-			if status.JobID == jobInfo.Job.ID {
-				jobInfo.WorkerStatus = append(jobInfo.WorkerStatus, status)
+	if request.Full {
+		// If the job is running we fill in WorkerStatus field, otherwise we just
+		// return the jobInfo.
+		if jobInfo.State != pps.JobState_JOB_RUNNING {
+			return jobInfo, nil
+		}
+		workerPoolID := ppsutil.PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
+		workerStatus, err := workerserver.Status(ctx, workerPoolID, a.env.GetEtcdClient(), a.etcdPrefix, a.workerGrpcPort)
+		if err != nil {
+			logrus.Errorf("failed to get worker status with err: %s", err.Error())
+		} else {
+			// It's possible that the workers might be working on datums for other
+			// jobs, we omit those since they're not part of the status for this
+			// job.
+			for _, status := range workerStatus {
+				if status.JobID == jobInfo.Job.ID {
+					jobInfo.WorkerStatus = append(jobInfo.WorkerStatus, status)
+				}
 			}
 		}
 	}

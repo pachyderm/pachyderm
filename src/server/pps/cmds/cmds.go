@@ -112,7 +112,7 @@ If the job fails, the output commit will not be populated with data.`,
 				return err
 			}
 			defer client.Close()
-			jobInfo, err := client.InspectJob(args[0], block)
+			jobInfo, err := client.InspectJob(args[0], block, true)
 			if err != nil {
 				cmdutil.ErrorAndExit("error from InspectJob: %s", err.Error())
 			}

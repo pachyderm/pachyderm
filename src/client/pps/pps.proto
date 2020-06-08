@@ -482,6 +482,7 @@ message InspectJobRequest {
   Job job = 1;
   pfs.Commit output_commit = 3;
   bool block_state = 2; // block until state is either JOB_STATE_FAILURE or JOB_STATE_SUCCESS
+  bool full = 4;
 }
 
 message ListJobRequest {
