@@ -288,7 +288,7 @@ the current job.
 input is the `images` repo, this will be `images_COMMIT`.
 
 For a complete list of variables and
-descriptions see: [Configure Environment Variables](../deploy-manage/deploy/environment-variables/).
+descriptions see: [Configure Environment Variables](../../deploy-manage/deploy/environment-variables/).
 
 `transform.secrets` is an array of secrets. You can use the secrets to
 embed sensitive data, such as credentials. The secrets reference
