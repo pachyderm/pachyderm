@@ -574,8 +574,13 @@ func (c APIClient) SetMaxConcurrentStreams(n int) {
 // the connection has been established and it's safe to send RPCs
 func DefaultDialOptions() []grpc.DialOption {
 	return []grpc.DialOption{
-		// Don't return from Dial() until the connection has been established
+		// Don't return from Dial() until the connection has been established.
 		grpc.WithBlock(),
+		grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			Time:                20 * time.Second,
+			Timeout:             20 * time.Second,
+			PermitWithoutStream: true,
+		}),
 		grpc.WithDefaultCallOptions(
 			grpc.MaxCallRecvMsgSize(grpcutil.MaxMsgSize),
 			grpc.MaxCallSendMsgSize(grpcutil.MaxMsgSize),
@@ -584,12 +589,7 @@ func DefaultDialOptions() []grpc.DialOption {
 }
 
 func (c *APIClient) connect(timeout time.Duration) error {
-	keepaliveOpt := grpc.WithKeepaliveParams(keepalive.ClientParameters{
-		Time:                20 * time.Second, // if 20s since last msg (any kind), ping
-		Timeout:             20 * time.Second, // if no response to ping for 20s, reset
-		PermitWithoutStream: true,             // send ping even if no active RPCs
-	})
-	dialOptions := append(DefaultDialOptions(), keepaliveOpt)
+	dialOptions := DefaultDialOptions()
 	if c.caCerts == nil {
 		dialOptions = append(dialOptions, grpc.WithInsecure())
 	} else {
