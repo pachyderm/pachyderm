@@ -19,7 +19,6 @@ import (
 )
 
 var _ pfs.APIServer = &apiServerV2{}
-var _ pfs.APIV2Server = &apiServerV2{}
 
 type apiServerV2 struct {
 	*apiServer
@@ -50,7 +49,7 @@ func newAPIServerV2(
 	return s2, nil
 }
 
-func (a *apiServerV2) PutTar(server pfs.APIV2_PutTarServer) (retErr error) {
+func (a *apiServerV2) PutTar(server pfs.API_PutTarServer) (retErr error) {
 	req, err := server.Recv()
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, nil, retErr, time.Since(start)) }(time.Now())
@@ -94,7 +93,7 @@ func (a *apiServerV2) PutTar(server pfs.APIV2_PutTarServer) (retErr error) {
 }
 
 type putTarReader struct {
-	server    pfs.APIV2_PutTarServer
+	server    pfs.API_PutTarServer
 	r         *bytes.Reader
 	bytesRead int64
 }
@@ -115,7 +114,7 @@ func (ptr *putTarReader) Read(data []byte) (int, error) {
 	return n, err
 }
 
-func (a *apiServerV2) GetTar(request *pfs.GetTarRequest, server pfs.APIV2_GetTarServer) (retErr error) {
+func (a *apiServerV2) GetTar(request *pfs.GetTarRequest, server pfs.API_GetTarServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
@@ -146,7 +145,7 @@ func (gtw *getTarWriter) Write(data []byte) (int, error) {
 	return n, err
 }
 
-func (a *apiServerV2) GetTarConditional(server pfs.APIV2_GetTarConditionalServer) (retErr error) {
+func (a *apiServerV2) GetTarConditional(server pfs.API_GetTarConditionalServer) (retErr error) {
 	request, err := server.Recv()
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
@@ -191,11 +190,11 @@ func (a *apiServerV2) GetTarConditional(server pfs.APIV2_GetTarConditionalServer
 }
 
 type getTarConditionalWriter struct {
-	server       pfs.APIV2_GetTarConditionalServer
+	server       pfs.API_GetTarConditionalServer
 	bytesWritten int64
 }
 
-func newGetTarConditionalWriter(server pfs.APIV2_GetTarConditionalServer) *getTarConditionalWriter {
+func newGetTarConditionalWriter(server pfs.API_GetTarConditionalServer) *getTarConditionalWriter {
 	return &getTarConditionalWriter{
 		server: server,
 	}
@@ -209,7 +208,7 @@ func (w *getTarConditionalWriter) Write(data []byte) (int, error) {
 	return len(data), nil
 }
 
-func (a *apiServerV2) ListFileV2(req *pfs.ListFileRequest, server pfs.APIV2_ListFileV2Server) error {
+func (a *apiServerV2) ListFileV2(req *pfs.ListFileRequest, server pfs.API_ListFileV2Server) error {
 	pachClient := a.env.GetPachClient(server.Context())
 	return a.driver.listFileV2(pachClient, req.File, req.Full, req.History, func(finfo *pfs.FileInfoV2) error {
 		return server.Send(finfo)

@@ -52,9 +52,6 @@ const (
 // PfsAPIClient is an alias for pfs.APIClient.
 type PfsAPIClient pfs.APIClient
 
-// PfsAPIV2Client is an alias for pfs.APIV2Client.
-type PfsAPIV2Client pfs.APIV2Client
-
 // PpsAPIClient is an alias for pps.APIClient.
 type PpsAPIClient pps.APIClient
 
@@ -79,7 +76,6 @@ type DebugClient debug.DebugClient
 // An APIClient is a wrapper around pfs, pps and block APIClients.
 type APIClient struct {
 	PfsAPIClient
-	PfsAPIV2Client
 	PpsAPIClient
 	ObjectAPIClient
 	AuthAPIClient

@@ -595,6 +595,27 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	return &types.Empty{}, nil
 }
 
+// V2 Methods
+// GetTar not implemented
+func (a *apiServer) GetTar(request *pfs.GetTarRequest, server pfs.API_GetTarServer) (retErr error) {
+	return errors.Errorf("method not implemented")
+}
+
+// GetTarConditional not implemented
+func (a *apiServer) GetTarConditional(server pfs.API_GetTarConditionalServer) (retErr error) {
+	return errors.Errorf("method not implemented")
+}
+
+// PutTar not implemented
+func (a *apiServer) PutTar(server pfs.API_PutTarServer) (retErr error) {
+	return errors.Errorf("method not implemented")
+}
+
+// ListFileV2 not implemented
+func (a *apiServer) ListFileV2(req *pfs.ListFileRequest, server pfs.API_ListFileV2Server) error {
+	return errors.Errorf("method not implemented")
+}
+
 func drainFileServer(putFileServer interface {
 	Recv() (*pfs.PutFileRequest, error)
 }) {

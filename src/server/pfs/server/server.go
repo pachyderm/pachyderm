@@ -23,11 +23,6 @@ type APIServer interface {
 	txnenv.PfsTransactionServer
 }
 
-type APIV2Server interface {
-	pfsclient.APIV2Server
-	txnenv.PfsTransactionServer
-}
-
 // BlockAPIServer combines BlockAPIServer and ObjectAPIServer.
 type BlockAPIServer interface {
 	pfsclient.ObjectAPIServer

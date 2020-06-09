@@ -27,7 +27,7 @@ func (c APIClient) PutTar(repo, commit string, r io.Reader, tag ...string) error
 // PutTarClient is not thread safe. Multiple PutTarClients (or PutTar calls)
 // should be used for concurrent upload.
 type PutTarClient struct {
-	client pfs.APIV2_PutTarClient
+	client pfs.API_PutTarClient
 	err    error
 }
 
@@ -36,7 +36,7 @@ func (c APIClient) NewPutTarClient(repo, commit string) (_ *PutTarClient, retErr
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	client, err := c.PfsAPIV2Client.PutTar(c.Ctx())
+	client, err := c.PfsAPIClient.PutTar(c.Ctx())
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +98,7 @@ func (c APIClient) GetTar(repo, commit, path string) (_ io.Reader, retErr error)
 	req := &pfs.GetTarRequest{
 		File: NewFile(repo, commit, path),
 	}
-	client, err := c.PfsAPIV2Client.GetTar(c.Ctx(), req)
+	client, err := c.PfsAPIClient.GetTar(c.Ctx(), req)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +112,7 @@ func (c APIClient) GetTarConditional(repoName string, commitID string, path stri
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	client, err := c.PfsAPIV2Client.GetTarConditional(c.Ctx())
+	client, err := c.PfsAPIClient.GetTarConditional(c.Ctx())
 	if err != nil {
 		return err
 	}
@@ -158,7 +158,7 @@ func (c APIClient) ListFileV2(repoName string, commitID string, path string, f f
 		File: NewFile(repoName, commitID, path),
 		Full: true,
 	}
-	client, err := c.PfsAPIV2Client.ListFileV2(ctx, req)
+	client, err := c.PfsAPIClient.ListFileV2(ctx, req)
 	if err != nil {
 		return err
 	}
@@ -179,7 +179,7 @@ func (c APIClient) ListFileV2(repoName string, commitID string, path string, f f
 }
 
 type getTarConditionalReader struct {
-	client     pfs.APIV2_GetTarConditionalClient
+	client     pfs.API_GetTarConditionalClient
 	r          *bytes.Reader
 	first, EOF bool
 }

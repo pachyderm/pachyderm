@@ -623,10 +623,9 @@ service API {
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
   // Fsck does a file system consistency check for pfs
-  rpc Fsck(FsckRequest) returns (stream FsckResponse) {}  
-}
-
-service APIV2 {
+  rpc Fsck(FsckRequest) returns (stream FsckResponse) {}
+  
+  // V2 methods
   rpc PutTar(stream PutTarRequest) returns (google.protobuf.Empty) {}
   rpc GetTar(GetTarRequest) returns (stream google.protobuf.BytesValue) {}
   // Refer to the GetTarConditionalRequest / GetTarConditionalResponse message definitions for the protocol.
