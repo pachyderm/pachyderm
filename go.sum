@@ -627,6 +627,8 @@ github.com/pachyderm/s2 v0.0.0-20200609145737-6cb7ce2c56e4 h1:j+x60M3LQ43mbNv4cK
 github.com/pachyderm/s2 v0.0.0-20200609145737-6cb7ce2c56e4/go.mod h1:98ZziL+rS3SUnNMsAmmA2bo4pkfWN2vsu1ECMkUOZDk=
 github.com/pachyderm/s2 v0.0.0-20200609164049-cb5c73dfb047 h1:1UrB7KrZNQsM045CtZaR1NLMv/YKKe8WJMA5AFPjbGs=
 github.com/pachyderm/s2 v0.0.0-20200609164049-cb5c73dfb047/go.mod h1:+bgy+pTTvgUhcIKkb1Qj4kBFvsRvw0OOySSYmJHz/IQ=
+github.com/pachyderm/s2 v0.0.0-20200609183354-d52f35094520 h1:l+VwPZpaU0I0e/aBES9cP0v8jGtrktwWW4JsTXjK+mY=
+github.com/pachyderm/s2 v0.0.0-20200609183354-d52f35094520/go.mod h1:+bgy+pTTvgUhcIKkb1Qj4kBFvsRvw0OOySSYmJHz/IQ=
 github.com/pachyderm/s2/examples/sql v0.0.0-20200528231500-590b33e3c716/go.mod h1:rDwxgIkpsabZLa85PCS2MwkFSl/HgmHfc5XHJKiPuiE=
 github.com/pborman/uuid v1.2.0/go.mod h1:X/NO0urCmaxf9VXbdlT7C2Yzkj2IKimNn4k+gtPdI/k=
 github.com/pelletier/go-buffruneio v0.2.0 h1:U4t4R6YkofJ5xHm3dJzuRpPZ0mr5MMCoAWooScCR7aA=
