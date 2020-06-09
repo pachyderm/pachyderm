@@ -287,5 +287,29 @@ func (c *controller) GetBucketVersioning(r *http.Request, bucketName string) (st
 
 func (c *controller) SetBucketVersioning(r *http.Request, bucketName, status string) error {
 	c.logger.Debugf("SetBucketVersioning: bucketName=%+v, status=%+v", bucketName, status)
-	return s2.NotImplementedError(r)
+
+	pc, err := c.requestClient(r)
+	if err != nil {
+		return err
+	}
+
+	bucket, err := c.driver.bucket(pc, r, bucketName)
+	if err != nil {
+		return err
+	}
+	bucketCaps, err := c.driver.bucketCapabilities(pc, r, bucket)
+	if err != nil {
+		return err
+	}
+
+	if bucketCaps.historicVersions {
+		if status != s2.VersioningEnabled {
+			return s2.NotImplementedError(r)
+		}
+	} else {
+		if status != s2.VersioningDisabled {
+			return s2.NotImplementedError(r)
+		}
+	}
+	return nil
 }

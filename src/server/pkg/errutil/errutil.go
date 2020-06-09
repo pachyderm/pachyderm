@@ -52,3 +52,12 @@ func IsNotADirectoryError(err error) bool {
 	}
 	return strings.Contains(err.Error(), "but it's not a directory")
 }
+
+// IsInvalidPathError returns true if the err is due to an invalid path
+func IsInvalidPathError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "only printable ASCII characters allowed") ||
+		strings.Contains(err.Error(), "not allowed in path")
+}
