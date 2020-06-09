@@ -166,17 +166,32 @@ message SetConfigurationRequest {
 }
 message SetConfigurationResponse {}
 
+// AdminGrant reflects any cluster-wide (admin) permissions a user has.
+// Users can have multiple admin scopes.
+message AdminGrant {
+  string user = 1;
+
+  enum AdminScope {
+    // SUPER gives access to all APIs and owner on everything in PFS (previous just called admin)
+    SUPER = 0;
+
+    // FS gives Owner on all repos in PFS but not access to manage other aspects of the cluster
+    FS = 1;
+  }
+  repeated AdminScope scopes = 2;
+}
+
 // Get the current list of cluster admins
 message GetAdminsRequest{}
 message GetAdminsResponse{
   // admins contains the list of cluster admins
-  repeated string admins = 1;
+  repeated AdminGrant admins = 1;
 }
 
-// Add or remove cluster admins
+// Set admin grants for the set of admins specified.
+// An empty list of grants removes all scopes for that admin. 
 message ModifyAdminsRequest {
-  repeated string add = 1;
-  repeated string remove = 2;
+  repeated AdminGrant admins = 1;
 }
 message ModifyAdminsResponse {}
 
@@ -244,8 +259,8 @@ message WhoAmIRequest {}
 
 message WhoAmIResponse {
   string username = 1;
-  bool is_admin = 2;
   int64 ttl = 3 [(gogoproto.customname) = "TTL"];
+  AdminGrant admin_grant = 4;
 }
 
 //// Authorization data structures
