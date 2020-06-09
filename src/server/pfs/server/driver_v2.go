@@ -510,8 +510,3 @@ func (d *driverV2) compactionWorker() {
 	// Never ending backoff should prevent us from getting here.
 	panic(err)
 }
-
-func (d *driverV2) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.File, overwrite bool) (retErr error) {
-	// validation and auth
-	panic("not implemented")
-}
