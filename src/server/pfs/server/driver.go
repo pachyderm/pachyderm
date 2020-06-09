@@ -4655,23 +4655,3 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 	}
 	return oneOff, repo, branch, nil
 }
-
-func (d *driver) finishCommitV2(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, description string) error {
-	return errors.New("method not implemented")
-}
-
-func (d *driver) getTar(ctx context.Context, repo, commit, glob string, w io.Writer) error {
-	return errors.New("method not implemented")
-}
-
-func (d *driver) getTarConditional(ctx context.Context, repo, commit, glob string, f func(*FileReader) error) error {
-	return errors.New("method not implemented")
-}
-
-func (d *driver) listFileV2(pachClient *client.APIClient, file *pfs.File, full bool, history int64, f func(*pfs.FileInfoV2) error) error {
-	return errors.New("method not implemented")
-}
-
-func (d *driver) withFileSet(ctx context.Context, repo, commit string, f func(*fileset.FileSet) error) (retErr error) {
-	return errors.New("method not implemented")
-}

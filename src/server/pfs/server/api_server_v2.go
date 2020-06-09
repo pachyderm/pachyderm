@@ -115,7 +115,7 @@ func (ptr *putTarReader) Read(data []byte) (int, error) {
 	return n, err
 }
 
-func (a *apiServer) GetTar(request *pfs.GetTarRequest, server pfs.APIV2_GetTarServer) (retErr error) {
+func (a *apiServerV2) GetTar(request *pfs.GetTarRequest, server pfs.APIV2_GetTarServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
@@ -146,7 +146,7 @@ func (gtw *getTarWriter) Write(data []byte) (int, error) {
 	return n, err
 }
 
-func (a *apiServer) GetTarConditional(server pfs.APIV2_GetTarConditionalServer) (retErr error) {
+func (a *apiServerV2) GetTarConditional(server pfs.APIV2_GetTarConditionalServer) (retErr error) {
 	request, err := server.Recv()
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
@@ -213,5 +213,16 @@ func (a *apiServerV2) ListFileV2(req *pfs.ListFileRequest, server pfs.APIV2_List
 	pachClient := a.env.GetPachClient(server.Context())
 	return a.driver.listFileV2(pachClient, req.File, req.Full, req.History, func(finfo *pfs.FileInfoV2) error {
 		return server.Send(finfo)
+	})
+}
+
+// FinishCommitInTransaction is identical to FinishCommit except that it can run
+// inside an existing etcd STM transaction.  This is not an RPC.
+func (a *apiServerV2) FinishCommitInTransaction(
+	txnCtx *txnenv.TransactionContext,
+	request *pfs.FinishCommitRequest,
+) error {
+	return metrics.ReportRequest(func() error {
+		return a.driver.finishCommitV2(txnCtx, request.Commit, request.Description)
 	})
 }
