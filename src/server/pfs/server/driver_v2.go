@@ -8,24 +8,18 @@ import (
 	"path"
 	"regexp"
 	"strconv"
-	"sync"
 	"time"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	globlib "github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
-	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
-	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
-	"github.com/pachyderm/pachyderm/src/server/pkg/pfsdb"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
@@ -35,7 +29,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/work"
 	"golang.org/x/net/context"
-	"golang.org/x/sync/semaphore"
 )
 
 const (
@@ -48,38 +41,6 @@ const (
 
 type driverV2 struct {
 	*driver
-
-	env *serviceenv.ServiceEnv
-	// etcdClient and prefix write repo and other metadata to etcd
-	etcdClient *etcd.Client
-	txnEnv     *txnenv.TransactionEnv
-	prefix     string
-
-	// collections
-	repos          col.Collection
-	putFileRecords col.Collection
-	commits        collectionFactory
-	branches       collectionFactory
-	openCommits    col.Collection
-
-	// a cache for hashtrees
-	treeCache *hashtree.Cache
-
-	// storageRoot where we store hashtrees
-	storageRoot string
-
-	// memory limiter (useful for limiting operations that could use a lot of memory)
-	memoryLimiter *semaphore.Weighted
-	// put object limiter (useful for limiting put object requests)
-	putObjectLimiter limit.ConcurrencyLimiter
-	// limits the total parallelism for uploading files over GRPC or loading from external sources
-	putFileLimiter limit.ConcurrencyLimiter
-
-	// New storage layer.
-	storage         *fileset.Storage
-	subFileSet      int64
-	compactionQueue *work.TaskQueue
-	mu              sync.Mutex
 }
 
 // newDriver is used to create a new Driver instance
@@ -95,49 +56,7 @@ func newDriverV2(
 	if err != nil {
 		return nil, err
 	}
-
-	// Validate arguments
-	if treeCache == nil {
-		return nil, errors.Errorf("cannot initialize driver with nil treeCache")
-	}
-	// Initialize driver
-	etcdClient := env.GetEtcdClient()
-	d := &driverV2{
-		driver:         d1,
-		env:            env,
-		txnEnv:         txnEnv,
-		etcdClient:     etcdClient,
-		prefix:         etcdPrefix,
-		repos:          pfsdb.Repos(etcdClient, etcdPrefix),
-		putFileRecords: pfsdb.PutFileRecords(etcdClient, etcdPrefix),
-		commits: func(repo string) col.Collection {
-			return pfsdb.Commits(etcdClient, etcdPrefix, repo)
-		},
-		branches: func(repo string) col.Collection {
-			return pfsdb.Branches(etcdClient, etcdPrefix, repo)
-		},
-		openCommits: pfsdb.OpenCommits(etcdClient, etcdPrefix),
-		treeCache:   treeCache,
-		storageRoot: storageRoot,
-		// Allow up to a third of the requested memory to be used for memory intensive operations
-		memoryLimiter:    semaphore.NewWeighted(memoryRequest / 3),
-		putObjectLimiter: limit.New(env.StorageUploadConcurrencyLimit),
-		putFileLimiter:   limit.New(env.StoragePutFileConcurrencyLimit),
-		// TODO: set maxFanIn based on downward API.
-	}
-
-	// Create spec repo (default repo)
-	repo := client.NewRepo(ppsconsts.SpecRepo)
-	repoInfo := &pfs.RepoInfo{
-		Repo:    repo,
-		Created: types.TimestampNow(),
-	}
-	if _, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-		repos := d.repos.ReadWrite(stm)
-		return repos.Create(repo.Name, repoInfo)
-	}); err != nil && !col.IsErrExists(err) {
-		return nil, err
-	}
+	d := &driverV2{driver: d1}
 	objClient, err := NewObjClient(env.Configuration)
 	if err != nil {
 		return nil, err
@@ -593,6 +512,6 @@ func (d *driverV2) compactionWorker() {
 }
 
 func (d *driverV2) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.File, overwrite bool) (retErr error) {
-	// implementation goes here
+	// validation and auth
 	panic("not implemented")
 }

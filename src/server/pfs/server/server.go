@@ -23,6 +23,11 @@ type APIServer interface {
 	txnenv.PfsTransactionServer
 }
 
+type APIV2Server interface {
+	pfsclient.APIV2Server
+	txnenv.PfsTransactionServer
+}
+
 // BlockAPIServer combines BlockAPIServer and ObjectAPIServer.
 type BlockAPIServer interface {
 	pfsclient.ObjectAPIServer
@@ -37,6 +42,9 @@ func NewAPIServer(
 	storageRoot string,
 	memoryRequest int64,
 ) (APIServer, error) {
+	if env.StorageV2 {
+		return newAPIServerV2(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
+	}
 	return newAPIServer(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
 }
 

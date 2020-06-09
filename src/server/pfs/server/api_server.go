@@ -22,13 +22,15 @@ import (
 	"golang.org/x/net/context"
 )
 
+var _ APIServer = &apiServer{}
+
 // apiServer implements the public interface of the Pachyderm File System,
 // including all RPCs defined in the protobuf spec.  Implementation details
 // occur in the 'driver' code, and this layer serves to translate the protobuf
 // request structures into normal function calls.
 type apiServer struct {
 	log.Logger
-	driver driverAPI
+	driver *driver
 	txnEnv *txnenv.TransactionEnv
 
 	// env generates clients for pachyderm's downstream services
@@ -43,19 +45,9 @@ func newAPIServer(
 	storageRoot string,
 	memoryRequest int64,
 ) (*apiServer, error) {
-	var d driverAPI
-	if env.StorageV2 {
-		d2, err := newDriverV2(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
-		if err != nil {
-			return nil, err
-		}
-		d = d2
-	} else {
-		d1, err := newDriver(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
-		if err != nil {
-			return nil, err
-		}
-		d = d1
+	d, err := newDriver(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
+	if err != nil {
+		return nil, err
 	}
 	s := &apiServer{
 		Logger: log.NewLogger("pfs.API"),

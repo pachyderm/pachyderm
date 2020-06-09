@@ -11,7 +11,7 @@ import (
 // a transaction.  The transactionenv package provides the interface for this
 // and will call the Run function at the end of a transaction.
 type Propagater struct {
-	d   driverAPI
+	d   *driver
 	stm col.STM
 
 	// Branches to propagate when the transaction completes

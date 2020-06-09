@@ -10,11 +10,47 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/metrics"
+	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
+	"golang.org/x/net/context"
 )
 
-func (a *apiServer) PutTarV2(server pfs.API_PutTarV2Server) (retErr error) {
+var _ pfs.APIServer = &apiServerV2{}
+var _ pfs.APIV2Server = &apiServerV2{}
+
+type apiServerV2 struct {
+	*apiServer
+	driver *driverV2
+}
+
+func newAPIServerV2(
+	env *serviceenv.ServiceEnv,
+	txnEnv *txnenv.TransactionEnv,
+	etcdPrefix string,
+	treeCache *hashtree.Cache,
+	storageRoot string,
+	memoryRequest int64,
+) (*apiServerV2, error) {
+	s1, err := newAPIServer(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
+	if err != nil {
+		return nil, err
+	}
+	d, err := newDriverV2(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
+	if err != nil {
+		return nil, err
+	}
+	s2 := &apiServerV2{
+		apiServer: s1,
+		driver:    d,
+	}
+	go func() { s2.env.GetPachClient(context.Background()) }() // Begin dialing connection on startup
+	return s2, nil
+}
+
+func (a *apiServerV2) PutTar(server pfs.APIV2_PutTarServer) (retErr error) {
 	req, err := server.Recv()
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, nil, retErr, time.Since(start)) }(time.Now())
@@ -58,7 +94,7 @@ func (a *apiServer) PutTarV2(server pfs.API_PutTarV2Server) (retErr error) {
 }
 
 type putTarReader struct {
-	server    pfs.API_PutTarV2Server
+	server    pfs.APIV2_PutTarServer
 	r         *bytes.Reader
 	bytesRead int64
 }
@@ -79,7 +115,7 @@ func (ptr *putTarReader) Read(data []byte) (int, error) {
 	return n, err
 }
 
-func (a *apiServer) GetTarV2(request *pfs.GetTarRequestV2, server pfs.API_GetTarV2Server) (retErr error) {
+func (a *apiServer) GetTar(request *pfs.GetTarRequest, server pfs.APIV2_GetTarServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
@@ -110,7 +146,7 @@ func (gtw *getTarWriter) Write(data []byte) (int, error) {
 	return n, err
 }
 
-func (a *apiServer) GetTarConditionalV2(server pfs.API_GetTarConditionalV2Server) (retErr error) {
+func (a *apiServer) GetTarConditional(server pfs.APIV2_GetTarConditionalServer) (retErr error) {
 	request, err := server.Recv()
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
@@ -126,7 +162,7 @@ func (a *apiServer) GetTarConditionalV2(server pfs.API_GetTarConditionalV2Server
 		glob := request.File.Path
 		var bytesWritten int64
 		err := a.driver.getTarConditional(server.Context(), repo, commit, glob, func(fr *FileReader) error {
-			if err := server.Send(&pfs.GetTarConditionalResponseV2{FileInfo: fr.Info()}); err != nil {
+			if err := server.Send(&pfs.GetTarConditionalResponse{FileInfo: fr.Info()}); err != nil {
 				return err
 			}
 			req, err := server.Recv()
@@ -148,32 +184,32 @@ func (a *apiServer) GetTarConditionalV2(server pfs.API_GetTarConditionalV2Server
 			if err := w.Flush(); err != nil {
 				return err
 			}
-			return server.Send(&pfs.GetTarConditionalResponseV2{EOF: true})
+			return server.Send(&pfs.GetTarConditionalResponse{EOF: true})
 		})
 		return bytesWritten, err
 	})
 }
 
 type getTarConditionalWriter struct {
-	server       pfs.API_GetTarConditionalV2Server
+	server       pfs.APIV2_GetTarConditionalServer
 	bytesWritten int64
 }
 
-func newGetTarConditionalWriter(server pfs.API_GetTarConditionalV2Server) *getTarConditionalWriter {
+func newGetTarConditionalWriter(server pfs.APIV2_GetTarConditionalServer) *getTarConditionalWriter {
 	return &getTarConditionalWriter{
 		server: server,
 	}
 }
 
 func (w *getTarConditionalWriter) Write(data []byte) (int, error) {
-	if err := w.server.Send(&pfs.GetTarConditionalResponseV2{Data: data}); err != nil {
+	if err := w.server.Send(&pfs.GetTarConditionalResponse{Data: data}); err != nil {
 		return 0, err
 	}
 	w.bytesWritten += int64(len(data))
 	return len(data), nil
 }
 
-func (a *apiServer) ListFileV2(req *pfs.ListFileRequest, server pfs.API_ListFileV2Server) error {
+func (a *apiServerV2) ListFileV2(req *pfs.ListFileRequest, server pfs.APIV2_ListFileV2Server) error {
 	pachClient := a.env.GetPachClient(server.Context())
 	return a.driver.listFileV2(pachClient, req.File, req.Full, req.History, func(finfo *pfs.FileInfoV2) error {
 		return server.Send(finfo)
