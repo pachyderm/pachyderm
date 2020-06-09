@@ -284,7 +284,7 @@ func WhoamiCmd() *cobra.Command {
 			if resp.TTL > 0 {
 				fmt.Printf("session expires: %v\n", time.Now().Add(time.Duration(resp.TTL)*time.Second).Format(time.RFC822))
 			}
-			if resp.AdminGrant && len(resp.AdminGrant.Scopes) > 0 {
+			if resp.AdminGrant != nil && len(resp.AdminGrant.Scopes) > 0 {
 				fmt.Println("Administrator scopes:")
 				for _, scope := range resp.AdminGrant.Scopes {
 					fmt.Printf("\t- %s", scope)
@@ -443,22 +443,35 @@ func ListAdminsCmd() *cobra.Command {
 // ModifyAdminsCmd returns a cobra command that modifies the set of current
 // cluster admins
 func ModifyAdminsCmd() *cobra.Command {
-	var add []string
-	var remove []string
+	var user string
+	var scopes []string
 	modifyAdmins := &cobra.Command{
-		Short: "Modify the current cluster admins",
-		Long: "Modify the current cluster admins. --add accepts a comma-" +
-			"separated list of users to grant admin status, and --remove accepts a " +
-			"comma-separated list of users to revoke admin status",
+		Short: "Set the admin scopes for a given user",
+		Long: "Set the cluster admin scopes for a given user." +
+			"--user is the user to modify, and --scopes is a comma-separated list of scopes." +
+			"An empty list removes all admin scopes for the user.",
 		Run: cmdutil.Run(func([]string) error {
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
 			defer c.Close()
+
+			grant := auth.AdminGrant{
+				Scopes: make([]auth.AdminGrant_Scope, len(scopes)),
+			}
+
+			for i, scope := range scopes {
+				s, ok := auth.AdminGrant_Scope_value[scope]
+				if !ok {
+					return fmt.Errorf("Unsupport admin scope %q, valid scopes are 'SUPER', 'FS'", scope)
+				}
+				grant.Scopes[i] = auth.AdminGrant_Scope(s)
+			}
+
 			_, err = c.ModifyAdmins(c.Ctx(), &auth.ModifyAdminsRequest{
-				Add:    add,
-				Remove: remove,
+				Subject: user,
+				Grant:   &grant,
 			})
 			if auth.IsErrPartiallyActivated(err) {
 				return errors.Wrapf(err, "Errored, if pachyderm is stuck in this state, you "+
@@ -468,10 +481,9 @@ func ModifyAdminsCmd() *cobra.Command {
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
-	modifyAdmins.PersistentFlags().StringSliceVar(&add, "add", []string{},
-		"Comma-separated list of users to grant admin status")
-	modifyAdmins.PersistentFlags().StringSliceVar(&remove, "remove", []string{},
-		"Comma-separated list of users revoke admin status")
+	modifyAdmins.PersistentFlags().StringVar(&user, "user", "", "The user to grant scopes to")
+	modifyAdmins.PersistentFlags().StringSliceVar(&scopes, "scopes", []string{},
+		"Comma-separated list of admin scopes to grant")
 	return cmdutil.CreateAlias(modifyAdmins, "auth modify-admins")
 }
 

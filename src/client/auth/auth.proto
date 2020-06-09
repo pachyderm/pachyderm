@@ -166,32 +166,30 @@ message SetConfigurationRequest {
 }
 message SetConfigurationResponse {}
 
-// AdminGrant reflects any cluster-wide (admin) permissions a user has.
-// Users can have multiple admin scopes.
+// AdminGrant reflects any cluster-wide (admin) permissions a principal has.
+// Principals can have multiple admin scopes.
 message AdminGrant {
-  string user = 1;
-
-  enum AdminScope {
+  enum Scope {
     // SUPER gives access to all APIs and owner on everything in PFS (previous just called admin)
     SUPER = 0;
 
     // FS gives Owner on all repos in PFS but not access to manage other aspects of the cluster
     FS = 1;
   }
-  repeated AdminScope scopes = 2;
+  repeated Scope scopes = 1;
 }
 
 // Get the current list of cluster admins
 message GetAdminsRequest{}
 message GetAdminsResponse{
-  // admins contains the list of cluster admins
-  repeated AdminGrant admins = 1;
+  // admins contains a mapping of principals to admin grants 
+  map<string, AdminGrant> admins = 1;
 }
 
-// Set admin grants for the set of admins specified.
-// An empty list of grants removes all scopes for that admin. 
+// Set admin grants for the specified admin.
 message ModifyAdminsRequest {
-  repeated AdminGrant admins = 1;
+  string subject = 1;
+  AdminGrant grant = 2;
 }
 message ModifyAdminsResponse {}
 
