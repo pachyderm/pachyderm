@@ -264,9 +264,8 @@ func LogoutCmd() *cobra.Command {
 	return cmdutil.CreateAlias(logout, "auth logout")
 }
 
-// WhoamiCmd returns a cobra.Command that deletes your local Pachyderm
-// credential, logging you out of your cluster. Note that this is not necessary
-// to do before logging in as another user, but is useful for testing.
+// WhoamiCmd returns a cobra.Command that prints information about the currently
+// authenticated user.
 func WhoamiCmd() *cobra.Command {
 	whoami := &cobra.Command{
 		Short: "Print your Pachyderm identity",
@@ -285,8 +284,11 @@ func WhoamiCmd() *cobra.Command {
 			if resp.TTL > 0 {
 				fmt.Printf("session expires: %v\n", time.Now().Add(time.Duration(resp.TTL)*time.Second).Format(time.RFC822))
 			}
-			if resp.IsAdmin {
-				fmt.Println("You are an administrator of this Pachyderm cluster")
+			if resp.AdminGrant && len(resp.AdminGrant.Scopes) > 0 {
+				fmt.Println("Administrator scopes:")
+				for _, scope := range resp.AdminGrant.Scopes {
+					fmt.Printf("\t- %s", scope)
+				}
 			}
 			return nil
 		}),
