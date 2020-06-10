@@ -36,12 +36,9 @@ type FileSet struct {
 	subFileSet                 int64
 }
 
-func newFileSet(ctx context.Context, storage *Storage, name string, memThreshold int64, defaultTag string, opts ...Option) *FileSet {
-	// because we don't have the option to return an error, we can't use ctx here.
-	// we have to be willing to wait indefinitely.
-	if err := storage.filesetSem.Acquire(context.Background(), 1); err != nil {
-		// should never happen because of the background context
-		panic(err)
+func newFileSet(ctx context.Context, storage *Storage, name string, memThreshold int64, defaultTag string, opts ...Option) (*FileSet, error) {
+	if err := storage.filesetSem.Acquire(ctx, 1); err != nil {
+		return nil, err
 	}
 	f := &FileSet{
 		ctx:          ctx,
@@ -55,7 +52,7 @@ func newFileSet(ctx context.Context, storage *Storage, name string, memThreshold
 	for _, opt := range opts {
 		opt(f)
 	}
-	return f
+	return f, nil
 }
 
 // Put reads files from a tar stream and adds them to the fileset.
@@ -92,7 +89,6 @@ func (f *FileSet) Put(r io.Reader, customTag ...string) error {
 			}
 		}
 	}
-	return nil
 }
 
 func (f *FileSet) createFile(hdr *tar.Header, tag string) *memFile {

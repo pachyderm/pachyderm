@@ -75,7 +75,7 @@ func (s *Storage) ChunkStorage() *chunk.Storage {
 }
 
 // New creates a new in-memory fileset.
-func (s *Storage) New(ctx context.Context, fileSet, defaultTag string, opts ...Option) *FileSet {
+func (s *Storage) New(ctx context.Context, fileSet, defaultTag string, opts ...Option) (*FileSet, error) {
 	fileSet = applyPrefix(fileSet)
 	return newFileSet(ctx, s, fileSet, s.memThreshold, defaultTag, opts...)
 }

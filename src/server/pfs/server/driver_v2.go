@@ -100,7 +100,10 @@ func (d *driver) withFileSet(ctx context.Context, repo, commit string, f func(*f
 	d.mu.Lock()
 	subFileSetStr := fileset.SubFileSetStr(d.subFileSet)
 	subFileSetPath := path.Join(repo, commit, subFileSetStr)
-	fs := d.storage.New(ctx, path.Join(tmpPrefix, subFileSetPath), subFileSetStr)
+	fs, err := d.storage.New(ctx, path.Join(tmpPrefix, subFileSetPath), subFileSetStr)
+	if err != nil {
+		return err
+	}
 	d.subFileSet++
 	d.mu.Unlock()
 	defer func() {
