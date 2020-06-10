@@ -166,15 +166,17 @@ message SetConfigurationRequest {
 }
 message SetConfigurationResponse {}
 
-// AdminGrant reflects any cluster-wide (admin) permissions a principal has.
-// Principals can have multiple admin scopes.
-message AdminGrant {
+// AdminScopes reflects any cluster-wide (admin) permissions a principal has.
+// A principal can have multiple admin scopes.
+message AdminScopes {
   enum Scope {
+    UNDEFINED = 0;
+
     // SUPER gives access to all APIs and owner on everything in PFS (previous just called admin)
-    SUPER = 0;
+    SUPER = 1;
 
     // FS gives Owner on all repos in PFS but not access to manage other aspects of the cluster
-    FS = 1;
+    FS = 2;
   }
   repeated Scope scopes = 1;
 }
@@ -182,14 +184,18 @@ message AdminGrant {
 // Get the current list of cluster admins
 message GetAdminsRequest{}
 message GetAdminsResponse{
-  // admins contains a mapping of principals to admin grants 
-  map<string, AdminGrant> admins = 1;
+  reserved 1;
+
+  // admins contains a mapping of principals to admin scopes
+  map<string, AdminScopes> admins = 2;
 }
 
-// Set admin grants for the specified admin.
+// Set admin scopes for the specified principal. Setting an empty list of scopes
+// revokes any admin scopes the principal has.
 message ModifyAdminsRequest {
-  string subject = 1;
-  AdminGrant grant = 2;
+  reserved 1, 2;
+  string principal = 3;
+  AdminScopes scopes = 4;
 }
 message ModifyAdminsResponse {}
 
@@ -256,9 +262,11 @@ message AuthenticateResponse {
 message WhoAmIRequest {}
 
 message WhoAmIResponse {
+  reserved 2;
+
   string username = 1;
   int64 ttl = 3 [(gogoproto.customname) = "TTL"];
-  AdminGrant admin_grant = 4;
+  AdminScopes admin_scopes = 4;
 }
 
 //// Authorization data structures

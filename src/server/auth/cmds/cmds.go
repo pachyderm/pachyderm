@@ -284,9 +284,9 @@ func WhoamiCmd() *cobra.Command {
 			if resp.TTL > 0 {
 				fmt.Printf("session expires: %v\n", time.Now().Add(time.Duration(resp.TTL)*time.Second).Format(time.RFC822))
 			}
-			if resp.AdminGrant != nil && len(resp.AdminGrant.Scopes) > 0 {
+			if resp.AdminScopes != nil && len(resp.AdminScopes.Scopes) > 0 {
 				fmt.Println("Administrator scopes:")
-				for _, scope := range resp.AdminGrant.Scopes {
+				for _, scope := range resp.AdminScopes.Scopes {
 					fmt.Printf("\t- %s", scope)
 				}
 			}
@@ -444,7 +444,7 @@ func ListAdminsCmd() *cobra.Command {
 // cluster admins
 func ModifyAdminsCmd() *cobra.Command {
 	var user string
-	var scopes []string
+	var scopesStr []string
 	modifyAdmins := &cobra.Command{
 		Short: "Set the admin scopes for a given user",
 		Long: "Set the cluster admin scopes for a given user." +
@@ -457,21 +457,21 @@ func ModifyAdminsCmd() *cobra.Command {
 			}
 			defer c.Close()
 
-			grant := auth.AdminGrant{
-				Scopes: make([]auth.AdminGrant_Scope, len(scopes)),
+			scopes := auth.AdminScopes{
+				Scopes: make([]auth.AdminScopes_Scope, len(scopesStr)),
 			}
 
-			for i, scope := range scopes {
-				s, ok := auth.AdminGrant_Scope_value[scope]
+			for i, scope := range scopesStr {
+				s, ok := auth.AdminScopes_Scope_value[scope]
 				if !ok {
 					return fmt.Errorf("Unsupport admin scope %q, valid scopes are 'SUPER', 'FS'", scope)
 				}
-				grant.Scopes[i] = auth.AdminGrant_Scope(s)
+				scopes.Scopes[i] = auth.AdminScopes_Scope(s)
 			}
 
 			_, err = c.ModifyAdmins(c.Ctx(), &auth.ModifyAdminsRequest{
-				Subject: user,
-				Grant:   &grant,
+				Principal: user,
+				Scopes:    &scopes,
 			})
 			if auth.IsErrPartiallyActivated(err) {
 				return errors.Wrapf(err, "Errored, if pachyderm is stuck in this state, you "+
@@ -482,7 +482,7 @@ func ModifyAdminsCmd() *cobra.Command {
 		}),
 	}
 	modifyAdmins.PersistentFlags().StringVar(&user, "user", "", "The user to grant scopes to")
-	modifyAdmins.PersistentFlags().StringSliceVar(&scopes, "scopes", []string{},
+	modifyAdmins.PersistentFlags().StringSliceVar(&scopesStr, "scopes", []string{},
 		"Comma-separated list of admin scopes to grant")
 	return cmdutil.CreateAlias(modifyAdmins, "auth modify-admins")
 }

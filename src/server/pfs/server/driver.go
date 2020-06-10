@@ -309,9 +309,9 @@ func (d *driver) getAccessLevel(pachClient *client.APIClient, repo *pfs.Repo) (a
 		return auth.Scope_NONE, err
 	}
 
-	if who.AdminGrant != nil {
-		for _, s := range who.AdminGrant.Scopes {
-			if s == auth.AdminGrant_SUPER || s == auth.AdminGrant_FS {
+	if who.AdminScopes != nil {
+		for _, s := range who.AdminScopes.Scopes {
+			if s == auth.AdminScopes_SUPER || s == auth.AdminScopes_FS {
 				return auth.Scope_OWNER, nil
 			}
 		}
