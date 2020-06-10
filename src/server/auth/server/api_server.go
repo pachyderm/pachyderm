@@ -725,7 +725,7 @@ func (a *apiServer) validateModifyAdminsRequest(user string, grants auth.AdminSc
 	// apply new scopes
 	m[user] = grants
 
-	// Confirm that there will be at least one admin.
+	// Confirm that there will be at least one admin with the SUPER scope.
 	//
 	// This is required so that the admin can get the cluster out of any broken
 	// state that it may enter.
@@ -779,14 +779,19 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequ
 		return nil, err
 	}
 
-	// Update "admins" list (watchAdmins() will update admins cache)
-	if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		return a.admins.ReadWrite(stm).Put(canonicalizedUser, req.Scopes)
-	}); err != nil && retErr == nil {
-		retErr = err
-	}
-	if retErr != nil {
-		return nil, retErr
+	// Update "admins" list (watchAdmins() will update admins cache).
+	if len(req.Scopes) > 0 {
+		if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+			return a.admins.ReadWrite(stm).Put(canonicalizedUser, req.Scopes)
+		}); err != nil {
+			return nil, err
+		}
+	} else {
+		if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+			return a.admins.ReadWrite(stm).Delete(canonicalizedUser)
+		}); err != nil {
+			return nil, err
+		}
 	}
 	return &auth.ModifyAdminsResponse{}, nil
 }
