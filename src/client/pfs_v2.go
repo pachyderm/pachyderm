@@ -31,7 +31,7 @@ type PutTarClient struct {
 	err    error
 }
 
-// NewPutTarClientV2 creates a new PutTarClient.
+// NewPutTarClient creates a new PutTarClient.
 func (c APIClient) NewPutTarClient(repo, commit string) (_ *PutTarClient, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
@@ -90,7 +90,7 @@ func (ptc *PutTarClient) Close() error {
 	})
 }
 
-// GetTarV2 gets a tar stream out of PFS that contains files at the repo and commit that match the path.
+// GetTar gets a tar stream out of PFS that contains files at the repo and commit that match the path.
 func (c APIClient) GetTar(repo, commit, path string) (_ io.Reader, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
