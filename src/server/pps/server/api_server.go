@@ -1335,6 +1335,9 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 
 // GetLogs implements the protobuf pps.GetLogs RPC
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
+	if a.env.LokiLogging {
+		return a.GetLogsLoki(request, apiGetLogsServer)
+	}
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(apiGetLogsServer.Context())
@@ -1342,25 +1345,20 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 
 	// Authorize request and get list of pods containing logs we're interested in
 	// (based on pipeline and job filters)
+	var rcName, containerName string
 	if request.Pipeline == nil && request.Job == nil {
 		if len(request.DataFilters) > 0 || request.Datum != nil {
 			return errors.Errorf("must specify the Job or Pipeline that the datum is from to get logs for it")
 		}
 		// no authorization is done to get logs from master
-		resp, err := a.env.GetLokiClient().QueryRange(`{app="pachd"}`, maxLogMessages, time.Time{}, time.Now(), logproto.FORWARD, 0, 0, true)
-		if err != nil {
-			return err
-		}
-		return lokiutil.ForEachLine(resp, func(line string) error {
-			return apiGetLogsServer.Send(&pps.LogMessage{
-				Message: strings.TrimSuffix(line, "\n"),
-			})
-		})
+		containerName, rcName = "pachd", "pachd"
 	} else {
+		containerName = client.PPSWorkerUserContainerName
 
 		// 1) Lookup the PipelineInfo for this pipeline/job, for auth and to get the
 		// RC name
 		var pipelineInfo *pps.PipelineInfo
+		var statsCommit *pfs.Commit
 		var err error
 		if request.Pipeline != nil {
 			pipelineInfo, err = a.inspectPipeline(pachClient, request.Pipeline.Name)
@@ -1375,6 +1373,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			if err != nil {
 				return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.ID)
 			}
+			statsCommit = jobPtr.StatsCommit
 			pipelineInfo, err = a.inspectPipeline(pachClient, jobPtr.Pipeline.Name)
 			if err != nil {
 				return errors.Wrapf(err, "could not get pipeline information for %s", jobPtr.Pipeline.Name)
@@ -1385,37 +1384,127 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		if err := a.authorizePipelineOp(pachClient, pipelineOpGetLogs, pipelineInfo.Input, pipelineInfo.Pipeline.Name); err != nil {
 			return err
 		}
-		filter := fmt.Sprintf(`{pipelineName=%q, container="user"}`, pipelineInfo.Pipeline.Name)
-		resp, err := a.env.GetLokiClient().QueryRange(filter, maxLogMessages, time.Time{}, time.Now(), logproto.FORWARD, 0, 0, true)
+
+		// If the job had stats enabled, we use the logs from the stats
+		// commit since that's likely to yield better results.
+		if statsCommit != nil {
+			ci, err := pachClient.InspectCommit(statsCommit.Repo.Name, statsCommit.ID)
+			if err != nil {
+				return err
+			}
+			if ci.Finished != nil {
+				return a.getLogsFromStats(pachClient, request, apiGetLogsServer, statsCommit)
+			}
+		}
+
+		// 3) Get rcName for this pipeline
+		rcName = ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 		if err != nil {
 			return err
 		}
-		return lokiutil.ForEachLine(resp, func(line string) error {
-			msg := &pps.LogMessage{}
-			if err := jsonpb.Unmarshal(strings.NewReader(line), msg); err != nil {
-				return nil
-			}
-
-			// Filter out log lines that don't match on pipeline or job
-			if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
-				return nil
-			}
-			if request.Job != nil && request.Job.ID != msg.JobID {
-				return nil
-			}
-			if request.Datum != nil && request.Datum.ID != msg.DatumID {
-				return nil
-			}
-			if request.Master != msg.Master {
-				return nil
-			}
-			if !workercommon.MatchDatum(request.DataFilters, msg.Data) {
-				return nil
-			}
-			msg.Message = strings.TrimSuffix(msg.Message, "\n")
-			return apiGetLogsServer.Send(msg)
-		})
 	}
+
+	// Get pods managed by the RC we're scraping (either pipeline or pachd)
+	pods, err := a.rcPods(rcName)
+	if err != nil {
+		return errors.Wrapf(err, "could not get pods in rc \"%s\" containing logs", rcName)
+	}
+	if len(pods) == 0 {
+		return errors.Errorf("no pods belonging to the rc \"%s\" were found", rcName)
+	}
+
+	// Spawn one goroutine per pod. Each goro writes its pod's logs to a channel
+	// and channels are read into the output server in a stable order.
+	// (sort the pods to make sure that the order of log lines is stable)
+	sort.Sort(podSlice(pods))
+	logCh := make(chan *pps.LogMessage)
+	var eg errgroup.Group
+	var mu sync.Mutex
+	eg.Go(func() error {
+		for _, pod := range pods {
+			pod := pod
+			if !request.Follow {
+				mu.Lock()
+			}
+			eg.Go(func() (retErr error) {
+				if !request.Follow {
+					defer mu.Unlock()
+				}
+				tailLines := &request.Tail
+				if *tailLines <= 0 {
+					tailLines = nil
+				}
+				// Get full set of logs from pod i
+				stream, err := a.env.GetKubeClient().CoreV1().Pods(a.namespace).GetLogs(
+					pod.ObjectMeta.Name, &v1.PodLogOptions{
+						Container: containerName,
+						Follow:    request.Follow,
+						TailLines: tailLines,
+					}).Timeout(10 * time.Second).Stream()
+				if err != nil {
+					return err
+				}
+				defer func() {
+					if err := stream.Close(); err != nil && retErr == nil {
+						retErr = err
+					}
+				}()
+
+				// Parse pods' log lines, and filter out irrelevant ones
+				scanner := bufio.NewScanner(stream)
+				for scanner.Scan() {
+					msg := new(pps.LogMessage)
+					if containerName == "pachd" {
+						msg.Message = scanner.Text()
+					} else {
+						logBytes := scanner.Bytes()
+						if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
+							continue
+						}
+
+						// Filter out log lines that don't match on pipeline or job
+						if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
+							continue
+						}
+						if request.Job != nil && request.Job.ID != msg.JobID {
+							continue
+						}
+						if request.Datum != nil && request.Datum.ID != msg.DatumID {
+							continue
+						}
+						if request.Master != msg.Master {
+							continue
+						}
+						if !workercommon.MatchDatum(request.DataFilters, msg.Data) {
+							continue
+						}
+					}
+					msg.Message = strings.TrimSuffix(msg.Message, "\n")
+
+					// Log message passes all filters -- return it
+					select {
+					case logCh <- msg:
+					case <-ctx.Done():
+						return nil
+					}
+				}
+				return nil
+			})
+		}
+		return nil
+	})
+	var egErr error
+	go func() {
+		egErr = eg.Wait()
+		close(logCh)
+	}()
+
+	for msg := range logCh {
+		if err := apiGetLogsServer.Send(msg); err != nil {
+			return err
+		}
+	}
+	return egErr
 }
 
 func (a *apiServer) getLogsFromStats(pachClient *client.APIClient, request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer, statsCommit *pfs.Commit) error {
@@ -1481,6 +1570,95 @@ func (a *apiServer) getLogsFromStats(pachClient *client.APIClient, request *pps.
 		})
 	}
 	return eg.Wait()
+}
+
+// GetLogs implements the protobuf pps.GetLogs RPC
+func (a *apiServer) GetLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	pachClient := a.env.GetPachClient(apiGetLogsServer.Context())
+	ctx := pachClient.Ctx() // pachClient will propagate auth info
+
+	// Authorize request and get list of pods containing logs we're interested in
+	// (based on pipeline and job filters)
+	loki, err := a.env.GetLokiClient()
+	if err != nil {
+		return err
+	}
+	if request.Pipeline == nil && request.Job == nil {
+		if len(request.DataFilters) > 0 || request.Datum != nil {
+			return errors.Errorf("must specify the Job or Pipeline that the datum is from to get logs for it")
+		}
+		// no authorization is done to get logs from master
+		resp, err := loki.QueryRange(`{app="pachd"}`, maxLogMessages, time.Time{}, time.Now(), logproto.FORWARD, 0, 0, true)
+		if err != nil {
+			return err
+		}
+		return lokiutil.ForEachLine(resp, func(line string) error {
+			return apiGetLogsServer.Send(&pps.LogMessage{
+				Message: strings.TrimSuffix(line, "\n"),
+			})
+		})
+	} else {
+
+		// 1) Lookup the PipelineInfo for this pipeline/job, for auth and to get the
+		// RC name
+		var pipelineInfo *pps.PipelineInfo
+		var err error
+		if request.Pipeline != nil {
+			pipelineInfo, err = a.inspectPipeline(pachClient, request.Pipeline.Name)
+			if err != nil {
+				return errors.Wrapf(err, "could not get pipeline information for %s", request.Pipeline.Name)
+			}
+		} else if request.Job != nil {
+			// If user provides a job, lookup the pipeline from the job info, and then
+			// get the pipeline RC
+			var jobPtr pps.EtcdJobInfo
+			err = a.jobs.ReadOnly(ctx).Get(request.Job.ID, &jobPtr)
+			if err != nil {
+				return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.ID)
+			}
+			pipelineInfo, err = a.inspectPipeline(pachClient, jobPtr.Pipeline.Name)
+			if err != nil {
+				return errors.Wrapf(err, "could not get pipeline information for %s", jobPtr.Pipeline.Name)
+			}
+		}
+
+		// 2) Check whether the caller is authorized to get logs from this pipeline/job
+		if err := a.authorizePipelineOp(pachClient, pipelineOpGetLogs, pipelineInfo.Input, pipelineInfo.Pipeline.Name); err != nil {
+			return err
+		}
+		filter := fmt.Sprintf(`{pipelineName=%q, container="user"}`, pipelineInfo.Pipeline.Name)
+		resp, err := loki.QueryRange(filter, maxLogMessages, time.Time{}, time.Now(), logproto.FORWARD, 0, 0, true)
+		if err != nil {
+			return err
+		}
+		return lokiutil.ForEachLine(resp, func(line string) error {
+			msg := &pps.LogMessage{}
+			if err := jsonpb.Unmarshal(strings.NewReader(line), msg); err != nil {
+				return nil
+			}
+
+			// Filter out log lines that don't match on pipeline or job
+			if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
+				return nil
+			}
+			if request.Job != nil && request.Job.ID != msg.JobID {
+				return nil
+			}
+			if request.Datum != nil && request.Datum.ID != msg.DatumID {
+				return nil
+			}
+			if request.Master != msg.Master {
+				return nil
+			}
+			if !workercommon.MatchDatum(request.DataFilters, msg.Data) {
+				return nil
+			}
+			msg.Message = strings.TrimSuffix(msg.Message, "\n")
+			return apiGetLogsServer.Send(msg)
+		})
+	}
 }
 
 func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) error {

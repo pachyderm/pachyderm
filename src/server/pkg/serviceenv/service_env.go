@@ -84,8 +84,10 @@ func InitServiceEnv(config *Configuration) *ServiceEnv {
 	env := InitPachOnlyEnv(config)
 	env.etcdAddress = fmt.Sprintf("http://%s", net.JoinHostPort(env.EtcdHost, env.EtcdPort))
 	env.etcdEg.Go(env.initEtcdClient)
-	env.lokiClient = &loki.Client{
-		Address: fmt.Sprintf("http://%s", net.JoinHostPort(env.LokiHost, env.LokiPort)),
+	if env.LokiLogging && env.LokiHost != "" && env.LokiPort != "" {
+		env.lokiClient = &loki.Client{
+			Address: fmt.Sprintf("http://%s", net.JoinHostPort(env.LokiHost, env.LokiPort)),
+		}
 	}
 	return env // env is not ready yet
 }
@@ -207,6 +209,9 @@ func (env *ServiceEnv) GetKubeClient() *kube.Clientset {
 
 // GetLokiClient returns the loki client, it doesn't require blocking on a
 // connection because the client is just a dumb struct with no init function.
-func (env *ServiceEnv) GetLokiClient() *loki.Client {
-	return env.lokiClient
+func (env *ServiceEnv) GetLokiClient() (*loki.Client, error) {
+	if env.lokiClient == nil {
+		return nil, errors.Errorf("loki not configured, is it running in the same namespace as pachd?")
+	}
+	return env.lokiClient, nil
 }
