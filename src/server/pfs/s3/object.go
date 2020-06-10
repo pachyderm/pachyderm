@@ -73,6 +73,60 @@ func (c *controller) GetObject(r *http.Request, bucketName, file, version string
 	return &result, nil
 }
 
+func (c *controller) CopyObject(r *http.Request, srcBucketName, srcFile string, srcObj *s2.GetObjectResult, destBucketName, destFile string) (string, error) {
+	c.logger.Tracef("CopyObject: srcBucketName=%+v, srcFile=%+v, srcObj=%+v, destBucketName=%+v, destFile=%+v", srcBucketName, srcFile, srcObj, destBucketName, destFile)
+
+	pc, err := c.requestClient(r)
+	if err != nil {
+		return "", err
+	}
+
+	if strings.HasSuffix(destFile, "/") {
+		return "", invalidFilePathError(r)
+	}
+
+	srcBucket, err := c.driver.bucket(pc, r, srcBucketName)
+	if err != nil {
+		return "", err
+	}
+	// srcBucket capabilities were already verified, since s2 will call
+	// `GetObject` under the hood before calling `CopyObject`
+
+	destBucket, err := c.driver.bucket(pc, r, destBucketName)
+	if err != nil {
+		return "", err
+	}
+	destBucketCaps, err := c.driver.bucketCapabilities(pc, r, destBucket)
+	if err != nil {
+		return "", err
+	}
+	if !destBucketCaps.writable {
+		return "", s2.NotImplementedError(r)
+	}
+
+	if err = pc.CopyFile(srcBucket.Repo, srcBucket.Commit, srcFile, destBucket.Repo, destBucket.Commit, destFile, true); err != nil {
+		if errutil.IsWriteToOutputBranchError(err) {
+			return "", writeToOutputBranchError(r)
+		} else if errutil.IsNotADirectoryError(err) {
+			return "", invalidFileParentError(r)
+		} else if errutil.IsInvalidPathError(err) {
+			return "", invalidFilePathError(r)
+		}
+		return "", err
+	}
+
+	fileInfo, err := pc.InspectFile(destBucket.Repo, destBucket.Commit, destFile)
+	if err != nil && !pfsServer.IsOutputCommitNotFinishedErr(err) {
+		return "", err
+	}
+	var version string
+	if fileInfo != nil {
+		version = fileInfo.File.Commit.ID
+	}
+
+	return version, nil
+}
+
 func (c *controller) PutObject(r *http.Request, bucketName, file string, reader io.Reader) (*s2.PutObjectResult, error) {
 	c.logger.Debugf("PutObject: bucketName=%+v, file=%+v", bucketName, file)
 
@@ -103,6 +157,8 @@ func (c *controller) PutObject(r *http.Request, bucketName, file string, reader 
 			return nil, writeToOutputBranchError(r)
 		} else if errutil.IsNotADirectoryError(err) {
 			return nil, invalidFileParentError(r)
+		} else if errutil.IsInvalidPathError(err) {
+			return nil, invalidFilePathError(r)
 		}
 		return nil, err
 	}
