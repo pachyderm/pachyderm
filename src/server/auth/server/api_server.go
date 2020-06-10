@@ -120,11 +120,6 @@ var DefaultAuthConfig = auth.AuthConfig{
 // username is the string in "GitHubToken".
 var githubTokenRegex = regexp.MustCompile("^[0-9a-f]{40}$")
 
-// epsilon is small, nonempty protobuf to use as an etcd value (the etcd client
-// library can't distinguish between empty values and missing values, even
-// though empty values are still stored in etcd)
-var epsilon = &types.BoolValue{Value: true}
-
 // APIServer represents an auth api server
 type APIServer interface {
 	auth.APIServer
@@ -500,7 +495,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 	// checks are now enforced, which means no pipelines or repos can be created
 	// while ACLs are being added to every repo for the existing pipelines
 	if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		return a.admins.ReadWrite(stm).Put(ppsUser, epsilon)
+		return a.admins.ReadWrite(stm).Put(ppsUser, &auth.AdminScopes{Scopes: []auth.AdminScopes_Scope{auth.AdminScopes_SUPER}})
 	}); err != nil {
 		return nil, err
 	}
@@ -534,7 +529,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 		if err := admins.Delete(ppsUser); err != nil {
 			return err
 		}
-		if err := admins.Put(req.Subject, epsilon); err != nil {
+		if err := a.admins.ReadWrite(stm).Put(req.Subject, &auth.AdminScopes{Scopes: []auth.AdminScopes_Scope{auth.AdminScopes_SUPER}}); err != nil {
 			return err
 		}
 		return tokens.PutTTL(
@@ -780,7 +775,7 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequ
 	}
 
 	// Update "admins" list (watchAdmins() will update admins cache).
-	if len(req.Scopes) > 0 {
+	if len(req.Scopes.Scopes) > 0 {
 		if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 			return a.admins.ReadWrite(stm).Put(canonicalizedUser, req.Scopes)
 		}); err != nil {

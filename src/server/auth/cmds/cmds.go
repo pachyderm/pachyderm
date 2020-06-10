@@ -287,7 +287,7 @@ func WhoamiCmd() *cobra.Command {
 			if resp.AdminScopes != nil && len(resp.AdminScopes.Scopes) > 0 {
 				fmt.Println("Administrator scopes:")
 				for _, scope := range resp.AdminScopes.Scopes {
-					fmt.Printf("\t- %s", scope)
+					fmt.Printf("\t- %s\n", scope)
 				}
 			}
 			return nil
@@ -431,8 +431,8 @@ func ListAdminsCmd() *cobra.Command {
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
-			for _, user := range resp.Admins {
-				fmt.Println(user)
+			for user, scopes := range resp.Admins {
+				fmt.Printf("%s: %s\n", user, scopes.Scopes)
 			}
 			return nil
 		}),
