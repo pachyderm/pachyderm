@@ -45,9 +45,10 @@ type canonicalSAMLIDP struct {
 type canonicalGitHubIDP struct{}
 
 type canonicalOIDCIDP struct {
-	BaseURL     string
-	ClientID    string
-	RedirectURL string
+	BaseURL      string
+	ClientID     string
+	ClientSecret string
+	RedirectURL  string
 }
 
 type canonicalIDPConfig struct {
@@ -126,6 +127,7 @@ func (c *canonicalConfig) ToProto() (*auth.AuthConfig, error) {
 				OIDC: &auth.IDProvider_OIDCOptions{
 					ProviderBaseURL: idp.OIDC.BaseURL,
 					ClientID:        idp.OIDC.ClientID,
+					ClientSecret:    idp.OIDC.ClientSecret,
 				},
 			}
 
@@ -348,8 +350,10 @@ func validateIDPOIDC(idp *auth.IDProvider, src configSource) (*canonicalIDPConfi
 	newIDP.Description = idp.Description
 
 	newIDP.OIDC = &canonicalOIDCIDP{
-		BaseURL:  idp.OIDC.ProviderBaseURL,
-		ClientID: idp.OIDC.ClientID}
+		BaseURL:      idp.OIDC.ProviderBaseURL,
+		ClientID:     idp.OIDC.ClientID,
+		ClientSecret: idp.OIDC.ClientSecret,
+	}
 
 	newIDP.OIDC.RedirectURL = "http://localhost:14687/authorization-code/callback"
 
@@ -480,17 +484,17 @@ func (a *apiServer) setCacheConfig(config *auth.AuthConfig) error {
 	if err != nil {
 		return err
 	}
-	if a.configCache != nil {
-		if newConfig.Version < a.configCache.Version {
-			return errors.Errorf("new config has lower version than cached config (%d < %d)",
-				newConfig.Version, a.configCache.Version)
-		} else if newConfig.Version == a.configCache.Version {
-			// This shouldn't happen, but can if a user calls GetConfiguration and it
-			// races with watchConfig. Just log the two configs and continue
-			logrus.Warnf("new config has same version as cached config:%+v\nand:\n%+v\n",
-				newConfig.Version, a.configCache)
-		}
-	}
+	// if a.configCache != nil {
+	// 	if newConfig.Version < a.configCache.Version {
+	// 		return errors.Errorf("new config has lower version than cached config (%d < %d)",
+	// 			newConfig.Version, a.configCache.Version)
+	// 	} else if newConfig.Version == a.configCache.Version {
+	// 		// This shouldn't happen, but can if a user calls GetConfiguration and it
+	// 		// races with watchConfig. Just log the two configs and continue
+	// 		logrus.Warnf("new config has same version as cached config:%+v\nand:\n%+v\n",
+	// 			newConfig.Version, a.configCache)
+	// 	}
+	// }
 
 	// Set a.configCache and possibly a.samlSP
 	a.configCache = newConfig
@@ -515,7 +519,7 @@ func (a *apiServer) setCacheConfig(config *auth.AuthConfig) error {
 			}
 		}
 		if idp.OIDC != nil {
-			a.oidcSP, err = NewOIDCIDP(a.env.GetEtcdClient().Ctx(), idp.OIDC.BaseURL, idp.OIDC.ClientID)
+			a.oidcSP, err = NewOIDCIDP(a.env.GetEtcdClient().Ctx(), idp.OIDC.BaseURL, idp.OIDC.ClientID, idp.OIDC.ClientSecret)
 			if err != nil {
 				return err
 			}
@@ -614,7 +618,7 @@ func (a *apiServer) watchConfig() {
 				switch ev.Type {
 				case watch.EventPut:
 					if err := a.setCacheConfig(&configProto); err != nil {
-						logrus.Warnf("could not update SAML service with new config: %v", err)
+						logrus.Warnf("could not update auth service with new config: %v", err)
 					}
 				case watch.EventDelete:
 					// This should currently be impossible

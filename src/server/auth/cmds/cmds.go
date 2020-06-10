@@ -14,7 +14,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/server/auth/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
+	"github.com/pkg/browser"
 
 	"github.com/spf13/cobra"
 )
@@ -47,20 +49,38 @@ func githubLogin() (string, error) {
 	return strings.TrimSpace(token), nil // drop trailing newline
 }
 
-func requestOIDCLogin(c *client.APIClient, email string) (string, error) {
+func requestOIDCLogin(c *client.APIClient, issuer, clientID, clientSecret, email string) (string, error) {
 	state := randState(30)
-	loginInfo, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{
-		State: state,
-		Email: email})
-	if err != nil {
-		return "", err
+
+	var authURL string
+
+	if issuer != "" {
+		provider, err := server.NewOIDCIDP(c.Ctx(), issuer, clientID, clientSecret)
+		if err != nil {
+			return "", err
+		}
+		authURL, err = provider.GetOIDCLoginURL(state)
+		if err != nil {
+			return "", err
+		}
+	} else {
+		loginInfo, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{State: state})
+		if err != nil {
+			return "", err
+		}
+		authURL = loginInfo.LoginURL
 	}
 
 	// print the prepared URL and promp the user to click on it
 	fmt.Println("(1) Please paste this link into a browser:\n\n" +
-		loginInfo.LoginURL + "\n\n" +
+		authURL + "\n\n" +
 		"(You will be directed to your IdP and asked to authorize Pachyderm's " +
 		"login app on your IdP.)")
+
+	err := browser.OpenURL(authURL)
+	if err != nil {
+		return "", err
+	}
 	// receive token
 	authError, err := c.GetOIDCError(c.Ctx(), &auth.GetOIDCErrorRequest{})
 	if err != nil {
@@ -69,7 +89,7 @@ func requestOIDCLogin(c *client.APIClient, email string) (string, error) {
 	fmt.Println("Authorized!")
 
 	if authError != nil {
-		fmt.Println("ahoy", authError.Error)
+		// fmt.Println("ahoy", authError.Error)
 	}
 
 	return state, nil // drop trailing newline
@@ -111,6 +131,40 @@ first cluster admin`[1:],
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
+			// fmt.Println("Which authentication method would you like to use?")
+			// method, err := bufio.NewReader(os.Stdin).ReadString('\n')
+			// if err != nil {
+			// 	return errors.Wrapf(err, "error reading One-Time Password")
+			// }
+			// method = strings.TrimSpace(method) // drop trailing newline
+
+			fmt.Println("What's your ID provider's base url?")
+			url, err := bufio.NewReader(os.Stdin).ReadString('\n')
+			if err != nil {
+				return errors.Wrapf(err, "error reading IdP url")
+			}
+			url = strings.TrimSpace(url) // drop trailing newline
+
+			fmt.Println("What's the client ID for your app on your IDP?")
+			clientID, err := bufio.NewReader(os.Stdin).ReadString('\n')
+			if err != nil {
+				return errors.Wrapf(err, "error reading client ID")
+			}
+			clientID = strings.TrimSpace(clientID) // drop trailing newline
+
+			fmt.Println("What's the client secret for your app on your IDP?")
+			clientSecret, err := bufio.NewReader(os.Stdin).ReadString('\n')
+			if err != nil {
+				return errors.Wrapf(err, "error reading client secret")
+			}
+			clientSecret = strings.TrimSpace(clientSecret) // drop trailing newline
+
+			fmt.Println("What's your email address?")
+			email, err := bufio.NewReader(os.Stdin).ReadString('\n')
+			if err != nil {
+				return errors.Wrapf(err, "error reading email")
+			}
+			email = strings.TrimSpace(email) // drop trailing newline
 
 			if !strings.HasPrefix(initialAdmin, auth.RobotPrefix) {
 
@@ -121,21 +175,15 @@ first cluster admin`[1:],
 				// then prompt the user for the baseURL, clientID, and email
 				// write these to the configuration object
 
-				// fmt.Println("Which authentication method would you like to use?")
-				// code, err := bufio.NewReader(os.Stdin).ReadString('\n')
-				// if err != nil {
-				// 	return errors.Wrapf(err, "error reading One-Time Password")
-				// }
-				// code = strings.TrimSpace(code) // drop trailing newline
-
 				isOIDC := true
-				url := "http://172.17.0.3:8080/auth/realms/adele-testing"
-				clientID := "pachyderm"
-				email := "adele@pachyderm.io"
-
+				// url := "http://172.17.0.3:8080/auth/realms/adele-testing"
+				// clientID := "pachyderm"
+				// email := "adele@pachyderm.io"
+				initialAdmin = email
 				if isOIDC {
 
-					c.ActivateConfig(c.Ctx(), &auth.ActivateConfigRequest{
+					// TODO: merge with Activate
+					_, err = c.ActivateConfig(c.Ctx(), &auth.ActivateConfigRequest{
 						Configuration: &auth.AuthConfig{
 							LiveConfigVersion: 0,
 							IDProviders: []*auth.IDProvider{&auth.IDProvider{
@@ -144,15 +192,22 @@ first cluster admin`[1:],
 								OIDC: &auth.IDProvider_OIDCOptions{
 									ProviderBaseURL: url,
 									ClientID:        clientID,
+									ClientSecret:    clientSecret,
 								},
 							}},
 						},
 					})
-					// token, err = githubLogin()
-					_, err = requestOIDCLogin(c, email)
 					if err != nil {
 						return err
 					}
+
+					// token, err = githubLogin()
+					_, err = requestOIDCLogin(c, url, clientID, clientSecret, email)
+					if err != nil {
+
+						return err
+					}
+
 				}
 			}
 
@@ -166,6 +221,7 @@ first cluster admin`[1:],
 			if err != nil {
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error activating Pachyderm auth")
 			}
+
 			if err := writePachTokenToCfg(resp.PachToken); err != nil {
 				return err
 			}
@@ -263,14 +319,14 @@ func LoginCmd() *cobra.Command {
 			} else {
 				// Exchange OIDC token for Pachyderm token
 				email := "adele@pachyderm.io"
-				state, err := requestOIDCLogin(c, email)
+				state, err := requestOIDCLogin(c, "", "", "", email)
 				if err != nil {
 					return err
 				}
 				fmt.Println("Retrieving Pachyderm token...")
 				resp, authErr = c.Authenticate(
 					c.Ctx(),
-					&auth.AuthenticateRequest{OIDCToken: state})
+					&auth.AuthenticateRequest{OIDCState: state})
 			}
 
 			// Write new Pachyderm token to config
