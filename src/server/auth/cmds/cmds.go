@@ -284,10 +284,10 @@ func WhoamiCmd() *cobra.Command {
 			if resp.TTL > 0 {
 				fmt.Printf("session expires: %v\n", time.Now().Add(time.Duration(resp.TTL)*time.Second).Format(time.RFC822))
 			}
-			if resp.AdminScopes != nil && len(resp.AdminScopes.Scopes) > 0 {
-				fmt.Println("Administrator scopes:")
-				for _, scope := range resp.AdminScopes.Scopes {
-					fmt.Printf("\t- %s\n", scope)
+			if resp.AdminRoles != nil && len(resp.AdminRoles.Roles) > 0 {
+				fmt.Println("Administrator roles:")
+				for _, role := range resp.AdminRoles.Roles {
+					fmt.Printf("\t- %s\n", role)
 				}
 			}
 			return nil
@@ -431,8 +431,8 @@ func ListAdminsCmd() *cobra.Command {
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
-			for user, scopes := range resp.Admins {
-				fmt.Printf("%s: %s\n", user, scopes.Scopes)
+			for user, roles := range resp.Admins {
+				fmt.Printf("%s: %s\n", user, roles.Roles)
 			}
 			return nil
 		}),
@@ -440,38 +440,43 @@ func ListAdminsCmd() *cobra.Command {
 	return cmdutil.CreateAlias(listAdmins, "auth list-admins")
 }
 
-// ModifyAdminsCmd returns a cobra command that modifies the set of current
+// ModifyAdminCmd returns a cobra command that modifies the set of current
 // cluster admins
-func ModifyAdminsCmd() *cobra.Command {
-	var user string
-	var scopesStr []string
-	modifyAdmins := &cobra.Command{
-		Short: "Set the admin scopes for a given user",
-		Long: "Set the cluster admin scopes for a given user." +
-			"--user is the user to modify, and --scopes is a comma-separated list of scopes." +
-			"An empty list removes all admin scopes for the user.",
-		Run: cmdutil.Run(func([]string) error {
+func ModifyAdminCmd() *cobra.Command {
+	modifyAdmin := &cobra.Command{
+		Use:   "{{alias}} <user> <scopes>",
+		Short: "Set the admin roles for a given user",
+		Long: "Set the cluster admin roles for a given user." +
+			"The first argument is the user to modify, the second is a comma-separated list of roles." +
+			"An empty list removes all admin roles for the user.",
+		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
+			user := args[0]
+			rolesStr := args[1]
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
 			defer c.Close()
 
-			scopes := auth.AdminScopes{
-				Scopes: make([]auth.AdminScopes_Scope, len(scopesStr)),
+			roles := auth.AdminRoles{
+				Roles: make([]auth.AdminRoles_Role, len(rolesStr)),
 			}
 
-			for i, scope := range scopesStr {
-				s, ok := auth.AdminScopes_Scope_value[scope]
-				if !ok {
-					return fmt.Errorf("Unsupport admin scope %q, valid scopes are 'SUPER', 'FS'", scope)
+			if len(rolesStr) > 0 {
+				for i, role := range strings.Split(rolesStr, ",") {
+					s, ok := auth.AdminRoles_Role_value[role]
+					if !ok {
+						return fmt.Errorf("Unsupported admin role %q, valid roles are 'SUPER', 'FS'", role)
+					}
+					roles.Roles[i] = auth.AdminRoles_Role(s)
 				}
-				scopes.Scopes[i] = auth.AdminScopes_Scope(s)
+			} else {
+				fmt.Printf("Removing all admin roles for %q\n", user)
 			}
 
 			_, err = c.ModifyAdmins(c.Ctx(), &auth.ModifyAdminsRequest{
 				Principal: user,
-				Scopes:    &scopes,
+				Roles:     &roles,
 			})
 			if auth.IsErrPartiallyActivated(err) {
 				return errors.Wrapf(err, "Errored, if pachyderm is stuck in this state, you "+
@@ -481,10 +486,7 @@ func ModifyAdminsCmd() *cobra.Command {
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
-	modifyAdmins.PersistentFlags().StringVar(&user, "user", "", "The user to grant scopes to")
-	modifyAdmins.PersistentFlags().StringSliceVar(&scopesStr, "scopes", []string{},
-		"Comma-separated list of admin scopes to grant")
-	return cmdutil.CreateAlias(modifyAdmins, "auth modify-admins")
+	return cmdutil.CreateAlias(modifyAdmin, "auth modify-admin")
 }
 
 // GetAuthTokenCmd returns a cobra command that lets a user get a pachyderm
@@ -627,7 +629,7 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, SetScopeCmd())
 	commands = append(commands, GetCmd())
 	commands = append(commands, ListAdminsCmd())
-	commands = append(commands, ModifyAdminsCmd())
+	commands = append(commands, ModifyAdminCmd())
 	commands = append(commands, GetAuthTokenCmd())
 	commands = append(commands, UseAuthTokenCmd())
 	commands = append(commands, GetConfigCmd())

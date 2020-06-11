@@ -133,8 +133,8 @@ type apiServer struct {
 	txnEnv     *txnenv.TransactionEnv
 	pachLogger log.Logger
 
-	adminCache map[string]auth.AdminScopes // cache of current cluster admins
-	adminMu    sync.Mutex                  // guard 'adminCache'
+	adminCache map[string]auth.AdminRoles // cache of current cluster admins
+	adminMu    sync.Mutex                 // guard 'adminCache'
 
 	// configCache should not be read/written directly--use setCacheConfig and
 	// getCacheConfig
@@ -216,7 +216,7 @@ func NewAuthServer(
 		env:        env,
 		txnEnv:     txnEnv,
 		pachLogger: log.NewLogger("auth.API"),
-		adminCache: make(map[string]auth.AdminScopes),
+		adminCache: make(map[string]auth.AdminRoles),
 		tokens: col.NewCollection(
 			env.GetEtcdClient(),
 			path.Join(etcdPrefix, tokensPrefix),
@@ -245,7 +245,7 @@ func NewAuthServer(
 			env.GetEtcdClient(),
 			path.Join(etcdPrefix, adminsPrefix),
 			nil,
-			&auth.AdminScopes{},
+			&auth.AdminRoles{},
 			nil,
 			nil,
 		),
@@ -383,7 +383,7 @@ func (a *apiServer) watchAdmins(fullAdminPrefix string) {
 
 				// Parse event data and potentially update adminCache
 				var key string
-				var grant auth.AdminScopes
+				var grant auth.AdminRoles
 				ev.Unmarshal(&key, &grant)
 				username := strings.TrimPrefix(key, fullAdminPrefix+"/")
 				switch ev.Type {
@@ -495,7 +495,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 	// checks are now enforced, which means no pipelines or repos can be created
 	// while ACLs are being added to every repo for the existing pipelines
 	if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		return a.admins.ReadWrite(stm).Put(ppsUser, &auth.AdminScopes{Scopes: []auth.AdminScopes_Scope{auth.AdminScopes_SUPER}})
+		return a.admins.ReadWrite(stm).Put(ppsUser, &auth.AdminRoles{Roles: []auth.AdminRoles_Role{auth.AdminRoles_SUPER}})
 	}); err != nil {
 		return nil, err
 	}
@@ -529,7 +529,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 		if err := admins.Delete(ppsUser); err != nil {
 			return err
 		}
-		if err := a.admins.ReadWrite(stm).Put(req.Subject, &auth.AdminScopes{Scopes: []auth.AdminScopes_Scope{auth.AdminScopes_SUPER}}); err != nil {
+		if err := a.admins.ReadWrite(stm).Put(ppsUser, &auth.AdminRoles{Roles: []auth.AdminRoles_Role{auth.AdminRoles_SUPER}}); err != nil {
 			return err
 		}
 		return tokens.PutTTL(
@@ -599,7 +599,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest)
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.hasAdminScope(ctx, callerInfo.Subject, auth.AdminScopes_SUPER)
+	isAdmin, err := a.hasAdminRole(ctx, callerInfo.Subject, auth.AdminRoles_SUPER)
 	if err != nil {
 		return nil, err
 	}
@@ -696,7 +696,7 @@ func (a *apiServer) GetAdmins(ctx context.Context, req *auth.GetAdminsRequest) (
 	a.adminMu.Lock()
 	defer a.adminMu.Unlock()
 	resp = &auth.GetAdminsResponse{
-		Admins: make(map[string]*auth.AdminScopes),
+		Admins: make(map[string]*auth.AdminRoles),
 	}
 	for admin, grant := range a.adminCache {
 		resp.Admins[admin] = &grant
@@ -704,29 +704,29 @@ func (a *apiServer) GetAdmins(ctx context.Context, req *auth.GetAdminsRequest) (
 	return resp, nil
 }
 
-func (a *apiServer) validateModifyAdminsRequest(user string, grants auth.AdminScopes) error {
+func (a *apiServer) validateModifyAdminsRequest(user string, roles auth.AdminRoles) error {
 	// Check to make sure that req doesn't remove all cluster SUPER admins
-	m := make(map[string]auth.AdminScopes)
+	m := make(map[string]auth.AdminRoles)
 
 	// copy existing admins into m
 	func() {
 		a.adminMu.Lock()
 		defer a.adminMu.Unlock()
-		for u, scopes := range a.adminCache {
-			m[u] = scopes
+		for u, roles := range a.adminCache {
+			m[u] = roles
 		}
 	}()
 
-	// apply new scopes
-	m[user] = grants
+	// Apply new roles.
+	m[user] = roles
 
-	// Confirm that there will be at least one admin with the SUPER scope.
+	// Confirm that there will be at least one admin with the SUPER role.
 	//
 	// This is required so that the admin can get the cluster out of any broken
 	// state that it may enter.
-	for _, scopes := range m {
-		for _, s := range scopes.Scopes {
-			if s == auth.AdminScopes_SUPER {
+	for _, roles := range m {
+		for _, s := range roles.Roles {
+			if s == auth.AdminRoles_SUPER {
 				return nil
 			}
 		}
@@ -750,7 +750,7 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequ
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.hasAdminScope(ctx, callerInfo.Subject, auth.AdminScopes_SUPER)
+	isAdmin, err := a.hasAdminRole(ctx, callerInfo.Subject, auth.AdminRoles_SUPER)
 	if err != nil {
 		return nil, err
 	}
@@ -769,15 +769,15 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequ
 		return nil, err
 	}
 
-	err = a.validateModifyAdminsRequest(canonicalizedUser, *req.Scopes)
+	err = a.validateModifyAdminsRequest(canonicalizedUser, *req.Roles)
 	if err != nil {
 		return nil, err
 	}
 
 	// Update "admins" list (watchAdmins() will update admins cache).
-	if len(req.Scopes.Scopes) > 0 {
+	if len(req.Roles.Roles) > 0 {
 		if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-			return a.admins.ReadWrite(stm).Put(canonicalizedUser, req.Scopes)
+			return a.admins.ReadWrite(stm).Put(canonicalizedUser, req.Roles)
 		}); err != nil {
 			return nil, err
 		}
@@ -799,7 +799,7 @@ func (a *apiServer) expiredClusterAdminCheck(ctx context.Context, username strin
 		return errors.Wrapf(err, "error confirming Pachyderm Enterprise token")
 	}
 
-	isAdmin, err := a.hasAdminScope(ctx, username, auth.AdminScopes_SUPER)
+	isAdmin, err := a.hasAdminRole(ctx, username, auth.AdminRoles_SUPER)
 	if err != nil {
 		return err
 	}
@@ -1002,7 +1002,7 @@ func (a *apiServer) GetOneTimePassword(ctx context.Context, req *auth.GetOneTime
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.hasAdminScope(ctx, callerInfo.Subject, auth.AdminScopes_SUPER)
+	isAdmin, err := a.hasAdminRole(ctx, callerInfo.Subject, auth.AdminRoles_SUPER)
 	if err != nil {
 		return nil, err
 	}
@@ -1139,8 +1139,8 @@ func (a *apiServer) AuthorizeInTransaction(
 	if err != nil {
 		return nil, err
 	}
-	// Check for FS admin or SUPER admin scope
-	isAdmin, err := a.hasAdminScope(txnCtx.ClientContext, callerInfo.Subject, auth.AdminScopes_FS)
+	// Check for FS admin or SUPER admin role
+	isAdmin, err := a.hasAdminRole(txnCtx.ClientContext, callerInfo.Subject, auth.AdminRoles_FS)
 	if err != nil {
 		return nil, err
 	}
@@ -1237,9 +1237,9 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 
 	// return final result
 	return &auth.WhoAmIResponse{
-		Username:    callerInfo.Subject,
-		TTL:         ttl,
-		AdminScopes: &adminGrant,
+		Username:   callerInfo.Subject,
+		TTL:        ttl,
+		AdminRoles: &adminGrant,
 	}, nil
 }
 
@@ -1253,31 +1253,31 @@ func validateSetScopeRequest(ctx context.Context, req *auth.SetScopeRequest) err
 	return nil
 }
 
-func (a *apiServer) hasAdminScope(ctx context.Context, subject string, scope auth.AdminScopes_Scope) (bool, error) {
+func (a *apiServer) hasAdminRole(ctx context.Context, subject string, role auth.AdminRoles_Role) (bool, error) {
 	if subject == ppsUser {
 		return true, nil
 	}
 	a.adminMu.Lock()
 	defer a.adminMu.Unlock()
-	if scopes, ok := a.adminCache[subject]; ok {
-		for _, s := range scopes.Scopes {
-			// Check if the subject has the requested scope or SUPER, which grants all admin scopes
-			if s == scope || s == auth.AdminScopes_SUPER {
+	if roles, ok := a.adminCache[subject]; ok {
+		for _, r := range roles.Roles {
+			// Check if the subject has the requested role or SUPER, which grants all admin role
+			if r == role || r == auth.AdminRoles_SUPER {
 				return true, nil
 			}
 		}
 	}
 
-	// Get scope based on group access
+	// Get role based on group access
 	groups, err := a.getGroups(ctx, subject)
 	if err != nil {
 		return false, errors.Wrapf(err, "could not retrieve caller's group memberships")
 	}
 	for _, g := range groups {
-		if scopes, ok := a.adminCache[g]; ok {
-			for _, s := range scopes.Scopes {
-				// Check if the subject has the requested scope or SUPER, which grants all admin scopes
-				if s == scope || s == auth.AdminScopes_SUPER {
+		if roles, ok := a.adminCache[g]; ok {
+			for _, r := range roles.Roles {
+				// Check if the subject has the requested role or SUPER, which grants all admin roles
+				if r == role || r == auth.AdminRoles_SUPER {
 					return true, nil
 				}
 			}
@@ -1305,7 +1305,7 @@ func (a *apiServer) SetScopeInTransaction(
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.hasAdminScope(txnCtx.ClientContext, callerInfo.Subject, auth.AdminScopes_FS)
+	isAdmin, err := a.hasAdminRole(txnCtx.ClientContext, callerInfo.Subject, auth.AdminRoles_FS)
 	if err != nil {
 		return nil, err
 	}
@@ -1439,7 +1439,7 @@ func (a *apiServer) GetScopeInTransaction(
 	if err != nil {
 		return nil, err
 	}
-	callerIsAdmin, err := a.hasAdminScope(txnCtx.ClientContext, callerInfo.Subject, auth.AdminScopes_FS)
+	callerIsAdmin, err := a.hasAdminRole(txnCtx.ClientContext, callerInfo.Subject, auth.AdminRoles_FS)
 	if err != nil {
 		return nil, err
 	}
@@ -1607,7 +1607,7 @@ func (a *apiServer) SetACLInTransaction(
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.hasAdminScope(txnCtx.ClientContext, callerInfo.Subject, auth.AdminScopes_FS)
+	isAdmin, err := a.hasAdminRole(txnCtx.ClientContext, callerInfo.Subject, auth.AdminRoles_FS)
 	if err != nil {
 		return nil, err
 	}
@@ -1793,7 +1793,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.hasAdminScope(ctx, callerInfo.Subject, auth.AdminScopes_SUPER)
+	isAdmin, err := a.hasAdminRole(ctx, callerInfo.Subject, auth.AdminRoles_SUPER)
 	if err != nil {
 		return nil, err
 	}
@@ -1904,7 +1904,7 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *auth.ExtendAuthTok
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.hasAdminScope(ctx, callerInfo.Subject, auth.AdminScopes_SUPER)
+	isAdmin, err := a.hasAdminRole(ctx, callerInfo.Subject, auth.AdminRoles_SUPER)
 	if err != nil {
 		return nil, err
 	}
@@ -1970,7 +1970,7 @@ func (a *apiServer) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTok
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.hasAdminScope(ctx, callerInfo.Subject, auth.AdminScopes_SUPER)
+	isAdmin, err := a.hasAdminRole(ctx, callerInfo.Subject, auth.AdminRoles_SUPER)
 	if err != nil {
 		return nil, err
 	}
@@ -2063,7 +2063,7 @@ func (a *apiServer) SetGroupsForUser(ctx context.Context, req *auth.SetGroupsFor
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.hasAdminScope(ctx, callerInfo.Subject, auth.AdminScopes_SUPER)
+	isAdmin, err := a.hasAdminRole(ctx, callerInfo.Subject, auth.AdminRoles_SUPER)
 	if err != nil {
 		return nil, err
 	}
@@ -2098,7 +2098,7 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRe
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.hasAdminScope(ctx, callerInfo.Subject, auth.AdminScopes_SUPER)
+	isAdmin, err := a.hasAdminRole(ctx, callerInfo.Subject, auth.AdminRoles_SUPER)
 	if err != nil {
 		return nil, err
 	}
@@ -2208,12 +2208,12 @@ func (a *apiServer) GetGroups(ctx context.Context, req *auth.GetGroupsRequest) (
 
 	// must be admin or user getting your own groups (default value of
 	// req.Username is the caller).
-	// Note: hasAdminScope(subject) calls getGroups(subject), so getGroups(subject)
-	// must only call hasAdminScope(caller) when caller != subject, or else we'll have
+	// Note: hasAdminRole(subject) calls getGroups(subject), so getGroups(subject)
+	// must only call hasAdminRole(caller) when caller != subject, or else we'll have
 	// infinite recursion
 	var target string
 	if req.Username != "" && req.Username != callerInfo.Subject {
-		isAdmin, err := a.hasAdminScope(ctx, callerInfo.Subject, auth.AdminScopes_SUPER)
+		isAdmin, err := a.hasAdminRole(ctx, callerInfo.Subject, auth.AdminRoles_SUPER)
 		if err != nil {
 			return nil, err
 		}
@@ -2250,7 +2250,7 @@ func (a *apiServer) GetUsers(ctx context.Context, req *auth.GetUsersRequest) (re
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.hasAdminScope(ctx, callerInfo.Subject, auth.AdminScopes_SUPER)
+	isAdmin, err := a.hasAdminRole(ctx, callerInfo.Subject, auth.AdminRoles_SUPER)
 	if err != nil {
 		return nil, err
 	}
@@ -2508,7 +2508,7 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *auth.SetConfigura
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.hasAdminScope(ctx, callerInfo.Subject, auth.AdminScopes_SUPER)
+	isAdmin, err := a.hasAdminRole(ctx, callerInfo.Subject, auth.AdminRoles_SUPER)
 	if err != nil {
 		return nil, err
 	}
