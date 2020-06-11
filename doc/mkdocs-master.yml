@@ -157,6 +157,7 @@ nav:
             - Run a Pipeline on a Specific Commit: how-tos/run_pipeline.md
             - Update a Pipeline: how-tos/updating_pipelines.md
             - Delete a Pipeline: how-tos/delete-pipeline.md
+            - Monitor Job Progress: how-tos/monitor-job-progress.md
         - Processing Time-Windowed Data: how-tos/time_windows.md
         - Use Transactions: how-tos/use-transactions-to-run-multiple-commands.md
         - Delete Data: how-tos/removing_data_from_pachyderm.md
