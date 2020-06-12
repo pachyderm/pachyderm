@@ -4,12 +4,6 @@
   publish = "site/"
 
 [[redirects]]
-  from = "/*"
-  to = "/latest/:splat"
-  status = 301
-  force = true
-
-[[redirects]]
   from = "/"
   to = "/latest/"
   status = 301
