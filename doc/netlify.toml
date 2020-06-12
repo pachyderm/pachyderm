@@ -1,5 +1,5 @@
 [build]
-  base = ""
+  base = "doc/"
   command = "./build.sh"
   publish = "site/"
 
