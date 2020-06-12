@@ -261,9 +261,27 @@ func getPachClientP(tb testing.TB, subject string, checkConfig bool) *client.API
 	hasExpectedAdmin := len(getAdminsResp.Admins) == 1 && hasAdmin
 	if !hasExpectedAdmin {
 		var curAdminClient *client.APIClient
+		for a := range getAdminsResp.Admins {
+			if strings.HasPrefix(a, auth.GitHubPrefix) {
+				curAdminClient = getPachClientInternal(tb, a) // use first GH admin
+				break
+			}
+			if a == admin {
+				curAdminClient = getPachClientInternal(tb, a) // use admin robot
+				break
+			}
+		}
+
+		if curAdminClient == nil {
+			tb.Fatal("cluster has no GitHub admins; no way for auth test to grant itself admin access")
+			// staticcheck does not realize tb.Fatal will not return (because it is an
+			// interface), see https://github.com/dominikh/go-tools/issues/635
+			return nil
+		}
+
 		_, err = curAdminClient.ModifyAdmins(curAdminClient.Ctx(), &auth.ModifyAdminsRequest{
 			Principal: admin,
-			Roles:     &superAdminRole,
+			Roles:     superAdminRole(),
 		})
 		require.NoError(tb, err)
 		for a := range getAdminsResp.Admins {

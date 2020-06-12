@@ -803,12 +803,14 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequ
 	// Check if the current modify request contains a SUPER role for this principal
 	var grantSuper bool
 	var grantFS bool
-	for _, role := range req.Roles.Roles {
-		if role == auth.AdminRoles_SUPER {
-			grantSuper = true
-		}
-		if role == auth.AdminRoles_FS {
-			grantFS = true
+	if req.Roles != nil {
+		for _, role := range req.Roles.Roles {
+			if role == auth.AdminRoles_SUPER {
+				grantSuper = true
+			}
+			if role == auth.AdminRoles_FS {
+				grantFS = true
+			}
 		}
 	}
 
