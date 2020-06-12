@@ -8,6 +8,7 @@ import (
 	"context"
 	"syscall"
 	"time"
+	"unsafe"
 
 	"github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
@@ -30,4 +31,14 @@ func (f *loopbackFile) utimens(a *time.Time, m *time.Time) syscall.Errno {
 	ts[1] = fuse.UtimeToTimespec(m)
 	err := futimens(int(f.fd), &ts)
 	return fs.ToErrno(err)
+}
+
+// futimens - futimens(3) calls utimensat(2) with "pathname" set to null and
+// "flags" set to zero
+func futimens(fd int, times *[2]syscall.Timespec) (err error) {
+	_, _, e1 := syscall.Syscall6(syscall.SYS_UTIMENSAT, uintptr(fd), 0, uintptr(unsafe.Pointer(times)), uintptr(0), 0, 0)
+	if e1 != 0 {
+		err = syscall.Errno(e1)
+	}
+	return
 }
