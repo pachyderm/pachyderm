@@ -54,14 +54,19 @@ class BaseDriver:
     async def update_config(self):
         pass
 
-    def extra_deploy_args(self):
+    def deploy_type(self):
+        return "local"
+
+    def deploy_flags(self):
         # We use hostpaths for storage. On docker for mac and minikube,
         # hostpaths aren't cleared until the VM is restarted. Because of this
         # behavior, re-deploying on the same hostpath without a restart will
         # cause us to bring up a new pachyderm cluster with access to the old
         # cluster volume, causing a bad state. This works around the issue by
         # just using a different hostpath on every deployment.
-        return ["--host-path", "/var/pachyderm-{}".format(secrets.token_hex(5))]
+        return [
+            "-d", "--no-guaranteed", f"--host-path=/var/pachyderm-{secrets.token_hex(5)}",
+        ]
 
     def ide_user_image(self):
         return IDE_USER_IMAGE
@@ -110,11 +115,20 @@ class GCPDriver(BaseDriver):
 
     async def push_image(self, image):
         image_url = self._image(image)
+        if ":local" in image_url:
+            version_tag = (await capture("pachctl", "version", "--client-only")).strip()
+            image_url = image_url.replace(":local", f":{version_tag}")
         await run("docker", "tag", image, image_url)
         await run("docker", "push", image_url)
 
-    def extra_deploy_args(self):
-        return ["--image-pull-secret", "regcred", "--registry", f"gcr.io/{self.project_id}"]
+    def deploy_type(self):
+        return "google"
+
+    def deploy_flags(self):
+        return [
+            "--dynamic-etcd-nodes=1", "--image-pull-secret=regcred",
+            f"--registry=gcr.io/{self.project_id}",
+        ]
 
     def ide_user_image(self):
         return self._image(IDE_USER_IMAGE)
@@ -147,7 +161,7 @@ async def run(cmd, *args, raise_on_error=True, stdin=None, capture_output=False,
         stdout, stderr = None, None
 
     if raise_on_error and proc.returncode:
-        raise Exception("unexpected return code from `{}`: {}".format(cmd, proc.returncode))
+        raise Exception(f"unexpected return code from `{cmd}`: {proc.returncode}")
 
     return RunResult(rc=proc.returncode, stdout=stdout, stderr=stderr)
 
@@ -176,6 +190,7 @@ def print_status(status):
 
 async def main():
     parser = argparse.ArgumentParser(description="Resets a pachyderm cluster.")
+    parser.add_argument("deploy_args", nargs="+", help="Arguments to pass to deploy")
     parser.add_argument("--dash", action="store_true", help="Deploy dash")
     parser.add_argument("--ide", action="store_true", help="Deploy IDE")
     parser.add_argument("--skip-deploy", action="store_true", help="Just delete, don't re-deploy")
@@ -228,14 +243,15 @@ async def main():
     version = (await capture("pachctl", "version", "--client-only")).strip()
     print_status(f"deploy pachyderm version v{version}")
 
-    deployment_args = [
-        "pachctl", "deploy", "local", "-d", "--dry-run", "--create-context", "--no-guaranteed",
-        "--log-level=debug", *driver.extra_deploy_args()
+    deploy_args = [
+        "pachctl", "deploy", driver.deploy_type(), *args.deploy_args,
+        "--dry-run", "--create-context", "--log-level=debug",
     ]
     if not args.dash:
-        deployment_args.append("--no-dashboard")
+        deploy_args.append("--no-dashboard")
+    deploy_args.extend(driver.deploy_flags())
 
-    deployments_str = await capture(*deployment_args)
+    deployments_str = await capture(*deploy_args)
     deployments_json = json.loads("[{}]".format(NEWLINE_SEPARATE_OBJECTS_PATTERN.sub("},{", deployments_str)))
 
     dash_spec = find_in_json(deployments_json, lambda j: \
