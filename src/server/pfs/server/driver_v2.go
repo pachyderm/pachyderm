@@ -56,7 +56,7 @@ func newDriverV2(
 	if err != nil {
 		return nil, err
 	}
-	d := &driverV2{driver: d1}
+	d2 := &driverV2{driver: d1}
 	objClient, err := NewObjClient(env.Configuration)
 	if err != nil {
 		return nil, err
@@ -71,14 +71,14 @@ func newDriverV2(
 		return nil, err
 	}
 	chunkStorageOpts := append([]chunk.StorageOption{chunk.WithGarbageCollection(gcClient)}, chunk.ServiceEnvToOptions(env)...)
-	d.storage = fileset.NewStorage(objClient, chunk.NewStorage(objClient, chunkStorageOpts...), fileset.ServiceEnvToOptions(env)...)
-	d.compactionQueue, err = work.NewTaskQueue(context.Background(), d.etcdClient, d.prefix, storageTaskNamespace)
+	d2.storage = fileset.NewStorage(objClient, chunk.NewStorage(objClient, chunkStorageOpts...), fileset.ServiceEnvToOptions(env)...)
+	d2.compactionQueue, err = work.NewTaskQueue(context.Background(), d2.etcdClient, d2.prefix, storageTaskNamespace)
 	if err != nil {
 		return nil, err
 	}
-	go d.master(env, objClient, db)
-	go d.compactionWorker()
-	return d, nil
+	go d2.master(env, objClient, db)
+	go d2.compactionWorker()
+	return d2, nil
 }
 
 func (d *driverV2) finishCommitV2(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, description string) error {
