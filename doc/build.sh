@@ -77,7 +77,7 @@ if [[ -z "${latest_version}" ]]; then
     echo "No latest version to symlink"
     exit 1
 fi
-cp -RL "site/${latest_version}" site/latest
+cp -Rl "site/${latest_version}" site/latest
 
 # Add custom 404
 ln site/latest/404.html site/404.html
