@@ -4588,7 +4588,7 @@ func TestDatumStatusRestart(t *testing.T) {
 	// (than the last time checkStatus was called)
 	checkStatus := func() {
 		require.NoError(t, backoff.Retry(func() error {
-			// get the
+			// get the job status
 			jobs, err := c.ListJob(pipeline, nil, nil, -1, true)
 			require.NoError(t, err)
 			if len(jobs) == 0 {
