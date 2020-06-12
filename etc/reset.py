@@ -19,18 +19,13 @@ DELETABLE_RESOURCES = [
 
 NEWLINE_SEPARATE_OBJECTS_PATTERN = re.compile(r"\}\n+\{", re.MULTILINE)
 
-GCP_KUBE_CONTEXT_NAME_PATTERN = re.compile(r"gke_([^_]+)_(.+)")
-
 RunResult = collections.namedtuple("RunResult", ["rc", "stdout", "stderr"])
 
 class RedactedString(str):
     pass
 
 class BaseDriver:
-    async def start(self):
-        pass
-    
-    async def clear(self):
+    async def reset(self):
         # Check for the presence of the pachyderm IDE to see whether it should
         # be undeployed too. Using kubectl rather than helm here because
         # this'll work even if the helm CLI is not installed.
@@ -45,28 +40,20 @@ class BaseDriver:
         # clear out resources not removed from the undeploy process
         await run("kubectl", "delete", ",".join(DELETABLE_RESOURCES), "-l", "suite=pachyderm")
 
-    async def init_image_registry(self):
-        pass
-
     async def push_image(self, images):
         pass
 
     async def update_config(self):
         pass
 
-    def deploy_type(self):
-        return "local"
-
-    def deploy_flags(self):
+    def deploy_args(self):
         # We use hostpaths for storage. On docker for mac and minikube,
         # hostpaths aren't cleared until the VM is restarted. Because of this
         # behavior, re-deploying on the same hostpath without a restart will
         # cause us to bring up a new pachyderm cluster with access to the old
         # cluster volume, causing a bad state. This works around the issue by
         # just using a different hostpath on every deployment.
-        return [
-            "-d", "--no-guaranteed", f"--host-path=/var/pachyderm-{secrets.token_hex(5)}",
-        ]
+        return ["local", "-d", "--no-guaranteed", f"--host-path=/var/pachyderm-{secrets.token_hex(5)}"]
 
     def ide_user_image(self):
         return IDE_USER_IMAGE
@@ -78,7 +65,7 @@ class DockerDesktopDriver(BaseDriver):
     pass
 
 class MinikubeDriver(BaseDriver):
-    async def start(self):
+    async def reset(self):
         async def is_minikube_running():
             proc = await run("minikube", "status", raise_on_error=False, capture_output=True)
             return proc.rc == 0
@@ -89,6 +76,8 @@ class MinikubeDriver(BaseDriver):
                 print("Waiting for minikube to come up...")
                 await asyncio.sleep(1)
 
+        await super().reset()
+
     async def push_image(self, image):
         await run("./etc/kube/push-to-minikube.sh", image)
 
@@ -97,44 +86,55 @@ class MinikubeDriver(BaseDriver):
         await run("pachctl", "config", "update", "context", f"--pachd-address={ip}:30650")
 
 class GCPDriver(BaseDriver):
-    def __init__(self, project_id):
+    def __init__(self, project_id, cluster_name=None):
+        if cluster_name is None:
+            cluster_name = f"pach-{secrets.token_hex(5)}"
+        self.cluster_name = cluster_name
+        self.object_storage_name = f"{cluster_name}-storage"
         self.project_id = project_id
 
-    def _image(self, name):
+    def image(self, name):
         return f"gcr.io/{self.project_id}/{name}"
 
-    async def clear(self):
-        await super().clear()
-        await run("kubectl", "delete", "secret", "regcred", raise_on_error=False)
+    async def reset(self):
+        cluster_exists = (await run("gcloud", "container", "clusters", "describe", self.cluster_name,
+            raise_on_error=False, capture_output=True)).rc == 0
 
-    async def init_image_registry(self):
-        docker_config_path = os.path.expanduser("~/.docker/config.json")
-        await run("kubectl", "create", "secret", "generic", "regcred",
-            f"--from-file=.dockerconfigjson={docker_config_path}",
-            "--type=kubernetes.io/dockerconfigjson")
+        if cluster_exists:
+            await super().reset()
+        else:
+            await run("gcloud", "config", "set", "container/cluster", self.cluster_name)
+            await run("gcloud", "container", "clusters", "create", self.cluster_name, "--scopes=storage-rw",
+                "--machine-type=n1-standard-8", "--num-nodes=2")
+
+            account = (await run("gcloud", "config", "get-value", "account")).strip()
+            await run("kubectl", "create", "clusterrolebinding", "cluster-admin-binding",
+                "--clusterrole=cluster-admin", f"--user={account}")
+
+            await run("gsutil", "mb", f"gs://{self.object_storage_name}")
+
+            docker_config_path = os.path.expanduser("~/.docker/config.json")
+            await run("kubectl", "create", "secret", "generic", "regcred",
+                f"--from-file=.dockerconfigjson={docker_config_path}",
+                "--type=kubernetes.io/dockerconfigjson")
 
     async def push_image(self, image):
-        image_url = self._image(image)
+        image_url = self.image(image)
         if ":local" in image_url:
             version_tag = (await capture("pachctl", "version", "--client-only")).strip()
             image_url = image_url.replace(":local", f":{version_tag}")
         await run("docker", "tag", image, image_url)
         await run("docker", "push", image_url)
 
-    def deploy_type(self):
-        return "google"
-
-    def deploy_flags(self):
-        return [
-            "--dynamic-etcd-nodes=1", "--image-pull-secret=regcred",
-            f"--registry=gcr.io/{self.project_id}",
-        ]
+    def deploy_args(self):
+        return ["google", self.object_storage_name, "32", "--dynamic-etcd-nodes=1", "--image-pull-secret=regcred",
+            f"--registry=gcr.io/{self.project_id}"]
 
     def ide_user_image(self):
-        return self._image(IDE_USER_IMAGE)
+        return self.image(IDE_USER_IMAGE)
 
     def ide_hub_image(self):
-        return self._image(IDE_HUB_IMAGE)
+        return self.image(IDE_HUB_IMAGE)
 
 async def run(cmd, *args, raise_on_error=True, stdin=None, capture_output=False, timeout=None):
     print_args = [cmd, *[a if not isinstance(a, RedactedString) else "[redacted]" for a in args]]
@@ -190,10 +190,9 @@ def print_status(status):
 
 async def main():
     parser = argparse.ArgumentParser(description="Resets a pachyderm cluster.")
-    parser.add_argument("deploy_args", nargs="+", help="Arguments to pass to deploy")
+    parser.add_argument("--target", default="local", help="Where to deploy ('gcp[:<cluster name>]' or 'local')")
     parser.add_argument("--dash", action="store_true", help="Deploy dash")
     parser.add_argument("--ide", action="store_true", help="Deploy IDE")
-    parser.add_argument("--skip-deploy", action="store_true", help="Just delete, don't re-deploy")
     args = parser.parse_args()
 
     if "GOPATH" not in os.environ:
@@ -204,52 +203,43 @@ async def main():
     driver = None
 
     # derive which driver to use from the k8s context name
-    kube_context = await capture("kubectl", "config", "current-context", raise_on_error=False)
-    kube_context = kube_context.strip() if kube_context else ""
-    if kube_context == "minikube":
-        print_status("using the minikube driver")
-        driver = MinikubeDriver()
-    elif kube_context == "docker-desktop":
-        print_status("using the docker desktop driver")
-        driver = DockerDesktopDriver()
+    if args.target == "local":
+        kube_context = await capture("kubectl", "config", "current-context", raise_on_error=False)
+        kube_context = kube_context.strip() if kube_context else ""
+        if kube_context == "minikube":
+            print_status("using the minikube driver")
+            driver = MinikubeDriver()
+        elif kube_context == "docker-desktop":
+            print_status("using the docker desktop driver")
+            driver = DockerDesktopDriver()
+        # minikube won't set the k8s context if the VM isn't running. This checks
+        # for the presence of the minikube executable as an alternate means.
+        if driver is None and (await run("minikube", "version", raise_on_error=False, capture_output=True)).rc == 0:
+            print_status("using the minikube driver")
+            driver = MinikubeDriver()
+    elif args.target.startswith("gcp"):
+        project_id = (await capture("gcloud", "config", "get-value", "project")).strip()
+        target_parts = args.target.split(":", maxsplit=1)
+        cluster_name = target_parts[1] if len(target_parts) == 2 else None
+        driver = GCPDriver(project_id, cluster_name=cluster_name)
     else:
-        match = GCP_KUBE_CONTEXT_NAME_PATTERN.match(kube_context)
-        if match is not None:
-            print_status("using the GKE driver")
-            driver = GCPDriver(match.groups()[0])
-
-    # minikube won't set the k8s context if the VM isn't running. This checks
-    # for the presence of the minikube executable as an alternate means.
-    if driver is None and (await run("minikube", "version", raise_on_error=False, capture_output=True)).rc == 0:
-        print_status("using the minikube driver")
-        driver = MinikubeDriver()
+        raise Exception(f"unknown target: {args.target}")
 
     if driver is None:
         raise Exception(f"could not derive driver from context name: {kube_context}")
 
-    await driver.start()
-
-    if args.skip_deploy:
-        await driver.clear()
-        return
-
     await asyncio.gather(
         run("make", "install"),
         run("make", "docker-build"),
-        driver.init_image_registry(),
-        driver.clear(),
+        driver.reset(),
     )
     
     version = (await capture("pachctl", "version", "--client-only")).strip()
     print_status(f"deploy pachyderm version v{version}")
 
-    deploy_args = [
-        "pachctl", "deploy", driver.deploy_type(), *args.deploy_args,
-        "--dry-run", "--create-context", "--log-level=debug",
-    ]
+    deploy_args = ["pachctl", "deploy", *driver.deploy_args(), "--dry-run", "--create-context", "--log-level=debug"]
     if not args.dash:
         deploy_args.append("--no-dashboard")
-    deploy_args.extend(driver.deploy_flags())
 
     deployments_str = await capture(*deploy_args)
     deployments_json = json.loads("[{}]".format(NEWLINE_SEPARATE_OBJECTS_PATTERN.sub("},{", deployments_str)))
