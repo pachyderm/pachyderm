@@ -1,5 +1,5 @@
 [build]
-  ignore = "git diff --quiet HEAD^ HEAD doc/"
+  base = ""
   command = "./build.sh"
   publish = "site/"
 
