@@ -597,17 +597,17 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 
 // V2 Methods
 // GetTar not implemented
-func (a *apiServer) GetTar(request *pfs.GetTarRequest, server pfs.API_GetTarServer) (retErr error) {
+func (a *apiServer) GetTarV2(request *pfs.GetTarRequestV2, server pfs.API_GetTarV2Server) (retErr error) {
 	return errors.Errorf("method not implemented")
 }
 
 // GetTarConditional not implemented
-func (a *apiServer) GetTarConditional(server pfs.API_GetTarConditionalServer) (retErr error) {
+func (a *apiServer) GetTarConditionalV2(server pfs.API_GetTarConditionalV2Server) (retErr error) {
 	return errors.Errorf("method not implemented")
 }
 
 // PutTar not implemented
-func (a *apiServer) PutTar(server pfs.API_PutTarServer) (retErr error) {
+func (a *apiServer) PutTarV2(server pfs.API_PutTarV2Server) (retErr error) {
 	return errors.Errorf("method not implemented")
 }
 

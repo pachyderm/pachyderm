@@ -513,14 +513,14 @@ message FileInfoV2 {
 //     Client sends a request with the EOF field set to true.
 //   Client connection is closed.
 
-message PutTarRequest {
+message PutTarRequestV2 {
   Commit commit = 1;
   string tag = 2;
   bytes data = 3;
   bool EOF = 4;
 }
 
-message GetTarRequest {
+message GetTarRequestV2 {
   File file = 1;
 }
 
@@ -537,12 +537,12 @@ message GetTarRequest {
 //       Server sends a response with the EOF field set to true.
 //   Server connection is closed by returning from handler.
 
-message GetTarConditionalRequest {
+message GetTarConditionalRequestV2 {
   File file = 1;
   bool skip = 2;
 }
 
-message GetTarConditionalResponse {
+message GetTarConditionalResponseV2 {
   FileInfoV2 file_info = 1;
   bytes data = 2;
   bool EOF = 3;
@@ -624,12 +624,12 @@ service API {
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
   // Fsck does a file system consistency check for pfs
   rpc Fsck(FsckRequest) returns (stream FsckResponse) {}
-  
-  // V2 methods
-  rpc PutTar(stream PutTarRequest) returns (google.protobuf.Empty) {}
-  rpc GetTar(GetTarRequest) returns (stream google.protobuf.BytesValue) {}
+
+  // RPCs specific to Pachyderm 2.
+  rpc PutTarV2(stream PutTarRequestV2) returns (google.protobuf.Empty) {}
+  rpc GetTarV2(GetTarRequestV2) returns (stream google.protobuf.BytesValue) {}
   // Refer to the GetTarConditionalRequest / GetTarConditionalResponse message definitions for the protocol.
-  rpc GetTarConditional(stream GetTarConditionalRequest) returns (stream GetTarConditionalResponse) {}
+  rpc GetTarConditionalV2(stream GetTarConditionalRequestV2) returns (stream GetTarConditionalResponseV2) {}
   rpc ListFileV2(ListFileRequest) returns (stream FileInfoV2) {}
 }
 
@@ -762,3 +762,4 @@ message ObjectIndex {
   map<string, BlockRef> objects = 1;
   map<string, Object> tags = 2;
 }
+
