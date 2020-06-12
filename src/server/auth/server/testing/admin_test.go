@@ -29,6 +29,14 @@ import (
 
 const secsInYear = 365 * 24 * 60 * 60
 
+var (
+	// An admin role representing a super admin,
+	superAdminRole = auth.AdminRoles{Roles: []auth.AdminRoles_Role{auth.AdminRoles_SUPER}}
+
+	// An admin role representing an FS admin,
+	fsAdminRole = auth.AdminRoles{Roles: []auth.AdminRoles_Role{auth.AdminRoles_FS}}
+)
+
 func RepoInfoToName(repoInfo interface{}) interface{} {
 	return repoInfo.(*pfs.RepoInfo).Repo.Name
 }
@@ -78,13 +86,13 @@ func TestActivate(t *testing.T) {
 	// Check that the token 'c' received from pachd authenticates them as "admin"
 	who, err := adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
-	require.True(t, who.IsAdmin)
+	require.Equal(t, auth.AdminRoles_SUPER, who.AdminRoles.Roles[0])
 	require.Equal(t, admin, who.Username)
 }
 
-// TestAdminRWO tests adding and removing cluster admins, as well as admins
+// TestSuperAdminRWO tests adding and removing cluster super admins, as well as super admins
 // reading, writing, and moderating (owning) all repos in the cluster.
-func TestAdminRWO(t *testing.T) {
+func TestSuperAdminRWO(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -134,9 +142,9 @@ func TestAdminRWO(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, entries(alice, "owner"), getACL(t, aliceClient, repo)) // check that ACL wasn't updated
 
-	// 'admin' makes bob an admin
+	// 'admin' makes bob a super admin
 	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
-		&auth.ModifyAdminsRequest{Add: []string{bob}})
+		&auth.ModifyAdminsRequest{Principal: bob, Roles: &superAdminRole})
 	require.NoError(t, err)
 
 	// wait until bob shows up in admin list
@@ -172,14 +180,14 @@ func TestAdminRWO(t *testing.T) {
 
 	// 'admin' revokes bob's admin status
 	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
-		&auth.ModifyAdminsRequest{Remove: []string{bob}})
+		&auth.ModifyAdminsRequest{Principal: bob, Roles: &auth.AdminRoles{Roles: []auth.AdminRoles_Role{}}})
 	require.NoError(t, err)
 
 	// wait until bob is not in admin list
 	backoff.Retry(func() error {
 		resp, err := aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
-		return require.ElementsEqualOrErr([]string{admin}, resp.Admins)
+		return require.ElementsEqualOrErr(map[string]auth.AdminRoles{admin: superAdminRole}, resp.Admins)
 	}, backoff.NewTestingBackOff())
 
 	// bob can no longer read from the repo
@@ -280,19 +288,19 @@ func TestModifyAdminsErrorMissingAdmin(t *testing.T) {
 
 	// make alice a cluster administrator
 	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
-		&auth.ModifyAdminsRequest{
-			Add: []string{alice},
-		})
+		&auth.ModifyAdminsRequest{Principal: alice, Roles: &superAdminRole})
+	require.NoError(t, err)
+
 	require.NoError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
-		return require.ElementsEqualOrErr([]string{admin, gh(alice)}, resp.Admins)
+		return require.ElementsEqualOrErr(map[string]auth.AdminRoles{admin: auth.AdminRoles{}, gh(alice): superAdminRole}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
 
 	// Try to remove alice and FakeUser
 	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
-		&auth.ModifyAdminsRequest{Remove: []string{alice, "FakeUser"}})
+		&auth.ModifyAdminsRequest{Principal: "fakeUser"})
 	require.YesError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
@@ -320,7 +328,7 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 	// admin cannot remove themselves from the list of cluster admins (otherwise
 	// there would be no admins)
 	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
-		&auth.ModifyAdminsRequest{Remove: []string{admin}})
+		&auth.ModifyAdminsRequest{Principal: admin})
 	require.YesError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
@@ -331,7 +339,8 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 	// admin can make alice a cluster administrator
 	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
 		&auth.ModifyAdminsRequest{
-			Add: []string{alice},
+			Principal: alice,
+			Roles:     &superAdminRole,
 		})
 	require.NoError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
@@ -342,7 +351,7 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 
 	// Now admin can remove themselves as a cluster admin
 	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
-		&auth.ModifyAdminsRequest{Remove: []string{admin}})
+		&auth.ModifyAdminsRequest{Principal: admin})
 	require.NoError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
@@ -353,25 +362,12 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 	// now alice is the only admin, and she cannot remove herself as a cluster
 	// administrator
 	_, err = aliceClient.ModifyAdmins(aliceClient.Ctx(),
-		&auth.ModifyAdminsRequest{Remove: []string{alice}})
+		&auth.ModifyAdminsRequest{Principal: alice})
 	require.YesError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
 		return require.ElementsEqualOrErr([]string{gh(alice)}, resp.Admins)
-	}, backoff.NewTestingBackOff()))
-
-	// alice *can* swap herself and "admin"
-	_, err = aliceClient.ModifyAdmins(aliceClient.Ctx(),
-		&auth.ModifyAdminsRequest{
-			Add:    []string{admin},
-			Remove: []string{alice},
-		})
-	require.NoError(t, err)
-	require.NoError(t, backoff.Retry(func() error {
-		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
-		require.NoError(t, err)
-		return require.ElementsEqualOrErr([]string{admin}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
 }
 
@@ -403,23 +399,37 @@ func TestModifyClusterAdminsAllowRobotOnlyAdmin(t *testing.T) {
 	// copy client & use resp token
 	robotClient := adminClient.WithCtx(context.Background())
 	robotClient.SetAuthToken(tokenResp.Token)
+
+	// Make the robot an admin
 	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
 		&auth.ModifyAdminsRequest{
-			Remove: []string{admin},
-			Add:    []string{robot("rob")},
+			Principal: robot("rob"),
+			Roles:     &superAdminRole,
 		})
 	require.NoError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
-		return require.ElementsEqualOrErr([]string{robot("rob")}, resp.Admins)
+		return require.ElementsEqualOrErr(map[string]auth.AdminRoles{robot("rob"): superAdminRole, admin: superAdminRole}, resp.Admins)
+	}, backoff.NewTestingBackOff()))
+
+	// Remove admin
+	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
+		&auth.ModifyAdminsRequest{
+			Principal: admin,
+		})
+	require.NoError(t, err)
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
+		require.NoError(t, err)
+		return require.ElementsEqualOrErr(map[string]auth.AdminRoles{robot("rob"): superAdminRole}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
 
 	// The robot user adds admin back as a cluster admin
 	_, err = robotClient.ModifyAdmins(robotClient.Ctx(),
 		&auth.ModifyAdminsRequest{
-			Add:    []string{admin},
-			Remove: []string{robot("rob")},
+			Principal: admin,
+			Roles:     &superAdminRole,
 		})
 	require.NoError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
@@ -889,11 +899,11 @@ func TestAdminWhoAmI(t *testing.T) {
 	resp, err := aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, gh(alice), resp.Username)
-	require.False(t, resp.IsAdmin)
+	require.Equal(t, 0, len(resp.AdminRoles.Roles))
 	resp, err = adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, admin, resp.Username)
-	require.True(t, resp.IsAdmin)
+	require.Equal(t, superAdminRole, resp.AdminRoles)
 }
 
 // TestListRepoAdminIsOwnerOfAllRepos tests that when an admin calls ListRepo,
@@ -952,7 +962,7 @@ func TestGetAuthToken(t *testing.T) {
 	who, err := robotClient1.WhoAmI(robotClient1.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, robotUser, who.Username)
-	require.False(t, who.IsAdmin)
+	require.Equal(t, 0, len(who.AdminRoles.Roles))
 	if version.IsAtLeast(1, 10) {
 		require.True(t, who.TTL >= 0 && who.TTL < secsInYear)
 	} else {
@@ -973,7 +983,7 @@ func TestGetAuthToken(t *testing.T) {
 	who, err = robotClient2.WhoAmI(robotClient2.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, robotUser, who.Username)
-	require.False(t, who.IsAdmin)
+	require.Equal(t, 0, len(who.AdminRoles.Roles))
 	if version.IsAtLeast(1, 10) {
 		require.True(t, who.TTL >= 0 && who.TTL < secsInYear)
 	} else {
@@ -1096,7 +1106,7 @@ func TestRobotUserWhoAmI(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, robotUser, who.Username)
 	require.True(t, strings.HasPrefix(who.Username, auth.RobotPrefix))
-	require.False(t, who.IsAdmin)
+	require.Equal(t, 0, len(who.AdminRoles.Roles))
 }
 
 // TestRobotUserACL tests that a robot user can create a repo, add github users
@@ -1178,7 +1188,8 @@ func TestRobotUserAdmin(t *testing.T) {
 
 	// make robotUser an admin
 	_, err = adminClient.ModifyAdmins(adminClient.Ctx(), &auth.ModifyAdminsRequest{
-		Add: []string{robotUser},
+		Principal: robotUser,
+		Roles:     &superAdminRole,
 	})
 	require.NoError(t, err)
 	// wait until robotUser shows up in admin list
@@ -1836,7 +1847,7 @@ func TestOneTimePasswordOtherUser(t *testing.T) {
 	anonClient.SetAuthToken(authResp.PachToken)
 	who, err := anonClient.WhoAmI(anonClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
-	require.False(t, who.IsAdmin)
+	require.Equal(t, 0, len(who.AdminRoles.Roles))
 	require.Equal(t, gh("alice"), who.Username)
 	require.True(t, who.TTL > 0)
 }
@@ -1855,7 +1866,7 @@ func TestInitialRobotUserGetOTP(t *testing.T) {
 	// make sure the admin client is a robot user initial admin
 	who, err := adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
-	require.True(t, who.IsAdmin)
+	require.Equal(t, superAdminRole, who.AdminRoles)
 	require.True(t, strings.HasPrefix(who.Username, auth.RobotPrefix))
 	require.Equal(t, int64(-1), who.TTL)
 
@@ -1871,7 +1882,7 @@ func TestInitialRobotUserGetOTP(t *testing.T) {
 	adminClient.SetAuthToken(authResp.PachToken)
 	who, err = adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
-	require.True(t, who.IsAdmin)
+	require.Equal(t, superAdminRole, who.AdminRoles)
 	require.True(t, strings.HasPrefix(who.Username, auth.RobotPrefix))
 	require.True(t, who.TTL > 0)
 }

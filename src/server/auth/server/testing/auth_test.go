@@ -238,7 +238,12 @@ func getPachClientP(tb testing.TB, subject string, checkConfig bool) *client.API
 		if len(getAdminsResp.Admins) == 0 {
 			panic("it should not be possible to leave a cluster with no admins")
 		}
-		adminClient = getPachClientInternal(tb, getAdminsResp.Admins[0])
+		var currentAdmin string
+		for a := range getAdminsResp.Admins {
+			currentAdmin = a
+			break
+		}
+		adminClient = getPachClientInternal(tb, currentAdmin)
 		_, err = adminClient.Deactivate(adminClient.Ctx(), &auth.DeactivateRequest{})
 		require.NoError(tb, err)
 
@@ -252,22 +257,23 @@ func getPachClientP(tb testing.TB, subject string, checkConfig bool) *client.API
 	if len(getAdminsResp.Admins) == 0 {
 		panic("it should not be possible to leave a cluster with no admins")
 	}
-	hasExpectedAdmin := len(getAdminsResp.Admins) == 1 && getAdminsResp.Admins[0] == admin
+	_, hasAdmin := getAdminsResp.Admins[admin]
+	hasExpectedAdmin := len(getAdminsResp.Admins) == 1 && hasAdmin
 	if !hasExpectedAdmin {
 		var curAdminClient *client.APIClient
-		modifyRequest := &auth.ModifyAdminsRequest{
-			Add: []string{admin},
-		}
-		for _, a := range getAdminsResp.Admins {
+		_, err = curAdminClient.ModifyAdmins(curAdminClient.Ctx(), &auth.ModifyAdminsRequest{
+			Principal: admin,
+			Roles:     &superAdminRole,
+		})
+		require.NoError(tb, err)
+		for a := range getAdminsResp.Admins {
 			if strings.HasPrefix(a, auth.GitHubPrefix) {
 				curAdminClient = getPachClientInternal(tb, a) // use first GH admin
 			}
-			if a == admin {
-				// nothing to add, just don't remove "admin"
-				modifyRequest.Add = nil
-				continue
+			if a != admin {
+				_, err = curAdminClient.ModifyAdmins(curAdminClient.Ctx(), &auth.ModifyAdminsRequest{Principal: a})
+				require.NoError(tb, err)
 			}
-			modifyRequest.Remove = append(modifyRequest.Remove, a)
 		}
 		if curAdminClient == nil {
 			tb.Fatal("cluster has no GitHub admins; no way for auth test to grant itself admin access")
@@ -275,14 +281,12 @@ func getPachClientP(tb testing.TB, subject string, checkConfig bool) *client.API
 			// interface), see https://github.com/dominikh/go-tools/issues/635
 			return nil
 		}
-		_, err := curAdminClient.ModifyAdmins(curAdminClient.Ctx(), modifyRequest)
-		require.NoError(tb, err)
-
 		// Wait for admin change to take effect
 		require.NoError(tb, backoff.Retry(func() error {
 			getAdminsResp, err = adminClient.GetAdmins(adminClient.Ctx(),
 				&auth.GetAdminsRequest{})
-			hasExpectedAdmin := len(getAdminsResp.Admins) == 1 && getAdminsResp.Admins[0] == admin
+			_, hasAdmin := getAdminsResp.Admins[admin]
+			hasExpectedAdmin := len(getAdminsResp.Admins) == 1 && hasAdmin
 			if !hasExpectedAdmin {
 				return errors.Errorf("cluster admins haven't yet updated")
 			}
