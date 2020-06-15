@@ -519,13 +519,7 @@ func userCodeEnv(
 	outputCommit *pfs.Commit,
 	inputs []*common.Input,
 ) []string {
-	result := os.Environ()
-	for _, input := range inputs {
-		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(driver.InputDir(), input.Name, input.FileInfo.File.Path)))
-		result = append(result, fmt.Sprintf("%s_COMMIT=%s", input.Name, input.FileInfo.File.Commit.ID))
-	}
-	result = append(result, fmt.Sprintf("%s=%s", client.JobIDEnv, jobID))
-	result = append(result, fmt.Sprintf("%s=%s", client.OutputCommitIDEnv, outputCommit.ID))
+	result := driver.UserCodeEnv(jobID, outputCommit, inputs)
 	if ppsutil.ContainsS3Inputs(driver.PipelineInfo().Input) || driver.PipelineInfo().S3Out {
 		// TODO(msteffen) Instead of reading S3GATEWAY_PORT directly, worker/main.go
 		// should pass its ServiceEnv to worker.NewAPIServer, which should store it

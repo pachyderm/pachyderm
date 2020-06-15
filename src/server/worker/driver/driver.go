@@ -1232,3 +1232,18 @@ func (d *driver) UploadOutput(
 	}
 	return b.Bytes(), nil
 }
+
+func (d *driver) UserCodeEnv(
+	jobID string,
+	outputCommit *pfs.Commit,
+	inputs []*common.Input,
+) []string {
+	result := os.Environ()
+	for _, input := range inputs {
+		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(d.InputDir(), input.Name, input.FileInfo.File.Path)))
+		result = append(result, fmt.Sprintf("%s_COMMIT=%s", input.Name, input.FileInfo.File.Commit.ID))
+	}
+	result = append(result, fmt.Sprintf("%s=%s", client.JobIDEnv, jobID))
+	result = append(result, fmt.Sprintf("%s=%s", client.OutputCommitIDEnv, outputCommit.ID))
+	return result
+}
