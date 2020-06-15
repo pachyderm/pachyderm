@@ -152,6 +152,9 @@ ParallelismSpec: {{.ParallelismSpec}}
   {{ if .ResourceLimits.Gpu }}GPU:
     Type: {{ .ResourceLimits.Gpu.Type }}
     Number: {{ .ResourceLimits.Gpu.Number }} {{end}} {{end}}
+{{ if .SidecarResourceLimits }}SidecarResourceLimits:
+  CPU: {{ .SidecarResourceLimits.Cpu }}
+  Memory: {{ .SidecarResourceLimits.Memory }} {{end}}
 {{ if .Service }}Service:
 	{{ if .Service.InternalPort }}InternalPort: {{ .Service.InternalPort }} {{end}}
 	{{ if .Service.ExternalPort }}ExternalPort: {{ .Service.ExternalPort }} {{end}} {{end}}Input:
