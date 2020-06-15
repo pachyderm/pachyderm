@@ -1794,7 +1794,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 		if err != nil {
 			return nil, err
 		}
-		if req.TTL <= 0 || req.TTL > ttl {
+		if req.TTL == 0 || req.TTL > ttl {
 			req.TTL = ttl
 		}
 	} else if version.IsAtLeast(1, 10) && (req.TTL == 0 || req.TTL > defaultSessionTTLSecs) {
