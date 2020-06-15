@@ -236,25 +236,165 @@ func TestSuperAdminRWO(t *testing.T) {
 		entries(alice, "owner", "carol", "reader"), getACL(t, aliceClient, repo))
 }
 
-// TestAdminFixBrokenRepo tests that an admin can modify the ACL of a repo even
-// when the repo's ACL is empty (indicating that no user has explicit access to
-// to the repo)
-func TestAdminFixBrokenRepo(t *testing.T) {
+// TestFSAdminRWO tests adding and removing cluster FS admins, as well as FS admins
+// reading, writing, and moderating (owning) all repos in the cluster.
+func TestFSAdminRWO(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
 	defer deleteAll(t)
-	alice := tu.UniqueString("alice")
-	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
+	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
+	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
+	adminClient := getPachClient(t, admin)
+
+	// The initial set of admins is just the user "admin"
+	resp, err := aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
+	require.NoError(t, err)
+	require.Equal(t, admins(admin)(), resp.Admins)
+
+	// alice creates a repo (that only she owns) and puts a file
+	repo := tu.UniqueString("TestAdminRWO")
+	require.NoError(t, aliceClient.CreateRepo(repo))
+	require.Equal(t, entries(alice, "owner"), getACL(t, aliceClient, repo))
+	commit, err := aliceClient.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = aliceClient.PutFile(repo, commit.ID, "/file", strings.NewReader("test data"))
+	require.NoError(t, err)
+	require.NoError(t, aliceClient.FinishCommit(repo, commit.ID))
+
+	// bob cannot read from the repo
+	buf := &bytes.Buffer{}
+	err = bobClient.GetFile(repo, "master", "/file", 0, 0, buf)
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+
+	// bob cannot write to the repo
+	_, err = bobClient.StartCommit(repo, "master")
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+	// Note: we must pass aliceClient to CommitCnt, because it calls
+	// ListCommit(repo), which requires the caller to have READER access to
+	// 'repo', which bob does not have (but alice does)
+	require.Equal(t, 1, CommitCnt(t, aliceClient, repo)) // check that no commits were created
+
+	// bob can't update the ACL
+	_, err = bobClient.SetScope(bobClient.Ctx(), &auth.SetScopeRequest{
+		Repo:     repo,
+		Username: "carol",
+		Scope:    auth.Scope_READER,
+	})
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+	require.Equal(t, entries(alice, "owner"), getACL(t, aliceClient, repo)) // check that ACL wasn't updated
+
+	// 'admin' makes bob an fs admin
+	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
+		&auth.ModifyAdminsRequest{Principal: gh(bob), Roles: fsAdminRole()})
+	require.NoError(t, err)
+
+	// wait until bob shows up in admin list
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
+		require.NoError(t, err)
+		return require.EqualOrErr(
+			admins(admin)(gh(bob)), resp.Admins,
+		)
+	}, backoff.NewTestingBackOff()))
+
+	// now bob can read from the repo
+	buf.Reset()
+	require.NoError(t, bobClient.GetFile(repo, "master", "/file", 0, 0, buf))
+	require.Matches(t, "test data", buf.String())
+
+	// bob can write to the repo
+	commit, err = bobClient.StartCommit(repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, bobClient.FinishCommit(repo, commit.ID))
+	require.Equal(t, 2, CommitCnt(t, aliceClient, repo)) // check that a new commit was created
+
+	// bob can update the repo's ACL
+	_, err = bobClient.SetScope(bobClient.Ctx(), &auth.SetScopeRequest{
+		Repo:     repo,
+		Username: "carol",
+		Scope:    auth.Scope_READER,
+	})
+	require.NoError(t, err)
+	// check that ACL was updated
+	require.ElementsEqual(t,
+		entries(alice, "owner", "carol", "reader"), getACL(t, aliceClient, repo))
+
+	// 'admin' revokes bob's admin status
+	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
+		&auth.ModifyAdminsRequest{Principal: gh(bob), Roles: &auth.AdminRoles{Roles: []auth.AdminRoles_Role{}}})
+	require.NoError(t, err)
+
+	// wait until bob is not in admin list
+	backoff.Retry(func() error {
+		resp, err := aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
+		require.NoError(t, err)
+		return require.EqualOrErr(admins(admin)(), resp.Admins)
+	}, backoff.NewTestingBackOff())
+
+	// bob can no longer read from the repo
+	buf.Reset()
+	err = bobClient.GetFile(repo, "master", "/file", 0, 0, buf)
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+
+	// bob cannot write to the repo
+	_, err = bobClient.StartCommit(repo, "master")
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+	require.Equal(t, 2, CommitCnt(t, aliceClient, repo)) // check that no commits were created
+
+	// bob can't update the ACL
+	_, err = bobClient.SetScope(bobClient.Ctx(), &auth.SetScopeRequest{
+		Repo:     repo,
+		Username: "carol",
+		Scope:    auth.Scope_WRITER,
+	})
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+	// check that ACL wasn't updated
+	require.ElementsEqual(t,
+		entries(alice, "owner", "carol", "reader"), getACL(t, aliceClient, repo))
+}
+
+// TestFSAdminFixBrokenRepo tests that an FS admin can modify the ACL of a repo even
+// when the repo's ACL is empty (indicating that no user has explicit access to
+// to the repo)
+func TestFSAdminFixBrokenRepo(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	defer deleteAll(t)
+	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
+	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
+	adminClient := getPachClient(t, admin)
 
 	// alice creates a repo (that only she owns) and puts a file
 	repo := tu.UniqueString("TestAdmin")
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.Equal(t, entries(alice, "owner"), getACL(t, aliceClient, repo))
 
+	// 'admin' makes bob an FS admin
+	_, err := adminClient.ModifyAdmins(adminClient.Ctx(),
+		&auth.ModifyAdminsRequest{Principal: gh(bob), Roles: fsAdminRole()})
+	require.NoError(t, err)
+
+	// wait until bob shows up in admin list
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
+		require.NoError(t, err)
+		return require.EqualOrErr(
+			admins(admin)(gh(bob)), resp.Admins,
+		)
+	}, backoff.NewTestingBackOff()))
+
 	// admin deletes the repo's ACL
-	_, err := adminClient.AuthAPIClient.SetACL(adminClient.Ctx(),
+	_, err = adminClient.AuthAPIClient.SetACL(adminClient.Ctx(),
 		&auth.SetACLRequest{
 			Repo:    repo,
 			Entries: nil,
@@ -270,9 +410,9 @@ func TestAdminFixBrokenRepo(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 0, CommitCnt(t, adminClient, repo)) // check that no commits were created
 
-	// admin can update the ACL to put Alice back, even though reading the ACL
+	// bob, an FS admin, can update the ACL to put Alice back, even though reading the ACL
 	// will fail
-	_, err = adminClient.SetACL(adminClient.Ctx(),
+	_, err = bobClient.SetACL(bobClient.Ctx(),
 		&auth.SetACLRequest{
 			Repo: repo,
 			Entries: []*auth.ACLEntry{
@@ -291,45 +431,6 @@ func TestAdminFixBrokenRepo(t *testing.T) {
 	require.Equal(t, 1, CommitCnt(t, adminClient, repo)) // check that a new commit was created
 }
 
-// TestModifyAdminsErrorMissingAdmin tests that trying to remove a nonexistant
-// admin returns an error
-func TestModifyAdminsErrorMissingAdmin(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	deleteAll(t)
-	defer deleteAll(t)
-	alice := tu.UniqueString("alice")
-	adminClient := getPachClient(t, admin)
-
-	// Check that the initial set of admins is just "admin"
-	resp, err := adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
-	require.NoError(t, err)
-	require.Equal(t, admins(admin)(), resp.Admins)
-
-	// make alice a cluster administrator
-	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
-		&auth.ModifyAdminsRequest{Principal: gh(alice), Roles: superAdminRole()})
-	require.NoError(t, err)
-
-	require.NoError(t, err)
-	require.NoError(t, backoff.Retry(func() error {
-		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
-		require.NoError(t, err)
-		return require.EqualOrErr(admins(admin, gh(alice))(), resp.Admins)
-	}, backoff.NewTestingBackOff()))
-
-	// Try to remove FakeUser
-	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
-		&auth.ModifyAdminsRequest{Principal: "fakeUser"})
-	require.YesError(t, err)
-	require.NoError(t, backoff.Retry(func() error {
-		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
-		require.NoError(t, err)
-		return require.EqualOrErr(admins(admin, gh(alice))(), resp.Admins)
-	}, backoff.NewTestingBackOff()))
-}
-
 // TestCannotRemoveAllClusterAdmins tests that trying to remove all of a
 // clusters admins yields an error
 func TestCannotRemoveAllClusterAdmins(t *testing.T) {
@@ -346,7 +447,7 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, admins(admin)(), resp.Admins)
 
-	// admin cannot remove themselves from the list of cluster admins (otherwise
+	// admin cannot remove themselves from the list of super admins (otherwise
 	// there would be no admins)
 	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
 		&auth.ModifyAdminsRequest{Principal: admin})
@@ -355,6 +456,30 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
 		return require.EqualOrErr(admins(admin)(), resp.Admins)
+	}, backoff.NewTestingBackOff()))
+
+	// admin can make alice an FS administrator but admin is still the only super admin
+	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
+		&auth.ModifyAdminsRequest{
+			Principal: gh(alice),
+			Roles:     fsAdminRole(),
+		})
+	require.NoError(t, err)
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
+		require.NoError(t, err)
+		return require.EqualOrErr(admins(admin)(gh(alice)), resp.Admins)
+	}, backoff.NewTestingBackOff()))
+
+	// admin cannot remove themselves from the list of super admins (otherwise
+	// there would be no admins), alice only has fs admin
+	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
+		&auth.ModifyAdminsRequest{Principal: admin})
+	require.YesError(t, err)
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
+		require.NoError(t, err)
+		return require.EqualOrErr(admins(admin)(gh(alice)), resp.Admins)
 	}, backoff.NewTestingBackOff()))
 
 	// admin can make alice a cluster administrator
@@ -904,27 +1029,48 @@ func TestGetSetScopeAndAclWithExpiredToken(t *testing.T) {
 		entries(alice, "owner", "carol", "writer"), getACL(t, adminClient, repo))
 }
 
-// TestAdminWhoAmI tests that when an admin calls WhoAmI(), the IsAdmin field
-// in the result is true (and if a non-admin calls WhoAmI(), IsAdmin is false)
+// TestAdminWhoAmI tests that when an admin calls WhoAmI(), the AdminRoles reflects their admin roles
 func TestAdminWhoAmI(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
 	defer deleteAll(t)
-	alice := tu.UniqueString("alice")
-	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
+	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
+	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
+	adminClient := getPachClient(t, admin)
 
-	// Make sure admin WhoAmI indicates that they're an admin, and non-admin
-	// WhoAmI indicates that they're not
+	// 'admin' makes bob an FS admin
+	_, err := adminClient.ModifyAdmins(adminClient.Ctx(),
+		&auth.ModifyAdminsRequest{Principal: gh(bob), Roles: fsAdminRole()})
+	require.NoError(t, err)
+
+	// wait until bob shows up in admin list
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
+		require.NoError(t, err)
+		return require.EqualOrErr(
+			admins(admin)(gh(bob)), resp.Admins,
+		)
+	}, backoff.NewTestingBackOff()))
+
+	// alice has no admin roles
 	resp, err := aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, gh(alice), resp.Username)
 	require.Equal(t, 0, len(resp.AdminRoles.Roles))
+
+	// admin has super admin
 	resp, err = adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, admin, resp.Username)
 	require.Equal(t, superAdminRole(), resp.AdminRoles)
+
+	// bob has FS admin
+	resp, err = bobClient.WhoAmI(bobClient.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, gh(bob), resp.Username)
+	require.Equal(t, fsAdminRole(), resp.AdminRoles)
 }
 
 // TestListRepoAdminIsOwnerOfAllRepos tests that when an admin calls ListRepo,
@@ -1422,6 +1568,42 @@ func TestGetAuthTokenErrorNonAdminUser(t *testing.T) {
 	require.Matches(t, "must be an admin", err.Error())
 }
 
+// TestGetAuthTokenErrorFSAdminUser tests that FS admin users can't call
+// GetAuthToken on behalf of another user
+func TestGetAuthTokenErrorFSAdminUser(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	defer deleteAll(t)
+
+	alice := tu.UniqueString("alice")
+	aliceClient := getPachClient(t, alice)
+	adminClient := getPachClient(t, admin)
+
+	// 'admin' makes alice an fs admin
+	_, err := adminClient.ModifyAdmins(adminClient.Ctx(),
+		&auth.ModifyAdminsRequest{Principal: gh(alice), Roles: fsAdminRole()})
+	require.NoError(t, err)
+
+	// wait until alice shows up in admin list
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
+		require.NoError(t, err)
+		return require.EqualOrErr(
+			admins(admin)(gh(alice)), resp.Admins,
+		)
+	}, backoff.NewTestingBackOff()))
+
+	// Try to get a token for a robot as alice
+	resp, err := aliceClient.GetAuthToken(aliceClient.Ctx(), &auth.GetAuthTokenRequest{
+		Subject: robot(tu.UniqueString("t-1000")),
+	})
+	require.Nil(t, resp)
+	require.YesError(t, err)
+	require.Matches(t, "must be an admin", err.Error())
+}
+
 // TestGetAuthTokenDefaultTTL tests the default TTL of a token returned from
 // GetAuthToken
 func TestGetAuthTokenDefaultTTL(t *testing.T) {
@@ -1871,6 +2053,43 @@ func TestOneTimePasswordOtherUser(t *testing.T) {
 	require.Equal(t, 0, len(who.AdminRoles.Roles))
 	require.Equal(t, gh("alice"), who.Username)
 	require.True(t, who.TTL > 0)
+}
+
+// TestFSAdminOneTimePasswordOtherUser tests that it's not possible for an FS admin to
+// generate an OTP on behalf of another user.
+func TestFSAdminOneTimePasswordOtherUser(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+
+	alice := tu.UniqueString("alice")
+	aliceClient := getPachClient(t, alice)
+
+	adminClient := getPachClient(t, admin)
+
+	// 'admin' makes alice an fs admin
+	_, err := adminClient.ModifyAdmins(adminClient.Ctx(),
+		&auth.ModifyAdminsRequest{Principal: gh(alice), Roles: fsAdminRole()})
+	require.NoError(t, err)
+
+	// wait until alice shows up in fs admin list
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
+		require.NoError(t, err)
+		return require.EqualOrErr(
+			admins(admin)(gh(alice)), resp.Admins,
+		)
+	}, backoff.NewTestingBackOff()))
+
+	// Fail to get an OTP for another subject as alice
+	otpResp, err := aliceClient.GetOneTimePassword(adminClient.Ctx(),
+		&auth.GetOneTimePasswordRequest{
+			Subject: gh("bob"),
+		})
+	require.Nil(t, otpResp)
+	require.YesError(t, err)
+	require.Matches(t, "must be an admin", err.Error())
 }
 
 // TestInitialRobotUserGetOTP tests that Pachyderm can be activated with a robot

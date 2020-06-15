@@ -261,7 +261,18 @@ func getPachClientP(tb testing.TB, subject string, checkConfig bool) *client.API
 	hasExpectedAdmin := len(getAdminsResp.Admins) == 1 && hasAdmin
 	if !hasExpectedAdmin {
 		var curAdminClient *client.APIClient
-		for a := range getAdminsResp.Admins {
+		for a, roles := range getAdminsResp.Admins {
+			var isSuper bool
+			for _, r := range roles.Roles {
+				if r == auth.AdminRoles_SUPER {
+					isSuper = true
+					break
+				}
+			}
+			if !isSuper {
+				continue
+			}
+
 			if strings.HasPrefix(a, auth.GitHubPrefix) {
 				curAdminClient = getPachClientInternal(tb, a) // use first GH admin
 				break
@@ -285,9 +296,6 @@ func getPachClientP(tb testing.TB, subject string, checkConfig bool) *client.API
 		})
 		require.NoError(tb, err)
 		for a := range getAdminsResp.Admins {
-			if strings.HasPrefix(a, auth.GitHubPrefix) {
-				curAdminClient = getPachClientInternal(tb, a) // use first GH admin
-			}
 			if a != admin {
 				_, err = curAdminClient.ModifyAdmins(curAdminClient.Ctx(), &auth.ModifyAdminsRequest{Principal: a})
 				require.NoError(tb, err)
