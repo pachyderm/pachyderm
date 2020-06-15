@@ -645,13 +645,15 @@ func fetchChunkFromWorker(driver driver.Driver, logger logs.TaggedLogger, addres
 }
 
 func fetchChunk(driver driver.Driver, logger logs.TaggedLogger, info *HashtreeInfo, shard int64, stats bool) (io.ReadCloser, error) {
-	reader, err := fetchChunkFromWorker(driver, logger, info.Address, info.Tag, shard, stats)
-	if err == nil {
-		return reader, nil
+	if info.Address != "" {
+		reader, err := fetchChunkFromWorker(driver, logger, info.Address, info.Tag, shard, stats)
+		if err == nil {
+			return reader, nil
+		}
+		logger.Logf("error when fetching cached chunk (%s) from worker (%s) - fetching from object store instead: %v", info.Tag, info.Address, err)
 	}
-	logger.Logf("error when fetching cached chunk (%s) from worker (%s) - fetching from object store instead: %v", info.Tag, info.Address, err)
 
-	reader, err = driver.PachClient().GetTagReader(info.Tag)
+	reader, err := driver.PachClient().GetTagReader(info.Tag)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
@@ -707,7 +709,10 @@ func handleMergeTask(driver driver.Driver, logger logs.TaggedLogger, data *Merge
 
 					// TODO: this only works if it is read into a buffer first?
 					buf := &bytes.Buffer{}
-					io.Copy(buf, reader)
+					if _, err := io.Copy(buf, reader); err != nil {
+						return errors.EnsureStack(err)
+					}
+
 					return errors.EnsureStack(cache.Put(hashtreeInfo.Tag, bytes.NewBuffer(buf.Bytes())))
 				})
 			}
