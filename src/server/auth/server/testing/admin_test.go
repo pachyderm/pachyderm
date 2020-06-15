@@ -1246,7 +1246,7 @@ func TestGetIndefiniteAuthToken(t *testing.T) {
 	who, err := robotClient1.WhoAmI(robotClient1.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, robotUser, who.Username)
-	require.False(t, who.IsAdmin)
+	require.Equal(t, 0, len(who.AdminRoles.Roles))
 	require.Equal(t, int64(-1), who.TTL)
 }
 
