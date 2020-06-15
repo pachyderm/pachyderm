@@ -1746,9 +1746,6 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 	if req.Subject == ppsUser {
 		return nil, fmt.Errorf("GetAuthTokenRequest.Subject is invalid")
 	}
-	if req.TTL < 0 {
-		return nil, fmt.Errorf("GetAuthTokenRequest.TTL must be >= 0")
-	}
 
 	// Get current caller and authorize them if req.Subject is set to a different
 	// user
@@ -1759,6 +1756,10 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequ
 	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
 	if err != nil {
 		return nil, err
+	}
+
+	if req.TTL < 0 && !isAdmin {
+		return nil, fmt.Errorf("GetAuthTokenRequest.TTL must be >= 0")
 	}
 
 	// check if this request is auhorized
