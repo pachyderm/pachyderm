@@ -1098,6 +1098,8 @@ func (a *apiServer) GetOneTimePassword(ctx context.Context, req *auth.GetOneTime
 		return nil, err
 	}
 
+	fmt.Printf("Req subject: %q, caller: %q, isadmin: %v\n", req.Subject, callerInfo.Subject, isAdmin)
+
 	// compute the TTL for the OTP itself (default: 5m). This cannot be longer
 	// than the TTL for the token that the user will get once the OTP is exchanged
 	// (see below) or 30 days, whichever is shorter.

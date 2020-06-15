@@ -2065,7 +2065,6 @@ func TestFSAdminOneTimePasswordOtherUser(t *testing.T) {
 
 	alice := tu.UniqueString("alice")
 	aliceClient := getPachClient(t, alice)
-
 	adminClient := getPachClient(t, admin)
 
 	// 'admin' makes alice an fs admin
@@ -2083,7 +2082,7 @@ func TestFSAdminOneTimePasswordOtherUser(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// Fail to get an OTP for another subject as alice
-	otpResp, err := aliceClient.GetOneTimePassword(adminClient.Ctx(),
+	otpResp, err := aliceClient.GetOneTimePassword(aliceClient.Ctx(),
 		&auth.GetOneTimePasswordRequest{
 			Subject: gh("bob"),
 		})
