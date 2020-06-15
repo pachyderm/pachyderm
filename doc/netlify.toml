@@ -2,11 +2,7 @@
   base = "doc/"
   command = "./build.sh"
   publish = "site/"
-  ignore = "git diff --quiet HEAD^ HEAD etc/"
-  ignore = "git diff --quiet HEAD^ HEAD examples/"
-  ignore = "git diff --quiet HEAD^ HEAD src/"
-  ignore = "git diff --quiet HEAD^ HEAD go.sum"
-  ignore = "git diff --quiet HEAD^ HEAD go.mod"
+  ignore = "git diff --quiet HEAD^ HEAD ../etc/ ../examples/ ../src/ ../go.sum ../go.mod"
 
 [[redirects]]
   from = "/"
