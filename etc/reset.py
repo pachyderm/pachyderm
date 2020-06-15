@@ -25,6 +25,9 @@ class RedactedString(str):
     pass
 
 class BaseDriver:
+    def image(self, name):
+        return name
+
     async def reset(self):
         # Check for the presence of the pachyderm IDE to see whether it should
         # be undeployed too. Using kubectl rather than helm here because
@@ -54,15 +57,6 @@ class BaseDriver:
         # cluster volume, causing a bad state. This works around the issue by
         # just using a different hostpath on every deployment.
         return ["local", "-d", "--no-guaranteed", f"--host-path=/var/pachyderm-{secrets.token_hex(5)}"]
-
-    def ide_user_image(self):
-        return IDE_USER_IMAGE
-
-    def ide_hub_image(self):
-        return IDE_HUB_IMAGE
-
-class DockerDesktopDriver(BaseDriver):
-    pass
 
 class MinikubeDriver(BaseDriver):
     async def reset(self):
@@ -107,7 +101,7 @@ class GCPDriver(BaseDriver):
             await run("gcloud", "container", "clusters", "create", self.cluster_name, "--scopes=storage-rw",
                 "--machine-type=n1-standard-8", "--num-nodes=2")
 
-            account = (await run("gcloud", "config", "get-value", "account")).strip()
+            account = (await capture("gcloud", "config", "get-value", "account")).strip()
             await run("kubectl", "create", "clusterrolebinding", "cluster-admin-binding",
                 "--clusterrole=cluster-admin", f"--user={account}")
 
@@ -129,12 +123,6 @@ class GCPDriver(BaseDriver):
     def deploy_args(self):
         return ["google", self.object_storage_name, "32", "--dynamic-etcd-nodes=1", "--image-pull-secret=regcred",
             f"--registry=gcr.io/{self.project_id}"]
-
-    def ide_user_image(self):
-        return self.image(IDE_USER_IMAGE)
-
-    def ide_hub_image(self):
-        return self.image(IDE_HUB_IMAGE)
 
 async def run(cmd, *args, raise_on_error=True, stdin=None, capture_output=False, timeout=None):
     print_args = [cmd, *[a if not isinstance(a, RedactedString) else "[redacted]" for a in args]]
@@ -190,7 +178,7 @@ def print_status(status):
 
 async def main():
     parser = argparse.ArgumentParser(description="Resets a pachyderm cluster.")
-    parser.add_argument("--target", default="local", help="Where to deploy ('gcp[:<cluster name>]' or 'local')")
+    parser.add_argument("--target", default="auto", help="Where to deploy")
     parser.add_argument("--dash", action="store_true", help="Deploy dash")
     parser.add_argument("--ide", action="store_true", help="Deploy IDE")
     args = parser.parse_args()
@@ -202,40 +190,47 @@ async def main():
 
     driver = None
 
-    # derive which driver to use from the k8s context name
-    if args.target == "local":
+    if args.target == "auto":
+        # derive which driver to use from the k8s context name
         kube_context = await capture("kubectl", "config", "current-context", raise_on_error=False)
         kube_context = kube_context.strip() if kube_context else ""
         if kube_context == "minikube":
             print_status("using the minikube driver")
             driver = MinikubeDriver()
         elif kube_context == "docker-desktop":
-            print_status("using the docker desktop driver")
-            driver = DockerDesktopDriver()
-        # minikube won't set the k8s context if the VM isn't running. This checks
-        # for the presence of the minikube executable as an alternate means.
-        if driver is None and (await run("minikube", "version", raise_on_error=False, capture_output=True)).rc == 0:
-            print_status("using the minikube driver")
-            driver = MinikubeDriver()
+            print_status("using the base driver")
+            driver = BaseDriver()
+        if driver is None:
+            # minikube won't set the k8s context if the VM isn't running. This
+            # checks for the presence of the minikube executable as an
+            # alternate means.
+            try:
+                await run("minikube", "version", capture_output=True)
+            except:
+                pass
+            else:
+                driver = MinikubeDriver()
+        if driver is None:
+            raise Exception(f"could not derive driver from context name: {kube_context}")
+    elif args.target == "minikube":
+        print_status("using the minikube driver")
+        driver = MinikubeDriver()
+    elif args.target == "base":
+        print_status("using the base driver")
+        driver = BaseDriver()
     elif args.target.startswith("gcp"):
         project_id = (await capture("gcloud", "config", "get-value", "project")).strip()
         target_parts = args.target.split(":", maxsplit=1)
         cluster_name = target_parts[1] if len(target_parts) == 2 else None
-        driver = GCPDriver(project_id, cluster_name=cluster_name)
+        driver = GCPDriver(project_id, cluster_name)
     else:
         raise Exception(f"unknown target: {args.target}")
-
-    if driver is None:
-        raise Exception(f"could not derive driver from context name: {kube_context}")
 
     await asyncio.gather(
         run("make", "install"),
         run("make", "docker-build"),
         driver.reset(),
     )
-    
-    version = (await capture("pachctl", "version", "--client-only")).strip()
-    print_status(f"deploy pachyderm version v{version}")
 
     deploy_args = ["pachctl", "deploy", *driver.deploy_args(), "--dry-run", "--create-context", "--log-level=debug"]
     if not args.dash:
@@ -281,8 +276,8 @@ async def main():
         await run("pachctl", "enterprise", "activate", RedactedString(enterprise_token))
         await run("pachctl", "auth", "activate", stdin="admin\n")
         await run("pachctl", "deploy", "ide", 
-            "--user-image", driver.ide_user_image(),
-            "--hub-image", driver.ide_hub_image(),
+            "--user-image", driver.image(IDE_USER_IMAGE),
+            "--hub-image", driver.image(IDE_HUB_IMAGE),
         )
 
 if __name__ == "__main__":
