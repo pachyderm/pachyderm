@@ -307,6 +307,7 @@ message JobInfo {
   repeated WorkerStatus worker_status = 24;
   ResourceSpec resource_requests = 25;         // requires ListJobRequest.Full
   ResourceSpec resource_limits = 36;           // requires ListJobRequest.Full
+  ResourceSpec sidecar_resource_limits = 48;  // requires ListJobRequest.Full
   Input input = 26;                            // requires ListJobRequest.Full
   pfs.BranchInfo new_branch = 27;
   pfs.Commit stats_commit = 29;
@@ -423,6 +424,7 @@ message PipelineInfo {
   string output_branch = 16;
   ResourceSpec resource_requests = 19;
   ResourceSpec resource_limits = 31;
+  ResourceSpec sidecar_resource_limits = 51;
   Input input = 20;
   string description = 21;
   string cache_size = 23;
@@ -656,6 +658,7 @@ message CreatePipelineRequest {
   bool s3_out = 36;
   ResourceSpec resource_requests = 12;
   ResourceSpec resource_limits = 22;
+  ResourceSpec sidecar_resource_limits = 47;
   Input input = 13;
   string description = 14;
   string cache_size = 16;
