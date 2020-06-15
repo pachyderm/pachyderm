@@ -1,5 +1,7 @@
 # General Troubleshooting
 
+This section outlines general troubleshooting steps that you can
+attempt to repair your cluster.
 Here are some common issues by symptom along with steps to resolve them. 
 
 - [Connecting to a Pachyderm cluster](#connecting-to-a-pachyderm-cluster)
