@@ -84,19 +84,19 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 		if dit.Len() != 1 {
 			return errors.New("services must have a single datum")
 		}
-		data := dit.DatumN(0)
-		logger = logger.WithData(data)
+		inputs := dit.DatumN(0)
+		logger = logger.WithData(inputs)
 
 		// TODO: do something with stats? - this isn't an output repo so there's nowhere to put them
-		_, err = driver.WithData(data, nil, logger, func(dir string, stats *pps.ProcessStats) error {
+		_, err = driver.WithData(inputs, nil, logger, func(dir string, stats *pps.ProcessStats) error {
 			if err := driver.UpdateJobState(job.ID, pps.JobState_JOB_RUNNING, ""); err != nil {
 				logger.Logf("error updating job state: %+v", err)
 			}
 
 			eg, serviceCtx := errgroup.WithContext(serviceCtx)
 			eg.Go(func() error {
-				return driver.WithActiveData(data, dir, func() error {
-					return pipeline.RunUserCode(driver.WithContext(serviceCtx), logger)
+				return driver.WithActiveData(inputs, dir, func() error {
+					return pipeline.RunUserCode(driver.WithContext(serviceCtx), logger, job.ID, inputs)
 				})
 			})
 			if pipelineInfo.Spout != nil {
