@@ -1877,6 +1877,25 @@ func TestDeleteAll(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
+	// admin makes alice an fs admin
+	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
+		&auth.ModifyAdminsRequest{Principal: gh(alice), Roles: fsAdminRole()})
+	require.NoError(t, err)
+
+	// wait until alice shows up in admin list
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
+		require.NoError(t, err)
+		return require.EqualOrErr(
+			admins(admin)(gh(alice)), resp.Admins,
+		)
+	}, backoff.NewTestingBackOff()))
+
+	// alice calls DeleteAll but it fails because she's only an fs admin
+	err = aliceClient.DeleteAll()
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+
 	// admin calls DeleteAll and succeeds
 	require.NoError(t, adminClient.DeleteAll())
 }
@@ -3069,4 +3088,85 @@ func TestDisableGitHubAuth(t *testing.T) {
 	require.NoError(t, err)
 
 	// clean up
+}
+
+// TestDisableGitHubAuthFSAdmin tests that users with the FS admin role can't disable auth
+func TestDisableGitHubAuthFSAdmin(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	defer deleteAll(t)
+
+	alice := tu.UniqueString("alice")
+	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
+
+	// confirm config is set to default config
+	cfg, err := adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	requireConfigsEqual(t, &authserver.DefaultAuthConfig, cfg.GetConfiguration())
+
+	// confirm GH auth works by default
+	_, err = adminClient.Authenticate(adminClient.Ctx(), &auth.AuthenticateRequest{
+		GitHubToken: "alice",
+	})
+	require.NoError(t, err)
+
+	// admin makes alice an fs admin
+	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
+		&auth.ModifyAdminsRequest{Principal: gh(alice), Roles: fsAdminRole()})
+	require.NoError(t, err)
+
+	// wait until alice shows up in admin list
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
+		require.NoError(t, err)
+		return require.EqualOrErr(
+			admins(admin)(gh(alice)), resp.Admins,
+		)
+	}, backoff.NewTestingBackOff()))
+
+	// alice tries to get config but doesn't have permission as an FS admin
+	cfg, err = adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
+	require.Nil(t, cfg)
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+
+	// alice tries to set config to no GH, but doesn't have permission
+	configNoGitHub := &auth.AuthConfig{
+		LiveConfigVersion: 1,
+	}
+	_, err = aliceClient.SetConfiguration(aliceClient.Ctx(), &auth.SetConfigurationRequest{
+		Configuration: configNoGitHub,
+	})
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+}
+
+// TestDeactivateFSAdmin tests that users with the FS admin role can't call Deactivate
+func TestDeactivateFSAdmin(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	alice := tu.UniqueString("alice")
+	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
+
+	// admin makes alice an fs admin
+	_, err := adminClient.ModifyAdmins(adminClient.Ctx(),
+		&auth.ModifyAdminsRequest{Principal: gh(alice), Roles: fsAdminRole()})
+	require.NoError(t, err)
+
+	// wait until alice shows up in admin list
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
+		require.NoError(t, err)
+		return require.EqualOrErr(
+			admins(admin)(gh(alice)), resp.Admins,
+		)
+	}, backoff.NewTestingBackOff()))
+
+	// alice tries to deactivate, but doesn't have permission as an FS admin
+	_, err = aliceClient.Deactivate(aliceClient.Ctx(), &auth.DeactivateRequest{})
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
 }
