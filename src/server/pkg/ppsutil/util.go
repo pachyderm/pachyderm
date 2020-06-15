@@ -102,10 +102,10 @@ func getResourceListFromSpec(resources *pps.ResourceSpec) (*v1.ResourceList, err
 	return &result, nil
 }
 
-// GetLimitsResourceListFromPipeline returns a list of resources that the pipeline,
-// maximally is limited to.
-func GetLimitsResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*v1.ResourceList, error) {
-	return getResourceListFromSpec(pipelineInfo.ResourceLimits)
+// GetLimitsResourceList returns a list of resources from a pipeline
+// ResourceSpec that it is maximally limited to.
+func GetLimitsResourceList(limits *pps.ResourceSpec) (*v1.ResourceList, error) {
+	return getResourceListFromSpec(limits)
 }
 
 // GetExpectedNumHashtrees computes the expected number of hashtrees that
