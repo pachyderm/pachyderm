@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -442,7 +441,7 @@ func processDatum(
 				driver := driver.WithContext(ctx)
 
 				return status.withDatum(inputs, cancel, func() error {
-					env := userCodeEnv(driver, logger.JobID(), outputCommit, inputs)
+					env := driver.UserCodeEnv(logger.JobID(), outputCommit, inputs)
 					if err := driver.RunUserCode(logger, env, processStats, driver.PipelineInfo().DatumTimeout); err != nil {
 						if driver.PipelineInfo().Transform.ErrCmd != nil && failures == driver.PipelineInfo().DatumTries-1 {
 							if err = driver.RunUserErrorHandlingCode(logger, env, processStats, driver.PipelineInfo().DatumTimeout); err != nil {
@@ -511,34 +510,6 @@ func processDatum(
 		stats.DatumsProcessed++
 	}
 	return stats, recoveredDatumTags, nil
-}
-
-func userCodeEnv(
-	driver driver.Driver,
-	jobID string,
-	outputCommit *pfs.Commit,
-	inputs []*common.Input,
-) []string {
-	result := driver.UserCodeEnv(jobID, outputCommit, inputs)
-	if ppsutil.ContainsS3Inputs(driver.PipelineInfo().Input) || driver.PipelineInfo().S3Out {
-		// TODO(msteffen) Instead of reading S3GATEWAY_PORT directly, worker/main.go
-		// should pass its ServiceEnv to worker.NewAPIServer, which should store it
-		// in 'a'. However, requiring worker.APIServer to have a ServiceEnv would
-		// break the worker.APIServer initialization in newTestAPIServer (in
-		// worker/worker_test.go), which uses mock clients but has no good way to
-		// mock a ServiceEnv. Once we can create mock ServiceEnvs, we should store
-		// a ServiceEnv in worker.APIServer, rewrite newTestAPIServer and
-		// NewAPIServer, and then change this code.
-		result = append(
-			result,
-			fmt.Sprintf("S3_ENDPOINT=http://%s.%s:%s",
-				ppsutil.SidecarS3GatewayService(jobID),
-				driver.Namespace(),
-				os.Getenv("S3GATEWAY_PORT"),
-			),
-		)
-	}
-	return result
 }
 
 func writeStats(

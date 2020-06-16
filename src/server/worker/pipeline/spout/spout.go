@@ -33,7 +33,11 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 		inputs := []*common.Input{} // Spouts take no inputs
 		return driver.WithActiveData(inputs, dir, func() error {
 			eg, serviceCtx := errgroup.WithContext(pachClient.Ctx())
-			eg.Go(func() error { return pipeline.RunUserCode(driver.WithContext(serviceCtx), logger, inputs) })
+
+			// While spouts do write to output commits, the output commit changes
+			// frequently and we do not restart the user code for each one. Therefore,
+			// we leave the output commit out of the user code env.
+			eg.Go(func() error { return pipeline.RunUserCode(driver.WithContext(serviceCtx), logger, nil, inputs) })
 			eg.Go(func() error { return pipeline.ReceiveSpout(serviceCtx, pachClient, pipelineInfo, logger) })
 			return eg.Wait()
 		})

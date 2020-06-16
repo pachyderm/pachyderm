@@ -96,7 +96,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 			eg, serviceCtx := errgroup.WithContext(serviceCtx)
 			eg.Go(func() error {
 				return driver.WithActiveData(inputs, dir, func() error {
-					return pipeline.RunUserCode(driver.WithContext(serviceCtx), logger, job.ID, inputs)
+					return pipeline.RunUserCode(driver.WithContext(serviceCtx), logger, nil, inputs)
 				})
 			})
 			if pipelineInfo.Spout != nil {
