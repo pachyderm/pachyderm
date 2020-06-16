@@ -225,17 +225,6 @@ class HubDriver:
         
         return j["data"]
 
-    def paginated_request(self, method, endpoint):
-        after = 0
-
-        while True:
-            response = self.request(method, f"{endpoint}?limit=100&after={after}")
-            if len(response) == 0:
-                break
-            for item in response:
-                yield item
-            after = response[-1]["id"]
-
     async def push_image(self, src):
         dst = src.replace(":local", ":" + (await get_client_version()))
         await run("docker", "tag", src, dst)
@@ -245,14 +234,10 @@ class HubDriver:
         if self.cluster_name is None:
             return
 
-        pachs = []
-        for pach in self.paginated_request("GET", f"/organizations/{self.org_id}/pachs"):
+        for pach in self.request("GET", f"/organizations/{self.org_id}/pachs?limit=100"):
             if pach["attributes"]["name"].startswith(f"{self.cluster_name}-"):
-                pachs.append((pach["id"], pach["attributes"]["name"]))
-
-        for (pach_id, pach_name) in pachs:
-            self.request("DELETE", f"/organizations/{self.org_id}/pachs/{pach_id}")
-            self.old_cluster_names.append(pach_name)
+                self.request("DELETE", f"/organizations/{self.org_id}/pachs/{pach['id']}")
+                self.old_cluster_names.append(pach["attributes"]["name"])
 
     async def deploy(self, dash, ide):
         if ide:
