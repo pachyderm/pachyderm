@@ -277,7 +277,9 @@ func (a *APIServer) spoutSpawner(pachClient *client.APIClient) error {
 		return fmt.Errorf("linkData: %v", err)
 	}
 
-	err = a.runService(ctx, logger)
+	// spouts have no inputs, no job ID, and no static output commit ID, so don't
+	// set any custom env vars
+	err = a.runService(ctx, logger, os.Environ())
 	if err != nil {
 		logger.Logf("error from runService: %+v", err)
 	}
@@ -360,7 +362,7 @@ func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
 			}); err != nil {
 				logger.Logf("error updating job state: %+v", err)
 			}
-			err := a.runService(serviceCtx, logger)
+			err := a.runService(serviceCtx, logger, a.userCodeEnv(job.ID, commitInfo.Commit.ID, data))
 			if err != nil {
 				logger.Logf("error from runService: %+v", err)
 			}
@@ -995,13 +997,13 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 	})
 }
 
-func (a *APIServer) runService(ctx context.Context, logger *taggedLogger) error {
+func (a *APIServer) runService(ctx context.Context, logger *taggedLogger, env []string) error {
 	return backoff.RetryNotify(func() error {
 		// if we have a spout, then asynchronously receive spout data
 		if a.pipelineInfo.Spout != nil {
 			go a.receiveSpout(ctx, logger)
 		}
-		return a.runUserCode(ctx, logger, nil, &pps.ProcessStats{}, nil)
+		return a.runUserCode(ctx, logger, env, &pps.ProcessStats{}, nil)
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		select {
 		case <-ctx.Done():
