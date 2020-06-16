@@ -67,6 +67,8 @@ class BaseDriver:
         deploy_args = ["pachctl", "deploy", *self.deploy_args(), "--dry-run", "--create-context", "--log-level=debug"]
         if not dash:
             deploy_args.append("--no-dashboard")
+        if os.environ.get("STORAGE_V2") == "true":
+        deployment_args.append("--new-storage-layer")
 
         deployments_str = await capture(*deploy_args)
         deployments_json = json.loads("[{}]".format(NEWLINE_SEPARATE_OBJECTS_PATTERN.sub("},{", deployments_str)))

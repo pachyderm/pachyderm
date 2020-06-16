@@ -1,7 +1,8 @@
 [build]
-base = "doc"
-command = "./build.sh"
-publish = "doc/site"
+  base = "doc/"
+  command = "./build.sh"
+  publish = "site/"
+  ignore = "git diff --quiet HEAD^ HEAD -- ."
 
 [[redirects]]
   from = "/"

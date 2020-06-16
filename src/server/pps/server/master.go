@@ -142,7 +142,7 @@ func (a *apiServer) master() {
 				}
 				pipelineName := pod.ObjectMeta.Annotations["pipelineName"]
 				for _, status := range pod.Status.ContainerStatuses {
-					if status.Name == "user" && status.State.Waiting != nil && failures[status.State.Waiting.Reason] {
+					if status.State.Waiting != nil && failures[status.State.Waiting.Reason] {
 						if err := a.setPipelineCrashing(pachClient.Ctx(), pipelineName, status.State.Waiting.Message); err != nil {
 							return err
 						}

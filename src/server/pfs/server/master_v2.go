@@ -18,7 +18,7 @@ const (
 	masterLockPath = "pfs-master-lock"
 )
 
-func (d *driver) master(env *serviceenv.ServiceEnv, objClient obj.Client, db *gorm.DB) {
+func (d *driverV2) master(env *serviceenv.ServiceEnv, objClient obj.Client, db *gorm.DB) {
 	ctx := context.Background()
 	masterLock := dlock.NewDLock(d.etcdClient, path.Join(d.prefix, masterLockPath))
 	err := backoff.RetryNotify(func() error {

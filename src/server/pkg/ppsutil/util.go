@@ -102,10 +102,10 @@ func getResourceListFromSpec(resources *pps.ResourceSpec) (*v1.ResourceList, err
 	return &result, nil
 }
 
-// GetLimitsResourceListFromPipeline returns a list of resources that the pipeline,
-// maximally is limited to.
-func GetLimitsResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*v1.ResourceList, error) {
-	return getResourceListFromSpec(pipelineInfo.ResourceLimits)
+// GetLimitsResourceList returns a list of resources from a pipeline
+// ResourceSpec that it is maximally limited to.
+func GetLimitsResourceList(limits *pps.ResourceSpec) (*v1.ResourceList, error) {
+	return getResourceListFromSpec(limits)
 }
 
 // GetExpectedNumHashtrees computes the expected number of hashtrees that
@@ -239,32 +239,33 @@ func JobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.CommitInfo) 
 // PipelineReqFromInfo converts a PipelineInfo into a CreatePipelineRequest.
 func PipelineReqFromInfo(pipelineInfo *pps.PipelineInfo) *pps.CreatePipelineRequest {
 	return &pps.CreatePipelineRequest{
-		Pipeline:         pipelineInfo.Pipeline,
-		Transform:        pipelineInfo.Transform,
-		ParallelismSpec:  pipelineInfo.ParallelismSpec,
-		HashtreeSpec:     pipelineInfo.HashtreeSpec,
-		Egress:           pipelineInfo.Egress,
-		OutputBranch:     pipelineInfo.OutputBranch,
-		ResourceRequests: pipelineInfo.ResourceRequests,
-		ResourceLimits:   pipelineInfo.ResourceLimits,
-		Input:            pipelineInfo.Input,
-		Description:      pipelineInfo.Description,
-		CacheSize:        pipelineInfo.CacheSize,
-		EnableStats:      pipelineInfo.EnableStats,
-		MaxQueueSize:     pipelineInfo.MaxQueueSize,
-		Service:          pipelineInfo.Service,
-		ChunkSpec:        pipelineInfo.ChunkSpec,
-		DatumTimeout:     pipelineInfo.DatumTimeout,
-		JobTimeout:       pipelineInfo.JobTimeout,
-		Salt:             pipelineInfo.Salt,
-		PodSpec:          pipelineInfo.PodSpec,
-		PodPatch:         pipelineInfo.PodPatch,
-		Spout:            pipelineInfo.Spout,
-		SchedulingSpec:   pipelineInfo.SchedulingSpec,
-		DatumTries:       pipelineInfo.DatumTries,
-		Standby:          pipelineInfo.Standby,
-		S3Out:            pipelineInfo.S3Out,
-		Metadata:         pipelineInfo.Metadata,
+		Pipeline:              pipelineInfo.Pipeline,
+		Transform:             pipelineInfo.Transform,
+		ParallelismSpec:       pipelineInfo.ParallelismSpec,
+		HashtreeSpec:          pipelineInfo.HashtreeSpec,
+		Egress:                pipelineInfo.Egress,
+		OutputBranch:          pipelineInfo.OutputBranch,
+		ResourceRequests:      pipelineInfo.ResourceRequests,
+		ResourceLimits:        pipelineInfo.ResourceLimits,
+		SidecarResourceLimits: pipelineInfo.SidecarResourceLimits,
+		Input:                 pipelineInfo.Input,
+		Description:           pipelineInfo.Description,
+		CacheSize:             pipelineInfo.CacheSize,
+		EnableStats:           pipelineInfo.EnableStats,
+		MaxQueueSize:          pipelineInfo.MaxQueueSize,
+		Service:               pipelineInfo.Service,
+		ChunkSpec:             pipelineInfo.ChunkSpec,
+		DatumTimeout:          pipelineInfo.DatumTimeout,
+		JobTimeout:            pipelineInfo.JobTimeout,
+		Salt:                  pipelineInfo.Salt,
+		PodSpec:               pipelineInfo.PodSpec,
+		PodPatch:              pipelineInfo.PodPatch,
+		Spout:                 pipelineInfo.Spout,
+		SchedulingSpec:        pipelineInfo.SchedulingSpec,
+		DatumTries:            pipelineInfo.DatumTries,
+		Standby:               pipelineInfo.Standby,
+		S3Out:                 pipelineInfo.S3Out,
+		Metadata:              pipelineInfo.Metadata,
 	}
 }
 

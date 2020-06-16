@@ -833,6 +833,7 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 		result.OutputBranch = pipelineInfo.OutputBranch
 		result.ResourceRequests = pipelineInfo.ResourceRequests
 		result.ResourceLimits = pipelineInfo.ResourceLimits
+		result.SidecarResourceLimits = pipelineInfo.SidecarResourceLimits
 		result.Input = ppsutil.JobInput(pipelineInfo, commitInfo)
 		result.EnableStats = pipelineInfo.EnableStats
 		result.Salt = pipelineInfo.Salt
@@ -2013,35 +2014,36 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		request.Salt = uuid.NewWithoutDashes()
 	}
 	pipelineInfo := &pps.PipelineInfo{
-		Pipeline:         request.Pipeline,
-		Version:          1,
-		Transform:        request.Transform,
-		TFJob:            request.TFJob,
-		ParallelismSpec:  request.ParallelismSpec,
-		HashtreeSpec:     request.HashtreeSpec,
-		Input:            request.Input,
-		OutputBranch:     request.OutputBranch,
-		Egress:           request.Egress,
-		CreatedAt:        now(),
-		ResourceRequests: request.ResourceRequests,
-		ResourceLimits:   request.ResourceLimits,
-		Description:      request.Description,
-		CacheSize:        request.CacheSize,
-		EnableStats:      request.EnableStats,
-		Salt:             request.Salt,
-		MaxQueueSize:     request.MaxQueueSize,
-		Service:          request.Service,
-		Spout:            request.Spout,
-		ChunkSpec:        request.ChunkSpec,
-		DatumTimeout:     request.DatumTimeout,
-		JobTimeout:       request.JobTimeout,
-		Standby:          request.Standby,
-		DatumTries:       request.DatumTries,
-		SchedulingSpec:   request.SchedulingSpec,
-		PodSpec:          request.PodSpec,
-		PodPatch:         request.PodPatch,
-		S3Out:            request.S3Out,
-		Metadata:         request.Metadata,
+		Pipeline:              request.Pipeline,
+		Version:               1,
+		Transform:             request.Transform,
+		TFJob:                 request.TFJob,
+		ParallelismSpec:       request.ParallelismSpec,
+		HashtreeSpec:          request.HashtreeSpec,
+		Input:                 request.Input,
+		OutputBranch:          request.OutputBranch,
+		Egress:                request.Egress,
+		CreatedAt:             now(),
+		ResourceRequests:      request.ResourceRequests,
+		ResourceLimits:        request.ResourceLimits,
+		SidecarResourceLimits: request.SidecarResourceLimits,
+		Description:           request.Description,
+		CacheSize:             request.CacheSize,
+		EnableStats:           request.EnableStats,
+		Salt:                  request.Salt,
+		MaxQueueSize:          request.MaxQueueSize,
+		Service:               request.Service,
+		Spout:                 request.Spout,
+		ChunkSpec:             request.ChunkSpec,
+		DatumTimeout:          request.DatumTimeout,
+		JobTimeout:            request.JobTimeout,
+		Standby:               request.Standby,
+		DatumTries:            request.DatumTries,
+		SchedulingSpec:        request.SchedulingSpec,
+		PodSpec:               request.PodSpec,
+		PodPatch:              request.PodPatch,
+		S3Out:                 request.S3Out,
+		Metadata:              request.Metadata,
 	}
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
 		return nil, err
