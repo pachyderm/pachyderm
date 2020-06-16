@@ -64,6 +64,7 @@ func WithRealEnv(cb func(*RealEnv) error, customConfig ...*serviceenv.PachdFullC
 		servEnv := serviceenv.InitServiceEnv(config)
 
 		realEnv.LocalStorageDirectory = path.Join(realEnv.Directory, "localStorage")
+		config.StorageRoot = realEnv.LocalStorageDirectory
 		realEnv.PFSBlockServer, err = pfsserver.NewBlockAPIServer(
 			realEnv.LocalStorageDirectory,
 			localBlockServerCacheBytes,
