@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.10.5
+
+- Fixed a family of issues that causes a worker thread to indefinitely wait on etcd after a pod eviction (#4962) (#4963) (#4965)
+- Changes to debug dump to collect sidecar goroutines (#4964)
+- Changes to add configurable resource limits to the storage side and set default resource limits for the init container (#4999)
+- Fixes a bug that did not set environment variables for service pipelines (#5003)
+
 ## 1.10.4
 
 - Added a --put-file-concurrency-limit option to pachctl put file command to limits the upload parallelism which limits the memory footprint in pachd to avoid OOM condition (#4848)
