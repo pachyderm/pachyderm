@@ -95,9 +95,10 @@ message IDProvider {
 
    // OIDCOptions describes a OIDC-based identity provider
    message OIDCOptions {
-     string provider_base_url = 1 [(gogoproto.customname) = "ProviderBaseURL"];
+     string issuer = 1;
      string client_id = 2 [(gogoproto.customname) = "ClientID"];
      string client_secret = 3;
+     string redirect_uri = 4 [(gogoproto.customname) = "RedirectURI"];
   }
   OIDCOptions oidc = 5 [(gogoproto.customname) = "OIDC"];
 
@@ -227,7 +228,8 @@ message AuthenticateRequest {
   // is that string (unless this "looks like" a GitHub access code, in which
   // case Pachyderm does retrieve the corresponding GitHub username)
   string github_token = 1 [(gogoproto.customname) = "GitHubToken"];
-
+  // This is the session state that Pachyderm creates in order to keep track of 
+  // information related to the current OIDC session.
   string oidc_state = 3 [(gogoproto.customname) = "OIDCState"];
   string username = 4;
 

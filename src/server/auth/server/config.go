@@ -45,10 +45,10 @@ type canonicalSAMLIDP struct {
 type canonicalGitHubIDP struct{}
 
 type canonicalOIDCIDP struct {
-	BaseURL      string
+	Issuer       string
 	ClientID     string
 	ClientSecret string
-	RedirectURL  string
+	RedirectURI  string
 }
 
 type canonicalIDPConfig struct {
@@ -125,9 +125,9 @@ func (c *canonicalConfig) ToProto() (*auth.AuthConfig, error) {
 				Name:        idp.Name,
 				Description: idp.Description,
 				OIDC: &auth.IDProvider_OIDCOptions{
-					ProviderBaseURL: idp.OIDC.BaseURL,
-					ClientID:        idp.OIDC.ClientID,
-					ClientSecret:    idp.OIDC.ClientSecret,
+					Issuer:       idp.OIDC.Issuer,
+					ClientID:     idp.OIDC.ClientID,
+					ClientSecret: idp.OIDC.ClientSecret,
 				},
 			}
 
@@ -350,12 +350,12 @@ func validateIDPOIDC(idp *auth.IDProvider, src configSource) (*canonicalIDPConfi
 	newIDP.Description = idp.Description
 
 	newIDP.OIDC = &canonicalOIDCIDP{
-		BaseURL:      idp.OIDC.ProviderBaseURL,
+		Issuer:       idp.OIDC.Issuer,
 		ClientID:     idp.OIDC.ClientID,
 		ClientSecret: idp.OIDC.ClientSecret,
 	}
 
-	newIDP.OIDC.RedirectURL = "http://localhost:14687/authorization-code/callback"
+	newIDP.OIDC.RedirectURI = "http://localhost:14687/authorization-code/callback"
 
 	// TODO: validate that it's a valid URL (maybe other checks?)
 
@@ -519,7 +519,7 @@ func (a *apiServer) setCacheConfig(config *auth.AuthConfig) error {
 			}
 		}
 		if idp.OIDC != nil {
-			a.oidcSP, err = NewOIDCIDP(a.env.GetEtcdClient().Ctx(), idp.OIDC.BaseURL, idp.OIDC.ClientID, idp.OIDC.ClientSecret)
+			a.oidcSP, err = NewOIDCIDP(a.env.GetEtcdClient().Ctx(), idp.OIDC.Issuer, idp.OIDC.ClientID, idp.OIDC.ClientSecret)
 			if err != nil {
 				return err
 			}

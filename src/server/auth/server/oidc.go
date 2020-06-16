@@ -30,7 +30,7 @@ type internalOIDCProvider struct {
 	Issuer       string
 	ClientID     string
 	ClientSecret string
-	RedirectURL  string
+	RedirectURI  string
 }
 
 // NewOIDCIDP creates a new internalOIDCProvider object from the given parameters
@@ -38,8 +38,8 @@ func NewOIDCIDP(ctx context.Context, issuer, clientID string, clientSecret strin
 	o := &internalOIDCProvider{}
 	var err error
 	o.Provider, err = oidc.NewProvider(ctx, issuer)
-	if o.RedirectURL == "" {
-		o.RedirectURL = "http://localhost:14687/authorization-code/callback"
+	if o.RedirectURI == "" {
+		o.RedirectURI = "http://localhost:14687/authorization-code/callback"
 	}
 	o.Issuer = issuer
 	o.ClientID = clientID
@@ -60,7 +60,7 @@ func (o *internalOIDCProvider) GetOIDCLoginURL(state string) (string, error) {
 	conf := oauth2.Config{
 		ClientID:     o.ClientID,
 		ClientSecret: o.ClientSecret,
-		RedirectURL:  o.RedirectURL,
+		RedirectURL:  o.RedirectURI,
 		Endpoint:     o.Provider.Endpoint(),
 		// "openid" is a required scope for OpenID Connect flows.
 		// "profile" and "email" are necessary for using the email as an identifier
