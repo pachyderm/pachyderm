@@ -92,6 +92,14 @@ transaction' or cancelled with 'delete transaction'.`,
 				return err
 			}
 			defer c.Close()
+			txn, err := getActiveTransaction()
+			if err != nil {
+				return err
+			}
+			if txn != nil {
+				return errors.Errorf("cannot start a new transaction, since transaction with ID %q already exists", txn.ID)
+			}
+
 			transaction, err := c.StartTransaction()
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
@@ -102,7 +110,7 @@ transaction' or cancelled with 'delete transaction'.`,
 			if err != nil {
 				return err
 			}
-			fmt.Printf("Started new transaction: %s\n", transaction.ID)
+			fmt.Printf("started new transaction: %q\n", transaction.ID)
 			return nil
 		}),
 	}
