@@ -614,25 +614,6 @@ func (a *apiServer) PutTarV2(server pfs.API_PutTarV2Server) (retErr error) {
 // ListFileV2 not implemented by v1 apiServer
 func (a *apiServer) ListFileV2(req *pfs.ListFileRequest, server pfs.API_ListFileV2Server) error {
 	return errors.Errorf("v2 method not implemented")
-
-// GetTarV2 not implemented by v1 apiServer
-func (a *apiServer) GetTarV2(request *pfs.GetTarRequestV2, server pfs.API_GetTarV2Server) (retErr error) {
-	return errors.Errorf("method not implemented")
-}
-
-// GetTarConditionalV2 not implemented by v1 apiServer
-func (a *apiServer) GetTarConditionalV2(server pfs.API_GetTarConditionalV2Server) (retErr error) {
-	return errors.Errorf("v2 method not implemented")
-}
-
-// PutTarV2 not implemented by v1 apiServer
-func (a *apiServer) PutTarV2(server pfs.API_PutTarV2Server) (retErr error) {
-	return errors.Errorf("v2 method not implemented")
-}
-
-// ListFileV2 not implemented by v1 apiServer
-func (a *apiServer) ListFileV2(req *pfs.ListFileRequest, server pfs.API_ListFileV2Server) error {
-	return errors.Errorf("v2 method not implemented")
 }
 
 // GlobFileV2 not implemented
