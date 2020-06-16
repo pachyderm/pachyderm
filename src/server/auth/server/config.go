@@ -288,8 +288,8 @@ func validateIDPSAML(idp *auth.IDProvider, src configSource) (*canonicalIDPConfi
 		var err error
 		newIDP.SAML.MetadataURL, err = url.Parse(idp.SAML.MetadataURL)
 		if err != nil {
-			return nil, errors.Errorf("could not parse SAML IDP metadata URL (%q) to "+
-				"query it: %v", idp.SAML.MetadataURL, err)
+			return nil, errors.Wrapf(err, "could not parse SAML IDP metadata URL (%q) to "+
+				"query it", idp.SAML.MetadataURL)
 		} else if newIDP.SAML.MetadataURL.Scheme == "" {
 			return nil, errors.Errorf("SAML IDP metadata URL %q is invalid (no scheme)",
 				idp.SAML.MetadataURL)
@@ -323,12 +323,12 @@ func validateIDPSAML(idp *auth.IDProvider, src configSource) (*canonicalIDPConfi
 		// this comparison is ugly, but it is how the error is generated in
 		// encoding/xml
 		if err.Error() != "expected element type <EntityDescriptor> but have <EntitiesDescriptor>" {
-			return nil, errors.Errorf("could not unmarshal EntityDescriptor from IDP metadata: %v", err)
+			return nil, errors.Wrapf(err, "could not unmarshal EntityDescriptor from IDP metadata")
 		}
 		// Search through <EntitiesDescriptor> & find IDP entity
 		entities := &saml.EntitiesDescriptor{}
 		if err := xml.Unmarshal(rawIDPMetadata, entities); err != nil {
-			return nil, errors.Errorf("could not unmarshal EntitiesDescriptor from IDP metadata: %v", err)
+			return nil, errors.Wrapf(err, "could not unmarshal EntitiesDescriptor from IDP metadata")
 		}
 		for i, e := range entities.EntityDescriptors {
 			if len(e.IDPSSODescriptors) > 0 {
@@ -357,11 +357,11 @@ func validateIDPOIDC(idp *auth.IDProvider, src configSource) (*canonicalIDPConfi
 	}
 
 	if _, err := url.Parse(newIDP.OIDC.Issuer); err != nil {
-		return nil, errors.Errorf("OIDC issuer must be a valid URL: %v", err)
+		return nil, errors.Wrapf(err, "OIDC issuer must be a valid URL")
 	}
 
 	if _, err := url.Parse(newIDP.OIDC.RedirectURI); err != nil {
-		return nil, errors.Errorf("OIDC redirect_uri must be a valid URL: %v", err)
+		return nil, errors.Wrapf(err, "OIDC redirect_uri must be a valid URL")
 	}
 
 	if newIDP.OIDC.ClientID == "" {
@@ -493,17 +493,17 @@ func (a *apiServer) setCacheConfig(config *auth.AuthConfig) error {
 	if err != nil {
 		return err
 	}
-	// if a.configCache != nil {
-	// 	if newConfig.Version < a.configCache.Version {
-	// 		return errors.Errorf("new config has lower version than cached config (%d < %d)",
-	// 			newConfig.Version, a.configCache.Version)
-	// 	} else if newConfig.Version == a.configCache.Version {
-	// 		// This shouldn't happen, but can if a user calls GetConfiguration and it
-	// 		// races with watchConfig. Just log the two configs and continue
-	// 		logrus.Warnf("new config has same version as cached config:%+v\nand:\n%+v\n",
-	// 			newConfig.Version, a.configCache)
-	// 	}
-	// }
+	if a.configCache != nil {
+		if newConfig.Version < a.configCache.Version {
+			return errors.Errorf("new config has lower version than cached config (%d < %d)",
+				newConfig.Version, a.configCache.Version)
+		} else if newConfig.Version == a.configCache.Version {
+			// This shouldn't happen, but can if a user calls GetConfiguration and it
+			// races with watchConfig. Just log the two configs and continue
+			logrus.Warnf("new config has same version as cached config:%+v\nand:\n%+v\n",
+				newConfig.Version, a.configCache)
+		}
+	}
 
 	// Set a.configCache and possibly a.samlSP
 	a.configCache = newConfig
@@ -615,10 +615,10 @@ func (a *apiServer) watchConfig() {
 			}
 			b.Reset() // event successfully received
 
-			// if a.activationState() != full {
-			// 	return errors.Errorf("received config event while auth not fully " +
-			// 		"activated (should be impossible), restarting")
-			// }
+			if a.activationState() != full {
+				return errors.Errorf("received config event while auth not fully " +
+					"activated (should be impossible), restarting")
+			}
 			if err := func() error {
 				// Parse event data and potentially update configCache
 				var key string // always configKey, just need to put it somewhere

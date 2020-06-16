@@ -64,6 +64,7 @@ func NewOIDCIDP(ctx context.Context, issuer, clientID string, clientSecret strin
 	return o, err
 }
 
+// GetOIDCLoginURL uses the given state to generate a login URL for the OIDC provider object
 func (o *internalOIDCProvider) GetOIDCLoginURL(state string) (string, error) {
 	nonce := CryptoString(15)
 	var err error
@@ -95,9 +96,9 @@ func (o *internalOIDCProvider) GetOIDCLoginURL(state string) (string, error) {
 }
 
 // OIDCTokenToUsername takes a OAuth access token issued by OIDC and uses
-// it discover the username of the user who obtained the code (or verify that
-// the code belongs to OIDCUsername). This is how Pachyderm currently
-// implements authorization in a production cluster
+// it discover the username (which is the email) of the user who obtained the
+// code (or verify that the code belongs to OIDCUsername). This is how
+// Pachyderm currently implements authorization in a production cluster
 func (o *internalOIDCProvider) OIDCTokenToUsername(ctx context.Context, state string) (string, error) {
 	// lookup the token from the given state
 	si, ok := stateInfoMap[state]

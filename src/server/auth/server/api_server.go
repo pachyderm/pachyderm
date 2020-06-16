@@ -419,7 +419,7 @@ func (a *apiServer) getEnterpriseTokenState() (enterpriseclient.State, error) {
 	return resp.State, nil
 }
 
-func (a *apiServer) GithubEnabled() bool {
+func (a *apiServer) githubEnabled() bool {
 	githubEnabled := false
 	config := a.getCacheConfig()
 	for _, idp := range config.IDPs {
@@ -475,7 +475,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 	case req.Subject == "":
 		fallthrough
 	case strings.HasPrefix(req.Subject, auth.GitHubPrefix):
-		if !a.GithubEnabled() {
+		if !a.githubEnabled() {
 			return nil, errors.New("GitHub auth is not enabled on this cluster")
 		}
 		username, err := GitHubTokenToUsername(ctx, req.GitHubToken)
@@ -858,7 +858,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 	var pachToken string
 	switch {
 	case req.GitHubToken != "":
-		if !a.GithubEnabled() {
+		if !a.githubEnabled() {
 			return nil, errors.New("GitHub auth is not enabled on this cluster")
 		}
 		// Determine caller's Pachyderm/GitHub username
@@ -2529,50 +2529,6 @@ func (a *apiServer) GetConfiguration(ctx context.Context, req *auth.GetConfigura
 	}, nil
 }
 
-func (a *apiServer) setConfigHelper(ctx context.Context, config *auth.AuthConfig) (*auth.SetConfigurationResponse, error) {
-	var reqConfigVersion int64
-	var configToStore *auth.AuthConfig
-	if config != nil {
-		reqConfigVersion = config.LiveConfigVersion
-		// Validate new config
-		canonicalConfig, err := validateConfig(config, external)
-		if err != nil {
-			return nil, err
-		}
-		configToStore, err = canonicalConfig.ToProto()
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		// Explicitly store default auth config so that config version is retained &
-		// continues increasing monotonically. Don't set reqConfigVersion, though--
-		// setting an empty config is a blind write (req.Configuration.Version == 0)
-		configToStore = proto.Clone(&DefaultAuthConfig).(*auth.AuthConfig)
-	}
-
-	// upsert new config
-	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		var liveConfig auth.AuthConfig
-		return a.authConfig.ReadWrite(stm).Upsert(configKey, &liveConfig, func() error {
-			if liveConfig.LiveConfigVersion == 0 {
-				liveConfig = DefaultAuthConfig // no config in etcd--assume default cfg
-			}
-			liveConfigVersion := liveConfig.LiveConfigVersion
-			if reqConfigVersion > 0 && liveConfigVersion != reqConfigVersion {
-				return errors.Errorf("expected config version %d, but new config has version %d",
-					liveConfigVersion, config.LiveConfigVersion)
-			}
-			liveConfig.Reset()
-			liveConfig = *configToStore
-			liveConfig.LiveConfigVersion = liveConfigVersion + 1
-			return nil
-		})
-	}); err != nil {
-		return nil, err
-	}
-	return &auth.SetConfigurationResponse{}, nil
-}
-
 // SetConfiguration implements the protobuf auth.SetConfiguration RPC
 func (a *apiServer) SetConfiguration(ctx context.Context, req *auth.SetConfigurationRequest) (resp *auth.SetConfigurationResponse, retErr error) {
 	a.LogReq(req)
@@ -2600,5 +2556,45 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *auth.SetConfigura
 		}
 	}
 
-	return a.setConfigHelper(ctx, req.Configuration)
+	var reqConfigVersion int64
+	var configToStore *auth.AuthConfig
+	if req.Configuration != nil {
+		reqConfigVersion = req.Configuration.LiveConfigVersion
+		// Validate new config
+		canonicalConfig, err := validateConfig(req.Configuration, external)
+		if err != nil {
+			return nil, err
+		}
+		configToStore, err = canonicalConfig.ToProto()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// Explicitly store default auth config so that config version is retained &
+		// continues increasing monotonically. Don't set reqConfigVersion, though--
+		// setting an empty config is a blind write (req.Configuration.Version == 0)
+		configToStore = proto.Clone(&DefaultAuthConfig).(*auth.AuthConfig)
+	}
+
+	// upsert new config
+	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+		var liveConfig auth.AuthConfig
+		return a.authConfig.ReadWrite(stm).Upsert(configKey, &liveConfig, func() error {
+			if liveConfig.LiveConfigVersion == 0 {
+				liveConfig = DefaultAuthConfig // no config in etcd--assume default cfg
+			}
+			liveConfigVersion := liveConfig.LiveConfigVersion
+			if reqConfigVersion > 0 && liveConfigVersion != reqConfigVersion {
+				return errors.Errorf("expected live config version %d, but new live config has version %d",
+					liveConfigVersion, req.Configuration.LiveConfigVersion)
+			}
+			liveConfig.Reset()
+			liveConfig = *configToStore
+			liveConfig.LiveConfigVersion = liveConfigVersion + 1
+			return nil
+		})
+	}); err != nil {
+		return nil, err
+	}
+	return &auth.SetConfigurationResponse{}, nil
 }

@@ -2237,7 +2237,7 @@ func (m *GetOIDCLoginRequest) GetState() string {
 }
 
 type GetOIDCLoginResponse struct {
-	// A new auth token for the user in 'GetAuthTokenRequest.Subject' token
+	// The login URL generated for the OIDC object
 	LoginURL             string   `protobuf:"bytes,1,opt,name=login_url,json=loginUrl,proto3" json:"login_url,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -2324,7 +2324,7 @@ func (m *GetOIDCErrorRequest) XXX_DiscardUnknown() {
 var xxx_messageInfo_GetOIDCErrorRequest proto.InternalMessageInfo
 
 type GetOIDCErrorResponse struct {
-	// A new auth token for the user in 'GetAuthTokenRequest.Subject' token
+	// Response for API call to check if the authentication has succeded
 	Error                string   `protobuf:"bytes,1,opt,name=error,proto3" json:"error,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`

@@ -215,7 +215,7 @@ message TokenInfo {
 //// Authentication API
 
 message AuthenticateRequest {
-  // Exactly one of 'github_token', `oidc_token`, or 'one_time_password' must be set:
+  // Exactly one of 'github_token', 'oidc_token', or 'one_time_password' must be set:
 
   // This is the token returned by GitHub and used to authenticate the caller.
   // When Pachyderm is deployed locally, setting this value to a given string
@@ -381,14 +381,14 @@ message GetOIDCLoginRequest {
 }
 
 message GetOIDCLoginResponse {
-  // A new auth token for the user in 'GetAuthTokenRequest.Subject' token
+  // The login URL generated for the OIDC object
   string login_url = 1 [(gogoproto.customname) = "LoginURL"];
 }
 
 message GetOIDCErrorRequest {}
 
 message GetOIDCErrorResponse {
-  // A new auth token for the user in 'GetAuthTokenRequest.Subject' token
+  // Response for API call to check if the authentication has succeded
   string error = 1;
 }
 
