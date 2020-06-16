@@ -138,77 +138,49 @@ first cluster admin`[1:],
 			// }
 			// method = strings.TrimSpace(method) // drop trailing newline
 
-			fmt.Println("What's your ID provider's base url?")
-			url, err := bufio.NewReader(os.Stdin).ReadString('\n')
-			if err != nil {
-				return errors.Wrapf(err, "error reading IdP url")
-			}
-			url = strings.TrimSpace(url) // drop trailing newline
-
-			fmt.Println("What's the client ID for your app on your IDP?")
-			clientID, err := bufio.NewReader(os.Stdin).ReadString('\n')
-			if err != nil {
-				return errors.Wrapf(err, "error reading client ID")
-			}
-			clientID = strings.TrimSpace(clientID) // drop trailing newline
-
-			fmt.Println("What's the client secret for your app on your IDP?")
-			clientSecret, err := bufio.NewReader(os.Stdin).ReadString('\n')
-			if err != nil {
-				return errors.Wrapf(err, "error reading client secret")
-			}
-			clientSecret = strings.TrimSpace(clientSecret) // drop trailing newline
-
-			fmt.Println("What's your email address?")
-			email, err := bufio.NewReader(os.Stdin).ReadString('\n')
-			if err != nil {
-				return errors.Wrapf(err, "error reading email")
-			}
-			email = strings.TrimSpace(email) // drop trailing newline
-
 			if !strings.HasPrefix(initialAdmin, auth.RobotPrefix) {
 
-				// Get auth type
-				// if the OIDC flag is set
-				// lookup the config
-				// if no config is set
-				// then prompt the user for the baseURL, clientID, and email
-				// write these to the configuration object
+				// // Get auth type
+				// // if the OIDC flag is set
+				// // lookup the config
+				// // if no config is set
+				// // then prompt the user for the baseURL, clientID, and email
+				// // write these to the configuration object
 
-				isOIDC := true
-				// url := "http://172.17.0.3:8080/auth/realms/adele-testing"
-				// clientID := "pachyderm"
-				// email := "adele@pachyderm.io"
-				initialAdmin = email
-				if isOIDC {
+				// isOIDC := true
+				// // url := "http://172.17.0.2:8080/auth/realms/adele-testing"
+				// // clientID := "pachyderm"
+				// // email := "adele@pachyderm.io"
+				// initialAdmin = email
+				// if isOIDC {
 
-					// TODO: merge with Activate
-					_, err = c.ActivateConfig(c.Ctx(), &auth.ActivateConfigRequest{
-						Configuration: &auth.AuthConfig{
-							LiveConfigVersion: 0,
-							IDProviders: []*auth.IDProvider{&auth.IDProvider{
-								Name:        "OIDC",
-								Description: "OIDC activation config",
-								OIDC: &auth.IDProvider_OIDCOptions{
-									ProviderBaseURL: url,
-									ClientID:        clientID,
-									ClientSecret:    clientSecret,
-								},
-							}},
-						},
-					})
-					if err != nil {
-						return err
-					}
+				// 	// TODO: merge with Activate
+				// 	_, err = c.ActivateConfig(c.Ctx(), &auth.ActivateConfigRequest{
+				// 		Configuration: &auth.AuthConfig{
+				// 			LiveConfigVersion: 0,
+				// 			IDProviders: []*auth.IDProvider{&auth.IDProvider{
+				// 				Name:        "OIDC",
+				// 				Description: "OIDC activation config",
+				// 				OIDC: &auth.IDProvider_OIDCOptions{
+				// 					ProviderBaseURL: url,
+				// 					ClientID:        clientID,
+				// 					ClientSecret:    clientSecret,
+				// 				},
+				// 			}},
+				// 		},
+				// 	})
+				// 	if err != nil {
+				// 		return err
+				// 	}
 
-					// token, err = githubLogin()
-					_, err = requestOIDCLogin(c, url, clientID, clientSecret, email)
-					if err != nil {
+				// 	// token, err = githubLogin()
+				// 	_, err = requestOIDCLogin(c, "", clientID, clientSecret, email)
+				// 	if err != nil {
 
-						return err
-					}
+				// 		return err
+				// 	}
 
-				}
+				// }
 			}
 
 			fmt.Println("Retrieving Pachyderm token...")

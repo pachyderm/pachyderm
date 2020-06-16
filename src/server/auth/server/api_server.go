@@ -454,9 +454,9 @@ func (a *apiServer) ActivateConfig(ctx context.Context, req *auth.ActivateConfig
 	if _, err = a.setConfigHelper(ctx, req.Configuration); err != nil {
 		return nil, err
 	}
-	// if err = a.setCacheConfig(req.Configuration); err != nil {
-	// 	return nil, err
-	// }
+	if err = a.setCacheConfig(req.Configuration); err != nil {
+		return nil, err
+	}
 
 	return &auth.ActivateConfigResponse{}, nil
 }
@@ -2587,8 +2587,8 @@ func (a *apiServer) setConfigHelper(ctx context.Context, config *auth.AuthConfig
 			}
 			liveConfigVersion := liveConfig.LiveConfigVersion
 			if reqConfigVersion > 0 && liveConfigVersion != reqConfigVersion {
-				return errors.Errorf("expected config version %d, but live config has version %d",
-					config.LiveConfigVersion, liveConfigVersion)
+				return errors.Errorf("expected config version %d, but new config has version %d",
+					liveConfigVersion, config.LiveConfigVersion)
 			}
 			liveConfig.Reset()
 			liveConfig = *configToStore
