@@ -7543,6 +7543,7 @@ func TestServiceEnvVars(t *testing.T) {
 				ExternalPort: 31800,
 			},
 		})
+	require.NoError(t, err)
 
 	// Lookup the address for 'pipelineservice' (different inside vs outside k8s)
 	serviceAddr := func() string {
