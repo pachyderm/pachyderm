@@ -41,8 +41,6 @@ kubectl version
 
 echo "Running test suite based on BUCKET=$BUCKET"
 
-make docker-build
-
 for i in $(seq 3); do
     make clean-launch-dev || true # may be nothing to delete
     make launch-dev && break
