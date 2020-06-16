@@ -7582,21 +7582,27 @@ func TestServiceEnvVars(t *testing.T) {
 		return address
 	}()
 
+	var envValue []byte
 	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
-		resp, err := http.Get(fmt.Sprintf("http://%s/custom_env_var", serviceAddr))
+		httpC := http.Client{
+			Timeout: 3 * time.Second, // fail fast
+		}
+		resp, err := httpC.Get(fmt.Sprintf("http://%s/custom_env_var", serviceAddr))
 		if err != nil {
+			// sleep => don't spam retries. Seems to make test less flaky
+			time.Sleep(time.Second)
 			return err
 		}
 		if resp.StatusCode != 200 {
 			return fmt.Errorf("GET returned %d", resp.StatusCode)
 		}
-		content, err := ioutil.ReadAll(resp.Body)
+		envValue, err = ioutil.ReadAll(resp.Body)
 		if err != nil {
 			return err
 		}
-		require.Equal(t, "custom-value", content)
 		return nil
 	})
+	require.Equal(t, "custom-value", strings.TrimSpace(string(envValue)))
 }
 
 func TestChunkSpec(t *testing.T) {
