@@ -67,6 +67,8 @@ const (
 	// before we give up and consider the job failed.
 	DefaultDatumTries = 3
 
+	// maxLogMessages is the maximum number of log messages the loki server
+	// will send us, it will error if this is made higher.
 	maxLogMessages = 5000
 )
 
@@ -1628,7 +1630,14 @@ func (a *apiServer) GetLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 		if err := a.authorizePipelineOp(pachClient, pipelineOpGetLogs, pipelineInfo.Input, pipelineInfo.Pipeline.Name); err != nil {
 			return err
 		}
-		filter := fmt.Sprintf(`{pipelineName=%q, container="user"}`, pipelineInfo.Pipeline.Name)
+		filter := fmt.Sprintf(`{pipelineName=%q, container="user"} |= "\"master\":%t"`, pipelineInfo.Pipeline.Name, request.Master)
+		if request.Job != nil {
+			filter += kvFilter("jobId", request.Job.ID)
+		}
+		if request.Datum != nil {
+			filter += kvFilter("datumId", request.Datum.ID)
+		}
+		fmt.Println(filter)
 		resp, err := loki.QueryRange(filter, maxLogMessages, time.Time{}, time.Now(), logproto.FORWARD, 0, 0, true)
 		if err != nil {
 			return err
@@ -1638,20 +1647,6 @@ func (a *apiServer) GetLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 			if err := jsonpb.Unmarshal(strings.NewReader(line), msg); err != nil {
 				return nil
 			}
-
-			// Filter out log lines that don't match on pipeline or job
-			if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
-				return nil
-			}
-			if request.Job != nil && request.Job.ID != msg.JobID {
-				return nil
-			}
-			if request.Datum != nil && request.Datum.ID != msg.DatumID {
-				return nil
-			}
-			if request.Master != msg.Master {
-				return nil
-			}
 			if !workercommon.MatchDatum(request.DataFilters, msg.Data) {
 				return nil
 			}
@@ -1659,6 +1654,10 @@ func (a *apiServer) GetLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 			return apiGetLogsServer.Send(msg)
 		})
 	}
+}
+
+func kvFilter(key, val string) string {
+	return fmt.Sprintf(`|= "\"%s\":\"%s\""`, key, val)
 }
 
 func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) error {
