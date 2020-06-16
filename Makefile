@@ -297,7 +297,7 @@ test-local:
 
 test-auth:
 	yes | pachctl delete all
-	go test -v -count=1 ./src/server/auth/server -timeout $(TIMEOUT) $(RUN)
+	go test -v -count=1 ./src/server/auth/server/testing -timeout $(TIMEOUT) $(RUN)
 
 test-admin:
 	go test -v -count=1 ./src/server/admin/server -timeout $(TIMEOUT)
