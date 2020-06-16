@@ -16,7 +16,6 @@ package ppsutil
 import (
 	"bytes"
 	"fmt"
-	"math"
 	"path"
 	"strings"
 	"time"
@@ -26,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
@@ -35,8 +35,6 @@ import (
 	"golang.org/x/net/context"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kube "k8s.io/client-go/kubernetes"
 )
 
 // PipelineRepo creates a pfs repo for a given pipeline.
@@ -104,44 +102,10 @@ func getResourceListFromSpec(resources *pps.ResourceSpec) (*v1.ResourceList, err
 	return &result, nil
 }
 
-// GetLimitsResourceListFromPipeline returns a list of resources that the pipeline,
-// maximally is limited to.
-func GetLimitsResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*v1.ResourceList, error) {
-	return getResourceListFromSpec(pipelineInfo.ResourceLimits)
-}
-
-// getNumNodes attempts to retrieve the number of nodes in the current k8s
-// cluster
-func getNumNodes(kubeClient *kube.Clientset) (int, error) {
-	nodeList, err := kubeClient.CoreV1().Nodes().List(metav1.ListOptions{})
-	if err != nil {
-		return 0, errors.Wrapf(err, "unable to retrieve node list from k8s to determine parallelism")
-	}
-	if len(nodeList.Items) == 0 {
-		return 0, errors.Errorf("pachyderm.pps.jobserver: no k8s nodes found")
-	}
-	return len(nodeList.Items), nil
-}
-
-// GetExpectedNumWorkers computes the expected number of workers that
-// pachyderm will start given the ParallelismSpec 'spec'.
-//
-// This is only exported for testing
-func GetExpectedNumWorkers(kubeClient *kube.Clientset, spec *pps.ParallelismSpec) (int, error) {
-	if spec == nil || (spec.Constant == 0 && spec.Coefficient == 0) {
-		return 1, nil
-	} else if spec.Constant > 0 && spec.Coefficient == 0 {
-		return int(spec.Constant), nil
-	} else if spec.Constant == 0 && spec.Coefficient > 0 {
-		// Start ('coefficient' * 'nodes') workers. Determine number of workers
-		numNodes, err := getNumNodes(kubeClient)
-		if err != nil {
-			return 0, err
-		}
-		result := math.Floor(spec.Coefficient * float64(numNodes))
-		return int(math.Max(result, 1)), nil
-	}
-	return 0, errors.Errorf("unable to interpret ParallelismSpec %+v", spec)
+// GetLimitsResourceList returns a list of resources from a pipeline
+// ResourceSpec that it is maximally limited to.
+func GetLimitsResourceList(limits *pps.ResourceSpec) (*v1.ResourceList, error) {
+	return getResourceListFromSpec(limits)
 }
 
 // GetExpectedNumHashtrees computes the expected number of hashtrees that
@@ -176,16 +140,69 @@ func GetPipelineInfo(pachClient *client.APIClient, ptr *pps.EtcdPipelineInfo) (*
 
 // FailPipeline updates the pipeline's state to failed and sets the failure reason
 func FailPipeline(ctx context.Context, etcdClient *etcd.Client, pipelinesCollection col.Collection, pipelineName string, reason string) error {
+	return SetPipelineState(ctx, etcdClient, pipelinesCollection, pipelineName,
+		nil, pps.PipelineState_PIPELINE_FAILURE, reason)
+}
+
+// CrashingPipeline updates the pipeline's state to crashing and sets the reason
+func CrashingPipeline(ctx context.Context, etcdClient *etcd.Client, pipelinesCollection col.Collection, pipelineName string, reason string) error {
+	return SetPipelineState(ctx, etcdClient, pipelinesCollection, pipelineName,
+		nil, pps.PipelineState_PIPELINE_CRASHING, reason)
+}
+
+// PipelineTransitionError represents an error transitioning a pipeline from
+// one state to another.
+type PipelineTransitionError struct {
+	Pipeline                  string
+	Expected, Target, Current pps.PipelineState
+}
+
+func (p PipelineTransitionError) Error() string {
+	return fmt.Sprintf("could not transition %q from %s -> %s, as it is in %s",
+		p.Pipeline, p.Expected, p.Target, p.Current)
+}
+
+// SetPipelineState is a helper that moves the state of 'pipeline' from 'from'
+// (if not nil) to 'to'. It will annotate any trace in 'ctx' with information
+// about 'pipeline' that it reads.
+func SetPipelineState(ctx context.Context, etcdClient *etcd.Client, pipelinesCollection col.Collection, pipeline string, from *pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
+	if from == nil {
+		log.Infof("moving pipeline %s to %s", pipeline, to)
+	} else {
+		log.Infof("moving pipeline %s from %s to %s", pipeline, from, to)
+	}
 	_, err := col.NewSTM(ctx, etcdClient, func(stm col.STM) error {
 		pipelines := pipelinesCollection.ReadWrite(stm)
-		pipelinePtr := new(pps.EtcdPipelineInfo)
-		if err := pipelines.Get(pipelineName, pipelinePtr); err != nil {
+		pipelinePtr := &pps.EtcdPipelineInfo{}
+		if err := pipelines.Get(pipeline, pipelinePtr); err != nil {
 			return err
 		}
-		pipelinePtr.State = pps.PipelineState_PIPELINE_FAILURE
+		tracing.TagAnySpan(ctx, "old-state", pipelinePtr.State)
+		// Only UpdatePipeline can bring a pipeline out of failure
+		// TODO(msteffen): apply the same logic for CRASHING?
+		if pipelinePtr.State == pps.PipelineState_PIPELINE_FAILURE {
+			if to != pps.PipelineState_PIPELINE_FAILURE {
+				log.Warningf("cannot move pipeline %q to %s when it is already in FAILURE", pipeline, to)
+			}
+			return nil
+		}
+		// transitionPipelineState case: error if pipeline is in an unexpected
+		// state.
+		//
+		// allow transitionPipelineState to send a pipeline state to its target
+		// repeatedly (thus pipelinePtr.State == to yields no error). This will
+		// trigger additional etcd write events, but will not trigger an error.
+		if from != nil && pipelinePtr.State != *from && pipelinePtr.State != to {
+			return PipelineTransitionError{
+				Pipeline: pipeline,
+				Expected: *from,
+				Target:   to,
+				Current:  pipelinePtr.State,
+			}
+		}
+		pipelinePtr.State = to
 		pipelinePtr.Reason = reason
-		pipelines.Put(pipelineName, pipelinePtr)
-		return nil
+		return pipelines.Put(pipeline, pipelinePtr)
 	})
 	return err
 }
@@ -222,32 +239,33 @@ func JobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.CommitInfo) 
 // PipelineReqFromInfo converts a PipelineInfo into a CreatePipelineRequest.
 func PipelineReqFromInfo(pipelineInfo *pps.PipelineInfo) *pps.CreatePipelineRequest {
 	return &pps.CreatePipelineRequest{
-		Pipeline:         pipelineInfo.Pipeline,
-		Transform:        pipelineInfo.Transform,
-		ParallelismSpec:  pipelineInfo.ParallelismSpec,
-		HashtreeSpec:     pipelineInfo.HashtreeSpec,
-		Egress:           pipelineInfo.Egress,
-		OutputBranch:     pipelineInfo.OutputBranch,
-		ResourceRequests: pipelineInfo.ResourceRequests,
-		ResourceLimits:   pipelineInfo.ResourceLimits,
-		Input:            pipelineInfo.Input,
-		Description:      pipelineInfo.Description,
-		CacheSize:        pipelineInfo.CacheSize,
-		EnableStats:      pipelineInfo.EnableStats,
-		MaxQueueSize:     pipelineInfo.MaxQueueSize,
-		Service:          pipelineInfo.Service,
-		ChunkSpec:        pipelineInfo.ChunkSpec,
-		DatumTimeout:     pipelineInfo.DatumTimeout,
-		JobTimeout:       pipelineInfo.JobTimeout,
-		Salt:             pipelineInfo.Salt,
-		PodSpec:          pipelineInfo.PodSpec,
-		PodPatch:         pipelineInfo.PodPatch,
-		Spout:            pipelineInfo.Spout,
-		SchedulingSpec:   pipelineInfo.SchedulingSpec,
-		DatumTries:       pipelineInfo.DatumTries,
-		Standby:          pipelineInfo.Standby,
-		S3Out:            pipelineInfo.S3Out,
-		Metadata:         pipelineInfo.Metadata,
+		Pipeline:              pipelineInfo.Pipeline,
+		Transform:             pipelineInfo.Transform,
+		ParallelismSpec:       pipelineInfo.ParallelismSpec,
+		HashtreeSpec:          pipelineInfo.HashtreeSpec,
+		Egress:                pipelineInfo.Egress,
+		OutputBranch:          pipelineInfo.OutputBranch,
+		ResourceRequests:      pipelineInfo.ResourceRequests,
+		ResourceLimits:        pipelineInfo.ResourceLimits,
+		SidecarResourceLimits: pipelineInfo.SidecarResourceLimits,
+		Input:                 pipelineInfo.Input,
+		Description:           pipelineInfo.Description,
+		CacheSize:             pipelineInfo.CacheSize,
+		EnableStats:           pipelineInfo.EnableStats,
+		MaxQueueSize:          pipelineInfo.MaxQueueSize,
+		Service:               pipelineInfo.Service,
+		ChunkSpec:             pipelineInfo.ChunkSpec,
+		DatumTimeout:          pipelineInfo.DatumTimeout,
+		JobTimeout:            pipelineInfo.JobTimeout,
+		Salt:                  pipelineInfo.Salt,
+		PodSpec:               pipelineInfo.PodSpec,
+		PodPatch:              pipelineInfo.PodPatch,
+		Spout:                 pipelineInfo.Spout,
+		SchedulingSpec:        pipelineInfo.SchedulingSpec,
+		DatumTries:            pipelineInfo.DatumTries,
+		Standby:               pipelineInfo.Standby,
+		S3Out:                 pipelineInfo.S3Out,
+		Metadata:              pipelineInfo.Metadata,
 	}
 }
 
@@ -258,7 +276,7 @@ func IsTerminal(state pps.JobState) bool {
 	switch state {
 	case pps.JobState_JOB_SUCCESS, pps.JobState_JOB_FAILURE, pps.JobState_JOB_KILLED:
 		return true
-	case pps.JobState_JOB_STARTING, pps.JobState_JOB_RUNNING, pps.JobState_JOB_MERGING:
+	case pps.JobState_JOB_STARTING, pps.JobState_JOB_RUNNING, pps.JobState_JOB_MERGING, pps.JobState_JOB_EGRESSING:
 		return false
 	default:
 		panic(fmt.Sprintf("unrecognized job state: %s", state))
@@ -325,4 +343,15 @@ func ContainsS3Inputs(in *pps.Input) bool {
 // need to know it.
 func SidecarS3GatewayService(jobID string) string {
 	return "s3-" + jobID
+}
+
+// ErrorState returns true if s is an error state for a pipeline, that is, a
+// state that users should be aware of and one which will have a "Reason" set
+// for why it's in this state.
+func ErrorState(s pps.PipelineState) bool {
+	return map[pps.PipelineState]bool{
+		pps.PipelineState_PIPELINE_FAILURE:    true,
+		pps.PipelineState_PIPELINE_CRASHING:   true,
+		pps.PipelineState_PIPELINE_RESTARTING: true,
+	}[s]
 }

@@ -11,6 +11,7 @@ import (
 	"runtime/pprof"
 	"strconv"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	adminclient "github.com/pachyderm/pachyderm/src/client/admin"
 	authclient "github.com/pachyderm/pachyderm/src/client/auth"
 	debugclient "github.com/pachyderm/pachyderm/src/client/debug"
@@ -187,6 +188,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 	if err := logGRPCServerSetup("PPS API", func() error {
 		ppsAPIServer, err = pps_server.NewSidecarAPIServer(
 			env,
+			txnEnv,
 			path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
 			env.Namespace,
 			env.IAMRole,
@@ -258,6 +260,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 			path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
 			env.PPSWorkerPort,
 			clusterID,
+			nil,
 		))
 		return nil
 	}); err != nil {
@@ -490,6 +493,7 @@ func doFullMode(config interface{}) (retErr error) {
 				path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
 				env.PPSWorkerPort,
 				clusterID,
+				nil,
 			))
 			return nil
 		}); err != nil {
@@ -686,7 +690,9 @@ func doFullMode(config interface{}) (retErr error) {
 		return githook.RunGitHookServer(address, etcdAddress, path.Join(env.EtcdPrefix, env.PPSEtcdPrefix))
 	})
 	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
-		server, err := s3.Server(env.S3GatewayPort, s3.NewMasterDriver(), s3.NewLocalClientFactory(env.PeerPort))
+		server, err := s3.Server(env.S3GatewayPort, s3.NewMasterDriver(), func() (*client.APIClient, error) {
+			return client.NewFromAddress(fmt.Sprintf("localhost:%d", env.PeerPort))
+		})
 		if err != nil {
 			return err
 		}

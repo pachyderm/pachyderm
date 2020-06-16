@@ -40,3 +40,24 @@ func IsWriteToOutputBranchError(err error) bool {
 	}
 	return strings.Contains(err.Error(), "cannot start a commit on an output branch")
 }
+
+// IsNotADirectoryError returns true if the err is due to an attempt to put a
+// file on path that has a non-directory parent. These errors come from the
+// hashtree package; while it provides an error code, we can't check against
+// that because we'd then have to import hashtree, and hashtree imports
+// errutil, leading to circular imports.
+func IsNotADirectoryError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "but it's not a directory")
+}
+
+// IsInvalidPathError returns true if the err is due to an invalid path
+func IsInvalidPathError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "only printable ASCII characters allowed") ||
+		strings.Contains(err.Error(), "not allowed in path")
+}

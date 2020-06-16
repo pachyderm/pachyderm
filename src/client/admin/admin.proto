@@ -11,6 +11,8 @@ import "client/admin/v1_8/pfs/pfs.proto";
 import "client/admin/v1_8/pps/pps.proto";
 import "client/admin/v1_9/pfs/pfs.proto";
 import "client/admin/v1_9/pps/pps.proto";
+import "client/admin/v1_10/pfs/pfs.proto";
+import "client/admin/v1_10/pps/pps.proto";
 import "client/pfs/pfs.proto";
 import "client/pps/pps.proto";
 
@@ -45,6 +47,18 @@ message Op1_9 {
 }
 
 message Op1_10 {
+  pfs_1_10.PutObjectRequest object = 2;
+  pfs_1_10.CreateObjectRequest create_object = 9;
+  pfs_1_10.TagObjectRequest tag = 3;
+  pfs_1_10.PutBlockRequest block = 10;
+  pfs_1_10.CreateRepoRequest repo = 4;
+  pfs_1_10.BuildCommitRequest commit = 5;
+  pfs_1_10.CreateBranchRequest branch = 6;
+  pps_1_10.CreatePipelineRequest pipeline = 7;
+  pps_1_10.CreateJobRequest job = 8;
+}
+
+message Op1_11 {
   pfs.PutObjectRequest object = 2;
   pfs.CreateObjectRequest create_object = 9;
   pfs.TagObjectRequest tag = 3;
@@ -61,6 +75,7 @@ message Op {
   Op1_8 op1_8 = 2;
   Op1_9 op1_9 = 3;
   Op1_10 op1_10 = 4;
+  Op1_11 op1_11 = 5;
 }
 
 message ExtractRequest {

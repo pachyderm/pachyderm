@@ -3,9 +3,12 @@ package testing
 import (
 	"archive/tar"
 	"bytes"
+	"fmt"
 	"io"
+	"io/ioutil"
 	"math/rand"
 	"os"
+	"runtime"
 	"sort"
 	"sync"
 	"testing"
@@ -34,6 +37,7 @@ type loadConfig struct {
 func newLoadConfig(opts ...loadConfigOption) *loadConfig {
 	config := &loadConfig{}
 	config.pachdConfig = newPachdConfig()
+	config.pachdConfig.StorageCompactionMaxFanIn = 2
 	for _, opt := range opts {
 		opt(config)
 	}
@@ -57,7 +61,7 @@ func withBranchGenerator(opts ...branchGeneratorOption) loadConfigOption {
 
 func newPachdConfig(opts ...pachdConfigOption) *serviceenv.PachdFullConfiguration {
 	config := &serviceenv.PachdFullConfiguration{}
-	config.NewStorageLayer = true
+	config.StorageV2 = true
 	config.StorageMemoryThreshold = units.GB
 	config.StorageShardThreshold = units.GB
 	config.StorageLevelZeroSize = units.MB
@@ -692,7 +696,7 @@ func TestListFileV2(t *testing.T) {
 	}
 
 	config := &serviceenv.PachdFullConfiguration{}
-	config.NewStorageLayer = true
+	config.StorageV2 = true
 	require.NoError(t, testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateRepo(repo))
@@ -721,4 +725,63 @@ func TestListFileV2(t *testing.T) {
 		require.ElementsEqual(t, []string{"/dir1/file1.1", "/dir1/file1.2"}, finfosToPaths(finfos))
 		return nil
 	}, config))
+}
+
+func TestCompaction(t *testing.T) {
+	if os.Getenv("CI") == "true" {
+		t.SkipNow()
+	}
+	config := &serviceenv.PachdFullConfiguration{}
+	config.StorageV2 = true
+	config.StorageCompactionMaxFanIn = 10
+	err := testpachd.WithRealEnv(func(env *testpachd.RealEnv) error {
+		repo := "test"
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+		commit1, err := env.PachClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+
+		const (
+			nFileSets   = 100
+			filesPer    = 10
+			fileSetSize = 1e6
+		)
+		for i := 0; i < nFileSets; i++ {
+			fsSpec := fileSetSpec{}
+			for j := 0; j < filesPer; j++ {
+				data, err := ioutil.ReadAll(randomReader(fileSetSize))
+				if err != nil {
+					return err
+				}
+
+				fsSpec[fmt.Sprintf("file%02d", j)] = data
+			}
+			if err := env.PachClient.PutTarV2(repo, commit1.ID, fsSpec.makeTarStream()); err != nil {
+				return err
+			}
+			runtime.GC()
+		}
+		if err := env.PachClient.FinishCommit(repo, commit1.ID); err != nil {
+			return err
+		}
+		return nil
+	}, config)
+	t.Log(err)
+	require.NoError(t, err)
+}
+
+var (
+	randSeed = int64(0)
+	randMu   sync.Mutex
+)
+
+func getRand() *rand.Rand {
+	randMu.Lock()
+	seed := randSeed
+	randSeed++
+	randMu.Unlock()
+	return rand.New(rand.NewSource(seed))
+}
+
+func randomReader(n int) io.Reader {
+	return io.LimitReader(getRand(), int64(n))
 }

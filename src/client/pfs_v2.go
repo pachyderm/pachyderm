@@ -184,7 +184,6 @@ func (c APIClient) GetTarConditionalV2(repoName string, commitID string, path st
 			return err
 		}
 	}
-	return nil
 }
 
 // ListFileV2 returns info about all files in a Commit under path, calling f with each FileInfoV2.

@@ -68,7 +68,7 @@ function test_bucket {
 
     echo "Running bucket $bucket_num of $num_buckets"
     # shellcheck disable=SC2207
-    tests=( $(go test -v  "${package}" -list ".*" | grep -v ok | grep -v Benchmark) )
+    tests=( $(go test -v  "${package}" -list ".*" | grep -v '^ok' | grep -v '^Benchmark') )
     total_tests="${#tests[@]}"
     # Determine the offset and length of the sub-array of tests we want to run
     # The last bucket may have a few extra tests, to accommodate rounding
@@ -97,7 +97,7 @@ case "${BUCKET}" in
         make test-vault
         make test-enterprise
         make test-worker
-        make test-s3gateway-integration
+        make test-s3gateway-unit
         make test-proto-static
         make test-transaction
         make test-deploy-manifests

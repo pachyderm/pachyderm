@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"path"
 	"path/filepath"
 	"sort"
@@ -40,7 +41,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
-	workerpkg "github.com/pachyderm/pachyderm/src/server/worker"
+	workercommon "github.com/pachyderm/pachyderm/src/server/worker/common"
+	"github.com/pachyderm/pachyderm/src/server/worker/datum"
+	workerserver "github.com/pachyderm/pachyderm/src/server/worker/server"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
@@ -53,6 +56,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kube "k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -89,27 +93,28 @@ type errGithookServiceNotFound struct {
 // including all RPCs defined in the protobuf spec.
 type apiServer struct {
 	log.Logger
-	etcdPrefix            string
-	env                   *serviceenv.ServiceEnv
-	txnEnv                *txnenv.TransactionEnv
-	namespace             string
-	workerImage           string
-	workerSidecarImage    string
-	workerImagePullPolicy string
-	storageRoot           string
-	storageBackend        string
-	storageHostPath       string
-	iamRole               string
-	imagePullSecret       string
-	noExposeDockerSocket  bool
-	reporter              *metrics.Reporter
-	monitorCancelsMu      sync.Mutex
-	monitorCancels        map[string]func()
-	workerUsesRoot        bool
-	workerGrpcPort        uint16
-	port                  uint16
-	httpPort              uint16
-	peerPort              uint16
+	etcdPrefix             string
+	env                    *serviceenv.ServiceEnv
+	txnEnv                 *txnenv.TransactionEnv
+	namespace              string
+	workerImage            string
+	workerSidecarImage     string
+	workerImagePullPolicy  string
+	storageRoot            string
+	storageBackend         string
+	storageHostPath        string
+	iamRole                string
+	imagePullSecret        string
+	noExposeDockerSocket   bool
+	reporter               *metrics.Reporter
+	monitorCancelsMu       sync.Mutex
+	monitorCancels         map[string]func()
+	crashingMonitorCancels map[string]func()
+	workerUsesRoot         bool
+	workerGrpcPort         uint16
+	port                   uint16
+	httpPort               uint16
+	peerPort               uint16
 	// collections
 	pipelines col.Collection
 	jobs      col.Collection
@@ -516,6 +521,15 @@ func (a *apiServer) UpdateJobStateInTransaction(txnCtx *txnenv.TransactionContex
 	if err := jobs.Get(request.Job.ID, jobPtr); err != nil {
 		return err
 	}
+
+	jobPtr.Restart = request.Restart
+	jobPtr.DataProcessed = request.DataProcessed
+	jobPtr.DataSkipped = request.DataSkipped
+	jobPtr.DataFailed = request.DataFailed
+	jobPtr.DataRecovered = request.DataRecovered
+	jobPtr.DataTotal = request.DataTotal
+	jobPtr.Stats = request.Stats
+
 	return ppsutil.UpdateJobState(a.pipelines.ReadWrite(txnCtx.Stm), jobs, jobPtr, request.State, request.Reason)
 }
 
@@ -569,7 +583,6 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	if request.Job == nil && request.OutputCommit == nil {
 		return nil, errors.Errorf("must specify either a Job or an OutputCommit")
 	}
-
 	jobs := a.jobs.ReadOnly(ctx)
 	if request.OutputCommit != nil {
 		if request.Job != nil {
@@ -592,7 +605,6 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 			return nil, errors.Errorf("job with output commit %s not found", request.OutputCommit.ID)
 		}
 	}
-
 	if request.BlockState {
 		watcher, err := jobs.WatchOne(request.Job.ID)
 		if err != nil {
@@ -622,7 +634,6 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 			}
 		}
 	}
-
 	jobPtr := &pps.EtcdJobInfo{}
 	if err := jobs.Get(request.Job.ID, jobPtr); err != nil {
 		return nil, err
@@ -631,22 +642,24 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	if err != nil {
 		return nil, err
 	}
-	// If the job is running we fill in WorkerStatus field, otherwise we just
-	// return the jobInfo.
-	if jobInfo.State != pps.JobState_JOB_RUNNING {
-		return jobInfo, nil
-	}
-	workerPoolID := ppsutil.PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
-	workerStatus, err := workerpkg.Status(ctx, workerPoolID, a.env.GetEtcdClient(), a.etcdPrefix, a.workerGrpcPort)
-	if err != nil {
-		logrus.Errorf("failed to get worker status with err: %s", err.Error())
-	} else {
-		// It's possible that the workers might be working on datums for other
-		// jobs, we omit those since they're not part of the status for this
-		// job.
-		for _, status := range workerStatus {
-			if status.JobID == jobInfo.Job.ID {
-				jobInfo.WorkerStatus = append(jobInfo.WorkerStatus, status)
+	if request.Full {
+		// If the job is running we fill in WorkerStatus field, otherwise we just
+		// return the jobInfo.
+		if jobInfo.State != pps.JobState_JOB_RUNNING {
+			return jobInfo, nil
+		}
+		workerPoolID := ppsutil.PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
+		workerStatus, err := workerserver.Status(ctx, workerPoolID, a.env.GetEtcdClient(), a.etcdPrefix, a.workerGrpcPort)
+		if err != nil {
+			logrus.Errorf("failed to get worker status with err: %s", err.Error())
+		} else {
+			// It's possible that the workers might be working on datums for other
+			// jobs, we omit those since they're not part of the status for this
+			// job.
+			for _, status := range workerStatus {
+				if status.JobID == jobInfo.Job.ID {
+					jobInfo.WorkerStatus = append(jobInfo.WorkerStatus, status)
+				}
 			}
 		}
 	}
@@ -820,6 +833,7 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 		result.OutputBranch = pipelineInfo.OutputBranch
 		result.ResourceRequests = pipelineInfo.ResourceRequests
 		result.ResourceLimits = pipelineInfo.ResourceLimits
+		result.SidecarResourceLimits = pipelineInfo.SidecarResourceLimits
 		result.Input = ppsutil.JobInput(pipelineInfo, commitInfo)
 		result.EnableStats = pipelineInfo.EnableStats
 		result.Salt = pipelineInfo.Salt
@@ -983,7 +997,7 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 		return nil, err
 	}
 	workerPoolID := ppsutil.PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
-	if err := workerpkg.Cancel(ctx, workerPoolID, a.env.GetEtcdClient(), a.etcdPrefix, a.workerGrpcPort, request.Job.ID, request.DataFilters); err != nil {
+	if err := workerserver.Cancel(ctx, workerPoolID, a.env.GetEtcdClient(), a.etcdPrefix, a.workerGrpcPort, request.Job.ID, request.DataFilters); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -1037,7 +1051,7 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, page, 
 		return 0, 0, errors.New("getPageBounds: unreachable code")
 	}
 
-	df, err := workerpkg.NewDatumIterator(pachClient, jobInfo.Input)
+	dit, err := datum.NewIterator(pachClient, jobInfo.Input)
 	if err != nil {
 		return nil, err
 	}
@@ -1053,20 +1067,20 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, page, 
 	// If the stats commit is not closed, compute datums using jobInfo
 	if statsCommitInfo == nil || statsCommitInfo.Finished == nil {
 		start := 0
-		end := df.Len()
+		end := dit.Len()
 		if pageSize > 0 {
 			var err error
-			start, end, err = getPageBounds(df.Len())
+			start, end, err = getPageBounds(dit.Len())
 			if err != nil {
 				return nil, err
 			}
 			response.Page = page
-			response.TotalPages = getTotalPages(df.Len())
+			response.TotalPages = getTotalPages(dit.Len())
 		}
 		var datumInfos []*pps.DatumInfo
 		for i := start; i < end; i++ {
-			datum := df.DatumN(i) // flattened slice of *worker.Input to job
-			id := workerpkg.HashDatum(jobInfo.Pipeline.Name, jobInfo.Salt, datum)
+			datum := dit.DatumN(i) // flattened slice of *worker.Input to job
+			id := workercommon.HashDatum(jobInfo.Pipeline.Name, jobInfo.Salt, datum)
 			datumInfo := &pps.DatumInfo{
 				Datum: &pps.Datum{
 					ID:  id,
@@ -1136,7 +1150,7 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, page, 
 				// not a datum
 				return nil
 			}
-			datum, err := a.getDatum(pachClient, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, job.ID, datumHash, df)
+			datum, err := a.getDatum(pachClient, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, job.ID, datumHash, dit)
 			if err != nil {
 				return err
 			}
@@ -1211,7 +1225,7 @@ func (a *apiServer) ListDatumStream(req *pps.ListDatumRequest, resp pps.API_List
 	return nil
 }
 
-func (a *apiServer) getDatum(pachClient *client.APIClient, repo string, commit *pfs.Commit, jobID string, datumID string, df workerpkg.DatumIterator) (datumInfo *pps.DatumInfo, retErr error) {
+func (a *apiServer) getDatum(pachClient *client.APIClient, repo string, commit *pfs.Commit, jobID string, datumID string, dit datum.Iterator) (datumInfo *pps.DatumInfo, retErr error) {
 	datumInfo = &pps.DatumInfo{
 		Datum: &pps.Datum{
 			ID:  datumID,
@@ -1265,10 +1279,10 @@ func (a *apiServer) getDatum(pachClient *client.APIClient, repo string, commit *
 	if err != nil {
 		return nil, err
 	}
-	if i >= df.Len() {
+	if i >= dit.Len() {
 		return nil, errors.Errorf("index %d out of range", i)
 	}
-	inputs := df.DatumN(i)
+	inputs := dit.DatumN(i)
 	for _, input := range inputs {
 		datumInfo.Data = append(datumInfo.Data, input.FileInfo)
 	}
@@ -1304,13 +1318,13 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 	if jobInfo.StatsCommit == nil {
 		return nil, errors.Errorf("job not finished, no stats output yet")
 	}
-	df, err := workerpkg.NewDatumIterator(pachClient, jobInfo.Input)
+	dit, err := datum.NewIterator(pachClient, jobInfo.Input)
 	if err != nil {
 		return nil, err
 	}
 
 	// Populate datumInfo given a path
-	datumInfo, err := a.getDatum(pachClient, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Datum.Job.ID, request.Datum.ID, df)
+	datumInfo, err := a.getDatum(pachClient, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Datum.Job.ID, request.Datum.ID, dit)
 	if err != nil {
 		return nil, err
 	}
@@ -1457,7 +1471,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 						if request.Master != msg.Master {
 							continue
 						}
-						if !workerpkg.MatchDatum(request.DataFilters, msg.Data) {
+						if !workercommon.MatchDatum(request.DataFilters, msg.Data) {
 							continue
 						}
 					}
@@ -1537,7 +1551,7 @@ func (a *apiServer) getLogsFromStats(pachClient *client.APIClient, request *pps.
 				if request.Master != msg.Master {
 					continue
 				}
-				if !workerpkg.MatchDatum(request.DataFilters, msg.Data) {
+				if !workercommon.MatchDatum(request.DataFilters, msg.Data) {
 					continue
 				}
 
@@ -1924,6 +1938,33 @@ func (a *apiServer) fixPipelineInputRepoACLs(pachClient *client.APIClient, pipel
 	return nil
 }
 
+// getExpectedNumWorkers is a helper function for CreatePipeline that transforms
+// the parallelism spec in CreatePipelineRequest.Parallelism into a constant
+// that can be stored in EtcdPipelineInfo.Parallelism
+func getExpectedNumWorkers(kc *kube.Clientset, pipelineInfo *pps.PipelineInfo) (int, error) {
+	switch pspec := pipelineInfo.ParallelismSpec; {
+	case pspec == nil, pspec.Constant == 0 && pspec.Coefficient == 0:
+		return 1, nil
+	case pspec.Constant > 0 && pspec.Coefficient == 0:
+		return int(pspec.Constant), nil
+	case pspec.Constant == 0 && pspec.Coefficient > 0:
+		// Start ('coefficient' * 'nodes') workers. Determine number of workers
+		nodeList, err := kc.CoreV1().Nodes().List(metav1.ListOptions{})
+		if err != nil {
+			return 0, errors.Wrapf(err, "unable to retrieve node list from k8s to determine parallelism")
+		}
+		if len(nodeList.Items) == 0 {
+			return 0, errors.Errorf("unable to determine parallelism for %q: no k8s nodes found",
+				pipelineInfo.Pipeline.Name)
+		}
+		numNodes := len(nodeList.Items)
+		floatParallelism := math.Floor(pspec.Coefficient * float64(numNodes))
+		return int(math.Max(floatParallelism, 1)), nil
+	default:
+		return 0, errors.Errorf("unable to interpret ParallelismSpec %+v", pspec)
+	}
+}
+
 // CreatePipeline implements the protobuf pps.CreatePipeline RPC
 //
 // Implementation note:
@@ -1973,35 +2014,36 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		request.Salt = uuid.NewWithoutDashes()
 	}
 	pipelineInfo := &pps.PipelineInfo{
-		Pipeline:         request.Pipeline,
-		Version:          1,
-		Transform:        request.Transform,
-		TFJob:            request.TFJob,
-		ParallelismSpec:  request.ParallelismSpec,
-		HashtreeSpec:     request.HashtreeSpec,
-		Input:            request.Input,
-		OutputBranch:     request.OutputBranch,
-		Egress:           request.Egress,
-		CreatedAt:        now(),
-		ResourceRequests: request.ResourceRequests,
-		ResourceLimits:   request.ResourceLimits,
-		Description:      request.Description,
-		CacheSize:        request.CacheSize,
-		EnableStats:      request.EnableStats,
-		Salt:             request.Salt,
-		MaxQueueSize:     request.MaxQueueSize,
-		Service:          request.Service,
-		Spout:            request.Spout,
-		ChunkSpec:        request.ChunkSpec,
-		DatumTimeout:     request.DatumTimeout,
-		JobTimeout:       request.JobTimeout,
-		Standby:          request.Standby,
-		DatumTries:       request.DatumTries,
-		SchedulingSpec:   request.SchedulingSpec,
-		PodSpec:          request.PodSpec,
-		PodPatch:         request.PodPatch,
-		S3Out:            request.S3Out,
-		Metadata:         request.Metadata,
+		Pipeline:              request.Pipeline,
+		Version:               1,
+		Transform:             request.Transform,
+		TFJob:                 request.TFJob,
+		ParallelismSpec:       request.ParallelismSpec,
+		HashtreeSpec:          request.HashtreeSpec,
+		Input:                 request.Input,
+		OutputBranch:          request.OutputBranch,
+		Egress:                request.Egress,
+		CreatedAt:             now(),
+		ResourceRequests:      request.ResourceRequests,
+		ResourceLimits:        request.ResourceLimits,
+		SidecarResourceLimits: request.SidecarResourceLimits,
+		Description:           request.Description,
+		CacheSize:             request.CacheSize,
+		EnableStats:           request.EnableStats,
+		Salt:                  request.Salt,
+		MaxQueueSize:          request.MaxQueueSize,
+		Service:               request.Service,
+		Spout:                 request.Spout,
+		ChunkSpec:             request.ChunkSpec,
+		DatumTimeout:          request.DatumTimeout,
+		JobTimeout:            request.JobTimeout,
+		Standby:               request.Standby,
+		DatumTries:            request.DatumTries,
+		SchedulingSpec:        request.SchedulingSpec,
+		PodSpec:               request.PodSpec,
+		PodPatch:              request.PodPatch,
+		S3Out:                 request.S3Out,
+		Metadata:              request.Metadata,
 	}
 	if err := setPipelineDefaults(pipelineInfo); err != nil {
 		return nil, err
@@ -2064,6 +2106,13 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		statsBranchHead  *pfs.Commit
 		markerBranchHead *pfs.Commit
 	)
+
+	// Get the expected number of workers for this pipeline
+	parallelism, err := getExpectedNumWorkers(a.env.GetKubeClient(), pipelineInfo)
+	if err != nil {
+		return nil, err
+	}
+
 	if update {
 		// Help user fix inconsistency if previous UpdatePipeline call failed
 		if ci, err := pachClient.InspectCommit(ppsconsts.SpecRepo, pipelineName); err != nil {
@@ -2122,9 +2171,12 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				}
 				// Update pipelinePtr to point to new commit
 				pipelinePtr.SpecCommit = specCommit
+				// Reset pipeline state (PPS master/pipeline controller recreates RC)
 				pipelinePtr.State = pps.PipelineState_PIPELINE_STARTING
 				// Clear any failure reasons
 				pipelinePtr.Reason = ""
+				// Update pipeline parallelism
+				pipelinePtr.Parallelism = uint64(parallelism)
 				return nil
 			})
 		}); err != nil {
@@ -2197,8 +2249,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		// pipelinePtr will be written to etcd, pointing at 'commit'. May include an
 		// auth token
 		pipelinePtr := &pps.EtcdPipelineInfo{
-			SpecCommit: commit,
-			State:      pps.PipelineState_PIPELINE_STARTING,
+			SpecCommit:  commit,
+			State:       pps.PipelineState_PIPELINE_STARTING,
+			Parallelism: uint64(parallelism),
 		}
 
 		// Generate pipeline's auth token & add pipeline to the ACLs of input/output
@@ -2410,6 +2463,15 @@ func (a *apiServer) inspectPipeline(pachClient *client.APIClient, name string) (
 			// AWS load balancing
 			pipelineInfo.GithookURL = githook.URLFromDomain(ingress.Hostname)
 		}
+	}
+
+	workerPoolID := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	workerStatus, err := workerserver.Status(pachClient.Ctx(), workerPoolID, a.env.GetEtcdClient(), a.etcdPrefix, a.workerGrpcPort)
+	if err != nil {
+		logrus.Errorf("failed to get worker status with err: %s", err.Error())
+	} else {
+		pipelineInfo.WorkersAvailable = int64(len(workerStatus))
+		pipelineInfo.WorkersRequested = int64(pipelinePtr.Parallelism)
 	}
 	return pipelineInfo, nil
 }

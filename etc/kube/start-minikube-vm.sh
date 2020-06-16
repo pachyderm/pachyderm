@@ -2,7 +2,7 @@
 
 set -e
 
-cd "${GOPATH}/src/github.com/pachyderm/pachyderm"
+cd "$(git rev-parse --show-toplevel)"
 
 function die {
   echo "error: $1" >&2
@@ -78,7 +78,7 @@ set -x
 # (extract correct dash image from pachctl deploy)
 dash_image="$(pachctl deploy local -d --dry-run | jq -r '.. | select(.name? == "dash" and has("image")).image')"
 grpc_proxy_image="$(pachctl deploy local -d --dry-run | jq -r '.. | select(.name? == "grpc-proxy").image')"
-etcd_image="quay.io/coreos/etcd:v3.3.5"
+etcd_image="pachyderm/etcd:v3.3.5"
 postgres_image="postgres:11.3"
 docker pull "${etcd_image}"
 docker pull "${grpc_proxy_image}"

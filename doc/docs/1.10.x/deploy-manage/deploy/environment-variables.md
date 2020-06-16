@@ -50,25 +50,25 @@ environment variables.
 
 **pachd Configuration**
 
-| Environment Variable   | Default Value     | Description |
-| ---------------------- | ----------------- | ----------- |
-| `NUM_SHARDS`           | `32`              | The max number of `pachd` pods that can run in a single cluster. |
-| `STORAGE_BACKEND`      | `"`               | The storage backend defined for the Pachyderm cluster. By default, local storage is configured. |
-| `STORAGE_HOST_PATH`    | `"`               | The host path to storage.                    |
-| `KUBERNETES_PORT_443_TCP_ADDR` | N/A   | An IP address that Kubernetes exports automatically for your code to communicate with the Kubernetes API. Read access only. Most variables that have use the `PORT_ADDRESS_TCP_ADDR` pattern are Kubernetes environment variables. For more information, see [Kubernetes environment variables](https://kubernetes.io/docs/concepts/services-networking/service/#environment-variables). |
-| `METRICS`              | `true`         | Defines whether anonymous Pachyderm metrics are being collected or not. |
-| `BLOCK_CACHE_BYTES`    | `1G`              | The size of the block cache in `pachd`.  |
-| `WORKER_IMAGE`         | `"`               | The base Docker image that is used to run your pipeline. |
-| `WORKER_SIDECAR_IMAGE` | `"`               | The `pachd` image that is used as a worker sidecar. |
-| `WORKER_IMAGE_PULL_POLICY` | `"`           | The pull policy that defines how Docker images are pulled. The default value is `IfNotPresent`. You can set a Kubernetes image pull policy as needed. |
-| `LOG_LEVEL`          | `info`              | Verbosity of the log output. If you want to disable logging, set this variable to `0`. |
-| `IAM_ROLE`           | `"`                 | The role that defines permissions for Pachyderm in AWS. |
-| `IMAGE_PULL_SECRET`  | `"`                 | The Kubernetes secret for image pull credentials. |
-| `NO_EXPOSE_DOCKER_SOCKET` | `false`        | Controls whether you can build images using the `--build` command. |
-| `EXPOSE_OBJECT_API`  | `false`             | Controls access to internal Pachyderm API. |
-| `WORKER_USES_ROOT`   | `true`              | Controls root access in the worker container. |
-| `S3GATEWAY_PORT`     | `600`               | The S3 gateway port number. |
-| `DISABLE_COMMIT_PROGRESS_COUNTER` | `false` | A feature flag that disables commit propagation progress counter. If you have a large DAG, setting this parameter to `true` might help improve etcd performance. You only need to set this parameter on the `pachd` pod. Pachyderm passes this parameter to worker containers automatically. |
+| Environment Variable   | Description |
+| ---------------------- | ----------- |
+| `NUM_SHARDS`           | The max number of `pachd` pods that can run in a <br> single cluster. The default value is `32`.|
+| `STORAGE_BACKEND`      | The storage backend defined for the Pachyderm cluster. <br>  By default, local storage is configured. The default value is `"`. |
+| `STORAGE_HOST_PATH`    | The host path to storage. The default value is `"`. |
+| `KUBERNETES_PORT_443_TCP_ADDR` | An IP address that Kubernetes exports <br> automatically for your code to communicate with <br> the Kubernetes API. Read access only. Most variables <br> that have use the `PORT_ADDRESS_TCP_ADDR` pattern <br> are Kubernetes environment variables. <br> The default value is `none`. For more information, see <br>[Kubernetes environment variables](https://kubernetes.io/docs/concepts/services-networking/service/#environment-variables). |
+| `METRICS`              | Defines whether anonymous Pachyderm metrics are being <br>collected or not. The default value is `true`. |
+| `BLOCK_CACHE_BYTES`    | The size of the block cache in `pachd`. The default <br>value is `1G`. |
+| `WORKER_IMAGE`         | The base Docker image that is used to run your pipeline. <br>The default value is `"`. |
+| `WORKER_SIDECAR_IMAGE` | The `pachd` image that is used as a worker sidecar The <br>default value is `"`. |
+| `WORKER_IMAGE_PULL_POLICY` | The pull policy that defines how Docker images are <br>pulled. The default value is `IfNotPresent`. You can set <br> a Kubernetes image pull policy as needed. |
+| `LOG_LEVEL`          | Verbosity of the log output. If you want to disable <br> logging, set this variable to `0`. The default value is `info`. |
+| `IAM_ROLE`           | The role that defines permissions for Pachyderm in AWS. <br> The default value is `"`.|
+| `IMAGE_PULL_SECRET`  | The Kubernetes secret for image pull credentials. <br> The default value is `"`.|
+| `NO_EXPOSE_DOCKER_SOCKET` | Controls whether you can build images using <br> the `--build` command. The default value is `false`.|
+| `EXPOSE_OBJECT_API`  | Controls access to internal Pachyderm API. The default <br> value is `false`.|
+| `WORKER_USES_ROOT`   | Controls root access in the worker container. The <br> default value is `true`.|
+| `S3GATEWAY_PORT`     | The S3 gateway port number. The default value is `600`.|
+| `DISABLE_COMMIT_PROGRESS_COUNTER` | A feature flag that disables commit propagation <br> progress counter. If you have a large DAG, <br> setting this parameter to `true` might help <br> improve etcd performance. You only need to set <br>this parameter on the `pachd` pod. Pachyderm passes <br> this parameter to worker containers automatically. <br> The default value is `false`. |
 
 **Storage Configuration**
 
@@ -128,17 +128,17 @@ particularly useful:
 
 | Environment Variable       | Description |
 | -------------------------- | --------------------------------------------- |
-| `PACH_JOB_ID`              | The ID of the current job. For example, `PACH_JOB_ID=8991d6e811554b2a8eccaff10ebfb341`. |
-| `PACH_OUTPUT_COMMIT_ID`    | The ID of the commit in the output repo for the current job. For example, `PACH_OUTPUT_COMMIT_ID=a974991ad44d4d37ba5cf33b9ff77394`. |
-| `PPS_NAMESPACE`            | The PPS namespace. For example, `PPS_NAMESPACE=default`. |
-| `PPS_SPEC_COMMIT`          | The hash of the pipeline specification commit. This value is tied to the pipeline version. Therefore, jobs that use the same version of the same pipeline have the same spec commit. For example, `PPS_SPEC_COMMIT=3596627865b24c4caea9565fcde29e7d`. |
-| `PPS_POD_NAME`             | The name of the pipeline pod. For example, `pipeline-env-v1-zbwm2`. |
-| `PPS_PIPELINE_NAME`        | The name of the pipeline that this pod runs. For example, `env`. |
-| `PIPELINE_SERVICE_PORT_PROMETHEUS_METRICS` | The port that you can use to exposed metrics to Prometheus from within your pipeline. The default value is 9090. |
+| `PACH_JOB_ID`              | The ID of the current job. For example, <br> `PACH_JOB_ID=8991d6e811554b2a8eccaff10ebfb341`. |
+| `PACH_OUTPUT_COMMIT_ID`    | The ID of the commit in the output repo for <br> the current job. For example, <br> `PACH_OUTPUT_COMMIT_ID=a974991ad44d4d37ba5cf33b9ff77394`. |
+| `PPS_NAMESPACE`            | The PPS namespace. For example, <br> `PPS_NAMESPACE=default`. |
+| `PPS_SPEC_COMMIT`          | The hash of the pipeline specification commit.<br> This value is tied to the pipeline version. Therefore, jobs that use <br> the same version of the same pipeline have the same spec commit. <br> For example, `PPS_SPEC_COMMIT=3596627865b24c4caea9565fcde29e7d`. |
+| `PPS_POD_NAME`             | The name of the pipeline pod. For example, <br>`pipeline-env-v1-zbwm2`. |
+| `PPS_PIPELINE_NAME`        | The name of the pipeline that this pod runs. <br> For example, `env`. |
+| `PIPELINE_SERVICE_PORT_PROMETHEUS_METRICS` | The port that you can use to <br> exposed metrics to Prometheus from within your pipeline. The default value is 9090. |
 | `HOME`                     | The path to the home directory. The default value is `/root` |
-| `<input-repo>=<path/to/input/repo>` | The path to the filesystem that is defined in the `input` in your pipeline specification. Pachyderm defines such a variable for each input. The path is defined by the `glob` pattern in the spec. For example, if you have an input `images` and a glob pattern of `/`, Pachyderm defines the `images=/pfs/images` variable. If you have a glob pattern of `/*`, Pachyderm matches the files in the `images` repository and, therefore, the path is `images=/pfs/images/liberty.png`. |
-| `input_COMMIT`             | The ID of the commit that is used for the input. For example, `images_COMMIT=fa765b5454e3475f902eadebf83eac34`. |
-| `S3_ENDPOINT`              | A Pachyderm S3 gateway sidecar container endpoint. If you have an S3 enabled pipeline, this parameter specifies a URL that you can use to access the pipeline's repositories   state when a particular job was run. The URL has the following format `http://<job-ID>-s3:600`. An example of accessing the data by using AWS CLI looks like this: `echo foo_data | aws --endpoint=${S3_ENDPOINT} s3 cp - s3://out/foo_file`. |
+| `<input-repo>=<path/to/input/repo>` | The path to the filesystem that is <br> defined in the `input` in your pipeline specification. Pachyderm defines <br> such a variable for each input. The path is defined by the `glob` pattern in the <br> spec. For example, if you have an input `images` and a glob pattern of `/`, <br> Pachyderm defines the `images=/pfs/images` variable. If you <br> have a glob pattern of `/*`, Pachyderm matches <br> the files in the `images` repository and, therefore, the path is <br> `images=/pfs/images/liberty.png`. |
+| `input_COMMIT`             | The ID of the commit that is used for the input. <br>For example, `images_COMMIT=fa765b5454e3475f902eadebf83eac34`. |
+| `S3_ENDPOINT`         | A Pachyderm S3 gateway sidecar container endpoint. <br> If you have an S3 enabled pipeline, this parameter specifies a URL that <br> you can use to access the pipeline's repositories state when a <br> particular job was run. The URL has the following format: <br> `http://<job-ID>-s3:600`. <br> An example of accessing the data by using AWS CLI looks like this: <br>`echo foo_data | aws --endpoint=${S3_ENDPOINT} s3 cp - s3://out/foo_file`. |
 
 In addition to these environment variables, Kubernetes injects others for
 Services that run inside the cluster. These variables enable you to connect to
@@ -150,3 +150,6 @@ unexpected behavior. Furthermore, one of the running services that your code
 can connect to is Pachyderm itself. This is generally not recommended as very
 little of the Pachyderm API is idempotent, but in some specific cases it can be
 a viable approach.
+
+!!! note "See Also"
+    - [transform.env](../../../reference/pipeline_spec/#transform-required)

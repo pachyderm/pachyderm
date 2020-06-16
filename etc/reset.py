@@ -8,7 +8,7 @@ import secrets
 import argparse
 import collections
 
-ETCD_IMAGE = "quay.io/coreos/etcd:v3.3.5"
+ETCD_IMAGE = "pachyderm/etcd:v3.3.5"
 IDE_USER_IMAGE = "pachyderm/ide-user:local"
 IDE_HUB_IMAGE = "pachyderm/ide-hub:local"
 
@@ -109,7 +109,7 @@ class GCPDriver(BaseDriver):
             "--type=kubernetes.io/dockerconfigjson")
 
     async def push_image(self, image):
-        image_url = self._image(image[8:] if image.startswith("quay.io/") else image)
+        image_url = self._image(image)
         await run("docker", "tag", image, image_url)
         await run("docker", "push", image_url)
 
@@ -230,10 +230,12 @@ async def main():
 
     deployment_args = [
         "pachctl", "deploy", "local", "-d", "--dry-run", "--create-context", "--no-guaranteed",
-        *driver.extra_deploy_args()
+        "--log-level=debug", *driver.extra_deploy_args()
     ]
     if not args.dash:
         deployment_args.append("--no-dashboard")
+    if os.environ.get("STORAGE_V2") == "true":
+        deployment_args.append("--new-storage-layer")
 
     deployments_str = await capture(*deployment_args)
     deployments_json = json.loads("[{}]".format(NEWLINE_SEPARATE_OBJECTS_PATTERN.sub("},{", deployments_str)))

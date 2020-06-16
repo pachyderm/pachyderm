@@ -152,6 +152,9 @@ ParallelismSpec: {{.ParallelismSpec}}
   {{ if .ResourceLimits.Gpu }}GPU:
     Type: {{ .ResourceLimits.Gpu.Type }}
     Number: {{ .ResourceLimits.Gpu.Number }} {{end}} {{end}}
+{{ if .SidecarResourceLimits }}SidecarResourceLimits:
+  CPU: {{ .SidecarResourceLimits.Cpu }}
+  Memory: {{ .SidecarResourceLimits.Memory }} {{end}}
 {{ if .Service }}Service:
 	{{ if .Service.InternalPort }}InternalPort: {{ .Service.InternalPort }} {{end}}
 	{{ if .Service.ExternalPort }}ExternalPort: {{ .Service.ExternalPort }} {{end}} {{end}}Input:
@@ -194,8 +197,9 @@ Description: {{.Description}}{{end}}{{if .FullTimestamps }}
 Created: {{.CreatedAt}}{{ else }}
 Created: {{prettyAgo .CreatedAt}} {{end}}
 State: {{pipelineState .State}}
-Stopped: {{ .Stopped }}
 Reason: {{.Reason}}
+Workers Available: {{.WorkersAvailable}}/{{.WorkersRequested}}
+Stopped: {{ .Stopped }}
 Parallelism Spec: {{.ParallelismSpec}}
 {{ if .ResourceRequests }}ResourceRequests:
   CPU: {{ .ResourceRequests.Cpu }}
@@ -363,6 +367,8 @@ func pipelineState(pipelineState ppsclient.PipelineState) string {
 		return color.New(color.FgYellow).SprintFunc()("paused")
 	case ppsclient.PipelineState_PIPELINE_STANDBY:
 		return color.New(color.FgYellow).SprintFunc()("standby")
+	case ppsclient.PipelineState_PIPELINE_CRASHING:
+		return color.New(color.FgRed).SprintFunc()("crashing")
 	}
 	return "-"
 }

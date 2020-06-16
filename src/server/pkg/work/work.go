@@ -198,6 +198,7 @@ func (m *Master) RunSubtasksChan(subtaskChan chan *Task, collectFunc CollectFunc
 			fmt.Printf("errored deleting subtasks for task %v: %v\n", m.taskID, err)
 		}
 	}()
+
 	for subtask := range subtaskChan {
 		if err := m.createSubtask(subtask); err != nil {
 			return err

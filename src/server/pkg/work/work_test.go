@@ -113,7 +113,6 @@ func test(t *testing.T, workerFailProb, taskCancelProb, subtaskFailProb float64)
 						return err
 					}
 				}
-				return nil
 			})
 		}
 		tq, err := NewTaskQueue(errCtx, env.EtcdClient, "", "")

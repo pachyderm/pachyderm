@@ -58,6 +58,7 @@ enum JobState {
   JOB_SUCCESS = 3;
   JOB_KILLED = 4;
   JOB_MERGING = 5;
+  JOB_EGRESSING = 6;
 }
 
 message Metadata {
@@ -306,6 +307,7 @@ message JobInfo {
   repeated WorkerStatus worker_status = 24;
   ResourceSpec resource_requests = 25;         // requires ListJobRequest.Full
   ResourceSpec resource_limits = 36;           // requires ListJobRequest.Full
+  ResourceSpec sidecar_resource_limits = 48;  // requires ListJobRequest.Full
   Input input = 26;                            // requires ListJobRequest.Full
   pfs.BranchInfo new_branch = 27;
   pfs.Commit stats_commit = 29;
@@ -351,14 +353,18 @@ enum PipelineState {
   // After some error caused runPipeline to exit, but before the pipeline is
   // re-run. This is when the exponential backoff is in effect.
   PIPELINE_RESTARTING = 2;
-  // We have retried too many times and we have given up on this pipeline (or
-  // the pipeline image doesn't exist)
+  // The pipeline has encountered unrecoverable errors and is no longer being
+  // retried. It won't leave this state until the pipeline is updated.
   PIPELINE_FAILURE = 3;
   // The pipeline has been explicitly paused by the user (the pipeline spec's
   // Stopped field should be true if the pipeline is in this state)
   PIPELINE_PAUSED = 4;
   // The pipeline is fully functional, but there are no commits to process.
   PIPELINE_STANDBY = 5;
+  // The pipeline's workers are crashing, or failing to come up, this may
+  // resolve itself, the pipeline may make progress while in this state if the
+  // problem is only being experienced by some workers.
+  PIPELINE_CRASHING = 6;
 }
 
 // EtcdPipelineInfo is proto that Pachd stores in etcd for each pipeline. It
@@ -405,6 +411,9 @@ message PipelineInfo {
   bool stopped = 38;
   string recent_error = 8;
 
+  int64 workers_requested = 49;
+  int64 workers_available = 50;
+
   // job_counts and last_job_state indicates the number of jobs within this
   // pipeline in a given state and the state of the most recently created job,
   // respectively. This is not stored in PFS along with the rest of this data
@@ -415,6 +424,7 @@ message PipelineInfo {
   string output_branch = 16;
   ResourceSpec resource_requests = 19;
   ResourceSpec resource_limits = 31;
+  ResourceSpec sidecar_resource_limits = 51;
   Input input = 20;
   string description = 21;
   string cache_size = 23;
@@ -474,6 +484,7 @@ message InspectJobRequest {
   Job job = 1;
   pfs.Commit output_commit = 3;
   bool block_state = 2; // block until state is either JOB_STATE_FAILURE or JOB_STATE_SUCCESS
+  bool full = 4;
 }
 
 message ListJobRequest {
@@ -515,6 +526,13 @@ message UpdateJobStateRequest {
   Job job = 1;
   JobState state = 2;
   string reason = 3;
+  uint64 restart = 4;
+  int64 data_processed = 5;
+  int64 data_skipped = 6;
+  int64 data_failed = 7;
+  int64 data_recovered = 8;
+  int64 data_total = 9;
+  ProcessStats stats = 10;
 }
 
 message GetLogsRequest {
@@ -640,6 +658,7 @@ message CreatePipelineRequest {
   bool s3_out = 36;
   ResourceSpec resource_requests = 12;
   ResourceSpec resource_limits = 22;
+  ResourceSpec sidecar_resource_limits = 47;
   Input input = 13;
   string description = 14;
   string cache_size = 16;

@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
+	"golang.org/x/sync/semaphore"
 )
 
 const (
@@ -48,6 +49,7 @@ type Storage struct {
 	memThreshold, shardThreshold int64
 	levelZeroSize                int64
 	levelSizeBase                int
+	filesetSem                   *semaphore.Weighted
 }
 
 // NewStorage creates a new Storage.
@@ -59,6 +61,7 @@ func NewStorage(objC obj.Client, chunks *chunk.Storage, opts ...StorageOption) *
 		shardThreshold: DefaultShardThreshold,
 		levelZeroSize:  DefaultLevelZeroSize,
 		levelSizeBase:  DefaultLevelSizeBase,
+		filesetSem:     semaphore.NewWeighted(math.MaxInt64),
 	}
 	for _, opt := range opts {
 		opt(s)
@@ -72,9 +75,19 @@ func (s *Storage) ChunkStorage() *chunk.Storage {
 }
 
 // New creates a new in-memory fileset.
-func (s *Storage) New(ctx context.Context, fileSet, defaultTag string, opts ...Option) *FileSet {
+func (s *Storage) New(ctx context.Context, fileSet, defaultTag string, opts ...Option) (*FileSet, error) {
 	fileSet = applyPrefix(fileSet)
 	return newFileSet(ctx, s, fileSet, s.memThreshold, defaultTag, opts...)
+}
+
+// NewWriter makes a Writer backed by the path `fileSet` in object storage.
+func (s *Storage) NewWriter(ctx context.Context, fileSet string, opts ...WriterOption) *Writer {
+	return s.newWriter(ctx, fileSet, opts...)
+}
+
+// NewReader makes a Reader backed by the path `fileSet` in object storage.
+func (s *Storage) NewReader(ctx context.Context, fileSet string, opts ...index.Option) *Reader {
+	return s.newReader(ctx, fileSet, opts...)
 }
 
 func (s *Storage) newWriter(ctx context.Context, fileSet string, opts ...WriterOption) *Writer {
@@ -95,7 +108,7 @@ func (s *Storage) NewMergeReader(ctx context.Context, fileSets []string, opts ..
 	var rs []*Reader
 	for _, fileSet := range fileSets {
 		if err := s.objC.Walk(ctx, fileSet, func(name string) error {
-			rs = append(rs, s.newReader(ctx, name, opts...))
+			rs = append(rs, s.NewReader(ctx, name, opts...))
 			return nil
 		}); err != nil {
 			return nil, err
@@ -229,7 +242,15 @@ func (s *Storage) Delete(ctx context.Context, fileSet string) error {
 	})
 }
 
+// WalkFileSet calls f with the path of every primitive fileSet under prefix.
+func (s *Storage) WalkFileSet(ctx context.Context, prefix string, f func(string) error) error {
+	return s.objC.Walk(ctx, applyPrefix(prefix), func(p string) error {
+		return f(removePrefix(p))
+	})
+}
+
 func applyPrefix(fileSet string) string {
+	fileSet = strings.TrimLeft(fileSet, "/")
 	if strings.HasPrefix(fileSet, prefix) {
 		return fileSet
 	}
@@ -242,6 +263,13 @@ func applyPrefixes(fileSets []string) []string {
 		prefixedFileSets = append(prefixedFileSets, applyPrefix(fileSet))
 	}
 	return prefixedFileSets
+}
+
+func removePrefix(fileSet string) string {
+	if !strings.HasPrefix(fileSet, prefix) {
+		panic(fileSet + " does not have prefix " + prefix)
+	}
+	return fileSet[len(prefix):]
 }
 
 // SubFileSetStr returns the string representation of a subfileset.
