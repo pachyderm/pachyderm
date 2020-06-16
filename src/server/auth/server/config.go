@@ -278,7 +278,7 @@ func validateIDPSAML(idp *auth.IDProvider, src configSource) (*canonicalIDPConfi
 	var rawIDPMetadata []byte
 	if idp.SAML.MetadataURL == "" {
 		if len(idp.SAML.MetadataXML) == 0 {
-			return nil, fmt.Errorf("must set either metadata_xml or metadata_url "+
+			return nil, errors.Errorf("must set either metadata_xml or metadata_url "+
 				"for the SAML ID provider %q", idp.Name)
 		}
 		rawIDPMetadata = idp.SAML.MetadataXML
@@ -288,17 +288,17 @@ func validateIDPSAML(idp *auth.IDProvider, src configSource) (*canonicalIDPConfi
 		var err error
 		newIDP.SAML.MetadataURL, err = url.Parse(idp.SAML.MetadataURL)
 		if err != nil {
-			return nil, fmt.Errorf("could not parse SAML IDP metadata URL (%q) to "+
+			return nil, errors.Errorf("could not parse SAML IDP metadata URL (%q) to "+
 				"query it: %v", idp.SAML.MetadataURL, err)
 		} else if newIDP.SAML.MetadataURL.Scheme == "" {
-			return nil, fmt.Errorf("SAML IDP metadata URL %q is invalid (no scheme)",
+			return nil, errors.Errorf("SAML IDP metadata URL %q is invalid (no scheme)",
 				idp.SAML.MetadataURL)
 		}
 
 		switch src {
 		case external: // user-provided config
 			if len(idp.SAML.MetadataXML) > 0 {
-				return nil, fmt.Errorf("cannot set both metadata_xml and metadata_url "+
+				return nil, errors.Errorf("cannot set both metadata_xml and metadata_url "+
 					"for the SAML ID provider %q", idp.Name)
 			}
 			rawIDPMetadata, err = fetchRawIDPMetadata(idp.Name, newIDP.SAML.MetadataURL)
@@ -308,7 +308,7 @@ func validateIDPSAML(idp *auth.IDProvider, src configSource) (*canonicalIDPConfi
 
 		case internal: // config from etcd
 			if len(idp.SAML.MetadataXML) == 0 {
-				return nil, fmt.Errorf("internal error: the SAML ID provider %q was "+
+				return nil, errors.Errorf("internal error: the SAML ID provider %q was "+
 					"persisted without IDP metadata", idp.Name)
 			}
 			rawIDPMetadata = idp.SAML.MetadataXML
@@ -323,12 +323,12 @@ func validateIDPSAML(idp *auth.IDProvider, src configSource) (*canonicalIDPConfi
 		// this comparison is ugly, but it is how the error is generated in
 		// encoding/xml
 		if err.Error() != "expected element type <EntityDescriptor> but have <EntitiesDescriptor>" {
-			return nil, fmt.Errorf("could not unmarshal EntityDescriptor from IDP metadata: %v", err)
+			return nil, errors.Errorf("could not unmarshal EntityDescriptor from IDP metadata: %v", err)
 		}
 		// Search through <EntitiesDescriptor> & find IDP entity
 		entities := &saml.EntitiesDescriptor{}
 		if err := xml.Unmarshal(rawIDPMetadata, entities); err != nil {
-			return nil, fmt.Errorf("could not unmarshal EntitiesDescriptor from IDP metadata: %v", err)
+			return nil, errors.Errorf("could not unmarshal EntitiesDescriptor from IDP metadata: %v", err)
 		}
 		for i, e := range entities.EntityDescriptors {
 			if len(e.IDPSSODescriptors) > 0 {
@@ -338,7 +338,7 @@ func validateIDPSAML(idp *auth.IDProvider, src configSource) (*canonicalIDPConfi
 		}
 		// Make sure we found an IDP entity descriptor
 		if len(newIDP.SAML.Metadata.IDPSSODescriptors) == 0 {
-			return nil, fmt.Errorf("no entity found with IDPSSODescriptor")
+			return nil, errors.Errorf("no entity found with IDPSSODescriptor")
 		}
 	}
 	return newIDP, nil
@@ -353,11 +353,20 @@ func validateIDPOIDC(idp *auth.IDProvider, src configSource) (*canonicalIDPConfi
 		Issuer:       idp.OIDC.Issuer,
 		ClientID:     idp.OIDC.ClientID,
 		ClientSecret: idp.OIDC.ClientSecret,
+		RedirectURI:  idp.OIDC.RedirectURI,
 	}
 
-	newIDP.OIDC.RedirectURI = "http://localhost:14687/authorization-code/callback"
+	if _, err := url.Parse(newIDP.OIDC.Issuer); err != nil {
+		return nil, errors.Errorf("OIDC issuer must be a valid URL: %v", err)
+	}
 
-	// TODO: validate that it's a valid URL (maybe other checks?)
+	if _, err := url.Parse(newIDP.OIDC.RedirectURI); err != nil {
+		return nil, errors.Errorf("OIDC redirect_uri must be a valid URL: %v", err)
+	}
+
+	if newIDP.OIDC.ClientID == "" {
+		return nil, errors.Errorf("OIDC configuration must have a non-empty client_id")
+	}
 
 	return newIDP, nil
 }

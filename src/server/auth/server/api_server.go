@@ -392,7 +392,6 @@ func (a *apiServer) watchAdmins(fullAdminPrefix string) {
 				username := strings.TrimPrefix(key, fullAdminPrefix+"/")
 				switch ev.Type {
 				case watch.EventPut:
-					fmt.Println("did put: ", username)
 					a.adminCache[username] = struct{}{}
 				case watch.EventDelete:
 					delete(a.adminCache, username)
@@ -420,7 +419,7 @@ func (a *apiServer) getEnterpriseTokenState() (enterpriseclient.State, error) {
 	return resp.State, nil
 }
 
-func (a *apiServer) githubEnabled() bool {
+func (a *apiServer) GithubEnabled() bool {
 	githubEnabled := false
 	config := a.getCacheConfig()
 	for _, idp := range config.IDPs {
@@ -471,30 +470,29 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 			return nil, err
 		}
 	}
-	// req.Subject = "adele"
-	// switch {
-	// case req.Subject == "":
-	// 	fallthrough
-	// case strings.HasPrefix(req.Subject, auth.GitHubPrefix):
-	// 	if !a.githubEnabled() {
-	// 		return nil, errors.New("GitHub auth is not enabled on this cluster")
-	// 	}
-	// 	username, err := GitHubTokenToUsername(ctx, req.GitHubToken)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	if req.Subject != "" && req.Subject != username {
-	// 		return nil, errors.Errorf("asserted subject \"%s\" did not match owner of GitHub token \"%s\"", req.Subject, username)
-	// 	}
-	// 	req.Subject = username
-	// case strings.HasPrefix(req.Subject, auth.RobotPrefix):
-	// 	// req.Subject will be used verbatim, and the resulting code will
-	// 	// authenticate the holder as the robot account therein
-	// 	ttlSecs = 0 // no expiration for robot tokens -- see above
-	// default:
 
-	// 	//return nil, errors.Errorf("invalid subject in request (must be a GitHub user or robot): \"%s\"", req.Subject)
-	// }
+	switch {
+	case req.Subject == "":
+		fallthrough
+	case strings.HasPrefix(req.Subject, auth.GitHubPrefix):
+		if !a.GithubEnabled() {
+			return nil, errors.New("GitHub auth is not enabled on this cluster")
+		}
+		username, err := GitHubTokenToUsername(ctx, req.GitHubToken)
+		if err != nil {
+			return nil, err
+		}
+		if req.Subject != "" && req.Subject != username {
+			return nil, errors.Errorf("asserted subject \"%s\" did not match owner of GitHub token \"%s\"", req.Subject, username)
+		}
+		req.Subject = username
+	case strings.HasPrefix(req.Subject, auth.RobotPrefix):
+		// req.Subject will be used verbatim, and the resulting code will
+		// authenticate the holder as the robot account therein
+		ttlSecs = 0 // no expiration for robot tokens -- see above
+	default:
+		return nil, errors.Errorf("invalid subject in request (must be a GitHub user or robot): \"%s\"", req.Subject)
+	}
 
 	// Hack: set the cluster admins to just {ppsUser}. This puts the auth system
 	// in the "partial" activation state. Users cannot authenticate, but auth
@@ -575,46 +573,44 @@ func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest)
 	if a.activationState() == none {
 		// users should be able to call "deactivate" from the "partial" activation
 		// state, in case activation fails and they need to revert to "none"
-
-		// return nil, auth.ErrNotActivated
+		return nil, auth.ErrNotActivated
 	}
 
 	// Check if the cluster is in a partially-activated state. If so, allow it to
 	// be completely deactivated so that it returns to normal
-	// var ppsUserIsAdmin bool
-	// func() {
-	// 	a.adminMu.Lock()
-	// 	defer a.adminMu.Unlock()
-	// 	_, ppsUserIsAdmin = a.adminCache[ppsUser]
-	// }()
-	// if ppsUserIsAdmin {
-	// 	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-	// 		a.admins.ReadWrite(stm).DeleteAll() // watchAdmins() will see the write
-	// 		return nil
-	// 	})
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	return &auth.DeactivateResponse{}, nil
-	// }
+	var ppsUserIsAdmin bool
+	func() {
+		a.adminMu.Lock()
+		defer a.adminMu.Unlock()
+		_, ppsUserIsAdmin = a.adminCache[ppsUser]
+	}()
+	if ppsUserIsAdmin {
+		_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+			a.admins.ReadWrite(stm).DeleteAll() // watchAdmins() will see the write
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		return &auth.DeactivateResponse{}, nil
+	}
 
-	// Get calling user. The user must be a cluster admin to disable auth for the
-	// cluster
-	// callerInfo, err := a.getAuthenticatedUser(ctx)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// if !isAdmin {
-	// 	return nil, &auth.ErrNotAuthorized{
-	// 		Subject: callerInfo.Subject,
-	// 		AdminOp: "DeactivateAuth",
-	// 	}
-	// }
-	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+	// Get calling user. The user must be a cluster admin to disable auth for the cluster
+	callerInfo, err := a.getAuthenticatedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	if err != nil {
+		return nil, err
+	}
+	if !isAdmin {
+		return nil, &auth.ErrNotAuthorized{
+			Subject: callerInfo.Subject,
+			AdminOp: "DeactivateAuth",
+		}
+	}
+	_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		a.acls.ReadWrite(stm).DeleteAll()
 		a.tokens.ReadWrite(stm).DeleteAll()
 		a.admins.ReadWrite(stm).DeleteAll() // watchAdmins() will see the write
@@ -862,7 +858,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 	var pachToken string
 	switch {
 	case req.GitHubToken != "":
-		if !a.githubEnabled() {
+		if !a.GithubEnabled() {
 			return nil, errors.New("GitHub auth is not enabled on this cluster")
 		}
 		// Determine caller's Pachyderm/GitHub username
@@ -892,15 +888,16 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		}
 
 	case req.OIDCState != "":
-		// Determine caller's Pachyderm/OIDCusername
-		fmt.Println("it's OIDC time!")
+		// Determine caller's Pachyderm/OIDC username
 		_, a.oidcSP = a.getOIDCSP()
+		if a.oidcSP == nil {
+			return nil, errors.Errorf("could not find oidc configuration")
+		}
 
 		username, err := a.oidcSP.OIDCTokenToUsername(ctx, req.OIDCState)
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println("got username")
 
 		canonicalConfig := a.getCacheConfig()
 		idps := canonicalConfig.IDPs
@@ -913,7 +910,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println("canonicalized username is:", username)
+		logrus.Info("canonicalized username is:", username)
 
 		// If the cluster's enterprise token is expired, only admins may log in.
 		// Check if 'username' is an admin
@@ -921,7 +918,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 			return nil, err
 		}
 
-		fmt.Println("expired cluster check is go")
+		logrus.Info("expired cluster check has passed")
 
 		// Generate a new Pachyderm token and write it
 		pachToken = uuid.NewWithoutDashes()
@@ -991,7 +988,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		return nil, errors.Errorf("unrecognized authentication mechanism (old pachd?)")
 	}
 
-	fmt.Println("got to here")
+	logrus.Info("Authentication checks successful, now returning pachToken")
 
 	// Return new pachyderm token to caller
 	return &auth.AuthenticateResponse{
