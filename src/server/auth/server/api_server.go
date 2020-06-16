@@ -932,14 +932,21 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		}
 		fmt.Println("got username")
 
-		username, err = a.canonicalizeSubject(ctx, username)
+		canonicalConfig := a.getCacheConfig()
+		idps := canonicalConfig.IDPs
+		if len(idps) != 1 {
+			return nil, errors.Errorf("invalid config, oidc needs exactly one idp set")
+		}
+		prefix := idps[0].Name
+
+		username, err = a.canonicalizeSubject(ctx, prefix+":"+username)
 		if err != nil {
 			return nil, err
 		}
 		fmt.Println("canonicalized username is:", username)
 
-		// // If the cluster's enterprise token is expired, only admins may log in.
-		// // Check if 'username' is an admin
+		// If the cluster's enterprise token is expired, only admins may log in.
+		// Check if 'username' is an admin
 		if err := a.expiredClusterAdminCheck(ctx, username); err != nil {
 			return nil, err
 		}
@@ -1921,7 +1928,6 @@ func (a *apiServer) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequ
 	cfg, sp := a.getOIDCSP()
 	if cfg == nil {
 		return nil, fmt.Errorf("auth has no active config (either never set or disabled)")
-		// sp.Issuer = req.
 	}
 	if sp == nil {
 		return nil, fmt.Errorf("OIDC has not been configured or was disabled")
@@ -2477,10 +2483,9 @@ func (a *apiServer) canonicalizeSubject(ctx context.Context, subject string) (st
 		if err != nil {
 			return "", err
 		}
-	case auth.PipelinePrefix, auth.RobotPrefix:
-		break
 	default:
-		return "", errors.Errorf("subject has unrecognized prefix: %s", subject[:colonIdx+1])
+		// the prefix for OIDC users can be anything, since it depends on the user set idp name
+		return subject, nil
 	}
 	return subject, nil
 }
