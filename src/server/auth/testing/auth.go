@@ -18,11 +18,6 @@ func (a *InactiveAPIServer) Activate(context.Context, *auth.ActivateRequest) (*a
 	return nil, auth.ErrNotActivated
 }
 
-// ActivateConfig implements the ActivateConfig RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) ActivateConfig(context.Context, *auth.ActivateConfigRequest) (*auth.ActivateConfigResponse, error) {
-	return nil, auth.ErrNotActivated
-}
-
 // Deactivate implements the Deactivate RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) Deactivate(context.Context, *auth.DeactivateRequest) (*auth.DeactivateResponse, error) {
 	return nil, auth.ErrNotActivated

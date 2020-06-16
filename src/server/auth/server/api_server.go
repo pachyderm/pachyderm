@@ -432,42 +432,6 @@ func (a *apiServer) githubEnabled() bool {
 }
 
 // Activate implements the protobuf auth.Activate RPC
-func (a *apiServer) ActivateConfig(ctx context.Context, req *auth.ActivateConfigRequest) (resp *auth.ActivateConfigResponse, retErr error) {
-	pachClient := a.env.GetPachClient(ctx)
-	ctx = pachClient.Ctx() // copy auth information
-	// We don't want to actually log the request/response since they contain
-	// credentials.
-	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
-	// If the cluster's Pachyderm Enterprise token isn't active, the auth system
-	// cannot be activated
-	state, err := a.getEnterpriseTokenState()
-	if err != nil {
-		return nil, errors.Wrapf(err, "error confirming Pachyderm Enterprise token")
-	}
-	if state != enterpriseclient.State_ACTIVE {
-		return nil, errors.Errorf("Pachyderm Enterprise is not active in this " +
-			"cluster, and the Pachyderm auth API is an Enterprise-level feature")
-	}
-
-	// Activating an already activated auth service should fail, because
-	// otherwise anyone can just activate the service again and set
-	// themselves as an admin. If activation failed in PFS, calling auth.Activate
-	// again should work (in this state, the only admin will be 'ppsUser')
-	if a.activationState() == full {
-		return nil, errors.Errorf("already activated")
-	}
-
-	if _, err = a.setConfigHelper(ctx, req.Configuration); err != nil {
-		return nil, err
-	}
-	if err = a.setCacheConfig(req.Configuration); err != nil {
-		return nil, err
-	}
-
-	return &auth.ActivateConfigResponse{}, nil
-}
-
-// Activate implements the protobuf auth.Activate RPC
 func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (resp *auth.ActivateResponse, retErr error) {
 	pachClient := a.env.GetPachClient(ctx)
 	ctx = pachClient.Ctx() // copy auth information

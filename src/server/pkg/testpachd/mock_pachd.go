@@ -100,7 +100,6 @@ func (api *adminServerAPI) InspectCluster(ctx context.Context, req *types.Empty)
 
 type activateAuthFunc func(context.Context, *auth.ActivateRequest) (*auth.ActivateResponse, error)
 type deactivateAuthFunc func(context.Context, *auth.DeactivateRequest) (*auth.DeactivateResponse, error)
-type activateConfigFunc func(context.Context, *auth.ActivateConfigRequest) (*auth.ActivateConfigResponse, error)
 type getConfigurationFunc func(context.Context, *auth.GetConfigurationRequest) (*auth.GetConfigurationResponse, error)
 type setConfigurationFunc func(context.Context, *auth.SetConfigurationRequest) (*auth.SetConfigurationResponse, error)
 type getAdminsFunc func(context.Context, *auth.GetAdminsRequest) (*auth.GetAdminsResponse, error)
@@ -125,7 +124,6 @@ type getOneTimePasswordFunc func(context.Context, *auth.GetOneTimePasswordReques
 
 type mockActivateAuth struct{ handler activateAuthFunc }
 type mockDeactivateAuth struct{ handler deactivateAuthFunc }
-type mockActivateConfig struct{ handler activateConfigFunc }
 type mockGetConfiguration struct{ handler getConfigurationFunc }
 type mockSetConfiguration struct{ handler setConfigurationFunc }
 type mockGetAdmins struct{ handler getAdminsFunc }
@@ -150,7 +148,6 @@ type mockGetOneTimePassword struct{ handler getOneTimePasswordFunc }
 
 func (mock *mockActivateAuth) Use(cb activateAuthFunc)             { mock.handler = cb }
 func (mock *mockDeactivateAuth) Use(cb deactivateAuthFunc)         { mock.handler = cb }
-func (mock *mockActivateConfig) Use(cb activateConfigFunc)         { mock.handler = cb }
 func (mock *mockGetConfiguration) Use(cb getConfigurationFunc)     { mock.handler = cb }
 func (mock *mockSetConfiguration) Use(cb setConfigurationFunc)     { mock.handler = cb }
 func (mock *mockGetAdmins) Use(cb getAdminsFunc)                   { mock.handler = cb }
@@ -181,7 +178,6 @@ type mockAuthServer struct {
 	api                authServerAPI
 	Activate           mockActivateAuth
 	Deactivate         mockDeactivateAuth
-	ActivateConfig     mockActivateConfig
 	GetConfiguration   mockGetConfiguration
 	SetConfiguration   mockSetConfiguration
 	GetAdmins          mockGetAdmins
@@ -216,12 +212,6 @@ func (api *authServerAPI) Deactivate(ctx context.Context, req *auth.DeactivateRe
 		return api.mock.Deactivate.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock auth.Deactivate")
-}
-func (api *authServerAPI) ActivateConfig(ctx context.Context, req *auth.ActivateConfigRequest) (*auth.ActivateConfigResponse, error) {
-	if api.mock.ActivateConfig.handler != nil {
-		return api.mock.ActivateConfig.handler(ctx, req)
-	}
-	return nil, errors.Errorf("unhandled pachd mock auth.ActivateConfig")
 }
 func (api *authServerAPI) GetConfiguration(ctx context.Context, req *auth.GetConfigurationRequest) (*auth.GetConfigurationResponse, error) {
 	if api.mock.GetConfiguration.handler != nil {
