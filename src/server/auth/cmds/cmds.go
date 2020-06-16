@@ -3,7 +3,6 @@ package cmds
 import (
 	"bufio"
 	"fmt"
-	"math/rand"
 	"os"
 	"strings"
 	"text/template"
@@ -14,22 +13,12 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/server/auth/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pkg/browser"
 
 	"github.com/spf13/cobra"
 )
-
-var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-
-// TODO: make the randomness cryptographically secure?
-func randState(n int) string {
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = letters[rand.Intn(len(letters))]
-	}
-	return string(b)
-}
 
 var githubAuthLink = `https://github.com/login/oauth/authorize?client_id=d3481e92b4f09ea74ff8&redirect_uri=https%3A%2F%2Fpachyderm.io%2Flogin-hook%2Fdisplay-token.html`
 
@@ -49,7 +38,7 @@ func githubLogin() (string, error) {
 }
 
 func requestOIDCLogin(c *client.APIClient) (string, error) {
-	state := randState(30)
+	state := server.CryptoString(30)
 
 	var authURL string
 	loginInfo, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{State: state})

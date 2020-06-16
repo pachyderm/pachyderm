@@ -1,6 +1,8 @@
 package server
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"log"
 	"net/http"
@@ -33,6 +35,21 @@ type internalOIDCProvider struct {
 	RedirectURI  string
 }
 
+// CryptoString returns a cryptographically random, URL safe string with length at least n
+func CryptoString(n int) string {
+	var numBytes int
+	for n > base64.StdEncoding.EncodedLen(numBytes) {
+		numBytes++
+	}
+	b := make([]byte, numBytes)
+	_, err := rand.Read(b)
+	if err != nil {
+		panic("could not generate cryptographically secure random string!")
+	}
+
+	return base64.StdEncoding.EncodeToString(b)
+}
+
 // NewOIDCIDP creates a new internalOIDCProvider object from the given parameters
 func NewOIDCIDP(ctx context.Context, issuer, clientID string, clientSecret string) (*internalOIDCProvider, error) {
 	o := &internalOIDCProvider{}
@@ -48,7 +65,7 @@ func NewOIDCIDP(ctx context.Context, issuer, clientID string, clientSecret strin
 }
 
 func (o *internalOIDCProvider) GetOIDCLoginURL(state string) (string, error) {
-	nonce := "testing"
+	nonce := CryptoString(10)
 	var err error
 	// prepare request by filling out parameters
 	if o.Provider == nil {
