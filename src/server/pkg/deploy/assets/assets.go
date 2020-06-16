@@ -737,6 +737,11 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 									Protocol:      "TCP",
 									Name:          "saml-port",
 								},
+								{
+									ContainerPort: auth.OidcPort,
+									Protocol:      "TCP",
+									Name:          "oidc-port",
+								},
 							},
 							VolumeMounts:    volumeMounts,
 							ImagePullPolicy: "IfNotPresent",
@@ -798,6 +803,11 @@ func PachdService(opts *AssetOpts) *v1.Service {
 					Port:     auth.SamlPort,
 					Name:     "saml-port",
 					NodePort: 30000 + auth.SamlPort,
+				},
+				{
+					Port:     auth.OidcPort,
+					Name:     "oidc-port",
+					NodePort: 30000 + auth.OidcPort,
 				},
 				{
 					Port:     githook.GitHookPort,

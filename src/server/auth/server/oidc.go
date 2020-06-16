@@ -38,7 +38,7 @@ type internalOIDCProvider struct {
 // CryptoString returns a cryptographically random, URL safe string with length at least n
 func CryptoString(n int) string {
 	var numBytes int
-	for n > base64.StdEncoding.EncodedLen(numBytes) {
+	for n >= base64.StdEncoding.EncodedLen(numBytes) {
 		numBytes++
 	}
 	b := make([]byte, numBytes)
@@ -56,7 +56,7 @@ func NewOIDCIDP(ctx context.Context, issuer, clientID string, clientSecret strin
 	var err error
 	o.Provider, err = oidc.NewProvider(ctx, issuer)
 	if o.RedirectURI == "" {
-		o.RedirectURI = "http://localhost:14687/authorization-code/callback"
+		o.RedirectURI = fmt.Sprintf("http://localhost:%v/authorization-code/callback", 30000+OidcPort)
 	}
 	o.Issuer = issuer
 	o.ClientID = clientID
@@ -65,7 +65,7 @@ func NewOIDCIDP(ctx context.Context, issuer, clientID string, clientSecret strin
 }
 
 func (o *internalOIDCProvider) GetOIDCLoginURL(state string) (string, error) {
-	nonce := CryptoString(10)
+	nonce := CryptoString(15)
 	var err error
 	// prepare request by filling out parameters
 	if o.Provider == nil {
@@ -145,7 +145,7 @@ func (a *apiServer) handleExchange(w http.ResponseWriter, req *http.Request) {
 	conf := &oauth2.Config{
 		ClientID:     sp.ClientID,
 		ClientSecret: sp.ClientSecret,
-		RedirectURL:  "http://localhost:14687/authorization-code/callback",
+		RedirectURL:  sp.RedirectURI,
 		Scopes:       []string{"openid", "email", "profile"},
 		Endpoint:     sp.Provider.Endpoint(),
 	}
@@ -190,6 +190,7 @@ func (a *apiServer) handleExchange(w http.ResponseWriter, req *http.Request) {
 
 	// let the CLI know that we've successfully exchanged the code, and verified the token
 	tokenChan <- tokenInfo{token: tok.AccessToken, err: err}
+	close(tokenChan)
 
 	fmt.Fprintf(w, "You are now logged in. Go back to the terminal to use Pachyderm!")
 }
@@ -197,5 +198,5 @@ func (a *apiServer) handleExchange(w http.ResponseWriter, req *http.Request) {
 func (a *apiServer) serveOIDC() {
 	// serve OIDC handler to exchange the auth code
 	http.HandleFunc("/authorization-code/callback", a.handleExchange)
-	log.Fatal(http.ListenAndServe(":14687", nil))
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%v", OidcPort), nil))
 }

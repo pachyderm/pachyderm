@@ -89,6 +89,12 @@ const (
 
 	// SamlPort is the port where SAML ID Providers can send auth assertions
 	SamlPort = 654
+
+	// GitHookPort is 655
+	// Prometheus uses 656
+
+	// OidcPort is the port where OIDC ID Providers can send auth assertions
+	OidcPort = 657
 )
 
 // DefaultAuthConfig is the default config for the auth API server

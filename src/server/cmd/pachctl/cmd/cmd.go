@@ -522,6 +522,7 @@ This resets the cluster to its initial state.`,
 	var port uint16
 	var remotePort uint16
 	var samlPort uint16
+	var oidcPort uint16
 	var uiPort uint16
 	var uiWebsocketPort uint16
 	var pfsPort uint16
@@ -574,6 +575,16 @@ This resets the cluster to its initial state.`,
 			} else {
 				fmt.Printf("listening on port %d\n", port)
 				context.PortForwarders["saml-acs"] = uint32(port)
+				successCount++
+			}
+
+			fmt.Println("Forwarding the OIDC ACS port...")
+			port, err = fw.RunForSAMLACS(oidcPort)
+			if err != nil {
+				fmt.Printf("port forwarding failed: %v\n", err)
+			} else {
+				fmt.Printf("listening on port %d\n", port)
+				context.PortForwarders["oidc-acs"] = uint32(port)
 				successCount++
 			}
 
@@ -653,6 +664,7 @@ This resets the cluster to its initial state.`,
 	portForward.Flags().Uint16VarP(&port, "port", "p", 30650, "The local port to bind pachd to.")
 	portForward.Flags().Uint16Var(&remotePort, "remote-port", 650, "The remote port that pachd is bound to in the cluster.")
 	portForward.Flags().Uint16Var(&samlPort, "saml-port", 30654, "The local port to bind pachd's SAML ACS to.")
+	portForward.Flags().Uint16Var(&oidcPort, "oidc-port", 30656, "The local port to bind pachd's OIDC ACS to.")
 	portForward.Flags().Uint16VarP(&uiPort, "ui-port", "u", 30080, "The local port to bind Pachyderm's dash service to.")
 	portForward.Flags().Uint16VarP(&uiWebsocketPort, "proxy-port", "x", 30081, "The local port to bind Pachyderm's dash proxy service to.")
 	portForward.Flags().Uint16VarP(&pfsPort, "pfs-port", "f", 30652, "The local port to bind PFS over HTTP to.")
