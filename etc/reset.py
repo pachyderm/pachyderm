@@ -270,7 +270,7 @@ class HubDriver:
             run("pachctl", "config", "delete", "context", n, raise_on_error=False) for n in self.old_cluster_names
         ])
 
-        await retry(ping, attempts=60)
+        await retry(ping, attempts=100)
 
         async def get_otp():
             response = self.request("GET", f"/organizations/{self.org_id}/pachs/{pach_id}/otps")
