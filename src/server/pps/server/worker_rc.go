@@ -386,7 +386,7 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 		var err error
 		sidecarResourceLimits, err = ppsutil.GetLimitsResourceList(pipelineInfo.SidecarResourceLimits)
 		if err != nil {
-			return nil, errors.Wrapf(err, "could not determine sidecar resource limit")
+			return nil, fmt.Errorf("could not determine sidecar resource limit: %v", err)
 		}
 	}
 
