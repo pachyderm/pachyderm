@@ -45,7 +45,6 @@ func RunUserCode(
 	inputs []*common.Input,
 ) error {
 	return backoff.RetryUntilCancel(driver.PachClient().Ctx(), func() error {
-		// TODO: shouldn't this set up env like the worker does?
 		// TODO: what about the user error handling code?
 		env := driver.UserCodeEnv(logger.JobID(), outputCommit, inputs)
 		return driver.RunUserCode(logger, env, &pps.ProcessStats{}, nil)
