@@ -41,7 +41,9 @@ echo "Running test suite based on BUCKET=$BUCKET"
 make install
 version=$(pachctl version --client-only)
 docker pull "pachyderm/pachd:${version}"
+docker tag "pachyderm/pachd:${version}" "pachyderm/pachd:local"
 docker pull "pachyderm/worker:${version}"
+docker tag "pachyderm/worker:${version}" "pachyderm/worker:local"
 
 for i in $(seq 3); do
     make clean-launch-dev || true # may be nothing to delete
