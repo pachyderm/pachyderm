@@ -32,7 +32,7 @@ func (a *apiServer) handleSAMLResponseInternal(cfg *canonicalConfig, sp *saml.Se
 	assertion, err := sp.ParseResponse(req, []string{""})
 	if err != nil {
 		errMsg := fmt.Sprintf("Error parsing SAML response: %v", err)
-		var invalidRespErr saml.InvalidResponseError
+		var invalidRespErr *saml.InvalidResponseError
 		if errors.As(err, invalidRespErr) {
 			errMsg += "\n(" + invalidRespErr.PrivateErr.Error() + ")"
 		}

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )

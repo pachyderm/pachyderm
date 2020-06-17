@@ -96,7 +96,7 @@ func (c *microsoftClient) Exists(ctx context.Context, name string) bool {
 }
 
 func (c *microsoftClient) IsRetryable(err error) (ret bool) {
-	var microsoftErr storage.AzureStorageServiceError
+	var microsoftErr *storage.AzureStorageServiceError
 	if !errors.As(err, &microsoftErr) {
 		return false
 	}
@@ -104,7 +104,7 @@ func (c *microsoftClient) IsRetryable(err error) (ret bool) {
 }
 
 func (c *microsoftClient) IsNotExist(err error) bool {
-	var microsoftErr storage.AzureStorageServiceError
+	var microsoftErr *storage.AzureStorageServiceError
 	if !errors.As(err, &microsoftErr) {
 		return false
 	}

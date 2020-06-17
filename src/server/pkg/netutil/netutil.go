@@ -1,8 +1,9 @@
 package netutil
 
 import (
-	"errors"
 	"net"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 // ExternalIP returns the external IP address of the host.

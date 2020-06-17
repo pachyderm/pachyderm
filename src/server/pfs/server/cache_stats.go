@@ -69,7 +69,7 @@ func (c *cacheStats) Collect(ch chan<- prometheus.Metric) {
 			)
 			if err != nil {
 				// metrics may be redundantly registered; ignore these errors
-				if !errors.As(err, prometheus.AlreadyRegisteredError{}) {
+				if !errors.As(err, &prometheus.AlreadyRegisteredError{}) {
 					logrus.Infof("error reporting prometheus cache metric %v: %v", c.statName(statFieldName), err)
 				}
 			} else {

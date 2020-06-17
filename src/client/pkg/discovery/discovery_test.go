@@ -1,11 +1,11 @@
 package discovery
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
 

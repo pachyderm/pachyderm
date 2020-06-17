@@ -23,7 +23,6 @@ package exec
 import (
 	"bytes"
 	"context"
-	"errors"
 	"io"
 	"os"
 	"os/exec"
@@ -33,6 +32,8 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/errors"
 )
 
 // Error records the name of a binary that failed to be executed
@@ -488,7 +489,7 @@ func (c *Cmd) Output() ([]byte, error) {
 
 	err := c.Run()
 	if err != nil && captureErr {
-		var ee ExitError
+		var ee *ExitError
 		if errors.As(err, &ee) {
 			ee.Stderr = c.Stderr.(*prefixSuffixSaver).Bytes()
 		}

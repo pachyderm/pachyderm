@@ -36,6 +36,9 @@ var (
 	WithStack = errors.WithStack
 )
 
+// StackTrace is the type used for a stack trace
+type StackTrace = errors.StackTrace
+
 // EnsureStack will add a stack onto the given error only if it does not already
 // have a stack. If err is nil, EnsureStack returns nil.
 func EnsureStack(err error) error {
