@@ -7,7 +7,7 @@ This machine learning pipeline integrates Nervana Neon training and inference in
 ## Getting Started
 
 - Clone this repo or download the files for the example.
-- Download the training data [here](https://s3-us-west-2.amazonaws.com/wokshop-example-data/labeledTrainData.tsv).
+- Download the training data [here](https://ai-classroom.nyc3.digitaloceanspaces.com/labeledTrainData.tsv).
 
 ## Deploying Pachyderm
 
