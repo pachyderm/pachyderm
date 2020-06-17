@@ -9,9 +9,6 @@ set -ex
 #
 #     sudo env "PATH=$PATH" minikube foo
 
-kubectl version --client
-etcdctl --version
-
 minikube delete || true  # In case we get a recycled machine
 make launch-kube
 sleep 5
@@ -40,6 +37,11 @@ minikube status
 kubectl version
 
 echo "Running test suite based on BUCKET=$BUCKET"
+
+make install
+version=$(pachctl version --client-only)
+docker pull "pachyderm/pachd:${version}"
+docker pull "pachyderm/worker:${version}"
 
 for i in $(seq 3); do
     make clean-launch-dev || true # may be nothing to delete
